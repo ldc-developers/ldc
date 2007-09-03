@@ -7,7 +7,7 @@
 #include <iostream>
 #include <string>
 
-#include "logger.h"
+#include "gen/logger.h"
 
 namespace Logger
 {

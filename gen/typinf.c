@@ -25,7 +25,7 @@
 #include "import.h"
 #include "aggregate.h"
 
-#include "logger.h"
+#include "gen/logger.h"
 
 /*******************************************
 

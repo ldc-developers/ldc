@@ -4,9 +4,8 @@
  * has been parsed. Substitute your own behaviors for these routimes.
  */
 
-#include "irstate.h"
-
 #include "mtype.h"
+#include "gen/irstate.h"
 
 IRState* gIR = 0;
 llvm::TargetData* gTargetData = 0;

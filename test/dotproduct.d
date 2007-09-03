@@ -7,9 +7,9 @@ struct vec3
         return x*v.x + y*v.y + z*v.z;
     }
 
-    void print(char* n)
+    void print(char[] n)
     {
-        printf("%s = vec3(%.4f, %.4f, %.4f)\n", n, x,y,z);
+        printf("%.*s = vec3(%.4f, %.4f, %.4f)\n", n.length, n.ptr, x,y,z);
     }
 }
 

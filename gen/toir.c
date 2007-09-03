@@ -24,13 +24,14 @@
 #include "symbol.h"
 #include "mtype.h"
 #include "hdrgen.h"
-#include "irstate.h"
-#include "elem.h"
 #include "port.h"
-#include "logger.h"
 
-#include "tollvm.h"
-#include "runtime.h"
+#include "gen/irstate.h"
+#include "gen/elem.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
+#include "gen/runtime.h"
+#include "gen/arrays.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -255,8 +256,17 @@ elem* StringExp::toElem(IRState* p)
     elem* e = new elem;
 
     if (type->ty == Tarray) {
-        llvm::Value* arr = p->toplval();
-        LLVM_DtoSetArray(arr, llvm::ConstantInt::get(LLVM_DtoSize_t(),len,false), arrptr);
+        llvm::Constant* clen = llvm::ConstantInt::get(LLVM_DtoSize_t(),len,false);
+        if (p->lvals.empty()) {
+            e->type = elem::SLICE;
+            e->arg = clen;
+            e->mem = arrptr;
+            return e;
+        }
+        else {
+            llvm::Value* arr = p->toplval();
+            LLVM_DtoSetArray(arr, clen, arrptr);
+        }
     }
     else if (type->ty == Tpointer) {
         e->mem = arrptr;
@@ -879,16 +889,24 @@ elem* CallExp::toElem(IRState* p)
                 llvm::Value* allocaInst = 0;
                 llvm::BasicBlock* entryblock = &p->topfunc()->front();
                 const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(arg->mem->getType());
-                allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", p->topallocapoint());
                 if (argty == Tstruct) {
+                    allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", p->topallocapoint());
                     TypeStruct* ts = (TypeStruct*)argexp->type;
                     LLVM_DtoStructCopy(ts,allocaInst,arg->mem);
                 }
                 else if (argty == Tdelegate) {
+                    allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", p->topallocapoint());
                     LLVM_DtoDelegateCopy(allocaInst,arg->mem);
                 }
                 else if (argty == Tarray) {
-                    LLVM_DtoArrayAssign(allocaInst,arg->mem);
+                    if (arg->type == elem::SLICE) {
+                        allocaInst = new llvm::AllocaInst(LLVM_DtoType(argexp->type), "tmpparam", p->topallocapoint());
+                        LLVM_DtoSetArray(allocaInst, arg->arg, arg->mem);
+                    }
+                    else {
+                        allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", p->topallocapoint());
+                        LLVM_DtoArrayAssign(allocaInst,arg->mem);
+                    }
                 }
                 else
                 assert(0);
@@ -1039,14 +1057,24 @@ elem* CastExp::toElem(IRState* p)
             }
             else {
                 llvm::Value* uval = u->getValue();
-                llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-                llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-                e->arg = new llvm::GetElementPtrInst(uval,zero,zero,"tmp",p->scopebb());
-                e->arg = new llvm::LoadInst(e->arg, "tmp", p->scopebb());
+                if (from->ty == Tsarray) {
+                    Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+                    assert(llvm::isa<llvm::PointerType>(uval->getType()));
+                    const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(uval->getType()->getContainedType(0));
+                    e->arg = llvm::ConstantInt::get(LLVM_DtoSize_t(), arrty->getNumElements(), false);
+                    e->mem = new llvm::BitCastInst(uval, ptrty, "tmp", p->scopebb());
+                }
+                else {
+                    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+                    llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
+                    e->arg = new llvm::GetElementPtrInst(uval,zero,zero,"tmp",p->scopebb());
+                    e->arg = new llvm::LoadInst(e->arg, "tmp", p->scopebb());
 
-                e->mem = new llvm::GetElementPtrInst(uval,zero,one,"tmp",p->scopebb());
-                e->mem = new llvm::LoadInst(e->mem, "tmp", p->scopebb());
-                e->mem = new llvm::BitCastInst(e->mem, ptrty, "tmp", p->scopebb());
+                    e->mem = new llvm::GetElementPtrInst(uval,zero,one,"tmp",p->scopebb());
+                    e->mem = new llvm::LoadInst(e->mem, "tmp", p->scopebb());
+                    //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
+                    e->mem = new llvm::BitCastInst(e->mem, ptrty, "tmp", p->scopebb());
+                }
             }
             e->type = elem::SLICE;
         }
@@ -1111,7 +1139,9 @@ elem* SymOffExp::toElem(IRState* p)
             e->type = elem::VAL;
         }
         else if (offset == 0) {
-            vd->toObjFile();
+            /*if (!vd->llvmValue)
+                vd->toObjFile();*/
+            assert(vd->llvmValue);
             e = new elem;
             e->mem = vd->llvmValue;
             //e->vardecl = vd;

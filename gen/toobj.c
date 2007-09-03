@@ -34,11 +34,11 @@
 #include "id.h"
 #include "import.h"
 #include "template.h"
-#include "irstate.h"
-#include "elem.h"
-#include "logger.h"
 
-#include "tollvm.h"
+#include "gen/irstate.h"
+#include "gen/elem.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

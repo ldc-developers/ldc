@@ -2,10 +2,9 @@
 
 #include "llvm/Instructions.h"
 
-#include "elem.h"
-
-#include "irstate.h"
-#include "logger.h"
+#include "gen/elem.h"
+#include "gen/irstate.h"
+#include "gen/logger.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

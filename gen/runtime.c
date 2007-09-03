@@ -4,11 +4,11 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
 
-#include "runtime.h"
-#include "logger.h"
-
 #include "root.h"
 #include "mars.h"
+
+#include "gen/runtime.h"
+#include "gen/logger.h"
 
 static llvm::Module* M = NULL;
 static bool runtime_failed = false;

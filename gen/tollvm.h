@@ -16,16 +16,6 @@ llvm::StructType* LLVM_DtoDelegateType(Type* t);
 llvm::Value* LLVM_DtoNullDelegate(llvm::Value* v);
 llvm::Value* LLVM_DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
 
-llvm::StructType* LLVM_DtoArrayType(Type* t);
-llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t);
-llvm::Value* LLVM_DtoNullArray(llvm::Value* v);
-llvm::Value* LLVM_DtoArrayAssign(llvm::Value* l, llvm::Value* r);
-void LLVM_DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr);
-llvm::Constant* LLVM_DtoArrayInitializer(ArrayInitializer* si);
-void LLVM_DtoArrayCopy(elem* dst, elem* src);
-
-void LLVM_DtoArrayInit(llvm::Value* l, llvm::Value* r);
-
 llvm::GlobalValue::LinkageTypes LLVM_DtoLinkage(PROT prot, uint stc);
 unsigned LLVM_DtoCallingConv(LINK l);
 
@@ -40,5 +30,10 @@ void LLVM_DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst);
 
 llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init);
+
+llvm::Function* LLVM_DeclareMemSet32();
+llvm::Function* LLVM_DeclareMemSet64();
+llvm::Function* LLVM_DeclareMemCpy32();
+llvm::Function* LLVM_DeclareMemCpy64();
 
 #include "enums.h"

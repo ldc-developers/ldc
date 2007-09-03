@@ -29,6 +29,6 @@ package.defines = { "IN_LLVM", "_DH" }
 package.config.Release.defines = { "LLVMD_NO_LOGGER" }
 package.config.Debug.buildoptions = { "-g" }
 --package.targetprefix = "llvm"
-package.includepaths = { "dmd" }
+package.includepaths = { ".", "dmd" }
 --package.postbuildcommands = { "cd runtime; ./build.sh; cd .." }
 package.links = { "gc" }
