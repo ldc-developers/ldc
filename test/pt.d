@@ -12,7 +12,6 @@ int main()
     printf("%p %p\n", s.ptr, sd.ptr);
     printf("%c%c%c\n", s[0], s[1], s[2]);
     }
-    
 
     char[16] s1 = void;
     char[16] s2 = void;

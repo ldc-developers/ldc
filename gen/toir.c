@@ -920,7 +920,7 @@ elem* CallExp::toElem(IRState* p)
             assert(llargs[j] != 0);
         }
         else {
-            llargs[j] = arg->mem;
+            llargs[j] = arg->mem ? arg->mem : arg->val;
             assert(llargs[j] != 0);
         }
 
