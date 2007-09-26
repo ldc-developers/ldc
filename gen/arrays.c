@@ -133,11 +133,11 @@ llvm::Value* LLVM_DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
         llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
         llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
 
-        llvm::Value* dstlen = new llvm::GetElementPtrInst(dst,zero,zero,"tmp",gIR->scopebb());
+        llvm::Value* dstlen = LLVM_DtoGEP(dst,zero,zero,"tmp",gIR->scopebb());
         llvm::Value* srclen = llvm::ConstantInt::get(LLVM_DtoSize_t(), arrty->getNumElements(), false);
         new llvm::StoreInst(srclen, dstlen, gIR->scopebb());
 
-        llvm::Value* dstptr = new llvm::GetElementPtrInst(dst,zero,one,"tmp",gIR->scopebb());
+        llvm::Value* dstptr = LLVM_DtoGEP(dst,zero,one,"tmp",gIR->scopebb());
         llvm::Value* srcptr = new llvm::BitCastInst(src,dstty,"tmp",gIR->scopebb());
         new llvm::StoreInst(srcptr, dstptr, gIR->scopebb());
     }
@@ -155,7 +155,7 @@ void LLVM_DtoArrayInit(llvm::Value* l, llvm::Value* r)
 
         std::vector<llvm::Value*> args;
         args.resize(3);
-        args[0] = new llvm::GetElementPtrInst(l,zero,zero,"tmp",gIR->scopebb());
+        args[0] = LLVM_DtoGEP(l,zero,zero,"tmp",gIR->scopebb());
         args[1] = llvm::ConstantInt::get(LLVM_DtoSize_t(), arrty->getNumElements(), false);
         args[2] = r;
         
@@ -225,10 +225,10 @@ void LLVM_DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr)
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
 
-    llvm::Value* arrdim = new llvm::GetElementPtrInst(arr,zero,zero,"tmp",gIR->scopebb());
+    llvm::Value* arrdim = LLVM_DtoGEP(arr,zero,zero,"tmp",gIR->scopebb());
     new llvm::StoreInst(dim, arrdim, gIR->scopebb());
     
-    llvm::Value* arrptr = new llvm::GetElementPtrInst(arr,zero,one,"tmp",gIR->scopebb());
+    llvm::Value* arrptr = LLVM_DtoGEP(arr,zero,one,"tmp",gIR->scopebb());
     new llvm::StoreInst(ptr, arrptr, gIR->scopebb());
 }
 

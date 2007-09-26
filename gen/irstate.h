@@ -36,7 +36,7 @@ struct IRScope
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
-// represents a struct
+// represents a struct or class
 struct IRStruct : Object
 {
     typedef std::vector<const llvm::Type*> TypeVector;
@@ -45,19 +45,13 @@ struct IRStruct : Object
 
 public:
     IRStruct();
-    IRStruct(TypeStruct*);
+    IRStruct(Type*);
     virtual ~IRStruct();
 
-    TypeStruct* type;
+    Type* type;
     TypeVector fields;
     ConstantVector inits;
     llvm::PATypeHolder recty;
-};
-
-// represents a clas
-struct IRClass : Object
-{
-    // TODO
 };
 
 // represents the module

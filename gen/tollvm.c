@@ -99,15 +99,23 @@ const llvm::Type* LLVM_DtoType(Type* t)
     case Tclass:    {
         if (t->llvmType == 0)
         {
+            // recursive or cyclic declaration
+            if (!gIR->structs.empty())
+            {
+                IRStruct* found = 0;
+                for (IRState::StructVector::iterator i=gIR->structs.begin(); i!=gIR->structs.end(); ++i)
+                {
+                    if (t == i->type)
+                    {
+                        return llvm::PointerType::get(i->recty.get());
+                    }
+                }
+            }
+
+            // forward declaration
             TypeClass* tc = (TypeClass*)t;
             assert(tc->sym);
-            if (!tc->sym->llvmInProgress) {
-                tc->sym->toObjFile();
-            }
-            else {
-                //assert(0 && "circular class referencing");
-                return llvm::OpaqueType::get();
-            }
+            tc->sym->toObjFile();
         }
         return llvm::PointerType::get(t->llvmType);
     }
@@ -122,7 +130,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
             return t->llvmType;
         }
     }
-    
+
     // delegates
     case Tdelegate:
     {
@@ -802,4 +810,12 @@ llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init)
         Logger::println("unsupported initializer: %s", init->toChars());
     }
     return _init;
+}
+
+llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb)
+{
+    std::vector<llvm::Value*> v(2);
+    v[0] = i0;
+    v[1] = i1;
+    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb);
 }

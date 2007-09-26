@@ -6,7 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gc.h"
+// I needed to perfix the dir after upgrading to gc 7.0
+#include "gc/gc.h"
 
 #include "mem.h"
 
@@ -14,10 +15,12 @@
  */
 
 Mem mem;
+static bool gc_was_init = false;
 
 void Mem::init()
 {
     GC_init();
+    gc_was_init = true;
 }
 
 char *Mem::strdup(const char *s)
@@ -127,7 +130,11 @@ void Mem::mark(void *pointer)
 /* =================================================== */
 
 void * operator new(size_t m_size)
-{   
+{
+    // without this we segfault with gc 7.0
+    if (!gc_was_init) {
+        mem.init();
+    }
     void *p = GC_malloc(m_size);
     if (p)
 	return p;

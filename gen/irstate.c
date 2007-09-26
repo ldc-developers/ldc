@@ -99,7 +99,7 @@ IRStruct::IRStruct()
     type = 0;
 }
 
-IRStruct::IRStruct(TypeStruct* t)
+IRStruct::IRStruct(Type* t)
  : recty(llvm::OpaqueType::get())
 {
     type = t;

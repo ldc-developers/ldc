@@ -48,18 +48,21 @@ Module::genobjfile()
     Logger::cout() << "Generating module: " << (md ? md->toChars() : toChars()) << '\n';
     LOG_SCOPE;
 
+    // start by deleting the old object file
     deleteObjFile();
 
+    // creaet a new ir state
     IRState ir;
     gIR = &ir;
-
     ir.dmodule = this;
 
+    // name the module
     std::string mname(toChars());
     if (md != 0)
         mname = md->toChars();
     ir.module = new llvm::Module(mname);
 
+    // set target stuff
     std::string target_triple(global.params.tt_arch);
     target_triple.append(global.params.tt_os);
     ir.module->setTargetTriple(target_triple);
@@ -67,6 +70,7 @@ Module::genobjfile()
 
     gTargetData = new llvm::TargetData(ir.module);
 
+    // process module members
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);
         assert(dsym);
@@ -76,6 +80,7 @@ Module::genobjfile()
     delete gTargetData;
     gTargetData = 0;
 
+    // verify the llvm
     std::string verifyErr;
     if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
     {
@@ -83,6 +88,7 @@ Module::genobjfile()
         fatal();
     }
 
+    // emit the llvm main function if necessary
     if (ir.emitMain) {
         LLVM_DtoMain();
     }
@@ -97,6 +103,7 @@ Module::genobjfile()
         ir.module->print(os);
     }*/
 
+    // write bytecode
     //if (global.params.llvmBC) {
         Logger::println("Writing LLVM bitcode\n");
         std::ofstream os(bcfile->name->toChars(), std::ios::binary);
@@ -131,6 +138,7 @@ void Declaration::toObjFile()
 
 /* ================================================================== */
 
+/// Returns the LLVM style index from a DMD style offset
 unsigned AggregateDeclaration::offsetToIndex(unsigned os)
 {
     for (unsigned i=0; i<fields.dim; ++i) {
@@ -165,6 +173,8 @@ static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsig
     return (unsigned)-1;
 }
 
+/// Returns the LLVM style index from a DMD style offset
+/// Handles class inheritance
 unsigned ClassDeclaration::offsetToIndex(unsigned os)
 {
     unsigned idx = 0;
@@ -308,7 +318,7 @@ void ClassDeclaration::toObjFile()
     Logger::print("ClassDeclaration::toObjFile(%d): %s\n", fdi++, toChars());
     LOG_SCOPE;
 
-    gIR->structs.push_back(IRStruct());
+    gIR->structs.push_back(IRStruct(ts));
     gIR->classes.push_back(this);
     gIR->classmethods.push_back(IRState::FuncDeclVec());
     gIR->queueClassMethods.push_back(true);
@@ -328,6 +338,14 @@ void ClassDeclaration::toObjFile()
     }
 
     llvm::StructType* structtype = llvm::StructType::get(gIR->topstruct().fields);
+    // refine abstract types for stuff like: class C {C next;}
+    if (gIR->topstruct().recty != 0)
+    {
+        llvm::PATypeHolder& pa = gIR->topstruct().recty;
+        llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(structtype);
+        structtype = llvm::cast<llvm::StructType>(pa.get());
+    }
+
     ts->llvmType = structtype;
     llvmType = structtype;
 
@@ -526,6 +544,12 @@ void VarDeclaration::toObjFile()
                 uint64_t n = arrty->getNumElements();
                 std::vector<llvm::Constant*> vals(n,_init);
                 _init = llvm::ConstantArray::get(arrty, vals);
+            }
+            else if (llvm::isa<llvm::StructType>(_type)) {
+                const llvm::StructType* structty = llvm::cast<llvm::StructType>(_type);
+                TypeStruct* ts = (TypeStruct*)type;
+                assert(ts->sym->llvmInitZ);
+                _init = ts->sym->llvmInitZ;
             }
             else
             assert(0);

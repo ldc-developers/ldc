@@ -101,7 +101,8 @@ elem* VarExp::toElem(IRState* p)
             if (!p->arrays.empty())
             {
                 llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-                llvm::Value* tmp = new llvm::GetElementPtrInst(p->arrays.back(),zero,zero,"tmp",p->scopebb());
+                //llvm::Value* tmp = new llvm::GetElementPtrInst(p->arrays.back(),zero,zero,"tmp",p->scopebb());
+                llvm::Value* tmp = LLVM_DtoGEP(p->arrays.back(),zero,zero,"tmp",p->scopebb());
                 e->val = new llvm::LoadInst(tmp,"tmp",p->scopebb());
                 e->type = elem::VAL;
             }
@@ -205,7 +206,13 @@ elem* RealExp::toElem(IRState* p)
     Logger::print("RealExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     elem* e = new elem;
-    e->val = llvm::ConstantFP::get(LLVM_DtoType(type),value);
+    const llvm::Type* fty = LLVM_DtoType(type);
+    if (type->ty == Tfloat32)
+        e->val = llvm::ConstantFP::get(fty,float(value));
+    else if (type->ty == Tfloat64 || type->ty == Tfloat80)
+        e->val = llvm::ConstantFP::get(fty,double(value));
+    else
+    assert(0);
     e->type = elem::CONST;
     return e;
 }
@@ -251,7 +258,7 @@ elem* StringExp::toElem(IRState* p)
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,"stringliteral",gIR->module);
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-    llvm::Value* arrptr = new llvm::GetElementPtrInst(gvar,zero,zero,"tmp",p->scopebb());
+    llvm::Value* arrptr = LLVM_DtoGEP(gvar,zero,zero,"tmp",p->scopebb());
 
     elem* e = new elem;
 
@@ -435,7 +442,7 @@ elem* AddExp::toElem(IRState* p)
             TypeStruct* ts = (TypeStruct*)e1->type->next;
             llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, ts->sym->offsetToIndex(cofs->getZExtValue()), false);
 
-            e->mem = new llvm::GetElementPtrInst(l->getValue(), zero, offset, "tmp", p->scopebb());
+            e->mem = LLVM_DtoGEP(l->getValue(), zero, offset, "tmp", p->scopebb());
             e->type = elem::VAR;
             e->field = true;
         }
@@ -806,7 +813,7 @@ elem* CallExp::toElem(IRState* p)
         }
         // struct pointer - delegate
         else if (llvm::isa<llvm::StructType>(funcval->getType()->getContainedType(0))) {
-            funcval = new llvm::GetElementPtrInst(funcval,zero,one,"tmp",p->scopebb());
+            funcval = LLVM_DtoGEP(funcval,zero,one,"tmp",p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             const llvm::Type* ty = funcval->getType()->getContainedType(0);
             llfnty = llvm::cast<llvm::FunctionType>(ty);
@@ -865,7 +872,7 @@ elem* CallExp::toElem(IRState* p)
     // delegate context parameter
     else if (delegateCall) {
         Logger::println("Delegate Call");
-        llvm::Value* contextptr = new llvm::GetElementPtrInst(fn->mem,zero,zero,"tmp",p->scopebb());
+        llvm::Value* contextptr = LLVM_DtoGEP(fn->mem,zero,zero,"tmp",p->scopebb());
         llargs[j] = new llvm::LoadInst(contextptr,"tmp",p->scopebb());
         ++j;
         ++argiter;
@@ -1039,7 +1046,7 @@ elem* CastExp::toElem(IRState* p)
             assert(from->next == to->next);
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-            llvm::Value* ptr = new llvm::GetElementPtrInst(u->getValue(),zero,one,"tmp",p->scopebb());
+            llvm::Value* ptr = LLVM_DtoGEP(u->getValue(),zero,one,"tmp",p->scopebb());
             e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
             e->type = elem::VAL;
         }
@@ -1067,10 +1074,10 @@ elem* CastExp::toElem(IRState* p)
                 else {
                     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
                     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-                    e->arg = new llvm::GetElementPtrInst(uval,zero,zero,"tmp",p->scopebb());
+                    e->arg = LLVM_DtoGEP(uval,zero,zero,"tmp",p->scopebb());
                     e->arg = new llvm::LoadInst(e->arg, "tmp", p->scopebb());
 
-                    e->mem = new llvm::GetElementPtrInst(uval,zero,one,"tmp",p->scopebb());
+                    e->mem = LLVM_DtoGEP(uval,zero,one,"tmp",p->scopebb());
                     e->mem = new llvm::LoadInst(e->mem, "tmp", p->scopebb());
                     //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
                     e->mem = new llvm::BitCastInst(e->mem, ptrty, "tmp", p->scopebb());
@@ -1124,7 +1131,7 @@ elem* SymOffExp::toElem(IRState* p)
             //const llvm::Type* _typ = llvm::GetElementPtrInst::getIndexedType(LLVM_DtoType(type), idx1);
             llvm::Value* ptr = vd->llvmValue;
             assert(ptr);
-            e->mem = new llvm::GetElementPtrInst(ptr,idx0,idx1,"tmp",p->scopebb());
+            e->mem = LLVM_DtoGEP(ptr,idx0,idx1,"tmp",p->scopebb());
             e->type = elem::VAL;
             e->field = true;
         }
@@ -1135,7 +1142,7 @@ elem* SymOffExp::toElem(IRState* p)
             e = new elem;
             llvm::Value* idx0 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             //llvm::Value* idx1 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-            e->mem = new llvm::GetElementPtrInst(vd->llvmValue,idx0,idx0,"tmp",p->scopebb());
+            e->mem = LLVM_DtoGEP(vd->llvmValue,idx0,idx0,"tmp",p->scopebb());
             e->type = elem::VAL;
         }
         else if (offset == 0) {
@@ -1222,7 +1229,7 @@ elem* DotVarExp::toElem(IRState* p)
         assert(src != 0);
         llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
         llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, vdoffset, false);
-        llvm::Value* arrptr = new llvm::GetElementPtrInst(src,zero,offset,"tmp",p->scopebb());
+        llvm::Value* arrptr = LLVM_DtoGEP(src,zero,offset,"tmp",p->scopebb());
         e->mem = arrptr;
         Logger::cout() << "mem: " << *e->mem << '\n';
         e->type = elem::VAR;
@@ -1246,10 +1253,10 @@ elem* DotVarExp::toElem(IRState* p)
 
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* vtblidx = llvm::ConstantInt::get(llvm::Type::Int32Ty, (size_t)fdecl->vtblIndex, false);
-            funcval = new llvm::GetElementPtrInst(e->arg, zero, zero, "tmp", p->scopebb());
+            funcval = LLVM_DtoGEP(e->arg, zero, zero, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = new llvm::BitCastInst(funcval, vtbltype, "tmp", p->scopebb());
-            funcval = new llvm::GetElementPtrInst(funcval, zero, vtblidx, "tmp", p->scopebb());
+            funcval = LLVM_DtoGEP(funcval, zero, vtblidx, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = new llvm::BitCastInst(funcval, fdecl->llvmValue->getType(), "tmp", p->scopebb());
         }
@@ -1337,7 +1344,7 @@ elem* StructLiteralExp::toElem(IRState* p)
         for (unsigned i=0; i<n; ++i)
         {
             llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false);
-            llvm::Value* arrptr = new llvm::GetElementPtrInst(sptr,zero,offset,"tmp",p->scopebb());
+            llvm::Value* arrptr = LLVM_DtoGEP(sptr,zero,offset,"tmp",p->scopebb());
 
             Expression* vx = (Expression*)elements->data[i];
             if (vx != 0) {
@@ -1380,10 +1387,10 @@ elem* IndexExp::toElem(IRState* p)
         arrptr = new llvm::GetElementPtrInst(l->getValue(),r->getValue(),"tmp",p->scopebb());
     }
     else if (e1->type->ty == Tsarray) {
-        arrptr = new llvm::GetElementPtrInst(l->mem, zero, r->getValue(),"tmp",p->scopebb());
+        arrptr = LLVM_DtoGEP(l->mem, zero, r->getValue(),"tmp",p->scopebb());
     }
     else if (e1->type->ty == Tarray) {
-        arrptr = new llvm::GetElementPtrInst(l->mem,zero,one,"tmp",p->scopebb());
+        arrptr = LLVM_DtoGEP(l->mem,zero,one,"tmp",p->scopebb());
         arrptr = new llvm::LoadInst(arrptr,"tmp",p->scopebb());
         arrptr = new llvm::GetElementPtrInst(arrptr,r->getValue(),"tmp",p->scopebb());
     }
@@ -1431,7 +1438,7 @@ elem* SliceExp::toElem(IRState* p)
                 e->mem = v->getValue();
             }
             else if (e1->type->ty == Tarray) {
-                llvm::Value* tmp = new llvm::GetElementPtrInst(v->mem,zero,one,"tmp",p->scopebb());
+                llvm::Value* tmp = LLVM_DtoGEP(v->mem,zero,one,"tmp",p->scopebb());
                 e->mem = new llvm::LoadInst(tmp,"tmp",p->scopebb());
             }
             else
@@ -1444,7 +1451,7 @@ elem* SliceExp::toElem(IRState* p)
         }
         else
         {
-            llvm::Value* tmp = new llvm::GetElementPtrInst(v->mem,zero,one,"tmp",p->scopebb());
+            llvm::Value* tmp = LLVM_DtoGEP(v->mem,zero,one,"tmp",p->scopebb());
             tmp = new llvm::LoadInst(tmp,"tmp",p->scopebb());
             e->mem = new llvm::GetElementPtrInst(tmp,lo->getValue(),"tmp",p->scopebb());
         }
@@ -1834,7 +1841,7 @@ elem* DeleteExp::toElem(IRState* p)
         llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
         llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
         
-        llvm::Value* ptr = new llvm::GetElementPtrInst(ldval,zero,one,"tmp",p->scopebb());
+        llvm::Value* ptr = LLVM_DtoGEP(ldval,zero,one,"tmp",p->scopebb());
         ptr = new llvm::LoadInst(ptr,"tmp",p->scopebb());
         new llvm::FreeInst(ptr, p->scopebb());
         LLVM_DtoNullArray(val);
@@ -1860,7 +1867,7 @@ elem* ArrayLengthExp::toElem(IRState* p)
     elem* u = e1->toElem(p);
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-    llvm::Value* ptr = new llvm::GetElementPtrInst(u->mem,zero,zero,"tmp",p->scopebb());
+    llvm::Value* ptr = LLVM_DtoGEP(u->mem,zero,zero,"tmp",p->scopebb());
     e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
     e->type = elem::VAL;
 
@@ -2086,11 +2093,11 @@ elem* DelegateExp::toElem(IRState* p)
 
     llvm::Value* lval = p->toplval();
 
-    llvm::Value* context = new llvm::GetElementPtrInst(lval,zero,zero,"tmp",p->scopebb());
+    llvm::Value* context = LLVM_DtoGEP(lval,zero,zero,"tmp",p->scopebb());
     llvm::Value* castcontext = new llvm::BitCastInst(u->getValue(),int8ptrty,"tmp",p->scopebb());
     new llvm::StoreInst(castcontext, context, p->scopebb());
     
-    llvm::Value* fptr = new llvm::GetElementPtrInst(lval,zero,one,"tmp",p->scopebb());
+    llvm::Value* fptr = LLVM_DtoGEP(lval,zero,one,"tmp",p->scopebb());
     
     assert(func->llvmValue);
     llvm::Value* castfptr = new llvm::BitCastInst(func->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
