@@ -434,15 +434,15 @@ elem* AddExp::toElem(IRState* p)
 
     if (e1->type != e2->type) {
         if (e1->type->ty == Tpointer && e1->type->next->ty == Tstruct) {
-            assert(l->field);
+            //assert(l->field);
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             assert(r->type == elem::CONST);
             llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->val);
 
             TypeStruct* ts = (TypeStruct*)e1->type->next;
-            llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, ts->sym->offsetToIndex(cofs->getZExtValue()), false);
-
-            e->mem = LLVM_DtoGEP(l->getValue(), zero, offset, "tmp", p->scopebb());
+            std::vector<unsigned> offsets(1,0);
+            ts->sym->offsetToIndex(cofs->getZExtValue(), offsets);
+            e->mem = LLVM_DtoGEP(l->getValue(), offsets, "tmp", p->scopebb());
             e->type = elem::VAR;
             e->field = true;
         }
@@ -1126,12 +1126,11 @@ elem* SymOffExp::toElem(IRState* p)
         if (vd->type->ty == Tstruct && !(type->ty == Tpointer && type->next == vd->type)) {
             TypeStruct* vdt = (TypeStruct*)vd->type;
             e = new elem;
-            llvm::Value* idx0 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-            llvm::Value* idx1 = llvm::ConstantInt::get(llvm::Type::Int32Ty, (uint64_t)vdt->sym->offsetToIndex(offset), false);
-            //const llvm::Type* _typ = llvm::GetElementPtrInst::getIndexedType(LLVM_DtoType(type), idx1);
+            std::vector<unsigned> dst(1,0);
+            vdt->sym->offsetToIndex(offset, dst);
             llvm::Value* ptr = vd->llvmValue;
             assert(ptr);
-            e->mem = LLVM_DtoGEP(ptr,idx0,idx1,"tmp",p->scopebb());
+            e->mem = LLVM_DtoGEP(ptr,dst,"tmp",p->scopebb());
             e->type = elem::VAL;
             e->field = true;
         }
@@ -1210,26 +1209,24 @@ elem* DotVarExp::toElem(IRState* p)
     Logger::print("e1->type=%s\n", e1->type->toChars());
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
-        size_t vdoffset = (size_t)-1;
+        std::vector<unsigned> vdoffsets(1,0);
         llvm::Value* src = 0;
         if (e1->type->ty == Tpointer) {
             assert(e1->type->next->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)e1->type->next;
-            vdoffset = ts->sym->offsetToIndex(vd->offset);
-            Logger::println("Struct member offset:%d index:%d", vd->offset, vdoffset);
+            ts->sym->offsetToIndex(vd->offset, vdoffsets);
+            Logger::println("Struct member offset:%d", vd->offset);
             src = l->val;
         }
         else if (e1->type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1->type;
             Logger::println("Class member offset: %d", vd->offset);
-            vdoffset = tc->sym->offsetToIndex(vd->offset);
+            tc->sym->offsetToIndex(vd->offset, vdoffsets);
             src = l->getValue();
         }
-        assert(vdoffset != (size_t)-1);
+        assert(vdoffsets.size() != 1);
         assert(src != 0);
-        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-        llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, vdoffset, false);
-        llvm::Value* arrptr = LLVM_DtoGEP(src,zero,offset,"tmp",p->scopebb());
+        llvm::Value* arrptr = LLVM_DtoGEP(src,vdoffsets,"tmp",p->scopebb());
         e->mem = arrptr;
         Logger::cout() << "mem: " << *e->mem << '\n';
         e->type = elem::VAR;
@@ -2588,11 +2585,16 @@ void ScopeStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
 
     IRScope irs;
-    irs.begin = new llvm::BasicBlock("scope", gIR->topfunc(), oldend);
+    // remove useless branches by clearing and reusing the current basicblock
+    llvm::BasicBlock* bb = gIR->scopebegin();
+    if (bb->empty()) {
+        irs.begin = bb;
+    }
+    else {
+        irs.begin = new llvm::BasicBlock("scope", gIR->topfunc(), oldend);
+        new llvm::BranchInst(irs.begin, gIR->scopebegin());
+    }
     irs.end = new llvm::BasicBlock("endscope", gIR->topfunc(), oldend);
-
-    // pass the previous BB into this
-    new llvm::BranchInst(irs.begin, gIR->scopebegin());
 
     gIR->scope() = irs;
 

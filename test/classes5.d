@@ -13,5 +13,11 @@ class C
 
 void main()
 {
-    //C c = new C;
+    C c = new C;
+    long* lp = void;
+    {c.s.l = 64;}
+    {assert(c.s.l == 64);}
+    {lp = &c.s.l;}
+    {assert(*lp == 64);}
+    printf("classes5 success\n");
 }

@@ -460,7 +460,11 @@ llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si)
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
         assert(vd);
         Logger::println("vars[%d] = %s", i, vd->toChars());
-        unsigned idx = si->ad->offsetToIndex(vd->offset);
+
+        std::vector<unsigned> idxs;
+        si->ad->offsetToIndex(vd->offset, idxs);
+        assert(idxs.size() == 1);
+        unsigned idx = idxs[0];
 
         llvm::Constant* v = 0;
 
@@ -818,4 +822,18 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, con
     v[0] = i0;
     v[1] = i1;
     return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb);
+}
+
+llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
+{
+    size_t n = src.size();
+    std::vector<llvm::Value*> dst(n);
+    Logger::cout() << "indices:";
+    for (size_t i=0; i<n; ++i)
+    {
+        Logger::cout() << ' ' << i;
+        dst[i] = llvm::ConstantInt::get(llvm::Type::Int32Ty, src[i], false);
+    }
+    Logger::cout() << '\n';
+    return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb);
 }

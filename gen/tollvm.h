@@ -37,5 +37,6 @@ llvm::Function* LLVM_DeclareMemCpy32();
 llvm::Function* LLVM_DeclareMemCpy64();
 
 llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb);
+llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb);
 
 #include "enums.h"

@@ -18,6 +18,8 @@
 #include "root.h"
 #include "dsymbol.h"
 
+#include <vector>
+
 struct Identifier;
 struct Type;
 struct TypeFunction;
@@ -97,7 +99,7 @@ struct AggregateDeclaration : ScopeDsymbol
     llvm::Type* llvmType;
     llvm::Value* llvmVtbl;
     llvm::Constant* llvmInitZ;
-    virtual unsigned offsetToIndex(unsigned os); // converts a DMD field offsets to LLVM struct index
+    virtual void offsetToIndex(unsigned os, std::vector<unsigned>& result); // converts a DMD field offsets to LLVM struct index vector
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };
@@ -232,7 +234,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     Symbol *vtblsym;
 
-    virtual unsigned offsetToIndex(unsigned os);
+    virtual void offsetToIndex(unsigned os, std::vector<unsigned>& result);
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
 };

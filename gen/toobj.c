@@ -139,15 +139,27 @@ void Declaration::toObjFile()
 /* ================================================================== */
 
 /// Returns the LLVM style index from a DMD style offset
-unsigned AggregateDeclaration::offsetToIndex(unsigned os)
+void AggregateDeclaration::offsetToIndex(unsigned os, std::vector<unsigned>& result)
 {
+    unsigned vos = 0;
     for (unsigned i=0; i<fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)fields.data[i];
-        if (os == vd->offset)
-            return i;
+        if (vd->type->ty == Tstruct) {
+            if (vos + vd->type->size() > os) {
+                TypeStruct* ts = (TypeStruct*)vd->type;
+                StructDeclaration* sd = ts->sym;
+                result.push_back(i);
+                sd->offsetToIndex(os - vos, result);
+                return;
+            }
+        }
+        else if (os == vd->offset) {
+            result.push_back(i);
+            return;
+        }
+        vos += vd->offset;
     }
     assert(0 && "Offset not found in any aggregate field");
-    return 0;
 }
 
 /* ================================================================== */
@@ -175,12 +187,12 @@ static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsig
 
 /// Returns the LLVM style index from a DMD style offset
 /// Handles class inheritance
-unsigned ClassDeclaration::offsetToIndex(unsigned os)
+void ClassDeclaration::offsetToIndex(unsigned os, std::vector<unsigned>& result)
 {
     unsigned idx = 0;
     unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
     assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
-    return r+1; // vtable is 0
+    result.push_back(r+1); // vtable is 0
 }
 
 /* ================================================================== */
