@@ -619,11 +619,8 @@ void FuncDeclaration::toObjFile()
         Logger::println("queueing %s", toChars());
         assert(!gIR->classmethods.empty());
         gIR->classmethods.back().push_back(this);
-        return; // will be generated later when the this parameter has a type
+        return; // we wait with the definition as they might invoke a virtual method and the vtable is not yet complete
     }
-
-    if (llvmNeedsDefinition)
-    {
 
     TypeFunction* f = (TypeFunction*)type;
     llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(f->llvmType);
@@ -712,8 +709,6 @@ void FuncDeclaration::toObjFile()
                 new llvm::UnreachableInst(lastbb);
             }
         }
-    }
-
     }
 
     llvmDModule = gIR->dmodule;
