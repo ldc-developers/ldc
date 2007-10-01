@@ -158,7 +158,8 @@ void usage()
     printf("LLVM D Compiler %s (based on DMD %s)\n%s\n%s\n",
     global.llvmdc_version, global.version, global.copyright, global.written);
     printf("\
-Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
+D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
+LLVMDC Homepage: http://www.dsource.org/projects/llvmdc\n\
 Usage:\n\
   dmd files.d ... { -switch }\n\
 \n\

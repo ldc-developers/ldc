@@ -336,7 +336,8 @@ void ClassDeclaration::toObjFile()
     gIR->queueClassMethods.push_back(true);
 
     // add vtable
-    const llvm::Type* vtabty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    llvm::PATypeHolder pa = llvm::OpaqueType::get();
+    const llvm::Type* vtabty = llvm::PointerType::get(pa);
     gIR->topstruct().fields.push_back(vtabty);
     gIR->topstruct().inits.push_back(0);
 
@@ -361,93 +362,104 @@ void ClassDeclaration::toObjFile()
     ts->llvmType = structtype;
     llvmType = structtype;
 
-    bool emit_vtable = false;
     bool define_vtable = false;
     if (parent->isModule()) {
         gIR->module->addTypeName(mangle(),ts->llvmType);
-        emit_vtable = true;
         define_vtable = (getModule() == gIR->dmodule);
     }
     else {
         assert(0 && "class parent is not a module");
     }
 
-    // generate member functions
+    // generate vtable
+    llvm::GlobalVariable* svtblVar = 0;
+    std::vector<llvm::Constant*> sinits;
+    std::vector<const llvm::Type*> sinits_ty;
+    sinits.reserve(vtbl.dim);
+    sinits_ty.reserve(vtbl.dim);
+
+    for (int k=0; k < vtbl.dim; k++)
+    {
+        Dsymbol* dsym = (Dsymbol*)vtbl.data[k];
+        assert(dsym);
+        //Logger::cout() << "vtblsym: " << dsym->toChars() << '\n';
+
+        if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
+            fd->toObjFile();
+            llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
+            sinits.push_back(c);
+            sinits_ty.push_back(c->getType());
+        }
+        else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
+            const llvm::Type* cty = llvm::PointerType::get(llvm::Type::Int8Ty);
+            llvm::Constant* c = llvm::Constant::getNullValue(cty);
+            sinits.push_back(c);
+            sinits_ty.push_back(cty);
+        }
+        else
+        assert(0);
+    }
+
+    const llvm::StructType* svtbl_ty = 0;
+    if (!sinits.empty())
+    {
+        llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+
+        std::string varname(mangle());
+        varname.append("__vtblZ");
+        std::string styname(mangle());
+        styname.append("__vtblTy");
+
+        svtbl_ty = llvm::StructType::get(sinits_ty);
+        gIR->module->addTypeName(styname, svtbl_ty);
+        svtblVar = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
+
+        if (define_vtable) {
+            svtblVar->setInitializer(llvm::ConstantStruct::get(svtbl_ty, sinits));
+        }
+        llvmVtbl = svtblVar;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // refine for final vtable type
+    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(svtbl_ty);
+    svtbl_ty = llvm::cast<llvm::StructType>(pa.get());
+    structtype = llvm::cast<llvm::StructType>(gIR->topstruct().recty.get());
+    ts->llvmType = structtype;
+    llvmType = structtype;
+
+    // generate initializer
+    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+    llvm::Constant* _init = 0;
+
+    // first field is always the vtable
+    assert(svtblVar != 0);
+    gIR->topstruct().inits[0] = svtblVar;
+
+    //assert(tk == gIR->topstruct().size());
+    #ifndef LLVMD_NO_LOGGER
+    Logger::cout() << *structtype << '\n';
+    //for (size_t k=0; k<gIR->topstruct().inits.size(); ++k)
+    //    Logger::cout() << *gIR->topstruct().inits[k] << '\n';
+    #endif
+    _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
+    assert(_init);
+    std::string initname(mangle());
+    initname.append("__initZ");
+    Logger::cout() << *_init << '\n';
+    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, 0, initname, gIR->module);
+    ts->llvmInit = initvar;
+    if (define_vtable) {
+        initvar->setInitializer(_init);
+    }
+
+    // generate member function definitions
     gIR->queueClassMethods.back() = false;
     IRState::FuncDeclVec& mfs = gIR->classmethods.back();
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
         mfs[i]->toObjFile();
-    }
-
-    // create vtable initializer
-    if (emit_vtable)
-    {
-        llvm::GlobalVariable* vtblVar = 0;
-        std::vector<llvm::Constant*> inits;
-        inits.reserve(vtbl.dim);
-        for (int k=0; k < vtbl.dim; k++)
-        {
-            Dsymbol* dsym = (Dsymbol*)vtbl.data[k];
-            assert(dsym);
-            //Logger::cout() << "vtblsym: " << dsym->toChars() << '\n';
-
-            if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-                fd->toObjFile();
-                Logger::cout() << "casting to constant" << *fd->llvmValue << '\n';
-                llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
-                c = llvm::ConstantExpr::getBitCast(c, llvm::PointerType::get(llvm::Type::Int8Ty));
-                inits.push_back(c);
-            }
-            else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-                llvm::Constant* c = llvm::Constant::getNullValue(llvm::PointerType::get(llvm::Type::Int8Ty));
-                inits.push_back(c);
-            }
-            else
-            assert(0);
-        }
-        if (!inits.empty())
-        {
-            llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
-            std::string varname(mangle());
-            varname.append("__vtblZ");
-            const llvm::ArrayType* vtbl_ty = llvm::ArrayType::get(llvm::PointerType::get(llvm::Type::Int8Ty), inits.size());
-            vtblVar = new llvm::GlobalVariable(vtbl_ty, true, _linkage, 0, varname, gIR->module);
-            if (define_vtable) {
-                //Logger::cout() << "vtbl:::" << '\n' << *vtbl_st << '\n';// << " == | == " << _init << '\n';
-                llvm::Constant* _init = llvm::ConstantArray::get(vtbl_ty, inits);
-                vtblVar->setInitializer(_init);
-            }
-            llvmVtbl = vtblVar;
-        }
-
-        ////////////////////////////////////////////////////////////////////////////////
-
-        // generate initializer
-        llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
-        llvm::Constant* _init = 0;
-
-        // first field is always the vtable
-        assert(vtblVar != 0);
-        llvm::Constant* vtbl_init_var = llvm::ConstantExpr::getBitCast(vtblVar, llvm::PointerType::get(llvm::Type::Int8Ty));
-        gIR->topstruct().inits[0] = vtbl_init_var;
-
-        //assert(tk == gIR->topstruct().size());
-        #ifndef LLVMD_NO_LOGGER
-        Logger::cout() << *structtype << '\n';
-        for (size_t k=0; k<gIR->topstruct().inits.size(); ++k)
-            Logger::cout() << *gIR->topstruct().inits[k] << '\n';
-        #endif
-        _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
-        assert(_init);
-        std::string initname(mangle());
-        initname.append("__initZ");
-        Logger::cout() << *_init << '\n';
-        llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, 0, initname, gIR->module);
-        ts->llvmInit = initvar;
-        if (define_vtable) {
-            initvar->setInitializer(_init);
-        }
     }
 
     gIR->queueClassMethods.pop_back();
@@ -560,6 +572,8 @@ void VarDeclaration::toObjFile()
             else if (llvm::isa<llvm::StructType>(_type)) {
                 const llvm::StructType* structty = llvm::cast<llvm::StructType>(_type);
                 TypeStruct* ts = (TypeStruct*)type;
+                assert(ts);
+                assert(ts->sym);
                 assert(ts->sym->llvmInitZ);
                 _init = ts->sym->llvmInitZ;
             }
@@ -594,11 +608,13 @@ void EnumDeclaration::toObjFile()
 
 void FuncDeclaration::toObjFile()
 {
-    if (llvmValue != 0 && llvmDModule == gIR->dmodule) {
+    if (llvmDModule == gIR->dmodule) {
+        assert(llvmValue != 0);
         return;
     }
 
-    // has already been pulled in by a reference to (
+    llvm::Function* func = LLVM_DtoDeclareFunction(this);
+
     if (!gIR->queueClassMethods.empty() && gIR->queueClassMethods.back()) {
         Logger::println("queueing %s", toChars());
         assert(!gIR->classmethods.empty());
@@ -606,160 +622,11 @@ void FuncDeclaration::toObjFile()
         return; // will be generated later when the this parameter has a type
     }
 
-    static int fdi = 0;
-    Logger::print("FuncDeclaration::toObjFile(%d,%s): %s\n", fdi++, needThis()?"this":"static",toChars());
-    LOG_SCOPE;
-
-    if (llvmInternal == LLVMintrinsic && fbody) {
-        error("intrinsics cannot have function bodies");
-        fatal();
-    }
+    if (llvmNeedsDefinition)
+    {
 
     TypeFunction* f = (TypeFunction*)type;
-    assert(f != 0);
-
-    // return value type
-    const llvm::Type* rettype;
-    const llvm::Type* actualRettype;
-    Type* rt = f->next;
-    bool retinptr = false;
-    bool usesthis = false;
-
-    if (isMain()) {
-        rettype = llvm::Type::Int32Ty;
-        actualRettype = rettype;
-        gIR->emitMain = true;
-    }
-    else if (rt) {
-        if (rt->ty == Tstruct || rt->ty == Tdelegate || rt->ty == Tarray) {
-            rettype = llvm::PointerType::get(LLVM_DtoType(rt));
-            actualRettype = llvm::Type::VoidTy;
-            f->llvmRetInPtr = retinptr = true;
-        }
-        else {
-            rettype = LLVM_DtoType(rt);
-            actualRettype = rettype;
-        }
-    }
-    else {
-        assert(0);
-    }
-
-    // parameter types
-    std::vector<const llvm::Type*> paramvec;
-
-    if (retinptr) {
-        Logger::print("returning through pointer parameter\n");
-        paramvec.push_back(rettype);
-    }
-
-    if (needThis()) {
-        if (AggregateDeclaration* ad = isMember()) {
-            Logger::print("isMember = this is: %s\n", ad->type->toChars());
-            const llvm::Type* thisty = LLVM_DtoType(ad->type);
-            if (llvm::isa<llvm::StructType>(thisty))
-                thisty = llvm::PointerType::get(thisty);
-            paramvec.push_back(thisty);
-            usesthis = true;
-        }
-        else
-        assert(0);
-    }
-
-    size_t n = Argument::dim(f->parameters);
-    for (int i=0; i < n; ++i) {
-        Argument* arg = Argument::getNth(f->parameters, i);
-        // ensure scalar
-        Type* argT = arg->type;
-        assert(argT);
-
-        if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
-            //assert(arg->vardecl);
-            //arg->vardecl->refparam = true;
-        }
-        else
-            arg->llvmCopy = true;
-
-        const llvm::Type* at = LLVM_DtoType(argT);
-        if (llvm::isa<llvm::StructType>(at)) {
-            Logger::println("struct param");
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else if (llvm::isa<llvm::ArrayType>(at)) {
-            Logger::println("sarray param");
-            assert(argT->ty == Tsarray);
-            //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else {
-            if (!arg->llvmCopy) {
-                Logger::println("ref param");
-                at = llvm::PointerType::get(at);
-            }
-            else {
-                Logger::println("in param");
-            }
-            paramvec.push_back(at);
-        }
-    }
-    
-    // construct function
-    bool isvararg = f->varargs;
-    llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
-    
-    // mangled name
-    char* mangled_name = (llvmInternal == LLVMintrinsic) ? llvmInternal1 : mangle();
-    llvm::Function* func = gIR->module->getFunction(mangled_name);
-    
-    // make the function
-    /*if (func != 0) {
-        llvmValue = func;
-        f->llvmType = functype;
-        return; // already pulled in from a forward declaration
-    }
-    else */
-    if (func == 0) {
-        func = new llvm::Function(functype,LLVM_DtoLinkage(protection, storage_class),mangled_name,gIR->module);
-    }
-
-    if (llvmInternal != LLVMintrinsic)
-        func->setCallingConv(LLVM_DtoCallingConv(f->linkage));
-
-    llvmValue = func;
-    f->llvmType = functype;
-
-    if (isMain()) {
-        gIR->mainFunc = func;
-    }
-
-    // name parameters
-    llvm::Function::arg_iterator iarg = func->arg_begin();
-    int k = 0;
-    int nunnamed = 0;
-    if (retinptr) {
-        iarg->setName("retval");
-        f->llvmRetArg = iarg;
-        ++iarg;
-    }
-    if (usesthis) {
-        iarg->setName("this");
-        ++iarg;
-    }
-    for (; iarg != func->arg_end(); ++iarg)
-    {
-        Argument* arg = Argument::getNth(f->parameters, k++);
-        //arg->llvmValue = iarg;
-        //printf("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
-        if (arg->ident != 0) {
-            if (arg->vardecl) {
-                arg->vardecl->llvmValue = iarg;
-            }
-            iarg->setName(arg->ident->toChars());
-        }
-        else {
-            ++nunnamed;
-        }
-    }
+    llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(f->llvmType);
 
     // only members of the current module maybe be defined
     if (getModule() == gIR->dmodule)
@@ -796,7 +663,9 @@ void FuncDeclaration::toObjFile()
         // function definition
         if (allow_fbody && fbody != 0)
         {
-            assert(nunnamed == 0);
+            if (isMain())
+                gIR->emitMain = true;
+
             gIR->funcs.push(func);
             gIR->functypes.push(f);
 
@@ -832,18 +701,19 @@ void FuncDeclaration::toObjFile()
             gIR->funcs.pop();
 
             // get rid of the endentry block, it's never used
+            assert(!func->getBasicBlockList().empty());
             func->getBasicBlockList().pop_back();
 
             // if the last block is empty now, it must be unreachable or it's a bug somewhere else
+            // would be nice to figure out how to assert that this is correct
             llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
             if (lastbb->empty()) {
+                // possibly assert(lastbb->getNumPredecessors() == 0); ??? try it out sometime ...
                 new llvm::UnreachableInst(lastbb);
             }
         }
     }
-    else
-    {
-        Logger::println("only declaration");
+
     }
 
     llvmDModule = gIR->dmodule;

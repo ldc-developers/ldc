@@ -11,6 +11,7 @@ llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si);
 
 llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam = 0);
 llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl);
+llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl);
 
 llvm::StructType* LLVM_DtoDelegateType(Type* t);
 llvm::Value* LLVM_DtoNullDelegate(llvm::Value* v);

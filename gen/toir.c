@@ -1246,16 +1246,14 @@ elem* DotVarExp::toElem(IRState* p)
             assert(fdecl->vtblIndex > 0);
             assert(e1->type->ty == Tclass);
 
-            const llvm::Type* vtbltype = llvm::PointerType::get(llvm::ArrayType::get(llvm::PointerType::get(llvm::Type::Int8Ty),0));
-
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* vtblidx = llvm::ConstantInt::get(llvm::Type::Int32Ty, (size_t)fdecl->vtblIndex, false);
             funcval = LLVM_DtoGEP(e->arg, zero, zero, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
-            funcval = new llvm::BitCastInst(funcval, vtbltype, "tmp", p->scopebb());
             funcval = LLVM_DtoGEP(funcval, zero, vtblidx, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
-            funcval = new llvm::BitCastInst(funcval, fdecl->llvmValue->getType(), "tmp", p->scopebb());
+            assert(funcval->getType() == fdecl->llvmValue->getType());
+            //funcval = new llvm::BitCastInst(funcval, fdecl->llvmValue->getType(), "tmp", p->scopebb());
         }
         e->val = funcval;
         e->type = elem::VAL;

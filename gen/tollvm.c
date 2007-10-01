@@ -208,7 +208,7 @@ llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
 
-    // has already been pulled in by a reference to (
+    // type has already been resolved
     if (f->llvmType != 0) {
         return llvm::cast<llvm::FunctionType>(f->llvmType);
     }
@@ -247,10 +247,17 @@ llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         paramvec.push_back(rettype);
     }
 
-    if (fdecl->needThis() && fdecl->vthis) {
-        Logger::print("this is: %s\n", fdecl->vthis->type->toChars());
-        paramvec.push_back(LLVM_DtoType(fdecl->vthis->type));
-        usesthis = true;
+    if (fdecl->needThis()) {
+        if (AggregateDeclaration* ad = fdecl->isMember()) {
+            Logger::print("isMember = this is: %s\n", ad->type->toChars());
+            const llvm::Type* thisty = LLVM_DtoType(ad->type);
+            if (llvm::isa<llvm::StructType>(thisty))
+                thisty = llvm::PointerType::get(thisty);
+            paramvec.push_back(thisty);
+            usesthis = true;
+        }
+        else
+        assert(0);
     }
 
     size_t n = Argument::dim(f->parameters);
@@ -295,6 +302,8 @@ llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
     f->llvmType = functype;
+    f->llvmRetInPtr = retinptr;
+    f->llvmUsesThis = usesthis;
     return functype;
 }
 
@@ -836,4 +845,75 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, con
     }
     Logger::cout() << '\n';
     return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb);
+}
+
+llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
+{
+    if (fdecl->llvmValue != 0) {
+        return llvm::cast<llvm::Function>(fdecl->llvmValue);
+    }
+
+    static int fdi = 0;
+    Logger::print("FuncDeclaration::toObjFile(%d,%s): %s\n", fdi++, fdecl->needThis()?"this":"static",fdecl->toChars());
+    LOG_SCOPE;
+
+    if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
+        error("intrinsics cannot have function bodies");
+        fatal();
+    }
+
+    // construct function
+    TypeFunction* f = (TypeFunction*)fdecl->type;
+    assert(f != 0);
+    llvm::FunctionType* functype = (f->llvmType == 0) ? LLVM_DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
+
+    // mangled name
+    char* mangled_name = (fdecl->llvmInternal == LLVMintrinsic) ? fdecl->llvmInternal1 : fdecl->mangle();
+
+    // make the function
+    llvm::Function* func = gIR->module->getFunction(mangled_name);
+    if (func == 0) {
+        func = new llvm::Function(functype,LLVM_DtoLinkage(fdecl->protection, fdecl->storage_class),mangled_name,gIR->module);
+    }
+
+    if (fdecl->llvmInternal != LLVMintrinsic)
+        func->setCallingConv(LLVM_DtoCallingConv(f->linkage));
+
+    fdecl->llvmValue = func;
+    f->llvmType = functype;
+
+    if (fdecl->isMain()) {
+        gIR->mainFunc = func;
+    }
+
+    // name parameters
+    llvm::Function::arg_iterator iarg = func->arg_begin();
+    int k = 0;
+    if (f->llvmRetInPtr) {
+        iarg->setName("retval");
+        f->llvmRetArg = iarg;
+        ++iarg;
+    }
+    if (f->llvmUsesThis) {
+        iarg->setName("this");
+        ++iarg;
+    }
+    for (; iarg != func->arg_end(); ++iarg)
+    {
+        Argument* arg = Argument::getNth(f->parameters, k++);
+        assert(arg != 0);
+        //arg->llvmValue = iarg;
+        //printf("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
+        if (arg->ident != 0) {
+            if (arg->vardecl) {
+                arg->vardecl->llvmValue = iarg;
+            }
+            iarg->setName(arg->ident->toChars());
+        }
+        else {
+            iarg->setName("unnamed");
+        }
+    }
+
+    return func;
 }

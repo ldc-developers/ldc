@@ -433,6 +433,7 @@ struct TypeFunction : Type
     unsigned totym();
 
     bool llvmRetInPtr;
+    bool llvmUsesThis;
     llvm::Value* llvmRetArg;
     llvm::Instruction* llvmAllocaPoint;
 };

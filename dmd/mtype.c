@@ -2541,6 +2541,7 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->linkage = linkage;
     this->inuse = 0;
     this->llvmRetInPtr = false;
+    this->llvmUsesThis = false;
     this->llvmRetArg = 0;
     this->llvmAllocaPoint = 0;
 }
