@@ -17,5 +17,5 @@ void main()
 {
     scope c = new C;
     c.g();
-    assert(c.i == 43);
+    assert(c.i == 42);
 }
