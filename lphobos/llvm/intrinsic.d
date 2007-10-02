@@ -29,10 +29,10 @@ pragma(LLVM_internal, "intrinsic", "llvm.pcmarker")
 
 pragma(LLVM_internal, "intrinsic", "llvm.prefetch")
     void llvm_prefetch(void* ptr, uint rw, uint locality);
+*/
 
 pragma(LLVM_internal, "intrinsic", "llvm.readcyclecounter")
-    ulong llvm_readcyclecounter();
-*/
+    ulong readcyclecounter();
 
 // standard C intrinsics
 pragma(LLVM_internal, "intrinsic", "llvm.memcpy.i32")

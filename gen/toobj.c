@@ -80,18 +80,21 @@ Module::genobjfile()
     delete gTargetData;
     gTargetData = 0;
 
+    // emit the llvm main function if necessary
+    if (ir.emitMain) {
+        LLVM_DtoMain();
+    }
+
     // verify the llvm
     std::string verifyErr;
+    Logger::println("Verifying module...");
     if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
     {
         error("%s", verifyErr.c_str());
         fatal();
     }
-
-    // emit the llvm main function if necessary
-    if (ir.emitMain) {
-        LLVM_DtoMain();
-    }
+    else
+        Logger::println("Verification passed!");
 
     // run passes
     // TODO
@@ -386,6 +389,7 @@ void ClassDeclaration::toObjFile()
 
         if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
             fd->toObjFile();
+            assert(fd->llvmValue);
             llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
             sinits.push_back(c);
             sinits_ty.push_back(c->getType());
@@ -437,17 +441,11 @@ void ClassDeclaration::toObjFile()
     assert(svtblVar != 0);
     gIR->topstruct().inits[0] = svtblVar;
 
-    //assert(tk == gIR->topstruct().size());
-    #ifndef LLVMD_NO_LOGGER
-    Logger::cout() << *structtype << '\n';
-    //for (size_t k=0; k<gIR->topstruct().inits.size(); ++k)
-    //    Logger::cout() << *gIR->topstruct().inits[k] << '\n';
-    #endif
     _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
     assert(_init);
     std::string initname(mangle());
     initname.append("__initZ");
-    Logger::cout() << *_init << '\n';
+    //Logger::cout() << *_init << '\n';
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, 0, initname, gIR->module);
     ts->llvmInit = initvar;
     if (define_vtable) {
@@ -616,27 +614,33 @@ void FuncDeclaration::toObjFile()
     llvm::Function* func = LLVM_DtoDeclareFunction(this);
 
     if (!gIR->queueClassMethods.empty() && gIR->queueClassMethods.back()) {
-        Logger::println("queueing %s", toChars());
-        assert(!gIR->classmethods.empty());
-        gIR->classmethods.back().push_back(this);
+        if (!llvmQueued) {
+            Logger::println("queueing %s", toChars());
+            assert(!gIR->classmethods.empty());
+            gIR->classmethods.back().push_back(this);
+            llvmQueued = true;
+        }
         return; // we wait with the definition as they might invoke a virtual method and the vtable is not yet complete
     }
 
     TypeFunction* f = (TypeFunction*)type;
-    llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(f->llvmType);
+    assert(f->llvmType);
+    const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 
     // only members of the current module maybe be defined
     if (getModule() == gIR->dmodule)
     {
+        llvmDModule = gIR->dmodule;
+
         bool allow_fbody = true;
         // handle static constructor / destructor
         if (isStaticCtorDeclaration() || isStaticDtorDeclaration()) {
             const llvm::ArrayType* sctor_type = llvm::ArrayType::get(llvm::PointerType::get(functype),1);
             //Logger::cout() << "static ctor type: " << *sctor_type << '\n';
-            
+
             llvm::Constant* sctor_func = llvm::cast<llvm::Constant>(llvmValue);
             //Logger::cout() << "static ctor func: " << *sctor_func << '\n';
-            
+
             llvm::Constant* sctor_init = 0;
             if (llvmInternal == LLVMnull)
             {
@@ -648,10 +652,9 @@ void FuncDeclaration::toObjFile()
             {
                 sctor_init = llvm::ConstantArray::get(sctor_type,&sctor_func,1);
             }
-            
+
             //Logger::cout() << "static ctor init: " << *sctor_init << '\n';
-            
-            
+
             // output the llvm.global_ctors array
             const char* varname = isStaticCtorDeclaration() ? "_d_module_ctor_array" : "_d_module_dtor_array";
             llvm::GlobalVariable* sctor_arr = new llvm::GlobalVariable(sctor_type, false, llvm::GlobalValue::AppendingLinkage, sctor_init, varname, gIR->module);
@@ -660,6 +663,9 @@ void FuncDeclaration::toObjFile()
         // function definition
         if (allow_fbody && fbody != 0)
         {
+            // first make absolutely sure the type is up to date
+            f->llvmType = llvmValue->getType()->getContainedType(0);
+
             if (isMain())
                 gIR->emitMain = true;
 
@@ -672,10 +678,10 @@ void FuncDeclaration::toObjFile()
 
             //assert(gIR->scopes.empty());
             gIR->scopes.push_back(irs);
-                
+
                 // create alloca point
                 f->llvmAllocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
-                
+
                 // output function body
                 fbody->toIR(gIR);
 
@@ -686,7 +692,7 @@ void FuncDeclaration::toObjFile()
                     //new llvm::BranchInst(irs.end, irs.begin);
                     new llvm::ReturnInst(gIR->scopebb());
                 }
-                
+
                 // erase alloca point
                 f->llvmAllocaPoint->eraseFromParent();
                 f->llvmAllocaPoint = 0;
@@ -710,8 +716,4 @@ void FuncDeclaration::toObjFile()
             }
         }
     }
-
-    llvmDModule = gIR->dmodule;
-
-    Logger::println("FuncDeclaration done\n");
 }

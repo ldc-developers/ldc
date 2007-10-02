@@ -31,6 +31,7 @@ public:
     int type;
     bool inplace;
     bool field;
+    unsigned callconv;
 
     VarDeclaration* vardecl;
     FuncDeclaration* funcdecl;

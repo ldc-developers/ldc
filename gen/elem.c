@@ -17,6 +17,7 @@ elem::elem()
     type = NONE;
     inplace = false;
     field = false;
+    callconv = (unsigned)-1;
 
     vardecl = 0;
     funcdecl = 0;

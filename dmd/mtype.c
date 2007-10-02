@@ -114,7 +114,7 @@ Type::Type(TY ty, Type *next)
     this->arrayof = NULL;
     this->vtinfo = NULL;
     this->ctype = NULL;
-    this->llvmType = 0;
+    this->llvmType = NULL;
 }
 
 Type *Type::syntaxCopy()

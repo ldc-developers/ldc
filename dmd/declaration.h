@@ -509,6 +509,8 @@ struct FuncDeclaration : Declaration
     int cvMember(unsigned char *p);
 
     FuncDeclaration *isFuncDeclaration() { return this; }
+
+    bool llvmQueued;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

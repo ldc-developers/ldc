@@ -954,6 +954,8 @@ elem* CallExp::toElem(IRState* p)
     // set calling convention
     if ((fn->funcdecl && (fn->funcdecl->llvmInternal != LLVMintrinsic)) || delegateCall)
         call->setCallingConv(LLVM_DtoCallingConv(dlink));
+    else if (fn->callconv != (unsigned)-1)
+        call->setCallingConv(fn->callconv);
 
     delete fn;
     return e;
@@ -1253,7 +1255,7 @@ elem* DotVarExp::toElem(IRState* p)
             funcval = LLVM_DtoGEP(funcval, zero, vtblidx, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             assert(funcval->getType() == fdecl->llvmValue->getType());
-            //funcval = new llvm::BitCastInst(funcval, fdecl->llvmValue->getType(), "tmp", p->scopebb());
+            e->callconv = LLVM_DtoCallingConv(fdecl->linkage);
         }
         e->val = funcval;
         e->type = elem::VAL;

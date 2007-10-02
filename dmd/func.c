@@ -73,6 +73,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     nrvo_can = 1;
     nrvo_var = NULL;
     shidden = NULL;
+    llvmQueued = false;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

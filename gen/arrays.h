@@ -1,9 +1,9 @@
 #ifndef LLVMC_GEN_ARRAYS_H
 #define LLVMC_GEN_ARRAYS_H
 
-llvm::StructType* LLVM_DtoArrayType(Type* t);
+const llvm::StructType* LLVM_DtoArrayType(Type* t);
 
-llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t);
+const llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t);
 
 llvm::Value* LLVM_DtoNullArray(llvm::Value* v);
 

@@ -250,7 +250,7 @@ struct Type : Object
     virtual type *toCParamtype();
     virtual Symbol *toSymbol();
 
-    llvm::Type* llvmType;
+    const llvm::Type* llvmType;
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();

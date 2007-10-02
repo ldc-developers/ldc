@@ -4,12 +4,34 @@ class C
 {
     void f()
     {
-        printf("hello world\n");
+        printf("world\n");
     }
 }
 
+class D : C
+{
+    void f()
+    {
+        printf("moon\n");
+    }
+}
+
+
+extern(C)
+{
+    void srand(uint seed);
+    int rand();
+}
+
+import llvm.intrinsic;
+
 void main()
 {
-    scope c = new C;
+    C c;
+    srand(readcyclecounter());
+    if (rand() % 2)
+        c = new C;
+    else
+        c = new D;
     c.f();
 }

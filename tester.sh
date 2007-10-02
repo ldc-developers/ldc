@@ -6,23 +6,29 @@ if [ -z $1 ]; then
 fi
 
 if [ "$2" = "ll" ]; then
-    make &&
     llvmdc $1 -Itest -odtest -c &&
     llvm-dis -f $1.bc &&
     cat $1.ll
     exit $?
+elif [ "$2" = "llopt" ]; then
+    llvmdc $1 -Itest -odtest -c &&
+    opt -f -o=$1.bc -std-compile-opts $1.bc &&
+    llvm-dis -f $1.bc &&
+    cat $1.ll
+    exit $?
 elif [ "$2" = "run" ]; then
-    make &&
     llvmdc $1 -Itest -odtest -of$1 &&
     $1
     exit $?
 elif [ "$2" = "c" ]; then
-    make &&
     llvmdc $1 -Itest -odtest -c
     exit $?
 elif [ "$2" = "gdb" ]; then
-    make &&
     gdb --args llvmdc $1 -Itest -odtest '-c'
+    exit $?
+elif [ "$2" = "gdbrun" ]; then
+    llvmdc $1 -Itest -odtest '-c' &&
+    gdb $1
     exit $?
 else
     echo "bad command or filename"

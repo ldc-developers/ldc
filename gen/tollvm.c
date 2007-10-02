@@ -159,7 +159,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam)
+const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam)
 {
     TypeFunction* f = (TypeFunction*)t;
 
@@ -203,7 +203,7 @@ llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
+const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
 {
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
@@ -309,7 +309,7 @@ llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::StructType* LLVM_DtoDelegateType(Type* t)
+const llvm::StructType* LLVM_DtoDelegateType(Type* t)
 {
     const llvm::Type* i8ptr = llvm::PointerType::get(llvm::Type::Int8Ty);
     const llvm::Type* func = LLVM_DtoFunctionType(t->next, i8ptr);
@@ -323,7 +323,7 @@ llvm::StructType* LLVM_DtoDelegateType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Type* LLVM_DtoStructType(Type* t)
+const llvm::Type* LLVM_DtoStructType(Type* t)
 {
     assert(0);
     std::vector<const llvm::Type*> types;
@@ -763,26 +763,40 @@ void LLVM_DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
 
 void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst)
 {
-    assert(tc->llvmInit);
-    assert(dst->getType() == tc->llvmInit->getType());
     assert(gIR);
 
     assert(tc->llvmType);
-    uint64_t n = gTargetData->getTypeSize(tc->llvmType);
-    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    uint64_t size_t_size = gTargetData->getTypeSize(LLVM_DtoSize_t());
+    uint64_t n = gTargetData->getTypeSize(tc->llvmType) - size_t_size;
 
-    llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-    llvm::Value* srcarr = new llvm::BitCastInst(tc->llvmInit,arrty,"tmp",gIR->scopebb());
+    // set vtable field
+    llvm::Value* vtblvar = LLVM_DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
+    assert(tc->sym->llvmVtbl);
+    new llvm::StoreInst(tc->sym->llvmVtbl, vtblvar, gIR->scopebb());
 
-    llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+    // copy the static initializer
+    if (n > 0) {
+        assert(tc->llvmInit);
+        assert(dst->getType() == tc->llvmInit->getType());
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+        llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+
+        llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
+        dstarr = LLVM_DtoGEPi(dstarr,size_t_size,"tmp",gIR->scopebb());
+
+        llvm::Value* srcarr = new llvm::BitCastInst(tc->llvmInit,arrty,"tmp",gIR->scopebb());
+        srcarr = LLVM_DtoGEPi(srcarr,size_t_size,"tmp",gIR->scopebb());
+
+        llvm::Function* fn = LLVM_DeclareMemCpy32();
+        std::vector<llvm::Value*> llargs;
+        llargs.resize(4);
+        llargs[0] = dstarr;
+        llargs[1] = srcarr;
+        llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
+        llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+
+        new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -825,13 +839,18 @@ llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init)
     return _init;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb)
 {
     std::vector<llvm::Value*> v(2);
     v[0] = i0;
     v[1] = i1;
+    Logger::cout() << "DtoGEP: " << *ptr << '\n';
     return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
 {
@@ -847,9 +866,32 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, con
     return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
+{
+    return new llvm::GetElementPtrInst(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb)
+{
+    std::vector<llvm::Value*> v(2);
+    v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
+    v[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i1, false);
+    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 {
+    TypeFunction* f = (TypeFunction*)fdecl->type;
+    assert(f != 0);
+
     if (fdecl->llvmValue != 0) {
+        assert(llvm::isa<llvm::Function>(fdecl->llvmValue));
         return llvm::cast<llvm::Function>(fdecl->llvmValue);
     }
 
@@ -863,9 +905,7 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // construct function
-    TypeFunction* f = (TypeFunction*)fdecl->type;
-    assert(f != 0);
-    llvm::FunctionType* functype = (f->llvmType == 0) ? LLVM_DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
+    const llvm::FunctionType* functype = (f->llvmType == 0) ? LLVM_DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
 
     // mangled name
     char* mangled_name = (fdecl->llvmInternal == LLVMintrinsic) ? fdecl->llvmInternal1 : fdecl->mangle();
@@ -881,6 +921,7 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 
     fdecl->llvmValue = func;
     f->llvmType = functype;
+    assert(llvm::isa<llvm::FunctionType>(f->llvmType));
 
     if (fdecl->isMain()) {
         gIR->mainFunc = func;

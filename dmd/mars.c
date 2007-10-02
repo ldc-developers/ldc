@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
 		global.params.Dversion = 1;
 	    else if (strcmp(p + 1, "w") == 0)
 		global.params.warnings = 1;
-	    else if (strcmp(p + 1, "O") == 0)
+	    else if (p[1] == 'O')
         {
             global.params.optimize = 1;
             if (p[2] != 0) {

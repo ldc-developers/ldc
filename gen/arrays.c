@@ -19,7 +19,7 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::StructType* LLVM_DtoArrayType(Type* t)
+const llvm::StructType* LLVM_DtoArrayType(Type* t)
 {
     assert(t->next);
     const llvm::Type* at = LLVM_DtoType(t->next);
@@ -51,7 +51,7 @@ llvm::StructType* LLVM_DtoArrayType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t)
+const llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t)
 {
     if (t->llvmType)
         return llvm::cast<llvm::ArrayType>(t->llvmType);
@@ -63,7 +63,7 @@ llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t)
 
     TypeSArray* tsa = (TypeSArray*)t;
     assert(tsa->dim->type->isintegral());
-    llvm::ArrayType* arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
+    const llvm::ArrayType* arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
 
     tsa->llvmType = arrty;
     return arrty;
@@ -298,7 +298,7 @@ llvm::Constant* LLVM_DtoArrayInitializer(ArrayInitializer* arrinit)
         inits[i] = v;
     }
 
-    llvm::ArrayType* arrty = LLVM_DtoStaticArrayType(t);
+    const llvm::ArrayType* arrty = LLVM_DtoStaticArrayType(t);
     return llvm::ConstantArray::get(arrty, inits);
 }
 
