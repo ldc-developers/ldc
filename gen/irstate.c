@@ -88,7 +88,8 @@ llvm::BasicBlock* IRState::scopeend()
 }
 bool IRState::scopereturned()
 {
-    return scope().returned;
+    //return scope().returned;
+    return !scopebb()->empty() && scopebb()->back().isTerminator();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

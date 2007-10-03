@@ -85,6 +85,7 @@ Module::genobjfile()
         LLVM_DtoMain();
     }
 
+    /*
     // verify the llvm
     std::string verifyErr;
     Logger::println("Verifying module...");
@@ -95,6 +96,7 @@ Module::genobjfile()
     }
     else
         Logger::println("Verification passed!");
+    */
 
     // run passes
     // TODO

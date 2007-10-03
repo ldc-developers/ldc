@@ -21,7 +21,7 @@ int main(string[] args) {
     }
 
     int ret = 0;
-    if (bad.length > 0) {
+    if (bad.length > 0 || badrun.length > 0) {
         writefln(bad.length, '/', contents.length, " tests failed to compile:");
         foreach(b; bad) {
             writefln("  ",b);
