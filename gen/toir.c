@@ -384,8 +384,19 @@ elem* AssignExp::toElem(IRState* p)
     else if (e1ty == Tclass) {
         if (e2ty == Tclass) {
             llvm::Value* tmp = r->getValue();
-            Logger::cout() << "tmp: " << *tmp << ", " << *l->mem << '\n';
-            new llvm::StoreInst(tmp, l->mem, p->scopebb());
+            Logger::cout() << "tmp: " << *tmp << " ||| " << *l->mem << '\n';
+            // assignment to this in constructor special case
+            if (l->isthis) {
+                FuncDeclaration* fdecl = p->funcdecls.back();
+                // respecify the this param
+                if (!llvm::isa<llvm::AllocaInst>(fdecl->llvmThisVar))
+                    fdecl->llvmThisVar = new llvm::AllocaInst(tmp->getType(), "newthis", p->topallocapoint());
+                new llvm::StoreInst(tmp, fdecl->llvmThisVar, p->scopebb());
+            }
+            // regular class ref -> class ref assignment
+            else {
+                new llvm::StoreInst(tmp, l->mem, p->scopebb());
+            }
         }
         else
         assert(0);
@@ -1218,7 +1229,7 @@ elem* DotVarExp::toElem(IRState* p)
             TypeStruct* ts = (TypeStruct*)e1->type->next;
             ts->sym->offsetToIndex(vd->offset, vdoffsets);
             Logger::println("Struct member offset:%d", vd->offset);
-            src = l->val;
+            src = l->val ? l->val : l->mem;
         }
         else if (e1->type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1->type;
@@ -1279,7 +1290,7 @@ elem* ThisExp::toElem(IRState* p)
     elem* e = new elem;
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
-        assert(vd->llvmValue == 0);
+        /*assert(vd->llvmValue == 0);
 
         llvm::Function* fn = p->topfunc();
         assert(fn);
@@ -1292,10 +1303,14 @@ elem* ThisExp::toElem(IRState* p)
         v = ++fn->arg_begin();
         else
         v = fn->arg_begin();
-        assert(v);
+        assert(v);*/
 
-        e->val = v;
+        llvm::Value* v = p->funcdecls.back()->llvmThisVar;
+        if (llvm::isa<llvm::AllocaInst>(v))
+            v = new llvm::LoadInst(v, "tmp", p->scopebb());
+        e->mem = v;
         e->type = elem::VAL;
+        e->isthis = true;
     }
     else {
         assert(0);
@@ -1794,7 +1809,7 @@ elem* NewExp::toElem(IRState* p)
 
     e->inplace = true;
     e->type = elem::VAR;
-    
+
     return e;
 }
 

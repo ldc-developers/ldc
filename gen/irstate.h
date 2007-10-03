@@ -78,9 +78,11 @@ struct IRState : Object
     // classes TODO move into IRClass
     typedef std::vector<ClassDeclaration*> ClassDeclVec;
     ClassDeclVec classes;
+
     typedef std::vector<FuncDeclaration*> FuncDeclVec;
     typedef std::vector<FuncDeclVec> ClassMethodVec;
     ClassMethodVec classmethods;
+
     typedef std::vector<bool> BoolVec;
     BoolVec queueClassMethods;
 
@@ -111,6 +113,9 @@ struct IRState : Object
     // VarDeclaration for __dollar, but I can't see how to get the
     // array pointer from this :(
     LvalVec arrays;
+
+    // keeping track of the declaration for the current function body
+    FuncDeclVec funcdecls;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

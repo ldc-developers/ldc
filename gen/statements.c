@@ -27,7 +27,7 @@
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 
-/* --------------------------------------------------------------------------------------- */
+//////////////////////////////////////////////////////////////////////////////
 
 void CompoundStatement::toIR(IRState* p)
 {
@@ -70,6 +70,8 @@ void CompoundStatement::toIR(IRState* p)
 
     //p->bbs.pop();
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void ReturnStatement::toIR(IRState* p)
 {
@@ -134,6 +136,8 @@ void ReturnStatement::toIR(IRState* p)
     p->scope().returned = true;
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void ExpStatement::toIR(IRState* p)
 {
     static int esi = 0;
@@ -149,6 +153,8 @@ void ExpStatement::toIR(IRState* p)
     delete e;
     p->buf.writenl();*/
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void IfStatement::toIR(IRState* p)
 {
@@ -204,6 +210,8 @@ void IfStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void ScopeStatement::toIR(IRState* p)
 {
     Logger::println("ScopeStatement::toIR(): %s", toChars());
@@ -239,6 +247,8 @@ void ScopeStatement::toIR(IRState* p)
     gIR->scope() = IRScope(irs.end,oldend);
     */
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void WhileStatement::toIR(IRState* p)
 {
@@ -281,6 +291,8 @@ void WhileStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void DoStatement::toIR(IRState* p)
 {
     static int wsi = 0;
@@ -312,6 +324,8 @@ void DoStatement::toIR(IRState* p)
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void ForStatement::toIR(IRState* p)
 {
@@ -374,6 +388,8 @@ void ForStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void BreakStatement::toIR(IRState* p)
 {
     static int wsi = 0;
@@ -388,6 +404,8 @@ void BreakStatement::toIR(IRState* p)
         new llvm::BranchInst(gIR->loopbbs.back().end, gIR->scopebegin());
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void ContinueStatement::toIR(IRState* p)
 {
@@ -404,6 +422,8 @@ void ContinueStatement::toIR(IRState* p)
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void OnScopeStatement::toIR(IRState* p)
 {
     static int wsi = 0;
@@ -413,6 +433,8 @@ void OnScopeStatement::toIR(IRState* p)
     assert(statement);
     //statement->toIR(p); // this seems to be redundant
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void TryFinallyStatement::toIR(IRState* p)
 {
@@ -446,6 +468,8 @@ void TryFinallyStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void TryCatchStatement::toIR(IRState* p)
 {
     static int wsi = 0;
@@ -465,6 +489,8 @@ void TryCatchStatement::toIR(IRState* p)
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 void ThrowStatement::toIR(IRState* p)
 {
     static int wsi = 0;
@@ -477,6 +503,8 @@ void ThrowStatement::toIR(IRState* p)
     elem* e = exp->toElem(p);
     delete e;
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 void SwitchStatement::toIR(IRState* p)
 {
@@ -561,6 +589,35 @@ void SwitchStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
+void UnrolledLoopStatement::toIR(IRState* p)
+{
+    Logger::println("UnrolledLoopStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* endbb = new llvm::BasicBlock("unrolledend", p->topfunc(), oldend);
+
+    p->scope() = IRScope(p->scopebb(),endbb);
+    p->loopbbs.push_back(IRScope(p->scopebb(),endbb));
+
+    for (int i=0; i<statements->dim; ++i)
+    {
+        Statement* s = (Statement*)statements->data[i];
+        s->toIR(p);
+    }
+
+    p->loopbbs.pop_back();
+
+    new llvm::BranchInst(endbb, p->scopebb());
+    p->scope() = IRScope(endbb,oldend);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
 //STUBST(BreakStatement);
 //STUBST(ForStatement);
@@ -589,5 +646,5 @@ STUBST(LabelStatement);
 STUBST(GotoCaseStatement);
 STUBST(GotoDefaultStatement);
 STUBST(GotoStatement);
-STUBST(UnrolledLoopStatement);
+//STUBST(UnrolledLoopStatement);
 //STUBST(OnScopeStatement);

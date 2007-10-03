@@ -511,6 +511,7 @@ struct FuncDeclaration : Declaration
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     bool llvmQueued;
+    llvm::Value* llvmThisVar;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

@@ -32,6 +32,7 @@ public:
     bool inplace;
     bool field;
     unsigned callconv;
+    bool isthis;
 
     VarDeclaration* vardecl;
     FuncDeclaration* funcdecl;

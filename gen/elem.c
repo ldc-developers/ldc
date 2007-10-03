@@ -18,6 +18,7 @@ elem::elem()
     inplace = false;
     field = false;
     callconv = (unsigned)-1;
+    isthis = false;
 
     vardecl = 0;
     funcdecl = 0;

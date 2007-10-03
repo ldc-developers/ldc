@@ -665,8 +665,19 @@ void FuncDeclaration::toObjFile()
         // function definition
         if (allow_fbody && fbody != 0)
         {
+            gIR->funcdecls.push_back(this);
+
             // first make absolutely sure the type is up to date
             f->llvmType = llvmValue->getType()->getContainedType(0);
+
+            // this handling
+            if (f->llvmUsesThis) {
+                if (f->llvmRetInPtr)
+                    llvmThisVar = ++func->arg_begin();
+                else
+                    llvmThisVar = func->arg_begin();
+                assert(llvmThisVar != 0);
+            }
 
             if (isMain())
                 gIR->emitMain = true;
@@ -716,6 +727,8 @@ void FuncDeclaration::toObjFile()
                 // possibly assert(lastbb->getNumPredecessors() == 0); ??? try it out sometime ...
                 new llvm::UnreachableInst(lastbb);
             }
+
+            gIR->funcdecls.pop_back();
         }
     }
 }
