@@ -630,7 +630,7 @@ void FuncDeclaration::toObjFile()
     const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 
     // only members of the current module maybe be defined
-    if (getModule() == gIR->dmodule)
+    if (getModule() == gIR->dmodule || parent->isTemplateInstance())
     {
         llvmDModule = gIR->dmodule;
 
@@ -729,6 +729,11 @@ void FuncDeclaration::toObjFile()
             }
 
             gIR->funcdecls.pop_back();
+        }
+
+        // template instances should have weak linkage
+        if (parent->isTemplateInstance()) {
+            func->setLinkage(llvm::GlobalValue::WeakLinkage);
         }
     }
 }
