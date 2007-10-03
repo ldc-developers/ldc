@@ -17,7 +17,7 @@ elif [ "$2" = "llopt" ]; then
     cat $1.ll
     exit $?
 elif [ "$2" = "run" ]; then
-    llvmdc $1 -Itest -odtest -of$1 &&
+    llvmdc $1 lib/lphobos.bc -Itest -odtest -of$1 &&
     $1
     exit $?
 elif [ "$2" = "c" ]; then

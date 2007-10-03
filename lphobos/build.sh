@@ -6,6 +6,7 @@ else
 dc_cmd="llvmdc"
 fi
 
+# build runtime
 $dc_cmd internal/contract.d \
         internal/arrays.d \
         internal/moduleinit.d \
@@ -18,6 +19,10 @@ $dc_cmd internal/objectimpl.d -c -odobj || exit 1
 llvm-link -f -o=obj/all.bc obj/contract.bc obj/arrays.bc obj/moduleinit.bc obj/objectimpl.bc obj/moduleinit_backend.bc || exit 1
 
 opt -f -std-compile-opts -o=../lib/llvmdcore.bc obj/all.bc || exit 1
+
+# build phobos
+$dc_cmd std/stdio.d -c -odobj || exit 1
+llvm-link -f -o=../lib/lphobos.bc obj/stdio.bc || exit 1
 
 if [ "$1" = "ll" ]; then
     llvm-dis -f -o=all.ll ../lib/llvmdcore.bc || exit 1
