@@ -891,12 +891,15 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
     assert(f != 0);
 
     if (fdecl->llvmValue != 0) {
-        assert(llvm::isa<llvm::Function>(fdecl->llvmValue));
+        if (!llvm::isa<llvm::Function>(fdecl->llvmValue))
+        {
+            Logger::cout() << *fdecl->llvmValue << '\n';
+            assert(0);
+        }
         return llvm::cast<llvm::Function>(fdecl->llvmValue);
     }
 
-    static int fdi = 0;
-    Logger::print("FuncDeclaration::toObjFile(%d,%s): %s\n", fdi++, fdecl->needThis()?"this":"static",fdecl->toChars());
+    Logger::print("FuncDeclaration::toObjFile(%s): %s\n", fdecl->needThis()?"this":"static",fdecl->toChars());
     LOG_SCOPE;
 
     if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {

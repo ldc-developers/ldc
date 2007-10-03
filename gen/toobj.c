@@ -34,6 +34,7 @@
 #include "id.h"
 #include "import.h"
 #include "template.h"
+#include "scope.h"
 
 #include "gen/irstate.h"
 #include "gen/elem.h"
@@ -51,7 +52,7 @@ Module::genobjfile()
     // start by deleting the old object file
     deleteObjFile();
 
-    // creaet a new ir state
+    // create a new ir state
     IRState ir;
     gIR = &ir;
     ir.dmodule = this;
@@ -85,7 +86,6 @@ Module::genobjfile()
         LLVM_DtoMain();
     }
 
-    /*
     // verify the llvm
     std::string verifyErr;
     Logger::println("Verifying module...");
@@ -96,7 +96,6 @@ Module::genobjfile()
     }
     else
         Logger::println("Verification passed!");
-    */
 
     // run passes
     // TODO
@@ -608,7 +607,7 @@ void EnumDeclaration::toObjFile()
 
 void FuncDeclaration::toObjFile()
 {
-    if (llvmDModule == gIR->dmodule) {
+    if (llvmDModule) {
         assert(llvmValue != 0);
         return;
     }

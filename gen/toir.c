@@ -760,16 +760,16 @@ elem* CallExp::toElem(IRState* p)
     elem* e = new elem;
     elem* fn = e1->toElem(p);
     LINK dlink = LINKdefault;
-    
+
     bool delegateCall = false;
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty,1,false);
 
     // hidden struct return parameter handling
     bool retinptr = false;
-    
+
     TypeFunction* tf = 0;
-    
+
     // regular functions
     if (e1->type->ty == Tfunction) {
         tf = (TypeFunction*)e1->type;
@@ -778,7 +778,7 @@ elem* CallExp::toElem(IRState* p)
         }
         dlink = tf->linkage;
     }
-    
+
     // delegates
     else if (e1->type->ty == Tdelegate) {
         Logger::println("delegateTy = %s\n", e1->type->toChars());
@@ -790,7 +790,7 @@ elem* CallExp::toElem(IRState* p)
         dlink = tf->linkage;
         delegateCall = true;
     }
-    
+
     // invalid
     else {
         assert(tf);
@@ -801,10 +801,11 @@ elem* CallExp::toElem(IRState* p)
     if (retinptr) n++;
 
     llvm::Value* funcval = fn->getValue();
+    assert(funcval != 0);
     std::vector<llvm::Value*> llargs(n, 0);
 
     const llvm::FunctionType* llfnty = 0;
-    
+
     // normal function call
     if (llvm::isa<llvm::FunctionType>(funcval->getType())) {
         llfnty = llvm::cast<llvm::FunctionType>(funcval->getType());
@@ -816,7 +817,6 @@ elem* CallExp::toElem(IRState* p)
         if (llvm::isa<llvm::PointerType>(funcval->getType()->getContainedType(0))) {
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
         }
-        
         // function pointer
         if (llvm::isa<llvm::FunctionType>(funcval->getType()->getContainedType(0))) {
             //Logger::cout() << "function pointer type:\n" << *funcval << '\n';
@@ -956,7 +956,7 @@ elem* CallExp::toElem(IRState* p)
         Logger::cout() << *llargs[i] << '\n';
     }
 
-    Logger::cout() << "Calling: " << *funcval->getType() << '\n';
+    //Logger::cout() << "Calling: " << *funcval->getType() << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
