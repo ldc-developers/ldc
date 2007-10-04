@@ -462,7 +462,7 @@ elem* AddExp::toElem(IRState* p)
 
             TypeStruct* ts = (TypeStruct*)e1->type->next;
             std::vector<unsigned> offsets(1,0);
-            ts->sym->offsetToIndex(cofs->getZExtValue(), offsets);
+            ts->sym->offsetToIndex(type->next, cofs->getZExtValue(), offsets);
             e->mem = LLVM_DtoGEP(l->getValue(), offsets, "tmp", p->scopebb());
             e->type = elem::VAR;
             e->field = true;
@@ -1154,7 +1154,7 @@ elem* SymOffExp::toElem(IRState* p)
             TypeStruct* vdt = (TypeStruct*)vd->type;
             e = new elem;
             std::vector<unsigned> dst(1,0);
-            vdt->sym->offsetToIndex(offset, dst);
+            vdt->sym->offsetToIndex(type->next, offset, dst);
             llvm::Value* ptr = vd->llvmValue;
             assert(ptr);
             e->mem = LLVM_DtoGEP(ptr,dst,"tmp",p->scopebb());
@@ -1242,14 +1242,14 @@ elem* DotVarExp::toElem(IRState* p)
         if (e1->type->ty == Tpointer) {
             assert(e1->type->next->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)e1->type->next;
-            ts->sym->offsetToIndex(vd->offset, vdoffsets);
+            ts->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
             Logger::println("Struct member offset:%d", vd->offset);
             src = l->val ? l->val : l->mem;
         }
         else if (e1->type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1->type;
             Logger::println("Class member offset: %d", vd->offset);
-            tc->sym->offsetToIndex(vd->offset, vdoffsets);
+            tc->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
             src = l->getValue();
         }
         assert(vdoffsets.size() != 1);
@@ -1376,8 +1376,9 @@ elem* StructLiteralExp::toElem(IRState* p)
             Expression* vx = (Expression*)elements->data[i];
             if (vx != 0) {
                 elem* ve = vx->toElem(p);
-                //Logger::cout() << *ve->val << " | " << *arrptr << '\n';
-                new llvm::StoreInst(ve->getValue(), arrptr, p->scopebb());
+                llvm::Value* val = ve->getValue();
+                Logger::cout() << *val << " | " << *arrptr << '\n';
+                new llvm::StoreInst(val, arrptr, p->scopebb());
                 delete ve;
             }
             else {

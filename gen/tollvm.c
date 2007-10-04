@@ -471,7 +471,7 @@ llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si)
         Logger::println("vars[%d] = %s", i, vd->toChars());
 
         std::vector<unsigned> idxs;
-        si->ad->offsetToIndex(vd->offset, idxs);
+        si->ad->offsetToIndex(vd->type, vd->offset, idxs);
         assert(idxs.size() == 1);
         unsigned idx = idxs[0];
 

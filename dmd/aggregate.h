@@ -99,7 +99,7 @@ struct AggregateDeclaration : ScopeDsymbol
     llvm::Type* llvmType;
     llvm::Value* llvmVtbl;
     llvm::Constant* llvmInitZ;
-    virtual void offsetToIndex(unsigned os, std::vector<unsigned>& result); // converts a DMD field offsets to LLVM struct index vector
+    virtual void offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result); // converts a DMD field offsets to LLVM struct index vector
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };
@@ -234,7 +234,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     Symbol *vtblsym;
 
-    virtual void offsetToIndex(unsigned os, std::vector<unsigned>& result);
+    virtual void offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result);
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
 };

@@ -143,28 +143,24 @@ void Declaration::toObjFile()
 /* ================================================================== */
 
 /// Returns the LLVM style index from a DMD style offset
-void AggregateDeclaration::offsetToIndex(unsigned os, std::vector<unsigned>& result)
+void AggregateDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
 {
-    //Logger::println("checking for offset %u :", os);
+    Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
-    unsigned vos = 0;
     for (unsigned i=0; i<fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)fields.data[i];
-        //Logger::println("found %u", vd->offset);
-        if (os == vd->offset) {
+        Logger::println("found %u type %s", vd->offset, vd->type->toChars());
+        if (os == vd->offset && vd->type == t) {
             result.push_back(i);
             return;
         }
-        else if (vd->type->ty == Tstruct) {
-            if (vos + vd->type->size() > os) {
-                TypeStruct* ts = (TypeStruct*)vd->type;
-                StructDeclaration* sd = ts->sym;
-                result.push_back(i);
-                sd->offsetToIndex(os - vos, result);
-                return;
-            }
+        else if (vd->type->ty == Tstruct && (vd->offset + vd->type->size()) > os) {
+            TypeStruct* ts = (TypeStruct*)vd->type;
+            StructDeclaration* sd = ts->sym;
+            result.push_back(i);
+            sd->offsetToIndex(t, os - vd->offset, result);
+            return;
         }
-        vos += vd->offset;
     }
     assert(0 && "Offset not found in any aggregate field");
 }
@@ -194,7 +190,7 @@ static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsig
 
 /// Returns the LLVM style index from a DMD style offset
 /// Handles class inheritance
-void ClassDeclaration::offsetToIndex(unsigned os, std::vector<unsigned>& result)
+void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
 {
     unsigned idx = 0;
     unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
