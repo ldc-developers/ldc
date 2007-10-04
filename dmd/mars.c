@@ -188,6 +188,7 @@ Usage:\n\
                  x86 x86-64 ppc32 ppc64\n\
   -nofloat       do not emit reference to floating point\n\
   -noruntime     do not allow code that generates implicit runtime calls\n\
+  -novalidate    do not run the validation pass before writing bitcode\n\
   -O             optimize, same as -O2\n\
   -On            optimize at level n (0-5)\n\
   -o-            do not write object file\n\
@@ -279,6 +280,7 @@ int main(int argc, char *argv[])
     global.params.llvmArch = 0;
     global.params.forceBE = 0;
     global.params.noruntime = 0;
+    global.params.novalidate = 0;
     global.params.optimizeLevel = 2;
     global.params.runtimeImppath = 0;
 
@@ -370,6 +372,8 @@ int main(int argc, char *argv[])
 		global.params.forceBE = 1;
         else if (strcmp(p + 1, "noruntime") == 0)
 		global.params.noruntime = 1;
+        else if (strcmp(p + 1, "novalidate") == 0)
+        global.params.novalidate = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])

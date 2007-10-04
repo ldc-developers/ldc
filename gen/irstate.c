@@ -98,12 +98,14 @@ IRStruct::IRStruct()
  : recty(llvm::OpaqueType::get())
 {
     type = 0;
+    queueFuncs = true;
 }
 
 IRStruct::IRStruct(Type* t)
  : recty(llvm::OpaqueType::get())
 {
     type = t;
+    queueFuncs = true;
 }
 
 IRStruct::~IRStruct()

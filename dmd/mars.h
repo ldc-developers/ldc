@@ -68,6 +68,7 @@ struct Param
     char cov;		// generate code coverage data
     char nofloat;	// code should not pull in floating point support
     char noruntime;	// code is not allowed to make implicit calls to the runtime
+    char novalidate;// no bitcode validation
     char Dversion;	// D version number
 
     char *argv0;	// program name

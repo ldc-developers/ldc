@@ -41,7 +41,7 @@ struct IRStruct : Object
 {
     typedef std::vector<const llvm::Type*> TypeVector;
     typedef std::vector<llvm::Constant*> ConstantVector;
-    typedef std::vector<llvm::PATypeHolder> PATypeHolderVector;
+    typedef std::vector<FuncDeclaration*> FuncDeclVec;
 
 public:
     IRStruct();
@@ -52,6 +52,8 @@ public:
     TypeVector fields;
     ConstantVector inits;
     llvm::PATypeHolder recty;
+    FuncDeclVec funcs;
+    bool queueFuncs;
 };
 
 // represents the module
@@ -78,13 +80,6 @@ struct IRState : Object
     // classes TODO move into IRClass
     typedef std::vector<ClassDeclaration*> ClassDeclVec;
     ClassDeclVec classes;
-
-    typedef std::vector<FuncDeclaration*> FuncDeclVec;
-    typedef std::vector<FuncDeclVec> ClassMethodVec;
-    ClassMethodVec classmethods;
-
-    typedef std::vector<bool> BoolVec;
-    BoolVec queueClassMethods;
 
     // D main function
     bool emitMain;
@@ -115,6 +110,7 @@ struct IRState : Object
     LvalVec arrays;
 
     // keeping track of the declaration for the current function body
+    typedef std::vector<FuncDeclaration*> FuncDeclVec;
     FuncDeclVec funcdecls;
 };
 

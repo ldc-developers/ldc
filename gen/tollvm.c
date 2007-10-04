@@ -243,7 +243,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     std::vector<const llvm::Type*> paramvec;
 
     if (retinptr) {
-        Logger::print("returning through pointer parameter\n");
+        Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
         paramvec.push_back(rettype);
     }
 
@@ -251,7 +251,8 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         if (AggregateDeclaration* ad = fdecl->isMember()) {
             Logger::print("isMember = this is: %s\n", ad->type->toChars());
             const llvm::Type* thisty = LLVM_DtoType(ad->type);
-            if (llvm::isa<llvm::StructType>(thisty))
+            Logger::cout() << "this llvm type: " << *thisty << '\n';
+            if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
                 thisty = llvm::PointerType::get(thisty);
             paramvec.push_back(thisty);
             usesthis = true;

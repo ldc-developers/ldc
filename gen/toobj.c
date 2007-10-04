@@ -87,15 +87,18 @@ Module::genobjfile()
     }
 
     // verify the llvm
-    std::string verifyErr;
-    Logger::println("Verifying module...");
-    if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
-    {
-        error("%s", verifyErr.c_str());
-        fatal();
+    if (!global.params.novalidate) {
+        std::string verifyErr;
+        Logger::println("Verifying module...");
+        if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
+        {
+            error("%s", verifyErr.c_str());
+            fatal();
+        }
+        else {
+            Logger::println("Verification passed!");
+        }
     }
-    else
-        Logger::println("Verification passed!");
 
     // run passes
     // TODO
@@ -219,19 +222,9 @@ void StructDeclaration::toObjFile()
 
     gIR->structs.push_back(IRStruct(ts));
 
-    std::vector<FuncDeclaration*> mfs;
-
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);
-
-        // need late generation of member functions
-        // they need the llvm::StructType to exist to take the 'this' parameter
-        if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-            mfs.push_back(fd);
-        }
-        else {
-            dsym->toObjFile();
-        }
+        dsym->toObjFile();
     }
 
     if (gIR->topstruct().fields.empty())
@@ -293,7 +286,9 @@ void StructDeclaration::toObjFile()
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, _init, initname, gIR->module);
     ts->llvmInit = initvar;
 
-    // generate member functions
+    // generate member function definitions
+    gIR->topstruct().queueFuncs = false;
+    IRState::FuncDeclVec& mfs = gIR->topstruct().funcs;
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
         mfs[i]->toObjFile();
@@ -341,8 +336,6 @@ void ClassDeclaration::toObjFile()
 
     gIR->structs.push_back(IRStruct(ts));
     gIR->classes.push_back(this);
-    gIR->classmethods.push_back(IRState::FuncDeclVec());
-    gIR->queueClassMethods.push_back(true);
 
     // add vtable
     llvm::PATypeHolder pa = llvm::OpaqueType::get();
@@ -459,15 +452,13 @@ void ClassDeclaration::toObjFile()
     }
 
     // generate member function definitions
-    gIR->queueClassMethods.back() = false;
-    IRState::FuncDeclVec& mfs = gIR->classmethods.back();
+    gIR->topstruct().queueFuncs = false;
+    IRState::FuncDeclVec& mfs = gIR->topstruct().funcs;
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
         mfs[i]->toObjFile();
     }
 
-    gIR->queueClassMethods.pop_back();
-    gIR->classmethods.pop_back();
     gIR->classes.pop_back();
     gIR->structs.pop_back();
 
@@ -644,11 +635,10 @@ void FuncDeclaration::toObjFile()
 
     llvm::Function* func = LLVM_DtoDeclareFunction(this);
 
-    if (!gIR->queueClassMethods.empty() && gIR->queueClassMethods.back()) {
+    if (!gIR->structs.empty() && gIR->topstruct().queueFuncs) {
         if (!llvmQueued) {
             Logger::println("queueing %s", toChars());
-            assert(!gIR->classmethods.empty());
-            gIR->classmethods.back().push_back(this);
+            gIR->topstruct().funcs.push_back(this);
             llvmQueued = true;
         }
         return; // we wait with the definition as they might invoke a virtual method and the vtable is not yet complete
@@ -698,6 +688,8 @@ void FuncDeclaration::toObjFile()
 
             // first make absolutely sure the type is up to date
             f->llvmType = llvmValue->getType()->getContainedType(0);
+
+            Logger::cout() << "func type: " << *f->llvmType << '\n';
 
             // this handling
             if (f->llvmUsesThis) {

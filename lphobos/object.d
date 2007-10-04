@@ -10,8 +10,13 @@ alias typeof(int.sizeof) size_t;
 alias typeof(cast(void*)0 - cast(void*)0) ptrdiff_t;
 alias size_t hash_t;
 
+alias char[] string;
+alias wchar[] wstring;
+alias dchar[] dstring;
+
 extern (C)
 {   int printf(char *, ...);
+    void trace_term();
 }
 
 class Object
@@ -24,13 +29,15 @@ class Object
 
     final void notifyRegister(void delegate(Object) dg);
     final void notifyUnRegister(void delegate(Object) dg);
+
+    static Object factory(char[] classname);
 }
 
 struct Interface
 {
     ClassInfo classinfo;
     void *[] vtbl;
-    ptrdiff_t offset;		// offset to Interface 'this' from Object 'this'
+    int offset;			// offset to Interface 'this' from Object 'this'
 }
 
 class ClassInfo : Object
@@ -46,8 +53,13 @@ class ClassInfo : Object
     //	1:			// IUnknown
     //	2:			// has no possible pointers into GC memory
     //	4:			// has offTi[] member
+    //	8:			// has constructors
     void *deallocator;
     OffsetTypeInfo[] offTi;
+    void* defaultConstructor;	// default Constructor
+
+    static ClassInfo find(char[] classname);
+    Object create();
 }
 
 struct OffsetTypeInfo
@@ -141,15 +153,24 @@ class TypeInfo_Tuple : TypeInfo
     TypeInfo[] elements;
 }
 
+class TypeInfo_Const : TypeInfo
+{
+    TypeInfo next;
+}
+
+class TypeInfo_Invariant : TypeInfo_Const
+{
+}
+
 // Recoverable errors
 
 class Exception : Object
 {
-    char[] msg;
+    string msg;
 
-    this(char[] msg);
-    void print();
-    char[] toString();
+    this(string msg);
+    override void print();
+    override string toString();
 }
 
 // Non-recoverable errors
@@ -158,7 +179,7 @@ class Error : Exception
 {
     Error next;
 
-    this(char[] msg);
-    this(char[] msg, Error next);
+    this(string msg);
+    this(string msg, Error next);
 }
 
