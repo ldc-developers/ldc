@@ -616,6 +616,90 @@ void UnrolledLoopStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void ForeachStatement::toIR(IRState* p)
+{
+    Logger::println("ForeachStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    //assert(arguments->dim == 1);
+    assert(key == 0);
+    assert(value != 0);
+    assert(body != 0);
+    assert(aggr != 0);
+    assert(func != 0);
+
+    //Argument* arg = (Argument*)arguments->data[0];
+    //Logger::println("Argument is %s", arg->toChars());
+
+    Logger::println("aggr = %s", aggr->toChars());
+    Logger::println("func = %s", func->toChars());
+
+    elem* arr = aggr->toElem(p);
+    llvm::Value* val = arr->getValue();
+    Logger::cout() << "aggr2llvm = " << *val << '\n';
+
+    llvm::Value* numiters = 0;
+
+    const llvm::Type* keytype = key ? LLVM_DtoType(key->type) : LLVM_DtoSize_t();
+    llvm::Value* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
+
+    const llvm::Type* valtype = LLVM_DtoType(value->type);
+    llvm::Value* valvar = new llvm::AllocaInst(keytype, "foreachval", p->topallocapoint());
+
+    if (aggr->type->ty == Tsarray)
+    {
+        assert(llvm::isa<llvm::PointerType>(val->getType()));
+        assert(llvm::isa<llvm::ArrayType>(val->getType()->getContainedType(0)));
+        size_t n = llvm::cast<llvm::ArrayType>(val->getType()->getContainedType(0))->getNumElements();
+        assert(n > 0);
+        numiters = llvm::ConstantInt::get(keytype,n,false); 
+    }
+    else
+    {
+        assert(0);
+    }
+
+    if (op == TOKforeach)
+    {
+        new llvm::StoreInst(llvm::ConstantInt::get(keytype,0,false), keyvar, p->scopebb());
+    }
+    else if (op == TOKforeach_reverse)
+    {
+        llvm::Value* v = llvm::BinaryOperator::createSub(numiters, llvm::ConstantInt::get(keytype,1,false),"tmp",p->scopebb());
+        new llvm::StoreInst(v, keyvar, p->scopebb());
+    }
+    else
+    assert(0);
+
+    delete arr;
+
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* begbb = new llvm::BasicBlock("foreachbegin", p->topfunc(), oldend);
+    llvm::BasicBlock* nexbb = new llvm::BasicBlock("foreachnext", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = new llvm::BasicBlock("foreachend", p->topfunc(), oldend);
+
+    new llvm::BranchInst(begbb, p->scopebb());
+
+    // begin
+    p->scope() = IRScope(begbb,nexbb);
+
+    value->llvmValue = LLVM_DtoGEP(val,llvm::ConstantInt::get(keytype,0,false),keyvar,"tmp",p->scopebb());
+
+    // body
+    body->toIR(p);
+
+    // next
+    p->scope() = IRScope(nexbb,endbb);
+    new llvm::BranchInst(endbb, p->scopebb());
+
+    // end
+    if (!p->scope().returned)
+        new llvm::BranchInst(endbb, p->scopebb());
+    p->scope() = IRScope(endbb,oldend);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
@@ -631,7 +715,7 @@ STUBST(CaseStatement);
 STUBST(SwitchErrorStatement);
 STUBST(Statement);
 //STUBST(IfStatement);
-STUBST(ForeachStatement);
+//STUBST(ForeachStatement);
 //STUBST(DoStatement);
 //STUBST(WhileStatement);
 //STUBST(ExpStatement);

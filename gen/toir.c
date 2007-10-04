@@ -986,6 +986,13 @@ elem* CallExp::toElem(IRState* p)
         else {
             Logger::println("as ptr arg");
             llargs[j] = arg->mem ? arg->mem : arg->val;
+            if (llargs[j]->getType() != llfnty->getParamType(j))
+            {
+                assert(llargs[j]->getType() == llfnty->getParamType(j)->getContainedType(0));
+                LLVM_DtoGiveArgumentStorage(arg);
+                new llvm::StoreInst(llargs[j], arg->mem, p->scopebb());
+                llargs[j] = arg->mem;
+            }
             assert(llargs[j] != 0);
         }
 
