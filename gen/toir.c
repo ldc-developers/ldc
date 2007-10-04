@@ -137,8 +137,17 @@ elem* VarExp::toElem(IRState* p)
                     e->type = elem::VAR;
                 }
                 else {
-                    e->val = vd->llvmValue;
-                    e->type = elem::VAL;
+                    if (llvm::isa<llvm::Argument>(vd->llvmValue)) {
+                        e->val = vd->llvmValue;
+                        e->type = elem::VAL;
+                        e->vardecl = vd;
+                    }
+                    else if (llvm::isa<llvm::AllocaInst>(vd->llvmValue)) {
+                        e->mem = vd->llvmValue;
+                        e->type = elem::VAR;
+                    }
+                    else
+                    assert(0);
                 }
             }
         }
@@ -322,7 +331,10 @@ elem* AssignExp::toElem(IRState* p)
         elem* r = e2->toElem(p);
     p->lvals.pop_back();
 
-    assert(l->mem);
+    // handle function argument - allocate temp storage for it :/ annoying
+    if (l->mem == 0) {
+        LLVM_DtoGiveArgumentStorage(l);
+    }
     //e->val = l->store(r->getValue());
 
     TY e1ty = e1->type->ty;
@@ -516,6 +528,8 @@ elem* AddAssignExp::toElem(IRState* p)
         tmp = LLVM_DtoPointedType(storeVal, tmp);
     }*/
 
+    if (l->mem == 0)
+        LLVM_DtoGiveArgumentStorage(l);
     new llvm::StoreInst(val,l->mem,p->scopebb());
     e->type = elem::VAR;
 
@@ -585,6 +599,8 @@ elem* MinAssignExp::toElem(IRState* p)
         tmp = LLVM_DtoPointedType(storeVal, tmp);
     }*/
 
+    if (l->mem == 0)
+        LLVM_DtoGiveArgumentStorage(l);
     new llvm::StoreInst(tmp, l->mem, p->scopebb());
 
     delete l;
@@ -635,6 +651,8 @@ elem* MulAssignExp::toElem(IRState* p)
         tmp = LLVM_DtoPointedType(storeVal, tmp);
     }*/
 
+    if (l->mem == 0)
+        LLVM_DtoGiveArgumentStorage(l);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
@@ -696,6 +714,8 @@ elem* DivAssignExp::toElem(IRState* p)
         tmp = LLVM_DtoPointedType(storeVal, tmp);
     }*/
 
+    if (l->mem == 0)
+        LLVM_DtoGiveArgumentStorage(l);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
@@ -757,6 +777,8 @@ elem* ModAssignExp::toElem(IRState* p)
         tmp = LLVM_DtoPointedType(storeVal, tmp);
     }*/
 
+    if (l->mem == 0)
+        LLVM_DtoGiveArgumentStorage(l);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
@@ -2079,6 +2101,8 @@ elem* X##AssignExp::toElem(IRState* p) \
     elem* v = e2->toElem(p); \
     llvm::Value* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, u->getValue(), v->getValue(), "tmp", p->scopebb()); \
     Logger::cout() << *tmp << '|' << *u->mem << '\n'; \
+    if (u->mem == 0) \
+        LLVM_DtoGiveArgumentStorage(u); \
     new llvm::StoreInst(LLVM_DtoPointedType(u->mem, tmp), u->mem, p->scopebb()); \
     delete u; \
     delete v; \

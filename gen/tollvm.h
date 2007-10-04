@@ -42,4 +42,6 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, con
 llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb);
 llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb);
 
+void LLVM_DtoGiveArgumentStorage(elem* e);
+
 #include "enums.h"

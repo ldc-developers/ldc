@@ -6,6 +6,12 @@ struct S
     char[5] ch;
 }
 
+class C
+{
+    int[] arr;
+    char[4] crs;
+}
+
 void main()
 {
     S s;

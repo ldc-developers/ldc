@@ -982,3 +982,17 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 
     return func;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void LLVM_DtoGiveArgumentStorage(elem* l)
+{
+    assert(l->mem == 0);
+    assert(l->val);
+    assert(llvm::isa<llvm::Argument>(l->val));
+    assert(l->vardecl != 0);
+
+    llvm::AllocaInst* allocainst = new llvm::AllocaInst(l->val->getType(), l->val->getName()+"_storage", gIR->topallocapoint());
+    l->mem = allocainst;
+    l->vardecl->llvmValue = l->mem;
+}
