@@ -1378,7 +1378,12 @@ elem* StructLiteralExp::toElem(IRState* p)
                 elem* ve = vx->toElem(p);
                 llvm::Value* val = ve->getValue();
                 Logger::cout() << *val << " | " << *arrptr << '\n';
-                new llvm::StoreInst(val, arrptr, p->scopebb());
+                if (vx->type->ty == Tstruct) {
+                    TypeStruct* ts = (TypeStruct*)vx->type;
+                    LLVM_DtoStructCopy(ts,arrptr,val);
+                }
+                else
+                    new llvm::StoreInst(val, arrptr, p->scopebb());
                 delete ve;
             }
             else {
