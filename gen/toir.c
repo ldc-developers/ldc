@@ -933,6 +933,11 @@ elem* CallExp::toElem(IRState* p)
     {
         Expression* argexp = (Expression*)arguments->data[i];
         elem* arg = argexp->toElem(p);
+        if (arg->inplace) {
+            assert(arg->mem);
+            llargs[j] = arg->mem;
+            continue;
+        }
 
         Argument* fnarg = Argument::getNth(tf->parameters, i);
 
@@ -1385,42 +1390,46 @@ elem* StructLiteralExp::toElem(IRState* p)
     LOG_SCOPE;
     elem* e = new elem;
 
-    // if there is no lval, this must be a static initializer for a global. correct?
+    llvm::Value* sptr = 0;
+
+    // if there is no lval, this is probably a temporary struct literal. correct?
     if (p->lvals.empty())
     {
-        // TODO
-        assert(0);
+        sptr = new llvm::AllocaInst(LLVM_DtoType(type),"tmpstructliteral",p->topallocapoint());
+        e->mem = sptr;
+        e->type = elem::VAR;
     }
-    // otherwise write directly in the lvalue
+    // already has memory
     else
     {
-        llvm::Value* sptr = p->toplval();
-        assert(sptr);
+        sptr = p->toplval();
+    }
 
-        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+    assert(sptr);
 
-        unsigned n = elements->dim;
-        for (unsigned i=0; i<n; ++i)
-        {
-            llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false);
-            llvm::Value* arrptr = LLVM_DtoGEP(sptr,zero,offset,"tmp",p->scopebb());
+    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-            Expression* vx = (Expression*)elements->data[i];
-            if (vx != 0) {
-                elem* ve = vx->toElem(p);
-                llvm::Value* val = ve->getValue();
-                Logger::cout() << *val << " | " << *arrptr << '\n';
-                if (vx->type->ty == Tstruct) {
-                    TypeStruct* ts = (TypeStruct*)vx->type;
-                    LLVM_DtoStructCopy(ts,arrptr,val);
-                }
-                else
-                    new llvm::StoreInst(val, arrptr, p->scopebb());
-                delete ve;
+    unsigned n = elements->dim;
+    for (unsigned i=0; i<n; ++i)
+    {
+        llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false);
+        llvm::Value* arrptr = LLVM_DtoGEP(sptr,zero,offset,"tmp",p->scopebb());
+
+        Expression* vx = (Expression*)elements->data[i];
+        if (vx != 0) {
+            elem* ve = vx->toElem(p);
+            llvm::Value* val = ve->getValue();
+            Logger::cout() << *val << " | " << *arrptr << '\n';
+            if (vx->type->ty == Tstruct) {
+                TypeStruct* ts = (TypeStruct*)vx->type;
+                LLVM_DtoStructCopy(ts,arrptr,val);
             }
-            else {
-                assert(0);
-            }
+            else
+                new llvm::StoreInst(val, arrptr, p->scopebb());
+            delete ve;
+        }
+        else {
+            assert(0);
         }
     }
 
