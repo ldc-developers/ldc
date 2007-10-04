@@ -659,42 +659,55 @@ void ForeachStatement::toIR(IRState* p)
         assert(0);
     }
 
-    if (op == TOKforeach)
-    {
+    if (op == TOKforeach) {
         new llvm::StoreInst(llvm::ConstantInt::get(keytype,0,false), keyvar, p->scopebb());
     }
-    else if (op == TOKforeach_reverse)
-    {
+    else if (op == TOKforeach_reverse) {
         llvm::Value* v = llvm::BinaryOperator::createSub(numiters, llvm::ConstantInt::get(keytype,1,false),"tmp",p->scopebb());
         new llvm::StoreInst(v, keyvar, p->scopebb());
     }
-    else
-    assert(0);
 
     delete arr;
 
     llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* begbb = new llvm::BasicBlock("foreachbegin", p->topfunc(), oldend);
     llvm::BasicBlock* nexbb = new llvm::BasicBlock("foreachnext", p->topfunc(), oldend);
+    llvm::BasicBlock* begbb = new llvm::BasicBlock("foreachbegin", p->topfunc(), oldend);
     llvm::BasicBlock* endbb = new llvm::BasicBlock("foreachend", p->topfunc(), oldend);
 
     new llvm::BranchInst(begbb, p->scopebb());
 
+    // next
+    p->scope() = IRScope(nexbb,begbb);
+    llvm::Value* done = 0;
+    llvm::Value* load = new llvm::LoadInst(keyvar, "tmp", p->scopebb());
+    if (op == TOKforeach) {
+        load = llvm::BinaryOperator::createAdd(load,llvm::ConstantInt::get(keytype, 1, false),"tmp",p->scopebb());
+        new llvm::StoreInst(load, keyvar, p->scopebb());
+        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_ULT, load, numiters, "tmp", p->scopebb());
+    }
+    else if (op == TOKforeach_reverse) {
+        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_UGT, load, llvm::ConstantInt::get(keytype, 0, false), "tmp", p->scopebb());
+        load = llvm::BinaryOperator::createSub(load,llvm::ConstantInt::get(keytype, 1, false),"tmp",p->scopebb());
+        new llvm::StoreInst(load, keyvar, p->scopebb());
+    }
+    new llvm::BranchInst(begbb, endbb, done, p->scopebb());
+
     // begin
     p->scope() = IRScope(begbb,nexbb);
 
-    value->llvmValue = LLVM_DtoGEP(val,llvm::ConstantInt::get(keytype,0,false),keyvar,"tmp",p->scopebb());
+    // get value for this iteration
+    value->llvmValue = LLVM_DtoGEP(val,llvm::ConstantInt::get(keytype,0,false),new llvm::LoadInst(keyvar,"tmp",p->scopebb()),"tmp",p->scopebb());
 
     // body
+    p->scope() = IRScope(p->scopebb(),endbb);
+    p->loopbbs.push_back(IRScope(nexbb,endbb));
     body->toIR(p);
+    p->loopbbs.pop_back();
 
-    // next
-    p->scope() = IRScope(nexbb,endbb);
-    new llvm::BranchInst(endbb, p->scopebb());
+    if (!p->scope().returned)
+        new llvm::BranchInst(nexbb, p->scopebb());
 
     // end
-    if (!p->scope().returned)
-        new llvm::BranchInst(endbb, p->scopebb());
     p->scope() = IRScope(endbb,oldend);
 }
 
