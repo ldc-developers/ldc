@@ -308,7 +308,21 @@ static llvm::Value* get_slice_ptr(elem* e, llvm::Value*& sz)
     assert(e->mem);
     const llvm::Type* t = e->mem->getType()->getContainedType(0);
     llvm::Value* ret = 0;
-    if (llvm::isa<llvm::ArrayType>(t)) {
+    if (e->arg != 0) {
+        // this means it's a real slice
+        ret = e->mem;
+
+        size_t elembsz = gTargetData->getTypeSize(ret->getType());
+        llvm::ConstantInt* elemsz = llvm::ConstantInt::get(LLVM_DtoSize_t(), elembsz, false);
+
+        if (llvm::isa<llvm::ConstantInt>(e->arg)) {
+            sz = llvm::ConstantExpr::getMul(elemsz, llvm::cast<llvm::Constant>(e->arg));
+        }
+        else {
+            sz = llvm::BinaryOperator::createMul(elemsz,e->arg,"tmp",gIR->scopebb());
+        }
+    }
+    else if (llvm::isa<llvm::ArrayType>(t)) {
         ret = LLVM_DtoGEPi(e->mem, 0, 0, "tmp", gIR->scopebb());
 
         size_t elembsz = gTargetData->getTypeSize(ret->getType()->getContainedType(0));

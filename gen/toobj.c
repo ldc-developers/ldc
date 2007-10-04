@@ -497,7 +497,7 @@ void VarDeclaration::toObjFile()
     }
 
     // global variable or magic
-    if (!parent || parent->isModule())
+    if (isDataseg())
     {
         bool _isconst = isConst();
         if (!_isconst)
