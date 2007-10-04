@@ -46,19 +46,22 @@ elem* DeclarationExp::toElem(IRState* p)
     {
         Logger::println("VarDeclaration");
 
-        // handle const
-        // TODO probably not correct
-        bool isconst = (vd->storage_class & STCconst) != 0;
+        if (vd->isDataseg())
+        {
+            vd->toObjFile();
+        }
+        else
+        {
+            // allocate storage on the stack
+            Logger::println("vdtype = %s", vd->type->toChars());
+            const llvm::Type* lltype = LLVM_DtoType(vd->type);
+            llvm::AllocaInst* allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
+            //allocainst->setAlignment(vd->type->alignsize()); // TODO
+            vd->llvmValue = allocainst;
+            // e->val = really needed??
 
-        // allocate storage on the stack
-        Logger::println("vdtype = %s", vd->type->toChars());
-        const llvm::Type* lltype = LLVM_DtoType(vd->type);
-        llvm::AllocaInst* allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
-        //allocainst->setAlignment(vd->type->alignsize()); // TODO
-        vd->llvmValue = allocainst;
-        // e->val = really needed??
-
-        LLVM_DtoInitializer(vd->type, vd->init);
+            LLVM_DtoInitializer(vd->type, vd->init);
+        }
     }
     // struct declaration
     else if (StructDeclaration* s = declaration->isStructDeclaration())
@@ -2209,7 +2212,6 @@ elem* CondExp::toElem(IRState* p)
 
     p->scope() = IRScope(condtrue, condfalse);
     elem* u = e1->toElem(p);
-    Logger::cout() << *u->val << '|' << *resval << '\n'; \
     new llvm::StoreInst(u->getValue(),resval,p->scopebb());
     new llvm::BranchInst(condend,p->scopebb());
     delete u;

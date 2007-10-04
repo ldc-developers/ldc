@@ -505,9 +505,13 @@ void VarDeclaration::toObjFile()
     if (isDataseg())
     {
         bool _isconst = isConst();
-        if (!_isconst)
-            _isconst = (storage_class & STCconst) ? true : false; // doesn't seem to work ):
-        llvm::GlobalValue::LinkageTypes _linkage = LLVM_DtoLinkage(protection, storage_class);
+
+        llvm::GlobalValue::LinkageTypes _linkage;
+        if (parent->isFuncDeclaration())
+            _linkage = llvm::GlobalValue::InternalLinkage;
+        else
+            _linkage = LLVM_DtoLinkage(protection, storage_class);
+
         const llvm::Type* _type = LLVM_DtoType(type);
         assert(_type);
 
