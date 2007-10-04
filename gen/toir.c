@@ -976,7 +976,10 @@ elem* CallExp::toElem(IRState* p)
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
-    e->val = call;
+    if (retinptr)
+        e->mem = llargs[0];
+    else
+        e->val = call;
 
     // set calling convention
     if ((fn->funcdecl && (fn->funcdecl->llvmInternal != LLVMintrinsic)) || delegateCall)
@@ -1812,13 +1815,14 @@ elem* NewExp::toElem(IRState* p)
                 Expression* ex = (Expression*)arguments->data[i];
                 Logger::println("arg=%s", ex->toChars());
                 elem* exe = ex->toElem(p);
-                assert(exe->getValue());
-                ctorargs.push_back(exe->getValue());
+                llvm::Value* v = exe->getValue();
+                assert(v);
+                ctorargs.push_back(v);
                 delete exe;
             }
             assert(member);
             assert(member->llvmValue);
-            new llvm::CallInst(member->llvmValue, ctorargs.begin(), ctorargs.end(), "", p->scopebb());
+            e->mem = new llvm::CallInst(member->llvmValue, ctorargs.begin(), ctorargs.end(), "tmp", p->scopebb());
         }
     }
     else if (newtype->ty == Tstruct) {

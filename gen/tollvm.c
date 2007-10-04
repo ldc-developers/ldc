@@ -892,6 +892,25 @@ llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std:
 
 llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 {
+    // mangled name
+    char* mangled_name = (fdecl->llvmInternal == LLVMintrinsic) ? fdecl->llvmInternal1 : fdecl->mangle();
+
+    // unit test special handling
+    if (fdecl->isUnitTestDeclaration())
+    {
+        assert(0 && "no unittests yet");
+        /*const llvm::FunctionType* fnty = llvm::FunctionType::get(llvm::Type::VoidTy, std::vector<const llvm::Type*>(), false);
+        // make the function
+        llvm::Function* func = gIR->module->getFunction(mangled_name);
+        if (func == 0)
+            func = new llvm::Function(fnty,llvm::GlobalValue::InternalLinkage,mangled_name,gIR->module);
+        func->setCallingConv(llvm::CallingConv::Fast);
+        fdecl->llvmValue = func;
+        return func;
+        */
+    }
+
+    // regular function
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
 
@@ -914,9 +933,6 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // construct function
     const llvm::FunctionType* functype = (f->llvmType == 0) ? LLVM_DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
-
-    // mangled name
-    char* mangled_name = (fdecl->llvmInternal == LLVMintrinsic) ? fdecl->llvmInternal1 : fdecl->mangle();
 
     // make the function
     llvm::Function* func = gIR->module->getFunction(mangled_name);
