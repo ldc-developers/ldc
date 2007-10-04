@@ -228,12 +228,16 @@ elem* NullExp::toElem(IRState* p)
     LOG_SCOPE;
     elem* e = new elem;
     const llvm::Type* t = LLVM_DtoType(type);
-    if (llvm::isa<llvm::StructType>(t))
-        t = llvm::PointerType::get(t);
-    Logger::cout() << *t << '\n';
-    e->val = llvm::Constant::getNullValue(t);
+
+    if (type->ty == Tarray) {
+        assert(llvm::isa<llvm::StructType>(t));
+        e->val = llvm::ConstantAggregateZero::get(t);
+    }
+    else
+        e->val = llvm::Constant::getNullValue(t);
     assert(e->val);
-    Logger::cout() << *e->val << '\n';
+
+    Logger::cout() << "null value is now " << *e->val << '\n';
     e->type = elem::NUL;
     return e;
 }

@@ -574,17 +574,25 @@ void VarDeclaration::toObjFile()
         const llvm::Type* _type = LLVM_DtoType(type);
         gIR->topstruct().fields.push_back(_type);
 
-        llvm::Constant* _init = LLVM_DtoInitializer(type, init);
-        if (_type != _init->getType())
+        llvm::Constant*_init = LLVM_DtoInitializer(type, init);
+        assert(_init);
+        Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
+        if (!_init || _type != _init->getType())
         {
-            if (llvm::isa<llvm::ArrayType>(_type))
+            if (type->ty == Tsarray)
             {
                 const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(_type);
                 uint64_t n = arrty->getNumElements();
                 std::vector<llvm::Constant*> vals(n,_init);
                 _init = llvm::ConstantArray::get(arrty, vals);
             }
-            else if (llvm::isa<llvm::StructType>(_type)) {
+            else if (type->ty == Tarray)
+            {
+                assert(llvm::isa<llvm::StructType>(_type));
+                _init = llvm::ConstantAggregateZero::get(_type);
+            }
+            else if (type->ty == Tstruct)
+            {
                 const llvm::StructType* structty = llvm::cast<llvm::StructType>(_type);
                 TypeStruct* ts = (TypeStruct*)type;
                 assert(ts);
@@ -592,8 +600,14 @@ void VarDeclaration::toObjFile()
                 assert(ts->sym->llvmInitZ);
                 _init = ts->sym->llvmInitZ;
             }
-            else
-            assert(0);
+            else if (type->ty == Tclass)
+            {
+                _init = llvm::Constant::getNullValue(_type);
+            }
+            else {
+                Logger::println("failed for type %s", type->toChars());
+                assert(0);
+            }
         }
         gIR->topstruct().inits.push_back(_init);
     }
