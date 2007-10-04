@@ -803,9 +803,10 @@ void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst)
 
 llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init)
 {
-    llvm::Constant* _init = 0;
+    llvm::Constant* _init = 0; // may return zero
     if (!init)
     {
+        Logger::println("default initializer");
         elem* e = type->defaultInit()->toElem(gIR);
         if (!e->inplace && !e->isNull()) {
             _init = llvm::cast<llvm::Constant>(e->getValue());
@@ -814,6 +815,7 @@ llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init)
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
+        Logger::println("expression initializer");
         elem* e = ex->exp->toElem(gIR);
         if (!e->inplace && !e->isNull()) {
             _init = llvm::cast<llvm::Constant>(e->getValue());
@@ -822,14 +824,17 @@ llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init)
     }
     else if (StructInitializer* si = init->isStructInitializer())
     {
+        Logger::println("struct initializer");
         _init = LLVM_DtoStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
+        Logger::println("array initializer");
         _init = LLVM_DtoArrayInitializer(ai);
     }
     else if (init->isVoidInitializer())
     {
+        Logger::println("void initializer");
         const llvm::Type* ty = LLVM_DtoType(type);
         _init = llvm::Constant::getNullValue(ty);
     }

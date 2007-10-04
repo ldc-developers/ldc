@@ -303,7 +303,73 @@ llvm::Constant* LLVM_DtoArrayInitializer(ArrayInitializer* arrinit)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+static llvm::Value* get_slice_ptr(elem* e, llvm::Value*& sz)
+{
+    assert(e->mem);
+    const llvm::Type* t = e->mem->getType()->getContainedType(0);
+    llvm::Value* ret = 0;
+    if (llvm::isa<llvm::ArrayType>(t)) {
+        ret = LLVM_DtoGEPi(e->mem, 0, 0, "tmp", gIR->scopebb());
+
+        size_t elembsz = gTargetData->getTypeSize(ret->getType()->getContainedType(0));
+        llvm::ConstantInt* elemsz = llvm::ConstantInt::get(LLVM_DtoSize_t(), elembsz, false);
+
+        size_t numelements = llvm::cast<llvm::ArrayType>(t)->getNumElements();
+        llvm::ConstantInt* nelems = llvm::ConstantInt::get(LLVM_DtoSize_t(), numelements, false);
+
+        sz = llvm::ConstantExpr::getMul(elemsz, nelems);
+    }
+    else if (llvm::isa<llvm::StructType>(t)) {
+        ret = LLVM_DtoGEPi(e->mem, 0, 1, "tmp", gIR->scopebb());
+        ret = new llvm::LoadInst(ret, "tmp", gIR->scopebb());
+
+        size_t elembsz = gTargetData->getTypeSize(ret->getType()->getContainedType(0));
+        llvm::ConstantInt* elemsz = llvm::ConstantInt::get(LLVM_DtoSize_t(), elembsz, false);
+
+        llvm::Value* len = LLVM_DtoGEPi(e->mem, 0, 0, "tmp", gIR->scopebb());
+        len = new llvm::LoadInst(len, "tmp", gIR->scopebb());
+        sz = llvm::BinaryOperator::createMul(len,elemsz,"tmp",gIR->scopebb());
+    }
+    else {
+        assert(0);
+    }
+    return ret;
+}
+
 void LLVM_DtoArrayCopy(elem* dst, elem* src)
 {
-    assert(0);
+    Logger::cout() << "Array copy ((((" << *src->mem << ")))) into ((((" << *dst->mem << "))))\n";
+
+    assert(dst->type == elem::SLICE);
+    assert(src->type == elem::SLICE);
+
+    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+
+    llvm::Value* sz1;
+    llvm::Value* sz2;
+    llvm::Value* dstarr = new llvm::BitCastInst(get_slice_ptr(dst,sz1),arrty,"tmp",gIR->scopebb());
+    llvm::Value* srcarr = new llvm::BitCastInst(get_slice_ptr(src,sz2),arrty,"tmp",gIR->scopebb());
+
+    llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
+    std::vector<llvm::Value*> llargs;
+    llargs.resize(4);
+    llargs[0] = dstarr;
+    llargs[1] = srcarr;
+    llargs[2] = sz1;
+    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+
+    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Constant* LLVM_DtoConstantSlice(llvm::Constant* dim, llvm::Constant* ptr)
+{
+    std::vector<const llvm::Type*> types;
+    types.push_back(dim->getType());
+    types.push_back(ptr->getType());
+    const llvm::StructType* type = llvm::StructType::get(types);
+    std::vector<llvm::Constant*> values;
+    values.push_back(dim);
+    values.push_back(ptr);
+    return llvm::ConstantStruct::get(type,values);
 }

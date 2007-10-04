@@ -239,7 +239,7 @@ elem* NullExp::toElem(IRState* p)
 
 elem* StringExp::toElem(IRState* p)
 {
-    Logger::print("StringExp::toElem: %s\n", toChars());
+    Logger::print("StringExp::toElem: %s | \n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(type->next->ty == Tchar && "Only char is supported");
@@ -257,8 +257,10 @@ elem* StringExp::toElem(IRState* p)
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,"stringliteral",gIR->module);
 
-    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-    llvm::Value* arrptr = LLVM_DtoGEP(gvar,zero,zero,"tmp",p->scopebb());
+    llvm::ConstantInt* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+    //llvm::Value* arrptr = LLVM_DtoGEP(gvar,zero,zero,"tmp",p->scopebb());
+    llvm::Constant* idxs[2] = { zero, zero };
+    llvm::Constant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 
     elem* e = new elem;
 
@@ -272,8 +274,18 @@ elem* StringExp::toElem(IRState* p)
         }
         else {
             llvm::Value* arr = p->toplval();
-            LLVM_DtoSetArray(arr, clen, arrptr);
+            if (llvm::isa<llvm::GlobalVariable>(arr)) {
+                e->val = LLVM_DtoConstantSlice(clen, arrptr);
+            }
+            else {
+                LLVM_DtoSetArray(arr, clen, arrptr);
+                e->inplace = true;
+            }
         }
+    }
+    else if (type->ty == Tsarray) {
+        const llvm::Type* dstType = llvm::PointerType::get(llvm::ArrayType::get(ct, len));
+        e->mem = new llvm::BitCastInst(gvar, dstType, "tmp", gIR->scopebb());
     }
     else if (type->ty == Tpointer) {
         e->mem = arrptr;
@@ -282,7 +294,6 @@ elem* StringExp::toElem(IRState* p)
         assert(0);
     }
 
-    e->inplace = true;
     e->type = elem::VAL;
 
     return e;
@@ -934,10 +945,13 @@ elem* CallExp::toElem(IRState* p)
             }
         }
         else if (!fnarg || fnarg->llvmCopy) {
-            llargs[j] = arg->getValue();
+            Logger::println("regular arg");
+            assert(arg->type != elem::SLICE);
+            llargs[j] = arg->arg ? arg->arg : arg->getValue();
             assert(llargs[j] != 0);
         }
         else {
+            Logger::println("as ptr arg");
             llargs[j] = arg->mem ? arg->mem : arg->val;
             assert(llargs[j] != 0);
         }
@@ -956,7 +970,7 @@ elem* CallExp::toElem(IRState* p)
         Logger::cout() << *llargs[i] << '\n';
     }
 
-    //Logger::cout() << "Calling: " << *funcval->getType() << '\n';
+    Logger::cout() << "Calling: " << *funcval->getType() << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
@@ -1155,6 +1169,7 @@ elem* SymOffExp::toElem(IRState* p)
             llvm::Value* idx0 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             //llvm::Value* idx1 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
             e->mem = LLVM_DtoGEP(vd->llvmValue,idx0,idx0,"tmp",p->scopebb());
+            e->arg = vd->llvmValue;
             e->type = elem::VAL;
         }
         else if (offset == 0) {

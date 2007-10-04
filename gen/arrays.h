@@ -17,4 +17,6 @@ void LLVM_DtoArrayCopy(elem* dst, elem* src);
 
 void LLVM_DtoArrayInit(llvm::Value* l, llvm::Value* r);
 
+llvm::Constant* LLVM_DtoConstantSlice(llvm::Constant* dim, llvm::Constant* ptr);
+
 #endif // LLVMC_GEN_ARRAYS_H

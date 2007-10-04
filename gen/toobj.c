@@ -504,14 +504,20 @@ void VarDeclaration::toObjFile()
             _isconst = (storage_class & STCconst) ? true : false; // doesn't seem to work ):
         llvm::GlobalValue::LinkageTypes _linkage = LLVM_DtoLinkage(protection, storage_class);
         const llvm::Type* _type = LLVM_DtoType(type);
+        assert(_type);
 
         llvm::Constant* _init = 0;
         bool _signed = !type->isunsigned();
 
-        _init = LLVM_DtoInitializer(type, init);
+        Logger::println("Creating global variable");
+        std::string _name(mangle());
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,0,_name,M);
+        llvmValue = gvar;
+        gIR->lvals.push_back(gvar);
 
-        assert(_type);
+        _init = LLVM_DtoInitializer(type, init);
         assert(_init);
+
         //Logger::cout() << "initializer: " << *_init << '\n';
         if (_type != _init->getType()) {
             Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
@@ -537,14 +543,15 @@ void VarDeclaration::toObjFile()
                 initvals.resize(at->getNumElements(), _init);
                 _init = llvm::ConstantArray::get(at, initvals);
             }
-            else
-            assert(0);
+            else {
+                Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
+                //assert(0);
+            }
         }
 
-        Logger::println("Creating global variable");
-        std::string _name(mangle());
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,_init,_name,M);
-        llvmValue = gvar;
+        gIR->lvals.pop_back();
+
+        gvar->setInitializer(_init);
 
         //if (storage_class & STCprivate)
         //    gvar->setVisibility(llvm::GlobalValue::ProtectedVisibility);
