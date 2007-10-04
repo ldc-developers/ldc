@@ -14,8 +14,6 @@ struct Id
     static Identifier *dtor;
     static Identifier *classInvariant;
     static Identifier *unitTest;
-    static Identifier *staticCtor;
-    static Identifier *staticDtor;
     static Identifier *init;
     static Identifier *size;
     static Identifier *__sizeof;

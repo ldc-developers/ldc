@@ -192,6 +192,28 @@ void AttribDeclaration::toObjFile()
     }
 }
 
+int AttribDeclaration::cvMember(unsigned char *p)
+{
+    unsigned i;
+    int nwritten = 0;
+    int n;
+    Array *d = include(NULL, NULL);
+
+    if (d)
+    {
+    for (i = 0; i < d->dim; i++)
+    {   Dsymbol *s;
+
+        s = (Dsymbol *)d->data[i];
+        n = s->cvMember(p);
+        if (p)
+        p += n;
+        nwritten += n;
+    }
+    }
+    return nwritten;
+}
+
 int AttribDeclaration::hasPointers()
 {
     Array *d = include(NULL, NULL);

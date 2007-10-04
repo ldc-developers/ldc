@@ -51,6 +51,7 @@ struct AttribDeclaration : Dsymbol
     AttribDeclaration *isAttribDeclaration() { return this; }
 
     void toObjFile();			// compile to .obj file
+    int cvMember(unsigned char *p);
 };
 
 struct StorageClassDeclaration: AttribDeclaration

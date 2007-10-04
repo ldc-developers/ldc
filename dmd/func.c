@@ -255,7 +255,7 @@ void FuncDeclaration::semantic(Scope *sc)
 	if (!isVirtual())
 	{
 	    //printf("\tnot virtual\n");
-	    return;
+	    goto Ldone;
 	}
 
 	// Find index of existing function in vtbl[] to override
@@ -405,8 +405,8 @@ void FuncDeclaration::semantic(Scope *sc)
 #if 0
 				if (offset)
 				    ti = fdv->type;
-				else if (type->next->ty == Tclass)
-				{   ClassDeclaration *cdn = ((TypeClass *)type->next)->sym;
+				else if (type->nextOf()->ty == Tclass)
+				{   ClassDeclaration *cdn = ((TypeClass *)type->nextOf())->sym;
 				    if (cdn && cdn->sizeok != 1)
 					ti = fdv->type;
 				}
@@ -480,8 +480,8 @@ void FuncDeclaration::semantic(Scope *sc)
 	    {
 		Argument *arg0 = Argument::getNth(f->parameters, 0);
 		if (arg0->type->ty != Tarray ||
-		    arg0->type->next->ty != Tarray ||
-		    arg0->type->next->next->ty != Tchar ||
+		    arg0->type->nextOf()->ty != Tarray ||
+		    arg0->type->nextOf()->nextOf()->ty != Tchar ||
 		    arg0->storageClass & (STCout | STCref | STClazy))
 		    goto Lmainerr;
 		break;
@@ -526,6 +526,7 @@ void FuncDeclaration::semantic(Scope *sc)
 	}
     }
 
+Ldone:
     /* Save scope for possible later use (if we need the
      * function internals)
      */
@@ -2185,7 +2186,8 @@ void DtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 /********************************* StaticCtorDeclaration ****************************/
 
 StaticCtorDeclaration::StaticCtorDeclaration(Loc loc, Loc endloc)
-    : FuncDeclaration(loc, endloc, Id::staticCtor, STCstatic, NULL)
+    : FuncDeclaration(loc, endloc,
+      Identifier::generateId("_staticCtor"), STCstatic, NULL)
 {
 }
 
@@ -2257,7 +2259,8 @@ void StaticCtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 /********************************* StaticDtorDeclaration ****************************/
 
 StaticDtorDeclaration::StaticDtorDeclaration(Loc loc, Loc endloc)
-    : FuncDeclaration(loc, endloc, Id::staticDtor, STCstatic, NULL)
+    : FuncDeclaration(loc, endloc,
+      Identifier::generateId("_staticDtor"), STCstatic, NULL)
 {
 }
 

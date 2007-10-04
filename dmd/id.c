@@ -12,8 +12,6 @@ Identifier *Id::ctor;
 Identifier *Id::dtor;
 Identifier *Id::classInvariant;
 Identifier *Id::unitTest;
-Identifier *Id::staticCtor;
-Identifier *Id::staticDtor;
 Identifier *Id::init;
 Identifier *Id::size;
 Identifier *Id::__sizeof;
@@ -187,8 +185,6 @@ void Id::initialize()
     dtor = Lexer::idPool("_dtor");
     classInvariant = Lexer::idPool("__invariant");
     unitTest = Lexer::idPool("_unitTest");
-    staticCtor = Lexer::idPool("_staticCtor");
-    staticDtor = Lexer::idPool("_staticDtor");
     init = Lexer::idPool("init");
     size = Lexer::idPool("size");
     __sizeof = Lexer::idPool("sizeof");

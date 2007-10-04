@@ -23,6 +23,7 @@ struct Type;
 struct dt_t;
 struct AggregateDeclaration;
 struct VoidInitializer;
+struct StructInitializer;
 struct ArrayInitializer;
 struct ExpInitializer;
 struct StructInitializer;
@@ -47,9 +48,9 @@ struct Initializer : Object
     virtual dt_t *toDt();
 
     virtual VoidInitializer *isVoidInitializer() { return NULL; }
+    virtual StructInitializer  *isStructInitializer()  { return NULL; }
     virtual ArrayInitializer  *isArrayInitializer()  { return NULL; }
     virtual ExpInitializer  *isExpInitializer()  { return NULL; }
-    virtual StructInitializer  *isStructInitializer()  { return NULL; }
 };
 
 struct VoidInitializer : Initializer
@@ -84,7 +85,7 @@ struct StructInitializer : Initializer
 
     dt_t *toDt();
 
-    virtual StructInitializer  *isStructInitializer()  { return this; }
+    StructInitializer  *isStructInitializer()  { return this; }
 };
 
 struct ArrayInitializer : Initializer

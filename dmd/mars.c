@@ -68,7 +68,7 @@ Global::Global()
     copyright = "Copyright (c) 1999-2007 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     llvmdc_version = "0.0.1";
-    version = "v1.020";
+    version = "v1.021";
     global.structalign = 8;
 
     memset(&params, 0, sizeof(Param));
@@ -282,6 +282,9 @@ int main(int argc, char *argv[])
     global.params.optimizeLevel = 2;
     global.params.runtimeImppath = 0;
 
+    global.params.defaultlibname = "phobos";
+    global.params.debuglibname = global.params.defaultlibname;
+
     // Predefine version identifiers
 #if IN_LLVM
     VersionCondition::addPredefinedGlobalIdent("LLVM");
@@ -474,7 +477,7 @@ int main(int argc, char *argv[])
         {
         global.params.runtimeImppath = p+2;
         }
-	    else if (memcmp(p + 1, "debug", 5) == 0)
+	    else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l')
 	    {
 		// Parse:
 		//	-debug
@@ -544,6 +547,14 @@ int main(int argc, char *argv[])
 	    else if (p[1] == 'L')
 	    {
 		global.params.linkswitches->push(p + 2);
+	    }
+	    else if (memcmp(p + 1, "defaultlib=", 11) == 0)
+	    {
+		global.params.defaultlibname = p + 1 + 11;
+	    }
+	    else if (memcmp(p + 1, "debuglib=", 9) == 0)
+	    {
+		global.params.debuglibname = p + 1 + 9;
 	    }
 	    else if (strcmp(p + 1, "run") == 0)
 	    {	global.params.run = 1;
