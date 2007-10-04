@@ -145,10 +145,17 @@ void Declaration::toObjFile()
 /// Returns the LLVM style index from a DMD style offset
 void AggregateDeclaration::offsetToIndex(unsigned os, std::vector<unsigned>& result)
 {
+    //Logger::println("checking for offset %u :", os);
+    LOG_SCOPE;
     unsigned vos = 0;
     for (unsigned i=0; i<fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)fields.data[i];
-        if (vd->type->ty == Tstruct) {
+        //Logger::println("found %u", vd->offset);
+        if (os == vd->offset) {
+            result.push_back(i);
+            return;
+        }
+        else if (vd->type->ty == Tstruct) {
             if (vos + vd->type->size() > os) {
                 TypeStruct* ts = (TypeStruct*)vd->type;
                 StructDeclaration* sd = ts->sym;
@@ -156,10 +163,6 @@ void AggregateDeclaration::offsetToIndex(unsigned os, std::vector<unsigned>& res
                 sd->offsetToIndex(os - vos, result);
                 return;
             }
-        }
-        else if (os == vd->offset) {
-            result.push_back(i);
-            return;
         }
         vos += vd->offset;
     }
@@ -233,6 +236,12 @@ void StructDeclaration::toObjFile()
         else {
             dsym->toObjFile();
         }
+    }
+
+    if (gIR->topstruct().fields.empty())
+    {
+        gIR->topstruct().fields.push_back(llvm::Type::Int8Ty);
+        gIR->topstruct().inits.push_back(llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
     }
 
     llvm::StructType* structtype = llvm::StructType::get(gIR->topstruct().fields);

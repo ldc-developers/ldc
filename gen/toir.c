@@ -448,7 +448,7 @@ elem* AssignExp::toElem(IRState* p)
 
 elem* AddExp::toElem(IRState* p)
 {
-    Logger::print("AddExp::toElem: %s\n", toChars());
+    Logger::print("AddExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     elem* e = new elem;
     elem* l = e1->toElem(p);
@@ -457,7 +457,6 @@ elem* AddExp::toElem(IRState* p)
     if (e1->type != e2->type) {
         if (e1->type->ty == Tpointer && e1->type->next->ty == Tstruct) {
             //assert(l->field);
-            llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             assert(r->type == elem::CONST);
             llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->val);
 
@@ -1150,6 +1149,7 @@ elem* SymOffExp::toElem(IRState* p)
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration");
+        assert(vd->llvmValue);
         if (vd->type->ty == Tstruct && !(type->ty == Tpointer && type->next == vd->type)) {
             TypeStruct* vdt = (TypeStruct*)vd->type;
             e = new elem;
@@ -2245,6 +2245,37 @@ elem* ComExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+elem* NegExp::toElem(IRState* p)
+{
+    Logger::print("NegExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+    elem* e = new elem;
+    elem* l = e1->toElem(p);
+    llvm::Value* val = l->getValue();
+    delete l;
+
+    llvm::Value* zero = 0;
+    if (type->isintegral())
+        zero = llvm::ConstantInt::get(val->getType(), 0, true);
+    else if (type->isfloating()) {
+        if (type->ty == Tfloat32)
+            zero = llvm::ConstantFP::get(val->getType(), float(0));
+        else if (type->ty == Tfloat64 || type->ty == Tfloat80)
+            zero = llvm::ConstantFP::get(val->getType(), double(0));
+        else
+        assert(0);
+    }
+    else
+        assert(0);
+
+    e->val = llvm::BinaryOperator::createSub(zero,val,"tmp",p->scopebb());
+    e->type = elem::VAL;
+
+    return e;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) elem *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 //STUB(IdentityExp);
 //STUB(CondExp);
@@ -2304,7 +2335,7 @@ STUB(BoolExp);
 
 //STUB(NotExp);
 //STUB(ComExp);
-STUB(NegExp);
+//STUB(NegExp);
 //STUB(PtrExp);
 //STUB(AddrExp);
 //STUB(SliceExp);

@@ -9,7 +9,7 @@ void _writef(T)(T t) {
   static if(isArray!(T)) {
     _writef('[');
     if (t.length) _writef(t[0]);
-    for (int i=1; i<t.lengthi; ++i) { _writef(','); _writef(t[i]); }
+    for (int i=1; i<t.length; ++i) { _writef(','); _writef(t[i]); }
     _writef(']');
   } else
   static if(is(T==int)) printf("%i", t); else
