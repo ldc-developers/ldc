@@ -24,10 +24,10 @@ elif [ "$2" = "c" ]; then
     llvmdc $1 -Itest -odtest -c
     exit $?
 elif [ "$2" = "gdb" ]; then
-    gdb --args llvmdc $1 -Itest -odtest '-c'
+    gdb --args llvmdc $1 -Itest -odtest -c
     exit $?
 elif [ "$2" = "gdbrun" ]; then
-    llvmdc $1 -Itest -odtest '-c' &&
+    llvmdc $1 -Itest -odtest -c &&
     gdb $1
     exit $?
 else

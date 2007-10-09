@@ -18,6 +18,10 @@ bool LLVM_D_InitRuntime()
     Logger::println("*** Loading D runtime ***");
     LOG_SCOPE;
 
+    if (!global.params.runtimeImppath) {
+        error("You must set the runtime import path with -E");
+        fatal();
+    }
     std::string filename(global.params.runtimeImppath);
     filename.append("/llvmdcore.bc");
     llvm::MemoryBuffer* buffer = llvm::MemoryBuffer::getFile(filename.c_str(), filename.length());

@@ -1,5 +1,4 @@
 project.name = llvmdc
-project.bindir = "bin"
 
 package = newpackage()
 package.name = "idgen"
@@ -7,7 +6,7 @@ package.kind = "exe"
 package.language = "c++"
 package.files = { "dmd/idgen.c" }
 package.buildoptions = { "-x c++" }
-package.postbuildcommands = { "bin/idgen", "mv -f id.c id.h dmd" }
+package.postbuildcommands = { "./idgen", "mv -f id.c id.h dmd" }
 
 package = newpackage()
 package.name = "impcnvgen"
@@ -15,9 +14,10 @@ package.kind = "exe"
 package.language = "c++"
 package.files = { "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++" }
-package.postbuildcommands = { "bin/impcnvgen", "mv -f impcnvtab.c dmd" }
+package.postbuildcommands = { "./impcnvgen", "mv -f impcnvtab.c dmd" }
 
 package = newpackage()
+package.bindir = "bin"
 package.name = "llvmdc"
 package.kind = "exe"
 package.language = "c++"

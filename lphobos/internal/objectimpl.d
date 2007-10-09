@@ -109,7 +109,7 @@ class Object
     char[] toString()
     {
     //return this.classinfo.name;
-    return "classinfo.name not yet implemented";
+    return "Object.toString: classinfo not yet implemented";
     }
 
     /**
@@ -135,9 +135,9 @@ class Object
     // BUG: this prevents a compacting GC from working, needs to be fixed
     //return cast(int)cast(void *)this - cast(int)cast(void *)o;
 
-    //throw new Error("need opCmp for class " ~ this.classinfo.name);
-    assert(0);
+    assert(0, "need opCmp for class <no classinfo yet>");
     return 0;
+    //throw new Error("need opCmp for class " ~ this.classinfo.name);
     }
 
     /**
@@ -257,7 +257,6 @@ extern (C) void _d_notify_release(Object o)
     }
 }
 
-
 /**
  * Information about an interface.
  * A pointer to this appears as the first entry in the interface's vtbl[].
@@ -341,7 +340,6 @@ struct OffsetTypeInfo
     size_t offset;  /// Offset of member from start of object
     TypeInfo ti;    /// TypeInfo for this member
 }
-
 
 /**
  * Runtime type information about a type.
@@ -1024,6 +1022,7 @@ class TypeInfo_Tuple : TypeInfo
         assert(0);
     }
 }
++/
 
 /**
  * All recoverable exceptions should be derived from class Exception.
@@ -1042,7 +1041,8 @@ class Exception : Object
 
     void print()
     {
-    printf("%.*s\n", toString());
+    auto str = toString();
+    printf("%.*s\n", str.length, str.ptr);
     }
 
     char[] toString() { return msg; }
@@ -1071,5 +1071,3 @@ class Error : Exception
 }
 
 //extern (C) int nullext = 0;
-
-+/
