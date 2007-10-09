@@ -34,7 +34,8 @@ llvm::Value* elem::getValue()
         break;
 
     case VAR:
-    case REF: {
+    case REF:
+    case ARRAYLEN:
         if (val) {
             return val;
         }
@@ -52,7 +53,6 @@ llvm::Value* elem::getValue()
                 return new llvm::LoadInst(mem, "tmp", gIR->scopebb());
             }
         }
-    }
 
     case VAL:
     case NUL:

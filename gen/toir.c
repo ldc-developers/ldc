@@ -118,8 +118,10 @@ elem* VarExp::toElem(IRState* p)
                     e->mem = tid->llvmValue;
                     e->type = elem::VAR;
                 }
-                else
-                assert(0 && "only magic supported is typeinfo");
+                else {
+                    Logger::println("unsupported: %s\n", vd->toChars());
+                    assert(0 && "only magic supported is typeinfo");
+                }
             }
             return e;
         }
@@ -331,9 +333,23 @@ elem* AssignExp::toElem(IRState* p)
         elem* r = e2->toElem(p);
     p->lvals.pop_back();
 
+    if (l->type == elem::ARRAYLEN)
+    {
+        LLVM_DtoResizeDynArray(l->mem, r->getValue());
+        delete r;
+        delete l;
+        return 0;
+    }
+
     // handle function argument - allocate temp storage for it :/ annoying
     if (l->mem == 0) {
-        LLVM_DtoGiveArgumentStorage(l);
+        assert(l->val);
+        if (llvm::isa<llvm::Argument>(l->val))
+            LLVM_DtoGiveArgumentStorage(l);
+        else {
+            Logger::cout() << "here it comes... " << *l->val << '\n';
+            assert(0);
+        }
     }
     //e->val = l->store(r->getValue());
 
@@ -1826,12 +1842,16 @@ elem* NewExp::toElem(IRState* p)
             if (arguments->dim == 1) {
                 elem* sz = ((Expression*)arguments->data[0])->toElem(p);
                 llvm::Value* dimval = sz->getValue();
-                llvm::Value* usedimval = dimval;
+                /*llvm::Value* usedimval = dimval;
                 if (dimval->getType() != llvm::Type::Int32Ty)
-                    usedimval = new llvm::TruncInst(dimval, llvm::Type::Int32Ty,"tmp",p->scopebb());
-                e->mem = new llvm::MallocInst(t,usedimval,"tmp",p->scopebb());
+                    usedimval = new llvm::TruncInst(dimval, llvm::Type::Int32Ty,"tmp",p->scopebb());*/
 
-                LLVM_DtoSetArray(p->toplval(), dimval, e->mem);
+                //e->mem = LLVM_DtoRealloc(0,t);
+                //new llvm::MallocInst(t,usedimval,"tmp",p->scopebb());
+
+                //LLVM_DtoSetArray(p->toplval(), dimval, e->mem);
+
+                LLVM_DtoNewDynArray(p->toplval(), dimval, t);
                 delete sz;
             }
             else {
@@ -1948,11 +1968,18 @@ elem* ArrayLengthExp::toElem(IRState* p)
     elem* e = new elem;
     elem* u = e1->toElem(p);
 
-    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-    llvm::Value* ptr = LLVM_DtoGEP(u->mem,zero,zero,"tmp",p->scopebb());
-    e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
-    e->type = elem::VAL;
-
+    if (p->inLvalue)
+    {
+        e->mem = u->mem;
+        e->type = elem::ARRAYLEN;
+    }
+    else
+    {
+        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+        llvm::Value* ptr = LLVM_DtoGEP(u->mem,zero,zero,"tmp",p->scopebb());
+        e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
+        e->type = elem::VAL;
+    }
     delete u;
 
     return e;
@@ -1965,27 +1992,16 @@ elem* AssertExp::toElem(IRState* p)
     Logger::print("AssertExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
     elem* u = e1->toElem(p);
-    elem* m = msg ? msg->toElem(p) : 0;
+    elem* m = msg ? msg->toElem(p) : NULL;
 
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(3);
-    llargs[0] = LLVM_DtoBoolean(u->getValue());
-    llargs[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
-    llargs[2] = m ? m->val : llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
-    
+    llvm::Value* loca = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
+    LLVM_DtoAssert(u->getValue(), loca, m ? m->val : NULL);
+
     delete m;
     delete u;
-    
-    //Logger::cout() << *llargs[0] << '|' << *llargs[1] << '\n';
-    
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(p->module, "_d_assert");
-    assert(fn);
-    llvm::CallInst* call = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", p->scopebb());
-    call->setCallingConv(llvm::CallingConv::C);
 
-    return e;
+    return new elem;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -19,7 +19,8 @@ struct elem : Object
         CONST,
         NUL,
         REF,
-        SLICE
+        SLICE,
+        ARRAYLEN
     };
 
 public:

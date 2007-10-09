@@ -997,3 +997,66 @@ void LLVM_DtoGiveArgumentStorage(elem* l)
     l->mem = allocainst;
     l->vardecl->llvmValue = l->mem;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, const llvm::Type* ty)
+{
+    /*size_t sz = gTargetData->getTypeSize(ty);
+    llvm::ConstantInt* n = llvm::ConstantInt::get(LLVM_DtoSize_t(), sz, false);
+    if (ptr == 0) {
+        llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+        ptr = llvm::ConstantPointerNull::get(i8pty);
+    }
+    return LLVM_DtoRealloc(ptr, n);*/
+    return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, llvm::Value* n)
+{
+    assert(ptr);
+    assert(n);
+
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_realloc");
+    assert(fn);
+
+    llvm::Value* newptr = ptr;
+
+    llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    if (ptr->getType() != i8pty) {
+        newptr = new llvm::BitCastInst(ptr,i8pty,"tmp",gIR->scopebb());
+    }
+
+    std::vector<llvm::Value*> args;
+    args.push_back(newptr);
+    args.push_back(n);
+    llvm::Value* ret = new llvm::CallInst(fn, args.begin(), args.end(), "tmprealloc", gIR->scopebb());
+
+    return ret->getType() == ptr->getType() ? ret : new llvm::BitCastInst(ret,ptr->getType(),"tmp",gIR->scopebb());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg)
+{
+    assert(loc);
+    std::vector<llvm::Value*> llargs;
+    llargs.resize(3);
+    llargs[0] = cond ? LLVM_DtoBoolean(cond) : llvm::ConstantInt::getFalse();
+    llargs[1] = loc;
+    llargs[2] = msg ? msg : llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assert");
+    assert(fn);
+    llvm::CallInst* call = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    call->setCallingConv(llvm::CallingConv::C);
+}
+
+
+
+
+
+
+

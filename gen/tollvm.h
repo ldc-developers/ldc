@@ -44,4 +44,9 @@ llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std:
 
 void LLVM_DtoGiveArgumentStorage(elem* e);
 
+llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
+llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, llvm::Value* len);
+
+void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg);
+
 #include "enums.h"

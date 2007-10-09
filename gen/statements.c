@@ -35,40 +35,17 @@ void CompoundStatement::toIR(IRState* p)
     Logger::println("CompoundStatement::toIR(%d):\n<<<\n%s>>>", csi++, toChars());
     LOG_SCOPE;
 
-    /*
-    const char* labelname;
-    bool insterm = false;
-
-    if (!p->scopes()) {
-        labelname = "bb";
-        insterm = true;
-    }
-    else
-        labelname = "entry";
-
-    //if (!llvm::isa<llvm::TerminatorInst>(p->topfunc()->back().back()))
-    //    insterm = true;
-
-    llvm::BasicBlock* bb = new llvm::BasicBlock(labelname, p->topfunc());
-
-    if (insterm) {
-        new llvm::BranchInst(bb,p->topbb());
-    }
-
-    p->bbs.push(bb);
-    */
-
-    size_t n = statements->dim;
-    for (size_t i=0; i<n; i++)
+    for (int i=0; i<statements->dim; i++)
     {
         Statement* s = (Statement*)statements->data[i];
         if (s)
-        s->toIR(p);
-        else
-        Logger::println("NULL statement found in CompoundStatement !! :S");
+            s->toIR(p);
+        else {
+            Logger::println("NULL statement found in CompoundStatement !! :S");
+            assert(0);
+        }
     }
 
-    //p->bbs.pop();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -476,17 +453,17 @@ void TryCatchStatement::toIR(IRState* p)
     Logger::println("TryCatchStatement::toIR(%d): %s", wsi++, toChars());
     LOG_SCOPE;
 
-    assert(0 && "try-catch is not properly");
+    Logger::println("*** ATTENTION: try-catch is not yet fully implemented, only the try block will be emitted.");
 
     assert(body);
     body->toIR(p);
 
-    assert(catches);
+    /*assert(catches);
     for(size_t i=0; i<catches->dim; ++i)
     {
         Catch* c = (Catch*)catches->data[i];
         c->handler->toIR(p);
-    }
+    }*/
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -497,11 +474,16 @@ void ThrowStatement::toIR(IRState* p)
     Logger::println("ThrowStatement::toIR(%d): %s", wsi++, toChars());
     LOG_SCOPE;
 
-    assert(0 && "throw is not implemented");
+    Logger::println("*** ATTENTION: throw is not yet implemented, replacing expression with assert(0);");
 
+    llvm::Value* line = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
+    LLVM_DtoAssert(NULL, line, NULL);
+
+    /*
     assert(exp);
     elem* e = exp->toElem(p);
     delete e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -622,7 +604,6 @@ void ForeachStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     //assert(arguments->dim == 1);
-    assert(key == 0);
     assert(value != 0);
     assert(body != 0);
     assert(aggr != 0);
@@ -642,6 +623,7 @@ void ForeachStatement::toIR(IRState* p)
 
     const llvm::Type* keytype = key ? LLVM_DtoType(key->type) : LLVM_DtoSize_t();
     llvm::Value* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
+    if (key) key->llvmValue = keyvar;
 
     const llvm::Type* valtype = LLVM_DtoType(value->type);
     llvm::Value* valvar = new llvm::AllocaInst(keytype, "foreachval", p->topallocapoint());
