@@ -2158,21 +2158,10 @@ elem* HaltExp::toElem(IRState* p)
     Logger::print("HaltExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(3);
-    llargs[0] = llvm::ConstantInt::get(llvm::Type::Int1Ty, 0, false);
-    llargs[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
-    llargs[2] = llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
-    
-    //Logger::cout() << *llargs[0] << '|' << *llargs[1] << '\n';
-    
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(p->module, "_d_assert");
-    assert(fn);
-    llvm::CallInst* call = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", p->scopebb());
-    call->setCallingConv(llvm::CallingConv::C);
-    
-    //new llvm::UnreachableInst(p->scopebb());
+    llvm::Value* loca = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
+    LLVM_DtoAssert(llvm::ConstantInt::getFalse(), loca, NULL);
 
+    //new llvm::UnreachableInst(p->scopebb());
     return 0;
 }
 
@@ -2348,6 +2337,26 @@ elem* NegExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+elem* CatExp::toElem(IRState* p)
+{
+    Logger::print("CatExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    assert(0 && "array concatenation is not yet implemented");
+
+    elem* lhs = e1->toElem(p);
+    elem* rhs = e2->toElem(p);
+
+    // determine new size
+
+    delete lhs;
+    delete rhs;
+
+    return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) elem *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 //STUB(IdentityExp);
 //STUB(CondExp);
@@ -2374,7 +2383,7 @@ STUB(InExp);
 //STUB(MulAssignExp);
 //STUB(ModExp);
 //STUB(ModAssignExp);
-STUB(CatExp);
+//STUB(CatExp);
 STUB(CatAssignExp);
 //STUB(AddExp);
 //STUB(AddAssignExp);
