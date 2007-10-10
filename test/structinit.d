@@ -22,3 +22,4 @@ void main()
     //assert(a == S.init);
     //assert(b == S(0,3.14f,0,real.init));
 }
+

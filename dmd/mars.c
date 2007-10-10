@@ -40,6 +40,8 @@ long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
 #include "expression.h"
 #include "lexer.h"
 
+#include "gen/logger.h"
+
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
 Global global;
@@ -167,8 +169,8 @@ Usage:\n\
   -c             do not link\n\
   -cov           do code coverage analysis\n\
   -D             generate documentation\n\
-  -Dddocdir      write documentation file to docdir directory\n\
-  -Dffilename    write documentation file to filename\n\
+  -Dd<docdir>    write documentation file to <docdir> directory\n\
+  -Df<filename>  write documentation file to <filename>\n\
   -d             allow deprecated features\n\
   -debug         compile in debug code\n\
   -debug=level   compile in debug code <= level\n\
@@ -178,31 +180,32 @@ Usage:\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
   -H             generate 'header' file\n\
-  -Hdhdrdir      write 'header' file to hdrdir directory\n\
-  -Hffilename    write 'header' file to filename\n\
+  -Hd<hdrdir>    write 'header' file to <hdrdir> directory\n\
+  -Hf<filename>  write 'header' file to <filename>\n\
   --help         print help\n\
-  -Ipath         where to look for imports\n\
-  -Epath         where to look for the core runtime\n\
-  -Jpath         where to look for string imports\n\
+  -I<path>       where to look for imports\n\
+  -E<path>       where to look for the core runtime\n\
+  -J<path>       where to look for string imports\n\
   -inline        do function inlining\n\
   -Llinkerflag   pass linkerflag to link\n\
-  -march         emit code specific to arch\n\
+  -m<arch>       emit code specific to <arch>\n\
                  x86 x86-64 ppc32 ppc64\n\
   -nofloat       do not emit reference to floating point\n\
   -noruntime     do not allow code that generates implicit runtime calls\n\
   -novalidate    do not run the validation pass before writing bitcode\n\
   -O             optimize, same as -O2\n\
-  -On            optimize at level n (0-5)\n\
+  -O<n>          optimize at level <n> (0-5)\n\
   -o-            do not write object file\n\
-  -odobjdir      write object files to directory objdir\n\
-  -offilename	 name output file to filename\n\
+  -od<objdir>    write object files to directory <objdir>\n\
+  -of<filename>	 name output file to <filename>\n\
   -op            do not strip paths from source file\n\
-  -profile	 profile runtime performance of generated code\n\
+  -profile	     profile runtime performance of generated code\n\
   -quiet         suppress unnecessary messages\n\
-  -release	 compile release version\n\
+  -release	     compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
+  -vv            very verbose (does not include -v)\n\
   -v1            D language version 1\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
@@ -227,6 +230,7 @@ int main(int argc, char *argv[])
     char* tt_arch = 0;
     char* tt_os = 0;
     char* data_layout = 0;
+    bool very_verbose = false;
 
     // Check for malformed input
     if (argc < 1 || !argv)
@@ -352,6 +356,10 @@ int main(int argc, char *argv[])
 		global.params.trace = 1;
 	    else if (strcmp(p + 1, "v") == 0)
 		global.params.verbose = 1;
+		else if (strcmp(p + 1, "vv") == 0) {
+    		Logger::enable();
+    		very_verbose = true;
+		}
 	    else if (strcmp(p + 1, "v1") == 0)
 		global.params.Dversion = 1;
 	    else if (strcmp(p + 1, "w") == 0)
@@ -654,6 +662,7 @@ int main(int argc, char *argv[])
         }
         else {
             global.params.llvmArch = const_cast<char*>(e->Name);
+            if (global.params.verbose || very_verbose)
             printf("Default target found: %s\n", global.params.llvmArch);
         }
     }

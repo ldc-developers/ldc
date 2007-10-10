@@ -133,14 +133,14 @@ void Module::genmoduleinfo()
 
 void Dsymbol::toObjFile()
 {
-    warning("Ignoring Dsymbol::toObjFile for %s", toChars());
+    Logger::println("Ignoring Dsymbol::toObjFile for %s", toChars());
 }
 
 /* ================================================================== */
 
 void Declaration::toObjFile()
 {
-    warning("Ignoring Declaration::toObjFile for %s", toChars());
+    Logger::println("Ignoring Declaration::toObjFile for %s", toChars());
 }
 
 /* ================================================================== */
@@ -205,7 +205,7 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
 
 void InterfaceDeclaration::toObjFile()
 {
-    warning("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
+    Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
 }
 
 /* ================================================================== */
@@ -621,7 +621,7 @@ void TypedefDeclaration::toObjFile()
 
 void EnumDeclaration::toObjFile()
 {
-    warning("Ignoring EnumDeclaration::toObjFile for %s", toChars());
+    Logger::println("Ignoring EnumDeclaration::toObjFile for %s", toChars());
 }
 
 /* ================================================================== */
