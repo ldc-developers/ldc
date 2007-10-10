@@ -40,7 +40,8 @@ version=-version=$i
 
 
 [link]
-cmd=llvdc $i -of$o
+oneatatime=yes
+cmd=llvmdc $i -of$o
 
 libdir=-L-L$i
 lib=-L-l$i
@@ -49,6 +50,7 @@ flag=-L$i
 
 [liblink]
 safe=yes
+oneatatime=yes
 cmd=ar rc $o $i
 
 libdir=
