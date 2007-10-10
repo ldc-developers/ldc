@@ -52,6 +52,7 @@ enum TOK;
 namespace llvm
 {
     class Value;
+    class BasicBlock;
 }
 
 // Back end
@@ -715,6 +716,8 @@ struct LabelStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
+    
+    llvm::BasicBlock* llvmBB;
 };
 
 struct LabelDsymbol : Dsymbol

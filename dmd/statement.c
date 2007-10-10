@@ -3465,6 +3465,7 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
     this->tf = NULL;
     this->lblock = NULL;
     this->isReturnLabel = 0;
+    this->llvmBB = NULL;
 }
 
 Statement *LabelStatement::syntaxCopy()

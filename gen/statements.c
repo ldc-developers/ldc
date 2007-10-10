@@ -695,6 +695,45 @@ void ForeachStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void LabelStatement::toIR(IRState* p)
+{
+    Logger::println("LabelStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    assert(tf == NULL);
+    assert(!isReturnLabel);
+
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    if (llvmBB)
+        llvmBB->moveBefore(oldend);
+    else
+        llvmBB = new llvm::BasicBlock("label", p->topfunc(), oldend);
+
+    new llvm::BranchInst(llvmBB, p->scopebb());
+    p->scope() = IRScope(llvmBB,oldend);
+    statement->toIR(p);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void GotoStatement::toIR(IRState* p)
+{
+    Logger::println("GotoStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    assert(tf == NULL);
+
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = new llvm::BasicBlock("aftergoto", p->topfunc(), oldend);
+
+    if (label->statement->llvmBB == NULL)
+        label->statement->llvmBB = new llvm::BasicBlock("label", p->topfunc());
+    new llvm::BranchInst(label->statement->llvmBB, p->scopebb());
+    p->scope() = IRScope(bb,oldend);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
@@ -720,10 +759,10 @@ STUBST(AsmStatement);
 //STUBST(TryCatchStatement);
 //STUBST(TryFinallyStatement);
 STUBST(VolatileStatement);
-STUBST(LabelStatement);
+//STUBST(LabelStatement);
 //STUBST(ThrowStatement);
 STUBST(GotoCaseStatement);
 STUBST(GotoDefaultStatement);
-STUBST(GotoStatement);
+//STUBST(GotoStatement);
 //STUBST(UnrolledLoopStatement);
 //STUBST(OnScopeStatement);

@@ -127,70 +127,76 @@ void LLVM_DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
 void LLVM_DtoArrayInit(llvm::Value* l, llvm::Value* r)
 {
     const llvm::PointerType* ptrty = llvm::cast<llvm::PointerType>(l->getType());
-    if (llvm::isa<llvm::ArrayType>(ptrty->getContainedType(0)))
+    const llvm::Type* t = ptrty->getContainedType(0);
+    const llvm::ArrayType* arrty = llvm::cast_or_null<llvm::ArrayType>(t);
+    if (arrty)
     {
-        const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(ptrty->getContainedType(0));
-        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-        std::vector<llvm::Value*> args;
-        args.resize(3);
-        args[0] = LLVM_DtoGEP(l,zero,zero,"tmp",gIR->scopebb());
-        args[1] = llvm::ConstantInt::get(LLVM_DtoSize_t(), arrty->getNumElements(), false);
-        args[2] = r;
-        
-        const char* funcname = NULL;
-        
-        if (llvm::isa<llvm::PointerType>(arrty->getElementType())) {
-            funcname = "_d_array_init_pointer";
-            
-            const llvm::Type* dstty = llvm::PointerType::get(llvm::PointerType::get(llvm::Type::Int8Ty));
-            if (args[0]->getType() != dstty)
-                args[0] = new llvm::BitCastInst(args[0],dstty,"tmp",gIR->scopebb());
-            
-            const llvm::Type* valty = llvm::PointerType::get(llvm::Type::Int8Ty);
-            if (args[2]->getType() != valty)
-                args[2] = new llvm::BitCastInst(args[2],valty,"tmp",gIR->scopebb());
-        }
-        else if (r->getType() == llvm::Type::Int1Ty) {
-            funcname = "_d_array_init_i1";
-        }
-        else if (r->getType() == llvm::Type::Int8Ty) {
-            funcname = "_d_array_init_i8";
-        }
-        else if (r->getType() == llvm::Type::Int16Ty) {
-            funcname = "_d_array_init_i16";
-        }
-        else if (r->getType() == llvm::Type::Int32Ty) {
-            funcname = "_d_array_init_i32";
-        }
-        else if (r->getType() == llvm::Type::Int64Ty) {
-            funcname = "_d_array_init_i64";
-        }
-        else if (r->getType() == llvm::Type::FloatTy) {
-            funcname = "_d_array_init_float";
-        }
-        else if (r->getType() == llvm::Type::DoubleTy) {
-            funcname = "_d_array_init_double";
-        }
-        else {
-            assert(0);
-        }
-        
-        Logger::cout() << *args[0] << '|' << *args[2] << '\n';
-        
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
-        assert(fn);
-        llvm::CallInst* call = new llvm::CallInst(fn, args.begin(), args.end(), "", gIR->scopebb());
-        call->setCallingConv(llvm::CallingConv::C);
-        
-        Logger::println("array init call ok");
+        llvm::Value* ptr = LLVM_DtoGEPi(l,0,0,"tmp",gIR->scopebb());
+        llvm::Value* dim = llvm::ConstantInt::get(LLVM_DtoSize_t(), arrty->getNumElements(), false);
+        llvm::Value* val = r;
+        LLVM_DtoArrayInit(ptr, dim, val);
     }
-    else if (llvm::isa<llvm::StructType>(ptrty->getContainedType(0)))
+    else if (llvm::isa<llvm::StructType>(t))
     {
         assert(0 && "Only static arrays support initialisers atm");
     }
     else
     assert(0);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void LLVM_DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
+{
+    const llvm::Type* t = ptr->getType()->getContainedType(0);
+
+    std::vector<llvm::Value*> args(3,NULL);
+    args[0] = ptr;
+    args[1] = dim;
+    args[2] = val;
+    
+    const char* funcname = NULL;
+    
+    if (llvm::isa<llvm::PointerType>(t)) {
+        funcname = "_d_array_init_pointer";
+        
+        const llvm::Type* dstty = llvm::PointerType::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+        if (args[0]->getType() != dstty)
+            args[0] = new llvm::BitCastInst(args[0],dstty,"tmp",gIR->scopebb());
+        
+        const llvm::Type* valty = llvm::PointerType::get(llvm::Type::Int8Ty);
+        if (args[2]->getType() != valty)
+            args[2] = new llvm::BitCastInst(args[2],valty,"tmp",gIR->scopebb());
+    }
+    else if (t == llvm::Type::Int1Ty) {
+        funcname = "_d_array_init_i1";
+    }
+    else if (t == llvm::Type::Int8Ty) {
+        funcname = "_d_array_init_i8";
+    }
+    else if (t == llvm::Type::Int16Ty) {
+        funcname = "_d_array_init_i16";
+    }
+    else if (t == llvm::Type::Int32Ty) {
+        funcname = "_d_array_init_i32";
+    }
+    else if (t == llvm::Type::Int64Ty) {
+        funcname = "_d_array_init_i64";
+    }
+    else if (t == llvm::Type::FloatTy) {
+        funcname = "_d_array_init_float";
+    }
+    else if (t == llvm::Type::DoubleTy) {
+        funcname = "_d_array_init_double";
+    }
+    else {
+        assert(0);
+    }
+
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
+    assert(fn);
+    llvm::CallInst* call = new llvm::CallInst(fn, args.begin(), args.end(), "", gIR->scopebb());
+    call->setCallingConv(llvm::CallingConv::C);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -369,8 +375,9 @@ llvm::Constant* LLVM_DtoConstantSlice(llvm::Constant* dim, llvm::Constant* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, const llvm::Type* ty)
+void LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit)
 {
+    const llvm::Type* ty = LLVM_DtoType(dty);
     size_t sz = gTargetData->getTypeSize(ty);
     llvm::ConstantInt* n = llvm::ConstantInt::get(LLVM_DtoSize_t(), sz, false);
     llvm::Value* bytesize = llvm::BinaryOperator::createMul(n,dim,"tmp",gIR->scopebb());
@@ -378,6 +385,12 @@ void LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, const llvm::Type* t
     llvm::Value* nullptr = llvm::ConstantPointerNull::get(llvm::PointerType::get(ty));
 
     llvm::Value* newptr = LLVM_DtoRealloc(nullptr, bytesize);
+    
+    if (doinit) {
+        elem* e = dty->defaultInit()->toElem(gIR);
+        LLVM_DtoArrayInit(newptr,dim,e->getValue());
+        delete e;
+    }
 
     llvm::Value* lenptr = LLVM_DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
     new llvm::StoreInst(dim,lenptr,gIR->scopebb());
@@ -401,6 +414,4 @@ void LLVM_DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
     llvm::Value* len = LLVM_DtoGEPi(arr, 0, 0, "tmp", gIR->scopebb());
     new llvm::StoreInst(sz,len,gIR->scopebb());
 }
-
-
 

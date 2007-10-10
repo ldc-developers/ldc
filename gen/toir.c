@@ -1837,21 +1837,11 @@ elem* NewExp::toElem(IRState* p)
             e->mem = new llvm::MallocInst(t->getContainedType(0),"tmp",p->scopebb());
         }
         else if (newtype->ty == Tarray) {
-            t = LLVM_DtoType(newtype->next);
             assert(arguments);
             if (arguments->dim == 1) {
                 elem* sz = ((Expression*)arguments->data[0])->toElem(p);
                 llvm::Value* dimval = sz->getValue();
-                /*llvm::Value* usedimval = dimval;
-                if (dimval->getType() != llvm::Type::Int32Ty)
-                    usedimval = new llvm::TruncInst(dimval, llvm::Type::Int32Ty,"tmp",p->scopebb());*/
-
-                //e->mem = LLVM_DtoRealloc(0,t);
-                //new llvm::MallocInst(t,usedimval,"tmp",p->scopebb());
-
-                //LLVM_DtoSetArray(p->toplval(), dimval, e->mem);
-
-                LLVM_DtoNewDynArray(p->toplval(), dimval, t);
+                LLVM_DtoNewDynArray(p->toplval(), dimval, newtype->next);
                 delete sz;
             }
             else {
@@ -2433,112 +2423,127 @@ STUB(AssocArrayLiteralExp);
 
 unsigned Type::totym() { return 0; }
 
-type *
-Type::toCtype() {
+type * Type::toCtype()
+{
+    assert(0);
     return 0;
 }
 
 type * Type::toCParamtype()
 {
+    assert(0);
     return 0;
 }
 Symbol * Type::toSymbol()
 {
+    assert(0);
     return 0;
 }
 
 type *
 TypeTypedef::toCtype()
 {
+    assert(0);
     return 0;
 }
 
 type *
 TypeTypedef::toCParamtype()
 {
+    assert(0);
     return 0;
 }
 
 void
 TypedefDeclaration::toDebug()
 {
+    assert(0);
 }
 
 
 type *
 TypeEnum::toCtype()
 {
+    assert(0);
     return 0;
 }
 
 type *
 TypeStruct::toCtype()
 {
+    assert(0);
     return 0;
 }
 
 void
 StructDeclaration::toDebug()
 {
+    assert(0);
 }
 
 Symbol * TypeClass::toSymbol()
 {
+    assert(0);
     return 0;
 }
 
 unsigned TypeFunction::totym()
 {
+    assert(0);
     return 0;
 }
 
-type *
-TypeFunction::toCtype()
+type * TypeFunction::toCtype()
 {
+    assert(0);
     return 0;
 }
 
-type *
-TypeSArray::toCtype()
+type * TypeSArray::toCtype()
 {
+    assert(0);
     return 0;
 }
 
-type *TypeSArray::toCParamtype() { return 0; }
-
-type *
-TypeDArray::toCtype()
+type *TypeSArray::toCParamtype()
 {
+    assert(0);
     return 0;
 }
 
-type *
-TypeAArray::toCtype()
+type * TypeDArray::toCtype()
 {
+    assert(0);
     return 0;
 }
 
-type *
-TypePointer::toCtype()
+type * TypeAArray::toCtype()
 {
+    assert(0);
     return 0;
 }
 
-type *
-TypeDelegate::toCtype()
+type * TypePointer::toCtype()
 {
+    assert(0);
     return 0;
 }
 
-type *
-TypeClass::toCtype()
+type * TypeDelegate::toCtype()
 {
+    assert(0);
     return 0;
 }
 
-void
-ClassDeclaration::toDebug()
+type * TypeClass::toCtype()
 {
+    assert(0);
+    return 0;
+}
+
+void ClassDeclaration::toDebug()
+{
+    assert(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -2546,32 +2551,32 @@ ClassDeclaration::toDebug()
 void
 EnumDeclaration::toDebug()
 {
-
+    assert(0);
 }
 
-int
-Dsymbol::cvMember(unsigned char*)
+int Dsymbol::cvMember(unsigned char*)
 {
+    assert(0);
     return 0;
 }
-int
-EnumDeclaration::cvMember(unsigned char*)
+int EnumDeclaration::cvMember(unsigned char*)
 {
+    assert(0);
     return 0;
 }
-int
-FuncDeclaration::cvMember(unsigned char*)
+int FuncDeclaration::cvMember(unsigned char*)
 {
+    assert(0);
     return 0;
 }
-int
-VarDeclaration::cvMember(unsigned char*)
+int VarDeclaration::cvMember(unsigned char*)
 {
+    assert(0);
     return 0;
 }
-int
-TypedefDeclaration::cvMember(unsigned char*)
+int TypedefDeclaration::cvMember(unsigned char*)
 {
+    assert(0);
     return 0;
 }
 
@@ -2580,8 +2585,11 @@ void obj_includelib(char*){}
 AsmStatement::AsmStatement(Loc loc, Token *tokens) :
     Statement(loc)
 {
+    assert(0);
 }
-Statement *AsmStatement::syntaxCopy() {
+Statement *AsmStatement::syntaxCopy()
+{
+    assert(0);
     return 0;
 }
 
@@ -2598,14 +2606,15 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 int AsmStatement::comeFrom()
 {
+    assert(0);
     return FALSE;
 }
 
 void
 backend_init()
 {
+    // now lazily loaded
     //LLVM_D_InitRuntime();
-    // lazily loaded
 }
 
 void
