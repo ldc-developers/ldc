@@ -126,6 +126,8 @@ struct Declaration : Dsymbol
     Declaration *isDeclaration() { return this; }
 
     virtual void toObjFile();           // compile to .obj file
+    
+    bool llvmTouched;
 };
 
 /**************************************************************/

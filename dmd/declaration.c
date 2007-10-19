@@ -32,6 +32,7 @@ Declaration::Declaration(Identifier *id)
     storage_class = STCundefined;
     protection = PROTundefined;
     linkage = LINKdefault;
+    llvmTouched = false;
 }
 
 void Declaration::semantic(Scope *sc)

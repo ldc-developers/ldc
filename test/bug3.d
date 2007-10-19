@@ -17,6 +17,8 @@ void main()
     S s;
     s.arr = new int[5];
     s.arr[1] = 32;
-    assert(s.arr[0] == 0);
-    assert(s.arr[1] == 32);
+    int i;
+    i = s.arr[0];
+    //assert(s.arr[0] == 0);
+    //assert(s.arr[1] == 32);
 }

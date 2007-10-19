@@ -1,11 +1,6 @@
 #include <iostream>
 
-#include "llvm/Constants.h"
-#include "llvm/Type.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/GlobalValue.h"
-#include "llvm/Instructions.h"
-#include "llvm/CallingConv.h"
+#include "gen/llvm.h"
 
 #include "mtype.h"
 #include "dsymbol.h"
@@ -19,6 +14,29 @@
 #include "gen/runtime.h"
 #include "gen/elem.h"
 #include "gen/arrays.h"
+
+bool LLVM_DtoIsPassedByRef(Type* type)
+{
+    TY t = type->ty;
+    if (t == Tstruct || t == Tarray || t == Tdelegate)
+        return true;
+    else if (t == Ttypedef) {
+        Type* bt = type->toBasetype();
+        assert(bt);
+        return LLVM_DtoIsPassedByRef(bt);
+    }
+    return false;
+}
+
+Type* LLVM_DtoDType(Type* t)
+{
+    if (t->ty == Ttypedef) {
+        Type* bt = t->toBasetype();
+        assert(bt);
+        return LLVM_DtoDType(bt);
+    }
+    return t;
+}
 
 const llvm::Type* LLVM_DtoType(Type* t)
 {
@@ -167,9 +185,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thispa
     const llvm::Type* rettype;
     std::vector<const llvm::Type*> paramvec;
 
-    TY retty = f->next->ty;
-
-    if (retty == Tstruct || retty == Tdelegate || retty == Tarray) {
+    if (LLVM_DtoIsPassedByRef(f->next)) {
         rettype = llvm::PointerType::get(LLVM_DtoType(f->next));
         paramvec.push_back(rettype);
         rettype = llvm::Type::VoidTy;
@@ -225,7 +241,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         actualRettype = rettype;
     }
     else if (rt) {
-        if (rt->ty == Tstruct || rt->ty == Tdelegate || rt->ty == Tarray) {
+        if (LLVM_DtoIsPassedByRef(rt)) {
             rettype = llvm::PointerType::get(LLVM_DtoType(rt));
             actualRettype = llvm::Type::VoidTy;
             f->llvmRetInPtr = retinptr = true;
@@ -265,7 +281,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
         // ensure scalar
-        Type* argT = arg->type;
+        Type* argT = LLVM_DtoDType(arg->type);
         assert(argT);
 
         if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
@@ -286,6 +302,16 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
             //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
             paramvec.push_back(llvm::PointerType::get(at));
         }
+        else if (llvm::isa<llvm::OpaqueType>(at)) {
+            Logger::println("opaque param");
+            if (argT->ty == Tstruct || argT->ty == Tclass)
+                paramvec.push_back(llvm::PointerType::get(at));
+            else
+            assert(0);
+        }
+        /*if (llvm::isa<llvm::StructType>(at) || argT->ty == Tstruct || argT->ty == Tsarray) {
+            paramvec.push_back(llvm::PointerType::get(at));
+        }*/
         else {
             if (!arg->llvmCopy) {
                 Logger::println("ref param");
@@ -453,7 +479,7 @@ llvm::Value* LLVM_DtoStructCopy(TypeStruct* t, llvm::Value* dst, llvm::Value* sr
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si)
+llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
 {
     llvm::StructType* structtype = llvm::cast<llvm::StructType>(si->ad->llvmType);
     size_t n = structtype->getNumElements();
@@ -468,11 +494,12 @@ llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si)
         assert(ini);
 
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
+        Type* vdtype = LLVM_DtoDType(vd->type);
         assert(vd);
         Logger::println("vars[%d] = %s", i, vd->toChars());
 
         std::vector<unsigned> idxs;
-        si->ad->offsetToIndex(vd->type, vd->offset, idxs);
+        si->ad->offsetToIndex(vdtype, vd->offset, idxs);
         assert(idxs.size() == 1);
         unsigned idx = idxs[0];
 
@@ -480,17 +507,15 @@ llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si)
 
         if (ExpInitializer* ex = ini->isExpInitializer())
         {
-            elem* e = ex->exp->toElem(gIR);
-            v = llvm::cast<llvm::Constant>(e->val);
-            delete e;
+            v = ex->exp->toConstElem(gIR);
         }
         else if (StructInitializer* si = ini->isStructInitializer())
         {
-            v = LLVM_DtoStructInitializer(si);
+            v = LLVM_DtoConstStructInitializer(si);
         }
         else if (ArrayInitializer* ai = ini->isArrayInitializer())
         {
-            v = LLVM_DtoArrayInitializer(ai);
+            v = LLVM_DtoConstArrayInitializer(ai);
         }
         else if (ini->isVoidInitializer())
         {
@@ -731,20 +756,6 @@ void LLVM_DtoMain()
 
     // return
     new llvm::ReturnInst(call,bb);
-
-    /*
-    // return value type
-    const llvm::Type* rettype;
-    Type* rt = f->next;
-    if (rt) {
-        rettype = LLVM_DtoType(rt);
-    }
-    else {
-        assert(0);
-    }
-
-    llvm::FunctionType* functype = llvm::FunctionType::get(rettype, paramvec, false);
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -802,47 +813,54 @@ void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init)
+llvm::Constant* LLVM_DtoConstInitializer(Type* type, Initializer* init)
 {
     llvm::Constant* _init = 0; // may return zero
     if (!init)
     {
-        Logger::println("default initializer");
-        elem* e = type->defaultInit()->toElem(gIR);
-        if (!e->inplace && !e->isNull()) {
-            _init = llvm::cast<llvm::Constant>(e->getValue());
-        }
-        delete e;
+        Logger::println("const default initializer for %s", type->toChars());
+        _init = type->defaultInit()->toConstElem(gIR);
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
-        Logger::println("expression initializer");
-        elem* e = ex->exp->toElem(gIR);
-        if (!e->inplace && !e->isNull()) {
-            _init = llvm::cast<llvm::Constant>(e->getValue());
-        }
-        delete e;
+        Logger::println("const expression initializer");
+        _init = ex->exp->toConstElem(gIR);
     }
     else if (StructInitializer* si = init->isStructInitializer())
     {
-        Logger::println("struct initializer");
-        _init = LLVM_DtoStructInitializer(si);
+        Logger::println("const struct initializer");
+        _init = LLVM_DtoConstStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
-        Logger::println("array initializer");
-        _init = LLVM_DtoArrayInitializer(ai);
+        Logger::println("const array initializer");
+        _init = LLVM_DtoConstArrayInitializer(ai);
     }
     else if (init->isVoidInitializer())
     {
-        Logger::println("void initializer");
+        Logger::println("const void initializer");
         const llvm::Type* ty = LLVM_DtoType(type);
         _init = llvm::Constant::getNullValue(ty);
     }
     else {
-        Logger::println("unsupported initializer: %s", init->toChars());
+        Logger::println("unsupported const initializer: %s", init->toChars());
     }
     return _init;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void LLVM_DtoInitializer(Initializer* init)
+{
+    if (ExpInitializer* ex = init->isExpInitializer())
+    {
+        Logger::println("expression initializer");
+        elem* e = ex->exp->toElem(gIR);
+        delete e;
+    }
+    else {
+        Logger::println("unsupported initializer: %s", init->toChars());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -862,13 +880,14 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, con
 {
     size_t n = src.size();
     std::vector<llvm::Value*> dst(n);
-    Logger::cout() << "indices:";
+    std::ostream& ostr = Logger::cout();
+    ostr << "indices for '" << *ptr << "':";
     for (size_t i=0; i<n; ++i)
     {
-        Logger::cout() << ' ' << i;
+        ostr << ' ' << i;
         dst[i] = llvm::ConstantInt::get(llvm::Type::Int32Ty, src[i], false);
     }
-    Logger::cout() << '\n';
+    ostr << '\n';
     return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb);
 }
 
@@ -912,7 +931,7 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // regular function
-    TypeFunction* f = (TypeFunction*)fdecl->type;
+    TypeFunction* f = (TypeFunction*)LLVM_DtoDType(fdecl->type);
     assert(f != 0);
 
     if (fdecl->llvmValue != 0) {
@@ -1054,9 +1073,93 @@ void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg)
     call->setCallingConv(llvm::CallingConv::C);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
 
+llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp)
+{
+    llvm::Value* retval = 0;
 
+    bool haslvals = !gIR->lvals.empty();
+    if (haslvals)
+        gIR->lvals.push_back(NULL);
 
+    elem* arg = argexp->toElem(gIR);
 
+    if (haslvals)
+        gIR->lvals.pop_back();
+
+    if (arg->inplace) {
+        assert(arg->mem != 0);
+        retval = arg->mem;
+        delete arg;
+        return retval;
+    }
+
+    Type* realtype = LLVM_DtoDType(argexp->type);
+    TY argty = realtype->ty;
+    if (LLVM_DtoIsPassedByRef(realtype)) {
+        if (!fnarg || !fnarg->llvmCopy) {
+            retval = arg->getValue();
+            assert(retval != 0);
+        }
+        else {
+            llvm::Value* allocaInst = 0;
+            llvm::BasicBlock* entryblock = &gIR->topfunc()->front();
+            //const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(arg->mem->getType());
+            const llvm::PointerType* pty = llvm::PointerType::get(LLVM_DtoType(argexp->type));
+            if (argty == Tstruct) {
+                allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
+                TypeStruct* ts = (TypeStruct*)LLVM_DtoDType(argexp->type);
+                LLVM_DtoStructCopy(ts,allocaInst,arg->mem);
+            }
+            else if (argty == Tdelegate) {
+                allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
+                LLVM_DtoDelegateCopy(allocaInst,arg->mem);
+            }
+            else if (argty == Tarray) {
+                if (arg->type == elem::SLICE) {
+                    allocaInst = new llvm::AllocaInst(LLVM_DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
+                    LLVM_DtoSetArray(allocaInst, arg->arg, arg->mem);
+                }
+                else {
+                    allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
+                    LLVM_DtoArrayAssign(allocaInst,arg->mem);
+                }
+            }
+            else
+            assert(0);
+
+            assert(allocaInst != 0);
+            retval = allocaInst;
+        }
+    }
+    else if (!fnarg || fnarg->llvmCopy) {
+        Logger::println("regular arg");
+        assert(arg->type != elem::SLICE);
+        if (arg->mem) Logger::cout() << "mem = " << *arg->mem << '\n';
+        if (arg->val) Logger::cout() << "val = " << *arg->val << '\n';
+        if (arg->arg) Logger::cout() << "arg = " << *arg->arg << '\n';
+        retval = arg->arg ? arg->arg : arg->field ? arg->mem : arg->getValue();
+    }
+    else {
+        Logger::println("as ptr arg");
+        retval = arg->mem ? arg->mem : arg->val;
+        if (retval->getType() != paramtype)
+        {
+            assert(retval->getType() == paramtype->getContainedType(0));
+            LLVM_DtoGiveArgumentStorage(arg);
+            new llvm::StoreInst(retval, arg->mem, gIR->scopebb());
+            retval = arg->mem;
+        }
+    }
+
+    delete arg;
+
+    if (fnarg && retval->getType() != paramtype) {
+        Logger::cout() << "got '" << *retval->getType() << "' expected '" << *paramtype << "'\n";
+        assert(0 && "parameter type that was actually passed is invalid");
+    }
+    return retval;
+}
 
 

@@ -2,6 +2,8 @@ module internal.arrays;
 
 extern(C):
 
+// per-element array init routines
+
 void _d_array_init_i1(bool* a, size_t n, bool v)
 {
     auto p = a;
@@ -65,3 +67,21 @@ void _d_array_init_pointer(void** a, size_t n, void* v)
     while (p !is end)
         *p++ = v;
 }
+
+// array comparison routines
+int memcmp(void*,void*,size_t);
+
+bool _d_static_array_eq(void* lhs, void* rhs, size_t bytesize)
+{
+    if (lhs is rhs)
+        return true;
+    return memcmp(lhs,rhs,bytesize) == 0;
+}
+
+bool _d_static_array_neq(void* lhs, void* rhs, size_t bytesize)
+{
+    if (lhs is rhs)
+        return false;
+    return memcmp(lhs,rhs,bytesize) != 0;
+}
+

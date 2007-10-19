@@ -192,16 +192,16 @@ Usage:\n\
                  x86 x86-64 ppc32 ppc64\n\
   -nofloat       do not emit reference to floating point\n\
   -noruntime     do not allow code that generates implicit runtime calls\n\
-  -novalidate    do not run the validation pass before writing bitcode\n\
+  -noverify      do not run the validation pass before writing bitcode\n\
   -O             optimize, same as -O2\n\
   -O<n>          optimize at level <n> (0-5)\n\
   -o-            do not write object file\n\
   -od<objdir>    write object files to directory <objdir>\n\
   -of<filename>	 name output file to <filename>\n\
   -op            do not strip paths from source file\n\
-  -profile	     profile runtime performance of generated code\n\
+  -profile       profile runtime performance of generated code\n\
   -quiet         suppress unnecessary messages\n\
-  -release	     compile release version\n\
+  -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
@@ -382,7 +382,7 @@ int main(int argc, char *argv[])
 		global.params.forceBE = 1;
         else if (strcmp(p + 1, "noruntime") == 0)
 		global.params.noruntime = 1;
-        else if (strcmp(p + 1, "novalidate") == 0)
+        else if (strcmp(p + 1, "noverify") == 0)
         global.params.novalidate = 1;
 	    else if (p[1] == 'o')
 	    {

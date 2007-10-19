@@ -11,14 +11,9 @@
 #include <iostream>
 #include <fstream>
 
-#include "llvm/Type.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
+#include "gen/llvm.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-
-#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetMachineRegistry.h"
 
@@ -152,13 +147,14 @@ void AggregateDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsig
     LOG_SCOPE;
     for (unsigned i=0; i<fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)fields.data[i];
-        Logger::println("found %u type %s", vd->offset, vd->type->toChars());
-        if (os == vd->offset && vd->type == t) {
+        Type* vdtype = LLVM_DtoDType(vd->type);
+        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
+        if (os == vd->offset && vdtype == t) {
             result.push_back(i);
             return;
         }
-        else if (vd->type->ty == Tstruct && (vd->offset + vd->type->size()) > os) {
-            TypeStruct* ts = (TypeStruct*)vd->type;
+        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
+            TypeStruct* ts = (TypeStruct*)vdtype;
             StructDeclaration* sd = ts->sym;
             result.push_back(i);
             sd->offsetToIndex(t, os - vd->offset, result);
@@ -212,7 +208,7 @@ void InterfaceDeclaration::toObjFile()
 
 void StructDeclaration::toObjFile()
 {
-    TypeStruct* ts = (TypeStruct*)type;
+    TypeStruct* ts = (TypeStruct*)LLVM_DtoDType(type);
     if (llvmType != 0)
         return;
 
@@ -288,7 +284,7 @@ void StructDeclaration::toObjFile()
 
     // generate member function definitions
     gIR->topstruct().queueFuncs = false;
-    IRState::FuncDeclVec& mfs = gIR->topstruct().funcs;
+    IRStruct::FuncDeclVec& mfs = gIR->topstruct().funcs;
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
         mfs[i]->toObjFile();
@@ -311,6 +307,9 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
     {
         BaseClass* bc = (BaseClass*)(bcs->data[j]);
         assert(bc);
+        Logger::println("Adding base class members of %s", bc->base->toChars());
+        LOG_SCOPE;
+
         LLVM_AddBaseClassData(&bc->base->baseclasses);
         for (int k=0; k < bc->base->members->dim; k++) {
             Dsymbol* dsym = (Dsymbol*)(bc->base->members->data[k]);
@@ -324,7 +323,7 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
 
 void ClassDeclaration::toObjFile()
 {
-    TypeClass* ts = (TypeClass*)type;
+    TypeClass* ts = (TypeClass*)LLVM_DtoDType(type);
     if (ts->llvmType != 0 || llvmInProgress)
         return;
 
@@ -453,7 +452,7 @@ void ClassDeclaration::toObjFile()
 
     // generate member function definitions
     gIR->topstruct().queueFuncs = false;
-    IRState::FuncDeclVec& mfs = gIR->topstruct().funcs;
+    IRStruct::FuncDeclVec& mfs = gIR->topstruct().funcs;
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
         mfs[i]->toObjFile();
@@ -479,8 +478,7 @@ unsigned ClassDeclaration::baseVtblOffset(BaseClass *bc)
 
 void VarDeclaration::toObjFile()
 {
-    static int vdi = 0;
-    Logger::print("VarDeclaration::toObjFile(%d): %s | %s\n", vdi++, toChars(), type->toChars());
+    Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     llvm::Module* M = gIR->module;
 
@@ -493,8 +491,11 @@ void VarDeclaration::toObjFile()
     }
 
     // global variable or magic
-    if (isDataseg())
+    if (isDataseg() || parent->isModule())
     {
+        if (llvmTouched) return;
+        else llvmTouched = true;
+
         bool _isconst = isConst();
 
         llvm::GlobalValue::LinkageTypes _linkage;
@@ -503,7 +504,9 @@ void VarDeclaration::toObjFile()
         else
             _linkage = LLVM_DtoLinkage(protection, storage_class);
 
-        const llvm::Type* _type = LLVM_DtoType(type);
+        Type* t = LLVM_DtoDType(type);
+
+        const llvm::Type* _type = LLVM_DtoType(t);
         assert(_type);
 
         llvm::Constant* _init = 0;
@@ -513,10 +516,10 @@ void VarDeclaration::toObjFile()
         std::string _name(mangle());
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,0,_name,M);
         llvmValue = gvar;
-        gIR->lvals.push_back(gvar);
 
-        _init = LLVM_DtoInitializer(type, init);
-        assert(_init);
+        gIR->lvals.push_back(gvar);
+        _init = LLVM_DtoConstInitializer(t, init);
+        gIR->lvals.pop_back();
 
         //Logger::cout() << "initializer: " << *_init << '\n';
         if (_type != _init->getType()) {
@@ -529,8 +532,8 @@ void VarDeclaration::toObjFile()
             {
                 assert(_init->getType()->getContainedType(0) == _type);
                 llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
-                assert(type->ty == Tstruct);
-                TypeStruct* ts = (TypeStruct*)type;
+                assert(t->ty == Tstruct);
+                TypeStruct* ts = (TypeStruct*)t;
                 assert(ts->sym->llvmInitZ);
                 _init = ts->sym->llvmInitZ;
             }
@@ -549,9 +552,9 @@ void VarDeclaration::toObjFile()
             }
         }
 
-        gIR->lvals.pop_back();
-
         gvar->setInitializer(_init);
+        
+        llvmDModule = gIR->dmodule;
 
         //if (storage_class & STCprivate)
         //    gvar->setVisibility(llvm::GlobalValue::ProtectedVisibility);
@@ -562,36 +565,37 @@ void VarDeclaration::toObjFile()
     {
         Logger::println("Aggregate var declaration: '%s' offset=%d", toChars(), offset);
 
-        const llvm::Type* _type = LLVM_DtoType(type);
+        Type* t = LLVM_DtoDType(type);
+        const llvm::Type* _type = LLVM_DtoType(t);
         gIR->topstruct().fields.push_back(_type);
 
-        llvm::Constant*_init = LLVM_DtoInitializer(type, init);
+        llvm::Constant*_init = LLVM_DtoConstInitializer(t, init);
         assert(_init);
         Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
-        if (!_init || _type != _init->getType())
+        if (_type != _init->getType())
         {
-            if (type->ty == Tsarray)
+            if (t->ty == Tsarray)
             {
                 const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(_type);
                 uint64_t n = arrty->getNumElements();
                 std::vector<llvm::Constant*> vals(n,_init);
                 _init = llvm::ConstantArray::get(arrty, vals);
             }
-            else if (type->ty == Tarray)
+            else if (t->ty == Tarray)
             {
                 assert(llvm::isa<llvm::StructType>(_type));
                 _init = llvm::ConstantAggregateZero::get(_type);
             }
-            else if (type->ty == Tstruct)
+            else if (t->ty == Tstruct)
             {
                 const llvm::StructType* structty = llvm::cast<llvm::StructType>(_type);
-                TypeStruct* ts = (TypeStruct*)type;
+                TypeStruct* ts = (TypeStruct*)t;
                 assert(ts);
                 assert(ts->sym);
                 assert(ts->sym->llvmInitZ);
                 _init = ts->sym->llvmInitZ;
             }
-            else if (type->ty == Tclass)
+            else if (t->ty == Tclass)
             {
                 _init = llvm::Constant::getNullValue(_type);
             }
@@ -644,7 +648,8 @@ void FuncDeclaration::toObjFile()
         return; // we wait with the definition as they might invoke a virtual method and the vtable is not yet complete
     }
 
-    TypeFunction* f = (TypeFunction*)type;
+    Type* t = LLVM_DtoDType(type);
+    TypeFunction* f = (TypeFunction*)t;
     assert(f->llvmType);
     const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 
@@ -684,7 +689,8 @@ void FuncDeclaration::toObjFile()
         // function definition
         if (allow_fbody && fbody != 0)
         {
-            gIR->funcdecls.push_back(this);
+            gIR->functions.push_back(IRFunction(this));
+            gIR->func().func = func;
 
             // first make absolutely sure the type is up to date
             f->llvmType = llvmValue->getType()->getContainedType(0);
@@ -703,39 +709,38 @@ void FuncDeclaration::toObjFile()
             if (isMain())
                 gIR->emitMain = true;
 
-            gIR->funcs.push(func);
-            gIR->functypes.push(f);
-
-            IRScope irs;
-            irs.begin = new llvm::BasicBlock("entry",func);
-            irs.end = new llvm::BasicBlock("endentry",func);
+            llvm::BasicBlock* beginbb = new llvm::BasicBlock("entry",func);
+            llvm::BasicBlock* endbb = new llvm::BasicBlock("endentry",func);
 
             //assert(gIR->scopes.empty());
-            gIR->scopes.push_back(irs);
+            gIR->scopes.push_back(IRScope(beginbb, endbb));
 
                 // create alloca point
                 f->llvmAllocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
+                gIR->func().allocapoint = f->llvmAllocaPoint;
 
                 // output function body
                 fbody->toIR(gIR);
 
                 // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
                 // in automatically, so we do it here.
-                if (!isMain() && (gIR->scopebb()->empty() || !llvm::isa<llvm::TerminatorInst>(gIR->scopebb()->back()))) {
-                    // pass the previous block into this block
-                    //new llvm::BranchInst(irs.end, irs.begin);
-                    new llvm::ReturnInst(gIR->scopebb());
+                if (!isMain()) {
+                    if (gIR->scopebb()->empty() || !llvm::isa<llvm::TerminatorInst>(gIR->scopebb()->back())) {
+                        // pass the previous block into this block
+                        //new llvm::BranchInst(irs.end, irs.begin);
+                        if (func->getReturnType() == llvm::Type::VoidTy) {
+                            new llvm::ReturnInst(gIR->scopebb());
+                        }
+                        
+                    }
                 }
 
                 // erase alloca point
                 f->llvmAllocaPoint->eraseFromParent();
                 f->llvmAllocaPoint = 0;
+                gIR->func().allocapoint = 0;
 
             gIR->scopes.pop_back();
-            //assert(gIR->scopes.empty());
-
-            gIR->functypes.pop();
-            gIR->funcs.pop();
 
             // get rid of the endentry block, it's never used
             assert(!func->getBasicBlockList().empty());
@@ -745,11 +750,10 @@ void FuncDeclaration::toObjFile()
             // would be nice to figure out how to assert that this is correct
             llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
             if (lastbb->empty()) {
-                // possibly assert(lastbb->getNumPredecessors() == 0); ??? try it out sometime ...
-                new llvm::UnreachableInst(lastbb);
+                lastbb->eraseFromParent();
             }
 
-            gIR->funcdecls.pop_back();
+            gIR->functions.pop_back();
         }
 
         // template instances should have weak linkage

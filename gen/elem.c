@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "llvm/Instructions.h"
+#include "gen/llvm.h"
 
 #include "gen/elem.h"
 #include "gen/irstate.h"
@@ -50,7 +50,7 @@ llvm::Value* elem::getValue()
                 return mem;
             }
             else {
-                return new llvm::LoadInst(mem, "tmp", gIR->scopebb());
+                return gIR->ir->CreateLoad(mem, "tmp");
             }
         }
 

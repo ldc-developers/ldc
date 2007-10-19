@@ -4,8 +4,15 @@
  * has been parsed. Substitute your own behaviors for these routimes.
  */
 
+#include <cstdarg>
+
+#include "gen/llvm.h"
+
 #include "mtype.h"
+#include "declaration.h"
+
 #include "gen/irstate.h"
+#include "tollvm.h"
 
 IRState* gIR = 0;
 llvm::TargetData* gTargetData = 0;
@@ -13,15 +20,14 @@ llvm::TargetData* gTargetData = 0;
 //////////////////////////////////////////////////////////////////////////////////////////
 IRScope::IRScope()
 {
-    begin = end = 0;
-    returned = false;
+    begin = end = NULL;
 }
 
 IRScope::IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e)
 {
     begin = b;
     end = e;
-    returned = false;
+    builder.SetInsertPoint(b);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -32,24 +38,31 @@ IRState::IRState()
     inLvalue = false;
     emitMain = false;
     mainFunc = 0;
+    ir.state = this;
+}
+
+IRFunction& IRState::func()
+{
+    assert(!functions.empty() && "Function stack is empty!");
+    return functions.back();
 }
 
 llvm::Function* IRState::topfunc()
 {
-    assert(!funcs.empty() && "Function stack is empty!");
-    return funcs.top();
+    assert(!functions.empty() && "Function stack is empty!");
+    return functions.back().func;
 }
 
 TypeFunction* IRState::topfunctype()
 {
-    assert(!functypes.empty() && "TypeFunction stack is empty!");
-    return functypes.top();
+    assert(!functions.empty() && "Function stack is empty!");
+    return functions.back().type;
 }
 
 llvm::Instruction* IRState::topallocapoint()
 {
-    assert(!functypes.empty() && "AllocaPoint stack is empty!");
-    return functypes.top()->llvmAllocaPoint;
+    assert(!functions.empty() && "AllocaPoint stack is empty!");
+    return functions.back().allocapoint;
 }
 
 IRStruct& IRState::topstruct()
@@ -108,6 +121,35 @@ IRStruct::IRStruct(Type* t)
     queueFuncs = true;
 }
 
-IRStruct::~IRStruct()
+//////////////////////////////////////////////////////////////////////////////////////////
+
+IRFinally::IRFinally()
+ : bb(NULL), ret(false), retval(NULL)
 {
+}
+
+IRFinally::IRFinally(llvm::BasicBlock* b)
+ : bb(b), ret(false), retval(NULL)
+{
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLVMBuilder* IRBuilderHelper::operator->()
+{
+    LLVMBuilder& b = state->scope().builder;
+    assert(b.GetInsertBlock() != NULL);
+    return &b;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+IRFunction::IRFunction(FuncDeclaration* fd)
+{
+    decl = fd;
+    Type* t = LLVM_DtoDType(fd->type);
+    assert(t->ty == Tfunction);
+    type = (TypeFunction*)t;
+    func = NULL;
+    allocapoint = NULL;
 }

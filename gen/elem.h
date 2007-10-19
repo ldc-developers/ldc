@@ -1,8 +1,6 @@
 #ifndef LLVMDC_GEN_ELEM_H
 #define LLVMDC_GEN_ELEM_H
 
-#include "llvm/Value.h"
-
 #include "root.h"
 #include "declaration.h"
 #include "aggregate.h"

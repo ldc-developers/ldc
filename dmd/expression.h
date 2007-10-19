@@ -46,6 +46,7 @@ struct Symbol;		// back end symbol
 
 namespace llvm
 {
+    class Constant;
     class ConstantInt;
 }
 
@@ -147,6 +148,8 @@ struct Expression : Object
     // Back end
     virtual elem *toElem(IRState *irs);
     virtual dt_t **toDt(dt_t **pdt);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct IntegerExp : Expression
@@ -172,6 +175,8 @@ struct IntegerExp : Expression
     Expression *toLvalue(Scope *sc, Expression *e);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct RealExp : Expression
@@ -195,6 +200,8 @@ struct RealExp : Expression
     void toMangleBuffer(OutBuffer *buf);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct ComplexExp : Expression
@@ -298,6 +305,8 @@ struct NullExp : Expression
     Expression *interpret(InterState *istate);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct StringExp : Expression
@@ -326,6 +335,8 @@ struct StringExp : Expression
     void toMangleBuffer(OutBuffer *buf);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 // Tuple
@@ -376,6 +387,8 @@ struct ArrayLiteralExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct AssocArrayLiteralExp : Expression
@@ -401,6 +414,8 @@ struct AssocArrayLiteralExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct StructLiteralExp : Expression
@@ -432,6 +447,8 @@ struct StructLiteralExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct TypeDotIdExp : Expression
@@ -564,6 +581,8 @@ struct VarExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 // Function/Delegate literal

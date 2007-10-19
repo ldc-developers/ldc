@@ -70,9 +70,13 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
     }
     
     llvm::Function* fn = M->getFunction(name);
-    if (!fn)
-        return NULL;
+    if (!fn) {
+        error("Runtime function '%s' was not found", name);
+        fatal();
+        //return NULL;
+    }
     
     const llvm::FunctionType* fnty = fn->getFunctionType();
     return llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
 }
+

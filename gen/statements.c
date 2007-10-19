@@ -6,12 +6,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "llvm/Type.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Constants.h"
-#include "llvm/Instructions.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/CallingConv.h"
+#include "gen/llvm.h"
 
 #include "total.h"
 #include "init.h"
@@ -41,8 +36,8 @@ void CompoundStatement::toIR(IRState* p)
         if (s)
             s->toIR(p);
         else {
-            Logger::println("NULL statement found in CompoundStatement !! :S");
-            assert(0);
+            Logger::println("*** ATTENTION: null statement found in CompoundStatement");
+            //assert(0);
         }
     }
 
@@ -56,11 +51,14 @@ void ReturnStatement::toIR(IRState* p)
     Logger::println("ReturnStatement::toIR(%d): %s", rsi++, toChars());
     LOG_SCOPE;
 
+    IRFunction::FinallyVec& fin = p->func().finallys;
+
     if (exp)
     {
-        TY expty = exp->type->ty;
+        Type* exptype = LLVM_DtoDType(exp->type);
+        TY expty = exptype->ty;
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
-            assert(expty == Tstruct || expty == Tdelegate || expty == Tarray);
+            assert(LLVM_DtoIsPassedByRef(exptype));
 
             TypeFunction* f = p->topfunctype();
             assert(f->llvmRetInPtr && f->llvmRetArg);
@@ -69,17 +67,14 @@ void ReturnStatement::toIR(IRState* p)
             elem* e = exp->toElem(p);
             p->lvals.pop_back();
 
-            // structliterals do this themselves
-            // also they dont produce any value
             if (expty == Tstruct) {
                 if (!e->inplace) {
-                    TypeStruct* ts = (TypeStruct*)exp->type;
+                    TypeStruct* ts = (TypeStruct*)exptype;
                     assert(e->mem);
                     LLVM_DtoStructCopy(ts,f->llvmRetArg,e->mem);
                 }
             }
             else if (expty == Tdelegate) {
-                // do nothing, handled by the DelegateExp
                 LLVM_DtoDelegateCopy(f->llvmRetArg,e->mem);
             }
             else if (expty == Tarray) {
@@ -91,26 +86,47 @@ void ReturnStatement::toIR(IRState* p)
             else
             assert(0);
 
-            new llvm::ReturnInst(p->scopebb());
+            if (fin.empty())
+                new llvm::ReturnInst(p->scopebb());
+            else {
+                new llvm::BranchInst(fin.back().bb);
+                fin.back().ret = true;
+            }
             delete e;
         }
         else {
             elem* e = exp->toElem(p);
             llvm::Value* v = e->getValue();
-            Logger::cout() << *v << '\n';
-            new llvm::ReturnInst(v, p->scopebb());
             delete e;
+            Logger::cout() << "return value is '" <<*v << "'\n";
+            if (fin.empty()) {
+                new llvm::ReturnInst(v, p->scopebb());
+            }
+            else {
+                llvm::Value* rettmp = new llvm::AllocaInst(v->getType(),"tmpreturn",p->topallocapoint());
+                new llvm::StoreInst(v,rettmp,p->scopebb());
+                new llvm::BranchInst(fin.back().bb, p->scopebb());
+                fin.back().ret = true;
+                fin.back().retval = rettmp;
+            }
         }
     }
     else
     {
-        if (p->topfunc()->getReturnType() == llvm::Type::VoidTy)
-            new llvm::ReturnInst(p->scopebb());
-        else
+        if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
+            if (fin.empty()) {
+                new llvm::ReturnInst(p->scopebb());
+            }
+            else {
+                new llvm::BranchInst(fin.back().bb);
+                fin.back().ret = true;
+            }
+        }
+        else {
+            assert(0); // why should this ever happen?
             new llvm::UnreachableInst(p->scopebb());
+        }
     }
-
-    p->scope().returned = true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -196,33 +212,26 @@ void ScopeStatement::toIR(IRState* p)
 
     llvm::BasicBlock* oldend = p->scopeend();
 
-    IRScope irs;
+    llvm::BasicBlock* beginbb = 0;
+    
     // remove useless branches by clearing and reusing the current basicblock
     llvm::BasicBlock* bb = p->scopebegin();
     if (bb->empty()) {
-        irs.begin = bb;
+        beginbb = bb;
     }
     else {
-        irs.begin = new llvm::BasicBlock("scope", p->topfunc(), oldend);
-        new llvm::BranchInst(irs.begin, p->scopebegin());
+        assert(!p->scopereturned());
+        beginbb = new llvm::BasicBlock("scope", p->topfunc(), oldend);
+        new llvm::BranchInst(beginbb, p->scopebegin());
     }
-    irs.end = new llvm::BasicBlock("endscope", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = new llvm::BasicBlock("endscope", p->topfunc(), oldend);
 
-    gIR->scope() = irs;
+    gIR->scope() = IRScope(beginbb, endbb);
 
     statement->toIR(p);
 
     p->scope() = IRScope(p->scopebb(),oldend);
-    irs.end->eraseFromParent();
-
-    /*
-    if (!gIR->scopereturned()) {
-        new llvm::BranchInst(irs.end, gIR->scopebegin());
-    }
-
-    // rewrite the scope
-    gIR->scope() = IRScope(irs.end,oldend);
-    */
+    endbb->eraseFromParent();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -239,7 +248,8 @@ void WhileStatement::toIR(IRState* p)
     llvm::BasicBlock* endbb = new llvm::BasicBlock("endwhile", gIR->topfunc(), oldend);
 
     // move into the while block
-    new llvm::BranchInst(whilebb, gIR->scopebegin());
+    p->ir->CreateBr(whilebb);
+    //new llvm::BranchInst(whilebb, gIR->scopebegin());
 
     // replace current scope
     gIR->scope() = IRScope(whilebb,endbb);
@@ -324,10 +334,7 @@ void ForStatement::toIR(IRState* p)
     // move into the for condition block, ie. start the loop
     new llvm::BranchInst(forbb, gIR->scopebegin());
 
-    IRScope loop;
-    loop.begin = forincbb;
-    loop.end = endbb;
-    p->loopbbs.push_back(loop);
+    p->loopbbs.push_back(IRScope(forincbb,endbb));
 
     // replace current scope
     gIR->scope() = IRScope(forbb,forbodybb);
@@ -419,30 +426,46 @@ void TryFinallyStatement::toIR(IRState* p)
     Logger::println("TryFinallyStatement::toIR(%d): %s", wsi++, toChars());
     LOG_SCOPE;
 
-    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* oldend = p->scopeend();
 
-    llvm::BasicBlock* trybb = new llvm::BasicBlock("try", gIR->topfunc(), oldend);
-    llvm::BasicBlock* finallybb = new llvm::BasicBlock("finally", gIR->topfunc(), oldend);
-    llvm::BasicBlock* endbb = new llvm::BasicBlock("endtryfinally", gIR->topfunc(), oldend);
+    llvm::BasicBlock* trybb = new llvm::BasicBlock("try", p->topfunc(), oldend);
+    llvm::BasicBlock* finallybb = new llvm::BasicBlock("finally", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = new llvm::BasicBlock("endtryfinally", p->topfunc(), oldend);
 
     // pass the previous BB into this
-    new llvm::BranchInst(trybb, gIR->scopebegin());
+    new llvm::BranchInst(trybb, p->scopebb());
 
-    gIR->scope() = IRScope(trybb,finallybb);
+    p->scope() = IRScope(trybb,finallybb);
 
     assert(body);
+    gIR->func().finallys.push_back(IRFinally(finallybb));
     body->toIR(p);
-    new llvm::BranchInst(finallybb, gIR->scopebegin());
+    if (!gIR->scopereturned())
+        new llvm::BranchInst(finallybb, p->scopebb());
 
     // rewrite the scope
-    gIR->scope() = IRScope(finallybb,endbb);
+    p->scope() = IRScope(finallybb,endbb);
 
     assert(finalbody);
     finalbody->toIR(p);
-    new llvm::BranchInst(endbb, gIR->scopebegin());
+    if (gIR->func().finallys.back().ret) {
+        llvm::Value* retval = p->func().finallys.back().retval;
+        if (retval) {
+            retval = new llvm::LoadInst(retval,"tmp",p->scopebb());
+            new llvm::ReturnInst(retval, p->scopebb());
+        }
+        else {
+            new llvm::ReturnInst(p->scopebb());
+        }
+    }
+    else if (!gIR->scopereturned()) {
+        new llvm::BranchInst(endbb, p->scopebb());
+    }
+
+    p->func().finallys.pop_back();
 
     // rewrite the scope
-    gIR->scope() = IRScope(endbb,oldend);
+    p->scope() = IRScope(endbb,oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -628,7 +651,7 @@ void ForeachStatement::toIR(IRState* p)
     const llvm::Type* valtype = LLVM_DtoType(value->type);
     llvm::Value* valvar = new llvm::AllocaInst(keytype, "foreachval", p->topallocapoint());
 
-    if (aggr->type->ty == Tsarray)
+    if (LLVM_DtoDType(aggr->type)->ty == Tsarray)
     {
         assert(llvm::isa<llvm::PointerType>(val->getType()));
         assert(llvm::isa<llvm::ArrayType>(val->getType()->getContainedType(0)));
@@ -686,7 +709,7 @@ void ForeachStatement::toIR(IRState* p)
     body->toIR(p);
     p->loopbbs.pop_back();
 
-    if (!p->scope().returned)
+    if (!p->scopereturned())
         new llvm::BranchInst(nexbb, p->scopebb());
 
     // end
@@ -734,12 +757,29 @@ void GotoStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void WithStatement::toIR(IRState* p)
+{
+    Logger::println("WithStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    assert(exp);
+    assert(body);
+
+    elem* e = exp->toElem(p);
+    wthis->llvmValue = e->getValue();
+    delete e;
+
+    body->toIR(p);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
 //STUBST(BreakStatement);
 //STUBST(ForStatement);
-STUBST(WithStatement);
+//STUBST(WithStatement);
 STUBST(SynchronizedStatement);
 //STUBST(ReturnStatement);
 //STUBST(ContinueStatement);

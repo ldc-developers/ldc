@@ -5,12 +5,6 @@
 #include <vector>
 #include <deque>
 
-#include "llvm/DerivedTypes.h"
-#include "llvm/Module.h"
-#include "llvm/Function.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Target/TargetData.h"
-
 #include "root.h"
 
 // global ir state for current module
@@ -25,19 +19,26 @@ struct FuncDeclaration;
 struct Module;
 struct TypeStruct;
 
+/*
+struct LLVMValue
+{
+    std::vector<llvm::Value*> vals;
+};
+*/
+
 // represents a scope
 struct IRScope
 {
     llvm::BasicBlock* begin;
     llvm::BasicBlock* end;
-    bool returned;
+    LLVMBuilder builder;
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
 // represents a struct or class
-struct IRStruct : Object
+struct IRStruct
 {
     typedef std::vector<const llvm::Type*> TypeVector;
     typedef std::vector<llvm::Constant*> ConstantVector;
@@ -46,7 +47,6 @@ struct IRStruct : Object
 public:
     IRStruct();
     IRStruct(Type*);
-    virtual ~IRStruct();
 
     Type* type;
     TypeVector fields;
@@ -56,8 +56,40 @@ public:
     bool queueFuncs;
 };
 
+// represents a finally block
+struct IRFinally
+{
+    llvm::BasicBlock* bb;
+    bool ret;
+    llvm::Value* retval;
+
+    IRFinally();
+    IRFinally(llvm::BasicBlock* b);
+};
+
+// represents a function
+struct IRFunction
+{
+    llvm::Function* func;
+    llvm::Instruction* allocapoint;
+    FuncDeclaration* decl;
+    TypeFunction* type;
+
+    // finally blocks
+    typedef std::vector<IRFinally> FinallyVec;
+    FinallyVec finallys;
+
+    IRFunction(FuncDeclaration*);
+};
+
+struct IRBuilderHelper
+{
+    IRState* state;
+    LLVMBuilder* operator->();
+};
+
 // represents the module
-struct IRState : Object
+struct IRState
 {
     IRState();
 
@@ -66,9 +98,11 @@ struct IRState : Object
     llvm::Module* module;
 
     // functions
-    std::stack<llvm::Function*> funcs;
+    typedef std::vector<IRFunction> FunctionVector;
+    FunctionVector functions;
+    IRFunction& func();
+
     llvm::Function* topfunc();
-    std::stack<TypeFunction*> functypes;
     TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
@@ -109,9 +143,8 @@ struct IRState : Object
     // array pointer from this :(
     LvalVec arrays;
 
-    // keeping track of the declaration for the current function body
-    typedef std::vector<FuncDeclaration*> FuncDeclVec;
-    FuncDeclVec funcdecls;
+    // builder helper
+    IRBuilderHelper ir;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

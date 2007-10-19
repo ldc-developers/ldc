@@ -3,11 +3,13 @@
 struct StructInitializer;
 
 const llvm::Type* LLVM_DtoType(Type* t);
+bool LLVM_DtoIsPassedByRef(Type* type);
+Type* LLVM_DtoDType(Type* t);
 
 const llvm::Type* LLVM_DtoStructType(Type* t);
 llvm::Value* LLVM_DtoStructZeroInit(TypeStruct* t, llvm::Value* v);
 llvm::Value* LLVM_DtoStructCopy(TypeStruct* t, llvm::Value* dst, llvm::Value* src);
-llvm::Constant* LLVM_DtoStructInitializer(StructInitializer* si);
+llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si);
 
 const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam = 0);
 const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl);
@@ -30,7 +32,8 @@ void LLVM_DtoMain();
 void LLVM_DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst);
 
-llvm::Constant* LLVM_DtoInitializer(Type* type, Initializer* init);
+llvm::Constant* LLVM_DtoConstInitializer(Type* type, Initializer* init);
+void LLVM_DtoInitializer(Initializer* init);
 
 llvm::Function* LLVM_DeclareMemSet32();
 llvm::Function* LLVM_DeclareMemSet64();
@@ -48,5 +51,7 @@ llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
 llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 
 void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg);
+
+llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp);
 
 #include "enums.h"
