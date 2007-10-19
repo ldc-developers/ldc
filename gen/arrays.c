@@ -146,10 +146,10 @@ void LLVM_DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 {
     const llvm::Type* t = ptr->getType()->getContainedType(0);
 
-    std::vector<llvm::Value*> args(3,NULL);
-    args[0] = ptr;
-    args[1] = dim;
-    args[2] = val;
+    std::vector<llvm::Value*> args;
+    args.push_back(ptr);
+    args.push_back(dim);
+    args.push_back(val);
     
     const char* funcname = NULL;
     

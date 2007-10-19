@@ -9,6 +9,7 @@
 #include "llvm/GlobalVariable.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
+#include "llvm/Value.h"
 
 #include "llvm/Target/TargetData.h"
 
