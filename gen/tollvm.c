@@ -276,6 +276,10 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         else
         assert(0);
     }
+    else if (fdecl->isNested()) {
+        paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+        usesthis = true;
+    }
 
     size_t n = Argument::dim(f->parameters);
     for (int i=0; i < n; ++i) {

@@ -570,8 +570,10 @@ elem* AssignExp::toElem(IRState* p)
                 e->inplace = true;
                 e->mem = l->mem;
             }
-            else
-            assert(0);
+            else {
+                LLVM_DtoDelegateCopy(l->mem, r->getValue());
+                e->mem = l->mem;
+            }
         }
         else
         assert(0);
@@ -2581,6 +2583,39 @@ llvm::Constant* ArrayLiteralExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+elem* FuncExp::toElem(IRState* p)
+{
+    Logger::print("FuncExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    assert(fd);
+
+    if (fd->isNested()) Logger::println("nested");
+    Logger::println("kind = %s\n", fd->kind());
+
+    fd->toObjFile();
+
+    llvm::Value* lval = p->toplval();
+
+    elem* e = new elem;
+
+    llvm::Value* context = LLVM_DtoGEPi(lval,0,0,"tmp",p->scopebb());
+    //llvm::Value* castcontext = llvm::ConstantPointerNull::get(context->getType());
+    //new llvm::StoreInst(castcontext, context, p->scopebb());
+
+    llvm::Value* fptr = LLVM_DtoGEPi(lval,0,1,"tmp",p->scopebb());
+
+    assert(fd->llvmValue);
+    llvm::Value* castfptr = new llvm::BitCastInst(fd->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
+    new llvm::StoreInst(castfptr, fptr, p->scopebb());
+
+    e->inplace = true;
+
+    return e;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) elem *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 //STUB(IdentityExp);
 //STUB(CondExp);
@@ -2622,7 +2657,7 @@ STUB(DotTypeExp);
 STUB(TypeDotIdExp);
 //STUB(DotVarExp);
 //STUB(AssertExp);
-STUB(FuncExp);
+//STUB(FuncExp);
 //STUB(DelegateExp);
 //STUB(VarExp);
 //STUB(DeclarationExp);
