@@ -2250,10 +2250,14 @@ elem* X##AssignExp::toElem(IRState* p) \
     LOG_SCOPE; \
     elem* u = e1->toElem(p); \
     elem* v = e2->toElem(p); \
-    llvm::Value* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, u->getValue(), v->getValue(), "tmp", p->scopebb()); \
-    Logger::cout() << *tmp << '|' << *u->mem << '\n'; \
+    llvm::Value* uval = u->getValue(); \
+    assert(uval); \
+    llvm::Value* vval = v->getValue(); \
+    assert(vval); \
+    llvm::Value* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
     if (u->mem == 0) \
         LLVM_DtoGiveArgumentStorage(u); \
+    Logger::cout() << *tmp << '|' << *u->mem << '\n'; \
     new llvm::StoreInst(LLVM_DtoPointedType(u->mem, tmp), u->mem, p->scopebb()); \
     delete u; \
     delete v; \

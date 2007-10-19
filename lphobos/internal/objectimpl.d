@@ -136,7 +136,6 @@ class Object
     //return cast(int)cast(void *)this - cast(int)cast(void *)o;
 
     assert(0, "need opCmp for class <no classinfo yet>");
-    return 0;
     //throw new Error("need opCmp for class " ~ this.classinfo.name);
     }
 
@@ -220,15 +219,15 @@ class Object
      * Returns:
      *  null if failed
      */
-    static Object factory(char[] classname)
+    /+static Object factory(char[] classname)
     {
-    /+auto ci = ClassInfo.find(classname);
+    auto ci = ClassInfo.find(classname);
     if (ci)
     {
         return ci.create();
-    }+/
-    return null;
     }
+    return null;
+    }+/
 }
 
 /+

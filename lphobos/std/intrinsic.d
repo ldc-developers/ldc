@@ -207,7 +207,7 @@ else
 	becomes byte 0.
  */
 version (LLVM)
-pragma(LLVM_internal, "intrinsic", "llvm.bswap.i32.i32")
+pragma(LLVM_internal, "intrinsic", "llvm.bswap.i32")
     uint bswap(uint val);
 else
     uint bswap(uint v);

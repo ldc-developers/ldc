@@ -39,4 +39,3 @@ int main(string[] args) {
     writefln(contents.length - bad.length - badrun.length, '/', contents.length, " of the tests passed");
     return ret;
 }
-
