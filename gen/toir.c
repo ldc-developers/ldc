@@ -1514,6 +1514,9 @@ elem* StructLiteralExp::toElem(IRState* p)
                     TypeStruct* ts = (TypeStruct*)vxtype;
                     LLVM_DtoStructCopy(ts,arrptr,val);
                 }
+                else if (vxtype->ty == Tarray) {
+                    LLVM_DtoArrayAssign(arrptr,val);
+                }
                 else
                     new llvm::StoreInst(val, arrptr, p->scopebb());
             }
