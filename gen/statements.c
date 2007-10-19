@@ -651,7 +651,8 @@ void ForeachStatement::toIR(IRState* p)
     const llvm::Type* valtype = LLVM_DtoType(value->type);
     llvm::Value* valvar = new llvm::AllocaInst(keytype, "foreachval", p->topallocapoint());
 
-    if (LLVM_DtoDType(aggr->type)->ty == Tsarray)
+    Type* aggrtype = LLVM_DtoDType(aggr->type);
+    if (aggrtype->ty == Tsarray)
     {
         assert(llvm::isa<llvm::PointerType>(val->getType()));
         assert(llvm::isa<llvm::ArrayType>(val->getType()->getContainedType(0)));
@@ -659,9 +660,14 @@ void ForeachStatement::toIR(IRState* p)
         assert(n > 0);
         numiters = llvm::ConstantInt::get(keytype,n,false); 
     }
+    else if (aggrtype->ty == Tarray)
+    {
+        numiters = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,0,"tmp",p->scopebb()));
+        val = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,1,"tmp",p->scopebb()));
+    }
     else
     {
-        assert(0);
+        assert(0 && "aggregate type is not Tarray or Tsarray");
     }
 
     if (op == TOKforeach) {
@@ -701,7 +707,11 @@ void ForeachStatement::toIR(IRState* p)
     p->scope() = IRScope(begbb,nexbb);
 
     // get value for this iteration
-    value->llvmValue = LLVM_DtoGEP(val,llvm::ConstantInt::get(keytype,0,false),new llvm::LoadInst(keyvar,"tmp",p->scopebb()),"tmp",p->scopebb());
+    llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
+    if (aggrtype->ty == Tsarray)
+        value->llvmValue = LLVM_DtoGEP(val,zero,new llvm::LoadInst(keyvar,"tmp",p->scopebb()),"tmp",p->scopebb());
+    else if (aggrtype->ty == Tarray)
+        value->llvmValue = new llvm::GetElementPtrInst(val,new llvm::LoadInst(keyvar,"tmp",p->scopebb()),"tmp",p->scopebb());
 
     // body
     p->scope() = IRScope(p->scopebb(),endbb);
