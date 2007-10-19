@@ -1027,9 +1027,11 @@ elem* CallExp::toElem(IRState* p)
     llvm::FunctionType::param_iterator argiter = llfnty->param_begin();
     int j = 0;
 
+    Logger::println("hidden struct return");
+
     // hidden struct return arguments
     if (retinptr) {
-        if (!p->lvals.empty()) {
+        if (!p->lvals.empty() && p->toplval()) {
             assert(llvm::isa<llvm::StructType>(p->toplval()->getType()->getContainedType(0)));
             llargs[j] = p->toplval();
             if (LLVM_DtoIsPassedByRef(tf->next)) {
@@ -1048,6 +1050,8 @@ elem* CallExp::toElem(IRState* p)
     else {
         e->type = elem::VAL;
     }
+
+    Logger::println("this arguments");
 
     // this arguments
     if (fn->arg) {
@@ -1070,6 +1074,8 @@ elem* CallExp::toElem(IRState* p)
         ++j;
         ++argiter;
     }
+
+    Logger::println("regular arguments");
 
     // regular arguments
     for (int i=0; i<arguments->dim; i++,j++)
@@ -1471,7 +1477,7 @@ elem* StructLiteralExp::toElem(IRState* p)
     llvm::Value* sptr = 0;
 
     // if there is no lval, this is probably a temporary struct literal. correct?
-    if (p->lvals.empty())
+    if (p->lvals.empty() || !p->toplval())
     {
         sptr = new llvm::AllocaInst(LLVM_DtoType(type),"tmpstructliteral",p->topallocapoint());
         e->mem = sptr;
@@ -2514,7 +2520,7 @@ elem* ArrayLiteralExp::toElem(IRState* p)
     Logger::cout() << "array literal has llvm type: " << *t << '\n';
 
     llvm::Value* mem = 0;
-    if (p->lvals.empty()) {
+    if (p->lvals.empty() || !p->toplval()) {
         assert(LLVM_DtoDType(type)->ty == Tsarray);
         mem = new llvm::AllocaInst(t,"tmparrayliteral",p->topallocapoint());
     }
