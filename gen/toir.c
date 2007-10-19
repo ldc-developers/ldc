@@ -1517,6 +1517,9 @@ elem* StructLiteralExp::toElem(IRState* p)
                 else if (vxtype->ty == Tarray) {
                     LLVM_DtoArrayAssign(arrptr,val);
                 }
+                else if (vxtype->ty == Tsarray) {
+                    LLVM_DtoStaticArrayCopy(arrptr,val);
+                }
                 else
                     new llvm::StoreInst(val, arrptr, p->scopebb());
             }
