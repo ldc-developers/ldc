@@ -435,10 +435,10 @@ llvm::Function* LLVM_DeclareMemCpy64()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoStructZeroInit(TypeStruct* t, llvm::Value* v)
+llvm::Value* LLVM_DtoStructZeroInit(llvm::Value* v)
 {
     assert(gIR);
-    uint64_t n = gTargetData->getTypeSize(t->llvmType);
+    uint64_t n = gTargetData->getTypeSize(v->getType()->getContainedType(0));
     //llvm::Type* sarrty = llvm::PointerType::get(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
     llvm::Type* sarrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
@@ -459,12 +459,12 @@ llvm::Value* LLVM_DtoStructZeroInit(TypeStruct* t, llvm::Value* v)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoStructCopy(TypeStruct* t, llvm::Value* dst, llvm::Value* src)
+llvm::Value* LLVM_DtoStructCopy(llvm::Value* dst, llvm::Value* src)
 {
     assert(dst->getType() == src->getType());
     assert(gIR);
 
-    uint64_t n = gTargetData->getTypeSize(t->llvmType);
+    uint64_t n = gTargetData->getTypeSize(dst->getType()->getContainedType(0));
     //llvm::Type* sarrty = llvm::PointerType::get(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
     llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
@@ -1110,11 +1110,11 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
             llvm::Value* allocaInst = 0;
             llvm::BasicBlock* entryblock = &gIR->topfunc()->front();
             //const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(arg->mem->getType());
-            const llvm::PointerType* pty = llvm::PointerType::get(LLVM_DtoType(argexp->type));
+            const llvm::Type* realtypell = LLVM_DtoType(realtype);
+            const llvm::PointerType* pty = llvm::PointerType::get(realtypell);
             if (argty == Tstruct) {
                 allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                TypeStruct* ts = (TypeStruct*)LLVM_DtoDType(argexp->type);
-                LLVM_DtoStructCopy(ts,allocaInst,arg->mem);
+                LLVM_DtoStructCopy(allocaInst,arg->mem);
             }
             else if (argty == Tdelegate) {
                 allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
@@ -1122,7 +1122,7 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
             }
             else if (argty == Tarray) {
                 if (arg->type == elem::SLICE) {
-                    allocaInst = new llvm::AllocaInst(LLVM_DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
+                    allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
                     LLVM_DtoSetArray(allocaInst, arg->arg, arg->mem);
                 }
                 else {
@@ -1208,4 +1208,32 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
 
     assert(0 && "nested var not found");
     return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void LLVM_DtoAssign(Type* t, llvm::Value* lhs, llvm::Value* rhs)
+{
+    Logger::cout() << "assignment:" << '\n' << *lhs << *rhs << '\n';
+
+    if (t->ty == Tstruct) {
+        assert(lhs->getType() == rhs->getType());
+        LLVM_DtoStructCopy(lhs,rhs);
+    }
+    else if (t->ty == Tarray) {
+        assert(lhs->getType() == rhs->getType());
+        LLVM_DtoArrayAssign(lhs,rhs);
+    }
+    else if (t->ty == Tsarray) {
+        assert(lhs->getType() == rhs->getType());
+        LLVM_DtoStaticArrayCopy(lhs,rhs);
+    }
+    else if (t->ty == Tdelegate) {
+        assert(lhs->getType() == rhs->getType());
+        LLVM_DtoDelegateCopy(lhs,rhs);
+    }
+    else {
+        assert(lhs->getType()->getContainedType(0) == rhs->getType());
+        gIR->ir->CreateStore(rhs, lhs);
+    }
 }

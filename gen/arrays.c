@@ -445,16 +445,8 @@ void LLVM_DtoCatArrayElement(llvm::Value* arr, Expression* exp)
 
     elem* e = exp->toElem(gIR);
     Type* et = LLVM_DtoDType(exp->type);
-
-    if (et->ty == Tstruct) {
-        TypeStruct* ts = (TypeStruct*)et;
-        LLVM_DtoStructCopy(ts,ptr,e->getValue());
-    }
-    else {
-        llvm::Value* val = e->getValue();
-        Logger::cout() << "ptr = '" << *ptr << "' element = '" << *val << "'\n";
-        new llvm::StoreInst(val, ptr, gIR->scopebb());
-    }
+    LLVM_DtoAssign(et, ptr, e->getValue());
+    delete e;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -69,9 +69,8 @@ void ReturnStatement::toIR(IRState* p)
 
             if (expty == Tstruct) {
                 if (!e->inplace) {
-                    TypeStruct* ts = (TypeStruct*)exptype;
                     assert(e->mem);
-                    LLVM_DtoStructCopy(ts,f->llvmRetArg,e->mem);
+                    LLVM_DtoStructCopy(f->llvmRetArg,e->mem);
                 }
             }
             else if (expty == Tdelegate) {
@@ -649,7 +648,7 @@ void ForeachStatement::toIR(IRState* p)
     if (key) key->llvmValue = keyvar;
 
     const llvm::Type* valtype = LLVM_DtoType(value->type);
-    llvm::Value* valvar = new llvm::AllocaInst(keytype, "foreachval", p->topallocapoint());
+    llvm::Value* valvar = !value->isRef() ? new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint()) : NULL;
 
     Type* aggrtype = LLVM_DtoDType(aggr->type);
     if (aggrtype->ty == Tsarray)
@@ -708,10 +707,20 @@ void ForeachStatement::toIR(IRState* p)
 
     // get value for this iteration
     llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
+    llvm::Value* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     if (aggrtype->ty == Tsarray)
-        value->llvmValue = LLVM_DtoGEP(val,zero,new llvm::LoadInst(keyvar,"tmp",p->scopebb()),"tmp",p->scopebb());
+        value->llvmValue = LLVM_DtoGEP(val,zero,loadedKey,"tmp");
     else if (aggrtype->ty == Tarray)
-        value->llvmValue = new llvm::GetElementPtrInst(val,new llvm::LoadInst(keyvar,"tmp",p->scopebb()),"tmp",p->scopebb());
+        value->llvmValue = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
+
+    if (!value->isRef()) {
+        elem* e = new elem;
+        e->mem = value->llvmValue;
+        e->type = elem::VAR;
+        LLVM_DtoAssign(LLVM_DtoDType(value->type), valvar, e->getValue());
+        delete e;
+        value->llvmValue = valvar;
+    }
 
     // body
     p->scope() = IRScope(p->scopebb(),endbb);

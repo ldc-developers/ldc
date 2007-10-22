@@ -7,8 +7,8 @@ bool LLVM_DtoIsPassedByRef(Type* type);
 Type* LLVM_DtoDType(Type* t);
 
 const llvm::Type* LLVM_DtoStructType(Type* t);
-llvm::Value* LLVM_DtoStructZeroInit(TypeStruct* t, llvm::Value* v);
-llvm::Value* LLVM_DtoStructCopy(TypeStruct* t, llvm::Value* dst, llvm::Value* src);
+llvm::Value* LLVM_DtoStructZeroInit(llvm::Value* v);
+llvm::Value* LLVM_DtoStructCopy(llvm::Value* dst, llvm::Value* src);
 llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si);
 
 const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam = 0);
@@ -55,5 +55,7 @@ void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg);
 llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp);
 
 llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd);
+
+void LLVM_DtoAssign(Type* lhsType, llvm::Value* lhs, llvm::Value* rhs);
 
 #include "enums.h"

@@ -499,8 +499,7 @@ elem* AssignExp::toElem(IRState* p)
         if (e2ty == Tstruct) {
             // struct literals do the assignment themselvs (in place)
             if (!r->inplace) {
-                TypeStruct* ts = (TypeStruct*)e2type;
-                LLVM_DtoStructCopy(ts,l->mem,r->getValue());
+                LLVM_DtoStructCopy(l->mem,r->getValue());
             }
             else {
                 e->inplace = true;
@@ -510,8 +509,7 @@ elem* AssignExp::toElem(IRState* p)
         else if (e2type->isintegral()){
             IntegerExp* iexp = (IntegerExp*)e2;
             assert(iexp->value == 0 && "Only integral struct initializer allowed is zero");
-            TypeStruct* st = (TypeStruct*)e1type;
-            LLVM_DtoStructZeroInit(st, l->mem);
+            LLVM_DtoStructZeroInit(l->mem);
         }
         // :x
         else
@@ -1550,18 +1548,7 @@ elem* StructLiteralExp::toElem(IRState* p)
                 Logger::cout() << *val << " | " << *arrptr << '\n';
 
                 Type* vxtype = LLVM_DtoDType(vx->type);
-                if (vxtype->ty == Tstruct) {
-                    TypeStruct* ts = (TypeStruct*)vxtype;
-                    LLVM_DtoStructCopy(ts,arrptr,val);
-                }
-                else if (vxtype->ty == Tarray) {
-                    LLVM_DtoArrayAssign(arrptr,val);
-                }
-                else if (vxtype->ty == Tsarray) {
-                    LLVM_DtoStaticArrayCopy(arrptr,val);
-                }
-                else
-                    new llvm::StoreInst(val, arrptr, p->scopebb());
+                LLVM_DtoAssign(vxtype, arrptr, val);
             }
             delete ve;
         }
@@ -2058,10 +2045,10 @@ elem* NewExp::toElem(IRState* p)
     else if (ntype->ty == Tstruct) {
         TypeStruct* ts = (TypeStruct*)ntype;
         if (ts->isZeroInit()) {
-            LLVM_DtoStructZeroInit(ts,e->mem);
+            LLVM_DtoStructZeroInit(e->mem);
         }
         else {
-            LLVM_DtoStructCopy(ts,e->mem,ts->llvmInit);
+            LLVM_DtoStructCopy(e->mem,ts->llvmInit);
         }
     }
 
