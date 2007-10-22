@@ -699,6 +699,7 @@ void FuncDeclaration::toObjFile()
 
             // this handling
             if (f->llvmUsesThis) {
+                Logger::println("uses this");
                 if (f->llvmRetInPtr)
                     llvmThisVar = ++func->arg_begin();
                 else
@@ -719,6 +720,34 @@ void FuncDeclaration::toObjFile()
                 f->llvmAllocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
                 gIR->func().allocapoint = f->llvmAllocaPoint;
 
+                llvm::Value* parentNested = NULL;
+                if (FuncDeclaration* fd = toParent()->isFuncDeclaration()) {
+                    parentNested = fd->llvmNested;
+                }
+
+                // construct nested variables struct
+                if (!llvmNestedVars.empty() || parentNested) {
+                    std::vector<const llvm::Type*> nestTypes;
+                    int j = 0;
+                    if (parentNested) {
+                        nestTypes.push_back(parentNested->getType());
+                        j++;
+                    }
+                    for (std::set<VarDeclaration*>::iterator i=llvmNestedVars.begin(); i!=llvmNestedVars.end(); ++i) {
+                        VarDeclaration* vd = *i;
+                        vd->llvmNestedIndex = j++;
+                        nestTypes.push_back(LLVM_DtoType(vd->type));
+                    }
+                    const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
+                    Logger::cout() << "nested var struct has type:" << '\n' << *nestSType;
+                    llvmNested = new llvm::AllocaInst(nestSType,"nestedvars",f->llvmAllocaPoint);
+                    if (parentNested) {
+                        assert(llvmThisVar);
+                        llvm::Value* ptr = gIR->ir->CreateBitCast(llvmThisVar, parentNested->getType(), "tmp");
+                        gIR->ir->CreateStore(ptr, LLVM_DtoGEPi(llvmNested, 0,0, "tmp"));
+                    }
+                }
+
                 // output function body
                 fbody->toIR(gIR);
 
@@ -731,7 +760,6 @@ void FuncDeclaration::toObjFile()
                         if (func->getReturnType() == llvm::Type::VoidTy) {
                             new llvm::ReturnInst(gIR->scopebb());
                         }
-                        
                     }
                 }
 

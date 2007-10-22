@@ -75,6 +75,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     shidden = NULL;
     llvmQueued = false;
     llvmThisVar = NULL;
+    llvmNested = NULL;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

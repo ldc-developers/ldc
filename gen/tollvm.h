@@ -40,10 +40,10 @@ llvm::Function* LLVM_DeclareMemSet64();
 llvm::Function* LLVM_DeclareMemCpy32();
 llvm::Function* LLVM_DeclareMemCpy64();
 
-llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb);
-llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb);
-llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb);
-llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb);
+llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb=NULL);
+llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb=NULL);
+llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb=NULL);
+llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
 
 void LLVM_DtoGiveArgumentStorage(elem* e);
 
@@ -53,5 +53,7 @@ llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg);
 
 llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp);
+
+llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd);
 
 #include "enums.h"

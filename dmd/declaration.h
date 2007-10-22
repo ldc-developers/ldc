@@ -15,6 +15,8 @@
 #pragma once
 #endif /* __DMC__ */
 
+#include <set>
+
 #include "dsymbol.h"
 #include "lexer.h"
 #include "mtype.h"
@@ -255,6 +257,9 @@ struct VarDeclaration : Declaration
 
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
+
+    // LLVMDC
+    int llvmNestedIndex;
 };
 
 /**************************************************************/
@@ -514,6 +519,8 @@ struct FuncDeclaration : Declaration
 
     bool llvmQueued;
     llvm::Value* llvmThisVar;
+    std::set<VarDeclaration*> llvmNestedVars;
+    llvm::Value* llvmNested;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

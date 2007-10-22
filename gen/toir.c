@@ -41,20 +41,29 @@ elem* DeclarationExp::toElem(IRState* p)
     {
         Logger::println("VarDeclaration");
 
+        // static
         if (vd->isDataseg())
         {
             vd->toObjFile();
         }
         else
         {
-            // allocate storage on the stack
             Logger::println("vdtype = %s", vd->type->toChars());
-            const llvm::Type* lltype = LLVM_DtoType(vd->type);
-            llvm::AllocaInst* allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
-            //allocainst->setAlignment(vd->type->alignsize()); // TODO
-            vd->llvmValue = allocainst;
-            // e->val = really needed??
-
+            // referenced by nested delegate?
+            if (vd->nestedref) {
+                Logger::println("has nestedref set");
+                vd->llvmValue = p->func().decl->llvmNested;
+                assert(vd->llvmValue);
+                assert(vd->llvmNestedIndex >= 0);
+            }
+            // normal stack variable
+            else {
+                // allocate storage on the stack
+                const llvm::Type* lltype = LLVM_DtoType(vd->type);
+                llvm::AllocaInst* allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
+                //allocainst->setAlignment(vd->type->alignsize()); // TODO
+                vd->llvmValue = allocainst;
+            }
             LLVM_DtoInitializer(vd->init);
         }
     }
@@ -97,7 +106,11 @@ elem* VarExp::toElem(IRState* p)
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration");
-        
+
+        if (vd->nestedref) {
+            Logger::println("has nested ref");
+        }
+
         // needed to take care of forward references of global variables
         if (!vd->llvmTouched && vd->isDataseg())
             vd->toObjFile();
@@ -111,6 +124,8 @@ elem* VarExp::toElem(IRState* p)
         // or it could be a forward declaration of a global variable
         if (!vd->llvmValue)
         {
+            assert(!vd->nestedref);
+            Logger::println("special - no llvmValue");
             // dollar
             if (!p->arrays.empty())
             {
@@ -137,6 +152,7 @@ elem* VarExp::toElem(IRState* p)
 
         // function parameter
         if (vd->storage_class & STCparameter) {
+            assert(!vd->nestedref);
             Logger::println("function param");
             if (vd->storage_class & (STCref | STCout)) {
                 e->mem = vd->llvmValue;
@@ -163,8 +179,31 @@ elem* VarExp::toElem(IRState* p)
             }
         }
         else {
-            e->mem = vd->llvmValue;
-            //e->mem->setName(toChars());
+            // nested variable
+            if (vd->nestedref) {
+                /*
+                FuncDeclaration* fd = vd->toParent()->isFuncDeclaration();
+                assert(fd != NULL);
+                llvm::Value* ptr = NULL;
+                // inside nested function
+                if (fd != p->func().decl) {
+                    ptr = p->func().decl->llvmThisVar;
+                    Logger::cout() << "nested var reference:" << '\n' << *ptr << *vd->llvmValue->getType() << '\n';
+                    ptr = p->ir->CreateBitCast(ptr, vd->llvmValue->getType(), "tmp");
+                }
+                // inside the actual parent function
+                else {
+                    ptr = vd->llvmValue;
+                }
+                assert(ptr);
+                e->mem = LLVM_DtoGEPi(ptr,0,unsigned(vd->llvmNestedIndex),"tmp",p->scopebb());
+                */
+                e->mem = LLVM_DtoNestedVariable(vd);
+            }
+            // normal local variable
+            else {
+                e->mem = vd->llvmValue;
+            }
             e->vardecl = vd;
             e->type = elem::VAR;
         }
@@ -1283,13 +1322,16 @@ elem* SymOffExp::toElem(IRState* p)
         Logger::println("VarDeclaration");
         assert(vd->llvmValue);
         Type* t = LLVM_DtoDType(type);
-        Type* vdtype = LLVM_DtoDType(vd->type);
+        Type* vdtype = LLVM_DtoDType(vd->type); 
+
+        llvm::Value* llvalue = vd->nestedref ? LLVM_DtoNestedVariable(vd) : vd->llvmValue;
+
         if (vdtype->ty == Tstruct && !(t->ty == Tpointer && t->next == vdtype)) {
             TypeStruct* vdt = (TypeStruct*)vdtype;
             e = new elem;
             std::vector<unsigned> dst(1,0);
             vdt->sym->offsetToIndex(t->next, offset, dst);
-            llvm::Value* ptr = vd->llvmValue;
+            llvm::Value* ptr = llvalue;
             assert(ptr);
             e->mem = LLVM_DtoGEP(ptr,dst,"tmp",p->scopebb());
             e->type = elem::VAL;
@@ -1302,17 +1344,14 @@ elem* SymOffExp::toElem(IRState* p)
             e = new elem;
             llvm::Value* idx0 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             //llvm::Value* idx1 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-            e->mem = LLVM_DtoGEP(vd->llvmValue,idx0,idx0,"tmp",p->scopebb());
-            e->arg = vd->llvmValue;
+            e->mem = LLVM_DtoGEP(llvalue,idx0,idx0,"tmp",p->scopebb());
+            e->arg = llvalue;
             e->type = elem::VAL;
         }
         else if (offset == 0) {
-            /*if (!vd->llvmValue)
-                vd->toObjFile();*/
-            assert(vd->llvmValue);
             e = new elem;
-            e->mem = vd->llvmValue;
-            //e->vardecl = vd;
+            assert(llvalue);
+            e->mem = llvalue;
             e->type = elem::VAL;
         }
         else {
@@ -1326,7 +1365,6 @@ elem* SymOffExp::toElem(IRState* p)
         if (fd->llvmValue == 0)
             fd->toObjFile();
         e->val = fd->llvmValue;
-        //e->aspointer = true;
         e->type = elem::FUNC;
     }
     assert(e != 0);
@@ -2595,13 +2633,29 @@ elem* FuncExp::toElem(IRState* p)
 
     fd->toObjFile();
 
-    llvm::Value* lval = p->toplval();
+    llvm::Value* lval = NULL;
+    if (p->lvals.empty() || p->toplval() == NULL) {
+        const llvm::Type* dgty = LLVM_DtoType(type);
+        Logger::cout() << "delegate without explicit storage:" << '\n' << *dgty << '\n';
+        lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
+    }
+    else {
+        lval = p->toplval();
+    }
 
     elem* e = new elem;
 
     llvm::Value* context = LLVM_DtoGEPi(lval,0,0,"tmp",p->scopebb());
-    //llvm::Value* castcontext = llvm::ConstantPointerNull::get(context->getType());
-    //new llvm::StoreInst(castcontext, context, p->scopebb());
+    const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(context->getType()->getContainedType(0));
+    llvm::Value* llvmNested = p->func().decl->llvmNested;
+    if (llvmNested == NULL) {
+        llvm::Value* nullcontext = llvm::ConstantPointerNull::get(pty);
+        p->ir->CreateStore(nullcontext, context);
+    }
+    else {
+        llvm::Value* nestedcontext = p->ir->CreateBitCast(llvmNested, pty, "tmp");
+        p->ir->CreateStore(nestedcontext, context);
+    }
 
     llvm::Value* fptr = LLVM_DtoGEPi(lval,0,1,"tmp",p->scopebb());
 
@@ -2610,6 +2664,8 @@ elem* FuncExp::toElem(IRState* p)
     new llvm::StoreInst(castfptr, fptr, p->scopebb());
 
     e->inplace = true;
+    e->mem = lval;
+    e->type = elem::VAR;
 
     return e;
 }

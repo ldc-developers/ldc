@@ -875,7 +875,7 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, con
     v[0] = i0;
     v[1] = i1;
     Logger::cout() << "DtoGEP: " << *ptr << '\n';
-    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb);
+    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -892,14 +892,14 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, con
         dst[i] = llvm::ConstantInt::get(llvm::Type::Int32Ty, src[i], false);
     }
     ostr << '\n';
-    return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb);
+    return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
 {
-    return new llvm::GetElementPtrInst(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb);
+    return new llvm::GetElementPtrInst(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -909,7 +909,7 @@ llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std:
     std::vector<llvm::Value*> v(2);
     v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
     v[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i1, false);
-    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb);
+    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1166,4 +1166,46 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
     return retval;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
 
+llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
+{
+    FuncDeclaration* fd = vd->toParent()->isFuncDeclaration();
+    assert(fd != NULL);
+
+    IRFunction* fcur = &gIR->func();
+    FuncDeclaration* f = fcur->decl;
+
+    // on this stack
+    if (fd == f) {
+        return LLVM_DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
+    }
+
+    // on a caller stack
+    llvm::Value* ptr = f->llvmThisVar;
+    assert(ptr);
+
+    f = f->toParent()->isFuncDeclaration();
+    assert(f);
+    assert(f->llvmNested);
+    const llvm::Type* nesttype = f->llvmNested->getType();
+    assert(nesttype);
+
+    ptr = gIR->ir->CreateBitCast(ptr, nesttype, "tmp");
+
+    Logger::cout() << "nested var reference:" << '\n' << *ptr << *nesttype << '\n';
+
+    while (f) {
+        if (fd == f) {
+            return LLVM_DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
+        }
+        else {
+            ptr = LLVM_DtoGEPi(ptr,0,0,"tmp");
+            ptr = gIR->ir->CreateLoad(ptr,"tmp");
+        }
+        f = f->toParent()->isFuncDeclaration();
+    }
+
+    assert(0 && "nested var not found");
+    return NULL;
+}
