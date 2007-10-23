@@ -18,6 +18,7 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl);
 const llvm::StructType* LLVM_DtoDelegateType(Type* t);
 llvm::Value* LLVM_DtoNullDelegate(llvm::Value* v);
 llvm::Value* LLVM_DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
+llvm::Value* LLVM_DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs);
 
 llvm::GlobalValue::LinkageTypes LLVM_DtoLinkage(PROT prot, uint stc);
 unsigned LLVM_DtoCallingConv(LINK l);

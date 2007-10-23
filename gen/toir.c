@@ -1058,7 +1058,7 @@ elem* CallExp::toElem(IRState* p)
         Logger::cout() << "what are we calling? : " << *funcval << '\n';
     }
     assert(llfnty);
-    Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
+    //Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
 
     // argument handling
     llvm::FunctionType::param_iterator argiter = llfnty->param_begin();
@@ -1132,7 +1132,7 @@ elem* CallExp::toElem(IRState* p)
         Logger::cout() << *llargs[i] << '\n';
     }
 
-    Logger::cout() << "Calling: " << *funcval->getType() << '\n';
+    //Logger::cout() << "Calling: " << *funcval->getType() << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
@@ -1155,7 +1155,7 @@ elem* CallExp::toElem(IRState* p)
 
 elem* CastExp::toElem(IRState* p)
 {
-    Logger::print("CastExp::toElem: %s\n", toChars());
+    Logger::print("CastExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     elem* e = new elem;
     elem* u = e1->toElem(p);
@@ -1363,6 +1363,12 @@ elem* SymOffExp::toElem(IRState* p)
             e = new elem;
             assert(llvalue);
             e->mem = llvalue;
+            const llvm::Type* llt = LLVM_DtoType(t);
+            if (llvalue->getType() != llt) {
+                Logger::cout() << "llt is:" << *llt << '\n';
+                //const llvm::PointerType* vpty = llvm::PointerType::get(llvm::Type::Int8Ty);
+                e->mem = p->ir->CreateBitCast(e->mem, llt, "tmp");
+            }
             e->type = elem::VAL;
         }
         else {
@@ -1465,7 +1471,7 @@ elem* DotVarExp::toElem(IRState* p)
             llvm::Value* vtblidx = llvm::ConstantInt::get(llvm::Type::Int32Ty, (size_t)fdecl->vtblIndex, false);
             funcval = LLVM_DtoGEP(e->arg, zero, zero, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
-            funcval = LLVM_DtoGEP(funcval, zero, vtblidx, "tmp", p->scopebb());
+            funcval = LLVM_DtoGEP(funcval, zero, vtblidx, toChars(), p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             assert(funcval->getType() == fdecl->llvmValue->getType());
             e->callconv = LLVM_DtoCallingConv(fdecl->linkage);
@@ -1924,6 +1930,10 @@ elem* EqualExp::toElem(IRState* p)
     else if (t->ty == Tarray)
     {
         e->val = LLVM_DtoDynArrayCompare(op,l->mem,r->mem);
+    }
+    else if (t->ty == Tdelegate)
+    {
+        e->val = LLVM_DtoCompareDelegate(op,l->mem,r->mem);
     }
     else
     {

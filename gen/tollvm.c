@@ -610,7 +610,22 @@ llvm::Value* LLVM_DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
     return new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
 
+llvm::Value* LLVM_DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
+{
+    llvm::ICmpInst::Predicate pred = (op == TOKequal) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+    llvm::Value* l = gIR->ir->CreateLoad(LLVM_DtoGEPi(lhs,0,0,"tmp"),"tmp");
+    llvm::Value* r = gIR->ir->CreateLoad(LLVM_DtoGEPi(rhs,0,0,"tmp"),"tmp");
+    llvm::Value* b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+    l = gIR->ir->CreateLoad(LLVM_DtoGEPi(lhs,0,1,"tmp"),"tmp");
+    r = gIR->ir->CreateLoad(LLVM_DtoGEPi(rhs,0,1,"tmp"),"tmp");
+    llvm::Value* b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+    llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+    if (op == TOKnotequal)
+        return gIR->ir->CreateNot(b,"tmp");
+    return b;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
