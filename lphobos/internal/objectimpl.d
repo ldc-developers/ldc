@@ -37,9 +37,28 @@ module object;
 
 //import std.outofmemory;
 
+/**
+ * An unsigned integral type large enough to span the memory space. Use for
+ * array indices and pointer offsets for maximal portability to
+ * architectures that have different memory address ranges. This is
+ * analogous to C's size_t.
+ */
+alias typeof(int.sizeof) size_t;
+
+/**
+ * A signed integral type large enough to span the memory space. Use for
+ * pointer differences and for size_t differences for maximal portability to
+ * architectures that have different memory address ranges. This is
+ * analogous to C's ptrdiff_t.
+ */
+alias typeof(cast(void*)0 - cast(void*)0) ptrdiff_t;
+
+alias size_t hash_t;
+
 extern (C)
 {   /// C's printf function.
     int printf(char *, ...);
+    void trace_term();
 
     int memcmp(void *, void *, size_t);
     void* memcpy(void *, void *, size_t);
@@ -53,34 +72,12 @@ extern (C)
 /// Standard boolean type.
 alias bool bit;
 
-version (LLVM64)
-{
-    /**
-     * An unsigned integral type large enough to span the memory space. Use for
-     * array indices and pointer offsets for maximal portability to
-     * architectures that have different memory address ranges. This is
-     * analogous to C's size_t.
-     */
-    alias ulong size_t;
-
-    /**
-     * A signed integral type large enough to span the memory space. Use for
-     * pointer differences and for size_t differences for maximal portability to
-     * architectures that have different memory address ranges. This is
-     * analogous to C's ptrdiff_t.
-     */
-    alias long ptrdiff_t;
-
-    alias ulong hash_t;
-}
-else
-{
-    alias uint size_t;
-    alias int ptrdiff_t;
-    alias uint hash_t;
-}
+alias char[] string;
+alias wchar[] wstring;
+alias dchar[] dstring;
 
 /+
+
 /* *************************
  * Internal struct pointed to by the hidden .monitor member.
  */
@@ -90,6 +87,7 @@ struct Monitor
 
     /* More stuff goes here defined by internal/monitor.c */
 }
+
 +/
 
 /******************
@@ -109,7 +107,7 @@ class Object
     char[] toString()
     {
     //return this.classinfo.name;
-    return "Object.toString: classinfo not yet implemented";
+    return "object.Object (no classinfo yet)";
     }
 
     /**
@@ -118,7 +116,7 @@ class Object
     hash_t toHash()
     {
     // BUG: this prevents a compacting GC from working, needs to be fixed
-    return cast(uint)cast(void *)this;
+    return cast(hash_t)cast(void *)this;
     }
 
     /**
@@ -135,8 +133,8 @@ class Object
     // BUG: this prevents a compacting GC from working, needs to be fixed
     //return cast(int)cast(void *)this - cast(int)cast(void *)o;
 
-    assert(0, "need opCmp for class <no classinfo yet>");
     //throw new Error("need opCmp for class " ~ this.classinfo.name);
+    throw new Error("need opCmp for class unknown object.Object (no classinfo yet)");
     }
 
     /**
@@ -158,8 +156,9 @@ class Object
      */
     final void notifyRegister(void delegate(Object) dg)
     {
+    /+
     //printf("notifyRegister(dg = %llx, o = %p)\n", dg, this);
-    /+synchronized (this)
+    synchronized (this)
     {
         Monitor* m = cast(Monitor*)(cast(void**)this)[1];
         foreach (inout x; m.delegates)
@@ -191,7 +190,8 @@ class Object
         m.delegates[startlen .. len] = null;
         }
         m.delegates[startlen] = dg;
-    }+/
+    }
+    +/
     }
 
     /* **
@@ -201,7 +201,8 @@ class Object
      */
     final void notifyUnRegister(void delegate(Object) dg)
     {
-    /+synchronized (this)
+    /+
+    synchronized (this)
     {
         Monitor* m = cast(Monitor*)(cast(void**)this)[1];
         foreach (inout x; m.delegates)
@@ -209,7 +210,8 @@ class Object
         if (x == dg)
             x = null;
         }
-    }+/
+    }
+    +/
     }
 
     /******
@@ -219,15 +221,17 @@ class Object
      * Returns:
      *  null if failed
      */
-    /+static Object factory(char[] classname)
+    static Object factory(char[] classname)
     {
+    /+
     auto ci = ClassInfo.find(classname);
     if (ci)
     {
         return ci.create();
     }
+    +/
     return null;
-    }+/
+    }
 }
 
 /+
@@ -330,6 +334,8 @@ class ClassInfo : Object
 
 private import std.string;
 
++/
+
 /**
  * Array of pairs giving the offset and type information for each
  * member in an aggregate.
@@ -338,6 +344,17 @@ struct OffsetTypeInfo
 {
     size_t offset;  /// Offset of member from start of object
     TypeInfo ti;    /// TypeInfo for this member
+}
+
+private int string_cmp(char[] s1, char[] s2)
+{
+    auto len = s1.length;
+    if (s2.length < len)
+        len = s2.length;
+    int result = memcmp(s1.ptr, s2.ptr, len);
+    if (result == 0)
+        result = cast(int)(cast(ptrdiff_t)s1.length - cast(ptrdiff_t)s2.length);
+    return result;
 }
 
 /**
@@ -362,7 +379,7 @@ class TypeInfo
     TypeInfo ti = cast(TypeInfo)o;
     if (ti is null)
         return 1;
-    return std.string.cmp(this.toString(), ti.toString());
+    return string_cmp(this.toString(), ti.toString());
     }
 
     int opEquals(Object o)
@@ -415,6 +432,8 @@ class TypeInfo
     /// Get type information on the contents of the type; null if not available
     OffsetTypeInfo[] offTi() { return null; }
 }
+
+/+
 
 class TypeInfo_Typedef : TypeInfo
 {
@@ -1021,6 +1040,30 @@ class TypeInfo_Tuple : TypeInfo
         assert(0);
     }
 }
+
+class TypeInfo_Const : TypeInfo
+{
+    char[] toString() { return "const " ~ base.toString(); }
+
+    int opEquals(Object o) { return base.opEquals(o); }
+    hash_t getHash(void *p) { return base.getHash(p); }
+    int equals(void *p1, void *p2) { return base.equals(p1, p2); }
+    int compare(void *p1, void *p2) { return base.compare(p1, p2); }
+    size_t tsize() { return base.tsize(); }
+    void swap(void *p1, void *p2) { return base.swap(p1, p2); }
+
+    TypeInfo next() { return base.next(); }
+    uint flags() { return base.flags(); }
+    void[] init() { return base.init(); }
+
+    TypeInfo base;
+}
+
+class TypeInfo_Invariant : TypeInfo_Const
+{
+    char[] toString() { return "invariant " ~ base.toString(); }
+}
+
 +/
 
 /**
@@ -1036,12 +1079,6 @@ class Exception : Object
     this(char[] msg)
     {
     this.msg = msg;
-    }
-
-    void print()
-    {
-    auto str = toString();
-    printf("%.*s\n", str.length, str.ptr);
     }
 
     char[] toString() { return msg; }
@@ -1070,3 +1107,4 @@ class Error : Exception
 }
 
 //extern (C) int nullext = 0;
+

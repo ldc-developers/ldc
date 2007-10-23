@@ -1,32 +1,37 @@
 #!/bin/bash
 
-if [ "$1" = "gdb" ]; then
-dc_cmd="gdb --args llvmdc"
-else
-dc_cmd="llvmdc"
-fi
+echo "removing old objects"
+rm -f obj/*.bc
+rm -f ../lib/*.bc
 
-# build runtime
-$dc_cmd internal/contract.d \
-        internal/arrays.d \
+echo "compiling contract runtime"
+llvmdc internal/contract.d -c -of../lib/llvmdcore.bc -noruntime || exit 1
+
+echo "compiling common runtime"
+rebuild internal/arrays.d \
         internal/mem.d \
         internal/moduleinit.d \
-        -c -noruntime -odobj || exit 1
+        -c -oqobj -dc=llvmdc-posix || exit 1
 
+echo "compiling module init backend"
 llvm-as -f -o=obj/moduleinit_backend.bc internal/moduleinit_backend.ll || exit 1
-llvm-link -f -o=../lib/llvmdcore.bc obj/contract.bc obj/arrays.bc obj/mem.bc obj/moduleinit.bc obj/moduleinit_backend.bc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc `ls obj/internal.*.bc` ../lib/llvmdcore.bc obj/moduleinit_backend.bc || exit 1
 
-$dc_cmd internal/objectimpl.d -c -odobj || exit 1
-llvm-link -f -o=obj/all.bc obj/contract.bc obj/arrays.bc obj/mem.bc obj/moduleinit.bc obj/objectimpl.bc obj/moduleinit_backend.bc || exit 1
+echo "compiling object implementation"
+llvmdc internal/objectimpl.d -c -odobj || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/objectimpl.bc ../lib/llvmdcore.bc || exit 1
 
-opt -f -std-compile-opts -o=../lib/llvmdcore.bc obj/all.bc || exit 1
+echo "compiling typeinfos"
+rebuild typeinfos.d -c -oqobj -dc=llvmdc-posix || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo.*.bc` ../lib/llvmdcore.bc || exit 1
+
+echo "optimizing"
+opt -f -std-compile-opts -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc || exit 1
 
 # build phobos
-$dc_cmd std/stdio.d -c -odobj || exit 1
-llvm-link -f -o=../lib/lphobos.bc obj/stdio.bc || exit 1
+echo "compiling phobos"
+rebuild phobos.d -c -oqobj -dc=llvmdc-posix || exit 1
+llvm-link -f -o=../lib/lphobos.bc `ls phobos_obj/*.bc` || exit 1
+opt -f -std-compile-opts -o=../lib/lphobos.bc ../lib/lphobos.bc || exit 1
 
-if [ "$1" = "ll" ]; then
-    llvm-dis -f -o=all.ll ../lib/llvmdcore.bc || exit 1
-fi
-
-echo SUCCESS
+echo "SUCCESS"

@@ -1,15 +1,15 @@
 
-// void
+// byte
 
-module std.typeinfo.ti_void;
+module typeinfo.ti_byte;
 
-class TypeInfo_v : TypeInfo
+class TypeInfo_g : TypeInfo
 {
-    char[] toString() { return "void"; }
+    char[] toString() { return "byte"; }
 
     hash_t getHash(void *p)
     {
-	assert(0);
+	return *cast(byte *)p;
     }
 
     int equals(void *p1, void *p2)
@@ -24,7 +24,7 @@ class TypeInfo_v : TypeInfo
 
     size_t tsize()
     {
-	return void.sizeof;
+	return byte.sizeof;
     }
 
     void swap(void *p1, void *p2)
@@ -34,11 +34,6 @@ class TypeInfo_v : TypeInfo
 	t = *cast(byte *)p1;
 	*cast(byte *)p1 = *cast(byte *)p2;
 	*cast(byte *)p2 = t;
-    }
-
-    uint flags()
-    {
-	return 1;
     }
 }
 

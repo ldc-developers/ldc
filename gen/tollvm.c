@@ -161,7 +161,9 @@ const llvm::Type* LLVM_DtoType(Type* t)
     }
 
     // typedefs
+    // enum
     case Ttypedef:
+    case Tenum:
     {
         Type* bt = t->toBasetype();
         assert(bt);

@@ -19,6 +19,7 @@ elem::elem()
     field = false;
     callconv = (unsigned)-1;
     isthis = false;
+    istypeinfo = false;
 
     vardecl = 0;
     funcdecl = 0;

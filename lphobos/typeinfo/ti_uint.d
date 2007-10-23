@@ -1,11 +1,11 @@
 
-// int
+// uint
 
-module std.typeinfo.ti_int;
+module typeinfo.ti_uint;
 
-class TypeInfo_i : TypeInfo
+class TypeInfo_k : TypeInfo
 {
-    char[] toString() { return "int"; }
+    char[] toString() { return "uint"; }
 
     hash_t getHash(void *p)
     {
@@ -19,25 +19,25 @@ class TypeInfo_i : TypeInfo
 
     int compare(void *p1, void *p2)
     {
-	if (*cast(int*) p1 < *cast(int*) p2)
+	if (*cast(uint*) p1 < *cast(uint*) p2)
 	    return -1;
-	else if (*cast(int*) p1 > *cast(int*) p2)
+	else if (*cast(uint*) p1 > *cast(uint*) p2)
 	    return 1;
 	return 0;
     }
 
     size_t tsize()
     {
-	return int.sizeof;
+	return uint.sizeof;
     }
 
     void swap(void *p1, void *p2)
     {
 	int t;
 
-	t = *cast(int *)p1;
-	*cast(int *)p1 = *cast(int *)p2;
-	*cast(int *)p2 = t;
+	t = *cast(uint *)p1;
+	*cast(uint *)p1 = *cast(uint *)p2;
+	*cast(uint *)p2 = t;
     }
 }
 

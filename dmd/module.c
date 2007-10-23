@@ -157,6 +157,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 
     objfile = new File(objfilename);
     bcfile = new File(bcfilename);
+    llfile = new File(llfilename);
     symfile = new File(symfilename);
 }
 

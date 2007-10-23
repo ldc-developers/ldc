@@ -1,5 +1,6 @@
 #include <cassert>
 
+#include "gen/llvm.h"
 #include "llvm/Module.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -12,6 +13,8 @@
 
 static llvm::Module* M = NULL;
 static bool runtime_failed = false;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool LLVM_D_InitRuntime()
 {
@@ -41,7 +44,7 @@ bool LLVM_D_InitRuntime()
         Logger::println("Failed to load runtime: %s", errstr.c_str());
         runtime_failed = true;
     }
-    
+
     delete buffer;
     return retval;
 }
@@ -54,6 +57,8 @@ void LLVM_D_FreeRuntime()
     }
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
     // TODO maybe check the target module first, to allow overriding the runtime on a pre module basis?
@@ -63,20 +68,47 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
         error("No implicit runtime calls allowed with -noruntime option enabled");
         fatal();
     }
-    
+
     if (!M) {
         assert(!runtime_failed);
         LLVM_D_InitRuntime();
     }
-    
+
     llvm::Function* fn = M->getFunction(name);
     if (!fn) {
         error("Runtime function '%s' was not found", name);
         fatal();
         //return NULL;
     }
-    
+
     const llvm::FunctionType* fnty = fn->getFunctionType();
     return llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* name)
+{
+    // TODO maybe check the target module first, to allow overriding the runtime on a pre module basis?
+    // could be done and seems like it could be neat too :)
+
+    if (global.params.noruntime) {
+        error("No implicit runtime calls allowed with -noruntime option enabled");
+        fatal();
+    }
+
+    if (!M) {
+        assert(!runtime_failed);
+        LLVM_D_InitRuntime();
+    }
+
+    llvm::GlobalVariable* g = M->getNamedGlobal(name);
+    if (!g) {
+        error("Runtime global '%s' was not found", name);
+        fatal();
+        //return NULL;
+    }
+
+    const llvm::PointerType* t = g->getType();
+    return new llvm::GlobalVariable(t->getElementType(),g->isConstant(),g->getLinkage(),NULL,g->getName(),target);
+}

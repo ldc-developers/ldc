@@ -128,6 +128,7 @@ struct Param
     char *tt_arch;
     char *tt_os;
     char *data_layout;
+    char disassemble;
 };
 
 struct Global

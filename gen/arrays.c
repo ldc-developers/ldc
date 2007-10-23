@@ -480,3 +480,74 @@ llvm::Value* LLVM_DtoStaticArrayCompare(TOK op, llvm::Value* l, llvm::Value* r)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+llvm::Value* LLVM_DtoDynArrayCompare(TOK op, llvm::Value* l, llvm::Value* r)
+{
+    const char* fname;
+    if (op == TOKequal)
+        fname = "_d_dyn_array_eq";
+    else if (op == TOKnotequal)
+        fname = "_d_dyn_array_neq";
+    else
+        assert(0);
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+    assert(fn);
+
+    Logger::cout() << "lhsType:" << *l->getType() << "\nrhsType:" << *r->getType() << '\n';
+    assert(l->getType() == r->getType());
+    assert(llvm::isa<llvm::PointerType>(l->getType()));
+    const llvm::Type* arrty = l->getType()->getContainedType(0);
+    assert(llvm::isa<llvm::StructType>(arrty));
+    const llvm::StructType* structType = llvm::cast<llvm::StructType>(arrty);
+    const llvm::Type* elemType = structType->getElementType(1)->getContainedType(0);
+
+    std::vector<const llvm::Type*> arrTypes;
+    arrTypes.push_back(LLVM_DtoSize_t());
+    arrTypes.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+    const llvm::StructType* arrType = llvm::StructType::get(arrTypes);
+
+    llvm::Value* llmem = l;
+    llvm::Value* rrmem = r;
+
+    if (arrty != arrType) {
+        llmem= new llvm::AllocaInst(arrType,"tmparr",gIR->topallocapoint());
+
+        llvm::Value* ll = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,0, "tmp"),"tmp");
+        ll = LLVM_DtoArrayCastLength(ll, elemType, llvm::Type::Int8Ty);
+        llvm::Value* lllen = LLVM_DtoGEPi(llmem, 0,0, "tmp");
+        gIR->ir->CreateStore(ll,lllen);
+
+        ll = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,1, "tmp"),"tmp");
+        ll = new llvm::BitCastInst(ll, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp", gIR->scopebb());
+        llvm::Value* llptr = LLVM_DtoGEPi(llmem, 0,1, "tmp");
+        gIR->ir->CreateStore(ll,llptr);
+
+        rrmem = new llvm::AllocaInst(arrType,"tmparr",gIR->topallocapoint());
+
+        llvm::Value* rr = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,0, "tmp"),"tmp");
+        rr = LLVM_DtoArrayCastLength(rr, elemType, llvm::Type::Int8Ty);
+        llvm::Value* rrlen = LLVM_DtoGEPi(rrmem, 0,0, "tmp");
+        gIR->ir->CreateStore(rr,rrlen);
+
+        rr = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,1, "tmp"),"tmp");
+        rr = new llvm::BitCastInst(rr, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp", gIR->scopebb());
+        llvm::Value* rrptr = LLVM_DtoGEPi(rrmem, 0,1, "tmp");
+        gIR->ir->CreateStore(rr,rrptr);
+    }
+
+    std::vector<llvm::Value*> args;
+    args.push_back(llmem);
+    args.push_back(rrmem);
+    return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Value* LLVM_DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty, const llvm::Type* newelemty)
+{
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
+    assert(fn);
+    std::vector<llvm::Value*> args;
+    args.push_back(len);
+    args.push_back(llvm::ConstantInt::get(LLVM_DtoSize_t(), gTargetData->getTypeSize(elemty), false));
+    args.push_back(llvm::ConstantInt::get(LLVM_DtoSize_t(), gTargetData->getTypeSize(newelemty), false));
+    return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
+}

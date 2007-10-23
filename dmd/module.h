@@ -61,6 +61,7 @@ struct Module : Package
     File *srcfile;	// input source file
     File *objfile;	// output .obj file
     File *bcfile;  // output .bc file
+    File *llfile;  // output .ll file
     File *hdrfile;	// 'header' file
     File *symfile;	// output symbol file
     File *docfile;	// output documentation file

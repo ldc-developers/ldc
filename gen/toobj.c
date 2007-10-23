@@ -98,19 +98,19 @@ Module::genobjfile()
     // run passes
     // TODO
 
-    /*if (global.params.llvmLL) {
-        //assert(0);
-        std::ofstream os(llfile->name->toChars());
-        //llvm::WriteAssemblyToFile(ir.module, os);
-        ir.module->print(os);
-    }*/
-
     // write bytecode
-    //if (global.params.llvmBC) {
+    {
         Logger::println("Writing LLVM bitcode\n");
-        std::ofstream os(bcfile->name->toChars(), std::ios::binary);
-        llvm::WriteBitcodeToFile(ir.module, os);
-    //}
+        std::ofstream bos(bcfile->name->toChars(), std::ios::binary);
+        llvm::WriteBitcodeToFile(ir.module, bos);
+    }
+
+    // disassemble ?
+    if (global.params.disassemble) {
+        Logger::println("Writing LLVM asm to: %s\n", llfile->name->toChars());
+        std::ofstream aos(llfile->name->toChars());
+        ir.module->print(aos);
+    }
 
     delete ir.module;
     gIR = NULL;
@@ -295,7 +295,7 @@ void StructDeclaration::toObjFile()
     gIR->structs.pop_back();
 
     // generate typeinfo
-    type->getTypeInfo(NULL);    // generate TypeInfo
+    //type->getTypeInfo(NULL);
 }
 
 /* ================================================================== */
@@ -407,8 +407,10 @@ void ClassDeclaration::toObjFile()
     {
         llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
 
-        std::string varname(mangle());
-        varname.append("__vtblZ");
+        std::string varname("_D");
+        varname.append(mangle());
+        varname.append("6__vtblZ");
+
         std::string styname(mangle());
         styname.append("__vtblTy");
 
@@ -441,8 +443,10 @@ void ClassDeclaration::toObjFile()
 
     _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
     assert(_init);
-    std::string initname(mangle());
-    initname.append("__initZ");
+
+    std::string initname("_D");
+    initname.append(mangle());
+    initname.append("6__initZ");
     //Logger::cout() << *_init << '\n';
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, 0, initname, gIR->module);
     ts->llvmInit = initvar;
@@ -499,7 +503,7 @@ void VarDeclaration::toObjFile()
         bool _isconst = isConst();
 
         llvm::GlobalValue::LinkageTypes _linkage;
-        if (parent->isFuncDeclaration())
+        if (parent && parent->isFuncDeclaration())
             _linkage = llvm::GlobalValue::InternalLinkage;
         else
             _linkage = LLVM_DtoLinkage(protection, storage_class);
@@ -514,46 +518,51 @@ void VarDeclaration::toObjFile()
 
         Logger::println("Creating global variable");
         std::string _name(mangle());
+
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,0,_name,M);
         llvmValue = gvar;
 
-        gIR->lvals.push_back(gvar);
-        _init = LLVM_DtoConstInitializer(t, init);
-        gIR->lvals.pop_back();
+        // if extern don't emit initializer
+        if (!(storage_class & STCextern))
+        {
+            gIR->lvals.push_back(gvar);
+            _init = LLVM_DtoConstInitializer(t, init);
+            gIR->lvals.pop_back();
 
-        //Logger::cout() << "initializer: " << *_init << '\n';
-        if (_type != _init->getType()) {
-            Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
-            // zero initalizer
-            if (_init->isNullValue())
-                _init = llvm::Constant::getNullValue(_type);
-            // pointer to global constant (struct.init)
-            else if (llvm::isa<llvm::GlobalVariable>(_init))
-            {
-                assert(_init->getType()->getContainedType(0) == _type);
-                llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
-                assert(t->ty == Tstruct);
-                TypeStruct* ts = (TypeStruct*)t;
-                assert(ts->sym->llvmInitZ);
-                _init = ts->sym->llvmInitZ;
+            //Logger::cout() << "initializer: " << *_init << '\n';
+            if (_type != _init->getType()) {
+                Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
+                // zero initalizer
+                if (_init->isNullValue())
+                    _init = llvm::Constant::getNullValue(_type);
+                // pointer to global constant (struct.init)
+                else if (llvm::isa<llvm::GlobalVariable>(_init))
+                {
+                    assert(_init->getType()->getContainedType(0) == _type);
+                    llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
+                    assert(t->ty == Tstruct);
+                    TypeStruct* ts = (TypeStruct*)t;
+                    assert(ts->sym->llvmInitZ);
+                    _init = ts->sym->llvmInitZ;
+                }
+                // array single value init
+                else if (llvm::isa<llvm::ArrayType>(_type))
+                {
+                    const llvm::ArrayType* at = llvm::cast<llvm::ArrayType>(_type);
+                    assert(_type->getContainedType(0) == _init->getType());
+                    std::vector<llvm::Constant*> initvals;
+                    initvals.resize(at->getNumElements(), _init);
+                    _init = llvm::ConstantArray::get(at, initvals);
+                }
+                else {
+                    Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
+                    //assert(0);
+                }
             }
-            // array single value init
-            else if (llvm::isa<llvm::ArrayType>(_type))
-            {
-                const llvm::ArrayType* at = llvm::cast<llvm::ArrayType>(_type);
-                assert(_type->getContainedType(0) == _init->getType());
-                std::vector<llvm::Constant*> initvals;
-                initvals.resize(at->getNumElements(), _init);
-                _init = llvm::ConstantArray::get(at, initvals);
-            }
-            else {
-                Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
-                //assert(0);
-            }
+
+            gvar->setInitializer(_init);
         }
 
-        gvar->setInitializer(_init);
-        
         llvmDModule = gIR->dmodule;
 
         //if (storage_class & STCprivate)
@@ -618,7 +627,8 @@ void TypedefDeclaration::toObjFile()
     Logger::print("TypedefDeclaration::toObjFile(%d): %s\n", tdi++, toChars());
     LOG_SCOPE;
 
-    // TODO
+    // generate typeinfo
+    type->getTypeInfo(NULL);
 }
 
 /* ================================================================== */
@@ -695,7 +705,7 @@ void FuncDeclaration::toObjFile()
             // first make absolutely sure the type is up to date
             f->llvmType = llvmValue->getType()->getContainedType(0);
 
-            Logger::cout() << "func type: " << *f->llvmType << '\n';
+            //Logger::cout() << "func type: " << *f->llvmType << '\n';
 
             // this handling
             if (f->llvmUsesThis) {
@@ -754,11 +764,14 @@ void FuncDeclaration::toObjFile()
                 // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
                 // in automatically, so we do it here.
                 if (!isMain()) {
-                    if (gIR->scopebb()->empty() || !llvm::isa<llvm::TerminatorInst>(gIR->scopebb()->back())) {
+                    if (!gIR->scopereturned()) {
                         // pass the previous block into this block
                         //new llvm::BranchInst(irs.end, irs.begin);
                         if (func->getReturnType() == llvm::Type::VoidTy) {
                             new llvm::ReturnInst(gIR->scopebb());
+                        }
+                        else {
+                            new llvm::ReturnInst(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
                         }
                     }
                 }
@@ -778,7 +791,17 @@ void FuncDeclaration::toObjFile()
             // would be nice to figure out how to assert that this is correct
             llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
             if (lastbb->empty()) {
-                lastbb->eraseFromParent();
+                if (lastbb->getNumUses() == 0)
+                    lastbb->eraseFromParent();
+                else {
+                    new llvm::UnreachableInst(lastbb);
+                    /*if (func->getReturnType() == llvm::Type::VoidTy) {
+                        new llvm::ReturnInst(lastbb);
+                    }
+                    else {
+                        new llvm::ReturnInst(llvm::UndefValue::get(func->getReturnType()), lastbb);
+                    }*/
+                }
             }
 
             gIR->functions.pop_back();

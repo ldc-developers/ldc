@@ -116,36 +116,6 @@ void StructDeclaration::toDt(dt_t **pdt)
 {
 }
 
-
-void TypeInfoPointerDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
-{
-}
-void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
-{
-}
-
-
 dt_t **Type::toDt(dt_t **pdt)
 {
     return 0;

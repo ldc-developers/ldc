@@ -8,8 +8,8 @@ struct S
 
 void main()
 {
-    S[4] arr;
+    S[4] arr = void;
     foreach(i,v;arr) {
-        v = S(i,i*2.5);
+        v = S(i, i*2.5);
     }
 }

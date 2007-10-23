@@ -85,3 +85,32 @@ bool _d_static_array_neq(void* lhs, void* rhs, size_t bytesize)
     return memcmp(lhs,rhs,bytesize) != 0;
 }
 
+bool _d_dyn_array_eq(void[] lhs, void[] rhs)
+{
+    if (lhs.length != rhs.length)
+        return false;
+    else if (lhs is rhs)
+        return true;
+    return memcmp(lhs.ptr,rhs.ptr,lhs.length) == 0;
+}
+
+bool _d_dyn_array_neq(void[] lhs, void[] rhs)
+{
+    if (lhs.length != rhs.length)
+        return true;
+    else if (lhs is rhs)
+        return false;
+    return memcmp(lhs.ptr,rhs.ptr,lhs.length) != 0;
+}
+
+// for array cast
+size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
+{
+    if (newelemsz == 1) {
+        return len*elemsz;
+    }
+    else if (len % newelemsz) {
+        throw new Exception("Bad array cast");
+    }
+    return (len*elemsz)/newelemsz;
+}

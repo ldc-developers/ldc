@@ -177,6 +177,7 @@ Usage:\n\
   -debug=ident   compile in debug code identified by ident\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
+  -dis           disassemble module after compiling\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
   -H             generate 'header' file\n\
@@ -384,6 +385,8 @@ int main(int argc, char *argv[])
 		global.params.noruntime = 1;
         else if (strcmp(p + 1, "noverify") == 0)
         global.params.novalidate = 1;
+        else if (strcmp(p + 1, "dis") == 0)
+        global.params.disassemble = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
