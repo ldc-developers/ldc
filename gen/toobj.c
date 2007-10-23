@@ -363,10 +363,10 @@ void ClassDeclaration::toObjFile()
     ts->llvmType = structtype;
     llvmType = structtype;
 
-    bool define_vtable = false;
+    bool needs_definition = false;
     if (parent->isModule()) {
         gIR->module->addTypeName(mangle(),ts->llvmType);
-        define_vtable = (getModule() == gIR->dmodule);
+        needs_definition = (getModule() == gIR->dmodule);
     }
     else {
         assert(0 && "class parent is not a module");
@@ -418,9 +418,9 @@ void ClassDeclaration::toObjFile()
         gIR->module->addTypeName(styname, svtbl_ty);
         svtblVar = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
 
-        if (define_vtable) {
-            svtblVar->setInitializer(llvm::ConstantStruct::get(svtbl_ty, sinits));
-        }
+        llvmConstVtbl = llvm::cast<llvm::ConstantStruct>(llvm::ConstantStruct::get(svtbl_ty, sinits));
+        if (needs_definition)
+            svtblVar->setInitializer(llvmConstVtbl);
         llvmVtbl = svtblVar;
     }
 
@@ -441,25 +441,25 @@ void ClassDeclaration::toObjFile()
     assert(svtblVar != 0);
     gIR->topstruct().inits[0] = svtblVar;
 
-    _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
+    llvmInitZ = _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
     assert(_init);
 
     std::string initname("_D");
     initname.append(mangle());
     initname.append("6__initZ");
     //Logger::cout() << *_init << '\n';
-    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, 0, initname, gIR->module);
+    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, NULL, initname, gIR->module);
     ts->llvmInit = initvar;
-    if (define_vtable) {
-        initvar->setInitializer(_init);
-    }
 
-    // generate member function definitions
-    gIR->topstruct().queueFuncs = false;
-    IRStruct::FuncDeclVec& mfs = gIR->topstruct().funcs;
-    size_t n = mfs.size();
-    for (size_t i=0; i<n; ++i) {
-        mfs[i]->toObjFile();
+    if (needs_definition) {
+        initvar->setInitializer(_init);
+        // generate member functions
+        gIR->topstruct().queueFuncs = false;
+        IRStruct::FuncDeclVec& mfs = gIR->topstruct().funcs;
+        size_t n = mfs.size();
+        for (size_t i=0; i<n; ++i) {
+            mfs[i]->toObjFile();
+        }
     }
 
     gIR->classes.pop_back();
@@ -525,9 +525,7 @@ void VarDeclaration::toObjFile()
         // if extern don't emit initializer
         if (!(storage_class & STCextern))
         {
-            gIR->lvals.push_back(gvar);
             _init = LLVM_DtoConstInitializer(t, init);
-            gIR->lvals.pop_back();
 
             //Logger::cout() << "initializer: " << *_init << '\n';
             if (_type != _init->getType()) {
@@ -628,7 +626,8 @@ void TypedefDeclaration::toObjFile()
     LOG_SCOPE;
 
     // generate typeinfo
-    type->getTypeInfo(NULL);
+    if (!type->builtinTypeInfo())
+        type->getTypeInfo(NULL);
 }
 
 /* ================================================================== */

@@ -1100,14 +1100,14 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
 {
     llvm::Value* retval = 0;
 
-    bool haslvals = !gIR->lvals.empty();
+    bool haslvals = !gIR->exps.empty();
     if (haslvals)
-        gIR->lvals.push_back(NULL);
+        gIR->exps.push_back(IRExp(NULL,NULL,NULL));
 
     elem* arg = argexp->toElem(gIR);
 
     if (haslvals)
-        gIR->lvals.pop_back();
+        gIR->exps.pop_back();
 
     if (arg->inplace) {
         assert(arg->mem != 0);
@@ -1253,4 +1253,30 @@ void LLVM_DtoAssign(Type* t, llvm::Value* lhs, llvm::Value* rhs)
         assert(lhs->getType()->getContainedType(0) == rhs->getType());
         gIR->ir->CreateStore(rhs, lhs);
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::ConstantInt* LLVM_DtoConstSize_t(size_t i)
+{
+    return llvm::ConstantInt::get(LLVM_DtoSize_t(), i, false);
+}
+llvm::ConstantInt* LLVM_DtoConstUint(unsigned i)
+{
+    return llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* LLVM_DtoConstString(const char* str)
+{
+    std::string s(str);
+    llvm::Constant* init = llvm::ConstantArray::get(s, true);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
+        init->getType(), true,llvm::GlobalValue::InternalLinkage, init, "stringliteral", gIR->module);
+    llvm::Constant* idxs[2] = { LLVM_DtoConstUint(0), LLVM_DtoConstUint(0) };
+    return LLVM_DtoConstantSlice(
+        LLVM_DtoConstSize_t(s.length()),
+        llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
+    );
 }

@@ -377,19 +377,16 @@ elem* StringExp::toElem(IRState* p)
 
     if (dtype->ty == Tarray) {
         llvm::Constant* clen = llvm::ConstantInt::get(LLVM_DtoSize_t(),len,false);
-        if (p->lvals.empty() || !p->toplval()) {
+        if (!p->topexp() || p->topexp()->e2 != this) {
             llvm::Value* tmpmem = new llvm::AllocaInst(LLVM_DtoType(dtype),"tmp",p->topallocapoint());
             LLVM_DtoSetArray(tmpmem, clen, arrptr);
             e->mem = tmpmem;
         }
-        else if (llvm::Value* arr = p->toplval()) {
-            if (llvm::isa<llvm::GlobalVariable>(arr)) {
-                e->val = LLVM_DtoConstantSlice(clen, arrptr);
-            }
-            else {
-                LLVM_DtoSetArray(arr, clen, arrptr);
-                e->inplace = true;
-            }
+        else if (p->topexp()->e2 == this) {
+            llvm::Value* arr = p->topexp()->v;
+            assert(arr);
+            LLVM_DtoSetArray(arr, clen, arrptr);
+            e->inplace = true;
         }
         else
         assert(0);
@@ -453,14 +450,13 @@ elem* AssignExp::toElem(IRState* p)
     Logger::print("AssignExp::toElem: %s | %s = %s\n", toChars(), e1->type->toChars(), e2->type->toChars());
     LOG_SCOPE;
 
-    assert(e1 && e2);
-    p->inLvalue = true;
-        elem* l = e1->toElem(p);
-    p->inLvalue = false;
+    p->exps.push_back(IRExp(e1,e2,NULL));
 
-    p->lvals.push_back(l->mem);
-        elem* r = e2->toElem(p);
-    p->lvals.pop_back();
+    elem* l = e1->toElem(p);
+    p->topexp()->v = l->mem;
+    elem* r = e2->toElem(p);
+
+    p->exps.pop_back();
 
     if (l->type == elem::ARRAYLEN)
     {
@@ -1066,11 +1062,14 @@ elem* CallExp::toElem(IRState* p)
 
     Logger::println("hidden struct return");
 
+    IRExp* topexp = p->topexp();
+
     // hidden struct return arguments
     if (retinptr) {
-        if (!p->lvals.empty() && p->toplval()) {
-            assert(llvm::isa<llvm::StructType>(p->toplval()->getType()->getContainedType(0)));
-            llargs[j] = p->toplval();
+        if (topexp && topexp->e2 == this) {
+            assert(topexp->v);
+            assert(llvm::isa<llvm::StructType>(topexp->v->getType()->getContainedType(0)));
+            llargs[j] = topexp->v;
             if (LLVM_DtoIsPassedByRef(tf->next)) {
                 e->inplace = true;
             }
@@ -1534,17 +1533,19 @@ elem* StructLiteralExp::toElem(IRState* p)
     llvm::Value* sptr = 0;
 
     // if there is no lval, this is probably a temporary struct literal. correct?
-    if (p->lvals.empty() || !p->toplval())
+    if (!p->topexp() || p->topexp()->e2 != this)
     {
         sptr = new llvm::AllocaInst(LLVM_DtoType(type),"tmpstructliteral",p->topallocapoint());
         e->mem = sptr;
         e->type = elem::VAR;
     }
     // already has memory
-    else
+    else if (p->topexp()->e2 == this)
     {
-        sptr = p->toplval();
+        sptr = p->topexp()->v;
     }
+    else
+    assert(0);
 
     assert(sptr);
 
@@ -1558,9 +1559,9 @@ elem* StructLiteralExp::toElem(IRState* p)
 
         Expression* vx = (Expression*)elements->data[i];
         if (vx != 0) {
-            p->lvals.push_back(arrptr);
+            p->exps.push_back(IRExp(NULL,vx,arrptr));
             elem* ve = vx->toElem(p);
-            p->lvals.pop_back();
+            p->exps.pop_back();
 
             if (!ve->inplace) {
                 llvm::Value* val = ve->getValue();
@@ -2042,7 +2043,8 @@ elem* NewExp::toElem(IRState* p)
             if (arguments->dim == 1) {
                 elem* sz = ((Expression*)arguments->data[0])->toElem(p);
                 llvm::Value* dimval = sz->getValue();
-                LLVM_DtoNewDynArray(p->toplval(), dimval, ntype->next);
+                assert(p->topexp() && p->topexp()->e2 == this && p->topexp()->v);
+                LLVM_DtoNewDynArray(p->topexp()->v, dimval, ntype->next);
                 delete sz;
             }
             else {
@@ -2161,7 +2163,7 @@ elem* ArrayLengthExp::toElem(IRState* p)
     elem* e = new elem;
     elem* u = e1->toElem(p);
 
-    if (p->inLvalue)
+    if (p->topexp() && p->topexp()->e1 == this)
     {
         e->mem = u->mem;
         e->type = elem::ARRAYLEN;
@@ -2372,26 +2374,27 @@ elem* DelegateExp::toElem(IRState* p)
 
     elem* e = new elem;
     elem* u = e1->toElem(p);
-    
+
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-    
+
     const llvm::Type* int8ptrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
-    llvm::Value* lval = p->toplval();
+    assert(p->topexp() && p->topexp()->e2 == this && p->topexp()->v);
+    llvm::Value* lval = p->topexp()->v;
 
     llvm::Value* context = LLVM_DtoGEP(lval,zero,zero,"tmp",p->scopebb());
     llvm::Value* castcontext = new llvm::BitCastInst(u->getValue(),int8ptrty,"tmp",p->scopebb());
     new llvm::StoreInst(castcontext, context, p->scopebb());
-    
+
     llvm::Value* fptr = LLVM_DtoGEP(lval,zero,one,"tmp",p->scopebb());
-    
+
     assert(func->llvmValue);
     llvm::Value* castfptr = new llvm::BitCastInst(func->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
     new llvm::StoreInst(castfptr, fptr, p->scopebb());
-    
+
     e->inplace = true;
-    
+
     delete u;
     return e;
 }
@@ -2415,8 +2418,16 @@ elem* IdentityExp::toElem(IRState* p)
     else
     r = v->getValue();
 
-    llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-    e->val = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
+    Type* t1 = LLVM_DtoDType(e1->type);
+
+    if (t1->ty == Tarray) {
+        assert(l->getType() == r->getType());
+        e->val = LLVM_DtoDynArrayIs(op,l,r);
+    }
+    else {
+        llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+        e->val = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
+    }
     e->type = elem::VAL;
 
     delete u;
@@ -2445,7 +2456,8 @@ elem* CondExp::toElem(IRState* p)
     Logger::print("CondExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    const llvm::Type* resty = LLVM_DtoType(type);
+    Type* dtype = LLVM_DtoDType(type);
+    const llvm::Type* resty = LLVM_DtoType(dtype);
 
     // allocate a temporary for the final result. failed to come up with a better way :/
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
@@ -2463,21 +2475,21 @@ elem* CondExp::toElem(IRState* p)
 
     p->scope() = IRScope(condtrue, condfalse);
     elem* u = e1->toElem(p);
-    new llvm::StoreInst(u->getValue(),resval,p->scopebb());
+    LLVM_DtoAssign(dtype, resval, u->getValue());
     new llvm::BranchInst(condend,p->scopebb());
     delete u;
 
     p->scope() = IRScope(condfalse, condend);
     elem* v = e2->toElem(p);
-    new llvm::StoreInst(v->getValue(),resval,p->scopebb());
+    LLVM_DtoAssign(dtype, resval, v->getValue());
     new llvm::BranchInst(condend,p->scopebb());
     delete v;
 
     p->scope() = IRScope(condend, oldend);
 
     elem* e = new elem;
-    e->val = new llvm::LoadInst(resval,"tmp",p->scopebb());
-    e->type = elem::VAL;
+    e->mem = resval;
+    e->type = elem::VAR;
     return e;
 }
 
@@ -2589,12 +2601,13 @@ elem* ArrayLiteralExp::toElem(IRState* p)
     Logger::cout() << "array literal has llvm type: " << *t << '\n';
 
     llvm::Value* mem = 0;
-    if (p->lvals.empty() || !p->toplval()) {
+    if (!p->topexp() || p->topexp()->e2 != this) {
         assert(LLVM_DtoDType(type)->ty == Tsarray);
         mem = new llvm::AllocaInst(t,"tmparrayliteral",p->topallocapoint());
     }
-    else {
-        mem = p->toplval();
+    else if (p->topexp()->e2 == this) {
+        mem = p->topexp()->v;
+        assert(mem);
         if (!llvm::isa<llvm::PointerType>(mem->getType()) ||
             !llvm::isa<llvm::ArrayType>(mem->getType()->getContainedType(0)))
         {
@@ -2602,6 +2615,8 @@ elem* ArrayLiteralExp::toElem(IRState* p)
             fatal();
         }
     }
+    else
+    assert(0);
 
     for (unsigned i=0; i<elements->dim; ++i)
     {
@@ -2657,14 +2672,17 @@ elem* FuncExp::toElem(IRState* p)
     fd->toObjFile();
 
     llvm::Value* lval = NULL;
-    if (p->lvals.empty() || p->toplval() == NULL) {
+    if (!p->topexp() || p->topexp()->e2 != this) {
         const llvm::Type* dgty = LLVM_DtoType(type);
         Logger::cout() << "delegate without explicit storage:" << '\n' << *dgty << '\n';
         lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
     }
-    else {
-        lval = p->toplval();
+    else if (p->topexp()->e2 == this) {
+        lval = p->topexp()->v;
+        assert(lval);
     }
+    else
+    assert(0);
 
     elem* e = new elem;
 

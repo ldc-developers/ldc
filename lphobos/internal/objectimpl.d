@@ -433,8 +433,6 @@ class TypeInfo
     OffsetTypeInfo[] offTi() { return null; }
 }
 
-/+
-
 class TypeInfo_Typedef : TypeInfo
 {
     char[] toString() { return name; }
@@ -455,7 +453,7 @@ class TypeInfo_Typedef : TypeInfo
     size_t tsize() { return base.tsize(); }
     void swap(void *p1, void *p2) { return base.swap(p1, p2); }
 
-    TypeInfo next() { return base.next(); }
+    TypeInfo next() { return base; }
     uint flags() { return base.flags(); }
     void[] init() { return m_init.length ? m_init : base.init(); }
 
@@ -467,6 +465,8 @@ class TypeInfo_Typedef : TypeInfo
 class TypeInfo_Enum : TypeInfo_Typedef
 {
 }
+
+/+
 
 class TypeInfo_Pointer : TypeInfo
 {

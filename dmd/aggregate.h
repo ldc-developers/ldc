@@ -40,6 +40,7 @@ namespace llvm
     class Type;
     class Value;
     class Constant;
+    class ConstantStruct;
 }
 
 struct AggregateDeclaration : ScopeDsymbol
@@ -98,6 +99,7 @@ struct AggregateDeclaration : ScopeDsymbol
     bool llvmInProgress;
     llvm::Type* llvmType;
     llvm::Value* llvmVtbl;
+    llvm::ConstantStruct* llvmConstVtbl;
     llvm::Constant* llvmInitZ;
     virtual void offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result); // converts a DMD field offsets to LLVM struct index vector
 

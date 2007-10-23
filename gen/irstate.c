@@ -35,7 +35,6 @@ IRState::IRState()
 {
     dmodule = 0;
     module = 0;
-    inLvalue = false;
     emitMain = false;
     mainFunc = 0;
     ir.state = this;
@@ -71,10 +70,9 @@ IRStruct& IRState::topstruct()
     return structs.back();
 }
 
-llvm::Value* IRState::toplval()
+IRExp* IRState::topexp()
 {
-    assert(!lvals.empty() && "Lval vector is empty!");
-    return lvals.back();
+    return exps.empty() ? NULL : &exps.back();
 }
 
 IRScope& IRState::scope()
@@ -152,4 +150,19 @@ IRFunction::IRFunction(FuncDeclaration* fd)
     type = (TypeFunction*)t;
     func = NULL;
     allocapoint = NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+IRExp::IRExp()
+{
+    e1 = e2 = NULL;
+    v = NULL;
+}
+
+IRExp::IRExp(Expression* l, Expression* r, llvm::Value* val)
+{
+    e1 = l;
+    e2 = r;
+    v = val;
 }

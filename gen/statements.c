@@ -51,10 +51,10 @@ void ReturnStatement::toIR(IRState* p)
     Logger::println("ReturnStatement::toIR(%d): %s", rsi++, toChars());
     LOG_SCOPE;
 
-    IRFunction::FinallyVec& fin = p->func().finallys;
-
     if (exp)
     {
+        Logger::println("return type is: %s", exp->type->toChars());
+
         Type* exptype = LLVM_DtoDType(exp->type);
         TY expty = exptype->ty;
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
@@ -63,28 +63,36 @@ void ReturnStatement::toIR(IRState* p)
             TypeFunction* f = p->topfunctype();
             assert(f->llvmRetInPtr && f->llvmRetArg);
 
-            p->lvals.push_back(f->llvmRetArg);
+            p->exps.push_back(IRExp(NULL,exp,f->llvmRetArg));
             elem* e = exp->toElem(p);
-            p->lvals.pop_back();
+            p->exps.pop_back();
 
             if (expty == Tstruct) {
-                if (!e->inplace) {
-                    assert(e->mem);
-                    LLVM_DtoStructCopy(f->llvmRetArg,e->mem);
-                }
+                if (!e->inplace)
+                    LLVM_DtoStructCopy(f->llvmRetArg,e->getValue());
             }
             else if (expty == Tdelegate) {
-                LLVM_DtoDelegateCopy(f->llvmRetArg,e->mem);
+                if (!e->inplace)
+                    LLVM_DtoDelegateCopy(f->llvmRetArg,e->getValue());
             }
             else if (expty == Tarray) {
                 if (e->type == elem::SLICE) {
+                    assert(e->mem);
                     LLVM_DtoSetArray(f->llvmRetArg,e->arg,e->mem);
                 }
-                // else the return value is a variable and should already have been assigned by now
+                else if (!e->inplace) {
+                    if (e->type == elem::NUL) {
+                        LLVM_DtoNullArray(f->llvmRetArg);
+                    }
+                    else {
+                        LLVM_DtoArrayAssign(f->llvmRetArg, e->getValue());
+                    }
+                }
             }
             else
             assert(0);
 
+            IRFunction::FinallyVec& fin = p->func().finallys;
             if (fin.empty())
                 new llvm::ReturnInst(p->scopebb());
             else {
@@ -98,6 +106,8 @@ void ReturnStatement::toIR(IRState* p)
             llvm::Value* v = e->getValue();
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
+
+            IRFunction::FinallyVec& fin = p->func().finallys;
             if (fin.empty()) {
                 new llvm::ReturnInst(v, p->scopebb());
             }
@@ -113,6 +123,7 @@ void ReturnStatement::toIR(IRState* p)
     else
     {
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
+            IRFunction::FinallyVec& fin = p->func().finallys;
             if (fin.empty()) {
                 new llvm::ReturnInst(p->scopebb());
             }

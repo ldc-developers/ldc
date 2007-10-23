@@ -59,4 +59,8 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd);
 
 void LLVM_DtoAssign(Type* lhsType, llvm::Value* lhs, llvm::Value* rhs);
 
+llvm::ConstantInt* LLVM_DtoConstSize_t(size_t);
+llvm::ConstantInt* LLVM_DtoConstUint(unsigned i);
+llvm::Constant* LLVM_DtoConstString(const char*);
+
 #include "enums.h"

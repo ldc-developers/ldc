@@ -30,6 +30,8 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/runtime.h"
+#include "gen/tollvm.h"
+#include "gen/arrays.h"
 
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal
@@ -242,10 +244,20 @@ void TypeInfoDeclaration::toObjFile()
     if (llvmTouched) return;
     else llvmTouched = true;
 
-    Logger::println("Getting typeinfo var: %s", mangle());
-    llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangle());
-    assert(llvmValue);
-    Logger::cout() << "Got:" << '\n' << *llvmValue << '\n';
+    Logger::println("typeinfo mangle: %s", mangle());
+
+    if (tinfo->builtinTypeInfo()) {
+        // this is a declaration of a builtin __initZ var
+        llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangle());
+        assert(llvmValue);
+        Logger::cout() << "Got typeinfo var:" << '\n' << *llvmValue << '\n';
+    }
+    else {
+        toDt(NULL);
+        // this is a specialized typeinfo
+        //std::vector<const llvm::Type*> stypes;
+        //stypes.push_back(
+    }
 }
 
 /* ========================================================================= */
@@ -257,7 +269,89 @@ void TypeInfoDeclaration::toDt(dt_t **pdt)
 
 void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoTypedefDeclaration");
+    Logger::println("TypeInfoTypedefDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    ClassDeclaration* base = Type::typeinfotypedef;
+    base->toObjFile();
+
+    llvm::Constant* initZ = base->llvmInitZ;
+    assert(initZ);
+    const llvm::StructType* stype = llvm::cast<llvm::StructType>(initZ->getType());
+
+    std::vector<llvm::Constant*> sinits;
+    sinits.push_back(initZ->getOperand(0));
+
+    assert(tinfo->ty == Ttypedef);
+    TypeTypedef *tc = (TypeTypedef *)tinfo;
+    TypedefDeclaration *sd = tc->sym;
+
+    // TypeInfo base
+    //const llvm::PointerType* basept = llvm::cast<llvm::PointerType>(initZ->getOperand(1)->getType());
+    //sinits.push_back(llvm::ConstantPointerNull::get(basept));
+    Logger::println("generating base typeinfo");
+    //sd->basetype = sd->basetype->merge();
+    sd->basetype->getTypeInfo(NULL);        // generate vtinfo
+    assert(sd->basetype->vtinfo);
+    if (!sd->basetype->vtinfo->llvmValue)
+        sd->basetype->vtinfo->toObjFile();
+    assert(llvm::isa<llvm::Constant>(sd->basetype->vtinfo->llvmValue));
+    llvm::Constant* castbase = llvm::cast<llvm::Constant>(sd->basetype->vtinfo->llvmValue);
+    castbase = llvm::ConstantExpr::getBitCast(castbase, initZ->getOperand(1)->getType());
+    sinits.push_back(castbase);
+
+    // char[] name
+    char *name = sd->toPrettyChars();
+    sinits.push_back(LLVM_DtoConstString(name));
+    assert(sinits.back()->getType() == initZ->getOperand(2)->getType());
+
+    // void[] init
+    //const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    //sinits.push_back(LLVM_DtoConstantSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+    sinits.push_back(initZ->getOperand(3));
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
+
+    llvmValue = gvar;
+
+    /*
+    dtxoff(pdt, Type::typeinfotypedef->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Typedef
+    dtdword(pdt, 0);                // monitor
+
+    assert(tinfo->ty == Ttypedef);
+
+    TypeTypedef *tc = (TypeTypedef *)tinfo;
+    TypedefDeclaration *sd = tc->sym;
+    //printf("basetype = %s\n", sd->basetype->toChars());
+
+    // Put out:
+    //  TypeInfo base;
+    //  char[] name;
+    //  void[] m_init;
+
+    sd->basetype = sd->basetype->merge();
+    sd->basetype->getTypeInfo(NULL);        // generate vtinfo
+    assert(sd->basetype->vtinfo);
+    dtxoff(pdt, sd->basetype->vtinfo->toSymbol(), 0, TYnptr);   // TypeInfo for basetype
+
+    char *name = sd->toPrettyChars();
+    size_t namelen = strlen(name);
+    dtdword(pdt, namelen);
+    dtabytes(pdt, TYnptr, 0, namelen + 1, name);
+
+    // void[] init;
+    if (tinfo->isZeroInit() || !sd->init)
+    {   // 0 initializer, or the same as the base type
+    dtdword(pdt, 0);    // init.length
+    dtdword(pdt, 0);    // init.ptr
+    }
+    else
+    {
+    dtdword(pdt, sd->type->size()); // init.length
+    dtxoff(pdt, sd->toInitializer(), 0, TYnptr);    // init.ptr
+    */
 }
 
 void TypeInfoEnumDeclaration::toDt(dt_t **pdt)

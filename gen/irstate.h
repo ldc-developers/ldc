@@ -88,6 +88,15 @@ struct IRBuilderHelper
     LLVMBuilder* operator->();
 };
 
+struct IRExp
+{
+    Expression* e1;
+    Expression* e2;
+    llvm::Value* v;
+    IRExp();
+    IRExp(Expression* l, Expression* r, llvm::Value* val);
+};
+
 // represents the module
 struct IRState
 {
@@ -119,11 +128,10 @@ struct IRState
     bool emitMain;
     llvm::Function* mainFunc;
 
-    // L-values
-    bool inLvalue;
-    typedef std::vector<llvm::Value*> LvalVec;
-    LvalVec lvals;
-    llvm::Value* toplval();
+    // expression l/r value handling
+    typedef std::vector<IRExp> ExpVec;
+    ExpVec exps;
+    IRExp* topexp();
 
     // basic block scopes
     std::vector<IRScope> scopes;
@@ -141,7 +149,7 @@ struct IRState
     // might be a better way but it works. problem is I only get a
     // VarDeclaration for __dollar, but I can't see how to get the
     // array pointer from this :(
-    LvalVec arrays;
+    std::vector<llvm::Value*> arrays;
 
     // builder helper
     IRBuilderHelper ir;

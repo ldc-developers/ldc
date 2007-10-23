@@ -47,6 +47,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
 
     llvmType = NULL;
     llvmVtbl = NULL;
+    llvmConstVtbl = NULL;
     llvmInitZ = NULL;
     llvmInProgress = false;
 }

@@ -100,6 +100,7 @@ void LLVM_DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
     }
     else
     {
+        Logger::cout() << "array assignment type dont match: " << *dst->getType() << '\n' << *src->getType() << '\n';
         if (!llvm::isa<llvm::ArrayType>(src->getType()->getContainedType(0)))
         {
             Logger::cout() << "invalid: " << *src << '\n';
@@ -109,7 +110,7 @@ void LLVM_DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
         llvm::Type* dstty = llvm::PointerType::get(arrty->getElementType());
 
         llvm::Value* dstlen = LLVM_DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
-        llvm::Value* srclen = llvm::ConstantInt::get(LLVM_DtoSize_t(), arrty->getNumElements(), false);
+        llvm::Value* srclen = LLVM_DtoConstSize_t(arrty->getNumElements());
         new llvm::StoreInst(srclen, dstlen, gIR->scopebb());
 
         llvm::Value* dstptr = LLVM_DtoGEPi(dst,0,1,"tmp",gIR->scopebb());
@@ -550,4 +551,26 @@ llvm::Value* LLVM_DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty,
     args.push_back(llvm::ConstantInt::get(LLVM_DtoSize_t(), gTargetData->getTypeSize(elemty), false));
     args.push_back(llvm::ConstantInt::get(LLVM_DtoSize_t(), gTargetData->getTypeSize(newelemty), false));
     return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Value* LLVM_DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r)
+{
+    assert(l->getType() == r->getType());
+
+    llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+
+    llvm::Value* ll = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,0, "tmp"),"tmp");
+    llvm::Value* rl = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,0, "tmp"),"tmp");
+    llvm::Value* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
+
+    llvm::Value* lp = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,1, "tmp"),"tmp");
+    llvm::Value* rp = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,1, "tmp"),"tmp");
+    llvm::Value* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
+
+    llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+    if (op == TOKnotidentity)
+        return gIR->ir->CreateNot(b,"tmp");
+    else
+        return b;
 }
