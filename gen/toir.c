@@ -210,12 +210,12 @@ elem* VarExp::toElem(IRState* p)
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        if (fdecl->llvmValue == 0) {
+        if (fdecl->llvmInternal != LLVMva_arg && fdecl->llvmValue == 0)
             fdecl->toObjFile();
-        }
         e->val = fdecl->llvmValue;
         e->type = elem::FUNC;
         e->funcdecl = fdecl;
+        return e;
     }
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
@@ -971,20 +971,20 @@ elem* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s\n", toChars());
     LOG_SCOPE;
+
     elem* e = new elem;
     elem* fn = e1->toElem(p);
-    LINK dlink = LINKdefault;
+
+    TypeFunction* tf = 0;
+    Type* e1type = LLVM_DtoDType(e1->type);
 
     bool delegateCall = false;
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty,1,false);
+    LINK dlink = LINKdefault;
 
     // hidden struct return parameter handling
     bool retinptr = false;
-
-    TypeFunction* tf = 0;
-
-    Type* e1type = LLVM_DtoDType(e1->type);
 
     // regular functions
     if (e1type->ty == Tfunction) {
@@ -1012,7 +1012,38 @@ elem* CallExp::toElem(IRState* p)
         assert(tf);
     }
 
+    // va args
+    bool va_magic = false;
+    bool va_intrinsic = false;
+    if (fn->funcdecl) {
+        if (fn->funcdecl->llvmInternal == LLVMva_intrinsic) {
+            va_magic = true;
+            va_intrinsic = true;
+        }
+        else if (fn->funcdecl->llvmInternal == LLVMva_start) {
+            va_magic = true;
+        }
+        else if (fn->funcdecl->llvmInternal == LLVMva_arg) {
+            Argument* fnarg = Argument::getNth(tf->parameters, 0);
+            Expression* exp = (Expression*)arguments->data[0];
+            elem* expelem = exp->toElem(p);
+            assert(expelem->mem);
+            elem* e = new elem;
+            Type* t = LLVM_DtoDType(type);
+            const llvm::Type* llt = LLVM_DtoType(type);
+            if (LLVM_DtoIsPassedByRef(t))
+                llt = llvm::PointerType::get(llt);
+            e->type = elem::VAL;
+            e->val = p->ir->CreateVAArg(expelem->mem,llt,"tmp");
+            delete expelem;
+            return e;
+        }
+    }
+
+    // args
     size_t n = arguments->dim;
+    if (fn->funcdecl && fn->funcdecl->llvmInternal == LLVMva_start)
+        n = 1;
     if (fn->arg || delegateCall) n++;
     if (retinptr) n++;
 
@@ -1113,11 +1144,26 @@ elem* CallExp::toElem(IRState* p)
 
     Logger::println("regular arguments");
 
+    // va arg function special argument passing
+    if (va_magic) {
+        size_t n = va_intrinsic ? arguments->dim : 1;
+        for (int i=0; i<n; i++,j++)
+        {
+            Argument* fnarg = Argument::getNth(tf->parameters, i);
+            Expression* exp = (Expression*)arguments->data[i];
+            elem* expelem = exp->toElem(p);
+            assert(expelem->mem);
+            llargs[j] = p->ir->CreateBitCast(expelem->mem, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
+            delete expelem;
+        }
+    }
     // regular arguments
-    for (int i=0; i<arguments->dim; i++,j++)
-    {
-        Argument* fnarg = Argument::getNth(tf->parameters, i);
-        llargs[j] = LLVM_DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
+    else {
+        for (int i=0; i<arguments->dim; i++,j++)
+        {
+            Argument* fnarg = Argument::getNth(tf->parameters, i);
+            llargs[j] = LLVM_DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
+        }
     }
 
     // void returns cannot not be named
@@ -1131,7 +1177,7 @@ elem* CallExp::toElem(IRState* p)
         Logger::cout() << *llargs[i] << '\n';
     }
 
-    //Logger::cout() << "Calling: " << *funcval->getType() << '\n';
+    Logger::cout() << "Calling: " << *funcval->getType() << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
@@ -1141,7 +1187,7 @@ elem* CallExp::toElem(IRState* p)
         e->val = call;
 
     // set calling convention
-    if ((fn->funcdecl && (fn->funcdecl->llvmInternal != LLVMintrinsic)) || delegateCall)
+    if ((fn->funcdecl && (fn->funcdecl->llvmInternal != LLVMintrinsic && fn->funcdecl->llvmInternal != LLVMva_start)) || delegateCall)
         call->setCallingConv(LLVM_DtoCallingConv(dlink));
     else if (fn->callconv != (unsigned)-1)
         call->setCallingConv(fn->callconv);

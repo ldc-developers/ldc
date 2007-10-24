@@ -646,7 +646,30 @@ void FuncDeclaration::toObjFile()
         return;
     }
 
+    Type* t = LLVM_DtoDType(type);
+    TypeFunction* f = (TypeFunction*)t;
+
+    bool declareOnly = false;
+    if (TemplateInstance* tinst = parent->isTemplateInstance()) {
+        TemplateDeclaration* tempdecl = tinst->tempdecl;
+        if (tempdecl->llvmInternal == LLVMva_start)
+        {
+            Logger::println("magic va_start found");
+            llvmInternal = LLVMva_start;
+            declareOnly = true;
+        }
+        else if (tempdecl->llvmInternal == LLVMva_arg)
+        {
+            Logger::println("magic va_arg found");
+            llvmInternal = LLVMva_arg;
+            return;
+        }
+    }
+
     llvm::Function* func = LLVM_DtoDeclareFunction(this);
+
+    if (declareOnly)
+        return;
 
     if (!gIR->structs.empty() && gIR->topstruct().queueFuncs) {
         if (!llvmQueued) {
@@ -657,8 +680,6 @@ void FuncDeclaration::toObjFile()
         return; // we wait with the definition as they might invoke a virtual method and the vtable is not yet complete
     }
 
-    Type* t = LLVM_DtoDType(type);
-    TypeFunction* f = (TypeFunction*)t;
     assert(f->llvmType);
     const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 

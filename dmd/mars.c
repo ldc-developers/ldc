@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <string>
+#include <vaarg.h>
 
 #if _WIN32
 #include <windows.h>
@@ -667,6 +668,10 @@ int main(int argc, char *argv[])
             global.params.llvmArch = const_cast<char*>(e->Name);
             if (global.params.verbose || very_verbose)
             printf("Default target found: %s\n", global.params.llvmArch);
+            if (very_verbose) {
+                int X = sizeof(va_list);
+                printf("valist.sizeof = %d\n", X);
+            }
         }
     }
 

@@ -5,4 +5,7 @@ enum
     LLVMmangle,
     LLVMintrinsic,
     LLVMbind,
+    LLVMva_arg,
+    LLVMva_start,
+    LLVMva_intrinsic
 };

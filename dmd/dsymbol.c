@@ -47,6 +47,7 @@ Dsymbol::Dsymbol()
     this->llvmInternal1 = NULL;
     this->llvmInternal2 = NULL;
     this->llvmValue = NULL;
+    this->llvmDModule = NULL;
 }
 
 Dsymbol::Dsymbol(Identifier *ident)

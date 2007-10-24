@@ -221,8 +221,39 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thispa
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static const llvm::FunctionType* LLVM_DtoVaFunctionType(FuncDeclaration* fdecl)
+{
+    TypeFunction* f = (TypeFunction*)fdecl->type;
+    assert(f != 0);
+
+    const llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    std::vector<const llvm::Type*> args;
+
+    if (fdecl->llvmInternal == LLVMva_start) {
+        args.push_back(i8pty);
+    }
+    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
+        size_t n = Argument::dim(f->parameters);
+        for (size_t i=0; i<n; ++i) {
+            args.push_back(i8pty);
+        }
+    }
+    else
+    assert(0);
+
+    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+    f->llvmType = fty;
+    return fty;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
 {
+    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
+        return LLVM_DtoVaFunctionType(fdecl);
+    }
+
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
 
@@ -260,73 +291,79 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     // parameter types
     std::vector<const llvm::Type*> paramvec;
 
-    if (retinptr) {
-        Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
-        paramvec.push_back(rettype);
-    }
-
-    if (fdecl->needThis()) {
-        if (AggregateDeclaration* ad = fdecl->isMember()) {
-            Logger::print("isMember = this is: %s\n", ad->type->toChars());
-            const llvm::Type* thisty = LLVM_DtoType(ad->type);
-            Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
-                thisty = llvm::PointerType::get(thisty);
-            paramvec.push_back(thisty);
-            usesthis = true;
-        }
-        else
-        assert(0);
-    }
-    else if (fdecl->isNested()) {
+    if (fdecl->llvmInternal == LLVMva_start) {
         paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
-        usesthis = true;
     }
-
-    size_t n = Argument::dim(f->parameters);
-    for (int i=0; i < n; ++i) {
-        Argument* arg = Argument::getNth(f->parameters, i);
-        // ensure scalar
-        Type* argT = LLVM_DtoDType(arg->type);
-        assert(argT);
-
-        if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
-            //assert(arg->vardecl);
-            //arg->vardecl->refparam = true;
+    else {
+        if (retinptr) {
+            Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
+            paramvec.push_back(rettype);
         }
-        else
-            arg->llvmCopy = true;
 
-        const llvm::Type* at = LLVM_DtoType(argT);
-        if (llvm::isa<llvm::StructType>(at)) {
-            Logger::println("struct param");
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else if (llvm::isa<llvm::ArrayType>(at)) {
-            Logger::println("sarray param");
-            assert(argT->ty == Tsarray);
-            //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else if (llvm::isa<llvm::OpaqueType>(at)) {
-            Logger::println("opaque param");
-            if (argT->ty == Tstruct || argT->ty == Tclass)
-                paramvec.push_back(llvm::PointerType::get(at));
+        if (fdecl->needThis()) {
+            if (AggregateDeclaration* ad = fdecl->isMember()) {
+                Logger::print("isMember = this is: %s\n", ad->type->toChars());
+                const llvm::Type* thisty = LLVM_DtoType(ad->type);
+                Logger::cout() << "this llvm type: " << *thisty << '\n';
+                if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
+                    thisty = llvm::PointerType::get(thisty);
+                paramvec.push_back(thisty);
+                usesthis = true;
+            }
             else
             assert(0);
         }
-        /*if (llvm::isa<llvm::StructType>(at) || argT->ty == Tstruct || argT->ty == Tsarray) {
-            paramvec.push_back(llvm::PointerType::get(at));
-        }*/
-        else {
-            if (!arg->llvmCopy) {
-                Logger::println("ref param");
-                at = llvm::PointerType::get(at);
+        else if (fdecl->isNested()) {
+            paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+            usesthis = true;
+        }
+
+        size_t n = Argument::dim(f->parameters);
+
+        for (int i=0; i < n; ++i) {
+            Argument* arg = Argument::getNth(f->parameters, i);
+            // ensure scalar
+            Type* argT = LLVM_DtoDType(arg->type);
+            assert(argT);
+
+            if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
+                //assert(arg->vardecl);
+                //arg->vardecl->refparam = true;
             }
+            else
+                arg->llvmCopy = true;
+
+            const llvm::Type* at = LLVM_DtoType(argT);
+            if (llvm::isa<llvm::StructType>(at)) {
+                Logger::println("struct param");
+                paramvec.push_back(llvm::PointerType::get(at));
+            }
+            else if (llvm::isa<llvm::ArrayType>(at)) {
+                Logger::println("sarray param");
+                assert(argT->ty == Tsarray);
+                //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
+                paramvec.push_back(llvm::PointerType::get(at));
+            }
+            else if (llvm::isa<llvm::OpaqueType>(at)) {
+                Logger::println("opaque param");
+                if (argT->ty == Tstruct || argT->ty == Tclass)
+                    paramvec.push_back(llvm::PointerType::get(at));
+                else
+                assert(0);
+            }
+            /*if (llvm::isa<llvm::StructType>(at) || argT->ty == Tstruct || argT->ty == Tsarray) {
+                paramvec.push_back(llvm::PointerType::get(at));
+            }*/
             else {
-                Logger::println("in param");
+                if (!arg->llvmCopy) {
+                    Logger::println("ref param");
+                    at = llvm::PointerType::get(at);
+                }
+                else {
+                    Logger::println("in param");
+                }
+                paramvec.push_back(at);
             }
-            paramvec.push_back(at);
         }
     }
 
@@ -931,10 +968,44 @@ llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static llvm::Function* LLVM_DtoDeclareVaFunction(FuncDeclaration* fdecl)
+{
+    TypeFunction* f = (TypeFunction*)LLVM_DtoDType(fdecl->type);
+    const llvm::FunctionType* fty = LLVM_DtoVaFunctionType(fdecl);
+    llvm::Constant* fn = 0;
+
+    if (fdecl->llvmInternal == LLVMva_start) {
+        fn = gIR->module->getOrInsertFunction("llvm.va_start", fty);
+        assert(fn);
+    }
+    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
+        fn = gIR->module->getOrInsertFunction(fdecl->llvmInternal1, fty);
+        assert(fn);
+    }
+    else
+    assert(0);
+
+    llvm::Function* func = llvm::cast_or_null<llvm::Function>(fn);
+    assert(func);
+    assert(func->isIntrinsic());
+    fdecl->llvmValue = func;
+    return func;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 {
+    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
+        return LLVM_DtoDeclareVaFunction(fdecl);
+    }
+
     // mangled name
-    char* mangled_name = (fdecl->llvmInternal == LLVMintrinsic) ? fdecl->llvmInternal1 : fdecl->mangle();
+    char* mangled_name;
+    if (fdecl->llvmInternal == LLVMintrinsic)
+        mangled_name = fdecl->llvmInternal1;
+    else
+        mangled_name = fdecl->mangle();
 
     // unit test special handling
     if (fdecl->isUnitTestDeclaration())

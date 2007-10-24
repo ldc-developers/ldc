@@ -25,6 +25,10 @@ echo "compiling typeinfos"
 rebuild typeinfos.d -c -oqobj -dc=llvmdc-posix || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo.*.bc` ../lib/llvmdcore.bc || exit 1
 
+echo "compiling llvm runtime support"
+rebuild llvmsupport.d -c -oqobj -dc=llvmdc-posix || exit
+llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || exit 1
+
 echo "optimizing"
 opt -f -std-compile-opts -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc || exit 1
 

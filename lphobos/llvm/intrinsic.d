@@ -1,15 +1,5 @@
 module llvm.intrinsic;
 
-// variable argument handling intrinsics
-pragma(LLVM_internal, "intrinsic", "llvm.va_start")
-    void llvm_va_start(void* args);
-
-pragma(LLVM_internal, "intrinsic", "llvm.va_end")
-    void llvm_va_end(void* args);
-
-pragma(LLVM_internal, "intrinsic", "llvm.va_copy")
-    void llvm_va_copy(void* dst, void* src);
-
 // code generator intrinsics
 /*
 pragma(LLVM_internal, "intrinsic", "llvm.returnaddress")

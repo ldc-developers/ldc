@@ -29,8 +29,10 @@
 #include "aggregate.h"
 #include "module.h"
 #include "parse.h"
+#include "template.h"
 
 #include "../gen/enums.h"
+#include "../gen/logger.h"
 
 extern void obj_includelib(char *name);
 
@@ -752,9 +754,9 @@ void PragmaDeclaration::semantic(Scope *sc)
 #if IN_LLVM
     int llvm_internal = 0;
     char* llvm_str1 = NULL;
-    
+
 #endif
-    
+
     //printf("\tPragmaDeclaration::semantic '%s'\n",toChars());
     if (ident == Id::msg)
     {
@@ -873,6 +875,18 @@ void PragmaDeclaration::semantic(Scope *sc)
                     llvm_internal = LLVMbind;
                     assert(args->dim == 2);
                 }
+                else if (strcmp(str,"va_start")==0) {
+                    llvm_internal = LLVMva_start;
+                    assert(args->dim == 1);
+                }
+                else if (strcmp(str,"va_arg")==0) {
+                    llvm_internal = LLVMva_arg;
+                    assert(args->dim == 1);
+                }
+                else if (strcmp(str,"va_intrinsic")==0) {
+                    llvm_internal = LLVMva_intrinsic;
+                    assert(args->dim == 2);
+                }
                 else {
                     error("unknown pragma command: %s", str);
                 }
@@ -886,6 +900,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             case LLVMintrinsic:
             case LLVMmangle:
             case LLVMbind:
+            case LLVMva_intrinsic:
                 e = (Expression *)args->data[1];
                 e = e->semantic(sc);
                 e = e->optimize(WANTvalue);
@@ -897,6 +912,8 @@ void PragmaDeclaration::semantic(Scope *sc)
                 break;
             
             case LLVMnull:
+            case LLVMva_arg:
+            case LLVMva_start:
                 break;
             
             default:
@@ -923,6 +940,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             {
             case LLVMintrinsic:
             case LLVMmangle:
+            case LLVMva_intrinsic:
                 if (FuncDeclaration* fd = s->isFuncDeclaration()) {
                     fd->llvmInternal = llvm_internal;
                     fd->llvmInternal1 = llvm_str1;
@@ -932,7 +950,7 @@ void PragmaDeclaration::semantic(Scope *sc)
                     assert(0);
                 }
                 break;
-            
+
             case LLVMnull:
                 if (StaticCtorDeclaration* sd = s->isStaticCtorDeclaration()) {
                     sd->llvmInternal = llvm_internal;
@@ -942,7 +960,7 @@ void PragmaDeclaration::semantic(Scope *sc)
                     assert(0);
                 }
                 break;
-            
+
             case LLVMbind:
                 if (VarDeclaration* vd = s->isVarDeclaration()) {
                     vd->llvmInternal = llvm_internal;
@@ -953,7 +971,23 @@ void PragmaDeclaration::semantic(Scope *sc)
                     assert(0);
                 }
                 break;
-            
+
+            case LLVMva_start:
+            case LLVMva_arg:
+                if (TemplateDeclaration* td = s->isTemplateDeclaration()) {
+                    td->llvmInternal = llvm_internal;
+                    assert(td->parameters->dim == 1);
+                    assert(!td->overnext);
+                    assert(!td->overroot);
+                    assert(td->onemember);
+                    Logger::println("template->onemember = %s", td->onemember->toChars());
+                }
+                else {
+                    error("can only be used on templates");
+                    assert(0);
+                }
+                break;
+
             default:
                 assert(0 && "invalid LLVM_internal pragma got through :/");
             }
