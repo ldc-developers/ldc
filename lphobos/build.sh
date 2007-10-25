@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "removing old objects"
-mkdir obj
+mkdir -p obj
 rm -f obj/*.bc
 rm -f ../lib/*.bc
 

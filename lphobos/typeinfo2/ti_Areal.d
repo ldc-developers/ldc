@@ -101,7 +101,7 @@ class TypeInfo_Ae : TypeInfo
 }
 
 // ireal[]
-version(none)
+
 class TypeInfo_Aj : TypeInfo_Ae
 {
     char[] toString() { return "ireal[]"; }

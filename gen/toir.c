@@ -328,10 +328,11 @@ llvm::Constant* RealExp::toConstElem(IRState* p)
 {
     Logger::print("RealExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    const llvm::Type* fty = LLVM_DtoType(type);
-    if (type->ty == Tfloat32)
+    Type* t = LLVM_DtoDType(type);
+    const llvm::Type* fty = LLVM_DtoType(t);
+    if (t->ty == Tfloat32 || t->ty == Timaginary32)
         return llvm::ConstantFP::get(fty,float(value));
-    else if (type->ty == Tfloat64 || type->ty == Tfloat80)
+    else if (t->ty == Tfloat64 || t->ty == Timaginary64 || t->ty == Tfloat80 || t->ty == Timaginary80)
         return llvm::ConstantFP::get(fty,double(value));
     assert(0);
     return NULL;

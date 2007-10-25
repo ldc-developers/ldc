@@ -99,7 +99,7 @@ class TypeInfo_Af : TypeInfo
 }
 
 // ifloat[]
-version(none)
+
 class TypeInfo_Ao : TypeInfo_Af
 {
     char[] toString() { return "ifloat[]"; }

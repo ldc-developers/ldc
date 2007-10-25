@@ -100,7 +100,7 @@ class TypeInfo_Ad : TypeInfo
 }
 
 // idouble[]
-version(none)
+
 class TypeInfo_Ap : TypeInfo_Ad
 {
     char[] toString() { return "idouble[]"; }

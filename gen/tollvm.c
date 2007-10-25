@@ -65,10 +65,19 @@ const llvm::Type* LLVM_DtoType(Type* t)
 
     // floats
     case Tfloat32:
+    case Timaginary32:
         return llvm::Type::FloatTy;
     case Tfloat64:
+    case Timaginary64:
     case Tfloat80:
+    case Timaginary80:
         return llvm::Type::DoubleTy;
+
+    // complex
+    case Tcomplex32:
+    case Tcomplex64:
+    case Tcomplex80:
+        assert(0 && "complex number types not yet implemented");
 
     // pointers
     case Tpointer: {
