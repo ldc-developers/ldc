@@ -143,24 +143,53 @@ void LLVM_DtoArrayInit(llvm::Value* l, llvm::Value* r)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+typedef const llvm::Type* constLLVMTypeP;
+
+static size_t checkRectArrayInit(const llvm::Type* pt, constLLVMTypeP& finalty)
+{
+    if (llvm::isa<llvm::ArrayType>(pt)) {
+        size_t n = checkRectArrayInit(pt->getContainedType(0), finalty);
+        size_t ne = llvm::cast<llvm::ArrayType>(pt)->getNumElements();
+        if (n) return n * ne;
+        return ne;
+    }
+    finalty = pt;
+    return 0;
+}
+
 void LLVM_DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 {
-    const llvm::Type* t = ptr->getType()->getContainedType(0);
+    const llvm::Type* pt = ptr->getType()->getContainedType(0);
+    const llvm::Type* t = val->getType();
+    const llvm::Type* finalTy;
+    if (size_t arrsz = checkRectArrayInit(pt, finalTy)) {
+        assert(finalTy == t);
+        llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(dim);
+        assert(c);
+        dim = llvm::ConstantExpr::getMul(c, LLVM_DtoConstSize_t(arrsz));
+        ptr = gIR->ir->CreateBitCast(ptr, llvm::PointerType::get(finalTy), "tmp");
+    }
+    else if (llvm::isa<llvm::StructType>(t)) {
+        assert(0);
+    }
+    else {
+        assert(t == pt);
+    }
 
     std::vector<llvm::Value*> args;
     args.push_back(ptr);
     args.push_back(dim);
     args.push_back(val);
-    
+
     const char* funcname = NULL;
-    
+
     if (llvm::isa<llvm::PointerType>(t)) {
         funcname = "_d_array_init_pointer";
-        
+
         const llvm::Type* dstty = llvm::PointerType::get(llvm::PointerType::get(llvm::Type::Int8Ty));
         if (args[0]->getType() != dstty)
             args[0] = new llvm::BitCastInst(args[0],dstty,"tmp",gIR->scopebb());
-        
+
         const llvm::Type* valty = llvm::PointerType::get(llvm::Type::Int8Ty);
         if (args[2]->getType() != valty)
             args[2] = new llvm::BitCastInst(args[2],valty,"tmp",gIR->scopebb());
@@ -187,6 +216,7 @@ void LLVM_DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
         funcname = "_d_array_init_double";
     }
     else {
+        Logger::cout() << *ptr->getType() << " = " << *val->getType() << '\n';
         assert(0);
     }
 
@@ -606,4 +636,22 @@ llvm::Value* LLVM_DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r)
 
     llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
     return b;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Constant* LLVM_DtoConstantStaticArray(const llvm::Type* t, llvm::Constant* c)
+{
+    assert(llvm::isa<llvm::ArrayType>(t));
+    const llvm::ArrayType* at = llvm::cast<llvm::ArrayType>(t);
+
+    if (llvm::isa<llvm::ArrayType>(at->getElementType()))
+    {
+        c = LLVM_DtoConstantStaticArray(at->getElementType(), c);
+    }
+    else {
+        assert(at->getElementType() == c->getType());
+    }
+    std::vector<llvm::Constant*> initvals;
+    initvals.resize(at->getNumElements(), c);
+    return llvm::ConstantArray::get(at, initvals);
 }

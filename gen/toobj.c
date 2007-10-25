@@ -35,6 +35,7 @@
 #include "gen/elem.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/arrays.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -546,15 +547,7 @@ void VarDeclaration::toObjFile()
                 // array single value init
                 else if (llvm::isa<llvm::ArrayType>(_type))
                 {
-                    const llvm::ArrayType* at = llvm::cast<llvm::ArrayType>(_type);
-                    if (at->getElementType() == _init->getType()) {
-                        std::vector<llvm::Constant*> initvals;
-                        initvals.resize(at->getNumElements(), _init);
-                        _init = llvm::ConstantArray::get(at, initvals);
-                    }
-                    else {
-                        assert(0);
-                    }
+                    _init = LLVM_DtoConstantStaticArray(_type, _init);
                 }
                 else {
                     Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
@@ -562,6 +555,7 @@ void VarDeclaration::toObjFile()
                 }
             }
 
+            Logger::cout() << "final init = " << *_init << '\n';
             gvar->setInitializer(_init);
         }
 

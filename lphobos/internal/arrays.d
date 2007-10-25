@@ -1,6 +1,15 @@
 module internal.arrays;
 
+private import llvm.intrinsic;
+
 extern(C):
+
+int memcmp(void*,void*,size_t);
+
+version(LLVM64)
+alias llvm_memcpy_i64 llvm_memcpy;
+else
+alias llvm_memcpy_i32 llvm_memcpy;
 
 // per-element array init routines
 
@@ -68,8 +77,17 @@ void _d_array_init_pointer(void** a, size_t n, void* v)
         *p++ = v;
 }
 
+void _d_array_init(void* a, size_t na, void* v, size_t nv)
+{
+    auto p = a;
+    auto end = a + na*nv;
+    while (p !is end) {
+        llvm_memcpy(p,v,nv,0);
+        p += nv;
+    }
+}
+
 // array comparison routines
-int memcmp(void*,void*,size_t);
 
 bool _d_static_array_eq(void* lhs, void* rhs, size_t bytesize)
 {

@@ -1458,32 +1458,41 @@ elem* SymOffExp::toElem(IRState* p)
             vdt->sym->offsetToIndex(t->next, offset, dst);
             llvm::Value* ptr = llvalue;
             assert(ptr);
-            e->mem = LLVM_DtoGEP(ptr,dst,"tmp",p->scopebb());
+            e->mem = LLVM_DtoGEP(ptr,dst,"tmp");
             e->type = elem::VAL;
             e->field = true;
         }
         else if (vdtype->ty == Tsarray) {
-            /*e = new elem;
-            llvm::Value* idx0 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-            e->val = new llvm::GetElementPtrInst(vd->llvmValue,idx0,idx0,"tmp",p->scopebb());*/
             e = new elem;
-            llvm::Value* idx0 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-            //llvm::Value* idx1 = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-            e->mem = LLVM_DtoGEP(llvalue,idx0,idx0,"tmp",p->scopebb());
+            assert(llvalue);
             e->arg = llvalue;
             e->type = elem::VAL;
+
+            const llvm::Type* llt = LLVM_DtoType(t);
+            llvm::Value* off = 0;
+            if (offset != 0) {
+                Logger::println("offset = %d\n", offset);
+            }
+            if (llvalue->getType() != llt) {
+                e->mem = p->ir->CreateBitCast(llvalue, llt, "tmp");
+                if (offset != 0)
+                    e->mem = LLVM_DtoGEPi(e->mem, offset, "tmp");
+            }
+            else {
+                assert(offset == 0);
+                e->mem = LLVM_DtoGEPi(llvalue,0,0,"tmp");
+            }
         }
         else if (offset == 0) {
             e = new elem;
+            e->type = elem::VAL;
             assert(llvalue);
             e->mem = llvalue;
+
             const llvm::Type* llt = LLVM_DtoType(t);
             if (llvalue->getType() != llt) {
-                Logger::cout() << "llt is:" << *llt << '\n';
-                //const llvm::PointerType* vpty = llvm::PointerType::get(llvm::Type::Int8Ty);
                 e->mem = p->ir->CreateBitCast(e->mem, llt, "tmp");
             }
-            e->type = elem::VAL;
         }
         else {
             assert(0);
@@ -2009,6 +2018,7 @@ elem* EqualExp::toElem(IRState* p)
 
     if (t->isintegral() || t->ty == Tpointer)
     {
+        Logger::println("integral or pointer");
         llvm::ICmpInst::Predicate cmpop;
         switch(op)
         {
@@ -2025,6 +2035,7 @@ elem* EqualExp::toElem(IRState* p)
     }
     else if (t->isfloating())
     {
+        Logger::println("floating");
         llvm::FCmpInst::Predicate cmpop;
         switch(op)
         {
@@ -2041,14 +2052,17 @@ elem* EqualExp::toElem(IRState* p)
     }
     else if (t->ty == Tsarray)
     {
+        Logger::println("static array");
         e->val = LLVM_DtoStaticArrayCompare(op,l->mem,r->mem);
     }
     else if (t->ty == Tarray)
     {
+        Logger::println("dynamic array");
         e->val = LLVM_DtoDynArrayCompare(op,l->mem,r->mem);
     }
     else if (t->ty == Tdelegate)
     {
+        Logger::println("delegate");
         e->val = LLVM_DtoCompareDelegate(op,l->mem,r->mem);
     }
     else
