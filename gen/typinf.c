@@ -223,10 +223,10 @@ int TypeDArray::builtinTypeInfo()
  * Used to supply hidden _arguments[] value for variadic D functions.
  */
 
-Expression *createTypeInfoArray(Scope *sc, Expression *args[], int dim)
+Expression *createTypeInfoArray(Scope *sc, Expression *exps[], int dim)
 {
     assert(0);
-    return 0;
+    return NULL;
 }
 
 /* ========================================================================= */
@@ -237,12 +237,12 @@ Expression *createTypeInfoArray(Scope *sc, Expression *args[], int dim)
 
 void TypeInfoDeclaration::toObjFile()
 {
+    if (llvmTouched) return;
+    else llvmTouched = true;
+
     Logger::println("TypeInfoDeclaration::toObjFile()");
     LOG_SCOPE;
     Logger::println("type = '%s'", tinfo->toChars());
-
-    if (llvmTouched) return;
-    else llvmTouched = true;
 
     Logger::println("typeinfo mangle: %s", mangle());
 

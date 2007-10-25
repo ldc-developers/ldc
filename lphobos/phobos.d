@@ -1,4 +1,5 @@
 module phobos;
 
 import
-std.stdio;
+std.stdio,
+std.stdarg;

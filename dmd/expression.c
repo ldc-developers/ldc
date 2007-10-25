@@ -580,6 +580,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 	    break;
     }
 
+#if !IN_LLVM
     // If D linkage and variadic, add _arguments[] as first argument
     if (tf->linkage == LINKd && tf->varargs == 1)
     {
@@ -589,6 +590,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		arguments->dim - nparams);
 	arguments->insert(0, e);
     }
+#endif
 }
 
 /**************************************************

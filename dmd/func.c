@@ -76,6 +76,8 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     llvmQueued = false;
     llvmThisVar = NULL;
     llvmNested = NULL;
+    llvmArguments = NULL;
+    llvmArgPtr = NULL;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
@@ -1051,6 +1053,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 		}
 	    }
 
+// we'll handle variadics ourselves
+#if !IN_LLVM
 	    if (argptr)
 	    {	// Initialize _argptr to point past non-variadic arg
 #if IN_GCC
@@ -1075,7 +1079,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		e = new AssignExp(0, e1, e);
 		e->type = t;
 		a->push(new ExpStatement(0, e));
-#endif
+#endif // IN_GCC
 	    }
 
 	    if (_arguments)
@@ -1090,6 +1094,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 		e = e->semantic(sc);
 		a->push(new ExpStatement(0, e));
 	    }
+
+#endif // !IN_LLVM
 
 	    // Merge contracts together with body into one compound statement
 

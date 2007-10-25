@@ -521,6 +521,8 @@ struct FuncDeclaration : Declaration
     llvm::Value* llvmThisVar;
     std::set<VarDeclaration*> llvmNestedVars;
     llvm::Value* llvmNested;
+    llvm::Value* llvmArguments;
+    llvm::Value* llvmArgPtr;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

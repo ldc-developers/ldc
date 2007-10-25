@@ -262,6 +262,14 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         return llvm::cast<llvm::FunctionType>(f->llvmType);
     }
 
+    bool typesafeVararg = false;
+    if (f->linkage == LINKd && f->varargs == 1) {
+        assert(fdecl->v_arguments);
+        Logger::println("v_arguments = %s", fdecl->v_arguments->toChars());
+        assert(fdecl->v_arguments->isParameter());
+        typesafeVararg = true;
+    }
+
     // return value type
     const llvm::Type* rettype;
     const llvm::Type* actualRettype;
@@ -291,84 +299,92 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     // parameter types
     std::vector<const llvm::Type*> paramvec;
 
-    if (fdecl->llvmInternal == LLVMva_start) {
+    if (retinptr) {
+        Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
+        paramvec.push_back(rettype);
+    }
+
+    if (fdecl->needThis()) {
+        if (AggregateDeclaration* ad = fdecl->isMember()) {
+            Logger::print("isMember = this is: %s\n", ad->type->toChars());
+            const llvm::Type* thisty = LLVM_DtoType(ad->type);
+            Logger::cout() << "this llvm type: " << *thisty << '\n';
+            if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
+                thisty = llvm::PointerType::get(thisty);
+            paramvec.push_back(thisty);
+            usesthis = true;
+        }
+        else
+        assert(0);
+    }
+    else if (fdecl->isNested()) {
+        paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+        usesthis = true;
+    }
+
+    if (typesafeVararg) {
+        ClassDeclaration* ti = Type::typeinfo;
+        if (!ti->llvmInitZ)
+            ti->toObjFile();
+        assert(ti->llvmInitZ);
+        std::vector<const llvm::Type*> types;
+        types.push_back(LLVM_DtoSize_t());
+        types.push_back(llvm::PointerType::get(llvm::PointerType::get(ti->llvmInitZ->getType())));
+        const llvm::Type* t1 = llvm::StructType::get(types);
+        paramvec.push_back(llvm::PointerType::get(t1));
         paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
     }
-    else {
-        if (retinptr) {
-            Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
-            paramvec.push_back(rettype);
-        }
 
-        if (fdecl->needThis()) {
-            if (AggregateDeclaration* ad = fdecl->isMember()) {
-                Logger::print("isMember = this is: %s\n", ad->type->toChars());
-                const llvm::Type* thisty = LLVM_DtoType(ad->type);
-                Logger::cout() << "this llvm type: " << *thisty << '\n';
-                if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
-                    thisty = llvm::PointerType::get(thisty);
-                paramvec.push_back(thisty);
-                usesthis = true;
-            }
+    size_t n = Argument::dim(f->parameters);
+
+    for (int i=0; i < n; ++i) {
+        Argument* arg = Argument::getNth(f->parameters, i);
+        // ensure scalar
+        Type* argT = LLVM_DtoDType(arg->type);
+        assert(argT);
+
+        if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
+            //assert(arg->vardecl);
+            //arg->vardecl->refparam = true;
+        }
+        else
+            arg->llvmCopy = true;
+
+        const llvm::Type* at = LLVM_DtoType(argT);
+        if (llvm::isa<llvm::StructType>(at)) {
+            Logger::println("struct param");
+            paramvec.push_back(llvm::PointerType::get(at));
+        }
+        else if (llvm::isa<llvm::ArrayType>(at)) {
+            Logger::println("sarray param");
+            assert(argT->ty == Tsarray);
+            //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
+            paramvec.push_back(llvm::PointerType::get(at));
+        }
+        else if (llvm::isa<llvm::OpaqueType>(at)) {
+            Logger::println("opaque param");
+            if (argT->ty == Tstruct || argT->ty == Tclass)
+                paramvec.push_back(llvm::PointerType::get(at));
             else
             assert(0);
         }
-        else if (fdecl->isNested()) {
-            paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
-            usesthis = true;
-        }
-
-        size_t n = Argument::dim(f->parameters);
-
-        for (int i=0; i < n; ++i) {
-            Argument* arg = Argument::getNth(f->parameters, i);
-            // ensure scalar
-            Type* argT = LLVM_DtoDType(arg->type);
-            assert(argT);
-
-            if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
-                //assert(arg->vardecl);
-                //arg->vardecl->refparam = true;
+        /*if (llvm::isa<llvm::StructType>(at) || argT->ty == Tstruct || argT->ty == Tsarray) {
+            paramvec.push_back(llvm::PointerType::get(at));
+        }*/
+        else {
+            if (!arg->llvmCopy) {
+                Logger::println("ref param");
+                at = llvm::PointerType::get(at);
             }
-            else
-                arg->llvmCopy = true;
-
-            const llvm::Type* at = LLVM_DtoType(argT);
-            if (llvm::isa<llvm::StructType>(at)) {
-                Logger::println("struct param");
-                paramvec.push_back(llvm::PointerType::get(at));
-            }
-            else if (llvm::isa<llvm::ArrayType>(at)) {
-                Logger::println("sarray param");
-                assert(argT->ty == Tsarray);
-                //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
-                paramvec.push_back(llvm::PointerType::get(at));
-            }
-            else if (llvm::isa<llvm::OpaqueType>(at)) {
-                Logger::println("opaque param");
-                if (argT->ty == Tstruct || argT->ty == Tclass)
-                    paramvec.push_back(llvm::PointerType::get(at));
-                else
-                assert(0);
-            }
-            /*if (llvm::isa<llvm::StructType>(at) || argT->ty == Tstruct || argT->ty == Tsarray) {
-                paramvec.push_back(llvm::PointerType::get(at));
-            }*/
             else {
-                if (!arg->llvmCopy) {
-                    Logger::println("ref param");
-                    at = llvm::PointerType::get(at);
-                }
-                else {
-                    Logger::println("in param");
-                }
-                paramvec.push_back(at);
+                Logger::println("in param");
             }
+            paramvec.push_back(at);
         }
     }
 
     // construct function type
-    bool isvararg = f->varargs;
+    bool isvararg = !typesafeVararg && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
     f->llvmType = functype;
@@ -1075,17 +1091,32 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
         iarg->setName("this");
         ++iarg;
     }
+    int varargs = -1;
+    if (f->linkage == LINKd && f->varargs == 1)
+        varargs = 0;
     for (; iarg != func->arg_end(); ++iarg)
     {
         Argument* arg = Argument::getNth(f->parameters, k++);
-        assert(arg != 0);
         //arg->llvmValue = iarg;
         //printf("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
-        if (arg->ident != 0) {
+        if (arg && arg->ident != 0) {
             if (arg->vardecl) {
                 arg->vardecl->llvmValue = iarg;
             }
             iarg->setName(arg->ident->toChars());
+        }
+        else if (!arg && varargs >= 0) {
+            if (varargs == 0) {
+                iarg->setName("_arguments");
+                fdecl->llvmArguments = iarg;
+            }
+            else if (varargs == 1) {
+                iarg->setName("_argptr");
+                fdecl->llvmArgPtr = iarg;
+            }
+            else
+            assert(0);
+            varargs++;
         }
         else {
             iarg->setName("unnamed");
@@ -1236,7 +1267,7 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
     else {
         Logger::println("as ptr arg");
         retval = arg->mem ? arg->mem : arg->val;
-        if (retval->getType() != paramtype)
+        if (paramtype && retval->getType() != paramtype)
         {
             assert(retval->getType() == paramtype->getContainedType(0));
             LLVM_DtoGiveArgumentStorage(arg);
@@ -1247,7 +1278,7 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
 
     delete arg;
 
-    if (fnarg && retval->getType() != paramtype) {
+    if (fnarg && paramtype && retval->getType() != paramtype) {
         Logger::cout() << "got '" << *retval->getType() << "' expected '" << *paramtype << "'\n";
         assert(0 && "parameter type that was actually passed is invalid");
     }

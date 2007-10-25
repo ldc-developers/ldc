@@ -778,6 +778,14 @@ void FuncDeclaration::toObjFile()
                     }
                 }
 
+                // copy _argptr to a memory location
+                if (f->linkage == LINKd && f->varargs == 1)
+                {
+                    llvm::Value* argptrmem = new llvm::AllocaInst(llvmArgPtr->getType(), "_argptrmem", gIR->topallocapoint());
+                    new llvm::StoreInst(llvmArgPtr, argptrmem, gIR->scopebb());
+                    llvmArgPtr = argptrmem;
+                }
+
                 // output function body
                 fbody->toIR(gIR);
 

@@ -92,6 +92,11 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
     // TODO maybe check the target module first, to allow overriding the runtime on a pre module basis?
     // could be done and seems like it could be neat too :)
 
+    llvm::GlobalVariable* gv = target->getNamedGlobal(name);
+    if (gv) {
+        return gv;
+    }
+
     if (global.params.noruntime) {
         error("No implicit runtime calls allowed with -noruntime option enabled");
         fatal();
