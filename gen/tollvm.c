@@ -1382,3 +1382,33 @@ llvm::Constant* LLVM_DtoConstString(const char* str)
         llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
     );
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void LLVM_DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
+{
+    assert(dst->getType() == src->getType());
+
+    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    llvm::Value *dstarr, *srcarr;
+    if (dst->getType() == arrty)
+    {
+        dstarr = dst;
+        srcarr = src;
+    }
+    else
+    {
+        dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
+        srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
+    }
+
+    llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
+    std::vector<llvm::Value*> llargs;
+    llargs.resize(4);
+    llargs[0] = dstarr;
+    llargs[1] = srcarr;
+    llargs[2] = nbytes;
+    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+
+    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+}

@@ -1,7 +1,7 @@
 
 // int
 
-module typeinfo.ti_int;
+module typeinfo1.ti_int;
 
 class TypeInfo_i : TypeInfo
 {

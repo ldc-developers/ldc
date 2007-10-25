@@ -1,7 +1,7 @@
 
 // ulong
 
-module typeinfo.ti_ulong;
+module typeinfo1.ti_ulong;
 
 class TypeInfo_m : TypeInfo
 {

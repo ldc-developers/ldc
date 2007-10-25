@@ -14,10 +14,11 @@ void LLVM_DtoArrayAssign(llvm::Value* l, llvm::Value* r);
 void LLVM_DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr);
 void LLVM_DtoNullArray(llvm::Value* v);
 
-void LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit=true);
+llvm::Value* LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit=true);
 void LLVM_DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz);
 
-void LLVM_DtoCatArrayElement(llvm::Value* arr, Expression* exp);
+void LLVM_DtoCatAssignElement(llvm::Value* arr, Expression* exp);
+void LLVM_DtoCatArrays(llvm::Value* arr, Expression* e1, Expression* e2);
 
 void LLVM_DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src);
 

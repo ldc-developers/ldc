@@ -23,4 +23,3 @@ void writef(T...)(T t) {
 void writefln(T...)(T t) {
   writef(t, "\n");
 }
-

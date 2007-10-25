@@ -63,4 +63,6 @@ llvm::ConstantInt* LLVM_DtoConstSize_t(size_t);
 llvm::ConstantInt* LLVM_DtoConstUint(unsigned i);
 llvm::Constant* LLVM_DtoConstString(const char*);
 
+void LLVM_DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
+
 #include "enums.h"

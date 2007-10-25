@@ -192,6 +192,7 @@ void LLVM_DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
     assert(fn);
+    Logger::cout() << "calling array init function: " << *fn <<'\n';
     llvm::CallInst* call = new llvm::CallInst(fn, args.begin(), args.end(), "", gIR->scopebb());
     call->setCallingConv(llvm::CallingConv::C);
 }
@@ -391,17 +392,18 @@ llvm::Constant* LLVM_DtoConstantSlice(llvm::Constant* dim, llvm::Constant* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit)
+llvm::Value* LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit)
 {
     const llvm::Type* ty = LLVM_DtoType(dty);
+    assert(ty != llvm::Type::VoidTy);
     size_t sz = gTargetData->getTypeSize(ty);
     llvm::ConstantInt* n = llvm::ConstantInt::get(LLVM_DtoSize_t(), sz, false);
-    llvm::Value* bytesize = llvm::BinaryOperator::createMul(n,dim,"tmp",gIR->scopebb());
+    llvm::Value* bytesize = (sz == 1) ? dim : llvm::BinaryOperator::createMul(n,dim,"tmp",gIR->scopebb());
 
     llvm::Value* nullptr = llvm::ConstantPointerNull::get(llvm::PointerType::get(ty));
 
     llvm::Value* newptr = LLVM_DtoRealloc(nullptr, bytesize);
-    
+
     if (doinit) {
         elem* e = dty->defaultInit()->toElem(gIR);
         LLVM_DtoArrayInit(newptr,dim,e->getValue());
@@ -412,6 +414,8 @@ void LLVM_DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doi
     new llvm::StoreInst(dim,lenptr,gIR->scopebb());
     llvm::Value* ptrptr = LLVM_DtoGEPi(dst,0,1,"tmp",gIR->scopebb());
     new llvm::StoreInst(newptr,ptrptr,gIR->scopebb());
+
+    return newptr;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -422,7 +426,7 @@ void LLVM_DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
 
     size_t isz = gTargetData->getTypeSize(ptrld->getType()->getContainedType(0));
     llvm::ConstantInt* n = llvm::ConstantInt::get(LLVM_DtoSize_t(), isz, false);
-    llvm::Value* bytesz = llvm::BinaryOperator::createMul(n,sz,"tmp",gIR->scopebb());
+    llvm::Value* bytesz = (isz == 1) ? sz : llvm::BinaryOperator::createMul(n,sz,"tmp",gIR->scopebb());
 
     llvm::Value* newptr = LLVM_DtoRealloc(ptrld, bytesz);
     new llvm::StoreInst(newptr,ptr,gIR->scopebb());
@@ -432,7 +436,7 @@ void LLVM_DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void LLVM_DtoCatArrayElement(llvm::Value* arr, Expression* exp)
+void LLVM_DtoCatAssignElement(llvm::Value* arr, Expression* exp)
 {
     llvm::Value* ptr = LLVM_DtoGEPi(arr, 0, 0, "tmp", gIR->scopebb());
     llvm::Value* idx = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
@@ -448,6 +452,38 @@ void LLVM_DtoCatArrayElement(llvm::Value* arr, Expression* exp)
     Type* et = LLVM_DtoDType(exp->type);
     LLVM_DtoAssign(et, ptr, e->getValue());
     delete e;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void LLVM_DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
+{
+    Type* t1 = LLVM_DtoDType(exp1->type);
+    Type* t2 = LLVM_DtoDType(exp2->type);
+
+    assert(t1->ty == Tarray);
+    assert(t1->ty == t2->ty);
+
+    elem* e1 = exp1->toElem(gIR);
+    llvm::Value* a = e1->getValue();
+    delete e1;
+
+    elem* e2 = exp2->toElem(gIR);
+    llvm::Value* b = e2->getValue();
+    delete e2;
+
+    llvm::Value *len1, *len2, *src1, *src2, *res;
+    len1 = gIR->ir->CreateLoad(LLVM_DtoGEPi(a,0,0,"tmp"),"tmp");
+    len2 = gIR->ir->CreateLoad(LLVM_DtoGEPi(b,0,0,"tmp"),"tmp");
+    res = gIR->ir->CreateAdd(len1,len2,"tmp");
+
+    llvm::Value* mem = LLVM_DtoNewDynArray(arr, res, LLVM_DtoDType(t1->next), false);
+
+    src1 = gIR->ir->CreateLoad(LLVM_DtoGEPi(a,0,1,"tmp"),"tmp");
+    src2 = gIR->ir->CreateLoad(LLVM_DtoGEPi(b,0,1,"tmp"),"tmp");
+
+    LLVM_DtoMemCpy(mem,src1,len1);
+    mem = gIR->ir->CreateGEP(mem,len1,"tmp");
+    LLVM_DtoMemCpy(mem,src2,len2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -569,8 +605,5 @@ llvm::Value* LLVM_DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r)
     llvm::Value* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
 
     llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
-    if (op == TOKnotidentity)
-        return gIR->ir->CreateNot(b,"tmp");
-    else
-        return b;
+    return b;
 }

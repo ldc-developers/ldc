@@ -1,7 +1,7 @@
 
 // byte
 
-module typeinfo.ti_byte;
+module typeinfo1.ti_byte;
 
 class TypeInfo_g : TypeInfo
 {

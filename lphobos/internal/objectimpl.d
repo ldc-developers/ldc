@@ -466,8 +466,6 @@ class TypeInfo_Enum : TypeInfo_Typedef
 {
 }
 
-/+
-
 class TypeInfo_Pointer : TypeInfo
 {
     char[] toString() { return m_next.toString() ~ "*"; }
@@ -595,11 +593,57 @@ class TypeInfo_Array : TypeInfo
     uint flags() { return 1; }
 }
 
+private const char[10] digits    = "0123456789";            /// 0..9
+
+private char[] lengthToString(uint u)
+{   char[uint.sizeof * 3] buffer = void;
+    int ndigits;
+    char[] result;
+
+    ndigits = 0;
+    if (u < 10)
+    // Avoid storage allocation for simple stuff
+    result = digits[u .. u + 1];
+    else
+    {
+    while (u)
+    {
+        uint c = (u % 10) + '0';
+        u /= 10;
+        ndigits++;
+        buffer[buffer.length - ndigits] = cast(char)c;
+    }
+    result = new char[ndigits];
+    result[] = buffer[buffer.length - ndigits .. buffer.length];
+    }
+    return result;
+}
+
+private char[] lengthToString(ulong u)
+{   char[ulong.sizeof * 3] buffer;
+    int ndigits;
+    char[] result;
+
+    if (u < 0x1_0000_0000)
+    return lengthToString(cast(uint)u);
+    ndigits = 0;
+    while (u)
+    {
+    char c = cast(char)((u % 10) + '0');
+    u /= 10;
+    ndigits++;
+    buffer[buffer.length - ndigits] = c;
+    }
+    result = new char[ndigits];
+    result[] = buffer[buffer.length - ndigits .. buffer.length];
+    return result;
+}
+
 class TypeInfo_StaticArray : TypeInfo
 {
     char[] toString()
     {
-    return value.toString() ~ "[" ~ std.string.toString(len) ~ "]";
+    return value.toString() ~ "[" ~ lengthToString(len) ~ "]";
     }
 
     int opEquals(Object o)
@@ -658,8 +702,12 @@ class TypeInfo_StaticArray : TypeInfo
 
     if (sz < buffer.sizeof)
         tmp = buffer.ptr;
-    else
+    else {
+        if (value.flags() & 1)
         tmp = pbuffer = (new void[sz]).ptr;
+        else
+        tmp = pbuffer = (new byte[sz]).ptr;
+    }
 
     for (size_t u = 0; u < len; u += sz)
     {   size_t o = u * sz;
@@ -760,6 +808,8 @@ class TypeInfo_Delegate : TypeInfo
 
     TypeInfo next;
 }
+
+/+
 
 class TypeInfo_Class : TypeInfo
 {
@@ -1041,6 +1091,8 @@ class TypeInfo_Tuple : TypeInfo
     }
 }
 
++/
+
 class TypeInfo_Const : TypeInfo
 {
     char[] toString() { return "const " ~ base.toString(); }
@@ -1063,8 +1115,6 @@ class TypeInfo_Invariant : TypeInfo_Const
 {
     char[] toString() { return "invariant " ~ base.toString(); }
 }
-
-+/
 
 /**
  * All recoverable exceptions should be derived from class Exception.

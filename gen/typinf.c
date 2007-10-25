@@ -246,12 +246,13 @@ void TypeInfoDeclaration::toObjFile()
 
     Logger::println("typeinfo mangle: %s", mangle());
 
+    // this is a declaration of a builtin __initZ var
     if (tinfo->builtinTypeInfo()) {
-        // this is a declaration of a builtin __initZ var
         llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangle());
         assert(llvmValue);
         Logger::cout() << "Got typeinfo var:" << '\n' << *llvmValue << '\n';
     }
+    // custom typedef
     else {
         toDt(NULL);
         // this is a specialized typeinfo
@@ -265,7 +266,15 @@ void TypeInfoDeclaration::toObjFile()
 void TypeInfoDeclaration::toDt(dt_t **pdt)
 {
     assert(0 && "TypeInfoDeclaration");
+
+    /*
+    //printf("TypeInfoDeclaration::toDt() %s\n", toChars());
+    dtxoff(pdt, Type::typeinfo->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo
+    dtdword(pdt, 0);                // monitor
+    */
 }
+
+/* ========================================================================= */
 
 void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
 {
@@ -354,116 +363,59 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     */
 }
 
+/* ========================================================================= */
+
 void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoEnumDeclaration");
-}
+    Logger::println("TypeInfoTypedefDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
 
-void TypeInfoPointerDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoPointerDeclaration");
-}
+    ClassDeclaration* base = Type::typeinfoenum;
+    base->toObjFile();
 
-void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoArrayDeclaration");
-}
+    llvm::Constant* initZ = base->llvmInitZ;
+    assert(initZ);
+    const llvm::StructType* stype = llvm::cast<llvm::StructType>(initZ->getType());
 
-void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoStaticArrayDeclaration");
-}
+    std::vector<llvm::Constant*> sinits;
+    sinits.push_back(initZ->getOperand(0));
 
-void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoAssociativeArrayDeclaration");
-}
+    assert(tinfo->ty == Tenum);
+    TypeEnum *tc = (TypeEnum *)tinfo;
+    EnumDeclaration *sd = tc->sym;
 
-void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoFunctionDeclaration");
-}
+    // TypeInfo base
+    //const llvm::PointerType* basept = llvm::cast<llvm::PointerType>(initZ->getOperand(1)->getType());
+    //sinits.push_back(llvm::ConstantPointerNull::get(basept));
+    Logger::println("generating base typeinfo");
+    //sd->basetype = sd->basetype->merge();
+    sd->memtype->getTypeInfo(NULL);        // generate vtinfo
+    assert(sd->memtype->vtinfo);
+    if (!sd->memtype->vtinfo->llvmValue)
+        sd->memtype->vtinfo->toObjFile();
+    assert(llvm::isa<llvm::Constant>(sd->memtype->vtinfo->llvmValue));
+    llvm::Constant* castbase = llvm::cast<llvm::Constant>(sd->memtype->vtinfo->llvmValue);
+    castbase = llvm::ConstantExpr::getBitCast(castbase, initZ->getOperand(1)->getType());
+    sinits.push_back(castbase);
 
-void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoDelegateDeclaration");
-}
-
-void TypeInfoStructDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoStructDeclaration");
-}
-
-void TypeInfoClassDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoClassDeclaration");
-}
-
-void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoInterfaceDeclaration");
-}
-
-void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoTupleDeclaration");
-}
-
-// original dmdfe toDt code for reference
-
-#if 0
-
-void TypeInfoDeclaration::toDt(dt_t **pdt)
-{
-    //printf("TypeInfoDeclaration::toDt() %s\n", toChars());
-    dtxoff(pdt, Type::typeinfo->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo
-    dtdword(pdt, 0);                // monitor
-}
-
-void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
-{
-    //printf("TypeInfoTypedefDeclaration::toDt() %s\n", toChars());
-
-    dtxoff(pdt, Type::typeinfotypedef->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Typedef
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Ttypedef);
-
-    TypeTypedef *tc = (TypeTypedef *)tinfo;
-    TypedefDeclaration *sd = tc->sym;
-    //printf("basetype = %s\n", sd->basetype->toChars());
-
-    /* Put out:
-     *  TypeInfo base;
-     *  char[] name;
-     *  void[] m_init;
-     */
-
-    sd->basetype = sd->basetype->merge();
-    sd->basetype->getTypeInfo(NULL);        // generate vtinfo
-    assert(sd->basetype->vtinfo);
-    dtxoff(pdt, sd->basetype->vtinfo->toSymbol(), 0, TYnptr);   // TypeInfo for basetype
-
+    // char[] name
     char *name = sd->toPrettyChars();
-    size_t namelen = strlen(name);
-    dtdword(pdt, namelen);
-    dtabytes(pdt, TYnptr, 0, namelen + 1, name);
+    sinits.push_back(LLVM_DtoConstString(name));
+    assert(sinits.back()->getType() == initZ->getOperand(2)->getType());
 
-    // void[] init;
-    if (tinfo->isZeroInit() || !sd->init)
-    {   // 0 initializer, or the same as the base type
-    dtdword(pdt, 0);    // init.length
-    dtdword(pdt, 0);    // init.ptr
-    }
-    else
-    {
-    dtdword(pdt, sd->type->size()); // init.length
-    dtxoff(pdt, sd->toInitializer(), 0, TYnptr);    // init.ptr
-    }
-}
+    // void[] init
+    //const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    //sinits.push_back(LLVM_DtoConstantSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+    sinits.push_back(initZ->getOperand(3));
 
-void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
-{
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
+
+    llvmValue = gvar;
+
+    /*
+
     //printf("TypeInfoEnumDeclaration::toDt()\n");
     dtxoff(pdt, Type::typeinfoenum->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Enum
     dtdword(pdt, 0);                // monitor
@@ -473,11 +425,10 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     TypeEnum *tc = (TypeEnum *)tinfo;
     EnumDeclaration *sd = tc->sym;
 
-    /* Put out:
-     *  TypeInfo base;
-     *  char[] name;
-     *  void[] m_init;
-     */
+    // Put out:
+    //  TypeInfo base;
+    //  char[] name;
+    //  void[] m_init;
 
     sd->memtype->getTypeInfo(NULL);
     dtxoff(pdt, sd->memtype->vtinfo->toSymbol(), 0, TYnptr);    // TypeInfo for enum members
@@ -498,38 +449,75 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     dtdword(pdt, sd->type->size()); // init.length
     dtxoff(pdt, sd->toInitializer(), 0, TYnptr);    // init.ptr
     }
+
+    */
 }
+
+/* ========================================================================= */
+
+static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
+{
+    ClassDeclaration* base = cd;
+    base->toObjFile();
+
+    llvm::Constant* initZ = base->llvmInitZ;
+    assert(initZ);
+    const llvm::StructType* stype = llvm::cast<llvm::StructType>(initZ->getType());
+
+    std::vector<llvm::Constant*> sinits;
+    sinits.push_back(initZ->getOperand(0));
+
+    // TypeInfo base
+    Logger::println("generating base typeinfo");
+    basetype->getTypeInfo(NULL);
+    assert(basetype->vtinfo);
+    if (!basetype->vtinfo->llvmValue)
+        basetype->vtinfo->toObjFile();
+    assert(llvm::isa<llvm::Constant>(basetype->vtinfo->llvmValue));
+    llvm::Constant* castbase = llvm::cast<llvm::Constant>(basetype->vtinfo->llvmValue);
+    castbase = llvm::ConstantExpr::getBitCast(castbase, initZ->getOperand(1)->getType());
+    sinits.push_back(castbase);
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,tid->toChars(),gIR->module);
+
+    tid->llvmValue = gvar;
+}
+
+/* ========================================================================= */
 
 void TypeInfoPointerDeclaration::toDt(dt_t **pdt)
 {
-    //printf("TypeInfoPointerDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfopointer->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Pointer
-    dtdword(pdt, 0);                // monitor
+    Logger::println("TypeInfoPointerDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
 
     assert(tinfo->ty == Tpointer);
-
     TypePointer *tc = (TypePointer *)tinfo;
 
-    tc->next->getTypeInfo(NULL);
-    dtxoff(pdt, tc->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for type being pointed to
+    LLVM_D_Create_TypeInfoBase(tc->next, this, Type::typeinfopointer);
 }
+
+/* ========================================================================= */
 
 void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
 {
-    //printf("TypeInfoArrayDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfoarray->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Array
-    dtdword(pdt, 0);                // monitor
+    Logger::println("TypeInfoArrayDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
 
     assert(tinfo->ty == Tarray);
-
     TypeDArray *tc = (TypeDArray *)tinfo;
 
-    tc->next->getTypeInfo(NULL);
-    dtxoff(pdt, tc->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for array of type
+    LLVM_D_Create_TypeInfoBase(tc->next, this, Type::typeinfoarray);
 }
+
+/* ========================================================================= */
 
 void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
 {
+    assert(0 && "TypeInfoStaticArrayDeclaration");
+
+    /*
     //printf("TypeInfoStaticArrayDeclaration::toDt()\n");
     dtxoff(pdt, Type::typeinfostaticarray->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_StaticArray
     dtdword(pdt, 0);                // monitor
@@ -542,10 +530,16 @@ void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
     dtxoff(pdt, tc->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for array of type
 
     dtdword(pdt, tc->dim->toInteger());     // length
+    */
 }
+
+/* ========================================================================= */
 
 void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
 {
+    assert(0 && "TypeInfoAssociativeArrayDeclaration");
+
+    /*
     //printf("TypeInfoAssociativeArrayDeclaration::toDt()\n");
     dtxoff(pdt, Type::typeinfoassociativearray->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_AssociativeArray
     dtdword(pdt, 0);                // monitor
@@ -559,38 +553,42 @@ void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
 
     tc->index->getTypeInfo(NULL);
     dtxoff(pdt, tc->index->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for array of type
+    */
 }
+
+/* ========================================================================= */
 
 void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
 {
-    //printf("TypeInfoFunctionDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfofunction->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Function
-    dtdword(pdt, 0);                // monitor
+    Logger::println("TypeInfoFunctionDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
 
     assert(tinfo->ty == Tfunction);
-
     TypeFunction *tc = (TypeFunction *)tinfo;
 
-    tc->next->getTypeInfo(NULL);
-    dtxoff(pdt, tc->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for function return value
+    LLVM_D_Create_TypeInfoBase(tc->next, this, Type::typeinfofunction);
 }
+
+/* ========================================================================= */
 
 void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
 {
-    //printf("TypeInfoDelegateDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfodelegate->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Delegate
-    dtdword(pdt, 0);                // monitor
+    Logger::println("TypeInfoDelegateDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
 
     assert(tinfo->ty == Tdelegate);
-
     TypeDelegate *tc = (TypeDelegate *)tinfo;
 
-    tc->next->next->getTypeInfo(NULL);
-    dtxoff(pdt, tc->next->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for delegate return value
+    LLVM_D_Create_TypeInfoBase(tc->next->next, this, Type::typeinfodelegate);
 }
+
+/* ========================================================================= */
 
 void TypeInfoStructDeclaration::toDt(dt_t **pdt)
 {
+    assert(0 && "TypeInfoStructDeclaration");
+
+    /*
     //printf("TypeInfoStructDeclaration::toDt() '%s'\n", toChars());
 
     unsigned offset = Type::typeinfostruct->structsize;
@@ -603,17 +601,17 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     TypeStruct *tc = (TypeStruct *)tinfo;
     StructDeclaration *sd = tc->sym;
 
-    /* Put out:
-     *  char[] name;
-     *  void[] init;
-     *  hash_t function(void*) xtoHash;
-     *  int function(void*,void*) xopEquals;
-     *  int function(void*,void*) xopCmp;
-     *  char[] function(void*) xtoString;
-     *  uint m_flags;
-     *
-     *  name[]
-     */
+//     Put out:
+//        char[] name;
+//        void[] init;
+//        hash_t function(void*) xtoHash;
+//        int function(void*,void*) xopEquals;
+//        int function(void*,void*) xopCmp;
+//        char[] function(void*) xtoString;
+//        uint m_flags;
+//
+//        name[]
+//
 
     char *name = sd->toPrettyChars();
     size_t namelen = strlen(name);
@@ -723,10 +721,16 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
 
     // name[]
     dtnbytes(pdt, namelen + 1, name);
+    */
 }
+
+/* ========================================================================= */
 
 void TypeInfoClassDeclaration::toDt(dt_t **pdt)
 {
+    assert(0 && "TypeInfoClassDeclaration");
+
+    /*
     //printf("TypeInfoClassDeclaration::toDt() %s\n", tinfo->toChars());
     dtxoff(pdt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfoClass
     dtdword(pdt, 0);                // monitor
@@ -740,10 +744,16 @@ void TypeInfoClassDeclaration::toDt(dt_t **pdt)
     tc->sym->vclassinfo = new ClassInfoDeclaration(tc->sym);
     s = tc->sym->vclassinfo->toSymbol();
     dtxoff(pdt, s, 0, TYnptr);      // ClassInfo for tinfo
+    */
 }
+
+/* ========================================================================= */
 
 void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
 {
+    assert(0 && "TypeInfoInterfaceDeclaration");
+
+    /*
     //printf("TypeInfoInterfaceDeclaration::toDt() %s\n", tinfo->toChars());
     dtxoff(pdt, Type::typeinfointerface->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfoInterface
     dtdword(pdt, 0);                // monitor
@@ -757,10 +767,16 @@ void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
     tc->sym->vclassinfo = new ClassInfoDeclaration(tc->sym);
     s = tc->sym->vclassinfo->toSymbol();
     dtxoff(pdt, s, 0, TYnptr);      // ClassInfo for tinfo
+    */
 }
+
+/* ========================================================================= */
 
 void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
 {
+    assert(0 && "TypeInfoTupleDeclaration");
+
+    /*
     //printf("TypeInfoTupleDeclaration::toDt() %s\n", tinfo->toChars());
     dtxoff(pdt, Type::typeinfotypelist->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfoInterface
     dtdword(pdt, 0);                // monitor
@@ -786,46 +802,5 @@ void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
     outdata(s);
 
     dtxoff(pdt, s, 0, TYnptr);          // elements.ptr
+    */
 }
-
-void TypeInfoDeclaration::toObjFile()
-{
-    Symbol *s;
-    unsigned sz;
-    Dsymbol *parent;
-
-    //printf("TypeInfoDeclaration::toObjFile(%p '%s') protection %d\n", this, toChars(), protection);
-
-    s = toSymbol();
-    sz = type->size();
-
-    parent = this->toParent();
-    s->Sclass = SCcomdat;
-    s->Sfl = FLdata;
-
-    toDt(&s->Sdt);
-
-    dt_optimize(s->Sdt);
-
-    // See if we can convert a comdat to a comdef,
-    // which saves on exe file space.
-    if (s->Sclass == SCcomdat &&
-    s->Sdt->dt == DT_azeros &&
-    s->Sdt->DTnext == NULL)
-    {
-    s->Sclass = SCglobal;
-    s->Sdt->dt = DT_common;
-    }
-
-#if ELFOBJ // Burton
-    if (s->Sdt && s->Sdt->dt == DT_azeros && s->Sdt->DTnext == NULL)
-    s->Sseg = UDATA;
-    else
-    s->Sseg = DATA;
-#endif /* ELFOBJ */
-    outdata(s);
-    if (isExport())
-    obj_export(s,0);
-}
-
-#endif

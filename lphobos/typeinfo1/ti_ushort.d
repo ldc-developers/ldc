@@ -1,7 +1,7 @@
 
 // ushort
 
-module typeinfo.ti_ushort;
+module typeinfo1.ti_ushort;
 
 class TypeInfo_t : TypeInfo
 {

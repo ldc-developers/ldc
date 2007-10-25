@@ -1,29 +1,29 @@
 
-// float
+// real
 
-module typeinfo.ti_float;
+module typeinfo1.ti_real;
 
-class TypeInfo_f : TypeInfo
+class TypeInfo_e : TypeInfo
 {
-    char[] toString() { return "float"; }
+    char[] toString() { return "real"; }
 
     hash_t getHash(void *p)
     {
-	return *cast(uint *)p;
+	return (cast(uint *)p)[0] + (cast(uint *)p)[1] + (cast(ushort *)p)[4];
     }
 
-    static bool _isnan(float f)
+    static bool _isnan(real r)
     {
-	return f !<>= 0;
+	return r !<>= 0;
     }
 
-    static int _equals(float f1, float f2)
+    static int _equals(real f1, real f2)
     {
 	return f1 == f2 ||
 		(_isnan(f1) && _isnan(f2));
     }
 
-    static int _compare(float d1, float d2)
+    static int _compare(real d1, real d2)
     {
 	if (d1 !<>= d2)		// if either are NaN
 	{
@@ -39,30 +39,30 @@ class TypeInfo_f : TypeInfo
 
     int equals(void *p1, void *p2)
     {
-	return _equals(*cast(float *)p1, *cast(float *)p2);
+	return _equals(*cast(real *)p1, *cast(real *)p2);
     }
 
     int compare(void *p1, void *p2)
     {
-	return _compare(*cast(float *)p1, *cast(float *)p2);
+	return _compare(*cast(real *)p1, *cast(real *)p2);
     }
 
     size_t tsize()
     {
-	return float.sizeof;
+	return real.sizeof;
     }
 
     void swap(void *p1, void *p2)
     {
-	float t;
+	real t;
 
-	t = *cast(float *)p1;
-	*cast(float *)p1 = *cast(float *)p2;
-	*cast(float *)p2 = t;
+	t = *cast(real *)p1;
+	*cast(real *)p1 = *cast(real *)p2;
+	*cast(real *)p2 = t;
     }
 
     void[] init()
-    {	static float r;
+    {	static real r;
 
 	return (&r)[0 .. 1];
     }

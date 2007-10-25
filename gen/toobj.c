@@ -547,10 +547,14 @@ void VarDeclaration::toObjFile()
                 else if (llvm::isa<llvm::ArrayType>(_type))
                 {
                     const llvm::ArrayType* at = llvm::cast<llvm::ArrayType>(_type);
-                    assert(_type->getContainedType(0) == _init->getType());
-                    std::vector<llvm::Constant*> initvals;
-                    initvals.resize(at->getNumElements(), _init);
-                    _init = llvm::ConstantArray::get(at, initvals);
+                    if (at->getElementType() == _init->getType()) {
+                        std::vector<llvm::Constant*> initvals;
+                        initvals.resize(at->getNumElements(), _init);
+                        _init = llvm::ConstantArray::get(at, initvals);
+                    }
+                    else {
+                        assert(0);
+                    }
                 }
                 else {
                     Logger::cout() << "Unexpected initializer type: " << *_type << '\n';

@@ -1,5 +1,5 @@
 
-module typeinfo.ti_wchar;
+module typeinfo1.ti_wchar;
 
 
 class TypeInfo_u : TypeInfo

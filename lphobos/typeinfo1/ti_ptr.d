@@ -1,7 +1,7 @@
 
 // pointer
 
-module typeinfo.ti_ptr;
+module typeinfo1.ti_ptr;
 
 class TypeInfo_P : TypeInfo
 {

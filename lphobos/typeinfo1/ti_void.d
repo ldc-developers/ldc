@@ -1,7 +1,7 @@
 
 // void
 
-module typeinfo.ti_void;
+module typeinfo1.ti_void;
 
 class TypeInfo_v : TypeInfo
 {

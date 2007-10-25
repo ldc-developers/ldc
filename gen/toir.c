@@ -82,11 +82,12 @@ elem* DeclarationExp::toElem(IRState* p)
     // alias declaration
     else if (AliasDeclaration* a = declaration->isAliasDeclaration())
     {
-        Logger::println("AliasDeclaration");
-        assert(0);
+        Logger::println("AliasDeclaration - no work");
+        // do nothing
     }
     else if (EnumDeclaration* e = declaration->isEnumDeclaration())
     {
+        Logger::println("EnumDeclaration - no work");
         // do nothing
     }
     // unsupported declaration
@@ -162,7 +163,10 @@ elem* VarExp::toElem(IRState* p)
             // typeinfo
             else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
             {
-                assert(0);
+                tid->toObjFile();
+                assert(tid->llvmValue);
+                e->val = tid->llvmValue;
+                e->type = elem::VAR;
             }
             // global forward ref
             else {
@@ -438,10 +442,11 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
 
     Type* t = LLVM_DtoDType(type);
 
-    llvm::Constant* _init = llvm::ConstantArray::get(cont,true);
     if (t->ty == Tsarray) {
-        return _init;
+        return llvm::ConstantArray::get(cont,false);
     }
+    llvm::Constant* _init = llvm::ConstantArray::get(cont,true);
+
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,"stringliteral",gIR->module);
 
@@ -1342,11 +1347,13 @@ elem* CastExp::toElem(IRState* p)
         Logger::cout() << "from array or sarray" << '\n';
         if (totype->ty == Tpointer) {
             Logger::cout() << "to pointer" << '\n';
-            assert(fromtype->next == totype->next);
+            assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
             llvm::Value* ptr = LLVM_DtoGEP(u->getValue(),zero,one,"tmp",p->scopebb());
             e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
+            if (fromtype->next != totype->next)
+                e->val = p->ir->CreateBitCast(e->val, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
             e->type = elem::VAL;
         }
         else if (totype->ty == Tarray) {
@@ -1890,7 +1897,7 @@ elem* CmpExp::toElem(IRState* p)
     Type* e2t = LLVM_DtoDType(e2->type);
     assert(t == e2t);
 
-    if (t->isintegral())
+    if (t->isintegral() || t->ty == Tpointer)
     {
         llvm::ICmpInst::Predicate cmpop;
         bool skip = false;
@@ -2132,6 +2139,7 @@ elem* NewExp::toElem(IRState* p)
     assert(!allocator);
 
     elem* e = new elem;
+    e->inplace = true;
 
     Type* ntype = LLVM_DtoDType(newtype);
 
@@ -2150,8 +2158,23 @@ elem* NewExp::toElem(IRState* p)
             if (arguments->dim == 1) {
                 elem* sz = ((Expression*)arguments->data[0])->toElem(p);
                 llvm::Value* dimval = sz->getValue();
-                assert(p->topexp() && p->topexp()->e2 == this && p->topexp()->v);
-                LLVM_DtoNewDynArray(p->topexp()->v, dimval, ntype->next);
+                Type* nnt = LLVM_DtoDType(ntype->next);
+                if (nnt->ty == Tvoid)
+                    nnt = Type::tint8;
+                if (!p->topexp() || p->topexp()->e2 != this) {
+                    const llvm::Type* restype = LLVM_DtoType(type);
+                    Logger::cout() << "restype = " << *restype << '\n';
+                    e->mem = new llvm::AllocaInst(restype,"tmp",p->topallocapoint());
+                    LLVM_DtoNewDynArray(e->mem, dimval, nnt);
+                    e->inplace = false;
+                }
+                else if (p->topexp() || p->topexp()->e2 != this) {
+                    assert(p->topexp()->v);
+                    e->mem = p->topexp()->v;
+                    LLVM_DtoNewDynArray(e->mem, dimval, nnt);
+                }
+                else
+                assert(0);
                 delete sz;
             }
             else {
@@ -2197,7 +2220,6 @@ elem* NewExp::toElem(IRState* p)
         }
     }
 
-    e->inplace = true;
     e->type = elem::VAR;
 
     return e;
@@ -2661,17 +2683,30 @@ elem* CatExp::toElem(IRState* p)
     Logger::print("CatExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    assert(0 && "array cat is not yet implemented");
+    Type* t = LLVM_DtoDType(type);
 
-    elem* lhs = e1->toElem(p);
-    elem* rhs = e2->toElem(p);
+    bool inplace = false;
+    llvm::Value* dst = 0;
+    IRExp* ex = p->topexp();
+    if (ex && ex->e2 == this) {
+        assert(ex->v);
+        dst = ex->v;
+        inplace = true;
+    }
+    else {
+        assert(t->ty == Tarray);
+        const llvm::Type* arrty = LLVM_DtoType(t);
+        dst = new llvm::AllocaInst(arrty, "tmpmem", p->topallocapoint());
+    }
 
-    // determine new size
+    LLVM_DtoCatArrays(dst,e1,e2);
 
-    delete lhs;
-    delete rhs;
+    elem* e = new elem;
+    e->mem = dst;
+    e->type = elem::VAR;
+    e->inplace = inplace;
 
-    return 0;
+    return e;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2689,7 +2724,7 @@ elem* CatAssignExp::toElem(IRState* p)
     Type* e2type = LLVM_DtoDType(e2->type);
 
     if (e2type == elemtype) {
-        LLVM_DtoCatArrayElement(l->mem,e2);
+        LLVM_DtoCatAssignElement(l->mem,e2);
     }
     else
         assert(0 && "only one element at a time right now");

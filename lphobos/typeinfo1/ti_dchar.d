@@ -1,7 +1,7 @@
 
 // dchar
 
-module typeinfo.ti_dchar;
+module typeinfo1.ti_dchar;
 
 class TypeInfo_w : TypeInfo
 {

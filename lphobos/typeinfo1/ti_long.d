@@ -1,7 +1,7 @@
 
 // long
 
-module typeinfo.ti_long;
+module typeinfo1.ti_long;
 
 class TypeInfo_l : TypeInfo
 {
