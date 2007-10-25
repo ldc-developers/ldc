@@ -650,6 +650,11 @@ void FuncDeclaration::toObjFile()
         return;
     }
 
+    if (isUnitTestDeclaration()) {
+        Logger::println("*** ATTENTION: ignoring unittest declaration: %s", toChars());
+        return;
+    }
+
     Type* t = LLVM_DtoDType(type);
     TypeFunction* f = (TypeFunction*)t;
 
