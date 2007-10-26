@@ -242,8 +242,8 @@ void TypeInfoDeclaration::toObjFile()
 
     Logger::println("TypeInfoDeclaration::toObjFile()");
     LOG_SCOPE;
-    Logger::println("type = '%s'", tinfo->toChars());
 
+    Logger::println("type = '%s'", tinfo->toChars());
     Logger::println("typeinfo mangle: %s", mangle());
 
     // this is a declaration of a builtin __initZ var
@@ -255,9 +255,6 @@ void TypeInfoDeclaration::toObjFile()
     // custom typedef
     else {
         toDt(NULL);
-        // this is a specialized typeinfo
-        //std::vector<const llvm::Type*> stypes;
-        //stypes.push_back(
     }
 }
 
