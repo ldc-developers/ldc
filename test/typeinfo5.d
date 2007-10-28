@@ -7,4 +7,5 @@ void main()
     }
     auto ti = typeid(E);
     assert(ti.next() is typeid(uint));
+    assert(ti.init is null);
 }

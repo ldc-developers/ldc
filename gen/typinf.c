@@ -414,9 +414,23 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     assert(sinits.back()->getType() == initZ->getOperand(2)->getType());
 
     // void[] init
-    //const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
-    //sinits.push_back(LLVM_DtoConstantSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
-    sinits.push_back(initZ->getOperand(3));
+    const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    if (tinfo->isZeroInit() || !sd->defaultval) // 0 initializer, or the same as the base type
+    {
+        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+        //sinits.push_back(initZ->getOperand(3));
+    }
+    else
+    {
+        const llvm::Type* memty = LLVM_DtoType(sd->memtype);
+        llvm::Constant* ci = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
+        std::string ciname(sd->mangle());
+        ciname.append("__init");
+        llvm::GlobalVariable* civar = new llvm::GlobalVariable(memty,true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
+        llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
+        size_t cisize = gTargetData->getTypeSize(memty);
+        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(cisize), cicast));
+    }
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
