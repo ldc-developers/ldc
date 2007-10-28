@@ -1254,7 +1254,13 @@ elem* CallExp::toElem(IRState* p)
         e->val = call;
 
     // set calling convention
-    if ((fn->funcdecl && (fn->funcdecl->llvmInternal != LLVMintrinsic && fn->funcdecl->llvmInternal != LLVMva_start)) || delegateCall)
+    if (fn->funcdecl) {
+        int li = fn->funcdecl->llvmInternal;
+        if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic) {
+            call->setCallingConv(LLVM_DtoCallingConv(dlink));
+        }
+    }
+    else if (delegateCall)
         call->setCallingConv(LLVM_DtoCallingConv(dlink));
     else if (fn->callconv != (unsigned)-1)
         call->setCallingConv(fn->callconv);
@@ -1600,7 +1606,8 @@ elem* DotVarExp::toElem(IRState* p)
             e->callconv = LLVM_DtoCallingConv(fdecl->linkage);
         }
         e->val = funcval;
-        e->type = elem::VAL;
+        e->type = elem::FUNC;
+        e->funcdecl = fdecl;
     }
     else {
         printf("unknown: %s\n", var->toChars());

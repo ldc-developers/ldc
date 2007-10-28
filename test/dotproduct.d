@@ -17,12 +17,12 @@ int main()
 {
     printf("Dot Product test\n");
 
-    const float f = 0.7071067811865474617f;
+    const f = 0.7071067811865474617;
     vec3 v = vec3(f,f,0);
     vec3 w = vec3(f,0,f);
 
     v.print("v");
-    v.print("w");
+    w.print("w");
 
     auto dp = v.dot(w);
     printf("v · w = %f\n", dp);
