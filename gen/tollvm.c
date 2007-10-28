@@ -1306,7 +1306,10 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
 
     // on this stack
     if (fd == f) {
-        return LLVM_DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
+        llvm::Value* v = LLVM_DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
+        if (vd->isParameter() && (vd->isRef() || vd->isOut()))
+            v = gIR->ir->CreateLoad(v,"tmp");
+        return v;
     }
 
     // on a caller stack
@@ -1325,7 +1328,10 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
 
     while (f) {
         if (fd == f) {
-            return LLVM_DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
+            llvm::Value* v = LLVM_DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
+            if (vd->isParameter() && (vd->isRef() || vd->isOut()))
+                v = gIR->ir->CreateLoad(v,"tmp");
+            return v;
         }
         else {
             ptr = LLVM_DtoGEPi(ptr,0,0,"tmp");

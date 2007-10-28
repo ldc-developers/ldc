@@ -769,7 +769,13 @@ void FuncDeclaration::toObjFile()
                     for (std::set<VarDeclaration*>::iterator i=llvmNestedVars.begin(); i!=llvmNestedVars.end(); ++i) {
                         VarDeclaration* vd = *i;
                         vd->llvmNestedIndex = j++;
-                        nestTypes.push_back(LLVM_DtoType(vd->type));
+                        if (vd->isParameter()) {
+                            assert(vd->llvmValue);
+                            nestTypes.push_back(vd->llvmValue->getType());
+                        }
+                        else {
+                            nestTypes.push_back(LLVM_DtoType(vd->type));
+                        }
                     }
                     const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
                     Logger::cout() << "nested var struct has type:" << '\n' << *nestSType;
@@ -778,6 +784,12 @@ void FuncDeclaration::toObjFile()
                         assert(llvmThisVar);
                         llvm::Value* ptr = gIR->ir->CreateBitCast(llvmThisVar, parentNested->getType(), "tmp");
                         gIR->ir->CreateStore(ptr, LLVM_DtoGEPi(llvmNested, 0,0, "tmp"));
+                    }
+                    for (std::set<VarDeclaration*>::iterator i=llvmNestedVars.begin(); i!=llvmNestedVars.end(); ++i) {
+                        VarDeclaration* vd = *i;
+                        if (vd->isParameter()) {
+                            gIR->ir->CreateStore(vd->llvmValue, LLVM_DtoGEPi(llvmNested, 0, vd->llvmNestedIndex, "tmp"));
+                        }
                     }
                 }
 

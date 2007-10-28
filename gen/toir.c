@@ -113,10 +113,6 @@ elem* VarExp::toElem(IRState* p)
     {
         Logger::println("VarDeclaration %s", vd->toChars());
 
-        if (vd->nestedref) {
-            Logger::println("has nested ref");
-        }
-
         // _arguments
         if (vd->ident == Id::_arguments)
         {
@@ -124,7 +120,6 @@ elem* VarExp::toElem(IRState* p)
             assert(vd->llvmValue);
             e->mem = vd->llvmValue;
             e->type = elem::VAR;
-            return e;
         }
         // _argptr
         else if (vd->ident == Id::_argptr)
@@ -133,54 +128,39 @@ elem* VarExp::toElem(IRState* p)
             assert(vd->llvmValue);
             e->mem = vd->llvmValue;
             e->type = elem::VAR;
-            return e;
         }
-
-        // needed to take care of forward references of global variables
-        if (!vd->llvmTouched && vd->isDataseg())
-            vd->toObjFile();
-
-        if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
+        // _dollar
+        else if (vd->ident == Id::dollar)
+        {
+            assert(!p->arrays.empty());
+            llvm::Value* tmp = LLVM_DtoGEPi(p->arrays.back(),0,0,"tmp",p->scopebb());
+            e->val = new llvm::LoadInst(tmp,"tmp",p->scopebb());
+            e->type = elem::VAL;
+        }
+        // typeinfo
+        else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
         {
             Logger::println("TypeInfoDeclaration");
+            tid->toObjFile();
+            assert(tid->llvmValue);
+            const llvm::Type* vartype = LLVM_DtoType(type);
+            if (tid->llvmValue->getType() != llvm::PointerType::get(vartype))
+                e->mem = p->ir->CreateBitCast(tid->llvmValue, vartype, "tmp");
+            else
+                e->mem = tid->llvmValue;
+            e->type = elem::VAR;
         }
-
-        // this must be a dollar expression or some other magic value
-        // or it could be a forward declaration of a global variable
-        if (!vd->llvmValue)
-        {
-            assert(!vd->nestedref);
-            Logger::println("special - no llvmValue");
-            // dollar
-            if (!p->arrays.empty())
-            {
-                llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-                //llvm::Value* tmp = new llvm::GetElementPtrInst(p->arrays.back(),zero,zero,"tmp",p->scopebb());
-                llvm::Value* tmp = LLVM_DtoGEP(p->arrays.back(),zero,zero,"tmp",p->scopebb());
-                e->val = new llvm::LoadInst(tmp,"tmp",p->scopebb());
-                e->type = elem::VAL;
-            }
-            // typeinfo
-            else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
-            {
-                tid->toObjFile();
-                assert(tid->llvmValue);
-                e->val = tid->llvmValue;
-                e->type = elem::VAR;
-            }
-            // global forward ref
-            else {
-                Logger::println("unsupported magic: %s\n", vd->toChars());
-                assert(0 && "only magic supported is $, _arguments, _argptr");
-            }
-            return e;
+        // nested variable
+        else if (vd->nestedref) {
+            e->mem = LLVM_DtoNestedVariable(vd);
+            e->type = elem::VAR;
+            e->vardecl = vd;
         }
-
         // function parameter
-        if (vd->storage_class & STCparameter) {
-            assert(!vd->nestedref);
+        else if (vd->isParameter()) {
             Logger::println("function param");
-            if (vd->storage_class & (STCref | STCout)) {
+            assert(vd->llvmValue);
+            if (vd->isRef() || vd->isOut()) {
                 e->mem = vd->llvmValue;
                 e->type = elem::VAR;
             }
@@ -205,30 +185,16 @@ elem* VarExp::toElem(IRState* p)
             }
         }
         else {
-            // nested variable
-            if (vd->nestedref) {
-                e->mem = LLVM_DtoNestedVariable(vd);
-            }
-            // normal local variable
-            else {
-                if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration()) {
-                    Logger::println("typeinfo varexp");
-                    const llvm::Type* vartype = LLVM_DtoType(type);
-                    if (tid->llvmValue->getType() != llvm::PointerType::get(vartype)) {
-                        e->mem = p->ir->CreateBitCast(tid->llvmValue, vartype, "tmp");
-                    }
-                    else {
-                        e->mem = tid->llvmValue;
-                    }
-                    Logger::cout() << "got:" << '\n' << *tid->llvmValue << "returned:" << '\n' << *e->mem << '\n';
-                }
-                else {
-                    e->mem = vd->llvmValue;
-                }
-            }
+            // take care of forward references of global variables
+            if (!vd->llvmTouched && vd->isDataseg())
+                vd->toObjFile();
+            assert(vd->llvmValue);
+            e->mem = vd->llvmValue;
             e->vardecl = vd;
             e->type = elem::VAR;
         }
+
+        assert(e->mem || e->val);
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
@@ -238,7 +204,6 @@ elem* VarExp::toElem(IRState* p)
         e->val = fdecl->llvmValue;
         e->type = elem::FUNC;
         e->funcdecl = fdecl;
-        return e;
     }
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
@@ -256,7 +221,6 @@ elem* VarExp::toElem(IRState* p)
         assert(0 && "Unimplemented VarExp type");
     }
 
-    assert(e->mem || e->val);
     return e;
 }
 
@@ -1260,10 +1224,12 @@ elem* CallExp::toElem(IRState* p)
             call->setCallingConv(LLVM_DtoCallingConv(dlink));
         }
     }
-    else if (delegateCall)
+    else if (delegateCall) {
         call->setCallingConv(LLVM_DtoCallingConv(dlink));
-    else if (fn->callconv != (unsigned)-1)
+    }
+    else if (fn->callconv != (unsigned)-1) {
         call->setCallingConv(fn->callconv);
+    }
 
     delete fn;
     return e;
