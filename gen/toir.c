@@ -1287,6 +1287,9 @@ elem* CastExp::toElem(IRState* p)
                 e->val = new llvm::SIToFPInst(u->getValue(), tolltype, "tmp", p->scopebb());
             }
         }
+        else if (totype->ty == Tpointer) {
+            e->val = p->ir->CreateIntToPtr(u->getValue(), tolltype, "tmp");
+        }
         else {
             assert(0);
         }

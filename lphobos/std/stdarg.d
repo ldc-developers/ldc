@@ -12,7 +12,8 @@ alias void* va_list;
 
 T va_arg(T)(inout va_list vp)
 {
-    va_list vptmp = vp;
-    vp += T.sizeof;
+    static assert((T.sizeof & (T.sizeof -1)) == 0);
+    va_list vptmp = cast(va_list)((cast(size_t)vp + T.sizeof - 1) &  ~(T.sizeof - 1));
+    vp = vptmp + T.sizeof;
     return *cast(T*)vptmp;
 }
