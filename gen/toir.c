@@ -1036,6 +1036,7 @@ elem* CallExp::toElem(IRState* p)
     if (fn->arg || delegateCall) n++;
     if (retinptr) n++;
     if (tf->linkage == LINKd && tf->varargs == 1) n+=2;
+    if (fn->funcdecl && fn->funcdecl->isNested()) n++;
 
     llvm::Value* funcval = fn->getValue();
     assert(funcval != 0);
@@ -1124,6 +1125,15 @@ elem* CallExp::toElem(IRState* p)
         Logger::println("Delegate Call");
         llvm::Value* contextptr = LLVM_DtoGEP(fn->mem,zero,zero,"tmp",p->scopebb());
         llargs[j] = new llvm::LoadInst(contextptr,"tmp",p->scopebb());
+        ++j;
+        ++argiter;
+    }
+    // nested call
+    else if (fn->funcdecl && fn->funcdecl->isNested()) {
+        Logger::println("Nested Call");
+        llvm::Value* contextptr = p->func().decl->llvmNested;
+        assert(contextptr);
+        llargs[j] = p->ir->CreateBitCast(contextptr, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
         ++j;
         ++argiter;
     }

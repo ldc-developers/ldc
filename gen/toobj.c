@@ -789,6 +789,7 @@ void FuncDeclaration::toObjFile()
                         VarDeclaration* vd = *i;
                         if (vd->isParameter()) {
                             gIR->ir->CreateStore(vd->llvmValue, LLVM_DtoGEPi(llvmNested, 0, vd->llvmNestedIndex, "tmp"));
+                            vd->llvmValue = llvmNested;
                         }
                     }
                 }
