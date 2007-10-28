@@ -409,7 +409,7 @@ void LLVM_DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Constant* LLVM_DtoConstantSlice(llvm::Constant* dim, llvm::Constant* ptr)
+llvm::Constant* LLVM_DtoConstSlice(llvm::Constant* dim, llvm::Constant* ptr)
 {
     std::vector<const llvm::Type*> types;
     types.push_back(dim->getType());
@@ -622,31 +622,46 @@ llvm::Value* LLVM_DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty,
 //////////////////////////////////////////////////////////////////////////////////////////
 llvm::Value* LLVM_DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r)
 {
-    assert(l->getType() == r->getType());
-
     llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
 
-    llvm::Value* ll = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,0, "tmp"),"tmp");
-    llvm::Value* rl = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,0, "tmp"),"tmp");
-    llvm::Value* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
+    if (r == NULL) {
+        llvm::Value* ll = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,0, "tmp"),"tmp");
+        llvm::Value* rl = LLVM_DtoConstSize_t(0);
+        llvm::Value* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
 
-    llvm::Value* lp = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,1, "tmp"),"tmp");
-    llvm::Value* rp = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,1, "tmp"),"tmp");
-    llvm::Value* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
+        llvm::Value* lp = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,1, "tmp"),"tmp");
+        const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(lp->getType());
+        llvm::Value* rp = llvm::ConstantPointerNull::get(pty);
+        llvm::Value* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
 
-    llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
-    return b;
+        llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+        return b;
+    }
+    else {
+        assert(l->getType() == r->getType());
+
+        llvm::Value* ll = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,0, "tmp"),"tmp");
+        llvm::Value* rl = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,0, "tmp"),"tmp");
+        llvm::Value* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
+
+        llvm::Value* lp = gIR->ir->CreateLoad(LLVM_DtoGEPi(l, 0,1, "tmp"),"tmp");
+        llvm::Value* rp = gIR->ir->CreateLoad(LLVM_DtoGEPi(r, 0,1, "tmp"),"tmp");
+        llvm::Value* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
+
+        llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+        return b;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Constant* LLVM_DtoConstantStaticArray(const llvm::Type* t, llvm::Constant* c)
+llvm::Constant* LLVM_DtoConstStaticArray(const llvm::Type* t, llvm::Constant* c)
 {
     assert(llvm::isa<llvm::ArrayType>(t));
     const llvm::ArrayType* at = llvm::cast<llvm::ArrayType>(t);
 
     if (llvm::isa<llvm::ArrayType>(at->getElementType()))
     {
-        c = LLVM_DtoConstantStaticArray(at->getElementType(), c);
+        c = LLVM_DtoConstStaticArray(at->getElementType(), c);
     }
     else {
         assert(at->getElementType() == c->getType());

@@ -1392,7 +1392,7 @@ llvm::Constant* LLVM_DtoConstString(const char* str)
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         init->getType(), true,llvm::GlobalValue::InternalLinkage, init, "stringliteral", gIR->module);
     llvm::Constant* idxs[2] = { LLVM_DtoConstUint(0), LLVM_DtoConstUint(0) };
-    return LLVM_DtoConstantSlice(
+    return LLVM_DtoConstSlice(
         LLVM_DtoConstSize_t(s.length()),
         llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
     );

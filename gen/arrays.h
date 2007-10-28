@@ -5,8 +5,8 @@ const llvm::StructType* LLVM_DtoArrayType(Type* t);
 const llvm::ArrayType* LLVM_DtoStaticArrayType(Type* t);
 
 llvm::Constant* LLVM_DtoConstArrayInitializer(ArrayInitializer* si);
-llvm::Constant* LLVM_DtoConstantSlice(llvm::Constant* dim, llvm::Constant* ptr);
-llvm::Constant* LLVM_DtoConstantStaticArray(const llvm::Type* t, llvm::Constant* c);
+llvm::Constant* LLVM_DtoConstSlice(llvm::Constant* dim, llvm::Constant* ptr);
+llvm::Constant* LLVM_DtoConstStaticArray(const llvm::Type* t, llvm::Constant* c);
 
 void LLVM_DtoArrayCopy(elem* dst, elem* src);
 void LLVM_DtoArrayInit(llvm::Value* l, llvm::Value* r);

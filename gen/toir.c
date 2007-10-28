@@ -425,7 +425,7 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
 
     if (t->ty == Tarray) {
         llvm::Constant* clen = llvm::ConstantInt::get(LLVM_DtoSize_t(),len,false);
-        return LLVM_DtoConstantSlice(clen, arrptr);
+        return LLVM_DtoConstSlice(clen, arrptr);
     }
 
     assert(0);
@@ -2539,20 +2539,24 @@ elem* IdentityExp::toElem(IRState* p)
     elem* e = new elem;
 
     llvm::Value* l = u->getValue();
-    llvm::Value* r = 0;
-    if (v->type == elem::NUL)
-    r = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(l->getType()));
-    else
-    r = v->getValue();
+    llvm::Value* r = v->getValue();
 
     Type* t1 = LLVM_DtoDType(e1->type);
 
     if (t1->ty == Tarray) {
-        assert(l->getType() == r->getType());
+        if (v->type == elem::NUL) {
+            r = NULL;
+        }
+        else {
+            assert(l->getType() == r->getType());
+        }
         e->val = LLVM_DtoDynArrayIs(op,l,r);
     }
     else {
         llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+        if (t1->ty == Tpointer && v->type == elem::NUL && l->getType() != r->getType()) {
+            r = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(l->getType()));
+        }
         e->val = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
     }
     e->type = elem::VAL;

@@ -10,4 +10,5 @@ void main()
     assert(ti.toString() == "typeinfo3.int_t");
     assert(ti.next !is null);
     assert(ti.next.toString() == "int");
+    assert(ti.init is null);
 }

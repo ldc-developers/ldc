@@ -547,7 +547,7 @@ void VarDeclaration::toObjFile()
                 // array single value init
                 else if (llvm::isa<llvm::ArrayType>(_type))
                 {
-                    _init = LLVM_DtoConstantStaticArray(_type, _init);
+                    _init = LLVM_DtoConstStaticArray(_type, _init);
                 }
                 else {
                     Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
