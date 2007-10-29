@@ -116,6 +116,7 @@ elem* VarExp::toElem(IRState* p)
         // _arguments
         if (vd->ident == Id::_arguments)
         {
+            Logger::println("Id::_arguments");
             vd->llvmValue = p->func().decl->llvmArguments;
             assert(vd->llvmValue);
             e->mem = vd->llvmValue;
@@ -124,6 +125,7 @@ elem* VarExp::toElem(IRState* p)
         // _argptr
         else if (vd->ident == Id::_argptr)
         {
+            Logger::println("Id::_argptr");
             vd->llvmValue = p->func().decl->llvmArgPtr;
             assert(vd->llvmValue);
             e->mem = vd->llvmValue;
@@ -132,6 +134,7 @@ elem* VarExp::toElem(IRState* p)
         // _dollar
         else if (vd->ident == Id::dollar)
         {
+            Logger::println("Id::dollar");
             assert(!p->arrays.empty());
             llvm::Value* tmp = LLVM_DtoGEPi(p->arrays.back(),0,0,"tmp",p->scopebb());
             e->val = new llvm::LoadInst(tmp,"tmp",p->scopebb());
@@ -152,6 +155,7 @@ elem* VarExp::toElem(IRState* p)
         }
         // nested variable
         else if (vd->nestedref) {
+            Logger::println("nested variable");
             e->mem = LLVM_DtoNestedVariable(vd);
             e->type = elem::VAR;
             e->vardecl = vd;
@@ -159,7 +163,11 @@ elem* VarExp::toElem(IRState* p)
         // function parameter
         else if (vd->isParameter()) {
             Logger::println("function param");
-            assert(vd->llvmValue);
+            if (!vd->llvmValue) {
+                // TODO: determine this properly
+                // this happens when the DMD frontend generates by pointer wrappers for struct opEquals(S) and opCmp(S)
+                vd->llvmValue = &p->func().func->getArgumentList().back();
+            }
             if (vd->isRef() || vd->isOut()) {
                 e->mem = vd->llvmValue;
                 e->type = elem::VAR;
@@ -1432,18 +1440,27 @@ elem* SymOffExp::toElem(IRState* p)
 
         assert(vd->llvmValue);
         Type* t = LLVM_DtoDType(type);
+        Type* tnext = LLVM_DtoDType(t->next);
         Type* vdtype = LLVM_DtoDType(vd->type); 
 
         llvm::Value* llvalue = vd->nestedref ? LLVM_DtoNestedVariable(vd) : vd->llvmValue;
 
         if (vdtype->ty == Tstruct && !(t->ty == Tpointer && t->next == vdtype)) {
             TypeStruct* vdt = (TypeStruct*)vdtype;
+            assert(vdt->sym);
             e = new elem;
-            std::vector<unsigned> dst(1,0);
-            vdt->sym->offsetToIndex(t->next, offset, dst);
-            llvm::Value* ptr = llvalue;
-            assert(ptr);
-            e->mem = LLVM_DtoGEP(ptr,dst,"tmp");
+            bool donormally = true;
+            if (offset == 0) {
+                const llvm::Type* llt = LLVM_DtoType(t);
+                e->mem = p->ir->CreateBitCast(llvalue, llt, "tmp");
+            }
+            else {
+                std::vector<unsigned> dst(1,0);
+                vdt->sym->offsetToIndex(tnext, offset, dst);
+                llvm::Value* ptr = llvalue;
+                assert(ptr);
+                e->mem = LLVM_DtoGEP(ptr,dst,"tmp");
+            }
             e->type = elem::VAL;
             e->field = true;
         }
@@ -2118,7 +2135,8 @@ elem* PostExp::toElem(IRState* p)
     else
     assert(post);
 
-    //llvm::Value* tostore = l->storeVal ? l->storeVal : l->val;
+    if (l->mem == 0)
+        LLVM_DtoGiveArgumentStorage(l);
     new llvm::StoreInst(post,l->mem,p->scopebb());
 
     delete l;

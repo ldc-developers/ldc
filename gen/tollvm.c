@@ -151,7 +151,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
     case Tfunction:
     {
         if (t->llvmType == 0) {
-            return LLVM_DtoFunctionType(t);
+            return LLVM_DtoFunctionType(t,NULL);
         }
         else {
             return t->llvmType;
@@ -188,94 +188,13 @@ const llvm::Type* LLVM_DtoType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam)
+const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thistype, bool ismain)
 {
-    TypeFunction* f = (TypeFunction*)t;
-
-    // parameter types
-    const llvm::Type* rettype;
-    std::vector<const llvm::Type*> paramvec;
-
-    if (LLVM_DtoIsPassedByRef(f->next)) {
-        rettype = llvm::PointerType::get(LLVM_DtoType(f->next));
-        paramvec.push_back(rettype);
-        rettype = llvm::Type::VoidTy;
-    }
-    else {
-        Type* rt = f->next;
-        if (rt)
-        rettype = LLVM_DtoType(rt);
-        else
-        assert(0);
-    }
-
-    if (thisparam) {
-        paramvec.push_back(thisparam);
-    }
-
-    size_t n = Argument::dim(f->parameters);
-    for (int i=0; i < n; ++i) {
-        Argument* arg = Argument::getNth(f->parameters, i);
-        // ensure scalar
-        Type* argT = arg->type;
-        assert(argT);
-        paramvec.push_back(LLVM_DtoType(argT));
-    }
-
-    Logger::cout() << "Return type: " << *rettype << '\n';
-
-    llvm::FunctionType* functype = llvm::FunctionType::get(rettype, paramvec, f->varargs);
-    return functype;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static const llvm::FunctionType* LLVM_DtoVaFunctionType(FuncDeclaration* fdecl)
-{
-    TypeFunction* f = (TypeFunction*)fdecl->type;
+    TypeFunction* f = (TypeFunction*)type;
     assert(f != 0);
-
-    const llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
-    std::vector<const llvm::Type*> args;
-
-    if (fdecl->llvmInternal == LLVMva_start) {
-        args.push_back(i8pty);
-    }
-    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
-        size_t n = Argument::dim(f->parameters);
-        for (size_t i=0; i<n; ++i) {
-            args.push_back(i8pty);
-        }
-    }
-    else
-    assert(0);
-
-    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
-    f->llvmType = fty;
-    return fty;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
-{
-    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
-        return LLVM_DtoVaFunctionType(fdecl);
-    }
-
-    TypeFunction* f = (TypeFunction*)fdecl->type;
-    assert(f != 0);
-
-    // type has already been resolved
-    if (f->llvmType != 0) {
-        return llvm::cast<llvm::FunctionType>(f->llvmType);
-    }
 
     bool typesafeVararg = false;
     if (f->linkage == LINKd && f->varargs == 1) {
-        assert(fdecl->v_arguments);
-        Logger::println("v_arguments = %s", fdecl->v_arguments->toChars());
-        assert(fdecl->v_arguments->isParameter());
         typesafeVararg = true;
     }
 
@@ -286,11 +205,12 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     bool retinptr = false;
     bool usesthis = false;
 
-    if (fdecl->isMain()) {
+    if (ismain) {
         rettype = llvm::Type::Int32Ty;
         actualRettype = rettype;
     }
-    else if (rt) {
+    else {
+        assert(rt);
         if (LLVM_DtoIsPassedByRef(rt)) {
             rettype = llvm::PointerType::get(LLVM_DtoType(rt));
             actualRettype = llvm::Type::VoidTy;
@@ -301,9 +221,6 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
             actualRettype = rettype;
         }
     }
-    else {
-        assert(0);
-    }
 
     // parameter types
     std::vector<const llvm::Type*> paramvec;
@@ -313,21 +230,8 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         paramvec.push_back(rettype);
     }
 
-    if (fdecl->needThis()) {
-        if (AggregateDeclaration* ad = fdecl->isMember()) {
-            Logger::print("isMember = this is: %s\n", ad->type->toChars());
-            const llvm::Type* thisty = LLVM_DtoType(ad->type);
-            Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
-                thisty = llvm::PointerType::get(thisty);
-            paramvec.push_back(thisty);
-            usesthis = true;
-        }
-        else
-        assert(0);
-    }
-    else if (fdecl->isNested()) {
-        paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+    if (thistype) {
+        paramvec.push_back(thistype);
         usesthis = true;
     }
 
@@ -396,9 +300,69 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     bool isvararg = !typesafeVararg && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
-    f->llvmType = functype;
     f->llvmRetInPtr = retinptr;
     f->llvmUsesThis = usesthis;
+    return functype;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static const llvm::FunctionType* LLVM_DtoVaFunctionType(FuncDeclaration* fdecl)
+{
+    TypeFunction* f = (TypeFunction*)fdecl->type;
+    assert(f != 0);
+
+    const llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    std::vector<const llvm::Type*> args;
+
+    if (fdecl->llvmInternal == LLVMva_start) {
+        args.push_back(i8pty);
+    }
+    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
+        size_t n = Argument::dim(f->parameters);
+        for (size_t i=0; i<n; ++i) {
+            args.push_back(i8pty);
+        }
+    }
+    else
+    assert(0);
+
+    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+    f->llvmType = fty;
+    return fty;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
+{
+    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
+        return LLVM_DtoVaFunctionType(fdecl);
+    }
+
+    // type has already been resolved
+    if (fdecl->type->llvmType != 0) {
+        return llvm::cast<llvm::FunctionType>(fdecl->type->llvmType);
+    }
+
+    const llvm::Type* thisty = NULL;
+    if (fdecl->needThis()) {
+        if (AggregateDeclaration* ad = fdecl->isMember()) {
+            Logger::print("isMember = this is: %s\n", ad->type->toChars());
+            thisty = LLVM_DtoType(ad->type);
+            Logger::cout() << "this llvm type: " << *thisty << '\n';
+            if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
+                thisty = llvm::PointerType::get(thisty);
+        }
+        else
+        assert(0);
+    }
+    else if (fdecl->isNested()) {
+        thisty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    }
+
+    const llvm::FunctionType* functype = LLVM_DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
+    fdecl->type->llvmType = functype;
     return functype;
 }
 

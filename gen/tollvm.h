@@ -11,7 +11,7 @@ llvm::Value* LLVM_DtoStructZeroInit(llvm::Value* v);
 llvm::Value* LLVM_DtoStructCopy(llvm::Value* dst, llvm::Value* src);
 llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si);
 
-const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thisparam = 0);
+const llvm::FunctionType* LLVM_DtoFunctionType(Type* t, const llvm::Type* thistype, bool ismain = false);
 const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl);
 llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl);
 

@@ -263,12 +263,6 @@ void TypeInfoDeclaration::toObjFile()
 void TypeInfoDeclaration::toDt(dt_t **pdt)
 {
     assert(0 && "TypeInfoDeclaration");
-
-    /*
-    //printf("TypeInfoDeclaration::toDt() %s\n", toChars());
-    dtxoff(pdt, Type::typeinfo->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo
-    dtdword(pdt, 0);                // monitor
-    */
 }
 
 /* ========================================================================= */
@@ -316,7 +310,6 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     if (tinfo->isZeroInit() || !sd->init) // 0 initializer, or the same as the base type
     {
         sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
-        //sinits.push_back(initZ->getOperand(3));
     }
     else
     {
@@ -334,43 +327,6 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
 
     llvmValue = gvar;
-
-    /*
-    dtxoff(pdt, Type::typeinfotypedef->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Typedef
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Ttypedef);
-
-    TypeTypedef *tc = (TypeTypedef *)tinfo;
-    TypedefDeclaration *sd = tc->sym;
-    //printf("basetype = %s\n", sd->basetype->toChars());
-
-    // Put out:
-    //  TypeInfo base;
-    //  char[] name;
-    //  void[] m_init;
-
-    sd->basetype = sd->basetype->merge();
-    sd->basetype->getTypeInfo(NULL);        // generate vtinfo
-    assert(sd->basetype->vtinfo);
-    dtxoff(pdt, sd->basetype->vtinfo->toSymbol(), 0, TYnptr);   // TypeInfo for basetype
-
-    char *name = sd->toPrettyChars();
-    size_t namelen = strlen(name);
-    dtdword(pdt, namelen);
-    dtabytes(pdt, TYnptr, 0, namelen + 1, name);
-
-    // void[] init;
-    if (tinfo->isZeroInit() || !sd->init)
-    {   // 0 initializer, or the same as the base type
-    dtdword(pdt, 0);    // init.length
-    dtdword(pdt, 0);    // init.ptr
-    }
-    else
-    {
-    dtdword(pdt, sd->type->size()); // init.length
-    dtxoff(pdt, sd->toInitializer(), 0, TYnptr);    // init.ptr
-    */
 }
 
 /* ========================================================================= */
@@ -418,7 +374,6 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     if (tinfo->isZeroInit() || !sd->defaultval) // 0 initializer, or the same as the base type
     {
         sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
-        //sinits.push_back(initZ->getOperand(3));
     }
     else
     {
@@ -437,44 +392,6 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
 
     llvmValue = gvar;
-
-    /*
-
-    //printf("TypeInfoEnumDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfoenum->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Enum
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Tenum);
-
-    TypeEnum *tc = (TypeEnum *)tinfo;
-    EnumDeclaration *sd = tc->sym;
-
-    // Put out:
-    //  TypeInfo base;
-    //  char[] name;
-    //  void[] m_init;
-
-    sd->memtype->getTypeInfo(NULL);
-    dtxoff(pdt, sd->memtype->vtinfo->toSymbol(), 0, TYnptr);    // TypeInfo for enum members
-
-    char *name = sd->toPrettyChars();
-    size_t namelen = strlen(name);
-    dtdword(pdt, namelen);
-    dtabytes(pdt, TYnptr, 0, namelen + 1, name);
-
-    // void[] init;
-    if (tinfo->isZeroInit() || !sd->defaultval)
-    {   // 0 initializer, or the same as the base type
-    dtdword(pdt, 0);    // init.length
-    dtdword(pdt, 0);    // init.ptr
-    }
-    else
-    {
-    dtdword(pdt, sd->type->size()); // init.length
-    dtxoff(pdt, sd->toInitializer(), 0, TYnptr);    // init.ptr
-    }
-
-    */
 }
 
 /* ========================================================================= */
@@ -610,7 +527,166 @@ void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
 
 void TypeInfoStructDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoStructDeclaration");
+    Logger::println("TypeInfoStructDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tstruct);
+    TypeStruct *tc = (TypeStruct *)tinfo;
+    StructDeclaration *sd = tc->sym;
+
+    ClassDeclaration* base = Type::typeinfostruct;
+    base->toObjFile();
+
+    const llvm::StructType* stype = llvm::cast<llvm::StructType>(base->llvmType);
+
+    std::vector<llvm::Constant*> sinits;
+    sinits.push_back(base->llvmVtbl);
+
+    // char[] name
+    char *name = sd->toPrettyChars();
+    sinits.push_back(LLVM_DtoConstString(name));
+    assert(sinits.back()->getType() == stype->getElementType(1));
+
+    // void[] init
+    const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    if (sd->zeroInit) // 0 initializer, or the same as the base type
+    {
+        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+    }
+    else
+    {
+        assert(sd->llvmInitZ);
+        size_t cisize = gTargetData->getTypeSize(tc->llvmType);
+        llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(tc->llvmInit, initpt);
+        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(cisize), cicast));
+    }
+
+    // toX functions ground work
+    FuncDeclaration *fd;
+    FuncDeclaration *fdx;
+    TypeFunction *tf;
+    Type *ta;
+    Dsymbol *s;
+
+    static TypeFunction *tftohash;
+    static TypeFunction *tftostring;
+
+    if (!tftohash)
+    {
+    Scope sc;
+
+    tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
+    tftohash = (TypeFunction *)tftohash->semantic(0, &sc);
+
+    tftostring = new TypeFunction(NULL, Type::tchar->arrayOf(), 0, LINKd);
+    tftostring = (TypeFunction *)tftostring->semantic(0, &sc);
+    }
+
+    TypeFunction *tfeqptr;
+    {
+    Scope sc;
+    Arguments *arguments = new Arguments;
+    Argument *arg = new Argument(STCin, tc->pointerTo(), NULL, NULL);
+
+    arguments->push(arg);
+    tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
+    tfeqptr = (TypeFunction *)tfeqptr->semantic(0, &sc);
+    }
+
+#if 0
+    TypeFunction *tfeq;
+    {
+    Scope sc;
+    Array *arguments = new Array;
+    Argument *arg = new Argument(In, tc, NULL, NULL);
+
+    arguments->push(arg);
+    tfeq = new TypeFunction(arguments, Type::tint32, 0, LINKd);
+    tfeq = (TypeFunction *)tfeq->semantic(0, &sc);
+    }
+#endif
+
+    const llvm::PointerType* ptty = llvm::cast<llvm::PointerType>(stype->getElementType(3));
+
+    s = search_function(sd, Id::tohash);
+    fdx = s ? s->isFuncDeclaration() : NULL;
+    if (fdx)
+    {
+        fd = fdx->overloadExactMatch(tftohash);
+        if (fd) {
+            assert(fd->llvmValue != 0);
+            llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(fd->llvmValue);
+            assert(c);
+            c = llvm::ConstantExpr::getBitCast(c, ptty);
+            sinits.push_back(c);
+        }
+        else {
+            //fdx->error("must be declared as extern (D) uint toHash()");
+            sinits.push_back(llvm::ConstantPointerNull::get(ptty));
+        }
+    }
+    else {
+        sinits.push_back(llvm::ConstantPointerNull::get(ptty));
+    }
+
+    s = search_function(sd, Id::eq);
+    fdx = s ? s->isFuncDeclaration() : NULL;
+    for (int i = 0; i < 2; i++)
+    {
+        ptty = llvm::cast<llvm::PointerType>(stype->getElementType(4+i));
+        if (fdx)
+        {
+            fd = fdx->overloadExactMatch(tfeqptr);
+            if (fd) {
+                assert(fd->llvmValue != 0);
+                llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(fd->llvmValue);
+                assert(c);
+                c = llvm::ConstantExpr::getBitCast(c, ptty);
+                sinits.push_back(c);
+            }
+            else {
+                //fdx->error("must be declared as extern (D) int %s(%s*)", fdx->toChars(), sd->toChars());
+                sinits.push_back(llvm::ConstantPointerNull::get(ptty));
+            }
+        }
+        else {
+            sinits.push_back(llvm::ConstantPointerNull::get(ptty));
+        }
+
+        s = search_function(sd, Id::cmp);
+        fdx = s ? s->isFuncDeclaration() : NULL;
+    }
+
+    ptty = llvm::cast<llvm::PointerType>(stype->getElementType(6));
+    s = search_function(sd, Id::tostring);
+    fdx = s ? s->isFuncDeclaration() : NULL;
+    if (fdx)
+    {
+        fd = fdx->overloadExactMatch(tftostring);
+        if (fd) {
+            assert(fd->llvmValue != 0);
+            llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(fd->llvmValue);
+            assert(c);
+            c = llvm::ConstantExpr::getBitCast(c, ptty);
+            sinits.push_back(c);
+        }
+        else {
+            //fdx->error("must be declared as extern (D) char[] toString()");
+            sinits.push_back(llvm::ConstantPointerNull::get(ptty));
+        }
+    }
+    else {
+        sinits.push_back(llvm::ConstantPointerNull::get(ptty));
+    }
+
+    // uint m_flags;
+    sinits.push_back(LLVM_DtoConstUint(tc->hasPointers()));
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
+
+    llvmValue = gvar;
 
     /*
     //printf("TypeInfoStructDeclaration::toDt() '%s'\n", toChars());

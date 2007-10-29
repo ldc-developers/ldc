@@ -937,6 +937,8 @@ class TypeInfo_Interface : TypeInfo
     ClassInfo info;
 }
 
++/
+
 class TypeInfo_Struct : TypeInfo
 {
     char[] toString() { return name; }
@@ -987,7 +989,7 @@ class TypeInfo_Struct : TypeInfo
     return c;
     }
 
-    int compare(void *p2, void *p1)
+    int compare(void *p1, void *p2)
     {
     int c = 0;
 
@@ -1028,6 +1030,8 @@ class TypeInfo_Struct : TypeInfo
 
     uint m_flags;
 }
+
+/+
 
 class TypeInfo_Tuple : TypeInfo
 {

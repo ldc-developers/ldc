@@ -296,7 +296,8 @@ void StructDeclaration::toObjFile()
     gIR->structs.pop_back();
 
     // generate typeinfo
-    //type->getTypeInfo(NULL);
+    if (getModule() == gIR->dmodule)
+        type->getTypeInfo(NULL);
 }
 
 /* ================================================================== */
@@ -624,8 +625,7 @@ void TypedefDeclaration::toObjFile()
     LOG_SCOPE;
 
     // generate typeinfo
-    if (!type->builtinTypeInfo())
-        type->getTypeInfo(NULL);
+    type->getTypeInfo(NULL);
 }
 
 /* ================================================================== */

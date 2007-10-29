@@ -540,7 +540,7 @@ struct TypeStruct : Type
 
     type *toCtype();
 
-    llvm::Value* llvmInit;
+    llvm::Constant* llvmInit;
 };
 
 struct TypeEnum : Type
@@ -638,7 +638,7 @@ struct TypeClass : Type
 
     Symbol *toSymbol();
 
-    llvm::Value* llvmInit;
+    llvm::Constant* llvmInit;
 };
 
 struct TypeTuple : Type
