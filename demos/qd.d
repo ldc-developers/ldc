@@ -1,7 +1,7 @@
-// modified version of scrapple.qd to work with llvmdc
-import std.stdio;
+module qd;
 
-//version(none)
+/*
+import std.c.time: sleep;
 void main() {
   screen(640, 480);
   pset(10, 10);
@@ -16,8 +16,9 @@ void main() {
   paint(200, 200, Black);
   pset(10, 11); pset(10, 11, Black);
   pset(10, 10);
-  SDL_Delay(5000);
+  sleep(5);
 }
+*/
 
 extern(C) {
   struct SDL_Rect {
@@ -50,31 +51,90 @@ extern(C) {
   int SDL_LockSurface(SDL_Surface *);
   void SDL_UnlockSurface(SDL_Surface *);
   SDL_Surface * SDL_SetVideoMode(int width, int height, int bpp, uint flags);
+  SDL_Surface *SDL_CreateRGBSurface(uint flags, int width, int height, int depth, uint Rmask=0, uint Gmask=0, uint Bmask=0, uint Amask=0);
   int SDL_Flip(SDL_Surface *);
-  void SDL_Delay(uint);
+  void SDL_UpdateRect (SDL_Surface *screen, int x, int y, uint w, uint h);
+  int SDL_UpperBlit(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_Rect *dstrect);
+  alias SDL_UpperBlit SDL_BlitSurface;
+  int SDL_SetAlpha(SDL_Surface *surface, uint flags, ubyte alpha);
+  int SDL_SetColorKey(SDL_Surface *surface, uint flag, uint key);
+  int SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint color);
   const uint SDL_SWSURFACE=0;
   const uint SDL_HWSURFACE=1;
   const uint SDL_DOUBLEBUF=0x40000000;
   const uint SDL_FULLSCREEN=0x80000000;
+  const uint SDL_SRCALPHA=0x00010000;
+  const uint SDL_SRCCOLORKEY=0x00001000;
+  void SDL_Delay(uint ms);
+  uint SDL_GetTicks();
+
+  enum SDLKey {
+    Unknown = 0, First = 0, 
+    Escape = 27,
+    LCtrl = 306,
+  }
+  enum SDLMod {
+    KMOD_NONE  = 0x0000,
+    KMOD_LSHIFT= 0x0001, KMOD_RSHIFT= 0x0002,
+    KMOD_LCTRL = 0x0040, KMOD_RCTRL = 0x0080, KMOD_CTRL  = 0x00C0,
+    KMOD_LALT  = 0x0100, KMOD_RALT  = 0x0200, KMOD_ALT   = 0x0300,
+    KMOD_LMETA = 0x0400, KMOD_RMETA = 0x0800,
+    KMOD_NUM   = 0x1000, KMOD_CAPS  = 0x2000, KMOD_MODE  = 0x4000,
+    KMOD_RESERVED = 0x8000
+  };
+
+  struct SDL_keysym { ubyte scancode; SDLKey sym; SDLMod mod; ushort unicode; }
+  enum SDL_EventType : ubyte {
+    NoEvent=0, Active, KeyDown, KeyUp,
+    MouseMotion, MouseButtonDown, MouseButtonUp,
+    JoyAxisMotion, JoyBallMotion, JoyHatMotion, JoyButtonDown, JoyButtonUp,
+    Quit, SysWMEvent
+  }
+  union SDL_Event {
+    SDL_EventType type;
+    struct Active { SDL_EventType type, gain, state; }; Active active;
+    struct Key { SDL_EventType type, which, state; SDL_keysym keysym; }; Key key;
+    struct Motion { SDL_EventType type, which, state; ushort x, y; short xrel, yrel; }; Motion motion;
+    struct Button { SDL_EventType type, which, button, state; ushort x, y; }; Button button;
+    struct Jaxis { SDL_EventType type, which, axis; short value; }; Jaxis jaxis;
+    struct Jball { SDL_EventType type, which, ball; short xrel, yrel; }; Jball jball;
+    struct Jhat { SDL_EventType type, which, hat, value; }; Jhat jhat;
+    struct Jbutton { SDL_EventType type, which, button, state; }; Jbutton jbutton;
+    struct Resize { SDL_EventType type; int w, h; }; Resize resize;
+    struct Expose { SDL_EventType type; }; Expose expose;
+    struct Quit { SDL_EventType type; }; Quit quit;
+    struct User { SDL_EventType type; int code; void *data1, data2; }; User user;
+    struct Syswm { SDL_EventType type; void *msg; }; Syswm syswm;
+  }
+
+  int SDL_PollEvent(SDL_Event *event);
 }
 
 SDL_Surface *display;
 
-void putpixel32(SDL_Surface *surf, int x, int y, ubyte[4] col) {
-  uint *bufp = cast(uint *)surf.pixels + y*surf.pitch/4 + x;
-  *bufp = SDL_MapRGBA(surf.format, col[0], col[1], col[2], col[3]);
+void putpixel32(int x, int y, ubyte[4] col) {
+  uint *bufp = cast(uint *)display.pixels + y*display.pitch/4 + x;
+  *bufp = SDL_MapRGBA(display.format, col[0], col[1], col[2], col[3]);
 }
 
-void getpixel32(SDL_Surface *surf, int x, int y, ubyte[4] *col) {
-  uint *bufp = cast(uint *)surf.pixels + y*surf.pitch/4 + x;
-  SDL_GetRGBA(*bufp, surf.format, &(*col)[0], &(*col)[1], &(*col)[2], &(*col)[3]);
+void putpixel32(int x, int y, ubyte[3] col) {
+  uint *bufp = cast(uint *)display.pixels + y*display.pitch/4 + x;
+  *bufp = SDL_MapRGBA(display.format, col[0], col[1], col[2], 0);
+}
+
+void getpixel32(int x, int y, ubyte[4] *col) {
+  uint *bufp = cast(uint *)display.pixels + y*display.pitch/4 + x;
+  SDL_GetRGBA(*bufp, display.format, &(*col)[0], &(*col)[1], &(*col)[2], &(*col)[3]);
 }
 
 struct rgb {
   ubyte[3] values;
+  ubyte r() { return values[0]; }
+  ubyte g() { return values[1]; }
+  ubyte b() { return values[2]; }
   rgb opCat(rgb other) {
     rgb res;
-    foreach (id, ref v; res.values) v=(values[id]+other.values[id])/2;
+    foreach (id, ref v; res.values) v=cast(ubyte)((values[id]+other.values[id])/2);
     return res;
   }
   bool opEquals(rgb r) {
@@ -82,9 +142,21 @@ struct rgb {
   }
 }
 
-void putpixel(SDL_Surface *surf, int x, int y, rgb c) {
-  if ( (x<0) || (y<0) || (x!<surf.w) || (y!<surf.h) ) return;
-  putpixel32(surf, x, y, [c.values[0], c.values[1], c.values[2], 0]);
+void putpixel(int x, int y, ubyte[4] col) {
+  if ( (x<0) || (y<0) || (x!<display.w) || (y!<display.h) ) return;
+  putpixel32(x, y, col);
+}
+
+void hline(int x, int y, int w, rgb r) {
+  hline(x, y, w, SDL_MapRGBA(display.format, r.values[0], r.values[1], r.values[2], 0));
+}
+void hline(int x, int y, int w, uint c) {
+  if ( (y<0) || (y!<display.h) ) return;
+  if (x<0) { w+=x; x=0; }
+  if (w<0) return;
+  if ( (x+w) !<display.w) w=display.w-x-1;
+  auto cur = cast(uint *)display.pixels + y*display.pitch/4 + x;
+  foreach (ref value; cur[0..w+1]) value=c;
 }
 
 const rgb White={[255, 255, 255]};
@@ -92,6 +164,9 @@ const rgb Black={[0, 0, 0]};
 const rgb Red={[255, 0, 0]};
 const rgb Green={[0, 255, 0]};
 const rgb Blue={[0, 0, 255]};
+const rgb Yellow={[255, 255, 0]};
+const rgb Cyan={[0, 255, 255]};
+const rgb Purple={[255, 0, 255]};
 rgb color=White;
 rgb back=Black;
 
@@ -123,33 +198,57 @@ box_rgb Box(rgb r) { return cast(box_rgb) r; }
 box_rgb Box() { return cast(box_rgb) color; }
 alias Back Fill;
 
+bool doFlip=true;
+void flip() { SDL_Flip(display); }
+void flip(bool target) { doFlip=target; }
+scope class groupDraws {
+  bool wasOn;
+  this() { wasOn=doFlip; flip=false; }
+  ~this() { if (wasOn) { flip=true; flip; } }
+}
+
 void execParams(T...)(T params) {
-  const int col=select!(rgb, T);
-  static if (col != -1) color=params[col];
   const int bcol=select!(back_rgb, T);
   static if (bcol != -1) back=cast(rgb) params[bcol];
+  const int col=select!(rgb, T);
+  static if (col != -1) color=params[col];
+  else static if (bcol != -1) color=back;
   const int boxcol=select!(box_rgb, T);
   static if (boxcol != -1) color=cast(rgb) params[boxcol];
 }
 
+void tintfill(int x1, int y1, int x2, int y2, rgb color) {
+  SDL_LockSurface(display);
+  scope(exit) { SDL_UnlockSurface(display); if (doFlip) flip; }
+  ubyte[4] c;
+  for (int x=x1; x<x2; ++x) {
+    for (int y=y1; y<y2; ++y) {
+      getpixel32(x, y, &c);
+      c[0]=cast(ubyte)(c[0]*178+color.r*77)>>8;
+      c[1]=cast(ubyte)(c[1]*178+color.g*77)>>8;
+      c[2]=cast(ubyte)(c[2]*178+color.b*77)>>8;
+      putpixel32(x, y, c);
+    }
+  }
+}
+
 void pset(T...)(int x, int y, T params) {
   SDL_LockSurface(display);
-  scope(exit) { SDL_UnlockSurface(display); SDL_Flip(display); }
+  scope(exit) { SDL_UnlockSurface(display); if (doFlip) flip; }
   execParams(params);
-  putpixel(display, x, y, color);
+  putpixel32(x, y, color.values);
 }
 
 rgb pget(int x, int y) {
   SDL_LockSurface(display);
   scope(exit) SDL_UnlockSurface(display);
   ubyte[4] c;
-  getpixel32(display, x, y, &c);
+  getpixel32(x, y, &c);
   rgb res; res.values[]=c[0..3]; return res;
 }
 
 void swap(T)(ref T a, ref T b) { T c=a; a=b; b=c; }
-
-T abs(T)(T f) { return f < 0 ? -f : f; }
+T abs(T)(T a) { return (a<0) ? -a : a; }
 
 void bresenham(bool countUp=true, bool steep=false)(int x0, int y0, int x1, int y1) {
   auto deltax = x1 - x0, deltay = y1 - y0;
@@ -163,9 +262,10 @@ void bresenham(bool countUp=true, bool steep=false)(int x0, int y0, int x1, int 
     const string name="x";
   }
   auto error = 0f;
+  ubyte[4] col; col[0..3]=color.values;
   for (auto var1 = mixin(name~'0'); var1 <= mixin(name~'1'); ++var1) {
-    static if (steep) putpixel(display, var2, var1, color);
-    else putpixel(display, var1, var2, color);
+    static if (steep) putpixel(var2, var1, col);
+    else putpixel(var1, var2, col);
     error += Δerror;
     if (abs(error) >= 1f) { static if (countUp) { var2++; error -= 1f; } else { var2--; error += 1f; }}
   }
@@ -178,13 +278,10 @@ void line(T...)(int x0, int y0, int x1, int y1, T p) {
   execParams(p);
   static if (select!(back_rgb, T)!=-1) {
     SDL_LockSurface(display);
-    scope(exit) { SDL_UnlockSurface(display); SDL_Flip(display); }
-    auto xend=max(x0, x1);
-    for (int x=min(x0, x1); x<=xend; ++x) {
-      auto yend=max(y0, y1);
-      for (int y=min(y0, y1); y<=yend; ++y) {
-        putpixel(display, x, y, back);
-      }
+    scope(exit) { SDL_UnlockSurface(display); if (doFlip) flip; }
+    auto yend=max(y0, y1);
+    for (int y=min(y0, y1); y<=yend; ++y) {
+      hline(min(x0, x1), y, max(x0, x1)-min(x0, x1), back);
     }
   }
   static if (select!(box_rgb, T)!=-1) {
@@ -195,7 +292,7 @@ void line(T...)(int x0, int y0, int x1, int y1, T p) {
   }
   static if (select!(box_rgb, T)+select!(back_rgb, T)==-2) {
     SDL_LockSurface(display);
-    scope(exit) { SDL_UnlockSurface(display); SDL_Flip(display); }
+    scope(exit) { SDL_UnlockSurface(display); if (doFlip) flip; }
     bool steep = abs(y1 - y0) > abs(x1 - x0);
     void turn() { swap(x0, x1); swap(y0, y1); }
     if (steep) { if (y1 < y0) turn; }
@@ -226,10 +323,10 @@ template circle_bresenham_pass(bool first) {
     auto stopx="~(first?"y2square*xradius":"0")~";
     auto stopy="~(first?"0":"x2square*yradius")~";
     while (stopx"~(first?">=":"<=")~"stopy) {
-      putpixel(display, cx+x, cy+y, color);
-      putpixel(display, cx+x, cy-y, color);
-      putpixel(display, cx-x, cy+y, color);
-      putpixel(display, cx-x, cy-y, color);
+      putpixel(cx+x, cy+y, col);
+      putpixel(cx+x, cy-y, col);
+      putpixel(cx-x, cy+y, col);
+      putpixel(cx-x, cy-y, col);
       "~yx~"++;
       stop"~yx~"+="~xy~"2square;
       error+="~yx~"change;
@@ -244,24 +341,35 @@ template circle_bresenham_pass(bool first) {
   ";
 }
 
-void circle(T...)(int cx, int cy, int xradius, T t) {
+import std.stdio;
+void circle(T...)(T t) {
+  static assert(T.length!<3, "Circle: Needs x, y and radius");
+  int cx=t[0], cy=t[1], xradius=t[2];
   SDL_LockSurface(display);
-  scope(exit) { SDL_UnlockSurface(display); SDL_Flip(display); }
-  execParams(t);
+  scope(exit) { SDL_UnlockSurface(display); if (doFlip) flip; }
+  execParams(t[3..$]);
   auto yradius=xradius;
-  static if (T.length && is(T[0]: int)) yradius=t[0];
+  if (xradius!>0) return;
+  static if (T.length>3 && is(T[3]: int)) yradius=t[3];
   static if (select!(back_rgb, T) != -1) {
     auto ratio=xradius*1f/yradius;
+    auto back_sdl=SDL_MapRGBA(display.format, back.values[0], back.values[1], back.values[2], 0);
     for (int i=0; i<=yradius; ++i) {
       ushort j=cast(ushort)(sqrt(cast(real)(yradius*yradius-i*i))*ratio);
-      for (int lx=cx-j; lx<=cx+j; ++lx) putpixel(display, lx, cy+i, back);
-      for (int lx=cx-j; lx<=cx+j; ++lx) putpixel(display, lx, cy-i, back);
+      hline(cx-j, cy+i, 2*j, back_sdl);
+      hline(cx-j, cy-i, 2*j, back_sdl);
     }
   }
   auto x2square=2*xradius*xradius;
   auto y2square=2*yradius*yradius;
+  ubyte[4] col; col[0..3]=color.values;
   { mixin(circle_bresenham_pass!(true).str); }
   { mixin(circle_bresenham_pass!(false).str); }
+}
+
+float distance(float x1, float y1, float x2, float y2) {
+  auto x=x1-x2, y=y1-y2;
+  return sqrt(x*x+y*y);
 }
 
 struct floodfill_node {
@@ -275,7 +383,7 @@ struct floodfill_node {
 
 void paint(T...)(int x, int y, T t) {
   SDL_LockSurface(display);
-  scope(exit) { SDL_UnlockSurface(display); SDL_Flip(display); }
+  scope(exit) { SDL_UnlockSurface(display); if (doFlip) flip; }
   execParams(t);
   bool border=true;
   if (select!(back_rgb, T) == -1) {
@@ -300,7 +408,7 @@ void paint(T...)(int x, int y, T t) {
         if (e>=0) do e--; while (e>=0 && check(pget(e, y)));
         //SDL_Flip(display);
         for (int i=e+1; i<w; ++i) {
-          putpixel(display, i, y, color);
+          putpixel32(i, y, color.values);
           if (y && check(pget(i, y-1)) && ((i==w-1)||!check(pget(i+1, y-1)))) queue ~= node(i, y-1);
           if ((y < display.h-1) && check(pget(i, y+1)) && ((i==w-1)||!check(pget(i+1, y+1)))) queue ~= node(i, y+1);
         }
@@ -309,8 +417,55 @@ void paint(T...)(int x, int y, T t) {
   }
 }
 
-void screen(size_t w, size_t h) {
-  display = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE);
+struct screen {
+  static {
+    void opCall(size_t w, size_t h) {
+      display = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_DOUBLEBUF);
+    }
+    int width() { return display.w; }
+    int height() { return display.h; }
+  }
 }
 
-void cls() { line(0, 0, display.w-1, display.h-1, Fill=Black); }
+
+void cls(rgb fill=Black) { line(0, 0, display.w-1, display.h-1, Fill=fill); }
+
+void events(void delegate(int, bool) key=null, void delegate(int, int, ubyte, bool) mouse=null) {
+  SDL_Event evt;
+  while (SDL_PollEvent(&evt)) {
+    switch (evt.type) {
+      case SDL_EventType.MouseMotion:
+        with (evt.motion) if (mouse) mouse(x, y, 0, false);
+        break;
+      case SDL_EventType.MouseButtonDown:
+        with (evt.button) if (mouse) mouse(x, y, button, true);
+        break;
+      case SDL_EventType.MouseButtonUp:
+        with (evt.button) if (mouse) mouse(x, y, button, false);
+        break;
+      case SDL_EventType.KeyDown:
+        if (key) key(evt.key.keysym.sym, true);
+      case SDL_EventType.KeyUp:
+        if (key) key(evt.key.keysym.sym, false);
+        break;
+      case SDL_EventType.Quit:
+        throw new Error("Quit");
+        break;
+      default: break;
+    }
+  }
+}
+
+void events(void delegate(int) key, void delegate(int, int, ubyte, bool) mouse=null) {
+  events((int a, bool b) {
+    if (b) key(a);
+  }, mouse);
+}
+
+void events(void delegate(int) key, void delegate(int, int) mouse) {
+  events(key, (int x, int y, ubyte b, bool p) { mouse(x, y); });
+}
+
+void events(void delegate(int, bool) key, void delegate(int, int) mouse) {
+  events(key, (int x, int y, ubyte b, bool p) { mouse(x, y); });
+}

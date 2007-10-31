@@ -17,15 +17,8 @@
 
 bool LLVM_DtoIsPassedByRef(Type* type)
 {
-    TY t = type->ty;
-    if (t == Tstruct || t == Tarray || t == Tdelegate)
-        return true;
-    else if (t == Ttypedef) {
-        Type* bt = type->toBasetype();
-        assert(bt);
-        return LLVM_DtoIsPassedByRef(bt);
-    }
-    return false;
+    TY t = LLVM_DtoDType(type)->ty;
+    return (t == Tstruct || t == Tarray || t == Tdelegate);
 }
 
 Type* LLVM_DtoDType(Type* t)
@@ -530,12 +523,10 @@ llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
         assert(vd);
         Logger::println("vars[%d] = %s", i, vd->toChars());
 
-        std::vector<unsigned> idxs;
-        si->ad->offsetToIndex(vdtype, vd->offset, idxs);
-        assert(idxs.size() == 1);
-        unsigned idx = idxs[0];
-
         llvm::Constant* v = 0;
+
+        assert(vd->llvmFieldIndex >= 0);
+        unsigned idx = vd->llvmFieldIndex;
 
         if (ExpInitializer* ex = ini->isExpInitializer())
         {
@@ -557,6 +548,7 @@ llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
         assert(v);
 
         inits[idx] = v;
+        Logger::cout() << "init[" << idx << "] = " << *v << '\n';
     }
 
     // fill out nulls
@@ -1271,8 +1263,10 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
     // on this stack
     if (fd == f) {
         llvm::Value* v = LLVM_DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
-        if (vd->isParameter() && (vd->isRef() || vd->isOut()))
+        if (vd->isParameter() && (vd->isRef() || vd->isOut() || LLVM_DtoIsPassedByRef(vd->type))) {
+            Logger::cout() << "1267 loading: " << *v << '\n';
             v = gIR->ir->CreateLoad(v,"tmp");
+        }
         return v;
     }
 
@@ -1293,8 +1287,10 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
     while (f) {
         if (fd == f) {
             llvm::Value* v = LLVM_DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
-            if (vd->isParameter() && (vd->isRef() || vd->isOut()))
+            if (vd->isParameter() && (vd->isRef() || vd->isOut() || LLVM_DtoIsPassedByRef(vd->type))) {
+                Logger::cout() << "1291 loading: " << *v << '\n';
                 v = gIR->ir->CreateLoad(v,"tmp");
+            }
             return v;
         }
         else {

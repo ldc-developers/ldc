@@ -550,6 +550,8 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     canassign = 0;
     value = NULL;
     llvmNestedIndex = -1;
+    llvmFieldIndex = -1;
+    llvmFieldIndexOffset = 0;
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)

@@ -887,13 +887,17 @@ void PragmaDeclaration::semantic(Scope *sc)
                     llvm_internal = LLVMva_intrinsic;
                     assert(args->dim == 2);
                 }
+                else if (strcmp(str,"notypeinfo")==0) {
+                    llvm_internal = LLVMnotypeinfo;
+                    assert(args->dim == 1);
+                }
                 else {
                     error("unknown pragma command: %s", str);
                 }
             }
             else
             error("1st argument must be a string");
-            
+
             if (llvm_internal)
             switch (llvm_internal)
             {
@@ -910,12 +914,13 @@ void PragmaDeclaration::semantic(Scope *sc)
                 else
                 error("2nd argument must be a string");
                 break;
-            
+
             case LLVMnull:
             case LLVMva_arg:
             case LLVMva_start:
+            case LLVMnotypeinfo:
                 break;
-            
+
             default:
                 assert(0);
             }
@@ -986,6 +991,10 @@ void PragmaDeclaration::semantic(Scope *sc)
                     error("can only be used on templates");
                     assert(0);
                 }
+                break;
+
+            case LLVMnotypeinfo:
+                s->llvmInternal = llvm_internal;
                 break;
 
             default:

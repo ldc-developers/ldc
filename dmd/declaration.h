@@ -260,6 +260,8 @@ struct VarDeclaration : Declaration
 
     // LLVMDC
     int llvmNestedIndex;
+    int llvmFieldIndex;
+    size_t llvmFieldIndexOffset;
 };
 
 /**************************************************************/

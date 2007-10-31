@@ -4,13 +4,14 @@
 #include <stack>
 #include <vector>
 #include <deque>
+#include <map>
 
 #include "root.h"
 
 // global ir state for current module
 struct IRState;
 extern IRState* gIR;
-extern llvm::TargetData* gTargetData;
+extern const llvm::TargetData* gTargetData;
 
 struct TypeFunction;
 struct TypeStruct;
@@ -40,20 +41,28 @@ struct IRScope
 // represents a struct or class
 struct IRStruct
 {
-    typedef std::vector<const llvm::Type*> TypeVector;
-    typedef std::vector<llvm::Constant*> ConstantVector;
-    typedef std::vector<FuncDeclaration*> FuncDeclVec;
+    struct Offset
+    {
+        VarDeclaration* var;
+        llvm::Constant* init;
+
+        Offset(VarDeclaration* v, llvm::Constant* i)
+        : var(v), init(i) {}
+    };
+
+    typedef std::vector<FuncDeclaration*> FuncDeclVector;
+    typedef std::multimap<unsigned, Offset> OffsetMap;
 
 public:
     IRStruct();
     IRStruct(Type*);
 
     Type* type;
-    TypeVector fields;
-    ConstantVector inits;
     llvm::PATypeHolder recty;
-    FuncDeclVec funcs;
+    FuncDeclVector funcs;
     bool queueFuncs;
+
+    OffsetMap offsets;
 };
 
 // represents a finally block

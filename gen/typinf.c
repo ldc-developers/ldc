@@ -324,7 +324,7 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
 
     llvmValue = gvar;
 }
@@ -389,7 +389,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
 
     llvmValue = gvar;
 }
@@ -421,7 +421,7 @@ static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclar
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,tid->toChars(),gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,tid->toChars(),gIR->module);
 
     tid->llvmValue = gvar;
 }
@@ -545,6 +545,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     // char[] name
     char *name = sd->toPrettyChars();
     sinits.push_back(LLVM_DtoConstString(name));
+    Logger::println("************** A");
     assert(sinits.back()->getType() == stype->getElementType(1));
 
     // void[] init
@@ -606,6 +607,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     }
 #endif
 
+    Logger::println("************** B");
     const llvm::PointerType* ptty = llvm::cast<llvm::PointerType>(stype->getElementType(3));
 
     s = search_function(sd, Id::tohash);
@@ -633,6 +635,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     fdx = s ? s->isFuncDeclaration() : NULL;
     for (int i = 0; i < 2; i++)
     {
+        Logger::println("************** C %d", i);
         ptty = llvm::cast<llvm::PointerType>(stype->getElementType(4+i));
         if (fdx)
         {
@@ -657,6 +660,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
         fdx = s ? s->isFuncDeclaration() : NULL;
     }
 
+    Logger::println("************** D");
     ptty = llvm::cast<llvm::PointerType>(stype->getElementType(6));
     s = search_function(sd, Id::tostring);
     fdx = s ? s->isFuncDeclaration() : NULL;
@@ -684,144 +688,9 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::InternalLinkage,tiInit,toChars(),gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
 
     llvmValue = gvar;
-
-    /*
-    //printf("TypeInfoStructDeclaration::toDt() '%s'\n", toChars());
-
-    unsigned offset = Type::typeinfostruct->structsize;
-
-    dtxoff(pdt, Type::typeinfostruct->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Struct
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Tstruct);
-
-    TypeStruct *tc = (TypeStruct *)tinfo;
-    StructDeclaration *sd = tc->sym;
-
-//     Put out:
-//        char[] name;
-//        void[] init;
-//        hash_t function(void*) xtoHash;
-//        int function(void*,void*) xopEquals;
-//        int function(void*,void*) xopCmp;
-//        char[] function(void*) xtoString;
-//        uint m_flags;
-//
-//        name[]
-//
-
-    char *name = sd->toPrettyChars();
-    size_t namelen = strlen(name);
-    dtdword(pdt, namelen);
-    //dtabytes(pdt, TYnptr, 0, namelen + 1, name);
-    dtxoff(pdt, toSymbol(), offset, TYnptr);
-    offset += namelen + 1;
-
-    // void[] init;
-    dtdword(pdt, sd->structsize);   // init.length
-    if (sd->zeroInit)
-    dtdword(pdt, 0);        // NULL for 0 initialization
-    else
-    dtxoff(pdt, sd->toInitializer(), 0, TYnptr);    // init.ptr
-
-    FuncDeclaration *fd;
-    FuncDeclaration *fdx;
-    TypeFunction *tf;
-    Type *ta;
-    Dsymbol *s;
-
-    static TypeFunction *tftohash;
-    static TypeFunction *tftostring;
-
-    if (!tftohash)
-    {
-    Scope sc;
-
-    tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
-    tftohash = (TypeFunction *)tftohash->semantic(0, &sc);
-
-    tftostring = new TypeFunction(NULL, Type::tchar->arrayOf(), 0, LINKd);
-    tftostring = (TypeFunction *)tftostring->semantic(0, &sc);
-    }
-
-    TypeFunction *tfeqptr;
-    {
-    Scope sc;
-    Arguments *arguments = new Arguments;
-    Argument *arg = new Argument(STCin, tc->pointerTo(), NULL, NULL);
-
-    arguments->push(arg);
-    tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-    tfeqptr = (TypeFunction *)tfeqptr->semantic(0, &sc);
-    }
-
-#if 0
-    TypeFunction *tfeq;
-    {
-    Scope sc;
-    Array *arguments = new Array;
-    Argument *arg = new Argument(In, tc, NULL, NULL);
-
-    arguments->push(arg);
-    tfeq = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-    tfeq = (TypeFunction *)tfeq->semantic(0, &sc);
-    }
-#endif
-
-    s = search_function(sd, Id::tohash);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    if (fdx)
-    {   fd = fdx->overloadExactMatch(tftohash);
-    if (fd)
-        dtxoff(pdt, fd->toSymbol(), 0, TYnptr);
-    else
-        //fdx->error("must be declared as extern (D) uint toHash()");
-        dtdword(pdt, 0);
-    }
-    else
-    dtdword(pdt, 0);
-
-    s = search_function(sd, Id::eq);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    for (int i = 0; i < 2; i++)
-    {
-    if (fdx)
-    {   fd = fdx->overloadExactMatch(tfeqptr);
-        if (fd)
-        dtxoff(pdt, fd->toSymbol(), 0, TYnptr);
-        else
-        //fdx->error("must be declared as extern (D) int %s(%s*)", fdx->toChars(), sd->toChars());
-        dtdword(pdt, 0);
-    }
-    else
-        dtdword(pdt, 0);
-
-    s = search_function(sd, Id::cmp);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    }
-
-    s = search_function(sd, Id::tostring);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    if (fdx)
-    {   fd = fdx->overloadExactMatch(tftostring);
-    if (fd)
-        dtxoff(pdt, fd->toSymbol(), 0, TYnptr);
-    else
-        //fdx->error("must be declared as extern (D) char[] toString()");
-        dtdword(pdt, 0);
-    }
-    else
-    dtdword(pdt, 0);
-
-    // uint m_flags;
-    dtdword(pdt, tc->hasPointers());
-
-    // name[]
-    dtnbytes(pdt, namelen + 1, name);
-    */
 }
 
 /* ========================================================================= */

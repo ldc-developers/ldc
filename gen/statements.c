@@ -672,8 +672,14 @@ void ForeachStatement::toIR(IRState* p)
     }
     else if (aggrtype->ty == Tarray)
     {
-        numiters = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,0,"tmp",p->scopebb()));
-        val = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,1,"tmp",p->scopebb()));
+        if (arr->type == elem::SLICE) {
+            numiters = arr->arg;
+            val = arr->mem;
+        }
+        else {
+            numiters = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,0,"tmp",p->scopebb()));
+            val = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,1,"tmp",p->scopebb()));
+        }
     }
     else
     {

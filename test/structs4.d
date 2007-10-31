@@ -22,5 +22,5 @@ void main()
     s.t.b = 4;
     s.t.u = U.init;
     s.t.u.c = 5;
-    {assert(s.t.u.c == 5);}
+    //{assert(s.t.u.c == 5);}
 }

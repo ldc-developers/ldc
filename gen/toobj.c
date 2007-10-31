@@ -65,7 +65,15 @@ Module::genobjfile()
     ir.module->setTargetTriple(target_triple);
     ir.module->setDataLayout(global.params.data_layout);
 
-    gTargetData = new llvm::TargetData(ir.module);
+    // heavily inspired by tools/llc/llc.cpp:200-230
+    const llvm::TargetMachineRegistry::Entry* targetEntry;
+    std::string targetError;
+    targetEntry = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, targetError);
+    assert(targetEntry && "Failed to find a static target for module");
+    std::auto_ptr<llvm::TargetMachine> targetPtr(targetEntry->CtorFn(*ir.module, "")); // TODO: replace "" with features
+    assert(targetPtr.get() && "Could not allocate target machine!");
+    llvm::TargetMachine &targetMachine = *targetPtr.get();
+    gTargetData = targetMachine.getTargetData();
 
     // process module members
     for (int k=0; k < members->dim; k++) {
@@ -74,7 +82,6 @@ Module::genobjfile()
         dsym->toObjFile();
     }
 
-    delete gTargetData;
     gTargetData = 0;
 
     // emit the llvm main function if necessary
@@ -142,7 +149,7 @@ void Declaration::toObjFile()
 /* ================================================================== */
 
 /// Returns the LLVM style index from a DMD style offset
-void AggregateDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
+size_t AggregateDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
@@ -151,18 +158,19 @@ void AggregateDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsig
         Type* vdtype = LLVM_DtoDType(vd->type);
         Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         if (os == vd->offset && vdtype == t) {
-            result.push_back(i);
-            return;
+            assert(vd->llvmFieldIndex >= 0);
+            result.push_back(vd->llvmFieldIndex);
+            return vd->llvmFieldIndexOffset;
         }
         else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
             TypeStruct* ts = (TypeStruct*)vdtype;
             StructDeclaration* sd = ts->sym;
             result.push_back(i);
-            sd->offsetToIndex(t, os - vd->offset, result);
-            return;
+            return sd->offsetToIndex(t, os - vd->offset, result);
         }
     }
-    assert(0 && "Offset not found in any aggregate field");
+    //assert(0 && "Offset not found in any aggregate field");
+    return (size_t)-1;
 }
 
 /* ================================================================== */
@@ -190,12 +198,13 @@ static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsig
 
 /// Returns the LLVM style index from a DMD style offset
 /// Handles class inheritance
-void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
+size_t ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
 {
     unsigned idx = 0;
     unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
     assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
     result.push_back(r+1); // vtable is 0
+    return 0;
 }
 
 /* ================================================================== */
@@ -224,13 +233,97 @@ void StructDeclaration::toObjFile()
         dsym->toObjFile();
     }
 
-    if (gIR->topstruct().fields.empty())
-    {
-        gIR->topstruct().fields.push_back(llvm::Type::Int8Ty);
-        gIR->topstruct().inits.push_back(llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
-    }
+    Logger::println("doing struct fields");
 
-    llvm::StructType* structtype = llvm::StructType::get(gIR->topstruct().fields);
+    llvm::StructType* structtype = 0;
+    std::vector<llvm::Constant*> fieldinits;
+
+    if (gIR->topstruct().offsets.empty())
+    {
+        std::vector<const llvm::Type*> fieldtypes;
+        Logger::println("has no fields");
+        fieldtypes.push_back(llvm::Type::Int8Ty);
+        fieldinits.push_back(llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+        structtype = llvm::StructType::get(fieldtypes);
+    }
+    else
+    {
+        Logger::println("has fields");
+        std::vector<const llvm::Type*> fieldtypes;
+        unsigned prevsize = (unsigned)-1;
+        unsigned lastoffset = (unsigned)-1;
+        const llvm::Type* fieldtype = NULL;
+        llvm::Constant* fieldinit = NULL;
+        size_t fieldpad = 0;
+        int idx = 0;
+        for (IRStruct::OffsetMap::iterator i=gIR->topstruct().offsets.begin(); i!=gIR->topstruct().offsets.end(); ++i) {
+            // first iteration
+            if (lastoffset == (unsigned)-1) {
+                lastoffset = i->first;
+                assert(lastoffset == 0);
+                fieldtype = LLVM_DtoType(i->second.var->type);
+                fieldinit = i->second.init;
+                prevsize = gTargetData->getTypeSize(fieldtype);
+                i->second.var->llvmFieldIndex = idx;
+            }
+            // colliding offset?
+            else if (lastoffset == i->first) {
+                const llvm::Type* t = LLVM_DtoType(i->second.var->type);
+                size_t s = gTargetData->getTypeSize(t);
+                if (s > prevsize) {
+                    fieldpad = s - prevsize;
+                    prevsize = s;
+                }
+                llvmHasUnions = true;
+                i->second.var->llvmFieldIndex = idx;
+            }
+            // intersecting offset?
+            else if (i->first < (lastoffset + prevsize)) {
+                const llvm::Type* t = LLVM_DtoType(i->second.var->type);
+                size_t s = gTargetData->getTypeSize(t);
+                assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
+                llvmHasUnions = true;
+                i->second.var->llvmFieldIndex = idx;
+                i->second.var->llvmFieldIndexOffset = (i->first - lastoffset) / s;
+            }
+            // fresh offset
+            else {
+                // commit the field
+                fieldtypes.push_back(fieldtype);
+                fieldinits.push_back(fieldinit);
+                if (fieldpad) {
+                    // match up with below
+                    std::vector<llvm::Constant*> vals(fieldpad, llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+                    llvm::Constant* c = llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad), vals);
+                    fieldtypes.push_back(c->getType());
+                    fieldinits.push_back(c);
+                    idx++;
+                }
+
+                idx++;
+
+                // start new
+                lastoffset = i->first;
+                fieldtype = LLVM_DtoType(i->second.var->type);
+                fieldinit = i->second.init;
+                prevsize = gTargetData->getTypeSize(fieldtype);
+                i->second.var->llvmFieldIndex = idx;
+                fieldpad = 0;
+            }
+        }
+        fieldtypes.push_back(fieldtype);
+        fieldinits.push_back(fieldinit);
+        if (fieldpad) {
+            // match up with above
+            std::vector<llvm::Constant*> vals(fieldpad, llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+            llvm::Constant* c = llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad), vals);
+            fieldtypes.push_back(c->getType());
+            fieldinits.push_back(c);
+        }
+
+        Logger::println("creating struct type");
+        structtype = llvm::StructType::get(fieldtypes);
+    }
 
     // refine abstract types for stuff like: struct S{S* next;}
     if (gIR->topstruct().recty != 0)
@@ -254,18 +347,18 @@ void StructDeclaration::toObjFile()
     // always generate the constant initalizer
     if (!zeroInit) {
         Logger::println("Not zero initialized");
-        //assert(tk == gIR->topstruct().size());
+        //assert(tk == gIR->gIR->topstruct()().size());
         #ifndef LLVMD_NO_LOGGER
-        Logger::cout() << *structtype << '\n';
-        for (size_t k=0; k<gIR->topstruct().inits.size(); ++k) {
+        Logger::cout() << "struct type: " << *structtype << '\n';
+        for (size_t k=0; k<fieldinits.size(); ++k) {
             Logger::cout() << "Type:" << '\n';
-            Logger::cout() << *gIR->topstruct().inits[k]->getType() << '\n';
+            Logger::cout() << *fieldinits[k]->getType() << '\n';
             Logger::cout() << "Value:" << '\n';
-            Logger::cout() << *gIR->topstruct().inits[k] << '\n';
+            Logger::cout() << *fieldinits[k] << '\n';
         }
         Logger::cout() << "Initializer printed" << '\n';
         #endif
-        llvmInitZ = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
+        llvmInitZ = llvm::ConstantStruct::get(structtype,fieldinits);
     }
     else {
         Logger::println("Zero initialized");
@@ -278,14 +371,15 @@ void StructDeclaration::toObjFile()
         _init = llvmInitZ;
     }
 
-    std::string initname(mangle());
-    initname.append("__initZ");
+    std::string initname("_D");
+    initname.append(mangle());
+    initname.append("6__initZ");
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType, true, _linkage, _init, initname, gIR->module);
     ts->llvmInit = initvar;
 
     // generate member function definitions
     gIR->topstruct().queueFuncs = false;
-    IRStruct::FuncDeclVec& mfs = gIR->topstruct().funcs;
+    IRStruct::FuncDeclVector& mfs = gIR->topstruct().funcs;
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
         mfs[i]->toObjFile();
@@ -296,7 +390,7 @@ void StructDeclaration::toObjFile()
     gIR->structs.pop_back();
 
     // generate typeinfo
-    if (getModule() == gIR->dmodule)
+    if (getModule() == gIR->dmodule && llvmInternal != LLVMnotypeinfo)
         type->getTypeInfo(NULL);
 }
 
@@ -341,8 +435,12 @@ void ClassDeclaration::toObjFile()
     // add vtable
     llvm::PATypeHolder pa = llvm::OpaqueType::get();
     const llvm::Type* vtabty = llvm::PointerType::get(pa);
-    gIR->topstruct().fields.push_back(vtabty);
-    gIR->topstruct().inits.push_back(0);
+
+    std::vector<const llvm::Type*> fieldtypes;
+    fieldtypes.push_back(vtabty);
+
+    std::vector<llvm::Constant*> fieldinits;
+    fieldinits.push_back(0);
 
     // base classes first
     LLVM_AddBaseClassData(&baseclasses);
@@ -353,7 +451,13 @@ void ClassDeclaration::toObjFile()
         dsym->toObjFile();
     }
 
-    llvm::StructType* structtype = llvm::StructType::get(gIR->topstruct().fields);
+    // fill out fieldtypes/inits
+    for (IRStruct::OffsetMap::iterator i=gIR->topstruct().offsets.begin(); i!=gIR->topstruct().offsets.end(); ++i) {
+        fieldtypes.push_back(LLVM_DtoType(i->second.var->type));
+        fieldinits.push_back(i->second.init);
+    }
+
+    llvm::StructType* structtype = llvm::StructType::get(fieldtypes);
     // refine abstract types for stuff like: class C {C next;}
     if (gIR->topstruct().recty != 0)
     {
@@ -441,9 +545,9 @@ void ClassDeclaration::toObjFile()
 
     // first field is always the vtable
     assert(svtblVar != 0);
-    gIR->topstruct().inits[0] = svtblVar;
+    fieldinits[0] = svtblVar;
 
-    llvmInitZ = _init = llvm::ConstantStruct::get(structtype,gIR->topstruct().inits);
+    llvmInitZ = _init = llvm::ConstantStruct::get(structtype,fieldinits);
     assert(_init);
 
     std::string initname("_D");
@@ -457,7 +561,7 @@ void ClassDeclaration::toObjFile()
         initvar->setInitializer(_init);
         // generate member functions
         gIR->topstruct().queueFuncs = false;
-        IRStruct::FuncDeclVec& mfs = gIR->topstruct().funcs;
+        IRStruct::FuncDeclVector& mfs = gIR->topstruct().funcs;
         size_t n = mfs.size();
         for (size_t i=0; i<n; ++i) {
             mfs[i]->toObjFile();
@@ -573,7 +677,6 @@ void VarDeclaration::toObjFile()
 
         Type* t = LLVM_DtoDType(type);
         const llvm::Type* _type = LLVM_DtoType(t);
-        gIR->topstruct().fields.push_back(_type);
 
         llvm::Constant*_init = LLVM_DtoConstInitializer(t, init);
         assert(_init);
@@ -610,7 +713,9 @@ void VarDeclaration::toObjFile()
                 assert(0);
             }
         }
-        gIR->topstruct().inits.push_back(_init);
+
+        // add the field in the IRStruct
+        gIR->topstruct().offsets.insert(std::make_pair(offset, IRStruct::Offset(this,_init)));
     }
 
     Logger::println("VarDeclaration::toObjFile is done");

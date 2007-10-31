@@ -1,9 +1,8 @@
 module d;
-/*
+
 void main()
 {
     int delegate() dg;
-    int i = dg();
 
     struct S
     {
@@ -19,17 +18,19 @@ void main()
 
     S s;
     auto dg2 = &s.func;
-    i = dg2();
+    int i = dg2();
+    assert(i == 42);
 
     i = f(dg2, 1);
+    assert(i == 43);
 }
 
 int f(int delegate() dg, int i)
 {
     return dg() + i;
 }
-*/
 
+/*
 struct S
 {
     int i;
@@ -46,3 +47,4 @@ void main()
 {
     auto dg = &s.square;
 }
+*/

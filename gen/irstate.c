@@ -15,7 +15,7 @@
 #include "tollvm.h"
 
 IRState* gIR = 0;
-llvm::TargetData* gTargetData = 0;
+const llvm::TargetData* gTargetData = 0;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 IRScope::IRScope()

@@ -7,5 +7,6 @@ enum
     LLVMbind,
     LLVMva_arg,
     LLVMva_start,
-    LLVMva_intrinsic
+    LLVMva_intrinsic,
+    LLVMnotypeinfo
 };

@@ -974,7 +974,7 @@ class TypeInfo_Struct : TypeInfo
     return h;
     }
 
-    int equals(void *p2, void *p1)
+    int equals(void *p1, void *p2)
     {   int c;
 
     if (p1 == p2)
