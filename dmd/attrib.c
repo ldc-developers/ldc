@@ -863,18 +863,6 @@ void PragmaDeclaration::semantic(Scope *sc)
                     llvm_internal = LLVMintrinsic;
                     assert(args->dim == 2);
                 }
-                else if (strcmp(str,"null")==0) {
-                    llvm_internal = LLVMnull;
-                    assert(args->dim == 1);
-                }
-                else if (strcmp(str,"mangle")==0) {
-                    llvm_internal = LLVMmangle;
-                    assert(args->dim == 2);
-                }
-                else if (strcmp(str,"bind")==0) {
-                    llvm_internal = LLVMbind;
-                    assert(args->dim == 2);
-                }
                 else if (strcmp(str,"va_start")==0) {
                     llvm_internal = LLVMva_start;
                     assert(args->dim == 1);
@@ -902,8 +890,6 @@ void PragmaDeclaration::semantic(Scope *sc)
             switch (llvm_internal)
             {
             case LLVMintrinsic:
-            case LLVMmangle:
-            case LLVMbind:
             case LLVMva_intrinsic:
                 e = (Expression *)args->data[1];
                 e = e->semantic(sc);
@@ -915,7 +901,6 @@ void PragmaDeclaration::semantic(Scope *sc)
                 error("2nd argument must be a string");
                 break;
 
-            case LLVMnull:
             case LLVMva_arg:
             case LLVMva_start:
             case LLVMnotypeinfo:
@@ -944,7 +929,6 @@ void PragmaDeclaration::semantic(Scope *sc)
             switch(llvm_internal)
             {
             case LLVMintrinsic:
-            case LLVMmangle:
             case LLVMva_intrinsic:
                 if (FuncDeclaration* fd = s->isFuncDeclaration()) {
                     fd->llvmInternal = llvm_internal;
@@ -952,27 +936,6 @@ void PragmaDeclaration::semantic(Scope *sc)
                 }
                 else {
                     error("may only be used on function declarations");
-                    assert(0);
-                }
-                break;
-
-            case LLVMnull:
-                if (StaticCtorDeclaration* sd = s->isStaticCtorDeclaration()) {
-                    sd->llvmInternal = llvm_internal;
-                }
-                else {
-                    error("may only be used on static constructors");
-                    assert(0);
-                }
-                break;
-
-            case LLVMbind:
-                if (VarDeclaration* vd = s->isVarDeclaration()) {
-                    vd->llvmInternal = llvm_internal;
-                    vd->llvmInternal1 = llvm_str1;
-                }
-                else {
-                    error("may only be used on var declarations");
                     assert(0);
                 }
                 break;

@@ -592,14 +592,6 @@ void VarDeclaration::toObjFile()
     LOG_SCOPE;
     llvm::Module* M = gIR->module;
 
-    // handle bind pragma
-    if (llvmInternal == LLVMbind) {
-        Logger::println("var is bound: %s", llvmInternal1);
-        llvmValue = M->getGlobalVariable(llvmInternal1);  
-        assert(llvmValue);
-        return;
-    }
-
     // global variable or magic
     if (isDataseg() || parent->isModule())
     {
@@ -796,7 +788,6 @@ void FuncDeclaration::toObjFile()
     {
         llvmDModule = gIR->dmodule;
 
-        bool allow_fbody = true;
         // handle static constructor / destructor
         if (isStaticCtorDeclaration() || isStaticDtorDeclaration()) {
             const llvm::ArrayType* sctor_type = llvm::ArrayType::get(llvm::PointerType::get(functype),1);
@@ -805,17 +796,7 @@ void FuncDeclaration::toObjFile()
             llvm::Constant* sctor_func = llvm::cast<llvm::Constant>(llvmValue);
             //Logger::cout() << "static ctor func: " << *sctor_func << '\n';
 
-            llvm::Constant* sctor_init = 0;
-            if (llvmInternal == LLVMnull)
-            {
-                llvm::Constant* sctor_init_null = llvm::Constant::getNullValue(sctor_func->getType());
-                sctor_init = llvm::ConstantArray::get(sctor_type,&sctor_init_null,1);
-                allow_fbody = false;
-            }
-            else
-            {
-                sctor_init = llvm::ConstantArray::get(sctor_type,&sctor_func,1);
-            }
+            llvm::Constant* sctor_init = llvm::ConstantArray::get(sctor_type,&sctor_func,1);
 
             //Logger::cout() << "static ctor init: " << *sctor_init << '\n';
 
@@ -825,7 +806,7 @@ void FuncDeclaration::toObjFile()
         }
 
         // function definition
-        if (allow_fbody && fbody != 0)
+        if (fbody != 0)
         {
             gIR->functions.push_back(IRFunction(this));
             gIR->func().func = func;
