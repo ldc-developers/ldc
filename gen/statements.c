@@ -96,7 +96,7 @@ void ReturnStatement::toIR(IRState* p)
             if (fin.empty())
                 new llvm::ReturnInst(p->scopebb());
             else {
-                new llvm::BranchInst(fin.back().bb);
+                new llvm::BranchInst(fin.back().bb, p->scopebb());
                 fin.back().ret = true;
             }
             delete e;
