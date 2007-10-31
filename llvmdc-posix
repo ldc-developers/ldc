@@ -27,6 +27,7 @@ testversion=D_InlineAsm_X86_64
 testversion=D_InlineAsm_PPC64
 testversion=LittleEndian
 testversion=BigEndian
+testversion=LLVM64
 
 
 [compile]
@@ -51,7 +52,7 @@ flag=-L$i
 [liblink]
 safe=yes
 oneatatime=yes
-cmd=ar rc $o $i
+cmd=llvm-link -f -o=$o $i
 
 libdir=
 lib=
@@ -59,11 +60,18 @@ flag=
 
 
 [postliblink]
-cmd=ranlib $i
+cmd=
 
 
 [shliblink]
 shlibs=no
+oneatatime=yes
+cmd=llvm-link $i | llc -filetype=dynlib -f -o=$o
+
+libdir=
+lib=
+flag=
+
 
 [dyliblink]
 dylibs=no
