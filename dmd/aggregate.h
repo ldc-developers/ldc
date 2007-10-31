@@ -104,7 +104,6 @@ struct AggregateDeclaration : ScopeDsymbol
     llvm::ConstantStruct* llvmConstVtbl;
     llvm::Constant* llvmInitZ;
     bool llvmHasUnions;
-    virtual size_t offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result); // converts a DMD field offsets to LLVM struct index vector
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };
@@ -240,7 +239,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     Symbol *vtblsym;
 
-    virtual size_t offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result);
+    void offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result);
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
 };

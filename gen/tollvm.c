@@ -1387,3 +1387,62 @@ void LLVM_DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 
     new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* LLVM_DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+{
+    Logger::println("checking for offset %u type %s:", os, t->toChars());
+    LOG_SCOPE;
+
+    if (idxs.empty())
+        idxs.push_back(0);
+
+    const llvm::Type* llt = llvm::PointerType::get(LLVM_DtoType(t));
+
+    for (unsigned i=0; i<sd->fields.dim; ++i) {
+        VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
+        Type* vdtype = LLVM_DtoDType(vd->type);
+        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
+        assert(vd->llvmFieldIndex >= 0);
+        if (os == vd->offset && vdtype == t) {
+            idxs.push_back(vd->llvmFieldIndex);
+            ptr = LLVM_DtoGEP(ptr, idxs, "tmp");
+            if (ptr->getType() != llt)
+                ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+            if (vd->llvmFieldIndexOffset)
+                ptr = new llvm::GetElementPtrInst(ptr, LLVM_DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+            return ptr;
+        }
+        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
+            TypeStruct* ts = (TypeStruct*)vdtype;
+            StructDeclaration* ssd = ts->sym;
+            idxs.push_back(vd->llvmFieldIndex);
+            if (vd->llvmFieldIndexOffset) {
+                Logger::println("has union field offset");
+                ptr = LLVM_DtoGEP(ptr, idxs, "tmp");
+                if (ptr->getType() != llt)
+                    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+                ptr = new llvm::GetElementPtrInst(ptr, LLVM_DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+                std::vector<unsigned> tmp;
+                return LLVM_DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
+            }
+            else {
+                const llvm::Type* sty = llvm::PointerType::get(LLVM_DtoType(vd->type));
+                if (ptr->getType() != sty) {
+                    ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
+                    std::vector<unsigned> tmp;
+                    return LLVM_DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
+                }
+                else {
+                    return LLVM_DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
+                }
+            }
+        }
+    }
+
+    size_t llt_sz = gTargetData->getTypeSize(llt->getContainedType(0));
+    assert(os % llt_sz == 0);
+    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+    return new llvm::GetElementPtrInst(ptr, LLVM_DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+}

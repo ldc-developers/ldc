@@ -148,67 +148,6 @@ void Declaration::toObjFile()
 
 /* ================================================================== */
 
-/// Returns the LLVM style index from a DMD style offset
-size_t AggregateDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
-{
-    Logger::println("checking for offset %u type %s:", os, t->toChars());
-    LOG_SCOPE;
-    for (unsigned i=0; i<fields.dim; ++i) {
-        VarDeclaration* vd = (VarDeclaration*)fields.data[i];
-        Type* vdtype = LLVM_DtoDType(vd->type);
-        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
-        if (os == vd->offset && vdtype == t) {
-            assert(vd->llvmFieldIndex >= 0);
-            result.push_back(vd->llvmFieldIndex);
-            return vd->llvmFieldIndexOffset;
-        }
-        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
-            TypeStruct* ts = (TypeStruct*)vdtype;
-            StructDeclaration* sd = ts->sym;
-            result.push_back(i);
-            return sd->offsetToIndex(t, os - vd->offset, result);
-        }
-    }
-    //assert(0 && "Offset not found in any aggregate field");
-    return (size_t)-1;
-}
-
-/* ================================================================== */
-
-static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsigned& idx)
-{
-    // start at the bottom of the inheritance chain
-    if (cd->baseClass != 0) {
-        unsigned o = LLVM_ClassOffsetToIndex(cd->baseClass, os, idx);
-        if (o != (unsigned)-1)
-            return o;
-    }
-
-    // check this class
-    unsigned i;
-    for (i=0; i<cd->fields.dim; ++i) {
-        VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
-        if (os == vd->offset)
-            return i+idx;
-    }
-    idx += i;
-
-    return (unsigned)-1;
-}
-
-/// Returns the LLVM style index from a DMD style offset
-/// Handles class inheritance
-size_t ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
-{
-    unsigned idx = 0;
-    unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
-    assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
-    result.push_back(r+1); // vtable is 0
-    return 0;
-}
-
-/* ================================================================== */
-
 void InterfaceDeclaration::toObjFile()
 {
     Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
@@ -271,7 +210,7 @@ void StructDeclaration::toObjFile()
                 const llvm::Type* t = LLVM_DtoType(i->second.var->type);
                 size_t s = gTargetData->getTypeSize(t);
                 if (s > prevsize) {
-                    fieldpad = s - prevsize;
+                    fieldpad += s - prevsize;
                     prevsize = s;
                 }
                 llvmHasUnions = true;
@@ -392,6 +331,37 @@ void StructDeclaration::toObjFile()
     // generate typeinfo
     if (getModule() == gIR->dmodule && llvmInternal != LLVMnotypeinfo)
         type->getTypeInfo(NULL);
+}
+
+/* ================================================================== */
+
+static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsigned& idx)
+{
+    // start at the bottom of the inheritance chain
+    if (cd->baseClass != 0) {
+        unsigned o = LLVM_ClassOffsetToIndex(cd->baseClass, os, idx);
+        if (o != (unsigned)-1)
+            return o;
+    }
+
+    // check this class
+    unsigned i;
+    for (i=0; i<cd->fields.dim; ++i) {
+        VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
+        if (os == vd->offset)
+            return i+idx;
+    }
+    idx += i;
+
+    return (unsigned)-1;
+}
+
+void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
+{
+    unsigned idx = 0;
+    unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
+    assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
+    result.push_back(r+1); // vtable is 0
 }
 
 /* ================================================================== */

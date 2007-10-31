@@ -65,4 +65,6 @@ llvm::Constant* LLVM_DtoConstString(const char*);
 
 void LLVM_DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
 
+llvm::Value* LLVM_DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
+
 #include "enums.h"

@@ -640,9 +640,8 @@ elem* AddExp::toElem(IRState* p)
             llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->val);
 
             TypeStruct* ts = (TypeStruct*)e1type->next;
-            std::vector<unsigned> offsets(1,0);
-            ts->sym->offsetToIndex(t->next, cofs->getZExtValue(), offsets);
-            e->mem = LLVM_DtoGEP(l->getValue(), offsets, "tmp", p->scopebb());
+            std::vector<unsigned> offsets;
+            e->mem = LLVM_DtoIndexStruct(l->getValue(), ts->sym, t->next, cofs->getZExtValue(), offsets);
             e->type = elem::VAR;
             e->field = true;
         }
@@ -1454,8 +1453,9 @@ elem* SymOffExp::toElem(IRState* p)
                 e->mem = p->ir->CreateBitCast(llvalue, llt, "tmp");
             }
             else {
-                std::vector<unsigned> dst(1,0);
-                size_t fo = vdt->sym->offsetToIndex(tnext, offset, dst);
+                std::vector<unsigned> dst;
+                e->mem = LLVM_DtoIndexStruct(llvalue,vdt->sym, tnext, offset, dst);
+                /*size_t fo = vdt->sym->offsetToIndex(tnext, offset, dst);
                 llvm::Value* ptr = llvalue;
                 assert(ptr);
                 e->mem = LLVM_DtoGEP(ptr,dst,"tmp");
@@ -1469,7 +1469,7 @@ elem* SymOffExp::toElem(IRState* p)
                 }
                 else if (fo) {
                     e->mem = new llvm::GetElementPtrInst(e->mem, LLVM_DtoConstUint(fo), "tmp", p->scopebb());
-                }
+                }*/
             }
             e->type = elem::VAL;
             e->field = true;
@@ -1564,25 +1564,26 @@ elem* DotVarExp::toElem(IRState* p)
     Logger::print("e1->type=%s\n", e1type->toChars());
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
-        std::vector<unsigned> vdoffsets(1,0);
-        llvm::Value* src = 0;
+        llvm::Value* arrptr;
         if (e1type->ty == Tpointer) {
             assert(e1type->next->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)e1type->next;
-            ts->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
             Logger::println("Struct member offset:%d", vd->offset);
-            src = l->val ? l->val : l->mem;
+            llvm::Value* src = l->val ? l->val : l->mem;
+            std::vector<unsigned> vdoffsets;
+            arrptr = LLVM_DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
         }
         else if (e1->type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1type;
             Logger::println("Class member offset: %d", vd->offset);
+            std::vector<unsigned> vdoffsets(1,0);
             tc->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
-            src = l->getValue();
+            llvm::Value* src = l->getValue();
+            Logger::cout() << "src: " << *src << '\n';
+            arrptr = LLVM_DtoGEP(src,vdoffsets,"tmp",p->scopebb());
         }
-        assert(vdoffsets.size() != 1);
-        assert(src != 0);
-        Logger::cout() << "src: " << *src << '\n';
-        llvm::Value* arrptr = LLVM_DtoGEP(src,vdoffsets,"tmp",p->scopebb());
+        else
+            assert(0);
         e->mem = arrptr;
         Logger::cout() << "mem: " << *e->mem << '\n';
         e->type = elem::VAR;
@@ -1698,7 +1699,10 @@ elem* StructLiteralExp::toElem(IRState* p)
         }
         const llvm::StructType* t = llvm::StructType::get(tys);
         if (t != llt) {
-            assert(gTargetData->getTypeSize(t) == gTargetData->getTypeSize(llt));
+            if (gTargetData->getTypeSize(t) != gTargetData->getTypeSize(llt)) { 
+                Logger::cout() << "got size " << gTargetData->getTypeSize(t) << ", expected " << gTargetData->getTypeSize(llt) << '\n';
+                assert(0 && "type size mismatch");
+            }
             sptr = p->ir->CreateBitCast(sptr, llvm::PointerType::get(t), "tmp");
             Logger::cout() << "sptr type is now: " << *t << '\n';
         }
