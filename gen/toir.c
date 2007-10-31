@@ -1667,36 +1667,52 @@ elem* StructLiteralExp::toElem(IRState* p)
     LOG_SCOPE;
     elem* e = new elem;
 
-    llvm::Value* sptr = 0;
+    llvm::Value* sptr;
+    const llvm::Type* llt = LLVM_DtoType(type);
 
-    // if there is no lval, this is probably a temporary struct literal. correct?
+    // temporary struct literal
     if (!p->topexp() || p->topexp()->e2 != this)
     {
-        sptr = new llvm::AllocaInst(LLVM_DtoType(type),"tmpstructliteral",p->topallocapoint());
+        sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
         e->mem = sptr;
         e->type = elem::VAR;
     }
     // already has memory
-    else if (p->topexp()->e2 == this)
+    else
     {
+        assert(p->topexp()->e2 == this);
         sptr = p->topexp()->v;
     }
-    else
-    assert(0);
 
-    assert(sptr);
+    // num elements in literal
+    unsigned n = elements->dim;
 
-    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+    // unions might have different types for each literal
+    if (sd->llvmHasUnions) {
+        // build the type of the literal
+        std::vector<const llvm::Type*> tys;
+        for (unsigned i=0; i<n; ++i) {
+            Expression* vx = (Expression*)elements->data[i];
+            if (!vx) continue;
+            tys.push_back(LLVM_DtoType(vx->type));
+        }
+        const llvm::StructType* t = llvm::StructType::get(tys);
+        if (t != llt) {
+            assert(gTargetData->getTypeSize(t) == gTargetData->getTypeSize(llt));
+            sptr = p->ir->CreateBitCast(sptr, llvm::PointerType::get(t), "tmp");
+            Logger::cout() << "sptr type is now: " << *t << '\n';
+        }
+    }
 
-    if (sd->isUnionDeclaration()) {
-        Logger::println("num elements = %d", elements->dim);
-        //assert(elements->dim == 1);
-        Expression* vx = (Expression*)elements->data[0];
-        assert(vx);
+    // build
+    unsigned j = 0;
+    for (unsigned i=0; i<n; ++i)
+    {
+        Expression* vx = (Expression*)elements->data[i];
+        if (!vx) continue;
 
-        Type* vxtype = LLVM_DtoDType(vx->type);
-        const llvm::Type* llvxty = llvm::PointerType::get(LLVM_DtoType(vxtype));
-        llvm::Value* arrptr = p->ir->CreateBitCast(sptr, llvxty, "tmp");
+        Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
+        llvm::Value* arrptr = LLVM_DtoGEPi(sptr,0,j,"tmp",p->scopebb());
 
         p->exps.push_back(IRExp(NULL,vx,arrptr));
         elem* ve = vx->toElem(p);
@@ -1705,36 +1721,13 @@ elem* StructLiteralExp::toElem(IRState* p)
         if (!ve->inplace) {
             llvm::Value* val = ve->getValue();
             Logger::cout() << *val << " | " << *arrptr << '\n';
+
+            Type* vxtype = LLVM_DtoDType(vx->type);
             LLVM_DtoAssign(vxtype, arrptr, val);
         }
         delete ve;
-    }
-    else {
-        unsigned n = elements->dim;
-        for (unsigned i=0; i<n; ++i)
-        {
-            llvm::Value* offset = llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false);
-            llvm::Value* arrptr = LLVM_DtoGEP(sptr,zero,offset,"tmp",p->scopebb());
 
-            Expression* vx = (Expression*)elements->data[i];
-            if (vx != 0) {
-                p->exps.push_back(IRExp(NULL,vx,arrptr));
-                elem* ve = vx->toElem(p);
-                p->exps.pop_back();
-
-                if (!ve->inplace) {
-                    llvm::Value* val = ve->getValue();
-                    Logger::cout() << *val << " | " << *arrptr << '\n';
-
-                    Type* vxtype = LLVM_DtoDType(vx->type);
-                    LLVM_DtoAssign(vxtype, arrptr, val);
-                }
-                delete ve;
-            }
-            else {
-                assert(0);
-            }
-        }
+        j++;
     }
 
     e->inplace = true;
