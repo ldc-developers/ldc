@@ -255,6 +255,7 @@ void WhileStatement::toIR(IRState* p)
     // create while blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* whilebb = new llvm::BasicBlock("whilecond", gIR->topfunc(), oldend);
+    llvm::BasicBlock* whilebodybb = new llvm::BasicBlock("whilebody", gIR->topfunc(), oldend);
     llvm::BasicBlock* endbb = new llvm::BasicBlock("endwhile", gIR->topfunc(), oldend);
 
     // move into the while block
@@ -269,11 +270,8 @@ void WhileStatement::toIR(IRState* p)
     llvm::Value* cond_val = LLVM_DtoBoolean(cond_e->getValue());
     delete cond_e;
 
-    // while body block
-    llvm::BasicBlock* whilebodybb = new llvm::BasicBlock("whilebody", gIR->topfunc(), endbb);
-
     // conditional branch
-    llvm::Value* ifbreak = new llvm::BranchInst(whilebodybb, endbb, cond_val, whilebb);
+    llvm::Value* ifbreak = new llvm::BranchInst(whilebodybb, endbb, cond_val, p->scopebb());
 
     // rewrite scope
     gIR->scope() = IRScope(whilebodybb,endbb);
@@ -580,7 +578,7 @@ void SwitchStatement::toIR(IRState* p)
         p->loopbbs.pop_back();
 
         llvm::BasicBlock* curbb = p->scopebb();
-        if (!curbb->empty() && !curbb->back().isTerminator())
+        if (curbb->empty() || !curbb->back().isTerminator())
         {
             new llvm::BranchInst(nextbb, curbb);
         }
@@ -591,11 +589,12 @@ void SwitchStatement::toIR(IRState* p)
     {
         p->scope() = IRScope(defbb,endbb);
         p->loopbbs.push_back(IRScope(defbb,endbb));
+        Logger::println("doing default statement");
         sdefault->statement->toIR(p);
         p->loopbbs.pop_back();
 
         llvm::BasicBlock* curbb = p->scopebb();
-        if (!curbb->empty() && !curbb->back().isTerminator())
+        if (curbb->empty() || !curbb->back().isTerminator())
         {
             new llvm::BranchInst(endbb, curbb);
         }

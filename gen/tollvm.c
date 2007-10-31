@@ -1241,12 +1241,20 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
         }
     }
 
+    if (fnarg && paramtype && retval->getType() != paramtype) {
+        // this is unfortunately needed with the way SymOffExp is overused
+        // and static arrays can end up being a pointer to their element type
+        if (arg->field) {
+            retval = gIR->ir->CreateBitCast(retval, paramtype, "tmp");
+        }
+        else {
+            Logger::cout() << "got '" << *retval->getType() << "' expected '" << *paramtype << "'\n";
+            assert(0 && "parameter type that was actually passed is invalid");
+        }
+    }
+
     delete arg;
 
-    if (fnarg && paramtype && retval->getType() != paramtype) {
-        Logger::cout() << "got '" << *retval->getType() << "' expected '" << *paramtype << "'\n";
-        assert(0 && "parameter type that was actually passed is invalid");
-    }
     return retval;
 }
 

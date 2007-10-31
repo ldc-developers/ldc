@@ -1,6 +1,5 @@
 module qd;
 
-/*
 import std.c.time: sleep;
 void main() {
   screen(640, 480);
@@ -18,7 +17,6 @@ void main() {
   pset(10, 10);
   sleep(5);
 }
-*/
 
 extern(C) {
   struct SDL_Rect {
@@ -308,8 +306,13 @@ void line(T...)(int x0, int y0, int x1, int y1, T p) {
   }
 }
 
-import llvm.intrinsic;
-alias llvm_sqrt sqrt;
+pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f32") {
+    float sqrt(float val);
+}
+pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64") {
+    double sqrt(double val);
+    real sqrt(real val);
+}
 
 template circle_bresenham_pass(bool first) {
   const string xy=(first?"x":"y");

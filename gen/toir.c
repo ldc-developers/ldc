@@ -1445,6 +1445,7 @@ elem* SymOffExp::toElem(IRState* p)
         llvm::Value* llvalue = vd->nestedref ? LLVM_DtoNestedVariable(vd) : vd->llvmValue;
 
         if (vdtype->ty == Tstruct && !(t->ty == Tpointer && t->next == vdtype)) {
+            Logger::println("struct");
             TypeStruct* vdt = (TypeStruct*)vdtype;
             assert(vdt->sym);
             e = new elem;
@@ -1455,26 +1456,12 @@ elem* SymOffExp::toElem(IRState* p)
             else {
                 std::vector<unsigned> dst;
                 e->mem = LLVM_DtoIndexStruct(llvalue,vdt->sym, tnext, offset, dst);
-                /*size_t fo = vdt->sym->offsetToIndex(tnext, offset, dst);
-                llvm::Value* ptr = llvalue;
-                assert(ptr);
-                e->mem = LLVM_DtoGEP(ptr,dst,"tmp");
-                if (e->mem->getType() != llt) {
-                    e->mem = p->ir->CreateBitCast(e->mem, llt, "tmp");
-                }
-                if (fo == (size_t)-1) {
-                    size_t llt_sz = gTargetData->getTypeSize(llt->getContainedType(0));
-                    assert(offset % llt_sz == 0);
-                    e->mem = new llvm::GetElementPtrInst(e->mem, LLVM_DtoConstUint(offset / llt_sz), "tmp", p->scopebb());
-                }
-                else if (fo) {
-                    e->mem = new llvm::GetElementPtrInst(e->mem, LLVM_DtoConstUint(fo), "tmp", p->scopebb());
-                }*/
             }
             e->type = elem::VAL;
             e->field = true;
         }
         else if (vdtype->ty == Tsarray) {
+            Logger::println("sarray");
             e = new elem;
             assert(llvalue);
             e->arg = llvalue;
@@ -1496,6 +1483,7 @@ elem* SymOffExp::toElem(IRState* p)
             }
         }
         else if (offset == 0) {
+            Logger::println("normal symoff");
             e = new elem;
             e->type = elem::VAL;
             assert(llvalue);
