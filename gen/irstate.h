@@ -69,11 +69,10 @@ public:
 struct IRFinally
 {
     llvm::BasicBlock* bb;
-    bool ret;
-    llvm::Value* retval;
+    llvm::BasicBlock* retbb;
 
     IRFinally();
-    IRFinally(llvm::BasicBlock* b);
+    IRFinally(llvm::BasicBlock* b, llvm::BasicBlock* rb);
 };
 
 // represents a function
@@ -87,6 +86,7 @@ struct IRFunction
     // finally blocks
     typedef std::vector<IRFinally> FinallyVec;
     FinallyVec finallys;
+    llvm::Value* finallyretval;
 
     IRFunction(FuncDeclaration*);
 };

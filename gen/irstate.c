@@ -122,13 +122,15 @@ IRStruct::IRStruct(Type* t)
 //////////////////////////////////////////////////////////////////////////////////////////
 
 IRFinally::IRFinally()
- : bb(NULL), ret(false), retval(NULL)
 {
+    bb = 0;
+    retbb = 0;
 }
 
-IRFinally::IRFinally(llvm::BasicBlock* b)
- : bb(b), ret(false), retval(NULL)
+IRFinally::IRFinally(llvm::BasicBlock* b, llvm::BasicBlock* rb)
 {
+    bb = b;
+    retbb = rb;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -145,11 +147,12 @@ LLVMBuilder* IRBuilderHelper::operator->()
 IRFunction::IRFunction(FuncDeclaration* fd)
 {
     decl = fd;
-    Type* t = LLVM_DtoDType(fd->type);
+    Type* t = DtoDType(fd->type);
     assert(t->ty == Tfunction);
     type = (TypeFunction*)t;
     func = NULL;
     allocapoint = NULL;
+    finallyretval = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

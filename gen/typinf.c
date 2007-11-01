@@ -302,24 +302,24 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
 
     // char[] name
     char *name = sd->toPrettyChars();
-    sinits.push_back(LLVM_DtoConstString(name));
+    sinits.push_back(DtoConstString(name));
     assert(sinits.back()->getType() == initZ->getOperand(2)->getType());
 
     // void[] init
     const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
     if (tinfo->isZeroInit() || !sd->init) // 0 initializer, or the same as the base type
     {
-        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
     }
     else
     {
-        llvm::Constant* ci = LLVM_DtoConstInitializer(sd->basetype, sd->init);
+        llvm::Constant* ci = DtoConstInitializer(sd->basetype, sd->init);
         std::string ciname(sd->mangle());
         ciname.append("__init");
-        llvm::GlobalVariable* civar = new llvm::GlobalVariable(LLVM_DtoType(sd->basetype),true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
+        llvm::GlobalVariable* civar = new llvm::GlobalVariable(DtoType(sd->basetype),true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
-        size_t cisize = gTargetData->getTypeSize(LLVM_DtoType(sd->basetype));
-        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(cisize), cicast));
+        size_t cisize = gTargetData->getTypeSize(DtoType(sd->basetype));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 
     // create the symbol
@@ -366,25 +366,25 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 
     // char[] name
     char *name = sd->toPrettyChars();
-    sinits.push_back(LLVM_DtoConstString(name));
+    sinits.push_back(DtoConstString(name));
     assert(sinits.back()->getType() == initZ->getOperand(2)->getType());
 
     // void[] init
     const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
     if (tinfo->isZeroInit() || !sd->defaultval) // 0 initializer, or the same as the base type
     {
-        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
     }
     else
     {
-        const llvm::Type* memty = LLVM_DtoType(sd->memtype);
+        const llvm::Type* memty = DtoType(sd->memtype);
         llvm::Constant* ci = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
         std::string ciname(sd->mangle());
         ciname.append("__init");
         llvm::GlobalVariable* civar = new llvm::GlobalVariable(memty,true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
         size_t cisize = gTargetData->getTypeSize(memty);
-        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(cisize), cicast));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 
     // create the symbol
@@ -544,7 +544,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
 
     // char[] name
     char *name = sd->toPrettyChars();
-    sinits.push_back(LLVM_DtoConstString(name));
+    sinits.push_back(DtoConstString(name));
     Logger::println("************** A");
     assert(sinits.back()->getType() == stype->getElementType(1));
 
@@ -552,14 +552,14 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
     if (sd->zeroInit) // 0 initializer, or the same as the base type
     {
-        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
     }
     else
     {
         assert(sd->llvmInitZ);
         size_t cisize = gTargetData->getTypeSize(tc->llvmType);
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(tc->llvmInit, initpt);
-        sinits.push_back(LLVM_DtoConstSlice(LLVM_DtoConstSize_t(cisize), cicast));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 
     // toX functions ground work
@@ -684,7 +684,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     }
 
     // uint m_flags;
-    sinits.push_back(LLVM_DtoConstUint(tc->hasPointers()));
+    sinits.push_back(DtoConstUint(tc->hasPointers()));
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);

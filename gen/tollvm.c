@@ -15,23 +15,23 @@
 #include "gen/elem.h"
 #include "gen/arrays.h"
 
-bool LLVM_DtoIsPassedByRef(Type* type)
+bool DtoIsPassedByRef(Type* type)
 {
-    TY t = LLVM_DtoDType(type)->ty;
+    TY t = DtoDType(type)->ty;
     return (t == Tstruct || t == Tarray || t == Tdelegate);
 }
 
-Type* LLVM_DtoDType(Type* t)
+Type* DtoDType(Type* t)
 {
     if (t->ty == Ttypedef) {
         Type* bt = t->toBasetype();
         assert(bt);
-        return LLVM_DtoDType(bt);
+        return DtoDType(bt);
     }
     return t;
 }
 
-const llvm::Type* LLVM_DtoType(Type* t)
+const llvm::Type* DtoType(Type* t)
 {
     assert(t);
     switch (t->ty)
@@ -78,14 +78,14 @@ const llvm::Type* LLVM_DtoType(Type* t)
         if (t->next->ty == Tvoid)
             return (const llvm::Type*)llvm::PointerType::get(llvm::Type::Int8Ty);
         else
-            return (const llvm::Type*)llvm::PointerType::get(LLVM_DtoType(t->next));
+            return (const llvm::Type*)llvm::PointerType::get(DtoType(t->next));
     }
 
     // arrays
     case Tarray:
-        return LLVM_DtoArrayType(t);
+        return DtoArrayType(t);
     case Tsarray:
-        return LLVM_DtoStaticArrayType(t);
+        return DtoStaticArrayType(t);
 
     // void
     case Tvoid:
@@ -144,7 +144,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
     case Tfunction:
     {
         if (t->llvmType == 0) {
-            return LLVM_DtoFunctionType(t,NULL);
+            return DtoFunctionType(t,NULL);
         }
         else {
             return t->llvmType;
@@ -155,7 +155,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
     case Tdelegate:
     {
         if (t->llvmType == 0) {
-            return LLVM_DtoDelegateType(t);
+            return DtoDelegateType(t);
         }
         else {
             return t->llvmType;
@@ -169,7 +169,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
     {
         Type* bt = t->toBasetype();
         assert(bt);
-        return LLVM_DtoType(bt);
+        return DtoType(bt);
     }
 
     default:
@@ -181,7 +181,7 @@ const llvm::Type* LLVM_DtoType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thistype, bool ismain)
+const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype, bool ismain)
 {
     TypeFunction* f = (TypeFunction*)type;
     assert(f != 0);
@@ -204,13 +204,13 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thi
     }
     else {
         assert(rt);
-        if (LLVM_DtoIsPassedByRef(rt)) {
-            rettype = llvm::PointerType::get(LLVM_DtoType(rt));
+        if (DtoIsPassedByRef(rt)) {
+            rettype = llvm::PointerType::get(DtoType(rt));
             actualRettype = llvm::Type::VoidTy;
             f->llvmRetInPtr = retinptr = true;
         }
         else {
-            rettype = LLVM_DtoType(rt);
+            rettype = DtoType(rt);
             actualRettype = rettype;
         }
     }
@@ -234,7 +234,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thi
             ti->toObjFile();
         assert(ti->llvmInitZ);
         std::vector<const llvm::Type*> types;
-        types.push_back(LLVM_DtoSize_t());
+        types.push_back(DtoSize_t());
         types.push_back(llvm::PointerType::get(llvm::PointerType::get(ti->llvmInitZ->getType())));
         const llvm::Type* t1 = llvm::StructType::get(types);
         paramvec.push_back(llvm::PointerType::get(t1));
@@ -246,7 +246,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thi
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
         // ensure scalar
-        Type* argT = LLVM_DtoDType(arg->type);
+        Type* argT = DtoDType(arg->type);
         assert(argT);
 
         if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
@@ -256,7 +256,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thi
         else
             arg->llvmCopy = true;
 
-        const llvm::Type* at = LLVM_DtoType(argT);
+        const llvm::Type* at = DtoType(argT);
         if (llvm::isa<llvm::StructType>(at)) {
             Logger::println("struct param");
             paramvec.push_back(llvm::PointerType::get(at));
@@ -300,7 +300,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(Type* type, const llvm::Type* thi
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static const llvm::FunctionType* LLVM_DtoVaFunctionType(FuncDeclaration* fdecl)
+static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
@@ -327,10 +327,10 @@ static const llvm::FunctionType* LLVM_DtoVaFunctionType(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
+const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
     if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
-        return LLVM_DtoVaFunctionType(fdecl);
+        return DtoVaFunctionType(fdecl);
     }
 
     // type has already been resolved
@@ -342,7 +342,7 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember()) {
             Logger::print("isMember = this is: %s\n", ad->type->toChars());
-            thisty = LLVM_DtoType(ad->type);
+            thisty = DtoType(ad->type);
             Logger::cout() << "this llvm type: " << *thisty << '\n';
             if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
                 thisty = llvm::PointerType::get(thisty);
@@ -354,17 +354,17 @@ const llvm::FunctionType* LLVM_DtoFunctionType(FuncDeclaration* fdecl)
         thisty = llvm::PointerType::get(llvm::Type::Int8Ty);
     }
 
-    const llvm::FunctionType* functype = LLVM_DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
+    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
     fdecl->type->llvmType = functype;
     return functype;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::StructType* LLVM_DtoDelegateType(Type* t)
+const llvm::StructType* DtoDelegateType(Type* t)
 {
     const llvm::Type* i8ptr = llvm::PointerType::get(llvm::Type::Int8Ty);
-    const llvm::Type* func = LLVM_DtoFunctionType(t->next, i8ptr);
+    const llvm::Type* func = DtoFunctionType(t->next, i8ptr);
     const llvm::Type* funcptr = llvm::PointerType::get(func);
 
     std::vector<const llvm::Type*> types;
@@ -375,7 +375,7 @@ const llvm::StructType* LLVM_DtoDelegateType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* LLVM_DtoStructType(Type* t)
+const llvm::Type* DtoStructType(Type* t)
 {
     assert(0);
     std::vector<const llvm::Type*> types;
@@ -456,7 +456,7 @@ llvm::Function* LLVM_DeclareMemCpy64()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoStructZeroInit(llvm::Value* v)
+llvm::Value* DtoStructZeroInit(llvm::Value* v)
 {
     assert(gIR);
     uint64_t n = gTargetData->getTypeSize(v->getType()->getContainedType(0));
@@ -480,7 +480,7 @@ llvm::Value* LLVM_DtoStructZeroInit(llvm::Value* v)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoStructCopy(llvm::Value* dst, llvm::Value* src)
+llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
 {
     assert(dst->getType() == src->getType());
     assert(gIR);
@@ -504,7 +504,7 @@ llvm::Value* LLVM_DtoStructCopy(llvm::Value* dst, llvm::Value* src)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
+llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
 {
     llvm::StructType* structtype = llvm::cast<llvm::StructType>(si->ad->llvmType);
     size_t n = structtype->getNumElements();
@@ -519,7 +519,7 @@ llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
         assert(ini);
 
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
-        Type* vdtype = LLVM_DtoDType(vd->type);
+        Type* vdtype = DtoDType(vd->type);
         assert(vd);
         Logger::println("vars[%d] = %s", i, vd->toChars());
 
@@ -534,11 +534,11 @@ llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
         }
         else if (StructInitializer* si = ini->isStructInitializer())
         {
-            v = LLVM_DtoConstStructInitializer(si);
+            v = DtoConstStructInitializer(si);
         }
         else if (ArrayInitializer* ai = ini->isArrayInitializer())
         {
-            v = LLVM_DtoConstArrayInitializer(ai);
+            v = DtoConstArrayInitializer(ai);
         }
         else if (ini->isVoidInitializer())
         {
@@ -581,7 +581,7 @@ llvm::Constant* LLVM_DtoConstStructInitializer(StructInitializer* si)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoNullDelegate(llvm::Value* v)
+llvm::Value* DtoNullDelegate(llvm::Value* v)
 {
     assert(gIR);
     d_uns64 n = (global.params.is64bit) ? 16 : 8;
@@ -605,7 +605,7 @@ llvm::Value* LLVM_DtoNullDelegate(llvm::Value* v)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
+llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
 {
     assert(dst->getType() == src->getType());
     assert(gIR);
@@ -630,14 +630,14 @@ llvm::Value* LLVM_DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
+llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
 {
     llvm::ICmpInst::Predicate pred = (op == TOKequal) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-    llvm::Value* l = gIR->ir->CreateLoad(LLVM_DtoGEPi(lhs,0,0,"tmp"),"tmp");
-    llvm::Value* r = gIR->ir->CreateLoad(LLVM_DtoGEPi(rhs,0,0,"tmp"),"tmp");
+    llvm::Value* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
+    llvm::Value* r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,0,"tmp"),"tmp");
     llvm::Value* b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
-    l = gIR->ir->CreateLoad(LLVM_DtoGEPi(lhs,0,1,"tmp"),"tmp");
-    r = gIR->ir->CreateLoad(LLVM_DtoGEPi(rhs,0,1,"tmp"),"tmp");
+    l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,1,"tmp"),"tmp");
+    r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,1,"tmp"),"tmp");
     llvm::Value* b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
     llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
     if (op == TOKnotequal)
@@ -647,7 +647,7 @@ llvm::Value* LLVM_DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalValue::LinkageTypes LLVM_DtoLinkage(PROT prot, uint stc)
+llvm::GlobalValue::LinkageTypes DtoLinkage(PROT prot, uint stc)
 {
     switch(prot)
     {
@@ -673,7 +673,7 @@ llvm::GlobalValue::LinkageTypes LLVM_DtoLinkage(PROT prot, uint stc)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-unsigned LLVM_DtoCallingConv(LINK l)
+unsigned DtoCallingConv(LINK l)
 {
     if (l == LINKc)
         return llvm::CallingConv::C;
@@ -687,7 +687,7 @@ unsigned LLVM_DtoCallingConv(LINK l)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoPointedType(llvm::Value* ptr, llvm::Value* val)
+llvm::Value* DtoPointedType(llvm::Value* ptr, llvm::Value* val)
 {
     const llvm::Type* ptrTy = ptr->getType()->getContainedType(0);
     const llvm::Type* valTy = val->getType();
@@ -720,7 +720,7 @@ llvm::Value* LLVM_DtoPointedType(llvm::Value* ptr, llvm::Value* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoBoolean(llvm::Value* val)
+llvm::Value* DtoBoolean(llvm::Value* val)
 {
     const llvm::Type* t = val->getType();
     if (t->isInteger())
@@ -733,7 +733,7 @@ llvm::Value* LLVM_DtoBoolean(llvm::Value* val)
         }
     }
     else if (llvm::isa<llvm::PointerType>(t)) {
-        const llvm::Type* st = LLVM_DtoSize_t();
+        const llvm::Type* st = DtoSize_t();
         llvm::Value* ptrasint = new llvm::PtrToIntInst(val,st,"tmp",gIR->scopebb());
         llvm::Value* zero = llvm::ConstantInt::get(st, 0, false);
         return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, ptrasint, zero, "tmp", gIR->scopebb());
@@ -748,7 +748,7 @@ llvm::Value* LLVM_DtoBoolean(llvm::Value* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* LLVM_DtoSize_t()
+const llvm::Type* DtoSize_t()
 {
     if (global.params.is64bit)
     return llvm::Type::Int64Ty;
@@ -758,7 +758,7 @@ const llvm::Type* LLVM_DtoSize_t()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoMain()
+void DtoMain()
 {
     // emit main function llvm style
     // int main(int argc, char**argv, char**env);
@@ -799,7 +799,7 @@ void LLVM_DtoMain()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
+void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
 {
     Array* arr = &tc->sym->dtors;
     for (size_t i=0; i<arr->dim; i++)
@@ -812,16 +812,16 @@ void LLVM_DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst)
+void DtoInitClass(TypeClass* tc, llvm::Value* dst)
 {
     assert(gIR);
 
     assert(tc->llvmType);
-    uint64_t size_t_size = gTargetData->getTypeSize(LLVM_DtoSize_t());
+    uint64_t size_t_size = gTargetData->getTypeSize(DtoSize_t());
     uint64_t n = gTargetData->getTypeSize(tc->llvmType) - size_t_size;
 
     // set vtable field
-    llvm::Value* vtblvar = LLVM_DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
+    llvm::Value* vtblvar = DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
     assert(tc->sym->llvmVtbl);
     new llvm::StoreInst(tc->sym->llvmVtbl, vtblvar, gIR->scopebb());
 
@@ -833,10 +833,10 @@ void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst)
         llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
         llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-        dstarr = LLVM_DtoGEPi(dstarr,size_t_size,"tmp",gIR->scopebb());
+        dstarr = DtoGEPi(dstarr,size_t_size,"tmp",gIR->scopebb());
 
         llvm::Value* srcarr = new llvm::BitCastInst(tc->llvmInit,arrty,"tmp",gIR->scopebb());
-        srcarr = LLVM_DtoGEPi(srcarr,size_t_size,"tmp",gIR->scopebb());
+        srcarr = DtoGEPi(srcarr,size_t_size,"tmp",gIR->scopebb());
 
         llvm::Function* fn = LLVM_DeclareMemCpy32();
         std::vector<llvm::Value*> llargs;
@@ -852,7 +852,7 @@ void LLVM_DtoInitClass(TypeClass* tc, llvm::Value* dst)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* LLVM_DtoConstInitializer(Type* type, Initializer* init)
+llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 {
     llvm::Constant* _init = 0; // may return zero
     if (!init)
@@ -868,17 +868,17 @@ llvm::Constant* LLVM_DtoConstInitializer(Type* type, Initializer* init)
     else if (StructInitializer* si = init->isStructInitializer())
     {
         Logger::println("const struct initializer");
-        _init = LLVM_DtoConstStructInitializer(si);
+        _init = DtoConstStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
         Logger::println("const array initializer");
-        _init = LLVM_DtoConstArrayInitializer(ai);
+        _init = DtoConstArrayInitializer(ai);
     }
     else if (init->isVoidInitializer())
     {
         Logger::println("const void initializer");
-        const llvm::Type* ty = LLVM_DtoType(type);
+        const llvm::Type* ty = DtoType(type);
         _init = llvm::Constant::getNullValue(ty);
     }
     else {
@@ -889,7 +889,7 @@ llvm::Constant* LLVM_DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoInitializer(Initializer* init)
+void DtoInitializer(Initializer* init)
 {
     if (ExpInitializer* ex = init->isExpInitializer())
     {
@@ -904,7 +904,7 @@ void LLVM_DtoInitializer(Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb)
+llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb)
 {
     std::vector<llvm::Value*> v(2);
     v[0] = i0;
@@ -915,7 +915,7 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, con
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
+llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
 {
     size_t n = src.size();
     std::vector<llvm::Value*> dst(n);
@@ -932,14 +932,14 @@ llvm::Value* LLVM_DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, con
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
+llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
 {
     return new llvm::GetElementPtrInst(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb)
+llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb)
 {
     std::vector<llvm::Value*> v(2);
     v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
@@ -949,10 +949,10 @@ llvm::Value* LLVM_DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::Function* LLVM_DtoDeclareVaFunction(FuncDeclaration* fdecl)
+static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 {
-    TypeFunction* f = (TypeFunction*)LLVM_DtoDType(fdecl->type);
-    const llvm::FunctionType* fty = LLVM_DtoVaFunctionType(fdecl);
+    TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
+    const llvm::FunctionType* fty = DtoVaFunctionType(fdecl);
     llvm::Constant* fn = 0;
 
     if (fdecl->llvmInternal == LLVMva_start) {
@@ -975,10 +975,10 @@ static llvm::Function* LLVM_DtoDeclareVaFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
+llvm::Function* DtoDeclareFunction(FuncDeclaration* fdecl)
 {
     if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
-        return LLVM_DtoDeclareVaFunction(fdecl);
+        return DtoDeclareVaFunction(fdecl);
     }
 
     // mangled name
@@ -1004,7 +1004,7 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // regular function
-    TypeFunction* f = (TypeFunction*)LLVM_DtoDType(fdecl->type);
+    TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
     assert(f != 0);
 
     if (fdecl->llvmValue != 0) {
@@ -1025,16 +1025,16 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // construct function
-    const llvm::FunctionType* functype = (f->llvmType == 0) ? LLVM_DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
+    const llvm::FunctionType* functype = (f->llvmType == 0) ? DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
 
     // make the function
     llvm::Function* func = gIR->module->getFunction(mangled_name);
     if (func == 0) {
-        func = new llvm::Function(functype,LLVM_DtoLinkage(fdecl->protection, fdecl->storage_class),mangled_name,gIR->module);
+        func = new llvm::Function(functype,DtoLinkage(fdecl->protection, fdecl->storage_class),mangled_name,gIR->module);
     }
 
     if (fdecl->llvmInternal != LLVMintrinsic)
-        func->setCallingConv(LLVM_DtoCallingConv(f->linkage));
+        func->setCallingConv(DtoCallingConv(f->linkage));
 
     fdecl->llvmValue = func;
     f->llvmType = functype;
@@ -1093,7 +1093,7 @@ llvm::Function* LLVM_DtoDeclareFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoGiveArgumentStorage(elem* l)
+void DtoGiveArgumentStorage(elem* l)
 {
     assert(l->mem == 0);
     assert(l->val);
@@ -1107,21 +1107,21 @@ void LLVM_DtoGiveArgumentStorage(elem* l)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, const llvm::Type* ty)
+llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty)
 {
     /*size_t sz = gTargetData->getTypeSize(ty);
-    llvm::ConstantInt* n = llvm::ConstantInt::get(LLVM_DtoSize_t(), sz, false);
+    llvm::ConstantInt* n = llvm::ConstantInt::get(DtoSize_t(), sz, false);
     if (ptr == 0) {
         llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
         ptr = llvm::ConstantPointerNull::get(i8pty);
     }
-    return LLVM_DtoRealloc(ptr, n);*/
+    return DtoRealloc(ptr, n);*/
     return NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, llvm::Value* n)
+llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* n)
 {
     assert(ptr);
     assert(n);
@@ -1146,12 +1146,12 @@ llvm::Value* LLVM_DtoRealloc(llvm::Value* ptr, llvm::Value* n)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg)
+void DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg)
 {
     assert(loc);
     std::vector<llvm::Value*> llargs;
     llargs.resize(3);
-    llargs[0] = cond ? LLVM_DtoBoolean(cond) : llvm::ConstantInt::getFalse();
+    llargs[0] = cond ? DtoBoolean(cond) : llvm::ConstantInt::getFalse();
     llargs[1] = loc;
     llargs[2] = msg ? msg : llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
 
@@ -1163,7 +1163,7 @@ void LLVM_DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp)
+llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp)
 {
     llvm::Value* retval = 0;
 
@@ -1183,9 +1183,9 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
         return retval;
     }
 
-    Type* realtype = LLVM_DtoDType(argexp->type);
+    Type* realtype = DtoDType(argexp->type);
     TY argty = realtype->ty;
-    if (LLVM_DtoIsPassedByRef(realtype)) {
+    if (DtoIsPassedByRef(realtype)) {
         if (!fnarg || !fnarg->llvmCopy) {
             retval = arg->getValue();
             assert(retval != 0);
@@ -1194,24 +1194,24 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
             llvm::Value* allocaInst = 0;
             llvm::BasicBlock* entryblock = &gIR->topfunc()->front();
             //const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(arg->mem->getType());
-            const llvm::Type* realtypell = LLVM_DtoType(realtype);
+            const llvm::Type* realtypell = DtoType(realtype);
             const llvm::PointerType* pty = llvm::PointerType::get(realtypell);
             if (argty == Tstruct) {
                 allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                LLVM_DtoStructCopy(allocaInst,arg->mem);
+                DtoStructCopy(allocaInst,arg->mem);
             }
             else if (argty == Tdelegate) {
                 allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                LLVM_DtoDelegateCopy(allocaInst,arg->mem);
+                DtoDelegateCopy(allocaInst,arg->mem);
             }
             else if (argty == Tarray) {
                 if (arg->type == elem::SLICE) {
                     allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
-                    LLVM_DtoSetArray(allocaInst, arg->arg, arg->mem);
+                    DtoSetArray(allocaInst, arg->arg, arg->mem);
                 }
                 else {
                     allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                    LLVM_DtoArrayAssign(allocaInst,arg->mem);
+                    DtoArrayAssign(allocaInst,arg->mem);
                 }
             }
             else
@@ -1235,7 +1235,7 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
         if (paramtype && retval->getType() != paramtype)
         {
             assert(retval->getType() == paramtype->getContainedType(0));
-            LLVM_DtoGiveArgumentStorage(arg);
+            DtoGiveArgumentStorage(arg);
             new llvm::StoreInst(retval, arg->mem, gIR->scopebb());
             retval = arg->mem;
         }
@@ -1260,7 +1260,7 @@ llvm::Value* LLVM_DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expr
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
+llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 {
     FuncDeclaration* fd = vd->toParent()->isFuncDeclaration();
     assert(fd != NULL);
@@ -1270,8 +1270,8 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
 
     // on this stack
     if (fd == f) {
-        llvm::Value* v = LLVM_DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
-        if (vd->isParameter() && (vd->isRef() || vd->isOut() || LLVM_DtoIsPassedByRef(vd->type))) {
+        llvm::Value* v = DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
+        if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))) {
             Logger::cout() << "1267 loading: " << *v << '\n';
             v = gIR->ir->CreateLoad(v,"tmp");
         }
@@ -1294,15 +1294,15 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
 
     while (f) {
         if (fd == f) {
-            llvm::Value* v = LLVM_DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
-            if (vd->isParameter() && (vd->isRef() || vd->isOut() || LLVM_DtoIsPassedByRef(vd->type))) {
+            llvm::Value* v = DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
+            if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))) {
                 Logger::cout() << "1291 loading: " << *v << '\n';
                 v = gIR->ir->CreateLoad(v,"tmp");
             }
             return v;
         }
         else {
-            ptr = LLVM_DtoGEPi(ptr,0,0,"tmp");
+            ptr = DtoGEPi(ptr,0,0,"tmp");
             ptr = gIR->ir->CreateLoad(ptr,"tmp");
         }
         f = f->toParent()->isFuncDeclaration();
@@ -1314,25 +1314,25 @@ llvm::Value* LLVM_DtoNestedVariable(VarDeclaration* vd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoAssign(Type* t, llvm::Value* lhs, llvm::Value* rhs)
+void DtoAssign(Type* t, llvm::Value* lhs, llvm::Value* rhs)
 {
     Logger::cout() << "assignment:" << '\n' << *lhs << *rhs << '\n';
 
     if (t->ty == Tstruct) {
         assert(lhs->getType() == rhs->getType());
-        LLVM_DtoStructCopy(lhs,rhs);
+        DtoStructCopy(lhs,rhs);
     }
     else if (t->ty == Tarray) {
         assert(lhs->getType() == rhs->getType());
-        LLVM_DtoArrayAssign(lhs,rhs);
+        DtoArrayAssign(lhs,rhs);
     }
     else if (t->ty == Tsarray) {
         assert(lhs->getType() == rhs->getType());
-        LLVM_DtoStaticArrayCopy(lhs,rhs);
+        DtoStaticArrayCopy(lhs,rhs);
     }
     else if (t->ty == Tdelegate) {
         assert(lhs->getType() == rhs->getType());
-        LLVM_DtoDelegateCopy(lhs,rhs);
+        DtoDelegateCopy(lhs,rhs);
     }
     else {
         assert(lhs->getType()->getContainedType(0) == rhs->getType());
@@ -1342,33 +1342,41 @@ void LLVM_DtoAssign(Type* t, llvm::Value* lhs, llvm::Value* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::ConstantInt* LLVM_DtoConstSize_t(size_t i)
+llvm::ConstantInt* DtoConstSize_t(size_t i)
 {
-    return llvm::ConstantInt::get(LLVM_DtoSize_t(), i, false);
+    return llvm::ConstantInt::get(DtoSize_t(), i, false);
 }
-llvm::ConstantInt* LLVM_DtoConstUint(unsigned i)
+llvm::ConstantInt* DtoConstUint(unsigned i)
 {
     return llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false);
+}
+llvm::ConstantInt* DtoConstInt(int i)
+{
+    return llvm::ConstantInt::get(llvm::Type::Int32Ty, i, true);
+}
+llvm::Constant* DtoConstBool(bool b)
+{
+    return llvm::ConstantInt::get(llvm::Type::Int1Ty, b, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* LLVM_DtoConstString(const char* str)
+llvm::Constant* DtoConstString(const char* str)
 {
     std::string s(str);
     llvm::Constant* init = llvm::ConstantArray::get(s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         init->getType(), true,llvm::GlobalValue::InternalLinkage, init, "stringliteral", gIR->module);
-    llvm::Constant* idxs[2] = { LLVM_DtoConstUint(0), LLVM_DtoConstUint(0) };
-    return LLVM_DtoConstSlice(
-        LLVM_DtoConstSize_t(s.length()),
+    llvm::Constant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    return DtoConstSlice(
+        DtoConstSize_t(s.length()),
         llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
     );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void LLVM_DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
+void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 {
     assert(dst->getType() == src->getType());
 
@@ -1398,7 +1406,7 @@ void LLVM_DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* LLVM_DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
@@ -1406,20 +1414,20 @@ llvm::Value* LLVM_DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* 
     if (idxs.empty())
         idxs.push_back(0);
 
-    const llvm::Type* llt = llvm::PointerType::get(LLVM_DtoType(t));
+    const llvm::Type* llt = llvm::PointerType::get(DtoType(t));
 
     for (unsigned i=0; i<sd->fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
-        Type* vdtype = LLVM_DtoDType(vd->type);
+        Type* vdtype = DtoDType(vd->type);
         Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         assert(vd->llvmFieldIndex >= 0);
         if (os == vd->offset && vdtype == t) {
             idxs.push_back(vd->llvmFieldIndex);
-            ptr = LLVM_DtoGEP(ptr, idxs, "tmp");
+            ptr = DtoGEP(ptr, idxs, "tmp");
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
             if (vd->llvmFieldIndexOffset)
-                ptr = new llvm::GetElementPtrInst(ptr, LLVM_DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
             return ptr;
         }
         else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
@@ -1428,22 +1436,22 @@ llvm::Value* LLVM_DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* 
             idxs.push_back(vd->llvmFieldIndex);
             if (vd->llvmFieldIndexOffset) {
                 Logger::println("has union field offset");
-                ptr = LLVM_DtoGEP(ptr, idxs, "tmp");
+                ptr = DtoGEP(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-                ptr = new llvm::GetElementPtrInst(ptr, LLVM_DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
                 std::vector<unsigned> tmp;
-                return LLVM_DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
+                return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
             else {
-                const llvm::Type* sty = llvm::PointerType::get(LLVM_DtoType(vd->type));
+                const llvm::Type* sty = llvm::PointerType::get(DtoType(vd->type));
                 if (ptr->getType() != sty) {
                     ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
                     std::vector<unsigned> tmp;
-                    return LLVM_DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
+                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
                 }
                 else {
-                    return LLVM_DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
+                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
                 }
             }
         }
@@ -1452,5 +1460,5 @@ llvm::Value* LLVM_DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* 
     size_t llt_sz = gTargetData->getTypeSize(llt->getContainedType(0));
     assert(os % llt_sz == 0);
     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-    return new llvm::GetElementPtrInst(ptr, LLVM_DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+    return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
 }

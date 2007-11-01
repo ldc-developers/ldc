@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "gen/llvm.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "total.h"
 #include "init.h"
@@ -40,7 +41,6 @@ void CompoundStatement::toIR(IRState* p)
             //assert(0);
         }
     }
-
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -55,10 +55,10 @@ void ReturnStatement::toIR(IRState* p)
     {
         Logger::println("return type is: %s", exp->type->toChars());
 
-        Type* exptype = LLVM_DtoDType(exp->type);
+        Type* exptype = DtoDType(exp->type);
         TY expty = exptype->ty;
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
-            assert(LLVM_DtoIsPassedByRef(exptype));
+            assert(DtoIsPassedByRef(exptype));
 
             TypeFunction* f = p->topfunctype();
             assert(f->llvmRetInPtr && f->llvmRetArg);
@@ -69,23 +69,23 @@ void ReturnStatement::toIR(IRState* p)
 
             if (expty == Tstruct) {
                 if (!e->inplace)
-                    LLVM_DtoStructCopy(f->llvmRetArg,e->getValue());
+                    DtoStructCopy(f->llvmRetArg,e->getValue());
             }
             else if (expty == Tdelegate) {
                 if (!e->inplace)
-                    LLVM_DtoDelegateCopy(f->llvmRetArg,e->getValue());
+                    DtoDelegateCopy(f->llvmRetArg,e->getValue());
             }
             else if (expty == Tarray) {
                 if (e->type == elem::SLICE) {
                     assert(e->mem);
-                    LLVM_DtoSetArray(f->llvmRetArg,e->arg,e->mem);
+                    DtoSetArray(f->llvmRetArg,e->arg,e->mem);
                 }
                 else if (!e->inplace) {
                     if (e->type == elem::NUL) {
-                        LLVM_DtoNullArray(f->llvmRetArg);
+                        DtoNullArray(f->llvmRetArg);
                     }
                     else {
-                        LLVM_DtoArrayAssign(f->llvmRetArg, e->getValue());
+                        DtoArrayAssign(f->llvmRetArg, e->getValue());
                     }
                 }
             }
@@ -96,8 +96,7 @@ void ReturnStatement::toIR(IRState* p)
             if (fin.empty())
                 new llvm::ReturnInst(p->scopebb());
             else {
-                new llvm::BranchInst(fin.back().bb, p->scopebb());
-                fin.back().ret = true;
+                new llvm::BranchInst(fin.back().retbb, p->scopebb());
             }
             delete e;
         }
@@ -112,11 +111,11 @@ void ReturnStatement::toIR(IRState* p)
                 new llvm::ReturnInst(v, p->scopebb());
             }
             else {
-                llvm::Value* rettmp = new llvm::AllocaInst(v->getType(),"tmpreturn",p->topallocapoint());
+                if (!p->func().finallyretval)
+                    p->func().finallyretval = new llvm::AllocaInst(v->getType(),"tmpreturn",p->topallocapoint());
+                llvm::Value* rettmp = p->func().finallyretval;
                 new llvm::StoreInst(v,rettmp,p->scopebb());
-                new llvm::BranchInst(fin.back().bb, p->scopebb());
-                fin.back().ret = true;
-                fin.back().retval = rettmp;
+                new llvm::BranchInst(fin.back().retbb, p->scopebb());
             }
         }
     }
@@ -128,8 +127,7 @@ void ReturnStatement::toIR(IRState* p)
                 new llvm::ReturnInst(p->scopebb());
             }
             else {
-                new llvm::BranchInst(fin.back().bb, p->scopebb());
-                fin.back().ret = true;
+                new llvm::BranchInst(fin.back().retbb, p->scopebb());
             }
         }
         else {
@@ -173,30 +171,21 @@ void IfStatement::toIR(IRState* p)
 
     llvm::BasicBlock* ifbb = new llvm::BasicBlock("if", gIR->topfunc(), oldend);
     llvm::BasicBlock* endbb = new llvm::BasicBlock("endif", gIR->topfunc(), oldend);
-    llvm::BasicBlock* elsebb = 0;
-    if (elsebody) {
-        elsebb = new llvm::BasicBlock("else", gIR->topfunc(), endbb);
-    }
-    else {
-        elsebb = endbb;
-    }
+    llvm::BasicBlock* elsebb = elsebody ? new llvm::BasicBlock("else", gIR->topfunc(), endbb) : endbb;
 
     if (cond_val->getType() != llvm::Type::Int1Ty) {
         Logger::cout() << "if conditional: " << *cond_val << '\n';
-        cond_val = LLVM_DtoBoolean(cond_val);
+        cond_val = DtoBoolean(cond_val);
     }
     llvm::Value* ifgoback = new llvm::BranchInst(ifbb, elsebb, cond_val, gIR->scopebegin());
 
     // replace current scope
     gIR->scope() = IRScope(ifbb,elsebb);
 
-    bool endifUsed = false;
-
     // do scoped statements
     ifbody->toIR(p);
     if (!gIR->scopereturned()) {
         new llvm::BranchInst(endbb,gIR->scopebegin());
-        endifUsed = true;
     }
 
     if (elsebody) {
@@ -205,7 +194,6 @@ void IfStatement::toIR(IRState* p)
         elsebody->toIR(p);
         if (!gIR->scopereturned()) {
             new llvm::BranchInst(endbb,gIR->scopebegin());
-            endifUsed = true;
         }
     }
 
@@ -223,7 +211,7 @@ void ScopeStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = p->scopeend();
 
     llvm::BasicBlock* beginbb = 0;
-    
+
     // remove useless branches by clearing and reusing the current basicblock
     llvm::BasicBlock* bb = p->scopebegin();
     if (bb->empty()) {
@@ -267,7 +255,7 @@ void WhileStatement::toIR(IRState* p)
 
     // create the condition
     elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = LLVM_DtoBoolean(cond_e->getValue());
+    llvm::Value* cond_val = DtoBoolean(cond_e->getValue());
     delete cond_e;
 
     // conditional branch
@@ -310,7 +298,7 @@ void DoStatement::toIR(IRState* p)
 
     // create the condition
     elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = LLVM_DtoBoolean(cond_e->getValue());
+    llvm::Value* cond_val = DtoBoolean(cond_e->getValue());
     delete cond_e;
 
     // conditional branch
@@ -349,7 +337,7 @@ void ForStatement::toIR(IRState* p)
 
     // create the condition
     elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = LLVM_DtoBoolean(cond_e->getValue());
+    llvm::Value* cond_val = DtoBoolean(cond_e->getValue());
     delete cond_e;
 
     // conditional branch
@@ -428,51 +416,82 @@ void OnScopeStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void replaceFinallyBBs(std::vector<llvm::BasicBlock*>& a, std::vector<llvm::BasicBlock*>& b)
+{
+}
+
 void TryFinallyStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("TryFinallyStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("TryFinallyStatement::toIR(): %s", toChars());
     LOG_SCOPE;
 
+    // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
 
     llvm::BasicBlock* trybb = new llvm::BasicBlock("try", p->topfunc(), oldend);
     llvm::BasicBlock* finallybb = new llvm::BasicBlock("finally", p->topfunc(), oldend);
+    llvm::BasicBlock* finallyretbb = new llvm::BasicBlock("finallyreturn", p->topfunc(), oldend);
     llvm::BasicBlock* endbb = new llvm::BasicBlock("endtryfinally", p->topfunc(), oldend);
 
     // pass the previous BB into this
+    assert(!gIR->scopereturned());
     new llvm::BranchInst(trybb, p->scopebb());
 
+    // do the try block
     p->scope() = IRScope(trybb,finallybb);
+    gIR->func().finallys.push_back(IRFinally(finallybb,finallyretbb));
+    IRFinally& fin = p->func().finallys.back();
 
     assert(body);
-    gIR->func().finallys.push_back(IRFinally(finallybb));
     body->toIR(p);
-    if (!gIR->scopereturned())
+
+    // terminate try BB
+    if (!p->scopereturned())
         new llvm::BranchInst(finallybb, p->scopebb());
 
-    // rewrite the scope
-    p->scope() = IRScope(finallybb,endbb);
-
+    // do finally block
+    p->scope() = IRScope(finallybb,finallyretbb);
     assert(finalbody);
     finalbody->toIR(p);
-    if (gIR->func().finallys.back().ret) {
-        llvm::Value* retval = p->func().finallys.back().retval;
-        if (retval) {
-            retval = new llvm::LoadInst(retval,"tmp",p->scopebb());
-            new llvm::ReturnInst(retval, p->scopebb());
-        }
-        else {
-            new llvm::ReturnInst(p->scopebb());
-        }
-    }
-    else if (!gIR->scopereturned()) {
+
+    // terminate finally
+    if (!gIR->scopereturned()) {
         new llvm::BranchInst(endbb, p->scopebb());
     }
 
-    p->func().finallys.pop_back();
+    // do finally block (return path)
+    p->scope() = IRScope(finallyretbb,endbb);
+    assert(finalbody);
+    finalbody->toIR(p); // hope this will work, otherwise it's time it gets fixed
+
+    // terminate finally (return path)
+    size_t nfin = p->func().finallys.size();
+    if (nfin > 1) {
+        IRFinally& ofin = p->func().finallys[nfin-2];
+        p->ir->CreateBr(ofin.retbb);
+    }
+    // no outer
+    else
+    {
+        llvm::Value* retval = p->func().finallyretval;
+        if (retval) {
+            retval = p->ir->CreateLoad(retval,"tmp");
+            p->ir->CreateRet(retval);
+        }
+        else {
+            FuncDeclaration* fd = p->func().decl;
+            if (fd->isMain()) {
+                assert(fd->type->next->ty == Tvoid);
+                p->ir->CreateRet(DtoConstInt(0));
+            }
+            else {
+                p->ir->CreateRetVoid();
+            }
+        }
+    }
 
     // rewrite the scope
+    p->func().finallys.pop_back();
     p->scope() = IRScope(endbb,oldend);
 }
 
@@ -508,7 +527,7 @@ void ThrowStatement::toIR(IRState* p)
     Logger::println("*** ATTENTION: throw is not yet implemented, replacing expression with assert(0);");
 
     llvm::Value* line = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
-    LLVM_DtoAssert(NULL, line, NULL);
+    DtoAssert(NULL, line, NULL);
 
     /*
     assert(exp);
@@ -653,14 +672,14 @@ void ForeachStatement::toIR(IRState* p)
 
     llvm::Value* numiters = 0;
 
-    const llvm::Type* keytype = key ? LLVM_DtoType(key->type) : LLVM_DtoSize_t();
+    const llvm::Type* keytype = key ? DtoType(key->type) : DtoSize_t();
     llvm::Value* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
     if (key) key->llvmValue = keyvar;
 
-    const llvm::Type* valtype = LLVM_DtoType(value->type);
+    const llvm::Type* valtype = DtoType(value->type);
     llvm::Value* valvar = !value->isRef() ? new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint()) : NULL;
 
-    Type* aggrtype = LLVM_DtoDType(aggr->type);
+    Type* aggrtype = DtoDType(aggr->type);
     if (aggrtype->ty == Tsarray)
     {
         assert(llvm::isa<llvm::PointerType>(val->getType()));
@@ -676,8 +695,8 @@ void ForeachStatement::toIR(IRState* p)
             val = arr->mem;
         }
         else {
-            numiters = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,0,"tmp",p->scopebb()));
-            val = p->ir->CreateLoad(LLVM_DtoGEPi(val,0,1,"tmp",p->scopebb()));
+            numiters = p->ir->CreateLoad(DtoGEPi(val,0,0,"tmp",p->scopebb()));
+            val = p->ir->CreateLoad(DtoGEPi(val,0,1,"tmp",p->scopebb()));
         }
     }
     else
@@ -725,7 +744,7 @@ void ForeachStatement::toIR(IRState* p)
     llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
     llvm::Value* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     if (aggrtype->ty == Tsarray)
-        value->llvmValue = LLVM_DtoGEP(val,zero,loadedKey,"tmp");
+        value->llvmValue = DtoGEP(val,zero,loadedKey,"tmp");
     else if (aggrtype->ty == Tarray)
         value->llvmValue = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
 
@@ -733,7 +752,7 @@ void ForeachStatement::toIR(IRState* p)
         elem* e = new elem;
         e->mem = value->llvmValue;
         e->type = elem::VAR;
-        LLVM_DtoAssign(LLVM_DtoDType(value->type), valvar, e->getValue());
+        DtoAssign(DtoDType(value->type), valvar, e->getValue());
         delete e;
         value->llvmValue = valvar;
     }

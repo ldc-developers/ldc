@@ -86,7 +86,7 @@ Module::genobjfile()
 
     // emit the llvm main function if necessary
     if (ir.emitMain) {
-        LLVM_DtoMain();
+        DtoMain();
     }
 
     // verify the llvm
@@ -157,7 +157,7 @@ void InterfaceDeclaration::toObjFile()
 
 void StructDeclaration::toObjFile()
 {
-    TypeStruct* ts = (TypeStruct*)LLVM_DtoDType(type);
+    TypeStruct* ts = (TypeStruct*)DtoDType(type);
     if (llvmType != 0)
         return;
 
@@ -200,14 +200,14 @@ void StructDeclaration::toObjFile()
             if (lastoffset == (unsigned)-1) {
                 lastoffset = i->first;
                 assert(lastoffset == 0);
-                fieldtype = LLVM_DtoType(i->second.var->type);
+                fieldtype = DtoType(i->second.var->type);
                 fieldinit = i->second.init;
                 prevsize = gTargetData->getTypeSize(fieldtype);
                 i->second.var->llvmFieldIndex = idx;
             }
             // colliding offset?
             else if (lastoffset == i->first) {
-                const llvm::Type* t = LLVM_DtoType(i->second.var->type);
+                const llvm::Type* t = DtoType(i->second.var->type);
                 size_t s = gTargetData->getTypeSize(t);
                 if (s > prevsize) {
                     fieldpad += s - prevsize;
@@ -218,7 +218,7 @@ void StructDeclaration::toObjFile()
             }
             // intersecting offset?
             else if (i->first < (lastoffset + prevsize)) {
-                const llvm::Type* t = LLVM_DtoType(i->second.var->type);
+                const llvm::Type* t = DtoType(i->second.var->type);
                 size_t s = gTargetData->getTypeSize(t);
                 assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
                 llvmHasUnions = true;
@@ -243,7 +243,7 @@ void StructDeclaration::toObjFile()
 
                 // start new
                 lastoffset = i->first;
-                fieldtype = LLVM_DtoType(i->second.var->type);
+                fieldtype = DtoType(i->second.var->type);
                 fieldinit = i->second.init;
                 prevsize = gTargetData->getTypeSize(fieldtype);
                 i->second.var->llvmFieldIndex = idx;
@@ -389,7 +389,7 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
 
 void ClassDeclaration::toObjFile()
 {
-    TypeClass* ts = (TypeClass*)LLVM_DtoDType(type);
+    TypeClass* ts = (TypeClass*)DtoDType(type);
     if (ts->llvmType != 0 || llvmInProgress)
         return;
 
@@ -423,7 +423,7 @@ void ClassDeclaration::toObjFile()
 
     // fill out fieldtypes/inits
     for (IRStruct::OffsetMap::iterator i=gIR->topstruct().offsets.begin(); i!=gIR->topstruct().offsets.end(); ++i) {
-        fieldtypes.push_back(LLVM_DtoType(i->second.var->type));
+        fieldtypes.push_back(DtoType(i->second.var->type));
         fieldinits.push_back(i->second.init);
     }
 
@@ -574,11 +574,11 @@ void VarDeclaration::toObjFile()
         if (parent && parent->isFuncDeclaration())
             _linkage = llvm::GlobalValue::InternalLinkage;
         else
-            _linkage = LLVM_DtoLinkage(protection, storage_class);
+            _linkage = DtoLinkage(protection, storage_class);
 
-        Type* t = LLVM_DtoDType(type);
+        Type* t = DtoDType(type);
 
-        const llvm::Type* _type = LLVM_DtoType(t);
+        const llvm::Type* _type = DtoType(t);
         assert(_type);
 
         llvm::Constant* _init = 0;
@@ -593,7 +593,7 @@ void VarDeclaration::toObjFile()
         // if extern don't emit initializer
         if (!(storage_class & STCextern))
         {
-            _init = LLVM_DtoConstInitializer(t, init);
+            _init = DtoConstInitializer(t, init);
 
             //Logger::cout() << "initializer: " << *_init << '\n';
             if (_type != _init->getType()) {
@@ -614,7 +614,7 @@ void VarDeclaration::toObjFile()
                 // array single value init
                 else if (llvm::isa<llvm::ArrayType>(_type))
                 {
-                    _init = LLVM_DtoConstStaticArray(_type, _init);
+                    _init = DtoConstStaticArray(_type, _init);
                 }
                 else {
                     Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
@@ -637,10 +637,10 @@ void VarDeclaration::toObjFile()
     {
         Logger::println("Aggregate var declaration: '%s' offset=%d", toChars(), offset);
 
-        Type* t = LLVM_DtoDType(type);
-        const llvm::Type* _type = LLVM_DtoType(t);
+        Type* t = DtoDType(type);
+        const llvm::Type* _type = DtoType(t);
 
-        llvm::Constant*_init = LLVM_DtoConstInitializer(t, init);
+        llvm::Constant*_init = DtoConstInitializer(t, init);
         assert(_init);
         Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
         if (_type != _init->getType())
@@ -716,7 +716,7 @@ void FuncDeclaration::toObjFile()
         return;
     }
 
-    Type* t = LLVM_DtoDType(type);
+    Type* t = DtoDType(type);
     TypeFunction* f = (TypeFunction*)t;
 
     bool declareOnly = false;
@@ -736,7 +736,7 @@ void FuncDeclaration::toObjFile()
         }
     }
 
-    llvm::Function* func = LLVM_DtoDeclareFunction(this);
+    llvm::Function* func = DtoDeclareFunction(this);
 
     if (declareOnly)
         return;
@@ -830,7 +830,7 @@ void FuncDeclaration::toObjFile()
                             nestTypes.push_back(vd->llvmValue->getType());
                         }
                         else {
-                            nestTypes.push_back(LLVM_DtoType(vd->type));
+                            nestTypes.push_back(DtoType(vd->type));
                         }
                     }
                     const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
@@ -839,12 +839,12 @@ void FuncDeclaration::toObjFile()
                     if (parentNested) {
                         assert(llvmThisVar);
                         llvm::Value* ptr = gIR->ir->CreateBitCast(llvmThisVar, parentNested->getType(), "tmp");
-                        gIR->ir->CreateStore(ptr, LLVM_DtoGEPi(llvmNested, 0,0, "tmp"));
+                        gIR->ir->CreateStore(ptr, DtoGEPi(llvmNested, 0,0, "tmp"));
                     }
                     for (std::set<VarDeclaration*>::iterator i=llvmNestedVars.begin(); i!=llvmNestedVars.end(); ++i) {
                         VarDeclaration* vd = *i;
                         if (vd->isParameter()) {
-                            gIR->ir->CreateStore(vd->llvmValue, LLVM_DtoGEPi(llvmNested, 0, vd->llvmNestedIndex, "tmp"));
+                            gIR->ir->CreateStore(vd->llvmValue, DtoGEPi(llvmNested, 0, vd->llvmNestedIndex, "tmp"));
                             vd->llvmValue = llvmNested;
                         }
                     }
