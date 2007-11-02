@@ -482,6 +482,7 @@ llvm::Value* DtoStructZeroInit(llvm::Value* v)
 
 llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
 {
+    Logger::cout() << "dst = " << *dst << " src = " << *src << '\n';
     assert(dst->getType() == src->getType());
     assert(gIR);
 
@@ -1093,20 +1094,6 @@ llvm::Function* DtoDeclareFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoGiveArgumentStorage(elem* l)
-{
-    assert(l->mem == 0);
-    assert(l->val);
-    assert(llvm::isa<llvm::Argument>(l->val));
-    assert(l->vardecl != 0);
-
-    llvm::AllocaInst* allocainst = new llvm::AllocaInst(l->val->getType(), l->val->getName()+"_storage", gIR->topallocapoint());
-    l->mem = allocainst;
-    l->vardecl->llvmValue = l->mem;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty)
 {
     /*size_t sz = gTargetData->getTypeSize(ty);
@@ -1235,7 +1222,6 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
         if (paramtype && retval->getType() != paramtype)
         {
             assert(retval->getType() == paramtype->getContainedType(0));
-            DtoGiveArgumentStorage(arg);
             new llvm::StoreInst(retval, arg->mem, gIR->scopebb());
             retval = arg->mem;
         }
@@ -1372,6 +1358,16 @@ llvm::Constant* DtoConstString(const char* str)
         DtoConstSize_t(s.length()),
         llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
     );
+}
+llvm::Constant* DtoConstStringPtr(const char* str, const char* section)
+{
+    std::string s(str);
+    llvm::Constant* init = llvm::ConstantArray::get(s, true);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
+        init->getType(), true,llvm::GlobalValue::InternalLinkage, init, "stringliteral", gIR->module);
+    if (section) gvar->setSection(section);
+    llvm::Constant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    return llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

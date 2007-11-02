@@ -3445,7 +3445,10 @@ Expression *SymOffExp::semantic(Scope *sc)
 	type = var->type->pointerTo();
     VarDeclaration *v = var->isVarDeclaration();
     if (v)
-	v->checkNestedReference(sc, loc);
+    {
+    v->checkNestedReference(sc, loc);
+    v->llvmNeedsStorage = true;
+    }
     return this;
 }
 
@@ -3589,6 +3592,7 @@ Expression *VarExp::modifiableLvalue(Scope *sc, Expression *e)
     if (v && v->canassign == 0 &&
         (var->isConst() || (global.params.Dversion > 1 && var->isFinal())))
 	error("cannot modify final variable '%s'", var->toChars());
+    v->llvmNeedsStorage = true;
 
     if (var->isCtorinit())
     {	// It's only modifiable if inside the right constructor

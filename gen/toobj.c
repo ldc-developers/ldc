@@ -36,6 +36,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/arrays.h"
+#include "gen/todebug.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -74,6 +75,12 @@ Module::genobjfile()
     assert(targetPtr.get() && "Could not allocate target machine!");
     llvm::TargetMachine &targetMachine = *targetPtr.get();
     gTargetData = targetMachine.getTargetData();
+
+    // debug info
+    if (global.params.symdebug) {
+        RegisterDwarfSymbols(ir.module);
+        ir.dwarfCompileUnit = DtoDwarfCompileUnit(this);
+    }
 
     // process module members
     for (int k=0; k < members->dim; k++) {
@@ -750,6 +757,11 @@ void FuncDeclaration::toObjFile()
         return; // we wait with the definition as they might invoke a virtual method and the vtable is not yet complete
     }
 
+    // debug info
+    if (global.params.symdebug) {
+        llvmDwarfSubProgram = DtoDwarfSubProgram(this);
+    }
+
     assert(f->llvmType);
     const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 
@@ -809,6 +821,29 @@ void FuncDeclaration::toObjFile()
                 f->llvmAllocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
                 gIR->func().allocapoint = f->llvmAllocaPoint;
 
+                // give arguments storage
+                size_t n = Argument::dim(f->parameters);
+                for (int i=0; i < n; ++i) {
+                    Argument* arg = Argument::getNth(f->parameters, i);
+                    if (arg && arg->vardecl) {
+                        VarDeclaration* vd = arg->vardecl;
+                        if (!vd->llvmNeedsStorage || vd->nestedref || vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))
+                            continue;
+                        llvm::Value* a = vd->llvmValue;
+                        assert(a);
+                        std::string s(a->getName());
+                        Logger::println("giving argument '%s' storage", s.c_str());
+                        s.append("_storage");
+                        llvm::Value* v = new llvm::AllocaInst(a->getType(),s,f->llvmAllocaPoint);
+                        gIR->ir->CreateStore(a,v);
+                        vd->llvmValue = v;
+                    }
+                    else assert(0);
+                }
+
+                // debug info
+                if (global.params.symdebug) DtoDwarfFuncStart(this);
+
                 llvm::Value* parentNested = NULL;
                 if (FuncDeclaration* fd = toParent()->isFuncDeclaration()) {
                     parentNested = fd->llvmNested;
@@ -866,7 +901,7 @@ void FuncDeclaration::toObjFile()
                 if (!isMain()) {
                     if (!gIR->scopereturned()) {
                         // pass the previous block into this block
-                        //new llvm::BranchInst(irs.end, irs.begin);
+                        if (global.params.symdebug) DtoDwarfFuncEnd(this);
                         if (func->getReturnType() == llvm::Type::VoidTy) {
                             new llvm::ReturnInst(gIR->scopebb());
                         }

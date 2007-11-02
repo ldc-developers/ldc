@@ -262,6 +262,7 @@ struct VarDeclaration : Declaration
     int llvmNestedIndex;
     int llvmFieldIndex;
     size_t llvmFieldIndexOffset;
+    bool llvmNeedsStorage;
 };
 
 /**************************************************************/
@@ -525,6 +526,7 @@ struct FuncDeclaration : Declaration
     llvm::Value* llvmNested;
     llvm::Value* llvmArguments;
     llvm::Value* llvmArgPtr;
+    llvm::Constant* llvmDwarfSubProgram;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

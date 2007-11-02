@@ -162,6 +162,9 @@ struct IRState
 
     // builder helper
     IRBuilderHelper ir;
+
+    // Dwarf debugging info
+    llvm::GlobalVariable* dwarfCompileUnit;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

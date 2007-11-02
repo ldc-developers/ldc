@@ -46,8 +46,6 @@ llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const st
 llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb=NULL);
 llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
 
-void DtoGiveArgumentStorage(elem* e);
-
 llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
 llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 
@@ -63,6 +61,7 @@ llvm::ConstantInt* DtoConstSize_t(size_t);
 llvm::ConstantInt* DtoConstUint(unsigned i);
 llvm::ConstantInt* DtoConstInt(int i);
 llvm::Constant* DtoConstString(const char*);
+llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
 
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);

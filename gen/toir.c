@@ -168,29 +168,17 @@ elem* VarExp::toElem(IRState* p)
                 // this happens when the DMD frontend generates by pointer wrappers for struct opEquals(S) and opCmp(S)
                 vd->llvmValue = &p->func().func->getArgumentList().back();
             }
-            if (vd->isRef() || vd->isOut()) {
+            if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->llvmValue)) {
                 e->mem = vd->llvmValue;
                 e->type = elem::VAR;
+                e->vardecl = vd;
             }
-            else {
-                if (DtoIsPassedByRef(vd->type)) {
-                    e->mem = vd->llvmValue;
-                    e->type = elem::VAR;
-                }
-                else {
-                    if (llvm::isa<llvm::Argument>(vd->llvmValue)) {
-                        e->val = vd->llvmValue;
-                        e->type = elem::VAL;
-                        e->vardecl = vd;
-                    }
-                    else if (llvm::isa<llvm::AllocaInst>(vd->llvmValue)) {
-                        e->mem = vd->llvmValue;
-                        e->type = elem::VAR;
-                    }
-                    else
-                    assert(0);
-                }
+            else if (llvm::isa<llvm::Argument>(vd->llvmValue)) {
+                e->val = vd->llvmValue;
+                e->type = elem::VAL;
+                e->vardecl = vd;
             }
+            else assert(0);
         }
         else {
             // take care of forward references of global variables
@@ -463,18 +451,6 @@ elem* AssignExp::toElem(IRState* p)
         return 0;
     }
 
-    // handle function argument - allocate temp storage for it :/ annoying
-    if (l->mem == 0) {
-        assert(l->val);
-        if (llvm::isa<llvm::Argument>(l->val))
-            DtoGiveArgumentStorage(l);
-        else {
-            Logger::cout() << "here it comes... " << *l->val << '\n';
-            assert(0);
-        }
-    }
-    //e->val = l->store(r->getValue());
-
     Type* e1type = DtoDType(e1->type);
     Type* e2type = DtoDType(e2->type);
     TY e1ty = e1type->ty;
@@ -689,8 +665,7 @@ elem* AddAssignExp::toElem(IRState* p)
         tmp = DtoPointedType(storeVal, tmp);
     }*/
 
-    if (l->mem == 0)
-        DtoGiveArgumentStorage(l);
+    assert(l->mem);
     new llvm::StoreInst(val,l->mem,p->scopebb());
     e->type = elem::VAR;
 
@@ -762,8 +737,7 @@ elem* MinAssignExp::toElem(IRState* p)
         tmp = DtoPointedType(storeVal, tmp);
     }*/
 
-    if (l->mem == 0)
-        DtoGiveArgumentStorage(l);
+    assert(l->mem);
     new llvm::StoreInst(tmp, l->mem, p->scopebb());
 
     delete l;
@@ -814,8 +788,7 @@ elem* MulAssignExp::toElem(IRState* p)
         tmp = DtoPointedType(storeVal, tmp);
     }*/
 
-    if (l->mem == 0)
-        DtoGiveArgumentStorage(l);
+    assert(l->mem);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
@@ -881,8 +854,7 @@ elem* DivAssignExp::toElem(IRState* p)
         tmp = DtoPointedType(storeVal, tmp);
     }*/
 
-    if (l->mem == 0)
-        DtoGiveArgumentStorage(l);
+    assert(l->mem);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
@@ -948,8 +920,7 @@ elem* ModAssignExp::toElem(IRState* p)
         tmp = DtoPointedType(storeVal, tmp);
     }*/
 
-    if (l->mem == 0)
-        DtoGiveArgumentStorage(l);
+    assert(l->mem);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
@@ -1020,7 +991,7 @@ elem* CallExp::toElem(IRState* p)
             va_magic = true;
         }
         else if (fn->funcdecl->llvmInternal == LLVMva_arg) {
-            Argument* fnarg = Argument::getNth(tf->parameters, 0);
+            //Argument* fnarg = Argument::getNth(tf->parameters, 0);
             Expression* exp = (Expression*)arguments->data[0];
             elem* expelem = exp->toElem(p);
             assert(expelem->mem);
@@ -2158,8 +2129,7 @@ elem* PostExp::toElem(IRState* p)
     else
     assert(post);
 
-    if (l->mem == 0)
-        DtoGiveArgumentStorage(l);
+    assert(l->mem);
     new llvm::StoreInst(post,l->mem,p->scopebb());
 
     delete l;
@@ -2503,8 +2473,7 @@ elem* X##AssignExp::toElem(IRState* p) \
     llvm::Value* vval = v->getValue(); \
     assert(vval); \
     llvm::Value* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
-    if (u->mem == 0) \
-        DtoGiveArgumentStorage(u); \
+    assert(u->mem); \
     Logger::cout() << *tmp << '|' << *u->mem << '\n'; \
     new llvm::StoreInst(DtoPointedType(u->mem, tmp), u->mem, p->scopebb()); \
     delete u; \

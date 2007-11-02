@@ -38,6 +38,7 @@ IRState::IRState()
     emitMain = false;
     mainFunc = 0;
     ir.state = this;
+    dwarfCompileUnit = 0;
 }
 
 IRFunction& IRState::func()

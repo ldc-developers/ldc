@@ -78,6 +78,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     llvmNested = NULL;
     llvmArguments = NULL;
     llvmArgPtr = NULL;
+    llvmDwarfSubProgram = NULL;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

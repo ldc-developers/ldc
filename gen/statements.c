@@ -22,6 +22,7 @@
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "gen/arrays.h"
+#include "gen/todebug.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -63,6 +64,8 @@ void ReturnStatement::toIR(IRState* p)
             TypeFunction* f = p->topfunctype();
             assert(f->llvmRetInPtr && f->llvmRetArg);
 
+            if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
+
             p->exps.push_back(IRExp(NULL,exp,f->llvmRetArg));
             elem* e = exp->toElem(p);
             p->exps.pop_back();
@@ -93,14 +96,17 @@ void ReturnStatement::toIR(IRState* p)
             assert(0);
 
             IRFunction::FinallyVec& fin = p->func().finallys;
-            if (fin.empty())
+            if (fin.empty()) {
+                if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
                 new llvm::ReturnInst(p->scopebb());
+            }
             else {
                 new llvm::BranchInst(fin.back().retbb, p->scopebb());
             }
             delete e;
         }
         else {
+            if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
             elem* e = exp->toElem(p);
             llvm::Value* v = e->getValue();
             delete e;
@@ -108,6 +114,7 @@ void ReturnStatement::toIR(IRState* p)
 
             IRFunction::FinallyVec& fin = p->func().finallys;
             if (fin.empty()) {
+                if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
                 new llvm::ReturnInst(v, p->scopebb());
             }
             else {
@@ -124,6 +131,7 @@ void ReturnStatement::toIR(IRState* p)
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
             IRFunction::FinallyVec& fin = p->func().finallys;
             if (fin.empty()) {
+                if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
                 new llvm::ReturnInst(p->scopebb());
             }
             else {
@@ -144,6 +152,9 @@ void ExpStatement::toIR(IRState* p)
     static int esi = 0;
     Logger::println("ExpStatement::toIR(%d): %s", esi++, toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     if (exp != 0) {
         elem* e = exp->toElem(p);
@@ -473,6 +484,7 @@ void TryFinallyStatement::toIR(IRState* p)
     // no outer
     else
     {
+        if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
         llvm::Value* retval = p->func().finallyretval;
         if (retval) {
             retval = p->ir->CreateLoad(retval,"tmp");
