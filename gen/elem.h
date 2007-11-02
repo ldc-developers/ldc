@@ -33,6 +33,7 @@ public:
     unsigned callconv;
     bool isthis;
     bool istypeinfo;
+    bool temp;
 
     VarDeclaration* vardecl;
     FuncDeclaration* funcdecl;

@@ -1196,6 +1196,9 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
                     allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
                     DtoSetArray(allocaInst, arg->arg, arg->mem);
                 }
+                else if (arg->temp) {
+                    allocaInst = arg->mem;
+                }
                 else {
                     allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
                     DtoArrayAssign(allocaInst,arg->mem);
@@ -1204,7 +1207,6 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
             else
             assert(0);
 
-            assert(allocaInst != 0);
             retval = allocaInst;
         }
     }

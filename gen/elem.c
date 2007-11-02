@@ -20,6 +20,7 @@ elem::elem()
     callconv = (unsigned)-1;
     isthis = false;
     istypeinfo = false;
+    temp = false;
 
     vardecl = 0;
     funcdecl = 0;

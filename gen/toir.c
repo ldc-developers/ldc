@@ -362,9 +362,10 @@ elem* StringExp::toElem(IRState* p)
     if (dtype->ty == Tarray) {
         llvm::Constant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
         if (!p->topexp() || p->topexp()->e2 != this) {
-            llvm::Value* tmpmem = new llvm::AllocaInst(DtoType(dtype),"tmp",p->topallocapoint());
+            llvm::Value* tmpmem = new llvm::AllocaInst(DtoType(dtype),"tempstring",p->topallocapoint());
             DtoSetArray(tmpmem, clen, arrptr);
             e->mem = tmpmem;
+            e->temp = true;
         }
         else if (p->topexp()->e2 == this) {
             llvm::Value* arr = p->topexp()->v;
