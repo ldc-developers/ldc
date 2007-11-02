@@ -598,7 +598,7 @@ void VarDeclaration::toObjFile()
         llvmValue = gvar;
 
         // if extern don't emit initializer
-        if (!(storage_class & STCextern))
+        if (!(storage_class & STCextern) && getModule() == gIR->dmodule)
         {
             _init = DtoConstInitializer(t, init);
 
