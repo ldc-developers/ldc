@@ -890,17 +890,22 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoInitializer(Initializer* init)
+elem* DtoInitializer(Initializer* init)
 {
     if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("expression initializer");
-        elem* e = ex->exp->toElem(gIR);
-        delete e;
+        return ex->exp->toElem(gIR);
+    }
+    else if (init->isVoidInitializer())
+    {
+        // do nothing
     }
     else {
         Logger::println("unsupported initializer: %s", init->toChars());
+        assert(0);
     }
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1459,4 +1464,16 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
     assert(os % llt_sz == 0);
     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
     return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool DtoIsTemplateInstance(Dsymbol* s)
+{
+    assert(s);
+    if (s->isTemplateInstance() && !s->isTemplateMixin())
+        return true;
+    else if (s->parent)
+        return DtoIsTemplateInstance(s->parent);
+    return false;
 }

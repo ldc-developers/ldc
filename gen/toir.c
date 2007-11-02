@@ -64,7 +64,8 @@ elem* DeclarationExp::toElem(IRState* p)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->llvmValue = allocainst;
             }
-            DtoInitializer(vd->init);
+            elem* ie = DtoInitializer(vd->init);
+            delete ie;
         }
     }
     // struct declaration

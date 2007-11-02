@@ -569,16 +569,29 @@ void VarDeclaration::toObjFile()
     LOG_SCOPE;
     llvm::Module* M = gIR->module;
 
+    if (aliassym)
+    {
+        toAlias()->toObjFile();
+        return;
+    }
+
     // global variable or magic
-    if (isDataseg() || parent->isModule())
+    if (isDataseg())
     {
         if (llvmTouched) return;
         else llvmTouched = true;
 
-        bool _isconst = isConst();
+        bool _isconst = false;
+        if (isConst() && (init && !init->isExpInitializer()))
+            _isconst = true;
 
         llvm::GlobalValue::LinkageTypes _linkage;
-        if (parent && parent->isFuncDeclaration())
+        bool istempl = false;
+        if ((storage_class & STCcomdat) || (parent && DtoIsTemplateInstance(parent))) {
+            _linkage = llvm::GlobalValue::WeakLinkage;
+            istempl = true;
+        }
+        else if (parent && parent->isFuncDeclaration())
             _linkage = llvm::GlobalValue::InternalLinkage;
         else
             _linkage = DtoLinkage(protection, storage_class);
@@ -597,10 +610,33 @@ void VarDeclaration::toObjFile()
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,0,_name,M);
         llvmValue = gvar;
 
-        // if extern don't emit initializer
-        if (!(storage_class & STCextern) && getModule() == gIR->dmodule)
+        if (!(storage_class & STCextern) && (getModule() == gIR->dmodule || istempl))
         {
-            _init = DtoConstInitializer(t, init);
+            if (parent && parent->isFuncDeclaration() && init && init->isExpInitializer()) {
+                _init = DtoConstInitializer(t, NULL);
+                // create a flag to make sure initialization only happens once
+                llvm::GlobalValue::LinkageTypes gflaglink = istempl ? llvm::GlobalValue::WeakLinkage : llvm::GlobalValue::InternalLinkage;
+                std::string gflagname(_name);
+                gflagname.append("__initflag");
+                llvm::GlobalVariable* gflag = new llvm::GlobalVariable(llvm::Type::Int1Ty,false,gflaglink,DtoConstBool(false),gflagname,M);
+
+                // check flag and do init if not already done
+                llvm::BasicBlock* oldend = gIR->scopeend();
+                llvm::BasicBlock* initbb = new llvm::BasicBlock("ifnotinit",gIR->topfunc(),oldend);
+                llvm::BasicBlock* endinitbb = new llvm::BasicBlock("ifnotinitend",gIR->topfunc(),oldend);
+                llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
+                gIR->ir->CreateCondBr(cond, initbb, endinitbb);
+                gIR->scope() = IRScope(initbb,endinitbb);
+                elem* ie = DtoInitializer(init);
+                if (!ie->inplace)
+                    DtoAssign(t, gvar, ie->getValue());
+                gIR->ir->CreateStore(DtoConstBool(true), gflag);
+                gIR->ir->CreateBr(endinitbb);
+                gIR->scope() = IRScope(endinitbb,oldend);
+            }
+            else {
+                _init = DtoConstInitializer(t, init);
+            }
 
             //Logger::cout() << "initializer: " << *_init << '\n';
             if (_type != _init->getType()) {
@@ -765,8 +801,14 @@ void FuncDeclaration::toObjFile()
     assert(f->llvmType);
     const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 
+    // template instances should have weak linkage
+    assert(parent);
+    if (DtoIsTemplateInstance(parent)) {
+        func->setLinkage(llvm::GlobalValue::WeakLinkage);
+    }
+
     // only members of the current module maybe be defined
-    if (getModule() == gIR->dmodule || parent->isTemplateInstance())
+    if (getModule() == gIR->dmodule || DtoIsTemplateInstance(parent))
     {
         llvmDModule = gIR->dmodule;
 
@@ -838,7 +880,9 @@ void FuncDeclaration::toObjFile()
                         gIR->ir->CreateStore(a,v);
                         vd->llvmValue = v;
                     }
-                    else assert(0);
+                    else {
+                        Logger::println("*** ATTENTION: some unknown argument: %s", arg ? arg->toChars() : 0);
+                    }
                 }
 
                 // debug info
@@ -940,11 +984,6 @@ void FuncDeclaration::toObjFile()
             }
 
             gIR->functions.pop_back();
-        }
-
-        // template instances should have weak linkage
-        if (parent->isTemplateInstance()) {
-            func->setLinkage(llvm::GlobalValue::WeakLinkage);
         }
     }
 }

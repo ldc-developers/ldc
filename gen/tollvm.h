@@ -34,7 +34,7 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
 
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
-void DtoInitializer(Initializer* init);
+elem* DtoInitializer(Initializer* init);
 
 llvm::Function* LLVM_DeclareMemSet32();
 llvm::Function* LLVM_DeclareMemSet64();
@@ -67,5 +67,7 @@ llvm::Constant* DtoConstBool(bool);
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
 
 llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
+
+bool DtoIsTemplateInstance(Dsymbol* s);
 
 #include "enums.h"
