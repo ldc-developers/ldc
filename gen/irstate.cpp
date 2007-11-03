@@ -164,7 +164,7 @@ IRExp::IRExp()
     v = NULL;
 }
 
-IRExp::IRExp(Expression* l, Expression* r, llvm::Value* val)
+IRExp::IRExp(Expression* l, Expression* r, DValue* val)
 {
     e1 = l;
     e2 = r;

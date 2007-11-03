@@ -37,6 +37,7 @@
 #include "gen/tollvm.h"
 #include "gen/arrays.h"
 #include "gen/todebug.h"
+#include "gen/runtime.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -628,8 +629,11 @@ void VarDeclaration::toObjFile()
                 gIR->ir->CreateCondBr(cond, initbb, endinitbb);
                 gIR->scope() = IRScope(initbb,endinitbb);
                 elem* ie = DtoInitializer(init);
-                if (!ie->inplace)
-                    DtoAssign(t, gvar, ie->getValue());
+                if (!ie->inPlace()) {
+                    DValue* dst = new DVarValue(t, gvar, true);
+                    DtoAssign(dst, ie);
+                    delete dst;
+                }
                 gIR->ir->CreateStore(DtoConstBool(true), gflag);
                 gIR->ir->CreateBr(endinitbb);
                 gIR->scope() = IRScope(endinitbb,oldend);
@@ -754,6 +758,13 @@ void FuncDeclaration::toObjFile()
         return;
     }
 
+    if (llvmRunTimeHack) {
+        Logger::println("runtime hack func chars: %s", toChars());
+        if (!llvmValue)
+            llvmValue = LLVM_D_GetRuntimeFunction(gIR->module, toChars());
+        return;
+    }
+
     if (isUnitTestDeclaration()) {
         Logger::println("*** ATTENTION: ignoring unittest declaration: %s", toChars());
         return;
@@ -763,6 +774,8 @@ void FuncDeclaration::toObjFile()
     TypeFunction* f = (TypeFunction*)t;
 
     bool declareOnly = false;
+    if (parent)
+    {
     if (TemplateInstance* tinst = parent->isTemplateInstance()) {
         TemplateDeclaration* tempdecl = tinst->tempdecl;
         if (tempdecl->llvmInternal == LLVMva_start)
@@ -777,6 +790,7 @@ void FuncDeclaration::toObjFile()
             llvmInternal = LLVMva_arg;
             return;
         }
+    }
     }
 
     llvm::Function* func = DtoDeclareFunction(this);
@@ -802,8 +816,7 @@ void FuncDeclaration::toObjFile()
     const llvm::FunctionType* functype = llvm::cast<llvm::FunctionType>(llvmValue->getType()->getContainedType(0));
 
     // template instances should have weak linkage
-    assert(parent);
-    if (DtoIsTemplateInstance(parent)) {
+    if (parent && DtoIsTemplateInstance(parent)) {
         func->setLinkage(llvm::GlobalValue::WeakLinkage);
     }
 

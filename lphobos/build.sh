@@ -12,7 +12,7 @@ echo "compiling common runtime"
 rebuild internal/arrays.d \
         internal/mem.d \
         internal/moduleinit.d \
-        -c -oqobj -dc=llvmdc-posix || exit 1
+        -c -oqobj -dc=llvmdc-posix -explicit || exit 1
 
 echo "compiling module init backend"
 llvm-as -f -o=obj/moduleinit_backend.bc internal/moduleinit_backend.ll || exit 1
@@ -30,18 +30,21 @@ echo "compiling typeinfo 2"
 rebuild typeinfos2.d -c -oqobj -dc=llvmdc-posix || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo2.*.bc` ../lib/llvmdcore.bc || exit 1
 
+echo "compiling string foreach runtime support"
+llvmdc internal/aApply.d -c -odobj || exit 1
+llvmdc internal/aApplyR.d -c -odobj || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/aApply.bc obj/aApplyR.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling llvm runtime support"
 rebuild llvmsupport.d -c -oqobj -dc=llvmdc-posix || exit
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || exit 1
 
+echo "compiling phobos"
+rebuild phobos.d -c -oqobj -dc=llvmdc-posix || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc `ls obj/std.*.bc` ../lib/llvmdcore.bc || exit 1
+
 echo "optimizing"
 opt -f -std-compile-opts -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc || exit 1
 
-# build phobos
-echo "compiling phobos"
-rebuild phobos.d -c -oqobj -dc=llvmdc-posix || exit 1
-llvm-link -f -o=../lib/lphobos.bc `ls obj/std.*.bc` || exit 1
-opt -f -std-compile-opts -o=../lib/lphobos.bc ../lib/lphobos.bc || exit 1
 
 echo "SUCCESS"

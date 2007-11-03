@@ -527,6 +527,7 @@ struct FuncDeclaration : Declaration
     llvm::Value* llvmArguments;
     llvm::Value* llvmArgPtr;
     llvm::Constant* llvmDwarfSubProgram;
+    bool llvmRunTimeHack;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

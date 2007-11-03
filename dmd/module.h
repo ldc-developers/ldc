@@ -26,10 +26,15 @@ struct Escape;
 struct VarDeclaration;
 
 // Back end
-#if IN_GCC
+#if IN_LLVM
+struct DValue;
+typedef DValue elem;
+#else
+#ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
 #else
 struct elem;
+#endif
 #endif
 
 struct Package : ScopeDsymbol

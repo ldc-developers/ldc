@@ -1135,6 +1135,12 @@ class Exception : Object
     this.msg = msg;
     }
 
+    void print()
+    {
+    char[] s = toString();
+    printf("%.*s\n", s.length, s.ptr);
+    }
+
     char[] toString() { return msg; }
 }
 

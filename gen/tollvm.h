@@ -1,6 +1,10 @@
+#ifndef LLVMDC_GEN_TOLLVM_H
+#define LLVMDC_GEN_TOLLVM_H
+
 // D -> LLVM helpers
 
 struct StructInitializer;
+struct DValue;
 
 const llvm::Type* DtoType(Type* t);
 bool DtoIsPassedByRef(Type* type);
@@ -55,8 +59,6 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
 
 llvm::Value* DtoNestedVariable(VarDeclaration* vd);
 
-void DtoAssign(Type* lhsType, llvm::Value* lhs, llvm::Value* rhs);
-
 llvm::ConstantInt* DtoConstSize_t(size_t);
 llvm::ConstantInt* DtoConstUint(unsigned i);
 llvm::ConstantInt* DtoConstInt(int i);
@@ -64,10 +66,27 @@ llvm::Constant* DtoConstString(const char*);
 llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
 
-void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
-
 llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
 
 bool DtoIsTemplateInstance(Dsymbol* s);
 
+// llvm wrappers
+void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
+bool DtoCanLoad(llvm::Value* ptr);
+llvm::Value* DtoLoad(llvm::Value* src);
+void DtoStore(llvm::Value* src, llvm::Value* dst);
+llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t);
+
+// basic operations
+void DtoAssign(DValue* lhs, DValue* rhs);
+
+// binary operations
+DValue* DtoBinAdd(DValue* lhs, DValue* rhs);
+DValue* DtoBinSub(DValue* lhs, DValue* rhs);
+DValue* DtoBinMul(DValue* lhs, DValue* rhs);
+DValue* DtoBinDiv(DValue* lhs, DValue* rhs);
+DValue* DtoBinRem(DValue* lhs, DValue* rhs);
+
 #include "enums.h"
+
+#endif // LLVMDC_GEN_TOLLVM_H

@@ -101,9 +101,9 @@ struct IRExp
 {
     Expression* e1;
     Expression* e2;
-    llvm::Value* v;
+    DValue* v;
     IRExp();
-    IRExp(Expression* l, Expression* r, llvm::Value* val);
+    IRExp(Expression* l, Expression* r, DValue* val);
 };
 
 // represents the module
@@ -158,7 +158,7 @@ struct IRState
     // might be a better way but it works. problem is I only get a
     // VarDeclaration for __dollar, but I can't see how to get the
     // array pointer from this :(
-    std::vector<llvm::Value*> arrays;
+    std::vector<DValue*> arrays;
 
     // builder helper
     IRBuilderHelper ir;

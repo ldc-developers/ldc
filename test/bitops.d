@@ -19,7 +19,7 @@ void main()
         assert((s>>1) == -5);
         assert((s>>>1) != -5);
     }
-    
+
     {   ushort a = 0xFFF0;
         ushort b = 0x0FFF;
         auto t = a;
@@ -70,6 +70,6 @@ void main()
         s.i &= s.l;
         assert(s.i == 0x00FF_FF00);
     }
-        
+
     printf("  SUCCESS\n");
 }

@@ -28,13 +28,14 @@
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 
+#include "gen/dvalue.h"
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DeclarationExp::toElem(IRState* p)
+DValue* DeclarationExp::toElem(IRState* p)
 {
     Logger::print("DeclarationExp::toElem: %s | T=%s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
 
     // variable declaration
     if (VarDeclaration* vd = declaration->isVarDeclaration())
@@ -64,9 +65,11 @@ elem* DeclarationExp::toElem(IRState* p)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->llvmValue = allocainst;
             }
-            elem* ie = DtoInitializer(vd->init);
+            DValue* ie = DtoInitializer(vd->init);
             delete ie;
         }
+
+        return new DVarValue(vd, vd->llvmValue, true);
     }
     // struct declaration
     else if (StructDeclaration* s = declaration->isStructDeclaration())
@@ -97,17 +100,15 @@ elem* DeclarationExp::toElem(IRState* p)
         error("Only Var/Struct-Declaration is supported for DeclarationExp");
         assert(0);
     }
-    return e;
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* VarExp::toElem(IRState* p)
+DValue* VarExp::toElem(IRState* p)
 {
     Logger::print("VarExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-
-    elem* e = new elem;
 
     assert(var);
     if (VarDeclaration* vd = var->isVarDeclaration())
@@ -118,28 +119,27 @@ elem* VarExp::toElem(IRState* p)
         if (vd->ident == Id::_arguments)
         {
             Logger::println("Id::_arguments");
-            vd->llvmValue = p->func().decl->llvmArguments;
+            if (!vd->llvmValue)
+                vd->llvmValue = p->func().decl->llvmArguments;
             assert(vd->llvmValue);
-            e->mem = vd->llvmValue;
-            e->type = elem::VAR;
+            return new DVarValue(vd, vd->llvmValue, true);
         }
         // _argptr
         else if (vd->ident == Id::_argptr)
         {
             Logger::println("Id::_argptr");
-            vd->llvmValue = p->func().decl->llvmArgPtr;
+            if (!vd->llvmValue)
+                vd->llvmValue = p->func().decl->llvmArgPtr;
             assert(vd->llvmValue);
-            e->mem = vd->llvmValue;
-            e->type = elem::VAR;
+            return new DVarValue(vd, vd->llvmValue, true);
         }
         // _dollar
         else if (vd->ident == Id::dollar)
         {
             Logger::println("Id::dollar");
             assert(!p->arrays.empty());
-            llvm::Value* tmp = DtoGEPi(p->arrays.back(),0,0,"tmp",p->scopebb());
-            e->val = new llvm::LoadInst(tmp,"tmp",p->scopebb());
-            e->type = elem::VAL;
+            llvm::Value* tmp = DtoArrayLen(p->arrays.back());
+            return new DVarValue(vd, tmp, false);
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
@@ -148,18 +148,17 @@ elem* VarExp::toElem(IRState* p)
             tid->toObjFile();
             assert(tid->llvmValue);
             const llvm::Type* vartype = DtoType(type);
+            llvm::Value* m;
             if (tid->llvmValue->getType() != llvm::PointerType::get(vartype))
-                e->mem = p->ir->CreateBitCast(tid->llvmValue, vartype, "tmp");
+                m = p->ir->CreateBitCast(tid->llvmValue, vartype, "tmp");
             else
-                e->mem = tid->llvmValue;
-            e->type = elem::VAR;
+                m = tid->llvmValue;
+            return new DVarValue(vd, m, true);
         }
         // nested variable
         else if (vd->nestedref) {
             Logger::println("nested variable");
-            e->mem = DtoNestedVariable(vd);
-            e->type = elem::VAR;
-            e->vardecl = vd;
+            return new DVarValue(vd, DtoNestedVariable(vd), true);
         }
         // function parameter
         else if (vd->isParameter()) {
@@ -170,14 +169,10 @@ elem* VarExp::toElem(IRState* p)
                 vd->llvmValue = &p->func().func->getArgumentList().back();
             }
             if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->llvmValue)) {
-                e->mem = vd->llvmValue;
-                e->type = elem::VAR;
-                e->vardecl = vd;
+                return new DVarValue(vd, vd->llvmValue, true);
             }
             else if (llvm::isa<llvm::Argument>(vd->llvmValue)) {
-                e->val = vd->llvmValue;
-                e->type = elem::VAL;
-                e->vardecl = vd;
+                return new DImValue(type, vd->llvmValue);
             }
             else assert(0);
         }
@@ -186,21 +181,15 @@ elem* VarExp::toElem(IRState* p)
             if (!vd->llvmTouched && vd->isDataseg())
                 vd->toObjFile();
             assert(vd->llvmValue);
-            e->mem = vd->llvmValue;
-            e->vardecl = vd;
-            e->type = elem::VAR;
+            return new DVarValue(vd, vd->llvmValue, true);
         }
-
-        assert(e->mem || e->val);
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        if (fdecl->llvmInternal != LLVMva_arg && fdecl->llvmValue == 0)
+        if (fdecl->llvmInternal != LLVMva_arg)// && fdecl->llvmValue == 0)
             fdecl->toObjFile();
-        e->val = fdecl->llvmValue;
-        e->type = elem::FUNC;
-        e->funcdecl = fdecl;
+        return new DFuncValue(fdecl, fdecl->llvmValue);
     }
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
@@ -209,16 +198,15 @@ elem* VarExp::toElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
-        e->mem = ts->llvmInit;
-        assert(e->mem);
-        e->type = elem::VAR;
+        assert(ts->llvmInit);
+        return new DVarValue(type, ts->llvmInit, true);
     }
     else
     {
         assert(0 && "Unimplemented VarExp type");
     }
 
-    return e;
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -243,14 +231,12 @@ llvm::Constant* VarExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* IntegerExp::toElem(IRState* p)
+DValue* IntegerExp::toElem(IRState* p)
 {
     Logger::print("IntegerExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    e->val = toConstElem(p);
-    e->type = elem::CONST;
-    return e;
+    llvm::Constant* c = toConstElem(p);
+    return new DConstValue(type, c);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -273,14 +259,12 @@ llvm::Constant* IntegerExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* RealExp::toElem(IRState* p)
+DValue* RealExp::toElem(IRState* p)
 {
     Logger::print("RealExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    e->val = toConstElem(p);
-    e->type = elem::CONST;
-    return e;
+    llvm::Constant* c = toConstElem(p);
+    return new DConstValue(type, c);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -301,15 +285,12 @@ llvm::Constant* RealExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* NullExp::toElem(IRState* p)
+DValue* NullExp::toElem(IRState* p)
 {
     Logger::print("NullExp::toElem(type=%s): %s\n", type->toChars(),toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    e->val = toConstElem(p);
-    e->type = elem::NUL;
-    //Logger::cout() << "null value is now " << *e->val << '\n';
-    return e;
+    llvm::Constant* c = toConstElem(p);
+    return new DNullValue(type, c);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -332,24 +313,44 @@ llvm::Constant* NullExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* StringExp::toElem(IRState* p)
+DValue* StringExp::toElem(IRState* p)
 {
     Logger::print("StringExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* dtype = DtoDType(type);
-
-    assert(dtype->next->ty == Tchar && "Only char is supported");
-    assert(sz == 1);
+    Type* cty = DtoDType(dtype->next);
 
     const llvm::Type* ct = DtoType(dtype->next);
     //printf("ct = %s\n", type->next->toChars());
     const llvm::ArrayType* at = llvm::ArrayType::get(ct,len+1);
 
-    uint8_t* str = (uint8_t*)string;
-    std::string cont((char*)str, len);
-
-    llvm::Constant* _init = llvm::ConstantArray::get(cont,true);
+    llvm::Constant* _init;
+    if (cty->ty == Tchar) {
+        uint8_t* str = (uint8_t*)string;
+        std::string cont((char*)str, len);
+        _init = llvm::ConstantArray::get(cont,true);
+    }
+    else if (cty->ty == Twchar) {
+        uint16_t* str = (uint16_t*)string;
+        std::vector<llvm::Constant*> vals;
+        for(size_t i=0; i<len; ++i) {
+            vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
+        }
+        vals.push_back(llvm::ConstantInt::get(ct, 0, false));
+        _init = llvm::ConstantArray::get(at,vals);
+    }
+    else if (cty->ty == Tdchar) {
+        uint32_t* str = (uint32_t*)string;
+        std::vector<llvm::Constant*> vals;
+        for(size_t i=0; i<len; ++i) {
+            vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
+        }
+        vals.push_back(llvm::ConstantInt::get(ct, 0, false));
+        _init = llvm::ConstantArray::get(at,vals);
+    }
+    else
+    assert(0);
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,"stringliteral",gIR->module);
@@ -358,39 +359,32 @@ elem* StringExp::toElem(IRState* p)
     llvm::Constant* idxs[2] = { zero, zero };
     llvm::Constant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 
-    elem* e = new elem;
-
     if (dtype->ty == Tarray) {
         llvm::Constant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
         if (!p->topexp() || p->topexp()->e2 != this) {
             llvm::Value* tmpmem = new llvm::AllocaInst(DtoType(dtype),"tempstring",p->topallocapoint());
             DtoSetArray(tmpmem, clen, arrptr);
-            e->mem = tmpmem;
-            e->temp = true;
+            return new DVarValue(type, tmpmem, true);
         }
         else if (p->topexp()->e2 == this) {
-            llvm::Value* arr = p->topexp()->v;
+            DValue* arr = p->topexp()->v;
             assert(arr);
-            DtoSetArray(arr, clen, arrptr);
-            e->inplace = true;
+            DtoSetArray(arr->getLVal(), clen, arrptr);
+            return new DImValue(type, arr->getLVal(), true);
         }
-        else
         assert(0);
     }
     else if (dtype->ty == Tsarray) {
         const llvm::Type* dstType = llvm::PointerType::get(llvm::ArrayType::get(ct, len));
-        e->mem = new llvm::BitCastInst(gvar, dstType, "tmp", gIR->scopebb());
+        llvm::Value* emem = (gvar->getType() == dstType) ? gvar : DtoBitCast(gvar, dstType);
+        return new DVarValue(type, emem, true);
     }
     else if (dtype->ty == Tpointer) {
-        e->mem = arrptr;
-    }
-    else {
-        assert(0);
+        return new DImValue(type, arrptr);
     }
 
-    e->type = elem::VAL;
-
-    return e;
+    assert(0);
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -432,20 +426,27 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* AssignExp::toElem(IRState* p)
+DValue* AssignExp::toElem(IRState* p)
 {
     Logger::print("AssignExp::toElem: %s | %s = %s\n", toChars(), e1->type->toChars(), e2->type ? e2->type->toChars() : 0);
     LOG_SCOPE;
 
     p->exps.push_back(IRExp(e1,e2,NULL));
 
-    elem* l = e1->toElem(p);
-    p->topexp()->v = l->mem;
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    p->topexp()->v = l;
+    DValue* r = e2->toElem(p);
 
     p->exps.pop_back();
 
-    if (l->type == elem::ARRAYLEN)
+    if (l->isArrayLen())
+        DtoResizeDynArray(l->getLVal(), r->getRVal());
+    else
+        DtoAssign(l, r);
+    return l;
+
+    /*
+    if (l->type == DValue::ARRAYLEN)
     {
         DtoResizeDynArray(l->mem, r->getValue());
         delete r;
@@ -458,8 +459,8 @@ elem* AssignExp::toElem(IRState* p)
     TY e1ty = e1type->ty;
     TY e2ty = e2type->ty;
 
-    elem* e = new elem;
-    e->type = elem::VAR;
+    DValue* e = new DValue(this);
+    e->type = DValue::VAR;
 
     // struct
     if (e1ty == Tstruct) {
@@ -489,20 +490,25 @@ elem* AssignExp::toElem(IRState* p)
     }
     else if (e1ty == Tarray) {
         if (e2type->isscalar() || e2type->ty == Tclass){
-            DtoArrayInit(l->mem, r->getValue());
+            if (l->type == DValue::SLICE) {
+                DtoArrayInit(l->mem, l->arg, r->getValue());
+            }
+            else {
+                DtoArrayInit(l->mem, r->getValue());
+            }
         }
         else if (e2ty == Tarray) {
             //new llvm::StoreInst(r->val,l->val,p->scopebb());
-            if (r->type == elem::NUL) {
+            if (r->type == DValue::NUL) {
                 llvm::Constant* c = llvm::cast<llvm::Constant>(r->val);
                 assert(c->isNullValue());
                 DtoNullArray(l->mem);
                 e->mem = l->mem;
             }
-            else if (r->type == elem::SLICE) {
-                if (l->type == elem::SLICE) {
+            else if (r->type == DValue::SLICE) {
+                if (l->type == DValue::SLICE) {
                     DtoArrayCopy(l,r);
-                    e->type = elem::SLICE;
+                    e->type = DValue::SLICE;
                     e->mem = l->mem;
                     e->arg = l->arg;
                 }
@@ -562,7 +568,7 @@ elem* AssignExp::toElem(IRState* p)
     else if (e1ty == Tdelegate) {
         Logger::println("Assigning to delegate");
         if (e2ty == Tdelegate) {
-            if (r->type == elem::NUL) {
+            if (r->type == DValue::NUL) {
                 llvm::Constant* c = llvm::cast<llvm::Constant>(r->val);
                 if (c->isNullValue()) {
                     DtoNullDelegate(l->mem);
@@ -595,17 +601,18 @@ elem* AssignExp::toElem(IRState* p)
     delete l;
 
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* AddExp::toElem(IRState* p)
+DValue* AddExp::toElem(IRState* p)
 {
     Logger::print("AddExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
 
     Type* t = DtoDType(type);
     Type* e1type = DtoDType(e1->type);
@@ -613,46 +620,54 @@ elem* AddExp::toElem(IRState* p)
 
     if (e1type != e2type) {
         if (e1type->ty == Tpointer && e1type->next->ty == Tstruct) {
-            //assert(l->field);
-            assert(r->type == elem::CONST);
-            llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->val);
+            assert(r->isConst());
+            llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
 
             TypeStruct* ts = (TypeStruct*)e1type->next;
             std::vector<unsigned> offsets;
-            e->mem = DtoIndexStruct(l->getValue(), ts->sym, t->next, cofs->getZExtValue(), offsets);
-            e->type = elem::VAR;
-            e->field = true;
+            llvm::Value* v = DtoIndexStruct(l->getRVal(), ts->sym, t->next, cofs->getZExtValue(), offsets);
+            return new DFieldValue(type, v, true);
         }
         else if (e1->type->ty == Tpointer) {
-            e->val = new llvm::GetElementPtrInst(l->getValue(), r->getValue(), "tmp", p->scopebb());
-            e->type = elem::VAR;
+            llvm::Value* v = new llvm::GetElementPtrInst(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
+            return new DImValue(type, v);
         }
-        else {
-            assert(0);
-        }
+        assert(0);
     }
     else {
-        e->val = llvm::BinaryOperator::createAdd(l->getValue(), r->getValue(), "tmp", p->scopebb());
-        e->type = elem::VAL;
+        return DtoBinAdd(l,r);
     }
-    delete l;
-    delete r;
-    return e;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* AddAssignExp::toElem(IRState* p)
+DValue* AddAssignExp::toElem(IRState* p)
 {
     Logger::print("AddAssignExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    p->exps.push_back(IRExp(e1,e2,NULL));
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+    p->exps.pop_back();
+
+    DValue* res;
+    if (DtoDType(e1->type)->ty == Tpointer) {
+        llvm::Value* gep = new llvm::GetElementPtrInst(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
+        res = new DImValue(type, gep);
+    }
+    else {
+        res = DtoBinAdd(l,r);
+    }
+    DtoAssign(l, res);
+
+    return l;
+
+    /*
 
     Type* e1type = DtoDType(e1->type);
 
-    elem* e = new elem;
+    DValue* e = new DValue(this);
     llvm::Value* val = 0;
     if (e1type->ty == Tpointer) {
         val = e->mem = new llvm::GetElementPtrInst(l->getValue(),r->getValue(),"tmp",p->scopebb());
@@ -661,31 +676,39 @@ elem* AddAssignExp::toElem(IRState* p)
         val = e->val = llvm::BinaryOperator::createAdd(l->getValue(),r->getValue(),"tmp",p->scopebb());
     }
 
-    /*llvm::Value* storeVal = l->storeVal ? l->storeVal : l->val;
-    if (llvm::isa<llvm::PointerType>(storeVal->getType()) && storeVal->getType()->getContainedType(0) != tmp->getType())
-    {
-        tmp = DtoPointedType(storeVal, tmp);
-    }*/
-
     assert(l->mem);
     new llvm::StoreInst(val,l->mem,p->scopebb());
-    e->type = elem::VAR;
+    e->type = DValue::VAR;
 
     delete l;
     delete r;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* MinExp::toElem(IRState* p)
+DValue* MinExp::toElem(IRState* p)
 {
     Logger::print("MinExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
 
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    if (DtoDType(e1->type)->ty == Tpointer) {
+        llvm::Value* left = p->ir->CreatePtrToInt(l->getRVal(), DtoSize_t(), "tmp");
+        llvm::Value* right = p->ir->CreatePtrToInt(r->getRVal(), DtoSize_t(), "tmp");
+        llvm::Value* diff = p->ir->CreateSub(left,right,"tmp");
+        if (diff->getType() != DtoType(type))
+            diff = p->ir->CreateIntToPtr(diff, DtoType(type));
+        return new DImValue(type, diff);
+    }
+    else {
+        return DtoBinSub(l,r);
+    }
+
+    /*
     llvm::Value* left = l->getValue();
     if (llvm::isa<llvm::PointerType>(left->getType()))
         left = new llvm::PtrToIntInst(left,DtoSize_t(),"tmp",p->scopebb());
@@ -695,7 +718,7 @@ elem* MinExp::toElem(IRState* p)
         right = new llvm::PtrToIntInst(right,DtoSize_t(),"tmp",p->scopebb());
 
     e->val = llvm::BinaryOperator::createSub(left,right,"tmp",p->scopebb());
-    e->type = elem::VAL;
+    e->type = DValue::VAL;
 
     const llvm::Type* totype = DtoType(type);
     if (e->val->getType() != totype) {
@@ -708,17 +731,35 @@ elem* MinExp::toElem(IRState* p)
     delete l;
     delete r;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* MinAssignExp::toElem(IRState* p)
+DValue* MinAssignExp::toElem(IRState* p)
 {
-    Logger::print("MinAssignExp::toElem: %s\n", toChars());
+    Logger::print("MinAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    DValue* res;
+    if (DtoDType(e1->type)->ty == Tpointer) {
+        llvm::Value* tmp = r->getRVal();
+        llvm::Value* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
+        tmp = llvm::BinaryOperator::createSub(zero,tmp,"tmp",p->scopebb());
+        tmp = new llvm::GetElementPtrInst(l->getRVal(),tmp,"tmp",p->scopebb());
+        res = new DImValue(type, tmp);
+    }
+    else {
+        res = DtoBinSub(l,r);
+    }
+    DtoAssign(l, res);
+
+    return l;
+
+    /*
 
     Type* e1type = DtoDType(e1->type);
 
@@ -733,62 +774,70 @@ elem* MinAssignExp::toElem(IRState* p)
         tmp = llvm::BinaryOperator::createSub(l->getValue(),r->getValue(),"tmp",p->scopebb());
     }
 
-    /*llvm::Value* storeVal = l->storeVal ? l->storeVal : l->val;
-    if (storeVal->getType()->getContainedType(0) != tmp->getType())
-    {
-        tmp = DtoPointedType(storeVal, tmp);
-    }*/
-
     assert(l->mem);
     new llvm::StoreInst(tmp, l->mem, p->scopebb());
 
     delete l;
     delete r;
 
-    elem* e = new elem;
+    DValue* e = new DValue(this);
     e->val = tmp;
-    e->type = elem::VAR;
+    e->type = DValue::VAR;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* MulExp::toElem(IRState* p)
+DValue* MulExp::toElem(IRState* p)
 {
     Logger::print("MulExp::toElem: %s\n", toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
-    llvm::Value* vl = l->getValue();
-    llvm::Value* vr = r->getValue();
-    Logger::cout() << "mul: " << *vl << ", " << *vr << '\n';
-    e->val = llvm::BinaryOperator::createMul(vl,vr,"tmp",p->scopebb());
-    e->type = elem::VAL;
+
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    return DtoBinMul(l,r);
+    /*
+    if (l->dvalue && r->dvalue) {
+        Logger::println("DVALUE PATH");
+        e->dvalue = DtoBinMul(l->dvalue, r->dvalue);
+        e->val = e->dvalue->getRVal();
+    }
+    else {
+        llvm::Value* vl = l->getValue();
+        llvm::Value* vr = r->getValue();
+        Logger::cout() << "mul: " << *vl << ", " << *vr << '\n';
+        e->val = llvm::BinaryOperator::createMul(vl,vr,"tmp",p->scopebb());
+        e->dvalue = new DImValue(type, e->val);
+    }
+    e->type = DValue::VAL;
     delete l;
     delete r;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* MulAssignExp::toElem(IRState* p)
+DValue* MulAssignExp::toElem(IRState* p)
 {
     Logger::print("MulAssignExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    DValue* res = DtoBinMul(l,r);
+    DtoAssign(l, res);
+
+    return l;
+
+    /*
     llvm::Value* vl = l->getValue();
     llvm::Value* vr = r->getValue();
     Logger::cout() << "mulassign: " << *vl << ", " << *vr << '\n';
     llvm::Value* tmp = llvm::BinaryOperator::createMul(vl,vr,"tmp",p->scopebb());
-
-    /*llvm::Value* storeVal = l->storeVal ? l->storeVal : l->val;
-    if (storeVal->getType()->getContainedType(0) != tmp->getType())
-    {
-        tmp = DtoPointedType(storeVal, tmp);
-    }*/
 
     assert(l->mem);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
@@ -796,21 +845,25 @@ elem* MulAssignExp::toElem(IRState* p)
     delete l;
     delete r;
 
-    elem* e = new elem;
+    DValue* e = new DValue(this);
     e->val = tmp;
-    e->type = elem::VAR;
+    e->type = DValue::VAR;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DivExp::toElem(IRState* p)
+DValue* DivExp::toElem(IRState* p)
 {
     Logger::print("DivExp::toElem: %s\n", toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    return DtoBinDiv(l, r);
+    /*
 
     Type* t = DtoDType(type);
 
@@ -822,21 +875,29 @@ elem* DivExp::toElem(IRState* p)
         e->val = llvm::BinaryOperator::createFDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
     else
         assert(0);
-    e->type = elem::VAL;
+    e->type = DValue::VAL;
     delete l;
     delete r;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DivAssignExp::toElem(IRState* p)
+DValue* DivAssignExp::toElem(IRState* p)
 {
     Logger::print("DivAssignExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    DValue* res = DtoBinDiv(l,r);
+    DtoAssign(l, res);
+
+    return l;
+
+    /*
 
     Type* t = DtoDType(type);
 
@@ -850,34 +911,31 @@ elem* DivAssignExp::toElem(IRState* p)
     else
         assert(0);
 
-    /*llvm::Value* storeVal = l->storeVal ? l->storeVal : l->val;
-    if (storeVal->getType()->getContainedType(0) != tmp->getType())
-    {
-        tmp = DtoPointedType(storeVal, tmp);
-    }*/
-
     assert(l->mem);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
     delete r;
 
-    elem* e = new elem;
+    DValue* e = new DValue(this);
     e->val = tmp;
-    e->type = elem::VAR;
+    e->type = DValue::VAR;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* ModExp::toElem(IRState* p)
+DValue* ModExp::toElem(IRState* p)
 {
     Logger::print("ModExp::toElem: %s\n", toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
 
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    return DtoBinRem(l, r);
+    /*
     Type* t = DtoDType(type);
 
     if (t->isunsigned())
@@ -888,21 +946,29 @@ elem* ModExp::toElem(IRState* p)
         e->val = llvm::BinaryOperator::createFRem(l->getValue(),r->getValue(),"tmp",p->scopebb());
     else
         assert(0);
-    e->type = elem::VAL;
+    e->type = DValue::VAL;
     delete l;
     delete r;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* ModAssignExp::toElem(IRState* p)
+DValue* ModAssignExp::toElem(IRState* p)
 {
     Logger::print("ModAssignExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+
+    DValue* res = DtoBinRem(l, r);
+    DtoAssign(l, res);
+
+    return l;
+
+    /*
 
     Type* t = DtoDType(type);
 
@@ -916,33 +982,27 @@ elem* ModAssignExp::toElem(IRState* p)
     else
         assert(0);
 
-    /*llvm::Value* storeVal = l->storeVal ? l->storeVal : l->val;
-    if (storeVal->getType()->getContainedType(0) != tmp->getType())
-    {
-        tmp = DtoPointedType(storeVal, tmp);
-    }*/
-
     assert(l->mem);
     new llvm::StoreInst(tmp,l->mem,p->scopebb());
 
     delete l;
     delete r;
 
-    elem* e = new elem;
+    DValue* e = new DValue(this);
     e->val = tmp;
-    e->type = elem::VAR;
+    e->type = DValue::VAR;
     return e;
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CallExp::toElem(IRState* p)
+DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-    elem* fn = e1->toElem(p);
+    DValue* fn = e1->toElem(p);
 
     TypeFunction* tf = 0;
     Type* e1type = DtoDType(e1->type);
@@ -984,41 +1044,39 @@ elem* CallExp::toElem(IRState* p)
     // va args
     bool va_magic = false;
     bool va_intrinsic = false;
-    if (fn->funcdecl) {
-        if (fn->funcdecl->llvmInternal == LLVMva_intrinsic) {
+    DFuncValue* dfv = fn->isFunc();
+    if (dfv && dfv->func) {
+        FuncDeclaration* fndecl = dfv->func;
+        if (fndecl->llvmInternal == LLVMva_intrinsic) {
             va_magic = true;
             va_intrinsic = true;
         }
-        else if (fn->funcdecl->llvmInternal == LLVMva_start) {
+        else if (fndecl->llvmInternal == LLVMva_start) {
             va_magic = true;
         }
-        else if (fn->funcdecl->llvmInternal == LLVMva_arg) {
+        else if (fndecl->llvmInternal == LLVMva_arg) {
             //Argument* fnarg = Argument::getNth(tf->parameters, 0);
             Expression* exp = (Expression*)arguments->data[0];
-            elem* expelem = exp->toElem(p);
-            assert(expelem->mem);
-            elem* e = new elem;
+            DValue* expelem = exp->toElem(p);
             Type* t = DtoDType(type);
             const llvm::Type* llt = DtoType(type);
             if (DtoIsPassedByRef(t))
                 llt = llvm::PointerType::get(llt);
-            e->type = elem::VAL;
-            e->val = p->ir->CreateVAArg(expelem->mem,llt,"tmp");
-            delete expelem;
-            return e;
+            return new DImValue(type, p->ir->CreateVAArg(expelem->getLVal(),llt,"tmp"));
         }
     }
 
     // args
     size_t n = arguments->dim;
-    if (fn->funcdecl && fn->funcdecl->llvmInternal == LLVMva_start)
+    DFuncValue* dfn = fn->isFunc();
+    if (dfn && dfn->func && dfn->func->llvmInternal == LLVMva_start)
         n = 1;
-    if (fn->arg || delegateCall) n++;
+    if (delegateCall || (dfn && dfn->vthis)) n++;
     if (retinptr) n++;
     if (tf->linkage == LINKd && tf->varargs == 1) n+=2;
-    if (fn->funcdecl && fn->funcdecl->isNested()) n++;
+    if (dfn && dfn->func && dfn->func->isNested()) n++;
 
-    llvm::Value* funcval = fn->getValue();
+    llvm::Value* funcval = fn->getRVal();
     assert(funcval != 0);
     std::vector<llvm::Value*> llargs(n, 0);
 
@@ -1064,14 +1122,17 @@ elem* CallExp::toElem(IRState* p)
 
     IRExp* topexp = p->topexp();
 
+    bool isInPlace = false;
+
     // hidden struct return arguments
     if (retinptr) {
         if (topexp && topexp->e2 == this) {
             assert(topexp->v);
-            assert(llvm::isa<llvm::StructType>(topexp->v->getType()->getContainedType(0)));
-            llargs[j] = topexp->v;
+            llvm::Value* tlv = topexp->v->getLVal();
+            assert(llvm::isa<llvm::StructType>(tlv->getType()->getContainedType(0)));
+            llargs[j] = tlv;
             if (DtoIsPassedByRef(tf->next)) {
-                e->inplace = true;
+                isInPlace = true;
             }
             else
             assert(0);
@@ -1081,21 +1142,17 @@ elem* CallExp::toElem(IRState* p)
         }
         ++j;
         ++argiter;
-        e->type = elem::VAR;
-    }
-    else {
-        e->type = elem::VAL;
     }
 
     // this arguments
-    if (fn->arg) {
+    if (dfn && dfn->vthis) {
         Logger::println("This Call");
-        if (fn->arg->getType() != argiter->get()) {
+        if (dfn->vthis->getType() != argiter->get()) {
             //Logger::cout() << *fn->thisparam << '|' << *argiter->get() << '\n';
-            llargs[j] = new llvm::BitCastInst(fn->arg, argiter->get(), "tmp", p->scopebb());
+            llargs[j] = new llvm::BitCastInst(dfn->vthis, argiter->get(), "tmp", p->scopebb());
         }
         else {
-            llargs[j] = fn->arg;
+            llargs[j] = dfn->vthis;
         }
         ++j;
         ++argiter;
@@ -1103,13 +1160,13 @@ elem* CallExp::toElem(IRState* p)
     // delegate context arguments
     else if (delegateCall) {
         Logger::println("Delegate Call");
-        llvm::Value* contextptr = DtoGEP(fn->mem,zero,zero,"tmp",p->scopebb());
+        llvm::Value* contextptr = DtoGEP(fn->getRVal(),zero,zero,"tmp",p->scopebb());
         llargs[j] = new llvm::LoadInst(contextptr,"tmp",p->scopebb());
         ++j;
         ++argiter;
     }
     // nested call
-    else if (fn->funcdecl && fn->funcdecl->isNested()) {
+    else if (dfn && dfn->func && dfn->func->isNested()) {
         Logger::println("Nested Call");
         llvm::Value* contextptr = p->func().decl->llvmNested;
         assert(contextptr);
@@ -1125,10 +1182,8 @@ elem* CallExp::toElem(IRState* p)
         {
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             Expression* exp = (Expression*)arguments->data[i];
-            elem* expelem = exp->toElem(p);
-            assert(expelem->mem);
-            llargs[j] = p->ir->CreateBitCast(expelem->mem, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
-            delete expelem;
+            DValue* expelem = exp->toElem(p);
+            llargs[j] = p->ir->CreateBitCast(expelem->getLVal(), llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
         }
     }
     // regular arguments
@@ -1185,9 +1240,15 @@ elem* CallExp::toElem(IRState* p)
             for (int i=0; i<arguments->dim; i++,j++) {
                 Argument* fnarg = Argument::getNth(tf->parameters, i);
                 llargs[j] = DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
+                // this hack is necessary :/
+                if (dfn && dfn->func && dfn->func->llvmRunTimeHack) {
+                    if (llargs[j]->getType() != llfnty->getParamType(j))
+                        llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
+                }
             }
             Logger::println("%d params passed", n);
             for (int i=0; i<n; ++i) {
+                assert(llargs[i]);
                 Logger::cout() << *llargs[i] << '\n';
             }
         }
@@ -1202,14 +1263,11 @@ elem* CallExp::toElem(IRState* p)
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
-    if (retinptr)
-        e->mem = llargs[0];
-    else
-        e->val = call;
+    llvm::Value* retllval = (retinptr) ? llargs[0] : call;
 
     // set calling convention
-    if (fn->funcdecl) {
-        int li = fn->funcdecl->llvmInternal;
+    if (dfn && dfn->func) {
+        int li = dfn->func->llvmInternal;
         if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic) {
             call->setCallingConv(DtoCallingConv(dlink));
         }
@@ -1217,22 +1275,22 @@ elem* CallExp::toElem(IRState* p)
     else if (delegateCall) {
         call->setCallingConv(DtoCallingConv(dlink));
     }
-    else if (fn->callconv != (unsigned)-1) {
-        call->setCallingConv(fn->callconv);
+    else if (dfn && dfn->cc != (unsigned)-1) {
+        call->setCallingConv(dfn->cc);
     }
 
-    delete fn;
-    return e;
+    return new DImValue(type, retllval, isInPlace);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CastExp::toElem(IRState* p)
+DValue* CastExp::toElem(IRState* p)
 {
     Logger::print("CastExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+
+    DValue* u = e1->toElem(p);
+
     const llvm::Type* tolltype = DtoType(to);
     Type* fromtype = DtoDType(e1->type);
     Type* totype = DtoDType(to);
@@ -1240,52 +1298,52 @@ elem* CastExp::toElem(IRState* p)
     int rsz = totype->size();
 
     // this makes sure the strange lvalue casts don't screw things up
-    e->mem = u->mem;
+    llvm::Value* rval = 0;
+    llvm::Value* rval2 = 0;
+    bool isslice = false;
 
     if (fromtype->isintegral()) {
         if (totype->isintegral()) {
             if (lsz < rsz) {
-                Logger::cout() << *tolltype << '\n';
+                Logger::cout() << "cast to: " << *tolltype << '\n';
                 if (fromtype->isunsigned() || fromtype->ty == Tbool) {
-                    e->val = new llvm::ZExtInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                    rval = new llvm::ZExtInst(u->getRVal(), tolltype, "tmp", p->scopebb());
                 } else {
-                    e->val = new llvm::SExtInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                    rval = new llvm::SExtInst(u->getRVal(), tolltype, "tmp", p->scopebb());
                 }
             }
             else if (lsz > rsz) {
-                e->val = new llvm::TruncInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::TruncInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
             else {
-                e->val = new llvm::BitCastInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::BitCastInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
         }
         else if (totype->isfloating()) {
             if (fromtype->isunsigned()) {
-                e->val = new llvm::UIToFPInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::UIToFPInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
             else {
-                e->val = new llvm::SIToFPInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::SIToFPInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
         }
         else if (totype->ty == Tpointer) {
-            e->val = p->ir->CreateIntToPtr(u->getValue(), tolltype, "tmp");
+            rval = p->ir->CreateIntToPtr(u->getRVal(), tolltype, "tmp");
         }
         else {
             assert(0);
         }
-        //e->storeVal = u->storeVal ? u->storeVal : u->val;
-        e->type = elem::VAL;
     }
     else if (fromtype->isfloating()) {
         if (totype->isfloating()) {
             if ((fromtype->ty == Tfloat80 || fromtype->ty == Tfloat64) && (totype->ty == Tfloat80 || totype->ty == Tfloat64)) {
-                e->val = u->getValue();
+                rval = u->getRVal();
             }
             else if (lsz < rsz) {
-                e->val = new llvm::FPExtInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::FPExtInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
             else if (lsz > rsz) {
-                e->val = new llvm::FPTruncInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::FPTruncInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
             else {
                 assert(0);
@@ -1293,21 +1351,19 @@ elem* CastExp::toElem(IRState* p)
         }
         else if (totype->isintegral()) {
             if (totype->isunsigned()) {
-                e->val = new llvm::FPToUIInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::FPToUIInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
             else {
-                e->val = new llvm::FPToSIInst(u->getValue(), tolltype, "tmp", p->scopebb());
+                rval = new llvm::FPToSIInst(u->getRVal(), tolltype, "tmp", p->scopebb());
             }
         }
         else {
             assert(0);
         }
-        e->type = elem::VAL;
     }
     else if (fromtype->ty == Tclass) {
         //assert(to->ty == Tclass);
-        e->val = new llvm::BitCastInst(u->getValue(), tolltype, "tmp", p->scopebb());
-        e->type = elem::VAL;
+        rval = new llvm::BitCastInst(u->getRVal(), tolltype, "tmp", p->scopebb());
     }
     else if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
         Logger::cout() << "from array or sarray" << '\n';
@@ -1316,11 +1372,10 @@ elem* CastExp::toElem(IRState* p)
             assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-            llvm::Value* ptr = DtoGEP(u->getValue(),zero,one,"tmp",p->scopebb());
-            e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
+            llvm::Value* ptr = DtoGEP(u->getRVal(),zero,one,"tmp",p->scopebb());
+            rval = new llvm::LoadInst(ptr, "tmp", p->scopebb());
             if (fromtype->next != totype->next)
-                e->val = p->ir->CreateBitCast(e->val, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
-            e->type = elem::VAL;
+                rval = p->ir->CreateBitCast(rval, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
         }
         else if (totype->ty == Tarray) {
             Logger::cout() << "to array" << '\n';
@@ -1333,37 +1388,37 @@ elem* CastExp::toElem(IRState* p)
             if (ety == llvm::Type::VoidTy)
                 ety = llvm::Type::Int8Ty;
 
-            if (u->type == elem::SLICE) {
-                e->mem = new llvm::BitCastInst(u->mem, ptrty, "tmp", p->scopebb());
+            if (DSliceValue* usl = u->isSlice()) {
+                rval = new llvm::BitCastInst(usl->ptr, ptrty, "tmp", p->scopebb());
                 if (fromtype->next->size() == totype->next->size())
-                    e->arg = u->arg;
+                    rval2 = usl->len;
                 else
-                    e->arg = DtoArrayCastLength(u->arg, ety, ptrty->getContainedType(0));
+                    rval2 = DtoArrayCastLength(usl->len, ety, ptrty->getContainedType(0));
             }
             else {
-                llvm::Value* uval = u->getValue();
+                llvm::Value* uval = u->getRVal();
                 if (fromtype->ty == Tsarray) {
                     Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
                     assert(llvm::isa<llvm::PointerType>(uval->getType()));
                     const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(uval->getType()->getContainedType(0));
-                    e->arg = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
-                    e->arg = DtoArrayCastLength(e->arg, ety, ptrty->getContainedType(0));
-                    e->mem = new llvm::BitCastInst(uval, ptrty, "tmp", p->scopebb());
+                    rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+                    rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+                    rval = new llvm::BitCastInst(uval, ptrty, "tmp", p->scopebb());
                 }
                 else {
                     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
                     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-                    e->arg = DtoGEP(uval,zero,zero,"tmp",p->scopebb());
-                    e->arg = new llvm::LoadInst(e->arg, "tmp", p->scopebb());
-                    e->arg = DtoArrayCastLength(e->arg, ety, ptrty->getContainedType(0));
+                    rval2 = DtoGEP(uval,zero,zero,"tmp",p->scopebb());
+                    rval2 = new llvm::LoadInst(rval2, "tmp", p->scopebb());
+                    rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
 
-                    e->mem = DtoGEP(uval,zero,one,"tmp",p->scopebb());
-                    e->mem = new llvm::LoadInst(e->mem, "tmp", p->scopebb());
+                    rval = DtoGEP(uval,zero,one,"tmp",p->scopebb());
+                    rval = new llvm::LoadInst(rval, "tmp", p->scopebb());
                     //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
-                    e->mem = new llvm::BitCastInst(e->mem, ptrty, "tmp", p->scopebb());
+                    rval = new llvm::BitCastInst(rval, ptrty, "tmp", p->scopebb());
                 }
             }
-            e->type = elem::SLICE;
+            isslice = true;
         }
         else if (totype->ty == Tsarray) {
             Logger::cout() << "to sarray" << '\n';
@@ -1375,40 +1430,56 @@ elem* CastExp::toElem(IRState* p)
     }
     else if (fromtype->ty == Tpointer) {
         if (totype->ty == Tpointer || totype->ty == Tclass) {
-            llvm::Value* src = u->getValue();
-            Logger::cout() << *src << '|' << *tolltype << '\n';
-            e->val = new llvm::BitCastInst(src, tolltype, "tmp", p->scopebb());
+            llvm::Value* src = u->getRVal();
+            Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
+            rval = new llvm::BitCastInst(src, tolltype, "tmp", p->scopebb());
         }
         else if (totype->isintegral()) {
-            e->val = new llvm::PtrToIntInst(u->getValue(), tolltype, "tmp", p->scopebb());
+            rval = new llvm::PtrToIntInst(u->getRVal(), tolltype, "tmp", p->scopebb());
         }
         else
         assert(0);
-        e->type = elem::VAL;
     }
     else {
         assert(0);
     }
-    delete u;
-    return e;
+
+    if (isslice) {
+        return new DSliceValue(type, rval2, rval);
+    }
+    else if (u->isLValueCast() || u->isVar()) {
+        return new DLValueCast(type, u->getLVal(), rval);
+    }
+    else if (p->topexp() && p->topexp()->e1 == this) {
+        llvm::Value* lval = u->getLVal();
+        Logger::cout() << "lval: " << *lval << "rval: " << *rval << '\n';
+        return new DLValueCast(type, lval, rval);
+    }
+    else {
+        Logger::cout() << "im rval: " << *rval << '\n';
+        return new DImValue(type, rval);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* SymOffExp::toElem(IRState* p)
+DValue* SymOffExp::toElem(IRState* p)
 {
     Logger::print("SymOffExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = 0;
+
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration");
         if (!vd->llvmTouched && vd->isDataseg())
             vd->toObjFile();
 
+        // TODO
+        /*
         if (vd->isTypedefDeclaration()) {
             e->istypeinfo = true;
         }
+        */
 
         assert(vd->llvmValue);
         Type* t = DtoDType(type);
@@ -1416,29 +1487,27 @@ elem* SymOffExp::toElem(IRState* p)
         Type* vdtype = DtoDType(vd->type);
 
         llvm::Value* llvalue = vd->nestedref ? DtoNestedVariable(vd) : vd->llvmValue;
+        llvm::Value* varmem = 0;
 
         if (vdtype->ty == Tstruct && !(t->ty == Tpointer && t->next == vdtype)) {
             Logger::println("struct");
             TypeStruct* vdt = (TypeStruct*)vdtype;
             assert(vdt->sym);
-            e = new elem;
+
             const llvm::Type* llt = DtoType(t);
             if (offset == 0) {
-                e->mem = p->ir->CreateBitCast(llvalue, llt, "tmp");
+                varmem = p->ir->CreateBitCast(llvalue, llt, "tmp");
             }
             else {
                 std::vector<unsigned> dst;
-                e->mem = DtoIndexStruct(llvalue,vdt->sym, tnext, offset, dst);
+                varmem = DtoIndexStruct(llvalue,vdt->sym, tnext, offset, dst);
             }
-            e->type = elem::VAL;
-            e->field = true;
         }
         else if (vdtype->ty == Tsarray) {
             Logger::println("sarray");
-            e = new elem;
+
             assert(llvalue);
-            e->arg = llvalue;
-            e->type = elem::VAL;
+            //e->arg = llvalue; // TODO
 
             const llvm::Type* llt = DtoType(t);
             llvm::Value* off = 0;
@@ -1446,78 +1515,74 @@ elem* SymOffExp::toElem(IRState* p)
                 Logger::println("offset = %d\n", offset);
             }
             if (llvalue->getType() != llt) {
-                e->mem = p->ir->CreateBitCast(llvalue, llt, "tmp");
+                varmem = p->ir->CreateBitCast(llvalue, llt, "tmp");
                 if (offset != 0)
-                    e->mem = DtoGEPi(e->mem, offset, "tmp");
+                    varmem = DtoGEPi(varmem, offset, "tmp");
             }
             else {
                 assert(offset == 0);
-                e->mem = DtoGEPi(llvalue,0,0,"tmp");
+                varmem = DtoGEPi(llvalue,0,0,"tmp");
             }
         }
         else if (offset == 0) {
             Logger::println("normal symoff");
-            e = new elem;
-            e->type = elem::VAL;
+
             assert(llvalue);
-            e->mem = llvalue;
+            varmem = llvalue;
 
             const llvm::Type* llt = DtoType(t);
             if (llvalue->getType() != llt) {
-                e->mem = p->ir->CreateBitCast(e->mem, llt, "tmp");
+                varmem = p->ir->CreateBitCast(varmem, llt, "tmp");
             }
         }
         else {
             assert(0);
         }
+        return new DFieldValue(type, varmem, true);
     }
     else if (FuncDeclaration* fd = var->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        e = new elem;
+
         if (fd->llvmValue == 0)
             fd->toObjFile();
-        e->val = fd->llvmValue;
-        e->type = elem::FUNC;
+        return new DFuncValue(fd, fd->llvmValue);
     }
-    assert(e != 0);
-    assert(e->type != elem::NONE);
-    return e;
+
+    assert(0);
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* PtrExp::toElem(IRState* p)
+DValue* PtrExp::toElem(IRState* p)
 {
     Logger::print("PtrExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* a = e1->toElem(p);
 
-    if (a->mem)
-        Logger::cout() << "mem: " << *a->mem << '\n';
-    if (a->val)
-        Logger::cout() << "val: " << *a->val << '\n';
+    DValue* a = e1->toElem(p);
 
-    if (a->field)
-        e->mem = a->mem;
-    else
-        e->mem = a->getValue();
-    e->type = elem::VAR;
+    if (p->topexp() && p->topexp()->e1 == this) {
+        Logger::println("lval PtrExp");
+        //if (a->isField()) return a;
+        return new DVarValue(type, a->getRVal(), true);
+    }
 
-    delete a;
-    return e;
+    llvm::Value* lv = a->getRVal();
+    llvm::Value* v = lv;
+    if (DtoCanLoad(v))
+        v = DtoLoad(v);
+    return new DLValueCast(type, lv, v);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DotVarExp::toElem(IRState* p)
+DValue* DotVarExp::toElem(IRState* p)
 {
     Logger::print("DotVarExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
 
-    elem* l = e1->toElem(p);
+    DValue* l = e1->toElem(p);
 
     Type* t = DtoDType(type);
     Type* e1type = DtoDType(e1->type);
@@ -1530,7 +1595,7 @@ elem* DotVarExp::toElem(IRState* p)
             assert(e1type->next->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)e1type->next;
             Logger::println("Struct member offset:%d", vd->offset);
-            llvm::Value* src = l->val ? l->val : l->mem;
+            llvm::Value* src = l->getRVal();
             std::vector<unsigned> vdoffsets;
             arrptr = DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
         }
@@ -1539,15 +1604,15 @@ elem* DotVarExp::toElem(IRState* p)
             Logger::println("Class member offset: %d", vd->offset);
             std::vector<unsigned> vdoffsets(1,0);
             tc->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
-            llvm::Value* src = l->getValue();
+            llvm::Value* src = l->getRVal();
             Logger::cout() << "src: " << *src << '\n';
             arrptr = DtoGEP(src,vdoffsets,"tmp",p->scopebb());
         }
         else
             assert(0);
-        e->mem = arrptr;
-        Logger::cout() << "mem: " << *e->mem << '\n';
-        e->type = elem::VAR;
+
+        Logger::cout() << "mem: " << *arrptr << '\n';
+        return new DVarValue(vd, arrptr, true);
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
@@ -1557,7 +1622,8 @@ elem* DotVarExp::toElem(IRState* p)
         }
 
         llvm::Value* funcval = fdecl->llvmValue;
-        e->arg = l->getValue();
+        llvm::Value* vthis = l->getRVal();
+        unsigned cc = (unsigned)-1;
 
         // virtual call
         if (fdecl->isVirtual()) {
@@ -1566,177 +1632,66 @@ elem* DotVarExp::toElem(IRState* p)
 
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* vtblidx = llvm::ConstantInt::get(llvm::Type::Int32Ty, (size_t)fdecl->vtblIndex, false);
-            funcval = DtoGEP(e->arg, zero, zero, "tmp", p->scopebb());
+            funcval = DtoGEP(vthis, zero, zero, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = DtoGEP(funcval, zero, vtblidx, toChars(), p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             assert(funcval->getType() == fdecl->llvmValue->getType());
-            e->callconv = DtoCallingConv(fdecl->linkage);
+            cc = DtoCallingConv(fdecl->linkage);
         }
-        e->val = funcval;
-        e->type = elem::FUNC;
-        e->funcdecl = fdecl;
+        return new DFuncValue(fdecl, funcval, vthis);
     }
     else {
         printf("unknown: %s\n", var->toChars());
-        assert(0);
     }
 
-    delete l;
-
-    return e;
+    assert(0);
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* ThisExp::toElem(IRState* p)
+DValue* ThisExp::toElem(IRState* p)
 {
     Logger::print("ThisExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         llvm::Value* v = p->func().decl->llvmThisVar;
         if (llvm::isa<llvm::AllocaInst>(v))
             v = new llvm::LoadInst(v, "tmp", p->scopebb());
-        e->mem = v;
-        e->type = elem::VAL;
-        e->isthis = true;
-    }
-    else {
-        assert(0);
+        return new DThisValue(vd, v);
     }
 
-    return e;
+    assert(0);
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* AddrExp::toElem(IRState* p)
+DValue* AddrExp::toElem(IRState* p)
 {
     Logger::print("AddrExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = e1->toElem(p);
-    e->field = true;
-    return e;
+    DValue* v = e1->toElem(p);
+    if (v->isField())
+        return v;
+    return new DFieldValue(type, v->getLVal(), false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* StructLiteralExp::toElem(IRState* p)
-{
-    Logger::print("StructLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-    elem* e = new elem;
-
-    llvm::Value* sptr;
-    const llvm::Type* llt = DtoType(type);
-
-    // temporary struct literal
-    if (!p->topexp() || p->topexp()->e2 != this)
-    {
-        sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
-        e->mem = sptr;
-        e->type = elem::VAR;
-    }
-    // already has memory
-    else
-    {
-        assert(p->topexp()->e2 == this);
-        sptr = p->topexp()->v;
-    }
-
-    // num elements in literal
-    unsigned n = elements->dim;
-
-    // unions might have different types for each literal
-    if (sd->llvmHasUnions) {
-        // build the type of the literal
-        std::vector<const llvm::Type*> tys;
-        for (unsigned i=0; i<n; ++i) {
-            Expression* vx = (Expression*)elements->data[i];
-            if (!vx) continue;
-            tys.push_back(DtoType(vx->type));
-        }
-        const llvm::StructType* t = llvm::StructType::get(tys);
-        if (t != llt) {
-            if (gTargetData->getTypeSize(t) != gTargetData->getTypeSize(llt)) { 
-                Logger::cout() << "got size " << gTargetData->getTypeSize(t) << ", expected " << gTargetData->getTypeSize(llt) << '\n';
-                assert(0 && "type size mismatch");
-            }
-            sptr = p->ir->CreateBitCast(sptr, llvm::PointerType::get(t), "tmp");
-            Logger::cout() << "sptr type is now: " << *t << '\n';
-        }
-    }
-
-    // build
-    unsigned j = 0;
-    for (unsigned i=0; i<n; ++i)
-    {
-        Expression* vx = (Expression*)elements->data[i];
-        if (!vx) continue;
-
-        Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
-        llvm::Value* arrptr = DtoGEPi(sptr,0,j,"tmp",p->scopebb());
-
-        p->exps.push_back(IRExp(NULL,vx,arrptr));
-        elem* ve = vx->toElem(p);
-        p->exps.pop_back();
-
-        if (!ve->inplace) {
-            llvm::Value* val = ve->getValue();
-            Logger::cout() << *val << " | " << *arrptr << '\n';
-
-            Type* vxtype = DtoDType(vx->type);
-            DtoAssign(vxtype, arrptr, val);
-        }
-        delete ve;
-
-        j++;
-    }
-
-    e->inplace = true;
-
-    return e;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Constant* StructLiteralExp::toConstElem(IRState* p)
-{
-    Logger::print("StructLiteralExp::toConstElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    unsigned n = elements->dim;
-    std::vector<llvm::Constant*> vals(n, NULL);
-
-    for (unsigned i=0; i<n; ++i)
-    {
-        Expression* vx = (Expression*)elements->data[i];
-        vals[i] = vx->toConstElem(p);
-    }
-
-    assert(DtoDType(type)->ty == Tstruct);
-    const llvm::Type* t = DtoType(type);
-    const llvm::StructType* st = llvm::cast<llvm::StructType>(t);
-    return llvm::ConstantStruct::get(st,vals);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-elem* IndexExp::toElem(IRState* p)
+DValue* IndexExp::toElem(IRState* p)
 {
     Logger::print("IndexExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-
-    elem* l = e1->toElem(p);
+    DValue* l = e1->toElem(p);
 
     Type* e1type = DtoDType(e1->type);
 
-    p->arrays.push_back(l->mem); // if $ is used it must be an array so this is fine.
-    elem* r = e2->toElem(p);
+    p->arrays.push_back(l); // if $ is used it must be an array so this is fine.
+    DValue* r = e2->toElem(p);
     p->arrays.pop_back();
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
@@ -1744,90 +1699,82 @@ elem* IndexExp::toElem(IRState* p)
 
     llvm::Value* arrptr = 0;
     if (e1type->ty == Tpointer) {
-        arrptr = new llvm::GetElementPtrInst(l->getValue(),r->getValue(),"tmp",p->scopebb());
+        arrptr = new llvm::GetElementPtrInst(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
     }
     else if (e1type->ty == Tsarray) {
-        arrptr = DtoGEP(l->getValue(), zero, r->getValue(),"tmp",p->scopebb());
+        arrptr = DtoGEP(l->getRVal(), zero, r->getRVal(),"tmp",p->scopebb());
     }
     else if (e1type->ty == Tarray) {
-        arrptr = DtoGEP(l->mem,zero,one,"tmp",p->scopebb());
+        arrptr = DtoGEP(l->getLVal(),zero,one,"tmp",p->scopebb());
         arrptr = new llvm::LoadInst(arrptr,"tmp",p->scopebb());
-        arrptr = new llvm::GetElementPtrInst(arrptr,r->getValue(),"tmp",p->scopebb());
+        arrptr = new llvm::GetElementPtrInst(arrptr,r->getRVal(),"tmp",p->scopebb());
     }
     assert(arrptr);
-
-    e->mem = arrptr;
-    e->type = elem::VAR;
-
-    delete l;
-    delete r;
-
-    return e;
+    return new DVarValue(type, arrptr, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* SliceExp::toElem(IRState* p)
+DValue* SliceExp::toElem(IRState* p)
 {
     Logger::print("SliceExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* t = DtoDType(type);
-    assert(t->ty == Tarray);
-
-    elem* v = e1->toElem(p);
     Type* e1type = DtoDType(e1->type);
 
-    elem* e = new elem;
-    assert(v->mem);
-    e->type = elem::SLICE;
+    DValue* v = e1->toElem(p);
+    llvm::Value* vmem = v->getLVal();
+    assert(vmem);
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
+
+    llvm::Value* emem = 0;
+    llvm::Value* earg = 0;
 
     // partial slice
     if (lwr)
     {
         assert(upr);
-        p->arrays.push_back(v->mem);
-        elem* lo = lwr->toElem(p);
+        p->arrays.push_back(v);
+        DValue* lo = lwr->toElem(p);
 
         bool lwr_is_zero = false;
-        if (lo->type == elem::CONST)
+        if (DConstValue* cv = lo->isConst())
         {
-            assert(lo->val);
-            assert(llvm::isa<llvm::ConstantInt>(lo->val));
+            assert(llvm::isa<llvm::ConstantInt>(cv->c));
 
             if (e1type->ty == Tpointer) {
-                e->mem = v->getValue();
+                emem = v->getRVal();
             }
             else if (e1type->ty == Tarray) {
-                llvm::Value* tmp = DtoGEP(v->mem,zero,one,"tmp",p->scopebb());
-                e->mem = new llvm::LoadInst(tmp,"tmp",p->scopebb());
+                llvm::Value* tmp = DtoGEP(vmem,zero,one,"tmp",p->scopebb());
+                emem = new llvm::LoadInst(tmp,"tmp",p->scopebb());
             }
             else if (e1type->ty == Tsarray) {
-                e->mem = DtoGEP(v->mem,zero,zero,"tmp",p->scopebb());
+                emem = DtoGEP(vmem,zero,zero,"tmp",p->scopebb());
             }
             else
-            assert(e->mem);
+            assert(emem);
 
-            llvm::ConstantInt* c = llvm::cast<llvm::ConstantInt>(lo->val);
+            llvm::ConstantInt* c = llvm::cast<llvm::ConstantInt>(cv->c);
             if (!(lwr_is_zero = c->isZero())) {
-                e->mem = new llvm::GetElementPtrInst(e->mem,lo->val,"tmp",p->scopebb());
+                emem = new llvm::GetElementPtrInst(emem,cv->c,"tmp",p->scopebb());
             }
         }
         else
         {
             if (e1type->ty == Tarray) {
-                llvm::Value* tmp = DtoGEP(v->mem,zero,one,"tmp",p->scopebb());
+                llvm::Value* tmp = DtoGEP(vmem,zero,one,"tmp",p->scopebb());
                 tmp = new llvm::LoadInst(tmp,"tmp",p->scopebb());
-                e->mem = new llvm::GetElementPtrInst(tmp,lo->getValue(),"tmp",p->scopebb());
+                emem = new llvm::GetElementPtrInst(tmp,lo->getRVal(),"tmp",p->scopebb());
             }
             else if (e1type->ty == Tsarray) {
-                e->mem = DtoGEP(v->mem,zero,lo->getValue(),"tmp",p->scopebb());
+                emem = DtoGEP(vmem,zero,lo->getRVal(),"tmp",p->scopebb());
             }
             else if (e1type->ty == Tpointer) {
-                e->mem = new llvm::GetElementPtrInst(v->getValue(),lo->getValue(),"tmp",p->scopebb());
+                emem = new llvm::GetElementPtrInst(v->getRVal(),lo->getRVal(),"tmp",p->scopebb());
             }
             else {
                 Logger::println("type = %s", e1type->toChars());
@@ -1835,76 +1782,60 @@ elem* SliceExp::toElem(IRState* p)
             }
         }
 
-        elem* up = upr->toElem(p);
+        DValue* up = upr->toElem(p);
         p->arrays.pop_back();
 
-        if (up->type == elem::CONST)
+        if (DConstValue* cv = up->isConst())
         {
-            assert(up->val);
-            assert(llvm::isa<llvm::ConstantInt>(up->val));
+            assert(llvm::isa<llvm::ConstantInt>(cv->c));
             if (lwr_is_zero) {
-                e->arg = up->val;
+                earg = cv->c;
             }
             else {
-                if (lo->type == elem::CONST) {
-                    llvm::Constant* clo = llvm::cast<llvm::Constant>(lo->val);
-                    llvm::Constant* cup = llvm::cast<llvm::Constant>(up->val);
-                    e->arg = llvm::ConstantExpr::getSub(cup, clo);
+                if (lo->isConst()) {
+                    llvm::Constant* clo = llvm::cast<llvm::Constant>(lo->getRVal());
+                    llvm::Constant* cup = llvm::cast<llvm::Constant>(cv->c);
+                    earg = llvm::ConstantExpr::getSub(cup, clo);
                 }
                 else {
-                    e->arg = llvm::BinaryOperator::createSub(up->val, lo->getValue(), "tmp", p->scopebb());
+                    earg = llvm::BinaryOperator::createSub(cv->c, lo->getRVal(), "tmp", p->scopebb());
                 }
             }
         }
         else
         {
             if (lwr_is_zero) {
-                e->arg = up->getValue();
+                earg = up->getRVal();
             }
             else {
-                e->arg = llvm::BinaryOperator::createSub(up->getValue(), lo->getValue(), "tmp", p->scopebb());
+                earg = llvm::BinaryOperator::createSub(up->getRVal(), lo->getRVal(), "tmp", p->scopebb());
             }
         }
-
-        delete lo;
-        delete up;
-
-        /*
-        llvm::Value* tmpmem = new llvm::AllocaInst(DtoType(t),"tmp",p->topallocapoint());
-        llvm::Value* ptr = DtoGEPi(tmpmem,0,0,"tmp");
-        p->ir->CreateStore(e->arg, ptr);
-        ptr = DtoGEPi(tmpmem,0,1,"tmp");
-        p->ir->CreateStore(e->mem, ptr);
-        e->arg = NULL;
-        e->mem = tmpmem;
-        */
     }
     // full slice
     else
     {
-        e->mem = v->mem;
+        emem = vmem;
     }
 
-    delete v;
-
-    return e;
+    return new DSliceValue(type,earg,emem);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CmpExp::toElem(IRState* p)
+DValue* CmpExp::toElem(IRState* p)
 {
     Logger::print("CmpExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
 
     Type* t = DtoDType(e1->type);
     Type* e2t = DtoDType(e2->type);
     assert(t == e2t);
+
+    llvm::Value* eval = 0;
 
     if (t->isintegral() || t->ty == Tpointer)
     {
@@ -1936,11 +1867,11 @@ elem* CmpExp::toElem(IRState* p)
             break;
         case TOKleg:
             skip = true;
-            e->val = llvm::ConstantInt::getTrue();
+            eval = llvm::ConstantInt::getTrue();
             break;
         case TOKunord:
             skip = true;
-            e->val = llvm::ConstantInt::getFalse();
+            eval = llvm::ConstantInt::getFalse();
             break;
 
         default:
@@ -1948,7 +1879,7 @@ elem* CmpExp::toElem(IRState* p)
         }
         if (!skip)
         {
-            e->val = new llvm::ICmpInst(cmpop, l->getValue(), r->getValue(), "tmp", p->scopebb());
+            eval = new llvm::ICmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
         }
     }
     else if (t->isfloating())
@@ -1984,36 +1915,31 @@ elem* CmpExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        e->val = new llvm::FCmpInst(cmpop, l->getValue(), r->getValue(), "tmp", p->scopebb());
+        eval = new llvm::FCmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
     }
     else
     {
         assert(0 && "Unsupported CmpExp type");
     }
 
-    delete l;
-    delete r;
-
-    e->type = elem::VAL;
-
-    return e;
+    return new DImValue(type, eval);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* EqualExp::toElem(IRState* p)
+DValue* EqualExp::toElem(IRState* p)
 {
     Logger::print("EqualExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
 
     Type* t = DtoDType(e1->type);
     Type* e2t = DtoDType(e2->type);
     assert(t == e2t);
+
+    llvm::Value* eval = 0;
 
     if (t->isintegral() || t->ty == Tpointer)
     {
@@ -2030,7 +1956,7 @@ elem* EqualExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        e->val = new llvm::ICmpInst(cmpop, l->getValue(), r->getValue(), "tmp", p->scopebb());
+        eval = new llvm::ICmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
     }
     else if (t->isfloating())
     {
@@ -2047,52 +1973,42 @@ elem* EqualExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        e->val = new llvm::FCmpInst(cmpop, l->getValue(), r->getValue(), "tmp", p->scopebb());
+        eval = new llvm::FCmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
     }
     else if (t->ty == Tsarray)
     {
         Logger::println("static array");
-        e->val = DtoStaticArrayCompare(op,l->mem,r->mem);
+        eval = DtoStaticArrayCompare(op,l->getRVal(),r->getRVal());
     }
     else if (t->ty == Tarray)
     {
         Logger::println("dynamic array");
-        e->val = DtoDynArrayCompare(op,l->mem,r->mem);
+        eval = DtoDynArrayCompare(op,l->getRVal(),r->getRVal());
     }
     else if (t->ty == Tdelegate)
     {
         Logger::println("delegate");
-        e->val = DtoCompareDelegate(op,l->mem,r->mem);
+        eval = DtoCompareDelegate(op,l->getRVal(),r->getRVal());
     }
     else
     {
         assert(0 && "Unsupported EqualExp type");
     }
 
-    delete l;
-    delete r;
-
-    e->type = elem::VAL;
-
-    return e;
+    return new DImValue(type, eval);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* PostExp::toElem(IRState* p)
+DValue* PostExp::toElem(IRState* p)
 {
     Logger::print("PostExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    elem* r = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
 
-    elem* e = new elem;
-    e->mem = l->mem;
-    e->val = l->getValue();
-    e->type = elem::VAL;
-
-    llvm::Value* val = e->val;
+    llvm::Value* val = l->getRVal();
     llvm::Value* post = 0;
 
     Type* e1type = DtoDType(e1->type);
@@ -2131,18 +2047,14 @@ elem* PostExp::toElem(IRState* p)
     else
     assert(post);
 
-    assert(l->mem);
-    new llvm::StoreInst(post,l->mem,p->scopebb());
+    DtoStore(post,l->getLVal());
 
-    delete l;
-    delete r;
-
-    return e;
+    return new DImValue(type,val,true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* NewExp::toElem(IRState* p)
+DValue* NewExp::toElem(IRState* p)
 {
     Logger::print("NewExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -2152,58 +2064,56 @@ elem* NewExp::toElem(IRState* p)
     assert(newtype);
     assert(!allocator);
 
-    elem* e = new elem;
-    e->inplace = true;
-
     Type* ntype = DtoDType(newtype);
 
     const llvm::Type* t = DtoType(ntype);
 
+    llvm::Value* emem = 0;
+    bool inplace = true;
+
     if (onstack) {
         assert(ntype->ty == Tclass);
-        e->mem = new llvm::AllocaInst(t->getContainedType(0),"tmp",p->topallocapoint());
+        emem = new llvm::AllocaInst(t->getContainedType(0),"tmp",p->topallocapoint());
     }
     else {
         if (ntype->ty == Tclass) {
-            e->mem = new llvm::MallocInst(t->getContainedType(0),"tmp",p->scopebb());
+            emem = new llvm::MallocInst(t->getContainedType(0),"tmp",p->scopebb());
         }
         else if (ntype->ty == Tarray) {
             assert(arguments);
             if (arguments->dim == 1) {
-                elem* sz = ((Expression*)arguments->data[0])->toElem(p);
-                llvm::Value* dimval = sz->getValue();
+                DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
+                llvm::Value* dimval = sz->getRVal();
                 Type* nnt = DtoDType(ntype->next);
                 if (nnt->ty == Tvoid)
                     nnt = Type::tint8;
                 if (!p->topexp() || p->topexp()->e2 != this) {
                     const llvm::Type* restype = DtoType(type);
                     Logger::cout() << "restype = " << *restype << '\n';
-                    e->mem = new llvm::AllocaInst(restype,"tmp",p->topallocapoint());
-                    DtoNewDynArray(e->mem, dimval, nnt);
-                    e->inplace = false;
+                    emem = new llvm::AllocaInst(restype,"tmp",p->topallocapoint());
+                    DtoNewDynArray(emem, dimval, nnt);
+                    inplace = false;
                 }
                 else if (p->topexp() || p->topexp()->e2 != this) {
                     assert(p->topexp()->v);
-                    e->mem = p->topexp()->v;
-                    DtoNewDynArray(e->mem, dimval, nnt);
+                    emem = p->topexp()->v->getLVal();
+                    DtoNewDynArray(emem, dimval, nnt);
                 }
                 else
                 assert(0);
-                delete sz;
             }
             else {
                 assert(0);
             }
         }
         else {
-            e->mem = new llvm::MallocInst(t,"tmp",p->scopebb());
+            emem = new llvm::MallocInst(t,"tmp",p->scopebb());
         }
     }
 
     if (ntype->ty == Tclass) {
         // first apply the static initializer
-        assert(e->mem);
-        DtoInitClass((TypeClass*)ntype, e->mem);
+        DtoInitClass((TypeClass*)ntype, emem);
 
         // then call constructor
         if (arguments) {
@@ -2213,7 +2123,7 @@ elem* NewExp::toElem(IRState* p)
             TypeFunction* tf = (TypeFunction*)DtoDType(member->type);
 
             std::vector<llvm::Value*> ctorargs;
-            ctorargs.push_back(e->mem);
+            ctorargs.push_back(emem);
             for (size_t i=0; i<arguments->dim; ++i)
             {
                 Expression* ex = (Expression*)arguments->data[i];
@@ -2221,35 +2131,36 @@ elem* NewExp::toElem(IRState* p)
                 llvm::Value* a = DtoArgument(fn->getFunctionType()->getParamType(i+1), fnarg, ex);
                 ctorargs.push_back(a);
             }
-            e->mem = new llvm::CallInst(fn, ctorargs.begin(), ctorargs.end(), "tmp", p->scopebb());
+            emem = new llvm::CallInst(fn, ctorargs.begin(), ctorargs.end(), "tmp", p->scopebb());
         }
     }
     else if (ntype->ty == Tstruct) {
         TypeStruct* ts = (TypeStruct*)ntype;
         if (ts->isZeroInit()) {
-            DtoStructZeroInit(e->mem);
+            DtoStructZeroInit(emem);
         }
         else {
-            DtoStructCopy(e->mem,ts->llvmInit);
+            DtoStructCopy(emem,ts->llvmInit);
         }
     }
 
-    e->type = elem::VAR;
+    if (inplace)
+        return new DImValue(type, emem, true);
 
-    return e;
+    return new DVarValue(type, emem, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DeleteExp::toElem(IRState* p)
+DValue* DeleteExp::toElem(IRState* p)
 {
     Logger::print("DeleteExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     //assert(e1->type->ty != Tclass);
 
-    elem* v = e1->toElem(p);
-    llvm::Value* val = v->getValue();
+    DValue* v = e1->toElem(p);
+    llvm::Value* val = v->getRVal();
     llvm::Value* ldval = 0;
 
     const llvm::Type* t = val->getType();
@@ -2258,30 +2169,26 @@ elem* DeleteExp::toElem(IRState* p)
     Type* e1type = DtoDType(e1->type);
 
     if (e1type->ty == Tpointer) {
-        ldval = v->getValue();
-        new llvm::FreeInst(ldval, p->scopebb());
-
         Logger::cout() << *z << '\n';
         Logger::cout() << *val << '\n';
-        new llvm::StoreInst(z, v->mem, p->scopebb());
+        new llvm::FreeInst(val, p->scopebb());
+        new llvm::StoreInst(z, v->getLVal(), p->scopebb());
     }
     else if (e1type->ty == Tclass) {
         TypeClass* tc = (TypeClass*)e1type;
         DtoCallClassDtors(tc, val);
 
-        if (v->vardecl && !v->vardecl->onstack) {
-            new llvm::FreeInst(val, p->scopebb());
+        if (DVarValue* vv = v->isVar()) {
+            if (vv->var && !vv->var->onstack)
+                new llvm::FreeInst(val, p->scopebb());
         }
-        new llvm::StoreInst(z, v->mem, p->scopebb());
+        new llvm::StoreInst(z, v->getLVal(), p->scopebb());
     }
     else if (e1type->ty == Tarray) {
         // must be on the heap (correct?)
-        ldval = v->getValue();
-        
         llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
         llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-        
-        llvm::Value* ptr = DtoGEP(ldval,zero,one,"tmp",p->scopebb());
+        llvm::Value* ptr = DtoGEP(val,zero,one,"tmp",p->scopebb());
         ptr = new llvm::LoadInst(ptr,"tmp",p->scopebb());
         new llvm::FreeInst(ptr, p->scopebb());
         DtoNullArray(val);
@@ -2290,83 +2197,68 @@ elem* DeleteExp::toElem(IRState* p)
         assert(0);
     }
 
-    delete v;
-
     // this expression produces no useful data
     return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* ArrayLengthExp::toElem(IRState* p)
+DValue* ArrayLengthExp::toElem(IRState* p)
 {
     Logger::print("ArrayLengthExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+    DValue* u = e1->toElem(p);
 
     if (p->topexp() && p->topexp()->e1 == this)
     {
-        e->mem = u->mem;
-        e->type = elem::ARRAYLEN;
+        return new DArrayLenValue(type, u->getLVal());
     }
     else
     {
         llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-        llvm::Value* ptr = DtoGEP(u->mem,zero,zero,"tmp",p->scopebb());
-        e->val = new llvm::LoadInst(ptr, "tmp", p->scopebb());
-        e->type = elem::VAL;
+        llvm::Value* ptr = DtoGEP(u->getRVal(),zero,zero,"tmp",p->scopebb());
+        ptr = new llvm::LoadInst(ptr, "tmp", p->scopebb());
+        return new DImValue(type, ptr);
     }
-    delete u;
-
-    return e;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* AssertExp::toElem(IRState* p)
+DValue* AssertExp::toElem(IRState* p)
 {
     Logger::print("AssertExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* u = e1->toElem(p);
-    elem* m = msg ? msg->toElem(p) : NULL;
+    DValue* u = e1->toElem(p);
+    DValue* m = msg ? msg->toElem(p) : NULL;
 
     llvm::Value* loca = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
-    DtoAssert(u->getValue(), loca, m ? m->val : NULL);
+    DtoAssert(u->getRVal(), loca, m ? m->getRVal() : NULL);
 
-    delete m;
-    delete u;
-
-    return new elem;
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* NotExp::toElem(IRState* p)
+DValue* NotExp::toElem(IRState* p)
 {
     Logger::print("NotExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+    DValue* u = e1->toElem(p);
 
-    llvm::Value* b = DtoBoolean(u->getValue());
+    llvm::Value* b = DtoBoolean(u->getRVal());
 
-    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int1Ty, 0, true);
-    e->val = p->ir->CreateICmpEQ(b,zero);
-    //e->val = new llvm::ICmpInst(llvm::ICmpInst::ICMP_EQ,b,zero,"tmp",p->scopebb());
-    e->type = elem::VAL;
+    llvm::Constant* zero = llvm::ConstantInt::get(llvm::Type::Int1Ty, 0, true);
+    b = p->ir->CreateICmpEQ(b,zero);
 
-    delete u;
-
-    return e;
+    return new DImValue(type, b);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* AndAndExp::toElem(IRState* p)
+DValue* AndAndExp::toElem(IRState* p)
 {
     Logger::print("AndAndExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -2375,40 +2267,34 @@ elem* AndAndExp::toElem(IRState* p)
     llvm::Value* resval = 0;
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
     resval = new llvm::AllocaInst(llvm::Type::Int1Ty,"andandtmp",p->topallocapoint());
-    
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+
+    DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
     llvm::BasicBlock* andand = new llvm::BasicBlock("andand", gIR->topfunc(), oldend);
     llvm::BasicBlock* andandend = new llvm::BasicBlock("andandend", gIR->topfunc(), oldend);
-    
-    llvm::Value* ubool = DtoBoolean(u->getValue());
+
+    llvm::Value* ubool = DtoBoolean(u->getRVal());
     new llvm::StoreInst(ubool,resval,p->scopebb());
     new llvm::BranchInst(andand,andandend,ubool,p->scopebb());
-    
-    p->scope() = IRScope(andand, andandend);
-    elem* v = e2->toElem(p);
 
-    llvm::Value* vbool = DtoBoolean(v->getValue());
+    p->scope() = IRScope(andand, andandend);
+    DValue* v = e2->toElem(p);
+
+    llvm::Value* vbool = DtoBoolean(v->getRVal());
     llvm::Value* uandvbool = llvm::BinaryOperator::create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
     new llvm::StoreInst(uandvbool,resval,p->scopebb());
     new llvm::BranchInst(andandend,p->scopebb());
 
-    delete u;
-    delete v;
-
     p->scope() = IRScope(andandend, oldend);
-    
-    e->val = new llvm::LoadInst(resval,"tmp",p->scopebb());
-    e->type = elem::VAL;
 
-    return e;
+    resval = new llvm::LoadInst(resval,"tmp",p->scopebb());
+    return new DImValue(type, resval);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* OrOrExp::toElem(IRState* p)
+DValue* OrOrExp::toElem(IRState* p)
 {
     Logger::print("OrOrExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -2417,73 +2303,57 @@ elem* OrOrExp::toElem(IRState* p)
     llvm::Value* resval = 0;
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
     resval = new llvm::AllocaInst(llvm::Type::Int1Ty,"orortmp",p->topallocapoint());
-    
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+
+    DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
     llvm::BasicBlock* oror = new llvm::BasicBlock("oror", gIR->topfunc(), oldend);
     llvm::BasicBlock* ororend = new llvm::BasicBlock("ororend", gIR->topfunc(), oldend);
-    
-    llvm::Value* ubool = DtoBoolean(u->getValue());
+
+    llvm::Value* ubool = DtoBoolean(u->getRVal());
     new llvm::StoreInst(ubool,resval,p->scopebb());
     new llvm::BranchInst(ororend,oror,ubool,p->scopebb());
-    
-    p->scope() = IRScope(oror, ororend);
-    elem* v = e2->toElem(p);
 
-    llvm::Value* vbool = DtoBoolean(v->getValue());
+    p->scope() = IRScope(oror, ororend);
+    DValue* v = e2->toElem(p);
+
+    llvm::Value* vbool = DtoBoolean(v->getRVal());
     new llvm::StoreInst(vbool,resval,p->scopebb());
     new llvm::BranchInst(ororend,p->scopebb());
 
-    delete u;
-    delete v;
-
     p->scope() = IRScope(ororend, oldend);
-    
-    e->val = new llvm::LoadInst(resval,"tmp",p->scopebb());
-    e->type = elem::VAL;
 
-    return e;
+    resval = new llvm::LoadInst(resval,"tmp",p->scopebb());
+    return new DImValue(type, resval);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #define BinBitExp(X,Y) \
-elem* X##Exp::toElem(IRState* p) \
+DValue* X##Exp::toElem(IRState* p) \
 { \
     Logger::print("%sExp::toElem: %s | %s\n", #X, toChars(), type->toChars()); \
     LOG_SCOPE; \
-    elem* e = new elem; \
-    elem* u = e1->toElem(p); \
-    elem* v = e2->toElem(p); \
-    e->val = llvm::BinaryOperator::create(llvm::Instruction::Y, u->getValue(), v->getValue(), "tmp", p->scopebb()); \
-    e->type = elem::VAL; \
-    delete u; \
-    delete v; \
-    return e; \
+    DValue* u = e1->toElem(p); \
+    DValue* v = e2->toElem(p); \
+    llvm::Value* x = llvm::BinaryOperator::create(llvm::Instruction::Y, u->getRVal(), v->getRVal(), "tmp", p->scopebb()); \
+    return new DImValue(type, x); \
 } \
 \
-elem* X##AssignExp::toElem(IRState* p) \
+DValue* X##AssignExp::toElem(IRState* p) \
 { \
     Logger::print("%sAssignExp::toElem: %s | %s\n", #X, toChars(), type->toChars()); \
     LOG_SCOPE; \
-    elem* u = e1->toElem(p); \
-    elem* v = e2->toElem(p); \
-    llvm::Value* uval = u->getValue(); \
-    assert(uval); \
-    llvm::Value* vval = v->getValue(); \
-    assert(vval); \
+    p->exps.push_back(IRExp(e1,e2,NULL)); \
+    DValue* u = e1->toElem(p); \
+    p->topexp()->v = u; \
+    DValue* v = e2->toElem(p); \
+    p->exps.pop_back(); \
+    llvm::Value* uval = u->getRVal(); \
+    llvm::Value* vval = v->getRVal(); \
     llvm::Value* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
-    assert(u->mem); \
-    Logger::cout() << *tmp << '|' << *u->mem << '\n'; \
-    new llvm::StoreInst(DtoPointedType(u->mem, tmp), u->mem, p->scopebb()); \
-    delete u; \
-    delete v; \
-    elem* e = new elem; \
-    e->mem = u->mem; \
-    e->type = elem::VAR; \
-    return e; \
+    new llvm::StoreInst(DtoPointedType(u->getLVal(), tmp), u->getLVal(), p->scopebb()); \
+    return u; \
 }
 
 BinBitExp(And,And);
@@ -2495,7 +2365,7 @@ BinBitExp(Ushr,LShr);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* HaltExp::toElem(IRState* p)
+DValue* HaltExp::toElem(IRState* p)
 {
     Logger::print("HaltExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -2509,13 +2379,12 @@ elem* HaltExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DelegateExp::toElem(IRState* p)
+DValue* DelegateExp::toElem(IRState* p)
 {
     Logger::print("DelegateExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+    DValue* u = e1->toElem(p);
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
@@ -2523,10 +2392,10 @@ elem* DelegateExp::toElem(IRState* p)
     const llvm::Type* int8ptrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
     assert(p->topexp() && p->topexp()->e2 == this && p->topexp()->v);
-    llvm::Value* lval = p->topexp()->v;
+    llvm::Value* lval = p->topexp()->v->getLVal();
 
     llvm::Value* context = DtoGEP(lval,zero,zero,"tmp",p->scopebb());
-    llvm::Value* castcontext = new llvm::BitCastInst(u->getValue(),int8ptrty,"tmp",p->scopebb());
+    llvm::Value* castcontext = new llvm::BitCastInst(u->getRVal(),int8ptrty,"tmp",p->scopebb());
     new llvm::StoreInst(castcontext, context, p->scopebb());
 
     llvm::Value* fptr = DtoGEP(lval,zero,one,"tmp",p->scopebb());
@@ -2535,70 +2404,61 @@ elem* DelegateExp::toElem(IRState* p)
     llvm::Value* castfptr = new llvm::BitCastInst(func->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
     new llvm::StoreInst(castfptr, fptr, p->scopebb());
 
-    e->inplace = true;
-
-    delete u;
-    return e;
+    return new DImValue(type, u->getRVal(), true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* IdentityExp::toElem(IRState* p)
+DValue* IdentityExp::toElem(IRState* p)
 {
     Logger::print("IdentityExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* u = e1->toElem(p);
-    elem* v = e2->toElem(p);
+    DValue* u = e1->toElem(p);
+    DValue* v = e2->toElem(p);
 
-    elem* e = new elem;
-
-    llvm::Value* l = u->field ? u->mem : u->getValue();
-    llvm::Value* r = v->field ? v->mem : v->getValue();
+    llvm::Value* l = u->getRVal();
+    llvm::Value* r = v->getRVal();
 
     Type* t1 = DtoDType(e1->type);
 
+    llvm::Value* eval = 0;
+
     if (t1->ty == Tarray) {
-        if (v->type == elem::NUL) {
+        if (v->isNull()) {
             r = NULL;
         }
         else {
             assert(l->getType() == r->getType());
         }
-        e->val = DtoDynArrayIs(op,l,r);
+        eval = DtoDynArrayIs(op,l,r);
     }
     else {
         llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-        if (t1->ty == Tpointer && v->type == elem::NUL && l->getType() != r->getType()) {
+        if (t1->ty == Tpointer && v->isNull() && l->getType() != r->getType()) {
             r = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(l->getType()));
         }
         Logger::cout() << "l = " << *l << " r = " << *r << '\n';
-        e->val = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
+        eval = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
     }
-    e->type = elem::VAL;
-
-    delete u;
-    delete v;
-
-    return e;
+    return new DImValue(type, eval);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CommaExp::toElem(IRState* p)
+DValue* CommaExp::toElem(IRState* p)
 {
     Logger::print("CommaExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* u = e1->toElem(p);
-    elem* v = e2->toElem(p);
-    delete u;
+    DValue* u = e1->toElem(p);
+    DValue* v = e2->toElem(p);
     return v;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CondExp::toElem(IRState* p)
+DValue* CondExp::toElem(IRState* p)
 {
     Logger::print("CondExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -2609,68 +2469,56 @@ elem* CondExp::toElem(IRState* p)
     // allocate a temporary for the final result. failed to come up with a better way :/
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
     llvm::Value* resval = new llvm::AllocaInst(resty,"condtmp",p->topallocapoint());
+    DVarValue* dvv = new DVarValue(type, resval, true);
 
     llvm::BasicBlock* oldend = p->scopeend();
     llvm::BasicBlock* condtrue = new llvm::BasicBlock("condtrue", gIR->topfunc(), oldend);
     llvm::BasicBlock* condfalse = new llvm::BasicBlock("condfalse", gIR->topfunc(), oldend);
     llvm::BasicBlock* condend = new llvm::BasicBlock("condend", gIR->topfunc(), oldend);
 
-    elem* c = econd->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(c->getValue());
-    delete c;
+    DValue* c = econd->toElem(p);
+    llvm::Value* cond_val = DtoBoolean(c->getRVal());
     new llvm::BranchInst(condtrue,condfalse,cond_val,p->scopebb());
 
     p->scope() = IRScope(condtrue, condfalse);
-    elem* u = e1->toElem(p);
-    DtoAssign(dtype, resval, u->getValue());
+    DValue* u = e1->toElem(p);
+    DtoAssign(dvv, u);
     new llvm::BranchInst(condend,p->scopebb());
-    delete u;
 
     p->scope() = IRScope(condfalse, condend);
-    elem* v = e2->toElem(p);
-    DtoAssign(dtype, resval, v->getValue());
+    DValue* v = e2->toElem(p);
+    DtoAssign(dvv, v);
     new llvm::BranchInst(condend,p->scopebb());
-    delete v;
 
     p->scope() = IRScope(condend, oldend);
-
-    elem* e = new elem;
-    e->mem = resval;
-    e->type = elem::VAR;
-    return e;
+    return dvv;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* ComExp::toElem(IRState* p)
+DValue* ComExp::toElem(IRState* p)
 {
     Logger::print("ComExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* e = new elem;
-    elem* u = e1->toElem(p);
+    DValue* u = e1->toElem(p);
 
-    llvm::Value* value = u->getValue();
+    llvm::Value* value = u->getRVal();
     llvm::Value* minusone = llvm::ConstantInt::get(value->getType(), -1, true);
-    e->val = llvm::BinaryOperator::create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
+    value = llvm::BinaryOperator::create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
 
-    delete u;
-
-    e->type = elem::VAL;
-
-    return e;
+    return new DImValue(type, value);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* NegExp::toElem(IRState* p)
+DValue* NegExp::toElem(IRState* p)
 {
     Logger::print("NegExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    elem* e = new elem;
-    elem* l = e1->toElem(p);
-    llvm::Value* val = l->getValue();
-    delete l;
+
+    DValue* l = e1->toElem(p);
+    llvm::Value* val = l->getRVal();
 
     Type* t = DtoDType(type);
 
@@ -2688,61 +2536,52 @@ elem* NegExp::toElem(IRState* p)
     else
         assert(0);
 
-    e->val = llvm::BinaryOperator::createSub(zero,val,"tmp",p->scopebb());
-    e->type = elem::VAL;
-
-    return e;
+    val = llvm::BinaryOperator::createSub(zero,val,"tmp",p->scopebb());
+    return new DImValue(type, val);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CatExp::toElem(IRState* p)
+DValue* CatExp::toElem(IRState* p)
 {
     Logger::print("CatExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* t = DtoDType(type);
 
-    bool inplace = false;
-    llvm::Value* dst = 0;
     IRExp* ex = p->topexp();
     if (ex && ex->e2 == this) {
         assert(ex->v);
-        dst = ex->v;
-        inplace = true;
+        DtoCatArrays(ex->v->getLVal(),e1,e2);
+        return new DImValue(type, ex->v->getLVal(), true);
     }
     else {
         assert(t->ty == Tarray);
         const llvm::Type* arrty = DtoType(t);
-        dst = new llvm::AllocaInst(arrty, "tmpmem", p->topallocapoint());
+        llvm::Value* dst = new llvm::AllocaInst(arrty, "tmpmem", p->topallocapoint());
+        DtoCatArrays(dst,e1,e2);
+        return new DVarValue(type, dst, true);
     }
-
-    DtoCatArrays(dst,e1,e2);
-
-    elem* e = new elem;
-    e->mem = dst;
-    e->type = elem::VAR;
-    e->inplace = inplace;
-
-    return e;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* CatAssignExp::toElem(IRState* p)
+DValue* CatAssignExp::toElem(IRState* p)
 {
     Logger::print("CatAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    elem* l = e1->toElem(p);
-    assert(l->mem);
+    DValue* l = e1->toElem(p);
 
     Type* e1type = DtoDType(e1->type);
     Type* elemtype = DtoDType(e1type->next);
     Type* e2type = DtoDType(e2->type);
 
     if (e2type == elemtype) {
-        DtoCatAssignElement(l->mem,e2);
+        DtoCatAssignElement(l->getLVal(),e2);
+    }
+    else if (e1type == e2type) {
+        DtoCatAssignArray(l->getLVal(),e2);
     }
     else
         assert(0 && "only one element at a time right now");
@@ -2752,7 +2591,55 @@ elem* CatAssignExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* ArrayLiteralExp::toElem(IRState* p)
+DValue* FuncExp::toElem(IRState* p)
+{
+    Logger::print("FuncExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    assert(fd);
+
+    if (fd->isNested()) Logger::println("nested");
+    Logger::println("kind = %s\n", fd->kind());
+
+    fd->toObjFile();
+
+    llvm::Value* lval = NULL;
+    if (!p->topexp() || p->topexp()->e2 != this) {
+        const llvm::Type* dgty = DtoType(type);
+        Logger::cout() << "delegate without explicit storage:" << '\n' << *dgty << '\n';
+        lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
+    }
+    else if (p->topexp()->e2 == this) {
+        assert(p->topexp()->v);
+        lval = p->topexp()->v->getLVal();;
+    }
+    else
+    assert(0);
+
+    llvm::Value* context = DtoGEPi(lval,0,0,"tmp",p->scopebb());
+    const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(context->getType()->getContainedType(0));
+    llvm::Value* llvmNested = p->func().decl->llvmNested;
+    if (llvmNested == NULL) {
+        llvm::Value* nullcontext = llvm::ConstantPointerNull::get(pty);
+        p->ir->CreateStore(nullcontext, context);
+    }
+    else {
+        llvm::Value* nestedcontext = p->ir->CreateBitCast(llvmNested, pty, "tmp");
+        p->ir->CreateStore(nestedcontext, context);
+    }
+
+    llvm::Value* fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
+
+    assert(fd->llvmValue);
+    llvm::Value* castfptr = new llvm::BitCastInst(fd->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
+    new llvm::StoreInst(castfptr, fptr, p->scopebb());
+
+    return new DImValue(type, lval, true);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* ArrayLiteralExp::toElem(IRState* p)
 {
     Logger::print("ArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -2766,7 +2653,14 @@ elem* ArrayLiteralExp::toElem(IRState* p)
         mem = new llvm::AllocaInst(t,"tmparrayliteral",p->topallocapoint());
     }
     else if (p->topexp()->e2 == this) {
-        mem = p->topexp()->v;
+        DValue* tlv = p->topexp()->v;
+        if (DSliceValue* sv = tlv->isSlice()) {
+            assert(sv->len == 0);
+            mem = sv->ptr;
+        }
+        else {
+            mem = p->topexp()->v->getLVal();
+        }
         assert(mem);
         if (!llvm::isa<llvm::PointerType>(mem->getType()) ||
             !llvm::isa<llvm::ArrayType>(mem->getType()->getContainedType(0)))
@@ -2782,16 +2676,11 @@ elem* ArrayLiteralExp::toElem(IRState* p)
     {
         Expression* expr = (Expression*)elements->data[i];
         llvm::Value* elemAddr = DtoGEPi(mem,0,i,"tmp",p->scopebb());
-        elem* e = expr->toElem(p);
-        new llvm::StoreInst(e->getValue(), elemAddr, p->scopebb());
+        DValue* e = expr->toElem(p);
+        new llvm::StoreInst(e->getRVal(), elemAddr, p->scopebb());
     }
 
-    elem* e = new elem;
-    e->mem = mem;
-    e->type = elem::VAL;
-    e->inplace = true;
-
-    return e;
+    return new DImValue(type, mem, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2819,61 +2708,100 @@ llvm::Constant* ArrayLiteralExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* FuncExp::toElem(IRState* p)
+DValue* StructLiteralExp::toElem(IRState* p)
 {
-    Logger::print("FuncExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("StructLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    assert(fd);
+    llvm::Value* sptr;
+    const llvm::Type* llt = DtoType(type);
 
-    if (fd->isNested()) Logger::println("nested");
-    Logger::println("kind = %s\n", fd->kind());
+    llvm::Value* mem = 0;
 
-    fd->toObjFile();
-
-    llvm::Value* lval = NULL;
-    if (!p->topexp() || p->topexp()->e2 != this) {
-        const llvm::Type* dgty = DtoType(type);
-        Logger::cout() << "delegate without explicit storage:" << '\n' << *dgty << '\n';
-        lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
+    // temporary struct literal
+    if (!p->topexp() || p->topexp()->e2 != this)
+    {
+        sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
     }
-    else if (p->topexp()->e2 == this) {
-        lval = p->topexp()->v;
-        assert(lval);
-    }
+    // already has memory
     else
-    assert(0);
-
-    elem* e = new elem;
-
-    llvm::Value* context = DtoGEPi(lval,0,0,"tmp",p->scopebb());
-    const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(context->getType()->getContainedType(0));
-    llvm::Value* llvmNested = p->func().decl->llvmNested;
-    if (llvmNested == NULL) {
-        llvm::Value* nullcontext = llvm::ConstantPointerNull::get(pty);
-        p->ir->CreateStore(nullcontext, context);
-    }
-    else {
-        llvm::Value* nestedcontext = p->ir->CreateBitCast(llvmNested, pty, "tmp");
-        p->ir->CreateStore(nestedcontext, context);
+    {
+        assert(p->topexp()->e2 == this);
+        sptr = p->topexp()->v->getLVal();
     }
 
-    llvm::Value* fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
+    // num elements in literal
+    unsigned n = elements->dim;
 
-    assert(fd->llvmValue);
-    llvm::Value* castfptr = new llvm::BitCastInst(fd->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
-    new llvm::StoreInst(castfptr, fptr, p->scopebb());
+    // unions might have different types for each literal
+    if (sd->llvmHasUnions) {
+        // build the type of the literal
+        std::vector<const llvm::Type*> tys;
+        for (unsigned i=0; i<n; ++i) {
+            Expression* vx = (Expression*)elements->data[i];
+            if (!vx) continue;
+            tys.push_back(DtoType(vx->type));
+        }
+        const llvm::StructType* t = llvm::StructType::get(tys);
+        if (t != llt) {
+            if (gTargetData->getTypeSize(t) != gTargetData->getTypeSize(llt)) { 
+                Logger::cout() << "got size " << gTargetData->getTypeSize(t) << ", expected " << gTargetData->getTypeSize(llt) << '\n';
+                assert(0 && "type size mismatch");
+            }
+            sptr = p->ir->CreateBitCast(sptr, llvm::PointerType::get(t), "tmp");
+            Logger::cout() << "sptr type is now: " << *t << '\n';
+        }
+    }
 
-    e->inplace = true;
-    e->mem = lval;
-    e->type = elem::VAR;
+    // build
+    unsigned j = 0;
+    for (unsigned i=0; i<n; ++i)
+    {
+        Expression* vx = (Expression*)elements->data[i];
+        if (!vx) continue;
 
-    return e;
+        Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
+        llvm::Value* arrptr = DtoGEPi(sptr,0,j,"tmp",p->scopebb());
+        DValue* darrptr = new DVarValue(vx->type, arrptr, true);
+
+        p->exps.push_back(IRExp(NULL,vx,darrptr));
+        DValue* ve = vx->toElem(p);
+        p->exps.pop_back();
+
+        if (!ve->inPlace())
+            DtoAssign(darrptr, ve);
+
+        j++;
+    }
+
+    return new DImValue(type, sptr, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#define STUB(x) elem *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
+llvm::Constant* StructLiteralExp::toConstElem(IRState* p)
+{
+    Logger::print("StructLiteralExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    unsigned n = elements->dim;
+    std::vector<llvm::Constant*> vals(n, NULL);
+
+    for (unsigned i=0; i<n; ++i)
+    {
+        Expression* vx = (Expression*)elements->data[i];
+        vals[i] = vx->toConstElem(p);
+    }
+
+    assert(DtoDType(type)->ty == Tstruct);
+    const llvm::Type* t = DtoType(type);
+    const llvm::StructType* st = llvm::cast<llvm::StructType>(t);
+    return llvm::ConstantStruct::get(st,vals);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 //STUB(IdentityExp);
 //STUB(CondExp);
 //STUB(EqualExp);

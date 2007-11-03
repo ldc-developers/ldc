@@ -23,6 +23,7 @@
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 #include "gen/todebug.h"
+#include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -66,34 +67,14 @@ void ReturnStatement::toIR(IRState* p)
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
-            p->exps.push_back(IRExp(NULL,exp,f->llvmRetArg));
-            elem* e = exp->toElem(p);
+            DValue* rvar = new DVarValue(f->next, f->llvmRetArg, true);
+
+            p->exps.push_back(IRExp(NULL,exp,rvar));
+            DValue* e = exp->toElem(p);
             p->exps.pop_back();
 
-            if (expty == Tstruct) {
-                if (!e->inplace)
-                    DtoStructCopy(f->llvmRetArg,e->getValue());
-            }
-            else if (expty == Tdelegate) {
-                if (!e->inplace)
-                    DtoDelegateCopy(f->llvmRetArg,e->getValue());
-            }
-            else if (expty == Tarray) {
-                if (e->type == elem::SLICE) {
-                    assert(e->mem);
-                    DtoSetArray(f->llvmRetArg,e->arg,e->mem);
-                }
-                else if (!e->inplace) {
-                    if (e->type == elem::NUL) {
-                        DtoNullArray(f->llvmRetArg);
-                    }
-                    else {
-                        DtoArrayAssign(f->llvmRetArg, e->getValue());
-                    }
-                }
-            }
-            else
-            assert(0);
+            if (!e->inPlace())
+                DtoAssign(rvar, e);
 
             IRFunction::FinallyVec& fin = p->func().finallys;
             if (fin.empty()) {
@@ -103,12 +84,11 @@ void ReturnStatement::toIR(IRState* p)
             else {
                 new llvm::BranchInst(fin.back().retbb, p->scopebb());
             }
-            delete e;
         }
         else {
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
-            elem* e = exp->toElem(p);
-            llvm::Value* v = e->getValue();
+            DValue* e = exp->toElem(p);
+            llvm::Value* v = e->getRVal();
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
 
@@ -174,8 +154,8 @@ void IfStatement::toIR(IRState* p)
     Logger::println("IfStatement::toIR(%d): %s", wsi++, toChars());
     LOG_SCOPE;
 
-    elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = cond_e->getValue();
+    DValue* cond_e = condition->toElem(p);
+    llvm::Value* cond_val = cond_e->getRVal();
     delete cond_e;
 
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -265,8 +245,8 @@ void WhileStatement::toIR(IRState* p)
     gIR->scope() = IRScope(whilebb,endbb);
 
     // create the condition
-    elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(cond_e->getValue());
+    DValue* cond_e = condition->toElem(p);
+    llvm::Value* cond_val = DtoBoolean(cond_e->getRVal());
     delete cond_e;
 
     // conditional branch
@@ -308,8 +288,8 @@ void DoStatement::toIR(IRState* p)
     body->toIR(p);
 
     // create the condition
-    elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(cond_e->getValue());
+    DValue* cond_e = condition->toElem(p);
+    llvm::Value* cond_val = DtoBoolean(cond_e->getRVal());
     delete cond_e;
 
     // conditional branch
@@ -347,8 +327,8 @@ void ForStatement::toIR(IRState* p)
     gIR->scope() = IRScope(forbb,forbodybb);
 
     // create the condition
-    elem* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(cond_e->getValue());
+    DValue* cond_e = condition->toElem(p);
+    llvm::Value* cond_val = DtoBoolean(cond_e->getRVal());
     delete cond_e;
 
     // conditional branch
@@ -366,7 +346,7 @@ void ForStatement::toIR(IRState* p)
 
     // increment
     if (increment) {
-        elem* inc = increment->toElem(p);
+        DValue* inc = increment->toElem(p);
         delete inc;
     }
 
@@ -543,7 +523,7 @@ void ThrowStatement::toIR(IRState* p)
 
     /*
     assert(exp);
-    elem* e = exp->toElem(p);
+    DValue* e = exp->toElem(p);
     delete e;
     */
 }
@@ -565,9 +545,10 @@ void SwitchStatement::toIR(IRState* p)
         CaseStatement* cs = (CaseStatement*)cases->data[i];
 
         // get the case value
-        elem* e = cs->exp->toElem(p);
-        assert(e->val && llvm::isa<llvm::ConstantInt>(e->val));
-        llvm::ConstantInt* ec = llvm::cast<llvm::ConstantInt>(e->val);
+        DValue* e = cs->exp->toElem(p);
+        DConstValue* ce = e->isConst();
+        assert(ce && llvm::isa<llvm::ConstantInt>(ce->c));
+        llvm::ConstantInt* ec = llvm::cast<llvm::ConstantInt>(ce->c);
         delete e;
 
         // create the case bb with a nice label
@@ -587,8 +568,8 @@ void SwitchStatement::toIR(IRState* p)
     llvm::BasicBlock* endbb = new llvm::BasicBlock("switchend", p->topfunc(), oldend);
 
     // condition var
-    elem* cond = condition->toElem(p);
-    llvm::SwitchInst* si = new llvm::SwitchInst(cond->getValue(), defbb ? defbb : endbb, cases->dim, p->scopebb());
+    DValue* cond = condition->toElem(p);
+    llvm::SwitchInst* si = new llvm::SwitchInst(cond->getRVal(), defbb ? defbb : endbb, cases->dim, p->scopebb());
     delete cond;
 
     // add the cases
@@ -678,9 +659,12 @@ void ForeachStatement::toIR(IRState* p)
     Logger::println("aggr = %s", aggr->toChars());
     Logger::println("func = %s", func->toChars());
 
-    elem* arr = aggr->toElem(p);
-    llvm::Value* val = arr->getValue();
-    Logger::cout() << "aggr2llvm = " << *val << '\n';
+    DValue* arr = aggr->toElem(p);
+    llvm::Value* val = 0;
+    if (!arr->isSlice()) {
+        val = arr->getRVal();
+        Logger::cout() << "aggr2llvm = " << *val << '\n';
+    }
 
     llvm::Value* numiters = 0;
 
@@ -689,7 +673,7 @@ void ForeachStatement::toIR(IRState* p)
     if (key) key->llvmValue = keyvar;
 
     const llvm::Type* valtype = DtoType(value->type);
-    llvm::Value* valvar = !value->isRef() ? new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint()) : NULL;
+    llvm::Value* valvar = !(value->isRef() || value->isOut()) ? new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint()) : NULL;
 
     Type* aggrtype = DtoDType(aggr->type);
     if (aggrtype->ty == Tsarray)
@@ -702,9 +686,9 @@ void ForeachStatement::toIR(IRState* p)
     }
     else if (aggrtype->ty == Tarray)
     {
-        if (arr->type == elem::SLICE) {
-            numiters = arr->arg;
-            val = arr->mem;
+        if (DSliceValue* slice = arr->isSlice()) {
+            numiters = slice->len;
+            val = slice->ptr;
         }
         else {
             numiters = p->ir->CreateLoad(DtoGEPi(val,0,0,"tmp",p->scopebb()));
@@ -760,12 +744,12 @@ void ForeachStatement::toIR(IRState* p)
     else if (aggrtype->ty == Tarray)
         value->llvmValue = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
 
-    if (!value->isRef()) {
-        elem* e = new elem;
-        e->mem = value->llvmValue;
-        e->type = elem::VAR;
-        DtoAssign(DtoDType(value->type), valvar, e->getValue());
-        delete e;
+    if (!value->isRef() && !value->isOut()) {
+        DValue* dst = new DVarValue(value->type, valvar, true);
+        DValue* src = new DVarValue(value->type, value->llvmValue, true);
+        DtoAssign(dst, src);
+        delete dst;
+        delete src;
         value->llvmValue = valvar;
     }
 
@@ -798,9 +782,12 @@ void LabelStatement::toIR(IRState* p)
     else
         llvmBB = new llvm::BasicBlock("label", p->topfunc(), oldend);
 
-    new llvm::BranchInst(llvmBB, p->scopebb());
+    if (!p->scopereturned())
+        new llvm::BranchInst(llvmBB, p->scopebb());
+
     p->scope() = IRScope(llvmBB,oldend);
-    statement->toIR(p);
+    if (statement)
+        statement->toIR(p);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -817,6 +804,7 @@ void GotoStatement::toIR(IRState* p)
 
     if (label->statement->llvmBB == NULL)
         label->statement->llvmBB = new llvm::BasicBlock("label", p->topfunc());
+    assert(!p->scopereturned());
     new llvm::BranchInst(label->statement->llvmBB, p->scopebb());
     p->scope() = IRScope(bb,oldend);
 }
@@ -831,8 +819,8 @@ void WithStatement::toIR(IRState* p)
     assert(exp);
     assert(body);
 
-    elem* e = exp->toElem(p);
-    wthis->llvmValue = e->getValue();
+    DValue* e = exp->toElem(p);
+    wthis->llvmValue = e->getRVal();
     delete e;
 
     body->toIR(p);

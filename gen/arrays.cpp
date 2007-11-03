@@ -11,7 +11,7 @@
 #include "gen/arrays.h"
 #include "gen/runtime.h"
 #include "gen/logger.h"
-#include "gen/elem.h"
+#include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -125,17 +125,18 @@ void DtoArrayInit(llvm::Value* l, llvm::Value* r)
 {
     const llvm::PointerType* ptrty = llvm::cast<llvm::PointerType>(l->getType());
     const llvm::Type* t = ptrty->getContainedType(0);
-    const llvm::ArrayType* arrty = llvm::cast_or_null<llvm::ArrayType>(t);
+    const llvm::ArrayType* arrty = llvm::dyn_cast<llvm::ArrayType>(t);
     if (arrty)
     {
         llvm::Value* ptr = DtoGEPi(l,0,0,"tmp",gIR->scopebb());
         llvm::Value* dim = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
-        llvm::Value* val = r;
-        DtoArrayInit(ptr, dim, val);
+        DtoArrayInit(ptr, dim, r);
     }
     else if (llvm::isa<llvm::StructType>(t))
     {
-        assert(0 && "Only static arrays support initialisers atm");
+        llvm::Value* dim = DtoLoad(DtoGEPi(l, 0,0, "tmp"));
+        llvm::Value* ptr = DtoLoad(DtoGEPi(l, 0,1, "tmp"));
+        DtoArrayInit(ptr, dim, r);
     }
     else
     assert(0);
@@ -159,6 +160,8 @@ static size_t checkRectArrayInit(const llvm::Type* pt, constLLVMTypeP& finalty)
 
 void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 {
+    Logger::println("HELLO");
+    Logger::cout() << "array: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
     const llvm::Type* pt = ptr->getType()->getContainedType(0);
     const llvm::Type* t = val->getType();
     const llvm::Type* finalTy;
@@ -250,9 +253,20 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 {
     Logger::println("arr init begin");
     Type* arrinittype = DtoDType(arrinit->type);
-    assert(arrinittype->ty == Tsarray);
-    TypeSArray* t = (TypeSArray*)arrinittype;
-    integer_t tdim = t->dim->toInteger();
+
+    Type* t;
+    integer_t tdim;
+    if (arrinittype->ty == Tsarray) {
+        TypeSArray* tsa = (TypeSArray*)arrinittype;
+        tdim = tsa->dim->toInteger();
+        t = tsa;
+    }
+    else if (arrinittype->ty == Tarray) {
+        t = arrinittype;
+        tdim = arrinit->dim;
+    }
+    else
+    assert(0);
 
     std::vector<llvm::Constant*> inits(tdim, 0);
 
@@ -308,32 +322,41 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         inits[i] = v;
     }
 
-    const llvm::ArrayType* arrty = DtoStaticArrayType(t);
-    return llvm::ConstantArray::get(arrty, inits);
+    const llvm::ArrayType* arrty = llvm::ArrayType::get(elemty,tdim);
+    llvm::Constant* constarr = llvm::ConstantArray::get(arrty, inits);
+
+    if (arrinittype->ty == Tsarray)
+        return constarr;
+    else
+        assert(arrinittype->ty == Tarray);
+
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrty,true,llvm::GlobalValue::InternalLinkage,constarr,"constarray",gIR->module);
+    llvm::Constant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    llvm::Constant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+    return DtoConstSlice(DtoConstSize_t(tdim),gep);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-static llvm::Value* get_slice_ptr(elem* e, llvm::Value*& sz)
+static llvm::Value* get_slice_ptr(DSliceValue* e, llvm::Value*& sz)
 {
-    assert(e->mem);
-    const llvm::Type* t = e->mem->getType()->getContainedType(0);
+    const llvm::Type* t = e->ptr->getType()->getContainedType(0);
     llvm::Value* ret = 0;
-    if (e->arg != 0) {
+    if (e->len != 0) {
         // this means it's a real slice
-        ret = e->mem;
+        ret = e->ptr;
 
         size_t elembsz = gTargetData->getTypeSize(ret->getType());
         llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
 
-        if (llvm::isa<llvm::ConstantInt>(e->arg)) {
-            sz = llvm::ConstantExpr::getMul(elemsz, llvm::cast<llvm::Constant>(e->arg));
+        if (llvm::isa<llvm::ConstantInt>(e->len)) {
+            sz = llvm::ConstantExpr::getMul(elemsz, llvm::cast<llvm::Constant>(e->len));
         }
         else {
-            sz = llvm::BinaryOperator::createMul(elemsz,e->arg,"tmp",gIR->scopebb());
+            sz = llvm::BinaryOperator::createMul(elemsz,e->len,"tmp",gIR->scopebb());
         }
     }
     else if (llvm::isa<llvm::ArrayType>(t)) {
-        ret = DtoGEPi(e->mem, 0, 0, "tmp", gIR->scopebb());
+        ret = DtoGEPi(e->ptr, 0, 0, "tmp", gIR->scopebb());
 
         size_t elembsz = gTargetData->getTypeSize(ret->getType()->getContainedType(0));
         llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
@@ -344,13 +367,13 @@ static llvm::Value* get_slice_ptr(elem* e, llvm::Value*& sz)
         sz = llvm::ConstantExpr::getMul(elemsz, nelems);
     }
     else if (llvm::isa<llvm::StructType>(t)) {
-        ret = DtoGEPi(e->mem, 0, 1, "tmp", gIR->scopebb());
+        ret = DtoGEPi(e->ptr, 0, 1, "tmp", gIR->scopebb());
         ret = new llvm::LoadInst(ret, "tmp", gIR->scopebb());
 
         size_t elembsz = gTargetData->getTypeSize(ret->getType()->getContainedType(0));
         llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
 
-        llvm::Value* len = DtoGEPi(e->mem, 0, 0, "tmp", gIR->scopebb());
+        llvm::Value* len = DtoGEPi(e->ptr, 0, 0, "tmp", gIR->scopebb());
         len = new llvm::LoadInst(len, "tmp", gIR->scopebb());
         sz = llvm::BinaryOperator::createMul(len,elemsz,"tmp",gIR->scopebb());
     }
@@ -360,13 +383,8 @@ static llvm::Value* get_slice_ptr(elem* e, llvm::Value*& sz)
     return ret;
 }
 
-void DtoArrayCopy(elem* dst, elem* src)
+void DtoArrayCopy(DSliceValue* dst, DSliceValue* src)
 {
-    Logger::cout() << "Array copy ((((" << *src->mem << ")))) into ((((" << *dst->mem << "))))\n";
-
-    assert(dst->type == elem::SLICE);
-    assert(src->type == elem::SLICE);
-
     llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
     llvm::Value* sz1;
@@ -435,9 +453,8 @@ llvm::Value* DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool 
     llvm::Value* newptr = DtoRealloc(nullptr, bytesize);
 
     if (doinit) {
-        elem* e = dty->defaultInit()->toElem(gIR);
-        DtoArrayInit(newptr,dim,e->getValue());
-        delete e;
+        DValue* e = dty->defaultInit()->toElem(gIR);
+        DtoArrayInit(newptr,dim,e->getRVal());
     }
 
     llvm::Value* lenptr = DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
@@ -449,7 +466,7 @@ llvm::Value* DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
+llvm::Value* DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
 {
     llvm::Value* ptr = DtoGEPi(arr, 0, 1, "tmp", gIR->scopebb());
     llvm::Value* ptrld = new llvm::LoadInst(ptr,"tmp",gIR->scopebb());
@@ -463,25 +480,52 @@ void DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
 
     llvm::Value* len = DtoGEPi(arr, 0, 0, "tmp", gIR->scopebb());
     new llvm::StoreInst(sz,len,gIR->scopebb());
+
+    return newptr;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void DtoCatAssignElement(llvm::Value* arr, Expression* exp)
 {
-    llvm::Value* ptr = DtoGEPi(arr, 0, 0, "tmp", gIR->scopebb());
-    llvm::Value* idx = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
+    llvm::Value* ptr = DtoGEPi(arr, 0, 0, "tmp");
+    llvm::Value* idx = DtoLoad(ptr);
     llvm::Value* one = llvm::ConstantInt::get(idx->getType(),1,false);
     llvm::Value* len = llvm::BinaryOperator::createAdd(idx, one, "tmp", gIR->scopebb());
     DtoResizeDynArray(arr,len);
 
-    ptr = DtoGEPi(arr, 0, 1, "tmp", gIR->scopebb());
-    ptr = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
+    ptr = DtoLoad(DtoGEPi(arr, 0, 1, "tmp"));
     ptr = new llvm::GetElementPtrInst(ptr, idx, "tmp", gIR->scopebb());
 
-    elem* e = exp->toElem(gIR);
-    Type* et = DtoDType(exp->type);
-    DtoAssign(et, ptr, e->getValue());
-    delete e;
+    DValue* dptr = new DVarValue(exp->type, ptr, true);
+
+    gIR->exps.push_back(IRExp(0,exp,dptr));
+    DValue* e = exp->toElem(gIR);
+    gIR->exps.pop_back();
+
+    if (!e->inPlace())
+        DtoAssign(dptr, e);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+void DtoCatAssignArray(llvm::Value* arr, Expression* exp)
+{
+    DValue* e = exp->toElem(gIR);
+
+    llvm::Value *len1, *len2, *src1, *src2, *res;
+
+    DValue* darr = new DVarValue(exp->type, arr, true);
+
+    len1 = DtoArrayLen(darr);
+    len2 = DtoArrayLen(e);
+    res = gIR->ir->CreateAdd(len1,len2,"tmp");
+
+    llvm::Value* mem = DtoResizeDynArray(arr,res);
+
+    src1 = DtoArrayPtr(darr);
+    src2 = DtoArrayPtr(e);
+
+    mem = gIR->ir->CreateGEP(mem,len1,"tmp");
+    DtoMemCpy(mem,src2,len2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -493,13 +537,11 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
     assert(t1->ty == Tarray);
     assert(t1->ty == t2->ty);
 
-    elem* e1 = exp1->toElem(gIR);
-    llvm::Value* a = e1->getValue();
-    delete e1;
+    DValue* e1 = exp1->toElem(gIR);
+    llvm::Value* a = e1->getRVal();
 
-    elem* e2 = exp2->toElem(gIR);
-    llvm::Value* b = e2->getValue();
-    delete e2;
+    DValue* e2 = exp2->toElem(gIR);
+    llvm::Value* b = e2->getRVal();
 
     llvm::Value *len1, *len2, *src1, *src2, *res;
     len1 = gIR->ir->CreateLoad(DtoGEPi(a,0,0,"tmp"),"tmp");
@@ -670,3 +712,43 @@ llvm::Constant* DtoConstStaticArray(const llvm::Type* t, llvm::Constant* c)
     initvals.resize(at->getNumElements(), c);
     return llvm::ConstantArray::get(at, initvals);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Value* DtoArrayLen(DValue* v)
+{
+    Type* t = DtoDType(v->getType());
+    if (t->ty == Tarray) {
+        if (DSliceValue* s = v->isSlice()) {
+            if (s->len) return s->len;
+            DValue* next = new DVarValue(t,s->ptr,true);
+            return DtoArrayLen(next);
+        }
+        return DtoLoad(DtoGEPi(v->getRVal(), 0,0, "tmp"));
+    }
+    else if (t->ty == Tsarray) {
+        const llvm::ArrayType* t = llvm::cast<llvm::ArrayType>(v->getLVal()->getType());
+        return DtoConstSize_t(t->getNumElements());
+    }
+    assert(0);
+    return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Value* DtoArrayPtr(DValue* v)
+{
+    Type* t = DtoDType(v->getType());
+    if (t->ty == Tarray) {
+        if (DSliceValue* s = v->isSlice()) {
+            if (s->len) return s->ptr;
+            DValue* next = new DVarValue(t,s->ptr,true);
+            return DtoArrayPtr(next);
+        }
+        return DtoLoad(DtoGEPi(v->getRVal(), 0,1, "tmp"));
+    }
+    else if (t->ty == Tsarray) {
+        return DtoGEPi(v->getRVal(), 0,0, "tmp");
+    }
+    assert(0);
+    return 0;
+}
+

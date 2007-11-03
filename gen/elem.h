@@ -1,9 +1,16 @@
 #ifndef LLVMDC_GEN_ELEM_H
 #define LLVMDC_GEN_ELEM_H
 
+#include "dvalue.h"
+typedef DValue elem;
+
+/*
+
 #include "root.h"
 #include "declaration.h"
 #include "aggregate.h"
+
+struct DValue;
 
 // represents a value. be it a constant literal, a variable etc.
 // maintains all the information for doing load/store appropriately
@@ -22,7 +29,10 @@ struct elem : Object
     };
 
 public:
-    elem();
+    elem(Expression* e);
+    virtual ~elem();
+
+    Expression* exp;
 
     llvm::Value* mem;
     llvm::Value* val;
@@ -41,7 +51,11 @@ public:
     llvm::Value* getValue();
     //llvm::Value* getMemory();
 
+    DValue* dvalue;
+
     bool isNull()   {return !(mem || val);}
 };
+
+*/
 
 #endif // LLVMDC_GEN_ELEM_H

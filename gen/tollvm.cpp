@@ -12,13 +12,13 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/runtime.h"
-#include "gen/elem.h"
 #include "gen/arrays.h"
+#include "gen/dvalue.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
     TY t = DtoDType(type)->ty;
-    return (t == Tstruct || t == Tarray || t == Tdelegate);
+    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray);
 }
 
 Type* DtoDType(Type* t)
@@ -890,7 +890,7 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem* DtoInitializer(Initializer* init)
+DValue* DtoInitializer(Initializer* init)
 {
     if (ExpInitializer* ex = init->isExpInitializer())
     {
@@ -1069,7 +1069,7 @@ llvm::Function* DtoDeclareFunction(FuncDeclaration* fdecl)
     {
         Argument* arg = Argument::getNth(f->parameters, k++);
         //arg->llvmValue = iarg;
-        //printf("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
+        //Logger::println("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
         if (arg && arg->ident != 0) {
             if (arg->vardecl) {
                 arg->vardecl->llvmValue = iarg;
@@ -1093,6 +1093,8 @@ llvm::Function* DtoDeclareFunction(FuncDeclaration* fdecl)
             iarg->setName("unnamed");
         }
     }
+
+    Logger::cout() << "func decl: " << *func << '\n';
 
     return func;
 }
@@ -1163,15 +1165,13 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
     if (haslvals)
         gIR->exps.push_back(IRExp(NULL,NULL,NULL));
 
-    elem* arg = argexp->toElem(gIR);
+    DValue* arg = argexp->toElem(gIR);
 
     if (haslvals)
         gIR->exps.pop_back();
 
-    if (arg->inplace) {
-        assert(arg->mem != 0);
-        retval = arg->mem;
-        delete arg;
+    if (arg->inPlace()) {
+        retval = arg->getRVal();
         return retval;
     }
 
@@ -1179,8 +1179,13 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
     TY argty = realtype->ty;
     if (DtoIsPassedByRef(realtype)) {
         if (!fnarg || !fnarg->llvmCopy) {
-            retval = arg->getValue();
-            assert(retval != 0);
+            if (DSliceValue* sv = arg->isSlice()) {
+                retval = new llvm::AllocaInst(DtoType(realtype), "tmpparam", gIR->topallocapoint());
+                DtoSetArray(retval, DtoArrayLen(sv), DtoArrayPtr(sv));
+            }
+            else {
+                retval = arg->getRVal();
+            }
         }
         else {
             llvm::Value* allocaInst = 0;
@@ -1190,54 +1195,61 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
             const llvm::PointerType* pty = llvm::PointerType::get(realtypell);
             if (argty == Tstruct) {
                 allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                DtoStructCopy(allocaInst,arg->mem);
+                DValue* dst = new DVarValue(realtype, allocaInst, true);
+                DtoAssign(dst,arg);
+                delete dst;
             }
             else if (argty == Tdelegate) {
                 allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                DtoDelegateCopy(allocaInst,arg->mem);
+                DValue* dst = new DVarValue(realtype, allocaInst, true);
+                DtoAssign(dst,arg);
+                delete dst;
             }
             else if (argty == Tarray) {
-                if (arg->type == elem::SLICE) {
+                if (arg->isSlice()) {
                     allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
-                    DtoSetArray(allocaInst, arg->arg, arg->mem);
-                }
-                else if (arg->temp) {
-                    allocaInst = arg->mem;
                 }
                 else {
                     allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                    DtoArrayAssign(allocaInst,arg->mem);
                 }
             }
             else
             assert(0);
+
+            DValue* dst = new DVarValue(realtype, allocaInst, true);
+            DtoAssign(dst,arg);
+            delete dst;
 
             retval = allocaInst;
         }
     }
     else if (!fnarg || fnarg->llvmCopy) {
         Logger::println("regular arg");
-        assert(arg->type != elem::SLICE);
-        if (arg->mem) Logger::cout() << "mem = " << *arg->mem << '\n';
-        if (arg->val) Logger::cout() << "val = " << *arg->val << '\n';
-        if (arg->arg) Logger::cout() << "arg = " << *arg->arg << '\n';
-        retval = arg->arg ? arg->arg : arg->field ? arg->mem : arg->getValue();
+        if (DSliceValue* sl = arg->isSlice()) {
+            if (sl->ptr) Logger::cout() << "ptr = " << *sl->ptr << '\n';
+            if (sl->len) Logger::cout() << "len = " << *sl->len << '\n';
+            assert(0);
+        }
+        else {
+            retval = arg->getRVal();
+        }
     }
     else {
         Logger::println("as ptr arg");
-        retval = arg->mem ? arg->mem : arg->val;
+        retval = arg->getLVal();
         if (paramtype && retval->getType() != paramtype)
         {
-            assert(retval->getType() == paramtype->getContainedType(0));
-            new llvm::StoreInst(retval, arg->mem, gIR->scopebb());
-            retval = arg->mem;
+            assert(0);
+            /*assert(retval->getType() == paramtype->getContainedType(0));
+            new llvm::StoreInst(retval, arg->getLVal(), gIR->scopebb());
+            retval = arg->getLVal();*/
         }
     }
 
     if (fnarg && paramtype && retval->getType() != paramtype) {
         // this is unfortunately needed with the way SymOffExp is overused
         // and static arrays can end up being a pointer to their element type
-        if (arg->field) {
+        if (arg->isField()) {
             retval = gIR->ir->CreateBitCast(retval, paramtype, "tmp");
         }
         else {
@@ -1307,29 +1319,78 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoAssign(Type* t, llvm::Value* lhs, llvm::Value* rhs)
+void DtoAssign(DValue* lhs, DValue* rhs)
 {
-    Logger::cout() << "assignment:" << '\n' << *lhs << *rhs << '\n';
+    Type* t = DtoDType(lhs->getType());
+    Type* t2 = DtoDType(rhs->getType());
 
     if (t->ty == Tstruct) {
-        assert(lhs->getType() == rhs->getType());
-        DtoStructCopy(lhs,rhs);
+        if (t2 != t) {
+            // TODO: fix this, use 'rhs' for something
+            DtoStructZeroInit(lhs->getLVal());
+        }
+        else if (!rhs->inPlace()) {
+            DtoStructCopy(lhs->getLVal(),rhs->getRVal());
+        }
     }
     else if (t->ty == Tarray) {
-        assert(lhs->getType() == rhs->getType());
-        DtoArrayAssign(lhs,rhs);
+        // lhs is slice
+        if (DSliceValue* s = lhs->isSlice()) {
+            if (DSliceValue* s2 = rhs->isSlice()) {
+                DtoArrayCopy(s, s2);
+            }
+            else if (t->next == t2) {
+                if (s->len)
+                    DtoArrayInit(s->ptr, s->len, rhs->getRVal());
+                else
+                    DtoArrayInit(s->ptr, rhs->getRVal());
+            }
+            else
+            assert(rhs->inPlace());
+        }
+        // rhs is slice
+        else if (DSliceValue* s = rhs->isSlice()) {
+            DtoSetArray(lhs->getLVal(),s->len,s->ptr);
+        }
+        // null
+        else if (rhs->isNull()) {
+            DtoNullArray(lhs->getLVal());
+        }
+        // reference assignment
+        else {
+            DtoArrayAssign(lhs->getLVal(), rhs->getRVal());
+        }
     }
     else if (t->ty == Tsarray) {
-        assert(lhs->getType() == rhs->getType());
-        DtoStaticArrayCopy(lhs,rhs);
+        DtoStaticArrayCopy(lhs->getLVal(), rhs->getRVal());
     }
     else if (t->ty == Tdelegate) {
-        assert(lhs->getType() == rhs->getType());
-        DtoDelegateCopy(lhs,rhs);
+        if (rhs->isNull())
+            DtoNullDelegate(lhs->getLVal());
+        else if (!rhs->inPlace())
+            DtoDelegateCopy(lhs->getLVal(), rhs->getRVal());
+    }
+    else if (t->ty == Tclass) {
+        assert(t2->ty == Tclass);
+        // assignment to this in constructor special case
+        if (lhs->isThis()) {
+            llvm::Value* tmp = rhs->getRVal();
+            FuncDeclaration* fdecl = gIR->func().decl;
+            // respecify the this param
+            if (!llvm::isa<llvm::AllocaInst>(fdecl->llvmThisVar))
+                fdecl->llvmThisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
+            DtoStore(tmp, fdecl->llvmThisVar);
+        }
+        // regular class ref -> class ref assignment
+        else {
+            DtoStore(rhs->getRVal(), lhs->getLVal());
+        }
     }
     else {
-        assert(lhs->getType()->getContainedType(0) == rhs->getType());
-        gIR->ir->CreateStore(rhs, lhs);
+        llvm::Value* r = rhs->getRVal();
+        llvm::Value* l = lhs->getLVal();
+        Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        gIR->ir->CreateStore(r, l);
     }
 }
 
@@ -1409,6 +1470,31 @@ void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+llvm::Value* DtoLoad(llvm::Value* src)
+{
+    return gIR->ir->CreateLoad(src,"tmp");
+}
+
+void DtoStore(llvm::Value* src, llvm::Value* dst)
+{
+    gIR->ir->CreateStore(src,dst);
+}
+
+bool DtoCanLoad(llvm::Value* ptr)
+{
+    if (llvm::isa<llvm::PointerType>(ptr->getType())) {
+        return ptr->getType()->getContainedType(0)->isFirstClassType();
+    }
+    return false;
+}
+
+llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t)
+{
+    return gIR->ir->CreateBitCast(v, t, "tmp");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
@@ -1470,7 +1556,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
 
 bool DtoIsTemplateInstance(Dsymbol* s)
 {
-    assert(s);
+    if (!s) return false;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
         return true;
     else if (s->parent)

@@ -56,10 +56,15 @@ enum TOK;
 struct IRState;
 struct dt_t;
 
+#if IN_LLVM
+struct DValue;
+typedef DValue elem;
+#else
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
 #else
 struct elem;
+#endif
 #endif
 
 void initPrecedence();

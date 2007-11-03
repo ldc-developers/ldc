@@ -1,3 +1,4 @@
+/*
 #include <iostream>
 
 #include "gen/llvm.h"
@@ -5,11 +6,14 @@
 #include "gen/elem.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
+#include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-elem::elem()
+elem::elem(Expression* e)
 {
+    exp = e;
+
     mem = 0;
     val = 0;
     arg = 0;
@@ -24,10 +28,22 @@ elem::elem()
 
     vardecl = 0;
     funcdecl = 0;
+
+    dvalue = 0;
+}
+
+elem::~elem()
+{
+    delete dvalue;
 }
 
 llvm::Value* elem::getValue()
 {
+    if (dvalue && !dvalue->isSlice()) {
+        Logger::println("HAS DVALUE");
+        return dvalue->getRVal();
+    }
+
     assert(val || mem);
     switch(type)
     {
@@ -66,3 +82,4 @@ llvm::Value* elem::getValue()
     assert(0 && "type == invalid value");
     return 0;
 }
+*/
