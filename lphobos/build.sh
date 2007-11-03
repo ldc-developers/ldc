@@ -12,7 +12,7 @@ echo "compiling common runtime"
 rebuild internal/arrays.d \
         internal/mem.d \
         internal/moduleinit.d \
-        -c -oqobj -dc=llvmdc-posix -explicit || exit 1
+        -c -oqobj -dc=llvmdc-posix || exit 1
 
 echo "compiling module init backend"
 llvm-as -f -o=obj/moduleinit_backend.bc internal/moduleinit_backend.ll || exit 1
