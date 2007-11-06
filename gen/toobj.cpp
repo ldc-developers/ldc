@@ -36,6 +36,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/arrays.h"
+#include "gen/structs.h"
 #include "gen/todebug.h"
 #include "gen/runtime.h"
 
@@ -286,6 +287,8 @@ void StructDeclaration::toObjFile()
     if (parent->isModule()) {
         gIR->module->addTypeName(mangle(),ts->llvmType);
     }
+
+    llvmUnion = new DUnion; // uses gIR->topstruct()
 
     // generate static data
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
@@ -572,6 +575,7 @@ void VarDeclaration::toObjFile()
 
     if (aliassym)
     {
+        Logger::println("alias sym");
         toAlias()->toObjFile();
         return;
     }
@@ -608,35 +612,13 @@ void VarDeclaration::toObjFile()
         Logger::println("Creating global variable");
         std::string _name(mangle());
 
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,0,_name,M);
-        llvmValue = gvar;
+        bool emitRTstaticInit = false;
 
         if (!(storage_class & STCextern) && (getModule() == gIR->dmodule || istempl))
         {
             if (parent && parent->isFuncDeclaration() && init && init->isExpInitializer()) {
                 _init = DtoConstInitializer(t, NULL);
-                // create a flag to make sure initialization only happens once
-                llvm::GlobalValue::LinkageTypes gflaglink = istempl ? llvm::GlobalValue::WeakLinkage : llvm::GlobalValue::InternalLinkage;
-                std::string gflagname(_name);
-                gflagname.append("__initflag");
-                llvm::GlobalVariable* gflag = new llvm::GlobalVariable(llvm::Type::Int1Ty,false,gflaglink,DtoConstBool(false),gflagname,M);
-
-                // check flag and do init if not already done
-                llvm::BasicBlock* oldend = gIR->scopeend();
-                llvm::BasicBlock* initbb = new llvm::BasicBlock("ifnotinit",gIR->topfunc(),oldend);
-                llvm::BasicBlock* endinitbb = new llvm::BasicBlock("ifnotinitend",gIR->topfunc(),oldend);
-                llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
-                gIR->ir->CreateCondBr(cond, initbb, endinitbb);
-                gIR->scope() = IRScope(initbb,endinitbb);
-                elem* ie = DtoInitializer(init);
-                if (!ie->inPlace()) {
-                    DValue* dst = new DVarValue(t, gvar, true);
-                    DtoAssign(dst, ie);
-                    delete dst;
-                }
-                gIR->ir->CreateStore(DtoConstBool(true), gflag);
-                gIR->ir->CreateBr(endinitbb);
-                gIR->scope() = IRScope(endinitbb,oldend);
+                emitRTstaticInit = true;
             }
             else {
                 _init = DtoConstInitializer(t, init);
@@ -668,10 +650,15 @@ void VarDeclaration::toObjFile()
                     //assert(0);
                 }
             }
-
-            Logger::cout() << "final init = " << *_init << '\n';
-            gvar->setInitializer(_init);
         }
+
+        if (_init && _init->getType() != _type)
+            _type = _init->getType();
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,_init,_name,M);
+        llvmValue = gvar;
+
+        if (emitRTstaticInit)
+            DtoLazyStaticInit(istempl, gvar, init, t);
 
         llvmDModule = gIR->dmodule;
 

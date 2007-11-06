@@ -251,41 +251,59 @@ void DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr)
 //////////////////////////////////////////////////////////////////////////////////////////
 llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 {
-    Logger::println("arr init begin");
+    Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
+    LOG_SCOPE;
+
     Type* arrinittype = DtoDType(arrinit->type);
 
     Type* t;
     integer_t tdim;
     if (arrinittype->ty == Tsarray) {
+        Logger::println("static array");
         TypeSArray* tsa = (TypeSArray*)arrinittype;
         tdim = tsa->dim->toInteger();
         t = tsa;
     }
     else if (arrinittype->ty == Tarray) {
+        Logger::println("dynamic array");
         t = arrinittype;
         tdim = arrinit->dim;
     }
     else
     assert(0);
 
-    std::vector<llvm::Constant*> inits(tdim, 0);
+    Logger::println("dim = %u", tdim);
+
+    std::vector<llvm::Constant*> inits(tdim, NULL);
 
     const llvm::Type* elemty = DtoType(arrinittype->next);
 
     assert(arrinit->index.dim == arrinit->value.dim);
-    for (int i=0,j=0; i < tdim; ++i)
+    for (unsigned i=0,j=0; i < tdim; ++i)
     {
         Initializer* init = 0;
         Expression* idx = (Expression*)arrinit->index.data[j];
 
         if (idx)
         {
-            integer_t k = idx->toInteger();
-            if (i == k)
-            {
-                init = (Initializer*)arrinit->value.data[j];
-                assert(init);
-                ++j;
+            // this is pretty weird :/ idx->type turned out NULL for the initializer:
+            //     const in6_addr IN6ADDR_ANY = { s6_addr8: [0] };
+            // in std.c.linux.socket
+            if (idx->type) {
+                //integer_t k = idx->toInteger();
+                Logger::println("getting value for exp: %s | %s", idx->toChars(), idx->type->toChars());
+                llvm::Constant* cc = idx->toConstElem(gIR);
+                Logger::println("value gotten");
+                assert(cc != NULL);
+                llvm::ConstantInt* ci = llvm::dyn_cast<llvm::ConstantInt>(cc);
+                assert(ci != NULL);
+                uint64_t k = ci->getZExtValue();
+                if (i == k)
+                {
+                    init = (Initializer*)arrinit->value.data[j];
+                    assert(init);
+                    ++j;
+                }
             }
         }
         else
@@ -294,29 +312,7 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
             ++j;
         }
 
-        llvm::Constant* v = 0;
-
-        if (!init)
-        {
-            v = t->next->defaultInit()->toConstElem(gIR);
-        }
-        else if (ExpInitializer* ex = init->isExpInitializer())
-        {
-            v = ex->exp->toConstElem(gIR);
-        }
-        else if (StructInitializer* si = init->isStructInitializer())
-        {
-            v = DtoConstStructInitializer(si);
-        }
-        else if (ArrayInitializer* ai = init->isArrayInitializer())
-        {
-            v = DtoConstArrayInitializer(ai);
-        }
-        else if (init->isVoidInitializer())
-        {
-            v = llvm::UndefValue::get(elemty);
-        }
-        else
+        llvm::Constant* v = DtoConstInitializer(t->next, init);
         assert(v);
 
         inits[i] = v;

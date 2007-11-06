@@ -45,6 +45,8 @@ namespace llvm
     class ConstantStruct;
 }
 
+struct DUnion;
+
 struct AggregateDeclaration : ScopeDsymbol
 {
     Type *type;
@@ -104,6 +106,7 @@ struct AggregateDeclaration : ScopeDsymbol
     llvm::ConstantStruct* llvmConstVtbl;
     llvm::Constant* llvmInitZ;
     bool llvmHasUnions;
+    DUnion* llvmUnion;
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };

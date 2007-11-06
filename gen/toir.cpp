@@ -27,6 +27,7 @@
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "gen/arrays.h"
+#include "gen/structs.h"
 
 #include "gen/dvalue.h"
 
@@ -178,9 +179,12 @@ DValue* VarExp::toElem(IRState* p)
         }
         else {
             // take care of forward references of global variables
-            if (!vd->llvmTouched && vd->isDataseg())
+            if (!vd->llvmTouched && (vd->isDataseg() || (vd->storage_class & STCextern))) // !vd->onstack)
                 vd->toObjFile();
-            assert(vd->llvmValue);
+            if (!vd->llvmValue) {
+                Logger::println("global variable not resolved :/ %s", vd->toChars());
+                assert(0);
+            }
             return new DVarValue(vd, vd->llvmValue, true);
         }
     }
@@ -225,7 +229,7 @@ llvm::Constant* VarExp::toConstElem(IRState* p)
         assert(ts->sym->llvmInitZ);
         return ts->sym->llvmInitZ;
     }
-    assert(0 && "Only support const var exp is SymbolDeclaration");
+    assert(0 && "Only supported const VarExp is of a SymbolDeclaration");
     return NULL;
 }
 
@@ -247,14 +251,15 @@ llvm::Constant* IntegerExp::toConstElem(IRState* p)
     LOG_SCOPE;
     const llvm::Type* t = DtoType(type);
     if (llvm::isa<llvm::PointerType>(t)) {
+        Logger::println("pointer");
         llvm::Constant* i = llvm::ConstantInt::get(DtoSize_t(),(uint64_t)value,false);
         return llvm::ConstantExpr::getIntToPtr(i, t);
     }
-    else if (llvm::isa<llvm::IntegerType>(t)) {
-        return llvm::ConstantInt::get(t,(uint64_t)value,!type->isunsigned());
-    }
-    assert(0);
-    return NULL;
+    assert(llvm::isa<llvm::IntegerType>(t));
+    llvm::Constant* c = llvm::ConstantInt::get(t,(uint64_t)value,!type->isunsigned());
+    assert(c);
+    Logger::cout() << "value = " << *c << '\n';
+    return c;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1447,7 +1452,7 @@ DValue* CastExp::toElem(IRState* p)
     if (isslice) {
         return new DSliceValue(type, rval2, rval);
     }
-    else if (u->isLValueCast() || u->isVar()) {
+    else if (u->isLValueCast() || (u->isVar() && u->isVar()->lval)) {
         return new DLValueCast(type, u->getLVal(), rval);
     }
     else if (p->topexp() && p->topexp()->e1 == this) {
@@ -2875,7 +2880,7 @@ STUB(RemoveExp);
 STUB(AssocArrayLiteralExp);
 //STUB(StructLiteralExp);
 
-#define CONSTSTUB(x) llvm::Constant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); assert(0); fatal(); return NULL; }
+#define CONSTSTUB(x) llvm::Constant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); fatal(); return NULL; }
 CONSTSTUB(Expression);
 //CONSTSTUB(IntegerExp);
 //CONSTSTUB(RealExp);

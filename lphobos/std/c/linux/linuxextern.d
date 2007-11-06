@@ -12,7 +12,7 @@
 
 module std.c.linux.linuxextern;
 
-extern (C)
+extern extern (C)
 {
     void* __libc_stack_end;
     int __data_start;

@@ -1,0 +1,193 @@
+#ifndef LLVMDC_GEN_DVALUE_H
+#define LLVMDC_GEN_DVALUE_H
+
+/*
+These classes are used for generating the IR. They encapsulate D values and
+provide a common interface to the most common operations. When more specialized
+handling is necessary, they hold enough information to do-the-right-thing (TM)
+*/
+
+#include <cassert>
+#include "root.h"
+
+struct Type;
+struct Dsymbol;
+struct VarDeclaration;
+struct FuncDeclaration;
+
+namespace llvm
+{
+    class Value;
+    class Type;
+    class Constant;
+}
+
+struct DImValue;
+struct DConstValue;
+struct DNullValue;
+struct DVarValue;
+struct DFieldValue;
+struct DThisValue;
+struct DFuncValue;
+struct DSliceValue;
+struct DArrayLenValue;
+struct DLValueCast;
+
+// base class for d-values
+struct DValue : Object
+{
+    virtual Type* getType() = 0;
+
+    virtual llvm::Value* getLVal() { assert(0); return 0; }
+    virtual llvm::Value* getRVal() { assert(0); return 0; }
+
+    virtual DImValue* isIm() { return NULL; }
+    virtual DConstValue* isConst() { return NULL; }
+    virtual DNullValue* isNull() { return NULL; }
+    virtual DVarValue* isVar() { return NULL; }
+    virtual DFieldValue* isField() { return NULL; }
+    virtual DThisValue* isThis() { return NULL; }
+    virtual DSliceValue* isSlice() { return NULL; }
+    virtual DFuncValue* isFunc() { return NULL; }
+    virtual DArrayLenValue* isArrayLen() { return NULL; }
+    virtual DLValueCast* isLValueCast() { return NULL; }
+
+    virtual bool inPlace() { return false; }
+
+protected:
+    DValue() {}
+    DValue(const DValue&) { }
+    DValue& operator=(const DValue&) { return *this; }
+};
+
+// immediate d-value
+struct DImValue : DValue
+{
+    Type* type;
+    llvm::Value* val;
+    bool inplace;
+
+    DImValue(Type* t, llvm::Value* v, bool i = false) { type = t; val = v; inplace = i; }
+
+    virtual llvm::Value* getRVal() { assert(val); return val; }
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DImValue* isIm() { return this; }
+
+    virtual bool inPlace() { return inplace; }
+};
+
+// constant d-value
+struct DConstValue : DValue
+{
+    Type* type;
+    llvm::Constant* c;
+
+    DConstValue(Type* t, llvm::Constant* con) { type = t; c = con; }
+
+    virtual llvm::Value* getRVal();
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DConstValue* isConst() { return this; }
+};
+
+// null d-value
+struct DNullValue : DConstValue
+{
+    DNullValue(Type* t, llvm::Constant* con) : DConstValue(t,con) {}
+    virtual DNullValue* isNull() { return this; }
+};
+
+// variable d-value
+struct DVarValue : DValue
+{
+    Type* type;
+    VarDeclaration* var;
+    llvm::Value* val;
+    llvm::Value* rval;
+    bool lval;
+
+    DVarValue(VarDeclaration* vd, llvm::Value* llvmValue, bool lvalue);
+    DVarValue(Type* vd, llvm::Value* lv, llvm::Value* rv);
+    DVarValue(Type* t, llvm::Value* llvmValue, bool lvalue);
+
+    virtual llvm::Value* getLVal();
+    virtual llvm::Value* getRVal();
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DVarValue* isVar() { return this; }
+};
+
+// field d-value
+struct DFieldValue : DVarValue
+{
+    DFieldValue(Type* t, llvm::Value* llvmValue, bool l) : DVarValue(t, llvmValue, l) {}
+    virtual DFieldValue* isField() { return this; }
+};
+
+// this d-value
+struct DThisValue : DVarValue
+{
+    DThisValue(VarDeclaration* vd, llvm::Value* llvmValue) : DVarValue(vd, llvmValue, true) {}
+    virtual DThisValue* isThis() { return this; }
+};
+
+// array length d-value
+struct DArrayLenValue : DVarValue
+{
+    DArrayLenValue(Type* t, llvm::Value* llvmValue) : DVarValue(t, llvmValue, true) {}
+    virtual DArrayLenValue* isArrayLen() { return this; }
+};
+
+// slice d-value
+struct DSliceValue : DValue
+{
+    Type* type;
+    llvm::Value* len;
+    llvm::Value* ptr;
+
+    DSliceValue(Type* t, llvm::Value* l, llvm::Value* p) { type=t; ptr=p; len=l; }
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DSliceValue* isSlice() { return this; }
+};
+
+// function d-value
+struct DFuncValue : DValue
+{
+    Type* type;
+    FuncDeclaration* func;
+    llvm::Value* val;
+    llvm::Value* vthis;
+    unsigned cc;
+
+    DFuncValue(FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt = 0);
+
+    virtual llvm::Value* getLVal();
+    virtual llvm::Value* getRVal();
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DFuncValue* isFunc() { return this; }
+};
+
+// l-value cast d-value
+struct DLValueCast : DValue
+{
+    Type* type;
+    llvm::Value* lval;
+    llvm::Value* rval;
+
+    DLValueCast(Type* t, llvm::Value* l, llvm::Value* r) {
+        type = t;
+        lval = l;
+        rval = r;
+    }
+
+    virtual llvm::Value* getLVal() { assert(lval); return lval; }
+    virtual llvm::Value* getRVal() { assert(rval); return rval; }
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DLValueCast* isLValueCast() { return this; }
+};
+
+#endif // LLVMDC_GEN_DVALUE_H

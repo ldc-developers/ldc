@@ -14,6 +14,7 @@
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
+#include "gen/structs.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
@@ -375,16 +376,6 @@ const llvm::StructType* DtoDelegateType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* DtoStructType(Type* t)
-{
-    assert(0);
-    std::vector<const llvm::Type*> types;
-    return llvm::StructType::get(types);
-}
-
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 static llvm::Function* LLVM_DeclareMemIntrinsic(const char* name, int bits, bool set=false)
 {
     assert(bits == 32 || bits == 64);
@@ -453,132 +444,6 @@ llvm::Function* LLVM_DeclareMemCpy64()
     }
     return _func;
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Value* DtoStructZeroInit(llvm::Value* v)
-{
-    assert(gIR);
-    uint64_t n = gTargetData->getTypeSize(v->getType()->getContainedType(0));
-    //llvm::Type* sarrty = llvm::PointerType::get(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    llvm::Type* sarrty = llvm::PointerType::get(llvm::Type::Int8Ty);
-
-    llvm::Value* sarr = new llvm::BitCastInst(v,sarrty,"tmp",gIR->scopebb());
-
-    llvm::Function* fn = LLVM_DeclareMemSet32();
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(4);
-    llargs[0] = sarr;
-    llargs[1] = llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false);
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    llvm::Value* ret = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-
-    return ret;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
-{
-    Logger::cout() << "dst = " << *dst << " src = " << *src << '\n';
-    assert(dst->getType() == src->getType());
-    assert(gIR);
-
-    uint64_t n = gTargetData->getTypeSize(dst->getType()->getContainedType(0));
-    //llvm::Type* sarrty = llvm::PointerType::get(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
-
-    llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-    llvm::Value* srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
-
-    llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    return new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
-{
-    llvm::StructType* structtype = llvm::cast<llvm::StructType>(si->ad->llvmType);
-    size_t n = structtype->getNumElements();
-
-    assert(si->value.dim == si->vars.dim);
-
-    std::vector<llvm::Constant*> inits;
-    inits.resize(n, NULL);
-    for (int i = 0; i < si->value.dim; ++i)
-    {
-        Initializer* ini = (Initializer*)si->value.data[i];
-        assert(ini);
-
-        VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
-        Type* vdtype = DtoDType(vd->type);
-        assert(vd);
-        Logger::println("vars[%d] = %s", i, vd->toChars());
-
-        llvm::Constant* v = 0;
-
-        assert(vd->llvmFieldIndex >= 0);
-        unsigned idx = vd->llvmFieldIndex;
-
-        if (ExpInitializer* ex = ini->isExpInitializer())
-        {
-            v = ex->exp->toConstElem(gIR);
-        }
-        else if (StructInitializer* si = ini->isStructInitializer())
-        {
-            v = DtoConstStructInitializer(si);
-        }
-        else if (ArrayInitializer* ai = ini->isArrayInitializer())
-        {
-            v = DtoConstArrayInitializer(ai);
-        }
-        else if (ini->isVoidInitializer())
-        {
-            v = llvm::UndefValue::get(structtype->getElementType(idx));
-        }
-        else
-        assert(v);
-
-        inits[idx] = v;
-        Logger::cout() << "init[" << idx << "] = " << *v << '\n';
-    }
-
-    // fill out nulls
-    assert(si->ad->llvmInitZ);
-    if (si->ad->llvmInitZ->isNullValue())
-    {
-        for (int i = 0; i < n; ++i)
-        {
-            if (inits[i] == 0)
-            {
-                inits[i] = llvm::Constant::getNullValue(structtype->getElementType(i));
-            }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < n; ++i)
-        {
-            if (inits[i] == 0)
-            {
-                inits[i] = si->ad->llvmInitZ->getOperand(i);
-            }
-        }
-    }
-
-    return llvm::ConstantStruct::get(structtype, inits);
-}
-
-
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1495,65 +1360,6 @@ llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
-{
-    Logger::println("checking for offset %u type %s:", os, t->toChars());
-    LOG_SCOPE;
-
-    if (idxs.empty())
-        idxs.push_back(0);
-
-    const llvm::Type* llt = llvm::PointerType::get(DtoType(t));
-
-    for (unsigned i=0; i<sd->fields.dim; ++i) {
-        VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
-        Type* vdtype = DtoDType(vd->type);
-        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
-        assert(vd->llvmFieldIndex >= 0);
-        if (os == vd->offset && vdtype == t) {
-            idxs.push_back(vd->llvmFieldIndex);
-            ptr = DtoGEP(ptr, idxs, "tmp");
-            if (ptr->getType() != llt)
-                ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-            if (vd->llvmFieldIndexOffset)
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
-            return ptr;
-        }
-        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
-            TypeStruct* ts = (TypeStruct*)vdtype;
-            StructDeclaration* ssd = ts->sym;
-            idxs.push_back(vd->llvmFieldIndex);
-            if (vd->llvmFieldIndexOffset) {
-                Logger::println("has union field offset");
-                ptr = DtoGEP(ptr, idxs, "tmp");
-                if (ptr->getType() != llt)
-                    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
-                std::vector<unsigned> tmp;
-                return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
-            }
-            else {
-                const llvm::Type* sty = llvm::PointerType::get(DtoType(vd->type));
-                if (ptr->getType() != sty) {
-                    ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
-                    std::vector<unsigned> tmp;
-                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
-                }
-                else {
-                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
-                }
-            }
-        }
-    }
-
-    size_t llt_sz = gTargetData->getTypeSize(llt->getContainedType(0));
-    assert(os % llt_sz == 0);
-    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-    return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 bool DtoIsTemplateInstance(Dsymbol* s)
 {
     if (!s) return false;
@@ -1562,4 +1368,29 @@ bool DtoIsTemplateInstance(Dsymbol* s)
     else if (s->parent)
         return DtoIsTemplateInstance(s->parent);
     return false;
+}
+
+void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t)
+{
+    // create a flag to make sure initialization only happens once
+    llvm::GlobalValue::LinkageTypes gflaglink = istempl ? llvm::GlobalValue::WeakLinkage : llvm::GlobalValue::InternalLinkage;
+    std::string gflagname(gvar->getName());
+    gflagname.append("__initflag");
+    llvm::GlobalVariable* gflag = new llvm::GlobalVariable(llvm::Type::Int1Ty,false,gflaglink,DtoConstBool(false),gflagname,gIR->module);
+
+    // check flag and do init if not already done
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* initbb = new llvm::BasicBlock("ifnotinit",gIR->topfunc(),oldend);
+    llvm::BasicBlock* endinitbb = new llvm::BasicBlock("ifnotinitend",gIR->topfunc(),oldend);
+    llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
+    gIR->ir->CreateCondBr(cond, initbb, endinitbb);
+    gIR->scope() = IRScope(initbb,endinitbb);
+    DValue* ie = DtoInitializer(init);
+    if (!ie->inPlace()) {
+        DValue* dst = new DVarValue(t, gvar, true);
+        DtoAssign(dst, ie);
+    }
+    gIR->ir->CreateStore(DtoConstBool(true), gflag);
+    gIR->ir->CreateBr(endinitbb);
+    gIR->scope() = IRScope(endinitbb,oldend);
 }

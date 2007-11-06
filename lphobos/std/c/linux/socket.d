@@ -331,7 +331,7 @@ union in6_addr
 }
 
 
-const in6_addr IN6ADDR_ANY = { s6_addr8: [0] };
+const in6_addr IN6ADDR_ANY;
 const in6_addr IN6ADDR_LOOPBACK = { s6_addr8: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] };
 //alias IN6ADDR_ANY IN6ADDR_ANY_INIT;
 //alias IN6ADDR_LOOPBACK IN6ADDR_LOOPBACK_INIT;

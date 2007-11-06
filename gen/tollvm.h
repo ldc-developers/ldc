@@ -3,17 +3,11 @@
 
 // D -> LLVM helpers
 
-struct StructInitializer;
 struct DValue;
 
 const llvm::Type* DtoType(Type* t);
 bool DtoIsPassedByRef(Type* type);
 Type* DtoDType(Type* t);
-
-const llvm::Type* DtoStructType(Type* t);
-llvm::Value* DtoStructZeroInit(llvm::Value* v);
-llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src);
-llvm::Constant* DtoConstStructInitializer(StructInitializer* si);
 
 const llvm::FunctionType* DtoFunctionType(Type* t, const llvm::Type* thistype, bool ismain = false);
 const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
@@ -66,9 +60,9 @@ llvm::Constant* DtoConstString(const char*);
 llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
 
-llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
-
 bool DtoIsTemplateInstance(Dsymbol* s);
+
+void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t);
 
 // llvm wrappers
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
