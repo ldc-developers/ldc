@@ -660,10 +660,39 @@ void DtoMain()
 
     // call static ctors
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_d_run_module_ctors");
-    new llvm::CallInst(fn,"",bb);
+    llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
 
     // call user main function
-    llvm::CallInst* call = new llvm::CallInst(ir.mainFunc,"ret",bb);
+    const llvm::FunctionType* mainty = ir.mainFunc->getFunctionType();
+    llvm::CallInst* call;
+    if (mainty->getNumParams() > 0)
+    {
+        // main with arguments
+        assert(mainty->getNumParams() == 1);
+        std::vector<llvm::Value*> args;
+        llvm::Function* mfn = LLVM_D_GetRuntimeFunction(ir.module,"_d_main_args");
+
+        llvm::Function::arg_iterator argi = func->arg_begin();
+        args.push_back(argi++);
+        args.push_back(argi++);
+
+        const llvm::Type* at = mainty->getParamType(0)->getContainedType(0);
+        llvm::Value* arr = new llvm::AllocaInst(at->getContainedType(1)->getContainedType(0), func->arg_begin(), "argstorage", apt);
+        llvm::Value* a = new llvm::AllocaInst(at, "argarray", apt);
+        llvm::Value* ptr = DtoGEPi(a,0,0,"tmp",bb);
+        llvm::Value* v = new llvm::ZExtInst(args[0], DtoSize_t(), "tmp", bb);
+        new llvm::StoreInst(v,ptr,bb);
+        ptr = DtoGEPi(a,0,1,"tmp",bb);
+        new llvm::StoreInst(arr,ptr,bb);
+        args.push_back(a);
+        new llvm::CallInst(mfn, args.begin(), args.end(), "", bb);
+        call = new llvm::CallInst(ir.mainFunc,a,"ret",bb);
+    }
+    else
+    {
+        // main with no arguments
+        call = new llvm::CallInst(ir.mainFunc,"ret",bb);
+    }
     call->setCallingConv(ir.mainFunc->getCallingConv());
 
     // call static dtors

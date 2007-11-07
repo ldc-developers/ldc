@@ -1747,7 +1747,7 @@ DValue* SliceExp::toElem(IRState* p)
     Type* e1type = DtoDType(e1->type);
 
     DValue* v = e1->toElem(p);
-    llvm::Value* vmem = v->getLVal();
+    llvm::Value* vmem = v->isIm() ? v->getRVal() : v->getLVal();
     assert(vmem);
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
