@@ -533,6 +533,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     assert(tinfo->ty == Tstruct);
     TypeStruct *tc = (TypeStruct *)tinfo;
     StructDeclaration *sd = tc->sym;
+    sd->toObjFile();
 
     ClassDeclaration* base = Type::typeinfostruct;
     base->toObjFile();
@@ -773,3 +774,131 @@ void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
     dtxoff(pdt, s, 0, TYnptr);          // elements.ptr
     */
 }
+
+/* ========================================================================= */
+/* ========================================================================= */
+/*                           CLASS INFO STUFF                                */
+/* ========================================================================= */
+/* ========================================================================= */
+
+void DtoClassInfo(ClassDeclaration* cd)
+{
+//     The layout is:
+//        {
+//         void **vptr;
+//         monitor_t monitor;
+//         byte[] initializer;     // static initialization data
+//         char[] name;        // class name
+//         void *[] vtbl;
+//         Interface[] interfaces;
+//         ClassInfo *base;        // base class
+//         void *destructor;
+//         void *invariant;        // class invariant
+//         uint flags;
+//         void *deallocator;
+//         OffsetTypeInfo[] offTi;
+//         void *defaultConstructor;
+//        }
+
+    // holds the list of initializers for llvm
+    std::vector<llvm::Constant*> inits;
+
+    ClassDeclaration* cinfo = ClassDeclaration::classinfo;
+    assert(cinfo);
+    Logger::println("cinfo toObj");
+    cinfo->toObjFile();
+    
+    Logger::println("cinfo toObj done");
+    assert(cinfo->type->ty == Tclass);
+    TypeClass* tc = (TypeClass*)cinfo->type;
+    //assert(tc->llvmInit);
+    //assert(cinfo->llvmInitZ);
+
+    cinfo = ClassDeclaration::classinfo;
+    assert(cinfo->llvmInitZ);
+
+    /*
+    llvm::Constant* c;
+
+    // own vtable
+    c = cinfo->llvmInitZ->getOperand(0);
+    assert(c);
+    inits.push_back(c);
+
+    // monitor
+    // TODO no monitors yet
+
+    // initializer
+    c = cinfo->llvmInitZ->getOperand(1);
+    inits.push_back(c);
+
+    // class name
+    // from dmd
+    char *name = cd->ident->toChars();
+    size_t namelen = strlen(name);
+    if (!(namelen > 9 && memcmp(name, "TypeInfo_", 9) == 0))
+    {
+        name = cd->toPrettyChars();
+        namelen = strlen(name);
+    }
+    c = DtoConstString(name);
+    inits.push_back(c);
+
+    // vtbl array
+    c = cinfo->llvmInitZ->getOperand(3);
+    inits.push_back(c);
+
+    // interfaces array
+    c = cinfo->llvmInitZ->getOperand(4);
+    inits.push_back(c);
+
+    // base classinfo
+    c = cinfo->llvmInitZ->getOperand(5);
+    inits.push_back(c);
+
+    // destructor
+    c = cinfo->llvmInitZ->getOperand(5);
+    inits.push_back(c);
+
+    // invariant
+    c = cinfo->llvmInitZ->getOperand(6);
+    inits.push_back(c);
+
+    // flags
+    c = cinfo->llvmInitZ->getOperand(7);
+    inits.push_back(c);
+
+    // allocator
+    c = cinfo->llvmInitZ->getOperand(8);
+    inits.push_back(c);
+
+    // offset typeinfo
+    c = cinfo->llvmInitZ->getOperand(9);
+    inits.push_back(c);
+
+    // default constructor
+    c = cinfo->llvmInitZ->getOperand(10);
+    inits.push_back(c);
+
+    // build the initializer
+    const llvm::StructType* st = llvm::cast<llvm::StructType>(cinfo->llvmInitZ->getType());
+    llvm::Constant* finalinit = llvm::ConstantStruct::get(st, inits);
+    Logger::cout() << "built the classinfo initializer:\n" << *finalinit <<'\n';
+
+    assert(0);
+    */
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

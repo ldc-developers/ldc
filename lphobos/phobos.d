@@ -4,6 +4,8 @@ import
 std.array,
 std.ctype,
 std.intrinsic,
+std.moduleinit,
+std.outofmemory,
 std.stdint,
 std.stdio,
 std.stdarg,

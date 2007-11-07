@@ -91,6 +91,9 @@ Module::genobjfile()
         dsym->toObjFile();
     }
 
+    // generate ModuleInfo
+    genmoduleinfo();
+
     gTargetData = 0;
 
     // emit the llvm main function if necessary
@@ -139,6 +142,152 @@ Module::genobjfile()
 
 void Module::genmoduleinfo()
 {
+//      The layout is:
+//        {
+//         void **vptr;
+//         monitor_t monitor;
+//         char[] name;        // class name
+//         ModuleInfo importedModules[];
+//         ClassInfo localClasses[];
+//         uint flags;         // initialization state
+//         void *ctor;
+//         void *dtor;
+//         void *unitTest;
+//        }
+
+    if (moduleinfo) {
+        Logger::println("moduleinfo");
+    }
+    if (vmoduleinfo) {
+        Logger::println("vmoduleinfo");
+    }
+    if (needModuleInfo()) {
+        Logger::println("**** ATTENTION: module info is needed but skipped");
+    }
+
+
+    /*
+    Symbol *msym = toSymbol();
+    unsigned offset;
+    unsigned sizeof_ModuleInfo = 12 * PTRSIZE;
+
+    //////////////////////////////////////////////
+
+    csym->Sclass = SCglobal;
+    csym->Sfl = FLdata;
+
+//      The layout is:
+//        {
+//         void **vptr;
+//         monitor_t monitor;
+//         char[] name;        // class name
+//         ModuleInfo importedModules[];
+//         ClassInfo localClasses[];
+//         uint flags;         // initialization state
+//         void *ctor;
+//         void *dtor;
+//         void *unitTest;
+//        }
+    dt_t *dt = NULL;
+
+    if (moduleinfo)
+    dtxoff(&dt, moduleinfo->toVtblSymbol(), 0, TYnptr); // vtbl for ModuleInfo
+    else
+    dtdword(&dt, 0);        // BUG: should be an assert()
+    dtdword(&dt, 0);            // monitor
+
+    // name[]
+    char *name = toPrettyChars();
+    size_t namelen = strlen(name);
+    dtdword(&dt, namelen);
+    dtabytes(&dt, TYnptr, 0, namelen + 1, name);
+
+    ClassDeclarations aclasses;
+    int i;
+
+    //printf("members->dim = %d\n", members->dim);
+    for (i = 0; i < members->dim; i++)
+    {
+    Dsymbol *member;
+
+    member = (Dsymbol *)members->data[i];
+    //printf("\tmember '%s'\n", member->toChars());
+    member->addLocalClass(&aclasses);
+    }
+
+    // importedModules[]
+    int aimports_dim = aimports.dim;
+    for (i = 0; i < aimports.dim; i++)
+    {   Module *m = (Module *)aimports.data[i];
+    if (!m->needModuleInfo())
+        aimports_dim--;
+    }
+    dtdword(&dt, aimports_dim);
+    if (aimports.dim)
+    dtxoff(&dt, csym, sizeof_ModuleInfo, TYnptr);
+    else
+    dtdword(&dt, 0);
+
+    // localClasses[]
+    dtdword(&dt, aclasses.dim);
+    if (aclasses.dim)
+    dtxoff(&dt, csym, sizeof_ModuleInfo + aimports_dim * PTRSIZE, TYnptr);
+    else
+    dtdword(&dt, 0);
+
+    if (needmoduleinfo)
+    dtdword(&dt, 0);        // flags (4 means MIstandalone)
+    else
+    dtdword(&dt, 4);        // flags (4 means MIstandalone)
+
+    if (sctor)
+    dtxoff(&dt, sctor, 0, TYnptr);
+    else
+    dtdword(&dt, 0);
+
+    if (sdtor)
+    dtxoff(&dt, sdtor, 0, TYnptr);
+    else
+    dtdword(&dt, 0);
+
+    if (stest)
+    dtxoff(&dt, stest, 0, TYnptr);
+    else
+    dtdword(&dt, 0);
+
+    //////////////////////////////////////////////
+
+    for (i = 0; i < aimports.dim; i++)
+    {
+    Module *m;
+
+    m = (Module *)aimports.data[i];
+    if (m->needModuleInfo())
+    {   Symbol *s = m->toSymbol();
+        s->Sflags |= SFLweak;
+        dtxoff(&dt, s, 0, TYnptr);
+    }
+    }
+
+    for (i = 0; i < aclasses.dim; i++)
+    {
+    ClassDeclaration *cd;
+
+    cd = (ClassDeclaration *)aclasses.data[i];
+    dtxoff(&dt, cd->toSymbol(), 0, TYnptr);
+    }
+
+    csym->Sdt = dt;
+#if ELFOBJ
+    // Cannot be CONST because the startup code sets flag bits in it
+    csym->Sseg = DATA;
+#endif
+    outdata(csym);
+
+    //////////////////////////////////////////////
+
+    obj_moduleinfo(msym);
+    */
 }
 
 /* ================================================================== */
@@ -553,6 +702,9 @@ void ClassDeclaration::toObjFile()
     gIR->structs.pop_back();
 
     llvmInProgress = false;
+
+    //     if (ClassDeclaration::classinfo != this)
+    //         DtoClassInfo(this);
 }
 
 /******************************************

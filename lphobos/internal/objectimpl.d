@@ -32,10 +32,13 @@
  *     distribution.
  */
 
+/*
+ * This copy is modified to work with LLVMDC by Tomas Lindquist Olsen 2007
+ */
 
 module object;
 
-//import std.outofmemory;
+import std.outofmemory;
 
 /**
  * An unsigned integral type large enough to span the memory space. Use for
@@ -260,6 +263,8 @@ extern (C) void _d_notify_release(Object o)
     }
 }
 
++/
+
 /**
  * Information about an interface.
  * A pointer to this appears as the first entry in the interface's vtbl[].
@@ -272,6 +277,7 @@ struct Interface
 }
 
 import std.moduleinit;
+
 /**
  * Runtime type information about a class. Can be retrieved for any class type
  * or instance by using the .classinfo property.
@@ -287,7 +293,7 @@ class ClassInfo : Object
     Interface[] interfaces; /// interfaces this class implements
     ClassInfo base;     /// base class
     void *destructor;
-    void (*classInvariant)(Object);
+    void function(Object) classInvariant;
     uint flags;
     //  1:          // IUnknown
     //  2:          // has no possible pointers into GC memory
@@ -303,7 +309,7 @@ class ClassInfo : Object
      */
     static ClassInfo find(char[] classname)
     {
-    foreach (m; ModuleInfo.modules())
+    /+foreach (m; ModuleInfo.modules())
     {
         //writefln("module %s, %d", m.name, m.localClasses.length);
         foreach (c; m.localClasses)
@@ -312,7 +318,7 @@ class ClassInfo : Object
         if (c.name == classname)
             return c;
         }
-    }
+    }+/
     return null;
     }
 
@@ -321,7 +327,7 @@ class ClassInfo : Object
      */
     Object create()
     {
-    if (flags & 8 && !defaultConstructor)
+    /+if (flags & 8 && !defaultConstructor)
         return null;
     Object o = _d_newclass(this);
     if (flags & 8 && defaultConstructor)
@@ -329,12 +335,13 @@ class ClassInfo : Object
         defaultConstructor(o);
     }
     return o;
+    +/
+    return null;
     }
 }
 
-private import std.string;
+//private import std.string;
 
-+/
 
 /**
  * Array of pairs giving the offset and type information for each

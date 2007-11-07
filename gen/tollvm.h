@@ -64,6 +64,8 @@ bool DtoIsTemplateInstance(Dsymbol* s);
 
 void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t);
 
+void DtoClassInfo(ClassDeclaration* cd);
+
 // llvm wrappers
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
 bool DtoCanLoad(llvm::Value* ptr);
