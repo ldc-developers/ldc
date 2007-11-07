@@ -26,6 +26,8 @@ llvm::Value* DtoBoolean(llvm::Value* val);
 
 const llvm::Type* DtoSize_t();
 
+const llvm::StructType* DtoComplexType(const llvm::Type* base);
+
 void DtoMain();
 
 void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);

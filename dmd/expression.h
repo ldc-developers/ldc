@@ -233,6 +233,8 @@ struct ComplexExp : Expression
 #endif
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct IdentifierExp : Expression

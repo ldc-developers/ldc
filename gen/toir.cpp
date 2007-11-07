@@ -318,6 +318,24 @@ llvm::Constant* NullExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* ComplexExp::toElem(IRState* p)
+{
+    Logger::print("ComplexExp::toElem(): %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+    assert(0);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* ComplexExp::toConstElem(IRState* p)
+{
+    Logger::print("ComplexExp::toConstElem(): %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+    assert(0);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* StringExp::toElem(IRState* p)
 {
     Logger::print("StringExp::toElem: %s | %s\n", toChars(), type->toChars());
@@ -1631,7 +1649,7 @@ DValue* DotVarExp::toElem(IRState* p)
         unsigned cc = (unsigned)-1;
 
         // virtual call
-        if (fdecl->isVirtual()) {
+        if (!fdecl->isFinal() && fdecl->isVirtual()) {
             assert(fdecl->vtblIndex > 0);
             assert(e1type->ty == Tclass);
 
@@ -2858,7 +2876,7 @@ STUB(ScopeExp);
 
 STUB(TypeExp);
 //STUB(RealExp);
-STUB(ComplexExp);
+//STUB(ComplexExp);
 //STUB(StringExp);
 //STUB(IntegerExp);
 STUB(BoolExp);
@@ -2885,6 +2903,7 @@ CONSTSTUB(Expression);
 //CONSTSTUB(IntegerExp);
 //CONSTSTUB(RealExp);
 //CONSTSTUB(NullExp);
+//CONSTSTUB(ComplexExp);
 //CONSTSTUB(StringExp);
 //CONSTSTUB(VarExp);
 //CONSTSTUB(ArrayLiteralExp);

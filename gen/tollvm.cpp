@@ -69,9 +69,10 @@ const llvm::Type* DtoType(Type* t)
 
     // complex
     case Tcomplex32:
+        return DtoComplexType(llvm::Type::FloatTy);
     case Tcomplex64:
     case Tcomplex80:
-        assert(0 && "complex number types not yet implemented");
+        return DtoComplexType(llvm::Type::DoubleTy);
 
     // pointers
     case Tpointer: {
@@ -371,6 +372,16 @@ const llvm::StructType* DtoDelegateType(Type* t)
     std::vector<const llvm::Type*> types;
     types.push_back(i8ptr);
     types.push_back(funcptr);
+    return llvm::StructType::get(types);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+const llvm::StructType* DtoComplexType(const llvm::Type* base)
+{
+    std::vector<const llvm::Type*> types;
+    types.push_back(base);
+    types.push_back(base);
     return llvm::StructType::get(types);
 }
 
