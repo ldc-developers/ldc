@@ -795,12 +795,15 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoInitializer(Initializer* init)
+DValue* DtoInitializer(Initializer* init, DValue* v)
 {
     if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("expression initializer");
+        assert(ex->exp);
+        if (v) gIR->exps.push_back(IRExp(NULL,ex->exp,v));
         return ex->exp->toElem(gIR);
+        if (v) gIR->exps.pop_back();
     }
     else if (init->isVoidInitializer())
     {
@@ -1226,6 +1229,7 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 
 void DtoAssign(DValue* lhs, DValue* rhs)
 {
+    Logger::cout() << "DtoAssign(...);\n";
     Type* t = DtoDType(lhs->getType());
     Type* t2 = DtoDType(rhs->getType());
 
@@ -1425,7 +1429,7 @@ void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type*
     llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);
-    DValue* ie = DtoInitializer(init);
+    DValue* ie = DtoInitializer(init, NULL);
     if (!ie->inPlace()) {
         DValue* dst = new DVarValue(t, gvar, true);
         DtoAssign(dst, ie);

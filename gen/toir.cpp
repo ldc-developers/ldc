@@ -66,7 +66,8 @@ DValue* DeclarationExp::toElem(IRState* p)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->llvmValue = allocainst;
             }
-            DValue* ie = DtoInitializer(vd->init);
+            DVarValue* vv = new DVarValue(type, vd->llvmValue, true);
+            DValue* ie = DtoInitializer(vd->init, vv);
             delete ie;
         }
 
@@ -322,7 +323,7 @@ DValue* ComplexExp::toElem(IRState* p)
 {
     Logger::print("ComplexExp::toElem(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    assert(0);
+    assert(0 && "no complex yet");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -331,7 +332,7 @@ llvm::Constant* ComplexExp::toConstElem(IRState* p)
 {
     Logger::print("ComplexExp::toConstElem(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    assert(0);
+    assert(0 && "no complex yet");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -462,10 +463,14 @@ DValue* AssignExp::toElem(IRState* p)
 
     p->exps.pop_back();
 
-    if (l->isArrayLen())
-        DtoResizeDynArray(l->getLVal(), r->getRVal());
-    else
-        DtoAssign(l, r);
+    DImValue* im = r->isIm();
+    if (!im || !im->inPlace()) {
+        if (l->isArrayLen())
+            DtoResizeDynArray(l->getLVal(), r->getRVal());
+        else
+            DtoAssign(l, r);
+    }
+
     return l;
 
     /*
@@ -639,19 +644,22 @@ DValue* AddExp::toElem(IRState* p)
 
     Type* t = DtoDType(type);
     Type* e1type = DtoDType(e1->type);
+    Type* e1next = e1type->next ? DtoDType(e1type->next) : NULL;
     Type* e2type = DtoDType(e2->type);
 
     if (e1type != e2type) {
-        if (e1type->ty == Tpointer && e1type->next->ty == Tstruct) {
+        if (e1type->ty == Tpointer && e1next && e1next->ty == Tstruct) {
+            Logger::println("add to AddrExp of struct");
             assert(r->isConst());
             llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
 
-            TypeStruct* ts = (TypeStruct*)e1type->next;
+            TypeStruct* ts = (TypeStruct*)e1next;
             std::vector<unsigned> offsets;
             llvm::Value* v = DtoIndexStruct(l->getRVal(), ts->sym, t->next, cofs->getZExtValue(), offsets);
             return new DFieldValue(type, v, true);
         }
-        else if (e1->type->ty == Tpointer) {
+        else if (e1type->ty == Tpointer) {
+            Logger::println("add to AddrExp of struct");
             llvm::Value* v = new llvm::GetElementPtrInst(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
             return new DImValue(type, v);
         }
@@ -2667,13 +2675,14 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     Logger::print("ArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    const llvm::Type* t = DtoType(type);
+    Type* ty = DtoDType(type);
+    const llvm::Type* t = DtoType(ty);
     Logger::cout() << "array literal has llvm type: " << *t << '\n';
 
     llvm::Value* mem = 0;
     if (!p->topexp() || p->topexp()->e2 != this) {
         assert(DtoDType(type)->ty == Tsarray);
-        mem = new llvm::AllocaInst(t,"tmparrayliteral",p->topallocapoint());
+        mem = new llvm::AllocaInst(t,"arrayliteral",p->topallocapoint());
     }
     else if (p->topexp()->e2 == this) {
         DValue* tlv = p->topexp()->v;
@@ -2688,8 +2697,10 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         if (!llvm::isa<llvm::PointerType>(mem->getType()) ||
             !llvm::isa<llvm::ArrayType>(mem->getType()->getContainedType(0)))
         {
-            error("TODO array literals can currently only be used to initialise static arrays");
-            fatal();
+            assert(ty->ty == Tarray);
+            // we need to give this array literal storage
+            const llvm::ArrayType* arrty = llvm::ArrayType::get(DtoType(ty->next), elements->dim);
+            mem = new llvm::AllocaInst(arrty, "arrayliteral", p->topallocapoint());
         }
     }
     else
@@ -2703,7 +2714,14 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         new llvm::StoreInst(e->getRVal(), elemAddr, p->scopebb());
     }
 
-    return new DImValue(type, mem, true);
+    if (ty->ty == Tsarray)
+        return new DImValue(type, mem, true);
+    else if (ty->ty == Tarray)
+        return new DSliceValue(type, DtoConstSize_t(elements->dim), DtoGEPi(mem,0,0,"tmp"));
+    else {
+        assert(0);
+        return 0;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2897,6 +2915,7 @@ STUB(RemoveExp);
 //STUB(ArrayLiteralExp);
 STUB(AssocArrayLiteralExp);
 //STUB(StructLiteralExp);
+STUB(TupleExp);
 
 #define CONSTSTUB(x) llvm::Constant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); fatal(); return NULL; }
 CONSTSTUB(Expression);

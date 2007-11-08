@@ -34,7 +34,7 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
 
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
-elem* DtoInitializer(Initializer* init);
+DValue* DtoInitializer(Initializer* init, DValue* v);
 
 llvm::Function* LLVM_DeclareMemSet32();
 llvm::Function* LLVM_DeclareMemSet64();

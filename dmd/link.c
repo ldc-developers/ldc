@@ -278,15 +278,16 @@ int runLINK()
     /* Standard libraries must go after user specified libraries
      * passed with -l.
      */
-    //argv.push((void *)"-lphobos");	// turns into /usr/lib/libphobos.a
-    //argv.push((void *)"-lpthread");
-    //argv.push((void *)"-lm");
 
     std::string corelibpath = global.params.runtimeImppath;
     corelibpath.append("/llvmdcore.bc");
     argv.append(global.params.objfiles);
     argv.push((void *)corelibpath.c_str());
-    
+
+    //argv.push((void *)"-lphobos");    // turns into /usr/lib/libphobos.a
+    //argv.push((void *)"-lpthread");
+    argv.push((void *)"-l=m");
+
     if (!global.params.quiet)
     {
 	// Print it
