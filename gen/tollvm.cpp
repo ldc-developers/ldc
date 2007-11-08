@@ -680,7 +680,9 @@ void DtoMain()
         llvm::Value* arr = new llvm::AllocaInst(at->getContainedType(1)->getContainedType(0), func->arg_begin(), "argstorage", apt);
         llvm::Value* a = new llvm::AllocaInst(at, "argarray", apt);
         llvm::Value* ptr = DtoGEPi(a,0,0,"tmp",bb);
-        llvm::Value* v = new llvm::ZExtInst(args[0], DtoSize_t(), "tmp", bb);
+        llvm::Value* v = args[0];
+        if (v->getType() != DtoSize_t())
+            v = new llvm::ZExtInst(v, DtoSize_t(), "tmp", bb);
         new llvm::StoreInst(v,ptr,bb);
         ptr = DtoGEPi(a,0,1,"tmp",bb);
         new llvm::StoreInst(arr,ptr,bb);
