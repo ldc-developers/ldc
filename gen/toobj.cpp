@@ -81,7 +81,7 @@ Module::genobjfile()
     // debug info
     if (global.params.symdebug) {
         RegisterDwarfSymbols(ir.module);
-        ir.dwarfCompileUnit = DtoDwarfCompileUnit(this);
+        ir.dmodule->llvmCompileUnit = DtoDwarfCompileUnit(this,true);
     }
 
     // process module members
@@ -162,7 +162,7 @@ void Module::genmoduleinfo()
         Logger::println("vmoduleinfo");
     }
     if (needModuleInfo()) {
-        Logger::println("**** ATTENTION: module info is needed but skipped");
+        Logger::attention("module info is needed but skipped");
     }
 
 
@@ -905,7 +905,7 @@ void FuncDeclaration::toObjFile()
     }
 
     if (isUnitTestDeclaration()) {
-        Logger::println("*** ATTENTION: ignoring unittest declaration: %s", toChars());
+        Logger::attention("ignoring unittest declaration: %s", toChars());
         return;
     }
 
@@ -948,7 +948,11 @@ void FuncDeclaration::toObjFile()
 
     // debug info
     if (global.params.symdebug) {
-        llvmDwarfSubProgram = DtoDwarfSubProgram(this);
+        Module* mo = getModule();
+        if (!mo->llvmCompileUnit) {
+            mo->llvmCompileUnit = DtoDwarfCompileUnit(mo,false);
+        }
+        llvmDwarfSubProgram = DtoDwarfSubProgram(this, mo->llvmCompileUnit);
     }
 
     assert(f->llvmType);
@@ -1033,7 +1037,7 @@ void FuncDeclaration::toObjFile()
                         vd->llvmValue = v;
                     }
                     else {
-                        Logger::println("*** ATTENTION: some unknown argument: %s", arg ? arg->toChars() : 0);
+                        Logger::attention("some unknown argument: %s", arg ? arg->toChars() : 0);
                     }
                 }
 

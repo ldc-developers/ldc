@@ -29,6 +29,7 @@ struct VarDeclaration;
 #if IN_LLVM
 struct DValue;
 typedef DValue elem;
+namespace llvm { class GlobalVariable; }
 #else
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
@@ -165,6 +166,9 @@ struct Module : Package
 
     Symbol *toSymbol();
     void genmoduleinfo();
+
+    // LLVMDC
+    llvm::GlobalVariable* llvmCompileUnit;
 
     Module *isModule() { return this; }
 };

@@ -42,6 +42,7 @@ struct lldiv_t { long quot,rem; }
 
     int system(char *);
 
+    pragma(LLVM_internal, "alloca")
     void *alloca(uint);	///
 
     void *calloc(size_t, size_t);	///

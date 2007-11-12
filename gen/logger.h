@@ -12,14 +12,14 @@ namespace Logger
     void print(const char* fmt, ...);
     void enable();
     void disable();
-    
+
+    void attention(const char* fmt, ...);
 
     struct LoggerScope
     {
         LoggerScope()
         {
             Logger::indent();
-            
         }
         ~LoggerScope()
         {

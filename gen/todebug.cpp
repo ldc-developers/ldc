@@ -56,7 +56,7 @@ const llvm::StructType* GetDwarfAnchorType()
     */
     if (!gIR->module->getNamedGlobal("llvm.dbg.compile_units")) {
         std::vector<llvm::Constant*> vals;
-        vals.push_back(DtoConstUint(0));
+        vals.push_back(DtoConstUint(llvm::LLVMDebugVersion));
         vals.push_back(DtoConstUint(DW_TAG_compile_unit));
         llvm::Constant* i = llvm::ConstantStruct::get(t, vals);
         dbg_compile_units = new llvm::GlobalVariable(t,true,llvm::GlobalValue::LinkOnceLinkage,i,"llvm.dbg.compile_units",gIR->module);
@@ -64,7 +64,7 @@ const llvm::StructType* GetDwarfAnchorType()
     }
     if (!gIR->module->getNamedGlobal("llvm.dbg.global_variables")) {
         std::vector<llvm::Constant*> vals;
-        vals.push_back(DtoConstUint(0));
+        vals.push_back(DtoConstUint(llvm::LLVMDebugVersion));
         vals.push_back(DtoConstUint(DW_TAG_variable));
         llvm::Constant* i = llvm::ConstantStruct::get(t, vals);
         dbg_global_variables = new llvm::GlobalVariable(t,true,llvm::GlobalValue::LinkOnceLinkage,i,"llvm.dbg.global_variables",gIR->module);
@@ -72,7 +72,7 @@ const llvm::StructType* GetDwarfAnchorType()
     }
     if (!gIR->module->getNamedGlobal("llvm.dbg.subprograms")) {
         std::vector<llvm::Constant*> vals;
-        vals.push_back(DtoConstUint(0));
+        vals.push_back(DtoConstUint(llvm::LLVMDebugVersion));
         vals.push_back(DtoConstUint(DW_TAG_subprogram));
         llvm::Constant* i = llvm::ConstantStruct::get(t, vals);
         dbg_subprograms = new llvm::GlobalVariable(t,true,llvm::GlobalValue::LinkOnceLinkage,i,"llvm.dbg.subprograms",gIR->module);
@@ -110,30 +110,33 @@ const llvm::StructType* GetDwarfSubProgramType() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
+llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m, bool define)
 {
-    std::vector<llvm::Constant*> vals;
-    vals.push_back(llvm::ConstantExpr::getAdd(
-        DtoConstUint(DW_TAG_compile_unit),
-        DtoConstUint(llvm::LLVMDebugVersion)));
-    vals.push_back(dbgToArrTy(GetDwarfAnchor(DW_TAG_compile_unit)));
+    llvm::Constant* c = NULL;
+    if (1 || define) {
+        std::vector<llvm::Constant*> vals;
+        vals.push_back(llvm::ConstantExpr::getAdd(
+            DtoConstUint(DW_TAG_compile_unit),
+            DtoConstUint(llvm::LLVMDebugVersion)));
+        vals.push_back(dbgToArrTy(GetDwarfAnchor(DW_TAG_compile_unit)));
 
-    vals.push_back(DtoConstUint(DW_LANG_D));
-    vals.push_back(DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata"));
-    std::string srcpath(FileName::path(m->srcfile->name->toChars()));
-    srcpath.append("/");
-    vals.push_back(DtoConstStringPtr(srcpath.c_str(), "llvm.metadata"));
-    vals.push_back(DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata"));
+        vals.push_back(DtoConstUint(DW_LANG_D));
+        vals.push_back(DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata"));
+        std::string srcpath(FileName::path(m->srcfile->name->toChars()));
+        srcpath.append("/");
+        vals.push_back(DtoConstStringPtr(srcpath.c_str(), "llvm.metadata"));
+        vals.push_back(DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata"));
 
-    llvm::Constant* c = llvm::ConstantStruct::get(GetDwarfCompileUnitType(), vals);
-    llvm::GlobalVariable* gv = new llvm::GlobalVariable(c->getType(), true, llvm::GlobalValue::InternalLinkage, c, "llvm.dbg.compile_unit", gIR->module);
+        c = llvm::ConstantStruct::get(GetDwarfCompileUnitType(), vals);
+    }
+    llvm::GlobalVariable* gv = new llvm::GlobalVariable(GetDwarfCompileUnitType(), true, llvm::GlobalValue::InternalLinkage, c, "llvm.dbg.compile_unit", gIR->module);
     gv->setSection("llvm.metadata");
     return gv;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd)
+llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit)
 {
     std::vector<llvm::Constant*> vals;
     vals.push_back(llvm::ConstantExpr::getAdd(
@@ -141,11 +144,11 @@ llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd)
         DtoConstUint(llvm::LLVMDebugVersion)));
     vals.push_back(dbgToArrTy(GetDwarfAnchor(DW_TAG_subprogram)));
 
-    vals.push_back(dbgToArrTy(gIR->dwarfCompileUnit));
+    vals.push_back(dbgToArrTy(compileUnit));
     vals.push_back(DtoConstStringPtr(fd->toPrettyChars(), "llvm.metadata"));
+    vals.push_back(vals.back());
     vals.push_back(DtoConstStringPtr(fd->mangle(), "llvm.metadata"));
-    vals.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
-    vals.push_back(dbgToArrTy(gIR->dwarfCompileUnit));
+    vals.push_back(dbgToArrTy(compileUnit));
     vals.push_back(DtoConstUint(fd->loc.linnum));
     vals.push_back(llvm::ConstantPointerNull::get(dbgArrTy()));
     vals.push_back(DtoConstBool(fd->protection == PROTprivate));
@@ -178,6 +181,7 @@ void DtoDwarfStopPoint(unsigned ln)
     std::vector<llvm::Value*> args;
     args.push_back(DtoConstUint(ln));
     args.push_back(DtoConstUint(0));
-    args.push_back(dbgToArrTy(gIR->dwarfCompileUnit));
+    assert(gIR->dmodule->llvmCompileUnit);
+    args.push_back(dbgToArrTy(gIR->dmodule->llvmCompileUnit));
     gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.stoppoint"), args.begin(), args.end());
 }

@@ -1,20 +1,6 @@
 //import std.stdio, std.math, std.string;
 //import tools.base;
 
-int atoi(char[] s) {
-    int i, fac=1;
-    bool neg = (s.length) && (s[0] == '-');
-    char[] a = neg ? s[1..$] : s;
-    foreach_reverse(c; a) {
-        i += (c-'0') * fac;
-        fac *= 10;
-    }
-    return !neg ? i : -i;
-}
-
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64")
-double sqrt(double val);
-
 double delta;
 static this() { delta=sqrt(real.epsilon); }
 
@@ -33,14 +19,12 @@ typedef Pair!(double, Vec) Hit;
 struct Ray { Vec orig, dir; }
 
 class Scene {
-  //abstract void intersect(ref Hit, ref Ray);
-  void intersect(ref Hit, ref Ray) {}
+  abstract void intersect(ref Hit, ref Ray);
 }
 
 class Sphere : Scene {
   Vec center;
   double radius;
-  //mixin This!("center, radius");
   this(ref Vec c, double r)
   {
     center = c;
@@ -64,12 +48,7 @@ class Sphere : Scene {
 class Group : Scene {
   Sphere bound;
   Scene[] children;
-  //mixin This!("bound, children");
-  this (Sphere s, Scene[] c)
-  {
-    bound = s;
-    children = c;
-  }
+  mixin This!("bound, children");
   void intersect(ref Hit hit, ref Ray ray) {
     auto l = bound.ray_sphere(ray);
     if (l < hit.first) foreach (child; children) child.intersect(hit, ray);
@@ -91,8 +70,7 @@ double ray_trace(ref Vec light, ref Ray ray, Scene s) {
 Scene create(int level, ref Vec c, double r) {
   auto s = new Sphere(c, r);
   if (level == 1) return s;
-  Scene[] children;
-  children ~= s;
+  Scene[] children=[s];
   double rn = 3*r/sqrt(12.0);
   for (int dz=-1; dz<=1; dz+=2)
     for (int dx=-1; dx<=1; dx+=2)
@@ -105,7 +83,7 @@ void main(string[] args) {
     n = (args.length==3 ? args[2].atoi() : 512), ss = 4;
   auto light = Vec(-1, -3, 2).unitise();
   auto s=create(level, Vec(0, -1, 0), 1);
-  printf("P5\n%d %d\n255", n, n);
+  writefln("P5\n", n, " ", n, "\n255");
   for (int y=n-1; y>=0; --y)
     for (int x=0; x<n; ++x) {
       double g=0;

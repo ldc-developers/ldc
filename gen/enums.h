@@ -5,5 +5,6 @@ enum
     LLVMva_arg,
     LLVMva_start,
     LLVMva_intrinsic,
-    LLVMnotypeinfo
+    LLVMnotypeinfo,
+    LLVMalloca
 };

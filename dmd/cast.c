@@ -1116,7 +1116,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	e2->type = t;
 	type = e1->type;
     }
-    else if (t2b->ty && t1b->isintegral())
+    else if (t2b->ty == Tpointer && t1b->isintegral())
     {   // Need to adjust operator by the stride
 	// Replace (int + ptr) with (ptr + (int * stride))
 	Type *t = Type::tptrdiff_t;
@@ -1127,11 +1127,13 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	    e = e1->castTo(sc, t);
 	else
 	    e = e1;
+    #if !IN_LLVM
 	if (t2b->next->isbit())
 	    // BUG: should add runtime check for misaligned offsets
 	    e = new UshrExp(loc, e, new IntegerExp(0, 3, t));
 	else
 	    e = new MulExp(loc, e, new IntegerExp(0, stride, t));
+    #endif
 	e->type = t;
 	type = e2->type;
 	e1 = e2;

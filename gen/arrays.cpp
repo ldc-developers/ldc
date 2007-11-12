@@ -21,14 +21,6 @@ const llvm::StructType* DtoArrayType(Type* t)
     const llvm::Type* at = DtoType(t->next);
     const llvm::Type* arrty;
 
-    /*if (t->ty == Tsarray) {
-        TypeSArray* tsa = (TypeSArray*)t;
-        assert(tsa->dim->type->isintegral());
-        arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
-    }
-    else {
-        arrty = llvm::ArrayType::get(at,0);
-    }*/
     if (at == llvm::Type::VoidTy) {
         at = llvm::Type::Int8Ty;
     }
@@ -648,12 +640,17 @@ llvm::Value* DtoDynArrayCompare(TOK op, llvm::Value* l, llvm::Value* r)
 //////////////////////////////////////////////////////////////////////////////////////////
 llvm::Value* DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty, const llvm::Type* newelemty)
 {
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
-    assert(fn);
+    size_t esz = gTargetData->getTypeSize(elemty);
+    size_t nsz = gTargetData->getTypeSize(newelemty);
+    if (esz == nsz)
+        return len;
+
     std::vector<llvm::Value*> args;
     args.push_back(len);
-    args.push_back(llvm::ConstantInt::get(DtoSize_t(), gTargetData->getTypeSize(elemty), false));
-    args.push_back(llvm::ConstantInt::get(DtoSize_t(), gTargetData->getTypeSize(newelemty), false));
+    args.push_back(llvm::ConstantInt::get(DtoSize_t(), esz, false));
+    args.push_back(llvm::ConstantInt::get(DtoSize_t(), nsz, false));
+
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
     return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
 }
 
@@ -722,7 +719,9 @@ llvm::Value* DtoArrayLen(DValue* v)
         return DtoLoad(DtoGEPi(v->getRVal(), 0,0, "tmp"));
     }
     else if (t->ty == Tsarray) {
-        const llvm::ArrayType* t = llvm::cast<llvm::ArrayType>(v->getLVal()->getType());
+        llvm::Value* rv = v->getRVal();
+        Logger::cout() << "casting: " << *rv << '\n';
+        const llvm::ArrayType* t = llvm::cast<llvm::ArrayType>(rv->getType()->getContainedType(0));
         return DtoConstSize_t(t->getNumElements());
     }
     assert(0);

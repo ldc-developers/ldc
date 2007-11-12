@@ -143,11 +143,3 @@ void _d_main_args(uint n, char** args, ref char[][] res)
         res[i] = v[0 .. strlen(v)];
     }
 }
-
-
-
-
-
-
-
-

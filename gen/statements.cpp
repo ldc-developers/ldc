@@ -7,7 +7,6 @@
 #include <iostream>
 
 #include "gen/llvm.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "total.h"
 #include "init.h"
@@ -39,8 +38,7 @@ void CompoundStatement::toIR(IRState* p)
         if (s)
             s->toIR(p);
         else {
-            Logger::println("*** ATTENTION: null statement found in CompoundStatement");
-            //assert(0);
+            Logger::println("??? null statement found in CompoundStatement");
         }
     }
 }
@@ -133,8 +131,8 @@ void ExpStatement::toIR(IRState* p)
     Logger::println("ExpStatement::toIR(%d): %s", esi++, toChars());
     LOG_SCOPE;
 
-    if (global.params.symdebug)
-        DtoDwarfStopPoint(loc.linnum);
+//     if (global.params.symdebug)
+//         DtoDwarfStopPoint(loc.linnum);
 
     if (exp != 0) {
         elem* e = exp->toElem(p);
@@ -255,8 +253,10 @@ void WhileStatement::toIR(IRState* p)
     // rewrite scope
     gIR->scope() = IRScope(whilebodybb,endbb);
 
-    // do while body code
+    // while body code
+    p->loopbbs.push_back(IRScope(whilebb,endbb));
     body->toIR(p);
+    p->loopbbs.pop_back();
 
     // loop
     new llvm::BranchInst(whilebb, gIR->scopebegin());
@@ -284,7 +284,7 @@ void DoStatement::toIR(IRState* p)
     // replace current scope
     gIR->scope() = IRScope(dowhilebb,endbb);
 
-    // do do-while body code
+    // do-while body code
     body->toIR(p);
 
     // create the condition
@@ -363,8 +363,7 @@ void ForStatement::toIR(IRState* p)
 
 void BreakStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("BreakStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("BreakStatement::toIR(): %s", toChars());
     LOG_SCOPE;
 
     if (ident != 0) {
@@ -380,8 +379,7 @@ void BreakStatement::toIR(IRState* p)
 
 void ContinueStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("ContinueStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("ContinueStatement::toIR(): %s", toChars());
     LOG_SCOPE;
 
     if (ident != 0) {
@@ -397,8 +395,7 @@ void ContinueStatement::toIR(IRState* p)
 
 void OnScopeStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("OnScopeStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("OnScopeStatement::toIR(): %s", toChars());
     LOG_SCOPE;
 
     assert(statement);
@@ -406,10 +403,6 @@ void OnScopeStatement::toIR(IRState* p)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-
-static void replaceFinallyBBs(std::vector<llvm::BasicBlock*>& a, std::vector<llvm::BasicBlock*>& b)
-{
-}
 
 void TryFinallyStatement::toIR(IRState* p)
 {
@@ -495,7 +488,7 @@ void TryCatchStatement::toIR(IRState* p)
     Logger::println("TryCatchStatement::toIR(%d): %s", wsi++, toChars());
     LOG_SCOPE;
 
-    Logger::println("*** ATTENTION: try-catch is not yet fully implemented, only the try block will be emitted.");
+    Logger::attention("try-catch is not yet fully implemented, only the try block will be emitted.");
 
     assert(body);
     body->toIR(p);
@@ -516,10 +509,9 @@ void ThrowStatement::toIR(IRState* p)
     Logger::println("ThrowStatement::toIR(%d): %s", wsi++, toChars());
     LOG_SCOPE;
 
-    Logger::println("*** ATTENTION: throw is not yet implemented, replacing expression with assert(0);");
+    Logger::attention("throw is not yet implemented, replacing expression with assert(0);");
 
-    llvm::Value* line = llvm::ConstantInt::get(llvm::Type::Int32Ty, loc.linnum, false);
-    DtoAssert(NULL, line, NULL);
+    DtoAssert(NULL, &loc, NULL);
 
     /*
     assert(exp);
@@ -657,42 +649,62 @@ void ForeachStatement::toIR(IRState* p)
     //Logger::println("Argument is %s", arg->toChars());
 
     Logger::println("aggr = %s", aggr->toChars());
-    Logger::println("func = %s", func->toChars());
 
-    DValue* arr = aggr->toElem(p);
-    llvm::Value* val = 0;
-    if (!arr->isSlice()) {
-        val = arr->getRVal();
-        Logger::cout() << "aggr2llvm = " << *val << '\n';
-    }
-
-    llvm::Value* numiters = 0;
-
+    // key
     const llvm::Type* keytype = key ? DtoType(key->type) : DtoSize_t();
     llvm::Value* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
     if (key) key->llvmValue = keyvar;
+    llvm::Value* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
+    // value
     const llvm::Type* valtype = DtoType(value->type);
-    llvm::Value* valvar = !(value->isRef() || value->isOut()) ? new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint()) : NULL;
+    llvm::Value* valvar = NULL;
+    if (!value->isRef() && !value->isOut())
+        valvar = new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint());
 
+    // what to iterate
+    DValue* aggrval = aggr->toElem(p);
     Type* aggrtype = DtoDType(aggr->type);
+
+    // get length and pointer
+    llvm::Value* val = 0;
+    llvm::Value* niters = 0;
+
+    // static array
     if (aggrtype->ty == Tsarray)
     {
+        Logger::println("foreach over static array");
+        val = aggrval->getRVal();
         assert(llvm::isa<llvm::PointerType>(val->getType()));
         assert(llvm::isa<llvm::ArrayType>(val->getType()->getContainedType(0)));
-        size_t n = llvm::cast<llvm::ArrayType>(val->getType()->getContainedType(0))->getNumElements();
-        assert(n > 0);
-        numiters = llvm::ConstantInt::get(keytype,n,false); 
+        size_t nelems = llvm::cast<llvm::ArrayType>(val->getType()->getContainedType(0))->getNumElements();
+        assert(nelems > 0);
+        niters = llvm::ConstantInt::get(keytype,nelems,false);
     }
+    // dynamic array
     else if (aggrtype->ty == Tarray)
     {
-        if (DSliceValue* slice = arr->isSlice()) {
-            numiters = slice->len;
+        if (DSliceValue* slice = aggrval->isSlice()) {
+            Logger::println("foreach over slice");
+            niters = slice->len;
+            assert(niters);
+            if (llvm::isa<llvm::ConstantInt>(niters)) {
+                llvm::ConstantInt* ci = llvm::cast<llvm::ConstantInt>(niters);
+                Logger::println("const num iters: %u", ci);
+            }
+            else {
+                Logger::cout() << "numiters: " << *niters <<'\n';
+            }
             val = slice->ptr;
+            assert(val);
         }
         else {
-            numiters = p->ir->CreateLoad(DtoGEPi(val,0,0,"tmp",p->scopebb()));
-            val = p->ir->CreateLoad(DtoGEPi(val,0,1,"tmp",p->scopebb()));
+            Logger::println("foreach over dynamic array");
+            val = aggrval->getRVal();
+            niters = DtoGEPi(val,0,0,"tmp",p->scopebb());
+            niters = p->ir->CreateLoad(niters, "numiterations");
+            val = DtoGEPi(val,0,1,"tmp",p->scopebb());
+            val = p->ir->CreateLoad(val, "collection");
         }
     }
     else
@@ -700,41 +712,39 @@ void ForeachStatement::toIR(IRState* p)
         assert(0 && "aggregate type is not Tarray or Tsarray");
     }
 
+    llvm::Constant* delta = 0;
     if (op == TOKforeach) {
-        new llvm::StoreInst(llvm::ConstantInt::get(keytype,0,false), keyvar, p->scopebb());
+        new llvm::StoreInst(zerokey, keyvar, p->scopebb());
     }
-    else if (op == TOKforeach_reverse) {
-        llvm::Value* v = llvm::BinaryOperator::createSub(numiters, llvm::ConstantInt::get(keytype,1,false),"tmp",p->scopebb());
-        new llvm::StoreInst(v, keyvar, p->scopebb());
+    else {
+        new llvm::StoreInst(niters, keyvar, p->scopebb());
     }
-
-    delete arr;
 
     llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* nexbb = new llvm::BasicBlock("foreachnext", p->topfunc(), oldend);
-    llvm::BasicBlock* begbb = new llvm::BasicBlock("foreachbegin", p->topfunc(), oldend);
+    llvm::BasicBlock* condbb = new llvm::BasicBlock("foreachcond", p->topfunc(), oldend);
+    llvm::BasicBlock* bodybb = new llvm::BasicBlock("foreachbody", p->topfunc(), oldend);
+    llvm::BasicBlock* nextbb = new llvm::BasicBlock("foreachnext", p->topfunc(), oldend);
     llvm::BasicBlock* endbb = new llvm::BasicBlock("foreachend", p->topfunc(), oldend);
 
-    new llvm::BranchInst(begbb, p->scopebb());
+    new llvm::BranchInst(condbb, p->scopebb());
 
-    // next
-    p->scope() = IRScope(nexbb,begbb);
+    // condition
+    p->scope() = IRScope(condbb,bodybb);
+
     llvm::Value* done = 0;
     llvm::Value* load = new llvm::LoadInst(keyvar, "tmp", p->scopebb());
     if (op == TOKforeach) {
-        load = llvm::BinaryOperator::createAdd(load,llvm::ConstantInt::get(keytype, 1, false),"tmp",p->scopebb());
-        new llvm::StoreInst(load, keyvar, p->scopebb());
-        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_ULT, load, numiters, "tmp", p->scopebb());
+        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_ULT, load, niters, "tmp", p->scopebb());
     }
     else if (op == TOKforeach_reverse) {
-        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_UGT, load, llvm::ConstantInt::get(keytype, 0, false), "tmp", p->scopebb());
+        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_UGT, load, zerokey, "tmp", p->scopebb());
         load = llvm::BinaryOperator::createSub(load,llvm::ConstantInt::get(keytype, 1, false),"tmp",p->scopebb());
         new llvm::StoreInst(load, keyvar, p->scopebb());
     }
-    new llvm::BranchInst(begbb, endbb, done, p->scopebb());
+    new llvm::BranchInst(bodybb, endbb, done, p->scopebb());
 
-    // begin
-    p->scope() = IRScope(begbb,nexbb);
+    // body
+    p->scope() = IRScope(bodybb,nextbb);
 
     // get value for this iteration
     llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
@@ -754,13 +764,21 @@ void ForeachStatement::toIR(IRState* p)
     }
 
     // body
-    p->scope() = IRScope(p->scopebb(),endbb);
-    p->loopbbs.push_back(IRScope(nexbb,endbb));
+    p->loopbbs.push_back(IRScope(nextbb,endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
 
     if (!p->scopereturned())
-        new llvm::BranchInst(nexbb, p->scopebb());
+        new llvm::BranchInst(nextbb, p->scopebb());
+
+    // next
+    p->scope() = IRScope(nextbb,endbb);
+    if (op == TOKforeach) {
+        llvm::Value* load = DtoLoad(keyvar);
+        load = p->ir->CreateAdd(load, llvm::ConstantInt::get(keytype, 1, false), "tmp");
+        DtoStore(load, keyvar);
+    }
+    new llvm::BranchInst(condbb, p->scopebb());
 
     // end
     p->scope() = IRScope(endbb,oldend);
@@ -828,13 +846,25 @@ void WithStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void SynchronizedStatement::toIR(IRState* p)
+{
+    Logger::println("SynchronizedStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    Logger::attention("synchronized is currently ignored. only the body will be emitted");
+
+    body->toIR(p);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
 //STUBST(BreakStatement);
 //STUBST(ForStatement);
 //STUBST(WithStatement);
-STUBST(SynchronizedStatement);
+//STUBST(SynchronizedStatement);
 //STUBST(ReturnStatement);
 //STUBST(ContinueStatement);
 STUBST(DefaultStatement);

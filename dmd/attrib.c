@@ -879,6 +879,10 @@ void PragmaDeclaration::semantic(Scope *sc)
                     llvm_internal = LLVMnotypeinfo;
                     assert(args->dim == 1);
                 }
+                else if (strcmp(str,"alloca")==0) {
+                    llvm_internal = LLVMalloca;
+                    assert(args->dim == 1);
+                }
                 else {
                     error("unknown pragma command: %s", str);
                 }
@@ -904,6 +908,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             case LLVMva_arg:
             case LLVMva_start:
             case LLVMnotypeinfo:
+            case LLVMalloca:
                 break;
 
             default:
@@ -958,6 +963,16 @@ void PragmaDeclaration::semantic(Scope *sc)
 
             case LLVMnotypeinfo:
                 s->llvmInternal = llvm_internal;
+                break;
+
+            case LLVMalloca:
+                if (FuncDeclaration* fd = s->isFuncDeclaration()) {
+                    fd->llvmInternal = llvm_internal;
+                }
+                else {
+                    error("may only be used on function declarations");
+                    assert(0);
+                }
                 break;
 
             default:

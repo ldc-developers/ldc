@@ -34,7 +34,7 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
 
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
-DValue* DtoInitializer(Initializer* init, DValue* v);
+DValue* DtoInitializer(Initializer* init);
 
 llvm::Function* LLVM_DeclareMemSet32();
 llvm::Function* LLVM_DeclareMemSet64();
@@ -49,7 +49,7 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
 llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
 llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 
-void DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg);
+void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg);
 
 llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp);
 
@@ -74,6 +74,13 @@ bool DtoCanLoad(llvm::Value* ptr);
 llvm::Value* DtoLoad(llvm::Value* src);
 void DtoStore(llvm::Value* src, llvm::Value* dst);
 llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t);
+
+// llvm::dyn_cast wrappers
+const llvm::PointerType* isaPointer(llvm::Value* v);
+const llvm::ArrayType* isaArray(llvm::Value* v);
+const llvm::StructType* isaStruct(llvm::Value* v);
+llvm::Constant* isaConstant(llvm::Value* v);
+llvm::ConstantInt* isaConstantInt(llvm::Value* v);
 
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);

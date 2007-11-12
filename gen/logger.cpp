@@ -62,5 +62,13 @@ namespace Logger
     {
         enabled = false;
     }
+    void attention(const char* fmt,...)
+    {
+        printf("***ATTENTION*** ");
+        va_list va;
+        va_start(va,fmt);
+        vprintf(fmt,va);
+        va_end(va);
+        printf("\n");
+    }
 }
-

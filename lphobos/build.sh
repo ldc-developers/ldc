@@ -35,9 +35,20 @@ llvmdc internal/aApply.d -c -odobj || exit 1
 llvmdc internal/aApplyR.d -c -odobj || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/aApply.bc obj/aApplyR.bc ../lib/llvmdcore.bc || exit 1
 
+echo "compiling array runtime support"
+llvmdc internal/qsort2.d -c -odobj || exit
+llvm-link -f -o=../lib/llvmdcore.bc obj/qsort2.bc ../lib/llvmdcore.bc || exit 1
+llvmdc internal/adi.d -c -odobj || exit
+llvm-link -f -o=../lib/llvmdcore.bc obj/adi.bc ../lib/llvmdcore.bc || exit 1
+
 echo "compiling llvm runtime support"
-rebuild llvmsupport.d -c -oqobj -dc=llvmdc-posix || exit
+rebuild llvmsupport.d -c -oqobj -dc=llvmdc-posix || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || exit 1
+
+echo "compiling garbage collector"
+llvmdc gc/gclinux.d -c -odobj || exit 1
+llvmdc gc/gcstub.d -c -odobj -Igc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcstub.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling phobos"
 rebuild phobos.d -c -oqobj -dc=llvmdc-posix || exit 1

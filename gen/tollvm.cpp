@@ -797,15 +797,13 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoInitializer(Initializer* init, DValue* v)
+DValue* DtoInitializer(Initializer* init)
 {
     if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("expression initializer");
         assert(ex->exp);
-        if (v) gIR->exps.push_back(IRExp(NULL,ex->exp,v));
         return ex->exp->toElem(gIR);
-        if (v) gIR->exps.pop_back();
     }
     else if (init->isVoidInitializer())
     {
@@ -1050,16 +1048,17 @@ llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* n)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoAssert(llvm::Value* cond, llvm::Value* loc, llvm::Value* msg)
+void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg)
 {
-    assert(loc);
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assert");
+    const llvm::FunctionType* fnt = fn->getFunctionType();
+
     std::vector<llvm::Value*> llargs;
     llargs.resize(3);
     llargs[0] = cond ? DtoBoolean(cond) : llvm::ConstantInt::getFalse();
-    llargs[1] = loc;
-    llargs[2] = msg ? msg : llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+    llargs[1] = DtoConstUint(loc->linnum);
+    llargs[2] = msg ? msg->getRVal() : llvm::Constant::getNullValue(fnt->getParamType(2));
 
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assert");
     assert(fn);
     llvm::CallInst* call = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
     call->setCallingConv(llvm::CallingConv::C);
@@ -1301,6 +1300,11 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         llvm::Value* r = rhs->getRVal();
         llvm::Value* l = lhs->getLVal();
         Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        const llvm::Type* lit = l->getType()->getContainedType(0);
+        if (r->getType() != lit) {
+            r = DtoBitCast(r, lit);
+            Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        }
         gIR->ir->CreateStore(r, l);
     }
 }
@@ -1404,6 +1408,31 @@ llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t)
     return gIR->ir->CreateBitCast(v, t, "tmp");
 }
 
+const llvm::PointerType* isaPointer(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::PointerType>(v->getType());
+}
+
+const llvm::ArrayType* isaArray(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::ArrayType>(v->getType());
+}
+
+const llvm::StructType* isaStruct(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::StructType>(v->getType());
+}
+
+llvm::Constant* isaConstant(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::Constant>(v);
+}
+
+llvm::ConstantInt* isaConstantInt(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::ConstantInt>(v);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 bool DtoIsTemplateInstance(Dsymbol* s)
@@ -1431,7 +1460,7 @@ void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type*
     llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);
-    DValue* ie = DtoInitializer(init, NULL);
+    DValue* ie = DtoInitializer(init);
     if (!ie->inPlace()) {
         DValue* dst = new DVarValue(t, gvar, true);
         DtoAssign(dst, ie);
