@@ -277,7 +277,7 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
 
     llvm::Constant* initZ = base->llvmInitZ;
     assert(initZ);
-    const llvm::StructType* stype = llvm::cast<llvm::StructType>(initZ->getType());
+    const llvm::StructType* stype = isaStruct(initZ->getType());
 
     std::vector<llvm::Constant*> sinits;
     sinits.push_back(initZ->getOperand(0));
@@ -287,7 +287,7 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     TypedefDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    //const llvm::PointerType* basept = llvm::cast<llvm::PointerType>(initZ->getOperand(1)->getType());
+    //const llvm::PointerType* basept = isaPointer(initZ->getOperand(1)->getType());
     //sinits.push_back(llvm::ConstantPointerNull::get(basept));
     Logger::println("generating base typeinfo");
     //sd->basetype = sd->basetype->merge();
@@ -341,7 +341,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 
     llvm::Constant* initZ = base->llvmInitZ;
     assert(initZ);
-    const llvm::StructType* stype = llvm::cast<llvm::StructType>(initZ->getType());
+    const llvm::StructType* stype = isaStruct(initZ->getType());
 
     std::vector<llvm::Constant*> sinits;
     sinits.push_back(initZ->getOperand(0));
@@ -351,7 +351,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     EnumDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    //const llvm::PointerType* basept = llvm::cast<llvm::PointerType>(initZ->getOperand(1)->getType());
+    //const llvm::PointerType* basept = isaPointer(initZ->getOperand(1)->getType());
     //sinits.push_back(llvm::ConstantPointerNull::get(basept));
     Logger::println("generating base typeinfo");
     //sd->basetype = sd->basetype->merge();
@@ -403,7 +403,7 @@ static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclar
 
     llvm::Constant* initZ = base->llvmInitZ;
     assert(initZ);
-    const llvm::StructType* stype = llvm::cast<llvm::StructType>(initZ->getType());
+    const llvm::StructType* stype = isaStruct(initZ->getType());
 
     std::vector<llvm::Constant*> sinits;
     sinits.push_back(initZ->getOperand(0));
@@ -538,7 +538,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     ClassDeclaration* base = Type::typeinfostruct;
     base->toObjFile();
 
-    const llvm::StructType* stype = llvm::cast<llvm::StructType>(base->llvmType);
+    const llvm::StructType* stype = isaStruct(base->llvmType);
 
     std::vector<llvm::Constant*> sinits;
     sinits.push_back(base->llvmVtbl);
@@ -609,7 +609,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
 #endif
 
     Logger::println("************** B");
-    const llvm::PointerType* ptty = llvm::cast<llvm::PointerType>(stype->getElementType(3));
+    const llvm::PointerType* ptty = isaPointer(stype->getElementType(3));
 
     s = search_function(sd, Id::tohash);
     fdx = s ? s->isFuncDeclaration() : NULL;
@@ -637,7 +637,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     for (int i = 0; i < 2; i++)
     {
         Logger::println("************** C %d", i);
-        ptty = llvm::cast<llvm::PointerType>(stype->getElementType(4+i));
+        ptty = isaPointer(stype->getElementType(4+i));
         if (fdx)
         {
             fd = fdx->overloadExactMatch(tfeqptr);
@@ -662,7 +662,7 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     }
 
     Logger::println("************** D");
-    ptty = llvm::cast<llvm::PointerType>(stype->getElementType(6));
+    ptty = isaPointer(stype->getElementType(6));
     s = search_function(sd, Id::tostring);
     fdx = s ? s->isFuncDeclaration() : NULL;
     if (fdx)
@@ -881,7 +881,7 @@ void DtoClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // build the initializer
-    const llvm::StructType* st = llvm::cast<llvm::StructType>(cinfo->llvmInitZ->getType());
+    const llvm::StructType* st = isaStruct(cinfo->llvmInitZ->getType());
     llvm::Constant* finalinit = llvm::ConstantStruct::get(st, inits);
     Logger::cout() << "built the classinfo initializer:\n" << *finalinit <<'\n';
 

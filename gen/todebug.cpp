@@ -47,7 +47,7 @@ const llvm::StructType* GetDwarfAnchorType()
     }
     */
     std::vector<const llvm::Type*> elems(2, Ty(Int32Ty));
-    const llvm::StructType* t = llvm::cast<llvm::StructType>(gIR->module->getTypeByName("llvm.dbg.anchor.type"));
+    const llvm::StructType* t = isaStruct(gIR->module->getTypeByName("llvm.dbg.anchor.type"));
 
     /*
     %llvm.dbg.compile_units       = linkonce constant %llvm.dbg.anchor.type  { uint 0, uint 17 } ;; DW_TAG_compile_unit
@@ -101,11 +101,11 @@ llvm::Constant* GetDwarfAnchor(llvm::dwarf::dwarf_constants c)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 const llvm::StructType* GetDwarfCompileUnitType() {
-    return llvm::cast<llvm::StructType>(gIR->module->getTypeByName("llvm.dbg.compile_unit.type"));
+    return isaStruct(gIR->module->getTypeByName("llvm.dbg.compile_unit.type"));
 }
 
 const llvm::StructType* GetDwarfSubProgramType() {
-    return llvm::cast<llvm::StructType>(gIR->module->getTypeByName("llvm.dbg.subprogram.type"));
+    return isaStruct(gIR->module->getTypeByName("llvm.dbg.subprogram.type"));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

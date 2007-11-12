@@ -32,7 +32,6 @@
 #include "scope.h"
 
 #include "gen/irstate.h"
-#include "gen/elem.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/arrays.h"
@@ -332,7 +331,7 @@ void StructDeclaration::toObjFile()
 
     Logger::println("doing struct fields");
 
-    llvm::StructType* structtype = 0;
+    const llvm::StructType* structtype = 0;
     std::vector<llvm::Constant*> fieldinits;
 
     if (gIR->topstruct().offsets.empty())
@@ -427,7 +426,7 @@ void StructDeclaration::toObjFile()
     {
         llvm::PATypeHolder& pa = gIR->topstruct().recty;
         llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(structtype);
-        structtype = llvm::cast<llvm::StructType>(pa.get());
+        structtype = isaStruct(pa.get());
     }
 
     ts->llvmType = structtype;
@@ -587,13 +586,13 @@ void ClassDeclaration::toObjFile()
         fieldinits.push_back(i->second.init);
     }
 
-    llvm::StructType* structtype = llvm::StructType::get(fieldtypes);
+    const llvm::StructType* structtype = llvm::StructType::get(fieldtypes);
     // refine abstract types for stuff like: class C {C next;}
     if (gIR->topstruct().recty != 0)
     {
         llvm::PATypeHolder& pa = gIR->topstruct().recty;
         llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(structtype);
-        structtype = llvm::cast<llvm::StructType>(pa.get());
+        structtype = isaStruct(pa.get());
     }
 
     ts->llvmType = structtype;
@@ -664,8 +663,8 @@ void ClassDeclaration::toObjFile()
 
     // refine for final vtable type
     llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(svtbl_ty);
-    svtbl_ty = llvm::cast<llvm::StructType>(pa.get());
-    structtype = llvm::cast<llvm::StructType>(gIR->topstruct().recty.get());
+    svtbl_ty = isaStruct(pa.get());
+    structtype = isaStruct(gIR->topstruct().recty.get());
     ts->llvmType = structtype;
     llvmType = structtype;
 
@@ -793,7 +792,7 @@ void VarDeclaration::toObjFile()
                     _init = ts->sym->llvmInitZ;
                 }
                 // array single value init
-                else if (llvm::isa<llvm::ArrayType>(_type))
+                else if (isaArray(_type))
                 {
                     _init = DtoConstStaticArray(_type, _init);
                 }
@@ -833,19 +832,19 @@ void VarDeclaration::toObjFile()
         {
             if (t->ty == Tsarray)
             {
-                const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(_type);
+                const llvm::ArrayType* arrty = isaArray(_type);
                 uint64_t n = arrty->getNumElements();
                 std::vector<llvm::Constant*> vals(n,_init);
                 _init = llvm::ConstantArray::get(arrty, vals);
             }
             else if (t->ty == Tarray)
             {
-                assert(llvm::isa<llvm::StructType>(_type));
+                assert(isaStruct(_type));
                 _init = llvm::ConstantAggregateZero::get(_type);
             }
             else if (t->ty == Tstruct)
             {
-                const llvm::StructType* structty = llvm::cast<llvm::StructType>(_type);
+                const llvm::StructType* structty = isaStruct(_type);
                 TypeStruct* ts = (TypeStruct*)t;
                 assert(ts);
                 assert(ts->sym);

@@ -16,13 +16,11 @@
 
 #include "total.h"
 #include "init.h"
-#include "symbol.h"
 #include "mtype.h"
 #include "hdrgen.h"
 #include "port.h"
 
 #include "gen/irstate.h"
-#include "gen/elem.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
@@ -249,7 +247,7 @@ llvm::Constant* IntegerExp::toConstElem(IRState* p)
     Logger::print("IntegerExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     const llvm::Type* t = DtoType(type);
-    if (llvm::isa<llvm::PointerType>(t)) {
+    if (isaPointer(t)) {
         Logger::println("pointer");
         llvm::Constant* i = llvm::ConstantInt::get(DtoSize_t(),(uint64_t)value,false);
         return llvm::ConstantExpr::getIntToPtr(i, t);
@@ -305,7 +303,7 @@ llvm::Constant* NullExp::toConstElem(IRState* p)
     LOG_SCOPE;
     const llvm::Type* t = DtoType(type);
     if (type->ty == Tarray) {
-        assert(llvm::isa<llvm::StructType>(t));
+        assert(isaStruct(t));
         return llvm::ConstantAggregateZero::get(t);
     }
     else {
@@ -752,11 +750,11 @@ DValue* MinExp::toElem(IRState* p)
 
     /*
     llvm::Value* left = l->getValue();
-    if (llvm::isa<llvm::PointerType>(left->getType()))
+    if (isaPointer(left->getType()))
         left = new llvm::PtrToIntInst(left,DtoSize_t(),"tmp",p->scopebb());
 
     llvm::Value* right = r->getValue();
-    if (llvm::isa<llvm::PointerType>(right->getType()))
+    if (isaPointer(right->getType()))
         right = new llvm::PtrToIntInst(right,DtoSize_t(),"tmp",p->scopebb());
 
     e->val = llvm::BinaryOperator::createSub(left,right,"tmp",p->scopebb());
@@ -765,7 +763,7 @@ DValue* MinExp::toElem(IRState* p)
     const llvm::Type* totype = DtoType(type);
     if (e->val->getType() != totype) {
         assert(0);
-        assert(llvm::isa<llvm::PointerType>(e->val->getType()));
+        assert(isaPointer(e->val->getType()));
         assert(llvm::isa<llvm::IntegerType>(totype));
         e->val = new llvm::IntToPtrInst(e->val,totype,"tmp",p->scopebb());
     }
@@ -1104,6 +1102,10 @@ DValue* CallExp::toElem(IRState* p)
             const llvm::Type* llt = DtoType(type);
             if (DtoIsPassedByRef(t))
                 llt = llvm::PointerType::get(llt);
+            // TODO
+            if (strcmp(global.params.llvmArch, "x86") != 0) {
+                warning("va_arg for C variadic functions is broken for anything but x86");
+            }
             return new DImValue(type, p->ir->CreateVAArg(expelem->getLVal(),llt,"tmp"));
         }
         else if (fndecl->llvmInternal == LLVMalloca) {
@@ -1136,10 +1138,10 @@ DValue* CallExp::toElem(IRState* p)
         llfnty = llvm::cast<llvm::FunctionType>(funcval->getType());
     }
     // pointer to something
-    else if (llvm::isa<llvm::PointerType>(funcval->getType())) {
+    else if (isaPointer(funcval->getType())) {
         // pointer to function pointer - I think this not really supposed to happen, but does :/
         // seems like sometimes we get a func* other times a func**
-        if (llvm::isa<llvm::PointerType>(funcval->getType()->getContainedType(0))) {
+        if (isaPointer(funcval->getType()->getContainedType(0))) {
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
         }
         // function pointer
@@ -1148,7 +1150,7 @@ DValue* CallExp::toElem(IRState* p)
             llfnty = llvm::cast<llvm::FunctionType>(funcval->getType()->getContainedType(0));
         }
         // struct pointer - delegate
-        else if (llvm::isa<llvm::StructType>(funcval->getType()->getContainedType(0))) {
+        else if (isaStruct(funcval->getType()->getContainedType(0))) {
             funcval = DtoGEP(funcval,zero,one,"tmp",p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             const llvm::Type* ty = funcval->getType()->getContainedType(0);
@@ -1178,7 +1180,7 @@ DValue* CallExp::toElem(IRState* p)
         if (topexp && topexp->e2 == this) {
             assert(topexp->v);
             llvm::Value* tlv = topexp->v->getLVal();
-            assert(llvm::isa<llvm::StructType>(tlv->getType()->getContainedType(0)));
+            assert(isaStruct(tlv->getType()->getContainedType(0)));
             llargs[j] = tlv;
             if (DtoIsPassedByRef(tf->next)) {
                 isInPlace = true;
@@ -1262,7 +1264,7 @@ DValue* CallExp::toElem(IRState* p)
             for (unsigned i=0; i<vtype->getNumElements(); ++i)
                 p->ir->CreateStore(vvalues[i], DtoGEPi(mem,0,i,"tmp"));
 
-            //llvm::Constant* typeinfoparam = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(llfnty->getParamType(j)));
+            //llvm::Constant* typeinfoparam = llvm::ConstantPointerNull::get(isaPointer(llfnty->getParamType(j)));
             assert(Type::typeinfo->llvmInitZ);
             const llvm::Type* typeinfotype = llvm::PointerType::get(Type::typeinfo->llvmInitZ->getType());
             Logger::cout() << "typeinfo ptr type: " << *typeinfotype << '\n';
@@ -1448,8 +1450,8 @@ DValue* CastExp::toElem(IRState* p)
                 llvm::Value* uval = u->getRVal();
                 if (fromtype->ty == Tsarray) {
                     Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
-                    assert(llvm::isa<llvm::PointerType>(uval->getType()));
-                    const llvm::ArrayType* arrty = llvm::cast<llvm::ArrayType>(uval->getType()->getContainedType(0));
+                    assert(isaPointer(uval->getType()));
+                    const llvm::ArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
                     rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
                     rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
                     rval = new llvm::BitCastInst(uval, ptrty, "tmp", p->scopebb());
@@ -2479,7 +2481,7 @@ DValue* IdentityExp::toElem(IRState* p)
     else {
         llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
         if (t1->ty == Tpointer && v->isNull() && l->getType() != r->getType()) {
-            r = llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(l->getType()));
+            r = llvm::ConstantPointerNull::get(isaPointer(l->getType()));
         }
         Logger::cout() << "l = " << *l << " r = " << *r << '\n';
         eval = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
@@ -2660,7 +2662,7 @@ DValue* FuncExp::toElem(IRState* p)
     }
 
     llvm::Value* context = DtoGEPi(lval,0,0,"tmp",p->scopebb());
-    const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(context->getType()->getContainedType(0));
+    const llvm::PointerType* pty = isaPointer(context->getType()->getContainedType(0));
     llvm::Value* llvmNested = p->func().decl->llvmNested;
     if (llvmNested == NULL) {
         llvm::Value* nullcontext = llvm::ConstantPointerNull::get(pty);
@@ -2709,8 +2711,8 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
             mem = p->topexp()->v->getLVal();
         }
         assert(mem);
-        if (!llvm::isa<llvm::PointerType>(mem->getType()) ||
-            !llvm::isa<llvm::ArrayType>(mem->getType()->getContainedType(0)))
+        if (!isaPointer(mem->getType()) ||
+            !isaArray(mem->getType()->getContainedType(0)))
         {
             assert(ty->ty == Tarray);
             // we need to give this array literal storage
@@ -2748,8 +2750,8 @@ llvm::Constant* ArrayLiteralExp::toConstElem(IRState* p)
 
     const llvm::Type* t = DtoType(type);
     Logger::cout() << "array literal has llvm type: " << *t << '\n';
-    assert(llvm::isa<llvm::ArrayType>(t));
-    const llvm::ArrayType* arrtype = llvm::cast<llvm::ArrayType>(t);
+    assert(isaArray(t));
+    const llvm::ArrayType* arrtype = isaArray(t);
 
     assert(arrtype->getNumElements() == elements->dim);
     std::vector<llvm::Constant*> vals(elements->dim, NULL);
@@ -2851,7 +2853,7 @@ llvm::Constant* StructLiteralExp::toConstElem(IRState* p)
 
     assert(DtoDType(type)->ty == Tstruct);
     const llvm::Type* t = DtoType(type);
-    const llvm::StructType* st = llvm::cast<llvm::StructType>(t);
+    const llvm::StructType* st = isaStruct(t);
     return llvm::ConstantStruct::get(st,vals);
 }
 
@@ -3130,7 +3132,7 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 int AsmStatement::comeFrom()
 {
     assert(0);
-    return FALSE;
+    return 0;
 }
 
 void

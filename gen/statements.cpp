@@ -10,13 +10,11 @@
 
 #include "total.h"
 #include "init.h"
-#include "symbol.h"
 #include "mtype.h"
 #include "hdrgen.h"
 #include "port.h"
 
 #include "gen/irstate.h"
-#include "gen/elem.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
@@ -539,8 +537,9 @@ void SwitchStatement::toIR(IRState* p)
         // get the case value
         DValue* e = cs->exp->toElem(p);
         DConstValue* ce = e->isConst();
-        assert(ce && llvm::isa<llvm::ConstantInt>(ce->c));
-        llvm::ConstantInt* ec = llvm::cast<llvm::ConstantInt>(ce->c);
+        assert(ce);
+        llvm::ConstantInt* ec = isaConstantInt(ce->c);
+        assert(ec);
         delete e;
 
         // create the case bb with a nice label
@@ -675,9 +674,10 @@ void ForeachStatement::toIR(IRState* p)
     {
         Logger::println("foreach over static array");
         val = aggrval->getRVal();
-        assert(llvm::isa<llvm::PointerType>(val->getType()));
-        assert(llvm::isa<llvm::ArrayType>(val->getType()->getContainedType(0)));
-        size_t nelems = llvm::cast<llvm::ArrayType>(val->getType()->getContainedType(0))->getNumElements();
+        assert(isaPointer(val->getType()));
+        const llvm::ArrayType* arrty = isaArray(val->getType()->getContainedType(0));
+        assert(arrty);
+        size_t nelems = arrty->getNumElements();
         assert(nelems > 0);
         niters = llvm::ConstantInt::get(keytype,nelems,false);
     }
@@ -688,13 +688,6 @@ void ForeachStatement::toIR(IRState* p)
             Logger::println("foreach over slice");
             niters = slice->len;
             assert(niters);
-            if (llvm::isa<llvm::ConstantInt>(niters)) {
-                llvm::ConstantInt* ci = llvm::cast<llvm::ConstantInt>(niters);
-                Logger::println("const num iters: %u", ci);
-            }
-            else {
-                Logger::cout() << "numiters: " << *niters <<'\n';
-            }
             val = slice->ptr;
             assert(val);
         }

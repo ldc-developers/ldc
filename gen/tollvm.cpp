@@ -259,11 +259,11 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
             arg->llvmCopy = true;
 
         const llvm::Type* at = DtoType(argT);
-        if (llvm::isa<llvm::StructType>(at)) {
+        if (isaStruct(at)) {
             Logger::println("struct param");
             paramvec.push_back(llvm::PointerType::get(at));
         }
-        else if (llvm::isa<llvm::ArrayType>(at)) {
+        else if (isaArray(at)) {
             Logger::println("sarray param");
             assert(argT->ty == Tsarray);
             //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
@@ -271,14 +271,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         }
         else if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");
-            if (argT->ty == Tstruct || argT->ty == Tclass)
-                paramvec.push_back(llvm::PointerType::get(at));
-            else
-            assert(0);
-        }
-        /*if (llvm::isa<llvm::StructType>(at) || argT->ty == Tstruct || argT->ty == Tsarray) {
+            assert(argT->ty == Tstruct || argT->ty == Tclass);
             paramvec.push_back(llvm::PointerType::get(at));
-        }*/
+        }
         else {
             if (!arg->llvmCopy) {
                 Logger::println("ref param");
@@ -346,7 +341,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
             Logger::print("isMember = this is: %s\n", ad->type->toChars());
             thisty = DtoType(ad->type);
             Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (llvm::isa<llvm::StructType>(thisty) || thisty == gIR->topstruct().recty.get())
+            if (isaStruct(thisty) || thisty == gIR->topstruct().recty.get())
                 thisty = llvm::PointerType::get(thisty);
         }
         else
@@ -609,7 +604,7 @@ llvm::Value* DtoBoolean(llvm::Value* val)
             return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
         }
     }
-    else if (llvm::isa<llvm::PointerType>(t)) {
+    else if (isaPointer(t)) {
         const llvm::Type* st = DtoSize_t();
         llvm::Value* ptrasint = new llvm::PtrToIntInst(val,st,"tmp",gIR->scopebb());
         llvm::Value* zero = llvm::ConstantInt::get(st, 0, false);
@@ -880,7 +875,7 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
     else
     assert(0);
 
-    llvm::Function* func = llvm::cast_or_null<llvm::Function>(fn);
+    llvm::Function* func = llvm::dyn_cast<llvm::Function>(fn);
     assert(func);
     assert(func->isIntrinsic());
     fdecl->llvmValue = func;
@@ -1099,7 +1094,7 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
         else {
             llvm::Value* allocaInst = 0;
             llvm::BasicBlock* entryblock = &gIR->topfunc()->front();
-            //const llvm::PointerType* pty = llvm::cast<llvm::PointerType>(arg->mem->getType());
+
             const llvm::Type* realtypell = DtoType(realtype);
             const llvm::PointerType* pty = llvm::PointerType::get(realtypell);
             if (argty == Tstruct) {
@@ -1397,7 +1392,7 @@ void DtoStore(llvm::Value* src, llvm::Value* dst)
 
 bool DtoCanLoad(llvm::Value* ptr)
 {
-    if (llvm::isa<llvm::PointerType>(ptr->getType())) {
+    if (isaPointer(ptr->getType())) {
         return ptr->getType()->getContainedType(0)->isFirstClassType();
     }
     return false;
@@ -1413,14 +1408,29 @@ const llvm::PointerType* isaPointer(llvm::Value* v)
     return llvm::dyn_cast<llvm::PointerType>(v->getType());
 }
 
+const llvm::PointerType* isaPointer(const llvm::Type* t)
+{
+    return llvm::dyn_cast<llvm::PointerType>(t);
+}
+
 const llvm::ArrayType* isaArray(llvm::Value* v)
 {
     return llvm::dyn_cast<llvm::ArrayType>(v->getType());
 }
 
+const llvm::ArrayType* isaArray(const llvm::Type* t)
+{
+    return llvm::dyn_cast<llvm::ArrayType>(t);
+}
+
 const llvm::StructType* isaStruct(llvm::Value* v)
 {
     return llvm::dyn_cast<llvm::StructType>(v->getType());
+}
+
+const llvm::StructType* isaStruct(const llvm::Type* t)
+{
+    return llvm::dyn_cast<llvm::StructType>(t);
 }
 
 llvm::Constant* isaConstant(llvm::Value* v)
@@ -1431,6 +1441,11 @@ llvm::Constant* isaConstant(llvm::Value* v)
 llvm::ConstantInt* isaConstantInt(llvm::Value* v)
 {
     return llvm::dyn_cast<llvm::ConstantInt>(v);
+}
+
+llvm::Argument* isaArgument(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::Argument>(v);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

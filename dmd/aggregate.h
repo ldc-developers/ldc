@@ -101,7 +101,7 @@ struct AggregateDeclaration : ScopeDsymbol
     Symbol *toInitializer();
 
     bool llvmInProgress;
-    llvm::Type* llvmType;
+    const llvm::Type* llvmType;
     llvm::Constant* llvmVtbl;
     llvm::ConstantStruct* llvmConstVtbl;
     llvm::Constant* llvmInitZ;

@@ -78,7 +78,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
     Logger::println("DtoConstStructInitializer: %s", si->toChars());
     LOG_SCOPE;
 
-    const llvm::StructType* structtype = llvm::cast<llvm::StructType>(si->ad->llvmType);
+    const llvm::StructType* structtype = isaStruct(si->ad->llvmType);
     Logger::cout() << "llvm struct type: " << *structtype << '\n';
 
     assert(si->value.dim == si->vars.dim);

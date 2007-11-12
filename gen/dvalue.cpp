@@ -53,7 +53,7 @@ llvm::Value* DVarValue::getRVal()
     else {
         if (rval) return rval;
         Logger::cout() << "val: " << *val << '\n';
-        if (llvm::isa<llvm::Argument>(val)) {
+        if (isaArgument(val)) {
             if (var && (var->isRef() || var->isOut()))
                 return DtoLoad(val);
         }

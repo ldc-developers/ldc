@@ -21,7 +21,6 @@
 #include "init.h"
 #include "attrib.h"
 #include "lexer.h"
-#include "symbol.h"
 
 /********************************* SymbolDeclaration ****************************/
 

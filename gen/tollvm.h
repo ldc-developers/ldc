@@ -77,10 +77,14 @@ llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t);
 
 // llvm::dyn_cast wrappers
 const llvm::PointerType* isaPointer(llvm::Value* v);
+const llvm::PointerType* isaPointer(const llvm::Type* t);
 const llvm::ArrayType* isaArray(llvm::Value* v);
+const llvm::ArrayType* isaArray(const llvm::Type* t);
 const llvm::StructType* isaStruct(llvm::Value* v);
+const llvm::StructType* isaStruct(const llvm::Type* t);
 llvm::Constant* isaConstant(llvm::Value* v);
 llvm::ConstantInt* isaConstantInt(llvm::Value* v);
+llvm::Argument* isaArgument(llvm::Value* v);
 
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);
