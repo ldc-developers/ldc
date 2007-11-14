@@ -162,6 +162,10 @@ struct IRState
 
     // builder helper
     IRBuilderHelper ir;
+
+    // functions queued for lazy definition
+    typedef std::vector<FuncDeclaration*> FuncDeclVector;
+    FuncDeclVector funcQueue;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

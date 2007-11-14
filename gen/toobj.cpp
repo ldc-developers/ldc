@@ -90,6 +90,14 @@ Module::genobjfile()
         dsym->toObjFile();
     }
 
+    // check if there are queued function definitions, if so process their bodies now
+    if (!ir.funcQueue.empty()) {
+        size_t n = ir.funcQueue.size();
+        for (size_t i=0; i<n; ++i) {
+            ir.funcQueue[i]->toObjFile();
+        }
+    }
+
     // generate ModuleInfo
     genmoduleinfo();
 
@@ -480,7 +488,8 @@ void StructDeclaration::toObjFile()
     IRStruct::FuncDeclVector& mfs = gIR->topstruct().funcs;
     size_t n = mfs.size();
     for (size_t i=0; i<n; ++i) {
-        mfs[i]->toObjFile();
+        //mfs[i]->toObjFile();
+        gIR->funcQueue.push_back(mfs[i]);
     }
 
     llvmDModule = gIR->dmodule;
@@ -693,7 +702,8 @@ void ClassDeclaration::toObjFile()
         IRStruct::FuncDeclVector& mfs = gIR->topstruct().funcs;
         size_t n = mfs.size();
         for (size_t i=0; i<n; ++i) {
-            mfs[i]->toObjFile();
+            //mfs[i]->toObjFile();
+            gIR->funcQueue.push_back(mfs[i]);
         }
     }
 

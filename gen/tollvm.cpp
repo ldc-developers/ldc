@@ -818,7 +818,7 @@ llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const st
     std::vector<llvm::Value*> v(2);
     v[0] = i0;
     v[1] = i1;
-    Logger::cout() << "DtoGEP: " << *ptr << '\n';
+    //Logger::cout() << "DtoGEP: " << *ptr << '\n';
     return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
@@ -827,15 +827,15 @@ llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const st
 llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
 {
     size_t n = src.size();
-    std::vector<llvm::Value*> dst(n);
-    std::ostream& ostr = Logger::cout();
-    ostr << "indices for '" << *ptr << "':";
+    std::vector<llvm::Value*> dst(n, NULL);
+    //std::ostream& ostr = Logger::cout();
+    //ostr << "indices for '" << *ptr << "':";
     for (size_t i=0; i<n; ++i)
     {
-        ostr << ' ' << i;
+        //ostr << ' ' << i;
         dst[i] = llvm::ConstantInt::get(llvm::Type::Int32Ty, src[i], false);
     }
-    ostr << '\n';
+    //ostr << '\n';*/
     return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb?bb:gIR->scopebb());
 }
 
@@ -1423,7 +1423,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
 {
     const llvm::Type* tolltype = DtoType(_to);
     Type* to = DtoDType(_to);
-    assert(to->ty == Tclass);
+    assert(to->ty == Tclass || to->ty == Tpointer);
     llvm::Value* rval = new llvm::BitCastInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
     return new DImValue(_to, rval);
 }
@@ -1628,6 +1628,8 @@ bool DtoCanLoad(llvm::Value* ptr)
 
 llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t)
 {
+    if (v->getType() == t)
+        return v;
     return gIR->ir->CreateBitCast(v, t, "tmp");
 }
 

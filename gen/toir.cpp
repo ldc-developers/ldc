@@ -64,6 +64,7 @@ DValue* DeclarationExp::toElem(IRState* p)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->llvmValue = allocainst;
             }
+            Logger::cout() << "llvm value for decl: " << *vd->llvmValue << '\n';
             DValue* ie = DtoInitializer(vd->init);
         }
 
@@ -1364,18 +1365,13 @@ DValue* SymOffExp::toElem(IRState* p)
     Logger::print("SymOffExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    assert(0 && "SymOffExp::toElem should no longer be called :/");
+
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration");
         if (!vd->llvmTouched && vd->isDataseg())
             vd->toObjFile();
-
-        // TODO
-        /*
-        if (vd->isTypedefDeclaration()) {
-            e->istypeinfo = true;
-        }
-        */
 
         assert(vd->llvmValue);
         Type* t = DtoDType(type);
@@ -1540,6 +1536,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* vtblidx = llvm::ConstantInt::get(llvm::Type::Int32Ty, (size_t)fdecl->vtblIndex, false);
+            Logger::cout() << "vthis: " << *vthis << '\n';
             funcval = DtoGEP(vthis, zero, zero, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = DtoGEP(funcval, zero, vtblidx, toChars(), p->scopebb());
@@ -1871,15 +1868,10 @@ DValue* EqualExp::toElem(IRState* p)
         }
         eval = new llvm::FCmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
     }
-    else if (t->ty == Tsarray)
+    else if (t->ty == Tsarray || t->ty == Tarray)
     {
-        Logger::println("static array");
-        eval = DtoStaticArrayCompare(op,l->getRVal(),r->getRVal());
-    }
-    else if (t->ty == Tarray)
-    {
-        Logger::println("dynamic array");
-        eval = DtoDynArrayCompare(op,l->getRVal(),r->getRVal());
+        Logger::println("static or dynamic array");
+        eval = DtoArrayEquals(op,l,r);
     }
     else if (t->ty == Tdelegate)
     {
@@ -2568,12 +2560,21 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     else
     assert(0);
 
+    Logger::cout() << "array literal mem: " << *mem << '\n';
+
     for (unsigned i=0; i<elements->dim; ++i)
     {
         Expression* expr = (Expression*)elements->data[i];
         llvm::Value* elemAddr = DtoGEPi(mem,0,i,"tmp",p->scopebb());
+        DVarValue* vv = new DVarValue(expr->type, elemAddr, true);
+        p->exps.push_back(IRExp(NULL, expr, vv));
         DValue* e = expr->toElem(p);
-        new llvm::StoreInst(e->getRVal(), elemAddr, p->scopebb());
+        p->exps.pop_back();
+
+        DImValue* im = e->isIm();
+        if (!im || !im->inPlace()) {
+            DtoAssign(vv, e);
+        }
     }
 
     if (ty->ty == Tsarray)

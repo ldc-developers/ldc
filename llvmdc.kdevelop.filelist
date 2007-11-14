@@ -221,6 +221,7 @@ test/alloca1.d
 test/arrayinit.d
 test/arrays.d
 test/arrays10.d
+test/arrays11.d
 test/arrays2.d
 test/arrays3.d
 test/arrays4.d
@@ -377,6 +378,7 @@ test/structs3.d
 test/structs4.d
 test/structs5.d
 test/structs6.d
+test/structs7.d
 test/switch1.d
 test/sync1.d
 test/templ1.d

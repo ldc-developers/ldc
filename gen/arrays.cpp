@@ -546,93 +546,60 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Value* DtoStaticArrayCompare(TOK op, llvm::Value* l, llvm::Value* r)
+
+llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r)
 {
-    const char* fname;
-    if (op == TOKequal)
-        fname = "_d_static_array_eq";
-    else if (op == TOKnotequal)
-        fname = "_d_static_array_neq";
-    else
-        assert(0);
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_adEq");
     assert(fn);
 
-    assert(l->getType() == r->getType());
-    assert(isaPointer(l->getType()));
-    const llvm::Type* arrty = l->getType()->getContainedType(0);
-    assert(isaArray(arrty));
-    
-    llvm::Value* ll = new llvm::BitCastInst(l, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp", gIR->scopebb());
-    llvm::Value* rr = new llvm::BitCastInst(r, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp", gIR->scopebb());
-    llvm::Value* n = llvm::ConstantInt::get(DtoSize_t(),gTargetData->getTypeSize(arrty),false);
+    llvm::Value* lmem;
+    llvm::Value* rmem;
 
-    std::vector<llvm::Value*> args;
-    args.push_back(ll);
-    args.push_back(rr);
-    args.push_back(n);
-    return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
-}
+    // cast static arrays to dynamic ones, this turns them into DSliceValues
+    Type* l_ty = DtoDType(l->getType());
+    Type* r_ty = DtoDType(r->getType());
+    assert(l_ty->next == r_ty->next);
+    Type* a_ty = new Type(Tarray, l_ty->next);
+    if (l_ty->ty == Tsarray)
+        l = DtoCastArray(l, a_ty);
+    if (r_ty->ty == Tsarray)
+        r = DtoCastArray(r, a_ty);
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Value* DtoDynArrayCompare(TOK op, llvm::Value* l, llvm::Value* r)
-{
-    const char* fname;
-    if (op == TOKequal)
-        fname = "_d_dyn_array_eq";
-    else if (op == TOKnotequal)
-        fname = "_d_dyn_array_neq";
-    else
-        assert(0);
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
-    assert(fn);
-
-    Logger::cout() << "lhsType:" << *l->getType() << "\nrhsType:" << *r->getType() << '\n';
-    assert(l->getType() == r->getType());
-    assert(isaPointer(l->getType()));
-    const llvm::StructType* structType = isaStruct(l->getType()->getContainedType(0));
-    assert(structType);
-    const llvm::Type* elemType = structType->getElementType(1)->getContainedType(0);
-
-    std::vector<const llvm::Type*> arrTypes;
-    arrTypes.push_back(DtoSize_t());
-    arrTypes.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
-    const llvm::StructType* arrType = llvm::StructType::get(arrTypes);
-
-    llvm::Value* llmem = l;
-    llvm::Value* rrmem = r;
-
-    if (structType != arrType) {
-        llmem= new llvm::AllocaInst(arrType,"tmparr",gIR->topallocapoint());
-
-        llvm::Value* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0, "tmp"),"tmp");
-        ll = DtoArrayCastLength(ll, elemType, llvm::Type::Int8Ty);
-        llvm::Value* lllen = DtoGEPi(llmem, 0,0, "tmp");
-        gIR->ir->CreateStore(ll,lllen);
-
-        ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,1, "tmp"),"tmp");
-        ll = new llvm::BitCastInst(ll, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp", gIR->scopebb());
-        llvm::Value* llptr = DtoGEPi(llmem, 0,1, "tmp");
-        gIR->ir->CreateStore(ll,llptr);
-
-        rrmem = new llvm::AllocaInst(arrType,"tmparr",gIR->topallocapoint());
-
-        llvm::Value* rr = gIR->ir->CreateLoad(DtoGEPi(r, 0,0, "tmp"),"tmp");
-        rr = DtoArrayCastLength(rr, elemType, llvm::Type::Int8Ty);
-        llvm::Value* rrlen = DtoGEPi(rrmem, 0,0, "tmp");
-        gIR->ir->CreateStore(rr,rrlen);
-
-        rr = gIR->ir->CreateLoad(DtoGEPi(r, 0,1, "tmp"),"tmp");
-        rr = new llvm::BitCastInst(rr, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp", gIR->scopebb());
-        llvm::Value* rrptr = DtoGEPi(rrmem, 0,1, "tmp");
-        gIR->ir->CreateStore(rr,rrptr);
+    // we need to give slices storage
+    if (l->isSlice()) {
+        lmem = new llvm::AllocaInst(DtoType(l->getType()), "tmpparam", gIR->topallocapoint());
+        DtoSetArray(lmem, DtoArrayLen(l), DtoArrayPtr(l));
     }
+    else
+        lmem = l->getRVal();
+
+    if (r->isSlice()) {
+        rmem = new llvm::AllocaInst(DtoType(r->getType()), "tmpparam", gIR->topallocapoint());
+        DtoSetArray(rmem, DtoArrayLen(r), DtoArrayPtr(r));
+    }
+    else
+        rmem = r->getRVal();
+
+    const llvm::Type* pt = fn->getFunctionType()->getParamType(0);
 
     std::vector<llvm::Value*> args;
-    args.push_back(llmem);
-    args.push_back(rrmem);
-    return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
+    args.push_back(DtoBitCast(lmem,pt));
+    args.push_back(DtoBitCast(rmem,pt));
+
+    TypeInfoDeclaration* ti = DtoDType(l->getType())->next->getTypeInfoDeclaration();
+    if (!ti->llvmValue) {
+        ti->toObjFile();
+    }
+    Logger::cout() << "typeinfo decl: " << *ti->llvmValue << '\n';
+
+    pt = fn->getFunctionType()->getParamType(2);
+    args.push_back(DtoBitCast(ti->llvmValue, pt));
+
+    llvm::Value* res = gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+    if (op == TOKnotequal)
+        res = gIR->ir->CreateNot(res, "tmp");
+
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

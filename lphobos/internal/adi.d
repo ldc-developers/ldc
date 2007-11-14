@@ -38,6 +38,7 @@ import std.c.string;
 import std.outofmemory;
 import std.utf;
 
+pragma(LLVM_internal, "notypeinfo")
 struct Array
 {
     size_t length;
@@ -478,6 +479,7 @@ extern (C) int _adEq(Array a1, Array a2, TypeInfo ti)
     {
     printf("%4x %4x\n", (cast(short*)p1)[i], (cast(short*)p2)[i]);
     }
+    printf("sz = %u\n", sz);
 +/
 
     if (sz == 1)

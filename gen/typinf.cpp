@@ -243,14 +243,18 @@ void TypeInfoDeclaration::toObjFile()
     Logger::println("TypeInfoDeclaration::toObjFile()");
     LOG_SCOPE;
 
+    std::string mangled(mangle());
+
     Logger::println("type = '%s'", tinfo->toChars());
-    Logger::println("typeinfo mangle: %s", mangle());
+    Logger::println("typeinfo mangle: %s", mangled.c_str());
 
     // this is a declaration of a builtin __initZ var
     if (tinfo->builtinTypeInfo()) {
-        llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangle());
+        llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangled.c_str());
         assert(llvmValue);
-        Logger::cout() << "Got typeinfo var:" << '\n' << *llvmValue << '\n';
+        mangled.append("__TYPE");
+        gIR->module->addTypeName(mangled, llvmValue->getType()->getContainedType(0));
+        Logger::println("Got typeinfo var: %s", llvmValue->getName().c_str());
     }
     // custom typedef
     else {

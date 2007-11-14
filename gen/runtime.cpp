@@ -61,9 +61,6 @@ void LLVM_D_FreeRuntime()
 
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
-    // TODO maybe check the target module first, to allow overriding the runtime on a pre module basis?
-    // could be done and seems like it could be neat too :)
-
     if (global.params.noruntime) {
         error("No implicit runtime calls allowed with -noruntime option enabled");
         fatal();
@@ -74,10 +71,14 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
         LLVM_D_InitRuntime();
     }
 
-    llvm::Function* fn = M->getFunction(name);
+    llvm::Function* fn = target->getFunction(name);
+    if (fn)
+        return fn;
+
+    fn = M->getFunction(name);
     if (!fn) {
-        error("Runtime function '%s' was not found", name);
-        fatal();
+        printf("Runtime function '%s' was not found\n", name);
+        assert(0);
         //return NULL;
     }
 

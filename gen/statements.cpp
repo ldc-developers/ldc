@@ -26,8 +26,7 @@
 
 void CompoundStatement::toIR(IRState* p)
 {
-    static int csi = 0;
-    Logger::println("CompoundStatement::toIR(%d):\n<<<\n%s>>>", csi++, toChars());
+    Logger::println("CompoundStatement::toIR()");
     LOG_SCOPE;
 
     for (int i=0; i<statements->dim; i++)
