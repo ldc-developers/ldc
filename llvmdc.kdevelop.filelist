@@ -106,8 +106,6 @@ gen/binops.cpp
 gen/dvalue.cpp
 gen/dvalue.h
 gen/dwarftypes.cpp
-gen/elem.cpp
-gen/elem.h
 gen/enums.h
 gen/irstate.cpp
 gen/irstate.h
@@ -119,7 +117,6 @@ gen/runtime.h
 gen/statements.cpp
 gen/structs.cpp
 gen/structs.h
-gen/symbol.h
 gen/tocsym.cpp
 gen/todebug.cpp
 gen/todebug.h
@@ -292,9 +289,7 @@ test/bug6.d
 test/bug60.d
 test/bug61.d
 test/bug62.d
-test/bug63.d
 test/bug64.d
-test/bug65.d
 test/bug7.d
 test/bug8.d
 test/bug9.d
@@ -361,7 +356,6 @@ test/nested4.d
 test/pointers.d
 test/pt.d
 test/ptrarith.d
-test/ray.d
 test/scope1.d
 test/scope2.d
 test/scope3.d

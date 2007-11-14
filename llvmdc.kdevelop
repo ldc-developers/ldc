@@ -14,8 +14,8 @@
     <projectname>llvmdc</projectname>
     <projectdirectory>.</projectdirectory>
     <absoluteprojectpath>false</absoluteprojectpath>
-    <description></description>
-    <defaultencoding></defaultencoding>
+    <description/>
+    <defaultencoding/>
   </general>
   <kdevautoproject>
     <general/>
@@ -156,7 +156,7 @@
       <includePaths>.;</includePaths>
     </codecompletion>
     <creategettersetter>
-      <prefixGet></prefixGet>
+      <prefixGet/>
       <prefixSet>set</prefixSet>
       <prefixVariable>m_,_</prefixVariable>
       <parameterName>theValue</parameterName>
@@ -174,8 +174,8 @@
     <run>
       <directoryradio>executable</directoryradio>
       <mainprogram>/home/tomas/kdevprojects/llvmdc</mainprogram>
-      <programargs></programargs>
-      <globaldebugarguments></globaldebugarguments>
+      <programargs/>
+      <globaldebugarguments/>
       <globalcwd>/home/tomas/kdevprojects/llvmdc</globalcwd>
       <useglobalprogram>false</useglobalprogram>
       <terminal>false</terminal>
@@ -324,16 +324,86 @@
       <path>dmdorig/phobos/internal/deh.c</path>
       <path>dmdorig/phobos/internal/mars.h</path>
       <path>dmdorig/phobos/internal/monitor.c</path>
+      <path>obj/Debug</path>
+      <path>obj/Debug/access.d</path>
+      <path>obj/Debug/array.d</path>
+      <path>obj/Debug/arrays.d</path>
+      <path>obj/Debug/attrib.d</path>
+      <path>obj/Debug/binops.d</path>
+      <path>obj/Debug/cast.d</path>
+      <path>obj/Debug/class.d</path>
+      <path>obj/Debug/cond.d</path>
+      <path>obj/Debug/constfold.d</path>
+      <path>obj/Debug/dchar.d</path>
+      <path>obj/Debug/declaration.d</path>
+      <path>obj/Debug/delegatize.d</path>
+      <path>obj/Debug/doc.d</path>
+      <path>obj/Debug/dsymbol.d</path>
+      <path>obj/Debug/dump.d</path>
+      <path>obj/Debug/dvalue.d</path>
+      <path>obj/Debug/dwarftypes.d</path>
+      <path>obj/Debug/elem.d</path>
+      <path>obj/Debug/entity.d</path>
+      <path>obj/Debug/enum.d</path>
+      <path>obj/Debug/expression.d</path>
+      <path>obj/Debug/func.d</path>
+      <path>obj/Debug/gnuc.d</path>
+      <path>obj/Debug/hdrgen.d</path>
+      <path>obj/Debug/html.d</path>
+      <path>obj/Debug/id.d</path>
+      <path>obj/Debug/identifier.d</path>
+      <path>obj/Debug/idgen.d</path>
+      <path>obj/Debug/impcnvgen.d</path>
+      <path>obj/Debug/impcnvtab.d</path>
+      <path>obj/Debug/import.d</path>
+      <path>obj/Debug/inifile.d</path>
+      <path>obj/Debug/init.d</path>
+      <path>obj/Debug/inline.d</path>
+      <path>obj/Debug/interpret.d</path>
+      <path>obj/Debug/irstate.d</path>
+      <path>obj/Debug/lexer.d</path>
+      <path>obj/Debug/link.d</path>
+      <path>obj/Debug/logger.d</path>
+      <path>obj/Debug/lstring.d</path>
+      <path>obj/Debug/macro.d</path>
+      <path>obj/Debug/mangle.d</path>
+      <path>obj/Debug/mars.d</path>
+      <path>obj/Debug/mem.d</path>
+      <path>obj/Debug/module.d</path>
+      <path>obj/Debug/mtype.d</path>
+      <path>obj/Debug/opover.d</path>
+      <path>obj/Debug/optimize.d</path>
+      <path>obj/Debug/parse.d</path>
+      <path>obj/Debug/root.d</path>
+      <path>obj/Debug/runtime.d</path>
+      <path>obj/Debug/scope.d</path>
+      <path>obj/Debug/statement.d</path>
+      <path>obj/Debug/statements.d</path>
+      <path>obj/Debug/staticassert.d</path>
+      <path>obj/Debug/stringtable.d</path>
+      <path>obj/Debug/struct.d</path>
+      <path>obj/Debug/structs.d</path>
+      <path>obj/Debug/template.d</path>
+      <path>obj/Debug/tocsym.d</path>
+      <path>obj/Debug/todebug.d</path>
+      <path>obj/Debug/todt.d</path>
+      <path>obj/Debug/toir.d</path>
+      <path>obj/Debug/tollvm.d</path>
+      <path>obj/Debug/toobj.d</path>
+      <path>obj/Debug/typinf.d</path>
+      <path>obj/Debug/unialpha.d</path>
+      <path>obj/Debug/utf.d</path>
+      <path>obj/Debug/version.d</path>
     </blacklist>
     <build>
       <buildtool>make</buildtool>
-      <builddir></builddir>
+      <builddir/>
     </build>
     <other>
       <prio>0</prio>
-      <otherbin></otherbin>
-      <defaulttarget></defaulttarget>
-      <otheroptions></otheroptions>
+      <otherbin/>
+      <defaulttarget/>
+      <otheroptions/>
       <selectedenvironment>default</selectedenvironment>
       <environments>
         <default/>
@@ -344,9 +414,9 @@
       <numberofjobs>0</numberofjobs>
       <prio>0</prio>
       <dontact>false</dontact>
-      <makebin></makebin>
-      <defaulttarget></defaulttarget>
-      <makeoptions></makeoptions>
+      <makebin/>
+      <defaulttarget/>
+      <makeoptions/>
       <selectedenvironment>default</selectedenvironment>
       <environments>
         <default/>
@@ -361,11 +431,11 @@
   </cppsupportpart>
   <kdevdebugger>
     <general>
-      <gdbpath></gdbpath>
-      <dbgshell></dbgshell>
-      <configGdbScript></configGdbScript>
-      <runShellScript></runShellScript>
-      <runGdbScript></runGdbScript>
+      <gdbpath/>
+      <dbgshell/>
+      <configGdbScript/>
+      <runShellScript/>
+      <runGdbScript/>
       <breakonloadinglibs>true</breakonloadinglibs>
       <separatetty>false</separatetty>
       <floatingtoolbar>false</floatingtoolbar>

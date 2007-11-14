@@ -1305,6 +1305,234 @@ void DtoAssign(DValue* lhs, DValue* rhs)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+DValue* DtoCastInt(DValue* val, Type* _to)
+{
+    const llvm::Type* tolltype = DtoType(_to);
+
+    Type* to = DtoDType(_to);
+    Type* from = DtoDType(val->getType());
+    assert(from->isintegral());
+
+    size_t fromsz = from->size();
+    size_t tosz = to->size();
+
+    llvm::Value* rval;
+
+    if (to->isintegral()) {
+        if (fromsz < tosz) {
+            Logger::cout() << "cast to: " << *tolltype << '\n';
+            if (from->isunsigned() || from->ty == Tbool) {
+                rval = new llvm::ZExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            } else {
+                rval = new llvm::SExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            }
+        }
+        else if (fromsz > tosz) {
+            rval = new llvm::TruncInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+        else {
+            rval = new llvm::BitCastInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+    }
+    else if (to->isfloating()) {
+        if (from->isunsigned()) {
+            rval = new llvm::UIToFPInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+        else {
+            rval = new llvm::SIToFPInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+    }
+    else if (to->ty == Tpointer) {
+        rval = gIR->ir->CreateIntToPtr(val->getRVal(), tolltype, "tmp");
+    }
+    else {
+        assert(0 && "bad int cast");
+    }
+
+    return new DImValue(_to, rval);
+}
+
+DValue* DtoCastPtr(DValue* val, Type* to)
+{
+    const llvm::Type* tolltype = DtoType(to);
+
+    Type* totype = DtoDType(to);
+    Type* fromtype = DtoDType(val->getType());
+    assert(fromtype->ty == Tpointer);
+
+    llvm::Value* rval;
+
+    if (totype->ty == Tpointer || totype->ty == Tclass) {
+        llvm::Value* src = val->getRVal();
+        Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
+        rval = new llvm::BitCastInst(src, tolltype, "tmp", gIR->scopebb());
+    }
+    else if (totype->isintegral()) {
+        rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+    }
+    else {
+        assert(0);
+    }
+
+    return new DImValue(to, rval);
+}
+
+DValue* DtoCastFloat(DValue* val, Type* to)
+{
+    const llvm::Type* tolltype = DtoType(to);
+
+    Type* totype = DtoDType(to);
+    Type* fromtype = DtoDType(val->getType());
+    assert(fromtype->isfloating());
+
+    size_t fromsz = fromtype->size();
+    size_t tosz = totype->size();
+
+    llvm::Value* rval;
+
+    if (totype->isfloating()) {
+        if ((fromtype->ty == Tfloat80 || fromtype->ty == Tfloat64) && (totype->ty == Tfloat80 || totype->ty == Tfloat64)) {
+            rval = val->getRVal();
+        }
+        else if (fromsz < tosz) {
+            rval = new llvm::FPExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+        else if (fromsz > tosz) {
+            rval = new llvm::FPTruncInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+        else {
+            assert(0 && "bad float cast");
+        }
+    }
+    else if (totype->isintegral()) {
+        if (totype->isunsigned()) {
+            rval = new llvm::FPToUIInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+        else {
+            rval = new llvm::FPToSIInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        }
+    }
+    else {
+        assert(0 && "bad float cast");
+    }
+
+    return new DImValue(to, rval);
+}
+
+DValue* DtoCastClass(DValue* val, Type* _to)
+{
+    const llvm::Type* tolltype = DtoType(_to);
+    Type* to = DtoDType(_to);
+    assert(to->ty == Tclass);
+    llvm::Value* rval = new llvm::BitCastInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+    return new DImValue(_to, rval);
+}
+
+DValue* DtoCastArray(DValue* u, Type* to)
+{
+    const llvm::Type* tolltype = DtoType(to);
+
+    Type* totype = DtoDType(to);
+    Type* fromtype = DtoDType(u->getType());
+    assert(fromtype->ty == Tarray || fromtype->ty == Tsarray);
+
+    llvm::Value* rval;
+    llvm::Value* rval2;
+    bool isslice = false;
+
+    Logger::cout() << "from array or sarray" << '\n';
+    if (totype->ty == Tpointer) {
+        Logger::cout() << "to pointer" << '\n';
+        assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
+        llvm::Value* ptr = DtoGEPi(u->getRVal(),0,1,"tmp",gIR->scopebb());
+        rval = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
+        if (fromtype->next != totype->next)
+            rval = gIR->ir->CreateBitCast(rval, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
+    }
+    else if (totype->ty == Tarray) {
+        Logger::cout() << "to array" << '\n';
+        const llvm::Type* ptrty = DtoType(totype->next);
+        if (ptrty == llvm::Type::VoidTy)
+            ptrty = llvm::Type::Int8Ty;
+        ptrty = llvm::PointerType::get(ptrty);
+
+        const llvm::Type* ety = DtoType(fromtype->next);
+        if (ety == llvm::Type::VoidTy)
+            ety = llvm::Type::Int8Ty;
+
+        if (DSliceValue* usl = u->isSlice()) {
+            Logger::println("from slice");
+            rval = new llvm::BitCastInst(usl->ptr, ptrty, "tmp", gIR->scopebb());
+            if (fromtype->next->size() == totype->next->size())
+                rval2 = usl->len;
+            else
+                rval2 = DtoArrayCastLength(usl->len, ety, ptrty->getContainedType(0));
+        }
+        else {
+            llvm::Value* uval = u->getRVal();
+            if (fromtype->ty == Tsarray) {
+                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+                assert(isaPointer(uval->getType()));
+                const llvm::ArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+                rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+                rval = new llvm::BitCastInst(uval, ptrty, "tmp", gIR->scopebb());
+            }
+            else {
+                llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+                llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
+                rval2 = DtoGEP(uval,zero,zero,"tmp",gIR->scopebb());
+                rval2 = new llvm::LoadInst(rval2, "tmp", gIR->scopebb());
+                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+
+                rval = DtoGEP(uval,zero,one,"tmp",gIR->scopebb());
+                rval = new llvm::LoadInst(rval, "tmp", gIR->scopebb());
+                //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
+                rval = new llvm::BitCastInst(rval, ptrty, "tmp", gIR->scopebb());
+            }
+        }
+        isslice = true;
+    }
+    else if (totype->ty == Tsarray) {
+        Logger::cout() << "to sarray" << '\n';
+        assert(0);
+    }
+    else {
+        assert(0);
+    }
+
+    if (isslice) {
+        Logger::println("isslice");
+        return new DSliceValue(to, rval2, rval);
+    }
+
+    return new DImValue(to, rval);
+}
+
+DValue* DtoCast(DValue* val, Type* to)
+{
+    Type* fromtype = DtoDType(val->getType());
+    if (fromtype->isintegral()) {
+        return DtoCastInt(val, to);
+    }
+    else if (fromtype->isfloating()) {
+        return DtoCastFloat(val, to);
+    }
+    else if (fromtype->ty == Tclass) {
+        return DtoCastClass(val, to);
+    }
+    else if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
+        return DtoCastArray(val, to);
+    }
+    else if (fromtype->ty == Tpointer) {
+        return DtoCastPtr(val, to);
+    }
+    else {
+        assert(0);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::ConstantInt* DtoConstSize_t(size_t i)
 {

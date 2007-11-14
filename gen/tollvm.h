@@ -89,6 +89,14 @@ llvm::Argument* isaArgument(llvm::Value* v);
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);
 
+// casts
+DValue* DtoCastInt(DValue* val, Type* to);
+DValue* DtoCastPtr(DValue* val, Type* to);
+DValue* DtoCastFloat(DValue* val, Type* to);
+DValue* DtoCastArray(DValue* val, Type* to);
+DValue* DtoCastClass(DValue* val, Type* to);
+DValue* DtoCast(DValue* val, Type* to);
+
 // binary operations
 DValue* DtoBinAdd(DValue* lhs, DValue* rhs);
 DValue* DtoBinSub(DValue* lhs, DValue* rhs);

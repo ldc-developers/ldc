@@ -506,7 +506,7 @@ unittest
 }
 
 /***************************************
- * Support for array equality test for bit arrays.
+ * Support for bit array equality test for bit arrays.
  */
 
 version (none)
@@ -602,7 +602,7 @@ unittest
 }
 
 /***************************************
- * Support for array compare test.
+ * Support for char array compare test.
  */
 
 extern (C) int _adCmpChar(Array a1, Array a2)
@@ -748,7 +748,7 @@ unittest
 }
 
 /***************************************
- * Support for array compare test.
+ * Support for bit array compare test.
  */
 
 version (none)
