@@ -222,6 +222,7 @@ test/arrayinit.d
 test/arrays.d
 test/arrays10.d
 test/arrays11.d
+test/arrays12.d
 test/arrays2.d
 test/arrays3.d
 test/arrays4.d

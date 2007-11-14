@@ -1810,6 +1810,11 @@ DValue* CmpExp::toElem(IRState* p)
         }
         eval = new llvm::FCmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
     }
+    else if (t->ty == Tsarray || t->ty == Tarray)
+    {
+        Logger::println("static or dynamic array");
+        eval = DtoArrayCompare(op,l,r);
+    }
     else
     {
         assert(0 && "Unsupported CmpExp type");

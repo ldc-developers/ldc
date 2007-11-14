@@ -28,6 +28,7 @@ void DtoCatArrays(llvm::Value* arr, Expression* e1, Expression* e2);
 void DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src);
 
 llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r);
+llvm::Value* DtoArrayCompare(TOK op, DValue* l, DValue* r);
 
 llvm::Value* DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r);
 

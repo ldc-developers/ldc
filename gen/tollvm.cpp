@@ -1690,6 +1690,8 @@ bool DtoIsTemplateInstance(Dsymbol* s)
     return false;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t)
 {
     // create a flag to make sure initialization only happens once

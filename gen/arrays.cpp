@@ -546,10 +546,10 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r)
+// helper for eq and cmp
+static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r)
 {
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_adEq");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
     assert(fn);
 
     llvm::Value* lmem;
@@ -559,11 +559,13 @@ llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r)
     Type* l_ty = DtoDType(l->getType());
     Type* r_ty = DtoDType(r->getType());
     assert(l_ty->next == r_ty->next);
-    Type* a_ty = new Type(Tarray, l_ty->next);
-    if (l_ty->ty == Tsarray)
-        l = DtoCastArray(l, a_ty);
-    if (r_ty->ty == Tsarray)
-        r = DtoCastArray(r, a_ty);
+    if ((l_ty->ty == Tsarray) || (r_ty->ty == Tsarray)) {
+        Type* a_ty = new Type(Tarray, l_ty->next);
+        if (l_ty->ty == Tsarray)
+            l = DtoCastArray(l, a_ty);
+        if (r_ty->ty == Tsarray)
+            r = DtoCastArray(r, a_ty);
+    }
 
     // we need to give slices storage
     if (l->isSlice()) {
@@ -595,10 +597,74 @@ llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r)
     pt = fn->getFunctionType()->getParamType(2);
     args.push_back(DtoBitCast(ti->llvmValue, pt));
 
-    llvm::Value* res = gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+    return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r)
+{
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_adEq");
+    assert(fn);
+
+    llvm::Value* res = DtoArrayEqCmp_impl("_adEq", l, r);
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
 
+    return res;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+llvm::Value* DtoArrayCompare(TOK op, DValue* l, DValue* r)
+{
+    llvm::Value* res = 0;
+
+    llvm::ICmpInst::Predicate cmpop;
+    bool skip = false;
+
+    switch(op)
+    {
+    case TOKlt:
+    case TOKul:
+        cmpop = llvm::ICmpInst::ICMP_SLT;
+        break;
+    case TOKle:
+    case TOKule:
+        cmpop = llvm::ICmpInst::ICMP_SLE;
+        break;
+    case TOKgt:
+    case TOKug:
+        cmpop = llvm::ICmpInst::ICMP_SGT;
+        break;
+    case TOKge:
+    case TOKuge:
+        cmpop = llvm::ICmpInst::ICMP_SGE;
+        break;
+    case TOKue:
+        cmpop = llvm::ICmpInst::ICMP_EQ;
+        break;
+    case TOKlg:
+        cmpop = llvm::ICmpInst::ICMP_NE;
+        break;
+    case TOKleg:
+        skip = true;
+        res = llvm::ConstantInt::getTrue();
+        break;
+    case TOKunord:
+        skip = true;
+        res = llvm::ConstantInt::getFalse();
+        break;
+
+    default:
+        assert(0);
+    }
+
+    if (!skip)
+    {
+        res = DtoArrayEqCmp_impl("_adCmp", l, r);
+        res = new llvm::ICmpInst(cmpop, res, DtoConstInt(0), "tmp", gIR->scopebb());
+    }
+
+    assert(res);
     return res;
 }
 
