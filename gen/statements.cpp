@@ -71,9 +71,9 @@ void ReturnStatement::toIR(IRState* p)
             if (!e->inPlace())
                 DtoAssign(rvar, e);
 
-            IRFunction::FinallyVec& fin = p->func().finallys;
+            IRFunction::FinallyVec& fin = p->func()->finallys;
             if (fin.empty()) {
-                if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
+                if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
                 new llvm::ReturnInst(p->scopebb());
             }
             else {
@@ -87,15 +87,15 @@ void ReturnStatement::toIR(IRState* p)
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
 
-            IRFunction::FinallyVec& fin = p->func().finallys;
+            IRFunction::FinallyVec& fin = p->func()->finallys;
             if (fin.empty()) {
-                if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
+                if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
                 new llvm::ReturnInst(v, p->scopebb());
             }
             else {
-                if (!p->func().finallyretval)
-                    p->func().finallyretval = new llvm::AllocaInst(v->getType(),"tmpreturn",p->topallocapoint());
-                llvm::Value* rettmp = p->func().finallyretval;
+                if (!p->func()->finallyretval)
+                    p->func()->finallyretval = new llvm::AllocaInst(v->getType(),"tmpreturn",p->topallocapoint());
+                llvm::Value* rettmp = p->func()->finallyretval;
                 new llvm::StoreInst(v,rettmp,p->scopebb());
                 new llvm::BranchInst(fin.back().retbb, p->scopebb());
             }
@@ -104,9 +104,9 @@ void ReturnStatement::toIR(IRState* p)
     else
     {
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
-            IRFunction::FinallyVec& fin = p->func().finallys;
+            IRFunction::FinallyVec& fin = p->func()->finallys;
             if (fin.empty()) {
-                if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
+                if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
                 new llvm::ReturnInst(p->scopebb());
             }
             else {
@@ -420,8 +420,8 @@ void TryFinallyStatement::toIR(IRState* p)
 
     // do the try block
     p->scope() = IRScope(trybb,finallybb);
-    gIR->func().finallys.push_back(IRFinally(finallybb,finallyretbb));
-    IRFinally& fin = p->func().finallys.back();
+    gIR->func()->finallys.push_back(IRFinally(finallybb,finallyretbb));
+    IRFinally& fin = p->func()->finallys.back();
 
     assert(body);
     body->toIR(p);
@@ -446,22 +446,22 @@ void TryFinallyStatement::toIR(IRState* p)
     finalbody->toIR(p); // hope this will work, otherwise it's time it gets fixed
 
     // terminate finally (return path)
-    size_t nfin = p->func().finallys.size();
+    size_t nfin = p->func()->finallys.size();
     if (nfin > 1) {
-        IRFinally& ofin = p->func().finallys[nfin-2];
+        IRFinally& ofin = p->func()->finallys[nfin-2];
         p->ir->CreateBr(ofin.retbb);
     }
     // no outer
     else
     {
-        if (global.params.symdebug) DtoDwarfFuncEnd(p->func().decl);
-        llvm::Value* retval = p->func().finallyretval;
+        if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
+        llvm::Value* retval = p->func()->finallyretval;
         if (retval) {
             retval = p->ir->CreateLoad(retval,"tmp");
             p->ir->CreateRet(retval);
         }
         else {
-            FuncDeclaration* fd = p->func().decl;
+            FuncDeclaration* fd = p->func()->decl;
             if (fd->isMain()) {
                 assert(fd->type->next->ty == Tvoid);
                 p->ir->CreateRet(DtoConstInt(0));
@@ -473,7 +473,7 @@ void TryFinallyStatement::toIR(IRState* p)
     }
 
     // rewrite the scope
-    p->func().finallys.pop_back();
+    p->func()->finallys.pop_back();
     p->scope() = IRScope(endbb,oldend);
 }
 

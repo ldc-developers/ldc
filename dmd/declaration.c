@@ -32,7 +32,6 @@ Declaration::Declaration(Identifier *id)
     storage_class = STCundefined;
     protection = PROTundefined;
     linkage = LINKdefault;
-    llvmTouched = false;
 }
 
 void Declaration::semantic(Scope *sc)
@@ -553,6 +552,8 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     llvmFieldIndex = -1;
     llvmFieldIndexOffset = 0;
     llvmNeedsStorage = false;
+    llvmConstInit = NULL;
+    llvmIRGlobal = NULL;
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)

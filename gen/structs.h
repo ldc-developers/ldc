@@ -2,10 +2,29 @@
 #define LLVMD_GEN_STRUCTS_H
 
 struct StructInitializer;
+
 const llvm::Type* DtoStructType(Type* t);
+
 llvm::Value* DtoStructZeroInit(llvm::Value* v);
 llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src);
+
 llvm::Constant* DtoConstStructInitializer(StructInitializer* si);
+
+/**
+ * Provides the llvm declaration for a struct
+ */
+void DtoDeclareStruct(StructDeclaration* sd);
+
+/**
+ * Constructs the constant default initializer a struct
+ */
+void DtoConstInitStruct(StructDeclaration* sd);
+
+/**
+ * Provides the llvm definition for a struct
+ */
+void DtoDefineStruct(StructDeclaration* sd);
+
 llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
 
 struct DUnionField

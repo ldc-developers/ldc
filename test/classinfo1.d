@@ -6,5 +6,5 @@ class C
 
 void main()
 {
-    auto ci = C.classinfo;
+    ClassInfo ci = C.classinfo;
 }

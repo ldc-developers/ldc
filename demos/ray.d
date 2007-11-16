@@ -1,5 +1,4 @@
-//import std.stdio, std.math, std.string;
-//import tools.base;
+import std.stdio;
 
 int atoi(char[] s) {
     int i, fac=1;
@@ -105,7 +104,7 @@ void main(string[] args) {
     n = (args.length==3 ? args[2].atoi() : 512), ss = 4;
   auto light = Vec(-1, -3, 2).unitise();
   auto s=create(level, Vec(0, -1, 0), 1);
-  printf("P5\n%d %d\n255", n, n);
+  writefln("P5\n", n, " ", n, "\n255");
   for (int y=n-1; y>=0; --y)
     for (int x=0; x<n; ++x) {
       double g=0;

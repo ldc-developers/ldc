@@ -48,6 +48,7 @@ Dsymbol::Dsymbol()
     this->llvmInternal2 = NULL;
     this->llvmValue = NULL;
     this->llvmDModule = NULL;
+    this->llvmTouched = false;
 }
 
 Dsymbol::Dsymbol(Identifier *ident)
@@ -65,6 +66,7 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->llvmInternal2 = NULL;
     this->llvmValue = NULL;
     this->llvmDModule = NULL;
+    this->llvmTouched = false;
 }
 
 int Dsymbol::equals(Object *o)

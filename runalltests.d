@@ -13,7 +13,11 @@ int main(string[] args) {
 
     auto contents = listdir(".", "*.d");
     foreach(c; contents) {
-        auto cmd = "llvmdc -quiet "~c;
+        string cmd = "llvmdc -quiet "~c;
+        foreach(v; args[1..$]) {
+            cmd ~= ' ';
+            cmd ~= v;
+        }
         writefln(cmd);
         if (system(cmd) != 0) {
             bad ~= c;

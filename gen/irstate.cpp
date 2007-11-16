@@ -40,7 +40,7 @@ IRState::IRState()
     ir.state = this;
 }
 
-IRFunction& IRState::func()
+IRFunction* IRState::func()
 {
     assert(!functions.empty() && "Function stack is empty!");
     return functions.back();
@@ -49,22 +49,22 @@ IRFunction& IRState::func()
 llvm::Function* IRState::topfunc()
 {
     assert(!functions.empty() && "Function stack is empty!");
-    return functions.back().func;
+    return functions.back()->func;
 }
 
 TypeFunction* IRState::topfunctype()
 {
     assert(!functions.empty() && "Function stack is empty!");
-    return functions.back().type;
+    return functions.back()->type;
 }
 
 llvm::Instruction* IRState::topallocapoint()
 {
     assert(!functions.empty() && "AllocaPoint stack is empty!");
-    return functions.back().allocapoint;
+    return functions.back()->allocapoint;
 }
 
-IRStruct& IRState::topstruct()
+IRStruct* IRState::topstruct()
 {
     assert(!structs.empty() && "Struct vector is empty!");
     return structs.back();
@@ -109,14 +109,16 @@ IRStruct::IRStruct()
  : recty(llvm::OpaqueType::get())
 {
     type = 0;
-    queueFuncs = true;
+    defined = false;
+    constinited = false;
 }
 
 IRStruct::IRStruct(Type* t)
  : recty(llvm::OpaqueType::get())
 {
     type = t;
-    queueFuncs = true;
+    defined = false;
+    constinited = false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -153,6 +155,7 @@ IRFunction::IRFunction(FuncDeclaration* fd)
     func = NULL;
     allocapoint = NULL;
     finallyretval = NULL;
+    defined = false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -168,4 +171,12 @@ IRExp::IRExp(Expression* l, Expression* r, DValue* val)
     e1 = l;
     e2 = r;
     v = val;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+IRGlobal::IRGlobal(VarDeclaration* v) :
+    type(llvm::OpaqueType::get())
+{
+    var = v;
 }

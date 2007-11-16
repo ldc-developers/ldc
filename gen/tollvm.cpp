@@ -14,7 +14,9 @@
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
+#include "gen/functions.h"
 #include "gen/structs.h"
+#include "gen/classes.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
@@ -95,17 +97,16 @@ const llvm::Type* DtoType(Type* t)
 
     // aggregates
     case Tstruct:    {
-        if (t->llvmType == 0)
-        {
+        if (!t->llvmType || *t->llvmType == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
                 IRStruct* found = 0;
                 for (IRState::StructVector::iterator i=gIR->structs.begin(); i!=gIR->structs.end(); ++i)
                 {
-                    if (t == i->type)
+                    if (t == (*i)->type)
                     {
-                        return i->recty.get();
+                        return (*i)->recty.get();
                     }
                 }
             }
@@ -115,21 +116,20 @@ const llvm::Type* DtoType(Type* t)
             assert(ts->sym);
             ts->sym->toObjFile();
         }
-        return t->llvmType;
+        return t->llvmType->get();
     }
 
     case Tclass:    {
-        if (t->llvmType == 0)
-        {
+        if (!t->llvmType || *t->llvmType == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
                 IRStruct* found = 0;
                 for (IRState::StructVector::iterator i=gIR->structs.begin(); i!=gIR->structs.end(); ++i)
                 {
-                    if (t == i->type)
+                    if (t == (*i)->type)
                     {
-                        return llvm::PointerType::get(i->recty.get());
+                        return llvm::PointerType::get((*i)->recty.get());
                     }
                 }
             }
@@ -139,28 +139,28 @@ const llvm::Type* DtoType(Type* t)
             assert(tc->sym);
             tc->sym->toObjFile();
         }
-        return llvm::PointerType::get(t->llvmType);
+        return llvm::PointerType::get(t->llvmType->get());
     }
 
     // functions
     case Tfunction:
     {
-        if (t->llvmType == 0) {
+        if (!t->llvmType || *t->llvmType == NULL) {
             return DtoFunctionType(t,NULL);
         }
         else {
-            return t->llvmType;
+            return t->llvmType->get();
         }
     }
 
     // delegates
     case Tdelegate:
     {
-        if (t->llvmType == 0) {
+        if (!t->llvmType || *t->llvmType == NULL) {
             return DtoDelegateType(t);
         }
         else {
-            return t->llvmType;
+            return t->llvmType->get();
         }
     }
 
@@ -179,181 +179,6 @@ const llvm::Type* DtoType(Type* t)
         assert(0);
     }
     return 0;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype, bool ismain)
-{
-    TypeFunction* f = (TypeFunction*)type;
-    assert(f != 0);
-
-    bool typesafeVararg = false;
-    if (f->linkage == LINKd && f->varargs == 1) {
-        typesafeVararg = true;
-    }
-
-    // return value type
-    const llvm::Type* rettype;
-    const llvm::Type* actualRettype;
-    Type* rt = f->next;
-    bool retinptr = false;
-    bool usesthis = false;
-
-    if (ismain) {
-        rettype = llvm::Type::Int32Ty;
-        actualRettype = rettype;
-    }
-    else {
-        assert(rt);
-        if (DtoIsPassedByRef(rt)) {
-            rettype = llvm::PointerType::get(DtoType(rt));
-            actualRettype = llvm::Type::VoidTy;
-            f->llvmRetInPtr = retinptr = true;
-        }
-        else {
-            rettype = DtoType(rt);
-            actualRettype = rettype;
-        }
-    }
-
-    // parameter types
-    std::vector<const llvm::Type*> paramvec;
-
-    if (retinptr) {
-        Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
-        paramvec.push_back(rettype);
-    }
-
-    if (thistype) {
-        paramvec.push_back(thistype);
-        usesthis = true;
-    }
-
-    if (typesafeVararg) {
-        ClassDeclaration* ti = Type::typeinfo;
-        if (!ti->llvmInitZ)
-            ti->toObjFile();
-        assert(ti->llvmInitZ);
-        std::vector<const llvm::Type*> types;
-        types.push_back(DtoSize_t());
-        types.push_back(llvm::PointerType::get(llvm::PointerType::get(ti->llvmInitZ->getType())));
-        const llvm::Type* t1 = llvm::StructType::get(types);
-        paramvec.push_back(llvm::PointerType::get(t1));
-        paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
-    }
-
-    size_t n = Argument::dim(f->parameters);
-
-    for (int i=0; i < n; ++i) {
-        Argument* arg = Argument::getNth(f->parameters, i);
-        // ensure scalar
-        Type* argT = DtoDType(arg->type);
-        assert(argT);
-
-        if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
-            //assert(arg->vardecl);
-            //arg->vardecl->refparam = true;
-        }
-        else
-            arg->llvmCopy = true;
-
-        const llvm::Type* at = DtoType(argT);
-        if (isaStruct(at)) {
-            Logger::println("struct param");
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else if (isaArray(at)) {
-            Logger::println("sarray param");
-            assert(argT->ty == Tsarray);
-            //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else if (llvm::isa<llvm::OpaqueType>(at)) {
-            Logger::println("opaque param");
-            assert(argT->ty == Tstruct || argT->ty == Tclass);
-            paramvec.push_back(llvm::PointerType::get(at));
-        }
-        else {
-            if (!arg->llvmCopy) {
-                Logger::println("ref param");
-                at = llvm::PointerType::get(at);
-            }
-            else {
-                Logger::println("in param");
-            }
-            paramvec.push_back(at);
-        }
-    }
-
-    // construct function type
-    bool isvararg = !typesafeVararg && f->varargs;
-    llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
-
-    f->llvmRetInPtr = retinptr;
-    f->llvmUsesThis = usesthis;
-    return functype;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
-{
-    TypeFunction* f = (TypeFunction*)fdecl->type;
-    assert(f != 0);
-
-    const llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
-    std::vector<const llvm::Type*> args;
-
-    if (fdecl->llvmInternal == LLVMva_start) {
-        args.push_back(i8pty);
-    }
-    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
-        size_t n = Argument::dim(f->parameters);
-        for (size_t i=0; i<n; ++i) {
-            args.push_back(i8pty);
-        }
-    }
-    else
-    assert(0);
-
-    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
-    f->llvmType = fty;
-    return fty;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
-{
-    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
-        return DtoVaFunctionType(fdecl);
-    }
-
-    // type has already been resolved
-    if (fdecl->type->llvmType != 0) {
-        return llvm::cast<llvm::FunctionType>(fdecl->type->llvmType);
-    }
-
-    const llvm::Type* thisty = NULL;
-    if (fdecl->needThis()) {
-        if (AggregateDeclaration* ad = fdecl->isMember()) {
-            Logger::print("isMember = this is: %s\n", ad->type->toChars());
-            thisty = DtoType(ad->type);
-            Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (isaStruct(thisty) || thisty == gIR->topstruct().recty.get())
-                thisty = llvm::PointerType::get(thisty);
-        }
-        else
-        assert(0);
-    }
-    else if (fdecl->isNested()) {
-        thisty = llvm::PointerType::get(llvm::Type::Int8Ty);
-    }
-
-    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
-    fdecl->type->llvmType = functype;
-    return functype;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -630,131 +455,6 @@ const llvm::Type* DtoSize_t()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMain()
-{
-    // emit main function llvm style
-    // int main(int argc, char**argv, char**env);
-
-    assert(gIR != 0);
-    IRState& ir = *gIR;
-
-    assert(ir.emitMain && ir.mainFunc);
-
-    // parameter types
-    std::vector<const llvm::Type*> pvec;
-    pvec.push_back((const llvm::Type*)llvm::Type::Int32Ty);
-    const llvm::Type* chPtrType = (const llvm::Type*)llvm::PointerType::get(llvm::Type::Int8Ty);
-    pvec.push_back((const llvm::Type*)llvm::PointerType::get(chPtrType));
-    pvec.push_back((const llvm::Type*)llvm::PointerType::get(chPtrType));
-    const llvm::Type* rettype = (const llvm::Type*)llvm::Type::Int32Ty;
-
-    llvm::FunctionType* functype = llvm::FunctionType::get(rettype, pvec, false);
-    llvm::Function* func = new llvm::Function(functype,llvm::GlobalValue::ExternalLinkage,"main",ir.module);
-
-    llvm::BasicBlock* bb = new llvm::BasicBlock("entry",func);
-
-    // call static ctors
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_d_run_module_ctors");
-    llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
-
-    // call user main function
-    const llvm::FunctionType* mainty = ir.mainFunc->getFunctionType();
-    llvm::CallInst* call;
-    if (mainty->getNumParams() > 0)
-    {
-        // main with arguments
-        assert(mainty->getNumParams() == 1);
-        std::vector<llvm::Value*> args;
-        llvm::Function* mfn = LLVM_D_GetRuntimeFunction(ir.module,"_d_main_args");
-
-        llvm::Function::arg_iterator argi = func->arg_begin();
-        args.push_back(argi++);
-        args.push_back(argi++);
-
-        const llvm::Type* at = mainty->getParamType(0)->getContainedType(0);
-        llvm::Value* arr = new llvm::AllocaInst(at->getContainedType(1)->getContainedType(0), func->arg_begin(), "argstorage", apt);
-        llvm::Value* a = new llvm::AllocaInst(at, "argarray", apt);
-        llvm::Value* ptr = DtoGEPi(a,0,0,"tmp",bb);
-        llvm::Value* v = args[0];
-        if (v->getType() != DtoSize_t())
-            v = new llvm::ZExtInst(v, DtoSize_t(), "tmp", bb);
-        new llvm::StoreInst(v,ptr,bb);
-        ptr = DtoGEPi(a,0,1,"tmp",bb);
-        new llvm::StoreInst(arr,ptr,bb);
-        args.push_back(a);
-        new llvm::CallInst(mfn, args.begin(), args.end(), "", bb);
-        call = new llvm::CallInst(ir.mainFunc,a,"ret",bb);
-    }
-    else
-    {
-        // main with no arguments
-        call = new llvm::CallInst(ir.mainFunc,"ret",bb);
-    }
-    call->setCallingConv(ir.mainFunc->getCallingConv());
-
-    // call static dtors
-    fn = LLVM_D_GetRuntimeFunction(ir.module,"_d_run_module_dtors");
-    new llvm::CallInst(fn,"",bb);
-
-    // return
-    new llvm::ReturnInst(call,bb);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
-{
-    Array* arr = &tc->sym->dtors;
-    for (size_t i=0; i<arr->dim; i++)
-    {
-        FuncDeclaration* fd = (FuncDeclaration*)arr->data[i];
-        assert(fd->llvmValue);
-        new llvm::CallInst(fd->llvmValue, instance, "", gIR->scopebb());
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoInitClass(TypeClass* tc, llvm::Value* dst)
-{
-    assert(gIR);
-
-    assert(tc->llvmType);
-    uint64_t size_t_size = gTargetData->getTypeSize(DtoSize_t());
-    uint64_t n = gTargetData->getTypeSize(tc->llvmType) - size_t_size;
-
-    // set vtable field
-    llvm::Value* vtblvar = DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
-    assert(tc->sym->llvmVtbl);
-    new llvm::StoreInst(tc->sym->llvmVtbl, vtblvar, gIR->scopebb());
-
-    // copy the static initializer
-    if (n > 0) {
-        assert(tc->llvmInit);
-        assert(dst->getType() == tc->llvmInit->getType());
-
-        llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
-
-        llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-        dstarr = DtoGEPi(dstarr,size_t_size,"tmp",gIR->scopebb());
-
-        llvm::Value* srcarr = new llvm::BitCastInst(tc->llvmInit,arrty,"tmp",gIR->scopebb());
-        srcarr = DtoGEPi(srcarr,size_t_size,"tmp",gIR->scopebb());
-
-        llvm::Function* fn = LLVM_DeclareMemCpy32();
-        std::vector<llvm::Value*> llargs;
-        llargs.resize(4);
-        llargs[0] = dstarr;
-        llargs[1] = srcarr;
-        llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-        llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-        new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 {
     llvm::Constant* _init = 0; // may return zero
@@ -787,6 +487,54 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
     else {
         Logger::println("unsupported const initializer: %s", init->toChars());
     }
+    return _init;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* DtoConstFieldInitializer(Type* t, Initializer* init)
+{
+    Logger::println("DtoConstFieldInitializer");
+    LOG_SCOPE;
+
+    const llvm::Type* _type = DtoType(t);
+
+    llvm::Constant* _init = DtoConstInitializer(t, init);
+    assert(_init);
+    if (_type != _init->getType())
+    {
+        Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
+        if (t->ty == Tsarray)
+        {
+            const llvm::ArrayType* arrty = isaArray(_type);
+            uint64_t n = arrty->getNumElements();
+            std::vector<llvm::Constant*> vals(n,_init);
+            _init = llvm::ConstantArray::get(arrty, vals);
+        }
+        else if (t->ty == Tarray)
+        {
+            assert(isaStruct(_type));
+            _init = llvm::ConstantAggregateZero::get(_type);
+        }
+        else if (t->ty == Tstruct)
+        {
+            const llvm::StructType* structty = isaStruct(_type);
+            TypeStruct* ts = (TypeStruct*)t;
+            assert(ts);
+            assert(ts->sym);
+            assert(ts->sym->llvmInitZ);
+            _init = ts->sym->llvmInitZ;
+        }
+        else if (t->ty == Tclass)
+        {
+            _init = llvm::Constant::getNullValue(_type);
+        }
+        else {
+            Logger::println("failed for type %s", t->toChars());
+            assert(0);
+        }
+    }
+
     return _init;
 }
 
@@ -854,152 +602,6 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
     v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
     v[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i1, false);
     return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
-{
-    TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
-    const llvm::FunctionType* fty = DtoVaFunctionType(fdecl);
-    llvm::Constant* fn = 0;
-
-    if (fdecl->llvmInternal == LLVMva_start) {
-        fn = gIR->module->getOrInsertFunction("llvm.va_start", fty);
-        assert(fn);
-    }
-    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
-        fn = gIR->module->getOrInsertFunction(fdecl->llvmInternal1, fty);
-        assert(fn);
-    }
-    else
-    assert(0);
-
-    llvm::Function* func = llvm::dyn_cast<llvm::Function>(fn);
-    assert(func);
-    assert(func->isIntrinsic());
-    fdecl->llvmValue = func;
-    return func;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Function* DtoDeclareFunction(FuncDeclaration* fdecl)
-{
-    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
-        return DtoDeclareVaFunction(fdecl);
-    }
-
-    // mangled name
-    char* mangled_name;
-    if (fdecl->llvmInternal == LLVMintrinsic)
-        mangled_name = fdecl->llvmInternal1;
-    else
-        mangled_name = fdecl->mangle();
-
-    // unit test special handling
-    if (fdecl->isUnitTestDeclaration())
-    {
-        assert(0 && "no unittests yet");
-        /*const llvm::FunctionType* fnty = llvm::FunctionType::get(llvm::Type::VoidTy, std::vector<const llvm::Type*>(), false);
-        // make the function
-        llvm::Function* func = gIR->module->getFunction(mangled_name);
-        if (func == 0)
-            func = new llvm::Function(fnty,llvm::GlobalValue::InternalLinkage,mangled_name,gIR->module);
-        func->setCallingConv(llvm::CallingConv::Fast);
-        fdecl->llvmValue = func;
-        return func;
-        */
-    }
-
-    // regular function
-    TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
-    assert(f != 0);
-
-    if (fdecl->llvmValue != 0) {
-        if (!llvm::isa<llvm::Function>(fdecl->llvmValue))
-        {
-            Logger::cout() << *fdecl->llvmValue << '\n';
-            assert(0);
-        }
-        return llvm::cast<llvm::Function>(fdecl->llvmValue);
-    }
-
-    Logger::print("FuncDeclaration::toObjFile(%s): %s\n", fdecl->needThis()?"this":"static",fdecl->toChars());
-    LOG_SCOPE;
-
-    if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
-        error("intrinsics cannot have function bodies");
-        fatal();
-    }
-
-    // construct function
-    const llvm::FunctionType* functype = (f->llvmType == 0) ? DtoFunctionType(fdecl) : llvm::cast<llvm::FunctionType>(f->llvmType);
-
-    // make the function
-    llvm::Function* func = gIR->module->getFunction(mangled_name);
-    if (func == 0) {
-        func = new llvm::Function(functype,DtoLinkage(fdecl->protection, fdecl->storage_class),mangled_name,gIR->module);
-    }
-
-    if (fdecl->llvmInternal != LLVMintrinsic)
-        func->setCallingConv(DtoCallingConv(f->linkage));
-
-    fdecl->llvmValue = func;
-    f->llvmType = functype;
-    assert(llvm::isa<llvm::FunctionType>(f->llvmType));
-
-    if (fdecl->isMain()) {
-        gIR->mainFunc = func;
-    }
-
-    // name parameters
-    llvm::Function::arg_iterator iarg = func->arg_begin();
-    int k = 0;
-    if (f->llvmRetInPtr) {
-        iarg->setName("retval");
-        f->llvmRetArg = iarg;
-        ++iarg;
-    }
-    if (f->llvmUsesThis) {
-        iarg->setName("this");
-        ++iarg;
-    }
-    int varargs = -1;
-    if (f->linkage == LINKd && f->varargs == 1)
-        varargs = 0;
-    for (; iarg != func->arg_end(); ++iarg)
-    {
-        Argument* arg = Argument::getNth(f->parameters, k++);
-        //arg->llvmValue = iarg;
-        //Logger::println("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
-        if (arg && arg->ident != 0) {
-            if (arg->vardecl) {
-                arg->vardecl->llvmValue = iarg;
-            }
-            iarg->setName(arg->ident->toChars());
-        }
-        else if (!arg && varargs >= 0) {
-            if (varargs == 0) {
-                iarg->setName("_arguments");
-                fdecl->llvmArguments = iarg;
-            }
-            else if (varargs == 1) {
-                iarg->setName("_argptr");
-                fdecl->llvmArgPtr = iarg;
-            }
-            else
-            assert(0);
-            varargs++;
-        }
-        else {
-            iarg->setName("unnamed");
-        }
-    }
-
-    Logger::cout() << "func decl: " << *func << '\n';
-
-    return func;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1174,7 +776,7 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
     FuncDeclaration* fd = vd->toParent()->isFuncDeclaration();
     assert(fd != NULL);
 
-    IRFunction* fcur = &gIR->func();
+    IRFunction* fcur = gIR->func();
     FuncDeclaration* f = fcur->decl;
 
     // on this stack
@@ -1280,7 +882,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         // assignment to this in constructor special case
         if (lhs->isThis()) {
             llvm::Value* tmp = rhs->getRVal();
-            FuncDeclaration* fdecl = gIR->func().decl;
+            FuncDeclaration* fdecl = gIR->func()->decl;
             // respecify the this param
             if (!llvm::isa<llvm::AllocaInst>(fdecl->llvmThisVar))
                 fdecl->llvmThisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
@@ -1715,4 +1317,114 @@ void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type*
     gIR->ir->CreateStore(DtoConstBool(true), gflag);
     gIR->ir->CreateBr(endinitbb);
     gIR->scope() = IRScope(endinitbb,oldend);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDefineDsymbol(Dsymbol* dsym)
+{
+    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
+        DtoDefineStruct(sd);
+    }
+    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
+        DtoDefineClass(cd);
+    }
+    else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
+        DtoDefineFunc(fd);
+    }
+    else {
+    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
+    assert(0 && "unsupported dsymbol for DtoDefineDsymbol");
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoConstInitDsymbol(Dsymbol* dsym)
+{
+    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
+        DtoConstInitStruct(sd);
+    }
+    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
+        DtoConstInitClass(cd);
+    }
+    else if (VarDeclaration* vd = dsym->isVarDeclaration()) {
+        DtoConstInitGlobal(vd);
+    }
+    else {
+    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
+    assert(0 && "unsupported dsymbol for DtoInitDsymbol");
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoConstInitGlobal(VarDeclaration* vd)
+{
+    Logger::println("DtoConstInitGlobal(%s)", vd->toChars());
+    LOG_SCOPE;
+
+    if (vd->llvmDModule) return;
+    vd->llvmDModule = gIR->dmodule;
+
+    bool emitRTstaticInit = false;
+
+    llvm::Constant* _init = 0;
+    if (vd->parent && vd->parent->isFuncDeclaration() && vd->init && vd->init->isExpInitializer()) {
+        _init = DtoConstInitializer(vd->type, NULL);
+        emitRTstaticInit = true;
+    }
+    else {
+        _init = DtoConstInitializer(vd->type, vd->init);
+    }
+
+    const llvm::Type* _type = DtoType(vd->type);
+    Type* t = DtoDType(vd->type);
+
+    //Logger::cout() << "initializer: " << *_init << '\n';
+    if (_type != _init->getType()) {
+        Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
+        // zero initalizer
+        if (_init->isNullValue())
+            _init = llvm::Constant::getNullValue(_type);
+        // pointer to global constant (struct.init)
+        else if (llvm::isa<llvm::GlobalVariable>(_init))
+        {
+            assert(_init->getType()->getContainedType(0) == _type);
+            llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
+            assert(t->ty == Tstruct);
+            TypeStruct* ts = (TypeStruct*)t;
+            assert(ts->sym->llvmInitZ);
+            _init = ts->sym->llvmInitZ;
+        }
+        // array single value init
+        else if (isaArray(_type))
+        {
+            _init = DtoConstStaticArray(_type, _init);
+        }
+        else {
+            Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
+            //assert(0);
+        }
+    }
+
+    bool istempl = false;
+    if ((vd->storage_class & STCcomdat) || (vd->parent && DtoIsTemplateInstance(vd->parent))) {
+        istempl = true;
+    }
+
+    if (_init && _init->getType() != _type)
+        _type = _init->getType();
+    llvm::cast<llvm::OpaqueType>(vd->llvmIRGlobal->type.get())->refineAbstractTypeTo(_type);
+    _type = vd->llvmIRGlobal->type.get();
+    assert(!_type->isAbstract());
+
+    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->llvmValue);
+    if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
+    {
+        gvar->setInitializer(_init);
+    }
+
+    if (emitRTstaticInit)
+        DtoLazyStaticInit(istempl, gvar, vd->init, t);
 }

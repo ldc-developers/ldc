@@ -39,19 +39,20 @@ struct IRScope
 };
 
 // represents a struct or class
-struct IRStruct
+struct IRStruct : Object
 {
     struct Offset
     {
         VarDeclaration* var;
+        const llvm::Type* type;
         llvm::Constant* init;
 
-        Offset(VarDeclaration* v, llvm::Constant* i)
-        : var(v), init(i) {}
+        Offset(VarDeclaration* v, const llvm::Type* ty)
+        : var(v), type(ty), init(NULL) {}
     };
 
-    typedef std::vector<FuncDeclaration*> FuncDeclVector;
     typedef std::multimap<unsigned, Offset> OffsetMap;
+    typedef std::vector<VarDeclaration*> VarDeclVector;
 
 public:
     IRStruct();
@@ -59,10 +60,11 @@ public:
 
     Type* type;
     llvm::PATypeHolder recty;
-    FuncDeclVector funcs;
-    bool queueFuncs;
-
     OffsetMap offsets;
+    VarDeclVector defaultFields;
+
+    bool defined;
+    bool constinited;
 };
 
 // represents a finally block
@@ -76,7 +78,7 @@ struct IRFinally
 };
 
 // represents a function
-struct IRFunction
+struct IRFunction : Object
 {
     llvm::Function* func;
     llvm::Instruction* allocapoint;
@@ -87,6 +89,8 @@ struct IRFunction
     typedef std::vector<IRFinally> FinallyVec;
     FinallyVec finallys;
     llvm::Value* finallyretval;
+
+    bool defined;
 
     IRFunction(FuncDeclaration*);
 };
@@ -106,6 +110,15 @@ struct IRExp
     IRExp(Expression* l, Expression* r, DValue* val);
 };
 
+// represents a global variable
+struct IRGlobal : Object
+{
+    VarDeclaration* var;
+    llvm::PATypeHolder type;
+
+    IRGlobal(VarDeclaration* v);
+};
+
 // represents the module
 struct IRState
 {
@@ -116,18 +129,18 @@ struct IRState
     llvm::Module* module;
 
     // functions
-    typedef std::vector<IRFunction> FunctionVector;
+    typedef std::vector<IRFunction*> FunctionVector;
     FunctionVector functions;
-    IRFunction& func();
+    IRFunction* func();
 
     llvm::Function* topfunc();
     TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
     // structs
-    typedef std::vector<IRStruct> StructVector;
+    typedef std::vector<IRStruct*> StructVector;
     StructVector structs;
-    IRStruct& topstruct();
+    IRStruct* topstruct();
 
     // classes TODO move into IRClass
     typedef std::vector<ClassDeclaration*> ClassDeclVec;
@@ -163,9 +176,11 @@ struct IRState
     // builder helper
     IRBuilderHelper ir;
 
-    // functions queued for lazy definition
-    typedef std::vector<FuncDeclaration*> FuncDeclVector;
-    FuncDeclVector funcQueue;
+    typedef std::vector<Dsymbol*> DsymbolVector;
+    // dsymbols that need constant initializers constructed
+    DsymbolVector constInitQueue;
+    // dsymbols that need definitions (symbols in current module)
+    DsymbolVector defineQueue;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

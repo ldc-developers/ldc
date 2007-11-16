@@ -9,10 +9,6 @@ const llvm::Type* DtoType(Type* t);
 bool DtoIsPassedByRef(Type* type);
 Type* DtoDType(Type* t);
 
-const llvm::FunctionType* DtoFunctionType(Type* t, const llvm::Type* thistype, bool ismain = false);
-const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
-llvm::Function* DtoDeclareFunction(FuncDeclaration* fdecl);
-
 const llvm::StructType* DtoDelegateType(Type* t);
 llvm::Value* DtoNullDelegate(llvm::Value* v);
 llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
@@ -28,12 +24,8 @@ const llvm::Type* DtoSize_t();
 
 const llvm::StructType* DtoComplexType(const llvm::Type* base);
 
-void DtoMain();
-
-void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
-void DtoInitClass(TypeClass* tc, llvm::Value* dst);
-
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
+llvm::Constant* DtoConstFieldInitializer(Type* type, Initializer* init);
 DValue* DtoInitializer(Initializer* init);
 
 llvm::Function* LLVM_DeclareMemSet32();
@@ -66,7 +58,9 @@ bool DtoIsTemplateInstance(Dsymbol* s);
 
 void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t);
 
-void DtoClassInfo(ClassDeclaration* cd);
+void DtoDefineDsymbol(Dsymbol* dsym);
+void DtoConstInitDsymbol(Dsymbol* dsym);
+void DtoConstInitGlobal(VarDeclaration* vd);
 
 // llvm wrappers
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);

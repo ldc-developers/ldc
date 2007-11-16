@@ -45,13 +45,15 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     sinit = NULL;
     scope = NULL;
 
-    llvmType = NULL;
     llvmVtbl = NULL;
     llvmConstVtbl = NULL;
     llvmInitZ = NULL;
+    llvmClass = NULL;
+    llvmClassZ = NULL;
     llvmInProgress = false;
     llvmHasUnions = false;
     llvmUnion = NULL;
+    llvmIRStruct = NULL;
 }
 
 enum PROT AggregateDeclaration::prot()

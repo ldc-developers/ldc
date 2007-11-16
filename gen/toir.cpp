@@ -26,6 +26,7 @@
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 #include "gen/structs.h"
+#include "gen/classes.h"
 
 #include "gen/dvalue.h"
 
@@ -52,7 +53,7 @@ DValue* DeclarationExp::toElem(IRState* p)
             // referenced by nested delegate?
             if (vd->nestedref) {
                 Logger::println("has nestedref set");
-                vd->llvmValue = p->func().decl->llvmNested;
+                vd->llvmValue = p->func()->decl->llvmNested;
                 assert(vd->llvmValue);
                 assert(vd->llvmNestedIndex >= 0);
             }
@@ -119,7 +120,7 @@ DValue* VarExp::toElem(IRState* p)
         {
             Logger::println("Id::_arguments");
             if (!vd->llvmValue)
-                vd->llvmValue = p->func().decl->llvmArguments;
+                vd->llvmValue = p->func()->decl->llvmArguments;
             assert(vd->llvmValue);
             return new DVarValue(vd, vd->llvmValue, true);
         }
@@ -128,7 +129,7 @@ DValue* VarExp::toElem(IRState* p)
         {
             Logger::println("Id::_argptr");
             if (!vd->llvmValue)
-                vd->llvmValue = p->func().decl->llvmArgPtr;
+                vd->llvmValue = p->func()->decl->llvmArgPtr;
             assert(vd->llvmValue);
             return new DVarValue(vd, vd->llvmValue, true);
         }
@@ -154,6 +155,13 @@ DValue* VarExp::toElem(IRState* p)
                 m = tid->llvmValue;
             return new DVarValue(vd, m, true);
         }
+        // classinfo
+        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
+        {
+            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
+            assert(cid->cd->llvmClass);
+            return new DVarValue(vd, cid->cd->llvmClass, true);
+        }
         // nested variable
         else if (vd->nestedref) {
             Logger::println("nested variable");
@@ -165,7 +173,7 @@ DValue* VarExp::toElem(IRState* p)
             if (!vd->llvmValue) {
                 // TODO: determine this properly
                 // this happens when the DMD frontend generates by pointer wrappers for struct opEquals(S) and opCmp(S)
-                vd->llvmValue = &p->func().func->getArgumentList().back();
+                vd->llvmValue = &p->func()->func->getArgumentList().back();
             }
             if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->llvmValue)) {
                 return new DVarValue(vd, vd->llvmValue, true);
@@ -177,9 +185,11 @@ DValue* VarExp::toElem(IRState* p)
         }
         else {
             // take care of forward references of global variables
-            if (!vd->llvmTouched && (vd->isDataseg() || (vd->storage_class & STCextern))) // !vd->onstack)
+            if (vd->isDataseg() || (vd->storage_class & STCextern)) {
                 vd->toObjFile();
-            if (!vd->llvmValue) {
+                DtoConstInitGlobal(vd);
+            }
+            if (!vd->llvmValue || vd->llvmValue->getType()->isAbstract()) {
                 Logger::println("global variable not resolved :/ %s", vd->toChars());
                 assert(0);
             }
@@ -224,6 +234,8 @@ llvm::Constant* VarExp::toConstElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
+        ts->sym->toObjFile();
+        DtoConstInitStruct(ts->sym);
         assert(ts->sym->llvmInitZ);
         return ts->sym->llvmInitZ;
     }
@@ -1220,7 +1232,7 @@ DValue* CallExp::toElem(IRState* p)
     // nested call
     else if (dfn && dfn->func && dfn->func->isNested()) {
         Logger::println("Nested Call");
-        llvm::Value* contextptr = p->func().decl->llvmNested;
+        llvm::Value* contextptr = p->func()->decl->llvmNested;
         assert(contextptr);
         llargs[j] = p->ir->CreateBitCast(contextptr, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
         ++j;
@@ -1329,6 +1341,9 @@ DValue* CallExp::toElem(IRState* p)
     }
     else if (dfn && dfn->cc != (unsigned)-1) {
         call->setCallingConv(dfn->cc);
+    }
+    else if (llvm::isa<llvm::LoadInst>(funcval)) {
+        call->setCallingConv(DtoCallingConv(dlink));
     }
 
     return new DImValue(type, retllval, isInPlace);
@@ -1445,9 +1460,8 @@ DValue* AddrExp::toElem(IRState* p)
     DValue* v = e1->toElem(p);
     if (v->isField())
         return v;
-    if (DFuncValue* fv = v->isFunc())
-    {
-        Logger::println("FuncDeclaration");
+    else if (DFuncValue* fv = v->isFunc()) {
+        //Logger::println("FuncDeclaration");
         FuncDeclaration* fd = fv->func;
         assert(fd);
         if (fd->llvmValue == 0)
@@ -1562,7 +1576,7 @@ DValue* ThisExp::toElem(IRState* p)
     LOG_SCOPE;
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
-        llvm::Value* v = p->func().decl->llvmThisVar;
+        llvm::Value* v = p->func()->decl->llvmThisVar;
         if (llvm::isa<llvm::AllocaInst>(v))
             v = new llvm::LoadInst(v, "tmp", p->scopebb());
         return new DThisValue(vd, v);
@@ -2023,7 +2037,9 @@ DValue* NewExp::toElem(IRState* p)
                 llvm::Value* a = DtoArgument(fn->getFunctionType()->getParamType(i+1), fnarg, ex);
                 ctorargs.push_back(a);
             }
-            emem = new llvm::CallInst(fn, ctorargs.begin(), ctorargs.end(), "tmp", p->scopebb());
+            llvm::CallInst* call = new llvm::CallInst(fn, ctorargs.begin(), ctorargs.end(), "tmp", p->scopebb());
+            call->setCallingConv(DtoCallingConv(LINKd));
+            emem = call;
         }
     }
     else if (ntype->ty == Tstruct) {
@@ -2505,7 +2521,7 @@ DValue* FuncExp::toElem(IRState* p)
 
     llvm::Value* context = DtoGEPi(lval,0,0,"tmp",p->scopebb());
     const llvm::PointerType* pty = isaPointer(context->getType()->getContainedType(0));
-    llvm::Value* llvmNested = p->func().decl->llvmNested;
+    llvm::Value* llvmNested = p->func()->decl->llvmNested;
     if (llvmNested == NULL) {
         llvm::Value* nullcontext = llvm::ConstantPointerNull::get(pty);
         p->ir->CreateStore(nullcontext, context);
@@ -2539,6 +2555,8 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     Logger::cout() << "array literal has llvm type: " << *t << '\n';
 
     llvm::Value* mem = 0;
+    bool inplace_slice = false;
+
     if (!p->topexp() || p->topexp()->e2 != this) {
         assert(DtoDType(type)->ty == Tsarray);
         mem = new llvm::AllocaInst(t,"arrayliteral",p->topallocapoint());
@@ -2548,6 +2566,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         if (DSliceValue* sv = tlv->isSlice()) {
             assert(sv->len == 0);
             mem = sv->ptr;
+            inplace_slice = true;
         }
         else {
             mem = p->topexp()->v->getLVal();
@@ -2556,6 +2575,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         if (!isaPointer(mem->getType()) ||
             !isaArray(mem->getType()->getContainedType(0)))
         {
+            assert(!inplace_slice);
             assert(ty->ty == Tarray);
             // we need to give this array literal storage
             const llvm::ArrayType* arrty = llvm::ArrayType::get(DtoType(ty->next), elements->dim);
@@ -2582,7 +2602,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         }
     }
 
-    if (ty->ty == Tsarray)
+    if (ty->ty == Tsarray || (ty->ty == Tarray && inplace_slice))
         return new DImValue(type, mem, true);
     else if (ty->ty == Tarray)
         return new DSliceValue(type, DtoConstSize_t(elements->dim), DtoGEPi(mem,0,0,"tmp"));

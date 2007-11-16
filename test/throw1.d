@@ -6,17 +6,18 @@ class C
 {
 }
 
-void func()
+void func(bool b)
 {
-    if (rand() & 1)
+    if (b)
         throw new C;
 }
 
 int main()
 {
+    bool b = true;
     try
     {
-        func();
+        func(b);
     }
     catch(Object)
     {

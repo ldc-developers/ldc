@@ -88,40 +88,6 @@ void _d_array_init(void* a, size_t na, void* v, size_t nv)
     }
 }
 
-// array comparison routines
-
-bool _d_static_array_eq(void* lhs, void* rhs, size_t bytesize)
-{
-    if (lhs is rhs)
-        return true;
-    return memcmp(lhs,rhs,bytesize) == 0;
-}
-
-bool _d_static_array_neq(void* lhs, void* rhs, size_t bytesize)
-{
-    if (lhs is rhs)
-        return false;
-    return memcmp(lhs,rhs,bytesize) != 0;
-}
-
-bool _d_dyn_array_eq(void[] lhs, void[] rhs)
-{
-    if (lhs.length != rhs.length)
-        return false;
-    else if (lhs is rhs)
-        return true;
-    return memcmp(lhs.ptr,rhs.ptr,lhs.length) == 0;
-}
-
-bool _d_dyn_array_neq(void[] lhs, void[] rhs)
-{
-    if (lhs.length != rhs.length)
-        return true;
-    else if (lhs is rhs)
-        return false;
-    return memcmp(lhs.ptr,rhs.ptr,lhs.length) != 0;
-}
-
 // for array cast
 size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
 {

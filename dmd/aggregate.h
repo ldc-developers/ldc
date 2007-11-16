@@ -43,8 +43,9 @@ namespace llvm
     class Value;
     class Constant;
     class ConstantStruct;
+    class GlobalVariable;
 }
-
+struct IRStruct;
 struct DUnion;
 
 struct AggregateDeclaration : ScopeDsymbol
@@ -101,12 +102,14 @@ struct AggregateDeclaration : ScopeDsymbol
     Symbol *toInitializer();
 
     bool llvmInProgress;
-    const llvm::Type* llvmType;
-    llvm::Constant* llvmVtbl;
+    llvm::GlobalVariable* llvmVtbl;
     llvm::ConstantStruct* llvmConstVtbl;
     llvm::Constant* llvmInitZ;
+    llvm::GlobalVariable* llvmClass;
+    llvm::Constant* llvmClassZ;
     bool llvmHasUnions;
     DUnion* llvmUnion;
+    IRStruct* llvmIRStruct;
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };

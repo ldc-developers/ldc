@@ -42,7 +42,7 @@ const llvm::StructType* DtoArrayType(Type* t)
 const llvm::ArrayType* DtoStaticArrayType(Type* t)
 {
     if (t->llvmType)
-        return isaArray(t->llvmType);
+        return isaArray(t->llvmType->get());
 
     assert(t->ty == Tsarray);
     assert(t->next);
@@ -53,7 +53,8 @@ const llvm::ArrayType* DtoStaticArrayType(Type* t)
     assert(tsa->dim->type->isintegral());
     const llvm::ArrayType* arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
 
-    tsa->llvmType = arrty;
+    assert(!tsa->llvmType);
+    tsa->llvmType = new llvm::PATypeHolder(arrty);
     return arrty;
 }
 
@@ -547,7 +548,7 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // helper for eq and cmp
-static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r)
+static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool useti)
 {
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
     assert(fn);
@@ -588,14 +589,17 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r)
     args.push_back(DtoBitCast(lmem,pt));
     args.push_back(DtoBitCast(rmem,pt));
 
-    TypeInfoDeclaration* ti = DtoDType(l->getType())->next->getTypeInfoDeclaration();
-    if (!ti->llvmValue) {
-        ti->toObjFile();
-    }
-    Logger::cout() << "typeinfo decl: " << *ti->llvmValue << '\n';
+    // pass element typeinfo ?
+    if (useti) {
+        TypeInfoDeclaration* ti = DtoDType(l->getType())->next->getTypeInfoDeclaration();
+        if (!ti->llvmValue) {
+            ti->toObjFile();
+        }
+        Logger::cout() << "typeinfo decl: " << *ti->llvmValue << '\n';
 
-    pt = fn->getFunctionType()->getParamType(2);
-    args.push_back(DtoBitCast(ti->llvmValue, pt));
+        pt = fn->getFunctionType()->getParamType(2);
+        args.push_back(DtoBitCast(ti->llvmValue, pt));
+    }
 
     return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
 }
@@ -606,7 +610,7 @@ llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_adEq");
     assert(fn);
 
-    llvm::Value* res = DtoArrayEqCmp_impl("_adEq", l, r);
+    llvm::Value* res = DtoArrayEqCmp_impl("_adEq", l, r, true);
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
 
@@ -660,7 +664,11 @@ llvm::Value* DtoArrayCompare(TOK op, DValue* l, DValue* r)
 
     if (!skip)
     {
-        res = DtoArrayEqCmp_impl("_adCmp", l, r);
+        Type* t = DtoDType(DtoDType(l->getType())->next);
+        if (t->ty == Tchar)
+            res = DtoArrayEqCmp_impl("_adCmpChar", l, r, false);
+        else
+            res = DtoArrayEqCmp_impl("_adCmp", l, r, true);
         res = new llvm::ICmpInst(cmpop, res, DtoConstInt(0), "tmp", gIR->scopebb());
     }
 

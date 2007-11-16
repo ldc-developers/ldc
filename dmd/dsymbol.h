@@ -67,6 +67,7 @@ struct Expression;
 struct DeleteDeclaration;
 struct HdrGenState;
 struct TypeInfoDeclaration;
+struct ClassInfoDeclaration;
 
 #if IN_GCC
 union tree_node;
@@ -212,6 +213,7 @@ struct Dsymbol : Object
     virtual SymbolDeclaration *isSymbolDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
+    virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
     
     // llvm stuff
     int llvmInternal;
@@ -220,6 +222,8 @@ struct Dsymbol : Object
 
     llvm::Value* llvmValue;
     Module* llvmDModule;
+
+    bool llvmTouched;
 };
 
 // Dsymbol that generates a scope

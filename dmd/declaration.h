@@ -24,6 +24,8 @@
 namespace llvm {
     class Value;
 }
+struct IRFunction;
+struct IRGlobal;
 
 struct Expression;
 struct Statement;
@@ -128,8 +130,6 @@ struct Declaration : Dsymbol
     Declaration *isDeclaration() { return this; }
 
     virtual void toObjFile();           // compile to .obj file
-    
-    bool llvmTouched;
 };
 
 /**************************************************************/
@@ -263,6 +263,8 @@ struct VarDeclaration : Declaration
     int llvmFieldIndex;
     size_t llvmFieldIndexOffset;
     bool llvmNeedsStorage;
+    llvm::Constant* llvmConstInit;
+    IRGlobal* llvmIRGlobal;
 };
 
 /**************************************************************/
@@ -293,6 +295,8 @@ struct ClassInfoDeclaration : VarDeclaration
     void emitComment(Scope *sc);
 
     Symbol *toSymbol();
+
+    ClassInfoDeclaration* isClassInfoDeclaration() { return this; }
 };
 
 struct ModuleInfoDeclaration : VarDeclaration
@@ -558,6 +562,7 @@ struct FuncDeclaration : Declaration
     llvm::Value* llvmArgPtr;
     llvm::Constant* llvmDwarfSubProgram;
     bool llvmRunTimeHack;
+    IRFunction* llvmIRFunc;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

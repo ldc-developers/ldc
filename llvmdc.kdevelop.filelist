@@ -103,10 +103,14 @@ gen
 gen/arrays.cpp
 gen/arrays.h
 gen/binops.cpp
+gen/classes.cpp
+gen/classes.h
 gen/dvalue.cpp
 gen/dvalue.h
 gen/dwarftypes.cpp
 gen/enums.h
+gen/functions.cpp
+gen/functions.h
 gen/irstate.cpp
 gen/irstate.h
 gen/llvm.h
@@ -223,6 +227,7 @@ test/arrays.d
 test/arrays10.d
 test/arrays11.d
 test/arrays12.d
+test/arrays13.d
 test/arrays2.d
 test/arrays3.d
 test/arrays4.d
@@ -291,7 +296,9 @@ test/bug6.d
 test/bug60.d
 test/bug61.d
 test/bug62.d
+test/bug63.d
 test/bug64.d
+test/bug66.d
 test/bug7.d
 test/bug8.d
 test/bug9.d
