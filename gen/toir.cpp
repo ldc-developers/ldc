@@ -1468,6 +1468,9 @@ DValue* AddrExp::toElem(IRState* p)
             fd->toObjFile();
         return new DFuncValue(fd, fd->llvmValue);
     }
+    else if (DImValue* im = v->isIm()) {
+        return v;
+    }
     return new DFieldValue(type, v->getLVal(), false);
 }
 

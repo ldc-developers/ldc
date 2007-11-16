@@ -15,7 +15,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <string>
-#include <vaarg.h>
+#include <cstdarg>
 
 #if _WIN32
 #include <windows.h>
@@ -469,8 +469,12 @@ int main(int argc, char *argv[])
 		}
 	    }
 #endif
-	    else if (strcmp(p + 1, "inline") == 0)
-		global.params.useInline = 1;
+	    else if (strcmp(p + 1, "inline") == 0) {
+            // TODO
+            // the ast rewrites dmd does for inling messes up the ast
+            // someday maybe we can support it, for now llvm does an excellent job at inlining
+            global.params.useInline = 0; //1
+        }
 	    else if (strcmp(p + 1, "nofloat") == 0)
 		global.params.nofloat = 1;
 	    else if (strcmp(p + 1, "quiet") == 0)

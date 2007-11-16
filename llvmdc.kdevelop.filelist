@@ -299,6 +299,7 @@ test/bug62.d
 test/bug63.d
 test/bug64.d
 test/bug66.d
+test/bug67.d
 test/bug7.d
 test/bug8.d
 test/bug9.d
