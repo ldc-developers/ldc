@@ -27,6 +27,7 @@
 #include "gen/arrays.h"
 #include "gen/structs.h"
 #include "gen/classes.h"
+#include "gen/typeinf.h"
 
 #include "gen/dvalue.h"
 
@@ -45,7 +46,7 @@ DValue* DeclarationExp::toElem(IRState* p)
         // static
         if (vd->isDataseg())
         {
-            vd->toObjFile();
+            vd->toObjFile(); // TODO
         }
         else
         {
@@ -75,13 +76,13 @@ DValue* DeclarationExp::toElem(IRState* p)
     else if (StructDeclaration* s = declaration->isStructDeclaration())
     {
         Logger::println("StructDeclaration");
-        s->toObjFile();
+        DtoForceConstInitDsymbol(s);
     }
     // function declaration
     else if (FuncDeclaration* f = declaration->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        f->toObjFile();
+        DtoForceDeclareDsymbol(f);
     }
     // alias declaration
     else if (AliasDeclaration* a = declaration->isAliasDeclaration())
@@ -145,7 +146,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
         {
             Logger::println("TypeInfoDeclaration");
-            tid->toObjFile();
+            DtoForceDeclareDsymbol(tid);
             assert(tid->llvmValue);
             const llvm::Type* vartype = DtoType(type);
             llvm::Value* m;
@@ -159,6 +160,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
+            DtoDeclareClassInfo(cid->cd);
             assert(cid->cd->llvmClass);
             return new DVarValue(vd, cid->cd->llvmClass, true);
         }
@@ -199,8 +201,9 @@ DValue* VarExp::toElem(IRState* p)
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        if (fdecl->llvmInternal != LLVMva_arg)// && fdecl->llvmValue == 0)
-            fdecl->toObjFile();
+        if (fdecl->llvmInternal != LLVMva_arg) {// && fdecl->llvmValue == 0)
+            DtoForceDeclareDsymbol(fdecl);
+        }
         return new DFuncValue(fdecl, fdecl->llvmValue);
     }
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
@@ -234,8 +237,7 @@ llvm::Constant* VarExp::toConstElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
-        ts->sym->toObjFile();
-        DtoConstInitStruct(ts->sym);
+        DtoForceConstInitDsymbol(ts->sym);
         assert(ts->sym->llvmInitZ);
         return ts->sym->llvmInitZ;
     }
@@ -1063,7 +1065,7 @@ DValue* CallExp::toElem(IRState* p)
     bool delegateCall = false;
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty,1,false);
-    LINK dlink = LINKdefault;
+    LINK dlink = LINKd;
 
     // hidden struct return parameter handling
     bool retinptr = false;
@@ -1117,7 +1119,7 @@ DValue* CallExp::toElem(IRState* p)
                 llt = llvm::PointerType::get(llt);
             // TODO
             if (strcmp(global.params.llvmArch, "x86") != 0) {
-                warning("va_arg for C variadic functions is broken for anything but x86");
+                warning("%s: va_arg for C variadic functions is broken for anything but x86", loc.toChars());
             }
             return new DImValue(type, p->ir->CreateVAArg(expelem->getLVal(),llt,"tmp"));
         }
@@ -1267,7 +1269,7 @@ DValue* CallExp::toElem(IRState* p)
                 vtypes.push_back(vvalues.back()->getType());
 
                 TypeInfoDeclaration* tidecl = argexp->type->getTypeInfoDeclaration();
-                tidecl->toObjFile();
+                DtoForceDeclareDsymbol(tidecl);
                 assert(tidecl->llvmValue);
                 vtypeinfos.push_back(tidecl->llvmValue);
             }
@@ -1306,8 +1308,10 @@ DValue* CallExp::toElem(IRState* p)
                 llargs[j] = DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
                 // this hack is necessary :/
                 if (dfn && dfn->func && dfn->func->llvmRunTimeHack) {
-                    if (llargs[j]->getType() != llfnty->getParamType(j))
+                    Logger::println("llvmRunTimeHack==true");
+                    if (llargs[j]->getType() != llfnty->getParamType(j)) {
                         llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
+                    }
                 }
             }
             Logger::println("%d params passed", n);
@@ -1336,13 +1340,13 @@ DValue* CallExp::toElem(IRState* p)
             call->setCallingConv(DtoCallingConv(dlink));
         }
     }
-    else if (delegateCall) {
+    /*else if (delegateCall) {
         call->setCallingConv(DtoCallingConv(dlink));
-    }
+    }*/
     else if (dfn && dfn->cc != (unsigned)-1) {
         call->setCallingConv(dfn->cc);
     }
-    else if (llvm::isa<llvm::LoadInst>(funcval)) {
+    else {
         call->setCallingConv(DtoCallingConv(dlink));
     }
 
@@ -1385,8 +1389,11 @@ DValue* SymOffExp::toElem(IRState* p)
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration");
-        if (!vd->llvmTouched && vd->isDataseg())
-            vd->toObjFile();
+
+        // handle forward reference
+        if (!vd->llvmDeclared && vd->isDataseg()) {
+            vd->toObjFile(); // TODO
+        }
 
         assert(vd->llvmValue);
         Type* t = DtoDType(type);
@@ -1465,7 +1472,7 @@ DValue* AddrExp::toElem(IRState* p)
         FuncDeclaration* fd = fv->func;
         assert(fd);
         if (fd->llvmValue == 0)
-            fd->toObjFile();
+            DtoForceDeclareDsymbol(fd);
         return new DFuncValue(fd, fd->llvmValue);
     }
     else if (DImValue* im = v->isIm()) {
@@ -1539,7 +1546,7 @@ DValue* DotVarExp::toElem(IRState* p)
     {
         if (fdecl->llvmValue == 0)
         {
-            fdecl->toObjFile();
+            DtoForceDeclareDsymbol(fdecl);
         }
 
         llvm::Value* funcval = fdecl->llvmValue;
@@ -2099,7 +2106,7 @@ DValue* DeleteExp::toElem(IRState* p)
         llvm::Value* ptr = DtoGEP(val,zero,one,"tmp",p->scopebb());
         ptr = new llvm::LoadInst(ptr,"tmp",p->scopebb());
         new llvm::FreeInst(ptr, p->scopebb());
-        DtoNullArray(val);
+        DtoSetArrayToNull(val);
     }
     else {
         assert(0);
@@ -2507,7 +2514,7 @@ DValue* FuncExp::toElem(IRState* p)
     if (fd->isNested()) Logger::println("nested");
     Logger::println("kind = %s\n", fd->kind());
 
-    fd->toObjFile();
+    DtoForceDeclareDsymbol(fd);
 
     bool temp = false;
     llvm::Value* lval = NULL;

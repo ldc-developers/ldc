@@ -53,14 +53,25 @@ llvm::ConstantInt* DtoConstInt(int i);
 llvm::Constant* DtoConstString(const char*);
 llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
+llvm::Constant* DtoConstNullPtr(const llvm::Type* t);
 
 bool DtoIsTemplateInstance(Dsymbol* s);
 
 void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t);
 
+void DtoResolveDsymbol(Dsymbol* dsym);
+void DtoDeclareDsymbol(Dsymbol* dsym);
 void DtoDefineDsymbol(Dsymbol* dsym);
 void DtoConstInitDsymbol(Dsymbol* dsym);
+
 void DtoConstInitGlobal(VarDeclaration* vd);
+
+void DtoEmptyResolveList();
+void DtoEmptyDeclareList();
+void DtoEmptyConstInitList();
+void DtoForceDeclareDsymbol(Dsymbol* dsym);
+void DtoForceConstInitDsymbol(Dsymbol* dsym);
+void DtoForceDefineDsymbol(Dsymbol* dsym);
 
 // llvm wrappers
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
@@ -87,7 +98,6 @@ void DtoAssign(DValue* lhs, DValue* rhs);
 DValue* DtoCastInt(DValue* val, Type* to);
 DValue* DtoCastPtr(DValue* val, Type* to);
 DValue* DtoCastFloat(DValue* val, Type* to);
-DValue* DtoCastArray(DValue* val, Type* to);
 DValue* DtoCastClass(DValue* val, Type* to);
 DValue* DtoCast(DValue* val, Type* to);
 

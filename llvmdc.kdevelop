@@ -98,7 +98,7 @@
       <hidenonlocation>false</hidenonlocation>
     </groups>
     <tree>
-      <hidepatterns>*.o,*.lo,CVS</hidepatterns>
+      <hidepatterns>*.bc</hidepatterns>
       <hidenonprojectfiles>false</hidenonprojectfiles>
     </tree>
   </kdevfileview>
@@ -394,6 +394,7 @@
       <path>obj/Debug/unialpha.d</path>
       <path>obj/Debug/utf.d</path>
       <path>obj/Debug/version.d</path>
+      <path>obj</path>
     </blacklist>
     <build>
       <buildtool>make</buildtool>

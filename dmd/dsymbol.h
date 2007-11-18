@@ -223,7 +223,10 @@ struct Dsymbol : Object
     llvm::Value* llvmValue;
     Module* llvmDModule;
 
-    bool llvmTouched;
+    bool llvmResolved;
+    bool llvmDeclared;
+    bool llvmInitialized;
+    bool llvmDefined;
 };
 
 // Dsymbol that generates a scope

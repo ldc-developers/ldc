@@ -2,6 +2,11 @@
 #define LLVMDC_GEN_CLASSES_H
 
 /**
+ * Resolves the llvm type for a class declaration
+ */
+void DtoResolveClass(ClassDeclaration* cd);
+
+/**
  * Provides the llvm declaration for a class declaration
  */
 void DtoDeclareClass(ClassDeclaration* cd);

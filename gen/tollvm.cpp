@@ -17,6 +17,7 @@
 #include "gen/functions.h"
 #include "gen/structs.h"
 #include "gen/classes.h"
+#include "gen/typeinf.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
@@ -114,7 +115,7 @@ const llvm::Type* DtoType(Type* t)
             // forward declaration
             TypeStruct* ts = (TypeStruct*)t;
             assert(ts->sym);
-            ts->sym->toObjFile();
+            DtoResolveDsymbol(ts->sym);
         }
         return t->llvmType->get();
     }
@@ -137,7 +138,7 @@ const llvm::Type* DtoType(Type* t)
             // forward declaration
             TypeClass* tc = (TypeClass*)t;
             assert(tc->sym);
-            tc->sym->toObjFile();
+            DtoResolveDsymbol(tc->sym);
         }
         return llvm::PointerType::get(t->llvmType->get());
     }
@@ -654,7 +655,17 @@ void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg)
     llargs.resize(3);
     llargs[0] = cond ? DtoBoolean(cond) : llvm::ConstantInt::getFalse();
     llargs[1] = DtoConstUint(loc->linnum);
-    llargs[2] = msg ? msg->getRVal() : llvm::Constant::getNullValue(fnt->getParamType(2));
+    if (msg)
+        llargs[2] = msg->getRVal();
+    else {
+        llvm::Constant* c = DtoConstSlice(DtoConstSize_t(0), DtoConstNullPtr(llvm::Type::Int8Ty));
+        static llvm::AllocaInst* alloc = 0;
+        if (!alloc || alloc->getParent()->getParent() != gIR->func()->func) {
+            alloc = new llvm::AllocaInst(c->getType(), "assertnullparam", gIR->topallocapoint());
+            DtoSetArrayToNull(alloc);
+        }
+        llargs[2] = alloc;
+    }
 
     assert(fn);
     llvm::CallInst* call = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
@@ -861,7 +872,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         }
         // null
         else if (rhs->isNull()) {
-            DtoNullArray(lhs->getLVal());
+            DtoSetArrayToNull(lhs->getLVal());
         }
         // reference assignment
         else {
@@ -1030,87 +1041,6 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     return new DImValue(_to, rval);
 }
 
-DValue* DtoCastArray(DValue* u, Type* to)
-{
-    const llvm::Type* tolltype = DtoType(to);
-
-    Type* totype = DtoDType(to);
-    Type* fromtype = DtoDType(u->getType());
-    assert(fromtype->ty == Tarray || fromtype->ty == Tsarray);
-
-    llvm::Value* rval;
-    llvm::Value* rval2;
-    bool isslice = false;
-
-    Logger::cout() << "from array or sarray" << '\n';
-    if (totype->ty == Tpointer) {
-        Logger::cout() << "to pointer" << '\n';
-        assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
-        llvm::Value* ptr = DtoGEPi(u->getRVal(),0,1,"tmp",gIR->scopebb());
-        rval = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
-        if (fromtype->next != totype->next)
-            rval = gIR->ir->CreateBitCast(rval, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
-    }
-    else if (totype->ty == Tarray) {
-        Logger::cout() << "to array" << '\n';
-        const llvm::Type* ptrty = DtoType(totype->next);
-        if (ptrty == llvm::Type::VoidTy)
-            ptrty = llvm::Type::Int8Ty;
-        ptrty = llvm::PointerType::get(ptrty);
-
-        const llvm::Type* ety = DtoType(fromtype->next);
-        if (ety == llvm::Type::VoidTy)
-            ety = llvm::Type::Int8Ty;
-
-        if (DSliceValue* usl = u->isSlice()) {
-            Logger::println("from slice");
-            rval = new llvm::BitCastInst(usl->ptr, ptrty, "tmp", gIR->scopebb());
-            if (fromtype->next->size() == totype->next->size())
-                rval2 = usl->len;
-            else
-                rval2 = DtoArrayCastLength(usl->len, ety, ptrty->getContainedType(0));
-        }
-        else {
-            llvm::Value* uval = u->getRVal();
-            if (fromtype->ty == Tsarray) {
-                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
-                assert(isaPointer(uval->getType()));
-                const llvm::ArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
-                rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
-                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
-                rval = new llvm::BitCastInst(uval, ptrty, "tmp", gIR->scopebb());
-            }
-            else {
-                llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-                llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-                rval2 = DtoGEP(uval,zero,zero,"tmp",gIR->scopebb());
-                rval2 = new llvm::LoadInst(rval2, "tmp", gIR->scopebb());
-                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
-
-                rval = DtoGEP(uval,zero,one,"tmp",gIR->scopebb());
-                rval = new llvm::LoadInst(rval, "tmp", gIR->scopebb());
-                //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
-                rval = new llvm::BitCastInst(rval, ptrty, "tmp", gIR->scopebb());
-            }
-        }
-        isslice = true;
-    }
-    else if (totype->ty == Tsarray) {
-        Logger::cout() << "to sarray" << '\n';
-        assert(0);
-    }
-    else {
-        assert(0);
-    }
-
-    if (isslice) {
-        Logger::println("isslice");
-        return new DSliceValue(to, rval2, rval);
-    }
-
-    return new DImValue(to, rval);
-}
-
 DValue* DtoCast(DValue* val, Type* to)
 {
     Type* fromtype = DtoDType(val->getType());
@@ -1176,6 +1106,15 @@ llvm::Constant* DtoConstStringPtr(const char* str, const char* section)
     if (section) gvar->setSection(section);
     llvm::Constant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* DtoConstNullPtr(const llvm::Type* t)
+{
+    return llvm::ConstantPointerNull::get(
+        llvm::PointerType::get(t)
+    );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1321,20 +1260,45 @@ void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type*
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDefineDsymbol(Dsymbol* dsym)
+void DtoResolveDsymbol(Dsymbol* dsym)
 {
     if (StructDeclaration* sd = dsym->isStructDeclaration()) {
-        DtoDefineStruct(sd);
+        DtoResolveStruct(sd);
     }
     else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-        DtoDefineClass(cd);
+        DtoResolveClass(cd);
     }
     else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-        DtoDefineFunc(fd);
+        DtoResolveFunction(fd);
+    }
+    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
+        DtoResolveTypeInfo(fd);
     }
     else {
     error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
-    assert(0 && "unsupported dsymbol for DtoDefineDsymbol");
+    assert(0 && "unsupported dsymbol for DtoResolveDsymbol");
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDeclareDsymbol(Dsymbol* dsym)
+{
+    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
+        DtoDeclareStruct(sd);
+    }
+    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
+        DtoDeclareClass(cd);
+    }
+    else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
+        DtoDeclareFunction(fd);
+    }
+    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
+        DtoDeclareTypeInfo(fd);
+    }
+    else {
+    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
+    assert(0 && "unsupported dsymbol for DtoDeclareDsymbol");
     }
 }
 
@@ -1348,12 +1312,37 @@ void DtoConstInitDsymbol(Dsymbol* dsym)
     else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
         DtoConstInitClass(cd);
     }
+    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
+        DtoConstInitTypeInfo(fd);
+    }
     else if (VarDeclaration* vd = dsym->isVarDeclaration()) {
         DtoConstInitGlobal(vd);
     }
     else {
     error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
-    assert(0 && "unsupported dsymbol for DtoInitDsymbol");
+    assert(0 && "unsupported dsymbol for DtoConstInitDsymbol");
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDefineDsymbol(Dsymbol* dsym)
+{
+    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
+        DtoDefineStruct(sd);
+    }
+    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
+        DtoDefineClass(cd);
+    }
+    else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
+        DtoDefineFunc(fd);
+    }
+    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
+        DtoDefineTypeInfo(fd);
+    }
+    else {
+    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
+    assert(0 && "unsupported dsymbol for DtoDefineDsymbol");
     }
 }
 
@@ -1361,11 +1350,11 @@ void DtoConstInitDsymbol(Dsymbol* dsym)
 
 void DtoConstInitGlobal(VarDeclaration* vd)
 {
-    Logger::println("DtoConstInitGlobal(%s)", vd->toChars());
-    LOG_SCOPE;
+    if (vd->llvmInitialized) return;
+    vd->llvmInitialized = gIR->dmodule;
 
-    if (vd->llvmDModule) return;
-    vd->llvmDModule = gIR->dmodule;
+    Logger::println("* DtoConstInitGlobal(%s)", vd->toChars());
+    LOG_SCOPE;
 
     bool emitRTstaticInit = false;
 
@@ -1427,4 +1416,101 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
     if (emitRTstaticInit)
         DtoLazyStaticInit(istempl, gvar, vd->init, t);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoEmptyResolveList()
+{
+    //Logger::println("DtoEmptyResolveList()");
+    Dsymbol* dsym;
+    while (!gIR->resolveList.empty()) {
+        dsym = gIR->resolveList.front();
+        gIR->resolveList.pop_front();
+        DtoResolveDsymbol(dsym);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoEmptyDeclareList()
+{
+    //Logger::println("DtoEmptyDeclareList()");
+    Dsymbol* dsym;
+    while (!gIR->declareList.empty()) {
+        dsym = gIR->declareList.front();
+        gIR->declareList.pop_front();
+        DtoDeclareDsymbol(dsym);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoEmptyConstInitList()
+{
+    //Logger::println("DtoEmptyConstInitList()");
+    Dsymbol* dsym;
+    while (!gIR->constInitList.empty()) {
+        dsym = gIR->constInitList.front();
+        gIR->constInitList.pop_front();
+        DtoConstInitDsymbol(dsym);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoEmptyDefineList()
+{
+    //Logger::println("DtoEmptyDefineList()");
+    Dsymbol* dsym;
+    while (!gIR->defineList.empty()) {
+        dsym = gIR->defineList.front();
+        gIR->defineList.pop_front();
+        DtoDefineDsymbol(dsym);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoForceDeclareDsymbol(Dsymbol* dsym)
+{
+    if (dsym->llvmDeclared) return;
+    Logger::println("DtoForceDeclareDsymbol(%s)", dsym->toChars());
+    LOG_SCOPE;
+    DtoResolveDsymbol(dsym);
+
+    DtoEmptyResolveList();
+
+    DtoDeclareDsymbol(dsym);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoForceConstInitDsymbol(Dsymbol* dsym)
+{
+    if (dsym->llvmInitialized) return;
+    Logger::println("DtoForceConstInitDsymbol(%s)", dsym->toChars());
+    LOG_SCOPE;
+    DtoResolveDsymbol(dsym);
+
+    DtoEmptyResolveList();
+    DtoEmptyDeclareList();
+
+    DtoConstInitDsymbol(dsym);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoForceDefineDsymbol(Dsymbol* dsym)
+{
+    if (dsym->llvmDefined) return;
+    Logger::println("DtoForceDefineDsymbol(%s)", dsym->toChars());
+    LOG_SCOPE;
+    DtoResolveDsymbol(dsym);
+
+    DtoEmptyResolveList();
+    DtoEmptyDeclareList();
+    DtoEmptyConstInitList();
+
+    DtoDefineDsymbol(dsym);
 }

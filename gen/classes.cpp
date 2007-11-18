@@ -10,6 +10,7 @@
 #include "gen/arrays.h"
 #include "gen/logger.h"
 #include "gen/classes.h"
+#include "gen/functions.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -22,8 +23,6 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
         assert(bc);
         Logger::println("Adding base class members of %s", bc->base->toChars());
         LOG_SCOPE;
-
-        bc->base->toObjFile();
 
         LLVM_AddBaseClassData(&bc->base->baseclasses);
         for (int k=0; k < bc->base->members->dim; k++) {
@@ -38,12 +37,17 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareClass(ClassDeclaration* cd)
+void DtoResolveClass(ClassDeclaration* cd)
 {
-    if (cd->llvmTouched) return;
-    cd->llvmTouched = true;
+    if (cd->llvmResolved) return;
+    cd->llvmResolved = true;
 
-    Logger::println("DtoDeclareClass(%s)\n", cd->toPrettyChars());
+    // first resolve the base class
+    if (cd->baseClass) {
+        DtoResolveClass(cd->baseClass);
+    }
+
+    Logger::println("DtoResolveClass(%s)", cd->toPrettyChars());
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);
@@ -57,8 +61,8 @@ void DtoDeclareClass(ClassDeclaration* cd)
     gIR->classes.push_back(cd);
 
     // add vtable
-    llvm::PATypeHolder pa = llvm::OpaqueType::get();
-    const llvm::Type* vtabty = llvm::PointerType::get(pa);
+    ts->llvmVtblType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+    const llvm::Type* vtabty = llvm::PointerType::get(ts->llvmVtblType->get());
 
     std::vector<const llvm::Type*> fieldtypes;
     fieldtypes.push_back(vtabty);
@@ -80,13 +84,11 @@ void DtoDeclareClass(ClassDeclaration* cd)
     const llvm::StructType* structtype = llvm::StructType::get(fieldtypes);
     // refine abstract types for stuff like: class C {C next;}
     assert(irstruct->recty != 0);
-    {
+
     llvm::PATypeHolder& spa = irstruct->recty;
     llvm::cast<llvm::OpaqueType>(spa.get())->refineAbstractTypeTo(structtype);
     structtype = isaStruct(spa.get());
-    }
 
-    // create the type
     ts->llvmType = new llvm::PATypeHolder(structtype);
 
     bool needs_definition = false;
@@ -100,10 +102,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
     // generate vtable
     llvm::GlobalVariable* svtblVar = 0;
-    std::vector<llvm::Constant*> sinits;
     std::vector<const llvm::Type*> sinits_ty;
-    sinits.reserve(cd->vtbl.dim);
-    sinits_ty.reserve(cd->vtbl.dim);
 
     for (int k=0; k < cd->vtbl.dim; k++)
     {
@@ -112,73 +111,100 @@ void DtoDeclareClass(ClassDeclaration* cd)
         //Logger::cout() << "vtblsym: " << dsym->toChars() << '\n';
 
         if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-            fd->toObjFile();
-            assert(fd->llvmValue);
-            llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
-            sinits.push_back(c);
-            sinits_ty.push_back(c->getType());
+            DtoResolveFunction(fd);
+            assert(fd->type->ty == Tfunction);
+            TypeFunction* tf = (TypeFunction*)fd->type;
+            const llvm::Type* fpty = llvm::PointerType::get(tf->llvmType->get());
+            sinits_ty.push_back(fpty);
         }
         else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
             const llvm::Type* cty = llvm::PointerType::get(llvm::Type::Int8Ty);
-            llvm::Constant* c = llvm::Constant::getNullValue(cty);
-            sinits.push_back(c);
             sinits_ty.push_back(cty);
         }
         else
         assert(0);
     }
 
-    const llvm::StructType* svtbl_ty = 0;
-    if (!sinits.empty())
-    {
-        llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+    assert(!sinits_ty.empty());
+    const llvm::StructType* svtbl_ty = llvm::StructType::get(sinits_ty);
 
-        std::string varname("_D");
-        varname.append(cd->mangle());
-        varname.append("6__vtblZ");
-
-        std::string styname(cd->mangle());
-        styname.append("__vtblTy");
-
-        svtbl_ty = llvm::StructType::get(sinits_ty);
-        gIR->module->addTypeName(styname, svtbl_ty);
-        svtblVar = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
-
-        cd->llvmConstVtbl = llvm::cast<llvm::ConstantStruct>(llvm::ConstantStruct::get(svtbl_ty, sinits));
-        if (needs_definition)
-            svtblVar->setInitializer(cd->llvmConstVtbl);
-        cd->llvmVtbl = svtblVar;
-    }
+    std::string styname(cd->mangle());
+    styname.append("__vtblType");
+    gIR->module->addTypeName(styname, svtbl_ty);
 
     // refine for final vtable type
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(svtbl_ty);
+    llvm::cast<llvm::OpaqueType>(ts->llvmVtblType->get())->refineAbstractTypeTo(svtbl_ty);
 
+    gIR->classes.pop_back();
+    gIR->structs.pop_back();
+
+    gIR->declareList.push_back(cd);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDeclareClass(ClassDeclaration* cd)
+{
+    if (cd->llvmDeclared) return;
+    cd->llvmDeclared = true;
+
+    Logger::println("DtoDeclareClass(%s)", cd->toPrettyChars());
+    LOG_SCOPE;
+
+    assert(cd->type->ty == Tclass);
+    TypeClass* ts = (TypeClass*)cd->type;
+
+    assert(cd->llvmIRStruct);
+    IRStruct* irstruct = cd->llvmIRStruct;
+
+    gIR->structs.push_back(irstruct);
+    gIR->classes.push_back(cd);
+
+    bool needs_definition = false;
+    if (cd->parent->isModule()) {
+        needs_definition = (cd->getModule() == gIR->dmodule);
+    }
+
+    // vtable
+    std::string varname("_D");
+    varname.append(cd->mangle());
+    varname.append("6__vtblZ");
+
+    std::string styname(cd->mangle());
+    styname.append("__vtblTy");
+
+    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+
+    const llvm::StructType* svtbl_ty = isaStruct(ts->llvmVtblType->get());
+    cd->llvmVtbl = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
+
+    // init
     std::string initname("_D");
     initname.append(cd->mangle());
     initname.append("6__initZ");
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
     ts->llvmInit = initvar;
 
     gIR->classes.pop_back();
     gIR->structs.pop_back();
 
-    gIR->constInitQueue.push_back(cd);
+    gIR->constInitList.push_back(cd);
     if (needs_definition)
-    gIR->defineQueue.push_back(cd);
+        gIR->defineList.push_back(cd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoConstInitClass(ClassDeclaration* cd)
 {
-    IRStruct* irstruct = cd->llvmIRStruct;
-    if (irstruct->constinited) return;
-    irstruct->constinited = true;
+    if (cd->llvmInitialized) return;
+    cd->llvmInitialized = true;
 
-    Logger::println("DtoConstInitClass(%s)\n", cd->toPrettyChars());
+    Logger::println("DtoConstInitClass(%s)", cd->toPrettyChars());
     LOG_SCOPE;
 
+    IRStruct* irstruct = cd->llvmIRStruct;
     gIR->structs.push_back(irstruct);
     gIR->classes.push_back(cd);
 
@@ -200,6 +226,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
     // rest
     for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
+        Logger::println("adding fieldinit for: %s", i->second.var->toChars());
         fieldinits.push_back(i->second.init);
     }
 
@@ -210,24 +237,69 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
     // generate initializer
     Logger::cout() << cd->toPrettyChars() << " | " << *structtype << '\n';
-    Logger::println("%u %u fields", structtype->getNumElements(), fieldinits.size());
+
+    for(size_t i=0; i<structtype->getNumElements(); ++i) {
+        Logger::cout() << "s#" << i << " = " << *structtype->getElementType(i) << '\n';
+    }
+
+    for(size_t i=0; i<fieldinits.size(); ++i) {
+        Logger::cout() << "i#" << i << " = " << *fieldinits[i]->getType() << '\n';
+    }
+
     llvm::Constant* _init = llvm::ConstantStruct::get(structtype, fieldinits);
     assert(_init);
     cd->llvmInitZ = _init;
 
+    // generate vtable initializer
+    std::vector<llvm::Constant*> sinits;
+
+    for (int k=0; k < cd->vtbl.dim; k++)
+    {
+        Dsymbol* dsym = (Dsymbol*)cd->vtbl.data[k];
+        assert(dsym);
+        //Logger::cout() << "vtblsym: " << dsym->toChars() << '\n';
+
+        if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
+            DtoForceDeclareDsymbol(fd);
+            assert(fd->llvmValue);
+            llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
+            sinits.push_back(c);
+        }
+        else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
+            const llvm::Type* cty = llvm::PointerType::get(llvm::Type::Int8Ty);
+            llvm::Constant* c = llvm::Constant::getNullValue(cty);
+            sinits.push_back(c);
+        }
+        else
+        assert(0);
+    }
+
+    const llvm::StructType* svtbl_ty = isaStruct(ts->llvmVtblType->get());
+
+    /*for (size_t i=0; i< sinits.size(); ++i)
+    {
+        Logger::cout() << "field[" << i << "] = " << *svtbl_ty->getElementType(i) << '\n';
+        Logger::cout() << "init [" << i << "] = " << *sinits[i]->getType() << '\n';
+        assert(svtbl_ty->getElementType(i) == sinits[i]->getType());
+    }*/
+
+    llvm::Constant* cvtblInit = llvm::ConstantStruct::get(svtbl_ty, sinits);
+    cd->llvmConstVtbl = llvm::cast<llvm::ConstantStruct>(cvtblInit);
+
     gIR->classes.pop_back();
     gIR->structs.pop_back();
+
+    DtoDeclareClassInfo(cd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoDefineClass(ClassDeclaration* cd)
 {
-    IRStruct* irstruct = cd->llvmIRStruct;
-    if (irstruct->defined) return;
-    irstruct->defined = true;
+    if (cd->llvmDefined) return;
+    cd->llvmDefined = true;
 
-    Logger::println("DtoDefineClass(%s)\n", cd->toPrettyChars());
+    Logger::println("DtoDefineClass(%s)", cd->toPrettyChars());
     LOG_SCOPE;
 
     // get the struct (class) type
@@ -237,11 +309,11 @@ void DtoDefineClass(ClassDeclaration* cd)
     bool def = false;
     if (cd->parent->isModule() && cd->getModule() == gIR->dmodule) {
         ts->llvmInit->setInitializer(cd->llvmInitZ);
+        cd->llvmVtbl->setInitializer(cd->llvmConstVtbl);
         def = true;
     }
 
     // generate classinfo
-    DtoDeclareClassInfo(cd);
     if (def) DtoDefineClassInfo(cd);
 }
 
@@ -302,20 +374,20 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
 
 void DtoDeclareClassInfo(ClassDeclaration* cd)
 {
-    if (cd->llvmClass)
-        return;
+    if (cd->llvmClassDeclared) return;
+    cd->llvmClassDeclared = true;
 
-    Logger::println("CLASS INFO DECLARATION: %s", cd->toChars());
+    Logger::println("DtoDeclareClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
-    cinfo->toObjFile();
-
-    const llvm::Type* st = cinfo->type->llvmType->get();
+    DtoResolveClass(cinfo);
 
     std::string gname("_D");
     gname.append(cd->mangle());
     gname.append("7__ClassZ");
+
+    const llvm::Type* st = cinfo->type->llvmType->get();
 
     cd->llvmClass = new llvm::GlobalVariable(st, true, llvm::GlobalValue::ExternalLinkage, NULL, gname, gIR->module);
 }
@@ -339,18 +411,26 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 //         void *defaultConstructor;
 //        }
 
-    if (cd->llvmClassZ)
-        return;
+    if (cd->llvmClassDefined) return;
+    cd->llvmClassDefined = true;
 
-    Logger::println("CLASS INFO DEFINITION: %s", cd->toChars());
+    Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
+
+    assert(cd->type->ty == Tclass);
     assert(cd->llvmClass);
+    assert(cd->llvmInitZ);
+    assert(cd->llvmVtbl);
+    assert(cd->llvmConstVtbl);
+
+    TypeClass* cdty = (TypeClass*)cd->type;
+    assert(cdty->llvmInit);
 
     // holds the list of initializers for llvm
     std::vector<llvm::Constant*> inits;
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
-    DtoConstInitClass(cinfo);
+    DtoForceConstInitDsymbol(cinfo);
     assert(cinfo->llvmInitZ);
 
     llvm::Constant* c;
@@ -363,8 +443,12 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // monitor
     // TODO no monitors yet
 
-    // initializer
-    c = cinfo->llvmInitZ->getOperand(1);
+    // byte[] init
+    const llvm::Type* byteptrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    c = llvm::ConstantExpr::getBitCast(cdty->llvmInit, byteptrty);
+    assert(!cd->llvmInitZ->getType()->isAbstract());
+    size_t initsz = gTargetData->getTypeSize(cd->llvmInitZ->getType());
+    c = DtoConstSlice(DtoConstSize_t(initsz), c);
     inits.push_back(c);
 
     // class name
@@ -380,38 +464,77 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // vtbl array
-    c = cinfo->llvmInitZ->getOperand(3);
+    const llvm::Type* byteptrptrty = llvm::PointerType::get(byteptrty);
+    assert(!cd->llvmVtbl->getType()->isAbstract());
+    c = llvm::ConstantExpr::getBitCast(cd->llvmVtbl, byteptrptrty);
+    assert(!cd->llvmConstVtbl->getType()->isAbstract());
+    size_t vtblsz = gTargetData->getTypeSize(cd->llvmConstVtbl->getType());
+    c = DtoConstSlice(DtoConstSize_t(vtblsz), c);
     inits.push_back(c);
 
     // interfaces array
+    // TODO
     c = cinfo->llvmInitZ->getOperand(4);
     inits.push_back(c);
 
     // base classinfo
-    c = cinfo->llvmInitZ->getOperand(5);
-    inits.push_back(c);
+    if (cd->baseClass) {
+        DtoDeclareClassInfo(cd->baseClass);
+        c = cd->baseClass->llvmClass;
+        assert(c);
+        inits.push_back(c);
+    }
+    else {
+        // null
+        c = cinfo->llvmInitZ->getOperand(5);
+        inits.push_back(c);
+    }
 
     // destructor
+    // TODO
     c = cinfo->llvmInitZ->getOperand(6);
     inits.push_back(c);
 
     // invariant
+    // TODO
     c = cinfo->llvmInitZ->getOperand(7);
     inits.push_back(c);
 
-    // flags
-    c = cinfo->llvmInitZ->getOperand(8);
+    // uint flags, adapted from original dmd code
+    uint flags = 0;
+    //flags |= 4; // has offTi
+    //flags |= isCOMclass(); // IUnknown
+    if (cd->ctor) flags |= 8;
+    for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
+    {
+    if (cd2->members)
+    {
+        for (size_t i = 0; i < cd2->members->dim; i++)
+        {
+        Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
+        //printf("sm = %s %s\n", sm->kind(), sm->toChars());
+        if (sm->hasPointers())
+            goto L2;
+        }
+    }
+    }
+    flags |= 2;         // no pointers
+L2:
+    c = DtoConstUint(flags);
     inits.push_back(c);
 
     // allocator
+    // TODO
     c = cinfo->llvmInitZ->getOperand(9);
     inits.push_back(c);
 
     // offset typeinfo
+    // TODO
     c = cinfo->llvmInitZ->getOperand(10);
     inits.push_back(c);
 
     // default constructor
+    // TODO
     c = cinfo->llvmInitZ->getOperand(11);
     inits.push_back(c);
 

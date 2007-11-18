@@ -8,6 +8,10 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
+// Modifications for LLVMDC:
+// Copyright (c) 2007 by Tomas Lindquist Olsen
+// tomas at famolsen dk
+
 #include <cstdio>
 #include <cassert>
 
@@ -238,30 +242,74 @@ Expression *createTypeInfoArray(Scope *sc, Expression *exps[], int dim)
 
 void TypeInfoDeclaration::toObjFile()
 {
-    if (llvmTouched) return;
-    else llvmTouched = true;
+    gIR->resolveList.push_back(this);
+}
 
-    Logger::println("TypeInfoDeclaration::toObjFile()");
+void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
+{
+    if (tid->llvmResolved) return;
+    tid->llvmResolved = true;
+
+    Logger::println("* DtoResolveTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
-    std::string mangled(mangle());
+    tid->llvmIRGlobal = new IRGlobal(tid);
 
-    Logger::println("type = '%s'", tinfo->toChars());
+    gIR->declareList.push_back(tid);
+}
+
+void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
+{
+    if (tid->llvmDeclared) return;
+    tid->llvmDeclared = true;
+
+    Logger::println("* DtoDeclareTypeInfo(%s)", tid->toChars());
+    LOG_SCOPE;
+
+    std::string mangled(tid->mangle());
+
+    Logger::println("type = '%s'", tid->tinfo->toChars());
     Logger::println("typeinfo mangle: %s", mangled.c_str());
 
     // this is a declaration of a builtin __initZ var
-    if (tinfo->builtinTypeInfo()) {
-        llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangled.c_str());
-        assert(llvmValue);
+    if (tid->tinfo->builtinTypeInfo()) {
+        tid->llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangled.c_str());
+        assert(tid->llvmValue);
         mangled.append("__TYPE");
-        gIR->module->addTypeName(mangled, llvmValue->getType()->getContainedType(0));
-        Logger::println("Got typeinfo var: %s", llvmValue->getName().c_str());
+        gIR->module->addTypeName(mangled, tid->llvmValue->getType()->getContainedType(0));
+        Logger::println("Got typeinfo var: %s", tid->llvmValue->getName().c_str());
+        tid->llvmInitialized = true;
+        tid->llvmDefined = true;
     }
     // custom typedef
     else {
-        // emit globals
-        toDt(NULL);
+        gIR->constInitList.push_back(tid);
     }
+}
+
+void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
+{
+    if (tid->llvmInitialized) return;
+    tid->llvmInitialized = true;
+
+    Logger::println("* DtoConstInitTypeInfo(%s)", tid->toChars());
+    LOG_SCOPE;
+
+    tid->toDt(NULL);
+
+    tid->llvmDefined = true;
+    //gIR->defineList.push_back(tid);
+}
+
+void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
+{
+    if (tid->llvmDefined) return;
+    tid->llvmDefined = true;
+
+    Logger::println("* DtoDefineTypeInfo(%s)", tid->toChars());
+    LOG_SCOPE;
+
+    assert(0);
 }
 
 /* ========================================================================= */
@@ -279,9 +327,10 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     LOG_SCOPE;
 
     ClassDeclaration* base = Type::typeinfotypedef;
-    base->toObjFile();
+    DtoForceConstInitDsymbol(base);
 
     const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    Logger::cout() << "got stype: " << *stype << '\n';
 
     std::vector<llvm::Constant*> sinits;
     sinits.push_back(base->llvmVtbl);
@@ -295,10 +344,13 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     //sinits.push_back(llvm::ConstantPointerNull::get(basept));
     Logger::println("generating base typeinfo");
     //sd->basetype = sd->basetype->merge();
+
     sd->basetype->getTypeInfo(NULL);        // generate vtinfo
     assert(sd->basetype->vtinfo);
     if (!sd->basetype->vtinfo->llvmValue)
-        sd->basetype->vtinfo->toObjFile();
+        DtoForceConstInitDsymbol(sd->basetype->vtinfo);
+
+    assert(sd->basetype->vtinfo->llvmValue);
     assert(llvm::isa<llvm::Constant>(sd->basetype->vtinfo->llvmValue));
     llvm::Constant* castbase = llvm::cast<llvm::Constant>(sd->basetype->vtinfo->llvmValue);
     castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
@@ -341,7 +393,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     LOG_SCOPE;
 
     ClassDeclaration* base = Type::typeinfoenum;
-    base->toObjFile();
+    DtoForceConstInitDsymbol(base);
 
     const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
 
@@ -357,10 +409,12 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     //sinits.push_back(llvm::ConstantPointerNull::get(basept));
     Logger::println("generating base typeinfo");
     //sd->basetype = sd->basetype->merge();
+
     sd->memtype->getTypeInfo(NULL);        // generate vtinfo
     assert(sd->memtype->vtinfo);
     if (!sd->memtype->vtinfo->llvmValue)
-        sd->memtype->vtinfo->toObjFile();
+        DtoForceConstInitDsymbol(sd->memtype->vtinfo);
+
     assert(llvm::isa<llvm::Constant>(sd->memtype->vtinfo->llvmValue));
     llvm::Constant* castbase = llvm::cast<llvm::Constant>(sd->memtype->vtinfo->llvmValue);
     castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
@@ -401,7 +455,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
 {
     ClassDeclaration* base = cd;
-    base->toObjFile();
+    DtoForceConstInitDsymbol(base);
 
     const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
 
@@ -413,7 +467,7 @@ static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclar
     basetype->getTypeInfo(NULL);
     assert(basetype->vtinfo);
     if (!basetype->vtinfo->llvmValue)
-        basetype->vtinfo->toObjFile();
+        DtoForceConstInitDsymbol(basetype->vtinfo);
     assert(llvm::isa<llvm::Constant>(basetype->vtinfo->llvmValue));
     llvm::Constant* castbase = llvm::cast<llvm::Constant>(basetype->vtinfo->llvmValue);
     castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
@@ -533,11 +587,10 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     assert(tinfo->ty == Tstruct);
     TypeStruct *tc = (TypeStruct *)tinfo;
     StructDeclaration *sd = tc->sym;
-    sd->toObjFile();
-    DtoConstInitStruct(sd);
+    DtoForceConstInitDsymbol(sd);
 
     ClassDeclaration* base = Type::typeinfostruct;
-    base->toObjFile();
+    DtoForceConstInitDsymbol(base);
 
     const llvm::StructType* stype = isaStruct(((TypeClass*)base->type)->llvmType->get());
 

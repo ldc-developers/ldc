@@ -11,6 +11,11 @@ llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src);
 llvm::Constant* DtoConstStructInitializer(StructInitializer* si);
 
 /**
+ * Resolves the llvm type for a struct
+ */
+void DtoResolveStruct(StructDeclaration* sd);
+
+/**
  * Provides the llvm declaration for a struct
  */
 void DtoDeclareStruct(StructDeclaration* sd);

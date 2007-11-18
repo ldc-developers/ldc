@@ -20,7 +20,7 @@ llvm-link -f -o=../lib/llvmdcore.bc `ls obj/internal.*.bc` ../lib/llvmdcore.bc o
 
 
 echo "compiling typeinfo 1"
-rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix || exit 1
+rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix -v || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo1.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "compiling typeinfo 2"
@@ -52,7 +52,7 @@ llvmdc gc/gcstub.d -c -odobj -Igc || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcstub.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling phobos"
-rebuild phobos.d -c -oqobj -dc=llvmdc-posix || exit 1
+rebuild phobos.d -c -oqobj -dc=llvmdc-posix -v || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/std.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "optimizing"

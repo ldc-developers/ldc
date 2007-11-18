@@ -92,14 +92,33 @@ Module::genobjfile()
         dsym->toObjFile();
     }
 
-    // process deferred const initializers
-    for (size_t i=0; i<ir.constInitQueue.size(); ++i) {
-        DtoConstInitDsymbol(ir.constInitQueue[i]);
-    }
-
-    // process deferred definitions
-    for (size_t i=0; i<ir.defineQueue.size(); ++i) {
-        DtoDefineDsymbol(ir.defineQueue[i]);
+    // main driver loop
+    for(;;)
+    {
+        Dsymbol* dsym;
+        if (!ir.resolveList.empty()) {
+            dsym = ir.resolveList.front();
+            ir.resolveList.pop_front();
+            DtoResolveDsymbol(dsym);
+        }
+        else if (!ir.declareList.empty()) {
+            dsym = ir.declareList.front();
+            ir.declareList.pop_front();
+            DtoDeclareDsymbol(dsym);
+        }
+        else if (!ir.constInitList.empty()) {
+            dsym = ir.constInitList.front();
+            ir.constInitList.pop_front();
+            DtoConstInitDsymbol(dsym);
+        }
+        else if (!ir.defineList.empty()) {
+            dsym = ir.defineList.front();
+            ir.defineList.pop_front();
+            DtoDefineDsymbol(dsym);
+        }
+        else {
+            break;
+        }
     }
 
     // generate ModuleInfo
@@ -326,7 +345,7 @@ void InterfaceDeclaration::toObjFile()
 
 void StructDeclaration::toObjFile()
 {
-    DtoDeclareStruct(this);
+    gIR->resolveList.push_back(this);
 }
 
 /* ================================================================== */
@@ -364,7 +383,7 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
 
 void ClassDeclaration::toObjFile()
 {
-    DtoDeclareClass(this);
+    gIR->resolveList.push_back(this);
 }
 
 /******************************************
@@ -394,8 +413,9 @@ void VarDeclaration::toObjFile()
     // global variable or magic
     if (isDataseg())
     {
-        if (llvmTouched) return;
-        else llvmTouched = true;
+        if (llvmResolved) return;
+        llvmResolved = true;
+        llvmDeclared = true;
 
         llvmIRGlobal = new IRGlobal(this);
 
@@ -430,7 +450,7 @@ void VarDeclaration::toObjFile()
         if (static_local)
             DtoConstInitGlobal(this);
         else
-            gIR->constInitQueue.push_back(this);
+            gIR->constInitList.push_back(this);
 
         //if (storage_class & STCprivate)
         //    gvar->setVisibility(llvm::GlobalValue::ProtectedVisibility);
@@ -473,5 +493,5 @@ void EnumDeclaration::toObjFile()
 
 void FuncDeclaration::toObjFile()
 {
-    DtoDeclareFunction(this);
+    gIR->resolveList.push_back(this);
 }

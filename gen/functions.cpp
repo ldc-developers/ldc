@@ -71,7 +71,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     if (typesafeVararg) {
         ClassDeclaration* ti = Type::typeinfo;
         ti->toObjFile();
-        DtoConstInitClass(ti);
+        DtoForceConstInitDsymbol(ti);
         assert(ti->llvmInitZ);
         std::vector<const llvm::Type*> types;
         types.push_back(DtoSize_t());
@@ -131,10 +131,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     f->llvmRetInPtr = retinptr;
     f->llvmUsesThis = usesthis;
 
-    if (!f->llvmType)
+    //if (!f->llvmType)
         f->llvmType = new llvm::PATypeHolder(functype);
-    else
-        assert(functype == f->llvmType->get());
+    //else
+        //assert(functype == f->llvmType->get());
 
     return functype;
 }
@@ -143,6 +143,11 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
 
 static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
+    // type has already been resolved
+    if (fdecl->type->llvmType != 0) {
+        return llvm::cast<llvm::FunctionType>(fdecl->type->llvmType->get());
+    }
+
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
 
@@ -163,10 +168,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 
     const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
 
-    if (!f->llvmType)
-        f->llvmType = new llvm::PATypeHolder(fty);
-    else
-        assert(fty == f->llvmType->get());
+    f->llvmType = new llvm::PATypeHolder(fty);
 
     return fty;
 }
@@ -190,7 +192,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
             Logger::print("isMember = this is: %s\n", ad->type->toChars());
             thisty = DtoType(ad->type);
             Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (isaStruct(thisty) || thisty == gIR->topstruct()->recty.get())
+            if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->recty.get()))
                 thisty = llvm::PointerType::get(thisty);
         }
         else
@@ -233,8 +235,57 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void DtoResolveFunction(FuncDeclaration* fdecl)
+{
+    if (fdecl->llvmResolved) return;
+    fdecl->llvmResolved = true;
+
+    Logger::println("DtoResolveFunction(%s)", fdecl->toPrettyChars());
+    LOG_SCOPE;
+
+    if (fdecl->llvmRunTimeHack) {
+        gIR->declareList.push_back(fdecl);
+        return;
+    }
+
+    if (fdecl->isUnitTestDeclaration()) {
+        Logger::attention("ignoring unittest declaration: %s", fdecl->toChars());
+        return;
+    }
+
+    if (fdecl->parent)
+    if (TemplateInstance* tinst = fdecl->parent->isTemplateInstance())
+    {
+        TemplateDeclaration* tempdecl = tinst->tempdecl;
+        if (tempdecl->llvmInternal == LLVMva_arg)
+        {
+            Logger::println("magic va_arg found");
+            fdecl->llvmInternal = LLVMva_arg;
+            fdecl->llvmDeclared = true;
+            fdecl->llvmInitialized = true;
+            fdecl->llvmDefined = true;
+            return; // this gets mapped to an instruction so a declaration makes no sence
+        }
+        else if (tempdecl->llvmInternal == LLVMva_start)
+        {
+            Logger::println("magic va_start found");
+            fdecl->llvmInternal = LLVMva_start;
+        }
+    }
+
+    DtoFunctionType(fdecl);
+
+    // queue declaration
+    gIR->declareList.push_back(fdecl);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoDeclareFunction(FuncDeclaration* fdecl)
 {
+    if (fdecl->llvmDeclared) return;
+    fdecl->llvmDeclared = true;
+
     Logger::println("DtoDeclareFunction(%s)", fdecl->toPrettyChars());
     LOG_SCOPE;
 
@@ -245,34 +296,12 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         return;
     }
 
-    if (fdecl->isUnitTestDeclaration()) {
-        Logger::attention("ignoring unittest declaration: %s", fdecl->toChars());
-        return;
-    }
-
     bool declareOnly = false;
-    if (fdecl->parent)
-    {
-    if (TemplateInstance* tinst = fdecl->parent->isTemplateInstance())
-    {
-        TemplateDeclaration* tempdecl = tinst->tempdecl;
-        if (tempdecl->llvmInternal == LLVMva_start)
-        {
-            Logger::println("magic va_start found");
-            fdecl->llvmInternal = LLVMva_start;
-            declareOnly = true;
-        }
-        else if (tempdecl->llvmInternal == LLVMva_arg)
-        {
-            Logger::println("magic va_arg found");
-            fdecl->llvmInternal = LLVMva_arg;
-            return;
-        }
-    }
-    }
-
-    if (fdecl->llvmTouched) return;
-    fdecl->llvmTouched = true;
+    bool templInst = fdecl->parent && DtoIsTemplateInstance(fdecl->parent);
+    if (!templInst && fdecl->getModule() != gIR->dmodule)
+        declareOnly = true;
+    else if (fdecl->llvmInternal == LLVMva_start)
+        declareOnly = true;
 
     if (!fdecl->llvmIRFunc) {
         fdecl->llvmIRFunc = new IRFunction(fdecl);
@@ -384,7 +413,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     if (!declareOnly)
-        gIR->defineQueue.push_back(fdecl);
+        gIR->defineList.push_back(fdecl);
 
     Logger::cout() << "func decl: " << *func << '\n';
 }
@@ -394,6 +423,12 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 // TODO split this monster up
 void DtoDefineFunc(FuncDeclaration* fd)
 {
+    if (fd->llvmDefined) return;
+    fd->llvmDefined = true;
+
+    Logger::println("DtoDefineFunc(%s)", fd->toPrettyChars());
+    LOG_SCOPE;
+
     // debug info
     if (global.params.symdebug) {
         Module* mo = fd->getModule();

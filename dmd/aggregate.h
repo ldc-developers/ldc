@@ -110,6 +110,8 @@ struct AggregateDeclaration : ScopeDsymbol
     bool llvmHasUnions;
     DUnion* llvmUnion;
     IRStruct* llvmIRStruct;
+    bool llvmClassDeclared;
+    bool llvmClassDefined;
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };

@@ -96,6 +96,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
         inits.push_back(DUnionIdx(vd->llvmFieldIndex, vd->llvmFieldIndexOffset, v));
     }
 
+    DtoConstInitStruct((StructDeclaration*)si->ad);
     return si->ad->llvmUnion->getConst(inits);
 }
 
@@ -165,12 +166,12 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareStruct(StructDeclaration* sd)
+void DtoResolveStruct(StructDeclaration* sd)
 {
-    if (sd->llvmTouched) return;
-    sd->llvmTouched = true;
+    if (sd->llvmResolved) return;
+    sd->llvmResolved = true;
 
-    Logger::println("DtoDeclareStruct(%s)", sd->toChars());
+    Logger::println("DtoResolveStruct(%s)", sd->toChars());
     LOG_SCOPE;
 
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
@@ -280,6 +281,23 @@ void DtoDeclareStruct(StructDeclaration* sd)
         gIR->module->addTypeName(sd->mangle(),structtype);
     }
 
+    gIR->structs.pop_back();
+
+    gIR->declareList.push_back(sd);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDeclareStruct(StructDeclaration* sd)
+{
+    if (sd->llvmDeclared) return;
+    sd->llvmDeclared = true;
+
+    Logger::println("DtoDeclareStruct(%s)", sd->toChars());
+    LOG_SCOPE;
+
+    TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
+
     std::string initname("_D");
     initname.append(sd->mangle());
     initname.append("6__initZ");
@@ -288,28 +306,22 @@ void DtoDeclareStruct(StructDeclaration* sd)
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
     ts->llvmInit = initvar;
 
-    gIR->structs.pop_back();
-
-    gIR->constInitQueue.push_back(sd);
+    gIR->constInitList.push_back(sd);
     if (sd->getModule() == gIR->dmodule)
-        gIR->defineQueue.push_back(sd);
-
-    // declare typeinfo
-    if (sd->getModule() == gIR->dmodule && sd->llvmInternal != LLVMnotypeinfo)
-        sd->type->getTypeInfo(NULL);
+        gIR->defineList.push_back(sd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoConstInitStruct(StructDeclaration* sd)
 {
-    IRStruct* irstruct = sd->llvmIRStruct;
-    if (irstruct->constinited) return;
-    irstruct->constinited = true;
+    if (sd->llvmInitialized) return;
+    sd->llvmInitialized = true;
 
     Logger::println("DtoConstInitStruct(%s)", sd->toChars());
     LOG_SCOPE;
 
+    IRStruct* irstruct = sd->llvmIRStruct;
     gIR->structs.push_back(irstruct);
 
     // make sure each offset knows its default initializer
@@ -365,17 +377,18 @@ void DtoConstInitStruct(StructDeclaration* sd)
     }
 
     gIR->structs.pop_back();
+
+    // emit typeinfo
+    if (sd->getModule() == gIR->dmodule && sd->llvmInternal != LLVMnotypeinfo)
+        sd->type->getTypeInfo(NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoDefineStruct(StructDeclaration* sd)
 {
-    IRStruct* irstruct = sd->llvmIRStruct;
-    if (irstruct->defined) return;
-    irstruct->defined = true;
-
-    DtoConstInitStruct(sd);
+    if (sd->llvmDefined) return;
+    sd->llvmDefined = true;
 
     Logger::println("DtoDefineStruct(%s)", sd->toChars());
     LOG_SCOPE;

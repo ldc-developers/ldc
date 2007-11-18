@@ -16,8 +16,9 @@ namespace Logger
     static bool enabled = false;
     void indent()
     {
-        if (enabled)
-        indent_str += "  ";
+        if (enabled) {
+            indent_str += "* ";
+        }
     }
     void undent()
     {

@@ -5,6 +5,7 @@
 #include <vector>
 #include <deque>
 #include <map>
+#include <list>
 
 #include "root.h"
 
@@ -176,11 +177,15 @@ struct IRState
     // builder helper
     IRBuilderHelper ir;
 
-    typedef std::vector<Dsymbol*> DsymbolVector;
+    typedef std::list<Dsymbol*> DsymbolList;
+    // dsymbols that need to be resolved
+    DsymbolList resolveList;
+    // dsymbols that need to be declared
+    DsymbolList declareList;
     // dsymbols that need constant initializers constructed
-    DsymbolVector constInitQueue;
-    // dsymbols that need definitions (symbols in current module)
-    DsymbolVector defineQueue;
+    DsymbolList constInitList;
+    // dsymbols that need definitions
+    DsymbolList defineList;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

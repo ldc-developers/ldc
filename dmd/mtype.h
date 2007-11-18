@@ -642,6 +642,7 @@ struct TypeClass : Type
     Symbol *toSymbol();
 
     llvm::GlobalVariable* llvmInit;
+    llvm::PATypeHolder* llvmVtblType;
 };
 
 struct TypeTuple : Type

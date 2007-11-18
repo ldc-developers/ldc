@@ -4374,6 +4374,7 @@ TypeClass::TypeClass(ClassDeclaration *sym)
 {
     this->sym = sym;
     llvmInit = 0;
+    llvmVtblType = 0;
 }
 
 char *TypeClass::toChars()

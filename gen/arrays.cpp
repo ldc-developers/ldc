@@ -60,10 +60,8 @@ const llvm::ArrayType* DtoStaticArrayType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoNullArray(llvm::Value* v)
+void DtoSetArrayToNull(llvm::Value* v)
 {
-    assert(gIR);
-
     llvm::Value* len = DtoGEPi(v,0,0,"tmp",gIR->scopebb());
     llvm::Value* zerolen = llvm::ConstantInt::get(len->getType()->getContainedType(0), 0, false);
     new llvm::StoreInst(zerolen, len, gIR->scopebb());
@@ -593,7 +591,7 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, b
     if (useti) {
         TypeInfoDeclaration* ti = DtoDType(l->getType())->next->getTypeInfoDeclaration();
         if (!ti->llvmValue) {
-            ti->toObjFile();
+            DtoForceConstInitDsymbol(ti);
         }
         Logger::cout() << "typeinfo decl: " << *ti->llvmValue << '\n';
 
@@ -786,3 +784,85 @@ llvm::Value* DtoArrayPtr(DValue* v)
     return 0;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+DValue* DtoCastArray(DValue* u, Type* to)
+{
+    const llvm::Type* tolltype = DtoType(to);
+
+    Type* totype = DtoDType(to);
+    Type* fromtype = DtoDType(u->getType());
+    assert(fromtype->ty == Tarray || fromtype->ty == Tsarray);
+
+    llvm::Value* rval;
+    llvm::Value* rval2;
+    bool isslice = false;
+
+    Logger::cout() << "from array or sarray" << '\n';
+    if (totype->ty == Tpointer) {
+        Logger::cout() << "to pointer" << '\n';
+        assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
+        llvm::Value* ptr = DtoGEPi(u->getRVal(),0,1,"tmp",gIR->scopebb());
+        rval = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
+        if (fromtype->next != totype->next)
+            rval = gIR->ir->CreateBitCast(rval, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
+    }
+    else if (totype->ty == Tarray) {
+        Logger::cout() << "to array" << '\n';
+        const llvm::Type* ptrty = DtoType(totype->next);
+        if (ptrty == llvm::Type::VoidTy)
+            ptrty = llvm::Type::Int8Ty;
+        ptrty = llvm::PointerType::get(ptrty);
+
+        const llvm::Type* ety = DtoType(fromtype->next);
+        if (ety == llvm::Type::VoidTy)
+            ety = llvm::Type::Int8Ty;
+
+        if (DSliceValue* usl = u->isSlice()) {
+            Logger::println("from slice");
+            Logger::cout() << "from: " << *usl->ptr << " to: " << *ptrty << '\n';
+            rval = new llvm::BitCastInst(usl->ptr, ptrty, "tmp", gIR->scopebb());
+            if (fromtype->next->size() == totype->next->size())
+                rval2 = usl->len;
+            else
+                rval2 = DtoArrayCastLength(usl->len, ety, ptrty->getContainedType(0));
+        }
+        else {
+            llvm::Value* uval = u->getRVal();
+            if (fromtype->ty == Tsarray) {
+                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+                assert(isaPointer(uval->getType()));
+                const llvm::ArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+                rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+                rval = new llvm::BitCastInst(uval, ptrty, "tmp", gIR->scopebb());
+            }
+            else {
+                llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+                llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
+                rval2 = DtoGEP(uval,zero,zero,"tmp",gIR->scopebb());
+                rval2 = new llvm::LoadInst(rval2, "tmp", gIR->scopebb());
+                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+
+                rval = DtoGEP(uval,zero,one,"tmp",gIR->scopebb());
+                rval = new llvm::LoadInst(rval, "tmp", gIR->scopebb());
+                //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
+                rval = new llvm::BitCastInst(rval, ptrty, "tmp", gIR->scopebb());
+            }
+        }
+        isslice = true;
+    }
+    else if (totype->ty == Tsarray) {
+        Logger::cout() << "to sarray" << '\n';
+        assert(0);
+    }
+    else {
+        assert(0);
+    }
+
+    if (isslice) {
+        Logger::println("isslice");
+        return new DSliceValue(to, rval2, rval);
+    }
+
+    return new DImValue(to, rval);
+}

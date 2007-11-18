@@ -48,7 +48,11 @@ Dsymbol::Dsymbol()
     this->llvmInternal2 = NULL;
     this->llvmValue = NULL;
     this->llvmDModule = NULL;
-    this->llvmTouched = false;
+
+    this->llvmResolved = false;
+    this->llvmDeclared = false;
+    this->llvmInitialized = false;
+    this->llvmDefined = false;
 }
 
 Dsymbol::Dsymbol(Identifier *ident)
@@ -66,7 +70,11 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->llvmInternal2 = NULL;
     this->llvmValue = NULL;
     this->llvmDModule = NULL;
-    this->llvmTouched = false;
+
+    this->llvmResolved = false;
+    this->llvmDeclared = false;
+    this->llvmInitialized = false;
+    this->llvmDefined = false;
 }
 
 int Dsymbol::equals(Object *o)

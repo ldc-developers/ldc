@@ -42,14 +42,14 @@ void function_pointers()
 
     binfn_t binfn = &add_int;
     assert(binfn(4,1045) == 1049);
-    
+
     assert(binop_int(binfn, 10,656) == 666);
-    
+
     binfn = get_binop_int('+');
     assert(binop_int(binfn, 10,100) == 110);
     binfn = get_binop_int('-');
     assert(binop_int(binfn, 10,100) == -90);
-    
+
     {
     auto ffn = &mul_float;
     float ftmp = mul_float(2.5,5);

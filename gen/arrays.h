@@ -16,7 +16,7 @@ void DtoArrayInit(llvm::Value* l, llvm::Value* r);
 void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val);
 void DtoArrayAssign(llvm::Value* l, llvm::Value* r);
 void DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr);
-void DtoNullArray(llvm::Value* v);
+void DtoSetArrayToNull(llvm::Value* v);
 
 llvm::Value* DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit=true);
 llvm::Value* DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz);
@@ -36,5 +36,7 @@ llvm::Value* DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty, cons
 
 llvm::Value* DtoArrayLen(DValue* v);
 llvm::Value* DtoArrayPtr(DValue* v);
+
+DValue* DtoCastArray(DValue* val, Type* to);
 
 #endif // LLVMC_GEN_ARRAYS_H

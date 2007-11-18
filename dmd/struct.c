@@ -54,6 +54,8 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     llvmHasUnions = false;
     llvmUnion = NULL;
     llvmIRStruct = NULL;
+    llvmClassDeclared = false;
+    llvmClassDefined = false;
 }
 
 enum PROT AggregateDeclaration::prot()
