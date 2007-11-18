@@ -85,6 +85,16 @@ Module::genobjfile()
         ir.dmodule->llvmCompileUnit = DtoDwarfCompileUnit(this,true);
     }
 
+    // start out by providing opaque for the built-in class types
+    if (!ClassDeclaration::object->type->llvmType)
+        ClassDeclaration::object->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+
+    if (!Type::typeinfo->type->llvmType)
+        Type::typeinfo->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+
+    if (!ClassDeclaration::classinfo->type->llvmType)
+        ClassDeclaration::classinfo->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+
     // process module members
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);

@@ -105,16 +105,8 @@ bool IRState::scopereturned()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-IRStruct::IRStruct()
- : recty(llvm::OpaqueType::get())
-{
-    type = 0;
-    defined = false;
-    constinited = false;
-}
-
 IRStruct::IRStruct(Type* t)
- : recty(llvm::OpaqueType::get())
+ : recty((t->llvmType != NULL) ? *t->llvmType : llvm::OpaqueType::get())
 {
     type = t;
     defined = false;

@@ -46,6 +46,10 @@ void DtoResolveClass(ClassDeclaration* cd)
     if (cd->baseClass) {
         DtoResolveClass(cd->baseClass);
     }
+    // resolve typeinfo
+    //DtoResolveClass(ClassDeclaration::typeinfo);
+    // resolve classinfo
+    //DtoResolveClass(ClassDeclaration::classinfo);
 
     Logger::println("DtoResolveClass(%s)", cd->toPrettyChars());
     LOG_SCOPE;
@@ -89,7 +93,10 @@ void DtoResolveClass(ClassDeclaration* cd)
     llvm::cast<llvm::OpaqueType>(spa.get())->refineAbstractTypeTo(structtype);
     structtype = isaStruct(spa.get());
 
-    ts->llvmType = new llvm::PATypeHolder(structtype);
+    if (!ts->llvmType)
+        ts->llvmType = new llvm::PATypeHolder(structtype);
+    else
+        *ts->llvmType = structtype;
 
     bool needs_definition = false;
     if (cd->parent->isModule()) {
@@ -118,7 +125,17 @@ void DtoResolveClass(ClassDeclaration* cd)
             sinits_ty.push_back(fpty);
         }
         else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-            const llvm::Type* cty = llvm::PointerType::get(llvm::Type::Int8Ty);
+            //Logger::println("*** ClassDeclaration in vtable: %s", cd->toChars());
+            const llvm::Type* cinfoty;
+            if (cd != ClassDeclaration::classinfo) {
+                cd = ClassDeclaration::classinfo;
+                DtoResolveClass(cd);
+                cinfoty = cd->type->llvmType->get();
+            }
+            else {
+                cinfoty = ts->llvmType->get();
+            }
+            const llvm::Type* cty = llvm::PointerType::get(cd->type->llvmType->get());
             sinits_ty.push_back(cty);
         }
         else
@@ -192,6 +209,9 @@ void DtoDeclareClass(ClassDeclaration* cd)
     gIR->constInitList.push_back(cd);
     if (needs_definition)
         gIR->defineList.push_back(cd);
+
+    // classinfo
+    DtoDeclareClassInfo(cd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -236,7 +256,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     const llvm::StructType* structtype = isaStruct(ts->llvmType->get());
 
     // generate initializer
-    Logger::cout() << cd->toPrettyChars() << " | " << *structtype << '\n';
+    /*Logger::cout() << cd->toPrettyChars() << " | " << *structtype << '\n';
 
     for(size_t i=0; i<structtype->getNumElements(); ++i) {
         Logger::cout() << "s#" << i << " = " << *structtype->getElementType(i) << '\n';
@@ -244,7 +264,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
     for(size_t i=0; i<fieldinits.size(); ++i) {
         Logger::cout() << "i#" << i << " = " << *fieldinits[i]->getType() << '\n';
-    }
+    }*/
 
     llvm::Constant* _init = llvm::ConstantStruct::get(structtype, fieldinits);
     assert(_init);
@@ -265,9 +285,9 @@ void DtoConstInitClass(ClassDeclaration* cd)
             llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
             sinits.push_back(c);
         }
-        else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-            const llvm::Type* cty = llvm::PointerType::get(llvm::Type::Int8Ty);
-            llvm::Constant* c = llvm::Constant::getNullValue(cty);
+        else if (ClassDeclaration* cd2 = dsym->isClassDeclaration()) {
+            assert(cd->llvmClass);
+            llvm::Constant* c = cd->llvmClass;
             sinits.push_back(c);
         }
         else
@@ -288,8 +308,6 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
     gIR->classes.pop_back();
     gIR->structs.pop_back();
-
-    DtoDeclareClassInfo(cd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

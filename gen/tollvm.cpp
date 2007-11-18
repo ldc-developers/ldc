@@ -111,12 +111,11 @@ const llvm::Type* DtoType(Type* t)
                     }
                 }
             }
-
-            // forward declaration
-            TypeStruct* ts = (TypeStruct*)t;
-            assert(ts->sym);
-            DtoResolveDsymbol(ts->sym);
         }
+
+        TypeStruct* ts = (TypeStruct*)t;
+        assert(ts->sym);
+        DtoResolveDsymbol(ts->sym);
         return t->llvmType->get();
     }
 
@@ -134,12 +133,11 @@ const llvm::Type* DtoType(Type* t)
                     }
                 }
             }
-
-            // forward declaration
-            TypeClass* tc = (TypeClass*)t;
-            assert(tc->sym);
-            DtoResolveDsymbol(tc->sym);
         }
+
+        TypeClass* tc = (TypeClass*)t;
+        assert(tc->sym);
+        DtoResolveDsymbol(tc->sym);
         return llvm::PointerType::get(t->llvmType->get());
     }
 

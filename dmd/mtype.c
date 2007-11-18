@@ -4502,9 +4502,24 @@ L1:
 		e->type = t;	// do this so we don't get redundant dereference
 	    }
 	    else
-	    {	/* For class objects, the classinfo reference is the first
-		 * entry in the vtbl[]
-		 */
+	    {
+        /* For class objects, the classinfo reference is the first
+         * entry in the vtbl[]
+         */
+#if IN_LLVM
+
+        e = e->castTo(sc, t->pointerTo()->pointerTo());
+        e = new PtrExp(e->loc, e);
+        e->type = t->pointerTo();
+        e = new PtrExp(e->loc, e);
+        e->type = t;
+        if (sym->isInterfaceDeclaration())
+        {
+            assert(0 && "No interfaces yet!");
+        }
+
+#else
+
 		e = new PtrExp(e->loc, e);
 		e->type = t->pointerTo();
 		if (sym->isInterfaceDeclaration())
@@ -4526,6 +4541,8 @@ L1:
 		    e->type = t->pointerTo();
 		}
 		e = new PtrExp(e->loc, e, t);
+
+#endif
 	    }
 	    return e;
 	}

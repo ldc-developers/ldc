@@ -56,7 +56,6 @@ struct IRStruct : Object
     typedef std::vector<VarDeclaration*> VarDeclVector;
 
 public:
-    IRStruct();
     IRStruct(Type*);
 
     Type* type;

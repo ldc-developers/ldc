@@ -314,6 +314,7 @@ test/classes6.d
 test/classes7.d
 test/classes8.d
 test/classinfo1.d
+test/classinfo2.d
 test/comma.d
 test/complex1.d
 test/cond.d
