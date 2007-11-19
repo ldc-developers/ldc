@@ -18,11 +18,13 @@
 #include "gen/structs.h"
 #include "gen/classes.h"
 #include "gen/typeinf.h"
+#include "gen/complex.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
-    TY t = DtoDType(type)->ty;
-    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray);
+    Type* typ = DtoDType(type);
+    TY t = typ->ty;
+    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
 }
 
 Type* DtoDType(Type* t)
@@ -72,10 +74,9 @@ const llvm::Type* DtoType(Type* t)
 
     // complex
     case Tcomplex32:
-        return DtoComplexType(llvm::Type::FloatTy);
     case Tcomplex64:
     case Tcomplex80:
-        return DtoComplexType(llvm::Type::DoubleTy);
+        return DtoComplexType(t);
 
     // pointers
     case Tpointer: {
@@ -191,16 +192,6 @@ const llvm::StructType* DtoDelegateType(Type* t)
     std::vector<const llvm::Type*> types;
     types.push_back(i8ptr);
     types.push_back(funcptr);
-    return llvm::StructType::get(types);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-const llvm::StructType* DtoComplexType(const llvm::Type* base)
-{
-    std::vector<const llvm::Type*> types;
-    types.push_back(base);
-    types.push_back(base);
     return llvm::StructType::get(types);
 }
 
@@ -902,6 +893,15 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             DtoStore(rhs->getRVal(), lhs->getLVal());
         }
     }
+    else if (t->iscomplex()) {
+        assert(!lhs->isComplex());
+        if (DComplexValue* cx = rhs->isComplex()) {
+            DtoComplexSet(lhs->getRVal(), cx->re, cx->im);
+        }
+        else {
+            DtoComplexAssign(lhs->getRVal(), rhs->getRVal());
+        }
+    }
     else {
         llvm::Value* r = rhs->getRVal();
         llvm::Value* l = lhs->getLVal();
@@ -990,6 +990,9 @@ DValue* DtoCastPtr(DValue* val, Type* to)
 
 DValue* DtoCastFloat(DValue* val, Type* to)
 {
+    if (val->getType() == to)
+        return val;
+
     const llvm::Type* tolltype = DtoType(to);
 
     Type* totype = DtoDType(to);
@@ -1001,7 +1004,11 @@ DValue* DtoCastFloat(DValue* val, Type* to)
 
     llvm::Value* rval;
 
-    if (totype->isfloating()) {
+    if (totype->iscomplex()) {
+        assert(0);
+        //return new DImValue(to, DtoComplex(to, val));
+    }
+    else if (totype->isfloating()) {
         if ((fromtype->ty == Tfloat80 || fromtype->ty == Tfloat64) && (totype->ty == Tfloat80 || totype->ty == Tfloat64)) {
             rval = val->getRVal();
         }
@@ -1030,6 +1037,25 @@ DValue* DtoCastFloat(DValue* val, Type* to)
     return new DImValue(to, rval);
 }
 
+DValue* DtoCastComplex(DValue* val, Type* _to)
+{
+    Type* to = DtoDType(_to);
+    llvm::Value* v = val->getRVal();
+    if (to->iscomplex()) {
+        assert(0);
+    }
+    else if (to->isimaginary()) {
+        DImValue* im = new DImValue(to, gIR->ir->CreateExtractElement(v, DtoConstUint(1), "im"));
+        return DtoCastFloat(im, to);
+    }
+    else if (to->isfloating()) {
+        DImValue* re = new DImValue(to, gIR->ir->CreateExtractElement(v, DtoConstUint(0), "re"));
+        return DtoCastFloat(re, to);
+    }
+    else
+    assert(0);
+}
+
 DValue* DtoCastClass(DValue* val, Type* _to)
 {
     const llvm::Type* tolltype = DtoType(_to);
@@ -1044,6 +1070,9 @@ DValue* DtoCast(DValue* val, Type* to)
     Type* fromtype = DtoDType(val->getType());
     if (fromtype->isintegral()) {
         return DtoCastInt(val, to);
+    }
+    else if (fromtype->iscomplex()) {
+        return DtoCastComplex(val, to);
     }
     else if (fromtype->isfloating()) {
         return DtoCastFloat(val, to);
@@ -1080,6 +1109,16 @@ llvm::Constant* DtoConstBool(bool b)
 {
     return llvm::ConstantInt::get(llvm::Type::Int1Ty, b, false);
 }
+
+llvm::ConstantFP* DtoConstFP(Type* t, long double value)
+{
+    TY ty = DtoDType(t)->ty;
+    if (ty == Tfloat32 || ty == Timaginary32)
+        return llvm::ConstantFP::get(llvm::Type::FloatTy, float(value));
+    else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tfloat80 || ty == Timaginary80)
+        return llvm::ConstantFP::get(llvm::Type::DoubleTy, double(value));
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1165,12 +1204,16 @@ bool DtoCanLoad(llvm::Value* ptr)
     return false;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t)
 {
     if (v->getType() == t)
         return v;
     return gIR->ir->CreateBitCast(v, t, "tmp");
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 const llvm::PointerType* isaPointer(llvm::Value* v)
 {

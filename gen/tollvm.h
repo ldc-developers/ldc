@@ -22,8 +22,6 @@ llvm::Value* DtoBoolean(llvm::Value* val);
 
 const llvm::Type* DtoSize_t();
 
-const llvm::StructType* DtoComplexType(const llvm::Type* base);
-
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
 llvm::Constant* DtoConstFieldInitializer(Type* type, Initializer* init);
 DValue* DtoInitializer(Initializer* init);
@@ -50,6 +48,8 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd);
 llvm::ConstantInt* DtoConstSize_t(size_t);
 llvm::ConstantInt* DtoConstUint(unsigned i);
 llvm::ConstantInt* DtoConstInt(int i);
+llvm::ConstantFP* DtoConstFP(Type* t, long double value);
+
 llvm::Constant* DtoConstString(const char*);
 llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
@@ -98,6 +98,7 @@ void DtoAssign(DValue* lhs, DValue* rhs);
 DValue* DtoCastInt(DValue* val, Type* to);
 DValue* DtoCastPtr(DValue* val, Type* to);
 DValue* DtoCastFloat(DValue* val, Type* to);
+DValue* DtoCastComplex(DValue* val, Type* to);
 DValue* DtoCastClass(DValue* val, Type* to);
 DValue* DtoCast(DValue* val, Type* to);
 

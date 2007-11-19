@@ -105,6 +105,8 @@ gen/arrays.h
 gen/binops.cpp
 gen/classes.cpp
 gen/classes.h
+gen/complex.cpp
+gen/complex.h
 gen/dvalue.cpp
 gen/dvalue.h
 gen/dwarftypes.cpp
@@ -142,6 +144,7 @@ lphobos/internal/aApply.d
 lphobos/internal/aApplyR.d
 lphobos/internal/adi.d
 lphobos/internal/arrays.d
+lphobos/internal/cmath2.d
 lphobos/internal/contract.d
 lphobos/internal/mem.d
 lphobos/internal/moduleinit.d
@@ -317,6 +320,8 @@ test/classinfo1.d
 test/classinfo2.d
 test/comma.d
 test/complex1.d
+test/complex2.d
+test/complex3.d
 test/cond.d
 test/cond1.d
 test/condexp.d

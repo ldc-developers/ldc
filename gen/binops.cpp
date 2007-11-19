@@ -3,7 +3,10 @@
 #include "declaration.h"
 
 #include "gen/irstate.h"
+#include "gen/tollvm.h"
 #include "gen/dvalue.h"
+
+//////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
 {
@@ -11,17 +14,23 @@ DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
     return new DImValue( lhs->getType(), v );
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 DValue* DtoBinSub(DValue* lhs, DValue* rhs)
 {
     llvm::Value* v = gIR->ir->CreateSub(lhs->getRVal(), rhs->getRVal(), "tmp");
     return new DImValue( lhs->getType(), v );
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
 DValue* DtoBinMul(DValue* lhs, DValue* rhs)
 {
     llvm::Value* v = gIR->ir->CreateMul(lhs->getRVal(), rhs->getRVal(), "tmp");
     return new DImValue( lhs->getType(), v );
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
 {
@@ -38,6 +47,8 @@ DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
         res = gIR->ir->CreateUDiv(l, r, "tmp");
     return new DImValue( lhs->getType(), res );
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoBinRem(DValue* lhs, DValue* rhs)
 {

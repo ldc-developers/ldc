@@ -28,7 +28,7 @@
 #include "gen/structs.h"
 #include "gen/classes.h"
 #include "gen/typeinf.h"
-
+#include "gen/complex.h"
 #include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -291,13 +291,7 @@ llvm::Constant* RealExp::toConstElem(IRState* p)
     Logger::print("RealExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     Type* t = DtoDType(type);
-    const llvm::Type* fty = DtoType(t);
-    if (t->ty == Tfloat32 || t->ty == Timaginary32)
-        return llvm::ConstantFP::get(fty,float(value));
-    else if (t->ty == Tfloat64 || t->ty == Timaginary64 || t->ty == Tfloat80 || t->ty == Timaginary80)
-        return llvm::ConstantFP::get(fty,double(value));
-    assert(0);
-    return NULL;
+    return DtoConstFP(t, value);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -334,7 +328,18 @@ DValue* ComplexExp::toElem(IRState* p)
 {
     Logger::print("ComplexExp::toElem(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    assert(0 && "no complex yet");
+    llvm::Constant* c = toConstElem(p);
+
+    if (c->isNullValue()) {
+        Type* t = DtoDType(type);
+        if (t->ty == Tcomplex32)
+            c = DtoConstFP(Type::tfloat32, 0);
+        else
+            c = DtoConstFP(Type::tfloat64, 0);
+        return new DComplexValue(type, c, c);
+    }
+
+    return new DComplexValue(type, c->getOperand(0), c->getOperand(1));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -343,7 +348,7 @@ llvm::Constant* ComplexExp::toConstElem(IRState* p)
 {
     Logger::print("ComplexExp::toConstElem(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    assert(0 && "no complex yet");
+    return DtoConstComplex(type, value.re, value.im);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -484,164 +489,6 @@ DValue* AssignExp::toElem(IRState* p)
     }
 
     return l;
-
-    /*
-    if (l->type == DValue::ARRAYLEN)
-    {
-        DtoResizeDynArray(l->mem, r->getValue());
-        delete r;
-        delete l;
-        return 0;
-    }
-
-    Type* e1type = DtoDType(e1->type);
-    Type* e2type = DtoDType(e2->type);
-    TY e1ty = e1type->ty;
-    TY e2ty = e2type->ty;
-
-    DValue* e = new DValue(this);
-    e->type = DValue::VAR;
-
-    // struct
-    if (e1ty == Tstruct) {
-        e->mem = l->mem;
-        // struct + struct
-        if (e2ty == Tstruct) {
-            // struct literals do the assignment themselvs (in place)
-            if (!r->inplace) {
-                DtoStructCopy(l->mem,r->getValue());
-            }
-            else {
-                e->inplace = true;
-            }
-        }
-        // struct + const int
-        else if (e2type->isintegral()){
-            IntegerExp* iexp = (IntegerExp*)e2;
-            assert(iexp->value == 0 && "Only integral struct initializer allowed is zero");
-            DtoStructZeroInit(l->mem);
-        }
-        // :x
-        else
-        assert(0 && "struct = unknown");
-    }
-    else if (e1ty == Tsarray) {
-        assert(0 && "static array not supported");
-    }
-    else if (e1ty == Tarray) {
-        if (e2type->isscalar() || e2type->ty == Tclass){
-            if (l->type == DValue::SLICE) {
-                DtoArrayInit(l->mem, l->arg, r->getValue());
-            }
-            else {
-                DtoArrayInit(l->mem, r->getValue());
-            }
-        }
-        else if (e2ty == Tarray) {
-            //new llvm::StoreInst(r->val,l->val,p->scopebb());
-            if (r->type == DValue::NUL) {
-                llvm::Constant* c = llvm::cast<llvm::Constant>(r->val);
-                assert(c->isNullValue());
-                DtoNullArray(l->mem);
-                e->mem = l->mem;
-            }
-            else if (r->type == DValue::SLICE) {
-                if (l->type == DValue::SLICE) {
-                    DtoArrayCopy(l,r);
-                    e->type = DValue::SLICE;
-                    e->mem = l->mem;
-                    e->arg = l->arg;
-                }
-                else {
-                    DtoSetArray(l->mem,r->arg,r->mem);
-                    e->mem = l->mem;
-                }
-            }
-            else {
-                // new expressions write directly to the array reference
-                // so do string literals
-                e->mem = l->mem;
-                if (!r->inplace) {
-                    assert(r->mem);
-                    DtoArrayAssign(l->mem, r->mem);
-                }
-                else {
-                    e->inplace = true;
-                }
-            }
-        }
-        else
-        assert(0);
-    }
-    else if (e1ty == Tpointer) {
-        e->mem = l->mem;
-        if (e2ty == Tpointer) {
-            llvm::Value* v = r->field ? r->mem : r->getValue();
-            Logger::cout() << "*=*: " << *v << ", " << *l->mem << '\n';
-            new llvm::StoreInst(v, l->mem, p->scopebb());
-        }
-        else
-        assert(0);
-    }
-    else if (e1ty == Tclass) {
-        if (e2ty == Tclass) {
-            llvm::Value* tmp = r->getValue();
-            Logger::cout() << "tmp: " << *tmp << " ||| " << *l->mem << '\n';
-            // assignment to this in constructor special case
-            if (l->isthis) {
-                FuncDeclaration* fdecl = p->func().decl;
-                // respecify the this param
-                if (!llvm::isa<llvm::AllocaInst>(fdecl->llvmThisVar))
-                    fdecl->llvmThisVar = new llvm::AllocaInst(tmp->getType(), "newthis", p->topallocapoint());
-                new llvm::StoreInst(tmp, fdecl->llvmThisVar, p->scopebb());
-                e->mem = fdecl->llvmThisVar;
-            }
-            // regular class ref -> class ref assignment
-            else {
-                new llvm::StoreInst(tmp, l->mem, p->scopebb());
-                e->mem = l->mem;
-            }
-        }
-        else
-        assert(0);
-    }
-    else if (e1ty == Tdelegate) {
-        Logger::println("Assigning to delegate");
-        if (e2ty == Tdelegate) {
-            if (r->type == DValue::NUL) {
-                llvm::Constant* c = llvm::cast<llvm::Constant>(r->val);
-                if (c->isNullValue()) {
-                    DtoNullDelegate(l->mem);
-                    e->mem = l->mem;
-                }
-                else
-                assert(0);
-            }
-            else if (r->inplace) {
-                // do nothing
-                e->inplace = true;
-                e->mem = l->mem;
-            }
-            else {
-                DtoDelegateCopy(l->mem, r->getValue());
-                e->mem = l->mem;
-            }
-        }
-        else
-        assert(0);
-    }
-    // !struct && !array && !pointer && !class
-    else {
-        Logger::cout() << *l->mem << '\n';
-        new llvm::StoreInst(r->getValue(),l->mem,p->scopebb());
-        e->mem = l->mem;
-    }
-
-    delete r;
-    delete l;
-
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -682,7 +529,13 @@ DValue* AddExp::toElem(IRState* p)
             llvm::Value* v = new llvm::GetElementPtrInst(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
             return new DImValue(type, v);
         }
+        else if (t->iscomplex()) {
+            return DtoComplexAdd(type, l, r);
+        }
         assert(0);
+    }
+    else if (t->iscomplex()) {
+        return DtoComplexAdd(type, l, r);
     }
     else {
         return DtoBinAdd(l,r);
@@ -701,10 +554,15 @@ DValue* AddAssignExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
     p->exps.pop_back();
 
+    Type* t = DtoDType(type);
+
     DValue* res;
     if (DtoDType(e1->type)->ty == Tpointer) {
         llvm::Value* gep = new llvm::GetElementPtrInst(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
         res = new DImValue(type, gep);
+    }
+    else if (t->iscomplex()) {
+        res = DtoComplexAdd(type, l, r);
     }
     else {
         res = DtoBinAdd(l,r);
@@ -712,28 +570,6 @@ DValue* AddAssignExp::toElem(IRState* p)
     DtoAssign(l, res);
 
     return l;
-
-    /*
-
-    Type* e1type = DtoDType(e1->type);
-
-    DValue* e = new DValue(this);
-    llvm::Value* val = 0;
-    if (e1type->ty == Tpointer) {
-        val = e->mem = new llvm::GetElementPtrInst(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    }
-    else {
-        val = e->val = llvm::BinaryOperator::createAdd(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    }
-
-    assert(l->mem);
-    new llvm::StoreInst(val,l->mem,p->scopebb());
-    e->type = DValue::VAR;
-
-    delete l;
-    delete r;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -745,6 +581,8 @@ DValue* MinExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
+
+    Type* t = DtoDType(type);
 
     if (DtoDType(e1->type)->ty == Tpointer) {
         llvm::Value* lv = l->getRVal();
@@ -759,34 +597,12 @@ DValue* MinExp::toElem(IRState* p)
             diff = p->ir->CreateIntToPtr(diff, DtoType(type));
         return new DImValue(type, diff);
     }
+    else if (t->iscomplex()) {
+        return DtoComplexSub(type, l, r);
+    }
     else {
         return DtoBinSub(l,r);
     }
-
-    /*
-    llvm::Value* left = l->getValue();
-    if (isaPointer(left->getType()))
-        left = new llvm::PtrToIntInst(left,DtoSize_t(),"tmp",p->scopebb());
-
-    llvm::Value* right = r->getValue();
-    if (isaPointer(right->getType()))
-        right = new llvm::PtrToIntInst(right,DtoSize_t(),"tmp",p->scopebb());
-
-    e->val = llvm::BinaryOperator::createSub(left,right,"tmp",p->scopebb());
-    e->type = DValue::VAL;
-
-    const llvm::Type* totype = DtoType(type);
-    if (e->val->getType() != totype) {
-        assert(0);
-        assert(isaPointer(e->val->getType()));
-        assert(llvm::isa<llvm::IntegerType>(totype));
-        e->val = new llvm::IntToPtrInst(e->val,totype,"tmp",p->scopebb());
-    }
-
-    delete l;
-    delete r;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -799,6 +615,8 @@ DValue* MinAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
+    Type* t = DtoDType(type);
+
     DValue* res;
     if (DtoDType(e1->type)->ty == Tpointer) {
         llvm::Value* tmp = r->getRVal();
@@ -807,212 +625,113 @@ DValue* MinAssignExp::toElem(IRState* p)
         tmp = new llvm::GetElementPtrInst(l->getRVal(),tmp,"tmp",p->scopebb());
         res = new DImValue(type, tmp);
     }
+    else if (t->iscomplex()) {
+        res = DtoComplexSub(type, l, r);
+    }
     else {
         res = DtoBinSub(l,r);
     }
     DtoAssign(l, res);
 
     return l;
-
-    /*
-
-    Type* e1type = DtoDType(e1->type);
-
-    llvm::Value* tmp = 0;
-    if (e1type->ty == Tpointer) {
-        tmp = r->getValue();
-        llvm::Value* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
-        tmp = llvm::BinaryOperator::createSub(zero,tmp,"tmp",p->scopebb());
-        tmp = new llvm::GetElementPtrInst(l->getValue(),tmp,"tmp",p->scopebb());
-    }
-    else {
-        tmp = llvm::BinaryOperator::createSub(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    }
-
-    assert(l->mem);
-    new llvm::StoreInst(tmp, l->mem, p->scopebb());
-
-    delete l;
-    delete r;
-
-    DValue* e = new DValue(this);
-    e->val = tmp;
-    e->type = DValue::VAR;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* MulExp::toElem(IRState* p)
 {
-    Logger::print("MulExp::toElem: %s\n", toChars());
+    Logger::print("MulExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
+    if (type->iscomplex()) {
+        return DtoComplexMul(type, l, r);
+    }
+
     return DtoBinMul(l,r);
-    /*
-    if (l->dvalue && r->dvalue) {
-        Logger::println("DVALUE PATH");
-        e->dvalue = DtoBinMul(l->dvalue, r->dvalue);
-        e->val = e->dvalue->getRVal();
-    }
-    else {
-        llvm::Value* vl = l->getValue();
-        llvm::Value* vr = r->getValue();
-        Logger::cout() << "mul: " << *vl << ", " << *vr << '\n';
-        e->val = llvm::BinaryOperator::createMul(vl,vr,"tmp",p->scopebb());
-        e->dvalue = new DImValue(type, e->val);
-    }
-    e->type = DValue::VAL;
-    delete l;
-    delete r;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* MulAssignExp::toElem(IRState* p)
 {
-    Logger::print("MulAssignExp::toElem: %s\n", toChars());
+    Logger::print("MulAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    DValue* res = DtoBinMul(l,r);
+    DValue* res;
+    if (type->iscomplex()) {
+        res = DtoComplexMul(type, l, r);
+    }
+    else {
+        res = DtoBinMul(l,r);
+    }
     DtoAssign(l, res);
 
     return l;
-
-    /*
-    llvm::Value* vl = l->getValue();
-    llvm::Value* vr = r->getValue();
-    Logger::cout() << "mulassign: " << *vl << ", " << *vr << '\n';
-    llvm::Value* tmp = llvm::BinaryOperator::createMul(vl,vr,"tmp",p->scopebb());
-
-    assert(l->mem);
-    new llvm::StoreInst(tmp,l->mem,p->scopebb());
-
-    delete l;
-    delete r;
-
-    DValue* e = new DValue(this);
-    e->val = tmp;
-    e->type = DValue::VAR;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DivExp::toElem(IRState* p)
 {
-    Logger::print("DivExp::toElem: %s\n", toChars());
+    Logger::print("DivExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
+    if (type->iscomplex()) {
+        return DtoComplexDiv(type, l, r);
+    }
+
     return DtoBinDiv(l, r);
-    /*
-
-    Type* t = DtoDType(type);
-
-    if (t->isunsigned())
-        e->val = llvm::BinaryOperator::createUDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isintegral())
-        e->val = llvm::BinaryOperator::createSDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isfloating())
-        e->val = llvm::BinaryOperator::createFDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else
-        assert(0);
-    e->type = DValue::VAL;
-    delete l;
-    delete r;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DivAssignExp::toElem(IRState* p)
 {
-    Logger::print("DivAssignExp::toElem: %s\n", toChars());
+    Logger::print("DivAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    DValue* res = DtoBinDiv(l,r);
+    DValue* res;
+    if (type->iscomplex()) {
+        res = DtoComplexDiv(type, l, r);
+    }
+    else {
+        res = DtoBinDiv(l,r);
+    }
     DtoAssign(l, res);
 
     return l;
-
-    /*
-
-    Type* t = DtoDType(type);
-
-    llvm::Value* tmp;
-    if (t->isunsigned())
-        tmp = llvm::BinaryOperator::createUDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isintegral())
-        tmp = llvm::BinaryOperator::createSDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isfloating())
-        tmp = llvm::BinaryOperator::createFDiv(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else
-        assert(0);
-
-    assert(l->mem);
-    new llvm::StoreInst(tmp,l->mem,p->scopebb());
-
-    delete l;
-    delete r;
-
-    DValue* e = new DValue(this);
-    e->val = tmp;
-    e->type = DValue::VAR;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* ModExp::toElem(IRState* p)
 {
-    Logger::print("ModExp::toElem: %s\n", toChars());
+    Logger::print("ModExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
     return DtoBinRem(l, r);
-    /*
-    Type* t = DtoDType(type);
-
-    if (t->isunsigned())
-        e->val = llvm::BinaryOperator::createURem(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isintegral())
-        e->val = llvm::BinaryOperator::createSRem(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isfloating())
-        e->val = llvm::BinaryOperator::createFRem(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else
-        assert(0);
-    e->type = DValue::VAL;
-    delete l;
-    delete r;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* ModAssignExp::toElem(IRState* p)
 {
-    Logger::print("ModAssignExp::toElem: %s\n", toChars());
+    Logger::print("ModAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -1022,39 +741,13 @@ DValue* ModAssignExp::toElem(IRState* p)
     DtoAssign(l, res);
 
     return l;
-
-    /*
-
-    Type* t = DtoDType(type);
-
-    llvm::Value* tmp;
-    if (t->isunsigned())
-        tmp = llvm::BinaryOperator::createURem(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isintegral())
-        tmp = llvm::BinaryOperator::createSRem(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else if (t->isfloating())
-        tmp = llvm::BinaryOperator::createFRem(l->getValue(),r->getValue(),"tmp",p->scopebb());
-    else
-        assert(0);
-
-    assert(l->mem);
-    new llvm::StoreInst(tmp,l->mem,p->scopebb());
-
-    delete l;
-    delete r;
-
-    DValue* e = new DValue(this);
-    e->val = tmp;
-    e->type = DValue::VAR;
-    return e;
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* CallExp::toElem(IRState* p)
 {
-    Logger::print("CallExp::toElem: %s\n", toChars());
+    Logger::print("CallExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* fn = e1->toElem(p);
@@ -1880,6 +1573,11 @@ DValue* EqualExp::toElem(IRState* p)
         }
         eval = new llvm::ICmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
     }
+    else if (t->iscomplex())
+    {
+        Logger::println("complex");
+        eval = DtoComplexEquals(op, l, r);
+    }
     else if (t->isfloating())
     {
         Logger::println("floating");
@@ -2439,9 +2137,9 @@ DValue* NegExp::toElem(IRState* p)
     if (t->isintegral())
         zero = llvm::ConstantInt::get(val->getType(), 0, true);
     else if (t->isfloating()) {
-        if (t->ty == Tfloat32)
+        if (t->ty == Tfloat32 || t->ty == Timaginary32)
             zero = llvm::ConstantFP::get(val->getType(), float(0));
-        else if (t->ty == Tfloat64 || t->ty == Tfloat80)
+        else if (t->ty == Tfloat64 || t->ty == Tfloat80 || t->ty == Timaginary64 || t->ty == Timaginary80)
             zero = llvm::ConstantFP::get(val->getType(), double(0));
         else
         assert(0);

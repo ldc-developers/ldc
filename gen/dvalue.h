@@ -32,6 +32,7 @@ struct DFuncValue;
 struct DSliceValue;
 struct DArrayLenValue;
 struct DLValueCast;
+struct DComplexValue;
 
 // base class for d-values
 struct DValue : Object
@@ -51,6 +52,7 @@ struct DValue : Object
     virtual DFuncValue* isFunc() { return NULL; }
     virtual DArrayLenValue* isArrayLen() { return NULL; }
     virtual DLValueCast* isLValueCast() { return NULL; }
+    virtual DComplexValue* isComplex() { return NULL; };
 
     virtual bool inPlace() { return false; }
 
@@ -188,6 +190,23 @@ struct DLValueCast : DValue
 
     virtual Type* getType() { assert(type); return type; }
     virtual DLValueCast* isLValueCast() { return this; }
+};
+
+// complex number immediate d-value (much like slice)
+struct DComplexValue : DValue
+{
+    Type* type;
+    llvm::Value* re;
+    llvm::Value* im;
+
+    DComplexValue(Type* t, llvm::Value* r, llvm::Value* i) {
+        type = t;
+        re = r;
+        im = i;
+    }
+
+    virtual Type* getType() { assert(type); return type; }
+    virtual DComplexValue* isComplex() { return this; }
 };
 
 #endif // LLVMDC_GEN_DVALUE_H
