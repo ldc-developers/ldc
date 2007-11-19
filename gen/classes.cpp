@@ -212,6 +212,10 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
     // classinfo
     DtoDeclareClassInfo(cd);
+
+    // typeinfo
+    if (cd->parent->isModule() && cd->getModule() == gIR->dmodule)
+        cd->type->getTypeInfo(NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

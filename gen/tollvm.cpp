@@ -1260,6 +1260,11 @@ llvm::Argument* isaArgument(llvm::Value* v)
     return llvm::dyn_cast<llvm::Argument>(v);
 }
 
+llvm::GlobalVariable* isaGlobalVar(llvm::Value* v)
+{
+    return llvm::dyn_cast<llvm::GlobalVariable>(v);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 bool DtoIsTemplateInstance(Dsymbol* s)

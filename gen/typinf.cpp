@@ -37,6 +37,7 @@
 #include "gen/tollvm.h"
 #include "gen/arrays.h"
 #include "gen/structs.h"
+#include "gen/classes.h"
 
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal
@@ -283,6 +284,7 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
     }
     // custom typedef
     else {
+        tid->llvmDeclare();
         gIR->constInitList.push_back(tid);
     }
 }
@@ -295,10 +297,7 @@ void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
     Logger::println("* DtoConstInitTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
-    tid->toDt(NULL);
-
-    tid->llvmDefined = true;
-    //gIR->defineList.push_back(tid);
+    gIR->defineList.push_back(tid);
 }
 
 void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
@@ -309,21 +308,45 @@ void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
     Logger::println("* DtoDefineTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
-    assert(0);
+    tid->llvmDefine();
 }
 
 /* ========================================================================= */
 
 void TypeInfoDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoDeclaration");
+    assert(0 && "TypeInfoDeclaration::toDt");
+}
+
+void TypeInfoDeclaration::llvmDeclare()
+{
+    assert(0 && "TypeInfoDeclaration::llvmDeclare");
+}
+
+void TypeInfoDeclaration::llvmDefine()
+{
+    assert(0 && "TypeInfoDeclaration::llvmDeclare");
 }
 
 /* ========================================================================= */
 
-void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
+void TypeInfoTypedefDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoTypedefDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoTypedefDeclaration::llvmDeclare() %s", toChars());
+    LOG_SCOPE;
+
+    ClassDeclaration* base = Type::typeinfotypedef;
+    DtoResolveClass(base);
+
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+}
+
+void TypeInfoTypedefDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     ClassDeclaration* base = Type::typeinfotypedef;
@@ -348,7 +371,7 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
     sd->basetype->getTypeInfo(NULL);        // generate vtinfo
     assert(sd->basetype->vtinfo);
     if (!sd->basetype->vtinfo->llvmValue)
-        DtoForceConstInitDsymbol(sd->basetype->vtinfo);
+        DtoForceDeclareDsymbol(sd->basetype->vtinfo);
 
     assert(sd->basetype->vtinfo->llvmValue);
     assert(llvm::isa<llvm::Constant>(sd->basetype->vtinfo->llvmValue));
@@ -380,16 +403,33 @@ void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
+}
 
-    llvmValue = gvar;
+void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
 
-void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
+void TypeInfoEnumDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoTypedefDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoEnumDeclaration::llvmDeclare() %s", toChars());
+    LOG_SCOPE;
+
+    ClassDeclaration* base = Type::typeinfoenum;
+    DtoResolveClass(base);
+
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+}
+
+void TypeInfoEnumDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     ClassDeclaration* base = Type::typeinfoenum;
@@ -413,7 +453,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
     sd->memtype->getTypeInfo(NULL);        // generate vtinfo
     assert(sd->memtype->vtinfo);
     if (!sd->memtype->vtinfo->llvmValue)
-        DtoForceConstInitDsymbol(sd->memtype->vtinfo);
+        DtoForceDeclareDsymbol(sd->memtype->vtinfo);
 
     assert(llvm::isa<llvm::Constant>(sd->memtype->vtinfo->llvmValue));
     llvm::Constant* castbase = llvm::cast<llvm::Constant>(sd->memtype->vtinfo->llvmValue);
@@ -445,14 +485,28 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
+}
 
-    llvmValue = gvar;
+void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
 
-static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
+static llvm::Constant* LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDeclaration* cd)
+{
+    ClassDeclaration* base = cd;
+    DtoResolveClass(base);
+
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    tid->llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,tid->toChars(),gIR->module);
+}
+
+static llvm::Constant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
 {
     ClassDeclaration* base = cd;
     DtoForceConstInitDsymbol(base);
@@ -467,7 +521,7 @@ static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclar
     basetype->getTypeInfo(NULL);
     assert(basetype->vtinfo);
     if (!basetype->vtinfo->llvmValue)
-        DtoForceConstInitDsymbol(basetype->vtinfo);
+        DtoForceDeclareDsymbol(basetype->vtinfo);
     assert(llvm::isa<llvm::Constant>(basetype->vtinfo->llvmValue));
     llvm::Constant* castbase = llvm::cast<llvm::Constant>(basetype->vtinfo->llvmValue);
     castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
@@ -475,40 +529,86 @@ static llvm::Constant* LLVM_D_Create_TypeInfoBase(Type* basetype, TypeInfoDeclar
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,tid->toChars(),gIR->module);
-
-    tid->llvmValue = gvar;
+    isaGlobalVar(tid->llvmValue)->setInitializer(tiInit);
 }
 
 /* ========================================================================= */
 
-void TypeInfoPointerDeclaration::toDt(dt_t **pdt)
+void TypeInfoPointerDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoPointerDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoPointerDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tpointer);
     TypePointer *tc = (TypePointer *)tinfo;
 
-    LLVM_D_Create_TypeInfoBase(tc->next, this, Type::typeinfopointer);
+    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfopointer);
+}
+
+void TypeInfoPointerDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tpointer);
+    TypePointer *tc = (TypePointer *)tinfo;
+
+    LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfopointer);
+}
+
+void TypeInfoPointerDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
 
-void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
+void TypeInfoArrayDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoArrayDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoArrayDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tarray);
     TypeDArray *tc = (TypeDArray *)tinfo;
 
-    LLVM_D_Create_TypeInfoBase(tc->next, this, Type::typeinfoarray);
+    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoarray);
+}
+
+void TypeInfoArrayDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tarray);
+    TypeDArray *tc = (TypeDArray *)tinfo;
+
+    LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfoarray);
+}
+
+void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
 
-void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
+void TypeInfoStaticArrayDeclaration::llvmDeclare()
+{
+    Logger::println("TypeInfoStaticArrayDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfostaticarray;
+    DtoResolveClass(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+}
+
+void TypeInfoStaticArrayDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoStaticArrayDeclaration::toDt() %s", toChars());
     LOG_SCOPE;
@@ -532,7 +632,7 @@ void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
 
     // get symbol
     assert(tc->next->vtinfo);
-    DtoForceConstInitDsymbol(tc->next->vtinfo);
+    DtoForceDeclareDsymbol(tc->next->vtinfo);
     llvm::Constant* castbase = isaConstant(tc->next->vtinfo->llvmValue);
     castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
     sinits.push_back(castbase);
@@ -542,12 +642,25 @@ void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
+}
 
-    llvmValue = gvar;
+void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
+
+void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
+{
+    assert(0 && "TypeInfoAssociativeArrayDeclaration");
+}
+
+void TypeInfoAssociativeArrayDeclaration::llvmDefine()
+{
+    assert(0 && "TypeInfoAssociativeArrayDeclaration");
+}
 
 void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
 {
@@ -572,7 +685,7 @@ void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
 
 /* ========================================================================= */
 
-void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
+void TypeInfoFunctionDeclaration::llvmDeclare()
 {
     Logger::println("TypeInfoFunctionDeclaration::toDt() %s", toChars());
     LOG_SCOPE;
@@ -580,12 +693,28 @@ void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
     assert(tinfo->ty == Tfunction);
     TypeFunction *tc = (TypeFunction *)tinfo;
 
-    LLVM_D_Create_TypeInfoBase(tc->next, this, Type::typeinfofunction);
+    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfofunction);
+}
+
+void TypeInfoFunctionDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoFunctionDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tfunction);
+    TypeFunction *tc = (TypeFunction *)tinfo;
+
+    LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfofunction);
+}
+
+void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
 
-void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
+void TypeInfoDelegateDeclaration::llvmDeclare()
 {
     Logger::println("TypeInfoDelegateDeclaration::toDt() %s", toChars());
     LOG_SCOPE;
@@ -593,14 +722,49 @@ void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
     assert(tinfo->ty == Tdelegate);
     TypeDelegate *tc = (TypeDelegate *)tinfo;
 
-    LLVM_D_Create_TypeInfoBase(tc->next->next, this, Type::typeinfodelegate);
+    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfodelegate);
+}
+
+void TypeInfoDelegateDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoDelegateDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tdelegate);
+    TypeDelegate *tc = (TypeDelegate *)tinfo;
+
+    LLVM_D_Define_TypeInfoBase(tc->next->next, this, Type::typeinfodelegate);
+}
+
+void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
 
-void TypeInfoStructDeclaration::toDt(dt_t **pdt)
+void TypeInfoStructDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoStructDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoStructDeclaration::llvmDeclare() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tstruct);
+    TypeStruct *tc = (TypeStruct *)tinfo;
+    StructDeclaration *sd = tc->sym;
+    DtoResolveDsymbol(sd);
+
+    ClassDeclaration* base = Type::typeinfostruct;
+    DtoResolveClass(base);
+
+    const llvm::StructType* stype = isaStruct(((TypeClass*)base->type)->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+}
+
+void TypeInfoStructDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tstruct);
@@ -764,33 +928,78 @@ void TypeInfoStructDeclaration::toDt(dt_t **pdt)
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
 
-    llvmValue = gvar;
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
+}
+
+void TypeInfoStructDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
 }
 
 /* ========================================================================= */
+
+void TypeInfoClassDeclaration::llvmDeclare()
+{
+    Logger::println("TypeInfoClassDeclaration::llvmDeclare() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfoclass;
+    assert(base);
+    DtoResolveClass(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+}
+
+void TypeInfoClassDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoClassDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfoclass;
+    assert(base);
+    DtoForceConstInitDsymbol(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // initializer vector
+    std::vector<llvm::Constant*> sinits;
+    // first is always the vtable
+    sinits.push_back(base->llvmVtbl);
+
+    // get classinfo
+    assert(tinfo->ty == Tclass);
+    TypeClass *tc = (TypeClass *)tinfo;
+    assert(tc->sym->llvmClass);
+    sinits.push_back(tc->sym->llvmClass);
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
+}
 
 void TypeInfoClassDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoClassDeclaration");
-
-    /*
-    //printf("TypeInfoClassDeclaration::toDt() %s\n", tinfo->toChars());
-    dtxoff(pdt, Type::typeinfoclass->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfoClass
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Tclass);
-
-    TypeClass *tc = (TypeClass *)tinfo;
-    Symbol *s;
-
-    if (!tc->sym->vclassinfo)
-    tc->sym->vclassinfo = new ClassInfoDeclaration(tc->sym);
-    s = tc->sym->vclassinfo->toSymbol();
-    dtxoff(pdt, s, 0, TYnptr);      // ClassInfo for tinfo
-    */
+    assert(0);
 }
 
 /* ========================================================================= */
+
+void TypeInfoInterfaceDeclaration::llvmDeclare()
+{
+    assert(0 && "TypeInfoTupleDeclaration");
+}
+
+void TypeInfoInterfaceDeclaration::llvmDefine()
+{
+    assert(0 && "TypeInfoTupleDeclaration");
+}
 
 void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
 {
@@ -814,6 +1023,16 @@ void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
 }
 
 /* ========================================================================= */
+
+void TypeInfoTupleDeclaration::llvmDeclare()
+{
+    assert(0 && "TypeInfoTupleDeclaration");
+}
+
+void TypeInfoTupleDeclaration::llvmDefine()
+{
+    assert(0 && "TypeInfoTupleDeclaration");
+}
 
 void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
 {

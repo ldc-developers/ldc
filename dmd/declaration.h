@@ -327,6 +327,10 @@ struct TypeInfoDeclaration : VarDeclaration
     virtual void toDt(dt_t **pdt);
 
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return this; }
+
+    // LLVMDC
+    virtual void llvmDeclare();
+    virtual void llvmDefine();
 };
 
 struct TypeInfoStructDeclaration : TypeInfoDeclaration
@@ -334,6 +338,10 @@ struct TypeInfoStructDeclaration : TypeInfoDeclaration
     TypeInfoStructDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoClassDeclaration : TypeInfoDeclaration
@@ -341,6 +349,10 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
     TypeInfoClassDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoInterfaceDeclaration : TypeInfoDeclaration
@@ -348,6 +360,10 @@ struct TypeInfoInterfaceDeclaration : TypeInfoDeclaration
     TypeInfoInterfaceDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoTypedefDeclaration : TypeInfoDeclaration
@@ -355,6 +371,10 @@ struct TypeInfoTypedefDeclaration : TypeInfoDeclaration
     TypeInfoTypedefDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoPointerDeclaration : TypeInfoDeclaration
@@ -362,6 +382,10 @@ struct TypeInfoPointerDeclaration : TypeInfoDeclaration
     TypeInfoPointerDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoArrayDeclaration : TypeInfoDeclaration
@@ -369,6 +393,10 @@ struct TypeInfoArrayDeclaration : TypeInfoDeclaration
     TypeInfoArrayDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoStaticArrayDeclaration : TypeInfoDeclaration
@@ -376,6 +404,10 @@ struct TypeInfoStaticArrayDeclaration : TypeInfoDeclaration
     TypeInfoStaticArrayDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoAssociativeArrayDeclaration : TypeInfoDeclaration
@@ -383,6 +415,10 @@ struct TypeInfoAssociativeArrayDeclaration : TypeInfoDeclaration
     TypeInfoAssociativeArrayDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoEnumDeclaration : TypeInfoDeclaration
@@ -390,6 +426,10 @@ struct TypeInfoEnumDeclaration : TypeInfoDeclaration
     TypeInfoEnumDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoFunctionDeclaration : TypeInfoDeclaration
@@ -397,6 +437,10 @@ struct TypeInfoFunctionDeclaration : TypeInfoDeclaration
     TypeInfoFunctionDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoDelegateDeclaration : TypeInfoDeclaration
@@ -404,6 +448,10 @@ struct TypeInfoDelegateDeclaration : TypeInfoDeclaration
     TypeInfoDelegateDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct TypeInfoTupleDeclaration : TypeInfoDeclaration
@@ -411,6 +459,10 @@ struct TypeInfoTupleDeclaration : TypeInfoDeclaration
     TypeInfoTupleDeclaration(Type *tinfo);
 
     void toDt(dt_t **pdt);
+
+    // LLVMDC
+    void llvmDeclare();
+    void llvmDefine();
 };
 
 struct ThisDeclaration : VarDeclaration

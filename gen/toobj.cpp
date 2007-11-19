@@ -95,6 +95,9 @@ Module::genobjfile()
     if (!ClassDeclaration::classinfo->type->llvmType)
         ClassDeclaration::classinfo->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
 
+    /*if (!Type::typeinfoclass->type->llvmType)
+        Type::typeinfoclass->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());*/
+
     // process module members
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);

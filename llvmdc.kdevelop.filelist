@@ -132,6 +132,7 @@ gen/tollvm.cpp
 gen/tollvm.h
 gen/toobj.cpp
 gen/typeinf.h
+gen/typeinfo12.d
 gen/typinf.cpp
 lphobos
 lphobos/crc32.d
@@ -405,6 +406,7 @@ test/tuple1.d
 test/typeinfo.d
 test/typeinfo10.d
 test/typeinfo11.d
+test/typeinfo12.d
 test/typeinfo2.d
 test/typeinfo3.d
 test/typeinfo4.d

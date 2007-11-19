@@ -816,8 +816,6 @@ class TypeInfo_Delegate : TypeInfo
     TypeInfo next;
 }
 
-/+
-
 class TypeInfo_Class : TypeInfo
 {
     char[] toString() { return info.name; }
@@ -880,6 +878,8 @@ class TypeInfo_Class : TypeInfo
 
     ClassInfo info;
 }
+
+/+
 
 class TypeInfo_Interface : TypeInfo
 {

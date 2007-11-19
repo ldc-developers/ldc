@@ -90,6 +90,7 @@ const llvm::StructType* isaStruct(const llvm::Type* t);
 llvm::Constant* isaConstant(llvm::Value* v);
 llvm::ConstantInt* isaConstantInt(llvm::Value* v);
 llvm::Argument* isaArgument(llvm::Value* v);
+llvm::GlobalVariable* isaGlobalVar(llvm::Value* v);
 
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);
