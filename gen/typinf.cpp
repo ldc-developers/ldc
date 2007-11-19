@@ -510,22 +510,41 @@ void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
 
 void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoStaticArrayDeclaration");
+    Logger::println("TypeInfoStaticArrayDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
 
-    /*
-    //printf("TypeInfoStaticArrayDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfostaticarray->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_StaticArray
-    dtdword(pdt, 0);                // monitor
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfostaticarray;
+    DtoForceConstInitDsymbol(base);
 
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // initializer vector
+    std::vector<llvm::Constant*> sinits;
+    // first is always the vtable
+    sinits.push_back(base->llvmVtbl);
+
+    // value typeinfo
     assert(tinfo->ty == Tsarray);
-
     TypeSArray *tc = (TypeSArray *)tinfo;
-
     tc->next->getTypeInfo(NULL);
-    dtxoff(pdt, tc->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for array of type
 
-    dtdword(pdt, tc->dim->toInteger());     // length
-    */
+    // get symbol
+    assert(tc->next->vtinfo);
+    DtoForceConstInitDsymbol(tc->next->vtinfo);
+    llvm::Constant* castbase = isaConstant(tc->next->vtinfo->llvmValue);
+    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
+    sinits.push_back(castbase);
+
+    // length
+    sinits.push_back(DtoConstSize_t(tc->dim->toInteger()));
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
+
+    llvmValue = gvar;
 }
 
 /* ========================================================================= */

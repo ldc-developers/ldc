@@ -404,6 +404,7 @@ test/throw1.d
 test/tuple1.d
 test/typeinfo.d
 test/typeinfo10.d
+test/typeinfo11.d
 test/typeinfo2.d
 test/typeinfo3.d
 test/typeinfo4.d
