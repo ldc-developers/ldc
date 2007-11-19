@@ -689,6 +689,10 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
                 retval = new llvm::AllocaInst(DtoType(realtype), "tmpparam", gIR->topallocapoint());
                 DtoSetArray(retval, DtoArrayLen(sv), DtoArrayPtr(sv));
             }
+            else if (DComplexValue* cv = arg->isComplex()) {
+                retval = new llvm::AllocaInst(DtoType(realtype), "tmpparam", gIR->topallocapoint());
+                DtoComplexSet(retval, cv->re, cv->im);
+            }
             else {
                 retval = arg->getRVal();
             }
@@ -719,6 +723,14 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
                     allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
                 }
             }
+            else if (realtype->iscomplex()) {
+                if (arg->isComplex()) {
+                    allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
+                }
+                else {
+                    allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
+                }
+            }
             else
             assert(0);
 
@@ -735,6 +747,9 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
             if (sl->ptr) Logger::cout() << "ptr = " << *sl->ptr << '\n';
             if (sl->len) Logger::cout() << "len = " << *sl->len << '\n';
             assert(0);
+        }
+        else if (DComplexValue* cl = arg->isComplex()) {
+            assert(0 && "complex in the wrong place");
         }
         else {
             retval = arg->getRVal();
@@ -895,19 +910,27 @@ void DtoAssign(DValue* lhs, DValue* rhs)
     }
     else if (t->iscomplex()) {
         assert(!lhs->isComplex());
-        if (DComplexValue* cx = rhs->isComplex()) {
-            DtoComplexSet(lhs->getRVal(), cx->re, cx->im);
+
+        llvm::Value* dst;
+        if (DLRValue* lr = lhs->isLRValue()) {
+            dst = lr->getLVal();
+            rhs = DtoCastComplex(rhs, lr->getLType());
         }
         else {
-            DtoComplexAssign(lhs->getRVal(), rhs->getRVal());
+            dst = lhs->getRVal();
         }
+
+        if (DComplexValue* cx = rhs->isComplex())
+            DtoComplexSet(dst, cx->re, cx->im);
+        else
+            DtoComplexAssign(dst, rhs->getRVal());
     }
     else {
         llvm::Value* r = rhs->getRVal();
         llvm::Value* l = lhs->getLVal();
         Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
         const llvm::Type* lit = l->getType()->getContainedType(0);
-        if (r->getType() != lit) {
+        if (r->getType() != lit) { // :(
             r = DtoBitCast(r, lit);
             Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
         }
@@ -982,6 +1005,7 @@ DValue* DtoCastPtr(DValue* val, Type* to)
         rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
     }
     else {
+        Logger::println("invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
         assert(0);
     }
 
@@ -1040,16 +1064,48 @@ DValue* DtoCastFloat(DValue* val, Type* to)
 DValue* DtoCastComplex(DValue* val, Type* _to)
 {
     Type* to = DtoDType(_to);
-    llvm::Value* v = val->getRVal();
+    Type* vty = val->getType();
     if (to->iscomplex()) {
-        assert(0);
+        if (vty->size() == to->size())
+            return val;
+
+        llvm::Value *re, *im;
+        DtoGetComplexParts(val, re, im);
+        const llvm::Type* toty = DtoComplexBaseType(to);
+
+        if (to->size() < vty->size()) {
+            re = gIR->ir->CreateFPTrunc(re, toty, "tmp");
+            im = gIR->ir->CreateFPTrunc(im, toty, "tmp");
+        }
+        else if (to->size() > vty->size()) {
+            re = gIR->ir->CreateFPExt(re, toty, "tmp");
+            im = gIR->ir->CreateFPExt(im, toty, "tmp");
+        }
+        else {
+            return val;
+        }
+
+        if (val->isComplex())
+            return new DComplexValue(_to, re, im);
+
+        // unfortunately at this point, the cast value can show up as the lvalue for += and similar expressions.
+        // so we need to give it storage, or fix the system that handles this stuff (DLRValue)
+        llvm::Value* mem = new llvm::AllocaInst(DtoType(_to), "castcomplextmp", gIR->topallocapoint());
+        DtoComplexSet(mem, re, im);
+        return new DLRValue(val->getType(), val->getRVal(), _to, mem);
     }
     else if (to->isimaginary()) {
-        DImValue* im = new DImValue(to, gIR->ir->CreateExtractElement(v, DtoConstUint(1), "im"));
+        if (val->isComplex())
+            return new DImValue(to, val->isComplex()->im);
+        llvm::Value* v = val->getRVal();
+        DImValue* im = new DImValue(to, DtoLoad(DtoGEPi(v,0,1,"tmp")));
         return DtoCastFloat(im, to);
     }
     else if (to->isfloating()) {
-        DImValue* re = new DImValue(to, gIR->ir->CreateExtractElement(v, DtoConstUint(0), "re"));
+        if (val->isComplex())
+            return new DImValue(to, val->isComplex()->re);
+        llvm::Value* v = val->getRVal();
+        DImValue* re = new DImValue(to, DtoLoad(DtoGEPi(v,0,0,"tmp")));
         return DtoCastFloat(re, to);
     }
     else

@@ -2,13 +2,16 @@ module typeinfos1;
 
 import
 typeinfo1.ti_byte,
+typeinfo1.ti_cdouble,
+typeinfo1.ti_cfloat,
 typeinfo1.ti_char,
-typeinfo1.ti_delegate,
+typeinfo1.ti_creal,
 typeinfo1.ti_dchar,
+typeinfo1.ti_delegate,
 typeinfo1.ti_double,
 typeinfo1.ti_float,
-typeinfo1.ti_ifloat,
 typeinfo1.ti_idouble,
+typeinfo1.ti_ifloat,
 typeinfo1.ti_int,
 typeinfo1.ti_ireal,
 typeinfo1.ti_long,

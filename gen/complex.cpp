@@ -127,8 +127,7 @@ DValue* DtoComplex(Type* to, DValue* val)
     TY ty = t->ty;
 
     if (val->isComplex() || t->iscomplex()) {
-        assert(DtoDType(to) == t);
-        return val;
+        return DtoCastComplex(val, to);
     }
 
     const llvm::Type* base = DtoComplexBaseType(to);
@@ -166,6 +165,21 @@ void DtoComplexSet(llvm::Value* c, llvm::Value* re, llvm::Value* im)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void DtoGetComplexParts(DValue* c, llvm::Value*& re, llvm::Value*& im)
+{
+    // lhs values
+    if (DComplexValue* cx = c->isComplex()) {
+        re = cx->re;
+        im = cx->im;
+    }
+    else {
+        re = DtoLoad(DtoGEPi(c->getRVal(),0,0,"tmp"));
+        im = DtoLoad(DtoGEPi(c->getRVal(),0,1,"tmp"));
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs)
 {
     lhs = DtoComplex(type, lhs);
@@ -174,24 +188,9 @@ DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs)
     llvm::Value *a, *b, *c, *d, *re, *im;
 
     // lhs values
-    if (DComplexValue* cx = lhs->isComplex()) {
-        a = cx->re;
-        b = cx->im;
-    }
-    else {
-        a = DtoLoad(DtoGEPi(lhs->getRVal(),0,0,"tmp"));
-        b = DtoLoad(DtoGEPi(lhs->getRVal(),0,1,"tmp"));
-    }
-
+    DtoGetComplexParts(lhs, a, b);
     // rhs values
-    if (DComplexValue* cx = rhs->isComplex()) {
-        c = cx->re;
-        d = cx->im;
-    }
-    else {
-        c = DtoLoad(DtoGEPi(rhs->getRVal(),0,0,"tmp"));
-        d = DtoLoad(DtoGEPi(rhs->getRVal(),0,1,"tmp"));
-    }
+    DtoGetComplexParts(rhs, c, d);
 
     // add up
     re = gIR->ir->CreateAdd(a, c, "tmp");
@@ -210,24 +209,9 @@ DValue* DtoComplexSub(Type* type, DValue* lhs, DValue* rhs)
     llvm::Value *a, *b, *c, *d, *re, *im;
 
     // lhs values
-    if (DComplexValue* cx = lhs->isComplex()) {
-        a = cx->re;
-        b = cx->im;
-    }
-    else {
-        a = DtoLoad(DtoGEPi(lhs->getRVal(),0,0,"tmp"));
-        b = DtoLoad(DtoGEPi(lhs->getRVal(),0,1,"tmp"));
-    }
-
+    DtoGetComplexParts(lhs, a, b);
     // rhs values
-    if (DComplexValue* cx = rhs->isComplex()) {
-        c = cx->re;
-        d = cx->im;
-    }
-    else {
-        c = DtoLoad(DtoGEPi(rhs->getRVal(),0,0,"tmp"));
-        d = DtoLoad(DtoGEPi(rhs->getRVal(),0,1,"tmp"));
-    }
+    DtoGetComplexParts(rhs, c, d);
 
     // add up
     re = gIR->ir->CreateSub(a, c, "tmp");
@@ -243,29 +227,14 @@ DValue* DtoComplexMul(Type* type, DValue* lhs, DValue* rhs)
     lhs = DtoComplex(type, lhs);
     rhs = DtoComplex(type, rhs);
 
-    llvm::Value *a, *b, *c, *d, *re, *im;
+    llvm::Value *a, *b, *c, *d;
 
     // lhs values
-    if (DComplexValue* cx = lhs->isComplex()) {
-        a = cx->re;
-        b = cx->im;
-    }
-    else {
-        a = DtoLoad(DtoGEPi(lhs->getRVal(),0,0,"tmp"));
-        b = DtoLoad(DtoGEPi(lhs->getRVal(),0,1,"tmp"));
-    }
-
+    DtoGetComplexParts(lhs, a, b);
     // rhs values
-    if (DComplexValue* cx = rhs->isComplex()) {
-        c = cx->re;
-        d = cx->im;
-    }
-    else {
-        c = DtoLoad(DtoGEPi(rhs->getRVal(),0,0,"tmp"));
-        d = DtoLoad(DtoGEPi(rhs->getRVal(),0,1,"tmp"));
-    }
+    DtoGetComplexParts(rhs, c, d);
 
-    llvm::Value *tmp1, *tmp2;
+    llvm::Value *tmp1, *tmp2, *re, *im;
 
     tmp1 = gIR->ir->CreateMul(a, c, "tmp");
     tmp2 = gIR->ir->CreateMul(b, d, "tmp");
@@ -285,29 +254,14 @@ DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs)
     lhs = DtoComplex(type, lhs);
     rhs = DtoComplex(type, rhs);
 
-    llvm::Value *a, *b, *c, *d, *re, *im;
+    llvm::Value *a, *b, *c, *d;
 
     // lhs values
-    if (DComplexValue* cx = lhs->isComplex()) {
-        a = cx->re;
-        b = cx->im;
-    }
-    else {
-        a = DtoLoad(DtoGEPi(lhs->getRVal(),0,0,"tmp"));
-        b = DtoLoad(DtoGEPi(lhs->getRVal(),0,1,"tmp"));
-    }
-
+    DtoGetComplexParts(lhs, a, b);
     // rhs values
-    if (DComplexValue* cx = rhs->isComplex()) {
-        c = cx->re;
-        d = cx->im;
-    }
-    else {
-        c = DtoLoad(DtoGEPi(rhs->getRVal(),0,0,"tmp"));
-        d = DtoLoad(DtoGEPi(rhs->getRVal(),0,1,"tmp"));
-    }
+    DtoGetComplexParts(rhs, c, d);
 
-    llvm::Value *tmp1, *tmp2, *denom;
+    llvm::Value *tmp1, *tmp2, *denom, *re, *im;
 
     tmp1 = gIR->ir->CreateMul(c, c, "tmp");
     tmp2 = gIR->ir->CreateMul(d, d, "tmp");
@@ -330,29 +284,27 @@ DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs)
 
 llvm::Value* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
 {
-    llvm::Value* lvec = lhs->getRVal();
-    llvm::Value* rvec = rhs->getRVal();
+    Type* type = lhs->getType();
 
+    lhs = DtoComplex(type, lhs);
+    rhs = DtoComplex(type, rhs);
+
+    llvm::Value *a, *b, *c, *d;
+
+    // lhs values
+    DtoGetComplexParts(lhs, a, b);
+    // rhs values
+    DtoGetComplexParts(rhs, c, d);
+
+    // select predicate
     llvm::FCmpInst::Predicate cmpop;
-    switch(op)
-    {
-    case TOKequal:
+    if (op == TOKequal)
         cmpop = llvm::FCmpInst::FCMP_OEQ;
-        break;
-    case TOKnotequal:
+    else
         cmpop = llvm::FCmpInst::FCMP_UNE;
-        break;
-    default:
-        assert(0);
-    }
 
-    llvm::Value* l1 = gIR->ir->CreateExtractElement(lvec, DtoConstUint(0), "re");
-    llvm::Value* r1 = gIR->ir->CreateExtractElement(rvec, DtoConstUint(0), "re");
-    llvm::Value* b1 = new llvm::FCmpInst(cmpop, l1, r1, "tmp", gIR->scopebb());
-
-    llvm::Value* l2 = gIR->ir->CreateExtractElement(lvec, DtoConstUint(1), "im");
-    llvm::Value* r2 = gIR->ir->CreateExtractElement(rvec, DtoConstUint(1), "im");
-    llvm::Value* b2 = new llvm::FCmpInst(cmpop, l2, r2, "tmp", gIR->scopebb());
-
+    // (l.re==r.re && l.im==r.im)
+    llvm::Value* b1 = new llvm::FCmpInst(cmpop, a, c, "tmp", gIR->scopebb());
+    llvm::Value* b2 = new llvm::FCmpInst(cmpop, b, d, "tmp", gIR->scopebb());
     return gIR->ir->CreateAnd(b1,b2,"tmp");
 }

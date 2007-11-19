@@ -20,7 +20,7 @@ llvm-link -f -o=../lib/llvmdcore.bc `ls obj/internal.*.bc` ../lib/llvmdcore.bc o
 
 
 echo "compiling typeinfo 1"
-rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix || exit 1
+rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix -v || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo1.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "compiling typeinfo 2"

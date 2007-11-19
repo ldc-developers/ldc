@@ -17,6 +17,8 @@ DValue* DtoComplex(Type* to, DValue* val);
 void DtoComplexAssign(llvm::Value* l, llvm::Value* r);
 void DtoComplexSet(llvm::Value* c, llvm::Value* re, llvm::Value* im);
 
+void DtoGetComplexParts(DValue* c, llvm::Value*& re, llvm::Value*& im);
+
 DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexSub(Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexMul(Type* type, DValue* lhs, DValue* rhs);

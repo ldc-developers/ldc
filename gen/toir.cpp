@@ -562,7 +562,7 @@ DValue* AddAssignExp::toElem(IRState* p)
         res = new DImValue(type, gep);
     }
     else if (t->iscomplex()) {
-        res = DtoComplexAdd(type, l, r);
+        res = DtoComplexAdd(e1->type, l, r);
     }
     else {
         res = DtoBinAdd(l,r);
@@ -1056,16 +1056,16 @@ DValue* CastExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     DValue* v = DtoCast(u, to);
 
-    if (v->isSlice())
+    if (v->isSlice()) {
+        assert(!gIR->topexp() || gIR->topexp()->e1 != this);
         return v;
-    else if (u->isLValueCast() || (u->isVar() && u->isVar()->lval))
-        return new DLValueCast(to, u->getLVal(), v->getRVal());
-    else if (gIR->topexp() && gIR->topexp()->e1 == this) {
-        llvm::Value* lval = u->getLVal();
-        llvm::Value* rval = v->getRVal();
-        Logger::cout() << "lval: " << *lval << "rval: " << *rval << '\n';
-        return new DLValueCast(to, lval, rval);
     }
+
+    else if (u->isLRValue() || (u->isVar() && u->isVar()->lval))
+        return new DLRValue(e1->type, u->getLVal(), to, v->getRVal());
+
+    else if (gIR->topexp() && gIR->topexp()->e1 == this)
+        return new DLRValue(e1->type, u->getLVal(), to, v->getRVal());
 
     return v;
 }
@@ -1193,7 +1193,7 @@ DValue* PtrExp::toElem(IRState* p)
     llvm::Value* v = lv;
     if (DtoCanLoad(v))
         v = DtoLoad(v);
-    return new DLValueCast(type, lv, v);
+    return new DLRValue(e1->type, lv, type, v);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -132,7 +132,6 @@ gen/tollvm.cpp
 gen/tollvm.h
 gen/toobj.cpp
 gen/typeinf.h
-gen/typeinfo12.d
 gen/typinf.cpp
 lphobos
 lphobos/crc32.d
@@ -193,7 +192,10 @@ lphobos/std/uni.d
 lphobos/std/utf.d
 lphobos/typeinfo1
 lphobos/typeinfo1/ti_byte.d
+lphobos/typeinfo1/ti_cdouble.d
+lphobos/typeinfo1/ti_cfloat.d
 lphobos/typeinfo1/ti_char.d
+lphobos/typeinfo1/ti_creal.d
 lphobos/typeinfo1/ti_dchar.d
 lphobos/typeinfo1/ti_delegate.d
 lphobos/typeinfo1/ti_double.d
@@ -213,6 +215,7 @@ lphobos/typeinfo1/ti_ushort.d
 lphobos/typeinfo1/ti_void.d
 lphobos/typeinfo1/ti_wchar.d
 lphobos/typeinfo2
+lphobos/typeinfo2/ti_AC.d
 lphobos/typeinfo2/ti_Adouble.d
 lphobos/typeinfo2/ti_Afloat.d
 lphobos/typeinfo2/ti_Ag.d
@@ -220,6 +223,7 @@ lphobos/typeinfo2/ti_Aint.d
 lphobos/typeinfo2/ti_Along.d
 lphobos/typeinfo2/ti_Areal.d
 lphobos/typeinfo2/ti_Ashort.d
+lphobos/typeinfo2/ti_C.d
 lphobos/typeinfos1.d
 lphobos/typeinfos2.d
 runalltests.d
@@ -304,8 +308,8 @@ test/bug62.d
 test/bug63.d
 test/bug64.d
 test/bug66.d
-test/bug69.d
 test/bug7.d
+test/bug70.d
 test/bug8.d
 test/bug9.d
 test/c.d

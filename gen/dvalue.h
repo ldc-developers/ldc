@@ -31,7 +31,7 @@ struct DThisValue;
 struct DFuncValue;
 struct DSliceValue;
 struct DArrayLenValue;
-struct DLValueCast;
+struct DLRValue;
 struct DComplexValue;
 
 // base class for d-values
@@ -51,8 +51,8 @@ struct DValue : Object
     virtual DSliceValue* isSlice() { return NULL; }
     virtual DFuncValue* isFunc() { return NULL; }
     virtual DArrayLenValue* isArrayLen() { return NULL; }
-    virtual DLValueCast* isLValueCast() { return NULL; }
-    virtual DComplexValue* isComplex() { return NULL; };
+    virtual DComplexValue* isComplex() { return NULL; }
+    virtual DLRValue* isLRValue() { return NULL; }
 
     virtual bool inPlace() { return false; }
 
@@ -172,24 +172,28 @@ struct DFuncValue : DValue
     virtual DFuncValue* isFunc() { return this; }
 };
 
-// l-value cast d-value
-struct DLValueCast : DValue
+// l-value and r-value pair d-value
+struct DLRValue : DValue
 {
-    Type* type;
+    Type* ltype;
     llvm::Value* lval;
+    Type* rtype;
     llvm::Value* rval;
 
-    DLValueCast(Type* t, llvm::Value* l, llvm::Value* r) {
-        type = t;
+    DLRValue(Type* lt, llvm::Value* l, Type* rt, llvm::Value* r) {
+        ltype = lt;
         lval = l;
+        rtype = rt;
         rval = r;
     }
 
     virtual llvm::Value* getLVal() { assert(lval); return lval; }
     virtual llvm::Value* getRVal() { assert(rval); return rval; }
 
-    virtual Type* getType() { assert(type); return type; }
-    virtual DLValueCast* isLValueCast() { return this; }
+    Type* getLType() { return ltype; }
+    Type* getRType() { return rtype; }
+    virtual Type* getType() { return getRType(); }
+    virtual DLRValue* isLRValue() { return this; }
 };
 
 // complex number immediate d-value (much like slice)
