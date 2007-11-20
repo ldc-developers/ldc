@@ -158,9 +158,8 @@ struct IRState
     // basic block scopes
     std::vector<IRScope> scopes;
     IRScope& scope();
-    llvm::BasicBlock* scopebegin();
-    llvm::BasicBlock* scopeend();
     llvm::BasicBlock* scopebb();
+    llvm::BasicBlock* scopeend();
     bool scopereturned();
 
     // loop blocks

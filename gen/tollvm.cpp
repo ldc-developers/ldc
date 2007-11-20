@@ -174,6 +174,13 @@ const llvm::Type* DtoType(Type* t)
         return DtoType(bt);
     }
 
+    // associative arrays
+    case Taarray:
+    {
+        // TODO this is a kludge
+        return llvm::PointerType::get(llvm::Type::Int8Ty);
+    }
+
     default:
         printf("trying to convert unknown type with value %d\n", t->ty);
         assert(0);
@@ -796,7 +803,15 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 
     // on this stack
     if (fd == f) {
-        llvm::Value* v = DtoGEPi(vd->llvmValue,0,unsigned(vd->llvmNestedIndex),"tmp");
+        llvm::Value* vdv = vd->llvmValue;
+        if (!vdv)
+        {
+            Logger::println(":o null vd->llvmValue for: %s", vd->toChars());
+            vdv = fd->llvmNested;
+            assert(vdv);
+        }
+        assert(vd->llvmNestedIndex != ~0);
+        llvm::Value* v = DtoGEPi(vdv,0,unsigned(vd->llvmNestedIndex),"tmp");
         if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))) {
             Logger::cout() << "1267 loading: " << *v << '\n';
             v = gIR->ir->CreateLoad(v,"tmp");
@@ -859,7 +874,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         // lhs is slice
         if (DSliceValue* s = lhs->isSlice()) {
             if (DSliceValue* s2 = rhs->isSlice()) {
-                DtoArrayCopy(s, s2);
+                DtoArrayCopySlices(s, s2);
             }
             else if (t->next == t2) {
                 if (s->len)
@@ -867,8 +882,9 @@ void DtoAssign(DValue* lhs, DValue* rhs)
                 else
                     DtoArrayInit(s->ptr, rhs->getRVal());
             }
-            else
-            assert(rhs->inPlace());
+            else {
+                DtoArrayCopyToSlice(s, rhs);
+            }
         }
         // rhs is slice
         else if (DSliceValue* s = rhs->isSlice()) {
@@ -926,8 +942,15 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             DtoComplexAssign(dst, rhs->getRVal());
     }
     else {
+        llvm::Value* l;
+        if (DLRValue* lr = lhs->isLRValue()) {
+            l = lr->getLVal();
+            rhs = DtoCast(rhs, lr->getLType());
+        }
+        else {
+            l = lhs->getLVal();
+        }
         llvm::Value* r = rhs->getRVal();
-        llvm::Value* l = lhs->getLVal();
         Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
         const llvm::Type* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) { // :(
@@ -1124,6 +1147,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
 DValue* DtoCast(DValue* val, Type* to)
 {
     Type* fromtype = DtoDType(val->getType());
+    Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     if (fromtype->isintegral()) {
         return DtoCastInt(val, to);
     }

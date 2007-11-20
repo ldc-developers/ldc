@@ -488,7 +488,9 @@ DValue* AssignExp::toElem(IRState* p)
             DtoAssign(l, r);
     }
 
-    return l;
+    if (l->isSlice() || l->isComplex())
+        return l;
+    return new DImValue(type, l->getRVal());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -507,7 +509,8 @@ DValue* AddExp::toElem(IRState* p)
     Type* e2type = DtoDType(e2->type);
 
     if (e1type != e2type) {
-        if (e1type->ty == Tpointer && e1next && e1next->ty == Tstruct) {
+        if (llvmFieldIndex) {
+            assert(e1type->ty == Tpointer && e1next && e1next->ty == Tstruct);
             Logger::println("add to AddrExp of struct");
             assert(r->isConst());
             llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
@@ -1001,8 +1004,9 @@ DValue* CallExp::toElem(IRState* p)
                 llargs[j] = DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
                 // this hack is necessary :/
                 if (dfn && dfn->func && dfn->func->llvmRunTimeHack) {
-                    Logger::println("llvmRunTimeHack==true");
+                    Logger::println("llvmRunTimeHack==true - force casting argument");
                     if (llargs[j]->getType() != llfnty->getParamType(j)) {
+                        Logger::cout() << "from: " << *llargs[j]->getType() << " to: " << *llfnty->getParamType(j);
                         llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
                     }
                 }
@@ -1155,12 +1159,15 @@ DValue* SymOffExp::toElem(IRState* p)
 
 DValue* AddrExp::toElem(IRState* p)
 {
-    Logger::print("AddrExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::println("AddrExp::toElem: %s | %s", toChars(), type->toChars());
     LOG_SCOPE;
     DValue* v = e1->toElem(p);
-    if (v->isField())
+    if (v->isField()) {
+        Logger::println("is field");
         return v;
+    }
     else if (DFuncValue* fv = v->isFunc()) {
+        Logger::println("is func");
         //Logger::println("FuncDeclaration");
         FuncDeclaration* fd = fv->func;
         assert(fd);
@@ -1169,8 +1176,10 @@ DValue* AddrExp::toElem(IRState* p)
         return new DFuncValue(fd, fd->llvmValue);
     }
     else if (DImValue* im = v->isIm()) {
+        Logger::println("is immediate");
         return v;
     }
+    Logger::println("is nothing special");
     return new DFieldValue(type, v->getLVal(), false);
 }
 
@@ -1178,7 +1187,7 @@ DValue* AddrExp::toElem(IRState* p)
 
 DValue* PtrExp::toElem(IRState* p)
 {
-    Logger::print("PtrExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::println("PtrExp::toElem: %s | %s", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* a = e1->toElem(p);
@@ -1552,7 +1561,7 @@ DValue* EqualExp::toElem(IRState* p)
 
     Type* t = DtoDType(e1->type);
     Type* e2t = DtoDType(e2->type);
-    assert(t == e2t);
+    //assert(t == e2t);
 
     llvm::Value* eval = 0;
 
@@ -1571,7 +1580,12 @@ DValue* EqualExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        eval = new llvm::ICmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
+        llvm::Value* lv = l->getRVal();
+        llvm::Value* rv = r->getRVal();
+        if (rv->getType() != lv->getType()) {
+            rv = DtoBitCast(rv, lv->getType());
+        }
+        eval = new llvm::ICmpInst(cmpop, lv, rv, "tmp", p->scopebb());
     }
     else if (t->iscomplex())
     {
@@ -2212,7 +2226,7 @@ DValue* FuncExp::toElem(IRState* p)
     if (fd->isNested()) Logger::println("nested");
     Logger::println("kind = %s\n", fd->kind());
 
-    DtoForceDeclareDsymbol(fd);
+    DtoForceDefineDsymbol(fd);
 
     bool temp = false;
     llvm::Value* lval = NULL;

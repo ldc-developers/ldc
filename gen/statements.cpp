@@ -163,7 +163,7 @@ void IfStatement::toIR(IRState* p)
         Logger::cout() << "if conditional: " << *cond_val << '\n';
         cond_val = DtoBoolean(cond_val);
     }
-    llvm::Value* ifgoback = new llvm::BranchInst(ifbb, elsebb, cond_val, gIR->scopebegin());
+    llvm::Value* ifgoback = new llvm::BranchInst(ifbb, elsebb, cond_val, gIR->scopebb());
 
     // replace current scope
     gIR->scope() = IRScope(ifbb,elsebb);
@@ -171,7 +171,7 @@ void IfStatement::toIR(IRState* p)
     // do scoped statements
     ifbody->toIR(p);
     if (!gIR->scopereturned()) {
-        new llvm::BranchInst(endbb,gIR->scopebegin());
+        new llvm::BranchInst(endbb,gIR->scopebb());
     }
 
     if (elsebody) {
@@ -179,7 +179,7 @@ void IfStatement::toIR(IRState* p)
         gIR->scope() = IRScope(elsebb,endbb);
         elsebody->toIR(p);
         if (!gIR->scopereturned()) {
-            new llvm::BranchInst(endbb,gIR->scopebegin());
+            new llvm::BranchInst(endbb,gIR->scopebb());
         }
     }
 
@@ -199,14 +199,14 @@ void ScopeStatement::toIR(IRState* p)
     llvm::BasicBlock* beginbb = 0;
 
     // remove useless branches by clearing and reusing the current basicblock
-    llvm::BasicBlock* bb = p->scopebegin();
+    llvm::BasicBlock* bb = p->scopebb();
     if (bb->empty()) {
         beginbb = bb;
     }
     else {
         assert(!p->scopereturned());
         beginbb = new llvm::BasicBlock("scope", p->topfunc(), oldend);
-        new llvm::BranchInst(beginbb, p->scopebegin());
+        new llvm::BranchInst(beginbb, p->scopebb());
     }
     llvm::BasicBlock* endbb = new llvm::BasicBlock("endscope", p->topfunc(), oldend);
 
@@ -234,7 +234,7 @@ void WhileStatement::toIR(IRState* p)
 
     // move into the while block
     p->ir->CreateBr(whilebb);
-    //new llvm::BranchInst(whilebb, gIR->scopebegin());
+    //new llvm::BranchInst(whilebb, gIR->scopebb());
 
     // replace current scope
     gIR->scope() = IRScope(whilebb,endbb);
@@ -256,7 +256,8 @@ void WhileStatement::toIR(IRState* p)
     p->loopbbs.pop_back();
 
     // loop
-    new llvm::BranchInst(whilebb, gIR->scopebegin());
+    if (!gIR->scopereturned())
+        new llvm::BranchInst(whilebb, gIR->scopebb());
 
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
@@ -276,13 +277,16 @@ void DoStatement::toIR(IRState* p)
     llvm::BasicBlock* endbb = new llvm::BasicBlock("enddowhile", gIR->topfunc(), oldend);
 
     // move into the while block
-    new llvm::BranchInst(dowhilebb, gIR->scopebegin());
+    assert(!gIR->scopereturned());
+    new llvm::BranchInst(dowhilebb, gIR->scopebb());
 
     // replace current scope
     gIR->scope() = IRScope(dowhilebb,endbb);
 
     // do-while body code
+    p->loopbbs.push_back(IRScope(dowhilebb,endbb));
     body->toIR(p);
+    p->loopbbs.pop_back();
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
@@ -290,7 +294,7 @@ void DoStatement::toIR(IRState* p)
     delete cond_e;
 
     // conditional branch
-    llvm::Value* ifbreak = new llvm::BranchInst(dowhilebb, endbb, cond_val, gIR->scopebegin());
+    llvm::Value* ifbreak = new llvm::BranchInst(dowhilebb, endbb, cond_val, gIR->scopebb());
 
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
@@ -316,7 +320,7 @@ void ForStatement::toIR(IRState* p)
     init->toIR(p);
 
     // move into the for condition block, ie. start the loop
-    new llvm::BranchInst(forbb, gIR->scopebegin());
+    new llvm::BranchInst(forbb, gIR->scopebb());
 
     p->loopbbs.push_back(IRScope(forincbb,endbb));
 
@@ -338,7 +342,8 @@ void ForStatement::toIR(IRState* p)
     body->toIR(p);
 
     // move into the for increment block
-    new llvm::BranchInst(forincbb, gIR->scopebegin());
+    if (!gIR->scopereturned())
+        new llvm::BranchInst(forincbb, gIR->scopebb());
     gIR->scope() = IRScope(forincbb, endbb);
 
     // increment
@@ -348,7 +353,8 @@ void ForStatement::toIR(IRState* p)
     }
 
     // loop
-    new llvm::BranchInst(forbb, gIR->scopebegin());
+    if (!gIR->scopereturned())
+        new llvm::BranchInst(forbb, gIR->scopebb());
 
     p->loopbbs.pop_back();
 
@@ -368,7 +374,7 @@ void BreakStatement::toIR(IRState* p)
         assert(0);
     }
     else {
-        new llvm::BranchInst(gIR->loopbbs.back().end, gIR->scopebegin());
+        new llvm::BranchInst(gIR->loopbbs.back().end, gIR->scopebb());
     }
 }
 
@@ -384,7 +390,7 @@ void ContinueStatement::toIR(IRState* p)
         assert(0);
     }
     else {
-        new llvm::BranchInst(gIR->loopbbs.back().begin, gIR->scopebegin());
+        new llvm::BranchInst(gIR->loopbbs.back().begin, gIR->scopebb());
     }
 }
 
@@ -527,25 +533,33 @@ void SwitchStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
 
     // collect the needed cases
-    typedef std::pair<llvm::BasicBlock*, llvm::ConstantInt*> CasePair;
+    typedef std::pair<llvm::BasicBlock*, std::vector<llvm::ConstantInt*> > CasePair;
     std::vector<CasePair> vcases;
+    std::vector<Statement*> vbodies;
     for (int i=0; i<cases->dim; ++i)
     {
         CaseStatement* cs = (CaseStatement*)cases->data[i];
-
-        // get the case value
-        DValue* e = cs->exp->toElem(p);
-        DConstValue* ce = e->isConst();
-        assert(ce);
-        llvm::ConstantInt* ec = isaConstantInt(ce->c);
-        assert(ec);
-        delete e;
 
         // create the case bb with a nice label
         std::string lblname("case"+std::string(cs->exp->toChars()));
         llvm::BasicBlock* bb = new llvm::BasicBlock(lblname, p->topfunc(), oldend);
 
-        vcases.push_back(CasePair(bb,ec));
+        std::vector<llvm::ConstantInt*> tmp;
+        CaseStatement* last;
+        do {
+            // get the case value
+            DValue* e = cs->exp->toElem(p);
+            DConstValue* ce = e->isConst();
+            assert(ce);
+            llvm::ConstantInt* ec = isaConstantInt(ce->c);
+            assert(ec);
+            tmp.push_back(ec);
+            last = cs;
+        }
+        while (cs = cs->statement->isCaseStatement());
+
+        vcases.push_back(CasePair(bb, tmp));
+        vbodies.push_back(last->statement);
     }
 
     // default
@@ -566,7 +580,11 @@ void SwitchStatement::toIR(IRState* p)
     size_t n = vcases.size();
     for (size_t i=0; i<n; ++i)
     {
-        si->addCase(vcases[i].second, vcases[i].first);
+        size_t nc = vcases[i].second.size();
+        for (size_t j=0; j<nc; ++j)
+        {
+            si->addCase(vcases[i].second[j], vcases[i].first);
+        }
     }
 
     // insert case statements
@@ -576,7 +594,7 @@ void SwitchStatement::toIR(IRState* p)
         p->scope() = IRScope(vcases[i].first,nextbb);
 
         p->loopbbs.push_back(IRScope(p->scopebb(),endbb));
-        static_cast<CaseStatement*>(cases->data[i])->statement->toIR(p);
+        vbodies[i]->toIR(p);
         p->loopbbs.pop_back();
 
         llvm::BasicBlock* curbb = p->scopebb();
@@ -603,6 +621,15 @@ void SwitchStatement::toIR(IRState* p)
     }
 
     gIR->scope() = IRScope(endbb,oldend);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+void CaseStatement::toIR(IRState* p)
+{
+    Logger::println("CaseStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+
+    assert(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -735,7 +762,7 @@ void ForeachStatement::toIR(IRState* p)
     }
     new llvm::BranchInst(bodybb, endbb, done, p->scopebb());
 
-    // body
+    // init body
     p->scope() = IRScope(bodybb,nextbb);
 
     // get value for this iteration
@@ -750,12 +777,10 @@ void ForeachStatement::toIR(IRState* p)
         DValue* dst = new DVarValue(value->type, valvar, true);
         DValue* src = new DVarValue(value->type, value->llvmValue, true);
         DtoAssign(dst, src);
-        delete dst;
-        delete src;
         value->llvmValue = valvar;
     }
 
-    // body
+    // emit body
     p->loopbbs.push_back(IRScope(nextbb,endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
@@ -860,7 +885,7 @@ void SynchronizedStatement::toIR(IRState* p)
 //STUBST(ReturnStatement);
 //STUBST(ContinueStatement);
 STUBST(DefaultStatement);
-STUBST(CaseStatement);
+//STUBST(CaseStatement);
 //STUBST(SwitchStatement);
 STUBST(SwitchErrorStatement);
 STUBST(Statement);

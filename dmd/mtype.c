@@ -4309,6 +4309,11 @@ L1:
 	b = new AddrExp(e->loc, e);
 	b->type = e->type->pointerTo();
 	b = new AddExp(e->loc, b, new IntegerExp(e->loc, v->offset, Type::tint32));
+#if IN_LLVM
+    // LLVMDC modification
+    // this is *essential*
+    ((AddExp*)b)->llvmFieldIndex = true;
+#endif
 	b->type = v->type->pointerTo();
 	e = new PtrExp(e->loc, b);
 	e->type = v->type;

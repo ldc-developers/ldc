@@ -142,6 +142,7 @@ lphobos/gcstats.d
 lphobos/internal
 lphobos/internal/aApply.d
 lphobos/internal/aApplyR.d
+lphobos/internal/aaA.d
 lphobos/internal/adi.d
 lphobos/internal/arrays.d
 lphobos/internal/cmath2.d
@@ -181,6 +182,7 @@ lphobos/std/conv.d
 lphobos/std/ctype.d
 lphobos/std/format.d
 lphobos/std/intrinsic.d
+lphobos/std/math.d
 lphobos/std/moduleinit.d
 lphobos/std/outofmemory.d
 lphobos/std/stdarg.d
@@ -229,6 +231,7 @@ lphobos/typeinfos2.d
 runalltests.d
 test
 test/a.d
+test/aa1.d
 test/alignment.d
 test/alloca1.d
 test/arrayinit.d
@@ -310,6 +313,9 @@ test/bug64.d
 test/bug66.d
 test/bug7.d
 test/bug70.d
+test/bug71.d
+test/bug72.d
+test/bug73.d
 test/bug8.d
 test/bug9.d
 test/c.d
@@ -401,6 +407,7 @@ test/structs5.d
 test/structs6.d
 test/structs7.d
 test/switch1.d
+test/switch2.d
 test/sync1.d
 test/templ1.d
 test/templ2.d

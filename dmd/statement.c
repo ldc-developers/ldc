@@ -1437,7 +1437,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		exps->push(aggr);
 		size_t keysize = taa->key->size();
 		keysize = (keysize + 3) & ~3;
-		exps->push(new IntegerExp(0, keysize, Type::tint32));
+		exps->push(new IntegerExp(0, keysize, Type::tsize_t));
 		exps->push(flde);
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e

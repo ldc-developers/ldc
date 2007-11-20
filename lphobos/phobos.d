@@ -4,6 +4,7 @@ import
 std.array,
 std.ctype,
 std.intrinsic,
+std.math,
 std.moduleinit,
 std.outofmemory,
 std.stdint,
@@ -11,6 +12,9 @@ std.stdio,
 std.stdarg,
 std.uni,
 std.utf,
+
+//std.format,
+//std.string,
 
 std.c.fenv,
 std.c.locale,

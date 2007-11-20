@@ -20,7 +20,7 @@ llvm-link -f -o=../lib/llvmdcore.bc `ls obj/internal.*.bc` ../lib/llvmdcore.bc o
 
 
 echo "compiling typeinfo 1"
-rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix -v || exit 1
+rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo1.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "compiling typeinfo 2"
@@ -33,10 +33,12 @@ llvmdc internal/aApplyR.d -c -odobj || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/aApply.bc obj/aApplyR.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling array runtime support"
-llvmdc internal/qsort2.d -c -odobj || exit
+llvmdc internal/qsort2.d -c -odobj || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/qsort2.bc ../lib/llvmdcore.bc || exit 1
-llvmdc internal/adi.d -c -odobj || exit
+llvmdc internal/adi.d -c -odobj || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/adi.bc ../lib/llvmdcore.bc || exit 1
+llvmdc internal/aaA.d -c -odobj || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/aaA.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling object implementation"
 llvmdc internal/objectimpl.d -c -odobj || exit 1

@@ -5870,6 +5870,7 @@ Expression *AddrExp::semantic(Scope *sc)
 	{
 	    VarExp *dve = (VarExp *)e1;
 	    FuncDeclaration *f = dve->var->isFuncDeclaration();
+        VarDeclaration *v = dve->var->isVarDeclaration();
 
 	    if (f && f->isNested())
 	    {	Expression *e;
@@ -5878,6 +5879,10 @@ Expression *AddrExp::semantic(Scope *sc)
 		e = e->semantic(sc);
 		return e;
 	    }
+        else if (v)
+        {
+        v->llvmNeedsStorage = true;
+        }
 	}
 	else if (e1->op == TOKarray)
 	{
@@ -7543,6 +7548,7 @@ Expression *XorAssignExp::semantic(Scope *sc)
 AddExp::AddExp(Loc loc, Expression *e1, Expression *e2)
 	: BinExp(loc, TOKadd, sizeof(AddExp), e1, e2)
 {
+    llvmFieldIndex = false;
 }
 
 Expression *AddExp::semantic(Scope *sc)

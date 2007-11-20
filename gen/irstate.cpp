@@ -83,10 +83,6 @@ IRScope& IRState::scope()
 
 llvm::BasicBlock* IRState::scopebb()
 {
-    return scopebegin();
-}
-llvm::BasicBlock* IRState::scopebegin()
-{
     IRScope& s = scope();
     assert(s.begin);
     return s.begin;

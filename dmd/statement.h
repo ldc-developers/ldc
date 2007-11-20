@@ -46,6 +46,7 @@ struct ScopeStatement;
 struct TryCatchStatement;
 struct HdrGenState;
 struct InterState;
+struct CaseStatement;
 
 enum TOK;
 
@@ -114,6 +115,7 @@ struct Statement : Object
     virtual CompoundStatement *isCompoundStatement() { return NULL; }
     virtual ReturnStatement *isReturnStatement() { return NULL; }
     virtual IfStatement *isIfStatement() { return NULL; }
+    virtual CaseStatement* isCaseStatement() { return NULL; }
 };
 
 struct ExpStatement : Statement
@@ -436,6 +438,8 @@ struct CaseStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
+
+    CaseStatement* isCaseStatement() { return this; }
 };
 
 struct DefaultStatement : Statement

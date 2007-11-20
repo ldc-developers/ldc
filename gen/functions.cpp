@@ -378,6 +378,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
     if (f->llvmUsesThis) {
         iarg->setName("this");
+        fdecl->llvmThisVar = iarg;
+        assert(fdecl->llvmThisVar);
         ++iarg;
     }
     int varargs = -1;
@@ -425,6 +427,8 @@ void DtoDefineFunc(FuncDeclaration* fd)
 {
     if (fd->llvmDefined) return;
     fd->llvmDefined = true;
+
+    assert(fd->llvmDeclared);
 
     Logger::println("DtoDefineFunc(%s)", fd->toPrettyChars());
     LOG_SCOPE;
@@ -474,6 +478,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
             assert(fd->llvmIRFunc);
             gIR->functions.push_back(fd->llvmIRFunc);
 
+            /* // moved to declaration
             // this handling
             if (f->llvmUsesThis) {
                 Logger::println("uses this");
@@ -483,6 +488,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                     fd->llvmThisVar = func->arg_begin();
                 assert(fd->llvmThisVar != 0);
             }
+            */
 
             if (fd->isMain())
                 gIR->emitMain = true;
@@ -496,6 +502,12 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 // create alloca point
                 f->llvmAllocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
                 gIR->func()->allocapoint = f->llvmAllocaPoint;
+
+                // need result variable? (not nested)
+                if (fd->vresult && !fd->vresult->nestedref) {
+                    Logger::println("non-nested vresult value");
+                    fd->vresult->llvmValue = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",f->llvmAllocaPoint);
+                }
 
                 // give arguments storage
                 size_t n = Argument::dim(f->parameters);
@@ -524,7 +536,14 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
                 llvm::Value* parentNested = NULL;
                 if (FuncDeclaration* fd2 = fd->toParent()->isFuncDeclaration()) {
-                    parentNested = fd2->llvmNested;
+                    if (!fd->isStatic())
+                        parentNested = fd2->llvmNested;
+                }
+
+                // need result variable? (nested)
+                if (fd->vresult && fd->vresult->nestedref) {
+                    Logger::println("nested vresult value: %s", fd->vresult->toChars());
+                    fd->llvmNestedVars.insert(fd->vresult);
                 }
 
                 // construct nested variables struct

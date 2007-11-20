@@ -10,7 +10,8 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* si);
 llvm::Constant* DtoConstSlice(llvm::Constant* dim, llvm::Constant* ptr);
 llvm::Constant* DtoConstStaticArray(const llvm::Type* t, llvm::Constant* c);
 
-void DtoArrayCopy(DSliceValue* dst, DSliceValue* src);
+void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
+void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
 void DtoArrayInit(llvm::Value* l, llvm::Value* r);
 void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val);
