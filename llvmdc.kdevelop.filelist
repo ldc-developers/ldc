@@ -100,6 +100,8 @@ dmd/utf.h
 dmd/version.c
 dmd/version.h
 gen
+gen/aa.cpp
+gen/aa.h
 gen/arrays.cpp
 gen/arrays.h
 gen/binops.cpp
@@ -136,6 +138,7 @@ gen/typinf.cpp
 lphobos
 lphobos/crc32.d
 lphobos/gc
+lphobos/gc/gcbits.d
 lphobos/gc/gclinux.d
 lphobos/gc/gcstub.d
 lphobos/gcstats.d
@@ -145,7 +148,6 @@ lphobos/internal/aApplyR.d
 lphobos/internal/aaA.d
 lphobos/internal/adi.d
 lphobos/internal/arrays.d
-lphobos/internal/cmath2.d
 lphobos/internal/contract.d
 lphobos/internal/mem.d
 lphobos/internal/moduleinit.d
@@ -232,6 +234,10 @@ runalltests.d
 test
 test/a.d
 test/aa1.d
+test/aa2.d
+test/aa3.d
+test/aa4.d
+test/aa5.d
 test/alignment.d
 test/alloca1.d
 test/arrayinit.d
@@ -240,6 +246,7 @@ test/arrays10.d
 test/arrays11.d
 test/arrays12.d
 test/arrays13.d
+test/arrays14.d
 test/arrays2.d
 test/arrays3.d
 test/arrays4.d
@@ -316,6 +323,7 @@ test/bug70.d
 test/bug71.d
 test/bug72.d
 test/bug73.d
+test/bug74.d
 test/bug8.d
 test/bug9.d
 test/c.d
@@ -418,6 +426,7 @@ test/typeinfo.d
 test/typeinfo10.d
 test/typeinfo11.d
 test/typeinfo12.d
+test/typeinfo13.d
 test/typeinfo2.d
 test/typeinfo3.d
 test/typeinfo4.d

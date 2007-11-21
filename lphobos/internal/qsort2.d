@@ -14,6 +14,7 @@
 
 import std.c.stdlib;
 
+pragma(LLVM_internal, "notypeinfo")
 struct Array
 {
     size_t length;
@@ -27,14 +28,14 @@ extern (C) int cmp(void* p1, void* p2)
     return tiglobal.compare(p1, p2);
 }
 
-extern (C) long _adSort(Array a, TypeInfo ti)
+extern (C) Array _adSort(Array a, TypeInfo ti)
 {
     synchronized
     {
 	tiglobal = ti;
 	std.c.stdlib.qsort(a.ptr, a.length, cast(size_t)ti.tsize(), &cmp);
     }
-    return *cast(long*)(&a);
+    return a;
 }
 
 

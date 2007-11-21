@@ -27,13 +27,19 @@
  *     distribution.
  */
 
+/*
+ * Modified for LLVMDC by Tomas Lindquist Olsen.
+ * The DMD implementation wont quite work due to the differences in how
+ * structs are handled.
+ */
+
 
 //import std.stdio;
 import std.c.stdarg;
 import std.c.stdio;
 import std.c.stdlib;
 import std.c.string;
-import std.string;
+//import std.string;
 
 import std.outofmemory;
 
@@ -51,17 +57,17 @@ static size_t[] prime_list = [
 
 /* This is the type of the return value for dynamic arrays.
  * It should be a type that is returned in registers.
- * Although DMD will return types of Array in registers,
- * gcc will not, so we instead use a 'long'.
  */
-alias long ArrayRet_t;
+alias Array ArrayRet_t;
 
+pragma(LLVM_internal, "notypeinfo")
 struct Array
 {
     size_t length;
     void* ptr;
 }
 
+pragma(LLVM_internal, "notypeinfo")
 struct aaA
 {
     aaA *left;
@@ -71,6 +77,7 @@ struct aaA
     /* value */
 }
 
+pragma(LLVM_internal, "notypeinfo")
 struct BB
 {
     aaA*[] b;
@@ -81,10 +88,7 @@ struct BB
  * it is completely opaque.
  */
 
-struct AA
-{
-    BB* a;
-}
+alias BB* AA;
 
 /**********************************
  * Align to next pointer boundary, so that
@@ -198,9 +202,9 @@ size_t _aaLen(AA aa)
 	    }
 	}
 
-	if (aa.a)
+	if (aa)
 	{
-	    foreach (e; aa.a.b)
+	    foreach (e; aa.b)
 	    {
 		if (e)
 		    _aaLen_x(e);
@@ -212,7 +216,7 @@ size_t _aaLen(AA aa)
     }
     body
     {
-	return aa.a ? aa.a.nodes : 0;
+	return aa ? aa.nodes : 0;
     }
 
 
@@ -221,7 +225,7 @@ size_t _aaLen(AA aa)
  * Add entry for key if it is not already there.
  */
 
-void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, ...)
+void* _aaGet(AA* aa, TypeInfo keyti, void* pkey, size_t valuesize)
     in
     {
 	assert(aa);
@@ -229,32 +233,32 @@ void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, ...)
     out (result)
     {
 	assert(result);
-	assert(aa.a);
-	assert(aa.a.b.length);
-	//assert(_aaInAh(*aa.a, key));
+	assert(*aa);
+	assert((*aa).b.length);
+	//assert(_aaInAh(*aa, key));
     }
     body
     {
-	auto pkey = cast(void *)(&valuesize + 1);
+	//auto pkey = cast(void *)(&valuesize + 1);
 	size_t i;
 	aaA* e;
 	auto keysize = aligntsize(keyti.tsize());
 
-	if (!aa.a)
-	    aa.a = new BB();
+	if (!*aa)
+	    *aa = new BB();
 
-	if (!aa.a.b.length)
+	if (!(*aa).b.length)
 	{
 	    alias aaA *pa;
 	    auto len = prime_list[0];
 
-	    aa.a.b = new pa[len];
+	    (*aa).b = new pa[len];
 	}
 
 	auto key_hash = keyti.getHash(pkey);
 	//printf("hash = %d\n", key_hash);
-	i = key_hash % aa.a.b.length;
-	auto pe = &aa.a.b[i];
+	i = key_hash % (*aa).b.length;
+	auto pe = &(*aa).b[i];
 	while ((e = *pe) != null)
 	{
 	    if (key_hash == e.hash)
@@ -275,9 +279,9 @@ void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, ...)
 	e.hash = key_hash;
 	*pe = e;
 
-	auto nodes = ++aa.a.nodes;
-	//printf("length = %d, nodes = %d\n", (*aa.a).length, nodes);
-	if (nodes > aa.a.b.length * 4)
+	auto nodes = ++(*aa).nodes;
+	//printf("length = %d, nodes = %d\n", (*aa).length, nodes);
+	if (nodes > (*aa).b.length * 4)
 	{
 	    _aaRehash(aa,keyti);
 	}
@@ -292,22 +296,22 @@ void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, ...)
  * Returns null if it is not already there.
  */
 
-void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, ...)
+void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, void* pkey)
     {
 	//printf("_aaGetRvalue(valuesize = %u)\n", valuesize);
-	if (!aa.a)
+	if (!aa)
 	    return null;
 
-	auto pkey = cast(void *)(&valuesize + 1);
+	//auto pkey = cast(void *)(&valuesize + 1);
 	auto keysize = aligntsize(keyti.tsize());
-	auto len = aa.a.b.length;
+	auto len = aa.b.length;
 
 	if (len)
 	{
 	    auto key_hash = keyti.getHash(pkey);
 	    //printf("hash = %d\n", key_hash);
 	    size_t i = key_hash % len;
-	    auto e = aa.a.b[i];
+	    auto e = aa.b[i];
 	    while (e != null)
 	    {
 		if (key_hash == e.hash)
@@ -332,7 +336,7 @@ void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, ...)
  *	!=null	in aa, return pointer to value
  */
 
-void* _aaIn(AA aa, TypeInfo keyti, ...)
+void* _aaIn(AA aa, TypeInfo keyti, void* pkey)
     in
     {
     }
@@ -342,19 +346,19 @@ void* _aaIn(AA aa, TypeInfo keyti, ...)
     }
     body
     {
-	if (aa.a)
+	if (aa)
 	{
-	    auto pkey = cast(void *)(&keyti + 1);
+	    //auto pkey = cast(void *)(&keyti + 1);
 
-	    //printf("_aaIn(), .length = %d, .ptr = %x\n", aa.a.length, cast(uint)aa.a.ptr);
-	    auto len = aa.a.b.length;
+	    //printf("_aaIn(), .length = %d, .ptr = %x\n", aa.length, cast(uint)aa.ptr);
+	    auto len = aa.b.length;
 
 	    if (len)
 	    {
 		auto key_hash = keyti.getHash(pkey);
 		//printf("hash = %d\n", key_hash);
 		size_t i = key_hash % len;
-		auto e = aa.a.b[i];
+		auto e = aa.b[i];
 		while (e != null)
 		{
 		    if (key_hash == e.hash)
@@ -380,17 +384,17 @@ void* _aaIn(AA aa, TypeInfo keyti, ...)
  * If key is not in aa[], do nothing.
  */
 
-void _aaDel(AA aa, TypeInfo keyti, ...)
+void _aaDel(AA aa, TypeInfo keyti, void* pkey)
     {
-	auto pkey = cast(void *)(&keyti + 1);
+	//auto pkey = cast(void *)(&keyti + 1);
 	aaA* e;
 
-	if (aa.a && aa.a.b.length)
+	if (aa && aa.b.length)
 	{
 	    auto key_hash = keyti.getHash(pkey);
 	    //printf("hash = %d\n", key_hash);
-	    size_t i = key_hash % aa.a.b.length;
-	    auto pe = &aa.a.b[i];
+	    size_t i = key_hash % aa.b.length;
+	    auto pe = &aa.b[i];
 	    while ((e = *pe) != null)	// null means not found
 	    {
 		if (key_hash == e.hash)
@@ -423,7 +427,7 @@ void _aaDel(AA aa, TypeInfo keyti, ...)
 			    e.right = null;
 			}
 
-			aa.a.nodes--;
+			aa.nodes--;
 
 			// Should notify GC that e can be free'd now
 			break;
@@ -470,19 +474,19 @@ ArrayRet_t _aaValues(AA aa, size_t keysize, size_t valuesize)
 	    } while (e != null);
 	}
 
-	if (aa.a)
+	if (aa)
 	{
 	    a.length = _aaLen(aa);
 	    a.ptr = (new void[a.length * valuesize]).ptr;
 	    resi = 0;
-	    foreach (e; aa.a.b)
+	    foreach (e; aa.b)
 	    {
 		if (e)
 		    _aaValues_x(e);
 	    }
 	    assert(resi == a.length);
 	}
-	return *cast(ArrayRet_t*)(&a);
+	return a;
     }
 
 
@@ -493,6 +497,7 @@ ArrayRet_t _aaValues(AA aa, size_t keysize, size_t valuesize)
 void* _aaRehash(AA* paa, TypeInfo keyti)
     in
     {
+    assert(paa);
 	//_aaInvAh(paa);
     }
     out (result)
@@ -549,9 +554,9 @@ void* _aaRehash(AA* paa, TypeInfo keyti)
 	}
 
 	//printf("Rehash\n");
-	if (paa.a)
+	if (paa)
 	{
-	    auto aa = paa.a;
+	    auto aa = *paa;
 	    auto len = _aaLen(*paa);
 	    if (len)
 	    {   size_t i;
@@ -573,9 +578,9 @@ void* _aaRehash(AA* paa, TypeInfo keyti)
 		newb.nodes = aa.nodes;
 	    }
 
-	    *paa.a = newb;
+	    **paa = newb;
 	}
-	return (*paa).a;
+	return *paa;
     }
 
 
@@ -607,20 +612,17 @@ ArrayRet_t _aaKeys(AA aa, size_t keysize)
 
 	auto len = _aaLen(aa);
 	if (!len)
-	    return 0;
+	    return ArrayRet_t.init;
 	res = cast(byte[])new void[len * keysize];
 	resi = 0;
-	foreach (e; aa.a.b)
+	foreach (e; aa.b)
 	{
 	    if (e)
 		_aaKeys_x(e);
 	}
 	assert(resi == len);
 
-	Array a;
-	a.length = len;
-	a.ptr = res.ptr;
-	return *cast(ArrayRet_t*)(&a);
+	return Array(len, res.ptr);
     }
 
 
@@ -639,7 +641,7 @@ in
 body
 {   int result;
 
-    //printf("_aaApply(aa = x%llx, keysize = %d, dg = x%llx)\n", aa.a, keysize, dg);
+    //printf("_aaApply(aa = x%llx, keysize = %d, dg = x%llx)\n", aa, keysize, dg);
 
     int treewalker(aaA* e)
     {	int result;
@@ -666,9 +668,9 @@ body
 	return result;
     }
 
-    if (aa.a)
+    if (aa)
     {
-	foreach (e; aa.a.b)
+	foreach (e; aa.b)
 	{
 	    if (e)
 	    {
@@ -692,7 +694,7 @@ in
 body
 {   int result;
 
-    //printf("_aaApply(aa = x%llx, keysize = %d, dg = x%llx)\n", aa.a, keysize, dg);
+    //printf("_aaApply(aa = x%llx, keysize = %d, dg = x%llx)\n", aa, keysize, dg);
 
     int treewalker(aaA* e)
     {	int result;
@@ -719,9 +721,9 @@ body
 	return result;
     }
 
-    if (aa.a)
+    if (aa)
     {
-	foreach (e; aa.a.b)
+	foreach (e; aa.b)
 	{
 	    if (e)
 	    {

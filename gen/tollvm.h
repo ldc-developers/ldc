@@ -74,6 +74,7 @@ void DtoForceConstInitDsymbol(Dsymbol* dsym);
 void DtoForceDefineDsymbol(Dsymbol* dsym);
 
 // llvm wrappers
+void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes);
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
 bool DtoCanLoad(llvm::Value* ptr);
 llvm::Value* DtoLoad(llvm::Value* src);

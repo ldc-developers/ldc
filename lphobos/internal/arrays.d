@@ -78,7 +78,7 @@ void _d_array_init_pointer(void** a, size_t n, void* v)
         *p++ = v;
 }
 
-void _d_array_init(void* a, size_t na, void* v, size_t nv)
+void _d_array_init_mem(void* a, size_t na, void* v, size_t nv)
 {
     auto p = a;
     auto end = a + na*nv;

@@ -151,11 +151,11 @@ static size_t checkRectArrayInit(const llvm::Type* pt, constLLVMTypeP& finalty)
 
 void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 {
-    Logger::println("HELLO");
     Logger::cout() << "array: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
     const llvm::Type* pt = ptr->getType()->getContainedType(0);
     const llvm::Type* t = val->getType();
     const llvm::Type* finalTy;
+    size_t aggrsz = 0;
     if (size_t arrsz = checkRectArrayInit(pt, finalTy)) {
         assert(finalTy == t);
         llvm::Constant* c = isaConstant(dim);
@@ -164,11 +164,26 @@ void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
         ptr = gIR->ir->CreateBitCast(ptr, llvm::PointerType::get(finalTy), "tmp");
     }
     else if (isaStruct(t)) {
-        assert(0);
+        aggrsz = gTargetData->getTypeSize(t);
+        llvm::Constant* c = isaConstant(val);
+        if (c && c->isNullValue()) {
+            llvm::Value* nbytes;
+            if (aggrsz == 1)
+                nbytes = dim;
+            else
+                nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(aggrsz), "tmp");
+            DtoMemSetZero(ptr,nbytes);
+            return;
+        }
+        else {
+            ptr = gIR->ir->CreateBitCast(ptr, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
+        }
     }
     else {
         assert(t == pt);
     }
+
+    Logger::cout() << "array: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
 
     std::vector<llvm::Value*> args;
     args.push_back(ptr);
@@ -177,7 +192,11 @@ void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 
     const char* funcname = NULL;
 
-    if (isaPointer(t)) {
+    if (aggrsz) {
+        funcname = "_d_array_init_mem";
+        args.push_back(DtoConstSize_t(aggrsz));
+    }
+    else if (isaPointer(t)) {
         funcname = "_d_array_init_pointer";
 
         const llvm::Type* dstty = llvm::PointerType::get(llvm::PointerType::get(llvm::Type::Int8Ty));

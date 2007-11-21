@@ -1515,6 +1515,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	nm = name[n->ty == Twchar];
 	fd = FuncDeclaration::genCfunc(Type::tindex, nm);
     fd->llvmRunTimeHack = true;
+    ((TypeFunction*)fd->type)->llvmRetInPtr = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1533,6 +1534,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	nm = name[n->ty == Twchar];
 	fd = FuncDeclaration::genCfunc(Type::tindex, nm);
     fd->llvmRunTimeHack = true;
+    ((TypeFunction*)fd->type)->llvmRetInPtr = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1551,6 +1553,8 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	assert(size);
 	dup = (ident == Id::dup);
 	fd = FuncDeclaration::genCfunc(Type::tindex, dup ? Id::adDup : Id::adReverse);
+    fd->llvmRunTimeHack = true;
+    ((TypeFunction*)fd->type)->llvmRetInPtr = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1571,6 +1575,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	fd = FuncDeclaration::genCfunc(tint32->arrayOf(),
 		(char*)(n->ty == Tbit ? "_adSortBit" : "_adSort"));
     fd->llvmRunTimeHack = true;
+    ((TypeFunction*)fd->type)->llvmRetInPtr = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();

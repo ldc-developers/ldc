@@ -654,33 +654,69 @@ void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
 
 void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
 {
-    assert(0 && "TypeInfoAssociativeArrayDeclaration");
+    Logger::println("TypeInfoAssociativeArrayDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfoassociativearray;
+    DtoResolveClass(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
 }
 
 void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 {
-    assert(0 && "TypeInfoAssociativeArrayDeclaration");
+    Logger::println("TypeInfoAssociativeArrayDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfoassociativearray;
+    DtoForceConstInitDsymbol(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // initializer vector
+    std::vector<llvm::Constant*> sinits;
+    // first is always the vtable
+    sinits.push_back(base->llvmVtbl);
+
+    // get type
+    assert(tinfo->ty == Taarray);
+    TypeAArray *tc = (TypeAArray *)tinfo;
+
+    // value typeinfo
+    tc->next->getTypeInfo(NULL);
+
+    // get symbol
+    assert(tc->next->vtinfo);
+    DtoForceDeclareDsymbol(tc->next->vtinfo);
+    llvm::Constant* castbase = isaConstant(tc->next->vtinfo->llvmValue);
+    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(1));
+    sinits.push_back(castbase);
+
+    // key typeinfo
+    tc->index->getTypeInfo(NULL);
+
+    // get symbol
+    assert(tc->index->vtinfo);
+    DtoForceDeclareDsymbol(tc->index->vtinfo);
+    castbase = isaConstant(tc->index->vtinfo->llvmValue);
+    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(2));
+    sinits.push_back(castbase);
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
 }
 
 void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoAssociativeArrayDeclaration");
-
-    /*
-    //printf("TypeInfoAssociativeArrayDeclaration::toDt()\n");
-    dtxoff(pdt, Type::typeinfoassociativearray->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_AssociativeArray
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Taarray);
-
-    TypeAArray *tc = (TypeAArray *)tinfo;
-
-    tc->next->getTypeInfo(NULL);
-    dtxoff(pdt, tc->next->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for array of type
-
-    tc->index->getTypeInfo(NULL);
-    dtxoff(pdt, tc->index->vtinfo->toSymbol(), 0, TYnptr); // TypeInfo for array of type
-    */
+    assert(0);
 }
 
 /* ========================================================================= */

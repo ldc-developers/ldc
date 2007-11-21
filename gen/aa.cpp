@@ -1,0 +1,153 @@
+#include "gen/llvm.h"
+
+#include "mtype.h"
+#include "declaration.h"
+#include "aggregate.h"
+
+#include "gen/aa.h"
+#include "gen/runtime.h"
+#include "gen/tollvm.h"
+#include "gen/logger.h"
+#include "gen/irstate.h"
+#include "gen/dvalue.h"
+
+// makes sure the key value lives in memory so it can be passed to the runtime functions without problems
+// returns the pointer
+static llvm::Value* to_pkey(DValue* key)
+{
+    Type* keytype = key->getType();
+    bool needmem = !DtoIsPassedByRef(keytype);
+    llvm::Value* pkey;
+    if (key->isIm()) {
+        pkey = key->getRVal();
+    }
+    else if (DVarValue* var = key->isVar()) {
+        if (var->lval) {
+            pkey = key->getLVal();
+            needmem = false;
+        }
+        else {
+            pkey = key->getRVal();
+        }
+    }
+    else if (key->isConst()) {
+        needmem = true;
+        pkey = key->getRVal();
+    }
+    else {
+        assert(0);
+    }
+
+    // give memory
+    if (needmem) {
+        llvm::Value* tmp = new llvm::AllocaInst(DtoType(keytype), "aatmpkeystorage", gIR->topallocapoint());
+        DtoStore(pkey, tmp);
+        pkey = tmp;
+    }
+
+    return pkey;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+DValue* DtoAAIndex(Type* type, DValue* aa, DValue* key)
+{
+    // call:
+    // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, void* pkey, size_t valuesize)
+
+    // first get the runtime function
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaGet");
+    const llvm::FunctionType* funcTy = func->getFunctionType();
+
+    // aa param
+    llvm::Value* aaval = aa->getLVal();
+    aaval = DtoBitCast(aaval, funcTy->getParamType(0));
+
+    // keyti param
+    Type* keytype = key->getType();
+    keytype->getTypeInfo(NULL);
+    TypeInfoDeclaration* tid = keytype->getTypeInfoDeclaration();
+    assert(tid);
+    DtoResolveDsymbol(Type::typeinfo);
+    DtoForceDeclareDsymbol(tid);
+    assert(tid->llvmValue);
+    llvm::Value* keyti = tid->llvmValue;
+    keyti = DtoBitCast(keyti, funcTy->getParamType(1));
+
+    // pkey param
+    llvm::Value* pkey = to_pkey(key);
+    pkey = DtoBitCast(pkey, funcTy->getParamType(2));
+
+    // valuesize param
+    llvm::Value* valsize = DtoConstSize_t(gTargetData->getTypeSize(DtoType(type)));
+
+    // build arg vector
+    std::vector<llvm::Value*> args;
+    args.push_back(aaval);
+    args.push_back(keyti);
+    args.push_back(pkey);
+    args.push_back(valsize);
+
+    // call runtime
+    llvm::Value* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "aaGet");
+
+    // cast return value
+    const llvm::Type* targettype = llvm::PointerType::get(DtoType(type));
+    if (ret->getType() != targettype)
+        ret = DtoBitCast(ret, targettype);
+
+    return new DVarValue(type, ret, true);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+DValue* DtoAAIn(Type* type, DValue* aa, DValue* key)
+{
+    // call:
+    // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
+
+    // first get the runtime function
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaIn");
+    const llvm::FunctionType* funcTy = func->getFunctionType();
+
+    Logger::cout() << "_aaIn = " << *func << '\n';
+
+    // aa param
+    llvm::Value* aaval = aa->getRVal();
+    Logger::cout() << "aaval: " << *aaval << '\n';
+    Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
+    aaval = DtoBitCast(aaval, funcTy->getParamType(0));
+
+    // keyti param
+    Type* keytype = key->getType();
+    keytype->getTypeInfo(NULL);
+    TypeInfoDeclaration* tid = keytype->getTypeInfoDeclaration();
+    assert(tid);
+    DtoResolveDsymbol(Type::typeinfo);
+    DtoForceDeclareDsymbol(tid);
+    assert(tid->llvmValue);
+    llvm::Value* keyti = tid->llvmValue;
+    keyti = DtoBitCast(keyti, funcTy->getParamType(1));
+
+    // pkey param
+    llvm::Value* pkey = to_pkey(key);
+    pkey = DtoBitCast(pkey, funcTy->getParamType(2));
+
+    // build arg vector
+    std::vector<llvm::Value*> args;
+    args.push_back(aaval);
+    args.push_back(keyti);
+    args.push_back(pkey);
+
+    // call runtime
+    llvm::Value* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "aaIn");
+
+    // cast return value
+    const llvm::Type* targettype = DtoType(type);
+    if (ret->getType() != targettype)
+        ret = DtoBitCast(ret, targettype);
+
+    return new DImValue(type, ret);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////

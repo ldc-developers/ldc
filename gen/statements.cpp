@@ -128,8 +128,8 @@ void ExpStatement::toIR(IRState* p)
     Logger::println("ExpStatement::toIR(%d): %s", esi++, toChars());
     LOG_SCOPE;
 
-//     if (global.params.symdebug)
-//         DtoDwarfStopPoint(loc.linnum);
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     if (exp != 0) {
         elem* e = exp->toElem(p);
@@ -729,6 +729,18 @@ void ForeachStatement::toIR(IRState* p)
     else
     {
         assert(0 && "aggregate type is not Tarray or Tsarray");
+    }
+
+    if (niters->getType() != keytype)
+    {
+        size_t sz1 = gTargetData->getTypeSize(niters->getType());
+        size_t sz2 = gTargetData->getTypeSize(keytype);
+        if (sz1 < sz2)
+            niters = gIR->ir->CreateZExt(niters, keytype, "foreachtrunckey");
+        else if (sz1 > sz2)
+            niters = gIR->ir->CreateTrunc(niters, keytype, "foreachtrunckey");
+        else
+            niters = gIR->ir->CreateBitCast(niters, keytype, "foreachtrunckey");
     }
 
     llvm::Constant* delta = 0;

@@ -177,8 +177,11 @@ const llvm::Type* DtoType(Type* t)
     // associative arrays
     case Taarray:
     {
-        // TODO this is a kludge
-        return llvm::PointerType::get(llvm::Type::Int8Ty);
+        TypeAArray* taa = (TypeAArray*)t;
+        std::vector<const llvm::Type*> types;
+        types.push_back(DtoType(taa->key));
+        types.push_back(DtoType(taa->next));
+        return llvm::PointerType::get(llvm::StructType::get(types));
     }
 
     default:
@@ -1232,6 +1235,32 @@ llvm::Constant* DtoConstNullPtr(const llvm::Type* t)
     return llvm::ConstantPointerNull::get(
         llvm::PointerType::get(t)
     );
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
+{
+    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    llvm::Value *dstarr;
+    if (dst->getType() == arrty)
+    {
+        dstarr = dst;
+    }
+    else
+    {
+        dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
+    }
+
+    llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemSet64() : LLVM_DeclareMemSet32();
+    std::vector<llvm::Value*> llargs;
+    llargs.resize(4);
+    llargs[0] = dstarr;
+    llargs[1] = llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false);
+    llargs[2] = nbytes;
+    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
+
+    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

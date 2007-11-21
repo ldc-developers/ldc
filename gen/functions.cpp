@@ -44,6 +44,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     }
     else {
         assert(rt);
+        Type* rtfin = DtoDType(rt);
         if (DtoIsPassedByRef(rt)) {
             rettype = llvm::PointerType::get(DtoType(rt));
             actualRettype = llvm::Type::VoidTy;

@@ -30,6 +30,7 @@
 #include "gen/typeinf.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/aa.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -66,6 +67,7 @@ DValue* DeclarationExp::toElem(IRState* p)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->llvmValue = allocainst;
             }
+
             Logger::cout() << "llvm value for decl: " << *vd->llvmValue << '\n';
             DValue* ie = DtoInitializer(vd->init);
         }
@@ -409,8 +411,13 @@ DValue* StringExp::toElem(IRState* p)
         else if (p->topexp()->e2 == this) {
             DValue* arr = p->topexp()->v;
             assert(arr);
-            DtoSetArray(arr->getLVal(), clen, arrptr);
-            return new DImValue(type, arr->getLVal(), true);
+            if (arr->isSlice()) {
+                return new DSliceValue(type, clen, arrptr);
+            }
+            else {
+                DtoSetArray(arr->getRVal(), clen, arrptr);
+                return new DImValue(type, arr->getLVal(), true);
+            }
         }
         assert(0);
     }
@@ -490,7 +497,14 @@ DValue* AssignExp::toElem(IRState* p)
 
     if (l->isSlice() || l->isComplex())
         return l;
-    return new DImValue(type, l->getRVal());
+
+    llvm::Value* v;
+    if (l->isVar() && l->isVar()->lval)
+        v = l->getLVal();
+    else
+        v = l->getRVal();
+
+    return new DVarValue(type, v, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -893,15 +907,26 @@ DValue* CallExp::toElem(IRState* p)
             llvm::Value* tlv = topexp->v->getLVal();
             assert(isaStruct(tlv->getType()->getContainedType(0)));
             llargs[j] = tlv;
-            if (DtoIsPassedByRef(tf->next)) {
+            isInPlace = true;
+            /*if (DtoIsPassedByRef(tf->next)) {
                 isInPlace = true;
             }
             else
-            assert(0);
+            assert(0);*/
         }
         else {
             llargs[j] = new llvm::AllocaInst(argiter->get()->getContainedType(0),"rettmp",p->topallocapoint());
         }
+
+        if (dfn && dfn->func && dfn->func->llvmRunTimeHack) {
+            const llvm::Type* rettype = llvm::PointerType::get(DtoType(type));
+            if (llargs[j]->getType() != llfnty->getParamType(j)) {
+                Logger::println("llvmRunTimeHack==true - force casting return value param");
+                Logger::cout() << "casting: " << *llargs[j] << " to type: " << *llfnty->getParamType(j) << '\n';
+                llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
+            }
+        }
+
         ++j;
         ++argiter;
     }
@@ -1004,10 +1029,12 @@ DValue* CallExp::toElem(IRState* p)
                 llargs[j] = DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
                 // this hack is necessary :/
                 if (dfn && dfn->func && dfn->func->llvmRunTimeHack) {
-                    Logger::println("llvmRunTimeHack==true - force casting argument");
-                    if (llargs[j]->getType() != llfnty->getParamType(j)) {
-                        Logger::cout() << "from: " << *llargs[j]->getType() << " to: " << *llfnty->getParamType(j);
-                        llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
+                    if (llfnty->getParamType(j) != NULL) {
+                        if (llargs[j]->getType() != llfnty->getParamType(j)) {
+                            Logger::println("llvmRunTimeHack==true - force casting argument");
+                            Logger::cout() << "casting: " << *llargs[j] << " to type: " << *llfnty->getParamType(j) << '\n';
+                            llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
+                        }
                     }
                 }
             }
@@ -1024,11 +1051,20 @@ DValue* CallExp::toElem(IRState* p)
     if (llfnty->getReturnType() != llvm::Type::VoidTy)
         varname = "tmp";
 
-    Logger::cout() << "Calling: " << *funcval->getType() << '\n';
+    Logger::cout() << "Calling: " << *funcval << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
     llvm::Value* retllval = (retinptr) ? llargs[0] : call;
+
+    if (retinptr && dfn && dfn->func && dfn->func->llvmRunTimeHack) {
+        const llvm::Type* rettype = llvm::PointerType::get(DtoType(type));
+        if (retllval->getType() != rettype) {
+            Logger::println("llvmRunTimeHack==true - force casting return value");
+            Logger::cout() << "from: " << *retllval->getType() << " to: " << *rettype << '\n';
+            retllval = DtoBitCast(retllval, rettype);
+        }
+    }
 
     // set calling convention
     if (dfn && dfn->func) {
@@ -1328,7 +1364,13 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = new llvm::LoadInst(arrptr,"tmp",p->scopebb());
         arrptr = new llvm::GetElementPtrInst(arrptr,r->getRVal(),"tmp",p->scopebb());
     }
-    assert(arrptr);
+    else if (e1type->ty == Taarray) {
+        return DtoAAIndex(type, l, r);
+    }
+    else {
+        Logger::println("invalid index exp! e1type: %s", e1type->toChars());
+        assert(0);
+    }
     return new DVarValue(type, arrptr, true);
 }
 
@@ -2452,11 +2494,24 @@ llvm::Constant* StructLiteralExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* InExp::toElem(IRState* p)
+{
+    Logger::print("InExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    DValue* key = e1->toElem(p);
+    DValue* aa = e2->toElem(p);
+
+    return DtoAAIn(type, aa, key);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 //STUB(IdentityExp);
 //STUB(CondExp);
 //STUB(EqualExp);
-STUB(InExp);
+//STUB(InExp);
 //STUB(CmpExp);
 //STUB(AndAndExp);
 //STUB(OrOrExp);

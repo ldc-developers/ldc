@@ -98,7 +98,7 @@
       <hidenonlocation>false</hidenonlocation>
     </groups>
     <tree>
-      <hidepatterns>*.bc</hidepatterns>
+      <hidepatterns>*.bc,*.ll</hidepatterns>
       <hidenonprojectfiles>false</hidenonprojectfiles>
     </tree>
   </kdevfileview>

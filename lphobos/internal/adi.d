@@ -51,7 +51,7 @@ struct Array
  * reversed.
  */
 
-extern (C) long _adReverseChar(char[] a)
+extern (C) char[] _adReverseChar(char[] a)
 {
     if (a.length > 1)
     {
@@ -111,7 +111,7 @@ extern (C) long _adReverseChar(char[] a)
         hi = hi - 1 + (stridehi - stridelo);
     }
     }
-    return *cast(long*)(&a);
+    return a;
 }
 
 unittest
@@ -147,7 +147,7 @@ unittest
  * reversed.
  */
 
-extern (C) long _adReverseWchar(wchar[] a)
+extern (C) wchar[] _adReverseWchar(wchar[] a)
 {
     if (a.length > 1)
     {
@@ -205,7 +205,7 @@ extern (C) long _adReverseWchar(wchar[] a)
         hi = hi - 1 + (stridehi - stridelo);
     }
     }
-    return *cast(long*)(&a);
+    return a;
 }
 
 unittest
@@ -230,13 +230,8 @@ unittest
  * Support for array.reverse property.
  */
 
-extern (C) long _adReverse(Array a, size_t szelem)
-    out (result)
-    {
-    assert(result is *cast(long*)(&a));
-    }
-    body
-    {
+extern (C) Array _adReverse(Array a, size_t szelem)
+{
     if (a.length >= 2)
     {
         byte* tmp;
@@ -272,8 +267,8 @@ extern (C) long _adReverse(Array a, size_t szelem)
             //delete tmp;
         }
     }
-    return *cast(long*)(&a);
-    }
+    return a;
+}
 
 unittest
 {
@@ -364,7 +359,7 @@ unittest
  * Sort array of chars.
  */
 
-extern (C) long _adSortChar(char[] a)
+extern (C) char[] _adSortChar(char[] a)
 {
     if (a.length > 1)
     {
@@ -379,14 +374,14 @@ extern (C) long _adSortChar(char[] a)
     }
     delete da;
     }
-    return *cast(long*)(&a);
+    return a;
 }
 
 /**********************************************
  * Sort array of wchars.
  */
 
-extern (C) long _adSortWchar(wchar[] a)
+extern (C) wchar[] _adSortWchar(wchar[] a)
 {
     if (a.length > 1)
     {
@@ -401,7 +396,7 @@ extern (C) long _adSortWchar(wchar[] a)
     }
     delete da;
     }
-    return *cast(long*)(&a);
+    return a;
 }
 
 /**********************************************
@@ -802,4 +797,42 @@ unittest
     assert(a <= e);
     assert(a >= e);
 }
+}
+
+/**********************************
+ * Support for array.dup property.
+ */
+
+extern(C)
+void* _d_realloc(void*, size_t);
+
+extern(C)
+Array _adDupT(TypeInfo ti, Array a)
+{
+    Array r;
+    if (a.length)
+    {
+        auto sizeelem = ti.next.tsize();        // array element size
+        auto size = a.length * sizeelem;
+        r.ptr = _d_realloc(null,size);
+        r.length = a.length;
+        memcpy(r.ptr, a.ptr, size);
+    }
+    return r;
+}
+
+unittest
+{
+    int[] a;
+    int[] b;
+    int i;
+
+    debug(adi) printf("array.dup.unittest\n");
+
+    a = new int[3];
+    a[0] = 1; a[1] = 2; a[2] = 3;
+    b = a.dup;
+    assert(b.length == 3);
+    for (i = 0; i < 3; i++)
+    assert(b[i] == i + 1);
 }

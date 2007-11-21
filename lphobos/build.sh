@@ -51,7 +51,8 @@ llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || ex
 echo "compiling garbage collector"
 llvmdc gc/gclinux.d -c -odobj || exit 1
 llvmdc gc/gcstub.d -c -odobj -Igc || exit 1
-llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcstub.bc ../lib/llvmdcore.bc || exit 1
+llvmdc gc/gcbits.d -c -odobj -Igc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcstub.bc obj/gcbits.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling phobos"
 rebuild phobos.d -c -oqobj -dc=llvmdc-posix || exit 1
