@@ -457,7 +457,7 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
         for (size_t i = 0; i < cd2->members->dim; i++)
         {
         Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
-        if (VarDeclaration* vd = sm->isVarDeclaration())
+        if (VarDeclaration* vd = sm->isVarDeclaration()) // is this enough?
         {
             llvm::Constant* c = build_offti_entry(vd);
             assert(c);
@@ -493,6 +493,75 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
     }
 
     return DtoConstSlice(size, ptr);
+}
+
+static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
+{
+    // construct the function
+    std::vector<const llvm::Type*> paramTypes;
+    paramTypes.push_back(llvm::PointerType::get(cd->type->llvmType->get()));
+
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy, paramTypes, false);
+
+    if (cd->dtors.dim == 0) {
+        return llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+    }
+    else if (cd->dtors.dim == 1) {
+        DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[0];
+        DtoForceDeclareDsymbol(d);
+        assert(d->llvmValue);
+        return llvm::ConstantExpr::getBitCast(isaConstant(d->llvmValue), llvm::PointerType::get(llvm::Type::Int8Ty));
+    }
+
+    std::string gname("_D");
+    gname.append(cd->mangle());
+    gname.append("12__destructorMFZv");
+
+    llvm::Function* func = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, gname, gIR->module);
+    llvm::Value* thisptr = func->arg_begin();
+    thisptr->setName("this");
+
+    llvm::BasicBlock* bb = new llvm::BasicBlock("entry", func);
+    LLVMBuilder builder(bb);
+
+    for (size_t i = 0; i < cd->dtors.dim; i++)
+    {
+        DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[i];
+        DtoForceDeclareDsymbol(d);
+        assert(d->llvmValue);
+        builder.CreateCall(d->llvmValue, thisptr);
+    }
+    builder.CreateRetVoid();
+
+    return llvm::ConstantExpr::getBitCast(func, llvm::PointerType::get(llvm::Type::Int8Ty));
+}
+
+static uint build_classinfo_flags(ClassDeclaration* cd)
+{
+    uint flags = 0;
+    //flags |= isCOMclass(); // IUnknown
+    bool hasOffTi = false;
+    if (cd->ctor) flags |= 8;
+    for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
+    {
+    if (cd2->members)
+    {
+        for (size_t i = 0; i < cd2->members->dim; i++)
+        {
+        Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
+        if (sm->isVarDeclaration()) // is this enough?
+            hasOffTi = true;
+        //printf("sm = %s %s\n", sm->kind(), sm->toChars());
+        if (sm->hasPointers())
+            goto L2;
+        }
+    }
+    }
+    flags |= 2;         // no pointers
+L2:
+    if (hasOffTi)
+        flags |= 4;
+    return flags;
 }
 
 void DtoDefineClassInfo(ClassDeclaration* cd)
@@ -594,8 +663,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
 
     // destructor
-    // TODO
-    c = cinfo->llvmInitZ->getOperand(6);
+    c = build_class_dtor(cd);
     inits.push_back(c);
 
     // invariant
@@ -604,25 +672,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // uint flags, adapted from original dmd code
-    uint flags = 0;
-    //flags |= 4; // has offTi
-    //flags |= isCOMclass(); // IUnknown
-    if (cd->ctor) flags |= 8;
-    for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
-    {
-    if (cd2->members)
-    {
-        for (size_t i = 0; i < cd2->members->dim; i++)
-        {
-        Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
-        //printf("sm = %s %s\n", sm->kind(), sm->toChars());
-        if (sm->hasPointers())
-            goto L2;
-        }
-    }
-    }
-    flags |= 2;         // no pointers
-L2:
+    uint flags = build_classinfo_flags(cd);
     c = DtoConstUint(flags);
     inits.push_back(c);
 
