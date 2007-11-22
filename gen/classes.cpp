@@ -414,6 +414,87 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
     cd->llvmClass = new llvm::GlobalVariable(st, true, llvm::GlobalValue::ExternalLinkage, NULL, gname, gIR->module);
 }
 
+static llvm::Constant* build_offti_entry(VarDeclaration* vd)
+{
+    std::vector<const llvm::Type*> types;
+    std::vector<llvm::Constant*> inits;
+
+    types.push_back(DtoSize_t());
+
+    size_t offset = vd->offset; // TODO might not be the true offset
+    // dmd only accounts for the vtable, not classinfo or monitor
+    if (global.params.is64bit)
+        offset += 8;
+    else
+        offset += 4;
+    inits.push_back(DtoConstSize_t(offset));
+
+    vd->type->getTypeInfo(NULL);
+    assert(vd->type->vtinfo);
+    DtoForceDeclareDsymbol(vd->type->vtinfo);
+    llvm::Constant* c = isaConstant(vd->type->vtinfo->llvmValue);
+
+    const llvm::Type* tiTy = llvm::PointerType::get(Type::typeinfo->type->llvmType->get());
+    Logger::cout() << "tiTy = " << *tiTy << '\n';
+
+    types.push_back(tiTy);
+    inits.push_back(llvm::ConstantExpr::getBitCast(c, tiTy));
+
+    const llvm::StructType* sTy = llvm::StructType::get(types);
+    return llvm::ConstantStruct::get(sTy, inits);
+}
+
+static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* init)
+{
+    const llvm::StructType* initTy = isaStruct(init->getType());
+    assert(initTy);
+
+    std::vector<llvm::Constant*> arrayInits;
+    for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
+    {
+    if (cd2->members)
+    {
+        for (size_t i = 0; i < cd2->members->dim; i++)
+        {
+        Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
+        if (VarDeclaration* vd = sm->isVarDeclaration())
+        {
+            llvm::Constant* c = build_offti_entry(vd);
+            assert(c);
+            arrayInits.push_back(c);
+        }
+        }
+    }
+    }
+
+    size_t ninits = arrayInits.size();
+    llvm::Constant* size = DtoConstSize_t(ninits);
+    llvm::Constant* ptr;
+
+    if (ninits > 0) {
+        // OffsetTypeInfo type
+        std::vector<const llvm::Type*> elemtypes;
+        elemtypes.push_back(DtoSize_t());
+        const llvm::Type* tiTy = llvm::PointerType::get(Type::typeinfo->type->llvmType->get());
+        elemtypes.push_back(tiTy);
+        const llvm::StructType* sTy = llvm::StructType::get(elemtypes);
+
+        // array type
+        const llvm::ArrayType* arrTy = llvm::ArrayType::get(sTy, ninits);
+        llvm::Constant* arrInit = llvm::ConstantArray::get(arrTy, arrayInits);
+
+        std::string name(cd->type->vtinfo->toChars());
+        name.append("__OffsetTypeInfos");
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,llvm::GlobalValue::InternalLinkage,arrInit,name,gIR->module);
+        ptr = llvm::ConstantExpr::getBitCast(gvar, llvm::PointerType::get(sTy));
+    }
+    else {
+        ptr = llvm::ConstantPointerNull::get(isaPointer(initTy->getElementType(1)));
+    }
+
+    return DtoConstSlice(size, ptr);
+}
+
 void DtoDefineClassInfo(ClassDeclaration* cd)
 {
 //     The layout is:
@@ -552,7 +633,7 @@ L2:
 
     // offset typeinfo
     // TODO
-    c = cinfo->llvmInitZ->getOperand(10);
+    c = build_offti_array(cd, cinfo->llvmInitZ->getOperand(10));
     inits.push_back(c);
 
     // default constructor

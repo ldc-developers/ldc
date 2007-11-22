@@ -323,7 +323,6 @@ test/bug70.d
 test/bug71.d
 test/bug72.d
 test/bug73.d
-test/bug74.d
 test/bug8.d
 test/bug9.d
 test/c.d
@@ -337,6 +336,7 @@ test/classes7.d
 test/classes8.d
 test/classinfo1.d
 test/classinfo2.d
+test/classinfo3.d
 test/comma.d
 test/complex1.d
 test/complex2.d

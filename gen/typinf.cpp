@@ -819,7 +819,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // char[] name
     char *name = sd->toPrettyChars();
     sinits.push_back(DtoConstString(name));
-    Logger::println("************** A");
+    //Logger::println("************** A");
     assert(sinits.back()->getType() == stype->getElementType(1));
 
     // void[] init
@@ -881,7 +881,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 #endif
 
-    Logger::println("************** B");
+    //Logger::println("************** B");
     const llvm::PointerType* ptty = isaPointer(stype->getElementType(3));
 
     s = search_function(sd, Id::tohash);
@@ -909,7 +909,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     fdx = s ? s->isFuncDeclaration() : NULL;
     for (int i = 0; i < 2; i++)
     {
-        Logger::println("************** C %d", i);
+        //Logger::println("************** C %d", i);
         ptty = isaPointer(stype->getElementType(4+i));
         if (fdx)
         {
@@ -934,7 +934,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         fdx = s ? s->isFuncDeclaration() : NULL;
     }
 
-    Logger::println("************** D");
+    //Logger::println("************** D");
     ptty = isaPointer(stype->getElementType(6));
     s = search_function(sd, Id::tostring);
     fdx = s ? s->isFuncDeclaration() : NULL;
