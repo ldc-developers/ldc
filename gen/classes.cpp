@@ -632,13 +632,19 @@ L2:
     inits.push_back(c);
 
     // offset typeinfo
-    // TODO
     c = build_offti_array(cd, cinfo->llvmInitZ->getOperand(10));
     inits.push_back(c);
 
     // default constructor
-    // TODO
-    c = cinfo->llvmInitZ->getOperand(11);
+    if (cd->defaultCtor) {
+        DtoForceDeclareDsymbol(cd->defaultCtor);
+        c = isaConstant(cd->defaultCtor->llvmValue);
+        //const llvm::Type* toTy = cinfo->llvmInitZ->getOperand(11)->getType();
+        c = llvm::ConstantExpr::getBitCast(c, llvm::PointerType::get(llvm::Type::Int8Ty)); // toTy);
+    }
+    else {
+        c = cinfo->llvmInitZ->getOperand(11);
+    }
     inits.push_back(c);
 
     /*size_t n = inits.size();

@@ -337,6 +337,7 @@ test/classes8.d
 test/classinfo1.d
 test/classinfo2.d
 test/classinfo3.d
+test/classinfo4.d
 test/comma.d
 test/complex1.d
 test/complex2.d
