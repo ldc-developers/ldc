@@ -1289,7 +1289,7 @@ DValue* DotVarExp::toElem(IRState* p)
         if (e1type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1type;
             if (tc->sym->isInterfaceDeclaration()) {
-                vthis2 = DtoCastInterfaceToObject(l)->getRVal();
+                vthis2 = DtoCastInterfaceToObject(l, NULL)->getRVal();
             }
         }
         llvm::Value* vthis = l->getRVal();

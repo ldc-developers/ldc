@@ -4518,14 +4518,36 @@ L1:
          */
 #if IN_LLVM
 
-        e = e->castTo(sc, t->pointerTo()->pointerTo());
+        Type* ct;
+        if (sym->isInterfaceDeclaration()) {
+            ct = t->pointerTo()->pointerTo()->pointerTo();
+        }
+        else {
+            ct = t->pointerTo()->pointerTo();
+        }
+
+        e = e->castTo(sc, ct);
         e = new PtrExp(e->loc, e);
-        e->type = t->pointerTo();
+        e->type = ct->next;
         e = new PtrExp(e->loc, e);
-        e->type = t;
+        e->type = ct->next->next;
+
         if (sym->isInterfaceDeclaration())
         {
-            assert(0 && "No interfaces yet!");
+            if (sym->isCOMinterface())
+            {   /* COM interface vtbl[]s are different in that the
+             * first entry is always pointer to QueryInterface().
+             * We can't get a .classinfo for it.
+             */
+            error(e->loc, "no .classinfo for COM interface objects");
+            }
+            /* For an interface, the first entry in the vtbl[]
+             * is actually a pointer to an instance of struct Interface.
+             * The first member of Interface is the .classinfo,
+             * so add an extra pointer indirection.
+             */
+            e = new PtrExp(e->loc, e);
+            e->type = ct->next->next->next;
         }
 
 #else

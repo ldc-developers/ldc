@@ -128,11 +128,11 @@ void DtoResolveClass(ClassDeclaration* cd)
     else
         *ts->llvmType = structtype;
 
-    if (cd->parent->isModule()) {
-        gIR->module->addTypeName(cd->mangle(), ts->llvmType->get());
+    if (cd->isNested()) {
+        assert(0 && "nested classes not implemented");
     }
     else {
-        assert(0 && "class parent is not a module");
+        gIR->module->addTypeName(cd->mangle(), ts->llvmType->get());
     }
 
     // build interface info type
@@ -592,10 +592,50 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoCastObjectToInterface(DValue* val, Type* _to)
+DValue* DtoCastClass(DValue* val, Type* _to)
+{
+    Type* to = DtoDType(_to);
+    if (to->ty == Tpointer) {
+        const llvm::Type* tolltype = DtoType(_to);
+        llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
+        return new DImValue(_to, rval);
+    }
+
+    assert(to->ty == Tclass);
+    TypeClass* tc = (TypeClass*)to;
+
+    Type* from = DtoDType(val->getType());
+    TypeClass* fc = (TypeClass*)from;
+
+    if (tc->sym->isInterfaceDeclaration()) {
+        assert(!fc->sym->isInterfaceDeclaration());
+        return DtoDynamicCastObject(val, _to);
+    }
+    else {
+        int poffset;
+        if (fc->sym->isInterfaceDeclaration()) {
+            return DtoCastInterfaceToObject(val, _to);
+        }
+        else if (tc->sym->isBaseOf(fc->sym,NULL)) {
+            const llvm::Type* tolltype = DtoType(_to);
+            llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
+            return new DImValue(_to, rval);
+        }
+        else {
+            return DtoDynamicCastObject(val, _to);
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* DtoDynamicCastObject(DValue* val, Type* _to)
 {
     // call:
     // Object _d_dynamic_cast(Object o, ClassInfo c)
+
+    DtoForceDeclareDsymbol(ClassDeclaration::object);
+    DtoForceDeclareDsymbol(ClassDeclaration::classinfo);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     const llvm::FunctionType* funcTy = func->getFunctionType();
@@ -606,22 +646,31 @@ DValue* DtoCastObjectToInterface(DValue* val, Type* _to)
     llvm::Value* tmp = val->getRVal();
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
     args.push_back(tmp);
+    assert(funcTy->getParamType(0) == tmp->getType());
 
     // ClassInfo c
     TypeClass* to = (TypeClass*)DtoDType(_to);
     DtoForceDeclareDsymbol(to->sym);
     assert(to->sym->llvmClass);
-    args.push_back(to->sym->llvmClass);
+    tmp = to->sym->llvmClass;
+    // unfortunately this is needed as the implementation of object differs somehow from the declaration
+    // this could happen in user code as well :/
+    tmp = DtoBitCast(tmp, funcTy->getParamType(1));
+    args.push_back(tmp);
+    assert(funcTy->getParamType(1) == tmp->getType());
 
     // call it
     llvm::Value* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
+
+    // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
+
     return new DImValue(_to, ret);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoCastInterfaceToObject(DValue* val)
+DValue* DtoCastInterfaceToObject(DValue* val, Type* to)
 {
     // call:
     // Object _d_toObject(void* p)
@@ -635,7 +684,14 @@ DValue* DtoCastInterfaceToObject(DValue* val)
 
     // call it
     llvm::Value* ret = gIR->ir->CreateCall(func, tmp, "tmp");
-    return new DImValue(ClassDeclaration::object->type, ret);
+
+    // cast return value
+    if (to != NULL)
+        ret = DtoBitCast(ret, DtoType(to));
+    else
+        to = ClassDeclaration::object->type;
+
+    return new DImValue(to, ret);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

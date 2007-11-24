@@ -101,7 +101,6 @@ DValue* DtoCastInt(DValue* val, Type* to);
 DValue* DtoCastPtr(DValue* val, Type* to);
 DValue* DtoCastFloat(DValue* val, Type* to);
 DValue* DtoCastComplex(DValue* val, Type* to);
-DValue* DtoCastClass(DValue* val, Type* to);
 DValue* DtoCast(DValue* val, Type* to);
 
 // binary operations

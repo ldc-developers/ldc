@@ -328,6 +328,7 @@ test/bug8.d
 test/bug9.d
 test/c.d
 test/classes.d
+test/classes10.d
 test/classes2.d
 test/classes3.d
 test/classes4.d
@@ -335,6 +336,7 @@ test/classes5.d
 test/classes6.d
 test/classes7.d
 test/classes8.d
+test/classes9.d
 test/classinfo1.d
 test/classinfo2.d
 test/classinfo3.d
@@ -382,6 +384,9 @@ test/interface1.d
 test/interface2.d
 test/interface3.d
 test/interface4.d
+test/interface5.d
+test/interface6.d
+test/interface7.d
 test/intrinsics.d
 test/mainargs1.d
 test/memory1.d
