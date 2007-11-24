@@ -879,8 +879,6 @@ class TypeInfo_Class : TypeInfo
     ClassInfo info;
 }
 
-/+
-
 class TypeInfo_Interface : TypeInfo
 {
     char[] toString() { return info.name; }
@@ -943,8 +941,6 @@ class TypeInfo_Interface : TypeInfo
 
     ClassInfo info;
 }
-
-+/
 
 class TypeInfo_Struct : TypeInfo
 {
@@ -1038,8 +1034,6 @@ class TypeInfo_Struct : TypeInfo
     uint m_flags;
 }
 
-/+
-
 class TypeInfo_Tuple : TypeInfo
 {
     TypeInfo[] elements;
@@ -1101,8 +1095,6 @@ class TypeInfo_Tuple : TypeInfo
         assert(0);
     }
 }
-
-+/
 
 class TypeInfo_Const : TypeInfo
 {

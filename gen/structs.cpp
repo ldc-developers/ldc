@@ -445,7 +445,7 @@ DUnion::DUnion()
         }
     }
 
-    {
+    /*{
         LOG_SCOPE;
         Logger::println("******** DUnion BEGIN");
         size_t n = fields.size();
@@ -458,7 +458,7 @@ DUnion::DUnion()
             }
         }
         Logger::println("******** DUnion END");
-    }
+    }*/
 }
 
 static void push_nulls(size_t nbytes, std::vector<llvm::Constant*>& out)

@@ -192,7 +192,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         if (AggregateDeclaration* ad = fdecl->isMember()) {
             Logger::print("isMember = this is: %s\n", ad->type->toChars());
             thisty = DtoType(ad->type);
-            Logger::cout() << "this llvm type: " << *thisty << '\n';
+            //Logger::cout() << "this llvm type: " << *thisty << '\n';
             if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->recty.get()))
                 thisty = llvm::PointerType::get(thisty);
         }
@@ -277,7 +277,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     DtoFunctionType(fdecl);
 
     // queue declaration
-    gIR->declareList.push_back(fdecl);
+    if (!fdecl->isAbstract())
+        gIR->declareList.push_back(fdecl);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -289,6 +290,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     Logger::println("DtoDeclareFunction(%s)", fdecl->toPrettyChars());
     LOG_SCOPE;
+
+    assert(!fdecl->isAbstract());
 
     if (fdecl->llvmRunTimeHack) {
         Logger::println("runtime hack func chars: %s", fdecl->toChars());

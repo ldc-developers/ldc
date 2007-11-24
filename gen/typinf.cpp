@@ -1029,76 +1029,127 @@ void TypeInfoClassDeclaration::toDt(dt_t **pdt)
 
 void TypeInfoInterfaceDeclaration::llvmDeclare()
 {
-    assert(0 && "TypeInfoTupleDeclaration");
+    Logger::println("TypeInfoInterfaceDeclaration::llvmDeclare() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfointerface;
+    assert(base);
+    DtoResolveClass(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
 }
 
 void TypeInfoInterfaceDeclaration::llvmDefine()
 {
-    assert(0 && "TypeInfoTupleDeclaration");
+    Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfointerface;
+    assert(base);
+    DtoForceConstInitDsymbol(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // initializer vector
+    std::vector<llvm::Constant*> sinits;
+    // first is always the vtable
+    sinits.push_back(base->llvmVtbl);
+
+    // get classinfo
+    assert(tinfo->ty == Tclass);
+    TypeClass *tc = (TypeClass *)tinfo;
+    assert(tc->sym->llvmClass);
+    sinits.push_back(tc->sym->llvmClass);
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
 }
 
 void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoInterfaceDeclaration");
-
-    /*
-    //printf("TypeInfoInterfaceDeclaration::toDt() %s\n", tinfo->toChars());
-    dtxoff(pdt, Type::typeinfointerface->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfoInterface
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Tclass);
-
-    TypeClass *tc = (TypeClass *)tinfo;
-    Symbol *s;
-
-    if (!tc->sym->vclassinfo)
-    tc->sym->vclassinfo = new ClassInfoDeclaration(tc->sym);
-    s = tc->sym->vclassinfo->toSymbol();
-    dtxoff(pdt, s, 0, TYnptr);      // ClassInfo for tinfo
-    */
+    assert(0);
 }
 
 /* ========================================================================= */
 
 void TypeInfoTupleDeclaration::llvmDeclare()
 {
-    assert(0 && "TypeInfoTupleDeclaration");
+    Logger::println("TypeInfoTupleDeclaration::llvmDeclare() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfotypelist;
+    assert(base);
+    DtoResolveClass(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // create the symbol
+    llvmValue = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
 }
 
 void TypeInfoTupleDeclaration::llvmDefine()
 {
-    assert(0 && "TypeInfoTupleDeclaration");
+    Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    // init typeinfo class
+    ClassDeclaration* base = Type::typeinfotypelist;
+    assert(base);
+    DtoForceConstInitDsymbol(base);
+
+    // get type of typeinfo class
+    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+
+    // initializer vector
+    std::vector<llvm::Constant*> sinits;
+    // first is always the vtable
+    sinits.push_back(base->llvmVtbl);
+
+    // create elements array
+    assert(tinfo->ty == Ttuple);
+    TypeTuple *tu = (TypeTuple *)tinfo;
+
+    size_t dim = tu->arguments->dim;
+    std::vector<llvm::Constant*> arrInits;
+
+    const llvm::Type* tiTy = Type::typeinfo->type->llvmType->get();
+    tiTy = llvm::PointerType::get(tiTy);
+
+    for (size_t i = 0; i < dim; i++)
+    {
+        Argument *arg = (Argument *)tu->arguments->data[i];
+        arg->type->getTypeInfo(NULL);
+        DtoForceDeclareDsymbol(arg->type->vtinfo);
+        assert(arg->type->vtinfo->llvmValue);
+        llvm::Constant* c = isaConstant(arg->type->vtinfo->llvmValue);
+        c = llvm::ConstantExpr::getBitCast(c, tiTy);
+        arrInits.push_back(c);
+    }
+
+    // build array type
+    const llvm::ArrayType* arrTy = llvm::ArrayType::get(tiTy, dim);
+    llvm::Constant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
+
+    // build the slice
+    llvm::Constant* slice = DtoConstSlice(DtoConstSize_t(dim), arrC);
+    sinits.push_back(slice);
+
+    // create the symbol
+    llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
+    isaGlobalVar(llvmValue)->setInitializer(tiInit);
 }
 
 void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
 {
-    assert(0 && "TypeInfoTupleDeclaration");
-
-    /*
-    //printf("TypeInfoTupleDeclaration::toDt() %s\n", tinfo->toChars());
-    dtxoff(pdt, Type::typeinfotypelist->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfoInterface
-    dtdword(pdt, 0);                // monitor
-
-    assert(tinfo->ty == Ttuple);
-
-    TypeTuple *tu = (TypeTuple *)tinfo;
-
-    size_t dim = tu->arguments->dim;
-    dtdword(pdt, dim);              // elements.length
-
-    dt_t *d = NULL;
-    for (size_t i = 0; i < dim; i++)
-    {   Argument *arg = (Argument *)tu->arguments->data[i];
-    Expression *e = arg->type->getTypeInfo(NULL);
-    e = e->optimize(WANTvalue);
-    e->toDt(&d);
-    }
-
-    Symbol *s;
-    s = static_sym();
-    s->Sdt = d;
-    outdata(s);
-
-    dtxoff(pdt, s, 0, TYnptr);          // elements.ptr
-    */
+    assert(0);
 }

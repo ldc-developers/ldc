@@ -27,4 +27,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd);
 void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
 
+DValue* DtoCastObjectToInterface(DValue* val, Type* to);
+DValue* DtoCastInterfaceToObject(DValue* val);
+
 #endif

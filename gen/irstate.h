@@ -8,6 +8,7 @@
 #include <list>
 
 #include "root.h"
+#include "aggregate.h"
 
 // global ir state for current module
 struct IRState;
@@ -20,6 +21,7 @@ struct ClassDeclaration;
 struct FuncDeclaration;
 struct Module;
 struct TypeStruct;
+struct BaseClass;
 
 /*
 struct LLVMValue
@@ -39,6 +41,32 @@ struct IRScope
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
+struct IRInterface : Object
+{
+    BaseClass* base;
+    ClassDeclaration* decl;
+
+    const llvm::StructType* vtblTy;
+    llvm::ConstantStruct* vtblInit;
+    llvm::GlobalVariable* vtbl;
+
+    const llvm::StructType* infoTy;
+    llvm::ConstantStruct* infoInit;
+    llvm::Constant* info;
+
+    IRInterface(BaseClass* b, const llvm::StructType* vt)
+    {
+        base = b;
+        decl = b->base;
+        vtblTy = vt;
+        vtblInit = NULL;
+        vtbl = NULL;
+        infoTy = NULL;
+        infoInit = NULL;
+        info = NULL;
+    }
+};
+
 // represents a struct or class
 struct IRStruct : Object
 {
@@ -54,6 +82,8 @@ struct IRStruct : Object
 
     typedef std::multimap<unsigned, Offset> OffsetMap;
     typedef std::vector<VarDeclaration*> VarDeclVector;
+    typedef std::map<ClassDeclaration*, IRInterface*> InterfaceMap;
+    typedef InterfaceMap::iterator InterfaceIter;
 
 public:
     IRStruct(Type*);
@@ -62,6 +92,10 @@ public:
     llvm::PATypeHolder recty;
     OffsetMap offsets;
     VarDeclVector defaultFields;
+
+    InterfaceMap interfaces;
+    const llvm::ArrayType* interfaceInfosTy;
+    llvm::GlobalVariable* interfaceInfos;
 
     bool defined;
     bool constinited;

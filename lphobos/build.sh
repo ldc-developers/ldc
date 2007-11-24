@@ -27,6 +27,10 @@ echo "compiling typeinfo 2"
 rebuild typeinfos2.d -c -oqobj -dc=llvmdc-posix || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo2.*.bc` ../lib/llvmdcore.bc || exit 1
 
+echo "compiling object/interface casting runtime support"
+llvmdc internal/cast.d -c -odobj || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/cast.bc ../lib/llvmdcore.bc || exit 1
+
 echo "compiling string foreach runtime support"
 llvmdc internal/aApply.d -c -odobj || exit 1
 llvmdc internal/aApplyR.d -c -odobj || exit 1

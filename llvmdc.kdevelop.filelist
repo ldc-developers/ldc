@@ -148,6 +148,7 @@ lphobos/internal/aApplyR.d
 lphobos/internal/aaA.d
 lphobos/internal/adi.d
 lphobos/internal/arrays.d
+lphobos/internal/cast.d
 lphobos/internal/contract.d
 lphobos/internal/mem.d
 lphobos/internal/moduleinit.d
@@ -338,7 +339,6 @@ test/classinfo1.d
 test/classinfo2.d
 test/classinfo3.d
 test/classinfo4.d
-test/classinfo5.d
 test/comma.d
 test/complex1.d
 test/complex2.d
@@ -378,6 +378,10 @@ test/imag1.d
 test/imports2.d
 test/imports_1of2.d
 test/imports_2of2.d
+test/interface1.d
+test/interface2.d
+test/interface3.d
+test/interface4.d
 test/intrinsics.d
 test/mainargs1.d
 test/memory1.d

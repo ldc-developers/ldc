@@ -1140,11 +1140,35 @@ DValue* DtoCastComplex(DValue* val, Type* _to)
 
 DValue* DtoCastClass(DValue* val, Type* _to)
 {
-    const llvm::Type* tolltype = DtoType(_to);
     Type* to = DtoDType(_to);
-    assert(to->ty == Tclass || to->ty == Tpointer);
-    llvm::Value* rval = new llvm::BitCastInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
-    return new DImValue(_to, rval);
+    if (to->ty == Tpointer) {
+        const llvm::Type* tolltype = DtoType(_to);
+        llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
+        return new DImValue(_to, rval);
+    }
+
+    assert(to->ty == Tclass);
+    TypeClass* tc = (TypeClass*)to;
+
+    Type* from = DtoDType(val->getType());
+    TypeClass* fc = (TypeClass*)from;
+
+    if (tc->sym->isInterfaceDeclaration()) {
+        assert(!fc->sym->isInterfaceDeclaration());
+        return DtoCastObjectToInterface(val, _to);
+    }
+    else {
+        if (fc->sym->isInterfaceDeclaration()) {
+            assert(0);
+            return DtoCastInterfaceToObject(val);
+        }
+        else {
+            const llvm::Type* tolltype = DtoType(_to);
+            assert(to->ty == Tclass);
+            llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
+            return new DImValue(_to, rval);
+        }
+    }
 }
 
 DValue* DtoCast(DValue* val, Type* to)

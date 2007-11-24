@@ -1230,10 +1230,10 @@ DValue* PtrExp::toElem(IRState* p)
 
     if (p->topexp() && p->topexp()->e1 == this) {
         Logger::println("lval PtrExp");
-        //if (a->isField()) return a;
         return new DVarValue(type, a->getRVal(), true);
     }
 
+    // this should be deterministic but right now lvalue casts don't propagate lvalueness !?!
     llvm::Value* lv = a->getRVal();
     llvm::Value* v = lv;
     if (DtoCanLoad(v))
@@ -1253,7 +1253,7 @@ DValue* DotVarExp::toElem(IRState* p)
     Type* t = DtoDType(type);
     Type* e1type = DtoDType(e1->type);
 
-    Logger::print("e1->type=%s\n", e1type->toChars());
+    Logger::print("e1type=%s\n", e1type->toChars());
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         llvm::Value* arrptr;
@@ -1265,7 +1265,7 @@ DValue* DotVarExp::toElem(IRState* p)
             std::vector<unsigned> vdoffsets;
             arrptr = DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
         }
-        else if (e1->type->ty == Tclass) {
+        else if (e1type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1type;
             Logger::println("Class member offset: %d", vd->offset);
             std::vector<unsigned> vdoffsets(1,0);
@@ -1282,14 +1282,19 @@ DValue* DotVarExp::toElem(IRState* p)
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
-        if (fdecl->llvmValue == 0)
-        {
-            DtoForceDeclareDsymbol(fdecl);
-        }
+        DtoResolveDsymbol(fdecl);
 
-        llvm::Value* funcval = fdecl->llvmValue;
+        llvm::Value* funcval;
+        llvm::Value* vthis2 = 0;
+        if (e1type->ty == Tclass) {
+            TypeClass* tc = (TypeClass*)e1type;
+            if (tc->sym->isInterfaceDeclaration()) {
+                vthis2 = DtoCastInterfaceToObject(l)->getRVal();
+            }
+        }
         llvm::Value* vthis = l->getRVal();
-        unsigned cc = (unsigned)-1;
+        if (!vthis2) vthis2 = vthis;
+        //unsigned cc = (unsigned)-1;
 
         // virtual call
         if (!fdecl->isFinal() && fdecl->isVirtual()) {
@@ -1303,10 +1308,17 @@ DValue* DotVarExp::toElem(IRState* p)
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = DtoGEP(funcval, zero, vtblidx, toChars(), p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
-            assert(funcval->getType() == fdecl->llvmValue->getType());
-            cc = DtoCallingConv(fdecl->linkage);
+            //assert(funcval->getType() == DtoType(fdecl->type));
+            //cc = DtoCallingConv(fdecl->linkage);
         }
-        return new DFuncValue(fdecl, funcval, vthis);
+        // static call
+        else {
+            DtoForceDeclareDsymbol(fdecl);
+            funcval = fdecl->llvmValue;
+            assert(funcval);
+            //assert(funcval->getType() == DtoType(fdecl->type));
+        }
+        return new DFuncValue(fdecl, funcval, vthis2);
     }
     else {
         printf("unknown: %s\n", var->toChars());
@@ -1829,15 +1841,14 @@ DValue* DeleteExp::toElem(IRState* p)
     //assert(e1->type->ty != Tclass);
 
     DValue* v = e1->toElem(p);
-    llvm::Value* val = v->getRVal();
+    const llvm::Type* t = DtoType(v->getType());
     llvm::Value* ldval = 0;
-
-    const llvm::Type* t = val->getType();
     llvm::Constant* z = llvm::Constant::getNullValue(t);
 
     Type* e1type = DtoDType(e1->type);
 
     if (e1type->ty == Tpointer) {
+        llvm::Value* val = v->getRVal();
         Logger::cout() << *z << '\n';
         Logger::cout() << *val << '\n';
         new llvm::FreeInst(val, p->scopebb());
@@ -1845,16 +1856,23 @@ DValue* DeleteExp::toElem(IRState* p)
     }
     else if (e1type->ty == Tclass) {
         TypeClass* tc = (TypeClass*)e1type;
-        DtoCallClassDtors(tc, val);
+        llvm::Value* val = 0;
+        if (tc->sym->dtors.dim > 0) {
+            val = v->getRVal();
+            DtoCallClassDtors(tc, val);
+        }
 
         if (DVarValue* vv = v->isVar()) {
-            if (vv->var && !vv->var->onstack)
+            if (vv->var && !vv->var->onstack) {
+                if (!val) val = v->getRVal();
                 new llvm::FreeInst(val, p->scopebb());
+            }
         }
         new llvm::StoreInst(z, v->getLVal(), p->scopebb());
     }
     else if (e1type->ty == Tarray) {
         // must be on the heap (correct?)
+        llvm::Value* val = v->getRVal();
         llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
         llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
         llvm::Value* ptr = DtoGEP(val,zero,one,"tmp",p->scopebb());

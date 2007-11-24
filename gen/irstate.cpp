@@ -107,6 +107,8 @@ IRStruct::IRStruct(Type* t)
     type = t;
     defined = false;
     constinited = false;
+    interfaceInfosTy = NULL;
+    interfaceInfos = NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
