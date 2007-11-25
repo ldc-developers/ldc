@@ -368,8 +368,18 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     fdecl->llvmValue = func;
     assert(llvm::isa<llvm::FunctionType>(f->llvmType->get()));
 
+    // main
     if (fdecl->isMain()) {
         gIR->mainFunc = func;
+    }
+
+    // static ctor
+    if (fdecl->isStaticCtorDeclaration()) {
+        gIR->ctors.push_back(fdecl);
+    }
+    // static dtor
+    else if (fdecl->isStaticDtorDeclaration()) {
+        gIR->dtors.push_back(fdecl);
     }
 
     // name parameters

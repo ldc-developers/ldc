@@ -218,6 +218,12 @@ struct IRState
     DsymbolList constInitList;
     // dsymbols that need definitions
     DsymbolList defineList;
+
+    // static ctors/dtors/unittests
+    typedef std::vector<FuncDeclaration*> FuncDeclVector;
+    FuncDeclVector ctors;
+    FuncDeclVector dtors;
+    FuncDeclVector unitTests;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

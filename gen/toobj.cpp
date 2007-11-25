@@ -106,36 +106,11 @@ Module::genobjfile()
     }
 
     // main driver loop
-    for(;;)
-    {
-        Dsymbol* dsym;
-        if (!ir.resolveList.empty()) {
-            dsym = ir.resolveList.front();
-            ir.resolveList.pop_front();
-            DtoResolveDsymbol(dsym);
-        }
-        else if (!ir.declareList.empty()) {
-            dsym = ir.declareList.front();
-            ir.declareList.pop_front();
-            DtoDeclareDsymbol(dsym);
-        }
-        else if (!ir.constInitList.empty()) {
-            dsym = ir.constInitList.front();
-            ir.constInitList.pop_front();
-            DtoConstInitDsymbol(dsym);
-        }
-        else if (!ir.defineList.empty()) {
-            dsym = ir.defineList.front();
-            ir.defineList.pop_front();
-            DtoDefineDsymbol(dsym);
-        }
-        else {
-            break;
-        }
-    }
-
+    DtoEmptyAllLists();
     // generate ModuleInfo
     genmoduleinfo();
+    // do this again as moduleinfo might have pulled something in!
+    DtoEmptyAllLists();
 
     gTargetData = 0;
 
@@ -181,6 +156,72 @@ Module::genobjfile()
 
 /* ================================================================== */
 
+// build module ctor
+
+static llvm::Function* build_module_ctor()
+{
+    if (gIR->ctors.empty())
+        return NULL;
+
+    size_t n = gIR->ctors.size();
+    if (n == 1)
+        return llvm::cast<llvm::Function>(gIR->ctors[0]->llvmValue);
+
+    std::string name("_D");
+    name.append(gIR->dmodule->mangle());
+    name.append("6__ctorZ");
+
+    std::vector<const llvm::Type*> argsTy;
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    llvm::Function* fn = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
+    fn->setCallingConv(llvm::CallingConv::Fast);
+
+    llvm::BasicBlock* bb = new llvm::BasicBlock("entry", fn);
+    LLVMBuilder builder(bb);
+
+    for (size_t i=0; i<n; i++) {
+        llvm::Function* f = llvm::cast<llvm::Function>(gIR->ctors[i]->llvmValue);
+        llvm::CallInst* call = builder.CreateCall(f,"");
+        call->setCallingConv(llvm::CallingConv::Fast);
+    }
+
+    builder.CreateRetVoid();
+    return fn;
+}
+
+// build module dtor
+
+static llvm::Function* build_module_dtor()
+{
+    if (gIR->dtors.empty())
+        return NULL;
+
+    size_t n = gIR->dtors.size();
+    if (n == 1)
+        return llvm::cast<llvm::Function>(gIR->dtors[0]->llvmValue);
+
+    std::string name("_D");
+    name.append(gIR->dmodule->mangle());
+    name.append("6__dtorZ");
+
+    std::vector<const llvm::Type*> argsTy;
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    llvm::Function* fn = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
+    fn->setCallingConv(llvm::CallingConv::Fast);
+
+    llvm::BasicBlock* bb = new llvm::BasicBlock("entry", fn);
+    LLVMBuilder builder(bb);
+
+    for (size_t i=0; i<n; i++) {
+        llvm::Function* f = llvm::cast<llvm::Function>(gIR->dtors[i]->llvmValue);
+        llvm::CallInst* call = builder.CreateCall(f,"");
+        call->setCallingConv(llvm::CallingConv::Fast);
+    }
+
+    builder.CreateRetVoid();
+    return fn;
+}
+
 // Put out instance of ModuleInfo for this Module
 
 void Module::genmoduleinfo()
@@ -198,139 +239,131 @@ void Module::genmoduleinfo()
 //         void *unitTest;
 //        }
 
-    if (moduleinfo) {
-        Logger::println("moduleinfo");
-    }
-    if (vmoduleinfo) {
-        Logger::println("vmoduleinfo");
-    }
-    if (needModuleInfo()) {
-        Logger::attention("module info is needed but skipped");
-    }
+    // resolve ModuleInfo
+    assert(moduleinfo);
+    DtoForceConstInitDsymbol(moduleinfo);
 
+    // moduleinfo llvm struct type
+    const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->llvmType->get());
 
-    /*
-    Symbol *msym = toSymbol();
-    unsigned offset;
-    unsigned sizeof_ModuleInfo = 12 * PTRSIZE;
+    // classinfo llvm struct type
+    const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->llvmType->get());
 
-    //////////////////////////////////////////////
+    // initializer vector
+    std::vector<llvm::Constant*> initVec;
+    llvm::Constant* c = 0;
 
-    csym->Sclass = SCglobal;
-    csym->Sfl = FLdata;
+    // vtable
+    c = moduleinfo->llvmVtbl;
+    initVec.push_back(c);
 
-//      The layout is:
-//        {
-//         void **vptr;
-//         monitor_t monitor;
-//         char[] name;        // class name
-//         ModuleInfo importedModules[];
-//         ClassInfo localClasses[];
-//         uint flags;         // initialization state
-//         void *ctor;
-//         void *dtor;
-//         void *unitTest;
-//        }
-    dt_t *dt = NULL;
+    // monitor
+    c = llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+    initVec.push_back(c);
 
-    if (moduleinfo)
-    dtxoff(&dt, moduleinfo->toVtblSymbol(), 0, TYnptr); // vtbl for ModuleInfo
-    else
-    dtdword(&dt, 0);        // BUG: should be an assert()
-    dtdword(&dt, 0);            // monitor
-
-    // name[]
+    // name
     char *name = toPrettyChars();
-    size_t namelen = strlen(name);
-    dtdword(&dt, namelen);
-    dtabytes(&dt, TYnptr, 0, namelen + 1, name);
-
-    ClassDeclarations aclasses;
-    int i;
-
-    //printf("members->dim = %d\n", members->dim);
-    for (i = 0; i < members->dim; i++)
-    {
-    Dsymbol *member;
-
-    member = (Dsymbol *)members->data[i];
-    //printf("\tmember '%s'\n", member->toChars());
-    member->addLocalClass(&aclasses);
-    }
+    c = DtoConstString(name);
+    initVec.push_back(c);
 
     // importedModules[]
     int aimports_dim = aimports.dim;
-    for (i = 0; i < aimports.dim; i++)
-    {   Module *m = (Module *)aimports.data[i];
-    if (!m->needModuleInfo())
-        aimports_dim--;
+    std::vector<llvm::Constant*> importInits;
+    for (size_t i = 0; i < aimports.dim; i++)
+    {
+        Module *m = (Module *)aimports.data[i];
+        if (!m->needModuleInfo())
+            aimports_dim--;
+        else { // declare
+            // create name
+            std::string m_name("_D");
+            m_name.append(m->mangle());
+            m_name.append("8__ModuleZ");
+            llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name, gIR->module);
+            importInits.push_back(m_gvar);
+        }
     }
-    dtdword(&dt, aimports_dim);
-    if (aimports.dim)
-    dtxoff(&dt, csym, sizeof_ModuleInfo, TYnptr);
+    // has import array?
+    if (!importInits.empty()) {
+        const llvm::ArrayType* importArrTy = llvm::ArrayType::get(llvm::PointerType::get(moduleinfoTy), importInits.size());
+        c = llvm::ConstantArray::get(importArrTy, importInits);
+        std::string m_name("_D");
+        m_name.append(mangle());
+        m_name.append("9__importsZ");
+        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
+        c = llvm::ConstantExpr::getBitCast(m_gvar, llvm::PointerType::get(importArrTy->getElementType()));
+        c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
+    }
     else
-    dtdword(&dt, 0);
+        c = moduleinfo->llvmInitZ->getOperand(3);
+    initVec.push_back(c);
 
     // localClasses[]
-    dtdword(&dt, aclasses.dim);
-    if (aclasses.dim)
-    dtxoff(&dt, csym, sizeof_ModuleInfo + aimports_dim * PTRSIZE, TYnptr);
-    else
-    dtdword(&dt, 0);
+    ClassDeclarations aclasses;
+    //printf("members->dim = %d\n", members->dim);
+    for (size_t i = 0; i < members->dim; i++)
+    {
+        Dsymbol *member;
 
+        member = (Dsymbol *)members->data[i];
+        //printf("\tmember '%s'\n", member->toChars());
+        member->addLocalClass(&aclasses);
+    }
+    // fill inits
+    std::vector<llvm::Constant*> classInits;
+    for (size_t i = 0; i < aclasses.dim; i++)
+    {
+        ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
+        assert(cd->llvmClass);
+        classInits.push_back(cd->llvmClass);
+    }
+    // has class array?
+    if (!classInits.empty()) {
+        const llvm::ArrayType* classArrTy = llvm::ArrayType::get(llvm::PointerType::get(classinfoTy), classInits.size());
+        c = llvm::ConstantArray::get(classArrTy, classInits);
+        std::string m_name("_D");
+        m_name.append(mangle());
+        m_name.append("9__classesZ");
+        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
+        c = llvm::ConstantExpr::getBitCast(m_gvar, llvm::PointerType::get(classArrTy->getElementType()));
+        c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
+    }
+    else
+        c = moduleinfo->llvmInitZ->getOperand(4);
+    initVec.push_back(c);
+
+    // flags
     if (needmoduleinfo)
-    dtdword(&dt, 0);        // flags (4 means MIstandalone)
+        c = DtoConstUint(0);        // flags (4 means MIstandalone)
     else
-    dtdword(&dt, 4);        // flags (4 means MIstandalone)
+        c = DtoConstUint(4);        // flags (4 means MIstandalone)
+    initVec.push_back(c);
 
-    if (sctor)
-    dtxoff(&dt, sctor, 0, TYnptr);
-    else
-    dtdword(&dt, 0);
+    // ctor
+    llvm::Function* fctor = build_module_ctor();
+    c = fctor ? fctor : moduleinfo->llvmInitZ->getOperand(6);
+    initVec.push_back(c);
 
-    if (sdtor)
-    dtxoff(&dt, sdtor, 0, TYnptr);
-    else
-    dtdword(&dt, 0);
+    // dtor
+    llvm::Function* fdtor = build_module_dtor();
+    c = fdtor ? fdtor : moduleinfo->llvmInitZ->getOperand(7);
+    initVec.push_back(c);
 
-    if (stest)
-    dtxoff(&dt, stest, 0, TYnptr);
-    else
-    dtdword(&dt, 0);
+    // unitTest
+    c = moduleinfo->llvmInitZ->getOperand(8);
+    initVec.push_back(c);
 
-    //////////////////////////////////////////////
+    // create initializer
+    llvm::Constant* constMI = llvm::ConstantStruct::get(moduleinfoTy, initVec);
 
-    for (i = 0; i < aimports.dim; i++)
-    {
-    Module *m;
+    // create name
+    std::string MIname("_D");
+    MIname.append(mangle());
+    MIname.append("8__ModuleZ");
 
-    m = (Module *)aimports.data[i];
-    if (m->needModuleInfo())
-    {   Symbol *s = m->toSymbol();
-        s->Sflags |= SFLweak;
-        dtxoff(&dt, s, 0, TYnptr);
-    }
-    }
-
-    for (i = 0; i < aclasses.dim; i++)
-    {
-    ClassDeclaration *cd;
-
-    cd = (ClassDeclaration *)aclasses.data[i];
-    dtxoff(&dt, cd->toSymbol(), 0, TYnptr);
-    }
-
-    csym->Sdt = dt;
-#if ELFOBJ
-    // Cannot be CONST because the startup code sets flag bits in it
-    csym->Sseg = DATA;
-#endif
-    outdata(csym);
-
-    //////////////////////////////////////////////
-
-    obj_moduleinfo(msym);
-    */
+    // declare
+    // flags will be modified at runtime so can't make it constant
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, constMI, MIname, gIR->module);
 }
 
 /* ================================================================== */

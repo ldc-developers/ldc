@@ -1491,6 +1491,9 @@ DValue* SliceExp::toElem(IRState* p)
         emem = vmem;
     }
 
+    if (earg) Logger::cout() << "slice exp result, length = " << *earg << '\n';
+    Logger::cout() << "slice exp result, ptr = " << *emem << '\n';
+
     return new DSliceValue(type,earg,emem);
 }
 

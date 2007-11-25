@@ -69,6 +69,7 @@ void DtoConstInitGlobal(VarDeclaration* vd);
 void DtoEmptyResolveList();
 void DtoEmptyDeclareList();
 void DtoEmptyConstInitList();
+void DtoEmptyAllLists();
 void DtoForceDeclareDsymbol(Dsymbol* dsym);
 void DtoForceConstInitDsymbol(Dsymbol* dsym);
 void DtoForceDefineDsymbol(Dsymbol* dsym);

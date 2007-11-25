@@ -162,6 +162,22 @@ class TypeInfo_Invariant : TypeInfo_Const
 {
 }
 
+class ModuleInfo
+{
+    char[] name;
+    ModuleInfo[] importedModules;
+    ClassInfo[] localClasses;
+
+    uint flags;     // initialization state
+
+    void function() ctor;
+    void function() dtor;
+    void function() unitTest;
+
+    // Return collection of all modules in the program.
+    static ModuleInfo[] modules();
+}
+
 // Recoverable errors
 
 class Exception : Object

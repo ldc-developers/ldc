@@ -18,29 +18,8 @@ enum
 			// ctors being done first
 }
 
-/***********************
- * Information about each module.
- */
-class ModuleInfo
-{
-    char[] name;
-    ModuleInfo[] importedModules;
-    ClassInfo[] localClasses;
-
-    uint flags;		// initialization state
-
-    void function() ctor;
-    void function() dtor;
-    void function() unitTest;
-
-    /******************
-     * Return collection of all modules in the program.
-     */
-    static ModuleInfo[] modules()
-    {
-	return _moduleinfo_array;
-    }
-}
+// had to move the class to object.d, as its declaration is needed in the compiler code,
+// otherwise the DMDFE Module::moduleinfo member is NULL
 
 class ModuleCtorError : Exception
 {

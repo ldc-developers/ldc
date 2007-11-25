@@ -285,22 +285,32 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     std::vector<llvm::Constant*> inits(tdim, NULL);
 
+    Type* arrnext = arrinittype->next;
     const llvm::Type* elemty = DtoType(arrinittype->next);
 
     assert(arrinit->index.dim == arrinit->value.dim);
     for (unsigned i=0,j=0; i < tdim; ++i)
     {
         Initializer* init = 0;
-        Expression* idx = (Expression*)arrinit->index.data[j];
+        Expression* idx;
+
+        if (j < arrinit->index.dim)
+            idx = (Expression*)arrinit->index.data[j];
+        else
+            idx = NULL;
+
+        llvm::Constant* v = NULL;
 
         if (idx)
         {
+            Logger::println("%d has idx", i);
             // this is pretty weird :/ idx->type turned out NULL for the initializer:
             //     const in6_addr IN6ADDR_ANY = { s6_addr8: [0] };
             // in std.c.linux.socket
             if (idx->type) {
+                Logger::println("has idx->type", i);
                 //integer_t k = idx->toInteger();
-                Logger::println("getting value for exp: %s | %s", idx->toChars(), idx->type->toChars());
+                //Logger::println("getting value for exp: %s | %s", idx->toChars(), arrnext->toChars());
                 llvm::Constant* cc = idx->toConstElem(gIR);
                 Logger::println("value gotten");
                 assert(cc != NULL);
@@ -317,11 +327,16 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         }
         else
         {
-            init = (Initializer*)arrinit->value.data[j];
-            ++j;
+            if (j < arrinit->value.dim) {
+                init = (Initializer*)arrinit->value.data[j];
+                ++j;
+            }
+            else
+                v = arrnext->defaultInit()->toConstElem(gIR);
         }
 
-        llvm::Constant* v = DtoConstInitializer(t->next, init);
+        if (!v)
+            v = DtoConstInitializer(t->next, init);
         assert(v);
 
         inits[i] = v;
@@ -784,16 +799,22 @@ llvm::Constant* DtoConstStaticArray(const llvm::Type* t, llvm::Constant* c)
 //////////////////////////////////////////////////////////////////////////////////////////
 llvm::Value* DtoArrayLen(DValue* v)
 {
+    Logger::println("DtoArrayLen");
+    LOG_SCOPE;
     Type* t = DtoDType(v->getType());
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice()) {
-            if (s->len) return s->len;
-            DValue* next = new DVarValue(t,s->ptr,true);
-            return DtoArrayLen(next);
+            if (s->len) {
+                return s->len;
+            }
+            const llvm::ArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
+            assert(arrTy);
+            return DtoConstSize_t(arrTy->getNumElements());
         }
         return DtoLoad(DtoGEPi(v->getRVal(), 0,0, "tmp"));
     }
     else if (t->ty == Tsarray) {
+        assert(!v->isSlice());
         llvm::Value* rv = v->getRVal();
         Logger::cout() << "casting: " << *rv << '\n';
         const llvm::ArrayType* t = isaArray(rv->getType()->getContainedType(0));
@@ -810,8 +831,9 @@ llvm::Value* DtoArrayPtr(DValue* v)
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice()) {
             if (s->len) return s->ptr;
-            DValue* next = new DVarValue(t,s->ptr,true);
-            return DtoArrayPtr(next);
+            const llvm::ArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
+            assert(arrTy);
+            return DtoGEPi(s->ptr, 0,0, "tmp");
         }
         return DtoLoad(DtoGEPi(v->getRVal(), 0,1, "tmp"));
     }

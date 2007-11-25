@@ -1617,6 +1617,38 @@ void DtoEmptyDefineList()
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+void DtoEmptyAllLists()
+{
+    for(;;)
+    {
+        Dsymbol* dsym;
+        if (!gIR->resolveList.empty()) {
+            dsym = gIR->resolveList.front();
+            gIR->resolveList.pop_front();
+            DtoResolveDsymbol(dsym);
+        }
+        else if (!gIR->declareList.empty()) {
+            dsym = gIR->declareList.front();
+            gIR->declareList.pop_front();
+            DtoDeclareDsymbol(dsym);
+        }
+        else if (!gIR->constInitList.empty()) {
+            dsym = gIR->constInitList.front();
+            gIR->constInitList.pop_front();
+            DtoConstInitDsymbol(dsym);
+        }
+        else if (!gIR->defineList.empty()) {
+            dsym = gIR->defineList.front();
+            gIR->defineList.pop_front();
+            DtoDefineDsymbol(dsym);
+        }
+        else {
+            break;
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoForceDeclareDsymbol(Dsymbol* dsym)
 {

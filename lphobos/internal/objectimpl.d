@@ -33,7 +33,8 @@
  */
 
 /*
- * This copy is modified to work with LLVMDC by Tomas Lindquist Olsen 2007
+ * This copy is modified to work with LLVMDC
+ * by Tomas Lindquist Olsen, September 2007
  */
 
 module object;
@@ -1117,6 +1118,30 @@ class TypeInfo_Const : TypeInfo
 class TypeInfo_Invariant : TypeInfo_Const
 {
     char[] toString() { return "invariant " ~ base.toString(); }
+}
+
+/**
+ * Information about each module.
+ */
+class ModuleInfo
+{
+    char[] name;
+    ModuleInfo[] importedModules;
+    ClassInfo[] localClasses;
+
+    uint flags;     // initialization state
+
+    void function() ctor;
+    void function() dtor;
+    void function() unitTest;
+
+    /******************
+     * Return collection of all modules in the program.
+     */
+    static ModuleInfo[] modules()
+    {
+    return std.moduleinit._moduleinfo_array;
+    }
 }
 
 /**
