@@ -389,8 +389,11 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
     unsigned idx = 0;
     unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
     assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
-    r++; // vtable is 0
+    // vtable is 0, monitor is 1
+    r += 2;
+    // interface offset further
     r += vtblInterfaces->dim;
+    // the final index was not pushed
     result.push_back(r); 
 }
 

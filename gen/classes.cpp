@@ -85,6 +85,9 @@ void DtoResolveClass(ClassDeclaration* cd)
     std::vector<const llvm::Type*> fieldtypes;
     fieldtypes.push_back(vtabty);
 
+    // add monitor
+    fieldtypes.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+
     // add interface vtables
     if (cd->vtblInterfaces)
     for (size_t i = 0; i < cd->vtblInterfaces->dim; i++)
@@ -351,6 +354,9 @@ void DtoConstInitClass(ClassDeclaration* cd)
     assert(cd->llvmVtbl != 0);
     fieldinits.push_back(cd->llvmVtbl);
 
+    // then comes monitor
+    fieldinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+
     // next comes interface vtables
     for (IRStruct::InterfaceIter i=irstruct->interfaces.begin(); i!=irstruct->interfaces.end(); ++i)
     {
@@ -426,8 +432,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
     cd->llvmConstVtbl = llvm::cast<llvm::ConstantStruct>(cvtblInit);
 
     // create interface vtable const initalizers
-    int idx = 1;
-    int idxScale = (global.params.is64bit) ? 8 : 4;
+    int idx = 2;
+    int idxScale = PTRSIZE;
     for (IRStruct::InterfaceIter i=irstruct->interfaces.begin(); i!=irstruct->interfaces.end(); ++i)
     {
         ClassDeclaration* id = i->first;
@@ -921,12 +927,13 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // monitor
-    // TODO no monitors yet
+    c = cinfo->llvmInitZ->getOperand(1);
+    inits.push_back(c);
 
     // byte[] init
     const llvm::Type* byteptrty = llvm::PointerType::get(llvm::Type::Int8Ty);
     if (cd->isInterfaceDeclaration()) {
-        c = cinfo->llvmInitZ->getOperand(1);
+        c = cinfo->llvmInitZ->getOperand(2);
     }
     else {
         c = llvm::ConstantExpr::getBitCast(cdty->llvmInit, byteptrty);
@@ -950,7 +957,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // vtbl array
     if (cd->isInterfaceDeclaration()) {
-        c = cinfo->llvmInitZ->getOperand(3);
+        c = cinfo->llvmInitZ->getOperand(4);
     }
     else {
         const llvm::Type* byteptrptrty = llvm::PointerType::get(byteptrty);
@@ -965,10 +972,10 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // interfaces array
     IRStruct* irstruct = cd->llvmIRStruct;
     if (cd->isInterfaceDeclaration() || !irstruct->interfaceInfos) {
-        c = cinfo->llvmInitZ->getOperand(4);
+        c = cinfo->llvmInitZ->getOperand(5);
     }
     else {
-        const llvm::Type* t = cinfo->llvmInitZ->getOperand(4)->getType()->getContainedType(1);
+        const llvm::Type* t = cinfo->llvmInitZ->getOperand(5)->getType()->getContainedType(1);
         c = llvm::ConstantExpr::getBitCast(irstruct->interfaceInfos, t);
         size_t iisz = irstruct->interfaceInfosTy->getNumElements();
         c = DtoConstSlice(DtoConstSize_t(iisz), c);
@@ -984,13 +991,13 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else {
         // null
-        c = cinfo->llvmInitZ->getOperand(5);
+        c = cinfo->llvmInitZ->getOperand(6);
         inits.push_back(c);
     }
 
     // destructor
     if (cd->isInterfaceDeclaration()) {
-        c = cinfo->llvmInitZ->getOperand(6);
+        c = cinfo->llvmInitZ->getOperand(7);
     }
     else {
         c = build_class_dtor(cd);
@@ -999,12 +1006,12 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // invariant
     // TODO
-    c = cinfo->llvmInitZ->getOperand(7);
+    c = cinfo->llvmInitZ->getOperand(8);
     inits.push_back(c);
 
     // uint flags
     if (cd->isInterfaceDeclaration()) {
-        c = cinfo->llvmInitZ->getOperand(8);
+        c = cinfo->llvmInitZ->getOperand(9);
     }
     else {
         uint flags = build_classinfo_flags(cd);
@@ -1014,15 +1021,15 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // allocator
     // TODO
-    c = cinfo->llvmInitZ->getOperand(9);
+    c = cinfo->llvmInitZ->getOperand(10);
     inits.push_back(c);
 
     // offset typeinfo
     if (cd->isInterfaceDeclaration()) {
-        c = cinfo->llvmInitZ->getOperand(10);
+        c = cinfo->llvmInitZ->getOperand(11);
     }
     else {
-        c = build_offti_array(cd, cinfo->llvmInitZ->getOperand(10));
+        c = build_offti_array(cd, cinfo->llvmInitZ->getOperand(11));
     }
     inits.push_back(c);
 
@@ -1034,7 +1041,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
         c = llvm::ConstantExpr::getBitCast(c, llvm::PointerType::get(llvm::Type::Int8Ty)); // toTy);
     }
     else {
-        c = cinfo->llvmInitZ->getOperand(11);
+        c = cinfo->llvmInitZ->getOperand(12);
     }
     inits.push_back(c);
 
