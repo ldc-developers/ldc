@@ -2079,8 +2079,14 @@ DValue* DelegateExp::toElem(IRState* p)
 
     const llvm::Type* int8ptrty = llvm::PointerType::get(llvm::Type::Int8Ty);
 
-    assert(p->topexp() && p->topexp()->e2 == this && p->topexp()->v);
-    llvm::Value* lval = p->topexp()->v->getLVal();
+    llvm::Value* lval;
+    if (p->topexp() && p->topexp()->e2 == this) {
+        assert(p->topexp()->v);
+        lval = p->topexp()->v->getLVal();
+    }
+    else {
+        lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
+    }
 
     llvm::Value* context = DtoGEP(lval,zero,zero,"tmp",p->scopebb());
     llvm::Value* castcontext = new llvm::BitCastInst(u->getRVal(),int8ptrty,"tmp",p->scopebb());

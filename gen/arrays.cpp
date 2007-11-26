@@ -91,7 +91,7 @@ void DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
     }
     else
     {
-        Logger::cout() << "array assignment type dont match: " << *dst->getType() << '\n' << *src->getType() << '\n';
+        Logger::cout() << "array assignment type dont match: " << *dst->getType() << "\n\n" << *src->getType() << '\n';
         const llvm::ArrayType* arrty = isaArray(src->getType()->getContainedType(0));
         if (!arrty)
         {
