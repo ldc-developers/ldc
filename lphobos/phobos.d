@@ -3,6 +3,7 @@ module phobos;
 import
 std.array,
 std.ctype,
+std.format,
 std.intrinsic,
 std.math,
 std.moduleinit,
@@ -10,11 +11,9 @@ std.outofmemory,
 std.stdint,
 std.stdio,
 std.stdarg,
+std.string,
 std.uni,
 std.utf,
-
-//std.format,
-//std.string,
 
 std.c.fenv,
 std.c.locale,

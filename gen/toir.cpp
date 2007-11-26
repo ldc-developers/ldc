@@ -2088,17 +2088,31 @@ DValue* DelegateExp::toElem(IRState* p)
         lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
     }
 
+    llvm::Value* uval;
+    if (DFuncValue* f = u->isFunc()) {
+        //assert(f->vthis);
+        //uval = f->vthis;
+        llvm::Value* nestvar = p->func()->decl->llvmNested;
+        if (nestvar)
+            uval = nestvar;
+        else
+            uval = llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+    }
+    else {
+        uval = u->getRVal();
+    }
+
     llvm::Value* context = DtoGEP(lval,zero,zero,"tmp",p->scopebb());
-    llvm::Value* castcontext = new llvm::BitCastInst(u->getRVal(),int8ptrty,"tmp",p->scopebb());
+    llvm::Value* castcontext = DtoBitCast(uval,int8ptrty);
     new llvm::StoreInst(castcontext, context, p->scopebb());
 
     llvm::Value* fptr = DtoGEP(lval,zero,one,"tmp",p->scopebb());
 
     assert(func->llvmValue);
-    llvm::Value* castfptr = new llvm::BitCastInst(func->llvmValue,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
+    llvm::Value* castfptr = DtoBitCast(func->llvmValue,fptr->getType()->getContainedType(0));
     new llvm::StoreInst(castfptr, fptr, p->scopebb());
 
-    return new DImValue(type, u->getRVal(), true);
+    return new DVarValue(type, lval, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

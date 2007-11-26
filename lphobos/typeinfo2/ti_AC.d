@@ -1,4 +1,4 @@
-module std.typeinfo.ti_AC;
+module typeinfo2.ti_AC;
 
 // Object[]
 

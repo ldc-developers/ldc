@@ -1,7 +1,7 @@
 
 // cdouble
 
-module std.typeinfo.ti_cdouble;
+module typeinfo1.ti_cdouble;
 
 class TypeInfo_r : TypeInfo
 {

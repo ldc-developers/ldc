@@ -1,7 +1,7 @@
 
 // cfloat
 
-module std.typeinfo.ti_cfloat;
+module typeinfo1.ti_cfloat;
 
 class TypeInfo_q : TypeInfo
 {

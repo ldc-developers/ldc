@@ -396,9 +396,16 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         assert(fdecl->llvmThisVar);
         ++iarg;
     }
-    int varargs = -1;
-    if (f->linkage == LINKd && f->varargs == 1)
-        varargs = 0;
+
+    if (f->linkage == LINKd && f->varargs == 1) {
+        iarg->setName("_arguments");
+        fdecl->llvmArguments = iarg;
+        ++iarg;
+        iarg->setName("_argptr");
+        fdecl->llvmArgPtr = iarg;
+        ++iarg;
+    }
+
     for (; iarg != func->arg_end(); ++iarg)
     {
         Argument* arg = Argument::getNth(f->parameters, k++);
@@ -409,19 +416,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 arg->vardecl->llvmValue = iarg;
             }
             iarg->setName(arg->ident->toChars());
-        }
-        else if (!arg && varargs >= 0) {
-            if (varargs == 0) {
-                iarg->setName("_arguments");
-                fdecl->llvmArguments = iarg;
-            }
-            else if (varargs == 1) {
-                iarg->setName("_argptr");
-                fdecl->llvmArgPtr = iarg;
-            }
-            else
-            assert(0);
-            varargs++;
         }
         else {
             iarg->setName("unnamed");

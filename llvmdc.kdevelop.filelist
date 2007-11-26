@@ -323,6 +323,8 @@ test/bug70.d
 test/bug71.d
 test/bug72.d
 test/bug73.d
+test/bug74.d
+test/bug75.d
 test/bug8.d
 test/bug9.d
 test/c.d

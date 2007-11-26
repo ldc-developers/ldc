@@ -1,7 +1,7 @@
 
 // creal
 
-module std.typeinfo.ti_creal;
+module typeinfo1.ti_creal;
 
 class TypeInfo_c : TypeInfo
 {
