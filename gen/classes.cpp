@@ -167,10 +167,12 @@ void DtoResolveClass(ClassDeclaration* cd)
 
         if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
             DtoResolveFunction(fd);
-            assert(fd->type->ty == Tfunction);
-            TypeFunction* tf = (TypeFunction*)fd->type;
-            const llvm::Type* fpty = llvm::PointerType::get(tf->llvmType->get());
-            sinits_ty.push_back(fpty);
+            //assert(fd->type->ty == Tfunction);
+            //TypeFunction* tf = (TypeFunction*)fd->type;
+            //const llvm::Type* fpty = llvm::PointerType::get(tf->llvmType->get());
+            const llvm::FunctionType* vfty = DtoBaseFunctionType(fd);
+            const llvm::Type* vfpty = llvm::PointerType::get(vfty);
+            sinits_ty.push_back(vfpty);
         }
         else if (ClassDeclaration* cd2 = dsym->isClassDeclaration()) {
             Logger::println("*** ClassDeclaration in vtable: %s", cd2->toChars());
@@ -375,6 +377,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
     const llvm::StructType* structtype = isaStruct(ts->llvmType->get());
+    const llvm::StructType* vtbltype = isaStruct(ts->llvmVtblType->get());
 
     // generate initializer
 #if 0
@@ -406,6 +409,9 @@ void DtoConstInitClass(ClassDeclaration* cd)
             DtoForceDeclareDsymbol(fd);
             assert(fd->llvmValue);
             llvm::Constant* c = llvm::cast<llvm::Constant>(fd->llvmValue);
+            // cast if necessary (overridden method)
+            if (c->getType() != vtbltype->getElementType(k))
+                c = llvm::ConstantExpr::getBitCast(c, vtbltype->getElementType(k));
             sinits.push_back(c);
         }
         else if (ClassDeclaration* cd2 = dsym->isClassDeclaration()) {
@@ -1037,8 +1043,8 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     if (cd->defaultCtor && !cd->isInterfaceDeclaration()) {
         DtoForceDeclareDsymbol(cd->defaultCtor);
         c = isaConstant(cd->defaultCtor->llvmValue);
-        //const llvm::Type* toTy = cinfo->llvmInitZ->getOperand(11)->getType();
-        c = llvm::ConstantExpr::getBitCast(c, llvm::PointerType::get(llvm::Type::Int8Ty)); // toTy);
+        const llvm::Type* toTy = cinfo->llvmInitZ->getOperand(12)->getType();
+        c = llvm::ConstantExpr::getBitCast(c, toTy);
     }
     else {
         c = cinfo->llvmInitZ->getOperand(12);

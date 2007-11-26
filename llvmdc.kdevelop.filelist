@@ -151,7 +151,6 @@ lphobos/internal/arrays.d
 lphobos/internal/cast.d
 lphobos/internal/contract.d
 lphobos/internal/mem.d
-lphobos/internal/moduleinit.d
 lphobos/internal/objectimpl.d
 lphobos/internal/qsort2.d
 lphobos/llvm
@@ -391,6 +390,7 @@ test/intrinsics.d
 test/mainargs1.d
 test/memory1.d
 test/moduleinfo1.d
+test/moduleinfo2.d
 test/multiarr1.d
 test/multiarr2.d
 test/multiarr3.d

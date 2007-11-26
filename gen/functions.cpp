@@ -468,41 +468,12 @@ void DtoDefineFunc(FuncDeclaration* fd)
     {
         fd->llvmDModule = gIR->dmodule;
 
-        // handle static constructor / destructor
-        if (fd->isStaticCtorDeclaration() || fd->isStaticDtorDeclaration()) {
-            const llvm::ArrayType* sctor_type = llvm::ArrayType::get(llvm::PointerType::get(functype),1);
-            //Logger::cout() << "static ctor type: " << *sctor_type << '\n';
-
-            llvm::Constant* sctor_func = llvm::cast<llvm::Constant>(fd->llvmValue);
-            //Logger::cout() << "static ctor func: " << *sctor_func << '\n';
-
-            llvm::Constant* sctor_init = llvm::ConstantArray::get(sctor_type,&sctor_func,1);
-
-            //Logger::cout() << "static ctor init: " << *sctor_init << '\n';
-
-            // output the llvm.global_ctors array
-            const char* varname = fd->isStaticCtorDeclaration() ? "_d_module_ctor_array" : "_d_module_dtor_array";
-            llvm::GlobalVariable* sctor_arr = new llvm::GlobalVariable(sctor_type, false, llvm::GlobalValue::AppendingLinkage, sctor_init, varname, gIR->module);
-        }
-
         // function definition
         if (fd->fbody != 0)
         {
             Logger::println("Doing function body for: %s", fd->toChars());
             assert(fd->llvmIRFunc);
             gIR->functions.push_back(fd->llvmIRFunc);
-
-            /* // moved to declaration
-            // this handling
-            if (f->llvmUsesThis) {
-                Logger::println("uses this");
-                if (f->llvmRetInPtr)
-                    fd->llvmThisVar = ++func->arg_begin();
-                else
-                    fd->llvmThisVar = func->arg_begin();
-                assert(fd->llvmThisVar != 0);
-            }
-            */
 
             if (fd->isMain())
                 gIR->emitMain = true;
@@ -681,7 +652,7 @@ void DtoMain()
     llvm::BasicBlock* bb = new llvm::BasicBlock("entry",func);
 
     // call static ctors
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_d_run_module_ctors");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleCtor");
     llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
 
     // call user main function
@@ -720,11 +691,39 @@ void DtoMain()
     call->setCallingConv(ir.mainFunc->getCallingConv());
 
     // call static dtors
-    fn = LLVM_D_GetRuntimeFunction(ir.module,"_d_run_module_dtors");
+    fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleDtor");
     new llvm::CallInst(fn,"",bb);
 
     // return
     new llvm::ReturnInst(call,bb);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
+{
+    Dsymbol* parent = fdecl->toParent();
+    ClassDeclaration* cd = parent->isClassDeclaration();
+    assert(cd);
+
+    FuncDeclaration* f = fdecl;
+
+    while (cd)
+    {
+        ClassDeclaration* base = cd->baseClass;
+        if (!base)
+            break;
+        FuncDeclaration* f2 = base->findFunc(fdecl->ident, (TypeFunction*)fdecl->type);
+        if (f2) {
+            f = f2;
+            cd = base;
+        }
+        else
+            break;
+    }
+
+    DtoResolveDsymbol(f);
+    return llvm::cast<llvm::FunctionType>(DtoType(f->type));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

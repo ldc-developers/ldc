@@ -11,13 +11,11 @@ llvmdc internal/contract.d -c -of../lib/llvmdcore.bc -noruntime || exit 1
 echo "compiling common runtime"
 rebuild internal/arrays.d \
         internal/mem.d \
-        internal/moduleinit.d \
         -c -oqobj -dc=llvmdc-posix || exit 1
 
 echo "compiling module init backend"
 llvm-as -f -o=obj/moduleinit_backend.bc internal/moduleinit_backend.ll || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/internal.*.bc` ../lib/llvmdcore.bc obj/moduleinit_backend.bc || exit 1
-
 
 echo "compiling typeinfo 1"
 rebuild typeinfos1.d -c -oqobj -dc=llvmdc-posix || exit 1

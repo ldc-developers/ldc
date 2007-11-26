@@ -30,22 +30,11 @@ class ModuleCtorError : Exception
 }
 
 
-// Win32: this gets initialized by minit.asm
-// linux: this gets initialized in _moduleCtor()
+// this gets initialized in _moduleCtor()
 extern (C) ModuleInfo[] _moduleinfo_array;
 
-version (linux)
-{
-    // This linked list is created by a compiler generated function inserted
-    // into the .ctor list by the compiler.
-    struct ModuleReference
-    {
-	ModuleReference* next;
-	ModuleInfo mod;
-    }
-
-    extern (C) ModuleReference *_Dmodule_ref;	// start of linked list
-}
+// this method returns the linker constructed, null terminated, array of moduleinfos
+extern (C) void** _d_get_moduleinfo_array();
 
 ModuleInfo[] _moduleinfo_dtors;
 uint _moduleinfo_dtors_i;
@@ -60,20 +49,20 @@ extern (C) int _fatexit(void *);
 extern (C) void _moduleCtor()
 {
     debug printf("_moduleCtor()\n");
-    version (linux)
-    {
 	int len = 0;
-	ModuleReference *mr;
 
-	for (mr = _Dmodule_ref; mr; mr = mr.next)
+    ModuleInfo* mrbegin = cast(ModuleInfo*)_d_get_moduleinfo_array();
+    assert(mrbegin !is null);
+
+    ModuleInfo* mr;
+	for (mr = mrbegin; *mr !is null; ++mr)
 	    len++;
 	_moduleinfo_array = new ModuleInfo[len];
 	len = 0;
-	for (mr = _Dmodule_ref; mr; mr = mr.next)
-	{   _moduleinfo_array[len] = mr.mod;
+	for (mr = mrbegin; *mr !is null; ++mr)
+	{   _moduleinfo_array[len] = *mr;
 	    len++;
 	}
-    }
 
     version (Win32)
     {
@@ -81,7 +70,7 @@ extern (C) void _moduleCtor()
 	//_fatexit(&_STD_moduleDtor);
     }
 
-    _moduleinfo_dtors = new ModuleInfo[_moduleinfo_array.length];
+    _moduleinfo_dtors = new ModuleInfo[len];
     debug printf("_moduleinfo_dtors = x%x\n", cast(void *)_moduleinfo_dtors);
     _moduleCtor2(_moduleinfo_array, 0);
 

@@ -123,6 +123,7 @@ Module::genobjfile()
     if (!global.params.novalidate) {
         std::string verifyErr;
         Logger::println("Verifying module...");
+        LOG_SCOPE;
         if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
         {
             error("%s", verifyErr.c_str());
@@ -364,6 +365,14 @@ void Module::genmoduleinfo()
     // declare
     // flags will be modified at runtime so can't make it constant
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, constMI, MIname, gIR->module);
+
+    // declare the appending array
+    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(llvm::PointerType::get(llvm::Type::Int8Ty), 1);
+    std::vector<llvm::Constant*> appendInits;
+    appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, llvm::PointerType::get(llvm::Type::Int8Ty)));
+    llvm::Constant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
+    std::string appendName("_d_moduleinfo_array");
+    llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);
 }
 
 /* ================================================================== */
