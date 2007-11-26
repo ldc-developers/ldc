@@ -325,6 +325,8 @@ test/bug72.d
 test/bug73.d
 test/bug74.d
 test/bug75.d
+test/bug76.d
+test/bug77.d
 test/bug8.d
 test/bug9.d
 test/c.d
@@ -418,6 +420,7 @@ test/staticarrays.d
 test/staticvars.d
 test/stdiotest.d
 test/strings1.d
+test/strings2.d
 test/structinit.d
 test/structinit2.d
 test/structs.d

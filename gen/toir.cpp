@@ -936,7 +936,7 @@ DValue* CallExp::toElem(IRState* p)
         Logger::println("This Call");
         if (dfn->vthis->getType() != argiter->get()) {
             //Logger::cout() << *fn->thisparam << '|' << *argiter->get() << '\n';
-            llargs[j] = new llvm::BitCastInst(dfn->vthis, argiter->get(), "tmp", p->scopebb());
+            llargs[j] = DtoBitCast(dfn->vthis, argiter->get());
         }
         else {
             llargs[j] = dfn->vthis;
@@ -956,8 +956,9 @@ DValue* CallExp::toElem(IRState* p)
     else if (dfn && dfn->func && dfn->func->isNested()) {
         Logger::println("Nested Call");
         llvm::Value* contextptr = p->func()->decl->llvmNested;
-        assert(contextptr);
-        llargs[j] = p->ir->CreateBitCast(contextptr, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
+        if (!contextptr)
+            contextptr = llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+        llargs[j] = DtoBitCast(contextptr, llvm::PointerType::get(llvm::Type::Int8Ty));
         ++j;
         ++argiter;
     }
@@ -970,7 +971,7 @@ DValue* CallExp::toElem(IRState* p)
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             Expression* exp = (Expression*)arguments->data[i];
             DValue* expelem = exp->toElem(p);
-            llargs[j] = p->ir->CreateBitCast(expelem->getLVal(), llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
+            llargs[j] = DtoBitCast(expelem->getLVal(), llvm::PointerType::get(llvm::Type::Int8Ty));
         }
     }
     // regular arguments
@@ -978,6 +979,8 @@ DValue* CallExp::toElem(IRState* p)
         if (tf->linkage == LINKd && tf->varargs == 1)
         {
             Logger::println("doing d-style variadic arguments");
+
+            size_t nimplicit = j;
 
             std::vector<const llvm::Type*> vtypes;
             std::vector<llvm::Value*> vvalues;
@@ -1020,7 +1023,7 @@ DValue* CallExp::toElem(IRState* p)
             j++;
             llargs[j] = p->ir->CreateBitCast(mem, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
             j++;
-            llargs.resize(2);
+            llargs.resize(nimplicit+2);
         }
         else {
             Logger::println("doing normal arguments");

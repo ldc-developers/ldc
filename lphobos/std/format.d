@@ -449,7 +449,7 @@ formattedPrint("The answer is %s:", x, 6);
 ------------------------
  */
 
-void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, va_list argptr)
+void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 {   int j;
     TypeInfo ti;
     Mangle m;
