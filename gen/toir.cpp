@@ -92,10 +92,17 @@ DValue* DeclarationExp::toElem(IRState* p)
         Logger::println("AliasDeclaration - no work");
         // do nothing
     }
+    // enum
     else if (EnumDeclaration* e = declaration->isEnumDeclaration())
     {
         Logger::println("EnumDeclaration - no work");
         // do nothing
+    }
+    // class
+    else if (ClassDeclaration* e = declaration->isClassDeclaration())
+    {
+        Logger::println("ClassDeclaration");
+        DtoForceConstInitDsymbol(e);
     }
     // unsupported declaration
     else
@@ -364,7 +371,7 @@ DValue* StringExp::toElem(IRState* p)
     Type* dtype = DtoDType(type);
     Type* cty = DtoDType(dtype->next);
 
-    const llvm::Type* ct = DtoType(dtype->next);
+    const llvm::Type* ct = DtoType(cty);
     //printf("ct = %s\n", type->next->toChars());
     const llvm::ArrayType* at = llvm::ArrayType::get(ct,len+1);
 

@@ -153,6 +153,7 @@ lphobos/internal/contract.d
 lphobos/internal/mem.d
 lphobos/internal/objectimpl.d
 lphobos/internal/qsort2.d
+lphobos/internal/switch.d
 lphobos/llvm
 lphobos/llvm/intrinsic.d
 lphobos/llvm/va_list.d
@@ -327,6 +328,7 @@ test/bug74.d
 test/bug75.d
 test/bug76.d
 test/bug77.d
+test/bug78.d
 test/bug8.d
 test/bug9.d
 test/c.d
@@ -432,6 +434,7 @@ test/structs6.d
 test/structs7.d
 test/switch1.d
 test/switch2.d
+test/switch3.d
 test/sync1.d
 test/templ1.d
 test/templ2.d

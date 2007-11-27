@@ -29,10 +29,11 @@ echo "compiling object/interface casting runtime support"
 llvmdc internal/cast.d -c -odobj || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/cast.bc ../lib/llvmdcore.bc || exit 1
 
-echo "compiling string foreach runtime support"
+echo "compiling string foreach/switch runtime support"
 llvmdc internal/aApply.d -c -odobj || exit 1
 llvmdc internal/aApplyR.d -c -odobj || exit 1
-llvm-link -f -o=../lib/llvmdcore.bc obj/aApply.bc obj/aApplyR.bc ../lib/llvmdcore.bc || exit 1
+llvmdc internal/switch.d -c -odobj || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/aApply.bc obj/aApplyR.bc obj/switch.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling array runtime support"
 llvmdc internal/qsort2.d -c -odobj || exit 1
