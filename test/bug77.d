@@ -12,6 +12,8 @@ void main()
         len = strlen(prefix);
         assert(len == 0);
         }
+
+        func();
     }
     func2();
 }

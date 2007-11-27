@@ -2560,8 +2560,6 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->inuse = 0;
     this->llvmRetInPtr = false;
     this->llvmUsesThis = false;
-    this->llvmRetArg = 0;
-    this->llvmAllocaPoint = 0;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -4094,7 +4092,6 @@ TypeStruct::TypeStruct(StructDeclaration *sym)
 	: Type(Tstruct, NULL)
 {
     this->sym = sym;
-    llvmInit = 0;
 }
 
 char *TypeStruct::toChars()
@@ -4383,7 +4380,6 @@ TypeClass::TypeClass(ClassDeclaration *sym)
 	: Type(Tclass, NULL)
 {
     this->sym = sym;
-    llvmInit = 0;
     llvmVtblType = 0;
 }
 

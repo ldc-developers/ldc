@@ -852,9 +852,8 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
     else
     {
-        assert(sd->llvmInitZ);
         size_t cisize = gTargetData->getTypeSize(tc->llvmType->get());
-        llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(tc->llvmInit, initpt);
+        llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(sd->llvmInit, initpt);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 

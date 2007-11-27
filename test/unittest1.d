@@ -1,9 +1,10 @@
 module unittest1;
 
-unittest
+void main()
 {
 }
 
-void main()
+unittest
 {
+    printf("hello\n");
 }

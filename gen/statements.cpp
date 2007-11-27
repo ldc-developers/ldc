@@ -57,12 +57,13 @@ void ReturnStatement::toIR(IRState* p)
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
             assert(DtoIsPassedByRef(exptype));
 
-            TypeFunction* f = p->topfunctype();
-            assert(f->llvmRetInPtr && f->llvmRetArg);
+            IRFunction* f = p->func();
+            assert(f->type->llvmRetInPtr);
+            assert(f->decl->llvmRetArg);
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
-            DValue* rvar = new DVarValue(f->next, f->llvmRetArg, true);
+            DValue* rvar = new DVarValue(f->type->next, f->decl->llvmRetArg, true);
 
             p->exps.push_back(IRExp(NULL,exp,rvar));
             DValue* e = exp->toElem(p);
@@ -71,9 +72,9 @@ void ReturnStatement::toIR(IRState* p)
             if (!e->inPlace())
                 DtoAssign(rvar, e);
 
-            IRFunction::FinallyVec& fin = p->func()->finallys;
+            IRFunction::FinallyVec& fin = f->finallys;
             if (fin.empty()) {
-                if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
+                if (global.params.symdebug) DtoDwarfFuncEnd(f->decl);
                 new llvm::ReturnInst(p->scopebb());
             }
             else {

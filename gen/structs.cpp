@@ -304,7 +304,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
-    ts->llvmInit = initvar;
+    sd->llvmInit = initvar;
 
     gIR->constInitList.push_back(sd);
     if (sd->getModule() == gIR->dmodule)
@@ -369,11 +369,11 @@ void DtoConstInitStruct(StructDeclaration* sd)
         }
         Logger::cout() << "Initializer printed" << '\n';
         #endif
-        sd->llvmInitZ = llvm::ConstantStruct::get(structtype,fieldinits_ll);
+        sd->llvmConstInit = llvm::ConstantStruct::get(structtype,fieldinits_ll);
     }
     else {
         Logger::println("Zero initialized");
-        sd->llvmInitZ = llvm::ConstantAggregateZero::get(structtype);
+        sd->llvmConstInit = llvm::ConstantAggregateZero::get(structtype);
     }
 
     gIR->structs.pop_back();
@@ -395,7 +395,7 @@ void DtoDefineStruct(StructDeclaration* sd)
 
     assert(sd->type->ty == Tstruct);
     TypeStruct* ts = (TypeStruct*)sd->type;
-    ts->llvmInit->setInitializer(sd->llvmInitZ);
+    sd->llvmInit->setInitializer(sd->llvmConstInit);
 
     sd->llvmDModule = gIR->dmodule;
 }

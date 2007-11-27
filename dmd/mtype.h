@@ -437,8 +437,6 @@ struct TypeFunction : Type
 
     bool llvmRetInPtr;
     bool llvmUsesThis;
-    llvm::Value* llvmRetArg;
-    llvm::Instruction* llvmAllocaPoint;
 };
 
 struct TypeDelegate : Type
@@ -542,8 +540,6 @@ struct TypeStruct : Type
     int hasPointers();
 
     type *toCtype();
-
-    llvm::GlobalVariable* llvmInit;
 };
 
 struct TypeEnum : Type
@@ -641,7 +637,6 @@ struct TypeClass : Type
 
     Symbol *toSymbol();
 
-    llvm::GlobalVariable* llvmInit;
     llvm::PATypeHolder* llvmVtblType;
 };
 

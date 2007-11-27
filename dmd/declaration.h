@@ -615,6 +615,7 @@ struct FuncDeclaration : Declaration
     llvm::Constant* llvmDwarfSubProgram;
     bool llvmRunTimeHack;
     IRFunction* llvmIRFunc;
+    llvm::Value* llvmRetArg;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

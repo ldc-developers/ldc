@@ -223,6 +223,39 @@ static llvm::Function* build_module_dtor()
     return fn;
 }
 
+// build module unittest
+
+static llvm::Function* build_module_unittest()
+{
+    if (gIR->unitTests.empty())
+        return NULL;
+
+    size_t n = gIR->unitTests.size();
+    if (n == 1)
+        return llvm::cast<llvm::Function>(gIR->unitTests[0]->llvmValue);
+
+    std::string name("_D");
+    name.append(gIR->dmodule->mangle());
+    name.append("10__unittestZ");
+
+    std::vector<const llvm::Type*> argsTy;
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    llvm::Function* fn = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
+    fn->setCallingConv(llvm::CallingConv::Fast);
+
+    llvm::BasicBlock* bb = new llvm::BasicBlock("entry", fn);
+    LLVMBuilder builder(bb);
+
+    for (size_t i=0; i<n; i++) {
+        llvm::Function* f = llvm::cast<llvm::Function>(gIR->unitTests[i]->llvmValue);
+        llvm::CallInst* call = builder.CreateCall(f,"");
+        call->setCallingConv(llvm::CallingConv::Fast);
+    }
+
+    builder.CreateRetVoid();
+    return fn;
+}
+
 // Put out instance of ModuleInfo for this Module
 
 void Module::genmoduleinfo()
@@ -296,7 +329,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
     else
-        c = moduleinfo->llvmInitZ->getOperand(3);
+        c = moduleinfo->llvmConstInit->getOperand(3);
     initVec.push_back(c);
 
     // localClasses[]
@@ -330,7 +363,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
-        c = moduleinfo->llvmInitZ->getOperand(4);
+        c = moduleinfo->llvmConstInit->getOperand(4);
     initVec.push_back(c);
 
     // flags
@@ -342,16 +375,17 @@ void Module::genmoduleinfo()
 
     // ctor
     llvm::Function* fctor = build_module_ctor();
-    c = fctor ? fctor : moduleinfo->llvmInitZ->getOperand(6);
+    c = fctor ? fctor : moduleinfo->llvmConstInit->getOperand(6);
     initVec.push_back(c);
 
     // dtor
     llvm::Function* fdtor = build_module_dtor();
-    c = fdtor ? fdtor : moduleinfo->llvmInitZ->getOperand(7);
+    c = fdtor ? fdtor : moduleinfo->llvmConstInit->getOperand(7);
     initVec.push_back(c);
 
     // unitTest
-    c = moduleinfo->llvmInitZ->getOperand(8);
+    llvm::Function* unittest = build_module_unittest();
+    c = unittest ? unittest : moduleinfo->llvmConstInit->getOperand(8);
     initVec.push_back(c);
 
     // create initializer

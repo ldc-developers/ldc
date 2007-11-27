@@ -47,9 +47,10 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
 
     llvmVtbl = NULL;
     llvmConstVtbl = NULL;
-    llvmInitZ = NULL;
+    llvmInit = NULL;
+    llvmConstInit = NULL;
     llvmClass = NULL;
-    llvmClassZ = NULL;
+    llvmConstClass = NULL;
     llvmInProgress = false;
     llvmHasUnions = false;
     llvmUnion = NULL;

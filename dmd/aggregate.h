@@ -104,9 +104,10 @@ struct AggregateDeclaration : ScopeDsymbol
     bool llvmInProgress;
     llvm::GlobalVariable* llvmVtbl;
     llvm::ConstantStruct* llvmConstVtbl;
-    llvm::Constant* llvmInitZ;
+    llvm::GlobalVariable* llvmInit;
+    llvm::Constant* llvmConstInit;
     llvm::GlobalVariable* llvmClass;
-    llvm::Constant* llvmClassZ;
+    llvm::Constant* llvmConstClass;
     bool llvmHasUnions;
     DUnion* llvmUnion;
     IRStruct* llvmIRStruct;

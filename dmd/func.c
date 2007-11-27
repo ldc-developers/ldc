@@ -81,6 +81,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     llvmDwarfSubProgram = NULL;
     llvmRunTimeHack = false;
     llvmIRFunc = NULL;
+    llvmRetArg = NULL;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

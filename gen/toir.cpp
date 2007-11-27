@@ -215,8 +215,9 @@ DValue* VarExp::toElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
-        assert(ts->llvmInit);
-        return new DVarValue(type, ts->llvmInit, true);
+        assert(ts->sym);
+        assert(ts->sym->llvmInit);
+        return new DVarValue(type, ts->sym->llvmInit, true);
     }
     else
     {
@@ -240,8 +241,8 @@ llvm::Constant* VarExp::toConstElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
         DtoForceConstInitDsymbol(ts->sym);
-        assert(ts->sym->llvmInitZ);
-        return ts->sym->llvmInitZ;
+        assert(ts->sym->llvmConstInit);
+        return ts->sym->llvmConstInit;
     }
     assert(0 && "Only supported const VarExp is of a SymbolDeclaration");
     return NULL;
@@ -1004,8 +1005,8 @@ DValue* CallExp::toElem(IRState* p)
                 p->ir->CreateStore(vvalues[i], DtoGEPi(mem,0,i,"tmp"));
 
             //llvm::Constant* typeinfoparam = llvm::ConstantPointerNull::get(isaPointer(llfnty->getParamType(j)));
-            assert(Type::typeinfo->llvmInitZ);
-            const llvm::Type* typeinfotype = llvm::PointerType::get(Type::typeinfo->llvmInitZ->getType());
+            assert(Type::typeinfo->llvmConstInit);
+            const llvm::Type* typeinfotype = llvm::PointerType::get(Type::typeinfo->llvmConstInit->getType());
             Logger::cout() << "typeinfo ptr type: " << *typeinfotype << '\n';
             const llvm::ArrayType* typeinfoarraytype = llvm::ArrayType::get(typeinfotype,vtype->getNumElements());
             llvm::Value* typeinfomem = new llvm::AllocaInst(typeinfoarraytype,"_arguments_storage",p->topallocapoint());
@@ -1830,7 +1831,8 @@ DValue* NewExp::toElem(IRState* p)
             DtoStructZeroInit(emem);
         }
         else {
-            DtoStructCopy(emem,ts->llvmInit);
+            assert(ts->sym);
+            DtoStructCopy(emem,ts->sym->llvmInit);
         }
     }
 

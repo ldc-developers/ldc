@@ -522,8 +522,8 @@ llvm::Constant* DtoConstFieldInitializer(Type* t, Initializer* init)
             TypeStruct* ts = (TypeStruct*)t;
             assert(ts);
             assert(ts->sym);
-            assert(ts->sym->llvmInitZ);
-            _init = ts->sym->llvmInitZ;
+            assert(ts->sym->llvmConstInit);
+            _init = ts->sym->llvmConstInit;
         }
         else if (t->ty == Tclass)
         {
@@ -1529,8 +1529,8 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
             assert(t->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)t;
-            assert(ts->sym->llvmInitZ);
-            _init = ts->sym->llvmInitZ;
+            assert(ts->sym->llvmConstInit);
+            _init = ts->sym->llvmConstInit;
         }
         // array single value init
         else if (isaArray(_type))

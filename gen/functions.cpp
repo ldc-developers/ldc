@@ -73,10 +73,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         ClassDeclaration* ti = Type::typeinfo;
         ti->toObjFile();
         DtoForceConstInitDsymbol(ti);
-        assert(ti->llvmInitZ);
+        assert(ti->llvmConstInit);
         std::vector<const llvm::Type*> types;
         types.push_back(DtoSize_t());
-        types.push_back(llvm::PointerType::get(llvm::PointerType::get(ti->llvmInitZ->getType())));
+        types.push_back(llvm::PointerType::get(llvm::PointerType::get(ti->llvmConstInit->getType())));
         const llvm::Type* t1 = llvm::StructType::get(types);
         paramvec.push_back(llvm::PointerType::get(t1));
         paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
@@ -182,6 +182,12 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         return DtoVaFunctionType(fdecl);
     }
 
+    // unittest has null type, just build it manually
+    /*if (fdecl->isUnitTestDeclaration()) {
+        std::vector<const llvm::Type*> args;
+        return llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+    }*/
+
     // type has already been resolved
     if (fdecl->type->llvmType != 0) {
         return llvm::cast<llvm::FunctionType>(fdecl->type->llvmType->get());
@@ -238,6 +244,10 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 
 void DtoResolveFunction(FuncDeclaration* fdecl)
 {
+    if (!global.params.useUnitTests && fdecl->isUnitTestDeclaration()) {
+        return; // ignore declaration completely
+    }
+
     if (fdecl->llvmResolved) return;
     fdecl->llvmResolved = true;
 
@@ -246,11 +256,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
     if (fdecl->llvmRunTimeHack) {
         gIR->declareList.push_back(fdecl);
-        return;
-    }
-
-    if (fdecl->isUnitTestDeclaration()) {
-        Logger::attention("ignoring unittest declaration: %s", fdecl->toChars());
         return;
     }
 
@@ -293,6 +298,12 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     assert(!fdecl->isAbstract());
 
+    // intrinsic sanity check
+    if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
+        error(fdecl->loc, "intrinsics cannot have function bodies");
+        fatal();
+    }
+
     if (fdecl->llvmRunTimeHack) {
         Logger::println("runtime hack func chars: %s", fdecl->toChars());
         if (!fdecl->llvmValue)
@@ -317,26 +328,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         mangled_name = fdecl->llvmInternal1;
     else
         mangled_name = fdecl->mangle();
-
-    // unit test special handling
-    if (fdecl->isUnitTestDeclaration())
-    {
-        assert(0 && "no unittests yet");
-        /*const llvm::FunctionType* fnty = llvm::FunctionType::get(llvm::Type::VoidTy, std::vector<const llvm::Type*>(), false);
-        // make the function
-        llvm::Function* func = gIR->module->getFunction(mangled_name);
-        if (func == 0)
-            func = new llvm::Function(fnty,llvm::GlobalValue::InternalLinkage,mangled_name,gIR->module);
-        func->setCallingConv(llvm::CallingConv::Fast);
-        fdecl->llvmValue = func;
-        return func;
-        */
-    }
-
-    if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
-        error("intrinsics cannot have function bodies");
-        fatal();
-    }
 
     llvm::Function* vafunc = 0;
     if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
@@ -387,7 +378,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     int k = 0;
     if (f->llvmRetInPtr) {
         iarg->setName("retval");
-        f->llvmRetArg = iarg;
+        fdecl->llvmRetArg = iarg;
         ++iarg;
     }
     if (f->llvmUsesThis) {
@@ -422,6 +413,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         }
     }
 
+    if (fdecl->isUnitTestDeclaration())
+        gIR->unitTests.push_back(fdecl);
+
     if (!declareOnly)
         gIR->defineList.push_back(fdecl);
 
@@ -430,7 +424,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO split this monster up
 void DtoDefineFunc(FuncDeclaration* fd)
 {
     if (fd->llvmDefined) return;
@@ -452,8 +445,8 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     Type* t = DtoDType(fd->type);
     TypeFunction* f = (TypeFunction*)t;
-
     assert(f->llvmType);
+
     llvm::Function* func = fd->llvmIRFunc->func;
     const llvm::FunctionType* functype = func->getFunctionType();
 
@@ -479,13 +472,13 @@ void DtoDefineFunc(FuncDeclaration* fd)
             gIR->scopes.push_back(IRScope(beginbb, endbb));
 
                 // create alloca point
-                f->llvmAllocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
-                gIR->func()->allocapoint = f->llvmAllocaPoint;
+                llvm::Instruction* allocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
+                gIR->func()->allocapoint = allocaPoint;
 
                 // need result variable? (not nested)
                 if (fd->vresult && !fd->vresult->nestedref) {
                     Logger::println("non-nested vresult value");
-                    fd->vresult->llvmValue = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",f->llvmAllocaPoint);
+                    fd->vresult->llvmValue = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",allocaPoint);
                 }
 
                 // give arguments storage
@@ -501,7 +494,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                         std::string s(a->getName());
                         Logger::println("giving argument '%s' storage", s.c_str());
                         s.append("_storage");
-                        llvm::Value* v = new llvm::AllocaInst(a->getType(),s,f->llvmAllocaPoint);
+                        llvm::Value* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
                         gIR->ir->CreateStore(a,v);
                         vd->llvmValue = v;
                     }
@@ -546,7 +539,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                     }
                     const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
                     Logger::cout() << "nested var struct has type:" << '\n' << *nestSType;
-                    fd->llvmNested = new llvm::AllocaInst(nestSType,"nestedvars",f->llvmAllocaPoint);
+                    fd->llvmNested = new llvm::AllocaInst(nestSType,"nestedvars",allocaPoint);
                     if (parentNested) {
                         assert(fd->llvmThisVar);
                         llvm::Value* ptr = gIR->ir->CreateBitCast(fd->llvmThisVar, parentNested->getType(), "tmp");
@@ -588,8 +581,8 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 }
 
                 // erase alloca point
-                f->llvmAllocaPoint->eraseFromParent();
-                f->llvmAllocaPoint = 0;
+                allocaPoint->eraseFromParent();
+                allocaPoint = 0;
                 gIR->func()->allocapoint = 0;
 
             gIR->scopes.pop_back();
@@ -648,6 +641,12 @@ void DtoMain()
     // call static ctors
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleCtor");
     llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
+
+    // run unit tests if -unittest is provided
+    if (global.params.useUnitTests) {
+        fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleUnitTests");
+        llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
+    }
 
     // call user main function
     const llvm::FunctionType* mainty = ir.mainFunc->getFunctionType();
