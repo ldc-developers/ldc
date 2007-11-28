@@ -104,6 +104,12 @@ DValue* DeclarationExp::toElem(IRState* p)
         Logger::println("ClassDeclaration");
         DtoForceConstInitDsymbol(e);
     }
+    // typedef
+    else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
+    {
+        Logger::println("TypedefDeclaration");
+        tdef->type->getTypeInfo(NULL);
+    }
     // unsupported declaration
     else
     {
