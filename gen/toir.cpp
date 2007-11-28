@@ -2574,6 +2574,29 @@ DValue* InExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* AssocArrayLiteralExp::toElem(IRState* p)
+{
+    Logger::print("AssocArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    assert(keys);
+    assert(values);
+    assert(keys->dim == values->dim);
+
+    const size_t n = keys->dim;
+    for (size_t i=0; i<n; ++i)
+    {
+        Expression* ekey = (Expression*)keys->data[i];
+        Expression* eval = (Expression*)values->data[i];
+
+        Logger::println("(%u) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+    }
+
+    assert(0);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 //STUB(IdentityExp);
 //STUB(CondExp);
@@ -2645,7 +2668,7 @@ STUB(BoolExp);
 //STUB(HaltExp);
 STUB(RemoveExp);
 //STUB(ArrayLiteralExp);
-STUB(AssocArrayLiteralExp);
+//STUB(AssocArrayLiteralExp);
 //STUB(StructLiteralExp);
 STUB(TupleExp);
 

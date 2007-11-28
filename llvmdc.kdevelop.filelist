@@ -120,6 +120,7 @@ gen/irstate.h
 gen/llvm.h
 gen/logger.cpp
 gen/logger.h
+gen/optimizer.cpp
 gen/runtime.cpp
 gen/runtime.h
 gen/statements.cpp
@@ -239,6 +240,7 @@ test/aa2.d
 test/aa3.d
 test/aa4.d
 test/aa5.d
+test/aa6.d
 test/alignment.d
 test/alloca1.d
 test/arrayinit.d

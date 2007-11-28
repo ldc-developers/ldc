@@ -43,8 +43,12 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void
-Module::genobjfile()
+// in gen/optimize.cpp
+void llvmdc_optimize_module(llvm::Module* m, char lvl, bool doinline);
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void Module::genobjfile()
 {
     Logger::cout() << "Generating module: " << (md ? md->toChars() : toChars()) << '\n';
     LOG_SCOPE;
@@ -112,8 +116,6 @@ Module::genobjfile()
     // do this again as moduleinfo might have pulled something in!
     DtoEmptyAllLists();
 
-    gTargetData = 0;
-
     // emit the llvm main function if necessary
     if (ir.emitMain) {
         DtoMain();
@@ -134,8 +136,10 @@ Module::genobjfile()
         }
     }
 
-    // run passes
-    // TODO
+    // run optimizer
+    if (global.params.optimize) {
+        llvmdc_optimize_module(ir.module, global.params.optimizeLevel, global.params.useInline);
+    }
 
     // write bytecode
     {
@@ -152,6 +156,7 @@ Module::genobjfile()
     }
 
     delete ir.module;
+    gTargetData = 0;
     gIR = NULL;
 }
 
