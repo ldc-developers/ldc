@@ -131,12 +131,8 @@ void DtoResolveClass(ClassDeclaration* cd)
     else
         *ts->llvmType = structtype;
 
-    if (cd->isNested()) {
-        assert(0 && "nested classes not implemented");
-    }
-    else {
-        gIR->module->addTypeName(cd->mangle(), ts->llvmType->get());
-    }
+    // name the type
+    gIR->module->addTypeName(cd->mangle(), ts->llvmType->get());
 
     // build interface info type
     std::vector<const llvm::Type*> infoTypes;
@@ -231,8 +227,8 @@ void DtoDeclareClass(ClassDeclaration* cd)
     gIR->classes.push_back(cd);
 
     bool needs_definition = false;
-    if (cd->parent->isModule()) {
-        needs_definition = (cd->getModule() == gIR->dmodule);
+    if (cd->getModule() == gIR->dmodule) {
+        needs_definition = true;
     }
 
     // interface vtables are emitted by the class implementing them
@@ -319,7 +315,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
     DtoDeclareClassInfo(cd);
 
     // typeinfo
-    if (cd->parent->isModule() && cd->getModule() == gIR->dmodule)
+    if (needs_definition)
         cd->type->getTypeInfo(NULL);
 }
 
@@ -520,8 +516,7 @@ void DtoDefineClass(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
 
-    bool def = false;
-    if (cd->parent->isModule() && cd->getModule() == gIR->dmodule) {
+    if (cd->getModule() == gIR->dmodule) {
         // interfaces don't have initializers
         if (!cd->isInterfaceDeclaration()) {
             cd->llvmInit->setInitializer(cd->llvmConstInit);
@@ -542,11 +537,10 @@ void DtoDefineClass(ClassDeclaration* cd)
                 irstruct->interfaceInfos->setInitializer(arrInit);
             }
         }
-        def = true;
-    }
 
-    // generate classinfo
-    if (def) DtoDefineClassInfo(cd);
+        // generate classinfo
+        DtoDefineClassInfo(cd);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -752,7 +746,7 @@ static llvm::Constant* build_offti_entry(VarDeclaration* vd)
     llvm::Constant* c = isaConstant(vd->type->vtinfo->llvmValue);
 
     const llvm::Type* tiTy = llvm::PointerType::get(Type::typeinfo->type->llvmType->get());
-    Logger::cout() << "tiTy = " << *tiTy << '\n';
+    //Logger::cout() << "tiTy = " << *tiTy << '\n';
 
     types.push_back(tiTy);
     inits.push_back(llvm::ConstantExpr::getBitCast(c, tiTy));

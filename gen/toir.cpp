@@ -1264,7 +1264,7 @@ DValue* DotVarExp::toElem(IRState* p)
     Type* t = DtoDType(type);
     Type* e1type = DtoDType(e1->type);
 
-    Logger::print("e1type=%s\n", e1type->toChars());
+    //Logger::print("e1type=%s\n", e1type->toChars());
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         llvm::Value* arrptr;
@@ -1282,13 +1282,13 @@ DValue* DotVarExp::toElem(IRState* p)
             std::vector<unsigned> vdoffsets(1,0);
             tc->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
             llvm::Value* src = l->getRVal();
-            Logger::cout() << "src: " << *src << '\n';
+            //Logger::cout() << "src: " << *src << '\n';
             arrptr = DtoGEP(src,vdoffsets,"tmp",p->scopebb());
         }
         else
             assert(0);
 
-        Logger::cout() << "mem: " << *arrptr << '\n';
+        //Logger::cout() << "mem: " << *arrptr << '\n';
         return new DVarValue(vd, arrptr, true);
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
@@ -1314,7 +1314,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
             llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
             llvm::Value* vtblidx = llvm::ConstantInt::get(llvm::Type::Int32Ty, (size_t)fdecl->vtblIndex, false);
-            Logger::cout() << "vthis: " << *vthis << '\n';
+            //Logger::cout() << "vthis: " << *vthis << '\n';
             funcval = DtoGEP(vthis, zero, zero, "tmp", p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = DtoGEP(funcval, zero, vtblidx, toChars(), p->scopebb());
@@ -1332,7 +1332,7 @@ DValue* DotVarExp::toElem(IRState* p)
         return new DFuncValue(fdecl, funcval, vthis2);
     }
     else {
-        printf("unknown: %s\n", var->toChars());
+        printf("unsupported dotvarexp: %s\n", var->toChars());
     }
 
     assert(0);
@@ -1756,10 +1756,9 @@ DValue* NewExp::toElem(IRState* p)
     Logger::print("NewExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    assert(!thisexp);
-    assert(!newargs);
+    assert(!newargs && "arguments to new not yet supported");
     assert(newtype);
-    assert(!allocator);
+    assert(!allocator && "custom allocators not yet supported");
 
     Type* ntype = DtoDType(newtype);
 
@@ -1809,7 +1808,16 @@ DValue* NewExp::toElem(IRState* p)
 
     if (ntype->ty == Tclass) {
         // first apply the static initializer
-        DtoInitClass((TypeClass*)ntype, emem);
+        TypeClass* tc = (TypeClass*)ntype;
+        DtoInitClass(tc, emem);
+
+        // set the this var for nested classes
+        if (thisexp) {
+            DValue* thisval = thisexp->toElem(p);
+            size_t idx = 2;
+            idx += tc->sym->llvmIRStruct->interfaces.size();
+            DtoStore(thisval->getRVal(), DtoGEPi(emem,0,idx,"tmp"));
+        }
 
         // then call constructor
         if (arguments) {

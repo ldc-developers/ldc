@@ -60,7 +60,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     std::vector<const llvm::Type*> paramvec;
 
     if (retinptr) {
-        Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
+        //Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
         paramvec.push_back(rettype);
     }
 

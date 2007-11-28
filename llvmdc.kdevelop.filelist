@@ -385,6 +385,7 @@ test/imag1.d
 test/imports2.d
 test/imports_1of2.d
 test/imports_2of2.d
+test/innerclass1.d
 test/interface1.d
 test/interface2.d
 test/interface3.d

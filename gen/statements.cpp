@@ -192,7 +192,7 @@ void IfStatement::toIR(IRState* p)
 
 void ScopeStatement::toIR(IRState* p)
 {
-    Logger::println("ScopeStatement::toIR(): %s", toChars());
+    Logger::println("ScopeStatement::toIR()");
     LOG_SCOPE;
 
     llvm::BasicBlock* oldend = p->scopeend();
