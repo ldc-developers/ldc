@@ -218,8 +218,8 @@ int runLINK()
 
     argv.insert(argv.dim, global.params.libfiles);
 
-    //if (global.params.symdebug)
-	//argv.push((void *)"-g");
+    if (!global.params.symdebug)
+        argv.push((void *)"-strip-debug");
 
     //argv.push((void *)"-m32");
 
@@ -245,6 +245,10 @@ int runLINK()
         assert(0);
         }
         argv.push((void*)s);
+    }
+
+    if (!global.params.useInline) {
+        argv.push((void *)"-disable-inlining");
     }
 
 #if 0

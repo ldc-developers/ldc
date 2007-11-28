@@ -110,8 +110,7 @@ class Object
      */
     char[] toString()
     {
-    //return this.classinfo.name;
-    return "object.Object (no classinfo yet)";
+    return this.classinfo.name;
     }
 
     /**
@@ -137,8 +136,7 @@ class Object
     // BUG: this prevents a compacting GC from working, needs to be fixed
     //return cast(int)cast(void *)this - cast(int)cast(void *)o;
 
-    //throw new Error("need opCmp for class " ~ this.classinfo.name);
-    throw new Error("need opCmp for class unknown object.Object (no classinfo yet)");
+    throw new Error("need opCmp for class " ~ this.classinfo.name);
     }
 
     /**
