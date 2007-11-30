@@ -256,6 +256,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
     if (fdecl->llvmRunTimeHack) {
         gIR->declareList.push_back(fdecl);
+        TypeFunction* tf = (TypeFunction*)fdecl->type;
+        tf->llvmRetInPtr = DtoIsPassedByRef(tf->next);
         return;
     }
 

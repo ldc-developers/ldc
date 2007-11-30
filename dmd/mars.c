@@ -259,11 +259,11 @@ int main(int argc, char *argv[])
     global.params.link = 1;
     global.params.useAssert = 0;
     global.params.useInvariants = 0;
-    global.params.useIn = 0;
+    global.params.useIn = 1;
     global.params.useOut = 0;
     global.params.useArrayBounds = 0;
     global.params.useSwitchError = 0;
-    global.params.useInline = 0;
+    global.params.useInline = 0; // this one messes things up to a point where codegen breaks
     global.params.obj = 1;
     global.params.Dversion = 2;
 

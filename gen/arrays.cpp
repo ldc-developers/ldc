@@ -808,8 +808,10 @@ llvm::Value* DtoArrayLen(DValue* v)
                 return s->len;
             }
             const llvm::ArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
-            assert(arrTy);
-            return DtoConstSize_t(arrTy->getNumElements());
+            if (arrTy)
+                return DtoConstSize_t(arrTy->getNumElements());
+            else
+                return DtoLoad(DtoGEPi(s->ptr, 0,0, "tmp"));
         }
         return DtoLoad(DtoGEPi(v->getRVal(), 0,0, "tmp"));
     }
@@ -831,9 +833,13 @@ llvm::Value* DtoArrayPtr(DValue* v)
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice()) {
             if (s->len) return s->ptr;
+            const llvm::Type* t = s->ptr->getType()->getContainedType(0);
+            Logger::cout() << "ptr of full slice: " << *s->ptr << '\n';
             const llvm::ArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
-            assert(arrTy);
-            return DtoGEPi(s->ptr, 0,0, "tmp");
+            if (arrTy)
+                return DtoGEPi(s->ptr, 0,0, "tmp");
+            else
+                return DtoLoad(DtoGEPi(s->ptr, 0,1, "tmp"));
         }
         return DtoLoad(DtoGEPi(v->getRVal(), 0,1, "tmp"));
     }

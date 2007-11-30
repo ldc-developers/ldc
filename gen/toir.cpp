@@ -904,7 +904,7 @@ DValue* CallExp::toElem(IRState* p)
         Logger::cout() << "what are we calling? : " << *funcval << '\n';
     }
     assert(llfnty);
-    //Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
+    Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
 
     // argument handling
     llvm::FunctionType::param_iterator argiter = llfnty->param_begin();
@@ -2572,6 +2572,19 @@ DValue* InExp::toElem(IRState* p)
     return DtoAAIn(type, aa, key);
 }
 
+DValue* RemoveExp::toElem(IRState* p)
+{
+    Logger::print("RemoveExp::toElem: %s\n", toChars());
+    LOG_SCOPE;
+
+    DValue* aa = e1->toElem(p);
+    DValue* key = e2->toElem(p);
+
+    DtoAARemove(aa, key);
+
+    return NULL; // does not produce anything useful
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* AssocArrayLiteralExp::toElem(IRState* p)
@@ -2583,6 +2596,20 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     assert(values);
     assert(keys->dim == values->dim);
 
+    Type* aatype = DtoDType(type);
+    Type* vtype = aatype->next;
+
+    DValue* aa;
+    if (p->topexp() && p->topexp()->e2 == this)
+    {
+        aa = p->topexp()->v;
+    }
+    else
+    {
+        llvm::Value* tmp = new llvm::AllocaInst(DtoType(type),"aaliteral",p->topallocapoint());
+        aa = new DVarValue(type, tmp, true);
+    }
+
     const size_t n = keys->dim;
     for (size_t i=0; i<n; ++i)
     {
@@ -2590,9 +2617,17 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         Expression* eval = (Expression*)values->data[i];
 
         Logger::println("(%u) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+
+        // index
+        DValue* key = ekey->toElem(p);
+        DValue* mem = DtoAAIndex(vtype, aa, key);
+
+        // store
+        DValue* val = eval->toElem(p);
+        DtoAssign(mem, val);
     }
 
-    assert(0);
+    return aa;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2666,7 +2701,7 @@ STUB(BoolExp);
 //STUB(CommaExp);
 //STUB(ArrayLengthExp);
 //STUB(HaltExp);
-STUB(RemoveExp);
+//STUB(RemoveExp);
 //STUB(ArrayLiteralExp);
 //STUB(AssocArrayLiteralExp);
 //STUB(StructLiteralExp);

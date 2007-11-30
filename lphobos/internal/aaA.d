@@ -98,8 +98,9 @@ alias BB* AA;
 
 size_t aligntsize(size_t tsize)
 {
-    // Is pointer alignment on the x64 4 bytes or 8?
-    return (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+    // Is pointer alignment on the x86-64 4 bytes or 8?
+    //return (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+    return (tsize + 3) & (~3);
 }
 
 extern (C):
@@ -742,7 +743,8 @@ body
  * length pairs of key/value pairs.
  */
 
-extern (C)
+version(none) // not used, C variadics can't be implemented in LLVM on x86-64
+{
 BB* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...)
 {
     auto valuesize = ti.next.tsize();		// value size
@@ -819,5 +821,5 @@ BB* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...)
     }
     return result;
 }
-
+}
 
