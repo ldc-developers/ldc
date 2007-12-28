@@ -247,7 +247,7 @@ int runLINK()
         argv.push((void*)s);
     }
 
-    if (!global.params.useInline) {
+    if (!(global.params.useInline || global.params.llvmInline)) {
         argv.push((void *)"-disable-inlining");
     }
 

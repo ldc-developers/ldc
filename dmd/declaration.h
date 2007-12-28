@@ -606,6 +606,7 @@ struct FuncDeclaration : Declaration
 
     FuncDeclaration *isFuncDeclaration() { return this; }
 
+    // llvmdc stuff
     bool llvmQueued;
     llvm::Value* llvmThisVar;
     std::set<VarDeclaration*> llvmNestedVars;

@@ -259,6 +259,7 @@ test/arrays7.d
 test/arrays8.d
 test/arrays9.d
 test/assign.d
+test/ast1.d
 test/b.d
 test/bitops.d
 test/bug1.d
@@ -336,6 +337,7 @@ test/bug9.d
 test/c.d
 test/classes.d
 test/classes10.d
+test/classes11.d
 test/classes2.d
 test/classes3.d
 test/classes4.d
@@ -406,9 +408,15 @@ test/multiarr3.d
 test/multiarr4.d
 test/neg.d
 test/nested1.d
+test/nested10.d
 test/nested2.d
 test/nested3.d
 test/nested4.d
+test/nested5.d
+test/nested6.d
+test/nested7.d
+test/nested8.d
+test/nested9.d
 test/pointers.d
 test/pt.d
 test/ptrarith.d

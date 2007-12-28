@@ -11,4 +11,9 @@ int find(char[] s, dchar c)
 
 void main()
 {
+    char[] hello = "hello world";
+    int i = find(hello, 'w');
+    assert(i == 6);
+    i = find(hello, 'z');
+    assert(i == -1);
 }

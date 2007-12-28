@@ -1824,6 +1824,18 @@ DValue* NewExp::toElem(IRState* p)
             idx += tc->sym->llvmIRStruct->interfaces.size();
             DtoStore(thisval->getRVal(), DtoGEPi(emem,0,idx,"tmp"));
         }
+        else if (tc->sym->isNested())
+        {
+            size_t idx = 2;
+            idx += tc->sym->llvmIRStruct->interfaces.size();
+            llvm::Value* nest = p->func()->decl->llvmNested;
+            if (!nest)
+                nest = p->func()->decl->llvmThisVar;
+            assert(nest);
+            llvm::Value* gep = DtoGEPi(emem,0,idx,"tmp");
+            nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
+            DtoStore(nest, gep);
+        }
 
         // then call constructor
         if (arguments) {

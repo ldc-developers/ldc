@@ -11,9 +11,11 @@ void main()
         void func()
         {
             printf("Hello world %d\n", i++);
+            //i++;
         }
     }
 
     scope c = new C;
     c.func();
+    assert(i == 44);
 }

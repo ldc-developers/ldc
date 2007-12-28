@@ -138,7 +138,7 @@ void Module::genobjfile()
 
     // run optimizer
     if (global.params.optimize) {
-        llvmdc_optimize_module(ir.module, global.params.optimizeLevel, global.params.useInline);
+        llvmdc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
     }
 
     // write bytecode

@@ -540,7 +540,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                         }
                     }
                     const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
-                    Logger::cout() << "nested var struct has type:" << '\n' << *nestSType;
+                    Logger::cout() << "nested var struct has type:" << *nestSType << '\n';
                     fd->llvmNested = new llvm::AllocaInst(nestSType,"nestedvars",allocaPoint);
                     if (parentNested) {
                         assert(fd->llvmThisVar);

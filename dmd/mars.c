@@ -264,6 +264,7 @@ int main(int argc, char *argv[])
     global.params.useArrayBounds = 0;
     global.params.useSwitchError = 0;
     global.params.useInline = 0; // this one messes things up to a point where codegen breaks
+    global.params.llvmInline = 0; // use this one instead to know if inline passes should be run
     global.params.obj = 1;
     global.params.Dversion = 2;
 
@@ -471,9 +472,10 @@ int main(int argc, char *argv[])
 #endif
 	    else if (strcmp(p + 1, "inline") == 0) {
             // TODO
-            // the ast rewrites dmd does for inling messes up the ast
+            // the ast rewrites dmd does for inlining messes up the ast.
             // someday maybe we can support it, for now llvm does an excellent job at inlining
             global.params.useInline = 0; //1
+            global.params.llvmInline = 1;
         }
 	    else if (strcmp(p + 1, "nofloat") == 0)
 		global.params.nofloat = 1;

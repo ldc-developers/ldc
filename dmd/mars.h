@@ -129,6 +129,7 @@ struct Param
     char *tt_os;
     char *data_layout;
     char disassemble;
+    char llvmInline;
 };
 
 struct Global

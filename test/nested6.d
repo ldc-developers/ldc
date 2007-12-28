@@ -4,19 +4,19 @@ void main()
 {
     int i = 42;
 
-    printf("Hello world %d\n", i++);
+    printf("main() %d\n", i++);
 
     class C
     {
         void func()
         {
-            printf("Hello world %d\n", i++);
+            printf("C.func() %d\n", i++);
 
             class C2
             {
                 void func2()
                 {
-                    printf("Hello world %d\n", i++);
+                    printf("C2.func2() %d\n", i++);
                 }
             }
 

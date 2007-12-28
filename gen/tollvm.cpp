@@ -796,64 +796,143 @@ llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expressio
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoNestedVariable(VarDeclaration* vd)
+static void print_frame_worker(VarDeclaration* var, Dsymbol* par)
 {
-    FuncDeclaration* fd = vd->toParent()->isFuncDeclaration();
-    assert(fd != NULL);
+    if (var->toParent2() == par)
+    {
+        Logger::println("parent found: '%s' kind: '%s'", par->toChars(), par->kind());
+        return;
+    }
 
-    IRFunction* fcur = gIR->func();
-    FuncDeclaration* f = fcur->decl;
+    Logger::println("diving into parent: '%s' kind: '%s'", par->toChars(), par->kind());
+    LOG_SCOPE;
+    print_frame_worker(var, par->toParent2());
+}
 
-    // on this stack
-    if (fd == f) {
-        llvm::Value* vdv = vd->llvmValue;
-        if (!vdv)
-        {
-            Logger::println(":o null vd->llvmValue for: %s", vd->toChars());
-            vdv = fd->llvmNested;
-            assert(vdv);
-        }
-        assert(vd->llvmNestedIndex != ~0);
-        llvm::Value* v = DtoGEPi(vdv,0,unsigned(vd->llvmNestedIndex),"tmp");
-        if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))) {
-            Logger::cout() << "1267 loading: " << *v << '\n';
-            v = gIR->ir->CreateLoad(v,"tmp");
-        }
+static void print_nested_frame_list(VarDeclaration* var, Dsymbol* par)
+{
+    Logger::println("PRINTING FRAME LIST FOR NESTED VAR: '%s'", var->toChars());
+    {
+        LOG_SCOPE;
+        print_frame_worker(var, par);
+    }
+    Logger::println("DONE");
+}
+
+static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
+{
+    assert(sc->isFuncDeclaration() || sc->isClassDeclaration());
+    Dsymbol* p = sc->toParent2();
+    assert(p->isFuncDeclaration() || p->isClassDeclaration());
+    if (FuncDeclaration* fd = p->isFuncDeclaration())
+    {
+        llvm::Value* v = fd->llvmNested;
+        assert(v);
+        return v->getType();
+    }
+    else if (ClassDeclaration* cd = p->isClassDeclaration())
+    {
+        return DtoType(cd->type);
+    }
+    else
+    {
+        Logger::println("symbol: '%s' kind: '%s'", sc->toChars(), sc->kind());
+        assert(0);
+    }
+}
+
+static llvm::Value* get_frame_ptr_impl(VarDeclaration* vd, Dsymbol* sc, llvm::Value* v)
+{
+    if (vd->toParent2() == sc)
+    {
         return v;
     }
+    else if (FuncDeclaration* fd = sc->isFuncDeclaration())
+    {
+        Logger::println("scope is function");
+        v = DtoBitCast(v, get_next_frame_ptr_type(fd));
+        Logger::cout() << "v = " << *v << '\n';
 
-    // on a caller stack
-    llvm::Value* ptr = f->llvmThisVar;
+        if (fd->toParent2() == vd->toParent2())
+            return v;
+
+        if (fd->toParent2()->isFuncDeclaration())
+        {
+            v = DtoGEPi(v, 0,0, "tmp");
+            v = DtoLoad(v);
+        }
+        else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
+        {
+            size_t idx = 2;
+            idx += cd->llvmIRStruct->interfaces.size();
+            v = DtoGEPi(v,0,idx,"tmp");
+            v = DtoLoad(v);
+        }
+        else
+        {
+            assert(0);
+        }
+        return get_frame_ptr_impl(vd, fd->toParent2(), v);
+    }
+    else if (ClassDeclaration* cd = sc->isClassDeclaration())
+    {
+        Logger::println("scope is class");
+        /*size_t idx = 2;
+        idx += cd->llvmIRStruct->interfaces.size();
+        v = DtoGEPi(v,0,idx,"tmp");
+        Logger::cout() << "gep = " << *v << '\n';
+        v = DtoLoad(v);*/
+        return get_frame_ptr_impl(vd, cd->toParent2(), v);
+    }
+    else
+    {
+        Logger::println("symbol: '%s'", sc->toChars());
+        assert(0);
+    }
+}
+
+static llvm::Value* get_frame_ptr(VarDeclaration* vd)
+{
+    Logger::println("RESOLVING FRAME PTR FOR NESTED VAR: '%s'", vd->toChars());
+    LOG_SCOPE;
+    IRFunction* irfunc = gIR->func();
+
+    // in the parent scope already
+    if (vd->toParent2() == irfunc->decl)
+        return irfunc->decl->llvmNested;
+
+    // use the 'this' pointer
+    llvm::Value* ptr = irfunc->decl->llvmThisVar;
     assert(ptr);
 
-    f = f->toParent()->isFuncDeclaration();
-    assert(f);
-    assert(f->llvmNested);
-    const llvm::Type* nesttype = f->llvmNested->getType();
-    assert(nesttype);
+    // return the fully resolved frame pointer
+    ptr = get_frame_ptr_impl(vd, irfunc->decl, ptr);
+    Logger::cout() << "FOUND: '" << *ptr << "'\n";
 
-    ptr = gIR->ir->CreateBitCast(ptr, nesttype, "tmp");
+    return ptr;
+}
 
-    Logger::cout() << "nested var reference:" << '\n' << *ptr << *nesttype << '\n';
+llvm::Value* DtoNestedVariable(VarDeclaration* vd)
+{
+    // log the frame list
+    IRFunction* irfunc = gIR->func();
+    print_nested_frame_list(vd, irfunc->decl);
 
-    while (f) {
-        if (fd == f) {
-            llvm::Value* v = DtoGEPi(ptr,0,vd->llvmNestedIndex,"tmp");
-            if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))) {
-                Logger::cout() << "1291 loading: " << *v << '\n';
-                v = gIR->ir->CreateLoad(v,"tmp");
-            }
-            return v;
-        }
-        else {
-            ptr = DtoGEPi(ptr,0,0,"tmp");
-            ptr = gIR->ir->CreateLoad(ptr,"tmp");
-        }
-        f = f->toParent()->isFuncDeclaration();
-    }
+    // resolve frame ptr
+    llvm::Value* ptr = get_frame_ptr(vd);
+    Logger::cout() << "nested ptr = " << *ptr << '\n';
 
-    assert(0 && "nested var not found");
-    return NULL;
+    // we must cast here to be sure. nested classes just have a void*
+    ptr = DtoBitCast(ptr, vd->toParent2()->isFuncDeclaration()->llvmNested->getType());
+
+    // index nested var and load (if necessary)
+    llvm::Value* v = DtoGEPi(ptr, 0, vd->llvmNestedIndex, "tmp");
+    // references must be loaded, for normal variables this IS already the variable storage!!!
+    if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
+        v = DtoLoad(v);
+
+    Logger::cout() << "FINAL RESULT: " << *v << '\n';
+    return v;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
