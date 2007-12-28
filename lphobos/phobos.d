@@ -2,16 +2,18 @@ module phobos;
 
 import
 std.array,
+std.base64,
 std.ctype,
 std.format,
 std.intrinsic,
 std.math,
 std.moduleinit,
 std.outofmemory,
+std.stdarg,
 std.stdint,
 std.stdio,
-std.stdarg,
 std.string,
+std.traits,
 std.uni,
 std.utf,
 

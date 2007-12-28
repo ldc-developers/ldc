@@ -29,6 +29,7 @@ Declaration::Declaration(Identifier *id)
     : Dsymbol(id)
 {
     type = NULL;
+    originalType = NULL;
     storage_class = STCundefined;
     protection = PROTundefined;
     linkage = LINKdefault;
@@ -622,9 +623,13 @@ void VarDeclaration::semantic(Scope *sc)
 	 * declarations.
 	 */
 	storage_class &= ~STCauto;
+	originalType = type;
     }
     else
+    {	if (!originalType)
+	    originalType = type;
 	type = type->semantic(loc, sc);
+    }
 
     type->checkDeprecated(loc, sc);
     linkage = sc->linkage;
