@@ -692,7 +692,6 @@ struct Argument : Object
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
 
     // backend
-    bool llvmCopy;
     VarDeclaration* vardecl;
 };
 

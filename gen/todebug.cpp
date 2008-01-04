@@ -120,10 +120,10 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m, bool define)
             DtoConstUint(llvm::LLVMDebugVersion)));
         vals.push_back(dbgToArrTy(GetDwarfAnchor(DW_TAG_compile_unit)));
 
-        vals.push_back(DtoConstUint(DW_LANG_D));
+        vals.push_back(DtoConstUint(DW_LANG_C));// _D)); // doesn't seem to work
         vals.push_back(DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata"));
         std::string srcpath(FileName::path(m->srcfile->name->toChars()));
-        srcpath.append("/");
+        //srcpath.append("/");
         vals.push_back(DtoConstStringPtr(srcpath.c_str(), "llvm.metadata"));
         vals.push_back(DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata"));
 

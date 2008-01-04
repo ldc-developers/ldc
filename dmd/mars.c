@@ -71,7 +71,7 @@ Global::Global()
     copyright = "Copyright (c) 1999-2007 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     llvmdc_version = "0.1";
-    version = "v1.024";
+    version = "v1.025";
     global.structalign = 8;
 
     memset(&params, 0, sizeof(Param));
@@ -167,6 +167,7 @@ Usage:\n\
   dmd files.d ... { -switch }\n\
 \n\
   files.d        D source files\n%s\
+  -annotate      annotate the bitcode with human readable source code\n\
   -c             do not link\n\
   -cov           do code coverage analysis\n\
   -D             generate documentation\n\
@@ -290,7 +291,7 @@ int main(int argc, char *argv[])
     global.params.forceBE = 0;
     global.params.noruntime = 0;
     global.params.novalidate = 0;
-    global.params.optimizeLevel = 2;
+    global.params.optimizeLevel = -1;
     global.params.runtimeImppath = 0;
 
     global.params.defaultlibname = "phobos";
@@ -370,6 +371,7 @@ int main(int argc, char *argv[])
 	    else if (p[1] == 'O')
         {
             global.params.optimize = 1;
+            global.params.optimizeLevel = 2;
             if (p[2] != 0) {
                 int optlevel = atoi(p+2);
                 if (optlevel < 0 || optlevel > 5) {
@@ -389,6 +391,8 @@ int main(int argc, char *argv[])
         global.params.novalidate = 1;
         else if (strcmp(p + 1, "dis") == 0)
         global.params.disassemble = 1;
+        else if (strcmp(p + 1, "annotate") == 0)
+        global.params.llvmAnnotate = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
@@ -683,6 +687,7 @@ int main(int argc, char *argv[])
 
     if (strcmp(global.params.llvmArch,"x86")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86");
+        //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
         global.params.isLE = true;
         global.params.is64bit = false;
         tt_arch = "i686";
@@ -690,6 +695,7 @@ int main(int argc, char *argv[])
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86_64");
+        //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86_64");
         global.params.isLE = true;
         global.params.is64bit = true;
         tt_arch = "x86_64";

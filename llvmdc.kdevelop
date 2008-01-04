@@ -85,6 +85,7 @@
     </ignoredoxygen>
   </kdevdoctreeview>
   <kdevfilecreate>
+    <filetypes/>
     <useglobaltypes>
       <type ext="cpp" />
       <type ext="h" />
@@ -191,6 +192,10 @@
       <filetype>*.c</filetype>
       <filetype>*.cpp</filetype>
       <filetype>*.d</filetype>
+      <filetype>*.di</filetype>
+      <filetype>build.sh</filetype>
+      <filetype>premake.lua</filetype>
+      <filetype>Doxyfile</filetype>
     </filetypes>
     <blacklist>
       <path>dbgtypes.bc.cpp</path>

@@ -130,6 +130,7 @@ struct Param
     char *data_layout;
     char disassemble;
     char llvmInline;
+    char llvmAnnotate;
 };
 
 struct Global

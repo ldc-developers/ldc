@@ -170,15 +170,12 @@ private TypeInfo primitiveTypeInfo(Mangle m)
       ti = typeid(idouble);break;
     case Mangle.Tireal:
       ti = typeid(ireal);break;
-    /+
-    // No complex in LLVMDC yes
     case Mangle.Tcfloat:
       ti = typeid(cfloat);break;
     case Mangle.Tcdouble:
       ti = typeid(cdouble);break;
     case Mangle.Tcreal:
       ti = typeid(creal);break;
-    +/
     case Mangle.Tchar:
       ti = typeid(char);break;
     case Mangle.Twchar:
@@ -450,7 +447,8 @@ formattedPrint("The answer is %s:", x, 6);
  */
 
 void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
-{   int j;
+{   //printf("doFormat(...)\n");
+    int j;
     TypeInfo ti;
     Mangle m;
     uint flags;
@@ -503,7 +501,7 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 
 	void putstr(char[] s)
 	{
-	    //printf("flags = x%x\n", flags);
+	    //printf("flags = 0x%x\n", flags);
 	    int prepad = 0;
 	    int postpad = 0;
 	    int padding = field_width - (strlen(prefix) + s.length);
@@ -539,7 +537,8 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 
 	void putreal(real v)
 	{
-	    //printf("putreal %Lg\n", vreal);
+	    //printf("putreal %Lg\n", vreal); // no 80 bit float
+        //printf("putreal %g\n", vreal);
 
 	    switch (fc)
 	    {
@@ -593,9 +592,11 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 		format[i + 0] = '*';
 		format[i + 1] = '.';
 		format[i + 2] = '*';
-		format[i + 3] = 'L';
-		format[i + 4] = fc;
-		format[i + 5] = 0;
+        format[i + 3] = fc;
+        format[i + 4] = 0;
+		//format[i + 3] = 'L'; // no 80 bit yet
+		//format[i + 4] = fc;
+		//format[i + 5] = 0;
 		if (!(flags & FLprecision))
 		    precision = -1;
 		while (1)
@@ -638,7 +639,8 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 	  auto tiSave = ti;
 	  auto mSave = m;
 	  ti = valti;
-	  //printf("\n%.*s\n", valti.classinfo.name);
+      auto className = valti.classinfo.name;
+	  printf("\n%.*s\n", className.length, className.ptr);
 	  m = getMan(valti);
 	  while (len--)
 	  {
@@ -831,10 +833,12 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 		goto Lcomplex;
 
 	    case Mangle.Tsarray:
+        //printf("static array\n");
 		putArray(argptr, (cast(TypeInfo_StaticArray)ti).len, (cast(TypeInfo_StaticArray)ti).next);
 		return;
 
 	    case Mangle.Tarray:
+        //printf("dynamic array\n");
 		int mi = 10;
 	        if (ti.classinfo.name.length == 14 &&
 		    ti.classinfo.name[9..14] == "Array") 
@@ -863,6 +867,7 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 		  return;
 		}
 
+        //printf("primitive type\n");
 		while (1)
 		{
 		    m2 = cast(Mangle)ti.classinfo.name[mi];
@@ -897,6 +902,7 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 			    continue;
 
 			default:
+                //printf("primitive type default handling\n");
 			    TypeInfo ti2 = primitiveTypeInfo(m2);
 			    if (!ti2)
 			      goto Lerror;
@@ -1058,9 +1064,10 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
     }
 
 
+    //printf("arguments length: %u\n", arguments.length);
     for (j = 0; j < arguments.length; )
     {	ti = arguments[j++];
-	//printf("test1: '%.*s' %d\n", ti.classinfo.name, ti.classinfo.name.length);
+	//printf("test1: '%.*s' %d\n", ti.classinfo.name.length, ti.classinfo.name.ptr, ti.classinfo.name.length);
 	//ti.print();
 
 	flags = 0;

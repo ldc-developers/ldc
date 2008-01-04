@@ -41,9 +41,10 @@ llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 
 void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg);
 
-llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp);
-
+llvm::Value* DtoNestedContext(FuncDeclaration* func);
 llvm::Value* DtoNestedVariable(VarDeclaration* vd);
+
+void DtoAnnotation(const char* str);
 
 llvm::ConstantInt* DtoConstSize_t(size_t);
 llvm::ConstantInt* DtoConstUint(unsigned i);

@@ -16,6 +16,7 @@
 #include "gen/functions.h"
 #include "gen/todebug.h"
 #include "gen/classes.h"
+#include "gen/dvalue.h"
 
 const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype, bool ismain)
 {
@@ -90,13 +91,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         Type* argT = DtoDType(arg->type);
         assert(argT);
 
-        if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
-            //assert(arg->vardecl);
-            //arg->vardecl->refparam = true;
-        }
-        else
-            arg->llvmCopy = true;
-
         const llvm::Type* at = DtoType(argT);
         if (isaStruct(at)) {
             Logger::println("struct param");
@@ -114,8 +108,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
             paramvec.push_back(llvm::PointerType::get(at));
         }
         else {
-            if (!arg->llvmCopy) {
-                Logger::println("ref param");
+            if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
+                Logger::println("by ref param");
                 at = llvm::PointerType::get(at);
             }
             else {
@@ -509,8 +503,8 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 if (global.params.symdebug) DtoDwarfFuncStart(fd);
 
                 llvm::Value* parentNested = NULL;
-                if (FuncDeclaration* fd2 = fd->toParent()->isFuncDeclaration()) {
-                    if (!fd->isStatic())
+                if (FuncDeclaration* fd2 = fd->toParent2()->isFuncDeclaration()) {
+                    if (!fd->isStatic()) // huh?
                         parentNested = fd2->llvmNested;
                 }
 
@@ -719,6 +713,50 @@ const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
 
     DtoResolveDsymbol(f);
     return llvm::cast<llvm::FunctionType>(DtoType(f->type));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* DtoArgument(Argument* fnarg, Expression* argexp)
+{
+    Logger::println("DtoArgument");
+    LOG_SCOPE;
+
+    DValue* arg = argexp->toElem(gIR);
+
+    // ref/out arg
+    if (fnarg && ((fnarg->storageClass & STCref) || (fnarg->storageClass & STCout)))
+    {
+        if (arg->isVar() || arg->isLRValue())
+            arg = new DImValue(argexp->type, arg->getLVal(), false);
+        else
+            arg = new DImValue(argexp->type, arg->getRVal(), false);
+    }
+    // aggregate arg
+    else if (DtoIsPassedByRef(argexp->type))
+    {
+        llvm::Value* alloc = new llvm::AllocaInst(DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
+        DVarValue* vv = new DVarValue(argexp->type, alloc, true);
+        DtoAssign(vv, arg);
+        arg = vv;
+    }
+    // normal arg (basic/value type)
+    else
+    {
+        // nothing to do
+    }
+
+    return arg;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoVariadicArgument(Expression* argexp, llvm::Value* dst)
+{
+    Logger::println("DtoVariadicArgument");
+    LOG_SCOPE;
+    DVarValue* vv = new DVarValue(argexp->type, dst, true);
+    DtoAssign(vv, argexp->toElem(gIR));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

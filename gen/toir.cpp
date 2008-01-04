@@ -31,6 +31,7 @@
 #include "gen/complex.h"
 #include "gen/dvalue.h"
 #include "gen/aa.h"
+#include "gen/functions.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -51,6 +52,9 @@ DValue* DeclarationExp::toElem(IRState* p)
         }
         else
         {
+            if (global.params.llvmAnnotate)
+                DtoAnnotation(toChars());
+
             Logger::println("vdtype = %s", vd->type->toChars());
             // referenced by nested delegate?
             if (vd->nestedref) {
@@ -600,7 +604,16 @@ DValue* AddAssignExp::toElem(IRState* p)
     }
     DtoAssign(l, res);
 
-    return l;
+    // used as lvalue :/
+    if (p->topexp() && p->topexp()->e1 == this)
+    {
+        assert(!l->isLRValue());
+        return l;
+    }
+    else
+    {
+        return res;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -650,6 +663,7 @@ DValue* MinAssignExp::toElem(IRState* p)
 
     DValue* res;
     if (DtoDType(e1->type)->ty == Tpointer) {
+        Logger::println("ptr");
         llvm::Value* tmp = r->getRVal();
         llvm::Value* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
         tmp = llvm::BinaryOperator::createSub(zero,tmp,"tmp",p->scopebb());
@@ -657,9 +671,11 @@ DValue* MinAssignExp::toElem(IRState* p)
         res = new DImValue(type, tmp);
     }
     else if (t->iscomplex()) {
+        Logger::println("complex");
         res = DtoComplexSub(type, l, r);
     }
     else {
+        Logger::println("basic");
         res = DtoBinSub(l,r);
     }
     DtoAssign(l, res);
@@ -904,7 +920,7 @@ DValue* CallExp::toElem(IRState* p)
         Logger::cout() << "what are we calling? : " << *funcval << '\n';
     }
     assert(llfnty);
-    Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
+    //Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
 
     // argument handling
     llvm::FunctionType::param_iterator argiter = llfnty->param_begin();
@@ -969,7 +985,7 @@ DValue* CallExp::toElem(IRState* p)
     // nested call
     else if (dfn && dfn->func && dfn->func->isNested()) {
         Logger::println("Nested Call");
-        llvm::Value* contextptr = p->func()->decl->llvmNested;
+        llvm::Value* contextptr = DtoNestedContext(dfn->func->toParent2()->isFuncDeclaration());
         if (!contextptr)
             contextptr = llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
         llargs[j] = DtoBitCast(contextptr, llvm::PointerType::get(llvm::Type::Int8Ty));
@@ -978,7 +994,8 @@ DValue* CallExp::toElem(IRState* p)
     }
 
     // va arg function special argument passing
-    if (va_magic) {
+    if (va_magic)
+    {
         size_t n = va_intrinsic ? arguments->dim : 1;
         for (int i=0; i<n; i++,j++)
         {
@@ -989,7 +1006,9 @@ DValue* CallExp::toElem(IRState* p)
         }
     }
     // regular arguments
-    else {
+    else
+    {
+        // d variadic function?
         if (tf->linkage == LINKd && tf->varargs == 1)
         {
             Logger::println("doing d-style variadic arguments");
@@ -997,53 +1016,71 @@ DValue* CallExp::toElem(IRState* p)
             size_t nimplicit = j;
 
             std::vector<const llvm::Type*> vtypes;
-            std::vector<llvm::Value*> vvalues;
             std::vector<llvm::Value*> vtypeinfos;
 
-            for (int i=0; i<arguments->dim; i++) {
-                Argument* fnarg = Argument::getNth(tf->parameters, i);
+            // build struct with argument types
+            for (int i=0; i<arguments->dim; i++)
+            {
                 Expression* argexp = (Expression*)arguments->data[i];
-                vvalues.push_back(DtoArgument(NULL, fnarg, argexp));
-                vtypes.push_back(vvalues.back()->getType());
+                vtypes.push_back(DtoType(argexp->type));
+            }
+            const llvm::StructType* vtype = llvm::StructType::get(vtypes);
+            Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
+            llvm::Value* mem = new llvm::AllocaInst(vtype,"_argptr_storage",p->topallocapoint());
 
-                TypeInfoDeclaration* tidecl = argexp->type->getTypeInfoDeclaration();
-                DtoForceDeclareDsymbol(tidecl);
-                assert(tidecl->llvmValue);
-                vtypeinfos.push_back(tidecl->llvmValue);
+            // store arguments in the struct
+            for (int i=0; i<arguments->dim; i++)
+            {
+                Expression* argexp = (Expression*)arguments->data[i];
+                if (global.params.llvmAnnotate)
+                    DtoAnnotation(argexp->toChars());
+                DtoVariadicArgument(argexp, DtoGEPi(mem,0,i,"tmp"));
             }
 
-            const llvm::StructType* vtype = llvm::StructType::get(vtypes);
-            llvm::Value* mem = new llvm::AllocaInst(vtype,"_argptr_storage",p->topallocapoint());
-            for (unsigned i=0; i<vtype->getNumElements(); ++i)
-                p->ir->CreateStore(vvalues[i], DtoGEPi(mem,0,i,"tmp"));
-
-            //llvm::Constant* typeinfoparam = llvm::ConstantPointerNull::get(isaPointer(llfnty->getParamType(j)));
+            // build type info array
             assert(Type::typeinfo->llvmConstInit);
             const llvm::Type* typeinfotype = llvm::PointerType::get(Type::typeinfo->llvmConstInit->getType());
             Logger::cout() << "typeinfo ptr type: " << *typeinfotype << '\n';
             const llvm::ArrayType* typeinfoarraytype = llvm::ArrayType::get(typeinfotype,vtype->getNumElements());
+
             llvm::Value* typeinfomem = new llvm::AllocaInst(typeinfoarraytype,"_arguments_storage",p->topallocapoint());
-            for (unsigned i=0; i<vtype->getNumElements(); ++i) {
+            for (int i=0; i<arguments->dim; i++)
+            {
+                Expression* argexp = (Expression*)arguments->data[i];
+                TypeInfoDeclaration* tidecl = argexp->type->getTypeInfoDeclaration();
+                DtoForceDeclareDsymbol(tidecl);
+                assert(tidecl->llvmValue);
+                vtypeinfos.push_back(tidecl->llvmValue);
                 llvm::Value* v = p->ir->CreateBitCast(vtypeinfos[i], typeinfotype, "tmp");
                 p->ir->CreateStore(v, DtoGEPi(typeinfomem,0,i,"tmp"));
             }
 
+            // put data in d-array
             llvm::Value* typeinfoarrayparam = new llvm::AllocaInst(llfnty->getParamType(j)->getContainedType(0),"_arguments_array",p->topallocapoint());
             p->ir->CreateStore(DtoConstSize_t(vtype->getNumElements()), DtoGEPi(typeinfoarrayparam,0,0,"tmp"));
             llvm::Value* casttypeinfomem = p->ir->CreateBitCast(typeinfomem, llvm::PointerType::get(typeinfotype), "tmp");
             p->ir->CreateStore(casttypeinfomem, DtoGEPi(typeinfoarrayparam,0,1,"tmp"));
 
+            // specify arguments
             llargs[j] = typeinfoarrayparam;;
             j++;
             llargs[j] = p->ir->CreateBitCast(mem, llvm::PointerType::get(llvm::Type::Int8Ty), "tmp");
             j++;
             llargs.resize(nimplicit+2);
         }
+        // normal function
         else {
             Logger::println("doing normal arguments");
             for (int i=0; i<arguments->dim; i++,j++) {
                 Argument* fnarg = Argument::getNth(tf->parameters, i);
-                llargs[j] = DtoArgument(llfnty->getParamType(j), fnarg, (Expression*)arguments->data[i]);
+                if (global.params.llvmAnnotate)
+                    DtoAnnotation(((Expression*)arguments->data[i])->toChars());
+                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                llargs[j] = argval->getRVal();
+                if (fnarg && llargs[j]->getType() != llfnty->getParamType(j)) {
+                    llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
+                }
+
                 // this hack is necessary :/
                 if (dfn && dfn->func && dfn->func->llvmRunTimeHack) {
                     if (llfnty->getParamType(j) != NULL) {
@@ -1850,7 +1887,11 @@ DValue* NewExp::toElem(IRState* p)
             {
                 Expression* ex = (Expression*)arguments->data[i];
                 Argument* fnarg = Argument::getNth(tf->parameters, i);
-                llvm::Value* a = DtoArgument(fn->getFunctionType()->getParamType(i+1), fnarg, ex);
+                DValue* argval = DtoArgument(fnarg, ex);
+                llvm::Value* a = argval->getRVal();
+                const llvm::Type* aty = fn->getFunctionType()->getParamType(i+1);
+                if (a->getType() != aty) // this param might have type mismatch
+                    a = DtoBitCast(a, aty);
                 ctorargs.push_back(a);
             }
             llvm::CallInst* call = new llvm::CallInst(fn, ctorargs.begin(), ctorargs.end(), "tmp", p->scopebb());
@@ -2895,7 +2936,7 @@ void obj_includelib(char*){}
 AsmStatement::AsmStatement(Loc loc, Token *tokens) :
     Statement(loc)
 {
-    Logger::println("Ignoring AsmStatement");
+    this->tokens = tokens;
 }
 Statement *AsmStatement::syntaxCopy()
 {

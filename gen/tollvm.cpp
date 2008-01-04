@@ -673,156 +673,12 @@ void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoArgument(const llvm::Type* paramtype, Argument* fnarg, Expression* argexp)
-{
-    llvm::Value* retval = 0;
-
-    bool haslvals = !gIR->exps.empty();
-    if (haslvals)
-        gIR->exps.push_back(IRExp(NULL,NULL,NULL));
-
-    DValue* arg = argexp->toElem(gIR);
-
-    if (haslvals)
-        gIR->exps.pop_back();
-
-    if (arg->inPlace()) {
-        retval = arg->getRVal();
-        return retval;
-    }
-
-    Type* realtype = DtoDType(argexp->type);
-    TY argty = realtype->ty;
-    if (DtoIsPassedByRef(realtype)) {
-        if (!fnarg || !fnarg->llvmCopy) {
-            if (DSliceValue* sv = arg->isSlice()) {
-                retval = new llvm::AllocaInst(DtoType(realtype), "tmpparam", gIR->topallocapoint());
-                DtoSetArray(retval, DtoArrayLen(sv), DtoArrayPtr(sv));
-            }
-            else if (DComplexValue* cv = arg->isComplex()) {
-                retval = new llvm::AllocaInst(DtoType(realtype), "tmpparam", gIR->topallocapoint());
-                DtoComplexSet(retval, cv->re, cv->im);
-            }
-            else {
-                retval = arg->getRVal();
-            }
-        }
-        else {
-            llvm::Value* allocaInst = 0;
-            llvm::BasicBlock* entryblock = &gIR->topfunc()->front();
-
-            const llvm::Type* realtypell = DtoType(realtype);
-            const llvm::PointerType* pty = llvm::PointerType::get(realtypell);
-            if (argty == Tstruct) {
-                allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                DValue* dst = new DVarValue(realtype, allocaInst, true);
-                DtoAssign(dst,arg);
-                delete dst;
-            }
-            else if (argty == Tdelegate) {
-                allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                DValue* dst = new DVarValue(realtype, allocaInst, true);
-                DtoAssign(dst,arg);
-                delete dst;
-            }
-            else if (argty == Tarray) {
-                if (arg->isSlice()) {
-                    allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
-                }
-                else {
-                    allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                }
-            }
-            else if (realtype->iscomplex()) {
-                if (arg->isComplex()) {
-                    allocaInst = new llvm::AllocaInst(realtypell, "tmpparam", gIR->topallocapoint());
-                }
-                else {
-                    allocaInst = new llvm::AllocaInst(pty->getElementType(), "tmpparam", gIR->topallocapoint());
-                }
-            }
-            else
-            assert(0);
-
-            DValue* dst = new DVarValue(realtype, allocaInst, true);
-            DtoAssign(dst,arg);
-            delete dst;
-
-            retval = allocaInst;
-        }
-    }
-    else if (!fnarg || fnarg->llvmCopy) {
-        Logger::println("regular arg");
-        if (DSliceValue* sl = arg->isSlice()) {
-            if (sl->ptr) Logger::cout() << "ptr = " << *sl->ptr << '\n';
-            if (sl->len) Logger::cout() << "len = " << *sl->len << '\n';
-            assert(0);
-        }
-        else if (DComplexValue* cl = arg->isComplex()) {
-            assert(0 && "complex in the wrong place");
-        }
-        else {
-            retval = arg->getRVal();
-        }
-    }
-    else {
-        Logger::println("as ptr arg");
-        retval = arg->getLVal();
-        if (paramtype && retval->getType() != paramtype)
-        {
-            assert(0);
-            /*assert(retval->getType() == paramtype->getContainedType(0));
-            new llvm::StoreInst(retval, arg->getLVal(), gIR->scopebb());
-            retval = arg->getLVal();*/
-        }
-    }
-
-    if (fnarg && paramtype && retval->getType() != paramtype) {
-        // this is unfortunately needed with the way SymOffExp is overused
-        // and static arrays can end up being a pointer to their element type
-        if (arg->isField()) {
-            retval = gIR->ir->CreateBitCast(retval, paramtype, "tmp");
-        }
-        else {
-            Logger::cout() << "got '" << *retval->getType() << "' expected '" << *paramtype << "'\n";
-            assert(0 && "parameter type that was actually passed is invalid");
-        }
-    }
-
-    delete arg;
-
-    return retval;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static void print_frame_worker(VarDeclaration* var, Dsymbol* par)
-{
-    if (var->toParent2() == par)
-    {
-        Logger::println("parent found: '%s' kind: '%s'", par->toChars(), par->kind());
-        return;
-    }
-
-    Logger::println("diving into parent: '%s' kind: '%s'", par->toChars(), par->kind());
-    LOG_SCOPE;
-    print_frame_worker(var, par->toParent2());
-}
-
-static void print_nested_frame_list(VarDeclaration* var, Dsymbol* par)
-{
-    Logger::println("PRINTING FRAME LIST FOR NESTED VAR: '%s'", var->toChars());
-    {
-        LOG_SCOPE;
-        print_frame_worker(var, par);
-    }
-    Logger::println("DONE");
-}
-
 static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
 {
     assert(sc->isFuncDeclaration() || sc->isClassDeclaration());
     Dsymbol* p = sc->toParent2();
+    if (!p->isFuncDeclaration() && !p->isClassDeclaration())
+        Logger::println("unexpected parent symbol found while resolving frame pointer - '%s' kind: '%s'", p->toChars(), p->kind());
     assert(p->isFuncDeclaration() || p->isClassDeclaration());
     if (FuncDeclaration* fd = p->isFuncDeclaration())
     {
@@ -841,20 +697,28 @@ static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
     }
 }
 
-static llvm::Value* get_frame_ptr_impl(VarDeclaration* vd, Dsymbol* sc, llvm::Value* v)
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm::Value* v)
 {
-    if (vd->toParent2() == sc)
+    LOG_SCOPE;
+    if (sc == func)
     {
         return v;
     }
     else if (FuncDeclaration* fd = sc->isFuncDeclaration())
     {
-        Logger::println("scope is function");
+        Logger::println("scope is function: %s", fd->toChars());
+
+        if (fd->toParent2() == func)
+        {
+            if (!func->llvmNested)
+                return NULL;
+            return DtoBitCast(v, func->llvmNested->getType());
+        }
+
         v = DtoBitCast(v, get_next_frame_ptr_type(fd));
         Logger::cout() << "v = " << *v << '\n';
-
-        if (fd->toParent2() == vd->toParent2())
-            return v;
 
         if (fd->toParent2()->isFuncDeclaration())
         {
@@ -872,33 +736,35 @@ static llvm::Value* get_frame_ptr_impl(VarDeclaration* vd, Dsymbol* sc, llvm::Va
         {
             assert(0);
         }
-        return get_frame_ptr_impl(vd, fd->toParent2(), v);
+        return get_frame_ptr_impl(func, fd->toParent2(), v);
     }
     else if (ClassDeclaration* cd = sc->isClassDeclaration())
     {
-        Logger::println("scope is class");
+        Logger::println("scope is class: %s", cd->toChars());
         /*size_t idx = 2;
         idx += cd->llvmIRStruct->interfaces.size();
         v = DtoGEPi(v,0,idx,"tmp");
         Logger::cout() << "gep = " << *v << '\n';
         v = DtoLoad(v);*/
-        return get_frame_ptr_impl(vd, cd->toParent2(), v);
+        return get_frame_ptr_impl(func, cd->toParent2(), v);
     }
     else
     {
-        Logger::println("symbol: '%s'", sc->toChars());
+        Logger::println("symbol: '%s'", sc->toPrettyChars());
         assert(0);
     }
 }
 
-static llvm::Value* get_frame_ptr(VarDeclaration* vd)
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static llvm::Value* get_frame_ptr(FuncDeclaration* func)
 {
-    Logger::println("RESOLVING FRAME PTR FOR NESTED VAR: '%s'", vd->toChars());
+    Logger::println("Resolving context pointer for nested function: '%s'", func->toPrettyChars());
     LOG_SCOPE;
     IRFunction* irfunc = gIR->func();
 
-    // in the parent scope already
-    if (vd->toParent2() == irfunc->decl)
+    // in the right scope already
+    if (func == irfunc->decl)
         return irfunc->decl->llvmNested;
 
     // use the 'this' pointer
@@ -906,24 +772,71 @@ static llvm::Value* get_frame_ptr(VarDeclaration* vd)
     assert(ptr);
 
     // return the fully resolved frame pointer
-    ptr = get_frame_ptr_impl(vd, irfunc->decl, ptr);
-    Logger::cout() << "FOUND: '" << *ptr << "'\n";
+    ptr = get_frame_ptr_impl(func, irfunc->decl, ptr);
+    if (ptr) Logger::cout() << "Found context!" << *ptr;
+    else Logger::cout() << "NULL context!\n";
 
     return ptr;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* DtoNestedContext(FuncDeclaration* func)
+{
+    // resolve frame ptr
+    llvm::Value* ptr = get_frame_ptr(func);
+    Logger::cout() << "Nested context ptr = ";
+    if (ptr) Logger::cout() << *ptr;
+    else Logger::cout() << "NULL";
+    Logger::cout() << '\n';
+    return ptr;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static void print_frame_worker(VarDeclaration* vd, Dsymbol* par)
+{
+    if (vd->toParent2() == par)
+    {
+        Logger::println("found: '%s' kind: '%s'", par->toChars(), par->kind());
+        return;
+    }
+
+    Logger::println("diving into: '%s' kind: '%s'", par->toChars(), par->kind());
+    LOG_SCOPE;
+    print_frame_worker(vd, par->toParent2());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static void print_nested_frame_list(VarDeclaration* vd, Dsymbol* par)
+{
+    Logger::println("Frame pointer list for nested var: '%s'", vd->toPrettyChars());
+    LOG_SCOPE;
+    if (vd->toParent2() != par)
+        print_frame_worker(vd, par);
+    else
+        Logger::println("Found at level 0");
+    Logger::println("Done");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 {
     // log the frame list
     IRFunction* irfunc = gIR->func();
-    print_nested_frame_list(vd, irfunc->decl);
+    if (Logger::enabled)
+        print_nested_frame_list(vd, irfunc->decl);
 
     // resolve frame ptr
-    llvm::Value* ptr = get_frame_ptr(vd);
-    Logger::cout() << "nested ptr = " << *ptr << '\n';
+    FuncDeclaration* func = vd->toParent2()->isFuncDeclaration();
+    assert(func);
+    llvm::Value* ptr = DtoNestedContext(func);
+    assert(ptr && "nested var, but no context");
 
     // we must cast here to be sure. nested classes just have a void*
-    ptr = DtoBitCast(ptr, vd->toParent2()->isFuncDeclaration()->llvmNested->getType());
+    ptr = DtoBitCast(ptr, func->llvmNested->getType());
 
     // index nested var and load (if necessary)
     llvm::Value* v = DtoGEPi(ptr, 0, vd->llvmNestedIndex, "tmp");
@@ -931,7 +844,8 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
     if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
         v = DtoLoad(v);
 
-    Logger::cout() << "FINAL RESULT: " << *v << '\n';
+    // log and return
+    Logger::cout() << "Nested var ptr = " << *v << '\n';
     return v;
 }
 
@@ -940,6 +854,8 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 void DtoAssign(DValue* lhs, DValue* rhs)
 {
     Logger::cout() << "DtoAssign(...);\n";
+    LOG_SCOPE;
+
     Type* t = DtoDType(lhs->getType());
     Type* t2 = DtoDType(rhs->getType());
 
@@ -1024,19 +940,15 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             DtoComplexAssign(dst, rhs->getRVal());
     }
     else {
-        llvm::Value* l;
-        if (DLRValue* lr = lhs->isLRValue()) {
-            l = lr->getLVal();
-            rhs = DtoCast(rhs, lr->getLType());
-        }
-        else {
-            l = lhs->getLVal();
-        }
+        llvm::Value* l = lhs->getLVal();
         llvm::Value* r = rhs->getRVal();
         Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
         const llvm::Type* lit = l->getType()->getContainedType(0);
-        if (r->getType() != lit) { // :(
-            r = DtoBitCast(r, lit);
+        if (r->getType() != lit) {
+            if (DLRValue* lr = lhs->isLRValue()) // handle lvalue cast assignments
+                r = DtoCast(rhs, lr->getLType())->getRVal();
+            else
+                r = DtoCast(rhs, lhs->getType())->getRVal();
             Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
         }
         gIR->ir->CreateStore(r, l);
@@ -1055,34 +967,38 @@ DValue* DtoCastInt(DValue* val, Type* _to)
     size_t fromsz = from->size();
     size_t tosz = to->size();
 
-    llvm::Value* rval;
+    llvm::Value* rval = val->getRVal();
+    if (rval->getType() == tolltype) {
+        return new DImValue(_to, rval);
+    }
 
     if (to->isintegral()) {
         if (fromsz < tosz) {
             Logger::cout() << "cast to: " << *tolltype << '\n';
             if (from->isunsigned() || from->ty == Tbool) {
-                rval = new llvm::ZExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+                rval = new llvm::ZExtInst(rval, tolltype, "tmp", gIR->scopebb());
             } else {
-                rval = new llvm::SExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+                rval = new llvm::SExtInst(rval, tolltype, "tmp", gIR->scopebb());
             }
         }
         else if (fromsz > tosz) {
-            rval = new llvm::TruncInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::TruncInst(rval, tolltype, "tmp", gIR->scopebb());
         }
         else {
-            rval = new llvm::BitCastInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::BitCastInst(rval, tolltype, "tmp", gIR->scopebb());
         }
     }
     else if (to->isfloating()) {
         if (from->isunsigned()) {
-            rval = new llvm::UIToFPInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::UIToFPInst(rval, tolltype, "tmp", gIR->scopebb());
         }
         else {
-            rval = new llvm::SIToFPInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::SIToFPInst(rval, tolltype, "tmp", gIR->scopebb());
         }
     }
     else if (to->ty == Tpointer) {
-        rval = gIR->ir->CreateIntToPtr(val->getRVal(), tolltype, "tmp");
+        Logger::cout() << "cast pointer: " << *tolltype << '\n';
+        rval = gIR->ir->CreateIntToPtr(rval, tolltype, "tmp");
     }
     else {
         assert(0 && "bad int cast");
@@ -1770,4 +1686,21 @@ void DtoForceDefineDsymbol(Dsymbol* dsym)
     DtoEmptyConstInitList();
 
     DtoDefineDsymbol(dsym);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoAnnotation(const char* str)
+{
+    std::string s("CODE: ");
+    s.append(str);
+    char* p = &s[0];
+    while (*p)
+    {
+        if (*p == '"')
+            *p = '\'';
+        ++p;
+    }
+    // create a noop with the code as the result name!
+    gIR->ir->CreateAnd(DtoConstSize_t(0),DtoConstSize_t(0),s.c_str());
 }

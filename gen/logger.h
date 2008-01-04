@@ -12,6 +12,7 @@ namespace Logger
     void print(const char* fmt, ...);
     void enable();
     void disable();
+    bool enabled();
 
     void attention(const char* fmt, ...);
 

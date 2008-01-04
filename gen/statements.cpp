@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "gen/llvm.h"
+#include "llvm/InlineAsm.h"
 
 #include "total.h"
 #include "init.h"
@@ -129,6 +130,9 @@ void ExpStatement::toIR(IRState* p)
     Logger::println("ExpStatement::toIR(%d): %s", esi++, toChars());
     LOG_SCOPE;
 
+    if (global.params.llvmAnnotate)
+        DtoAnnotation(exp->toChars());
+
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
@@ -146,8 +150,7 @@ void ExpStatement::toIR(IRState* p)
 
 void IfStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("IfStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("IfStatement::toIR()");
     LOG_SCOPE;
 
     DValue* cond_e = condition->toElem(p);
@@ -983,6 +986,40 @@ void SynchronizedStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void AsmStatement::toIR(IRState* p)
+{
+    Logger::println("AsmStatement::toIR(): %s", toChars());
+    LOG_SCOPE;
+    error("%s: inline asm is not yet implemented", loc.toChars());
+    fatal();
+
+    assert(!asmcode && !asmalign && !refparam && !naked && !regs);
+
+    Token* t = tokens;
+    assert(t);
+
+    std::string asmstr;
+
+    do {
+        Logger::println("token: %s", t->toChars());
+        asmstr.append(t->toChars());
+        asmstr.append(" ");
+    } while (t = t->next);
+
+    Logger::println("asm expr = '%s'", asmstr.c_str());
+
+    // create function type
+    std::vector<const llvm::Type*> args;
+    const llvm::FunctionType* fty = llvm::FunctionType::get(DtoSize_t(), args, false);
+
+    // create inline asm callee
+    llvm::InlineAsm* inasm = llvm::InlineAsm::get(fty, asmstr, "r,r", false);
+
+    assert(0);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
@@ -1004,7 +1041,7 @@ STUBST(Statement);
 //STUBST(ExpStatement);
 //STUBST(CompoundStatement);
 //STUBST(ScopeStatement);
-STUBST(AsmStatement);
+//STUBST(AsmStatement);
 //STUBST(TryCatchStatement);
 //STUBST(TryFinallyStatement);
 STUBST(VolatileStatement);

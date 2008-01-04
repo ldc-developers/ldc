@@ -12,11 +12,22 @@ using namespace llvm;
 
 void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
 {
+    if (!doinline && lvl < 0)
+        return;
+
     assert(lvl >= 0 && lvl <= 5);
 
     PassManager pm;
     pm.add(new TargetData(m));
 
+    // -O0
+    if (lvl >= 0)
+    {
+        //pm.add(createStripDeadPrototypesPass());
+        pm.add(createGlobalDCEPass());
+    }
+
+    // -O1
     if (lvl >= 1)
     {
         pm.add(createRaiseAllocationsPass());
@@ -26,6 +37,7 @@ void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
         pm.add(createGlobalDCEPass());
     }
 
+    // -O2
     if (lvl >= 2)
     {
         pm.add(createIPConstantPropagationPass());
@@ -35,10 +47,12 @@ void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
         pm.add(createPruneEHPass());
     }
 
+    // -inline
     if (doinline) {
         pm.add(createFunctionInliningPass());
     }
 
+    // -O3
     if (lvl >= 3)
     {
         pm.add(createArgumentPromotionPass());
@@ -73,8 +87,7 @@ void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
         pm.add(createConstantMergePass());
     }
 
-    // level 4 and 5 are linktime optimizations
+    // level -O4 and -O5 are linktime optimizations
 
-    if (lvl > 0 || doinline)
-        pm.run(*m);
+    pm.run(*m);
 }

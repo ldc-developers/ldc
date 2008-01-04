@@ -13,30 +13,30 @@ namespace Logger
     static std::string indent_str;
     static std::ofstream null_out("/dev/null");
 
-    static bool enabled = false;
+    static bool _enabled = false;
     void indent()
     {
-        if (enabled) {
+        if (_enabled) {
             indent_str += "* ";
         }
     }
     void undent()
     {
-        if (enabled) {
+        if (_enabled) {
             assert(!indent_str.empty());
             indent_str.resize(indent_str.size()-2);
         }
     }
     std::ostream& cout()
     {
-        if (enabled)
+        if (_enabled)
             return std::cout << indent_str;
         else
             return null_out;
     }
     void println(const char* fmt,...)
     {
-        if (enabled) {
+        if (_enabled) {
             printf(indent_str.c_str());
             va_list va;
             va_start(va,fmt);
@@ -47,7 +47,7 @@ namespace Logger
     }
     void print(const char* fmt,...)
     {
-        if (enabled) {
+        if (_enabled) {
             printf(indent_str.c_str());
             va_list va;
             va_start(va,fmt);
@@ -57,11 +57,15 @@ namespace Logger
     }
     void enable()
     {
-        enabled = true;
+        _enabled = true;
     }
     void disable()
     {
-        enabled = false;
+        _enabled = false;
+    }
+    bool enabled()
+    {
+        return _enabled;
     }
     void attention(const char* fmt,...)
     {

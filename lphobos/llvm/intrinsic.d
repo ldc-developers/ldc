@@ -4,10 +4,10 @@ module llvm.intrinsic;
 /*
 pragma(LLVM_internal, "intrinsic", "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
-
+*/
 pragma(LLVM_internal, "intrinsic", "llvm.frameaddress")
     void* llvm_frameaddress(uint level);
-
+/*
 pragma(LLVM_internal, "intrinsic", "llvm.stacksave")
     void* llvm_stacksave();
 

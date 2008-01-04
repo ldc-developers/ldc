@@ -5077,7 +5077,6 @@ Argument::Argument(unsigned storageClass, Type *type, Identifier *ident, Express
     this->ident = ident;
     this->storageClass = storageClass;
     this->defaultArg = defaultArg;
-    this->llvmCopy = false;
     this->vardecl = 0;
 }
 

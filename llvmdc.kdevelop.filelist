@@ -1,4 +1,5 @@
 # KDevelop Custom Project File List
+Doxyfile
 demos
 demos/gl.d
 demos/glfuncs.d
@@ -11,6 +12,7 @@ demos/ray.d
 demos/sdl.d
 demos/sdldemo1.d
 dmd
+dmd/Doxyfile
 dmd/access.c
 dmd/aggregate.h
 dmd/array.c
@@ -137,6 +139,7 @@ gen/toobj.cpp
 gen/typeinf.h
 gen/typinf.cpp
 lphobos
+lphobos/build.sh
 lphobos/crc32.d
 lphobos/gc
 lphobos/gc/gcbits.d
@@ -185,6 +188,7 @@ lphobos/std/compiler.d
 lphobos/std/conv.d
 lphobos/std/ctype.d
 lphobos/std/format.d
+lphobos/std/gc.di
 lphobos/std/intrinsic.d
 lphobos/std/math.d
 lphobos/std/moduleinit.d
@@ -193,6 +197,7 @@ lphobos/std/stdarg.d
 lphobos/std/stdint.d
 lphobos/std/stdio.d
 lphobos/std/string.d
+lphobos/std/thread.d
 lphobos/std/traits.d
 lphobos/std/uni.d
 lphobos/std/utf.d
@@ -232,6 +237,7 @@ lphobos/typeinfo2/ti_Ashort.d
 lphobos/typeinfo2/ti_C.d
 lphobos/typeinfos1.d
 lphobos/typeinfos2.d
+premake.lua
 runalltests.d
 test
 test/a.d
@@ -258,8 +264,8 @@ test/arrays6.d
 test/arrays7.d
 test/arrays8.d
 test/arrays9.d
+test/asm1.d
 test/assign.d
-test/ast1.d
 test/b.d
 test/bitops.d
 test/bug1.d
@@ -332,9 +338,12 @@ test/bug75.d
 test/bug76.d
 test/bug77.d
 test/bug78.d
+test/bug79.d
 test/bug8.d
+test/bug80.d
 test/bug9.d
 test/c.d
+test/calls1.d
 test/classes.d
 test/classes10.d
 test/classes11.d
@@ -409,6 +418,8 @@ test/multiarr4.d
 test/neg.d
 test/nested1.d
 test/nested10.d
+test/nested11.d
+test/nested12.d
 test/nested2.d
 test/nested3.d
 test/nested4.d
@@ -432,6 +443,7 @@ test/static_ctor.d
 test/staticarrays.d
 test/staticvars.d
 test/stdiotest.d
+test/stdiotest2.d
 test/strings1.d
 test/strings2.d
 test/structinit.d
@@ -479,6 +491,7 @@ test/vararg1.d
 test/vararg2.d
 test/vararg3.d
 test/vararg4.d
+test/vararg5.d
 test/virtcall.d
 test/with1.d
 tester.d

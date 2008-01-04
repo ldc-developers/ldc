@@ -5,8 +5,8 @@ mkdir -p obj
 rm -f obj/*.bc
 rm -f ../lib/*.bc
 
-LLVMDCFLAGS="-c -odobj"
-REBUILDFLAGS="-dc=llvmdc-posix-internal -c -oqobj"
+LLVMDCFLAGS="-c -odobj -g"
+REBUILDFLAGS="-dc=llvmdc-posix-internal -c -oqobj -g"
 
 echo "compiling contract runtime"
 llvmdc internal/contract.d -c -of../lib/llvmdcore.bc -noruntime || exit 1
@@ -56,12 +56,14 @@ llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || ex
 
 echo "compiling garbage collector"
 llvmdc gc/gclinux.d $LLVMDCFLAGS || exit 1
-llvmdc gc/gcstub.d $LLVMDCFLAGS -Igc || exit 1
+llvmdc gc/gcx.d $LLVMDCFLAGS -Igc || exit 1
 llvmdc gc/gcbits.d $LLVMDCFLAGS -Igc || exit 1
-llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcstub.bc obj/gcbits.bc ../lib/llvmdcore.bc || exit 1
+llvmdc gc/gc.d $LLVMDCFLAGS -Igc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcx.bc obj/gcbits.bc obj/gc.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling phobos"
 rebuild phobos.d $REBUILDFLAGS || exit 1
+echo "linking phobos"
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/std.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "optimizing"
