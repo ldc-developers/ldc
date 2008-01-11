@@ -288,7 +288,7 @@ int runLINK()
     argv.push((void *)"-lm");
 
     std::string corelibpath = global.params.runtimeImppath;
-    corelibpath.append("/llvmdcore.bc");
+    corelibpath.append("/libtango-base-llvmdc.a");
     argv.append(global.params.objfiles);
     argv.push((void *)corelibpath.c_str());
 

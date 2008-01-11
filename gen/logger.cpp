@@ -6,6 +6,8 @@
 #include <fstream>
 #include <string>
 
+#include "mars.h"
+
 #include "gen/logger.h"
 
 namespace Logger
@@ -67,9 +69,9 @@ namespace Logger
     {
         return _enabled;
     }
-    void attention(const char* fmt,...)
+    void attention(const Loc& loc, const char* fmt,...)
     {
-        printf("***ATTENTION*** ");
+        printf("***ATTENTION***: %s: ", loc.toChars());
         va_list va;
         va_start(va,fmt);
         vprintf(fmt,va);

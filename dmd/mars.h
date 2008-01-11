@@ -242,7 +242,7 @@ struct Loc
 
     Loc(Module *mod, unsigned linnum);
 
-    char *toChars();
+    char *toChars() const;
 };
 
 #ifndef GCC_SAFE_DMD

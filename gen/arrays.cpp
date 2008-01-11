@@ -598,6 +598,34 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2)
+{
+    Type* t1 = DtoDType(exp1->type);
+    Type* t2 = DtoDType(exp2->type);
+
+    assert(t1->ty == Tarray);
+    assert(t2 == DtoDType(t1->next));
+
+    DValue* e1 = exp1->toElem(gIR);
+    DValue* e2 = exp2->toElem(gIR);
+
+    llvm::Value *len1, *src1, *res;
+    llvm::Value* a = e1->getRVal();
+    len1 = gIR->ir->CreateLoad(DtoGEPi(a,0,0,"tmp"),"tmp");
+    res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
+
+    llvm::Value* mem = DtoNewDynArray(arr, res, DtoDType(t1->next), false);
+
+    src1 = gIR->ir->CreateLoad(DtoGEPi(a,0,1,"tmp"),"tmp");
+
+    DtoMemCpy(mem,src1,len1);
+
+    mem = gIR->ir->CreateGEP(mem,len1,"tmp");
+    DVarValue* memval = new DVarValue(e2->getType(), mem, true);
+    DtoAssign(memval, e2);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 // helper for eq and cmp
 static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool useti)
 {

@@ -3,6 +3,8 @@
 
 #include <iostream>
 
+struct Loc;
+
 namespace Logger
 {
     void indent();
@@ -14,7 +16,7 @@ namespace Logger
     void disable();
     bool enabled();
 
-    void attention(const char* fmt, ...);
+    void attention(const Loc& loc, const char* fmt, ...);
 
     struct LoggerScope
     {

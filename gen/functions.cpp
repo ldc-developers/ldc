@@ -189,15 +189,17 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
     const llvm::Type* thisty = NULL;
     if (fdecl->needThis()) {
-        if (AggregateDeclaration* ad = fdecl->isMember()) {
-            Logger::print("isMember = this is: %s\n", ad->type->toChars());
+        if (AggregateDeclaration* ad = fdecl->isMember2()) {
+            Logger::println("isMember = this is: %s", ad->type->toChars());
             thisty = DtoType(ad->type);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
             if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->recty.get()))
                 thisty = llvm::PointerType::get(thisty);
         }
-        else
-        assert(0);
+        else {
+            Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(), fdecl->type->toChars(), fdecl->kind());
+            assert(0);
+        }
     }
     else if (fdecl->isNested()) {
         thisty = llvm::PointerType::get(llvm::Type::Int8Ty);
@@ -245,7 +247,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     if (fdecl->llvmResolved) return;
     fdecl->llvmResolved = true;
 
-    Logger::println("DtoResolveFunction(%s)", fdecl->toPrettyChars());
+    Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
     if (fdecl->llvmRunTimeHack) {
@@ -289,7 +291,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (fdecl->llvmDeclared) return;
     fdecl->llvmDeclared = true;
 
-    Logger::println("DtoDeclareFunction(%s)", fdecl->toPrettyChars());
+    Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
     assert(!fdecl->isAbstract());
@@ -351,6 +353,17 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // template instances should have weak linkage
     if (!vafunc && fdecl->llvmInternal != LLVMintrinsic && fdecl->parent && DtoIsTemplateInstance(fdecl->parent))
         func->setLinkage(llvm::GlobalValue::WeakLinkage);
+
+    // extern(C) functions are always external
+    if (f->linkage == LINKc)
+        func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+
+    // intrinsics are always external C
+    if (fdecl->llvmInternal == LLVMintrinsic)
+    {
+        func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        func->setCallingConv(llvm::CallingConv::C);
+    }
 
     fdecl->llvmValue = func;
     assert(llvm::isa<llvm::FunctionType>(f->llvmType->get()));
@@ -427,7 +440,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     assert(fd->llvmDeclared);
 
-    Logger::println("DtoDefineFunc(%s)", fd->toPrettyChars());
+    Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
     // debug info
@@ -495,7 +508,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                         vd->llvmValue = v;
                     }
                     else {
-                        Logger::attention("some unknown argument: %s", arg ? arg->toChars() : 0);
+                        Logger::attention(fd->loc, "some unknown argument: %s", arg ? arg->toChars() : 0);
                     }
                 }
 

@@ -23,7 +23,7 @@ void printUsage(string cmd)
 
 string testFileName(string test, string ext="")
 {
-    return "test/"~test~ext;
+    return "tangotests/"~test~ext;
 }
 
 // couldnt get execvp to work
@@ -95,7 +95,7 @@ int main(string[] args)
     string test = args[1];
     string kind = args[2];
 
-    string[] compilelink = ["-Itest","-odtest"];
+    string[] compilelink = ["-Itangotests","-odtangotests"];
     compilelink ~= args[3..$];
     string[] compileonly = compilelink.dup;
 

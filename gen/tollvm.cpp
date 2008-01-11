@@ -134,6 +134,7 @@ const llvm::Type* DtoType(Type* t)
                     }
                 }
             }
+            Logger::println("no type found");
         }
 
         TypeClass* tc = (TypeClass*)t;
@@ -349,7 +350,10 @@ llvm::GlobalValue::LinkageTypes DtoLinkage(PROT prot, uint stc)
     switch(prot)
     {
     case PROTprivate:
-        return llvm::GlobalValue::InternalLinkage;
+        if (stc & STCextern)
+            return llvm::GlobalValue::ExternalLinkage;
+        else
+            return llvm::GlobalValue::InternalLinkage;
 
     case PROTpublic:
     case PROTpackage:
@@ -903,8 +907,12 @@ void DtoAssign(DValue* lhs, DValue* rhs)
     else if (t->ty == Tdelegate) {
         if (rhs->isNull())
             DtoNullDelegate(lhs->getLVal());
-        else if (!rhs->inPlace())
-            DtoDelegateCopy(lhs->getLVal(), rhs->getRVal());
+        else if (!rhs->inPlace()) {
+            llvm::Value* l = lhs->getLVal();
+            llvm::Value* r = rhs->getRVal();
+            Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+            DtoDelegateCopy(l, r);
+        }
     }
     else if (t->ty == Tclass) {
         assert(t2->ty == Tclass);

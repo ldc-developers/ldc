@@ -251,7 +251,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     if (tid->llvmResolved) return;
     tid->llvmResolved = true;
 
-    Logger::println("* DtoResolveTypeInfo(%s)", tid->toChars());
+    Logger::println("DtoResolveTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
     tid->llvmIRGlobal = new IRGlobal(tid);
@@ -264,7 +264,7 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
     if (tid->llvmDeclared) return;
     tid->llvmDeclared = true;
 
-    Logger::println("* DtoDeclareTypeInfo(%s)", tid->toChars());
+    Logger::println("DtoDeclareTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
     std::string mangled(tid->mangle());
@@ -274,13 +274,24 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
 
     // this is a declaration of a builtin __initZ var
     if (tid->tinfo->builtinTypeInfo()) {
-        tid->llvmValue = LLVM_D_GetRuntimeGlobal(gIR->module, mangled.c_str());
-        assert(tid->llvmValue);
-        mangled.append("__TYPE");
-        gIR->module->addTypeName(mangled, tid->llvmValue->getType()->getContainedType(0));
-        Logger::println("Got typeinfo var: %s", tid->llvmValue->getName().c_str());
-        tid->llvmInitialized = true;
-        tid->llvmDefined = true;
+        llvm::Value* found = gIR->module->getNamedGlobal(mangled);
+        if (!found)
+        {
+            const llvm::Type* t = llvm::OpaqueType::get();
+            llvm::GlobalVariable* g = new llvm::GlobalVariable(t, true, llvm::GlobalValue::ExternalLinkage, NULL, mangled, gIR->module);
+            assert(g);
+            tid->llvmValue = g;
+            mangled.append("__TYPE");
+            gIR->module->addTypeName(mangled, tid->llvmValue->getType()->getContainedType(0));
+            Logger::println("Got typeinfo var: %s", tid->llvmValue->getName().c_str());
+            tid->llvmInitialized = true;
+            tid->llvmDefined = true;
+        }
+        else if (!tid->llvmValue) {
+            tid->llvmValue = found;
+            tid->llvmInitialized = true;
+            tid->llvmDefined = true;
+        }
     }
     // custom typedef
     else {
@@ -294,7 +305,7 @@ void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
     if (tid->llvmInitialized) return;
     tid->llvmInitialized = true;
 
-    Logger::println("* DtoConstInitTypeInfo(%s)", tid->toChars());
+    Logger::println("DtoConstInitTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
     gIR->defineList.push_back(tid);
@@ -305,7 +316,7 @@ void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
     if (tid->llvmDefined) return;
     tid->llvmDefined = true;
 
-    Logger::println("* DtoDefineTypeInfo(%s)", tid->toChars());
+    Logger::println("DtoDefineTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
     tid->llvmDefine();
@@ -912,8 +923,9 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         fd = fdx->overloadExactMatch(tftohash);
         if (fd) {
+            DtoForceDeclareDsymbol(fd);
             assert(fd->llvmValue != 0);
-            llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(fd->llvmValue);
+            llvm::Constant* c = isaConstant(fd->llvmValue);
             assert(c);
             c = llvm::ConstantExpr::getBitCast(c, ptty);
             sinits.push_back(c);
@@ -937,8 +949,9 @@ void TypeInfoStructDeclaration::llvmDefine()
         {
             fd = fdx->overloadExactMatch(tfeqptr);
             if (fd) {
+                DtoForceDeclareDsymbol(fd);
                 assert(fd->llvmValue != 0);
-                llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(fd->llvmValue);
+                llvm::Constant* c = isaConstant(fd->llvmValue);
                 assert(c);
                 c = llvm::ConstantExpr::getBitCast(c, ptty);
                 sinits.push_back(c);
@@ -964,8 +977,9 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         fd = fdx->overloadExactMatch(tftostring);
         if (fd) {
+            DtoForceDeclareDsymbol(fd);
             assert(fd->llvmValue != 0);
-            llvm::Constant* c = llvm::cast_or_null<llvm::Constant>(fd->llvmValue);
+            llvm::Constant* c = isaConstant(fd->llvmValue);
             assert(c);
             c = llvm::ConstantExpr::getBitCast(c, ptty);
             sinits.push_back(c);

@@ -25,6 +25,7 @@ llvm::Value* DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz);
 void DtoCatAssignElement(llvm::Value* arr, Expression* exp);
 void DtoCatAssignArray(llvm::Value* arr, Expression* exp);
 void DtoCatArrays(llvm::Value* arr, Expression* e1, Expression* e2);
+void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2);
 
 void DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src);
 

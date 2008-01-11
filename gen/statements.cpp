@@ -9,6 +9,7 @@
 #include "gen/llvm.h"
 #include "llvm/InlineAsm.h"
 
+#include "mars.h"
 #include "total.h"
 #include "init.h"
 #include "mtype.h"
@@ -27,16 +28,14 @@
 
 void CompoundStatement::toIR(IRState* p)
 {
-    Logger::println("CompoundStatement::toIR()");
+    Logger::println("CompoundStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     for (int i=0; i<statements->dim; i++)
     {
         Statement* s = (Statement*)statements->data[i];
-        if (s)
+        if (s) {
             s->toIR(p);
-        else {
-            Logger::println("??? null statement found in CompoundStatement");
         }
     }
 }
@@ -45,8 +44,7 @@ void CompoundStatement::toIR(IRState* p)
 
 void ReturnStatement::toIR(IRState* p)
 {
-    static int rsi = 0;
-    Logger::println("ReturnStatement::toIR(%d): %s", rsi++, toChars());
+    Logger::println("ReturnStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     if (exp)
@@ -126,8 +124,7 @@ void ReturnStatement::toIR(IRState* p)
 
 void ExpStatement::toIR(IRState* p)
 {
-    static int esi = 0;
-    Logger::println("ExpStatement::toIR(%d): %s", esi++, toChars());
+    Logger::println("ExpStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     if (global.params.llvmAnnotate)
@@ -150,7 +147,7 @@ void ExpStatement::toIR(IRState* p)
 
 void IfStatement::toIR(IRState* p)
 {
-    Logger::println("IfStatement::toIR()");
+    Logger::println("IfStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     DValue* cond_e = condition->toElem(p);
@@ -195,7 +192,7 @@ void IfStatement::toIR(IRState* p)
 
 void ScopeStatement::toIR(IRState* p)
 {
-    Logger::println("ScopeStatement::toIR()");
+    Logger::println("ScopeStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     llvm::BasicBlock* oldend = p->scopeend();
@@ -226,8 +223,7 @@ void ScopeStatement::toIR(IRState* p)
 
 void WhileStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("WhileStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("WhileStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     // create while blocks
@@ -271,8 +267,7 @@ void WhileStatement::toIR(IRState* p)
 
 void DoStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("DoStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("DoStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     // create while blocks
@@ -308,8 +303,7 @@ void DoStatement::toIR(IRState* p)
 
 void ForStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("ForStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("ForStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     // create for blocks
@@ -370,7 +364,7 @@ void ForStatement::toIR(IRState* p)
 
 void BreakStatement::toIR(IRState* p)
 {
-    Logger::println("BreakStatement::toIR(): %s", toChars());
+    Logger::println("BreakStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     if (ident != 0) {
@@ -386,7 +380,7 @@ void BreakStatement::toIR(IRState* p)
 
 void ContinueStatement::toIR(IRState* p)
 {
-    Logger::println("ContinueStatement::toIR(): %s", toChars());
+    Logger::println("ContinueStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     if (ident != 0) {
@@ -402,7 +396,7 @@ void ContinueStatement::toIR(IRState* p)
 
 void OnScopeStatement::toIR(IRState* p)
 {
-    Logger::println("OnScopeStatement::toIR(): %s", toChars());
+    Logger::println("OnScopeStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     assert(statement);
@@ -413,7 +407,7 @@ void OnScopeStatement::toIR(IRState* p)
 
 void TryFinallyStatement::toIR(IRState* p)
 {
-    Logger::println("TryFinallyStatement::toIR(): %s", toChars());
+    Logger::println("TryFinallyStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     // create basic blocks
@@ -491,11 +485,10 @@ void TryFinallyStatement::toIR(IRState* p)
 
 void TryCatchStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("TryCatchStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("TryCatchStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention("try-catch is not yet fully implemented, only the try block will be emitted.");
+    Logger::attention(loc, "try-catch is not yet fully implemented, only the try block will be emitted.");
 
     assert(body);
     body->toIR(p);
@@ -512,11 +505,10 @@ void TryCatchStatement::toIR(IRState* p)
 
 void ThrowStatement::toIR(IRState* p)
 {
-    static int wsi = 0;
-    Logger::println("ThrowStatement::toIR(%d): %s", wsi++, toChars());
+    Logger::println("ThrowStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention("throw is not yet implemented, replacing expression with assert(0);");
+    Logger::attention(loc, "throw is not yet implemented, replacing expression with assert(0);");
 
     DtoAssert(NULL, &loc, NULL);
 
@@ -574,7 +566,7 @@ static llvm::Value* call_string_switch_runtime(llvm::GlobalVariable* table, Expr
 
 void SwitchStatement::toIR(IRState* p)
 {
-    Logger::println("SwitchStatement::toIR()");
+    Logger::println("SwitchStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -725,7 +717,7 @@ void SwitchStatement::toIR(IRState* p)
 //////////////////////////////////////////////////////////////////////////////
 void CaseStatement::toIR(IRState* p)
 {
-    Logger::println("CaseStatement::toIR(): %s", toChars());
+    Logger::println("CaseStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     assert(0);
@@ -735,7 +727,7 @@ void CaseStatement::toIR(IRState* p)
 
 void UnrolledLoopStatement::toIR(IRState* p)
 {
-    Logger::println("UnrolledLoopStatement::toIR(): %s", toChars());
+    Logger::println("UnrolledLoopStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -760,7 +752,7 @@ void UnrolledLoopStatement::toIR(IRState* p)
 
 void ForeachStatement::toIR(IRState* p)
 {
-    Logger::println("ForeachStatement::toIR(): %s", toChars());
+    Logger::println("ForeachStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     //assert(arguments->dim == 1);
@@ -916,7 +908,7 @@ void ForeachStatement::toIR(IRState* p)
 
 void LabelStatement::toIR(IRState* p)
 {
-    Logger::println("LabelStatement::toIR(): %s", toChars());
+    Logger::println("LabelStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     assert(tf == NULL);
@@ -940,7 +932,7 @@ void LabelStatement::toIR(IRState* p)
 
 void GotoStatement::toIR(IRState* p)
 {
-    Logger::println("GotoStatement::toIR(): %s", toChars());
+    Logger::println("GotoStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     assert(tf == NULL);
@@ -959,7 +951,7 @@ void GotoStatement::toIR(IRState* p)
 
 void WithStatement::toIR(IRState* p)
 {
-    Logger::println("WithStatement::toIR(): %s", toChars());
+    Logger::println("WithStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
     assert(exp);
@@ -976,10 +968,10 @@ void WithStatement::toIR(IRState* p)
 
 void SynchronizedStatement::toIR(IRState* p)
 {
-    Logger::println("SynchronizedStatement::toIR(): %s", toChars());
+    Logger::println("SynchronizedStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention("synchronized is currently ignored. only the body will be emitted");
+    Logger::attention(loc, "synchronized is currently ignored. only the body will be emitted");
 
     body->toIR(p);
 }
@@ -988,7 +980,7 @@ void SynchronizedStatement::toIR(IRState* p)
 
 void AsmStatement::toIR(IRState* p)
 {
-    Logger::println("AsmStatement::toIR(): %s", toChars());
+    Logger::println("AsmStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
     error("%s: inline asm is not yet implemented", loc.toChars());
     fatal();
@@ -1020,6 +1012,18 @@ void AsmStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void VolatileStatement::toIR(IRState* p)
+{
+    Logger::println("VolatileStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+
+    Logger::attention(loc, "volatile is currently ignored. only the body will be emitted");
+
+    statement->toIR(p);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
@@ -1044,7 +1048,7 @@ STUBST(Statement);
 //STUBST(AsmStatement);
 //STUBST(TryCatchStatement);
 //STUBST(TryFinallyStatement);
-STUBST(VolatileStatement);
+//STUBST(VolatileStatement);
 //STUBST(LabelStatement);
 //STUBST(ThrowStatement);
 STUBST(GotoCaseStatement);

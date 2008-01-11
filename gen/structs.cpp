@@ -171,7 +171,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     if (sd->llvmResolved) return;
     sd->llvmResolved = true;
 
-    Logger::println("DtoResolveStruct(%s)", sd->toChars());
+    Logger::println("DtoResolveStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
@@ -180,10 +180,16 @@ void DtoResolveStruct(StructDeclaration* sd)
     sd->llvmIRStruct = irstruct;
     gIR->structs.push_back(irstruct);
 
-    for (int k=0; k < sd->members->dim; k++) {
+    Array* arr = &sd->fields;
+    for (int k=0; k < arr->dim; k++) {
+        VarDeclaration* v = (VarDeclaration*)(arr->data[k]);
+        v->toObjFile();
+    }
+
+    /*for (int k=0; k < sd->members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(sd->members->data[k]);
         dsym->toObjFile();
-    }
+    }*/
 
     Logger::println("doing struct fields");
 
@@ -293,7 +299,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     if (sd->llvmDeclared) return;
     sd->llvmDeclared = true;
 
-    Logger::println("DtoDeclareStruct(%s)", sd->toChars());
+    Logger::println("DtoDeclareStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
@@ -318,7 +324,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     if (sd->llvmInitialized) return;
     sd->llvmInitialized = true;
 
-    Logger::println("DtoConstInitStruct(%s)", sd->toChars());
+    Logger::println("DtoConstInitStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     IRStruct* irstruct = sd->llvmIRStruct;
@@ -390,7 +396,7 @@ void DtoDefineStruct(StructDeclaration* sd)
     if (sd->llvmDefined) return;
     sd->llvmDefined = true;
 
-    Logger::println("DtoDefineStruct(%s)", sd->toChars());
+    Logger::println("DtoDefineStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     assert(sd->type->ty == Tstruct);

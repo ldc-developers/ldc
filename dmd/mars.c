@@ -77,7 +77,7 @@ Global::Global()
     memset(&params, 0, sizeof(Param));
 }
 
-char *Loc::toChars()
+char *Loc::toChars() const
 {
     OutBuffer buf;
     char *p;
@@ -300,6 +300,8 @@ int main(int argc, char *argv[])
     // Predefine version identifiers
 #if IN_LLVM
     VersionCondition::addPredefinedGlobalIdent("LLVM");
+    VersionCondition::addPredefinedGlobalIdent("LLVMDC");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
 #endif
 #if _WIN32
     VersionCondition::addPredefinedGlobalIdent("Windows");

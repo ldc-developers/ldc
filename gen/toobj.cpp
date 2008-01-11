@@ -351,6 +351,7 @@ void Module::genmoduleinfo()
     for (size_t i = 0; i < aclasses.dim; i++)
     {
         ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
+        Logger::println("class: %s", cd->toPrettyChars());
         assert(cd->llvmClass);
         classInits.push_back(cd->llvmClass);
     }
@@ -370,9 +371,8 @@ void Module::genmoduleinfo()
     initVec.push_back(c);
 
     // flags
-    if (needmoduleinfo)
-        c = DtoConstUint(0);        // flags (4 means MIstandalone)
-    else
+    c = DtoConstUint(0);
+    if (!needmoduleinfo)
         c = DtoConstUint(4);        // flags (4 means MIstandalone)
     initVec.push_back(c);
 
@@ -390,6 +390,22 @@ void Module::genmoduleinfo()
     llvm::Function* unittest = build_module_unittest();
     c = unittest ? unittest : moduleinfo->llvmConstInit->getOperand(8);
     initVec.push_back(c);
+
+    // xgetMembers
+    c = moduleinfo->llvmConstInit->getOperand(9);
+    initVec.push_back(c);
+
+    // ictor
+    c = moduleinfo->llvmConstInit->getOperand(10);
+    initVec.push_back(c);
+
+    /*Logger::println("MODULE INFO INITIALIZERS");
+    for (size_t i=0; i<initVec.size(); ++i)
+    {
+        Logger::cout() << *initVec[i] << '\n';
+        if (initVec[i]->getType() != moduleinfoTy->getElementType(i))
+            assert(0);
+    }*/
 
     // create initializer
     llvm::Constant* constMI = llvm::ConstantStruct::get(moduleinfoTy, initVec);
@@ -442,42 +458,6 @@ void StructDeclaration::toObjFile()
 
 /* ================================================================== */
 
-static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsigned& idx)
-{
-    // start at the bottom of the inheritance chain
-    if (cd->baseClass != 0) {
-        unsigned o = LLVM_ClassOffsetToIndex(cd->baseClass, os, idx);
-        if (o != (unsigned)-1)
-            return o;
-    }
-
-    // check this class
-    unsigned i;
-    for (i=0; i<cd->fields.dim; ++i) {
-        VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
-        if (os == vd->offset)
-            return i+idx;
-    }
-    idx += i;
-
-    return (unsigned)-1;
-}
-
-void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
-{
-    unsigned idx = 0;
-    unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
-    assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
-    // vtable is 0, monitor is 1
-    r += 2;
-    // interface offset further
-    r += vtblInterfaces->dim;
-    // the final index was not pushed
-    result.push_back(r); 
-}
-
-/* ================================================================== */
-
 void ClassDeclaration::toObjFile()
 {
     gIR->resolveList.push_back(this);
@@ -510,6 +490,11 @@ void VarDeclaration::toObjFile()
     // global variable or magic
     if (isDataseg())
     {
+        // we don't want to touch private static members at all !!!
+        if ((prot() & PROTprivate) && getModule() != gIR->dmodule)
+            return;
+
+        // don't duplicate work
         if (llvmResolved) return;
         llvmResolved = true;
         llvmDeclared = true;
@@ -548,9 +533,6 @@ void VarDeclaration::toObjFile()
             DtoConstInitGlobal(this);
         else
             gIR->constInitList.push_back(this);
-
-        //if (storage_class & STCprivate)
-        //    gvar->setVisibility(llvm::GlobalValue::ProtectedVisibility);
     }
 
     // inside aggregate declaration. declare a field.

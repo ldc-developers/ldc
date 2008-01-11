@@ -11,6 +11,7 @@
 #include "gen/arrays.h"
 #include "gen/logger.h"
 #include "gen/classes.h"
+#include "gen/structs.h"
 #include "gen/functions.h"
 #include "gen/runtime.h"
 #include "gen/dvalue.h"
@@ -32,13 +33,19 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
         Logger::println("Adding base class members of %s", bc->base->toChars());
         LOG_SCOPE;
 
-        for (int k=0; k < bc->base->members->dim; k++) {
+        Array* arr = &bc->base->fields;
+        for (int k=0; k < arr->dim; k++) {
+            VarDeclaration* v = (VarDeclaration*)(arr->data[k]);
+            v->toObjFile();
+        }
+
+        /*for (int k=0; k < bc->base->members->dim; k++) {
             Dsymbol* dsym = (Dsymbol*)(bc->base->members->data[k]);
             if (dsym->isVarDeclaration())
             {
                 dsym->toObjFile();
             }
-        }
+        }*/
     }
 }
 
@@ -65,7 +72,7 @@ void DtoResolveClass(ClassDeclaration* cd)
         }
     }
 
-    Logger::println("DtoResolveClass(%s)", cd->toPrettyChars());
+    Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);
@@ -113,10 +120,85 @@ void DtoResolveClass(ClassDeclaration* cd)
         dsym->toObjFile();
     }
 
+    // resolve class data fields (possibly unions)
+    Logger::println("doing class fields");
+
+    if (irstruct->offsets.empty())
+    {
+        Logger::println("has no fields");
+    }
+    else
+    {
+        Logger::println("has fields");
+        unsigned prevsize = (unsigned)-1;
+        unsigned lastoffset = (unsigned)-1;
+        const llvm::Type* fieldtype = NULL;
+        VarDeclaration* fieldinit = NULL;
+        size_t fieldpad = 0;
+        int idx = 0;
+        for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
+            // first iteration
+            if (lastoffset == (unsigned)-1) {
+                lastoffset = i->first;
+                fieldtype = i->second.type;
+                fieldinit = i->second.var;
+                prevsize = gTargetData->getTypeSize(fieldtype);
+                i->second.var->llvmFieldIndex = idx;
+            }
+            // colliding offset?
+            else if (lastoffset == i->first) {
+                size_t s = gTargetData->getTypeSize(i->second.type);
+                if (s > prevsize) {
+                    fieldpad += s - prevsize;
+                    prevsize = s;
+                }
+                cd->llvmHasUnions = true;
+                i->second.var->llvmFieldIndex = idx;
+            }
+            // intersecting offset?
+            else if (i->first < (lastoffset + prevsize)) {
+                size_t s = gTargetData->getTypeSize(i->second.type);
+                assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
+                cd->llvmHasUnions = true;
+                i->second.var->llvmFieldIndex = idx;
+                i->second.var->llvmFieldIndexOffset = (i->first - lastoffset) / s;
+            }
+            // fresh offset
+            else {
+                // commit the field
+                fieldtypes.push_back(fieldtype);
+                irstruct->defaultFields.push_back(fieldinit);
+                if (fieldpad) {
+                    fieldtypes.push_back(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad));
+                    irstruct->defaultFields.push_back(NULL);
+                    idx++;
+                }
+
+                idx++;
+
+                // start new
+                lastoffset = i->first;
+                fieldtype = i->second.type;
+                fieldinit = i->second.var;
+                prevsize = gTargetData->getTypeSize(fieldtype);
+                i->second.var->llvmFieldIndex = idx;
+                fieldpad = 0;
+            }
+        }
+        fieldtypes.push_back(fieldtype);
+        irstruct->defaultFields.push_back(fieldinit);
+        if (fieldpad) {
+            fieldtypes.push_back(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad));
+            irstruct->defaultFields.push_back(NULL);
+        }
+    }
+
+    /*
     // add field types
     for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
         fieldtypes.push_back(i->second.type);
     }
+    */
 
     const llvm::StructType* structtype = llvm::StructType::get(fieldtypes);
     // refine abstract types for stuff like: class C {C next;}
@@ -214,7 +296,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
     if (cd->llvmDeclared) return;
     cd->llvmDeclared = true;
 
-    Logger::println("DtoDeclareClass(%s)", cd->toPrettyChars());
+    Logger::println("DtoDeclareClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);
@@ -262,7 +344,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
         const llvm::StructType* infoTy = llvm::StructType::get(types);
 
         // interface info array
-        if (needs_definition && cd->vtblInterfaces->dim > 0) {
+        if (cd->vtblInterfaces->dim > 0) {
             // symbol name
             std::string nam = "_D";
             nam.append(cd->mangle());
@@ -271,7 +353,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
             const llvm::ArrayType* arrTy = llvm::ArrayType::get(infoTy, cd->vtblInterfaces->dim);
             // declare global
             irstruct->interfaceInfosTy = arrTy;
-            irstruct->interfaceInfos = new llvm::GlobalVariable(arrTy, true, llvm::GlobalValue::InternalLinkage, 0, nam, gIR->module);
+            irstruct->interfaceInfos = new llvm::GlobalVariable(arrTy, true, _linkage, NULL, nam, gIR->module);
         }
 
         // interface vtables
@@ -329,7 +411,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     if (cd->isInterfaceDeclaration())
         return; // nothing to do
 
-    Logger::println("DtoConstInitClass(%s)", cd->toPrettyChars());
+    Logger::println("DtoConstInitClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
     IRStruct* irstruct = cd->llvmIRStruct;
@@ -355,25 +437,46 @@ void DtoConstInitClass(ClassDeclaration* cd)
     // then comes monitor
     fieldinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
 
+    size_t dataoffset = 2;
+
     // next comes interface vtables
     for (IRStruct::InterfaceIter i=irstruct->interfaces.begin(); i!=irstruct->interfaces.end(); ++i)
     {
         IRInterface* iri = i->second;
         assert(iri->vtbl);
         fieldinits.push_back(iri->vtbl);
+        ++dataoffset;
     }
 
+    /*
     // rest
     for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
         Logger::println("adding fieldinit for: %s", i->second.var->toChars());
         fieldinits.push_back(i->second.init);
     }
+    */
 
     // get the struct (class) type
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
     const llvm::StructType* structtype = isaStruct(ts->llvmType->get());
     const llvm::StructType* vtbltype = isaStruct(ts->llvmVtblType->get());
+
+    // go through the field inits and build the default initializer
+    size_t nfi = irstruct->defaultFields.size();
+    for (size_t i=0; i<nfi; ++i) {
+        llvm::Constant* c;
+        if (irstruct->defaultFields[i] != NULL) {
+            c = irstruct->defaultFields[i]->llvmConstInit;
+            assert(c);
+        }
+        else {
+            const llvm::ArrayType* arrty = isaArray(structtype->getElementType(i+dataoffset));
+            std::vector<llvm::Constant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+            c = llvm::ConstantArray::get(arrty, vals);
+        }
+        fieldinits.push_back(c);
+    }
 
     // generate initializer
 #if 0
@@ -509,7 +612,7 @@ void DtoDefineClass(ClassDeclaration* cd)
     if (cd->llvmDefined) return;
     cd->llvmDefined = true;
 
-    Logger::println("DtoDefineClass(%s)", cd->toPrettyChars());
+    Logger::println("DtoDefineClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
     // get the struct (class) type
@@ -698,6 +801,119 @@ DValue* DtoCastInterfaceToObject(DValue* val, Type* to)
         to = ClassDeclaration::object->type;
 
     return new DImValue(to, ret);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static unsigned LLVM_ClassOffsetToIndex(ClassDeclaration* cd, unsigned os, unsigned& idx)
+{
+    // start at the bottom of the inheritance chain
+    if (cd->baseClass != 0) {
+        unsigned o = LLVM_ClassOffsetToIndex(cd->baseClass, os, idx);
+        if (o != (unsigned)-1)
+            return o;
+    }
+
+    // check this class
+    unsigned i;
+    for (i=0; i<cd->fields.dim; ++i) {
+        VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
+        if (os == vd->offset)
+            return i+idx;
+    }
+    idx += i;
+
+    return (unsigned)-1;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result)
+{
+    unsigned idx = 0;
+    unsigned r = LLVM_ClassOffsetToIndex(this, os, idx);
+    assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
+    // vtable is 0, monitor is 1
+    r += 2;
+    // interface offset further
+    r += vtblInterfaces->dim;
+    // the final index was not pushed
+    result.push_back(r); 
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+{
+    Logger::println("checking for offset %u type %s:", os, t->toChars());
+    LOG_SCOPE;
+
+    if (idxs.empty())
+        idxs.push_back(0);
+
+    const llvm::Type* llt = llvm::PointerType::get(DtoType(t));
+    const llvm::Type* st = DtoType(cd->type);
+    if (ptr->getType() != st) {
+        assert(cd->llvmHasUnions);
+        ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
+    }
+
+    unsigned dataoffset = 2 + cd->vtblInterfaces->dim;
+
+    IRStruct* irstruct = cd->llvmIRStruct;
+    for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
+    //for (unsigned i=0; i<cd->fields.dim; ++i) {
+        //VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
+        VarDeclaration* vd = i->second.var;
+        assert(vd);
+        Type* vdtype = DtoDType(vd->type);
+        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
+        assert(vd->llvmFieldIndex >= 0);
+        if (os == vd->offset && vdtype == t) {
+            idxs.push_back(vd->llvmFieldIndex + dataoffset);
+            Logger::cout() << "indexing: " << *ptr << '\n';
+            ptr = DtoGEP(ptr, idxs, "tmp");
+            if (ptr->getType() != llt)
+                ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+            Logger::cout() << "indexing: " << *ptr << '\n';
+            if (vd->llvmFieldIndexOffset)
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+            Logger::cout() << "indexing: " << *ptr << '\n';
+            return ptr;
+        }
+        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
+            TypeStruct* ts = (TypeStruct*)vdtype;
+            StructDeclaration* ssd = ts->sym;
+            idxs.push_back(vd->llvmFieldIndex + dataoffset);
+            if (vd->llvmFieldIndexOffset) {
+                Logger::println("has union field offset");
+                ptr = DtoGEP(ptr, idxs, "tmp");
+                if (ptr->getType() != llt)
+                    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+                std::vector<unsigned> tmp;
+                return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
+            }
+            else {
+                const llvm::Type* sty = llvm::PointerType::get(DtoType(vd->type));
+                if (ptr->getType() != sty) {
+                    ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
+                    std::vector<unsigned> tmp;
+                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
+                }
+                else {
+                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
+                }
+            }
+        }
+    }
+
+    assert(0);
+
+    size_t llt_sz = gTargetData->getTypeSize(llt->getContainedType(0));
+    assert(os % llt_sz == 0);
+    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+    return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
