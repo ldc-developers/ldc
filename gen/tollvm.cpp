@@ -831,7 +831,7 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 {
     // log the frame list
     IRFunction* irfunc = gIR->func();
-    if (Logger::enabled)
+    if (Logger::enabled())
         print_nested_frame_list(vd, irfunc->decl);
 
     // resolve frame ptr
