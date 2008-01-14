@@ -82,9 +82,9 @@ const llvm::Type* DtoType(Type* t)
     case Tpointer: {
         assert(t->next);
         if (t->next->ty == Tvoid)
-            return (const llvm::Type*)llvm::PointerType::get(llvm::Type::Int8Ty);
+            return (const llvm::Type*)getPtrToType(llvm::Type::Int8Ty);
         else
-            return (const llvm::Type*)llvm::PointerType::get(DtoType(t->next));
+            return (const llvm::Type*)getPtrToType(DtoType(t->next));
     }
 
     // arrays
@@ -117,11 +117,11 @@ const llvm::Type* DtoType(Type* t)
         TypeStruct* ts = (TypeStruct*)t;
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
-        return t->llvmType->get();
+        return ts->sym->llvmIRStruct->recty.get();//t->llvmType->get();
     }
 
     case Tclass:    {
-        if (!t->llvmType || *t->llvmType == NULL) {
+        /*if (!t->llvmType || *t->llvmType == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
@@ -130,17 +130,17 @@ const llvm::Type* DtoType(Type* t)
                 {
                     if (t == (*i)->type)
                     {
-                        return llvm::PointerType::get((*i)->recty.get());
+                        return getPtrToType((*i)->recty.get());
                     }
                 }
             }
             Logger::println("no type found");
-        }
+        }*/
 
         TypeClass* tc = (TypeClass*)t;
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
-        return llvm::PointerType::get(t->llvmType->get());
+        return getPtrToType(tc->sym->llvmIRStruct->recty.get());//t->llvmType->get());
     }
 
     // functions
@@ -182,7 +182,7 @@ const llvm::Type* DtoType(Type* t)
         std::vector<const llvm::Type*> types;
         types.push_back(DtoType(taa->key));
         types.push_back(DtoType(taa->next));
-        return llvm::PointerType::get(llvm::StructType::get(types));
+        return getPtrToType(llvm::StructType::get(types));
     }
 
     default:
@@ -196,9 +196,9 @@ const llvm::Type* DtoType(Type* t)
 
 const llvm::StructType* DtoDelegateType(Type* t)
 {
-    const llvm::Type* i8ptr = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::Type* i8ptr = getPtrToType(llvm::Type::Int8Ty);
     const llvm::Type* func = DtoFunctionType(t->next, i8ptr);
-    const llvm::Type* funcptr = llvm::PointerType::get(func);
+    const llvm::Type* funcptr = getPtrToType(func);
 
     std::vector<const llvm::Type*> types;
     types.push_back(i8ptr);
@@ -214,7 +214,7 @@ static llvm::Function* LLVM_DeclareMemIntrinsic(const char* name, int bits, bool
     const llvm::Type* int8ty =    (const llvm::Type*)llvm::Type::Int8Ty;
     const llvm::Type* int32ty =   (const llvm::Type*)llvm::Type::Int32Ty;
     const llvm::Type* int64ty =   (const llvm::Type*)llvm::Type::Int64Ty;
-    const llvm::Type* int8ptrty = (const llvm::Type*)llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::Type* int8ptrty = (const llvm::Type*)getPtrToType(llvm::Type::Int8Ty);
     const llvm::Type* voidty =    (const llvm::Type*)llvm::Type::VoidTy;
 
     assert(gIR);
@@ -284,7 +284,7 @@ llvm::Value* DtoNullDelegate(llvm::Value* v)
     assert(gIR);
     d_uns64 n = (global.params.is64bit) ? 16 : 8;
 
-    llvm::Type* i8p_ty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::Type* i8p_ty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* arr = new llvm::BitCastInst(v,i8p_ty,"tmp",gIR->scopebb());
 
@@ -310,7 +310,7 @@ llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
 
     d_uns64 n = (global.params.is64bit) ? 16 : 8;
 
-    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
     llvm::Value* srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
@@ -434,10 +434,8 @@ llvm::Value* DtoBoolean(llvm::Value* val)
         }
     }
     else if (isaPointer(t)) {
-        const llvm::Type* st = DtoSize_t();
-        llvm::Value* ptrasint = new llvm::PtrToIntInst(val,st,"tmp",gIR->scopebb());
-        llvm::Value* zero = llvm::ConstantInt::get(st, 0, false);
-        return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, ptrasint, zero, "tmp", gIR->scopebb());
+        llvm::Value* zero = llvm::Constant::getNullValue(t);
+        return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
     }
     else
     {
@@ -615,7 +613,7 @@ llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty)
     /*size_t sz = gTargetData->getTypeSize(ty);
     llvm::ConstantInt* n = llvm::ConstantInt::get(DtoSize_t(), sz, false);
     if (ptr == 0) {
-        llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+        llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
         ptr = llvm::ConstantPointerNull::get(i8pty);
     }
     return DtoRealloc(ptr, n);*/
@@ -634,7 +632,7 @@ llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* n)
 
     llvm::Value* newptr = ptr;
 
-    llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
     if (ptr->getType() != i8pty) {
         newptr = new llvm::BitCastInst(ptr,i8pty,"tmp",gIR->scopebb());
     }
@@ -649,30 +647,33 @@ llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* n)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg)
+void DtoAssert(Loc* loc, DValue* msg)
 {
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assert");
-    const llvm::FunctionType* fnt = fn->getFunctionType();
+    std::vector<llvm::Value*> args;
+    llvm::Constant* c;
 
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(3);
-    llargs[0] = cond ? DtoBoolean(cond) : llvm::ConstantInt::getFalse();
-    llargs[1] = DtoConstUint(loc->linnum);
-    if (msg)
-        llargs[2] = msg->getRVal();
-    else {
-        llvm::Constant* c = DtoConstSlice(DtoConstSize_t(0), DtoConstNullPtr(llvm::Type::Int8Ty));
-        static llvm::AllocaInst* alloc = 0;
-        if (!alloc || alloc->getParent()->getParent() != gIR->func()->func) {
-            alloc = new llvm::AllocaInst(c->getType(), "assertnullparam", gIR->topallocapoint());
-            DtoSetArrayToNull(alloc);
-        }
-        llargs[2] = alloc;
-    }
+    // func
+    const char* fname = msg ? "_d_assert_msg" : "_d_assert";
 
-    assert(fn);
-    llvm::CallInst* call = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-    call->setCallingConv(llvm::CallingConv::C);
+    // msg param
+    if (msg) args.push_back(msg->getRVal());
+
+    // file param
+    c = DtoConstString(loc->filename);
+    llvm::AllocaInst* alloc = new llvm::AllocaInst(c->getType(), "srcfile", gIR->topallocapoint());
+    llvm::Value* ptr = DtoGEPi(alloc, 0,0, "tmp");
+    DtoStore(c->getOperand(0), ptr);
+    ptr = DtoGEPi(alloc, 0,1, "tmp");
+    DtoStore(c->getOperand(1), ptr);
+    args.push_back(alloc);
+
+    // line param
+    c = DtoConstUint(loc->linnum);
+    args.push_back(c);
+
+    // call
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+    llvm::CallInst* call = new llvm::CallInst(fn, args.begin(), args.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1191,9 +1192,9 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value)
 {
     TY ty = DtoDType(t)->ty;
     if (ty == Tfloat32 || ty == Timaginary32)
-        return llvm::ConstantFP::get(llvm::Type::FloatTy, float(value));
+        return llvm::ConstantFP::get(llvm::Type::FloatTy, llvm::APFloat(float(value)));
     else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tfloat80 || ty == Timaginary80)
-        return llvm::ConstantFP::get(llvm::Type::DoubleTy, double(value));
+        return llvm::ConstantFP::get(llvm::Type::DoubleTy, llvm::APFloat(double(value)));
 }
 
 
@@ -1227,7 +1228,7 @@ llvm::Constant* DtoConstStringPtr(const char* str, const char* section)
 llvm::Constant* DtoConstNullPtr(const llvm::Type* t)
 {
     return llvm::ConstantPointerNull::get(
-        llvm::PointerType::get(t)
+        getPtrToType(t)
     );
 }
 
@@ -1235,7 +1236,7 @@ llvm::Constant* DtoConstNullPtr(const llvm::Type* t)
 
 void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
 {
-    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
     llvm::Value *dstarr;
     if (dst->getType() == arrty)
     {
@@ -1263,7 +1264,7 @@ void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 {
     assert(dst->getType() == src->getType());
 
-    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
     llvm::Value *dstarr, *srcarr;
     if (dst->getType() == arrty)
     {
@@ -1309,11 +1310,11 @@ bool DtoCanLoad(llvm::Value* ptr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t)
+llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t, const char* name)
 {
     if (v->getType() == t)
         return v;
-    return gIR->ir->CreateBitCast(v, t, "tmp");
+    return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1366,6 +1367,36 @@ llvm::Argument* isaArgument(llvm::Value* v)
 llvm::GlobalVariable* isaGlobalVar(llvm::Value* v)
 {
     return llvm::dyn_cast<llvm::GlobalVariable>(v);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+const llvm::PointerType* getPtrToType(const llvm::Type* t)
+{
+    return llvm::PointerType::get(t, 0);
+}
+
+llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t)
+{
+    const llvm::PointerType* pt = llvm::cast<llvm::PointerType>(t);
+    return llvm::ConstantPointerNull::get(pt);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+size_t getTypeBitSize(const llvm::Type* t)
+{
+    return gTargetData->getTypeSizeInBits(t);
+}
+
+size_t getTypeStoreSize(const llvm::Type* t)
+{
+    return gTargetData->getTypeStoreSize(t);
+}
+
+size_t getABITypeSize(const llvm::Type* t)
+{
+    return gTargetData->getABITypeSize(t);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1656,7 +1687,7 @@ void DtoEmptyAllLists()
 void DtoForceDeclareDsymbol(Dsymbol* dsym)
 {
     if (dsym->llvmDeclared) return;
-    Logger::println("DtoForceDeclareDsymbol(%s)", dsym->toChars());
+    Logger::println("DtoForceDeclareDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
 
@@ -1670,7 +1701,7 @@ void DtoForceDeclareDsymbol(Dsymbol* dsym)
 void DtoForceConstInitDsymbol(Dsymbol* dsym)
 {
     if (dsym->llvmInitialized) return;
-    Logger::println("DtoForceConstInitDsymbol(%s)", dsym->toChars());
+    Logger::println("DtoForceConstInitDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
 
@@ -1685,7 +1716,7 @@ void DtoForceConstInitDsymbol(Dsymbol* dsym)
 void DtoForceDefineDsymbol(Dsymbol* dsym)
 {
     if (dsym->llvmDefined) return;
-    Logger::println("DtoForceDefineDsymbol(%s)", dsym->toChars());
+    Logger::println("DtoForceDefineDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
 

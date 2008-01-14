@@ -131,6 +131,7 @@ struct Param
     char disassemble;
     char llvmInline;
     char llvmAnnotate;
+    char *runtimePath;
 };
 
 struct Global

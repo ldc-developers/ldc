@@ -283,14 +283,18 @@ int runLINK()
      * passed with -l.
      */
 
-    //argv.push((void *)"-lphobos");    // turns into /usr/lib/libphobos.a
-    argv.push((void *)"-lpthread");
-    argv.push((void *)"-lm");
+    argv.push((void*)"-ltango-base-c-llvmdc");
+    argv.push((void*)"-lpthread");
+    argv.push((void*)"-ldl");
+    argv.push((void*)"-lm");
 
-    std::string corelibpath = global.params.runtimeImppath;
-    corelibpath.append("/libtango-base-llvmdc.a");
     argv.append(global.params.objfiles);
-    argv.push((void *)corelibpath.c_str());
+
+    std::string runtime_path(global.params.runtimePath);
+    if (*runtime_path.rbegin() != '/')
+        runtime_path.append("/");
+    runtime_path.append("libtango-base-llvmdc.a");
+    argv.push((void*)runtime_path.c_str());
 
     if (!global.params.quiet)
     {

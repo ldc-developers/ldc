@@ -8,7 +8,7 @@ exeext=
 objext=bc
 
 
-version=LLVM
+version=LLVMDC
 noversion=DigitalMars
 noversion=GNU
 testversion=linux

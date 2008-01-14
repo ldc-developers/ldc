@@ -1,5 +1,7 @@
 module interface5;
 
+extern(C) int printf(char*,...);
+
 interface I
 {
     void func();

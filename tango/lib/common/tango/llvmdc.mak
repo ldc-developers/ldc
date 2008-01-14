@@ -12,6 +12,8 @@
 
 LIB_TARGET=libtango-cc-tango.a
 LIB_MASK=libtango-cc-tango*.a
+LIB_TARGET_C=libtango-cc-c-tango.a
+LIB_MASK_C=libtango-cc-c-tango*.a
 
 CP=cp -f
 RM=rm -f
@@ -33,6 +35,7 @@ DOCFLAGS=-version=DDoc
 
 CC=gcc
 LC=llvm-ar rsv
+CLC=ar rsv
 DC=llvmdc
 LLC=llvm-as
 
@@ -68,7 +71,7 @@ DOC_DEST=../../../doc/tango
 targets : lib doc
 all     : lib doc
 tango   : lib
-lib     : tango.lib
+lib     : tango.lib tango.clib
 doc     : tango.doc
 
 ######################################################
@@ -82,14 +85,15 @@ OBJ_CORE= \
 #    core/ThreadASM.o
 
 OBJ_STDC= \
-    stdc/wrap.bc
+    stdc/wrap.o
+#    stdc/wrap.bc
 
 OBJ_STDC_POSIX= \
     stdc/posix/pthread_darwin.o
 
 ALL_OBJS= \
-    $(OBJ_CORE) \
-    $(OBJ_STDC)
+    $(OBJ_CORE)
+#    $(OBJ_STDC)
 #    $(OBJ_STDC_POSIX)
 
 ######################################################
@@ -112,6 +116,14 @@ $(LIB_TARGET) : $(ALL_OBJS)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS)
 
+
+tango.clib : $(LIB_TARGET_C)
+
+$(LIB_TARGET_C) : $(OBJ_STDC)
+	$(RM) $@
+	$(CLC) $@ $(OBJ_STDC)
+
+
 tango.doc : $(ALL_DOCS)
 	echo Documentation generated.
 
@@ -127,8 +139,10 @@ tango.doc : $(ALL_DOCS)
 clean :
 	find . -name "*.di" | xargs $(RM)
 	$(RM) $(ALL_OBJS)
+	$(RM) $(OBJ_STDC)
 	$(RM) $(ALL_DOCS)
 	find . -name "$(LIB_MASK)" | xargs $(RM)
+	find . -name "$(LIB_MASK_C)" | xargs $(RM)
 
 install :
 	$(MD) $(INC_DEST)
@@ -137,3 +151,4 @@ install :
 	find . -name "*.html" -exec cp -f {} $(DOC_DEST)/{} \;
 	$(MD) $(LIB_DEST)
 	find . -name "$(LIB_MASK)" -exec cp -f {} $(LIB_DEST)/{} \;
+	find . -name "$(LIB_MASK_C)" -exec cp -f {} $(LIB_DEST)/{} \;

@@ -1,5 +1,7 @@
 module memory1;
 
+extern(C) int printf(char*,...);
+
 void main()
 {
     auto a = new int[16];

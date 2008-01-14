@@ -74,7 +74,7 @@ void Module::genobjfile()
     ir.module->setDataLayout(global.params.data_layout);
 
     // heavily inspired by tools/llc/llc.cpp:200-230
-    const llvm::TargetMachineRegistry::Entry* targetEntry;
+    const llvm::TargetMachineRegistry::entry* targetEntry;
     std::string targetError;
     targetEntry = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, targetError);
     assert(targetEntry && "Failed to find a static target for module");
@@ -118,7 +118,7 @@ void Module::genobjfile()
 
     // emit the llvm main function if necessary
     if (ir.emitMain) {
-        DtoMain();
+        //DtoMain();
     }
 
     // verify the llvm
@@ -295,7 +295,7 @@ void Module::genmoduleinfo()
     initVec.push_back(c);
 
     // monitor
-    c = llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty));
+    c = getNullPtr(getPtrToType(llvm::Type::Int8Ty));
     initVec.push_back(c);
 
     // name
@@ -321,14 +321,15 @@ void Module::genmoduleinfo()
         }
     }
     // has import array?
-    if (!importInits.empty()) {
-        const llvm::ArrayType* importArrTy = llvm::ArrayType::get(llvm::PointerType::get(moduleinfoTy), importInits.size());
+    if (!importInits.empty())
+    {
+        const llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
         c = llvm::ConstantArray::get(importArrTy, importInits);
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__importsZ");
         llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
-        c = llvm::ConstantExpr::getBitCast(m_gvar, llvm::PointerType::get(importArrTy->getElementType()));
+        c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(importArrTy->getElementType()));
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
     else
@@ -351,19 +352,25 @@ void Module::genmoduleinfo()
     for (size_t i = 0; i < aclasses.dim; i++)
     {
         ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
+        if (cd->isInterfaceDeclaration())
+        {
+            Logger::println("skipping interface '%s'", cd->toPrettyChars());
+            continue;
+        }
         Logger::println("class: %s", cd->toPrettyChars());
         assert(cd->llvmClass);
         classInits.push_back(cd->llvmClass);
     }
     // has class array?
-    if (!classInits.empty()) {
-        const llvm::ArrayType* classArrTy = llvm::ArrayType::get(llvm::PointerType::get(classinfoTy), classInits.size());
+    if (!classInits.empty())
+    {
+        const llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
         c = llvm::ConstantArray::get(classArrTy, classInits);
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__classesZ");
         llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
-        c = llvm::ConstantExpr::getBitCast(m_gvar, llvm::PointerType::get(classArrTy->getElementType()));
+        c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(classArrTy->getElementType()));
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
@@ -420,9 +427,9 @@ void Module::genmoduleinfo()
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, constMI, MIname, gIR->module);
 
     // declare the appending array
-    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(llvm::PointerType::get(llvm::Type::Int8Ty), 1);
+    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(getPtrToType(llvm::Type::Int8Ty), 1);
     std::vector<llvm::Constant*> appendInits;
-    appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, llvm::PointerType::get(llvm::Type::Int8Ty)));
+    appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llvm::Type::Int8Ty)));
     llvm::Constant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
     std::string appendName("_d_moduleinfo_array");
     llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);
@@ -446,7 +453,8 @@ void Declaration::toObjFile()
 
 void InterfaceDeclaration::toObjFile()
 {
-    Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
+    //Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
+    gIR->resolveList.push_back(this);
 }
 
 /* ================================================================== */
@@ -491,7 +499,7 @@ void VarDeclaration::toObjFile()
     if (isDataseg())
     {
         // we don't want to touch private static members at all !!!
-        if ((prot() & PROTprivate) && getModule() != gIR->dmodule)
+        if ((prot() == PROTprivate) && getModule() != gIR->dmodule)
             return;
 
         // don't duplicate work

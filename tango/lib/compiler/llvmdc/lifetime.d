@@ -26,6 +26,8 @@
  */
 module lifetime;
 
+//debug=PRINTF;
+debug=PRINTF2;
 
 private
 {
@@ -33,6 +35,7 @@ private
     import tango.stdc.string;
     import tango.stdc.stdarg;
     debug(PRINTF) import tango.stdc.stdio;
+    else debug(PRINTF2) import tango.stdc.stdio;
 }
 
 
@@ -86,7 +89,8 @@ extern (C) Object _d_newclass(ClassInfo ci)
 {
     void* p;
 
-    debug(PRINTF) printf("_d_newclass(ci = %p, %s)\n", ci, cast(char *)ci.name);
+    debug(PRINTF) printf("_d_newclass(ci = %p, %s)\n", ci, cast(char *)ci.name.ptr);
+    /+
     if (ci.flags & 1) // if COM object
     {   /* COM objects are not garbage collected, they are reference counted
          * using AddRef() and Release().  They get free'd by C's free()
@@ -98,10 +102,11 @@ extern (C) Object _d_newclass(ClassInfo ci)
             onOutOfMemoryError();
     }
     else
+    +/
     {
         p = gc_malloc(ci.init.length,
                       BlkAttr.FINALIZE | (ci.flags & 2 ? BlkAttr.NO_SCAN : 0));
-        debug(PRINTF) printf(" p = %p\n", p);
+        debug(PRINTF2) printf(" p = %p\n", p);
     }
 
     debug(PRINTF)
@@ -119,7 +124,8 @@ extern (C) Object _d_newclass(ClassInfo ci)
     }
 
     // initialize it
-    (cast(byte*) p)[0 .. ci.init.length] = ci.init[];
+    // llvmdc does this inline
+    //(cast(byte*) p)[0 .. ci.init.length] = ci.init[];
 
     debug(PRINTF) printf("initialization done\n");
     return cast(Object) p;

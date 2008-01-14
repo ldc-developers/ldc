@@ -621,14 +621,21 @@ static Console.Output   Cout,                   /// the standard output stream
 
 ******************************************************************************/
 
+extern(C) int printf(char*, ...);
+
 static this ()
 {
+        printf("STATIC INIT FOR CONSOLE\n");
+        printf("Cin\n");
         auto conduit = new Console.Conduit (0);
+        assert(conduit);
         Cin  = new Console.Input (conduit, conduit.redirected);
 
+        printf("Cout\n");
         conduit = new Console.Conduit (1);
         Cout = new Console.Output (conduit, conduit.redirected);
 
+        printf("Cerr\n");
         conduit = new Console.Conduit (2);
         Cerr = new Console.Output (conduit, conduit.redirected);
 }

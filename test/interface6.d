@@ -1,5 +1,7 @@
 module interface6;
 
+extern(C) int printf(char*,...);
+
 interface I
 {
     void Ifunc();

@@ -13,6 +13,9 @@
 LIB_TARGET=libtango-rt-llvmdc.a
 LIB_MASK=libtango-rt-llvmdc*.a
 
+LIB_TARGET_C=libtango-rt-c-llvmdc.a
+LIB_MASK_C=libtango-rt-c-llvmdc*.a
+
 CP=cp -f
 RM=rm -f
 MD=mkdir -p
@@ -30,6 +33,7 @@ DOCFLAGS=-version=DDoc
 
 CC=gcc
 LC=llvm-ar rsv
+CLC=ar rsv
 DC=llvmdc
 LLC=llvm-as
 
@@ -60,10 +64,13 @@ LIB_DEST=..
 
 targets : lib doc
 all     : lib doc
-lib     : llvmdc.lib
+lib     : llvmdc.lib llvmdc.clib
 doc     : llvmdc.doc
 
 ######################################################
+OBJ_C= \
+    monitor.o \
+    critical.o
 
 OBJ_BASE= \
     aaA.bc \
@@ -72,7 +79,8 @@ OBJ_BASE= \
     adi.bc \
     arrays.bc \
     cast.bc \
-    contract.bc \
+    dmain2.bc \
+    eh.bc \
     genobj.bc \
     lifetime.bc \
     mem.bc \
@@ -147,6 +155,12 @@ $(LIB_TARGET) : $(ALL_OBJS)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS)
 
+llvmdc.clib : $(LIB_TARGET_C)
+
+$(LIB_TARGET_C) : $(OBJ_C)
+	$(RM) $@
+	$(CLC) $@ $(OBJ_C)
+
 llvmdc.doc : $(ALL_DOCS)
 	echo No documentation available.
 
@@ -155,9 +169,12 @@ llvmdc.doc : $(ALL_DOCS)
 clean :
 	find . -name "*.di" | xargs $(RM)
 	$(RM) $(ALL_OBJS)
+	$(RM) $(OBJ_C)
 	$(RM) $(ALL_DOCS)
 	$(RM) $(LIB_MASK)
+	$(RM) $(LIB_MASK_C)
 
 install :
 	$(MD) $(LIB_DEST)
 	$(CP) $(LIB_MASK) $(LIB_DEST)/.
+	$(CP) $(LIB_MASK_C) $(LIB_DEST)/.

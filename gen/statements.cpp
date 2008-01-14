@@ -8,6 +8,7 @@
 
 #include "gen/llvm.h"
 #include "llvm/InlineAsm.h"
+#include "llvm/Support/CFG.h"
 
 #include "mars.h"
 #include "total.h"
@@ -488,17 +489,39 @@ void TryCatchStatement::toIR(IRState* p)
     Logger::println("TryCatchStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention(loc, "try-catch is not yet fully implemented, only the try block will be emitted.");
+    Logger::attention(loc, "try-catch is not yet fully implemented");
 
+    // create basic blocks
+    llvm::BasicBlock* oldend = p->scopeend();
+
+    llvm::BasicBlock* trybb = new llvm::BasicBlock("try", p->topfunc(), oldend);
+    llvm::BasicBlock* catchbb = new llvm::BasicBlock("catch", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = new llvm::BasicBlock("endtrycatch", p->topfunc(), oldend);
+
+    // pass the previous BB into this
+    assert(!gIR->scopereturned());
+    new llvm::BranchInst(trybb, p->scopebb());
+
+    // do the try block
+    p->scope() = IRScope(trybb,catchbb);
     assert(body);
     body->toIR(p);
 
+    if (!gIR->scopereturned())
+        new llvm::BranchInst(endbb, p->scopebb());
+
+    // do catch
+    p->scope() = IRScope(catchbb,oldend);
+    new llvm::BranchInst(endbb, p->scopebb());
     /*assert(catches);
     for(size_t i=0; i<catches->dim; ++i)
     {
         Catch* c = (Catch*)catches->data[i];
         c->handler->toIR(p);
     }*/
+
+    // rewrite the scope
+    p->scope() = IRScope(endbb,oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -508,15 +531,16 @@ void ThrowStatement::toIR(IRState* p)
     Logger::println("ThrowStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention(loc, "throw is not yet implemented, replacing expression with assert(0);");
+    Logger::attention(loc, "throw is not yet fully implemented");
 
-    DtoAssert(NULL, &loc, NULL);
-
-    /*
     assert(exp);
     DValue* e = exp->toElem(p);
-    delete e;
-    */
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_throw_exception");
+    //Logger::cout() << "calling: " << *fn << '\n';
+    llvm::Value* arg = DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
+    //Logger::cout() << "arg: " << *arg << '\n';
+    gIR->ir->CreateCall(fn, arg, "");
+    gIR->ir->CreateUnreachable();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -629,7 +653,7 @@ void SwitchStatement::toIR(IRState* p)
         llvm::Constant* arrInit = llvm::ConstantArray::get(arrTy, inits);
         llvm::GlobalVariable* arr = new llvm::GlobalVariable(arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, "string_switch_table_data", gIR->module);
 
-        const llvm::Type* elemPtrTy = llvm::PointerType::get(elemTy);
+        const llvm::Type* elemPtrTy = getPtrToType(elemTy);
         llvm::Constant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
 
         // build the static table
@@ -824,8 +848,8 @@ void ForeachStatement::toIR(IRState* p)
 
     if (niters->getType() != keytype)
     {
-        size_t sz1 = gTargetData->getTypeSize(niters->getType());
-        size_t sz2 = gTargetData->getTypeSize(keytype);
+        size_t sz1 = getTypeBitSize(niters->getType());
+        size_t sz2 = getTypeBitSize(keytype);
         if (sz1 < sz2)
             niters = gIR->ir->CreateZExt(niters, keytype, "foreachtrunckey");
         else if (sz1 > sz2)

@@ -371,7 +371,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(getNullPtr(getPtrToType(llvm::Type::Int8Ty)));
 
     assert(tinfo->ty == Ttypedef);
     TypeTypedef *tc = (TypeTypedef *)tinfo;
@@ -400,10 +400,10 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     assert(sinits.back()->getType() == stype->getElementType(3));
 
     // void[] init
-    const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::PointerType* initpt = getPtrToType(llvm::Type::Int8Ty);
     if (tinfo->isZeroInit() || !sd->init) // 0 initializer, or the same as the base type
     {
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), getNullPtr(initpt)));
     }
     else
     {
@@ -412,7 +412,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
         ciname.append("__init");
         llvm::GlobalVariable* civar = new llvm::GlobalVariable(DtoType(sd->basetype),true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
-        size_t cisize = gTargetData->getTypeSize(DtoType(sd->basetype));
+        size_t cisize = getTypeStoreSize(DtoType(sd->basetype));
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 
@@ -457,7 +457,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     assert(tinfo->ty == Tenum);
     TypeEnum *tc = (TypeEnum *)tinfo;
@@ -485,7 +485,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     assert(sinits.back()->getType() == stype->getElementType(3));
 
     // void[] init
-    const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::PointerType* initpt = getPtrToType(llvm::Type::Int8Ty);
     if (tinfo->isZeroInit() || !sd->defaultval) // 0 initializer, or the same as the base type
     {
         sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
@@ -498,7 +498,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
         ciname.append("__init");
         llvm::GlobalVariable* civar = new llvm::GlobalVariable(memty,true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
-        size_t cisize = gTargetData->getTypeSize(memty);
+        size_t cisize = getTypeStoreSize(memty);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 
@@ -537,7 +537,7 @@ static llvm::Constant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclar
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // TypeInfo base
     Logger::println("generating base typeinfo");
@@ -649,7 +649,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // value typeinfo
     assert(tinfo->ty == Tsarray);
@@ -712,7 +712,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // get type
     assert(tinfo->ty == Taarray);
@@ -847,7 +847,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // char[] name
     char *name = sd->toPrettyChars();
@@ -856,14 +856,14 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert(sinits.back()->getType() == stype->getElementType(2));
 
     // void[] init
-    const llvm::PointerType* initpt = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::PointerType* initpt = getPtrToType(llvm::Type::Int8Ty);
     if (sd->zeroInit) // 0 initializer, or the same as the base type
     {
         sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
     }
     else
     {
-        size_t cisize = gTargetData->getTypeSize(tc->llvmType->get());
+        size_t cisize = getTypeStoreSize(tc->llvmType->get());
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(sd->llvmInit, initpt);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
@@ -1046,7 +1046,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // get classinfo
     assert(tinfo->ty == Tclass);
@@ -1102,7 +1102,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // get classinfo
     assert(tinfo->ty == Tclass);
@@ -1158,7 +1158,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     sinits.push_back(base->llvmVtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(llvm::PointerType::get(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
 
     // create elements array
     assert(tinfo->ty == Ttuple);
@@ -1168,7 +1168,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     std::vector<llvm::Constant*> arrInits;
 
     const llvm::Type* tiTy = Type::typeinfo->type->llvmType->get();
-    tiTy = llvm::PointerType::get(tiTy);
+    tiTy = getPtrToType(tiTy);
 
     for (size_t i = 0; i < dim; i++)
     {

@@ -1,4 +1,4 @@
 
 [Environment]
 
-DFLAGS=-I%@P%/../lphobos -E%@P%/../lib -L-L=%@P%/../lib
+DFLAGS=-I%@P%/../lphobos -L-L%@P%/../lib -R%@P%/../lib

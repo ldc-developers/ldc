@@ -133,7 +133,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
 
 static const llvm::Type* rt_ptr(const llvm::Type* t)
 {
-    return llvm::PointerType::get(t);
+    return getPtrToType(t);
 }
 
 static const llvm::Type* rt_array(const llvm::Type* elemty)
@@ -197,15 +197,30 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // assert
-    // void _d_assert(bool cond, uint line, char[] msg)
+    // void _d_assert( char[] file, uint line )
+    // void _d_array_bounds( char[] file, uint line )
+    // void _d_switch_error( char[] file, uint line )
     {
         std::string fname("_d_assert");
+        std::string fname2("_d_array_bounds");
+        std::string fname3("_d_switch_error");
         std::vector<const llvm::Type*> types;
-        types.push_back(boolTy);
-        types.push_back(intTy);
         types.push_back(stringTy);
+        types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
+    }
+
+    // void _d_assert_msg( char[] msg, char[] file, uint line )
+    {
+        std::string fname("_d_assert_msg");
+        std::vector<const llvm::Type*> types;
+        types.push_back(stringTy);
+        types.push_back(stringTy);
+        types.push_back(intTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -231,6 +246,15 @@ static void LLVM_D_BuildRuntimeModule()
         std::vector<const llvm::Type*> types;
         types.push_back(voidPtrTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // Object _d_newclass(ClassInfo ci)
+    {
+        std::string fname("_d_newclass");
+        std::vector<const llvm::Type*> types;
+        types.push_back(classInfoTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -626,6 +650,51 @@ static void LLVM_D_BuildRuntimeModule()
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    // Object _d_toObject(void* p)
+    {
+        std::string fname("_d_toObject");
+        std::vector<const llvm::Type*> types;
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // Object _d_dynamic_cast(Object o, ClassInfo c)
+    {
+        std::string fname("_d_dynamic_cast");
+        std::vector<const llvm::Type*> types;
+        types.push_back(objectTy);
+        types.push_back(classInfoTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // Object _d_interface_cast(void* p, ClassInfo c)
+    {
+        std::string fname("_d_interface_cast");
+        std::vector<const llvm::Type*> types;
+        types.push_back(voidPtrTy);
+        types.push_back(classInfoTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    // void _d_throw_exception(Object e)
+    {
+        std::string fname("_d_throw_exception");
+        std::vector<const llvm::Type*> types;
+        types.push_back(objectTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
 }
 
 

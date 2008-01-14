@@ -47,7 +47,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         assert(rt);
         Type* rtfin = DtoDType(rt);
         if (DtoIsPassedByRef(rt)) {
-            rettype = llvm::PointerType::get(DtoType(rt));
+            rettype = getPtrToType(DtoType(rt));
             actualRettype = llvm::Type::VoidTy;
             f->llvmRetInPtr = retinptr = true;
         }
@@ -77,10 +77,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         assert(ti->llvmConstInit);
         std::vector<const llvm::Type*> types;
         types.push_back(DtoSize_t());
-        types.push_back(llvm::PointerType::get(llvm::PointerType::get(ti->llvmConstInit->getType())));
+        types.push_back(getPtrToType(getPtrToType(ti->llvmConstInit->getType())));
         const llvm::Type* t1 = llvm::StructType::get(types);
-        paramvec.push_back(llvm::PointerType::get(t1));
-        paramvec.push_back(llvm::PointerType::get(llvm::Type::Int8Ty));
+        paramvec.push_back(getPtrToType(t1));
+        paramvec.push_back(getPtrToType(llvm::Type::Int8Ty));
     }
 
     size_t n = Argument::dim(f->parameters);
@@ -94,23 +94,23 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         const llvm::Type* at = DtoType(argT);
         if (isaStruct(at)) {
             Logger::println("struct param");
-            paramvec.push_back(llvm::PointerType::get(at));
+            paramvec.push_back(getPtrToType(at));
         }
         else if (isaArray(at)) {
             Logger::println("sarray param");
             assert(argT->ty == Tsarray);
-            //paramvec.push_back(llvm::PointerType::get(at->getContainedType(0)));
-            paramvec.push_back(llvm::PointerType::get(at));
+            //paramvec.push_back(getPtrToType(at->getContainedType(0)));
+            paramvec.push_back(getPtrToType(at));
         }
         else if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");
             assert(argT->ty == Tstruct || argT->ty == Tclass);
-            paramvec.push_back(llvm::PointerType::get(at));
+            paramvec.push_back(getPtrToType(at));
         }
         else {
             if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
                 Logger::println("by ref param");
-                at = llvm::PointerType::get(at);
+                at = getPtrToType(at);
             }
             else {
                 Logger::println("in param");
@@ -146,7 +146,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
 
-    const llvm::PointerType* i8pty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    const llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
     std::vector<const llvm::Type*> args;
 
     if (fdecl->llvmInternal == LLVMva_start) {
@@ -194,7 +194,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
             thisty = DtoType(ad->type);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
             if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->recty.get()))
-                thisty = llvm::PointerType::get(thisty);
+                thisty = getPtrToType(thisty);
         }
         else {
             Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(), fdecl->type->toChars(), fdecl->kind());
@@ -202,7 +202,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         }
     }
     else if (fdecl->isNested()) {
-        thisty = llvm::PointerType::get(llvm::Type::Int8Ty);
+        thisty = getPtrToType(llvm::Type::Int8Ty);
     }
 
     const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
@@ -242,6 +242,13 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 {
     if (!global.params.useUnitTests && fdecl->isUnitTestDeclaration()) {
         return; // ignore declaration completely
+    }
+
+    // is imported and we don't have access?
+    if (fdecl->getModule() != gIR->dmodule)
+    {
+        if (fdecl->prot() == PROTprivate)
+            return;
     }
 
     if (fdecl->llvmResolved) return;
@@ -427,6 +434,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     if (!declareOnly)
         gIR->defineList.push_back(fdecl);
+    else
+        assert(func->getLinkage() != llvm::GlobalValue::InternalLinkage);
 
     Logger::cout() << "func decl: " << *func << '\n';
 }
@@ -637,9 +646,9 @@ void DtoMain()
     // parameter types
     std::vector<const llvm::Type*> pvec;
     pvec.push_back((const llvm::Type*)llvm::Type::Int32Ty);
-    const llvm::Type* chPtrType = (const llvm::Type*)llvm::PointerType::get(llvm::Type::Int8Ty);
-    pvec.push_back((const llvm::Type*)llvm::PointerType::get(chPtrType));
-    pvec.push_back((const llvm::Type*)llvm::PointerType::get(chPtrType));
+    const llvm::Type* chPtrType = (const llvm::Type*)getPtrToType(llvm::Type::Int8Ty);
+    pvec.push_back((const llvm::Type*)getPtrToType(chPtrType));
+    pvec.push_back((const llvm::Type*)getPtrToType(chPtrType));
     const llvm::Type* rettype = (const llvm::Type*)llvm::Type::Int32Ty;
 
     llvm::FunctionType* functype = llvm::FunctionType::get(rettype, pvec, false);

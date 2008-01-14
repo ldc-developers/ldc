@@ -1,5 +1,5 @@
 ; ModuleID = 'wrap.bc'
-@errno = external global i32		; <i32*> [#uses=2]
+@errno = external thread_local global i32	; <i32*> [#uses=2]
 
 define i32 @getErrno() {
 entry:

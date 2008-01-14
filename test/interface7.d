@@ -1,5 +1,7 @@
 module interface7;
 
+extern(C) int printf(char*,...);
+
 interface I
 {
 }

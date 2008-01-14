@@ -158,7 +158,7 @@ extern void backend_term();
 
 void usage()
 {
-    printf("LLVM D Compiler %s (based on DMD %s)\n%s\n%s\n",
+    printf("LLVM D Compiler %s (based on DMD %s and LLVM 2.2)\n%s\n%s\n",
     global.llvmdc_version, global.version, global.copyright, global.written);
     printf("\
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
@@ -187,7 +187,6 @@ Usage:\n\
   -Hf<filename>  write 'header' file to <filename>\n\
   --help         print help\n\
   -I<path>       where to look for imports\n\
-  -E<path>       where to look for the core runtime\n\
   -J<path>       where to look for string imports\n\
   -inline        do function inlining\n\
   -Llinkerflag   pass linkerflag to link\n\
@@ -206,6 +205,7 @@ Usage:\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
+  -R<path>       provide path to the directory containing the runtime library\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
   -vv            very verbose (does not include -v)\n\
@@ -386,15 +386,15 @@ int main(int argc, char *argv[])
             }
         }
         else if (strcmp(p + 1, "forcebe") == 0)
-		global.params.forceBE = 1;
+            global.params.forceBE = 1;
         else if (strcmp(p + 1, "noruntime") == 0)
-		global.params.noruntime = 1;
+            global.params.noruntime = 1;
         else if (strcmp(p + 1, "noverify") == 0)
-        global.params.novalidate = 1;
+            global.params.novalidate = 1;
         else if (strcmp(p + 1, "dis") == 0)
-        global.params.disassemble = 1;
+            global.params.disassemble = 1;
         else if (strcmp(p + 1, "annotate") == 0)
-        global.params.llvmAnnotate = 1;
+            global.params.llvmAnnotate = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
@@ -503,9 +503,9 @@ int main(int argc, char *argv[])
 		    global.params.fileImppath = new Array();
 		global.params.fileImppath->push(p + 2);
 	    }
-        else if (p[1] == 'E')
+        else if (p[1] == 'R')
         {
-        global.params.runtimeImppath = p+2;
+        global.params.runtimePath = p+2;
         }
 	    else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l')
 	    {
@@ -671,7 +671,7 @@ int main(int argc, char *argv[])
 
     if (global.params.llvmArch == 0) {
         std::string err_str;
-        const llvm::TargetMachineRegistry::Entry* e = llvm::TargetMachineRegistry::getClosestTargetForJIT(err_str);
+        const llvm::TargetMachineRegistry::entry* e = llvm::TargetMachineRegistry::getClosestTargetForJIT(err_str);
         if (e == 0) {
             error("Failed to find a default target machine: %s", err_str.c_str());
             fatal();

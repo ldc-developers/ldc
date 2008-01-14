@@ -27,11 +27,11 @@ const llvm::Type* DtoStructType(Type* t)
 llvm::Value* DtoStructZeroInit(llvm::Value* v)
 {
     assert(gIR);
-    uint64_t n = gTargetData->getTypeSize(v->getType()->getContainedType(0));
-    //llvm::Type* sarrty = llvm::PointerType::get(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    llvm::Type* sarrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    uint64_t n = getTypeStoreSize(v->getType()->getContainedType(0));
+    //llvm::Type* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
+    const llvm::Type* sarrty = getPtrToType(llvm::Type::Int8Ty);
 
-    llvm::Value* sarr = new llvm::BitCastInst(v,sarrty,"tmp",gIR->scopebb());
+    llvm::Value* sarr = DtoBitCast(v, sarrty);
 
     llvm::Function* fn = LLVM_DeclareMemSet32();
     std::vector<llvm::Value*> llargs;
@@ -54,9 +54,9 @@ llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
     assert(dst->getType() == src->getType());
     assert(gIR);
 
-    uint64_t n = gTargetData->getTypeSize(dst->getType()->getContainedType(0));
-    //llvm::Type* sarrty = llvm::PointerType::get(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    llvm::Type* arrty = llvm::PointerType::get(llvm::Type::Int8Ty);
+    uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
+    //llvm::Type* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
+    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
     llvm::Value* srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
@@ -110,8 +110,8 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
     if (idxs.empty())
         idxs.push_back(0);
 
-    const llvm::Type* llt = llvm::PointerType::get(DtoType(t));
-    const llvm::Type* st = llvm::PointerType::get(DtoType(sd->type));
+    const llvm::Type* llt = getPtrToType(DtoType(t));
+    const llvm::Type* st = getPtrToType(DtoType(sd->type));
     if (ptr->getType() != st) {
         assert(sd->llvmHasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
@@ -139,15 +139,15 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
                 Logger::println("has union field offset");
                 ptr = DtoGEP(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
-                    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+                    ptr = DtoBitCast(ptr, llt);
                 ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
                 std::vector<unsigned> tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
             else {
-                const llvm::Type* sty = llvm::PointerType::get(DtoType(vd->type));
+                const llvm::Type* sty = getPtrToType(DtoType(vd->type));
                 if (ptr->getType() != sty) {
-                    ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
+                    ptr = DtoBitCast(ptr, sty);
                     std::vector<unsigned> tmp;
                     return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
                 }
@@ -158,9 +158,9 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
         }
     }
 
-    size_t llt_sz = gTargetData->getTypeSize(llt->getContainedType(0));
+    size_t llt_sz = getTypeStoreSize(llt->getContainedType(0));
     assert(os % llt_sz == 0);
-    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
+    ptr = DtoBitCast(ptr, llt);
     return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
 }
 
@@ -180,10 +180,32 @@ void DtoResolveStruct(StructDeclaration* sd)
     sd->llvmIRStruct = irstruct;
     gIR->structs.push_back(irstruct);
 
+    // fields
     Array* arr = &sd->fields;
     for (int k=0; k < arr->dim; k++) {
-        VarDeclaration* v = (VarDeclaration*)(arr->data[k]);
+        VarDeclaration* v = (VarDeclaration*)arr->data[k];
         v->toObjFile();
+    }
+
+    bool thisModule = false;
+    if (sd->getModule() == gIR->dmodule)
+        thisModule = true;
+
+    // methods
+    arr = sd->members;
+    for (int k=0; k < arr->dim; k++) {
+        Dsymbol* s = (Dsymbol*)arr->data[k];
+        if (FuncDeclaration* fd = s->isFuncDeclaration()) {
+            if (thisModule || (fd->prot() != PROTprivate)) {
+                fd->toObjFile();
+            }
+        }
+        else if (s->isAttribDeclaration()) {
+            s->toObjFile();
+        }
+        else {
+            Logger::println("Ignoring dsymbol '%s' in this->members of kind '%s'", s->toPrettyChars(), s->kind());
+        }
     }
 
     /*for (int k=0; k < sd->members->dim; k++) {
@@ -218,12 +240,12 @@ void DtoResolveStruct(StructDeclaration* sd)
                 assert(lastoffset == 0);
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
-                prevsize = gTargetData->getTypeSize(fieldtype);
+                prevsize = getABITypeSize(fieldtype);
                 i->second.var->llvmFieldIndex = idx;
             }
             // colliding offset?
             else if (lastoffset == i->first) {
-                size_t s = gTargetData->getTypeSize(i->second.type);
+                size_t s = getABITypeSize(i->second.type);
                 if (s > prevsize) {
                     fieldpad += s - prevsize;
                     prevsize = s;
@@ -233,7 +255,7 @@ void DtoResolveStruct(StructDeclaration* sd)
             }
             // intersecting offset?
             else if (i->first < (lastoffset + prevsize)) {
-                size_t s = gTargetData->getTypeSize(i->second.type);
+                size_t s = getABITypeSize(i->second.type);
                 assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
                 sd->llvmHasUnions = true;
                 i->second.var->llvmFieldIndex = idx;
@@ -256,7 +278,7 @@ void DtoResolveStruct(StructDeclaration* sd)
                 lastoffset = i->first;
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
-                prevsize = gTargetData->getTypeSize(fieldtype);
+                prevsize = getABITypeSize(fieldtype);
                 i->second.var->llvmFieldIndex = idx;
                 fieldpad = 0;
             }
@@ -420,7 +442,7 @@ DUnion::DUnion()
         unsigned o = i->first;
         IRStruct::Offset* so = &i->second;
         const llvm::Type* ft = so->init->getType();
-        size_t sz = gTargetData->getTypeSize(ft);
+        size_t sz = getABITypeSize(ft);
         if (f == NULL) { // new field
             fields.push_back(DUnionField());
             f = &fields.back();
@@ -495,7 +517,7 @@ llvm::Constant* DUnion::getConst(std::vector<DUnionIdx>& in)
 
         if (ii < nin && fi == in[ii].idx)
         {
-            size_t s = gTargetData->getTypeSize(in[ii].c->getType());
+            size_t s = getABITypeSize(in[ii].c->getType());
             if (in[ii].idx == last)
             {
                 size_t nos = in[ii].idxos * s;

@@ -1,5 +1,6 @@
 import llvm.intrinsic;
 
+extern(C) int printf(char*,...);
 extern(C) int scanf(char*,...);
 
 void main()

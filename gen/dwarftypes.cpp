@@ -32,10 +32,10 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   std::vector<const Type*>StructTy_1_fields;
   StructType* StructTy_1 = StructType::get(StructTy_1_fields, /*isPacked=*/false);
   
-  PointerType* PointerTy_0 = PointerType::get(StructTy_1);
+  PointerType* PointerTy_0 = PointerType::get(StructTy_1,0);
   
   StructTy_llvm_dbg_basictype_type_fields.push_back(PointerTy_0);
-  PointerType* PointerTy_2 = PointerType::get(IntegerType::get(8));
+  PointerType* PointerTy_2 = PointerType::get(IntegerType::get(8),0);
   
   StructTy_llvm_dbg_basictype_type_fields.push_back(PointerTy_2);
   StructTy_llvm_dbg_basictype_type_fields.push_back(PointerTy_0);
@@ -130,33 +130,27 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
 
   std::vector<const Type*>FuncTy_3_args;
   FuncTy_3_args.push_back(PointerTy_0);
-  ParamAttrsList *FuncTy_3_PAL = 0;
   FunctionType* FuncTy_3 = FunctionType::get(
     /*Result=*/Type::VoidTy,
     /*Params=*/FuncTy_3_args,
-    /*isVarArg=*/false,
-    /*ParamAttrs=*/FuncTy_3_PAL);
+    /*isVarArg=*/false);
   
   std::vector<const Type*>FuncTy_4_args;
   FuncTy_4_args.push_back(IntegerType::get(32));
   FuncTy_4_args.push_back(IntegerType::get(32));
   FuncTy_4_args.push_back(PointerTy_0);
-  ParamAttrsList *FuncTy_4_PAL = 0;
   FunctionType* FuncTy_4 = FunctionType::get(
     /*Result=*/Type::VoidTy,
     /*Params=*/FuncTy_4_args,
-    /*isVarArg=*/false,
-    /*ParamAttrs=*/FuncTy_4_PAL);
+    /*isVarArg=*/false);
   
   std::vector<const Type*>FuncTy_5_args;
   FuncTy_5_args.push_back(PointerTy_0);
   FuncTy_5_args.push_back(PointerTy_0);
-  ParamAttrsList *FuncTy_5_PAL = 0;
   FunctionType* FuncTy_5 = FunctionType::get(
     /*Result=*/Type::VoidTy,
     /*Params=*/FuncTy_5_args,
-    /*isVarArg=*/false,
-    /*ParamAttrs=*/FuncTy_5_PAL);
+    /*isVarArg=*/false);
   
   
   // Function Declarations

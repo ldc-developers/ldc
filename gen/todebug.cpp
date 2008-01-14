@@ -15,7 +15,7 @@ using namespace llvm::dwarf;
 
 static const llvm::PointerType* ptrTy(const llvm::Type* t)
 {
-    return llvm::PointerType::get(t);
+    return llvm::PointerType::get(t, 0);
 }
 
 static const llvm::PointerType* dbgArrTy()

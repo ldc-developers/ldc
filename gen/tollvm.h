@@ -39,7 +39,7 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
 llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
 llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 
-void DtoAssert(llvm::Value* cond, Loc* loc, DValue* msg);
+void DtoAssert(Loc* loc, DValue* msg);
 
 llvm::Value* DtoNestedContext(FuncDeclaration* func);
 llvm::Value* DtoNestedVariable(VarDeclaration* vd);
@@ -81,7 +81,7 @@ void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
 bool DtoCanLoad(llvm::Value* ptr);
 llvm::Value* DtoLoad(llvm::Value* src);
 void DtoStore(llvm::Value* src, llvm::Value* dst);
-llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t);
+llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t, const char* name=0);
 
 // llvm::dyn_cast wrappers
 const llvm::PointerType* isaPointer(llvm::Value* v);
@@ -94,6 +94,15 @@ llvm::Constant* isaConstant(llvm::Value* v);
 llvm::ConstantInt* isaConstantInt(llvm::Value* v);
 llvm::Argument* isaArgument(llvm::Value* v);
 llvm::GlobalVariable* isaGlobalVar(llvm::Value* v);
+
+// llvm::T::get(...) wrappers
+const llvm::PointerType* getPtrToType(const llvm::Type* t);
+llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t);
+
+// type sizes
+size_t getTypeBitSize(const llvm::Type* t);
+size_t getTypeStoreSize(const llvm::Type* t);
+size_t getABITypeSize(const llvm::Type* t);
 
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);

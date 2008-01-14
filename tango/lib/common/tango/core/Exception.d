@@ -481,6 +481,7 @@ void setTraceHandler( traceHandlerType h )
 // Overridable Callbacks
 ////////////////////////////////////////////////////////////////////////////////
 
+private extern(C) int printf(char*,...);
 
 /**
  * A callback for assert errors in D.  The user-supplied assert handler will
@@ -493,8 +494,11 @@ void setTraceHandler( traceHandlerType h )
  */
 extern (C) void onAssertError( char[] file, size_t line )
 {
-    if( assertHandler is null )
+    printf("Assertion failed:\n");
+    printf("%.*s(%lu)\n", file.length, file.ptr, line);
+    if( assertHandler is null ) {
         throw new AssertException( file, line );
+    }
     assertHandler( file, line );
 }
 
@@ -511,6 +515,9 @@ extern (C) void onAssertError( char[] file, size_t line )
  */
 extern (C) void onAssertErrorMsg( char[] file, size_t line, char[] msg )
 {
+    printf("Assertion failed:\n");
+    printf("%.*s(%lu):\n", file.length, file.ptr, line);
+    printf("%.*s\n", msg.length, msg.ptr);
     if( assertHandler is null )
         throw new AssertException( msg, file, line );
     assertHandler( file, line, msg );

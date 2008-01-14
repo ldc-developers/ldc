@@ -37,6 +37,8 @@
 
 module object;
 
+//debug=PRINTF;
+
 private
 {
     import tango.stdc.string; // : memcmp, memcpy;
@@ -962,19 +964,8 @@ class ModuleInfo
 // linux: this gets initialized in _moduleCtor()
 extern (C) ModuleInfo[] _moduleinfo_array;
 
-
-version (linux)
-{
-    // This linked list is created by a compiler generated function inserted
-    // into the .ctor list by the compiler.
-    struct ModuleReference
-    {
-        ModuleReference* next;
-        ModuleInfo       mod;
-    }
-
-    extern (C) ModuleReference* _Dmodule_ref;   // start of linked list
-}
+// llvmdc method
+extern (C) void** _d_get_moduleinfo_array();
 
 ModuleInfo[] _moduleinfo_dtors;
 uint         _moduleinfo_dtors_i;
@@ -989,19 +980,20 @@ extern (C) int _fatexit(void *);
 extern (C) void _moduleCtor()
 {
     debug(PRINTF) printf("_moduleCtor()\n");
-    version (linux)
-    {
-        int len = 0;
-        ModuleReference *mr;
 
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-            len++;
-        _moduleinfo_array = new ModuleInfo[len];
-        len = 0;
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-        {   _moduleinfo_array[len] = mr.mod;
-            len++;
-        }
+    ModuleInfo* mrbegin = cast(ModuleInfo*)_d_get_moduleinfo_array();
+    assert(mrbegin !is null);
+
+    int len = 0;
+    ModuleInfo* mr;
+    for (mr = mrbegin; *mr !is null; ++mr)
+        len++;
+    _moduleinfo_array = new ModuleInfo[len];
+
+    len = 0;
+    for (mr = mrbegin; *mr !is null; ++mr)
+    {   _moduleinfo_array[len] = *mr;
+        len++;
     }
 
     version (Win32)
@@ -1014,6 +1006,7 @@ extern (C) void _moduleCtor()
     debug(PRINTF) printf("_moduleinfo_dtors = x%x\n", cast(void *)_moduleinfo_dtors);
     _moduleIndependentCtors();
     _moduleCtor2(_moduleinfo_array, 0);
+    debug(PRINTF) printf("_moduleCtor() DONE\n");
 }
 
 extern (C) void _moduleIndependentCtors()
@@ -1026,6 +1019,7 @@ extern (C) void _moduleIndependentCtors()
             (*m.ictor)();
         }
     }
+    debug(PRINTF) printf("_moduleIndependentCtors() DONE\n");
 }
 
 void _moduleCtor2(ModuleInfo[] mi, int skip)
@@ -1038,10 +1032,10 @@ void _moduleCtor2(ModuleInfo[] mi, int skip)
         debug(PRINTF) printf("\tmodule[%d] = '%p'\n", i, m);
         if (!m)
             continue;
-        debug(PRINTF) printf("\tmodule[%d] = '%.*s'\n", i, m.name);
+        debug(PRINTF) printf("\tmodule[%d] = '%.*s'\n", i, m.name.length, m.name.ptr);
         if (m.flags & MIctordone)
             continue;
-        debug(PRINTF) printf("\tmodule[%d] = '%.*s', m = x%x\n", i, m.name, m);
+        debug(PRINTF) printf("\tmodule[%d] = '%.*s', m = x%x\n", i, m.name.length, m.name.ptr, m);
 
         if (m.ctor || m.dtor)
         {
@@ -1069,6 +1063,7 @@ void _moduleCtor2(ModuleInfo[] mi, int skip)
             _moduleCtor2(m.importedModules, 1);
         }
     }
+    debug(PRINTF) printf("_moduleCtor2() DONE\n");
 }
 
 /**

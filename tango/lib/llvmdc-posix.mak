@@ -12,6 +12,8 @@
 
 LIB_TARGET=libtango-base-llvmdc.a
 LIB_MASK=libtango-base-llvmdc*.a
+LIB_TARGET_C=libtango-base-c-llvmdc.a
+LIB_MASK_C=libtango-base-c-llvmdc*.a
 
 DIR_CC=./common/tango
 DIR_RT=./compiler/llvmdc
@@ -23,13 +25,14 @@ MD=mkdir -p
 
 CC=gcc
 LC=llvm-ar rsv
+CLC=ar rsv
 DC=llvmdc
 
 ADD_CFLAGS=
 ADD_DFLAGS=
 
-targets : lib doc
-all     : lib doc
+targets : lib clib doc
+all     : lib clib doc
 
 ######################################################
 
@@ -49,6 +52,8 @@ lib : $(ALL_OBJS)
 	$(LC) $(LIB_TARGET) `find $(DIR_CC) -name "*.bc" | xargs echo`
 	$(LC) $(LIB_TARGET) `find $(DIR_RT) -name "*.bc" | xargs echo`
 	$(LC) $(LIB_TARGET) `find $(DIR_GC) -name "*.bc" | xargs echo`
+	$(CLC) $(LIB_TARGET_C) `find $(DIR_CC) -name "*.o" | xargs echo`
+	$(CLC) $(LIB_TARGET_C) `find $(DIR_RT) -name "*.o" | xargs echo`
 
 doc : $(ALL_DOCS)
 	make -C $(DIR_CC) -fllvmdc.mak doc
@@ -65,9 +70,11 @@ clean :
 	make -C $(DIR_RT) -fllvmdc.mak clean
 	make -C $(DIR_GC) -fllvmdc.mak clean
 	$(RM) $(LIB_MASK)
+	$(RM) $(LIB_MASK_C)
 
 install :
 	make -C $(DIR_CC) -fllvmdc.mak install
 	make -C $(DIR_RT) -fllvmdc.mak install
 	make -C $(DIR_GC) -fllvmdc.mak install
-#	$(CP) $(LIB_MASK) $(LIB_DEST)/.
+	$(CP) $(LIB_MASK) $(LIB_DEST)/.
+	$(CP) $(LIB_MASK_C) $(LIB_DEST)/.
