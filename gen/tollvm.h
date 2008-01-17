@@ -1,51 +1,74 @@
 #ifndef LLVMDC_GEN_TOLLVM_H
 #define LLVMDC_GEN_TOLLVM_H
 
-// D -> LLVM helpers
+#include "gen/llvm.h"
+#include "lexer.h"
+#include "mtype.h"
+#include "attrib.h"
+#include "declaration.h"
 
-struct DValue;
-
+// D->LLVM type handling stuff
 const llvm::Type* DtoType(Type* t);
 bool DtoIsPassedByRef(Type* type);
+
+// resolve typedefs to their real type.
+// TODO should probably be removed in favor of DMD's Type::toBasetype
 Type* DtoDType(Type* t);
 
+// delegate helpers
 const llvm::StructType* DtoDelegateType(Type* t);
 llvm::Value* DtoNullDelegate(llvm::Value* v);
 llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
 llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs);
 
+// return linkage types for general cases
 llvm::GlobalValue::LinkageTypes DtoLinkage(PROT prot, uint stc);
+
+// convert DMD calling conv to LLVM
 unsigned DtoCallingConv(LINK l);
 
+// TODO: this one should be removed!!!
 llvm::Value* DtoPointedType(llvm::Value* ptr, llvm::Value* val);
+
+// casts any value to a boolean
 llvm::Value* DtoBoolean(llvm::Value* val);
 
+// some types
 const llvm::Type* DtoSize_t();
+const llvm::StructType* DtoInterfaceInfoType();
 
+// initializer helpers
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
 llvm::Constant* DtoConstFieldInitializer(Type* type, Initializer* init);
 DValue* DtoInitializer(Initializer* init);
 
+// declaration of memset/cpy intrinsics
 llvm::Function* LLVM_DeclareMemSet32();
 llvm::Function* LLVM_DeclareMemSet64();
 llvm::Function* LLVM_DeclareMemCpy32();
 llvm::Function* LLVM_DeclareMemCpy64();
 
+// getelementptr helpers
 llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb=NULL);
 llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb=NULL);
 llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb=NULL);
 llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
 
+// dynamic memory helpers
 llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
 llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* len);
 
+// assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
 
+// nested variable/class helpers
 llvm::Value* DtoNestedContext(FuncDeclaration* func);
 llvm::Value* DtoNestedVariable(VarDeclaration* vd);
 
+// annotation generator
 void DtoAnnotation(const char* str);
 
+// to constant helpers
 llvm::ConstantInt* DtoConstSize_t(size_t);
 llvm::ConstantInt* DtoConstUint(unsigned i);
 llvm::ConstantInt* DtoConstInt(int i);
@@ -56,17 +79,18 @@ llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
 llvm::Constant* DtoConstNullPtr(const llvm::Type* t);
 
+// is template instance check
 bool DtoIsTemplateInstance(Dsymbol* s);
 
+// generates lazy static initialization code for a global variable
 void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t);
 
+// these are all basically drivers for the codegeneration called by the main loop
 void DtoResolveDsymbol(Dsymbol* dsym);
 void DtoDeclareDsymbol(Dsymbol* dsym);
 void DtoDefineDsymbol(Dsymbol* dsym);
 void DtoConstInitDsymbol(Dsymbol* dsym);
-
 void DtoConstInitGlobal(VarDeclaration* vd);
-
 void DtoEmptyResolveList();
 void DtoEmptyDeclareList();
 void DtoEmptyConstInitList();

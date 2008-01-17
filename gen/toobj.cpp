@@ -41,6 +41,8 @@
 #include "gen/todebug.h"
 #include "gen/runtime.h"
 
+#include "ir/irvar.h"
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // in gen/optimize.cpp
@@ -169,7 +171,7 @@ static llvm::Function* build_module_ctor()
 
     size_t n = gIR->ctors.size();
     if (n == 1)
-        return llvm::cast<llvm::Function>(gIR->ctors[0]->llvmValue);
+        return gIR->ctors[0]->irFunc->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -184,7 +186,7 @@ static llvm::Function* build_module_ctor()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = llvm::cast<llvm::Function>(gIR->ctors[i]->llvmValue);
+        llvm::Function* f = gIR->ctors[i]->irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -202,7 +204,7 @@ static llvm::Function* build_module_dtor()
 
     size_t n = gIR->dtors.size();
     if (n == 1)
-        return llvm::cast<llvm::Function>(gIR->dtors[0]->llvmValue);
+        return gIR->dtors[0]->irFunc->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -217,7 +219,7 @@ static llvm::Function* build_module_dtor()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = llvm::cast<llvm::Function>(gIR->dtors[i]->llvmValue);
+        llvm::Function* f = gIR->dtors[i]->irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -235,7 +237,7 @@ static llvm::Function* build_module_unittest()
 
     size_t n = gIR->unitTests.size();
     if (n == 1)
-        return llvm::cast<llvm::Function>(gIR->unitTests[0]->llvmValue);
+        return gIR->unitTests[0]->irFunc->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -250,7 +252,7 @@ static llvm::Function* build_module_unittest()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = llvm::cast<llvm::Function>(gIR->unitTests[i]->llvmValue);
+        llvm::Function* f = gIR->unitTests[i]->irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -354,7 +356,7 @@ void Module::genmoduleinfo()
         ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
         if (cd->isInterfaceDeclaration())
         {
-            Logger::println("skipping interface '%s'", cd->toPrettyChars());
+            Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
@@ -507,7 +509,7 @@ void VarDeclaration::toObjFile()
         llvmResolved = true;
         llvmDeclared = true;
 
-        llvmIRGlobal = new IRGlobal(this);
+        irGlobal = new IrGlobal(this);
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
@@ -529,13 +531,13 @@ void VarDeclaration::toObjFile()
         else
             _linkage = DtoLinkage(protection, storage_class);
 
-        const llvm::Type* _type = llvmIRGlobal->type.get();
+        const llvm::Type* _type = irGlobal->type.get();
 
         Logger::println("Creating global variable");
         std::string _name(mangle());
 
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
-        llvmValue = gvar;
+        irGlobal->value = gvar;
 
         if (static_local)
             DtoConstInitGlobal(this);
@@ -549,9 +551,10 @@ void VarDeclaration::toObjFile()
         Logger::println("Aggregate var declaration: '%s' offset=%d", toChars(), offset);
 
         const llvm::Type* _type = DtoType(type);
+        irField = new IrField(this);
 
         // add the field in the IRStruct
-        gIR->topstruct()->offsets.insert(std::make_pair(offset, IRStruct::Offset(this, _type)));
+        gIR->topstruct()->offsets.insert(std::make_pair(offset, IrStruct::Offset(this, _type)));
     }
 
     Logger::println("VarDeclaration::toObjFile is done");

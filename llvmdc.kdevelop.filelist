@@ -120,7 +120,6 @@ gen/functions.h
 gen/irstate.cpp
 gen/irstate.h
 gen/llvm.h
-gen/llvmd.h
 gen/logger.cpp
 gen/logger.h
 gen/optimizer.cpp
@@ -139,6 +138,19 @@ gen/tollvm.h
 gen/toobj.cpp
 gen/typeinf.h
 gen/typinf.cpp
+ir
+ir/forw.h
+ir/ir.h
+ir/irfunction.cpp
+ir/irfunction.h
+ir/irglobal.cpp
+ir/irglobal.h
+ir/irmodule.cpp
+ir/irmodule.h
+ir/irstruct.cpp
+ir/irstruct.h
+ir/irvar.cpp
+ir/irvar.h
 lphobos
 lphobos/build.sh
 lphobos/crc32.d
@@ -263,7 +275,6 @@ tango/lib/compiler/llvmdc/aaA.d
 tango/lib/compiler/llvmdc/adi.d
 tango/lib/compiler/llvmdc/arrays.d
 tango/lib/compiler/llvmdc/cast.d
-tango/lib/compiler/llvmdc/contract.d
 tango/lib/compiler/llvmdc/critical.c
 tango/lib/compiler/llvmdc/dmain2.d
 tango/lib/compiler/llvmdc/eh.d
@@ -749,6 +760,8 @@ tangotests/o.d
 tangotests/p.d
 tangotests/q.d
 tangotests/r.d
+tangotests/s.d
+tangotests/t.d
 test
 test/a.d
 test/aa1.d

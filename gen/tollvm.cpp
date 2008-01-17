@@ -2,7 +2,6 @@
 
 #include "gen/llvm.h"
 
-#include "mtype.h"
 #include "dsymbol.h"
 #include "aggregate.h"
 #include "declaration.h"
@@ -103,7 +102,7 @@ const llvm::Type* DtoType(Type* t)
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
-                IRStruct* found = 0;
+                IrStruct* found = 0;
                 for (IRState::StructVector::iterator i=gIR->structs.begin(); i!=gIR->structs.end(); ++i)
                 {
                     if (t == (*i)->type)
@@ -117,7 +116,7 @@ const llvm::Type* DtoType(Type* t)
         TypeStruct* ts = (TypeStruct*)t;
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
-        return ts->sym->llvmIRStruct->recty.get();//t->llvmType->get();
+        return ts->sym->llvmIrStruct->recty.get();//t->llvmType->get();
     }
 
     case Tclass:    {
@@ -125,7 +124,7 @@ const llvm::Type* DtoType(Type* t)
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
-                IRStruct* found = 0;
+                IrStruct* found = 0;
                 for (IRState::StructVector::iterator i=gIR->structs.begin(); i!=gIR->structs.end(); ++i)
                 {
                     if (t == (*i)->type)
@@ -140,7 +139,7 @@ const llvm::Type* DtoType(Type* t)
         TypeClass* tc = (TypeClass*)t;
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
-        return getPtrToType(tc->sym->llvmIRStruct->recty.get());//t->llvmType->get());
+        return getPtrToType(tc->sym->llvmIrStruct->recty.get());//t->llvmType->get());
     }
 
     // functions
@@ -687,7 +686,7 @@ static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
     assert(p->isFuncDeclaration() || p->isClassDeclaration());
     if (FuncDeclaration* fd = p->isFuncDeclaration())
     {
-        llvm::Value* v = fd->llvmNested;
+        llvm::Value* v = fd->irFunc->nestedVar;
         assert(v);
         return v->getType();
     }
@@ -717,9 +716,9 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
 
         if (fd->toParent2() == func)
         {
-            if (!func->llvmNested)
+            if (!func->irFunc->nestedVar)
                 return NULL;
-            return DtoBitCast(v, func->llvmNested->getType());
+            return DtoBitCast(v, func->irFunc->nestedVar->getType());
         }
 
         v = DtoBitCast(v, get_next_frame_ptr_type(fd));
@@ -733,7 +732,7 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
         else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
         {
             size_t idx = 2;
-            idx += cd->llvmIRStruct->interfaces.size();
+            idx += cd->llvmIrStruct->interfaces.size();
             v = DtoGEPi(v,0,idx,"tmp");
             v = DtoLoad(v);
         }
@@ -747,7 +746,7 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
     {
         Logger::println("scope is class: %s", cd->toChars());
         /*size_t idx = 2;
-        idx += cd->llvmIRStruct->interfaces.size();
+        idx += cd->llvmIrStruct->interfaces.size();
         v = DtoGEPi(v,0,idx,"tmp");
         Logger::cout() << "gep = " << *v << '\n';
         v = DtoLoad(v);*/
@@ -766,14 +765,14 @@ static llvm::Value* get_frame_ptr(FuncDeclaration* func)
 {
     Logger::println("Resolving context pointer for nested function: '%s'", func->toPrettyChars());
     LOG_SCOPE;
-    IRFunction* irfunc = gIR->func();
+    IrFunction* irfunc = gIR->func();
 
     // in the right scope already
     if (func == irfunc->decl)
-        return irfunc->decl->llvmNested;
+        return irfunc->decl->irFunc->nestedVar;
 
     // use the 'this' pointer
-    llvm::Value* ptr = irfunc->decl->llvmThisVar;
+    llvm::Value* ptr = irfunc->decl->irFunc->thisVar;
     assert(ptr);
 
     // return the fully resolved frame pointer
@@ -830,7 +829,7 @@ static void print_nested_frame_list(VarDeclaration* vd, Dsymbol* par)
 llvm::Value* DtoNestedVariable(VarDeclaration* vd)
 {
     // log the frame list
-    IRFunction* irfunc = gIR->func();
+    IrFunction* irfunc = gIR->func();
     if (Logger::enabled())
         print_nested_frame_list(vd, irfunc->decl);
 
@@ -841,10 +840,10 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
     assert(ptr && "nested var, but no context");
 
     // we must cast here to be sure. nested classes just have a void*
-    ptr = DtoBitCast(ptr, func->llvmNested->getType());
+    ptr = DtoBitCast(ptr, func->irFunc->nestedVar->getType());
 
     // index nested var and load (if necessary)
-    llvm::Value* v = DtoGEPi(ptr, 0, vd->llvmNestedIndex, "tmp");
+    llvm::Value* v = DtoGEPi(ptr, 0, vd->irLocal->nestedIndex, "tmp");
     // references must be loaded, for normal variables this IS already the variable storage!!!
     if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
         v = DtoLoad(v);
@@ -922,9 +921,9 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             llvm::Value* tmp = rhs->getRVal();
             FuncDeclaration* fdecl = gIR->func()->decl;
             // respecify the this param
-            if (!llvm::isa<llvm::AllocaInst>(fdecl->llvmThisVar))
-                fdecl->llvmThisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
-            DtoStore(tmp, fdecl->llvmThisVar);
+            if (!llvm::isa<llvm::AllocaInst>(fdecl->irFunc->thisVar))
+                fdecl->irFunc->thisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
+            DtoStore(tmp, fdecl->irFunc->thisVar);
         }
         // regular class ref -> class ref assignment
         else {
@@ -1584,11 +1583,11 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
     if (_init && _init->getType() != _type)
         _type = _init->getType();
-    llvm::cast<llvm::OpaqueType>(vd->llvmIRGlobal->type.get())->refineAbstractTypeTo(_type);
-    _type = vd->llvmIRGlobal->type.get();
+    llvm::cast<llvm::OpaqueType>(vd->irGlobal->type.get())->refineAbstractTypeTo(_type);
+    _type = vd->irGlobal->type.get();
     assert(!_type->isAbstract());
 
-    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->llvmValue);
+    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->irGlobal->value);
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
     {
         gvar->setInitializer(_init);
@@ -1742,4 +1741,30 @@ void DtoAnnotation(const char* str)
     }
     // create a noop with the code as the result name!
     gIR->ir->CreateAnd(DtoConstSize_t(0),DtoConstSize_t(0),s.c_str());
+}
+
+const llvm::StructType* DtoInterfaceInfoType()
+{
+    static const llvm::StructType* t = NULL;
+    if (t)
+        return t;
+
+    // build interface info type
+    std::vector<const llvm::Type*> types;
+    // ClassInfo classinfo
+    ClassDeclaration* cd2 = ClassDeclaration::classinfo;
+    DtoResolveClass(cd2);
+    types.push_back(getPtrToType(cd2->type->llvmType->get()));
+    // void*[] vtbl
+    std::vector<const llvm::Type*> vtbltypes;
+    vtbltypes.push_back(DtoSize_t());
+    const llvm::Type* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+    vtbltypes.push_back(byteptrptrty);
+    types.push_back(llvm::StructType::get(vtbltypes));
+    // int offset
+    types.push_back(llvm::Type::Int32Ty);
+    // create type
+    t = llvm::StructType::get(types);
+
+    return t;
 }

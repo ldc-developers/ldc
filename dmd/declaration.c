@@ -549,12 +549,10 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     onstack = 0;
     canassign = 0;
     value = NULL;
-    llvmNestedIndex = -1;
-    llvmFieldIndex = -1;
-    llvmFieldIndexOffset = 0;
-    llvmNeedsStorage = false;
-    llvmConstInit = NULL;
-    llvmIRGlobal = NULL;
+    irGlobal = NULL;
+    irLocal = NULL;
+    irField = NULL;
+    needsStorage = false;
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
@@ -1060,7 +1058,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 		fdthis->getLevel(loc, fdv);
 	    nestedref = 1;
 	    fdv->nestedFrameRef = 1;
-        fdv->llvmNestedVars.insert(this);
+        fdv->nestedVars.insert(this);
 	    //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
 	}
     }

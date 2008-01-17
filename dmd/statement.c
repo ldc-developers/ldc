@@ -1431,7 +1431,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply2");
 		else
 		    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply");
-        fdapply->llvmRunTimeHack = true;
+        fdapply->runTimeHack = true;
 		ec = new VarExp(0, fdapply);
 		Expressions *exps = new Expressions();
 		exps->push(aggr);
@@ -1473,7 +1473,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		int j = sprintf(fdname, "_aApply%s%.*s%d", r, 2, fntab[flag], dim);
 		assert(j < sizeof(fdname));
 		fdapply = FuncDeclaration::genCfunc(Type::tindex, fdname);
-        fdapply->llvmRunTimeHack = true;
+        fdapply->runTimeHack = true;
 
 		ec = new VarExp(0, fdapply);
 		Expressions *exps = new Expressions();

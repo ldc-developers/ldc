@@ -1514,7 +1514,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	nm = name[n->ty == Twchar];
 	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), nm);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1532,7 +1532,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	nm = name[n->ty == Twchar];
 	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), nm);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1551,7 +1551,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	assert(size);
 	dup = (ident == Id::dup);
 	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), dup ? Id::adDup : Id::adReverse);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1571,7 +1571,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(),
 		(char*)(n->ty == Tbit ? "_adSortBit" : "_adSort"));
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -2273,7 +2273,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expressions *arguments;
 
 	fd = FuncDeclaration::genCfunc(Type::tsize_t, Id::aaLen);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2289,7 +2289,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	assert(size);
 	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), Id::aaKeys);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2304,7 +2304,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expressions *arguments;
 
 	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), Id::aaValues);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2322,7 +2322,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expressions *arguments;
 
 	fd = FuncDeclaration::genCfunc(Type::tvoid->pointerTo(), Id::aaRehash);
-    fd->llvmRunTimeHack = true;
+    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e->addressOf(sc));

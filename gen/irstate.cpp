@@ -40,7 +40,7 @@ IRState::IRState()
     ir.state = this;
 }
 
-IRFunction* IRState::func()
+IrFunction* IRState::func()
 {
     assert(!functions.empty() && "Function stack is empty!");
     return functions.back();
@@ -64,7 +64,7 @@ llvm::Instruction* IRState::topallocapoint()
     return functions.back()->allocapoint;
 }
 
-IRStruct* IRState::topstruct()
+IrStruct* IRState::topstruct()
 {
     assert(!structs.empty() && "Struct vector is empty!");
     return structs.back();
@@ -101,51 +101,11 @@ bool IRState::scopereturned()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-IRStruct::IRStruct(Type* t)
- : recty((t->llvmType != NULL) ? *t->llvmType : llvm::OpaqueType::get())
-{
-    type = t;
-    defined = false;
-    constinited = false;
-    interfaceInfosTy = NULL;
-    interfaceInfos = NULL;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-IRFinally::IRFinally()
-{
-    bb = 0;
-    retbb = 0;
-}
-
-IRFinally::IRFinally(llvm::BasicBlock* b, llvm::BasicBlock* rb)
-{
-    bb = b;
-    retbb = rb;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLVMBuilder* IRBuilderHelper::operator->()
 {
     LLVMBuilder& b = state->scope().builder;
     assert(b.GetInsertBlock() != NULL);
     return &b;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-IRFunction::IRFunction(FuncDeclaration* fd)
-{
-    decl = fd;
-    Type* t = DtoDType(fd->type);
-    assert(t->ty == Tfunction);
-    type = (TypeFunction*)t;
-    func = NULL;
-    allocapoint = NULL;
-    finallyretval = NULL;
-    defined = false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -161,12 +121,4 @@ IRExp::IRExp(Expression* l, Expression* r, DValue* val)
     e1 = l;
     e2 = r;
     v = val;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-IRGlobal::IRGlobal(VarDeclaration* v) :
-    type(llvm::OpaqueType::get())
-{
-    var = v;
 }

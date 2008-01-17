@@ -25,6 +25,7 @@ public  import  tango.io.model.IBuffer,
 extern (C)
 {
         protected void * memcpy (void *dst, void *src, uint);
+        private int printf(char*, ...);
 }       
 
 /*******************************************************************************
@@ -163,10 +164,14 @@ class Buffer : IBuffer
 
         this (IConduit conduit)
         {
+                printf("Buffer.this(%p)\n", conduit);
+                assert (conduit !is null);
                 assert (conduit);
 
                 this (conduit.bufferSize);
                 setConduit (conduit);
+
+                assert(this !is null);
         }
 
         /***********************************************************************
@@ -221,7 +226,8 @@ class Buffer : IBuffer
 
         this (uint capacity = 0)
         {
-                setContent (new ubyte[capacity], 0);              
+                setContent (new ubyte[capacity], 0);
+                assert(this !is null);
         }
 
         /***********************************************************************

@@ -18,6 +18,8 @@ public  import  tango.io.Conduit;
 
 private import  tango.core.Exception;
 
+private extern(C) int printf(char*, ...);
+
 /*******************************************************************************
 
         Implements a means of reading and writing a file device. Conduits

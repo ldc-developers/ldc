@@ -27,6 +27,9 @@
 
 extern (C):
 
+debug = PRINTF;
+debug(PRINTF) int printf(char*, ...);
+
 /******************************************
  * Given a pointer:
  *      If it is an Object, return that Object.
@@ -54,6 +57,7 @@ Object _d_toObject(void* p)
             o = cast(Object)(p - pi.offset);
         }
     }
+    debug(PRINTF) printf("toObject = %p\n", o);
     return o;
 }
 
@@ -75,6 +79,7 @@ Object _d_interface_cast(void* p, ClassInfo c)
         o = cast(Object)(p - pi.offset);
         return _d_dynamic_cast(o, c);
     }
+    debug(PRINTF) printf("_d_interface_cast = %p\n", o);
     return o;
 }
 
@@ -82,7 +87,7 @@ Object _d_dynamic_cast(Object o, ClassInfo c)
 {   ClassInfo oc;
     size_t offset = 0;
 
-    //printf("_d_dynamic_cast(o = %p, c = '%.*s')\n", o, c.name);
+    debug(PRINTF) printf("_d_dynamic_cast(o = %p, c = '%.*s')\n", o, c.name.length, c.name.ptr);
 
     if (o)
     {
@@ -96,16 +101,20 @@ Object _d_dynamic_cast(Object o, ClassInfo c)
             o = null;
     }
     //printf("\tresult = %p\n", o);
+    debug(PRINTF) printf("_d_dynamic_cast = %p\n", o);
     return o;
 }
 
 int _d_isbaseof2(ClassInfo oc, ClassInfo c, ref size_t offset)
 {   int i;
 
+    debug(PRINTF) printf("_d_isbaseof2(%.*s, %.*s, %ul)\n", oc.name.length, oc.name.ptr, c.name.length, c.name.ptr, offset);
+
     if (oc is c)
         return 1;
     do
     {
+        debug(PRINTF) printf("oc.interfaces.length = %ul\n", oc.interfaces.length);
         if (oc.base is c)
             return 1;
         for (i = 0; i < oc.interfaces.length; i++)
@@ -113,6 +122,7 @@ int _d_isbaseof2(ClassInfo oc, ClassInfo c, ref size_t offset)
             ClassInfo ic;
 
             ic = oc.interfaces[i].classinfo;
+            debug(PRINTF) printf("checking %.*s\n", ic.name.length, ic.name.ptr);
             if (ic is c)
             {   offset = cast(size_t)oc.interfaces[i].offset;
                 return 1;

@@ -220,7 +220,7 @@ struct Dsymbol : Object
     char* llvmInternal1;
     char* llvmInternal2;
 
-    llvm::Value* llvmValue;
+    //llvm::Value* llvmValue;
     Module* llvmDModule;
 
     bool llvmResolved;

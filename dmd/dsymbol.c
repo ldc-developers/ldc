@@ -43,10 +43,12 @@ Dsymbol::Dsymbol()
     this->isym = NULL;
     this->loc = 0;
     this->comment = NULL;
+
     this->llvmInternal = LLVMnone;
     this->llvmInternal1 = NULL;
     this->llvmInternal2 = NULL;
-    this->llvmValue = NULL;
+
+    //this->llvmValue = NULL;
     this->llvmDModule = NULL;
 
     this->llvmResolved = false;
@@ -65,10 +67,12 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->isym = NULL;
     this->loc = 0;
     this->comment = NULL;
+
     this->llvmInternal = LLVMnone;
     this->llvmInternal1 = NULL;
     this->llvmInternal2 = NULL;
-    this->llvmValue = NULL;
+
+    //this->llvmValue = NULL;
     this->llvmDModule = NULL;
 
     this->llvmResolved = false;

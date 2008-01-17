@@ -1,14 +1,15 @@
 #ifndef LLVMDC_GEN_IRSTATE_H
 #define LLVMDC_GEN_IRSTATE_H
 
-#include <stack>
 #include <vector>
-#include <deque>
-#include <map>
 #include <list>
 
 #include "root.h"
 #include "aggregate.h"
+
+#include "ir/irfunction.h"
+#include "ir/irstruct.h"
+#include "ir/irvar.h"
 
 // global ir state for current module
 struct IRState;
@@ -23,13 +24,6 @@ struct Module;
 struct TypeStruct;
 struct BaseClass;
 
-/*
-struct LLVMValue
-{
-    std::vector<llvm::Value*> vals;
-};
-*/
-
 // represents a scope
 struct IRScope
 {
@@ -39,94 +33,6 @@ struct IRScope
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
-};
-
-struct IRInterface : Object
-{
-    BaseClass* base;
-    ClassDeclaration* decl;
-
-    const llvm::StructType* vtblTy;
-    llvm::ConstantStruct* vtblInit;
-    llvm::GlobalVariable* vtbl;
-
-    const llvm::StructType* infoTy;
-    llvm::ConstantStruct* infoInit;
-    llvm::Constant* info;
-
-    IRInterface(BaseClass* b, const llvm::StructType* vt)
-    {
-        base = b;
-        decl = b->base;
-        vtblTy = vt;
-        vtblInit = NULL;
-        vtbl = NULL;
-        infoTy = NULL;
-        infoInit = NULL;
-        info = NULL;
-    }
-};
-
-// represents a struct or class
-struct IRStruct : Object
-{
-    struct Offset
-    {
-        VarDeclaration* var;
-        const llvm::Type* type;
-        llvm::Constant* init;
-
-        Offset(VarDeclaration* v, const llvm::Type* ty)
-        : var(v), type(ty), init(NULL) {}
-    };
-
-    typedef std::multimap<unsigned, Offset> OffsetMap;
-    typedef std::vector<VarDeclaration*> VarDeclVector;
-    typedef std::map<ClassDeclaration*, IRInterface*> InterfaceMap;
-    typedef InterfaceMap::iterator InterfaceIter;
-
-public:
-    IRStruct(Type*);
-
-    Type* type;
-    llvm::PATypeHolder recty;
-    OffsetMap offsets;
-    VarDeclVector defaultFields;
-
-    InterfaceMap interfaces;
-    const llvm::ArrayType* interfaceInfosTy;
-    llvm::GlobalVariable* interfaceInfos;
-
-    bool defined;
-    bool constinited;
-};
-
-// represents a finally block
-struct IRFinally
-{
-    llvm::BasicBlock* bb;
-    llvm::BasicBlock* retbb;
-
-    IRFinally();
-    IRFinally(llvm::BasicBlock* b, llvm::BasicBlock* rb);
-};
-
-// represents a function
-struct IRFunction : Object
-{
-    llvm::Function* func;
-    llvm::Instruction* allocapoint;
-    FuncDeclaration* decl;
-    TypeFunction* type;
-
-    // finally blocks
-    typedef std::vector<IRFinally> FinallyVec;
-    FinallyVec finallys;
-    llvm::Value* finallyretval;
-
-    bool defined;
-
-    IRFunction(FuncDeclaration*);
 };
 
 struct IRBuilderHelper
@@ -144,15 +50,6 @@ struct IRExp
     IRExp(Expression* l, Expression* r, DValue* val);
 };
 
-// represents a global variable
-struct IRGlobal : Object
-{
-    VarDeclaration* var;
-    llvm::PATypeHolder type;
-
-    IRGlobal(VarDeclaration* v);
-};
-
 // represents the module
 struct IRState
 {
@@ -163,18 +60,18 @@ struct IRState
     llvm::Module* module;
 
     // functions
-    typedef std::vector<IRFunction*> FunctionVector;
+    typedef std::vector<IrFunction*> FunctionVector;
     FunctionVector functions;
-    IRFunction* func();
+    IrFunction* func();
 
     llvm::Function* topfunc();
     TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
     // structs
-    typedef std::vector<IRStruct*> StructVector;
+    typedef std::vector<IrStruct*> StructVector;
     StructVector structs;
-    IRStruct* topstruct();
+    IrStruct* topstruct();
 
     // classes TODO move into IRClass
     typedef std::vector<ClassDeclaration*> ClassDeclVec;

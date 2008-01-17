@@ -671,13 +671,11 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, b
     // pass element typeinfo ?
     if (useti) {
         TypeInfoDeclaration* ti = DtoDType(l->getType())->next->getTypeInfoDeclaration();
-        if (!ti->llvmValue) {
-            DtoForceConstInitDsymbol(ti);
-        }
-        Logger::cout() << "typeinfo decl: " << *ti->llvmValue << '\n';
+        DtoForceConstInitDsymbol(ti);
+        Logger::cout() << "typeinfo decl: " << *ti->getIrValue() << '\n';
 
         pt = fn->getFunctionType()->getParamType(2);
-        args.push_back(DtoBitCast(ti->llvmValue, pt));
+        args.push_back(DtoBitCast(ti->getIrValue(), pt));
     }
 
     return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");

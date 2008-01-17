@@ -54,7 +54,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     llvmInProgress = false;
     llvmHasUnions = false;
     llvmUnion = NULL;
-    llvmIRStruct = NULL;
+    llvmIrStruct = NULL;
     llvmClassDeclared = false;
     llvmClassDefined = false;
 }

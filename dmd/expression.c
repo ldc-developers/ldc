@@ -3456,7 +3456,7 @@ Expression *SymOffExp::semantic(Scope *sc)
     if (v)
     {
     v->checkNestedReference(sc, loc);
-    v->llvmNeedsStorage = true;
+    v->needsStorage = true;
     }
     return this;
 }
@@ -3601,7 +3601,7 @@ Expression *VarExp::modifiableLvalue(Scope *sc, Expression *e)
     if (v && v->canassign == 0 &&
         (var->isConst() || (global.params.Dversion > 1 && var->isFinal())))
 	error("cannot modify final variable '%s'", var->toChars());
-    v->llvmNeedsStorage = true;
+    v->needsStorage = true;
 
     if (var->isCtorinit())
     {	// It's only modifiable if inside the right constructor
@@ -5887,7 +5887,7 @@ Expression *AddrExp::semantic(Scope *sc)
 	    }
         else if (v)
         {
-        v->llvmNeedsStorage = true;
+        v->needsStorage = true;
         }
 	}
 	else if (e1->op == TOKarray)

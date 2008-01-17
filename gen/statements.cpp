@@ -25,6 +25,8 @@
 #include "gen/todebug.h"
 #include "gen/dvalue.h"
 
+#include "ir/irfunction.h"
+
 //////////////////////////////////////////////////////////////////////////////
 
 void CompoundStatement::toIR(IRState* p)
@@ -57,13 +59,13 @@ void ReturnStatement::toIR(IRState* p)
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
             assert(DtoIsPassedByRef(exptype));
 
-            IRFunction* f = p->func();
+            IrFunction* f = p->func();
             assert(f->type->llvmRetInPtr);
-            assert(f->decl->llvmRetArg);
+            assert(f->decl->irFunc->retArg);
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
-            DValue* rvar = new DVarValue(f->type->next, f->decl->llvmRetArg, true);
+            DValue* rvar = new DVarValue(f->type->next, f->decl->irFunc->retArg, true);
 
             p->exps.push_back(IRExp(NULL,exp,rvar));
             DValue* e = exp->toElem(p);
@@ -72,7 +74,7 @@ void ReturnStatement::toIR(IRState* p)
             if (!e->inPlace())
                 DtoAssign(rvar, e);
 
-            IRFunction::FinallyVec& fin = f->finallys;
+            IrFunction::FinallyVec& fin = f->finallys;
             if (fin.empty()) {
                 if (global.params.symdebug) DtoDwarfFuncEnd(f->decl);
                 new llvm::ReturnInst(p->scopebb());
@@ -88,7 +90,7 @@ void ReturnStatement::toIR(IRState* p)
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
 
-            IRFunction::FinallyVec& fin = p->func()->finallys;
+            IrFunction::FinallyVec& fin = p->func()->finallys;
             if (fin.empty()) {
                 if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
                 new llvm::ReturnInst(v, p->scopebb());
@@ -105,7 +107,7 @@ void ReturnStatement::toIR(IRState* p)
     else
     {
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
-            IRFunction::FinallyVec& fin = p->func()->finallys;
+            IrFunction::FinallyVec& fin = p->func()->finallys;
             if (fin.empty()) {
                 if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
                 new llvm::ReturnInst(p->scopebb());
@@ -425,8 +427,8 @@ void TryFinallyStatement::toIR(IRState* p)
 
     // do the try block
     p->scope() = IRScope(trybb,finallybb);
-    gIR->func()->finallys.push_back(IRFinally(finallybb,finallyretbb));
-    IRFinally& fin = p->func()->finallys.back();
+    gIR->func()->finallys.push_back(IrFinally(finallybb,finallyretbb));
+    IrFinally& fin = p->func()->finallys.back();
 
     assert(body);
     body->toIR(p);
@@ -453,7 +455,7 @@ void TryFinallyStatement::toIR(IRState* p)
     // terminate finally (return path)
     size_t nfin = p->func()->finallys.size();
     if (nfin > 1) {
-        IRFinally& ofin = p->func()->finallys[nfin-2];
+        IrFinally& ofin = p->func()->finallys[nfin-2];
         p->ir->CreateBr(ofin.retbb);
     }
     // no outer
@@ -793,7 +795,13 @@ void ForeachStatement::toIR(IRState* p)
     // key
     const llvm::Type* keytype = key ? DtoType(key->type) : DtoSize_t();
     llvm::Value* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
-    if (key) key->llvmValue = keyvar;
+    if (key)
+    {
+        //key->llvmValue = keyvar;
+        assert(!key->irLocal);
+        key->irLocal = new IrLocal(key);
+        key->irLocal->value = keyvar;
+    }
     llvm::Value* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
     // value
@@ -801,6 +809,8 @@ void ForeachStatement::toIR(IRState* p)
     llvm::Value* valvar = NULL;
     if (!value->isRef() && !value->isOut())
         valvar = new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint());
+    assert(!value->irLocal);
+    value->irLocal = new IrLocal(value);
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);
@@ -896,15 +906,15 @@ void ForeachStatement::toIR(IRState* p)
     llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
     llvm::Value* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     if (aggrtype->ty == Tsarray)
-        value->llvmValue = DtoGEP(val,zero,loadedKey,"tmp");
+        value->irLocal->value = DtoGEP(val,zero,loadedKey,"tmp");
     else if (aggrtype->ty == Tarray)
-        value->llvmValue = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
+        value->irLocal->value = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
 
     if (!value->isRef() && !value->isOut()) {
         DValue* dst = new DVarValue(value->type, valvar, true);
-        DValue* src = new DVarValue(value->type, value->llvmValue, true);
+        DValue* src = new DVarValue(value->type, value->irLocal->value, true);
         DtoAssign(dst, src);
-        value->llvmValue = valvar;
+        value->irLocal->value = valvar;
     }
 
     // emit body
@@ -982,7 +992,7 @@ void WithStatement::toIR(IRState* p)
     assert(body);
 
     DValue* e = exp->toElem(p);
-    wthis->llvmValue = e->getRVal();
+    wthis->irLocal->value = e->getRVal();
     delete e;
 
     body->toIR(p);

@@ -13,6 +13,8 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 
+#include "ir/irstruct.h"
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 const llvm::Type* DtoStructType(Type* t)
@@ -93,7 +95,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
         assert(vd);
         llvm::Constant* v = DtoConstInitializer(vd->type, ini);
-        inits.push_back(DUnionIdx(vd->llvmFieldIndex, vd->llvmFieldIndexOffset, v));
+        inits.push_back(DUnionIdx(vd->irField->index, vd->irField->indexOffset, v));
     }
 
     DtoConstInitStruct((StructDeclaration*)si->ad);
@@ -121,26 +123,26 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
         VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
         Type* vdtype = DtoDType(vd->type);
         Logger::println("found %u type %s", vd->offset, vdtype->toChars());
-        assert(vd->llvmFieldIndex >= 0);
+        assert(vd->irField->index >= 0);
         if (os == vd->offset && vdtype == t) {
-            idxs.push_back(vd->llvmFieldIndex);
+            idxs.push_back(vd->irField->index);
             ptr = DtoGEP(ptr, idxs, "tmp");
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-            if (vd->llvmFieldIndexOffset)
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+            if (vd->irField->indexOffset)
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->irField->indexOffset), "tmp", gIR->scopebb());
             return ptr;
         }
         else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
             TypeStruct* ts = (TypeStruct*)vdtype;
             StructDeclaration* ssd = ts->sym;
-            idxs.push_back(vd->llvmFieldIndex);
-            if (vd->llvmFieldIndexOffset) {
+            idxs.push_back(vd->irField->index);
+            if (vd->irField->indexOffset) {
                 Logger::println("has union field offset");
                 ptr = DtoGEP(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = DtoBitCast(ptr, llt);
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->llvmFieldIndexOffset), "tmp", gIR->scopebb());
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->irField->indexOffset), "tmp", gIR->scopebb());
                 std::vector<unsigned> tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
@@ -176,8 +178,8 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
 
-    IRStruct* irstruct = new IRStruct(ts);
-    sd->llvmIRStruct = irstruct;
+    IrStruct* irstruct = new IrStruct(ts);
+    sd->llvmIrStruct = irstruct;
     gIR->structs.push_back(irstruct);
 
     // fields
@@ -233,7 +235,7 @@ void DtoResolveStruct(StructDeclaration* sd)
         VarDeclaration* fieldinit = NULL;
         size_t fieldpad = 0;
         int idx = 0;
-        for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
+        for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
             // first iteration
             if (lastoffset == (unsigned)-1) {
                 lastoffset = i->first;
@@ -241,7 +243,7 @@ void DtoResolveStruct(StructDeclaration* sd)
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
                 prevsize = getABITypeSize(fieldtype);
-                i->second.var->llvmFieldIndex = idx;
+                i->second.var->irField->index = idx;
             }
             // colliding offset?
             else if (lastoffset == i->first) {
@@ -251,15 +253,15 @@ void DtoResolveStruct(StructDeclaration* sd)
                     prevsize = s;
                 }
                 sd->llvmHasUnions = true;
-                i->second.var->llvmFieldIndex = idx;
+                i->second.var->irField->index = idx;
             }
             // intersecting offset?
             else if (i->first < (lastoffset + prevsize)) {
                 size_t s = getABITypeSize(i->second.type);
                 assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
                 sd->llvmHasUnions = true;
-                i->second.var->llvmFieldIndex = idx;
-                i->second.var->llvmFieldIndexOffset = (i->first - lastoffset) / s;
+                i->second.var->irField->index = idx;
+                i->second.var->irField->indexOffset = (i->first - lastoffset) / s;
             }
             // fresh offset
             else {
@@ -279,7 +281,7 @@ void DtoResolveStruct(StructDeclaration* sd)
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
                 prevsize = getABITypeSize(fieldtype);
-                i->second.var->llvmFieldIndex = idx;
+                i->second.var->irField->index = idx;
                 fieldpad = 0;
             }
         }
@@ -349,16 +351,16 @@ void DtoConstInitStruct(StructDeclaration* sd)
     Logger::println("DtoConstInitStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
-    IRStruct* irstruct = sd->llvmIRStruct;
+    IrStruct* irstruct = sd->llvmIrStruct;
     gIR->structs.push_back(irstruct);
 
     // make sure each offset knows its default initializer
-    for (IRStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
+    for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
     {
-        IRStruct::Offset* so = &i->second;
+        IrStruct::Offset* so = &i->second;
         llvm::Constant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
         so->init = finit;
-        so->var->llvmConstInit = finit;
+        so->var->irField->constInit = finit;
     }
 
     const llvm::StructType* structtype = isaStruct(sd->type->llvmType->get());
@@ -369,7 +371,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     for (size_t i=0; i<nfi; ++i) {
         llvm::Constant* c;
         if (irstruct->defaultFields[i] != NULL) {
-            c = irstruct->defaultFields[i]->llvmConstInit;
+            c = irstruct->defaultFields[i]->irField->constInit;
             assert(c);
         }
         else {
@@ -435,12 +437,12 @@ void DtoDefineStruct(StructDeclaration* sd)
 DUnion::DUnion()
 {
     DUnionField* f = NULL;
-    IRStruct* topstruct = gIR->topstruct();
+    IrStruct* topstruct = gIR->topstruct();
     bool unions = false;
-    for (IRStruct::OffsetMap::iterator i=topstruct->offsets.begin(); i!=topstruct->offsets.end(); ++i)
+    for (IrStruct::OffsetMap::iterator i=topstruct->offsets.begin(); i!=topstruct->offsets.end(); ++i)
     {
         unsigned o = i->first;
-        IRStruct::Offset* so = &i->second;
+        IrStruct::Offset* so = &i->second;
         const llvm::Type* ft = so->init->getType();
         size_t sz = getABITypeSize(ft);
         if (f == NULL) { // new field

@@ -73,15 +73,9 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     nrvo_can = 1;
     nrvo_var = NULL;
     shidden = NULL;
-    llvmQueued = false;
-    llvmThisVar = NULL;
-    llvmNested = NULL;
-    llvmArguments = NULL;
-    llvmArgPtr = NULL;
-    llvmDwarfSubProgram = NULL;
-    llvmRunTimeHack = false;
-    llvmIRFunc = NULL;
-    llvmRetArg = NULL;
+    // llvmdc
+    runTimeHack = false;
+    irFunc = NULL;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

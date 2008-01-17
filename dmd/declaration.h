@@ -24,8 +24,11 @@
 namespace llvm {
     class Value;
 }
-struct IRFunction;
-struct IRGlobal;
+struct IrFunction;
+struct IrVar;
+struct IrGlobal;
+struct IrLocal;
+struct IrField;
 
 struct Expression;
 struct Statement;
@@ -261,12 +264,13 @@ struct VarDeclaration : Declaration
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
 
     // LLVMDC
-    int llvmNestedIndex;
-    int llvmFieldIndex;
-    size_t llvmFieldIndexOffset;
-    bool llvmNeedsStorage;
-    llvm::Constant* llvmConstInit;
-    IRGlobal* llvmIRGlobal;
+    IrGlobal* irGlobal;
+    IrLocal* irLocal;
+    IrField* irField;
+    bool needsStorage;
+
+    IrVar* getIrVar();
+    llvm::Value*& getIrValue();
 };
 
 /**************************************************************/
@@ -609,16 +613,9 @@ struct FuncDeclaration : Declaration
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     // llvmdc stuff
-    bool llvmQueued;
-    llvm::Value* llvmThisVar;
-    std::set<VarDeclaration*> llvmNestedVars;
-    llvm::Value* llvmNested;
-    llvm::Value* llvmArguments;
-    llvm::Value* llvmArgPtr;
-    llvm::Constant* llvmDwarfSubProgram;
-    bool llvmRunTimeHack;
-    IRFunction* llvmIRFunc;
-    llvm::Value* llvmRetArg;
+    bool runTimeHack;
+    IrFunction* irFunc;
+    std::set<VarDeclaration*> nestedVars;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

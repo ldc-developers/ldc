@@ -45,7 +45,7 @@ namespace llvm
     class ConstantStruct;
     class GlobalVariable;
 }
-struct IRStruct;
+struct IrStruct;
 struct DUnion;
 
 struct AggregateDeclaration : ScopeDsymbol
@@ -110,7 +110,7 @@ struct AggregateDeclaration : ScopeDsymbol
     llvm::Constant* llvmConstClass;
     bool llvmHasUnions;
     DUnion* llvmUnion;
-    IRStruct* llvmIRStruct;
+    IrStruct* llvmIrStruct;
     bool llvmClassDeclared;
     bool llvmClassDefined;
 
