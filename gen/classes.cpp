@@ -878,6 +878,9 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
 
 DValue* DtoCastClass(DValue* val, Type* _to)
 {
+    Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(), _to->toChars());
+    LOG_SCOPE;
+
     Type* to = DtoDType(_to);
     if (to->ty == Tpointer) {
         const llvm::Type* tolltype = DtoType(_to);
@@ -892,24 +895,31 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     TypeClass* fc = (TypeClass*)from;
 
     if (tc->sym->isInterfaceDeclaration()) {
+        Logger::println("to interface");
         if (fc->sym->isInterfaceDeclaration()) {
+            Logger::println("from interface");
             return DtoDynamicCastInterface(val, _to);
         }
         else {
+            Logger::println("from object");
             return DtoDynamicCastObject(val, _to);
         }
     }
     else {
+        Logger::println("to object");
         int poffset;
         if (fc->sym->isInterfaceDeclaration()) {
+            Logger::println("interface cast");
             return DtoCastInterfaceToObject(val, _to);
         }
-        else if (tc->sym->isBaseOf(fc->sym,NULL)) {
+        else if (!tc->sym->isInterfaceDeclaration() && tc->sym->isBaseOf(fc->sym,NULL)) {
+            Logger::println("static down cast)");
             const llvm::Type* tolltype = DtoType(_to);
             llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
             return new DImValue(_to, rval);
         }
         else {
+            Logger::println("dynamic up cast");
             return DtoDynamicCastObject(val, _to);
         }
     }

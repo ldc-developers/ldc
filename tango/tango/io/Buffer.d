@@ -550,7 +550,8 @@ class Buffer : IBuffer
         ***********************************************************************/
 
         IBuffer append (void* src, uint length)
-        {               
+        {
+                printf("Buffer.append(%p, %u)\n", src, length);
                 if (length > writable)
                     // can we write externally?
                     if (sink)
@@ -570,8 +571,9 @@ class Buffer : IBuffer
                        }
                     else
                        error (overflow);
-
+                printf("  copying\n");
                 copy (src, length);
+                printf("returning\n");
                 return this;
         }
 
@@ -1095,6 +1097,7 @@ class Buffer : IBuffer
 
         protected void copy (void *src, uint size)
         {
+                printf("Buffer.copy(%p, %u)\n", src, size);
                 // avoid "out of bounds" test on zero size
                 if (size)
                    {
@@ -1102,6 +1105,7 @@ class Buffer : IBuffer
                    memcpy (&data[extent], src, size);
                    extent += size;
                    }
+                printf("  copy done\n");
         }
 
         /***********************************************************************
