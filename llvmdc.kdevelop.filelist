@@ -139,12 +139,9 @@ gen/toobj.cpp
 gen/typeinf.h
 gen/typinf.cpp
 ir
-ir/forw.h
 ir/ir.h
 ir/irfunction.cpp
 ir/irfunction.h
-ir/irglobal.cpp
-ir/irglobal.h
 ir/irmodule.cpp
 ir/irmodule.h
 ir/irstruct.cpp

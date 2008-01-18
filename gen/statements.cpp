@@ -130,13 +130,12 @@ void ExpStatement::toIR(IRState* p)
     Logger::println("ExpStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    if (global.params.llvmAnnotate)
-        DtoAnnotation(exp->toChars());
-
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
-    if (exp != 0) {
+    if (exp) {
+        if (global.params.llvmAnnotate)
+            DtoAnnotation(exp->toChars());
         elem* e = exp->toElem(p);
         delete e;
     }

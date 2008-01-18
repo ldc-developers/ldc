@@ -40,20 +40,24 @@ debug(PRINTF) int printf(char*, ...);
 
 Object _d_toObject(void* p)
 {   Object o;
-
+    debug(PRINTF) printf("toObject(%p)\n", p);
     if (p)
     {
         o = cast(Object)p;
+        debug(PRINTF) printf("o = %p\n", o);
+        debug(PRINTF) printf("o.vtbl = %p\n", *cast(void**)p);
         ClassInfo oc = o.classinfo;
+        debug(PRINTF) printf("oc = %p\n", oc);
         Interface *pi = **cast(Interface ***)p;
+        debug(PRINTF) printf("pi = %p\n", pi);
 
         /* Interface.offset lines up with ClassInfo.name.ptr,
          * so we rely on pointers never being less than 64K,
-         * and Objects never being greater.
+         * and interface vtable offsets never being greater.
          */
         if (pi.offset < 0x10000)
         {
-            //printf("\tpi.offset = %d\n", pi.offset);
+            debug(PRINTF) printf("\tpi.offset = %d\n", pi.offset);
             o = cast(Object)(p - pi.offset);
         }
     }
@@ -70,12 +74,12 @@ Object _d_toObject(void* p)
 Object _d_interface_cast(void* p, ClassInfo c)
 {   Object o;
 
-    //printf("_d_interface_cast(p = %p, c = '%.*s')\n", p, c.name);
+    debug(PRINTF) printf("_d_interface_cast(p = %p, c = '%.*s')\n", p, c.name.length, c.name.ptr);
     if (p)
     {
         Interface *pi = **cast(Interface ***)p;
 
-        //printf("\tpi.offset = %d\n", pi.offset);
+        debug(PRINTF) printf("\tpi.offset = %d\n", pi.offset);
         o = cast(Object)(p - pi.offset);
         return _d_dynamic_cast(o, c);
     }
@@ -94,7 +98,7 @@ Object _d_dynamic_cast(Object o, ClassInfo c)
         oc = o.classinfo;
         if (_d_isbaseof2(oc, c, offset))
         {
-            //printf("\toffset = %d\n", offset);
+            debug(PRINTF) printf("\toffset = %d\n", offset);
             o = cast(Object)(cast(void*)o + offset);
         }
         else

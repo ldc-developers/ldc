@@ -372,7 +372,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(getNullPtr(getPtrToType(llvm::Type::Int8Ty)));
@@ -457,7 +457,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -536,7 +536,7 @@ static llvm::Constant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclar
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -647,7 +647,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     // initializer vector
     std::vector<llvm::Constant*> sinits;
     // first is always the vtable
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -710,7 +710,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     // initializer vector
     std::vector<llvm::Constant*> sinits;
     // first is always the vtable
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -845,7 +845,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -865,7 +865,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     else
     {
         size_t cisize = getTypeStoreSize(tc->llvmType->get());
-        llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(sd->llvmInit, initpt);
+        llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(sd->irStruct->init, initpt);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
 
@@ -1044,7 +1044,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     // initializer vector
     std::vector<llvm::Constant*> sinits;
     // first is always the vtable
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -1052,8 +1052,8 @@ void TypeInfoClassDeclaration::llvmDefine()
     // get classinfo
     assert(tinfo->ty == Tclass);
     TypeClass *tc = (TypeClass *)tinfo;
-    assert(tc->sym->llvmClass);
-    sinits.push_back(tc->sym->llvmClass);
+    assert(tc->sym->irStruct->classInfo);
+    sinits.push_back(tc->sym->irStruct->classInfo);
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
@@ -1100,7 +1100,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     // initializer vector
     std::vector<llvm::Constant*> sinits;
     // first is always the vtable
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
@@ -1108,8 +1108,8 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     // get classinfo
     assert(tinfo->ty == Tclass);
     TypeClass *tc = (TypeClass *)tinfo;
-    assert(tc->sym->llvmClass);
-    sinits.push_back(tc->sym->llvmClass);
+    assert(tc->sym->irStruct->classInfo);
+    sinits.push_back(tc->sym->irStruct->classInfo);
 
     // create the symbol
     llvm::Constant* tiInit = llvm::ConstantStruct::get(stype, sinits);
@@ -1156,7 +1156,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     // initializer vector
     std::vector<llvm::Constant*> sinits;
     // first is always the vtable
-    sinits.push_back(base->llvmVtbl);
+    sinits.push_back(base->irStruct->vtbl);
 
     // monitor
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));

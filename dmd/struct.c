@@ -45,18 +45,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     sinit = NULL;
     scope = NULL;
 
-    llvmVtbl = NULL;
-    llvmConstVtbl = NULL;
-    llvmInit = NULL;
-    llvmConstInit = NULL;
-    llvmClass = NULL;
-    llvmConstClass = NULL;
-    llvmInProgress = false;
-    llvmHasUnions = false;
-    llvmUnion = NULL;
-    llvmIrStruct = NULL;
-    llvmClassDeclared = false;
-    llvmClassDefined = false;
+    irStruct = NULL;
 }
 
 enum PROT AggregateDeclaration::prot()

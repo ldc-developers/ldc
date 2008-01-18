@@ -99,7 +99,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
     }
 
     DtoConstInitStruct((StructDeclaration*)si->ad);
-    return si->ad->llvmUnion->getConst(inits);
+    return si->ad->irStruct->dunion->getConst(inits);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -115,7 +115,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
     const llvm::Type* llt = getPtrToType(DtoType(t));
     const llvm::Type* st = getPtrToType(DtoType(sd->type));
     if (ptr->getType() != st) {
-        assert(sd->llvmHasUnions);
+        assert(sd->irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
     }
 
@@ -179,7 +179,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
 
     IrStruct* irstruct = new IrStruct(ts);
-    sd->llvmIrStruct = irstruct;
+    sd->irStruct = irstruct;
     gIR->structs.push_back(irstruct);
 
     // fields
@@ -252,14 +252,14 @@ void DtoResolveStruct(StructDeclaration* sd)
                     fieldpad += s - prevsize;
                     prevsize = s;
                 }
-                sd->llvmHasUnions = true;
+                sd->irStruct->hasUnions = true;
                 i->second.var->irField->index = idx;
             }
             // intersecting offset?
             else if (i->first < (lastoffset + prevsize)) {
                 size_t s = getABITypeSize(i->second.type);
                 assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
-                sd->llvmHasUnions = true;
+                sd->irStruct->hasUnions = true;
                 i->second.var->irField->index = idx;
                 i->second.var->irField->indexOffset = (i->first - lastoffset) / s;
             }
@@ -334,7 +334,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
-    sd->llvmInit = initvar;
+    sd->irStruct->init = initvar;
 
     gIR->constInitList.push_back(sd);
     if (sd->getModule() == gIR->dmodule)
@@ -351,7 +351,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     Logger::println("DtoConstInitStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
-    IrStruct* irstruct = sd->llvmIrStruct;
+    IrStruct* irstruct = sd->irStruct;
     gIR->structs.push_back(irstruct);
 
     // make sure each offset knows its default initializer
@@ -383,7 +383,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     }
 
     // generate the union mapper
-    sd->llvmUnion = new DUnion; // uses gIR->topstruct()
+    sd->irStruct->dunion = new DUnion; // uses gIR->topstruct()
 
     // always generate the constant initalizer
     if (!sd->zeroInit) {
@@ -399,11 +399,11 @@ void DtoConstInitStruct(StructDeclaration* sd)
         }
         Logger::cout() << "Initializer printed" << '\n';
         #endif
-        sd->llvmConstInit = llvm::ConstantStruct::get(structtype,fieldinits_ll);
+        sd->irStruct->constInit = llvm::ConstantStruct::get(structtype,fieldinits_ll);
     }
     else {
         Logger::println("Zero initialized");
-        sd->llvmConstInit = llvm::ConstantAggregateZero::get(structtype);
+        sd->irStruct->constInit = llvm::ConstantAggregateZero::get(structtype);
     }
 
     gIR->structs.pop_back();
@@ -425,7 +425,7 @@ void DtoDefineStruct(StructDeclaration* sd)
 
     assert(sd->type->ty == Tstruct);
     TypeStruct* ts = (TypeStruct*)sd->type;
-    sd->llvmInit->setInitializer(sd->llvmConstInit);
+    sd->irStruct->init->setInitializer(sd->irStruct->constInit);
 
     sd->llvmDModule = gIR->dmodule;
 }

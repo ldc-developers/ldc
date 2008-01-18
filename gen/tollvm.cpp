@@ -116,7 +116,7 @@ const llvm::Type* DtoType(Type* t)
         TypeStruct* ts = (TypeStruct*)t;
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
-        return ts->sym->llvmIrStruct->recty.get();//t->llvmType->get();
+        return ts->sym->irStruct->recty.get();//t->llvmType->get();
     }
 
     case Tclass:    {
@@ -139,7 +139,7 @@ const llvm::Type* DtoType(Type* t)
         TypeClass* tc = (TypeClass*)t;
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
-        return getPtrToType(tc->sym->llvmIrStruct->recty.get());//t->llvmType->get());
+        return getPtrToType(tc->sym->irStruct->recty.get());//t->llvmType->get());
     }
 
     // functions
@@ -523,8 +523,8 @@ llvm::Constant* DtoConstFieldInitializer(Type* t, Initializer* init)
             TypeStruct* ts = (TypeStruct*)t;
             assert(ts);
             assert(ts->sym);
-            assert(ts->sym->llvmConstInit);
-            _init = ts->sym->llvmConstInit;
+            assert(ts->sym->irStruct->constInit);
+            _init = ts->sym->irStruct->constInit;
         }
         else if (t->ty == Tclass)
         {
@@ -732,7 +732,7 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
         else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
         {
             size_t idx = 2;
-            idx += cd->llvmIrStruct->interfaces.size();
+            idx += cd->irStruct->interfaces.size();
             v = DtoGEPi(v,0,idx,"tmp");
             v = DtoLoad(v);
         }
@@ -1562,8 +1562,8 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
             assert(t->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)t;
-            assert(ts->sym->llvmConstInit);
-            _init = ts->sym->llvmConstInit;
+            assert(ts->sym->irStruct->constInit);
+            _init = ts->sym->irStruct->constInit;
         }
         // array single value init
         else if (isaArray(_type))

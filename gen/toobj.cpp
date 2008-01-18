@@ -293,7 +293,7 @@ void Module::genmoduleinfo()
     llvm::Constant* c = 0;
 
     // vtable
-    c = moduleinfo->llvmVtbl;
+    c = moduleinfo->irStruct->vtbl;
     initVec.push_back(c);
 
     // monitor
@@ -335,7 +335,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
     else
-        c = moduleinfo->llvmConstInit->getOperand(3);
+        c = moduleinfo->irStruct->constInit->getOperand(3);
     initVec.push_back(c);
 
     // localClasses[]
@@ -360,8 +360,8 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        assert(cd->llvmClass);
-        classInits.push_back(cd->llvmClass);
+        assert(cd->irStruct->classInfo);
+        classInits.push_back(cd->irStruct->classInfo);
     }
     // has class array?
     if (!classInits.empty())
@@ -376,7 +376,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
-        c = moduleinfo->llvmConstInit->getOperand(4);
+        c = moduleinfo->irStruct->constInit->getOperand(4);
     initVec.push_back(c);
 
     // flags
@@ -387,25 +387,25 @@ void Module::genmoduleinfo()
 
     // ctor
     llvm::Function* fctor = build_module_ctor();
-    c = fctor ? fctor : moduleinfo->llvmConstInit->getOperand(6);
+    c = fctor ? fctor : moduleinfo->irStruct->constInit->getOperand(6);
     initVec.push_back(c);
 
     // dtor
     llvm::Function* fdtor = build_module_dtor();
-    c = fdtor ? fdtor : moduleinfo->llvmConstInit->getOperand(7);
+    c = fdtor ? fdtor : moduleinfo->irStruct->constInit->getOperand(7);
     initVec.push_back(c);
 
     // unitTest
     llvm::Function* unittest = build_module_unittest();
-    c = unittest ? unittest : moduleinfo->llvmConstInit->getOperand(8);
+    c = unittest ? unittest : moduleinfo->irStruct->constInit->getOperand(8);
     initVec.push_back(c);
 
     // xgetMembers
-    c = moduleinfo->llvmConstInit->getOperand(9);
+    c = moduleinfo->irStruct->constInit->getOperand(9);
     initVec.push_back(c);
 
     // ictor
-    c = moduleinfo->llvmConstInit->getOperand(10);
+    c = moduleinfo->irStruct->constInit->getOperand(10);
     initVec.push_back(c);
 
     /*Logger::println("MODULE INFO INITIALIZERS");

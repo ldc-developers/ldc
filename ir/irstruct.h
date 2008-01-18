@@ -19,6 +19,8 @@ struct IrInterface : IrBase
     llvm::ConstantStruct* infoInit;
     llvm::Constant* info;
 
+    int index;
+
     IrInterface(BaseClass* b, const llvm::StructType* vt);
     ~IrInterface();
 };
@@ -60,6 +62,17 @@ public:
 
     bool defined;
     bool constinited;
+
+    llvm::GlobalVariable* vtbl;
+    llvm::ConstantStruct* constVtbl;
+    llvm::GlobalVariable* init;
+    llvm::Constant* constInit;
+    llvm::GlobalVariable* classInfo;
+    llvm::Constant* constClassInfo;
+    bool hasUnions;
+    DUnion* dunion;
+    bool classDeclared;
+    bool classDefined;
 };
 
 #endif

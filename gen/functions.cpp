@@ -74,10 +74,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         ClassDeclaration* ti = Type::typeinfo;
         ti->toObjFile();
         DtoForceConstInitDsymbol(ti);
-        assert(ti->llvmConstInit);
+        assert(ti->irStruct->constInit);
         std::vector<const llvm::Type*> types;
         types.push_back(DtoSize_t());
-        types.push_back(getPtrToType(getPtrToType(ti->llvmConstInit->getType())));
+        types.push_back(getPtrToType(getPtrToType(ti->irStruct->constInit->getType())));
         const llvm::Type* t1 = llvm::StructType::get(types);
         paramvec.push_back(getPtrToType(t1));
         paramvec.push_back(getPtrToType(llvm::Type::Int8Ty));

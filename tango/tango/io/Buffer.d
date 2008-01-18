@@ -165,9 +165,13 @@ class Buffer : IBuffer
         this (IConduit conduit)
         {
                 printf("Buffer.this(%p)\n", conduit);
+                printf("assert (conduit !is null);\n");
                 assert (conduit !is null);
+                printf("assert (conduit);\n", conduit);
                 assert (conduit);
 
+                printf("this (conduit.bufferSize(%p));\n", conduit);
+                printf("cast(Object)conduit = %p\n", cast(Object)conduit);
                 this (conduit.bufferSize);
                 setConduit (conduit);
 
@@ -226,6 +230,7 @@ class Buffer : IBuffer
 
         this (uint capacity = 0)
         {
+                printf("Buffer.this(%p, %u)\n", this, capacity);
                 setContent (new ubyte[capacity], 0);
                 assert(this !is null);
         }

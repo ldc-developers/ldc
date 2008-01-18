@@ -27,7 +27,7 @@
 module lifetime;
 
 //debug=PRINTF;
-debug=PRINTF2;
+//debug=PRINTF2;
 
 private
 {
@@ -89,7 +89,7 @@ extern (C) Object _d_newclass(ClassInfo ci)
 {
     void* p;
 
-    debug(PRINTF) printf("_d_newclass(ci = %p, %s)\n", ci, cast(char *)ci.name.ptr);
+    debug(PRINTF2) printf("_d_newclass(ci = %p, %s)\n", ci, cast(char *)ci.name.ptr);
     /+
     if (ci.flags & 1) // if COM object
     {   /* COM objects are not garbage collected, they are reference counted
@@ -109,18 +109,18 @@ extern (C) Object _d_newclass(ClassInfo ci)
         debug(PRINTF2) printf(" p = %p\n", p);
     }
 
-    debug(PRINTF)
+    debug(PRINTF2)
     {
         printf("p = %p\n", p);
-        printf("ci = %p, ci.init = %p, len = %d\n", ci, ci.init, ci.init.length);
-        printf("vptr = %p\n", *cast(void**) ci.init);
-        printf("vtbl[0] = %p\n", (*cast(void***) ci.init)[0]);
-        printf("vtbl[1] = %p\n", (*cast(void***) ci.init)[1]);
-        printf("init[0] = %x\n", (cast(uint*) ci.init)[0]);
-        printf("init[1] = %x\n", (cast(uint*) ci.init)[1]);
-        printf("init[2] = %x\n", (cast(uint*) ci.init)[2]);
-        printf("init[3] = %x\n", (cast(uint*) ci.init)[3]);
-        printf("init[4] = %x\n", (cast(uint*) ci.init)[4]);
+        printf("ci = %p, ci.init = %p, len = %d\n", ci, ci.init.ptr, ci.init.length);
+        printf("vptr = %p\n", *cast(void**) ci.init.ptr);
+        printf("vtbl[0] = %p\n", (*cast(void***) ci.init.ptr)[0]);
+        printf("vtbl[1] = %p\n", (*cast(void***) ci.init.ptr)[1]);
+        printf("init[0] = %p\n", (cast(uint**) ci.init.ptr)[0]);
+        printf("init[1] = %p\n", (cast(uint**) ci.init.ptr)[1]);
+        printf("init[2] = %p\n", (cast(uint**) ci.init.ptr)[2]);
+        printf("init[3] = %p\n", (cast(uint**) ci.init.ptr)[3]);
+        printf("init[4] = %p\n", (cast(uint**) ci.init.ptr)[4]);
     }
 
     // initialize it

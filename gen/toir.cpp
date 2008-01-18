@@ -194,8 +194,8 @@ DValue* VarExp::toElem(IRState* p)
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
             DtoDeclareClassInfo(cid->cd);
-            assert(cid->cd->llvmClass);
-            return new DVarValue(vd, cid->cd->llvmClass, true);
+            assert(cid->cd->irStruct->classInfo);
+            return new DVarValue(vd, cid->cd->irStruct->classInfo, true);
         }
         // nested variable
         else if (vd->nestedref) {
@@ -247,8 +247,8 @@ DValue* VarExp::toElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
         assert(ts->sym);
-        assert(ts->sym->llvmInit);
-        return new DVarValue(type, ts->sym->llvmInit, true);
+        assert(ts->sym->irStruct->init);
+        return new DVarValue(type, ts->sym->irStruct->init, true);
     }
     else
     {
@@ -272,8 +272,8 @@ llvm::Constant* VarExp::toConstElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
         DtoForceConstInitDsymbol(ts->sym);
-        assert(ts->sym->llvmConstInit);
-        return ts->sym->llvmConstInit;
+        assert(ts->sym->irStruct->constInit);
+        return ts->sym->irStruct->constInit;
     }
     else if (TypeInfoDeclaration* ti = var->isTypeInfoDeclaration())
     {
@@ -1068,8 +1068,8 @@ DValue* CallExp::toElem(IRState* p)
             }
 
             // build type info array
-            assert(Type::typeinfo->llvmConstInit);
-            const llvm::Type* typeinfotype = getPtrToType(Type::typeinfo->llvmConstInit->getType());
+            assert(Type::typeinfo->irStruct->constInit);
+            const llvm::Type* typeinfotype = getPtrToType(Type::typeinfo->irStruct->constInit->getType());
             Logger::cout() << "typeinfo ptr type: " << *typeinfotype << '\n';
             const llvm::ArrayType* typeinfoarraytype = llvm::ArrayType::get(typeinfotype,vtype->getNumElements());
 
@@ -1907,7 +1907,7 @@ DValue* NewExp::toElem(IRState* p)
         }
         else {
             assert(ts->sym);
-            DtoStructCopy(emem,ts->sym->llvmInit);
+            DtoStructCopy(emem,ts->sym->irStruct->init);
         }
     }
 
@@ -2585,7 +2585,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     unsigned n = elements->dim;
 
     // unions might have different types for each literal
-    if (sd->llvmHasUnions) {
+    if (sd->irStruct->hasUnions) {
         // build the type of the literal
         std::vector<const llvm::Type*> tys;
         for (unsigned i=0; i<n; ++i) {

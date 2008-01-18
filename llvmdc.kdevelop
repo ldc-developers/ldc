@@ -602,6 +602,9 @@
         <default/>
       </environments>
     </make>
+    <general>
+      <activedir>ir</activedir>
+    </general>
   </kdevcustomproject>
   <cppsupportpart>
     <filetemplates>

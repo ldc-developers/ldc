@@ -101,20 +101,10 @@ struct AggregateDeclaration : ScopeDsymbol
     Symbol *sinit;
     Symbol *toInitializer();
 
-    bool llvmInProgress;
-    llvm::GlobalVariable* llvmVtbl;
-    llvm::ConstantStruct* llvmConstVtbl;
-    llvm::GlobalVariable* llvmInit;
-    llvm::Constant* llvmConstInit;
-    llvm::GlobalVariable* llvmClass;
-    llvm::Constant* llvmConstClass;
-    bool llvmHasUnions;
-    DUnion* llvmUnion;
-    IrStruct* llvmIrStruct;
-    bool llvmClassDeclared;
-    bool llvmClassDefined;
-
     AggregateDeclaration *isAggregateDeclaration() { return this; }
+
+    // llvmdc
+    IrStruct* irStruct;
 };
 
 struct AnonymousAggregateDeclaration : AggregateDeclaration
