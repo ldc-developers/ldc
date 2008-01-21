@@ -250,6 +250,16 @@ lphobos/typeinfos1.d
 lphobos/typeinfos2.d
 premake.lua
 runalltests.d
+suite
+suite/dwarfdebug
+suite/dwarfdebug/dwarf1
+suite/dwarfdebug/dwarf1/app.d
+suite/dwarfdebug/dwarf1/build.sh
+suite/dwarfdebug/dwarf1/lib.d
+suite/dwarfdebug/dwarf2
+suite/dwarfdebug/dwarf2/app.d
+suite/dwarfdebug/dwarf2/build.sh
+suite/dwarfdebug/dwarf2/lib.d
 tango
 tango/lib
 tango/lib/common
@@ -759,6 +769,7 @@ tangotests/q.d
 tangotests/r.d
 tangotests/s.d
 tangotests/t.d
+tangotests/u.d
 test
 test/a.d
 test/aa1.d

@@ -11,6 +11,8 @@
 #include "gen/tollvm.h"
 #include "gen/logger.h"
 
+#include "ir/irmodule.h"
+
 using namespace llvm::dwarf;
 
 static const llvm::PointerType* ptrTy(const llvm::Type* t)
@@ -110,27 +112,40 @@ const llvm::StructType* GetDwarfSubProgramType() {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m, bool define)
+llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
 {
-    llvm::Constant* c = NULL;
-    if (1 || define) {
-        std::vector<llvm::Constant*> vals;
-        vals.push_back(llvm::ConstantExpr::getAdd(
-            DtoConstUint(DW_TAG_compile_unit),
-            DtoConstUint(llvm::LLVMDebugVersion)));
-        vals.push_back(dbgToArrTy(GetDwarfAnchor(DW_TAG_compile_unit)));
-
-        vals.push_back(DtoConstUint(DW_LANG_C));// _D)); // doesn't seem to work
-        vals.push_back(DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata"));
-        std::string srcpath(FileName::path(m->srcfile->name->toChars()));
-        //srcpath.append("/");
-        vals.push_back(DtoConstStringPtr(srcpath.c_str(), "llvm.metadata"));
-        vals.push_back(DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata"));
-
-        c = llvm::ConstantStruct::get(GetDwarfCompileUnitType(), vals);
+    if (!m->irModule)
+        m->irModule = new IrModule(m);
+    else if (m->irModule->dwarfCompileUnit)
+    {
+        if (m->irModule->dwarfCompileUnit->getParent() == gIR->module)
+            return m->irModule->dwarfCompileUnit;
     }
+
+    // create a valid compile unit constant for the current module
+
+    llvm::Constant* c = NULL;
+
+    std::vector<llvm::Constant*> vals;
+    vals.push_back(llvm::ConstantExpr::getAdd(
+        DtoConstUint(DW_TAG_compile_unit),
+        DtoConstUint(llvm::LLVMDebugVersion)));
+    vals.push_back(dbgToArrTy(GetDwarfAnchor(DW_TAG_compile_unit)));
+
+    vals.push_back(DtoConstUint(DW_LANG_C));// _D)); // doesn't seem to work
+    vals.push_back(DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata"));
+    std::string srcpath(FileName::path(m->srcfile->name->toChars()));
+    if (srcpath.empty())
+        srcpath = ".";
+    vals.push_back(DtoConstStringPtr(srcpath.c_str(), "llvm.metadata"));
+    vals.push_back(DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata"));
+
+    c = llvm::ConstantStruct::get(GetDwarfCompileUnitType(), vals);
+
     llvm::GlobalVariable* gv = new llvm::GlobalVariable(GetDwarfCompileUnitType(), true, llvm::GlobalValue::InternalLinkage, c, "llvm.dbg.compile_unit", gIR->module);
     gv->setSection("llvm.metadata");
+
+    m->irModule->dwarfCompileUnit = gv;
     return gv;
 }
 
@@ -181,7 +196,7 @@ void DtoDwarfStopPoint(unsigned ln)
     std::vector<llvm::Value*> args;
     args.push_back(DtoConstUint(ln));
     args.push_back(DtoConstUint(0));
-    assert(gIR->dmodule->llvmCompileUnit);
-    args.push_back(dbgToArrTy(gIR->dmodule->llvmCompileUnit));
+    FuncDeclaration* fd = gIR->func()->decl;
+    args.push_back(dbgToArrTy(DtoDwarfCompileUnit(fd->getModule())));
     gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.stoppoint"), args.begin(), args.end());
 }

@@ -23,7 +23,6 @@ private import  tango.io.Buffer,
 version (Posix)
          private import tango.stdc.posix.unistd;  // needed for isatty()
 
-private extern(C) int printf(char*, ...);
 
 /*******************************************************************************
 
@@ -70,7 +69,6 @@ struct Console
 
                 private this (Conduit conduit, bool redirected)
                 {
-                        printf("Console.Input.this(%p, %d)\n", conduit, redirected);
                         assert (conduit);
                         redirect = redirected;
                         buffer = new Buffer (conduit);
@@ -599,7 +597,6 @@ struct Console
 
                         private this (Handle handle)
                         {
-                                printf("Console.Conduit.this(%d)\n", handle);
                                 reopen (handle);
                                 redirected = (isatty(handle) is 0);
                         }
@@ -627,18 +624,12 @@ static Console.Output   Cout,                   /// the standard output stream
 
 static this ()
 {
-        printf("STATIC INIT FOR CONSOLE\n");
-        printf("Cin conduit\n");
         auto conduit = new Console.Conduit (0);
-        assert(conduit);
-        printf("Cin input\n");
         Cin  = new Console.Input (conduit, conduit.redirected);
 
-        printf("Cout\n");
         conduit = new Console.Conduit (1);
         Cout = new Console.Output (conduit, conduit.redirected);
 
-        printf("Cerr\n");
         conduit = new Console.Conduit (2);
         Cerr = new Console.Output (conduit, conduit.redirected);
 }

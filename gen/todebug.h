@@ -7,7 +7,7 @@ const llvm::StructType* GetDwarfAnchorType();
 const llvm::StructType* GetDwarfCompileUnitType();
 const llvm::StructType* GetDwarfSubProgramType();
 
-llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m, bool define);
+llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m);
 llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit);
 
 void DtoDwarfFuncStart(FuncDeclaration* fd);

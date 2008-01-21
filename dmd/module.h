@@ -29,7 +29,7 @@ struct VarDeclaration;
 #if IN_LLVM
 struct DValue;
 typedef DValue elem;
-namespace llvm { class GlobalVariable; }
+struct IrModule;
 #else
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
@@ -169,7 +169,7 @@ struct Module : Package
     void genmoduleinfo();
 
     // LLVMDC
-    llvm::GlobalVariable* llvmCompileUnit;
+    IrModule* irModule;
 
     Module *isModule() { return this; }
 };

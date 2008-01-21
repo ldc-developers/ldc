@@ -42,6 +42,7 @@
 #include "gen/runtime.h"
 
 #include "ir/irvar.h"
+#include "ir/irmodule.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -59,9 +60,14 @@ void Module::genobjfile()
     deleteObjFile();
 
     // create a new ir state
+    // TODO look at making the instance static and moving most functionality into IrModule where it belongs
     IRState ir;
     gIR = &ir;
     ir.dmodule = this;
+
+    // module ir state
+    // might already exist via import, just overwrite...
+    irModule = new IrModule(this);
 
     // name the module
     std::string mname(toChars());
@@ -88,7 +94,7 @@ void Module::genobjfile()
     // debug info
     if (global.params.symdebug) {
         RegisterDwarfSymbols(ir.module);
-        ir.dmodule->llvmCompileUnit = DtoDwarfCompileUnit(this,true);
+        DtoDwarfCompileUnit(this);
     }
 
     // start out by providing opaque for the built-in class types

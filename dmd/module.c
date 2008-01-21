@@ -162,7 +162,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     symfile = new File(symfilename);
 
     // LLVMDC
-    llvmCompileUnit = 0;
+    irModule = NULL;
 }
 
 void Module::setDocfile()

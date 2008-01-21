@@ -11,6 +11,8 @@ struct IrModule : IrBase
     virtual ~IrModule();
 
     Module* M;
+
+    llvm::GlobalVariable* dwarfCompileUnit;
 };
 
 #endif

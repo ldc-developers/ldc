@@ -1,5 +1,5 @@
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -68,10 +68,10 @@ Global::Global()
 #error "fix this"
 #endif
 
-    copyright = "Copyright (c) 1999-2007 by Digital Mars and Tomas Lindquist Olsen";
+    copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     llvmdc_version = "0.1";
-    version = "v1.025";
+    version = "v1.026";
     global.structalign = 8;
 
     memset(&params, 0, sizeof(Param));
@@ -823,7 +823,6 @@ int main(int argc, char *argv[])
 		continue;
 	    }
 
-#if !IN_LLVM
 #if TARGET_LINUX
 	    if (strcmp(ext, "a") == 0)
 #else
@@ -833,7 +832,6 @@ int main(int argc, char *argv[])
 		global.params.libfiles->push(files.data[i]);
 		continue;
 	    }
-#endif
 
 	    if (strcmp(ext, global.ddoc_ext) == 0)
 	    {

@@ -518,7 +518,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 	    {
 		// BUG: should check that argument to ref is type 'invariant'
 		// BUG: assignments to ref should also be type 'invariant'
-		arg = arg->modifiableLvalue(sc, NULL);
+		arg = arg->modifiableLvalue(sc, arg);
 
 		//if (arg->op == TOKslice)
 		    //arg->error("cannot modify slice %s", arg->toChars());
@@ -4357,7 +4357,7 @@ Expression *BinExp::commonSemanticAssign(Scope *sc)
 	if (e)
 	    return e;
 
-	e1 = e1->modifiableLvalue(sc, NULL);
+	e1 = e1->modifiableLvalue(sc, e1);
 	e1->checkScalar();
 	type = e1->type;
 	if (type->toBasetype()->ty == Tbool)
@@ -4388,7 +4388,7 @@ Expression *BinExp::commonSemanticAssignIntegral(Scope *sc)
 	if (e)
 	    return e;
 
-	e1 = e1->modifiableLvalue(sc, NULL);
+	e1 = e1->modifiableLvalue(sc, e1);
 	e1->checkScalar();
 	type = e1->type;
 	if (type->toBasetype()->ty == Tbool)
@@ -6874,7 +6874,7 @@ Expression *PostExp::semantic(Scope *sc)
 	    return e;
 
 	e = this;
-	e1 = e1->modifiableLvalue(sc, NULL);
+	e1 = e1->modifiableLvalue(sc, e1);
 	e1->checkScalar();
 	e1->checkNoBool();
 	if (e1->type->ty == Tpointer)
@@ -7060,7 +7060,7 @@ Expression *AssignExp::semantic(Scope *sc)
 	// e1 is not an lvalue, but we let code generator handle it
 	ArrayLengthExp *ale = (ArrayLengthExp *)e1;
 
-	ale->e1 = ale->e1->modifiableLvalue(sc, NULL);
+	ale->e1 = ale->e1->modifiableLvalue(sc, e1);
     }
     else if (e1->op == TOKslice)
 	;
@@ -7122,7 +7122,7 @@ Expression *AddAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
 
     Type *tb1 = e1->type->toBasetype();
     Type *tb2 = e2->type->toBasetype();
@@ -7222,7 +7222,7 @@ Expression *MinAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
     e1->checkScalar();
     e1->checkNoBool();
     if (e1->type->ty == Tpointer && e2->type->isintegral())
@@ -7267,7 +7267,7 @@ Expression *CatAssignExp::semantic(Scope *sc)
 	    error("cannot append to static array %s", se->e1->type->toChars());
     }
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
 
     Type *tb1 = e1->type->toBasetype();
     Type *tb2 = e2->type->toBasetype();
@@ -7316,7 +7316,7 @@ Expression *MulAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
     e1->checkScalar();
     e1->checkNoBool();
     type = e1->type;
@@ -7372,7 +7372,7 @@ Expression *DivAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
     e1->checkScalar();
     e1->checkNoBool();
     type = e1->type;
@@ -7443,7 +7443,7 @@ Expression *ShlAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
     e1->checkScalar();
     e1->checkNoBool();
     type = e1->type;
@@ -7472,7 +7472,7 @@ Expression *ShrAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
     e1->checkScalar();
     e1->checkNoBool();
     type = e1->type;
@@ -7501,7 +7501,7 @@ Expression *UshrAssignExp::semantic(Scope *sc)
     if (e)
 	return e;
 
-    e1 = e1->modifiableLvalue(sc, NULL);
+    e1 = e1->modifiableLvalue(sc, e1);
     e1->checkScalar();
     e1->checkNoBool();
     type = e1->type;

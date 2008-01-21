@@ -3973,6 +3973,15 @@ Expression *TypeTypedef::dotExp(Scope *sc, Expression *e, Identifier *ident)
     return sym->basetype->dotExp(sc, e, ident);
 }
 
+Expression *TypeTypedef::getProperty(Loc loc, Identifier *ident)
+{
+    if (ident == Id::init)
+    {
+	return Type::getProperty(loc, ident);
+    }
+    return sym->basetype->getProperty(loc, ident);
+}
+
 int TypeTypedef::isbit()
 {
     return sym->basetype->isbit();
@@ -4274,6 +4283,18 @@ L1:
         e = new DotTemplateExp(e->loc, e, td);
         e->semantic(sc);
 	return e;
+    }
+
+    TemplateInstance *ti = s->isTemplateInstance();
+    if (ti)
+    {	if (!ti->semanticdone)
+	    ti->semantic(sc);
+	s = ti->inst->toAlias();
+	if (!s->isTemplateInstance())
+	    goto L1;
+	Expression *de = new DotExp(e->loc, e, new ScopeExp(e->loc, ti));
+	de->type = e->type;
+	return de;
     }
 
     d = s->isDeclaration();
@@ -4644,6 +4665,18 @@ L1:
         e = new DotTemplateExp(e->loc, e, td);
         e->semantic(sc);
 	return e;
+    }
+
+    TemplateInstance *ti = s->isTemplateInstance();
+    if (ti)
+    {	if (!ti->semanticdone)
+	    ti->semantic(sc);
+	s = ti->inst->toAlias();
+	if (!s->isTemplateInstance())
+	    goto L1;
+	Expression *de = new DotExp(e->loc, e, new ScopeExp(e->loc, ti));
+	de->type = e->type;
+	return de;
     }
 
     d = s->isDeclaration();

@@ -25,7 +25,6 @@ public  import  tango.io.model.IBuffer,
 extern (C)
 {
         protected void * memcpy (void *dst, void *src, uint);
-        private int printf(char*, ...);
 }       
 
 /*******************************************************************************
@@ -164,18 +163,10 @@ class Buffer : IBuffer
 
         this (IConduit conduit)
         {
-                printf("Buffer.this(%p)\n", conduit);
-                printf("assert (conduit !is null);\n");
-                assert (conduit !is null);
-                printf("assert (conduit);\n", conduit);
                 assert (conduit);
 
-                printf("this (conduit.bufferSize(%p));\n", conduit);
-                printf("cast(Object)conduit = %p\n", cast(Object)conduit);
                 this (conduit.bufferSize);
                 setConduit (conduit);
-
-                assert(this !is null);
         }
 
         /***********************************************************************
@@ -230,7 +221,6 @@ class Buffer : IBuffer
 
         this (uint capacity = 0)
         {
-                printf("Buffer.this(%p, %u)\n", this, capacity);
                 setContent (new ubyte[capacity], 0);
                 assert(this !is null);
         }
@@ -551,7 +541,6 @@ class Buffer : IBuffer
 
         IBuffer append (void* src, uint length)
         {
-                printf("Buffer.append(%p, %u)\n", src, length);
                 if (length > writable)
                     // can we write externally?
                     if (sink)
@@ -571,9 +560,7 @@ class Buffer : IBuffer
                        }
                     else
                        error (overflow);
-                printf("  copying\n");
                 copy (src, length);
-                printf("returning\n");
                 return this;
         }
 
@@ -1097,7 +1084,6 @@ class Buffer : IBuffer
 
         protected void copy (void *src, uint size)
         {
-                printf("Buffer.copy(%p, %u)\n", src, size);
                 // avoid "out of bounds" test on zero size
                 if (size)
                    {
@@ -1105,7 +1091,6 @@ class Buffer : IBuffer
                    memcpy (&data[extent], src, size);
                    extent += size;
                    }
-                printf("  copy done\n");
         }
 
         /***********************************************************************
