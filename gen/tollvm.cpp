@@ -226,7 +226,7 @@ static llvm::Function* LLVM_DeclareMemIntrinsic(const char* name, int bits, bool
     pvec.push_back(bits==32?int32ty:int64ty);
     pvec.push_back(int32ty);
     llvm::FunctionType* functype = llvm::FunctionType::get(voidty, pvec, false);
-    return new llvm::Function(functype, llvm::GlobalValue::ExternalLinkage, name, gIR->module);
+    return llvm::cast<llvm::Function>(gIR->module->getOrInsertFunction(name, functype));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

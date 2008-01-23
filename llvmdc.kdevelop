@@ -169,9 +169,7 @@
       <synchronize>true</synchronize>
       <orientation>Vertical</orientation>
     </splitheadersource>
-    <references>
-      <pcs>LLVM</pcs>
-    </references>
+    <references/>
   </kdevcppsupport>
   <kdevcustomproject>
     <run>

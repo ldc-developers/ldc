@@ -4,8 +4,6 @@ demos
 demos/gl.d
 demos/glfuncs.d
 demos/gltypes.d
-demos/lib.d
-demos/libtest1.d
 demos/qd.d
 demos/qd1.d
 demos/ray.d
@@ -174,7 +172,6 @@ lphobos/llvm
 lphobos/llvm/intrinsic.d
 lphobos/llvm/va_list.d
 lphobos/llvmsupport.d
-lphobos/obj
 lphobos/object.d
 lphobos/phobos.d
 lphobos/std
@@ -196,7 +193,6 @@ lphobos/std/c/stdio.d
 lphobos/std/c/stdlib.d
 lphobos/std/c/string.d
 lphobos/std/c/time.d
-lphobos/std/compiler.d
 lphobos/std/conv.d
 lphobos/std/ctype.d
 lphobos/std/format.d
@@ -770,7 +766,6 @@ tangotests/q.d
 tangotests/r.d
 tangotests/s.d
 tangotests/t.d
-tangotests/u.d
 test
 test/a.d
 test/aa1.d
@@ -923,7 +918,6 @@ test/funcptr.d
 test/funcs.d
 test/funcs2.d
 test/g.d
-test/gc1.d
 test/globals1.d
 test/globals2.d
 test/goto1.d
