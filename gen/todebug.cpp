@@ -135,8 +135,11 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
     vals.push_back(DtoConstUint(DW_LANG_C));// _D)); // doesn't seem to work
     vals.push_back(DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata"));
     std::string srcpath(FileName::path(m->srcfile->name->toChars()));
-    if (srcpath.empty())
-        srcpath = ".";
+    if (srcpath.empty()) {
+        const char* str = get_current_dir_name();
+        assert(str != NULL);
+        srcpath = str;
+    }
     vals.push_back(DtoConstStringPtr(srcpath.c_str(), "llvm.metadata"));
     vals.push_back(DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata"));
 

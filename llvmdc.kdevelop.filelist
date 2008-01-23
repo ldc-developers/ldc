@@ -140,6 +140,7 @@ gen/typeinf.h
 gen/typinf.cpp
 ir
 ir/ir.h
+ir/irforw.h
 ir/irfunction.cpp
 ir/irfunction.h
 ir/irmodule.cpp
