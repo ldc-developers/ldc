@@ -732,7 +732,7 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
         else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
         {
             size_t idx = 2;
-            idx += cd->irStruct->interfaces.size();
+            //idx += cd->irStruct->interfaceVec.size();
             v = DtoGEPi(v,0,idx,"tmp");
             v = DtoLoad(v);
         }

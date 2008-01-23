@@ -42,18 +42,12 @@ struct IrStruct : IrBase
         : var(v), type(ty), init(NULL) {}
     };
 
-    struct InterCmp
-    {
-        bool operator()(ClassDeclaration* lhs, ClassDeclaration* rhs) const
-        {
-            return strcmp(lhs->toPrettyChars(), rhs->toPrettyChars()) < 0;
-        }
-    };
-
     typedef std::multimap<unsigned, Offset> OffsetMap;
     typedef std::vector<VarDeclaration*> VarDeclVector;
-    typedef std::map<ClassDeclaration*, IrInterface*, InterCmp> InterfaceMap;
-    typedef InterfaceMap::iterator InterfaceIter;
+    typedef std::map<ClassDeclaration*, IrInterface*> InterfaceMap;
+    typedef InterfaceMap::iterator InterfaceMapIter;
+    typedef std::vector<IrInterface*> InterfaceVector;
+    typedef InterfaceVector::iterator InterfaceVectorIter;
 
 public:
     IrStruct(Type*);
@@ -64,7 +58,8 @@ public:
     OffsetMap offsets;
     VarDeclVector defaultFields;
 
-    InterfaceMap interfaces;
+    InterfaceMap interfaceMap;
+    InterfaceVector interfaceVec;
     const llvm::ArrayType* interfaceInfosTy;
     llvm::GlobalVariable* interfaceInfos;
 
