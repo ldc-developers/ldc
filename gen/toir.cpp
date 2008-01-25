@@ -2173,19 +2173,20 @@ DValue* DelegateExp::toElem(IRState* p)
     Logger::print("DelegateExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    DValue* u = e1->toElem(p);
-
     const llvm::PointerType* int8ptrty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* lval;
+    bool inplace = false;
     if (p->topexp() && p->topexp()->e2 == this) {
         assert(p->topexp()->v);
         lval = p->topexp()->v->getLVal();
+        inplace = true;
     }
     else {
         lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
     }
 
+    DValue* u = e1->toElem(p);
     llvm::Value* uval;
     if (DFuncValue* f = u->isFunc()) {
         //assert(f->vthis);
@@ -2197,8 +2198,20 @@ DValue* DelegateExp::toElem(IRState* p)
             uval = llvm::ConstantPointerNull::get(int8ptrty);
     }
     else {
-        uval = u->getRVal();
+        DValue* src = u;
+        if (ClassDeclaration* cd = u->getType()->isClassHandle())
+        {
+            Logger::println("context type is class handle");
+            if (cd->isInterfaceDeclaration())
+            {
+                Logger::println("context type is interface");
+                src = DtoCastInterfaceToObject(u, ClassDeclaration::object->type);
+            }
+        }
+        uval = src->getRVal();
     }
+
+    Logger::cout() << "context = " << *uval << '\n';
 
     llvm::Value* context = DtoGEPi(lval,0,0,"tmp");
     llvm::Value* castcontext = DtoBitCast(uval, int8ptrty);
@@ -2221,7 +2234,7 @@ DValue* DelegateExp::toElem(IRState* p)
     castfptr = DtoBitCast(castfptr, fptr->getType()->getContainedType(0));
     DtoStore(castfptr, fptr);
 
-    return new DVarValue(type, lval, true);
+    return new DImValue(type, lval, inplace);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

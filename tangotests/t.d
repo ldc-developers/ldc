@@ -1,33 +1,34 @@
 interface MyInterface
 {
-    void func();
+    int func();
 }
 
-abstract class MyBaseClass : MyInterface
+class MyClass : MyInterface
 {
-    abstract void func();
+    int var;
+    int func()
+    {
+        return var;
+    }
 }
 
-class MyClass : MyBaseClass
+void func1(MyInterface i)
 {
-    void func()
-    {
-    }
+    int delegate() dg = &i.func;
+    func2(dg);
+}
 
-    MyBaseClass toBase()
-    {
-        return this;
-    }
+extern(C) int printf(char*, ...);
+
+void func2(int delegate() dg)
+{
+    int i = dg();
+    printf("%d\n", i);
 }
 
 void main()
 {
-    printf("STARTING\n");
     auto c = new MyClass;
-    printf("c = %p\n", c);
-    auto b = c.toBase;
-    printf("b = %p\n", b);
-    printf("FINISHED\n");
+    c.var = 42;
+    func1(c);
 }
-
-extern(C) int printf(char*, ...);

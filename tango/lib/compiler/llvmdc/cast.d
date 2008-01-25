@@ -27,7 +27,7 @@
 
 extern (C):
 
-debug = PRINTF;
+//debug = PRINTF;
 debug(PRINTF) int printf(char*, ...);
 
 /******************************************

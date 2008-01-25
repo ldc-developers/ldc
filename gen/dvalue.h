@@ -69,7 +69,7 @@ struct DImValue : DValue
     llvm::Value* val;
     bool inplace;
 
-    DImValue(Type* t, llvm::Value* v, bool i = false) { type = t; val = v; inplace = i; }
+    DImValue(Type* t, llvm::Value* v, bool in_place = false) { type = t; val = v; inplace = in_place; }
 
     virtual llvm::Value* getRVal() { assert(val); return val; }
 
