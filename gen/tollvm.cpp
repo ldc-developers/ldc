@@ -346,13 +346,16 @@ llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
 
 llvm::GlobalValue::LinkageTypes DtoLinkage(PROT prot, uint stc)
 {
+    // turns out we can't really make anything internal with the way D works :(
+    // the things we can need much more info than this can extract.
+    // TODO : remove this useless function
     switch(prot)
     {
     case PROTprivate:
-        if (stc & STCextern)
+        //if (stc & STCextern)
             return llvm::GlobalValue::ExternalLinkage;
-        else
-            return llvm::GlobalValue::InternalLinkage;
+        //else
+        //    return llvm::GlobalValue::InternalLinkage;
 
     case PROTpublic:
     case PROTpackage:
@@ -902,7 +905,12 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         }
     }
     else if (t->ty == Tsarray) {
-        DtoStaticArrayCopy(lhs->getLVal(), rhs->getRVal());
+        if (DtoType(lhs->getType()) == DtoType(rhs->getType())) {
+            DtoStaticArrayCopy(lhs->getLVal(), rhs->getRVal());
+        }
+        else {
+            DtoArrayInit(lhs->getLVal(), rhs->getRVal());
+        }
     }
     else if (t->ty == Tdelegate) {
         if (rhs->isNull())

@@ -153,19 +153,25 @@ DValue* VarExp::toElem(IRState* p)
         if (vd->ident == Id::_arguments)
         {
             Logger::println("Id::_arguments");
-            if (!vd->getIrValue())
+            /*if (!vd->getIrValue())
                 vd->getIrValue() = p->func()->decl->irFunc->_arguments;
             assert(vd->getIrValue());
-            return new DVarValue(vd, vd->getIrValue(), true);
+            return new DVarValue(vd, vd->getIrValue(), true);*/
+            llvm::Value* v = p->func()->decl->irFunc->_arguments;
+            assert(v);
+            return new DVarValue(vd, v, true);
         }
         // _argptr
         else if (vd->ident == Id::_argptr)
         {
             Logger::println("Id::_argptr");
-            if (!vd->getIrValue())
+            /*if (!vd->getIrValue())
                 vd->getIrValue() = p->func()->decl->irFunc->_argptr;
             assert(vd->getIrValue());
-            return new DVarValue(vd, vd->getIrValue(), true);
+            return new DVarValue(vd, vd->getIrValue(), true);*/
+            llvm::Value* v = p->func()->decl->irFunc->_argptr;
+            assert(v);
+            return new DVarValue(vd, v, true);
         }
         // _dollar
         else if (vd->ident == Id::dollar)
@@ -1048,9 +1054,14 @@ DValue* CallExp::toElem(IRState* p)
             std::vector<const llvm::Type*> vtypes;
             std::vector<llvm::Value*> vtypeinfos;
 
+            // number of non variadic args
+            int begin = tf->parameters->dim;
+            Logger::println("num non vararg params = %d", begin);
+
             // build struct with argument types
-            for (int i=0; i<arguments->dim; i++)
+            for (int i=begin; i<arguments->dim; i++)
             {
+                Argument* argu = Argument::getNth(tf->parameters, i);
                 Expression* argexp = (Expression*)arguments->data[i];
                 vtypes.push_back(DtoType(argexp->type));
             }
@@ -1059,30 +1070,30 @@ DValue* CallExp::toElem(IRState* p)
             llvm::Value* mem = new llvm::AllocaInst(vtype,"_argptr_storage",p->topallocapoint());
 
             // store arguments in the struct
-            for (int i=0; i<arguments->dim; i++)
+            for (int i=begin,k=0; i<arguments->dim; i++,k++)
             {
                 Expression* argexp = (Expression*)arguments->data[i];
                 if (global.params.llvmAnnotate)
                     DtoAnnotation(argexp->toChars());
-                DtoVariadicArgument(argexp, DtoGEPi(mem,0,i,"tmp"));
+                DtoVariadicArgument(argexp, DtoGEPi(mem,0,k,"tmp"));
             }
 
             // build type info array
             assert(Type::typeinfo->irStruct->constInit);
-            const llvm::Type* typeinfotype = getPtrToType(Type::typeinfo->irStruct->constInit->getType());
-            Logger::cout() << "typeinfo ptr type: " << *typeinfotype << '\n';
+            const llvm::Type* typeinfotype = DtoType(Type::typeinfo->type);
             const llvm::ArrayType* typeinfoarraytype = llvm::ArrayType::get(typeinfotype,vtype->getNumElements());
 
             llvm::Value* typeinfomem = new llvm::AllocaInst(typeinfoarraytype,"_arguments_storage",p->topallocapoint());
-            for (int i=0; i<arguments->dim; i++)
+            Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
+            for (int i=begin,k=0; i<arguments->dim; i++,k++)
             {
                 Expression* argexp = (Expression*)arguments->data[i];
                 TypeInfoDeclaration* tidecl = argexp->type->getTypeInfoDeclaration();
                 DtoForceDeclareDsymbol(tidecl);
                 assert(tidecl->getIrValue());
                 vtypeinfos.push_back(tidecl->getIrValue());
-                llvm::Value* v = p->ir->CreateBitCast(vtypeinfos[i], typeinfotype, "tmp");
-                p->ir->CreateStore(v, DtoGEPi(typeinfomem,0,i,"tmp"));
+                llvm::Value* v = p->ir->CreateBitCast(vtypeinfos[k], typeinfotype, "tmp");
+                p->ir->CreateStore(v, DtoGEPi(typeinfomem,0,k,"tmp"));
             }
 
             // put data in d-array
@@ -1096,7 +1107,18 @@ DValue* CallExp::toElem(IRState* p)
             j++;
             llargs[j] = p->ir->CreateBitCast(mem, getPtrToType(llvm::Type::Int8Ty), "tmp");
             j++;
-            llargs.resize(nimplicit+2);
+
+            // pass non variadic args
+            for (int i=0; i<begin; i++)
+            {
+                Argument* fnarg = Argument::getNth(tf->parameters, i);
+                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                llargs[j] = argval->getRVal();
+                j++;
+            }
+
+            // make sure arg vector has the right size
+            llargs.resize(nimplicit+begin+2);
         }
         // normal function
         else {
@@ -1122,20 +1144,23 @@ DValue* CallExp::toElem(IRState* p)
                     }
                 }
             }
-            Logger::println("%d params passed", n);
-            for (int i=0; i<n; ++i) {
-                assert(llargs[i]);
-                Logger::cout() << *llargs[i] << '\n';
-            }
         }
     }
+
+    #if 1
+    Logger::println("%d params passed", n);
+    for (int i=0; i<llargs.size(); ++i) {
+        assert(llargs[i]);
+        Logger::cout() << "arg["<<i<<"] = " << *llargs[i] << '\n';
+    }
+    #endif
 
     // void returns cannot not be named
     const char* varname = "";
     if (llfnty->getReturnType() != llvm::Type::VoidTy)
         varname = "tmp";
 
-    //Logger::cout() << "Calling: " << *funcval << '\n';
+    Logger::cout() << "Calling: " << *funcval << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
@@ -2263,6 +2288,11 @@ DValue* IdentityExp::toElem(IRState* p)
         }
         eval = DtoDynArrayIs(op,l,r);
     }
+    else if (t1->isfloating())
+    {
+        llvm::FCmpInst::Predicate pred = (op == TOKidentity) ? llvm::FCmpInst::FCMP_OEQ : llvm::FCmpInst::FCMP_ONE;
+        eval = new llvm::FCmpInst(pred, l, r, "tmp", p->scopebb());
+    }
     else {
         llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
         if (t1->ty == Tpointer && v->isNull() && l->getType() != r->getType()) {
@@ -2283,6 +2313,7 @@ DValue* CommaExp::toElem(IRState* p)
 
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
+    assert(e2->type == type);
     return v;
 }
 
@@ -2991,7 +3022,9 @@ AsmStatement::AsmStatement(Loc loc, Token *tokens) :
 }
 Statement *AsmStatement::syntaxCopy()
 {
-    assert(0);
+    /*error("%s: inline asm is not yet implemented", loc.toChars());
+    fatal();
+    assert(0);*/
     return 0;
 }
 
@@ -3008,7 +3041,9 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 int AsmStatement::comeFrom()
 {
-    assert(0);
+    /*error("%s: inline asm is not yet implemented", loc.toChars());
+    fatal();
+    assert(0);*/
     return 0;
 }
 

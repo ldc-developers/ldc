@@ -44,6 +44,12 @@ version (DigitalMars)
         alias void* Arg;
         alias void* ArgList;
         }
+else version(LLVMDC)
+        {
+        private import tango.core.Vararg;
+        alias void* Arg;
+        alias va_list ArgList;
+        }
      else
         version (X86_64)
                 {
@@ -617,7 +623,7 @@ class Layout(T)
 
         protected T[] unknown (T[] result, T[] format, TypeInfo type, Arg p)
         {
-                return "{unhandled argument type: " ~ fromUtf8 (type.toString, result) ~ "}";
+                return cast(T[])("{unhandled argument type: " ~ fromUtf8 (type.toString, result) ~ "}");
         }
 
         /**********************************************************************

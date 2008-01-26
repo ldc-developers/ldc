@@ -13,6 +13,22 @@ version( GNU )
 {
     public import std.c.stdarg;
 }
+else version( LLVMDC )
+{
+    alias void* va_list;
+
+    pragma(LLVM_internal, "va_start")
+        void va_start(T)(va_list ap, ref T);
+
+    pragma(LLVM_internal, "va_arg")
+        T va_arg(T)(va_list ap);
+
+    pragma(LLVM_internal, "va_intrinsic", "llvm.va_end")
+        void va_end(va_list args);
+
+    pragma(LLVM_internal, "va_intrinsic", "llvm.va_copy")
+        void va_copy(va_list dst, va_list src);
+}
 else
 {
     alias void* va_list;

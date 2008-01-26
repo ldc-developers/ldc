@@ -15,6 +15,33 @@ version( GNU )
 {
     public import std.stdarg;
 }
+else version( LLVMDC )
+{
+    /**
+     * The base vararg list type.
+     */
+    alias void* va_list;
+
+    /**
+     * This function returns the next argument in the sequence referenced by
+     * the supplied argument pointer.  The argument pointer will be adjusted
+     * to point to the next arggument in the sequence.
+     *
+     * Params:
+     *  vp  = The argument pointer.
+     *
+     * Returns:
+     *  The next argument in the sequence.  The result is undefined if vp
+     *  does not point to a valid argument.
+     */
+    T va_arg(T)(ref va_list vp)
+    {
+        size_t size = T.sizeof > size_t.sizeof ? size_t.sizeof : T.sizeof;
+        va_list vptmp = cast(va_list)((cast(size_t)vp + size - 1) &  ~(size - 1));
+        vp = vptmp + T.sizeof;
+        return *cast(T*)vptmp;
+    }
+}
 else
 {
     /**

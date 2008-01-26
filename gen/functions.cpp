@@ -321,7 +321,12 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     bool declareOnly = false;
     bool templInst = fdecl->parent && DtoIsTemplateInstance(fdecl->parent);
     if (!templInst && fdecl->getModule() != gIR->dmodule)
+    {
+        Logger::println("not template instance, and not in this module. declare only!");
+        Logger::println("current module: %s", gIR->dmodule->ident->toChars());
+        Logger::println("func module: %s", fdecl->getModule()->ident->toChars());
         declareOnly = true;
+    }
     else if (fdecl->llvmInternal == LLVMva_start)
         declareOnly = true;
 
@@ -548,11 +553,15 @@ void DtoDefineFunc(FuncDeclaration* fd)
                     }
                     for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
                         VarDeclaration* vd = *i;
+                        Logger::println("referenced nested variable %s", vd->toChars());
                         if (!vd->irLocal)
                             vd->irLocal = new IrLocal(vd);
                         vd->irLocal->nestedIndex = j++;
                         if (vd->isParameter()) {
-                            
+                            if (!vd->irLocal->value) {
+                                assert(vd == fd->vthis);
+                                vd->irLocal->value = fd->irFunc->thisVar;
+                            }
                             assert(vd->irLocal->value);
                             nestTypes.push_back(vd->irLocal->value->getType());
                         }

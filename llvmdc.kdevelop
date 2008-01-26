@@ -601,7 +601,7 @@
       </environments>
     </make>
     <general>
-      <activedir>ir</activedir>
+      <activedir>tangotests</activedir>
     </general>
   </kdevcustomproject>
   <cppsupportpart>

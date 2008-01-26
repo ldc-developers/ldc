@@ -52,13 +52,7 @@ void ReturnStatement::toIR(IRState* p)
 
     if (exp)
     {
-        Logger::println("return type is: %s", exp->type->toChars());
-
-        Type* exptype = DtoDType(exp->type);
-        TY expty = exptype->ty;
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
-            assert(DtoIsPassedByRef(exptype));
-
             IrFunction* f = p->func();
             assert(f->type->llvmRetInPtr);
             assert(f->decl->irFunc->retArg);
@@ -320,6 +314,7 @@ void ForStatement::toIR(IRState* p)
     init->toIR(p);
 
     // move into the for condition block, ie. start the loop
+    assert(!gIR->scopereturned());
     new llvm::BranchInst(forbb, gIR->scopebb());
 
     p->loopbbs.push_back(IRScope(forincbb,endbb));
@@ -333,7 +328,8 @@ void ForStatement::toIR(IRState* p)
     delete cond_e;
 
     // conditional branch
-    llvm::Value* ifbreak = new llvm::BranchInst(forbodybb, endbb, cond_val, forbb);
+    assert(!gIR->scopereturned());
+    new llvm::BranchInst(forbodybb, endbb, cond_val, gIR->scopebb());
 
     // rewrite scope
     gIR->scope() = IRScope(forbodybb,forincbb);
@@ -674,6 +670,7 @@ void SwitchStatement::toIR(IRState* p)
     llvm::BasicBlock* defbb = 0;
     if (!hasNoDefault) {
         defbb = new llvm::BasicBlock("default", p->topfunc(), oldend);
+        defaultBB = defbb;
     }
 
     // end (break point)
@@ -982,6 +979,22 @@ void GotoStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void GotoDefaultStatement::toIR(IRState* p)
+{
+    Logger::println("GotoDefaultStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = new llvm::BasicBlock("aftergotodefault", p->topfunc(), oldend);
+
+    assert(!p->scopereturned());
+    assert(sw->defaultBB);
+    new llvm::BranchInst(sw->defaultBB, p->scopebb());
+    p->scope() = IRScope(bb,oldend);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void WithStatement::toIR(IRState* p)
 {
     Logger::println("WithStatement::toIR(): %s", loc.toChars());
@@ -1085,7 +1098,7 @@ STUBST(Statement);
 //STUBST(LabelStatement);
 //STUBST(ThrowStatement);
 STUBST(GotoCaseStatement);
-STUBST(GotoDefaultStatement);
+//STUBST(GotoDefaultStatement);
 //STUBST(GotoStatement);
 //STUBST(UnrolledLoopStatement);
 //STUBST(OnScopeStatement);

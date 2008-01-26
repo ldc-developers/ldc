@@ -416,6 +416,9 @@ struct SwitchStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
+
+    // LLVMDC
+    llvm::BasicBlock* defaultBB;
 };
 
 struct CaseStatement : Statement

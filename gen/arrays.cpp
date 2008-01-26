@@ -446,6 +446,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 //////////////////////////////////////////////////////////////////////////////////////////
 void DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src)
 {
+    Logger::cout() << "static array copy: " << *dst << " from " << *src << '\n';
     assert(dst->getType() == src->getType());
     size_t arrsz = getABITypeSize(dst->getType()->getContainedType(0));
     llvm::Value* n = llvm::ConstantInt::get(DtoSize_t(), arrsz, false);

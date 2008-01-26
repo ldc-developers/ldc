@@ -1955,6 +1955,8 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b)
     sdefault = NULL;
     cases = NULL;
     hasNoDefault = 0;
+    // LLVMDC
+    defaultBB = NULL;
 }
 
 Statement *SwitchStatement::syntaxCopy()
