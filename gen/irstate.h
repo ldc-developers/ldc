@@ -23,6 +23,7 @@ struct FuncDeclaration;
 struct Module;
 struct TypeStruct;
 struct BaseClass;
+struct TryFinallyStatement;
 
 // represents a scope
 struct IRScope
@@ -33,6 +34,18 @@ struct IRScope
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
+};
+
+// scope for loops
+struct IRLoopScope : IRScope
+{
+    // generating statement
+    Statement* s;
+    // the try of a TryFinally that encloses the loop
+    TryFinallyStatement* enclosingtry;
+
+    IRLoopScope();
+    IRLoopScope(Statement* s, TryFinallyStatement* enclosingtry, llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
 struct IRBuilderHelper
@@ -95,7 +108,8 @@ struct IRState
 
     // loop blocks
     typedef std::vector<IRScope> BBVec;
-    BBVec loopbbs;
+    typedef std::vector<IRLoopScope> LoopScopeVec;
+    LoopScopeVec loopbbs;
 
     // this holds the array being indexed or sliced so $ will work
     // might be a better way but it works. problem is I only get a

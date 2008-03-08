@@ -44,9 +44,11 @@ struct AsmStatement;
 struct GotoStatement;
 struct ScopeStatement;
 struct TryCatchStatement;
+struct TryFinallyStatement;
 struct HdrGenState;
 struct InterState;
 struct CaseStatement;
+struct LabelStatement;
 
 enum TOK;
 
@@ -191,6 +193,7 @@ struct CompoundStatement : Statement
 struct UnrolledLoopStatement : Statement
 {
     Statements *statements;
+    TryFinallyStatement *enclosingtry;
 
     UnrolledLoopStatement(Loc loc, Statements *statements);
     Statement *syntaxCopy();
@@ -235,6 +238,7 @@ struct WhileStatement : Statement
 {
     Expression *condition;
     Statement *body;
+    TryFinallyStatement *enclosingtry;
 
     WhileStatement(Loc loc, Expression *c, Statement *b);
     Statement *syntaxCopy();
@@ -256,6 +260,7 @@ struct DoStatement : Statement
 {
     Statement *body;
     Expression *condition;
+    TryFinallyStatement *enclosingtry;
 
     DoStatement(Loc loc, Statement *b, Expression *c);
     Statement *syntaxCopy();
@@ -279,6 +284,7 @@ struct ForStatement : Statement
     Expression *condition;
     Expression *increment;
     Statement *body;
+    TryFinallyStatement *enclosingtry;
 
     ForStatement(Loc loc, Statement *init, Expression *condition, Expression *increment, Statement *body);
     Statement *syntaxCopy();
@@ -303,6 +309,7 @@ struct ForeachStatement : Statement
     Arguments *arguments;	// array of Argument*'s
     Expression *aggr;
     Statement *body;
+    TryFinallyStatement *enclosingtry;
 
     VarDeclaration *key;
     VarDeclaration *value;
@@ -399,6 +406,7 @@ struct SwitchStatement : Statement
     Expression *condition;
     Statement *body;
     DefaultStatement *sdefault;
+    TryFinallyStatement *enclosingtry;
 
     Array gotoCases;		// array of unresolved GotoCaseStatement's
     Array *cases;		// array of CaseStatement's
@@ -416,9 +424,6 @@ struct SwitchStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
-
-    // LLVMDC
-    llvm::BasicBlock* defaultBB;
 };
 
 struct CaseStatement : Statement
@@ -443,6 +448,9 @@ struct CaseStatement : Statement
     void toIR(IRState *irs);
 
     CaseStatement* isCaseStatement() { return this; }
+
+    // LLVMDC
+    llvm::BasicBlock* bodyBB;
 };
 
 struct DefaultStatement : Statement
@@ -464,11 +472,15 @@ struct DefaultStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
+
+    // LLVMDC
+    llvm::BasicBlock* bodyBB;
 };
 
 struct GotoDefaultStatement : Statement
 {
     SwitchStatement *sw;
+    TryFinallyStatement *enclosingtry;
 
     GotoDefaultStatement(Loc loc);
     Statement *syntaxCopy();
@@ -484,6 +496,8 @@ struct GotoCaseStatement : Statement
 {
     Expression *exp;		// NULL, or which case to goto
     CaseStatement *cs;		// case statement it resolves to
+    TryFinallyStatement *enclosingtry;
+    SwitchStatement *sw;
 
     GotoCaseStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -507,6 +521,7 @@ struct SwitchErrorStatement : Statement
 struct ReturnStatement : Statement
 {
     Expression *exp;
+    TryFinallyStatement *enclosingtry;
 
     ReturnStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -527,6 +542,7 @@ struct ReturnStatement : Statement
 struct BreakStatement : Statement
 {
     Identifier *ident;
+    TryFinallyStatement *enclosingtry;
 
     BreakStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -536,11 +552,15 @@ struct BreakStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
+
+    // LLVMDC: only set if ident is set: label statement to jump to
+    LabelStatement *target;
 };
 
 struct ContinueStatement : Statement
 {
     Identifier *ident;
+    TryFinallyStatement *enclosingtry;
 
     ContinueStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -550,6 +570,9 @@ struct ContinueStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
+
+    // LLVMDC: only set if ident is set: label statement to jump to
+    LabelStatement *target;
 };
 
 struct SynchronizedStatement : Statement
@@ -629,6 +652,7 @@ struct TryFinallyStatement : Statement
 {
     Statement *body;
     Statement *finalbody;
+    TryFinallyStatement *enclosingtry;
 
     TryFinallyStatement(Loc loc, Statement *body, Statement *finalbody);
     Statement *syntaxCopy();
@@ -695,6 +719,7 @@ struct GotoStatement : Statement
     Identifier *ident;
     LabelDsymbol *label;
     TryFinallyStatement *tf;
+    TryFinallyStatement *enclosingtry;
 
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -712,6 +737,7 @@ struct LabelStatement : Statement
     Identifier *ident;
     Statement *statement;
     TryFinallyStatement *tf;
+    TryFinallyStatement *enclosingtry;
     block *lblock;		// back end
     int isReturnLabel;
 

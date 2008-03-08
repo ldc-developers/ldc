@@ -5,16 +5,6 @@
 
 #include <vector>
 
-// represents a finally block
-struct IrFinally
-{
-    llvm::BasicBlock* bb;
-    llvm::BasicBlock* retbb;
-
-    IrFinally();
-    IrFinally(llvm::BasicBlock* b, llvm::BasicBlock* rb);
-};
-
 // represents a function
 struct IrFunction : IrBase
 {
@@ -22,11 +12,6 @@ struct IrFunction : IrBase
     llvm::Instruction* allocapoint;
     FuncDeclaration* decl;
     TypeFunction* type;
-
-    // finally blocks
-    typedef std::vector<IrFinally> FinallyVec;
-    FinallyVec finallys;
-    llvm::Value* finallyretval;
 
     bool queued;
     bool defined;

@@ -53,6 +53,7 @@ Scope::Scope()
     this->parent = NULL;
     this->sw = NULL;
     this->tf = NULL;
+    this->tfOfTry = NULL;
     this->sbreak = NULL;
     this->scontinue = NULL;
     this->fes = NULL;
@@ -89,6 +90,7 @@ Scope::Scope(Scope *enclosing)
     this->sd = NULL;
     this->sw = enclosing->sw;
     this->tf = enclosing->tf;
+    this->tfOfTry = enclosing->tfOfTry;
     this->sbreak = enclosing->sbreak;
     this->scontinue = enclosing->scontinue;
     this->fes = enclosing->fes;

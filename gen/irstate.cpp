@@ -31,6 +31,20 @@ IRScope::IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+IRLoopScope::IRLoopScope()
+{
+}
+
+IRLoopScope::IRLoopScope(Statement* s, TryFinallyStatement* enclosingtry, llvm::BasicBlock* b, llvm::BasicBlock* e)
+{
+    begin = b;
+    end = e;
+    builder.SetInsertPoint(b);
+    this->s = s;
+    this->enclosingtry = enclosingtry;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 IRState::IRState()
 {
     dmodule = 0;

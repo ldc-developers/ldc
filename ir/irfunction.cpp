@@ -1,18 +1,6 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 
-IrFinally::IrFinally()
-{
-    bb = 0;
-    retbb = 0;
-}
-
-IrFinally::IrFinally(llvm::BasicBlock* b, llvm::BasicBlock* rb)
-{
-    bb = b;
-    retbb = rb;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -26,7 +14,6 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     type = (TypeFunction*)t;
     func = NULL;
     allocapoint = NULL;
-    finallyretval = NULL;
 
     queued = false;
     defined = false;
