@@ -949,7 +949,6 @@ void LabelStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     assert(tf == NULL);
-    assert(!isReturnLabel);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
     if (llvmBB)

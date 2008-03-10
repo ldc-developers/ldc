@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
     global.params.useAssert = 0;
     global.params.useInvariants = 0;
     global.params.useIn = 1;
-    global.params.useOut = 0;
+    global.params.useOut = 1;
     global.params.useArrayBounds = 0;
     global.params.useSwitchError = 0;
     global.params.useInline = 0; // this one messes things up to a point where codegen breaks
