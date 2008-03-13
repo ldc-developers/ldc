@@ -346,7 +346,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
     gIR->classes.push_back(cd);
 
     bool needs_definition = false;
-    if (cd->getModule() == gIR->dmodule) {
+    if (cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd)) {
         needs_definition = true;
     }
 
@@ -708,7 +708,7 @@ void DtoDefineClass(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
 
-    if (cd->getModule() == gIR->dmodule) {
+    if (cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd)) {
         // interfaces don't have initializers
         // neither do abstract classes
         if (!cd->isInterfaceDeclaration() && !cd->isAbstract())
