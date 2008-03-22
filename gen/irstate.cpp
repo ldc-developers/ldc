@@ -35,13 +35,13 @@ IRLoopScope::IRLoopScope()
 {
 }
 
-IRLoopScope::IRLoopScope(Statement* s, TryFinallyStatement* enclosingtry, llvm::BasicBlock* b, llvm::BasicBlock* e)
+IRLoopScope::IRLoopScope(Statement* s, TryFinallyStatement* enclosingtryfinally, llvm::BasicBlock* b, llvm::BasicBlock* e)
 {
     begin = b;
     end = e;
     builder.SetInsertPoint(b);
     this->s = s;
-    this->enclosingtry = enclosingtry;
+    this->enclosingtryfinally = enclosingtryfinally;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

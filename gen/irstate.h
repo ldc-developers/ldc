@@ -42,10 +42,10 @@ struct IRLoopScope : IRScope
     // generating statement
     Statement* s;
     // the try of a TryFinally that encloses the loop
-    TryFinallyStatement* enclosingtry;
+    TryFinallyStatement* enclosingtryfinally;
 
     IRLoopScope();
-    IRLoopScope(Statement* s, TryFinallyStatement* enclosingtry, llvm::BasicBlock* b, llvm::BasicBlock* e);
+    IRLoopScope(Statement* s, TryFinallyStatement* enclosingtryfinally, llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
 struct IRBuilderHelper

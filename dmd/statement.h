@@ -193,7 +193,7 @@ struct CompoundStatement : Statement
 struct UnrolledLoopStatement : Statement
 {
     Statements *statements;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     UnrolledLoopStatement(Loc loc, Statements *statements);
     Statement *syntaxCopy();
@@ -238,7 +238,7 @@ struct WhileStatement : Statement
 {
     Expression *condition;
     Statement *body;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     WhileStatement(Loc loc, Expression *c, Statement *b);
     Statement *syntaxCopy();
@@ -260,7 +260,7 @@ struct DoStatement : Statement
 {
     Statement *body;
     Expression *condition;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     DoStatement(Loc loc, Statement *b, Expression *c);
     Statement *syntaxCopy();
@@ -284,7 +284,7 @@ struct ForStatement : Statement
     Expression *condition;
     Expression *increment;
     Statement *body;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     ForStatement(Loc loc, Statement *init, Expression *condition, Expression *increment, Statement *body);
     Statement *syntaxCopy();
@@ -309,7 +309,7 @@ struct ForeachStatement : Statement
     Arguments *arguments;	// array of Argument*'s
     Expression *aggr;
     Statement *body;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     VarDeclaration *key;
     VarDeclaration *value;
@@ -406,7 +406,7 @@ struct SwitchStatement : Statement
     Expression *condition;
     Statement *body;
     DefaultStatement *sdefault;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     Array gotoCases;		// array of unresolved GotoCaseStatement's
     Array *cases;		// array of CaseStatement's
@@ -480,7 +480,7 @@ struct DefaultStatement : Statement
 struct GotoDefaultStatement : Statement
 {
     SwitchStatement *sw;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     GotoDefaultStatement(Loc loc);
     Statement *syntaxCopy();
@@ -496,7 +496,7 @@ struct GotoCaseStatement : Statement
 {
     Expression *exp;		// NULL, or which case to goto
     CaseStatement *cs;		// case statement it resolves to
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
     SwitchStatement *sw;
 
     GotoCaseStatement(Loc loc, Expression *exp);
@@ -521,7 +521,7 @@ struct SwitchErrorStatement : Statement
 struct ReturnStatement : Statement
 {
     Expression *exp;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     ReturnStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -542,7 +542,7 @@ struct ReturnStatement : Statement
 struct BreakStatement : Statement
 {
     Identifier *ident;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     BreakStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -560,7 +560,7 @@ struct BreakStatement : Statement
 struct ContinueStatement : Statement
 {
     Identifier *ident;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     ContinueStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -652,7 +652,7 @@ struct TryFinallyStatement : Statement
 {
     Statement *body;
     Statement *finalbody;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     TryFinallyStatement(Loc loc, Statement *body, Statement *finalbody);
     Statement *syntaxCopy();
@@ -719,7 +719,7 @@ struct GotoStatement : Statement
     Identifier *ident;
     LabelDsymbol *label;
     TryFinallyStatement *tf;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
 
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -737,7 +737,7 @@ struct LabelStatement : Statement
     Identifier *ident;
     Statement *statement;
     TryFinallyStatement *tf;
-    TryFinallyStatement *enclosingtry;
+    TryFinallyStatement *enclosingtryfinally;
     block *lblock;		// back end
     int isReturnLabel;
 
