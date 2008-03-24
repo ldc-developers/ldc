@@ -519,27 +519,21 @@ void VarDeclaration::toObjFile()
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
-        bool _isconst = isConst();
-        if (parent && parent->isFuncDeclaration() && init && init->isExpInitializer())
-            _isconst = false;
-
-        llvm::GlobalValue::LinkageTypes _linkage;
-        bool istempl = false;
+        // handle static local variables
         bool static_local = false;
-        if ((storage_class & STCcomdat) || (parent && DtoIsTemplateInstance(parent))) {
-            _linkage = llvm::GlobalValue::WeakLinkage;
-            istempl = true;
-        }
-        else if (parent && parent->isFuncDeclaration()) {
-            _linkage = llvm::GlobalValue::InternalLinkage;
+        bool _isconst = isConst();
+        if (parent && parent->isFuncDeclaration())
+        {
             static_local = true;
+            if (init && init->isExpInitializer()) {
+                _isconst = false;
+            }
         }
-        else
-            _linkage = DtoLinkage(protection, storage_class);
-
-        const llvm::Type* _type = irGlobal->type.get();
 
         Logger::println("Creating global variable");
+
+        const llvm::Type* _type = irGlobal->type.get();
+        llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
         std::string _name(mangle());
 
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);

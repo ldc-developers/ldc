@@ -27,3 +27,8 @@ void func()
 {
     auto bar = new Bar(12);
 }
+
+void main()
+{
+    func();
+}

@@ -332,7 +332,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     initname.append(sd->mangle());
     initname.append("6__initZ");
 
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(sd);
     llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
     sd->irStruct->init = initvar;
 

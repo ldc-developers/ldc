@@ -350,7 +350,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
         needs_definition = true;
     }
 
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::ExternalLinkage;
+    llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(cd);
 
     // interfaces have no static initializer
     // same goes for abstract classes
@@ -1201,7 +1201,7 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
 
     const llvm::Type* st = cinfo->type->llvmType->get();
 
-    cd->irStruct->classInfo = new llvm::GlobalVariable(st, true, llvm::GlobalValue::ExternalLinkage, NULL, gname, gIR->module);
+    cd->irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
 }
 
 static llvm::Constant* build_offti_entry(VarDeclaration* vd)
@@ -1275,7 +1275,8 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
 
         std::string name(cd->type->vtinfo->toChars());
         name.append("__OffsetTypeInfos");
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,llvm::GlobalValue::InternalLinkage,arrInit,name,gIR->module);
+
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,DtoInternalLinkage(cd),arrInit,name,gIR->module);
         ptr = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(sTy));
     }
     else {
@@ -1307,7 +1308,7 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     gname.append(cd->mangle());
     gname.append("12__destructorMFZv");
 
-    llvm::Function* func = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, gname, gIR->module);
+    llvm::Function* func = new llvm::Function(fnTy, DtoInternalLinkage(cd), gname, gIR->module);
     llvm::Value* thisptr = func->arg_begin();
     thisptr->setName("this");
 

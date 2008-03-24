@@ -353,7 +353,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     const llvm::FunctionType* functype = DtoFunctionType(fdecl);
     llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func)
-        func = new llvm::Function(functype, DtoLinkage(fdecl->protection, fdecl->storage_class), mangled_name, gIR->module);
+        func = new llvm::Function(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
     else
         assert(func->getFunctionType() == functype);
 
@@ -363,21 +363,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // calling convention
     if (!vafunc && fdecl->llvmInternal != LLVMintrinsic)
         func->setCallingConv(DtoCallingConv(f->linkage));
-
-    // template instances should have weak linkage
-    if (!vafunc && fdecl->llvmInternal != LLVMintrinsic && fdecl->parent && DtoIsTemplateInstance(fdecl->parent))
-        func->setLinkage(llvm::GlobalValue::WeakLinkage);
-
-    // extern(C) functions are always external
-    if (f->linkage == LINKc)
-        func->setLinkage(llvm::GlobalValue::ExternalLinkage);
-
-    // intrinsics are always external C
-    if (fdecl->llvmInternal == LLVMintrinsic)
-    {
-        func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+    else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
-    }
 
     fdecl->irFunc->func = func;
     assert(llvm::isa<llvm::FunctionType>(f->llvmType->get()));

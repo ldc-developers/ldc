@@ -344,34 +344,69 @@ llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalValue::LinkageTypes DtoLinkage(PROT prot, uint stc)
+llvm::GlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
 {
-    // turns out we can't really make anything internal with the way D works :(
-    // the things we can need much more info than this can extract.
-    // TODO : remove this useless function
-    switch(prot)
+    // global variable
+    if (VarDeclaration* vd = sym->isVarDeclaration())
     {
-    case PROTprivate:
-        //if (stc & STCextern)
-            return llvm::GlobalValue::ExternalLinkage;
-        //else
-        //    return llvm::GlobalValue::InternalLinkage;
-
-    case PROTpublic:
-    case PROTpackage:
-    case PROTprotected:
-    case PROTexport:
-        return llvm::GlobalValue::ExternalLinkage;
-
-    case PROTundefined:
-    case PROTnone:
-        assert(0 && "Unsupported linkage type");
+        // template
+        if (DtoIsTemplateInstance(sym))
+            return llvm::GlobalValue::WeakLinkage;
+        // local static
+        else if (sym->parent && sym->parent->isFuncDeclaration())
+            return llvm::GlobalValue::InternalLinkage;
     }
+    // function
+    else if (FuncDeclaration* fdecl = sym->isFuncDeclaration())
+    {
+        assert(fdecl->type->ty == Tfunction);
+        TypeFunction* ft = (TypeFunction*)fdecl->type;
+
+        // intrinsics are always external
+        if (fdecl->llvmInternal == LLVMintrinsic)
+            return llvm::GlobalValue::ExternalLinkage;
+        // template instances should have weak linkage
+        else if (DtoIsTemplateInstance(fdecl))
+            return llvm::GlobalValue::WeakLinkage;
+        // extern(C) functions are always external
+        else if (ft->linkage == LINKc)
+            return llvm::GlobalValue::ExternalLinkage;
+    }
+    // class
+    else if (ClassDeclaration* cd = sym->isClassDeclaration())
+    {
+        // template
+        if (DtoIsTemplateInstance(cd))
+            return llvm::GlobalValue::WeakLinkage;
+    }
+    else
+    {
+        assert(0 && "not global/function");
+    }
+
+    // default to external linkage
     return llvm::GlobalValue::ExternalLinkage;
 
+// llvm linkage types
 /*      ExternalLinkage = 0, LinkOnceLinkage, WeakLinkage, AppendingLinkage,
   InternalLinkage, DLLImportLinkage, DLLExportLinkage, ExternalWeakLinkage,
   GhostLinkage */
+}
+
+llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
+{
+    if (DtoIsTemplateInstance(sym))
+        return llvm::GlobalValue::WeakLinkage;
+    else
+        return llvm::GlobalValue::InternalLinkage;
+}
+
+llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
+{
+    if (DtoIsTemplateInstance(sym))
+        return llvm::GlobalValue::WeakLinkage;
+    else
+        return llvm::GlobalValue::ExternalLinkage;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

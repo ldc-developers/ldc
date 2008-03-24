@@ -765,9 +765,7 @@ tangotests/p.d
 tangotests/q.d
 tangotests/r.d
 tangotests/s.d
-tangotests/stdout1.d
 tangotests/t.d
-tangotests/v.d
 test
 test/a.d
 test/aa1.d

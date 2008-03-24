@@ -21,8 +21,10 @@ llvm::Value* DtoNullDelegate(llvm::Value* v);
 llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
 llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs);
 
-// return linkage types for general cases
-llvm::GlobalValue::LinkageTypes DtoLinkage(PROT prot, uint stc);
+// return linkage type for symbol using the current ir state for context
+llvm::GlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
+llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym);
+llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 
 // convert DMD calling conv to LLVM
 unsigned DtoCallingConv(LINK l);
