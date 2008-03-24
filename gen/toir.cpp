@@ -1199,6 +1199,7 @@ DValue* CallExp::toElem(IRState* p)
 
 DValue* CastExp::toElem(IRState* p)
 {
+    assert(type);
     Logger::print("CastExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
@@ -2254,7 +2255,10 @@ DValue* DelegateExp::toElem(IRState* p)
     else if (func->toParent()->isInterfaceDeclaration())
         assert(0 && "TODO delegate to interface method");
     else
+    {
+        DtoForceDeclareDsymbol(func);
         castfptr = func->irFunc->func;
+    }
 
     castfptr = DtoBitCast(castfptr, fptr->getType()->getContainedType(0));
     DtoStore(castfptr, fptr);
