@@ -990,6 +990,7 @@ int main(int argc, char *argv[])
     if (global.errors)
 	fatal();
 
+#if !IN_LLVM
     // Scan for functions to inline
     if (global.params.useInline)
     {
@@ -1000,6 +1001,7 @@ int main(int argc, char *argv[])
 	 */
 	if (!global.params.useArrayBounds && !global.params.useAssert)
 	{
+#endif
 	    // Do pass 3 semantic analysis on all imported modules,
 	    // since otherwise functions in them cannot be inlined
 	    for (i = 0; i < Module::amodules.dim; i++)
@@ -1011,6 +1013,7 @@ int main(int argc, char *argv[])
 	    }
 	    if (global.errors)
 		fatal();
+#if !IN_LLVM
 	}
 
 	for (i = 0; i < modules.dim; i++)
@@ -1023,6 +1026,7 @@ int main(int argc, char *argv[])
     }
     if (global.errors)
 	fatal();
+#endif
 
     // Generate output files
     for (i = 0; i < modules.dim; i++)

@@ -1199,7 +1199,6 @@ DValue* CallExp::toElem(IRState* p)
 
 DValue* CastExp::toElem(IRState* p)
 {
-    assert(type);
     Logger::print("CastExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
