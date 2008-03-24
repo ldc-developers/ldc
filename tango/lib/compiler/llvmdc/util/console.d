@@ -77,7 +77,7 @@ struct Console
     // emit an integer to the console
     Console opCall (size_t i)
     {
-            char[20] tmp = void;
+            char[25] tmp = void;
 
             return console (intToUtf8 (tmp, i));
     }
