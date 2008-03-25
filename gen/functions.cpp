@@ -414,7 +414,13 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         //Logger::println("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
         if (arg && arg->ident != 0) {
             if (arg->vardecl) {
+                if (arg->vardecl->irLocal)
+                {
+                    Logger::cout() << "WTF!?!: " << *arg->vardecl->irLocal->value << '\n';
+                }
                 assert(!arg->vardecl->irLocal);
+                assert(!arg->vardecl->irGlobal);
+                assert(!arg->vardecl->irField);
                 arg->vardecl->irLocal = new IrLocal(arg->vardecl);
                 arg->vardecl->irLocal->value = iarg;
             }
