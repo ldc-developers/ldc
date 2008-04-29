@@ -77,11 +77,11 @@ void ReturnStatement::toIR(IRState* p)
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
             IrFunction* f = p->func();
             assert(f->type->llvmRetInPtr);
-            assert(f->decl->irFunc->retArg);
+            assert(gIR->irFunc[f->decl]->retArg);
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
-            DValue* rvar = new DVarValue(f->type->next, f->decl->irFunc->retArg, true);
+            DValue* rvar = new DVarValue(f->type->next, gIR->irFunc[f->decl]->retArg, true);
 
             p->exps.push_back(IRExp(NULL,exp,rvar));
             DValue* e = exp->toElem(p);

@@ -182,14 +182,14 @@ llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariab
 
 void DtoDwarfFuncStart(FuncDeclaration* fd)
 {
-    assert(fd->irFunc->dwarfSubProg);
-    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), dbgToArrTy(fd->irFunc->dwarfSubProg));
+    assert(gIR->irFunc[fd]->dwarfSubProg);
+    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), dbgToArrTy(gIR->irFunc[fd]->dwarfSubProg));
 }
 
 void DtoDwarfFuncEnd(FuncDeclaration* fd)
 {
-    assert(fd->irFunc->dwarfSubProg);
-    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), dbgToArrTy(fd->irFunc->dwarfSubProg));
+    assert(gIR->irFunc[fd]->dwarfSubProg);
+    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), dbgToArrTy(gIR->irFunc[fd]->dwarfSubProg));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

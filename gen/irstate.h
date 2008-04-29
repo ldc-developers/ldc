@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <list>
+#include <map>
 
 #include "root.h"
 #include "aggregate.h"
@@ -76,6 +77,8 @@ struct IRState
     typedef std::vector<IrFunction*> FunctionVector;
     FunctionVector functions;
     IrFunction* func();
+    // ir data associated with function declarations
+    std::map<FuncDeclaration*, IrFunction*> irFunc;
 
     llvm::Function* topfunc();
     TypeFunction* topfunctype();

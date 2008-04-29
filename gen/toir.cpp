@@ -62,7 +62,7 @@ DValue* DeclarationExp::toElem(IRState* p)
             if (vd->nestedref) {
                 Logger::println("has nestedref set");
                 assert(vd->irLocal);
-                vd->irLocal->value = p->func()->decl->irFunc->nestedVar;
+                vd->irLocal->value = gIR->irFunc[p->func()->decl]->nestedVar;
                 assert(vd->irLocal->value);
                 assert(vd->irLocal->nestedIndex >= 0);
             }
@@ -157,7 +157,7 @@ DValue* VarExp::toElem(IRState* p)
                 vd->getIrValue() = p->func()->decl->irFunc->_arguments;
             assert(vd->getIrValue());
             return new DVarValue(vd, vd->getIrValue(), true);*/
-            llvm::Value* v = p->func()->decl->irFunc->_arguments;
+            llvm::Value* v = gIR->irFunc[p->func()->decl]->_arguments;
             assert(v);
             return new DVarValue(vd, v, true);
         }
@@ -169,7 +169,7 @@ DValue* VarExp::toElem(IRState* p)
                 vd->getIrValue() = p->func()->decl->irFunc->_argptr;
             assert(vd->getIrValue());
             return new DVarValue(vd, vd->getIrValue(), true);*/
-            llvm::Value* v = p->func()->decl->irFunc->_argptr;
+            llvm::Value* v = gIR->irFunc[p->func()->decl]->_argptr;
             assert(v);
             return new DVarValue(vd, v, true);
         }
@@ -243,7 +243,7 @@ DValue* VarExp::toElem(IRState* p)
         if (fdecl->llvmInternal != LLVMva_arg) {// && fdecl->llvmValue == 0)
             DtoForceDeclareDsymbol(fdecl);
         }
-        return new DFuncValue(fdecl, fdecl->irFunc->func);
+        return new DFuncValue(fdecl, gIR->irFunc[fdecl]->func);
     }
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
@@ -1317,7 +1317,7 @@ DValue* AddrExp::toElem(IRState* p)
         FuncDeclaration* fd = fv->func;
         assert(fd);
         DtoForceDeclareDsymbol(fd);
-        return new DFuncValue(fd, fd->irFunc->func);
+        return new DFuncValue(fd, gIR->irFunc[fd]->func);
     }
     else if (DImValue* im = v->isIm()) {
         Logger::println("is immediate");
@@ -1422,7 +1422,7 @@ DValue* DotVarExp::toElem(IRState* p)
         // super call
         if (e1->op == TOKsuper) {
             DtoForceDeclareDsymbol(fdecl);
-            funcval = fdecl->irFunc->func;
+            funcval = gIR->irFunc[fdecl]->func;
             assert(funcval);
         }
         // normal virtual call
@@ -1443,7 +1443,7 @@ DValue* DotVarExp::toElem(IRState* p)
         // static call
         else {
             DtoForceDeclareDsymbol(fdecl);
-            funcval = fdecl->irFunc->func;
+            funcval = gIR->irFunc[fdecl]->func;
             assert(funcval);
             //assert(funcval->getType() == DtoType(fdecl->type));
         }
@@ -1466,7 +1466,7 @@ DValue* ThisExp::toElem(IRState* p)
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         llvm::Value* v;
-        v = p->func()->decl->irFunc->thisVar;
+        v = gIR->irFunc[p->func()->decl]->thisVar;
         if (llvm::isa<llvm::AllocaInst>(v))
             v = new llvm::LoadInst(v, "tmp", p->scopebb());
         return new DThisValue(vd, v);
@@ -2216,7 +2216,7 @@ DValue* DelegateExp::toElem(IRState* p)
     if (DFuncValue* f = u->isFunc()) {
         //assert(f->vthis);
         //uval = f->vthis;
-        llvm::Value* nestvar = p->func()->decl->irFunc->nestedVar;
+        llvm::Value* nestvar = gIR->irFunc[p->func()->decl]->nestedVar;
         if (nestvar)
             uval = nestvar;
         else
@@ -2256,7 +2256,7 @@ DValue* DelegateExp::toElem(IRState* p)
     else
     {
         DtoForceDeclareDsymbol(func);
-        castfptr = func->irFunc->func;
+        castfptr = gIR->irFunc[func]->func;
     }
 
     castfptr = DtoBitCast(castfptr, fptr->getType()->getContainedType(0));
@@ -2490,7 +2490,7 @@ DValue* FuncExp::toElem(IRState* p)
 
     llvm::Value* context = DtoGEPi(lval,0,0,"tmp",p->scopebb());
     const llvm::PointerType* pty = isaPointer(context->getType()->getContainedType(0));
-    llvm::Value* llvmNested = p->func()->decl->irFunc->nestedVar;
+    llvm::Value* llvmNested = gIR->irFunc[p->func()->decl]->nestedVar;
     if (llvmNested == NULL) {
         llvm::Value* nullcontext = llvm::ConstantPointerNull::get(pty);
         p->ir->CreateStore(nullcontext, context);
@@ -2502,8 +2502,8 @@ DValue* FuncExp::toElem(IRState* p)
 
     llvm::Value* fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
 
-    assert(fd->irFunc->func);
-    llvm::Value* castfptr = new llvm::BitCastInst(fd->irFunc->func,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
+    assert(gIR->irFunc[fd]->func);
+    llvm::Value* castfptr = new llvm::BitCastInst(gIR->irFunc[fd]->func,fptr->getType()->getContainedType(0),"tmp",p->scopebb());
     new llvm::StoreInst(castfptr, fptr, p->scopebb());
 
     if (temp)

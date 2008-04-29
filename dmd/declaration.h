@@ -24,7 +24,6 @@
 namespace llvm {
     class Value;
 }
-struct IrFunction;
 struct IrVar;
 struct IrGlobal;
 struct IrLocal;
@@ -614,7 +613,6 @@ struct FuncDeclaration : Declaration
 
     // llvmdc stuff
     bool runTimeHack;
-    IrFunction* irFunc;
     std::set<VarDeclaration*> nestedVars;
 };
 

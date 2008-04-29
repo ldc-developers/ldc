@@ -553,8 +553,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
             if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
                 DtoForceDeclareDsymbol(fd);
-                assert(fd->irFunc->func);
-                llvm::Constant* c = llvm::cast<llvm::Constant>(fd->irFunc->func);
+                assert(gIR->irFunc[fd]->func);
+                llvm::Constant* c = llvm::cast<llvm::Constant>(gIR->irFunc[fd]->func);
                 // cast if necessary (overridden method)
                 if (c->getType() != vtbltype->getElementType(k))
                     c = llvm::ConstantExpr::getBitCast(c, vtbltype->getElementType(k));
@@ -636,8 +636,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
                 FuncDeclaration* fd = dsym->isFuncDeclaration();
                 assert(fd);
                 DtoForceDeclareDsymbol(fd);
-                assert(fd->irFunc->func);
-                llvm::Constant* c = llvm::cast<llvm::Constant>(fd->irFunc->func);
+                assert(gIR->irFunc[fd]->func);
+                llvm::Constant* c = llvm::cast<llvm::Constant>(gIR->irFunc[fd]->func);
 
                 // we have to bitcast, as the type created in ResolveClass expects a different this type
                 c = llvm::ConstantExpr::getBitCast(c, iri->vtblTy->getContainedType(k));
@@ -783,9 +783,9 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         LOG_SCOPE;
         size_t idx = 2;
         //idx += tc->sym->irStruct->interfaces.size();
-        llvm::Value* nest = gIR->func()->decl->irFunc->nestedVar;
+        llvm::Value* nest = gIR->irFunc[gIR->func()->decl]->nestedVar;
         if (!nest)
-            nest = gIR->func()->decl->irFunc->thisVar;
+            nest = gIR->irFunc[gIR->func()->decl]->thisVar;
         assert(nest);
         llvm::Value* gep = DtoGEPi(mem,0,idx,"tmp");
         nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
@@ -851,7 +851,7 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
 
     assert(ctor);
     DtoForceDeclareDsymbol(ctor);
-    llvm::Function* fn = ctor->irFunc->func;
+    llvm::Function* fn = gIR->irFunc[ctor]->func;
     TypeFunction* tf = (TypeFunction*)DtoDType(ctor->type);
 
     std::vector<llvm::Value*> ctorargs;
@@ -881,8 +881,8 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
     for (size_t i=0; i<arr->dim; i++)
     {
         FuncDeclaration* fd = (FuncDeclaration*)arr->data[i];
-        assert(fd->irFunc->func);
-        new llvm::CallInst(fd->irFunc->func, instance, "", gIR->scopebb());
+        assert(gIR->irFunc[fd]->func);
+        new llvm::CallInst(gIR->irFunc[fd]->func, instance, "", gIR->scopebb());
     }
 }
 
@@ -1300,8 +1300,8 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     else if (cd->dtors.dim == 1) {
         DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[0];
         DtoForceDeclareDsymbol(d);
-        assert(d->irFunc->func);
-        return llvm::ConstantExpr::getBitCast(isaConstant(d->irFunc->func), getPtrToType(llvm::Type::Int8Ty));
+        assert(gIR->irFunc[d]->func);
+        return llvm::ConstantExpr::getBitCast(isaConstant(gIR->irFunc[d]->func), getPtrToType(llvm::Type::Int8Ty));
     }
 
     std::string gname("_D");
@@ -1319,8 +1319,8 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     {
         DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[i];
         DtoForceDeclareDsymbol(d);
-        assert(d->irFunc->func);
-        builder.CreateCall(d->irFunc->func, thisptr);
+        assert(gIR->irFunc[d]->func);
+        builder.CreateCall(gIR->irFunc[d]->func, thisptr);
     }
     builder.CreateRetVoid();
 
@@ -1516,7 +1516,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // default constructor
     if (cd->defaultCtor && !cd->isInterfaceDeclaration() && !cd->isAbstract()) {
         DtoForceDeclareDsymbol(cd->defaultCtor);
-        c = isaConstant(cd->defaultCtor->irFunc->func);
+        c = isaConstant(gIR->irFunc[cd->defaultCtor]->func);
         const llvm::Type* toTy = cinfo->irStruct->constInit->getOperand(12)->getType();
         c = llvm::ConstantExpr::getBitCast(c, toTy);
     }

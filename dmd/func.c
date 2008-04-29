@@ -75,7 +75,6 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     shidden = NULL;
     // llvmdc
     runTimeHack = false;
-    irFunc = NULL;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

@@ -177,7 +177,7 @@ static llvm::Function* build_module_ctor()
 
     size_t n = gIR->ctors.size();
     if (n == 1)
-        return gIR->ctors[0]->irFunc->func;
+        return gIR->irFunc[gIR->ctors[0]]->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -192,7 +192,7 @@ static llvm::Function* build_module_ctor()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->ctors[i]->irFunc->func;
+        llvm::Function* f = gIR->irFunc[gIR->ctors[i]]->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -210,7 +210,7 @@ static llvm::Function* build_module_dtor()
 
     size_t n = gIR->dtors.size();
     if (n == 1)
-        return gIR->dtors[0]->irFunc->func;
+        return gIR->irFunc[gIR->dtors[0]]->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -225,7 +225,7 @@ static llvm::Function* build_module_dtor()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->dtors[i]->irFunc->func;
+        llvm::Function* f = gIR->irFunc[gIR->dtors[i]]->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -243,7 +243,7 @@ static llvm::Function* build_module_unittest()
 
     size_t n = gIR->unitTests.size();
     if (n == 1)
-        return gIR->unitTests[0]->irFunc->func;
+        return gIR->irFunc[gIR->unitTests[0]]->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -258,7 +258,7 @@ static llvm::Function* build_module_unittest()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->unitTests[i]->irFunc->func;
+        llvm::Function* f = gIR->irFunc[gIR->unitTests[i]]->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }

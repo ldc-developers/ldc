@@ -925,8 +925,8 @@ void TypeInfoStructDeclaration::llvmDefine()
         fd = fdx->overloadExactMatch(tftohash);
         if (fd) {
             DtoForceDeclareDsymbol(fd);
-            assert(fd->irFunc->func != 0);
-            llvm::Constant* c = isaConstant(fd->irFunc->func);
+            assert(gIR->irFunc[fd]->func != 0);
+            llvm::Constant* c = isaConstant(gIR->irFunc[fd]->func);
             assert(c);
             c = llvm::ConstantExpr::getBitCast(c, ptty);
             sinits.push_back(c);
@@ -951,8 +951,8 @@ void TypeInfoStructDeclaration::llvmDefine()
             fd = fdx->overloadExactMatch(tfeqptr);
             if (fd) {
                 DtoForceDeclareDsymbol(fd);
-                assert(fd->irFunc->func != 0);
-                llvm::Constant* c = isaConstant(fd->irFunc->func);
+                assert(gIR->irFunc[fd]->func != 0);
+                llvm::Constant* c = isaConstant(gIR->irFunc[fd]->func);
                 assert(c);
                 c = llvm::ConstantExpr::getBitCast(c, ptty);
                 sinits.push_back(c);
@@ -979,8 +979,8 @@ void TypeInfoStructDeclaration::llvmDefine()
         fd = fdx->overloadExactMatch(tftostring);
         if (fd) {
             DtoForceDeclareDsymbol(fd);
-            assert(fd->irFunc->func != 0);
-            llvm::Constant* c = isaConstant(fd->irFunc->func);
+            assert(gIR->irFunc[fd]->func != 0);
+            llvm::Constant* c = isaConstant(gIR->irFunc[fd]->func);
             assert(c);
             c = llvm::ConstantExpr::getBitCast(c, ptty);
             sinits.push_back(c);

@@ -724,7 +724,7 @@ static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
     assert(p->isFuncDeclaration() || p->isClassDeclaration());
     if (FuncDeclaration* fd = p->isFuncDeclaration())
     {
-        llvm::Value* v = fd->irFunc->nestedVar;
+        llvm::Value* v = gIR->irFunc[fd]->nestedVar;
         assert(v);
         return v->getType();
     }
@@ -754,9 +754,9 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
 
         if (fd->toParent2() == func)
         {
-            if (!func->irFunc->nestedVar)
+            if (!gIR->irFunc[func]->nestedVar)
                 return NULL;
-            return DtoBitCast(v, func->irFunc->nestedVar->getType());
+            return DtoBitCast(v, gIR->irFunc[func]->nestedVar->getType());
         }
 
         v = DtoBitCast(v, get_next_frame_ptr_type(fd));
@@ -807,10 +807,10 @@ static llvm::Value* get_frame_ptr(FuncDeclaration* func)
 
     // in the right scope already
     if (func == irfunc->decl)
-        return irfunc->decl->irFunc->nestedVar;
+        return gIR->irFunc[irfunc->decl]->nestedVar;
 
     // use the 'this' pointer
-    llvm::Value* ptr = irfunc->decl->irFunc->thisVar;
+    llvm::Value* ptr = gIR->irFunc[irfunc->decl]->thisVar;
     assert(ptr);
 
     // return the fully resolved frame pointer
@@ -878,7 +878,7 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
     assert(ptr && "nested var, but no context");
 
     // we must cast here to be sure. nested classes just have a void*
-    ptr = DtoBitCast(ptr, func->irFunc->nestedVar->getType());
+    ptr = DtoBitCast(ptr, gIR->irFunc[func]->nestedVar->getType());
 
     // index nested var and load (if necessary)
     llvm::Value* v = DtoGEPi(ptr, 0, vd->irLocal->nestedIndex, "tmp");
@@ -964,9 +964,9 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             llvm::Value* tmp = rhs->getRVal();
             FuncDeclaration* fdecl = gIR->func()->decl;
             // respecify the this param
-            if (!llvm::isa<llvm::AllocaInst>(fdecl->irFunc->thisVar))
-                fdecl->irFunc->thisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
-            DtoStore(tmp, fdecl->irFunc->thisVar);
+            if (!llvm::isa<llvm::AllocaInst>(gIR->irFunc[fdecl]->thisVar))
+                gIR->irFunc[fdecl]->thisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
+            DtoStore(tmp, gIR->irFunc[fdecl]->thisVar);
         }
         // regular class ref -> class ref assignment
         else {
