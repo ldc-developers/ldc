@@ -114,7 +114,6 @@ Type::Type(TY ty, Type *next)
     this->arrayof = NULL;
     this->vtinfo = NULL;
     this->ctype = NULL;
-    this->llvmType = NULL;
 }
 
 Type *Type::syntaxCopy()
@@ -4413,7 +4412,6 @@ TypeClass::TypeClass(ClassDeclaration *sym)
 	: Type(Tclass, NULL)
 {
     this->sym = sym;
-    llvmVtblType = 0;
 }
 
 char *TypeClass::toChars()

@@ -23,8 +23,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     TypeFunction* f = (TypeFunction*)type;
     assert(f != 0);
 
-    if (type->llvmType != NULL) {
-        return llvm::cast<llvm::FunctionType>(type->llvmType->get());
+    if (gIR->irType[type].type != NULL) {
+        return llvm::cast<llvm::FunctionType>(gIR->irType[type].type->get());
     }
 
     bool typesafeVararg = false;
@@ -126,10 +126,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     f->llvmRetInPtr = retinptr;
     f->llvmUsesThis = usesthis;
 
-    //if (!f->llvmType)
-        f->llvmType = new llvm::PATypeHolder(functype);
+    //if (!gIR->irType[f].type)
+        gIR->irType[f].type = new llvm::PATypeHolder(functype);
     //else
-        //assert(functype == f->llvmType->get());
+        //assert(functype == gIR->irType[f].type->get());
 
     return functype;
 }
@@ -139,8 +139,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
 static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
     // type has already been resolved
-    if (fdecl->type->llvmType != 0) {
-        return llvm::cast<llvm::FunctionType>(fdecl->type->llvmType->get());
+    if (gIR->irType[fdecl->type].type != 0) {
+        return llvm::cast<llvm::FunctionType>(gIR->irType[fdecl->type].type->get());
     }
 
     TypeFunction* f = (TypeFunction*)fdecl->type;
@@ -163,7 +163,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 
     const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
 
-    f->llvmType = new llvm::PATypeHolder(fty);
+    gIR->irType[f].type = new llvm::PATypeHolder(fty);
 
     return fty;
 }
@@ -183,8 +183,8 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
     }*/
 
     // type has already been resolved
-    if (fdecl->type->llvmType != 0) {
-        return llvm::cast<llvm::FunctionType>(fdecl->type->llvmType->get());
+    if (gIR->irType[fdecl->type].type != 0) {
+        return llvm::cast<llvm::FunctionType>(gIR->irType[fdecl->type].type->get());
     }
 
     const llvm::Type* thisty = NULL;
@@ -367,7 +367,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         func->setCallingConv(llvm::CallingConv::C);
 
     gIR->irDsymbol[fdecl].irFunc->func = func;
-    assert(llvm::isa<llvm::FunctionType>(f->llvmType->get()));
+    assert(llvm::isa<llvm::FunctionType>(gIR->irType[f].type->get()));
 
     // main
     if (fdecl->isMain()) {
@@ -462,7 +462,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     Type* t = DtoDType(fd->type);
     TypeFunction* f = (TypeFunction*)t;
-    assert(f->llvmType);
+    assert(gIR->irType[f].type);
 
     llvm::Function* func = gIR->irDsymbol[fd].irFunc->func;
     const llvm::FunctionType* functype = func->getFunctionType();

@@ -98,7 +98,7 @@ const llvm::Type* DtoType(Type* t)
 
     // aggregates
     case Tstruct:    {
-        if (!t->llvmType || *t->llvmType == NULL) {
+        if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
@@ -116,11 +116,11 @@ const llvm::Type* DtoType(Type* t)
         TypeStruct* ts = (TypeStruct*)t;
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
-        return gIR->irDsymbol[ts->sym].irStruct->recty.get();//t->llvmType->get();
+        return gIR->irDsymbol[ts->sym].irStruct->recty.get(); // gIR->irType[t].type->get();
     }
 
     case Tclass:    {
-        /*if (!t->llvmType || *t->llvmType == NULL) {
+        /*if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
@@ -139,28 +139,28 @@ const llvm::Type* DtoType(Type* t)
         TypeClass* tc = (TypeClass*)t;
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
-        return getPtrToType(gIR->irDsymbol[tc->sym].irStruct->recty.get());//t->llvmType->get());
+        return getPtrToType(gIR->irDsymbol[tc->sym].irStruct->recty.get()); // gIR->irType[t].type->get());
     }
 
     // functions
     case Tfunction:
     {
-        if (!t->llvmType || *t->llvmType == NULL) {
+        if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
             return DtoFunctionType(t,NULL);
         }
         else {
-            return t->llvmType->get();
+            return gIR->irType[t].type->get();
         }
     }
 
     // delegates
     case Tdelegate:
     {
-        if (!t->llvmType || *t->llvmType == NULL) {
+        if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
             return DtoDelegateType(t);
         }
         else {
-            return t->llvmType->get();
+            return gIR->irType[t].type->get();
         }
     }
 
@@ -1797,7 +1797,7 @@ const llvm::StructType* DtoInterfaceInfoType()
     // ClassInfo classinfo
     ClassDeclaration* cd2 = ClassDeclaration::classinfo;
     DtoResolveClass(cd2);
-    types.push_back(getPtrToType(cd2->type->llvmType->get()));
+    types.push_back(getPtrToType(gIR->irType[cd2->type].type->get()));
     // void*[] vtbl
     std::vector<const llvm::Type*> vtbltypes;
     vtbltypes.push_back(DtoSize_t());

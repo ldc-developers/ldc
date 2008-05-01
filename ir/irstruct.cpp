@@ -2,6 +2,7 @@
 #include "mtype.h"
 #include "aggregate.h"
 #include "ir/irstruct.h"
+#include "gen/irstate.h"
 
 IrInterface::IrInterface(BaseClass* b, const llvm::StructType* vt)
 {
@@ -26,7 +27,7 @@ IrInterface::~IrInterface()
 //////////////////////////////////////////////////////////////////////////////
 
 IrStruct::IrStruct(Type* t)
- : recty((t->llvmType != NULL) ? *t->llvmType : llvm::OpaqueType::get())
+ : recty((gIR && gIR->irType[t].type) ? *gIR->irType[t].type : llvm::OpaqueType::get())
 {
     type = t;
     defined = false;

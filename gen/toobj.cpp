@@ -98,17 +98,17 @@ void Module::genobjfile()
     }
 
     // start out by providing opaque for the built-in class types
-    if (!ClassDeclaration::object->type->llvmType)
-        ClassDeclaration::object->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+    if (!gIR->irType[ClassDeclaration::object->type].type)
+        gIR->irType[ClassDeclaration::object->type].type = new llvm::PATypeHolder(llvm::OpaqueType::get());
 
-    if (!Type::typeinfo->type->llvmType)
-        Type::typeinfo->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+    if (!gIR->irType[Type::typeinfo->type].type)
+        gIR->irType[Type::typeinfo->type].type = new llvm::PATypeHolder(llvm::OpaqueType::get());
 
-    if (!ClassDeclaration::classinfo->type->llvmType)
-        ClassDeclaration::classinfo->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+    if (!gIR->irType[ClassDeclaration::classinfo->type].type)
+        gIR->irType[ClassDeclaration::classinfo->type].type = new llvm::PATypeHolder(llvm::OpaqueType::get());
 
-    /*if (!Type::typeinfoclass->type->llvmType)
-        Type::typeinfoclass->type->llvmType = new llvm::PATypeHolder(llvm::OpaqueType::get());*/
+    /*if (!gIR->irType[Type::typeinfoclass->type].type)
+        gIR->irType[Type::typeinfoclass->type].type = new llvm::PATypeHolder(llvm::OpaqueType::get());*/
 
     // process module members
     for (int k=0; k < members->dim; k++) {
@@ -289,10 +289,10 @@ void Module::genmoduleinfo()
     DtoForceConstInitDsymbol(moduleinfo);
 
     // moduleinfo llvm struct type
-    const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->llvmType->get());
+    const llvm::StructType* moduleinfoTy = isaStruct(gIR->irType[moduleinfo->type].type->get());
 
     // classinfo llvm struct type
-    const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->llvmType->get());
+    const llvm::StructType* classinfoTy = isaStruct(gIR->irType[ClassDeclaration::classinfo->type].type->get());
 
     // initializer vector
     std::vector<llvm::Constant*> initVec;

@@ -82,7 +82,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
 
     TypeStruct* ts = (TypeStruct*)si->ad->type;
 
-    const llvm::StructType* structtype = isaStruct(ts->llvmType->get());
+    const llvm::StructType* structtype = isaStruct(gIR->irType[ts].type->get());
     Logger::cout() << "llvm struct type: " << *structtype << '\n';
 
     assert(si->value.dim == si->vars.dim);
@@ -304,8 +304,8 @@ void DtoResolveStruct(StructDeclaration* sd)
         structtype = isaStruct(pa.get());
     }
 
-    assert(ts->llvmType == 0);
-    ts->llvmType = new llvm::PATypeHolder(structtype);
+    assert(gIR->irType[ts].type == 0);
+    gIR->irType[ts].type = new llvm::PATypeHolder(structtype);
 
     if (sd->parent->isModule()) {
         gIR->module->addTypeName(sd->mangle(),structtype);
@@ -333,7 +333,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     initname.append("6__initZ");
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(sd);
-    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
+    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(gIR->irType[ts].type->get(), true, _linkage, NULL, initname, gIR->module);
     gIR->irDsymbol[sd].irStruct->init = initvar;
 
     gIR->constInitList.push_back(sd);
@@ -363,7 +363,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
         gIR->irDsymbol[so->var].irField->constInit = finit;
     }
 
-    const llvm::StructType* structtype = isaStruct(sd->type->llvmType->get());
+    const llvm::StructType* structtype = isaStruct(gIR->irType[sd->type].type->get());
 
     // go through the field inits and build the default initializer
     std::vector<llvm::Constant*> fieldinits_ll;

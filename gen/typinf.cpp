@@ -353,7 +353,7 @@ void TypeInfoTypedefDeclaration::llvmDeclare()
     ClassDeclaration* base = Type::typeinfotypedef;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -367,7 +367,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfotypedef;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
     Logger::cout() << "got stype: " << *stype << '\n';
 
     // vtbl
@@ -439,7 +439,7 @@ void TypeInfoEnumDeclaration::llvmDeclare()
     ClassDeclaration* base = Type::typeinfoenum;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -453,7 +453,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfoenum;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
@@ -521,7 +521,7 @@ static llvm::Constant* LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, Cla
     ClassDeclaration* base = cd;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[tid].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,tid->toChars(),gIR->module);
@@ -532,7 +532,7 @@ static llvm::Constant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclar
     ClassDeclaration* base = cd;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
@@ -626,7 +626,7 @@ void TypeInfoStaticArrayDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -642,7 +642,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // initializer vector
     std::vector<llvm::Constant*> sinits;
@@ -689,7 +689,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -705,7 +705,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // initializer vector
     std::vector<llvm::Constant*> sinits;
@@ -822,7 +822,7 @@ void TypeInfoStructDeclaration::llvmDeclare()
     ClassDeclaration* base = Type::typeinfostruct;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(((TypeClass*)base->type)->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -841,7 +841,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfostruct;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(((TypeClass*)base->type)->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // vtbl
     std::vector<llvm::Constant*> sinits;
@@ -864,7 +864,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
     else
     {
-        size_t cisize = getTypeStoreSize(tc->llvmType->get());
+        size_t cisize = getTypeStoreSize(gIR->irType[tc].type->get());
         llvm::Constant* cicast = llvm::ConstantExpr::getBitCast(gIR->irDsymbol[sd].irStruct->init, initpt);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
@@ -1022,7 +1022,7 @@ void TypeInfoClassDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -1039,7 +1039,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // initializer vector
     std::vector<llvm::Constant*> sinits;
@@ -1078,7 +1078,7 @@ void TypeInfoInterfaceDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -1095,7 +1095,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // initializer vector
     std::vector<llvm::Constant*> sinits;
@@ -1134,7 +1134,7 @@ void TypeInfoTupleDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // create the symbol
     gIR->irDsymbol[this].irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -1151,7 +1151,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->llvmType->get());
+    const llvm::StructType* stype = isaStruct(gIR->irType[base->type].type->get());
 
     // initializer vector
     std::vector<llvm::Constant*> sinits;
@@ -1168,7 +1168,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     size_t dim = tu->arguments->dim;
     std::vector<llvm::Constant*> arrInits;
 
-    const llvm::Type* tiTy = Type::typeinfo->type->llvmType->get();
+    const llvm::Type* tiTy = gIR->irType[Type::typeinfo->type].type->get();
     tiTy = getPtrToType(tiTy);
 
     for (size_t i = 0; i < dim; i++)

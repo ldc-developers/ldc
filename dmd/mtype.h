@@ -21,16 +21,6 @@
 #include "arraytypes.h"
 #include "expression.h"
 
-// LLVMDC
-namespace llvm
-{
-    class Value;
-    class Instruction;
-    class Type;
-    class PATypeHolder;
-    class GlobalVariable;
-}
-
 struct Scope;
 struct Identifier;
 struct Expression;
@@ -252,8 +242,6 @@ struct Type : Object
     virtual type *toCtype();
     virtual type *toCParamtype();
     virtual Symbol *toSymbol();
-
-    llvm::PATypeHolder* llvmType;
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
@@ -637,8 +625,6 @@ struct TypeClass : Type
     type *toCtype();
 
     Symbol *toSymbol();
-
-    llvm::PATypeHolder* llvmVtblType;
 };
 
 struct TypeTuple : Type

@@ -41,8 +41,8 @@ const llvm::StructType* DtoArrayType(Type* t)
 
 const llvm::ArrayType* DtoStaticArrayType(Type* t)
 {
-    if (t->llvmType)
-        return isaArray(t->llvmType->get());
+    if (gIR->irType[t].type)
+        return isaArray(gIR->irType[t].type->get());
 
     assert(t->ty == Tsarray);
     assert(t->next);
@@ -53,8 +53,8 @@ const llvm::ArrayType* DtoStaticArrayType(Type* t)
     assert(tsa->dim->type->isintegral());
     const llvm::ArrayType* arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
 
-    assert(!tsa->llvmType);
-    tsa->llvmType = new llvm::PATypeHolder(arrty);
+    assert(!gIR->irType[tsa].type);
+    gIR->irType[tsa].type = new llvm::PATypeHolder(arrty);
     return arrty;
 }
 

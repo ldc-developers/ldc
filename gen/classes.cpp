@@ -128,8 +128,8 @@ void DtoResolveClass(ClassDeclaration* cd)
     gIR->classes.push_back(cd);
 
     // add vtable
-    ts->llvmVtblType = new llvm::PATypeHolder(llvm::OpaqueType::get());
-    const llvm::Type* vtabty = getPtrToType(ts->llvmVtblType->get());
+    gIR->irType[ts].vtblType = new llvm::PATypeHolder(llvm::OpaqueType::get());
+    const llvm::Type* vtabty = getPtrToType(gIR->irType[ts].vtblType->get());
 
     std::vector<const llvm::Type*> fieldtypes;
     fieldtypes.push_back(vtabty);
@@ -237,11 +237,11 @@ void DtoResolveClass(ClassDeclaration* cd)
 
         // set vtbl type
         TypeClass* itc = (TypeClass*)id->type;
-        const llvm::Type* ivtblTy = getPtrToType(itc->llvmVtblType->get());
+        const llvm::Type* ivtblTy = getPtrToType(gIR->irType[itc].vtblType->get());
         fieldtypes.push_back(ivtblTy);
 
         // fix the interface vtable type
-        iri->vtblTy = isaStruct(itc->llvmVtblType->get());
+        iri->vtblTy = isaStruct(gIR->irType[itc].vtblType->get());
 
         // set index
         iri->index = interIdx++;
@@ -259,14 +259,14 @@ void DtoResolveClass(ClassDeclaration* cd)
     structtype = isaStruct(spa.get());
 
     // make it official
-    if (!ts->llvmType)
-        ts->llvmType = new llvm::PATypeHolder(structtype);
+    if (!gIR->irType[ts].type)
+        gIR->irType[ts].type = new llvm::PATypeHolder(structtype);
     else
-        *ts->llvmType = structtype;
-    spa = *ts->llvmType;
+        *gIR->irType[ts].type = structtype;
+    spa = *gIR->irType[ts].type;
 
     // name the type
-    gIR->module->addTypeName(cd->mangle(), ts->llvmType->get());
+    gIR->module->addTypeName(cd->mangle(), gIR->irType[ts].type->get());
 
     // get interface info type
     const llvm::StructType* infoTy = DtoInterfaceInfoType();
@@ -285,7 +285,7 @@ void DtoResolveClass(ClassDeclaration* cd)
             DtoResolveFunction(fd);
             //assert(fd->type->ty == Tfunction);
             //TypeFunction* tf = (TypeFunction*)fd->type;
-            //const llvm::Type* fpty = getPtrToType(tf->llvmType->get());
+            //const llvm::Type* fpty = getPtrToType(gIR->irType[tf].type->get());
             const llvm::FunctionType* vfty = DtoBaseFunctionType(fd);
             const llvm::Type* vfpty = getPtrToType(vfty);
             sinits_ty.push_back(vfpty);
@@ -297,11 +297,11 @@ void DtoResolveClass(ClassDeclaration* cd)
                 cinfoty = infoTy;
             }
             else if (cd != ClassDeclaration::classinfo) {
-                cinfoty = ClassDeclaration::classinfo->type->llvmType->get();
+                cinfoty = gIR->irType[ClassDeclaration::classinfo->type].type->get();
             }
             else {
                 // this is the ClassInfo class, the type is this type
-                cinfoty = ts->llvmType->get();
+                cinfoty = gIR->irType[ts].type->get();
             }
             const llvm::Type* cty = getPtrToType(cinfoty);
             sinits_ty.push_back(cty);
@@ -318,7 +318,7 @@ void DtoResolveClass(ClassDeclaration* cd)
     gIR->module->addTypeName(styname, svtbl_ty);
 
     // refine for final vtable type
-    llvm::cast<llvm::OpaqueType>(ts->llvmVtblType->get())->refineAbstractTypeTo(svtbl_ty);
+    llvm::cast<llvm::OpaqueType>(gIR->irType[ts].vtblType->get())->refineAbstractTypeTo(svtbl_ty);
 
     gIR->classes.pop_back();
     gIR->structs.pop_back();
@@ -360,7 +360,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
         varname.append(cd->mangle());
         varname.append("6__vtblZ");
 
-        const llvm::StructType* svtbl_ty = isaStruct(ts->llvmVtblType->get());
+        const llvm::StructType* svtbl_ty = isaStruct(gIR->irType[ts].vtblType->get());
         gIR->irDsymbol[cd].irStruct->vtbl = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
     }
 
@@ -408,7 +408,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
         initname.append(cd->mangle());
         initname.append("6__initZ");
 
-        llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
+        llvm::GlobalVariable* initvar = new llvm::GlobalVariable(gIR->irType[ts].type->get(), true, _linkage, NULL, initname, gIR->module);
         gIR->irDsymbol[cd].irStruct->init = initvar;
     }
 
@@ -447,8 +447,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
     // get the struct (class) type
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
-    const llvm::StructType* structtype = isaStruct(ts->llvmType->get());
-    const llvm::StructType* vtbltype = isaStruct(ts->llvmVtblType->get());
+    const llvm::StructType* structtype = isaStruct(gIR->irType[ts].type->get());
+    const llvm::StructType* vtbltype = isaStruct(gIR->irType[ts].vtblType->get());
 
     // make sure each offset knows its default initializer
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
@@ -468,7 +468,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         fieldinits.push_back(
             llvm::ConstantPointerNull::get(
                 getPtrToType(
-                    ts->llvmVtblType->get()
+                    gIR->irType[ts].vtblType->get()
                 )
             )
         );
@@ -569,7 +569,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
             assert(0);
         }
 
-        const llvm::StructType* svtbl_ty = isaStruct(ts->llvmVtblType->get());
+        const llvm::StructType* svtbl_ty = isaStruct(gIR->irType[ts].vtblType->get());
 
 #if 0
         for (size_t i=0; i< sinits.size(); ++i)
@@ -593,7 +593,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
             assert(id->type->ty == Tclass);
             TypeClass* its = (TypeClass*)id->type;
 
-            const llvm::StructType* ivtbl_ty = isaStruct(its->llvmVtblType->get());
+            const llvm::StructType* ivtbl_ty = isaStruct(gIR->irType[its].vtblType->get());
 
             // generate interface info initializer
             std::vector<llvm::Constant*> infoInits;
@@ -612,11 +612,11 @@ void DtoConstInitClass(ClassDeclaration* cd)
             // offset
             // generate target independent offset with constGEP
             /*llvm::Value* cidx = DtoConstInt(iri->index);
-            Logger::cout() << "offset to interface in class type: " << *cd->type->llvmType->get() << '\n';
-            size_t ioff = gTargetData->getIndexedOffset(cd->type->llvmType->get(), &cidx, 1);
+            Logger::cout() << "offset to interface in class type: " << *gIR->irType[cd->type].type->get() << '\n';
+            size_t ioff = gTargetData->getIndexedOffset(gIR->irType[cd->type].type->get(), &cidx, 1);
             infoInits.push_back(DtoConstUint(ioff));*/
             assert(iri->index >= 0);
-            size_t ioff = gTargetData->getStructLayout(isaStruct(cd->type->llvmType->get()))->getElementOffset(iri->index);
+            size_t ioff = gTargetData->getStructLayout(isaStruct(gIR->irType[cd->type].type->get()))->getElementOffset(iri->index);
             infoInits.push_back(DtoConstUint(ioff));
 
             // create interface info initializer constant
@@ -805,7 +805,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
 void DtoInitClass(TypeClass* tc, llvm::Value* dst)
 {
     size_t presz = 2*getABITypeSize(DtoSize_t());
-    uint64_t n = getABITypeSize(tc->llvmType->get()) - presz;
+    uint64_t n = getABITypeSize(gIR->irType[tc].type->get()) - presz;
 
     // set vtable field seperately, this might give better optimization
     assert(gIR->irDsymbol[tc->sym].irStruct->vtbl);
@@ -1199,7 +1199,7 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
     else
         gname.append("11__InterfaceZ");
 
-    const llvm::Type* st = cinfo->type->llvmType->get();
+    const llvm::Type* st = gIR->irType[cinfo->type].type->get();
 
     gIR->irDsymbol[cd].irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
 }
@@ -1224,7 +1224,7 @@ static llvm::Constant* build_offti_entry(VarDeclaration* vd)
     DtoForceDeclareDsymbol(vd->type->vtinfo);
     llvm::Constant* c = isaConstant(gIR->irDsymbol[vd->type->vtinfo].getIrValue());
 
-    const llvm::Type* tiTy = getPtrToType(Type::typeinfo->type->llvmType->get());
+    const llvm::Type* tiTy = getPtrToType(gIR->irType[Type::typeinfo->type].type->get());
     //Logger::cout() << "tiTy = " << *tiTy << '\n';
 
     types.push_back(tiTy);
@@ -1265,7 +1265,7 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
         // OffsetTypeInfo type
         std::vector<const llvm::Type*> elemtypes;
         elemtypes.push_back(DtoSize_t());
-        const llvm::Type* tiTy = getPtrToType(Type::typeinfo->type->llvmType->get());
+        const llvm::Type* tiTy = getPtrToType(gIR->irType[Type::typeinfo->type].type->get());
         elemtypes.push_back(tiTy);
         const llvm::StructType* sTy = llvm::StructType::get(elemtypes);
 
@@ -1290,7 +1290,7 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
 {
     // construct the function
     std::vector<const llvm::Type*> paramTypes;
-    paramTypes.push_back(getPtrToType(cd->type->llvmType->get()));
+    paramTypes.push_back(getPtrToType(gIR->irType[cd->type].type->get()));
 
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy, paramTypes, false);
 
