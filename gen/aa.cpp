@@ -58,8 +58,8 @@ static llvm::Value* to_keyti(DValue* key)
     assert(tid);
     DtoResolveDsymbol(Type::typeinfo);
     DtoForceDeclareDsymbol(tid);
-    assert(tid->irGlobal->value);
-    return tid->irGlobal->value;
+    assert(gIR->irDsymbol[tid].irGlobal->value);
+    return gIR->irDsymbol[tid].irGlobal->value;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

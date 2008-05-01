@@ -549,9 +549,8 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     onstack = 0;
     canassign = 0;
     value = NULL;
-    irGlobal = NULL;
-    irLocal = NULL;
-    irField = NULL;
+
+    // LLVMDC
     needsStorage = false;
 }
 

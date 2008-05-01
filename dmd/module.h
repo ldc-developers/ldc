@@ -29,7 +29,6 @@ struct VarDeclaration;
 #if IN_LLVM
 struct DValue;
 typedef DValue elem;
-struct IrModule;
 #else
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
@@ -169,8 +168,6 @@ struct Module : Package
     void genmoduleinfo();
 
     // LLVMDC
-    IrModule* irModule;
-
     Module *isModule() { return this; }
 };
 

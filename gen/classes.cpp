@@ -35,15 +35,15 @@ static void LLVM_AddBaseClassInterfaces(ClassDeclaration* target, BaseClasses* b
         if (bc->base->isInterfaceDeclaration())
         {
             // don't add twice
-            if (target->irStruct->interfaceMap.find(bc->base) == target->irStruct->interfaceMap.end())
+            if (gIR->irDsymbol[target].irStruct->interfaceMap.find(bc->base) == gIR->irDsymbol[target].irStruct->interfaceMap.end())
             {
                 Logger::println("adding interface '%s'", bc->base->toPrettyChars());
                 IrInterface* iri = new IrInterface(bc, NULL);
 
                 // add to map
-                target->irStruct->interfaceMap.insert(std::make_pair(bc->base, iri));
+                gIR->irDsymbol[target].irStruct->interfaceMap.insert(std::make_pair(bc->base, iri));
                 // add to ordered list
-                target->irStruct->interfaceVec.push_back(iri);
+                gIR->irDsymbol[target].irStruct->interfaceVec.push_back(iri);
 
                 // Fill in vtbl[]
                 if (!target->isAbstract()) {
@@ -88,8 +88,8 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
 
 void DtoResolveClass(ClassDeclaration* cd)
 {
-    if (cd->llvmResolved) return;
-    cd->llvmResolved = true;
+    if (gIR->irDsymbol[cd].resolved) return;
+    gIR->irDsymbol[cd].resolved = true;
 
     Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
@@ -99,10 +99,10 @@ void DtoResolveClass(ClassDeclaration* cd)
     TypeClass* ts = (TypeClass*)cd->type;
 
     // make sure the IrStruct is created
-    IrStruct* irstruct = cd->irStruct;
+    IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;
     if (!irstruct) {
         irstruct = new IrStruct(ts);
-        cd->irStruct = irstruct;
+        gIR->irDsymbol[cd].irStruct = irstruct;
     }
 
     // resolve the base class
@@ -169,7 +169,7 @@ void DtoResolveClass(ClassDeclaration* cd)
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
                 prevsize = getABITypeSize(fieldtype);
-                i->second.var->irField->index = idx;
+                gIR->irDsymbol[i->second.var].irField->index = idx;
             }
             // colliding offset?
             else if (lastoffset == i->first) {
@@ -178,16 +178,16 @@ void DtoResolveClass(ClassDeclaration* cd)
                     fieldpad += s - prevsize;
                     prevsize = s;
                 }
-                cd->irStruct->hasUnions = true;
-                i->second.var->irField->index = idx;
+                gIR->irDsymbol[cd].irStruct->hasUnions = true;
+                gIR->irDsymbol[i->second.var].irField->index = idx;
             }
             // intersecting offset?
             else if (i->first < (lastoffset + prevsize)) {
                 size_t s = getABITypeSize(i->second.type);
                 assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
-                cd->irStruct->hasUnions = true;
-                i->second.var->irField->index = idx;
-                i->second.var->irField->indexOffset = (i->first - lastoffset) / s;
+                gIR->irDsymbol[cd].irStruct->hasUnions = true;
+                gIR->irDsymbol[i->second.var].irField->index = idx;
+                gIR->irDsymbol[i->second.var].irField->indexOffset = (i->first - lastoffset) / s;
             }
             // fresh offset
             else {
@@ -207,7 +207,7 @@ void DtoResolveClass(ClassDeclaration* cd)
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
                 prevsize = getABITypeSize(fieldtype);
-                i->second.var->irField->index = idx;
+                gIR->irDsymbol[i->second.var].irField->index = idx;
                 fieldpad = 0;
             }
         }
@@ -224,8 +224,8 @@ void DtoResolveClass(ClassDeclaration* cd)
         Logger::println("Adding interfaces to '%s'", cd->toPrettyChars());
         LOG_SCOPE;
         LLVM_AddBaseClassInterfaces(cd, &cd->baseclasses);
-        Logger::println("%d interfaces added", cd->irStruct->interfaceVec.size());
-        assert(cd->irStruct->interfaceVec.size() == cd->irStruct->interfaceMap.size());
+        Logger::println("%d interfaces added", gIR->irDsymbol[cd].irStruct->interfaceVec.size());
+        assert(gIR->irDsymbol[cd].irStruct->interfaceVec.size() == gIR->irDsymbol[cd].irStruct->interfaceMap.size());
     }
 
     // add interface vtables at the end
@@ -246,8 +246,8 @@ void DtoResolveClass(ClassDeclaration* cd)
         // set index
         iri->index = interIdx++;
     }
-    Logger::println("%d interface vtables added", cd->irStruct->interfaceVec.size());
-    assert(cd->irStruct->interfaceVec.size() == cd->irStruct->interfaceMap.size());
+    Logger::println("%d interface vtables added", gIR->irDsymbol[cd].irStruct->interfaceVec.size());
+    assert(gIR->irDsymbol[cd].irStruct->interfaceVec.size() == gIR->irDsymbol[cd].irStruct->interfaceMap.size());
 
     // create type
     const llvm::StructType* structtype = llvm::StructType::get(fieldtypes);
@@ -330,8 +330,8 @@ void DtoResolveClass(ClassDeclaration* cd)
 
 void DtoDeclareClass(ClassDeclaration* cd)
 {
-    if (cd->llvmDeclared) return;
-    cd->llvmDeclared = true;
+    if (gIR->irDsymbol[cd].declared) return;
+    gIR->irDsymbol[cd].declared = true;
 
     Logger::println("DtoDeclareClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
@@ -339,8 +339,8 @@ void DtoDeclareClass(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
 
-    assert(cd->irStruct);
-    IrStruct* irstruct = cd->irStruct;
+    assert(gIR->irDsymbol[cd].irStruct);
+    IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;
 
     gIR->structs.push_back(irstruct);
     gIR->classes.push_back(cd);
@@ -361,20 +361,20 @@ void DtoDeclareClass(ClassDeclaration* cd)
         varname.append("6__vtblZ");
 
         const llvm::StructType* svtbl_ty = isaStruct(ts->llvmVtblType->get());
-        cd->irStruct->vtbl = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
+        gIR->irDsymbol[cd].irStruct->vtbl = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
     }
 
     // get interface info type
     const llvm::StructType* infoTy = DtoInterfaceInfoType();
 
     // interface info array
-    if (!cd->irStruct->interfaceVec.empty()) {
+    if (!gIR->irDsymbol[cd].irStruct->interfaceVec.empty()) {
         // symbol name
         std::string nam = "_D";
         nam.append(cd->mangle());
         nam.append("16__interfaceInfosZ");
         // resolve array type
-        const llvm::ArrayType* arrTy = llvm::ArrayType::get(infoTy, cd->irStruct->interfaceVec.size());
+        const llvm::ArrayType* arrTy = llvm::ArrayType::get(infoTy, gIR->irDsymbol[cd].irStruct->interfaceVec.size());
         // declare global
         irstruct->interfaceInfosTy = arrTy;
         irstruct->interfaceInfos = new llvm::GlobalVariable(arrTy, true, _linkage, NULL, nam, gIR->module);
@@ -409,7 +409,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
         initname.append("6__initZ");
 
         llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->llvmType->get(), true, _linkage, NULL, initname, gIR->module);
-        cd->irStruct->init = initvar;
+        gIR->irDsymbol[cd].irStruct->init = initvar;
     }
 
     gIR->classes.pop_back();
@@ -431,8 +431,8 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
 void DtoConstInitClass(ClassDeclaration* cd)
 {
-    if (cd->llvmInitialized) return;
-    cd->llvmInitialized = true;
+    if (gIR->irDsymbol[cd].initialized) return;
+    gIR->irDsymbol[cd].initialized = true;
 
     if (cd->isInterfaceDeclaration())
         return; // nothing to do
@@ -440,7 +440,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     Logger::println("DtoConstInitClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
-    IrStruct* irstruct = cd->irStruct;
+    IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;
     gIR->structs.push_back(irstruct);
     gIR->classes.push_back(cd);
 
@@ -456,7 +456,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         IrStruct::Offset* so = &i->second;
         llvm::Constant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
         so->init = finit;
-        so->var->irField->constInit = finit;
+        gIR->irDsymbol[so->var].irField->constInit = finit;
     }
 
     // fill out fieldtypes/inits
@@ -475,8 +475,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
     }
     else
     {
-        assert(cd->irStruct->vtbl != 0);
-        fieldinits.push_back(cd->irStruct->vtbl);
+        assert(gIR->irDsymbol[cd].irStruct->vtbl != 0);
+        fieldinits.push_back(gIR->irDsymbol[cd].irStruct->vtbl);
     }
 
     // then comes monitor
@@ -487,7 +487,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     for (size_t i=0; i<nfi; ++i) {
         llvm::Constant* c;
         if (irstruct->defaultFields[i]) {
-            c = irstruct->defaultFields[i]->irField->constInit;
+            c = gIR->irDsymbol[irstruct->defaultFields[i]].irField->constInit;
             assert(c);
         }
         else {
@@ -536,7 +536,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
     llvm::Constant* _init = llvm::ConstantStruct::get(structtype, fieldinits);
     assert(_init);
-    cd->irStruct->constInit = _init;
+    gIR->irDsymbol[cd].irStruct->constInit = _init;
 
     // abstract classes have no static vtable
     // neither do interfaces (on their own, the implementing class supplies the vtable)
@@ -553,16 +553,16 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
             if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
                 DtoForceDeclareDsymbol(fd);
-                assert(gIR->irFunc[fd]->func);
-                llvm::Constant* c = llvm::cast<llvm::Constant>(gIR->irFunc[fd]->func);
+                assert(gIR->irDsymbol[fd].irFunc->func);
+                llvm::Constant* c = llvm::cast<llvm::Constant>(gIR->irDsymbol[fd].irFunc->func);
                 // cast if necessary (overridden method)
                 if (c->getType() != vtbltype->getElementType(k))
                     c = llvm::ConstantExpr::getBitCast(c, vtbltype->getElementType(k));
                 sinits.push_back(c);
             }
             else if (ClassDeclaration* cd2 = dsym->isClassDeclaration()) {
-                assert(cd->irStruct->classInfo);
-                llvm::Constant* c = cd->irStruct->classInfo;
+                assert(gIR->irDsymbol[cd].irStruct->classInfo);
+                llvm::Constant* c = gIR->irDsymbol[cd].irStruct->classInfo;
                 sinits.push_back(c);
             }
             else
@@ -581,7 +581,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
 #endif
 
         llvm::Constant* cvtblInit = llvm::ConstantStruct::get(svtbl_ty, sinits);
-        cd->irStruct->constVtbl = llvm::cast<llvm::ConstantStruct>(cvtblInit);
+        gIR->irDsymbol[cd].irStruct->constVtbl = llvm::cast<llvm::ConstantStruct>(cvtblInit);
 
         // create interface vtable const initalizers
         for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
@@ -599,8 +599,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
             std::vector<llvm::Constant*> infoInits;
 
             // classinfo
-            assert(id->irStruct->classInfo);
-            llvm::Constant* c = id->irStruct->classInfo;
+            assert(gIR->irDsymbol[id].irStruct->classInfo);
+            llvm::Constant* c = gIR->irDsymbol[id].irStruct->classInfo;
             infoInits.push_back(c);
 
             // vtbl
@@ -636,8 +636,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
                 FuncDeclaration* fd = dsym->isFuncDeclaration();
                 assert(fd);
                 DtoForceDeclareDsymbol(fd);
-                assert(gIR->irFunc[fd]->func);
-                llvm::Constant* c = llvm::cast<llvm::Constant>(gIR->irFunc[fd]->func);
+                assert(gIR->irDsymbol[fd].irFunc->func);
+                llvm::Constant* c = llvm::cast<llvm::Constant>(gIR->irDsymbol[fd].irFunc->func);
 
                 // we have to bitcast, as the type created in ResolveClass expects a different this type
                 c = llvm::ConstantExpr::getBitCast(c, iri->vtblTy->getContainedType(k));
@@ -673,8 +673,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
             std::vector<llvm::Constant*> infoInits;
 
             // classinfo
-            assert(id->irStruct->classInfo);
-            llvm::Constant* c = id->irStruct->classInfo;
+            assert(gIR->irDsymbol[id].irStruct->classInfo);
+            llvm::Constant* c = gIR->irDsymbol[id].irStruct->classInfo;
             infoInits.push_back(c);
 
             // vtbl
@@ -698,8 +698,8 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
 void DtoDefineClass(ClassDeclaration* cd)
 {
-    if (cd->llvmDefined) return;
-    cd->llvmDefined = true;
+    if (gIR->irDsymbol[cd].defined) return;
+    gIR->irDsymbol[cd].defined = true;
 
     Logger::println("DtoDefineClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
@@ -713,11 +713,11 @@ void DtoDefineClass(ClassDeclaration* cd)
         // neither do abstract classes
         if (!cd->isInterfaceDeclaration() && !cd->isAbstract())
         {
-            cd->irStruct->init->setInitializer(cd->irStruct->constInit);
-            cd->irStruct->vtbl->setInitializer(cd->irStruct->constVtbl);
+            gIR->irDsymbol[cd].irStruct->init->setInitializer(gIR->irDsymbol[cd].irStruct->constInit);
+            gIR->irDsymbol[cd].irStruct->vtbl->setInitializer(gIR->irDsymbol[cd].irStruct->constVtbl);
 
             // initialize interface vtables
-            IrStruct* irstruct = cd->irStruct;
+            IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;
             std::vector<llvm::Constant*> infoInits;
             for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
             {
@@ -755,7 +755,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
         std::vector<llvm::Value*> args;
-        args.push_back(tc->sym->irStruct->classInfo);
+        args.push_back(gIR->irDsymbol[tc->sym].irStruct->classInfo);
         mem = gIR->ir->CreateCall(fn, args.begin(), args.end(), "newclass_gc_alloc");
         mem = DtoBitCast(mem, DtoType(tc), "newclass_gc");
     }
@@ -770,7 +770,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         LOG_SCOPE;
         DValue* thisval = newexp->thisexp->toElem(gIR);
         size_t idx = 2;
-        //idx += tc->sym->irStruct->interfaces.size();
+        //idx += gIR->irDsymbol[tc->sym].irStruct->interfaces.size();
         llvm::Value* dst = thisval->getRVal();
         llvm::Value* src = DtoGEPi(mem,0,idx,"tmp");
         Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
@@ -782,10 +782,10 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         Logger::println("Resolving nested context");
         LOG_SCOPE;
         size_t idx = 2;
-        //idx += tc->sym->irStruct->interfaces.size();
-        llvm::Value* nest = gIR->irFunc[gIR->func()->decl]->nestedVar;
+        //idx += gIR->irDsymbol[tc->sym].irStruct->interfaces.size();
+        llvm::Value* nest = gIR->irDsymbol[gIR->func()->decl].irFunc->nestedVar;
         if (!nest)
-            nest = gIR->irFunc[gIR->func()->decl]->thisVar;
+            nest = gIR->irDsymbol[gIR->func()->decl].irFunc->thisVar;
         assert(nest);
         llvm::Value* gep = DtoGEPi(mem,0,idx,"tmp");
         nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
@@ -808,8 +808,8 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
     uint64_t n = getABITypeSize(tc->llvmType->get()) - presz;
 
     // set vtable field seperately, this might give better optimization
-    assert(tc->sym->irStruct->vtbl);
-    DtoStore(tc->sym->irStruct->vtbl, DtoGEPi(dst,0,0,"vtbl"));
+    assert(gIR->irDsymbol[tc->sym].irStruct->vtbl);
+    DtoStore(gIR->irDsymbol[tc->sym].irStruct->vtbl, DtoGEPi(dst,0,0,"vtbl"));
 
     // monitor always defaults to zero
     llvm::Value* tmp = DtoGEPi(dst,0,1,"monitor");
@@ -820,15 +820,15 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
         return;
 
     // copy the rest from the static initializer
-    assert(tc->sym->irStruct->init);
-    assert(dst->getType() == tc->sym->irStruct->init->getType());
+    assert(gIR->irDsymbol[tc->sym].irStruct->init);
+    assert(dst->getType() == gIR->irDsymbol[tc->sym].irStruct->init->getType());
 
     const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* dstarr = DtoGEPi(dst,0,2,"tmp");
     dstarr = DtoBitCast(dstarr, arrty);
 
-    llvm::Value* srcarr = DtoGEPi(tc->sym->irStruct->init,0,2,"tmp");
+    llvm::Value* srcarr = DtoGEPi(gIR->irDsymbol[tc->sym].irStruct->init,0,2,"tmp");
     srcarr = DtoBitCast(srcarr, arrty);
 
     llvm::Function* fn = LLVM_DeclareMemCpy32();
@@ -851,7 +851,7 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
 
     assert(ctor);
     DtoForceDeclareDsymbol(ctor);
-    llvm::Function* fn = gIR->irFunc[ctor]->func;
+    llvm::Function* fn = gIR->irDsymbol[ctor].irFunc->func;
     TypeFunction* tf = (TypeFunction*)DtoDType(ctor->type);
 
     std::vector<llvm::Value*> ctorargs;
@@ -881,8 +881,8 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
     for (size_t i=0; i<arr->dim; i++)
     {
         FuncDeclaration* fd = (FuncDeclaration*)arr->data[i];
-        assert(gIR->irFunc[fd]->func);
-        new llvm::CallInst(gIR->irFunc[fd]->func, instance, "", gIR->scopebb());
+        assert(gIR->irDsymbol[fd].irFunc->func);
+        new llvm::CallInst(gIR->irDsymbol[fd].irFunc->func, instance, "", gIR->scopebb());
     }
 }
 
@@ -961,8 +961,8 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     // ClassInfo c
     TypeClass* to = (TypeClass*)DtoDType(_to);
     DtoForceDeclareDsymbol(to->sym);
-    assert(to->sym->irStruct->classInfo);
-    tmp = to->sym->irStruct->classInfo;
+    assert(gIR->irDsymbol[to->sym].irStruct->classInfo);
+    tmp = gIR->irDsymbol[to->sym].irStruct->classInfo;
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
     tmp = DtoBitCast(tmp, funcTy->getParamType(1));
@@ -1027,8 +1027,8 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     // ClassInfo c
     TypeClass* to = (TypeClass*)DtoDType(_to);
     DtoForceDeclareDsymbol(to->sym);
-    assert(to->sym->irStruct->classInfo);
-    tmp = to->sym->irStruct->classInfo;
+    assert(gIR->irDsymbol[to->sym].irStruct->classInfo);
+    tmp = gIR->irDsymbol[to->sym].irStruct->classInfo;
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
     tmp = DtoBitCast(tmp, funcTy->getParamType(1));
@@ -1094,13 +1094,13 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
     const llvm::Type* llt = getPtrToType(DtoType(t));
     const llvm::Type* st = DtoType(cd->type);
     if (ptr->getType() != st) {
-        assert(cd->irStruct->hasUnions);
+        assert(gIR->irDsymbol[cd].irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
     }
 
     unsigned dataoffset = 2;
 
-    IrStruct* irstruct = cd->irStruct;
+    IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
     //for (unsigned i=0; i<cd->fields.dim; ++i) {
         //VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
@@ -1108,29 +1108,29 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
         assert(vd);
         Type* vdtype = DtoDType(vd->type);
         Logger::println("found %u type %s", vd->offset, vdtype->toChars());
-        assert(vd->irField->index >= 0);
+        assert(gIR->irDsymbol[vd].irField->index >= 0);
         if (os == vd->offset && vdtype == t) {
-            idxs.push_back(vd->irField->index + dataoffset);
+            idxs.push_back(gIR->irDsymbol[vd].irField->index + dataoffset);
             Logger::cout() << "indexing: " << *ptr << '\n';
             ptr = DtoGEP(ptr, idxs, "tmp");
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
             Logger::cout() << "indexing: " << *ptr << '\n';
-            if (vd->irField->indexOffset)
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->irField->indexOffset), "tmp", gIR->scopebb());
+            if (gIR->irDsymbol[vd].irField->indexOffset)
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(gIR->irDsymbol[vd].irField->indexOffset), "tmp", gIR->scopebb());
             Logger::cout() << "indexing: " << *ptr << '\n';
             return ptr;
         }
         else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
             TypeStruct* ts = (TypeStruct*)vdtype;
             StructDeclaration* ssd = ts->sym;
-            idxs.push_back(vd->irField->index + dataoffset);
-            if (vd->irField->indexOffset) {
+            idxs.push_back(gIR->irDsymbol[vd].irField->index + dataoffset);
+            if (gIR->irDsymbol[vd].irField->indexOffset) {
                 Logger::println("has union field offset");
                 ptr = DtoGEP(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->irField->indexOffset), "tmp", gIR->scopebb());
+                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(gIR->irDsymbol[vd].irField->indexOffset), "tmp", gIR->scopebb());
                 std::vector<unsigned> tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
@@ -1183,8 +1183,8 @@ llvm::Value* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
 
 void DtoDeclareClassInfo(ClassDeclaration* cd)
 {
-    if (cd->irStruct->classDeclared) return;
-    cd->irStruct->classDeclared = true;
+    if (gIR->irDsymbol[cd].irStruct->classDeclared) return;
+    gIR->irDsymbol[cd].irStruct->classDeclared = true;
 
     Logger::println("DtoDeclareClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
@@ -1201,7 +1201,7 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
 
     const llvm::Type* st = cinfo->type->llvmType->get();
 
-    cd->irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
+    gIR->irDsymbol[cd].irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
 }
 
 static llvm::Constant* build_offti_entry(VarDeclaration* vd)
@@ -1222,7 +1222,7 @@ static llvm::Constant* build_offti_entry(VarDeclaration* vd)
     vd->type->getTypeInfo(NULL);
     assert(vd->type->vtinfo);
     DtoForceDeclareDsymbol(vd->type->vtinfo);
-    llvm::Constant* c = isaConstant(vd->type->vtinfo->getIrValue());
+    llvm::Constant* c = isaConstant(gIR->irDsymbol[vd->type->vtinfo].getIrValue());
 
     const llvm::Type* tiTy = getPtrToType(Type::typeinfo->type->llvmType->get());
     //Logger::cout() << "tiTy = " << *tiTy << '\n';
@@ -1300,8 +1300,8 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     else if (cd->dtors.dim == 1) {
         DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[0];
         DtoForceDeclareDsymbol(d);
-        assert(gIR->irFunc[d]->func);
-        return llvm::ConstantExpr::getBitCast(isaConstant(gIR->irFunc[d]->func), getPtrToType(llvm::Type::Int8Ty));
+        assert(gIR->irDsymbol[d].irFunc->func);
+        return llvm::ConstantExpr::getBitCast(isaConstant(gIR->irDsymbol[d].irFunc->func), getPtrToType(llvm::Type::Int8Ty));
     }
 
     std::string gname("_D");
@@ -1319,8 +1319,8 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     {
         DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[i];
         DtoForceDeclareDsymbol(d);
-        assert(gIR->irFunc[d]->func);
-        builder.CreateCall(gIR->irFunc[d]->func, thisptr);
+        assert(gIR->irDsymbol[d].irFunc->func);
+        builder.CreateCall(gIR->irDsymbol[d].irFunc->func, thisptr);
     }
     builder.CreateRetVoid();
 
@@ -1375,21 +1375,21 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 //         void *defaultConstructor;
 //        }
 
-    if (cd->irStruct->classDefined) return;
-    cd->irStruct->classDefined = true;
+    if (gIR->irDsymbol[cd].irStruct->classDefined) return;
+    gIR->irDsymbol[cd].irStruct->classDefined = true;
 
     Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);
-    assert(cd->irStruct->classInfo);
+    assert(gIR->irDsymbol[cd].irStruct->classInfo);
 
     TypeClass* cdty = (TypeClass*)cd->type;
     if (!cd->isInterfaceDeclaration() && !cd->isAbstract()) {
-        assert(cd->irStruct->init);
-        assert(cd->irStruct->constInit);
-        assert(cd->irStruct->vtbl);
-        assert(cd->irStruct->constVtbl);
+        assert(gIR->irDsymbol[cd].irStruct->init);
+        assert(gIR->irDsymbol[cd].irStruct->constInit);
+        assert(gIR->irDsymbol[cd].irStruct->vtbl);
+        assert(gIR->irDsymbol[cd].irStruct->constVtbl);
     }
 
     // holds the list of initializers for llvm
@@ -1397,28 +1397,28 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
     DtoForceConstInitDsymbol(cinfo);
-    assert(cinfo->irStruct->constInit);
+    assert(gIR->irDsymbol[cinfo].irStruct->constInit);
 
     llvm::Constant* c;
 
     // own vtable
-    c = cinfo->irStruct->constInit->getOperand(0);
+    c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(0);
     assert(c);
     inits.push_back(c);
 
     // monitor
-    c = cinfo->irStruct->constInit->getOperand(1);
+    c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(1);
     inits.push_back(c);
 
     // byte[] init
     const llvm::Type* byteptrty = getPtrToType(llvm::Type::Int8Ty);
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->irStruct->constInit->getOperand(2);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(2);
     }
     else {
-        c = llvm::ConstantExpr::getBitCast(cd->irStruct->init, byteptrty);
-        assert(!cd->irStruct->constInit->getType()->isAbstract());
-        size_t initsz = getABITypeSize(cd->irStruct->constInit->getType());
+        c = llvm::ConstantExpr::getBitCast(gIR->irDsymbol[cd].irStruct->init, byteptrty);
+        assert(!gIR->irDsymbol[cd].irStruct->constInit->getType()->isAbstract());
+        size_t initsz = getABITypeSize(gIR->irDsymbol[cd].irStruct->constInit->getType());
         c = DtoConstSlice(DtoConstSize_t(initsz), c);
     }
     inits.push_back(c);
@@ -1437,25 +1437,25 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // vtbl array
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->irStruct->constInit->getOperand(4);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(4);
     }
     else {
         const llvm::Type* byteptrptrty = getPtrToType(byteptrty);
-        assert(!cd->irStruct->vtbl->getType()->isAbstract());
-        c = llvm::ConstantExpr::getBitCast(cd->irStruct->vtbl, byteptrptrty);
-        assert(!cd->irStruct->constVtbl->getType()->isAbstract());
-        size_t vtblsz = cd->irStruct->constVtbl->getType()->getNumElements();
+        assert(!gIR->irDsymbol[cd].irStruct->vtbl->getType()->isAbstract());
+        c = llvm::ConstantExpr::getBitCast(gIR->irDsymbol[cd].irStruct->vtbl, byteptrptrty);
+        assert(!gIR->irDsymbol[cd].irStruct->constVtbl->getType()->isAbstract());
+        size_t vtblsz = gIR->irDsymbol[cd].irStruct->constVtbl->getType()->getNumElements();
         c = DtoConstSlice(DtoConstSize_t(vtblsz), c);
     }
     inits.push_back(c);
 
     // interfaces array
-    IrStruct* irstruct = cd->irStruct;
+    IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;
     if (cd->isInterfaceDeclaration() || !irstruct->interfaceInfos || cd->isAbstract()) {
-        c = cinfo->irStruct->constInit->getOperand(5);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(5);
     }
     else {
-        const llvm::Type* t = cinfo->irStruct->constInit->getOperand(5)->getType()->getContainedType(1);
+        const llvm::Type* t = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(5)->getType()->getContainedType(1);
         c = llvm::ConstantExpr::getBitCast(irstruct->interfaceInfos, t);
         size_t iisz = irstruct->interfaceInfosTy->getNumElements();
         c = DtoConstSlice(DtoConstSize_t(iisz), c);
@@ -1465,19 +1465,19 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // base classinfo
     if (cd->baseClass && !cd->isInterfaceDeclaration() && !cd->isAbstract()) {
         DtoDeclareClassInfo(cd->baseClass);
-        c = cd->baseClass->irStruct->classInfo;
+        c = gIR->irDsymbol[cd->baseClass].irStruct->classInfo;
         assert(c);
         inits.push_back(c);
     }
     else {
         // null
-        c = cinfo->irStruct->constInit->getOperand(6);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(6);
         inits.push_back(c);
     }
 
     // destructor
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->irStruct->constInit->getOperand(7);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(7);
     }
     else {
         c = build_class_dtor(cd);
@@ -1486,12 +1486,12 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // invariant
     // TODO
-    c = cinfo->irStruct->constInit->getOperand(8);
+    c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(8);
     inits.push_back(c);
 
     // uint flags
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->irStruct->constInit->getOperand(9);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(9);
     }
     else {
         uint flags = build_classinfo_flags(cd);
@@ -1501,27 +1501,27 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // allocator
     // TODO
-    c = cinfo->irStruct->constInit->getOperand(10);
+    c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(10);
     inits.push_back(c);
 
     // offset typeinfo
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->irStruct->constInit->getOperand(11);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(11);
     }
     else {
-        c = build_offti_array(cd, cinfo->irStruct->constInit->getOperand(11));
+        c = build_offti_array(cd, gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(11));
     }
     inits.push_back(c);
 
     // default constructor
     if (cd->defaultCtor && !cd->isInterfaceDeclaration() && !cd->isAbstract()) {
         DtoForceDeclareDsymbol(cd->defaultCtor);
-        c = isaConstant(gIR->irFunc[cd->defaultCtor]->func);
-        const llvm::Type* toTy = cinfo->irStruct->constInit->getOperand(12)->getType();
+        c = isaConstant(gIR->irDsymbol[cd->defaultCtor].irFunc->func);
+        const llvm::Type* toTy = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(12)->getType();
         c = llvm::ConstantExpr::getBitCast(c, toTy);
     }
     else {
-        c = cinfo->irStruct->constInit->getOperand(12);
+        c = gIR->irDsymbol[cinfo].irStruct->constInit->getOperand(12);
     }
     inits.push_back(c);
 
@@ -1532,10 +1532,10 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }*/
 
     // build the initializer
-    const llvm::StructType* st = isaStruct(cinfo->irStruct->constInit->getType());
+    const llvm::StructType* st = isaStruct(gIR->irDsymbol[cinfo].irStruct->constInit->getType());
     llvm::Constant* finalinit = llvm::ConstantStruct::get(st, inits);
     //Logger::cout() << "built the classinfo initializer:\n" << *finalinit <<'\n';
 
-    cd->irStruct->constClassInfo = finalinit;
-    cd->irStruct->classInfo->setInitializer(finalinit);
+    gIR->irDsymbol[cd].irStruct->constClassInfo = finalinit;
+    gIR->irDsymbol[cd].irStruct->classInfo->setInitializer(finalinit);
 }

@@ -44,8 +44,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     stag = NULL;
     sinit = NULL;
     scope = NULL;
-
-    irStruct = NULL;
 }
 
 enum PROT AggregateDeclaration::prot()

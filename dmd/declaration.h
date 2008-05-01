@@ -21,14 +21,6 @@
 #include "lexer.h"
 #include "mtype.h"
 
-namespace llvm {
-    class Value;
-}
-struct IrVar;
-struct IrGlobal;
-struct IrLocal;
-struct IrField;
-
 struct Expression;
 struct Statement;
 struct LabelDsymbol;
@@ -263,13 +255,7 @@ struct VarDeclaration : Declaration
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
 
     // LLVMDC
-    IrGlobal* irGlobal;
-    IrLocal* irLocal;
-    IrField* irField;
     bool needsStorage;
-
-    IrVar* getIrVar();
-    llvm::Value*& getIrValue();
 };
 
 /**************************************************************/

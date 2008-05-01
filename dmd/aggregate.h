@@ -45,7 +45,6 @@ namespace llvm
     class ConstantStruct;
     class GlobalVariable;
 }
-struct IrStruct;
 struct DUnion;
 
 struct AggregateDeclaration : ScopeDsymbol
@@ -102,9 +101,6 @@ struct AggregateDeclaration : ScopeDsymbol
     Symbol *toInitializer();
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
-
-    // llvmdc
-    IrStruct* irStruct;
 };
 
 struct AnonymousAggregateDeclaration : AggregateDeclaration

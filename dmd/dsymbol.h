@@ -219,14 +219,6 @@ struct Dsymbol : Object
     int llvmInternal;
     char* llvmInternal1;
     char* llvmInternal2;
-
-    //llvm::Value* llvmValue;
-    Module* llvmDModule;
-
-    bool llvmResolved;
-    bool llvmDeclared;
-    bool llvmInitialized;
-    bool llvmDefined;
 };
 
 // Dsymbol that generates a scope

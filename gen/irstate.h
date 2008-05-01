@@ -11,6 +11,7 @@
 #include "ir/irfunction.h"
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
+#include "ir/irsymbol.h"
 
 // global ir state for current module
 struct IRState;
@@ -25,6 +26,8 @@ struct Module;
 struct TypeStruct;
 struct BaseClass;
 struct TryFinallyStatement;
+
+struct IrModule;
 
 // represents a scope
 struct IRScope
@@ -73,12 +76,13 @@ struct IRState
     Module* dmodule;
     llvm::Module* module;
 
+    // ir data associated with DMD Dsymbol nodes 
+    std::map<Dsymbol*, IrDsymbol> irDsymbol;
+
     // functions
     typedef std::vector<IrFunction*> FunctionVector;
     FunctionVector functions;
     IrFunction* func();
-    // ir data associated with function declarations
-    std::map<FuncDeclaration*, IrFunction*> irFunc;
 
     llvm::Function* topfunc();
     TypeFunction* topfunctype();

@@ -67,7 +67,7 @@ void Module::genobjfile()
 
     // module ir state
     // might already exist via import, just overwrite...
-    irModule = new IrModule(this);
+    gIR->irDsymbol[this].irModule = new IrModule(this);
 
     // name the module
     std::string mname(toChars());
@@ -177,7 +177,7 @@ static llvm::Function* build_module_ctor()
 
     size_t n = gIR->ctors.size();
     if (n == 1)
-        return gIR->irFunc[gIR->ctors[0]]->func;
+        return gIR->irDsymbol[gIR->ctors[0]].irFunc->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -192,7 +192,7 @@ static llvm::Function* build_module_ctor()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->irFunc[gIR->ctors[i]]->func;
+        llvm::Function* f = gIR->irDsymbol[gIR->ctors[i]].irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -210,7 +210,7 @@ static llvm::Function* build_module_dtor()
 
     size_t n = gIR->dtors.size();
     if (n == 1)
-        return gIR->irFunc[gIR->dtors[0]]->func;
+        return gIR->irDsymbol[gIR->dtors[0]].irFunc->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -225,7 +225,7 @@ static llvm::Function* build_module_dtor()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->irFunc[gIR->dtors[i]]->func;
+        llvm::Function* f = gIR->irDsymbol[gIR->dtors[i]].irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -243,7 +243,7 @@ static llvm::Function* build_module_unittest()
 
     size_t n = gIR->unitTests.size();
     if (n == 1)
-        return gIR->irFunc[gIR->unitTests[0]]->func;
+        return gIR->irDsymbol[gIR->unitTests[0]].irFunc->func;
 
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
@@ -258,7 +258,7 @@ static llvm::Function* build_module_unittest()
     LLVMBuilder builder(bb);
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->irFunc[gIR->unitTests[i]]->func;
+        llvm::Function* f = gIR->irDsymbol[gIR->unitTests[i]].irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
@@ -299,7 +299,7 @@ void Module::genmoduleinfo()
     llvm::Constant* c = 0;
 
     // vtable
-    c = moduleinfo->irStruct->vtbl;
+    c = gIR->irDsymbol[moduleinfo].irStruct->vtbl;
     initVec.push_back(c);
 
     // monitor
@@ -341,7 +341,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
     else
-        c = moduleinfo->irStruct->constInit->getOperand(3);
+        c = gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(3);
     initVec.push_back(c);
 
     // localClasses[]
@@ -366,8 +366,8 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        assert(cd->irStruct->classInfo);
-        classInits.push_back(cd->irStruct->classInfo);
+        assert(gIR->irDsymbol[cd].irStruct->classInfo);
+        classInits.push_back(gIR->irDsymbol[cd].irStruct->classInfo);
     }
     // has class array?
     if (!classInits.empty())
@@ -382,7 +382,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
-        c = moduleinfo->irStruct->constInit->getOperand(4);
+        c = gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(4);
     initVec.push_back(c);
 
     // flags
@@ -393,25 +393,25 @@ void Module::genmoduleinfo()
 
     // ctor
     llvm::Function* fctor = build_module_ctor();
-    c = fctor ? fctor : moduleinfo->irStruct->constInit->getOperand(6);
+    c = fctor ? fctor : gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(6);
     initVec.push_back(c);
 
     // dtor
     llvm::Function* fdtor = build_module_dtor();
-    c = fdtor ? fdtor : moduleinfo->irStruct->constInit->getOperand(7);
+    c = fdtor ? fdtor : gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(7);
     initVec.push_back(c);
 
     // unitTest
     llvm::Function* unittest = build_module_unittest();
-    c = unittest ? unittest : moduleinfo->irStruct->constInit->getOperand(8);
+    c = unittest ? unittest : gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(8);
     initVec.push_back(c);
 
     // xgetMembers
-    c = moduleinfo->irStruct->constInit->getOperand(9);
+    c = gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(9);
     initVec.push_back(c);
 
     // ictor
-    c = moduleinfo->irStruct->constInit->getOperand(10);
+    c = gIR->irDsymbol[moduleinfo].irStruct->constInit->getOperand(10);
     initVec.push_back(c);
 
     /*Logger::println("MODULE INFO INITIALIZERS");
@@ -511,11 +511,11 @@ void VarDeclaration::toObjFile()
             return;
 
         // don't duplicate work
-        if (llvmResolved) return;
-        llvmResolved = true;
-        llvmDeclared = true;
+        if (gIR->irDsymbol[this].resolved) return;
+        gIR->irDsymbol[this].resolved = true;
+        gIR->irDsymbol[this].declared = true;
 
-        irGlobal = new IrGlobal(this);
+        gIR->irDsymbol[this].irGlobal = new IrGlobal(this);
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
@@ -532,12 +532,12 @@ void VarDeclaration::toObjFile()
 
         Logger::println("Creating global variable");
 
-        const llvm::Type* _type = irGlobal->type.get();
+        const llvm::Type* _type = gIR->irDsymbol[this].irGlobal->type.get();
         llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
         std::string _name(mangle());
 
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
-        irGlobal->value = gvar;
+        gIR->irDsymbol[this].irGlobal->value = gvar;
 
         if (static_local)
             DtoConstInitGlobal(this);
@@ -551,7 +551,7 @@ void VarDeclaration::toObjFile()
         Logger::println("Aggregate var declaration: '%s' offset=%d", toChars(), offset);
 
         const llvm::Type* _type = DtoType(type);
-        irField = new IrField(this);
+        gIR->irDsymbol[this].irField = new IrField(this);
 
         // add the field in the IRStruct
         gIR->topstruct()->offsets.insert(std::make_pair(offset, IrStruct::Offset(this, _type)));

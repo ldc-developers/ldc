@@ -77,11 +77,11 @@ void ReturnStatement::toIR(IRState* p)
         if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
             IrFunction* f = p->func();
             assert(f->type->llvmRetInPtr);
-            assert(gIR->irFunc[f->decl]->retArg);
+            assert(gIR->irDsymbol[f->decl].irFunc->retArg);
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
-            DValue* rvar = new DVarValue(f->type->next, gIR->irFunc[f->decl]->retArg, true);
+            DValue* rvar = new DVarValue(f->type->next, gIR->irDsymbol[f->decl].irFunc->retArg, true);
 
             p->exps.push_back(IRExp(NULL,exp,rvar));
             DValue* e = exp->toElem(p);
@@ -801,9 +801,9 @@ void ForeachStatement::toIR(IRState* p)
     if (key)
     {
         //key->llvmValue = keyvar;
-        assert(!key->irLocal);
-        key->irLocal = new IrLocal(key);
-        key->irLocal->value = keyvar;
+        assert(!gIR->irDsymbol[key].irLocal);
+        gIR->irDsymbol[key].irLocal = new IrLocal(key);
+        gIR->irDsymbol[key].irLocal->value = keyvar;
     }
     llvm::Value* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
@@ -812,8 +812,8 @@ void ForeachStatement::toIR(IRState* p)
     llvm::Value* valvar = NULL;
     if (!value->isRef() && !value->isOut())
         valvar = new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint());
-    assert(!value->irLocal);
-    value->irLocal = new IrLocal(value);
+    assert(!gIR->irDsymbol[value].irLocal);
+    gIR->irDsymbol[value].irLocal = new IrLocal(value);
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);
@@ -909,15 +909,15 @@ void ForeachStatement::toIR(IRState* p)
     llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
     llvm::Value* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     if (aggrtype->ty == Tsarray)
-        value->irLocal->value = DtoGEP(val,zero,loadedKey,"tmp");
+        gIR->irDsymbol[value].irLocal->value = DtoGEP(val,zero,loadedKey,"tmp");
     else if (aggrtype->ty == Tarray)
-        value->irLocal->value = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
+        gIR->irDsymbol[value].irLocal->value = new llvm::GetElementPtrInst(val,loadedKey,"tmp",p->scopebb());
 
     if (!value->isRef() && !value->isOut()) {
         DValue* dst = new DVarValue(value->type, valvar, true);
-        DValue* src = new DVarValue(value->type, value->irLocal->value, true);
+        DValue* src = new DVarValue(value->type, gIR->irDsymbol[value].irLocal->value, true);
         DtoAssign(dst, src);
-        value->irLocal->value = valvar;
+        gIR->irDsymbol[value].irLocal->value = valvar;
     }
 
     // emit body
@@ -1046,7 +1046,7 @@ void WithStatement::toIR(IRState* p)
     assert(body);
 
     DValue* e = exp->toElem(p);
-    wthis->irLocal->value = e->getRVal();
+    gIR->irDsymbol[wthis].irLocal->value = e->getRVal();
     delete e;
 
     body->toIR(p);
