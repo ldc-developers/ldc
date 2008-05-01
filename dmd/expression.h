@@ -777,7 +777,7 @@ struct DotIdExp : UnaExp
 struct DotTemplateExp : UnaExp
 {
     TemplateDeclaration *td;
-
+    
     DotTemplateExp(Loc loc, Expression *e, TemplateDeclaration *td);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };

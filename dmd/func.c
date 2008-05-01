@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -35,6 +35,7 @@
 FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC storage_class, Type *type)
     : Declaration(id)
 {
+    //printf("FuncDeclaration(id = '%s', type = %p)\n", id->toChars(), type);
     this->storage_class = storage_class;
     this->type = type;
     this->loc = loc;
@@ -262,110 +263,98 @@ void FuncDeclaration::semantic(Scope *sc)
 	}
 
 	// Find index of existing function in vtbl[] to override
-	if (cd->baseClass)
+	vi = findVtblIndex(&cd->vtbl, cd->baseClass ? cd->baseClass->vtbl.dim : 0);
+	switch (vi)
 	{
-	    for (vi = 0; vi < cd->baseClass->vtbl.dim; vi++)
-	    {
-		FuncDeclaration *fdv = ((Dsymbol *)cd->vtbl.data[vi])->isFuncDeclaration();
+	    case -1:	// didn't find one
+		// This is an 'introducing' function.
 
-		// BUG: should give error if argument types match,
-		// but return type does not?
-
-		//printf("\tvtbl[%d] = '%s'\n", vi, fdv ? fdv->ident->toChars() : "");
-		if (fdv && fdv->ident == ident)
-		{
-		    int cov = type->covariant(fdv->type);
-		    //printf("\tbaseclass cov = %d\n", cov);
-		    if (cov == 2)
+		// Verify this doesn't override previous final function
+		if (cd->baseClass)
+		{   Dsymbol *s = cd->baseClass->search(loc, ident, 0);
+		    if (s)
 		    {
-			//type->print();
-			//fdv->type->print();
-			//printf("%s %s\n", type->deco, fdv->type->deco);
-			error("of type %s overrides but is not covariant with %s of type %s",
-			    type->toChars(), fdv->toPrettyChars(), fdv->type->toChars());
-		    }
-		    if (cov == 1)
-		    {
-			if (fdv->isFinal())
-			    error("cannot override final function %s", fdv->toPrettyChars());
-			if (fdv->toParent() == parent)
-			{
-			    // If both are mixins, then error.
-			    // If either is not, the one that is not overrides
-			    // the other.
-			    if (fdv->parent->isClassDeclaration())
-				goto L1;
-			    if (!this->parent->isClassDeclaration()
-#if !BREAKABI
-				&& !isDtorDeclaration()
-#endif
-				)
-				error("multiple overrides of same function");
-			}
-			cd->vtbl.data[vi] = (void *)this;
-			vtblIndex = vi;
-
-			/* This works by whenever this function is called,
-			 * it actually returns tintro, which gets dynamically
-			 * cast to type. But we know that tintro is a base
-			 * of type, so we could optimize it by not doing a
-			 * dynamic cast, but just subtracting the isBaseOf()
-			 * offset if the value is != null.
-			 */
-
-			if (fdv->tintro)
-			    tintro = fdv->tintro;
-			else if (!type->equals(fdv->type))
-			{
-			    /* Only need to have a tintro if the vptr
-			     * offsets differ
-			     */
-			    int offset;
-			    if (fdv->type->nextOf()->isBaseOf(type->nextOf(), &offset))
-			    {
-				tintro = fdv->type;
-			    }
-			}
-			goto L1;
-		    }
-		    if (cov == 3)
-		    {
-			cd->sizeok = 2;	// can't finish due to forward reference
-			return;
+			FuncDeclaration *f = s->isFuncDeclaration();
+			f = f->overloadExactMatch(type);
+			if (f && f->isFinal() && f->prot() != PROTprivate)
+			    error("cannot override final function %s", f->toPrettyChars());
 		    }
 		}
+
+		if (isFinal())
+		{
+		    cd->vtblFinal.push(this);
+		}
+		else
+		{
+		    // Append to end of vtbl[]
+		    //printf("\tintroducing function\n");
+		    introducing = 1;
+		    vi = cd->vtbl.dim;
+		    cd->vtbl.push(this);
+		    vtblIndex = vi;
+		}
+		break;
+
+	    case -2:	// can't determine because of fwd refs
+		cd->sizeok = 2;	// can't finish due to forward reference
+		return;
+
+	    default:
+	    {   FuncDeclaration *fdv = (FuncDeclaration *)cd->vtbl.data[vi];
+		// This function is covariant with fdv
+		if (fdv->isFinal())
+		    error("cannot override final function %s", fdv->toPrettyChars());
+
+#if V2
+		if (!isOverride() && global.params.warnings)
+		    error("overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
+#endif
+
+		if (fdv->toParent() == parent)
+		{
+		    // If both are mixins, then error.
+		    // If either is not, the one that is not overrides
+		    // the other.
+		    if (fdv->parent->isClassDeclaration())
+			break;
+		    if (!this->parent->isClassDeclaration()
+#if !BREAKABI
+			&& !isDtorDeclaration()
+#endif
+#if V2
+			&& !isPostBlitDeclaration()
+#endif
+			)
+			error("multiple overrides of same function");
+		}
+		cd->vtbl.data[vi] = (void *)this;
+		vtblIndex = vi;
+
+		/* This works by whenever this function is called,
+		 * it actually returns tintro, which gets dynamically
+		 * cast to type. But we know that tintro is a base
+		 * of type, so we could optimize it by not doing a
+		 * dynamic cast, but just subtracting the isBaseOf()
+		 * offset if the value is != null.
+		 */
+
+		if (fdv->tintro)
+		    tintro = fdv->tintro;
+		else if (!type->equals(fdv->type))
+		{
+		    /* Only need to have a tintro if the vptr
+		     * offsets differ
+		     */
+		    int offset;
+		    if (fdv->type->nextOf()->isBaseOf(type->nextOf(), &offset))
+		    {
+			tintro = fdv->type;
+		    }
+		}
+		break;
 	    }
 	}
-
-	// This is an 'introducing' function.
-
-	// Verify this doesn't override previous final function
-	if (cd->baseClass)
-	{   Dsymbol *s = cd->baseClass->search(loc, ident, 0);
-	    if (s)
-	    {
-		FuncDeclaration *f = s->isFuncDeclaration();
-		f = f->overloadExactMatch(type);
-		if (f && f->isFinal() && f->prot() != PROTprivate)
-		    error("cannot override final function %s", f->toPrettyChars());
-	    }
-	}
-
-	if (isFinal())
-	{
-	    cd->vtblFinal.push(this);
-	}
-	else
-	{
-	    // Append to end of vtbl[]
-	    //printf("\tintroducing function\n");
-	    introducing = 1;
-	    vi = cd->vtbl.dim;
-	    cd->vtbl.push(this);
-	    vtblIndex = vi;
-	}
-
-    L1: ;
 
 	/* Go through all the interface bases.
 	 * If this function is covariant with any members of those interface
@@ -373,6 +362,56 @@ void FuncDeclaration::semantic(Scope *sc)
 	 */
 	for (int i = 0; i < cd->interfaces_dim; i++)
 	{
+#if 1
+	    BaseClass *b = cd->interfaces[i];
+	    vi = findVtblIndex(&b->base->vtbl, b->base->vtbl.dim);
+	    switch (vi)
+	    {
+		case -1:
+		    break;
+
+		case -2:
+		    cd->sizeok = 2;	// can't finish due to forward reference
+		    return;
+
+		default:
+		{   FuncDeclaration *fdv = (FuncDeclaration *)b->base->vtbl.data[vi];
+		    Type *ti = NULL;
+
+		    if (fdv->tintro)
+			ti = fdv->tintro;
+		    else if (!type->equals(fdv->type))
+		    {
+			/* Only need to have a tintro if the vptr
+			 * offsets differ
+			 */
+			int offset;
+			if (fdv->type->nextOf()->isBaseOf(type->nextOf(), &offset))
+			{
+			    ti = fdv->type;
+#if 0
+			    if (offset)
+				ti = fdv->type;
+			    else if (type->nextOf()->ty == Tclass)
+			    {   ClassDeclaration *cdn = ((TypeClass *)type->nextOf())->sym;
+				if (cdn && cdn->sizeok != 1)
+				    ti = fdv->type;
+			    }
+#endif
+			}
+		    }
+		    if (ti)
+		    {
+			if (tintro && !tintro->equals(ti))
+			{
+			    error("incompatible covariant types %s and %s", tintro->toChars(), ti->toChars());
+			}
+			tintro = ti;
+		    }
+		    goto L2;
+		}
+	    }
+#else
 	    BaseClass *b = cd->interfaces[i];
 	    for (vi = 0; vi < b->base->vtbl.dim; vi++)
 	    {
@@ -433,11 +472,12 @@ void FuncDeclaration::semantic(Scope *sc)
 		    }
 		}
 	    }
+#endif
 	}
 
 	if (introducing && isOverride())
 	{
-	    error("function %s does not override any", toChars());
+	    error("does not override any function");
 	}
 
     L2: ;
@@ -557,10 +597,10 @@ void FuncDeclaration::semantic3(Scope *sc)
     {
 	if (global.errors)
 	    return;
-	printf("FuncDeclaration::semantic3(%s '%s', sc = %p)\n", kind(), toChars(), sc);
+	//printf("FuncDeclaration::semantic3(%s '%s', sc = %p)\n", kind(), toChars(), sc);
 	assert(0);
     }
-    //printf("FuncDeclaration::semantic3('%s.%s', sc = %p)\n", parent->toChars(), toChars(), sc);
+    //printf("FuncDeclaration::semantic3('%s.%s', sc = %p, loc = %s)\n", parent->toChars(), toChars(), sc, loc.toChars());
     //fflush(stdout);
     //{ static int x; if (++x == 2) *(char*)0=0; }
     //printf("\tlinkage = %d\n", sc->linkage);
@@ -591,15 +631,15 @@ void FuncDeclaration::semantic3(Scope *sc)
 
     if (fbody || frequire)
     {
-	// Establish function scope
-	ScopeDsymbol *ss;
-	Scope *sc2;
-
+	/* Symbol table into which we place parameters and nested functions,
+	 * solely to diagnose name collisions.
+	 */
 	localsymtab = new DsymbolTable();
 
-	ss = new ScopeDsymbol();
+	// Establish function scope
+	ScopeDsymbol *ss = new ScopeDsymbol();
 	ss->parent = sc->scopesym;
-	sc2 = sc->push(ss);
+	Scope *sc2 = sc->push(ss);
 	sc2->func = this;
 	sc2->parent = this;
 	sc2->callSuper = 0;
@@ -608,7 +648,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 	sc2->sw = NULL;
 	sc2->fes = fes;
 	sc2->linkage = LINKd;
-	sc2->stc &= ~(STCauto | STCscope | STCstatic | STCabstract | STCdeprecated);
+	sc2->stc &= ~(STCauto | STCscope | STCstatic | STCabstract | STCdeprecated | STCfinal);
 	sc2->protection = PROTpublic;
 	sc2->explicitProtection = 0;
 	sc2->structalign = 8;
@@ -693,7 +733,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    }
 	}
 
-	// Propagate storage class from tuple arguments to their sub-arguments.
+	// Propagate storage class from tuple parameters to their element-parameters.
 	if (f->parameters)
 	{
 	    for (size_t i = 0; i < f->parameters->dim; i++)
@@ -712,8 +752,9 @@ void FuncDeclaration::semantic3(Scope *sc)
 
 	// Declare all the function parameters as variables
 	if (nparams)
-	{   // parameters[] has all the tuples removed, as the back end
-	    // doesn't know about tuples
+	{   /* parameters[] has all the tuples removed, as the back end
+	     * doesn't know about tuples
+	     */
 	    parameters = new Dsymbols();
 	    parameters->reserve(nparams);
 	    for (size_t i = 0; i < nparams; i++)
@@ -722,14 +763,16 @@ void FuncDeclaration::semantic3(Scope *sc)
 		Identifier *id = arg->ident;
 		if (!id)
 		{
-		    //error("no identifier for parameter %d of %s", i + 1, toChars());
+		    /* Generate identifier for un-named parameter,
+		     * because we need it later on.
+		     */
 		    OutBuffer buf;
 		    buf.printf("_param_%zu", i);
 		    char *name = (char *)buf.extractData();
 		    id = new Identifier(name, TOKidentifier);
 		    arg->ident = id;
 		}
-		VarDeclaration *v = new VarDeclaration(0, arg->type, id, NULL);
+		VarDeclaration *v = new VarDeclaration(loc, arg->type, id, NULL);
 		//printf("declaring parameter %s of type %s\n", v->toChars(), v->type->toChars());
 		v->storage_class |= STCparameter;
 		if (f->varargs == 2 && i + 1 == nparams)
@@ -783,10 +826,14 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    }
 	}
 
+	/* Do the semantic analysis on the [in] preconditions and
+	 * [out] postconditions.
+	 */
 	sc2->incontract++;
 
 	if (frequire)
-	{
+	{   /* frequire is composed of the [in] contracts
+	     */
 	    // BUG: need to error if accessing out parameters
 	    // BUG: need to treat parameters as const
 	    // BUG: need to disallow returns and throws
@@ -796,10 +843,9 @@ void FuncDeclaration::semantic3(Scope *sc)
 	}
 
 	if (fensure || addPostInvariant())
-	{
-	    ScopeDsymbol *sym;
-
-	    sym = new ScopeDsymbol();
+	{   /* fensure is composed of the [out] contracts
+	     */
+	    ScopeDsymbol *sym = new ScopeDsymbol();
 	    sym->parent = sc2->scopesym;
 	    sc2 = sc2->push(sym);
 
@@ -903,6 +949,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 	if (fbody)
 	{   ClassDeclaration *cd = isClassMember();
 
+	    /* If this is a class constructor
+	     */
 	    if (isCtorDeclaration() && cd)
 	    {
 		for (int i = 0; i < cd->fields.dim; i++)
@@ -921,7 +969,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    {	// If no return type inferred yet, then infer a void
 		if (!type->nextOf())
 		{
-		    type->next = Type::tvoid;
+		    ((TypeFunction *)type)->next = Type::tvoid;
 		    type = type->semantic(loc, sc);
 		}
 		f = (TypeFunction *)type;
@@ -1042,9 +1090,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    // Merge in initialization of 'out' parameters
 	    if (parameters)
 	    {	for (size_t i = 0; i < parameters->dim; i++)
-		{   VarDeclaration *v;
-
-		    v = (VarDeclaration *)parameters->data[i];
+		{
+		    VarDeclaration *v = (VarDeclaration *)parameters->data[i];
 		    if (v->storage_class & STCout)
 		    {
 			assert(v->init);
@@ -1253,6 +1300,50 @@ int FuncDeclaration::overrides(FuncDeclaration *fd)
 	}
     }
     return result;
+}
+
+/*************************************************
+ * Find index of function in vtbl[0..dim] that
+ * this function overrides.
+ * Returns:
+ *	-1	didn't find one
+ *	-2	can't determine because of forward references
+ */
+
+int FuncDeclaration::findVtblIndex(Array *vtbl, int dim)
+{
+    for (int vi = 0; vi < dim; vi++)
+    {
+	FuncDeclaration *fdv = ((Dsymbol *)vtbl->data[vi])->isFuncDeclaration();
+	if (fdv && fdv->ident == ident)
+	{
+	    int cov = type->covariant(fdv->type);
+	    //printf("\tbaseclass cov = %d\n", cov);
+	    switch (cov)
+	    {
+		case 0:		// types are distinct
+		    break;
+
+		case 1:
+		    return vi;
+
+		case 2:
+		    //type->print();
+		    //fdv->type->print();
+		    //printf("%s %s\n", type->deco, fdv->type->deco);
+		    error("of type %s overrides but is not covariant with %s of type %s",
+			type->toChars(), fdv->toPrettyChars(), fdv->type->toChars());
+		    break;
+
+		case 3:
+		    return -2;	// forward references
+
+		default:
+		    assert(0);
+	    }
+	}
+    }
+    return -1;
 }
 
 /****************************************************
@@ -1684,6 +1775,11 @@ LabelDsymbol *FuncDeclaration::searchLabel(Identifier *ident)
     }
     return (LabelDsymbol *)s;
 }
+/****************************************
+ * If non-static member function that has a 'this' pointer,
+ * return the aggregate it is a member of.
+ * Otherwise, return NULL.
+ */
 
 AggregateDeclaration *FuncDeclaration::isThis()
 {   AggregateDeclaration *ad;
@@ -1937,6 +2033,55 @@ char *FuncDeclaration::kind()
 {
     return "function";
 }
+/*******************************
+ * Look at all the variables in this function that are referenced
+ * by nested functions, and determine if a closure needs to be
+ * created for them.
+ */
+
+#if V2
+int FuncDeclaration::needsClosure()
+{
+    /* Need a closure for all the closureVars[] if any of the
+     * closureVars[] are accessed by a
+     * function that escapes the scope of this function.
+     * We take the conservative approach and decide that any function that:
+     * 1) is a virtual function
+     * 2) has its address taken
+     * 3) has a parent that escapes
+     * escapes.
+     */
+
+    //printf("FuncDeclaration::needsClosure() %s\n", toChars());
+    for (int i = 0; i < closureVars.dim; i++)
+    {	VarDeclaration *v = (VarDeclaration *)closureVars.data[i];
+	assert(v->isVarDeclaration());
+	//printf("\tv = %s\n", v->toChars());
+
+	for (int j = 0; j < v->nestedrefs.dim; j++)
+	{   FuncDeclaration *f = (FuncDeclaration *)v->nestedrefs.data[j];
+	    assert(f != this);
+
+	    //printf("\t\tf = %s, %d, %d\n", f->toChars(), f->isVirtual(), f->tookAddressOf);
+	    if (f->isVirtual() || f->tookAddressOf)
+		goto Lyes;	// assume f escapes this function's scope
+
+	    // Look to see if any parents of f that are below this escape
+	    for (Dsymbol *s = f->parent; s != this; s = s->parent)
+	    {
+		f = s->isFuncDeclaration();
+		if (f && (f->isVirtual() || f->tookAddressOf))
+		    goto Lyes;
+	    }
+	}
+    }
+    return 0;
+
+Lyes:
+    //printf("\tneeds closure\n");
+    return 1;
+}
+#endif
 
 /****************************** FuncAliasDeclaration ************************/
 
@@ -2049,6 +2194,8 @@ void CtorDeclaration::semantic(Scope *sc)
     Type *tret;
 
     //printf("CtorDeclaration::semantic()\n");
+    if (type)
+	return;
 
     sc = sc->push();
     sc->stc &= ~STCstatic;		// not a static constructor
@@ -2058,7 +2205,7 @@ void CtorDeclaration::semantic(Scope *sc)
     cd = parent->isClassDeclaration();
     if (!cd)
     {
-	error("constructors only are for class definitions");
+	error("constructors are only for class definitions");
 	tret = Type::tvoid;
     }
     else
@@ -2130,12 +2277,15 @@ DtorDeclaration::DtorDeclaration(Loc loc, Loc endloc)
 {
 }
 
+DtorDeclaration::DtorDeclaration(Loc loc, Loc endloc, Identifier *id)
+    : FuncDeclaration(loc, endloc, id, STCundefined, NULL)
+{
+}
+
 Dsymbol *DtorDeclaration::syntaxCopy(Dsymbol *s)
 {
-    DtorDeclaration *dd;
-
     assert(!s);
-    dd = new DtorDeclaration(loc, endloc);
+    DtorDeclaration *dd = new DtorDeclaration(loc, endloc, ident);
     return FuncDeclaration::syntaxCopy(dd);
 }
 

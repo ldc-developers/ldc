@@ -296,7 +296,7 @@ int runLINK()
     runtime_path.append("libtango-base-llvmdc.a");
     argv.push((void*)runtime_path.c_str());
 
-    if (!global.params.quiet)
+    if (!global.params.quiet || global.params.verbose)
     {
 	// Print it
 	for (i = 0; i < argv.dim; i++)

@@ -94,6 +94,7 @@ enum PROT
     PROTexport,
 };
 
+
 struct Dsymbol : Object
 {
     Identifier *ident;

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -186,6 +186,7 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
     isabstract = 0;
     isnested = 0;
     vthis = NULL;
+    inuse = 0;
 }
 
 Dsymbol *ClassDeclaration::syntaxCopy(Dsymbol *s)
@@ -642,6 +643,7 @@ void ClassDeclaration::semantic(Scope *sc)
     sizeok = 1;
     Module::dprogress++;
 
+    dtor = buildDtor(sc);
 
     sc->pop();
 
@@ -974,6 +976,8 @@ void InterfaceDeclaration::semantic(Scope *sc)
 {   int i;
 
     //printf("InterfaceDeclaration::semantic(%s), type = %p\n", toChars(), type);
+    if (inuse)
+	return;
     if (!scope)
     {	type = type->semantic(loc, sc);
 	handle = handle->semantic(loc, sc);
@@ -1058,7 +1062,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
 		baseclasses.remove(i);
 		continue;
 	    }
-	    if (!b->base->symtab || b->base->scope)
+	    if (!b->base->symtab || b->base->scope || b->base->inuse)
 	    {
 		//error("forward reference of base class %s", baseClass->toChars());
 		// Forward reference of base, try again later
@@ -1123,11 +1127,13 @@ void InterfaceDeclaration::semantic(Scope *sc)
     sc->structalign = 8;
     structalign = sc->structalign;
     sc->offset = 8;
+    inuse++;
     for (i = 0; i < members->dim; i++)
     {
 	Dsymbol *s = (Dsymbol *)members->data[i];
 	s->semantic(sc);
     }
+    inuse--;
     //members->print();
     sc->pop();
     //printf("-InterfaceDeclaration::semantic(%s), type = %p\n", toChars(), type);

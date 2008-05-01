@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -597,8 +597,20 @@ void Lexer::scan(Token *t)
 		do
 		{
 		    p++;
-		    c = escapeSequence();
-		    stringbuffer.writeUTF8(c);
+		    switch (*p)
+		    {
+			case 'u':
+			case 'U':
+			case '&':
+			    c = escapeSequence();
+			    stringbuffer.writeUTF8(c);
+			    break;
+
+			default:
+			    c = escapeSequence();
+			    stringbuffer.writeByte(c);
+			    break;
+		    }
 		} while (*p == '\\');
 		t->len = stringbuffer.offset;
 		stringbuffer.writeByte(0);
@@ -718,6 +730,15 @@ void Lexer::scan(Token *t)
 			t->value = TOKint64v;
 			t->uns64value = major * 1000 + minor;
 		    }
+#if V2
+		    else if (id == Id::EOFX)
+		    {
+			t->value = TOKeof;
+			// Advance scanner to end of file
+			while (!(*p == 0 || *p == 0x1A))
+			    p++;
+		    }
+#endif
 		}
 		//printf("t->value = %d\n",t->value);
 		return;
@@ -1290,7 +1311,7 @@ unsigned Lexer::escapeSequence()
 
 	default:
 		if (isoctal(c))
-		{   unsigned char v;
+		{   unsigned v;
 
 		    n = 0;
 		    v = 0;
@@ -1300,6 +1321,8 @@ unsigned Lexer::escapeSequence()
 			c = *++p;
 		    } while (++n < 3 && isoctal(c));
 		    c = v;
+		    if (c > 0xFF)
+			error("0%03o is larger than a byte", c);
 		}
 		else
 		    error("undefined escape sequence \\%c\n",c);
@@ -1487,7 +1510,6 @@ TOK Lexer::delimitedStringConstant(Token *t)
 	{
 	    case '\n':
 	    Lnextline:
-printf("Lnextline\n");
 		loc.linnum++;
 		startline = 1;
 		if (blankrol)
@@ -1544,7 +1566,7 @@ printf("Lnextline\n");
 		}
 		else
 		{   hereid = t.ident;
-printf("hereid = '%s'\n", hereid->toChars());
+		    //printf("hereid = '%s'\n", hereid->toChars());
 		    blankrol = 1;
 		}
 		nest = 0;
@@ -1578,11 +1600,10 @@ printf("hereid = '%s'\n", hereid->toChars());
 		unsigned char *psave = p;
 		p--;
 		scan(&t);		// read in possible heredoc identifier
-printf("endid = '%s'\n", t.ident->toChars());
+		//printf("endid = '%s'\n", t.ident->toChars());
 		if (t.value == TOKidentifier && t.ident->equals(hereid))
 		{   /* should check that rest of line is blank
 		     */
-printf("done\n");
 		    goto Ldone;
 		}
 		p = psave;
@@ -2415,7 +2436,7 @@ done:
 	default:
 #ifdef IN_GCC
 	    real_t::parse((char *)stringbuffer.data, real_t::Double);
-#else
+#else	    
 	    strtod((char *)stringbuffer.data, NULL);
 #endif
 	    result = TOKfloat64v;
@@ -2742,19 +2763,35 @@ unsigned char *Lexer::combineComments(unsigned char *c1, unsigned char *c2)
  */
 
 Identifier *Lexer::idPool(const char *s)
-{   unsigned len;
-    Identifier *id;
-    StringValue *sv;
-
-    len = strlen(s);
-    sv = stringtable.update(s, len);
-    id = (Identifier *) sv->ptrvalue;
+{
+    size_t len = strlen(s);
+    StringValue *sv = stringtable.update(s, len);
+    Identifier *id = (Identifier *) sv->ptrvalue;
     if (!id)
     {
 	id = new Identifier(sv->lstring.string, TOKidentifier);
 	sv->ptrvalue = id;
     }
     return id;
+}
+
+/*********************************************
+ * Create a unique identifier using the prefix s.
+ */
+
+Identifier *Lexer::uniqueId(const char *s, int num)
+{   char buffer[32];
+    size_t slen = strlen(s);
+
+    assert(slen + sizeof(num) * 3 + 1 <= sizeof(buffer));
+    sprintf(buffer, "%s%d", s, num);
+    return idPool(buffer);
+}
+
+Identifier *Lexer::uniqueId(const char *s)
+{
+    static int num;
+    return uniqueId(s, ++num);
 }
 
 /****************************************
@@ -2875,12 +2912,16 @@ static Keyword keywords[] =
     {	"invariant",	TOKinvariant	},
     {	"unittest",	TOKunittest	},
     {	"version",	TOKversion	},
+    //{	"manifest",	TOKmanifest	},
 
     // Added after 1.0
     {	"ref",		TOKref		},
     {	"macro",	TOKmacro	},
 #if V2
+    {	"pure",		TOKpure		},
+    {	"nothrow",	TOKnothrow	},
     {	"__traits",	TOKtraits	},
+    {	"__overloadset", TOKoverloadset	},
 #endif
 };
 
@@ -2933,6 +2974,9 @@ void Lexer::initKeywords()
     Token::tochars[TOKxorass]		= "^=";
     Token::tochars[TOKassign]		= "=";
     Token::tochars[TOKconstruct]	= "=";
+#if V2
+    Token::tochars[TOKblit]		= "=";
+#endif
     Token::tochars[TOKlt]		= "<";
     Token::tochars[TOKgt]		= ">";
     Token::tochars[TOKle]		= "<=";
@@ -3016,4 +3060,5 @@ void Lexer::initKeywords()
     Token::tochars[TOKtuple]		= "tuple";
     Token::tochars[TOKdeclaration]	= "declaration";
     Token::tochars[TOKdottd]		= "dottd";
+    Token::tochars[TOKon_scope_exit]	= "scope(exit)";
 }

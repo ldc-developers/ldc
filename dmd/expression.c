@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -89,6 +89,7 @@ enum PREC precedence[TOKMAX];
 
 void initPrecedence()
 {
+    precedence[TOKdotvar] = PREC_primary;
     precedence[TOKimport] = PREC_primary;
     precedence[TOKidentifier] = PREC_primary;
     precedence[TOKthis] = PREC_primary;
@@ -170,6 +171,8 @@ void initPrecedence()
     precedence[TOKquestion] = PREC_cond;
 
     precedence[TOKassign] = PREC_assign;
+    precedence[TOKconstruct] = PREC_assign;
+    precedence[TOKblit] = PREC_assign;
     precedence[TOKaddass] = PREC_assign;
     precedence[TOKminass] = PREC_assign;
     precedence[TOKcatass] = PREC_assign;
@@ -645,7 +648,7 @@ void argExpTypesToCBuffer(OutBuffer *buf, Expressions *arguments, HdrGenState *h
 	    if (i)
 		buf->writeByte(',');
 	    argbuf.reset();
-	    arg->type->toCBuffer2(&argbuf, NULL, hgs);
+	    arg->type->toCBuffer2(&argbuf, hgs, 0);
 	    buf->write(&argbuf);
 	}
     }
@@ -2496,6 +2499,8 @@ Expression *ArrayLiteralExp::semantic(Scope *sc)
 #if LOGSEMANTIC
     printf("ArrayLiteralExp::semantic('%s')\n", toChars());
 #endif
+    if (type)
+	return this;
 
     // Run semantic() on each element
     for (int i = 0; i < elements->dim; i++)
@@ -2827,7 +2832,7 @@ Expression *StructLiteralExp::getField(Type *type, unsigned offset)
 
 /************************************
  * Get index of field.
- * Returns -1 if not found.
+ * Returns -1 if not found. 
  */
 
 int StructLiteralExp::getFieldIndex(Type *type, unsigned offset)
@@ -4408,6 +4413,8 @@ int BinExp::checkSideEffect(int flag)
     if (op == TOKplusplus ||
 	   op == TOKminusminus ||
 	   op == TOKassign ||
+	   op == TOKconstruct ||
+	   op == TOKblit ||
 	   op == TOKaddass ||
 	   op == TOKminass ||
 	   op == TOKcatass ||
@@ -4881,7 +4888,7 @@ void DotIdExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 DotTemplateExp::DotTemplateExp(Loc loc, Expression *e, TemplateDeclaration *td)
 	: UnaExp(loc, TOKdottd, sizeof(DotTemplateExp), e)
-
+  
 {
     this->td = td;
 }
@@ -4995,6 +5002,7 @@ Expression *DotVarExp::semantic(Scope *sc)
 			if (s && s->isClassDeclaration())
 			    e1->type = s->isClassDeclaration()->type;
 
+			e1 = e1->semantic(sc);
 			goto L1;
 		    }
 #ifdef DEBUG
@@ -5518,7 +5526,7 @@ Lagain:
 	DotTemplateExp *dte;
 	AggregateDeclaration *ad;
 	UnaExp *ue = (UnaExp *)(e1);
-
+        
     	if (e1->op == TOKdotvar)
         {   // Do overload resolution
 	    dve = (DotVarExp *)(e1);
@@ -5542,7 +5550,7 @@ Lagain:
 		return this;
 	    }
 	    ad = td->toParent()->isAggregateDeclaration();
-	}
+	}	
 	/* Now that we have the right function f, we need to get the
 	 * right 'this' pointer if f is in an outer class, but our
 	 * existing 'this' pointer is in an inner class.
@@ -5589,7 +5597,7 @@ Lagain:
 	}
 	else
 	{
-	    if (e1->op == TOKdotvar)
+	    if (e1->op == TOKdotvar)		
 		dve->var = f;
 	    else
 		e1 = new DotVarExp(loc, dte->e1, f);
@@ -6135,13 +6143,10 @@ Expression *DeleteExp::semantic(Scope *sc)
 
 		if (f)
 		{
-		    Expression *e;
-		    Expression *ec;
 		    Type *tpv = Type::tvoid->pointerTo();
 
-		    e = e1;
-		    e->type = tpv;
-		    ec = new VarExp(loc, f);
+		    Expression *e = e1->castTo(sc, tpv);
+		    Expression *ec = new VarExp(loc, f);
 		    e = new CallExp(loc, ec, e);
 		    return e->semantic(sc);
 		}
@@ -6233,7 +6238,10 @@ Expression *CastExp::semantic(Scope *sc)
 	}
 
 	Type *tob = to->toBasetype();
-	if (tob->ty == Tstruct && !tob->equals(e1->type->toBasetype()))
+	if (tob->ty == Tstruct &&
+	    !tob->equals(e1->type->toBasetype()) &&
+	    ((TypeStruct *)to)->sym->search(0, Id::call, 0)
+	   )
 	{
 	    /* Look to replace:
 	     *	cast(S)t
@@ -7271,6 +7279,8 @@ Expression *CatAssignExp::semantic(Scope *sc)
 
     Type *tb1 = e1->type->toBasetype();
     Type *tb2 = e2->type->toBasetype();
+
+    e2->rvalue();
 
     if ((tb1->ty == Tarray) &&
 	(tb2->ty == Tarray || tb2->ty == Tsarray) &&
@@ -8339,6 +8349,13 @@ Expression *CmpExp::semantic(Scope *sc)
 	return this;
 
     BinExp::semanticp(sc);
+
+    if (e1->type->toBasetype()->ty == Tclass && e2->op == TOKnull ||
+	e2->type->toBasetype()->ty == Tclass && e1->op == TOKnull)
+    {
+	error("do not use null when comparing class types");
+    }
+
     e = op_overload(sc);
     if (e)
     {
@@ -8392,6 +8409,7 @@ int CmpExp::isBit()
 EqualExp::EqualExp(enum TOK op, Loc loc, Expression *e1, Expression *e2)
 	: BinExp(loc, op, sizeof(EqualExp), e1, e2)
 {
+    assert(op == TOKequal || op == TOKnotequal);
 }
 
 Expression *EqualExp::semantic(Scope *sc)
@@ -8424,6 +8442,14 @@ Expression *EqualExp::semantic(Scope *sc)
 		return e;
 	    }
 	}
+    }
+
+    if (e1->type->toBasetype()->ty == Tclass && e2->op == TOKnull ||
+	e2->type->toBasetype()->ty == Tclass && e1->op == TOKnull)
+    {
+	error("use '%s' instead of '%s' when comparing with null",
+		Token::toChars(op == TOKequal ? TOKidentity : TOKnotidentity),
+		Token::toChars(op));
     }
 
     //if (e2->op != TOKnull)

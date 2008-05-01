@@ -70,6 +70,7 @@ struct Param
     char noruntime;	// code is not allowed to make implicit calls to the runtime
     char novalidate;// no bitcode validation
     char Dversion;	// D version number
+    char ignoreUnsupportedPragmas;	// rather than error on them
 
     char *argv0;	// program name
     Array *imppath;	// array of char*'s of where to look for import modules

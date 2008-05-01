@@ -69,6 +69,7 @@ Scope::Scope()
     this->incontract = 0;
     this->nofree = 0;
     this->noctor = 0;
+    this->noaccesscheck = 0;
     this->intypeof = 0;
     this->parameterSpecialization = 0;
     this->callSuper = 0;
@@ -115,6 +116,7 @@ Scope::Scope(Scope *enclosing)
     this->incontract = enclosing->incontract;
     this->nofree = 0;
     this->noctor = enclosing->noctor;
+    this->noaccesscheck = enclosing->noaccesscheck;
     this->intypeof = enclosing->intypeof;
     this->parameterSpecialization = enclosing->parameterSpecialization;
     this->callSuper = enclosing->callSuper;
@@ -297,7 +299,7 @@ ClassDeclaration *Scope::getClassScope()
     for (sc = this; sc; sc = sc->enclosing)
     {
 	ClassDeclaration *cd;
-
+	
 	if (sc->scopesym)
 	{
 	    cd = sc->scopesym->isClassDeclaration();
@@ -318,7 +320,7 @@ AggregateDeclaration *Scope::getStructClassScope()
     for (sc = this; sc; sc = sc->enclosing)
     {
 	AggregateDeclaration *ad;
-
+	
 	if (sc->scopesym)
 	{
 	    ad = sc->scopesym->isClassDeclaration();

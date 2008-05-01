@@ -70,8 +70,8 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
+    version = "v1.029";
     llvmdc_version = "0.1";
-    version = "v1.026";
     global.structalign = 8;
 
     memset(&params, 0, sizeof(Param));
@@ -188,6 +188,7 @@ Usage:\n\
   --help         print help\n\
   -I<path>       where to look for imports\n\
   -J<path>       where to look for string imports\n\
+  -ignore        ignore unsupported pragmas\n\
   -inline        do function inlining\n\
   -Llinkerflag   pass linkerflag to link\n\
   -m<arch>       emit code specific to <arch>\n\
@@ -201,9 +202,9 @@ Usage:\n\
   -od<objdir>    write object files to directory <objdir>\n\
   -of<filename>	 name output file to <filename>\n\
   -op            do not strip paths from source file\n\
-  -profile       profile runtime performance of generated code\n\
+  -profile	 profile runtime performance of generated code\n\
   -quiet         suppress unnecessary messages\n\
-  -release       compile release version\n\
+  -release	 compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
   -R<path>       provide path to the directory containing the runtime library\n\
   -unittest      compile in unit tests\n\
@@ -268,6 +269,7 @@ int main(int argc, char *argv[])
     global.params.llvmInline = 0; // use this one instead to know if inline passes should be run
     global.params.obj = 1;
     global.params.Dversion = 2;
+    global.params.quiet = 1;
 
     global.params.linkswitches = new Array();
     global.params.libfiles = new Array();
@@ -356,7 +358,7 @@ int main(int argc, char *argv[])
 		global.params.symdebug = 2;
 	    else if (strcmp(p + 1, "gt") == 0)
 	    {	error("use -profile instead of -gt\n");
-            global.params.trace = 1;
+		global.params.trace = 1;
 	    }
 	    else if (strcmp(p + 1, "profile") == 0)
 		global.params.trace = 1;
@@ -476,6 +478,8 @@ int main(int argc, char *argv[])
 		}
 	    }
 #endif
+	    else if (strcmp(p + 1, "ignore") == 0)
+		global.params.ignoreUnsupportedPragmas = 1;
 	    else if (strcmp(p + 1, "inline") == 0) {
             // TODO
             // the ast rewrites dmd does for inlining messes up the ast.
