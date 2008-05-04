@@ -1789,9 +1789,8 @@ void DtoAnnotation(const char* str)
 
 const llvm::StructType* DtoInterfaceInfoType()
 {
-    static const llvm::StructType* t = NULL;
-    if (t)
-        return t;
+    if (gIR->interfaceInfoType)
+        return gIR->interfaceInfoType;
 
     // build interface info type
     std::vector<const llvm::Type*> types;
@@ -1808,7 +1807,7 @@ const llvm::StructType* DtoInterfaceInfoType()
     // int offset
     types.push_back(llvm::Type::Int32Ty);
     // create type
-    t = llvm::StructType::get(types);
+    gIR->interfaceInfoType = llvm::StructType::get(types);
 
-    return t;
+    return gIR->interfaceInfoType;
 }

@@ -77,6 +77,9 @@ struct IRState
     Module* dmodule;
     llvm::Module* module;
 
+    // interface info type, used in DtoInterfaceInfoType
+    llvm::StructType* interfaceInfoType;
+
     // ir data associated with DMD Dsymbol nodes 
     std::map<Dsymbol*, IrDsymbol> irDsymbol;
 

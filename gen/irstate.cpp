@@ -47,6 +47,7 @@ IRLoopScope::IRLoopScope(Statement* s, TryFinallyStatement* enclosingtryfinally,
 //////////////////////////////////////////////////////////////////////////////////////////
 IRState::IRState()
 {
+    interfaceInfoType = NULL;
     dmodule = 0;
     module = 0;
     emitMain = false;
