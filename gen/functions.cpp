@@ -28,8 +28,13 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     }
 
     bool typesafeVararg = false;
-    if (f->linkage == LINKd && f->varargs == 1) {
-        typesafeVararg = true;
+    bool arrayVararg = false;
+    if (f->linkage == LINKd)
+    {
+        if (f->varargs == 1)
+            typesafeVararg = true;
+        else if (f->varargs == 2)
+            arrayVararg = true;
     }
 
     // return value type
@@ -82,6 +87,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         paramvec.push_back(getPtrToType(t1));
         paramvec.push_back(getPtrToType(llvm::Type::Int8Ty));
     }
+    else if (arrayVararg)
+    {
+        // do nothing?
+    }
 
     size_t n = Argument::dim(f->parameters);
 
@@ -120,7 +129,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     }
 
     // construct function type
-    bool isvararg = !typesafeVararg && f->varargs;
+    bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
     f->llvmRetInPtr = retinptr;
@@ -383,51 +392,49 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         gIR->dtors.push_back(fdecl);
     }
 
-    // name parameters
-    llvm::Function::arg_iterator iarg = func->arg_begin();
-    int k = 0;
-    if (f->llvmRetInPtr) {
-        iarg->setName("retval");
-        gIR->irDsymbol[fdecl].irFunc->retArg = iarg;
-        ++iarg;
-    }
-    if (f->llvmUsesThis) {
-        iarg->setName("this");
-        gIR->irDsymbol[fdecl].irFunc->thisVar = iarg;
-        assert(gIR->irDsymbol[fdecl].irFunc->thisVar);
-        ++iarg;
-    }
-
-    if (f->linkage == LINKd && f->varargs == 1) {
-        iarg->setName("_arguments");
-        gIR->irDsymbol[fdecl].irFunc->_arguments = iarg;
-        ++iarg;
-        iarg->setName("_argptr");
-        gIR->irDsymbol[fdecl].irFunc->_argptr = iarg;
-        ++iarg;
-    }
-
-    for (; iarg != func->arg_end(); ++iarg)
+    // we never reference parameters of function prototypes
+    if (!declareOnly)
     {
-        Argument* arg = Argument::getNth(f->parameters, k++);
-        //arg->llvmValue = iarg;
-        //Logger::println("identifier: '%s' %p\n", arg->ident->toChars(), arg->ident);
-        if (arg && arg->ident != 0) {
-            if (arg->vardecl) {
-                if (gIR->irDsymbol[arg->vardecl].irLocal)
-                {
-                    Logger::cout() << "WTF!?!: " << *gIR->irDsymbol[arg->vardecl].irLocal->value << '\n';
-                }
-                assert(!gIR->irDsymbol[arg->vardecl].irLocal);
-                assert(!gIR->irDsymbol[arg->vardecl].irGlobal);
-                assert(!gIR->irDsymbol[arg->vardecl].irField);
-                gIR->irDsymbol[arg->vardecl].irLocal = new IrLocal(arg->vardecl);
-                gIR->irDsymbol[arg->vardecl].irLocal->value = iarg;
-            }
-            iarg->setName(arg->ident->toChars());
+        // name parameters
+        llvm::Function::arg_iterator iarg = func->arg_begin();
+        int k = 0;
+        if (f->llvmRetInPtr) {
+            iarg->setName("retval");
+            gIR->irDsymbol[fdecl].irFunc->retArg = iarg;
+            ++iarg;
         }
-        else {
-            iarg->setName("unnamed");
+        if (f->llvmUsesThis) {
+            iarg->setName("this");
+            gIR->irDsymbol[fdecl].irFunc->thisVar = iarg;
+            assert(gIR->irDsymbol[fdecl].irFunc->thisVar);
+            ++iarg;
+        }
+
+        if (f->linkage == LINKd && f->varargs == 1) {
+            iarg->setName("_arguments");
+            gIR->irDsymbol[fdecl].irFunc->_arguments = iarg;
+            ++iarg;
+            iarg->setName("_argptr");
+            gIR->irDsymbol[fdecl].irFunc->_argptr = iarg;
+            ++iarg;
+        }
+
+        for (; iarg != func->arg_end(); ++iarg)
+        {
+            if (fdecl->parameters && fdecl->parameters->dim > k)
+            {
+                Dsymbol* argsym = (Dsymbol*)fdecl->parameters->data[k++];
+                VarDeclaration* argvd = argsym->isVarDeclaration();
+                assert(argvd);
+                assert(!gIR->irDsymbol[argvd].irLocal);
+                gIR->irDsymbol[argvd].irLocal = new IrLocal(argvd);
+                gIR->irDsymbol[argvd].irLocal->value = iarg;
+                iarg->setName(argvd->ident->toChars());
+            }
+            else
+            {
+                iarg->setName("unnamed");
+            }
         }
     }
 
@@ -500,24 +507,27 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 }
 
                 // give arguments storage
-                size_t n = Argument::dim(f->parameters);
-                for (int i=0; i < n; ++i) {
-                    Argument* arg = Argument::getNth(f->parameters, i);
-                    if (arg && arg->vardecl) {
-                        VarDeclaration* vd = arg->vardecl;
+                if (fd->parameters)
+                {
+                    size_t n = fd->parameters->dim;
+                    for (int i=0; i < n; ++i)
+                    {
+                        Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
+                        VarDeclaration* vd = argsym->isVarDeclaration();
+                        assert(vd);
+
                         if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))
                             continue;
+
                         llvm::Value* a = gIR->irDsymbol[vd].irLocal->value;
                         assert(a);
                         std::string s(a->getName());
                         Logger::println("giving argument '%s' storage", s.c_str());
                         s.append("_storage");
+
                         llvm::Value* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
                         gIR->ir->CreateStore(a,v);
                         gIR->irDsymbol[vd].irLocal->value = v;
-                    }
-                    else {
-                        Logger::attention(fd->loc, "some unknown argument: %s", arg ? arg->toChars() : 0);
                     }
                 }
 

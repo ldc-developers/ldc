@@ -253,6 +253,7 @@ DValue* VarExp::toElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
         assert(ts->sym);
+        DtoForceConstInitDsymbol(ts->sym);
         assert(gIR->irDsymbol[ts->sym].irStruct->init);
         return new DVarValue(type, gIR->irDsymbol[ts->sym].irStruct->init, true);
     }
@@ -2283,6 +2284,15 @@ DValue* IdentityExp::toElem(IRState* p)
     llvm::Value* eval = 0;
 
     if (t1->ty == Tarray) {
+        if (v->isNull()) {
+            r = NULL;
+        }
+        else {
+            assert(l->getType() == r->getType());
+        }
+        eval = DtoDynArrayIs(op,l,r);
+    }
+    else if (t1->ty == Tdelegate) {
         if (v->isNull()) {
             r = NULL;
         }

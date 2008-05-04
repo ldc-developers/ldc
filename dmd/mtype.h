@@ -674,9 +674,6 @@ struct Argument : Object
     static void argsToDecoBuffer(OutBuffer *buf, Arguments *arguments);
     static size_t dim(Arguments *arguments);
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
-
-    // backend
-    VarDeclaration* vardecl;
 };
 
 extern int PTRSIZE;

@@ -787,8 +787,6 @@ void FuncDeclaration::semantic3(Scope *sc)
 		    parameters->push(v);
 		localsymtab->insert(v);
 		v->parent = this;
-        // for llvm d
-        arg->vardecl = v;
 	    }
 	}
 

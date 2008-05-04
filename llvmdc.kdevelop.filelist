@@ -753,6 +753,7 @@ tangotests/constructors.d
 tangotests/d.d
 tangotests/e.d
 tangotests/f.d
+tangotests/files1.d
 tangotests/g.d
 tangotests/h.d
 tangotests/i.d
@@ -768,6 +769,7 @@ tangotests/r.d
 tangotests/s.d
 tangotests/stdout1.d
 tangotests/t.d
+tangotests/vararg1.d
 test
 test/a.d
 test/aa1.d

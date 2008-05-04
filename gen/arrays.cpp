@@ -604,6 +604,17 @@ void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2)
     Type* t1 = DtoDType(exp1->type);
     Type* t2 = DtoDType(exp2->type);
 
+    // handle reverse case
+    if (t2->next && t1 == DtoDType(t2->next))
+    {
+        Type* tmp = t1;
+        t1 = t2;
+        t2 = tmp;
+        Expression* e = exp1;
+        exp1 = exp2;
+        exp2 = e;
+    }
+
     assert(t1->ty == Tarray);
     assert(t2 == DtoDType(t1->next));
 
@@ -778,7 +789,7 @@ llvm::Value* DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r)
 
     if (r == NULL) {
         llvm::Value* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0, "tmp"),"tmp");
-        llvm::Value* rl = DtoConstSize_t(0);
+        llvm::Value* rl = llvm::Constant::getNullValue(ll->getType());//DtoConstSize_t(0);
         llvm::Value* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
 
         llvm::Value* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1, "tmp"),"tmp");
