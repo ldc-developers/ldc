@@ -32,6 +32,8 @@
 
 #include	"mem.h"
 
+#include "gen/logger.h"
+
 int executecmd(char *cmd, char *args, int useenv);
 int executearg0(char *cmd, char *args);
 
@@ -41,6 +43,8 @@ int executearg0(char *cmd, char *args);
 
 int runLINK()
 {
+    Logger::println("*** Linking executable ***");
+
 #if _WIN32
     assert(0 && "linking not done for win32");
 
@@ -321,7 +325,7 @@ int runLINK()
 	printf("--- errorlevel %d\n", status);
     return status;
 #else
-    printf ("Linking is not yet supported for this version of LLVMDMD.\n");
+    printf ("Linking is not yet supported for this version of LLVMDC.\n");
     return -1;
 #endif
 }

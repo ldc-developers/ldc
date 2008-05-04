@@ -1628,6 +1628,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         _type = _init->getType();
     llvm::cast<llvm::OpaqueType>(gIR->irDsymbol[vd].irGlobal->type.get())->refineAbstractTypeTo(_type);
     _type = gIR->irDsymbol[vd].irGlobal->type.get();
+    //_type->dump();
     assert(!_type->isAbstract());
 
     llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(gIR->irDsymbol[vd].irGlobal->value);

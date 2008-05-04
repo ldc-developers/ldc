@@ -749,6 +749,7 @@ tangotests
 tangotests/a.d
 tangotests/b.d
 tangotests/c.d
+tangotests/constructors.d
 tangotests/d.d
 tangotests/e.d
 tangotests/f.d

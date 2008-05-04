@@ -793,8 +793,11 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     }
 
     // call constructor
-    if (newexp->arguments)
+    if (newexp->member)
+    {
+        assert(newexp->arguments != NULL);
         return DtoCallClassCtor(tc, newexp->member, newexp->arguments, mem);
+    }
 
     // return default constructed class
     return new DImValue(tc, mem, false);
