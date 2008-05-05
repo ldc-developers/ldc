@@ -324,7 +324,8 @@ void Module::genmoduleinfo()
             std::string m_name("_D");
             m_name.append(m->mangle());
             m_name.append("8__ModuleZ");
-            llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name, gIR->module);
+            llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
+            if (!m_gvar) m_gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name, gIR->module);
             importInits.push_back(m_gvar);
         }
     }
@@ -336,7 +337,8 @@ void Module::genmoduleinfo()
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__importsZ");
-        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
+        llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
+        if (!m_gvar) m_gvar = new llvm::GlobalVariable(importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
         c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(importArrTy->getElementType()));
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
@@ -538,6 +540,8 @@ void VarDeclaration::toObjFile()
 
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
         gIR->irDsymbol[this].irGlobal->value = gvar;
+
+        Logger::cout() << *gvar << '\n';
 
         if (static_local)
             DtoConstInitGlobal(this);

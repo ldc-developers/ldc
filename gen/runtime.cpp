@@ -535,14 +535,14 @@ static void LLVM_D_BuildRuntimeModule()
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // void* _aaGet(AA* aa, TypeInfo keyti, void* pkey, size_t valuesize)
+    // void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
     {
         std::string fname("_aaGet");
         std::vector<const llvm::Type*> types;
         types.push_back(aaTy);
         types.push_back(typeInfoTy);
-        types.push_back(voidPtrTy);
         types.push_back(sizeTy);
+        types.push_back(voidPtrTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }

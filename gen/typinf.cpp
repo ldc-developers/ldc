@@ -1052,6 +1052,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     // get classinfo
     assert(tinfo->ty == Tclass);
     TypeClass *tc = (TypeClass *)tinfo;
+    DtoForceDeclareDsymbol(tc->sym);
     assert(gIR->irDsymbol[tc->sym].irStruct->classInfo);
     sinits.push_back(gIR->irDsymbol[tc->sym].irStruct->classInfo);
 

@@ -212,6 +212,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (vd->isParameter()) {
             Logger::println("function param");
             if (!gIR->irDsymbol[vd].getIrValue()) {
+                assert(0); // should be fixed now
                 // TODO: determine this properly
                 // this happens when the DMD frontend generates by pointer wrappers for struct opEquals(S) and opCmp(S)
                 gIR->irDsymbol[vd].getIrValue() = &p->func()->func->getArgumentList().back();
@@ -230,8 +231,9 @@ DValue* VarExp::toElem(IRState* p)
                 vd->toObjFile();
                 DtoConstInitGlobal(vd);
             }
-            if (!gIR->irDsymbol[vd].getIrValue() || gIR->irDsymbol[vd].getIrValue()->getType()->isAbstract()) {
+            if (!gIR->irDsymbol[vd].getIrValue() || DtoType(vd->type)->isAbstract()) {
                 Logger::println("global variable not resolved :/ %s", vd->toChars());
+                Logger::cout() << *DtoType(vd->type) << '\n';
                 assert(0);
             }
             return new DVarValue(vd, gIR->irDsymbol[vd].getIrValue(), true);
@@ -1503,7 +1505,7 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal(),"tmp",p->scopebb());
     }
     else if (e1type->ty == Tarray) {
-        arrptr = DtoGEP(l->getLVal(),zero,one,"tmp",p->scopebb());
+        arrptr = DtoGEP(l->getRVal(),zero,one,"tmp",p->scopebb());
         arrptr = new llvm::LoadInst(arrptr,"tmp",p->scopebb());
         arrptr = new llvm::GetElementPtrInst(arrptr,r->getRVal(),"tmp",p->scopebb());
     }

@@ -1094,13 +1094,13 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
     if (idxs.empty())
         idxs.push_back(0);
 
-    const llvm::Type* llt = getPtrToType(DtoType(t));
     const llvm::Type* st = DtoType(cd->type);
     if (ptr->getType() != st) {
-        assert(gIR->irDsymbol[cd].irStruct->hasUnions);
+        //assert(gIR->irDsymbol[cd].irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
     }
 
+    const llvm::Type* llt = getPtrToType(DtoType(t));
     unsigned dataoffset = 2;
 
     IrStruct* irstruct = gIR->irDsymbol[cd].irStruct;

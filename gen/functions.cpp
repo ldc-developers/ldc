@@ -384,11 +384,11 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // static ctor
-    if (fdecl->isStaticCtorDeclaration()) {
+    if (fdecl->isStaticCtorDeclaration() && fdecl->getModule() == gIR->dmodule) {
         gIR->ctors.push_back(fdecl);
     }
     // static dtor
-    else if (fdecl->isStaticDtorDeclaration()) {
+    else if (fdecl->isStaticDtorDeclaration() && fdecl->getModule() == gIR->dmodule) {
         gIR->dtors.push_back(fdecl);
     }
 

@@ -605,7 +605,7 @@ llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const st
     std::vector<llvm::Value*> v(2);
     v[0] = i0;
     v[1] = i1;
-    //Logger::cout() << "DtoGEP: " << *ptr << '\n';
+    Logger::cout() << "DtoGEP: " << *ptr << ", " << *i0 << ", " << *i1 << '\n';
     return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 

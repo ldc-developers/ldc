@@ -615,20 +615,17 @@ void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2)
         exp2 = e;
     }
 
-    assert(t1->ty == Tarray);
-    assert(t2 == DtoDType(t1->next));
-
     DValue* e1 = exp1->toElem(gIR);
     DValue* e2 = exp2->toElem(gIR);
 
     llvm::Value *len1, *src1, *res;
-    llvm::Value* a = e1->getRVal();
-    len1 = gIR->ir->CreateLoad(DtoGEPi(a,0,0,"tmp"),"tmp");
+
+    len1 = DtoArrayLen(e1);
     res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
 
     llvm::Value* mem = DtoNewDynArray(arr, res, DtoDType(t1->next), false);
 
-    src1 = gIR->ir->CreateLoad(DtoGEPi(a,0,1,"tmp"),"tmp");
+    src1 = DtoArrayPtr(e1);
 
     DtoMemCpy(mem,src1,len1);
 
@@ -641,6 +638,7 @@ void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2)
 // helper for eq and cmp
 static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool useti)
 {
+    Logger::println("comparing arrays");
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
     assert(fn);
 
@@ -648,6 +646,7 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, b
     llvm::Value* rmem;
 
     // cast static arrays to dynamic ones, this turns them into DSliceValues
+    Logger::println("casting to dynamic arrays");
     Type* l_ty = DtoDType(l->getType());
     Type* r_ty = DtoDType(r->getType());
     assert(l_ty->next == r_ty->next);
@@ -659,17 +658,33 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, b
             r = DtoCastArray(r, a_ty);
     }
 
+    Logger::println("giving storage");
+
     // we need to give slices storage
     if (l->isSlice()) {
         lmem = new llvm::AllocaInst(DtoType(l->getType()), "tmpparam", gIR->topallocapoint());
         DtoSetArray(lmem, DtoArrayLen(l), DtoArrayPtr(l));
     }
+    // also null
+    else if (l->isNull())
+    {
+        lmem = new llvm::AllocaInst(DtoType(l->getType()), "tmpparam", gIR->topallocapoint());
+        DtoSetArray(lmem, llvm::Constant::getNullValue(DtoSize_t()), llvm::Constant::getNullValue(DtoType(l->getType()->next->pointerTo())));
+    }
     else
         lmem = l->getRVal();
 
+    // and for the rvalue ...
+    // we need to give slices storage
     if (r->isSlice()) {
         rmem = new llvm::AllocaInst(DtoType(r->getType()), "tmpparam", gIR->topallocapoint());
         DtoSetArray(rmem, DtoArrayLen(r), DtoArrayPtr(r));
+    }
+    // also null
+    else if (r->isNull())
+    {
+        rmem = new llvm::AllocaInst(DtoType(r->getType()), "tmpparam", gIR->topallocapoint());
+        DtoSetArray(rmem, llvm::Constant::getNullValue(DtoSize_t()), llvm::Constant::getNullValue(DtoType(r->getType()->next->pointerTo())));
     }
     else
         rmem = r->getRVal();
@@ -677,6 +692,9 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, b
     const llvm::Type* pt = fn->getFunctionType()->getParamType(0);
 
     std::vector<llvm::Value*> args;
+    Logger::cout() << "bitcasting to " << *pt << '\n';
+    Logger::cout() << *lmem << '\n';
+    Logger::cout() << *rmem << '\n';
     args.push_back(DtoBitCast(lmem,pt));
     args.push_back(DtoBitCast(rmem,pt));
 
@@ -905,8 +923,7 @@ DValue* DtoCastArray(DValue* u, Type* to)
     if (totype->ty == Tpointer) {
         Logger::cout() << "to pointer" << '\n';
         assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
-        llvm::Value* ptr = DtoGEPi(u->getRVal(),0,1,"tmp",gIR->scopebb());
-        rval = new llvm::LoadInst(ptr, "tmp", gIR->scopebb());
+        rval = DtoArrayPtr(u);
         if (fromtype->next != totype->next)
             rval = gIR->ir->CreateBitCast(rval, getPtrToType(llvm::Type::Int8Ty), "tmp");
     }

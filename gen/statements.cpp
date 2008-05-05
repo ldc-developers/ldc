@@ -153,6 +153,13 @@ void IfStatement::toIR(IRState* p)
     Logger::println("IfStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (match)
+    {
+        llvm::Value* allocainst = new llvm::AllocaInst(DtoType(match->type), "._tmp_if_var", p->topallocapoint());
+        gIR->irDsymbol[match].irLocal = new IrLocal(match);
+        gIR->irDsymbol[match].irLocal->value = allocainst;
+    }
+
     DValue* cond_e = condition->toElem(p);
     llvm::Value* cond_val = cond_e->getRVal();
     delete cond_e;

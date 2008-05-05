@@ -81,19 +81,19 @@ DValue* DtoAAIndex(Type* type, DValue* aa, DValue* key)
     llvm::Value* keyti = to_keyti(key);
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
-    // pkey param
-    llvm::Value* pkey = to_pkey(key);
-    pkey = DtoBitCast(pkey, funcTy->getParamType(2));
-
     // valuesize param
     llvm::Value* valsize = DtoConstSize_t(getABITypeSize(DtoType(type)));
+
+    // pkey param
+    llvm::Value* pkey = to_pkey(key);
+    pkey = DtoBitCast(pkey, funcTy->getParamType(3));
 
     // build arg vector
     std::vector<llvm::Value*> args;
     args.push_back(aaval);
     args.push_back(keyti);
-    args.push_back(pkey);
     args.push_back(valsize);
+    args.push_back(pkey);
 
     // call runtime
     llvm::Value* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "aa.index");

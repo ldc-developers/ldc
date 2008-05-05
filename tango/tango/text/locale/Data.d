@@ -100,7 +100,7 @@ package struct CultureData {
   package char[][] abbrevMonthNames;
   package char[][] monthNames;
 
-  private static const CultureData[] cultureDataTable = [
+  package static const CultureData[] cultureDataTable = [
 { 0x0001, 0x007F, "ar", "ar", "ara", "ar", "\u0041\u0072\u0061\u0062\u0069\u0063", "\u0627\u0644\u0639\u0631\u0628\u064A\u0629", true },
 { 0x0002, 0x007F, "bg", "bg", "bul", "bg", "\u0042\u0075\u006C\u0067\u0061\u0072\u0069\u0061\u006E", "\u0431\u044A\u043B\u0433\u0430\u0440\u0441\u043A\u0438", true },
 { 0x0003, 0x007F, "ca", "ca", "cat", "ca", "\u0043\u0061\u0074\u0061\u006C\u0061\u006E", "\u0063\u0061\u0074\u0061\u006C\u00E0", true },

@@ -265,6 +265,23 @@ class Layout(T)
                            }
                         }
                 }
+             else version (LLVMDC)
+                {
+                static va_list get_va_arg(TypeInfo ti, ref va_list vp)
+                {
+                    auto tisize = ti.tsize;
+                    size_t size = tisize > size_t.sizeof ? size_t.sizeof : tisize;
+                    va_list vptmp = cast(va_list)((cast(size_t)vp + size - 1) &  ~(size - 1));
+                    vp = vptmp + tisize;
+                    return vptmp;
+                }
+
+                Arg[64] arglist = void;
+                foreach (i, arg; arguments)
+                        {
+                        arglist[i] = get_va_arg(arg, args);
+                        }
+                }
              else
                 {
                 Arg[64] arglist = void;
