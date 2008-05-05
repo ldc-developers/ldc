@@ -369,6 +369,8 @@ real tan(real x)
 {
     version (GNU) {
         return tanl(x);
+    } else version (LLVMDC) {
+        return tango.stdc.math.tanl(x);
     } else {
     asm
     {

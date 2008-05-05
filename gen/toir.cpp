@@ -2394,8 +2394,12 @@ DValue* NegExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
-    llvm::Value* val = l->getRVal();
 
+    if (type->iscomplex()) {
+        return DtoComplexNeg(type, l);
+    }
+
+    llvm::Value* val = l->getRVal();
     Type* t = DtoDType(type);
 
     llvm::Value* zero = 0;
@@ -2407,7 +2411,10 @@ DValue* NegExp::toElem(IRState* p)
         else if (t->ty == Tfloat64 || t->ty == Tfloat80 || t->ty == Timaginary64 || t->ty == Timaginary80)
             zero = llvm::ConstantFP::get(val->getType(), llvm::APFloat(0.0));
         else
-        assert(0);
+        {
+            Logger::println("unhandled fp negation of type %s", t->toChars());
+            assert(0);
+        }
     }
     else
         assert(0);

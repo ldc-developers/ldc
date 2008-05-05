@@ -23,6 +23,7 @@ DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexSub(Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexMul(Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs);
+DValue* DtoComplexNeg(Type* type, DValue* val);
 
 llvm::Value* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs);
 

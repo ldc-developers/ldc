@@ -282,6 +282,24 @@ DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* DtoComplexNeg(Type* type, DValue* val)
+{
+    val = DtoComplex(type, val);
+
+    llvm::Value *a, *b, *re, *im;
+
+    // values
+    DtoGetComplexParts(val, a, b);
+
+    // sub up
+    re = gIR->ir->CreateNeg(a, "tmp");
+    im = gIR->ir->CreateNeg(b, "tmp");
+
+    return new DComplexValue(type, re, im);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Value* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
 {
     Type* type = lhs->getType();

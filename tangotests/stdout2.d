@@ -4,5 +4,5 @@ import tango.io.Stdout;
 
 void main()
 {
-    Stdout.formatln("{} {} {}", "a", "b", 1);
+    Stdout.formatln("{} {} {}", "a", "b", 1.0);
 }
