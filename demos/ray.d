@@ -1,4 +1,6 @@
-import std.stdio;
+import tango.stdc.stdio;
+
+alias char[] string;
 
 int atoi(char[] s) {
     int i, fac=1;
@@ -11,8 +13,15 @@ int atoi(char[] s) {
     return !neg ? i : -i;
 }
 
+version(LLVMDC)
+{
 pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64")
 double sqrt(double val);
+}
+else
+{
+    import tango.stdc.math;
+}
 
 double delta;
 static this() { delta=sqrt(real.epsilon); }
@@ -104,13 +113,13 @@ void main(string[] args) {
     n = (args.length==3 ? args[2].atoi() : 512), ss = 4;
   auto light = Vec(-1, -3, 2).unitise();
   auto s=create(level, Vec(0, -1, 0), 1);
-  writefln("P5\n", n, " ", n, "\n255");
+  printf("P5\n%d %d\n255", n,n);
   for (int y=n-1; y>=0; --y)
     for (int x=0; x<n; ++x) {
       double g=0;
       for (int d=0; d<ss*ss; ++d) {
         auto dir=Vec(x+(d%ss)*1.0/ss-n/2.0, y+(d/ss)*1.0/ss-n/2.0, n).unitise();
-    g += ray_trace(light, Ray(Vec(0, 0, -4), dir), s);
+        g += ray_trace(light, Ray(Vec(0, 0, -4), dir), s);
       }
       printf("%c", cast(ubyte)(0.5 + 255.0 * g / (ss*ss)));
     }
