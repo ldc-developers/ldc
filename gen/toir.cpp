@@ -664,19 +664,24 @@ DValue* MinExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
 
     Type* t = DtoDType(type);
+    Type* t1 = DtoDType(e1->type);
+    Type* t2 = DtoDType(e2->type);
 
-    if (DtoDType(e1->type)->ty == Tpointer) {
+    if (t1->ty == Tpointer && t2->ty == Tpointer) {
         llvm::Value* lv = l->getRVal();
         llvm::Value* rv = r->getRVal();
         Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
-        if (isaPointer(lv))
-            lv = p->ir->CreatePtrToInt(lv, DtoSize_t(), "tmp");
-        if (isaPointer(rv))
-            rv = p->ir->CreatePtrToInt(rv, DtoSize_t(), "tmp");
+        lv = p->ir->CreatePtrToInt(lv, DtoSize_t(), "tmp");
+        rv = p->ir->CreatePtrToInt(rv, DtoSize_t(), "tmp");
         llvm::Value* diff = p->ir->CreateSub(lv,rv,"tmp");
         if (diff->getType() != DtoType(type))
-            diff = p->ir->CreateIntToPtr(diff, DtoType(type));
+            diff = p->ir->CreateIntToPtr(diff, DtoType(type), "tmp");
         return new DImValue(type, diff);
+    }
+    else if (t1->ty == Tpointer) {
+        llvm::Value* idx = p->ir->CreateNeg(r->getRVal(), "tmp");
+        llvm::Value* v = new llvm::GetElementPtrInst(l->getRVal(), idx, "tmp", p->scopebb());
+        return new DImValue(type, v);
     }
     else if (t->iscomplex()) {
         return DtoComplexSub(type, l, r);
@@ -2308,11 +2313,19 @@ DValue* IdentityExp::toElem(IRState* p)
         llvm::FCmpInst::Predicate pred = (op == TOKidentity) ? llvm::FCmpInst::FCMP_OEQ : llvm::FCmpInst::FCMP_ONE;
         eval = new llvm::FCmpInst(pred, l, r, "tmp", p->scopebb());
     }
+    else if (t1->ty == Tpointer)
+    {
+        if (l->getType() != r->getType()) {
+            if (v->isNull())
+                r = llvm::ConstantPointerNull::get(isaPointer(l->getType()));
+            else
+                r = DtoBitCast(r, l->getType(), "tmp");
+        }
+        llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+        eval = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
+    }
     else {
         llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-        if (t1->ty == Tpointer && v->isNull() && l->getType() != r->getType()) {
-            r = llvm::ConstantPointerNull::get(isaPointer(l->getType()));
-        }
         //Logger::cout() << "l = " << *l << " r = " << *r << '\n';
         eval = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
     }
