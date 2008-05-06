@@ -1987,7 +1987,8 @@ DValue* DeleteExp::toElem(IRState* p)
                 new llvm::FreeInst(val, p->scopebb());
             }
         }
-        new llvm::StoreInst(z, v->getLVal(), p->scopebb());
+        if (!v->isThis())
+            new llvm::StoreInst(z, v->getLVal(), p->scopebb());
     }
     else if (e1type->ty == Tarray) {
         // must be on the heap (correct?)
