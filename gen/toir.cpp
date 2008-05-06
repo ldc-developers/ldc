@@ -541,6 +541,8 @@ DValue* AssignExp::toElem(IRState* p)
 
     p->exps.pop_back();
 
+    Logger::println("performing assignment");
+
     DImValue* im = r->isIm();
     if (!im || !im->inPlace()) {
         Logger::println("assignment not inplace");
@@ -1007,7 +1009,7 @@ DValue* CallExp::toElem(IRState* p)
 
     // this arguments
     if (dfn && dfn->vthis) {
-        Logger::cout() << "This Call func val:" << *funcval << '\n';
+        Logger::cout() << "This Call" << '\n';// func val:" << *funcval << '\n';
         if (dfn->vthis->getType() != argiter->get()) {
             //Logger::cout() << "value: " << *dfn->vthis << " totype: " << *argiter->get() << '\n';
             llargs[j] = DtoBitCast(dfn->vthis, argiter->get());
@@ -1155,7 +1157,7 @@ DValue* CallExp::toElem(IRState* p)
         }
     }
 
-    #if 1
+    #if 0
     Logger::println("%d params passed", n);
     for (int i=0; i<llargs.size(); ++i) {
         assert(llargs[i]);
@@ -1168,7 +1170,7 @@ DValue* CallExp::toElem(IRState* p)
     if (llfnty->getReturnType() != llvm::Type::VoidTy)
         varname = "tmp";
 
-    Logger::cout() << "Calling: " << *funcval << '\n';
+    //Logger::cout() << "Calling: " << *funcval << '\n';
 
     // call the function
     llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
@@ -1894,6 +1896,7 @@ DValue* NewExp::toElem(IRState* p)
     Type* ntype = DtoDType(newtype);
 
     if (ntype->ty == Tclass) {
+        Logger::println("new class");
         return DtoNewClass((TypeClass*)ntype, this);
     }
 

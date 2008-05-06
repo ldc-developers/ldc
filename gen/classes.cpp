@@ -769,12 +769,11 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         Logger::println("Resolving outer class");
         LOG_SCOPE;
         DValue* thisval = newexp->thisexp->toElem(gIR);
-        size_t idx = 2;
-        //idx += gIR->irDsymbol[tc->sym].irStruct->interfaces.size();
-        llvm::Value* dst = thisval->getRVal();
-        llvm::Value* src = DtoGEPi(mem,0,idx,"tmp");
+        size_t idx = 2 + gIR->irDsymbol[tc->sym->vthis].irField->index;
+        llvm::Value* src = thisval->getRVal();
+        llvm::Value* dst = DtoGEPi(mem,0,idx,"tmp");
         Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
-        DtoStore(dst, src);
+        DtoStore(src, dst);
     }
     // set the context for nested classes
     else if (tc->sym->isNested())
@@ -1110,18 +1109,19 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
         VarDeclaration* vd = i->second.var;
         assert(vd);
         Type* vdtype = DtoDType(vd->type);
-        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
+        //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         assert(gIR->irDsymbol[vd].irField->index >= 0);
         if (os == vd->offset && vdtype == t) {
+            Logger::println("found %s %s", vdtype->toChars(), vd->toChars());
             idxs.push_back(gIR->irDsymbol[vd].irField->index + dataoffset);
-            Logger::cout() << "indexing: " << *ptr << '\n';
+            //Logger::cout() << "indexing: " << *ptr << '\n';
             ptr = DtoGEP(ptr, idxs, "tmp");
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-            Logger::cout() << "indexing: " << *ptr << '\n';
+            //Logger::cout() << "indexing: " << *ptr << '\n';
             if (gIR->irDsymbol[vd].irField->indexOffset)
                 ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(gIR->irDsymbol[vd].irField->indexOffset), "tmp", gIR->scopebb());
-            Logger::cout() << "indexing: " << *ptr << '\n';
+            //Logger::cout() << "indexing: " << *ptr << '\n';
             return ptr;
         }
         else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {

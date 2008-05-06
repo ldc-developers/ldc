@@ -122,7 +122,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
     for (unsigned i=0; i<sd->fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
         Type* vdtype = DtoDType(vd->type);
-        Logger::println("found %u type %s", vd->offset, vdtype->toChars());
+        //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         assert(gIR->irDsymbol[vd].irField->index >= 0);
         if (os == vd->offset && vdtype == t) {
             idxs.push_back(gIR->irDsymbol[vd].irField->index);
