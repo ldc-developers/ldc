@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <list>
-#include <map>
 
 #include "root.h"
 #include "aggregate.h"
@@ -11,8 +10,6 @@
 #include "ir/irfunction.h"
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
-#include "ir/irsymbol.h"
-#include "ir/irtype.h"
 
 // global ir state for current module
 struct IRState;
@@ -79,12 +76,6 @@ struct IRState
 
     // interface info type, used in DtoInterfaceInfoType
     llvm::StructType* interfaceInfoType;
-
-    // ir data associated with DMD Dsymbol nodes 
-    std::map<Dsymbol*, IrDsymbol> irDsymbol;
-
-    // ir data associated with DMD Type instances
-    std::map<Type*, IrType> irType;
 
     // functions
     typedef std::vector<IrFunction*> FunctionVector;

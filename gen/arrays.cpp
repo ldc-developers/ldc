@@ -41,8 +41,8 @@ const llvm::StructType* DtoArrayType(Type* t)
 
 const llvm::ArrayType* DtoStaticArrayType(Type* t)
 {
-    if (gIR->irType[t].type)
-        return isaArray(gIR->irType[t].type->get());
+    if (t->ir.type)
+        return isaArray(t->ir.type->get());
 
     assert(t->ty == Tsarray);
     assert(t->next);
@@ -53,8 +53,8 @@ const llvm::ArrayType* DtoStaticArrayType(Type* t)
     assert(tsa->dim->type->isintegral());
     const llvm::ArrayType* arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
 
-    assert(!gIR->irType[tsa].type);
-    gIR->irType[tsa].type = new llvm::PATypeHolder(arrty);
+    assert(!tsa->ir.type);
+    tsa->ir.type = new llvm::PATypeHolder(arrty);
     return arrty;
 }
 
@@ -702,10 +702,10 @@ static llvm::Value* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, b
     if (useti) {
         TypeInfoDeclaration* ti = DtoDType(l->getType())->next->getTypeInfoDeclaration();
         DtoForceConstInitDsymbol(ti);
-        Logger::cout() << "typeinfo decl: " << *gIR->irDsymbol[ti].getIrValue() << '\n';
+        Logger::cout() << "typeinfo decl: " << *ti->ir.getIrValue() << '\n';
 
         pt = fn->getFunctionType()->getParamType(2);
-        args.push_back(DtoBitCast(gIR->irDsymbol[ti].getIrValue(), pt));
+        args.push_back(DtoBitCast(ti->ir.getIrValue(), pt));
     }
 
     return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");

@@ -21,6 +21,9 @@
 #include "mars.h"
 #include "arraytypes.h"
 
+// llvm
+#include "../ir/irsymbol.h"
+
 struct Identifier;
 struct Scope;
 struct DsymbolTable;
@@ -76,6 +79,7 @@ typedef union tree_node TYPE;
 struct TYPE;
 #endif
 
+// llvm
 #if IN_LLVM
 namespace llvm
 {
@@ -220,6 +224,8 @@ struct Dsymbol : Object
     int llvmInternal;
     char* llvmInternal1;
     char* llvmInternal2;
+    
+    IrDsymbol ir;
 };
 
 // Dsymbol that generates a scope

@@ -98,7 +98,7 @@ const llvm::Type* DtoType(Type* t)
 
     // aggregates
     case Tstruct:    {
-        if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
+        if (!t->ir.type || *t->ir.type == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
@@ -116,11 +116,11 @@ const llvm::Type* DtoType(Type* t)
         TypeStruct* ts = (TypeStruct*)t;
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
-        return gIR->irDsymbol[ts->sym].irStruct->recty.get(); // gIR->irType[t].type->get();
+        return ts->sym->ir.irStruct->recty.get(); // t->ir.type->get();
     }
 
     case Tclass:    {
-        /*if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
+        /*if (!t].type || *gIR->irType[t->ir.type == NULL) {
             // recursive or cyclic declaration
             if (!gIR->structs.empty())
             {
@@ -139,28 +139,28 @@ const llvm::Type* DtoType(Type* t)
         TypeClass* tc = (TypeClass*)t;
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
-        return getPtrToType(gIR->irDsymbol[tc->sym].irStruct->recty.get()); // gIR->irType[t].type->get());
+        return getPtrToType(tc->sym->ir.irStruct->recty.get()); // t->ir.type->get());
     }
 
     // functions
     case Tfunction:
     {
-        if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
+        if (!t->ir.type || *t->ir.type == NULL) {
             return DtoFunctionType(t,NULL);
         }
         else {
-            return gIR->irType[t].type->get();
+            return t->ir.type->get();
         }
     }
 
     // delegates
     case Tdelegate:
     {
-        if (!gIR->irType[t].type || *gIR->irType[t].type == NULL) {
+        if (!t->ir.type || *t->ir.type == NULL) {
             return DtoDelegateType(t);
         }
         else {
-            return gIR->irType[t].type->get();
+            return t->ir.type->get();
         }
     }
 
@@ -561,8 +561,8 @@ llvm::Constant* DtoConstFieldInitializer(Type* t, Initializer* init)
             TypeStruct* ts = (TypeStruct*)t;
             assert(ts);
             assert(ts->sym);
-            assert(gIR->irDsymbol[ts->sym].irStruct->constInit);
-            _init = gIR->irDsymbol[ts->sym].irStruct->constInit;
+            assert(ts->sym->ir.irStruct->constInit);
+            _init = ts->sym->ir.irStruct->constInit;
         }
         else if (t->ty == Tclass)
         {
@@ -724,7 +724,7 @@ static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
     assert(p->isFuncDeclaration() || p->isClassDeclaration());
     if (FuncDeclaration* fd = p->isFuncDeclaration())
     {
-        llvm::Value* v = gIR->irDsymbol[fd].irFunc->nestedVar;
+        llvm::Value* v = fd->ir.irFunc->nestedVar;
         assert(v);
         return v->getType();
     }
@@ -754,9 +754,9 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
 
         if (fd->toParent2() == func)
         {
-            if (!gIR->irDsymbol[func].irFunc->nestedVar)
+            if (!func->ir.irFunc->nestedVar)
                 return NULL;
-            return DtoBitCast(v, gIR->irDsymbol[func].irFunc->nestedVar->getType());
+            return DtoBitCast(v, func->ir.irFunc->nestedVar->getType());
         }
 
         v = DtoBitCast(v, get_next_frame_ptr_type(fd));
@@ -770,7 +770,7 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
         else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
         {
             size_t idx = 2;
-            //idx += gIR->irDsymbol[cd].irStruct->interfaceVec.size();
+            //idx += cd->ir.irStruct->interfaceVec.size();
             v = DtoGEPi(v,0,idx,"tmp");
             v = DtoLoad(v);
         }
@@ -807,10 +807,10 @@ static llvm::Value* get_frame_ptr(FuncDeclaration* func)
 
     // in the right scope already
     if (func == irfunc->decl)
-        return gIR->irDsymbol[irfunc->decl].irFunc->nestedVar;
+        return irfunc->decl->ir.irFunc->nestedVar;
 
     // use the 'this' pointer
-    llvm::Value* ptr = gIR->irDsymbol[irfunc->decl].irFunc->thisVar;
+    llvm::Value* ptr = irfunc->decl->ir.irFunc->thisVar;
     assert(ptr);
 
     // return the fully resolved frame pointer
@@ -878,10 +878,10 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
     assert(ptr && "nested var, but no context");
 
     // we must cast here to be sure. nested classes just have a void*
-    ptr = DtoBitCast(ptr, gIR->irDsymbol[func].irFunc->nestedVar->getType());
+    ptr = DtoBitCast(ptr, func->ir.irFunc->nestedVar->getType());
 
     // index nested var and load (if necessary)
-    llvm::Value* v = DtoGEPi(ptr, 0, gIR->irDsymbol[vd].irLocal->nestedIndex, "tmp");
+    llvm::Value* v = DtoGEPi(ptr, 0, vd->ir.irLocal->nestedIndex, "tmp");
     // references must be loaded, for normal variables this IS already the variable storage!!!
     if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
         v = DtoLoad(v);
@@ -964,9 +964,9 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             llvm::Value* tmp = rhs->getRVal();
             FuncDeclaration* fdecl = gIR->func()->decl;
             // respecify the this param
-            if (!llvm::isa<llvm::AllocaInst>(gIR->irDsymbol[fdecl].irFunc->thisVar))
-                gIR->irDsymbol[fdecl].irFunc->thisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
-            DtoStore(tmp, gIR->irDsymbol[fdecl].irFunc->thisVar);
+            if (!llvm::isa<llvm::AllocaInst>(fdecl->ir.irFunc->thisVar))
+                fdecl->ir.irFunc->thisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
+            DtoStore(tmp, fdecl->ir.irFunc->thisVar);
         }
         // regular class ref -> class ref assignment
         else {
@@ -1572,8 +1572,8 @@ void DtoDefineDsymbol(Dsymbol* dsym)
 
 void DtoConstInitGlobal(VarDeclaration* vd)
 {
-    if (gIR->irDsymbol[vd].initialized) return;
-    gIR->irDsymbol[vd].initialized = gIR->dmodule;
+    if (vd->ir.initialized) return;
+    vd->ir.initialized = gIR->dmodule;
 
     Logger::println("* DtoConstInitGlobal(%s)", vd->toChars());
     LOG_SCOPE;
@@ -1605,8 +1605,8 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
             assert(t->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)t;
-            assert(gIR->irDsymbol[ts->sym].irStruct->constInit);
-            _init = gIR->irDsymbol[ts->sym].irStruct->constInit;
+            assert(ts->sym->ir.irStruct->constInit);
+            _init = ts->sym->ir.irStruct->constInit;
         }
         // array single value init
         else if (isaArray(_type))
@@ -1626,12 +1626,12 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
     if (_init && _init->getType() != _type)
         _type = _init->getType();
-    llvm::cast<llvm::OpaqueType>(gIR->irDsymbol[vd].irGlobal->type.get())->refineAbstractTypeTo(_type);
-    _type = gIR->irDsymbol[vd].irGlobal->type.get();
+    llvm::cast<llvm::OpaqueType>(vd->ir.irGlobal->type.get())->refineAbstractTypeTo(_type);
+    _type = vd->ir.irGlobal->type.get();
     //_type->dump();
     assert(!_type->isAbstract());
 
-    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(gIR->irDsymbol[vd].irGlobal->value);
+    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->ir.irGlobal->value);
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
     {
         gvar->setInitializer(_init);
@@ -1729,7 +1729,7 @@ void DtoEmptyAllLists()
 
 void DtoForceDeclareDsymbol(Dsymbol* dsym)
 {
-    if (gIR->irDsymbol[dsym].declared) return;
+    if (dsym->ir.declared) return;
     Logger::println("DtoForceDeclareDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
@@ -1743,7 +1743,7 @@ void DtoForceDeclareDsymbol(Dsymbol* dsym)
 
 void DtoForceConstInitDsymbol(Dsymbol* dsym)
 {
-    if (gIR->irDsymbol[dsym].initialized) return;
+    if (dsym->ir.initialized) return;
     Logger::println("DtoForceConstInitDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
@@ -1758,7 +1758,7 @@ void DtoForceConstInitDsymbol(Dsymbol* dsym)
 
 void DtoForceDefineDsymbol(Dsymbol* dsym)
 {
-    if (gIR->irDsymbol[dsym].defined) return;
+    if (dsym->ir.defined) return;
     Logger::println("DtoForceDefineDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
@@ -1797,7 +1797,7 @@ const llvm::StructType* DtoInterfaceInfoType()
     // ClassInfo classinfo
     ClassDeclaration* cd2 = ClassDeclaration::classinfo;
     DtoResolveClass(cd2);
-    types.push_back(getPtrToType(gIR->irType[cd2->type].type->get()));
+    types.push_back(getPtrToType(cd2->type->ir.type->get()));
     // void*[] vtbl
     std::vector<const llvm::Type*> vtbltypes;
     vtbltypes.push_back(DtoSize_t());

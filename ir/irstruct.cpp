@@ -27,7 +27,7 @@ IrInterface::~IrInterface()
 //////////////////////////////////////////////////////////////////////////////
 
 IrStruct::IrStruct(Type* t)
- : recty((gIR && gIR->irType[t].type) ? *gIR->irType[t].type : llvm::OpaqueType::get())
+ : recty((t->ir.type) ? *t->ir.type : llvm::OpaqueType::get())
 {
     type = t;
     defined = false;

@@ -189,9 +189,9 @@ static void LLVM_D_BuildRuntimeModule()
     const llvm::Type* stringTy = rt_array(byteTy);
     const llvm::Type* wstringTy = rt_array(shortTy);
     const llvm::Type* dstringTy = rt_array(intTy);
-    const llvm::Type* objectTy = rt_ptr(gIR->irType[ClassDeclaration::object->type].type->get());
-    const llvm::Type* classInfoTy = rt_ptr(gIR->irType[ClassDeclaration::classinfo->type].type->get());
-    const llvm::Type* typeInfoTy = rt_ptr(gIR->irType[Type::typeinfo->type].type->get());
+    const llvm::Type* objectTy = rt_ptr(ClassDeclaration::object->type->ir.type->get());
+    const llvm::Type* classInfoTy = rt_ptr(ClassDeclaration::classinfo->type->ir.type->get());
+    const llvm::Type* typeInfoTy = rt_ptr(Type::typeinfo->type->ir.type->get());
     const llvm::Type* aaTy = rt_ptr(llvm::OpaqueType::get());
 
     /////////////////////////////////////////////////////////////////////////////////////

@@ -1,7 +1,7 @@
 #ifndef LLVMDC_IR_IRSYMBOL_H
 #define LLVMDC_IR_IRSYMBOL_H
 
-#include "ir/ir.h"
+#include <set>
 
 struct IrModule;
 struct IrFunction;
@@ -10,9 +10,25 @@ struct IrGlobal;
 struct IrLocal;
 struct IrField;
 struct IrVar;
+struct Dsymbol;
+
+namespace llvm {
+    struct Value;
+}
 
 struct IrDsymbol
 {
+    static std::set<IrDsymbol*> list;
+    static void resetAll();
+
+    // overload all of these to make sure
+    // the static list is up to date
+    IrDsymbol();
+    IrDsymbol(const IrDsymbol& s);
+    ~IrDsymbol();
+
+    void reset();
+
     Module* DModule;
 
     bool resolved;
@@ -29,12 +45,8 @@ struct IrDsymbol
     IrGlobal* irGlobal;
     IrLocal* irLocal;
     IrField* irField;
-    IrVar* getIrVar()
-    {
-        assert(irGlobal || irLocal || irField);
-        return irGlobal ? (IrVar*)irGlobal : irLocal ? (IrVar*)irLocal : (IrVar*)irField;
-    }
-    llvm::Value*& getIrValue() { return getIrVar()->value; }
+    IrVar* getIrVar();
+    llvm::Value*& getIrValue();
 };
 
 #endif

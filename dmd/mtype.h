@@ -21,6 +21,9 @@
 #include "arraytypes.h"
 #include "expression.h"
 
+// llvm
+#include "../ir/irtype.h"
+
 struct Scope;
 struct Identifier;
 struct Expression;
@@ -248,6 +251,9 @@ struct Type : Object
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
+
+    // llvmdc
+    IrType ir;
 };
 
 struct TypeBasic : Type

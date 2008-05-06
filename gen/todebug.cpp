@@ -114,12 +114,12 @@ const llvm::StructType* GetDwarfSubProgramType() {
 
 llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
 {
-    if (!gIR->irDsymbol[m].irModule)
-        gIR->irDsymbol[m].irModule = new IrModule(m);
-    else if (gIR->irDsymbol[m].irModule->dwarfCompileUnit)
+    if (!m->ir.irModule)
+        m->ir.irModule = new IrModule(m);
+    else if (m->ir.irModule->dwarfCompileUnit)
     {
-        if (gIR->irDsymbol[m].irModule->dwarfCompileUnit->getParent() == gIR->module)
-            return gIR->irDsymbol[m].irModule->dwarfCompileUnit;
+        if (m->ir.irModule->dwarfCompileUnit->getParent() == gIR->module)
+            return m->ir.irModule->dwarfCompileUnit;
     }
 
     // create a valid compile unit constant for the current module
@@ -148,7 +148,7 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
     llvm::GlobalVariable* gv = new llvm::GlobalVariable(GetDwarfCompileUnitType(), true, llvm::GlobalValue::InternalLinkage, c, "llvm.dbg.compile_unit", gIR->module);
     gv->setSection("llvm.metadata");
 
-    gIR->irDsymbol[m].irModule->dwarfCompileUnit = gv;
+    m->ir.irModule->dwarfCompileUnit = gv;
     return gv;
 }
 
@@ -182,14 +182,14 @@ llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariab
 
 void DtoDwarfFuncStart(FuncDeclaration* fd)
 {
-    assert(gIR->irDsymbol[fd].irFunc->dwarfSubProg);
-    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), dbgToArrTy(gIR->irDsymbol[fd].irFunc->dwarfSubProg));
+    assert(fd->ir.irFunc->dwarfSubProg);
+    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), dbgToArrTy(fd->ir.irFunc->dwarfSubProg));
 }
 
 void DtoDwarfFuncEnd(FuncDeclaration* fd)
 {
-    assert(gIR->irDsymbol[fd].irFunc->dwarfSubProg);
-    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), dbgToArrTy(gIR->irDsymbol[fd].irFunc->dwarfSubProg));
+    assert(fd->ir.irFunc->dwarfSubProg);
+    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), dbgToArrTy(fd->ir.irFunc->dwarfSubProg));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
