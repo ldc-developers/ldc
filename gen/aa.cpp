@@ -35,7 +35,10 @@ static llvm::Value* to_pkey(DValue* key)
         pkey = key->getRVal();
     }
     else {
-        assert(0);
+        llvm::Value* tmp = new llvm::AllocaInst(DtoType(keytype), "aatmpkeystorage", gIR->topallocapoint());
+        DVarValue* var = new DVarValue(keytype, tmp, true);
+        DtoAssign(var, key);
+        return tmp;
     }
 
     // give memory
