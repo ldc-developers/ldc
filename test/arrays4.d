@@ -1,5 +1,5 @@
 module arrays4;
-import std.stdio;
+
 void main()
 {
     int[] arr;
@@ -10,5 +10,4 @@ void main()
     assert(arr.length == 2);
     assert(arr[0] == 3);
     assert(arr[1] == 5);
-    writefln(arr);
 }

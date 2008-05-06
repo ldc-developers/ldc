@@ -1,5 +1,7 @@
 module arrays8;
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
     char[] a = "hello ";

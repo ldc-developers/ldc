@@ -1053,8 +1053,9 @@ void WithStatement::toIR(IRState* p)
     assert(body);
 
     DValue* e = exp->toElem(p);
+    assert(!wthis->ir.isSet());
+    wthis->ir.irLocal = new IrLocal(wthis);
     wthis->ir.irLocal->value = e->getRVal();
-    delete e;
 
     body->toIR(p);
 }

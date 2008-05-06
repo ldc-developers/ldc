@@ -51,6 +51,11 @@ void IrDsymbol::reset()
     irField = NULL;
 }
 
+bool IrDsymbol::isSet()
+{
+    return (irStruct || irFunc || irGlobal || irLocal || irField);
+}
+
 IrVar* IrDsymbol::getIrVar()
 {
     assert(irGlobal || irLocal || irField);

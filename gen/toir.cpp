@@ -2550,66 +2550,76 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     Logger::print("ArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    Type* ty = DtoDType(type);
-    const llvm::Type* t = DtoType(ty);
-    Logger::cout() << "array literal has llvm type: " << *t << '\n';
+    // D types
+    Type* arrayType = type->toBasetype();
+    Type* elemType = arrayType->nextOf()->toBasetype();
 
-    llvm::Value* mem = 0;
-    bool inplace_slice = false;
+    // is dynamic ?
+    bool dyn = (arrayType->ty == Tarray);
+    // length
+    size_t len = elements->dim;
+    // store into slice?
+    bool sliceInPlace = false;
 
-    if (!p->topexp() || p->topexp()->e2 != this) {
-        assert(DtoDType(type)->ty == Tsarray);
-        mem = new llvm::AllocaInst(t,"arrayliteral",p->topallocapoint());
-    }
-    else if (p->topexp()->e2 == this) {
-        DValue* tlv = p->topexp()->v;
-        if (DSliceValue* sv = tlv->isSlice()) {
-            assert(sv->len == 0);
-            mem = sv->ptr;
-            inplace_slice = true;
-        }
-        else {
-            mem = p->topexp()->v->getLVal();
-        }
-        assert(mem);
-        if (!isaPointer(mem->getType()) ||
-            !isaArray(mem->getType()->getContainedType(0)))
+    // llvm target type
+    const llvm::Type* llType = DtoType(arrayType);
+    Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
+
+    // llvm storage type
+    const llvm::Type* llStoType = llvm::ArrayType::get(DtoType(elemType), len);
+    Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
+
+    // dst pointer
+    llvm::Value* dstMem = 0;
+
+    // rvalue of assignment
+    if (p->topexp() && p->topexp()->e2 == this)
+    {
+        DValue* topval = p->topexp()->v;
+        // slice assignment (copy)
+        if (DSliceValue* s = topval->isSlice())
         {
-            assert(!inplace_slice);
-            assert(ty->ty == Tarray);
-            // we need to give this array literal storage
-            const llvm::ArrayType* arrty = llvm::ArrayType::get(DtoType(ty->next), elements->dim);
-            mem = new llvm::AllocaInst(arrty, "arrayliteral", p->topallocapoint());
+            dstMem = s->ptr;
+            sliceInPlace = true;
+            assert(s->len == NULL);
         }
+        // static array assignment
+        else if (topval->getType()->toBasetype()->ty == Tsarray)
+        {
+            dstMem = topval->getLVal();
+        }
+        // otherwise we still need to alloca storage
     }
-    else
-    assert(0);
 
-    Logger::cout() << "array literal mem: " << *mem << '\n';
+    // alloca storage if not found already
+    if (!dstMem)
+    {
+        dstMem = new llvm::AllocaInst(llStoType, "arrayliteral", p->topallocapoint());
+    }
+    Logger::cout() << "using dest mem: " << *dstMem << '\n';
 
-    for (unsigned i=0; i<elements->dim; ++i)
+    // store elements
+    for (size_t i=0; i<len; ++i)
     {
         Expression* expr = (Expression*)elements->data[i];
-        llvm::Value* elemAddr = DtoGEPi(mem,0,i,"tmp",p->scopebb());
+        llvm::Value* elemAddr = DtoGEPi(dstMem,0,i,"tmp",p->scopebb());
+
+        // emulate assignment
         DVarValue* vv = new DVarValue(expr->type, elemAddr, true);
         p->exps.push_back(IRExp(NULL, expr, vv));
         DValue* e = expr->toElem(p);
         p->exps.pop_back();
-
         DImValue* im = e->isIm();
         if (!im || !im->inPlace()) {
             DtoAssign(vv, e);
         }
     }
 
-    if (ty->ty == Tsarray || (ty->ty == Tarray && inplace_slice))
-        return new DImValue(type, mem, true);
-    else if (ty->ty == Tarray)
-        return new DSliceValue(type, DtoConstSize_t(elements->dim), DtoGEPi(mem,0,0,"tmp"));
-    else {
-        assert(0);
-        return 0;
-    }
+    // return storage directly ?
+    if (!dyn || (dyn && sliceInPlace))
+        return new DImValue(type, dstMem, true);
+    // wrap in a slice
+    return new DSliceValue(type, DtoConstSize_t(len), DtoGEPi(dstMem,0,0,"tmp"));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -47,6 +47,8 @@ struct IrDsymbol
     IrField* irField;
     IrVar* getIrVar();
     llvm::Value*& getIrValue();
+
+    bool isSet();
 };
 
 #endif

@@ -1,8 +1,10 @@
 module arrays13;
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
-    string a = "hello";
+    char[] a = "hello";
 
     assert(a >  "hel");
     assert(a >= "hel");

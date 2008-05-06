@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 void integer()
 {
     auto arr = new int[16];

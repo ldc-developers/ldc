@@ -10,6 +10,8 @@ void main()
     with(s)
     {
         i = 0;
-        f = 3.4;
+        f = 3.5;
     }
+    assert(s.i == 0);
+    assert(s.f == 3.5);
 }
