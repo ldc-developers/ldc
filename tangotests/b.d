@@ -27,3 +27,8 @@ void access2(C c)
 {
     c.d = 2.5;
 }
+
+void main()
+{
+    func();
+}

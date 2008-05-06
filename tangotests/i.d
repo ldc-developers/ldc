@@ -14,7 +14,7 @@ class C : AC
     }
 }
 
-void func()
+void main()
 {
     scope c = new C;
 }

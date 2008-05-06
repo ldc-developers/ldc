@@ -20,3 +20,8 @@ void func()
 {
     scope c = new MyClass(42);
 }
+
+void main()
+{
+    func();
+}

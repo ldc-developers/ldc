@@ -21,7 +21,7 @@ class C : Iin
     }
 }
 
-void func()
+void main()
 {
     scope c = new C;
 }

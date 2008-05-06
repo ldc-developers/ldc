@@ -18,3 +18,8 @@ void func2(Bar c)
 {
     c.i = 123;
 }
+
+void main()
+{
+    func();
+}

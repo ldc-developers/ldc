@@ -52,12 +52,8 @@ llvm::Value* DVarValue::getRVal()
     }
     else {
         if (rval) return rval;
-        Logger::cout() << "val: " << *val << '\n';
-        if (isaArgument(val)) {
-            if (var && (var->isRef() || var->isOut()))
-                return DtoLoad(val);
-        }
-        else if (!isField() && DtoCanLoad(val)) {
+        //Logger::cout() << "val: " << *val << '\n';
+        if (!isThis() && !isField() && DtoCanLoad(val)) {
             return DtoLoad(val);
         }
         return val;

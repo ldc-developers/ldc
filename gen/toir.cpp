@@ -211,12 +211,6 @@ DValue* VarExp::toElem(IRState* p)
         // function parameter
         else if (vd->isParameter()) {
             Logger::println("function param");
-            if (!gIR->irDsymbol[vd].getIrValue()) {
-                assert(0); // should be fixed now
-                // TODO: determine this properly
-                // this happens when the DMD frontend generates by pointer wrappers for struct opEquals(S) and opCmp(S)
-                gIR->irDsymbol[vd].getIrValue() = &p->func()->func->getArgumentList().back();
-            }
             if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(gIR->irDsymbol[vd].getIrValue())) {
                 return new DVarValue(vd, gIR->irDsymbol[vd].getIrValue(), true);
             }
@@ -1371,7 +1365,8 @@ DValue* DotVarExp::toElem(IRState* p)
     Type* t = DtoDType(type);
     Type* e1type = DtoDType(e1->type);
 
-    //Logger::print("e1type=%s\n", e1type->toChars());
+    //Logger::println("e1type=%s", e1type->toChars());
+    //Logger::cout() << *DtoType(e1type) << '\n';
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         llvm::Value* arrptr;
