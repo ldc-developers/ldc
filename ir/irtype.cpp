@@ -13,13 +13,13 @@ void IrType::resetAll()
 
 IrType::IrType()
 {
-    list.insert(this);
+    assert(list.insert(this).second);
     reset();
 }
 
 IrType::IrType(const IrType& s)
 {
-    list.insert(this);
+    assert(list.insert(this).second);
     type = s.type;
     vtblType = s.type;
 }

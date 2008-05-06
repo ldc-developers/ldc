@@ -578,20 +578,18 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
     assert(t1->ty == t2->ty);
 
     DValue* e1 = exp1->toElem(gIR);
-    llvm::Value* a = e1->getRVal();
-
     DValue* e2 = exp2->toElem(gIR);
-    llvm::Value* b = e2->getRVal();
 
     llvm::Value *len1, *len2, *src1, *src2, *res;
-    len1 = gIR->ir->CreateLoad(DtoGEPi(a,0,0,"tmp"),"tmp");
-    len2 = gIR->ir->CreateLoad(DtoGEPi(b,0,0,"tmp"),"tmp");
+
+    len1 = DtoArrayLen(e1);
+    len2 = DtoArrayLen(e2);
     res = gIR->ir->CreateAdd(len1,len2,"tmp");
 
     llvm::Value* mem = DtoNewDynArray(arr, res, DtoDType(t1->next), false);
 
-    src1 = gIR->ir->CreateLoad(DtoGEPi(a,0,1,"tmp"),"tmp");
-    src2 = gIR->ir->CreateLoad(DtoGEPi(b,0,1,"tmp"),"tmp");
+    src1 = DtoArrayPtr(e1);
+    src2 = DtoArrayPtr(e2);
 
     DtoMemCpy(mem,src1,len1);
     mem = gIR->ir->CreateGEP(mem,len1,"tmp");

@@ -14,13 +14,13 @@ void IrDsymbol::resetAll()
 
 IrDsymbol::IrDsymbol()
 {
-    list.insert(this);
+    assert(list.insert(this).second);
     reset();
 }
 
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
 {
-    list.insert(this);
+    assert(list.insert(this).second);
     DModule = s.DModule;
     irModule = s.irModule;
     irStruct = s.irStruct;
