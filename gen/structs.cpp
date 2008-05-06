@@ -176,6 +176,9 @@ void DtoResolveStruct(StructDeclaration* sd)
     Logger::println("DtoResolveStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
+    if (sd->prot() == PROTprivate && sd->getModule() != gIR->dmodule)
+        Logger::println("using a private struct from outside its module");
+
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
 
     IrStruct* irstruct = new IrStruct(ts);
@@ -337,7 +340,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     gIR->irDsymbol[sd].irStruct->init = initvar;
 
     gIR->constInitList.push_back(sd);
-    if (sd->getModule() == gIR->dmodule)
+    if (DtoIsTemplateInstance(sd) || sd->getModule() == gIR->dmodule)
         gIR->defineList.push_back(sd);
 }
 
