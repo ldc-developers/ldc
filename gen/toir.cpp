@@ -490,15 +490,43 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
     Logger::print("StringExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    uint8_t* str = (uint8_t*)string;
-    std::string cont((char*)str, len);
-
     Type* t = DtoDType(type);
+    Type* cty = DtoDType(t->next);
 
-    if (t->ty == Tsarray) {
-        return llvm::ConstantArray::get(cont,false);
+    bool nullterm = (t->ty != Tsarray);
+    size_t endlen = nullterm ? len+1 : len;
+
+    const llvm::Type* ct = DtoType(cty);
+    const llvm::ArrayType* at = llvm::ArrayType::get(ct,endlen);
+
+    llvm::Constant* _init;
+    if (cty->ty == Tchar || cty->ty == Tvoid) {
+        uint8_t* str = (uint8_t*)string;
+        std::string cont((char*)str, len);
+        _init = llvm::ConstantArray::get(cont, nullterm);
     }
-    llvm::Constant* _init = llvm::ConstantArray::get(cont,true);
+    else if (cty->ty == Twchar) {
+        uint16_t* str = (uint16_t*)string;
+        std::vector<llvm::Constant*> vals;
+        for(size_t i=0; i<len; ++i) {
+            vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
+        }
+        if (nullterm)
+            vals.push_back(llvm::ConstantInt::get(ct, 0, false));
+        _init = llvm::ConstantArray::get(at,vals);
+    }
+    else if (cty->ty == Tdchar) {
+        uint32_t* str = (uint32_t*)string;
+        std::vector<llvm::Constant*> vals;
+        for(size_t i=0; i<len; ++i) {
+            vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
+        }
+        if (nullterm)
+            vals.push_back(llvm::ConstantInt::get(ct, 0, false));
+        _init = llvm::ConstantArray::get(at,vals);
+    }
+    else
+    assert(0);
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,"stringliteral",gIR->module);

@@ -340,8 +340,10 @@ llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         assert(v);
 
         inits[i] = v;
+        Logger::cout() << "llval: " << *v << '\n';
     }
 
+    Logger::println("building constant array");
     const llvm::ArrayType* arrty = llvm::ArrayType::get(elemty,tdim);
     llvm::Constant* constarr = llvm::ConstantArray::get(arrty, inits);
 
