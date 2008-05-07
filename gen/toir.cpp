@@ -528,6 +528,11 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
     else
     assert(0);
 
+    if (t->ty == Tsarray)
+    {
+        return _init;
+    }
+
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,"stringliteral",gIR->module);
 
@@ -538,8 +543,7 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
     if (t->ty == Tpointer) {
         return arrptr;
     }
-
-    if (t->ty == Tarray) {
+    else if (t->ty == Tarray) {
         llvm::Constant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
         return DtoConstSlice(clen, arrptr);
     }
