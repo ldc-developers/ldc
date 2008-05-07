@@ -407,6 +407,7 @@ static llvm::Value* get_slice_ptr(DSliceValue* e, llvm::Value*& sz)
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
 {
+    Logger::println("ArrayCopySlices");
     const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* sz1;
@@ -428,6 +429,7 @@ void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
 
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 {
+    Logger::println("ArrayCopyToSlice");
     const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
 
     llvm::Value* sz1;
@@ -786,6 +788,13 @@ llvm::Value* DtoArrayCompare(TOK op, DValue* l, DValue* r)
 //////////////////////////////////////////////////////////////////////////////////////////
 llvm::Value* DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty, const llvm::Type* newelemty)
 {
+    Logger::println("DtoArrayCastLength");
+    LOG_SCOPE;
+
+    assert(len);
+    assert(elemty);
+    assert(newelemty);
+
     size_t esz = getABITypeSize(elemty);
     size_t nsz = getABITypeSize(newelemty);
     if (esz == nsz)
@@ -909,6 +918,9 @@ llvm::Value* DtoArrayPtr(DValue* v)
 //////////////////////////////////////////////////////////////////////////////////////////
 DValue* DtoCastArray(DValue* u, Type* to)
 {
+    Logger::println("DtoCastArray");
+    LOG_SCOPE;
+
     const llvm::Type* tolltype = DtoType(to);
 
     Type* totype = DtoDType(to);
@@ -943,9 +955,9 @@ DValue* DtoCastArray(DValue* u, Type* to)
             Logger::cout() << "from: " << *usl->ptr << " to: " << *ptrty << '\n';
             rval = new llvm::BitCastInst(usl->ptr, ptrty, "tmp", gIR->scopebb());
             if (fromtype->next->size() == totype->next->size())
-                rval2 = usl->len;
+                rval2 = DtoArrayLen(usl);
             else
-                rval2 = DtoArrayCastLength(usl->len, ety, ptrty->getContainedType(0));
+                rval2 = DtoArrayCastLength(DtoArrayLen(usl), ety, ptrty->getContainedType(0));
         }
         else {
             llvm::Value* uval = u->getRVal();
