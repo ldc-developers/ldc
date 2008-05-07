@@ -416,12 +416,12 @@ DValue* StringExp::toElem(IRState* p)
     const llvm::ArrayType* at = llvm::ArrayType::get(ct,len+1);
 
     llvm::Constant* _init;
-    if (cty->ty == Tchar || cty->ty == Tvoid) {
+    if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
         std::string cont((char*)str, len);
         _init = llvm::ConstantArray::get(cont,true);
     }
-    else if (cty->ty == Twchar) {
+    else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
         std::vector<llvm::Constant*> vals;
         for(size_t i=0; i<len; ++i) {
@@ -430,7 +430,7 @@ DValue* StringExp::toElem(IRState* p)
         vals.push_back(llvm::ConstantInt::get(ct, 0, false));
         _init = llvm::ConstantArray::get(at,vals);
     }
-    else if (cty->ty == Tdchar) {
+    else if (cty->size() == 4) {
         uint32_t* str = (uint32_t*)string;
         std::vector<llvm::Constant*> vals;
         for(size_t i=0; i<len; ++i) {
@@ -500,12 +500,12 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
     const llvm::ArrayType* at = llvm::ArrayType::get(ct,endlen);
 
     llvm::Constant* _init;
-    if (cty->ty == Tchar || cty->ty == Tvoid) {
+    if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
         std::string cont((char*)str, len);
         _init = llvm::ConstantArray::get(cont, nullterm);
     }
-    else if (cty->ty == Twchar) {
+    else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
         std::vector<llvm::Constant*> vals;
         for(size_t i=0; i<len; ++i) {
@@ -515,7 +515,7 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
             vals.push_back(llvm::ConstantInt::get(ct, 0, false));
         _init = llvm::ConstantArray::get(at,vals);
     }
-    else if (cty->ty == Tdchar) {
+    else if (cty->size() == 4) {
         uint32_t* str = (uint32_t*)string;
         std::vector<llvm::Constant*> vals;
         for(size_t i=0; i<len; ++i) {
