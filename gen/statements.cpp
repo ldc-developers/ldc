@@ -103,6 +103,13 @@ void ReturnStatement::toIR(IRState* p)
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
 
+            // can happen for classes
+            if (v->getType() != p->topfunc()->getReturnType())
+            {
+                v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
+                Logger::cout() << "return value after cast: " << *v << '\n';
+            }
+
             emit_finallyblocks(p, enclosingtryfinally, NULL);
 
             if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
