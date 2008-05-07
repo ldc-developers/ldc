@@ -13,6 +13,11 @@
  */
 module std.intrinsic;
 
+// LLVMDC doesn't use this module!
+version( LLVMDC )
+{
+    static assert(0, "LLVMDC does not support the std.intrinsic module with Tango");
+}
 
 /**
  * Scans the bits in v starting with bit 0, looking

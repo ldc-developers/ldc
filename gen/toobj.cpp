@@ -189,6 +189,7 @@ static llvm::Function* build_module_ctor()
 
     std::vector<const llvm::Type*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(llvm::CallingConv::Fast);
 
@@ -222,6 +223,7 @@ static llvm::Function* build_module_dtor()
 
     std::vector<const llvm::Type*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(llvm::CallingConv::Fast);
 
@@ -255,6 +257,7 @@ static llvm::Function* build_module_unittest()
 
     std::vector<const llvm::Type*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = new llvm::Function(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(llvm::CallingConv::Fast);
 
@@ -383,6 +386,7 @@ void Module::genmoduleinfo()
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__classesZ");
+        assert(gIR->module->getGlobalVariable(m_name) == NULL);
         llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
         c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(classArrTy->getElementType()));
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
@@ -438,7 +442,10 @@ void Module::genmoduleinfo()
 
     // declare
     // flags will be modified at runtime so can't make it constant
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, constMI, MIname, gIR->module);
+
+    llvm::GlobalVariable* gvar = gIR->module->getGlobalVariable(MIname);
+    if (!gvar) gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname, gIR->module);
+    gvar->setInitializer(constMI);
 
     // declare the appending array
     const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(getPtrToType(llvm::Type::Int8Ty), 1);

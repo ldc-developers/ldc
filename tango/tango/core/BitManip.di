@@ -18,9 +18,73 @@ version (DDoc)
 }
 else
 {
+    version (LLVMDC)
+{
+    int bsf(uint v);
+    int bsr(uint v);
+    int bt(uint* p, uint bitnum)
+{
+return p[bitnum / ((uint).sizeof * 8)] & 1 << (bitnum & (uint).sizeof * 8 - 1) ? -1 : 0;
+}
+    int btc(uint* p, uint bitnum)
+{
+uint* q = p + bitnum / ((uint).sizeof * 8);
+uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
+int result = *q & mask;
+*q ^= mask;
+return result ? -1 : 0;
+}
+    int btr(uint* p, uint bitnum)
+{
+uint* q = p + bitnum / ((uint).sizeof * 8);
+uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
+int result = *q & mask;
+*q &= ~mask;
+return result ? -1 : 0;
+}
+    int bts(uint* p, uint bitnum)
+{
+uint* q = p + bitnum / ((uint).sizeof * 8);
+uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
+int result = *q & mask;
+*q |= mask;
+return result ? -1 : 0;
+}
+    pragma(LLVM_internal, "intrinsic", "llvm.bswap.i32")
+{
+    uint bswap(uint val);
+}
+    ubyte inp(uint p)
+{
+return 0;
+}
+    ushort inpw(uint p)
+{
+return 0;
+}
+    uint inpl(uint p)
+{
+return 0;
+}
+    ubyte outp(uint p, ubyte v)
+{
+return v;
+}
+    ushort outpw(uint p, ushort v)
+{
+return v;
+}
+    uint outpl(uint p, uint v)
+{
+return v;
+}
+}
+else
+{
     public
 {
     import std.intrinsic;
+}
 }
 }
 int popcnt(uint x)

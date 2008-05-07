@@ -2,8 +2,8 @@
 module tango.core.Exception;
 private
 {
-    alias void(* assertHandlerType)(char[] file, size_t line, char[] msg = null);
-    alias TracedExceptionInfo(* traceHandlerType)(void* ptr = null);
+    alias void function(char[] file, size_t line, char[] msg = null) assertHandlerType;
+    alias TracedExceptionInfo function(void* ptr = null) traceHandlerType;
     assertHandlerType assertHandler = null;
     traceHandlerType traceHandler = null;
 }
@@ -246,6 +246,13 @@ assertHandler = h;
 void setTraceHandler(traceHandlerType h)
 {
 traceHandler = h;
+}
+private
+{
+    extern (C) 
+{
+    int printf(char*,...);
+}
 }
 extern (C) 
 {

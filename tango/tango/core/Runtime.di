@@ -6,7 +6,7 @@ private
 {
     bool rt_isHalting();
 }
-    alias bool(* moduleUnitTesterType)();
+    alias bool function() moduleUnitTesterType;
 }
 struct Runtime
 {

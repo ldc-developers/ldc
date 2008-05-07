@@ -88,7 +88,7 @@ private
 {
     void gc_removeRange(void* p);
 }
-    alias bool(* collectHandlerType)(Object obj);
+    alias bool function(Object obj) collectHandlerType;
 }
 struct GC
 {
