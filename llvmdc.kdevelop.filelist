@@ -121,6 +121,7 @@ gen/llvm.h
 gen/logger.cpp
 gen/logger.h
 gen/optimizer.cpp
+gen/pairtype.h
 gen/runtime.cpp
 gen/runtime.h
 gen/statements.cpp
@@ -748,17 +749,13 @@ tango/tango/util/log/model/ILevel.d
 tangotests
 tangotests/a.d
 tangotests/aa1.d
-tangotests/abc.d
-tangotests/abcd.d
 tangotests/b.d
 tangotests/c.d
 tangotests/classes1.d
 tangotests/constructors.d
-tangotests/d.d
 tangotests/e.d
 tangotests/f.d
 tangotests/files1.d
-tangotests/g.d
 tangotests/h.d
 tangotests/i.d
 tangotests/j.d
@@ -767,8 +764,6 @@ tangotests/l.d
 tangotests/m.d
 tangotests/n.d
 tangotests/o.d
-tangotests/p.d
-tangotests/q.d
 tangotests/r.d
 tangotests/s.d
 tangotests/stdout1.d

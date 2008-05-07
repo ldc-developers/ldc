@@ -610,11 +610,6 @@ void DtoConstInitClass(ClassDeclaration* cd)
             infoInits.push_back(c);
 
             // offset
-            // generate target independent offset with constGEP
-            /*llvm::Value* cidx = DtoConstInt(iri->index);
-            Logger::cout() << "offset to interface in class type: " << *cd->type->ir.type->get() << '\n';
-            size_t ioff = gTargetData->getIndexedOffset(cd->type->ir.type->get(), &cidx, 1);
-            infoInits.push_back(DtoConstUint(ioff));*/
             assert(iri->index >= 0);
             size_t ioff = gTargetData->getStructLayout(isaStruct(cd->type->ir.type->get()))->getElementOffset(iri->index);
             infoInits.push_back(DtoConstUint(ioff));
@@ -658,16 +653,18 @@ void DtoConstInitClass(ClassDeclaration* cd)
         }
     }
     // we always generate interfaceinfos as best we can
-    /*else
+    else
     {
-        for (IrStruct::InterfaceIter i=irstruct->interfaces.begin(); i!=irstruct->interfaces.end(); ++i)
+        // TODO: this is duplicated code from right above... I'm just too lazy to generalise it right now :/
+        // create interface vtable const initalizers
+        for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
         {
-            ClassDeclaration* id = i->first;
+            IrInterface* iri = *i;
+            BaseClass* b = iri->base;
+
+            ClassDeclaration* id = iri->decl;
             assert(id->type->ty == Tclass);
             TypeClass* its = (TypeClass*)id->type;
-
-            IrInterface* iri = i->second;
-            BaseClass* b = iri->base;
 
             // generate interface info initializer
             std::vector<llvm::Constant*> infoInits;
@@ -683,12 +680,14 @@ void DtoConstInitClass(ClassDeclaration* cd)
             infoInits.push_back(c);
 
             // offset
-            infoInits.push_back(DtoConstInt(0));
+            assert(iri->index >= 0);
+            size_t ioff = gTargetData->getStructLayout(isaStruct(cd->type->ir.type->get()))->getElementOffset(iri->index);
+            infoInits.push_back(DtoConstUint(ioff));
 
             // create interface info initializer constant
             iri->infoInit = llvm::cast<llvm::ConstantStruct>(llvm::ConstantStruct::get(iri->infoTy, infoInits));
         }
-    }*/
+    }
 
     gIR->classes.pop_back();
     gIR->structs.pop_back();
@@ -709,7 +708,8 @@ void DtoDefineClass(ClassDeclaration* cd)
     TypeClass* ts = (TypeClass*)cd->type;
 
     if (cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd)) {
-        // interfaces don't have initializers
+
+        // interfaces don't have static initializer/vtable
         // neither do abstract classes
         if (!cd->isInterfaceDeclaration() && !cd->isAbstract())
         {
@@ -718,19 +718,30 @@ void DtoDefineClass(ClassDeclaration* cd)
 
             // initialize interface vtables
             IrStruct* irstruct = cd->ir.irStruct;
-            std::vector<llvm::Constant*> infoInits;
             for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
             {
                 IrInterface* iri = *i;
                 iri->vtbl->setInitializer(iri->vtblInit);
-                infoInits.push_back(iri->infoInit);
             }
-            // initialize interface info array
-            if (!infoInits.empty())
-            {
-                llvm::Constant* arrInit = llvm::ConstantArray::get(irstruct->interfaceInfosTy, infoInits);
-                irstruct->interfaceInfos->setInitializer(arrInit);
-            }
+        }
+
+        // always do interface info array when possible
+        IrStruct* irstruct = cd->ir.irStruct;
+        std::vector<llvm::Constant*> infoInits;
+        for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
+        {
+            IrInterface* iri = *i;
+            infoInits.push_back(iri->infoInit);
+        }
+        // set initializer
+        if (!infoInits.empty())
+        {
+            llvm::Constant* arrInit = llvm::ConstantArray::get(irstruct->interfaceInfosTy, infoInits);
+            irstruct->interfaceInfos->setInitializer(arrInit);
+        }
+        else
+        {
+            assert(irstruct->interfaceInfos == NULL);
         }
 
         // generate classinfo

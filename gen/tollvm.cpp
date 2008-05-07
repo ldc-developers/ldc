@@ -278,7 +278,7 @@ llvm::Function* LLVM_DeclareMemCpy64()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoNullDelegate(llvm::Value* v)
+llvm::Value* DtoDelegateToNull(llvm::Value* v)
 {
     assert(gIR);
     d_uns64 n = (global.params.is64bit) ? 16 : 8;
@@ -327,17 +327,31 @@ llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs)
+llvm::Value* DtoDelegateCompare(TOK op, llvm::Value* lhs, llvm::Value* rhs)
 {
-    llvm::ICmpInst::Predicate pred = (op == TOKequal) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-    llvm::Value* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
-    llvm::Value* r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,0,"tmp"),"tmp");
-    llvm::Value* b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
-    l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,1,"tmp"),"tmp");
-    r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,1,"tmp"),"tmp");
-    llvm::Value* b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+    Logger::println("Doing delegate compare");
+    llvm::ICmpInst::Predicate pred = (op == TOKequal || op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+    llvm::Value *b1, *b2;
+    if (rhs == NULL)
+    {
+        llvm::Value* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
+        llvm::Value* r = llvm::Constant::getNullValue(l->getType());
+        b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+        l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,1,"tmp"),"tmp");
+        r = llvm::Constant::getNullValue(l->getType());
+        b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+    }
+    else
+    {
+        llvm::Value* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
+        llvm::Value* r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,0,"tmp"),"tmp");
+        b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+        l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,1,"tmp"),"tmp");
+        r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,1,"tmp"),"tmp");
+        b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+    }
     llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
-    if (op == TOKnotequal)
+    if (op == TOKnotequal || op == TOKnotidentity)
         return gIR->ir->CreateNot(b,"tmp");
     return b;
 }
@@ -949,7 +963,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
     }
     else if (t->ty == Tdelegate) {
         if (rhs->isNull())
-            DtoNullDelegate(lhs->getLVal());
+            DtoDelegateToNull(lhs->getLVal());
         else if (!rhs->inPlace()) {
             llvm::Value* l = lhs->getLVal();
             llvm::Value* r = rhs->getRVal();

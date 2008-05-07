@@ -1841,7 +1841,7 @@ DValue* EqualExp::toElem(IRState* p)
     else if (t->ty == Tdelegate)
     {
         Logger::println("delegate");
-        eval = DtoCompareDelegate(op,l->getRVal(),r->getRVal());
+        eval = DtoDelegateCompare(op,l->getRVal(),r->getRVal());
     }
     else
     {
@@ -2333,7 +2333,7 @@ DValue* IdentityExp::toElem(IRState* p)
         else {
             assert(l->getType() == r->getType());
         }
-        eval = DtoDynArrayIs(op,l,r);
+        eval = DtoDelegateCompare(op,l,r);
     }
     else if (t1->isfloating())
     {

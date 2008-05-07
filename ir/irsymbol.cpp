@@ -3,10 +3,13 @@
 #include "ir/irsymbol.h"
 #include "ir/irvar.h"
 
+#include "gen/logger.h"
+
 std::set<IrDsymbol*> IrDsymbol::list;
 
 void IrDsymbol::resetAll()
 {
+    Logger::println("resetting %u Dsymbols", list.size());
     std::set<IrDsymbol*>::iterator it;
     for(it = list.begin(); it != list.end(); ++it)
         (*it)->reset();

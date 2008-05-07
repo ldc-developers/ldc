@@ -17,9 +17,9 @@ Type* DtoDType(Type* t);
 
 // delegate helpers
 const llvm::StructType* DtoDelegateType(Type* t);
-llvm::Value* DtoNullDelegate(llvm::Value* v);
+llvm::Value* DtoDelegateToNull(llvm::Value* v);
 llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
-llvm::Value* DtoCompareDelegate(TOK op, llvm::Value* lhs, llvm::Value* rhs);
+llvm::Value* DtoDelegateCompare(TOK op, llvm::Value* lhs, llvm::Value* rhs);
 
 // return linkage type for symbol using the current ir state for context
 llvm::GlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
