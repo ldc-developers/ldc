@@ -223,7 +223,8 @@ void ScopeStatement::toIR(IRState* p)
 
     gIR->scope() = IRScope(beginbb, endbb);
 
-    statement->toIR(p);
+    if (statement)
+        statement->toIR(p);
 
     p->scope() = IRScope(p->scopebb(),oldend);
     endbb->eraseFromParent();

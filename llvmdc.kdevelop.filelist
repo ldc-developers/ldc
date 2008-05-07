@@ -6,6 +6,7 @@ demos/glfuncs.d
 demos/gltypes.d
 demos/qd.d
 demos/qd1.d
+demos/ray.cpp
 demos/ray.d
 demos/sdl.d
 demos/sdldemo1.d
