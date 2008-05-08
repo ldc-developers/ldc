@@ -1,0 +1,11 @@
+Use
+./runtest tmp-sensible-name
+to run tests for llvmdc.
+Move into reference/ subfolder and add to svn if desired.
+
+Use
+./findregressions old-test-resultfile tmp-sensible-name
+to find changes.
+
+Recommended:
+./findregressions tmp reference/llvmdc-something | grep -v "PASS -> XFAIL" | sort > tmp-new-regressions
