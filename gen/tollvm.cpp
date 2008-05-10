@@ -234,22 +234,20 @@ static llvm::Function* LLVM_DeclareMemIntrinsic(const char* name, int bits, bool
 // llvm.memset.i32
 llvm::Function* LLVM_DeclareMemSet32()
 {
-    static llvm::Function* _func = 0;
-    if (_func == 0) {
-        _func = LLVM_DeclareMemIntrinsic("llvm.memset.i32", 32, true);
+    if (gIR->llvm_DeclareMemSet32 == 0) {
+        gIR->llvm_DeclareMemSet32 = LLVM_DeclareMemIntrinsic("llvm.memset.i32", 32, true);
     }
-    return _func;
+    return gIR->llvm_DeclareMemSet32;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Function* LLVM_DeclareMemSet64()
 {
-    static llvm::Function* _func = 0;
-    if (_func == 0) {
-        _func = LLVM_DeclareMemIntrinsic("llvm.memset.i64", 64, true);
+    if (gIR->llvm_DeclareMemSet64 == 0) {
+        gIR->llvm_DeclareMemSet64 = LLVM_DeclareMemIntrinsic("llvm.memset.i64", 64, true);
     }
-    return _func;
+    return gIR->llvm_DeclareMemSet64;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -257,11 +255,10 @@ llvm::Function* LLVM_DeclareMemSet64()
 // llvm.memcpy.i32
 llvm::Function* LLVM_DeclareMemCpy32()
 {
-    static llvm::Function* _func = 0;
-    if (_func == 0) {
-        _func = LLVM_DeclareMemIntrinsic("llvm.memcpy.i32", 32);
+    if (gIR->llvm_DeclareMemCpy32 == 0) {
+        gIR->llvm_DeclareMemCpy32 = LLVM_DeclareMemIntrinsic("llvm.memcpy.i32", 32);
     }
-    return _func;
+    return gIR->llvm_DeclareMemCpy32;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -269,11 +266,10 @@ llvm::Function* LLVM_DeclareMemCpy32()
 // llvm.memcpy.i64
 llvm::Function* LLVM_DeclareMemCpy64()
 {
-    static llvm::Function* _func = 0;
-    if (_func == 0) {
-        _func = LLVM_DeclareMemIntrinsic("llvm.memcpy.i64", 64);
+    if (gIR->llvm_DeclareMemCpy64 == 0) {
+        gIR->llvm_DeclareMemCpy64 = LLVM_DeclareMemIntrinsic("llvm.memcpy.i64", 64);
     }
-    return _func;
+    return gIR->llvm_DeclareMemCpy64;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
