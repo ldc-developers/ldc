@@ -46,5 +46,5 @@ echo "Note that aborting is tricky. Try killing the processes by the name of"
 echo "run.sh, compile.sh, nocompile.sh and norun.sh as well as this one."
 echo
 
-DMD=$DMD make > ../$TARGETFILE
+DMD=$DMD make compile nocompile run norun > ../$TARGETFILE
 cd ..

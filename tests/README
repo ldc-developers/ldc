@@ -7,5 +7,5 @@ Use
 ./findregressions old-test-resultfile tmp-sensible-name
 to find changes.
 
-Recommended:
-./findregressions tmp reference/llvmdc-something | grep -v "PASS -> XFAIL" | sort > tmp-new-regressions
+Recommended for comparing to DMD:
+./findregressions reference/dmd-version llvmdc-something | grep -v "PASS -> XFAIL" | sort > tmp-new-regressions
