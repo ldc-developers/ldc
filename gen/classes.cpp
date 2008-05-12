@@ -142,10 +142,12 @@ void DtoResolveClass(ClassDeclaration* cd)
     // add base class data fields first
     LLVM_AddBaseClassData(&cd->baseclasses);
 
-    // then add own members
-    for (int k=0; k < cd->members->dim; k++) {
-        Dsymbol* dsym = (Dsymbol*)(cd->members->data[k]);
-        dsym->toObjFile();
+    // then add own members, if any
+    if(cd->members) {
+        for (int k=0; k < cd->members->dim; k++) {
+            Dsymbol* dsym = (Dsymbol*)(cd->members->data[k]);
+            dsym->toObjFile();
+        }
     }
 
     // resolve class data fields (possibly unions)
@@ -594,8 +596,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         }
     #if OPAQUE_VTBLS
         const llvm::ArrayType* svtbl_ty = isaArray(ts->ir.vtblType->get());
-        llvm::Constant* cvtblInit = llvm::ConstantArray::get(svtbl_ty, sinits);
-        cd->ir.irStruct->constVtbl = llvm::cast<llvm::ConstantArray>(cvtblInit);
+        cd->ir.irStruct->constVtbl = llvm::ConstantArray::get(svtbl_ty, sinits);
     #else
         const llvm::StructType* svtbl_ty = isaStruct(ts->ir.vtblType->get());
         llvm::Constant* cvtblInit = llvm::ConstantStruct::get(svtbl_ty, sinits);
@@ -1495,7 +1496,11 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
         assert(!cd->ir.irStruct->vtbl->getType()->isAbstract());
         c = llvm::ConstantExpr::getBitCast(cd->ir.irStruct->vtbl, byteptrptrty);
         assert(!cd->ir.irStruct->constVtbl->getType()->isAbstract());
-        size_t vtblsz = cd->ir.irStruct->constVtbl->getType()->getNumElements();
+        size_t vtblsz = 0;
+        llvm::ConstantArray* constVtblArray = llvm::dyn_cast<llvm::ConstantArray>(cd->ir.irStruct->constVtbl);
+        if(constVtblArray) {
+            vtblsz = constVtblArray->getType()->getNumElements();
+        }
         c = DtoConstSlice(DtoConstSize_t(vtblsz), c);
     }
     inits.push_back(c);

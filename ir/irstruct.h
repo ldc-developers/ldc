@@ -77,7 +77,7 @@ public:
 
     llvm::GlobalVariable* vtbl;
 #if OPAQUE_VTBLS
-    llvm::ConstantArray* constVtbl;
+    llvm::Constant* constVtbl;
 #else
     llvm::ConstantStruct* constVtbl;
 #endif
