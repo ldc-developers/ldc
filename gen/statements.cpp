@@ -866,7 +866,8 @@ void ForeachStatement::toIR(IRState* p)
         const llvm::ArrayType* arrty = isaArray(val->getType()->getContainedType(0));
         assert(arrty);
         size_t nelems = arrty->getNumElements();
-        assert(nelems > 0);
+        if(nelems == 0)
+            return;
         niters = llvm::ConstantInt::get(keytype,nelems,false);
     }
     // dynamic array
