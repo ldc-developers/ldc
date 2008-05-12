@@ -21,9 +21,7 @@ struct IrType
     void reset();
 
     llvm::PATypeHolder* type;
-#if !OPAQUE_VTBLS
     llvm::PATypeHolder* vtblType;
-#endif
 };
 
 #endif
