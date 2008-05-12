@@ -292,8 +292,6 @@ tango/lib/compiler/llvmdc/mem.d
 tango/lib/compiler/llvmdc/memory.d
 tango/lib/compiler/llvmdc/monitor.c
 tango/lib/compiler/llvmdc/qsort2.d
-tango/lib/compiler/llvmdc/std
-tango/lib/compiler/llvmdc/std/intrinsic.d
 tango/lib/compiler/llvmdc/switch.d
 tango/lib/compiler/llvmdc/typeinfo
 tango/lib/compiler/llvmdc/typeinfo/ti_AC.d
@@ -1029,3 +1027,5 @@ test/vararg5.d
 test/virtcall.d
 test/with1.d
 tester.d
+tests
+tests/findregressions.d

@@ -434,9 +434,6 @@ void DtoConstInitClass(ClassDeclaration* cd)
     if (cd->ir.initialized) return;
     cd->ir.initialized = true;
 
-    if (cd->isInterfaceDeclaration())
-        return; // nothing to do
-
     Logger::println("DtoConstInitClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
@@ -463,15 +460,10 @@ void DtoConstInitClass(ClassDeclaration* cd)
     std::vector<llvm::Constant*> fieldinits;
 
     // first field is always the vtable
-    if (cd->isAbstract())
+    if (cd->isAbstract() || cd->isInterfaceDeclaration())
     {
-        fieldinits.push_back(
-            llvm::ConstantPointerNull::get(
-                getPtrToType(
-                    ts->ir.vtblType->get()
-                )
-            )
-        );
+        const llvm::Type* ptrTy = getPtrToType(ts->ir.vtblType->get());
+        fieldinits.push_back(llvm::Constant::getNullValue(ptrTy));
     }
     else
     {
