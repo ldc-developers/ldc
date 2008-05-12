@@ -498,7 +498,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         IrInterface* iri = *i;
         iri->infoTy = infoTy;
 
-        if (cd->isAbstract())
+        if (cd->isAbstract() || cd->isInterfaceDeclaration())
         {
             fieldinits.push_back(llvm::Constant::getNullValue(structtype->getElementType(iri->index)));
         }
