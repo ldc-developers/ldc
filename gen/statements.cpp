@@ -842,12 +842,13 @@ void ForeachStatement::toIR(IRState* p)
     llvm::Value* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
     // value
+    Logger::println("value = %s", value->toPrettyChars());
     const llvm::Type* valtype = DtoType(value->type);
     llvm::Value* valvar = NULL;
     if (!value->isRef() && !value->isOut())
         valvar = new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint());
-    assert(!value->ir.irLocal);
-    value->ir.irLocal = new IrLocal(value);
+    if (!value->ir.irLocal)
+        value->ir.irLocal = new IrLocal(value);
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);

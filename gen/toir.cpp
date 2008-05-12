@@ -1246,7 +1246,10 @@ DValue* CastExp::toElem(IRState* p)
         return v;
     }
 
-    else if (u->isLRValue() || (u->isVar() && u->isVar()->lval))
+    else if (DLRValue* lr = u->isLRValue())
+        return new DLRValue(lr->getLType(), lr->getLVal(), to, v->getRVal());
+
+    else if (u->isVar() && u->isVar()->lval)
         return new DLRValue(e1->type, u->getLVal(), to, v->getRVal());
 
     else if (gIR->topexp() && gIR->topexp()->e1 == this)

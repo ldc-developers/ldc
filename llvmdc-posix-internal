@@ -43,7 +43,7 @@ version=-version=$i
 
 
 [link]
-oneatatime=yes
+#oneatatime=yes
 cmd=llvmdc $i -of$o
 
 libdir=-L-L$i
@@ -53,7 +53,7 @@ flag=-L$i
 
 [liblink]
 safe=yes
-oneatatime=yes
+#oneatatime=yes
 cmd=llvm-link -f -o=$o $i
 
 libdir=
@@ -67,7 +67,7 @@ cmd=
 
 [shliblink]
 shlibs=no
-oneatatime=yes
+#oneatatime=yes
 cmd=llvm-link $i | llc -filetype=dynlib -f -o=$o
 
 libdir=

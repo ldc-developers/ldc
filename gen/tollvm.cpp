@@ -1006,11 +1006,16 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
         const llvm::Type* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
-            if (DLRValue* lr = lhs->isLRValue()) // handle lvalue cast assignments
+            // handle lvalue cast assignments
+            if (DLRValue* lr = lhs->isLRValue()) {
+                Logger::println("lvalue cast!");
                 r = DtoCast(rhs, lr->getLType())->getRVal();
-            else
+            }
+            else {
                 r = DtoCast(rhs, lhs->getType())->getRVal();
+            }
             Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
+            assert(r->getType() == l->getType()->getContainedType(0));
         }
         gIR->ir->CreateStore(r, l);
     }

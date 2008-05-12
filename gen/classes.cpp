@@ -1153,7 +1153,7 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
         Type* vdtype = DtoDType(vd->type);
         //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         assert(vd->ir.irField->index >= 0);
-        if (os == vd->offset && vdtype == t) {
+        if (os == vd->offset && vdtype->toBasetype() == t->toBasetype()) {
             Logger::println("found %s %s", vdtype->toChars(), vd->toChars());
             idxs.push_back(vd->ir.irField->index + dataoffset);
             //Logger::cout() << "indexing: " << *ptr << '\n';
