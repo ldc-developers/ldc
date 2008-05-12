@@ -696,6 +696,40 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    // int _d_switch_string(char[][] table, char[] ca)
+    {
+        std::string fname("_d_switch_string");
+        std::vector<const llvm::Type*> types;
+        types.push_back(rt_array(stringTy));
+        types.push_back(stringTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // int _d_switch_ustring(wchar[][] table, wchar[] ca)
+    {
+        std::string fname("_d_switch_ustring");
+        std::vector<const llvm::Type*> types;
+        types.push_back(rt_array(wstringTy));
+        types.push_back(wstringTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // int _d_switch_dstring(dchar[][] table, dchar[] ca)
+    {
+        std::string fname("_d_switch_dstring");
+        std::vector<const llvm::Type*> types;
+        types.push_back(rt_array(dstringTy));
+        types.push_back(dstringTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
 }
 
 
