@@ -602,8 +602,27 @@ static llvm::Value* call_string_switch_runtime(llvm::GlobalVariable* table, Expr
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
     std::vector<llvm::Value*> args;
+    Logger::cout() << *table->getType() << '\n';
+    Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
+    assert(table->getType() == fn->getFunctionType()->getParamType(0));
     args.push_back(table);
-    args.push_back(e->toElem(gIR)->getRVal());
+
+    DValue* val = e->toElem(gIR);
+    llvm::Value* llval;
+    if (DSliceValue* sval = val->isSlice())
+    {
+        // give storage
+        llval = new llvm::AllocaInst(DtoType(e->type), "tmp", gIR->topallocapoint());
+        DVarValue* vv = new DVarValue(e->type, llval, true);
+        DtoAssign(vv, val);
+    }
+    else
+    {
+        llval = val->getRVal();
+    }
+    assert(llval->getType() == fn->getFunctionType()->getParamType(1));
+    args.push_back(llval);
+
     return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
 }
 

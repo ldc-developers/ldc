@@ -145,6 +145,14 @@ static const llvm::Type* rt_array(const llvm::Type* elemty)
     return rt_ptr(llvm::StructType::get(t));
 }
 
+static const llvm::Type* rt_array2(const llvm::Type* elemty)
+{
+    std::vector<const llvm::Type*> t;
+    t.push_back(DtoSize_t());
+    t.push_back(rt_ptr(elemty));
+    return llvm::StructType::get(t);
+}
+
 static const llvm::Type* rt_dg1()
 {
     std::vector<const llvm::Type*> types;
@@ -705,7 +713,7 @@ static void LLVM_D_BuildRuntimeModule()
     {
         std::string fname("_d_switch_string");
         std::vector<const llvm::Type*> types;
-        types.push_back(rt_array(stringTy));
+        types.push_back(rt_array(rt_array2(byteTy)));
         types.push_back(stringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
@@ -715,7 +723,7 @@ static void LLVM_D_BuildRuntimeModule()
     {
         std::string fname("_d_switch_ustring");
         std::vector<const llvm::Type*> types;
-        types.push_back(rt_array(wstringTy));
+        types.push_back(rt_array(rt_array2(shortTy)));
         types.push_back(wstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
@@ -725,7 +733,7 @@ static void LLVM_D_BuildRuntimeModule()
     {
         std::string fname("_d_switch_dstring");
         std::vector<const llvm::Type*> types;
-        types.push_back(rt_array(dstringTy));
+        types.push_back(rt_array(rt_array2(intTy)));
         types.push_back(dstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);

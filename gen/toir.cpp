@@ -1510,6 +1510,9 @@ DValue* ThisExp::toElem(IRState* p)
         v = p->func()->decl->ir.irFunc->thisVar;
         if (llvm::isa<llvm::AllocaInst>(v))
             v = new llvm::LoadInst(v, "tmp", p->scopebb());
+        const llvm::Type* t = DtoType(type);
+        if (v->getType() != t)
+            v = DtoBitCast(v, t, "tmp");
         return new DThisValue(vd, v);
     }
 
@@ -1680,7 +1683,7 @@ DValue* CmpExp::toElem(IRState* p)
 
     Type* t = DtoDType(e1->type);
     Type* e2t = DtoDType(e2->type);
-    assert(t == e2t);
+    assert(DtoType(t) == DtoType(e2t));
 
     llvm::Value* eval = 0;
 
