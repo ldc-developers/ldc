@@ -1428,6 +1428,11 @@ const llvm::PointerType* getPtrToType(const llvm::Type* t)
     return llvm::PointerType::get(t, 0);
 }
 
+const llvm::PointerType* getVoidPtrType()
+{
+    return getPtrToType(llvm::Type::Int8Ty);
+}
+
 llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t)
 {
     const llvm::PointerType* pt = llvm::cast<llvm::PointerType>(t);

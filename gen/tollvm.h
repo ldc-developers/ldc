@@ -123,6 +123,7 @@ llvm::GlobalVariable* isaGlobalVar(llvm::Value* v);
 
 // llvm::T::get(...) wrappers
 const llvm::PointerType* getPtrToType(const llvm::Type* t);
+const llvm::PointerType* getVoidPtrType();
 llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t);
 
 // type sizes

@@ -4,7 +4,11 @@
 #include "ir/irstruct.h"
 #include "gen/irstate.h"
 
+#if OPAQUE_VTBLS
+IrInterface::IrInterface(BaseClass* b, const llvm::ArrayType* vt)
+#else
 IrInterface::IrInterface(BaseClass* b, const llvm::StructType* vt)
+#endif
 {
     base = b;
     decl = b->base;

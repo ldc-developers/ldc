@@ -124,18 +124,20 @@ void DtoResolveClass(ClassDeclaration* cd)
         }
     }*/
 
+    // push state
     gIR->structs.push_back(irstruct);
     gIR->classes.push_back(cd);
+
+    // vector holding the field types
+    std::vector<const llvm::Type*> fieldtypes;
 
     // add vtable
     ts->ir.vtblType = new llvm::PATypeHolder(llvm::OpaqueType::get());
     const llvm::Type* vtabty = getPtrToType(ts->ir.vtblType->get());
-
-    std::vector<const llvm::Type*> fieldtypes;
     fieldtypes.push_back(vtabty);
 
     // add monitor
-    fieldtypes.push_back(getPtrToType(llvm::Type::Int8Ty));
+    fieldtypes.push_back(getVoidPtrType());
 
     // add base class data fields first
     LLVM_AddBaseClassData(&cd->baseclasses);
@@ -241,7 +243,11 @@ void DtoResolveClass(ClassDeclaration* cd)
         fieldtypes.push_back(ivtblTy);
 
         // fix the interface vtable type
+    #if OPAQUE_VTBLS
+        iri->vtblTy = isaArray(itc->ir.vtblType->get());
+    #else
         iri->vtblTy = isaStruct(itc->ir.vtblType->get());
+    #endif
 
         // set index
         iri->index = interIdx++;
@@ -273,6 +279,12 @@ void DtoResolveClass(ClassDeclaration* cd)
 
     // create vtable type
     llvm::GlobalVariable* svtblVar = 0;
+#if OPAQUE_VTBLS
+    // void*[vtbl.dim]
+    const llvm::ArrayType* svtbl_ty
+        = llvm::ArrayType::get(getVoidPtrType(), cd->vtbl.dim);
+
+#else
     std::vector<const llvm::Type*> sinits_ty;
 
     for (int k=0; k < cd->vtbl.dim; k++)
@@ -310,19 +322,29 @@ void DtoResolveClass(ClassDeclaration* cd)
         assert(0);
     }
 
+    // get type
     assert(!sinits_ty.empty());
     const llvm::StructType* svtbl_ty = llvm::StructType::get(sinits_ty);
-
-    std::string styname(cd->mangle());
-    styname.append("__vtblType");
-    gIR->module->addTypeName(styname, svtbl_ty);
+#endif
 
     // refine for final vtable type
     llvm::cast<llvm::OpaqueType>(ts->ir.vtblType->get())->refineAbstractTypeTo(svtbl_ty);
 
+#if !OPAQUE_VTBLS
+    // name vtbl type
+    std::string styname(cd->mangle());
+    styname.append("__vtblType");
+    gIR->module->addTypeName(styname, svtbl_ty);
+#endif
+
+    // log
+    Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
+
+    // pop state
     gIR->classes.pop_back();
     gIR->structs.pop_back();
 
+    // queue declare
     gIR->declareList.push_back(cd);
 }
 
@@ -359,9 +381,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
         std::string varname("_D");
         varname.append(cd->mangle());
         varname.append("6__vtblZ");
-
-        const llvm::StructType* svtbl_ty = isaStruct(ts->ir.vtblType->get());
-        cd->ir.irStruct->vtbl = new llvm::GlobalVariable(svtbl_ty, true, _linkage, 0, varname, gIR->module);
+        cd->ir.irStruct->vtbl = new llvm::GlobalVariable(ts->ir.vtblType->get(), true, _linkage, 0, varname, gIR->module);
     }
 
     // get interface info type
@@ -445,7 +465,11 @@ void DtoConstInitClass(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
     const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
+#if OPAQUE_VTBLS
+    const llvm::ArrayType* vtbltype = isaArray(ts->ir.vtblType->get());
+#else
     const llvm::StructType* vtbltype = isaStruct(ts->ir.vtblType->get());
+#endif
 
     // make sure each offset knows its default initializer
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
@@ -543,37 +567,40 @@ void DtoConstInitClass(ClassDeclaration* cd)
             assert(dsym);
             //Logger::cout() << "vtblsym: " << dsym->toChars() << '\n';
 
+        #if OPAQUE_VTBLS
+            const llvm::Type* targetTy = getVoidPtrType();
+        #else
+            const llvm::Type* targetTy = vtbltype->getElementType(k);
+        #endif
+
+            llvm::Constant* c = NULL;
+            // virtual method
             if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
                 DtoForceDeclareDsymbol(fd);
                 assert(fd->ir.irFunc->func);
-                llvm::Constant* c = llvm::cast<llvm::Constant>(fd->ir.irFunc->func);
-                // cast if necessary (overridden method)
-                if (c->getType() != vtbltype->getElementType(k))
-                    c = llvm::ConstantExpr::getBitCast(c, vtbltype->getElementType(k));
-                sinits.push_back(c);
+                c = llvm::cast<llvm::Constant>(fd->ir.irFunc->func);
             }
+            // classinfo
             else if (ClassDeclaration* cd2 = dsym->isClassDeclaration()) {
                 assert(cd->ir.irStruct->classInfo);
-                llvm::Constant* c = cd->ir.irStruct->classInfo;
-                sinits.push_back(c);
+                c = cd->ir.irStruct->classInfo;
             }
-            else
-            assert(0);
-        }
+            assert(c != NULL);
 
+            // cast if necessary (overridden method)
+            if (c->getType() != targetTy)
+                c = llvm::ConstantExpr::getBitCast(c, targetTy);
+            sinits.push_back(c);
+        }
+    #if OPAQUE_VTBLS
+        const llvm::ArrayType* svtbl_ty = isaArray(ts->ir.vtblType->get());
+        llvm::Constant* cvtblInit = llvm::ConstantArray::get(svtbl_ty, sinits);
+        cd->ir.irStruct->constVtbl = llvm::cast<llvm::ConstantArray>(cvtblInit);
+    #else
         const llvm::StructType* svtbl_ty = isaStruct(ts->ir.vtblType->get());
-
-#if 0
-        for (size_t i=0; i< sinits.size(); ++i)
-        {
-            Logger::cout() << "field[" << i << "] = " << *svtbl_ty->getElementType(i) << '\n';
-            Logger::cout() << "init [" << i << "] = " << *sinits[i]->getType() << '\n';
-            assert(svtbl_ty->getElementType(i) == sinits[i]->getType());
-        }
-#endif
-
         llvm::Constant* cvtblInit = llvm::ConstantStruct::get(svtbl_ty, sinits);
         cd->ir.irStruct->constVtbl = llvm::cast<llvm::ConstantStruct>(cvtblInit);
+    #endif
 
         // create interface vtable const initalizers
         for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
@@ -585,7 +612,11 @@ void DtoConstInitClass(ClassDeclaration* cd)
             assert(id->type->ty == Tclass);
             TypeClass* its = (TypeClass*)id->type;
 
+        #if OPAQUE_VTBLS
+            const llvm::ArrayType* ivtbl_ty = isaArray(its->ir.vtblType->get());
+        #else
             const llvm::StructType* ivtbl_ty = isaStruct(its->ir.vtblType->get());
+        #endif
 
             // generate interface info initializer
             std::vector<llvm::Constant*> infoInits;
@@ -613,7 +644,12 @@ void DtoConstInitClass(ClassDeclaration* cd)
             std::vector<llvm::Constant*> iinits;
 
             // add interface info
+        #if OPAQUE_VTBLS
+            const llvm::Type* targetTy = getVoidPtrType();
+            iinits.push_back(llvm::ConstantExpr::getBitCast(iri->info, targetTy));
+        #else
             iinits.push_back(iri->info);
+        #endif
 
             for (int k=1; k < b->vtbl.dim; k++)
             {
@@ -626,22 +662,24 @@ void DtoConstInitClass(ClassDeclaration* cd)
                 assert(fd->ir.irFunc->func);
                 llvm::Constant* c = llvm::cast<llvm::Constant>(fd->ir.irFunc->func);
 
+            #if !OPAQUE_VTBLS
+                const llvm::Type* targetTy = iri->vtblTy->getContainedType(k);
+            #endif
+
                 // we have to bitcast, as the type created in ResolveClass expects a different this type
-                c = llvm::ConstantExpr::getBitCast(c, iri->vtblTy->getContainedType(k));
+                c = llvm::ConstantExpr::getBitCast(c, targetTy);
                 iinits.push_back(c);
+                Logger::cout() << "c: " << *c << '\n';
             }
 
-    #if 0
-            for (size_t x=0; x< iinits.size(); ++x)
-            {
-                Logger::cout() << "field[" << x << "] = " << *ivtbl_ty->getElementType(x) << "\n\n";
-                Logger::cout() << "init [" << x << "] = " << *iinits[x] << "\n\n";
-                assert(ivtbl_ty->getElementType(x) == iinits[x]->getType());
-            }
-    #endif
-
+        #if OPAQUE_VTBLS
+            Logger::cout() << "n: " << iinits.size() << " ivtbl_ty: " << *ivtbl_ty << '\n';
+            llvm::Constant* civtblInit = llvm::ConstantArray::get(ivtbl_ty, iinits);
+            iri->vtblInit = llvm::cast<llvm::ConstantArray>(civtblInit);
+        #else
             llvm::Constant* civtblInit = llvm::ConstantStruct::get(ivtbl_ty, iinits);
             iri->vtblInit = llvm::cast<llvm::ConstantStruct>(civtblInit);
+        #endif
         }
     }
     // we always generate interfaceinfos as best we can
@@ -1171,13 +1209,20 @@ llvm::Value* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     assert(DtoDType(inst->getType())->ty == Tclass);
 
     llvm::Value* vthis = inst->getRVal();
-    //Logger::cout() << "vthis: " << *vthis << '\n';
+    Logger::cout() << "vthis: " << *vthis << '\n';
 
     llvm::Value* funcval;
     funcval = DtoGEPi(vthis, 0, 0, "tmp");
     funcval = DtoLoad(funcval);
     funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toPrettyChars());
     funcval = DtoLoad(funcval);
+
+    Logger::cout() << "funcval: " << *funcval << '\n';
+
+#if OPAQUE_VTBLS
+    funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
+    Logger::cout() << "funcval casted: " << *funcval << '\n';
+#endif
 
     //assert(funcval->getType() == DtoType(fdecl->type));
     //cc = DtoCallingConv(fdecl->linkage);

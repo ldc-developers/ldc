@@ -934,10 +934,9 @@ DValue* DtoCastArray(DValue* u, Type* to)
     Logger::cout() << "from array or sarray" << '\n';
     if (totype->ty == Tpointer) {
         Logger::cout() << "to pointer" << '\n';
-        assert(fromtype->next == totype->next || totype->next->ty == Tvoid);
         rval = DtoArrayPtr(u);
-        if (fromtype->next != totype->next)
-            rval = gIR->ir->CreateBitCast(rval, getPtrToType(llvm::Type::Int8Ty), "tmp");
+        if (rval->getType() != tolltype)
+            rval = gIR->ir->CreateBitCast(rval, tolltype, "tmp");
     }
     else if (totype->ty == Tarray) {
         Logger::cout() << "to array" << '\n';

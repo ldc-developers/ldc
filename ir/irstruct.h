@@ -11,8 +11,13 @@ struct IrInterface : IrBase
     BaseClass* base;
     ClassDeclaration* decl;
 
+#if OPAQUE_VTBLS
+    const llvm::ArrayType* vtblTy;
+    llvm::ConstantArray* vtblInit;
+#else
     const llvm::StructType* vtblTy;
     llvm::ConstantStruct* vtblInit;
+#endif
     llvm::GlobalVariable* vtbl;
 
     const llvm::StructType* infoTy;
@@ -21,7 +26,11 @@ struct IrInterface : IrBase
 
     int index;
 
+#if OPAQUE_VTBLS
+    IrInterface(BaseClass* b, const llvm::ArrayType* vt);
+#else
     IrInterface(BaseClass* b, const llvm::StructType* vt);
+#endif
     ~IrInterface();
 };
 
@@ -67,7 +76,11 @@ public:
     bool constinited;
 
     llvm::GlobalVariable* vtbl;
+#if OPAQUE_VTBLS
+    llvm::ConstantArray* constVtbl;
+#else
     llvm::ConstantStruct* constVtbl;
+#endif
     llvm::GlobalVariable* init;
     llvm::Constant* constInit;
     llvm::GlobalVariable* classInfo;

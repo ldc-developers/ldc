@@ -1474,6 +1474,10 @@ DValue* DotVarExp::toElem(IRState* p)
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
             funcval = DtoGEP(funcval, zero, vtblidx, toChars(), p->scopebb());
             funcval = new llvm::LoadInst(funcval,"tmp",p->scopebb());
+        #if OPAQUE_VTBLS
+            funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
+            Logger::cout() << "funcval casted: " << *funcval << '\n';
+        #endif
             //assert(funcval->getType() == DtoType(fdecl->type));
             //cc = DtoCallingConv(fdecl->linkage);
         }

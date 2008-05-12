@@ -31,8 +31,8 @@ DC=llvmdc
 ADD_CFLAGS=
 ADD_DFLAGS=
 
-targets : lib clib doc
-all     : lib clib doc
+targets : lib doc
+all     : lib doc
 
 ######################################################
 
