@@ -48,3 +48,9 @@ echo
 
 DMD=$DMD make compile nocompile run norun > ../$TARGETFILE
 cd ..
+
+echo
+echo "Cleanup... (removing all .bc and .exe files)"
+echo
+
+find dstress -name "*\.bc" -o "*\.exe" -exec rm {} \;
