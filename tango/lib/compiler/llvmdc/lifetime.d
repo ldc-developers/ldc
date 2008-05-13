@@ -189,31 +189,30 @@ extern (C) void _d_delclass(Object* p)
     }
 }
 
-
 /**
  *
  */
 struct Array
 {
     size_t length;
-    byte*  data;
+    void*  data;
 }
 
++/
 
 /**
  * Allocate a new array of length elements.
  * ti is the type of the resulting array, or pointer to element.
  * (For when the array is initialized to 0)
  */
-extern (C) Array _d_newarrayT(TypeInfo ti, size_t length)
+extern (C) void* _d_newarrayT(TypeInfo ti, size_t length)
 {
     void* p;
-    Array result;
     auto size = ti.next.tsize();                // array element size
 
     debug(PRINTF) printf("_d_newarrayT(length = x%x, size = %d)\n", length, size);
     if (length == 0 || size == 0)
-        return Array();
+        return null;
 
     version (D_InlineAsm_X86)
     {
@@ -230,24 +229,25 @@ extern (C) Array _d_newarrayT(TypeInfo ti, size_t length)
     p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
     debug(PRINTF) printf(" p = %p\n", p);
     memset(p, 0, size);
-    return Array(length, p);
+    return p;
 
 Loverflow:
     onOutOfMemoryError();
+    return null;
 }
 
 /**
  * For when the array has a non-zero initializer.
  */
-extern (C) Array _d_newarrayiT(TypeInfo ti, size_t length)
+extern (C) void* _d_newarrayiT(TypeInfo ti, size_t length)
 {
-    Array result;
+    void* result;
     auto size = ti.next.tsize();                // array element size
 
     debug(PRINTF) printf("_d_newarrayiT(length = %d, size = %d)\n", length, size);
 
     if (length == 0 || size == 0)
-        result = Array();
+        result = null;
     else
     {
         auto initializer = ti.next.init();
@@ -285,14 +285,16 @@ extern (C) Array _d_newarrayiT(TypeInfo ti, size_t length)
                 memcpy(p + u, q, isize);
             }
         }
-        va_end(q);
-        result = Array(length, p);
+        result = p;
     }
     return result;
 
 Loverflow:
     onOutOfMemoryError();
+    return null;
 }
+
+/+
 
 /**
  *
@@ -400,14 +402,22 @@ extern (C) Array _d_newarraymiT(TypeInfo ti, int ndims, ...)
     return result;
 }
 
-+/
-
 /**
  *
  */
 void* _d_allocmemory(size_t nbytes)
 {
     return gc_malloc(nbytes);
+}
+
++/
+
+/**
+ * for allocating a single POD value
+ */
+extern (C) void* _d_allocmemoryT(TypeInfo ti)
+{
+    return gc_malloc(ti.tsize(), (ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
 }
 
 /+
@@ -496,16 +506,14 @@ extern (C) void rt_finalize(void* p, bool det = true)
     }
 }
 
-/+
-
 /**
  * Resize dynamic arrays with 0 initializers.
  */
-extern (C) byte[] _d_arraysetlengthT(TypeInfo ti, size_t newlength, Array *p)
+extern (C) byte* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, byte* pdata)
 in
 {
     assert(ti);
-    assert(!p.length || p.data);
+    assert(!plength || pdata);
 }
 body
 {
@@ -516,7 +524,7 @@ body
     {
         printf("_d_arraysetlengthT(p = %p, sizeelem = %d, newlength = %d)\n", p, sizeelem, newlength);
         if (p)
-            printf("\tp.data = %p, p.length = %d\n", p.data, p.length);
+            printf("\tp.data = %p, p.length = %d\n", pdata, plength);
     }
 
     if (newlength)
@@ -543,26 +551,26 @@ body
 
         debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
 
-        if (p.data)
+        if (pdata)
         {
-            newdata = p.data;
-            if (newlength > p.length)
+            newdata = pdata;
+            if (newlength > plength)
             {
-                size_t size = p.length * sizeelem;
-                auto   info = gc_query(p.data);
+                size_t size = plength * sizeelem;
+                auto   info = gc_query(pdata);
 
-                if (info.size <= newsize || info.base != p.data)
+                if (info.size <= newsize || info.base != pdata)
                 {
-                    if (info.size >= PAGESIZE && info.base == p.data)
+                    if (info.size >= PAGESIZE && info.base == pdata)
                     {   // Try to extend in-place
-                        auto u = gc_extend(p.data, (newsize + 1) - info.size, (newsize + 1) - info.size);
+                        auto u = gc_extend(pdata, (newsize + 1) - info.size, (newsize + 1) - info.size);
                         if (u)
                         {
                             goto L1;
                         }
                     }
                     newdata = cast(byte *)gc_malloc(newsize + 1, info.attr);
-                    newdata[0 .. size] = p.data[0 .. size];
+                    newdata[0 .. size] = pdata[0 .. size];
                 }
              L1:
                 newdata[size .. newsize] = 0;
@@ -575,15 +583,14 @@ body
     }
     else
     {
-        newdata = p.data;
+        newdata = pdata;
     }
 
-    p.data = newdata;
-    p.length = newlength;
-    return newdata[0 .. newlength];
+    return newdata;
 
 Loverflow:
     onOutOfMemoryError();
+    return null;
 }
 
 
@@ -595,10 +602,10 @@ Loverflow:
  *      initsize        size of initializer
  *      ...             initializer
  */
-extern (C) byte[] _d_arraysetlengthiT(TypeInfo ti, size_t newlength, Array *p)
+extern (C) byte* _d_arraysetlengthiT(TypeInfo ti, size_t newlength, size_t plength, byte* pdata)
 in
 {
-    assert(!p.length || p.data);
+    assert(!plength || pdata);
 }
 body
 {
@@ -616,7 +623,7 @@ body
     {
         printf("_d_arraysetlengthiT(p = %p, sizeelem = %d, newlength = %d, initsize = %d)\n", p, sizeelem, newlength, initsize);
         if (p)
-            printf("\tp.data = %p, p.length = %d\n", p.data, p.length);
+            printf("\tp.data = %p, p.length = %d\n", pdata, plength);
     }
 
     if (newlength)
@@ -642,27 +649,27 @@ body
         }
         debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
 
-        size_t size = p.length * sizeelem;
+        size_t size = plength * sizeelem;
 
-        if (p.data)
+        if (pdata)
         {
-            newdata = p.data;
-            if (newlength > p.length)
+            newdata = pdata;
+            if (newlength > plength)
             {
-                auto info = gc_query(p.data);
+                auto info = gc_query(pdata);
 
-                if (info.size <= newsize || info.base != p.data)
+                if (info.size <= newsize || info.base != pdata)
                 {
-                    if (info.size >= PAGESIZE && info.base == p.data)
+                    if (info.size >= PAGESIZE && info.base == pdata)
                     {   // Try to extend in-place
-                        auto u = gc_extend(p.data, (newsize + 1) - info.size, (newsize + 1) - info.size);
+                        auto u = gc_extend(pdata, (newsize + 1) - info.size, (newsize + 1) - info.size);
                         if (u)
                         {
                             goto L1;
                         }
                     }
                     newdata = cast(byte *)gc_malloc(newsize + 1, info.attr);
-                    newdata[0 .. size] = p.data[0 .. size];
+                    newdata[0 .. size] = pdata[0 .. size];
                 L1: ;
                 }
             }
@@ -692,17 +699,17 @@ body
     }
     else
     {
-        newdata = p.data;
+        newdata = pdata;
     }
 
-    p.data = newdata;
-    p.length = newlength;
-    return newdata[0 .. newlength];
+    return newdata;
 
 Loverflow:
     onOutOfMemoryError();
+    return null;
 }
 
+/+
 
 /**
  * Append y[] to array x[].

@@ -1,3 +1,5 @@
+module arrays;
+
 extern(C) int printf(char*, ...);
 
 void integer()

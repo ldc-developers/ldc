@@ -655,41 +655,20 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty)
+llvm::Value* DtoNew(Type* newtype)
 {
-    /*size_t sz = gTargetData->getTypeSize(ty);
-    llvm::ConstantInt* n = llvm::ConstantInt::get(DtoSize_t(), sz, false);
-    if (ptr == 0) {
-        llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
-        ptr = llvm::ConstantPointerNull::get(i8pty);
-    }
-    return DtoRealloc(ptr, n);*/
-    return NULL;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* n)
-{
-    assert(ptr);
-    assert(n);
-
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_realloc");
-    assert(fn);
-
-    llvm::Value* newptr = ptr;
-
-    const llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
-    if (ptr->getType() != i8pty) {
-        newptr = new llvm::BitCastInst(ptr,i8pty,"tmp",gIR->scopebb());
-    }
-
-    std::vector<llvm::Value*> args;
-    args.push_back(newptr);
-    args.push_back(n);
-    llvm::Value* ret = new llvm::CallInst(fn, args.begin(), args.end(), "tmprealloc", gIR->scopebb());
-
-    return ret->getType() == ptr->getType() ? ret : new llvm::BitCastInst(ret,ptr->getType(),"tmp",gIR->scopebb());
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemoryT");
+    // get type info
+    llvm::Constant* ti = DtoTypeInfoOf(newtype);
+    assert(isaPointer(ti));
+    // call runtime
+    llvm::SmallVector<llvm::Value*,1> arg;
+    arg.push_back(ti);
+    // allocate
+    llvm::Value* mem = gIR->ir->CreateCall(fn, arg.begin(), arg.end(), ".gc_mem");
+    // cast
+    return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -707,7 +686,12 @@ void DtoAssert(Loc* loc, DValue* msg)
 
     // file param
     c = DtoConstString(loc->filename);
-    llvm::AllocaInst* alloc = new llvm::AllocaInst(c->getType(), "srcfile", gIR->topallocapoint());
+    llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
+    if (!alloc)
+    {
+        alloc = new llvm::AllocaInst(c->getType(), "srcfile", gIR->topallocapoint());
+        gIR->func()->srcfileArg = alloc;
+    }
     llvm::Value* ptr = DtoGEPi(alloc, 0,0, "tmp");
     DtoStore(c->getOperand(0), ptr);
     ptr = DtoGEPi(alloc, 0,1, "tmp");
@@ -938,6 +922,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         }
         // rhs is slice
         else if (DSliceValue* s = rhs->isSlice()) {
+            assert(s->getType()->toBasetype() == lhs->getType()->toBasetype());
             DtoSetArray(lhs->getLVal(),s->len,s->ptr);
         }
         // null
@@ -1282,15 +1267,6 @@ llvm::Constant* DtoConstStringPtr(const char* str, const char* section)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* DtoConstNullPtr(const llvm::Type* t)
-{
-    return llvm::ConstantPointerNull::get(
-        getPtrToType(t)
-    );
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
 {
     const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
@@ -1319,20 +1295,19 @@ void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
 
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 {
-    assert(dst->getType() == src->getType());
+    const llvm::Type* arrty = getVoidPtrType();
 
-    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
-    llvm::Value *dstarr, *srcarr;
+    llvm::Value* dstarr;
     if (dst->getType() == arrty)
-    {
         dstarr = dst;
-        srcarr = src;
-    }
     else
-    {
-        dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-        srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
-    }
+        dstarr = DtoBitCast(dst, arrty, "tmp");
+
+    llvm::Value* srcarr;
+    if (src->getType() == arrty)
+        srcarr = src;
+    else
+        srcarr = DtoBitCast(src, arrty, "tmp");
 
     llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
     std::vector<llvm::Value*> llargs;
@@ -1807,6 +1782,8 @@ void DtoAnnotation(const char* str)
     gIR->ir->CreateAnd(DtoConstSize_t(0),DtoConstSize_t(0),s.c_str());
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
 const llvm::StructType* DtoInterfaceInfoType()
 {
     if (gIR->interfaceInfoType)
@@ -1831,3 +1808,28 @@ const llvm::StructType* DtoInterfaceInfoType()
 
     return gIR->interfaceInfoType;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* DtoTypeInfoOf(Type* type)
+{
+    const llvm::Type* typeinfotype = DtoType(Type::typeinfo->type);
+    TypeInfoDeclaration* tidecl = type->getTypeInfoDeclaration();
+    DtoForceDeclareDsymbol(tidecl);
+    assert(tidecl->ir.irGlobal != NULL);
+    llvm::Constant* c = isaConstant(tidecl->ir.irGlobal->value);
+    assert(c != NULL);
+    return llvm::ConstantExpr::getBitCast(c, typeinfotype);
+}
+
+
+
+
+
+
+
+
+
+
+
+

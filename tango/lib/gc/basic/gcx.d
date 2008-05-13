@@ -2056,7 +2056,12 @@ struct Gcx
         // get put on the stack so they'll be scanned
         void *sp;
         size_t result;
-        version (GNU)
+        version(LLVMDC)
+        {
+            // TODO & BUG:
+            // should make sure registers are on the stack, maybe some external asm ?
+        }
+        else version (GNU)
         {
             __builtin_unwind_init();
             sp = & sp;
@@ -2070,7 +2075,11 @@ struct Gcx
         }
         }
         result = fullcollect(sp);
-        version (GNU)
+        version(LLVMDC)
+        {
+            // nothing to do
+        }
+        else version (GNU)
         {
             // nothing to do
         }

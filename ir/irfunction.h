@@ -22,6 +22,8 @@ struct IrFunction : IrBase
     llvm::Value* _argptr;
     llvm::Constant* dwarfSubProg;
 
+    llvm::AllocaInst* srcfileArg;
+
     IrFunction(FuncDeclaration* fd);
     virtual ~IrFunction();
 };

@@ -572,10 +572,15 @@ DValue* AssignExp::toElem(IRState* p)
     DImValue* im = r->isIm();
     if (!im || !im->inPlace()) {
         Logger::println("assignment not inplace");
-        if (l->isArrayLen())
-            DtoResizeDynArray(l->getLVal(), r->getRVal());
+        if (DArrayLenValue* al = l->isArrayLen())
+        {
+            DSliceValue* slice = DtoResizeDynArray(l->getType(), l, r);
+            DtoAssign(l, slice);
+        }
         else
+        {
             DtoAssign(l, r);
+        }
     }
 
     if (l->isSlice() || l->isComplex())
@@ -1932,10 +1937,54 @@ DValue* NewExp::toElem(IRState* p)
 
     Type* ntype = DtoDType(newtype);
 
+    // new class
     if (ntype->ty == Tclass) {
         Logger::println("new class");
         return DtoNewClass((TypeClass*)ntype, this);
     }
+    // new dynamic array
+    else if (ntype->ty == Tarray)
+    {
+        Logger::println("new dynamic array: %s", newtype->toChars());
+        // get dim
+        assert(arguments);
+        assert(arguments->dim == 1);
+        DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
+        // allocate & init
+        return DtoNewDynArray(newtype, sz, true);
+    }
+    // new static array
+    else if (ntype->ty == Tsarray)
+    {
+        assert(0);
+    }
+    // new struct
+    else if (ntype->ty == Tstruct)
+    {
+        // allocate
+        llvm::Value* mem = DtoNew(newtype);
+        // init
+        TypeStruct* ts = (TypeStruct*)ntype;
+        if (ts->isZeroInit()) {
+            DtoStructZeroInit(mem);
+        }
+        else {
+            assert(ts->sym);
+            DtoStructCopy(mem,ts->sym->ir.irStruct->init);
+        }
+        return new DImValue(type, mem, false);
+    }
+    // new basic type
+    else
+    {
+        // allocate
+        llvm::Value* mem = DtoNew(newtype);
+        // BUG: default initialize
+        // return
+        return new DImValue(type, mem, false);
+    }
+
+    /*
 
     const llvm::Type* t = DtoType(ntype);
 
@@ -1969,8 +2018,17 @@ DValue* NewExp::toElem(IRState* p)
             assert(0 && "num args to 'new' != 1");
         }
     }
+    // simple new of a single non-class, non-array value
     else {
-        emem = new llvm::MallocInst(t,"tmp",p->scopebb());
+        // get runtime function
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemoryT");
+        // get type info
+        llvm::Constant* ti = DtoTypeInfoOf(newtype);
+        assert(isaPointer(ti));
+        // call runtime
+        llvm::SmallVector<llvm::Value*,1> arg;
+        arg.push_back(ti);
+        emem = p->ir->CreateCall(fn, arg.begin(), arg.end(), ".gc_mem");
     }
 
     if (ntype->ty == Tstruct) {
@@ -1985,6 +2043,8 @@ DValue* NewExp::toElem(IRState* p)
     }
 
     return new DImValue(type, emem, inplace);
+    */
+    assert(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2053,10 +2113,11 @@ DValue* ArrayLengthExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
+    Logger::println("e1 = %s", e1->type->toChars());
 
     if (p->topexp() && p->topexp()->e1 == this)
     {
-        return new DArrayLenValue(type, u->getLVal());
+        return new DArrayLenValue(e1->type, u->getLVal());
     }
     else
     {
@@ -2488,6 +2549,19 @@ DValue* CatExp::toElem(IRState* p)
 
     bool arrNarr = DtoDType(e1->type) == DtoDType(e2->type);
 
+    // array ~ array
+    if (arrNarr)
+    {
+        return DtoCatArrays(type, e1, e2);
+    }
+    // array ~ element
+    // element ~ array
+    else
+    {
+        return DtoCatArrayElement(type, e1, e2);
+    }
+
+    /*
     IRExp* ex = p->topexp();
     if (ex && ex->e2 == this) {
         assert(ex->v);
@@ -2502,11 +2576,13 @@ DValue* CatExp::toElem(IRState* p)
         const llvm::Type* arrty = DtoType(t);
         llvm::Value* dst = new llvm::AllocaInst(arrty, "tmpmem", p->topallocapoint());
         if (arrNarr)
+            DtoCatAr
             DtoCatArrays(dst,e1,e2);
         else
             DtoCatArrayElement(dst,e1,e2);
         return new DVarValue(type, dst, true);
     }
+    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2523,15 +2599,17 @@ DValue* CatAssignExp::toElem(IRState* p)
     Type* e2type = DtoDType(e2->type);
 
     if (e2type == elemtype) {
-        DtoCatAssignElement(l->getLVal(),e2);
+        DSliceValue* slice = DtoCatAssignElement(l,e2);
+        DtoAssign(l, slice);
     }
     else if (e1type == e2type) {
-        DtoCatAssignArray(l->getLVal(),e2);
+        DSliceValue* slice = DtoCatAssignArray(l,e2);
+        DtoAssign(l, slice);
     }
     else
         assert(0 && "only one element at a time right now");
 
-    return 0;
+    return l;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

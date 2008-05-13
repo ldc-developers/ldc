@@ -83,7 +83,6 @@ OBJ_BASE= \
     eh.bc \
     genobj.bc \
     lifetime.bc \
-    mem.bc \
     memory.bc \
     qsort2.bc \
     switch.bc \

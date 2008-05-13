@@ -19,13 +19,13 @@ void DtoArrayAssign(llvm::Value* l, llvm::Value* r);
 void DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr);
 void DtoSetArrayToNull(llvm::Value* v);
 
-llvm::Value* DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit=true);
-llvm::Value* DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz);
+DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit=true);
+DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim);
 
-void DtoCatAssignElement(llvm::Value* arr, Expression* exp);
-void DtoCatAssignArray(llvm::Value* arr, Expression* exp);
-void DtoCatArrays(llvm::Value* arr, Expression* e1, Expression* e2);
-void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2);
+DSliceValue* DtoCatAssignElement(DValue* arr, Expression* exp);
+DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);
+DSliceValue* DtoCatArrays(Type* type, Expression* e1, Expression* e2);
+DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2);
 
 void DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src);
 

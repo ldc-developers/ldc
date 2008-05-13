@@ -237,25 +237,41 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // realloc
-    // void* _d_realloc(void* ptr, size_t n)
+    // void* _d_allocmemoryT(TypeInfo ti)
     {
-        std::string fname("_d_realloc");
+        std::string fname("_d_allocmemoryT");
         std::vector<const llvm::Type*> types;
-        types.push_back(voidPtrTy);
-        types.push_back(sizeTy);
+        types.push_back(typeInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // free
-    // void _d_free(void* ptr)
+    // void* _d_newarrayT(TypeInfo ti, size_t length)
+    // void* _d_newarrayiT(TypeInfo ti, size_t length)
     {
-        std::string fname("_d_free");
+        std::string fname("_d_newarrayT");
+        std::string fname2("_d_newarrayiT");
         std::vector<const llvm::Type*> types;
-        types.push_back(voidPtrTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        types.push_back(typeInfoTy);
+        types.push_back(sizeTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+    }
+
+    // void* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
+    // void* _d_arraysetlengthiT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
+    {
+        std::string fname("_d_arraysetlengthT");
+        std::string fname2("_d_arraysetlengthiT");
+        std::vector<const llvm::Type*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(sizeTy);
+        types.push_back(sizeTy);
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        new llvm::Function(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
     // Object _d_newclass(ClassInfo ci)

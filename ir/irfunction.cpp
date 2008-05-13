@@ -24,6 +24,8 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     _arguments = NULL;
     _argptr = NULL;
     dwarfSubProg = NULL;
+
+    srcfileArg = NULL;
 }
 
 IrFunction::~IrFunction()

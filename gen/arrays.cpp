@@ -62,6 +62,9 @@ const llvm::ArrayType* DtoStaticArrayType(Type* t)
 
 void DtoSetArrayToNull(llvm::Value* v)
 {
+    Logger::println("DtoSetArrayToNull");
+    LOG_SCOPE;
+
     llvm::Value* len = DtoGEPi(v,0,0,"tmp",gIR->scopebb());
     llvm::Value* zerolen = llvm::ConstantInt::get(len->getType()->getContainedType(0), 0, false);
     new llvm::StoreInst(zerolen, len, gIR->scopebb());
@@ -76,6 +79,9 @@ void DtoSetArrayToNull(llvm::Value* v)
 
 void DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
 {
+    Logger::println("DtoArrayAssign");
+    LOG_SCOPE;
+
     assert(gIR);
     if (dst->getType() == src->getType())
     {
@@ -114,6 +120,9 @@ void DtoArrayAssign(llvm::Value* dst, llvm::Value* src)
 
 void DtoArrayInit(llvm::Value* l, llvm::Value* r)
 {
+    Logger::println("DtoArrayInit");
+    LOG_SCOPE;
+
     const llvm::PointerType* ptrty = isaPointer(l->getType());
     const llvm::Type* t = ptrty->getContainedType(0);
     const llvm::ArrayType* arrty = isaArray(t);
@@ -151,6 +160,9 @@ static size_t checkRectArrayInit(const llvm::Type* pt, constLLVMTypeP& finalty)
 
 void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 {
+    Logger::println("DtoArrayInit");
+    LOG_SCOPE;
+
     Logger::cout() << "array: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
     const llvm::Type* pt = ptr->getType()->getContainedType(0);
     const llvm::Type* t = val->getType();
@@ -244,16 +256,24 @@ void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
 
 void DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr)
 {
-    Logger::cout() << "DtoSetArray(" << *arr << ", " << *dim << ", " << *ptr << ")\n";
+    Logger::println("DtoSetArray");
+    LOG_SCOPE;
+
+    Logger::cout() << "arr = " << *arr << '\n';
+    Logger::cout() << "dim = " << *dim << '\n';
+    Logger::cout() << "ptr = " << *ptr << '\n';
+
     const llvm::StructType* st = isaStruct(arr->getType()->getContainedType(0));
 
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
 
     llvm::Value* arrdim = DtoGEP(arr,zero,zero,"tmp",gIR->scopebb());
+    Logger::cout() << "arrdim = " << *arrdim << '\n';
     new llvm::StoreInst(dim, arrdim, gIR->scopebb());
 
     llvm::Value* arrptr = DtoGEP(arr,zero,one,"tmp",gIR->scopebb());
+    Logger::cout() << "arrptr = " << *arrptr << '\n';
     new llvm::StoreInst(ptr, arrptr, gIR->scopebb());
 }
 
@@ -484,60 +504,81 @@ llvm::Constant* DtoConstSlice(llvm::Constant* dim, llvm::Constant* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Value* DtoNewDynArray(llvm::Value* dst, llvm::Value* dim, Type* dty, bool doinit)
+DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
 {
-    const llvm::Type* ty = DtoType(dty);
-    assert(ty != llvm::Type::VoidTy);
-    size_t sz = getABITypeSize(ty);
-    llvm::ConstantInt* n = llvm::ConstantInt::get(DtoSize_t(), sz, false);
-    llvm::Value* bytesize = (sz == 1) ? dim : llvm::BinaryOperator::createMul(n,dim,"tmp",gIR->scopebb());
+    Logger::println("DtoNewDynArray : %s", arrayType->toChars());
+    LOG_SCOPE;
 
-    llvm::Value* nullptr = llvm::ConstantPointerNull::get(getPtrToType(ty));
+    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarrayT" : "_d_newarrayiT" );
 
-    llvm::Value* newptr = DtoRealloc(nullptr, bytesize);
+    llvm::SmallVector<llvm::Value*,2> args;
+    args.push_back(DtoTypeInfoOf(arrayType));
+    assert(DtoType(dim->getType()) == DtoSize_t());
+    args.push_back(dim->getRVal());
 
-    if (doinit) {
+    llvm::Value* newptr = gIR->ir->CreateCall(fn, args.begin(), args.end(), ".gc_mem");
+    const llvm::Type* dstType = DtoType(arrayType)->getContainedType(1);
+    if (newptr->getType() != dstType)
+        newptr = DtoBitCast(newptr, dstType, ".gc_mem");
+
+    Logger::cout() << "final ptr = " << *newptr << '\n';
+
+#if 0
+    if (defaultInit) {
         DValue* e = dty->defaultInit()->toElem(gIR);
         DtoArrayInit(newptr,dim,e->getRVal());
     }
+#endif
 
-    llvm::Value* lenptr = DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
-    new llvm::StoreInst(dim,lenptr,gIR->scopebb());
-    llvm::Value* ptrptr = DtoGEPi(dst,0,1,"tmp",gIR->scopebb());
-    new llvm::StoreInst(newptr,ptrptr,gIR->scopebb());
-
-    return newptr;
+    return new DSliceValue(arrayType, args[1], newptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Value* DtoResizeDynArray(llvm::Value* arr, llvm::Value* sz)
+DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
 {
-    llvm::Value* ptr = DtoGEPi(arr, 0, 1, "tmp", gIR->scopebb());
-    llvm::Value* ptrld = new llvm::LoadInst(ptr,"tmp",gIR->scopebb());
+    Logger::println("DtoResizeDynArray : %s", arrayType->toChars());
+    LOG_SCOPE;
 
-    size_t isz = getABITypeSize(ptrld->getType()->getContainedType(0));
-    llvm::ConstantInt* n = llvm::ConstantInt::get(DtoSize_t(), isz, false);
-    llvm::Value* bytesz = (isz == 1) ? sz : llvm::BinaryOperator::createMul(n,sz,"tmp",gIR->scopebb());
+    assert(array);
+    assert(newdim);
+    assert(arrayType);
+    assert(arrayType->toBasetype()->ty == Tarray);
 
-    llvm::Value* newptr = DtoRealloc(ptrld, bytesz);
-    new llvm::StoreInst(newptr,ptr,gIR->scopebb());
+    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_arraysetlengthT" : "_d_arraysetlengthiT" );
 
-    llvm::Value* len = DtoGEPi(arr, 0, 0, "tmp", gIR->scopebb());
-    new llvm::StoreInst(sz,len,gIR->scopebb());
+    llvm::SmallVector<llvm::Value*,4> args;
+    args.push_back(DtoTypeInfoOf(arrayType));
+    args.push_back(newdim->getRVal());
+    args.push_back(DtoArrayLen(array));
+    llvm::Value* arrPtr = DtoArrayPtr(array);
+    Logger::cout() << "arrPtr = " << *arrPtr << '\n';
+    args.push_back(DtoBitCast(arrPtr, fn->getFunctionType()->getParamType(3), "tmp"));
 
-    return newptr;
+    llvm::Value* newptr = gIR->ir->CreateCall(fn, args.begin(), args.end(), ".gc_mem");
+    if (newptr->getType() != arrPtr->getType())
+        newptr = DtoBitCast(newptr, arrPtr->getType(), ".gc_mem");
+
+    return new DSliceValue(arrayType, newdim->getRVal(), newptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoCatAssignElement(llvm::Value* arr, Expression* exp)
+DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
 {
-    llvm::Value* ptr = DtoGEPi(arr, 0, 0, "tmp");
-    llvm::Value* idx = DtoLoad(ptr);
-    llvm::Value* one = llvm::ConstantInt::get(idx->getType(),1,false);
-    llvm::Value* len = llvm::BinaryOperator::createAdd(idx, one, "tmp", gIR->scopebb());
-    DtoResizeDynArray(arr,len);
+    Logger::println("DtoCatAssignElement");
+    LOG_SCOPE;
 
-    ptr = DtoLoad(DtoGEPi(arr, 0, 1, "tmp"));
+    assert(array);
+
+    llvm::Value* idx = DtoArrayLen(array);
+    llvm::Value* one = DtoConstSize_t(1);
+    llvm::Value* len = gIR->ir->CreateAdd(idx,one,"tmp");
+
+    DValue* newdim = new DImValue(Type::tsize_t, len);
+    DSliceValue* slice = DtoResizeDynArray(array->getType(), array, newdim);
+
+    llvm::Value* ptr = slice->ptr;
     ptr = new llvm::GetElementPtrInst(ptr, idx, "tmp", gIR->scopebb());
 
     DValue* dptr = new DVarValue(exp->type, ptr, true);
@@ -548,33 +589,47 @@ void DtoCatAssignElement(llvm::Value* arr, Expression* exp)
 
     if (!e->inPlace())
         DtoAssign(dptr, e);
+
+    return slice;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoCatAssignArray(llvm::Value* arr, Expression* exp)
+DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
 {
+    Logger::println("DtoCatAssignArray");
+    LOG_SCOPE;
+
     DValue* e = exp->toElem(gIR);
 
     llvm::Value *len1, *len2, *src1, *src2, *res;
 
-    DValue* darr = new DVarValue(exp->type, arr, true);
-
-    len1 = DtoArrayLen(darr);
+    len1 = DtoArrayLen(arr);
     len2 = DtoArrayLen(e);
     res = gIR->ir->CreateAdd(len1,len2,"tmp");
 
-    llvm::Value* mem = DtoResizeDynArray(arr,res);
+    DValue* newdim = new DImValue(Type::tsize_t, res);
+    DSliceValue* slice = DtoResizeDynArray(arr->getType(), arr, newdim);
 
-    src1 = DtoArrayPtr(darr);
+    src1 = slice->ptr;
     src2 = DtoArrayPtr(e);
 
-    mem = gIR->ir->CreateGEP(mem,len1,"tmp");
-    DtoMemCpy(mem,src2,len2);
+    // advance ptr
+    src1 = gIR->ir->CreateGEP(src1,len1,"tmp");
+
+    // memcpy
+    llvm::Value* elemSize = DtoConstSize_t(getABITypeSize(src2->getType()->getContainedType(0)));
+    llvm::Value* bytelen = gIR->ir->CreateMul(len2, elemSize, "tmp");
+    DtoMemCpy(src1,src2,bytelen);
+
+    return slice;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
+DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
 {
+    Logger::println("DtoCatArrays");
+    LOG_SCOPE;
+
     Type* t1 = DtoDType(exp1->type);
     Type* t2 = DtoDType(exp2->type);
 
@@ -590,50 +645,86 @@ void DtoCatArrays(llvm::Value* arr, Expression* exp1, Expression* exp2)
     len2 = DtoArrayLen(e2);
     res = gIR->ir->CreateAdd(len1,len2,"tmp");
 
-    llvm::Value* mem = DtoNewDynArray(arr, res, DtoDType(t1->next), false);
+    DValue* lenval = new DImValue(Type::tsize_t, res);
+    DSliceValue* slice = DtoNewDynArray(type, lenval, false);
+    llvm::Value* mem = slice->ptr;
 
     src1 = DtoArrayPtr(e1);
     src2 = DtoArrayPtr(e2);
 
-    DtoMemCpy(mem,src1,len1);
+    // first memcpy
+    llvm::Value* elemSize = DtoConstSize_t(getABITypeSize(src1->getType()->getContainedType(0)));
+    llvm::Value* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
+    DtoMemCpy(mem,src1,bytelen);
+
+    // second memcpy
     mem = gIR->ir->CreateGEP(mem,len1,"tmp");
-    DtoMemCpy(mem,src2,len2);
+    bytelen = gIR->ir->CreateMul(len2, elemSize, "tmp");
+    DtoMemCpy(mem,src2,bytelen);
+
+    return slice;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoCatArrayElement(llvm::Value* arr, Expression* exp1, Expression* exp2)
+DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 {
+    Logger::println("DtoCatArrayElement");
+    LOG_SCOPE;
+
     Type* t1 = DtoDType(exp1->type);
     Type* t2 = DtoDType(exp2->type);
-
-    // handle reverse case
-    if (t2->next && t1 == DtoDType(t2->next))
-    {
-        Type* tmp = t1;
-        t1 = t2;
-        t2 = tmp;
-        Expression* e = exp1;
-        exp1 = exp2;
-        exp2 = e;
-    }
 
     DValue* e1 = exp1->toElem(gIR);
     DValue* e2 = exp2->toElem(gIR);
 
     llvm::Value *len1, *src1, *res;
 
-    len1 = DtoArrayLen(e1);
-    res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
+    // handle prefix case, eg. int~int[]
+    if (t2->next && t1 == DtoDType(t2->next))
+    {
+        len1 = DtoArrayLen(e2);
+        res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
 
-    llvm::Value* mem = DtoNewDynArray(arr, res, DtoDType(t1->next), false);
+        DValue* lenval = new DImValue(Type::tsize_t, res);
+        DSliceValue* slice = DtoNewDynArray(type, lenval, false);
+        llvm::Value* mem = slice->ptr;
 
-    src1 = DtoArrayPtr(e1);
+        DVarValue* memval = new DVarValue(e1->getType(), mem, true);
+        DtoAssign(memval, e1);
 
-    DtoMemCpy(mem,src1,len1);
+        src1 = DtoArrayPtr(e2);
 
-    mem = gIR->ir->CreateGEP(mem,len1,"tmp");
-    DVarValue* memval = new DVarValue(e2->getType(), mem, true);
-    DtoAssign(memval, e2);
+        mem = gIR->ir->CreateGEP(mem,DtoConstSize_t(1),"tmp");
+
+        llvm::Value* elemSize = DtoConstSize_t(getABITypeSize(src1->getType()->getContainedType(0)));
+        llvm::Value* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
+        DtoMemCpy(mem,src1,bytelen);
+
+
+        return slice;
+    }
+    // handle suffix case, eg. int[]~int
+    else
+    {
+        len1 = DtoArrayLen(e1);
+        res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
+
+        DValue* lenval = new DImValue(Type::tsize_t, res);
+        DSliceValue* slice = DtoNewDynArray(type, lenval, false);
+        llvm::Value* mem = slice->ptr;
+
+        src1 = DtoArrayPtr(e1);
+
+        llvm::Value* elemSize = DtoConstSize_t(getABITypeSize(src1->getType()->getContainedType(0)));
+        llvm::Value* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
+        DtoMemCpy(mem,src1,bytelen);
+
+        mem = gIR->ir->CreateGEP(mem,len1,"tmp");
+        DVarValue* memval = new DVarValue(e2->getType(), mem, true);
+        DtoAssign(memval, e2);
+
+        return slice;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -866,6 +957,7 @@ llvm::Value* DtoArrayLen(DValue* v)
 {
     Logger::println("DtoArrayLen");
     LOG_SCOPE;
+
     Type* t = DtoDType(v->getType());
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice()) {
@@ -894,6 +986,9 @@ llvm::Value* DtoArrayLen(DValue* v)
 //////////////////////////////////////////////////////////////////////////////////////////
 llvm::Value* DtoArrayPtr(DValue* v)
 {
+    Logger::println("DtoArrayPtr");
+    LOG_SCOPE;
+
     Type* t = DtoDType(v->getType());
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice()) {

@@ -39,6 +39,9 @@ llvm::Value* DtoBoolean(llvm::Value* val);
 const llvm::Type* DtoSize_t();
 const llvm::StructType* DtoInterfaceInfoType();
 
+// getting typeinfo of type
+llvm::Constant* DtoTypeInfoOf(Type* ty);
+
 // initializer helpers
 llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
 llvm::Constant* DtoConstFieldInitializer(Type* type, Initializer* init);
@@ -57,8 +60,7 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm
 llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
 
 // dynamic memory helpers
-llvm::Value* DtoRealloc(llvm::Value* ptr, const llvm::Type* ty);
-llvm::Value* DtoRealloc(llvm::Value* ptr, llvm::Value* len);
+llvm::Value* DtoNew(Type* newtype);
 
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
@@ -79,7 +81,6 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value);
 llvm::Constant* DtoConstString(const char*);
 llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
 llvm::Constant* DtoConstBool(bool);
-llvm::Constant* DtoConstNullPtr(const llvm::Type* t);
 
 // is template instance check
 bool DtoIsTemplateInstance(Dsymbol* s);
