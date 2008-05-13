@@ -1984,66 +1984,6 @@ DValue* NewExp::toElem(IRState* p)
         return new DImValue(type, mem, false);
     }
 
-    /*
-
-    const llvm::Type* t = DtoType(ntype);
-
-    llvm::Value* emem = 0;
-    bool inplace = false;
-
-    if (ntype->ty == Tarray) {
-        assert(arguments);
-        if (arguments->dim == 1) {
-            DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
-            llvm::Value* dimval = sz->getRVal();
-            Type* nnt = DtoDType(ntype->next);
-            if (nnt->ty == Tvoid)
-                nnt = Type::tint8;
-
-            if (p->topexp() && p->topexp()->e2 == this) {
-                assert(p->topexp()->v);
-                emem = p->topexp()->v->getLVal();
-                DtoNewDynArray(emem, dimval, nnt);
-                inplace = true;
-            }
-            else {
-                const llvm::Type* restype = DtoType(type);
-                Logger::cout() << "restype = " << *restype << '\n';
-                emem = new llvm::AllocaInst(restype,"newstorage",p->topallocapoint());
-                DtoNewDynArray(emem, dimval, nnt);
-                return new DVarValue(newtype, emem, true);
-            }
-        }
-        else {
-            assert(0 && "num args to 'new' != 1");
-        }
-    }
-    // simple new of a single non-class, non-array value
-    else {
-        // get runtime function
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemoryT");
-        // get type info
-        llvm::Constant* ti = DtoTypeInfoOf(newtype);
-        assert(isaPointer(ti));
-        // call runtime
-        llvm::SmallVector<llvm::Value*,1> arg;
-        arg.push_back(ti);
-        emem = p->ir->CreateCall(fn, arg.begin(), arg.end(), ".gc_mem");
-    }
-
-    if (ntype->ty == Tstruct) {
-        TypeStruct* ts = (TypeStruct*)ntype;
-        if (ts->isZeroInit()) {
-            DtoStructZeroInit(emem);
-        }
-        else {
-            assert(ts->sym);
-            DtoStructCopy(emem,ts->sym->ir.irStruct->init);
-        }
-    }
-
-    return new DImValue(type, emem, inplace);
-    */
     assert(0);
 }
 
@@ -2054,55 +1994,54 @@ DValue* DeleteExp::toElem(IRState* p)
     Logger::print("DeleteExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    //assert(e1->type->ty != Tclass);
+    DValue* dval = e1->toElem(p);
+    Type* et = DtoDType(e1->type);
 
-    DValue* v = e1->toElem(p);
-    const llvm::Type* t = DtoType(v->getType());
-    llvm::Value* ldval = 0;
-    llvm::Constant* z = llvm::Constant::getNullValue(t);
-
-    Type* e1type = DtoDType(e1->type);
-
-    if (e1type->ty == Tpointer) {
-        llvm::Value* val = v->getRVal();
-        Logger::cout() << *z << '\n';
-        Logger::cout() << *val << '\n';
-        new llvm::FreeInst(val, p->scopebb());
-        new llvm::StoreInst(z, v->getLVal(), p->scopebb());
+    // simple pointer
+    if (et->ty == Tpointer)
+    {
+        llvm::Value* rval = dval->getRVal();
+        DtoDeleteMemory(rval);
+        if (dval->isVar() && dval->isVar()->lval)
+            DtoStore(llvm::Constant::getNullValue(rval->getType()), dval->getLVal());
     }
-    else if (e1type->ty == Tclass) {
-        TypeClass* tc = (TypeClass*)e1type;
-        llvm::Value* val = 0;
-        if (tc->sym->dtors.dim > 0) {
-            val = v->getRVal();
-            DtoCallClassDtors(tc, val);
-        }
-
-        if (DVarValue* vv = v->isVar()) {
-            if (vv->var && !vv->var->onstack) {
-                if (!val) val = v->getRVal();
-                new llvm::FreeInst(val, p->scopebb());
+    // class
+    else if (et->ty == Tclass)
+    {
+        bool onstack = false;
+        if (DVarValue* vv = dval->isVar()) {
+            if (vv->var && vv->var->onstack) {
+                TypeClass* tc = (TypeClass*)et;
+                if (tc->sym->dtors.dim > 0) {
+                    DtoFinalizeClass(dval->getRVal());
+                    onstack = true;
+                }
             }
         }
-        if (!v->isThis())
-            new llvm::StoreInst(z, v->getLVal(), p->scopebb());
+        if (!onstack) {
+            llvm::Value* rval = dval->getRVal();
+            DtoDeleteClass(rval);
+        }
+        if (dval->isVar() && dval->isVar()->lval) {
+            llvm::Value* lval = dval->getLVal();
+            DtoStore(llvm::Constant::getNullValue(lval->getType()->getContainedType(0)), lval);
+        }
     }
-    else if (e1type->ty == Tarray) {
-        // must be on the heap (correct?)
-        llvm::Value* val = v->getRVal();
-        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-        llvm::Value* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-        llvm::Value* ptr = DtoGEP(val,zero,one,"tmp",p->scopebb());
-        ptr = new llvm::LoadInst(ptr,"tmp",p->scopebb());
-        new llvm::FreeInst(ptr, p->scopebb());
-        DtoSetArrayToNull(val);
+    // dyn array
+    else if (et->ty == Tarray)
+    {
+        DtoDeleteArray(dval);
+        if (!dval->isSlice())
+            DtoSetArrayToNull(dval->getRVal());
     }
-    else {
-        assert(0);
+    // unknown/invalid
+    else
+    {
+        assert(0 && "invalid delete");
     }
 
-    // this expression produces no useful data
-    return 0;
+    // no value to return
+    return NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

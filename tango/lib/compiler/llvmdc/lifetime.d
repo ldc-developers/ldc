@@ -131,63 +131,59 @@ extern (C) Object _d_newclass(ClassInfo ci)
     return cast(Object) p;
 }
 
-/+
-
 /**
  *
  */
-extern (C) void _d_delinterface(void** p)
+extern (C) void _d_delinterface(void* p)
 {
-    if (*p)
+    if (p)
     {
-        Interface* pi = **cast(Interface ***)*p;
-        Object     o  = cast(Object)(*p - pi.offset);
+        Interface* pi = **cast(Interface ***)p;
+        Object     o  = cast(Object)(p - pi.offset);
 
-        _d_delclass(&o);
-        *p = null;
+        _d_delclass(o);
+        //*p = null;
     }
 }
-
-+/
 
 // used for deletion
 private extern (D) alias void function(Object) fp_t;
 
-/+
-
 
 /**
  *
  */
-extern (C) void _d_delclass(Object* p)
+extern (C) void _d_delclass(Object p)
 {
-    if (*p)
+    if (p)
     {
-        debug(PRINTF) printf("_d_delclass(%p)\n", *p);
+        debug(PRINTF) printf("_d_delclass(%p)\n", p);
 
-        ClassInfo **pc = cast(ClassInfo **)*p;
+        ClassInfo **pc = cast(ClassInfo **)p;
         if (*pc)
         {
             ClassInfo c = **pc;
 
-            rt_finalize(cast(void*) *p);
+            rt_finalize(cast(void*) p);
 
             if (c.deallocator)
             {
                 fp_t fp = cast(fp_t)c.deallocator;
-                (*fp)(*p); // call deallocator
-                *p = null;
+                (*fp)(p); // call deallocator
+                //*p = null;
                 return;
             }
         }
         else
         {
-            rt_finalize(cast(void*) *p);
+            rt_finalize(cast(void*) p);
         }
-        gc_free(cast(void*) *p);
-        *p = null;
+        gc_free(cast(void*) p);
+        //*p = null;
     }
 }
+
+/+
 
 /**
  *
@@ -420,35 +416,31 @@ extern (C) void* _d_allocmemoryT(TypeInfo ti)
     return gc_malloc(ti.tsize(), (ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
 }
 
-/+
+/**
+ *
+ */
+extern (C) void _d_delarray(size_t plength, void* pdata)
+{
+//     if (p)
+//     {
+        assert(!plength || pdata);
+
+        if (pdata)
+            gc_free(pdata);
+//         p.data = null;
+//         p.length = 0;
+//     }
+}
 
 /**
  *
  */
-extern (C) void _d_delarray(Array *p)
+extern (C) void _d_delmemory(void* p)
 {
     if (p)
     {
-        assert(!p.length || p.data);
-
-        if (p.data)
-            gc_free(p.data);
-        p.data = null;
-        p.length = 0;
-    }
-}
-
-+/
-
-/**
- *
- */
-extern (C) void _d_delmemory(void* *p)
-{
-    if (*p)
-    {
-        gc_free(*p);
-        *p = null;
+        gc_free(p);
+        //*p = null;
     }
 }
 

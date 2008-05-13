@@ -61,6 +61,9 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
 
 // dynamic memory helpers
 llvm::Value* DtoNew(Type* newtype);
+void DtoDeleteMemory(llvm::Value* ptr);
+void DtoDeleteClass(llvm::Value* inst);
+void DtoDeleteArray(DValue* arr);
 
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);

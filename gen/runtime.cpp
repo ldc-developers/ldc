@@ -283,6 +283,40 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
+    // void _d_delarray(size_t plength, void* pdata)
+    {
+        std::string fname("_d_delarray");
+        std::vector<const llvm::Type*> types;
+        types.push_back(sizeTy);
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // void _d_delmemory(void* p)
+    // void _d_delinterface(void* p)
+    // void _d_callfinalizer(void* p)
+    {
+        std::string fname("_d_delmemory");
+        std::string fname2("_d_delinterface");
+        std::string fname3("_d_callfinalizer");
+        std::vector<const llvm::Type*> types;
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
+    }
+
+    // void _d_delclass(Object p)
+    {
+        std::string fname("_d_delclass");
+        std::vector<const llvm::Type*> types;
+        types.push_back(objectTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////

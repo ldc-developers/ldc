@@ -932,6 +932,19 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void DtoFinalizeClass(llvm::Value* inst)
+{
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_callfinalizer");
+    // build args
+    llvm::SmallVector<llvm::Value*,1> arg;
+    arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
+    // call
+    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* DtoCastClass(DValue* val, Type* _to)
 {
     Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(), _to->toChars());

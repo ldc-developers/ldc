@@ -703,6 +703,40 @@ llvm::Value* DtoNew(Type* newtype)
     return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
 }
 
+void DtoDeleteMemory(llvm::Value* ptr)
+{
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delmemory");
+    // build args
+    llvm::SmallVector<llvm::Value*,1> arg;
+    arg.push_back(DtoBitCast(ptr, getVoidPtrType(), ".tmp"));
+    // call
+    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+}
+
+void DtoDeleteClass(llvm::Value* inst)
+{
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delclass");
+    // build args
+    llvm::SmallVector<llvm::Value*,1> arg;
+    arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
+    // call
+    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+}
+
+void DtoDeleteArray(DValue* arr)
+{
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray");
+    // build args
+    llvm::SmallVector<llvm::Value*,2> arg;
+    arg.push_back(DtoArrayLen(arr));
+    arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
+    // call
+    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoAssert(Loc* loc, DValue* msg)
