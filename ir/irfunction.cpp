@@ -26,6 +26,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     dwarfSubProg = NULL;
 
     srcfileArg = NULL;
+    msgArg = NULL;
     inVolatile = false;
 }
 

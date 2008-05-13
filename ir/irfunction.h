@@ -23,6 +23,7 @@ struct IrFunction : IrBase
     llvm::Constant* dwarfSubProg;
 
     llvm::AllocaInst* srcfileArg;
+    llvm::AllocaInst* msgArg;
 
     bool inVolatile;
 

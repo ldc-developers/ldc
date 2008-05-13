@@ -712,16 +712,35 @@ void DtoAssert(Loc* loc, DValue* msg)
 
     // func
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+
+    c = DtoConstString(loc->filename);
 
     // msg param
-    if (msg) args.push_back(msg->getRVal());
+    if (msg)
+    {
+        if (DSliceValue* s = msg->isSlice())
+        {
+            llvm::AllocaInst* alloc = gIR->func()->msgArg;
+            if (!alloc)
+            {
+                alloc = new llvm::AllocaInst(c->getType(), ".assertmsg", gIR->topallocapoint());
+                DtoSetArray(alloc, DtoArrayLen(s), DtoArrayPtr(s));
+                gIR->func()->msgArg = alloc;
+            }
+            args.push_back(alloc);
+        }
+        else
+        {
+            args.push_back(msg->getRVal());
+        }
+    }
 
     // file param
-    c = DtoConstString(loc->filename);
     llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
     if (!alloc)
     {
-        alloc = new llvm::AllocaInst(c->getType(), "srcfile", gIR->topallocapoint());
+        alloc = new llvm::AllocaInst(c->getType(), ".srcfile", gIR->topallocapoint());
         gIR->func()->srcfileArg = alloc;
     }
     llvm::Value* ptr = DtoGEPi(alloc, 0,0, "tmp");
@@ -735,7 +754,6 @@ void DtoAssert(Loc* loc, DValue* msg)
     args.push_back(c);
 
     // call
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
     llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
 }
 

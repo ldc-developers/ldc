@@ -2121,10 +2121,7 @@ DValue* ArrayLengthExp::toElem(IRState* p)
     }
     else
     {
-        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-        llvm::Value* ptr = DtoGEP(u->getRVal(),zero,zero,"tmp",p->scopebb());
-        ptr = new llvm::LoadInst(ptr, "tmp", p->scopebb());
-        return new DImValue(type, ptr);
+        return new DImValue(type, DtoArrayLen(u));
     }
 }
 
