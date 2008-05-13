@@ -288,7 +288,6 @@ tango/lib/compiler/llvmdc/genobj.d
 tango/lib/compiler/llvmdc/lifetime.d
 tango/lib/compiler/llvmdc/llvm
 tango/lib/compiler/llvmdc/mars.h
-tango/lib/compiler/llvmdc/mem.d
 tango/lib/compiler/llvmdc/memory.d
 tango/lib/compiler/llvmdc/monitor.c
 tango/lib/compiler/llvmdc/qsort2.d

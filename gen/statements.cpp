@@ -1157,9 +1157,7 @@ void VolatileStatement::toIR(IRState* p)
     Logger::println("VolatileStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention(loc, "volatile is currently ignored. only the body will be emitted");
-
-    // mark in volate
+    // mark in-volatile
     bool old = gIR->func()->inVolatile;
     gIR->func()->inVolatile = true;
 
@@ -1172,7 +1170,7 @@ void VolatileStatement::toIR(IRState* p)
         // do statement
         statement->toIR(p);
 
-        // not point in a unreachable barrier, terminating statements should insert this themselves.
+        // no point in a unreachable barrier, terminating statements should insert this themselves.
         if (statement->fallOffEnd())
         {
             // store-load

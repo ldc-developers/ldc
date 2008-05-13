@@ -16,6 +16,7 @@
     <absoluteprojectpath>false</absoluteprojectpath>
     <description/>
     <defaultencoding/>
+    <versioncontrol>kdevsubversion</versioncontrol>
   </general>
   <kdevautoproject>
     <general/>
@@ -101,6 +102,7 @@
     <tree>
       <hidepatterns>*.bc</hidepatterns>
       <hidenonprojectfiles>false</hidenonprojectfiles>
+      <showvcsfields>false</showvcsfields>
     </tree>
   </kdevfileview>
   <kdevdocumentation>
@@ -660,6 +662,7 @@
       <path>dmd26/version.h</path>
       <path>todo</path>
       <path>todo/lib.d</path>
+      <path>tests/dstress</path>
     </blacklist>
     <build>
       <buildtool>make</buildtool>
