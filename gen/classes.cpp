@@ -883,7 +883,7 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
     llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -911,7 +911,7 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
             a = DtoBitCast(a, aty);
         ctorargs.push_back(a);
     }
-    llvm::CallInst* call = new llvm::CallInst(fn, ctorargs.begin(), ctorargs.end(), "tmp", gIR->scopebb());
+    llvm::CallInst* call = llvm::CallInst::Create(fn, ctorargs.begin(), ctorargs.end(), "tmp", gIR->scopebb());
     call->setCallingConv(DtoCallingConv(LINKd));
 
     return new DImValue(type, call, false);
@@ -926,7 +926,7 @@ void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
     {
         FuncDeclaration* fd = (FuncDeclaration*)arr->data[i];
         assert(fd->ir.irFunc->func);
-        new llvm::CallInst(fd->ir.irFunc->func, instance, "", gIR->scopebb());
+        llvm::CallInst::Create(fd->ir.irFunc->func, instance, "", gIR->scopebb());
     }
 }
 
@@ -1162,7 +1162,7 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
             //Logger::cout() << "indexing: " << *ptr << '\n';
             if (vd->ir.irField->indexOffset)
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
+                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
             //Logger::cout() << "indexing: " << *ptr << '\n';
             return ptr;
         }
@@ -1175,7 +1175,7 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
                 ptr = DtoGEP(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
+                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
                 std::vector<unsigned> tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
@@ -1198,7 +1198,7 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
     size_t llt_sz = getABITypeSize(llt->getContainedType(0));
     assert(os % llt_sz == 0);
     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-    return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1360,12 +1360,12 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     gname.append(cd->mangle());
     gname.append("12__destructorMFZv");
 
-    llvm::Function* func = new llvm::Function(fnTy, DtoInternalLinkage(cd), gname, gIR->module);
+    llvm::Function* func = llvm::Function::Create(fnTy, DtoInternalLinkage(cd), gname, gIR->module);
     llvm::Value* thisptr = func->arg_begin();
     thisptr->setName("this");
 
-    llvm::BasicBlock* bb = new llvm::BasicBlock("entry", func);
-    LLVMBuilder builder(bb);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", func);
+    IRBuilder builder(bb);
 
     for (size_t i = 0; i < cd->dtors.dim; i++)
     {

@@ -57,6 +57,7 @@ IRState::IRState()
     llvm_DeclareMemSet64 = NULL;
     llvm_DeclareMemCpy32 = NULL;
     llvm_DeclareMemCpy64 = NULL;
+    llvm_DeclareMemBarrier = NULL;
 }
 
 IrFunction* IRState::func()
@@ -120,9 +121,9 @@ bool IRState::scopereturned()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLVMBuilder* IRBuilderHelper::operator->()
+IRBuilder* IRBuilderHelper::operator->()
 {
-    LLVMBuilder& b = state->scope().builder;
+    IRBuilder& b = state->scope().builder;
     assert(b.GetInsertBlock() != NULL);
     return &b;
 }

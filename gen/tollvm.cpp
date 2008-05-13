@@ -272,6 +272,38 @@ llvm::Function* LLVM_DeclareMemCpy64()
     return gIR->llvm_DeclareMemCpy64;
 }
 
+// llvm.memory.barrier
+static llvm::Function* LLVM_DeclareMemBarrier()
+{
+    if (gIR->llvm_DeclareMemBarrier == 0) {
+        std::vector<const llvm::Type*> pvec;
+        pvec.push_back(llvm::Type::Int1Ty);
+        pvec.push_back(llvm::Type::Int1Ty);
+        pvec.push_back(llvm::Type::Int1Ty);
+        pvec.push_back(llvm::Type::Int1Ty);
+        pvec.push_back(llvm::Type::Int1Ty);
+        llvm::FunctionType* functype = llvm::FunctionType::get(llvm::Type::VoidTy, pvec, false);
+        gIR->llvm_DeclareMemBarrier = llvm::cast<llvm::Function>(gIR->module->getOrInsertFunction("llvm.memory.barrier", functype));
+        assert(gIR->llvm_DeclareMemBarrier != NULL);
+    }
+    return gIR->llvm_DeclareMemBarrier;
+}
+
+void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
+{
+    llvm::Function* fn = LLVM_DeclareMemBarrier();
+    assert(fn != NULL);
+
+    llvm::SmallVector<llvm::Value*, 5> llargs;
+    llargs.push_back(DtoConstBool(ll));
+    llargs.push_back(DtoConstBool(ls));
+    llargs.push_back(DtoConstBool(sl));
+    llargs.push_back(DtoConstBool(ss));
+    llargs.push_back(DtoConstBool(device));
+
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Value* DtoDelegateToNull(llvm::Value* v)
@@ -291,7 +323,7 @@ llvm::Value* DtoDelegateToNull(llvm::Value* v)
     llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    llvm::Value* ret = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::Value* ret = llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 
     return ret;
 }
@@ -318,7 +350,7 @@ llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
     llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    return new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    return llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -616,7 +648,7 @@ llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const st
     v[0] = i0;
     v[1] = i1;
     Logger::cout() << "DtoGEP: " << *ptr << ", " << *i0 << ", " << *i1 << '\n';
-    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -633,14 +665,14 @@ llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const st
         dst[i] = llvm::ConstantInt::get(llvm::Type::Int32Ty, src[i], false);
     }
     //ostr << '\n';*/
-    return new llvm::GetElementPtrInst(ptr, dst.begin(), dst.end(), var, bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, dst.begin(), dst.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
 {
-    return new llvm::GetElementPtrInst(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -650,7 +682,7 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
     std::vector<llvm::Value*> v(2);
     v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
     v[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i1, false);
-    return new llvm::GetElementPtrInst(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -704,7 +736,7 @@ void DtoAssert(Loc* loc, DValue* msg)
 
     // call
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
-    llvm::CallInst* call = new llvm::CallInst(fn, args.begin(), args.end(), "", gIR->scopebb());
+    llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1234,9 +1266,9 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value)
 {
     TY ty = DtoDType(t)->ty;
     if (ty == Tfloat32 || ty == Timaginary32)
-        return llvm::ConstantFP::get(llvm::Type::FloatTy, llvm::APFloat(float(value)));
+        return llvm::ConstantFP::get(llvm::APFloat(float(value)));
     else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tfloat80 || ty == Timaginary80)
-        return llvm::ConstantFP::get(llvm::Type::DoubleTy, llvm::APFloat(double(value)));
+        return llvm::ConstantFP::get(llvm::APFloat(double(value)));
 }
 
 
@@ -1288,7 +1320,7 @@ void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
     llargs[2] = nbytes;
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1317,19 +1349,22 @@ void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
     llargs[2] = nbytes;
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Value* DtoLoad(llvm::Value* src)
 {
-    return gIR->ir->CreateLoad(src,"tmp");
+    llvm::Value* ld = gIR->ir->CreateLoad(src,"tmp");
+    //ld->setVolatile(gIR->func()->inVolatile);
+    return ld;
 }
 
 void DtoStore(llvm::Value* src, llvm::Value* dst)
 {
-    gIR->ir->CreateStore(src,dst);
+    llvm::Value* st = gIR->ir->CreateStore(src,dst);
+    //st->setVolatile(gIR->func()->inVolatile);
 }
 
 bool DtoCanLoad(llvm::Value* ptr)
@@ -1460,8 +1495,8 @@ void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type*
 
     // check flag and do init if not already done
     llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* initbb = new llvm::BasicBlock("ifnotinit",gIR->topfunc(),oldend);
-    llvm::BasicBlock* endinitbb = new llvm::BasicBlock("ifnotinitend",gIR->topfunc(),oldend);
+    llvm::BasicBlock* initbb = llvm::BasicBlock::Create("ifnotinit",gIR->topfunc(),oldend);
+    llvm::BasicBlock* endinitbb = llvm::BasicBlock::Create("ifnotinitend",gIR->topfunc(),oldend);
     llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);

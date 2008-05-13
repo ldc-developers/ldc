@@ -248,7 +248,7 @@ void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
     assert(fn);
     Logger::cout() << "calling array init function: " << *fn <<'\n';
-    llvm::CallInst* call = new llvm::CallInst(fn, args.begin(), args.end(), "", gIR->scopebb());
+    llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
     call->setCallingConv(llvm::CallingConv::C);
 }
 
@@ -444,7 +444,7 @@ void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
     llargs[2] = sz1;
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
@@ -464,7 +464,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
     llargs[2] = sz1;
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -487,7 +487,7 @@ void DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src)
     llargs[2] = n;
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -579,7 +579,7 @@ DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
     DSliceValue* slice = DtoResizeDynArray(array->getType(), array, newdim);
 
     llvm::Value* ptr = slice->ptr;
-    ptr = new llvm::GetElementPtrInst(ptr, idx, "tmp", gIR->scopebb());
+    ptr = llvm::GetElementPtrInst::Create(ptr, idx, "tmp", gIR->scopebb());
 
     DValue* dptr = new DVarValue(exp->type, ptr, true);
 
@@ -897,7 +897,7 @@ llvm::Value* DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty, cons
     args.push_back(llvm::ConstantInt::get(DtoSize_t(), nsz, false));
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
-    return new llvm::CallInst(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
+    return llvm::CallInst::Create(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -362,7 +362,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     const llvm::FunctionType* functype = DtoFunctionType(fdecl);
     llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func)
-        func = new llvm::Function(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+        func = llvm::Function::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
     else
         assert(func->getFunctionType() == functype);
 
@@ -489,8 +489,11 @@ void DtoDefineFunc(FuncDeclaration* fd)
             if (fd->isMain())
                 gIR->emitMain = true;
 
-            llvm::BasicBlock* beginbb = new llvm::BasicBlock("entry",func);
-            llvm::BasicBlock* endbb = new llvm::BasicBlock("endentry",func);
+            std::string entryname("entry_");
+            entryname.append(fd->toPrettyChars());
+
+            llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(entryname,func);
+            llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endentry",func);
 
             //assert(gIR->scopes.empty());
             gIR->scopes.push_back(IRScope(beginbb, endbb));
@@ -608,10 +611,10 @@ void DtoDefineFunc(FuncDeclaration* fd)
                         // pass the previous block into this block
                         if (global.params.symdebug) DtoDwarfFuncEnd(fd);
                         if (func->getReturnType() == llvm::Type::VoidTy) {
-                            new llvm::ReturnInst(gIR->scopebb());
+                            llvm::ReturnInst::Create(gIR->scopebb());
                         }
                         else {
-                            new llvm::ReturnInst(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
+                            llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
                         }
                     }
                 }
@@ -636,10 +639,10 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 else {
                     new llvm::UnreachableInst(lastbb);
                     /*if (func->getReturnType() == llvm::Type::VoidTy) {
-                        new llvm::ReturnInst(lastbb);
+                        llvm::ReturnInst::Create(lastbb);
                     }
                     else {
-                        new llvm::ReturnInst(llvm::UndefValue::get(func->getReturnType()), lastbb);
+                        llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), lastbb);
                     }*/
                 }
             }
@@ -670,18 +673,18 @@ void DtoMain()
     const llvm::Type* rettype = (const llvm::Type*)llvm::Type::Int32Ty;
 
     llvm::FunctionType* functype = llvm::FunctionType::get(rettype, pvec, false);
-    llvm::Function* func = new llvm::Function(functype,llvm::GlobalValue::ExternalLinkage,"main",ir.module);
+    llvm::Function* func = llvm::Function::Create(functype,llvm::GlobalValue::ExternalLinkage,"main",ir.module);
 
-    llvm::BasicBlock* bb = new llvm::BasicBlock("entry",func);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry",func);
 
     // call static ctors
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleCtor");
-    llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
+    llvm::Instruction* apt = llvm::CallInst::Create(fn,"",bb);
 
     // run unit tests if -unittest is provided
     if (global.params.useUnitTests) {
         fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleUnitTests");
-        llvm::Instruction* apt = new llvm::CallInst(fn,"",bb);
+        llvm::Instruction* apt = llvm::CallInst::Create(fn,"",bb);
     }
 
     // call user main function
@@ -709,22 +712,22 @@ void DtoMain()
         ptr = DtoGEPi(a,0,1,"tmp",bb);
         new llvm::StoreInst(arr,ptr,bb);
         args.push_back(a);
-        new llvm::CallInst(mfn, args.begin(), args.end(), "", bb);
-        call = new llvm::CallInst(ir.mainFunc,a,"ret",bb);
+        llvm::CallInst::Create(mfn, args.begin(), args.end(), "", bb);
+        call = llvm::CallInst::Create(ir.mainFunc,a,"ret",bb);
     }
     else
     {
         // main with no arguments
-        call = new llvm::CallInst(ir.mainFunc,"ret",bb);
+        call = llvm::CallInst::Create(ir.mainFunc,"ret",bb);
     }
     call->setCallingConv(ir.mainFunc->getCallingConv());
 
     // call static dtors
     fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleDtor");
-    new llvm::CallInst(fn,"",bb);
+    llvm::CallInst::Create(fn,"",bb);
 
     // return
-    new llvm::ReturnInst(call,bb);
+    llvm::ReturnInst::Create(call,bb);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

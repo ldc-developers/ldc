@@ -135,9 +135,9 @@ DValue* DtoComplex(Type* to, DValue* val)
     llvm::Constant* undef = llvm::UndefValue::get(base);
     llvm::Constant* zero;
     if (ty == Tfloat32 || ty == Timaginary32 || ty == Tcomplex32)
-        zero = llvm::ConstantFP::get(llvm::Type::FloatTy, llvm::APFloat(0.0f));
+        zero = llvm::ConstantFP::get(llvm::APFloat(0.0f));
     else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tcomplex64 || ty == Tfloat80 || ty == Timaginary80 || ty == Tcomplex80)
-        zero = llvm::ConstantFP::get(llvm::Type::DoubleTy, llvm::APFloat(0.0));
+        zero = llvm::ConstantFP::get(llvm::APFloat(0.0));
 
     if (t->isimaginary()) {
         return new DComplexValue(to, zero, val->getRVal());

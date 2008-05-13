@@ -24,6 +24,8 @@ struct IrFunction : IrBase
 
     llvm::AllocaInst* srcfileArg;
 
+    bool inVolatile;
+
     IrFunction(FuncDeclaration* fd);
     virtual ~IrFunction();
 };

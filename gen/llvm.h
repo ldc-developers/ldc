@@ -13,7 +13,7 @@
 
 #include "llvm/Target/TargetData.h"
 
-#include "llvm/Support/LLVMBuilder.h"
-using llvm::LLVMBuilder;
+#include "llvm/Support/IRBuilder.h"
+using llvm::IRBuilder;
 
 #endif // GEN_LLVM_H

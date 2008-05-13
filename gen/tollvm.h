@@ -105,6 +105,7 @@ void DtoForceDefineDsymbol(Dsymbol* dsym);
 // llvm wrappers
 void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes);
 void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
+void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
 bool DtoCanLoad(llvm::Value* ptr);
 llvm::Value* DtoLoad(llvm::Value* src);
 void DtoStore(llvm::Value* src, llvm::Value* dst);

@@ -631,7 +631,7 @@ DValue* AddExp::toElem(IRState* p)
                     return new DImValue(type, l->getRVal());
                 }
             }
-            llvm::Value* v = new llvm::GetElementPtrInst(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
+            llvm::Value* v = llvm::GetElementPtrInst::Create(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
             return new DImValue(type, v);
         }
         else if (t->iscomplex()) {
@@ -663,7 +663,7 @@ DValue* AddAssignExp::toElem(IRState* p)
 
     DValue* res;
     if (DtoDType(e1->type)->ty == Tpointer) {
-        llvm::Value* gep = new llvm::GetElementPtrInst(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
+        llvm::Value* gep = llvm::GetElementPtrInst::Create(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
         res = new DImValue(type, gep);
     }
     else if (t->iscomplex()) {
@@ -713,7 +713,7 @@ DValue* MinExp::toElem(IRState* p)
     }
     else if (t1->ty == Tpointer) {
         llvm::Value* idx = p->ir->CreateNeg(r->getRVal(), "tmp");
-        llvm::Value* v = new llvm::GetElementPtrInst(l->getRVal(), idx, "tmp", p->scopebb());
+        llvm::Value* v = llvm::GetElementPtrInst::Create(l->getRVal(), idx, "tmp", p->scopebb());
         return new DImValue(type, v);
     }
     else if (t->iscomplex()) {
@@ -742,7 +742,7 @@ DValue* MinAssignExp::toElem(IRState* p)
         llvm::Value* tmp = r->getRVal();
         llvm::Value* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
         tmp = llvm::BinaryOperator::createSub(zero,tmp,"tmp",p->scopebb());
-        tmp = new llvm::GetElementPtrInst(l->getRVal(),tmp,"tmp",p->scopebb());
+        tmp = llvm::GetElementPtrInst::Create(l->getRVal(),tmp,"tmp",p->scopebb());
         res = new DImValue(type, tmp);
     }
     else if (t->iscomplex()) {
@@ -1204,7 +1204,7 @@ DValue* CallExp::toElem(IRState* p)
     //Logger::cout() << "Calling: " << *funcval << '\n';
 
     // call the function
-    llvm::CallInst* call = new llvm::CallInst(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
+    llvm::CallInst* call = llvm::CallInst::Create(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
     llvm::Value* retllval = (retinptr) ? llargs[0] : call;
 
     if (retinptr && dfn && dfn->func && dfn->func->runTimeHack) {
@@ -1548,7 +1548,7 @@ DValue* IndexExp::toElem(IRState* p)
 
     llvm::Value* arrptr = 0;
     if (e1type->ty == Tpointer) {
-        arrptr = new llvm::GetElementPtrInst(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
+        arrptr = llvm::GetElementPtrInst::Create(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
     }
     else if (e1type->ty == Tsarray) {
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal(),"tmp",p->scopebb());
@@ -1556,7 +1556,7 @@ DValue* IndexExp::toElem(IRState* p)
     else if (e1type->ty == Tarray) {
         arrptr = DtoGEP(l->getRVal(),zero,one,"tmp",p->scopebb());
         arrptr = new llvm::LoadInst(arrptr,"tmp",p->scopebb());
-        arrptr = new llvm::GetElementPtrInst(arrptr,r->getRVal(),"tmp",p->scopebb());
+        arrptr = llvm::GetElementPtrInst::Create(arrptr,r->getRVal(),"tmp",p->scopebb());
     }
     else if (e1type->ty == Taarray) {
         return DtoAAIndex(type, l, r);
@@ -1615,7 +1615,7 @@ DValue* SliceExp::toElem(IRState* p)
 
             llvm::ConstantInt* c = llvm::cast<llvm::ConstantInt>(cv->c);
             if (!(lwr_is_zero = c->isZero())) {
-                emem = new llvm::GetElementPtrInst(emem,cv->c,"tmp",p->scopebb());
+                emem = llvm::GetElementPtrInst::Create(emem,cv->c,"tmp",p->scopebb());
             }
         }
         else
@@ -1623,13 +1623,13 @@ DValue* SliceExp::toElem(IRState* p)
             if (e1type->ty == Tarray) {
                 llvm::Value* tmp = DtoGEP(vmem,zero,one,"tmp",p->scopebb());
                 tmp = new llvm::LoadInst(tmp,"tmp",p->scopebb());
-                emem = new llvm::GetElementPtrInst(tmp,lo->getRVal(),"tmp",p->scopebb());
+                emem = llvm::GetElementPtrInst::Create(tmp,lo->getRVal(),"tmp",p->scopebb());
             }
             else if (e1type->ty == Tsarray) {
                 emem = DtoGEP(vmem,zero,lo->getRVal(),"tmp",p->scopebb());
             }
             else if (e1type->ty == Tpointer) {
-                emem = new llvm::GetElementPtrInst(v->getRVal(),lo->getRVal(),"tmp",p->scopebb());
+                emem = llvm::GetElementPtrInst::Create(v->getRVal(),lo->getRVal(),"tmp",p->scopebb());
             }
             else {
                 Logger::println("type = %s", e1type->toChars());
@@ -1903,12 +1903,12 @@ DValue* PostExp::toElem(IRState* p)
         llvm::Constant* minusone = llvm::ConstantInt::get(DtoSize_t(),(uint64_t)-1,true);
         llvm::Constant* plusone = llvm::ConstantInt::get(DtoSize_t(),(uint64_t)1,false);
         llvm::Constant* whichone = (op == TOKplusplus) ? plusone : minusone;
-        post = new llvm::GetElementPtrInst(val, whichone, "tmp", p->scopebb());
+        post = llvm::GetElementPtrInst::Create(val, whichone, "tmp", p->scopebb());
     }
     else if (e1type->isfloating())
     {
         assert(e2type->isfloating());
-        llvm::Value* one = llvm::ConstantFP::get(val->getType(), llvm::APFloat(1.0f));
+        llvm::Value* one = DtoConstFP(e1type, 1.0);
         if (op == TOKplusplus) {
             post = llvm::BinaryOperator::createAdd(val,one,"tmp",p->scopebb());
         }
@@ -2140,22 +2140,22 @@ DValue* AssertExp::toElem(IRState* p)
 
     // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* assertbb = new llvm::BasicBlock("assert", p->topfunc(), oldend);
-    llvm::BasicBlock* endbb = new llvm::BasicBlock("endassert", p->topfunc(), oldend);
+    llvm::BasicBlock* assertbb = llvm::BasicBlock::Create("assert", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endassert", p->topfunc(), oldend);
 
     // test condition
     llvm::Value* condval = cond->getRVal();
     condval = DtoBoolean(condval);
 
     // branch
-    new llvm::BranchInst(endbb, assertbb, condval, p->scopebb());
+    llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
 
     // call assert runtime functions
     p->scope() = IRScope(assertbb,endbb);
     DtoAssert(&loc, msg ? msg->toElem(p) : NULL);
 
     if (!gIR->scopereturned())
-        new llvm::BranchInst(endbb, p->scopebb());
+        llvm::BranchInst::Create(endbb, p->scopebb());
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
@@ -2196,12 +2196,12 @@ DValue* AndAndExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* andand = new llvm::BasicBlock("andand", gIR->topfunc(), oldend);
-    llvm::BasicBlock* andandend = new llvm::BasicBlock("andandend", gIR->topfunc(), oldend);
+    llvm::BasicBlock* andand = llvm::BasicBlock::Create("andand", gIR->topfunc(), oldend);
+    llvm::BasicBlock* andandend = llvm::BasicBlock::Create("andandend", gIR->topfunc(), oldend);
 
     llvm::Value* ubool = DtoBoolean(u->getRVal());
     new llvm::StoreInst(ubool,resval,p->scopebb());
-    new llvm::BranchInst(andand,andandend,ubool,p->scopebb());
+    llvm::BranchInst::Create(andand,andandend,ubool,p->scopebb());
 
     p->scope() = IRScope(andand, andandend);
     DValue* v = e2->toElem(p);
@@ -2209,7 +2209,7 @@ DValue* AndAndExp::toElem(IRState* p)
     llvm::Value* vbool = DtoBoolean(v->getRVal());
     llvm::Value* uandvbool = llvm::BinaryOperator::create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
     new llvm::StoreInst(uandvbool,resval,p->scopebb());
-    new llvm::BranchInst(andandend,p->scopebb());
+    llvm::BranchInst::Create(andandend,p->scopebb());
 
     p->scope() = IRScope(andandend, oldend);
 
@@ -2232,19 +2232,19 @@ DValue* OrOrExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* oror = new llvm::BasicBlock("oror", gIR->topfunc(), oldend);
-    llvm::BasicBlock* ororend = new llvm::BasicBlock("ororend", gIR->topfunc(), oldend);
+    llvm::BasicBlock* oror = llvm::BasicBlock::Create("oror", gIR->topfunc(), oldend);
+    llvm::BasicBlock* ororend = llvm::BasicBlock::Create("ororend", gIR->topfunc(), oldend);
 
     llvm::Value* ubool = DtoBoolean(u->getRVal());
     new llvm::StoreInst(ubool,resval,p->scopebb());
-    new llvm::BranchInst(ororend,oror,ubool,p->scopebb());
+    llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
     p->scope() = IRScope(oror, ororend);
     DValue* v = e2->toElem(p);
 
     llvm::Value* vbool = DtoBoolean(v->getRVal());
     new llvm::StoreInst(vbool,resval,p->scopebb());
-    new llvm::BranchInst(ororend,p->scopebb());
+    llvm::BranchInst::Create(ororend,p->scopebb());
 
     p->scope() = IRScope(ororend, oldend);
 
@@ -2463,23 +2463,23 @@ DValue* CondExp::toElem(IRState* p)
     DVarValue* dvv = new DVarValue(type, resval, true);
 
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* condtrue = new llvm::BasicBlock("condtrue", gIR->topfunc(), oldend);
-    llvm::BasicBlock* condfalse = new llvm::BasicBlock("condfalse", gIR->topfunc(), oldend);
-    llvm::BasicBlock* condend = new llvm::BasicBlock("condend", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condtrue = llvm::BasicBlock::Create("condtrue", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condfalse = llvm::BasicBlock::Create("condfalse", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condend = llvm::BasicBlock::Create("condend", gIR->topfunc(), oldend);
 
     DValue* c = econd->toElem(p);
     llvm::Value* cond_val = DtoBoolean(c->getRVal());
-    new llvm::BranchInst(condtrue,condfalse,cond_val,p->scopebb());
+    llvm::BranchInst::Create(condtrue,condfalse,cond_val,p->scopebb());
 
     p->scope() = IRScope(condtrue, condfalse);
     DValue* u = e1->toElem(p);
     DtoAssign(dvv, u);
-    new llvm::BranchInst(condend,p->scopebb());
+    llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condfalse, condend);
     DValue* v = e2->toElem(p);
     DtoAssign(dvv, v);
-    new llvm::BranchInst(condend,p->scopebb());
+    llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condend, oldend);
     return dvv;
@@ -2521,15 +2521,7 @@ DValue* NegExp::toElem(IRState* p)
     if (t->isintegral())
         zero = llvm::ConstantInt::get(val->getType(), 0, true);
     else if (t->isfloating()) {
-        if (t->ty == Tfloat32 || t->ty == Timaginary32)
-            zero = llvm::ConstantFP::get(val->getType(), llvm::APFloat(0.0f));
-        else if (t->ty == Tfloat64 || t->ty == Tfloat80 || t->ty == Timaginary64 || t->ty == Timaginary80)
-            zero = llvm::ConstantFP::get(val->getType(), llvm::APFloat(0.0));
-        else
-        {
-            Logger::println("unhandled fp negation of type %s", t->toChars());
-            assert(0);
-        }
+        zero = DtoConstFP(type, 0.0);
     }
     else
         assert(0);

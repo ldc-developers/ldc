@@ -32,7 +32,7 @@ struct IRScope
 {
     llvm::BasicBlock* begin;
     llvm::BasicBlock* end;
-    LLVMBuilder builder;
+    IRBuilder builder;
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
@@ -53,7 +53,7 @@ struct IRLoopScope : IRScope
 struct IRBuilderHelper
 {
     IRState* state;
-    LLVMBuilder* operator->();
+    IRBuilder* operator->();
 };
 
 struct IRExp
@@ -146,6 +146,7 @@ struct IRState
     llvm::Function* llvm_DeclareMemSet64;
     llvm::Function* llvm_DeclareMemCpy32;
     llvm::Function* llvm_DeclareMemCpy64;
+    llvm::Function* llvm_DeclareMemBarrier;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

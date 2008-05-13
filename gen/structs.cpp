@@ -43,7 +43,7 @@ llvm::Value* DtoStructZeroInit(llvm::Value* v)
     llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    llvm::Value* ret = new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::Value* ret = llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 
     return ret;
 }
@@ -71,7 +71,7 @@ llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
     llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    return new llvm::CallInst(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    return llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +130,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
             if (vd->ir.irField->indexOffset)
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
+                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
             return ptr;
         }
         else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
@@ -142,7 +142,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
                 ptr = DtoGEP(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = DtoBitCast(ptr, llt);
-                ptr = new llvm::GetElementPtrInst(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
+                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
                 std::vector<unsigned> tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
@@ -163,7 +163,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
     size_t llt_sz = getTypeStoreSize(llt->getContainedType(0));
     assert(os % llt_sz == 0);
     ptr = DtoBitCast(ptr, llt);
-    return new llvm::GetElementPtrInst(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

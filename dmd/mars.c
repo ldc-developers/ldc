@@ -158,7 +158,7 @@ extern void backend_term();
 
 void usage()
 {
-    printf("LLVM D Compiler %s (based on DMD %s and LLVM 2.2)\n%s\n%s\n",
+    printf("LLVM D Compiler %s (based on DMD %s and LLVM 2.3)\n%s\n%s\n",
     global.llvmdc_version, global.version, global.copyright, global.written);
     printf("\
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\

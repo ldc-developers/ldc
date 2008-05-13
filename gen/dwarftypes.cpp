@@ -155,25 +155,25 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   
   // Function Declarations
   
-  Function* func_llvm_dbg_func_start = new Function(
+  Function* func_llvm_dbg_func_start = Function::Create(
     /*Type=*/FuncTy_3,
     /*Linkage=*/GlobalValue::ExternalLinkage,
     /*Name=*/"llvm.dbg.func.start", mod); // (external, no body)
   func_llvm_dbg_func_start->setCallingConv(CallingConv::C);
   
-  Function* func_llvm_dbg_stoppoint = new Function(
+  Function* func_llvm_dbg_stoppoint = Function::Create(
     /*Type=*/FuncTy_4,
     /*Linkage=*/GlobalValue::ExternalLinkage,
     /*Name=*/"llvm.dbg.stoppoint", mod); // (external, no body)
   func_llvm_dbg_stoppoint->setCallingConv(CallingConv::C);
   
-  Function* func_llvm_dbg_declare = new Function(
+  Function* func_llvm_dbg_declare = Function::Create(
     /*Type=*/FuncTy_5,
     /*Linkage=*/GlobalValue::ExternalLinkage,
     /*Name=*/"llvm.dbg.declare", mod); // (external, no body)
   func_llvm_dbg_declare->setCallingConv(CallingConv::C);
   
-  Function* func_llvm_dbg_region_end = new Function(
+  Function* func_llvm_dbg_region_end = Function::Create(
     /*Type=*/FuncTy_3,
     /*Linkage=*/GlobalValue::ExternalLinkage,
     /*Name=*/"llvm.dbg.region.end", mod); // (external, no body)
