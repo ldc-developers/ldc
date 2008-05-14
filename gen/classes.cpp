@@ -919,19 +919,6 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance)
-{
-    Array* arr = &tc->sym->dtors;
-    for (size_t i=0; i<arr->dim; i++)
-    {
-        FuncDeclaration* fd = (FuncDeclaration*)arr->data[i];
-        assert(fd->ir.irFunc->func);
-        llvm::CallInst::Create(fd->ir.irFunc->func, instance, "", gIR->scopebb());
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 void DtoFinalizeClass(llvm::Value* inst)
 {
     // get runtime function

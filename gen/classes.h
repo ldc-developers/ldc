@@ -27,7 +27,6 @@ void DtoDefineClassInfo(ClassDeclaration* cd);
 DValue* DtoNewClass(TypeClass* type, NewExp* newexp);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
 DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, llvm::Value* mem);
-void DtoCallClassDtors(TypeClass* tc, llvm::Value* instance);
 void DtoFinalizeClass(llvm::Value* inst);
 
 DValue* DtoCastClass(DValue* val, Type* to);

@@ -725,6 +725,17 @@ void DtoDeleteClass(llvm::Value* inst)
     llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
 }
 
+void DtoDeleteInterface(llvm::Value* inst)
+{
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delinterface");
+    // build args
+    llvm::SmallVector<llvm::Value*,1> arg;
+    arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
+    // call
+    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+}
+
 void DtoDeleteArray(DValue* arr)
 {
     // get runtime function

@@ -63,6 +63,7 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
 llvm::Value* DtoNew(Type* newtype);
 void DtoDeleteMemory(llvm::Value* ptr);
 void DtoDeleteClass(llvm::Value* inst);
+void DtoDeleteInterface(llvm::Value* inst);
 void DtoDeleteArray(DValue* arr);
 
 // assertion generator

@@ -2009,9 +2009,14 @@ DValue* DeleteExp::toElem(IRState* p)
     else if (et->ty == Tclass)
     {
         bool onstack = false;
-        if (DVarValue* vv = dval->isVar()) {
+        TypeClass* tc = (TypeClass*)et;
+        if (tc->sym->isInterfaceDeclaration())
+        {
+            DtoDeleteInterface(dval->getRVal());
+            onstack = true;
+        }
+        else if (DVarValue* vv = dval->isVar()) {
             if (vv->var && vv->var->onstack) {
-                TypeClass* tc = (TypeClass*)et;
                 if (tc->sym->dtors.dim > 0) {
                     DtoFinalizeClass(dval->getRVal());
                     onstack = true;
@@ -2022,7 +2027,7 @@ DValue* DeleteExp::toElem(IRState* p)
             llvm::Value* rval = dval->getRVal();
             DtoDeleteClass(rval);
         }
-        if (dval->isVar() && dval->isVar()->lval) {
+        if (!dval->isThis() && dval->isVar() && dval->isVar()->lval) {
             llvm::Value* lval = dval->getLVal();
             DtoStore(llvm::Constant::getNullValue(lval->getType()->getContainedType(0)), lval);
         }
