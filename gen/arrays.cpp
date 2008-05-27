@@ -545,7 +545,10 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
     assert(arrayType);
     assert(arrayType->toBasetype()->ty == Tarray);
 
-    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    // decide on what runtime function to call based on whether the type is zero initialized
+    bool zeroInit = arrayType->toBasetype()->next->isZeroInit();
+
+    // call runtime
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_arraysetlengthT" : "_d_arraysetlengthiT" );
 
     llvm::SmallVector<llvm::Value*,4> args;

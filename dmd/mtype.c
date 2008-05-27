@@ -2333,6 +2333,11 @@ Expression *TypeAArray::defaultInit(Loc loc)
     return e;
 }
 
+int TypeAArray::isZeroInit()
+{
+    return 1;
+}
+
 int TypeAArray::checkBoolean()
 {
     return TRUE;

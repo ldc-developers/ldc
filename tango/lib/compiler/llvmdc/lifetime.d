@@ -514,9 +514,8 @@ body
 
     debug(PRINTF)
     {
-        printf("_d_arraysetlengthT(p = %p, sizeelem = %d, newlength = %d)\n", p, sizeelem, newlength);
-        if (p)
-            printf("\tp.data = %p, p.length = %d\n", pdata, plength);
+        printf("_d_arraysetlengthT(sizeelem = %d, newlength = %d)\n", sizeelem, newlength);
+        printf("\tp.data = %p, p.length = %d\n", pdata, plength);
     }
 
     if (newlength)
@@ -602,8 +601,9 @@ in
 body
 {
     byte* newdata;
-    size_t sizeelem = ti.next.tsize();
-    void[] initializer = ti.next.init();
+    TypeInfo tinext = ti.next;
+    size_t sizeelem = tinext.tsize();
+    void[] initializer = tinext.init();
     size_t initsize = initializer.length;
 
     assert(sizeelem);
@@ -613,9 +613,8 @@ body
 
     debug(PRINTF)
     {
-        printf("_d_arraysetlengthiT(p = %p, sizeelem = %d, newlength = %d, initsize = %d)\n", p, sizeelem, newlength, initsize);
-        if (p)
-            printf("\tp.data = %p, p.length = %d\n", pdata, plength);
+        printf("_d_arraysetlengthiT(sizeelem = %d, newlength = %d, initsize = %d)\n", sizeelem, newlength, initsize);
+        printf("\tp.data = %p, p.length = %d\n", pdata, plength);
     }
 
     if (newlength)
@@ -668,7 +667,7 @@ body
         }
         else
         {
-            newdata = cast(byte *)gc_malloc(newsize + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
+            newdata = cast(byte *)gc_malloc(newsize + 1, !(tinext.flags() & 1) ? BlkAttr.NO_SCAN : 0);
         }
 
         auto q = initializer.ptr; // pointer to initializer
