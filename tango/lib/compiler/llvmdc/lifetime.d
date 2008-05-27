@@ -206,7 +206,7 @@ extern (C) void* _d_newarrayT(TypeInfo ti, size_t length)
     void* p;
     auto size = ti.next.tsize();                // array element size
 
-    debug(PRINTF) printf("_d_newarrayT(length = x%x, size = %d)\n", length, size);
+    debug(PRINTF) printf("_d_newarrayT(length = %u, size = %d)\n", length, size);
     if (length == 0 || size == 0)
         return null;
 

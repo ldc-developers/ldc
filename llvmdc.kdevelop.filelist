@@ -764,6 +764,7 @@ tangotests/mem2.d
 tangotests/mem3.d
 tangotests/mem4.d
 tangotests/mem5.d
+tangotests/mem6.d
 tangotests/n.d
 tangotests/o.d
 tangotests/r.d

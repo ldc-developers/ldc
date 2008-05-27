@@ -444,7 +444,7 @@ DValue* StringExp::toElem(IRState* p)
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,"stringliteral",gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,".stringliteral",gIR->module);
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Constant* idxs[2] = { zero, zero };
@@ -534,7 +534,7 @@ llvm::Constant* StringExp::toConstElem(IRState* p)
     }
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,"stringliteral",gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,".stringliteral",gIR->module);
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
     llvm::Constant* idxs[2] = { zero, zero };
@@ -1979,8 +1979,14 @@ DValue* NewExp::toElem(IRState* p)
     {
         // allocate
         llvm::Value* mem = DtoNew(newtype);
-        // BUG: default initialize
-        // return
+        DVarValue tmpvar(newtype, mem, true);
+
+        // default initialize
+        Expression* exp = newtype->defaultInit(loc);
+        DValue* iv = exp->toElem(gIR);
+        DtoAssign(&tmpvar, iv);
+
+        // return as pointer-to
         return new DImValue(type, mem, false);
     }
 
@@ -2082,7 +2088,7 @@ DValue* AssertExp::toElem(IRState* p)
     // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
     llvm::BasicBlock* assertbb = llvm::BasicBlock::Create("assert", p->topfunc(), oldend);
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endassert", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
 
     // test condition
     llvm::Value* condval = cond->getRVal();

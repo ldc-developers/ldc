@@ -17,8 +17,8 @@ LIB_MASK_C=libtango-base-c-llvmdc*.a
 
 DIR_CC=./common/tango
 DIR_RT=./compiler/llvmdc
-#DIR_GC=./gc/basic
-DIR_GC=./gc/stub
+DIR_GC=./gc/basic
+#DIR_GC=./gc/stub
 
 CP=cp -f
 RM=rm -f

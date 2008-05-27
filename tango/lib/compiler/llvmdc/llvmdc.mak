@@ -10,11 +10,11 @@
 #	make clean
 #		Delete unneeded files created by build process
 
-LIB_TARGET=libtango-rt-llvmdc.a
-LIB_MASK=libtango-rt-llvmdc*.a
+LIB_TARGET=libtango-base-llvmdc.a
+LIB_MASK=libtango-base-llvmdc*.a
 
-LIB_TARGET_C=libtango-rt-c-llvmdc.a
-LIB_MASK_C=libtango-rt-c-llvmdc*.a
+LIB_TARGET_C=libtango-base-c-llvmdc.a
+LIB_MASK_C=libtango-base-c-llvmdc*.a
 
 CP=cp -f
 RM=rm -f
