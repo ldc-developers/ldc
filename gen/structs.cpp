@@ -17,54 +17,55 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* DtoStructType(Type* t)
+const LLType* DtoStructType(Type* t)
 {
     assert(0);
-    std::vector<const llvm::Type*> types;
+    std::vector<const LLType*> types;
     return llvm::StructType::get(types);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoStructZeroInit(llvm::Value* v)
+LLValue* DtoStructZeroInit(LLValue* v)
 {
     assert(gIR);
     uint64_t n = getTypeStoreSize(v->getType()->getContainedType(0));
-    //llvm::Type* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    const llvm::Type* sarrty = getPtrToType(llvm::Type::Int8Ty);
+    //LLType* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
+    const LLType* sarrty = getPtrToType(llvm::Type::Int8Ty);
 
-    llvm::Value* sarr = DtoBitCast(v, sarrty);
+    LLValue* sarr = DtoBitCast(v, sarrty);
 
     llvm::Function* fn = LLVM_DeclareMemSet32();
-    std::vector<llvm::Value*> llargs;
+    assert(fn);
+    std::vector<LLValue*> llargs;
     llargs.resize(4);
     llargs[0] = sarr;
     llargs[1] = llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false);
     llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
     llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
 
-    llvm::Value* ret = llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    LLValue* ret = llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 
     return ret;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
+LLValue* DtoStructCopy(LLValue* dst, LLValue* src)
 {
     Logger::cout() << "dst = " << *dst << " src = " << *src << '\n';
     assert(dst->getType() == src->getType());
     assert(gIR);
 
     uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-    //llvm::Type* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
+    //LLType* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
+    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
 
-    llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-    llvm::Value* srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
+    LLValue* dstarr = DtoBitCast(dst,arrty);
+    LLValue* srcarr = DtoBitCast(src,arrty);
 
     llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<llvm::Value*> llargs;
+    std::vector<LLValue*> llargs;
     llargs.resize(4);
     llargs[0] = dstarr;
     llargs[1] = srcarr;
@@ -75,7 +76,7 @@ llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
+LLConstant* DtoConstStructInitializer(StructInitializer* si)
 {
     Logger::println("DtoConstStructInitializer: %s", si->toChars());
     LOG_SCOPE;
@@ -94,7 +95,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
         assert(ini);
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
         assert(vd);
-        llvm::Constant* v = DtoConstInitializer(vd->type, ini);
+        LLConstant* v = DtoConstInitializer(vd->type, ini);
         inits.push_back(DUnionIdx(vd->ir.irField->index, vd->ir.irField->indexOffset, v));
     }
 
@@ -104,7 +105,7 @@ llvm::Constant* DtoConstStructInitializer(StructInitializer* si)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
@@ -112,8 +113,8 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
     if (idxs.empty())
         idxs.push_back(0);
 
-    const llvm::Type* llt = getPtrToType(DtoType(t));
-    const llvm::Type* st = getPtrToType(DtoType(sd->type));
+    const LLType* llt = getPtrToType(DtoType(t));
+    const LLType* st = getPtrToType(DtoType(sd->type));
     if (ptr->getType() != st) {
         assert(sd->ir.irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
@@ -147,7 +148,7 @@ llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, un
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
             else {
-                const llvm::Type* sty = getPtrToType(DtoType(vd->type));
+                const LLType* sty = getPtrToType(DtoType(vd->type));
                 if (ptr->getType() != sty) {
                     ptr = DtoBitCast(ptr, sty);
                     std::vector<unsigned> tmp;
@@ -221,7 +222,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     Logger::println("doing struct fields");
 
     const llvm::StructType* structtype = 0;
-    std::vector<const llvm::Type*> fieldtypes;
+    std::vector<const LLType*> fieldtypes;
 
     if (irstruct->offsets.empty())
     {
@@ -234,7 +235,7 @@ void DtoResolveStruct(StructDeclaration* sd)
         Logger::println("has fields");
         unsigned prevsize = (unsigned)-1;
         unsigned lastoffset = (unsigned)-1;
-        const llvm::Type* fieldtype = NULL;
+        const LLType* fieldtype = NULL;
         VarDeclaration* fieldinit = NULL;
         size_t fieldpad = 0;
         int idx = 0;
@@ -361,7 +362,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
     {
         IrStruct::Offset* so = &i->second;
-        llvm::Constant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
+        LLConstant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
         so->init = finit;
         so->var->ir.irField->constInit = finit;
     }
@@ -369,17 +370,17 @@ void DtoConstInitStruct(StructDeclaration* sd)
     const llvm::StructType* structtype = isaStruct(sd->type->ir.type->get());
 
     // go through the field inits and build the default initializer
-    std::vector<llvm::Constant*> fieldinits_ll;
+    std::vector<LLConstant*> fieldinits_ll;
     size_t nfi = irstruct->defaultFields.size();
     for (size_t i=0; i<nfi; ++i) {
-        llvm::Constant* c;
+        LLConstant* c;
         if (irstruct->defaultFields[i] != NULL) {
             c = irstruct->defaultFields[i]->ir.irField->constInit;
             assert(c);
         }
         else {
             const llvm::ArrayType* arrty = isaArray(structtype->getElementType(i));
-            std::vector<llvm::Constant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
             c = llvm::ConstantArray::get(arrty, vals);
         }
         fieldinits_ll.push_back(c);
@@ -446,7 +447,7 @@ DUnion::DUnion()
     {
         unsigned o = i->first;
         IrStruct::Offset* so = &i->second;
-        const llvm::Type* ft = so->init->getType();
+        const LLType* ft = so->init->getType();
         size_t sz = getABITypeSize(ft);
         if (f == NULL) { // new field
             fields.push_back(DUnionField());
@@ -494,17 +495,17 @@ DUnion::DUnion()
     }*/
 }
 
-static void push_nulls(size_t nbytes, std::vector<llvm::Constant*>& out)
+static void push_nulls(size_t nbytes, std::vector<LLConstant*>& out)
 {
     assert(nbytes > 0);
-    std::vector<llvm::Constant*> i(nbytes, llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+    std::vector<LLConstant*> i(nbytes, llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
     out.push_back(llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::Int8Ty, nbytes), i));
 }
 
-llvm::Constant* DUnion::getConst(std::vector<DUnionIdx>& in)
+LLConstant* DUnion::getConst(std::vector<DUnionIdx>& in)
 {
     std::sort(in.begin(), in.end());
-    std::vector<llvm::Constant*> out;
+    std::vector<LLConstant*> out;
 
     size_t nin = in.size();
     size_t nfields = fields.size();
@@ -561,7 +562,7 @@ llvm::Constant* DUnion::getConst(std::vector<DUnionIdx>& in)
         }
     }
 
-    std::vector<const llvm::Type*> tys;
+    std::vector<const LLType*> tys;
     size_t nout = out.size();
     for (size_t i=0; i<nout; ++i)
         tys.push_back(out[i]->getType());

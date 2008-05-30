@@ -8,7 +8,7 @@
 #include "declaration.h"
 
 // D->LLVM type handling stuff
-const llvm::Type* DtoType(Type* t);
+const LLType* DtoType(Type* t);
 bool DtoIsPassedByRef(Type* type);
 
 // resolve typedefs to their real type.
@@ -17,9 +17,9 @@ Type* DtoDType(Type* t);
 
 // delegate helpers
 const llvm::StructType* DtoDelegateType(Type* t);
-llvm::Value* DtoDelegateToNull(llvm::Value* v);
-llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src);
-llvm::Value* DtoDelegateCompare(TOK op, llvm::Value* lhs, llvm::Value* rhs);
+void DtoDelegateToNull(LLValue* v);
+void DtoDelegateCopy(LLValue* dst, LLValue* src);
+LLValue* DtoDelegateCompare(TOK op, LLValue* lhs, LLValue* rhs);
 
 // return linkage type for symbol using the current ir state for context
 llvm::GlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
@@ -30,21 +30,21 @@ llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 unsigned DtoCallingConv(LINK l);
 
 // TODO: this one should be removed!!!
-llvm::Value* DtoPointedType(llvm::Value* ptr, llvm::Value* val);
+LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
 
 // casts any value to a boolean
-llvm::Value* DtoBoolean(llvm::Value* val);
+LLValue* DtoBoolean(LLValue* val);
 
 // some types
-const llvm::Type* DtoSize_t();
+const LLType* DtoSize_t();
 const llvm::StructType* DtoInterfaceInfoType();
 
-// getting typeinfo of type
-llvm::Constant* DtoTypeInfoOf(Type* ty);
+// getting typeinfo of type, base=true casts to object.TypeInfo
+LLConstant* DtoTypeInfoOf(Type* ty, bool base=true);
 
 // initializer helpers
-llvm::Constant* DtoConstInitializer(Type* type, Initializer* init);
-llvm::Constant* DtoConstFieldInitializer(Type* type, Initializer* init);
+LLConstant* DtoConstInitializer(Type* type, Initializer* init);
+LLConstant* DtoConstFieldInitializer(Type* type, Initializer* init);
 DValue* DtoInitializer(Initializer* init);
 
 // declaration of memset/cpy intrinsics
@@ -54,24 +54,24 @@ llvm::Function* LLVM_DeclareMemCpy32();
 llvm::Function* LLVM_DeclareMemCpy64();
 
 // getelementptr helpers
-llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb=NULL);
-llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb=NULL);
-llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb=NULL);
-llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const std::string& var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEP(LLValue* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
 
 // dynamic memory helpers
-llvm::Value* DtoNew(Type* newtype);
-void DtoDeleteMemory(llvm::Value* ptr);
-void DtoDeleteClass(llvm::Value* inst);
-void DtoDeleteInterface(llvm::Value* inst);
+LLValue* DtoNew(Type* newtype);
+void DtoDeleteMemory(LLValue* ptr);
+void DtoDeleteClass(LLValue* inst);
+void DtoDeleteInterface(LLValue* inst);
 void DtoDeleteArray(DValue* arr);
 
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
 
 // nested variable/class helpers
-llvm::Value* DtoNestedContext(FuncDeclaration* func);
-llvm::Value* DtoNestedVariable(VarDeclaration* vd);
+LLValue* DtoNestedContext(FuncDeclaration* func);
+LLValue* DtoNestedVariable(VarDeclaration* vd);
 
 // annotation generator
 void DtoAnnotation(const char* str);
@@ -82,15 +82,15 @@ llvm::ConstantInt* DtoConstUint(unsigned i);
 llvm::ConstantInt* DtoConstInt(int i);
 llvm::ConstantFP* DtoConstFP(Type* t, long double value);
 
-llvm::Constant* DtoConstString(const char*);
-llvm::Constant* DtoConstStringPtr(const char* str, const char* section = 0);
-llvm::Constant* DtoConstBool(bool);
+LLConstant* DtoConstString(const char*);
+LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
+LLConstant* DtoConstBool(bool);
 
 // is template instance check
 bool DtoIsTemplateInstance(Dsymbol* s);
 
 // generates lazy static initialization code for a global variable
-void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t);
+void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t);
 
 // these are all basically drivers for the codegeneration called by the main loop
 void DtoResolveDsymbol(Dsymbol* dsym);
@@ -107,35 +107,35 @@ void DtoForceConstInitDsymbol(Dsymbol* dsym);
 void DtoForceDefineDsymbol(Dsymbol* dsym);
 
 // llvm wrappers
-void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes);
-void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes);
+void DtoMemSetZero(LLValue* dst, LLValue* nbytes);
+void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes);
 void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
-bool DtoCanLoad(llvm::Value* ptr);
-llvm::Value* DtoLoad(llvm::Value* src);
-void DtoStore(llvm::Value* src, llvm::Value* dst);
-llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t, const char* name=0);
+bool DtoCanLoad(LLValue* ptr);
+LLValue* DtoLoad(LLValue* src, const char* name=0);
+void DtoStore(LLValue* src, LLValue* dst);
+LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
 
 // llvm::dyn_cast wrappers
-const llvm::PointerType* isaPointer(llvm::Value* v);
-const llvm::PointerType* isaPointer(const llvm::Type* t);
-const llvm::ArrayType* isaArray(llvm::Value* v);
-const llvm::ArrayType* isaArray(const llvm::Type* t);
-const llvm::StructType* isaStruct(llvm::Value* v);
-const llvm::StructType* isaStruct(const llvm::Type* t);
-llvm::Constant* isaConstant(llvm::Value* v);
-llvm::ConstantInt* isaConstantInt(llvm::Value* v);
-llvm::Argument* isaArgument(llvm::Value* v);
-llvm::GlobalVariable* isaGlobalVar(llvm::Value* v);
+const llvm::PointerType* isaPointer(LLValue* v);
+const llvm::PointerType* isaPointer(const LLType* t);
+const llvm::ArrayType* isaArray(LLValue* v);
+const llvm::ArrayType* isaArray(const LLType* t);
+const llvm::StructType* isaStruct(LLValue* v);
+const llvm::StructType* isaStruct(const LLType* t);
+LLConstant* isaConstant(LLValue* v);
+llvm::ConstantInt* isaConstantInt(LLValue* v);
+llvm::Argument* isaArgument(LLValue* v);
+llvm::GlobalVariable* isaGlobalVar(LLValue* v);
 
 // llvm::T::get(...) wrappers
-const llvm::PointerType* getPtrToType(const llvm::Type* t);
+const llvm::PointerType* getPtrToType(const LLType* t);
 const llvm::PointerType* getVoidPtrType();
-llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t);
+llvm::ConstantPointerNull* getNullPtr(const LLType* t);
 
 // type sizes
-size_t getTypeBitSize(const llvm::Type* t);
-size_t getTypeStoreSize(const llvm::Type* t);
-size_t getABITypeSize(const llvm::Type* t);
+size_t getTypeBitSize(const LLType* t);
+size_t getTypeStoreSize(const LLType* t);
+size_t getABITypeSize(const LLType* t);
 
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);

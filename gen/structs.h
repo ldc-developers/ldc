@@ -3,12 +3,12 @@
 
 struct StructInitializer;
 
-const llvm::Type* DtoStructType(Type* t);
+const LLType* DtoStructType(Type* t);
 
-llvm::Value* DtoStructZeroInit(llvm::Value* v);
-llvm::Value* DtoStructCopy(llvm::Value* dst, llvm::Value* src);
+LLValue* DtoStructZeroInit(LLValue* v);
+LLValue* DtoStructCopy(LLValue* dst, LLValue* src);
 
-llvm::Constant* DtoConstStructInitializer(StructInitializer* si);
+LLConstant* DtoConstStructInitializer(StructInitializer* si);
 
 /**
  * Resolves the llvm type for a struct
@@ -30,14 +30,14 @@ void DtoConstInitStruct(StructDeclaration* sd);
  */
 void DtoDefineStruct(StructDeclaration* sd);
 
-llvm::Value* DtoIndexStruct(llvm::Value* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
+LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
 
 struct DUnionField
 {
     unsigned offset;
     size_t size;
-    std::vector<const llvm::Type*> types;
-    llvm::Constant* init;
+    std::vector<const LLType*> types;
+    LLConstant* init;
     size_t initsize;
 
     DUnionField() {
@@ -51,11 +51,11 @@ struct DUnionField
 struct DUnionIdx
 {
     unsigned idx,idxos;
-    llvm::Constant* c;
+    LLConstant* c;
 
     DUnionIdx()
     : idx(0), c(0) {}
-    DUnionIdx(unsigned _idx, unsigned _idxos, llvm::Constant* _c)
+    DUnionIdx(unsigned _idx, unsigned _idxos, LLConstant* _c)
     : idx(_idx), idxos(_idxos), c(_c) {}
     bool operator<(const DUnionIdx& i) const {
         return (idx < i.idx) || (idx == i.idx && idxos < i.idxos);
@@ -67,7 +67,7 @@ class DUnion
     std::vector<DUnionField> fields;
 public:
     DUnion();
-    llvm::Constant* getConst(std::vector<DUnionIdx>& in);
+    LLConstant* getConst(std::vector<DUnionIdx>& in);
 };
 
 #endif

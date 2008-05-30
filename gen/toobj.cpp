@@ -187,7 +187,7 @@ static llvm::Function* build_module_ctor()
     name.append(gIR->dmodule->mangle());
     name.append("6__ctorZ");
 
-    std::vector<const llvm::Type*> argsTy;
+    std::vector<const LLType*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
@@ -221,7 +221,7 @@ static llvm::Function* build_module_dtor()
     name.append(gIR->dmodule->mangle());
     name.append("6__dtorZ");
 
-    std::vector<const llvm::Type*> argsTy;
+    std::vector<const LLType*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
@@ -255,7 +255,7 @@ static llvm::Function* build_module_unittest()
     name.append(gIR->dmodule->mangle());
     name.append("10__unittestZ");
 
-    std::vector<const llvm::Type*> argsTy;
+    std::vector<const LLType*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
@@ -302,8 +302,8 @@ void Module::genmoduleinfo()
     const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->ir.type->get());
 
     // initializer vector
-    std::vector<llvm::Constant*> initVec;
-    llvm::Constant* c = 0;
+    std::vector<LLConstant*> initVec;
+    LLConstant* c = 0;
 
     // vtable
     c = moduleinfo->ir.irStruct->vtbl;
@@ -320,7 +320,7 @@ void Module::genmoduleinfo()
 
     // importedModules[]
     int aimports_dim = aimports.dim;
-    std::vector<llvm::Constant*> importInits;
+    std::vector<LLConstant*> importInits;
     for (size_t i = 0; i < aimports.dim; i++)
     {
         Module *m = (Module *)aimports.data[i];
@@ -365,7 +365,7 @@ void Module::genmoduleinfo()
         member->addLocalClass(&aclasses);
     }
     // fill inits
-    std::vector<llvm::Constant*> classInits;
+    std::vector<LLConstant*> classInits;
     for (size_t i = 0; i < aclasses.dim; i++)
     {
         ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
@@ -433,7 +433,7 @@ void Module::genmoduleinfo()
     }*/
 
     // create initializer
-    llvm::Constant* constMI = llvm::ConstantStruct::get(moduleinfoTy, initVec);
+    LLConstant* constMI = llvm::ConstantStruct::get(moduleinfoTy, initVec);
 
     // create name
     std::string MIname("_D");
@@ -449,9 +449,9 @@ void Module::genmoduleinfo()
 
     // declare the appending array
     const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(getPtrToType(llvm::Type::Int8Ty), 1);
-    std::vector<llvm::Constant*> appendInits;
+    std::vector<LLConstant*> appendInits;
     appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llvm::Type::Int8Ty)));
-    llvm::Constant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
+    LLConstant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
     std::string appendName("_d_moduleinfo_array");
     llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);
 }
@@ -545,7 +545,7 @@ void VarDeclaration::toObjFile()
 
         Logger::println("Creating global variable");
 
-        const llvm::Type* _type = this->ir.irGlobal->type.get();
+        const LLType* _type = this->ir.irGlobal->type.get();
         llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
         std::string _name(mangle());
 
@@ -565,7 +565,7 @@ void VarDeclaration::toObjFile()
     {
         Logger::println("Aggregate var declaration: '%s' offset=%d", toChars(), offset);
 
-        const llvm::Type* _type = DtoType(type);
+        const LLType* _type = DtoType(type);
         this->ir.irField = new IrField(this);
 
         // add the field in the IRStruct

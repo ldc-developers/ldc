@@ -36,7 +36,7 @@ Type* DtoDType(Type* t)
     return t;
 }
 
-const llvm::Type* DtoType(Type* t)
+const LLType* DtoType(Type* t)
 {
     assert(t);
     switch (t->ty)
@@ -45,21 +45,21 @@ const llvm::Type* DtoType(Type* t)
     case Tint8:
     case Tuns8:
     case Tchar:
-        return (const llvm::Type*)llvm::Type::Int8Ty;
+        return (const LLType*)llvm::Type::Int8Ty;
     case Tint16:
     case Tuns16:
     case Twchar:
-        return (const llvm::Type*)llvm::Type::Int16Ty;
+        return (const LLType*)llvm::Type::Int16Ty;
     case Tint32:
     case Tuns32:
     case Tdchar:
-        return (const llvm::Type*)llvm::Type::Int32Ty;
+        return (const LLType*)llvm::Type::Int32Ty;
     case Tint64:
     case Tuns64:
-        return (const llvm::Type*)llvm::Type::Int64Ty;
+        return (const LLType*)llvm::Type::Int64Ty;
 
     case Tbool:
-        return (const llvm::Type*)llvm::ConstantInt::getTrue()->getType();
+        return (const LLType*)llvm::ConstantInt::getTrue()->getType();
 
     // floats
     case Tfloat32:
@@ -81,9 +81,9 @@ const llvm::Type* DtoType(Type* t)
     case Tpointer: {
         assert(t->next);
         if (t->next->ty == Tvoid)
-            return (const llvm::Type*)getPtrToType(llvm::Type::Int8Ty);
+            return (const LLType*)getPtrToType(llvm::Type::Int8Ty);
         else
-            return (const llvm::Type*)getPtrToType(DtoType(t->next));
+            return (const LLType*)getPtrToType(DtoType(t->next));
     }
 
     // arrays
@@ -178,7 +178,7 @@ const llvm::Type* DtoType(Type* t)
     case Taarray:
     {
         TypeAArray* taa = (TypeAArray*)t;
-        std::vector<const llvm::Type*> types;
+        std::vector<const LLType*> types;
         types.push_back(DtoType(taa->key));
         types.push_back(DtoType(taa->next));
         return getPtrToType(llvm::StructType::get(types));
@@ -195,11 +195,11 @@ const llvm::Type* DtoType(Type* t)
 
 const llvm::StructType* DtoDelegateType(Type* t)
 {
-    const llvm::Type* i8ptr = getPtrToType(llvm::Type::Int8Ty);
-    const llvm::Type* func = DtoFunctionType(t->next, i8ptr);
-    const llvm::Type* funcptr = getPtrToType(func);
+    const LLType* i8ptr = getPtrToType(llvm::Type::Int8Ty);
+    const LLType* func = DtoFunctionType(t->next, i8ptr);
+    const LLType* funcptr = getPtrToType(func);
 
-    std::vector<const llvm::Type*> types;
+    std::vector<const LLType*> types;
     types.push_back(i8ptr);
     types.push_back(funcptr);
     return llvm::StructType::get(types);
@@ -207,20 +207,21 @@ const llvm::StructType* DtoDelegateType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+/*
 static llvm::Function* LLVM_DeclareMemIntrinsic(const char* name, int bits, bool set=false)
 {
     assert(bits == 32 || bits == 64);
-    const llvm::Type* int8ty =    (const llvm::Type*)llvm::Type::Int8Ty;
-    const llvm::Type* int32ty =   (const llvm::Type*)llvm::Type::Int32Ty;
-    const llvm::Type* int64ty =   (const llvm::Type*)llvm::Type::Int64Ty;
-    const llvm::Type* int8ptrty = (const llvm::Type*)getPtrToType(llvm::Type::Int8Ty);
-    const llvm::Type* voidty =    (const llvm::Type*)llvm::Type::VoidTy;
+    const LLType* int8ty =    (const LLType*)llvm::Type::Int8Ty;
+    const LLType* int32ty =   (const LLType*)llvm::Type::Int32Ty;
+    const LLType* int64ty =   (const LLType*)llvm::Type::Int64Ty;
+    const LLType* int8ptrty = (const LLType*)getPtrToType(llvm::Type::Int8Ty);
+    const LLType* voidty =    (const LLType*)llvm::Type::VoidTy;
 
     assert(gIR);
     assert(gIR->module);
 
     // parameter types
-    std::vector<const llvm::Type*> pvec;
+    std::vector<const LLType*> pvec;
     pvec.push_back(int8ptrty);
     pvec.push_back(set?int8ty:int8ptrty);
     pvec.push_back(bits==32?int32ty:int64ty);
@@ -228,26 +229,21 @@ static llvm::Function* LLVM_DeclareMemIntrinsic(const char* name, int bits, bool
     llvm::FunctionType* functype = llvm::FunctionType::get(voidty, pvec, false);
     return llvm::cast<llvm::Function>(gIR->module->getOrInsertFunction(name, functype));
 }
+*/
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // llvm.memset.i32
 llvm::Function* LLVM_DeclareMemSet32()
 {
-    if (gIR->llvm_DeclareMemSet32 == 0) {
-        gIR->llvm_DeclareMemSet32 = LLVM_DeclareMemIntrinsic("llvm.memset.i32", 32, true);
-    }
-    return gIR->llvm_DeclareMemSet32;
+    return GET_INTRINSIC_DECL(memset_i32);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 llvm::Function* LLVM_DeclareMemSet64()
 {
-    if (gIR->llvm_DeclareMemSet64 == 0) {
-        gIR->llvm_DeclareMemSet64 = LLVM_DeclareMemIntrinsic("llvm.memset.i64", 64, true);
-    }
-    return gIR->llvm_DeclareMemSet64;
+    return GET_INTRINSIC_DECL(memset_i64);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -255,10 +251,7 @@ llvm::Function* LLVM_DeclareMemSet64()
 // llvm.memcpy.i32
 llvm::Function* LLVM_DeclareMemCpy32()
 {
-    if (gIR->llvm_DeclareMemCpy32 == 0) {
-        gIR->llvm_DeclareMemCpy32 = LLVM_DeclareMemIntrinsic("llvm.memcpy.i32", 32);
-    }
-    return gIR->llvm_DeclareMemCpy32;
+    return GET_INTRINSIC_DECL(memcpy_i32);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -266,35 +259,15 @@ llvm::Function* LLVM_DeclareMemCpy32()
 // llvm.memcpy.i64
 llvm::Function* LLVM_DeclareMemCpy64()
 {
-    if (gIR->llvm_DeclareMemCpy64 == 0) {
-        gIR->llvm_DeclareMemCpy64 = LLVM_DeclareMemIntrinsic("llvm.memcpy.i64", 64);
-    }
-    return gIR->llvm_DeclareMemCpy64;
-}
-
-// llvm.memory.barrier
-static llvm::Function* LLVM_DeclareMemBarrier()
-{
-    if (gIR->llvm_DeclareMemBarrier == 0) {
-        std::vector<const llvm::Type*> pvec;
-        pvec.push_back(llvm::Type::Int1Ty);
-        pvec.push_back(llvm::Type::Int1Ty);
-        pvec.push_back(llvm::Type::Int1Ty);
-        pvec.push_back(llvm::Type::Int1Ty);
-        pvec.push_back(llvm::Type::Int1Ty);
-        llvm::FunctionType* functype = llvm::FunctionType::get(llvm::Type::VoidTy, pvec, false);
-        gIR->llvm_DeclareMemBarrier = llvm::cast<llvm::Function>(gIR->module->getOrInsertFunction("llvm.memory.barrier", functype));
-        assert(gIR->llvm_DeclareMemBarrier != NULL);
-    }
-    return gIR->llvm_DeclareMemBarrier;
+    return GET_INTRINSIC_DECL(memcpy_i64);
 }
 
 void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
 {
-    llvm::Function* fn = LLVM_DeclareMemBarrier();
+    llvm::Function* fn = GET_INTRINSIC_DECL(memory_barrier);
     assert(fn != NULL);
 
-    llvm::SmallVector<llvm::Value*, 5> llargs;
+    LLSmallVector<LLValue*, 5> llargs;
     llargs.push_back(DtoConstBool(ll));
     llargs.push_back(DtoConstBool(ls));
     llargs.push_back(DtoConstBool(sl));
@@ -306,64 +279,39 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoDelegateToNull(llvm::Value* v)
+void DtoDelegateToNull(LLValue* v)
 {
-    assert(gIR);
-    d_uns64 n = (global.params.is64bit) ? 16 : 8;
-
-    const llvm::Type* i8p_ty = getPtrToType(llvm::Type::Int8Ty);
-
-    llvm::Value* arr = new llvm::BitCastInst(v,i8p_ty,"tmp",gIR->scopebb());
-
-    llvm::Function* fn = LLVM_DeclareMemSet32();
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(4);
-    llargs[0] = arr;
-    llargs[1] = llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false);
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    llvm::Value* ret = llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-
-    return ret;
+    LLSmallVector<LLValue*, 4> args;
+    args.push_back(DtoBitCast(v, getVoidPtrType()));
+    args.push_back(llvm::Constant::getNullValue(llvm::Type::Int8Ty));
+    args.push_back(DtoConstInt(global.params.is64bit ? 16 : 8));
+    args.push_back(DtoConstInt(0));
+    gIR->ir->CreateCall(GET_INTRINSIC_DECL(memset_i32), args.begin(), args.end(), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoDelegateCopy(llvm::Value* dst, llvm::Value* src)
+void DtoDelegateCopy(LLValue* dst, LLValue* src)
 {
-    assert(dst->getType() == src->getType());
-    assert(gIR);
-
-    d_uns64 n = (global.params.is64bit) ? 16 : 8;
-
-    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
-
-    llvm::Value* dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
-    llvm::Value* srcarr = new llvm::BitCastInst(src,arrty,"tmp",gIR->scopebb());
-
-    llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<llvm::Value*> llargs;
-    llargs.resize(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    return llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    LLSmallVector<LLValue*, 4> args;
+    args.push_back(DtoBitCast(dst,getVoidPtrType()));
+    args.push_back(DtoBitCast(src,getVoidPtrType()));
+    args.push_back(DtoConstInt(global.params.is64bit ? 16 : 8));
+    args.push_back(DtoConstInt(0));
+    gIR->ir->CreateCall(GET_INTRINSIC_DECL(memcpy_i32), args.begin(), args.end(), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoDelegateCompare(TOK op, llvm::Value* lhs, llvm::Value* rhs)
+LLValue* DtoDelegateCompare(TOK op, LLValue* lhs, LLValue* rhs)
 {
     Logger::println("Doing delegate compare");
     llvm::ICmpInst::Predicate pred = (op == TOKequal || op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
     llvm::Value *b1, *b2;
     if (rhs == NULL)
     {
-        llvm::Value* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
-        llvm::Value* r = llvm::Constant::getNullValue(l->getType());
+        LLValue* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
+        LLValue* r = llvm::Constant::getNullValue(l->getType());
         b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
         l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,1,"tmp"),"tmp");
         r = llvm::Constant::getNullValue(l->getType());
@@ -371,14 +319,14 @@ llvm::Value* DtoDelegateCompare(TOK op, llvm::Value* lhs, llvm::Value* rhs)
     }
     else
     {
-        llvm::Value* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
-        llvm::Value* r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,0,"tmp"),"tmp");
+        LLValue* l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,0,"tmp"),"tmp");
+        LLValue* r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,0,"tmp"),"tmp");
         b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
         l = gIR->ir->CreateLoad(DtoGEPi(lhs,0,1,"tmp"),"tmp");
         r = gIR->ir->CreateLoad(DtoGEPi(rhs,0,1,"tmp"),"tmp");
         b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
     }
-    llvm::Value* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+    LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
     if (op == TOKnotequal || op == TOKnotidentity)
         return gIR->ir->CreateNot(b,"tmp");
     return b;
@@ -467,10 +415,10 @@ unsigned DtoCallingConv(LINK l)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoPointedType(llvm::Value* ptr, llvm::Value* val)
+LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
 {
-    const llvm::Type* ptrTy = ptr->getType()->getContainedType(0);
-    const llvm::Type* valTy = val->getType();
+    const LLType* ptrTy = ptr->getType()->getContainedType(0);
+    const LLType* valTy = val->getType();
     // ptr points to val's type
     if (ptrTy == valTy)
     {
@@ -500,20 +448,20 @@ llvm::Value* DtoPointedType(llvm::Value* ptr, llvm::Value* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoBoolean(llvm::Value* val)
+LLValue* DtoBoolean(LLValue* val)
 {
-    const llvm::Type* t = val->getType();
+    const LLType* t = val->getType();
     if (t->isInteger())
     {
         if (t == llvm::Type::Int1Ty)
             return val;
         else {
-            llvm::Value* zero = llvm::ConstantInt::get(t, 0, false);
+            LLValue* zero = llvm::ConstantInt::get(t, 0, false);
             return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
         }
     }
     else if (isaPointer(t)) {
-        llvm::Value* zero = llvm::Constant::getNullValue(t);
+        LLValue* zero = llvm::Constant::getNullValue(t);
         return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
     }
     else
@@ -526,7 +474,7 @@ llvm::Value* DtoBoolean(llvm::Value* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* DtoSize_t()
+const LLType* DtoSize_t()
 {
     if (global.params.is64bit)
     return llvm::Type::Int64Ty;
@@ -536,9 +484,9 @@ const llvm::Type* DtoSize_t()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
+LLConstant* DtoConstInitializer(Type* type, Initializer* init)
 {
-    llvm::Constant* _init = 0; // may return zero
+    LLConstant* _init = 0; // may return zero
     if (!init)
     {
         Logger::println("const default initializer for %s", type->toChars());
@@ -562,7 +510,7 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
     else if (init->isVoidInitializer())
     {
         Logger::println("const void initializer");
-        const llvm::Type* ty = DtoType(type);
+        const LLType* ty = DtoType(type);
         _init = llvm::Constant::getNullValue(ty);
     }
     else {
@@ -573,14 +521,14 @@ llvm::Constant* DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* DtoConstFieldInitializer(Type* t, Initializer* init)
+LLConstant* DtoConstFieldInitializer(Type* t, Initializer* init)
 {
     Logger::println("DtoConstFieldInitializer");
     LOG_SCOPE;
 
-    const llvm::Type* _type = DtoType(t);
+    const LLType* _type = DtoType(t);
 
-    llvm::Constant* _init = DtoConstInitializer(t, init);
+    LLConstant* _init = DtoConstInitializer(t, init);
     assert(_init);
     if (_type != _init->getType())
     {
@@ -589,7 +537,7 @@ llvm::Constant* DtoConstFieldInitializer(Type* t, Initializer* init)
         {
             const llvm::ArrayType* arrty = isaArray(_type);
             uint64_t n = arrty->getNumElements();
-            std::vector<llvm::Constant*> vals(n,_init);
+            std::vector<LLConstant*> vals(n,_init);
             _init = llvm::ConstantArray::get(arrty, vals);
         }
         else if (t->ty == Tarray)
@@ -642,9 +590,9 @@ DValue* DtoInitializer(Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const std::string& var, llvm::BasicBlock* bb)
 {
-    std::vector<llvm::Value*> v(2);
+    std::vector<LLValue*> v(2);
     v[0] = i0;
     v[1] = i1;
     Logger::cout() << "DtoGEP: " << *ptr << ", " << *i0 << ", " << *i1 << '\n';
@@ -653,10 +601,10 @@ llvm::Value* DtoGEP(llvm::Value* ptr, llvm::Value* i0, llvm::Value* i1, const st
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEP(LLValue* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
 {
     size_t n = src.size();
-    std::vector<llvm::Value*> dst(n, NULL);
+    std::vector<LLValue*> dst(n, NULL);
     //std::ostream& ostr = Logger::cout();
     //ostr << "indices for '" << *ptr << "':";
     for (size_t i=0; i<n; ++i)
@@ -670,16 +618,16 @@ llvm::Value* DtoGEP(llvm::Value* ptr, const std::vector<unsigned>& src, const st
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEPi(LLValue* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
 {
     return llvm::GetElementPtrInst::Create(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb)
 {
-    std::vector<llvm::Value*> v(2);
+    std::vector<LLValue*> v(2);
     v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
     v[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i1, false);
     return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
@@ -687,50 +635,50 @@ llvm::Value* DtoGEPi(llvm::Value* ptr, unsigned i0, unsigned i1, const std::stri
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoNew(Type* newtype)
+LLValue* DtoNew(Type* newtype)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemoryT");
     // get type info
-    llvm::Constant* ti = DtoTypeInfoOf(newtype);
+    LLConstant* ti = DtoTypeInfoOf(newtype);
     assert(isaPointer(ti));
     // call runtime
-    llvm::SmallVector<llvm::Value*,1> arg;
+    LLSmallVector<LLValue*,1> arg;
     arg.push_back(ti);
     // allocate
-    llvm::Value* mem = gIR->ir->CreateCall(fn, arg.begin(), arg.end(), ".gc_mem");
+    LLValue* mem = gIR->ir->CreateCall(fn, arg.begin(), arg.end(), ".gc_mem");
     // cast
     return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
 }
 
-void DtoDeleteMemory(llvm::Value* ptr)
+void DtoDeleteMemory(LLValue* ptr)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delmemory");
     // build args
-    llvm::SmallVector<llvm::Value*,1> arg;
+    LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(ptr, getVoidPtrType(), ".tmp"));
     // call
     llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
 }
 
-void DtoDeleteClass(llvm::Value* inst)
+void DtoDeleteClass(LLValue* inst)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delclass");
     // build args
-    llvm::SmallVector<llvm::Value*,1> arg;
+    LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
     llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
 }
 
-void DtoDeleteInterface(llvm::Value* inst)
+void DtoDeleteInterface(LLValue* inst)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delinterface");
     // build args
-    llvm::SmallVector<llvm::Value*,1> arg;
+    LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
     llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
@@ -741,7 +689,7 @@ void DtoDeleteArray(DValue* arr)
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray");
     // build args
-    llvm::SmallVector<llvm::Value*,2> arg;
+    LLSmallVector<LLValue*,2> arg;
     arg.push_back(DtoArrayLen(arr));
     arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
     // call
@@ -752,8 +700,8 @@ void DtoDeleteArray(DValue* arr)
 
 void DtoAssert(Loc* loc, DValue* msg)
 {
-    std::vector<llvm::Value*> args;
-    llvm::Constant* c;
+    std::vector<LLValue*> args;
+    LLConstant* c;
 
     // func
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
@@ -788,7 +736,7 @@ void DtoAssert(Loc* loc, DValue* msg)
         alloc = new llvm::AllocaInst(c->getType(), ".srcfile", gIR->topallocapoint());
         gIR->func()->srcfileArg = alloc;
     }
-    llvm::Value* ptr = DtoGEPi(alloc, 0,0, "tmp");
+    LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");
     DtoStore(c->getOperand(0), ptr);
     ptr = DtoGEPi(alloc, 0,1, "tmp");
     DtoStore(c->getOperand(1), ptr);
@@ -804,7 +752,7 @@ void DtoAssert(Loc* loc, DValue* msg)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
+static const LLType* get_next_frame_ptr_type(Dsymbol* sc)
 {
     assert(sc->isFuncDeclaration() || sc->isClassDeclaration());
     Dsymbol* p = sc->toParent2();
@@ -813,7 +761,7 @@ static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
     assert(p->isFuncDeclaration() || p->isClassDeclaration());
     if (FuncDeclaration* fd = p->isFuncDeclaration())
     {
-        llvm::Value* v = fd->ir.irFunc->nestedVar;
+        LLValue* v = fd->ir.irFunc->nestedVar;
         assert(v);
         return v->getType();
     }
@@ -830,7 +778,7 @@ static const llvm::Type* get_next_frame_ptr_type(Dsymbol* sc)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm::Value* v)
+static LLValue* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, LLValue* v)
 {
     LOG_SCOPE;
     if (sc == func)
@@ -888,7 +836,7 @@ static llvm::Value* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, llvm:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::Value* get_frame_ptr(FuncDeclaration* func)
+static LLValue* get_frame_ptr(FuncDeclaration* func)
 {
     Logger::println("Resolving context pointer for nested function: '%s'", func->toPrettyChars());
     LOG_SCOPE;
@@ -899,7 +847,7 @@ static llvm::Value* get_frame_ptr(FuncDeclaration* func)
         return irfunc->decl->ir.irFunc->nestedVar;
 
     // use the 'this' pointer
-    llvm::Value* ptr = irfunc->decl->ir.irFunc->thisVar;
+    LLValue* ptr = irfunc->decl->ir.irFunc->thisVar;
     assert(ptr);
 
     // return the fully resolved frame pointer
@@ -912,10 +860,10 @@ static llvm::Value* get_frame_ptr(FuncDeclaration* func)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoNestedContext(FuncDeclaration* func)
+LLValue* DtoNestedContext(FuncDeclaration* func)
 {
     // resolve frame ptr
-    llvm::Value* ptr = get_frame_ptr(func);
+    LLValue* ptr = get_frame_ptr(func);
     Logger::cout() << "Nested context ptr = ";
     if (ptr) Logger::cout() << *ptr;
     else Logger::cout() << "NULL";
@@ -953,7 +901,7 @@ static void print_nested_frame_list(VarDeclaration* vd, Dsymbol* par)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoNestedVariable(VarDeclaration* vd)
+LLValue* DtoNestedVariable(VarDeclaration* vd)
 {
     // log the frame list
     IrFunction* irfunc = gIR->func();
@@ -963,14 +911,14 @@ llvm::Value* DtoNestedVariable(VarDeclaration* vd)
     // resolve frame ptr
     FuncDeclaration* func = vd->toParent2()->isFuncDeclaration();
     assert(func);
-    llvm::Value* ptr = DtoNestedContext(func);
+    LLValue* ptr = DtoNestedContext(func);
     assert(ptr && "nested var, but no context");
 
     // we must cast here to be sure. nested classes just have a void*
     ptr = DtoBitCast(ptr, func->ir.irFunc->nestedVar->getType());
 
     // index nested var and load (if necessary)
-    llvm::Value* v = DtoGEPi(ptr, 0, vd->ir.irLocal->nestedIndex, "tmp");
+    LLValue* v = DtoGEPi(ptr, 0, vd->ir.irLocal->nestedIndex, "tmp");
     // references must be loaded, for normal variables this IS already the variable storage!!!
     if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
         v = DtoLoad(v);
@@ -1018,7 +966,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         // rhs is slice
         else if (DSliceValue* s = rhs->isSlice()) {
             assert(s->getType()->toBasetype() == lhs->getType()->toBasetype());
-            DtoSetArray(lhs->getLVal(),s->len,s->ptr);
+            DtoSetArray(lhs->getLVal(),DtoArrayLen(s),DtoArrayPtr(s));
         }
         // null
         else if (rhs->isNull()) {
@@ -1041,8 +989,8 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         if (rhs->isNull())
             DtoDelegateToNull(lhs->getLVal());
         else if (!rhs->inPlace()) {
-            llvm::Value* l = lhs->getLVal();
-            llvm::Value* r = rhs->getRVal();
+            LLValue* l = lhs->getLVal();
+            LLValue* r = rhs->getRVal();
             Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
             DtoDelegateCopy(l, r);
         }
@@ -1051,7 +999,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         assert(t2->ty == Tclass);
         // assignment to this in constructor special case
         if (lhs->isThis()) {
-            llvm::Value* tmp = rhs->getRVal();
+            LLValue* tmp = rhs->getRVal();
             FuncDeclaration* fdecl = gIR->func()->decl;
             // respecify the this param
             if (!llvm::isa<llvm::AllocaInst>(fdecl->ir.irFunc->thisVar))
@@ -1066,7 +1014,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
     else if (t->iscomplex()) {
         assert(!lhs->isComplex());
 
-        llvm::Value* dst;
+        LLValue* dst;
         if (DLRValue* lr = lhs->isLRValue()) {
             dst = lr->getLVal();
             rhs = DtoCastComplex(rhs, lr->getLType());
@@ -1081,10 +1029,10 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             DtoComplexAssign(dst, rhs->getRVal());
     }
     else {
-        llvm::Value* l = lhs->getLVal();
-        llvm::Value* r = rhs->getRVal();
+        LLValue* l = lhs->getLVal();
+        LLValue* r = rhs->getRVal();
         Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
-        const llvm::Type* lit = l->getType()->getContainedType(0);
+        const LLType* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
             // handle lvalue cast assignments
             if (DLRValue* lr = lhs->isLRValue()) {
@@ -1104,7 +1052,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
 //////////////////////////////////////////////////////////////////////////////////////////
 DValue* DtoCastInt(DValue* val, Type* _to)
 {
-    const llvm::Type* tolltype = DtoType(_to);
+    const LLType* tolltype = DtoType(_to);
 
     Type* to = DtoDType(_to);
     Type* from = DtoDType(val->getType());
@@ -1113,7 +1061,7 @@ DValue* DtoCastInt(DValue* val, Type* _to)
     size_t fromsz = from->size();
     size_t tosz = to->size();
 
-    llvm::Value* rval = val->getRVal();
+    LLValue* rval = val->getRVal();
     if (rval->getType() == tolltype) {
         return new DImValue(_to, rval);
     }
@@ -1131,7 +1079,7 @@ DValue* DtoCastInt(DValue* val, Type* _to)
             rval = new llvm::TruncInst(rval, tolltype, "tmp", gIR->scopebb());
         }
         else {
-            rval = new llvm::BitCastInst(rval, tolltype, "tmp", gIR->scopebb());
+            rval = DtoBitCast(rval, tolltype);
         }
     }
     else if (to->isfloating()) {
@@ -1155,18 +1103,18 @@ DValue* DtoCastInt(DValue* val, Type* _to)
 
 DValue* DtoCastPtr(DValue* val, Type* to)
 {
-    const llvm::Type* tolltype = DtoType(to);
+    const LLType* tolltype = DtoType(to);
 
     Type* totype = DtoDType(to);
     Type* fromtype = DtoDType(val->getType());
     assert(fromtype->ty == Tpointer);
 
-    llvm::Value* rval;
+    LLValue* rval;
 
     if (totype->ty == Tpointer || totype->ty == Tclass) {
-        llvm::Value* src = val->getRVal();
+        LLValue* src = val->getRVal();
         Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
-        rval = new llvm::BitCastInst(src, tolltype, "tmp", gIR->scopebb());
+        rval = DtoBitCast(src, tolltype);
     }
     else if (totype->isintegral()) {
         rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
@@ -1184,7 +1132,7 @@ DValue* DtoCastFloat(DValue* val, Type* to)
     if (val->getType() == to)
         return val;
 
-    const llvm::Type* tolltype = DtoType(to);
+    const LLType* tolltype = DtoType(to);
 
     Type* totype = DtoDType(to);
     Type* fromtype = DtoDType(val->getType());
@@ -1193,7 +1141,7 @@ DValue* DtoCastFloat(DValue* val, Type* to)
     size_t fromsz = fromtype->size();
     size_t tosz = totype->size();
 
-    llvm::Value* rval;
+    LLValue* rval;
 
     if (totype->iscomplex()) {
         assert(0);
@@ -1238,7 +1186,7 @@ DValue* DtoCastComplex(DValue* val, Type* _to)
 
         llvm::Value *re, *im;
         DtoGetComplexParts(val, re, im);
-        const llvm::Type* toty = DtoComplexBaseType(to);
+        const LLType* toty = DtoComplexBaseType(to);
 
         if (to->size() < vty->size()) {
             re = gIR->ir->CreateFPTrunc(re, toty, "tmp");
@@ -1257,21 +1205,21 @@ DValue* DtoCastComplex(DValue* val, Type* _to)
 
         // unfortunately at this point, the cast value can show up as the lvalue for += and similar expressions.
         // so we need to give it storage, or fix the system that handles this stuff (DLRValue)
-        llvm::Value* mem = new llvm::AllocaInst(DtoType(_to), "castcomplextmp", gIR->topallocapoint());
+        LLValue* mem = new llvm::AllocaInst(DtoType(_to), "castcomplextmp", gIR->topallocapoint());
         DtoComplexSet(mem, re, im);
         return new DLRValue(val->getType(), val->getRVal(), _to, mem);
     }
     else if (to->isimaginary()) {
         if (val->isComplex())
             return new DImValue(to, val->isComplex()->im);
-        llvm::Value* v = val->getRVal();
+        LLValue* v = val->getRVal();
         DImValue* im = new DImValue(to, DtoLoad(DtoGEPi(v,0,1,"tmp")));
         return DtoCastFloat(im, to);
     }
     else if (to->isfloating()) {
         if (val->isComplex())
             return new DImValue(to, val->isComplex()->re);
-        llvm::Value* v = val->getRVal();
+        LLValue* v = val->getRVal();
         DImValue* re = new DImValue(to, DtoLoad(DtoGEPi(v,0,0,"tmp")));
         return DtoCastFloat(re, to);
     }
@@ -1320,7 +1268,7 @@ llvm::ConstantInt* DtoConstInt(int i)
 {
     return llvm::ConstantInt::get(llvm::Type::Int32Ty, i, true);
 }
-llvm::Constant* DtoConstBool(bool b)
+LLConstant* DtoConstBool(bool b)
 {
     return llvm::ConstantInt::get(llvm::Type::Int1Ty, b, false);
 }
@@ -1337,34 +1285,34 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* DtoConstString(const char* str)
+LLConstant* DtoConstString(const char* str)
 {
     std::string s(str);
-    llvm::Constant* init = llvm::ConstantArray::get(s, true);
+    LLConstant* init = llvm::ConstantArray::get(s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         init->getType(), true,llvm::GlobalValue::InternalLinkage, init, "stringliteral", gIR->module);
-    llvm::Constant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.length()),
         llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
     );
 }
-llvm::Constant* DtoConstStringPtr(const char* str, const char* section)
+LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
     std::string s(str);
-    llvm::Constant* init = llvm::ConstantArray::get(s, true);
+    LLConstant* init = llvm::ConstantArray::get(s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         init->getType(), true,llvm::GlobalValue::InternalLinkage, init, "stringliteral", gIR->module);
     if (section) gvar->setSection(section);
-    llvm::Constant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
+void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
 {
-    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
+    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
     llvm::Value *dstarr;
     if (dst->getType() == arrty)
     {
@@ -1372,11 +1320,11 @@ void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
     }
     else
     {
-        dstarr = new llvm::BitCastInst(dst,arrty,"tmp",gIR->scopebb());
+        dstarr = DtoBitCast(dst,arrty);
     }
 
     llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemSet64() : LLVM_DeclareMemSet32();
-    std::vector<llvm::Value*> llargs;
+    std::vector<LLValue*> llargs;
     llargs.resize(4);
     llargs[0] = dstarr;
     llargs[1] = llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false);
@@ -1388,24 +1336,24 @@ void DtoMemSetZero(llvm::Value* dst, llvm::Value* nbytes)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
+void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes)
 {
-    const llvm::Type* arrty = getVoidPtrType();
+    const LLType* arrty = getVoidPtrType();
 
-    llvm::Value* dstarr;
+    LLValue* dstarr;
     if (dst->getType() == arrty)
         dstarr = dst;
     else
         dstarr = DtoBitCast(dst, arrty, "tmp");
 
-    llvm::Value* srcarr;
+    LLValue* srcarr;
     if (src->getType() == arrty)
         srcarr = src;
     else
         srcarr = DtoBitCast(src, arrty, "tmp");
 
     llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
-    std::vector<llvm::Value*> llargs;
+    std::vector<LLValue*> llargs;
     llargs.resize(4);
     llargs[0] = dstarr;
     llargs[1] = srcarr;
@@ -1417,20 +1365,20 @@ void DtoMemCpy(llvm::Value* dst, llvm::Value* src, llvm::Value* nbytes)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoLoad(llvm::Value* src)
+LLValue* DtoLoad(LLValue* src, const char* name)
 {
-    llvm::Value* ld = gIR->ir->CreateLoad(src,"tmp");
+    LLValue* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
     //ld->setVolatile(gIR->func()->inVolatile);
     return ld;
 }
 
-void DtoStore(llvm::Value* src, llvm::Value* dst)
+void DtoStore(LLValue* src, LLValue* dst)
 {
-    llvm::Value* st = gIR->ir->CreateStore(src,dst);
+    LLValue* st = gIR->ir->CreateStore(src,dst);
     //st->setVolatile(gIR->func()->inVolatile);
 }
 
-bool DtoCanLoad(llvm::Value* ptr)
+bool DtoCanLoad(LLValue* ptr)
 {
     if (isaPointer(ptr->getType())) {
         return ptr->getType()->getContainedType(0)->isFirstClassType();
@@ -1440,7 +1388,7 @@ bool DtoCanLoad(llvm::Value* ptr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t, const char* name)
+LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
 {
     if (v->getType() == t)
         return v;
@@ -1449,59 +1397,59 @@ llvm::Value* DtoBitCast(llvm::Value* v, const llvm::Type* t, const char* name)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::PointerType* isaPointer(llvm::Value* v)
+const llvm::PointerType* isaPointer(LLValue* v)
 {
     return llvm::dyn_cast<llvm::PointerType>(v->getType());
 }
 
-const llvm::PointerType* isaPointer(const llvm::Type* t)
+const llvm::PointerType* isaPointer(const LLType* t)
 {
     return llvm::dyn_cast<llvm::PointerType>(t);
 }
 
-const llvm::ArrayType* isaArray(llvm::Value* v)
+const llvm::ArrayType* isaArray(LLValue* v)
 {
     return llvm::dyn_cast<llvm::ArrayType>(v->getType());
 }
 
-const llvm::ArrayType* isaArray(const llvm::Type* t)
+const llvm::ArrayType* isaArray(const LLType* t)
 {
     return llvm::dyn_cast<llvm::ArrayType>(t);
 }
 
-const llvm::StructType* isaStruct(llvm::Value* v)
+const llvm::StructType* isaStruct(LLValue* v)
 {
     return llvm::dyn_cast<llvm::StructType>(v->getType());
 }
 
-const llvm::StructType* isaStruct(const llvm::Type* t)
+const llvm::StructType* isaStruct(const LLType* t)
 {
     return llvm::dyn_cast<llvm::StructType>(t);
 }
 
-llvm::Constant* isaConstant(llvm::Value* v)
+LLConstant* isaConstant(LLValue* v)
 {
     return llvm::dyn_cast<llvm::Constant>(v);
 }
 
-llvm::ConstantInt* isaConstantInt(llvm::Value* v)
+llvm::ConstantInt* isaConstantInt(LLValue* v)
 {
     return llvm::dyn_cast<llvm::ConstantInt>(v);
 }
 
-llvm::Argument* isaArgument(llvm::Value* v)
+llvm::Argument* isaArgument(LLValue* v)
 {
     return llvm::dyn_cast<llvm::Argument>(v);
 }
 
-llvm::GlobalVariable* isaGlobalVar(llvm::Value* v)
+llvm::GlobalVariable* isaGlobalVar(LLValue* v)
 {
     return llvm::dyn_cast<llvm::GlobalVariable>(v);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::PointerType* getPtrToType(const llvm::Type* t)
+const llvm::PointerType* getPtrToType(const LLType* t)
 {
     return llvm::PointerType::get(t, 0);
 }
@@ -1511,7 +1459,7 @@ const llvm::PointerType* getVoidPtrType()
     return getPtrToType(llvm::Type::Int8Ty);
 }
 
-llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t)
+llvm::ConstantPointerNull* getNullPtr(const LLType* t)
 {
     const llvm::PointerType* pt = llvm::cast<llvm::PointerType>(t);
     return llvm::ConstantPointerNull::get(pt);
@@ -1519,17 +1467,17 @@ llvm::ConstantPointerNull* getNullPtr(const llvm::Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-size_t getTypeBitSize(const llvm::Type* t)
+size_t getTypeBitSize(const LLType* t)
 {
     return gTargetData->getTypeSizeInBits(t);
 }
 
-size_t getTypeStoreSize(const llvm::Type* t)
+size_t getTypeStoreSize(const LLType* t)
 {
     return gTargetData->getTypeStoreSize(t);
 }
 
-size_t getABITypeSize(const llvm::Type* t)
+size_t getABITypeSize(const LLType* t)
 {
     return gTargetData->getABITypeSize(t);
 }
@@ -1548,7 +1496,7 @@ bool DtoIsTemplateInstance(Dsymbol* s)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type* t)
+void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
 {
     // create a flag to make sure initialization only happens once
     llvm::GlobalValue::LinkageTypes gflaglink = istempl ? llvm::GlobalValue::WeakLinkage : llvm::GlobalValue::InternalLinkage;
@@ -1560,7 +1508,7 @@ void DtoLazyStaticInit(bool istempl, llvm::Value* gvar, Initializer* init, Type*
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* initbb = llvm::BasicBlock::Create("ifnotinit",gIR->topfunc(),oldend);
     llvm::BasicBlock* endinitbb = llvm::BasicBlock::Create("ifnotinitend",gIR->topfunc(),oldend);
-    llvm::Value* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
+    LLValue* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);
     DValue* ie = DtoInitializer(init);
@@ -1673,7 +1621,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
     bool emitRTstaticInit = false;
 
-    llvm::Constant* _init = 0;
+    LLConstant* _init = 0;
     if (vd->parent && vd->parent->isFuncDeclaration() && vd->init && vd->init->isExpInitializer()) {
         _init = DtoConstInitializer(vd->type, NULL);
         emitRTstaticInit = true;
@@ -1682,7 +1630,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         _init = DtoConstInitializer(vd->type, vd->init);
     }
 
-    const llvm::Type* _type = DtoType(vd->type);
+    const LLType* _type = DtoType(vd->type);
     Type* t = DtoDType(vd->type);
 
     //Logger::cout() << "initializer: " << *_init << '\n';
@@ -1888,15 +1836,15 @@ const llvm::StructType* DtoInterfaceInfoType()
         return gIR->interfaceInfoType;
 
     // build interface info type
-    std::vector<const llvm::Type*> types;
+    std::vector<const LLType*> types;
     // ClassInfo classinfo
     ClassDeclaration* cd2 = ClassDeclaration::classinfo;
     DtoResolveClass(cd2);
     types.push_back(getPtrToType(cd2->type->ir.type->get()));
     // void*[] vtbl
-    std::vector<const llvm::Type*> vtbltypes;
+    std::vector<const LLType*> vtbltypes;
     vtbltypes.push_back(DtoSize_t());
-    const llvm::Type* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+    const LLType* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
     vtbltypes.push_back(byteptrptrty);
     types.push_back(llvm::StructType::get(vtbltypes));
     // int offset
@@ -1909,15 +1857,19 @@ const llvm::StructType* DtoInterfaceInfoType()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* DtoTypeInfoOf(Type* type)
+LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
-    const llvm::Type* typeinfotype = DtoType(Type::typeinfo->type);
-    TypeInfoDeclaration* tidecl = type->getTypeInfoDeclaration();
+    const LLType* typeinfotype = DtoType(Type::typeinfo->type);
+    if (!type->vtinfo)
+        type->getTypeInfo(NULL);
+    TypeInfoDeclaration* tidecl = type->vtinfo;
     DtoForceDeclareDsymbol(tidecl);
     assert(tidecl->ir.irGlobal != NULL);
-    llvm::Constant* c = isaConstant(tidecl->ir.irGlobal->value);
+    LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
     assert(c != NULL);
-    return llvm::ConstantExpr::getBitCast(c, typeinfotype);
+    if (base)
+        return llvm::ConstantExpr::getBitCast(c, typeinfotype);
+    return c;
 }
 
 

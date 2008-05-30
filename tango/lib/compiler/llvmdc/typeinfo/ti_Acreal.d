@@ -27,7 +27,7 @@ private import typeinfo.ti_creal;
 
 // creal[]
 
-class TypeInfo_Ac : TypeInfo
+class TypeInfo_Ac : TypeInfo_Array
 {
     char[] toString() { return "creal[]"; }
 

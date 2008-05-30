@@ -5,7 +5,7 @@ private import tango.stdc.string;
 
 // short[]
 
-class TypeInfo_As : TypeInfo
+class TypeInfo_As : TypeInfo_Array
 {
     char[] toString() { return "short[]"; }
 

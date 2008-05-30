@@ -37,11 +37,11 @@
 
 module object;
 
-//debug=PRINTF;
+//debug=PRINTF
 
 private
 {
-    import tango.stdc.string; // : memcmp, memcpy;
+    import tango.stdc.string; // : memcmp, memcpy, memmove;
     import tango.stdc.stdlib; // : calloc, realloc, free;
     import util.string;
     debug(PRINTF) import tango.stdc.stdio; // : printf;
@@ -126,7 +126,8 @@ class Object
 
 /**
  * Information about an interface.
- * A pointer to this appears as the first entry in the interface's vtbl[].
+ * When an object is accessed via an interface, an Interface* appears as the
+ * first entry in its vtbl.
  */
 struct Interface
 {
@@ -436,7 +437,7 @@ class TypeInfo_Array : TypeInfo
     TypeInfo next()
     {
         return value;
-}
+    }
 
     uint flags() { return 1; }
 }
@@ -623,8 +624,7 @@ class TypeInfo_Class : TypeInfo
     hash_t getHash(void *p)
     {
         Object o = *cast(Object*)p;
-        assert(o);
-        return o.toHash();
+        return o ? o.toHash() : 0;
     }
 
     int equals(void *p1, void *p2)
@@ -888,30 +888,82 @@ class TypeInfo_Tuple : TypeInfo
     }
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Exception
+////////////////////////////////////////////////////////////////////////////////
+
+
 class Exception : Object
 {
+    interface TraceInfo
+    {
+        int opApply( int delegate( inout char[] ) );
+    }
+
     char[]      msg;
     char[]      file;
     size_t      line;
+    TraceInfo   info;
     Exception   next;
 
-    this(char[] msg, Exception next = null)
+    this( char[] msg, Exception next = null )
     {
         this.msg = msg;
         this.next = next;
+        this.info = traceContext();
     }
 
-    this(char[] msg, char[] file, size_t line, Exception next = null)
+    this( char[] msg, char[] file, size_t line, Exception next = null )
     {
         this(msg, next);
         this.file = file;
         this.line = line;
+        this.info = traceContext();
     }
 
     char[] toString()
     {
         return msg;
     }
+}
+
+
+alias Exception.TraceInfo function( void* ptr = null ) TraceHandler;
+private TraceHandler traceHandler = null;
+
+
+/**
+ * Overrides the default trace hander with a user-supplied version.
+ *
+ * Params:
+ *  h = The new trace handler.  Set to null to use the default handler.
+ */
+extern (C) void  rt_setTraceHandler( TraceHandler h )
+{
+    traceHandler = h;
+}
+
+
+/**
+ * This function will be called when an Exception is constructed.  The
+ * user-supplied trace handler will be called if one has been supplied,
+ * otherwise no trace will be generated.
+ *
+ * Params:
+ *  ptr = A pointer to the location from which to generate the trace, or null
+ *        if the trace should be generated from within the trace handler
+ *        itself.
+ *
+ * Returns:
+ *  An object describing the current calling context or null if no handler is
+ *  supplied.
+ */
+Exception.TraceInfo traceContext( void* ptr = null )
+{
+    if( traceHandler is null )
+        return null;
+    return traceHandler( ptr );
 }
 
 
@@ -1094,11 +1146,20 @@ extern (C) void _moduleDtor()
 // Monitor
 ////////////////////////////////////////////////////////////////////////////////
 
-alias Object.Monitor IMonitor;
+alias Object.Monitor        IMonitor;
+alias void delegate(Object) DEvent;
 
+// NOTE: The dtor callback feature is only supported for monitors that are not
+//       supplied by the user.  The assumption is that any object with a user-
+//       supplied monitor may have special storage or lifetime requirements and
+//       that as a result, storing references to local objects within Monitor
+//       may not be safe or desirable.  Thus, devt is only valid if impl is
+//       null.
 struct Monitor
 {
     IMonitor impl;
+    /* internal */
+    DEvent[] devt;
     /* stuff */
 }
 
@@ -1126,6 +1187,7 @@ extern (C) void _d_monitordelete(Object h, bool det)
         IMonitor i = m.impl;
         if (i is null)
         {
+            _d_monitor_devt(m, h);
             _d_monitor_destroy(h);
             setMonitor(h, null);
             return;
@@ -1167,4 +1229,72 @@ extern (C) void _d_monitorexit(Object h)
         return;
     }
     i.unlock();
+}
+
+extern (C) void _d_monitor_devt(Monitor* m, Object h)
+{
+    if (m.devt.length)
+    {
+        DEvent[] devt;
+
+        synchronized (h)
+        {
+            devt = m.devt;
+            m.devt = null;
+        }
+        foreach (v; devt)
+        {
+            if (v)
+                v(h);
+        }
+        free(devt.ptr);
+    }
+}
+
+extern (C) void rt_attachDisposeEvent(Object h, DEvent e)
+{
+    synchronized (h)
+    {
+        Monitor* m = getMonitor(h);
+        assert(m.impl is null);
+
+        foreach (inout v; m.devt)
+        {
+            if (v is null || v == e)
+            {
+                v = e;
+                return;
+            }
+        }
+
+        auto len = m.devt.length + 4; // grow by 4 elements
+        auto pos = m.devt.length;     // insert position
+        auto p = realloc(m.devt.ptr, DEvent.sizeof * len);
+        if (!p)
+            onOutOfMemoryError();
+        m.devt = (cast(DEvent*)p)[0 .. len];
+        m.devt[pos+1 .. len] = null;
+        m.devt[pos] = e;
+    }
+}
+
+extern (C) void rt_detachDisposeEvent(Object h, DEvent e)
+{
+    synchronized (h)
+    {
+        Monitor* m = getMonitor(h);
+        assert(m.impl is null);
+
+        foreach (p, v; m.devt)
+        {
+            if (v == e)
+            {
+                memmove(&m.devt[p],
+                        &m.devt[p+1],
+                        (m.devt.length - p - 1) * DEvent.sizeof);
+                m.devt[$ - 1] = null;
+                return;
+            }
+        }
+    }
 }

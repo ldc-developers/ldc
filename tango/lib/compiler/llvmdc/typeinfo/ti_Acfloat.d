@@ -27,7 +27,7 @@ private import typeinfo.ti_cfloat;
 
 // cfloat[]
 
-class TypeInfo_Aq : TypeInfo
+class TypeInfo_Aq : TypeInfo_Array
 {
     char[] toString() { return "cfloat[]"; }
 

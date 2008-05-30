@@ -27,7 +27,7 @@ private import typeinfo.ti_real;
 
 // real[]
 
-class TypeInfo_Ae : TypeInfo
+class TypeInfo_Ae : TypeInfo_Array
 {
     char[] toString() { return "real[]"; }
 

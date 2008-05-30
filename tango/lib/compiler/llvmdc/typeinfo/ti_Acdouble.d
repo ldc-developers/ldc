@@ -27,7 +27,7 @@ private import typeinfo.ti_cdouble;
 
 // cdouble[]
 
-class TypeInfo_Ar : TypeInfo
+class TypeInfo_Ar : TypeInfo_Array
 {
     char[] toString() { return "cdouble[]"; }
 

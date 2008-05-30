@@ -25,9 +25,9 @@ void DtoDeclareClassInfo(ClassDeclaration* cd);
 void DtoDefineClassInfo(ClassDeclaration* cd);
 
 DValue* DtoNewClass(TypeClass* type, NewExp* newexp);
-void DtoInitClass(TypeClass* tc, llvm::Value* dst);
-DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, llvm::Value* mem);
-void DtoFinalizeClass(llvm::Value* inst);
+void DtoInitClass(TypeClass* tc, LLValue* dst);
+DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, LLValue* mem);
+void DtoFinalizeClass(LLValue* inst);
 
 DValue* DtoCastClass(DValue* val, Type* to);
 DValue* DtoDynamicCastObject(DValue* val, Type* to);
@@ -35,8 +35,8 @@ DValue* DtoDynamicCastObject(DValue* val, Type* to);
 DValue* DtoCastInterfaceToObject(DValue* val, Type* to);
 DValue* DtoDynamicCastInterface(DValue* val, Type* to);
 
-llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs);
+LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs);
 
-llvm::Value* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl);
+LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl);
 
 #endif

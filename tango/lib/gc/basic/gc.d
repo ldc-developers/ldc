@@ -69,8 +69,15 @@ extern (C) void gc_term()
     //
     // NOTE: Due to popular demand, this has been re-enabled.  It still has
     //       the problems mentioned above though, so I guess we'll see.
+    version(LLVMDC)
+    {
+    // currently crashes a lot
+    }
+    else
+    {
     _gc.fullCollectNoStack(); // not really a 'collect all' -- still scans
                               // static data area, roots, and ranges.
+    }
     _gc.Dtor();
 }
 

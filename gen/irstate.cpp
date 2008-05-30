@@ -53,11 +53,6 @@ IRState::IRState()
     emitMain = false;
     mainFunc = 0;
     ir.state = this;
-    llvm_DeclareMemSet32 = NULL;
-    llvm_DeclareMemSet64 = NULL;
-    llvm_DeclareMemCpy32 = NULL;
-    llvm_DeclareMemCpy64 = NULL;
-    llvm_DeclareMemBarrier = NULL;
 }
 
 IrFunction* IRState::func()

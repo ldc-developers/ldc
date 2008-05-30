@@ -10,7 +10,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-DVarValue::DVarValue(VarDeclaration* vd, llvm::Value* llvmValue, bool lvalue)
+DVarValue::DVarValue(VarDeclaration* vd, LLValue* llvmValue, bool lvalue)
 {
     var = vd;
     val = llvmValue;
@@ -19,7 +19,7 @@ DVarValue::DVarValue(VarDeclaration* vd, llvm::Value* llvmValue, bool lvalue)
     type = var->type;
 }
 
-DVarValue::DVarValue(Type* t, llvm::Value* lv, llvm::Value* rv)
+DVarValue::DVarValue(Type* t, LLValue* lv, LLValue* rv)
 {
     var = 0;
     val = lv;
@@ -28,7 +28,7 @@ DVarValue::DVarValue(Type* t, llvm::Value* lv, llvm::Value* rv)
     type = t;
 }
 
-DVarValue::DVarValue(Type* t, llvm::Value* llvmValue, bool lvalue)
+DVarValue::DVarValue(Type* t, LLValue* llvmValue, bool lvalue)
 {
     var = 0;
     val = llvmValue;
@@ -37,13 +37,13 @@ DVarValue::DVarValue(Type* t, llvm::Value* llvmValue, bool lvalue)
     type = t;
 }
 
-llvm::Value* DVarValue::getLVal()
+LLValue* DVarValue::getLVal()
 {
     assert(val && lval);
     return val;
 }
 
-llvm::Value* DVarValue::getRVal()
+LLValue* DVarValue::getRVal()
 {
     assert(rval || val);
     if (DtoIsPassedByRef(type)) {
@@ -63,7 +63,7 @@ llvm::Value* DVarValue::getRVal()
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-DFuncValue::DFuncValue(FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt)
+DFuncValue::DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt)
 {
     func = fd;
     type = func->type;
@@ -72,13 +72,13 @@ DFuncValue::DFuncValue(FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt)
     cc = (unsigned)-1;
 }
 
-llvm::Value* DFuncValue::getLVal()
+LLValue* DFuncValue::getLVal()
 {
     assert(0);
     return 0;
 }
 
-llvm::Value* DFuncValue::getRVal()
+LLValue* DFuncValue::getRVal()
 {
     assert(val);
     return val;
@@ -87,7 +87,7 @@ llvm::Value* DFuncValue::getRVal()
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DConstValue::getRVal()
+LLValue* DConstValue::getRVal()
 {
     assert(c);
     return c;

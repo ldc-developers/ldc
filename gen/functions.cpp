@@ -18,7 +18,7 @@
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 
-const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype, bool ismain)
+const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bool ismain)
 {
     TypeFunction* f = (TypeFunction*)type;
     assert(f != 0);
@@ -38,8 +38,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     }
 
     // return value type
-    const llvm::Type* rettype;
-    const llvm::Type* actualRettype;
+    const LLType* rettype;
+    const LLType* actualRettype;
     Type* rt = f->next;
     bool retinptr = false;
     bool usesthis = false;
@@ -63,7 +63,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
     }
 
     // parameter types
-    std::vector<const llvm::Type*> paramvec;
+    std::vector<const LLType*> paramvec;
 
     if (retinptr) {
         //Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
@@ -80,10 +80,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         ti->toObjFile();
         DtoForceConstInitDsymbol(ti);
         assert(ti->ir.irStruct->constInit);
-        std::vector<const llvm::Type*> types;
+        std::vector<const LLType*> types;
         types.push_back(DtoSize_t());
         types.push_back(getPtrToType(getPtrToType(ti->ir.irStruct->constInit->getType())));
-        const llvm::Type* t1 = llvm::StructType::get(types);
+        const LLType* t1 = llvm::StructType::get(types);
         paramvec.push_back(getPtrToType(t1));
         paramvec.push_back(getPtrToType(llvm::Type::Int8Ty));
     }
@@ -100,7 +100,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const llvm::Type* thistype
         Type* argT = DtoDType(arg->type);
         assert(argT);
 
-        const llvm::Type* at = DtoType(argT);
+        const LLType* at = DtoType(argT);
         if (isaStruct(at)) {
             Logger::println("struct param");
             paramvec.push_back(getPtrToType(at));
@@ -156,7 +156,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
     assert(f != 0);
 
     const llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
-    std::vector<const llvm::Type*> args;
+    std::vector<const LLType*> args;
 
     if (fdecl->llvmInternal == LLVMva_start) {
         args.push_back(i8pty);
@@ -187,7 +187,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
     // unittest has null type, just build it manually
     /*if (fdecl->isUnitTestDeclaration()) {
-        std::vector<const llvm::Type*> args;
+        std::vector<const LLType*> args;
         return llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
     }*/
 
@@ -196,7 +196,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
     }
 
-    const llvm::Type* thisty = NULL;
+    const LLType* thisty = NULL;
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
             Logger::println("isMember = this is: %s", ad->type->toChars());
@@ -225,7 +225,7 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 {
     TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
     const llvm::FunctionType* fty = DtoVaFunctionType(fdecl);
-    llvm::Constant* fn = 0;
+    LLConstant* fn = 0;
 
     if (fdecl->llvmInternal == LLVMva_start) {
         fn = gIR->module->getOrInsertFunction("llvm.va_start", fty);
@@ -499,7 +499,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
             gIR->scopes.push_back(IRScope(beginbb, endbb));
 
                 // create alloca point
-                llvm::Instruction* allocaPoint = new llvm::BitCastInst(llvm::ConstantInt::get(llvm::Type::Int32Ty,0,false),llvm::Type::Int32Ty,"alloca point",gIR->scopebb());
+                llvm::Instruction* allocaPoint = new llvm::AllocaInst(llvm::Type::Int32Ty, "alloca point", beginbb);
                 gIR->func()->allocapoint = allocaPoint;
 
                 // need result variable? (not nested)
@@ -522,13 +522,13 @@ void DtoDefineFunc(FuncDeclaration* fd)
                         if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))
                             continue;
 
-                        llvm::Value* a = vd->ir.irLocal->value;
+                        LLValue* a = vd->ir.irLocal->value;
                         assert(a);
                         std::string s(a->getName());
                         Logger::println("giving argument '%s' storage", s.c_str());
                         s.append("_storage");
 
-                        llvm::Value* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
+                        LLValue* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
                         gIR->ir->CreateStore(a,v);
                         vd->ir.irLocal->value = v;
                     }
@@ -537,7 +537,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 // debug info
                 if (global.params.symdebug) DtoDwarfFuncStart(fd);
 
-                llvm::Value* parentNested = NULL;
+                LLValue* parentNested = NULL;
                 if (FuncDeclaration* fd2 = fd->toParent2()->isFuncDeclaration()) {
                     if (!fd->isStatic()) // huh?
                         parentNested = fd2->ir.irFunc->nestedVar;
@@ -551,7 +551,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
                 // construct nested variables struct
                 if (!fd->nestedVars.empty() || parentNested) {
-                    std::vector<const llvm::Type*> nestTypes;
+                    std::vector<const LLType*> nestTypes;
                     int j = 0;
                     if (parentNested) {
                         nestTypes.push_back(parentNested->getType());
@@ -580,7 +580,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                     fd->ir.irFunc->nestedVar = new llvm::AllocaInst(nestSType,"nestedvars",allocaPoint);
                     if (parentNested) {
                         assert(fd->ir.irFunc->thisVar);
-                        llvm::Value* ptr = gIR->ir->CreateBitCast(fd->ir.irFunc->thisVar, parentNested->getType(), "tmp");
+                        LLValue* ptr = gIR->ir->CreateBitCast(fd->ir.irFunc->thisVar, parentNested->getType(), "tmp");
                         gIR->ir->CreateStore(ptr, DtoGEPi(fd->ir.irFunc->nestedVar, 0,0, "tmp"));
                     }
                     for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
@@ -596,7 +596,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 // copy _argptr to a memory location
                 if (f->linkage == LINKd && f->varargs == 1)
                 {
-                    llvm::Value* argptrmem = new llvm::AllocaInst(fd->ir.irFunc->_argptr->getType(), "_argptrmem", gIR->topallocapoint());
+                    LLValue* argptrmem = new llvm::AllocaInst(fd->ir.irFunc->_argptr->getType(), "_argptrmem", gIR->topallocapoint());
                     new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
                     fd->ir.irFunc->_argptr = argptrmem;
                 }
@@ -665,12 +665,12 @@ void DtoMain()
     assert(ir.emitMain && ir.mainFunc);
 
     // parameter types
-    std::vector<const llvm::Type*> pvec;
-    pvec.push_back((const llvm::Type*)llvm::Type::Int32Ty);
-    const llvm::Type* chPtrType = (const llvm::Type*)getPtrToType(llvm::Type::Int8Ty);
-    pvec.push_back((const llvm::Type*)getPtrToType(chPtrType));
-    pvec.push_back((const llvm::Type*)getPtrToType(chPtrType));
-    const llvm::Type* rettype = (const llvm::Type*)llvm::Type::Int32Ty;
+    std::vector<const LLType*> pvec;
+    pvec.push_back((const LLType*)llvm::Type::Int32Ty);
+    const LLType* chPtrType = (const LLType*)getPtrToType(llvm::Type::Int8Ty);
+    pvec.push_back((const LLType*)getPtrToType(chPtrType));
+    pvec.push_back((const LLType*)getPtrToType(chPtrType));
+    const LLType* rettype = (const LLType*)llvm::Type::Int32Ty;
 
     llvm::FunctionType* functype = llvm::FunctionType::get(rettype, pvec, false);
     llvm::Function* func = llvm::Function::Create(functype,llvm::GlobalValue::ExternalLinkage,"main",ir.module);
@@ -694,18 +694,18 @@ void DtoMain()
     {
         // main with arguments
         assert(mainty->getNumParams() == 1);
-        std::vector<llvm::Value*> args;
+        std::vector<LLValue*> args;
         llvm::Function* mfn = LLVM_D_GetRuntimeFunction(ir.module,"_d_main_args");
 
         llvm::Function::arg_iterator argi = func->arg_begin();
         args.push_back(argi++);
         args.push_back(argi++);
 
-        const llvm::Type* at = mainty->getParamType(0)->getContainedType(0);
-        llvm::Value* arr = new llvm::AllocaInst(at->getContainedType(1)->getContainedType(0), func->arg_begin(), "argstorage", apt);
-        llvm::Value* a = new llvm::AllocaInst(at, "argarray", apt);
-        llvm::Value* ptr = DtoGEPi(a,0,0,"tmp",bb);
-        llvm::Value* v = args[0];
+        const LLType* at = mainty->getParamType(0)->getContainedType(0);
+        LLValue* arr = new llvm::AllocaInst(at->getContainedType(1)->getContainedType(0), func->arg_begin(), "argstorage", apt);
+        LLValue* a = new llvm::AllocaInst(at, "argarray", apt);
+        LLValue* ptr = DtoGEPi(a,0,0,"tmp",bb);
+        LLValue* v = args[0];
         if (v->getType() != DtoSize_t())
             v = new llvm::ZExtInst(v, DtoSize_t(), "tmp", bb);
         new llvm::StoreInst(v,ptr,bb);
@@ -778,7 +778,7 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
     // aggregate arg
     else if (DtoIsPassedByRef(argexp->type))
     {
-        llvm::Value* alloc = new llvm::AllocaInst(DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
+        LLValue* alloc = new llvm::AllocaInst(DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
         DVarValue* vv = new DVarValue(argexp->type, alloc, true);
         DtoAssign(vv, arg);
         arg = vv;
@@ -794,7 +794,7 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoVariadicArgument(Expression* argexp, llvm::Value* dst)
+void DtoVariadicArgument(Expression* argexp, LLValue* dst)
 {
     Logger::println("DtoVariadicArgument");
     LOG_SCOPE;

@@ -140,13 +140,6 @@ struct IRState
     FuncDeclVector ctors;
     FuncDeclVector dtors;
     FuncDeclVector unitTests;
-
-    // intrinsics
-    llvm::Function* llvm_DeclareMemSet32;
-    llvm::Function* llvm_DeclareMemSet64;
-    llvm::Function* llvm_DeclareMemCpy32;
-    llvm::Function* llvm_DeclareMemCpy64;
-    llvm::Function* llvm_DeclareMemBarrier;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

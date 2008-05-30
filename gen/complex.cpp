@@ -14,19 +14,19 @@ const llvm::StructType* DtoComplexType(Type* type)
 {
     Type* t = DtoDType(type);
 
-    const llvm::Type* base = DtoComplexBaseType(t);
+    const LLType* base = DtoComplexBaseType(t);
 
-    std::vector<const llvm::Type*> types;
+    std::vector<const LLType*> types;
     types.push_back(base);
     types.push_back(base);
 
     return llvm::StructType::get(types);
 }
 
-const llvm::Type* DtoComplexBaseType(Type* t)
+const LLType* DtoComplexBaseType(Type* t)
 {
     TY ty = DtoDType(t)->ty;
-    const llvm::Type* base;
+    const LLType* base;
     if (ty == Tcomplex32) {
         return llvm::Type::FloatTy;
     }
@@ -40,12 +40,12 @@ const llvm::Type* DtoComplexBaseType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant* DtoConstComplex(Type* ty, llvm::Constant* re, llvm::Constant* im)
+LLConstant* DtoConstComplex(Type* ty, LLConstant* re, LLConstant* im)
 {
     assert(0);
-    const llvm::Type* base = DtoComplexBaseType(ty);
+    const LLType* base = DtoComplexBaseType(ty);
 
-    std::vector<llvm::Constant*> inits;
+    std::vector<LLConstant*> inits;
     inits.push_back(re);
     inits.push_back(im);
 
@@ -53,14 +53,14 @@ llvm::Constant* DtoConstComplex(Type* ty, llvm::Constant* re, llvm::Constant* im
     return llvm::ConstantVector::get(vt, inits);
 }
 
-llvm::Constant* DtoConstComplex(Type* _ty, long double re, long double im)
+LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
 {
     TY ty = DtoDType(_ty)->ty;
 
     llvm::ConstantFP* fre;
     llvm::ConstantFP* fim;
 
-    const llvm::Type* base;
+    const LLType* base;
 
     if (ty == Tcomplex32) {
         fre = DtoConstFP(Type::tfloat32, re);
@@ -75,17 +75,17 @@ llvm::Constant* DtoConstComplex(Type* _ty, long double re, long double im)
     else
     assert(0);
 
-    std::vector<llvm::Constant*> inits;
+    std::vector<LLConstant*> inits;
     inits.push_back(fre);
     inits.push_back(fim);
     return llvm::ConstantStruct::get(DtoComplexType(_ty), inits);
 }
 
-llvm::Constant* DtoUndefComplex(Type* _ty)
+LLConstant* DtoUndefComplex(Type* _ty)
 {
     assert(0);
     TY ty = DtoDType(_ty)->ty;
-    const llvm::Type* base;
+    const LLType* base;
     if (ty == Tcomplex32) {
         base = llvm::Type::FloatTy;
     }
@@ -95,7 +95,7 @@ llvm::Constant* DtoUndefComplex(Type* _ty)
     else
     assert(0);
 
-    std::vector<llvm::Constant*> inits;
+    std::vector<LLConstant*> inits;
     inits.push_back(llvm::UndefValue::get(base));
     inits.push_back(llvm::UndefValue::get(base));
 
@@ -105,7 +105,7 @@ llvm::Constant* DtoUndefComplex(Type* _ty)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoRealPart(DValue* val)
+LLValue* DtoRealPart(DValue* val)
 {
     assert(0);
     return gIR->ir->CreateExtractElement(val->getRVal(), DtoConstUint(0), "tmp");
@@ -113,7 +113,7 @@ llvm::Value* DtoRealPart(DValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoImagPart(DValue* val)
+LLValue* DtoImagPart(DValue* val)
 {
     assert(0);
     return gIR->ir->CreateExtractElement(val->getRVal(), DtoConstUint(1), "tmp");
@@ -130,10 +130,10 @@ DValue* DtoComplex(Type* to, DValue* val)
         return DtoCastComplex(val, to);
     }
 
-    const llvm::Type* base = DtoComplexBaseType(to);
+    const LLType* base = DtoComplexBaseType(to);
 
-    llvm::Constant* undef = llvm::UndefValue::get(base);
-    llvm::Constant* zero;
+    LLConstant* undef = llvm::UndefValue::get(base);
+    LLConstant* zero;
     if (ty == Tfloat32 || ty == Timaginary32 || ty == Tcomplex32)
         zero = llvm::ConstantFP::get(llvm::APFloat(0.0f));
     else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tcomplex64 || ty == Tfloat80 || ty == Timaginary80 || ty == Tcomplex80)
@@ -151,13 +151,13 @@ DValue* DtoComplex(Type* to, DValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoComplexAssign(llvm::Value* l, llvm::Value* r)
+void DtoComplexAssign(LLValue* l, LLValue* r)
 {
     DtoStore(DtoLoad(DtoGEPi(r, 0,0, "tmp")), DtoGEPi(l,0,0,"tmp"));
     DtoStore(DtoLoad(DtoGEPi(r, 0,1, "tmp")), DtoGEPi(l,0,1,"tmp"));
 }
 
-void DtoComplexSet(llvm::Value* c, llvm::Value* re, llvm::Value* im)
+void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im)
 {
     DtoStore(re, DtoGEPi(c,0,0,"tmp"));
     DtoStore(im, DtoGEPi(c,0,1,"tmp"));
@@ -165,7 +165,7 @@ void DtoComplexSet(llvm::Value* c, llvm::Value* re, llvm::Value* im)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoGetComplexParts(DValue* c, llvm::Value*& re, llvm::Value*& im)
+void DtoGetComplexParts(DValue* c, LLValue*& re, LLValue*& im)
 {
     // lhs values
     if (DComplexValue* cx = c->isComplex()) {
@@ -300,7 +300,7 @@ DValue* DtoComplexNeg(Type* type, DValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
+LLValue* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
 {
     Type* type = lhs->getType();
 
@@ -322,7 +322,7 @@ llvm::Value* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
         cmpop = llvm::FCmpInst::FCMP_UNE;
 
     // (l.re==r.re && l.im==r.im)
-    llvm::Value* b1 = new llvm::FCmpInst(cmpop, a, c, "tmp", gIR->scopebb());
-    llvm::Value* b2 = new llvm::FCmpInst(cmpop, b, d, "tmp", gIR->scopebb());
+    LLValue* b1 = new llvm::FCmpInst(cmpop, a, c, "tmp", gIR->scopebb());
+    LLValue* b2 = new llvm::FCmpInst(cmpop, b, d, "tmp", gIR->scopebb());
     return gIR->ir->CreateAnd(b1,b2,"tmp");
 }

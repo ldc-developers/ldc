@@ -2,7 +2,7 @@ module typeinfo.ti_AC;
 
 // Object[]
 
-class TypeInfo_AC : TypeInfo
+class TypeInfo_AC : TypeInfo_Array
 {
     hash_t getHash(void *p)
     {   Object[] s = *cast(Object[]*)p;

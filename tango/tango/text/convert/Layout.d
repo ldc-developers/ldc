@@ -193,8 +193,26 @@ class Layout(T)
                 assert (formatStr, "null format specifier");
                 assert (arguments.length < 64, "too many args in Layout.convert");
 
-        version (X86_64)
+        version (LLVMDC)
                 {
+                static va_list get_va_arg(TypeInfo ti, ref va_list vp)
+                {
+                    auto tisize = ti.tsize;
+                    size_t size = tisize > size_t.sizeof ? size_t.sizeof : tisize;
+                    va_list vptmp = cast(va_list)((cast(size_t)vp + size - 1) &  ~(size - 1));
+                    vp = vptmp + tisize;
+                    return vptmp;
+                }
+
+                Arg[64] arglist = void;
+                foreach (i, arg; arguments)
+                        {
+                        arglist[i] = get_va_arg(arg, args);
+                        }
+                }
+             else version (X86_64)
+                {
+                // code for x86-64 GDC
                 Arg[64] arglist = void;
                 int[64] intargs = void;
                 byte[64] byteargs = void;
@@ -265,25 +283,9 @@ class Layout(T)
                            }
                         }
                 }
-             else version (LLVMDC)
-                {
-                static va_list get_va_arg(TypeInfo ti, ref va_list vp)
-                {
-                    auto tisize = ti.tsize;
-                    size_t size = tisize > size_t.sizeof ? size_t.sizeof : tisize;
-                    va_list vptmp = cast(va_list)((cast(size_t)vp + size - 1) &  ~(size - 1));
-                    vp = vptmp + tisize;
-                    return vptmp;
-                }
-
-                Arg[64] arglist = void;
-                foreach (i, arg; arguments)
-                        {
-                        arglist[i] = get_va_arg(arg, args);
-                        }
-                }
              else
                 {
+                // code for DMD & x86 GDC (may also work on other 32-bit targets)
                 Arg[64] arglist = void;
                 foreach (i, arg; arguments)
                         {

@@ -6,18 +6,18 @@ struct DSliceValue;
 const llvm::StructType* DtoArrayType(Type* t);
 const llvm::ArrayType* DtoStaticArrayType(Type* t);
 
-llvm::Constant* DtoConstArrayInitializer(ArrayInitializer* si);
-llvm::Constant* DtoConstSlice(llvm::Constant* dim, llvm::Constant* ptr);
-llvm::Constant* DtoConstStaticArray(const llvm::Type* t, llvm::Constant* c);
+LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
+LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr);
+LLConstant* DtoConstStaticArray(const llvm::Type* t, LLConstant* c);
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
-void DtoArrayInit(llvm::Value* l, llvm::Value* r);
-void DtoArrayInit(llvm::Value* ptr, llvm::Value* dim, llvm::Value* val);
-void DtoArrayAssign(llvm::Value* l, llvm::Value* r);
-void DtoSetArray(llvm::Value* arr, llvm::Value* dim, llvm::Value* ptr);
-void DtoSetArrayToNull(llvm::Value* v);
+void DtoArrayInit(LLValue* l, LLValue* r);
+void DtoArrayInit(LLValue* ptr, LLValue* dim, LLValue* val);
+void DtoArrayAssign(LLValue* l, LLValue* r);
+void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr);
+void DtoSetArrayToNull(LLValue* v);
 
 DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit=true);
 DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim);
@@ -27,17 +27,17 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);
 DSliceValue* DtoCatArrays(Type* type, Expression* e1, Expression* e2);
 DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2);
 
-void DtoStaticArrayCopy(llvm::Value* dst, llvm::Value* src);
+void DtoStaticArrayCopy(LLValue* dst, LLValue* src);
 
-llvm::Value* DtoArrayEquals(TOK op, DValue* l, DValue* r);
-llvm::Value* DtoArrayCompare(TOK op, DValue* l, DValue* r);
+LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r);
+LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r);
 
-llvm::Value* DtoDynArrayIs(TOK op, llvm::Value* l, llvm::Value* r);
+LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r);
 
-llvm::Value* DtoArrayCastLength(llvm::Value* len, const llvm::Type* elemty, const llvm::Type* newelemty);
+LLValue* DtoArrayCastLength(LLValue* len, const llvm::Type* elemty, const llvm::Type* newelemty);
 
-llvm::Value* DtoArrayLen(DValue* v);
-llvm::Value* DtoArrayPtr(DValue* v);
+LLValue* DtoArrayLen(DValue* v);
+LLValue* DtoArrayPtr(DValue* v);
 
 DValue* DtoCastArray(DValue* val, Type* to);
 

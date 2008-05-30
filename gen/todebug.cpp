@@ -15,18 +15,18 @@
 
 using namespace llvm::dwarf;
 
-static const llvm::PointerType* ptrTy(const llvm::Type* t)
+static const llvm::PointerType* ptrTy(const LLType* t)
 {
     return llvm::PointerType::get(t, 0);
 }
 
 static const llvm::PointerType* dbgArrTy()
 {
-    std::vector<const llvm::Type*> t;
+    std::vector<const LLType*> t;
     return ptrTy(llvm::StructType::get(t));
 }
 
-static llvm::Constant* dbgToArrTy(llvm::Constant* c)
+static LLConstant* dbgToArrTy(LLConstant* c)
 {
     Logger::cout() << "casting: " << *c << '\n';
     return llvm::ConstantExpr::getBitCast(c, dbgArrTy());
@@ -48,7 +48,7 @@ const llvm::StructType* GetDwarfAnchorType()
         uint    ;; Tag of descriptors grouped by the anchor
     }
     */
-    std::vector<const llvm::Type*> elems(2, Ty(Int32Ty));
+    std::vector<const LLType*> elems(2, Ty(Int32Ty));
     const llvm::StructType* t = isaStruct(gIR->module->getTypeByName("llvm.dbg.anchor.type"));
 
     /*
@@ -57,26 +57,26 @@ const llvm::StructType* GetDwarfAnchorType()
     %llvm.dbg.subprograms         = linkonce constant %llvm.dbg.anchor.type  { uint 0, uint 46 } ;; DW_TAG_subprogram
     */
     if (!gIR->module->getNamedGlobal("llvm.dbg.compile_units")) {
-        std::vector<llvm::Constant*> vals;
+        std::vector<LLConstant*> vals;
         vals.push_back(DtoConstUint(llvm::LLVMDebugVersion));
         vals.push_back(DtoConstUint(DW_TAG_compile_unit));
-        llvm::Constant* i = llvm::ConstantStruct::get(t, vals);
+        LLConstant* i = llvm::ConstantStruct::get(t, vals);
         dbg_compile_units = new llvm::GlobalVariable(t,true,llvm::GlobalValue::LinkOnceLinkage,i,"llvm.dbg.compile_units",gIR->module);
         dbg_compile_units->setSection("llvm.metadata");
     }
     if (!gIR->module->getNamedGlobal("llvm.dbg.global_variables")) {
-        std::vector<llvm::Constant*> vals;
+        std::vector<LLConstant*> vals;
         vals.push_back(DtoConstUint(llvm::LLVMDebugVersion));
         vals.push_back(DtoConstUint(DW_TAG_variable));
-        llvm::Constant* i = llvm::ConstantStruct::get(t, vals);
+        LLConstant* i = llvm::ConstantStruct::get(t, vals);
         dbg_global_variables = new llvm::GlobalVariable(t,true,llvm::GlobalValue::LinkOnceLinkage,i,"llvm.dbg.global_variables",gIR->module);
         dbg_global_variables->setSection("llvm.metadata");
     }
     if (!gIR->module->getNamedGlobal("llvm.dbg.subprograms")) {
-        std::vector<llvm::Constant*> vals;
+        std::vector<LLConstant*> vals;
         vals.push_back(DtoConstUint(llvm::LLVMDebugVersion));
         vals.push_back(DtoConstUint(DW_TAG_subprogram));
-        llvm::Constant* i = llvm::ConstantStruct::get(t, vals);
+        LLConstant* i = llvm::ConstantStruct::get(t, vals);
         dbg_subprograms = new llvm::GlobalVariable(t,true,llvm::GlobalValue::LinkOnceLinkage,i,"llvm.dbg.subprograms",gIR->module);
         dbg_subprograms->setSection("llvm.metadata");
     }
@@ -84,7 +84,7 @@ const llvm::StructType* GetDwarfAnchorType()
     return t;
 }
 
-llvm::Constant* GetDwarfAnchor(llvm::dwarf::dwarf_constants c)
+LLConstant* GetDwarfAnchor(llvm::dwarf::dwarf_constants c)
 {
     GetDwarfAnchorType();
     switch (c)
@@ -124,9 +124,9 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
 
     // create a valid compile unit constant for the current module
 
-    llvm::Constant* c = NULL;
+    LLConstant* c = NULL;
 
-    std::vector<llvm::Constant*> vals;
+    std::vector<LLConstant*> vals;
     vals.push_back(llvm::ConstantExpr::getAdd(
         DtoConstUint(DW_TAG_compile_unit),
         DtoConstUint(llvm::LLVMDebugVersion)));
@@ -156,7 +156,7 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
 
 llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit)
 {
-    std::vector<llvm::Constant*> vals;
+    std::vector<LLConstant*> vals;
     vals.push_back(llvm::ConstantExpr::getAdd(
         DtoConstUint(DW_TAG_subprogram),
         DtoConstUint(llvm::LLVMDebugVersion)));
@@ -172,7 +172,7 @@ llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariab
     vals.push_back(DtoConstBool(fd->protection == PROTprivate));
     vals.push_back(DtoConstBool(fd->getModule() == gIR->dmodule));
 
-    llvm::Constant* c = llvm::ConstantStruct::get(GetDwarfSubProgramType(), vals);
+    LLConstant* c = llvm::ConstantStruct::get(GetDwarfSubProgramType(), vals);
     llvm::GlobalVariable* gv = new llvm::GlobalVariable(c->getType(), true, llvm::GlobalValue::InternalLinkage, c, "llvm.dbg.subprogram", gIR->module);
     gv->setSection("llvm.metadata");
     return gv;
@@ -196,7 +196,7 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
 
 void DtoDwarfStopPoint(unsigned ln)
 {
-    std::vector<llvm::Value*> args;
+    std::vector<LLValue*> args;
     args.push_back(DtoConstUint(ln));
     args.push_back(DtoConstUint(0));
     FuncDeclaration* fd = gIR->func()->decl;

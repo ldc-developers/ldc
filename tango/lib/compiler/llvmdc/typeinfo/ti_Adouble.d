@@ -27,7 +27,7 @@ private import typeinfo.ti_double;
 
 // double[]
 
-class TypeInfo_Ad : TypeInfo
+class TypeInfo_Ad : TypeInfo_Array
 {
     char[] toString() { return "double[]"; }
 

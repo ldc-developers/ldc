@@ -10,7 +10,7 @@
 
 DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
 {
-    llvm::Value* v = gIR->ir->CreateAdd(lhs->getRVal(), rhs->getRVal(), "tmp");
+    LLValue* v = gIR->ir->CreateAdd(lhs->getRVal(), rhs->getRVal(), "tmp");
     return new DImValue( lhs->getType(), v );
 }
 
@@ -18,7 +18,7 @@ DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
 
 DValue* DtoBinSub(DValue* lhs, DValue* rhs)
 {
-    llvm::Value* v = gIR->ir->CreateSub(lhs->getRVal(), rhs->getRVal(), "tmp");
+    LLValue* v = gIR->ir->CreateSub(lhs->getRVal(), rhs->getRVal(), "tmp");
     return new DImValue( lhs->getType(), v );
 }
 
@@ -26,7 +26,7 @@ DValue* DtoBinSub(DValue* lhs, DValue* rhs)
 
 DValue* DtoBinMul(DValue* lhs, DValue* rhs)
 {
-    llvm::Value* v = gIR->ir->CreateMul(lhs->getRVal(), rhs->getRVal(), "tmp");
+    LLValue* v = gIR->ir->CreateMul(lhs->getRVal(), rhs->getRVal(), "tmp");
     return new DImValue( lhs->getType(), v );
 }
 
@@ -38,7 +38,7 @@ DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
     llvm::Value *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    llvm::Value* res;
+    LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFDiv(l, r, "tmp");
     else if (!t->isunsigned())
@@ -56,7 +56,7 @@ DValue* DtoBinRem(DValue* lhs, DValue* rhs)
     llvm::Value *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    llvm::Value* res;
+    LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFRem(l, r, "tmp");
     else if (!t->isunsigned())

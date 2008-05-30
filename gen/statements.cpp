@@ -104,7 +104,7 @@ void ReturnStatement::toIR(IRState* p)
         else {
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
             DValue* e = exp->toElem(p);
-            llvm::Value* v = e->getRVal();
+            LLValue* v = e->getRVal();
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
 
@@ -177,13 +177,13 @@ void IfStatement::toIR(IRState* p)
 
     if (match)
     {
-        llvm::Value* allocainst = new llvm::AllocaInst(DtoType(match->type), "._tmp_if_var", p->topallocapoint());
+        LLValue* allocainst = new llvm::AllocaInst(DtoType(match->type), "._tmp_if_var", p->topallocapoint());
         match->ir.irLocal = new IrLocal(match);
         match->ir.irLocal->value = allocainst;
     }
 
     DValue* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = cond_e->getRVal();
+    LLValue* cond_val = cond_e->getRVal();
     delete cond_e;
 
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -196,7 +196,7 @@ void IfStatement::toIR(IRState* p)
         Logger::cout() << "if conditional: " << *cond_val << '\n';
         cond_val = DtoBoolean(cond_val);
     }
-    llvm::Value* ifgoback = llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
+    LLValue* ifgoback = llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
 
     // replace current scope
     gIR->scope() = IRScope(ifbb,elsebb);
@@ -274,11 +274,11 @@ void WhileStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(cond_e->getRVal());
+    LLValue* cond_val = DtoBoolean(cond_e->getRVal());
     delete cond_e;
 
     // conditional branch
-    llvm::Value* ifbreak = llvm::BranchInst::Create(whilebodybb, endbb, cond_val, p->scopebb());
+    LLValue* ifbreak = llvm::BranchInst::Create(whilebodybb, endbb, cond_val, p->scopebb());
 
     // rewrite scope
     gIR->scope() = IRScope(whilebodybb,endbb);
@@ -322,11 +322,11 @@ void DoStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(cond_e->getRVal());
+    LLValue* cond_val = DtoBoolean(cond_e->getRVal());
     delete cond_e;
 
     // conditional branch
-    llvm::Value* ifbreak = llvm::BranchInst::Create(dowhilebb, endbb, cond_val, gIR->scopebb());
+    LLValue* ifbreak = llvm::BranchInst::Create(dowhilebb, endbb, cond_val, gIR->scopebb());
 
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
@@ -361,7 +361,7 @@ void ForStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    llvm::Value* cond_val = DtoBoolean(cond_e->getRVal());
+    LLValue* cond_val = DtoBoolean(cond_e->getRVal());
     delete cond_e;
 
     // conditional branch
@@ -571,7 +571,7 @@ void ThrowStatement::toIR(IRState* p)
     DValue* e = exp->toElem(p);
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_throw_exception");
     //Logger::cout() << "calling: " << *fn << '\n';
-    llvm::Value* arg = DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
+    LLValue* arg = DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
     //Logger::cout() << "arg: " << *arg << '\n';
     gIR->ir->CreateCall(fn, arg, "");
     gIR->ir->CreateUnreachable();
@@ -596,7 +596,7 @@ struct Case : Object
     }
 };
 
-static llvm::Value* call_string_switch_runtime(llvm::GlobalVariable* table, Expression* e)
+static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expression* e)
 {
     Type* dt = DtoDType(e->type);
     Type* dtnext = DtoDType(dt->next);
@@ -616,14 +616,14 @@ static llvm::Value* call_string_switch_runtime(llvm::GlobalVariable* table, Expr
     }
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
-    std::vector<llvm::Value*> args;
+    std::vector<LLValue*> args;
     Logger::cout() << *table->getType() << '\n';
     Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
     args.push_back(table);
 
     DValue* val = e->toElem(gIR);
-    llvm::Value* llval;
+    LLValue* llval;
     if (DSliceValue* sval = val->isSlice())
     {
         // give storage
@@ -667,7 +667,7 @@ void SwitchStatement::toIR(IRState* p)
         do {
             // integral case
             if (cs->exp->type->isintegral()) {
-                llvm::Constant* c = cs->exp->toConstElem(p);
+                LLConstant* c = cs->exp->toConstElem(p);
                 tmp.push_back(isaConstantInt(c));
             }
             // string case
@@ -694,7 +694,7 @@ void SwitchStatement::toIR(IRState* p)
         // first sort it
         caseArray.sort();
         // iterate and add indices to cases
-        std::vector<llvm::Constant*> inits;
+        std::vector<LLConstant*> inits;
         for (size_t i=0; i<caseArray.dim; ++i)
         {
             Case* c = (Case*)caseArray.data[i];
@@ -702,23 +702,23 @@ void SwitchStatement::toIR(IRState* p)
             inits.push_back(c->str->toConstElem(p));
         }
         // build static array for ptr or final array
-        const llvm::Type* elemTy = DtoType(condition->type);
+        const LLType* elemTy = DtoType(condition->type);
         const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
-        llvm::Constant* arrInit = llvm::ConstantArray::get(arrTy, inits);
+        LLConstant* arrInit = llvm::ConstantArray::get(arrTy, inits);
         llvm::GlobalVariable* arr = new llvm::GlobalVariable(arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, "string_switch_table_data", gIR->module);
 
-        const llvm::Type* elemPtrTy = getPtrToType(elemTy);
-        llvm::Constant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
+        const LLType* elemPtrTy = getPtrToType(elemTy);
+        LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
 
         // build the static table
-        std::vector<const llvm::Type*> types;
+        std::vector<const LLType*> types;
         types.push_back(DtoSize_t());
         types.push_back(elemPtrTy);
         const llvm::StructType* sTy = llvm::StructType::get(types);
-        std::vector<llvm::Constant*> sinits;
+        std::vector<LLConstant*> sinits;
         sinits.push_back(DtoConstSize_t(inits.size()));
         sinits.push_back(arrPtr);
-        llvm::Constant* sInit = llvm::ConstantStruct::get(sTy, sinits);
+        LLConstant* sInit = llvm::ConstantStruct::get(sTy, sinits);
 
         switchTable = new llvm::GlobalVariable(sTy, true, llvm::GlobalValue::InternalLinkage, sInit, "string_switch_table", gIR->module);
     }
@@ -734,7 +734,7 @@ void SwitchStatement::toIR(IRState* p)
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("switchend", p->topfunc(), oldend);
 
     // condition var
-    llvm::Value* condVal;
+    LLValue* condVal;
     // integral switch
     if (condition->type->isintegral()) {
         DValue* cond = condition->toElem(p);
@@ -845,8 +845,8 @@ void ForeachStatement::toIR(IRState* p)
     Logger::println("aggr = %s", aggr->toChars());
 
     // key
-    const llvm::Type* keytype = key ? DtoType(key->type) : DtoSize_t();
-    llvm::Value* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
+    const LLType* keytype = key ? DtoType(key->type) : DtoSize_t();
+    LLValue* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
     if (key)
     {
         //key->llvmValue = keyvar;
@@ -854,12 +854,12 @@ void ForeachStatement::toIR(IRState* p)
         key->ir.irLocal = new IrLocal(key);
         key->ir.irLocal->value = keyvar;
     }
-    llvm::Value* zerokey = llvm::ConstantInt::get(keytype,0,false);
+    LLValue* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
     // value
     Logger::println("value = %s", value->toPrettyChars());
-    const llvm::Type* valtype = DtoType(value->type);
-    llvm::Value* valvar = NULL;
+    const LLType* valtype = DtoType(value->type);
+    LLValue* valvar = NULL;
     if (!value->isRef() && !value->isOut())
         valvar = new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint());
     if (!value->ir.irLocal)
@@ -870,8 +870,8 @@ void ForeachStatement::toIR(IRState* p)
     Type* aggrtype = DtoDType(aggr->type);
 
     // get length and pointer
-    llvm::Value* val = 0;
-    llvm::Value* niters = 0;
+    LLValue* val = 0;
+    LLValue* niters = 0;
 
     // static array
     if (aggrtype->ty == Tsarray)
@@ -922,7 +922,7 @@ void ForeachStatement::toIR(IRState* p)
             niters = gIR->ir->CreateBitCast(niters, keytype, "foreachtrunckey");
     }
 
-    llvm::Constant* delta = 0;
+    LLConstant* delta = 0;
     if (op == TOKforeach) {
         new llvm::StoreInst(zerokey, keyvar, p->scopebb());
     }
@@ -941,8 +941,8 @@ void ForeachStatement::toIR(IRState* p)
     // condition
     p->scope() = IRScope(condbb,bodybb);
 
-    llvm::Value* done = 0;
-    llvm::Value* load = new llvm::LoadInst(keyvar, "tmp", p->scopebb());
+    LLValue* done = 0;
+    LLValue* load = new llvm::LoadInst(keyvar, "tmp", p->scopebb());
     if (op == TOKforeach) {
         done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_ULT, load, niters, "tmp", p->scopebb());
     }
@@ -957,8 +957,8 @@ void ForeachStatement::toIR(IRState* p)
     p->scope() = IRScope(bodybb,nextbb);
 
     // get value for this iteration
-    llvm::Constant* zero = llvm::ConstantInt::get(keytype,0,false);
-    llvm::Value* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
+    LLConstant* zero = llvm::ConstantInt::get(keytype,0,false);
+    LLValue* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     if (aggrtype->ty == Tsarray)
         value->ir.irLocal->value = DtoGEP(val,zero,loadedKey,"tmp");
     else if (aggrtype->ty == Tarray)
@@ -982,7 +982,7 @@ void ForeachStatement::toIR(IRState* p)
     // next
     p->scope() = IRScope(nextbb,endbb);
     if (op == TOKforeach) {
-        llvm::Value* load = DtoLoad(keyvar);
+        LLValue* load = DtoLoad(keyvar);
         load = p->ir->CreateAdd(load, llvm::ConstantInt::get(keytype, 1, false), "tmp");
         DtoStore(load, keyvar);
     }
@@ -1141,7 +1141,7 @@ void AsmStatement::toIR(IRState* p)
     Logger::println("asm expr = '%s'", asmstr.c_str());
 
     // create function type
-    std::vector<const llvm::Type*> args;
+    std::vector<const LLType*> args;
     const llvm::FunctionType* fty = llvm::FunctionType::get(DtoSize_t(), args, false);
 
     // create inline asm callee

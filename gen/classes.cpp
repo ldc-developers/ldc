@@ -129,11 +129,11 @@ void DtoResolveClass(ClassDeclaration* cd)
     gIR->classes.push_back(cd);
 
     // vector holding the field types
-    std::vector<const llvm::Type*> fieldtypes;
+    std::vector<const LLType*> fieldtypes;
 
     // add vtable
     ts->ir.vtblType = new llvm::PATypeHolder(llvm::OpaqueType::get());
-    const llvm::Type* vtabty = getPtrToType(ts->ir.vtblType->get());
+    const LLType* vtabty = getPtrToType(ts->ir.vtblType->get());
     fieldtypes.push_back(vtabty);
 
     // add monitor
@@ -162,7 +162,7 @@ void DtoResolveClass(ClassDeclaration* cd)
         Logger::println("has fields");
         unsigned prevsize = (unsigned)-1;
         unsigned lastoffset = (unsigned)-1;
-        const llvm::Type* fieldtype = NULL;
+        const LLType* fieldtype = NULL;
         VarDeclaration* fieldinit = NULL;
         size_t fieldpad = 0;
         int idx = 0;
@@ -241,7 +241,7 @@ void DtoResolveClass(ClassDeclaration* cd)
 
         // set vtbl type
         TypeClass* itc = (TypeClass*)id->type;
-        const llvm::Type* ivtblTy = getPtrToType(itc->ir.vtblType->get());
+        const LLType* ivtblTy = getPtrToType(itc->ir.vtblType->get());
         fieldtypes.push_back(ivtblTy);
 
         // fix the interface vtable type
@@ -287,7 +287,7 @@ void DtoResolveClass(ClassDeclaration* cd)
         = llvm::ArrayType::get(getVoidPtrType(), cd->vtbl.dim);
 
 #else
-    std::vector<const llvm::Type*> sinits_ty;
+    std::vector<const LLType*> sinits_ty;
 
     for (int k=0; k < cd->vtbl.dim; k++)
     {
@@ -299,14 +299,14 @@ void DtoResolveClass(ClassDeclaration* cd)
             DtoResolveFunction(fd);
             //assert(fd->type->ty == Tfunction);
             //TypeFunction* tf = (TypeFunction*)fd->type;
-            //const llvm::Type* fpty = getPtrToType(tf->ir.type->get());
+            //const LLType* fpty = getPtrToType(tf->ir.type->get());
             const llvm::FunctionType* vfty = DtoBaseFunctionType(fd);
-            const llvm::Type* vfpty = getPtrToType(vfty);
+            const LLType* vfpty = getPtrToType(vfty);
             sinits_ty.push_back(vfpty);
         }
         else if (ClassDeclaration* cd2 = dsym->isClassDeclaration()) {
             Logger::println("*** ClassDeclaration in vtable: %s", cd2->toChars());
-            const llvm::Type* cinfoty;
+            const LLType* cinfoty;
             if (cd->isInterfaceDeclaration()) {
                 cinfoty = infoTy;
             }
@@ -317,7 +317,7 @@ void DtoResolveClass(ClassDeclaration* cd)
                 // this is the ClassInfo class, the type is this type
                 cinfoty = ts->ir.type->get();
             }
-            const llvm::Type* cty = getPtrToType(cinfoty);
+            const LLType* cty = getPtrToType(cinfoty);
             sinits_ty.push_back(cty);
         }
         else
@@ -420,7 +420,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
             assert(iri->vtblTy);
             iri->vtbl = new llvm::GlobalVariable(iri->vtblTy, true, _linkage, 0, nam, gIR->module);
-            llvm::Constant* idxs[2] = {DtoConstUint(0), DtoConstUint(idx)};
+            LLConstant* idxs[2] = {DtoConstUint(0), DtoConstUint(idx)};
             iri->info = llvm::ConstantExpr::getGetElementPtr(irstruct->interfaceInfos, idxs, 2);
             idx++;
         }
@@ -477,18 +477,18 @@ void DtoConstInitClass(ClassDeclaration* cd)
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
     {
         IrStruct::Offset* so = &i->second;
-        llvm::Constant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
+        LLConstant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
         so->init = finit;
         so->var->ir.irField->constInit = finit;
     }
 
     // fill out fieldtypes/inits
-    std::vector<llvm::Constant*> fieldinits;
+    std::vector<LLConstant*> fieldinits;
 
     // first field is always the vtable
     if (cd->isAbstract() || cd->isInterfaceDeclaration())
     {
-        const llvm::Type* ptrTy = getPtrToType(ts->ir.vtblType->get());
+        const LLType* ptrTy = getPtrToType(ts->ir.vtblType->get());
         fieldinits.push_back(llvm::Constant::getNullValue(ptrTy));
     }
     else
@@ -503,7 +503,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     // go through the field inits and build the default initializer
     size_t nfi = irstruct->defaultFields.size();
     for (size_t i=0; i<nfi; ++i) {
-        llvm::Constant* c;
+        LLConstant* c;
         if (irstruct->defaultFields[i]) {
             c = irstruct->defaultFields[i]->ir.irField->constInit;
             assert(c);
@@ -511,7 +511,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         else {
             const llvm::ArrayType* arrty = isaArray(structtype->getElementType(i+2));
             assert(arrty);
-            std::vector<llvm::Constant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
             c = llvm::ConstantArray::get(arrty, vals);
         }
         fieldinits.push_back(c);
@@ -552,7 +552,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     }
 #endif
 
-    llvm::Constant* _init = llvm::ConstantStruct::get(structtype, fieldinits);
+    LLConstant* _init = llvm::ConstantStruct::get(structtype, fieldinits);
     assert(_init);
     cd->ir.irStruct->constInit = _init;
 
@@ -561,7 +561,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     if (!cd->isInterfaceDeclaration() && !cd->isAbstract())
     {
         // generate vtable initializer
-        std::vector<llvm::Constant*> sinits;
+        std::vector<LLConstant*> sinits;
 
         for (int k=0; k < cd->vtbl.dim; k++)
         {
@@ -570,12 +570,12 @@ void DtoConstInitClass(ClassDeclaration* cd)
             //Logger::cout() << "vtblsym: " << dsym->toChars() << '\n';
 
         #if OPAQUE_VTBLS
-            const llvm::Type* targetTy = getVoidPtrType();
+            const LLType* targetTy = getVoidPtrType();
         #else
-            const llvm::Type* targetTy = vtbltype->getElementType(k);
+            const LLType* targetTy = vtbltype->getElementType(k);
         #endif
 
-            llvm::Constant* c = NULL;
+            LLConstant* c = NULL;
             // virtual method
             if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
                 DtoForceDeclareDsymbol(fd);
@@ -599,7 +599,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         cd->ir.irStruct->constVtbl = llvm::ConstantArray::get(svtbl_ty, sinits);
     #else
         const llvm::StructType* svtbl_ty = isaStruct(ts->ir.vtblType->get());
-        llvm::Constant* cvtblInit = llvm::ConstantStruct::get(svtbl_ty, sinits);
+        LLConstant* cvtblInit = llvm::ConstantStruct::get(svtbl_ty, sinits);
         cd->ir.irStruct->constVtbl = llvm::cast<llvm::ConstantStruct>(cvtblInit);
     #endif
 
@@ -620,15 +620,15 @@ void DtoConstInitClass(ClassDeclaration* cd)
         #endif
 
             // generate interface info initializer
-            std::vector<llvm::Constant*> infoInits;
+            std::vector<LLConstant*> infoInits;
 
             // classinfo
             assert(id->ir.irStruct->classInfo);
-            llvm::Constant* c = id->ir.irStruct->classInfo;
+            LLConstant* c = id->ir.irStruct->classInfo;
             infoInits.push_back(c);
 
             // vtbl
-            const llvm::Type* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+            const LLType* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
             c = llvm::ConstantExpr::getBitCast(iri->vtbl, byteptrptrty);
             c = DtoConstSlice(DtoConstSize_t(b->vtbl.dim), c);
             infoInits.push_back(c);
@@ -642,11 +642,11 @@ void DtoConstInitClass(ClassDeclaration* cd)
             iri->infoInit = llvm::cast<llvm::ConstantStruct>(llvm::ConstantStruct::get(iri->infoTy, infoInits));
 
             // generate vtable initializer
-            std::vector<llvm::Constant*> iinits;
+            std::vector<LLConstant*> iinits;
 
             // add interface info
         #if OPAQUE_VTBLS
-            const llvm::Type* targetTy = getVoidPtrType();
+            const LLType* targetTy = getVoidPtrType();
             iinits.push_back(llvm::ConstantExpr::getBitCast(iri->info, targetTy));
         #else
             iinits.push_back(iri->info);
@@ -661,10 +661,10 @@ void DtoConstInitClass(ClassDeclaration* cd)
                 assert(fd);
                 DtoForceDeclareDsymbol(fd);
                 assert(fd->ir.irFunc->func);
-                llvm::Constant* c = llvm::cast<llvm::Constant>(fd->ir.irFunc->func);
+                LLConstant* c = llvm::cast<llvm::Constant>(fd->ir.irFunc->func);
 
             #if !OPAQUE_VTBLS
-                const llvm::Type* targetTy = iri->vtblTy->getContainedType(k);
+                const LLType* targetTy = iri->vtblTy->getContainedType(k);
             #endif
 
                 // we have to bitcast, as the type created in ResolveClass expects a different this type
@@ -675,10 +675,10 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
         #if OPAQUE_VTBLS
             Logger::cout() << "n: " << iinits.size() << " ivtbl_ty: " << *ivtbl_ty << '\n';
-            llvm::Constant* civtblInit = llvm::ConstantArray::get(ivtbl_ty, iinits);
+            LLConstant* civtblInit = llvm::ConstantArray::get(ivtbl_ty, iinits);
             iri->vtblInit = llvm::cast<llvm::ConstantArray>(civtblInit);
         #else
-            llvm::Constant* civtblInit = llvm::ConstantStruct::get(ivtbl_ty, iinits);
+            LLConstant* civtblInit = llvm::ConstantStruct::get(ivtbl_ty, iinits);
             iri->vtblInit = llvm::cast<llvm::ConstantStruct>(civtblInit);
         #endif
         }
@@ -698,15 +698,15 @@ void DtoConstInitClass(ClassDeclaration* cd)
             TypeClass* its = (TypeClass*)id->type;
 
             // generate interface info initializer
-            std::vector<llvm::Constant*> infoInits;
+            std::vector<LLConstant*> infoInits;
 
             // classinfo
             assert(id->ir.irStruct->classInfo);
-            llvm::Constant* c = id->ir.irStruct->classInfo;
+            LLConstant* c = id->ir.irStruct->classInfo;
             infoInits.push_back(c);
 
             // vtbl
-            const llvm::Type* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+            const LLType* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
             c = DtoConstSlice(DtoConstSize_t(0), getNullPtr(byteptrptrty));
             infoInits.push_back(c);
 
@@ -758,7 +758,7 @@ void DtoDefineClass(ClassDeclaration* cd)
 
         // always do interface info array when possible
         IrStruct* irstruct = cd->ir.irStruct;
-        std::vector<llvm::Constant*> infoInits;
+        std::vector<LLConstant*> infoInits;
         for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
         {
             IrInterface* iri = *i;
@@ -767,7 +767,7 @@ void DtoDefineClass(ClassDeclaration* cd)
         // set initializer
         if (!infoInits.empty())
         {
-            llvm::Constant* arrInit = llvm::ConstantArray::get(irstruct->interfaceInfosTy, infoInits);
+            LLConstant* arrInit = llvm::ConstantArray::get(irstruct->interfaceInfosTy, infoInits);
             irstruct->interfaceInfos->setInitializer(arrInit);
         }
         else
@@ -788,7 +788,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     DtoForceDeclareDsymbol(tc->sym);
 
     // allocate
-    llvm::Value* mem;
+    LLValue* mem;
     if (newexp->onstack)
     {
         mem = new llvm::AllocaInst(DtoType(tc)->getContainedType(0), "newclass_alloca", gIR->topallocapoint());
@@ -796,7 +796,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
-        std::vector<llvm::Value*> args;
+        std::vector<LLValue*> args;
         args.push_back(tc->sym->ir.irStruct->classInfo);
         mem = gIR->ir->CreateCall(fn, args.begin(), args.end(), "newclass_gc_alloc");
         mem = DtoBitCast(mem, DtoType(tc), "newclass_gc");
@@ -812,8 +812,8 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         LOG_SCOPE;
         DValue* thisval = newexp->thisexp->toElem(gIR);
         size_t idx = 2 + tc->sym->vthis->ir.irField->index;
-        llvm::Value* src = thisval->getRVal();
-        llvm::Value* dst = DtoGEPi(mem,0,idx,"tmp");
+        LLValue* src = thisval->getRVal();
+        LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
         Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
         DtoStore(src, dst);
     }
@@ -824,11 +824,11 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         LOG_SCOPE;
         size_t idx = 2;
         //idx += tc->sym->ir.irStruct->interfaces.size();
-        llvm::Value* nest = gIR->func()->decl->ir.irFunc->nestedVar;
+        LLValue* nest = gIR->func()->decl->ir.irFunc->nestedVar;
         if (!nest)
             nest = gIR->func()->decl->ir.irFunc->thisVar;
         assert(nest);
-        llvm::Value* gep = DtoGEPi(mem,0,idx,"tmp");
+        LLValue* gep = DtoGEPi(mem,0,idx,"tmp");
         nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
         DtoStore(nest, gep);
     }
@@ -846,7 +846,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoInitClass(TypeClass* tc, llvm::Value* dst)
+void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     size_t presz = 2*getABITypeSize(DtoSize_t());
     uint64_t n = getABITypeSize(tc->ir.type->get()) - presz;
@@ -856,7 +856,7 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
     DtoStore(tc->sym->ir.irStruct->vtbl, DtoGEPi(dst,0,0,"vtbl"));
 
     // monitor always defaults to zero
-    llvm::Value* tmp = DtoGEPi(dst,0,1,"monitor");
+    LLValue* tmp = DtoGEPi(dst,0,1,"monitor");
     DtoStore(llvm::Constant::getNullValue(tmp->getType()->getContainedType(0)), tmp);
 
     // done?
@@ -867,16 +867,16 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
     assert(tc->sym->ir.irStruct->init);
     assert(dst->getType() == tc->sym->ir.irStruct->init->getType());
 
-    const llvm::Type* arrty = getPtrToType(llvm::Type::Int8Ty);
+    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
 
-    llvm::Value* dstarr = DtoGEPi(dst,0,2,"tmp");
+    LLValue* dstarr = DtoGEPi(dst,0,2,"tmp");
     dstarr = DtoBitCast(dstarr, arrty);
 
-    llvm::Value* srcarr = DtoGEPi(tc->sym->ir.irStruct->init,0,2,"tmp");
+    LLValue* srcarr = DtoGEPi(tc->sym->ir.irStruct->init,0,2,"tmp");
     srcarr = DtoBitCast(srcarr, arrty);
 
     llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<llvm::Value*> llargs;
+    std::vector<LLValue*> llargs;
     llargs.resize(4);
     llargs[0] = dstarr;
     llargs[1] = srcarr;
@@ -888,7 +888,7 @@ void DtoInitClass(TypeClass* tc, llvm::Value* dst)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, llvm::Value* mem)
+DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, LLValue* mem)
 {
     Logger::println("Calling constructor");
     LOG_SCOPE;
@@ -898,15 +898,15 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
     llvm::Function* fn = ctor->ir.irFunc->func;
     TypeFunction* tf = (TypeFunction*)DtoDType(ctor->type);
 
-    std::vector<llvm::Value*> ctorargs;
+    std::vector<LLValue*> ctorargs;
     ctorargs.push_back(mem);
     for (size_t i=0; i<arguments->dim; ++i)
     {
         Expression* ex = (Expression*)arguments->data[i];
         Argument* fnarg = Argument::getNth(tf->parameters, i);
         DValue* argval = DtoArgument(fnarg, ex);
-        llvm::Value* a = argval->getRVal();
-        const llvm::Type* aty = fn->getFunctionType()->getParamType(i+1);
+        LLValue* a = argval->getRVal();
+        const LLType* aty = fn->getFunctionType()->getParamType(i+1);
         if (a->getType() != aty)
             a = DtoBitCast(a, aty);
         ctorargs.push_back(a);
@@ -919,12 +919,12 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoFinalizeClass(llvm::Value* inst)
+void DtoFinalizeClass(LLValue* inst)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_callfinalizer");
     // build args
-    llvm::SmallVector<llvm::Value*,1> arg;
+    LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
     llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
@@ -939,8 +939,8 @@ DValue* DtoCastClass(DValue* val, Type* _to)
 
     Type* to = DtoDType(_to);
     if (to->ty == Tpointer) {
-        const llvm::Type* tolltype = DtoType(_to);
-        llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
+        const LLType* tolltype = DtoType(_to);
+        LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(_to, rval);
     }
 
@@ -970,8 +970,8 @@ DValue* DtoCastClass(DValue* val, Type* _to)
         }
         else if (!tc->sym->isInterfaceDeclaration() && tc->sym->isBaseOf(fc->sym,NULL)) {
             Logger::println("static down cast)");
-            const llvm::Type* tolltype = DtoType(_to);
-            llvm::Value* rval = DtoBitCast(val->getRVal(), tolltype);
+            const LLType* tolltype = DtoType(_to);
+            LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
             return new DImValue(_to, rval);
         }
         else {
@@ -994,10 +994,10 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
-    std::vector<llvm::Value*> args;
+    std::vector<LLValue*> args;
 
     // Object o
-    llvm::Value* tmp = val->getRVal();
+    LLValue* tmp = val->getRVal();
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
     args.push_back(tmp);
     assert(funcTy->getParamType(0) == tmp->getType());
@@ -1014,7 +1014,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     assert(funcTy->getParamType(1) == tmp->getType());
 
     // call it
-    llvm::Value* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
+    LLValue* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1033,11 +1033,11 @@ DValue* DtoCastInterfaceToObject(DValue* val, Type* to)
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
     // void* p
-    llvm::Value* tmp = val->getRVal();
+    LLValue* tmp = val->getRVal();
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
 
     // call it
-    llvm::Value* ret = gIR->ir->CreateCall(func, tmp, "tmp");
+    LLValue* ret = gIR->ir->CreateCall(func, tmp, "tmp");
 
     // cast return value
     if (to != NULL)
@@ -1061,10 +1061,10 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
-    std::vector<llvm::Value*> args;
+    std::vector<LLValue*> args;
 
     // void* p
-    llvm::Value* tmp = val->getRVal();
+    LLValue* tmp = val->getRVal();
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
     args.push_back(tmp);
 
@@ -1079,7 +1079,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     args.push_back(tmp);
 
     // call it
-    llvm::Value* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
+    LLValue* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1127,7 +1127,7 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
@@ -1135,13 +1135,13 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
     if (idxs.empty())
         idxs.push_back(0);
 
-    const llvm::Type* st = DtoType(cd->type);
+    const LLType* st = DtoType(cd->type);
     if (ptr->getType() != st) {
         //assert(cd->ir.irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
     }
 
-    const llvm::Type* llt = getPtrToType(DtoType(t));
+    const LLType* llt = getPtrToType(DtoType(t));
     unsigned dataoffset = 2;
 
     IrStruct* irstruct = cd->ir.irStruct;
@@ -1180,7 +1180,7 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
             else {
-                const llvm::Type* sty = getPtrToType(DtoType(vd->type));
+                const LLType* sty = getPtrToType(DtoType(vd->type));
                 if (ptr->getType() != sty) {
                     ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
                     std::vector<unsigned> tmp;
@@ -1203,16 +1203,16 @@ llvm::Value* DtoIndexClass(llvm::Value* ptr, ClassDeclaration* cd, Type* t, unsi
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
+LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
 {
     assert(fdecl->isVirtual());//fdecl->isAbstract() || (!fdecl->isFinal() && fdecl->isVirtual()));
     assert(fdecl->vtblIndex > 0);
     assert(DtoDType(inst->getType())->ty == Tclass);
 
-    llvm::Value* vthis = inst->getRVal();
+    LLValue* vthis = inst->getRVal();
     Logger::cout() << "vthis: " << *vthis << '\n';
 
-    llvm::Value* funcval;
+    LLValue* funcval;
     funcval = DtoGEPi(vthis, 0, 0, "tmp");
     funcval = DtoLoad(funcval);
     funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toPrettyChars());
@@ -1251,15 +1251,15 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
     else
         gname.append("11__InterfaceZ");
 
-    const llvm::Type* st = cinfo->type->ir.type->get();
+    const LLType* st = cinfo->type->ir.type->get();
 
     cd->ir.irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
 }
 
-static llvm::Constant* build_offti_entry(VarDeclaration* vd)
+static LLConstant* build_offti_entry(VarDeclaration* vd)
 {
-    std::vector<const llvm::Type*> types;
-    std::vector<llvm::Constant*> inits;
+    std::vector<const LLType*> types;
+    std::vector<LLConstant*> inits;
 
     types.push_back(DtoSize_t());
 
@@ -1274,9 +1274,9 @@ static llvm::Constant* build_offti_entry(VarDeclaration* vd)
     vd->type->getTypeInfo(NULL);
     assert(vd->type->vtinfo);
     DtoForceDeclareDsymbol(vd->type->vtinfo);
-    llvm::Constant* c = isaConstant(vd->type->vtinfo->ir.getIrValue());
+    LLConstant* c = isaConstant(vd->type->vtinfo->ir.getIrValue());
 
-    const llvm::Type* tiTy = getPtrToType(Type::typeinfo->type->ir.type->get());
+    const LLType* tiTy = getPtrToType(Type::typeinfo->type->ir.type->get());
     //Logger::cout() << "tiTy = " << *tiTy << '\n';
 
     types.push_back(tiTy);
@@ -1286,12 +1286,12 @@ static llvm::Constant* build_offti_entry(VarDeclaration* vd)
     return llvm::ConstantStruct::get(sTy, inits);
 }
 
-static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* init)
+static LLConstant* build_offti_array(ClassDeclaration* cd, LLConstant* init)
 {
     const llvm::StructType* initTy = isaStruct(init->getType());
     assert(initTy);
 
-    std::vector<llvm::Constant*> arrayInits;
+    std::vector<LLConstant*> arrayInits;
     for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
     {
     if (cd2->members)
@@ -1301,7 +1301,7 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
         Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
         if (VarDeclaration* vd = sm->isVarDeclaration()) // is this enough?
         {
-            llvm::Constant* c = build_offti_entry(vd);
+            LLConstant* c = build_offti_entry(vd);
             assert(c);
             arrayInits.push_back(c);
         }
@@ -1310,20 +1310,20 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
     }
 
     size_t ninits = arrayInits.size();
-    llvm::Constant* size = DtoConstSize_t(ninits);
-    llvm::Constant* ptr;
+    LLConstant* size = DtoConstSize_t(ninits);
+    LLConstant* ptr;
 
     if (ninits > 0) {
         // OffsetTypeInfo type
-        std::vector<const llvm::Type*> elemtypes;
+        std::vector<const LLType*> elemtypes;
         elemtypes.push_back(DtoSize_t());
-        const llvm::Type* tiTy = getPtrToType(Type::typeinfo->type->ir.type->get());
+        const LLType* tiTy = getPtrToType(Type::typeinfo->type->ir.type->get());
         elemtypes.push_back(tiTy);
         const llvm::StructType* sTy = llvm::StructType::get(elemtypes);
 
         // array type
         const llvm::ArrayType* arrTy = llvm::ArrayType::get(sTy, ninits);
-        llvm::Constant* arrInit = llvm::ConstantArray::get(arrTy, arrayInits);
+        LLConstant* arrInit = llvm::ConstantArray::get(arrTy, arrayInits);
 
         std::string name(cd->type->vtinfo->toChars());
         name.append("__OffsetTypeInfos");
@@ -1338,10 +1338,10 @@ static llvm::Constant* build_offti_array(ClassDeclaration* cd, llvm::Constant* i
     return DtoConstSlice(size, ptr);
 }
 
-static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
+static LLConstant* build_class_dtor(ClassDeclaration* cd)
 {
     // construct the function
-    std::vector<const llvm::Type*> paramTypes;
+    std::vector<const LLType*> paramTypes;
     paramTypes.push_back(getPtrToType(cd->type->ir.type->get()));
 
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy, paramTypes, false);
@@ -1361,7 +1361,7 @@ static llvm::Constant* build_class_dtor(ClassDeclaration* cd)
     gname.append("12__destructorMFZv");
 
     llvm::Function* func = llvm::Function::Create(fnTy, DtoInternalLinkage(cd), gname, gIR->module);
-    llvm::Value* thisptr = func->arg_begin();
+    LLValue* thisptr = func->arg_begin();
     thisptr->setName("this");
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", func);
@@ -1445,13 +1445,13 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
 
     // holds the list of initializers for llvm
-    std::vector<llvm::Constant*> inits;
+    std::vector<LLConstant*> inits;
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
     DtoForceConstInitDsymbol(cinfo);
     assert(cinfo->ir.irStruct->constInit);
 
-    llvm::Constant* c;
+    LLConstant* c;
 
     // own vtable
     c = cinfo->ir.irStruct->constInit->getOperand(0);
@@ -1463,7 +1463,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // byte[] init
-    const llvm::Type* byteptrty = getPtrToType(llvm::Type::Int8Ty);
+    const LLType* byteptrty = getPtrToType(llvm::Type::Int8Ty);
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
         c = cinfo->ir.irStruct->constInit->getOperand(2);
     }
@@ -1492,7 +1492,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
         c = cinfo->ir.irStruct->constInit->getOperand(4);
     }
     else {
-        const llvm::Type* byteptrptrty = getPtrToType(byteptrty);
+        const LLType* byteptrptrty = getPtrToType(byteptrty);
         assert(!cd->ir.irStruct->vtbl->getType()->isAbstract());
         c = llvm::ConstantExpr::getBitCast(cd->ir.irStruct->vtbl, byteptrptrty);
         assert(!cd->ir.irStruct->constVtbl->getType()->isAbstract());
@@ -1511,7 +1511,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
         c = cinfo->ir.irStruct->constInit->getOperand(5);
     }
     else {
-        const llvm::Type* t = cinfo->ir.irStruct->constInit->getOperand(5)->getType()->getContainedType(1);
+        const LLType* t = cinfo->ir.irStruct->constInit->getOperand(5)->getType()->getContainedType(1);
         c = llvm::ConstantExpr::getBitCast(irstruct->interfaceInfos, t);
         size_t iisz = irstruct->interfaceInfosTy->getNumElements();
         c = DtoConstSlice(DtoConstSize_t(iisz), c);
@@ -1573,7 +1573,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     if (cd->defaultCtor && !cd->isInterfaceDeclaration() && !cd->isAbstract()) {
         DtoForceDeclareDsymbol(cd->defaultCtor);
         c = isaConstant(cd->defaultCtor->ir.irFunc->func);
-        const llvm::Type* toTy = cinfo->ir.irStruct->constInit->getOperand(12)->getType();
+        const LLType* toTy = cinfo->ir.irStruct->constInit->getOperand(12)->getType();
         c = llvm::ConstantExpr::getBitCast(c, toTy);
     }
     else {
@@ -1589,7 +1589,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // build the initializer
     const llvm::StructType* st = isaStruct(cinfo->ir.irStruct->constInit->getType());
-    llvm::Constant* finalinit = llvm::ConstantStruct::get(st, inits);
+    LLConstant* finalinit = llvm::ConstantStruct::get(st, inits);
     //Logger::cout() << "built the classinfo initializer:\n" << *finalinit <<'\n';
 
     cd->ir.irStruct->constClassInfo = finalinit;

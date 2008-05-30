@@ -6,7 +6,7 @@ private import util.string;
 
 // byte[]
 
-class TypeInfo_Ag : TypeInfo
+class TypeInfo_Ag : TypeInfo_Array
 {
     char[] toString() { return "byte[]"; }
 

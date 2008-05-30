@@ -747,6 +747,7 @@ tango/tango/util/log/model/ILevel.d
 tangotests
 tangotests/a.d
 tangotests/aa1.d
+tangotests/aa2.d
 tangotests/b.d
 tangotests/c.d
 tangotests/classes1.d
@@ -775,6 +776,7 @@ tangotests/t.d
 tangotests/templ1.d
 tangotests/vararg1.d
 tangotests/vararg2.d
+tangotests/vararg3.d
 test
 test/a.d
 test/aa1.d
