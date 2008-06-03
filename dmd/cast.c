@@ -43,9 +43,8 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 	    if (e->op == TOKint64)
 		return e->implicitCastTo(sc, t);
 
-	    fprintf(stdmsg, "warning - ");
-	    error("implicit conversion of expression (%s) of type %s to %s can cause loss of data",
-		toChars(), type->toChars(), t->toChars());
+	    warning("%s: implicit conversion of expression (%s) of type %s to %s can cause loss of data",
+		loc.toChars(), toChars(), type->toChars(), t->toChars());
 	}
 	return castTo(sc, t);
     }

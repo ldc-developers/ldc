@@ -308,7 +308,7 @@ void FuncDeclaration::semantic(Scope *sc)
 
 #if V2
 		if (!isOverride() && global.params.warnings)
-		    error("overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
+		    warning("%s: overrides base class function %s, but is not marked with 'override'", locToChars() fdv->toPrettyChars());
 #endif
 
 		if (fdv->toParent() == parent)
@@ -1056,8 +1056,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		    {   Expression *e;
 
 			if (global.params.warnings)
-			{   fprintf(stdmsg, "warning - ");
-			    error("no return at end of function");
+			{   warning("%s: no return at end of function", locToChars());
 			}
 
 			if (global.params.useAssert &&

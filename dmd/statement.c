@@ -531,8 +531,7 @@ int CompoundStatement::fallOffEnd()
 
 	if (!falloff && global.params.warnings && !s->comeFrom())
 	{
-	    fprintf(stdmsg, "warning - ");
-	    s->error("statement is not reachable");
+	    warning("%s: statement is not reachable", s->loc.toChars());
 	}
 	falloff = s->fallOffEnd();
     }
@@ -2049,8 +2048,7 @@ Statement *SwitchStatement::semantic(Scope *sc)
     {	hasNoDefault = 1;
 
 	if (global.params.warnings)
-	{   fprintf(stdmsg, "warning - ");
-	    error("switch statement has no default");
+	{   warning("%s: switch statement has no default", loc.toChars());
 	}
 
 	// Generate runtime error if the default is hit

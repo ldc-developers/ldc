@@ -799,7 +799,9 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
     Logger::println("DtoVariadicArgument");
     LOG_SCOPE;
     DVarValue* vv = new DVarValue(argexp->type, dst, true);
+    gIR->exps.push_back(IRExp(NULL, argexp, vv));
     DtoAssign(vv, argexp->toElem(gIR));
+    gIR->exps.pop_back();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

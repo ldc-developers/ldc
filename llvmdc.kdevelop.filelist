@@ -748,6 +748,7 @@ tangotests
 tangotests/a.d
 tangotests/aa1.d
 tangotests/aa2.d
+tangotests/align1.d
 tangotests/b.d
 tangotests/c.d
 tangotests/classes1.d
@@ -757,6 +758,7 @@ tangotests/f.d
 tangotests/files1.d
 tangotests/h.d
 tangotests/i.d
+tangotests/ina1.d
 tangotests/j.d
 tangotests/k.d
 tangotests/l.d
@@ -777,6 +779,7 @@ tangotests/templ1.d
 tangotests/vararg1.d
 tangotests/vararg2.d
 tangotests/vararg3.d
+tangotests/vararg4.d
 test
 test/a.d
 test/aa1.d

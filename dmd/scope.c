@@ -255,6 +255,7 @@ Dsymbol *Scope::search(Loc loc, Identifier *ident, Dsymbol **pscopesym)
 		    sc->enclosing &&
 		    sc->enclosing->search(loc, ident, NULL))
 		{
+            // WTF ?
 		    if (global.params.warnings)
 			fprintf(stdmsg, "warning - ");
 		    error(s->loc, "array 'length' hides other 'length' name in outer scope");

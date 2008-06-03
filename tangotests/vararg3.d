@@ -35,6 +35,16 @@ class Obj
     }
 }
 
+ struct TLA
+ {
+    char[3] acronym;
+
+    char[] toString()
+    {
+        return acronym;
+    }
+}
+
 void main()
 {
     User user = User("Bob Doe", "bd", 47);
@@ -81,6 +91,24 @@ void main()
     print("Mixed:\n");
     print(123, ' ', 42.536f, " foobar ", ia1, ' ', user, '\n');
     print(42, ' ', cast(byte)12, ' ', user, ' ', cast(short)1445, " foo\n");
+
+    print("International:\n");
+    print('æ','ø','å','\n');
+    print('Æ','Ø','Å','\n');
+    print("rød grød med fløde\n");
+    print("Heiße\n");
+
+    print("TLAs:\n");
+    TLA tla1 = TLA("FBI");
+    TLA tla2 = TLA("CIA");
+    TLA tla3 = TLA("TLA");
+    print(tla1);
+    print(tla2);
+    print(tla3, '\n');
+    print(tla1, tla2, tla3, '\n');
+    print(TLA("FBI"), TLA("CIA"), TLA("TLA"), '\n');
+
+    print("Done!\n");
 }
 
 private void* get_va_arg(TypeInfo ti, ref void* vp)
