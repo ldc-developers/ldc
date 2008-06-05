@@ -3148,6 +3148,7 @@ int TypedefDeclaration::cvMember(unsigned char*)
 
 void obj_includelib(char*){}
 
+/* this has moved to asmstmt.cpp
 AsmStatement::AsmStatement(Loc loc, Token *tokens) :
     Statement(loc)
 {
@@ -3155,9 +3156,9 @@ AsmStatement::AsmStatement(Loc loc, Token *tokens) :
 }
 Statement *AsmStatement::syntaxCopy()
 {
-    /*error("%s: inline asm is not yet implemented", loc.toChars());
-    fatal();
-    assert(0);*/
+    //error("%s: inline asm is not yet implemented", loc.toChars());
+    //fatal();
+    //assert(0);
     return 0;
 }
 
@@ -3174,11 +3175,12 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 int AsmStatement::comeFrom()
 {
-    /*error("%s: inline asm is not yet implemented", loc.toChars());
-    fatal();
-    assert(0);*/
+    //error("%s: inline asm is not yet implemented", loc.toChars());
+    //fatal();
+    //assert(0);
     return 0;
 }
+*/
 
 void
 backend_init()

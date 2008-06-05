@@ -1111,12 +1111,13 @@ void SynchronizedStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+/* this has moved to asmstmt.cpp
 void AsmStatement::toIR(IRState* p)
 {
     Logger::println("AsmStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
-    error("%s: inline asm is not yet implemented", loc.toChars());
-    fatal();
+//    error("%s: inline asm is not yet implemented", loc.toChars());
+//    fatal();
 
     assert(!asmcode && !asmalign && !refparam && !naked && !regs);
 
@@ -1142,7 +1143,7 @@ void AsmStatement::toIR(IRState* p)
 
     assert(0);
 }
-
+*/
 //////////////////////////////////////////////////////////////////////////////
 
 void VolatileStatement::toIR(IRState* p)

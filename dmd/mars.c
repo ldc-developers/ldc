@@ -320,8 +320,8 @@ int main(int argc, char *argv[])
 #endif /* linux */
 
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
-    //VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
-    //VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
+    VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
+    VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
     VersionCondition::addPredefinedGlobalIdent("all");
 
 #if _WIN32
