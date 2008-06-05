@@ -51,7 +51,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     else {
         assert(rt);
         Type* rtfin = DtoDType(rt);
-        if (DtoIsPassedByRef(rt)) {
+        if (DtoIsReturnedInArg(rt)) {
             rettype = getPtrToType(DtoType(rt));
             actualRettype = llvm::Type::VoidTy;
             f->llvmRetInPtr = retinptr = true;
@@ -94,22 +94,30 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
 
     size_t n = Argument::dim(f->parameters);
 
+    int nbyval = 0;
+
+    llvm::PAListPtr palist;
+
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
         // ensure scalar
         Type* argT = DtoDType(arg->type);
         assert(argT);
 
+        bool refOrOut = ((arg->storageClass & STCref) || (arg->storageClass & STCout));
+
         const LLType* at = DtoType(argT);
         if (isaStruct(at)) {
             Logger::println("struct param");
             paramvec.push_back(getPtrToType(at));
+            arg->llvmByVal = !refOrOut;
         }
         else if (isaArray(at)) {
             Logger::println("sarray param");
             assert(argT->ty == Tsarray);
             //paramvec.push_back(getPtrToType(at->getContainedType(0)));
             paramvec.push_back(getPtrToType(at));
+            arg->llvmByVal = !refOrOut;
         }
         else if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");
@@ -117,7 +125,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             paramvec.push_back(getPtrToType(at));
         }
         else {
-            if ((arg->storageClass & STCref) || (arg->storageClass & STCout)) {
+            if (refOrOut) {
                 Logger::println("by ref param");
                 at = getPtrToType(at);
             }
@@ -126,7 +134,12 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             }
             paramvec.push_back(at);
         }
+
+        if (arg->llvmByVal)
+            nbyval++;
     }
+
+    //warning("set %d byval args for type: %s", nbyval, f->toChars());
 
     // construct function type
     bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
@@ -135,10 +148,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     f->llvmRetInPtr = retinptr;
     f->llvmUsesThis = usesthis;
 
-    //if (!f->ir.type)
-        f->ir.type = new llvm::PATypeHolder(functype);
-    //else
-        //assert(functype == f->ir.type->get());
+    f->ir.type = new llvm::PATypeHolder(functype);
 
     return functype;
 }
@@ -377,6 +387,43 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     fdecl->ir.irFunc->func = func;
     assert(llvm::isa<llvm::FunctionType>(f->ir.type->get()));
+
+    // parameter attributes
+    if (f->parameters)
+    {
+        int llidx = 1;
+        if (f->llvmRetInPtr) ++llidx;
+        if (f->llvmUsesThis) ++llidx;
+        if (f->linkage == LINKd && f->varargs == 1)
+            llidx += 2;
+
+        int funcNumArgs = func->getArgumentList().size();
+        std::vector<llvm::ParamAttrsWithIndex> attrs;
+        int k = 0;
+
+        int nbyval = 0;
+
+        for (; llidx <= funcNumArgs && f->parameters->dim > k; ++llidx,++k)
+        {
+            Argument* fnarg = (Argument*)f->parameters->data[k];
+            assert(fnarg);
+            if (fnarg->llvmByVal)
+            {
+                llvm::ParamAttrsWithIndex PAWI;
+                PAWI.Index = llidx;
+                PAWI.Attrs = llvm::ParamAttr::ByVal;
+                attrs.push_back(PAWI);
+                nbyval++;
+            }
+        }
+
+        //warning("set %d byval args for function: %s", nbyval, func->getName().c_str());
+
+        if (nbyval) {
+            llvm::PAListPtr palist = llvm::PAListPtr::get(attrs.begin(), attrs.end());
+            func->setParamAttrs(palist);
+        }
+    }
 
     // main
     if (fdecl->isMain()) {
@@ -775,18 +822,13 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
         else
             arg = new DImValue(argexp->type, arg->getRVal(), false);
     }
-    // aggregate arg
-    else if (DtoIsPassedByRef(argexp->type))
+    // byval arg, but expr has no storage yet
+    else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isComplex() || arg->isNull()))
     {
         LLValue* alloc = new llvm::AllocaInst(DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
         DVarValue* vv = new DVarValue(argexp->type, alloc, true);
         DtoAssign(vv, arg);
         arg = vv;
-    }
-    // normal arg (basic/value type)
-    else
-    {
-        // nothing to do
     }
 
     return arg;

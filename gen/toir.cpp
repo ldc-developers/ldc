@@ -618,7 +618,7 @@ DValue* AddExp::toElem(IRState* p)
             llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
 
             TypeStruct* ts = (TypeStruct*)e1next;
-            std::vector<unsigned> offsets;
+            DStructIndexVector offsets;
             LLValue* v = DtoIndexStruct(l->getRVal(), ts->sym, t->next, cofs->getZExtValue(), offsets);
             return new DFieldValue(type, v, true);
         }
@@ -1018,7 +1018,11 @@ DValue* CallExp::toElem(IRState* p)
 
     bool isInPlace = false;
 
+    // attrs
+    llvm::PAListPtr palist;
+
     // hidden struct return arguments
+    // TODO: use sret param attr
     if (retinptr) {
         if (topexp && topexp->e2 == this) {
             assert(topexp->v);
@@ -1167,6 +1171,10 @@ DValue* CallExp::toElem(IRState* p)
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             llargs[j] = argval->getRVal();
+        #if USE_BYVAL
+            if (fnarg->llvmByVal)
+                palist = palist.addAttr(j, llvm::ParamAttr::ByVal);
+        #endif
             j++;
         }
 
@@ -1186,6 +1194,11 @@ DValue* CallExp::toElem(IRState* p)
             if (fnarg && llargs[j]->getType() != llfnty->getParamType(j)) {
                 llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
             }
+
+        #if USE_BYVAL
+            if (fnarg && fnarg->llvmByVal)
+                palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
+        #endif
 
             // this hack is necessary :/
             if (dfn && dfn->func && dfn->func->runTimeHack) {
@@ -1244,6 +1257,9 @@ DValue* CallExp::toElem(IRState* p)
     else {
         call->setCallingConv(DtoCallingConv(dlink));
     }
+
+    // param attrs
+    call->setParamAttrs(palist);
 
     return new DImValue(type, retllval, isInPlace);
 }
@@ -1311,7 +1327,7 @@ DValue* SymOffExp::toElem(IRState* p)
                 varmem = p->ir->CreateBitCast(llvalue, llt, "tmp");
             }
             else {
-                std::vector<unsigned> dst;
+                DStructIndexVector dst;
                 varmem = DtoIndexStruct(llvalue,vdt->sym, tnext, offset, dst);
             }
         }
@@ -1429,7 +1445,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
             LLValue* src = l->getRVal();
 
-            std::vector<unsigned> vdoffsets;
+            DStructIndexVector vdoffsets;
             arrptr = DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
         }
         else if (e1type->ty == Tclass) {
@@ -1438,7 +1454,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
             LLValue* src = l->getRVal();
 
-            std::vector<unsigned> vdoffsets;
+            DStructIndexVector vdoffsets;
             arrptr = DtoIndexClass(src, tc->sym, vd->type, vd->offset, vdoffsets);
 
             /*std::vector<unsigned> vdoffsets(1,0);
@@ -2255,7 +2271,8 @@ DValue* HaltExp::toElem(IRState* p)
     Logger::print("HaltExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    DtoAssert(&loc, NULL);
+    // call the new (?) trap intrinsic
+    p->ir->CreateCall(GET_INTRINSIC_DECL(trap),"");
 
     new llvm::UnreachableInst(p->scopebb());
     return 0;

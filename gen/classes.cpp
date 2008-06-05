@@ -796,9 +796,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
-        std::vector<LLValue*> args;
-        args.push_back(tc->sym->ir.irStruct->classInfo);
-        mem = gIR->ir->CreateCall(fn, args.begin(), args.end(), "newclass_gc_alloc");
+        mem = gIR->ir->CreateCall(fn, tc->sym->ir.irStruct->classInfo, "newclass_gc_alloc");
         mem = DtoBitCast(mem, DtoType(tc), "newclass_gc");
     }
 
@@ -898,6 +896,8 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
     llvm::Function* fn = ctor->ir.irFunc->func;
     TypeFunction* tf = (TypeFunction*)DtoDType(ctor->type);
 
+    llvm::PAListPtr palist;
+
     std::vector<LLValue*> ctorargs;
     ctorargs.push_back(mem);
     for (size_t i=0; i<arguments->dim; ++i)
@@ -910,9 +910,12 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
         if (a->getType() != aty)
             a = DtoBitCast(a, aty);
         ctorargs.push_back(a);
+        if (fnarg && fnarg->llvmByVal)
+            palist = palist.addAttr(i+2, llvm::ParamAttr::ByVal); // return,this is 2
     }
     llvm::CallInst* call = llvm::CallInst::Create(fn, ctorargs.begin(), ctorargs.end(), "tmp", gIR->scopebb());
     call->setCallingConv(DtoCallingConv(LINKd));
+    call->setParamAttrs(palist);
 
     return new DImValue(type, call, false);
 }
@@ -997,24 +1000,22 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     std::vector<LLValue*> args;
 
     // Object o
-    LLValue* tmp = val->getRVal();
-    tmp = DtoBitCast(tmp, funcTy->getParamType(0));
-    args.push_back(tmp);
-    assert(funcTy->getParamType(0) == tmp->getType());
+    LLValue* obj = val->getRVal();
+    obj = DtoBitCast(obj, funcTy->getParamType(0));
+    assert(funcTy->getParamType(0) == obj->getType());
 
     // ClassInfo c
     TypeClass* to = (TypeClass*)DtoDType(_to);
     DtoForceDeclareDsymbol(to->sym);
     assert(to->sym->ir.irStruct->classInfo);
-    tmp = to->sym->ir.irStruct->classInfo;
+    LLValue* cinfo = to->sym->ir.irStruct->classInfo;
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
-    tmp = DtoBitCast(tmp, funcTy->getParamType(1));
-    args.push_back(tmp);
-    assert(funcTy->getParamType(1) == tmp->getType());
+    cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
+    assert(funcTy->getParamType(1) == cinfo->getType());
 
     // call it
-    LLValue* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
+    LLValue* ret = gIR->ir->CreateCall2(func, obj, cinfo, "tmp");
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1064,22 +1065,20 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     std::vector<LLValue*> args;
 
     // void* p
-    LLValue* tmp = val->getRVal();
-    tmp = DtoBitCast(tmp, funcTy->getParamType(0));
-    args.push_back(tmp);
+    LLValue* ptr = val->getRVal();
+    ptr = DtoBitCast(ptr, funcTy->getParamType(0));
 
     // ClassInfo c
     TypeClass* to = (TypeClass*)DtoDType(_to);
     DtoForceDeclareDsymbol(to->sym);
     assert(to->sym->ir.irStruct->classInfo);
-    tmp = to->sym->ir.irStruct->classInfo;
+    LLValue* cinfo = to->sym->ir.irStruct->classInfo;
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
-    tmp = DtoBitCast(tmp, funcTy->getParamType(1));
-    args.push_back(tmp);
+    cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
 
     // call it
-    LLValue* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "tmp");
+    LLValue* ret = gIR->ir->CreateCall2(func, ptr, cinfo, "tmp");
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1127,7 +1126,7 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, DStructIndexVector& idxs)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
@@ -1157,7 +1156,7 @@ LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os,
             Logger::println("found %s %s", vdtype->toChars(), vd->toChars());
             idxs.push_back(vd->ir.irField->index + dataoffset);
             //Logger::cout() << "indexing: " << *ptr << '\n';
-            ptr = DtoGEP(ptr, idxs, "tmp");
+            ptr = DtoGEPi(ptr, idxs, "tmp");
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
             //Logger::cout() << "indexing: " << *ptr << '\n';
@@ -1172,18 +1171,18 @@ LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os,
             idxs.push_back(vd->ir.irField->index + dataoffset);
             if (vd->ir.irField->indexOffset) {
                 Logger::println("has union field offset");
-                ptr = DtoGEP(ptr, idxs, "tmp");
+                ptr = DtoGEPi(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
                 ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
-                std::vector<unsigned> tmp;
+                DStructIndexVector tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
             else {
                 const LLType* sty = getPtrToType(DtoType(vd->type));
                 if (ptr->getType() != sty) {
                     ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
-                    std::vector<unsigned> tmp;
+                    DStructIndexVector tmp;
                     return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
                 }
                 else {

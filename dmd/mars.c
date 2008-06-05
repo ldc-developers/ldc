@@ -202,6 +202,7 @@ Usage:\n\
   -od<objdir>    write object files to directory <objdir>\n\
   -of<filename>	 name output file to <filename>\n\
   -op            do not strip paths from source file\n\
+  -oq            write object files with fully qualified names\n\
   -profile	 profile runtime performance of generated code\n\
   -quiet         suppress unnecessary messages\n\
   -release	 compile release version\n\
@@ -214,6 +215,7 @@ Usage:\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
   -w             enable warnings\n\
+  -fp80          enable 80bit reals on x86 32bit (EXPERIMENTAL)\n\
 ",
 #if WIN32
 "  @cmdfile       read arguments from cmdfile\n"
@@ -397,6 +399,8 @@ int main(int argc, char *argv[])
             global.params.disassemble = 1;
         else if (strcmp(p + 1, "annotate") == 0)
             global.params.llvmAnnotate = 1;
+        else if (strcmp(p + 1, "fp80") == 0)
+            global.params.useFP80 = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
@@ -422,6 +426,12 @@ int main(int argc, char *argv[])
 			    goto Lerror;
 			global.params.preservePaths = 1;
 			break;
+
+            case 'q':
+            if (p[3])
+                goto Lerror;
+            global.params.fqnPaths = 1;
+            break;
 
 		    case 0:
 			error("-o no longer supported, use -of or -od");
@@ -691,6 +701,7 @@ int main(int argc, char *argv[])
         }
     }
 
+    bool is_x86 = false;
     if (strcmp(global.params.llvmArch,"x86")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86");
         //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
@@ -698,6 +709,7 @@ int main(int argc, char *argv[])
         global.params.is64bit = false;
         tt_arch = "i686";
         data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:8";
+        is_x86 = true;
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86_64");
@@ -738,6 +750,14 @@ int main(int argc, char *argv[])
 
     if (global.params.is64bit) {
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
+    }
+
+    if (global.params.useFP80) {
+        if (!is_x86) {
+            error("the -fp80 option is only valid for the x86 32bit architecture");
+            fatal();
+        }
+        VersionCondition::addPredefinedGlobalIdent("LLVM_X86_FP80");
     }
 
     assert(tt_arch != 0);

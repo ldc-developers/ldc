@@ -1,6 +1,8 @@
 #ifndef LLVMDC_GEN_CLASSES_H
 #define LLVMDC_GEN_CLASSES_H
 
+#include "gen/structs.h"
+
 /**
  * Resolves the llvm type for a class declaration
  */
@@ -35,7 +37,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* to);
 DValue* DtoCastInterfaceToObject(DValue* val, Type* to);
 DValue* DtoDynamicCastInterface(DValue* val, Type* to);
 
-LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, std::vector<unsigned>& idxs);
+LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, DStructIndexVector& idxs);
 
 LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl);
 

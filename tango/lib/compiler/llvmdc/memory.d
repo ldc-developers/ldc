@@ -47,6 +47,7 @@ private
         {
                 void* llvm_frameaddress(uint level=0);
         }
+        extern(C) int printf(char*, ...);
     }
 }
 
@@ -161,6 +162,7 @@ extern (C) void rt_scanStaticData( scanFn scan )
     }
     else version( linux )
     {
+        //printf("scanning static data from %p to %p\n", &__data_start, &_end);
         scan( &__data_start, &_end );
     }
     else

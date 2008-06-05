@@ -26,6 +26,13 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
 }
 
+bool DtoIsReturnedInArg(Type* type)
+{
+    Type* typ = DtoDType(type);
+    TY t = typ->ty;
+    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
+}
+
 Type* DtoDType(Type* t)
 {
     if (t->ty == Ttypedef) {
@@ -67,9 +74,10 @@ const LLType* DtoType(Type* t)
         return llvm::Type::FloatTy;
     case Tfloat64:
     case Timaginary64:
+        return llvm::Type::DoubleTy;
     case Tfloat80:
     case Timaginary80:
-        return llvm::Type::DoubleTy;
+        return (global.params.useFP80) ? llvm::Type::X86_FP80Ty : llvm::Type::DoubleTy;
 
     // complex
     case Tcomplex32:
@@ -590,46 +598,42 @@ DValue* DtoInitializer(Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
-    std::vector<LLValue*> v(2);
+    LLSmallVector<LLValue*,2> v(2);
     v[0] = i0;
     v[1] = i1;
-    Logger::cout() << "DtoGEP: " << *ptr << ", " << *i0 << ", " << *i1 << '\n';
     return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoGEP(LLValue* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEPi(LLValue* ptr, const DStructIndexVector& src, const char* var, llvm::BasicBlock* bb)
 {
     size_t n = src.size();
-    std::vector<LLValue*> dst(n, NULL);
-    //std::ostream& ostr = Logger::cout();
-    //ostr << "indices for '" << *ptr << "':";
-    for (size_t i=0; i<n; ++i)
-    {
-        //ostr << ' ' << i;
-        dst[i] = llvm::ConstantInt::get(llvm::Type::Int32Ty, src[i], false);
-    }
-    //ostr << '\n';*/
+    LLSmallVector<LLValue*, 3> dst(n);
+
+    size_t j=0;
+    for (DStructIndexVector::const_iterator i=src.begin(); i!=src.end(); ++i)
+        dst[j++] = DtoConstUint(*i);
+
     return llvm::GetElementPtrInst::Create(ptr, dst.begin(), dst.end(), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoGEPi(LLValue* ptr, unsigned i, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEPi(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
     return llvm::GetElementPtrInst::Create(ptr, llvm::ConstantInt::get(llvm::Type::Int32Ty, i, false), var, bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb)
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
-    std::vector<LLValue*> v(2);
-    v[0] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i0, false);
-    v[1] = llvm::ConstantInt::get(llvm::Type::Int32Ty, i1, false);
+    LLSmallVector<LLValue*,2> v(2);
+    v[0] = DtoConstUint(i0);
+    v[1] = DtoConstUint(i1);
     return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var, bb?bb:gIR->scopebb());
 }
 
@@ -642,11 +646,8 @@ LLValue* DtoNew(Type* newtype)
     // get type info
     LLConstant* ti = DtoTypeInfoOf(newtype);
     assert(isaPointer(ti));
-    // call runtime
-    LLSmallVector<LLValue*,1> arg;
-    arg.push_back(ti);
-    // allocate
-    LLValue* mem = gIR->ir->CreateCall(fn, arg.begin(), arg.end(), ".gc_mem");
+    // call runtime allocator
+    LLValue* mem = gIR->ir->CreateCall(fn, ti, ".gc_mem");
     // cast
     return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
 }
@@ -707,6 +708,10 @@ void DtoAssert(Loc* loc, DValue* msg)
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
 
+    // param attrs
+    llvm::PAListPtr palist;
+    int idx = 1;
+
     c = DtoConstString(loc->filename);
 
     // msg param
@@ -727,6 +732,7 @@ void DtoAssert(Loc* loc, DValue* msg)
         {
             args.push_back(msg->getRVal());
         }
+        palist = palist.addAttr(idx++, llvm::ParamAttr::ByVal);
     }
 
     // file param
@@ -740,7 +746,10 @@ void DtoAssert(Loc* loc, DValue* msg)
     DtoStore(c->getOperand(0), ptr);
     ptr = DtoGEPi(alloc, 0,1, "tmp");
     DtoStore(c->getOperand(1), ptr);
+
     args.push_back(alloc);
+    palist = palist.addAttr(idx++, llvm::ParamAttr::ByVal);
+
 
     // line param
     c = DtoConstUint(loc->linnum);
@@ -748,6 +757,7 @@ void DtoAssert(Loc* loc, DValue* msg)
 
     // call
     llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
+    call->setParamAttrs(palist);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

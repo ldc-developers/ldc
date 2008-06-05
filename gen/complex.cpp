@@ -28,10 +28,13 @@ const LLType* DtoComplexBaseType(Type* t)
     TY ty = DtoDType(t)->ty;
     const LLType* base;
     if (ty == Tcomplex32) {
-        return llvm::Type::FloatTy;
+        return LLType::FloatTy;
     }
-    else if (ty == Tcomplex64 || ty == Tcomplex80) {
-        return llvm::Type::DoubleTy;
+    else if (ty == Tcomplex64) {
+        return LLType::DoubleTy;
+    }
+    else if (ty == Tcomplex80) {
+        return (global.params.useFP80) ? LLType::X86_FP80Ty : LLType::DoubleTy;
     }
     else {
         assert(0);
@@ -60,47 +63,23 @@ LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
     llvm::ConstantFP* fre;
     llvm::ConstantFP* fim;
 
-    const LLType* base;
+    Type* base = 0;
 
     if (ty == Tcomplex32) {
-        fre = DtoConstFP(Type::tfloat32, re);
-        fim = DtoConstFP(Type::tfloat32, im);
-        base = llvm::Type::FloatTy;
+        base = Type::tfloat32;
     }
-    else if (ty == Tcomplex64 || ty == Tcomplex80) {
-        fre = DtoConstFP(Type::tfloat64, re);
-        fim = DtoConstFP(Type::tfloat64, im);
-        base = llvm::Type::DoubleTy;
+    else if (ty == Tcomplex64) {
+        base = Type::tfloat64;
     }
-    else
-    assert(0);
+    else if (ty == Tcomplex80) {
+        base = (global.params.useFP80) ? Type::tfloat80 : Type::tfloat64;
+    }
 
     std::vector<LLConstant*> inits;
-    inits.push_back(fre);
-    inits.push_back(fim);
+    inits.push_back(DtoConstFP(base, re));
+    inits.push_back(DtoConstFP(base, im));
+
     return llvm::ConstantStruct::get(DtoComplexType(_ty), inits);
-}
-
-LLConstant* DtoUndefComplex(Type* _ty)
-{
-    assert(0);
-    TY ty = DtoDType(_ty)->ty;
-    const LLType* base;
-    if (ty == Tcomplex32) {
-        base = llvm::Type::FloatTy;
-    }
-    else if (ty == Tcomplex64 || ty == Tcomplex80) {
-        base = llvm::Type::DoubleTy;
-    }
-    else
-    assert(0);
-
-    std::vector<LLConstant*> inits;
-    inits.push_back(llvm::UndefValue::get(base));
-    inits.push_back(llvm::UndefValue::get(base));
-
-    const llvm::VectorType* vt = llvm::VectorType::get(base, 2);
-    return llvm::ConstantVector::get(vt, inits);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -135,9 +114,11 @@ DValue* DtoComplex(Type* to, DValue* val)
     LLConstant* undef = llvm::UndefValue::get(base);
     LLConstant* zero;
     if (ty == Tfloat32 || ty == Timaginary32 || ty == Tcomplex32)
-        zero = llvm::ConstantFP::get(llvm::APFloat(0.0f));
-    else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tcomplex64 || ty == Tfloat80 || ty == Timaginary80 || ty == Tcomplex80)
-        zero = llvm::ConstantFP::get(llvm::APFloat(0.0));
+        zero = LLConstant::getNullValue(DtoType(Type::tfloat32)); // llvm::ConstantFP::get(llvm::APFloat(0.0f));
+    else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tcomplex64)
+        zero = LLConstant::getNullValue(DtoType(Type::tfloat64));
+    else if (ty == Tfloat80 || ty == Timaginary80 || ty == Tcomplex80)
+        zero = LLConstant::getNullValue(DtoType((global.params.useFP80)?Type::tfloat80:Type::tfloat64));
 
     if (t->isimaginary()) {
         return new DComplexValue(to, zero, val->getRVal());

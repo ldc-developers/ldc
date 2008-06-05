@@ -749,7 +749,9 @@ tangotests/a.d
 tangotests/aa1.d
 tangotests/aa2.d
 tangotests/align1.d
+tangotests/arrays1.d
 tangotests/b.d
+tangotests/byval1.d
 tangotests/c.d
 tangotests/classes1.d
 tangotests/constructors.d

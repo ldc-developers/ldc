@@ -105,7 +105,7 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs)
+LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, DStructIndexVector& idxs)
 {
     Logger::println("checking for offset %u type %s:", os, t->toChars());
     LOG_SCOPE;
@@ -127,7 +127,7 @@ LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned o
         assert(vd->ir.irField->index >= 0);
         if (os == vd->offset && vdtype == t) {
             idxs.push_back(vd->ir.irField->index);
-            ptr = DtoGEP(ptr, idxs, "tmp");
+            ptr = DtoGEPi(ptr, idxs, "tmp");
             if (ptr->getType() != llt)
                 ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
             if (vd->ir.irField->indexOffset)
@@ -140,18 +140,18 @@ LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned o
             idxs.push_back(vd->ir.irField->index);
             if (vd->ir.irField->indexOffset) {
                 Logger::println("has union field offset");
-                ptr = DtoGEP(ptr, idxs, "tmp");
+                ptr = DtoGEPi(ptr, idxs, "tmp");
                 if (ptr->getType() != llt)
                     ptr = DtoBitCast(ptr, llt);
                 ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
-                std::vector<unsigned> tmp;
+                DStructIndexVector tmp;
                 return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
             }
             else {
                 const LLType* sty = getPtrToType(DtoType(vd->type));
                 if (ptr->getType() != sty) {
                     ptr = DtoBitCast(ptr, sty);
-                    std::vector<unsigned> tmp;
+                    DStructIndexVector tmp;
                     return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
                 }
                 else {

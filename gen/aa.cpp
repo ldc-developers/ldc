@@ -86,15 +86,8 @@ DValue* DtoAAIndex(Type* type, DValue* aa, DValue* key)
     LLValue* pkey = to_pkey(key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(3));
 
-    // build arg vector
-    LLSmallVector<LLValue*, 4> args;
-    args.push_back(aaval);
-    args.push_back(keyti);
-    args.push_back(valsize);
-    args.push_back(pkey);
-
     // call runtime
-    LLValue* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "aa.index");
+    LLValue* ret = gIR->ir->CreateCall4(func, aaval, keyti, valsize, pkey, "aa.index");
 
     // cast return value
     const LLType* targettype = getPtrToType(DtoType(type));
@@ -131,14 +124,8 @@ DValue* DtoAAIn(Type* type, DValue* aa, DValue* key)
     LLValue* pkey = to_pkey(key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
-    // build arg vector
-    LLSmallVector<LLValue*, 3> args;
-    args.push_back(aaval);
-    args.push_back(keyti);
-    args.push_back(pkey);
-
     // call runtime
-    LLValue* ret = gIR->ir->CreateCall(func, args.begin(), args.end(), "aa.in");
+    LLValue* ret = gIR->ir->CreateCall3(func, aaval, keyti, pkey, "aa.in");
 
     // cast return value
     const LLType* targettype = DtoType(type);

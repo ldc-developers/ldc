@@ -2538,7 +2538,9 @@ Type *TypeFunction::syntaxCopy()
 {
     Type *treturn = next ? next->syntaxCopy() : NULL;
     Arguments *params = Argument::arraySyntaxCopy(parameters);
-    Type *t = new TypeFunction(params, treturn, varargs, linkage);
+    TypeFunction *t = new TypeFunction(params, treturn, varargs, linkage);
+    t->llvmRetInPtr = llvmRetInPtr;
+    t->llvmUsesThis = llvmUsesThis;
     return t;
 }
 
@@ -5062,6 +5064,7 @@ Argument::Argument(unsigned storageClass, Type *type, Identifier *ident, Express
     this->ident = ident;
     this->storageClass = storageClass;
     this->defaultArg = defaultArg;
+    this->llvmByVal = false;
 }
 
 Argument *Argument::syntaxCopy()
@@ -5070,6 +5073,7 @@ Argument *Argument::syntaxCopy()
 		type ? type->syntaxCopy() : NULL,
 		ident,
 		defaultArg ? defaultArg->syntaxCopy() : NULL);
+    a->llvmByVal = llvmByVal;
     return a;
 }
 

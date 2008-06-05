@@ -16,6 +16,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/System/Path.h"
 
 #include "mars.h"
 #include "module.h"
@@ -151,17 +152,36 @@ void Module::genobjfile()
     // run optimizer
     llvmdc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
 
+    // eventually do our own path stuff, dmd's is a bit strange.
+    typedef llvm::sys::Path LLPath;
+    LLPath bcpath;
+    LLPath llpath;
+
+    if (global.params.fqnPaths)
+    {
+        bcpath = LLPath(md->toChars());
+        bcpath.appendSuffix("bc");
+
+        llpath = LLPath(md->toChars());
+        llpath.appendSuffix("ll");
+    }
+    else
+    {
+        bcpath = LLPath(bcfile->name->toChars());
+        llpath = LLPath(llfile->name->toChars());
+    }
+
     // write bytecode
     {
         Logger::println("Writing LLVM bitcode\n");
-        std::ofstream bos(bcfile->name->toChars(), std::ios::binary);
+        std::ofstream bos(bcpath.c_str(), std::ios::binary);
         llvm::WriteBitcodeToFile(ir.module, bos);
     }
 
     // disassemble ?
     if (global.params.disassemble) {
         Logger::println("Writing LLVM asm to: %s\n", llfile->name->toChars());
-        std::ofstream aos(llfile->name->toChars());
+        std::ofstream aos(llpath.c_str());
         ir.module->print(aos);
     }
 

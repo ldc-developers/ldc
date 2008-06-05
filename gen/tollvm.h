@@ -7,9 +7,12 @@
 #include "attrib.h"
 #include "declaration.h"
 
+#include "gen/structs.h"
+
 // D->LLVM type handling stuff
 const LLType* DtoType(Type* t);
 bool DtoIsPassedByRef(Type* type);
+bool DtoIsReturnedInArg(Type* type);
 
 // resolve typedefs to their real type.
 // TODO should probably be removed in favor of DMD's Type::toBasetype
@@ -54,10 +57,10 @@ llvm::Function* LLVM_DeclareMemCpy32();
 llvm::Function* LLVM_DeclareMemCpy64();
 
 // getelementptr helpers
-LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const std::string& var, llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEP(LLValue* ptr, const std::vector<unsigned>& src, const std::string& var, llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEPi(LLValue* ptr, unsigned i0, const std::string& var, llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const std::string& var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi(LLValue* ptr, const DStructIndexVector& src, const char* var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, const char* var, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb=NULL);
 
 // dynamic memory helpers
 LLValue* DtoNew(Type* newtype);

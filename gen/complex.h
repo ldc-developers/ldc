@@ -2,11 +2,10 @@
 #define LLVMDC_GEN_COMPLEX_H
 
 const llvm::StructType* DtoComplexType(Type* t);
-const llvm::Type* DtoComplexBaseType(Type* t);
+const LLType* DtoComplexBaseType(Type* t);
 
 LLConstant* DtoConstComplex(Type* t, LLConstant* re, LLConstant* im);
 LLConstant* DtoConstComplex(Type* t, long double re, long double im);
-LLConstant* DtoUndefComplex(Type* _ty);
 
 LLConstant* DtoComplexShuffleMask(unsigned a, unsigned b);
 

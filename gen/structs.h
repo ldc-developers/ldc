@@ -30,7 +30,8 @@ void DtoConstInitStruct(StructDeclaration* sd);
  */
 void DtoDefineStruct(StructDeclaration* sd);
 
-LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, std::vector<unsigned>& idxs);
+typedef LLSmallVector<unsigned, 3> DStructIndexVector;
+LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, DStructIndexVector& idxs);
 
 struct DUnionField
 {

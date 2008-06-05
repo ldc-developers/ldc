@@ -92,7 +92,7 @@ void ReturnStatement::toIR(IRState* p)
 
             emit_finallyblocks(p, enclosingtryfinally, NULL);
 
-            if (gIR->func()->inVolatile) {
+            if (f->inVolatile) {
                 // store-load barrier
                 DtoMemoryBarrier(false, false, true, false);
             }
@@ -128,21 +128,16 @@ void ReturnStatement::toIR(IRState* p)
     }
     else
     {
-        if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
-            emit_finallyblocks(p, enclosingtryfinally, NULL);
+        assert(p->topfunc()->getReturnType() == llvm::Type::VoidTy);
+        emit_finallyblocks(p, enclosingtryfinally, NULL);
 
-            if (gIR->func()->inVolatile) {
-                // store-load barrier
-                DtoMemoryBarrier(false, false, true, false);
-            }
+        if (gIR->func()->inVolatile) {
+            // store-load barrier
+            DtoMemoryBarrier(false, false, true, false);
+        }
 
-            if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
-            llvm::ReturnInst::Create(p->scopebb());
-        }
-        else {
-            assert(0); // why should this ever happen?
-            new llvm::UnreachableInst(p->scopebb());
-        }
+        if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
+        llvm::ReturnInst::Create(p->scopebb());
     }
 }
 
@@ -616,11 +611,10 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
     }
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
-    std::vector<LLValue*> args;
+
     Logger::cout() << *table->getType() << '\n';
     Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
-    args.push_back(table);
 
     DValue* val = e->toElem(gIR);
     LLValue* llval;
@@ -636,9 +630,8 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
         llval = val->getRVal();
     }
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
-    args.push_back(llval);
 
-    return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+    return gIR->ir->CreateCall2(fn, table, llval, "tmp");
 }
 
 void SwitchStatement::toIR(IRState* p)

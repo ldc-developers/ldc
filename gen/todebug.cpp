@@ -196,7 +196,7 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
 
 void DtoDwarfStopPoint(unsigned ln)
 {
-    std::vector<LLValue*> args;
+    LLSmallVector<LLValue*,3> args;
     args.push_back(DtoConstUint(ln));
     args.push_back(DtoConstUint(0));
     FuncDeclaration* fd = gIR->func()->decl;
