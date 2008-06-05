@@ -1171,10 +1171,10 @@ DValue* CallExp::toElem(IRState* p)
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             llargs[j] = argval->getRVal();
-        #if USE_BYVAL
+
             if (fnarg->llvmByVal)
                 palist = palist.addAttr(j, llvm::ParamAttr::ByVal);
-        #endif
+
             j++;
         }
 
@@ -1195,10 +1195,8 @@ DValue* CallExp::toElem(IRState* p)
                 llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
             }
 
-        #if USE_BYVAL
             if (fnarg && fnarg->llvmByVal)
                 palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
-        #endif
 
             // this hack is necessary :/
             if (dfn && dfn->func && dfn->func->runTimeHack) {
