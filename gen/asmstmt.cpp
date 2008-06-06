@@ -258,7 +258,7 @@ AsmStatement::toIR(IRState * irs)
     static std::string p_cns = "p";
     static std::string m_cns = "*m";
     static std::string mw_cns = "=*m";
-    static std::string mrw_cns = "+m";
+    static std::string mrw_cns = "+*m";
     static std::string memory_name = "memory";
 
     AsmCode * code = (AsmCode *) asmcode;
