@@ -441,7 +441,8 @@ std::cout << "asm fixme Arg_LocalSize" << std::endl;
     for(it i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
         llvmConstraints += "~{" + *i + "},";
     }
-    llvmConstraints.resize(llvmConstraints.size()-1);
+    if(llvmConstraints.size() > 0)
+        llvmConstraints.resize(llvmConstraints.size()-1);
 
 std::cout << "Inline Asm code: " << std::endl;
 std::cout << insnt << std::endl;
