@@ -2,14 +2,15 @@
 //
 // Taken from an earlier version of DMD -- why is it missing from 0.79?
 
+#include "gen/llvm.h"
+#include "llvm/InlineAsm.h"
+
 //#include "d-gcc-includes.h"
 //#include "total.h"
 #include "dmd/statement.h"
 #include "dmd/scope.h"
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
-
-#include "llvm/InlineAsm.h"
 
 #include <cassert>
 #include <deque>
@@ -18,6 +19,11 @@
 
 //#include "d-lang.h"
 //#include "d-codegen.h"
+
+#include "gen/irstate.h"
+#include "gen/dvalue.h"
+#include "gen/tollvm.h"
+#include "gen/logger.h"
 
 typedef enum {
     Arg_Integer,
@@ -64,8 +70,33 @@ struct AsmCode {
 llvm::InlineAsm*
 d_build_asm_stmt(std::string code, std::deque<DValue*> const& output_values, std::deque<DValue*> const& input_values, std::string constraints)
 {
-    //FIXME: Return InlineAsm::get(..) here.
-    return NULL;
+    std::vector<const LLType*> params;
+
+    // outputs
+    const LLType* ret = LLType::VoidTy;
+    if (!output_values.empty())
+    {
+        std::cout << "memory outputs" << std::endl;
+        assert(output_values.size() == 1);
+        const LLType* llty = DtoType(output_values[0]->getType());
+        params.push_back(llty);
+    }
+
+    // inputs
+    if (!input_values.empty())
+    {
+        std::cout << "inputs" << std::endl;
+        assert(input_values.size() == 1);
+        const LLType* llty = DtoType(input_values[0]->getType());
+        params.push_back(llty);
+    }
+
+    llvm::FunctionType* asmfnty = llvm::FunctionType::get(ret, params, false);
+
+std::cout << "function type: " << std::endl;
+std::cout << *asmfnty << std::endl;
+
+    return llvm::InlineAsm::get(asmfnty, code, constraints, true);
 }
 
 AsmStatement::AsmStatement(Loc loc, Token *tokens) :
@@ -214,6 +245,9 @@ Statement *AsmStatement::semantic(Scope *sc)
 void
 AsmStatement::toIR(IRState * irs)
 {
+    Logger::println("AsmStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+
 // FIXME
 //    gen.doLineNote( loc );
 
@@ -248,9 +282,11 @@ AsmStatement::toIR(IRState * irs)
 	AsmArg * arg = (AsmArg *) code->args.data[i];
 	
 	bool is_input = true;
-	DValue* arg_val;
+	DValue* arg_val = 0;
 	std::string cns;
-	
+
+std::cout << std::endl;
+
 	switch (arg->type) {
 	case Arg_Integer:
 	    arg_val = arg->expr->toElem(irs);
@@ -259,23 +295,24 @@ AsmStatement::toIR(IRState * irs)
 	    break;
 	case Arg_Pointer:
 // FIXME
-/*	    if (arg->expr->op == TOKvar)
-		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
-	    else if (arg->expr->op == TOKdsymbol) {
-		arg_val = irs->getLabelTree( (LabelDsymbol *) ((DsymbolExp *) arg->expr)->s );
-	    } else
-		assert(0);
-	    arg_val = irs->addressOf(arg_val);*/
+std::cout << "asm fixme Arg_Pointer" << std::endl;
+        if (arg->expr->op == TOKvar)
+        arg_val = arg->expr->toElem(irs);
+        else if (arg->expr->op == TOKdsymbol)
+        arg_val = arg->expr->toElem(irs);
+        else
+        assert(0);
+
 	    cns = p_cns;
 	    break;
 	case Arg_Memory:
 // FIXME
-/*	    if (arg->expr->op == TOKvar)
-		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
-	    else
-		arg_val = arg->expr->toElem(irs);
-	    if (DECL_P( arg_val ))
-		TREE_ADDRESSABLE( arg_val ) = 1;*/
+std::cout << "asm fixme Arg_Memory" << std::endl;
+        if (arg->expr->op == TOKvar)
+        arg_val = arg->expr->toElem(irs);
+        else
+        arg_val = arg->expr->toElem(irs);
+
 	    switch (arg->mode) {
 	    case Mode_Input:  cns = m_cns; break;
 	    case Mode_Output: cns = mw_cns;  is_input = false; break;
@@ -285,6 +322,7 @@ AsmStatement::toIR(IRState * irs)
 	    break;
 	case Arg_FrameRelative:
 // FIXME
+std::cout << "asm fixme Arg_FrameRelative" << std::endl;
 /*	    if (arg->expr->op == TOKvar)
 		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
 	    else
@@ -301,6 +339,7 @@ AsmStatement::toIR(IRState * irs)
 	    break;
 	case Arg_LocalSize:
 // FIXME
+std::cout << "asm fixme Arg_LocalSize" << std::endl;
 /*	    var_frame_offset = cfun->x_frame_offset;
 	    if (var_frame_offset < 0)
 		var_frame_offset = - var_frame_offset;
@@ -372,7 +411,7 @@ AsmStatement::toIR(IRState * irs)
 	++p;
     }
 
-    //printf("final: %.*s\n", code->insnTemplateLen, code->insnTemplate);
+    printf("final: %.*s\n", code->insnTemplateLen, code->insnTemplate);
 
     std::string insnt(code->insnTemplate, code->insnTemplateLen);
 
@@ -407,12 +446,37 @@ AsmStatement::toIR(IRState * irs)
 std::cout << "Inline Asm code: " << std::endl;
 std::cout << insnt << std::endl;
 std::cout << "LLVM constraints: " << llvmConstraints << std::endl;
-std::cout << std::endl;
 
     llvm::InlineAsm* t = d_build_asm_stmt(insnt, output_values, input_values, llvmConstraints);
+
+std::cout << "llvm::InlineAsm: " << std::endl;
+std::cout << *t << std::endl;
+
+    LLSmallVector<LLValue*, 2> callargs;
+
+    size_t cn = output_values.size();
+    for (size_t i=0; i<cn; ++i)
+    {
+        LLValue* val = output_values[i]->getLVal();
+        callargs.push_back(val);
+    }
+
+    cn = input_values.size();
+    for (size_t i=0; i<cn; ++i)
+    {
+        // FIXME: these should not be allowed to intermix with asm calls. they should somehow
+        // be outputted before any asm from a block, or the asm's should be moved after ...
+        LLValue* val = input_values[i]->getRVal();
+        callargs.push_back(val);
+    }
+
+    llvm::CallInst* call = irs->ir->CreateCall(t, callargs.begin(), callargs.end(), "");
+
+/*
 // FIXME
     //ASM_VOLATILE_P( t ) = 1;
     //irs->addExp( t );
     if (code->dollarLabel)
-	d_expand_priv_asm_label(irs, code->dollarLabel);
+    d_expand_priv_asm_label(irs, code->dollarLabel);
+*/
 }

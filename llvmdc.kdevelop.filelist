@@ -750,6 +750,8 @@ tangotests/aa1.d
 tangotests/aa2.d
 tangotests/align1.d
 tangotests/arrays1.d
+tangotests/asm1.d
+tangotests/asm2.d
 tangotests/b.d
 tangotests/byval1.d
 tangotests/c.d

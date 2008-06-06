@@ -1730,7 +1730,7 @@ struct AsmProcessor
 	    stmt->regs |= (1 << Reg_EAX)|
 		(1 << Reg_ECX)|(1 << Reg_EDX);
 
-	insnTemplate->writebyte('\t');
+	insnTemplate->writebyte(' ');
 	for (int i__ = 0; i__ < nOperands; i__++) {
 	    int i;
 	    if (i__ != 0)
@@ -1857,7 +1857,7 @@ struct AsmProcessor
 
 			    e = new AddrExp(0, e);
 			    e->type = decl->type->pointerTo();
-
+#if !IN_LLVM
 			    /* DMD uses the same frame offsets for naked functions. */
 			    if (sc->func->naked)
 				operand->constDisplacement += 4;
@@ -1870,7 +1870,7 @@ struct AsmProcessor
 			    }
 			    e = new PtrExp(0, e);
 			    e->type = decl->type;
-			    
+#endif
 			    operand->constDisplacement = 0;
 			    operand->baseReg = Reg_Invalid;
 
@@ -2542,7 +2542,7 @@ struct AsmProcessor
 	machine_mode mode;
 
 	insnTemplate->writestring((char*) directives[op - Op_db]);
-	insnTemplate->writebyte('\t');
+	insnTemplate->writebyte(' ');
 
 	do {
 	    // DMD is pretty strict here, not even constant expressions are allowed..

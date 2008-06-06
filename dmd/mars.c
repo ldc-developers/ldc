@@ -215,7 +215,10 @@ Usage:\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
   -w             enable warnings\n\
-  -fp80          enable 80bit reals on x86 32bit (EXPERIMENTAL)\n\
+\n\
+Experimental features:\n\
+  -inlineasm     allow use of inline asm\n\
+  -fp80          enable 80bit reals on x86 32bit\n\
 ",
 #if WIN32
 "  @cmdfile       read arguments from cmdfile\n"
@@ -320,8 +323,6 @@ int main(int argc, char *argv[])
 #endif /* linux */
 
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
-    VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
-    VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
     VersionCondition::addPredefinedGlobalIdent("all");
 
 #if _WIN32
@@ -401,6 +402,8 @@ int main(int argc, char *argv[])
             global.params.llvmAnnotate = 1;
         else if (strcmp(p + 1, "fp80") == 0)
             global.params.useFP80 = 1;
+        else if (strcmp(p + 1, "inlineasm") == 0)
+            global.params.useInlineAsm = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
@@ -752,12 +755,17 @@ int main(int argc, char *argv[])
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
     }
 
+    if (!is_x86 && (global.params.useFP80 || global.params.useInlineAsm)) {
+        error("the -fp80 option is only valid for the x86 32bit architecture");
+        fatal();
+    }
+
     if (global.params.useFP80) {
-        if (!is_x86) {
-            error("the -fp80 option is only valid for the x86 32bit architecture");
-            fatal();
-        }
         VersionCondition::addPredefinedGlobalIdent("LLVM_X86_FP80");
+    }
+    if (global.params.useInlineAsm) {
+        VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
+        VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
     }
 
     assert(tt_arch != 0);
