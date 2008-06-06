@@ -1913,12 +1913,10 @@ struct AsmProcessor
 				insnTemplate->writebyte('*');
 				use_star = false;
 			    }
-                if (mode == Mode_Output)
-                {
-                    e = new AddrExp(0, e);
-                    assert(decl);
-                    e->type = decl->type->pointerTo();
-                }
+			    e = new AddrExp(0, e);
+			    assert(decl);
+			    e->type = decl->type->pointerTo();
+
 			    addOperand(fmt, Arg_Memory, e, asmcode, mode);
 			}
 		    }
