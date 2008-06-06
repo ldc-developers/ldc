@@ -1855,8 +1855,12 @@ struct AsmProcessor
 			    ((operand->baseReg == Reg_EBP && ! sc->func->naked ) ||
 				(operand->baseReg == Reg_ESP && sc->func->naked)) ) {
 
-			    e = new AddrExp(0, e);
-			    e->type = decl->type->pointerTo();
+                if (mode == Mode_Output)
+                {
+                    e = new AddrExp(0, e);
+                    e->type = decl->type->pointerTo();
+                }
+
 #if !IN_LLVM
 			    /* DMD uses the same frame offsets for naked functions. */
 			    if (sc->func->naked)
@@ -1909,6 +1913,12 @@ struct AsmProcessor
 				insnTemplate->writebyte('*');
 				use_star = false;
 			    }
+                if (mode == Mode_Output)
+                {
+                    e = new AddrExp(0, e);
+                    assert(decl);
+                    e->type = decl->type->pointerTo();
+                }
 			    addOperand(fmt, Arg_Memory, e, asmcode, mode);
 			}
 		    }

@@ -257,7 +257,7 @@ AsmStatement::toIR(IRState * irs)
     static std::string i_cns = "i";
     static std::string p_cns = "p";
     static std::string m_cns = "m";
-    static std::string mw_cns = "=m";
+    static std::string mw_cns = "=*m";
     static std::string mrw_cns = "+m";
     static std::string memory_name = "memory";
 
@@ -457,7 +457,7 @@ std::cout << *t << std::endl;
     size_t cn = output_values.size();
     for (size_t i=0; i<cn; ++i)
     {
-        LLValue* val = output_values[i]->getLVal();
+        LLValue* val = output_values[i]->getRVal();
         callargs.push_back(val);
     }
 
