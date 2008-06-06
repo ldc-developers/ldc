@@ -76,18 +76,18 @@ d_build_asm_stmt(std::string code, std::deque<DValue*> const& output_values, std
     const LLType* ret = LLType::VoidTy;
     if (!output_values.empty())
     {
-        std::cout << "memory outputs" << std::endl;
         assert(output_values.size() == 1);
         const LLType* llty = DtoType(output_values[0]->getType());
+        std::cout << "out: " << *llty << '\n';
         params.push_back(llty);
     }
 
     // inputs
     if (!input_values.empty())
     {
-        std::cout << "inputs" << std::endl;
         assert(input_values.size() == 1);
         const LLType* llty = DtoType(input_values[0]->getType());
+        std::cout << "in: " << *llty << '\n';
         params.push_back(llty);
     }
 

@@ -694,6 +694,19 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 }
             }
 
+            // if the last block is not terminated we return a null value or void
+            // for some unknown reason this is needed when a void main() has a inline asm block ...
+            // this should be harmless for well formed code!
+            lastbb = &func->getBasicBlockList().back();
+            if (!lastbb->getTerminator())
+            {
+                Logger::println("adding missing return statement");
+                if (func->getReturnType() == llvm::Type::VoidTy)
+                    llvm::ReturnInst::Create(lastbb);
+                else
+                    llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), lastbb);
+            }
+
             gIR->functions.pop_back();
         }
     }
