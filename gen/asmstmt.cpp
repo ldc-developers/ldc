@@ -258,7 +258,7 @@ AsmStatement::toIR(IRState * irs)
 	return;
 
     static std::string i_cns = "i";
-    static std::string p_cns = "m";
+    static std::string p_cns = "i";
     static std::string l_cns = "X";
     static std::string m_cns = "*m";
     static std::string mw_cns = "=*m";

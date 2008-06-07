@@ -1411,6 +1411,12 @@ struct AsmProcessor
 	insnTemplate->printf("%d", asmcode->args.dim);
 	asmcode->args.push( new AsmArg(type, e, mode) );
     }
+    void addOperand2(const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
+    insnTemplate->writestring((char*) fmtpre);
+    insnTemplate->printf("%d", asmcode->args.dim);
+    insnTemplate->writestring((char*) fmtpost);
+    asmcode->args.push( new AsmArg(type, e, mode) );
+    }
 
     void addLabel(unsigned n) {
     // No longer taking the address of the actual label -- doesn't seem like it would help.
@@ -1909,7 +1915,7 @@ struct AsmProcessor
                 addOperand("$", Arg_Pointer, e, asmcode);
 			} else if ((decl && decl->isCodeseg())) { // if function or label
 			    use_star = false;
-			    addOperand("*$", Arg_Pointer, e, asmcode);
+			    addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
 			} else {
 			    if (use_star) {
 				insnTemplate->writebyte('*');
