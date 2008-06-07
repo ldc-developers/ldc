@@ -753,6 +753,7 @@ tangotests/arrays1.d
 tangotests/asm1.d
 tangotests/asm2.d
 tangotests/asm3.d
+tangotests/asm4.d
 tangotests/b.d
 tangotests/byval1.d
 tangotests/c.d

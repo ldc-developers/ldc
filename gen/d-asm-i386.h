@@ -1413,11 +1413,11 @@ struct AsmProcessor
     }
 
     void addLabel(unsigned n) {
-	// No longer taking the address of the actual label -- doesn't seem like it would help.
-	char buf[64];
-	
-	d_format_priv_asm_label(buf, n);
-	insnTemplate->writestring(buf);
+    // No longer taking the address of the actual label -- doesn't seem like it would help.
+    char buf[64];
+    
+    d_format_priv_asm_label(buf, n);
+    insnTemplate->writestring(buf);
     }
 
     /* Determines whether the operand is a register, memory reference
@@ -1899,12 +1899,14 @@ struct AsmProcessor
 			    addLabel(lbl_num);
 			    asmcode->dollarLabel = lbl_num; // could make the dollar label part of the same asm..
 			} else if (e->op == TOKdsymbol) {
-			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
-			    if (! lbl->asmLabelNum)
-				lbl->asmLabelNum = ++d_priv_asm_label_serial;
-			    
-			    use_star = false;
-			    addLabel(lbl->asmLabelNum);
+// 			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
+// 			    if (! lbl->asmLabelNum)
+// 				lbl->asmLabelNum = ++d_priv_asm_label_serial;
+// 			    
+// 			    use_star = false;
+// 			    addLabel(lbl->asmLabelNum);
+                use_star = false;
+                addOperand("$", Arg_Pointer, e, asmcode);
 			} else if ((decl && decl->isCodeseg())) { // if function or label
 			    use_star = false;
 			    addOperand("*$", Arg_Pointer, e, asmcode);
@@ -2389,7 +2391,10 @@ struct AsmProcessor
 	case TOKfloat64v:
 	case TOKfloat80v:
 	    // %% need different types?
-	    e = new RealExp(stmt->loc, token->float80value, Type::tfloat80);
+        if (global.params.useFP80)
+	       e = new RealExp(stmt->loc, token->float80value, Type::tfloat80);
+        else
+            e = new RealExp(stmt->loc, token->float80value, Type::tfloat64);
 	    nextToken();
 	    break;
 	case TOKidentifier:
@@ -2630,7 +2635,7 @@ struct AsmProcessor
 
 // FIXME
     #define HOST_WIDE_INT long
-bool getFrameRelativeValue(DValue* decl, HOST_WIDE_INT * result)
+bool getFrameRelativeValue(LLValue* decl, HOST_WIDE_INT * result)
 {
 // FIXME
 //     // Using this instead of DECL_RTL for struct args seems like a

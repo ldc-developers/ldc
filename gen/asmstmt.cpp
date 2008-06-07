@@ -68,7 +68,10 @@ struct AsmCode {
 };
 
 llvm::InlineAsm*
-d_build_asm_stmt(std::string code, std::deque<DValue*> const& output_values, std::deque<DValue*> const& input_values, std::string constraints)
+d_build_asm_stmt(std::string const& code,
+                 std::deque<LLValue*> const& output_values,
+                 std::deque<LLValue*> const& input_values,
+                 std::string const& constraints)
 {
     std::vector<const LLType*> params;
 
@@ -77,7 +80,7 @@ d_build_asm_stmt(std::string code, std::deque<DValue*> const& output_values, std
     if (!output_values.empty())
     {
         assert(output_values.size() == 1);
-        const LLType* llty = DtoType(output_values[0]->getType());
+        const LLType* llty = output_values[0]->getType();
         std::cout << "out: " << *llty << '\n';
         params.push_back(llty);
     }
@@ -86,7 +89,7 @@ d_build_asm_stmt(std::string code, std::deque<DValue*> const& output_values, std
     if (!input_values.empty())
     {
         assert(input_values.size() == 1);
-        const LLType* llty = DtoType(input_values[0]->getType());
+        const LLType* llty = input_values[0]->getType();
         std::cout << "in: " << *llty << '\n';
         params.push_back(llty);
     }
@@ -256,15 +259,16 @@ AsmStatement::toIR(IRState * irs)
 
     static std::string i_cns = "i";
     static std::string p_cns = "m";
+    static std::string l_cns = "X";
     static std::string m_cns = "*m";
     static std::string mw_cns = "=*m";
     static std::string mrw_cns = "+*m";
     static std::string memory_name = "memory";
 
     AsmCode * code = (AsmCode *) asmcode;
-    std::deque<DValue*> input_values;
+    std::deque<LLValue*> input_values;
     std::deque<std::string> input_constraints;
-    std::deque<DValue*> output_values;
+    std::deque<LLValue*> output_values;
     std::deque<std::string> output_constraints;
     std::deque<std::string> clobbers;
 
@@ -282,22 +286,37 @@ AsmStatement::toIR(IRState * irs)
 	AsmArg * arg = (AsmArg *) code->args.data[i];
 	
 	bool is_input = true;
-	DValue* arg_val = 0;
+	LLValue* arg_val = 0;
 	std::string cns;
 
 std::cout << std::endl;
 
 	switch (arg->type) {
 	case Arg_Integer:
-	    arg_val = arg->expr->toElem(irs);
+	    arg_val = arg->expr->toElem(irs)->getRVal();
 	do_integer:
 	    cns = i_cns;
 	    break;
 	case Arg_Pointer:
 // FIXME
 std::cout << "asm fixme Arg_Pointer" << std::endl;
-        arg_val = arg->expr->toElem(irs);
-        arg_val = new DVarValue(arg_val->getType()->pointerTo(), arg_val->getRVal(), true);
+        if (arg->expr->op == TOKdsymbol)
+        {
+            DsymbolExp* dse = (DsymbolExp*)arg->expr;
+            LabelDsymbol* lbl = dse->s->isLabel();
+            assert(lbl);
+            arg_val = lbl->statement->llvmBB;
+            if (!arg_val)
+            {
+                arg_val = lbl->statement->llvmBB = llvm::BasicBlock::Create("label", irs->topfunc());
+            }
+            cns = l_cns;
+        }
+        else
+        {
+            arg_val = arg->expr->toElem(irs)->getRVal();
+            cns = p_cns;
+        }
         /*if (arg->expr->op == TOKvar)
         arg_val = arg->expr->toElem(irs);
         else if (arg->expr->op == TOKdsymbol)
@@ -305,15 +324,15 @@ std::cout << "asm fixme Arg_Pointer" << std::endl;
         else
         assert(0);*/
 
-	    cns = p_cns;
 	    break;
 	case Arg_Memory:
 // FIXME
 std::cout << "asm fixme Arg_Memory" << std::endl;
-        if (arg->expr->op == TOKvar)
-        arg_val = arg->expr->toElem(irs);
-        else
-        arg_val = arg->expr->toElem(irs);
+        arg_val = arg->expr->toElem(irs)->getRVal();
+//         if (arg->expr->op == TOKvar)
+//         arg_val = arg->expr->toElem(irs);
+//         else
+//         arg_val = arg->expr->toElem(irs);
 
 	    switch (arg->mode) {
 	    case Mode_Input:  cns = m_cns; break;
@@ -325,6 +344,7 @@ std::cout << "asm fixme Arg_Memory" << std::endl;
 	case Arg_FrameRelative:
 // FIXME
 std::cout << "asm fixme Arg_FrameRelative" << std::endl;
+assert(0);
 /*	    if (arg->expr->op == TOKvar)
 		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
 	    else
@@ -342,6 +362,7 @@ std::cout << "asm fixme Arg_FrameRelative" << std::endl;
 	case Arg_LocalSize:
 // FIXME
 std::cout << "asm fixme Arg_LocalSize" << std::endl;
+assert(0);
 /*	    var_frame_offset = cfun->x_frame_offset;
 	    if (var_frame_offset < 0)
 		var_frame_offset = - var_frame_offset;
@@ -460,26 +481,14 @@ std::cout << *t << std::endl;
     size_t cn = output_values.size();
     for (size_t i=0; i<cn; ++i)
     {
-        LLValue* val = output_values[i]->getRVal();
-        callargs.push_back(val);
+        callargs.push_back(output_values[i]);
     }
 
     cn = input_values.size();
     for (size_t i=0; i<cn; ++i)
     {
-        // FIXME: these should not be allowed to intermix with asm calls. they should somehow
-        // be outputted before any asm from a block, or the asm's should be moved after ...
-        LLValue* val = input_values[i]->getRVal();
-        callargs.push_back(val);
+        callargs.push_back(input_values[i]);
     }
 
     llvm::CallInst* call = irs->ir->CreateCall(t, callargs.begin(), callargs.end(), "");
-
-/*
-// FIXME
-    //ASM_VOLATILE_P( t ) = 1;
-    //irs->addExp( t );
-    if (code->dollarLabel)
-    d_expand_priv_asm_label(irs, code->dollarLabel);
-*/
 }
