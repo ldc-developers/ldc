@@ -296,12 +296,14 @@ std::cout << std::endl;
 	case Arg_Pointer:
 // FIXME
 std::cout << "asm fixme Arg_Pointer" << std::endl;
-        if (arg->expr->op == TOKvar)
+        arg_val = arg->expr->toElem(irs);
+        arg_val = new DVarValue(arg_val->getType()->pointerTo(), arg_val->getRVal(), true);
+        /*if (arg->expr->op == TOKvar)
         arg_val = arg->expr->toElem(irs);
         else if (arg->expr->op == TOKdsymbol)
         arg_val = arg->expr->toElem(irs);
         else
-        assert(0);
+        assert(0);*/
 
 	    cns = p_cns;
 	    break;
