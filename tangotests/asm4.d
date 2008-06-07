@@ -17,14 +17,4 @@ void main()
         call printf;
         pop EAX;
     }
-    if (x)
-    {
-        printf("foobar\n");
-    }
-    else
-    {
-        printf("baz\n");
-    }
 }
-
-extern(C) extern int x;
