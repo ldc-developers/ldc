@@ -1907,7 +1907,7 @@ struct AsmProcessor
 			    addLabel(lbl->asmLabelNum);
 			} else if ((decl && decl->isCodeseg())) { // if function or label
 			    use_star = false;
-			    addOperand("$a", Arg_Pointer, e, asmcode);
+			    addOperand("*$", Arg_Pointer, e, asmcode);
 			} else {
 			    if (use_star) {
 				insnTemplate->writebyte('*');
