@@ -1408,12 +1408,12 @@ struct AsmProcessor
 
     void addOperand(const char * fmt, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
 	insnTemplate->writestring((char*) fmt);
-	insnTemplate->printf("<<<%s%d>>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
+	insnTemplate->printf("<<%s%d>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
 	asmcode->args.push( new AsmArg(type, e, mode) );
     }
     void addOperand2(const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
     insnTemplate->writestring((char*) fmtpre);
-    insnTemplate->printf("<<<%s%d>>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
+    insnTemplate->printf("<<%s%d>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
     insnTemplate->writestring((char*) fmtpost);
     asmcode->args.push( new AsmArg(type, e, mode) );
     }
@@ -1427,7 +1427,7 @@ struct AsmProcessor
     }
 
     void addLabel(char* id) {
-    insnTemplate->writestring(".LDASM");
+    insnTemplate->writestring(".LDASM_");
     insnTemplate->writestring(id);
     }
 

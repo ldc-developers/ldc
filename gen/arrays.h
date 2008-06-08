@@ -3,8 +3,9 @@
 
 struct DSliceValue;
 
-const llvm::StructType* DtoArrayType(Type* t);
-const llvm::ArrayType* DtoStaticArrayType(Type* t);
+const llvm::StructType* DtoArrayType(Type* arrayTy);
+const llvm::StructType* DtoArrayType(const LLType* elemTy);
+const llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr);

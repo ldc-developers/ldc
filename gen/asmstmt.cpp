@@ -157,6 +157,7 @@ static unsigned d_priv_asm_label_serial = 0;
 static void d_format_priv_asm_label(char * buf, unsigned n)
 {
     //ASM_GENERATE_INTERNAL_LABEL(buf, "LDASM", n);//inserts a '*' for use with assemble_name
+    assert(0);
     sprintf(buf, ".LDASM%u", n);
 }
 
@@ -270,42 +271,13 @@ std::cout << std::endl;
 	    cns = i_cns;
 	    break;
 	case Arg_Pointer:
-// FIXME
-std::cout << "asm fixme Arg_Pointer" << std::endl;
-        if (arg->expr->op == TOKdsymbol)
-        {
-            assert(0);
-            DsymbolExp* dse = (DsymbolExp*)arg->expr;
-            LabelDsymbol* lbl = dse->s->isLabel();
-            assert(lbl);
-            arg_val = lbl->statement->llvmBB;
-            if (!arg_val)
-            {
-                arg_val = lbl->statement->llvmBB = llvm::BasicBlock::Create("label", irs->topfunc());
-            }
-            cns = l_cns;
-        }
-        else
-        {
-            arg_val = arg->expr->toElem(irs)->getRVal();
-            cns = p_cns;
-        }
-        /*if (arg->expr->op == TOKvar)
-        arg_val = arg->expr->toElem(irs);
-        else if (arg->expr->op == TOKdsymbol)
-        arg_val = arg->expr->toElem(irs);
-        else
-        assert(0);*/
+        assert(arg->expr->op == TOKvar);
+        arg_val = arg->expr->toElem(irs)->getRVal();
+        cns = p_cns;
 
 	    break;
 	case Arg_Memory:
-// FIXME
-std::cout << "asm fixme Arg_Memory" << std::endl;
         arg_val = arg->expr->toElem(irs)->getRVal();
-//         if (arg->expr->op == TOKvar)
-//         arg_val = arg->expr->toElem(irs);
-//         else
-//         arg_val = arg->expr->toElem(irs);
 
 	    switch (arg->mode) {
 	    case Mode_Input:  cns = m_cns; break;
@@ -471,8 +443,8 @@ static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
     };
     assert(nargs <= 10);
 
-    static const std::string prefix("<<<out");
-    static const std::string suffix(">>>");
+    static const std::string prefix("<<out");
+    static const std::string suffix(">>");
     std::string argnum;
     std::string needle;
     char buf[10];
@@ -493,8 +465,8 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
     };
     assert(nargs <= 10);
 
-    static const std::string prefix("<<<in");
-    static const std::string suffix(">>>");
+    static const std::string prefix("<<in");
+    static const std::string suffix(">>");
     std::string argnum;
     std::string needle;
     char buf[10];

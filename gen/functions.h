@@ -13,6 +13,4 @@ void DtoDefineFunc(FuncDeclaration* fd);
 DValue* DtoArgument(Argument* fnarg, Expression* argexp);
 void DtoVariadicArgument(Expression* argexp, LLValue* dst);
 
-void DtoMain();
-
 #endif

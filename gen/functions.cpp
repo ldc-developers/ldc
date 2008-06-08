@@ -44,11 +44,21 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     bool retinptr = false;
     bool usesthis = false;
 
-    if (ismain) {
+    // parameter types
+    std::vector<const LLType*> paramvec;
+
+    if (ismain)
+    {
         rettype = llvm::Type::Int32Ty;
         actualRettype = rettype;
+        if (Argument::dim(f->parameters) == 0)
+        {
+        const LLType* arrTy = DtoArrayType(LLType::Int8Ty);
+        const LLType* arrArrTy = DtoArrayType(arrTy);
+        paramvec.push_back(getPtrToType(arrArrTy));
+        }
     }
-    else {
+    else{
         assert(rt);
         Type* rtfin = DtoDType(rt);
         if (DtoIsReturnedInArg(rt)) {
@@ -61,9 +71,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             actualRettype = rettype;
         }
     }
-
-    // parameter types
-    std::vector<const LLType*> paramvec;
 
     if (retinptr) {
         //Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
@@ -403,6 +410,16 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
         int nbyval = 0;
 
+        if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
+        {
+            llvm::ParamAttrsWithIndex PAWI;
+            PAWI.Index = llidx;
+            PAWI.Attrs = llvm::ParamAttr::ByVal;
+            attrs.push_back(PAWI);
+            llidx++;
+            nbyval++;
+        }
+
         for (; llidx <= funcNumArgs && f->parameters->dim > k; ++llidx,++k)
         {
             Argument* fnarg = (Argument*)f->parameters->data[k];
@@ -710,84 +727,6 @@ void DtoDefineFunc(FuncDeclaration* fd)
             gIR->functions.pop_back();
         }
     }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoMain()
-{
-    // emit main function llvm style
-    // int main(int argc, char**argv, char**env);
-
-    assert(gIR != 0);
-    IRState& ir = *gIR;
-
-    assert(ir.emitMain && ir.mainFunc);
-
-    // parameter types
-    std::vector<const LLType*> pvec;
-    pvec.push_back((const LLType*)llvm::Type::Int32Ty);
-    const LLType* chPtrType = (const LLType*)getPtrToType(llvm::Type::Int8Ty);
-    pvec.push_back((const LLType*)getPtrToType(chPtrType));
-    pvec.push_back((const LLType*)getPtrToType(chPtrType));
-    const LLType* rettype = (const LLType*)llvm::Type::Int32Ty;
-
-    llvm::FunctionType* functype = llvm::FunctionType::get(rettype, pvec, false);
-    llvm::Function* func = llvm::Function::Create(functype,llvm::GlobalValue::ExternalLinkage,"main",ir.module);
-
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry",func);
-
-    // call static ctors
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleCtor");
-    llvm::Instruction* apt = llvm::CallInst::Create(fn,"",bb);
-
-    // run unit tests if -unittest is provided
-    if (global.params.useUnitTests) {
-        fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleUnitTests");
-        llvm::Instruction* apt = llvm::CallInst::Create(fn,"",bb);
-    }
-
-    // call user main function
-    const llvm::FunctionType* mainty = ir.mainFunc->getFunctionType();
-    llvm::CallInst* call;
-    if (mainty->getNumParams() > 0)
-    {
-        // main with arguments
-        assert(mainty->getNumParams() == 1);
-        std::vector<LLValue*> args;
-        llvm::Function* mfn = LLVM_D_GetRuntimeFunction(ir.module,"_d_main_args");
-
-        llvm::Function::arg_iterator argi = func->arg_begin();
-        args.push_back(argi++);
-        args.push_back(argi++);
-
-        const LLType* at = mainty->getParamType(0)->getContainedType(0);
-        LLValue* arr = new llvm::AllocaInst(at->getContainedType(1)->getContainedType(0), func->arg_begin(), "argstorage", apt);
-        LLValue* a = new llvm::AllocaInst(at, "argarray", apt);
-        LLValue* ptr = DtoGEPi(a,0,0,"tmp",bb);
-        LLValue* v = args[0];
-        if (v->getType() != DtoSize_t())
-            v = new llvm::ZExtInst(v, DtoSize_t(), "tmp", bb);
-        new llvm::StoreInst(v,ptr,bb);
-        ptr = DtoGEPi(a,0,1,"tmp",bb);
-        new llvm::StoreInst(arr,ptr,bb);
-        args.push_back(a);
-        llvm::CallInst::Create(mfn, args.begin(), args.end(), "", bb);
-        call = llvm::CallInst::Create(ir.mainFunc,a,"ret",bb);
-    }
-    else
-    {
-        // main with no arguments
-        call = llvm::CallInst::Create(ir.mainFunc,"ret",bb);
-    }
-    call->setCallingConv(ir.mainFunc->getCallingConv());
-
-    // call static dtors
-    fn = LLVM_D_GetRuntimeFunction(ir.module,"_moduleDtor");
-    llvm::CallInst::Create(fn,"",bb);
-
-    // return
-    llvm::ReturnInst::Create(call,bb);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

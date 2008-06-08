@@ -129,11 +129,6 @@ void Module::genobjfile()
     // do this again as moduleinfo might have pulled something in!
     DtoEmptyAllLists();
 
-    // emit the llvm main function if necessary
-    if (ir.emitMain) {
-        //DtoMain();
-    }
-
     // verify the llvm
     if (!global.params.novalidate) {
         std::string verifyErr;

@@ -15,13 +15,18 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::StructType* DtoArrayType(Type* t)
+const llvm::StructType* DtoArrayType(Type* arrayTy)
 {
-    assert(t->next);
-    const LLType* elemty = DtoType(t->next);
+    assert(arrayTy->next);
+    const LLType* elemty = DtoType(arrayTy->next);
     if (elemty == llvm::Type::VoidTy)
         elemty = llvm::Type::Int8Ty;
     return llvm::StructType::get(DtoSize_t(), getPtrToType(elemty), 0);
+}
+
+const llvm::StructType* DtoArrayType(const LLType* t)
+{
+    return llvm::StructType::get(DtoSize_t(), getPtrToType(t), 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
