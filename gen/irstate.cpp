@@ -53,7 +53,7 @@ IRState::IRState()
     emitMain = false;
     mainFunc = 0;
     ir.state = this;
-    inASM = false;
+    asmBlock = NULL;
 }
 
 IrFunction* IRState::func()

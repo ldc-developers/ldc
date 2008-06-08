@@ -25,6 +25,7 @@
 #include "gen/dvalue.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
+#include "gen/todebug.h"
 
 typedef enum {
     Arg_Integer,
@@ -217,11 +218,16 @@ AsmStatement::toIR(IRState * irs)
     Logger::println("AsmStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-// FIXME
-//    gen.doLineNote( loc );
+    // get asm block
+    IRAsmBlock* asmblock = irs->asmBlock;
+    assert(asmblock);
+
+    // debug info
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     if (! asmcode)
-	return;
+    return;
 
     static std::string i_cns = "i";
     static std::string p_cns = "i";
@@ -408,7 +414,6 @@ assert(0);
     // rewrite GCC-style constraints to LLVM-style constraints
     std::string llvmOutConstraints;
     std::string llvmInConstraints;
-    std::string llvmClobbers;
     int n = 0;
     typedef std::deque<std::string>::iterator it;
     for(it i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i, ++n) {
@@ -431,8 +436,10 @@ assert(0);
         llvmInConstraints += ",";
     }
 
+    std::string clobstr;
     for(it i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
-        llvmClobbers += "~{" + *i + "},";
+        clobstr = "~{" + *i + "},";
+        asmblock->clobs.insert(clobstr);
     }
 
     // excessive commas are removed later...
@@ -442,10 +449,9 @@ assert(0);
     asmStmt->code = insnt;
     asmStmt->out_c = llvmOutConstraints;
     asmStmt->in_c = llvmInConstraints;
-    asmStmt->clobbers = llvmClobbers;
     asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(), output_values.end());
     asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(), input_values.end());
-    irs->ASMs.push_back(asmStmt);
+    asmblock->s.push_back(asmStmt);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -505,12 +511,10 @@ void AsmBlockStatement::toIR(IRState* p)
     LOG_SCOPE;
     Logger::println("BEGIN ASM");
 
-    assert(!p->inASM);
-    p->inASM = true;
-
-    // rest idx
-    size_t asmIdx = 0;
-    assert(p->ASMs.empty());
+    // create asm block structure
+    assert(!p->asmBlock);
+    IRAsmBlock* asmblock = new IRAsmBlock;
+    p->asmBlock = asmblock;
 
     // do asm statements
     for (int i=0; i<statements->dim; i++)
@@ -530,11 +534,12 @@ void AsmBlockStatement::toIR(IRState* p)
     std::string in_c;
     std::string clobbers;
     std::string code;
+    size_t asmIdx = 0;
 
-    size_t n = p->ASMs.size();
+    size_t n = asmblock->s.size();
     for (size_t i=0; i<n; ++i)
     {
-        IRAsmStmt* a = p->ASMs[i];
+        IRAsmStmt* a = asmblock->s[i];
         assert(a);
         size_t onn = a->out.size();
         for (size_t j=0; j<onn; ++j)
@@ -546,15 +551,11 @@ void AsmBlockStatement::toIR(IRState* p)
         {
             out_c += a->out_c;
         }
-        if (!a->clobbers.empty())
-        {
-            clobbers += a->clobbers;
-        }
         remap_outargs(a->code, onn, asmIdx);
     }
     for (size_t i=0; i<n; ++i)
     {
-        IRAsmStmt* a = p->ASMs[i];
+        IRAsmStmt* a = asmblock->s[i];
         assert(a);
         size_t inn = a->in.size();
         for (size_t j=0; j<inn; ++j)
@@ -571,10 +572,19 @@ void AsmBlockStatement::toIR(IRState* p)
             code += " ; ";
         code += a->code;
     }
-    p->ASMs.clear();
+    asmblock->s.clear();
 
+    // append inputs
     out_c += in_c;
-    out_c += clobbers;
+
+    // append clobbers
+    typedef std::set<std::string>::iterator clobs_it;
+    for (clobs_it i=asmblock->clobs.begin(); i!=asmblock->clobs.end(); ++i)
+    {
+        out_c += *i;
+    }
+
+    // remove excessive comma
     if (!out_c.empty())
         out_c.resize(out_c.size()-1);
 
@@ -593,7 +603,7 @@ void AsmBlockStatement::toIR(IRState* p)
     args.insert(args.end(), inargs.begin(), inargs.end());
     llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(), "");
 
-    p->inASM = false;
+    p->asmBlock = NULL;
     Logger::println("END ASM");
 }
 

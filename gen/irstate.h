@@ -70,9 +70,14 @@ struct IRAsmStmt
     std::string code;
     std::string out_c;
     std::string in_c;
-    std::string clobbers;
     std::vector<LLValue*> out;
     std::vector<LLValue*> in;
+};
+
+struct IRAsmBlock
+{
+    std::vector<IRAsmStmt*> s;
+    std::set<std::string> clobs;
 };
 
 // represents the module
@@ -152,8 +157,7 @@ struct IRState
     FuncDeclVector unitTests;
 
     // for inline asm
-    std::vector<IRAsmStmt*> ASMs;
-    bool inASM;
+    IRAsmBlock* asmBlock;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H
