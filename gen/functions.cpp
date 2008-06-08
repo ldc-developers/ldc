@@ -124,7 +124,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             assert(argT->ty == Tsarray);
             //paramvec.push_back(getPtrToType(at->getContainedType(0)));
             paramvec.push_back(getPtrToType(at));
-            arg->llvmByVal = !refOrOut;
+            //arg->llvmByVal = !refOrOut; // static array are passed by reference
         }
         else if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");
