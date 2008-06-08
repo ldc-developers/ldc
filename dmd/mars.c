@@ -8,6 +8,7 @@
 // See the included readme.txt for details.
 
 #include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/System/Signals.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -180,6 +181,7 @@ Usage:\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
   -dis           disassemble module after compiling\n\
+  -fp80          enable 80bit reals on x86 32bit (EXPERIMENTAL)\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
   -H             generate 'header' file\n\
@@ -193,6 +195,7 @@ Usage:\n\
   -Llinkerflag   pass linkerflag to link\n\
   -m<arch>       emit code specific to <arch>\n\
                  x86 x86-64 ppc32 ppc64\n\
+  -noasm         do not allow use of inline asm\n\
   -nofloat       do not emit reference to floating point\n\
   -noruntime     do not allow code that generates implicit runtime calls\n\
   -noverify      do not run the validation pass before writing bitcode\n\
@@ -215,10 +218,6 @@ Usage:\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
   -w             enable warnings\n\
-\n\
-Experimental features:\n\
-  -inlineasm     allow use of inline asm\n\
-  -fp80          enable 80bit reals on x86 32bit\n\
 ",
 #if WIN32
 "  @cmdfile       read arguments from cmdfile\n"
@@ -230,6 +229,8 @@ Experimental features:\n\
 
 int main(int argc, char *argv[])
 {
+    llvm::sys::PrintStackTraceOnErrorSignal();
+
     int i;
     Array files;
     char *p;
@@ -300,6 +301,7 @@ int main(int argc, char *argv[])
     global.params.novalidate = 0;
     global.params.optimizeLevel = -1;
     global.params.runtimeImppath = 0;
+    global.params.useInlineAsm = 1;
 
     global.params.defaultlibname = "phobos";
     global.params.debuglibname = global.params.defaultlibname;
@@ -402,8 +404,8 @@ int main(int argc, char *argv[])
             global.params.llvmAnnotate = 1;
         else if (strcmp(p + 1, "fp80") == 0)
             global.params.useFP80 = 1;
-        else if (strcmp(p + 1, "inlineasm") == 0)
-            global.params.useInlineAsm = 1;
+        else if (strcmp(p + 1, "noasm") == 0)
+            global.params.useInlineAsm = 0;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
@@ -710,31 +712,36 @@ int main(int argc, char *argv[])
         //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
         global.params.isLE = true;
         global.params.is64bit = false;
+        global.params.cpu = ARCHx86;
         tt_arch = "i686";
-        data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:8";
+        data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
         is_x86 = true;
+        
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86_64");
         //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86_64");
         global.params.isLE = true;
         global.params.is64bit = true;
+        global.params.cpu = ARCHx86_64;
         tt_arch = "x86_64";
-        data_layout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:8";
+        data_layout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"ppc32")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC");
         global.params.isLE = false;
         global.params.is64bit = false;
+        global.params.cpu = ARCHppc;
         tt_arch = "powerpc";
-        data_layout = "E-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:8";
+        data_layout = "E-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"ppc64")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC64");
         global.params.isLE = false;
         global.params.is64bit = true;
+        global.params.cpu = ARCHppc_64;
         tt_arch = "powerpc64";
-        data_layout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:8";
+        data_layout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else {
         assert(0 && "Invalid arch");
@@ -755,15 +762,14 @@ int main(int argc, char *argv[])
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
     }
 
-    if (!is_x86 && (global.params.useFP80 || global.params.useInlineAsm)) {
-        error("the -fp80 option is only valid for the x86 32bit architecture");
-        fatal();
-    }
-
     if (global.params.useFP80) {
+        if (!is_x86) {
+            error("the -fp80 option is only valid for the x86 32bit architecture");
+            fatal();
+        }
         VersionCondition::addPredefinedGlobalIdent("LLVM_X86_FP80");
     }
-    if (global.params.useInlineAsm) {
+    if (is_x86 && global.params.useInlineAsm) {
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
     }

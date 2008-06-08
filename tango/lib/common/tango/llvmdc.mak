@@ -22,14 +22,14 @@ MD=mkdir -p
 ADD_CFLAGS=
 ADD_DFLAGS=
 
-#CFLAGS=-O $(ADD_CFLAGS)
+#CFLAGS=-O3 $(ADD_CFLAGS)
 CFLAGS=-g $(ADD_CFLAGS)
 
-#DFLAGS=-release -O -inline -w $(ADD_DFLAGS)
-DFLAGS=-g -w $(ADD_DFLAGS)
+#DFLAGS=-release -O3 -inline -w $(ADD_DFLAGS)
+DFLAGS=-g -w -noasm $(ADD_DFLAGS)
 
-#TFLAGS=-O -inline -w $(ADD_DFLAGS)
-TFLAGS=-g -w $(ADD_DFLAGS)
+#TFLAGS=-O3 -inline -w $(ADD_DFLAGS)
+TFLAGS=-g -w -noasm $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc
 

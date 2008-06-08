@@ -2260,7 +2260,10 @@ private
 {
     version( D_InlineAsm_X86 )
     {
-        version( X86_64 )
+        version( LLVMDC )
+        {
+        }
+        else version( X86_64 )
         {
 
         }

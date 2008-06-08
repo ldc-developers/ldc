@@ -198,7 +198,20 @@ bool d_have_inline_asm() { return true; }
 
 Statement *AsmStatement::semantic(Scope *sc)
 {
-    
+    bool err = false;
+    if (global.params.cpu != ARCHx86)
+    {
+        error("inline asm is not supported for the \"%s\" architecture", global.params.llvmArch);
+        err = true;
+    }
+    if (!global.params.useInlineAsm)
+    {
+        error("inline asm is not allowed when the -noasm switch is used");
+        err = true;
+    }
+    if (err)
+        fatal();
+
     sc->func->inlineAsm = 1;
     sc->func->inlineStatus = ILSno; // %% not sure
     // %% need to set DECL_UNINLINABLE too?
@@ -261,8 +274,6 @@ AsmStatement::toIR(IRState * irs)
 	bool is_input = true;
 	LLValue* arg_val = 0;
 	std::string cns;
-
-std::cout << std::endl;
 
 	switch (arg->type) {
 	case Arg_Integer:
@@ -379,7 +390,7 @@ assert(0);
 	++p;
     }
 
-    printf("final: %.*s\n", code->insnTemplateLen, code->insnTemplate);
+    Logger::println("final asm: %.*s", code->insnTemplateLen, code->insnTemplate);
 
     std::string insnt(code->insnTemplate, code->insnTemplateLen);
 

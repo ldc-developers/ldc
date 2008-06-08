@@ -118,6 +118,7 @@ gen/functions.cpp
 gen/functions.h
 gen/irstate.cpp
 gen/irstate.h
+gen/linker.h
 gen/llvm.h
 gen/logger.cpp
 gen/logger.h
@@ -749,6 +750,7 @@ tangotests/a.d
 tangotests/aa1.d
 tangotests/aa2.d
 tangotests/align1.d
+tangotests/apply1.d
 tangotests/arrays1.d
 tangotests/asm1.d
 tangotests/asm2.d

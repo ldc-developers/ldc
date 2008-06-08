@@ -1117,7 +1117,7 @@ DValue* DtoCastPtr(DValue* val, Type* to)
 
     Type* totype = DtoDType(to);
     Type* fromtype = DtoDType(val->getType());
-    assert(fromtype->ty == Tpointer);
+    assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
 
     LLValue* rval;
 
@@ -1256,7 +1256,7 @@ DValue* DtoCast(DValue* val, Type* to)
     else if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
         return DtoCastArray(val, to);
     }
-    else if (fromtype->ty == Tpointer) {
+    else if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
         return DtoCastPtr(val, to);
     }
     else {

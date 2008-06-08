@@ -39,6 +39,10 @@ else version (GNU)
 {
     // use the unoptimized version
 }
+else version(LLVMDC)
+{
+    // ditto
+}
 else version (D_InlineAsm_X86)
 {
     version = Asm86;

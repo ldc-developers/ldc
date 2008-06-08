@@ -24,10 +24,10 @@ MD=mkdir -p
 CFLAGS=-g $(ADD_CFLAGS)
 
 #DFLAGS=-release -O3 -inline -w $(ADD_DFLAGS)
-DFLAGS=-g -w $(ADD_DFLAGS)
+DFLAGS=-g -w -noasm $(ADD_DFLAGS)
 
 #TFLAGS=-O3 -inline -w $(ADD_DFLAGS)
-TFLAGS=-g -w $(ADD_DFLAGS)
+TFLAGS=-g -w -noasm $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc
 

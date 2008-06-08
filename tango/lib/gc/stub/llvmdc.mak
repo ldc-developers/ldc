@@ -20,15 +20,13 @@ MD=mkdir -p
 ADD_CFLAGS=
 ADD_DFLAGS=
 
-#CFLAGS=-O $(ADD_CFLAGS)
+#CFLAGS=-O3 $(ADD_CFLAGS)
 CFLAGS=-g $(ADD_CFLAGS)
 
-### warnings disabled because gcx has issues ###
-
-#DFLAGS=-release -O -inline $(ADD_DFLAGS)
+#DFLAGS=-release -O3 -inline -w $(ADD_DFLAGS)
 DFLAGS=-g $(ADD_DFLAGS)
 
-#TFLAGS=-O -inline $(ADD_DFLAGS)
+#TFLAGS=-O3 -inline $(ADD_DFLAGS)
 TFLAGS=-g $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc

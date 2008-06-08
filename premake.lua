@@ -26,7 +26,7 @@ package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++", "`llvm-config --cxxflags`" }
 package.linkoptions = {
     -- long but it's faster than just 'all'
-    "`llvm-config --libs core asmparser bitreader bitwriter support target transformutils scalaropts ipo instrumentation x86 powerpc`",
+    "`llvm-config --libs core asmparser bitreader bitwriter linker support target transformutils scalaropts ipo instrumentation x86 powerpc`",
     "`llvm-config --ldflags`",
 }
 package.defines = {

@@ -473,7 +473,11 @@ unittest
 
 extern (C) int _adCmpChar(Array a1, Array a2)
 {
-  version (D_InlineAsm_X86)
+  version(D_InlineAsm_X86)
+  {
+  //version = Asm86;
+  }
+  version (Asm86)
   {
     asm
     {   naked                   ;
