@@ -97,7 +97,9 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
     }
 
     const llvm::FunctionType* fnty = fn->getFunctionType();
-    return llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
+    llvm::Function* resfn = llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
+    resfn->setParamAttrs(fn->getParamAttrs());
+    return resfn;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,9 +219,11 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(stringTy);
         types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)->setParamAttrs(palist);
     }
 
     // void _d_assert_msg( char[] msg, char[] file, uint line )
@@ -230,7 +234,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(stringTy);
         types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -361,6 +368,7 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
+    // int _aApplycd1(char[] aa, dg_t dg)
     #define STR_APPLY1(TY,a,b) \
     { \
         std::string fname(a); \
@@ -369,14 +377,18 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(TY); \
         types.push_back(rt_dg1()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M); \
+        llvm::PAListPtr palist; \
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal); \
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist); \
     }
     STR_APPLY1(stringTy, "_aApplycw1", "_aApplycd1")
     STR_APPLY1(wstringTy, "_aApplywc1", "_aApplywd1")
     STR_APPLY1(dstringTy, "_aApplydc1", "_aApplydw1")
     #undef STR_APPLY
 
+    // int _aApplycd2(char[] aa, dg2_t dg)
     #define STR_APPLY2(TY,a,b) \
     { \
         std::string fname(a); \
@@ -385,8 +397,11 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(TY); \
         types.push_back(rt_dg2()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M); \
+        llvm::PAListPtr palist; \
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal); \
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist); \
     }
     STR_APPLY2(stringTy, "_aApplycw2", "_aApplycd2")
     STR_APPLY2(wstringTy, "_aApplywc2", "_aApplywd2")
@@ -401,8 +416,11 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(TY); \
         types.push_back(rt_dg1()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M); \
+        llvm::PAListPtr palist; \
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal); \
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist); \
     }
     STR_APPLY_R1(stringTy, "_aApplyRcw1", "_aApplyRcd1")
     STR_APPLY_R1(wstringTy, "_aApplyRwc1", "_aApplyRwd1")
@@ -417,8 +435,11 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(TY); \
         types.push_back(rt_dg2()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M); \
+        llvm::PAListPtr palist; \
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal); \
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist); \
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist); \
     }
     STR_APPLY_R2(stringTy, "_aApplyRcw2", "_aApplyRcd2")
     STR_APPLY_R2(wstringTy, "_aApplyRwc2", "_aApplyRwd2")
@@ -506,8 +527,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(stringTy);
         types.push_back(stringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist);
     }
 
     // wchar[] _adReverseWchar(wchar[] a)
@@ -519,8 +542,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(wstringTy);
         types.push_back(wstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist);
     }
 
     // Array _adReverse(Array a, size_t szelem)
@@ -531,7 +556,9 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     // Array _adDupT(TypeInfo ti, Array a)
@@ -542,7 +569,9 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(typeInfoTy);
         types.push_back(rt_array(byteTy));
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(3, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     // int _adEq(Array a1, Array a2, TypeInfo ti)
@@ -555,8 +584,11 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         types.push_back(typeInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setParamAttrs(palist);
     }
 
     // int _adCmpChar(Array a1, Array a2)
@@ -566,7 +598,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         types.push_back(rt_array(byteTy));
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     // Array _adSort(Array a, TypeInfo ti)
@@ -577,7 +612,9 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         types.push_back(typeInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -680,7 +717,9 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(sizeTy);
         types.push_back(rt_dg1());
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(3, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     // int _aaApply2(AA aa, size_t keysize, dg2_t dg)
@@ -691,7 +730,9 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(sizeTy);
         types.push_back(rt_dg1());
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(3, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -766,7 +807,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(rt_array2(byteTy)));
         types.push_back(stringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     // int _d_switch_ustring(wchar[][] table, wchar[] ca)
@@ -776,7 +820,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(rt_array2(shortTy)));
         types.push_back(wstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 
     // int _d_switch_dstring(dchar[][] table, dchar[] ca)
@@ -786,7 +833,10 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(rt_array2(intTy)));
         types.push_back(dstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::PAListPtr palist;
+        palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
 }
 

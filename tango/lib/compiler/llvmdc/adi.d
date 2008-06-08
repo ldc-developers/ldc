@@ -67,7 +67,7 @@ struct Array
  * reversed.
  */
 
-extern (C) long _adReverseChar(char[] a)
+extern (C) Array _adReverseChar(char[] a)
 {
     if (a.length > 1)
     {
@@ -127,7 +127,7 @@ extern (C) long _adReverseChar(char[] a)
             hi = hi - 1 + (stridehi - stridelo);
         }
     }
-    return *cast(long*)(&a);
+    return Array(a.length, a.ptr);
 }
 
 unittest
@@ -162,7 +162,7 @@ unittest
  * reversed.
  */
 
-extern (C) long _adReverseWchar(wchar[] a)
+extern (C) Array _adReverseWchar(wchar[] a)
 {
     if (a.length > 1)
     {
@@ -220,7 +220,7 @@ extern (C) long _adReverseWchar(wchar[] a)
             hi = hi - 1 + (stridehi - stridelo);
         }
     }
-    return *cast(long*)(&a);
+    return Array(a.length, a.ptr);
 }
 
 unittest
@@ -245,10 +245,10 @@ unittest
  * Support for array.reverse property.
  */
 
-extern (C) long _adReverse(Array a, size_t szelem)
+extern (C) Array _adReverse(Array a, size_t szelem)
     out (result)
     {
-        assert(result is *cast(long*)(&a));
+        assert(result.ptr is a.ptr);
     }
     body
     {
@@ -287,7 +287,7 @@ extern (C) long _adReverse(Array a, size_t szelem)
                     //gc_free(tmp);
             }
         }
-        return *cast(long*)(&a);
+        return Array(a.length, a.ptr);
     }
 
 unittest
@@ -331,7 +331,7 @@ unittest
  * Sort array of chars.
  */
 
-extern (C) long _adSortChar(char[] a)
+extern (C) Array _adSortChar(char[] a)
 {
     if (a.length > 1)
     {
@@ -346,14 +346,14 @@ extern (C) long _adSortChar(char[] a)
         }
         delete da;
     }
-    return *cast(long*)(&a);
+    return Array(a.length, a.ptr);
 }
 
 /**********************************************
  * Sort array of wchars.
  */
 
-extern (C) long _adSortWchar(wchar[] a)
+extern (C) Array _adSortWchar(wchar[] a)
 {
     if (a.length > 1)
     {
@@ -368,7 +368,7 @@ extern (C) long _adSortWchar(wchar[] a)
         }
         delete da;
     }
-    return *cast(long*)(&a);
+    return Array(a.length, a.ptr);
 }
 
 /***************************************

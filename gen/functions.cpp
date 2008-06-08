@@ -319,6 +319,54 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
+{
+    assert(f->parameters);
+
+    int llidx = 1;
+    if (f->llvmRetInPtr) ++llidx;
+    if (f->llvmUsesThis) ++llidx;
+    if (f->linkage == LINKd && f->varargs == 1)
+        llidx += 2;
+
+    int funcNumArgs = func->getArgumentList().size();
+    std::vector<llvm::ParamAttrsWithIndex> attrs;
+    int k = 0;
+
+    int nbyval = 0;
+
+    if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
+    {
+        llvm::ParamAttrsWithIndex PAWI;
+        PAWI.Index = llidx;
+        PAWI.Attrs = llvm::ParamAttr::ByVal;
+        attrs.push_back(PAWI);
+        llidx++;
+        nbyval++;
+    }
+
+    for (; llidx <= funcNumArgs && f->parameters->dim > k; ++llidx,++k)
+    {
+        Argument* fnarg = (Argument*)f->parameters->data[k];
+        assert(fnarg);
+        if (fnarg->llvmByVal)
+        {
+            llvm::ParamAttrsWithIndex PAWI;
+            PAWI.Index = llidx;
+            PAWI.Attrs = llvm::ParamAttr::ByVal;
+            attrs.push_back(PAWI);
+            nbyval++;
+        }
+    }
+
+    if (nbyval) {
+        llvm::PAListPtr palist = llvm::PAListPtr::get(attrs.begin(), attrs.end());
+        func->setParamAttrs(palist);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoDeclareFunction(FuncDeclaration* fdecl)
 {
     if (fdecl->ir.declared) return;
@@ -335,11 +383,18 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         fatal();
     }
 
+    // get TypeFunction*
+    Type* t = DtoDType(fdecl->type);
+    TypeFunction* f = (TypeFunction*)t;
+
+    // runtime function special handling
     if (fdecl->runTimeHack) {
         Logger::println("runtime hack func chars: %s", fdecl->toChars());
         if (!fdecl->ir.irFunc) {
-            fdecl->ir.irFunc = new IrFunction(fdecl);
-            fdecl->ir.irFunc->func = LLVM_D_GetRuntimeFunction(gIR->module, fdecl->toChars());
+            IrFunction* irfunc = new IrFunction(fdecl);
+            llvm::Function* llfunc = LLVM_D_GetRuntimeFunction(gIR->module, fdecl->toChars());
+            fdecl->ir.irFunc = irfunc;
+            fdecl->ir.irFunc->func = llfunc;
         }
         return;
     }
@@ -372,9 +427,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         vafunc = DtoDeclareVaFunction(fdecl);
     }
 
-    Type* t = DtoDType(fdecl->type);
-    TypeFunction* f = (TypeFunction*)t;
-
     // construct function
     const llvm::FunctionType* functype = DtoFunctionType(fdecl);
     llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
@@ -396,50 +448,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     assert(llvm::isa<llvm::FunctionType>(f->ir.type->get()));
 
     // parameter attributes
-    if (f->parameters)
-    {
-        int llidx = 1;
-        if (f->llvmRetInPtr) ++llidx;
-        if (f->llvmUsesThis) ++llidx;
-        if (f->linkage == LINKd && f->varargs == 1)
-            llidx += 2;
-
-        int funcNumArgs = func->getArgumentList().size();
-        std::vector<llvm::ParamAttrsWithIndex> attrs;
-        int k = 0;
-
-        int nbyval = 0;
-
-        if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
-        {
-            llvm::ParamAttrsWithIndex PAWI;
-            PAWI.Index = llidx;
-            PAWI.Attrs = llvm::ParamAttr::ByVal;
-            attrs.push_back(PAWI);
-            llidx++;
-            nbyval++;
-        }
-
-        for (; llidx <= funcNumArgs && f->parameters->dim > k; ++llidx,++k)
-        {
-            Argument* fnarg = (Argument*)f->parameters->data[k];
-            assert(fnarg);
-            if (fnarg->llvmByVal)
-            {
-                llvm::ParamAttrsWithIndex PAWI;
-                PAWI.Index = llidx;
-                PAWI.Attrs = llvm::ParamAttr::ByVal;
-                attrs.push_back(PAWI);
-                nbyval++;
-            }
-        }
-
-        //warning("set %d byval args for function: %s", nbyval, func->getName().c_str());
-
-        if (nbyval) {
-            llvm::PAListPtr palist = llvm::PAListPtr::get(attrs.begin(), attrs.end());
-            func->setParamAttrs(palist);
-        }
+    if (f->parameters) {
+        set_param_attrs(f, func, fdecl);
     }
 
     // main

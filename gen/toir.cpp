@@ -1200,6 +1200,11 @@ DValue* CallExp::toElem(IRState* p)
 
             // this hack is necessary :/
             if (dfn && dfn->func && dfn->func->runTimeHack) {
+                llvm::Function* fn = dfn->func->ir.irFunc->func;
+                assert(fn);
+                if (fn->getParamAttrs().paramHasAttr(j+1, llvm::ParamAttr::ByVal))
+                    palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
+
                 if (llfnty->getParamType(j) != NULL) {
                     if (llargs[j]->getType() != llfnty->getParamType(j)) {
                         Logger::println("llvmRunTimeHack==true - force casting argument");
