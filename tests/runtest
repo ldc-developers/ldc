@@ -32,6 +32,8 @@ sed -e 's/crashRun 30 1000/crashRun 10 256/' -i dstress.c
 echo
 echo "Running new test and storing result in $TARGETFILE ..."
 echo
+echo "Remember to make sure you have an up to date runtime!"
+echo
 
 if [ -z "$DMD" ] ; then
 	echo "Testing with llvmdc. Set DMD environment variable to select compiler."

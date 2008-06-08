@@ -1,4 +1,4 @@
-Use
+After making sure llvmdc and its runtime are up to date, use
 ./runtest tmp-sensible-name
 to run tests for llvmdc.
 Move into reference/ subfolder and add to svn if desired.
