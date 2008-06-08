@@ -245,7 +245,6 @@ AsmStatement::toIR(IRState * irs)
 
     static std::string i_cns = "i";
     static std::string p_cns = "i";
-    static std::string l_cns = "X";
     static std::string m_cns = "*m";
     static std::string mw_cns = "=*m";
     static std::string mrw_cns = "+*m";
@@ -497,6 +496,7 @@ void AsmBlockStatement::toIR(IRState* p)
     // create asm block structure
     assert(!p->asmBlock);
     IRAsmBlock* asmblock = new IRAsmBlock;
+    assert(asmblock);
     p->asmBlock = asmblock;
 
     // do asm statements
@@ -594,4 +594,19 @@ void AsmBlockStatement::toIR(IRState* p)
 Statements* AsmBlockStatement::flatten(Scope* sc)
 {
     return NULL;
+}
+
+Statement *AsmBlockStatement::syntaxCopy()
+{
+    Statements *a = new Statements();
+    a->setDim(statements->dim);
+    for (size_t i = 0; i < statements->dim; i++)
+    {
+        Statement *s = (Statement *)statements->data[i];
+        if (s)
+            s = s->syntaxCopy();
+        a->data[i] = s;
+    }
+    AsmBlockStatement *cs = new AsmBlockStatement(loc, a);
+    return cs;
 }

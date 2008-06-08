@@ -170,13 +170,13 @@ struct CompoundStatement : Statement
 
     CompoundStatement(Loc loc, Statements *s);
     CompoundStatement(Loc loc, Statement *s1, Statement *s2);
-    Statement *syntaxCopy();
+    virtual Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
     int usesEH();
     int fallOffEnd();
     int comeFrom();
-    Statements *flatten(Scope *sc);
+    virtual Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
     Expression *interpret(InterState *istate);
 
@@ -184,9 +184,9 @@ struct CompoundStatement : Statement
     Expression *doInline(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
-    void toIR(IRState *irs);
+    virtual void toIR(IRState *irs);
 
-    CompoundStatement *isCompoundStatement() { return this; }
+    virtual CompoundStatement *isCompoundStatement() { return this; }
 };
 
 /* The purpose of this is so that continue will go to the next
@@ -795,6 +795,9 @@ struct AsmBlockStatement : CompoundStatement
 {
     AsmBlockStatement(Loc loc, Statements *s);
     Statements *flatten(Scope *sc);
+    Statement *syntaxCopy();
+
+    CompoundStatement *isCompoundStatement() { return NULL; }
     AsmBlockStatement *isAsmBlockStatement() { return this; }
 
     void toIR(IRState *irs);
