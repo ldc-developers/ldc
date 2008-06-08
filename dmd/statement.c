@@ -467,7 +467,7 @@ Statement *CompoundStatement::semantic(Scope *sc)
 	}
 	i++;
     }
-    if (statements->dim == 1)
+    if (statements->dim == 1 && !isAsmBlockStatement())
 	return s;
     return this;
 }
@@ -3593,9 +3593,7 @@ LabelDsymbol::LabelDsymbol(Identifier *ident)
 	: Dsymbol(ident)
 {
     statement = NULL;
-#if IN_GCC
     asmLabelNum = 0;
-#endif
 }
 
 LabelDsymbol *LabelDsymbol::isLabel()		// is this a LabelDsymbol()?

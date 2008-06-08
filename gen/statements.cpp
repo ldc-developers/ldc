@@ -992,6 +992,17 @@ void LabelStatement::toIR(IRState* p)
     Logger::println("LabelStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    // if it's an inline asm label, we don't create a basicblock, just emit it in the asm
+    if (p->inASM)
+    {
+        IRAsmStmt* a = new IRAsmStmt;
+        a->code = ".LDASM";
+        a->code += ident->toChars();
+        a->code += ":";
+        p->ASMs.push_back(a);
+        return;
+    }
+
     assert(tf == NULL);
 
     llvm::BasicBlock* oldend = gIR->scopeend();

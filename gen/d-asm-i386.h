@@ -1408,12 +1408,12 @@ struct AsmProcessor
 
     void addOperand(const char * fmt, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
 	insnTemplate->writestring((char*) fmt);
-	insnTemplate->printf("%d", asmcode->args.dim);
+	insnTemplate->printf("<<<%s%d>>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
 	asmcode->args.push( new AsmArg(type, e, mode) );
     }
     void addOperand2(const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
     insnTemplate->writestring((char*) fmtpre);
-    insnTemplate->printf("%d", asmcode->args.dim);
+    insnTemplate->printf("<<<%s%d>>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
     insnTemplate->writestring((char*) fmtpost);
     asmcode->args.push( new AsmArg(type, e, mode) );
     }
@@ -1424,6 +1424,11 @@ struct AsmProcessor
     
     d_format_priv_asm_label(buf, n);
     insnTemplate->writestring(buf);
+    }
+
+    void addLabel(char* id) {
+    insnTemplate->writestring(".LDASM");
+    insnTemplate->writestring(id);
     }
 
     /* Determines whether the operand is a register, memory reference
@@ -1887,7 +1892,7 @@ struct AsmProcessor
 			    addOperand(fmt, Arg_Memory, e, asmcode, mode);
 			    
 			} else {
-			    addOperand("$a", Arg_FrameRelative, e, asmcode);
+			    addOperand2("${",":a}", Arg_FrameRelative, e, asmcode);
 			}
 			if (opInfo->operands[i] & Opr_Dest)
 			    asmcode->clobbersMemory = 1;
@@ -1905,14 +1910,12 @@ struct AsmProcessor
 			    addLabel(lbl_num);
 			    asmcode->dollarLabel = lbl_num; // could make the dollar label part of the same asm..
 			} else if (e->op == TOKdsymbol) {
-// 			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
-// 			    if (! lbl->asmLabelNum)
-// 				lbl->asmLabelNum = ++d_priv_asm_label_serial;
-// 			    
-// 			    use_star = false;
-// 			    addLabel(lbl->asmLabelNum);
-                use_star = false;
-                addOperand("$", Arg_Pointer, e, asmcode);
+			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
+			    if (! lbl->asmLabelNum)
+				lbl->asmLabelNum = ++d_priv_asm_label_serial;
+
+			    use_star = false;
+			    addLabel(lbl->ident->toChars());
 			} else if ((decl && decl->isCodeseg())) { // if function or label
 			    use_star = false;
 			    addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
@@ -1921,9 +1924,9 @@ struct AsmProcessor
 				insnTemplate->writebyte('*');
 				use_star = false;
 			    }
+                Type* tt = e->type->pointerTo();
 			    e = new AddrExp(0, e);
-			    assert(decl);
-			    e->type = decl->type->pointerTo();
+			    e->type = tt;
 
 			    addOperand(fmt, Arg_Memory, e, asmcode, mode);
 			}
@@ -1934,7 +1937,7 @@ struct AsmProcessor
 		if (operand->constDisplacement) {
 		    if (operand->symbolDisplacement.dim)
 			insnTemplate->writebyte('+');
-		    addOperand("$a", Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
+		    addOperand2("${",":a}", Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
 		    if (opInfo->operands[i] & Opr_Dest)
 			asmcode->clobbersMemory = 1;
 		}

@@ -3186,7 +3186,7 @@ Statement *Parser::parseStatement(int flags)
 		}
 		break;
 	    }
-	    s = new CompoundStatement(loc, statements);
+        s = new AsmBlockStatement(loc, statements);
 	    nextToken();
 	    break;
 	}

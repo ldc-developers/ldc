@@ -41,6 +41,7 @@ struct CompoundStatement;
 struct Argument;
 struct StaticAssert;
 struct AsmStatement;
+struct AsmBlockStatement;
 struct GotoStatement;
 struct ScopeStatement;
 struct TryCatchStatement;
@@ -90,6 +91,7 @@ struct Statement : Object
     virtual TryCatchStatement *isTryCatchStatement() { return NULL; }
     virtual GotoStatement *isGotoStatement() { return NULL; }
     virtual AsmStatement *isAsmStatement() { return NULL; }
+    virtual AsmBlockStatement *isAsmBlockStatement() { return NULL; }
 #ifdef _DH
     int incontract;
 #endif
@@ -754,7 +756,8 @@ struct LabelStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
-    
+
+    // LLVMDC
     llvm::BasicBlock* llvmBB;
 };
 
@@ -784,6 +787,15 @@ struct AsmStatement : Statement
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual AsmStatement *isAsmStatement() { return this; }
+
+    void toIR(IRState *irs);
+};
+
+struct AsmBlockStatement : CompoundStatement
+{
+    AsmBlockStatement(Loc loc, Statements *s);
+    Statements *flatten(Scope *sc);
+    AsmBlockStatement *isAsmBlockStatement() { return this; }
 
     void toIR(IRState *irs);
 };

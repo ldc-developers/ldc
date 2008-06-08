@@ -16,6 +16,7 @@
 #include <deque>
 #include <iostream>
 #include <sstream>
+#include <cstring>
 
 //#include "d-lang.h"
 //#include "d-codegen.h"
@@ -66,41 +67,6 @@ struct AsmCode {
 	clobbersMemory = 0;
     }
 };
-
-llvm::InlineAsm*
-d_build_asm_stmt(std::string const& code,
-                 std::deque<LLValue*> const& output_values,
-                 std::deque<LLValue*> const& input_values,
-                 std::string const& constraints)
-{
-    std::vector<const LLType*> params;
-
-    // outputs
-    const LLType* ret = LLType::VoidTy;
-    if (!output_values.empty())
-    {
-        assert(output_values.size() == 1);
-        const LLType* llty = output_values[0]->getType();
-        std::cout << "out: " << *llty << '\n';
-        params.push_back(llty);
-    }
-
-    // inputs
-    if (!input_values.empty())
-    {
-        assert(input_values.size() == 1);
-        const LLType* llty = input_values[0]->getType();
-        std::cout << "in: " << *llty << '\n';
-        params.push_back(llty);
-    }
-
-    llvm::FunctionType* asmfnty = llvm::FunctionType::get(ret, params, false);
-
-std::cout << "function type: " << std::endl;
-std::cout << *asmfnty << std::endl;
-
-    return llvm::InlineAsm::get(asmfnty, code, constraints, true);
-}
 
 AsmStatement::AsmStatement(Loc loc, Token *tokens) :
     Statement(loc)
@@ -302,6 +268,7 @@ std::cout << std::endl;
 std::cout << "asm fixme Arg_Pointer" << std::endl;
         if (arg->expr->op == TOKdsymbol)
         {
+            assert(0);
             DsymbolExp* dse = (DsymbolExp*)arg->expr;
             LabelDsymbol* lbl = dse->s->isLabel();
             assert(lbl);
@@ -439,7 +406,9 @@ assert(0);
     std::string insnt(code->insnTemplate, code->insnTemplateLen);
 
     // rewrite GCC-style constraints to LLVM-style constraints
-    std::string llvmConstraints;
+    std::string llvmOutConstraints;
+    std::string llvmInConstraints;
+    std::string llvmClobbers;
     int n = 0;
     typedef std::deque<std::string>::iterator it;
     for(it i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i, ++n) {
@@ -454,41 +423,182 @@ assert(0);
             input_constraints.push_front(input_constraint);
             input_values.push_front(output_values[n]);
         }
-        llvmConstraints += *i;
-        llvmConstraints += ",";
+        llvmOutConstraints += *i;
+        llvmOutConstraints += ",";
     }
     for(it i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
-        llvmConstraints += *i;
-        llvmConstraints += ",";
+        llvmInConstraints += *i;
+        llvmInConstraints += ",";
     }
+
     for(it i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
-        llvmConstraints += "~{" + *i + "},";
+        llvmClobbers += "~{" + *i + "},";
     }
-    if(llvmConstraints.size() > 0)
-        llvmConstraints.resize(llvmConstraints.size()-1);
 
-std::cout << "Inline Asm code: " << std::endl;
-std::cout << insnt << std::endl;
-std::cout << "LLVM constraints: " << llvmConstraints << std::endl;
+    // excessive commas are removed later...
 
-    llvm::InlineAsm* t = d_build_asm_stmt(insnt, output_values, input_values, llvmConstraints);
+    // push asm statement
+    IRAsmStmt* asmStmt = new IRAsmStmt;
+    asmStmt->code = insnt;
+    asmStmt->out_c = llvmOutConstraints;
+    asmStmt->in_c = llvmInConstraints;
+    asmStmt->clobbers = llvmClobbers;
+    asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(), output_values.end());
+    asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(), input_values.end());
+    irs->ASMs.push_back(asmStmt);
+}
 
-std::cout << "llvm::InlineAsm: " << std::endl;
-std::cout << *t << std::endl;
+//////////////////////////////////////////////////////////////////////////////
 
-    LLSmallVector<LLValue*, 2> callargs;
+AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
+:   CompoundStatement(loc, s)
+{
+}
 
-    size_t cn = output_values.size();
-    for (size_t i=0; i<cn; ++i)
+// rewrite argument indices to the block scope indices
+static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
+{
+    static const std::string digits[10] =
     {
-        callargs.push_back(output_values[i]);
-    }
+        "0","1","2","3","4",
+        "5","6","7","8","9"
+    };
+    assert(nargs <= 10);
 
-    cn = input_values.size();
-    for (size_t i=0; i<cn; ++i)
+    static const std::string prefix("<<<out");
+    static const std::string suffix(">>>");
+    std::string argnum;
+    std::string needle;
+    char buf[10];
+    for (unsigned i = 0; i < nargs; i++) {
+        needle = prefix + digits[i] + suffix;
+        sprintf(buf, "%u", idx++);
+        insnt.replace(insnt.find(needle), needle.size(), buf);
+    }
+}
+
+// rewrite argument indices to the block scope indices
+static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
+{
+    static const std::string digits[10] =
     {
-        callargs.push_back(input_values[i]);
+        "0","1","2","3","4",
+        "5","6","7","8","9"
+    };
+    assert(nargs <= 10);
+
+    static const std::string prefix("<<<in");
+    static const std::string suffix(">>>");
+    std::string argnum;
+    std::string needle;
+    char buf[10];
+    for (unsigned i = 0; i < nargs; i++) {
+        needle = prefix + digits[i] + suffix;
+        sprintf(buf, "%u", idx++);
+        insnt.replace(insnt.find(needle), needle.size(), buf);
+    }
+}
+
+void AsmBlockStatement::toIR(IRState* p)
+{
+    Logger::println("AsmBlockStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+    Logger::println("BEGIN ASM");
+
+    assert(!p->inASM);
+    p->inASM = true;
+
+    // rest idx
+    size_t asmIdx = 0;
+    assert(p->ASMs.empty());
+
+    // do asm statements
+    for (int i=0; i<statements->dim; i++)
+    {
+        Statement* s = (Statement*)statements->data[i];
+        if (s) {
+            s->toIR(p);
+        }
     }
 
-    llvm::CallInst* call = irs->ir->CreateCall(t, callargs.begin(), callargs.end(), "");
+    // build asm block
+    std::vector<LLValue*> outargs;
+    std::vector<LLValue*> inargs;
+    std::vector<const LLType*> outtypes;
+    std::vector<const LLType*> intypes;
+    std::string out_c;
+    std::string in_c;
+    std::string clobbers;
+    std::string code;
+
+    size_t n = p->ASMs.size();
+    for (size_t i=0; i<n; ++i)
+    {
+        IRAsmStmt* a = p->ASMs[i];
+        assert(a);
+        size_t onn = a->out.size();
+        for (size_t j=0; j<onn; ++j)
+        {
+            outargs.push_back(a->out[j]);
+            outtypes.push_back(a->out[j]->getType());
+        }
+        if (!a->out_c.empty())
+        {
+            out_c += a->out_c;
+        }
+        if (!a->clobbers.empty())
+        {
+            clobbers += a->clobbers;
+        }
+        remap_outargs(a->code, onn, asmIdx);
+    }
+    for (size_t i=0; i<n; ++i)
+    {
+        IRAsmStmt* a = p->ASMs[i];
+        assert(a);
+        size_t inn = a->in.size();
+        for (size_t j=0; j<inn; ++j)
+        {
+            inargs.push_back(a->in[j]);
+            intypes.push_back(a->in[j]->getType());
+        }
+        if (!a->in_c.empty())
+        {
+            in_c += a->in_c;
+        }
+        remap_inargs(a->code, inn, asmIdx);
+        if (!code.empty())
+            code += " ; ";
+        code += a->code;
+    }
+    p->ASMs.clear();
+
+    out_c += in_c;
+    out_c += clobbers;
+    if (!out_c.empty())
+        out_c.resize(out_c.size()-1);
+
+    Logger::println("code = \"%s\"", code.c_str());
+    Logger::println("constraints = \"%s\"", out_c.c_str());
+
+    std::vector<const LLType*> types;
+    types.insert(types.end(), outtypes.begin(), outtypes.end());
+    types.insert(types.end(), intypes.begin(), intypes.end());
+    llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, types, false);
+    Logger::cout() << "function type = " << *fty << '\n';
+    llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
+
+    std::vector<LLValue*> args;
+    args.insert(args.end(), outargs.begin(), outargs.end());
+    args.insert(args.end(), inargs.begin(), inargs.end());
+    llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(), "");
+
+    p->inASM = false;
+    Logger::println("END ASM");
+}
+
+// the whole idea of this statement is to avoid the flattening
+Statements* AsmBlockStatement::flatten(Scope* sc)
+{
+    return NULL;
 }
