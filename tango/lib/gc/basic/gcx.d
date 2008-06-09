@@ -2058,8 +2058,27 @@ struct Gcx
         size_t result;
         version(LLVMDC)
         {
-            // TODO & BUG:
-            // should make sure registers are on the stack, maybe some external asm ?
+            // put registers on the stack
+            version(D_InlineAsm_X86)
+            {
+            uint _eax, _ecx, _edx, _ebx, _esp, _ebp, _esi, _edi;
+            asm
+            {
+                mov _eax, EAX;
+                mov _ecx, ECX;
+                mov _edx, EDX;
+                mov _ebx, EBX;
+                mov _esp, ESP;
+                mov _ebp, EBP;
+                mov _esi, ESI;
+                mov _edi, EDI;
+                mov sp, ESP;
+            }
+            }
+            else
+            {
+                // FIXME
+            }
         }
         else version (GNU)
         {

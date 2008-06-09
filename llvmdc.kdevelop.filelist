@@ -783,6 +783,7 @@ tangotests/r.d
 tangotests/s.d
 tangotests/stdout1.d
 tangotests/stdout2.d
+tangotests/sync1.d
 tangotests/t.d
 tangotests/templ1.d
 tangotests/vararg1.d
