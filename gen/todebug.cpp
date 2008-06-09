@@ -111,6 +111,10 @@ static const llvm::StructType* getDwarfCompositeTypeType() {
     return isaStruct(gIR->module->getTypeByName("llvm.dbg.compositetype.type"));
 }
 
+static const llvm::StructType* getDwarfGlobalVariableType() {
+    return isaStruct(gIR->module->getTypeByName("llvm.dbg.global_variable.type"));
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 LLGlobalVariable* DtoDwarfCompileUnit(Module* m)
@@ -486,12 +490,47 @@ static LLGlobalVariable* dwarfCompositeType(Loc loc, Type* type, llvm::GlobalVar
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+LLGlobalVariable* DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd)
+{
+    assert(vd->isDataseg());
+    llvm::GlobalVariable* compileUnit = DtoDwarfCompileUnit(gIR->dmodule);
+
+    std::vector<LLConstant*> vals;
+    vals.push_back(llvm::ConstantExpr::getAdd(
+        DtoConstUint(DW_TAG_variable),
+        DtoConstUint(llvm::LLVMDebugVersion)));
+    vals.push_back(DBG_CAST(GetDwarfAnchor(DW_TAG_variable)));
+
+    vals.push_back(DBG_CAST(compileUnit));
+
+    vals.push_back(DtoConstStringPtr(vd->mangle(), "llvm.metadata"));
+    vals.push_back(DtoConstStringPtr(vd->toPrettyChars(), "llvm.metadata"));
+    vals.push_back(DtoConstStringPtr(vd->toChars(), "llvm.metadata"));
+
+    vals.push_back(DBG_CAST(DtoDwarfCompileUnit(vd->getModule())));
+    vals.push_back(DtoConstUint(vd->loc.linnum));
+
+    LLGlobalVariable* TY = dwarfTypeDescription(vd->loc, vd->type, compileUnit, NULL);
+    vals.push_back(TY ? DBG_CAST(TY) : DBG_NULL);
+    vals.push_back(DtoConstBool(vd->protection == PROTprivate));
+    vals.push_back(DtoConstBool(vd->getModule() == gIR->dmodule));
+
+    vals.push_back(DBG_CAST(ll));
+
+    LLConstant* c = llvm::ConstantStruct::get(getDwarfGlobalVariableType(), vals);
+    llvm::GlobalVariable* gv = new llvm::GlobalVariable(c->getType(), true, llvm::GlobalValue::InternalLinkage, c, "llvm.dbg.global_variable", gIR->module);
+    gv->setSection("llvm.metadata");
+    return gv;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static LLGlobalVariable* dwarfVariable(VarDeclaration* vd, LLGlobalVariable* typeDescr)
 {
     unsigned tag;
     if (vd->isParameter())
         tag = DW_TAG_arg_variable;
-    else if (vd->isCodeseg())
+    else if (vd->isDataseg())
         assert(0 && "a static variable");
     else
         tag = DW_TAG_auto_variable;

@@ -18,6 +18,14 @@ void DtoDwarfStopPoint(unsigned ln);
  */
 void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
 
+/**
+ * Emits all things necessary for making debug info for a global variable vd.
+ * @param ll 
+ * @param vd 
+ * @return 
+ */
+LLGlobalVariable* DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
+
 #endif // LLVMDC_GEN_TODEBUG_H
 
 

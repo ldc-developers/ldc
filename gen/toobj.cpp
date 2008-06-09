@@ -574,6 +574,9 @@ void VarDeclaration::toObjFile()
             DtoConstInitGlobal(this);
         else
             gIR->constInitList.push_back(this);
+
+        if (global.params.symdebug)
+            DtoDwarfGlobalVariable(gvar, this);
     }
 
     // inside aggregate declaration. declare a field.
