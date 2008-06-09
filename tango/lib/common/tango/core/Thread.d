@@ -244,7 +244,30 @@ else version( Posix )
         }
         body
         {
-            version( D_InlineAsm_X86 )
+            version( LLVMDC )
+            {
+                // put registers on the stack
+                version(D_InlineAsm_X86)
+                {
+                uint _eax, _ecx, _edx, _ebx, _esp, _ebp, _esi, _edi;
+                asm
+                {
+                    mov _eax, EAX;
+                    mov _ecx, ECX;
+                    mov _edx, EDX;
+                    mov _ebx, EBX;
+                    mov _esp, ESP;
+                    mov _ebp, EBP;
+                    mov _esi, ESI;
+                    mov _edi, EDI;
+                }
+                }
+                else
+                {
+                    // FIXME
+                }
+            }
+            else version( D_InlineAsm_X86 )
             {
                 asm
                 {
@@ -254,10 +277,6 @@ else version( Posix )
             else version( GNU )
             {
                 __builtin_unwind_init();
-            }
-            else version( LLVMDC )
-            {
-                // TODO below as well
             }
             else
             {
@@ -301,7 +320,11 @@ else version( Posix )
                 }
             }
 
-            version( D_InlineAsm_X86 )
+            version( LLVMDC )
+            {
+                // nothing to do
+            }
+            else version( D_InlineAsm_X86 )
             {
                 asm
                 {
@@ -311,10 +334,6 @@ else version( Posix )
             else version( GNU )
             {
                 // registers will be popped automatically
-            }
-            else version( LLVMDC )
-            {
-                // TODO
             }
             else
             {

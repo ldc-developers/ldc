@@ -223,36 +223,28 @@ void Type::init()
 
     tvoidptr = tvoid->pointerTo();
 
+    // set size_t / ptrdiff_t types
     if (global.params.is64bit)
     {
-	PTRSIZE = 8;
-#if !IN_LLVM
-	if (global.params.isLinux)
-	    REALSIZE = 10;
-	else
-	    REALSIZE = 8;
-#else
-    REALSIZE = 8;
-    REALPAD = 0;
-#endif
-	Tsize_t = Tuns64;
-	Tptrdiff_t = Tint64;
+    Tsize_t = Tuns64;
+    Tptrdiff_t = Tint64;
     }
     else
     {
-	PTRSIZE = 4;
-#if IN_LLVM
+    Tsize_t = Tuns32;
+    Tptrdiff_t = Tint32;
+    }
+
+    // set real size and padding
+    if (global.params.useFP80)
+    {
+    REALSIZE = 12;
+    REALPAD = 2;
+    }
+    else
+    {
     REALSIZE = 8;
     REALPAD = 0;
-#elif TARGET_LINUX
-	REALSIZE = 12;
-	REALPAD = 2;
-#else
-	REALSIZE = 10;
-	REALPAD = 0;
-#endif
-	Tsize_t = Tuns32;
-	Tptrdiff_t = Tint32;
     }
 }
 

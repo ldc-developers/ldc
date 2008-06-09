@@ -1199,6 +1199,8 @@ DValue* CallExp::toElem(IRState* p)
                 palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
 
             // this hack is necessary :/
+            // thing is DMD doesn't create correct signatures for the DMD generated calls to the runtime.
+            // only the return type is right, no arguments (parameters==NULL) ...
             if (dfn && dfn->func && dfn->func->runTimeHack) {
                 llvm::Function* fn = dfn->func->ir.irFunc->func;
                 assert(fn);
@@ -1302,76 +1304,6 @@ DValue* SymOffExp::toElem(IRState* p)
     LOG_SCOPE;
 
     assert(0 && "SymOffExp::toElem should no longer be called :/");
-
-    if (VarDeclaration* vd = var->isVarDeclaration())
-    {
-        Logger::println("VarDeclaration");
-
-        // handle forward reference
-        if (!vd->ir.declared && vd->isDataseg()) {
-            vd->toObjFile(); // TODO
-        }
-
-        assert(vd->ir.getIrValue());
-        Type* t = DtoDType(type);
-        Type* tnext = DtoDType(t->next);
-        Type* vdtype = DtoDType(vd->type);
-
-        LLValue* llvalue = vd->nestedref ? DtoNestedVariable(vd) : vd->ir.getIrValue();
-        LLValue* varmem = 0;
-
-        if (vdtype->ty == Tstruct && !(t->ty == Tpointer && t->next == vdtype)) {
-            Logger::println("struct");
-            TypeStruct* vdt = (TypeStruct*)vdtype;
-            assert(vdt->sym);
-
-            const LLType* llt = DtoType(t);
-            if (offset == 0) {
-                varmem = p->ir->CreateBitCast(llvalue, llt, "tmp");
-            }
-            else {
-                DStructIndexVector dst;
-                varmem = DtoIndexStruct(llvalue,vdt->sym, tnext, offset, dst);
-            }
-        }
-        else if (vdtype->ty == Tsarray) {
-            Logger::println("sarray");
-
-            assert(llvalue);
-            //e->arg = llvalue; // TODO
-
-            const LLType* llt = DtoType(t);
-            LLValue* off = 0;
-            if (offset != 0) {
-                Logger::println("offset = %d\n", offset);
-            }
-            if (offset == 0) {
-                varmem = llvalue;
-            }
-            else {
-                const LLType* elemtype = llvalue->getType()->getContainedType(0)->getContainedType(0);
-                size_t elemsz = getABITypeSize(elemtype);
-                varmem = DtoGEPi(llvalue, 0, offset / elemsz, "tmp");
-            }
-        }
-        else if (offset == 0) {
-            Logger::println("normal symoff");
-
-            assert(llvalue);
-            varmem = llvalue;
-
-            const LLType* llt = DtoType(t);
-            if (llvalue->getType() != llt) {
-                varmem = p->ir->CreateBitCast(varmem, llt, "tmp");
-            }
-        }
-        else {
-            assert(0);
-        }
-        return new DFieldValue(type, varmem, true);
-    }
-
-    assert(0);
     return 0;
 }
 
@@ -1459,19 +1391,6 @@ DValue* DotVarExp::toElem(IRState* p)
 
             DStructIndexVector vdoffsets;
             arrptr = DtoIndexClass(src, tc->sym, vd->type, vd->offset, vdoffsets);
-
-            /*std::vector<unsigned> vdoffsets(1,0);
-            tc->sym->offsetToIndex(vd->type, vd->offset, vdoffsets);
-
-            LLValue* src = l->getRVal();
-
-            Logger::println("indices:");
-            for (size_t i=0; i<vdoffsets.size(); ++i)
-                Logger::println("%d", vdoffsets[i]);
-
-            Logger::cout() << "src: " << *src << '\n';
-            arrptr = DtoGEP(src,vdoffsets,"tmp",p->scopebb());
-            Logger::cout() << "dst: " << *arrptr << '\n';*/
         }
         else
             assert(0);
@@ -1517,8 +1436,6 @@ DValue* DotVarExp::toElem(IRState* p)
             funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
             Logger::cout() << "funcval casted: " << *funcval << '\n';
         #endif
-            //assert(funcval->getType() == DtoType(fdecl->type));
-            //cc = DtoCallingConv(fdecl->linkage);
         }
         // static call
         else {
@@ -3152,40 +3069,6 @@ int TypedefDeclaration::cvMember(unsigned char*)
 }
 
 void obj_includelib(char*){}
-
-/* this has moved to asmstmt.cpp
-AsmStatement::AsmStatement(Loc loc, Token *tokens) :
-    Statement(loc)
-{
-    this->tokens = tokens;
-}
-Statement *AsmStatement::syntaxCopy()
-{
-    //error("%s: inline asm is not yet implemented", loc.toChars());
-    //fatal();
-    //assert(0);
-    return 0;
-}
-
-Statement *AsmStatement::semantic(Scope *sc)
-{
-    return Statement::semantic(sc);
-}
-
-
-void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    Statement::toCBuffer(buf, hgs);
-}
-
-int AsmStatement::comeFrom()
-{
-    //error("%s: inline asm is not yet implemented", loc.toChars());
-    //fatal();
-    //assert(0);
-    return 0;
-}
-*/
 
 void
 backend_init()
