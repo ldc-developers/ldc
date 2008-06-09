@@ -573,6 +573,8 @@ Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
 
 	sv = new VarDeclaration(loc, type ? type->syntaxCopy() : NULL, ident, init);
 	sv->storage_class = storage_class;
+    // LLVMDC
+    sv->needsStorage = needsStorage;
     }
 #ifdef _DH
     // Syntax copy for header file

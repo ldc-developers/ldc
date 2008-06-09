@@ -607,6 +607,10 @@ void DtoDefineFunc(FuncDeclaration* fd)
             s.append("_storage");
 
             LLValue* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
+
+            if (global.params.symdebug)
+                DtoDwarfLocalVariable(v, vd);
+
             gIR->ir->CreateStore(a,v);
             vd->ir.irLocal->value = v;
         }

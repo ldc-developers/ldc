@@ -78,12 +78,9 @@ DValue* DeclarationExp::toElem(IRState* p)
                 vd->ir.irLocal = new IrLocal(vd);
                 vd->ir.irLocal->value = allocainst;
 
-                if (global.params.symdebug && (vd->type->isintegral() || vd->type->isfloating()))
+                if (global.params.symdebug)
                 {
-                    LLGlobalVariable* cu = DtoDwarfCompileUnit(vd->getModule());
-                    LLGlobalVariable* bt = DtoDwarfBasicType(vd->type, cu);
-                    LLGlobalVariable* vdesc = DtoDwarfVariable(vd, bt);
-                    DtoDwarfDeclare(allocainst, vdesc);
+                    DtoDwarfLocalVariable(allocainst, vd);
                 }
             }
 

@@ -781,6 +781,11 @@ void FuncDeclaration::semantic3(Scope *sc)
 		if (v->storage_class & STClazy)
 		    v->storage_class |= STCin;
 		v->semantic(sc2);
+    #if IN_LLVM
+        // LLVMDC: the argument needs an addres if we want to attach debug info to it.
+        if (global.params.symdebug)
+            v->needsStorage = true;
+    #endif
 		if (!sc2->insert(v))
 		    error("parameter %s.%s is already defined", toChars(), v->toChars());
 		else

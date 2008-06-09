@@ -3,10 +3,6 @@
 
 void RegisterDwarfSymbols(llvm::Module* mod);
 
-const llvm::StructType* GetDwarfAnchorType();
-const llvm::StructType* GetDwarfCompileUnitType();
-const llvm::StructType* GetDwarfSubProgramType();
-
 llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m);
 llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit);
 
@@ -15,12 +11,12 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd);
 
 void DtoDwarfStopPoint(unsigned ln);
 
-const llvm::StructType* GetDwarfBasicTypeType();
-LLGlobalVariable* DtoDwarfBasicType(Type* type, llvm::GlobalVariable* compileUnit);
-
-const llvm::StructType* GetDwarfVariableType();
-LLGlobalVariable* DtoDwarfVariable(VarDeclaration* vd, LLGlobalVariable* typeDescr);
-void DtoDwarfDeclare(LLValue* var, LLGlobalVariable* varDescr);
+/**
+ * Emits all things necessary for making debug info for a local variable vd.
+ * @param ll LLVM Value of the variable.
+ * @param vd Variable declaration to emit debug info for.
+ */
+void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
 
 #endif // LLVMDC_GEN_TODEBUG_H
 
