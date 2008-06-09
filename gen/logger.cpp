@@ -71,7 +71,7 @@ namespace Logger
     }
     void attention(const Loc& loc, const char* fmt,...)
     {
-        printf("***ATTENTION***: %s: ", loc.toChars());
+        printf("Warning: %s: ", loc.toChars());
         va_list va;
         va_start(va,fmt);
         vprintf(fmt,va);

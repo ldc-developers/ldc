@@ -116,8 +116,6 @@ gen/dwarftypes.cpp
 gen/enums.h
 gen/functions.cpp
 gen/functions.h
-gen/intrinsics.cpp
-gen/intrinsics.h
 gen/irstate.cpp
 gen/irstate.h
 gen/linker.h
@@ -769,6 +767,7 @@ tangotests/debug2.d
 tangotests/debug3.d
 tangotests/debug4.d
 tangotests/debug5.d
+tangotests/debug6.d
 tangotests/e.d
 tangotests/f.d
 tangotests/files1.d
