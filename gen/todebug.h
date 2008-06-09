@@ -15,6 +15,13 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd);
 
 void DtoDwarfStopPoint(unsigned ln);
 
+const llvm::StructType* GetDwarfBasicTypeType();
+LLGlobalVariable* DtoDwarfBasicType(Type* type, llvm::GlobalVariable* compileUnit);
+
+const llvm::StructType* GetDwarfVariableType();
+LLGlobalVariable* DtoDwarfVariable(VarDeclaration* vd, LLGlobalVariable* typeDescr);
+void DtoDwarfDeclare(LLValue* var, LLGlobalVariable* varDescr);
+
 #endif // LLVMDC_GEN_TODEBUG_H
 
 

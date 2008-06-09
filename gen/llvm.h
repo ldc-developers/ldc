@@ -18,10 +18,27 @@ using llvm::IRBuilder;
 
 #define GET_INTRINSIC_DECL(_X) (llvm::Intrinsic::getDeclaration(gIR->module, llvm::Intrinsic:: _X ))
 
-// shortcuts for the _very_ common llvm types
+// shortcuts for the common llvm types
+
 typedef llvm::Type LLType;
+typedef llvm::FunctionType LLFunctionType;
+typedef llvm::PointerType LLPointerType;
+typedef llvm::StructType LLStructType;
+typedef llvm::ArrayType LLArrayType;
+typedef llvm::IntegerType LLIntegerType;
+typedef llvm::OpaqueType LLOpaqueType;
+
 typedef llvm::Value LLValue;
+typedef llvm::GlobalValue LLGlobalValue;
+typedef llvm::GlobalVariable LLGlobalVariable;
+typedef llvm::Function LLFunction;
+
 typedef llvm::Constant LLConstant;
+typedef llvm::ConstantStruct LLConstantStruct;
+typedef llvm::ConstantArray LLConstantArray;
+typedef llvm::ConstantInt LLConstantInt;
+
+typedef llvm::PATypeHolder LLPATypeHolder;
 
 #define LLSmallVector llvm::SmallVector
 

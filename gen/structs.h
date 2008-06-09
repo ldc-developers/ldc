@@ -3,11 +3,6 @@
 
 struct StructInitializer;
 
-const LLType* DtoStructType(Type* t);
-
-LLValue* DtoStructZeroInit(LLValue* v);
-LLValue* DtoStructCopy(LLValue* dst, LLValue* src);
-
 LLConstant* DtoConstStructInitializer(StructInitializer* si);
 
 /**

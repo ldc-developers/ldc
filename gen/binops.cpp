@@ -35,7 +35,7 @@ DValue* DtoBinMul(DValue* lhs, DValue* rhs)
 DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
 {
     Type* t = lhs->getType();
-    llvm::Value *l, *r;
+    LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
     LLValue* res;
@@ -53,7 +53,7 @@ DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
 DValue* DtoBinRem(DValue* lhs, DValue* rhs)
 {
     Type* t = lhs->getType();
-    llvm::Value *l, *r;
+    LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
     LLValue* res;

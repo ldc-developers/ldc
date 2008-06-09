@@ -9,7 +9,7 @@ const llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr);
-LLConstant* DtoConstStaticArray(const llvm::Type* t, LLConstant* c);
+LLConstant* DtoConstStaticArray(const LLType* t, LLConstant* c);
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
@@ -35,7 +35,7 @@ LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r);
 
 LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r);
 
-LLValue* DtoArrayCastLength(LLValue* len, const llvm::Type* elemty, const llvm::Type* newelemty);
+LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* newelemty);
 
 LLValue* DtoArrayLen(DValue* v);
 LLValue* DtoArrayPtr(DValue* v);

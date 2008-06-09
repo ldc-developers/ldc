@@ -10,6 +10,7 @@
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 #include "gen/logger.h"
@@ -49,7 +50,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
 
     if (ismain)
     {
-        rettype = llvm::Type::Int32Ty;
+        rettype = LLType::Int32Ty;
         actualRettype = rettype;
         if (Argument::dim(f->parameters) == 0)
         {
@@ -63,7 +64,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
         Type* rtfin = DtoDType(rt);
         if (DtoIsReturnedInArg(rt)) {
             rettype = getPtrToType(DtoType(rt));
-            actualRettype = llvm::Type::VoidTy;
+            actualRettype = LLType::VoidTy;
             f->llvmRetInPtr = retinptr = true;
         }
         else {
@@ -92,7 +93,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
         types.push_back(getPtrToType(getPtrToType(ti->ir.irStruct->constInit->getType())));
         const LLType* t1 = llvm::StructType::get(types);
         paramvec.push_back(getPtrToType(t1));
-        paramvec.push_back(getPtrToType(llvm::Type::Int8Ty));
+        paramvec.push_back(getPtrToType(LLType::Int8Ty));
     }
     else if (arrayVararg)
     {
@@ -172,7 +173,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
     TypeFunction* f = (TypeFunction*)fdecl->type;
     assert(f != 0);
 
-    const llvm::PointerType* i8pty = getPtrToType(llvm::Type::Int8Ty);
+    const llvm::PointerType* i8pty = getPtrToType(LLType::Int8Ty);
     std::vector<const LLType*> args;
 
     if (fdecl->llvmInternal == LLVMva_start) {
@@ -187,7 +188,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
     else
     assert(0);
 
-    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::VoidTy, args, false);
 
     f->ir.type = new llvm::PATypeHolder(fty);
 
@@ -205,7 +206,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
     // unittest has null type, just build it manually
     /*if (fdecl->isUnitTestDeclaration()) {
         std::vector<const LLType*> args;
-        return llvm::FunctionType::get(llvm::Type::VoidTy, args, false);
+        return llvm::FunctionType::get(LLType::VoidTy, args, false);
     }*/
 
     // type has already been resolved
@@ -228,7 +229,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         }
     }
     else if (fdecl->isNested()) {
-        thisty = getPtrToType(llvm::Type::Int8Ty);
+        thisty = getPtrToType(LLType::Int8Ty);
     }
 
     const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
@@ -549,194 +550,195 @@ void DtoDefineFunc(FuncDeclaration* fd)
     const llvm::FunctionType* functype = func->getFunctionType();
 
     // only members of the current module or template instances maybe be defined
-    if (fd->getModule() == gIR->dmodule || DtoIsTemplateInstance(fd->parent))
+    if (!(fd->getModule() == gIR->dmodule || DtoIsTemplateInstance(fd->parent)))
+        return;
+
+    // set module owner
+    fd->ir.DModule = gIR->dmodule;
+
+    // is there a body?
+    if (fd->fbody == NULL)
+        return;
+
+    Logger::println("Doing function body for: %s", fd->toChars());
+    assert(fd->ir.irFunc);
+    gIR->functions.push_back(fd->ir.irFunc);
+
+    if (fd->isMain())
+        gIR->emitMain = true;
+
+    std::string entryname("entry_");
+    entryname.append(fd->toPrettyChars());
+
+    llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(entryname,func);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endentry",func);
+
+    //assert(gIR->scopes.empty());
+    gIR->scopes.push_back(IRScope(beginbb, endbb));
+
+    // create alloca point
+    llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::Int32Ty, "alloca point", beginbb);
+    gIR->func()->allocapoint = allocaPoint;
+
+    // need result variable? (not nested)
+    if (fd->vresult && !fd->vresult->nestedref) {
+        Logger::println("non-nested vresult value");
+        fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
+        fd->vresult->ir.irLocal->value = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",allocaPoint);
+    }
+
+    // give arguments storage
+    if (fd->parameters)
     {
-        fd->ir.DModule = gIR->dmodule;
-
-        // function definition
-        if (fd->fbody != 0)
+        size_t n = fd->parameters->dim;
+        for (int i=0; i < n; ++i)
         {
-            Logger::println("Doing function body for: %s", fd->toChars());
-            assert(fd->ir.irFunc);
-            gIR->functions.push_back(fd->ir.irFunc);
+            Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
+            VarDeclaration* vd = argsym->isVarDeclaration();
+            assert(vd);
 
-            if (fd->isMain())
-                gIR->emitMain = true;
+            if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))
+                continue;
 
-            std::string entryname("entry_");
-            entryname.append(fd->toPrettyChars());
+            LLValue* a = vd->ir.irLocal->value;
+            assert(a);
+            std::string s(a->getName());
+            Logger::println("giving argument '%s' storage", s.c_str());
+            s.append("_storage");
 
-            llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(entryname,func);
-            llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endentry",func);
-
-            //assert(gIR->scopes.empty());
-            gIR->scopes.push_back(IRScope(beginbb, endbb));
-
-                // create alloca point
-                llvm::Instruction* allocaPoint = new llvm::AllocaInst(llvm::Type::Int32Ty, "alloca point", beginbb);
-                gIR->func()->allocapoint = allocaPoint;
-
-                // need result variable? (not nested)
-                if (fd->vresult && !fd->vresult->nestedref) {
-                    Logger::println("non-nested vresult value");
-                    fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-                    fd->vresult->ir.irLocal->value = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",allocaPoint);
-                }
-
-                // give arguments storage
-                if (fd->parameters)
-                {
-                    size_t n = fd->parameters->dim;
-                    for (int i=0; i < n; ++i)
-                    {
-                        Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
-                        VarDeclaration* vd = argsym->isVarDeclaration();
-                        assert(vd);
-
-                        if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))
-                            continue;
-
-                        LLValue* a = vd->ir.irLocal->value;
-                        assert(a);
-                        std::string s(a->getName());
-                        Logger::println("giving argument '%s' storage", s.c_str());
-                        s.append("_storage");
-
-                        LLValue* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
-                        gIR->ir->CreateStore(a,v);
-                        vd->ir.irLocal->value = v;
-                    }
-                }
-
-                // debug info
-                if (global.params.symdebug) DtoDwarfFuncStart(fd);
-
-                LLValue* parentNested = NULL;
-                if (FuncDeclaration* fd2 = fd->toParent2()->isFuncDeclaration()) {
-                    if (!fd->isStatic()) // huh?
-                        parentNested = fd2->ir.irFunc->nestedVar;
-                }
-
-                // need result variable? (nested)
-                if (fd->vresult && fd->vresult->nestedref) {
-                    Logger::println("nested vresult value: %s", fd->vresult->toChars());
-                    fd->nestedVars.insert(fd->vresult);
-                }
-
-                // construct nested variables struct
-                if (!fd->nestedVars.empty() || parentNested) {
-                    std::vector<const LLType*> nestTypes;
-                    int j = 0;
-                    if (parentNested) {
-                        nestTypes.push_back(parentNested->getType());
-                        j++;
-                    }
-                    for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
-                        VarDeclaration* vd = *i;
-                        Logger::println("referenced nested variable %s", vd->toChars());
-                        if (!vd->ir.irLocal)
-                            vd->ir.irLocal = new IrLocal(vd);
-                        vd->ir.irLocal->nestedIndex = j++;
-                        if (vd->isParameter()) {
-                            if (!vd->ir.irLocal->value) {
-                                assert(vd == fd->vthis);
-                                vd->ir.irLocal->value = fd->ir.irFunc->thisVar;
-                            }
-                            assert(vd->ir.irLocal->value);
-                            nestTypes.push_back(vd->ir.irLocal->value->getType());
-                        }
-                        else {
-                            nestTypes.push_back(DtoType(vd->type));
-                        }
-                    }
-                    const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
-                    Logger::cout() << "nested var struct has type:" << *nestSType << '\n';
-                    fd->ir.irFunc->nestedVar = new llvm::AllocaInst(nestSType,"nestedvars",allocaPoint);
-                    if (parentNested) {
-                        assert(fd->ir.irFunc->thisVar);
-                        LLValue* ptr = gIR->ir->CreateBitCast(fd->ir.irFunc->thisVar, parentNested->getType(), "tmp");
-                        gIR->ir->CreateStore(ptr, DtoGEPi(fd->ir.irFunc->nestedVar, 0,0, "tmp"));
-                    }
-                    for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
-                        VarDeclaration* vd = *i;
-                        if (vd->isParameter()) {
-                            assert(vd->ir.irLocal);
-                            gIR->ir->CreateStore(vd->ir.irLocal->value, DtoGEPi(fd->ir.irFunc->nestedVar, 0, vd->ir.irLocal->nestedIndex, "tmp"));
-                            vd->ir.irLocal->value = fd->ir.irFunc->nestedVar;
-                        }
-                    }
-                }
-
-                // copy _argptr to a memory location
-                if (f->linkage == LINKd && f->varargs == 1)
-                {
-                    LLValue* argptrmem = new llvm::AllocaInst(fd->ir.irFunc->_argptr->getType(), "_argptrmem", gIR->topallocapoint());
-                    new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
-                    fd->ir.irFunc->_argptr = argptrmem;
-                }
-
-                // output function body
-                fd->fbody->toIR(gIR);
-
-                // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
-                // in automatically, so we do it here.
-                if (!fd->isMain()) {
-                    if (!gIR->scopereturned()) {
-                        // pass the previous block into this block
-                        if (global.params.symdebug) DtoDwarfFuncEnd(fd);
-                        if (func->getReturnType() == llvm::Type::VoidTy) {
-                            llvm::ReturnInst::Create(gIR->scopebb());
-                        }
-                        else {
-                            llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
-                        }
-                    }
-                }
-
-                // erase alloca point
-                allocaPoint->eraseFromParent();
-                allocaPoint = 0;
-                gIR->func()->allocapoint = 0;
-
-            gIR->scopes.pop_back();
-
-            // get rid of the endentry block, it's never used
-            assert(!func->getBasicBlockList().empty());
-            func->getBasicBlockList().pop_back();
-
-            // if the last block is empty now, it must be unreachable or it's a bug somewhere else
-            // would be nice to figure out how to assert that this is correct
-            llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
-            if (lastbb->empty()) {
-                if (lastbb->getNumUses() == 0)
-                    lastbb->eraseFromParent();
-                else {
-                    new llvm::UnreachableInst(lastbb);
-                    /*if (func->getReturnType() == llvm::Type::VoidTy) {
-                        llvm::ReturnInst::Create(lastbb);
-                    }
-                    else {
-                        llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), lastbb);
-                    }*/
-                }
-            }
-
-            // if the last block is not terminated we return a null value or void
-            // for some unknown reason this is needed when a void main() has a inline asm block ...
-            // this should be harmless for well formed code!
-            lastbb = &func->getBasicBlockList().back();
-            if (!lastbb->getTerminator())
-            {
-                Logger::println("adding missing return statement");
-                if (func->getReturnType() == llvm::Type::VoidTy)
-                    llvm::ReturnInst::Create(lastbb);
-                else
-                    llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), lastbb);
-            }
-
-            gIR->functions.pop_back();
+            LLValue* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
+            gIR->ir->CreateStore(a,v);
+            vd->ir.irLocal->value = v;
         }
     }
+
+    // debug info
+    if (global.params.symdebug) DtoDwarfFuncStart(fd);
+
+    LLValue* parentNested = NULL;
+    if (FuncDeclaration* fd2 = fd->toParent2()->isFuncDeclaration()) {
+        if (!fd->isStatic()) // huh?
+            parentNested = fd2->ir.irFunc->nestedVar;
+    }
+
+    // need result variable? (nested)
+    if (fd->vresult && fd->vresult->nestedref) {
+        Logger::println("nested vresult value: %s", fd->vresult->toChars());
+        fd->nestedVars.insert(fd->vresult);
+    }
+
+    // construct nested variables struct
+    if (!fd->nestedVars.empty() || parentNested) {
+        std::vector<const LLType*> nestTypes;
+        int j = 0;
+        if (parentNested) {
+            nestTypes.push_back(parentNested->getType());
+            j++;
+        }
+        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
+            VarDeclaration* vd = *i;
+            Logger::println("referenced nested variable %s", vd->toChars());
+            if (!vd->ir.irLocal)
+                vd->ir.irLocal = new IrLocal(vd);
+            vd->ir.irLocal->nestedIndex = j++;
+            if (vd->isParameter()) {
+                if (!vd->ir.irLocal->value) {
+                    assert(vd == fd->vthis);
+                    vd->ir.irLocal->value = fd->ir.irFunc->thisVar;
+                }
+                assert(vd->ir.irLocal->value);
+                nestTypes.push_back(vd->ir.irLocal->value->getType());
+            }
+            else {
+                nestTypes.push_back(DtoType(vd->type));
+            }
+        }
+        const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
+        Logger::cout() << "nested var struct has type:" << *nestSType << '\n';
+        fd->ir.irFunc->nestedVar = new llvm::AllocaInst(nestSType,"nestedvars",allocaPoint);
+        if (parentNested) {
+            assert(fd->ir.irFunc->thisVar);
+            LLValue* ptr = gIR->ir->CreateBitCast(fd->ir.irFunc->thisVar, parentNested->getType(), "tmp");
+            gIR->ir->CreateStore(ptr, DtoGEPi(fd->ir.irFunc->nestedVar, 0,0, "tmp"));
+        }
+        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
+            VarDeclaration* vd = *i;
+            if (vd->isParameter()) {
+                assert(vd->ir.irLocal);
+                gIR->ir->CreateStore(vd->ir.irLocal->value, DtoGEPi(fd->ir.irFunc->nestedVar, 0, vd->ir.irLocal->nestedIndex, "tmp"));
+                vd->ir.irLocal->value = fd->ir.irFunc->nestedVar;
+            }
+        }
+    }
+
+    // copy _argptr to a memory location
+    if (f->linkage == LINKd && f->varargs == 1)
+    {
+        LLValue* argptrmem = new llvm::AllocaInst(fd->ir.irFunc->_argptr->getType(), "_argptrmem", gIR->topallocapoint());
+        new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
+        fd->ir.irFunc->_argptr = argptrmem;
+    }
+
+    // output function body
+    fd->fbody->toIR(gIR);
+
+    // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
+    // in automatically, so we do it here.
+    if (!fd->isMain()) {
+        if (!gIR->scopereturned()) {
+            // pass the previous block into this block
+            if (global.params.symdebug) DtoDwarfFuncEnd(fd);
+            if (func->getReturnType() == LLType::VoidTy) {
+                llvm::ReturnInst::Create(gIR->scopebb());
+            }
+            else {
+                llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
+            }
+        }
+    }
+
+    // erase alloca point
+    allocaPoint->eraseFromParent();
+    allocaPoint = 0;
+    gIR->func()->allocapoint = 0;
+
+    gIR->scopes.pop_back();
+
+    // get rid of the endentry block, it's never used
+    assert(!func->getBasicBlockList().empty());
+    func->getBasicBlockList().pop_back();
+
+    // if the last block is empty now, it must be unreachable or it's a bug somewhere else
+    // would be nice to figure out how to assert that this is correct
+    llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
+    if (lastbb->empty()) {
+        if (lastbb->getNumUses() == 0)
+            lastbb->eraseFromParent();
+        else {
+            new llvm::UnreachableInst(lastbb);
+            /*if (func->getReturnType() == LLType::VoidTy) {
+                llvm::ReturnInst::Create(lastbb);
+            }
+            else {
+                llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), lastbb);
+            }*/
+        }
+    }
+
+    // if the last block is not terminated we return a null value or void
+    // for some unknown reason this is needed when a void main() has a inline asm block ...
+    // this should be harmless for well formed code!
+    lastbb = &func->getBasicBlockList().back();
+    if (!lastbb->getTerminator())
+    {
+        Logger::println("adding missing return statement");
+        if (func->getReturnType() == LLType::VoidTy)
+            llvm::ReturnInst::Create(lastbb);
+        else
+            llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), lastbb);
+    }
+
+    gIR->functions.pop_back();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

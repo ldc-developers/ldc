@@ -5,6 +5,7 @@
 
 #include "gen/complex.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/dvalue.h"
 
@@ -306,4 +307,57 @@ LLValue* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
     LLValue* b1 = new llvm::FCmpInst(cmpop, a, c, "tmp", gIR->scopebb());
     LLValue* b2 = new llvm::FCmpInst(cmpop, b, d, "tmp", gIR->scopebb());
     return gIR->ir->CreateAnd(b1,b2,"tmp");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* DtoCastComplex(DValue* val, Type* _to)
+{
+    Type* to = DtoDType(_to);
+    Type* vty = val->getType();
+    if (to->iscomplex()) {
+        if (vty->size() == to->size())
+            return val;
+
+        llvm::Value *re, *im;
+        DtoGetComplexParts(val, re, im);
+        const LLType* toty = DtoComplexBaseType(to);
+
+        if (to->size() < vty->size()) {
+            re = gIR->ir->CreateFPTrunc(re, toty, "tmp");
+            im = gIR->ir->CreateFPTrunc(im, toty, "tmp");
+        }
+        else if (to->size() > vty->size()) {
+            re = gIR->ir->CreateFPExt(re, toty, "tmp");
+            im = gIR->ir->CreateFPExt(im, toty, "tmp");
+        }
+        else {
+            return val;
+        }
+
+        if (val->isComplex())
+            return new DComplexValue(_to, re, im);
+
+        // unfortunately at this point, the cast value can show up as the lvalue for += and similar expressions.
+        // so we need to give it storage, or fix the system that handles this stuff (DLRValue)
+        LLValue* mem = new llvm::AllocaInst(DtoType(_to), "castcomplextmp", gIR->topallocapoint());
+        DtoComplexSet(mem, re, im);
+        return new DLRValue(val->getType(), val->getRVal(), _to, mem);
+    }
+    else if (to->isimaginary()) {
+        if (val->isComplex())
+            return new DImValue(to, val->isComplex()->im);
+        LLValue* v = val->getRVal();
+        DImValue* im = new DImValue(to, DtoLoad(DtoGEPi(v,0,1,"tmp")));
+        return DtoCastFloat(im, to);
+    }
+    else if (to->isfloating()) {
+        if (val->isComplex())
+            return new DImValue(to, val->isComplex()->re);
+        LLValue* v = val->getRVal();
+        DImValue* re = new DImValue(to, DtoLoad(DtoGEPi(v,0,0,"tmp")));
+        return DtoCastFloat(re, to);
+    }
+    else
+    assert(0);
 }

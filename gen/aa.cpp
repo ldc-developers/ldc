@@ -7,6 +7,7 @@
 #include "gen/aa.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/irstate.h"
 #include "gen/dvalue.h"

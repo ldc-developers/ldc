@@ -20,6 +20,7 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/runtime.h"
 #include "gen/arrays.h"
 #include "gen/todebug.h"
@@ -74,7 +75,7 @@ void ReturnStatement::toIR(IRState* p)
 
     if (exp)
     {
-        if (p->topfunc()->getReturnType() == llvm::Type::VoidTy) {
+        if (p->topfunc()->getReturnType() == LLType::VoidTy) {
             IrFunction* f = p->func();
             assert(f->type->llvmRetInPtr);
             assert(f->decl->ir.irFunc->retArg);
@@ -128,7 +129,7 @@ void ReturnStatement::toIR(IRState* p)
     }
     else
     {
-        assert(p->topfunc()->getReturnType() == llvm::Type::VoidTy);
+        assert(p->topfunc()->getReturnType() == LLType::VoidTy);
         emit_finallyblocks(p, enclosingtryfinally, NULL);
 
         if (gIR->func()->inVolatile) {
@@ -187,7 +188,7 @@ void IfStatement::toIR(IRState* p)
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endif", gIR->topfunc(), oldend);
     llvm::BasicBlock* elsebb = elsebody ? llvm::BasicBlock::Create("else", gIR->topfunc(), endbb) : endbb;
 
-    if (cond_val->getType() != llvm::Type::Int1Ty) {
+    if (cond_val->getType() != LLType::Int1Ty) {
         Logger::cout() << "if conditional: " << *cond_val << '\n';
         cond_val = DtoBoolean(cond_val);
     }
@@ -892,10 +893,10 @@ void ForeachStatement::toIR(IRState* p)
         else {
             Logger::println("foreach over dynamic array");
             val = aggrval->getRVal();
-            niters = DtoGEPi(val,0,0,"tmp",p->scopebb());
-            niters = p->ir->CreateLoad(niters, "numiterations");
-            val = DtoGEPi(val,0,1,"tmp",p->scopebb());
-            val = p->ir->CreateLoad(val, "collection");
+            niters = DtoGEPi(val,0,0);
+            niters = DtoLoad(niters, "numiterations");
+            val = DtoGEPi(val,0,1);
+            val = DtoLoad(val, "collection");
         }
     }
     else
@@ -935,7 +936,7 @@ void ForeachStatement::toIR(IRState* p)
     p->scope() = IRScope(condbb,bodybb);
 
     LLValue* done = 0;
-    LLValue* load = new llvm::LoadInst(keyvar, "tmp", p->scopebb());
+    LLValue* load = DtoLoad(keyvar);
     if (op == TOKforeach) {
         done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_ULT, load, niters, "tmp", p->scopebb());
     }

@@ -44,10 +44,10 @@ struct IrStruct : IrBase
     struct Offset
     {
         VarDeclaration* var;
-        const llvm::Type* type;
+        const LLType* type;
         llvm::Constant* init;
 
-        Offset(VarDeclaration* v, const llvm::Type* ty)
+        Offset(VarDeclaration* v, const LLType* ty)
         : var(v), type(ty), init(NULL) {}
     };
 

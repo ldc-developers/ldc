@@ -35,6 +35,7 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
 #include "gen/structs.h"
 #include "gen/classes.h"
@@ -203,7 +204,7 @@ static llvm::Function* build_module_ctor()
     name.append("6__ctorZ");
 
     std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(llvm::CallingConv::Fast);
@@ -237,7 +238,7 @@ static llvm::Function* build_module_dtor()
     name.append("6__dtorZ");
 
     std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(llvm::CallingConv::Fast);
@@ -271,7 +272,7 @@ static llvm::Function* build_module_unittest()
     name.append("10__unittestZ");
 
     std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy,argsTy,false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(llvm::CallingConv::Fast);
@@ -325,7 +326,7 @@ void Module::genmoduleinfo()
     initVec.push_back(c);
 
     // monitor
-    c = getNullPtr(getPtrToType(llvm::Type::Int8Ty));
+    c = getNullPtr(getPtrToType(LLType::Int8Ty));
     initVec.push_back(c);
 
     // name
@@ -463,9 +464,9 @@ void Module::genmoduleinfo()
     gvar->setInitializer(constMI);
 
     // declare the appending array
-    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(getPtrToType(llvm::Type::Int8Ty), 1);
+    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(getPtrToType(LLType::Int8Ty), 1);
     std::vector<LLConstant*> appendInits;
-    appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llvm::Type::Int8Ty)));
+    appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, getPtrToType(LLType::Int8Ty)));
     LLConstant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
     std::string appendName("_d_moduleinfo_array");
     llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);

@@ -22,17 +22,15 @@ static const llvm::PointerType* ptrTy(const LLType* t)
 
 static const llvm::PointerType* dbgArrTy()
 {
-    std::vector<const LLType*> t;
-    return ptrTy(llvm::StructType::get(t));
+    return ptrTy(llvm::StructType::get(NULL,NULL));
 }
 
 static LLConstant* dbgToArrTy(LLConstant* c)
 {
-    Logger::cout() << "casting: " << *c << '\n';
     return llvm::ConstantExpr::getBitCast(c, dbgArrTy());
 }
 
-#define Ty(X) llvm::Type::X
+#define Ty(X) LLType::X
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -48,7 +46,7 @@ const llvm::StructType* GetDwarfAnchorType()
         uint    ;; Tag of descriptors grouped by the anchor
     }
     */
-    std::vector<const LLType*> elems(2, Ty(Int32Ty));
+
     const llvm::StructType* t = isaStruct(gIR->module->getTypeByName("llvm.dbg.anchor.type"));
 
     /*
@@ -154,7 +152,7 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit)
+LLGlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit)
 {
     std::vector<LLConstant*> vals;
     vals.push_back(llvm::ConstantExpr::getAdd(
@@ -202,4 +200,112 @@ void DtoDwarfStopPoint(unsigned ln)
     FuncDeclaration* fd = gIR->func()->decl;
     args.push_back(dbgToArrTy(DtoDwarfCompileUnit(fd->getModule())));
     gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.stoppoint"), args.begin(), args.end());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+const llvm::StructType* GetDwarfBasicTypeType() {
+    return isaStruct(gIR->module->getTypeByName("llvm.dbg.basictype.type"));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+LLGlobalVariable* DtoDwarfBasicType(Type* type, llvm::GlobalVariable* compileUnit)
+{
+    const LLType* T = DtoType(type);
+
+    std::vector<LLConstant*> vals;
+    // tag
+    vals.push_back(llvm::ConstantExpr::getAdd(
+        DtoConstUint(DW_TAG_base_type),
+        DtoConstUint(llvm::LLVMDebugVersion)));
+    // context
+    vals.push_back(dbgToArrTy(compileUnit));
+    // name
+    vals.push_back(DtoConstStringPtr(type->toChars(), "llvm.metadata"));
+    // compile unit where defined
+    vals.push_back(getNullPtr(dbgArrTy()));
+    // line number where defined
+    vals.push_back(DtoConstInt(0));
+    // size in bits
+    vals.push_back(LLConstantInt::get(LLType::Int64Ty, getTypeBitSize(T), false));
+    // alignment in bits
+    vals.push_back(LLConstantInt::get(LLType::Int64Ty, getABITypeAlign(T)*8, false));
+    // offset in bits
+    vals.push_back(LLConstantInt::get(LLType::Int64Ty, 0, false));
+    // FIXME: dont know what this is
+    vals.push_back(DtoConstUint(0));
+    // dwarf type
+    unsigned id;
+    if (type->isintegral())
+    {
+        if (type->isunsigned())
+            id = llvm::dwarf::DW_ATE_unsigned;
+        else
+            id = llvm::dwarf::DW_ATE_signed;
+    }
+    else if (type->isfloating())
+    {
+        id = llvm::dwarf::DW_ATE_float;
+    }
+    else
+    {
+        assert(0 && "unsupported basictype for debug info");
+    }
+    vals.push_back(DtoConstUint(id));
+
+    LLConstant* c = llvm::ConstantStruct::get(GetDwarfBasicTypeType(), vals);
+    LLGlobalVariable* gv = new LLGlobalVariable(c->getType(), true, LLGlobalValue::InternalLinkage, c, "llvm.dbg.basictype", gIR->module);
+    gv->setSection("llvm.metadata");
+    return gv;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+const llvm::StructType* GetDwarfVariableType() {
+    return isaStruct(gIR->module->getTypeByName("llvm.dbg.variable.type"));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+LLGlobalVariable* DtoDwarfVariable(VarDeclaration* vd, LLGlobalVariable* typeDescr)
+{
+    unsigned tag;
+    if (vd->isParameter())
+        tag = DW_TAG_arg_variable;
+    else if (vd->isCodeseg())
+        assert(0 && "a static variable");
+    else
+        tag = DW_TAG_auto_variable;
+
+    std::vector<LLConstant*> vals;
+    // tag
+    vals.push_back(llvm::ConstantExpr::getAdd(
+        DtoConstUint(tag),
+        DtoConstUint(llvm::LLVMDebugVersion)));
+    // context
+    vals.push_back(dbgToArrTy(gIR->func()->dwarfSubProg));
+    // name
+    vals.push_back(DtoConstStringPtr(vd->toChars(), "llvm.metadata"));
+    // compile unit where defined
+    vals.push_back(dbgToArrTy(DtoDwarfCompileUnit(vd->getModule())));
+    // line number where defined
+    vals.push_back(DtoConstUint(vd->loc.linnum));
+    // type descriptor
+    vals.push_back(dbgToArrTy(typeDescr));
+
+    LLConstant* c = llvm::ConstantStruct::get(GetDwarfVariableType(), vals);
+    LLGlobalVariable* gv = new LLGlobalVariable(c->getType(), true, LLGlobalValue::InternalLinkage, c, "llvm.dbg.variable", gIR->module);
+    gv->setSection("llvm.metadata");
+    return gv;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDwarfDeclare(LLValue* var, LLGlobalVariable* varDescr)
+{
+    LLSmallVector<LLValue*,2> args;
+    args.push_back(DtoBitCast(var, dbgArrTy()));
+    args.push_back(dbgToArrTy(varDescr));
+    gIR->ir->CreateCall(gIR->module->getFunction("llvm.dbg.declare"), args.begin(), args.end());
 }

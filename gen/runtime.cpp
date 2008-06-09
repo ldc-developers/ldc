@@ -158,12 +158,12 @@ static const LLType* rt_array2(const LLType* elemty)
 static const LLType* rt_dg1()
 {
     std::vector<const LLType*> types;
-    types.push_back(rt_ptr(llvm::Type::Int8Ty));
-    types.push_back(rt_ptr(llvm::Type::Int8Ty));
-    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::Int32Ty, types, false);
+    types.push_back(rt_ptr(LLType::Int8Ty));
+    types.push_back(rt_ptr(LLType::Int8Ty));
+    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::Int32Ty, types, false);
 
     std::vector<const LLType*> t;
-    t.push_back(rt_ptr(llvm::Type::Int8Ty));
+    t.push_back(rt_ptr(LLType::Int8Ty));
     t.push_back(rt_ptr(fty));
     return rt_ptr(llvm::StructType::get(t));
 }
@@ -171,13 +171,13 @@ static const LLType* rt_dg1()
 static const LLType* rt_dg2()
 {
     std::vector<const LLType*> types;
-    types.push_back(rt_ptr(llvm::Type::Int8Ty));
-    types.push_back(rt_ptr(llvm::Type::Int8Ty));
-    types.push_back(rt_ptr(llvm::Type::Int8Ty));
-    const llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::Int32Ty, types, false);
+    types.push_back(rt_ptr(LLType::Int8Ty));
+    types.push_back(rt_ptr(LLType::Int8Ty));
+    types.push_back(rt_ptr(LLType::Int8Ty));
+    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::Int32Ty, types, false);
 
     std::vector<const LLType*> t;
-    t.push_back(rt_ptr(llvm::Type::Int8Ty));
+    t.push_back(rt_ptr(LLType::Int8Ty));
     t.push_back(rt_ptr(fty));
     return rt_ptr(llvm::StructType::get(t));
 }
@@ -186,14 +186,14 @@ static void LLVM_D_BuildRuntimeModule()
 {
     M = new llvm::Module("llvmdc internal runtime");
 
-    const LLType* voidTy = llvm::Type::VoidTy;
-    const LLType* boolTy = llvm::Type::Int1Ty;
-    const LLType* byteTy = llvm::Type::Int8Ty;
-    const LLType* shortTy = llvm::Type::Int16Ty;
-    const LLType* intTy = llvm::Type::Int32Ty;
-    const LLType* longTy = llvm::Type::Int64Ty;
-    const LLType* floatTy = llvm::Type::FloatTy;
-    const LLType* doubleTy = llvm::Type::DoubleTy;
+    const LLType* voidTy = LLType::VoidTy;
+    const LLType* boolTy = LLType::Int1Ty;
+    const LLType* byteTy = LLType::Int8Ty;
+    const LLType* shortTy = LLType::Int16Ty;
+    const LLType* intTy = LLType::Int32Ty;
+    const LLType* longTy = LLType::Int64Ty;
+    const LLType* floatTy = LLType::FloatTy;
+    const LLType* doubleTy = LLType::DoubleTy;
     const LLType* sizeTy = DtoSize_t();
     const LLType* voidPtrTy = rt_ptr(byteTy);
     const LLType* stringTy = rt_array(byteTy);

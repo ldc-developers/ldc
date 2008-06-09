@@ -9,71 +9,12 @@
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
 #include "gen/logger.h"
 #include "gen/structs.h"
 
 #include "ir/irstruct.h"
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-const LLType* DtoStructType(Type* t)
-{
-    assert(0);
-    std::vector<const LLType*> types;
-    return llvm::StructType::get(types);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoStructZeroInit(LLValue* v)
-{
-    assert(gIR);
-    uint64_t n = getTypeStoreSize(v->getType()->getContainedType(0));
-    //LLType* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    const LLType* sarrty = getPtrToType(llvm::Type::Int8Ty);
-
-    LLValue* sarr = DtoBitCast(v, sarrty);
-
-    llvm::Function* fn = LLVM_DeclareMemSet32();
-    assert(fn);
-    std::vector<LLValue*> llargs;
-    llargs.resize(4);
-    llargs[0] = sarr;
-    llargs[1] = llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false);
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    LLValue* ret = llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-
-    return ret;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoStructCopy(LLValue* dst, LLValue* src)
-{
-    Logger::cout() << "dst = " << *dst << " src = " << *src << '\n';
-    assert(dst->getType() == src->getType());
-    assert(gIR);
-
-    uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-    //LLType* sarrty = getPtrToType(llvm::ArrayType::get(llvm::Type::Int8Ty, n));
-    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
-
-    LLValue* dstarr = DtoBitCast(dst,arrty);
-    LLValue* srcarr = DtoBitCast(src,arrty);
-
-    llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<LLValue*> llargs;
-    llargs.resize(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    return llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
-}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 LLConstant* DtoConstStructInitializer(StructInitializer* si)
@@ -227,7 +168,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     if (irstruct->offsets.empty())
     {
         Logger::println("has no fields");
-        fieldtypes.push_back(llvm::Type::Int8Ty);
+        fieldtypes.push_back(LLType::Int8Ty);
         structtype = llvm::StructType::get(fieldtypes);
     }
     else
@@ -273,7 +214,7 @@ void DtoResolveStruct(StructDeclaration* sd)
                 fieldtypes.push_back(fieldtype);
                 irstruct->defaultFields.push_back(fieldinit);
                 if (fieldpad) {
-                    fieldtypes.push_back(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad));
+                    fieldtypes.push_back(llvm::ArrayType::get(LLType::Int8Ty, fieldpad));
                     irstruct->defaultFields.push_back(NULL);
                     idx++;
                 }
@@ -292,7 +233,7 @@ void DtoResolveStruct(StructDeclaration* sd)
         fieldtypes.push_back(fieldtype);
         irstruct->defaultFields.push_back(fieldinit);
         if (fieldpad) {
-            fieldtypes.push_back(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad));
+            fieldtypes.push_back(llvm::ArrayType::get(LLType::Int8Ty, fieldpad));
             irstruct->defaultFields.push_back(NULL);
         }
 
@@ -380,7 +321,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
         }
         else {
             const llvm::ArrayType* arrty = isaArray(structtype->getElementType(i));
-            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(LLType::Int8Ty, 0, false));
             c = llvm::ConstantArray::get(arrty, vals);
         }
         fieldinits_ll.push_back(c);
@@ -392,6 +333,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     // always generate the constant initalizer
     if (!sd->zeroInit) {
         Logger::println("Not zero initialized");
+    #if 0
         //assert(tk == gIR->gIR->topstruct()().size());
         #ifndef LLVMD_NO_LOGGER
         Logger::cout() << "struct type: " << *structtype << '\n';
@@ -403,6 +345,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
         }
         Logger::cout() << "Initializer printed" << '\n';
         #endif
+    #endif
         sd->ir.irStruct->constInit = llvm::ConstantStruct::get(structtype,fieldinits_ll);
     }
     else {
@@ -498,8 +441,8 @@ DUnion::DUnion()
 static void push_nulls(size_t nbytes, std::vector<LLConstant*>& out)
 {
     assert(nbytes > 0);
-    std::vector<LLConstant*> i(nbytes, llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
-    out.push_back(llvm::ConstantArray::get(llvm::ArrayType::get(llvm::Type::Int8Ty, nbytes), i));
+    std::vector<LLConstant*> i(nbytes, llvm::ConstantInt::get(LLType::Int8Ty, 0, false));
+    out.push_back(llvm::ConstantArray::get(llvm::ArrayType::get(LLType::Int8Ty, nbytes), i));
 }
 
 LLConstant* DUnion::getConst(std::vector<DUnionIdx>& in)

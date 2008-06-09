@@ -8,6 +8,7 @@
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
 #include "gen/runtime.h"
 #include "gen/logger.h"
@@ -15,23 +16,23 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::StructType* DtoArrayType(Type* arrayTy)
+const LLStructType* DtoArrayType(Type* arrayTy)
 {
     assert(arrayTy->next);
     const LLType* elemty = DtoType(arrayTy->next);
-    if (elemty == llvm::Type::VoidTy)
-        elemty = llvm::Type::Int8Ty;
-    return llvm::StructType::get(DtoSize_t(), getPtrToType(elemty), 0);
+    if (elemty == LLType::VoidTy)
+        elemty = LLType::Int8Ty;
+    return LLStructType::get(DtoSize_t(), getPtrToType(elemty), 0);
 }
 
-const llvm::StructType* DtoArrayType(const LLType* t)
+const LLStructType* DtoArrayType(const LLType* t)
 {
-    return llvm::StructType::get(DtoSize_t(), getPtrToType(t), 0);
+    return LLStructType::get(DtoSize_t(), getPtrToType(t), 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::ArrayType* DtoStaticArrayType(Type* t)
+const LLArrayType* DtoStaticArrayType(Type* t)
 {
     if (t->ir.type)
         return isaArray(t->ir.type->get());
@@ -43,10 +44,10 @@ const llvm::ArrayType* DtoStaticArrayType(Type* t)
 
     TypeSArray* tsa = (TypeSArray*)t;
     assert(tsa->dim->type->isintegral());
-    const llvm::ArrayType* arrty = llvm::ArrayType::get(at,tsa->dim->toUInteger());
+    const LLArrayType* arrty = LLArrayType::get(at,tsa->dim->toUInteger());
 
     assert(!tsa->ir.type);
-    tsa->ir.type = new llvm::PATypeHolder(arrty);
+    tsa->ir.type = new LLPATypeHolder(arrty);
     return arrty;
 }
 
@@ -57,14 +58,14 @@ void DtoSetArrayToNull(LLValue* v)
     Logger::println("DtoSetArrayToNull");
     LOG_SCOPE;
 
-    LLValue* len = DtoGEPi(v,0,0,"tmp",gIR->scopebb());
+    LLValue* len = DtoGEPi(v,0,0);
     LLValue* zerolen = llvm::ConstantInt::get(len->getType()->getContainedType(0), 0, false);
-    new llvm::StoreInst(zerolen, len, gIR->scopebb());
+    DtoStore(zerolen, len);
 
-    LLValue* ptr = DtoGEPi(v,0,1,"tmp",gIR->scopebb());
-    const llvm::PointerType* pty = isaPointer(ptr->getType()->getContainedType(0));
+    LLValue* ptr = DtoGEPi(v,0,1);
+    const LLPointerType* pty = isaPointer(ptr->getType()->getContainedType(0));
     LLValue* nullptr = llvm::ConstantPointerNull::get(pty);
-    new llvm::StoreInst(nullptr, ptr, gIR->scopebb());
+    DtoStore(nullptr, ptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -77,20 +78,20 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
     assert(gIR);
     if (dst->getType() == src->getType())
     {
-        LLValue* ptr = DtoGEPi(src,0,0,"tmp",gIR->scopebb());
-        LLValue* val = new llvm::LoadInst(ptr,"tmp",gIR->scopebb());
-        ptr = DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
-        new llvm::StoreInst(val, ptr, gIR->scopebb());
+        LLValue* ptr = DtoGEPi(src,0,0);
+        LLValue* val = DtoLoad(ptr);
+        ptr = DtoGEPi(dst,0,0);
+        DtoStore(val, ptr);
 
-        ptr = DtoGEPi(src,0,1,"tmp",gIR->scopebb());
-        val = new llvm::LoadInst(ptr,"tmp",gIR->scopebb());
-        ptr = DtoGEPi(dst,0,1,"tmp",gIR->scopebb());
-        new llvm::StoreInst(val, ptr, gIR->scopebb());
+        ptr = DtoGEPi(src,0,1);
+        val = DtoLoad(ptr);
+        ptr = DtoGEPi(dst,0,1);
+        DtoStore(val, ptr);
     }
     else
     {
         Logger::cout() << "array assignment type dont match: " << *dst->getType() << "\n\n" << *src->getType() << '\n';
-        const llvm::ArrayType* arrty = isaArray(src->getType()->getContainedType(0));
+        const LLArrayType* arrty = isaArray(src->getType()->getContainedType(0));
         if (!arrty)
         {
             Logger::cout() << "invalid: " << *src << '\n';
@@ -98,13 +99,13 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
         }
         const LLType* dstty = getPtrToType(arrty->getElementType());
 
-        LLValue* dstlen = DtoGEPi(dst,0,0,"tmp",gIR->scopebb());
+        LLValue* dstlen = DtoGEPi(dst,0,0);
         LLValue* srclen = DtoConstSize_t(arrty->getNumElements());
-        new llvm::StoreInst(srclen, dstlen, gIR->scopebb());
+        DtoStore(srclen, dstlen);
 
-        LLValue* dstptr = DtoGEPi(dst,0,1,"tmp",gIR->scopebb());
+        LLValue* dstptr = DtoGEPi(dst,0,1);
         LLValue* srcptr = DtoBitCast(src, dstty);
-        new llvm::StoreInst(srcptr, dstptr, gIR->scopebb());
+        DtoStore(srcptr, dstptr);
     }
 }
 
@@ -115,19 +116,19 @@ void DtoArrayInit(LLValue* l, LLValue* r)
     Logger::println("DtoArrayInit");
     LOG_SCOPE;
 
-    const llvm::PointerType* ptrty = isaPointer(l->getType());
+    const LLPointerType* ptrty = isaPointer(l->getType());
     const LLType* t = ptrty->getContainedType(0);
-    const llvm::ArrayType* arrty = isaArray(t);
+    const LLArrayType* arrty = isaArray(t);
     if (arrty)
     {
-        LLValue* ptr = DtoGEPi(l,0,0,"tmp",gIR->scopebb());
-        LLValue* dim = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+        LLValue* ptr = DtoGEPi(l,0,0);
+        LLValue* dim = DtoConstSize_t(arrty->getNumElements());
         DtoArrayInit(ptr, dim, r);
     }
     else if (isaStruct(t))
     {
-        LLValue* dim = DtoLoad(DtoGEPi(l, 0,0, "tmp"));
-        LLValue* ptr = DtoLoad(DtoGEPi(l, 0,1, "tmp"));
+        LLValue* dim = DtoLoad(DtoGEPi(l, 0,0));
+        LLValue* ptr = DtoLoad(DtoGEPi(l, 0,1));
         DtoArrayInit(ptr, dim, r);
     }
     else
@@ -140,7 +141,7 @@ typedef const LLType* constLLVMTypeP;
 
 static size_t checkRectArrayInit(const LLType* pt, constLLVMTypeP& finalty)
 {
-    if (const llvm::ArrayType* arrty = isaArray(pt)) {
+    if (const LLArrayType* arrty = isaArray(pt)) {
         size_t n = checkRectArrayInit(arrty->getElementType(), finalty);
         size_t ne = arrty->getNumElements();
         if (n) return n * ne;
@@ -180,7 +181,7 @@ void DtoArrayInit(LLValue* ptr, LLValue* dim, LLValue* val)
             return;
         }
         else {
-            ptr = gIR->ir->CreateBitCast(ptr, getPtrToType(llvm::Type::Int8Ty), "tmp");
+            ptr = gIR->ir->CreateBitCast(ptr, getPtrToType(LLType::Int8Ty), "tmp");
         }
     }
     else {
@@ -203,33 +204,33 @@ void DtoArrayInit(LLValue* ptr, LLValue* dim, LLValue* val)
     else if (isaPointer(t)) {
         funcname = "_d_array_init_pointer";
 
-        const LLType* dstty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+        const LLType* dstty = getPtrToType(getPtrToType(LLType::Int8Ty));
         if (args[0]->getType() != dstty)
             args[0] = DtoBitCast(args[0],dstty);
 
-        const LLType* valty = getPtrToType(llvm::Type::Int8Ty);
+        const LLType* valty = getPtrToType(LLType::Int8Ty);
         if (args[2]->getType() != valty)
             args[2] = DtoBitCast(args[2],valty);
     }
-    else if (t == llvm::Type::Int1Ty) {
+    else if (t == LLType::Int1Ty) {
         funcname = "_d_array_init_i1";
     }
-    else if (t == llvm::Type::Int8Ty) {
+    else if (t == LLType::Int8Ty) {
         funcname = "_d_array_init_i8";
     }
-    else if (t == llvm::Type::Int16Ty) {
+    else if (t == LLType::Int16Ty) {
         funcname = "_d_array_init_i16";
     }
-    else if (t == llvm::Type::Int32Ty) {
+    else if (t == LLType::Int32Ty) {
         funcname = "_d_array_init_i32";
     }
-    else if (t == llvm::Type::Int64Ty) {
+    else if (t == LLType::Int64Ty) {
         funcname = "_d_array_init_i64";
     }
-    else if (t == llvm::Type::FloatTy) {
+    else if (t == LLType::FloatTy) {
         funcname = "_d_array_init_float";
     }
-    else if (t == llvm::Type::DoubleTy) {
+    else if (t == LLType::DoubleTy) {
         funcname = "_d_array_init_double";
     }
     else {
@@ -237,7 +238,7 @@ void DtoArrayInit(LLValue* ptr, LLValue* dim, LLValue* val)
         assert(0);
     }
 
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
     assert(fn);
     Logger::cout() << "calling array init function: " << *fn <<'\n';
     llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
@@ -248,25 +249,9 @@ void DtoArrayInit(LLValue* ptr, LLValue* dim, LLValue* val)
 
 void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr)
 {
-    Logger::println("DtoSetArray");
-    LOG_SCOPE;
-
-    Logger::cout() << "arr = " << *arr << '\n';
-    Logger::cout() << "dim = " << *dim << '\n';
-    Logger::cout() << "ptr = " << *ptr << '\n';
-
-    const llvm::StructType* st = isaStruct(arr->getType()->getContainedType(0));
-
-    LLValue* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-    LLValue* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-
-    LLValue* arrdim = DtoGEP(arr,zero,zero,"tmp",gIR->scopebb());
-    Logger::cout() << "arrdim = " << *arrdim << '\n';
-    new llvm::StoreInst(dim, arrdim, gIR->scopebb());
-
-    LLValue* arrptr = DtoGEP(arr,zero,one,"tmp",gIR->scopebb());
-    Logger::cout() << "arrptr = " << *arrptr << '\n';
-    new llvm::StoreInst(ptr, arrptr, gIR->scopebb());
+    Logger::println("SetArray");
+    DtoStore(dim, DtoGEPi(arr,0,0));
+    DtoStore(ptr, DtoGEPi(arr,0,1));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -326,7 +311,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
                 LLConstant* cc = idx->toConstElem(gIR);
                 Logger::println("value gotten");
                 assert(cc != NULL);
-                llvm::ConstantInt* ci = llvm::dyn_cast<llvm::ConstantInt>(cc);
+                LLConstantInt* ci = llvm::dyn_cast<LLConstantInt>(cc);
                 assert(ci != NULL);
                 uint64_t k = ci->getZExtValue();
                 if (i == k)
@@ -356,15 +341,15 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     }
 
     Logger::println("building constant array");
-    const llvm::ArrayType* arrty = llvm::ArrayType::get(elemty,tdim);
-    LLConstant* constarr = llvm::ConstantArray::get(arrty, inits);
+    const LLArrayType* arrty = LLArrayType::get(elemty,tdim);
+    LLConstant* constarr = LLConstantArray::get(arrty, inits);
 
     if (arrinittype->ty == Tsarray)
         return constarr;
     else
         assert(arrinittype->ty == Tarray);
 
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrty,true,llvm::GlobalValue::InternalLinkage,constarr,"constarray",gIR->module);
+    LLGlobalVariable* gvar = new LLGlobalVariable(arrty,true,LLGlobalValue::InternalLinkage,constarr,"constarray",gIR->module);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
     return DtoConstSlice(DtoConstSize_t(tdim),gep);
@@ -390,7 +375,7 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
         }
     }
     else if (isaArray(t)) {
-        ret = DtoGEPi(e->ptr, 0, 0, "tmp", gIR->scopebb());
+        ret = DtoGEPi(e->ptr, 0, 0);
 
         size_t elembsz = getABITypeSize(ret->getType()->getContainedType(0));
         llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
@@ -401,14 +386,14 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
         sz = llvm::ConstantExpr::getMul(elemsz, nelems);
     }
     else if (isaStruct(t)) {
-        ret = DtoGEPi(e->ptr, 0, 1, "tmp", gIR->scopebb());
-        ret = new llvm::LoadInst(ret, "tmp", gIR->scopebb());
+        ret = DtoGEPi(e->ptr, 0, 1);
+        ret = DtoLoad(ret);
 
         size_t elembsz = getABITypeSize(ret->getType()->getContainedType(0));
         llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
 
-        LLValue* len = DtoGEPi(e->ptr, 0, 0, "tmp", gIR->scopebb());
-        len = new llvm::LoadInst(len, "tmp", gIR->scopebb());
+        LLValue* len = DtoGEPi(e->ptr, 0, 0);
+        len = DtoLoad(len);
         sz = llvm::BinaryOperator::createMul(len,elemsz,"tmp",gIR->scopebb());
     }
     else {
@@ -420,63 +405,32 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
 {
     Logger::println("ArrayCopySlices");
-    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
 
-    LLValue* sz1;
-    LLValue* dstarr = DtoBitCast(get_slice_ptr(dst,sz1),arrty);
+    LLValue *sz1,*sz2;
+    LLValue* dstarr = get_slice_ptr(dst,sz1);
+    LLValue* srcarr = get_slice_ptr(src,sz2);
 
-    LLValue* sz2;
-    LLValue* srcarr = DtoBitCast(get_slice_ptr(src,sz2),arrty);
-
-    llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
-    LLSmallVector<LLValue*, 4> llargs(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = sz1;
-    llargs[3] = DtoConstInt(0);
-
-    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    DtoMemCpy(dstarr, srcarr, sz1);
 }
 
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 {
     Logger::println("ArrayCopyToSlice");
-    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
 
     LLValue* sz1;
-    LLValue* dstarr = DtoBitCast(get_slice_ptr(dst,sz1),arrty);
-    LLValue* srcarr = DtoBitCast(DtoArrayPtr(src),arrty);
+    LLValue* dstarr = get_slice_ptr(dst,sz1);
+    LLValue* srcarr = DtoArrayPtr(src);
 
-    llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
-    LLSmallVector<LLValue*, 4> llargs(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = sz1;
-    llargs[3] = DtoConstInt(0);
-
-    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    DtoMemCpy(dstarr, srcarr, sz1);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 {
-    Logger::cout() << "static array copy: " << *dst << " from " << *src << '\n';
-    assert(dst->getType() == src->getType());
-    size_t arrsz = getABITypeSize(dst->getType()->getContainedType(0));
-    LLValue* n = llvm::ConstantInt::get(DtoSize_t(), arrsz, false);
+    Logger::println("StaticArrayCopy");
 
-    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
-    LLValue* dstarr = DtoBitCast(dst,arrty);
-    LLValue* srcarr = DtoBitCast(src,arrty);
-
-    llvm::Function* fn = (global.params.is64bit) ? LLVM_DeclareMemCpy64() : LLVM_DeclareMemCpy32();
-    LLSmallVector<LLValue*,4> llargs(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = n;
-    llargs[3] = DtoConstInt(0);
-
-    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    size_t n = getABITypeSize(dst->getType()->getContainedType(0));
+    DtoMemCpy(dst, src, DtoConstSize_t(n));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -501,7 +455,7 @@ DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
 
     // get runtime function
     bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarrayT" : "_d_newarrayiT" );
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarrayT" : "_d_newarrayiT" );
 
     // call allocator
     LLValue* newptr = gIR->ir->CreateCall2(fn, arrayTypeInfo, arrayLen, ".gc_mem");
@@ -538,7 +492,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
     bool zeroInit = arrayType->toBasetype()->next->isZeroInit();
 
     // call runtime
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_arraysetlengthT" : "_d_arraysetlengthiT" );
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_arraysetlengthT" : "_d_arraysetlengthiT" );
 
     LLSmallVector<LLValue*,4> args;
     args.push_back(DtoTypeInfoOf(arrayType));
@@ -725,7 +679,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool useti)
 {
     Logger::println("comparing arrays");
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
     assert(fn);
 
     LLValue* lmem;
@@ -888,7 +842,7 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
     args.push_back(llvm::ConstantInt::get(DtoSize_t(), esz, false));
     args.push_back(llvm::ConstantInt::get(DtoSize_t(), nsz, false));
 
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
     return llvm::CallInst::Create(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
 }
 
@@ -898,12 +852,12 @@ LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r)
     llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
 
     if (r == NULL) {
-        LLValue* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0, "tmp"),"tmp");
+        LLValue* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0),"tmp");
         LLValue* rl = llvm::Constant::getNullValue(ll->getType());//DtoConstSize_t(0);
         LLValue* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
 
-        LLValue* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1, "tmp"),"tmp");
-        const llvm::PointerType* pty = isaPointer(lp->getType());
+        LLValue* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1),"tmp");
+        const LLPointerType* pty = isaPointer(lp->getType());
         LLValue* rp = llvm::ConstantPointerNull::get(pty);
         LLValue* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
 
@@ -913,12 +867,12 @@ LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r)
     else {
         assert(l->getType() == r->getType());
 
-        LLValue* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0, "tmp"),"tmp");
-        LLValue* rl = gIR->ir->CreateLoad(DtoGEPi(r, 0,0, "tmp"),"tmp");
+        LLValue* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0),"tmp");
+        LLValue* rl = gIR->ir->CreateLoad(DtoGEPi(r, 0,0),"tmp");
         LLValue* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
 
-        LLValue* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1, "tmp"),"tmp");
-        LLValue* rp = gIR->ir->CreateLoad(DtoGEPi(r, 0,1, "tmp"),"tmp");
+        LLValue* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1),"tmp");
+        LLValue* rp = gIR->ir->CreateLoad(DtoGEPi(r, 0,1),"tmp");
         LLValue* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
 
         LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
@@ -929,7 +883,7 @@ LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r)
 //////////////////////////////////////////////////////////////////////////////////////////
 LLConstant* DtoConstStaticArray(const LLType* t, LLConstant* c)
 {
-    const llvm::ArrayType* at = isaArray(t);
+    const LLArrayType* at = isaArray(t);
     assert(at);
 
     if (isaArray(at->getElementType()))
@@ -956,19 +910,19 @@ LLValue* DtoArrayLen(DValue* v)
             if (s->len) {
                 return s->len;
             }
-            const llvm::ArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
+            const LLArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
             if (arrTy)
                 return DtoConstSize_t(arrTy->getNumElements());
             else
-                return DtoLoad(DtoGEPi(s->ptr, 0,0, "tmp"));
+                return DtoLoad(DtoGEPi(s->ptr, 0,0));
         }
-        return DtoLoad(DtoGEPi(v->getRVal(), 0,0, "tmp"));
+        return DtoLoad(DtoGEPi(v->getRVal(), 0,0));
     }
     else if (t->ty == Tsarray) {
         assert(!v->isSlice());
         LLValue* rv = v->getRVal();
         Logger::cout() << "casting: " << *rv << '\n';
-        const llvm::ArrayType* t = isaArray(rv->getType()->getContainedType(0));
+        const LLArrayType* t = isaArray(rv->getType()->getContainedType(0));
         return DtoConstSize_t(t->getNumElements());
     }
     assert(0);
@@ -987,16 +941,16 @@ LLValue* DtoArrayPtr(DValue* v)
             if (s->len) return s->ptr;
             const LLType* t = s->ptr->getType()->getContainedType(0);
             Logger::cout() << "ptr of full slice: " << *s->ptr << '\n';
-            const llvm::ArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
+            const LLArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
             if (arrTy)
-                return DtoGEPi(s->ptr, 0,0, "tmp");
+                return DtoGEPi(s->ptr, 0,0);
             else
-                return DtoLoad(DtoGEPi(s->ptr, 0,1, "tmp"));
+                return DtoLoad(DtoGEPi(s->ptr, 0,1));
         }
-        return DtoLoad(DtoGEPi(v->getRVal(), 0,1, "tmp"));
+        return DtoLoad(DtoGEPi(v->getRVal(), 0,1));
     }
     else if (t->ty == Tsarray) {
-        return DtoGEPi(v->getRVal(), 0,0, "tmp");
+        return DtoGEPi(v->getRVal(), 0,0);
     }
     assert(0);
     return 0;
@@ -1028,13 +982,13 @@ DValue* DtoCastArray(DValue* u, Type* to)
     else if (totype->ty == Tarray) {
         Logger::cout() << "to array" << '\n';
         const LLType* ptrty = DtoType(totype->next);
-        if (ptrty == llvm::Type::VoidTy)
-            ptrty = llvm::Type::Int8Ty;
+        if (ptrty == LLType::VoidTy)
+            ptrty = LLType::Int8Ty;
         ptrty = getPtrToType(ptrty);
 
         const LLType* ety = DtoType(fromtype->next);
-        if (ety == llvm::Type::VoidTy)
-            ety = llvm::Type::Int8Ty;
+        if (ety == LLType::VoidTy)
+            ety = LLType::Int8Ty;
 
         if (DSliceValue* usl = u->isSlice()) {
             Logger::println("from slice");
@@ -1050,20 +1004,20 @@ DValue* DtoCastArray(DValue* u, Type* to)
             if (fromtype->ty == Tsarray) {
                 Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
                 assert(isaPointer(uval->getType()));
-                const llvm::ArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+                const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
                 rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
                 rval = DtoBitCast(uval, ptrty);
             }
             else {
-                LLValue* zero = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-                LLValue* one = llvm::ConstantInt::get(llvm::Type::Int32Ty, 1, false);
-                rval2 = DtoGEP(uval,zero,zero,"tmp",gIR->scopebb());
-                rval2 = new llvm::LoadInst(rval2, "tmp", gIR->scopebb());
+                LLValue* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
+                LLValue* one = llvm::ConstantInt::get(LLType::Int32Ty, 1, false);
+                rval2 = DtoGEP(uval,zero,zero);
+                rval2 = DtoLoad(rval2);
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
 
-                rval = DtoGEP(uval,zero,one,"tmp",gIR->scopebb());
-                rval = new llvm::LoadInst(rval, "tmp", gIR->scopebb());
+                rval = DtoGEP(uval,zero,one);
+                rval = DtoLoad(rval);
                 //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
                 rval = DtoBitCast(rval, ptrty);
             }

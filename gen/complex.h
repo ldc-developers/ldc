@@ -26,4 +26,6 @@ DValue* DtoComplexNeg(Type* type, DValue* val);
 
 LLValue* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs);
 
+DValue* DtoCastComplex(DValue* val, Type* to);
+
 #endif // LLVMDC_GEN_COMPLEX_H

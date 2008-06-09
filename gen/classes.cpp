@@ -8,6 +8,7 @@
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
 #include "gen/logger.h"
 #include "gen/classes.h"
@@ -199,7 +200,7 @@ void DtoResolveClass(ClassDeclaration* cd)
                 fieldtypes.push_back(fieldtype);
                 irstruct->defaultFields.push_back(fieldinit);
                 if (fieldpad) {
-                    fieldtypes.push_back(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad));
+                    fieldtypes.push_back(llvm::ArrayType::get(LLType::Int8Ty, fieldpad));
                     irstruct->defaultFields.push_back(NULL);
                     idx++;
                 }
@@ -218,7 +219,7 @@ void DtoResolveClass(ClassDeclaration* cd)
         fieldtypes.push_back(fieldtype);
         irstruct->defaultFields.push_back(fieldinit);
         if (fieldpad) {
-            fieldtypes.push_back(llvm::ArrayType::get(llvm::Type::Int8Ty, fieldpad));
+            fieldtypes.push_back(llvm::ArrayType::get(LLType::Int8Ty, fieldpad));
             irstruct->defaultFields.push_back(NULL);
         }
     }
@@ -498,7 +499,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     }
 
     // then comes monitor
-    fieldinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    fieldinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // go through the field inits and build the default initializer
     size_t nfi = irstruct->defaultFields.size();
@@ -511,7 +512,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
         else {
             const llvm::ArrayType* arrty = isaArray(structtype->getElementType(i+2));
             assert(arrty);
-            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(llvm::Type::Int8Ty, 0, false));
+            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(LLType::Int8Ty, 0, false));
             c = llvm::ConstantArray::get(arrty, vals);
         }
         fieldinits.push_back(c);
@@ -628,7 +629,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
             infoInits.push_back(c);
 
             // vtbl
-            const LLType* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+            const LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::Int8Ty));
             c = llvm::ConstantExpr::getBitCast(iri->vtbl, byteptrptrty);
             c = DtoConstSlice(DtoConstSize_t(b->vtbl.dim), c);
             infoInits.push_back(c);
@@ -706,7 +707,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
             infoInits.push_back(c);
 
             // vtbl
-            const LLType* byteptrptrty = getPtrToType(getPtrToType(llvm::Type::Int8Ty));
+            const LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::Int8Ty));
             c = DtoConstSlice(DtoConstSize_t(0), getNullPtr(byteptrptrty));
             infoInits.push_back(c);
 
@@ -865,23 +866,10 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
     assert(tc->sym->ir.irStruct->init);
     assert(dst->getType() == tc->sym->ir.irStruct->init->getType());
 
-    const LLType* arrty = getPtrToType(llvm::Type::Int8Ty);
-
     LLValue* dstarr = DtoGEPi(dst,0,2,"tmp");
-    dstarr = DtoBitCast(dstarr, arrty);
-
     LLValue* srcarr = DtoGEPi(tc->sym->ir.irStruct->init,0,2,"tmp");
-    srcarr = DtoBitCast(srcarr, arrty);
 
-    llvm::Function* fn = LLVM_DeclareMemCpy32();
-    std::vector<LLValue*> llargs;
-    llargs.resize(4);
-    llargs[0] = dstarr;
-    llargs[1] = srcarr;
-    llargs[2] = llvm::ConstantInt::get(llvm::Type::Int32Ty, n, false);
-    llargs[3] = llvm::ConstantInt::get(llvm::Type::Int32Ty, 0, false);
-
-    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    DtoMemCpy(dstarr, srcarr, DtoConstSize_t(n));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1343,16 +1331,16 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     std::vector<const LLType*> paramTypes;
     paramTypes.push_back(getPtrToType(cd->type->ir.type->get()));
 
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(llvm::Type::VoidTy, paramTypes, false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy, paramTypes, false);
 
     if (cd->dtors.dim == 0) {
-        return llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty));
+        return llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty));
     }
     else if (cd->dtors.dim == 1) {
         DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[0];
         DtoForceDeclareDsymbol(d);
         assert(d->ir.irFunc->func);
-        return llvm::ConstantExpr::getBitCast(isaConstant(d->ir.irFunc->func), getPtrToType(llvm::Type::Int8Ty));
+        return llvm::ConstantExpr::getBitCast(isaConstant(d->ir.irFunc->func), getPtrToType(LLType::Int8Ty));
     }
 
     std::string gname("_D");
@@ -1375,7 +1363,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     }
     builder.CreateRetVoid();
 
-    return llvm::ConstantExpr::getBitCast(func, getPtrToType(llvm::Type::Int8Ty));
+    return llvm::ConstantExpr::getBitCast(func, getPtrToType(LLType::Int8Ty));
 }
 
 static uint build_classinfo_flags(ClassDeclaration* cd)
@@ -1462,7 +1450,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // byte[] init
-    const LLType* byteptrty = getPtrToType(llvm::Type::Int8Ty);
+    const LLType* byteptrty = getPtrToType(LLType::Int8Ty);
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
         c = cinfo->ir.irStruct->constInit->getOperand(2);
     }

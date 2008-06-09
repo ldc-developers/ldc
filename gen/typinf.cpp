@@ -35,6 +35,7 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
 #include "gen/structs.h"
 #include "gen/classes.h"
@@ -279,7 +280,7 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
         LLValue* found = gIR->module->getNamedGlobal(mangled);
         if (!found)
         {
-            const LLType* t = llvm::OpaqueType::get();
+            const LLType* t = LLOpaqueType::get();
             llvm::GlobalVariable* g = new llvm::GlobalVariable(t, true, llvm::GlobalValue::ExternalLinkage, NULL, mangled, gIR->module);
             assert(g);
             /*if (!tid->ir.irGlobal)
@@ -353,7 +354,7 @@ void TypeInfoTypedefDeclaration::llvmDeclare()
     ClassDeclaration* base = Type::typeinfotypedef;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -367,7 +368,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfotypedef;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
     Logger::cout() << "got stype: " << *stype << '\n';
 
     // vtbl
@@ -375,14 +376,14 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(getNullPtr(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(getNullPtr(getPtrToType(LLType::Int8Ty)));
 
     assert(tinfo->ty == Ttypedef);
     TypeTypedef *tc = (TypeTypedef *)tinfo;
     TypedefDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    //const llvm::PointerType* basept = isaPointer(initZ->getOperand(1)->getType());
+    //const LLPointerType* basept = isaPointer(initZ->getOperand(1)->getType());
     //sinits.push_back(llvm::ConstantPointerNull::get(basept));
     Logger::println("generating base typeinfo");
     //sd->basetype = sd->basetype->merge();
@@ -403,7 +404,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     assert(sinits.back()->getType() == stype->getElementType(3));
 
     // void[] init
-    const llvm::PointerType* initpt = getPtrToType(llvm::Type::Int8Ty);
+    const LLPointerType* initpt = getPtrToType(LLType::Int8Ty);
     if (tinfo->isZeroInit() || !sd->init) // 0 initializer, or the same as the base type
     {
         sinits.push_back(DtoConstSlice(DtoConstSize_t(0), getNullPtr(initpt)));
@@ -439,7 +440,7 @@ void TypeInfoEnumDeclaration::llvmDeclare()
     ClassDeclaration* base = Type::typeinfoenum;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -453,21 +454,21 @@ void TypeInfoEnumDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfoenum;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // vtbl
     std::vector<LLConstant*> sinits;
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     assert(tinfo->ty == Tenum);
     TypeEnum *tc = (TypeEnum *)tinfo;
     EnumDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    //const llvm::PointerType* basept = isaPointer(initZ->getOperand(1)->getType());
+    //const LLPointerType* basept = isaPointer(initZ->getOperand(1)->getType());
     //sinits.push_back(llvm::ConstantPointerNull::get(basept));
     Logger::println("generating base typeinfo");
     //sd->basetype = sd->basetype->merge();
@@ -487,7 +488,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     assert(sinits.back()->getType() == stype->getElementType(3));
 
     // void[] init
-    const llvm::PointerType* initpt = getPtrToType(llvm::Type::Int8Ty);
+    const LLPointerType* initpt = getPtrToType(LLType::Int8Ty);
     if (tinfo->isZeroInit() || !sd->defaultval) // 0 initializer, or the same as the base type
     {
         sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
@@ -521,7 +522,7 @@ static LLConstant* LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDe
     ClassDeclaration* base = cd;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     tid->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,tid->toChars(),gIR->module);
@@ -532,14 +533,14 @@ static LLConstant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaratio
     ClassDeclaration* base = cd;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // vtbl
     std::vector<LLConstant*> sinits;
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // TypeInfo base
     Logger::println("generating base typeinfo");
@@ -626,7 +627,7 @@ void TypeInfoStaticArrayDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -642,7 +643,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -650,7 +651,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // value typeinfo
     assert(tinfo->ty == Tsarray);
@@ -689,7 +690,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -705,7 +706,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -713,7 +714,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // get type
     assert(tinfo->ty == Taarray);
@@ -822,7 +823,7 @@ void TypeInfoStructDeclaration::llvmDeclare()
     ClassDeclaration* base = Type::typeinfostruct;
     DtoResolveClass(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -841,14 +842,14 @@ void TypeInfoStructDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfostruct;
     DtoForceConstInitDsymbol(base);
 
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // vtbl
     std::vector<LLConstant*> sinits;
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // char[] name
     char *name = sd->toPrettyChars();
@@ -857,7 +858,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert(sinits.back()->getType() == stype->getElementType(2));
 
     // void[] init
-    const llvm::PointerType* initpt = getPtrToType(llvm::Type::Int8Ty);
+    const LLPointerType* initpt = getPtrToType(LLType::Int8Ty);
 #if 0
     // the implementation of TypeInfo_Struct uses this to determine size. :/
     if (sd->zeroInit) // 0 initializer, or the same as the base type
@@ -918,7 +919,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 #endif
 
     //Logger::println("************** B");
-    const llvm::PointerType* ptty = isaPointer(stype->getElementType(4));
+    const LLPointerType* ptty = isaPointer(stype->getElementType(4));
     assert(ptty);
 
     s = search_function(sd, Id::tohash);
@@ -1025,7 +1026,7 @@ void TypeInfoClassDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -1042,7 +1043,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -1050,7 +1051,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // get classinfo
     assert(tinfo->ty == Tclass);
@@ -1082,7 +1083,7 @@ void TypeInfoInterfaceDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -1099,7 +1100,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -1107,7 +1108,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // get classinfo
     assert(tinfo->ty == Tclass);
@@ -1138,7 +1139,7 @@ void TypeInfoTupleDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
     this->ir.irGlobal->value = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
@@ -1155,7 +1156,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     // get type of typeinfo class
-    const llvm::StructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -1163,7 +1164,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     sinits.push_back(base->ir.irStruct->vtbl);
 
     // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(llvm::Type::Int8Ty)));
+    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // create elements array
     assert(tinfo->ty == Ttuple);
@@ -1187,7 +1188,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     }
 
     // build array type
-    const llvm::ArrayType* arrTy = llvm::ArrayType::get(tiTy, dim);
+    const LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
     LLConstant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
 
     // build the slice
