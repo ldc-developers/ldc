@@ -55,4 +55,4 @@ echo
 echo "Cleanup... (removing all .bc and .exe files)"
 echo
 
-find dstress -name "*\.bc" -o "*\.exe" -exec rm {} \;
+find dstress -name "*\.bc" -o -name "*\.exe" -exec rm {} \;
