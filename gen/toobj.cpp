@@ -575,7 +575,7 @@ void VarDeclaration::toObjFile()
         else
             gIR->constInitList.push_back(this);
 
-        if (global.params.symdebug)
+        if (global.params.symdebug && _linkage != llvm::GlobalValue::ExternalLinkage)
             DtoDwarfGlobalVariable(gvar, this);
     }
 
