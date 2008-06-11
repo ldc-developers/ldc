@@ -158,6 +158,9 @@ struct IRState
 
     // for inline asm
     IRAsmBlock* asmBlock;
+
+    // used array solely for keeping a reference to globals
+    std::vector<LLConstant*> usedArray;
 };
 
 #endif // LLVMDC_GEN_IRSTATE_H

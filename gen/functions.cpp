@@ -539,7 +539,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
     // debug info
     if (global.params.symdebug) {
         Module* mo = fd->getModule();
-        fd->ir.irFunc->dwarfSubProg = DtoDwarfSubProgram(fd, DtoDwarfCompileUnit(mo));
+        fd->ir.irFunc->dwarfSubProg = DtoDwarfSubProgram(fd);
     }
 
     Type* t = DtoDType(fd->type);

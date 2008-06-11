@@ -14,6 +14,7 @@
 #include "gen/classes.h"
 #include "gen/functions.h"
 #include "gen/typeinf.h"
+#include "gen/todebug.h"
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
@@ -810,6 +811,13 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
     {
         gvar->setInitializer(_init);
+        // do debug info
+        if (global.params.symdebug)
+        {
+            LLGlobalVariable* gv = DtoDwarfGlobalVariable(gvar, vd);
+            // keep a reference so GDCE doesn't delete it !
+            gIR->usedArray.push_back(llvm::ConstantExpr::getBitCast(gv, getVoidPtrType()));
+        }
     }
 
     if (emitRTstaticInit)

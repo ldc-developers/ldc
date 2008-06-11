@@ -316,6 +316,7 @@ int main(int argc, char *argv[])
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent("Win32");
     global.params.isWindows = 1;
+    tt_os = "-pc-mingw32";
 #elif linux
     VersionCondition::addPredefinedGlobalIdent("linux");
     global.params.isLinux = 1;

@@ -130,6 +130,12 @@ void Module::genobjfile()
     // do this again as moduleinfo might have pulled something in!
     DtoEmptyAllLists();
 
+    // emit usedArray
+    const LLArrayType* usedTy = LLArrayType::get(getVoidPtrType(), ir.usedArray.size());
+    LLConstant* usedInit = LLConstantArray::get(usedTy, ir.usedArray);
+    LLGlobalVariable* usedArray = new LLGlobalVariable(usedTy, true, LLGlobalValue::ExternalLinkage, usedInit, "llvm.used", ir.module);
+    usedArray->setSection("llvm.metadata");
+
     // verify the llvm
     if (!global.params.novalidate) {
         std::string verifyErr;
@@ -574,9 +580,6 @@ void VarDeclaration::toObjFile()
             DtoConstInitGlobal(this);
         else
             gIR->constInitList.push_back(this);
-
-        if (global.params.symdebug && _linkage != llvm::GlobalValue::ExternalLinkage)
-            DtoDwarfGlobalVariable(gvar, this);
     }
 
     // inside aggregate declaration. declare a field.

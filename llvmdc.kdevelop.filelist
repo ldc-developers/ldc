@@ -120,6 +120,8 @@ gen/irstate.cpp
 gen/irstate.h
 gen/linker.h
 gen/llvm.h
+gen/llvmhelpers.cpp
+gen/llvmhelpers.h
 gen/logger.cpp
 gen/logger.h
 gen/optimizer.cpp

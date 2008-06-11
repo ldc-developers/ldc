@@ -3,8 +3,19 @@
 
 void RegisterDwarfSymbols(llvm::Module* mod);
 
+/**
+ * Emit the Dwarf compile_unit global for a Module m.
+ * @param m
+ * @return the Dwarf compile_unit.
+ */
 llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m);
-llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit);
+
+/**
+ * Emit the Dwarf subprogram global for a function declaration fd.
+ * @param fd
+ * @return the Dwarf subprogram global.
+ */
+llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd);
 
 void DtoDwarfFuncStart(FuncDeclaration* fd);
 void DtoDwarfFuncEnd(FuncDeclaration* fd);
