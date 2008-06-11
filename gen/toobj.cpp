@@ -133,7 +133,7 @@ void Module::genobjfile()
     // emit usedArray
     const LLArrayType* usedTy = LLArrayType::get(getVoidPtrType(), ir.usedArray.size());
     LLConstant* usedInit = LLConstantArray::get(usedTy, ir.usedArray);
-    LLGlobalVariable* usedArray = new LLGlobalVariable(usedTy, true, LLGlobalValue::ExternalLinkage, usedInit, "llvm.used", ir.module);
+    LLGlobalVariable* usedArray = new LLGlobalVariable(usedTy, true, LLGlobalValue::AppendingLinkage, usedInit, "llvm.used", ir.module);
     usedArray->setSection("llvm.metadata");
 
     // verify the llvm
