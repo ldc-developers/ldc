@@ -588,7 +588,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
     }
 
     // give 'this' argument debug info (and storage)
-    if (f->llvmUsesThis && global.params.symdebug)
+    if (fd->needThis() && global.params.symdebug)
     {
         LLValue** thisvar = &fd->ir.irFunc->thisVar;
         assert(*thisvar);
@@ -608,7 +608,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
-            // FIXME: llvm seems to want an alloca for debug info
+            // FIXME: llvm seems to want an alloca/byval for debug info
             if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut())
                 continue;
             // debug info for normal aggr params seem to work fine

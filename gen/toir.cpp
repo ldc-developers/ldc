@@ -2196,8 +2196,12 @@ DValue* HaltExp::toElem(IRState* p)
     Logger::print("HaltExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+#if 0
+    DtoAssert(&loc, NULL);
+#else
     // call the new (?) trap intrinsic
     p->ir->CreateCall(GET_INTRINSIC_DECL(trap),"");
+#endif
 
     new llvm::UnreachableInst(p->scopebb());
     return 0;
