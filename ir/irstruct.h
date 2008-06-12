@@ -12,24 +12,24 @@ struct IrInterface : IrBase
     ClassDeclaration* decl;
 
 #if OPAQUE_VTBLS
-    const llvm::ArrayType* vtblTy;
-    llvm::ConstantArray* vtblInit;
+    const LLArrayType* vtblTy;
+    LLConstantArray* vtblInit;
 #else
-    const llvm::StructType* vtblTy;
-    llvm::ConstantStruct* vtblInit;
+    const LLStructType* vtblTy;
+    LLConstantStruct* vtblInit;
 #endif
-    llvm::GlobalVariable* vtbl;
+    LLGlobalVariable* vtbl;
 
-    const llvm::StructType* infoTy;
-    llvm::ConstantStruct* infoInit;
-    llvm::Constant* info;
+    const LLStructType* infoTy;
+    LLConstantStruct* infoInit;
+    LLConstant* info;
 
     int index;
 
 #if OPAQUE_VTBLS
-    IrInterface(BaseClass* b, const llvm::ArrayType* vt);
+    IrInterface(BaseClass* b, const LLArrayType* vt);
 #else
-    IrInterface(BaseClass* b, const llvm::StructType* vt);
+    IrInterface(BaseClass* b, const LLStructType* vt);
 #endif
     ~IrInterface();
 };
@@ -45,7 +45,7 @@ struct IrStruct : IrBase
     {
         VarDeclaration* var;
         const LLType* type;
-        llvm::Constant* init;
+        LLConstant* init;
 
         Offset(VarDeclaration* v, const LLType* ty)
         : var(v), type(ty), init(NULL) {}
@@ -70,25 +70,27 @@ public:
     InterfaceMap interfaceMap;
     InterfaceVector interfaceVec;
     const llvm::ArrayType* interfaceInfosTy;
-    llvm::GlobalVariable* interfaceInfos;
+    LLGlobalVariable* interfaceInfos;
 
     bool defined;
     bool constinited;
 
-    llvm::GlobalVariable* vtbl;
+    LLGlobalVariable* vtbl;
 #if OPAQUE_VTBLS
-    llvm::Constant* constVtbl;
+    LLConstant* constVtbl;
 #else
-    llvm::ConstantStruct* constVtbl;
+    LLConstantStruct* constVtbl;
 #endif
-    llvm::GlobalVariable* init;
-    llvm::Constant* constInit;
-    llvm::GlobalVariable* classInfo;
-    llvm::Constant* constClassInfo;
+    LLGlobalVariable* init;
+    LLConstant* constInit;
+    LLGlobalVariable* classInfo;
+    LLConstant* constClassInfo;
     bool hasUnions;
     DUnion* dunion;
     bool classDeclared;
     bool classDefined;
+
+    LLGlobalVariable* dwarfComposite;
 };
 
 #endif

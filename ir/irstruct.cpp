@@ -50,6 +50,8 @@ IrStruct::IrStruct(Type* t)
 
     classDeclared = false;
     classDefined = false;
+
+    dwarfComposite = NULL;
 }
 
 IrStruct::~IrStruct()

@@ -54,6 +54,10 @@ IRState::IRState()
     mainFunc = 0;
     ir.state = this;
     asmBlock = NULL;
+
+    dwarfCUs = NULL;
+    dwarfSPs = NULL;
+    dwarfGVs = NULL;
 }
 
 IrFunction* IRState::func()

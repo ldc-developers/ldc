@@ -1,3 +1,4 @@
+#include "gen/llvm.h"
 #include "ir/irmodule.h"
 
 IrModule::IrModule(Module* module)

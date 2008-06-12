@@ -771,6 +771,7 @@ tangotests/debug4.d
 tangotests/debug5.d
 tangotests/debug6.d
 tangotests/debug7.d
+tangotests/debug8.d
 tangotests/e.d
 tangotests/f.d
 tangotests/files1.d

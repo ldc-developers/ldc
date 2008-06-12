@@ -34,16 +34,26 @@ static LLGlobalVariable* emitDwarfGlobal(const LLStructType* type, const std::ve
 {
     LLConstant* c = llvm::ConstantStruct::get(type, values);
     LLGlobalValue::LinkageTypes linkage = linkonce ? LLGlobalValue::LinkOnceLinkage : LLGlobalValue::InternalLinkage;
-    LLGlobalVariable* gv = new LLGlobalVariable(c->getType(), true, linkage, c, name, gIR->module);
+    LLGlobalVariable* gv = new LLGlobalVariable(type, true, linkage, c, name, gIR->module);
+    gv->setSection("llvm.metadata");
+    return gv;
+}
+
+/**
+ * Emits a global variable, LLVM Dwarf style, only declares.
+ * @param type Type of variable.
+ * @param name Name.
+ * @return The global variable.
+ */
+static LLGlobalVariable* emitDwarfGlobalDecl(const LLStructType* type, const char* name, bool linkonce=false)
+{
+    LLGlobalValue::LinkageTypes linkage = linkonce ? LLGlobalValue::LinkOnceLinkage : LLGlobalValue::InternalLinkage;
+    LLGlobalVariable* gv = new LLGlobalVariable(type, true, linkage, NULL, name, gIR->module);
     gv->setSection("llvm.metadata");
     return gv;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-
-static llvm::GlobalVariable* dbg_compile_units = 0;
-static llvm::GlobalVariable* dbg_global_variables = 0;
-static llvm::GlobalVariable* dbg_subprograms = 0;
 
 /**
  * Emits the Dwarf anchors that are used repeatedly by LLVM debug info.
@@ -53,34 +63,33 @@ static void emitDwarfAnchors()
     const llvm::StructType* anchorTy = isaStruct(gIR->module->getTypeByName("llvm.dbg.anchor.type"));
     std::vector<LLConstant*> vals(2);
 
-    if (!gIR->module->getNamedGlobal("llvm.dbg.compile_units")) {
-        vals[0] = DtoConstUint(llvm::LLVMDebugVersion);
-        vals[1] = DtoConstUint(DW_TAG_compile_unit);
-        dbg_compile_units = emitDwarfGlobal(anchorTy, vals, "llvm.dbg.compile_units", true);
-    }
-    if (!gIR->module->getNamedGlobal("llvm.dbg.global_variables")) {
-        vals[0] = DtoConstUint(llvm::LLVMDebugVersion);
-        vals[1] = DtoConstUint(DW_TAG_variable);
-        dbg_global_variables = emitDwarfGlobal(anchorTy, vals, "llvm.dbg.global_variables", true);
-    }
-    if (!gIR->module->getNamedGlobal("llvm.dbg.subprograms")) {
-        vals[0] = DtoConstUint(llvm::LLVMDebugVersion);
-        vals[1] = DtoConstUint(DW_TAG_subprogram);
-        dbg_subprograms = emitDwarfGlobal(anchorTy, vals, "llvm.dbg.subprograms", true);
-    }
+    vals[0] = DtoConstUint(llvm::LLVMDebugVersion);
+    vals[1] = DtoConstUint(DW_TAG_compile_unit);
+    gIR->dwarfCUs = emitDwarfGlobal(anchorTy, vals, "llvm.dbg.compile_units", true);
+
+    vals[0] = DtoConstUint(llvm::LLVMDebugVersion);
+    vals[1] = DtoConstUint(DW_TAG_variable);
+    gIR->dwarfGVs = emitDwarfGlobal(anchorTy, vals, "llvm.dbg.global_variables", true);
+
+    vals[0] = DtoConstUint(llvm::LLVMDebugVersion);
+    vals[1] = DtoConstUint(DW_TAG_subprogram);
+    gIR->dwarfSPs = emitDwarfGlobal(anchorTy, vals, "llvm.dbg.subprograms", true);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 static LLConstant* getDwarfAnchor(dwarf_constants c)
 {
-    emitDwarfAnchors();
+    if (!gIR->dwarfCUs)
+        emitDwarfAnchors();
     switch (c)
     {
     case DW_TAG_compile_unit:
-        return dbg_compile_units;
+        return gIR->dwarfCUs;
     case DW_TAG_variable:
-        return dbg_global_variables;
+        return gIR->dwarfGVs;
     case DW_TAG_subprogram:
-        return dbg_subprograms;
+        return gIR->dwarfSPs;
     default:
         assert(0);
     }
@@ -163,7 +172,7 @@ static LLGlobalVariable* dwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariab
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static LLGlobalVariable* dwarfTypeDescription(Loc loc, Type* type, LLGlobalVariable* cu, const char* c_name);
+static LLGlobalVariable* dwarfTypeDescription(Type* type, LLGlobalVariable* cu, const char* c_name);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -226,7 +235,7 @@ static LLGlobalVariable* dwarfBasicType(Type* type, llvm::GlobalVariable* compil
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static LLGlobalVariable* dwarfDerivedType(Loc loc, Type* type, llvm::GlobalVariable* compileUnit)
+static LLGlobalVariable* dwarfDerivedType(Type* type, llvm::GlobalVariable* compileUnit)
 {
     const LLType* T = DtoType(type);
     Type* t = DtoDType(type);
@@ -276,7 +285,7 @@ static LLGlobalVariable* dwarfDerivedType(Loc loc, Type* type, llvm::GlobalVaria
 
     // base type
     Type* nt = t->nextOf();
-    LLGlobalVariable* nTD = dwarfTypeDescription(loc, nt, compileUnit, NULL);
+    LLGlobalVariable* nTD = dwarfTypeDescription(nt, compileUnit, NULL);
     if (nt->ty == Tvoid || !nTD)
         vals.push_back(DBG_NULL);
     else
@@ -287,7 +296,7 @@ static LLGlobalVariable* dwarfDerivedType(Loc loc, Type* type, llvm::GlobalVaria
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static LLGlobalVariable* dwarfMemberType(Loc loc, Type* type, llvm::GlobalVariable* compileUnit, const char* c_name, unsigned offset)
+static LLGlobalVariable* dwarfMemberType(unsigned linnum, Type* type, LLGlobalVariable* compileUnit, LLGlobalVariable* definedCU, const char* c_name, unsigned offset)
 {
     const LLType* T = DtoType(type);
     Type* t = DtoDType(type);
@@ -311,10 +320,13 @@ static LLGlobalVariable* dwarfMemberType(Loc loc, Type* type, llvm::GlobalVariab
     vals.push_back(name);
 
     // compile unit where defined
-    vals.push_back(DBG_NULL);
+    if (definedCU)
+        vals.push_back(DBG_CAST(definedCU));
+    else
+        vals.push_back(DBG_NULL);
 
     // line number where defined
-    vals.push_back(DtoConstInt(0));
+    vals.push_back(DtoConstInt(linnum));
 
     // size in bits
     vals.push_back(LLConstantInt::get(LLType::Int64Ty, getTypeBitSize(T), false));
@@ -329,7 +341,7 @@ static LLGlobalVariable* dwarfMemberType(Loc loc, Type* type, llvm::GlobalVariab
     vals.push_back(DtoConstUint(0));
 
     // base type
-    LLGlobalVariable* nTD = dwarfTypeDescription(loc, t, compileUnit, NULL);
+    LLGlobalVariable* nTD = dwarfTypeDescription(t, compileUnit, NULL);
     if (t->ty == Tvoid || !nTD)
         vals.push_back(DBG_NULL);
     else
@@ -340,7 +352,7 @@ static LLGlobalVariable* dwarfMemberType(Loc loc, Type* type, llvm::GlobalVariab
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static LLGlobalVariable* dwarfCompositeType(Loc loc, Type* type, llvm::GlobalVariable* compileUnit)
+static LLGlobalVariable* dwarfCompositeType(Type* type, llvm::GlobalVariable* compileUnit)
 {
     const LLType* T = DtoType(type);
     Type* t = DtoDType(type);
@@ -348,16 +360,23 @@ static LLGlobalVariable* dwarfCompositeType(Loc loc, Type* type, llvm::GlobalVar
     // defaults
     LLConstant* name = getNullPtr(getVoidPtrType());
     LLGlobalVariable* members = NULL;
+    unsigned linnum = 0;
+    LLGlobalVariable* definedCU = NULL;
 
     // prepare tag and members
     unsigned tag;
+
+    // declare final global variable
+    LLGlobalVariable* gv = NULL;
+
+    // dynamic array
     if (t->ty == Tarray)
     {
         tag = DW_TAG_structure_type;
 
-        LLGlobalVariable* len = dwarfMemberType(loc, Type::tsize_t, compileUnit, "length", 0);
+        LLGlobalVariable* len = dwarfMemberType(0, Type::tsize_t, compileUnit, NULL, "length", 0);
         assert(len);
-        LLGlobalVariable* ptr = dwarfMemberType(loc, t->nextOf()->pointerTo(), compileUnit, "ptr", global.params.is64bit?8:4);
+        LLGlobalVariable* ptr = dwarfMemberType(0, t->nextOf()->pointerTo(), compileUnit, NULL, "ptr", global.params.is64bit?8:4);
         assert(ptr);
 
         const LLArrayType* at = LLArrayType::get(DBG_TYPE, 2);
@@ -366,14 +385,52 @@ static LLGlobalVariable* dwarfCompositeType(Loc loc, Type* type, llvm::GlobalVar
         elems.push_back(DBG_CAST(len));
         elems.push_back(DBG_CAST(ptr));
 
-//         elems[0]->dump();
-//         elems[1]->dump();
-//         at->dump();
+        LLConstant* ca = LLConstantArray::get(at, elems);
+        members = new LLGlobalVariable(ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array", gIR->module);
+        members->setSection("llvm.metadata");
 
+        name = DtoConstStringPtr(t->toChars(), "llvm.metadata");
+    }
+
+    // struct
+    else if (t->ty == Tstruct)
+    {
+        TypeStruct* ts = (TypeStruct*)t;
+        StructDeclaration* sd = ts->sym;
+        assert(sd);
+
+        IrStruct* ir = sd->ir.irStruct;
+        assert(ir);
+        if (ir->dwarfComposite)
+            return ir->dwarfComposite;
+
+        // set to handle recursive types properly
+        gv = emitDwarfGlobalDecl(getDwarfCompositeTypeType(), "llvm.dbg.compositetype");
+        ir->dwarfComposite = gv;
+
+        tag = DW_TAG_structure_type;
+
+        name = DtoConstStringPtr(sd->toChars(), "llvm.metadata");
+        linnum = sd->loc.linnum;
+        definedCU = DtoDwarfCompileUnit(sd->getModule());
+
+        std::vector<LLConstant*> elems;
+        for (IrStruct::OffsetMap::iterator i=ir->offsets.begin(); i!=ir->offsets.end(); ++i)
+        {
+            unsigned offset = i->first;
+            IrStruct::Offset& o = i->second;
+
+            LLGlobalVariable* ptr = dwarfMemberType(o.var->loc.linnum, o.var->type, compileUnit, definedCU, o.var->toChars(), offset);
+            elems.push_back(DBG_CAST(ptr));
+        }
+
+        const LLArrayType* at = LLArrayType::get(DBG_TYPE, elems.size());
         LLConstant* ca = LLConstantArray::get(at, elems);
         members = new LLGlobalVariable(ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array", gIR->module);
         members->setSection("llvm.metadata");
     }
+
+    // unsupported composite type
     else
     {
         assert(0 && "unsupported compositetype for debug info");
@@ -391,10 +448,13 @@ static LLGlobalVariable* dwarfCompositeType(Loc loc, Type* type, llvm::GlobalVar
     vals.push_back(name);
 
     // compile unit where defined
-    vals.push_back(DBG_NULL);
+    if (definedCU)
+        vals.push_back(DBG_CAST(definedCU));
+    else
+        vals.push_back(DBG_NULL);
 
     // line number where defined
-    vals.push_back(DtoConstInt(0));
+    vals.push_back(DtoConstInt(linnum));
 
     // size in bits
     vals.push_back(LLConstantInt::get(LLType::Int64Ty, getTypeBitSize(T), false));
@@ -417,7 +477,13 @@ static LLGlobalVariable* dwarfCompositeType(Loc loc, Type* type, llvm::GlobalVar
     else
         vals.push_back(DBG_NULL);
 
-    return emitDwarfGlobal(getDwarfCompositeTypeType(), vals, "llvm.dbg.compositetype");
+    // set initializer
+    if (!gv)
+        gv = emitDwarfGlobalDecl(getDwarfCompositeTypeType(), "llvm.dbg.compositetype");
+    LLConstant* initia = LLConstantStruct::get(getDwarfCompositeTypeType(), vals);
+    gv->setInitializer(initia);
+
+    return gv;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -440,7 +506,7 @@ static LLGlobalVariable* dwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaratio
     vals.push_back(DBG_CAST(DtoDwarfCompileUnit(vd->getModule())));
     vals.push_back(DtoConstUint(vd->loc.linnum));
 
-    LLGlobalVariable* TY = dwarfTypeDescription(vd->loc, vd->type, compileUnit, NULL);
+    LLGlobalVariable* TY = dwarfTypeDescription(vd->type, compileUnit, NULL);
     vals.push_back(TY ? DBG_CAST(TY) : DBG_NULL);
     vals.push_back(DtoConstBool(vd->protection == PROTprivate));
     vals.push_back(DtoConstBool(vd->getModule() == gIR->dmodule));
@@ -449,6 +515,8 @@ static LLGlobalVariable* dwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaratio
 
     return emitDwarfGlobal(getDwarfGlobalVariableType(), vals, "llvm.dbg.global_variable");
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 static LLGlobalVariable* dwarfVariable(VarDeclaration* vd, LLGlobalVariable* typeDescr)
 {
@@ -489,7 +557,7 @@ static void dwarfDeclare(LLValue* var, LLGlobalVariable* varDescr)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static LLGlobalVariable* dwarfTypeDescription(Loc loc, Type* type, LLGlobalVariable* cu, const char* c_name)
+static LLGlobalVariable* dwarfTypeDescription(Type* type, LLGlobalVariable* cu, const char* c_name)
 {
     Type* t = type->toBasetype();
     if (t->ty == Tvoid)
@@ -497,12 +565,10 @@ static LLGlobalVariable* dwarfTypeDescription(Loc loc, Type* type, LLGlobalVaria
     else if (t->isintegral() || t->isfloating())
         return dwarfBasicType(type, cu);
     else if (t->ty == Tpointer)
-        return dwarfDerivedType(loc, type, cu);
-    else if (t->ty == Tarray)
-        return dwarfCompositeType(loc, type, cu);
+        return dwarfDerivedType(type, cu);
+    else if (t->ty == Tarray || t->ty == Tstruct)
+        return dwarfCompositeType(type, cu);
 
-    if (global.params.warnings)
-        warning("%s: unsupported type for debug info: %s", loc.toChars(), type->toChars());
     return NULL;
 }
 
@@ -518,7 +584,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
 
     // get type description
     Type* t = vd->type->toBasetype();
-    LLGlobalVariable* TD = dwarfTypeDescription(vd->loc, vd->type, thisCU, NULL);
+    LLGlobalVariable* TD = dwarfTypeDescription(vd->type, thisCU, NULL);
     if (TD == NULL)
         return; // unsupported
 

@@ -12,7 +12,7 @@ struct IrModule : IrBase
 
     Module* M;
 
-    llvm::GlobalVariable* dwarfCompileUnit;
+    LLGlobalVariable* dwarfCompileUnit;
 };
 
 #endif
