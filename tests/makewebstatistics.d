@@ -482,6 +482,7 @@ int main(char[][] args){
 	BufferedFile index = new BufferedFile(std.path.join(basedir, "index.html"), FileMode.Out);
 	scope(exit) index.close();
 	index.writefln(`
+		<html><body>
 		<table style="border-collapse:collapse; text-align:center;">
 		<colgroup>
 			<col style="border-right: medium solid black;">
@@ -515,7 +516,7 @@ int main(char[][] args){
 		index.writef(cast(char[])std.file.read(statsname));
 	}
 
-	index.writefln(`</table>`);
+	index.writefln(`</table></body></html>`);
 	
 	return 0;
 }
