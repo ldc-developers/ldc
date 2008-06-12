@@ -587,6 +587,17 @@ void DtoDefineFunc(FuncDeclaration* fd)
         fd->vresult->ir.irLocal->value = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",allocaPoint);
     }
 
+    // give 'this' argument debug info (and storage)
+    if (f->llvmUsesThis && global.params.symdebug)
+    {
+        LLValue** thisvar = &fd->ir.irFunc->thisVar;
+        assert(*thisvar);
+        LLValue* thismem = new llvm::AllocaInst((*thisvar)->getType(), "newthis", allocaPoint);
+        DtoDwarfLocalVariable(thismem, fd->vthis);
+        gIR->ir->CreateStore(*thisvar, thismem);
+        *thisvar = thismem;
+    }
+
     // give arguments storage
     if (fd->parameters)
     {
@@ -597,8 +608,16 @@ void DtoDefineFunc(FuncDeclaration* fd)
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
-            if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type))
+            // FIXME: llvm seems to want an alloca for debug info
+            if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut())
                 continue;
+            // debug info for normal aggr params seem to work fine
+            else if (DtoIsPassedByRef(vd->type))
+            {
+                if (global.params.symdebug)
+                    DtoDwarfLocalVariable(vd->ir.getIrValue(), vd);
+                continue;
+            }
 
             LLValue* a = vd->ir.irLocal->value;
             assert(a);
