@@ -333,9 +333,18 @@ class Log{
 int main(char[][] args){
 
 	if(args.length < 2){
-		fwritefln(stderr, "%s <log> <log> ...", args[0]);
+		fwritefln(stderr, "%s [--regenerate] <log> <log> ...", args[0]);
 		fwritefln(stderr, "bash example: %s $(ls reference/llvmdc*)", args[0]);
 		return 1;
+	}
+
+	bool regenerate = false;
+	char[][] files;
+	if(args[1] == "--regenerate") {
+		regenerate = true;
+		files = args[2..$];
+	} else {
+		files = args[1..$];
 	}
 
 	// make sure base path exists
@@ -349,14 +358,16 @@ int main(char[][] args){
 	Log[char[]] logs;
 
 	// parse log and emit per-log data if necessary
-	foreach(char[] file; args[1 .. $]){
+	foreach(char[] file; files){
 		char[] id = std.path.getBaseName(file);
 		char[] dirname = std.path.join(basedir, id);
 
 		if(std.file.exists(dirname)) {
 			if(std.file.isdir(dirname)) {
-				writefln("Directory ", dirname, " already exists, skipping...");
-				continue;
+				if(!regenerate) {
+					writefln("Directory ", dirname, " already exists, skipping...");
+					continue;
+				}
 			}
 			else
 				throw new Exception(dirname ~ " is not a directory!");
@@ -388,7 +399,7 @@ int main(char[][] args){
 		foreach(tkey; log.tests.keys.sort) {
 			auto test = log.tests[tkey];
 			auto result = test.r & Result.BASE_MASK;
-			resultsfile[result].writefln(test.name, " in ", test.file, "<br>");
+			resultsfile[result].writefln(test.name, " in ", test.file);
 		}
 
 
@@ -405,16 +416,18 @@ int main(char[][] args){
 	}
 	
 	// differences between logs
-	foreach(int i, char[] file; args[2 .. $]){
-		char[] newid = std.path.getBaseName(args[2+i]);
-		char[] oldid = std.path.getBaseName(args[2+i-1]);
+	foreach(int i, char[] file; files[1 .. $]){
+		char[] newid = std.path.getBaseName(files[1+i]);
+		char[] oldid = std.path.getBaseName(files[1+i-1]);
 
 		char[] dirname = std.path.join(basedir, oldid ~ "-to-" ~ newid);
 
 		if(std.file.exists(dirname)) {
 			if(std.file.isdir(dirname)) {
-				writefln("Directory ", dirname, " already exists, skipping...");
-				continue;
+				if(!regenerate) {
+					writefln("Directory ", dirname, " already exists, skipping...");
+					continue;
+				}
 			}
 			else
 				throw new Exception(dirname ~ " is not a directory!");
@@ -433,8 +446,8 @@ int main(char[][] args){
 				return tmp;
 			}
 		}
-		newLog = getOrParse(newid, args[2+i]);
-		oldLog = getOrParse(oldid, args[2+i-1]);
+		newLog = getOrParse(newid, files[1+i]);
+		oldLog = getOrParse(oldid, files[1+i-1]);
 
 		int nRegressions, nImprovements, nChanges;
 		auto regressionsFile = new BufferedFile(std.path.join(dirname, "regressions.html"), FileMode.Out);
@@ -463,7 +476,7 @@ int main(char[][] args){
 					targetFile = changesFile;
 					nChanges++;
 				}
-				targetFile.writefln(toString(oldT.r), " -> ", toString(t.r), " : ", t.name, " in ", t.file, "<br>");
+				targetFile.writefln(toString(oldT.r), " -> ", toString(t.r), " : ", t.name, " in ", t.file);
 			}
 		}		
 
@@ -502,16 +515,16 @@ int main(char[][] args){
 		</tr>
 	`);
 
-	for(int i = args.length - 1; i >= 1; --i) {
-		auto file = args[i];
+	for(int i = files.length - 1; i >= 0; --i) {
+		auto file = files[i];
 		char[] id = std.path.getBaseName(file);
 		char[] statsname = std.path.join(std.path.join(basedir, id), "stats.base");
 		index.writef(cast(char[])std.file.read(statsname));
 
-		if(i == 1) 
+		if(i == 0) 
 			continue;
 
-		char[] newid = std.path.getBaseName(args[i-1]);
+		char[] newid = std.path.getBaseName(files[i-1]);
 		statsname = std.path.join(std.path.join(basedir, newid ~ "-to-" ~ id), "stats.base");
 		index.writef(cast(char[])std.file.read(statsname));
 	}
