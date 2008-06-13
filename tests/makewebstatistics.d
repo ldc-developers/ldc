@@ -381,7 +381,7 @@ int main(char[][] args){
 
 		// write status
 		BufferedFile makeFile(char[] name) {
-			return new BufferedFile(std.path.join(dirname, name), FileMode.Out);
+			return new BufferedFile(std.path.join(dirname, name), FileMode.OutNew);
 		}
 		BufferedFile[Result] resultsfile = [
 			Result.PASS: makeFile("pass.html"),
@@ -403,7 +403,7 @@ int main(char[][] args){
 		}
 
 
-		BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.Out);
+		BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
 		scope(exit) stats.close();
 		stats.writefln(`<tr>`);
 		stats.writefln(`<td style="padding-right:1em; text-align:left;">`, id, `</td>`);
@@ -450,11 +450,11 @@ int main(char[][] args){
 		oldLog = getOrParse(oldid, files[1+i-1]);
 
 		int nRegressions, nImprovements, nChanges;
-		auto regressionsFile = new BufferedFile(std.path.join(dirname, "regressions.html"), FileMode.Out);
+		auto regressionsFile = new BufferedFile(std.path.join(dirname, "regressions.html"), FileMode.OutNew);
 		scope(exit) regressionsFile.close();
-		auto improvementsFile = new BufferedFile(std.path.join(dirname, "improvements.html"), FileMode.Out);
+		auto improvementsFile = new BufferedFile(std.path.join(dirname, "improvements.html"), FileMode.OutNew);
 		scope(exit) improvementsFile.close();
-		auto changesFile = new BufferedFile(std.path.join(dirname, "changes.html"), FileMode.Out);
+		auto changesFile = new BufferedFile(std.path.join(dirname, "changes.html"), FileMode.OutNew);
 		scope(exit) changesFile.close();
 		BufferedFile targetFile;
 
@@ -480,7 +480,7 @@ int main(char[][] args){
 			}
 		}		
 
-		BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.Out);
+		BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
 		scope(exit) stats.close();
 		auto dir = oldid ~ "-to-" ~ newid;
 		stats.writefln(`<tr><td></td>`);
@@ -492,7 +492,7 @@ int main(char[][] args){
 	}
 
 	// collect all the stats.base files into a large table
-	BufferedFile index = new BufferedFile(std.path.join(basedir, "index.html"), FileMode.Out);
+	BufferedFile index = new BufferedFile(std.path.join(basedir, "index.html"), FileMode.OutNew);
 	scope(exit) index.close();
 	index.writefln(`
 		<html><body>
