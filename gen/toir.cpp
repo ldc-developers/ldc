@@ -2230,13 +2230,12 @@ DValue* DelegateExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     LLValue* uval;
     if (DFuncValue* f = u->isFunc()) {
-        //assert(f->vthis);
-        //uval = f->vthis;
-        LLValue* nestvar = p->func()->decl->ir.irFunc->nestedVar;
-        if (nestvar)
-            uval = nestvar;
+        assert(f->func);
+        LLValue* contextptr = DtoNestedContext(f->func->toParent2()->isFuncDeclaration());
+        if (!contextptr)
+            uval = LLConstant::getNullValue(getVoidPtrType());
         else
-            uval = llvm::ConstantPointerNull::get(int8ptrty);
+            uval = DtoBitCast(contextptr, getVoidPtrType());
     }
     else {
         DValue* src = u;
