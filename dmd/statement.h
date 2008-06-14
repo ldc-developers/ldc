@@ -57,6 +57,7 @@ namespace llvm
 {
     class Value;
     class BasicBlock;
+    class ConstantInt;
 }
 
 // Back end
@@ -453,6 +454,7 @@ struct CaseStatement : Statement
 
     // LLVMDC
     llvm::BasicBlock* bodyBB;
+    llvm::ConstantInt* llvmIdx;
 };
 
 struct DefaultStatement : Statement

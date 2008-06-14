@@ -2124,6 +2124,7 @@ CaseStatement::CaseStatement(Loc loc, Expression *exp, Statement *s)
     this->statement = s;
     cblock = NULL;
     bodyBB = NULL;
+    llvmIdx = NULL;
 }
 
 Statement *CaseStatement::syntaxCopy()

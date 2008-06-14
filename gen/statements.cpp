@@ -223,7 +223,7 @@ void ScopeStatement::toIR(IRState* p)
     Logger::println("ScopeStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    llvm::BasicBlock* oldend = p->scopeend();
+    /*llvm::BasicBlock* oldend = p->scopeend();
 
     llvm::BasicBlock* beginbb = 0;
 
@@ -233,19 +233,23 @@ void ScopeStatement::toIR(IRState* p)
         beginbb = bb;
     }
     else {
-        assert(!p->scopereturned());
         beginbb = llvm::BasicBlock::Create("scope", p->topfunc(), oldend);
-        llvm::BranchInst::Create(beginbb, p->scopebb());
+        if (!p->scopereturned())
+            llvm::BranchInst::Create(beginbb, bb);
     }
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endscope", p->topfunc(), oldend);
 
-    gIR->scope() = IRScope(beginbb, endbb);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endscope", p->topfunc(), oldend);
+    if (beginbb != bb)
+        p->scope() = IRScope(beginbb, endbb);
+    else
+        p->scope().end = endbb;*/
 
     if (statement)
         statement->toIR(p);
 
-    p->scope() = IRScope(p->scopebb(),oldend);
-    endbb->eraseFromParent();
+    /*p->scope().end = oldend;
+    Logger::println("Erasing scope endbb");
+    endbb->eraseFromParent();*/
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -398,6 +402,11 @@ void BreakStatement::toIR(IRState* p)
     Logger::println("BreakStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    // don't emit two terminators in a row
+    // happens just before DMD generated default statements if the last case terminates
+    if (p->scopereturned())
+        return;
+
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
 
@@ -411,17 +420,17 @@ void BreakStatement::toIR(IRState* p)
 
         // find the right break block and jump there
         IRState::LoopScopeVec::reverse_iterator it;
-        for(it = gIR->loopbbs.rbegin(); it != gIR->loopbbs.rend(); ++it) {
+        for(it = p->loopbbs.rbegin(); it != p->loopbbs.rend(); ++it) {
             if(it->s == targetLoopStatement) {
-                llvm::BranchInst::Create(it->end, gIR->scopebb());
+                llvm::BranchInst::Create(it->end, p->scopebb());
                 return;
             }
         }
         assert(0);
     }
     else {
-        emit_finallyblocks(p, enclosingtryfinally, gIR->loopbbs.back().enclosingtryfinally);
-        llvm::BranchInst::Create(gIR->loopbbs.back().end, gIR->scopebb());
+        emit_finallyblocks(p, enclosingtryfinally, p->loopbbs.back().enclosingtryfinally);
+        llvm::BranchInst::Create(p->loopbbs.back().end, p->scopebb());
     }
 }
 
@@ -642,57 +651,29 @@ void SwitchStatement::toIR(IRState* p)
 
     llvm::BasicBlock* oldend = gIR->scopeend();
 
-    // collect the needed cases
-    typedef std::pair<llvm::BasicBlock*, std::vector<llvm::ConstantInt*> > CasePair;
-    std::vector<CasePair> vcases;
-    std::vector<Statement*> vbodies;
-    Array caseArray;
-    for (int i=0; i<cases->dim; ++i)
-    {
-        CaseStatement* cs = (CaseStatement*)cases->data[i];
-
-        std::string lblname("case");
-        llvm::BasicBlock* bb = llvm::BasicBlock::Create(lblname, p->topfunc(), oldend);
-        cs->bodyBB = bb;
-
-        std::vector<llvm::ConstantInt*> tmp;
-        CaseStatement* last;
-        bool first = true;
-        do {
-            // integral case
-            if (cs->exp->type->isintegral()) {
-                LLConstant* c = cs->exp->toConstElem(p);
-                tmp.push_back(isaConstantInt(c));
-            }
-            // string case
-            else {
-                assert(cs->exp->op == TOKstring);
-                // for string switches this is unfortunately necessary or there will be duplicates in the list
-                if (first) {
-                    caseArray.push(new Case((StringExp*)cs->exp, i));
-                    first = false;
-                }
-            }
-            last = cs;
-        }
-        while (cs = cs->statement->isCaseStatement());
-
-        vcases.push_back(CasePair(bb, tmp));
-        vbodies.push_back(last->statement);
-    }
-
     // string switch?
     llvm::GlobalVariable* switchTable = 0;
+    Array caseArray;
     if (!condition->type->isintegral())
     {
+        Logger::println("is string switch");
+        // build array of the stringexpS
+        for (int i=0; i<cases->dim; ++i)
+        {
+            CaseStatement* cs = (CaseStatement*)cases->data[i];
+
+            assert(cs->exp->op == TOKstring);
+            caseArray.push(new Case((StringExp*)cs->exp, i));
+        }
         // first sort it
         caseArray.sort();
         // iterate and add indices to cases
         std::vector<LLConstant*> inits;
         for (size_t i=0; i<caseArray.dim; ++i)
         {
+            CaseStatement* cs = (CaseStatement*)cases->data[i];
+            cs->llvmIdx = DtoConstUint(i);
             Case* c = (Case*)caseArray.data[i];
-            vcases[c->index].second.push_back(DtoConstUint(i));
             inits.push_back(c->str->toConstElem(p));
         }
         // build static array for ptr or final array
@@ -717,9 +698,13 @@ void SwitchStatement::toIR(IRState* p)
         switchTable = new llvm::GlobalVariable(sTy, true, llvm::GlobalValue::InternalLinkage, sInit, "string_switch_table", gIR->module);
     }
 
+    // body block
+    llvm::BasicBlock* bodybb = llvm::BasicBlock::Create("switchbody", p->topfunc(), oldend);
+
     // default
     llvm::BasicBlock* defbb = 0;
-    if (!hasNoDefault) {
+    if (sdefault) {
+        Logger::println("has default");
         defbb = llvm::BasicBlock::Create("default", p->topfunc(), oldend);
         sdefault->bodyBB = defbb;
     }
@@ -740,47 +725,22 @@ void SwitchStatement::toIR(IRState* p)
     }
     llvm::SwitchInst* si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, cases->dim, p->scopebb());
 
+    // do switch body
+    assert(body);
+
+    p->scope() = IRScope(bodybb, endbb);
+    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,p->scopebb(),endbb));
+    body->toIR(p);
+    p->loopbbs.pop_back();
+
+    if (!p->scopereturned())
+        llvm::BranchInst::Create(endbb, p->scopebb());
+
     // add the cases
-    size_t n = vcases.size();
-    for (size_t i=0; i<n; ++i)
+    for (int i=0; i<cases->dim; ++i)
     {
-        size_t nc = vcases[i].second.size();
-        for (size_t j=0; j<nc; ++j)
-        {
-            si->addCase(vcases[i].second[j], vcases[i].first);
-        }
-    }
-
-    // insert case statements
-    for (size_t i=0; i<n; ++i)
-    {
-        llvm::BasicBlock* nextbb = (i == n-1) ? (defbb ? defbb : endbb) : vcases[i+1].first;
-        p->scope() = IRScope(vcases[i].first,nextbb);
-        p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,p->scopebb(),endbb));
-        vbodies[i]->toIR(p);
-        p->loopbbs.pop_back();
-
-        llvm::BasicBlock* curbb = p->scopebb();
-        if (curbb->empty() || !curbb->back().isTerminator())
-        {
-            llvm::BranchInst::Create(nextbb, curbb);
-        }
-    }
-
-    // default statement
-    if (defbb)
-    {
-        p->scope() = IRScope(defbb,endbb);
-        p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,p->scopebb(),endbb));
-        Logger::println("doing default statement");
-        sdefault->statement->toIR(p);
-        p->loopbbs.pop_back();
-
-        llvm::BasicBlock* curbb = p->scopebb();
-        if (curbb->empty() || !curbb->back().isTerminator())
-        {
-            llvm::BranchInst::Create(endbb, curbb);
-        }
+        CaseStatement* cs = (CaseStatement*)cases->data[i];
+        si->addCase(cs->llvmIdx, cs->bodyBB);
     }
 
     gIR->scope() = IRScope(endbb,oldend);
@@ -792,7 +752,50 @@ void CaseStatement::toIR(IRState* p)
     Logger::println("CaseStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    assert(0);
+    if (!bodyBB)
+    {
+        bodyBB = llvm::BasicBlock::Create("case", p->topfunc(), p->scopeend());
+    }
+    else
+    {
+        bodyBB->moveAfter(p->scopebb());
+    }
+
+    if (exp->type->isintegral()) {
+        assert(!llvmIdx);
+        LLConstant* c = exp->toConstElem(p);
+        llvmIdx = isaConstantInt(c);
+    }
+    else {
+        assert(llvmIdx);
+    }
+
+    if (!p->scopereturned())
+        llvm::BranchInst::Create(bodyBB, p->scopebb());
+
+    p->scope() = IRScope(bodyBB, p->scopeend());
+
+    assert(statement);
+    statement->toIR(p);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+void DefaultStatement::toIR(IRState* p)
+{
+    Logger::println("DefaultStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+
+    assert(bodyBB);
+
+    bodyBB->moveAfter(p->scopebb());
+
+    if (!p->scopereturned())
+        llvm::BranchInst::Create(bodyBB, p->scopebb());
+
+    p->scope() = IRScope(bodyBB, p->scopeend());
+
+    assert(statement);
+    statement->toIR(p);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1083,7 +1086,10 @@ void GotoCaseStatement::toIR(IRState* p)
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergotocase", p->topfunc(), oldend);
 
     assert(!p->scopereturned());
-    assert(cs->bodyBB);
+    if (!cs->bodyBB)
+    {
+        cs->bodyBB = llvm::BasicBlock::Create("case", p->topfunc(), p->scopeend());
+    }
 
     emit_finallyblocks(p, enclosingtryfinally, sw->enclosingtryfinally);
 
@@ -1205,7 +1211,7 @@ void VolatileStatement::toIR(IRState* p)
 //STUBST(SynchronizedStatement);
 //STUBST(ReturnStatement);
 //STUBST(ContinueStatement);
-STUBST(DefaultStatement);
+//STUBST(DefaultStatement);
 //STUBST(CaseStatement);
 //STUBST(SwitchStatement);
 STUBST(SwitchErrorStatement);

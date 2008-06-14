@@ -39,7 +39,7 @@ IRLoopScope::IRLoopScope(Statement* s, TryFinallyStatement* enclosingtryfinally,
 {
     begin = b;
     end = e;
-    builder.SetInsertPoint(b);
+    //builder.SetInsertPoint(b);
     this->s = s;
     this->enclosingtryfinally = enclosingtryfinally;
 }

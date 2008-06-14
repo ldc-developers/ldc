@@ -192,7 +192,7 @@ Usage:\n\
   -J<path>       where to look for string imports\n\
   -ignore        ignore unsupported pragmas\n\
   -inline        do function inlining\n\
-  -Llinkerflag   pass linkerflag to link\n\
+  -Llinkerflag   pass linkerflag to llvm-ld\n\
   -m<arch>       emit code specific to <arch>\n\
                  x86 x86-64 ppc32 ppc64\n\
   -noasm         do not allow use of inline asm\n\

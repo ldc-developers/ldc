@@ -2193,7 +2193,7 @@ BinBitExp(Ushr,LShr);
 
 DValue* HaltExp::toElem(IRState* p)
 {
-    Logger::print("HaltExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("HaltExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
 #if 0

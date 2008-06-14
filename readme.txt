@@ -8,9 +8,9 @@ premake[3] is used to generate a makefile so the project can be built. So far
 only Linux is tested so use the command: 'premake --target gnu' to generate a
 Makefile, then just type 'make'.
 
-You need LLVM 2.2. Get it from the LLVM website.
+You need the latest stable LLVM. See the LLVM website.
 
-For more information visit the website:
+For more information visit the LLVMDC website:
 http://www.dsource.org/projects/llvmdc
 
 [1] http://www.digitalmars.com/d

@@ -1,4 +1,5 @@
 #include "gen/llvm.h"
+#include "llvm/Support/CFG.h"
 
 #include "mtype.h"
 #include "aggregate.h"
@@ -735,17 +736,21 @@ void DtoDefineFunc(FuncDeclaration* fd)
     // would be nice to figure out how to assert that this is correct
     llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
     if (lastbb->empty()) {
-        if (lastbb->getNumUses() == 0)
-            lastbb->eraseFromParent();
-        else {
-            new llvm::UnreachableInst(lastbb);
-            /*if (func->getReturnType() == LLType::VoidTy) {
-                llvm::ReturnInst::Create(lastbb);
-            }
-            else {
-                llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), lastbb);
-            }*/
-        }
+        new llvm::UnreachableInst(lastbb);
+//         if (llvm::pred_begin(lastbb) != llvm::pred_end(lastbb))
+//         {
+//             Logger::println("Erasing lastbb");
+//             lastbb->eraseFromParent();
+//         }
+//         else {
+//             new llvm::UnreachableInst(lastbb);
+// //             if (func->getReturnType() == LLType::VoidTy) {
+// //                 llvm::ReturnInst::Create(lastbb);
+// //             }
+// //             else {
+// //                 llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), lastbb);
+// //             }
+//         }
     }
 
     // if the last block is not terminated we return a null value or void
