@@ -651,6 +651,14 @@ void SwitchStatement::toIR(IRState* p)
 
     llvm::BasicBlock* oldend = gIR->scopeend();
 
+    // clear data from previous passes... :/
+    for (int i=0; i<cases->dim; ++i)
+    {
+        CaseStatement* cs = (CaseStatement*)cases->data[i];
+        cs->bodyBB = NULL;
+        cs->llvmIdx = NULL;
+    }
+
     // string switch?
     llvm::GlobalVariable* switchTable = 0;
     Array caseArray;
@@ -752,17 +760,15 @@ void CaseStatement::toIR(IRState* p)
     Logger::println("CaseStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    if (!bodyBB)
+    llvm::BasicBlock* nbb = llvm::BasicBlock::Create("case", p->topfunc(), p->scopeend());
+
+    if (bodyBB && !bodyBB->getTerminator())
     {
-        bodyBB = llvm::BasicBlock::Create("case", p->topfunc(), p->scopeend());
+        llvm::BranchInst::Create(nbb, bodyBB);
     }
-    else
-    {
-        bodyBB->moveAfter(p->scopebb());
-    }
+    bodyBB = nbb;
 
     if (exp->type->isintegral()) {
-        assert(!llvmIdx);
         LLConstant* c = exp->toConstElem(p);
         llvmIdx = isaConstantInt(c);
     }
@@ -787,7 +793,13 @@ void DefaultStatement::toIR(IRState* p)
 
     assert(bodyBB);
 
-    bodyBB->moveAfter(p->scopebb());
+    llvm::BasicBlock* nbb = llvm::BasicBlock::Create("default", p->topfunc(), p->scopeend());
+
+    if (!bodyBB->getTerminator())
+    {
+        llvm::BranchInst::Create(nbb, bodyBB);
+    }
+    bodyBB = nbb;
 
     if (!p->scopereturned())
         llvm::BranchInst::Create(bodyBB, p->scopebb());
@@ -1088,7 +1100,7 @@ void GotoCaseStatement::toIR(IRState* p)
     assert(!p->scopereturned());
     if (!cs->bodyBB)
     {
-        cs->bodyBB = llvm::BasicBlock::Create("case", p->topfunc(), p->scopeend());
+        cs->bodyBB = llvm::BasicBlock::Create("goto_case", p->topfunc(), p->scopeend());
     }
 
     emit_finallyblocks(p, enclosingtryfinally, sw->enclosingtryfinally);
