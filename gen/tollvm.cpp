@@ -330,14 +330,16 @@ LLValue* DtoBoolean(LLValue* val)
             return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
         }
     }
+    else if (t->isFloatingPoint())
+    {
+        LLValue* zero = llvm::Constant::getNullValue(t);
+        return new llvm::FCmpInst(llvm::FCmpInst::FCMP_ONE, val, zero, "tmp", gIR->scopebb());
+    }
     else if (isaPointer(t)) {
         LLValue* zero = llvm::Constant::getNullValue(t);
         return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
     }
-    else
-    {
-        Logger::cout() << *t << '\n';
-    }
+    std::cout << "unsupported -> bool : " << *t << '\n';
     assert(0);
     return 0;
 }

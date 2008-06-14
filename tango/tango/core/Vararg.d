@@ -36,10 +36,13 @@ else version( LLVMDC )
      */
     T va_arg(T)(ref va_list vp)
     {
-        size_t size = T.sizeof > size_t.sizeof ? size_t.sizeof : T.sizeof;
-        va_list vptmp = cast(va_list)((cast(size_t)vp + size - 1) &  ~(size - 1));
-        vp = vptmp + T.sizeof;
-        return *cast(T*)vptmp;
+//         size_t size = T.sizeof > size_t.sizeof ? size_t.sizeof : T.sizeof;
+//         va_list vptmp = cast(va_list)((cast(size_t)vp + size - 1) &  ~(size - 1));
+//         vp = vptmp + T.sizeof;
+//         return *cast(T*)vptmp;
+        T* arg = cast(T*) vp;
+        vp = cast(va_list) ( cast(void*) vp + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
+        return *arg;
     }
 }
 else

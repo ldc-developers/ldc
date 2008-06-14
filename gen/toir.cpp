@@ -1121,6 +1121,9 @@ DValue* CallExp::toElem(IRState* p)
             Argument* argu = Argument::getNth(tf->parameters, i);
             Expression* argexp = (Expression*)arguments->data[i];
             vtypes.push_back(DtoType(argexp->type));
+            size_t sz = getABITypeSize(vtypes.back());
+            if (sz < PTRSIZE)
+                vtypes.back() = DtoSize_t();
         }
         const LLStructType* vtype = LLStructType::get(vtypes);
         Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
@@ -1132,7 +1135,9 @@ DValue* CallExp::toElem(IRState* p)
             Expression* argexp = (Expression*)arguments->data[i];
             if (global.params.llvmAnnotate)
                 DtoAnnotation(argexp->toChars());
-            DtoVariadicArgument(argexp, DtoGEPi(mem,0,k,"tmp"));
+            LLValue* argdst = DtoGEPi(mem,0,k);
+            argdst = DtoBitCast(argdst, getPtrToType(DtoType(argexp->type)));
+            DtoVariadicArgument(argexp, argdst);
         }
 
         // build type info array

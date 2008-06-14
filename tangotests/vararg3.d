@@ -113,12 +113,9 @@ void main()
 
 private void* get_va_arg(TypeInfo ti, ref void* vp)
 {
-    auto tisize = ti.tsize;
-    assert(tisize);
-    size_t size = tisize > size_t.sizeof ? size_t.sizeof : tisize;
-    void* vptmp = cast(void*)((cast(size_t)vp + size - 1) &  ~(size - 1));
-    vp = vptmp + tisize;
-    return vptmp;
+    void* arg = vp;
+    vp = vp + ( ( ti.tsize + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) );
+    return arg;
 }
 
 void print(TypeInfo ti, void* arg)

@@ -195,6 +195,14 @@ class Layout(T)
 
         version (LLVMDC)
                 {
+                // code for LLVMDC, all targets!
+                Arg[64] arglist = void;
+                foreach (i, arg; arguments)
+                        {
+                        arglist[i] = args;
+                        args += (arg.tsize + size_t.sizeof - 1) & ~ (size_t.sizeof - 1);
+                        }
+                /*
                 static va_list get_va_arg(TypeInfo ti, ref va_list vp)
                 {
                     auto tisize = ti.tsize;
@@ -209,6 +217,7 @@ class Layout(T)
                         {
                         arglist[i] = get_va_arg(arg, args);
                         }
+                */
                 }
              else version (X86_64)
                 {
