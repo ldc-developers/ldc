@@ -9,8 +9,6 @@
 
 #include "mem.h"
 
-#define USE_BOEHM_GC    0
-
 #if USE_BOEHM_GC
     // I needed to perfix the dir after upgrading to gc 7.0
     #include "gc/gc.h"
