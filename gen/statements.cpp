@@ -140,6 +140,11 @@ void ReturnStatement::toIR(IRState* p)
         if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
         llvm::ReturnInst::Create(p->scopebb());
     }
+
+    // the return terminated this basicblock, start a new one
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterreturn", p->topfunc(), oldend);
+    p->scope() = IRScope(bb,oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////
