@@ -330,25 +330,29 @@ class Log{
 }
 
 
+char[] basedir = "web";
+bool regenerate = false;
+
 int main(char[][] args){
 
-	if(args.length < 2){
-		fwritefln(stderr, "%s [--regenerate] <log> <log> ...", args[0]);
-		fwritefln(stderr, "bash example: %s $(ls reference/llvmdc*)", args[0]);
+	if(args.length < 3 || (args[1] == "--regenerate" && args.length < 4)){
+		fwritefln(stderr, "%s [--regenerate] <reference-log> <log> <log> ...", args[0]);
+		fwritefln(stderr, "bash example: %s reference/dmd-something $(ls reference/llvmdc*)", args[0]);
 		return 1;
 	}
 
-	bool regenerate = false;
+	char[] reference;
 	char[][] files;
 	if(args[1] == "--regenerate") {
 		regenerate = true;
-		files = args[2..$];
+		reference = args[2];
+		files = args[3..$] ~ reference;
 	} else {
-		files = args[1..$];
+		reference = args[1];
+		files = args[2..$] ~ reference;
 	}
 
 	// make sure base path exists
-	char[] basedir = "web";
 	if(std.file.exists(basedir) && !std.file.isdir(basedir))
 		throw new Exception(basedir ~ " is not a directory!");
 	else if(!std.file.exists(basedir))
@@ -357,29 +361,102 @@ int main(char[][] args){
 	
 	Log[char[]] logs;
 
-	// parse log and emit per-log data if necessary
-	foreach(char[] file; files){
-		char[] id = std.path.getBaseName(file);
-		char[] dirname = std.path.join(basedir, id);
+	// emit per-log data
+	foreach(char[] file; files) 
+		generateLogStatistics(file, logs);
+	
+	// differences between logs
+	foreach(int i, char[] file; files[1 .. $])
+		generateChangeStatistics(files[1+i], files[1+i-1], logs);
 
-		if(std.file.exists(dirname)) {
-			if(std.file.isdir(dirname)) {
-				if(!regenerate) {
-					writefln("Directory ", dirname, " already exists, skipping...");
-					continue;
-				}
+	// differences between reference and logs
+	foreach(char[] file; files[0..$-1])
+		generateChangeStatistics(file, reference, logs);
+
+	// collect all the stats.base files into a large table
+	BufferedFile index = new BufferedFile(std.path.join(basedir, "index.html"), FileMode.OutNew);
+	scope(exit) index.close();
+	index.writefln(`
+		<html><body>
+		<table style="border-collapse:collapse; text-align:center;">
+		<colgroup>
+			<col style="border-right: medium solid black;">
+			<col style="background-color: #AAFFAA;">
+			<col style="background-color: #AAFFAA; border-right: thin solid black;">
+			<col style="background-color: #FFAAAA;">
+			<col style="background-color: #FFAAAA;">
+			<col style="background-color: #FFAAAA;">
+			<col style="border-left: medium solid black;">
+		</colgroup>
+		<tr style="border-bottom: medium solid black;">
+			<th>name</th>
+			<th style="padding-left:1em;padding-right:1em;">PASS</th>
+			<th style="padding-left:1em;padding-right:1em;">XFAIL</th>
+			<th style="padding-left:1em;padding-right:1em;">FAIL</th>
+			<th style="padding-left:1em;padding-right:1em;">XPASS</th>
+			<th style="padding-left:1em;padding-right:1em;">ERROR</th>
+			<th style="padding-left:1em;padding-right:1em;">comparison to ` ~ std.path.getBaseName(reference) ~ `</th>
+		</tr>
+	`);
+
+	for(int i = files.length - 1; i >= 0; --i) {
+		auto file = files[i];
+		index.writefln(`<tr>`);
+		char[] id = std.path.getBaseName(file);
+		char[] statsname = std.path.join(std.path.join(basedir, id), "stats.base");
+		index.writef(cast(char[])std.file.read(statsname));
+
+		if(i != files.length - 1) {
+			index.writefln(`<td>`);
+			char[] refid = std.path.getBaseName(reference);
+			statsname = std.path.join(std.path.join(basedir, refid ~ "-to-" ~ id), "stats.base");
+			index.writef(cast(char[])std.file.read(statsname));
+			index.writefln(`</td></tr>`);
+		} else {
+			index.writefln(`<td></td></tr>`);
+		}
+
+		if(i == 0) {
+			continue;
+		}
+
+		index.writefln(`<tr><td></td>`);
+		index.writefln(`<td style="background-color:white;" colspan="5">`);
+		char[] newid = std.path.getBaseName(files[i-1]);
+		statsname = std.path.join(std.path.join(basedir, newid ~ "-to-" ~ id), "stats.base");
+		index.writef(cast(char[])std.file.read(statsname));
+		index.writefln(`</td><td></td></tr>`);
+	}
+
+	index.writefln(`</table></body></html>`);
+	
+	return 0;
+}
+
+void generateLogStatistics(char[] file, ref Log[char[]] logs)
+{
+	char[] id = std.path.getBaseName(file);
+	char[] dirname = std.path.join(basedir, id);
+
+	if(std.file.exists(dirname)) {
+		if(std.file.isdir(dirname)) {
+			if(!regenerate) {
+				writefln("Directory ", dirname, " already exists, skipping...");
+				return;
 			}
-			else
-				throw new Exception(dirname ~ " is not a directory!");
 		}
 		else
-			std.file.mkdir(dirname);
+			throw new Exception(dirname ~ " is not a directory!");
+	}
+	else
+		std.file.mkdir(dirname);
 
-		// parse etc.
-		Log log = new Log(id, file);
-		logs[id] = log;
+	// parse etc.
+	Log log = new Log(id, file);
+	logs[id] = log;
 
-		// write status
+	// write status
+	{
 		BufferedFile makeFile(char[] name) {
 			return new BufferedFile(std.path.join(dirname, name), FileMode.OutNew);
 		}
@@ -389,75 +466,86 @@ int main(char[][] args){
 			Result.XPASS: makeFile("xpass.html"),
 			Result.XFAIL: makeFile("xfail.html"),
 			Result.ERROR: makeFile("error.html") ];
-
+	
 		scope(exit) {
 			foreach(file; resultsfile)
 				file.close();
 		}
-
-
+	
+		foreach(file; resultsfile)
+			file.writefln(`<html><body>`);
+	
 		foreach(tkey; log.tests.keys.sort) {
 			auto test = log.tests[tkey];
 			auto result = test.r & Result.BASE_MASK;
-			resultsfile[result].writefln(test.name, " in ", test.file);
+			resultsfile[result].writefln(test.name, " in ", test.file, "<br>");
 		}
-
-
-		BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
-		scope(exit) stats.close();
-		stats.writefln(`<tr>`);
-		stats.writefln(`<td style="padding-right:1em; text-align:left;">`, id, `</td>`);
-		stats.writefln(`<td><a href="`, std.path.join(log.id, "pass.html"), `">`, log.counts[Result.PASS], `</a></td>`);
-		stats.writefln(`<td><a href="`, std.path.join(log.id, "xfail.html"), `">`, log.counts[Result.XFAIL], `</a></td>`);
-		stats.writefln(`<td><a href="`, std.path.join(log.id, "fail.html"), `">`, log.counts[Result.FAIL], `</a></td>`);
-		stats.writefln(`<td><a href="`, std.path.join(log.id, "xpass.html"), `">`, log.counts[Result.XPASS], `</a></td>`);
-		stats.writefln(`<td><a href="`, std.path.join(log.id, "error.html"), `">`, log.counts[Result.ERROR], `</a></td>`);
-		stats.writefln(`</tr>`);
-	}
 	
-	// differences between logs
-	foreach(int i, char[] file; files[1 .. $]){
-		char[] newid = std.path.getBaseName(files[1+i]);
-		char[] oldid = std.path.getBaseName(files[1+i-1]);
+		foreach(file; resultsfile)
+			file.writefln(`</body></html>`);
+	}
 
-		char[] dirname = std.path.join(basedir, oldid ~ "-to-" ~ newid);
+	BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
+	scope(exit) stats.close();
+	stats.writefln(`<td style="padding-right:1em; text-align:left;">`, id, `</td>`);
+	stats.writefln(`<td><a href="`, std.path.join(log.id, "pass.html"), `">`, log.counts[Result.PASS], `</a></td>`);
+	stats.writefln(`<td><a href="`, std.path.join(log.id, "xfail.html"), `">`, log.counts[Result.XFAIL], `</a></td>`);
+	stats.writefln(`<td><a href="`, std.path.join(log.id, "fail.html"), `">`, log.counts[Result.FAIL], `</a></td>`);
+	stats.writefln(`<td><a href="`, std.path.join(log.id, "xpass.html"), `">`, log.counts[Result.XPASS], `</a></td>`);
+	stats.writefln(`<td><a href="`, std.path.join(log.id, "error.html"), `">`, log.counts[Result.ERROR], `</a></td>`);
+}
 
-		if(std.file.exists(dirname)) {
-			if(std.file.isdir(dirname)) {
-				if(!regenerate) {
-					writefln("Directory ", dirname, " already exists, skipping...");
-					continue;
-				}
+void generateChangeStatistics(char[] file1, char[] file2, ref Log[char[]] logs)
+{
+	char[] newid = std.path.getBaseName(file1);
+	char[] oldid = std.path.getBaseName(file2);
+
+	char[] dirname = std.path.join(basedir, oldid ~ "-to-" ~ newid);
+
+	if(std.file.exists(dirname)) {
+		if(std.file.isdir(dirname)) {
+			if(!regenerate) {
+				writefln("Directory ", dirname, " already exists, skipping...");
+				return;
 			}
-			else
-				throw new Exception(dirname ~ " is not a directory!");
 		}
 		else
-			std.file.mkdir(dirname);
+			throw new Exception(dirname ~ " is not a directory!");
+	}
+	else
+		std.file.mkdir(dirname);
 
-		// parse etc.
-		Log newLog, oldLog;
-		Log getOrParse(char[] id, char[] file) {		
-			if(id in logs)
-				return logs[id];
-			else {
-				Log tmp = new Log(id, file);
-				logs[id] = tmp;
-				return tmp;
-			}
+	// parse etc.
+	Log newLog, oldLog;
+	Log getOrParse(char[] id, char[] file) {		
+		if(id in logs)
+			return logs[id];
+		else {
+			Log tmp = new Log(id, file);
+			logs[id] = tmp;
+			return tmp;
 		}
-		newLog = getOrParse(newid, files[1+i]);
-		oldLog = getOrParse(oldid, files[1+i-1]);
+	}
+	newLog = getOrParse(newid, file1);
+	oldLog = getOrParse(oldid, file2);
 
-		int nRegressions, nImprovements, nChanges;
+	int nRegressions, nImprovements, nChanges;
+
+	{
 		auto regressionsFile = new BufferedFile(std.path.join(dirname, "regressions.html"), FileMode.OutNew);
 		scope(exit) regressionsFile.close();
+		regressionsFile.writefln(`<html><body>`);
+
 		auto improvementsFile = new BufferedFile(std.path.join(dirname, "improvements.html"), FileMode.OutNew);
 		scope(exit) improvementsFile.close();
+		improvementsFile.writefln(`<html><body>`);
+
 		auto changesFile = new BufferedFile(std.path.join(dirname, "changes.html"), FileMode.OutNew);
 		scope(exit) changesFile.close();
-		BufferedFile targetFile;
+		changesFile.writefln(`<html><body>`);
 
+		BufferedFile targetFile;
+	
 		foreach(Test t; newLog.tests.values){
 			Test* oldT = t.file in oldLog.tests;
 	
@@ -476,61 +564,19 @@ int main(char[][] args){
 					targetFile = changesFile;
 					nChanges++;
 				}
-				targetFile.writefln(toString(oldT.r), " -> ", toString(t.r), " : ", t.name, " in ", t.file);
+				targetFile.writefln(toString(oldT.r), " -> ", toString(t.r), " : ", t.name, " in ", t.file, "<br>");
 			}
-		}		
+		}
 
-		BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
-		scope(exit) stats.close();
-		auto dir = oldid ~ "-to-" ~ newid;
-		stats.writefln(`<tr><td></td>`);
-		stats.writefln(`<td style="background-color:white;" colspan="5">`);
-		stats.writefln(`<a href="`, std.path.join(dir, "improvements.html"), `">Improvements: `, nImprovements, `</a>, `);
-		stats.writefln(`<a href="`, std.path.join(dir, "regressions.html"), `">Regressions: `, nRegressions, `</a>, `);
-		stats.writefln(`<a href="`, std.path.join(dir, "changes.html"), `">Changes: `, nChanges, `</a></td>`);
-		stats.writefln(`</tr>`);
+		regressionsFile.writefln(`</body></html>`);
+		improvementsFile.writefln(`</body></html>`);
+		changesFile.writefln(`</body></html>`);
 	}
 
-	// collect all the stats.base files into a large table
-	BufferedFile index = new BufferedFile(std.path.join(basedir, "index.html"), FileMode.OutNew);
-	scope(exit) index.close();
-	index.writefln(`
-		<html><body>
-		<table style="border-collapse:collapse; text-align:center;">
-		<colgroup>
-			<col style="border-right: medium solid black;">
-			<col style="background-color: #AAFFAA;">
-			<col style="background-color: #AAFFAA; border-right: thin solid black;">
-			<col style="background-color: #FFAAAA;">
-			<col style="background-color: #FFAAAA;">
-			<col style="background-color: #FFAAAA;">
-		</colgroup>
-		<tr style="border-bottom: medium solid black;">
-			<th>name</th>
-			<th style="padding-left:1em;padding-right:1em;">PASS</th>
-			<th style="padding-left:1em;padding-right:1em;">XFAIL</th>
-			<th style="padding-left:1em;padding-right:1em;">FAIL</th>
-			<th style="padding-left:1em;padding-right:1em;">XPASS</th>
-			<th style="padding-left:1em;padding-right:1em;">ERROR</th>
-		</tr>
-	`);
-
-	for(int i = files.length - 1; i >= 0; --i) {
-		auto file = files[i];
-		char[] id = std.path.getBaseName(file);
-		char[] statsname = std.path.join(std.path.join(basedir, id), "stats.base");
-		index.writef(cast(char[])std.file.read(statsname));
-
-		if(i == 0) 
-			continue;
-
-		char[] newid = std.path.getBaseName(files[i-1]);
-		statsname = std.path.join(std.path.join(basedir, newid ~ "-to-" ~ id), "stats.base");
-		index.writef(cast(char[])std.file.read(statsname));
-	}
-
-	index.writefln(`</table></body></html>`);
-	
-	return 0;
+	BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
+	scope(exit) stats.close();
+	auto dir = oldid ~ "-to-" ~ newid;
+	stats.writefln(`<a href="`, std.path.join(dir, "improvements.html"), `">Improvements: `, nImprovements, `</a>, `);
+	stats.writefln(`<a href="`, std.path.join(dir, "regressions.html"), `">Regressions: `, nRegressions, `</a>, `);
+	stats.writefln(`<a href="`, std.path.join(dir, "changes.html"), `">Changes: `, nChanges, `</a>`);
 }
-
