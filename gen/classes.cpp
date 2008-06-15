@@ -1327,6 +1327,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLConstant* init)
 
 static LLConstant* build_class_dtor(ClassDeclaration* cd)
 {
+#if 0
     // construct the function
     std::vector<const LLType*> paramTypes;
     paramTypes.push_back(getPtrToType(cd->type->ir.type->get()));
@@ -1364,6 +1365,17 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     builder.CreateRetVoid();
 
     return llvm::ConstantExpr::getBitCast(func, getPtrToType(LLType::Int8Ty));
+#else
+
+    FuncDeclaration* dtor = cd->dtor;
+
+    // if no destructor emit a null
+    if (!dtor)
+        return getNullPtr(getVoidPtrType());
+
+    DtoForceDeclareDsymbol(dtor);
+    return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::Int8Ty));
+#endif
 }
 
 static uint build_classinfo_flags(ClassDeclaration* cd)

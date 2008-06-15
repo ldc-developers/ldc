@@ -1,5 +1,10 @@
 project.name = llvmdc
 
+-- options
+OPAQUE_VTBLS = 1
+USE_BOEHM_GC = 1
+
+-- idgen
 package = newpackage()
 package.name = "idgen"
 package.kind = "exe"
@@ -8,6 +13,7 @@ package.files = { "dmd/idgen.c" }
 package.buildoptions = { "-x c++" }
 package.postbuildcommands = { "./idgen", "mv -f id.c id.h dmd" }
 
+-- impcnvgen
 package = newpackage()
 package.name = "impcnvgen"
 package.kind = "exe"
@@ -16,6 +22,7 @@ package.files = { "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++" }
 package.postbuildcommands = { "./impcnvgen", "mv -f impcnvtab.c dmd" }
 
+-- llvmdc
 package = newpackage()
 package.bindir = "bin"
 package.name = "llvmdc"
@@ -32,11 +39,14 @@ package.linkoptions = {
 package.defines = {
     "IN_LLVM",
     "_DH",
-    "OPAQUE_VTBLS=1",
+    "OPAQUE_VTBLS="..OPAQUE_VTBLS,
+    "USE_BOEHM_GC="..USE_BOEHM_GC,
 }
 package.config.Release.defines = { "LLVMD_NO_LOGGER" }
 package.config.Debug.buildoptions = { "-g -O0" }
 --package.targetprefix = "llvm"
 package.includepaths = { ".", "dmd" }
 --package.postbuildcommands = { "cd runtime; ./build.sh; cd .." }
-package.links = { "gc" }
+if USE_BOEHM_GC == 1 then
+    package.links = { "gc" }
+end

@@ -176,6 +176,9 @@ void IfStatement::toIR(IRState* p)
     Logger::println("IfStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     if (match)
     {
         LLValue* allocainst = new llvm::AllocaInst(DtoType(match->type), "._tmp_if_var", p->topallocapoint());
@@ -203,7 +206,8 @@ void IfStatement::toIR(IRState* p)
     gIR->scope() = IRScope(ifbb,elsebb);
 
     // do scoped statements
-    ifbody->toIR(p);
+    if (ifbody)
+        ifbody->toIR(p);
     if (!gIR->scopereturned()) {
         llvm::BranchInst::Create(endbb,gIR->scopebb());
     }
@@ -264,6 +268,9 @@ void WhileStatement::toIR(IRState* p)
     Logger::println("WhileStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     // create while blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* whilebb = llvm::BasicBlock::Create("whilecond", gIR->topfunc(), oldend);
@@ -308,6 +315,9 @@ void DoStatement::toIR(IRState* p)
     Logger::println("DoStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     // create while blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* dowhilebb = llvm::BasicBlock::Create("dowhile", gIR->topfunc(), oldend);
@@ -343,6 +353,9 @@ void ForStatement::toIR(IRState* p)
 {
     Logger::println("ForStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     // create for blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -412,6 +425,9 @@ void BreakStatement::toIR(IRState* p)
     if (p->scopereturned())
         return;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
 
@@ -445,6 +461,9 @@ void ContinueStatement::toIR(IRState* p)
 {
     Logger::println("ContinueStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
@@ -491,6 +510,9 @@ void TryFinallyStatement::toIR(IRState* p)
     Logger::println("TryFinallyStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
 
@@ -535,6 +557,9 @@ void TryCatchStatement::toIR(IRState* p)
 
     Logger::attention(loc, "try-catch is not yet fully implemented");
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
 
@@ -576,6 +601,9 @@ void ThrowStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     Logger::attention(loc, "throw is not yet fully implemented");
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     assert(exp);
     DValue* e = exp->toElem(p);
@@ -653,6 +681,9 @@ void SwitchStatement::toIR(IRState* p)
 {
     Logger::println("SwitchStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
 
@@ -822,6 +853,9 @@ void UnrolledLoopStatement::toIR(IRState* p)
     Logger::println("UnrolledLoopStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("unrolledend", p->topfunc(), oldend);
 
@@ -846,6 +880,9 @@ void ForeachStatement::toIR(IRState* p)
 {
     Logger::println("ForeachStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     //assert(arguments->dim == 1);
     assert(value != 0);
@@ -1047,6 +1084,9 @@ void GotoStatement::toIR(IRState* p)
     Logger::println("GotoStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     assert(tf == NULL);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -1080,6 +1120,9 @@ void GotoDefaultStatement::toIR(IRState* p)
     Logger::println("GotoDefaultStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergotodefault", p->topfunc(), oldend);
 
@@ -1098,6 +1141,9 @@ void GotoCaseStatement::toIR(IRState* p)
 {
     Logger::println("GotoCaseStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergotocase", p->topfunc(), oldend);
@@ -1121,6 +1167,9 @@ void WithStatement::toIR(IRState* p)
     Logger::println("WithStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
     assert(exp);
     assert(body);
 
@@ -1140,6 +1189,9 @@ void SynchronizedStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     Logger::attention(loc, "synchronized is currently ignored. only the body will be emitted");
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     body->toIR(p);
 }
@@ -1185,6 +1237,9 @@ void VolatileStatement::toIR(IRState* p)
 {
     Logger::println("VolatileStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
 
     // mark in-volatile
     bool old = gIR->func()->inVolatile;

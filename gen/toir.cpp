@@ -2191,8 +2191,42 @@ BinBitExp(And,And);
 BinBitExp(Or,Or);
 BinBitExp(Xor,Xor);
 BinBitExp(Shl,Shl);
-BinBitExp(Shr,AShr);
+//BinBitExp(Shr,AShr);
 BinBitExp(Ushr,LShr);
+
+DValue* ShrExp::toElem(IRState* p)
+{
+    Logger::print("ShrExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+    DValue* u = e1->toElem(p);
+    DValue* v = e2->toElem(p);
+    LLValue* x;
+    if (e1->type->isunsigned())
+        x = p->ir->CreateLShr(u->getRVal(), v->getRVal(), "tmp");
+    else
+        x = p->ir->CreateAShr(u->getRVal(), v->getRVal(), "tmp");
+    return new DImValue(type, x);
+}
+
+DValue* ShrAssignExp::toElem(IRState* p)
+{
+    Logger::print("ShrAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+    p->exps.push_back(IRExp(e1,e2,NULL));
+    DValue* u = e1->toElem(p);
+    p->topexp()->v = u;
+    DValue* v = e2->toElem(p);
+    p->exps.pop_back();
+    LLValue* uval = u->getRVal();
+    LLValue* vval = v->getRVal();
+    LLValue* tmp;
+    if (e1->type->isunsigned())
+        tmp = p->ir->CreateLShr(uval, vval, "tmp");
+    else
+        tmp = p->ir->CreateAShr(uval, vval, "tmp");
+    DtoStore(DtoPointedType(u->getLVal(), tmp), u->getLVal());
+    return u;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

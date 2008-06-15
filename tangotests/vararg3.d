@@ -143,7 +143,12 @@ void print(TypeInfo ti, void* arg)
     else if (ti == typeid(double))
         printf("%f", *cast(double*)arg);
     else if (ti == typeid(real)) // FIXME: 80bit?
-        printf("%f", *cast(real*)arg);
+    {
+        version(LLVM_X86_FP80)
+            printf("%llf", *cast(real*)arg);
+        else
+            printf("%f", *cast(real*)arg);
+    }
 
     else if (ti == typeid(char))
         printf("%.*s", 1, arg);
