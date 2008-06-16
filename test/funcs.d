@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 void main()
 {
     printf("Testing functions\n");

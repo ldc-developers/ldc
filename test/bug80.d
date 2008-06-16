@@ -1,4 +1,5 @@
 module bug80;
+extern(C) int printf(char*, ...);
 
 void main()
 {

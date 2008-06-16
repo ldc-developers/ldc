@@ -1,4 +1,5 @@
 module classes11;
+extern(C) int printf(char*, ...);
 
 void main()
 {

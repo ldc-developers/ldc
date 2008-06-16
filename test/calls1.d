@@ -1,5 +1,5 @@
 module calls1;
-import std.stdarg;
+import tango.core.Vararg;
 void main()
 {
     {int a = byVal1(3);}

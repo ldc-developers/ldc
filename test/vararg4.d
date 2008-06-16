@@ -1,5 +1,5 @@
 module vararg4;
-import std.stdarg;
+import tango.core.Vararg;
 
 void vafunc(...)
 {

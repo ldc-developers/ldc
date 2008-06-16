@@ -1,4 +1,5 @@
 module nested9;
+extern(C) int printf(char*, ...);
 
 void main()
 {

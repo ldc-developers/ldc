@@ -1,4 +1,5 @@
 module bug55;
+extern(C) int printf(char*, ...);
 
 int atoi(char[] s) {
     int i, fac=1;

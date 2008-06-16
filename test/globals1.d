@@ -1,4 +1,5 @@
 module globals1;
+extern(C) int printf(char*, ...);
 
 char[] gstr = "hello world";
 

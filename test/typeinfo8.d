@@ -1,5 +1,5 @@
 module typeinfo8;
-
+extern(C) int printf(char*, ...);
 struct S
 {
     void func()

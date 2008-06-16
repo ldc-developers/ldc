@@ -1,8 +1,5 @@
 module moduleinfo1;
 
-// has static this
-import std.outofmemory;
-
 static this()
 {
 }

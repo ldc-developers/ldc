@@ -1,4 +1,5 @@
 module bug24;
+extern(C) int printf(char*, ...);
 
 struct S
 {

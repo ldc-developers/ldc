@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 void numbers()
 {
     bool[8] bools;

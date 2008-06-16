@@ -1,5 +1,5 @@
 module bug77;
-import std.c.string;
+import tango.stdc.string;
 void main()
 {
     size_t len;

@@ -1,4 +1,6 @@
 module bug9;
+extern(C) int printf(char*, ...);
+
 struct rgb
 {
   ubyte[3] values;

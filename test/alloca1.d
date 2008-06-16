@@ -3,6 +3,8 @@ module alloca1;
 pragma(LLVM_internal, "alloca")
 void* alloca(uint);
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
     int n = 16;

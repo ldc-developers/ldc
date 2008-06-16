@@ -1,5 +1,7 @@
 module virtcall;
 
+extern(C) int printf(char*, ...);
+
 class C
 {
     override char[] toString()

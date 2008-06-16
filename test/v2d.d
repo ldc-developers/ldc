@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 struct V2D(T)
 {
     T x,y;

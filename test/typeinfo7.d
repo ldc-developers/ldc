@@ -1,5 +1,5 @@
 module typeinfo7;
-
+extern(C) int printf(char*, ...);
 int func(long)
 {
     return 0;

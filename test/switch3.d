@@ -1,4 +1,5 @@
 module switch3;
+extern(C) int printf(char*, ...);
 
 void main()
 {

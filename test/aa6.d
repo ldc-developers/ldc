@@ -1,5 +1,7 @@
 module aa6;
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
     int[int] aa;

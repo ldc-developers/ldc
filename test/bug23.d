@@ -1,4 +1,6 @@
 module bug23;
+extern(C) int printf(char*, ...);
+
 void main()
 {
     int i;

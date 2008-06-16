@@ -1,5 +1,5 @@
 module foreach2;
-
+extern(C) int printf(char*, ...);
 void main()
 {
     static arr = [1.0, 2.0, 4.0, 8.0, 16.0];

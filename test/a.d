@@ -1,5 +1,7 @@
 module a;
 
+extern(C) int printf(char*, ...);
+
 int i = 42;
 
 void main()

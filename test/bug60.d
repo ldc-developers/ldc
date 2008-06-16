@@ -1,4 +1,6 @@
 module bug60;
+extern(C) int printf(char*, ...);
+
 void func(T...)(T t)
 {
     foreach(v;t) {

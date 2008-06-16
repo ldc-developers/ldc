@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 static this()
 {
     printf("static this\n");

@@ -1,4 +1,5 @@
 module bug50;
+extern(C) int printf(char*, ...);
 
 pragma(LLVM_internal, "notypeinfo")
 struct S

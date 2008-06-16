@@ -1,17 +1,17 @@
 module foreach1;
-import std.stdio;
+extern(C) int printf(char*, ...);
 
 void main()
 {
     static arr = [1,2,3,4,5];
 
-    writef("forward");
+    printf("forward");
     foreach(v;arr) {
-        writef(' ',v);
+        printf(" %d",v);
     }
-    writef("\nreverse");
+    printf("\nreverse");
     foreach_reverse(v;arr) {
-        writef(' ',v);
+        printf(" %d",v);
     }
-    writef("\n");
+    printf("\n");
 }

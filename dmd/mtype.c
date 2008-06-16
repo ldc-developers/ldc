@@ -223,16 +223,18 @@ void Type::init()
 
     tvoidptr = tvoid->pointerTo();
 
-    // set size_t / ptrdiff_t types
+    // set size_t / ptrdiff_t types and pointer size
     if (global.params.is64bit)
     {
     Tsize_t = Tuns64;
     Tptrdiff_t = Tint64;
+    PTRSIZE = 8;
     }
     else
     {
     Tsize_t = Tuns32;
     Tptrdiff_t = Tint32;
+    PTRSIZE = 4;
     }
 
     // set real size and padding

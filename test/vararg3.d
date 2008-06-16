@@ -1,6 +1,6 @@
 module vararg3;
 
-import std.stdarg;
+import tango.core.Vararg;
 
 void func(...)
 {

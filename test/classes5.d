@@ -1,4 +1,5 @@
 module classes5;
+extern(C) int printf(char*, ...);
 
 struct S
 {

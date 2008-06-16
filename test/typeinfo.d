@@ -1,4 +1,5 @@
 module typeinfo;
+extern(C) int printf(char*, ...);
 
 void main()
 {

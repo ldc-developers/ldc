@@ -1,6 +1,6 @@
 module sqrts;
 
-import std.c.math;
+import tango.stdc.math;
 
 double sqrt(double d)
 {

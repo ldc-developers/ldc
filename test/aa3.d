@@ -1,5 +1,8 @@
 module aa3;
 
+extern(C) int printf(char*, ...);
+alias char[] string;
+
 void main()
 {
     int[string] aa;

@@ -1,5 +1,7 @@
 module g;
 
+extern(C) int printf(char*, ...);
+
 void func(char[] str)
 {
     printf("%.*s\n", str.length, str.ptr);

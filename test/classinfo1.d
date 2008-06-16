@@ -1,5 +1,7 @@
 module classinfo1;
 
+extern(C) int printf(char*, ...);
+
 class NoPtrs
 {
 }

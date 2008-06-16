@@ -1,3 +1,6 @@
+
+extern(C) int printf(char*, ...);
+
 struct S
 {
     int i;

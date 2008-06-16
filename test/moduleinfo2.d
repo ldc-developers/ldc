@@ -1,12 +1,14 @@
 module moduleinfo2;
-import std.stdio;
+
+extern(C) int printf(char*, ...);
+
 void main()
 {
     ModuleInfo[] mi = ModuleInfo.modules();
-    writefln("listing ",mi.length," modules");
+    printf("listing %u modules:\n");
     foreach(m; mi)
     {
-        writefln("  ",m.name);
+        printf("  %s\n", m.name.length, m.name.ptr);
     }
     assert(mi.length > 50);
 }

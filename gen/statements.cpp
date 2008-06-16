@@ -440,19 +440,26 @@ void BreakStatement::toIR(IRState* p)
             targetLoopStatement = tmp->statement;
 
         // find the right break block and jump there
+        bool found = false;
         IRState::LoopScopeVec::reverse_iterator it;
         for(it = p->loopbbs.rbegin(); it != p->loopbbs.rend(); ++it) {
             if(it->s == targetLoopStatement) {
                 llvm::BranchInst::Create(it->end, p->scopebb());
-                return;
+                found = true;
+                break;
             }
         }
-        assert(0);
+        assert(found);
     }
     else {
         emit_finallyblocks(p, enclosingtryfinally, p->loopbbs.back().enclosingtryfinally);
         llvm::BranchInst::Create(p->loopbbs.back().end, p->scopebb());
     }
+
+    // the break terminated this basicblock, start a new one
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterbreak", p->topfunc(), oldend);
+    p->scope() = IRScope(bb,oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -724,7 +731,7 @@ void SwitchStatement::toIR(IRState* p)
         const LLType* elemTy = DtoType(condition->type);
         const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
         LLConstant* arrInit = llvm::ConstantArray::get(arrTy, inits);
-        llvm::GlobalVariable* arr = new llvm::GlobalVariable(arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, "string_switch_table_data", gIR->module);
+        llvm::GlobalVariable* arr = new llvm::GlobalVariable(arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data", gIR->module);
 
         const LLType* elemPtrTy = getPtrToType(elemTy);
         LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
@@ -739,7 +746,7 @@ void SwitchStatement::toIR(IRState* p)
         sinits.push_back(arrPtr);
         LLConstant* sInit = llvm::ConstantStruct::get(sTy, sinits);
 
-        switchTable = new llvm::GlobalVariable(sTy, true, llvm::GlobalValue::InternalLinkage, sInit, "string_switch_table", gIR->module);
+        switchTable = new llvm::GlobalVariable(sTy, true, llvm::GlobalValue::InternalLinkage, sInit, ".string_switch_table", gIR->module);
     }
 
     // body block

@@ -1,5 +1,6 @@
 module bug10;
-import std.stdio;
+extern(C) int printf(char*, ...);
+
 class C
 {
     char[] msg;

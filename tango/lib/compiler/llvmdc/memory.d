@@ -47,7 +47,6 @@ private
         {
                 void* llvm_frameaddress(uint level=0);
         }
-        extern(C) int printf(char*, ...);
     }
 }
 
@@ -98,7 +97,11 @@ extern (C) void* rt_stackBottom()
  */
 extern (C) void* rt_stackTop()
 {
-    version( D_InlineAsm_X86 )
+    version(LLVMDC)
+    {
+        return llvm_frameaddress();
+    }
+    else version( D_InlineAsm_X86 )
     {
         asm
         {
@@ -106,10 +109,6 @@ extern (C) void* rt_stackTop()
             mov EAX, ESP;
             ret;
         }
-    }
-    else version(LLVMDC)
-    {
-        return llvm_frameaddress();
     }
     else
     {

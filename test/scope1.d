@@ -1,5 +1,5 @@
 module scope1;
-
+extern(C) int printf(char*, ...);
 void main()
 {
     printf("1\n");

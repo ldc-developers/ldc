@@ -1,5 +1,5 @@
 module foreach4;
-
+extern(C) int printf(char*, ...);
 void main()
 {
     int[] arr = new int[4];

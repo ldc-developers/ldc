@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 version=AndAnd;
 version=OrOr;
 

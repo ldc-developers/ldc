@@ -2,7 +2,7 @@ module mainargs1;
 
 extern(C) int printf(char*,...);
 
-void main(string[] args)
+void main(char[][] args)
 {
     foreach(v; args)
     {

@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 int return_six()
 {
     return 6;

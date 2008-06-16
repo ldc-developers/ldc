@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 struct vec3
 {
     float x,y,z;

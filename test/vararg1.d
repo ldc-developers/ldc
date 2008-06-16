@@ -1,6 +1,6 @@
 module vararg1;
 
-import std.c.stdarg;
+import tango.stdc.stdarg;
 
 extern(C) int add(int n, ...)
 {

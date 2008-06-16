@@ -1,3 +1,6 @@
+
+extern(C) int printf(char*, ...);
+
 int main()
 {
     char[16] s = void;

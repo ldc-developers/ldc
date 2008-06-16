@@ -1,4 +1,5 @@
 module classes6;
+extern(C) int printf(char*, ...);
 
 class C
 {

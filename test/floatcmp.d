@@ -1,4 +1,5 @@
 module floatcmp;
+extern(C) int printf(char*, ...);
 
 void eq()
 {

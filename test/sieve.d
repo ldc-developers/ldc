@@ -1,5 +1,7 @@
 /* Eratosthenes Sieve prime number calculation. */
 
+extern(C) int printf(char*, ...);
+
 bool flags[8191];
 
 int main()

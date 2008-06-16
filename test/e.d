@@ -1,5 +1,7 @@
 module e;
 
+extern(C) int printf(char*, ...);
+
 struct C
 {
     float x=0,y=0;

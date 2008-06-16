@@ -1,4 +1,5 @@
 module innerclass1;
+extern(C) int printf(char*, ...);
 
 class Outer
 {

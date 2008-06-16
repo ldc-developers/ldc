@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 void main()
 {
     printf("Pointer arithmetic test\n");

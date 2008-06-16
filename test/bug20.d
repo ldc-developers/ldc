@@ -1,4 +1,5 @@
 module bug20;
+extern(C) int printf(char*, ...);
 
 void func(void delegate() dg)
 {

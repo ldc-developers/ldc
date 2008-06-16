@@ -1,4 +1,5 @@
 module multiarr4;
+extern(C) int printf(char*, ...);
 
 void main()
 {

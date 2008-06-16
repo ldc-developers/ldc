@@ -1,3 +1,5 @@
+extern(C) int printf(char*, ...);
+
 class C
 {
     int i;
