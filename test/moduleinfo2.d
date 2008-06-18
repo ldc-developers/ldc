@@ -4,11 +4,9 @@ extern(C) int printf(char*, ...);
 
 void main()
 {
-    ModuleInfo[] mi = ModuleInfo.modules();
-    printf("listing %u modules:\n");
-    foreach(m; mi)
+    printf("listing modules:\n");
+    foreach(m; ModuleInfo)
     {
-        printf("  %s\n", m.name.length, m.name.ptr);
+        printf("  %.*s\n", m.name.length, m.name.ptr);
     }
-    assert(mi.length > 50);
 }

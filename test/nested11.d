@@ -1,5 +1,7 @@
 module nested11;
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
     int i;

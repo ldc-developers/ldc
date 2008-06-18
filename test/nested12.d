@@ -1,5 +1,7 @@
 module nested12;
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
     func();
