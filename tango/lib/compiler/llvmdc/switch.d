@@ -26,6 +26,7 @@
  */
 
 private import tango.stdc.string;
+//private import tango.stdc.stdio;
 
 /******************************************************
  * Support for switch statements switching on strings.
@@ -101,11 +102,11 @@ out (result)
 }
 body
 {
-    //printf("body _d_switch_string(%.*s)\n", ca);
+    //printf("body _d_switch_string(%.*s)\n", ca.length, ca.ptr);
     size_t low;
     size_t high;
     size_t mid;
-    size_t c;
+    ptrdiff_t c;
     char[] pca;
 
     low = 0;
@@ -136,7 +137,7 @@ body
         {
             mid = (low + high) >> 1;
             pca = table[mid];
-            c = ca.length - pca.length;
+            c = cast(ptrdiff_t)(ca.length - pca.length);
             if (c == 0)
             {
                 c = cast(ubyte)c1 - cast(ubyte)pca[0];
@@ -244,7 +245,7 @@ body
     size_t low;
     size_t high;
     size_t mid;
-    size_t c;
+    ptrdiff_t c;
     wchar[] pca;
 
     low = 0;
@@ -265,7 +266,7 @@ body
     {
         mid = (low + high) >> 1;
         pca = table[mid];
-        c = ca.length - pca.length;
+        c = cast(ptrdiff_t)(ca.length - pca.length);
         if (c == 0)
         {
             c = memcmp(ca.ptr, pca.ptr, ca.length * wchar.sizeof);
@@ -369,7 +370,7 @@ body
     size_t low;
     size_t high;
     size_t mid;
-    size_t c;
+    ptrdiff_t c;
     dchar[] pca;
 
     low = 0;
@@ -390,7 +391,7 @@ body
     {
         mid = (low + high) >> 1;
         pca = table[mid];
-        c = ca.length - pca.length;
+        c = cast(ptrdiff_t)(ca.length - pca.length);
         if (c == 0)
         {
             c = memcmp(ca.ptr, pca.ptr, ca.length * dchar.sizeof);

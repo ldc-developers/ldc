@@ -681,7 +681,14 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
     }
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
-    return gIR->ir->CreateCall2(fn, table, llval, "tmp");
+    llvm::CallInst* call = gIR->ir->CreateCall2(fn, table, llval, "tmp");
+
+    llvm::PAListPtr palist;
+    palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+    palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+    call->setParamAttrs(palist);
+
+    return call;
 }
 
 void SwitchStatement::toIR(IRState* p)
@@ -709,6 +716,7 @@ void SwitchStatement::toIR(IRState* p)
     {
         Logger::println("is string switch");
         // build array of the stringexpS
+        caseArray.reserve(cases->dim);
         for (int i=0; i<cases->dim; ++i)
         {
             CaseStatement* cs = (CaseStatement*)cases->data[i];
@@ -719,13 +727,13 @@ void SwitchStatement::toIR(IRState* p)
         // first sort it
         caseArray.sort();
         // iterate and add indices to cases
-        std::vector<LLConstant*> inits;
+        std::vector<LLConstant*> inits(caseArray.dim);
         for (size_t i=0; i<caseArray.dim; ++i)
         {
-            CaseStatement* cs = (CaseStatement*)cases->data[i];
-            cs->llvmIdx = DtoConstUint(i);
             Case* c = (Case*)caseArray.data[i];
-            inits.push_back(c->str->toConstElem(p));
+            CaseStatement* cs = (CaseStatement*)cases->data[c->index];
+            cs->llvmIdx = DtoConstUint(i);
+            inits[i] = c->str->toConstElem(p);
         }
         // build static array for ptr or final array
         const LLType* elemTy = DtoType(condition->type);
@@ -811,12 +819,9 @@ void CaseStatement::toIR(IRState* p)
     }
     bodyBB = nbb;
 
-    if (exp->type->isintegral()) {
+    if (llvmIdx == NULL) {
         LLConstant* c = exp->toConstElem(p);
         llvmIdx = isaConstantInt(c);
-    }
-    else {
-        assert(llvmIdx);
     }
 
     if (!p->scopereturned())

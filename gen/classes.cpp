@@ -1243,19 +1243,16 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
     cd->ir.irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
 }
 
-static LLConstant* build_offti_entry(VarDeclaration* vd)
+static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
 {
     std::vector<const LLType*> types;
     std::vector<LLConstant*> inits;
 
     types.push_back(DtoSize_t());
 
-    size_t offset = vd->offset; // TODO might not be the true offset
-    // dmd only accounts for the vtable, not classinfo or monitor
-    if (global.params.is64bit)
-        offset += 8;
-    else
-        offset += 4;
+    assert(vd->ir.irField);
+    assert(vd->ir.irField->index >= 0);
+    size_t offset = gTargetData->getStructLayout(isaStruct(cd->type->ir.type->get()))->getElementOffset(vd->ir.irField->index+2);
     inits.push_back(DtoConstSize_t(offset));
 
     vd->type->getTypeInfo(NULL);
@@ -1288,7 +1285,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLConstant* init)
         Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
         if (VarDeclaration* vd = sm->isVarDeclaration()) // is this enough?
         {
-            LLConstant* c = build_offti_entry(vd);
+            LLConstant* c = build_offti_entry(cd, vd);
             assert(c);
             arrayInits.push_back(c);
         }
