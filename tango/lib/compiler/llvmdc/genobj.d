@@ -761,7 +761,7 @@ class TypeInfo_Struct : TypeInfo
             // A sorry hash algorithm.
             // Should use the one for strings.
             // BUG: relies on the GC not moving objects
-            for (size_t i = 0; i < init.length; i++)
+            for (size_t i = 0; i < m_init.length; i++)
             {   h = h * 9 + *cast(ubyte*)p;
                 p++;
             }
@@ -769,7 +769,7 @@ class TypeInfo_Struct : TypeInfo
         return h;
     }
 
-    int equals(void *p2, void *p1)
+    int equals(void *p1, void *p2)
     {   int c;
 
         if (p1 == p2)
@@ -780,11 +780,11 @@ class TypeInfo_Struct : TypeInfo
             c = (*xopEquals)(p1, p2);
         else
             // BUG: relies on the GC not moving objects
-            c = (memcmp(p1, p2, init.length) == 0);
+            c = (memcmp(p1, p2, m_init.length) == 0);
         return c;
     }
 
-    int compare(void *p2, void *p1)
+    int compare(void *p1, void *p2)
     {
         int c = 0;
 
@@ -798,7 +798,7 @@ class TypeInfo_Struct : TypeInfo
                     c = (*xopCmp)(p1, p2);
                 else
                     // BUG: relies on the GC not moving objects
-                    c = memcmp(p1, p2, init.length);
+                    c = memcmp(p1, p2, m_init.length);
             }
             else
                 c = -1;
@@ -808,7 +808,7 @@ class TypeInfo_Struct : TypeInfo
 
     size_t tsize()
     {
-        return init.length;
+        return m_init.length;
     }
 
     void[] init() { return m_init; }
@@ -816,7 +816,7 @@ class TypeInfo_Struct : TypeInfo
     uint flags() { return m_flags; }
 
     char[] name;
-    void[] m_init;      // initializer; init.ptr == null if 0 initialize
+    void[] m_init;      // initializer; never null
 
     hash_t function(void*)    xtoHash;
     int function(void*,void*) xopEquals;
