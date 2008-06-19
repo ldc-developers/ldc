@@ -13,6 +13,7 @@ if ! [ -d dstress ] ; then
     exit
 fi
 
+BASEPATH=`pwd`
 cd dstress
 
 # remove excessive tests
@@ -37,7 +38,8 @@ echo
 
 if [ -z "$DMD" ] ; then
 	echo "Testing with llvmdc. Set DMD environment variable to select compiler."
-	DMD="llvmdc -O0"
+	DMD="llvmdc -O0 -I$BASEPATH"
+	echo "Default is $DMD"
 else
 	echo "Using compiler given by DMD environment variable: $DMD"
 fi
