@@ -357,7 +357,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
 
     // emit typeinfo
     if (sd->getModule() == gIR->dmodule && sd->llvmInternal != LLVMnotypeinfo)
-        sd->type->getTypeInfo(NULL);
+        DtoTypeInfoOf(sd->type, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

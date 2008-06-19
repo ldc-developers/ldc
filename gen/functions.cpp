@@ -105,8 +105,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
 
     int nbyval = 0;
 
-    llvm::PAListPtr palist;
-
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
         // ensure scalar
@@ -122,11 +120,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             arg->llvmByVal = !refOrOut;
         }
         else if (isaArray(at)) {
+            // static array are passed by reference
             Logger::println("sarray param");
             assert(argT->ty == Tsarray);
-            //paramvec.push_back(getPtrToType(at->getContainedType(0)));
             paramvec.push_back(getPtrToType(at));
-            //arg->llvmByVal = !refOrOut; // static array are passed by reference
         }
         else if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");

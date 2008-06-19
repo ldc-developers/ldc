@@ -447,7 +447,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
     // typeinfo
     if (needs_definition)
-        cd->type->getTypeInfo(NULL);
+        DtoTypeInfoOf(cd->type, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1255,16 +1255,12 @@ static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
     size_t offset = gTargetData->getStructLayout(isaStruct(cd->type->ir.type->get()))->getElementOffset(vd->ir.irField->index+2);
     inits.push_back(DtoConstSize_t(offset));
 
-    vd->type->getTypeInfo(NULL);
-    assert(vd->type->vtinfo);
-    DtoForceDeclareDsymbol(vd->type->vtinfo);
-    LLConstant* c = isaConstant(vd->type->vtinfo->ir.getIrValue());
-
-    const LLType* tiTy = getPtrToType(Type::typeinfo->type->ir.type->get());
+    LLConstant* c = DtoTypeInfoOf(vd->type, true);
+    const LLType* tiTy = c->getType();
     //Logger::cout() << "tiTy = " << *tiTy << '\n';
 
     types.push_back(tiTy);
-    inits.push_back(llvm::ConstantExpr::getBitCast(c, tiTy));
+    inits.push_back(c);
 
     const llvm::StructType* sTy = llvm::StructType::get(types);
     return llvm::ConstantStruct::get(sTy, inits);
@@ -1285,9 +1281,12 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLConstant* init)
         Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
         if (VarDeclaration* vd = sm->isVarDeclaration()) // is this enough?
         {
-            LLConstant* c = build_offti_entry(cd, vd);
-            assert(c);
-            arrayInits.push_back(c);
+            if (!vd->isDataseg()) // static members dont have an offset!
+            {
+                LLConstant* c = build_offti_entry(cd, vd);
+                assert(c);
+                arrayInits.push_back(c);
+            }
         }
         }
     }
@@ -1389,7 +1388,7 @@ static uint build_classinfo_flags(ClassDeclaration* cd)
         for (size_t i = 0; i < cd2->members->dim; i++)
         {
         Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
-        if (sm->isVarDeclaration()) // is this enough?
+        if (sm->isVarDeclaration() && !sm->isVarDeclaration()->isDataseg()) // is this enough?
             hasOffTi = true;
         //printf("sm = %s %s\n", sm->kind(), sm->toChars());
         if (sm->hasPointers())

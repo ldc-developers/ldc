@@ -383,19 +383,8 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     TypedefDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    //const LLPointerType* basept = isaPointer(initZ->getOperand(1)->getType());
-    //sinits.push_back(llvm::ConstantPointerNull::get(basept));
-    Logger::println("generating base typeinfo");
-    //sd->basetype = sd->basetype->merge();
-
-    sd->basetype->getTypeInfo(NULL);        // generate vtinfo
-    assert(sd->basetype->vtinfo);
-    DtoForceDeclareDsymbol(sd->basetype->vtinfo);
-
-    assert(sd->basetype->vtinfo->ir.irGlobal->value);
-    assert(llvm::isa<llvm::Constant>(sd->basetype->vtinfo->ir.irGlobal->value));
-    LLConstant* castbase = llvm::cast<llvm::Constant>(sd->basetype->vtinfo->ir.irGlobal->value);
-    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(2));
+    LLConstant* castbase = DtoTypeInfoOf(sd->basetype, true);
+    assert(castbase->getType() == stype->getElementType(2));
     sinits.push_back(castbase);
 
     // char[] name
@@ -468,18 +457,8 @@ void TypeInfoEnumDeclaration::llvmDefine()
     EnumDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    //const LLPointerType* basept = isaPointer(initZ->getOperand(1)->getType());
-    //sinits.push_back(llvm::ConstantPointerNull::get(basept));
-    Logger::println("generating base typeinfo");
-    //sd->basetype = sd->basetype->merge();
-
-    sd->memtype->getTypeInfo(NULL);        // generate vtinfo
-    assert(sd->memtype->vtinfo);
-    DtoForceDeclareDsymbol(sd->memtype->vtinfo);
-
-    assert(llvm::isa<llvm::Constant>(sd->memtype->vtinfo->ir.irGlobal->value));
-    LLConstant* castbase = llvm::cast<llvm::Constant>(sd->memtype->vtinfo->ir.irGlobal->value);
-    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(2));
+    LLConstant* castbase = DtoTypeInfoOf(sd->memtype, true);
+    assert(castbase->getType() == stype->getElementType(2));
     sinits.push_back(castbase);
 
     // char[] name
@@ -543,13 +522,8 @@ static LLConstant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaratio
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // TypeInfo base
-    Logger::println("generating base typeinfo");
-    basetype->getTypeInfo(NULL);
-    assert(basetype->vtinfo);
-    DtoForceDeclareDsymbol(basetype->vtinfo);
-    assert(llvm::isa<llvm::Constant>(basetype->vtinfo->ir.irGlobal->value));
-    LLConstant* castbase = llvm::cast<llvm::Constant>(basetype->vtinfo->ir.irGlobal->value);
-    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(2));
+    LLConstant* castbase = DtoTypeInfoOf(basetype, true);
+    assert(castbase->getType() == stype->getElementType(2));
     sinits.push_back(castbase);
 
     // create the symbol
@@ -656,13 +630,8 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     // value typeinfo
     assert(tinfo->ty == Tsarray);
     TypeSArray *tc = (TypeSArray *)tinfo;
-    tc->next->getTypeInfo(NULL);
-
-    // get symbol
-    assert(tc->next->vtinfo);
-    DtoForceDeclareDsymbol(tc->next->vtinfo);
-    LLConstant* castbase = isaConstant(tc->next->vtinfo->ir.irGlobal->value);
-    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(2));
+    LLConstant* castbase = DtoTypeInfoOf(tc->next, true);
+    assert(castbase->getType() == stype->getElementType(2));
     sinits.push_back(castbase);
 
     // length
@@ -721,23 +690,13 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     TypeAArray *tc = (TypeAArray *)tinfo;
 
     // value typeinfo
-    tc->next->getTypeInfo(NULL);
-
-    // get symbol
-    assert(tc->next->vtinfo);
-    DtoForceDeclareDsymbol(tc->next->vtinfo);
-    LLConstant* castbase = isaConstant(tc->next->vtinfo->ir.irGlobal->value);
-    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(2));
+    LLConstant* castbase = DtoTypeInfoOf(tc->next, true);
+    assert(castbase->getType() == stype->getElementType(2));
     sinits.push_back(castbase);
 
     // key typeinfo
-    tc->index->getTypeInfo(NULL);
-
-    // get symbol
-    assert(tc->index->vtinfo);
-    DtoForceDeclareDsymbol(tc->index->vtinfo);
-    castbase = isaConstant(tc->index->vtinfo->ir.irGlobal->value);
-    castbase = llvm::ConstantExpr::getBitCast(castbase, stype->getElementType(3));
+    castbase = DtoTypeInfoOf(tc->index, true);
+    assert(castbase->getType() == stype->getElementType(3));
     sinits.push_back(castbase);
 
     // create the symbol
@@ -1179,12 +1138,9 @@ void TypeInfoTupleDeclaration::llvmDefine()
     for (size_t i = 0; i < dim; i++)
     {
         Argument *arg = (Argument *)tu->arguments->data[i];
-        arg->type->getTypeInfo(NULL);
-        DtoForceDeclareDsymbol(arg->type->vtinfo);
-        assert(arg->type->vtinfo->ir.irGlobal->value);
-        LLConstant* c = isaConstant(arg->type->vtinfo->ir.irGlobal->value);
-        c = llvm::ConstantExpr::getBitCast(c, tiTy);
-        arrInits.push_back(c);
+        LLConstant* castbase = DtoTypeInfoOf(arg->type, true);
+        assert(castbase->getType() == tiTy);
+        arrInits.push_back(castbase);
     }
 
     // build array type

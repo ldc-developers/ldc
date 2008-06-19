@@ -15,8 +15,6 @@ void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
     if (!doinline && lvl < 0)
         return;
 
-    assert(lvl >= 0 && lvl <= 5);
-
     PassManager pm;
     pm.add(new TargetData(m));
 

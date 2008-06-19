@@ -750,7 +750,15 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
         args.push_back(DtoBitCast(tival, pt));
     }
 
-    return gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+    llvm::CallInst* call = gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+
+    // set param attrs
+    llvm::PAListPtr palist;
+    palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+    palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
+    call->setParamAttrs(palist);
+
+    return call;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

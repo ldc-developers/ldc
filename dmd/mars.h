@@ -123,7 +123,7 @@ struct Param
     char *resfile;
     char *exefile;
 
-    // LLVM stuff
+    // LLVMDC stuff
     char *llvmArch;
     char forceBE;
     char *tt_arch;
@@ -291,6 +291,7 @@ enum MATCH
     MATCHexact		// exact match
 };
 
+// LLVMDC
 enum ARCH
 {
     ARCHx86,

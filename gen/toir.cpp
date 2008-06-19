@@ -124,7 +124,7 @@ DValue* DeclarationExp::toElem(IRState* p)
     else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
     {
         Logger::println("TypedefDeclaration");
-        tdef->type->getTypeInfo(NULL);
+        DtoTypeInfoOf(tdef->type, false);
     }
     // attribute declaration
     else if (AttribDeclaration* a = declaration->isAttribDeclaration())
@@ -287,12 +287,9 @@ LLConstant* VarExp::toConstElem(IRState* p)
     }
     else if (TypeInfoDeclaration* ti = var->isTypeInfoDeclaration())
     {
-        DtoForceDeclareDsymbol(ti);
-        assert(ti->ir.getIrValue());
         const LLType* vartype = DtoType(type);
-        LLConstant* m = isaConstant(ti->ir.getIrValue());
-        assert(m);
-        if (ti->ir.getIrValue()->getType() != getPtrToType(vartype))
+        LLConstant* m = DtoTypeInfoOf(ti->tinfo, false);
+        if (m->getType() != getPtrToType(vartype))
             m = llvm::ConstantExpr::getBitCast(m, vartype);
         return m;
     }
@@ -1512,8 +1509,7 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
-        arrptr = DtoGEP(l->getRVal(),zero,one);
-        arrptr = DtoLoad(arrptr);
+        arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());
     }
     else if (e1type->ty == Taarray) {
@@ -1982,10 +1978,9 @@ DValue* DeleteExp::toElem(IRState* p)
         }
         else if (DVarValue* vv = dval->isVar()) {
             if (vv->var && vv->var->onstack) {
-                if (tc->sym->dtors.dim > 0) {
+                if (tc->sym->dtors.dim > 0)
                     DtoFinalizeClass(dval->getRVal());
-                    onstack = true;
-                }
+                onstack = true;
             }
         }
         if (!onstack) {
@@ -2496,29 +2491,6 @@ DValue* CatExp::toElem(IRState* p)
     {
         return DtoCatArrayElement(type, e1, e2);
     }
-
-    /*
-    IRExp* ex = p->topexp();
-    if (ex && ex->e2 == this) {
-        assert(ex->v);
-        if (arrNarr)
-            DtoCatArrays(ex->v->getLVal(),e1,e2);
-        else
-            DtoCatArrayElement(ex->v->getLVal(),e1,e2);
-        return new DImValue(type, ex->v->getLVal(), true);
-    }
-    else {
-        assert(t->ty == Tarray);
-        const LLType* arrty = DtoType(t);
-        LLValue* dst = new llvm::AllocaInst(arrty, "tmpmem", p->topallocapoint());
-        if (arrNarr)
-            DtoCatAr
-            DtoCatArrays(dst,e1,e2);
-        else
-            DtoCatArrayElement(dst,e1,e2);
-        return new DVarValue(type, dst, true);
-    }
-    */
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

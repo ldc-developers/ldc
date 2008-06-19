@@ -57,7 +57,6 @@ static LLValue* to_keyti(DValue* key)
 {
     // keyti param
     Type* keytype = key->getType();
-    keytype->getTypeInfo(NULL);
     return DtoTypeInfoOf(keytype, false);
 }
 

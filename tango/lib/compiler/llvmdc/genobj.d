@@ -33,6 +33,7 @@
 
 /*
  *  Modified by Sean Kelly <sean@f4.ca> for use with Tango.
+ *  Modified by Tomas Lindquist Olsen <tomas@famolsen.dk> for use with LLVMDC.
  */
 
 module object;
@@ -56,7 +57,7 @@ private
 //alias typeof(int.sizeof)                    size_t;
 //alias typeof(cast(void*)0 - cast(void*)0)   ptrdiff_t;
 
-version( X86_64 )
+version( LLVM64 )
 {
     alias ulong size_t;
     alias long  ptrdiff_t;

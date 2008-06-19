@@ -1180,12 +1180,17 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		if (arg->storageClass & (STCout | STCref | STClazy))
 		    error("no storage class for key %s", arg->ident->toChars());
 		TY keyty = arg->type->ty;
-		if ((keyty != Tint32 && keyty != Tuns32) &&
-		    (global.params.is64bit && keyty != Tint64 && keyty != Tuns64)
-		   )
-		{
-		    error("foreach: key type must be %s, not %s", global.params.is64bit ? "int, uint, long or ulong" : "int or uint",arg->type->toChars());
-		}
+        if (global.params.is64bit)
+        {
+            if (keyty != Tint32 && keyty != Tuns32 && keyty != Tint64 && keyty != Tuns64)
+            {
+                error("foreach: key type must be int, uint, long or ulong, not %s", key->type->toChars());
+            }
+        }
+        else if (keyty != Tint32 && keyty != Tuns32)
+        {
+            error("foreach: key type must be int or uint, not %s", key->type->toChars());
+        }
 		Initializer *ie = new ExpInitializer(0, new IntegerExp(k));
 		VarDeclaration *var = new VarDeclaration(loc, arg->type, arg->ident, ie);
 		var->storage_class |= STCconst;
@@ -1320,14 +1325,20 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		    error("foreach: %s is not an array of %s", tab->toChars(), value->type->toChars());
 	    }
 
-	    if (key &&
-		((key->type->ty != Tint32 && key->type->ty != Tuns32) &&
-		 (global.params.is64bit && key->type->ty != Tint64 && key->type->ty != Tuns64)
-	        )
-	       )
-	    {
-        error("foreach: key type must be %s, not %s", global.params.is64bit ? "int, uint, long or ulong" : "int or uint", key->type->toChars());
-	    }
+        if (key)
+        {
+            if (global.params.is64bit)
+            {
+                if (key->type->ty != Tint32 && key->type->ty != Tuns32 && key->type->ty != Tint64 && key->type->ty != Tuns64)
+                {
+                    error("foreach: key type must be int, uint, long or ulong, not %s", key->type->toChars());
+                }
+            }
+            else if (key->type->ty != Tint32 && key->type->ty != Tuns32)
+            {
+                error("foreach: key type must be int or uint, not %s", key->type->toChars());
+            }
+        }
 
 	    if (key && key->storage_class & (STCout | STCref))
 		error("foreach: key cannot be out or ref");

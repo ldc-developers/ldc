@@ -606,7 +606,7 @@ void TypedefDeclaration::toObjFile()
     LOG_SCOPE;
 
     // generate typeinfo
-    type->getTypeInfo(NULL);
+    DtoTypeInfoOf(type, false);
 }
 
 /* ================================================================== */
