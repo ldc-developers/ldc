@@ -8,4 +8,10 @@
  */
 void linkModules(llvm::Module* dst, const std::vector<llvm::Module*>& MV);
 
+/**
+ * Link an executable.
+ * @return 0 on success.
+ */
+int linkExecutable();
+
 #endif // LLVMDC_GEN_LINKER_H

@@ -1,8 +1,20 @@
 module asm1;
 
+extern(C) int printf(char*, ...);
+
 void main()
 {
-    version(LLVM_InlineAsm_X86_64)
+    version(D_InlineAsm_X86)
+    {
+	int x;
+	asm
+	{
+	    mov EAX, 42;
+	    mov x, EAX;
+	}
+	printf("x = %d\n", x);
+    }
+    else version(D_InlineAsm_X86_64)
     {
         long x;
         asm
@@ -14,6 +26,6 @@ void main()
     }
     else
     {
-        static assert(0, "no llvm inline asm for this platform yet");
+        static assert(0, "no inline asm for this platform yet");
     }
 }

@@ -1103,7 +1103,8 @@ int main(int argc, char *argv[])
     else
     {
 	if (global.params.link)
-	    status = runLINK();
+	    //status = runLINK();
+        linkExecutable();
 
 	if (global.params.run)
 	{

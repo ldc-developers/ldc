@@ -304,11 +304,14 @@ void error(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void fatal();
 void err_nomem();
-int runLINK();
+//int runLINK(); // no longer used
 void deleteExeFile();
 int runProgram();
 void inifile(char *argv0, char *inifile);
 void halt();
+
+// LLVMDC
+int linkExecutable();
 
 /*** Where to send error messages ***/
 #if IN_GCC
