@@ -2238,6 +2238,14 @@ DValue* HaltExp::toElem(IRState* p)
 #endif
 
     new llvm::UnreachableInst(p->scopebb());
+
+    // this terminated the basicblock, start a new one
+    // this is sensible, since someone might goto behind the assert
+    // and prevents compiler errors if a terminator follows the assert
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterhalt", p->topfunc(), oldend);
+    p->scope() = IRScope(bb,oldend);
+
     return 0;
 }
 
