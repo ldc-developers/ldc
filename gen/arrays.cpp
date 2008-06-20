@@ -364,7 +364,7 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
         // this means it's a real slice
         ret = e->ptr;
 
-        size_t elembsz = getABITypeSize(ret->getType());
+        size_t elembsz = getABITypeSize(ret->getType()->getContainedType(0));
         llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
 
         if (isaConstantInt(e->len)) {
