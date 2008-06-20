@@ -14,4 +14,15 @@ void linkModules(llvm::Module* dst, const std::vector<llvm::Module*>& MV);
  */
 int linkExecutable();
 
+/**
+ * Delete the executable that was previously linked with linkExecutable.
+ */
+void deleteExecutable();
+
+/**
+ * Runs the executable that was previously linked with linkExecutable.
+ * @return the return status of the executable.
+ */
+int runExectuable();
+
 #endif // LLVMDC_GEN_LINKER_H

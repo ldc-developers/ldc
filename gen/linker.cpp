@@ -33,6 +33,8 @@ void linkModules(llvm::Module* dst, const Module_vector& MV)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static llvm::sys::Path gExePath;
+
 int linkExecutable()
 {
     Logger::println("*** Linking executable ***");
@@ -74,10 +76,14 @@ int linkExecutable()
     std::string outopt = "-o=" + exestr;
     args.push_back(outopt.c_str());
 
+    // set the global gExePath
+    gExePath.set(exestr);
+    assert(gExePath.isValid());
+
     // create path to exe
-    llvm::sys::Path exepath(exestr);
-    exepath.set(exepath.getDirname());
-    exepath.createDirectoryOnDisk(true, &errstr);
+    llvm::sys::Path exedir(gExePath);
+    exedir.set(gExePath.getDirname());
+    exedir.createDirectoryOnDisk(true, &errstr);
     if (!errstr.empty())
     {
         error("failed to create path to linking output\n%s", errstr.c_str());
@@ -178,6 +184,47 @@ int linkExecutable()
         error("linking failed:\nstatus: %d", status);
         if (!errstr.empty())
             error("message: %s", errstr.c_str());
+        fatal();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void deleteExecutable()
+{
+    if (!gExePath.isEmpty())
+    {
+        assert(gExePath.isValid());
+        assert(!gExePath.isDirectory());
+        gExePath.eraseFromDisk(false);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+int runExectuable()
+{
+    assert(!gExePath.isEmpty());
+    assert(gExePath.isValid());
+
+    // build arguments
+    std::vector<const char*> args;
+    for (size_t i = 0; i < global.params.runargs_length; i++)
+    {
+        char *a = global.params.runargs[i];
+        args.push_back(a);
+    }
+    // terminate args list
+    args.push_back(NULL);
+
+    // try to call linker!!!
+    std::string errstr;
+    int status = llvm::sys::Program::ExecuteAndWait(gExePath, &args[0], NULL, NULL, 0,0, &errstr);
+    if (!errstr.empty())
+    {
+        error("failed to execute program");
+        if (!errstr.empty())
+            error("error message: %s", errstr.c_str());
         fatal();
     }
 }

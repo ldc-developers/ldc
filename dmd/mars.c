@@ -43,6 +43,7 @@ long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
 #include "lexer.h"
 
 #include "gen/logger.h"
+#include "gen/linker.h"
 
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
@@ -1110,7 +1111,7 @@ int main(int argc, char *argv[])
 	{
 	    if (!status)
 	    {
-		status = runProgram();
+		status = runExectuable();
 
 		/* Delete .obj files and .exe file
 		 */
@@ -1119,7 +1120,7 @@ int main(int argc, char *argv[])
 		    m = (Module *)modules.data[i];
 		    m->deleteObjFile();
 		}
-		deleteExeFile();
+		deleteExecutable();
 	    }
 	}
     }
