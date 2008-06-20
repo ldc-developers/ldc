@@ -2230,7 +2230,7 @@ DValue* HaltExp::toElem(IRState* p)
     Logger::print("HaltExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-#if 0
+#if 1
     DtoAssert(&loc, NULL);
 #else
     // call the new (?) trap intrinsic
