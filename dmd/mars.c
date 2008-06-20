@@ -18,11 +18,6 @@
 #include <string>
 #include <cstdarg>
 
-#if _WIN32
-#include <windows.h>
-long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
-#endif
-
 #if __DMC__
 #include <dos.h>
 #endif
@@ -311,20 +306,24 @@ int main(int argc, char *argv[])
 #if IN_LLVM
     VersionCondition::addPredefinedGlobalIdent("LLVM");
     VersionCondition::addPredefinedGlobalIdent("LLVMDC");
-    VersionCondition::addPredefinedGlobalIdent("Posix");
 #endif
 #if _WIN32
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent("Win32");
+    VersionCondition::addPredefinedGlobalIdent("mingw32");
     global.params.isWindows = 1;
     tt_os = "-pc-mingw32";
 #elif linux
     VersionCondition::addPredefinedGlobalIdent("linux");
     global.params.isLinux = 1;
-    tt_os = "-unknown-linux-gnu";
+    tt_os = "-pc-linux-gnu";
 #else
 #error
 #endif /* linux */
+
+    // !win32 == posix for now
+    if (!global.params.isWindows)
+        VersionCondition::addPredefinedGlobalIdent("Posix");
 
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
     VersionCondition::addPredefinedGlobalIdent("all");
@@ -837,15 +836,6 @@ int main(int argc, char *argv[])
 
 	p = (char *) files.data[i];
 
-#if _WIN32
-	// Convert / to \ so linker will work
-	for (int i = 0; p[i]; i++)
-	{
-	    if (p[i] == '/')
-		p[i] = '\\';
-	}
-#endif
-
 	p = FileName::name(p);		// strip path
 	ext = FileName::ext(p);
 	if (ext)
@@ -863,7 +853,7 @@ int main(int argc, char *argv[])
 		continue;
 	    }
 
-#if TARGET_LINUX
+#if TARGET_LINUX || __MINGW32__
 	    if (strcmp(ext, "a") == 0)
 #else
 	    if (stricmp(ext, "lib") == 0)
@@ -937,10 +927,6 @@ int main(int argc, char *argv[])
 	global.params.objfiles->push(m->objfile->name->str);
     }
 
-#if _WIN32
-  __try
-  {
-#endif
     // Read files, parse them
     for (i = 0; i < modules.dim; i++)
     {
@@ -1084,14 +1070,7 @@ int main(int argc, char *argv[])
 		m->gendocfile();
 	}
     }
-#if _WIN32
-  }
-  __except (__ehfilter(GetExceptionInformation()))
-  {
-    printf("Stack overflow\n");
-    fatal();
-  }
-#endif
+
     backend_term();
     if (global.errors)
 	fatal();
@@ -1238,19 +1217,3 @@ Ldone:
     *pargc = argc;
     *pargv = (char **)argv->data;
 }
-
-#if _WIN32
-
-long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep)
-{
-    //printf("%x\n", ep->ExceptionRecord->ExceptionCode);
-    if (ep->ExceptionRecord->ExceptionCode == STATUS_STACK_OVERFLOW)
-    {
-#ifndef DEBUG
-	return EXCEPTION_EXECUTE_HANDLER;
-#endif
-    }
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-
-#endif
