@@ -2815,17 +2815,12 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
     Type* aatype = DtoDType(type);
     Type* vtype = aatype->next;
+    const LLType* aalltype = DtoType(type);
 
-    DValue* aa;
-    if (p->topexp() && p->topexp()->e2 == this)
-    {
-        aa = p->topexp()->v;
-    }
-    else
-    {
-        LLValue* tmp = new llvm::AllocaInst(DtoType(type),"aaliteral",p->topallocapoint());
-        aa = new DVarValue(type, tmp, true);
-    }
+    // it should be possible to avoid the temporary in some cases
+    LLValue* tmp = new llvm::AllocaInst(aalltype,"aaliteral",p->topallocapoint());
+    DValue* aa = new DVarValue(type, tmp, true);
+    DtoStore(LLConstant::getNullValue(aalltype), tmp);
 
     const size_t n = keys->dim;
     for (size_t i=0; i<n; ++i)
