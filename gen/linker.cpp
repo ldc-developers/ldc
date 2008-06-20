@@ -227,4 +227,5 @@ int runExectuable()
             error("error message: %s", errstr.c_str());
         fatal();
     }
+    return status;
 }
