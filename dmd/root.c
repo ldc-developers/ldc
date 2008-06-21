@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#if _MSC_VER
+#if _MSC_VER ||__MINGW32__
 #include <malloc.h>
 #endif
 

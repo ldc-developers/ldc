@@ -13,6 +13,10 @@
 #include	"root.h"
 #include	"mem.h"
 
+#ifdef __MINGW32__
+#include <malloc.h>
+#endif
+
 #define LOG	0
 
 char *skipspace(const char *p);

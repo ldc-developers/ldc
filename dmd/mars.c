@@ -328,8 +328,7 @@ int main(int argc, char *argv[])
 
 #if _WIN32
     inifile(argv[0], "llvmdc.ini");
-#endif
-#if linux
+#elif linux
     inifile(argv[0], "llvmdc.conf");
 #else
 #error

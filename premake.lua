@@ -2,7 +2,11 @@ project.name = llvmdc
 
 -- options
 OPAQUE_VTBLS = 1
-USE_BOEHM_GC = 1
+if OS == "windows" then
+	USE_BOEHM_GC = 0
+else
+	USE_BOEHM_GC = 1
+end
 
 -- idgen
 package = newpackage()

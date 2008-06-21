@@ -25,11 +25,16 @@
 #include <limits>
 #elif __DMC__
 #include <complex.h>
+#elif __MINGW32__
+#include <malloc.h>
 #else
 //#define signbit 56
 #endif
 
 #if __APPLE__
+#include <math.h>
+static double zero = 0;
+#elif __MINGW32__
 #include <math.h>
 static double zero = 0;
 #elif __GNUC__

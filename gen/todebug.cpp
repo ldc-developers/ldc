@@ -1,6 +1,7 @@
 #include "gen/llvm.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/System/Path.h"
 
 #include "declaration.h"
 #include "module.h"
@@ -136,11 +137,8 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
     vals[2] = DtoConstUint(DW_LANG_C);// _D)); // doesn't seem to work
     vals[3] = DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata");
     std::string srcpath(FileName::path(m->srcfile->name->toChars()));
-    if (srcpath.empty()) {
-        const char* str = get_current_dir_name();
-        assert(str != NULL);
-        srcpath = str;
-    }
+    if (srcpath.empty())
+		srcpath = llvm::sys::Path::GetCurrentDirectory().toString();
     vals[4] = DtoConstStringPtr(srcpath.c_str(), "llvm.metadata");
     vals[5] = DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata");
 

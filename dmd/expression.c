@@ -19,6 +19,12 @@
 extern "C" char * __cdecl __locale_decpoint;
 #endif
 
+#if __MINGW32__
+#ifndef isnan
+#define isnan _isnan
+#endif
+#endif
+
 #if IN_GCC
 // Issues with using -include total.h (defines integer_t) and then complex.h fails...
 #undef integer_t

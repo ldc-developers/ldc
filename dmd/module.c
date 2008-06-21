@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#ifdef _MSC_VER
+#if _MSC_VER || __MINGW32__
 #include <malloc.h>
 #endif
 

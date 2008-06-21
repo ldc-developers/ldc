@@ -1388,10 +1388,10 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
 #endif
 }
 
-static uint build_classinfo_flags(ClassDeclaration* cd)
+static unsigned build_classinfo_flags(ClassDeclaration* cd)
 {
     // adapted from original dmd code
-    uint flags = 0;
+    unsigned flags = 0;
     //flags |= isCOMclass(); // IUnknown
     bool hasOffTi = false;
     if (cd->ctor) flags |= 8;
@@ -1563,7 +1563,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
         c = defc->getOperand(9);
     }
     else {
-        uint flags = build_classinfo_flags(cd);
+        unsigned flags = build_classinfo_flags(cd);
         c = DtoConstUint(flags);
     }
     inits.push_back(c);

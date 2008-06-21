@@ -13,15 +13,18 @@
 #include <stdio.h>
 #include <assert.h>
 
+#if !IN_LLVM
 #if _WIN32
 #include <windows.h>
 long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
+#endif
 #endif
 
 #include "root.h"
 #include "mem.h"
 #include "stringtable.h"
-
+#include "mars.h"
+#include "identifier.h"
 #include "mtype.h"
 #include "template.h"
 #include "init.h"
@@ -31,9 +34,6 @@ long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
 #include "aggregate.h"
 #include "declaration.h"
 #include "dsymbol.h"
-#include "mars.h"
-#include "dsymbol.h"
-#include "identifier.h"
 #include "hdrgen.h"
 
 #define LOG	0
@@ -2944,9 +2944,11 @@ void TemplateInstance::semantic(Scope *sc)
     //printf("isnested = %d, sc->parent = %s\n", isnested, sc->parent->toChars());
     sc2->parent = /*isnested ? sc->parent :*/ this;
 
+#if !IN_LLVM    
 #if _WIN32
   __try
   {
+#endif
 #endif
     for (int i = 0; i < members->dim; i++)
     {
@@ -2960,6 +2962,7 @@ void TemplateInstance::semantic(Scope *sc)
 	//printf("test4: isnested = %d, s->parent = %s\n", isnested, s->parent->toChars());
 	sc2->module->runDeferredSemantic();
     }
+#if !IN_LLVM    
 #if _WIN32
   }
   __except (__ehfilter(GetExceptionInformation()))
@@ -2968,6 +2971,7 @@ void TemplateInstance::semantic(Scope *sc)
     error("recursive expansion");
     fatal();
   }
+#endif
 #endif
 
     /* If any of the instantiation members didn't get semantic() run
