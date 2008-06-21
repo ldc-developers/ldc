@@ -478,6 +478,48 @@ DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, bool defaultInit)
+{
+    Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
+    LOG_SCOPE;
+
+    // typeinfo arg
+    LLValue* arrayTypeInfo = DtoTypeInfoOf(arrayType);
+
+    // get runtime function
+    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarraymT" : "_d_newarraymiT" );
+
+    // build dims
+    LLValue* dimsArg = new llvm::AllocaInst(DtoSize_t(), DtoConstUint(ndims), ".newdims", gIR->topallocapoint());
+    for (size_t i=0; i<ndims; ++i)
+    {
+        LLValue* dim = dims[i]->getRVal();
+        DtoStore(dim, DtoGEPi1(dimsArg, i));
+    }
+
+    // call allocator
+    LLConstant* arrayLen = DtoConstSize_t(ndims);
+    LLValue* newptr = gIR->ir->CreateCall3(fn, arrayTypeInfo, arrayLen, dimsArg, ".gc_mem");
+
+    // cast to wanted type
+    const LLType* dstType = DtoType(arrayType)->getContainedType(1);
+    if (newptr->getType() != dstType)
+        newptr = DtoBitCast(newptr, dstType, ".gc_mem");
+
+    Logger::cout() << "final ptr = " << *newptr << '\n';
+
+#if 0
+    if (defaultInit) {
+        DValue* e = dty->defaultInit()->toElem(gIR);
+        DtoArrayInit(newptr,dim,e->getRVal());
+    }
+#endif
+
+    return new DSliceValue(arrayType, arrayLen, newptr);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
 {
     Logger::println("DtoResizeDynArray : %s", arrayType->toChars());

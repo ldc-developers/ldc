@@ -1899,10 +1899,21 @@ DValue* NewExp::toElem(IRState* p)
         Logger::println("new dynamic array: %s", newtype->toChars());
         // get dim
         assert(arguments);
-        assert(arguments->dim == 1);
-        DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
-        // allocate & init
-        return DtoNewDynArray(newtype, sz, true);
+        assert(arguments->dim >= 1);
+        if (arguments->dim == 1)
+        {
+            DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
+            // allocate & init
+            return DtoNewDynArray(newtype, sz, true);
+        }
+        else
+        {
+            size_t ndims = arguments->dim;
+            std::vector<DValue*> dims(ndims);
+            for (size_t i=0; i<ndims; ++i)
+                dims[i] = ((Expression*)arguments->data[i])->toElem(p);
+            return DtoNewMulDimDynArray(newtype, &dims[0], ndims, true);
+        }
     }
     // new static array
     else if (ntype->ty == Tsarray)

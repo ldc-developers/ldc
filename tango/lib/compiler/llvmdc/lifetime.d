@@ -293,23 +293,19 @@ Loverflow:
     return null;
 }
 
-/+
-
 /**
  *
  */
-extern (C) Array _d_newarraymT(TypeInfo ti, int ndims, ...)
+extern (C) void* _d_newarraymT(TypeInfo ti, int ndims, size_t* dims)
 {
-    Array result;
+    void* result;
 
     debug(PRINTF) printf("_d_newarraymT(ndims = %d)\n", ndims);
     if (ndims == 0)
-        result = Array();
+        result = null;
     else
-    {   va_list q;
-        va_start!(int)(q, ndims);
-
-        void[] foo(TypeInfo ti, size_t* pdim, int ndims)
+    {
+        static void[] foo(TypeInfo ti, size_t* pdim, int ndims)
         {
             size_t dim = *pdim;
             void[] p;
@@ -317,7 +313,8 @@ extern (C) Array _d_newarraymT(TypeInfo ti, int ndims, ...)
             debug(PRINTF) printf("foo(ti = %p, ti.next = %p, dim = %d, ndims = %d\n", ti, ti.next, dim, ndims);
             if (ndims == 1)
             {
-                return _d_newarrayT(ti, dim);
+                auto r = _d_newarrayT(ti, dim);
+                return r[0 .. dim];
             }
             else
             {
@@ -330,19 +327,16 @@ extern (C) Array _d_newarraymT(TypeInfo ti, int ndims, ...)
             return p;
         }
 
-        size_t* pdim = cast(size_t *)q;
-        void[] arr = foo(ti, pdim, ndims);
-        result = Arra
-        debug(PRINTF) printf("result = %llx\n", result);
+        result = foo(ti, dims, ndims).ptr;
+        debug(PRINTF) printf("result = %p\n", result);
 
         version (none)
         {
             for (int i = 0; i < ndims; i++)
             {
-                printf("index %d: %d\n", i, va_arg!(int)(q));
+                printf("index %d: %d\n", i, *dims++);
             }
         }
-        va_end(q);
     }
     return result;
 }
@@ -351,19 +345,16 @@ extern (C) Array _d_newarraymT(TypeInfo ti, int ndims, ...)
 /**
  *
  */
-extern (C) Array _d_newarraymiT(TypeInfo ti, int ndims, ...)
+extern (C) void* _d_newarraymiT(TypeInfo ti, int ndims, size_t* dims)
 {
-    Array result;
+    void* result;
 
     debug(PRINTF) printf("_d_newarraymiT(ndims = %d)\n", ndims);
     if (ndims == 0)
-        result = 0;
+        result = null;
     else
     {
-        va_list q;
-        va_start!(int)(q, ndims);
-
-        void[] foo(TypeInfo ti, size_t* pdim, int ndims)
+        static void[] foo(TypeInfo ti, size_t* pdim, int ndims)
         {
             size_t dim = *pdim;
             void[] p;
@@ -371,7 +362,7 @@ extern (C) Array _d_newarraymiT(TypeInfo ti, int ndims, ...)
             if (ndims == 1)
             {
                 auto r = _d_newarrayiT(ti, dim);
-                p = *cast(void[]*)(&r);
+                p = r[0 .. dim];
             }
             else
             {
@@ -384,22 +375,22 @@ extern (C) Array _d_newarraymiT(TypeInfo ti, int ndims, ...)
             return p;
         }
 
-        size_t* pdim = cast(size_t *)q;
-        result = cast(ulong)foo(ti, pdim, ndims);
-        debug(PRINTF) printf("result = %llx\n", result);
+        result = foo(ti, dims, ndims).ptr;
+        debug(PRINTF) printf("result = %p\n", result);
 
         version (none)
         {
             for (int i = 0; i < ndims; i++)
             {
-                printf("index %d: %d\n", i, va_arg!(int)(q));
-                printf("init = %d\n", va_arg!(int)(q));
+                printf("index %d: %d\n", i, *dims++);
+                printf("init = %d\n", *dims++);
             }
         }
-        va_end(q);
     }
     return result;
 }
+
+/+
 
 /**
  *
