@@ -1,4 +1,5 @@
 #include "gen/llvm.h"
+#include "llvm/Target/TargetMachineRegistry.h"
 
 #include "mars.h"
 #include "init.h"
@@ -1095,4 +1096,19 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     if (base)
         return llvm::ConstantExpr::getBitCast(c, typeinfotype);
     return c;
+}
+
+void findDefaultTarget()
+{
+    std::string err_str;
+    const llvm::TargetMachineRegistry::entry* e = llvm::TargetMachineRegistry::getClosestTargetForJIT(err_str);
+    if (e == 0)
+    {
+        error("Failed to find a default target machine: %s", err_str.c_str());
+        fatal();
+    }
+    else
+    {
+        global.params.llvmArch = const_cast<char*>(e->Name);
+    }
 }

@@ -794,6 +794,20 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     {
         mem = new llvm::AllocaInst(DtoType(tc)->getContainedType(0), "newclass_alloca", gIR->topallocapoint());
     }
+    // custom allocator
+    else if (newexp->allocator)
+    {
+        DtoForceDeclareDsymbol(newexp->allocator);
+        assert(newexp->newargs);
+        assert(newexp->newargs->dim == 1);
+
+        llvm::Function* fn = newexp->allocator->ir.irFunc->func;
+        assert(fn);
+        DValue* arg = ((Expression*)newexp->newargs->data[0])->toElem(gIR);
+        mem = gIR->ir->CreateCall(fn, arg->getRVal(), "newclass_custom_alloc");
+        mem = DtoBitCast(mem, DtoType(tc), "newclass_custom");
+    }
+    // default allocator
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
@@ -1446,26 +1460,30 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     DtoForceConstInitDsymbol(cinfo);
     assert(cinfo->ir.irStruct->constInit);
 
+    // def init constant
+    LLConstant* defc = cinfo->ir.irStruct->constInit;
+    assert(defc);
+
     LLConstant* c;
 
     // own vtable
-    c = cinfo->ir.irStruct->constInit->getOperand(0);
+    c = defc->getOperand(0);
     assert(c);
     inits.push_back(c);
 
     // monitor
-    c = cinfo->ir.irStruct->constInit->getOperand(1);
+    c = defc->getOperand(1);
     inits.push_back(c);
 
     // byte[] init
     const LLType* byteptrty = getPtrToType(LLType::Int8Ty);
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->ir.irStruct->constInit->getOperand(2);
+        c = defc->getOperand(2);
     }
     else {
         c = llvm::ConstantExpr::getBitCast(cd->ir.irStruct->init, byteptrty);
-        assert(!cd->ir.irStruct->constInit->getType()->isAbstract());
-        size_t initsz = getABITypeSize(cd->ir.irStruct->constInit->getType());
+        assert(!defc->getType()->isAbstract());
+        size_t initsz = getABITypeSize(defc->getType());
         c = DtoConstSlice(DtoConstSize_t(initsz), c);
     }
     inits.push_back(c);
@@ -1484,7 +1502,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // vtbl array
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->ir.irStruct->constInit->getOperand(4);
+        c = defc->getOperand(4);
     }
     else {
         const LLType* byteptrptrty = getPtrToType(byteptrty);
@@ -1503,10 +1521,10 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // interfaces array
     IrStruct* irstruct = cd->ir.irStruct;
     if (cd->isInterfaceDeclaration() || !irstruct->interfaceInfos || cd->isAbstract()) {
-        c = cinfo->ir.irStruct->constInit->getOperand(5);
+        c = defc->getOperand(5);
     }
     else {
-        const LLType* t = cinfo->ir.irStruct->constInit->getOperand(5)->getType()->getContainedType(1);
+        const LLType* t = defc->getOperand(5)->getType()->getContainedType(1);
         c = llvm::ConstantExpr::getBitCast(irstruct->interfaceInfos, t);
         size_t iisz = irstruct->interfaceInfosTy->getNumElements();
         c = DtoConstSlice(DtoConstSize_t(iisz), c);
@@ -1522,13 +1540,13 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else {
         // null
-        c = cinfo->ir.irStruct->constInit->getOperand(6);
+        c = defc->getOperand(6);
         inits.push_back(c);
     }
 
     // destructor
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->ir.irStruct->constInit->getOperand(7);
+        c = defc->getOperand(7);
     }
     else {
         c = build_class_dtor(cd);
@@ -1537,12 +1555,12 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // invariant
     // TODO
-    c = cinfo->ir.irStruct->constInit->getOperand(8);
+    c = defc->getOperand(8);
     inits.push_back(c);
 
     // uint flags
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->ir.irStruct->constInit->getOperand(9);
+        c = defc->getOperand(9);
     }
     else {
         uint flags = build_classinfo_flags(cd);
@@ -1550,17 +1568,23 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
     inits.push_back(c);
 
-    // allocator
-    // TODO
-    c = cinfo->ir.irStruct->constInit->getOperand(10);
+    // deallocator
+    if (cd->aggDelete) {
+        DtoForceDeclareDsymbol(cd->aggDelete);
+        c = cd->aggDelete->ir.irFunc->func;
+        c = llvm::ConstantExpr::getBitCast(c, defc->getOperand(10)->getType());
+    }
+    else {
+        c = defc->getOperand(10);
+    }
     inits.push_back(c);
 
     // offset typeinfo
     if (cd->isInterfaceDeclaration() || cd->isAbstract()) {
-        c = cinfo->ir.irStruct->constInit->getOperand(11);
+        c = defc->getOperand(11);
     }
     else {
-        c = build_offti_array(cd, cinfo->ir.irStruct->constInit->getOperand(11));
+        c = build_offti_array(cd, defc->getOperand(11));
     }
     inits.push_back(c);
 
@@ -1568,11 +1592,11 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     if (cd->defaultCtor && !cd->isInterfaceDeclaration() && !cd->isAbstract()) {
         DtoForceDeclareDsymbol(cd->defaultCtor);
         c = isaConstant(cd->defaultCtor->ir.irFunc->func);
-        const LLType* toTy = cinfo->ir.irStruct->constInit->getOperand(12)->getType();
+        const LLType* toTy = defc->getOperand(12)->getType();
         c = llvm::ConstantExpr::getBitCast(c, toTy);
     }
     else {
-        c = cinfo->ir.irStruct->constInit->getOperand(12);
+        c = defc->getOperand(12);
     }
     inits.push_back(c);
 
@@ -1583,7 +1607,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }*/
 
     // build the initializer
-    const llvm::StructType* st = isaStruct(cinfo->ir.irStruct->constInit->getType());
+    const llvm::StructType* st = isaStruct(defc->getType());
     LLConstant* finalinit = llvm::ConstantStruct::get(st, inits);
     //Logger::cout() << "built the classinfo initializer:\n" << *finalinit <<'\n';
 

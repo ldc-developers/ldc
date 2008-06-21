@@ -1885,10 +1885,7 @@ DValue* NewExp::toElem(IRState* p)
     Logger::print("NewExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    assert(!newargs && "arguments to new not yet supported");
     assert(newtype);
-    assert(!allocator && "custom allocators not yet supported");
-
     Type* ntype = DtoDType(newtype);
 
     // new class

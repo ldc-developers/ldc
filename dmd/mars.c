@@ -7,9 +7,6 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
-#include "llvm/Target/TargetMachineRegistry.h"
-#include "llvm/System/Signals.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -41,6 +38,9 @@
 #include "gen/linker.h"
 
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
+
+// llvmdc
+void findDefaultTarget();
 
 Global global;
 
@@ -225,8 +225,6 @@ Usage:\n\
 
 int main(int argc, char *argv[])
 {
-    llvm::sys::PrintStackTraceOnErrorSignal();
-
     int i;
     Array files;
     char *p;
@@ -690,21 +688,7 @@ int main(int argc, char *argv[])
     bool allowForceEndianness = false;
 
     if (global.params.llvmArch == 0) {
-        std::string err_str;
-        const llvm::TargetMachineRegistry::entry* e = llvm::TargetMachineRegistry::getClosestTargetForJIT(err_str);
-        if (e == 0) {
-            error("Failed to find a default target machine: %s", err_str.c_str());
-            fatal();
-        }
-        else {
-            global.params.llvmArch = const_cast<char*>(e->Name);
-            if (global.params.verbose || very_verbose)
-            printf("Default target found: %s\n", global.params.llvmArch);
-            if (very_verbose) {
-                int X = sizeof(va_list);
-                printf("valist.sizeof = %d\n", X);
-            }
-        }
+        findDefaultTarget();
     }
 
     bool is_x86 = false;
@@ -717,7 +701,6 @@ int main(int argc, char *argv[])
         tt_arch = "i686";
         data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
         is_x86 = true;
-        
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86_64");

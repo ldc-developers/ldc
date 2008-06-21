@@ -62,4 +62,7 @@ DValue* DtoBinMul(DValue* lhs, DValue* rhs);
 DValue* DtoBinDiv(DValue* lhs, DValue* rhs);
 DValue* DtoBinRem(DValue* lhs, DValue* rhs);
 
+// target stuff
+void findDefaultTarget();
+
 #endif

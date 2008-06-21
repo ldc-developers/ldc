@@ -1,6 +1,13 @@
 #ifndef LLVMDC_GEN_LINKER_H
 #define LLVMDC_GEN_LINKER_H
 
+#include <vector>
+
+namespace llvm
+{
+    class Module;
+}
+
 /**
  * Links the modules given in MV in to dst.
  * @param dst Destination module.
