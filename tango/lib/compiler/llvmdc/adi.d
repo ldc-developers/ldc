@@ -378,29 +378,14 @@ extern (C) Array _adSortWchar(wchar[] a)
 extern (C) int _adEq(Array a1, Array a2, TypeInfo ti)
 {
     debug(adi) printf("_adEq(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
+
     if (a1.length != a2.length)
         return 0;               // not equal
-    auto sz = ti.tsize();
-    auto p1 = a1.ptr;
-    auto p2 = a2.ptr;
+    else if (a1.ptr == a2.ptr)
+        return 1;               // equal
 
-/+
-    for (int i = 0; i < a1.length; i++)
-    {
-        printf("%4x %4x\n", (cast(short*)p1)[i], (cast(short*)p2)[i]);
-    }
-+/
-
-    if (sz == 1)
-        // We should really have a ti.isPOD() check for this
-        return (memcmp(p1, p2, a1.length) == 0);
-
-    for (size_t i = 0; i < a1.length; i++)
-    {
-        if (!ti.equals(p1 + i * sz, p2 + i * sz))
-            return 0;           // not equal
-    }
-    return 1;                   // equal
+    // let typeinfo decide
+    return ti.equals(&a1, &a2);
 }
 
 unittest
@@ -423,31 +408,17 @@ unittest
 extern (C) int _adCmp(Array a1, Array a2, TypeInfo ti)
 {
     debug(adi) printf("adCmp()\n");
+
+    if (a1.ptr == a2.ptr &&
+        a1.length == a2.length)
+        return 0;
+
     auto len = a1.length;
     if (a2.length < len)
         len = a2.length;
-    auto sz = ti.tsize();
-    void *p1 = a1.ptr;
-    void *p2 = a2.ptr;
 
-    if (sz == 1)
-    {   // We should really have a ti.isPOD() check for this
-        auto c = memcmp(p1, p2, len);
-        if (c)
-            return c;
-    }
-    else
-    {
-        for (size_t i = 0; i < len; i++)
-        {
-            auto c = ti.compare(p1 + i * sz, p2 + i * sz);
-            if (c)
-                return c;
-        }
-    }
-    if (a1.length == a2.length)
-        return 0;
-    return (a1.length > a2.length) ? 1 : -1;
+    // let typeinfo decide
+    return ti.compare(&a1, &a2);
 }
 
 unittest

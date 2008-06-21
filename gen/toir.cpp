@@ -2063,8 +2063,9 @@ DValue* AssertExp::toElem(IRState* p)
     p->scope() = IRScope(assertbb,endbb);
     DtoAssert(&loc, msg ? msg->toElem(p) : NULL);
 
-    if (!gIR->scopereturned())
-        llvm::BranchInst::Create(endbb, p->scopebb());
+    // assert inserts unreachable terminator
+//     if (!gIR->scopereturned())
+//         llvm::BranchInst::Create(endbb, p->scopebb());
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
@@ -2243,9 +2244,8 @@ DValue* HaltExp::toElem(IRState* p)
 #else
     // call the new (?) trap intrinsic
     p->ir->CreateCall(GET_INTRINSIC_DECL(trap),"");
-#endif
-
     new llvm::UnreachableInst(p->scopebb());
+#endif
 
     // this terminated the basicblock, start a new one
     // this is sensible, since someone might goto behind the assert

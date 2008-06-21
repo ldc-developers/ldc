@@ -782,9 +782,9 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
     args.push_back(DtoBitCast(lmem,pt));
     args.push_back(DtoBitCast(rmem,pt));
 
-    // pass element typeinfo ?
+    // pass array typeinfo ?
     if (useti) {
-        Type* t = DtoDType(l->getType())->next;
+        Type* t = l->getType();
         LLValue* tival = DtoTypeInfoOf(t);
         // DtoTypeInfoOf only does declare, not enough in this case :/
         DtoForceConstInitDsymbol(t->vtinfo);

@@ -98,6 +98,7 @@ void DtoAssert(Loc* loc, DValue* msg)
     llvm::PAListPtr palist;
     int idx = 1;
 
+    // FIXME: every assert creates a global for the filename !!!
     c = DtoConstString(loc->filename);
 
     // msg param
@@ -144,6 +145,9 @@ void DtoAssert(Loc* loc, DValue* msg)
     // call
     llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
     call->setParamAttrs(palist);
+
+    // after assert is always unreachable
+    gIR->ir->CreateUnreachable();
 }
 
 /****************************************************************************************/

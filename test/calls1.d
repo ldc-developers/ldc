@@ -1,5 +1,6 @@
 module calls1;
 import tango.core.Vararg;
+extern(C) int printf(char*, ...);
 void main()
 {
     {int a = byVal1(3);}
