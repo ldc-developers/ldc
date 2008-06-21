@@ -1085,17 +1085,16 @@ void DtoAnnotation(const char* str)
 
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
-    type = type->merge(); // seems like this is needed in some cases with templates.
-    const LLType* typeinfotype = DtoType(Type::typeinfo->type);
-    if (!type->vtinfo)
-        type->getTypeInfo(NULL);
+    type = type->merge(); // needed.. getTypeInfo does the same
+    type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
+    assert(tidecl);
     DtoForceDeclareDsymbol(tidecl);
     assert(tidecl->ir.irGlobal != NULL);
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
     assert(c != NULL);
     if (base)
-        return llvm::ConstantExpr::getBitCast(c, typeinfotype);
+        return llvm::ConstantExpr::getBitCast(c, DtoType(Type::typeinfo->type));
     return c;
 }
 

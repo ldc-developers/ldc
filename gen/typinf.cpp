@@ -383,6 +383,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     TypedefDeclaration *sd = tc->sym;
 
     // TypeInfo base
+    sd->basetype = sd->basetype->merge(); // DMD does this!
     LLConstant* castbase = DtoTypeInfoOf(sd->basetype, true);
     assert(castbase->getType() == stype->getElementType(2));
     sinits.push_back(castbase);
@@ -962,8 +963,6 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     // create the symbol
     LLConstant* tiInit = llvm::ConstantStruct::get(stype, sinits);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(stype,true,llvm::GlobalValue::WeakLinkage,tiInit,toChars(),gIR->module);
-
     isaGlobalVar(this->ir.irGlobal->value)->setInitializer(tiInit);
 }
 
