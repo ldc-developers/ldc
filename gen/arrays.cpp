@@ -492,15 +492,16 @@ DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, 
 
     // build dims
     LLValue* dimsArg = new llvm::AllocaInst(DtoSize_t(), DtoConstUint(ndims), ".newdims", gIR->topallocapoint());
+    LLValue* firstDim = NULL; 
     for (size_t i=0; i<ndims; ++i)
     {
         LLValue* dim = dims[i]->getRVal();
+        if (!firstDim) firstDim = dim;
         DtoStore(dim, DtoGEPi1(dimsArg, i));
     }
 
     // call allocator
-    LLConstant* arrayLen = DtoConstSize_t(ndims);
-    LLValue* newptr = gIR->ir->CreateCall3(fn, arrayTypeInfo, arrayLen, dimsArg, ".gc_mem");
+    LLValue* newptr = gIR->ir->CreateCall3(fn, arrayTypeInfo, DtoConstSize_t(ndims), dimsArg, ".gc_mem");
 
     // cast to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
@@ -516,7 +517,8 @@ DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, 
     }
 #endif
 
-    return new DSliceValue(arrayType, arrayLen, newptr);
+    assert(firstDim);
+    return new DSliceValue(arrayType, firstDim, newptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
