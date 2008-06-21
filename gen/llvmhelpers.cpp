@@ -1085,6 +1085,7 @@ void DtoAnnotation(const char* str)
 
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
+    type = type->merge(); // seems like this is needed in some cases with templates.
     const LLType* typeinfotype = DtoType(Type::typeinfo->type);
     if (!type->vtinfo)
         type->getTypeInfo(NULL);
@@ -1097,6 +1098,8 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
         return llvm::ConstantExpr::getBitCast(c, typeinfotype);
     return c;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 void findDefaultTarget()
 {
