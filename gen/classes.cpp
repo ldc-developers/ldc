@@ -1482,8 +1482,8 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else {
         c = llvm::ConstantExpr::getBitCast(cd->ir.irStruct->init, byteptrty);
-        assert(!defc->getType()->isAbstract());
-        size_t initsz = getABITypeSize(defc->getType());
+        assert(!cd->ir.irStruct->constInit->getType()->isAbstract());
+        size_t initsz = getABITypeSize(cd->ir.irStruct->constInit->getType());
         c = DtoConstSlice(DtoConstSize_t(initsz), c);
     }
     inits.push_back(c);
