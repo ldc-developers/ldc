@@ -969,7 +969,22 @@ LLConstant* DtoConstInitializer(Type* type, Initializer* init)
     if (!init)
     {
         Logger::println("const default initializer for %s", type->toChars());
-        _init = type->defaultInit()->toConstElem(gIR);
+
+        if(type->ty == Tsarray)
+        {
+            Logger::println("type is a static array, building constant array initializer");
+            TypeSArray* arrtype = (TypeSArray*)type;
+            Type* elemtype = type->next;
+
+            integer_t arraydim;
+            arraydim = arrtype->dim->toInteger();
+
+            std::vector<LLConstant*> inits(arraydim, elemtype->defaultInit()->toConstElem(gIR));
+            const LLArrayType* arrty = LLArrayType::get(DtoType(elemtype),arraydim);
+            _init = LLConstantArray::get(arrty, inits);
+        }
+        else
+            _init = type->defaultInit()->toConstElem(gIR);
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
