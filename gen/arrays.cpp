@@ -486,8 +486,13 @@ DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, 
     // typeinfo arg
     LLValue* arrayTypeInfo = DtoTypeInfoOf(arrayType);
 
+    // get value type
+    Type* vtype = arrayType->toBasetype();
+    for (size_t i=0; i<ndims; ++i)
+        vtype = vtype->nextOf();
+
     // get runtime function
-    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    bool zeroInit = vtype->isZeroInit();
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarraymT" : "_d_newarraymiT" );
 
     // build dims
