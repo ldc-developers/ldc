@@ -808,7 +808,7 @@ LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r)
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
 
-    return res;
+    return DtoBoolean(res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
