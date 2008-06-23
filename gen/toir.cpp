@@ -2702,18 +2702,20 @@ DValue* StructLiteralExp::toElem(IRState* p)
     LLValue* mem = 0;
     bool isinplace = true;
 
+    // already has memory (r-value of assignment)
+    IRExp* topexp = p->topexp();
+    if (topexp && topexp->e2 == this && !topexp->v->isSlice())
+    {
+        assert(topexp->e2 == this);
+        sptr = topexp->v->getLVal();
+    }
     // temporary struct literal
-    if (!p->topexp() || p->topexp()->e2 != this)
+    else
     {
         sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
         isinplace = false;
     }
-    // already has memory
-    else
-    {
-        assert(p->topexp()->e2 == this);
-        sptr = p->topexp()->v->getLVal();
-    }
+
 
     // num elements in literal
     unsigned n = elements->dim;

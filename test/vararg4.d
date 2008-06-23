@@ -1,5 +1,6 @@
 module vararg4;
 import tango.core.Vararg;
+extern(C) int printf(char*, ...);
 
 void vafunc(...)
 {

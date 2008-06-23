@@ -251,6 +251,7 @@ void DtoResolveClass(ClassDeclaration* cd)
     #else
         iri->vtblTy = isaStruct(itc->ir.vtblType->get());
     #endif
+        assert(iri->vtblTy);
 
         // set index
         iri->index = interIdx++;

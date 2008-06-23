@@ -1,11 +1,21 @@
 project.name = llvmdc
 
 -- options
+
+-- we always make vtables opaque, it simply kills performance...
 OPAQUE_VTBLS = 1
+
+-- use of boehm gc
 if OS == "windows" then
-	USE_BOEHM_GC = 0
+    USE_BOEHM_GC = 0
 else
-	USE_BOEHM_GC = 1
+    addoption("no-boehm", "Disable use of the Boehm GC")
+
+    if options["no-boehm"] then
+        USE_BOEHM_GC = 0
+    else
+        USE_BOEHM_GC = 1
+    end
 end
 
 -- idgen

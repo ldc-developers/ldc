@@ -97,13 +97,3 @@ size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
     }
     return (len*elemsz)/newelemsz;
 }
-
-// creating args for main
-void _d_main_args(uint n, char** args, ref char[][] res)
-{
-    assert(res.length == n);
-    foreach(i,v; args[0..n])
-    {
-        res[i] = v[0 .. strlen(v)];
-    }
-}

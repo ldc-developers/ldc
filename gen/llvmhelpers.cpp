@@ -345,7 +345,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
     Type* t2 = DtoDType(rhs->getType());
 
     if (t->ty == Tstruct) {
-        if (t2 != t) {
+        if (!t->equals(t2)) {
             // TODO: fix this, use 'rhs' for something
             DtoAggrZeroInit(lhs->getLVal());
         }
@@ -359,11 +359,8 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             if (DSliceValue* s2 = rhs->isSlice()) {
                 DtoArrayCopySlices(s, s2);
             }
-            else if (t->next == t2) {
-                if (s->len)
-                    DtoArrayInit(s->ptr, s->len, rhs->getRVal());
-                else
-                    DtoArrayInit(s->ptr, rhs->getRVal());
+            else if (t->next->equals(t2)) {
+                DtoArrayInit(s, rhs);
             }
             else {
                 DtoArrayCopyToSlice(s, rhs);
@@ -388,7 +385,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             DtoStaticArrayCopy(lhs->getLVal(), rhs->getRVal());
         }
         else {
-            DtoArrayInit(lhs->getLVal(), rhs->getRVal());
+            DtoArrayInit(lhs, rhs);
         }
     }
     else if (t->ty == Tdelegate) {

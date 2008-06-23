@@ -51,7 +51,6 @@ dmd/inline.c
 dmd/interpret.c
 dmd/lexer.c
 dmd/lexer.h
-dmd/link.c
 dmd/lstring.c
 dmd/lstring.h
 dmd/macro.c

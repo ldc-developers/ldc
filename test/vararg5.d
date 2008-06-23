@@ -1,5 +1,6 @@
 module vararg5;
 import tango.core.Vararg;
+extern(C) int printf(char*, ...);
 void func(...)
 {
     char[] str = va_arg!(char[])(_argptr);

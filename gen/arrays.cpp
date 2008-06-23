@@ -111,32 +111,6 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoArrayInit(LLValue* l, LLValue* r)
-{
-    Logger::println("DtoArrayInit");
-    LOG_SCOPE;
-
-    const LLPointerType* ptrty = isaPointer(l->getType());
-    const LLType* t = ptrty->getContainedType(0);
-    const LLArrayType* arrty = isaArray(t);
-    if (arrty)
-    {
-        LLValue* ptr = DtoGEPi(l,0,0);
-        LLValue* dim = DtoConstSize_t(arrty->getNumElements());
-        DtoArrayInit(ptr, dim, r);
-    }
-    else if (isaStruct(t))
-    {
-        LLValue* dim = DtoLoad(DtoGEPi(l, 0,0));
-        LLValue* ptr = DtoLoad(DtoGEPi(l, 0,1));
-        DtoArrayInit(ptr, dim, r);
-    }
-    else
-    assert(0);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 typedef const LLType* constLLVMTypeP;
 
 static size_t checkRectArrayInit(const LLType* pt, constLLVMTypeP& finalty)
@@ -151,40 +125,57 @@ static size_t checkRectArrayInit(const LLType* pt, constLLVMTypeP& finalty)
     return 0;
 }
 
-void DtoArrayInit(LLValue* ptr, LLValue* dim, LLValue* val)
+void DtoArrayInit(DValue* array, DValue* value)
 {
     Logger::println("DtoArrayInit");
     LOG_SCOPE;
 
-    Logger::cout() << "array: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
+    LLValue* dim = DtoArrayLen(array);
+    LLValue* ptr = DtoArrayPtr(array);
+    LLValue* val = value->getRVal();
+
+    Logger::cout() << "llvm values:\n" << " ptr: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
+
     const LLType* pt = ptr->getType()->getContainedType(0);
     const LLType* t = val->getType();
     const LLType* finalTy;
+
     size_t aggrsz = 0;
-    if (size_t arrsz = checkRectArrayInit(pt, finalTy)) {
+    Type* valtype = value->getType()->toBasetype();
+
+    // handle rectangular init
+    if (size_t arrsz = checkRectArrayInit(pt, finalTy))
+    {
         assert(finalTy == t);
         LLConstant* c = isaConstant(dim);
         assert(c);
         dim = llvm::ConstantExpr::getMul(c, DtoConstSize_t(arrsz));
         ptr = gIR->ir->CreateBitCast(ptr, getPtrToType(finalTy), "tmp");
     }
-    else if (isaStruct(t)) {
+    // handle null aggregate
+    else if (isaStruct(t))
+    {
         aggrsz = getABITypeSize(t);
         LLConstant* c = isaConstant(val);
-        if (c && c->isNullValue()) {
-            LLValue* nbytes;
-            if (aggrsz == 1)
-                nbytes = dim;
-            else
-                nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(aggrsz), "tmp");
-            DtoMemSetZero(ptr,nbytes);
-            return;
-        }
-        else {
-            ptr = gIR->ir->CreateBitCast(ptr, getPtrToType(LLType::Int8Ty), "tmp");
-        }
+        assert(c && c->isNullValue());
+        LLValue* nbytes;
+        if (aggrsz == 1)
+            nbytes = dim;
+        else
+            nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(aggrsz), "tmp");
+        DtoMemSetZero(ptr,nbytes);
+        return;
     }
-    else {
+    // handle general aggregate case
+    else if (DtoIsPassedByRef(valtype))
+    {
+        aggrsz = getABITypeSize(pt);
+        ptr = gIR->ir->CreateBitCast(ptr, getVoidPtrType(), "tmp");
+        val = gIR->ir->CreateBitCast(val, getVoidPtrType(), "tmp");
+    }
+    else
+    {
+        Logger::cout() << "no special handling" << '\n';
         assert(t == pt);
     }
 
