@@ -804,11 +804,11 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r)
 {
-    LLValue* res = DtoArrayEqCmp_impl("_adEq", l, r, true);
+    LLValue* res = DtoBoolean(DtoArrayEqCmp_impl("_adEq", l, r, true));
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
 
-    return DtoBoolean(res);
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
