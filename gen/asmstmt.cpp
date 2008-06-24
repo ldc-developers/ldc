@@ -463,8 +463,11 @@ static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
     char buf[10];
     for (unsigned i = 0; i < nargs; i++) {
         needle = prefix + digits[i] + suffix;
-        sprintf(buf, "%u", idx++);
-        insnt.replace(insnt.find(needle), needle.size(), buf);
+        size_t pos = insnt.find(needle);
+        if(pos != std::string::npos) {
+            sprintf(buf, "%u", idx++);
+            insnt.replace(pos, needle.size(), buf);
+        }
     }
 }
 
@@ -485,8 +488,11 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
     char buf[10];
     for (unsigned i = 0; i < nargs; i++) {
         needle = prefix + digits[i] + suffix;
-        sprintf(buf, "%u", idx++);
-        insnt.replace(insnt.find(needle), needle.size(), buf);
+        size_t pos = insnt.find(needle);
+        if(pos != std::string::npos) {
+            sprintf(buf, "%u", idx++);
+            insnt.replace(pos, needle.size(), buf);
+        }
     }
 }
 
@@ -515,7 +521,11 @@ void AsmBlockStatement::toIR(IRState* p)
     // this additional asm code sets the __llvm_jump_target variable
     // to a unique value that will identify the jump target in
     // a post-asm switch
-    //FIXME: Need to init __llvm_jump_target
+
+    // create storage for and initialize the temporary
+    llvm::AllocaInst* jump_target = new llvm::AllocaInst(llvm::IntegerType::get(32), "__llvm_jump_target", p->topallocapoint());
+    gIR->ir->CreateStore(llvm::ConstantInt::get(llvm::IntegerType::get(32), 0), jump_target);
+
     //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
     std::string asmGotoEnd = "jmp __llvm_asm_end ; ";
     std::string outGotoSetter = asmGotoEnd;
@@ -582,7 +592,7 @@ void AsmBlockStatement::toIR(IRState* p)
         {
             out_c += a->out_c;
         }
-        remap_outargs(a->code, onn, asmIdx);
+        remap_outargs(a->code, onn+a->in.size(), asmIdx);
     }
     for (size_t i=0; i<n; ++i)
     {
@@ -598,7 +608,7 @@ void AsmBlockStatement::toIR(IRState* p)
         {
             in_c += a->in_c;
         }
-        remap_inargs(a->code, inn, asmIdx);
+        remap_inargs(a->code, inn+a->out.size(), asmIdx);
         if (!code.empty())
             code += " ; ";
         code += a->code;
