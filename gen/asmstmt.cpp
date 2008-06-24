@@ -526,9 +526,13 @@ void AsmBlockStatement::toIR(IRState* p)
     llvm::AllocaInst* jump_target = new llvm::AllocaInst(llvm::IntegerType::get(32), "__llvm_jump_target", p->topallocapoint());
     gIR->ir->CreateStore(llvm::ConstantInt::get(llvm::IntegerType::get(32), 0), jump_target);
 
-    //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
+    IRAsmStmt* outSetterStmt = new IRAsmStmt;
     std::string asmGotoEnd = "jmp __llvm_asm_end ; ";
-    std::string outGotoSetter = asmGotoEnd;
+    outSetterStmt->code = asmGotoEnd;
+    outSetterStmt->out_c = "=*m,";
+    outSetterStmt->out.push_back(jump_target);
+
+    int n_goto = 1;
 
     size_t n = asmblock->s.size();
     for(size_t i=0; i<n; ++i)
@@ -551,19 +555,21 @@ void AsmBlockStatement::toIR(IRState* p)
 
         // provide an in-asm target for the branch and set value
         Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
-        outGotoSetter += a->isBranchToLabel->string;
-        outGotoSetter += ": ; ";
-        outGotoSetter += "nop ; "; //FIXME: Change this to set __llvm_jump_target to a unique value
-        outGotoSetter += asmGotoEnd;
+        outSetterStmt->code += a->isBranchToLabel->string;
+        outSetterStmt->code += ": ; ";
+        outSetterStmt->code += "movl $<<in1>>, $<<out0>> ; ";
+        //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
+        outSetterStmt->in.push_back(llvm::ConstantInt::get(llvm::IntegerType::get(32), n_goto++));
+        outSetterStmt->in_c += "i,";
+        outSetterStmt->code += asmGotoEnd;
     }
-    if(outGotoSetter != asmGotoEnd)
+    if(outSetterStmt->code != asmGotoEnd)
     {
-        outGotoSetter += "__llvm_asm_end: ; ";
-        IRAsmStmt* outSetterStmt = new IRAsmStmt;
-        outSetterStmt->code = outGotoSetter;
-        //FIXME: set other stuff
+        outSetterStmt->code += "__llvm_asm_end: ; ";
         asmblock->s.push_back(outSetterStmt);
     }
+    else
+        delete outSetterStmt;
 
 
     // build asm block
