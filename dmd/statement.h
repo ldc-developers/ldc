@@ -791,6 +791,10 @@ struct AsmStatement : Statement
     virtual AsmStatement *isAsmStatement() { return this; }
 
     void toIR(IRState *irs);
+
+    // LLVMDC
+    // non-zero if this is a branch, contains the target
+    Identifier* isBranchToLabel;
 };
 
 struct AsmBlockStatement : CompoundStatement

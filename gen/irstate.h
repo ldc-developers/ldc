@@ -72,12 +72,18 @@ struct IRAsmStmt
     std::string in_c;
     std::vector<LLValue*> out;
     std::vector<LLValue*> in;
+
+    // if this is nonzero, it contains the target ident
+    Identifier* isBranchToLabel;
 };
 
 struct IRAsmBlock
 {
     std::vector<IRAsmStmt*> s;
     std::set<std::string> clobs;
+
+    // stores the labels within the asm block
+    std::vector<Identifier*> internalLabels;
 };
 
 // represents the module

@@ -78,6 +78,8 @@ AsmStatement::AsmStatement(Loc loc, Token *tokens) :
     refparam = 0;
     naked = 0;
     regs = 0;
+
+    isBranchToLabel = NULL;
 }
 
 Statement *AsmStatement::syntaxCopy()
@@ -433,6 +435,7 @@ assert(0);
     asmStmt->in_c = llvmInConstraints;
     asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(), output_values.end());
     asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(), input_values.end());
+    asmStmt->isBranchToLabel = isBranchToLabel;
     asmblock->s.push_back(asmStmt);
 }
 
@@ -508,6 +511,51 @@ void AsmBlockStatement::toIR(IRState* p)
         }
     }
 
+    // build forwarder for in-asm branches to external labels
+    // this additional asm code sets the __llvm_jump_target variable
+    // to a unique value that will identify the jump target in
+    // a post-asm switch
+    //FIXME: Need to init __llvm_jump_target
+    //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
+    std::string asmGotoEnd = "jmp __llvm_asm_end ; ";
+    std::string outGotoSetter = asmGotoEnd;
+
+    size_t n = asmblock->s.size();
+    for(size_t i=0; i<n; ++i)
+    {
+        IRAsmStmt* a = asmblock->s[i];
+
+        // skip non-branch statements
+        if(!a->isBranchToLabel)
+            continue;
+
+        // if internal, no special handling is necessary, skip
+        std::vector<Identifier*>::const_iterator it, end;
+        end = asmblock->internalLabels.end();
+        bool skip = false;
+        for(it = asmblock->internalLabels.begin(); it != end; ++it)
+            if((*it)->equals(a->isBranchToLabel))
+                skip = true;
+        if(skip) 
+            continue;
+
+        // provide an in-asm target for the branch and set value
+        Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
+        outGotoSetter += a->isBranchToLabel->string;
+        outGotoSetter += ": ; ";
+        outGotoSetter += "nop ; "; //FIXME: Change this to set __llvm_jump_target to a unique value
+        outGotoSetter += asmGotoEnd;
+    }
+    if(outGotoSetter != asmGotoEnd)
+    {
+        outGotoSetter += "__llvm_asm_end: ; ";
+        IRAsmStmt* outSetterStmt = new IRAsmStmt;
+        outSetterStmt->code = outGotoSetter;
+        //FIXME: set other stuff
+        asmblock->s.push_back(outSetterStmt);
+    }
+
+
     // build asm block
     std::vector<LLValue*> outargs;
     std::vector<LLValue*> inargs;
@@ -519,7 +567,7 @@ void AsmBlockStatement::toIR(IRState* p)
     std::string code;
     size_t asmIdx = 0;
 
-    size_t n = asmblock->s.size();
+    n = asmblock->s.size();
     for (size_t i=0; i<n; ++i)
     {
         IRAsmStmt* a = asmblock->s[i];
@@ -588,6 +636,8 @@ void AsmBlockStatement::toIR(IRState* p)
 
     p->asmBlock = NULL;
     Logger::println("END ASM");
+
+    //FIXME: Emit goto forwarder code here
 }
 
 // the whole idea of this statement is to avoid the flattening

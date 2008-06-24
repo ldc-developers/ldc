@@ -1427,7 +1427,7 @@ struct AsmProcessor
     }
 
     void addLabel(char* id) {
-    insnTemplate->writestring(".LDASM_");
+    //insnTemplate->writestring(".LDASM_");
     insnTemplate->writestring(id);
     }
 
@@ -1911,8 +1911,11 @@ struct AsmProcessor
 			    asmcode->dollarLabel = lbl_num; // could make the dollar label part of the same asm..
 			} else if (e->op == TOKdsymbol) {
 			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
+			    // this can probably be removed
 			    if (! lbl->asmLabelNum)
 				lbl->asmLabelNum = ++d_priv_asm_label_serial;
+
+			    stmt->isBranchToLabel = lbl->ident;
 
 			    use_star = false;
 			    addLabel(lbl->ident->toChars());
