@@ -1070,21 +1070,24 @@ void LabelStatement::toIR(IRState* p)
         a->code += ident->toChars();
         a->code += ":";
         p->asmBlock->s.push_back(a);
-        return;
+    }
+    else
+    {
+        
+        assert(tf == NULL);
+        
+        llvm::BasicBlock* oldend = gIR->scopeend();
+        if (llvmBB)
+                llvmBB->moveBefore(oldend);
+        else
+                llvmBB = llvm::BasicBlock::Create("label", p->topfunc(), oldend);
+        
+        if (!p->scopereturned())
+                llvm::BranchInst::Create(llvmBB, p->scopebb());
+        
+        p->scope() = IRScope(llvmBB,oldend);
     }
 
-    assert(tf == NULL);
-
-    llvm::BasicBlock* oldend = gIR->scopeend();
-    if (llvmBB)
-        llvmBB->moveBefore(oldend);
-    else
-        llvmBB = llvm::BasicBlock::Create("label", p->topfunc(), oldend);
-
-    if (!p->scopereturned())
-        llvm::BranchInst::Create(llvmBB, p->scopebb());
-
-    p->scope() = IRScope(llvmBB,oldend);
     if (statement)
         statement->toIR(p);
 }
