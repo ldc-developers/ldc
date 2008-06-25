@@ -1045,7 +1045,6 @@ void LabelStatement::toIR(IRState* p)
     if (p->asmBlock)
     {
         IRAsmStmt* a = new IRAsmStmt;
-//        a->code = ".LDASM_";
         a->code += ident->toChars();
         a->code += ":";
         p->asmBlock->s.push_back(a);

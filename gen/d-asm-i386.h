@@ -1,4 +1,5 @@
-// Taken from GDC source, GPL!
+// Taken from GDC source tree. Original by David Friedman.
+// Released under the Artistic License found in dmd/artistic.txt
 
 #include "dmd/id.h"
 
@@ -1418,16 +1419,7 @@ struct AsmProcessor
     asmcode->args.push( new AsmArg(type, e, mode) );
     }
 
-    void addLabel(unsigned n) {
-    // No longer taking the address of the actual label -- doesn't seem like it would help.
-    char buf[64];
-    
-    d_format_priv_asm_label(buf, n);
-    insnTemplate->writestring(buf);
-    }
-
     void addLabel(char* id) {
-    //insnTemplate->writestring(".LDASM_");
     insnTemplate->writestring(id);
     }
 
@@ -1906,15 +1898,10 @@ struct AsmProcessor
 			   the %an format must be used with the "p" constraint.
 			*/
 			if (isDollar(e)) {
-			    unsigned lbl_num = ++d_priv_asm_label_serial;
-			    addLabel(lbl_num);
-			    asmcode->dollarLabel = lbl_num; // could make the dollar label part of the same asm..
+			    error("dollar labels are not supported", stmt->loc.toChars());
+			    asmcode->dollarLabel = 1;
 			} else if (e->op == TOKdsymbol) {
 			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
-			    // this can probably be removed
-			    if (! lbl->asmLabelNum)
-				lbl->asmLabelNum = ++d_priv_asm_label_serial;
-
 			    stmt->isBranchToLabel = lbl;
 
 			    use_star = false;

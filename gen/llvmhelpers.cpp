@@ -158,6 +158,10 @@ void DtoGoto(Loc* loc, LabelDsymbol* target, TryFinallyStatement* enclosingtryfi
 {
     assert(!gIR->scopereturned());
 
+    // if the target label is inside inline asm, error
+    if(target->asmLabel)
+        error("cannot goto into inline asm block", loc->toChars());
+
     if (target->statement->llvmBB == NULL)
         target->statement->llvmBB = llvm::BasicBlock::Create("label", gIR->topfunc());
 

@@ -1,6 +1,5 @@
-// Taken from GDC source tree, licence unclear?
-//
-// Taken from an earlier version of DMD -- why is it missing from 0.79?
+// Taken from GDC source tree. Original by David Friedman.
+// Released under the Artistic License found in dmd/artistic.txt
 
 #include "gen/llvm.h"
 #include "llvm/InlineAsm.h"
@@ -130,69 +129,6 @@ int AsmStatement::comeFrom()
 {
     return FALSE;
 }
-
-/* GCC does not support jumps from asm statements.  When optimization
-   is turned on, labels referenced only from asm statements will not
-   be output at the correct location.  There are ways around this:
-
-   1) Reference the label with a reachable goto statement
-   2) Have reachable computed goto in the function
-   3) Hack cfgbuild.c to act as though there is a computed goto.
-
-   These are all pretty bad, but if would be nice to be able to tell
-   GCC not to optimize in this case (even on per label/block basis).
-
-   The current solution is output our own private labels (as asm
-   statements) along with the "real" label.  If the label happens to
-   be referred to by a goto statement, the "real" label will also be
-   output in the correct location.
-
-   Also had to add 'asmLabelNum' to LabelDsymbol to indicate it needs
-   special processing.
-
-   (junk) d-lang.cc:916:case LABEL_DECL: // C doesn't do this.  D needs this for referencing labels in inline assembler since there may be not goto referencing it.
-
-*/
-
-static unsigned d_priv_asm_label_serial = 0;
-
-// may need to make this target-specific
-static void d_format_priv_asm_label(char * buf, unsigned n)
-{
-    //ASM_GENERATE_INTERNAL_LABEL(buf, "LDASM", n);//inserts a '*' for use with assemble_name
-    assert(0);
-    sprintf(buf, ".LDASM%u", n);
-}
-
-void
-d_expand_priv_asm_label(IRState * irs, unsigned n)
-{
-/*    char buf[64];
-    d_format_priv_asm_label(buf, n);
-    strcat(buf, ":");
-    tree insnt = build_string(strlen(buf), buf);
-#if D_GCC_VER < 40
-    expand_asm(insnt, 1);
-#else
-    tree t = d_build_asm_stmt(insnt, NULL_TREE, NULL_TREE, NULL_TREE);
-    ASM_VOLATILE_P( t ) = 1;
-    ASM_INPUT_P( t) = 1; // what is this doing?
-    irs->addExp(t);
-#endif*/
-}
-
-
-// StringExp::toIR usually adds a NULL.  We don't want that...
-
-/*static tree
-naturalString(Expression * e)
-{
-    // don't fail, just an error?
-    assert(e->op == TOKstring);
-    StringExp * s = (StringExp *) e;
-    assert(s->sz == 1);
-    return build_string(s->len, (char *) s->string);
-}*/
 
 
 #include "d-asm-i386.h"

@@ -3605,7 +3605,7 @@ LabelDsymbol::LabelDsymbol(Identifier *ident)
 	: Dsymbol(ident)
 {
     statement = NULL;
-    asmLabelNum = 0;
+    asmLabel = false;
 }
 
 LabelDsymbol *LabelDsymbol::isLabel()		// is this a LabelDsymbol()?

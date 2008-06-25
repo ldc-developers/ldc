@@ -767,7 +767,7 @@ struct LabelDsymbol : Dsymbol
 {
     LabelStatement *statement;
 // LLVMDC
-    unsigned asmLabelNum;       // for inline assembler labels
+    bool asmLabel;       // for labels inside inline assembler
 
     LabelDsymbol(Identifier *ident);
     LabelDsymbol *isLabel();
