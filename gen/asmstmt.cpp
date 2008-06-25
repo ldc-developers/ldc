@@ -26,6 +26,7 @@
 #include "gen/tollvm.h"
 #include "gen/logger.h"
 #include "gen/todebug.h"
+#include "gen/llvmhelpers.h"
 
 typedef enum {
     Arg_Integer,
@@ -444,6 +445,7 @@ assert(0);
 AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
 :   CompoundStatement(loc, s)
 {
+    enclosingtryfinally = NULL;
 }
 
 // rewrite argument indices to the block scope indices
@@ -464,10 +466,10 @@ static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
     for (unsigned i = 0; i < nargs; i++) {
         needle = prefix + digits[i] + suffix;
         size_t pos = insnt.find(needle);
-        if(pos != std::string::npos) {
+	if(std::string::npos != pos)
             sprintf(buf, "%u", idx++);
+        while(std::string::npos != (pos = insnt.find(needle)))
             insnt.replace(pos, needle.size(), buf);
-        }
     }
 }
 
@@ -489,10 +491,10 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
     for (unsigned i = 0; i < nargs; i++) {
         needle = prefix + digits[i] + suffix;
         size_t pos = insnt.find(needle);
-        if(pos != std::string::npos) {
+	if(std::string::npos != pos)
             sprintf(buf, "%u", idx++);
+        while(std::string::npos != (pos = insnt.find(needle)))
             insnt.replace(pos, needle.size(), buf);
-        }
     }
 }
 
@@ -522,54 +524,73 @@ void AsmBlockStatement::toIR(IRState* p)
     // to a unique value that will identify the jump target in
     // a post-asm switch
 
-    // create storage for and initialize the temporary
-    llvm::AllocaInst* jump_target = new llvm::AllocaInst(llvm::IntegerType::get(32), "__llvm_jump_target", p->topallocapoint());
-    gIR->ir->CreateStore(llvm::ConstantInt::get(llvm::IntegerType::get(32), 0), jump_target);
+    // maps each special value to a goto destination
+    std::map<int, LabelDsymbol*> valToGoto;
 
-    IRAsmStmt* outSetterStmt = new IRAsmStmt;
-    std::string asmGotoEnd = "jmp __llvm_asm_end ; ";
-    outSetterStmt->code = asmGotoEnd;
-    outSetterStmt->out_c = "=*m,";
-    outSetterStmt->out.push_back(jump_target);
+    // location of the value containing the index into the valToGoto map
+    // will be set if post-asm dispatcher block is needed
+    llvm::AllocaInst* jump_target;
 
-    int n_goto = 1;
-
-    size_t n = asmblock->s.size();
-    for(size_t i=0; i<n; ++i)
     {
-        IRAsmStmt* a = asmblock->s[i];
+        // initialize the setter statement we're going to build
+        IRAsmStmt* outSetterStmt = new IRAsmStmt;
+        std::string asmGotoEnd = "jmp __llvm_asm_end ; ";
+        std::ostringstream code;
+        code << asmGotoEnd;
 
-        // skip non-branch statements
-        if(!a->isBranchToLabel)
-            continue;
+        int n_goto = 1;
 
-        // if internal, no special handling is necessary, skip
-        std::vector<Identifier*>::const_iterator it, end;
-        end = asmblock->internalLabels.end();
-        bool skip = false;
-        for(it = asmblock->internalLabels.begin(); it != end; ++it)
-            if((*it)->equals(a->isBranchToLabel))
-                skip = true;
-        if(skip) 
-            continue;
+        size_t n = asmblock->s.size();
+        for(size_t i=0; i<n; ++i)
+        {
+            IRAsmStmt* a = asmblock->s[i];
 
-        // provide an in-asm target for the branch and set value
-        Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
-        outSetterStmt->code += a->isBranchToLabel->string;
-        outSetterStmt->code += ": ; ";
-        outSetterStmt->code += "movl $<<in1>>, $<<out0>> ; ";
-        //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
-        outSetterStmt->in.push_back(llvm::ConstantInt::get(llvm::IntegerType::get(32), n_goto++));
-        outSetterStmt->in_c += "i,";
-        outSetterStmt->code += asmGotoEnd;
+            // skip non-branch statements
+            if(!a->isBranchToLabel)
+                continue;
+
+            // if internal, no special handling is necessary, skip
+            std::vector<Identifier*>::const_iterator it, end;
+            end = asmblock->internalLabels.end();
+            bool skip = false;
+            for(it = asmblock->internalLabels.begin(); it != end; ++it)
+                if((*it)->equals(a->isBranchToLabel->ident))
+                    skip = true;
+            if(skip) 
+                continue;
+
+            // record that the jump needs to be handled in the post-asm dispatcher
+            valToGoto[n_goto] = a->isBranchToLabel;
+
+            // provide an in-asm target for the branch and set value
+            Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->ident->string);
+            code << a->isBranchToLabel->ident->string << ": ; ";
+            code << "movl $<<in" << n_goto << ">>, $<<out0>> ; ";
+            //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
+            outSetterStmt->in.push_back(llvm::ConstantInt::get(llvm::IntegerType::get(32), n_goto));
+            outSetterStmt->in_c += "i,";
+            code << asmGotoEnd;
+
+            ++n_goto;
+        }
+        if(code.str() != asmGotoEnd)
+        {
+            // finalize code
+            outSetterStmt->code = code.str();
+            outSetterStmt->code += "__llvm_asm_end: ; ";
+
+            // create storage for and initialize the temporary
+            jump_target = new llvm::AllocaInst(llvm::IntegerType::get(32), "__llvm_jump_target", p->topallocapoint());
+            gIR->ir->CreateStore(llvm::ConstantInt::get(llvm::IntegerType::get(32), 0), jump_target);
+            // setup variable for output from asm
+            outSetterStmt->out_c = "=*m,";
+            outSetterStmt->out.push_back(jump_target);
+
+            asmblock->s.push_back(outSetterStmt);
+        }
+        else
+            delete outSetterStmt;
     }
-    if(outSetterStmt->code != asmGotoEnd)
-    {
-        outSetterStmt->code += "__llvm_asm_end: ; ";
-        asmblock->s.push_back(outSetterStmt);
-    }
-    else
-        delete outSetterStmt;
 
 
     // build asm block
@@ -583,7 +604,7 @@ void AsmBlockStatement::toIR(IRState* p)
     std::string code;
     size_t asmIdx = 0;
 
-    n = asmblock->s.size();
+    size_t n = asmblock->s.size();
     for (size_t i=0; i<n; ++i)
     {
         IRAsmStmt* a = asmblock->s[i];
@@ -653,7 +674,31 @@ void AsmBlockStatement::toIR(IRState* p)
     p->asmBlock = NULL;
     Logger::println("END ASM");
 
-    //FIXME: Emit goto forwarder code here
+    // if asm contained external branches, emit goto forwarder code
+    if(!valToGoto.empty())
+    {
+        assert(jump_target);
+
+        // make new blocks
+        llvm::BasicBlock* oldend = gIR->scopeend();
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterasmgotoforwarder", p->topfunc(), oldend);
+
+        llvm::LoadInst* val = p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
+        llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, valToGoto.size());
+
+        // add all cases
+        std::map<int, LabelDsymbol*>::iterator it, end = valToGoto.end();
+        for(it = valToGoto.begin(); it != end; ++it)
+        {
+            llvm::BasicBlock* casebb = llvm::BasicBlock::Create("case", p->topfunc(), bb);
+            sw->addCase(llvm::ConstantInt::get(llvm::IntegerType::get(32), it->first), casebb);
+
+            p->scope() = IRScope(casebb,bb);
+            DtoGoto(&loc, it->second, enclosingtryfinally);
+        }
+
+        p->scope() = IRScope(bb,oldend);
+    }
 }
 
 // the whole idea of this statement is to avoid the flattening
@@ -675,4 +720,12 @@ Statement *AsmBlockStatement::syntaxCopy()
     }
     AsmBlockStatement *cs = new AsmBlockStatement(loc, a);
     return cs;
+}
+
+// necessary for in-asm branches
+Statement *AsmBlockStatement::semantic(Scope *sc)
+{
+    enclosingtryfinally = sc->tfOfTry;
+
+    return CompoundStatement::semantic(sc);
 }

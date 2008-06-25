@@ -1915,7 +1915,7 @@ struct AsmProcessor
 			    if (! lbl->asmLabelNum)
 				lbl->asmLabelNum = ++d_priv_asm_label_serial;
 
-			    stmt->isBranchToLabel = lbl->ident;
+			    stmt->isBranchToLabel = lbl;
 
 			    use_star = false;
 			    addLabel(lbl->ident->toChars());

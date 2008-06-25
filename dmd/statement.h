@@ -794,14 +794,17 @@ struct AsmStatement : Statement
 
     // LLVMDC
     // non-zero if this is a branch, contains the target
-    Identifier* isBranchToLabel;
+    LabelDsymbol* isBranchToLabel;
 };
 
 struct AsmBlockStatement : CompoundStatement
 {
+    TryFinallyStatement *enclosingtryfinally;
+
     AsmBlockStatement(Loc loc, Statements *s);
     Statements *flatten(Scope *sc);
     Statement *syntaxCopy();
+    Statement *semantic(Scope *sc);
 
     CompoundStatement *isCompoundStatement() { return NULL; }
     AsmBlockStatement *isAsmBlockStatement() { return this; }

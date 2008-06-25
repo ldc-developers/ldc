@@ -152,6 +152,54 @@ void DtoAssert(Loc* loc, DValue* msg)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
+// GOTO HELPER
+////////////////////////////////////////////////////////////////////////////////////////*/
+void DtoGoto(Loc* loc, LabelDsymbol* target, TryFinallyStatement* enclosingtryfinally)
+{
+    assert(!gIR->scopereturned());
+
+    if (target->statement->llvmBB == NULL)
+        target->statement->llvmBB = llvm::BasicBlock::Create("label", gIR->topfunc());
+
+    // find finallys between goto and label
+    TryFinallyStatement* endfinally = enclosingtryfinally;
+    while(endfinally != NULL && endfinally != target->statement->enclosingtryfinally) {
+        endfinally = endfinally->enclosingtryfinally;
+    }
+
+    // error if didn't find tf statement of label
+    if(endfinally != target->statement->enclosingtryfinally)
+        error("cannot goto into try block", loc->toChars());
+
+    // emit code for finallys between goto and label
+    DtoFinallyBlocks(enclosingtryfinally, endfinally);
+
+    llvm::BranchInst::Create(target->statement->llvmBB, gIR->scopebb());
+}
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
+// TRY FINALLY HELPER
+////////////////////////////////////////////////////////////////////////////////////////*/
+void DtoFinallyBlocks(TryFinallyStatement* start, TryFinallyStatement* end)
+{
+    // verify that end encloses start
+    TryFinallyStatement* endfinally = start;
+    while(endfinally != NULL && endfinally != end) {
+        endfinally = endfinally->enclosingtryfinally;
+    }
+    assert(endfinally == end);
+
+    // emit code for finallys between start and end
+    TryFinallyStatement* tf = start;
+    while(tf != end) {
+        tf->finalbody->toIR(gIR);
+        tf = tf->enclosingtryfinally;
+    }
+}
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
 // NESTED VARIABLE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 

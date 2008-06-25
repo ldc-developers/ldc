@@ -1,6 +1,8 @@
 #ifndef LLVMDC_GEN_LLVMHELPERS_H
 #define LLVMDC_GEN_LLVMHELPERS_H
 
+#include "statement.h"
+
 // dynamic memory helpers
 LLValue* DtoNew(Type* newtype);
 void DtoDeleteMemory(LLValue* ptr);
@@ -10,6 +12,14 @@ void DtoDeleteArray(DValue* arr);
 
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
+
+// emit goto
+void DtoGoto(Loc* loc, LabelDsymbol* target, TryFinallyStatement* enclosingtryfinally);
+
+// generates IR for finally blocks between the 'start' and 'end' statements
+// will begin with the finally block belonging to 'start' and does not include
+// the finally block of 'end'
+void DtoFinallyBlocks(TryFinallyStatement* start, TryFinallyStatement* end);
 
 // nested variable/class helpers
 LLValue* DtoNestedContext(FuncDeclaration* func);

@@ -44,27 +44,6 @@ void CompoundStatement::toIR(IRState* p)
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
-// generates IR for finally blocks between the 'start' and 'end' statements
-// will begin with the finally block belonging to 'start' and does not include
-// the finally block of 'end'
-void emit_finallyblocks(IRState* p, TryFinallyStatement* start, TryFinallyStatement* end)
-{
-    // verify that end encloses start
-    TryFinallyStatement* endfinally = start;
-    while(endfinally != NULL && endfinally != end) {
-        endfinally = endfinally->enclosingtryfinally;
-    }
-    assert(endfinally == end);
-
-    // emit code for finallys between start and end
-    TryFinallyStatement* tf = start;
-    while(tf != end) {
-        tf->finalbody->toIR(p);
-        tf = tf->enclosingtryfinally;
-    }
-}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -91,7 +70,7 @@ void ReturnStatement::toIR(IRState* p)
             if (!e->inPlace())
                 DtoAssign(rvar, e);
 
-            emit_finallyblocks(p, enclosingtryfinally, NULL);
+            DtoFinallyBlocks(enclosingtryfinally, NULL);
 
             if (f->inVolatile) {
                 // store-load barrier
@@ -116,7 +95,7 @@ void ReturnStatement::toIR(IRState* p)
                 Logger::cout() << "return value after cast: " << *v << '\n';
             }
 
-            emit_finallyblocks(p, enclosingtryfinally, NULL);
+            DtoFinallyBlocks(enclosingtryfinally, NULL);
 
             if (gIR->func()->inVolatile) {
                 // store-load barrier
@@ -130,7 +109,7 @@ void ReturnStatement::toIR(IRState* p)
     else
     {
         assert(p->topfunc()->getReturnType() == LLType::VoidTy);
-        emit_finallyblocks(p, enclosingtryfinally, NULL);
+        DtoFinallyBlocks(enclosingtryfinally, NULL);
 
         if (gIR->func()->inVolatile) {
             // store-load barrier
@@ -431,7 +410,7 @@ void BreakStatement::toIR(IRState* p)
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
 
-        emit_finallyblocks(p, enclosingtryfinally, target->enclosingtryfinally);
+        DtoFinallyBlocks(enclosingtryfinally, target->enclosingtryfinally);
 
         // get the loop statement the label refers to
         Statement* targetLoopStatement = target->statement;
@@ -452,7 +431,7 @@ void BreakStatement::toIR(IRState* p)
         assert(found);
     }
     else {
-        emit_finallyblocks(p, enclosingtryfinally, p->loopbbs.back().enclosingtryfinally);
+        DtoFinallyBlocks(enclosingtryfinally, p->loopbbs.back().enclosingtryfinally);
         llvm::BranchInst::Create(p->loopbbs.back().end, p->scopebb());
     }
 
@@ -475,7 +454,7 @@ void ContinueStatement::toIR(IRState* p)
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
 
-        emit_finallyblocks(p, enclosingtryfinally, target->enclosingtryfinally);
+        DtoFinallyBlocks(enclosingtryfinally, target->enclosingtryfinally);
 
         // get the loop statement the label refers to
         Statement* targetLoopStatement = target->statement;
@@ -494,7 +473,7 @@ void ContinueStatement::toIR(IRState* p)
         assert(0);
     }
     else {
-        emit_finallyblocks(p, enclosingtryfinally, gIR->loopbbs.back().enclosingtryfinally);
+        DtoFinallyBlocks(enclosingtryfinally, gIR->loopbbs.back().enclosingtryfinally);
         llvm::BranchInst::Create(gIR->loopbbs.back().begin, gIR->scopebb());
     }
 }
@@ -1108,24 +1087,8 @@ void GotoStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergoto", p->topfunc(), oldend);
 
-    if (label->statement->llvmBB == NULL)
-        label->statement->llvmBB = llvm::BasicBlock::Create("label", p->topfunc());
-    assert(!p->scopereturned());
+    DtoGoto(&loc, label, enclosingtryfinally);
 
-    // find finallys between goto and label
-    TryFinallyStatement* endfinally = enclosingtryfinally;
-    while(endfinally != NULL && endfinally != label->statement->enclosingtryfinally) {
-        endfinally = endfinally->enclosingtryfinally;
-    }
-
-    // error if didn't find tf statement of label
-    if(endfinally != label->statement->enclosingtryfinally)
-        error("cannot goto into try block", loc.toChars());
-
-    // emit code for finallys between goto and label
-    emit_finallyblocks(p, enclosingtryfinally, endfinally);
-
-    llvm::BranchInst::Create(label->statement->llvmBB, p->scopebb());
     p->scope() = IRScope(bb,oldend);
 }
 
@@ -1145,7 +1108,7 @@ void GotoDefaultStatement::toIR(IRState* p)
     assert(!p->scopereturned());
     assert(sw->sdefault->bodyBB);
 
-    emit_finallyblocks(p, enclosingtryfinally, sw->enclosingtryfinally);
+    DtoFinallyBlocks(enclosingtryfinally, sw->enclosingtryfinally);
 
     llvm::BranchInst::Create(sw->sdefault->bodyBB, p->scopebb());
     p->scope() = IRScope(bb,oldend);
@@ -1170,7 +1133,7 @@ void GotoCaseStatement::toIR(IRState* p)
         cs->bodyBB = llvm::BasicBlock::Create("goto_case", p->topfunc(), p->scopeend());
     }
 
-    emit_finallyblocks(p, enclosingtryfinally, sw->enclosingtryfinally);
+    DtoFinallyBlocks(enclosingtryfinally, sw->enclosingtryfinally);
 
     llvm::BranchInst::Create(cs->bodyBB, p->scopebb());
     p->scope() = IRScope(bb,oldend);
