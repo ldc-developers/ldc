@@ -1653,7 +1653,7 @@ d_uns64 TypeSArray::size(Loc loc)
     return sz;
 
 Loverflow:
-    error(loc, "index %jd overflow for static array", sz);
+    error(loc, "index %lld overflow for static array", sz);
     return 1;
 }
 
@@ -1721,7 +1721,7 @@ void TypeSArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
 	    sc = sc->pop();
 
 	    if (d >= td->objects->dim)
-	    {	error(loc, "tuple index %ju exceeds %u", d, td->objects->dim);
+	    {	error(loc, "tuple index %llu exceeds %u", d, td->objects->dim);
 		goto Ldefault;
 	    }
 	    Object *o = (Object *)td->objects->data[(size_t)d];
@@ -1775,7 +1775,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	uinteger_t d = dim->toUInteger();
 
 	if (d >= sd->objects->dim)
-	{   error(loc, "tuple index %ju exceeds %u", d, sd->objects->dim);
+	{   error(loc, "tuple index %llu exceeds %u", d, sd->objects->dim);
 	    return Type::terror;
 	}
 	Object *o = (Object *)sd->objects->data[(size_t)d];
@@ -1832,7 +1832,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	    if (n && n2 / n != d2)
 	    {
 	      Loverflow:
-		error(loc, "index %jd overflow for static array", d1);
+		error(loc, "index %lld overflow for static array", d1);
 		dim = new IntegerExp(0, 1, tsize_t);
 	    }
 	}
@@ -1846,7 +1846,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	    uinteger_t d = dim->toUInteger();
 
 	    if (d >= tt->arguments->dim)
-	    {	error(loc, "tuple index %ju exceeds %u", d, tt->arguments->dim);
+	    {	error(loc, "tuple index %llu exceeds %u", d, tt->arguments->dim);
 		return Type::terror;
 	    }
 	    Argument *arg = (Argument *)tt->arguments->data[(size_t)d];
@@ -1867,7 +1867,7 @@ void TypeSArray::toDecoBuffer(OutBuffer *buf)
 {
     buf->writeByte(mangleChar[ty]);
     if (dim)
-	buf->printf("%ju", dim->toInteger());
+	buf->printf("%llu", dim->toInteger());
     if (next)
 	next->toDecoBuffer(buf);
 }
@@ -4965,7 +4965,7 @@ Type *TypeSlice::semantic(Loc loc, Scope *sc)
     uinteger_t i2 = upr->toUInteger();
 
     if (!(i1 <= i2 && i2 <= tt->arguments->dim))
-    {	error(loc, "slice [%ju..%ju] is out of range of [0..%u]", i1, i2, tt->arguments->dim);
+    {	error(loc, "slice [%llu..%llu] is out of range of [0..%u]", i1, i2, tt->arguments->dim);
 	return Type::terror;
     }
 
@@ -5010,7 +5010,7 @@ void TypeSlice::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol 
 	    sc = sc->pop();
 
 	    if (!(i1 <= i2 && i2 <= td->objects->dim))
-	    {   error(loc, "slice [%ju..%ju] is out of range of [0..%u]", i1, i2, td->objects->dim);
+	    {   error(loc, "slice [%llu..%llu] is out of range of [0..%u]", i1, i2, td->objects->dim);
 		goto Ldefault;
 	    }
 

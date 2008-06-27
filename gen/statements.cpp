@@ -1045,6 +1045,8 @@ void LabelStatement::toIR(IRState* p)
     if (p->asmBlock)
     {
         IRAsmStmt* a = new IRAsmStmt;
+        a->code += p->func()->decl->mangle();
+        a->code += "_";
         a->code += ident->toChars();
         a->code += ":";
         p->asmBlock->s.push_back(a);
@@ -1052,18 +1054,17 @@ void LabelStatement::toIR(IRState* p)
     }
     else
     {
-        
         assert(tf == NULL);
-        
+
         llvm::BasicBlock* oldend = gIR->scopeend();
         if (llvmBB)
                 llvmBB->moveBefore(oldend);
         else
                 llvmBB = llvm::BasicBlock::Create("label", p->topfunc(), oldend);
-        
+
         if (!p->scopereturned())
                 llvm::BranchInst::Create(llvmBB, p->scopebb());
-        
+
         p->scope() = IRScope(llvmBB,oldend);
     }
 
@@ -1086,7 +1087,7 @@ void GotoStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergoto", p->topfunc(), oldend);
 
-    DtoGoto(&loc, label, enclosingtryfinally);
+    DtoGoto(&loc, label->ident, enclosingtryfinally);
 
     p->scope() = IRScope(bb,oldend);
 }

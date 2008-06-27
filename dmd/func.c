@@ -767,7 +767,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		     * because we need it later on.
 		     */
 		    OutBuffer buf;
-		    buf.printf("_param_%zu", i);
+            buf.printf("_param_%"PRIuSIZE, i);
 		    char *name = (char *)buf.extractData();
 		    id = new Identifier(name, TOKidentifier);
 		    arg->ident = id;

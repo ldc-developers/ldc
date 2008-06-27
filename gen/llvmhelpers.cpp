@@ -152,33 +152,56 @@ void DtoAssert(Loc* loc, DValue* msg)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
+// LABEL HELPER
+////////////////////////////////////////////////////////////////////////////////////////*/
+LabelStatement* DtoLabelStatement(Identifier* ident)
+{
+    FuncDeclaration* fd = gIR->func()->decl;
+    FuncDeclaration::LabelMap::iterator iter = fd->labmap.find(ident->toChars());
+    if (iter == fd->labmap.end())
+    {
+        if (fd->returnLabel->ident->equals(ident))
+        {
+            assert(fd->returnLabel->statement);
+            return fd->returnLabel->statement;
+        }
+        return NULL;
+    }
+    return iter->second;
+}
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc* loc, LabelDsymbol* target, TryFinallyStatement* enclosingtryfinally)
+void DtoGoto(Loc* loc, Identifier* target, TryFinallyStatement* enclosingtryfinally)
 {
     assert(!gIR->scopereturned());
 
+    LabelStatement* lblstmt = DtoLabelStatement(target);
+    assert(lblstmt != NULL);
+
     // if the target label is inside inline asm, error
-    if(target->asmLabel)
+    if(lblstmt->asmLabel)
         error("cannot goto into inline asm block", loc->toChars());
 
-    if (target->statement->llvmBB == NULL)
-        target->statement->llvmBB = llvm::BasicBlock::Create("label", gIR->topfunc());
+    if (lblstmt->llvmBB == NULL)
+        lblstmt->llvmBB = llvm::BasicBlock::Create("label", gIR->topfunc());
 
     // find finallys between goto and label
     TryFinallyStatement* endfinally = enclosingtryfinally;
-    while(endfinally != NULL && endfinally != target->statement->enclosingtryfinally) {
+    while(endfinally != NULL && endfinally != lblstmt->enclosingtryfinally) {
         endfinally = endfinally->enclosingtryfinally;
     }
 
     // error if didn't find tf statement of label
-    if(endfinally != target->statement->enclosingtryfinally)
+    if(endfinally != lblstmt->enclosingtryfinally)
         error("cannot goto into try block", loc->toChars());
 
     // emit code for finallys between goto and label
     DtoFinallyBlocks(enclosingtryfinally, endfinally);
 
-    llvm::BranchInst::Create(target->statement->llvmBB, gIR->scopebb());
+    llvm::BranchInst::Create(lblstmt->llvmBB, gIR->scopebb());
 }
 
 /****************************************************************************************/

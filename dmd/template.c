@@ -3444,7 +3444,7 @@ Identifier *TemplateInstance::genIdent()
 
     //printf("TemplateInstance::genIdent('%s')\n", tempdecl->ident->toChars());
     id = tempdecl->ident->toChars();
-    buf.printf("__T%zu%s", strlen(id), id);
+    buf.printf("__T%"PRIuSIZE"%s", strlen(id), id);
     args = tiargs;
     for (int i = 0; i < args->dim; i++)
     {   Object *o = (Object *)args->data[i];
@@ -3511,7 +3511,7 @@ Identifier *TemplateInstance::genIdent()
 	    else
 	    {
 		char *p = sa->mangle();
-		buf.printf("%zu%s", strlen(p), p);
+        buf.printf("%"PRIuSIZE"%s", strlen(p), p);
 	    }
 	}
 	else if (va)

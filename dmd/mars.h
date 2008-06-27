@@ -16,8 +16,10 @@
 #endif /* __DMC__ */
 
 #include <stdint.h>
-#include <string>
-#include <cstdarg>
+#include <stdarg.h>
+#define __STDC_FORMAT_MACROS 1
+#include <inttypes.h>
+#include <stdarg.h>
 
 #ifdef __DMC__
 #ifdef DEBUG
@@ -223,6 +225,19 @@ typedef long double real_t;
 
 #ifdef IN_GCC
 #include "d-gcc-complex_t.h"
+#endif
+
+// taken from GDC
+// for handling printf incompatibilities
+#if __MSVCRT__
+#define PRIuSIZE "Iu"
+#define PRIxSIZE "Ix"
+#elif __MINGW32__
+#define PRIuSIZE "u"
+#define PRIxSIZE "x"
+#else
+#define PRIuSIZE "zu"
+#define PRIxSIZE "zx"
 #endif
 
 struct Module;

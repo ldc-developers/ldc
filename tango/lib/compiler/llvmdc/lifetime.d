@@ -29,9 +29,6 @@ module lifetime;
 //debug=PRINTF;
 //debug=PRINTF2;
 
-// we're not allowed to jump out of asm blocks
-//version(D_InlineAsm_X86) version = Asm86;
-
 private
 {
     import tango.stdc.stdlib;
@@ -213,7 +210,7 @@ extern (C) void* _d_newarrayT(TypeInfo ti, size_t length)
     if (length == 0 || size == 0)
         return null;
 
-    version (Asm86)
+    version (D_InlineAsm_X86)
     {
         asm
         {
@@ -252,7 +249,7 @@ extern (C) void* _d_newarrayiT(TypeInfo ti, size_t length)
         auto initializer = ti.next.init();
         auto isize = initializer.length;
         auto q = initializer.ptr;
-        version (Asm86)
+        version (D_InlineAsm_X86)
         {
             asm
             {
@@ -515,7 +512,7 @@ body
 
     if (newlength)
     {
-        version (Asm86)
+        version (D_InlineAsm_X86)
         {
             size_t newsize = void;
 
@@ -614,7 +611,7 @@ body
 
     if (newlength)
     {
-        version (Asm86)
+        version (D_InlineAsm_X86)
         {
             size_t newsize = void;
 

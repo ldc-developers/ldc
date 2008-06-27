@@ -405,7 +405,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
     size_t nparams = Argument::dim(tf->parameters);
 
     if (nargs > nparams && tf->varargs == 0)
-	error(loc, "expected %zu arguments, not %zu", nparams, nargs);
+        error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
 
     n = (nargs > nparams) ? nargs : nparams;	// n = max(nargs, nparams)
 
@@ -429,7 +429,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		{
 		    if (tf->varargs == 2 && i + 1 == nparams)
 			goto L2;
-		    error(loc, "expected %zu arguments, not %zu", nparams, nargs);
+            error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
 		    break;
 		}
 		arg = p->defaultArg->copy();
@@ -443,7 +443,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		if (arg->implicitConvTo(p->type))
 		{
 		    if (nargs != nparams)
-		        error(loc, "expected %zu arguments, not %zu", nparams, nargs);
+                error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
 		    goto L1;
 		}
 	     L2:
@@ -1050,8 +1050,7 @@ char *IntegerExp::toChars()
     return Expression::toChars();
 #else
     static char buffer[sizeof(value) * 3 + 1];
-
-    sprintf(buffer, "%jd", value);
+    sprintf(buffer, "%lld", value);
     return buffer;
 #endif
 }
@@ -1228,11 +1227,11 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		break;
 
 	    case Tint64:
-		buf->printf("%jdL", v);
+		buf->printf("%lldL", v);
 		break;
 
 	    case Tuns64:
-		buf->printf("%juLU", v);
+		buf->printf("%lluLU", v);
 		break;
 
 	    case Tbit:
@@ -1254,17 +1253,17 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	}
     }
     else if (v & 0x8000000000000000LL)
-	buf->printf("0x%jx", v);
+	buf->printf("0x%llx", v);
     else
-	buf->printf("%jd", v);
+	buf->printf("%lld", v);
 }
 
 void IntegerExp::toMangleBuffer(OutBuffer *buf)
 {
     if ((sinteger_t)value < 0)
-	buf->printf("N%jd", -value);
+	buf->printf("N%lld", -value);
     else
-	buf->printf("%jd", value);
+	buf->printf("%lld", value);
 }
 
 /******************************** RealExp **************************/
@@ -6469,7 +6468,7 @@ Expression *SliceExp::semantic(Scope *sc)
 	}
 	else
 	{
-	    error("string slice [%ju .. %ju] is out of bounds", i1, i2);
+	    error("string slice [%llu .. %llu] is out of bounds", i1, i2);
 	    e = e1;
 	}
 	return e;
@@ -6828,9 +6827,9 @@ Expression *IndexExp::semantic(Scope *sc)
 	    }
 	    else
 	    {
-		error("array index [%ju] is outside array bounds [0 .. %zu]",
-			index, length);
-		e = e1;
+        error("array index [%llu] is outside array bounds [0 .. %"PRIuSIZE"]",
+            index, length);
+        e = e1;
 	    }
 	    break;
 	}

@@ -13,8 +13,10 @@ void DtoDeleteArray(DValue* arr);
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
 
+// return the LabelStatement from the current function with the given identifier or NULL if not found
+LabelStatement* DtoLabelStatement(Identifier* ident);
 // emit goto
-void DtoGoto(Loc* loc, LabelDsymbol* target, TryFinallyStatement* enclosingtryfinally);
+void DtoGoto(Loc* loc, Identifier* target, TryFinallyStatement* enclosingtryfinally);
 
 // generates IR for finally blocks between the 'start' and 'end' statements
 // will begin with the finally block belonging to 'start' and does not include

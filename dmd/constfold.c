@@ -1160,7 +1160,7 @@ Expression *Index(Type *type, Expression *e1, Expression *e2)
 	uinteger_t i = e2->toInteger();
 
 	if (i >= es1->len)
-	    e1->error("string index %ju is out of bounds [0 .. %zu]", i, es1->len);
+        e1->error("string index %llu is out of bounds [0 .. %"PRIuSIZE"]", i, es1->len);
 	else
 	{   unsigned value = es1->charAt(i);
 	    e = new IntegerExp(loc, value, type);
@@ -1172,7 +1172,8 @@ Expression *Index(Type *type, Expression *e1, Expression *e2)
 	uinteger_t i = e2->toInteger();
 
 	if (i >= length)
-	{   e2->error("array index %ju is out of bounds %s[0 .. %ju]", i, e1->toChars(), length);
+	{
+        e2->error("array index %llu is out of bounds %s[0 .. %llu]", i, e1->toChars(), length);
 	}
 	else if (e1->op == TOKarrayliteral && !e1->checkSideEffect(2))
 	{   ArrayLiteralExp *ale = (ArrayLiteralExp *)e1;
@@ -1187,7 +1188,8 @@ Expression *Index(Type *type, Expression *e1, Expression *e2)
 	if (e1->op == TOKarrayliteral && !e1->checkSideEffect(2))
 	{   ArrayLiteralExp *ale = (ArrayLiteralExp *)e1;
 	    if (i >= ale->elements->dim)
-	    {   e2->error("array index %ju is out of bounds %s[0 .. %u]", i, e1->toChars(), ale->elements->dim);
+	    {
+            e2->error("array index %llu is out of bounds %s[0 .. %u]", i, e1->toChars(), ale->elements->dim);
 	    }
 	    else
 	    {	e = (Expression *)ale->elements->data[i];
@@ -1237,7 +1239,7 @@ Expression *Slice(Type *type, Expression *e1, Expression *lwr, Expression *upr)
 	uinteger_t iupr = upr->toInteger();
 
 	if (iupr > es1->len || ilwr > iupr)
-	    e1->error("string slice [%ju .. %ju] is out of bounds", ilwr, iupr);
+        e1->error("string slice [%llu .. %llu] is out of bounds", ilwr, iupr);
 	else
 	{   integer_t value;
 	    void *s;
@@ -1264,7 +1266,7 @@ Expression *Slice(Type *type, Expression *e1, Expression *lwr, Expression *upr)
 	uinteger_t iupr = upr->toInteger();
 
 	if (iupr > es1->elements->dim || ilwr > iupr)
-	    e1->error("array slice [%ju .. %ju] is out of bounds", ilwr, iupr);
+        e1->error("array slice [%llu .. %llu] is out of bounds", ilwr, iupr);
 	else
 	{
 	    Expressions *elements = new Expressions();

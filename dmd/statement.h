@@ -761,13 +761,12 @@ struct LabelStatement : Statement
 
     // LLVMDC
     llvm::BasicBlock* llvmBB;
+    bool asmLabel;       // for labels inside inline assembler
 };
 
 struct LabelDsymbol : Dsymbol
 {
     LabelStatement *statement;
-// LLVMDC
-    bool asmLabel;       // for labels inside inline assembler
 
     LabelDsymbol(Identifier *ident);
     LabelDsymbol *isLabel();
@@ -793,8 +792,8 @@ struct AsmStatement : Statement
     void toIR(IRState *irs);
 
     // LLVMDC
-    // non-zero if this is a branch, contains the target
-    LabelDsymbol* isBranchToLabel;
+    // non-zero if this is a branch, contains the target labels identifier
+    Identifier* isBranchToLabel;
 };
 
 struct AsmBlockStatement : CompoundStatement

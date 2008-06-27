@@ -3519,6 +3519,7 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
     this->lblock = NULL;
     this->isReturnLabel = 0;
     this->llvmBB = NULL;
+    this->asmLabel = false;
 }
 
 Statement *LabelStatement::syntaxCopy()
@@ -3546,6 +3547,10 @@ Statement *LabelStatement::semantic(Scope *sc)
     if (statement)
 	statement = statement->semantic(sc);
     sc->pop();
+
+    // LLVMDC put in labmap
+    fd->labmap[ident->toChars()] = this;
+
     return this;
 }
 
@@ -3605,7 +3610,6 @@ LabelDsymbol::LabelDsymbol(Identifier *ident)
 	: Dsymbol(ident)
 {
     statement = NULL;
-    asmLabel = false;
 }
 
 LabelDsymbol *LabelDsymbol::isLabel()		// is this a LabelDsymbol()?

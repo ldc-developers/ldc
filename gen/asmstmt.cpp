@@ -461,16 +461,24 @@ void AsmBlockStatement::toIR(IRState* p)
     // a post-asm switch
 
     // maps each special value to a goto destination
-    std::map<int, LabelDsymbol*> valToGoto;
+    std::map<int, Identifier*> valToGoto;
 
     // location of the value containing the index into the valToGoto map
     // will be set if post-asm dispatcher block is needed
     llvm::AllocaInst* jump_target;
 
     {
+        FuncDeclaration* fd = gIR->func()->decl;
+        char* fdmangle = fd->mangle();
+
+        // we use a simple static counter to make sure the new end labels are unique
+        static size_t uniqueLabelsId = 0;
+        std::ostringstream asmGotoEndLabel;
+        asmGotoEndLabel << "." << fdmangle << "__llvm_asm_end" << uniqueLabelsId++;
+
         // initialize the setter statement we're going to build
         IRAsmStmt* outSetterStmt = new IRAsmStmt;
-        std::string asmGotoEnd = "jmp __llvm_asm_end ; ";
+        std::string asmGotoEnd = "jmp "+asmGotoEndLabel.str()+" ; ";
         std::ostringstream code;
         code << asmGotoEnd;
 
@@ -490,7 +498,7 @@ void AsmBlockStatement::toIR(IRState* p)
             end = asmblock->internalLabels.end();
             bool skip = false;
             for(it = asmblock->internalLabels.begin(); it != end; ++it)
-                if((*it)->equals(a->isBranchToLabel->ident))
+                if((*it)->equals(a->isBranchToLabel))
                     skip = true;
             if(skip) 
                 continue;
@@ -499,11 +507,11 @@ void AsmBlockStatement::toIR(IRState* p)
             valToGoto[n_goto] = a->isBranchToLabel;
 
             // provide an in-asm target for the branch and set value
-            Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->ident->string);
-            code << a->isBranchToLabel->ident->string << ": ; ";
+            Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
+            code << fdmangle << '_' << a->isBranchToLabel->string << ": ; ";
             code << "movl $<<in" << n_goto << ">>, $<<out0>> ; ";
             //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
-            outSetterStmt->in.push_back(llvm::ConstantInt::get(llvm::IntegerType::get(32), n_goto));
+            outSetterStmt->in.push_back(DtoConstUint(n_goto));
             outSetterStmt->in_c += "i,";
             code << asmGotoEnd;
 
@@ -513,11 +521,11 @@ void AsmBlockStatement::toIR(IRState* p)
         {
             // finalize code
             outSetterStmt->code = code.str();
-            outSetterStmt->code += "__llvm_asm_end: ; ";
+            outSetterStmt->code += asmGotoEndLabel.str()+": ; ";
 
             // create storage for and initialize the temporary
             jump_target = new llvm::AllocaInst(llvm::IntegerType::get(32), "__llvm_jump_target", p->topallocapoint());
-            gIR->ir->CreateStore(llvm::ConstantInt::get(llvm::IntegerType::get(32), 0), jump_target);
+            gIR->ir->CreateStore(DtoConstUint(0), jump_target);
             // setup variable for output from asm
             outSetterStmt->out_c = "=*m,";
             outSetterStmt->out.push_back(jump_target);
@@ -623,7 +631,7 @@ void AsmBlockStatement::toIR(IRState* p)
         llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, valToGoto.size());
 
         // add all cases
-        std::map<int, LabelDsymbol*>::iterator it, end = valToGoto.end();
+        std::map<int, Identifier*>::iterator it, end = valToGoto.end();
         for(it = valToGoto.begin(); it != end; ++it)
         {
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create("case", p->topfunc(), bb);

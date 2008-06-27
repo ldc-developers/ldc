@@ -36,6 +36,7 @@
 #include "root.h"
 #include "dchar.h"
 #include "mem.h"
+#include "mars.h"
 
 #if 0 //__SC__ //def DEBUG
 extern "C" void __cdecl _assert(void *e, void *f, unsigned line)
@@ -1325,7 +1326,7 @@ void File::stat()
 void File::checkoffset(size_t offset, size_t nbytes)
 {
     if (offset > len || offset + nbytes > len)
-	error("Corrupt file '%s': offset x%zx off end of file",toChars(),offset);
+	error("Corrupt file '%s': offset x%"PRIxSIZE" off end of file",toChars(),offset);
 }
 
 char *File::toChars()

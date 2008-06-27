@@ -16,6 +16,7 @@
 #endif /* __DMC__ */
 
 #include <set>
+#include <map>
 
 #include "dsymbol.h"
 #include "lexer.h"
@@ -24,6 +25,7 @@
 struct Expression;
 struct Statement;
 struct LabelDsymbol;
+struct LabelStatement;
 struct Initializer;
 struct Module;
 struct InlineScanState;
@@ -611,6 +613,11 @@ struct FuncDeclaration : Declaration
     // llvmdc stuff
     bool runTimeHack;
     std::set<VarDeclaration*> nestedVars;
+
+    // we keep our own table of label statements as LabelDsymbolS
+    // don't always carry their corresponding statement along ...
+    typedef std::map<const char*, LabelStatement*> LabelMap;
+    LabelMap labmap;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

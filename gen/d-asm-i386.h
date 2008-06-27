@@ -1420,6 +1420,8 @@ struct AsmProcessor
     }
 
     void addLabel(char* id) {
+    insnTemplate->writestring(sc->func->mangle());
+    insnTemplate->writestring("_");
     insnTemplate->writestring(id);
     }
 
@@ -1902,7 +1904,7 @@ struct AsmProcessor
 			    asmcode->dollarLabel = 1;
 			} else if (e->op == TOKdsymbol) {
 			    LabelDsymbol * lbl = (LabelDsymbol *) ((DsymbolExp *) e)->s;
-			    stmt->isBranchToLabel = lbl;
+			    stmt->isBranchToLabel = lbl->ident;
 
 			    use_star = false;
 			    addLabel(lbl->ident->toChars());

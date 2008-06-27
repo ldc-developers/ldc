@@ -382,7 +382,7 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t)
     }
     unsigned long amax = 0x80000000;
     if ((unsigned long) dim * t->next->size() >= amax)
-	error(loc, "array dimension %u exceeds max of %ju", dim, amax / t->next->size());
+	error(loc, "array dimension %u exceeds max of %llu", dim, amax / t->next->size());
     return this;
 }
 
