@@ -1,4 +1,4 @@
-module arrays;
+module arrays15;
 
 extern(C) int printf(char*, ...);
 

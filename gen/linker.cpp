@@ -1,6 +1,9 @@
 #include "gen/llvm.h"
 #include "llvm/Linker.h"
 #include "llvm/System/Program.h"
+#if _WIN32
+#include "llvm/Support/SystemUtils.h"
+#endif
 
 #include "root.h"
 #include "mars.h"
@@ -35,7 +38,7 @@ void linkModules(llvm::Module* dst, const Module_vector& MV)
 
 static llvm::sys::Path gExePath;
 
-int linkExecutable()
+int linkExecutable(const char* argv0)
 {
     Logger::println("*** Linking executable ***");
 
@@ -43,11 +46,10 @@ int linkExecutable()
     std::string errstr;
 
     // find the llvm-ld program
-    llvm::sys::Path ldpath = llvm::sys::Program::FindProgramByName("llvm-ld");
+	llvm::sys::Path ldpath = llvm::sys::Program::FindProgramByName("llvm-ld");
     if (ldpath.isEmpty())
     {
-        error("linker program not found");
-        fatal();
+		ldpath.set("llvm-ld");
     }
 
     // build arguments
@@ -83,12 +85,15 @@ int linkExecutable()
     // create path to exe
     llvm::sys::Path exedir(gExePath);
     exedir.set(gExePath.getDirname());
-    exedir.createDirectoryOnDisk(true, &errstr);
-    if (!errstr.empty())
+    if (!exedir.exists())
     {
-        error("failed to create path to linking output\n%s", errstr.c_str());
-        fatal();
-    }
+	    exedir.createDirectoryOnDisk(true, &errstr);
+	    if (!errstr.empty())
+	    {	
+	        error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
+	        fatal();
+	    }
+	}    
 
     // strip debug info
     if (!global.params.symdebug)

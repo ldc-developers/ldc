@@ -1929,7 +1929,7 @@ struct AsmProcessor
 		if (operand->constDisplacement) {
 		    if (operand->symbolDisplacement.dim)
 			insnTemplate->writebyte('+');
-		    addOperand2("${",":a}", Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
+		    addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
 		    if (opInfo->operands[i] & Opr_Dest)
 			asmcode->clobbersMemory = 1;
 		}

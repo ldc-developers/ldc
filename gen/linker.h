@@ -17,9 +17,10 @@ void linkModules(llvm::Module* dst, const std::vector<llvm::Module*>& MV);
 
 /**
  * Link an executable.
+ * @param argv0 the argv[0] value as passed to main
  * @return 0 on success.
  */
-int linkExecutable();
+int linkExecutable(const char* argv0);
 
 /**
  * Delete the executable that was previously linked with linkExecutable.

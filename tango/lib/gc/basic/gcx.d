@@ -54,7 +54,10 @@ private import cstdlib = tango.stdc.stdlib : calloc, free, malloc, realloc;
 private import cstring = tango.stdc.string : memcpy, memmove, memset;
 
 private import tango.stdc.stdio;
-private import tango.stdc.posix.pthread;
+version(Posix)
+{
+	private import tango.stdc.posix.pthread;
+}
 
 version (GNU)
 {
