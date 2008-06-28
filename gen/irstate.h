@@ -23,7 +23,7 @@ struct FuncDeclaration;
 struct Module;
 struct TypeStruct;
 struct BaseClass;
-struct TryFinallyStatement;
+struct EnclosingHandler;
 
 struct IrModule;
 
@@ -44,10 +44,10 @@ struct IRLoopScope : IRScope
     // generating statement
     Statement* s;
     // the try of a TryFinally that encloses the loop
-    TryFinallyStatement* enclosingtryfinally;
+    EnclosingHandler* enclosinghandler;
 
     IRLoopScope();
-    IRLoopScope(Statement* s, TryFinallyStatement* enclosingtryfinally, llvm::BasicBlock* b, llvm::BasicBlock* e);
+    IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
 struct IRBuilderHelper
@@ -96,7 +96,8 @@ struct IRState
     llvm::Module* module;
 
     // interface info type, used in DtoInterfaceInfoType
-    llvm::StructType* interfaceInfoType;
+    const LLStructType* interfaceInfoType;
+    const LLStructType* mutexType;
 
     // functions
     typedef std::vector<IrFunction*> FunctionVector;

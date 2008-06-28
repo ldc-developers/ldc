@@ -20,25 +20,25 @@ using llvm::IRBuilder;
 
 // shortcuts for the common llvm types
 
-typedef llvm::Type LLType;
-typedef llvm::FunctionType LLFunctionType;
-typedef llvm::PointerType LLPointerType;
-typedef llvm::StructType LLStructType;
-typedef llvm::ArrayType LLArrayType;
-typedef llvm::IntegerType LLIntegerType;
-typedef llvm::OpaqueType LLOpaqueType;
+#define LLType llvm::Type
+#define LLFunctionType llvm::FunctionType
+#define LLPointerType llvm::PointerType
+#define LLStructType llvm::StructType
+#define LLArrayType llvm::ArrayType
+#define LLIntegerType llvm::IntegerType
+#define LLOpaqueType llvm::OpaqueType
 
-typedef llvm::Value LLValue;
-typedef llvm::GlobalValue LLGlobalValue;
-typedef llvm::GlobalVariable LLGlobalVariable;
-typedef llvm::Function LLFunction;
+#define LLValue llvm::Value
+#define LLGlobalValue llvm::GlobalValue
+#define LLGlobalVariable llvm::GlobalVariable
+#define LLFunction llvm::Function
 
-typedef llvm::Constant LLConstant;
-typedef llvm::ConstantStruct LLConstantStruct;
-typedef llvm::ConstantArray LLConstantArray;
-typedef llvm::ConstantInt LLConstantInt;
+#define LLConstant llvm::Constant
+#define LLConstantStruct llvm::ConstantStruct
+#define LLConstantArray llvm::ConstantArray
+#define LLConstantInt llvm::ConstantInt
 
-typedef llvm::PATypeHolder LLPATypeHolder;
+#define LLPATypeHolder llvm::PATypeHolder
 
 #define LLSmallVector llvm::SmallVector
 

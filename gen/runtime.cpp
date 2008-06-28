@@ -852,10 +852,32 @@ static void LLVM_D_BuildRuntimeModule()
         palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setParamAttrs(palist);
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    // void _d_criticalenter(D_CRITICAL_SECTION *dcs)
+    // void _d_criticalexit(D_CRITICAL_SECTION *dcs)
+    {
+        std::string fname("_d_criticalenter");
+        std::string fname2("_d_criticalexit");
+        std::vector<const LLType*> types;
+        types.push_back(rt_ptr(DtoMutexType()));
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+    }
+
+    // void _d_monitorenter(Object h)
+    // void _d_monitorexit(Object h)
+    {
+        std::string fname("_d_monitorenter");
+        std::string fname2("_d_monitorexit");
+        std::vector<const LLType*> types;
+        types.push_back(objectTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+    }
 }
-
-
-
-
-
-

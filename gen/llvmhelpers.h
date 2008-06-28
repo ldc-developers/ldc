@@ -16,12 +16,22 @@ void DtoAssert(Loc* loc, DValue* msg);
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
 // emit goto
-void DtoGoto(Loc* loc, Identifier* target, TryFinallyStatement* enclosingtryfinally);
+void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosingtryfinally);
 
 // generates IR for finally blocks between the 'start' and 'end' statements
 // will begin with the finally block belonging to 'start' and does not include
 // the finally block of 'end'
-void DtoFinallyBlocks(TryFinallyStatement* start, TryFinallyStatement* end);
+void DtoEnclosingHandlers(EnclosingHandler* start, EnclosingHandler* end);
+
+// enters a critical section
+void DtoEnterCritical(LLValue* g);
+// leaves a critical section
+void DtoLeaveCritical(LLValue* g);
+
+// enters a monitor lock
+void DtoEnterMonitor(LLValue* v);
+// leaves a monitor lock
+void DtoLeaveMonitor(LLValue* v);
 
 // nested variable/class helpers
 LLValue* DtoNestedContext(FuncDeclaration* func);

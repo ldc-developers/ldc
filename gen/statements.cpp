@@ -70,12 +70,7 @@ void ReturnStatement::toIR(IRState* p)
             if (!e->inPlace())
                 DtoAssign(rvar, e);
 
-            DtoFinallyBlocks(enclosingtryfinally, NULL);
-
-            if (f->inVolatile) {
-                // store-load barrier
-                DtoMemoryBarrier(false, false, true, false);
-            }
+            DtoEnclosingHandlers(enclosinghandler, NULL);
 
             if (global.params.symdebug) DtoDwarfFuncEnd(f->decl);
             llvm::ReturnInst::Create(p->scopebb());
@@ -95,12 +90,7 @@ void ReturnStatement::toIR(IRState* p)
                 Logger::cout() << "return value after cast: " << *v << '\n';
             }
 
-            DtoFinallyBlocks(enclosingtryfinally, NULL);
-
-            if (gIR->func()->inVolatile) {
-                // store-load barrier
-                DtoMemoryBarrier(false, false, true, false);
-            }
+            DtoEnclosingHandlers(enclosinghandler, NULL);
 
             if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
             llvm::ReturnInst::Create(v, p->scopebb());
@@ -109,12 +99,7 @@ void ReturnStatement::toIR(IRState* p)
     else
     {
         assert(p->topfunc()->getReturnType() == LLType::VoidTy);
-        DtoFinallyBlocks(enclosingtryfinally, NULL);
-
-        if (gIR->func()->inVolatile) {
-            // store-load barrier
-            DtoMemoryBarrier(false, false, true, false);
-        }
+        DtoEnclosingHandlers(enclosinghandler, NULL);
 
         if (global.params.symdebug) DtoDwarfFuncEnd(p->func()->decl);
         llvm::ReturnInst::Create(p->scopebb());
@@ -275,7 +260,7 @@ void WhileStatement::toIR(IRState* p)
     gIR->scope() = IRScope(whilebodybb,endbb);
 
     // while body code
-    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,whilebb,endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,whilebb,endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
 
@@ -310,7 +295,7 @@ void DoStatement::toIR(IRState* p)
     gIR->scope() = IRScope(dowhilebb,endbb);
 
     // do-while body code
-    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,dowhilebb,endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,dowhilebb,endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
 
@@ -351,7 +336,7 @@ void ForStatement::toIR(IRState* p)
     assert(!gIR->scopereturned());
     llvm::BranchInst::Create(forbb, gIR->scopebb());
 
-    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,forincbb,endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,forincbb,endbb));
 
     // replace current scope
     gIR->scope() = IRScope(forbb,forbodybb);
@@ -410,7 +395,7 @@ void BreakStatement::toIR(IRState* p)
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
 
-        DtoFinallyBlocks(enclosingtryfinally, target->enclosingtryfinally);
+        DtoEnclosingHandlers(enclosinghandler, target->enclosinghandler);
 
         // get the loop statement the label refers to
         Statement* targetLoopStatement = target->statement;
@@ -431,7 +416,7 @@ void BreakStatement::toIR(IRState* p)
         assert(found);
     }
     else {
-        DtoFinallyBlocks(enclosingtryfinally, p->loopbbs.back().enclosingtryfinally);
+        DtoEnclosingHandlers(enclosinghandler, p->loopbbs.back().enclosinghandler);
         llvm::BranchInst::Create(p->loopbbs.back().end, p->scopebb());
     }
 
@@ -454,7 +439,7 @@ void ContinueStatement::toIR(IRState* p)
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
 
-        DtoFinallyBlocks(enclosingtryfinally, target->enclosingtryfinally);
+        DtoEnclosingHandlers(enclosinghandler, target->enclosinghandler);
 
         // get the loop statement the label refers to
         Statement* targetLoopStatement = target->statement;
@@ -473,7 +458,7 @@ void ContinueStatement::toIR(IRState* p)
         assert(0);
     }
     else {
-        DtoFinallyBlocks(enclosingtryfinally, gIR->loopbbs.back().enclosingtryfinally);
+        DtoEnclosingHandlers(enclosinghandler, gIR->loopbbs.back().enclosinghandler);
         llvm::BranchInst::Create(gIR->loopbbs.back().begin, gIR->scopebb());
     }
 }
@@ -599,6 +584,11 @@ void ThrowStatement::toIR(IRState* p)
     //Logger::cout() << "arg: " << *arg << '\n';
     gIR->ir->CreateCall(fn, arg, "");
     gIR->ir->CreateUnreachable();
+
+    // need a block after the throw for now
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterthrow", p->topfunc(), oldend);
+    p->scope() = IRScope(bb,oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -767,7 +757,7 @@ void SwitchStatement::toIR(IRState* p)
     assert(body);
 
     p->scope() = IRScope(bodybb, endbb);
-    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,p->scopebb(),endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,p->scopebb(),endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
 
@@ -851,7 +841,7 @@ void UnrolledLoopStatement::toIR(IRState* p)
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("unrolledend", p->topfunc(), oldend);
 
     p->scope() = IRScope(p->scopebb(),endbb);
-    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,p->scopebb(),endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,p->scopebb(),endbb));
 
     for (int i=0; i<statements->dim; ++i)
     {
@@ -974,7 +964,7 @@ void ForeachStatement::toIR(IRState* p)
     }
 
     // emit body
-    p->loopbbs.push_back(IRLoopScope(this,enclosingtryfinally,nextbb,endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,nextbb,endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
 
@@ -1047,7 +1037,7 @@ void GotoStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergoto", p->topfunc(), oldend);
 
-    DtoGoto(&loc, label->ident, enclosingtryfinally);
+    DtoGoto(&loc, label->ident, enclosinghandler);
 
     p->scope() = IRScope(bb,oldend);
 }
@@ -1068,7 +1058,7 @@ void GotoDefaultStatement::toIR(IRState* p)
     assert(!p->scopereturned());
     assert(sw->sdefault->bodyBB);
 
-    DtoFinallyBlocks(enclosingtryfinally, sw->enclosingtryfinally);
+    DtoEnclosingHandlers(enclosinghandler, sw->enclosinghandler);
 
     llvm::BranchInst::Create(sw->sdefault->bodyBB, p->scopebb());
     p->scope() = IRScope(bb,oldend);
@@ -1093,7 +1083,7 @@ void GotoCaseStatement::toIR(IRState* p)
         cs->bodyBB = llvm::BasicBlock::Create("goto_case", p->topfunc(), p->scopeend());
     }
 
-    DtoFinallyBlocks(enclosingtryfinally, sw->enclosingtryfinally);
+    DtoEnclosingHandlers(enclosinghandler, sw->enclosinghandler);
 
     llvm::BranchInst::Create(cs->bodyBB, p->scopebb());
     p->scope() = IRScope(bb,oldend);
@@ -1122,54 +1112,45 @@ void WithStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static LLConstant* generate_unique_critical_section()
+{
+    const LLType* Mty = DtoMutexType();
+    return new llvm::GlobalVariable(Mty, false, llvm::GlobalValue::InternalLinkage, LLConstant::getNullValue(Mty), ".uniqueCS", gIR->module);
+}
+
 void SynchronizedStatement::toIR(IRState* p)
 {
     Logger::println("SynchronizedStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention(loc, "synchronized is currently ignored. only the body will be emitted");
-
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
+    // enter lock
+    if (exp)
+    {
+        llsync = exp->toElem(p)->getRVal();
+        DtoEnterMonitor(llsync);
+    }
+    else
+    {
+        llsync = generate_unique_critical_section();
+        DtoEnterCritical(llsync);
+    }
+
+    // emit body
     body->toIR(p);
+
+    // exit lock
+    // no point in a unreachable unlock, terminating statements must insert this themselves.
+    if (p->scopereturned())
+        return;
+    else if (exp)
+        DtoLeaveMonitor(llsync);
+    else
+        DtoLeaveCritical(llsync);
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
-/* this has moved to asmstmt.cpp
-void AsmStatement::toIR(IRState* p)
-{
-    Logger::println("AsmStatement::toIR(): %s", loc.toChars());
-    LOG_SCOPE;
-//    error("%s: inline asm is not yet implemented", loc.toChars());
-//    fatal();
-
-    assert(!asmcode && !asmalign && !refparam && !naked && !regs);
-
-    Token* t = tokens;
-    assert(t);
-
-    std::string asmstr;
-
-    do {
-        Logger::println("token: %s", t->toChars());
-        asmstr.append(t->toChars());
-        asmstr.append(" ");
-    } while (t = t->next);
-
-    Logger::println("asm expr = '%s'", asmstr.c_str());
-
-    // create function type
-    std::vector<const LLType*> args;
-    const llvm::FunctionType* fty = llvm::FunctionType::get(DtoSize_t(), args, false);
-
-    // create inline asm callee
-    llvm::InlineAsm* inasm = llvm::InlineAsm::get(fty, asmstr, "r,r", false);
-
-    assert(0);
-}
-*/
 //////////////////////////////////////////////////////////////////////////////
 
 void VolatileStatement::toIR(IRState* p)
@@ -1181,8 +1162,7 @@ void VolatileStatement::toIR(IRState* p)
         DtoDwarfStopPoint(loc.linnum);
 
     // mark in-volatile
-    bool old = gIR->func()->inVolatile;
-    gIR->func()->inVolatile = true;
+    // FIXME
 
     // has statement
     if (statement != NULL)
@@ -1193,7 +1173,7 @@ void VolatileStatement::toIR(IRState* p)
         // do statement
         statement->toIR(p);
 
-        // no point in a unreachable barrier, terminating statements should insert this themselves.
+        // no point in a unreachable barrier, terminating statements must insert this themselves.
         if (statement->fallOffEnd())
         {
             // store-load
@@ -1208,7 +1188,7 @@ void VolatileStatement::toIR(IRState* p)
     }
 
     // restore volatile state
-    gIR->func()->inVolatile = old;
+    // FIXME
 }
 
 //////////////////////////////////////////////////////////////////////////////

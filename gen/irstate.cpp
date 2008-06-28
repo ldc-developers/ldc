@@ -10,6 +10,7 @@
 
 #include "mtype.h"
 #include "declaration.h"
+#include "statement.h"
 
 #include "gen/irstate.h"
 #include "tollvm.h"
@@ -35,19 +36,21 @@ IRLoopScope::IRLoopScope()
 {
 }
 
-IRLoopScope::IRLoopScope(Statement* s, TryFinallyStatement* enclosingtryfinally, llvm::BasicBlock* b, llvm::BasicBlock* e)
+IRLoopScope::IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* b, llvm::BasicBlock* e)
 {
     begin = b;
     end = e;
     //builder.SetInsertPoint(b);
     this->s = s;
-    this->enclosingtryfinally = enclosingtryfinally;
+    this->enclosinghandler = enclosinghandler;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 IRState::IRState()
 {
     interfaceInfoType = NULL;
+    mutexType = NULL;
+
     dmodule = 0;
     module = 0;
     emitMain = false;

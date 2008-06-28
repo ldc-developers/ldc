@@ -560,7 +560,7 @@ UnrolledLoopStatement::UnrolledLoopStatement(Loc loc, Statements *s)
     : Statement(loc)
 {
     statements = s;
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
 }
 
 Statement *UnrolledLoopStatement::syntaxCopy()
@@ -582,7 +582,7 @@ Statement *UnrolledLoopStatement::semantic(Scope *sc)
 {
     //printf("UnrolledLoopStatement::semantic(this = %p, sc = %p)\n", this, sc);
 
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     sc->noctor++;
     Scope *scd = sc->push();
@@ -773,7 +773,7 @@ WhileStatement::WhileStatement(Loc loc, Expression *c, Statement *b)
 {
     condition = c;
     body = b;
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
 }
 
 Statement *WhileStatement::syntaxCopy()
@@ -808,7 +808,7 @@ Statement *WhileStatement::semantic(Scope *sc)
     }
 #endif
 
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -875,7 +875,7 @@ DoStatement::DoStatement(Loc loc, Statement *b, Expression *c)
 {
     body = b;
     condition = c;
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
 }
 
 Statement *DoStatement::syntaxCopy()
@@ -887,7 +887,7 @@ Statement *DoStatement::syntaxCopy()
 
 Statement *DoStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     sc->noctor++;
     if (body)
@@ -951,7 +951,7 @@ ForStatement::ForStatement(Loc loc, Statement *init, Expression *condition, Expr
     this->condition = condition;
     this->increment = increment;
     this->body = body;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 }
 
 Statement *ForStatement::syntaxCopy()
@@ -971,7 +971,7 @@ Statement *ForStatement::syntaxCopy()
 
 Statement *ForStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     ScopeDsymbol *sym = new ScopeDsymbol();
     sym->parent = sc->scopesym;
@@ -1085,7 +1085,7 @@ ForeachStatement::ForeachStatement(Loc loc, enum TOK op, Arguments *arguments,
     this->arguments = arguments;
     this->aggr = aggr;
     this->body = body;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 
     this->key = NULL;
     this->value = NULL;
@@ -1114,7 +1114,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
     Type *tn = NULL;
     Type *tnv = NULL;
 
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     func = sc->func;
     if (func->fes)
@@ -1981,7 +1981,7 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b)
     cases = NULL;
     hasNoDefault = 0;
     // LLVMDC
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
 }
 
 Statement *SwitchStatement::syntaxCopy()
@@ -1996,7 +1996,7 @@ Statement *SwitchStatement::semantic(Scope *sc)
     //printf("SwitchStatement::semantic(%p)\n", this);
     assert(!cases);		// ensure semantic() is only run once
 
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -2284,7 +2284,7 @@ GotoDefaultStatement::GotoDefaultStatement(Loc loc)
     : Statement(loc)
 {
     sw = NULL;
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
 }
 
 Statement *GotoDefaultStatement::syntaxCopy()
@@ -2295,7 +2295,7 @@ Statement *GotoDefaultStatement::syntaxCopy()
 
 Statement *GotoDefaultStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
     sw = sc->sw;
     if (!sw)
 	error("goto default not in switch statement");
@@ -2319,7 +2319,7 @@ GotoCaseStatement::GotoCaseStatement(Loc loc, Expression *exp)
 {
     cs = NULL;
     this->exp = exp;
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
     sw = NULL;
 }
 
@@ -2332,7 +2332,7 @@ Statement *GotoCaseStatement::syntaxCopy()
 
 Statement *GotoCaseStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
     if (exp)
 	exp = exp->semantic(sc);
 
@@ -2391,7 +2391,7 @@ ReturnStatement::ReturnStatement(Loc loc, Expression *exp)
     : Statement(loc)
 {
     this->exp = exp;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 }
 
 Statement *ReturnStatement::syntaxCopy()
@@ -2406,7 +2406,7 @@ Statement *ReturnStatement::syntaxCopy()
 Statement *ReturnStatement::semantic(Scope *sc)
 {
     //printf("ReturnStatement::semantic() %s\n", toChars());
-    this->enclosingtryfinally = sc->tfOfTry;
+    this->enclosinghandler = sc->tfOfTry;
 
     FuncDeclaration *fd = sc->parent->isFuncDeclaration();
     Scope *scx = sc;
@@ -2667,7 +2667,7 @@ BreakStatement::BreakStatement(Loc loc, Identifier *ident)
     : Statement(loc)
 {
     this->ident = ident;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 }
 
 Statement *BreakStatement::syntaxCopy()
@@ -2678,7 +2678,7 @@ Statement *BreakStatement::syntaxCopy()
 
 Statement *BreakStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
     // If:
     //	break Identifier;
     if (ident)
@@ -2761,7 +2761,7 @@ ContinueStatement::ContinueStatement(Loc loc, Identifier *ident)
     : Statement(loc)
 {
     this->ident = ident;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 }
 
 Statement *ContinueStatement::syntaxCopy()
@@ -2772,7 +2772,7 @@ Statement *ContinueStatement::syntaxCopy()
 
 Statement *ContinueStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
     //printf("ContinueStatement::semantic() %p\n", this);
     if (ident)
     {
@@ -2866,6 +2866,8 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, Expression *exp, Statement
     this->exp = exp;
     this->body = body;
     this->esync = NULL;
+    // LLVMDC
+    this->llsync = NULL;
 }
 
 SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *body)
@@ -2874,6 +2876,8 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *bo
     this->exp = NULL;
     this->body = body;
     this->esync = esync;
+    // LLVMDC
+    this->llsync = NULL;
 }
 
 Statement *SynchronizedStatement::syntaxCopy()
@@ -2902,7 +2906,12 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 	}
     }
     if (body)
-	body = body->semantic(sc);
+    {
+        enclosinghandler = sc->tfOfTry;
+        sc->tfOfTry = new EnclosingSynchro(this);
+        body = body->semantic(sc);
+        sc->tfOfTry = enclosinghandler;
+    }
     return this;
 }
 
@@ -3205,7 +3214,7 @@ TryFinallyStatement::TryFinallyStatement(Loc loc, Statement *body, Statement *fi
 {
     this->body = body;
     this->finalbody = finalbody;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 }
 
 Statement *TryFinallyStatement::syntaxCopy()
@@ -3219,10 +3228,10 @@ Statement *TryFinallyStatement::semantic(Scope *sc)
 {
     //printf("TryFinallyStatement::semantic()\n");
 
-    enclosingtryfinally = sc->tfOfTry;
-    sc->tfOfTry = this;
+    enclosinghandler = sc->tfOfTry;
+    sc->tfOfTry = new EnclosingTryFinally(this);
     body = body->semantic(sc);
-    sc->tfOfTry = enclosingtryfinally;
+    sc->tfOfTry = enclosinghandler;
 
     sc = sc->push();
     sc->tf = this;
@@ -3399,6 +3408,7 @@ VolatileStatement::VolatileStatement(Loc loc, Statement *statement)
     : Statement(loc)
 {
     this->statement = statement;
+    this->enclosinghandler = NULL;
 }
 
 Statement *VolatileStatement::syntaxCopy()
@@ -3410,7 +3420,13 @@ Statement *VolatileStatement::syntaxCopy()
 
 Statement *VolatileStatement::semantic(Scope *sc)
 {
-    statement = statement ? statement->semantic(sc) : NULL;
+    if (statement)
+    {
+    enclosinghandler = sc->tfOfTry;
+    sc->tfOfTry = new EnclosingVolatile(this);
+    statement = statement->semantic(sc);
+    sc->tfOfTry = enclosinghandler;
+    }
     return this;
 }
 
@@ -3457,7 +3473,7 @@ GotoStatement::GotoStatement(Loc loc, Identifier *ident)
     this->ident = ident;
     this->label = NULL;
     this->tf = NULL;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
 }
 
 Statement *GotoStatement::syntaxCopy()
@@ -3471,7 +3487,7 @@ Statement *GotoStatement::semantic(Scope *sc)
 
     //printf("GotoStatement::semantic()\n");
     tf = sc->tf;
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
     label = fd->searchLabel(ident);
     if (!label->statement && sc->fes)
     {
@@ -3515,7 +3531,7 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
     this->ident = ident;
     this->statement = statement;
     this->tf = NULL;
-    this->enclosingtryfinally = NULL;
+    this->enclosinghandler = NULL;
     this->lblock = NULL;
     this->isReturnLabel = 0;
     this->llvmBB = NULL;
@@ -3539,7 +3555,7 @@ Statement *LabelStatement::semantic(Scope *sc)
     else
 	ls->statement = this;
     tf = sc->tf;
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
     sc = sc->push();
     sc->scopesym = sc->enclosing->scopesym;
     sc->callSuper |= CSXlabel;

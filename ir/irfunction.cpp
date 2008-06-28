@@ -1,3 +1,5 @@
+
+#include "gen/llvm.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 
@@ -27,9 +29,4 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 
     srcfileArg = NULL;
     msgArg = NULL;
-    inVolatile = false;
-}
-
-IrFunction::~IrFunction()
-{
 }

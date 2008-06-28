@@ -381,7 +381,7 @@ assert(0);
 AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
 :   CompoundStatement(loc, s)
 {
-    enclosingtryfinally = NULL;
+    enclosinghandler = NULL;
 }
 
 // rewrite argument indices to the block scope indices
@@ -638,7 +638,7 @@ void AsmBlockStatement::toIR(IRState* p)
             sw->addCase(llvm::ConstantInt::get(llvm::IntegerType::get(32), it->first), casebb);
 
             p->scope() = IRScope(casebb,bb);
-            DtoGoto(&loc, it->second, enclosingtryfinally);
+            DtoGoto(&loc, it->second, enclosinghandler);
         }
 
         p->scope() = IRScope(bb,oldend);
@@ -669,7 +669,7 @@ Statement *AsmBlockStatement::syntaxCopy()
 // necessary for in-asm branches
 Statement *AsmBlockStatement::semantic(Scope *sc)
 {
-    enclosingtryfinally = sc->tfOfTry;
+    enclosinghandler = sc->tfOfTry;
 
     return CompoundStatement::semantic(sc);
 }

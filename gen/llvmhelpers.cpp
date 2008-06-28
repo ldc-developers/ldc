@@ -174,7 +174,7 @@ LabelStatement* DtoLabelStatement(Identifier* ident)
 /*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc* loc, Identifier* target, TryFinallyStatement* enclosingtryfinally)
+void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
 {
     assert(!gIR->scopereturned());
 
@@ -189,40 +189,113 @@ void DtoGoto(Loc* loc, Identifier* target, TryFinallyStatement* enclosingtryfina
         lblstmt->llvmBB = llvm::BasicBlock::Create("label", gIR->topfunc());
 
     // find finallys between goto and label
-    TryFinallyStatement* endfinally = enclosingtryfinally;
-    while(endfinally != NULL && endfinally != lblstmt->enclosingtryfinally) {
-        endfinally = endfinally->enclosingtryfinally;
+    EnclosingHandler* endfinally = enclosinghandler;
+    while(endfinally != NULL && endfinally != lblstmt->enclosinghandler) {
+        endfinally = endfinally->getEnclosing();
     }
 
     // error if didn't find tf statement of label
-    if(endfinally != lblstmt->enclosingtryfinally)
+    if(endfinally != lblstmt->enclosinghandler)
         error("cannot goto into try block", loc->toChars());
 
     // emit code for finallys between goto and label
-    DtoFinallyBlocks(enclosingtryfinally, endfinally);
+    DtoEnclosingHandlers(enclosinghandler, endfinally);
 
     llvm::BranchInst::Create(lblstmt->llvmBB, gIR->scopebb());
 }
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-// TRY FINALLY HELPER
+// TRY-FINALLY, VOLATILE AND SYNCHRONIZED HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoFinallyBlocks(TryFinallyStatement* start, TryFinallyStatement* end)
+
+void EnclosingSynchro::emitCode(IRState * p)
+{
+    if (s->exp)
+        DtoLeaveMonitor(s->llsync);
+    else
+        DtoLeaveCritical(s->llsync);
+}
+
+EnclosingHandler* EnclosingSynchro::getEnclosing()
+{
+    return s->enclosinghandler;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+void EnclosingVolatile::emitCode(IRState * p)
+{
+    // store-load barrier
+    DtoMemoryBarrier(false, false, true, false);
+}
+
+EnclosingHandler* EnclosingVolatile::getEnclosing()
+{
+    return v->enclosinghandler;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+void EnclosingTryFinally::emitCode(IRState * p)
+{
+    assert(tf->finalbody);
+    tf->finalbody->toIR(p);
+}
+
+EnclosingHandler* EnclosingTryFinally::getEnclosing()
+{
+    return tf->enclosinghandler;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoEnclosingHandlers(EnclosingHandler* start, EnclosingHandler* end)
 {
     // verify that end encloses start
-    TryFinallyStatement* endfinally = start;
+    EnclosingHandler* endfinally = start;
     while(endfinally != NULL && endfinally != end) {
-        endfinally = endfinally->enclosingtryfinally;
+        endfinally = endfinally->getEnclosing();
     }
     assert(endfinally == end);
 
     // emit code for finallys between start and end
-    TryFinallyStatement* tf = start;
+    EnclosingHandler* tf = start;
     while(tf != end) {
-        tf->finalbody->toIR(gIR);
-        tf = tf->enclosingtryfinally;
+        tf->emitCode(gIR);
+        tf = tf->getEnclosing();
     }
+}
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
+// SYNCHRONIZED SECTION HELPERS
+////////////////////////////////////////////////////////////////////////////////////////*/
+
+void DtoEnterCritical(LLValue* g)
+{
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_criticalenter");
+    gIR->ir->CreateCall(fn, g, "");
+}
+
+void DtoLeaveCritical(LLValue* g)
+{
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_criticalexit");
+    gIR->ir->CreateCall(fn, g, "");
+}
+
+void DtoEnterMonitor(LLValue* v)
+{
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorenter");
+    v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
+    gIR->ir->CreateCall(fn, v, "");
+}
+
+void DtoLeaveMonitor(LLValue* v)
+{
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorexit");
+    v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
+    gIR->ir->CreateCall(fn, v, "");
 }
 
 /****************************************************************************************/

@@ -637,6 +637,7 @@ size_t getTypeStoreSize(const LLType* t)
 
 size_t getABITypeSize(const LLType* t)
 {
+    Logger::cout() << "getting abi type of: " << *t << '\n';
     return gTargetData->getABITypeSize(t);
 }
 
@@ -677,12 +678,49 @@ const LLStructType* DtoInterfaceInfoType()
     return gIR->interfaceInfoType;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
 
+const LLStructType* DtoMutexType()
+{
+    if (gIR->mutexType)
+        return gIR->mutexType;
 
+    // win32
+    if (global.params.isWindows)
+    {
+        // CRITICAL_SECTION.sizeof == 68
+        std::vector<const LLType*> types(17, LLType::Int32Ty);
+        return LLStructType::get(types);
+    }
 
+    // pthread_fastlock
+    std::vector<const LLType*> types2;
+    types2.push_back(DtoSize_t());
+    types2.push_back(LLType::Int32Ty);
+    const LLStructType* fastlock = LLStructType::get(types2);
 
+    // pthread_mutex
+    std::vector<const LLType*> types1;
+    types1.push_back(LLType::Int32Ty);
+    types1.push_back(LLType::Int32Ty);
+    types1.push_back(getVoidPtrType());
+    types1.push_back(LLType::Int32Ty);
+    types1.push_back(fastlock);
+    const LLStructType* pmutex = LLStructType::get(types1);
 
+    // D_CRITICAL_SECTION
+    LLOpaqueType* opaque = LLOpaqueType::get();
+    std::vector<const LLType*> types;
+    types.push_back(getPtrToType(opaque));
+    types.push_back(pmutex);
 
+    // resolve type
+    pmutex = LLStructType::get(types);
+    LLPATypeHolder pa(pmutex);
+    opaque->refineAbstractTypeTo(pa.get());
+    pmutex = isaStruct(pa.get());
 
-
-
+    gIR->mutexType = pmutex;
+    gIR->module->addTypeName("D_CRITICAL_SECTION", pmutex);
+    return pmutex;
+}

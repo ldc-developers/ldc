@@ -25,10 +25,7 @@ struct IrFunction : IrBase
     llvm::AllocaInst* srcfileArg;
     llvm::AllocaInst* msgArg;
 
-    bool inVolatile;
-
     IrFunction(FuncDeclaration* fd);
-    virtual ~IrFunction();
 };
 
 #endif

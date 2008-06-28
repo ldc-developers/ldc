@@ -39,6 +39,7 @@ LLValue* DtoBoolean(LLValue* val);
 // some types
 const LLType* DtoSize_t();
 const LLStructType* DtoInterfaceInfoType();
+const LLStructType* DtoMutexType();
 
 // getelementptr helpers
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var=NULL, llvm::BasicBlock* bb=NULL);

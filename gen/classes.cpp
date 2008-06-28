@@ -1253,7 +1253,7 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
 
     const LLType* st = cinfo->type->ir.type->get();
 
-    cd->ir.irStruct->classInfo = new llvm::GlobalVariable(st, true, DtoLinkage(cd), NULL, gname, gIR->module);
+    cd->ir.irStruct->classInfo = new llvm::GlobalVariable(st, false, DtoLinkage(cd), NULL, gname, gIR->module);
 }
 
 static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
