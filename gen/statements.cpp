@@ -458,8 +458,15 @@ void ContinueStatement::toIR(IRState* p)
         assert(0);
     }
     else {
-        DtoEnclosingHandlers(enclosinghandler, gIR->loopbbs.back().enclosinghandler);
-        llvm::BranchInst::Create(gIR->loopbbs.back().begin, gIR->scopebb());
+        // can't 'continue' within switch, so omit them
+        IRState::LoopScopeVec::reverse_iterator it;
+        for(it = gIR->loopbbs.rbegin(); it != gIR->loopbbs.rend(); ++it) {
+            if(!it->isSwitch) {
+                break;
+            }
+        }
+        DtoEnclosingHandlers(enclosinghandler, it->enclosinghandler);
+        llvm::BranchInst::Create(it->begin, gIR->scopebb());
     }
 }
 
@@ -757,7 +764,7 @@ void SwitchStatement::toIR(IRState* p)
     assert(body);
 
     p->scope() = IRScope(bodybb, endbb);
-    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,p->scopebb(),endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,p->scopebb(),endbb,true));
     body->toIR(p);
     p->loopbbs.pop_back();
 

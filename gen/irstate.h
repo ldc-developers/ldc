@@ -45,9 +45,12 @@ struct IRLoopScope : IRScope
     Statement* s;
     // the try of a TryFinally that encloses the loop
     EnclosingHandler* enclosinghandler;
+    // if it is a switch, we are a possible target for break
+    // but not for continue
+    bool isSwitch;
 
     IRLoopScope();
-    IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* b, llvm::BasicBlock* e);
+    IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* b, llvm::BasicBlock* e, bool isSwitch = false);
 };
 
 struct IRBuilderHelper
