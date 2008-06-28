@@ -2866,6 +2866,7 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, Expression *exp, Statement
     this->exp = exp;
     this->body = body;
     this->esync = NULL;
+    this->enclosinghandler = NULL;
     // LLVMDC
     this->llsync = NULL;
 }
@@ -2876,6 +2877,7 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *bo
     this->exp = NULL;
     this->body = body;
     this->esync = esync;
+    this->enclosinghandler = NULL;
     // LLVMDC
     this->llsync = NULL;
 }
