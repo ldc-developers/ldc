@@ -4,15 +4,11 @@
 #include "ir/irstruct.h"
 #include "gen/irstate.h"
 
-#if OPAQUE_VTBLS
-IrInterface::IrInterface(BaseClass* b, const llvm::ArrayType* vt)
-#else
-IrInterface::IrInterface(BaseClass* b, const llvm::StructType* vt)
-#endif
+IrInterface::IrInterface(BaseClass* b)
 {
     base = b;
     decl = b->base;
-    vtblTy = vt;
+    vtblTy = NULL;
     vtblInit = NULL;
     vtbl = NULL;
     infoTy = NULL;
@@ -24,6 +20,7 @@ IrInterface::IrInterface(BaseClass* b, const llvm::StructType* vt)
 
 IrInterface::~IrInterface()
 {
+    delete vtblTy;
 }
 
 //////////////////////////////////////////////////////////////////////////////

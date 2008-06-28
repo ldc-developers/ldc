@@ -39,7 +39,7 @@ static void LLVM_AddBaseClassInterfaces(ClassDeclaration* target, BaseClasses* b
             if (target->ir.irStruct->interfaceMap.find(bc->base) == target->ir.irStruct->interfaceMap.end())
             {
                 Logger::println("adding interface '%s'", bc->base->toPrettyChars());
-                IrInterface* iri = new IrInterface(bc, NULL);
+                IrInterface* iri = new IrInterface(bc);
 
                 // add to map
                 target->ir.irStruct->interfaceMap.insert(std::make_pair(bc->base, iri));
@@ -242,16 +242,14 @@ void DtoResolveClass(ClassDeclaration* cd)
 
         // set vtbl type
         TypeClass* itc = (TypeClass*)id->type;
-        const LLType* ivtblTy = getPtrToType(itc->ir.vtblType->get());
-        fieldtypes.push_back(ivtblTy);
+        const LLType* ivtblTy = itc->ir.vtblType->get();
+        assert(ivtblTy);
+        Logger::cout() << "interface vtbl type: " << *ivtblTy << '\n';
+        fieldtypes.push_back(getPtrToType(ivtblTy));
 
         // fix the interface vtable type
-    #if OPAQUE_VTBLS
-        iri->vtblTy = isaArray(itc->ir.vtblType->get());
-    #else
-        iri->vtblTy = isaStruct(itc->ir.vtblType->get());
-    #endif
-        assert(iri->vtblTy);
+        assert(iri->vtblTy == NULL);
+        iri->vtblTy = new llvm::PATypeHolder(ivtblTy);
 
         // set index
         iri->index = interIdx++;
@@ -421,7 +419,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
             nam.append("6__vtblZ");
 
             assert(iri->vtblTy);
-            iri->vtbl = new llvm::GlobalVariable(iri->vtblTy, true, _linkage, 0, nam, gIR->module);
+            iri->vtbl = new llvm::GlobalVariable(iri->vtblTy->get(), true, _linkage, 0, nam, gIR->module);
             LLConstant* idxs[2] = {DtoConstUint(0), DtoConstUint(idx)};
             iri->info = llvm::ConstantExpr::getGetElementPtr(irstruct->interfaceInfos, idxs, 2);
             idx++;

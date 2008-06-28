@@ -11,13 +11,8 @@ struct IrInterface : IrBase
     BaseClass* base;
     ClassDeclaration* decl;
 
-#if OPAQUE_VTBLS
-    const LLArrayType* vtblTy;
-    LLConstantArray* vtblInit;
-#else
-    const LLStructType* vtblTy;
-    LLConstantStruct* vtblInit;
-#endif
+    llvm::PATypeHolder* vtblTy;
+    LLConstant* vtblInit;
     LLGlobalVariable* vtbl;
 
     const LLStructType* infoTy;
@@ -26,11 +21,7 @@ struct IrInterface : IrBase
 
     int index;
 
-#if OPAQUE_VTBLS
-    IrInterface(BaseClass* b, const LLArrayType* vt);
-#else
-    IrInterface(BaseClass* b, const LLStructType* vt);
-#endif
+    IrInterface(BaseClass* b);
     ~IrInterface();
 };
 
