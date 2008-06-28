@@ -87,13 +87,8 @@ const LLType* DtoType(Type* t)
         return DtoComplexType(t);
 
     // pointers
-    case Tpointer: {
-        assert(t->next);
-        if (t->next->ty == Tvoid)
-            return (const LLType*)getPtrToType(LLType::Int8Ty);
-        else
-            return (const LLType*)getPtrToType(DtoType(t->next));
-    }
+    case Tpointer:
+        return getPtrToType(DtoType(t->next));
 
     // arrays
     case Tarray:
@@ -612,6 +607,8 @@ llvm::GlobalVariable* isaGlobalVar(LLValue* v)
 
 const LLPointerType* getPtrToType(const LLType* t)
 {
+    if (t == LLType::VoidTy)
+        t = LLType::Int8Ty;
     return LLPointerType::get(t, 0);
 }
 

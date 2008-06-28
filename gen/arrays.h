@@ -33,7 +33,7 @@ void DtoStaticArrayCopy(LLValue* dst, LLValue* src);
 LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r);
 LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r);
 
-LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r);
+LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r);
 
 LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* newelemty);
 

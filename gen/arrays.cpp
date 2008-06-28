@@ -241,6 +241,7 @@ void DtoArrayInit(DValue* array, DValue* value)
 void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr)
 {
     Logger::println("SetArray");
+    assert(isaStruct(arr->getType()->getContainedType(0)));
     DtoStore(dim, DtoGEPi(arr,0,0));
     DtoStore(ptr, DtoGEPi(arr,0,1));
 }
@@ -349,48 +350,10 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 //////////////////////////////////////////////////////////////////////////////////////////
 static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
 {
+    assert(e->len != 0);
     const LLType* t = e->ptr->getType()->getContainedType(0);
-    LLValue* ret = 0;
-    if (e->len != 0) {
-        // this means it's a real slice
-        ret = e->ptr;
-
-        size_t elembsz = getABITypeSize(ret->getType()->getContainedType(0));
-        llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
-
-        if (isaConstantInt(e->len)) {
-            sz = llvm::ConstantExpr::getMul(elemsz, isaConstant(e->len));
-        }
-        else {
-            sz = llvm::BinaryOperator::createMul(elemsz,e->len,"tmp",gIR->scopebb());
-        }
-    }
-    else if (isaArray(t)) {
-        ret = DtoGEPi(e->ptr, 0, 0);
-
-        size_t elembsz = getABITypeSize(ret->getType()->getContainedType(0));
-        llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
-
-        size_t numelements = isaArray(t)->getNumElements();
-        llvm::ConstantInt* nelems = llvm::ConstantInt::get(DtoSize_t(), numelements, false);
-
-        sz = llvm::ConstantExpr::getMul(elemsz, nelems);
-    }
-    else if (isaStruct(t)) {
-        ret = DtoGEPi(e->ptr, 0, 1);
-        ret = DtoLoad(ret);
-
-        size_t elembsz = getABITypeSize(ret->getType()->getContainedType(0));
-        llvm::ConstantInt* elemsz = llvm::ConstantInt::get(DtoSize_t(), elembsz, false);
-
-        LLValue* len = DtoGEPi(e->ptr, 0, 0);
-        len = DtoLoad(len);
-        sz = llvm::BinaryOperator::createMul(len,elemsz,"tmp",gIR->scopebb());
-    }
-    else {
-        assert(0);
-    }
-    return ret;
+    sz = gIR->ir->CreateMul(DtoConstSize_t(getABITypeSize(t)), e->len, "tmp");
+    return e->ptr;
 }
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
@@ -895,37 +858,28 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-LLValue* DtoDynArrayIs(TOK op, LLValue* l, LLValue* r)
+LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r)
 {
-    llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+    LLValue *len1, *ptr1, *len2, *ptr2;
 
-    if (r == NULL) {
-        LLValue* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0),"tmp");
-        LLValue* rl = llvm::Constant::getNullValue(ll->getType());//DtoConstSize_t(0);
-        LLValue* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
+    assert(l);
+    assert(r);
 
-        LLValue* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1),"tmp");
-        const LLPointerType* pty = isaPointer(lp->getType());
-        LLValue* rp = llvm::ConstantPointerNull::get(pty);
-        LLValue* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
+    // compare lengths
+    len1 = DtoArrayLen(l);
+    len2 = DtoArrayLen(r);
+    LLValue* b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,len1,len2,"tmp");
 
-        LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
-        return b;
-    }
-    else {
-        assert(l->getType() == r->getType());
+    // compare pointers
+    ptr1 = DtoArrayPtr(l);
+    ptr2 = DtoArrayPtr(r);
+    LLValue* b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,ptr1,ptr2,"tmp");
 
-        LLValue* ll = gIR->ir->CreateLoad(DtoGEPi(l, 0,0),"tmp");
-        LLValue* rl = gIR->ir->CreateLoad(DtoGEPi(r, 0,0),"tmp");
-        LLValue* b1 = gIR->ir->CreateICmp(pred,ll,rl,"tmp");
+    // combine
+    LLValue* res = gIR->ir->CreateAnd(b1,b2,"tmp");
 
-        LLValue* lp = gIR->ir->CreateLoad(DtoGEPi(l, 0,1),"tmp");
-        LLValue* rp = gIR->ir->CreateLoad(DtoGEPi(r, 0,1),"tmp");
-        LLValue* b2 = gIR->ir->CreateICmp(pred,lp,rp,"tmp");
-
-        LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
-        return b;
-    }
+    // return result
+    return (op == TOKnotidentity) ? gIR->ir->CreateNot(res) : res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -954,26 +908,21 @@ LLValue* DtoArrayLen(DValue* v)
 
     Type* t = DtoDType(v->getType());
     if (t->ty == Tarray) {
-        if (DSliceValue* s = v->isSlice()) {
-            if (s->len) {
-                return s->len;
-            }
-            const LLArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
-            if (arrTy)
-                return DtoConstSize_t(arrTy->getNumElements());
-            else
-                return DtoLoad(DtoGEPi(s->ptr, 0,0));
-        }
+        if (DSliceValue* s = v->isSlice())
+            return s->len;
+        else if (v->isNull())
+            return DtoConstSize_t(0);
         return DtoLoad(DtoGEPi(v->getRVal(), 0,0));
     }
     else if (t->ty == Tsarray) {
         assert(!v->isSlice());
+        assert(!v->isNull());
         LLValue* rv = v->getRVal();
-        Logger::cout() << "casting: " << *rv << '\n';
         const LLArrayType* t = isaArray(rv->getType()->getContainedType(0));
+        assert(t);
         return DtoConstSize_t(t->getNumElements());
     }
-    assert(0);
+    assert(0 && "unsupported array for len");
     return 0;
 }
 
@@ -985,19 +934,15 @@ LLValue* DtoArrayPtr(DValue* v)
 
     Type* t = DtoDType(v->getType());
     if (t->ty == Tarray) {
-        if (DSliceValue* s = v->isSlice()) {
-            if (s->len) return s->ptr;
-            const LLType* t = s->ptr->getType()->getContainedType(0);
-            Logger::cout() << "ptr of full slice: " << *s->ptr << '\n';
-            const LLArrayType* arrTy = isaArray(s->ptr->getType()->getContainedType(0));
-            if (arrTy)
-                return DtoGEPi(s->ptr, 0,0);
-            else
-                return DtoLoad(DtoGEPi(s->ptr, 0,1));
-        }
+        if (DSliceValue* s = v->isSlice())
+            return s->ptr;
+        else if (v->isNull())
+            return getNullPtr(getPtrToType(DtoType(t->next)));
         return DtoLoad(DtoGEPi(v->getRVal(), 0,1));
     }
     else if (t->ty == Tsarray) {
+        assert(!v->isSlice());
+        assert(!v->isNull());
         return DtoGEPi(v->getRVal(), 0,0);
     }
     assert(0);

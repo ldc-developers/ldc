@@ -912,45 +912,8 @@ void ForeachStatement::toIR(IRState* p)
     Type* aggrtype = DtoDType(aggr->type);
 
     // get length and pointer
-    LLValue* val = 0;
-    LLValue* niters = 0;
-
-    // static array
-    if (aggrtype->ty == Tsarray)
-    {
-        Logger::println("foreach over static array");
-        val = aggrval->getRVal();
-        assert(isaPointer(val->getType()));
-        const llvm::ArrayType* arrty = isaArray(val->getType()->getContainedType(0));
-        assert(arrty);
-        size_t nelems = arrty->getNumElements();
-        if(nelems == 0)
-            return;
-        niters = llvm::ConstantInt::get(keytype,nelems,false);
-    }
-    // dynamic array
-    else if (aggrtype->ty == Tarray)
-    {
-        if (DSliceValue* slice = aggrval->isSlice()) {
-            Logger::println("foreach over slice");
-            niters = slice->len;
-            assert(niters);
-            val = slice->ptr;
-            assert(val);
-        }
-        else {
-            Logger::println("foreach over dynamic array");
-            val = aggrval->getRVal();
-            niters = DtoGEPi(val,0,0);
-            niters = DtoLoad(niters, "numiterations");
-            val = DtoGEPi(val,0,1);
-            val = DtoLoad(val, "collection");
-        }
-    }
-    else
-    {
-        assert(0 && "aggregate type is not Tarray or Tsarray");
-    }
+    LLValue* niters = DtoArrayLen(aggrval);
+    LLValue* val = DtoArrayPtr(aggrval);
 
     if (niters->getType() != keytype)
     {
@@ -1001,10 +964,7 @@ void ForeachStatement::toIR(IRState* p)
     // get value for this iteration
     LLConstant* zero = llvm::ConstantInt::get(keytype,0,false);
     LLValue* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
-    if (aggrtype->ty == Tsarray)
-        value->ir.irLocal->value = DtoGEP(val,zero,loadedKey,"tmp");
-    else if (aggrtype->ty == Tarray)
-        value->ir.irLocal->value = llvm::GetElementPtrInst::Create(val,loadedKey,"tmp",p->scopebb());
+    value->ir.irLocal->value = DtoGEP1(val,loadedKey);
 
     if (!value->isRef() && !value->isOut()) {
         DValue* dst = new DVarValue(value->type, valvar, true);

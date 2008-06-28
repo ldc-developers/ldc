@@ -1529,108 +1529,56 @@ DValue* SliceExp::toElem(IRState* p)
     Logger::print("SliceExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    Type* t = DtoDType(type);
-    Type* e1type = DtoDType(e1->type);
+    // this is the new slicing code, it's different in that a full slice will no longer retain the original pointer.
+    // but this was broken if there *was* no original pointer, ie. a slice of a slice...
+    // now all slices have *both* the 'len' and 'ptr' fields set to != null.
 
-    DValue* v = e1->toElem(p);
-    LLValue* vmem = v->getRVal();
-    assert(vmem);
+    // value being sliced
+    LLValue* elen;
+    LLValue* eptr;
+    DValue* e = e1->toElem(p);
 
-    LLValue* zero = DtoConstUint(0);
-    LLValue* one = DtoConstUint(1);
-
-    LLValue* emem = 0;
-    LLValue* earg = 0;
-
-    // partial slice
-    if (lwr)
+    // handle pointer slicing
+    Type* etype = e1->type->toBasetype();
+    if (etype->ty == Tpointer)
     {
-        assert(upr);
-        p->arrays.push_back(v);
-        DValue* lo = lwr->toElem(p);
-
-        bool lwr_is_zero = false;
-        if (DConstValue* cv = lo->isConst())
-        {
-            assert(llvm::isa<llvm::ConstantInt>(cv->c));
-
-            if (e1type->ty == Tpointer) {
-                emem = v->getRVal();
-            }
-            else if (e1type->ty == Tarray) {
-                LLValue* tmp = DtoGEP(vmem,zero,one);
-                emem = DtoLoad(tmp);
-            }
-            else if (e1type->ty == Tsarray) {
-                emem = DtoGEP(vmem,zero,zero);
-            }
-            else
-            assert(emem);
-
-            llvm::ConstantInt* c = llvm::cast<llvm::ConstantInt>(cv->c);
-            if (!(lwr_is_zero = c->isZero())) {
-                emem = DtoGEP1(emem,cv->c);
-            }
-        }
-        else
-        {
-            if (e1type->ty == Tarray) {
-                LLValue* tmp = DtoGEP(vmem,zero,one);
-                tmp = DtoLoad(tmp);
-                emem = DtoGEP1(tmp,lo->getRVal());
-            }
-            else if (e1type->ty == Tsarray) {
-                emem = DtoGEP(vmem,zero,lo->getRVal());
-            }
-            else if (e1type->ty == Tpointer) {
-                emem = DtoGEP1(v->getRVal(),lo->getRVal());
-            }
-            else {
-                Logger::println("type = %s", e1type->toChars());
-                assert(0);
-            }
-        }
-
-        DValue* up = upr->toElem(p);
-        p->arrays.pop_back();
-
-        if (DConstValue* cv = up->isConst())
-        {
-            assert(llvm::isa<llvm::ConstantInt>(cv->c));
-            if (lwr_is_zero) {
-                earg = cv->c;
-            }
-            else {
-                if (lo->isConst()) {
-                    LLConstant* clo = llvm::cast<llvm::Constant>(lo->getRVal());
-                    LLConstant* cup = llvm::cast<llvm::Constant>(cv->c);
-                    earg = llvm::ConstantExpr::getSub(cup, clo);
-                }
-                else {
-                    earg = llvm::BinaryOperator::createSub(cv->c, lo->getRVal(), "tmp", p->scopebb());
-                }
-            }
-        }
-        else
-        {
-            if (lwr_is_zero) {
-                earg = up->getRVal();
-            }
-            else {
-                earg = llvm::BinaryOperator::createSub(up->getRVal(), lo->getRVal(), "tmp", p->scopebb());
-            }
-        }
+        assert(lwr);
+        eptr = e->getRVal();
     }
-    // full slice
+    // array slice
     else
     {
-        emem = vmem;
+        eptr = DtoArrayPtr(e);
     }
 
-    if (earg) Logger::cout() << "slice exp result, length = " << *earg << '\n';
-    Logger::cout() << "slice exp result, ptr = " << *emem << '\n';
+    // has lower bound, pointer needs adjustment
+    if (lwr)
+    {
+        // must have upper bound too then
+        assert(upr);
 
-    return new DSliceValue(type,earg,emem);
+        // get bounds (make sure $ works)
+        p->arrays.push_back(e);
+        DValue* lo = lwr->toElem(p);
+        DValue* up = upr->toElem(p);
+        p->arrays.pop_back();
+        LLValue* vlo = lo->getRVal();
+        LLValue* vup = up->getRVal();
+
+        // offset by lower
+        eptr = DtoGEP1(eptr, vlo);
+
+        // adjust length
+        elen = p->ir->CreateSub(vup, vlo, "tmp");
+    }
+    // no bounds or full slice -> just convert to slice
+    else
+    {
+        assert(e1->type->toBasetype()->ty != Tpointer);
+        elen = DtoArrayLen(e);
+    }
+
+    return new DSliceValue(type, elen, eptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2340,23 +2288,17 @@ DValue* IdentityExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
 
+    Type* t1 = e1->type->toBasetype();
+
+    // handle dynarray specially
+    if (t1->ty == Tarray)
+        return new DImValue(type, DtoDynArrayIs(op,u,v));
+
     LLValue* l = u->getRVal();
     LLValue* r = v->getRVal();
-
-    Type* t1 = DtoDType(e1->type);
-
     LLValue* eval = 0;
 
-    if (t1->ty == Tarray) {
-        if (v->isNull()) {
-            r = NULL;
-        }
-        else {
-            assert(l->getType() == r->getType());
-        }
-        eval = DtoDynArrayIs(op,l,r);
-    }
-    else if (t1->ty == Tdelegate) {
+    if (t1->ty == Tdelegate) {
         if (v->isNull()) {
             r = NULL;
         }
@@ -2623,9 +2565,10 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         // slice assignment (copy)
         if (DSliceValue* s = topval->isSlice())
         {
-            dstMem = s->ptr;
+            assert(s->ptr->getType()->getContainedType(0) == llStoType->getContainedType(0));
+            dstMem = DtoBitCast(s->ptr, getPtrToType(llStoType));
             sliceInPlace = true;
-            assert(s->len == NULL);
+            // FIXME: insert bounds checks
         }
         // static array assignment
         else if (topval->getType()->toBasetype()->ty == Tsarray)
