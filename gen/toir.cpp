@@ -72,6 +72,11 @@ DValue* DeclarationExp::toElem(IRState* p)
             else {
                 // allocate storage on the stack
                 const LLType* lltype = DtoType(vd->type);
+                if(gTargetData->getTypeSizeInBits(lltype) == 0) 
+                {
+                    error("Allocating a variable of type %s and size zero is not implemented. (the behaviour of alloca with zero size is undefined)", vd->type->toChars());
+                    fatal();
+                }
                 llvm::AllocaInst* allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 assert(!vd->ir.irLocal);
