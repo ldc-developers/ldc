@@ -460,10 +460,10 @@ void AsmBlockStatement::toIR(IRState* p)
     // to a unique value that will identify the jump target in
     // a post-asm switch
 
-    // maps each special value to a goto destination
-    std::map<int, Identifier*> valToGoto;
+    // maps each goto destination to its special value
+    std::map<Identifier*, int> gotoToVal;
 
-    // location of the value containing the index into the valToGoto map
+    // location of the special value determining the goto label
     // will be set if post-asm dispatcher block is needed
     llvm::AllocaInst* jump_target;
 
@@ -503,8 +503,12 @@ void AsmBlockStatement::toIR(IRState* p)
             if(skip) 
                 continue;
 
+            // if we already set things up for this branch target, skip
+            if(gotoToVal.find(a->isBranchToLabel) != gotoToVal.end())
+                continue;
+
             // record that the jump needs to be handled in the post-asm dispatcher
-            valToGoto[n_goto] = a->isBranchToLabel;
+            gotoToVal[a->isBranchToLabel] = n_goto;
 
             // provide an in-asm target for the branch and set value
             Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
@@ -619,7 +623,7 @@ void AsmBlockStatement::toIR(IRState* p)
     Logger::println("END ASM");
 
     // if asm contained external branches, emit goto forwarder code
-    if(!valToGoto.empty())
+    if(!gotoToVal.empty())
     {
         assert(jump_target);
 
@@ -628,17 +632,17 @@ void AsmBlockStatement::toIR(IRState* p)
         llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterasmgotoforwarder", p->topfunc(), oldend);
 
         llvm::LoadInst* val = p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
-        llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, valToGoto.size());
+        llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
 
         // add all cases
-        std::map<int, Identifier*>::iterator it, end = valToGoto.end();
-        for(it = valToGoto.begin(); it != end; ++it)
+        std::map<Identifier*, int>::iterator it, end = gotoToVal.end();
+        for(it = gotoToVal.begin(); it != end; ++it)
         {
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create("case", p->topfunc(), bb);
-            sw->addCase(llvm::ConstantInt::get(llvm::IntegerType::get(32), it->first), casebb);
+            sw->addCase(llvm::ConstantInt::get(llvm::IntegerType::get(32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
-            DtoGoto(&loc, it->second, enclosinghandler);
+            DtoGoto(&loc, it->first, enclosinghandler);
         }
 
         p->scope() = IRScope(bb,oldend);
