@@ -1246,37 +1246,81 @@ DValue* CallExp::toElem(IRState* p)
     //Logger::cout() << "Calling: " << *funcval << '\n';
 
     // call the function
-    llvm::CallInst* call = llvm::CallInst::Create(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
-    LLValue* retllval = (retinptr) ? llargs[0] : call;
+    LLValue* retllval;
+    if(p->landingPads.empty())
+    {
+        llvm::CallInst* call = llvm::CallInst::Create(funcval, llargs.begin(), llargs.end(), varname, p->scopebb());
 
-    if (retinptr && dfn && dfn->func && dfn->func->runTimeHack) {
-        const LLType* rettype = getPtrToType(DtoType(type));
-        if (retllval->getType() != rettype) {
-            Logger::println("llvmRunTimeHack==true - force casting return value");
-            Logger::cout() << "from: " << *retllval->getType() << " to: " << *rettype << '\n';
-            retllval = DtoBitCast(retllval, rettype);
+        retllval = (retinptr) ? llargs[0] : call;
+
+        if (retinptr && dfn && dfn->func && dfn->func->runTimeHack) {
+            const LLType* rettype = getPtrToType(DtoType(type));
+            if (retllval->getType() != rettype) {
+                Logger::println("llvmRunTimeHack==true - force casting return value");
+                Logger::cout() << "from: " << *retllval->getType() << " to: " << *rettype << '\n';
+                retllval = DtoBitCast(retllval, rettype);
+            }
         }
-    }
 
-    // set calling convention
-    if (dfn && dfn->func) {
-        int li = dfn->func->llvmInternal;
-        if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic) {
+        // set calling convention
+        if (dfn && dfn->func) {
+            int li = dfn->func->llvmInternal;
+            if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic) {
+                call->setCallingConv(DtoCallingConv(dlink));
+            }
+        }
+        /*else if (delegateCall) {
+            call->setCallingConv(DtoCallingConv(dlink));
+        }*/
+        else if (dfn && dfn->cc != (unsigned)-1) {
+            call->setCallingConv(dfn->cc);
+        }
+        else {
             call->setCallingConv(DtoCallingConv(dlink));
         }
-    }
-    /*else if (delegateCall) {
-        call->setCallingConv(DtoCallingConv(dlink));
-    }*/
-    else if (dfn && dfn->cc != (unsigned)-1) {
-        call->setCallingConv(dfn->cc);
-    }
-    else {
-        call->setCallingConv(DtoCallingConv(dlink));
-    }
 
-    // param attrs
-    call->setParamAttrs(palist);
+        // param attrs
+        call->setParamAttrs(palist);
+    }
+    else
+    {
+        llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create("postinvoke", p->topfunc(), p->scopeend());
+        llvm::InvokeInst* call = llvm::InvokeInst::Create(funcval, postinvoke, *p->landingPads.rbegin(), llargs.begin(), llargs.end(), varname, p->scopebb());
+        p->scope() = IRScope(postinvoke, p->scopeend());
+
+
+        //FIXME: Code duplication!
+        retllval = (retinptr) ? llargs[0] : call;
+
+        if (retinptr && dfn && dfn->func && dfn->func->runTimeHack) {
+            const LLType* rettype = getPtrToType(DtoType(type));
+            if (retllval->getType() != rettype) {
+                Logger::println("llvmRunTimeHack==true - force casting return value");
+                Logger::cout() << "from: " << *retllval->getType() << " to: " << *rettype << '\n';
+                retllval = DtoBitCast(retllval, rettype);
+            }
+        }
+
+        // set calling convention
+        if (dfn && dfn->func) {
+            int li = dfn->func->llvmInternal;
+            if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic) {
+                call->setCallingConv(DtoCallingConv(dlink));
+            }
+        }
+        /*else if (delegateCall) {
+            call->setCallingConv(DtoCallingConv(dlink));
+        }*/
+        else if (dfn && dfn->cc != (unsigned)-1) {
+            call->setCallingConv(dfn->cc);
+        }
+        else {
+            call->setCallingConv(DtoCallingConv(dlink));
+        }
+
+        // param attrs
+        call->setParamAttrs(palist);
+    }
 
     return new DImValue(type, retllval, isInPlace);
 }

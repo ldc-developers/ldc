@@ -880,4 +880,30 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    // int _d_eh_personality(int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
+    {
+        std::string fname("_d_eh_personality");
+        std::vector<const LLType*> types;
+        types.push_back(intTy);
+        types.push_back(intTy);
+        types.push_back(longTy);
+        types.push_back(voidPtrTy);
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // void _d_eh_resume_unwind(ptr exc_struct)
+    {
+        std::string fname("_d_eh_resume_unwind");
+        std::vector<const LLType*> types;
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
 }

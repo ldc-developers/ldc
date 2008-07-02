@@ -136,8 +136,11 @@ struct IRState
     llvm::BasicBlock* scopeend();
     bool scopereturned();
 
+    // landing pads for try statements
+    typedef std::vector<llvm::BasicBlock*> BBVec;
+    BBVec landingPads;
+
     // loop blocks
-    typedef std::vector<IRScope> BBVec;
     typedef std::vector<IRLoopScope> LoopScopeVec;
     LoopScopeVec loopbbs;
 

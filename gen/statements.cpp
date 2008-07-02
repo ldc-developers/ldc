@@ -496,14 +496,20 @@ void TryFinallyStatement::toIR(IRState* p)
 
     llvm::BasicBlock* trybb = llvm::BasicBlock::Create("try", p->topfunc(), oldend);
     llvm::BasicBlock* finallybb = llvm::BasicBlock::Create("finally", p->topfunc(), oldend);
+    // the landing pad for statements in the try block
+    // only reached via eh-unwinding, a call to resume unwinding is appended
+    llvm::BasicBlock* unwindfinallybb = llvm::BasicBlock::Create("unwindfinally", p->topfunc(), oldend);
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endtryfinally", p->topfunc(), oldend);
 
     // pass the previous BB into this
     assert(!gIR->scopereturned());
     llvm::BranchInst::Create(trybb, p->scopebb());
 
+    //
     // do the try block
+    //
     p->scope() = IRScope(trybb,finallybb);
+    p->landingPads.push_back(unwindfinallybb);
 
     assert(body);
     body->toIR(p);
@@ -512,15 +518,53 @@ void TryFinallyStatement::toIR(IRState* p)
     if (!p->scopereturned())
         llvm::BranchInst::Create(finallybb, p->scopebb());
 
+    p->landingPads.pop_back();
+
+    //
     // do finally block
-    p->scope() = IRScope(finallybb,endbb);
+    //
+    p->scope() = IRScope(finallybb,unwindfinallybb);
     assert(finalbody);
     finalbody->toIR(p);
 
     // terminate finally
+    //TODO: isn't it an error to have a 'returned' finally block?
     if (!gIR->scopereturned()) {
         llvm::BranchInst::Create(endbb, p->scopebb());
     }
+
+    //
+    // do landing pad
+    //
+    p->scope() = IRScope(unwindfinallybb,endbb);
+
+    // eh_ptr = llvm.eh.exception();
+    llvm::Function* eh_exception_fn = GET_INTRINSIC_DECL(eh_exception);
+    LLValue* eh_ptr = gIR->ir->CreateCall(eh_exception_fn);
+
+    // eh_sel = llvm.eh.selector(eh_ptr, cast(byte*)&_d_eh_personality, 0);
+    llvm::Function* eh_selector_fn;
+    if (global.params.is64bit)
+        eh_selector_fn = GET_INTRINSIC_DECL(eh_selector_i64);
+    else
+        eh_selector_fn = GET_INTRINSIC_DECL(eh_selector_i32);
+    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
+    LLValue* personality_fn_arg = gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::Int8Ty));
+    LLValue* eh_sel = gIR->ir->CreateCall3(eh_selector_fn, eh_ptr, personality_fn_arg, llvm::ConstantInt::get(LLType::Int32Ty, 0));
+
+    // emit finally code
+    finalbody->toIR(p);
+
+    // finally code may not be terminated!
+    if (gIR->scopereturned()) {
+        error("finally blocks may not be terminated", loc.toChars());
+        fatal();
+    }
+
+    llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_resume_unwind");
+    gIR->ir->CreateCall(unwind_resume_fn, eh_ptr);
+
+    gIR->ir->CreateUnreachable();
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
@@ -533,8 +577,6 @@ void TryCatchStatement::toIR(IRState* p)
     Logger::println("TryCatchStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    Logger::attention(loc, "try-catch is not yet fully implemented");
-
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
@@ -542,30 +584,114 @@ void TryCatchStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = p->scopeend();
 
     llvm::BasicBlock* trybb = llvm::BasicBlock::Create("try", p->topfunc(), oldend);
-    llvm::BasicBlock* catchbb = llvm::BasicBlock::Create("catch", p->topfunc(), oldend);
+    // the landing pad will be responsible for branching to the correct catch block
+    llvm::BasicBlock* landingpadbb = llvm::BasicBlock::Create("landingpad", p->topfunc(), oldend);
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endtrycatch", p->topfunc(), oldend);
 
     // pass the previous BB into this
     assert(!gIR->scopereturned());
     llvm::BranchInst::Create(trybb, p->scopebb());
 
+    //
     // do the try block
-    p->scope() = IRScope(trybb,catchbb);
+    //
+    p->scope() = IRScope(trybb,landingpadbb);
+    p->landingPads.push_back(landingpadbb);
+
     assert(body);
     body->toIR(p);
 
     if (!gIR->scopereturned())
         llvm::BranchInst::Create(endbb, p->scopebb());
 
-    // do catch
-    p->scope() = IRScope(catchbb,oldend);
-    llvm::BranchInst::Create(endbb, p->scopebb());
-    /*assert(catches);
-    for(size_t i=0; i<catches->dim; ++i)
+    p->landingPads.pop_back();
+
+    //
+    // do catches
+    //
+    assert(catches);
+
+    // get storage for exception var
+    const LLType* objectTy = DtoType(ClassDeclaration::object->type);
+    llvm::AllocaInst* catch_var = new llvm::AllocaInst(objectTy,"catchvar",p->topallocapoint());
+
+    // for further reference in landing pad
+    LLSmallVector<llvm::BasicBlock*,4> catch_bbs;
+
+    for (int i = 0; i < catches->dim; i++)
     {
-        Catch* c = (Catch*)catches->data[i];
+        Catch *c = (Catch *)catches->data[i];
+
+        llvm::BasicBlock* catchbb = llvm::BasicBlock::Create("catch", p->topfunc(), oldend);
+        catch_bbs.push_back(catchbb);
+        p->scope() = IRScope(catchbb,oldend);
+
+        // assign storage to catch var
+        if(c->var) {
+            assert(!c->var->ir.irLocal);
+            c->var->ir.irLocal = new IrLocal(c->var);
+            c->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(c->var->type)));
+        }
+
+        // emit handler
+        assert(c->handler);
         c->handler->toIR(p);
-    }*/
+
+        if (!gIR->scopereturned())
+            llvm::BranchInst::Create(endbb, p->scopebb());
+    }
+
+    //
+    // do landing pad
+    //
+    p->scope() = IRScope(landingpadbb,endbb);
+
+    // eh_ptr = llvm.eh.exception();
+    llvm::Function* eh_exception_fn = GET_INTRINSIC_DECL(eh_exception);
+    LLValue* eh_ptr = gIR->ir->CreateCall(eh_exception_fn);
+
+    // store eh_ptr in catch_var
+    gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
+
+    // eh_sel = llvm.eh.selector(eh_ptr, cast(byte*)&_d_eh_personality, <classinfos>);
+    llvm::Function* eh_selector_fn;
+    if (global.params.is64bit)
+        eh_selector_fn = GET_INTRINSIC_DECL(eh_selector_i64);
+    else
+        eh_selector_fn = GET_INTRINSIC_DECL(eh_selector_i32);
+
+    LLSmallVector<LLValue*,4> args;
+    args.push_back(eh_ptr);
+    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
+    args.push_back(gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::Int8Ty)));
+    for (int i = 0; i < catches->dim; i++)
+    {
+        Catch *c = (Catch *)catches->data[i];
+        assert(c->type);
+        ClassDeclaration* cdecl = c->type->isClassHandle();
+        assert(cdecl);
+        assert(cdecl->ir.irStruct);
+        args.push_back(cdecl->ir.irStruct->classInfo);
+    }
+
+    LLValue* eh_sel = gIR->ir->CreateCall(eh_selector_fn, args.begin(), args.end());
+
+    // switch on eh_sel and branch to correct case
+
+    // setup default target
+    llvm::BasicBlock* defaulttarget = llvm::BasicBlock::Create("default", p->topfunc(), oldend);
+    //TODO: Error handling?
+    new llvm::UnreachableInst(defaulttarget);
+
+    llvm::SwitchInst* sw = p->ir->CreateSwitch(eh_sel, defaulttarget, catch_bbs.size());
+
+    // add all catches as cases
+    for(unsigned int c = 0; c < catch_bbs.size(); ++c)
+    {
+        llvm::BasicBlock* casebb = llvm::BasicBlock::Create("case", p->topfunc(), oldend);
+        llvm::BranchInst::Create(catch_bbs[c], casebb);
+        sw->addCase(llvm::ConstantInt::get(LLType::Int32Ty, c+1), casebb);
+    }
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
@@ -577,8 +703,6 @@ void ThrowStatement::toIR(IRState* p)
 {
     Logger::println("ThrowStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
-
-    Logger::attention(loc, "throw is not yet fully implemented");
 
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
