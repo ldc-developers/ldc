@@ -89,6 +89,42 @@ struct IRAsmBlock
     std::vector<Identifier*> internalLabels;
 };
 
+// llvm::CallInst and llvm::InvokeInst don't share a common base
+// but share common functionality. to avoid duplicating code for
+// adjusting these common properties these structs are made
+struct CallOrInvoke
+{
+    virtual void setParamAttrs(const llvm::PAListPtr& Attrs) = 0;
+    virtual void setCallingConv(unsigned CC) = 0;
+    virtual llvm::Instruction* get() = 0;
+};
+
+struct CallOrInvoke_Call : public CallOrInvoke
+{
+    llvm::CallInst* inst;
+    CallOrInvoke_Call(llvm::CallInst* call) : inst(call) {}
+
+    virtual void setParamAttrs(const llvm::PAListPtr& Attrs)
+    { inst->setParamAttrs(Attrs); }
+    virtual void setCallingConv(unsigned CC)
+    { inst->setCallingConv(CC); }
+    virtual llvm::Instruction* get()
+    { return inst; }
+};
+
+struct CallOrInvoke_Invoke : public CallOrInvoke
+{
+    llvm::InvokeInst* inst;
+    CallOrInvoke_Invoke(llvm::InvokeInst* invoke) : inst(invoke) {}
+
+    virtual void setParamAttrs(const llvm::PAListPtr& Attrs)
+    { inst->setParamAttrs(Attrs); }
+    virtual void setCallingConv(unsigned CC)
+    { inst->setCallingConv(CC); }
+    virtual llvm::Instruction* get()
+    { return inst; }
+};
+
 // represents the module
 struct IRState
 {
@@ -140,6 +176,16 @@ struct IRState
     typedef std::vector<llvm::BasicBlock*> BBVec;
     BBVec landingPads;
 
+    // create a call or invoke, depending on the landing pad info
+    // the template function is defined further down in this file
+    template <typename InputIterator>
+    CallOrInvoke* CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name="");
+    CallOrInvoke* CreateCallOrInvoke(LLValue* Callee, const char* Name="");
+    CallOrInvoke* CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name="");
+    CallOrInvoke* CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name="");
+    CallOrInvoke* CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name="");
+    CallOrInvoke* CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name="");
+
     // loop blocks
     typedef std::vector<IRLoopScope> LoopScopeVec;
     LoopScopeVec loopbbs;
@@ -179,5 +225,19 @@ struct IRState
     LLGlobalVariable* dwarfSPs;
     LLGlobalVariable* dwarfGVs;
 };
+
+template <typename InputIterator>
+CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name)
+{
+    if(landingPads.empty())
+        return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
+    else
+    {
+        llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create("postinvoke", topfunc(), scopeend());
+        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, *landingPads.rbegin(), ArgBegin, ArgEnd, Name);
+        scope() = IRScope(postinvoke, scopeend());
+        return new CallOrInvoke_Invoke(invoke);
+    }
+}
 
 #endif // LLVMDC_GEN_IRSTATE_H

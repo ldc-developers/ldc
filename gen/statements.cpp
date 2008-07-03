@@ -713,7 +713,7 @@ void ThrowStatement::toIR(IRState* p)
     //Logger::cout() << "calling: " << *fn << '\n';
     LLValue* arg = DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
     //Logger::cout() << "arg: " << *arg << '\n';
-    gIR->ir->CreateCall(fn, arg, "");
+    gIR->CreateCallOrInvoke(fn, arg);
     gIR->ir->CreateUnreachable();
 
     // need a block after the throw for now
@@ -781,14 +781,14 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
     }
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
-    llvm::CallInst* call = gIR->ir->CreateCall2(fn, table, llval, "tmp");
+    CallOrInvoke* call = gIR->CreateCallOrInvoke2(fn, table, llval, "tmp");
 
     llvm::PAListPtr palist;
     palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
     palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
     call->setParamAttrs(palist);
 
-    return call;
+    return call->get();
 }
 
 void SwitchStatement::toIR(IRState* p)

@@ -232,7 +232,7 @@ void DtoArrayInit(DValue* array, DValue* value)
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
     assert(fn);
     Logger::cout() << "calling array init function: " << *fn <<'\n';
-    llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
+    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
     call->setCallingConv(llvm::CallingConv::C);
 }
 
@@ -412,7 +412,7 @@ DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarrayT" : "_d_newarrayiT" );
 
     // call allocator
-    LLValue* newptr = gIR->ir->CreateCall2(fn, arrayTypeInfo, arrayLen, ".gc_mem");
+    LLValue* newptr = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem")->get();
 
     // cast to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
@@ -460,7 +460,7 @@ DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, 
     }
 
     // call allocator
-    LLValue* newptr = gIR->ir->CreateCall3(fn, arrayTypeInfo, DtoConstSize_t(ndims), dimsArg, ".gc_mem");
+    LLValue* newptr = gIR->CreateCallOrInvoke3(fn, arrayTypeInfo, DtoConstSize_t(ndims), dimsArg, ".gc_mem")->get();
 
     // cast to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
@@ -506,7 +506,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
     Logger::cout() << "arrPtr = " << *arrPtr << '\n';
     args.push_back(DtoBitCast(arrPtr, fn->getFunctionType()->getParamType(3), "tmp"));
 
-    LLValue* newptr = gIR->ir->CreateCall(fn, args.begin(), args.end(), ".gc_mem");
+    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".gc_mem")->get();
     if (newptr->getType() != arrPtr->getType())
         newptr = DtoBitCast(newptr, arrPtr->getType(), ".gc_mem");
 
@@ -753,7 +753,7 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
         args.push_back(DtoBitCast(tival, pt));
     }
 
-    llvm::CallInst* call = gIR->ir->CreateCall(fn, args.begin(), args.end(), "tmp");
+    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), "tmp");
 
     // set param attrs
     llvm::PAListPtr palist;
@@ -761,7 +761,7 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
     palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
     call->setParamAttrs(palist);
 
-    return call;
+    return call->get();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -854,7 +854,7 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
     args.push_back(llvm::ConstantInt::get(DtoSize_t(), nsz, false));
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
-    return llvm::CallInst::Create(fn, args.begin(), args.end(), "tmp", gIR->scopebb());
+    return gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), "tmp")->get();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

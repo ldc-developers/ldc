@@ -410,7 +410,7 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
     else
         fn = GET_INTRINSIC_DECL(memset_i32);
 
-    gIR->ir->CreateCall4(fn, dst, DtoConstUbyte(0), nbytes, DtoConstUint(0), "");
+    gIR->CreateCallOrInvoke4(fn, dst, DtoConstUbyte(0), nbytes, DtoConstUint(0));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -426,7 +426,7 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes)
     else
         fn = GET_INTRINSIC_DECL(memcpy_i32);
 
-    gIR->ir->CreateCall4(fn, dst, src, nbytes, DtoConstUint(0), "");
+    gIR->CreateCallOrInvoke4(fn, dst, src, nbytes, DtoConstUint(0));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -459,7 +459,7 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
     llargs.push_back(DtoConstBool(ss));
     llargs.push_back(DtoConstBool(device));
 
-    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    gIR->CreateCallOrInvoke(fn, llargs.begin(), llargs.end());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

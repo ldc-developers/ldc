@@ -803,14 +803,14 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         llvm::Function* fn = newexp->allocator->ir.irFunc->func;
         assert(fn);
         DValue* arg = ((Expression*)newexp->newargs->data[0])->toElem(gIR);
-        mem = gIR->ir->CreateCall(fn, arg->getRVal(), "newclass_custom_alloc");
+        mem = gIR->CreateCallOrInvoke(fn, arg->getRVal(), "newclass_custom_alloc")->get();
         mem = DtoBitCast(mem, DtoType(tc), "newclass_custom");
     }
     // default allocator
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
-        mem = gIR->ir->CreateCall(fn, tc->sym->ir.irStruct->classInfo, "newclass_gc_alloc");
+        mem = gIR->CreateCallOrInvoke(fn, tc->sym->ir.irStruct->classInfo, "newclass_gc_alloc")->get();
         mem = DtoBitCast(mem, DtoType(tc), "newclass_gc");
     }
 
@@ -914,11 +914,11 @@ DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* argument
         if (fnarg && fnarg->llvmByVal)
             palist = palist.addAttr(i+2, llvm::ParamAttr::ByVal); // return,this is 2
     }
-    llvm::CallInst* call = llvm::CallInst::Create(fn, ctorargs.begin(), ctorargs.end(), "tmp", gIR->scopebb());
+    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, ctorargs.begin(), ctorargs.end(), "tmp");
     call->setCallingConv(DtoCallingConv(LINKd));
     call->setParamAttrs(palist);
 
-    return new DImValue(type, call, false);
+    return new DImValue(type, call->get(), false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -931,7 +931,7 @@ void DtoFinalizeClass(LLValue* inst)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
-    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end(), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1016,7 +1016,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     assert(funcTy->getParamType(1) == cinfo->getType());
 
     // call it
-    LLValue* ret = gIR->ir->CreateCall2(func, obj, cinfo, "tmp");
+    LLValue* ret = gIR->CreateCallOrInvoke2(func, obj, cinfo, "tmp")->get();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1039,7 +1039,7 @@ DValue* DtoCastInterfaceToObject(DValue* val, Type* to)
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
 
     // call it
-    LLValue* ret = gIR->ir->CreateCall(func, tmp, "tmp");
+    LLValue* ret = gIR->CreateCallOrInvoke(func, tmp, "tmp")->get();
 
     // cast return value
     if (to != NULL)
@@ -1079,7 +1079,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
 
     // call it
-    LLValue* ret = gIR->ir->CreateCall2(func, ptr, cinfo, "tmp");
+    LLValue* ret = gIR->CreateCallOrInvoke2(func, ptr, cinfo, "tmp")->get();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1369,7 +1369,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
         DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[i];
         DtoForceDeclareDsymbol(d);
         assert(d->ir.irFunc->func);
-        builder.CreateCall(d->ir.irFunc->func, thisptr);
+        gIR->CreateCallOrInvoke(d->ir.irFunc->func, thisptr);
     }
     builder.CreateRetVoid();
 

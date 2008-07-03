@@ -30,7 +30,7 @@ LLValue* DtoNew(Type* newtype)
     LLConstant* ti = DtoTypeInfoOf(newtype);
     assert(isaPointer(ti));
     // call runtime allocator
-    LLValue* mem = gIR->ir->CreateCall(fn, ti, ".gc_mem");
+    LLValue* mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem")->get();
     // cast
     return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
 }
@@ -43,7 +43,7 @@ void DtoDeleteMemory(LLValue* ptr)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(ptr, getVoidPtrType(), ".tmp"));
     // call
-    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
 
 void DtoDeleteClass(LLValue* inst)
@@ -54,7 +54,7 @@ void DtoDeleteClass(LLValue* inst)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
-    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
 
 void DtoDeleteInterface(LLValue* inst)
@@ -65,7 +65,7 @@ void DtoDeleteInterface(LLValue* inst)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
-    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
 
 void DtoDeleteArray(DValue* arr)
@@ -77,7 +77,7 @@ void DtoDeleteArray(DValue* arr)
     arg.push_back(DtoArrayLen(arr));
     arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
     // call
-    llvm::CallInst::Create(fn, arg.begin(), arg.end(), "", gIR->scopebb());
+    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
 
 /****************************************************************************************/
@@ -143,7 +143,7 @@ void DtoAssert(Loc* loc, DValue* msg)
     args.push_back(c);
 
     // call
-    llvm::CallInst* call = llvm::CallInst::Create(fn, args.begin(), args.end(), "", gIR->scopebb());
+    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
     call->setParamAttrs(palist);
 
     // after assert is always unreachable
@@ -275,27 +275,27 @@ void DtoEnclosingHandlers(EnclosingHandler* start, EnclosingHandler* end)
 void DtoEnterCritical(LLValue* g)
 {
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_criticalenter");
-    gIR->ir->CreateCall(fn, g, "");
+    gIR->CreateCallOrInvoke(fn, g);
 }
 
 void DtoLeaveCritical(LLValue* g)
 {
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_criticalexit");
-    gIR->ir->CreateCall(fn, g, "");
+    gIR->CreateCallOrInvoke(fn, g);
 }
 
 void DtoEnterMonitor(LLValue* v)
 {
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorenter");
     v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
-    gIR->ir->CreateCall(fn, v, "");
+    gIR->CreateCallOrInvoke(fn, v);
 }
 
 void DtoLeaveMonitor(LLValue* v)
 {
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorexit");
     v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
-    gIR->ir->CreateCall(fn, v, "");
+    gIR->CreateCallOrInvoke(fn, v);
 }
 
 /****************************************************************************************/
