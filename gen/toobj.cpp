@@ -220,7 +220,7 @@ static llvm::Function* build_module_ctor()
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
-        CallOrInvoke* call = gIR->CreateCallOrInvoke(f);
+        llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
 
@@ -254,7 +254,7 @@ static llvm::Function* build_module_dtor()
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
-        CallOrInvoke* call = gIR->CreateCallOrInvoke(f);
+        llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
 
@@ -288,7 +288,7 @@ static llvm::Function* build_module_unittest()
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
-        CallOrInvoke* call = gIR->CreateCallOrInvoke(f);
+        llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
 
