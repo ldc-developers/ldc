@@ -194,17 +194,8 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
   // if there's no action offset but a landing pad, this is a cleanup handler
-  else if(!action_offset && landing_pad) {
-    // but only if we're asked to!
-    if(!(actions & _Unwind_Action.CLEANUP_PHASE))
-      return _Unwind_Reason_Code.CONTINUE_UNWIND;
-
-    debug(EH_personality) printf("Calling cleanup routine...\n");
-
-    _Unwind_SetGR(context, 0, cast(ulong)exception_struct);
-    _Unwind_SetIP(context, landing_pad);
-    return _Unwind_Reason_Code.INSTALL_CONTEXT;
-  }
+  else if(!action_offset && landing_pad)
+    return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
 
   /*
    walk action table chain, comparing classinfos using _d_isbaseof
@@ -219,17 +210,20 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     get_sleb128(action_walker, next_action_offset);
 
     // negative are 'filters' which we don't use
-    assert(ti_offset >= 0);
+    assert(ti_offset >= 0 && "Filter actions are unsupported");
 
-    //TODO: Implement cleanups
-    assert(ti_offset != 0);
+    // zero means cleanup, which we require to be the last action
+    if(ti_offset == 0) {
+      assert(next_action_offset == 0 && "Cleanup action must be last in chain");
+      return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
+    }
 
     // get classinfo for action and check if the one in the
     // exception structure is a base
     ClassInfo catch_ci = classinfo_table[-ti_offset];
     debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
     if(_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
-      return _d_eh_success(actions, ti_offset, landing_pad, exception_struct, context);
+      return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
 
     // we've walked through all actions and found nothing...
     if(next_action_offset == 0)
@@ -241,22 +235,42 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   assert(false);
 }
 
-private _Unwind_Reason_Code _d_eh_success(_Unwind_Action actions, ptrdiff_t switchval, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+// These are the register numbers for SetGR that
+// llvm's eh.exception and eh.selector intrinsics
+// will pick up.
+// Found by trial-and-error and probably platform dependent!
+private int eh_exception_regno = 0;
+private int eh_selector_regno = 2;
+
+private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {
   debug(EH_personality) printf("Found catch clause!\n");
 
   if(actions & _Unwind_Action.SEARCH_PHASE)
     return _Unwind_Reason_Code.HANDLER_FOUND;
+
   else if(actions & _Unwind_Action.HANDLER_PHASE)
   {
-    //TODO: Set sensible value for eh_ptr
-    _Unwind_SetGR(context, 0, cast(ulong)cast(void*)(exception_struct.exception_object));
-    _Unwind_SetGR(context, 2, switchval);
+    _Unwind_SetGR(context, eh_exception_regno, cast(ulong)cast(void*)(exception_struct.exception_object));
+    _Unwind_SetGR(context, eh_selector_regno, switchval);
     _Unwind_SetIP(context, landing_pad);
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
   }
 
   assert(false);
+}
+
+private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+{
+  // if we're merely in search phase, continue
+  if(actions & _Unwind_Action.SEARCH_PHASE)
+    return _Unwind_Reason_Code.CONTINUE_UNWIND;
+
+  debug(EH_personality) printf("Calling cleanup routine...\n");
+
+  _Unwind_SetGR(context, eh_exception_regno, cast(ulong)exception_struct);
+  _Unwind_SetIP(context, landing_pad);
+  return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
 private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ClassInfo* ci)
