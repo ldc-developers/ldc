@@ -7,6 +7,8 @@
 #include <deque>
 #include <stack>
 
+// only to be used within IRLandingPad
+// holds information about a single catch or finally
 struct IRLandingPadInfo
 {
     // default constructor for being able to store in a vector
@@ -14,7 +16,10 @@ struct IRLandingPadInfo
     : target(NULL), finallyBody(NULL), catchType(NULL)
     {}
 
+    // constructor for catch
     IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end);
+
+    // constructor for finally
     IRLandingPadInfo(Statement* finallystmt);
 
     // the target catch bb if this is a catch
@@ -28,6 +33,9 @@ struct IRLandingPadInfo
     ClassDeclaration* catchType;
 };
 
+
+// holds information about all possible catch and finally actions
+// and can emit landing pads to be called from the unwind runtime
 struct IRLandingPad
 {
     IRLandingPad() : catch_var(NULL) {}
@@ -36,7 +44,9 @@ struct IRLandingPad
     // and the ones on the stack. also stores it as invoke target
     void push(llvm::BasicBlock* inBB);
 
+    // add catch information, will be used in next call to push
     void addCatch(Catch* catchstmt, llvm::BasicBlock* end);
+    // add finally information, will be used in next call to push
     void addFinally(Statement* finallystmt);
 
     // pops the most recently constructed landing pad bb

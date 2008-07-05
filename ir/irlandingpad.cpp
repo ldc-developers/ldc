@@ -21,17 +21,20 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
         catchstmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchstmt->var->type)));
     }
 
-    // emit handler
-    assert(catchstmt->handler);
-    catchstmt->handler->toIR(gIR);
+    // emit handler, if there is one
+    // handler is zero for instance for 'catch { debug foo(); }'
+    if(catchstmt->handler);
+        catchstmt->handler->toIR(gIR);
 
     if (!gIR->scopereturned())
         gIR->ir->CreateBr(end);
 
     assert(catchstmt->type);
-    catchType = catchstmt->type->isClassHandle();
-    DtoForceDeclareDsymbol(catchType);
+    //TODO: Is toBasetype correct here? Should catch handlers with typedefed
+    // classes behave differently?
+    catchType = catchstmt->type->toBasetype()->isClassHandle();
     assert(catchType);
+    DtoForceDeclareDsymbol(catchType);
 }
 
 IRLandingPadInfo::IRLandingPadInfo(Statement* finallystmt)
@@ -122,11 +125,10 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     // if there's a finally, the eh table has to have a 0 action
     if(hasFinally)
         selectorargs.push_back(llvm::ConstantInt::get(LLType::Int32Ty, 0));
-    // if there is a catch, store exception object
-    if(catchToInt.size()) 
+    // if there is a catch and some catch allocated storage, store exception object
+    if(catchToInt.size() && catch_var) 
     {
         const LLType* objectTy = DtoType(ClassDeclaration::object->type);
-        assert(catch_var);
         gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
     }
 
