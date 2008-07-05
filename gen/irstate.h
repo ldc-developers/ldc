@@ -172,10 +172,6 @@ struct IRState
     llvm::BasicBlock* scopeend();
     bool scopereturned();
 
-    // landing pads for try statements
-    typedef std::vector<llvm::BasicBlock*> BBVec;
-    BBVec landingPads;
-
     // create a call or invoke, depending on the landing pad info
     // the template function is defined further down in this file
     template <typename InputIterator>
@@ -229,15 +225,16 @@ struct IRState
 template <typename InputIterator>
 CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name)
 {
-    if(landingPads.empty())
-        return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
-    else
+    llvm::BasicBlock* pad;
+    if(pad = func()->landingPad.get())
     {
         llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create("postinvoke", topfunc(), scopeend());
-        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, *landingPads.rbegin(), ArgBegin, ArgEnd, Name);
+        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, ArgBegin, ArgEnd, Name);
         scope() = IRScope(postinvoke, scopeend());
         return new CallOrInvoke_Invoke(invoke);
     }
+    else
+        return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
 }
 
 #endif // LLVMDC_GEN_IRSTATE_H

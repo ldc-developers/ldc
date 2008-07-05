@@ -4,7 +4,7 @@
 
 import util.console;
 
-//debug = EH_personality;
+// debug = EH_personality;
 
 private extern(C) void abort();
 private extern(C) int printf(char*, ...);
@@ -251,6 +251,7 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
 
   else if(actions & _Unwind_Action.HANDLER_PHASE)
   {
+    debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
     _Unwind_SetGR(context, eh_exception_regno, cast(ulong)cast(void*)(exception_struct.exception_object));
     _Unwind_SetGR(context, eh_selector_regno, switchval);
     _Unwind_SetIP(context, landing_pad);
@@ -269,6 +270,7 @@ private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions
   debug(EH_personality) printf("Calling cleanup routine...\n");
 
   _Unwind_SetGR(context, eh_exception_regno, cast(ulong)exception_struct);
+  _Unwind_SetGR(context, eh_selector_regno, 0);
   _Unwind_SetIP(context, landing_pad);
   return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }

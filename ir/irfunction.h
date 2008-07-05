@@ -2,6 +2,7 @@
 #define LLVMDC_IR_IRFUNCTION_H
 
 #include "ir/ir.h"
+#include "ir/irlandingpad.h"
 
 #include <vector>
 
@@ -24,6 +25,9 @@ struct IrFunction : IrBase
 
     llvm::AllocaInst* srcfileArg;
     llvm::AllocaInst* msgArg;
+
+    // landing pads for try statements
+    IRLandingPad landingPad;
 
     IrFunction(FuncDeclaration* fd);
 };
