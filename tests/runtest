@@ -38,7 +38,7 @@ echo
 
 if [ -z "$DMD" ] ; then
 	echo "Testing with llvmdc. Set DMD environment variable to select compiler."
-	DMD="llvmdc -O0 -I$BASEPATH"
+	DMD="llvmdc -O0 -I$BASEPATH/testincludes"
 	echo "Default is $DMD"
 else
 	echo "Using compiler given by DMD environment variable: $DMD"
