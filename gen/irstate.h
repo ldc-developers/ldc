@@ -137,6 +137,7 @@ struct IRState
     // interface info type, used in DtoInterfaceInfoType
     const LLStructType* interfaceInfoType;
     const LLStructType* mutexType;
+    const LLStructType* moduleRefType;
 
     // functions
     typedef std::vector<IrFunction*> FunctionVector;

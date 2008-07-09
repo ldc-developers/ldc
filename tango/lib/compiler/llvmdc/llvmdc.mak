@@ -56,9 +56,6 @@ LIB_DEST=..
 .d.bc:
 	$(DC) -c $(DFLAGS) $< -of$@
 
-.ll.bc:
-	$(LLC) -f -o=$@ $<
-
 .d.html:
 	$(DC) -c -o- $(DOCFLAGS) -Df$*.html llvmdc.ddoc $<
 
@@ -86,12 +83,6 @@ OBJ_BASE= \
     memory.bc \
     qsort2.bc \
     switch.bc \
-
-# NOTE: trace.obj and cover.obj are not necessary for a successful build
-#       as both are used for debugging features (profiling and coverage)
-# NOTE: a pre-compiled minit.obj has been provided in dmd for Win32 and
-#       minit.asm is not used by dmd for linux
-# NOTE: deh.o is only needed for Win32, linux uses deh2.o
 
 OBJ_UTIL= \
     util/console.bc \
@@ -139,8 +130,7 @@ OBJ_TI= \
 ALL_OBJS= \
     $(OBJ_BASE) \
     $(OBJ_UTIL) \
-    $(OBJ_TI) \
-    moduleinfo.bc
+    $(OBJ_TI)
 
 ######################################################
 

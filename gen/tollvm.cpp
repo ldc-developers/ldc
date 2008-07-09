@@ -6,6 +6,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "init.h"
+#include "module.h"
 
 #include "gen/tollvm.h"
 #include "gen/irstate.h"
@@ -723,4 +724,31 @@ const LLStructType* DtoMutexType()
     gIR->mutexType = pmutex;
     gIR->module->addTypeName("D_CRITICAL_SECTION", pmutex);
     return pmutex;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+const LLStructType* DtoModuleReferenceType()
+{
+    if (gIR->moduleRefType)
+        return gIR->moduleRefType;
+
+    // this is a recursive type so start out with the opaque
+    LLOpaqueType* opaque = LLOpaqueType::get();
+
+    // add members
+    std::vector<const LLType*> types;
+    types.push_back(getPtrToType(opaque));
+    types.push_back(DtoType(Module::moduleinfo->type));
+
+    // resolve type
+    const LLStructType* st = LLStructType::get(types);
+    LLPATypeHolder pa(st);
+    opaque->refineAbstractTypeTo(pa.get());
+    st = isaStruct(pa.get());
+
+    // done
+    gIR->moduleRefType = st;
+    gIR->module->addTypeName("ModuleReference", st);
+    return st;
 }

@@ -1013,18 +1013,21 @@ class ModuleInfo
 }
 
 
-// Win32: this gets initialized by minit.asm
-// linux: this gets initialized in _moduleCtor()
+// this gets initialized in _moduleCtor()
 extern (C) ModuleInfo[] _moduleinfo_array;
 
-// llvmdc method
-extern (C) void** _d_get_moduleinfo_array();
+// This linked list is created by a compiler generated function inserted
+// into the .ctor list by the compiler.
+struct ModuleReference
+{
+    ModuleReference* next;
+    ModuleInfo       mod;
+}
+extern (C) ModuleReference* _Dmodule_ref;   // start of linked list
 
+// this list is built from the linked list above
 ModuleInfo[] _moduleinfo_dtors;
 uint         _moduleinfo_dtors_i;
-
-// Register termination function pointers
-extern (C) int _fatexit(void *);
 
 /**
  * Initialize the modules.
@@ -1034,32 +1037,22 @@ extern (C) void _moduleCtor()
 {
     debug(PRINTF) printf("_moduleCtor()\n");
 
-    ModuleInfo* mrbegin = cast(ModuleInfo*)_d_get_moduleinfo_array();
-    assert(mrbegin !is null);
-
     int len = 0;
-    ModuleInfo* mr;
-    for (mr = mrbegin; *mr !is null; ++mr)
+    ModuleReference *mr;
+
+    for (mr = _Dmodule_ref; mr; mr = mr.next)
         len++;
     _moduleinfo_array = new ModuleInfo[len];
-
     len = 0;
-    for (mr = mrbegin; *mr !is null; ++mr)
-    {   _moduleinfo_array[len] = *mr;
+    for (mr = _Dmodule_ref; mr; mr = mr.next)
+    {   _moduleinfo_array[len] = mr.mod;
         len++;
-    }
-
-    version (Win32)
-    {
-        // Ensure module destructors also get called on program termination
-        //_fatexit(&_STD_moduleDtor);
     }
 
     _moduleinfo_dtors = new ModuleInfo[_moduleinfo_array.length];
     debug(PRINTF) printf("_moduleinfo_dtors = x%x\n", cast(void *)_moduleinfo_dtors);
     _moduleIndependentCtors();
     _moduleCtor2(_moduleinfo_array, 0);
-    debug(PRINTF) printf("_moduleCtor() DONE\n");
 }
 
 extern (C) void _moduleIndependentCtors()

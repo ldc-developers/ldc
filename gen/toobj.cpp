@@ -131,10 +131,13 @@ void Module::genobjfile()
     DtoEmptyAllLists();
 
     // emit usedArray
-    const LLArrayType* usedTy = LLArrayType::get(getVoidPtrType(), ir.usedArray.size());
-    LLConstant* usedInit = LLConstantArray::get(usedTy, ir.usedArray);
-    LLGlobalVariable* usedArray = new LLGlobalVariable(usedTy, true, LLGlobalValue::AppendingLinkage, usedInit, "llvm.used", ir.module);
-    usedArray->setSection("llvm.metadata");
+    if (!ir.usedArray.empty())
+    {
+        const LLArrayType* usedTy = LLArrayType::get(getVoidPtrType(), ir.usedArray.size());
+        LLConstant* usedInit = LLConstantArray::get(usedTy, ir.usedArray);
+        LLGlobalVariable* usedArray = new LLGlobalVariable(usedTy, true, LLGlobalValue::AppendingLinkage, usedInit, "llvm.used", ir.module);
+        usedArray->setSection("llvm.metadata");
+    }
 
     // verify the llvm
     if (!global.params.novalidate) {
@@ -294,6 +297,56 @@ static llvm::Function* build_module_unittest()
 
     builder.CreateRetVoid();
     return fn;
+}
+
+// build ModuleReference and register function, to register the module info in the global linked list
+static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
+{
+    // build ctor type
+    const LLFunctionType* fty = LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false);
+
+    // build ctor name
+    std::string fname = gIR->dmodule->mangle();
+    fname += "16__moduleinfoCtorZ";
+
+    // build a function that registers the moduleinfo in the global moduleinfo linked list
+    LLFunction* ctor = LLFunction::Create(fty, LLGlobalValue::InternalLinkage, fname, gIR->module);
+
+    // provide the default initializer
+    const LLStructType* modulerefTy = DtoModuleReferenceType();
+    std::vector<LLConstant*> mrefvalues;
+    mrefvalues.push_back(LLConstant::getNullValue(modulerefTy->getContainedType(0)));
+    mrefvalues.push_back(moduleinfo);
+    LLConstant* thismrefinit = LLConstantStruct::get(modulerefTy, mrefvalues);
+
+    // create the ModuleReference node for this module
+    std::string thismrefname = gIR->dmodule->mangle();
+    thismrefname += "11__moduleRefZ";
+    LLGlobalVariable* thismref = new LLGlobalVariable(modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname, gIR->module);
+
+    // make sure _Dmodule_ref is declared
+    LLGlobalVariable* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
+    if (!mref)
+        mref = new LLGlobalVariable(getPtrToType(modulerefTy), false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref", gIR->module);
+
+    // make the function insert this moduleinfo as the beginning of the _Dmodule_ref linked list
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("moduleinfoCtorEntry", ctor);
+    IRBuilder builder(bb);
+
+    // get current beginning
+    LLValue* curbeg = builder.CreateLoad(mref, "current");
+
+    // put current beginning as the next of this one
+    LLValue* gep = builder.CreateStructGEP(thismref, 0, "next");
+    builder.CreateStore(curbeg, gep);
+
+    // replace beginning
+    builder.CreateStore(thismref, mref);
+
+    // return
+    builder.CreateRetVoid();
+
+    return ctor;
 }
 
 // Put out instance of ModuleInfo for this Module
@@ -469,12 +522,27 @@ void Module::genmoduleinfo()
     if (!gvar) gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname, gIR->module);
     gvar->setInitializer(constMI);
 
+    // build the modulereference and ctor for registering it
+    LLFunction* mictor = build_module_reference_and_ctor(gvar);
+
+    // register this ctor in the magic llvm.global_ctors appending array
+    const LLFunctionType* magicfty = LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false);
+    std::vector<const LLType*> magictypes;
+    magictypes.push_back(LLType::Int32Ty);
+    magictypes.push_back(getPtrToType(magicfty));
+    const LLStructType* magicsty = LLStructType::get(magictypes);
+
+    // make the constant element
+    std::vector<LLConstant*> magicconstants;
+    magicconstants.push_back(DtoConstUint(65535));
+    magicconstants.push_back(mictor);
+    LLConstant* magicinit = LLConstantStruct::get(magicsty, magicconstants);
+
     // declare the appending array
-    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(getPtrToType(LLType::Int8Ty), 1);
-    std::vector<LLConstant*> appendInits;
-    appendInits.push_back(llvm::ConstantExpr::getBitCast(gvar, getPtrToType(LLType::Int8Ty)));
+    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
+    std::vector<LLConstant*> appendInits(1, magicinit);
     LLConstant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
-    std::string appendName("_d_moduleinfo_array");
+    std::string appendName("llvm.global_ctors");
     llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);
 }
 

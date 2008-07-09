@@ -51,6 +51,7 @@ IRState::IRState()
 {
     interfaceInfoType = NULL;
     mutexType = NULL;
+    moduleRefType = NULL;
 
     dmodule = 0;
     module = 0;

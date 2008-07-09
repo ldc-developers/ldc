@@ -161,7 +161,7 @@ void usage()
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
 LLVMDC Homepage: http://www.dsource.org/projects/llvmdc\n\
 Usage:\n\
-  dmd files.d ... { -switch }\n\
+  llvmdc files.d ... { -switch }\n\
 \n\
   files.d        D source files\n%s\
   -annotate      annotate the bitcode with human readable source code\n\
@@ -188,8 +188,8 @@ Usage:\n\
   -J<path>       where to look for string imports\n\
   -ignore        ignore unsupported pragmas\n\
   -inline        do function inlining\n\
-  -Llinkerflag   pass linkerflag to llvm-ld\n\
-  -m<arch>       emit code specific to <arch>\n\
+  -L<linkerflag> pass <linkerflag> to llvm-ld\n\
+  -m<arch>       emit code specific to <arch> being one of:\n\
                  x86 x86-64 ppc32 ppc64\n\
   -noasm         do not allow use of inline asm\n\
   -nofloat       do not emit reference to floating point\n\
@@ -199,12 +199,12 @@ Usage:\n\
   -O<n>          optimize at level <n> (0-5)\n\
   -o-            do not write object file\n\
   -od<objdir>    write object files to directory <objdir>\n\
-  -of<filename>	 name output file to <filename>\n\
+  -of<filename>  name output file to <filename>\n\
   -op            do not strip paths from source file\n\
   -oq            write object files with fully qualified names\n\
-  -profile	 profile runtime performance of generated code\n\
+  -profile       profile runtime performance of generated code\n\
   -quiet         suppress unnecessary messages\n\
-  -release	 compile release version\n\
+  -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
   -R<path>       provide path to the directory containing the runtime library\n\
   -unittest      compile in unit tests\n\
