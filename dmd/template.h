@@ -309,6 +309,7 @@ struct TemplateMixin : TemplateInstance
     int oneMember(Dsymbol **ps);
     int hasPointers();
     char *toChars();
+    char *mangle();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toObjFile();			// compile to .obj file

@@ -18,6 +18,7 @@
 #include "total.h"
 #include "init.h"
 #include "mtype.h"
+#include "template.h"
 #include "hdrgen.h"
 #include "port.h"
 
@@ -138,6 +139,15 @@ DValue* DeclarationExp::toElem(IRState* p)
         for (int i=0; i < a->decl->dim; ++i)
         {
             DtoForceDeclareDsymbol((Dsymbol*)a->decl->data[i]);
+        }
+    }
+    // mixin declaration
+    else if (TemplateMixin* m = declaration->isTemplateMixin())
+    {
+        Logger::println("TemplateMixin");
+        for (int i=0; i < m->members->dim; ++i)
+        {
+            DtoForceDeclareDsymbol((Dsymbol*)m->members->data[i]);
         }
     }
     // unsupported declaration

@@ -221,6 +221,31 @@ char *TemplateInstance::mangle()
 }
 
 
+char *TemplateMixin::mangle()
+{
+    OutBuffer buf;
+    char *id;
+
+#if 0
+    printf("TemplateMixin::mangle() %s", toChars());
+    if (parent)
+        printf("  parent = %s %s", parent->kind(), parent->toChars());
+    printf("\n");
+#endif
+    id = ident ? ident->toChars() : toChars();
+    if (parent)
+    {
+	char *p = parent->mangle();
+	if (p[0] == '_' && p[1] == 'D')
+	    p += 2;
+	buf.writestring(p);
+    }
+    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    id = buf.toChars();
+    buf.data = NULL;
+    //printf("TemplateMixin::mangle() %s = %s\n", toChars(), id);
+    return id;
+}
 
 char *Dsymbol::mangle()
 {
