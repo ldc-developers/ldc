@@ -306,7 +306,8 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     const LLFunctionType* fty = LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false);
 
     // build ctor name
-    std::string fname = gIR->dmodule->mangle();
+    std::string fname = "_D";
+    fname += gIR->dmodule->mangle();
     fname += "16__moduleinfoCtorZ";
 
     // build a function that registers the moduleinfo in the global moduleinfo linked list
@@ -320,7 +321,8 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     LLConstant* thismrefinit = LLConstantStruct::get(modulerefTy, mrefvalues);
 
     // create the ModuleReference node for this module
-    std::string thismrefname = gIR->dmodule->mangle();
+    std::string thismrefname = "_D";
+    thismrefname += gIR->dmodule->mangle();
     thismrefname += "11__moduleRefZ";
     LLGlobalVariable* thismref = new LLGlobalVariable(modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname, gIR->module);
 
