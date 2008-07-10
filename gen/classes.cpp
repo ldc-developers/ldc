@@ -1553,8 +1553,14 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     inits.push_back(c);
 
     // invariant
-    // TODO
-    c = defc->getOperand(8);
+    if (cd->inv) {
+        DtoForceDeclareDsymbol(cd->inv);
+        c = cd->inv->ir.irFunc->func;
+//        c = llvm::ConstantExpr::getBitCast(c, defc->getOperand(8)->getType());
+    }
+    else {
+        c = defc->getOperand(8);
+    }
     inits.push_back(c);
 
     // uint flags

@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
     global.params.argv0 = argv[0];
     global.params.link = 1;
     global.params.useAssert = 0;
-    global.params.useInvariants = 0;
+    global.params.useInvariants = 1;
     global.params.useIn = 1;
     global.params.useOut = 1;
     global.params.useArrayBounds = 0;
