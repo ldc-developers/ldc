@@ -141,6 +141,17 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             paramvec.push_back(at);
         }
 
+        // handle lazy args
+        if (arg->storageClass & STClazy)
+        {
+            Logger::cout() << "for lazy got: " << *paramvec.back() << '\n';
+            TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
+            TypeDelegate *ltd = new TypeDelegate(ltf);
+            at = getPtrToType(DtoType(ltd));
+            Logger::cout() << "lazy updated to: " << *at << '\n';
+            paramvec.back() = at;
+        }
+
         if (arg->llvmByVal)
             nbyval++;
     }
