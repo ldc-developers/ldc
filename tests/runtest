@@ -38,7 +38,7 @@ echo
 
 if [ -z "$DMD" ] ; then
 	echo "Testing with llvmdc. Set DMD environment variable to select compiler."
-	DMD="llvmdc -O0 -I$BASEPATH/testincludes"
+	DMD="llvmdc -O0 -I$BASEPATH/testincludes -L$BASEPATH/testincludes/libtangobos-partial.a"
 	echo "Default is $DMD"
 else
 	echo "Using compiler given by DMD environment variable: $DMD"
