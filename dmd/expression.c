@@ -7682,6 +7682,8 @@ Expression *MinExp::semantic(Scope *sc)
 	    typeCombine(sc);		// make sure pointer types are compatible
 	    type = Type::tptrdiff_t;
 	    stride = t2->next->size();
+        if (!stride)
+            return new IntegerExp(0, 0, Type::tptrdiff_t);
 	    e = new DivExp(loc, this, new IntegerExp(0, stride, Type::tptrdiff_t));
 	    e->type = Type::tptrdiff_t;
 	    return e;

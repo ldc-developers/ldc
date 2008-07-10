@@ -1336,46 +1336,6 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLConstant* init)
 
 static LLConstant* build_class_dtor(ClassDeclaration* cd)
 {
-#if 0
-    // construct the function
-    std::vector<const LLType*> paramTypes;
-    paramTypes.push_back(getPtrToType(cd->type->ir.type->get()));
-
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy, paramTypes, false);
-
-    if (cd->dtors.dim == 0) {
-        return llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty));
-    }
-    else if (cd->dtors.dim == 1) {
-        DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[0];
-        DtoForceDeclareDsymbol(d);
-        assert(d->ir.irFunc->func);
-        return llvm::ConstantExpr::getBitCast(isaConstant(d->ir.irFunc->func), getPtrToType(LLType::Int8Ty));
-    }
-
-    std::string gname("_D");
-    gname.append(cd->mangle());
-    gname.append("12__destructorMFZv");
-
-    llvm::Function* func = llvm::Function::Create(fnTy, DtoInternalLinkage(cd), gname, gIR->module);
-    LLValue* thisptr = func->arg_begin();
-    thisptr->setName("this");
-
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", func);
-    IRBuilder builder(bb);
-
-    for (size_t i = 0; i < cd->dtors.dim; i++)
-    {
-        DtorDeclaration *d = (DtorDeclaration *)cd->dtors.data[i];
-        DtoForceDeclareDsymbol(d);
-        assert(d->ir.irFunc->func);
-        gIR->CreateCallOrInvoke(d->ir.irFunc->func, thisptr);
-    }
-    builder.CreateRetVoid();
-
-    return llvm::ConstantExpr::getBitCast(func, getPtrToType(LLType::Int8Ty));
-#else
-
     FuncDeclaration* dtor = cd->dtor;
 
     // if no destructor emit a null
@@ -1384,7 +1344,6 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
 
     DtoForceDeclareDsymbol(dtor);
     return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::Int8Ty));
-#endif
 }
 
 static unsigned build_classinfo_flags(ClassDeclaration* cd)
@@ -1556,7 +1515,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     if (cd->inv) {
         DtoForceDeclareDsymbol(cd->inv);
         c = cd->inv->ir.irFunc->func;
-//        c = llvm::ConstantExpr::getBitCast(c, defc->getOperand(8)->getType());
+        c = llvm::ConstantExpr::getBitCast(c, defc->getOperand(8)->getType());
     }
     else {
         c = defc->getOperand(8);

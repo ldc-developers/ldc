@@ -732,22 +732,9 @@ void DtoDefineFunc(FuncDeclaration* fd)
     // if the last block is empty now, it must be unreachable or it's a bug somewhere else
     // would be nice to figure out how to assert that this is correct
     llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
-    if (lastbb->empty()) {
+    if (lastbb->empty())
+    {
         new llvm::UnreachableInst(lastbb);
-//         if (llvm::pred_begin(lastbb) != llvm::pred_end(lastbb))
-//         {
-//             Logger::println("Erasing lastbb");
-//             lastbb->eraseFromParent();
-//         }
-//         else {
-//             new llvm::UnreachableInst(lastbb);
-// //             if (func->getReturnType() == LLType::VoidTy) {
-// //                 llvm::ReturnInst::Create(lastbb);
-// //             }
-// //             else {
-// //                 llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), lastbb);
-// //             }
-//         }
     }
 
     // if the last block is not terminated we return a null value or void

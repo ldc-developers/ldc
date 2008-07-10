@@ -11,7 +11,14 @@
 
 // D->LLVM type handling stuff
 const LLType* DtoType(Type* t);
+
+// same as DtoType except it converts 'void' to 'i8'
+const LLType* DtoTypeNotVoid(Type* t);
+
+// returns true is the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
+
+// returns if the type should be returned in a hidden pointer arguement
 bool DtoIsReturnedInArg(Type* type);
 
 // resolve typedefs to their real type.

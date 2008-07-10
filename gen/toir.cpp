@@ -73,12 +73,13 @@ DValue* DeclarationExp::toElem(IRState* p)
             else {
                 // allocate storage on the stack
                 const LLType* lltype = DtoType(vd->type);
+
+                llvm::Value* allocainst;
                 if(gTargetData->getTypeSizeInBits(lltype) == 0) 
-                {
-                    error("Allocating a variable of type %s and size zero is not implemented. (the behaviour of alloca with zero size is undefined)", vd->type->toChars());
-                    fatal();
-                }
-                llvm::AllocaInst* allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
+                    allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+                else
+                    allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
+
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 assert(!vd->ir.irLocal);
                 vd->ir.irLocal = new IrLocal(vd);
@@ -428,9 +429,7 @@ DValue* StringExp::toElem(IRState* p)
     Type* dtype = DtoDType(type);
     Type* cty = DtoDType(dtype->next);
 
-    const LLType* ct = DtoType(cty);
-    if (ct == LLType::VoidTy)
-        ct = LLType::Int8Ty;
+    const LLType* ct = DtoTypeNotVoid(cty);
     //printf("ct = %s\n", type->next->toChars());
     const LLArrayType* at = LLArrayType::get(ct,len+1);
 
@@ -1484,7 +1483,16 @@ DValue* ThisExp::toElem(IRState* p)
     Logger::print("ThisExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    if (VarDeclaration* vd = var->isVarDeclaration()) {
+    // this seems to happen for dmd generated assert statements like:
+    //      assert(this, "null this");
+    if (!var)
+    {
+        LLValue* v = p->func()->thisVar;
+        assert(v);
+        return new DImValue(type, v);
+    }
+    // regular this expr
+    else if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
         v = p->func()->decl->ir.irFunc->thisVar;
         if (llvm::isa<llvm::AllocaInst>(v))
@@ -1495,6 +1503,7 @@ DValue* ThisExp::toElem(IRState* p)
         return new DThisValue(vd, v);
     }
 
+    // anything we're not yet handling ?
     assert(0);
     return 0;
 }
@@ -2005,7 +2014,7 @@ DValue* ArrayLengthExp::toElem(IRState* p)
 
 DValue* AssertExp::toElem(IRState* p)
 {
-    Logger::print("AssertExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("AssertExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
     // condition

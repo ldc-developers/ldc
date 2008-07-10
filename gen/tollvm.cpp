@@ -89,6 +89,7 @@ const LLType* DtoType(Type* t)
 
     // pointers
     case Tpointer:
+        // getPtrToType checks for void itself
         return getPtrToType(DtoType(t->next));
 
     // arrays
@@ -152,6 +153,7 @@ const LLType* DtoType(Type* t)
     case Taarray:
     {
         TypeAArray* taa = (TypeAArray*)t;
+        // aa key/val can't be void
         return getPtrToType(LLStructType::get(DtoType(taa->key), DtoType(taa->next), 0));
     }
 
@@ -160,6 +162,16 @@ const LLType* DtoType(Type* t)
         assert(0);
     }
     return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+const LLType* DtoTypeNotVoid(Type* t)
+{
+    const LLType* lt = DtoType(t);
+    if (lt == LLType::VoidTy)
+        return LLType::Int8Ty;
+    return lt;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -499,7 +511,7 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value)
 
 LLConstant* DtoConstString(const char* str)
 {
-    std::string s(str);
+    std::string s(str?str:"");
     LLConstant* init = llvm::ConstantArray::get(s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str", gIR->module);

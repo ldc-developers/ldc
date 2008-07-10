@@ -34,21 +34,16 @@ const LLStructType* DtoArrayType(const LLType* t)
 
 const LLArrayType* DtoStaticArrayType(Type* t)
 {
-    if (t->ir.type)
-        return isaArray(t->ir.type->get());
-
+    t = t->toBasetype();
     assert(t->ty == Tsarray);
-    assert(t->next);
-
-    const LLType* at = DtoType(t->next);
-
     TypeSArray* tsa = (TypeSArray*)t;
-    assert(tsa->dim->type->isintegral());
-    const LLArrayType* arrty = LLArrayType::get(at,tsa->dim->toUInteger());
+    Type* tnext = tsa->next;
 
-    assert(!tsa->ir.type);
-    tsa->ir.type = new LLPATypeHolder(arrty);
-    return arrty;
+    const LLType* elemty = DtoType(tnext);
+    if (elemty == LLType::VoidTy)
+        elemty = LLType::Int8Ty;
+
+    return LLArrayType::get(elemty, tsa->dim->toUInteger());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -974,14 +969,8 @@ DValue* DtoCastArray(DValue* u, Type* to)
     }
     else if (totype->ty == Tarray) {
         Logger::cout() << "to array" << '\n';
-        const LLType* ptrty = DtoType(totype->next);
-        if (ptrty == LLType::VoidTy)
-            ptrty = LLType::Int8Ty;
-        ptrty = getPtrToType(ptrty);
-
-        const LLType* ety = DtoType(fromtype->next);
-        if (ety == LLType::VoidTy)
-            ety = LLType::Int8Ty;
+        const LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
+        const LLType* ety = DtoTypeNotVoid(fromtype->next);
 
         if (DSliceValue* usl = u->isSlice()) {
             Logger::println("from slice");

@@ -1210,7 +1210,9 @@ LLConstant* DtoConstFieldInitializer(Type* t, Initializer* init)
 
 DValue* DtoInitializer(Initializer* init)
 {
-    if (ExpInitializer* ex = init->isExpInitializer())
+    if (!init)
+        return 0;
+    else if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("expression initializer");
         assert(ex->exp);
