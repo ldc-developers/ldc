@@ -150,7 +150,6 @@ int linkExecutable(const char* argv0)
     }
 
     // default libs
-    args.push_back("-ltango-base-c-llvmdc");
     args.push_back("-lpthread");
     args.push_back("-ldl");
     args.push_back("-lm");
@@ -167,7 +166,7 @@ int linkExecutable(const char* argv0)
     std::string runtime_path(global.params.runtimePath);
     if (*runtime_path.rbegin() != '/')
         runtime_path.append("/");
-    runtime_path.append("libtango-base-llvmdc.a");
+    runtime_path.append("libtango-base-llvmdc-native.a");
     args.push_back(runtime_path.c_str());
 
     // print link command?
