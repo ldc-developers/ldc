@@ -1224,6 +1224,50 @@ void VolatileStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void SwitchErrorStatement::toIR(IRState* p)
+{
+    Logger::println("SwitchErrorStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_switch_error");
+
+    // param attrs
+    llvm::PAListPtr palist;
+    int idx = 1;
+
+    std::vector<LLValue*> args;
+    LLConstant* c;
+
+    // file param
+    // FIXME: every use creates a global for the filename !!!
+    c = DtoConstString(loc.filename);
+    llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
+    if (!alloc)
+    {
+        alloc = new llvm::AllocaInst(c->getType(), ".srcfile", gIR->topallocapoint());
+        gIR->func()->srcfileArg = alloc;
+    }
+    LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");
+    DtoStore(c->getOperand(0), ptr);
+    ptr = DtoGEPi(alloc, 0,1, "tmp");
+    DtoStore(c->getOperand(1), ptr);
+
+    args.push_back(alloc);
+    palist = palist.addAttr(idx++, llvm::ParamAttr::ByVal);
+
+    // line param
+    c = DtoConstUint(loc.linnum);
+    args.push_back(c);
+
+    // call
+    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
+    call->setParamAttrs(palist);
+
+    gIR->ir->CreateUnreachable();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////////////////////////////////////////////////////////
 
 #define STUBST(x) void x::toIR(IRState * p) {error("Statement type "#x" not implemented: %s", toChars());fatal();}
@@ -1236,7 +1280,7 @@ void VolatileStatement::toIR(IRState* p)
 //STUBST(DefaultStatement);
 //STUBST(CaseStatement);
 //STUBST(SwitchStatement);
-STUBST(SwitchErrorStatement);
+//STUBST(SwitchErrorStatement);
 STUBST(Statement);
 //STUBST(IfStatement);
 //STUBST(ForeachStatement);
