@@ -23,7 +23,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
 
     // emit handler, if there is one
     // handler is zero for instance for 'catch { debug foo(); }'
-    if(catchstmt->handler);
+    if(catchstmt->handler)
         catchstmt->handler->toIR(gIR);
 
     if (!gIR->scopereturned())
