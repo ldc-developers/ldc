@@ -1,6 +1,8 @@
-/*
- * Temporary exception handling stubs
+/**
+ * This module contains functions and structures required for
+ * exception handling.
  */
+module eh;
 
 import util.console;
 
@@ -14,7 +16,7 @@ extern(C) {
     int _d_isbaseof(ClassInfo oc, ClassInfo c);
 }
 
-// libunwind stuff
+// libunwind headers
 extern(C)
 {
     enum _Unwind_Reason_Code
@@ -60,7 +62,8 @@ extern(C)
 }
 
 
-// helpers
+// helpers for reading certain DWARF data
+//TODO: It may not be a good idea to use exceptions for error handling within exception handling code
 private ubyte* get_uleb128(ubyte* addr, ref size_t res)
 {
   res = 0;
@@ -108,16 +111,24 @@ private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
 }
 
 
-
+// exception struct used by the runtime.
+// _d_throw allocates a new instance and passes the address of its
+// _Unwind_Exception member to the unwind call. The personality
+// routine is then able to get the whole struct by looking at the data
+// surrounding the unwind info.
 struct _d_exception
 {
   Object exception_object;
   _Unwind_Exception unwind_info;
 }
 
+// the 8-byte string identifying the type of exception
+// the first 4 are for vendor, the second 4 for language
+//TODO: This may be the wrong way around
 char[8] _d_exception_class = "LLDCD1\0\0";
 
-//TODO: cleanup handling
+// the personality routine gets called by the unwind handler and is responsible for
+// reading the EH tables and deciding what to do
 extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions, ulong exception_class, _Unwind_Exception* exception_info, _Unwind_Context_Ptr context)
 {
   // check ver: the C++ Itanium ABI only allows ver == 1
@@ -185,11 +196,11 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   debug(EH_personality) printf("Found correct landing pad and actionOffset %d\n", action_offset);
 
   // now we need the exception's classinfo to find a handler
-  // the exceptionObject is actually a member of a larger struct that
+  // the exception_info is actually a member of a larger _d_exception struct
   // the runtime allocated. get that now
   _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
 
-  // if there's no actionOffset and no landingpad, continue unwinding
+  // if there's no action offset and no landing pad, continue unwinding
   if(!action_offset && !landing_pad)
     return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
