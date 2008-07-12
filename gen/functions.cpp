@@ -86,7 +86,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
 
     if (typesafeVararg) {
         ClassDeclaration* ti = Type::typeinfo;
-        ti->toObjFile();
+        ti->toObjFile(0); // TODO: multiobj
         DtoForceConstInitDsymbol(ti);
         assert(ti->ir.irStruct->constInit);
         std::vector<const LLType*> types;

@@ -123,7 +123,7 @@ Expression *Type::getTypeInfo(Scope *sc)
         }
         else            // if in obj generation pass
         {
-        t->vtinfo->toObjFile();
+        t->vtinfo->toObjFile(0); // TODO: multiobj
         }
     }
     }
@@ -244,7 +244,7 @@ Expression *createTypeInfoArray(Scope *sc, Expression *exps[], int dim)
 //                             MAGIC   PLACE
 //////////////////////////////////////////////////////////////////////////////
 
-void TypeInfoDeclaration::toObjFile()
+void TypeInfoDeclaration::toObjFile(int multiobj)
 {
     gIR->resolveList.push_back(this);
 }

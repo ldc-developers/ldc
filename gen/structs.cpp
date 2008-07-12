@@ -131,7 +131,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     Array* arr = &sd->fields;
     for (int k=0; k < arr->dim; k++) {
         VarDeclaration* v = (VarDeclaration*)arr->data[k];
-        v->toObjFile();
+        v->toObjFile(0); // TODO: multiobj
     }
 
     bool thisModule = false;
@@ -144,11 +144,11 @@ void DtoResolveStruct(StructDeclaration* sd)
         Dsymbol* s = (Dsymbol*)arr->data[k];
         if (FuncDeclaration* fd = s->isFuncDeclaration()) {
             if (thisModule || (fd->prot() != PROTprivate)) {
-                fd->toObjFile();
+                fd->toObjFile(0); // TODO: multiobj
             }
         }
         else if (s->isAttribDeclaration()) {
-            s->toObjFile();
+            s->toObjFile(0); // TODO: multiobj
         }
         else {
             Logger::println("Ignoring dsymbol '%s' in this->members of kind '%s'", s->toPrettyChars(), s->kind());

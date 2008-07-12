@@ -165,6 +165,12 @@ Statement *AsmStatement::semantic(Scope *sc)
     return this;
 }
 
+int AsmStatement::blockExit()
+{
+    //printf("AsmStatement::blockExit(%p)\n", this);
+    return BEfallthru | BEreturn | BEgoto | BEhalt;
+}
+
 void
 AsmStatement::toIR(IRState * irs)
 {

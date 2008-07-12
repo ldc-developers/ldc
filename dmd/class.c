@@ -147,7 +147,7 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
 		Type::typeinfotypelist = this;
 	    }
 
-#if V2
+#if DMDV2
 	    if (id == Id::TypeInfo_Const)
 	    {	if (Type::typeinfoconst)
 		    Type::typeinfoconst->error("%s", msg);
@@ -261,7 +261,7 @@ void ClassDeclaration::semantic(Scope *sc)
 #endif
 
     if (sc->stc & STCdeprecated)
-    {	//printf("test1: %s is deprecated\n", toChars());
+    {
 	isdeprecated = 1;
     }
 
@@ -302,6 +302,7 @@ void ClassDeclaration::semantic(Scope *sc)
 	else
 	{
 	    tc = (TypeClass *)(tb);
+
 	    if (tc->sym->isDeprecated())
 	    {
 		if (!isDeprecated())
@@ -565,7 +566,7 @@ void ClassDeclaration::semantic(Scope *sc)
 	scope->setNoFree();
 	scope->module->addDeferredSemantic(this);
 
-	//printf("\tsemantic('%s') failed\n", toChars());
+	//printf("\tsemantic('%s') failed due to forward references\n", toChars());
 	return;
     }
 
@@ -599,7 +600,7 @@ void ClassDeclaration::semantic(Scope *sc)
     if (!ctor && baseClass && baseClass->ctor)
     {
 	//printf("Creating default this(){} for class %s\n", toChars());
-	ctor = new CtorDeclaration(0, 0, NULL, 0);
+	ctor = new CtorDeclaration(loc, 0, NULL, 0);
 	ctor->fbody = new CompoundStatement(0, new Statements());
 	members->push(ctor);
 	ctor->addMember(sc, this, 1);
@@ -796,7 +797,7 @@ Dsymbol *ClassDeclaration::search(Loc loc, Identifier *ident, int flags)
  * Return 1 if function is hidden (not findable through search).
  */
 
-#if V2
+#if DMDV2
 int isf(void *param, FuncDeclaration *fd)
 {
     //printf("param = %p, fd = %p %s\n", param, fd, fd->toChars());
@@ -857,12 +858,11 @@ FuncDeclaration *ClassDeclaration::findFunc(Identifier *ident, TypeFunction *tf)
 }
 
 void ClassDeclaration::interfaceSemantic(Scope *sc)
-{   int i;
-
+{
     vtblInterfaces = new BaseClasses();
     vtblInterfaces->reserve(interfaces_dim);
 
-    for (i = 0; i < interfaces_dim; i++)
+    for (size_t i = 0; i < interfaces_dim; i++)
     {
 	BaseClass *b = interfaces[i];
 
@@ -911,6 +911,7 @@ int ClassDeclaration::isAbstract()
     return FALSE;
 }
 
+
 /****************************************
  * Returns !=0 if there's an extra member which is the 'this'
  * pointer to the enclosing context (enclosing class or function)
@@ -936,7 +937,7 @@ int ClassDeclaration::vtblOffset()
 /****************************************
  */
 
-char *ClassDeclaration::kind()
+const char *ClassDeclaration::kind()
 {
     return "class";
 }
@@ -1234,7 +1235,7 @@ int InterfaceDeclaration::isCOMinterface()
 /*******************************************
  */
 
-char *InterfaceDeclaration::kind()
+const char *InterfaceDeclaration::kind()
 {
     return "interface";
 }

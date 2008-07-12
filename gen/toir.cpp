@@ -52,7 +52,7 @@ DValue* DeclarationExp::toElem(IRState* p)
         // static
         if (vd->isDataseg())
         {
-            vd->toObjFile(); // TODO
+            vd->toObjFile(0); // TODO: multiobj
         }
         else
         {
@@ -245,7 +245,7 @@ DValue* VarExp::toElem(IRState* p)
         else {
             // take care of forward references of global variables
             if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-                vd->toObjFile();
+                vd->toObjFile(0); // TODO: multiobj
                 DtoConstInitGlobal(vd);
             }
             if (!vd->ir.getIrValue() || DtoType(vd->type)->isAbstract()) {

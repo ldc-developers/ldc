@@ -150,10 +150,14 @@ enum TOK
 	// Added after 1.0
 	TOKref,
 	TOKmacro,
-#if V2
+#if DMDV2
 	TOKtraits,
 	TOKoverloadset,
 	TOKpure,
+	TOKnothrow,
+	TOKtls,
+	TOKline,
+	TOKfile,
 #endif
 
 	TOKMAX
@@ -273,7 +277,7 @@ struct Lexer
     unsigned escapeSequence();
     TOK wysiwygStringConstant(Token *t, int tc);
     TOK hexStringConstant(Token *t);
-#if V2
+#if DMDV2
     TOK delimitedStringConstant(Token *t);
     TOK tokenStringConstant(Token *t);
 #endif

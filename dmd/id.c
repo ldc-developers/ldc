@@ -40,6 +40,8 @@ Identifier *Id::line;
 Identifier *Id::empty;
 Identifier *Id::p;
 Identifier *Id::coverage;
+Identifier *Id::__vptr;
+Identifier *Id::__monitor;
 Identifier *Id::TypeInfo;
 Identifier *Id::TypeInfo_Class;
 Identifier *Id::TypeInfo_Interface;
@@ -213,6 +215,8 @@ void Id::initialize()
     empty = Lexer::idPool("");
     p = Lexer::idPool("p");
     coverage = Lexer::idPool("__coverage");
+    __vptr = Lexer::idPool("__vptr");
+    __monitor = Lexer::idPool("__monitor");
     TypeInfo = Lexer::idPool("TypeInfo");
     TypeInfo_Class = Lexer::idPool("TypeInfo_Class");
     TypeInfo_Interface = Lexer::idPool("TypeInfo_Interface");

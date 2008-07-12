@@ -115,7 +115,7 @@ Type::Type(TY ty, Type *next)
     this->mod = 0;
     this->next = next;
     this->deco = NULL;
-#if V2
+#if DMDV2
     this->cto = NULL;
     this->ito = NULL;
 #endif
@@ -2226,6 +2226,35 @@ Type *TypeAArray::semantic(Loc loc, Scope *sc)
     return merge();
 }
 
+void TypeAArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps)
+{
+    //printf("TypeAArray::resolve() %s\n", toChars());
+
+    // Deal with the case where we thought the index was a type, but
+    // in reality it was an expression.
+    if (index->ty == Tident || index->ty == Tinstance || index->ty == Tsarray)
+    {
+	Expression *e;
+	Type *t;
+	Dsymbol *s;
+
+	index->resolve(loc, sc, &e, &t, &s);
+	if (e)
+	{   // It was an expression -
+	    // Rewrite as a static array
+
+	    TypeSArray *tsa = new TypeSArray(next, e);
+	    return tsa->resolve(loc, sc, pe, pt, ps);
+	}
+	else if (t)
+	    index = t;
+	else
+	    index->error(loc, "index is not a type or an expression");
+    }
+    Type::resolve(loc, sc, pe, pt, ps);
+}
+
+
 Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 {
 #if LOGDOTEXP
@@ -3151,6 +3180,7 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
     if (s)
     {
 	//printf("\t1: s = '%s' %p, kind = '%s'\n",s->toChars(), s, s->kind());
+	s->checkDeprecated(loc, sc);		// check for deprecated aliases
 	s = s->toAlias();
 	//printf("\t2: s = '%s' %p, kind = '%s'\n",s->toChars(), s, s->kind());
 	for (i = 0; i < idents.dim; i++)
@@ -3548,7 +3578,7 @@ Dsymbol *TypeTypeof::toDsymbol(Scope *sc)
 {
     Type *t;
 
-    t = semantic(0, sc);
+    t = semantic(loc, sc);
     if (t == this)
 	return NULL;
     return t->toDsymbol(sc);
@@ -3624,6 +3654,10 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
 	sc->intypeof++;
 	exp = exp->semantic(sc);
 	sc->intypeof--;
+	if (exp->op == TOKtype)
+	{
+	    error(loc, "argument %s to typeof is not an expression", exp->toChars());
+	}
 	t = exp->type;
 	if (!t)
 	{
@@ -4174,6 +4208,7 @@ Expression *TypeStruct::dotExp(Scope *sc, Expression *e, Identifier *ident)
     {
 	/* Create a TupleExp
 	 */
+	e = e->semantic(sc);	// do this before turning on noaccesscheck
 	Expressions *exps = new Expressions;
 	exps->reserve(sym->fields.dim);
 	for (size_t i = 0; i < sym->fields.dim; i++)
@@ -4182,7 +4217,10 @@ Expression *TypeStruct::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	    exps->push(fe);
 	}
 	e = new TupleExp(e->loc, exps);
+	sc = sc->push();
+	sc->noaccesscheck = 1;
 	e = e->semantic(sc);
+	sc->pop();
 	return e;
     }
 
@@ -4206,6 +4244,8 @@ L1:
 	//return getProperty(e->loc, ident);
 	return Type::dotExp(sc, e, ident);
     }
+    if (!s->isFuncDeclaration())	// because of overloading
+	s->checkDeprecated(e->loc, sc);
     s = s->toAlias();
 
     v = s->isVarDeclaration();
@@ -4459,6 +4499,7 @@ Expression *TypeClass::dotExp(Scope *sc, Expression *e, Identifier *ident)
     {
 	/* Create a TupleExp
 	 */
+	e = e->semantic(sc);	// do this before turning on noaccesscheck
 	Expressions *exps = new Expressions;
 	exps->reserve(sym->fields.dim);
 	for (size_t i = 0; i < sym->fields.dim; i++)
@@ -4467,7 +4508,10 @@ Expression *TypeClass::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	    exps->push(fe);
 	}
 	e = new TupleExp(e->loc, exps);
+	sc = sc->push();
+	sc->noaccesscheck = 1;
 	e = e->semantic(sc);
+	sc->pop();
 	return e;
     }
 
@@ -4541,6 +4585,7 @@ L1:
             e = new PtrExp(e->loc, e);
             e->type = ct->next->next->next;
         }
+        }
 
 #else
 
@@ -4565,9 +4610,31 @@ L1:
 		    e->type = t->pointerTo();
 		}
 		e = new PtrExp(e->loc, e, t);
+        }
 
-#endif
-	    }
+#endif // !LLVMDC
+
+	    return e;
+	}
+
+	if (ident == Id::__vptr)
+	{   /* The pointer to the vtbl[]
+	     * *cast(void***)e
+	     */
+	    e = e->castTo(sc, tvoidptr->pointerTo()->pointerTo());
+	    e = new PtrExp(e->loc, e);
+	    e = e->semantic(sc);
+	    return e;
+	}
+
+	if (ident == Id::__monitor)
+	{   /* The handle to the monitor (call it a void*)
+	     * *(cast(void**)e + 1)
+	     */
+	    e = e->castTo(sc, tvoidptr->pointerTo());
+	    e = new AddExp(e->loc, e, new IntegerExp(1));
+	    e = new PtrExp(e->loc, e);
+	    e = e->semantic(sc);
 	    return e;
 	}
 
@@ -4587,6 +4654,8 @@ L1:
 	    return Type::dotExp(sc, e, ident);
 	}
     }
+    if (!s->isFuncDeclaration())	// because of overloading
+	s->checkDeprecated(e->loc, sc);
     s = s->toAlias();
     v = s->isVarDeclaration();
     if (v && v->isConst())

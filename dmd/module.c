@@ -106,11 +106,13 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 
     macrotable = NULL;
     escapetable = NULL;
+    doppelganger = 0;
     cov = NULL;
     covb = NULL;
 
     srcfilename = FileName::defaultExt(filename, global.mars_ext);
-    if (!srcfilename->equalsExt(global.mars_ext))
+    if (!srcfilename->equalsExt(global.mars_ext) &&
+        !srcfilename->equalsExt("dd"))
     {
 	if (srcfilename->equalsExt("html") ||
 	    srcfilename->equalsExt("htm")  ||
@@ -232,7 +234,7 @@ Module::~Module()
 {
 }
 
-char *Module::kind()
+const char *Module::kind()
 {
     return "module";
 }
@@ -770,18 +772,15 @@ void Module::gensymfile()
 {
     OutBuffer buf;
     HdrGenState hgs;
-    int i;
 
     //printf("Module::gensymfile()\n");
 
     buf.printf("// Sym file generated from '%s'", srcfile->toChars());
     buf.writenl();
 
-    for (i = 0; i < members->dim; i++)
-    {
-	Dsymbol *s;
+    for (int i = 0; i < members->dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
 
-	s = (Dsymbol *)members->data[i];
 	s->toCBuffer(&buf, &hgs);
     }
 
@@ -930,7 +929,7 @@ Package::Package(Identifier *ident)
 }
 
 
-char *Package::kind()
+const char *Package::kind()
 {
     return "package";
 }

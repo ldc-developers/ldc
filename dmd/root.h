@@ -125,6 +125,7 @@ struct FileName : String
     static int absolute(const char *name);
     static char *ext(const char *);
     char *ext();
+    static char *removeExt(const char *str);
     static char *name(const char *);
     char *name();
     static char *path(const char *);
@@ -263,7 +264,7 @@ struct OutBuffer : Object
     void reset();
     void write(const void *data, unsigned nbytes);
     void writebstring(unsigned char *string);
-    void writestring(char *string);
+    void writestring(const char *string);
     void writedstring(const char *string);
     void writedstring(const wchar_t *string);
     void prependstring(char *string);

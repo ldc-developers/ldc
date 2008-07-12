@@ -103,6 +103,7 @@ void FuncDeclaration::semantic(Scope *sc)
     StructDeclaration *sd;
     ClassDeclaration *cd;
     InterfaceDeclaration *id;
+    Dsymbol *pd;
 
 #if 0
     printf("FuncDeclaration::semantic(sc = %p, this = %p, '%s', linkage = %d)\n", sc, this, toPrettyChars(), sc->linkage);
@@ -208,6 +209,18 @@ void FuncDeclaration::semantic(Scope *sc)
 	    error("function body is not abstract in interface %s", id->toChars());
     }
 
+    /* Template member functions aren't virtual:
+     *   interface TestInterface { void tpl(T)(); }
+     * and so won't work in interfaces
+     */
+    if ((pd = toParent()) != NULL &&
+	pd->isTemplateInstance() &&
+	(pd = toParent2()) != NULL &&
+	(id = pd->isInterfaceDeclaration()) != NULL)
+    {
+	error("template member function not allowed in interface %s", id->toChars());
+    }
+
     cd = parent->isClassDeclaration();
     if (cd)
     {	int vi;
@@ -306,7 +319,7 @@ void FuncDeclaration::semantic(Scope *sc)
 		if (fdv->isFinal())
 		    error("cannot override final function %s", fdv->toPrettyChars());
 
-#if V2
+#if DMDV2
 		if (!isOverride() && global.params.warnings)
 		    warning("%s: overrides base class function %s, but is not marked with 'override'", locToChars() fdv->toPrettyChars());
 #endif
@@ -322,7 +335,7 @@ void FuncDeclaration::semantic(Scope *sc)
 #if !BREAKABI
 			&& !isDtorDeclaration()
 #endif
-#if V2
+#if DMDV2
 			&& !isPostBlitDeclaration()
 #endif
 			)
@@ -978,7 +991,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 		f = (TypeFunction *)type;
 	    }
 
-	    int offend = fbody ? fbody->fallOffEnd() : TRUE;
+	    int offend = fbody ? fbody->blockExit() & BEfallthru : TRUE;
+	    //int offend = fbody ? fbody->fallOffEnd() : TRUE;
 
 	    if (isStaticCtorDeclaration())
 	    {	/* It's a static constructor. Ensure that all
@@ -1471,7 +1485,7 @@ int fp1(void *param, FuncDeclaration *f)
 	return 1;
     }
 
-#if V2
+#if DMDV2
     /* Allow covariant matches, if it's just a const conversion
      * of the return type
      */
@@ -1777,6 +1791,7 @@ LabelDsymbol *FuncDeclaration::searchLabel(Identifier *ident)
     }
     return (LabelDsymbol *)s;
 }
+
 /****************************************
  * If non-static member function that has a 'this' pointer,
  * return the aggregate it is a member of.
@@ -2031,17 +2046,18 @@ FuncDeclaration *FuncDeclaration::genCfunc(Type *treturn, Identifier *id)
     return fd;
 }
 
-char *FuncDeclaration::kind()
+const char *FuncDeclaration::kind()
 {
     return "function";
 }
+
 /*******************************
  * Look at all the variables in this function that are referenced
  * by nested functions, and determine if a closure needs to be
  * created for them.
  */
 
-#if V2
+#if DMDV2
 int FuncDeclaration::needsClosure()
 {
     /* Need a closure for all the closureVars[] if any of the
@@ -2051,7 +2067,11 @@ int FuncDeclaration::needsClosure()
      * 1) is a virtual function
      * 2) has its address taken
      * 3) has a parent that escapes
-     * escapes.
+     *
+     * Note that since a non-virtual function can be called by
+     * a virtual one, if that non-virtual function accesses a closure
+     * var, the closure still has to be taken. Hence, we check for isThis()
+     * instead of isVirtual(). (thanks to David Friedman)
      */
 
     //printf("FuncDeclaration::needsClosure() %s\n", toChars());
@@ -2065,14 +2085,14 @@ int FuncDeclaration::needsClosure()
 	    assert(f != this);
 
 	    //printf("\t\tf = %s, %d, %d\n", f->toChars(), f->isVirtual(), f->tookAddressOf);
-	    if (f->isVirtual() || f->tookAddressOf)
+	    if (f->isThis() || f->tookAddressOf)
 		goto Lyes;	// assume f escapes this function's scope
 
 	    // Look to see if any parents of f that are below this escape
 	    for (Dsymbol *s = f->parent; s != this; s = s->parent)
 	    {
 		f = s->isFuncDeclaration();
-		if (f && (f->isVirtual() || f->tookAddressOf))
+		if (f && (f->isThis() || f->tookAddressOf))
 		    goto Lyes;
 	    }
 	}
@@ -2097,7 +2117,7 @@ FuncAliasDeclaration::FuncAliasDeclaration(FuncDeclaration *funcalias)
     this->funcalias = funcalias;
 }
 
-char *FuncAliasDeclaration::kind()
+const char *FuncAliasDeclaration::kind()
 {
     return "function alias";
 }
@@ -2142,7 +2162,12 @@ int FuncLiteralDeclaration::isNested()
     return (tok == TOKdelegate);
 }
 
-char *FuncLiteralDeclaration::kind()
+int FuncLiteralDeclaration::isVirtual()
+{
+    return FALSE;
+}
+
+const char *FuncLiteralDeclaration::kind()
 {
     // GCC requires the (char*) casts
     return (tok == TOKdelegate) ? (char*)"delegate" : (char*)"function";
@@ -2214,6 +2239,8 @@ void CtorDeclaration::semantic(Scope *sc)
     else
 	tret = cd->type; //->referenceTo();
     type = new TypeFunction(arguments, tret, varargs, LINKd);
+    if (!originalType)
+	originalType = type;
 
     sc->flags |= SCOPEctor;
     type = type->semantic(loc, sc);
@@ -2240,7 +2267,7 @@ void CtorDeclaration::semantic(Scope *sc)
 	cd->defaultCtor = this;
 }
 
-char *CtorDeclaration::kind()
+const char *CtorDeclaration::kind()
 {
     return "constructor";
 }
@@ -2377,6 +2404,34 @@ void StaticCtorDeclaration::semantic(Scope *sc)
 
     type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);
 
+    /* If the static ctor appears within a template instantiation,
+     * it could get called multiple times by the module constructors
+     * for different modules. Thus, protect it with a gate.
+     */
+    if (inTemplateInstance())
+    {
+	/* Add this prefix to the function:
+	 *	static int gate;
+	 *	if (++gate != 1) return;
+	 * Note that this is not thread safe; should not have threads
+	 * during static construction.
+	 */
+	Identifier *id = Lexer::idPool("__gate");
+	VarDeclaration *v = new VarDeclaration(0, Type::tint32, id, NULL);
+	v->storage_class = STCstatic;
+	Statements *sa = new Statements();
+	Statement *s = new DeclarationStatement(0, v);
+	sa->push(s);
+	Expression *e = new IdentifierExp(0, id);
+	e = new AddAssignExp(0, e, new IntegerExp(1));
+	e = new EqualExp(TOKnotequal, 0, e, new IntegerExp(1));
+	s = new IfStatement(0, NULL, e, new ReturnStatement(0, NULL), NULL);
+	sa->push(s);
+	if (fbody)
+	    sa->push(fbody);
+	fbody = new CompoundStatement(0, sa);
+    }
+
     FuncDeclaration::semantic(sc);
 
     // We're going to need ModuleInfo
@@ -2432,6 +2487,7 @@ StaticDtorDeclaration::StaticDtorDeclaration(Loc loc, Loc endloc)
     : FuncDeclaration(loc, endloc,
       Identifier::generateId("_staticDtor"), STCstatic, NULL)
 {
+    vgate = NULL;
 }
 
 Dsymbol *StaticDtorDeclaration::syntaxCopy(Dsymbol *s)
@@ -2454,6 +2510,36 @@ void StaticDtorDeclaration::semantic(Scope *sc)
     {
     }
     type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);
+
+    /* If the static ctor appears within a template instantiation,
+     * it could get called multiple times by the module constructors
+     * for different modules. Thus, protect it with a gate.
+     */
+    if (inTemplateInstance())
+    {
+	/* Add this prefix to the function:
+	 *	static int gate;
+	 *	if (--gate != 0) return;
+	 * Increment gate during constructor execution.
+	 * Note that this is not thread safe; should not have threads
+	 * during static destruction.
+	 */
+	Identifier *id = Lexer::idPool("__gate");
+	VarDeclaration *v = new VarDeclaration(0, Type::tint32, id, NULL);
+	v->storage_class = STCstatic;
+	Statements *sa = new Statements();
+	Statement *s = new DeclarationStatement(0, v);
+	sa->push(s);
+	Expression *e = new IdentifierExp(0, id);
+	e = new AddAssignExp(0, e, new IntegerExp(-1));
+	e = new EqualExp(TOKnotequal, 0, e, new IntegerExp(1));
+	s = new IfStatement(0, NULL, e, new ReturnStatement(0, NULL), NULL);
+	sa->push(s);
+	if (fbody)
+	    sa->push(fbody);
+	fbody = new CompoundStatement(0, sa);
+	vgate = v;
+    }
 
     FuncDeclaration::semantic(sc);
 
@@ -2583,12 +2669,7 @@ void InvariantDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 static Identifier *unitTestId()
 {
-    static int n;
-    char buffer[10 + sizeof(n)*3 + 1];
-
-    sprintf(buffer,"__unittest%d", n);
-    n++;
-    return Lexer::idPool(buffer);
+    return Lexer::uniqueId("__unittest");
 }
 
 UnitTestDeclaration::UnitTestDeclaration(Loc loc, Loc endloc)
@@ -2713,7 +2794,7 @@ void NewDeclaration::semantic(Scope *sc)
     FuncDeclaration::semantic(sc);
 }
 
-char *NewDeclaration::kind()
+const char *NewDeclaration::kind()
 {
     return "allocator";
 }
@@ -2797,7 +2878,7 @@ void DeleteDeclaration::semantic(Scope *sc)
     FuncDeclaration::semantic(sc);
 }
 
-char *DeleteDeclaration::kind()
+const char *DeleteDeclaration::kind()
 {
     return "deallocator";
 }

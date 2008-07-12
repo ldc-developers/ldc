@@ -35,8 +35,8 @@ struct StaticAssert : Dsymbol
     void semantic2(Scope *sc);
     void inlineScan();
     int oneMember(Dsymbol **ps);
-    void toObjFile();
-    char *kind();
+    void toObjFile(int multiobj);
+    const char *kind();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
 

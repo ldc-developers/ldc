@@ -253,10 +253,11 @@ void AggregateDeclaration::accessCheck(Loc loc, Scope *sc, Dsymbol *smember)
     if (!result)
     {
 	error(loc, "member %s is not accessible", smember->toChars());
+halt();
     }
 }
 
-/****************************************
+/****************************************   
  * Determine if this is the same or friend of cd.
  */
 

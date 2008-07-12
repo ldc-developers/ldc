@@ -80,7 +80,7 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
 
         for (int k=0; k < arr->dim; k++) {
             VarDeclaration* v = (VarDeclaration*)(arr->data[k]);
-            v->toObjFile();
+            v->toObjFile(0); // TODO: multiobj
         }
     }
 }
@@ -147,7 +147,7 @@ void DtoResolveClass(ClassDeclaration* cd)
     if(cd->members) {
         for (int k=0; k < cd->members->dim; k++) {
             Dsymbol* dsym = (Dsymbol*)(cd->members->data[k]);
-            dsym->toObjFile();
+            dsym->toObjFile(0); // TODO: multiobj
         }
     }
 

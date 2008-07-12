@@ -26,6 +26,7 @@ struct Identifier;
 struct TemplateInstance;
 struct TemplateParameter;
 struct TemplateTypeParameter;
+struct TemplateThisParameter;
 struct TemplateValueParameter;
 struct TemplateAliasParameter;
 struct TemplateTupleParameter;
@@ -52,7 +53,7 @@ struct TemplateDeclaration : ScopeDsymbol
 
     TemplateParameters *origParameters;	// originals for Ddoc
 
-    Array instances;		// array of TemplateInstance's
+    Array instances;			// array of TemplateInstance's
 
     TemplateDeclaration *overnext;	// next overloaded TemplateDeclaration
     TemplateDeclaration *overroot;	// first in overnext list
@@ -65,7 +66,7 @@ struct TemplateDeclaration : ScopeDsymbol
     void semantic(Scope *sc);
     int overloadInsert(Dsymbol *s);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    char *kind();
+    const char *kind();
     char *toChars();
 
     void emitComment(Scope *sc);
@@ -151,6 +152,23 @@ struct TemplateTypeParameter : TemplateParameter
     MATCH matchArg(Scope *sc, Objects *tiargs, int i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     void *dummyArg();
 };
+
+#if DMDV2
+struct TemplateThisParameter : TemplateTypeParameter
+{
+    /* Syntax:
+     *	this ident : specType = defaultType
+     */
+    Type *specType;	// type parameter: if !=NULL, this is the type specialization
+    Type *defaultType;
+
+    TemplateThisParameter(Loc loc, Identifier *ident, Type *specType, Type *defaultType);
+
+    TemplateThisParameter *isTemplateThisParameter();
+    TemplateParameter *syntaxCopy();
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+};
+#endif
 
 struct TemplateValueParameter : TemplateParameter
 {
@@ -251,6 +269,7 @@ struct TemplateInstance : ScopeDsymbol
 					// sole member
     WithScopeSymbol *withsym;		// if a member of a with statement
     int semanticdone;	// has semantic() been done?
+    int semantictiargsdone;	// has semanticTiargs() been done?
     int nest;		// for recursion detection
     int havetempdecl;	// 1 if used second constructor
     Dsymbol *isnested;	// if referencing local symbols, this is the context
@@ -272,12 +291,12 @@ struct TemplateInstance : ScopeDsymbol
     void inlineScan();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Dsymbol *toAlias();			// resolve real symbol
-    char *kind();
+    const char *kind();
     int oneMember(Dsymbol **ps);
     char *toChars();
     char *mangle();
 
-    void toObjFile();			// compile to .obj file
+    void toObjFile(int multiobj);			// compile to .obj file
 
     // Internal
     static void semanticTiargs(Loc loc, Scope *sc, Objects *tiargs);
@@ -305,14 +324,14 @@ struct TemplateMixin : TemplateInstance
     void semantic2(Scope *sc);
     void semantic3(Scope *sc);
     void inlineScan();
-    char *kind();
+    const char *kind();
     int oneMember(Dsymbol **ps);
     int hasPointers();
     char *toChars();
     char *mangle();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
-    void toObjFile();			// compile to .obj file
+    void toObjFile(int multiobj);			// compile to .obj file
 
     TemplateMixin *isTemplateMixin() { return this; }
 };

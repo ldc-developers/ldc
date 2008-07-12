@@ -1043,7 +1043,7 @@ int main(int argc, char *argv[])
 	if (global.params.verbose)
 	    printf("code      %s\n", m->toChars());
 	if (global.params.obj)
-	    m->genobjfile();
+	    m->genobjfile(0);
 	if (global.errors)
 	    m->deleteObjFile();
 	else

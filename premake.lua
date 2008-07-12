@@ -18,6 +18,9 @@ else
     end
 end
 
+-- D version - don't change these !!!
+DMDV1 = "1"
+
 -- idgen
 package = newpackage()
 package.name = "idgen"
@@ -26,6 +29,7 @@ package.language = "c++"
 package.files = { "dmd/idgen.c" }
 package.buildoptions = { "-x c++" }
 package.postbuildcommands = { "./idgen", "mv -f id.c id.h dmd" }
+package.defines = { "DMDV1="..DMDV1 }
 
 -- impcnvgen
 package = newpackage()
@@ -35,6 +39,14 @@ package.language = "c++"
 package.files = { "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++" }
 package.postbuildcommands = { "./impcnvgen", "mv -f impcnvtab.c dmd" }
+package.defines = { "DMDV1="..DMDV1 }
+
+--md5
+package = newpackage()
+package.name = "md5"
+package.kind = "lib"
+package.language = "c"
+package.files = { "dmd/md5.c" }
 
 -- llvmdc
 package = newpackage()
@@ -43,7 +55,7 @@ package.name = "llvmdc"
 package.kind = "exe"
 package.language = "c++"
 package.files = { matchfiles("dmd/*.c"), matchfiles("gen/*.cpp"), matchfiles("ir/*.cpp") }
-package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c" }
+package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c", "dmd/md5.c" }
 package.buildoptions = { "-x c++", "`llvm-config --cxxflags`" }
 package.linkoptions = {
     -- long but it's faster than just 'all'
@@ -55,6 +67,7 @@ package.defines = {
     "_DH",
     "OPAQUE_VTBLS="..OPAQUE_VTBLS,
     "USE_BOEHM_GC="..USE_BOEHM_GC,
+    "DMDV1="..DMDV1,
 }
 package.config.Release.defines = { "LLVMD_NO_LOGGER" }
 package.config.Debug.buildoptions = { "-g -O0" }

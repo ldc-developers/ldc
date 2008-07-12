@@ -568,7 +568,7 @@ void Lexer::scan(Token *t)
 		t->value = hexStringConstant(t);
 		return;
 
-#if V2
+#if DMDV2
 	    case 'q':
 		if (p[1] == '"')
 		{
@@ -627,7 +627,7 @@ void Lexer::scan(Token *t)
 	    case 'a':  	case 'b':   case 'c':   case 'd':   case 'e':
 	    case 'f':  	case 'g':   case 'h':   case 'i':   case 'j':
 	    case 'k':  	            case 'm':   case 'n':   case 'o':
-#if V2
+#if DMDV2
 	    case 'p':  	/*case 'q': case 'r':*/ case 's':   case 't':
 #else
 	    case 'p':  	case 'q': /*case 'r':*/ case 's':   case 't':
@@ -677,6 +677,7 @@ void Lexer::scan(Token *t)
 			sprintf(timestamp, "%.24s", p);
 		    }
 
+#if DMDV1
 		    if (mod && id == Id::FILE)
 		    {
 			t->ustring = (unsigned char *)(loc.filename ? loc.filename : mod->ident->toChars());
@@ -687,7 +688,9 @@ void Lexer::scan(Token *t)
 			t->value = TOKint64v;
 			t->uns64value = loc.linnum;
 		    }
-		    else if (id == Id::DATE)
+		    else
+#endif
+		    if (id == Id::DATE)
 		    {
 			t->ustring = (unsigned char *)date;
 			goto Lstring;
@@ -730,7 +733,7 @@ void Lexer::scan(Token *t)
 			t->value = TOKint64v;
 			t->uns64value = major * 1000 + minor;
 		    }
-#if V2
+#if DMDV2
 		    else if (id == Id::EOFX)
 		    {
 			t->value = TOKeof;
@@ -1476,7 +1479,7 @@ TOK Lexer::hexStringConstant(Token *t)
 }
 
 
-#if V2
+#if DMDV2
 /**************************************
  * Lex delimited strings:
  *	q"(foo(xxx))"   // "foo(xxx)"
@@ -2917,11 +2920,14 @@ static Keyword keywords[] =
     // Added after 1.0
     {	"ref",		TOKref		},
     {	"macro",	TOKmacro	},
-#if V2
+#if DMDV2
     {	"pure",		TOKpure		},
     {	"nothrow",	TOKnothrow	},
+    {	"__thread",	TOKtls		},
     {	"__traits",	TOKtraits	},
     {	"__overloadset", TOKoverloadset	},
+    {	"__FILE__",	TOKfile		},
+    {	"__LINE__",	TOKline		},
 #endif
 };
 
@@ -2974,7 +2980,7 @@ void Lexer::initKeywords()
     Token::tochars[TOKxorass]		= "^=";
     Token::tochars[TOKassign]		= "=";
     Token::tochars[TOKconstruct]	= "=";
-#if V2
+#if DMDV2
     Token::tochars[TOKblit]		= "=";
 #endif
     Token::tochars[TOKlt]		= "<";

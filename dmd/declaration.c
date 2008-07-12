@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -39,7 +39,7 @@ void Declaration::semantic(Scope *sc)
 {
 }
 
-char *Declaration::kind()
+const char *Declaration::kind()
 {
     return "declaration";
 }
@@ -80,6 +80,76 @@ enum PROT Declaration::prot()
     return protection;
 }
 
+/*************************************
+ * Check to see if declaration can be modified in this context (sc).
+ * Issue error if not.
+ */
+
+#if DMDV2
+void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
+{
+    if (sc->incontract && isParameter())
+	error(loc, "cannot modify parameter '%s' in contract", toChars());
+
+    if (isCtorinit())
+    {	// It's only modifiable if inside the right constructor
+	Dsymbol *s = sc->func;
+	while (1)
+	{
+	    FuncDeclaration *fd = NULL;
+	    if (s)
+		fd = s->isFuncDeclaration();
+	    if (fd &&
+		((fd->isCtorDeclaration() && storage_class & STCfield) ||
+		 (fd->isStaticCtorDeclaration() && !(storage_class & STCfield))) &&
+		fd->toParent() == toParent()
+	       )
+	    {
+		VarDeclaration *v = isVarDeclaration();
+		assert(v);
+		v->ctorinit = 1;
+		//printf("setting ctorinit\n");
+	    }
+	    else
+	    {
+		if (s)
+		{   s = s->toParent2();
+		    continue;
+		}
+		else
+		{
+		    const char *p = isStatic() ? "static " : "";
+		    error(loc, "can only initialize %sconst %s inside %sconstructor",
+			p, toChars(), p);
+		}
+	    }
+	    break;
+	}
+    }
+    else
+    {
+	VarDeclaration *v = isVarDeclaration();
+	if (v && v->canassign == 0)
+	{
+	    char *p = NULL;
+	    if (isConst())
+		p = "const";
+	    else if (isInvariant())
+		p = "invariant";
+	    else if (storage_class & STCmanifest)
+		p = "manifest constant";
+	    else if (!t->isAssignable())
+		p = "struct with immutable members";
+	    if (p)
+	    {	error(loc, "cannot modify %s", p);
+		halt();
+	    }
+	}
+    }
+}
+#endif
+
+
 /********************************* TupleDeclaration ****************************/
 
 TupleDeclaration::TupleDeclaration(Loc loc, Identifier *id, Objects *objects)
@@ -97,7 +167,7 @@ Dsymbol *TupleDeclaration::syntaxCopy(Dsymbol *s)
     return NULL;
 }
 
-char *TupleDeclaration::kind()
+const char *TupleDeclaration::kind()
 {
     return "tuple";
 }
@@ -231,6 +301,7 @@ void TypedefDeclaration::semantic(Scope *sc)
 	type = type->semantic(loc, sc);
 	if (sc->parent->isFuncDeclaration() && init)
 	    semantic2(sc);
+	storage_class |= sc->stc & STCdeprecated;
     }
     else if (sem == 1)
     {
@@ -257,7 +328,7 @@ void TypedefDeclaration::semantic2(Scope *sc)
     }
 }
 
-char *TypedefDeclaration::kind()
+const char *TypedefDeclaration::kind()
 {
     return "typedef";
 }
@@ -318,6 +389,7 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Dsymbol *s)
 
 Dsymbol *AliasDeclaration::syntaxCopy(Dsymbol *s)
 {
+    //printf("AliasDeclaration::syntaxCopy()\n");
     assert(!s);
     AliasDeclaration *sa;
     if (type)
@@ -466,7 +538,7 @@ int AliasDeclaration::overloadInsert(Dsymbol *s)
     }
 }
 
-char *AliasDeclaration::kind()
+const char *AliasDeclaration::kind()
 {
     return "alias";
 }
@@ -601,7 +673,9 @@ Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
 void VarDeclaration::semantic(Scope *sc)
 {
     //printf("VarDeclaration::semantic('%s', parent = '%s')\n", toChars(), sc->parent->toChars());
-    //printf("type = %s\n", type->toChars());
+    //printf(" type = %s\n", type ? type->toChars() : "null");
+    //printf(" stc = x%x\n", sc->stc);
+    //printf(" storage_class = x%x\n", storage_class);
     //printf("linkage = %d\n", sc->linkage);
     //if (strcmp(toChars(), "mul") == 0) halt();
 
@@ -629,6 +703,7 @@ void VarDeclaration::semantic(Scope *sc)
 	    originalType = type;
 	type = type->semantic(loc, sc);
     }
+    //printf(" semantic type = %s\n", type ? type->toChars() : "null");
 
     type->checkDeprecated(loc, sc);
     linkage = sc->linkage;
@@ -636,7 +711,7 @@ void VarDeclaration::semantic(Scope *sc)
     //printf("this = %p, parent = %p, '%s'\n", this, parent, parent->toChars());
     protection = sc->protection;
     //printf("sc->stc = %x\n", sc->stc);
-    //printf("storage_class = %x\n", storage_class);
+    //printf("storage_class = x%x\n", storage_class);
 
     Dsymbol *parent = toParent();
     FuncDeclaration *fd = parent->isFuncDeclaration();
@@ -749,6 +824,8 @@ void VarDeclaration::semantic(Scope *sc)
 	    error("field not allowed in interface");
 	}
 
+	/* Templates cannot add fields to aggregates
+	 */
 	TemplateInstance *ti = parent->isTemplateInstance();
 	if (ti)
 	{
@@ -853,10 +930,6 @@ void VarDeclaration::semantic(Scope *sc)
 	    // possibilities.
 	    if (fd && !isStatic() && !isConst() && !init->isVoidInitializer())
 	    {
-		Expression *e1;
-		Type *t;
-		int dim;
-
 		//printf("fd = '%s', var = '%s'\n", fd->toChars(), toChars());
 		if (!ei)
 		{
@@ -874,15 +947,15 @@ void VarDeclaration::semantic(Scope *sc)
 		    init = ei;
 		}
 
-		e1 = new VarExp(loc, this);
+		Expression *e1 = new VarExp(loc, this);
 
-		t = type->toBasetype();
+		Type *t = type->toBasetype();
 		if (t->ty == Tsarray)
 		{
 		    ei->exp = ei->exp->semantic(sc);
 		    if (!ei->exp->implicitConvTo(type))
 		    {
-			dim = ((TypeSArray *)t)->dim->toInteger();
+			int dim = ((TypeSArray *)t)->dim->toInteger();
 			// If multidimensional static array, treat as one large array
 			while (1)
 			{
@@ -974,7 +1047,7 @@ ExpInitializer *VarDeclaration::getExpInitializer()
 	ei = init->isExpInitializer();
     else
     {
-	Expression *e = type->defaultInit();
+	Expression *e = type->defaultInit(loc);
 	if (e)
 	    ei = new ExpInitializer(loc, e);
 	else
@@ -1001,7 +1074,7 @@ void VarDeclaration::semantic2(Scope *sc)
     }
 }
 
-char *VarDeclaration::kind()
+const char *VarDeclaration::kind()
 {
     return "variable";
 }
@@ -1020,6 +1093,17 @@ void VarDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	buf->writestring("const ");
     if (storage_class & STCstatic)
 	buf->writestring("static ");
+    if (storage_class & STCauto)
+	buf->writestring("auto ");
+#if DMDV2
+    if (storage_class & STCmanifest)
+	buf->writestring("manifest ");
+    if (storage_class & STCinvariant)
+	buf->writestring("invariant ");
+    if (storage_class & STCtls)
+	buf->writestring("__thread ");
+#endif
+
     if (type)
 	type->toCBuffer(buf, ident, hgs);
     else
@@ -1052,15 +1136,18 @@ void VarDeclaration::checkCtorConstInit()
 }
 
 /************************************
- * Check to see if variable is a reference to an enclosing function
- * or not.
+ * Check to see if this variable is actually in an enclosing function
+ * rather than the current one.
  */
 
 void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 {
+    //printf("VarDeclaration::checkNestedReference() %s\n", toChars());
     if (parent && !isDataseg() && parent != sc->parent)
     {
+	// The function that this variable is in
 	FuncDeclaration *fdv = toParent()->isFuncDeclaration();
+	// The current function
 	FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
 
 	if (fdv && fdthis)
@@ -1077,6 +1164,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 
 /*******************************
  * Does symbol go into data segment?
+ * Includes extern variables.
  */
 
 int VarDeclaration::isDataseg()
@@ -1201,7 +1289,7 @@ void TypeInfoDeclaration::semantic(Scope *sc)
 
 /***************************** TypeInfoConstDeclaration **********************/
 
-#if V2
+#if DMDV2
 TypeInfoConstDeclaration::TypeInfoConstDeclaration(Type *tinfo)
     : TypeInfoDeclaration(tinfo, 0)
 {
@@ -1210,7 +1298,7 @@ TypeInfoConstDeclaration::TypeInfoConstDeclaration(Type *tinfo)
 
 /***************************** TypeInfoInvariantDeclaration **********************/
 
-#if V2
+#if DMDV2
 TypeInfoInvariantDeclaration::TypeInfoInvariantDeclaration(Type *tinfo)
     : TypeInfoDeclaration(tinfo, 0)
 {

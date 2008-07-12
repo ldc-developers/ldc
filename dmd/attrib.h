@@ -42,7 +42,7 @@ struct AttribDeclaration : Dsymbol
     void inlineScan();
     void addComment(unsigned char *comment);
     void emitComment(Scope *sc);
-    char *kind();
+    const char *kind();
     int oneMember(Dsymbol **ps);
     int hasPointers();
     void checkCtorConstInit();
@@ -50,7 +50,7 @@ struct AttribDeclaration : Dsymbol
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
-    void toObjFile();			// compile to .obj file
+    void toObjFile(int multiobj);			// compile to .obj file
     int cvMember(unsigned char *p);
 };
 
@@ -106,7 +106,7 @@ struct AnonDeclaration : AttribDeclaration
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    char *kind();
+    const char *kind();
 };
 
 struct PragmaDeclaration : AttribDeclaration
@@ -118,8 +118,8 @@ struct PragmaDeclaration : AttribDeclaration
     void semantic(Scope *sc);
     int oneMember(Dsymbol **ps);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    char *kind();
-    void toObjFile();			// compile to .obj file
+    const char *kind();
+    void toObjFile(int multiobj);			// compile to .obj file
 };
 
 struct ConditionalDeclaration : AttribDeclaration
@@ -145,7 +145,7 @@ struct StaticIfDeclaration : ConditionalDeclaration
     Dsymbol *syntaxCopy(Dsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void semantic(Scope *sc);
-    char *kind();
+    const char *kind();
 };
 
 // Mixin declarations
@@ -155,10 +155,12 @@ struct CompileDeclaration : AttribDeclaration
     Expression *exp;
 
     ScopeDsymbol *sd;
+    int compiled;
 
     CompileDeclaration(Loc loc, Expression *exp);
     Dsymbol *syntaxCopy(Dsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *sd, int memnum);
+    void compileIt(Scope *sc);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };

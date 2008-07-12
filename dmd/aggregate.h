@@ -64,13 +64,14 @@ struct AggregateDeclaration : ScopeDsymbol
 				// 2: cannot determine size; fwd referenced
     int isdeprecated;		// !=0 if deprecated
     Scope *scope;		// !=NULL means context to use
-    FuncDeclarations dtors;	// Array of destructors
-    FuncDeclaration *dtor;	// aggregate destructor
 
     // Special member functions
     InvariantDeclaration *inv;		// invariant
     NewDeclaration *aggNew;		// allocator
     DeleteDeclaration *aggDelete;	// deallocator
+
+    FuncDeclarations dtors;	// Array of destructors
+    FuncDeclaration *dtor;	// aggregate destructor
 
 #ifdef IN_GCC
     Array methods;              // flat list of all methods for debug information
@@ -119,19 +120,26 @@ struct AnonymousAggregateDeclaration : AggregateDeclaration
 struct StructDeclaration : AggregateDeclaration
 {
     int zeroInit;		// !=0 if initialize with 0 fill
+#if DMDV2
+    int hasIdentityAssign;	// !=0 if has identity opAssign
+    FuncDeclaration *cpctor;	// generated copy-constructor, if any
+
+    FuncDeclarations postblits;	// Array of postblit functions
+    FuncDeclaration *postblit;	// aggregate postblit
+#endif
 
     StructDeclaration(Loc loc, Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     char *mangle();
-    char *kind();
+    const char *kind();
     Expression *cloneMembers();
     void toDocBuffer(OutBuffer *buf);
 
     PROT getAccess(Dsymbol *smember);	// determine access to smember
 
-    void toObjFile();			// compile to .obj file
+    void toObjFile(int multiobj);			// compile to .obj file
     void toDt(dt_t **pdt);
     void toDebug();			// to symbolic debug info
 
@@ -142,7 +150,7 @@ struct UnionDeclaration : StructDeclaration
 {
     UnionDeclaration(Loc loc, Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
-    char *kind();
+    const char *kind();
 
     UnionDeclaration *isUnionDeclaration() { return this; }
 };
@@ -168,7 +176,7 @@ struct BaseClass
     void copyBaseInterfaces(BaseClasses *);
 };
 
-#if V2
+#if DMDV2
 #define CLASSINFO_SIZE 	(0x3C+16)	// value of ClassInfo.size
 #else
 #define CLASSINFO_SIZE 	(0x3C+12)	// value of ClassInfo.size
@@ -218,7 +226,7 @@ struct ClassDeclaration : AggregateDeclaration
     virtual int isBaseOf(ClassDeclaration *cd, int *poffset);
 
     Dsymbol *search(Loc, Identifier *ident, int flags);
-#if V2
+#if DMDV2
     int isFuncHidden(FuncDeclaration *fd);
 #endif
     FuncDeclaration *findFunc(Identifier *ident, TypeFunction *tf);
@@ -226,12 +234,12 @@ struct ClassDeclaration : AggregateDeclaration
     int isNested();
     int isCOMclass();
     virtual int isCOMinterface();
-#if V2
+#if DMDV2
     virtual int isCPPinterface();
 #endif
     int isAbstract();
     virtual int vtblOffset();
-    char *kind();
+    const char *kind();
     char *mangle();
     void toDocBuffer(OutBuffer *buf);
 
@@ -240,7 +248,7 @@ struct ClassDeclaration : AggregateDeclaration
     void addLocalClass(ClassDeclarations *);
 
     // Back end
-    void toObjFile();			// compile to .obj file
+    void toObjFile(int multiobj);			// compile to .obj file
     void toDebug();
     unsigned baseVtblOffset(BaseClass *bc);
     Symbol *toSymbol();
@@ -258,7 +266,7 @@ struct ClassDeclaration : AggregateDeclaration
 
 struct InterfaceDeclaration : ClassDeclaration
 {
-#if V2
+#if DMDV2
     int cpp;				// !=0 if this is a C++ interface
 #endif
     InterfaceDeclaration(Loc loc, Identifier *id, BaseClasses *baseclasses);
@@ -266,14 +274,14 @@ struct InterfaceDeclaration : ClassDeclaration
     void semantic(Scope *sc);
     int isBaseOf(ClassDeclaration *cd, int *poffset);
     int isBaseOf(BaseClass *bc, int *poffset);
-    char *kind();
+    const char *kind();
     int vtblOffset();
-#if V2
+#if DMDV2
     int isCPPinterface();
 #endif
     virtual int isCOMinterface();
 
-    void toObjFile();			// compile to .obj file
+    void toObjFile(int multiobj);			// compile to .obj file
     Symbol *toSymbol();
 
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }

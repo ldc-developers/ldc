@@ -32,7 +32,7 @@
 /* Changes for the GDC compiler by David Friedman */
 #endif
 
-#define V2	0	// Version 2.0 features
+#define DMDV2	0	// Version 2.0 features
 #define BREAKABI 1	// 0 if not ready to break the ABI just yet
 
 struct Array;
@@ -300,7 +300,7 @@ enum MATCH
 {
     MATCHnomatch,	// no match
     MATCHconvert,	// match with conversions
-#if V2
+#if DMDV2
     MATCHconst,		// match with conversion to const
 #endif
     MATCHexact		// exact match

@@ -111,6 +111,9 @@ void initPrecedence()
     precedence[TOKassert] = PREC_primary;
     precedence[TOKfunction] = PREC_primary;
     precedence[TOKvar] = PREC_primary;
+#if DMDV2
+    precedence[TOKdefault] = PREC_primary;
+#endif
 
     // post
     precedence[TOKdotti] = PREC_primary;
@@ -193,6 +196,89 @@ void initPrecedence()
     precedence[TOKxorass] = PREC_assign;
 
     precedence[TOKcomma] = PREC_expr;
+}
+
+/*************************************************************
+ * Given var, we need to get the
+ * right 'this' pointer if var is in an outer class, but our
+ * existing 'this' pointer is in an inner class.
+ * Input:
+ *	e1	existing 'this'
+ *	ad	struct or class we need the correct 'this' for
+ *	var	the specific member of ad we're accessing
+ */
+
+Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
+	Expression *e1, Declaration *var)
+{
+    //printf("\ngetRightThis(e1 = %s, ad = %s, var = %s)\n", e1->toChars(), ad->toChars(), var->toChars());
+ L1:
+    Type *t = e1->type->toBasetype();
+    //printf("e1->type = %s, var->type = %s\n", e1->type->toChars(), var->type->toChars());
+
+    /* If e1 is not the 'this' pointer for ad
+     */
+    if (ad &&
+	!(t->ty == Tpointer && t->nextOf()->ty == Tstruct &&
+	  ((TypeStruct *)t->nextOf())->sym == ad)
+	&&
+	!(t->ty == Tstruct &&
+	  ((TypeStruct *)t)->sym == ad)
+       )
+    {
+	ClassDeclaration *cd = ad->isClassDeclaration();
+	ClassDeclaration *tcd = t->isClassHandle();
+
+	/* e1 is the right this if ad is a base class of e1
+	 */
+	if (!cd || !tcd ||
+	    !(tcd == cd || cd->isBaseOf(tcd, NULL))
+	   )
+	{
+	    /* Only classes can be inner classes with an 'outer'
+	     * member pointing to the enclosing class instance
+	     */
+	    if (tcd && tcd->isNested())
+	    {   /* e1 is the 'this' pointer for an inner class: tcd.
+		 * Rewrite it as the 'this' pointer for the outer class.
+		 */
+
+		e1 = new DotVarExp(loc, e1, tcd->vthis);
+		e1->type = tcd->vthis->type;
+		// Do not call checkNestedRef()
+		//e1 = e1->semantic(sc);
+
+		// Skip up over nested functions, and get the enclosing
+		// class type.
+		int n = 0;
+		Dsymbol *s;
+		for (s = tcd->toParent();
+		     s && s->isFuncDeclaration();
+		     s = s->toParent())
+		{   FuncDeclaration *f = s->isFuncDeclaration();
+		    if (f->vthis)
+		    {
+			//printf("rewriting e1 to %s's this\n", f->toChars());
+			n++;
+			e1 = new VarExp(loc, f->vthis);
+		    }
+		}
+		if (s && s->isClassDeclaration())
+		{   e1->type = s->isClassDeclaration()->type;
+		    if (n > 1)
+			e1 = e1->semantic(sc);
+		}
+		else
+		    e1 = e1->semantic(sc);
+		goto L1;
+	    }
+	    /* Can't find a path from e1 to ad
+	     */
+	    e1->error("this for %s needs to be type %s not type %s",
+		var->toChars(), ad->toChars(), t->toChars());
+	}
+    }
+    return e1;
 }
 
 /*****************************************
@@ -383,6 +469,32 @@ void preFunctionArguments(Loc loc, Scope *sc, Expressions *exps)
     }
 }
 
+/*********************************************
+ * Call copy constructor for struct value argument.
+ */
+#if DMDV2
+Expression *callCpCtor(Loc loc, Scope *sc, Expression *e)
+{
+    Type *tb = e->type->toBasetype();
+    assert(tb->ty == Tstruct);
+    StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+    if (sd->cpctor)
+    {
+	/* Create a variable tmp, and replace the argument e with:
+	 *	(tmp = e),tmp
+	 * and let AssignExp() handle the construction.
+	 * This is not the most efficent, ideally tmp would be constructed
+	 * directly onto the stack.
+	 */
+	Identifier *idtmp = Lexer::uniqueId("__tmp");
+	VarDeclaration *tmp = new VarDeclaration(loc, tb, idtmp, new ExpInitializer(0, e));
+	Expression *ae = new DeclarationExp(loc, tmp);
+	e = new CommaExp(loc, ae, new VarExp(loc, tmp));
+	e = e->semantic(sc);
+    }
+    return e;
+}
+#endif
 
 /****************************************
  * Now that we know the exact type of the function we're calling,
@@ -432,7 +544,15 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
             error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
 		    break;
 		}
-		arg = p->defaultArg->copy();
+		arg = p->defaultArg;
+#if DMDV2
+		if (arg->op == TOKdefault)
+		{   DefaultInitExp *de = (DefaultInitExp *)arg;
+		    arg = de->resolve(loc, sc);
+		}
+		else
+#endif
+		    arg = arg->copy();
 		arguments->push(arg);
 		nargs++;
 	    }
@@ -572,7 +692,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 	    tb = arg->type->toBasetype();
 	    if (tb->ty == Tsarray)
 	    {	TypeSArray *ts = (TypeSArray *)tb;
-		Type *ta = tb->next->arrayOf();
+		Type *ta = ts->next->arrayOf();
 		if (ts->size(arg->loc) == 0)
 		{   arg = new NullExp(arg->loc);
 		    arg->type = ta;
@@ -580,7 +700,19 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		else
 		    arg = arg->castTo(sc, ta);
 	    }
+#if DMDV2
+	    if (tb->ty == Tstruct)
+	    {
+		arg = callCpCtor(loc, sc, arg);
+	    }
 
+	    // Give error for overloaded function addresses
+	    if (arg->op == TOKsymoff)
+	    {	SymOffExp *se = (SymOffExp *)arg;
+		if (se->hasOverloads && !se->var->isFuncDeclaration()->isUnique())
+		    arg->error("function %s is overloaded", arg->toChars());
+	    }
+#endif
 	    arg->rvalue();
 	}
 	arg = arg->optimize(WANTvalue);
@@ -609,6 +741,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 
 void expToCBuffer(OutBuffer *buf, HdrGenState *hgs, Expression *e, enum PREC pr)
 {
+    //if (precedence[e->op] == 0) e->dump(0);
     if (precedence[e->op] < pr)
     {
 	buf->writeByte('(');
@@ -706,7 +839,7 @@ Expression *Expression::copy()
 Expression *Expression::semantic(Scope *sc)
 {
 #if LOGSEMANTIC
-    printf("Expression::semantic()\n");
+    printf("Expression::semantic() %s\n", toChars());
 #endif
     if (type)
 	type = type->semantic(loc, sc);
@@ -747,6 +880,7 @@ void Expression::rvalue()
 	dump(0);
 	halt();
 #endif
+	type = Type::tint32;
     }
 }
 
@@ -939,7 +1073,7 @@ Expression *Expression::checkToPointer()
 	    e = new NullExp(loc);
 	else
 	    e = new AddrExp(loc, this);
-	e->type = tb->next->pointerTo();
+	e->type = ts->next->pointerTo();
     }
     return e;
 }
@@ -970,7 +1104,7 @@ Expression *Expression::deref()
     {	Expression *e;
 
 	e = new PtrExp(loc, this);
-	e->type = type->next;
+	e->type = ((TypeReference *)type)->next;
 	return e;
     }
     return this;
@@ -993,6 +1127,18 @@ int Expression::isBit()
 {
     return FALSE;
 }
+
+/********************************
+ * Can this expression throw an exception?
+ * Valid only after semantic() pass.
+ */
+
+int Expression::canThrow()
+{
+    return TRUE;
+}
+
+
 
 Expressions *Expression::arraySyntaxCopy(Expressions *exps)
 {   Expressions *a = NULL;
@@ -1019,6 +1165,7 @@ IntegerExp::IntegerExp(Loc loc, integer_t value, Type *type)
     //printf("IntegerExp(value = %lld, type = '%s')\n", value, type ? type->toChars() : "");
     if (type && !type->isscalar())
     {
+	//printf("%s, loc = %d\n", toChars(), loc.linnum);
 	error("integral constant must be scalar type, not %s", type->toChars());
 	type = Type::terror;
     }
@@ -1093,9 +1240,13 @@ integer_t IntegerExp::toInteger()
 	    }
 
 	    default:
-		print();
-		type->print();
-		assert(0);
+		/* This can happen if errors, such as
+		 * the type is painted on like in fromConstInitializer().
+		 */
+		if (!global.errors)
+		{   type->print();
+		    assert(0);
+		}
 		break;
 	}
 	break;
@@ -1246,10 +1397,17 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		goto L3;
 
 	    default:
+		/* This can happen if errors, such as
+		 * the type is painted on like in fromConstInitializer().
+		 */
+		if (!global.errors)
+		{
 #ifdef DEBUG
-		t->print();
+		    t->print();
 #endif
-		assert(0);
+		    assert(0);
+		}
+		break;
 	}
     }
     else if (v & 0x8000000000000000LL)
@@ -1993,7 +2151,8 @@ Expression *ThisExp::semantic(Scope *sc)
 	fd->nestedFrameRef = 1;
     }
 #endif
-    sc->callSuper |= CSXthis;
+    if (!sc->intypeof)
+	sc->callSuper |= CSXthis;
     return this;
 
 Lerr:
@@ -2102,7 +2261,8 @@ Expression *SuperExp::semantic(Scope *sc)
     }
 #endif
 
-    sc->callSuper |= CSXsuper;
+    if (!sc->intypeof)
+	sc->callSuper |= CSXsuper;
     return this;
 
 
@@ -3396,6 +3556,7 @@ Expression *NewAnonClassExp::semantic(Scope *sc)
 {
 #if LOGSEMANTIC
     printf("NewAnonClassExp::semantic() %s\n", toChars());
+    //printf("thisexp = %p\n", thisexp);
     //printf("type: %s\n", type->toChars());
 #endif
 
@@ -3982,6 +4143,8 @@ Expression *TypeidExp::semantic(Scope *sc)
 #endif
     typeidType = typeidType->semantic(loc, sc);
     e = typeidType->getTypeInfo(sc);
+    if (e->loc.linnum == 0)
+	e->loc = loc;		// so there's at least some line number info
     return e;
 }
 
@@ -4258,7 +4421,7 @@ void IsExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	    buf->writestring(" == ");
 	tspec->toCBuffer(buf, NULL, hgs);
     }
-#if V2
+#if DMDV2
     if (parameters)
     {	// First parameter is already output, so start with second
 	for (int i = 1; i < parameters->dim; i++)
@@ -4830,6 +4993,16 @@ Expression *DotIdExp::semantic(Scope *sc)
 		return new TypeExp(loc, t);
 	    }
 
+	    TupleDeclaration *tup = s->isTupleDeclaration();
+	    if (tup)
+	    {
+		if (eleft)
+		    error("cannot have e.tuple");
+		e = new TupleExp(loc, tup);
+		e = e->semantic(sc);
+		return e;
+	    }
+
 	    ScopeDsymbol *sds = s->isScopeDsymbol();
 	    if (sds)
 	    {
@@ -4973,55 +5146,19 @@ Expression *DotVarExp::semantic(Scope *sc)
 	if (!var->isFuncDeclaration())	// for functions, do checks after overload resolution
 	{
 	    AggregateDeclaration *ad = var->toParent()->isAggregateDeclaration();
-	L1:
-	    Type *t = e1->type->toBasetype();
+	    e1 = getRightThis(loc, sc, ad, e1, var);
+	    if (!sc->noaccesscheck)
+		accessCheck(loc, sc, e1, var);
 
-	    if (ad &&
-		!(t->ty == Tpointer && t->next->ty == Tstruct &&
-		  ((TypeStruct *)t->next)->sym == ad)
-		&&
-		!(t->ty == Tstruct &&
-		  ((TypeStruct *)t)->sym == ad)
-	       )
-	    {
-		ClassDeclaration *cd = ad->isClassDeclaration();
-		ClassDeclaration *tcd = t->isClassHandle();
-
-		if (!cd || !tcd ||
-		    !(tcd == cd || cd->isBaseOf(tcd, NULL))
-		   )
-		{
-		    if (tcd && tcd->isNested())
-		    {	// Try again with outer scope
-
-			e1 = new DotVarExp(loc, e1, tcd->vthis);
-			e1 = e1->semantic(sc);
-
-			// Skip over nested functions, and get the enclosing
-			// class type.
-			Dsymbol *s = tcd->toParent();
-			while (s && s->isFuncDeclaration())
-			{   FuncDeclaration *f = s->isFuncDeclaration();
-			    if (f->vthis)
-			    {
-				e1 = new VarExp(loc, f->vthis);
-			    }
-			    s = s->toParent();
-			}
-			if (s && s->isClassDeclaration())
-			    e1->type = s->isClassDeclaration()->type;
-
-			e1 = e1->semantic(sc);
-			goto L1;
-		    }
-#ifdef DEBUG
-		    printf("2: ");
-#endif
-		    error("this for %s needs to be type %s not type %s",
-			var->toChars(), ad->toChars(), t->toChars());
+	    VarDeclaration *v = var->isVarDeclaration();
+	    if (v && v->isConst())
+	    {	ExpInitializer *ei = v->getExpInitializer();
+		if (ei)
+		{   Expression *e = ei->exp->copy();
+		    e = e->semantic(sc);
+		    return e;
 		}
 	    }
-	    accessCheck(loc, sc, e1, var);
 	}
     }
     //printf("-DotVarExp::semantic('%s')\n", toChars());
@@ -5211,7 +5348,7 @@ Expression *DotTemplateInstanceExp::semantic(Scope *sc)
     return e;
 
 Lerr:
-    return new IntegerExp(0);
+    return new IntegerExp(loc, 0, Type::tint32);
 }
 
 void DotTemplateInstanceExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -5239,44 +5376,9 @@ Expression *DelegateExp::semantic(Scope *sc)
 	e1 = e1->semantic(sc);
 	type = new TypeDelegate(func->type);
 	type = type->semantic(loc, sc);
-//-----------------
-	/* For func, we need to get the
-	 * right 'this' pointer if func is in an outer class, but our
-	 * existing 'this' pointer is in an inner class.
-	 * This code is analogous to that used for variables
-	 * in DotVarExp::semantic().
-	 */
 	AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
-    L10:
-	Type *t = e1->type;
-	if (func->needThis() && ad &&
-	    !(t->ty == Tpointer && t->next->ty == Tstruct &&
-	      ((TypeStruct *)t->next)->sym == ad) &&
-	    !(t->ty == Tstruct && ((TypeStruct *)t)->sym == ad)
-	   )
-	{
-	    ClassDeclaration *cd = ad->isClassDeclaration();
-	    ClassDeclaration *tcd = t->isClassHandle();
-
-	    if (!cd || !tcd ||
-		!(tcd == cd || cd->isBaseOf(tcd, NULL))
-	       )
-	    {
-		if (tcd && tcd->isNested())
-		{   // Try again with outer scope
-
-		    e1 = new DotVarExp(loc, e1, tcd->vthis);
-		    e1 = e1->semantic(sc);
-		    goto L10;
-		}
-#ifdef DEBUG
-		printf("3: ");
-#endif
-		error("this for %s needs to be type %s not type %s",
-		    func->toChars(), ad->toChars(), t->toChars());
-	    }
-	}
-//-----------------
+	if (func->needThis())
+	    e1 = getRightThis(loc, sc, ad, e1, func);
     }
     return this;
 }
@@ -5535,7 +5637,7 @@ Lagain:
 	DotTemplateExp *dte;
 	AggregateDeclaration *ad;
 	UnaExp *ue = (UnaExp *)(e1);
-        
+
     	if (e1->op == TOKdotvar)
         {   // Do overload resolution
 	    dve = (DotVarExp *)(e1);
@@ -5560,40 +5662,20 @@ Lagain:
 	    }
 	    ad = td->toParent()->isAggregateDeclaration();
 	}	
-	/* Now that we have the right function f, we need to get the
-	 * right 'this' pointer if f is in an outer class, but our
-	 * existing 'this' pointer is in an inner class.
-	 * This code is analogous to that used for variables
-	 * in DotVarExp::semantic().
+	if (f->needThis())
+	{
+	    ue->e1 = getRightThis(loc, sc, ad, ue->e1, f);
+	}
+
+	/* Cannot call public functions from inside invariant
+	 * (because then the invariant would have infinite recursion)
 	 */
-    L10:
-	Type *t = ue->e1->type->toBasetype();
-	if (f->needThis() && ad &&
-	    !(t->ty == Tpointer && t->next->ty == Tstruct &&
-	      ((TypeStruct *)t->next)->sym == ad) &&
-	    !(t->ty == Tstruct && ((TypeStruct *)t)->sym == ad)
+	if (sc->func && sc->func->isInvariantDeclaration() &&
+	    ue->e1->op == TOKthis &&
+	    f->addPostInvariant()
 	   )
 	{
-	    ClassDeclaration *cd = ad->isClassDeclaration();
-	    ClassDeclaration *tcd = t->isClassHandle();
-
-	    if (!cd || !tcd ||
-		!(tcd == cd || cd->isBaseOf(tcd, NULL))
-	       )
-	    {
-		if (tcd && tcd->isNested())
-		{   // Try again with outer scope
-
-		    ue->e1 = new DotVarExp(loc, ue->e1, tcd->vthis);
-		    ue->e1 = ue->e1->semantic(sc);
-		    goto L10;
-		}
-#ifdef DEBUG
-		printf("1: ");
-#endif
-		error("this for %s needs to be type %s not type %s",
-		    f->toChars(), ad->toChars(), t->toChars());
-	    }
+	    error("cannot call public/export function %s from invariant", f->toChars());
 	}
 
 	checkDeprecated(sc, f);
@@ -5647,15 +5729,18 @@ Lagain:
 	    }
 	    else
 	    {
+		if (!sc->intypeof)
+		{
 #if 0
-		if (sc->callSuper & (CSXthis | CSXsuper))
-		    error("reference to this before super()");
+		    if (sc->callSuper & (CSXthis | CSXsuper))
+			error("reference to this before super()");
 #endif
-		if (sc->noctor || sc->callSuper & CSXlabel)
-		    error("constructor calls not allowed in loops or after labels");
-		if (sc->callSuper & (CSXsuper_ctor | CSXthis_ctor))
-		    error("multiple constructor calls");
-		sc->callSuper |= CSXany_ctor | CSXsuper_ctor;
+		    if (sc->noctor || sc->callSuper & CSXlabel)
+			error("constructor calls not allowed in loops or after labels");
+		    if (sc->callSuper & (CSXsuper_ctor | CSXthis_ctor))
+			error("multiple constructor calls");
+		    sc->callSuper |= CSXany_ctor | CSXsuper_ctor;
+		}
 
 		f = f->overloadResolve(loc, arguments);
 		checkDeprecated(sc, f);
@@ -5680,15 +5765,18 @@ Lagain:
 	}
 	else
 	{
+	    if (!sc->intypeof)
+	    {
 #if 0
-	    if (sc->callSuper & (CSXthis | CSXsuper))
-		error("reference to this before super()");
+		if (sc->callSuper & (CSXthis | CSXsuper))
+		    error("reference to this before super()");
 #endif
-	    if (sc->noctor || sc->callSuper & CSXlabel)
-		error("constructor calls not allowed in loops or after labels");
-	    if (sc->callSuper & (CSXsuper_ctor | CSXthis_ctor))
-		error("multiple constructor calls");
-	    sc->callSuper |= CSXany_ctor | CSXthis_ctor;
+		if (sc->noctor || sc->callSuper & CSXlabel)
+		    error("constructor calls not allowed in loops or after labels");
+		if (sc->callSuper & (CSXsuper_ctor | CSXthis_ctor))
+		    error("multiple constructor calls");
+		sc->callSuper |= CSXany_ctor | CSXthis_ctor;
+	    }
 
 	    f = cd->ctor;
 	    f = f->overloadResolve(loc, arguments);

@@ -53,7 +53,7 @@ void llvmdc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void Module::genobjfile()
+void Module::genobjfile(int multiobj)
 {
     Logger::cout() << "Generating module: " << (md ? md->toChars() : toChars()) << '\n';
     LOG_SCOPE;
@@ -120,7 +120,7 @@ void Module::genobjfile()
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);
         assert(dsym);
-        dsym->toObjFile();
+        dsym->toObjFile(multiobj);
     }
 
     // main driver loop
@@ -550,7 +550,7 @@ void Module::genmoduleinfo()
 
 /* ================================================================== */
 
-void Dsymbol::toObjFile()
+void Dsymbol::toObjFile(int multiobj)
 {
     Logger::println("Ignoring Dsymbol::toObjFile for %s", toChars());
 }
@@ -564,7 +564,7 @@ void Declaration::toObjFile()
 
 /* ================================================================== */
 
-void InterfaceDeclaration::toObjFile()
+void InterfaceDeclaration::toObjFile(int multiobj)
 {
     //Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
     gIR->resolveList.push_back(this);
@@ -572,14 +572,14 @@ void InterfaceDeclaration::toObjFile()
 
 /* ================================================================== */
 
-void StructDeclaration::toObjFile()
+void StructDeclaration::toObjFile(int multiobj)
 {
     gIR->resolveList.push_back(this);
 }
 
 /* ================================================================== */
 
-void ClassDeclaration::toObjFile()
+void ClassDeclaration::toObjFile(int multiobj)
 {
     gIR->resolveList.push_back(this);
 }
@@ -596,7 +596,7 @@ unsigned ClassDeclaration::baseVtblOffset(BaseClass *bc)
 
 /* ================================================================== */
 
-void VarDeclaration::toObjFile()
+void VarDeclaration::toObjFile(int multiobj)
 {
     Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
@@ -604,7 +604,7 @@ void VarDeclaration::toObjFile()
     if (aliassym)
     {
         Logger::println("alias sym");
-        toAlias()->toObjFile();
+        toAlias()->toObjFile(multiobj);
         return;
     }
 
@@ -669,7 +669,7 @@ void VarDeclaration::toObjFile()
 
 /* ================================================================== */
 
-void TypedefDeclaration::toObjFile()
+void TypedefDeclaration::toObjFile(int multiobj)
 {
     static int tdi = 0;
     Logger::print("TypedefDeclaration::toObjFile(%d): %s\n", tdi++, toChars());
@@ -681,14 +681,14 @@ void TypedefDeclaration::toObjFile()
 
 /* ================================================================== */
 
-void EnumDeclaration::toObjFile()
+void EnumDeclaration::toObjFile(int multiobj)
 {
     Logger::println("Ignoring EnumDeclaration::toObjFile for %s", toChars());
 }
 
 /* ================================================================== */
 
-void FuncDeclaration::toObjFile()
+void FuncDeclaration::toObjFile(int multiobj)
 {
     gIR->resolveList.push_back(this);
 }

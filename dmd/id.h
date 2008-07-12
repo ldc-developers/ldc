@@ -42,6 +42,8 @@ struct Id
     static Identifier *empty;
     static Identifier *p;
     static Identifier *coverage;
+    static Identifier *__vptr;
+    static Identifier *__monitor;
     static Identifier *TypeInfo;
     static Identifier *TypeInfo_Class;
     static Identifier *TypeInfo_Interface;
