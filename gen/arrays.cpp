@@ -108,15 +108,16 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
 
 typedef const LLType* constLLVMTypeP;
 
-static size_t checkRectArrayInit(const LLType* pt, constLLVMTypeP& finalty)
+static size_t checkRectArrayInit(const LLType* pt, const LLType* t)
 {
-    if (const LLArrayType* arrty = isaArray(pt)) {
-        size_t n = checkRectArrayInit(arrty->getElementType(), finalty);
+    const LLArrayType* arrty = isaArray(pt);
+    if (pt != t && arrty) {
+        size_t n = checkRectArrayInit(arrty->getElementType(), t);
         size_t ne = arrty->getNumElements();
         if (n) return n * ne;
         return ne;
     }
-    finalty = pt;
+
     return 0;
 }
 
@@ -133,72 +134,19 @@ void DtoArrayInit(DValue* array, DValue* value)
 
     const LLType* pt = ptr->getType()->getContainedType(0);
     const LLType* t = val->getType();
-    const LLType* finalTy;
 
     size_t aggrsz = 0;
     Type* valtype = value->getType()->toBasetype();
 
-    // handle rectangular init
-    if (size_t arrsz = checkRectArrayInit(pt, finalTy))
-    {
-        assert(finalTy == t);
-        LLConstant* c = isaConstant(dim);
-        assert(c);
-        dim = llvm::ConstantExpr::getMul(c, DtoConstSize_t(arrsz));
-        ptr = gIR->ir->CreateBitCast(ptr, getPtrToType(finalTy), "tmp");
-    }
-    // handle null aggregate
-    else if (isaStruct(t))
-    {
-        aggrsz = getABITypeSize(t);
-        LLConstant* c = isaConstant(val);
-        assert(c && c->isNullValue());
-        LLValue* nbytes;
-        if (aggrsz == 1)
-            nbytes = dim;
-        else
-            nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(aggrsz), "tmp");
-        DtoMemSetZero(ptr,nbytes);
-        return;
-    }
-    // handle general aggregate case
-    else if (DtoIsPassedByRef(valtype))
-    {
-        aggrsz = getABITypeSize(pt);
-        ptr = gIR->ir->CreateBitCast(ptr, getVoidPtrType(), "tmp");
-        val = gIR->ir->CreateBitCast(val, getVoidPtrType(), "tmp");
-    }
-    else
-    {
-        Logger::cout() << "no special handling" << '\n';
-        assert(t == pt);
-    }
-
-    Logger::cout() << "array: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
+    const char* funcname = NULL;
 
     LLSmallVector<LLValue*, 4> args;
     args.push_back(ptr);
     args.push_back(dim);
     args.push_back(val);
 
-    const char* funcname = NULL;
-
-    if (aggrsz) {
-        funcname = "_d_array_init_mem";
-        args.push_back(DtoConstSize_t(aggrsz));
-    }
-    else if (isaPointer(t)) {
-        funcname = "_d_array_init_pointer";
-
-        const LLType* dstty = getPtrToType(getPtrToType(LLType::Int8Ty));
-        if (args[0]->getType() != dstty)
-            args[0] = DtoBitCast(args[0],dstty);
-
-        const LLType* valty = getPtrToType(LLType::Int8Ty);
-        if (args[2]->getType() != valty)
-            args[2] = DtoBitCast(args[2],valty);
-    }
-    else if (t == LLType::Int1Ty) {
+    // if t is a primitive type, use the corresponding runtime function
+    if (t == LLType::Int1Ty) {
         funcname = "_d_array_init_i1";
     }
     else if (t == LLType::Int8Ty) {
@@ -219,7 +167,60 @@ void DtoArrayInit(DValue* array, DValue* value)
     else if (t == LLType::DoubleTy) {
         funcname = "_d_array_init_double";
     }
-    else {
+    else if (t == getPtrToType(LLType::Int8Ty)) {
+        funcname = "_d_array_init_pointer";
+
+        const LLType* dstty = getPtrToType(getVoidPtrType());
+        if (args[0]->getType() != dstty)
+            args[0] = DtoBitCast(args[0],dstty);
+
+        const LLType* valty = getVoidPtrType();
+        if (args[2]->getType() != valty)
+            args[2] = DtoBitCast(args[2],valty);
+    }
+    // handle array rhs
+    else if (value->getType()->ty == Tarray || value->getType()->ty == Tsarray)
+    {
+        const LLArrayType* dstarrty = isaArray(pt);
+        assert(dstarrty);
+        const LLPointerType* srcty = isaPointer(t);
+        assert(dstarrty == srcty->getElementType());
+
+        funcname = "_d_array_init_mem";
+
+        args[0] = gIR->ir->CreateBitCast(ptr, getVoidPtrType(), "tmp");
+        args[2] = gIR->ir->CreateBitCast(val, getVoidPtrType(), "tmp");
+
+        size_t n_inner = getABITypeSize(srcty->getElementType());
+        args.push_back(DtoConstSize_t(n_inner));
+    }
+    // handle null aggregate
+    else if (isaStruct(t))
+    {
+        aggrsz = getABITypeSize(t);
+        LLConstant* c = isaConstant(val);
+        assert(c && c->isNullValue());
+        LLValue* nbytes;
+        if (aggrsz == 1)
+            nbytes = dim;
+        else
+            nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(aggrsz), "tmp");
+        DtoMemSetZero(ptr,nbytes);
+        return;
+    }
+    // handle general aggregate case
+    else if (DtoIsPassedByRef(valtype))
+    {
+        funcname = "_d_array_init_mem";
+
+        args[0] = gIR->ir->CreateBitCast(ptr, getVoidPtrType(), "tmp");
+        args[2] = gIR->ir->CreateBitCast(val, getVoidPtrType(), "tmp");
+
+        aggrsz = getABITypeSize(pt);
+        args.push_back(DtoConstSize_t(aggrsz));
+    }
+    else
+    {
         Logger::cout() << *ptr->getType() << " = " << *val->getType() << '\n';
         assert(0);
     }
