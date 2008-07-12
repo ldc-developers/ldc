@@ -130,99 +130,97 @@ void DtoArrayInit(DValue* array, DValue* value)
     LLValue* ptr = DtoArrayPtr(array);
     LLValue* val = value->getRVal();
 
-    Logger::cout() << "llvm values:\n" << " ptr: " << *ptr << " dim: " << *dim << " val: " << *val << '\n';
-
-    const LLType* pt = ptr->getType()->getContainedType(0);
-    const LLType* t = val->getType();
-
-    size_t aggrsz = 0;
-    Type* valtype = value->getType()->toBasetype();
-
-    const char* funcname = NULL;
-
+    // prepare runtime call
     LLSmallVector<LLValue*, 4> args;
     args.push_back(ptr);
     args.push_back(dim);
     args.push_back(val);
 
-    // if t is a primitive type, use the corresponding runtime function
-    if (t == LLType::Int1Ty) {
-        funcname = "_d_array_init_i1";
-    }
-    else if (t == LLType::Int8Ty) {
-        funcname = "_d_array_init_i8";
-    }
-    else if (t == LLType::Int16Ty) {
-        funcname = "_d_array_init_i16";
-    }
-    else if (t == LLType::Int32Ty) {
-        funcname = "_d_array_init_i32";
-    }
-    else if (t == LLType::Int64Ty) {
-        funcname = "_d_array_init_i64";
-    }
-    else if (t == LLType::FloatTy) {
-        funcname = "_d_array_init_float";
-    }
-    else if (t == LLType::DoubleTy) {
-        funcname = "_d_array_init_double";
-    }
-    else if (t == getPtrToType(LLType::Int8Ty)) {
-        funcname = "_d_array_init_pointer";
+    // determine the right runtime function to call
+    const char* funcname = NULL;
+    Type* t = value->getType()->toBasetype();
 
-        const LLType* dstty = getPtrToType(getVoidPtrType());
-        if (args[0]->getType() != dstty)
-            args[0] = DtoBitCast(args[0],dstty);
-
-        const LLType* valty = getVoidPtrType();
-        if (args[2]->getType() != valty)
-            args[2] = DtoBitCast(args[2],valty);
-    }
-    // handle array rhs
-    else if (value->getType()->ty == Tarray || value->getType()->ty == Tsarray)
+    // lets first optimize all zero initializations down to a memset.
+    // this simplifies codegen later on as llvm null's have no address!
+    if (isaConstant(val) && isaConstant(val)->isNullValue())
     {
-        const LLArrayType* dstarrty = isaArray(pt);
-        assert(dstarrty);
-        const LLPointerType* srcty = isaPointer(t);
-        assert(dstarrty == srcty->getElementType());
-
-        funcname = "_d_array_init_mem";
-
-        args[0] = gIR->ir->CreateBitCast(ptr, getVoidPtrType(), "tmp");
-        args[2] = gIR->ir->CreateBitCast(val, getVoidPtrType(), "tmp");
-
-        size_t n_inner = getABITypeSize(srcty->getElementType());
-        args.push_back(DtoConstSize_t(n_inner));
-    }
-    // handle null aggregate
-    else if (isaStruct(t))
-    {
-        aggrsz = getABITypeSize(t);
-        LLConstant* c = isaConstant(val);
-        assert(c && c->isNullValue());
-        LLValue* nbytes;
-        if (aggrsz == 1)
-            nbytes = dim;
-        else
-            nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(aggrsz), "tmp");
-        DtoMemSetZero(ptr,nbytes);
+        size_t X = getABITypeSize(val->getType());
+        LLValue* nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(X), ".nbytes");
+        DtoMemSetZero(ptr, nbytes);
         return;
     }
-    // handle general aggregate case
-    else if (DtoIsPassedByRef(valtype))
+
+    // if not a zero initializer, call the appropriate runtime function!
+    switch (t->ty)
     {
+    case Tbool:
+        funcname = "_d_array_init_i1";
+        break;
+
+    case Tvoid:
+    case Tchar:
+    case Tint8:
+    case Tuns8:
+        funcname = "_d_array_init_i8";
+        break;
+
+    case Twchar:
+    case Tint16:
+    case Tuns16:
+        funcname = "_d_array_init_i16";
+        break;
+
+    case Tdchar:
+    case Tint32:
+    case Tuns32:
+        funcname = "_d_array_init_i32";
+        break;
+
+    case Tint64:
+    case Tuns64:
+        funcname = "_d_array_init_i64";
+        break;
+
+    case Tfloat32:
+    case Timaginary32:
+        funcname = "_d_array_init_float";
+        break;
+
+    case Tfloat64:
+    case Timaginary64:
+        funcname = "_d_array_init_double";
+        break;
+
+    case Tfloat80:
+    case Timaginary80:
+        funcname = "_d_array_init_real";
+        break;
+
+    case Tpointer:
+    case Tclass:
+        funcname = "_d_array_init_pointer";
+        args[0] = DtoBitCast(args[0], getPtrToType(getVoidPtrType()));
+        args[2] = DtoBitCast(args[2], getVoidPtrType());
+        break;
+
+    // this currently acts as a kind of fallback for all the bastards...
+    // FIXME: this is probably too slow.
+    case Tstruct:
+    case Tdelegate:
+    case Tarray:
+    case Tsarray:
+    case Tcomplex32:
+    case Tcomplex64:
+    case Tcomplex80:
         funcname = "_d_array_init_mem";
+        args[0] = DtoBitCast(args[0], getVoidPtrType());
+        args[2] = DtoBitCast(args[2], getVoidPtrType());
+        args.push_back(DtoConstSize_t(getABITypeSize(DtoType(t))));
+        break;
 
-        args[0] = gIR->ir->CreateBitCast(ptr, getVoidPtrType(), "tmp");
-        args[2] = gIR->ir->CreateBitCast(val, getVoidPtrType(), "tmp");
-
-        aggrsz = getABITypeSize(pt);
-        args.push_back(DtoConstSize_t(aggrsz));
-    }
-    else
-    {
-        Logger::cout() << *ptr->getType() << " = " << *val->getType() << '\n';
-        assert(0);
+    default:
+        error("unhandled array init: %s = %s", array->getType()->toChars(), value->getType()->toChars());
+        assert(0 && "unhandled array init");
     }
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);

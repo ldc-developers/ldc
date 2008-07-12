@@ -194,6 +194,7 @@ static void LLVM_D_BuildRuntimeModule()
     const LLType* longTy = LLType::Int64Ty;
     const LLType* floatTy = LLType::FloatTy;
     const LLType* doubleTy = LLType::DoubleTy;
+    const LLType* realTy = (global.params.useFP80) ? LLType::X86_FP80Ty : LLType::DoubleTy;
     const LLType* sizeTy = DtoSize_t();
     const LLType* voidPtrTy = rt_ptr(byteTy);
     const LLType* stringTy = rt_array(byteTy);
@@ -361,6 +362,7 @@ static void LLVM_D_BuildRuntimeModule()
     ARRAY_INIT(longTy,"i64")
     ARRAY_INIT(floatTy,"float")
     ARRAY_INIT(doubleTy,"double")
+    ARRAY_INIT(realTy,"real")
     ARRAY_INIT(voidPtrTy,"pointer")
 
     #undef ARRAY_INIT

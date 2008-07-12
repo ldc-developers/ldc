@@ -234,7 +234,12 @@ DValue* VarExp::toElem(IRState* p)
         // function parameter
         else if (vd->isParameter()) {
             Logger::println("function param");
-            if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
+            FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
+            if (fd && fd != p->func()->decl) {
+                Logger::println("nested parameter");
+                return new DVarValue(vd, DtoNestedVariable(vd), true);
+            }
+            else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
                 return new DVarValue(vd, vd->ir.getIrValue(), true);
             }
             else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue())) {
@@ -1543,7 +1548,19 @@ DValue* SliceExp::toElem(IRState* p)
     else
     {
         assert(e1->type->toBasetype()->ty != Tpointer);
-        elen = DtoArrayLen(e);
+        // if the sliceee is a static array, we use the length of that as DMD seems
+        // to give contrary inconsistent sizesin some multidimensional static array cases.
+        // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)
+        if (etype->ty == Tsarray)
+        {
+            TypeSArray* tsa = (TypeSArray*)etype;
+            elen = DtoConstSize_t(tsa->dim->toUInteger());
+        }
+        // for normal code the actual array length is what we want!
+        else
+        {
+            elen = DtoArrayLen(e);
+        }
     }
 
     return new DSliceValue(type, elen, eptr);

@@ -68,6 +68,14 @@ void _d_array_init_double(double* a, size_t n, double v)
         *p++ = v;
 }
 
+void _d_array_init_real(real* a, size_t n, real v)
+{
+    auto p = a;
+    auto end = a+n;
+    while (p !is end)
+        *p++ = v;
+}
+
 void _d_array_init_pointer(void** a, size_t n, void* v)
 {
     auto p = a;

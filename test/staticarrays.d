@@ -65,8 +65,14 @@ void refs()
     }
 }
 
+void vals()
+{
+    S[5] structs;
+}
+
 void main()
 {
     numbers();
     refs();
+    vals();
 }
