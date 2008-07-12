@@ -70,7 +70,7 @@ ALL_OBJS= \
 tangobos.lib : $(LIB_TARGET)
 
 $(LIB_TARGET) : $(ALL_OBJS)
-	$(RM) $@
+	$(RM) $(LIB_MASK)
 	$(LLVMLINK) -o=$(LIB_TARGET).bc `find -name "*.bc"`
 	$(LLC) -o=$(LIB_TARGET).s $(LIB_TARGET).bc
 	$(CC) -c -o $(LIB_TARGET) $(LIB_TARGET).s

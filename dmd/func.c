@@ -2208,6 +2208,7 @@ void CtorDeclaration::semantic(Scope *sc)
     if (!cd)
     {
 	error("constructors are only for class definitions");
+	fatal();
 	tret = Type::tvoid;
     }
     else
@@ -2302,6 +2303,7 @@ void DtorDeclaration::semantic(Scope *sc)
     if (!cd)
     {
 	error("destructors only are for class definitions");
+	fatal();
     }
     else
 	cd->dtors.push(this);

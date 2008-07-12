@@ -194,7 +194,10 @@ void genCollect()
 /**
  * Minimizes physical memory usage
  */
-//void minimize();
+void minimize()
+{
+    GC.collect();
+}
 
 /***************************************
  * disable() temporarily disables garbage collection cycle, enable()
