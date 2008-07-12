@@ -563,27 +563,23 @@ DValue* AssignExp::toElem(IRState* p)
     Logger::print("AssignExp::toElem: %s | %s = %s\n", toChars(), e1->type->toChars(), e2->type ? e2->type->toChars() : 0);
     LOG_SCOPE;
 
+    if (e1->op == TOKarraylength)
+    {
+        Logger::println("performing array.length assignment");
+        ArrayLengthExp *ale = (ArrayLengthExp *)e1;
+        DValue* arr = ale->e1->toElem(p);
+        DVarValue arrval(ale->e1->type, arr->getLVal(), true);
+        DValue* newlen = e2->toElem(p);
+        DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, newlen);
+        DtoAssign(&arrval, slice);
+        return newlen;
+    }
+
+    Logger::println("performing normal assignment");
+
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
-
-    Logger::println("performing assignment");
-
-    DImValue* im = r->isIm();
-    if (!im || !im->inPlace()) {
-        Logger::println("assignment not inplace");
-        if (DArrayLenValue* al = l->isArrayLen())
-        {
-            DLRValue* arrlenval = l->isLRValue();
-            assert(arrlenval);
-            DVarValue arrval(arrlenval->getLType(), arrlenval->getLVal(), true);
-            DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, r);
-            DtoAssign(&arrval, slice);
-        }
-        else
-        {
-            DtoAssign(l, r);
-        }
-    }
+    DtoAssign(l, r);
 
     if (l->isSlice() || l->isComplex())
         return l;
@@ -1945,9 +1941,7 @@ DValue* ArrayLengthExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
-    Logger::println("e1 = %s", e1->type->toChars());
-
-    return new DArrayLenValue(e1->type, u->getLVal(), type, DtoArrayLen(u));
+    return new DImValue(type, DtoArrayLen(u));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

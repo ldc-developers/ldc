@@ -192,13 +192,6 @@ struct DLRValue : DValue
     virtual DLRValue* isLRValue() { return this; }
 };
 
-// array length d-value
-struct DArrayLenValue : DLRValue
-{
-    DArrayLenValue(Type* lt, LLValue* l, Type* rt, LLValue* r) : DLRValue(lt, l, rt, r) {}
-    virtual DArrayLenValue* isArrayLen() { return this; }
-};
-
 // complex number immediate d-value (much like slice)
 struct DComplexValue : DValue
 {
