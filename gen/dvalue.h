@@ -42,6 +42,8 @@ struct DValue : Object
     virtual LLValue* getLVal() { assert(0); return 0; }
     virtual LLValue* getRVal() { assert(0); return 0; }
 
+    virtual bool isLVal() { return false; }
+
     virtual DImValue* isIm() { return NULL; }
     virtual DConstValue* isConst() { return NULL; }
     virtual DNullValue* isNull() { return NULL; }
@@ -113,6 +115,7 @@ struct DVarValue : DValue
     DVarValue(Type* vd, LLValue* lv, LLValue* rv);
     DVarValue(Type* t, LLValue* llvmValue, bool lvalue);
 
+    virtual bool isLVal() { return val && lval; }
     virtual LLValue* getLVal();
     virtual LLValue* getRVal();
 
@@ -132,13 +135,6 @@ struct DThisValue : DVarValue
 {
     DThisValue(VarDeclaration* vd, LLValue* llvmValue) : DVarValue(vd, llvmValue, true) {}
     virtual DThisValue* isThis() { return this; }
-};
-
-// array length d-value
-struct DArrayLenValue : DVarValue
-{
-    DArrayLenValue(Type* t, LLValue* llvmValue) : DVarValue(t, llvmValue, true) {}
-    virtual DArrayLenValue* isArrayLen() { return this; }
 };
 
 // slice d-value
@@ -165,7 +161,6 @@ struct DFuncValue : DValue
 
     DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt = 0);
 
-    virtual LLValue* getLVal();
     virtual LLValue* getRVal();
 
     virtual Type* getType() { assert(type); return type; }
@@ -187,6 +182,7 @@ struct DLRValue : DValue
         rval = r;
     }
 
+    virtual bool isLVal() { return lval; }
     virtual LLValue* getLVal() { assert(lval); return lval; }
     virtual LLValue* getRVal() { assert(rval); return rval; }
 
@@ -194,6 +190,13 @@ struct DLRValue : DValue
     Type* getRType() { return rtype; }
     virtual Type* getType() { return getRType(); }
     virtual DLRValue* isLRValue() { return this; }
+};
+
+// array length d-value
+struct DArrayLenValue : DLRValue
+{
+    DArrayLenValue(Type* lt, LLValue* l, Type* rt, LLValue* r) : DLRValue(lt, l, rt, r) {}
+    virtual DArrayLenValue* isArrayLen() { return this; }
 };
 
 // complex number immediate d-value (much like slice)

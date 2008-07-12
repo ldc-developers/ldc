@@ -470,23 +470,9 @@ DValue* StringExp::toElem(IRState* p)
 
     if (dtype->ty == Tarray) {
         LLConstant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
-        if (!p->topexp() || p->topexp()->e2 != this) {
-            LLValue* tmpmem = new llvm::AllocaInst(DtoType(dtype),"tempstring",p->topallocapoint());
-            DtoSetArray(tmpmem, clen, arrptr);
-            return new DVarValue(type, tmpmem, true);
-        }
-        else if (p->topexp()->e2 == this) {
-            DValue* arr = p->topexp()->v;
-            assert(arr);
-            if (arr->isSlice()) {
-                return new DSliceValue(type, clen, arrptr);
-            }
-            else {
-                DtoSetArray(arr->getRVal(), clen, arrptr);
-                return new DImValue(type, arr->getLVal(), true);
-            }
-        }
-        assert(0);
+        LLValue* tmpmem = new llvm::AllocaInst(DtoType(dtype),"tempstring",p->topallocapoint());
+        DtoSetArray(tmpmem, clen, arrptr);
+        return new DVarValue(type, tmpmem, true);
     }
     else if (dtype->ty == Tsarray) {
         const LLType* dstType = getPtrToType(LLArrayType::get(ct, len));
@@ -577,13 +563,8 @@ DValue* AssignExp::toElem(IRState* p)
     Logger::print("AssignExp::toElem: %s | %s = %s\n", toChars(), e1->type->toChars(), e2->type ? e2->type->toChars() : 0);
     LOG_SCOPE;
 
-    p->exps.push_back(IRExp(e1,e2,NULL));
-
     DValue* l = e1->toElem(p);
-    p->topexp()->v = l;
     DValue* r = e2->toElem(p);
-
-    p->exps.pop_back();
 
     Logger::println("performing assignment");
 
@@ -592,8 +573,11 @@ DValue* AssignExp::toElem(IRState* p)
         Logger::println("assignment not inplace");
         if (DArrayLenValue* al = l->isArrayLen())
         {
-            DSliceValue* slice = DtoResizeDynArray(l->getType(), l, r);
-            DtoAssign(l, slice);
+            DLRValue* arrlenval = l->isLRValue();
+            assert(arrlenval);
+            DVarValue arrval(arrlenval->getLType(), arrlenval->getLVal(), true);
+            DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, r);
+            DtoAssign(&arrval, slice);
         }
         else
         {
@@ -672,10 +656,8 @@ DValue* AddAssignExp::toElem(IRState* p)
     Logger::print("AddAssignExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    p->exps.push_back(IRExp(e1,e2,NULL));
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
-    p->exps.pop_back();
 
     Type* t = DtoDType(type);
 
@@ -692,16 +674,9 @@ DValue* AddAssignExp::toElem(IRState* p)
     }
     DtoAssign(l, res);
 
-    // used as lvalue :/
-    if (p->topexp() && p->topexp()->e1 == this)
-    {
-        assert(!l->isLRValue());
-        return l;
-    }
-    else
-    {
-        return res;
-    }
+    // might need to return l here if used as an lvalue
+    // but when can this ever happen?
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1030,31 +1005,13 @@ DValue* CallExp::toElem(IRState* p)
     LLFunctionType::param_iterator argiter = llfnty->param_begin();
     int j = 0;
 
-    IRExp* topexp = p->topexp();
-
-    bool isInPlace = false;
-
     // attrs
     llvm::PAListPtr palist;
 
     // hidden struct return arguments
     // TODO: use sret param attr
     if (retinptr) {
-        if (topexp && topexp->e2 == this) {
-            assert(topexp->v);
-            LLValue* tlv = topexp->v->getLVal();
-            assert(isaStruct(tlv->getType()->getContainedType(0)));
-            llargs[j] = tlv;
-            isInPlace = true;
-            /*if (DtoIsPassedByRef(tf->next)) {
-                isInPlace = true;
-            }
-            else
-            assert(0);*/
-        }
-        else {
-            llargs[j] = new llvm::AllocaInst(argiter->get()->getContainedType(0),"rettmp",p->topallocapoint());
-        }
+        llargs[j] = new llvm::AllocaInst(argiter->get()->getContainedType(0),"rettmp",p->topallocapoint());
 
         if (dfn && dfn->func && dfn->func->runTimeHack) {
             const LLType* rettype = getPtrToType(DtoType(type));
@@ -1288,7 +1245,7 @@ DValue* CallExp::toElem(IRState* p)
     // param attrs
     call->setParamAttrs(palist);
 
-    return new DImValue(type, retllval, isInPlace);
+    return new DImValue(type, retllval, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1302,20 +1259,15 @@ DValue* CastExp::toElem(IRState* p)
     DValue* v = DtoCast(u, to);
 
     if (v->isSlice()) {
-        assert(!gIR->topexp() || gIR->topexp()->e1 != this);
+        // only valid as rvalue!
         return v;
     }
 
-    else if (DLRValue* lr = u->isLRValue())
-        return new DLRValue(lr->getLType(), lr->getLVal(), to, v->getRVal());
-
-    else if (u->isVar() && u->isVar()->lval)
+    else if(u->isLVal())
         return new DLRValue(e1->type, u->getLVal(), to, v->getRVal());
 
-    else if (gIR->topexp() && gIR->topexp()->e1 == this)
-        return new DLRValue(e1->type, u->getLVal(), to, v->getRVal());
-
-    return v;
+    else
+        return v;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1365,17 +1317,12 @@ DValue* PtrExp::toElem(IRState* p)
 
     DValue* a = e1->toElem(p);
 
-    if (p->topexp() && p->topexp()->e1 == this) {
-        Logger::println("lval PtrExp");
-        return new DVarValue(type, a->getRVal(), true);
-    }
-
     // this should be deterministic but right now lvalue casts don't propagate lvalueness !?!
     LLValue* lv = a->getRVal();
     LLValue* v = lv;
     if (DtoCanLoad(v))
         v = DtoLoad(v);
-    return new DLRValue(e1->type, lv, type, v);
+    return new DLRValue(type, lv, type, v);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2000,14 +1947,7 @@ DValue* ArrayLengthExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     Logger::println("e1 = %s", e1->type->toChars());
 
-    if (p->topexp() && p->topexp()->e1 == this)
-    {
-        return new DArrayLenValue(e1->type, u->getLVal());
-    }
-    else
-    {
-        return new DImValue(type, DtoArrayLen(u));
-    }
+    return new DArrayLenValue(e1->type, u->getLVal(), type, DtoArrayLen(u));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2152,11 +2092,8 @@ DValue* X##AssignExp::toElem(IRState* p) \
 { \
     Logger::print("%sAssignExp::toElem: %s | %s\n", #X, toChars(), type->toChars()); \
     LOG_SCOPE; \
-    p->exps.push_back(IRExp(e1,e2,NULL)); \
     DValue* u = e1->toElem(p); \
-    p->topexp()->v = u; \
     DValue* v = e2->toElem(p); \
-    p->exps.pop_back(); \
     LLValue* uval = u->getRVal(); \
     LLValue* vval = v->getRVal(); \
     LLValue* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
@@ -2189,11 +2126,8 @@ DValue* ShrAssignExp::toElem(IRState* p)
 {
     Logger::print("ShrAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    p->exps.push_back(IRExp(e1,e2,NULL));
     DValue* u = e1->toElem(p);
-    p->topexp()->v = u;
     DValue* v = e2->toElem(p);
-    p->exps.pop_back();
     LLValue* uval = u->getRVal();
     LLValue* vval = v->getRVal();
     LLValue* tmp;
@@ -2239,16 +2173,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     const LLPointerType* int8ptrty = getPtrToType(LLType::Int8Ty);
 
-    LLValue* lval;
-    bool inplace = false;
-    if (p->topexp() && p->topexp()->e2 == this) {
-        assert(p->topexp()->v);
-        lval = p->topexp()->v->getLVal();
-        inplace = true;
-    }
-    else {
-        lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
-    }
+    LLValue* lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
 
     DValue* u = e1->toElem(p);
     LLValue* uval;
@@ -2300,7 +2225,7 @@ DValue* DelegateExp::toElem(IRState* p)
     castfptr = DtoBitCast(castfptr, fptr->getType()->getContainedType(0));
     DtoStore(castfptr, fptr);
 
-    return new DImValue(type, lval, inplace);
+    return new DImValue(type, lval);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2517,18 +2442,8 @@ DValue* FuncExp::toElem(IRState* p)
 
     DtoForceDefineDsymbol(fd);
 
-    bool temp = false;
-    LLValue* lval = NULL;
-    if (p->topexp() && p->topexp()->e2 == this) {
-        assert(p->topexp()->v);
-        lval = p->topexp()->v->getLVal();
-    }
-    else {
-        const LLType* dgty = DtoType(type);
-        Logger::cout() << "delegate without explicit storage:" << '\n' << *dgty << '\n';
-        lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
-        temp = true;
-    }
+    const LLType* dgty = DtoType(type);
+    LLValue* lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
 
     LLValue* context = DtoGEPi(lval,0,0);
     const LLPointerType* pty = isaPointer(context->getType()->getContainedType(0));
@@ -2548,10 +2463,7 @@ DValue* FuncExp::toElem(IRState* p)
     LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, fptr->getType()->getContainedType(0));
     DtoStore(castfptr, fptr);
 
-    if (temp)
-        return new DVarValue(type, lval, true);
-    else
-        return new DImValue(type, lval, true);
+    return new DVarValue(type, lval, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2582,33 +2494,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
 
     // dst pointer
     LLValue* dstMem = 0;
-
-    // rvalue of assignment
-    if (p->topexp() && p->topexp()->e2 == this)
-    {
-        DValue* topval = p->topexp()->v;
-        // slice assignment (copy)
-        if (DSliceValue* s = topval->isSlice())
-        {
-            assert(s->ptr->getType()->getContainedType(0) == llStoType->getContainedType(0));
-            dstMem = DtoBitCast(s->ptr, getPtrToType(llStoType));
-            sliceInPlace = true;
-            // FIXME: insert bounds checks
-        }
-        // static array assignment
-        else if (topval->getType()->toBasetype()->ty == Tsarray)
-        {
-            dstMem = topval->getLVal();
-        }
-        // otherwise we still need to alloca storage
-    }
-
-    // alloca storage if not found already
-    if (!dstMem)
-    {
-        dstMem = new llvm::AllocaInst(llStoType, "arrayliteral", p->topallocapoint());
-    }
-    Logger::cout() << "using dest mem: " << *dstMem << '\n';
+    dstMem = new llvm::AllocaInst(llStoType, "arrayliteral", p->topallocapoint());
 
     // store elements
     for (size_t i=0; i<len; ++i)
@@ -2618,9 +2504,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
 
         // emulate assignment
         DVarValue* vv = new DVarValue(expr->type, elemAddr, true);
-        p->exps.push_back(IRExp(NULL, expr, vv));
         DValue* e = expr->toElem(p);
-        p->exps.pop_back();
         DImValue* im = e->isIm();
         if (!im || !im->inPlace()) {
             DtoAssign(vv, e);
@@ -2629,7 +2513,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
 
     // return storage directly ?
     if (!dyn || (dyn && sliceInPlace))
-        return new DImValue(type, dstMem, true);
+        return new DImValue(type, dstMem, false);
     // wrap in a slice
     return new DSliceValue(type, DtoConstSize_t(len), DtoGEPi(dstMem,0,0,"tmp"));
 }
@@ -2664,25 +2548,11 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Logger::print("StructLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    LLValue* sptr;
     const LLType* llt = DtoType(type);
 
     LLValue* mem = 0;
-    bool isinplace = true;
 
-    // already has memory (r-value of assignment)
-    IRExp* topexp = p->topexp();
-    if (topexp && topexp->e2 == this && !topexp->v->isSlice())
-    {
-        assert(topexp->e2 == this);
-        sptr = topexp->v->getLVal();
-    }
-    // temporary struct literal
-    else
-    {
-        sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
-        isinplace = false;
-    }
+    LLValue* sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
 
 
     // num elements in literal
@@ -2719,9 +2589,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         LLValue* arrptr = DtoGEPi(sptr,0,j);
         DValue* darrptr = new DVarValue(vx->type, arrptr, true);
 
-        p->exps.push_back(IRExp(NULL,vx,darrptr));
         DValue* ve = vx->toElem(p);
-        p->exps.pop_back();
 
         if (!ve->inPlace())
             DtoAssign(darrptr, ve);
@@ -2729,7 +2597,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         j++;
     }
 
-    return new DImValue(type, sptr, isinplace);
+    return new DImValue(type, sptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

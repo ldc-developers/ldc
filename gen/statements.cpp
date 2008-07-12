@@ -64,9 +64,7 @@ void ReturnStatement::toIR(IRState* p)
 
             DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg, true);
 
-            p->exps.push_back(IRExp(NULL,exp,rvar));
             DValue* e = exp->toElem(p);
-            p->exps.pop_back();
 
             if (!e->inPlace())
                 DtoAssign(rvar, e);

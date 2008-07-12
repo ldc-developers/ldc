@@ -72,12 +72,6 @@ DFuncValue::DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt)
     cc = (unsigned)-1;
 }
 
-LLValue* DFuncValue::getLVal()
-{
-    assert(0);
-    return 0;
-}
-
 LLValue* DFuncValue::getRVal()
 {
     assert(val);

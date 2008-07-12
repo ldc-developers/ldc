@@ -59,15 +59,6 @@ struct IRBuilderHelper
     IRBuilder* operator->();
 };
 
-struct IRExp
-{
-    Expression* e1;
-    Expression* e2;
-    DValue* v;
-    IRExp();
-    IRExp(Expression* l, Expression* r, DValue* val);
-};
-
 struct IRAsmStmt
 {
     std::string code;
@@ -160,11 +151,6 @@ struct IRState
     // D main function
     bool emitMain;
     llvm::Function* mainFunc;
-
-    // expression l/r value handling
-    typedef std::vector<IRExp> ExpVec;
-    ExpVec exps;
-    IRExp* topexp();
 
     // basic block scopes
     std::vector<IRScope> scopes;

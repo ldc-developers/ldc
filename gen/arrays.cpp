@@ -528,9 +528,7 @@ DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
 
     DValue* dptr = new DVarValue(exp->type, ptr, true);
 
-    gIR->exps.push_back(IRExp(0,exp,dptr));
     DValue* e = exp->toElem(gIR);
-    gIR->exps.pop_back();
 
     if (!e->inPlace())
         DtoAssign(dptr, e);

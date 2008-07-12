@@ -95,11 +95,6 @@ IrStruct* IRState::topstruct()
     return structs.back();
 }
 
-IRExp* IRState::topexp()
-{
-    return exps.empty() ? NULL : &exps.back();
-}
-
 IRScope& IRState::scope()
 {
     assert(!scopes.empty());
@@ -172,19 +167,4 @@ IRBuilder* IRBuilderHelper::operator->()
     IRBuilder& b = state->scope().builder;
     assert(b.GetInsertBlock() != NULL);
     return &b;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-IRExp::IRExp()
-{
-    e1 = e2 = NULL;
-    v = NULL;
-}
-
-IRExp::IRExp(Expression* l, Expression* r, DValue* val)
-{
-    e1 = l;
-    e2 = r;
-    v = val;
 }
