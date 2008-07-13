@@ -113,7 +113,20 @@ void DtoArrayInit(DValue* array, DValue* value)
 
     LLValue* dim = DtoArrayLen(array);
     LLValue* ptr = DtoArrayPtr(array);
-    LLValue* val = value->getRVal();
+    LLValue* val;
+
+    // give slices and complex values storage (and thus an address to pass)
+    if (value->isSlice() || value->isComplex())
+    {
+        val = new llvm::AllocaInst(DtoType(value->getType()), ".tmpparam", gIR->topallocapoint());
+        DVarValue lval(value->getType(), val, true);
+        DtoAssign(&lval, value);
+    }
+    else
+    {
+        val = value->getRVal();
+    }
+    assert(val);
 
     // prepare runtime call
     LLSmallVector<LLValue*, 4> args;
