@@ -186,9 +186,9 @@ const LLStructType* DtoDelegateType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoDelegateCompare(TOK op, LLValue* lhs, LLValue* rhs)
+LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
 {
-    Logger::println("Doing delegate compare");
+    Logger::println("Doing delegate equality");
     llvm::ICmpInst::Predicate pred = (op == TOKequal || op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
     llvm::Value *b1, *b2;
     if (rhs == NULL)
@@ -440,6 +440,29 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes)
         fn = GET_INTRINSIC_DECL(memcpy_i32);
 
     gIR->ir->CreateCall4(fn, dst, src, nbytes, DtoConstUint(0), "");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
+{
+    // int memcmp ( const void * ptr1, const void * ptr2, size_t num );
+
+    LLFunction* fn = gIR->module->getFunction("memcmp");
+    if (!fn)
+    {
+        std::vector<const LLType*> params(3);
+        params[0] = getVoidPtrType();
+        params[1] = getVoidPtrType();
+        params[2] = DtoSize_t();
+        const LLFunctionType* fty = LLFunctionType::get(LLType::Int32Ty, params, false);
+        fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", gIR->module);
+    }
+
+    lhs = DtoBitCast(lhs,getVoidPtrType());
+    rhs = DtoBitCast(rhs,getVoidPtrType());
+
+    return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes, "tmp");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

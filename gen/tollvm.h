@@ -27,7 +27,7 @@ Type* DtoDType(Type* t);
 
 // delegate helpers
 const LLStructType* DtoDelegateType(Type* t);
-LLValue* DtoDelegateCompare(TOK op, LLValue* lhs, LLValue* rhs);
+LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
 
 // return linkage type for symbol using the current ir state for context
 LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
@@ -112,6 +112,11 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes);
  * @param nbytes Number of bytes to copy.
  */
 void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes);
+
+/**
+ * Generates a call to C memcmp.
+ */
+LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes);
 
 /**
  * The same as DtoMemSetZero but figures out the size itself by "dereferencing" the v pointer once.

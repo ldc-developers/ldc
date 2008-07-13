@@ -1747,7 +1747,13 @@ DValue* EqualExp::toElem(IRState* p)
     else if (t->ty == Tdelegate)
     {
         Logger::println("delegate");
-        eval = DtoDelegateCompare(op,l->getRVal(),r->getRVal());
+        eval = DtoDelegateEquals(op,l->getRVal(),r->getRVal());
+    }
+    else if (t->ty == Tstruct)
+    {
+        Logger::println("struct");
+        // when this is reached it means there is no opEquals overload.
+        eval = DtoStructEquals(op,l,r);
     }
     else
     {
@@ -2266,7 +2272,7 @@ DValue* IdentityExp::toElem(IRState* p)
         else {
             assert(l->getType() == r->getType());
         }
-        eval = DtoDelegateCompare(op,l,r);
+        eval = DtoDelegateEquals(op,l,r);
     }
     else if (t1->isfloating())
     {

@@ -13,6 +13,7 @@
 #include "gen/arrays.h"
 #include "gen/logger.h"
 #include "gen/structs.h"
+#include "gen/dvalue.h"
 
 #include "ir/irstruct.h"
 
@@ -375,6 +376,28 @@ void DtoDefineStruct(StructDeclaration* sd)
     sd->ir.irStruct->init->setInitializer(sd->ir.irStruct->constInit);
 
     sd->ir.DModule = gIR->dmodule;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////   D STRUCT UTILITIES     ////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
+{
+    Type* t = lhs->getType()->toBasetype();
+    assert(t->ty == Tstruct);
+
+    // set predicate
+    llvm::ICmpInst::Predicate cmpop;
+    if (op == TOKequal)
+        cmpop = llvm::ICmpInst::ICMP_EQ;
+    else
+        cmpop = llvm::ICmpInst::ICMP_NE;
+
+    // call memcmp
+    size_t sz = getABITypeSize(DtoType(t));
+    LLValue* val = DtoMemCmp(lhs->getRVal(), rhs->getRVal(), DtoConstSize_t(sz));
+    return gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false), "tmp");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

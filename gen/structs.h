@@ -25,6 +25,11 @@ void DtoConstInitStruct(StructDeclaration* sd);
  */
 void DtoDefineStruct(StructDeclaration* sd);
 
+/**
+ * Returns a boolean=true if the two structs are equal
+ */
+LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
+
 typedef LLSmallVector<unsigned, 3> DStructIndexVector;
 LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, DStructIndexVector& idxs);
 
