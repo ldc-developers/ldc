@@ -4,7 +4,12 @@ class Lock
 {
 }
 
-Lock lock;
+const Lock lock;
+
+static this()
+{
+    lock = new Lock;
+}
 
 void main()
 {
