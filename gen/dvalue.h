@@ -157,7 +157,6 @@ struct DFuncValue : DValue
     FuncDeclaration* func;
     LLValue* val;
     LLValue* vthis;
-    unsigned cc;
 
     DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt = 0);
 

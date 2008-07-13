@@ -796,15 +796,18 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     // custom allocator
     else if (newexp->allocator)
     {
-        DtoForceDeclareDsymbol(newexp->allocator);
-        assert(newexp->newargs);
-        assert(newexp->newargs->dim == 1);
+        DValue* res = DtoCallDFunc(newexp->allocator, newexp->newargs);
+        mem = DtoBitCast(res->getRVal(), DtoType(tc), "newclass_custom");
 
-        llvm::Function* fn = newexp->allocator->ir.irFunc->func;
-        assert(fn);
-        DValue* arg = ((Expression*)newexp->newargs->data[0])->toElem(gIR);
-        mem = gIR->CreateCallOrInvoke(fn, arg->getRVal(), "newclass_custom_alloc")->get();
-        mem = DtoBitCast(mem, DtoType(tc), "newclass_custom");
+//         DtoForceDeclareDsymbol(newexp->allocator);
+//         assert(newexp->newargs);
+//         assert(newexp->newargs->dim == 1);
+// 
+//         llvm::Function* fn = newexp->allocator->ir.irFunc->func;
+//         assert(fn);
+//         DValue* arg = ((Expression*)newexp->newargs->data[0])->toElem(gIR);
+//         mem = gIR->CreateCallOrInvoke(fn, arg->getRVal(), "newclass_custom_alloc")->get();
+//         mem = DtoBitCast(mem, DtoType(tc), "newclass_custom");
     }
     // default allocator
     else
@@ -834,13 +837,11 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     {
         Logger::println("Resolving nested context");
         LOG_SCOPE;
-        size_t idx = 2;
-        //idx += tc->sym->ir.irStruct->interfaces.size();
-        LLValue* nest = gIR->func()->decl->ir.irFunc->nestedVar;
+        LLValue* nest = gIR->func()->nestedVar;
         if (!nest)
-            nest = gIR->func()->decl->ir.irFunc->thisVar;
+            nest = gIR->func()->thisVar;
         assert(nest);
-        LLValue* gep = DtoGEPi(mem,0,idx,"tmp");
+        LLValue* gep = DtoGEPi(mem,0,2,"tmp");
         nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
         DtoStore(nest, gep);
     }
@@ -849,7 +850,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     if (newexp->member)
     {
         assert(newexp->arguments != NULL);
-        return DtoCallClassCtor(tc, newexp->member, newexp->arguments, mem);
+        return DtoCallDFunc(newexp->member, newexp->arguments, tc, mem);
     }
 
     // return default constructed class
@@ -883,42 +884,6 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
     LLValue* srcarr = DtoGEPi(tc->sym->ir.irStruct->init,0,2,"tmp");
 
     DtoMemCpy(dstarr, srcarr, DtoConstSize_t(n));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, LLValue* mem)
-{
-    Logger::println("Calling constructor");
-    LOG_SCOPE;
-
-    assert(ctor);
-    DtoForceDeclareDsymbol(ctor);
-    llvm::Function* fn = ctor->ir.irFunc->func;
-    TypeFunction* tf = (TypeFunction*)DtoDType(ctor->type);
-
-    llvm::PAListPtr palist;
-
-    std::vector<LLValue*> ctorargs;
-    ctorargs.push_back(mem);
-    for (size_t i=0; i<arguments->dim; ++i)
-    {
-        Expression* ex = (Expression*)arguments->data[i];
-        Argument* fnarg = Argument::getNth(tf->parameters, i);
-        DValue* argval = DtoArgument(fnarg, ex);
-        LLValue* a = argval->getRVal();
-        const LLType* aty = fn->getFunctionType()->getParamType(i+1);
-        if (a->getType() != aty)
-            a = DtoBitCast(a, aty);
-        ctorargs.push_back(a);
-        if (fnarg && fnarg->llvmByVal)
-            palist = palist.addAttr(i+2, llvm::ParamAttr::ByVal); // return,this is 2
-    }
-    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, ctorargs.begin(), ctorargs.end(), "tmp");
-    call->setCallingConv(DtoCallingConv(LINKd));
-    call->setParamAttrs(palist);
-
-    return new DImValue(type, call->get(), false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

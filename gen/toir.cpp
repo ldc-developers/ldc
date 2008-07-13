@@ -1233,12 +1233,6 @@ DValue* CallExp::toElem(IRState* p)
             call->setCallingConv(DtoCallingConv(dlink));
         }
     }
-    /*else if (delegateCall) {
-        call->setCallingConv(DtoCallingConv(dlink));
-    }*/
-    else if (dfn && dfn->cc != (unsigned)-1) {
-        call->setCallingConv(dfn->cc);
-    }
     else {
         call->setCallingConv(DtoCallingConv(dlink));
     }

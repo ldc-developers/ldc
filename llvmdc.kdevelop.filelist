@@ -124,6 +124,7 @@ gen/runtime.h
 gen/statements.cpp
 gen/structs.cpp
 gen/structs.h
+gen/tocall.cpp
 gen/tocsym.cpp
 gen/todebug.cpp
 gen/todebug.h

@@ -1,6 +1,7 @@
 #ifndef LLVMDC_GEN_LLVMHELPERS_H
 #define LLVMDC_GEN_LLVMHELPERS_H
 
+#include "gen/llvm.h"
 #include "statement.h"
 
 // dynamic memory helpers
@@ -86,5 +87,15 @@ DValue* DtoBinRem(DValue* lhs, DValue* rhs);
 
 // target stuff
 void findDefaultTarget();
+
+/**
+ * Calls a D function (with D calling conv).
+ * @param fdecl The FuncDeclaration to call
+ * @param arguments The Array of ExpressionS to pass as arguments.
+ * @param type Optionally the TypeClass of the 'this' arguement.
+ * @param thismem Optionally the LLValue for the 'this' argument.
+ * @return The function call's return value.
+ */
+DValue* DtoCallDFunc(FuncDeclaration* fdecl, Array* arguments, TypeClass* type=0, LLValue* thismem=0);
 
 #endif

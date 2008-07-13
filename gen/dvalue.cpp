@@ -69,7 +69,6 @@ DFuncValue::DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt)
     type = func->type;
     val = v;
     vthis = vt;
-    cc = (unsigned)-1;
 }
 
 LLValue* DFuncValue::getRVal()

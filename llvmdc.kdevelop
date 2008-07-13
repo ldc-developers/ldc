@@ -361,6 +361,7 @@
       <path>tests/dstress/extract__.c</path>
       <path>tests/dstress/ifeq__.c</path>
       <path>tests/dstress/return__.c</path>
+      <path>e2ir.c</path>
     </blacklist>
     <build>
       <buildtool>make</buildtool>
