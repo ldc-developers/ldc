@@ -389,7 +389,7 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
 
     // set predicate
     llvm::ICmpInst::Predicate cmpop;
-    if (op == TOKequal)
+    if (op == TOKequal || op == TOKidentity)
         cmpop = llvm::ICmpInst::ICMP_EQ;
     else
         cmpop = llvm::ICmpInst::ICMP_NE;

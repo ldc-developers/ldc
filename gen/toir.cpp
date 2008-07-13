@@ -2260,7 +2260,11 @@ DValue* IdentityExp::toElem(IRState* p)
     // handle dynarray specially
     if (t1->ty == Tarray)
         return new DImValue(type, DtoDynArrayIs(op,u,v));
+    // also structs
+    else if (t1->ty == Tstruct)
+        return new DImValue(type, DtoStructEquals(op,u,v));
 
+    // FIXME this stuff isn't pretty
     LLValue* l = u->getRVal();
     LLValue* r = v->getRVal();
     LLValue* eval = 0;
