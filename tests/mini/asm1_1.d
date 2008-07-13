@@ -1,4 +1,4 @@
-module tangotests.asm1;
+module tangotests.asm1_1;
 
 extern(C) int printf(char*, ...);
 

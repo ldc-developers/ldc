@@ -1,4 +1,4 @@
-module runalltests;
+module runminitest;
 
 import std.file;
 import std.path;
@@ -9,7 +9,7 @@ int main(string[] args) {
     string[] bad;
     string[] badrun;
 
-    chdir("test");
+    chdir("mini");
 
     auto contents = listdir(".", "*.d");
     foreach(c; contents) {
