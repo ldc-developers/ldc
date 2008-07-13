@@ -2702,91 +2702,17 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
-//STUB(IdentityExp);
-//STUB(CondExp);
-//STUB(EqualExp);
-//STUB(InExp);
-//STUB(CmpExp);
-//STUB(AndAndExp);
-//STUB(OrOrExp);
-//STUB(AndExp);
-//STUB(AndAssignExp);
-//STUB(OrExp);
-//STUB(OrAssignExp);
-//STUB(XorExp);
-//STUB(XorAssignExp);
-//STUB(ShrExp);
-//STUB(ShrAssignExp);
-//STUB(ShlExp);
-//STUB(ShlAssignExp);
-//STUB(UshrExp);
-//STUB(UshrAssignExp);
-//STUB(DivExp);
-//STUB(DivAssignExp);
-//STUB(MulExp);
-//STUB(MulAssignExp);
-//STUB(ModExp);
-//STUB(ModAssignExp);
-//STUB(CatExp);
-//STUB(CatAssignExp);
-//STUB(AddExp);
-//STUB(AddAssignExp);
 STUB(Expression);
-//STUB(MinExp);
-//STUB(MinAssignExp);
-//STUB(PostExp);
-//STUB(NullExp);
-//STUB(ThisExp);
-//STUB(CallExp);
 STUB(DotTypeExp);
 STUB(TypeDotIdExp);
-//STUB(DotVarExp);
-//STUB(AssertExp);
-//STUB(FuncExp);
-//STUB(DelegateExp);
-//STUB(VarExp);
-//STUB(DeclarationExp);
-//STUB(NewExp);
-//STUB(SymOffExp);
 STUB(ScopeExp);
-//STUB(AssignExp);
-
 STUB(TypeExp);
-//STUB(RealExp);
-//STUB(ComplexExp);
-//STUB(StringExp);
-//STUB(IntegerExp);
 STUB(BoolExp);
-
-//STUB(NotExp);
-//STUB(ComExp);
-//STUB(NegExp);
-//STUB(PtrExp);
-//STUB(AddrExp);
-//STUB(SliceExp);
-//STUB(CastExp);
-//STUB(DeleteExp);
-//STUB(IndexExp);
-//STUB(CommaExp);
-//STUB(ArrayLengthExp);
-//STUB(HaltExp);
-//STUB(RemoveExp);
-//STUB(ArrayLiteralExp);
-//STUB(AssocArrayLiteralExp);
-//STUB(StructLiteralExp);
 STUB(TupleExp);
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); fatal(); return NULL; }
 CONSTSTUB(Expression);
-//CONSTSTUB(IntegerExp);
-//CONSTSTUB(RealExp);
-//CONSTSTUB(NullExp);
-//CONSTSTUB(ComplexExp);
-//CONSTSTUB(StringExp);
-//CONSTSTUB(VarExp);
-//CONSTSTUB(ArrayLiteralExp);
 CONSTSTUB(AssocArrayLiteralExp);
-//CONSTSTUB(StructLiteralExp);
 
 unsigned Type::totym() { return 0; }
 
@@ -2947,17 +2873,18 @@ int TypedefDeclaration::cvMember(unsigned char*)
     return 0;
 }
 
-void obj_includelib(char*){}
+void obj_includelib(char*)
+{
+// FIXME: we want to support pragma(lib)
+}
 
-void
-backend_init()
+void backend_init()
 {
     // now lazily loaded
     //LLVM_D_InitRuntime();
 }
 
-void
-backend_term()
+void backend_term()
 {
     LLVM_D_FreeRuntime();
 }

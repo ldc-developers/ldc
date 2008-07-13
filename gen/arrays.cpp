@@ -106,21 +106,6 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-typedef const LLType* constLLVMTypeP;
-
-static size_t checkRectArrayInit(const LLType* pt, const LLType* t)
-{
-    const LLArrayType* arrty = isaArray(pt);
-    if (pt != t && arrty) {
-        size_t n = checkRectArrayInit(arrty->getElementType(), t);
-        size_t ne = arrty->getNumElements();
-        if (n) return n * ne;
-        return ne;
-    }
-
-    return 0;
-}
-
 void DtoArrayInit(DValue* array, DValue* value)
 {
     Logger::println("DtoArrayInit");

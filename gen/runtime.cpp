@@ -31,35 +31,6 @@ bool LLVM_D_InitRuntime()
 
     LLVM_D_BuildRuntimeModule();
     return true;
-
-    /*
-    if (!global.params.runtimeImppath) {
-        error("You must set the runtime import path with -E");
-        fatal();
-    }
-    std::string filename(global.params.runtimeImppath);
-    filename.append("/llvmdcore.bc");
-    llvm::MemoryBuffer* buffer = llvm::MemoryBuffer::getFile(filename.c_str(), filename.length());
-    if (!buffer) {
-        Logger::println("Failed to load runtime library from disk");
-        runtime_failed = true;
-        return false;
-    }
-
-    std::string errstr;
-    bool retval = false;
-    M = llvm::ParseBitcodeFile(buffer, &errstr);
-    if (M) {
-        retval = true;
-    }
-    else {
-        Logger::println("Failed to load runtime: %s", errstr.c_str());
-        runtime_failed = true;
-    }
-
-    delete buffer;
-    return retval;
-    */
 }
 
 void LLVM_D_FreeRuntime()
