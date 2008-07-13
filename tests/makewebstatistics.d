@@ -546,8 +546,9 @@ void generateChangeStatistics(char[] file1, char[] file2, ref Log[char[]] logs)
 
 		BufferedFile targetFile;
 	
-		foreach(Test t; newLog.tests.values){
-			Test* oldT = t.file in oldLog.tests;
+		foreach(file; newLog.tests.keys.sort){
+			Test* t = file in newLog.tests;
+			Test* oldT = file in oldLog.tests;
 	
 			if(oldT !is null){
 				if(oldT.r == t.r)
