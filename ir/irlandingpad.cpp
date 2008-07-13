@@ -161,7 +161,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
                 gIR->scope() = IRScope(switchinst->getDefaultDest(), gIR->scopeend());
             }
             // catches matched first get the largest switchval, so do size - unique int
-            llvm::ConstantInt* switchval = llvm::ConstantInt::get(LLType::Int32Ty, catchToInt.size() - catchToInt[it->catchType]);
+            llvm::ConstantInt* switchval = llvm::ConstantInt::get(DtoSize_t(), catchToInt.size() - catchToInt[it->catchType]);
             // and make sure we don't add the same switchval twice, may happen with nested trys
             if(!switchinst->findCaseValue(switchval))
                 switchinst->addCase(switchval, it->target);
