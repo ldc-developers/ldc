@@ -4,6 +4,7 @@ import std.file;
 import std.path;
 import std.process;
 import std.stdio;
+import std.string;
 
 int main(string[] args) {
     string[] bad;
@@ -13,7 +14,7 @@ int main(string[] args) {
 
     auto contents = listdir(".", "*.d");
     foreach(c; contents) {
-        string cmd = "llvmdc -quiet "~c;
+        string cmd = format("llvmdc %s -quiet -of%s", c, getName(c));
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;
