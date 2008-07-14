@@ -1257,7 +1257,7 @@ DValue* CastExp::toElem(IRState* p)
     }
 
     else if(u->isLVal())
-        return new DLRValue(e1->type, u->getLVal(), to, v->getRVal());
+        return new DLRValue(u, v);
 
     else
         return v;
@@ -1315,7 +1315,7 @@ DValue* PtrExp::toElem(IRState* p)
     LLValue* v = lv;
     if (DtoCanLoad(v))
         v = DtoLoad(v);
-    return new DLRValue(type, lv, type, v);
+    return new DLRValue(new DVarValue(type, lv, true), new DImValue(type, v));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

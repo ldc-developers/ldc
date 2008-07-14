@@ -169,24 +169,20 @@ struct DFuncValue : DValue
 // l-value and r-value pair d-value
 struct DLRValue : DValue
 {
-    Type* ltype;
-    LLValue* lval;
-    Type* rtype;
-    LLValue* rval;
+    DValue* lvalue;
+    DValue* rvalue;
 
-    DLRValue(Type* lt, LLValue* l, Type* rt, LLValue* r) {
-        ltype = lt;
-        lval = l;
-        rtype = rt;
-        rval = r;
+    DLRValue(DValue* lval, DValue* rval) {
+        lvalue = lval;
+        rvalue = rval;
     }
 
-    virtual bool isLVal() { return lval; }
-    virtual LLValue* getLVal() { assert(lval); return lval; }
-    virtual LLValue* getRVal() { assert(rval); return rval; }
+    virtual bool isLVal() { return true; }
+    virtual LLValue* getLVal() { return lvalue->isLVal() ? lvalue->getLVal() : lvalue->getRVal(); }
+    virtual LLValue* getRVal() { return rvalue->getRVal(); }
 
-    Type* getLType() { return ltype; }
-    Type* getRType() { return rtype; }
+    Type* getLType() { return lvalue->getType(); }
+    Type* getRType() { return rvalue->getType(); }
     virtual Type* getType() { return getRType(); }
     virtual DLRValue* isLRValue() { return this; }
 };

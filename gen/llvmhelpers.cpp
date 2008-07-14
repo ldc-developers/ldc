@@ -671,6 +671,9 @@ DValue* DtoCastInt(DValue* val, Type* _to)
             rval = DtoBitCast(rval, tolltype);
         }
     }
+    else if (to->iscomplex()) {
+        return DtoComplex(to, val);
+    }
     else if (to->isfloating()) {
         if (from->isunsigned()) {
             rval = new llvm::UIToFPInst(rval, tolltype, "tmp", gIR->scopebb());
@@ -733,11 +736,13 @@ DValue* DtoCastFloat(DValue* val, Type* to)
     LLValue* rval;
 
     if (totype->iscomplex()) {
-        assert(0);
-        //return new DImValue(to, DtoComplex(to, val));
+        return DtoComplex(to, val);
     }
     else if (totype->isfloating()) {
         if ((fromtype->ty == Tfloat80 || fromtype->ty == Tfloat64) && (totype->ty == Tfloat80 || totype->ty == Tfloat64)) {
+            rval = val->getRVal();
+        }
+        else if ((fromtype->ty == Timaginary80 || fromtype->ty == Timaginary64) && (totype->ty == Timaginary80 || totype->ty == Timaginary64)) {
             rval = val->getRVal();
         }
         else if (fromsz < tosz) {
