@@ -188,12 +188,12 @@ void DtoResolveStruct(StructDeclaration* sd)
                 assert(lastoffset == 0);
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
-                prevsize = getABITypeSize(fieldtype);
+                prevsize = fieldinit->type->size();
                 i->second.var->ir.irField->index = idx;
             }
             // colliding offset?
             else if (lastoffset == i->first) {
-                size_t s = getABITypeSize(i->second.type);
+                size_t s = i->second.var->type->size();
                 if (s > prevsize) {
                     fieldpad += s - prevsize;
                     prevsize = s;
@@ -203,7 +203,7 @@ void DtoResolveStruct(StructDeclaration* sd)
             }
             // intersecting offset?
             else if (i->first < (lastoffset + prevsize)) {
-                size_t s = getABITypeSize(i->second.type);
+                size_t s = i->second.var->type->size();
                 assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
                 sd->ir.irStruct->hasUnions = true;
                 i->second.var->ir.irField->index = idx;
@@ -226,7 +226,7 @@ void DtoResolveStruct(StructDeclaration* sd)
                 lastoffset = i->first;
                 fieldtype = i->second.type;
                 fieldinit = i->second.var;
-                prevsize = getABITypeSize(fieldtype);
+                prevsize = fieldinit->type->size();
                 i->second.var->ir.irField->index = idx;
                 fieldpad = 0;
             }

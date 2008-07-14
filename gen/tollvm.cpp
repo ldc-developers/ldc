@@ -281,7 +281,7 @@ llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
 
 unsigned DtoCallingConv(LINK l)
 {
-    if (l == LINKc)
+    if (l == LINKc || l == LINKcpp)
         return llvm::CallingConv::C;
     else if (l == LINKd || l == LINKdefault)
         return llvm::CallingConv::Fast;
