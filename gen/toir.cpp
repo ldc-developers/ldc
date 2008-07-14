@@ -69,9 +69,8 @@ DValue* DeclarationExp::toElem(IRState* p)
                 assert(vd->ir.irLocal->value);
                 assert(vd->ir.irLocal->nestedIndex >= 0);
             }
-            // normal stack variable
-            else {
-                // allocate storage on the stack
+            // normal stack variable, allocate storage on the stack if it has not already been done
+            else if(!vd->ir.irLocal) {
                 const LLType* lltype = DtoType(vd->type);
 
                 llvm::Value* allocainst;
@@ -81,7 +80,6 @@ DValue* DeclarationExp::toElem(IRState* p)
                     allocainst = new llvm::AllocaInst(lltype, vd->toChars(), p->topallocapoint());
 
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
-                assert(!vd->ir.irLocal);
                 vd->ir.irLocal = new IrLocal(vd);
                 vd->ir.irLocal->value = allocainst;
 
