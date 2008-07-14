@@ -573,8 +573,8 @@ DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
     Type* t1 = DtoDType(exp1->type);
     Type* t2 = DtoDType(exp2->type);
 
-    assert(t1->ty == Tarray);
-    assert(t1->ty == t2->ty);
+    assert(t1->ty == Tarray || t1->ty == Tsarray);
+    assert(t2->ty == Tarray || t2->ty == Tsarray);
 
     DValue* e1 = exp1->toElem(gIR);
     DValue* e2 = exp2->toElem(gIR);
