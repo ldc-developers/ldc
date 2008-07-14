@@ -1250,6 +1250,8 @@ DValue* CastExp::toElem(IRState* p)
 
     DValue* u = e1->toElem(p);
     DValue* v = DtoCast(u, to);
+    // force d type to this->type
+    v->getType() = type;
 
     if (v->isSlice()) {
         // only valid as rvalue!

@@ -37,7 +37,7 @@ struct DComplexValue;
 // base class for d-values
 struct DValue : Object
 {
-    virtual Type* getType() = 0;
+    virtual Type*& getType() = 0;
 
     virtual LLValue* getLVal() { assert(0); return 0; }
     virtual LLValue* getRVal() { assert(0); return 0; }
@@ -75,7 +75,7 @@ struct DImValue : DValue
 
     virtual LLValue* getRVal() { assert(val); return val; }
 
-    virtual Type* getType() { assert(type); return type; }
+    virtual Type*& getType() { assert(type); return type; }
     virtual DImValue* isIm() { return this; }
 
     virtual bool inPlace() { return inplace; }
@@ -91,7 +91,7 @@ struct DConstValue : DValue
 
     virtual LLValue* getRVal();
 
-    virtual Type* getType() { assert(type); return type; }
+    virtual Type*& getType() { assert(type); return type; }
     virtual DConstValue* isConst() { return this; }
 };
 
@@ -119,7 +119,7 @@ struct DVarValue : DValue
     virtual LLValue* getLVal();
     virtual LLValue* getRVal();
 
-    virtual Type* getType() { assert(type); return type; }
+    virtual Type*& getType() { assert(type); return type; }
     virtual DVarValue* isVar() { return this; }
 };
 
@@ -146,7 +146,7 @@ struct DSliceValue : DValue
 
     DSliceValue(Type* t, LLValue* l, LLValue* p) { type=t; ptr=p; len=l; }
 
-    virtual Type* getType() { assert(type); return type; }
+    virtual Type*& getType() { assert(type); return type; }
     virtual DSliceValue* isSlice() { return this; }
 };
 
@@ -162,7 +162,7 @@ struct DFuncValue : DValue
 
     virtual LLValue* getRVal();
 
-    virtual Type* getType() { assert(type); return type; }
+    virtual Type*& getType() { assert(type); return type; }
     virtual DFuncValue* isFunc() { return this; }
 };
 
@@ -181,9 +181,9 @@ struct DLRValue : DValue
     virtual LLValue* getLVal() { return lvalue->isLVal() ? lvalue->getLVal() : lvalue->getRVal(); }
     virtual LLValue* getRVal() { return rvalue->getRVal(); }
 
-    Type* getLType() { return lvalue->getType(); }
-    Type* getRType() { return rvalue->getType(); }
-    virtual Type* getType() { return getRType(); }
+    Type*& getLType() { return lvalue->getType(); }
+    Type*& getRType() { return rvalue->getType(); }
+    virtual Type*& getType() { return getRType(); }
     virtual DLRValue* isLRValue() { return this; }
 };
 
@@ -200,7 +200,7 @@ struct DComplexValue : DValue
         im = i;
     }
 
-    virtual Type* getType() { assert(type); return type; }
+    virtual Type*& getType() { assert(type); return type; }
     virtual DComplexValue* isComplex() { return this; }
 };
 
