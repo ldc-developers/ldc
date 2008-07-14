@@ -541,7 +541,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             if (DSliceValue* s2 = rhs->isSlice()) {
                 DtoArrayCopySlices(s, s2);
             }
-            else if (t->next->equals(t2)) {
+            else if (t->next->toBasetype()->equals(t2)) {
                 DtoArrayInit(s, rhs);
             }
             else {
