@@ -175,7 +175,7 @@ LabelStatement* DtoLabelStatement(Identifier* ident)
 /*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
+void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler, TryFinallyStatement* sourcetf)
 {
     assert(!gIR->scopereturned());
 
@@ -204,7 +204,7 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
 
     // goto into finally blocks is forbidden by the spec
     // though it should not be problematic to implement
-    if(lblstmt->tf)
+    if(lblstmt->tf != sourcetf)
         error(*loc, "spec disallows goto into finally block");
 
     // emit code for finallys between goto and label

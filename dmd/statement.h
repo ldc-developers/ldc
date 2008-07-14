@@ -910,6 +910,7 @@ struct AsmStatement : Statement
 struct AsmBlockStatement : CompoundStatement
 {
     EnclosingHandler* enclosinghandler;
+    TryFinallyStatement* tf;
 
     AsmBlockStatement(Loc loc, Statements *s);
     Statements *flatten(Scope *sc);

@@ -1063,12 +1063,10 @@ void GotoStatement::toIR(IRState* p)
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
-    assert(tf == NULL);
-
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergoto", p->topfunc(), oldend);
 
-    DtoGoto(&loc, label->ident, enclosinghandler);
+    DtoGoto(&loc, label->ident, enclosinghandler, tf);
 
     p->scope() = IRScope(bb,oldend);
 }
