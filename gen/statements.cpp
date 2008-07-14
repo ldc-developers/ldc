@@ -1033,16 +1033,20 @@ void LabelStatement::toIR(IRState* p)
     }
     else
     {
+        std::string labelname = ident->toChars();
+        llvm::BasicBlock*& labelBB = p->func()->labelToBB[labelname];
+
         llvm::BasicBlock* oldend = gIR->scopeend();
-        if (llvmBB)
-                llvmBB->moveBefore(oldend);
-        else
-                llvmBB = llvm::BasicBlock::Create("label", p->topfunc(), oldend);
+        if (labelBB != NULL) {
+                labelBB->moveBefore(oldend);
+        } else {
+                labelBB = llvm::BasicBlock::Create("label", p->topfunc(), oldend);
+        }
 
         if (!p->scopereturned())
-                llvm::BranchInst::Create(llvmBB, p->scopebb());
+                llvm::BranchInst::Create(labelBB, p->scopebb());
 
-        p->scope() = IRScope(llvmBB,oldend);
+        p->scope() = IRScope(labelBB,oldend);
     }
 
     if (statement)

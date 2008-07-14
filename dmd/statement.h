@@ -871,7 +871,6 @@ struct LabelStatement : Statement
     void toIR(IRState *irs);
 
     // LLVMDC
-    llvm::BasicBlock* llvmBB;
     bool asmLabel;       // for labels inside inline assembler
 };
 

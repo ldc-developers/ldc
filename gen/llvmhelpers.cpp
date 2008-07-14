@@ -186,8 +186,11 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
     if(lblstmt->asmLabel)
         error("cannot goto into inline asm block", loc->toChars());
 
-    if (lblstmt->llvmBB == NULL)
-        lblstmt->llvmBB = llvm::BasicBlock::Create("label", gIR->topfunc());
+    // find target basic block
+    std::string labelname = target->toChars();
+    llvm::BasicBlock*& targetBB = gIR->func()->labelToBB[labelname];
+    if (targetBB == NULL)
+        targetBB = llvm::BasicBlock::Create("label", gIR->topfunc());
 
     // find finallys between goto and label
     EnclosingHandler* endfinally = enclosinghandler;
@@ -202,7 +205,7 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
     // emit code for finallys between goto and label
     DtoEnclosingHandlers(enclosinghandler, endfinally);
 
-    llvm::BranchInst::Create(lblstmt->llvmBB, gIR->scopebb());
+    llvm::BranchInst::Create(targetBB, gIR->scopebb());
 }
 
 /****************************************************************************************/

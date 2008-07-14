@@ -3883,7 +3883,6 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
     this->enclosinghandler = NULL;
     this->lblock = NULL;
     this->isReturnLabel = 0;
-    this->llvmBB = NULL;
     this->asmLabel = false;
 }
 

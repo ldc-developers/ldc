@@ -26,6 +26,10 @@ struct IrFunction : IrBase
     llvm::AllocaInst* srcfileArg;
     llvm::AllocaInst* msgArg;
 
+    // label to basic block lookup
+    typedef std::map<std::string, llvm::BasicBlock*> LabelToBBMap;
+    LabelToBBMap labelToBB;
+
     // landing pads for try statements
     IRLandingPad landingPad;
 
