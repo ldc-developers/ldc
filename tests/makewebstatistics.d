@@ -378,6 +378,24 @@ int main(char[][] args){
 	scope(exit) index.close();
 	index.writefln(`
 		<html><body>
+		<h1>DStress results for x86-32 Linux.</h1>
+		<p>
+		In short, results are defined as follows
+		<ul>
+			<li>PASS: test passed and was expected to pass</li>
+			<li>XFAIL: test failed and was exprected to fail</li>
+			<li>FAIL: test failed but was expected to pass</li>
+			<li>XPASS: test passed but was expected to fail</li>
+			<li>ERROR: compiler, linker or test segfaulted</li>
+		</ul>
+		while the differences between tests are grouped into
+		<ul>
+			<li>Improvements: changed from FAIL, XPASS or ERROR to PASS or XFAIL</li>
+			<li>Regressions: changed from PASS or XFAIL to FAIL, XPASS or ERROR</li>
+			<li>Changes: changed within the good or bad group without crossing over</li>
+		</ul>
+		</p>
+		<br><br>
 		<table style="border-collapse:collapse; text-align:center;">
 		<colgroup>
 			<col style="border-right: medium solid black;">
