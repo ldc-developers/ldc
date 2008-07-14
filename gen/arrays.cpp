@@ -757,7 +757,8 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r)
 {
-    LLValue* res = DtoBoolean(DtoArrayEqCmp_impl("_adEq", l, r, true));
+    LLValue* res = DtoArrayEqCmp_impl("_adEq", l, r, true);
+    res = new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, res, DtoConstInt(0), "tmp", gIR->scopebb());
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
 

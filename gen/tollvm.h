@@ -41,7 +41,7 @@ unsigned DtoCallingConv(LINK l);
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
 
 // casts any value to a boolean
-LLValue* DtoBoolean(LLValue* val);
+LLValue* DtoBoolean(DValue* dval);
 
 // some types
 const LLType* DtoSize_t();

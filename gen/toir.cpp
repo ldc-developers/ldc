@@ -665,8 +665,6 @@ DValue* AddAssignExp::toElem(IRState* p)
     }
     DtoAssign(l, res);
 
-    // might need to return l here if used as an lvalue
-    // but when can this ever happen?
     return res;
 }
 
@@ -739,7 +737,7 @@ DValue* MinAssignExp::toElem(IRState* p)
     }
     DtoAssign(l, res);
 
-    return l;
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -778,7 +776,7 @@ DValue* MulAssignExp::toElem(IRState* p)
     }
     DtoAssign(l, res);
 
-    return l;
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -817,7 +815,7 @@ DValue* DivAssignExp::toElem(IRState* p)
     }
     DtoAssign(l, res);
 
-    return l;
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -846,7 +844,7 @@ DValue* ModAssignExp::toElem(IRState* p)
     DValue* res = DtoBinRem(l, r);
     DtoAssign(l, res);
 
-    return l;
+    return res;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1967,8 +1965,7 @@ DValue* AssertExp::toElem(IRState* p)
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
 
     // test condition
-    LLValue* condval = cond->getRVal();
-    condval = DtoBoolean(condval);
+    LLValue* condval = DtoBoolean(cond);
 
     // branch
     llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
@@ -1997,7 +1994,7 @@ DValue* NotExp::toElem(IRState* p)
 
     DValue* u = e1->toElem(p);
 
-    LLValue* b = DtoBoolean(u->getRVal());
+    LLValue* b = DtoBoolean(u);
 
     LLConstant* zero = llvm::ConstantInt::get(LLType::Int1Ty, 0, true);
     b = p->ir->CreateICmpEQ(b,zero);
@@ -2023,14 +2020,14 @@ DValue* AndAndExp::toElem(IRState* p)
     llvm::BasicBlock* andand = llvm::BasicBlock::Create("andand", gIR->topfunc(), oldend);
     llvm::BasicBlock* andandend = llvm::BasicBlock::Create("andandend", gIR->topfunc(), oldend);
 
-    LLValue* ubool = DtoBoolean(u->getRVal());
+    LLValue* ubool = DtoBoolean(u);
     DtoStore(ubool,resval);
     llvm::BranchInst::Create(andand,andandend,ubool,p->scopebb());
 
     p->scope() = IRScope(andand, andandend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoBoolean(v->getRVal());
+    LLValue* vbool = DtoBoolean(v);
     LLValue* uandvbool = llvm::BinaryOperator::create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
     DtoStore(uandvbool,resval);
     llvm::BranchInst::Create(andandend,p->scopebb());
@@ -2059,14 +2056,14 @@ DValue* OrOrExp::toElem(IRState* p)
     llvm::BasicBlock* oror = llvm::BasicBlock::Create("oror", gIR->topfunc(), oldend);
     llvm::BasicBlock* ororend = llvm::BasicBlock::Create("ororend", gIR->topfunc(), oldend);
 
-    LLValue* ubool = DtoBoolean(u->getRVal());
+    LLValue* ubool = DtoBoolean(u);
     DtoStore(ubool,resval);
     llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
     p->scope() = IRScope(oror, ororend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoBoolean(v->getRVal());
+    LLValue* vbool = DtoBoolean(v);
     DtoStore(vbool,resval);
     llvm::BranchInst::Create(ororend,p->scopebb());
 
@@ -2321,7 +2318,7 @@ DValue* CondExp::toElem(IRState* p)
     llvm::BasicBlock* condend = llvm::BasicBlock::Create("condend", gIR->topfunc(), oldend);
 
     DValue* c = econd->toElem(p);
-    LLValue* cond_val = DtoBoolean(c->getRVal());
+    LLValue* cond_val = DtoBoolean(c);
     llvm::BranchInst::Create(condtrue,condfalse,cond_val,p->scopebb());
 
     p->scope() = IRScope(condtrue, condfalse);
