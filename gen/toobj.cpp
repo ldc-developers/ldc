@@ -113,9 +113,6 @@ void Module::genobjfile(int multiobj)
     if (!ClassDeclaration::classinfo->type->ir.type)
         ClassDeclaration::classinfo->type->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
 
-    /*if (!Type::typeinfoclass->type->ir.type)
-        Type::typeinfoclass->type->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());*/
-
     // process module members
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);

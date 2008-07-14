@@ -798,16 +798,6 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     {
         DValue* res = DtoCallDFunc(newexp->allocator, newexp->newargs);
         mem = DtoBitCast(res->getRVal(), DtoType(tc), "newclass_custom");
-
-//         DtoForceDeclareDsymbol(newexp->allocator);
-//         assert(newexp->newargs);
-//         assert(newexp->newargs->dim == 1);
-// 
-//         llvm::Function* fn = newexp->allocator->ir.irFunc->func;
-//         assert(fn);
-//         DValue* arg = ((Expression*)newexp->newargs->data[0])->toElem(gIR);
-//         mem = gIR->CreateCallOrInvoke(fn, arg->getRVal(), "newclass_custom_alloc")->get();
-//         mem = DtoBitCast(mem, DtoType(tc), "newclass_custom");
     }
     // default allocator
     else
@@ -1089,8 +1079,6 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
     assert(r != (unsigned)-1 && "Offset not found in any aggregate field");
     // vtable is 0, monitor is 1
     r += 2;
-    // interface offset further
-    //r += vtblInterfaces->dim;
     // the final index was not pushed
     result.push_back(r); 
 }
@@ -1107,7 +1095,6 @@ LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os,
 
     const LLType* st = DtoType(cd->type);
     if (ptr->getType() != st) {
-        //assert(cd->ir.irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
     }
 
@@ -1116,8 +1103,6 @@ LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os,
 
     IrStruct* irstruct = cd->ir.irStruct;
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
-    //for (unsigned i=0; i<cd->fields.dim; ++i) {
-        //VarDeclaration* vd = (VarDeclaration*)cd->fields.data[i];
         VarDeclaration* vd = i->second.var;
         assert(vd);
         Type* vdtype = DtoDType(vd->type);
@@ -1194,9 +1179,6 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
     Logger::cout() << "funcval casted: " << *funcval << '\n';
 #endif
-
-    //assert(funcval->getType() == DtoType(fdecl->type));
-    //cc = DtoCallingConv(fdecl->linkage);
 
     return funcval;
 }

@@ -212,12 +212,6 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         return DtoVaFunctionType(fdecl);
     }
 
-    // unittest has null type, just build it manually
-    /*if (fdecl->isUnitTestDeclaration()) {
-        std::vector<const LLType*> args;
-        return llvm::FunctionType::get(LLType::VoidTy, args, false);
-    }*/
-
     // type has already been resolved
     if (fdecl->type->ir.type != 0) {
         return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());

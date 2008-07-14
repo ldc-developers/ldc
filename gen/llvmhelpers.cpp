@@ -381,9 +381,7 @@ static LLValue* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, LLValue* 
         }
         else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
         {
-            size_t idx = 2;
-            //idx += cd->ir.irStruct->interfaceVec.size();
-            v = DtoGEPi(v,0,idx,"tmp");
+            v = DtoGEPi(v,0,2,"tmp");
             v = DtoLoad(v);
         }
         else
@@ -395,11 +393,6 @@ static LLValue* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, LLValue* 
     else if (ClassDeclaration* cd = sc->isClassDeclaration())
     {
         Logger::println("scope is class: %s", cd->toChars());
-        /*size_t idx = 2;
-        idx += cd->llvmIrStruct->interfaces.size();
-        v = DtoGEPi(v,0,idx,"tmp");
-        Logger::cout() << "gep = " << *v << '\n';
-        v = DtoLoad(v);*/
         return get_frame_ptr_impl(func, cd->toParent2(), v);
     }
     else

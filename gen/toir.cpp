@@ -174,11 +174,7 @@ DValue* VarExp::toElem(IRState* p)
         if (vd->ident == Id::_arguments)
         {
             Logger::println("Id::_arguments");
-            /*if (!vd->ir.getIrValue())
-                vd->ir.getIrValue() = p->func()->decl->irFunc->_arguments;
-            assert(vd->ir.getIrValue());
-            return new DVarValue(vd, vd->ir.getIrValue(), true);*/
-            LLValue* v = p->func()->decl->ir.irFunc->_arguments;
+            LLValue* v = p->func()->_arguments;
             assert(v);
             return new DVarValue(vd, v, true);
         }
@@ -186,11 +182,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (vd->ident == Id::_argptr)
         {
             Logger::println("Id::_argptr");
-            /*if (!vd->ir.getIrValue())
-                vd->ir.getIrValue() = p->func()->decl->irFunc->_argptr;
-            assert(vd->ir.getIrValue());
-            return new DVarValue(vd, vd->ir.getIrValue(), true);*/
-            LLValue* v = p->func()->decl->ir.irFunc->_argptr;
+            LLValue* v = p->func()->_argptr;
             assert(v);
             return new DVarValue(vd, v, true);
         }
@@ -1376,7 +1368,6 @@ DValue* DotVarExp::toElem(IRState* p)
         }
         LLValue* vthis = l->getRVal();
         if (!vthis2) vthis2 = vthis;
-        //unsigned cc = (unsigned)-1;
 
         // super call
         if (e1->op == TOKsuper) {
@@ -1406,7 +1397,6 @@ DValue* DotVarExp::toElem(IRState* p)
             DtoForceDeclareDsymbol(fdecl);
             funcval = fdecl->ir.irFunc->func;
             assert(funcval);
-            //assert(funcval->getType() == DtoType(fdecl->type));
         }
         return new DFuncValue(fdecl, funcval, vthis2);
     }
@@ -2116,7 +2106,6 @@ BinBitExp(And,And);
 BinBitExp(Or,Or);
 BinBitExp(Xor,Xor);
 BinBitExp(Shl,Shl);
-//BinBitExp(Shr,AShr);
 BinBitExp(Ushr,LShr);
 
 DValue* ShrExp::toElem(IRState* p)
@@ -2156,6 +2145,8 @@ DValue* HaltExp::toElem(IRState* p)
 {
     Logger::print("HaltExp::toElem: %s\n", toChars());
     LOG_SCOPE;
+
+    // FIXME: DMD inserts a trap here... we probably should as well !?!
 
 #if 1
     DtoAssert(&loc, NULL);
