@@ -1033,7 +1033,7 @@ void LabelStatement::toIR(IRState* p)
     }
     else
     {
-        std::string labelname = ident->toChars();
+        std::string labelname = p->func()->getScopedLabelName(ident->toChars());
         llvm::BasicBlock*& labelBB = p->func()->labelToBB[labelname];
 
         llvm::BasicBlock* oldend = gIR->scopeend();

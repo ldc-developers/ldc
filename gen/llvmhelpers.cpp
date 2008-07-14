@@ -184,10 +184,10 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
 
     // if the target label is inside inline asm, error
     if(lblstmt->asmLabel)
-        error("cannot goto into inline asm block", loc->toChars());
+        error(*loc, "cannot goto into inline asm block");
 
     // find target basic block
-    std::string labelname = target->toChars();
+    std::string labelname = gIR->func()->getScopedLabelName(target->toChars());
     llvm::BasicBlock*& targetBB = gIR->func()->labelToBB[labelname];
     if (targetBB == NULL)
         targetBB = llvm::BasicBlock::Create("label", gIR->topfunc());
@@ -200,7 +200,12 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler)
 
     // error if didn't find tf statement of label
     if(endfinally != lblstmt->enclosinghandler)
-        error("cannot goto into try block", loc->toChars());
+        error(*loc, "cannot goto into try block");
+
+    // goto into finally blocks is forbidden by the spec
+    // though it should not be problematic to implement
+    if(lblstmt->tf)
+        error(*loc, "spec disallows goto into finally block");
 
     // emit code for finallys between goto and label
     DtoEnclosingHandlers(enclosinghandler, endfinally);
@@ -263,12 +268,20 @@ void DtoEnclosingHandlers(EnclosingHandler* start, EnclosingHandler* end)
     }
     assert(endfinally == end);
 
+
+    //
     // emit code for finallys between start and end
+    //
+
+    // since the labelstatements possibly inside are private
+    // and might already exist push a label scope
+    gIR->func()->pushUniqueLabelScope("enclosing");
     EnclosingHandler* tf = start;
     while(tf != end) {
         tf->emitCode(gIR);
         tf = tf->getEnclosing();
     }
+    gIR->func()->popLabelScope();
 }
 
 /****************************************************************************************/

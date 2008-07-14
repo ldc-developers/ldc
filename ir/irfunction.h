@@ -5,6 +5,8 @@
 #include "ir/irlandingpad.h"
 
 #include <vector>
+#include <stack>
+#include <map>
 
 // represents a function
 struct IrFunction : IrBase
@@ -26,6 +28,16 @@ struct IrFunction : IrBase
     llvm::AllocaInst* srcfileArg;
     llvm::AllocaInst* msgArg;
 
+    // pushes a unique label scope of the given name
+    void pushUniqueLabelScope(const char* name);
+    // pops a label scope
+    void popLabelScope();
+
+    // gets the string under which the label's BB
+    // is stored in the labelToBB map.
+    // essentially prefixes ident by the strings in labelScopes
+    std::string getScopedLabelName(const char* ident);
+
     // label to basic block lookup
     typedef std::map<std::string, llvm::BasicBlock*> LabelToBBMap;
     LabelToBBMap labelToBB;
@@ -34,6 +46,14 @@ struct IrFunction : IrBase
     IRLandingPad landingPad;
 
     IrFunction(FuncDeclaration* fd);
+
+private:
+    // prefix for labels and gotos
+    // used for allowing labels to be emitted twice
+    std::vector<std::string> labelScopes;
+
+    // next unique id stack
+    std::stack<int> nextUnique;
 };
 
 #endif

@@ -150,7 +150,12 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
         {
             if(switchinst)
                 switchinst = NULL;
+
+            // since this may be emitted multiple times
+            // give the labels a new scope
+            gIR->func()->pushUniqueLabelScope("finally");
             it->finallyBody->toIR(gIR);
+            gIR->func()->popLabelScope();
         }
         // otherwise it's a catch and we'll add a switch case
         else
