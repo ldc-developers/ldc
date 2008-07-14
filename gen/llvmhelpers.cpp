@@ -161,7 +161,7 @@ LabelStatement* DtoLabelStatement(Identifier* ident)
     FuncDeclaration::LabelMap::iterator iter = fd->labmap.find(ident->toChars());
     if (iter == fd->labmap.end())
     {
-        if (fd->returnLabel->ident->equals(ident))
+        if (fd->returnLabel && fd->returnLabel->ident->equals(ident))
         {
             assert(fd->returnLabel->statement);
             return fd->returnLabel->statement;
@@ -180,11 +180,16 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler, T
     assert(!gIR->scopereturned());
 
     LabelStatement* lblstmt = DtoLabelStatement(target);
-    assert(lblstmt != NULL);
+    if(!lblstmt) {
+        error(*loc, "the label %s does not exist", target->toChars());
+        fatal();
+    }
 
     // if the target label is inside inline asm, error
-    if(lblstmt->asmLabel)
-        error(*loc, "cannot goto into inline asm block");
+    if(lblstmt->asmLabel) {
+        error(*loc, "cannot goto to label %s inside an inline asm block", target->toChars());
+        fatal();
+    }
 
     // find target basic block
     std::string labelname = gIR->func()->getScopedLabelName(target->toChars());
@@ -204,8 +209,10 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler, T
 
     // goto into finally blocks is forbidden by the spec
     // though it should not be problematic to implement
-    if(lblstmt->tf != sourcetf)
+    if(lblstmt->tf != sourcetf) {
         error(*loc, "spec disallows goto into finally block");
+        fatal();
+    }
 
     // emit code for finallys between goto and label
     DtoEnclosingHandlers(enclosinghandler, endfinally);
