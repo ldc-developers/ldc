@@ -326,41 +326,6 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoBoolean(DValue* dval)
-{
-    Type* dtype = dval->getType()->toBasetype();
-    LLValue* val = dval->getRVal();
-    const LLType* t = val->getType();
-
-    if (dtype->isintegral())
-    {
-        if (t == LLType::Int1Ty)
-            return val;
-        else {
-            LLValue* zero = llvm::ConstantInt::get(t, 0, false);
-            return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
-        }
-    }
-    else if (dtype->iscomplex())
-    {
-        return DtoComplexEquals(TOKnotequal, dval, DtoComplex(dtype, new DNullValue(Type::tint8, llvm::ConstantInt::get(LLType::Int8Ty, 0))));
-    }
-    else if (dtype->isfloating())
-    {
-        LLValue* zero = llvm::Constant::getNullValue(t);
-        return new llvm::FCmpInst(llvm::FCmpInst::FCMP_ONE, val, zero, "tmp", gIR->scopebb());
-    }
-    else if (dtype->ty == Tpointer) {
-        LLValue* zero = llvm::Constant::getNullValue(t);
-        return new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, val, zero, "tmp", gIR->scopebb());
-    }
-    std::cout << "unsupported -> bool : " << dtype->toChars() << " " << *t << '\n';
-    assert(0);
-    return 0;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 const LLType* DtoSize_t()
 {
     // the type of size_t does not change once set

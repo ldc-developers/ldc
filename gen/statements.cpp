@@ -967,12 +967,12 @@ void ForeachStatement::toIR(IRState* p)
     LLValue* done = 0;
     LLValue* load = DtoLoad(keyvar);
     if (op == TOKforeach) {
-        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_ULT, load, niters, "tmp", p->scopebb());
+        done = p->ir->CreateICmpULT(load, niters, "tmp");
     }
     else if (op == TOKforeach_reverse) {
-        done = new llvm::ICmpInst(llvm::ICmpInst::ICMP_UGT, load, zerokey, "tmp", p->scopebb());
-        load = llvm::BinaryOperator::createSub(load,llvm::ConstantInt::get(keytype, 1, false),"tmp",p->scopebb());
-        new llvm::StoreInst(load, keyvar, p->scopebb());
+        done = p->ir->CreateICmpUGT(load, zerokey, "tmp");
+        load = p->ir->CreateSub(load, llvm::ConstantInt::get(keytype, 1, false), "tmp");
+        DtoStore(load, keyvar);
     }
     llvm::BranchInst::Create(bodybb, endbb, done, p->scopebb());
 

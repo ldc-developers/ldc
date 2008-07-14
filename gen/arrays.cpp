@@ -758,7 +758,7 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
 LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r)
 {
     LLValue* res = DtoArrayEqCmp_impl("_adEq", l, r, true);
-    res = new llvm::ICmpInst(llvm::ICmpInst::ICMP_NE, res, DtoConstInt(0), "tmp", gIR->scopebb());
+    res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
 
@@ -817,7 +817,7 @@ LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r)
             res = DtoArrayEqCmp_impl("_adCmpChar", l, r, false);
         else
             res = DtoArrayEqCmp_impl("_adCmp", l, r, true);
-        res = new llvm::ICmpInst(cmpop, res, DtoConstInt(0), "tmp", gIR->scopebb());
+        res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0), "tmp");
     }
 
     assert(res);
@@ -859,12 +859,12 @@ LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r)
     // compare lengths
     len1 = DtoArrayLen(l);
     len2 = DtoArrayLen(r);
-    LLValue* b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,len1,len2,"tmp");
+    LLValue* b1 = gIR->ir->CreateICmpEQ(len1,len2,"tmp");
 
     // compare pointers
     ptr1 = DtoArrayPtr(l);
     ptr2 = DtoArrayPtr(r);
-    LLValue* b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,ptr1,ptr2,"tmp");
+    LLValue* b2 = gIR->ir->CreateICmpEQ(ptr1,ptr2,"tmp");
 
     // combine
     LLValue* res = gIR->ir->CreateAnd(b1,b2,"tmp");

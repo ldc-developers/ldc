@@ -98,4 +98,7 @@ void findDefaultTarget();
  */
 DValue* DtoCallDFunc(FuncDeclaration* fdecl, Array* arguments, TypeClass* type=0, LLValue* thismem=0);
 
+/// Converts any value to a boolean (llvm i1)
+LLValue* DtoBoolean(DValue* dval);
+
 #endif

@@ -1610,7 +1610,7 @@ DValue* CmpExp::toElem(IRState* p)
             LLValue* b = r->getRVal();
             Logger::cout() << "type 1: " << *a << '\n';
             Logger::cout() << "type 2: " << *b << '\n';
-            eval = new llvm::ICmpInst(cmpop, a, b, "tmp", p->scopebb());
+            eval = p->ir->CreateICmp(cmpop, a, b, "tmp");
         }
     }
     else if (t->isfloating())
@@ -1646,7 +1646,7 @@ DValue* CmpExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        eval = new llvm::FCmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
+        eval = p->ir->CreateFCmp(cmpop, l->getRVal(), r->getRVal(), "tmp");
     }
     else if (t->ty == Tsarray || t->ty == Tarray)
     {
@@ -1697,7 +1697,7 @@ DValue* EqualExp::toElem(IRState* p)
         if (rv->getType() != lv->getType()) {
             rv = DtoBitCast(rv, lv->getType());
         }
-        eval = new llvm::ICmpInst(cmpop, lv, rv, "tmp", p->scopebb());
+        eval = p->ir->CreateICmp(cmpop, lv, rv, "tmp");
     }
     else if (t->iscomplex())
     {
@@ -1719,7 +1719,7 @@ DValue* EqualExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        eval = new llvm::FCmpInst(cmpop, l->getRVal(), r->getRVal(), "tmp", p->scopebb());
+        eval = p->ir->CreateFCmp(cmpop, l->getRVal(), r->getRVal(), "tmp");
     }
     else if (t->ty == Tsarray || t->ty == Tarray)
     {
@@ -1996,7 +1996,7 @@ DValue* NotExp::toElem(IRState* p)
 
     LLValue* b = DtoBoolean(u);
 
-    LLConstant* zero = llvm::ConstantInt::get(LLType::Int1Ty, 0, true);
+    LLConstant* zero = DtoConstBool(false);
     b = p->ir->CreateICmpEQ(b,zero);
 
     return new DImValue(type, b);
@@ -2262,8 +2262,9 @@ DValue* IdentityExp::toElem(IRState* p)
     }
     else if (t1->isfloating())
     {
-        llvm::FCmpInst::Predicate pred = (op == TOKidentity) ? llvm::FCmpInst::FCMP_OEQ : llvm::FCmpInst::FCMP_ONE;
-        eval = new llvm::FCmpInst(pred, l, r, "tmp", p->scopebb());
+        eval = (op == TOKidentity)
+        ?   p->ir->CreateFCmpOEQ(l,r,"tmp")
+        :   p->ir->CreateFCmpONE(l,r,"tmp");
     }
     else if (t1->ty == Tpointer)
     {
@@ -2273,13 +2274,14 @@ DValue* IdentityExp::toElem(IRState* p)
             else
                 r = DtoBitCast(r, l->getType());
         }
-        llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-        eval = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
+        eval = (op == TOKidentity)
+        ?   p->ir->CreateICmpEQ(l,r,"tmp")
+        :   p->ir->CreateICmpNE(l,r,"tmp");
     }
     else {
-        llvm::ICmpInst::Predicate pred = (op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
-        //Logger::cout() << "l = " << *l << " r = " << *r << '\n';
-        eval = new llvm::ICmpInst(pred, l, r, "tmp", p->scopebb());
+        eval = (op == TOKidentity)
+        ?   p->ir->CreateICmpEQ(l,r,"tmp")
+        :   p->ir->CreateICmpNE(l,r,"tmp");
     }
     return new DImValue(type, eval);
 }

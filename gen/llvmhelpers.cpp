@@ -4,6 +4,7 @@
 #include "mars.h"
 #include "init.h"
 #include "id.h"
+#include "expression.h"
 
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
@@ -1311,4 +1312,59 @@ void findDefaultTarget()
     {
         global.params.llvmArch = const_cast<char*>(e->Name);
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoBoolean(DValue* dval)
+{
+    Type* dtype = dval->getType()->toBasetype();
+    TY ty = dtype->ty;
+
+    // integer
+    if (dtype->isintegral())
+    {
+        LLValue* val = dval->getRVal();
+        if (val->getType() == LLType::Int1Ty)
+            return val;
+        else {
+            LLValue* zero = LLConstantInt::get(val->getType(), 0, false);
+            return gIR->ir->CreateICmpNE(val, zero, "tmp");
+        }
+    }
+    // complex
+    else if (dtype->iscomplex())
+    {
+        // huh?
+        return DtoComplexEquals(TOKnotequal, dval, DtoComplex(dtype, new DNullValue(Type::tint8, llvm::ConstantInt::get(LLType::Int8Ty, 0))));
+    }
+    // floating point
+    else if (dtype->isfloating())
+    {
+        LLValue* val = dval->getRVal();
+        LLValue* zero = LLConstant::getNullValue(val->getType());
+        return gIR->ir->CreateFCmpONE(val, zero, "tmp");
+    }
+    // pointer/class
+    else if (ty == Tpointer || ty == Tclass) {
+        LLValue* val = dval->getRVal();
+        LLValue* zero = LLConstant::getNullValue(val->getType());
+        return gIR->ir->CreateICmpNE(val, zero, "tmp");
+    }
+    // dynamic array
+    else if (ty == Tarray)
+    {
+        // return (arr.length != 0)
+        return gIR->ir->CreateICmpNE(DtoArrayLen(dval), DtoConstSize_t(0), "tmp");
+    }
+    // delegate
+    else if (ty == Tdelegate)
+    {
+        // return (dg !is null)
+        return DtoDelegateEquals(TOKnotequal, dval->getRVal(), NULL);
+    }
+    // unknown
+    std::cout << "unsupported -> bool : " << dtype->toChars() << '\n';
+    assert(0);
+    return 0;
 }

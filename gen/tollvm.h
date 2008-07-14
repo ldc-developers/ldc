@@ -40,9 +40,6 @@ unsigned DtoCallingConv(LINK l);
 // TODO: this one should be removed!!!
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
 
-// casts any value to a boolean
-LLValue* DtoBoolean(DValue* dval);
-
 // some types
 const LLType* DtoSize_t();
 const LLStructType* DtoInterfaceInfoType();
