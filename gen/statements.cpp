@@ -1033,8 +1033,6 @@ void LabelStatement::toIR(IRState* p)
     }
     else
     {
-        assert(tf == NULL);
-
         llvm::BasicBlock* oldend = gIR->scopeend();
         if (llvmBB)
                 llvmBB->moveBefore(oldend);
