@@ -57,6 +57,7 @@ lib     : tangobos.lib
 
 OBJ_CORE= \
     std/gc.bc \
+    std/outofmemory.bc \
 #    std/asserterror.bc \
 #    std/math.bc \
 #    std/stdarg.bc
