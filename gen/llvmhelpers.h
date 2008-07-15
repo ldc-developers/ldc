@@ -41,6 +41,9 @@ LLValue* DtoNestedVariable(VarDeclaration* vd);
 // basic operations
 void DtoAssign(DValue* lhs, DValue* rhs);
 
+// create a null dvalue
+DValue* DtoNullValue(Type* t);
+
 // casts
 DValue* DtoCastInt(DValue* val, Type* to);
 DValue* DtoCastPtr(DValue* val, Type* to);

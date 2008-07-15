@@ -630,6 +630,49 @@ void DtoAssign(DValue* lhs, DValue* rhs)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
+//      NULL VALUE HELPER
+////////////////////////////////////////////////////////////////////////////////////////*/
+
+DValue* DtoNullValue(Type* type)
+{
+    Type* basetype = type->toBasetype();
+    TY basety = basetype->ty;
+    const LLType* lltype = DtoType(basetype);
+
+    // complex, needs to be first since complex are also floating
+    if (basetype->iscomplex())
+    {
+        const LLType* basefp = DtoComplexBaseType(basetype);
+        return new DComplexValue(type, LLConstant::getNullValue(basefp), LLConstant::getNullValue(basefp));
+    }
+    // integer, floating, pointer and class have no special representation
+    else if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer || basety == Tclass)
+    {
+        return new DConstValue(type, LLConstant::getNullValue(lltype));
+    }
+    // dynamic array
+    else if (basety == Tarray)
+    {
+        //TODO: What types do the constants here need to have?
+        return new DSliceValue(type, NULL, NULL);
+    }
+    // delegate
+    else if (basety == Tdelegate)
+    {
+        //TODO: Is this correct?
+        return new DNullValue(type, LLConstant::getNullValue(lltype));
+    }
+
+    // unknown
+    std::cout << "unsupported: null value for " << type->toChars() << '\n';
+    assert(0);
+    return 0;
+
+}
+
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
 //      CASTING HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
@@ -1335,8 +1378,7 @@ LLValue* DtoBoolean(DValue* dval)
     // complex
     else if (dtype->iscomplex())
     {
-        // huh?
-        return DtoComplexEquals(TOKnotequal, dval, DtoComplex(dtype, new DNullValue(Type::tint8, llvm::ConstantInt::get(LLType::Int8Ty, 0))));
+        return DtoComplexEquals(TOKnotequal, dval, DtoNullValue(dtype));
     }
     // floating point
     else if (dtype->isfloating())
