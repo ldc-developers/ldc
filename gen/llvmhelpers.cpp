@@ -653,13 +653,13 @@ DValue* DtoNullValue(Type* type)
     // dynamic array
     else if (basety == Tarray)
     {
-        //TODO: What types do the constants here need to have?
-        return new DSliceValue(type, NULL, NULL);
+        LLValue* len = DtoConstSize_t(0);
+        LLValue* ptr = getNullPtr(getPtrToType(DtoType(basetype->next)));
+        return new DSliceValue(type, len, ptr);
     }
     // delegate
     else if (basety == Tdelegate)
     {
-        //TODO: Is this correct?
         return new DNullValue(type, LLConstant::getNullValue(lltype));
     }
 
