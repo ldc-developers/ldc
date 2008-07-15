@@ -212,7 +212,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            DtoDeclareClassInfo(cid->cd);
+            DtoForceDeclareDsymbol(cid->cd);
             assert(cid->cd->ir.irStruct->classInfo);
             return new DVarValue(vd, cid->cd->ir.irStruct->classInfo, true);
         }
