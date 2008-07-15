@@ -827,6 +827,9 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     {
         Logger::println("Resolving nested context");
         LOG_SCOPE;
+
+        LLValue* gep = DtoGEPi(mem,0,2,"tmp");
+
         // this value might be zero if it was not necessary to generate it ...
         LLValue* nest = gIR->func()->nestedVar;
         // ... then revert to the this ptr if there is one
@@ -834,10 +837,9 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
             nest = gIR->func()->thisVar;
         // ... or just use zero, since it must be unused.
         if (!nest)
-            nest = llvm::ConstantPointerNull::get(getVoidPtrType());
-        assert(nest);
-        LLValue* gep = DtoGEPi(mem,0,2,"tmp");
-        nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
+            nest = llvm::Constant::getNullValue(gep->getType()->getContainedType(0));
+        else
+            nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
         DtoStore(nest, gep);
     }
 
