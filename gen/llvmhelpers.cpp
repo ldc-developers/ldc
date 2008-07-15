@@ -382,7 +382,7 @@ static LLValue* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, LLValue* 
         }
         else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
         {
-            v = DtoGEPi(v,0,2,"tmp");
+            v = DtoGEPi(v,0,2+cd->vthis->ir.irField->index,"tmp");
             v = DtoLoad(v);
         }
         else

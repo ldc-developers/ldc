@@ -828,7 +828,8 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         Logger::println("Resolving nested context");
         LOG_SCOPE;
 
-        LLValue* gep = DtoGEPi(mem,0,2,"tmp");
+        size_t idx = 2 + tc->sym->vthis->ir.irField->index;
+        LLValue* gep = DtoGEPi(mem,0,idx,"tmp");
 
         // this value might be zero if it was not necessary to generate it ...
         LLValue* nest = gIR->func()->nestedVar;
