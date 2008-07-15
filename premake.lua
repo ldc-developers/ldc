@@ -41,13 +41,6 @@ package.buildoptions = { "-x c++" }
 package.postbuildcommands = { "./impcnvgen", "mv -f impcnvtab.c dmd" }
 package.defines = { "DMDV1="..DMDV1 }
 
---md5
-package = newpackage()
-package.name = "md5"
-package.kind = "lib"
-package.language = "c"
-package.files = { "dmd/md5.c" }
-
 -- llvmdc
 package = newpackage()
 package.bindir = "bin"
@@ -55,7 +48,7 @@ package.name = "llvmdc"
 package.kind = "exe"
 package.language = "c++"
 package.files = { matchfiles("dmd/*.c"), matchfiles("gen/*.cpp"), matchfiles("ir/*.cpp") }
-package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c", "dmd/md5.c" }
+package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++", "`llvm-config --cxxflags`" }
 package.linkoptions = {
     -- long but it's faster than just 'all'

@@ -702,7 +702,7 @@ void Lexer::scan(Token *t)
 		    }
 		    else if (id == Id::VENDOR)
 		    {
-			t->ustring = (unsigned char *)"Digital Mars D";
+			t->ustring = (unsigned char *)"LLVMDC";
 			goto Lstring;
 		    }
 		    else if (id == Id::TIMESTAMP)
