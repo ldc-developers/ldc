@@ -5,7 +5,7 @@
 
 module object;
 
-import std.compat;
+public import std.compat;
 
 alias typeof(int.sizeof)                    size_t;
 alias typeof(cast(void*)0 - cast(void*)0)   ptrdiff_t;
