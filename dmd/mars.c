@@ -52,15 +52,14 @@ Global::Global()
     doc_ext  = "html";
     ddoc_ext = "ddoc";
 
-#if IN_LLVM
+// LLVMDC
     obj_ext  = "bc";
     ll_ext  = "ll";
     bc_ext  = "bc";
-    nativeobj_ext = "o";
-#elif _WIN32
-    obj_ext  = "obj";
+#if _WIN32
+    nativeobj_ext = "obj";
 #elif linux
-    obj_ext  = "o";
+    nativeobj_ext = "o";
 #else
 #error "fix this"
 #endif
