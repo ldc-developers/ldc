@@ -717,8 +717,10 @@ Identifier *Type::getTypeInfoIdent(int internal)
     name = (char *)alloca(19 + sizeof(len) * 3 + len + 1);
     buf.writeByte(0);
     sprintf(name, "_D%dTypeInfo_%s6__initZ", 9 + len, buf.data);
-    if (global.params.isWindows)
-	name++;			// C mangling will add it back in
+// LLVMDC
+// it is not clear where the underscore that's stripped here is added back in
+//    if (global.params.isWindows)
+//	name++;			// C mangling will add it back in
     //printf("name = %s\n", name);
     id = Lexer::idPool(name);
     return id;
