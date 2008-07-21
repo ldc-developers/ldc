@@ -1,0 +1,17 @@
+syntax: glob
+tests/dstress
+tests/reference
+*.bc
+*.o
+*.s
+*.a
+obj/*
+tango/lib/common/tango/core/*.di
+Makefile
+bin/llvmdc
+idgen
+idgen.make
+impcnvgen
+impcnvgen.make
+llvmdc.make
+
