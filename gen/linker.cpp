@@ -150,9 +150,12 @@ int linkExecutable(const char* argv0)
     }
 
     // default libs
-    args.push_back("-lpthread");
-    args.push_back("-ldl");
-    args.push_back("-lm");
+    if(global.params.isLinux)
+    {
+        args.push_back("-lpthread");
+        args.push_back("-ldl");
+        args.push_back("-lm");
+    }
 
     // object files
     for (int i = 0; i < global.params.objfiles->dim; i++)
