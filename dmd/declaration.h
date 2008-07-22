@@ -626,8 +626,9 @@ struct FuncDeclaration : Declaration
     const char *kind();
     void toDocBuffer(OutBuffer *buf);
 
-    static FuncDeclaration *genCfunc(Type *treturn, char *name);
-    static FuncDeclaration *genCfunc(Type *treturn, Identifier *id);
+// LLVMDC: give argument types to runtime functions
+    static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, char *name);
+    static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, Identifier *id);
 
     Symbol *toSymbol();
     Symbol *toThunkSymbol(int offset);	// thunk version
@@ -637,7 +638,6 @@ struct FuncDeclaration : Declaration
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     // llvmdc stuff
-    bool runTimeHack;
     std::set<VarDeclaration*> nestedVars;
 
     // we keep our own table of label statements as LabelDsymbolS

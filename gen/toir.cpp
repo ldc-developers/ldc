@@ -1001,16 +1001,6 @@ DValue* CallExp::toElem(IRState* p)
     // TODO: use sret param attr
     if (retinptr) {
         llargs[j] = new llvm::AllocaInst(argiter->get()->getContainedType(0),"rettmp",p->topallocapoint());
-
-        if (dfn && dfn->func && dfn->func->runTimeHack) {
-            const LLType* rettype = getPtrToType(DtoType(type));
-            if (llargs[j]->getType() != llfnty->getParamType(j)) {
-                Logger::println("llvmRunTimeHack==true - force casting return value param");
-                Logger::cout() << "casting: " << *llargs[j] << " to type: " << *llfnty->getParamType(j) << '\n';
-                llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
-            }
-        }
-
         ++j;
         ++argiter;
     }
@@ -1164,24 +1154,6 @@ DValue* CallExp::toElem(IRState* p)
 
             if (fnarg && fnarg->llvmByVal)
                 palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
-
-            // this hack is necessary :/
-            // thing is DMD doesn't create correct signatures for the DMD generated calls to the runtime.
-            // only the return type is right, no arguments (parameters==NULL) ...
-            if (dfn && dfn->func && dfn->func->runTimeHack) {
-                llvm::Function* fn = dfn->func->ir.irFunc->func;
-                assert(fn);
-                if (fn->getParamAttrs().paramHasAttr(j+1, llvm::ParamAttr::ByVal))
-                    palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
-
-                if (llfnty->getParamType(j) != NULL) {
-                    if (llargs[j]->getType() != llfnty->getParamType(j)) {
-                        Logger::println("llvmRunTimeHack==true - force casting argument");
-                        Logger::cout() << "casting: " << *llargs[j] << " to type: " << *llfnty->getParamType(j) << '\n';
-                        llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
-                    }
-                }
-            }
         }
     }
 
@@ -1204,15 +1176,6 @@ DValue* CallExp::toElem(IRState* p)
     CallOrInvoke* call = gIR->CreateCallOrInvoke(funcval, llargs.begin(), llargs.end(), varname);
 
     LLValue* retllval = (retinptr) ? llargs[0] : call->get();
-
-    if (retinptr && dfn && dfn->func && dfn->func->runTimeHack) {
-        const LLType* rettype = getPtrToType(DtoType(type));
-        if (retllval->getType() != rettype) {
-            Logger::println("llvmRunTimeHack==true - force casting return value");
-            Logger::cout() << "from: " << *retllval->getType() << " to: " << *rettype << '\n';
-            retllval = DtoBitCast(retllval, rettype);
-        }
-    }
 
     // set calling convention
     if (dfn && dfn->func) {

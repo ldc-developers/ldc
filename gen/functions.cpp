@@ -287,13 +287,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
-    if (fdecl->runTimeHack) {
-        gIR->declareList.push_back(fdecl);
-        TypeFunction* tf = (TypeFunction*)fdecl->type;
-        tf->llvmRetInPtr = DtoIsPassedByRef(tf->next);
-        return;
-    }
-
     if (fdecl->parent)
     if (TemplateInstance* tinst = fdecl->parent->isTemplateInstance())
     {
@@ -391,25 +384,16 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     Type* t = DtoDType(fdecl->type);
     TypeFunction* f = (TypeFunction*)t;
 
-    // runtime function special handling
-    if (fdecl->runTimeHack) {
-        Logger::println("runtime hack func chars: %s", fdecl->toChars());
-        if (!fdecl->ir.irFunc) {
-            IrFunction* irfunc = new IrFunction(fdecl);
-            llvm::Function* llfunc = LLVM_D_GetRuntimeFunction(gIR->module, fdecl->toChars());
-            fdecl->ir.irFunc = irfunc;
-            fdecl->ir.irFunc->func = llfunc;
-        }
-        return;
-    }
-
     bool declareOnly = false;
     bool templInst = fdecl->parent && DtoIsTemplateInstance(fdecl->parent);
     if (!templInst && fdecl->getModule() != gIR->dmodule)
     {
         Logger::println("not template instance, and not in this module. declare only!");
         Logger::println("current module: %s", gIR->dmodule->ident->toChars());
-        Logger::println("func module: %s", fdecl->getModule()->ident->toChars());
+        if(fdecl->getModule())
+            Logger::println("func module: %s", fdecl->getModule()->ident->toChars());
+        else
+            Logger::println("func not in a module, probably runtime");
         declareOnly = true;
     }
     else if (fdecl->llvmInternal == LLVMva_start)

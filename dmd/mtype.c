@@ -1536,8 +1536,12 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static char *name[2] = { "_adReverseChar", "_adReverseWchar" };
 
 	nm = name[n->ty == Twchar];
-	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), nm);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	Type* arrty = n->ty == Twchar ? Type::tchar->arrayOf() : Type::twchar->arrayOf();
+	args->push(new Argument(STCin, arrty, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), nm);
+
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1554,8 +1558,12 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static char *name[2] = { "_adSortChar", "_adSortWchar" };
 
 	nm = name[n->ty == Twchar];
-	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), nm);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	Type* arrty = n->ty == Twchar ? Type::tchar->arrayOf() : Type::twchar->arrayOf();
+	args->push(new Argument(STCin, arrty, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), nm);
+
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1573,8 +1581,16 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	assert(size);
 	dup = (ident == Id::dup);
-	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), dup ? Id::adDup : Id::adReverse);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	if(dup) {
+	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	} else {
+	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	}
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), dup ? Id::adDup : Id::adReverse);
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1592,9 +1608,12 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	FuncDeclaration *fd;
 	Expressions *arguments;
 
-	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(),
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(),
 		(char*)(n->ty == Tbit ? "_adSortBit" : "_adSort"));
-    fd->runTimeHack = true;
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -2268,8 +2287,10 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	FuncDeclaration *fd;
 	Expressions *arguments;
 
-	fd = FuncDeclaration::genCfunc(Type::tsize_t, Id::aaLen);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	args->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2284,8 +2305,11 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	int size = key->size(e->loc);
 
 	assert(size);
-	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), Id::aaKeys);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	args->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaKeys);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2299,8 +2323,12 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	FuncDeclaration *fd;
 	Expressions *arguments;
 
-	fd = FuncDeclaration::genCfunc(Type::tvoid->arrayOf(), Id::aaValues);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	args->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaValues);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2317,8 +2345,11 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	FuncDeclaration *fd;
 	Expressions *arguments;
 
-	fd = FuncDeclaration::genCfunc(Type::tvoid->pointerTo(), Id::aaRehash);
-    fd->runTimeHack = true;
+	//LLVMDC: Build arguments.
+	Arguments* args = new Arguments;
+	args->push(new Argument(STCin, Type::tvoidptr->pointerTo(), NULL, NULL));
+	args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+	fd = FuncDeclaration::genCfunc(args, Type::tvoid->pointerTo(), Id::aaRehash);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e->addressOf(sc));

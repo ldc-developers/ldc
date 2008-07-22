@@ -74,8 +74,6 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     nrvo_can = 1;
     nrvo_var = NULL;
     shidden = NULL;
-    // llvmdc
-    runTimeHack = false;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
@@ -2009,12 +2007,16 @@ int FuncDeclaration::addPostInvariant()
  * Generate a FuncDeclaration for a runtime library function.
  */
 
-FuncDeclaration *FuncDeclaration::genCfunc(Type *treturn, char *name)
+//
+// LLVMDC: Adjusted to give argument info to the runtime function decl.
+//
+
+FuncDeclaration *FuncDeclaration::genCfunc(Arguments *args, Type *treturn, char *name)
 {
-    return genCfunc(treturn, Lexer::idPool(name));
+    return genCfunc(args, treturn, Lexer::idPool(name));
 }
 
-FuncDeclaration *FuncDeclaration::genCfunc(Type *treturn, Identifier *id)
+FuncDeclaration *FuncDeclaration::genCfunc(Arguments *args, Type *treturn, Identifier *id)
 {
     FuncDeclaration *fd;
     TypeFunction *tf;
@@ -2036,7 +2038,7 @@ FuncDeclaration *FuncDeclaration::genCfunc(Type *treturn, Identifier *id)
     }
     else
     {
-	tf = new TypeFunction(NULL, treturn, 0, LINKc);
+	tf = new TypeFunction(args, treturn, 0, LINKc);
 	fd = new FuncDeclaration(0, 0, id, STCstatic, tf);
 	fd->protection = PROTpublic;
 	fd->linkage = LINKc;
