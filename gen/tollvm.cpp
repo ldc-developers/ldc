@@ -157,6 +157,10 @@ const LLType* DtoType(Type* t)
         return getPtrToType(LLStructType::get(DtoType(taa->key), DtoType(taa->next), 0));
     }
 
+    // opaque type
+    case Topaque:
+        return llvm::OpaqueType::get();
+
     default:
         printf("trying to convert unknown type with value %d\n", t->ty);
         assert(0);

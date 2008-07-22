@@ -1177,6 +1177,10 @@ DValue* CallExp::toElem(IRState* p)
 
     LLValue* retllval = (retinptr) ? llargs[0] : call->get();
 
+    // if the type of retllval is abstract, refine to concrete
+    if(retllval->getType()->isAbstract())
+        retllval = DtoBitCast(retllval, getPtrToType(DtoType(type)), "retval");
+
     // set calling convention
     if (dfn && dfn->func) {
         int li = dfn->func->llvmInternal;

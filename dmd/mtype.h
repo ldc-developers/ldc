@@ -97,6 +97,10 @@ enum TY
     Ttypeof,
     Ttuple,
     Tslice,
+
+// LLVMDC
+    Topaque,
+
     TMAX
 };
 
@@ -172,6 +176,10 @@ struct Type : Object
     static ClassDeclaration *typeinfofunction;
     static ClassDeclaration *typeinfodelegate;
     static ClassDeclaration *typeinfotypelist;
+
+    // LLVMDC, for runtime function signatures that contain
+    // AAs or arrays of unknown type
+    static Type* topaque;
 
     static Type *basic[TMAX];
     static unsigned char mangleChar[TMAX];
@@ -657,6 +665,13 @@ struct TypeSlice : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
+    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
+};
+
+//LLVMDC
+struct TypeOpaque : Type
+{ 
+    TypeOpaque() : Type(Topaque, NULL) {}
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
 };
 

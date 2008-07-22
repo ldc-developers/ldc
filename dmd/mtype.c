@@ -103,6 +103,9 @@ ClassDeclaration *Type::typeinfofunction;
 ClassDeclaration *Type::typeinfodelegate;
 ClassDeclaration *Type::typeinfotypelist;
 
+// LLVMDC
+Type* Type::topaque;
+
 Type *Type::tvoidptr;
 Type *Type::basic[TMAX];
 unsigned char Type::mangleChar[TMAX];
@@ -207,6 +210,9 @@ void Type::init()
     mangleChar[Ttuple] = 'B';
     mangleChar[Tslice] = '@';
 
+    // LLVMDC
+    mangleChar[Topaque] = 'O';
+
     for (i = 0; i < TMAX; i++)
     {	if (!mangleChar[i])
 	    fprintf(stdmsg, "ty = %d\n", i);
@@ -227,6 +233,9 @@ void Type::init()
     basic[Terror] = basic[Tint32];
 
     tvoidptr = tvoid->pointerTo();
+
+    // LLVMDC
+    topaque = new TypeOpaque();
 
     // set size_t / ptrdiff_t types and pointer size
     if (global.params.is64bit)
@@ -1585,12 +1594,12 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Arguments* args = new Arguments;
 	if(dup) {
 	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
 	} else {
-	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 	}
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), dup ? Id::adDup : Id::adReverse);
+	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), dup ? Id::adDup : Id::adReverse);
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
@@ -1610,9 +1619,9 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
 	args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(),
+	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(),
 		(char*)(n->ty == Tbit ? "_adSortBit" : "_adSort"));
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
@@ -2289,7 +2298,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
 	fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
@@ -2307,9 +2316,9 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	assert(size);
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
 	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaKeys);
+	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaKeys);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2325,10 +2334,10 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
 	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaValues);
+	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaValues);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2347,9 +2356,9 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::tvoidptr->pointerTo(), NULL, NULL));
+	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
 	args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->pointerTo(), Id::aaRehash);
+	fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
 	ec = new VarExp(0, fd);
 	arguments = new Expressions();
 	arguments->push(e->addressOf(sc));
@@ -5155,6 +5164,16 @@ void TypeSlice::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 
     buf->printf("[%s .. ", lwr->toChars());
     buf->printf("%s]", upr->toChars());
+}
+
+void TypeOpaque::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
+{
+    //printf("TypeOpaquePtr::toCBuffer2()");
+    if (mod != this->mod)
+    {	toCBuffer3(buf, hgs, mod);
+	return;
+    }
+   buf->writestring("opaque");
 }
 
 /***************************** Argument *****************************/

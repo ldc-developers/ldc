@@ -392,8 +392,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         Logger::println("current module: %s", gIR->dmodule->ident->toChars());
         if(fdecl->getModule())
             Logger::println("func module: %s", fdecl->getModule()->ident->toChars());
-        else
-            Logger::println("func not in a module, probably runtime");
+        else {
+            Logger::println("func not in a module, is runtime");
+        }
         declareOnly = true;
     }
     else if (fdecl->llvmInternal == LLVMva_start)
