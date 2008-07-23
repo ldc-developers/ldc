@@ -4,5 +4,6 @@ void main()
 {
     switch(0)
     {
+       default:
     }
 }
