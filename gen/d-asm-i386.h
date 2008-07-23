@@ -2036,7 +2036,9 @@ struct AsmProcessor
 	    }
 	} else if (exp->op == TOKvar) {
 	    VarDeclaration * v = ((VarExp *) exp)->var->isVarDeclaration();
-        v->needsStorage = true;
+        if (v) {
+            v->needsStorage = true;
+        }
 
 	    if (v && v->storage_class & STCfield) {
 		operand->constDisplacement += v->offset;

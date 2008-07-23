@@ -254,10 +254,12 @@ DValue* VarExp::toElem(IRState* p)
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        if (fdecl->llvmInternal != LLVMva_arg) {// && fdecl->llvmValue == 0)
+        LLValue* func = 0;
+        if (fdecl->llvmInternal != LLVMva_arg) {
             DtoForceDeclareDsymbol(fdecl);
+            func = fdecl->ir.irFunc->func;
         }
-        return new DFuncValue(fdecl, fdecl->ir.irFunc->func);
+        return new DFuncValue(fdecl, func);
     }
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
