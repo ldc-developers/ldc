@@ -1600,7 +1600,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		 */
 		//LLVMDC: Build arguments.
 		Arguments* args = new Arguments;
-		args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+		args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
 		args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 		if (dim == 2) {
 		    Arguments* dgargs = new Arguments;
@@ -1658,7 +1658,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		assert(j < sizeof(fdname));
 		//LLVMDC: Build arguments.
 		Arguments* args = new Arguments;
-		args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+		args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
 		if (dim == 2) {
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
