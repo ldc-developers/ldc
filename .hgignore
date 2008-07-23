@@ -14,4 +14,7 @@ idgen.make
 impcnvgen
 impcnvgen.make
 llvmdc.make
-
+dmd/impcnvtab.c
+tests/runminitest
+tests/findregressions
+tests/mini/obj/*

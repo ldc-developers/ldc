@@ -11,10 +11,12 @@ int main(string[] args) {
     string[] badrun;
 
     chdir("mini");
+    if(!exists("obj"))
+        mkdir("obj");
 
     auto contents = listdir(".", "*.d");
     foreach(c; contents) {
-        string cmd = format("llvmdc %s -quiet -of%s", c, getName(c));
+        string cmd = format("llvmdc %s -quiet -ofobj/%s", c, getName(c));
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;
@@ -23,7 +25,7 @@ int main(string[] args) {
         if (system(cmd) != 0) {
             bad ~= c;
         }
-        else if (system(getName(c)) != 0) {
+        else if (system("obj/" ~ getName(c)) != 0) {
             badrun ~= c;
         }
     }
