@@ -549,7 +549,8 @@ void DtoStore(LLValue* src, LLValue* dst)
 bool DtoCanLoad(LLValue* ptr)
 {
     if (isaPointer(ptr->getType())) {
-        return ptr->getType()->getContainedType(0)->isFirstClassType();
+        const LLType* data = ptr->getType()->getContainedType(0);
+        return data->isFirstClassType() && !data->isAggregateType();
     }
     return false;
 }

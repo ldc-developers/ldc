@@ -128,8 +128,8 @@ Expression *Type::getTypeInfo(Scope *sc)
     }
     }
     e = new VarExp(0, t->vtinfo);
-    e = e->addressOf(sc);
-    e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
+    //e = e->addressOf(sc);
+    //e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
     return e;
 }
 
