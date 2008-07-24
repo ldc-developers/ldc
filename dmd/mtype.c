@@ -1547,9 +1547,9 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	nm = name[n->ty == Twchar];
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	Type* arrty = n->ty == Twchar ? Type::tchar->arrayOf() : Type::twchar->arrayOf();
+	Type* arrty = n->ty == Twchar ? Type::twchar->arrayOf() : Type::tchar->arrayOf();
 	args->push(new Argument(STCin, arrty, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), nm);
+	fd = FuncDeclaration::genCfunc(args, arrty, nm);
 
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
@@ -1569,9 +1569,9 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	nm = name[n->ty == Twchar];
 	//LLVMDC: Build arguments.
 	Arguments* args = new Arguments;
-	Type* arrty = n->ty == Twchar ? Type::tchar->arrayOf() : Type::twchar->arrayOf();
+	Type* arrty = n->ty == Twchar ? Type::twchar->arrayOf() : Type::tchar->arrayOf();
 	args->push(new Argument(STCin, arrty, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), nm);
+	fd = FuncDeclaration::genCfunc(args, arrty, nm);
 
 	ec = new VarExp(0, fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
