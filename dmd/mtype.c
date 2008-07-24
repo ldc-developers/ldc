@@ -1539,19 +1539,28 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     if (ident == Id::reverse && (n->ty == Tchar || n->ty == Twchar))
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
-	char *nm;
-	static char *name[2] = { "_adReverseChar", "_adReverseWchar" };
 
-	nm = name[n->ty == Twchar];
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	Type* arrty = n->ty == Twchar ? Type::twchar->arrayOf() : Type::tchar->arrayOf();
-	args->push(new Argument(STCin, arrty, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, arrty, nm);
+	static FuncDeclaration *adReverseChar_fd = NULL;
+	if(!adReverseChar_fd) {
+	    Arguments* args = new Arguments;
+	    Type* arrty = Type::tchar->arrayOf();
+	    args->push(new Argument(STCin, arrty, NULL, NULL));
+	    adReverseChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseChar");
+	}
+	static FuncDeclaration *adReverseWchar_fd = NULL;
+	if(!adReverseWchar_fd) {
+	    Arguments* args = new Arguments;
+	    Type* arrty = Type::twchar->arrayOf();
+	    args->push(new Argument(STCin, arrty, NULL, NULL));
+	    adReverseWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseWchar");
+	}
 
-	ec = new VarExp(0, fd);
+	if(n->ty == Twchar)
+	    ec = new VarExp(0, adReverseWchar_fd);
+	else
+	    ec = new VarExp(0, adReverseChar_fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
 	arguments->push(e);
@@ -1561,19 +1570,28 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     else if (ident == Id::sort && (n->ty == Tchar || n->ty == Twchar))
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
-	char *nm;
-	static char *name[2] = { "_adSortChar", "_adSortWchar" };
 
-	nm = name[n->ty == Twchar];
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	Type* arrty = n->ty == Twchar ? Type::twchar->arrayOf() : Type::tchar->arrayOf();
-	args->push(new Argument(STCin, arrty, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, arrty, nm);
+	static FuncDeclaration *adSortChar_fd = NULL;
+	if(!adSortChar_fd) {
+	    Arguments* args = new Arguments;
+	    Type* arrty = Type::tchar->arrayOf();
+	    args->push(new Argument(STCin, arrty, NULL, NULL));
+	    adSortChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortChar");
+	}
+	static FuncDeclaration *adSortWchar_fd = NULL;
+	if(!adSortWchar_fd) {
+	    Arguments* args = new Arguments;
+	    Type* arrty = Type::twchar->arrayOf();
+	    args->push(new Argument(STCin, arrty, NULL, NULL));
+	    adSortWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortWchar");
+	}
 
-	ec = new VarExp(0, fd);
+	if(n->ty == Twchar)
+	    ec = new VarExp(0, adSortWchar_fd);
+	else
+	    ec = new VarExp(0, adSortChar_fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
 	arguments->push(e);
@@ -1583,7 +1601,6 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     else if (ident == Id::reverse || ident == Id::dup)
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
 	int size = next->size(e->loc);
 	int dup;
@@ -1591,16 +1608,25 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	assert(size);
 	dup = (ident == Id::dup);
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	if(dup) {
+	static FuncDeclaration *adDup_fd = NULL;
+	if(!adDup_fd) {
+	    Arguments* args = new Arguments;
 	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
 	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
-	} else {
+	    adDup_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::adDup);
+	}
+	static FuncDeclaration *adReverse_fd = NULL;
+	if(!adReverse_fd) {
+	    Arguments* args = new Arguments;
 	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	    adReverse_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::adReverse);
 	}
-	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), dup ? Id::adDup : Id::adReverse);
-	ec = new VarExp(0, fd);
+
+	if(dup)
+	    ec = new VarExp(0, adDup_fd);
+	else
+	    ec = new VarExp(0, adReverse_fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
 	if (dup)
@@ -1614,16 +1640,29 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     else if (ident == Id::sort)
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
+	bool isBit = (n->ty == Tbit);
 
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
-	args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(),
-		(char*)(n->ty == Tbit ? "_adSortBit" : "_adSort"));
-	ec = new VarExp(0, fd);
+	static FuncDeclaration *adSort_fd = NULL;
+	if(!adSort_fd) {
+	    Arguments* args = new Arguments;
+	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+	    adSort_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), "_adSort");
+	}
+	static FuncDeclaration *adSortBit_fd = NULL;
+	if(!adSortBit_fd) {
+	    Arguments* args = new Arguments;
+	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+	    adSortBit_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), "_adSortBit");
+	}
+
+	if(isBit)
+	    ec = new VarExp(0, adSortBit_fd);
+	else
+	    ec = new VarExp(0, adSort_fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
 	arguments->push(e);
@@ -2293,33 +2332,39 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     if (ident == Id::length)
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
 
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
-	ec = new VarExp(0, fd);
+	static FuncDeclaration *aaLen_fd = NULL;
+	if(!aaLen_fd) {
+	    Arguments* args = new Arguments;
+	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    aaLen_fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
+	}
+
+	ec = new VarExp(0, aaLen_fd);
 	arguments = new Expressions();
 	arguments->push(e);
 	e = new CallExp(e->loc, ec, arguments);
-	e->type = fd->type->next;
+	e->type = aaLen_fd->type->next;
     }
     else if (ident == Id::keys)
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
 	int size = key->size(e->loc);
 
 	assert(size);
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
-	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaKeys);
-	ec = new VarExp(0, fd);
+	static FuncDeclaration *aaKeys_fd = NULL;
+	if(!aaKeys_fd) {
+	    Arguments* args = new Arguments;
+	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	    aaKeys_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaKeys);
+	}
+
+	ec = new VarExp(0, aaKeys_fd);
 	arguments = new Expressions();
 	arguments->push(e);
 	arguments->push(new IntegerExp(0, size, Type::tsize_t));
@@ -2329,16 +2374,19 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     else if (ident == Id::values)
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
 
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
-	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaValues);
-	ec = new VarExp(0, fd);
+	static FuncDeclaration *aaValues_fd = NULL;
+	if(!aaValues_fd) {
+	    Arguments* args = new Arguments;
+	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+	    aaValues_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaValues);
+	}
+
+	ec = new VarExp(0, aaValues_fd);
 	arguments = new Expressions();
 	arguments->push(e);
 	size_t keysize = key->size(e->loc);
@@ -2351,15 +2399,18 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     else if (ident == Id::rehash)
     {
 	Expression *ec;
-	FuncDeclaration *fd;
 	Expressions *arguments;
 
 	//LLVMDC: Build arguments.
-	Arguments* args = new Arguments;
-	args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
-	args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
-	ec = new VarExp(0, fd);
+	static FuncDeclaration *aaRehash_fd = NULL;
+	if(!aaRehash_fd) {
+	    Arguments* args = new Arguments;
+	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+	    aaRehash_fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
+	}
+
+	ec = new VarExp(0, aaRehash_fd);
 	arguments = new Expressions();
 	arguments->push(e->addressOf(sc));
 	arguments->push(key->getInternalTypeInfo(sc));

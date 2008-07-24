@@ -1599,22 +1599,33 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		 *	_aaApply(aggr, keysize, flde)
 		 */
 		//LLVMDC: Build arguments.
-		Arguments* args = new Arguments;
-		args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
-		args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+		static FuncDeclaration *aaApply2_fd = NULL;
+		if(!aaApply2_fd) {
+		    Arguments* args = new Arguments;
+		    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+		    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+		    Arguments* dgargs = new Arguments;
+		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+		    args->push(new Argument(STCin, dgty, NULL, NULL));
+		    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply2");
+		}
+		static FuncDeclaration *aaApply_fd = NULL;
+		if(!aaApply_fd) {
+		    Arguments* args = new Arguments;
+		    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+		    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+		    Arguments* dgargs = new Arguments;
+		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
+		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+		    args->push(new Argument(STCin, dgty, NULL, NULL));
+		    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply");
+		}
 		if (dim == 2) {
-		    Arguments* dgargs = new Arguments;
-		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
-		    args->push(new Argument(STCin, dgty, NULL, NULL));
-		    fdapply = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply2");
+		    fdapply = aaApply2_fd;
 		} else {
-		    Arguments* dgargs = new Arguments;
-		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
-		    args->push(new Argument(STCin, dgty, NULL, NULL));
-		    fdapply = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply");
+		    fdapply = aaApply_fd;
 		}
 		ec = new VarExp(0, fdapply);
 		Expressions *exps = new Expressions();
