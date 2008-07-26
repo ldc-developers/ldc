@@ -108,21 +108,22 @@ int linkExecutable(const char* argv0)
         switch(global.params.optimizeLevel)
         {
         case 0:
-            s = "-O0"; break;
+            args.push_back("-disable-opt");
+            args.push_back("-globaldce");
+            break;
         case 1:
-            s = "-O1"; break;
+            args.push_back("-disable-opt");
+            args.push_back("-globaldce");
+            args.push_back("-mem2reg");
         case 2:
-            s = "-O2"; break;
         case 3:
-            s = "-O3"; break;
         case 4:
-            s = "-O4"; break;
         case 5:
-            s = "-O5"; break;
+            // use default optimization
+            break;
         default:
             assert(0);
         }
-        args.push_back(s);
     }
 
     // inlining
@@ -155,6 +156,10 @@ int linkExecutable(const char* argv0)
         args.push_back("-lpthread");
         args.push_back("-ldl");
         args.push_back("-lm");
+    }
+    else if (global.params.isWindows)
+    {
+        // FIXME: I'd assume kernel32 etc
     }
 
     // object files
