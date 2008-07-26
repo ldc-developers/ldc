@@ -568,7 +568,7 @@ DValue* AssignExp::toElem(IRState* p)
         DVarValue arrval(ale->e1->type, arr->getLVal(), true);
         DValue* newlen = e2->toElem(p);
         DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, newlen);
-        DtoAssign(&arrval, slice);
+        DtoAssign(loc, &arrval, slice);
         return newlen;
     }
 
@@ -576,7 +576,7 @@ DValue* AssignExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
-    DtoAssign(l, r);
+    DtoAssign(loc, l, r);
 
     if (l->isSlice() || l->isComplex())
         return l;
@@ -630,12 +630,12 @@ DValue* AddExp::toElem(IRState* p)
             return new DImValue(type, v);
         }
         else if (t->iscomplex()) {
-            return DtoComplexAdd(type, l, r);
+            return DtoComplexAdd(loc, type, l, r);
         }
         assert(0);
     }
     else if (t->iscomplex()) {
-        return DtoComplexAdd(type, l, r);
+        return DtoComplexAdd(loc, type, l, r);
     }
     else {
         return DtoBinAdd(l,r);
@@ -660,12 +660,12 @@ DValue* AddAssignExp::toElem(IRState* p)
         res = new DImValue(type, gep);
     }
     else if (t->iscomplex()) {
-        res = DtoComplexAdd(e1->type, l, r);
+        res = DtoComplexAdd(loc, e1->type, l, r);
     }
     else {
         res = DtoBinAdd(l,r);
     }
-    DtoAssign(l, res);
+    DtoAssign(loc, l, res);
 
     return res;
 }
@@ -701,7 +701,7 @@ DValue* MinExp::toElem(IRState* p)
         return new DImValue(type, v);
     }
     else if (t->iscomplex()) {
-        return DtoComplexSub(type, l, r);
+        return DtoComplexSub(loc, type, l, r);
     }
     else {
         return DtoBinSub(l,r);
@@ -731,13 +731,13 @@ DValue* MinAssignExp::toElem(IRState* p)
     }
     else if (t->iscomplex()) {
         Logger::println("complex");
-        res = DtoComplexSub(type, l, r);
+        res = DtoComplexSub(loc, type, l, r);
     }
     else {
         Logger::println("basic");
         res = DtoBinSub(l,r);
     }
-    DtoAssign(l, res);
+    DtoAssign(loc, l, res);
 
     return res;
 }
@@ -753,7 +753,7 @@ DValue* MulExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
 
     if (type->iscomplex()) {
-        return DtoComplexMul(type, l, r);
+        return DtoComplexMul(loc, type, l, r);
     }
 
     return DtoBinMul(l,r);
@@ -771,12 +771,12 @@ DValue* MulAssignExp::toElem(IRState* p)
 
     DValue* res;
     if (type->iscomplex()) {
-        res = DtoComplexMul(type, l, r);
+        res = DtoComplexMul(loc, type, l, r);
     }
     else {
         res = DtoBinMul(l,r);
     }
-    DtoAssign(l, res);
+    DtoAssign(loc, l, res);
 
     return res;
 }
@@ -792,7 +792,7 @@ DValue* DivExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
 
     if (type->iscomplex()) {
-        return DtoComplexDiv(type, l, r);
+        return DtoComplexDiv(loc, type, l, r);
     }
 
     return DtoBinDiv(l, r);
@@ -810,12 +810,12 @@ DValue* DivAssignExp::toElem(IRState* p)
 
     DValue* res;
     if (type->iscomplex()) {
-        res = DtoComplexDiv(type, l, r);
+        res = DtoComplexDiv(loc, type, l, r);
     }
     else {
         res = DtoBinDiv(l,r);
     }
-    DtoAssign(l, res);
+    DtoAssign(loc, l, res);
 
     return res;
 }
@@ -844,7 +844,7 @@ DValue* ModAssignExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
 
     DValue* res = DtoBinRem(l, r);
-    DtoAssign(l, res);
+    DtoAssign(loc, l, res);
 
     return res;
 }
@@ -933,7 +933,7 @@ DValue* CallExp::toElem(IRState* p)
             Expression* exp = (Expression*)arguments->data[0];
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
-                expv = DtoCast(expv, Type::tint32);
+                expv = DtoCast(loc, expv, Type::tint32);
             LLValue* alloc = new llvm::AllocaInst(LLType::Int8Ty, expv->getRVal(), "alloca", p->scopebb());
             // done
             return new DImValue(type, alloc);
@@ -1208,7 +1208,7 @@ DValue* CastExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
-    DValue* v = DtoCast(u, to);
+    DValue* v = DtoCast(loc, u, to);
     // force d type to this->type
     v->getType() = type;
 
@@ -1437,7 +1437,7 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP1(arrptr,r->getRVal());
     }
     else if (e1type->ty == Taarray) {
-        return DtoAAIndex(type, l, r);
+        return DtoAAIndex(loc, type, l, r);
     }
     else {
         Logger::println("invalid index exp! e1type: %s", e1type->toChars());
@@ -1671,7 +1671,7 @@ DValue* EqualExp::toElem(IRState* p)
     else if (t->iscomplex())
     {
         Logger::println("complex");
-        eval = DtoComplexEquals(op, l, r);
+        eval = DtoComplexEquals(loc, op, l, r);
     }
     else if (t->isfloating())
     {
@@ -1837,7 +1837,7 @@ DValue* NewExp::toElem(IRState* p)
         // default initialize
         Expression* exp = newtype->defaultInit(loc);
         DValue* iv = exp->toElem(gIR);
-        DtoAssign(&tmpvar, iv);
+        DtoAssign(loc, &tmpvar, iv);
 
         // return as pointer-to
         return new DImValue(type, mem, false);
@@ -1934,7 +1934,7 @@ DValue* AssertExp::toElem(IRState* p)
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
 
     // test condition
-    LLValue* condval = DtoBoolean(cond);
+    LLValue* condval = DtoBoolean(loc, cond);
 
     // branch
     llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
@@ -1963,7 +1963,7 @@ DValue* NotExp::toElem(IRState* p)
 
     DValue* u = e1->toElem(p);
 
-    LLValue* b = DtoBoolean(u);
+    LLValue* b = DtoBoolean(loc, u);
 
     LLConstant* zero = DtoConstBool(false);
     b = p->ir->CreateICmpEQ(b,zero);
@@ -1989,14 +1989,14 @@ DValue* AndAndExp::toElem(IRState* p)
     llvm::BasicBlock* andand = llvm::BasicBlock::Create("andand", gIR->topfunc(), oldend);
     llvm::BasicBlock* andandend = llvm::BasicBlock::Create("andandend", gIR->topfunc(), oldend);
 
-    LLValue* ubool = DtoBoolean(u);
+    LLValue* ubool = DtoBoolean(loc, u);
     DtoStore(ubool,resval);
     llvm::BranchInst::Create(andand,andandend,ubool,p->scopebb());
 
     p->scope() = IRScope(andand, andandend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoBoolean(v);
+    LLValue* vbool = DtoBoolean(loc, v);
     LLValue* uandvbool = llvm::BinaryOperator::create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
     DtoStore(uandvbool,resval);
     llvm::BranchInst::Create(andandend,p->scopebb());
@@ -2025,14 +2025,14 @@ DValue* OrOrExp::toElem(IRState* p)
     llvm::BasicBlock* oror = llvm::BasicBlock::Create("oror", gIR->topfunc(), oldend);
     llvm::BasicBlock* ororend = llvm::BasicBlock::Create("ororend", gIR->topfunc(), oldend);
 
-    LLValue* ubool = DtoBoolean(u);
+    LLValue* ubool = DtoBoolean(loc, u);
     DtoStore(ubool,resval);
     llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
     p->scope() = IRScope(oror, ororend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoBoolean(v);
+    LLValue* vbool = DtoBoolean(loc, v);
     DtoStore(vbool,resval);
     llvm::BranchInst::Create(ororend,p->scopebb());
 
@@ -2289,17 +2289,17 @@ DValue* CondExp::toElem(IRState* p)
     llvm::BasicBlock* condend = llvm::BasicBlock::Create("condend", gIR->topfunc(), oldend);
 
     DValue* c = econd->toElem(p);
-    LLValue* cond_val = DtoBoolean(c);
+    LLValue* cond_val = DtoBoolean(loc, c);
     llvm::BranchInst::Create(condtrue,condfalse,cond_val,p->scopebb());
 
     p->scope() = IRScope(condtrue, condfalse);
     DValue* u = e1->toElem(p);
-    DtoAssign(dvv, u);
+    DtoAssign(loc, dvv, u);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condfalse, condend);
     DValue* v = e2->toElem(p);
-    DtoAssign(dvv, v);
+    DtoAssign(loc, dvv, v);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condend, oldend);
@@ -2332,7 +2332,7 @@ DValue* NegExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
 
     if (type->iscomplex()) {
-        return DtoComplexNeg(type, l);
+        return DtoComplexNeg(loc, type, l);
     }
 
     LLValue* val = l->getRVal();
@@ -2390,11 +2390,11 @@ DValue* CatAssignExp::toElem(IRState* p)
 
     if (e2type == elemtype) {
         DSliceValue* slice = DtoCatAssignElement(l,e2);
-        DtoAssign(l, slice);
+        DtoAssign(loc, l, slice);
     }
     else if (e1type == e2type) {
         DSliceValue* slice = DtoCatAssignArray(l,e2);
-        DtoAssign(l, slice);
+        DtoAssign(loc, l, slice);
     }
     else
         assert(0 && "only one element at a time right now");
@@ -2481,7 +2481,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         DValue* e = expr->toElem(p);
         DImValue* im = e->isIm();
         if (!im || !im->inPlace()) {
-            DtoAssign(vv, e);
+            DtoAssign(loc, vv, e);
         }
     }
 
@@ -2566,7 +2566,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         DValue* ve = vx->toElem(p);
 
         if (!ve->inPlace())
-            DtoAssign(darrptr, ve);
+            DtoAssign(loc, darrptr, ve);
 
         j++;
     }
@@ -2606,7 +2606,7 @@ DValue* InExp::toElem(IRState* p)
     DValue* key = e1->toElem(p);
     DValue* aa = e2->toElem(p);
 
-    return DtoAAIn(type, aa, key);
+    return DtoAAIn(loc, type, aa, key);
 }
 
 DValue* RemoveExp::toElem(IRState* p)
@@ -2617,7 +2617,7 @@ DValue* RemoveExp::toElem(IRState* p)
     DValue* aa = e1->toElem(p);
     DValue* key = e2->toElem(p);
 
-    DtoAARemove(aa, key);
+    DtoAARemove(loc, aa, key);
 
     return NULL; // does not produce anything useful
 }
@@ -2652,11 +2652,11 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
         // index
         DValue* key = ekey->toElem(p);
-        DValue* mem = DtoAAIndex(vtype, aa, key);
+        DValue* mem = DtoAAIndex(loc, vtype, aa, key);
 
         // store
         DValue* val = eval->toElem(p);
-        DtoAssign(mem, val);
+        DtoAssign(loc, mem, val);
     }
 
     return aa;

@@ -39,16 +39,16 @@ LLValue* DtoNestedContext(FuncDeclaration* func);
 LLValue* DtoNestedVariable(VarDeclaration* vd);
 
 // basic operations
-void DtoAssign(DValue* lhs, DValue* rhs);
+void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs);
 
 // create a null dvalue
 DValue* DtoNullValue(Type* t);
 
 // casts
-DValue* DtoCastInt(DValue* val, Type* to);
-DValue* DtoCastPtr(DValue* val, Type* to);
-DValue* DtoCastFloat(DValue* val, Type* to);
-DValue* DtoCast(DValue* val, Type* to);
+DValue* DtoCastInt(Loc& loc, DValue* val, Type* to);
+DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to);
+DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to);
+DValue* DtoCast(Loc& loc, DValue* val, Type* to);
 
 // is template instance check
 bool DtoIsTemplateInstance(Dsymbol* s);
@@ -102,6 +102,6 @@ void findDefaultTarget();
 DValue* DtoCallDFunc(FuncDeclaration* fdecl, Array* arguments, TypeClass* type=0, LLValue* thismem=0);
 
 /// Converts any value to a boolean (llvm i1)
-LLValue* DtoBoolean(DValue* dval);
+LLValue* DtoBoolean(Loc& loc, DValue* dval);
 
 #endif

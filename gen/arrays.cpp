@@ -106,7 +106,7 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoArrayInit(DValue* array, DValue* value)
+void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
 {
     Logger::println("DtoArrayInit");
     LOG_SCOPE;
@@ -120,7 +120,7 @@ void DtoArrayInit(DValue* array, DValue* value)
     {
         val = new llvm::AllocaInst(DtoType(value->getType()), ".tmpparam", gIR->topallocapoint());
         DVarValue lval(value->getType(), val, true);
-        DtoAssign(&lval, value);
+        DtoAssign(loc, &lval, value);
     }
     else
     {
@@ -531,7 +531,7 @@ DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
     DValue* e = exp->toElem(gIR);
 
     if (!e->inPlace())
-        DtoAssign(dptr, e);
+        DtoAssign(exp->loc, dptr, e);
 
     return slice;
 }
@@ -633,7 +633,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
         LLValue* mem = slice->ptr;
 
         DVarValue* memval = new DVarValue(e1->getType(), mem, true);
-        DtoAssign(memval, e1);
+        DtoAssign(exp1->loc, memval, e1);
 
         src1 = DtoArrayPtr(e2);
 
@@ -664,7 +664,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 
         mem = gIR->ir->CreateGEP(mem,len1,"tmp");
         DVarValue* memval = new DVarValue(e2->getType(), mem, true);
-        DtoAssign(memval, e2);
+        DtoAssign(exp1->loc, memval, e2);
 
         return slice;
     }

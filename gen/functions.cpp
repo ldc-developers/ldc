@@ -793,7 +793,7 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
     {
         LLValue* alloc = new llvm::AllocaInst(DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
         DVarValue* vv = new DVarValue(argexp->type, alloc, true);
-        DtoAssign(vv, arg);
+        DtoAssign(argexp->loc, vv, arg);
         arg = vv;
     }
 
@@ -807,7 +807,7 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
     Logger::println("DtoVariadicArgument");
     LOG_SCOPE;
     DVarValue vv(argexp->type, dst, true);
-    DtoAssign(&vv, argexp->toElem(gIR));
+    DtoAssign(argexp->loc, &vv, argexp->toElem(gIR));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

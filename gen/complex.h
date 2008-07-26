@@ -11,21 +11,21 @@ LLConstant* DtoComplexShuffleMask(unsigned a, unsigned b);
 
 LLValue* DtoRealPart(DValue* val);
 LLValue* DtoImagPart(DValue* val);
-DValue* DtoComplex(Type* to, DValue* val);
+DValue* DtoComplex(Loc& loc, Type* to, DValue* val);
 
 void DtoComplexAssign(LLValue* l, LLValue* r);
 void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im);
 
 void DtoGetComplexParts(DValue* c, LLValue*& re, LLValue*& im);
 
-DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs);
-DValue* DtoComplexSub(Type* type, DValue* lhs, DValue* rhs);
-DValue* DtoComplexMul(Type* type, DValue* lhs, DValue* rhs);
-DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs);
-DValue* DtoComplexNeg(Type* type, DValue* val);
+DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
+DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
+DValue* DtoComplexMul(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
+DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
+DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val);
 
-LLValue* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs);
+LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs);
 
-DValue* DtoCastComplex(DValue* val, Type* to);
+DValue* DtoCastComplex(Loc& loc, DValue* val, Type* to);
 
 #endif // LLVMDC_GEN_COMPLEX_H

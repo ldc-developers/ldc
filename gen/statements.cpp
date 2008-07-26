@@ -67,7 +67,7 @@ void ReturnStatement::toIR(IRState* p)
             DValue* e = exp->toElem(p);
 
             if (!e->inPlace())
-                DtoAssign(rvar, e);
+                DtoAssign(loc, rvar, e);
 
             DtoEnclosingHandlers(enclosinghandler, NULL);
 
@@ -160,7 +160,7 @@ void IfStatement::toIR(IRState* p)
 
     if (cond_val->getType() != LLType::Int1Ty) {
         Logger::cout() << "if conditional: " << *cond_val << '\n';
-        cond_val = DtoBoolean(cond_e);
+        cond_val = DtoBoolean(loc, cond_e);
     }
     LLValue* ifgoback = llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
 
@@ -248,7 +248,7 @@ void WhileStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    LLValue* cond_val = DtoBoolean(cond_e);
+    LLValue* cond_val = DtoBoolean(loc, cond_e);
     delete cond_e;
 
     // conditional branch
@@ -299,7 +299,7 @@ void DoStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    LLValue* cond_val = DtoBoolean(cond_e);
+    LLValue* cond_val = DtoBoolean(loc, cond_e);
     delete cond_e;
 
     // conditional branch
@@ -341,7 +341,7 @@ void ForStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    LLValue* cond_val = DtoBoolean(cond_e);
+    LLValue* cond_val = DtoBoolean(loc, cond_e);
     delete cond_e;
 
     // conditional branch
@@ -677,7 +677,7 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
         // give storage
         llval = new llvm::AllocaInst(DtoType(e->type), "tmp", gIR->topallocapoint());
         DVarValue* vv = new DVarValue(e->type, llval, true);
-        DtoAssign(vv, val);
+        DtoAssign(e->loc, vv, val);
     }
     else
     {
@@ -994,7 +994,7 @@ void ForeachStatement::toIR(IRState* p)
     if (!value->isRef() && !value->isOut()) {
         DValue* dst = new DVarValue(value->type, valvar, true);
         DValue* src = new DVarValue(value->type, value->ir.irLocal->value, true);
-        DtoAssign(dst, src);
+        DtoAssign(loc, dst, src);
         value->ir.irLocal->value = valvar;
     }
 

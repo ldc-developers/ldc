@@ -14,7 +14,7 @@
 
 // makes sure the key value lives in memory so it can be passed to the runtime functions without problems
 // returns the pointer
-static LLValue* to_pkey(DValue* key)
+static LLValue* to_pkey(Loc& loc, DValue* key)
 {
     Type* keytype = key->getType();
     bool needmem = !DtoIsPassedByRef(keytype);
@@ -38,7 +38,7 @@ static LLValue* to_pkey(DValue* key)
     else {
         LLValue* tmp = new llvm::AllocaInst(DtoType(keytype), "aatmpkeystorage", gIR->topallocapoint());
         DVarValue* var = new DVarValue(keytype, tmp, true);
-        DtoAssign(var, key);
+        DtoAssign(loc, var, key);
         return tmp;
     }
 
@@ -62,7 +62,7 @@ static LLValue* to_keyti(DValue* key)
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoAAIndex(Type* type, DValue* aa, DValue* key)
+DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key)
 {
     // call:
     // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, void* pkey, size_t valuesize)
@@ -83,7 +83,7 @@ DValue* DtoAAIndex(Type* type, DValue* aa, DValue* key)
     LLValue* valsize = DtoConstSize_t(getABITypeSize(DtoType(type)));
 
     // pkey param
-    LLValue* pkey = to_pkey(key);
+    LLValue* pkey = to_pkey(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(3));
 
     // call runtime
@@ -99,7 +99,7 @@ DValue* DtoAAIndex(Type* type, DValue* aa, DValue* key)
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoAAIn(Type* type, DValue* aa, DValue* key)
+DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
 {
     // call:
     // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
@@ -121,7 +121,7 @@ DValue* DtoAAIn(Type* type, DValue* aa, DValue* key)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
-    LLValue* pkey = to_pkey(key);
+    LLValue* pkey = to_pkey(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
     // call runtime
@@ -137,7 +137,7 @@ DValue* DtoAAIn(Type* type, DValue* aa, DValue* key)
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-void DtoAARemove(DValue* aa, DValue* key)
+void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
 {
     // call:
     // extern(C) void _aaDel(AA aa, TypeInfo keyti, void* pkey)
@@ -159,7 +159,7 @@ void DtoAARemove(DValue* aa, DValue* key)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
-    LLValue* pkey = to_pkey(key);
+    LLValue* pkey = to_pkey(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
     // build arg vector

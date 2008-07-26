@@ -512,7 +512,7 @@ LLValue* DtoNestedVariable(VarDeclaration* vd)
 // ASSIGNMENT HELPER (store this in that)
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-void DtoAssign(DValue* lhs, DValue* rhs)
+void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
 {
     Logger::cout() << "DtoAssign(...);\n";
     LOG_SCOPE;
@@ -536,7 +536,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
                 DtoArrayCopySlices(s, s2);
             }
             else if (t->next->toBasetype()->equals(t2)) {
-                DtoArrayInit(s, rhs);
+                DtoArrayInit(loc, s, rhs);
             }
             else {
                 DtoArrayCopyToSlice(s, rhs);
@@ -561,7 +561,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             DtoStaticArrayCopy(lhs->getLVal(), rhs->getRVal());
         }
         else {
-            DtoArrayInit(lhs, rhs);
+            DtoArrayInit(loc, lhs, rhs);
         }
     }
     else if (t->ty == Tdelegate) {
@@ -596,7 +596,7 @@ void DtoAssign(DValue* lhs, DValue* rhs)
         LLValue* dst;
         if (DLRValue* lr = lhs->isLRValue()) {
             dst = lr->getLVal();
-            rhs = DtoCastComplex(rhs, lr->getLType());
+            rhs = DtoCastComplex(loc, rhs, lr->getLType());
         }
         else {
             dst = lhs->getRVal();
@@ -616,10 +616,10 @@ void DtoAssign(DValue* lhs, DValue* rhs)
             // handle lvalue cast assignments
             if (DLRValue* lr = lhs->isLRValue()) {
                 Logger::println("lvalue cast!");
-                r = DtoCast(rhs, lr->getLType())->getRVal();
+                r = DtoCast(loc, rhs, lr->getLType())->getRVal();
             }
             else {
-                r = DtoCast(rhs, lhs->getType())->getRVal();
+                r = DtoCast(loc, rhs, lhs->getType())->getRVal();
             }
             Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
             assert(r->getType() == l->getType()->getContainedType(0));
@@ -676,7 +676,7 @@ DValue* DtoNullValue(Type* type)
 //      CASTING HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-DValue* DtoCastInt(DValue* val, Type* _to)
+DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
 {
     const LLType* tolltype = DtoType(_to);
 
@@ -709,7 +709,7 @@ DValue* DtoCastInt(DValue* val, Type* _to)
         }
     }
     else if (to->iscomplex()) {
-        return DtoComplex(to, val);
+        return DtoComplex(loc, to, val);
     }
     else if (to->isfloating()) {
         if (from->isunsigned()) {
@@ -724,13 +724,14 @@ DValue* DtoCastInt(DValue* val, Type* _to)
         rval = gIR->ir->CreateIntToPtr(rval, tolltype, "tmp");
     }
     else {
-        assert(0 && "bad int cast");
+        error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), _to->toChars());
+        fatal();
     }
 
     return new DImValue(_to, rval);
 }
 
-DValue* DtoCastPtr(DValue* val, Type* to)
+DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
 {
     const LLType* tolltype = DtoType(to);
 
@@ -749,14 +750,14 @@ DValue* DtoCastPtr(DValue* val, Type* to)
         rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
     }
     else {
-        Logger::println("invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
-        assert(0);
+        error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
+        fatal();
     }
 
     return new DImValue(to, rval);
 }
 
-DValue* DtoCastFloat(DValue* val, Type* to)
+DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
 {
     if (val->getType() == to)
         return val;
@@ -773,7 +774,7 @@ DValue* DtoCastFloat(DValue* val, Type* to)
     LLValue* rval;
 
     if (totype->iscomplex()) {
-        return DtoComplex(to, val);
+        return DtoComplex(loc, to, val);
     }
     else if (totype->isfloating()) {
         if ((fromtype->ty == Tfloat80 || fromtype->ty == Tfloat64) && (totype->ty == Tfloat80 || totype->ty == Tfloat64)) {
@@ -789,7 +790,8 @@ DValue* DtoCastFloat(DValue* val, Type* to)
             rval = new llvm::FPTruncInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
         }
         else {
-            assert(0 && "bad float cast");
+            error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
+            fatal();
         }
     }
     else if (totype->isintegral()) {
@@ -801,24 +803,25 @@ DValue* DtoCastFloat(DValue* val, Type* to)
         }
     }
     else {
-        assert(0 && "bad float cast");
+        error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
+        fatal();
     }
 
     return new DImValue(to, rval);
 }
 
-DValue* DtoCast(DValue* val, Type* to)
+DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
     Type* fromtype = DtoDType(val->getType());
     Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     if (fromtype->isintegral()) {
-        return DtoCastInt(val, to);
+        return DtoCastInt(loc, val, to);
     }
     else if (fromtype->iscomplex()) {
-        return DtoCastComplex(val, to);
+        return DtoCastComplex(loc, val, to);
     }
     else if (fromtype->isfloating()) {
-        return DtoCastFloat(val, to);
+        return DtoCastFloat(loc, val, to);
     }
     else if (fromtype->ty == Tclass) {
         return DtoCastClass(val, to);
@@ -827,10 +830,11 @@ DValue* DtoCast(DValue* val, Type* to)
         return DtoCastArray(val, to);
     }
     else if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
-        return DtoCastPtr(val, to);
+        return DtoCastPtr(loc, val, to);
     }
     else {
-        assert(0);
+        error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
+        fatal();
     }
 }
 
@@ -872,7 +876,7 @@ void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
     DValue* ie = DtoInitializer(init);
     if (!ie->inPlace()) {
         DValue* dst = new DVarValue(t, gvar, true);
-        DtoAssign(dst, ie);
+        DtoAssign(init->loc, dst, ie);
     }
     gIR->ir->CreateStore(DtoConstBool(true), gflag);
     gIR->ir->CreateBr(endinitbb);
@@ -1359,7 +1363,7 @@ void findDefaultTarget()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoBoolean(DValue* dval)
+LLValue* DtoBoolean(Loc& loc, DValue* dval)
 {
     Type* dtype = dval->getType()->toBasetype();
     TY ty = dtype->ty;
@@ -1378,7 +1382,7 @@ LLValue* DtoBoolean(DValue* dval)
     // complex
     else if (dtype->iscomplex())
     {
-        return DtoComplexEquals(TOKnotequal, dval, DtoNullValue(dtype));
+        return DtoComplexEquals(loc, TOKnotequal, dval, DtoNullValue(dtype));
     }
     // floating point
     else if (dtype->isfloating())

@@ -14,7 +14,7 @@ LLConstant* DtoConstStaticArray(const LLType* t, LLConstant* c);
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
-void DtoArrayInit(DValue* array, DValue* value);
+void DtoArrayInit(Loc& loc, DValue* array, DValue* value);
 void DtoArrayAssign(LLValue* l, LLValue* r);
 void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);

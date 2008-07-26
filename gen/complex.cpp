@@ -101,12 +101,12 @@ LLValue* DtoImagPart(DValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoComplex(Type* to, DValue* val)
+DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 {
     Type* t = DtoDType(val->getType());
 
     if (val->isComplex() || t->iscomplex()) {
-        return DtoCastComplex(val, to);
+        return DtoCastComplex(loc, val, to);
     }
 
     const LLType* base = DtoComplexBaseType(to);
@@ -126,13 +126,13 @@ DValue* DtoComplex(Type* to, DValue* val)
     }
 
     if (t->isimaginary()) {
-        return new DComplexValue(to, LLConstant::getNullValue(DtoType(baserety)), DtoCastFloat(val, baseimty)->getRVal());
+        return new DComplexValue(to, LLConstant::getNullValue(DtoType(baserety)), DtoCastFloat(loc, val, baseimty)->getRVal());
     }
     else if (t->isfloating()) {
-        return new DComplexValue(to, DtoCastFloat(val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
+        return new DComplexValue(to, DtoCastFloat(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
     }
     else if (t->isintegral()) {
-        return new DComplexValue(to, DtoCastInt(val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
+        return new DComplexValue(to, DtoCastInt(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
     }
     assert(0);
 }
@@ -179,10 +179,10 @@ DValue* resolveLR(DValue* val, bool getlval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs)
+DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(type, resolveLR(lhs, true));
-    rhs = DtoComplex(type, resolveLR(rhs, false));
+    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
     llvm::Value *a, *b, *c, *d, *re, *im;
 
@@ -200,10 +200,10 @@ DValue* DtoComplexAdd(Type* type, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoComplexSub(Type* type, DValue* lhs, DValue* rhs)
+DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(type, resolveLR(lhs, true));
-    rhs = DtoComplex(type, resolveLR(rhs, false));
+    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
     llvm::Value *a, *b, *c, *d, *re, *im;
 
@@ -221,10 +221,10 @@ DValue* DtoComplexSub(Type* type, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoComplexMul(Type* type, DValue* lhs, DValue* rhs)
+DValue* DtoComplexMul(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(type, resolveLR(lhs, true));
-    rhs = DtoComplex(type, resolveLR(rhs, false));
+    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
     llvm::Value *a, *b, *c, *d;
 
@@ -248,10 +248,10 @@ DValue* DtoComplexMul(Type* type, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs)
+DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(type, resolveLR(lhs, true));
-    rhs = DtoComplex(type, resolveLR(rhs, false));
+    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
     llvm::Value *a, *b, *c, *d;
 
@@ -281,9 +281,9 @@ DValue* DtoComplexDiv(Type* type, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoComplexNeg(Type* type, DValue* val)
+DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val)
 {
-    val = DtoComplex(type, resolveLR(val, false));
+    val = DtoComplex(loc, type, resolveLR(val, false));
 
     llvm::Value *a, *b, *re, *im;
 
@@ -299,12 +299,12 @@ DValue* DtoComplexNeg(Type* type, DValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
+LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
 {
     Type* type = lhs->getType();
 
-    lhs = DtoComplex(type, resolveLR(lhs, false));
-    rhs = DtoComplex(type, resolveLR(rhs, false));
+    lhs = DtoComplex(loc, type, resolveLR(lhs, false));
+    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
     llvm::Value *a, *b, *c, *d;
 
@@ -332,7 +332,7 @@ LLValue* DtoComplexEquals(TOK op, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoCastComplex(DValue* val, Type* _to)
+DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
 {
     Type* to = DtoDType(_to);
     Type* vty = val->getType();
@@ -370,14 +370,14 @@ DValue* DtoCastComplex(DValue* val, Type* _to)
             return new DImValue(to, val->isComplex()->im);
         LLValue* v = val->getRVal();
         DImValue* im = new DImValue(to, DtoLoad(DtoGEPi(v,0,1,"tmp")));
-        return DtoCastFloat(im, to);
+        return DtoCastFloat(loc, im, to);
     }
     else if (to->isfloating()) {
         if (val->isComplex())
             return new DImValue(to, val->isComplex()->re);
         LLValue* v = val->getRVal();
         DImValue* re = new DImValue(to, DtoLoad(DtoGEPi(v,0,0,"tmp")));
-        return DtoCastFloat(re, to);
+        return DtoCastFloat(loc, re, to);
     }
     else
     assert(0);
