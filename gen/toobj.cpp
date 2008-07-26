@@ -175,7 +175,7 @@ void Module::genobjfile(int multiobj)
 
     // write bytecode
     {
-        Logger::println("Writing LLVM bitcode\n");
+        Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::ofstream bos(bcpath.c_str(), std::ios::binary);
         llvm::WriteBitcodeToFile(ir.module, bos);
     }

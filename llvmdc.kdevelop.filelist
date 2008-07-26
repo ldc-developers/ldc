@@ -58,8 +58,6 @@ dmd/macro.h
 dmd/mangle.c
 dmd/mars.c
 dmd/mars.h
-dmd/md5.c
-dmd/md5.h
 dmd/mem.c
 dmd/mem.h
 dmd/module.c
