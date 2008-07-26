@@ -264,9 +264,9 @@ extern (C) Array _adReverse(Array a, size_t szelem)
             if (szelem > 16)
             {
                 //version (Win32)
-                    tmp = cast(byte*) alloca(szelem);
+                    //tmp = cast(byte*) alloca(szelem);
                 //else
-                    //tmp = gc_malloc(szelem);
+                    tmp = cast(byte*) gc_malloc(szelem);
             }
 
             for (; lo < hi; lo += szelem, hi -= szelem)
