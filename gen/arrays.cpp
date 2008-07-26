@@ -262,6 +262,9 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     else
     assert(0);
 
+    if(arrinit->dim != tdim)
+        error(arrinit->loc, "array initializer for %s has incorrect length (%d)", arrinit->type->toChars(), arrinit->dim);
+
     Logger::println("dim = %u", tdim);
 
     std::vector<LLConstant*> inits(tdim, NULL);
