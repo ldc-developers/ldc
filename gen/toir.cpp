@@ -244,9 +244,9 @@ DValue* VarExp::toElem(IRState* p)
                 DtoConstInitGlobal(vd);
             }
             if (!vd->ir.getIrValue() || DtoType(vd->type)->isAbstract()) {
-                Logger::println("global variable not resolved :/ %s", vd->toChars());
-                Logger::cout() << *DtoType(vd->type) << '\n';
-                assert(0);
+                error("global variable %s not resolved", vd->toChars());
+                Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
+                fatal();
             }
             return new DVarValue(vd, vd->ir.getIrValue(), true);
         }
