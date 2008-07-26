@@ -446,14 +446,16 @@ void ContinueStatement::toIR(IRState* p)
             targetLoopStatement = tmp->statement;
 
         // find the right continue block and jump there
+        bool found = false;
         IRState::LoopScopeVec::reverse_iterator it;
         for(it = gIR->loopbbs.rbegin(); it != gIR->loopbbs.rend(); ++it) {
             if(it->s == targetLoopStatement) {
                 llvm::BranchInst::Create(it->begin, gIR->scopebb());
-                return;
+                found = true;
+                break;
             }
         }
-        assert(0);
+        assert(found);
     }
     else {
         // can't 'continue' within switch, so omit them
@@ -466,6 +468,11 @@ void ContinueStatement::toIR(IRState* p)
         DtoEnclosingHandlers(enclosinghandler, it->enclosinghandler);
         llvm::BranchInst::Create(it->begin, gIR->scopebb());
     }
+
+    // the continue terminated this basicblock, start a new one
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftercontinue", p->topfunc(), oldend);
+    p->scope() = IRScope(bb,oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////
