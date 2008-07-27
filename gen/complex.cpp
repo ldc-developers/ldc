@@ -179,71 +179,139 @@ DValue* resolveLR(DValue* val, bool getlval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+bool hasRe(Type* t)
+{
+    return 
+        (t->ty != Timaginary32 && 
+         t->ty != Timaginary64 &&
+         t->ty != Timaginary80);
+}
+
+bool hasIm(Type* t)
+{
+    return 
+        (t->ty == Timaginary32 || 
+         t->ty == Timaginary64 ||
+         t->ty == Timaginary80 ||
+         t->ty == Tcomplex32 || 
+         t->ty == Tcomplex64 ||
+         t->ty == Tcomplex80);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
-    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
+    DValue* clhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    DValue* crhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
-    llvm::Value *a, *b, *c, *d, *re, *im;
+    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
     // lhs values
-    DtoGetComplexParts(lhs, a, b);
+    DtoGetComplexParts(clhs, lhs_re, lhs_im);
     // rhs values
-    DtoGetComplexParts(rhs, c, d);
+    DtoGetComplexParts(crhs, rhs_re, rhs_im);
 
     // add up
-    re = gIR->ir->CreateAdd(a, c, "tmp");
-    im = gIR->ir->CreateAdd(b, d, "tmp");
+    Type* lhstype = lhs->getType();
+    Type* rhstype = rhs->getType();
+    if(hasRe(lhstype) && hasRe(rhstype))
+        res_re = gIR->ir->CreateAdd(lhs_re, rhs_re, "tmp");
+    else if(hasRe(lhstype))
+        res_re = lhs_re;
+    else // either hasRe(rhstype) or no re at all (then use any)
+        res_re = rhs_re;
+    
+    if(hasIm(lhstype) && hasIm(rhstype))
+        res_im = gIR->ir->CreateAdd(lhs_im, rhs_im, "tmp");
+    else if(hasIm(lhstype))
+        res_im = lhs_im;
+    else // either hasIm(rhstype) or no im at all (then use any)
+        res_im = rhs_im;
 
-    return new DComplexValue(type, re, im);
+    return new DComplexValue(type, res_re, res_im);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
-    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
+    DValue* clhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    DValue* crhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
-    llvm::Value *a, *b, *c, *d, *re, *im;
+    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
     // lhs values
-    DtoGetComplexParts(lhs, a, b);
+    DtoGetComplexParts(clhs, lhs_re, lhs_im);
     // rhs values
-    DtoGetComplexParts(rhs, c, d);
+    DtoGetComplexParts(crhs, rhs_re, rhs_im);
 
-    // add up
-    re = gIR->ir->CreateSub(a, c, "tmp");
-    im = gIR->ir->CreateSub(b, d, "tmp");
+    // sub up
+    Type* lhstype = lhs->getType();
+    Type* rhstype = rhs->getType();
+    if(hasRe(rhstype))
+        res_re = gIR->ir->CreateSub(lhs_re, rhs_re, "tmp");
+    else
+        res_re = lhs_re;
+    
+    if(hasIm(rhstype))
+        res_im = gIR->ir->CreateSub(lhs_im, rhs_im, "tmp");
+    else
+        res_im = lhs_im;
 
-    return new DComplexValue(type, re, im);
+    return new DComplexValue(type, res_re, res_im);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoComplexMul(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
-    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
+    DValue* clhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    DValue* crhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
-    llvm::Value *a, *b, *c, *d;
+    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
     // lhs values
-    DtoGetComplexParts(lhs, a, b);
+    DtoGetComplexParts(clhs, lhs_re, lhs_im);
     // rhs values
-    DtoGetComplexParts(rhs, c, d);
+    DtoGetComplexParts(crhs, rhs_re, rhs_im);
 
-    llvm::Value *tmp1, *tmp2, *re, *im;
+    // mul up
+    llvm::Value *rere = NULL;
+    llvm::Value *reim = NULL;
+    llvm::Value *imre = NULL;
+    llvm::Value *imim = NULL;
+    Type* lhstype = lhs->getType();
+    Type* rhstype = rhs->getType();
 
-    tmp1 = gIR->ir->CreateMul(a, c, "tmp");
-    tmp2 = gIR->ir->CreateMul(b, d, "tmp");
-    re = gIR->ir->CreateSub(tmp1, tmp2, "tmp");
+    if(hasRe(lhstype) && hasRe(rhstype))
+        rere = gIR->ir->CreateMul(lhs_re, rhs_re, "rere_mul");
+    if(hasRe(lhstype) && hasIm(rhstype))
+        reim = gIR->ir->CreateMul(lhs_re, rhs_im, "reim_mul");
+    if(hasIm(lhstype) && hasRe(rhstype))
+        imre = gIR->ir->CreateMul(lhs_im, rhs_re, "imre_mul");
+    if(hasIm(lhstype) && hasIm(rhstype))
+        imim = gIR->ir->CreateMul(lhs_im, rhs_im, "imim_mul");
 
-    tmp1 = gIR->ir->CreateMul(b, c, "tmp");
-    tmp2 = gIR->ir->CreateMul(a, d, "tmp");
-    im = gIR->ir->CreateAdd(tmp1, tmp2, "tmp");
+    if(rere && imim)
+        res_re = gIR->ir->CreateSub(rere, imim, "rere_imim_sub");
+    else if(rere)
+        res_re = rere;
+    else if(imim)
+        res_re = gIR->ir->CreateNeg(imim, "imim_neg");
+    else
+        res_re = hasRe(lhstype) ? rhs_re : lhs_re; // null!
 
-    return new DComplexValue(type, re, im);
+    if(reim && imre)
+        res_im = gIR->ir->CreateAdd(reim, imre, "reim_imre_add");
+    else if(reim)
+        res_im = reim;
+    else if(imre)
+        res_im = imre;
+    else
+        res_im = hasRe(lhstype) ? rhs_im : lhs_re; // null!
+
+    return new DComplexValue(type, res_re, res_im);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
