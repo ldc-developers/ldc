@@ -52,6 +52,7 @@ extern(C)
         int private_2;
     }
 
+version(X86) { version(linux) {
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
     ulong _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
@@ -59,6 +60,21 @@ extern(C)
     ulong _Unwind_SetIP(_Unwind_Context_Ptr context, ulong new_value);
     ulong _Unwind_SetGR(_Unwind_Context_Ptr context, int index, ulong new_value);
     ulong _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
+} }
+else
+{
+    // runtime calls these directly
+    void _Unwind_Resume(_Unwind_Exception*)
+    {
+        console("_Unwind_Resume is not implemented on this platform.\n");
+    }
+    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*)
+    {
+        console("_Unwind_RaiseException is not implemented on this platform.\n");
+        return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
+    }
+}
+
 }
 
 
@@ -126,6 +142,13 @@ struct _d_exception
 // the first 4 are for vendor, the second 4 for language
 //TODO: This may be the wrong way around
 char[8] _d_exception_class = "LLDCD1\0\0";
+
+
+//
+// x86 Linux specific implementation of personality function
+// and helpers
+//
+version(X86) version(linux) {
 
 // the personality routine gets called by the unwind handler and is responsible for
 // reading the EH tables and deciding what to do
@@ -305,6 +328,9 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
 
   callsite = data;
 }
+
+} // end of x86 Linux specific implementation
+
 
 extern(C) void _d_throw_exception(Object e)
 {
