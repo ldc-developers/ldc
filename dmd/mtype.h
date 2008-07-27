@@ -389,6 +389,8 @@ struct TypePointer : Type
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH implicitConvTo(Type *to);
     int isscalar();
+    // LLVMDC: pointers are unsigned
+    int isunsigned() { return TRUE; };
     Expression *defaultInit(Loc loc);
     int isZeroInit();
     TypeInfoDeclaration *getTypeInfoDeclaration();
