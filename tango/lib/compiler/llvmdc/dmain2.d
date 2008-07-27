@@ -87,13 +87,12 @@ extern (C) bool rt_trapExceptions = true;
 
 void _d_criticalInit()
 {
-    version (linux)
-    {
-        _STI_monitor_staticctor();
-        _STI_critical_init();
-    }
+    _STI_monitor_staticctor();
+    _STI_critical_init();
 }
 
+// this is here so users can manually initialize the runtime
+// for example, when there is no main function etc.
 extern (C) bool rt_init( void delegate( Exception ) dg = null )
 {
     _d_criticalInit();
@@ -119,13 +118,12 @@ extern (C) bool rt_init( void delegate( Exception ) dg = null )
 
 void _d_criticalTerm()
 {
-    version (linux)
-    {
-        _STD_critical_term();
-        _STD_monitor_staticdtor();
-    }
+    _STD_critical_term();
+    _STD_monitor_staticdtor();
 }
 
+// this is here so users can manually terminate the runtime
+// for example, when there is no main function etc.
 extern (C) bool rt_term( void delegate( Exception ) dg = null )
 {
     try
@@ -168,12 +166,9 @@ extern (C) int main(int argc, char **argv, char** env)
     char[][] args;
     int result;
 
-    version (linux)
-    {
-        debug(PRINTF) printf("main ctors\n");
-        _STI_monitor_staticctor();
-        _STI_critical_init();
-    }
+    debug(PRINTF) printf("main ctors\n");
+    _STI_monitor_staticctor();
+    _STI_critical_init();
 
     debug(PRINTF) printf("main args\n");
     version (Win32)
@@ -288,11 +283,9 @@ extern (C) int main(int argc, char **argv, char** env)
 
     tryExec(&runAll);
 
-    version (linux)
-    {
-        debug(PRINTF) printf("main dtor\n");
-        _STD_critical_term();
-        _STD_monitor_staticdtor();
-    }
+    debug(PRINTF) printf("main dtor\n");
+    _STD_critical_term();
+    _STD_monitor_staticdtor();
+
     return result;
 }
