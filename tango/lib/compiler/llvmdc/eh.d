@@ -8,6 +8,9 @@ import util.console;
 
 // debug = EH_personality;
 
+// current EH implementation works on x86 linux only
+version(X86) version(linux) version=X86_LINUX;
+
 private extern(C) void abort();
 private extern(C) int printf(char*, ...);
 
@@ -52,7 +55,8 @@ extern(C)
         int private_2;
     }
 
-version(X86) { version(linux) {
+version(X86_LINUX) 
+{
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
     ulong _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
@@ -60,7 +64,7 @@ version(X86) { version(linux) {
     ulong _Unwind_SetIP(_Unwind_Context_Ptr context, ulong new_value);
     ulong _Unwind_SetGR(_Unwind_Context_Ptr context, int index, ulong new_value);
     ulong _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
-} }
+}
 else
 {
     // runtime calls these directly
@@ -148,7 +152,8 @@ char[8] _d_exception_class = "LLDCD1\0\0";
 // x86 Linux specific implementation of personality function
 // and helpers
 //
-version(X86) version(linux) {
+version(X86_LINUX) 
+{
 
 // the personality routine gets called by the unwind handler and is responsible for
 // reading the EH tables and deciding what to do
