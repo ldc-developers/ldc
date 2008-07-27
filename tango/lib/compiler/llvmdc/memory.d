@@ -123,9 +123,11 @@ private
     {
         extern (C)
         {
-            extern int _xi_a;   // &_xi_a just happens to be start of data segment
-            extern int _edata;  // &_edata is start of BSS segment
-            extern int _end;    // &_end is past end of BSS
+            extern int _data_start__;
+            extern int _bss_end__;
+
+            alias _data_start__ Data_Start;
+            alias _bss_end__    Data_End;
         }
     }
     else version( linux )
@@ -157,12 +159,12 @@ extern (C) void rt_scanStaticData( scanFn scan )
 {
     version( Win32 )
     {
-        scan( &_xi_a, &_end );
+        scan( &Data_Start, &Data_End );
     }
     else version( linux )
     {
-        //printf("scanning static data from %p to %p\n", &__data_start, &_end);
-        scan( &__data_start, &_end );
+        //printf("scanning static data from %p to %p\n", &Data_Start, &Data_End);
+        scan( &Data_Start, &Data_End );
     }
     else
     {
