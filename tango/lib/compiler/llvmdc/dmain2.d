@@ -23,8 +23,8 @@ version( Win32 )
     extern (Windows) wchar_t*   GetCommandLineW();
     extern (Windows) wchar_t**  CommandLineToArgvW(wchar_t*, int*);
     extern (Windows) export int WideCharToMultiByte(uint, uint, wchar_t*, int, char*, int, char*, int);
-    pragma(lib, "shell32.lib");   // needed for CommandLineToArgvW
-    pragma(lib, "tango-win32-dmd.lib"); // links Tango's Win32 library to reduce EXE size
+    //pragma(lib, "shell32.lib");   // needed for CommandLineToArgvW
+    //pragma(lib, "tango-win32-dmd.lib"); // links Tango's Win32 library to reduce EXE size
 }
 
 extern (C) void _STI_monitor_staticctor();
@@ -33,7 +33,6 @@ extern (C) void _STI_critical_init();
 extern (C) void _STD_critical_term();
 extern (C) void gc_init();
 extern (C) void gc_term();
-extern (C) void _minit();
 extern (C) void _moduleCtor();
 extern (C) void _moduleDtor();
 extern (C) void thread_joinAll();
@@ -102,8 +101,6 @@ extern (C) bool rt_init( void delegate( Exception ) dg = null )
     try
     {
         gc_init();
-        version (Win32)
-            _minit();
         _moduleCtor();
         return true;
     }
@@ -280,8 +277,6 @@ extern (C) int main(int argc, char **argv, char** env)
     {
         debug(PRINTF) printf("main runAll\n");
         gc_init();
-        version (Win32)
-            _minit();
         _moduleCtor();
         if (runModuleUnitTests())
             tryExec(&runMain);
