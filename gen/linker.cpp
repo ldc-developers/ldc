@@ -172,6 +172,15 @@ int linkExecutable(const char* argv0)
     // runtime library
     // must be linked in last to null terminate the moduleinfo appending list
     std::string runtime_path(global.params.runtimePath);
+
+    // path seperator can be \ on windows, but we check for /
+    if (global.params.isWindows)
+    {
+        int i=0;
+        while ((i = runtime_path.find("\\", i)) > 0)
+            runtime_path.replace(i, 1, "/");
+    }
+
     if (*runtime_path.rbegin() != '/')
         runtime_path.append("/");
     runtime_path.append("libtango-base-llvmdc-native.a");
