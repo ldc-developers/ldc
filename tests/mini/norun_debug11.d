@@ -1,4 +1,4 @@
-module tangotests.debug11;
+module mini.norun_debug11;
 
 class C
 {

@@ -1,4 +1,4 @@
-module tangotests.debug8;
+module mini.norun_debug8;
 
 struct Str
 {

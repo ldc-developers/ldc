@@ -1,4 +1,4 @@
-module tangotests.debug12;
+module mini.norun_debug12;
 
 interface I
 {

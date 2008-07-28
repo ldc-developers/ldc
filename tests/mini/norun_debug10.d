@@ -1,4 +1,4 @@
-module tangotests.debug10;
+module mini.norun_debug10;
 
 struct Vec2
 {

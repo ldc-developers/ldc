@@ -1,4 +1,4 @@
-module tangotests.debug7;
+module mini.norun_debug7;
 
 int gi;
 

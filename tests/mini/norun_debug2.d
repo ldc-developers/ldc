@@ -1,4 +1,4 @@
-module tangotests.debug2;
+module mini.norun_debug2;
 
 import tango.stdc.stdlib : rand;
 

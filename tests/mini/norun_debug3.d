@@ -1,4 +1,4 @@
-module tangotests.debug3;
+module mini.norun_debug3;
 
 void main()
 {
