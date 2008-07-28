@@ -1494,11 +1494,12 @@ complex_t RealExp::toComplex()
 
 int RealEquals(real_t x1, real_t x2)
 {
-    return (isnan(x1) && isnan(x2)) ||
-	/* In some cases, the REALPAD bytes get garbage in them,
-	 * so be sure and ignore them.
-	 */
-	x1 == x2;
+    return // special case nans
+	   (isnan(x1) && isnan(x2)) ||
+	   // and zero, in order to distinguish +0 from -0
+	   (x1 == 0 && x2 == 0 && 1./x1 == 1./x2) ||
+	   // otherwise just compare
+	   (x1 != 0. && x1 == x2);
 }
 
 int RealExp::equals(Object *o)
