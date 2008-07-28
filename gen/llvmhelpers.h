@@ -48,6 +48,7 @@ DValue* DtoNullValue(Type* t);
 DValue* DtoCastInt(Loc& loc, DValue* val, Type* to);
 DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to);
 DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to);
+DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to);
 DValue* DtoCast(Loc& loc, DValue* val, Type* to);
 
 // is template instance check

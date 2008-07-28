@@ -810,6 +810,25 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
     return new DImValue(to, rval);
 }
 
+DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
+{
+    LLValue* res = 0;
+    to = to->toBasetype();
+
+    if (to->ty == Tdelegate)
+    {
+        const LLType* toll = getPtrToType(DtoType(to));
+        res = DtoBitCast(val->getRVal(), toll);
+    }
+    else
+    {
+        error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
+        fatal();
+    }
+
+    return new DImValue(to, res);
+}
+
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
     Type* fromtype = DtoDType(val->getType());
@@ -831,6 +850,9 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     }
     else if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
         return DtoCastPtr(loc, val, to);
+    }
+    else if (fromtype->ty == Tdelegate) {
+        return DtoCastDelegate(loc, val, to);
     }
     else {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
