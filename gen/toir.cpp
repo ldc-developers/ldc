@@ -851,353 +851,42 @@ DValue* ModAssignExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO: the method below could really use a cleanup/splitup
-
 DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    DValue* fn = e1->toElem(p);
+    // get the callee value
+    DValue* fnval = e1->toElem(p);
 
-    TypeFunction* tf = 0;
-    Type* e1type = DtoDType(e1->type);
+    // get func value if any
+    DFuncValue* dfnval = fnval->isFunc();
 
-    bool delegateCall = false;
-    LINK dlink = LINKd;
-
-    // hidden struct return parameter handling
-    bool retinptr = false;
-
-    // regular functions
-    if (e1type->ty == Tfunction) {
-        tf = (TypeFunction*)e1type;
-        if (tf->llvmRetInPtr) {
-            retinptr = true;
-        }
-        dlink = tf->linkage;
-    }
-
-    // delegates
-    else if (e1type->ty == Tdelegate) {
-        Logger::println("delegateTy = %s\n", e1type->toChars());
-        assert(e1type->next->ty == Tfunction);
-        tf = (TypeFunction*)e1type->next;
-        if (tf->llvmRetInPtr) {
-            retinptr = true;
-        }
-        dlink = tf->linkage;
-        delegateCall = true;
-    }
-
-    // invalid
-    else {
-        assert(tf);
-    }
-
-    // handling of special intrinsics
-    bool va_magic = false;
+    // handle magic intrinsics (mapping to instructions)
     bool va_intrinsic = false;
-    DFuncValue* dfv = fn->isFunc();
-    if (dfv && dfv->func) {
-        FuncDeclaration* fndecl = dfv->func;
-        // vararg intrinsic
-        if (fndecl->llvmInternal == LLVMva_intrinsic) {
-            va_magic = true;
-            va_intrinsic = true;
-        }
+    if (dfnval && dfnval->func)
+    {
+        FuncDeclaration* fndecl = dfnval->func;
         // va_start instruction
-        else if (fndecl->llvmInternal == LLVMva_start) {
-            va_magic = true;
+        if (fndecl->llvmInternal == LLVMva_start) {
+            // TODO
+            assert(0 && "va_start not yet implemented");
         }
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {
-            //Argument* fnarg = Argument::getNth(tf->parameters, 0);
-            Expression* exp = (Expression*)arguments->data[0];
-            DValue* expelem = exp->toElem(p);
-            Type* t = DtoDType(type);
-            const LLType* llt = DtoType(type);
-            if (DtoIsPassedByRef(t))
-                llt = getPtrToType(llt);
-            // TODO
-            // issue a warning for broken va_arg instruction.
-            if (strcmp(global.params.llvmArch, "x86") != 0) {
-                warning("%s: va_arg for C variadic functions is probably broken for anything but x86", loc.toChars());
-            }
-            // done
-            return new DImValue(type, p->ir->CreateVAArg(expelem->getLVal(),llt,"tmp"));
+            return DtoVaArg(loc, type, (Expression*)arguments->data[0]);
         }
-        // alloca
+        // C alloca
         else if (fndecl->llvmInternal == LLVMalloca) {
-            //Argument* fnarg = Argument::getNth(tf->parameters, 0);
             Expression* exp = (Expression*)arguments->data[0];
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
-            LLValue* alloc = new llvm::AllocaInst(LLType::Int8Ty, expv->getRVal(), "alloca", p->scopebb());
-            // done
-            return new DImValue(type, alloc);
+            return new DImValue(type, gIR->ir->CreateAlloca(LLType::Int8Ty, expv->getRVal(), ".alloca"));
         }
     }
 
-    // args
-    size_t n = arguments->dim;
-    DFuncValue* dfn = fn->isFunc();
-    if (dfn && dfn->func && dfn->func->llvmInternal == LLVMva_start)
-        n = 1;
-    if (delegateCall || (dfn && dfn->vthis)) n++;
-    if (retinptr) n++;
-    if (tf->linkage == LINKd && tf->varargs == 1) n+=2;
-    if (dfn && dfn->func && dfn->func->isNested()) n++;
-
-    LLValue* funcval = fn->getRVal();
-    assert(funcval != 0);
-    std::vector<LLValue*> llargs(n, 0);
-
-    const LLFunctionType* llfnty = 0;
-
-    // TODO: review the stuff below, using the llvm type to choose seem like a bad idea. the D type should be used.
-    //
-    // normal function call
-    if (llvm::isa<LLFunctionType>(funcval->getType())) {
-        llfnty = llvm::cast<LLFunctionType>(funcval->getType());
-    }
-    // pointer to something
-    else if (isaPointer(funcval->getType())) {
-        // pointer to function pointer - I think this not really supposed to happen, but does :/
-        // seems like sometimes we get a func* other times a func**
-        if (isaPointer(funcval->getType()->getContainedType(0))) {
-            funcval = DtoLoad(funcval);
-        }
-        // function pointer
-        if (llvm::isa<LLFunctionType>(funcval->getType()->getContainedType(0))) {
-            //Logger::cout() << "function pointer type:\n" << *funcval << '\n';
-            llfnty = llvm::cast<LLFunctionType>(funcval->getType()->getContainedType(0));
-        }
-        // struct pointer - delegate
-        else if (isaStruct(funcval->getType()->getContainedType(0))) {
-            funcval = DtoGEPi(funcval,0,1);
-            funcval = DtoLoad(funcval);
-            const LLType* ty = funcval->getType()->getContainedType(0);
-            llfnty = llvm::cast<LLFunctionType>(ty);
-        }
-        // unknown
-        else {
-            Logger::cout() << "what kind of pointer are we calling? : " << *funcval->getType() << '\n';
-        }
-    }
-    else {
-        Logger::cout() << "what are we calling? : " << *funcval << '\n';
-    }
-    assert(llfnty);
-    //Logger::cout() << "Function LLVM type: " << *llfnty << '\n';
-
-    // argument handling
-    LLFunctionType::param_iterator argiter = llfnty->param_begin();
-    int j = 0;
-
-    // attrs
-    llvm::PAListPtr palist;
-
-    // hidden struct return arguments
-    // TODO: use sret param attr
-    if (retinptr) {
-        llargs[j] = new llvm::AllocaInst(argiter->get()->getContainedType(0),"rettmp",p->topallocapoint());
-        ++j;
-        ++argiter;
-    }
-
-    // this arguments
-    if (dfn && dfn->vthis) {
-        Logger::cout() << "This Call" << '\n';// func val:" << *funcval << '\n';
-        if (dfn->vthis->getType() != argiter->get()) {
-            //Logger::cout() << "value: " << *dfn->vthis << " totype: " << *argiter->get() << '\n';
-            llargs[j] = DtoBitCast(dfn->vthis, argiter->get());
-        }
-        else {
-            llargs[j] = dfn->vthis;
-        }
-        ++j;
-        ++argiter;
-    }
-    // delegate context arguments
-    else if (delegateCall) {
-        Logger::println("Delegate Call");
-        LLValue* contextptr = DtoGEPi(fn->getRVal(),0,0);
-        llargs[j] = DtoLoad(contextptr);
-        ++j;
-        ++argiter;
-    }
-    // nested call
-    else if (dfn && dfn->func && dfn->func->isNested()) {
-        Logger::println("Nested Call");
-        LLValue* contextptr = DtoNestedContext(dfn->func->toParent2()->isFuncDeclaration());
-        if (!contextptr)
-            contextptr = llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty));
-        llargs[j] = DtoBitCast(contextptr, getPtrToType(LLType::Int8Ty));
-        ++j;
-        ++argiter;
-    }
-
-    // va arg function special argument passing
-    if (va_magic)
-    {
-        size_t n = va_intrinsic ? arguments->dim : 1;
-        for (int i=0; i<n; i++,j++)
-        {
-            Argument* fnarg = Argument::getNth(tf->parameters, i);
-            Expression* exp = (Expression*)arguments->data[i];
-            DValue* expelem = exp->toElem(p);
-            llargs[j] = DtoBitCast(expelem->getLVal(), getPtrToType(LLType::Int8Ty));
-        }
-    }
-    // d variadic function
-    else if (tf->linkage == LINKd && tf->varargs == 1)
-    {
-        Logger::println("doing d-style variadic arguments");
-
-        size_t nimplicit = j;
-
-        std::vector<const LLType*> vtypes;
-
-        // number of non variadic args
-        int begin = tf->parameters->dim;
-        Logger::println("num non vararg params = %d", begin);
-
-        // build struct with argument types
-        for (int i=begin; i<arguments->dim; i++)
-        {
-            Argument* argu = Argument::getNth(tf->parameters, i);
-            Expression* argexp = (Expression*)arguments->data[i];
-            vtypes.push_back(DtoType(argexp->type));
-            size_t sz = getABITypeSize(vtypes.back());
-            if (sz < PTRSIZE)
-                vtypes.back() = DtoSize_t();
-        }
-        const LLStructType* vtype = LLStructType::get(vtypes);
-        Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
-        LLValue* mem = new llvm::AllocaInst(vtype,"_argptr_storage",p->topallocapoint());
-
-        // store arguments in the struct
-        for (int i=begin,k=0; i<arguments->dim; i++,k++)
-        {
-            Expression* argexp = (Expression*)arguments->data[i];
-            if (global.params.llvmAnnotate)
-                DtoAnnotation(argexp->toChars());
-            LLValue* argdst = DtoGEPi(mem,0,k);
-            argdst = DtoBitCast(argdst, getPtrToType(DtoType(argexp->type)));
-            DtoVariadicArgument(argexp, argdst);
-        }
-
-        // build type info array
-        assert(Type::typeinfo->ir.irStruct->constInit);
-        const LLType* typeinfotype = DtoType(Type::typeinfo->type);
-        const LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
-
-        llvm::GlobalVariable* typeinfomem =
-            new llvm::GlobalVariable(typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage", gIR->module);
-        Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
-
-        std::vector<LLConstant*> vtypeinfos;
-        for (int i=begin,k=0; i<arguments->dim; i++,k++)
-        {
-            Expression* argexp = (Expression*)arguments->data[i];
-            vtypeinfos.push_back(DtoTypeInfoOf(argexp->type));
-        }
-
-        // apply initializer
-        LLConstant* tiinits = llvm::ConstantArray::get(typeinfoarraytype, vtypeinfos);
-        typeinfomem->setInitializer(tiinits);
-
-        // put data in d-array
-        std::vector<LLConstant*> pinits;
-        pinits.push_back(DtoConstSize_t(vtype->getNumElements()));
-        pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
-        const LLType* tiarrty = llfnty->getParamType(j)->getContainedType(0);
-        tiinits = llvm::ConstantStruct::get(pinits);
-        LLValue* typeinfoarrayparam = new llvm::GlobalVariable(tiarrty,
-            true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array", gIR->module);
-
-        // specify arguments
-        llargs[j] = typeinfoarrayparam;;
-        j++;
-        llargs[j] = p->ir->CreateBitCast(mem, getPtrToType(LLType::Int8Ty), "tmp");
-        j++;
-
-        // pass non variadic args
-        for (int i=0; i<begin; i++)
-        {
-            Argument* fnarg = Argument::getNth(tf->parameters, i);
-            DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
-            llargs[j] = argval->getRVal();
-
-            if (fnarg->llvmByVal)
-                palist = palist.addAttr(j, llvm::ParamAttr::ByVal);
-
-            j++;
-        }
-
-        // make sure arg vector has the right size
-        llargs.resize(nimplicit+begin+2);
-    }
-    // normal function call
-    else
-    {
-        Logger::println("doing normal arguments");
-        for (int i=0; i<arguments->dim; i++,j++) {
-            Argument* fnarg = Argument::getNth(tf->parameters, i);
-            if (global.params.llvmAnnotate)
-                DtoAnnotation(((Expression*)arguments->data[i])->toChars());
-            DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
-            llargs[j] = argval->getRVal();
-            if (fnarg && llargs[j]->getType() != llfnty->getParamType(j)) {
-                llargs[j] = DtoBitCast(llargs[j], llfnty->getParamType(j));
-            }
-
-            if (fnarg && fnarg->llvmByVal)
-                palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
-        }
-    }
-
-    #if 0
-    Logger::println("%d params passed", n);
-    for (int i=0; i<llargs.size(); ++i) {
-        assert(llargs[i]);
-        Logger::cout() << "arg["<<i<<"] = " << *llargs[i] << '\n';
-    }
-    #endif
-
-    // void returns cannot not be named
-    const char* varname = "";
-    if (llfnty->getReturnType() != LLType::VoidTy)
-        varname = "tmp";
-
-    //Logger::cout() << "Calling: " << *funcval << '\n';
-
-    // call the function
-    CallOrInvoke* call = gIR->CreateCallOrInvoke(funcval, llargs.begin(), llargs.end(), varname);
-
-    LLValue* retllval = (retinptr) ? llargs[0] : call->get();
-
-    // if the type of retllval is abstract, refine to concrete
-    if(retllval->getType()->isAbstract())
-        retllval = DtoBitCast(retllval, getPtrToType(DtoType(type)), "retval");
-
-    // set calling convention
-    if (dfn && dfn->func) {
-        int li = dfn->func->llvmInternal;
-        if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic) {
-            call->setCallingConv(DtoCallingConv(dlink));
-        }
-    }
-    else {
-        call->setCallingConv(DtoCallingConv(dlink));
-    }
-
-    // param attrs
-    call->setParamAttrs(palist);
-
-    return new DImValue(type, retllval, false);
+    return DtoCallFunction(type, fnval, arguments);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

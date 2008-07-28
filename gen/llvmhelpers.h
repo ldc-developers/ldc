@@ -91,17 +91,32 @@ DValue* DtoBinRem(DValue* lhs, DValue* rhs);
 // target stuff
 void findDefaultTarget();
 
-/**
- * Calls a D function (with D calling conv).
- * @param fdecl The FuncDeclaration to call
- * @param arguments The Array of ExpressionS to pass as arguments.
- * @param type Optionally the TypeClass of the 'this' arguement.
- * @param thismem Optionally the LLValue for the 'this' argument.
- * @return The function call's return value.
- */
-DValue* DtoCallDFunc(FuncDeclaration* fdecl, Array* arguments, TypeClass* type=0, LLValue* thismem=0);
-
 /// Converts any value to a boolean (llvm i1)
 LLValue* DtoBoolean(Loc& loc, DValue* dval);
+
+////////////////////////////////////////////
+// gen/tocall.cpp stuff below
+////////////////////////////////////////////
+
+/// convert DMD calling conv to LLVM
+unsigned DtoCallingConv(LINK l);
+
+///
+TypeFunction* DtoTypeFunction(Type* type);
+
+///
+DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg);
+
+///
+LLValue* DtoCallableValue(DValue* fn);
+
+///
+const LLFunctionType* DtoExtractFunctionType(const LLType* type);
+
+///
+void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
+
+///
+DValue* DtoCallFunction(Type* resulttype, DValue* fnval, Expressions* arguments);
 
 #endif

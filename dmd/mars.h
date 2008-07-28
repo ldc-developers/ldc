@@ -213,8 +213,14 @@ typedef d_uns32			d_dchar;
 #include "d-gcc-real.h"
 #else
 typedef long double real_t;
+// this should be enough
+#if defined(i386) || defined(__i386__) || defined(_WIN32) || defined(__MINGW32__)
 #define REAL_T_SIZE 12
 #define REAL_T_PAD 2
+#else
+#define REAL_T_SIZE sizeof(real_t)
+#define REAL_T_PAD 0
+#endif
 #endif
 
 // Modify OutBuffer::writewchar to write the correct size of wchar

@@ -34,9 +34,6 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
 LLGlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym);
 LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 
-// convert DMD calling conv to LLVM
-unsigned DtoCallingConv(LINK l);
-
 // TODO: this one should be removed!!!
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
 
@@ -77,6 +74,8 @@ const LLArrayType* isaArray(LLValue* v);
 const LLArrayType* isaArray(const LLType* t);
 const LLStructType* isaStruct(LLValue* v);
 const LLStructType* isaStruct(const LLType* t);
+const LLFunctionType* isaFunction(LLValue* v);
+const LLFunctionType* isaFunction(const LLType* t);
 LLConstant* isaConstant(LLValue* v);
 LLConstantInt* isaConstantInt(LLValue* v);
 llvm::Argument* isaArgument(LLValue* v);

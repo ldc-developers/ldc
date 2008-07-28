@@ -283,20 +283,6 @@ llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-unsigned DtoCallingConv(LINK l)
-{
-    if (l == LINKc || l == LINKcpp)
-        return llvm::CallingConv::C;
-    else if (l == LINKd || l == LINKdefault)
-        return llvm::CallingConv::Fast;
-    else if (l == LINKwindows)
-        return llvm::CallingConv::X86_StdCall;
-    else
-        assert(0 && "Unsupported calling convention");
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
 {
     const LLType* ptrTy = ptr->getType()->getContainedType(0);
@@ -594,6 +580,16 @@ const LLStructType* isaStruct(LLValue* v)
 const LLStructType* isaStruct(const LLType* t)
 {
     return llvm::dyn_cast<LLStructType>(t);
+}
+
+const LLFunctionType* isaFunction(LLValue* v)
+{
+    return llvm::dyn_cast<LLFunctionType>(v->getType());
+}
+
+const LLFunctionType* isaFunction(const LLType* t)
+{
+    return llvm::dyn_cast<LLFunctionType>(t);
 }
 
 LLConstant* isaConstant(LLValue* v)

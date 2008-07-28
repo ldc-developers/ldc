@@ -791,20 +791,22 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     LLValue* mem;
     if (newexp->onstack)
     {
-        mem = new llvm::AllocaInst(DtoType(tc)->getContainedType(0), "newclass_alloca", gIR->topallocapoint());
+        mem = new llvm::AllocaInst(DtoType(tc)->getContainedType(0), ".newclass_alloca", gIR->topallocapoint());
     }
     // custom allocator
     else if (newexp->allocator)
     {
-        DValue* res = DtoCallDFunc(newexp->allocator, newexp->newargs);
-        mem = DtoBitCast(res->getRVal(), DtoType(tc), "newclass_custom");
+        DtoForceDeclareDsymbol(newexp->allocator);
+        DFuncValue dfn(newexp->allocator, newexp->allocator->ir.irFunc->func);
+        DValue* res = DtoCallFunction(NULL, &dfn, newexp->newargs);
+        mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
     }
     // default allocator
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
-        mem = gIR->CreateCallOrInvoke(fn, tc->sym->ir.irStruct->classInfo, "newclass_gc_alloc")->get();
-        mem = DtoBitCast(mem, DtoType(tc), "newclass_gc");
+        mem = gIR->CreateCallOrInvoke(fn, tc->sym->ir.irStruct->classInfo, ".newclass_gc_alloc")->get();
+        mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
     }
 
     // init
@@ -848,7 +850,9 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     if (newexp->member)
     {
         assert(newexp->arguments != NULL);
-        return DtoCallDFunc(newexp->member, newexp->arguments, tc, mem);
+        DtoForceDeclareDsymbol(newexp->member);
+        DFuncValue dfn(newexp->member, newexp->member->ir.irFunc->func, mem);
+        return DtoCallFunction(tc, &dfn, newexp->arguments);
     }
 
     // return default constructed class
