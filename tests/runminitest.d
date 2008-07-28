@@ -6,43 +6,108 @@ import std.process;
 import std.stdio;
 import std.string;
 
-int main(string[] args) {
-    string[] bad;
-    string[] badrun;
+int main(string[] args)
+{
+    enum : int
+    {
+        COMPILE,
+        NOCOMPILE,
+        RUN,
+        NORUN
+    }
+
+    string[] compilefailed;
+    string[] nocompilefailed;
+    string[] runfailed;
+    string[] norunfailed;
 
     chdir("mini");
     if(!exists("obj"))
         mkdir("obj");
 
+    static int classify(char[] name)
+    {
+        if (find(name, "compile_") == 0)
+            return COMPILE;
+        else if (find(name, "nocompile_") == 0)
+            return NOCOMPILE;
+        else if (find(name, "run_") == 0)
+            return RUN;
+        else if (find(name, "norun_") == 0)
+            return NORUN;
+        return RUN;
+    }
+
     auto contents = listdir(".", "*.d");
     foreach(c; contents) {
-        string cmd = format("llvmdc %s -quiet -ofobj/%s", c, getName(c));
+        auto testname = getName(getBaseName(c));
+        writefln("TEST NAME: ", testname);
+        string cmd = format("llvmdc %s -quiet -ofobj/%s -odobj", c, testname);
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;
         }
+        int cl = classify(testname);
         writefln(cmd);
         if (system(cmd) != 0) {
-            bad ~= c;
+            if (cl != NOCOMPILE)
+                compilefailed ~= c;
         }
-        else if (system("obj/" ~ getName(c)) != 0) {
-            badrun ~= c;
+        else if (cl == RUN || cl == NORUN) {
+            if (system("obj/" ~ testname) != 0) {
+                if (cl == RUN)
+                    runfailed ~= c;
+            }
+            else {
+                if (cl == NORUN)
+                    norunfailed ~= c;
+            }
+        }
+        else {
+            if (cl == NOCOMPILE)
+                nocompilefailed ~= c;
         }
     }
 
-    int ret = 0;
-    if (bad.length > 0 || badrun.length > 0) {
-        writefln(bad.length, '/', contents.length, " of the tests failed to compile:");
-        foreach(b; bad) {
+    size_t nerrors = 0;
+
+    if (compilefailed.length > 0)
+    {
+        writefln(compilefailed.length, '/', contents.length, " of the tests failed to compile:");
+        foreach(b; compilefailed) {
             writefln("  ",b);
         }
-        writefln(badrun.length, '/', contents.length - bad.length, " of the compiled tests failed to run:");
-        foreach(b; badrun) {
-            writefln("  ",b);
-        }
-        ret = 1;
+        nerrors += compilefailed.length;
     }
 
-    writefln(contents.length - bad.length - badrun.length, '/', contents.length, " of the tests passed");
-    return ret;
+    if (nocompilefailed.length > 0)
+    {
+        writefln(nocompilefailed.length, '/', contents.length, " of the tests failed to NOT compile:");
+        foreach(b; nocompilefailed) {
+            writefln("  ",b);
+        }
+        nerrors += nocompilefailed.length;
+    }
+
+    if (runfailed.length > 0)
+    {
+        writefln(runfailed.length, '/', contents.length, " of the tests failed to run:");
+        foreach(b; runfailed) {
+            writefln("  ",b);
+        }
+        nerrors += runfailed.length;
+    }
+
+    if (norunfailed.length > 0)
+    {
+        writefln(norunfailed.length, '/', contents.length, " of the tests failed to NOT run:");
+        foreach(b; norunfailed) {
+            writefln("  ",b);
+        }
+        nerrors += norunfailed.length;
+    }
+
+    writefln(contents.length - nerrors, '/', contents.length, " of the tests passed");
+
+    return nerrors ? 1 : 0;
 }
