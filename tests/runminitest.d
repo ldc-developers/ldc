@@ -22,8 +22,14 @@ int main(string[] args)
     string[] norunfailed;
 
     chdir("mini");
-    if(!exists("obj"))
+
+    if (!exists("obj"))
         mkdir("obj");
+
+    foreach(f; listdir("./obj", "*"))
+    {
+        std.file.remove(f);
+    }
 
     static int classify(char[] name)
     {
@@ -42,6 +48,7 @@ int main(string[] args)
     foreach(c; contents) {
         auto testname = getName(getBaseName(c));
         writefln("TEST NAME: ", testname);
+
         string cmd = format("llvmdc %s -quiet -ofobj/%s -odobj", c, testname);
         foreach(v; args[1..$]) {
             cmd ~= ' ';
