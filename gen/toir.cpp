@@ -1828,6 +1828,9 @@ DValue* DelegateExp::toElem(IRState* p)
     Logger::print("DelegateExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    if(func->isStatic())
+        error("can't take delegate of static function %s, it does not require a context ptr", func->toChars());
+
     const LLPointerType* int8ptrty = getPtrToType(LLType::Int8Ty);
 
     LLValue* lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
