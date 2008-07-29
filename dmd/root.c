@@ -641,17 +641,16 @@ char *FileName::replaceName(char *path, char *name)
     f = (char *)mem.malloc(pathlen + 1 + namelen + 1);
     memcpy(f, path, pathlen);
 
-    if (path[pathlen - 1] != '/')
+    if  (
+	path[pathlen - 1] != '/'
+#if _WIN32
+	&& path[pathlen - 1] != '\\' && path[pathlen - 1] != ':'
+#endif
+	)
     {	f[pathlen] = '/';
 	pathlen++;
     }
 
-#if _WIN32
-    if (path[pathlen - 1] != '\\' && path[pathlen - 1] != ':')
-    {	f[pathlen] = '\\';
-	pathlen++;
-    }
-#endif
     memcpy(f + pathlen, name, namelen + 1);
     return f;
 }
