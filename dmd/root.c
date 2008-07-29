@@ -323,12 +323,12 @@ char *FileName::combine(char *path, char *name)
     namelen = strlen(name);
     f = (char *)mem.malloc(pathlen + 1 + namelen + 1);
     memcpy(f, path, pathlen);
-#if linux
+
     if (path[pathlen - 1] != '/')
     {	f[pathlen] = '/';
 	pathlen++;
     }
-#endif
+
 #if _WIN32
     if (path[pathlen - 1] != '\\' && path[pathlen - 1] != ':')
     {	f[pathlen] = '\\';
@@ -486,14 +486,13 @@ int FileName::equals(Object *obj)
 
 int FileName::absolute(const char *name)
 {
+    return
 #if _WIN32
-    return (*name == '\\') ||
-	   (*name == '/')  ||
-	   (*name && name[1] == ':');
+	(*name == '\\') ||
+	(*name == '/')  ||
+	(*name && name[1] == ':') ||
 #endif
-#if linux
-    return (*name == '/');
-#endif
+	(*name == '/');
 }
 
 /********************************
@@ -513,10 +512,10 @@ char *FileName::ext(const char *str)
 	switch (*e)
 	{   case '.':
 		return e + 1;
-#if linux
+
 	    case '/':
 	        break;
-#endif
+
 #if _WIN32
 	    case '\\':
 	    case ':':
@@ -569,10 +568,10 @@ char *FileName::name(const char *str)
     {
 	switch (*e)
 	{
-#if linux
+
 	    case '/':
 	       return e + 1;
-#endif
+
 #if _WIN32
 	    case '\\':
 	    case ':':
@@ -606,10 +605,10 @@ char *FileName::path(const char *str)
 
     if (n > str)
     {
-#if linux
+
 	if (n[-1] == '/')
 	    n--;
-#endif
+
 #if _WIN32
 	if (n[-1] == '\\')
 	    n--;
@@ -642,12 +641,12 @@ char *FileName::replaceName(char *path, char *name)
     namelen = strlen(name);
     f = (char *)mem.malloc(pathlen + 1 + namelen + 1);
     memcpy(f, path, pathlen);
-#if linux
+
     if (path[pathlen - 1] != '/')
     {	f[pathlen] = '/';
 	pathlen++;
     }
-#endif
+
 #if _WIN32
     if (path[pathlen - 1] != '\\' && path[pathlen - 1] != ':')
     {	f[pathlen] = '\\';
