@@ -30,8 +30,8 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2);
 
 void DtoStaticArrayCopy(LLValue* dst, LLValue* src);
 
-LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r);
-LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r);
+LLValue* DtoArrayEquals(Loc& loc, TOK op, DValue* l, DValue* r);
+LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r);
 
 LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r);
 
@@ -40,6 +40,6 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
 LLValue* DtoArrayLen(DValue* v);
 LLValue* DtoArrayPtr(DValue* v);
 
-DValue* DtoCastArray(DValue* val, Type* to);
+DValue* DtoCastArray(Loc& loc, DValue* val, Type* to);
 
 #endif // LLVMC_GEN_ARRAYS_H

@@ -1309,7 +1309,7 @@ DValue* CmpExp::toElem(IRState* p)
     else if (t->ty == Tsarray || t->ty == Tarray)
     {
         Logger::println("static or dynamic array");
-        eval = DtoArrayCompare(op,l,r);
+        eval = DtoArrayCompare(loc,op,l,r);
     }
     else
     {
@@ -1382,7 +1382,7 @@ DValue* EqualExp::toElem(IRState* p)
     else if (t->ty == Tsarray || t->ty == Tarray)
     {
         Logger::println("static or dynamic array");
-        eval = DtoArrayEquals(op,l,r);
+        eval = DtoArrayEquals(loc,op,l,r);
     }
     else if (t->ty == Tdelegate)
     {

@@ -672,7 +672,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // helper for eq and cmp
-static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool useti)
+static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue* r, bool useti)
 {
     Logger::println("comparing arrays");
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
@@ -689,9 +689,9 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
     if ((l_ty->ty == Tsarray) || (r_ty->ty == Tsarray)) {
         Type* a_ty = l_ty->next->arrayOf();
         if (l_ty->ty == Tsarray)
-            l = DtoCastArray(l, a_ty);
+            l = DtoCastArray(loc, l, a_ty);
         if (r_ty->ty == Tsarray)
-            r = DtoCastArray(r, a_ty);
+            r = DtoCastArray(loc, r, a_ty);
     }
 
     Logger::println("giving storage");
@@ -758,9 +758,9 @@ static LLValue* DtoArrayEqCmp_impl(const char* func, DValue* l, DValue* r, bool 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r)
+LLValue* DtoArrayEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 {
-    LLValue* res = DtoArrayEqCmp_impl("_adEq", l, r, true);
+    LLValue* res = DtoArrayEqCmp_impl(loc, "_adEq", l, r, true);
     res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
@@ -769,7 +769,7 @@ LLValue* DtoArrayEquals(TOK op, DValue* l, DValue* r)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r)
+LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
 {
     LLValue* res = 0;
 
@@ -817,9 +817,9 @@ LLValue* DtoArrayCompare(TOK op, DValue* l, DValue* r)
     {
         Type* t = DtoDType(DtoDType(l->getType())->next);
         if (t->ty == Tchar)
-            res = DtoArrayEqCmp_impl("_adCmpChar", l, r, false);
+            res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
         else
-            res = DtoArrayEqCmp_impl("_adCmp", l, r, true);
+            res = DtoArrayEqCmp_impl(loc, "_adCmp", l, r, true);
         res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0), "tmp");
     }
 
@@ -944,7 +944,7 @@ LLValue* DtoArrayPtr(DValue* v)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-DValue* DtoCastArray(DValue* u, Type* to)
+DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 {
     Logger::println("DtoCastArray");
     LOG_SCOPE;
@@ -968,6 +968,7 @@ DValue* DtoCastArray(DValue* u, Type* to)
     }
     else if (totype->ty == Tarray) {
         Logger::cout() << "to array" << '\n';
+
         const LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
         const LLType* ety = DtoTypeNotVoid(fromtype->next);
 
@@ -986,6 +987,13 @@ DValue* DtoCastArray(DValue* u, Type* to)
                 Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
                 assert(isaPointer(uval->getType()));
                 const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+
+                if(arrty->getNumElements() % totype->next->size() != 0)
+                {
+                    error(loc, "invalid cast from '%s' to '%s', the element sizes don't line up", fromtype->toChars(), totype->toChars());
+                    fatal();
+                }
+
                 rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
                 rval = DtoBitCast(uval, ptrty);

@@ -846,7 +846,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
         return DtoCastClass(val, to);
     }
     else if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
-        return DtoCastArray(val, to);
+        return DtoCastArray(loc, val, to);
     }
     else if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
         return DtoCastPtr(loc, val, to);
