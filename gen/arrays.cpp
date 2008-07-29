@@ -988,7 +988,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 assert(isaPointer(uval->getType()));
                 const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
 
-                if(arrty->getNumElements() % totype->next->size() != 0)
+                if(arrty->getNumElements()*fromtype->next->size() % totype->next->size() != 0)
                 {
                     error(loc, "invalid cast from '%s' to '%s', the element sizes don't line up", fromtype->toChars(), totype->toChars());
                     fatal();
