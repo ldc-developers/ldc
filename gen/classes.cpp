@@ -656,7 +656,11 @@ void DtoConstInitClass(ClassDeclaration* cd)
             {
                 Logger::println("interface vtbl const init nr. %d", k);
                 Dsymbol* dsym = (Dsymbol*)b->vtbl.data[k];
-                assert(dsym);
+
+                // error on unimplemented functions, error was already generated earlier
+                if(!dsym)
+                    fatal();
+
                 FuncDeclaration* fd = dsym->isFuncDeclaration();
                 assert(fd);
                 DtoForceDeclareDsymbol(fd);
