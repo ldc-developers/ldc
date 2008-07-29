@@ -886,7 +886,7 @@ DValue* CallExp::toElem(IRState* p)
         }
     }
 
-    return DtoCallFunction(type, fnval, arguments);
+    return DtoCallFunction(loc, type, fnval, arguments);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

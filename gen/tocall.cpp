@@ -180,7 +180,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
 }
 
 
-DValue* DtoCallFunction(Type* resulttype, DValue* fnval, Expressions* arguments)
+DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments)
 {
     // the callee D type
     Type* calleeType = fnval->getType();
@@ -224,31 +224,40 @@ DValue* DtoCallFunction(Type* resulttype, DValue* fnval, Expressions* arguments)
         args.push_back(retvar);
     }
 
-    // then comes the 'this' argument
-    if (dfnval && dfnval->vthis)
+    // then comes a context argument...
+    if(usesthis || delegatecall || nestedcall)
     {
-        LLValue* thisarg = DtoBitCast(dfnval->vthis, argiter->get());
-        ++argiter;
-        args.push_back(thisarg);
-    }
-    // or a delegate context arg
-    else if (delegatecall)
-    {
-        LLValue* ctxarg = DtoLoad(DtoGEPi(fnval->getRVal(), 0,0));
-        assert(ctxarg->getType() == argiter->get());
-        ++argiter;
-        args.push_back(ctxarg);
-    }
-    // or a nested function context arg
-    else if (nestedcall)
-    {
-        LLValue* contextptr = DtoNestedContext(dfnval->func->toParent2()->isFuncDeclaration());
-        if (!contextptr)
-            contextptr = getNullPtr(getVoidPtrType());
+        // ... which can be a 'this' argument
+        if (dfnval && dfnval->vthis)
+        {
+            LLValue* thisarg = DtoBitCast(dfnval->vthis, argiter->get());
+            ++argiter;
+            args.push_back(thisarg);
+        }
+        // ... or a delegate context arg
+        else if (delegatecall)
+        {
+            LLValue* ctxarg = DtoLoad(DtoGEPi(fnval->getRVal(), 0,0));
+            assert(ctxarg->getType() == argiter->get());
+            ++argiter;
+            args.push_back(ctxarg);
+        }
+        // ... or a nested function context arg
+        else if (nestedcall)
+        {
+            LLValue* contextptr = DtoNestedContext(dfnval->func->toParent2()->isFuncDeclaration());
+            if (!contextptr)
+                contextptr = getNullPtr(getVoidPtrType());
+            else
+                contextptr = DtoBitCast(contextptr, getVoidPtrType());
+            ++argiter;
+            args.push_back(contextptr);
+        }
         else
-            contextptr = DtoBitCast(contextptr, getVoidPtrType());
-        ++argiter;
-        args.push_back(contextptr);
+        {
+            error(loc, "Context argument required but none given");
+            fatal();
+        }
     }
 
     // handle the rest of the arguments based on param passing style

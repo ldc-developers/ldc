@@ -798,7 +798,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     {
         DtoForceDeclareDsymbol(newexp->allocator);
         DFuncValue dfn(newexp->allocator, newexp->allocator->ir.irFunc->func);
-        DValue* res = DtoCallFunction(NULL, &dfn, newexp->newargs);
+        DValue* res = DtoCallFunction(newexp->loc, NULL, &dfn, newexp->newargs);
         mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
     }
     // default allocator
@@ -852,7 +852,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         assert(newexp->arguments != NULL);
         DtoForceDeclareDsymbol(newexp->member);
         DFuncValue dfn(newexp->member, newexp->member->ir.irFunc->func, mem);
-        return DtoCallFunction(tc, &dfn, newexp->arguments);
+        return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
     }
 
     // return default constructed class
