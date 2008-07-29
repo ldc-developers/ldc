@@ -695,16 +695,17 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
     // in automatically, so we do it here.
-    if (!fd->isMain()) {
-        if (!gIR->scopereturned()) {
-            // pass the previous block into this block
-            if (global.params.symdebug) DtoDwarfFuncEnd(fd);
-            if (func->getReturnType() == LLType::VoidTy) {
-                llvm::ReturnInst::Create(gIR->scopebb());
-            }
-            else {
+    if (!gIR->scopereturned()) {
+        // pass the previous block into this block
+        if (global.params.symdebug) DtoDwarfFuncEnd(fd);
+        if (func->getReturnType() == LLType::VoidTy) {
+            llvm::ReturnInst::Create(gIR->scopebb());
+        }
+        else {
+            if (!fd->isMain())
                 llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
-            }
+            else
+                llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), gIR->scopebb());
         }
     }
 
