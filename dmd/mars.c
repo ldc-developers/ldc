@@ -21,6 +21,8 @@
 
 #if linux
 #include <errno.h>
+#elif _WIN32
+#include <windows.h>
 #endif
 
 #include "mem.h"
@@ -256,7 +258,13 @@ int main(int argc, char *argv[])
     files.reserve(argc - 1);
 
     // Set default values
+#if _WIN32
+	char buf[MAX_PATH];
+	GetModuleFileName(NULL, buf, MAX_PATH);
+	global.params.argv0 = buf;
+#else
     global.params.argv0 = argv[0];
+#endif
     global.params.link = 1;
     global.params.useAssert = 0;
     global.params.useInvariants = 1;
@@ -326,9 +334,9 @@ int main(int argc, char *argv[])
     VersionCondition::addPredefinedGlobalIdent("all");
 
 #if _WIN32
-    inifile(argv[0], "llvmdc.ini");
+    inifile(global.params.argv0, "llvmdc.ini");
 #elif linux
-    inifile(argv[0], "llvmdc.conf");
+    inifile(global.params.argv0, "llvmdc.conf");
 #else
 #error
 #endif
@@ -1065,7 +1073,7 @@ int main(int argc, char *argv[])
     {
 	if (global.params.link)
 	    //status = runLINK();
-        linkExecutable(argv[0]);
+        linkExecutable(global.params.argv0);
 
 	if (global.params.run)
 	{

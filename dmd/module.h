@@ -109,7 +109,7 @@ struct Module : Package
     Array *versionidsNot;	// forward referenced version identifiers
 
     Macro *macrotable;		// document comment macros
-    Escape *escapetable;	// document comment escapes
+    struct Escape *escapetable;	// document comment escapes
 
     Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();
