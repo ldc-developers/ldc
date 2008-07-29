@@ -519,7 +519,6 @@ char *FileName::ext(const char *str)
 #if _WIN32
 	    case '\\':
 	    case ':':
-	    case '/':
 		break;
 #endif
 	    default:
