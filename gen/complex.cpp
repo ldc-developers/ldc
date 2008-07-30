@@ -318,33 +318,76 @@ DValue* DtoComplexMul(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 
 DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 {
-    lhs = DtoComplex(loc, type, resolveLR(lhs, true));
-    rhs = DtoComplex(loc, type, resolveLR(rhs, false));
+    DValue* clhs = DtoComplex(loc, type, resolveLR(lhs, true));
+    DValue* crhs = DtoComplex(loc, type, resolveLR(rhs, false));
 
-    llvm::Value *a, *b, *c, *d;
+    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
     // lhs values
-    DtoGetComplexParts(lhs, a, b);
+    DtoGetComplexParts(clhs, lhs_re, lhs_im);
     // rhs values
-    DtoGetComplexParts(rhs, c, d);
+    DtoGetComplexParts(crhs, rhs_re, rhs_im);
 
-    llvm::Value *tmp1, *tmp2, *denom, *re, *im;
+    Type* lhstype = lhs->getType();
+    Type* rhstype = rhs->getType();
 
-    tmp1 = gIR->ir->CreateMul(c, c, "tmp");
-    tmp2 = gIR->ir->CreateMul(d, d, "tmp");
-    denom = gIR->ir->CreateAdd(tmp1, tmp2, "tmp");
+    // if divisor is only real, division is simple
+    if(hasRe(rhstype) && !hasIm(rhstype)) {
+        if(hasRe(lhstype))
+            res_re = gIR->ir->CreateFDiv(lhs_re, rhs_re, "re_divby_re");
+        else
+            res_re = lhs_re;
+        if(hasIm(lhstype))
+            res_im = gIR->ir->CreateFDiv(lhs_im, rhs_re, "im_divby_re");
+        else
+            res_im = lhs_im;
+    }
+    // if divisor is only imaginary, division is simple too
+    else if(!hasRe(rhstype) && hasIm(rhstype)) {
+        if(hasRe(lhstype))
+            res_im = gIR->ir->CreateNeg(gIR->ir->CreateFDiv(lhs_re, rhs_im, "re_divby_im"), "neg");
+        else
+            res_im = lhs_re;
+        if(hasIm(lhstype))
+            res_re = gIR->ir->CreateFDiv(lhs_im, rhs_im, "im_divby_im");
+        else
+            res_re = lhs_im;
+    }
+    // full division
+    else {
+        llvm::Value *tmp1, *tmp2, *denom;
 
-    tmp1 = gIR->ir->CreateMul(a, c, "tmp");
-    tmp2 = gIR->ir->CreateMul(b, d, "tmp");
-    re = gIR->ir->CreateAdd(tmp1, tmp2, "tmp");
-    re = gIR->ir->CreateFDiv(re, denom, "tmp");
+        if(hasRe(lhstype) && hasIm(lhstype)) {
+            tmp1 = gIR->ir->CreateMul(lhs_re, rhs_re, "rere");
+            tmp2 = gIR->ir->CreateMul(lhs_im, rhs_im, "imim");
+            res_re = gIR->ir->CreateAdd(tmp1, tmp2, "rere_plus_imim");
 
-    tmp1 = gIR->ir->CreateMul(b, c, "tmp");
-    tmp2 = gIR->ir->CreateMul(a, d, "tmp");
-    im = gIR->ir->CreateSub(tmp1, tmp2, "tmp");
-    im = gIR->ir->CreateFDiv(im, denom, "tmp");
+            tmp1 = gIR->ir->CreateMul(lhs_re, rhs_im, "reim");
+            tmp2 = gIR->ir->CreateMul(lhs_im, rhs_re, "imre");
+            res_im = gIR->ir->CreateSub(tmp2, tmp1, "imre_sub_reim");
+        }
+        else if(hasRe(lhstype)) {
+            res_re = gIR->ir->CreateMul(lhs_re, rhs_re, "rere");
 
-    return new DComplexValue(type, re, im);
+            res_im = gIR->ir->CreateMul(lhs_re, rhs_im, "reim");
+            res_im = gIR->ir->CreateNeg(res_im);
+        }
+        else if(hasIm(lhstype)) {
+            res_re = gIR->ir->CreateMul(lhs_im, rhs_im, "imim");
+            res_im = gIR->ir->CreateMul(lhs_im, rhs_re, "imre");
+        }
+        else
+            assert(0 && "lhs has neither real nor imaginary part");
+
+        tmp1 = gIR->ir->CreateMul(rhs_re, rhs_re, "rhs_resq");
+        tmp2 = gIR->ir->CreateMul(rhs_im, rhs_im, "rhs_imsq");
+        denom = gIR->ir->CreateAdd(tmp1, tmp2, "denom");
+
+        res_re = gIR->ir->CreateFDiv(res_re, denom, "res_re");
+        res_im = gIR->ir->CreateFDiv(res_im, denom, "res_im");
+    }
+
+    return new DComplexValue(type, res_re, res_im);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
