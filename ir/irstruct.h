@@ -81,6 +81,8 @@ public:
     bool classDeclared;
     bool classDefined;
 
+    bool packed; // true for: align(1) struct S { ... }
+
     LLGlobalVariable* dwarfComposite;
 };
 

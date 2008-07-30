@@ -13,20 +13,21 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-TypeFunction* DtoTypeFunction(Type* type)
+TypeFunction* DtoTypeFunction(DValue* fnval)
 {
-    TypeFunction* tf = 0;
-    type = type->toBasetype();
+    Type* type = fnval->getType()->toBasetype();
     if (type->ty == Tfunction)
     {
-         tf = (TypeFunction*)type;
+         return (TypeFunction*)type;
     }
     else if (type->ty == Tdelegate)
     {
         assert(type->next->ty == Tfunction);
-        tf = (TypeFunction*)type->next;
+        return (TypeFunction*)type->next;
     }
-    return tf;
+
+    assert(0 && "cant get TypeFunction* from non lazy/function/delegate");
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -192,8 +193,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool va_intrinsic = (dfnval && dfnval->func && (dfnval->func->llvmInternal == LLVMva_intrinsic));
 
     // get function type info
-    TypeFunction* tf = DtoTypeFunction(calleeType);
-    assert(tf);
+    TypeFunction* tf = DtoTypeFunction(fnval);
 
     // misc
     bool retinptr = tf->llvmRetInPtr;

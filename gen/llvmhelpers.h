@@ -106,7 +106,7 @@ LLValue* DtoBoolean(Loc& loc, DValue* dval);
 unsigned DtoCallingConv(LINK l);
 
 ///
-TypeFunction* DtoTypeFunction(Type* type);
+TypeFunction* DtoTypeFunction(DValue* fnval);
 
 ///
 DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg);

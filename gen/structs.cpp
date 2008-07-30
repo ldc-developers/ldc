@@ -124,9 +124,13 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
 
+    bool ispacked = (ts->alignsize() == 1);
+
     IrStruct* irstruct = new IrStruct(ts);
     sd->ir.irStruct = irstruct;
     gIR->structs.push_back(irstruct);
+
+    irstruct->packed = ispacked;
 
     // fields
     Array* arr = &sd->fields;
@@ -170,7 +174,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     {
         Logger::println("has no fields");
         fieldtypes.push_back(LLType::Int8Ty);
-        structtype = llvm::StructType::get(fieldtypes);
+        structtype = llvm::StructType::get(fieldtypes, ispacked);
     }
     else
     {
@@ -239,7 +243,7 @@ void DtoResolveStruct(StructDeclaration* sd)
         }
 
         Logger::println("creating struct type");
-        structtype = llvm::StructType::get(fieldtypes);
+        structtype = llvm::StructType::get(fieldtypes, ispacked);
     }
 
     // refine abstract types for stuff like: struct S{S* next;}
@@ -329,7 +333,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     }
 
     // generate the union mapper
-    sd->ir.irStruct->dunion = new DUnion; // uses gIR->topstruct()
+    sd->ir.irStruct->dunion = new DUnion(); // uses gIR->topstruct()
 
     // always generate the constant initalizer
     if (!sd->zeroInit) {
@@ -445,6 +449,8 @@ DUnion::DUnion()
         }
     }
 
+    ispacked = topstruct->packed;
+
     /*{
         LOG_SCOPE;
         Logger::println("******** DUnion BEGIN");
@@ -533,7 +539,7 @@ LLConstant* DUnion::getConst(std::vector<DUnionIdx>& in)
     for (size_t i=0; i<nout; ++i)
         tys.push_back(out[i]->getType());
 
-    const llvm::StructType* st = llvm::StructType::get(tys);
+    const llvm::StructType* st = llvm::StructType::get(tys, ispacked);
     return llvm::ConstantStruct::get(st, out);
 }
 

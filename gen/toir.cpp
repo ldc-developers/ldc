@@ -65,7 +65,7 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("Id::_arguments");
             LLValue* v = p->func()->_arguments;
             assert(v);
-            return new DVarValue(vd, v, true);
+            return new DVarValue(type, vd, v, true);
         }
         // _argptr
         else if (vd->ident == Id::_argptr)
@@ -73,7 +73,7 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("Id::_argptr");
             LLValue* v = p->func()->_argptr;
             assert(v);
-            return new DVarValue(vd, v, true);
+            return new DVarValue(type, vd, v, true);
         }
         // _dollar
         else if (vd->ident == Id::dollar)
@@ -81,7 +81,7 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("Id::dollar");
             assert(!p->arrays.empty());
             LLValue* tmp = DtoArrayLen(p->arrays.back());
-            return new DVarValue(vd, tmp, false);
+            return new DVarValue(type, vd, tmp, false);
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
@@ -95,7 +95,7 @@ DValue* VarExp::toElem(IRState* p)
                 m = p->ir->CreateBitCast(tid->ir.getIrValue(), vartype, "tmp");
             else
                 m = tid->ir.getIrValue();
-            return new DVarValue(vd, m, true);
+            return new DVarValue(type, vd, m, true);
         }
         // classinfo
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
@@ -103,12 +103,12 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
             DtoForceDeclareDsymbol(cid->cd);
             assert(cid->cd->ir.irStruct->classInfo);
-            return new DVarValue(vd, cid->cd->ir.irStruct->classInfo, true);
+            return new DVarValue(type, vd, cid->cd->ir.irStruct->classInfo, true);
         }
         // nested variable
         else if (vd->nestedref) {
             Logger::println("nested variable");
-            return new DVarValue(vd, DtoNestedVariable(vd), true);
+            return new DVarValue(type, vd, DtoNestedVariable(vd), true);
         }
         // function parameter
         else if (vd->isParameter()) {
@@ -116,10 +116,10 @@ DValue* VarExp::toElem(IRState* p)
             FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
             if (fd && fd != p->func()->decl) {
                 Logger::println("nested parameter");
-                return new DVarValue(vd, DtoNestedVariable(vd), true);
+                return new DVarValue(type, vd, DtoNestedVariable(vd), true);
             }
             else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
-                return new DVarValue(vd, vd->ir.getIrValue(), true);
+                return new DVarValue(type, vd, vd->ir.getIrValue(), true);
             }
             else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue())) {
                 return new DImValue(type, vd->ir.getIrValue());
@@ -137,7 +137,7 @@ DValue* VarExp::toElem(IRState* p)
                 Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
                 fatal();
             }
-            return new DVarValue(vd, vd->ir.getIrValue(), true);
+            return new DVarValue(type, vd, vd->ir.getIrValue(), true);
         }
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
@@ -897,7 +897,7 @@ DValue* DotVarExp::toElem(IRState* p)
             assert(0);
 
         //Logger::cout() << "mem: " << *arrptr << '\n';
-        return new DVarValue(vd, arrptr, true);
+        return new DVarValue(type, vd, arrptr, true);
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
@@ -977,7 +977,7 @@ DValue* ThisExp::toElem(IRState* p)
         const LLType* t = DtoType(type);
         if (v->getType() != t)
             v = DtoBitCast(v, t);
-        return new DThisValue(vd, v);
+        return new DThisValue(type, vd, v);
     }
 
     // anything we're not yet handling ?
@@ -2122,7 +2122,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
             if (!vx) continue;
             tys.push_back(DtoType(vx->type));
         }
-        const LLStructType* t = LLStructType::get(tys);
+        const LLStructType* t = LLStructType::get(tys, sd->ir.irStruct->packed);
         if (t != llt) {
             if (getABITypeSize(t) != getABITypeSize(llt)) {
                 Logger::cout() << "got size " << getABITypeSize(t) << ", expected " << getABITypeSize(llt) << '\n';

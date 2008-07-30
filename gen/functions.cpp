@@ -22,8 +22,8 @@
 
 const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bool ismain)
 {
+    assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
-    assert(f != 0);
 
     if (type->ir.type != NULL) {
         return llvm::cast<llvm::FunctionType>(type->ir.type->get());

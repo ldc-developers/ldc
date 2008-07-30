@@ -111,8 +111,8 @@ struct DVarValue : DValue
     LLValue* rval;
     bool lval;
 
-    DVarValue(VarDeclaration* vd, LLValue* llvmValue, bool lvalue);
-    DVarValue(Type* vd, LLValue* lv, LLValue* rv);
+    DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue, bool lvalue);
+    DVarValue(Type* t, LLValue* lv, LLValue* rv);
     DVarValue(Type* t, LLValue* llvmValue, bool lvalue);
 
     virtual bool isLVal() { return val && lval; }
@@ -133,7 +133,7 @@ struct DFieldValue : DVarValue
 // this d-value
 struct DThisValue : DVarValue
 {
-    DThisValue(VarDeclaration* vd, LLValue* llvmValue) : DVarValue(vd, llvmValue, true) {}
+    DThisValue(Type* t, VarDeclaration* vd, LLValue* llvmValue) : DVarValue(t, vd, llvmValue, true) {}
     virtual DThisValue* isThis() { return this; }
 };
 

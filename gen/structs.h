@@ -66,6 +66,7 @@ struct DUnionIdx
 class DUnion
 {
     std::vector<DUnionField> fields;
+    bool ispacked;
 public:
     DUnion();
     LLConstant* getConst(std::vector<DUnionIdx>& in);

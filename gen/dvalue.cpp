@@ -10,13 +10,13 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-DVarValue::DVarValue(VarDeclaration* vd, LLValue* llvmValue, bool lvalue)
+DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue, bool lvalue)
 {
     var = vd;
     val = llvmValue;
     rval = 0;
     lval = lvalue;
-    type = var->type;
+    type = t;
 }
 
 DVarValue::DVarValue(Type* t, LLValue* lv, LLValue* rv)

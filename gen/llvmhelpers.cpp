@@ -1264,7 +1264,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             DValue* ie = DtoInitializer(vd->init);
         }
 
-        return new DVarValue(vd, vd->ir.getIrValue(), true);
+        return new DVarValue(vd->type, vd, vd->ir.getIrValue(), true);
     }
     // struct declaration
     else if (StructDeclaration* s = declaration->isStructDeclaration())
