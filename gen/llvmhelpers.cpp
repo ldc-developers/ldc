@@ -158,7 +158,7 @@ void DtoAssert(Loc* loc, DValue* msg)
 // ARRAY BOUNDS HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index)
+void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
 {
     Type* arrty = arr->getType();
     assert((arrty->ty == Tsarray || arrty->ty == Tarray) && "Can only array bounds check for static or dynamic arrays");
@@ -171,8 +171,12 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index)
         size_t tdim = tsa->dim->toInteger();
 
         if(llvm::ConstantInt* cindex = llvm::dyn_cast<llvm::ConstantInt>(index->getRVal()))
-            if(cindex->uge(tdim)) {
-                error(loc, "index %d is larger than array size %d", index, tdim);
+            if(cindex->uge(tdim + (isslice ? 1 : 0))) {
+                size_t cindexval = cindex->getValue().getZExtValue();
+                if(!isslice)
+                    error(loc, "index %u is larger or equal array size %u", cindexval, tdim);
+                else
+                    error(loc, "slice upper bound %u is larger than array size %u", cindexval, tdim);
                 return;
             }
     }
@@ -183,7 +187,8 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index)
     llvm::BasicBlock* failbb = llvm::BasicBlock::Create("arrayboundscheckfail", gIR->topfunc(), oldend);
     llvm::BasicBlock* okbb = llvm::BasicBlock::Create("arrayboundsok", gIR->topfunc(), oldend);
 
-    LLValue* cond = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_ULT, index->getRVal(), DtoArrayLen(arr), "boundscheck");
+    llvm::ICmpInst::Predicate cmpop = isslice ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_ULT;
+    LLValue* cond = gIR->ir->CreateICmp(cmpop, index->getRVal(), DtoArrayLen(arr), "boundscheck");
     gIR->ir->CreateCondBr(cond, okbb, failbb);
 
     // set up failbb to call the array bounds error runtime function
