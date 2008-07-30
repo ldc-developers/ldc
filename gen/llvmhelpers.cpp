@@ -5,6 +5,7 @@
 #include "init.h"
 #include "id.h"
 #include "expression.h"
+#include "template.h"
 
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
@@ -1204,6 +1205,131 @@ void DtoForceDefineDsymbol(Dsymbol* dsym)
 
     DtoDefineDsymbol(dsym);
 }
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
+//      DECLARATION EXP HELPER
+////////////////////////////////////////////////////////////////////////////////////////*/
+DValue* DtoDeclarationExp(Dsymbol* declaration)
+{
+    Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
+    LOG_SCOPE;
+
+    // variable declaration
+    if (VarDeclaration* vd = declaration->isVarDeclaration())
+    {
+        Logger::println("VarDeclaration");
+
+        // static
+        if (vd->isDataseg())
+        {
+            vd->toObjFile(0); // TODO: multiobj
+        }
+        else
+        {
+            if (global.params.llvmAnnotate)
+                DtoAnnotation(declaration->toChars());
+
+            Logger::println("vdtype = %s", vd->type->toChars());
+
+            // referenced by nested delegate?
+            if (vd->nestedref) {
+                Logger::println("has nestedref set");
+                assert(vd->ir.irLocal);
+                vd->ir.irLocal->value = gIR->func()->decl->ir.irFunc->nestedVar;
+                assert(vd->ir.irLocal->value);
+                assert(vd->ir.irLocal->nestedIndex >= 0);
+            }
+            // normal stack variable, allocate storage on the stack if it has not already been done
+            else if(!vd->ir.irLocal) {
+                const LLType* lltype = DtoType(vd->type);
+
+                llvm::Value* allocainst;
+                if(gTargetData->getTypeSizeInBits(lltype) == 0) 
+                    allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+                else
+                    allocainst = new llvm::AllocaInst(lltype, vd->toChars(), gIR->topallocapoint());
+
+                //allocainst->setAlignment(vd->type->alignsize()); // TODO
+                vd->ir.irLocal = new IrLocal(vd);
+                vd->ir.irLocal->value = allocainst;
+
+                if (global.params.symdebug)
+                {
+                    DtoDwarfLocalVariable(allocainst, vd);
+                }
+            }
+
+            Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
+            DValue* ie = DtoInitializer(vd->init);
+        }
+
+        return new DVarValue(vd, vd->ir.getIrValue(), true);
+    }
+    // struct declaration
+    else if (StructDeclaration* s = declaration->isStructDeclaration())
+    {
+        Logger::println("StructDeclaration");
+        DtoForceConstInitDsymbol(s);
+    }
+    // function declaration
+    else if (FuncDeclaration* f = declaration->isFuncDeclaration())
+    {
+        Logger::println("FuncDeclaration");
+        DtoForceDeclareDsymbol(f);
+    }
+    // alias declaration
+    else if (AliasDeclaration* a = declaration->isAliasDeclaration())
+    {
+        Logger::println("AliasDeclaration - no work");
+        // do nothing
+    }
+    // enum
+    else if (EnumDeclaration* e = declaration->isEnumDeclaration())
+    {
+        Logger::println("EnumDeclaration - no work");
+        // do nothing
+    }
+    // class
+    else if (ClassDeclaration* e = declaration->isClassDeclaration())
+    {
+        Logger::println("ClassDeclaration");
+        DtoForceConstInitDsymbol(e);
+    }
+    // typedef
+    else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
+    {
+        Logger::println("TypedefDeclaration");
+        DtoTypeInfoOf(tdef->type, false);
+    }
+    // attribute declaration
+    else if (AttribDeclaration* a = declaration->isAttribDeclaration())
+    {
+        Logger::println("AttribDeclaration");
+        for (int i=0; i < a->decl->dim; ++i)
+        {
+            DtoForceDeclareDsymbol((Dsymbol*)a->decl->data[i]);
+        }
+    }
+    // mixin declaration
+    else if (TemplateMixin* m = declaration->isTemplateMixin())
+    {
+        Logger::println("TemplateMixin");
+        for (int i=0; i < m->members->dim; ++i)
+        {
+            Dsymbol* mdsym = (Dsymbol*)m->members->data[i];
+            DtoDeclarationExp(mdsym);
+        }
+    }
+    // unsupported declaration
+    else
+    {
+        error(declaration->loc, "Unimplemented Declaration type for DeclarationExp. kind: %s", declaration->kind());
+        assert(0);
+    }
+    return NULL;
+}
+
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////

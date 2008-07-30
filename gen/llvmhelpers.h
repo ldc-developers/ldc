@@ -71,6 +71,9 @@ void DtoForceDeclareDsymbol(Dsymbol* dsym);
 void DtoForceConstInitDsymbol(Dsymbol* dsym);
 void DtoForceDefineDsymbol(Dsymbol* dsym);
 
+// declaration inside a declarationexp
+DValue* DtoDeclarationExp(Dsymbol* declaration);
+
 // initializer helpers
 LLConstant* DtoConstInitializer(Type* type, Initializer* init);
 LLConstant* DtoConstFieldInitializer(Type* type, Initializer* init);
