@@ -160,7 +160,7 @@ void DtoAssert(Loc* loc, DValue* msg)
 
 void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
 {
-    Type* arrty = arr->getType();
+    Type* arrty = arr->getType()->toBasetype();
     assert((arrty->ty == Tsarray || arrty->ty == Tarray) && "Can only array bounds check for static or dynamic arrays");
 
     // static arrays can get static checks for static indices
