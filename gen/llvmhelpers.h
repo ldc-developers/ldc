@@ -13,6 +13,8 @@ void DtoDeleteArray(DValue* arr);
 
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
+// array boundary check generator
+void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index);
 
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
