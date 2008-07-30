@@ -1,4 +1,4 @@
-profile=tango
+#profile=tango
 
 compiler=llvmdc
 inifile=llvmdc.conf
@@ -13,7 +13,7 @@ noversion=DigitalMars
 noversion=GNU
 testversion=linux
 testversion=Unix
-version=Posix
+testversion=Posix
 testversion=Windows
 testversion=Win32
 testversion=Win64
@@ -29,6 +29,7 @@ testversion=D_InlineAsm_PPC64
 testversion=LittleEndian
 testversion=BigEndian
 testversion=LLVM64
+textversion=LLVM_X86_FP80
 
 
 [compile]
@@ -42,7 +43,7 @@ version=-version=$i
 
 
 [link]
-#oneatatime=yes
+oneatatime=yes
 cmd=llvmdc $i -of$o
 
 libdir=-L-L=$i
@@ -52,7 +53,7 @@ flag=-L$i
 
 [liblink]
 safe=yes
-#oneatatime=yes
+oneatatime=yes
 cmd=llvm-ar rsc $o $i
 
 libdir=-L=$i
@@ -61,8 +62,8 @@ flag=$i
 
 
 [postliblink]
-#cmd=ranlib $i
-
+#cmd=llvm-ranlib $i
+cmd=
 
 [shliblink]
 shlibs=no
