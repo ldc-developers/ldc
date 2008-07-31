@@ -42,4 +42,7 @@ LLValue* DtoArrayPtr(DValue* v);
 
 DValue* DtoCastArray(Loc& loc, DValue* val, Type* to);
 
+// generates an array bounds check
+void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice);
+
 #endif // LLVMC_GEN_ARRAYS_H
