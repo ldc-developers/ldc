@@ -1,6 +1,5 @@
 module bug49;
 
-pragma(LLVM_internal, "notypeinfo")
 struct S
 {
     int i;

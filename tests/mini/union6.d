@@ -1,17 +1,15 @@
 module union6;
 
-pragma(LLVM_internal, "notypeinfo") {
-    struct S
-    {
-        byte a;
-        byte b;
-    }
-    union U
-    {
-        byte a;
-        byte b;
-        S c;
-    }
+struct S
+{
+    byte a;
+    byte b;
+}
+union U
+{
+    byte a;
+    byte b;
+    S c;
 }
 
 void main()

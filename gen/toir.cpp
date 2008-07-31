@@ -758,8 +758,11 @@ DValue* CallExp::toElem(IRState* p)
         FuncDeclaration* fndecl = dfnval->func;
         // va_start instruction
         if (fndecl->llvmInternal == LLVMva_start) {
-            // TODO
-            assert(0 && "va_start not yet implemented");
+            // llvm doesn't need the second param hence the override
+            Expression* exp = (Expression*)arguments->data[0];
+            DValue* expv = exp->toElem(p);
+            LLValue* arg = DtoBitCast(expv->getLVal(), getVoidPtrType());
+            return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
         }
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {

@@ -1,7 +1,6 @@
 module alloca1;
 
-pragma(LLVM_internal, "alloca")
-void* alloca(uint);
+pragma(alloca) void* alloca(uint);
 
 extern(C) int printf(char*, ...);
 

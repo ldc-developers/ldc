@@ -15,6 +15,6 @@ extern(C) int add(int n, ...)
 
 void main()
 {
-    int i = add(4,1,2,3,4);
+    int i = add(4, 1,2,3,4);
     assert(i == 10);
 }

@@ -361,7 +361,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     gIR->structs.pop_back();
 
     // emit typeinfo
-    if (sd->getModule() == gIR->dmodule && sd->llvmInternal != LLVMnotypeinfo)
+    if (sd->getModule() == gIR->dmodule && sd->llvmInternal != LLVMno_typeinfo)
         DtoTypeInfoOf(sd->type, false);
 }
 

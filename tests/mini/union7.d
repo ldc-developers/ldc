@@ -1,6 +1,5 @@
 module union7;
 
-pragma(LLVM_internal, "notypeinfo")
 struct Union
 {
     union {

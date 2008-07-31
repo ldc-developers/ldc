@@ -253,7 +253,7 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
         assert(fn);
     }
     else if (fdecl->llvmInternal == LLVMva_intrinsic) {
-        fn = gIR->module->getOrInsertFunction(fdecl->llvmInternal1, fty);
+        fn = gIR->module->getOrInsertFunction(fdecl->intrinsicName, fty);
         assert(fn);
     }
     else
@@ -405,9 +405,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // mangled name
-    char* mangled_name;
+    const char* mangled_name;
     if (fdecl->llvmInternal == LLVMintrinsic)
-        mangled_name = fdecl->llvmInternal1;
+        mangled_name = fdecl->intrinsicName.c_str();
     else
         mangled_name = fdecl->mangle();
 

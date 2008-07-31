@@ -1,6 +1,5 @@
 module union1;
 
-pragma(LLVM_internal, "notypeinfo")
 union U
 {
     float f;

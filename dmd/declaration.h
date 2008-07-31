@@ -17,6 +17,7 @@
 
 #include <set>
 #include <map>
+#include <string>
 
 #include "dsymbol.h"
 #include "lexer.h"
@@ -639,6 +640,7 @@ struct FuncDeclaration : Declaration
 
     // llvmdc stuff
     std::set<VarDeclaration*> nestedVars;
+    std::string intrinsicName;
 
     // we keep our own table of label statements as LabelDsymbolS
     // don't always carry their corresponding statement along ...

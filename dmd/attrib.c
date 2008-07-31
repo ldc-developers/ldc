@@ -702,6 +702,20 @@ const char *AnonDeclaration::kind()
 
 /********************************* PragmaDeclaration ****************************/
 
+static bool parseStringExp(Expression* e, std::string& res)
+{
+    StringExp *s = NULL;
+
+    e = e->optimize(WANTvalue);
+    if (e->op == TOKstring && (s = (StringExp *)e))
+    {
+        char* str = (char*)s->string;
+        res = str;
+        return true;
+    }
+    return false;
+}
+
 PragmaDeclaration::PragmaDeclaration(Loc loc, Identifier *ident, Expressions *args, Array *decl)
 	: AttribDeclaration(decl)
 {
@@ -725,7 +739,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 
 #if IN_LLVM
     int llvm_internal = 0;
-    char* llvm_str1 = NULL;
+    std::string arg1str;
 
 #endif
 
@@ -813,82 +827,93 @@ void PragmaDeclaration::semantic(Scope *sc)
 	goto Lnodecl;
     }
 #endif
+
+// LLVMDC
 #if IN_LLVM
-    else if (ident == Id::LLVM_internal)
+
+    // pragma(intrinsic, dotExpS) { funcdecl(s) }
+    else if (ident == Id::intrinsic)
     {
-        if (!args || args->dim < 1 || args->dim > 2)
-            error("needs 1-3 parameters");
-        else if (!decl || decl->dim < 1)
-            error("must apply to at least one declaration");
-        else
+        Expression* expr = (Expression *)args->data[0];
+        expr = expr->semantic(sc);
+        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
-            Expression *e;
-            StringExp *s = NULL;
-
-            e = (Expression *)args->data[0];
-            e = e->semantic(sc);
-            e = e->optimize(WANTvalue);
-            if (e->op == TOKstring && (s = (StringExp *)e))
-            {
-                char* str = (char*)s->string;
-                if (strcmp(str,"intrinsic")==0) {
-                    llvm_internal = LLVMintrinsic;
-                    assert(args->dim == 2);
-                }
-                else if (strcmp(str,"va_start")==0) {
-                    llvm_internal = LLVMva_start;
-                    assert(args->dim == 1);
-                }
-                else if (strcmp(str,"va_arg")==0) {
-                    llvm_internal = LLVMva_arg;
-                    assert(args->dim == 1);
-                }
-                else if (strcmp(str,"va_intrinsic")==0) {
-                    llvm_internal = LLVMva_intrinsic;
-                    assert(args->dim == 2);
-                }
-                else if (strcmp(str,"notypeinfo")==0) {
-                    llvm_internal = LLVMnotypeinfo;
-                    assert(args->dim == 1);
-                }
-                else if (strcmp(str,"alloca")==0) {
-                    llvm_internal = LLVMalloca;
-                    assert(args->dim == 1);
-                }
-                else {
-                    error("unknown pragma command: %s", str);
-                }
-            }
-            else
-            error("1st argument must be a string");
-
-            if (llvm_internal)
-            switch (llvm_internal)
-            {
-            case LLVMintrinsic:
-            case LLVMva_intrinsic:
-                e = (Expression *)args->data[1];
-                e = e->semantic(sc);
-                e = e->optimize(WANTvalue);
-                if (e->op == TOKstring && (s = (StringExp *)e)) {
-                    llvm_str1 = (char*)s->string;
-                }
-                else
-                error("2nd argument must be a string");
-                break;
-
-            case LLVMva_arg:
-            case LLVMva_start:
-            case LLVMnotypeinfo:
-            case LLVMalloca:
-                break;
-
-            default:
-                assert(0);
-            }
+             error("pragma intrinsic requires exactly 1 string literal parameter");
+             fatal();
         }
+        llvm_internal = LLVMintrinsic;
     }
-#endif
+
+    // pragma(va_intrinsic, dotExpS) { funcdecl(s) }
+    else if (ident == Id::va_intrinsic)
+    {
+        Expression* expr = (Expression *)args->data[0];
+        expr = expr->semantic(sc);
+        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
+        {
+             error("pragma va_intrinsic requires exactly 1 string literal parameter");
+             fatal();
+        }
+        llvm_internal = LLVMva_intrinsic;
+    }
+
+    // pragma(notypeinfo) { typedecl(s) }
+    else if (ident == Id::no_typeinfo)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma no_typeinfo takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMno_typeinfo;
+    }
+
+    // pragma(nomoduleinfo) ;
+    else if (ident == Id::no_moduleinfo)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma no_moduleinfo takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMno_moduleinfo;
+    }
+
+    // pragma(alloca) { funcdecl(s) }
+    else if (ident == Id::alloca)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma alloca takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMalloca;
+    }
+
+    // pragma(va_start) { templdecl(s) }
+    else if (ident == Id::va_start)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma va_start takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMva_start;
+    }
+
+    // pragma(va_arg) { templdecl(s) }
+    else if (ident == Id::va_arg)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma va_arg takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMva_arg;
+    }
+
+#endif // LLVMDC
+
     else if (global.params.ignoreUnsupportedPragmas)
     {
 	if (global.params.verbose)
@@ -926,60 +951,84 @@ void PragmaDeclaration::semantic(Scope *sc)
 	    Dsymbol *s = (Dsymbol *)decl->data[i];
 
 	    s->semantic(sc);
-        
+
+// LLVMDC
 #if IN_LLVM
+
         if (llvm_internal)
         {
-            switch(llvm_internal)
-            {
-            case LLVMintrinsic:
-            case LLVMva_intrinsic:
-                if (FuncDeclaration* fd = s->isFuncDeclaration()) {
-                    fd->llvmInternal = llvm_internal;
-                    fd->llvmInternal1 = llvm_str1;
-                }
-                else {
-                    error("may only be used on function declarations");
-                    assert(0);
-                }
-                break;
-
-            case LLVMva_start:
-            case LLVMva_arg:
-                if (TemplateDeclaration* td = s->isTemplateDeclaration()) {
-                    td->llvmInternal = llvm_internal;
-                    assert(td->parameters->dim == 1);
-                    assert(!td->overnext);
-                    assert(!td->overroot);
-                    assert(td->onemember);
-                    Logger::println("template->onemember = %s", td->onemember->toChars());
-                }
-                else {
-                    error("can only be used on templates");
-                    assert(0);
-                }
-                break;
-
-            case LLVMnotypeinfo:
-                s->llvmInternal = llvm_internal;
-                break;
-
-            case LLVMalloca:
-                if (FuncDeclaration* fd = s->isFuncDeclaration()) {
-                    fd->llvmInternal = llvm_internal;
-                }
-                else {
-                    error("may only be used on function declarations");
-                    assert(0);
-                }
-                break;
-
-            default:
-                assert(0 && "invalid LLVM_internal pragma got through :/");
-            }
+        if (s->llvmInternal)
+        {
+            error("multiple LLVMDC specific pragmas not allowed not affect the same declaration (%s at '%s')", s->toChars(), s->loc.toChars());
+            fatal();
         }
-        
-#endif
+        switch(llvm_internal)
+        {
+        case LLVMintrinsic:
+        case LLVMva_intrinsic:
+            if (FuncDeclaration* fd = s->isFuncDeclaration())
+            {
+                fd->llvmInternal = llvm_internal;
+                fd->intrinsicName = arg1str;
+            }
+            else
+            {
+                error("intrinsic pragmas are only allowed to affect function declarations");
+                fatal();
+            }
+            break;
+
+        case LLVMva_start:
+        case LLVMva_arg:
+            if (TemplateDeclaration* td = s->isTemplateDeclaration())
+            {
+                if (td->parameters->dim != 1)
+                {
+                    error("the %s pragma template must have exactly one template parameter", ident->toChars());
+                    fatal();
+                }
+                else if (!td->onemember)
+                {
+                    error("the %s pragma template must have exactly one member", ident->toChars());
+                    fatal();
+                }
+                else if (td->overnext || td->overroot)
+                {
+                    error("the %s pragma template must not be overloaded", ident->toChars());
+                    fatal();
+                }
+                td->llvmInternal = llvm_internal;
+            }
+            else
+            {
+                error("the %s pragma is only allowed on template declarations", ident->toChars());
+                fatal();
+            }
+            break;
+
+        case LLVMno_typeinfo:
+            s->llvmInternal = llvm_internal;
+            break;
+
+        case LLVMalloca:
+            if (FuncDeclaration* fd = s->isFuncDeclaration())
+            {
+                fd->llvmInternal = llvm_internal;
+            }
+            else
+            {
+                error("the %s pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
+                fatal();
+            }
+            break;
+
+        default:
+            warning("LLVMDC specific pragma %s not yet implemented, ignoring", ident->toChars());
+        }
+        }
+
+#endif // LLVMDC
+
     }
     }
     return;

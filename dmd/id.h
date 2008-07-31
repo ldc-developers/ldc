@@ -169,11 +169,15 @@ struct Id
     static Identifier *lib;
     static Identifier *msg;
     static Identifier *GNU_asm;
-    static Identifier *LLVM_intrinsic;
-    static Identifier *LLVM_internal;
+    static Identifier *intrinsic;
+    static Identifier *va_intrinsic;
+    static Identifier *no_typeinfo;
+    static Identifier *no_moduleinfo;
+    static Identifier *alloca;
+    static Identifier *va_start;
+    static Identifier *va_arg;
     static Identifier *tohash;
     static Identifier *tostring;
-    static Identifier *alloca;
     static Identifier *main;
     static Identifier *WinMain;
     static Identifier *DllMain;

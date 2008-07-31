@@ -90,6 +90,10 @@ Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
     f->fensure  = fensure  ? fensure->syntaxCopy()  : NULL;
     f->fbody    = fbody    ? fbody->syntaxCopy()    : NULL;
     assert(!fthrows); // deprecated
+
+    // LLVMDC
+    f->intrinsicName = intrinsicName;
+
     return f;
 }
 

@@ -1,6 +1,5 @@
 module union4;
 
-pragma(LLVM_internal, "notypeinfo")
 union U {
     struct { float x,y,z; }
     float[3] xyz;

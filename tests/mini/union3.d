@@ -1,6 +1,5 @@
 module union3;
 
-pragma(LLVM_internal, "notypeinfo")
 union vec3
 {
     struct { float x,y,z; }

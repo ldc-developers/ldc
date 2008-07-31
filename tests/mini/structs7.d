@@ -1,6 +1,5 @@
 module structs7;
 
-pragma(LLVM_internal, "notypeinfo")
 struct S
 {
     int i;

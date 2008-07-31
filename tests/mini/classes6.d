@@ -24,7 +24,7 @@ extern(C)
     int rand();
 }
 
-import llvm.intrinsic;
+import llvmdc.intrinsics;
 
 void main()
 {

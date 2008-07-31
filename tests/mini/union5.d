@@ -1,26 +1,23 @@
 module union5;
 
-pragma(LLVM_internal, "notypeinfo")
+union S
 {
-    union S
-    {
-        T t;
-        U u;
-        uint i;
-        struct {
-            ushort sl,sh;
-        }
+    T t;
+    U u;
+    uint i;
+    struct {
+        ushort sl,sh;
     }
+}
 
-    struct T
-    {
-        int i;
-    }
+struct T
+{
+    int i;
+}
 
-    struct U
-    {
-        float f;
-    }
+struct U
+{
+    float f;
 }
 
 void main()

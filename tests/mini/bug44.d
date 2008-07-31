@@ -1,6 +1,5 @@
 module bug44;
 
-pragma(LLVM_internal, "notypeinfo")
 struct rgb
 {
     long l;

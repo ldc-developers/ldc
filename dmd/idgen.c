@@ -212,15 +212,22 @@ Msgtable msgtable[] =
     { "lib" },
     { "msg" },
     { "GNU_asm" },
-    { "LLVM_intrinsic" },
-    { "LLVM_internal" },
+
+    // LLVMDC pragma's
+    { "intrinsic" },
+    { "va_intrinsic" },
+    { "no_typeinfo" },
+    { "no_moduleinfo" },
+    { "alloca" },
+    { "va_start" },
+    { "va_arg" },
 
     // For toHash/toString
     { "tohash", "toHash" },
     { "tostring", "toString" },
 
     // Special functions
-    { "alloca" },
+    //{ "alloca" },
     { "main" },
     { "WinMain" },
     { "DllMain" },

@@ -45,8 +45,6 @@ Dsymbol::Dsymbol()
     this->comment = NULL;
 
     this->llvmInternal = LLVMnone;
-    this->llvmInternal1 = NULL;
-    this->llvmInternal2 = NULL;
 }
 
 Dsymbol::Dsymbol(Identifier *ident)
@@ -61,8 +59,6 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->comment = NULL;
 
     this->llvmInternal = LLVMnone;
-    this->llvmInternal1 = NULL;
-    this->llvmInternal2 = NULL;
 }
 
 int Dsymbol::equals(Object *o)

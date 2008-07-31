@@ -220,12 +220,10 @@ struct Dsymbol : Object
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
-    
+
     // llvm stuff
     int llvmInternal;
-    char* llvmInternal1;
-    char* llvmInternal2;
-    
+
     IrDsymbol ir;
 };
 

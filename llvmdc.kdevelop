@@ -362,6 +362,50 @@
       <path>tests/dstress/ifeq__.c</path>
       <path>tests/dstress/return__.c</path>
       <path>e2ir.c</path>
+      <path>tango-llvmdc</path>
+      <path>tango-llvmdc/lib</path>
+      <path>tango-llvmdc/lib/common</path>
+      <path>tango-llvmdc/lib/common/tango</path>
+      <path>tango-llvmdc/lib/common/tango/stdc</path>
+      <path>tango-llvmdc/lib/common/tango/stdc/wrap.c</path>
+      <path>tango-llvmdc/lib/compiler</path>
+      <path>tango-llvmdc/lib/compiler/dmd</path>
+      <path>tango-llvmdc/lib/compiler/dmd/complex.c</path>
+      <path>tango-llvmdc/lib/compiler/dmd/critical.c</path>
+      <path>tango-llvmdc/lib/compiler/dmd/deh.c</path>
+      <path>tango-llvmdc/lib/compiler/dmd/mars.h</path>
+      <path>tango-llvmdc/lib/compiler/dmd/monitor.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc</path>
+      <path>tango-llvmdc/lib/compiler/gdc/config</path>
+      <path>tango-llvmdc/lib/compiler/gdc/config/gen_config1.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/config/gen_math.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/config/gen_unix.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/config/makestruct.h</path>
+      <path>tango-llvmdc/lib/compiler/gdc/critical.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/deh.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/gcc</path>
+      <path>tango-llvmdc/lib/compiler/gdc/gcc/aix_float.h</path>
+      <path>tango-llvmdc/lib/compiler/gdc/gcc/cbridge_fdset.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/gcc/cbridge_math.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/gcc/cbridge_stdio.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/gcc/cbridge_time.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/mars.h</path>
+      <path>tango-llvmdc/lib/compiler/gdc/memory_dyld.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/memory_freebsd.c</path>
+      <path>tango-llvmdc/lib/compiler/gdc/monitor.c</path>
+      <path>tango-llvmdc/lib/compiler/llvmdc</path>
+      <path>tango-llvmdc/lib/compiler/llvmdc/critical.c</path>
+      <path>tango-llvmdc/lib/compiler/llvmdc/mars.h</path>
+      <path>tango-llvmdc/lib/compiler/llvmdc/monitor.c</path>
+      <path>tango-llvmdc/patches</path>
+      <path>tango-llvmdc/patches/proposals</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks/lib</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/dmd</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/dmd/monitor.c</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/gdc</path>
+      <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/gdc/monitor.c</path>
     </blacklist>
     <build>
       <buildtool>make</buildtool>
