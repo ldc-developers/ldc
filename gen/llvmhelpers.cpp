@@ -485,6 +485,12 @@ LLValue* DtoNestedVariable(VarDeclaration* vd)
     LLValue* ptr = DtoNestedContext(func);
     assert(ptr && "nested var, but no context");
 
+    // if there is no nestedVar the context itself is what we're after
+    if (!func->ir.irFunc->nestedVar)
+    {
+        return ptr;
+    }
+
     // handle a "normal" nested variable
 
     // we must cast here to be sure. nested classes just have a void*
