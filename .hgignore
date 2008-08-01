@@ -6,7 +6,8 @@ tests/reference
 *.s
 *.a
 obj/*
-tango/lib/common/tango/core/*.di
+tango
+import
 Makefile
 bin/llvmdc
 idgen
