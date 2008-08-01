@@ -215,6 +215,13 @@ CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegi
     llvm::BasicBlock* pad;
     if(pad = func()->landingPad.get())
     {
+        // intrinsics don't support invoking
+        LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
+        if (funcval && funcval->isIntrinsic())
+        {
+            return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
+        }
+
         llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create("postinvoke", topfunc(), scopeend());
         llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, ArgBegin, ArgEnd, Name);
         scope() = IRScope(postinvoke, scopeend());
