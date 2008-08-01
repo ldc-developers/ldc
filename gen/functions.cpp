@@ -589,10 +589,21 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
             // FIXME: llvm seems to want an alloca/byval for debug info
             if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut())
+            {
+                Logger::println("skipping arg storage for (%s) %s ", vd->loc.toChars(), vd->toChars());
                 continue;
+            }
+            // static array params don't support debug info it seems
+            // probably because they're not passed byval
+            else if (vd->type->toBasetype()->ty == Tsarray)
+            {
+                Logger::println("skipping arg storage for static array (%s) %s ", vd->loc.toChars(), vd->toChars());
+                continue;
+            }
             // debug info for normal aggr params seem to work fine
             else if (DtoIsPassedByRef(vd->type))
             {
+                Logger::println("skipping arg storage for aggregate (%s) %s ", vd->loc.toChars(), vd->toChars());
                 if (global.params.symdebug)
                     DtoDwarfLocalVariable(vd->ir.getIrValue(), vd);
                 continue;

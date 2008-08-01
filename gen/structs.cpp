@@ -23,7 +23,10 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
     Logger::println("DtoConstStructInitializer: %s", si->toChars());
     LOG_SCOPE;
 
+    assert(si->ad);
     TypeStruct* ts = (TypeStruct*)si->ad->type;
+
+    DtoResolveDsymbol(si->ad);
 
     const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
     Logger::cout() << "llvm struct type: " << *structtype << '\n';
