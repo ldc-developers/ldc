@@ -320,14 +320,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
     llvm::ParamAttrsWithIndex PAWI;
 
-    // set zext/sext attr on return value if necessary
-    if (f->next->isintegral() && f->next->size() < PTRSIZE)
+    // set return value attrs if any
+    if (f->llvmRetAttrs)
     {
         PAWI.Index = 0;
-        if (f->next->isunsigned())
-            PAWI.Attrs = llvm::ParamAttr::ZExt;
-        else
-            PAWI.Attrs = llvm::ParamAttr::SExt;
+        PAWI.Attrs = f->llvmRetAttrs;
         attrs.push_back(PAWI);
     }
 
