@@ -288,8 +288,12 @@ DValue* ComplexExp::toElem(IRState* p)
         Type* t = DtoDType(type);
         if (t->ty == Tcomplex32)
             c = DtoConstFP(Type::tfloat32, 0);
-        else
+        else if (t->ty == Tcomplex64)
             c = DtoConstFP(Type::tfloat64, 0);
+        else if (t->ty == Tcomplex80)
+            c = DtoConstFP(Type::tfloat80, 0);
+        else
+            assert(0);
         return new DComplexValue(type, c, c);
     }
 

@@ -178,7 +178,6 @@ Usage:\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
   -dis           disassemble module after compiling\n\
-  -fp80          enable 80bit reals on x86 32bit (EXPERIMENTAL)\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
   -H             generate 'header' file\n\
@@ -407,8 +406,6 @@ int main(int argc, char *argv[])
             global.params.disassemble = 1;
         else if (strcmp(p + 1, "annotate") == 0)
             global.params.llvmAnnotate = 1;
-        else if (strcmp(p + 1, "fp80") == 0)
-            global.params.useFP80 = 1;
         else if (strcmp(p + 1, "noasm") == 0)
             global.params.useInlineAsm = 0;
 	    else if (p[1] == 'o')
@@ -697,20 +694,20 @@ int main(int argc, char *argv[])
         findDefaultTarget();
     }
 
-    bool is_x86 = false;
     if (strcmp(global.params.llvmArch,"x86")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86");
-        //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
         global.params.isLE = true;
         global.params.is64bit = false;
         global.params.cpu = ARCHx86;
         tt_arch = "i686";
         data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
-        is_x86 = true;
+        if (global.params.useInlineAsm) {
+            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
+            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
+        }
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86_64");
-        //VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86_64");
         global.params.isLE = true;
         global.params.is64bit = true;
         global.params.cpu = ARCHx86_64;
@@ -750,18 +747,6 @@ int main(int argc, char *argv[])
 
     if (global.params.is64bit) {
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
-    }
-
-    if (global.params.useFP80) {
-        if (!is_x86) {
-            error("the -fp80 option is only valid for the x86 32bit architecture");
-            fatal();
-        }
-        VersionCondition::addPredefinedGlobalIdent("LLVM_X86_FP80");
-    }
-    if (is_x86 && global.params.useInlineAsm) {
-        VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
-        VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
     }
 
     assert(tt_arch != 0);

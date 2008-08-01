@@ -218,9 +218,11 @@ Msgtable msgtable[] =
     { "va_intrinsic" },
     { "no_typeinfo" },
     { "no_moduleinfo" },
-    { "alloca" },
-    { "va_start" },
-    { "va_arg" },
+    { "Alloca", "alloca" },
+    { "vastart", "va_start" },
+    { "vacopy", "va_copy" },
+    { "vaend", "va_end" },
+    { "vaarg", "va_arg" },
 
     // For toHash/toString
     { "tohash", "toHash" },

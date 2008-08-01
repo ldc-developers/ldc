@@ -252,7 +252,7 @@ void Type::init()
     }
 
     // set real size and padding
-    if (global.params.useFP80)
+    if (global.params.cpu == ARCHx86)
     {
     REALSIZE = 12;
     REALPAD = 2;
@@ -2653,6 +2653,7 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->inuse = 0;
     this->llvmRetInPtr = false;
     this->llvmUsesThis = false;
+    this->llvmRetAttrs = 0;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2662,6 +2663,7 @@ Type *TypeFunction::syntaxCopy()
     TypeFunction *t = new TypeFunction(params, treturn, varargs, linkage);
     t->llvmRetInPtr = llvmRetInPtr;
     t->llvmUsesThis = llvmUsesThis;
+    t->llvmRetAttrs = llvmRetAttrs;
     return t;
 }
 
@@ -5235,7 +5237,7 @@ Argument::Argument(unsigned storageClass, Type *type, Identifier *ident, Express
     this->ident = ident;
     this->storageClass = storageClass;
     this->defaultArg = defaultArg;
-    this->llvmByVal = false;
+    this->llvmAttrs = 0;
 }
 
 Argument *Argument::syntaxCopy()
@@ -5244,7 +5246,7 @@ Argument *Argument::syntaxCopy()
 		type ? type->syntaxCopy() : NULL,
 		ident,
 		defaultArg ? defaultArg->syntaxCopy() : NULL);
-    a->llvmByVal = llvmByVal;
+    a->llvmAttrs = llvmAttrs;
     return a;
 }
 

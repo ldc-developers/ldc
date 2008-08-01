@@ -209,96 +209,47 @@ Index: tango/math/Math.d
 ===================================================================
 --- tango/math/Math.d	(revision 3831)
 +++ tango/math/Math.d	(working copy)
-@@ -76,7 +76,77 @@
+@@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
      }
  }
 +else version(LLVMDC)
 +{
-+    private
++    import llvmdc.intrinsics;
++    version(X86)
 +    {
- 
-+    pragma(intrinsic, "llvm.sqrt.f32")
-+        float sqrt(float);
-+    pragma(intrinsic, "llvm.sqrt.f64")
-+        double sqrt(double);
-+
-+    version(LLVM_X86_FP80)
-+    {
-+        alias tango.stdc.math.tanl llvm_tan;
-+        alias tango.stdc.math.acosl llvm_acos;
-+        alias tango.stdc.math.asinl llvm_asin;
-+        alias tango.stdc.math.atanl llvm_atan;
-+        alias tango.stdc.math.atan2l llvm_atan2;
-+        alias tango.stdc.math.coshl llvm_cosh;
-+        alias tango.stdc.math.sinhl llvm_sinh;
-+        alias tango.stdc.math.tanhl llvm_tanh;
-+        alias tango.stdc.math.cbrtl llvm_cbrt;
-+        alias tango.stdc.math.expl llvm_exp;
-+        alias tango.stdc.math.expm1l llvm_expm1;
-+        alias tango.stdc.math.exp2l llvm_exp2;
-+        alias tango.stdc.math.logl llvm_log;
-+        alias tango.stdc.math.log1pl llvm_log1p;
-+        alias tango.stdc.math.log2l llvm_log2;
-+        alias tango.stdc.math.log10l llvm_log10;
-+        alias tango.stdc.math.powl llvm_pow;
-+        alias tango.stdc.math.lrintl llvm_lrint;
-+        alias tango.stdc.math.llrintl llvm_llrint;
-+
-+        pragma(intrinsic, "llvm.cos.f80")
-+            real cos(real);
-+        pragma(intrinsic, "llvm.sin.f80")
-+            real sin(real);
-+        pragma(intrinsic, "llvm.sqrt.f80")
-+            real sqrt(real);
-+    }
-+    else
-+    {
-+        alias tango.stdc.math.tan llvm_tan;
-+        alias tango.stdc.math.acos llvm_acos;
-+        alias tango.stdc.math.asin llvm_asin;
-+        alias tango.stdc.math.atan llvm_atan;
-+        alias tango.stdc.math.atan2 llvm_atan2;
-+        alias tango.stdc.math.cosh llvm_cosh;
-+        alias tango.stdc.math.sinh llvm_sinh;
-+        alias tango.stdc.math.tanh llvm_tanh;
-+        alias tango.stdc.math.cbrt llvm_cbrt;
-+        alias tango.stdc.math.exp llvm_exp;
-+        alias tango.stdc.math.expm1 llvm_expm1;
-+        alias tango.stdc.math.exp2 llvm_exp2;
-+        alias tango.stdc.math.log llvm_log;
-+        alias tango.stdc.math.log1p llvm_log1p;
-+        alias tango.stdc.math.log2 llvm_log2;
-+        alias tango.stdc.math.log10 llvm_log10;
-+        alias tango.stdc.math.pow llvm_pow;
-+        alias tango.stdc.math.lrint llvm_lrint;
-+        alias tango.stdc.math.llrint llvm_llrint;
-+
-+        pragma(intrinsic, "llvm.cos.f64")
-+            real cos(real);
-+        pragma(intrinsic, "llvm.sin.f64")
-+            real sin(real);
-+        pragma(intrinsic, "llvm.sqrt.f64")
-+            real sqrt(real);
-+    }
++        version = LLVMDC_X86;
 +    }
 +}
-+
+ 
  /*
   * Constants
-  */
-@@ -298,6 +368,10 @@
+@@ -298,6 +306,24 @@
   * Bugs:
   *  Results are undefined if |x| >= $(POWER 2,64).
   */
 +version(LLVMDC)
-+{}
++{
++    alias llvm_cos_f32 cos;
++    alias llvm_cos_f64 cos;
++    version(X86)
++    {
++        alias llvm_cos_f80 cos;
++    }
++    else
++    {
++        real cos(real x)
++        {
++            return tango.stdc.math.cosl(x);
++        }
++    }
++}
 +else
 +{
  real cos(real x) /* intrinsic */
  {
      version(D_InlineAsm_X86)
-@@ -313,6 +387,7 @@
+@@ -313,6 +339,7 @@
          return tango.stdc.math.cosl(x);
      }
  }
@@ -306,18 +257,32 @@ Index: tango/math/Math.d
  
  debug(UnitTest) {
  unittest {
-@@ -333,6 +408,10 @@
+@@ -333,6 +360,24 @@
   * Bugs:
   *  Results are undefined if |x| >= $(POWER 2,64).
   */
 +version(LLVMDC)
-+{}
++{
++    alias llvm_sin_f32 sin;
++    alias llvm_sin_f64 sin;
++    version(X86)
++    {
++        alias llvm_sin_f80 sin;
++    }
++    else
++    {
++        real sin(real x)
++        {
++            return tango.stdc.math.sinl(x);
++        }
++    }
++}
 +else
 +{
  real sin(real x) /* intrinsic */
  {
      version(D_InlineAsm_X86)
-@@ -348,6 +427,7 @@
+@@ -348,6 +393,7 @@
          return tango.stdc.math.sinl(x);
      }
  }
@@ -325,283 +290,62 @@ Index: tango/math/Math.d
  
  debug(UnitTest) {
  unittest {
-@@ -374,6 +454,9 @@
+@@ -374,7 +420,11 @@
  {
      version (GNU) {
          return tanl(x);
+-    } else {
 +    }
 +    else version(LLVMDC) {
-+        return llvm_tan(x);
-     } else {
++        return tango.stdc.math.tanl(x);
++    }
++    else {
      asm
      {
-@@ -576,7 +659,14 @@
-  */
- real acos(real x)
- {
--    return tango.stdc.math.acosl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_acos(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.acosl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -599,7 +689,14 @@
-  */
- real asin(real x)
- {
--    return tango.stdc.math.asinl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_asin(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.asinl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -621,7 +718,14 @@
-  */
- real atan(real x)
- {
--    return tango.stdc.math.atanl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_atan(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.atanl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -658,7 +762,14 @@
-  */
- real atan2(real y, real x)
- {
--    return tango.stdc.math.atan2l(y,x);
-+    version(LLVMDC)
-+    {
-+        return llvm_atan2(y,x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.atan2l(y,x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -707,7 +818,14 @@
-  */
- real cosh(real x)
- {
--    return tango.stdc.math.coshl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_cosh(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.coshl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -728,7 +846,14 @@
-  */
- real sinh(real x)
- {
--    return tango.stdc.math.sinhl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_sinh(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.sinhl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -749,7 +874,14 @@
-  */
- real tanh(real x)
- {
--    return tango.stdc.math.tanhl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_tanh(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.tanhl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -947,6 +1079,10 @@
+         fld x[EBP]      ; // load theta
+@@ -947,6 +997,25 @@
   *  <tr> <td> +&infin; <td> +&infin; <td> no
   *  )
   */
 +version(LLVMDC)
-+{}
++{
++    alias llvm_sqrt_f32 sqrt;
++    alias llvm_sqrt_f64 sqrt;
++    version(X86)
++    {
++        alias llvm_sqrt_f80 sqrt;
++    }
++    else
++    {
++        real sqrt(real x)
++        {
++            return tango.stdc.math.sqrtl(x);
++        }
++    }
++}
 +else
 +{
++
  float sqrt(float x) /* intrinsic */
  {
      version(D_InlineAsm_X86)
-@@ -994,6 +1130,7 @@
-         return tango.stdc.math.sqrtl(x);
+@@ -995,6 +1064,8 @@
      }
  }
-+}
  
++}
++
  /** ditto */
  creal sqrt(creal z)
-@@ -1045,7 +1182,14 @@
-  */
- real cbrt(real x)
  {
--    return tango.stdc.math.cbrtl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_cbrt(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.cbrtl(x);
-+    }
- }
- 
- 
-@@ -1067,7 +1211,14 @@
-  */
- real exp(real x)
- {
--    return tango.stdc.math.expl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_exp(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.expl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1093,7 +1244,14 @@
-  */
- real expm1(real x)
- {
--    return tango.stdc.math.expm1l(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_expm1(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.expm1l(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1115,7 +1273,14 @@
-  */
- real exp2(real x)
- {
--    return tango.stdc.math.exp2l(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_exp2(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.exp2l(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1141,7 +1306,14 @@
-  */
- real log(real x)
- {
--    return tango.stdc.math.logl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_log(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.logl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1167,7 +1339,14 @@
-  */
- real log1p(real x)
- {
--    return tango.stdc.math.log1pl(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_log1p(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.log1pl(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1190,7 +1369,14 @@
-  */
- real log2(real x)
- {
--    return tango.stdc.math.log2l(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_log2(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.log2l(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1212,7 +1398,14 @@
-  */
- real log10(real x)
- {
--    return tango.stdc.math.log10l(x);
-+    version(LLVMDC)
-+    {
-+        return llvm_log10(x);
-+    }
-+    else
-+    {
-+        return tango.stdc.math.log10l(x);
-+    }
- }
- 
- debug(UnitTest) {
-@@ -1477,7 +1670,14 @@
+@@ -1477,7 +1548,14 @@
          }
      }
      }
 -    return tango.stdc.math.powl(x, y);
-+    version(LLVMDC)
++    version(LLVMDC_X86)
 +    {
-+        return llvm_pow(x, y);
++        return llvm_pow_f80(x, y);
 +    }
 +    else
 +    {
@@ -610,28 +354,6 @@ Index: tango/math/Math.d
  }
  
  debug(UnitTest) {
-@@ -1823,6 +2023,10 @@
-         }
-         return n;
-     }
-+    else version(LLVMDC)
-+    {
-+        return llvm_lrint(x);
-+    }
-     else
-     {
-         return tango.stdc.math.lrintl(x);
-@@ -1842,6 +2046,10 @@
-         }
-         return n;
-     }
-+    else version(LLVMDC)
-+    {
-+        return llvm_llrint(x);
-+    }
-     else
-     {
-         return tango.stdc.math.llrintl(x);
 Index: tango/stdc/stdlib.d
 ===================================================================
 --- tango/stdc/stdlib.d	(revision 3831)

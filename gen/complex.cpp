@@ -35,7 +35,10 @@ const LLType* DtoComplexBaseType(Type* t)
         return LLType::DoubleTy;
     }
     else if (ty == Tcomplex80) {
-        return (global.params.useFP80) ? LLType::X86_FP80Ty : LLType::DoubleTy;
+        if (global.params.cpu == ARCHx86)
+            return LLType::X86_FP80Ty;
+        else
+            return LLType::DoubleTy;
     }
     else {
         assert(0);
@@ -73,7 +76,7 @@ LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
         base = Type::tfloat64;
     }
     else if (ty == Tcomplex80) {
-        base = (global.params.useFP80) ? Type::tfloat80 : Type::tfloat64;
+        base = Type::tfloat80;
     }
 
     std::vector<LLConstant*> inits;
@@ -121,8 +124,8 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
         baserety = Type::tfloat64;
         baseimty = Type::timaginary64;
     } else if (ty == Tcomplex80) {
-        baserety = global.params.useFP80 ? Type::tfloat80 : Type::tfloat64;
-        baseimty = global.params.useFP80 ? Type::timaginary80 : Type::timaginary64;
+        baserety = Type::tfloat80;
+        baseimty = Type::timaginary80;
     }
 
     if (t->isimaginary()) {

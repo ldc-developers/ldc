@@ -2,10 +2,11 @@ enum
 {
     LLVMnone,
     LLVMintrinsic,
-    LLVMva_intrinsic,
     LLVMno_typeinfo,
     LLVMno_moduleinfo,
     LLVMalloca,
     LLVMva_start,
+    LLVMva_copy,
+    LLVMva_end,
     LLVMva_arg
 };

@@ -443,6 +443,7 @@ struct TypeFunction : Type
 
     bool llvmRetInPtr;
     bool llvmUsesThis;
+    unsigned llvmRetAttrs;
 };
 
 struct TypeDelegate : Type
@@ -701,7 +702,7 @@ struct Argument : Object
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
 
     // LLVMDC
-    bool llvmByVal;
+    unsigned llvmAttrs;
 };
 
 extern int PTRSIZE;

@@ -23,7 +23,7 @@ void main()
     printf("Enter real: ");
     //scanf("%lf", &d);
     r = 3.2311167891231231234754764576;
-    version(LLVM_X86_FP80)
+    version(X86)
     {
         real sr = llvm_sqrt_f80(r);
         printf("sqrt(%llf) = %llf\n", r, sr);
@@ -31,6 +31,6 @@ void main()
     else
     {
         real sr = llvm_sqrt_f64(r);
-        printf("sqrt(%lf) = %lf\n", r, sr);
+        printf("sqrt(%f) = %lf\n", r, sr);
     }
 }

@@ -22,8 +22,8 @@ pragma(va_start)
 pragma(va_arg)
     T va_arg(T)(va_list ap);
 
-pragma(va_intrinsic, "llvm.va_end")
+pragma(va_end)
     void va_end(va_list args);
 
-pragma(va_intrinsic, "llvm.va_copy")
+pragma(va_copy)
     void va_copy(va_list dst, va_list src);

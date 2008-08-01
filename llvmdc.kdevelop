@@ -406,6 +406,11 @@
       <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/dmd/monitor.c</path>
       <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/gdc</path>
       <path>tango-llvmdc/patches/proposals/integrated_locks/lib/compiler/gdc/monitor.c</path>
+      <path>runtime/build.sh</path>
+      <path>runtime/internal</path>
+      <path>runtime/internal/critical.c</path>
+      <path>runtime/internal/mars.h</path>
+      <path>runtime/internal/monitor.c</path>
     </blacklist>
     <build>
       <buildtool>make</buildtool>

@@ -106,7 +106,7 @@ pragma(intrinsic, "llvm.sqrt.f32")
     float llvm_sqrt_f32(float val);
 pragma(intrinsic, "llvm.sqrt.f64")
     double llvm_sqrt_f64(double val);
-version(LLVM_X86_FP80)
+version(X86)
 {
 pragma(intrinsic, "llvm.sqrt.f80")
     real llvm_sqrt_f80(real val);
@@ -119,7 +119,7 @@ pragma(intrinsic, "llvm.sin.f32")
     float llvm_sin_f32(float val);
 pragma(intrinsic, "llvm.sin.f64")
     double llvm_sin_f64(double val);
-version(LLVM_X86_FP80)
+version(X86)
 {
 pragma(intrinsic, "llvm.sin.f80")
     real llvm_sin_f80(real val);
@@ -132,7 +132,7 @@ pragma(intrinsic, "llvm.cos.f32")
     float llvm_cos_f32(float val);
 pragma(intrinsic, "llvm.cos.f64")
     double llvm_cos_f64(double val);
-version(LLVM_X86_FP80)
+version(X86)
 {
 pragma(intrinsic, "llvm.cos.f80")
     real llvm_cos_f80(real val);
@@ -146,7 +146,7 @@ pragma(intrinsic, "llvm.powi.f32")
 
 pragma(intrinsic, "llvm.powi.f64")
     double llvm_powi_f64(double val, int power);
-version(LLVM_X86_FP80)
+version(X86)
 {
 pragma(intrinsic, "llvm.powi.f80")
     real llvm_powi_f80(real val, int power);
@@ -160,7 +160,7 @@ pragma(intrinsic, "llvm.pow.f32")
 
 pragma(intrinsic, "llvm.pow.f64")
     double llvm_pow_f64(double val, double power);
-version(LLVM_X86_FP80)
+version(X86)
 {
 pragma(intrinsic, "llvm.pow.f80")
     real llvm_pow_f80(real val, real power);

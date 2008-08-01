@@ -29,7 +29,6 @@ testversion=D_InlineAsm_PPC64
 testversion=LittleEndian
 testversion=BigEndian
 testversion=LLVM64
-textversion=LLVM_X86_FP80
 
 
 [compile]

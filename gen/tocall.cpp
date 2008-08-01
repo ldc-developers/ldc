@@ -173,8 +173,8 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
         DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
         args.push_back(argval->getRVal());
 
-        if (fnarg->llvmByVal)
-            palist = palist.addAttr(argidx, llvm::ParamAttr::ByVal);
+        if (fnarg->llvmAttrs)
+            palist = palist.addAttr(argidx, fnarg->llvmAttrs);
 
         ++argidx;
     }
@@ -189,8 +189,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get func value if any
     DFuncValue* dfnval = fnval->isFunc();
 
-    // handle special va_copy / va_end intrinsics
-    bool va_intrinsic = (dfnval && dfnval->func && (dfnval->func->llvmInternal == LLVMva_intrinsic));
+    // handle special vararg intrinsics
+    bool va_intrinsic = (dfnval && dfnval->func && dfnval->func->isVaIntrinsic());
 
     // get function type info
     TypeFunction* tf = DtoTypeFunction(fnval);
@@ -263,6 +263,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // handle the rest of the arguments based on param passing style
     llvm::PAListPtr palist;
 
+    if (tf->llvmRetAttrs)
+        palist = palist.addAttr(0, tf->llvmRetAttrs);
+
     // variadic instrinsics need some custom casts
     if (va_intrinsic)
     {
@@ -293,10 +296,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             LLValue* arg = argval->getRVal();
-            if (fnarg && arg->getType() != callableTy->getParamType(j))
-                arg = DtoBitCast(arg, callableTy->getParamType(j));
-            if (fnarg && fnarg->llvmByVal)
-                palist = palist.addAttr(j+1, llvm::ParamAttr::ByVal);
+            if (fnarg)
+            {
+                if (arg->getType() != callableTy->getParamType(j))
+                    arg = DtoBitCast(arg, callableTy->getParamType(j));
+                if (fnarg->llvmAttrs)
+                    palist = palist.addAttr(j+1, fnarg->llvmAttrs);
+            }
             ++argiter;
             args.push_back(arg);
         }
@@ -327,21 +333,17 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (retllval->getType()->isAbstract())
         retllval = DtoBitCast(retllval, getPtrToType(DtoType(resulttype)), "retval");
 
-    // set calling convention
+    // set calling convention and parameter attributes
     if (dfnval && dfnval->func)
     {
-        int li = dfnval->func->llvmInternal;
-        if (li != LLVMintrinsic && li != LLVMva_start && li != LLVMva_intrinsic)
-        {
+        LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
+        if (llfunc && llfunc->isIntrinsic())
+            palist = llvm::Intrinsic::getParamAttrs((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
+        else
             call->setCallingConv(callconv);
-        }
     }
     else
-    {
         call->setCallingConv(callconv);
-    }
-
-    // param attrs
     call->setParamAttrs(palist);
 
     return new DImValue(resulttype, retllval, false);

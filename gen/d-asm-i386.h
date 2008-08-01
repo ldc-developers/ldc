@@ -2396,10 +2396,7 @@ struct AsmProcessor
 	case TOKfloat64v:
 	case TOKfloat80v:
 	    // %% need different types?
-        if (global.params.useFP80)
-	       e = new RealExp(stmt->loc, token->float80value, Type::tfloat80);
-        else
-            e = new RealExp(stmt->loc, token->float80value, Type::tfloat64);
+        e = new RealExp(stmt->loc, token->float80value, Type::tfloat80);
 	    nextToken();
 	    break;
 	case TOKidentifier:

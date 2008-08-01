@@ -1,5 +1,6 @@
 #include "gen/llvm.h"
 #include "llvm/Support/CFG.h"
+#include "llvm/Intrinsics.h"
 
 #include "mtype.h"
 #include "aggregate.h"
@@ -62,7 +63,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     }
     else{
         assert(rt);
-        Type* rtfin = DtoDType(rt);
         if (DtoIsReturnedInArg(rt)) {
             rettype = getPtrToType(DtoType(rt));
             actualRettype = LLType::VoidTy;
@@ -71,6 +71,11 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
         else {
             rettype = DtoType(rt);
             actualRettype = rettype;
+        }
+
+        if (unsigned ea = DtoShouldExtend(rt))
+        {
+            f->llvmRetAttrs |= ea;
         }
     }
 
@@ -103,8 +108,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
 
     size_t n = Argument::dim(f->parameters);
 
-    int nbyval = 0;
-
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
         // ensure scalar
@@ -117,7 +120,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
         if (isaStruct(at)) {
             Logger::println("struct param");
             paramvec.push_back(getPtrToType(at));
-            arg->llvmByVal = !refOrOut;
+            if (!refOrOut)
+                arg->llvmAttrs |= llvm::ParamAttr::ByVal;
         }
         else if (isaArray(at)) {
             // static array are passed by reference
@@ -137,6 +141,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             }
             else {
                 Logger::println("in param");
+                if (unsigned ea = DtoShouldExtend(argT))
+                {
+                    arg->llvmAttrs |= ea;
+                }
             }
             paramvec.push_back(at);
         }
@@ -151,9 +159,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             Logger::cout() << "lazy updated to: " << *at << '\n';
             paramvec.back() = at;
         }
-
-        if (arg->llvmByVal)
-            nbyval++;
     }
 
     //warning("set %d byval args for type: %s", nbyval, f->toChars());
@@ -180,27 +185,17 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
     }
 
     TypeFunction* f = (TypeFunction*)fdecl->type;
-    assert(f != 0);
+    const llvm::FunctionType* fty = 0;
 
-    const llvm::PointerType* i8pty = getPtrToType(LLType::Int8Ty);
-    std::vector<const LLType*> args;
-
-    if (fdecl->llvmInternal == LLVMva_start) {
-        args.push_back(i8pty);
-    }
-    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
-        size_t n = Argument::dim(f->parameters);
-        for (size_t i=0; i<n; ++i) {
-            args.push_back(i8pty);
-        }
-    }
-    else
-    assert(0);
-
-    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::VoidTy, args, false);
+    if (fdecl->llvmInternal == LLVMva_start)
+        fty = GET_INTRINSIC_DECL(vastart)->getFunctionType();
+    else if (fdecl->llvmInternal == LLVMva_copy)
+        fty = GET_INTRINSIC_DECL(vacopy)->getFunctionType();
+    else if (fdecl->llvmInternal == LLVMva_end)
+        fty = GET_INTRINSIC_DECL(vaend)->getFunctionType();
+    assert(fty);
 
     f->ir.type = new llvm::PATypeHolder(fty);
-
     return fty;
 }
 
@@ -208,14 +203,13 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 
 const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
-    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
+    // handle for C vararg intrinsics
+    if (fdecl->isVaIntrinsic())
         return DtoVaFunctionType(fdecl);
-    }
 
     // type has already been resolved
-    if (fdecl->type->ir.type != 0) {
+    if (fdecl->type->ir.type != 0)
         return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
-    }
 
     const LLType* thisty = NULL;
     if (fdecl->needThis()) {
@@ -246,22 +240,16 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 {
     TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
     const llvm::FunctionType* fty = DtoVaFunctionType(fdecl);
-    LLConstant* fn = 0;
+    llvm::Function* func = 0;
 
-    if (fdecl->llvmInternal == LLVMva_start) {
-        fn = gIR->module->getOrInsertFunction("llvm.va_start", fty);
-        assert(fn);
-    }
-    else if (fdecl->llvmInternal == LLVMva_intrinsic) {
-        fn = gIR->module->getOrInsertFunction(fdecl->intrinsicName, fty);
-        assert(fn);
-    }
-    else
-    assert(0);
-
-    llvm::Function* func = llvm::dyn_cast<llvm::Function>(fn);
+    if (fdecl->llvmInternal == LLVMva_start)
+        func = GET_INTRINSIC_DECL(vastart);
+    else if (fdecl->llvmInternal == LLVMva_copy)
+        func = GET_INTRINSIC_DECL(vacopy);
+    else if (fdecl->llvmInternal == LLVMva_end)
+        func = GET_INTRINSIC_DECL(vaend);
     assert(func);
-    assert(func->isIntrinsic());
+
     fdecl->ir.irFunc->func = func;
     return func;
 }
@@ -330,36 +318,43 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     std::vector<llvm::ParamAttrsWithIndex> attrs;
     int k = 0;
 
-    int nbyval = 0;
+    llvm::ParamAttrsWithIndex PAWI;
 
+    // set zext/sext attr on return value if necessary
+    if (f->next->isintegral() && f->next->size() < PTRSIZE)
+    {
+        PAWI.Index = 0;
+        if (f->next->isunsigned())
+            PAWI.Attrs = llvm::ParamAttr::ZExt;
+        else
+            PAWI.Attrs = llvm::ParamAttr::SExt;
+        attrs.push_back(PAWI);
+    }
+
+    // set byval attrs on implicit main arg
     if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
     {
-        llvm::ParamAttrsWithIndex PAWI;
         PAWI.Index = llidx;
         PAWI.Attrs = llvm::ParamAttr::ByVal;
         attrs.push_back(PAWI);
         llidx++;
-        nbyval++;
     }
 
+    // set attrs on the rest of the arguments
     for (; llidx <= funcNumArgs && f->parameters->dim > k; ++llidx,++k)
     {
         Argument* fnarg = (Argument*)f->parameters->data[k];
         assert(fnarg);
-        if (fnarg->llvmByVal)
-        {
-            llvm::ParamAttrsWithIndex PAWI;
-            PAWI.Index = llidx;
-            PAWI.Attrs = llvm::ParamAttr::ByVal;
+
+        PAWI.Index = llidx;
+        PAWI.Attrs = fnarg->llvmAttrs;
+
+        if (PAWI.Attrs)
             attrs.push_back(PAWI);
-            nbyval++;
-        }
     }
 
-    if (nbyval) {
-        llvm::PAListPtr palist = llvm::PAListPtr::get(attrs.begin(), attrs.end());
-        func->setParamAttrs(palist);
-    }
+    llvm::PAListPtr palist = llvm::PAListPtr::get(attrs.begin(), attrs.end());
+    func->setParamAttrs(palist);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -412,9 +407,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         mangled_name = fdecl->mangle();
 
     llvm::Function* vafunc = 0;
-    if ((fdecl->llvmInternal == LLVMva_start) || (fdecl->llvmInternal == LLVMva_intrinsic)) {
+    if (fdecl->isVaIntrinsic())
         vafunc = DtoDeclareVaFunction(fdecl);
-    }
 
     // construct function
     const llvm::FunctionType* functype = DtoFunctionType(fdecl);
@@ -437,7 +431,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     assert(llvm::isa<llvm::FunctionType>(f->ir.type->get()));
 
     // parameter attributes
-    if (f->parameters) {
+    if (f->parameters && !fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
     }
 
@@ -812,3 +806,15 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+bool FuncDeclaration::isIntrinsic()
+{
+    return (llvmInternal == LLVMintrinsic || isVaIntrinsic());
+}
+
+bool FuncDeclaration::isVaIntrinsic()
+{
+    return (llvmInternal == LLVMva_start ||
+            llvmInternal == LLVMva_copy ||
+            llvmInternal == LLVMva_end);
+}

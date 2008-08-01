@@ -21,6 +21,8 @@ bool DtoIsPassedByRef(Type* type);
 // returns if the type should be returned in a hidden pointer arguement
 bool DtoIsReturnedInArg(Type* type);
 
+unsigned DtoShouldExtend(Type* type);
+
 // resolve typedefs to their real type.
 // TODO should probably be removed in favor of DMD's Type::toBasetype
 Type* DtoDType(Type* t);

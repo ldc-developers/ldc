@@ -779,11 +779,9 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
         return DtoComplex(loc, to, val);
     }
     else if (totype->isfloating()) {
-        if ((fromtype->ty == Tfloat80 || fromtype->ty == Tfloat64) && (totype->ty == Tfloat80 || totype->ty == Tfloat64)) {
+        if (fromsz == tosz) {
             rval = val->getRVal();
-        }
-        else if ((fromtype->ty == Timaginary80 || fromtype->ty == Timaginary64) && (totype->ty == Timaginary80 || totype->ty == Timaginary64)) {
-            rval = val->getRVal();
+            assert(rval->getType() == tolltype);
         }
         else if (fromsz < tosz) {
             rval = new llvm::FPExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());

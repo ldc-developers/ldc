@@ -173,9 +173,11 @@ struct Id
     static Identifier *va_intrinsic;
     static Identifier *no_typeinfo;
     static Identifier *no_moduleinfo;
-    static Identifier *alloca;
-    static Identifier *va_start;
-    static Identifier *va_arg;
+    static Identifier *Alloca;
+    static Identifier *vastart;
+    static Identifier *vacopy;
+    static Identifier *vaend;
+    static Identifier *vaarg;
     static Identifier *tohash;
     static Identifier *tostring;
     static Identifier *main;

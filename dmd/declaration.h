@@ -642,6 +642,9 @@ struct FuncDeclaration : Declaration
     std::set<VarDeclaration*> nestedVars;
     std::string intrinsicName;
 
+    bool isIntrinsic();
+    bool isVaIntrinsic();
+
     // we keep our own table of label statements as LabelDsymbolS
     // don't always carry their corresponding statement along ...
     typedef std::map<const char*, LabelStatement*> LabelMap;

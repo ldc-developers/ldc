@@ -35,6 +35,25 @@ bool DtoIsReturnedInArg(Type* type)
     return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
 }
 
+unsigned DtoShouldExtend(Type* type)
+{
+    type = type->toBasetype();
+    if (type->isintegral())
+    {
+        switch(type->ty)
+        {
+        case Tint8:
+        case Tint16:
+            return llvm::ParamAttr::SExt;
+
+        case Tuns8:
+        case Tuns16:
+            return llvm::ParamAttr::ZExt;
+        }
+    }
+    return llvm::ParamAttr::None;
+}
+
 Type* DtoDType(Type* t)
 {
     if (t->ty == Ttypedef) {
@@ -79,7 +98,10 @@ const LLType* DtoType(Type* t)
         return LLType::DoubleTy;
     case Tfloat80:
     case Timaginary80:
-        return (global.params.useFP80) ? LLType::X86_FP80Ty : LLType::DoubleTy;
+        if (global.params.cpu == ARCHx86)
+            return LLType::X86_FP80Ty;
+        else
+            return LLType::DoubleTy;
 
     // complex
     case Tcomplex32:
@@ -485,11 +507,9 @@ llvm::ConstantInt* DtoConstUbyte(unsigned char i)
 
 llvm::ConstantFP* DtoConstFP(Type* t, long double value)
 {
-    TY ty = DtoDType(t)->ty;
-    if (ty == Tfloat32 || ty == Timaginary32)
-        return llvm::ConstantFP::get(llvm::APFloat(float(value)));
-    else if (ty == Tfloat64 || ty == Timaginary64 || ty == Tfloat80 || ty == Timaginary80)
-        return llvm::ConstantFP::get(llvm::APFloat(double(value)));
+    const LLType* llty = DtoType(t);
+    assert(llty->isFloatingPoint());
+    return LLConstantFP::get(llty, value);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

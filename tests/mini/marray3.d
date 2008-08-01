@@ -14,10 +14,10 @@ void main()
     assert(ma[1][1].length == 3);
     assert(ma[1][2].length == 3);
     assert(ma[1][3].length == 3);
-    ma[0][3][1] = 32;
-    ma[1][2][2] = 123;
-    ma[0][0][3] = 55;
-    assert(ma[0][3][1] == 32);
-    assert(ma[1][2][2] == 123);
-    assert(ma[0][0][3] == 55);
+    ma[0][3][0] = 32;
+    ma[1][2][1] = 123;
+    ma[0][0][2] = 55;
+    assert(ma[0][3][0] == 32);
+    assert(ma[1][2][1] == 123);
+    assert(ma[0][0][2] == 55);
 }

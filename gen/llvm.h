@@ -10,6 +10,7 @@
 #include "llvm/Function.h"
 #include "llvm/Module.h"
 #include "llvm/Value.h"
+#include "llvm/ParameterAttributes.h"
 
 #include "llvm/Target/TargetData.h"
 
@@ -37,9 +38,12 @@ using llvm::IRBuilder;
 #define LLConstantStruct llvm::ConstantStruct
 #define LLConstantArray llvm::ConstantArray
 #define LLConstantInt llvm::ConstantInt
+#define LLConstantFP llvm::ConstantFP
 
 #define LLPATypeHolder llvm::PATypeHolder
 
 #define LLSmallVector llvm::SmallVector
+
+#define APFloat llvm::APFloat
 
 #endif // GEN_LLVM_H

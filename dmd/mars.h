@@ -135,7 +135,6 @@ struct Param
     char llvmInline;
     char llvmAnnotate;
     char *runtimePath;
-    char useFP80;
     char useInlineAsm;
     char fqnPaths; // use fully qualified object names
 };

@@ -831,7 +831,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 // LLVMDC
 #if IN_LLVM
 
-    // pragma(intrinsic, dotExpS) { funcdecl(s) }
+    // pragma(intrinsic, string) { funcdecl(s) }
     else if (ident == Id::intrinsic)
     {
         Expression* expr = (Expression *)args->data[0];
@@ -842,19 +842,6 @@ void PragmaDeclaration::semantic(Scope *sc)
              fatal();
         }
         llvm_internal = LLVMintrinsic;
-    }
-
-    // pragma(va_intrinsic, dotExpS) { funcdecl(s) }
-    else if (ident == Id::va_intrinsic)
-    {
-        Expression* expr = (Expression *)args->data[0];
-        expr = expr->semantic(sc);
-        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
-        {
-             error("pragma va_intrinsic requires exactly 1 string literal parameter");
-             fatal();
-        }
-        llvm_internal = LLVMva_intrinsic;
     }
 
     // pragma(notypeinfo) { typedecl(s) }
@@ -880,7 +867,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     }
 
     // pragma(alloca) { funcdecl(s) }
-    else if (ident == Id::alloca)
+    else if (ident == Id::Alloca)
     {
         if (args && args->dim > 0)
         {
@@ -891,7 +878,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     }
 
     // pragma(va_start) { templdecl(s) }
-    else if (ident == Id::va_start)
+    else if (ident == Id::vastart)
     {
         if (args && args->dim > 0)
         {
@@ -901,8 +888,30 @@ void PragmaDeclaration::semantic(Scope *sc)
         llvm_internal = LLVMva_start;
     }
 
+    // pragma(va_copy) { funcdecl(s) }
+    else if (ident == Id::vacopy)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma va_copy takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMva_copy;
+    }
+
+    // pragma(va_end) { funcdecl(s) }
+    else if (ident == Id::vaend)
+    {
+        if (args && args->dim > 0)
+        {
+             error("pragma va_end takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMva_end;
+    }
+
     // pragma(va_arg) { templdecl(s) }
-    else if (ident == Id::va_arg)
+    else if (ident == Id::vaarg)
     {
         if (args && args->dim > 0)
         {
@@ -959,13 +968,12 @@ void PragmaDeclaration::semantic(Scope *sc)
         {
         if (s->llvmInternal)
         {
-            error("multiple LLVMDC specific pragmas not allowed not affect the same declaration (%s at '%s')", s->toChars(), s->loc.toChars());
+            error("multiple LLVMDC specific pragmas not allowed not affect the same declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
             fatal();
         }
         switch(llvm_internal)
         {
         case LLVMintrinsic:
-        case LLVMva_intrinsic:
             if (FuncDeclaration* fd = s->isFuncDeclaration())
             {
                 fd->llvmInternal = llvm_internal;
@@ -973,7 +981,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             }
             else
             {
-                error("intrinsic pragmas are only allowed to affect function declarations");
+                error("the intrinsic pragma is only allowed on function declarations");
                 fatal();
             }
             break;
@@ -984,24 +992,37 @@ void PragmaDeclaration::semantic(Scope *sc)
             {
                 if (td->parameters->dim != 1)
                 {
-                    error("the %s pragma template must have exactly one template parameter", ident->toChars());
+                    error("the '%s' pragma template must have exactly one template parameter", ident->toChars());
                     fatal();
                 }
                 else if (!td->onemember)
                 {
-                    error("the %s pragma template must have exactly one member", ident->toChars());
+                    error("the '%s' pragma template must have exactly one member", ident->toChars());
                     fatal();
                 }
                 else if (td->overnext || td->overroot)
                 {
-                    error("the %s pragma template must not be overloaded", ident->toChars());
+                    error("the '%s' pragma template must not be overloaded", ident->toChars());
                     fatal();
                 }
                 td->llvmInternal = llvm_internal;
             }
             else
             {
-                error("the %s pragma is only allowed on template declarations", ident->toChars());
+                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+                fatal();
+            }
+            break;
+
+        case LLVMva_copy:
+        case LLVMva_end:
+            if (FuncDeclaration* fd = s->isFuncDeclaration())
+            {
+                fd->llvmInternal = llvm_internal;
+            }
+            else
+            {
+                error("the '%s' pragma is only allowed on function declarations", ident->toChars());
                 fatal();
             }
             break;
@@ -1017,13 +1038,13 @@ void PragmaDeclaration::semantic(Scope *sc)
             }
             else
             {
-                error("the %s pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
+                error("the '%s' pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
                 fatal();
             }
             break;
 
         default:
-            warning("LLVMDC specific pragma %s not yet implemented, ignoring", ident->toChars());
+            warning("the LLVMDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
         }
         }
 
