@@ -1,5 +1,7 @@
 module qd;
 
+alias char[] string;
+
 extern(C) {
   struct SDL_Rect {
     short x, y;
@@ -107,6 +109,7 @@ void getpixel32(int x, int y, ubyte[4] *col) {
   SDL_GetRGBA(*bufp, display.format, &(*col)[0], &(*col)[1], &(*col)[2], &(*col)[3]);
 }
 
+align(1)
 struct rgb {
   ubyte[3] values;
   ubyte r() { return values[0]; }
@@ -288,13 +291,22 @@ void line(T...)(int x0, int y0, int x1, int y1, T p) {
   }
 }
 
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f32") {
-    float sqrt(float val);
+import llvmdc.intrinsics;
+alias llvm_sqrt_f32 sqrt;
+alias llvm_sqrt_f64 sqrt;
+version(X86)
+{
+    alias llvm_sqrt_f80 sqrt;
 }
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64") {
-    double sqrt(double val);
-    real sqrt(real val);
+else
+{
+    static import tango.stdc.math;
+    real sqrt(real x)
+    {
+        return tango.stdc.math.sqrtl(x);
+    }
 }
+
 
 template circle_bresenham_pass(bool first) {
   const string xy=(first?"x":"y");
@@ -326,7 +338,6 @@ template circle_bresenham_pass(bool first) {
   ";
 }
 
-import std.stdio;
 void circle(T...)(T t) {
   static assert(T.length!<3, "Circle: Needs x, y and radius");
   int cx=t[0], cy=t[1], xradius=t[2];
@@ -434,7 +445,7 @@ void events(void delegate(int, bool) key=null, void delegate(int, int, ubyte, bo
         if (key) key(evt.key.keysym.sym, false);
         break;
       case SDL_EventType.Quit:
-        throw new Error("Quit");
+        throw new Exception("Quit");
         break;
       default: break;
     }
@@ -453,4 +464,11 @@ void events(void delegate(int) key, void delegate(int, int) mouse) {
 
 void events(void delegate(int, bool) key, void delegate(int, int) mouse) {
   events(key, (int x, int y, ubyte b, bool p) { mouse(x, y); });
+}
+
+void sleep(float secs)
+{
+    assert(secs >= 0);
+    uint ms = cast(uint)(secs * 1000);
+    SDL_Delay(ms);
 }
