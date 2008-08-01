@@ -485,14 +485,6 @@ LLValue* DtoNestedVariable(VarDeclaration* vd)
     LLValue* ptr = DtoNestedContext(func);
     assert(ptr && "nested var, but no context");
 
-    // if the nested var is a this pointer it's a class member and not a magic struct
-    // so we're done here!
-    // this happens since 1.033 for some reason... always correct ?
-    if (vd->ident == Id::This)
-    {
-        return ptr;
-    }
-
     // handle a "normal" nested variable
 
     // we must cast here to be sure. nested classes just have a void*

@@ -969,6 +969,7 @@ DValue* ThisExp::toElem(IRState* p)
 
     // this seems to happen for dmd generated assert statements like:
     //      assert(this, "null this");
+    // FIXME: check for TOKthis in AssertExp instead
     if (!var)
     {
         LLValue* v = p->func()->thisVar;
@@ -978,9 +979,16 @@ DValue* ThisExp::toElem(IRState* p)
     // regular this expr
     else if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
-        v = p->func()->decl->ir.irFunc->thisVar;
-        if (llvm::isa<llvm::AllocaInst>(v))
-            v = DtoLoad(v);
+        if (vd->toParent2() != p->func()->decl) {
+            Logger::println("nested this exp");
+            v = DtoLoad(DtoNestedVariable(vd));
+        }
+        else {
+            Logger::println("normal this exp");
+            v = p->func()->decl->ir.irFunc->thisVar;
+            if (llvm::isa<llvm::AllocaInst>(v))
+                v = DtoLoad(v);
+        }
         const LLType* t = DtoType(type);
         if (v->getType() != t)
             v = DtoBitCast(v, t);

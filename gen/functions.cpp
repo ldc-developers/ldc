@@ -559,6 +559,9 @@ void DtoDefineFunc(FuncDeclaration* fd)
     llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::Int32Ty, "alloca point", beginbb);
     gIR->func()->allocapoint = allocaPoint;
 
+    // debug info - after all allocas, but before any llvm.dbg.declare etc
+    if (global.params.symdebug) DtoDwarfFuncStart(fd);
+
     // need result variable? (not nested)
     if (fd->vresult && !fd->vresult->nestedref) {
         Logger::println("non-nested vresult value");
@@ -624,9 +627,6 @@ void DtoDefineFunc(FuncDeclaration* fd)
             vd->ir.irLocal->value = v;
         }
     }
-
-    // debug info
-    if (global.params.symdebug) DtoDwarfFuncStart(fd);
 
     LLValue* parentNested = NULL;
     if (FuncDeclaration* fd2 = fd->toParent2()->isFuncDeclaration()) {
