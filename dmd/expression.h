@@ -865,6 +865,8 @@ struct AddrExp : UnaExp
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
     Expression *optimize(int result);
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct PtrExp : UnaExp

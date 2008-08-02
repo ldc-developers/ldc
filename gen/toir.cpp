@@ -847,6 +847,17 @@ DValue* AddrExp::toElem(IRState* p)
     return new DFieldValue(type, v->getLVal(), false);
 }
 
+LLConstant* AddrExp::toConstElem(IRState* p)
+{
+    assert(e1->op == TOKvar);
+    VarExp* vexp = (VarExp*)e1;
+    VarDeclaration* vd = vexp->var->isVarDeclaration();
+    assert(vd);
+    LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
+    assert(llc);
+    return llc;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* PtrExp::toElem(IRState* p)
