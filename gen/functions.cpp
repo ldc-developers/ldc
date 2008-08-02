@@ -612,8 +612,9 @@ void DtoDefineFunc(FuncDeclaration* fd)
             else if (DtoIsPassedByRef(vd->type))
             {
                 Logger::println("skipping arg storage for aggregate (%s) %s ", vd->loc.toChars(), vd->toChars());
-                if (global.params.symdebug)
-                    DtoDwarfLocalVariable(vd->ir.getIrValue(), vd);
+                LLValue* vdirval = vd->ir.getIrValue();
+                if (global.params.symdebug && !(isaArgument(vdirval) && !isaArgument(vdirval)->hasByValAttr()))
+                    DtoDwarfLocalVariable(vdirval, vd);
                 continue;
             }
 

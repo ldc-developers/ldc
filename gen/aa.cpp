@@ -22,6 +22,10 @@ static LLValue* to_pkey(Loc& loc, DValue* key)
     if (key->isIm()) {
         pkey = key->getRVal();
     }
+    else if (key->isThis()) {
+        pkey = key->getRVal();
+        needmem = true;
+    }
     else if (DVarValue* var = key->isVar()) {
         if (var->lval) {
             pkey = key->getLVal();
