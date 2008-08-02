@@ -94,6 +94,54 @@ Index: lib/common/tango/core/Thread.d
          version( X86_64 )
          {
  
+Index: lib/unittest.sh
+===================================================================
+--- lib/unittest.sh	(revision 3831)
++++ lib/unittest.sh	(working copy)
+@@ -18,8 +18,9 @@
+   --help: This message
+   --run-all: Reports result instead of breaking. Do not use this if you want to
+          run unittest runner through a debugger.
+-  dmd: Builds unittests for dmd
+-  gdc: Builds unittests for gdc
++  dmd:    Builds unittests for dmd
++  gdc:    Builds unittests for gdc
++  llvmdc: Builds unittests for llvmdc
+ 
+   <none>: Builds unittests for all known compilers.'
+   exit 0
+@@ -125,6 +126,9 @@
+         gdc)
+             GDC=1
+             ;;
++        llvmdc)
++            LLVMDC=1
++            ;;
+         *)
+             usage
+             ;;
+@@ -132,10 +136,11 @@
+     shift
+ done
+ 
+-if [ ! "$DMD" -a ! "$GDC" ]
++if [ ! "$DMD" -a ! "$GDC" -a ! "$LLVMDC" ]
+ then
+     DMD=1
+     GDC=1
++    LLVMDC=1
+ fi
+ 
+ if [ "$DMD" = "1" ]
+@@ -146,4 +151,7 @@
+ then
+     compile gdc runUnitTest_gdc
+ fi
+-
++if [ "$LLVMDC" = "1" ]
++then
++    compile llvmdc runUnitTest_llvmdc
++fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
 --- lib/gc/basic/gcx.d	(revision 3831)

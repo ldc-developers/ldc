@@ -213,6 +213,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLFunctionType::param_iterator argbegin = callableTy->param_begin();
     LLFunctionType::param_iterator argiter = argbegin;
 
+    // parameter attributes
+    llvm::PAListPtr palist;
+
+    // return attrs
+    if (tf->llvmRetAttrs)
+        palist = palist.addAttr(0, tf->llvmRetAttrs);
+
     // handle implicit arguments
     std::vector<LLValue*> args;
 
@@ -222,6 +229,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         LLValue* retvar = new llvm::AllocaInst(argiter->get()->getContainedType(0), ".rettmp", gIR->topallocapoint());
         ++argiter;
         args.push_back(retvar);
+        palist = palist.addAttr(1, llvm::ParamAttr::StructRet);
     }
 
     // then comes a context argument...
@@ -261,10 +269,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // handle the rest of the arguments based on param passing style
-    llvm::PAListPtr palist;
-
-    if (tf->llvmRetAttrs)
-        palist = palist.addAttr(0, tf->llvmRetAttrs);
 
     // variadic instrinsics need some custom casts
     if (va_intrinsic)
@@ -296,7 +300,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             LLValue* arg = argval->getRVal();
-            if (fnarg)
+            if (fnarg) // can fnarg ever be null in this block?
             {
                 if (arg->getType() != callableTy->getParamType(j))
                     arg = DtoBitCast(arg, callableTy->getParamType(j));

@@ -158,10 +158,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
             at = getPtrToType(DtoType(ltd));
             Logger::cout() << "lazy updated to: " << *at << '\n';
             paramvec.back() = at;
+            // lazy doesn't need byval as the delegate is not visible to the user
         }
     }
-
-    //warning("set %d byval args for type: %s", nbyval, f->toChars());
 
     // construct function type
     bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
@@ -306,8 +305,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    assert(f->parameters);
-
     int llidx = 1;
     if (f->llvmRetInPtr) ++llidx;
     if (f->llvmUsesThis) ++llidx;
@@ -328,6 +325,14 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         attrs.push_back(PAWI);
     }
 
+    // set sret param
+    if (f->llvmRetInPtr)
+    {
+        PAWI.Index = 1;
+        PAWI.Attrs = llvm::ParamAttr::StructRet;
+        attrs.push_back(PAWI);
+    }
+
     // set byval attrs on implicit main arg
     if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
     {
@@ -338,9 +343,9 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     }
 
     // set attrs on the rest of the arguments
-    for (; llidx <= funcNumArgs && f->parameters->dim > k; ++llidx,++k)
+    for (; llidx <= funcNumArgs && Argument::dim(f->parameters) > k; ++llidx,++k)
     {
-        Argument* fnarg = (Argument*)f->parameters->data[k];
+        Argument* fnarg = Argument::getNth(f->parameters, k);
         assert(fnarg);
 
         PAWI.Index = llidx;
@@ -428,7 +433,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     assert(llvm::isa<llvm::FunctionType>(f->ir.type->get()));
 
     // parameter attributes
-    if (f->parameters && !fdecl->isIntrinsic()) {
+    if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
     }
 
@@ -458,7 +463,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             ++iarg;
         }
         if (f->llvmUsesThis) {
-            iarg->setName("this");
+            iarg->setName(fdecl->isNested()?".context":"this");
             fdecl->ir.irFunc->thisVar = iarg;
             assert(fdecl->ir.irFunc->thisVar);
             ++iarg;
