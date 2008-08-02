@@ -595,8 +595,10 @@ void DtoDefineFunc(FuncDeclaration* fd)
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
+            bool refoutlazy = vd->storage_class & (STCref | STCout | STClazy);
+
             // FIXME: llvm seems to want an alloca/byval for debug info
-            if (!vd->needsStorage || vd->nestedref || vd->isRef() || vd->isOut())
+            if (!vd->needsStorage || vd->nestedref || refoutlazy)
             {
                 Logger::println("skipping arg storage for (%s) %s ", vd->loc.toChars(), vd->toChars());
                 continue;

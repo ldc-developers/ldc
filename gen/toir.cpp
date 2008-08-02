@@ -1045,7 +1045,7 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP1(arrptr,r->getRVal());
     }
     else if (e1type->ty == Taarray) {
-        return DtoAAIndex(loc, type, l, r);
+        return DtoAAIndex(loc, type, l, r, modifiable);
     }
     else {
         Logger::println("invalid index exp! e1type: %s", e1type->toChars());
@@ -2266,7 +2266,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
         // index
         DValue* key = ekey->toElem(p);
-        DValue* mem = DtoAAIndex(loc, vtype, aa, key);
+        DValue* mem = DtoAAIndex(loc, vtype, aa, key, true);
 
         // store
         DValue* val = eval->toElem(p);

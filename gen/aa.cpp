@@ -66,17 +66,19 @@ static LLValue* to_keyti(DValue* key)
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key)
+DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 {
     // call:
-    // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, void* pkey, size_t valuesize)
+    // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
+    // or
+    // extern(C) void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, void* pkey)
 
     // first get the runtime function
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaGet");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGet":"_aaGetRvalue");
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
     // aa param
-    LLValue* aaval = aa->getLVal();
+    LLValue* aaval = lvalue ? aa->getLVal() : aa->getRVal();
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
     // keyti param
