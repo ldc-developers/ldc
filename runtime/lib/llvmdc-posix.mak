@@ -35,7 +35,7 @@ LLC=llc
 
 ADD_CFLAGS=
 #ADD_DFLAGS=
-ADD_DFLAGS=-I`pwd`/common -I`pwd`/.. -I`pwd`/compiler/llvmdc
+ADD_DFLAGS=-I`pwd`/common/
 
 targets : nativelib doc
 all     : nativelib lib doc

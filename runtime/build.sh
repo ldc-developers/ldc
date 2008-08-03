@@ -14,4 +14,4 @@ make -f llvmdc-posix.mak
 
 # install the runtime
 rm -f ../../lib/libtango-base-llvmdc-native.a
-cp -s `pwd`/libtango-base-llvmdc-native.a ../../lib
+cp `pwd`/libtango-base-llvmdc-native.a ../../lib
