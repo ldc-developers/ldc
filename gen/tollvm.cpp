@@ -556,7 +556,7 @@ bool DtoCanLoad(LLValue* ptr)
 {
     if (isaPointer(ptr->getType())) {
         const LLType* data = ptr->getType()->getContainedType(0);
-        return data->isFirstClassType() && !data->isAggregateType();
+        return data->isFirstClassType() && !(isaStruct(data) || isaArray(data));
     }
     return false;
 }

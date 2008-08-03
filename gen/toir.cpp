@@ -60,19 +60,17 @@ DValue* VarExp::toElem(IRState* p)
         Logger::println("VarDeclaration %s", vd->toChars());
 
         // _arguments
-        if (vd->ident == Id::_arguments)
+        if (vd->ident == Id::_arguments && p->func()->_arguments)
         {
             Logger::println("Id::_arguments");
             LLValue* v = p->func()->_arguments;
-            assert(v);
             return new DVarValue(type, vd, v, true);
         }
         // _argptr
-        else if (vd->ident == Id::_argptr)
+        else if (vd->ident == Id::_argptr && p->func()->_argptr)
         {
             Logger::println("Id::_argptr");
             LLValue* v = p->func()->_argptr;
-            assert(v);
             return new DVarValue(type, vd, v, true);
         }
         // _dollar
