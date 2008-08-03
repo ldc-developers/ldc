@@ -448,7 +448,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
 
 DValue* AssignExp::toElem(IRState* p)
 {
-    Logger::print("AssignExp::toElem: %s | %s = %s\n", toChars(), e1->type->toChars(), e2->type ? e2->type->toChars() : 0);
+    Logger::print("AssignExp::toElem: %s | (%s)(%s = %s)\n", toChars(), type->toChars(), e1->type->toChars(), e2->type ? e2->type->toChars() : 0);
     LOG_SCOPE;
 
     if (e1->op == TOKarraylength)
@@ -472,13 +472,16 @@ DValue* AssignExp::toElem(IRState* p)
     if (l->isSlice() || l->isComplex())
         return l;
 
-    LLValue* v;
-    if (l->isVar() && l->isVar()->lval)
-        v = l->getLVal();
+    if (type->toBasetype()->ty == Tstruct && e2->type->isintegral())
+    {
+        // handle struct = 0;
+        return l;
+    }
     else
-        v = l->getRVal();
-
-    return new DVarValue(type, v, true);
+    {
+        assert(type->equals(e2->type));
+        return r;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
