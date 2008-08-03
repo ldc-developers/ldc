@@ -49,7 +49,7 @@ int main(string[] args)
         auto testname = getName(getBaseName(c));
         writefln("TEST NAME: ", testname);
 
-        string cmd = format("llvmdc %s -quiet -ofobj/%s -odobj", c, testname);
+        string cmd = format("llvmdc %s -quiet -ofobj" ~ std.path.sep ~ "%s -odobj", c, testname);
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;
@@ -61,7 +61,7 @@ int main(string[] args)
                 compilefailed ~= c;
         }
         else if (cl == RUN || cl == NORUN) {
-            if (system("obj/" ~ testname) != 0) {
+            if (system("obj" ~ std.path.sep ~ testname) != 0) {
                 if (cl == RUN)
                     runfailed ~= c;
             }
