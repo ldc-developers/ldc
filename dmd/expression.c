@@ -5373,7 +5373,8 @@ Expression *DelegateExp::semantic(Scope *sc)
     if (!type)
     {
 	e1 = e1->semantic(sc);
-	type = new TypeDelegate(func->type);
+    // LLVMDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
+	type = new TypeDelegate(func->type->syntaxCopy());
 	type = type->semantic(loc, sc);
 	AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
 	if (func->needThis())
