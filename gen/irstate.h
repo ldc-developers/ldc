@@ -61,6 +61,9 @@ struct IRBuilderHelper
 
 struct IRAsmStmt
 {
+    IRAsmStmt() 
+    : isBranchToLabel(NULL) {}
+
     std::string code;
     std::string out_c;
     std::string in_c;
