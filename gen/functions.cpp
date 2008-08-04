@@ -546,7 +546,8 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     Logger::println("Doing function body for: %s", fd->toChars());
     assert(fd->ir.irFunc);
-    gIR->functions.push_back(fd->ir.irFunc);
+    IrFunction* irfunction = fd->ir.irFunc;
+    gIR->functions.push_back(irfunction);
 
     if (fd->isMain())
         gIR->emitMain = true;
@@ -562,7 +563,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     // create alloca point
     llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::Int32Ty, "alloca point", beginbb);
-    gIR->func()->allocapoint = allocaPoint;
+    irfunction->allocapoint = allocaPoint;
 
     // debug info - after all allocas, but before any llvm.dbg.declare etc
     if (global.params.symdebug) DtoDwarfFuncStart(fd);
@@ -574,18 +575,23 @@ void DtoDefineFunc(FuncDeclaration* fd)
         fd->vresult->ir.irLocal->value = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",allocaPoint);
     }
 
-    // give 'this' argument debug info (and storage)
-    if (fd->needThis() && global.params.symdebug)
+    // give the 'this' argument storage and debug info
+    // only if not referenced by nested functions
+    if (fd->needThis() && !fd->vthis->nestedref)
     {
-        LLValue** thisvar = &fd->ir.irFunc->thisVar;
-        assert(*thisvar);
-        LLValue* thismem = new llvm::AllocaInst((*thisvar)->getType(), "newthis", allocaPoint);
-        DtoDwarfLocalVariable(thismem, fd->vthis);
-        gIR->ir->CreateStore(*thisvar, thismem);
-        *thisvar = thismem;
+        LLValue* thisvar = irfunction->thisVar;
+        assert(thisvar);
+
+        LLValue* thismem = new llvm::AllocaInst(thisvar->getType(), ".newthis", allocaPoint);
+        DtoStore(thisvar, thismem);
+        irfunction->thisVar = thismem;
+
+        if (global.params.symdebug)
+            DtoDwarfLocalVariable(thismem, fd->vthis);
     }
 
     // give arguments storage
+    // and debug info
     if (fd->parameters)
     {
         size_t n = fd->parameters->dim;
@@ -595,44 +601,27 @@ void DtoDefineFunc(FuncDeclaration* fd)
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
+            IrLocal* irloc = vd->ir.irLocal;
+            assert(irloc);
+
             bool refoutlazy = vd->storage_class & (STCref | STCout | STClazy);
 
-            // FIXME: llvm seems to want an alloca/byval for debug info
-            if (!vd->needsStorage || vd->nestedref || refoutlazy)
+            if (vd->nestedref || refoutlazy)
             {
-                Logger::println("skipping arg storage for (%s) %s ", vd->loc.toChars(), vd->toChars());
                 continue;
             }
-            // static array params don't support debug info it seems
-            // probably because they're not passed byval
-            else if (vd->type->toBasetype()->ty == Tsarray)
-            {
-                Logger::println("skipping arg storage for static array (%s) %s ", vd->loc.toChars(), vd->toChars());
-                continue;
-            }
-            // debug info for normal aggr params seem to work fine
             else if (DtoIsPassedByRef(vd->type))
             {
-                Logger::println("skipping arg storage for aggregate (%s) %s ", vd->loc.toChars(), vd->toChars());
-                LLValue* vdirval = vd->ir.getIrValue();
+                LLValue* vdirval = irloc->value;
                 if (global.params.symdebug && !(isaArgument(vdirval) && !isaArgument(vdirval)->hasByValAttr()))
                     DtoDwarfLocalVariable(vdirval, vd);
                 continue;
             }
 
-            LLValue* a = vd->ir.irLocal->value;
-            assert(a);
-            std::string s(a->getName());
-            Logger::println("giving argument '%s' storage", s.c_str());
-            s.append("_storage");
-
-            LLValue* v = new llvm::AllocaInst(a->getType(),s,allocaPoint);
-
-            if (global.params.symdebug)
-                DtoDwarfLocalVariable(v, vd);
-
-            gIR->ir->CreateStore(a,v);
-            vd->ir.irLocal->value = v;
+            LLValue* a = irloc->value;
+            LLValue* v = new llvm::AllocaInst(a->getType(), "."+a->getName(), allocaPoint);
+            DtoStore(a,v);
+            irloc->value = v;
         }
     }
 

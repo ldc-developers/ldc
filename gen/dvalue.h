@@ -27,7 +27,6 @@ struct DConstValue;
 struct DNullValue;
 struct DVarValue;
 struct DFieldValue;
-struct DThisValue;
 struct DFuncValue;
 struct DSliceValue;
 struct DArrayLenValue;
@@ -49,7 +48,6 @@ struct DValue : Object
     virtual DNullValue* isNull() { return NULL; }
     virtual DVarValue* isVar() { return NULL; }
     virtual DFieldValue* isField() { return NULL; }
-    virtual DThisValue* isThis() { return NULL; }
     virtual DSliceValue* isSlice() { return NULL; }
     virtual DFuncValue* isFunc() { return NULL; }
     virtual DArrayLenValue* isArrayLen() { return NULL; }
@@ -128,13 +126,6 @@ struct DFieldValue : DVarValue
 {
     DFieldValue(Type* t, LLValue* llvmValue, bool l) : DVarValue(t, llvmValue, l) {}
     virtual DFieldValue* isField() { return this; }
-};
-
-// this d-value
-struct DThisValue : DVarValue
-{
-    DThisValue(Type* t, VarDeclaration* vd, LLValue* llvmValue) : DVarValue(t, vd, llvmValue, true) {}
-    virtual DThisValue* isThis() { return this; }
 };
 
 // slice d-value

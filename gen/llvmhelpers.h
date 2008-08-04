@@ -36,7 +36,7 @@ void DtoLeaveMonitor(LLValue* v);
 
 // nested variable/class helpers
 LLValue* DtoNestedContext(FuncDeclaration* func);
-LLValue* DtoNestedVariable(VarDeclaration* vd);
+DValue* DtoNestedVariable(Type* astype, VarDeclaration* vd);
 
 // basic operations
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs);

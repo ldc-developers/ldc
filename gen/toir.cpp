@@ -106,7 +106,7 @@ DValue* VarExp::toElem(IRState* p)
         // nested variable
         else if (vd->nestedref) {
             Logger::println("nested variable");
-            return new DVarValue(type, vd, DtoNestedVariable(vd), true);
+            return DtoNestedVariable(type, vd);
         }
         // function parameter
         else if (vd->isParameter()) {
@@ -114,7 +114,7 @@ DValue* VarExp::toElem(IRState* p)
             FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
             if (fd && fd != p->func()->decl) {
                 Logger::println("nested parameter");
-                return new DVarValue(type, vd, DtoNestedVariable(vd), true);
+                return DtoNestedVariable(type, vd);
             }
             else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
                 return new DVarValue(type, vd, vd->ir.getIrValue(), true);
@@ -472,16 +472,7 @@ DValue* AssignExp::toElem(IRState* p)
     if (l->isSlice() || l->isComplex())
         return l;
 
-    if (type->toBasetype()->ty == Tstruct && e2->type->isintegral())
-    {
-        // handle struct = 0;
-        return l;
-    }
-    else
-    {
-        assert(type->equals(e2->type));
-        return r;
-    }
+    return r;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -986,25 +977,20 @@ DValue* ThisExp::toElem(IRState* p)
     {
         LLValue* v = p->func()->thisVar;
         assert(v);
-        return new DImValue(type, v);
+        return new DVarValue(type, v, true);
     }
     // regular this expr
     else if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
         if (vd->toParent2() != p->func()->decl) {
             Logger::println("nested this exp");
-            v = DtoLoad(DtoNestedVariable(vd));
+            return DtoNestedVariable(type, vd);
         }
         else {
             Logger::println("normal this exp");
             v = p->func()->decl->ir.irFunc->thisVar;
-            if (llvm::isa<llvm::AllocaInst>(v))
-                v = DtoLoad(v);
         }
-        const LLType* t = DtoType(type);
-        if (v->getType() != t)
-            v = DtoBitCast(v, t);
-        return new DThisValue(type, vd, v);
+        return new DVarValue(type, vd, v, true);
     }
 
     // anything we're not yet handling ?
@@ -1497,7 +1483,7 @@ DValue* DeleteExp::toElem(IRState* p)
             LLValue* rval = dval->getRVal();
             DtoDeleteClass(rval);
         }
-        if (!dval->isThis() && dval->isVar() && dval->isVar()->lval) {
+        if (dval->isVar() && dval->isVar()->lval) {
             LLValue* lval = dval->getLVal();
             DtoStore(llvm::Constant::getNullValue(lval->getType()->getContainedType(0)), lval);
         }

@@ -53,7 +53,7 @@ LLValue* DVarValue::getRVal()
     else {
         if (rval) return rval;
         //Logger::cout() << "val: " << *val << '\n';
-        if (!isThis() && !isField() && DtoCanLoad(val)) {
+        if (!isField() && DtoCanLoad(val)) {
             return DtoLoad(val);
         }
         return val;

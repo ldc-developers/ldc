@@ -330,181 +330,154 @@ void DtoLeaveMonitor(LLValue* v)
 // NESTED VARIABLE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-static const LLType* get_next_frame_ptr_type(Dsymbol* sc)
+/*
+
+got:
+
+    context pointer of 'this' function
+
+    declaration for target context's function
+
+want:
+
+    context pointer of target function in call chain
+
+*/
+
+static LLValue* dive_into_nested(Dsymbol* from, LLValue* val)
 {
-    assert(sc->isFuncDeclaration() || sc->isClassDeclaration());
-    Dsymbol* p = sc->toParent2();
-    if (!p->isFuncDeclaration() && !p->isClassDeclaration())
-        Logger::println("unexpected parent symbol found while resolving frame pointer - '%s' kind: '%s'", p->toChars(), p->kind());
-    assert(p->isFuncDeclaration() || p->isClassDeclaration());
-    if (FuncDeclaration* fd = p->isFuncDeclaration())
-    {
-        LLValue* v = fd->ir.irFunc->nestedVar;
-        assert(v);
-        return v->getType();
-    }
-    else if (ClassDeclaration* cd = p->isClassDeclaration())
-    {
-        return DtoType(cd->type);
-    }
-    else
-    {
-        Logger::println("symbol: '%s' kind: '%s'", sc->toChars(), sc->kind());
-        assert(0);
-    }
-}
+    from = from->toParent2();
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static LLValue* get_frame_ptr_impl(FuncDeclaration* func, Dsymbol* sc, LLValue* v)
-{
-    LOG_SCOPE;
-    if (sc == func)
+    // parent is a function
+    if (FuncDeclaration* f = from->isFuncDeclaration())
     {
-        return v;
-    }
-    else if (FuncDeclaration* fd = sc->isFuncDeclaration())
-    {
-        Logger::println("scope is function: %s", fd->toChars());
-
-        if (fd->toParent2() == func)
+        IrFunction* irfunc = f->ir.irFunc;
+        // parent has nested var struct
+        if (irfunc->nestedVar)
         {
-            if (!func->ir.irFunc->nestedVar)
-                return NULL;
-            return DtoBitCast(v, func->ir.irFunc->nestedVar->getType());
+            return DtoBitCast(val, irfunc->nestedVar->getType());
         }
-
-        v = DtoBitCast(v, get_next_frame_ptr_type(fd));
-        Logger::cout() << "v = " << *v << '\n';
-
-        if (fd->toParent2()->isFuncDeclaration())
+        // parent has this argument
+        else if (irfunc->thisVar)
         {
-            v = DtoGEPi(v, 0,0, "tmp");
-            v = DtoLoad(v);
+            return DtoBitCast(val, irfunc->thisVar->getType()->getContainedType(0));
         }
-        else if (ClassDeclaration* cd = fd->toParent2()->isClassDeclaration())
-        {
-            v = DtoGEPi(v,0,2+cd->vthis->ir.irField->index,"tmp");
-            v = DtoLoad(v);
-        }
+        // none of the above, means no context is required, dummy.
         else
         {
-            assert(0);
+            return getNullPtr(getVoidPtrType());
         }
-        return get_frame_ptr_impl(func, fd->toParent2(), v);
     }
-    else if (ClassDeclaration* cd = sc->isClassDeclaration())
+    // parent is a class
+    else if (ClassDeclaration* c = from->isClassDeclaration())
     {
-        Logger::println("scope is class: %s", cd->toChars());
-        return get_frame_ptr_impl(func, cd->toParent2(), v);
+        return DtoBitCast(DtoLoad(val), DtoType(c->type));
     }
+    // parent is not valid
     else
     {
-        Logger::println("symbol: '%s'", sc->toPrettyChars());
-        assert(0);
+        assert(0 && "!(class|function)");
     }
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static LLValue* get_frame_ptr(FuncDeclaration* func)
-{
-    Logger::println("Resolving context pointer for nested function: '%s'", func->toPrettyChars());
-    LOG_SCOPE;
-    IrFunction* irfunc = gIR->func();
-
-    // in the right scope already
-    if (func == irfunc->decl)
-        return irfunc->decl->ir.irFunc->nestedVar;
-
-    // use the 'this' pointer
-    LLValue* ptr = irfunc->decl->ir.irFunc->thisVar;
-    assert(ptr);
-
-    // return the fully resolved frame pointer
-    ptr = get_frame_ptr_impl(func, irfunc->decl, ptr);
-    if (ptr) Logger::cout() << "Found context!" << *ptr;
-    else Logger::cout() << "NULL context!\n";
-
-    return ptr;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoNestedContext(FuncDeclaration* func)
 {
-    // resolve frame ptr
-    LLValue* ptr = get_frame_ptr(func);
-    Logger::cout() << "Nested context ptr = ";
-    if (ptr) Logger::cout() << *ptr;
-    else Logger::cout() << "NULL";
-    Logger::cout() << '\n';
-    return ptr;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static void print_frame_worker(VarDeclaration* vd, Dsymbol* par)
-{
-    if (vd->toParent2() == par)
-    {
-        Logger::println("found: '%s' kind: '%s'", par->toChars(), par->kind());
-        return;
-    }
-
-    Logger::println("diving into: '%s' kind: '%s'", par->toChars(), par->kind());
+    Logger::println("listing context frame list for funcdecl '%s'", func->toPrettyChars());
     LOG_SCOPE;
-    print_frame_worker(vd, par->toParent2());
-}
 
-//////////////////////////////////////////////////////////////////////////////////////////
+    int level = 0;
 
-static void print_nested_frame_list(VarDeclaration* vd, Dsymbol* par)
-{
-    Logger::println("Frame pointer list for nested var: '%s'", vd->toPrettyChars());
-    LOG_SCOPE;
-    if (vd->toParent2() != par)
-        print_frame_worker(vd, par);
-    else
-        Logger::println("Found at level 0");
-    Logger::println("Done");
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoNestedVariable(VarDeclaration* vd)
-{
-    // log the frame list
     IrFunction* irfunc = gIR->func();
-    if (Logger::enabled())
-        print_nested_frame_list(vd, irfunc->decl);
+    Dsymbol* current = irfunc->decl;
 
-    // resolve frame ptr
-    FuncDeclaration* func = vd->toParent2()->isFuncDeclaration();
-    assert(func);
-    LLValue* ptr = DtoNestedContext(func);
-    assert(ptr && "nested var, but no context");
-
-    // if there is no nestedVar the context itself is what we're after
-    if (!func->ir.irFunc->nestedVar)
+    // this context ?
+    if (current == func)
     {
-        return ptr;
+        return irfunc->nestedVar;
     }
 
-    // handle a "normal" nested variable
+    // otherwise use the context argument
+    LLValue* val = dive_into_nested(current, irfunc->thisVar);
+    current = current->toParent2();
+    assert(val);
 
-    // we must cast here to be sure. nested classes just have a void*
-    ptr = DtoBitCast(ptr, func->ir.irFunc->nestedVar->getType());
+    for (;;)
+    {
+        Logger::cout() << "context: " << *val << '\n';
+        Logger::println("(%d) looking in: %s (%s)", level, current->toPrettyChars(), current->kind());
+        if (FuncDeclaration* f = current->isFuncDeclaration())
+        {
+            if (f == func)
+            {
+                Logger::println("-> found <-");
+                Logger::cout() << "-> val: " << *val << '\n';
+                return val;
+            }
+            else
+            {
+                val = DtoLoad(DtoGEPi(val,0,0));
+            }
+        }
+        else if (ClassDeclaration* c = current->isClassDeclaration())
+        {
+            val = DtoLoad(DtoGEPi(val, 0, 2+c->vthis->ir.irField->index));
+            val = dive_into_nested(current, val);
+        }
+        else
+        {
+            Logger::cout() << "val: " << *val << '\n';
+            assert(0 && "!(class|function)");
+        }
+        current = current->toParent2();
+        ++level;
+    }
 
-    // index nested var and load (if necessary)
-    LLValue* v = DtoGEPi(ptr, 0, vd->ir.irLocal->nestedIndex, "tmp");
-    // references must be loaded, for normal variables this IS already the variable storage!!!
+    assert(0);
+    return val;
+}
+
+DValue* DtoNestedVariable(Type* astype, VarDeclaration* vd)
+{
+    IrFunction* irfunc = gIR->func();
+
+    // var parent (the scope we're looking for)
+    Dsymbol* varParent = vd->toParent2();
+
+    // on level 0
+    if (varParent == irfunc->decl)
+    {
+        LLValue* nest = irfunc->nestedVar;
+        LLValue* v = DtoGEPi(nest, 0, vd->ir.irLocal->nestedIndex, "tmp");
+        // references must be loaded to get the variable address
+        if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
+            v = DtoLoad(v);
+        return new DVarValue(astype, vd, v, true);
+    }
+
+    // on level n != 0
+    FuncDeclaration* varFunc = varParent->isFuncDeclaration();
+    assert(varFunc);
+
+    // get context of variable
+    LLValue* ctx = DtoNestedContext(varFunc);
+
+    // if no local var, it's the context itself (class this)
+    if (!vd->ir.irLocal)
+        return new DImValue(astype, ctx);
+
+    // extract variable
+    IrLocal* local = vd->ir.irLocal;
+    assert(local);
+    assert(local->nestedIndex >= 0);
+    LLValue* val = DtoGEPi(ctx, 0, local->nestedIndex);
+
+    // references must be loaded to get the variable address
     if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
-        v = DtoLoad(v);
+        val = DtoLoad(val);
 
-    // log and return
-    Logger::cout() << "Nested var ptr = " << *v << '\n';
-    return v;
+    Logger::cout() << "value: " << *val << '\n';
+
+    return new DVarValue(astype, vd, val, true);
 }
 
 /****************************************************************************************/
@@ -576,19 +549,12 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
     }
     else if (t->ty == Tclass) {
         assert(t2->ty == Tclass);
-        // assignment to this in constructor special case
-        if (lhs->isThis()) {
-            LLValue* tmp = rhs->getRVal();
-            FuncDeclaration* fdecl = gIR->func()->decl;
-            // respecify the this param
-            if (!llvm::isa<llvm::AllocaInst>(fdecl->ir.irFunc->thisVar))
-                fdecl->ir.irFunc->thisVar = new llvm::AllocaInst(tmp->getType(), "newthis", gIR->topallocapoint());
-            DtoStore(tmp, fdecl->ir.irFunc->thisVar);
-        }
-        // regular class ref -> class ref assignment
-        else {
-            DtoStore(rhs->getRVal(), lhs->getLVal());
-        }
+        LLValue* l = lhs->getLVal();
+        LLValue* r = rhs->getRVal();
+        Logger::cout() << "l : " << *l << '\n';
+        Logger::cout() << "r : " << *r << '\n';
+        r = DtoBitCast(r, l->getType()->getContainedType(0));
+        DtoStore(r, l);
     }
     else if (t->iscomplex()) {
         assert(!lhs->isComplex());
@@ -1540,6 +1506,8 @@ LLValue* DtoBoolean(Loc& loc, DValue* dval)
     else if (ty == Tpointer || ty == Tclass) {
         LLValue* val = dval->getRVal();
         LLValue* zero = LLConstant::getNullValue(val->getType());
+        Logger::cout() << "val:  " << *val << '\n';
+        Logger::cout() << "zero: " << *zero << '\n';
         return gIR->ir->CreateICmpNE(val, zero, "tmp");
     }
     // dynamic array

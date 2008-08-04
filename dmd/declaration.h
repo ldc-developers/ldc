@@ -266,9 +266,6 @@ struct VarDeclaration : Declaration
 
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
-
-    // LLVMDC
-    bool needsStorage;
 };
 
 /**************************************************************/

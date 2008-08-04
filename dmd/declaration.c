@@ -621,9 +621,6 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     onstack = 0;
     canassign = 0;
     value = NULL;
-
-    // LLVMDC
-    needsStorage = false;
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
@@ -645,8 +642,6 @@ Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
 
 	sv = new VarDeclaration(loc, type ? type->syntaxCopy() : NULL, ident, init);
 	sv->storage_class = storage_class;
-    // LLVMDC
-    sv->needsStorage = needsStorage;
     }
 #ifdef _DH
     // Syntax copy for header file

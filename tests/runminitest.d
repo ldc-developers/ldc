@@ -55,6 +55,8 @@ int main(string[] args)
             cmd ~= v;
         }
         int cl = classify(testname);
+        if (cl == COMPILE || cl == NOCOMPILE)
+            cmd ~= " -c";
         writefln(cmd);
         if (system(cmd) != 0) {
             if (cl != NOCOMPILE)

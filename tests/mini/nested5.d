@@ -11,12 +11,13 @@ void main()
     {
         void func()
         {
-            printf("Hello world %d\n", i++);
+            printf("Hello nested world %d\n", i++);
             //i++;
         }
     }
 
-    scope c = new C;
+    auto c = new C;
     c.func();
+    printf("i = %d\n", i);
     assert(i == 44);
 }
