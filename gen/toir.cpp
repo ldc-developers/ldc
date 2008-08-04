@@ -843,11 +843,27 @@ LLConstant* AddrExp::toConstElem(IRState* p)
 {
     assert(e1->op == TOKvar);
     VarExp* vexp = (VarExp*)e1;
-    VarDeclaration* vd = vexp->var->isVarDeclaration();
-    assert(vd);
-    LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
-    assert(llc);
-    return llc;
+
+    // global variable
+    if (VarDeclaration* vd = vexp->var->isVarDeclaration())
+    {
+        LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
+        assert(llc);
+        return llc;
+    }
+    // static function
+    else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
+    {
+        IrFunction* irfunc = fd->ir.irFunc;
+        assert(irfunc);
+        return irfunc->func;
+    }
+    // not yet supported
+    else
+    {
+        error("constant expression '%s' not yet implemented", toChars());
+        fatal();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
