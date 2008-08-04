@@ -19,10 +19,6 @@ llvmdc-build internal/arrays.d \
         $LLVMDCFLAGS_ASM || exit 1
 mv *.bc obj
 
-echo "compiling module init backend"
-llvm-as -f -o=obj/moduleinit_backend.bc internal/moduleinit_backend.ll || exit 1
-llvm-link -f -o=../lib/llvmdcore.bc `ls obj/internal.*.bc` ../lib/llvmdcore.bc obj/moduleinit_backend.bc || exit 1
-
 echo "compiling typeinfo 1"
 llvmdc-build typeinfos1.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
