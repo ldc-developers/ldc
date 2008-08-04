@@ -1,0 +1,10 @@
+#!/bin/sh
+export PATH=$PATH:/opt/llvm/bin
+export FILE=$1; shift
+export LLVMDC_PATH=~/llvmdc
+PARAM=$(for p_file in $($LLVMDC_PATH/bin/llvmdc $FILE -I~/llvmdc/lphobos -c -v -of/dev/null |grep import \
+        |sed -e "s/import *//" -e "s/\t.*//" \
+        |sed -e "s/\./\//g" -e "s/$/\.d/"); do if [ -f $p_file ]; then echo $p_file; fi; done)
+echo llvmdc $FILE $@ $PARAM
+$LLVMDC_PATH/bin/llvmdc $FILE $@ $PARAM
+Rebuild In A Shellscript
