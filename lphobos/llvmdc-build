@@ -7,4 +7,3 @@ PARAM=$(for p_file in $($LLVMDC_PATH/bin/llvmdc $FILE -I~/llvmdc/lphobos -c -v -
         |sed -e "s/\./\//g" -e "s/$/\.d/"); do if [ -f $p_file ]; then echo $p_file; fi; done)
 echo llvmdc $FILE $@ $PARAM
 $LLVMDC_PATH/bin/llvmdc $FILE $@ $PARAM
-Rebuild In A Shellscript

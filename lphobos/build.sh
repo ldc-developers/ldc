@@ -12,7 +12,7 @@ echo "compiling contract runtime"
 llvmdc internal/contract.d -c -of../lib/llvmdcore.bc || exit 1 #-noruntime || exit 1
 
 echo "compiling common runtime"
-llvmdc-build internal/arrays.d \
+./llvmdc-build internal/arrays.d \
         internal/mem.d \
         internal/critical.d \
         internal/dmain2.d \
@@ -20,17 +20,17 @@ llvmdc-build internal/arrays.d \
 mv *.bc obj
 
 echo "compiling typeinfo 1"
-llvmdc-build typeinfos1.d $LLVMDCFLAGS || exit 1
+./llvmdc-build typeinfos1.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo1.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "compiling typeinfo 2"
-llvmdc-build typeinfos2.d $LLVMDCFLAGS || exit 1
+./llvmdc-build typeinfos2.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/typeinfo2.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "compiling exceptions"
-llvmdc-build internal/eh.d $LLVMDCFLAGS -debug || exit 1
+./llvmdc-build internal/eh.d $LLVMDCFLAGS -debug || exit 1
 mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc obj/*eh.bc ../lib/llvmdcore.bc || exit 1
 
@@ -62,7 +62,7 @@ llvmdc internal/objectimpl.d -c -odobj -g || exit 1
 llvm-link -f -o=../lib/llvmdcore.bc obj/objectimpl.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling llvm runtime support"
-llvmdc-build llvmsupport.d $LLVMDCFLAGS || exit 1
+./llvmdc-build llvmsupport.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || exit 1
 
@@ -79,13 +79,13 @@ cd ..
 llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcx.bc obj/gcbits.bc obj/gc.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling phobos"
-llvmdc-build phobos.d $LLVMDCFLAGS || exit 1
+./llvmdc-build phobos.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
 echo "linking phobos"
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/std.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "Compiling auxiliary"
-llvmdc-build etc/c/zlib.d $LLVMDCFLAGS || exit 1
+./llvmdc-build etc/c/zlib.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/etc.*.bc` ../lib/llvmdcore.bc || exit 1
 
