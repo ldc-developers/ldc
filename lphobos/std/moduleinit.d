@@ -51,16 +51,12 @@ extern (C) void _moduleCtor()
     debug printf("_moduleCtor()\n");
 	int len = 0;
 
-    ModuleInfo* mrbegin = cast(ModuleInfo*)_d_get_moduleinfo_array();
-    assert(mrbegin !is null);
-
-    ModuleInfo* mr;
-	for (mr = mrbegin; *mr !is null; ++mr)
+	for (auto mr = _Dmodule_ref; mr; mr=mr.next)
 	    len++;
 	_moduleinfo_array = new ModuleInfo[len];
 	len = 0;
-	for (mr = mrbegin; *mr !is null; ++mr)
-	{   _moduleinfo_array[len] = *mr;
+	for (auto mr = _Dmodule_ref; mr; mr=mr.next)
+	{   _moduleinfo_array[len] = mr.mod;
 	    len++;
 	}
 
@@ -97,16 +93,18 @@ void _moduleCtor2(ModuleInfo[] mi, int skip)
 	debug printf("\tmodule[%d] = '%p'\n", i, m);
 	if (!m)
 	    continue;
-	debug printf("\tmodule[%d] = '%.*s'\n", i, m.name);
+	debug printf("\tmodule[%d] = '%.*s'\n", i, m.name.length, m.name.ptr);
 	if (m.flags & MIctordone)
 	    continue;
-	debug printf("\tmodule[%d] = '%.*s', m = x%x\n", i, m.name, m);
+	debug printf("\tmodule[%d] = '%.*s', m = 0x%x\n", i, m.name.length, m.name.ptr, m);
 
 	if (m.ctor || m.dtor)
 	{
 	    if (m.flags & MIctorstart)
 	    {	if (skip || m.flags & MIstandalone)
 		    continue;
+		debug printf("\tmodule[%d] = '%.*s', cyclic dependency!\n", i, m.name.length, m.name.ptr);
+		int x = 0; x /= x;
 		throw new ModuleCtorError(m);
 	    }
 
@@ -160,7 +158,7 @@ extern (C) void _moduleDtor()
 
 extern (C) void _moduleUnitTests()
 {
-    debug printf("_moduleUnitTests()\n");
+    debug printf("_moduleUnitTests() %i\n", _moduleinfo_array.length);
     for (uint i = 0; i < _moduleinfo_array.length; i++)
     {
 	ModuleInfo m = _moduleinfo_array[i];

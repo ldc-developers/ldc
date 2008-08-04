@@ -658,7 +658,7 @@ class Thread
 	}
 
 	state = TS.RUNNING;
-	//printf("creating thread x%x\n", this);
+	printf("creating thread x%x\n", this);
 	//result = pthread_create(&id, null, &threadstart, this);
 	// Create with thread attributes to allow non-default stack size - Dave Fladebo
 	int result = pthread_create(&id, &threadAttrs, &threadstart, cast(void*)this);
@@ -668,7 +668,7 @@ class Thread
 	    idx = -1;
 	    error("failed to start");	// BUG: should report errno
 	}
-	//printf("t = x%x, id = %d\n", this, id);
+	printf("t = x%x, id = %d\n", this, id);
     }
 
     int run()

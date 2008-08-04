@@ -3443,85 +3443,85 @@ bool isNumeric(...)
 }
 
 /// Check only the first parameter, all others will be ignored. 
-bool isNumeric(TypeInfo[] _arguments, va_list _argptr)
+bool isNumeric(TypeInfo[] _args, va_list _ptr)
 {
     char[]  s  = "";
     wchar[] ws = "";
     dchar[] ds = "";
 
     //writefln("isNumeric(...) called!");
-    if (_arguments.length == 0)
+    if (_args.length == 0)
         return false;
 
-    if (_arguments[0] == typeid(char[]))
-        return isNumeric(va_arg!(char[])(_argptr));
-    else if (_arguments[0] == typeid(wchar[]))
-        return isNumeric(std.utf.toUTF8(va_arg!(wchar[])(_argptr)));
-    else if (_arguments[0] == typeid(dchar[]))
-        return isNumeric(std.utf.toUTF8(va_arg!(dchar[])(_argptr)));
-    else if (_arguments[0] == typeid(real))
+    if (_args[0] == typeid(char[]))
+        return isNumeric(va_arg!(char[])(_ptr));
+    else if (_args[0] == typeid(wchar[]))
+        return isNumeric(std.utf.toUTF8(va_arg!(wchar[])(_ptr)));
+    else if (_args[0] == typeid(dchar[]))
+        return isNumeric(std.utf.toUTF8(va_arg!(dchar[])(_ptr)));
+    else if (_args[0] == typeid(real))
         return true;
-    else if (_arguments[0] == typeid(double)) 
+    else if (_args[0] == typeid(double)) 
         return true;   
-    else if (_arguments[0] == typeid(float)) 
+    else if (_args[0] == typeid(float)) 
         return true;  
-    else if (_arguments[0] == typeid(ulong)) 
+    else if (_args[0] == typeid(ulong)) 
         return true; 
-    else if (_arguments[0] == typeid(long)) 
+    else if (_args[0] == typeid(long)) 
         return true;   
-    else if (_arguments[0] == typeid(uint)) 
+    else if (_args[0] == typeid(uint)) 
         return true;  
-    else if (_arguments[0] == typeid(int)) 
+    else if (_args[0] == typeid(int)) 
         return true;   
-    else if (_arguments[0] == typeid(ushort)) 
+    else if (_args[0] == typeid(ushort)) 
         return true;   
-    else if (_arguments[0] == typeid(short)) 
+    else if (_args[0] == typeid(short)) 
         return true;   
-    else if (_arguments[0] == typeid(ubyte)) 
+    else if (_args[0] == typeid(ubyte)) 
     {
        s.length = 1;
-       s[0]= va_arg!(ubyte)(_argptr);
+       s[0]= va_arg!(ubyte)(_ptr);
        return isNumeric(cast(char[])s);
     }
-    else if (_arguments[0] == typeid(byte)) 
+    else if (_args[0] == typeid(byte)) 
     {
        s.length = 1;
-       s[0] = va_arg!(byte)(_argptr);
+       s[0] = va_arg!(byte)(_ptr);
        return isNumeric(cast(char[])s);
     }
-    else if (_arguments[0] == typeid(ireal))
+    else if (_args[0] == typeid(ireal))
         return true;
-    else if (_arguments[0] == typeid(idouble)) 
+    else if (_args[0] == typeid(idouble)) 
         return true;   
-    else if (_arguments[0] == typeid(ifloat)) 
+    else if (_args[0] == typeid(ifloat)) 
         return true;  
-    else if (_arguments[0] == typeid(creal))
+    else if (_args[0] == typeid(creal))
         return true;
-    else if (_arguments[0] == typeid(cdouble)) 
+    else if (_args[0] == typeid(cdouble)) 
         return true;   
-    else if (_arguments[0] == typeid(cfloat)) 
+    else if (_args[0] == typeid(cfloat)) 
         return true;  
-    else if (_arguments[0] == typeid(char))
+    else if (_args[0] == typeid(char))
     {
         s.length = 1;
-        s[0] = va_arg!(char)(_argptr);
+        s[0] = va_arg!(char)(_ptr);
         return isNumeric(s);
     }
-    else if (_arguments[0] == typeid(wchar))
+    else if (_args[0] == typeid(wchar))
     {
         ws.length = 1;
-        ws[0] = va_arg!(wchar)(_argptr);
+        ws[0] = va_arg!(wchar)(_ptr);
         return isNumeric(std.utf.toUTF8(ws));
     }
-    else if (_arguments[0] == typeid(dchar))
+    else if (_args[0] == typeid(dchar))
     { 
         ds.length =  1;
-        ds[0] = va_arg!(dchar)(_argptr);
+        ds[0] = va_arg!(dchar)(_ptr);
         return isNumeric(std.utf.toUTF8(ds));
     }
-    //else if (_arguments[0] == typeid(cent)) 
+    //else if (_args[0] == typeid(cent)) 
     //    return true;   
-    //else if (_arguments[0] == typeid(ucent)) 
+    //else if (_args[0] == typeid(ucent)) 
     //    return true;  
     else       
        return false; 

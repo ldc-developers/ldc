@@ -2,110 +2,110 @@ module llvm.intrinsic;
 
 // code generator intrinsics
 /*
-pragma(LLVM_internal, "intrinsic", "llvm.returnaddress")
+pragma(intrinsic, "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 */
-pragma(LLVM_internal, "intrinsic", "llvm.frameaddress")
+pragma(intrinsic, "llvm.frameaddress")
     void* llvm_frameaddress(uint level);
 /*
-pragma(LLVM_internal, "intrinsic", "llvm.stacksave")
+pragma(intrinsic, "llvm.stacksave")
     void* llvm_stacksave();
 
-pragma(LLVM_internal, "intrinsic", "llvm.stackrestore")
+pragma(intrinsic, "llvm.stackrestore")
     void llvm_stackrestore(void* ptr);
 
-pragma(LLVM_internal, "intrinsic", "llvm.pcmarker")
+pragma(intrinsic, "llvm.pcmarker")
     void llvm_pcmarker(uint id);
 
-pragma(LLVM_internal, "intrinsic", "llvm.prefetch")
+pragma(intrinsic, "llvm.prefetch")
     void llvm_prefetch(void* ptr, uint rw, uint locality);
 */
 
-pragma(LLVM_internal, "intrinsic", "llvm.readcyclecounter")
+pragma(intrinsic, "llvm.readcyclecounter")
     ulong readcyclecounter();
 
 // standard C intrinsics
-pragma(LLVM_internal, "intrinsic", "llvm.memcpy.i32")
+pragma(intrinsic, "llvm.memcpy.i32")
     void llvm_memcpy_i32(void* dst, void* src, uint len, uint alignment);
 
-pragma(LLVM_internal, "intrinsic", "llvm.memcpy.i64")
+pragma(intrinsic, "llvm.memcpy.i64")
     void llvm_memcpy_i64(void* dst, void* src, ulong len, uint alignment);
 
-pragma(LLVM_internal, "intrinsic", "llvm.memmove.i32")
+pragma(intrinsic, "llvm.memmove.i32")
     void llvm_memmove_i32(void* dst, void* src, uint len, uint alignment);
 
-pragma(LLVM_internal, "intrinsic", "llvm.memmove.i64")
+pragma(intrinsic, "llvm.memmove.i64")
     void llvm_memmove_i64(void* dst, void* src, ulong len, int alignment);
 
-pragma(LLVM_internal, "intrinsic", "llvm.memset.i32")
+pragma(intrinsic, "llvm.memset.i32")
     void llvm_memset_i32(void* dst, ubyte val, uint len, uint alignment);
 
-pragma(LLVM_internal, "intrinsic", "llvm.memset.i64")
+pragma(intrinsic, "llvm.memset.i64")
     void llvm_memset_i64(void* dst, ubyte val, ulong len, uint alignment);
 
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f32")
+pragma(intrinsic, "llvm.sqrt.f32")
     float llvm_sqrt(float val);
 
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64")
+pragma(intrinsic, "llvm.sqrt.f64")
 {
     double llvm_sqrt(double val);
-    real llvm_sqrt(real val);
+    // real llvm_sqrt(real val);
 }
 
-pragma(LLVM_internal, "intrinsic", "llvm.powi.f32")
+pragma(intrinsic, "llvm.powi.f32")
     float llvm_powi(float val, int power);
 
-pragma(LLVM_internal, "intrinsic", "llvm.powi.f64")
+pragma(intrinsic, "llvm.powi.f64")
 {
     double llvm_powi(double val, int power);
-    real llvm_powi(real val, int power);
+    // real llvm_powi(real val, int power);
 }
 
 // bit manipulation intrinsics
-pragma(LLVM_internal, "intrinsic", "llvm.bswap.i16.i16")
+pragma(intrinsic, "llvm.bswap.i16.i16")
     ushort llvm_bswap(ushort val);
 
-pragma(LLVM_internal, "intrinsic", "llvm.bswap.i32.i32")
+pragma(intrinsic, "llvm.bswap.i32.i32")
     uint llvm_bswap(uint val);
 
-pragma(LLVM_internal, "intrinsic", "llvm.bswap.i64.i64")
+pragma(intrinsic, "llvm.bswap.i64.i64")
     ulong llvm_bswap(ulong val);
 
 /*
-pragma(LLVM_internal, "intrinsic", "llvm.ctpop.i8")
+pragma(intrinsic, "llvm.ctpop.i8")
     uint llvm_ctpop_i8(ubyte src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctpop.i16")
+pragma(intrinsic, "llvm.ctpop.i16")
     uint llvm_ctpop_i16(ushort src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctpop.i32")
+pragma(intrinsic, "llvm.ctpop.i32")
     uint llvm_ctpop_i32(uint src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctpop.i64")
+pragma(intrinsic, "llvm.ctpop.i64")
     uint llvm_ctpop_i64(ulong src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctlz.i8")
+pragma(intrinsic, "llvm.ctlz.i8")
     uint llvm_ctlz_i8(ubyte src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctlz.i16")
+pragma(intrinsic, "llvm.ctlz.i16")
     uint llvm_ctlz_i16(ushort src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctlz.i32")
+pragma(intrinsic, "llvm.ctlz.i32")
     uint llvm_ctlz_i32(uint src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.ctlz.i64")
+pragma(intrinsic, "llvm.ctlz.i64")
     uint llvm_ctlz_i64(ulong src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.cttz.i8")
+pragma(intrinsic, "llvm.cttz.i8")
     uint llvm_cttz_i8(ubyte src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.cttz.i16")
+pragma(intrinsic, "llvm.cttz.i16")
     uint llvm_cttz_i16(ushort src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.cttz.i32")
+pragma(intrinsic, "llvm.cttz.i32")
     uint llvm_cttz_i32(uint src);
 
-pragma(LLVM_internal, "intrinsic", "llvm.cttz.i64")
+pragma(intrinsic, "llvm.cttz.i64")
     uint llvm_cttz_i64(ulong src);
 */
 
@@ -114,7 +114,7 @@ pragma(LLVM_internal, "intrinsic", "llvm.cttz.i64")
 /*
 
 //declare i8 @llvm.atomic.lcs.i8.i8p.i8.i8( i8* <ptr>, i8 <cmp>, i8 <val> )
-pragma(LLVM_internal, "intrinsic", "llvm.atomic.lcs.i8.i8p.i8.i8")
+pragma(intrinsic, "llvm.atomic.lcs.i8.i8p.i8.i8")
     ubyte llvm_atomic_lcs_i8(void* ptr, ubyte cmp, ubyte val);
 
 declare i16 @llvm.atomic.lcs.i16.i16p.i16.i16( i16* <ptr>, i16 <cmp>, i16 <val> )

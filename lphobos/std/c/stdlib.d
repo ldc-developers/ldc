@@ -42,7 +42,7 @@ struct lldiv_t { long quot,rem; }
 
     int system(char *);
 
-    pragma(LLVM_internal, "alloca")
+    pragma(alloca)
     void *alloca(uint);	///
 
     void *calloc(size_t, size_t);	///
@@ -64,8 +64,11 @@ struct lldiv_t { long quot,rem; }
     int    random(int num);	/// ditto
     void   randomize();	/// ditto
 
-    int getErrno();	/// ditto
-    int setErrno(int);	/// ditto
+    int* __errno_location();
+    int getErrno() { return *__errno_location(); }
+    int setErrno(int i) { return *__errno_location = i; }
+    //int getErrno();	/// ditto
+    //int setErrno(int);	/// ditto
 
 const int ERANGE = 34;	// on both Windows and linux
 

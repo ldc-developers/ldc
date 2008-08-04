@@ -4,13 +4,24 @@
 // www.digitalmars.com
 // Written by Walter Bright
 
+/* NOTE: This file has been patched from the original DMD distribution to
+   work with the GDC compiler.
+
+   Modified by David Friedman, September 2004
+*/
+
 import std.c.string;
 import std.c.stdlib;
 import std.outofmemory;
 import std.intrinsic;
 
 //version = Asm86;
-version = bitops;
+version (GNU) {
+    // bitop intrinsics not implemented yet
+} else {
+    version = bitops;
+}
+
 
 struct GCBits
 {

@@ -1,4 +1,3 @@
-
 // Implementation is in internal\object.d
 
 module object;
@@ -173,10 +172,18 @@ class ModuleInfo
     void function() ctor;
     void function() dtor;
     void function() unitTest;
+    void* xgetMembers;
+    void function() ictor;
 
     // Return collection of all modules in the program.
-    static ModuleInfo[] modules();
+    static int opApply(int delegate(ref ModuleInfo));
 }
+
+struct ModuleReference {
+    ModuleReference* next;
+    ModuleInfo mod;
+}
+extern(C) extern ModuleReference* _Dmodule_ref;
 
 // Recoverable errors
 
@@ -198,4 +205,3 @@ class Error : Exception
     this(string msg);
     this(string msg, Error next);
 }
-

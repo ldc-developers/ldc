@@ -38,7 +38,7 @@ import std.c.string;
 import std.outofmemory;
 import std.utf;
 
-pragma(LLVM_internal, "notypeinfo")
+pragma(no_typeinfo)
 struct Array
 {
     size_t length;
@@ -462,13 +462,13 @@ unittest
 
 extern (C) int _adEq(Array a1, Array a2, TypeInfo ti)
 {
-    //printf("_adEq(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
+    // printf("_adEq(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
     if (a1.length != a2.length)
     return 0;       // not equal
-    auto sz = ti.tsize();
+    auto sz = ti.next.tsize();
     auto p1 = a1.ptr;
     auto p2 = a2.ptr;
-
+    
 /+
     for (int i = 0; i < a1.length; i++)
     {
@@ -480,10 +480,10 @@ extern (C) int _adEq(Array a1, Array a2, TypeInfo ti)
     if (sz == 1)
     // We should really have a ti.isPOD() check for this
     return (memcmp(p1, p2, a1.length) == 0);
-
+    
     for (size_t i = 0; i < a1.length; i++)
     {
-    if (!ti.equals(p1 + i * sz, p2 + i * sz))
+    if (!ti.next.equals(p1 + i * sz, p2 + i * sz))
         return 0;       // not equal
     }
     return 1;           // equal

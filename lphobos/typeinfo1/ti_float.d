@@ -3,6 +3,7 @@
 
 module typeinfo1.ti_float;
 
+import std.gc: malloc;
 class TypeInfo_f : TypeInfo
 {
     char[] toString() { return "float"; }
@@ -62,9 +63,8 @@ class TypeInfo_f : TypeInfo
     }
 
     void[] init()
-    {	static float r;
-
-	return (&r)[0 .. 1];
+    {
+	return (cast(float*)malloc(float.sizeof))[0..1];
     }
 }
 

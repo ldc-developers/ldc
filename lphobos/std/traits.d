@@ -127,37 +127,14 @@ unittest
     assert(is (TL[1] == I));
 }
 
-/* *******************************************
- */
-template isStaticArray_impl(T)
-{
-    const T inst = void;
-    
-    static if (is(typeof(T.length)))
-    {
-    static if (!is(typeof(T) == typeof(T.init)))
-    {           // abuses the fact that int[5].init == int
-        static if (is(T == typeof(T[0])[inst.length]))
-        {   // sanity check. this check alone isn't enough because dmd complains about dynamic arrays
-        const bool res = true;
-        }
-        else
-        const bool res = false;
-    }
-    else
-        const bool res = false;
-    }
-    else
-    {
-        const bool res = false;
-    }
-}
 /**
  * Detect whether type T is a static array.
  */
 template isStaticArray(T)
 {
-    const bool isStaticArray = isStaticArray_impl!(T).res;
+    static if (isArray!(T))
+        const bool isStaticArray = !is(T == typeof(T[0])[]);
+    else const bool isStaticArray = false;
 }
 
 

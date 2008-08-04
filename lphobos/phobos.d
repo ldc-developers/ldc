@@ -27,7 +27,12 @@ std.c.stddef,
 std.c.stdio,
 std.c.stdlib,
 std.c.string,
-std.c.time;
+std.c.time,
+std.file,
+std.date,
+std.socket,
+std.zlib,
+std.cstream;
 
 version(linux) {
     import

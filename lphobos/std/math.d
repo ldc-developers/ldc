@@ -190,13 +190,14 @@ unittest
  *	Results are undefined if |x| >= $(POWER 2,64).
  */
 
-pragma(LLVM_internal, "intrinsic", "llvm.cos.f32")
+pragma(intrinsic, "llvm.cos.f32")
 float cos(float x);
 
-pragma(LLVM_internal, "intrinsic", "llvm.cos.f64") {
+pragma(intrinsic, "llvm.cos.f64")
 double cos(double x); // ditto
+
+pragma(intrinsic, "llvm.cos.f80")
 real cos(real x); /// ditto
-}
 
 
 /***********************************
@@ -212,13 +213,14 @@ real cos(real x); /// ditto
  *	Results are undefined if |x| >= $(POWER 2,64).
  */
 
-pragma(LLVM_internal, "intrinsic", "llvm.sin.f32")
+pragma(intrinsic, "llvm.sin.f32")
 float sin(float x);
 
-pragma(LLVM_internal, "intrinsic", "llvm.sin.f64") {
+pragma(intrinsic, "llvm.sin.f64")
 double sin(double x); // ditto
+
+pragma(intrinsic, "llvm.sin.f80")
 real sin(real x); /// ditto
-}
 
 
 /****************************************************************************
@@ -553,13 +555,14 @@ extern (C) real rndtonl(real x);
  *	)
  */
 
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f32")
+pragma(intrinsic, "llvm.sqrt.f32")
 float sqrt(float x);	/* intrinsic */
 
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64") {
+pragma(intrinsic, "llvm.sqrt.f64")
 double sqrt(double x);	/* intrinsic */	/// ditto
+
+pragma(intrinsic, "llvm.sqrt.f80")
 real sqrt(real x);	/* intrinsic */ /// ditto
-}
 
 creal sqrt(creal z)
 {
@@ -1499,19 +1502,23 @@ real fma(real x, real y, real z) { return (x * y) + z; }
  * Fast integral powers.
  */
 
-pragma(LLVM_internal, "intrinsic", "llvm.powi.f32")
+pragma(intrinsic, "llvm.powi.f32")
 {
 float pow(float x, uint n);
 /// ditto
 float pow(float x, int n);
 }
 
-pragma(LLVM_internal, "intrinsic", "llvm.powi.f64")
+pragma(intrinsic, "llvm.powi.f64")
 {
 /// ditto
 double pow(double x, uint n);
 /// ditto
 double pow(double x, int n);
+}
+
+pragma(intrinsic, "llvm.powi.f80")
+{
 /// ditto
 real pow(real x, uint n);
 /// ditto
@@ -1606,16 +1613,14 @@ real pow(real x, int n);
  * )
  */
 
-pragma(LLVM_internal, "intrinsic", "llvm.pow.f32")
+pragma(intrinsic, "llvm.pow.f32")
 float pow(float x, float y);
 
-pragma(LLVM_internal, "intrinsic", "llvm.pow.f64")
-{
-/// ditto
+pragma(intrinsic, "llvm.pow.f64")
 double pow(double x, double y);
-/// ditto
+
+pragma(intrinsic, "llvm.pow.f80")
 real pow(real x, real y);
-}
 
 /+
 real pow(real x, real y);

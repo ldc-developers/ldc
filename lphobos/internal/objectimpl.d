@@ -1132,15 +1132,26 @@ class ModuleInfo
     void function() ctor;
     void function() dtor;
     void function() unitTest;
+    
+    void* xgetMembers;
+    void function() ictor;
 
     /******************
      * Return collection of all modules in the program.
      */
-    static ModuleInfo[] modules()
-    {
-    return std.moduleinit._moduleinfo_array;
+    static int opApply(int delegate(ref ModuleInfo) dg) {
+      foreach (ref mod; std.moduleinit._moduleinfo_array)
+        if (auto i = dg(mod)) return i;
+      return 0;
     }
 }
+
+struct ModuleReference
+{
+    ModuleReference* next;
+    ModuleInfo mod;
+}
+extern(C) ModuleReference* _Dmodule_ref;
 
 /**
  * All recoverable exceptions should be derived from class Exception.
@@ -1189,4 +1200,3 @@ class Error : Exception
 }
 
 //extern (C) int nullext = 0;
-

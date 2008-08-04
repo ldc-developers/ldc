@@ -422,5 +422,7 @@ unittest
     }
 }
 
-
-
+void _d_switch_error(string fn, int line)
+{
+    throw new Exception(fn~toString(line)~": switch missing default");
+}

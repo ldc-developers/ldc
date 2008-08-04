@@ -60,14 +60,14 @@ static size_t[] prime_list = [
  */
 alias Array ArrayRet_t;
 
-pragma(LLVM_internal, "notypeinfo")
+pragma(no_typeinfo)
 struct Array
 {
     size_t length;
     void* ptr;
 }
 
-pragma(LLVM_internal, "notypeinfo")
+pragma(no_typeinfo)
 struct aaA
 {
     aaA *left;
@@ -77,7 +77,7 @@ struct aaA
     /* value */
 }
 
-pragma(LLVM_internal, "notypeinfo")
+pragma(no_typeinfo)
 struct BB
 {
     aaA*[] b;
@@ -226,7 +226,7 @@ size_t _aaLen(AA aa)
  * Add entry for key if it is not already there.
  */
 
-void* _aaGet(AA* aa, TypeInfo keyti, void* pkey, size_t valuesize)
+void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
     in
     {
 	assert(aa);

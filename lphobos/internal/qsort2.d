@@ -14,7 +14,7 @@
 
 import std.c.stdlib;
 
-pragma(LLVM_internal, "notypeinfo")
+pragma(no_typeinfo)
 struct Array
 {
     size_t length;
