@@ -94,9 +94,9 @@ llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name)
     if(lltype == LLType::X86_FP80Ty)
     {
         llvm::AllocaInst* alloca = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
-        LLValue* castv = new llvm::BitCastInst(alloca, getPtrToType(LLType::Int16Ty), "fp80toi16", gIR->scopebb());
+        LLValue* castv = DtoBitCast(alloca, getPtrToType(LLType::Int16Ty), "fp80toi16");
         LLValue* padding = DtoGEPi1(castv, 5, "fp80padding");
-	new llvm::StoreInst(llvm::Constant::getNullValue(LLType::Int16Ty), padding, gIR->scopebb());
+        DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
 
         return alloca;
     }
