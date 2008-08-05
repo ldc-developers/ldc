@@ -358,7 +358,7 @@ DValue* StringExp::toElem(IRState* p)
 
     if (dtype->ty == Tarray) {
         LLConstant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
-        LLValue* tmpmem = new llvm::AllocaInst(DtoType(dtype),"tempstring",p->topallocapoint());
+        LLValue* tmpmem = DtoAlloca(DtoType(dtype),"tempstring");
         DtoSetArray(tmpmem, clen, arrptr);
         return new DVarValue(type, tmpmem, true);
     }
@@ -770,7 +770,7 @@ DValue* CallExp::toElem(IRState* p)
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
-            return new DImValue(type, gIR->ir->CreateAlloca(LLType::Int8Ty, expv->getRVal(), ".alloca"));
+            return new DImValue(type, DtoAlloca(LLType::Int8Ty, expv->getRVal(), ".alloca"));
         }
     }
 
@@ -1595,7 +1595,7 @@ DValue* AndAndExp::toElem(IRState* p)
     // allocate a temporary for the final result. failed to come up with a better way :/
     LLValue* resval = 0;
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
-    resval = new llvm::AllocaInst(LLType::Int1Ty,"andandtmp",p->topallocapoint());
+    resval = DtoAlloca(LLType::Int1Ty,"andandtmp");
 
     DValue* u = e1->toElem(p);
 
@@ -1631,7 +1631,7 @@ DValue* OrOrExp::toElem(IRState* p)
     // allocate a temporary for the final result. failed to come up with a better way :/
     LLValue* resval = 0;
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
-    resval = new llvm::AllocaInst(LLType::Int1Ty,"orortmp",p->topallocapoint());
+    resval = DtoAlloca(LLType::Int1Ty,"orortmp");
 
     DValue* u = e1->toElem(p);
 
@@ -1758,7 +1758,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     const LLPointerType* int8ptrty = getPtrToType(LLType::Int8Ty);
 
-    LLValue* lval = new llvm::AllocaInst(DtoType(type), "tmpdelegate", p->topallocapoint());
+    LLValue* lval = DtoAlloca(DtoType(type), "tmpdelegate");
 
     DValue* u = e1->toElem(p);
     LLValue* uval;
@@ -1897,7 +1897,7 @@ DValue* CondExp::toElem(IRState* p)
 
     // allocate a temporary for the final result. failed to come up with a better way :/
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
-    LLValue* resval = new llvm::AllocaInst(resty,"condtmp",p->topallocapoint());
+    LLValue* resval = DtoAlloca(resty,"condtmp");
     DVarValue* dvv = new DVarValue(type, resval, true);
 
     llvm::BasicBlock* oldend = p->scopeend();
@@ -2034,7 +2034,7 @@ DValue* FuncExp::toElem(IRState* p)
     DtoForceDefineDsymbol(fd);
 
     const LLType* dgty = DtoType(type);
-    LLValue* lval = new llvm::AllocaInst(dgty,"dgstorage",p->topallocapoint());
+    LLValue* lval = DtoAlloca(dgty,"dgstorage");
 
     LLValue* context = DtoGEPi(lval,0,0);
     const LLPointerType* pty = isaPointer(context->getType()->getContainedType(0));
@@ -2085,7 +2085,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
 
     // dst pointer
     LLValue* dstMem = 0;
-    dstMem = new llvm::AllocaInst(llStoType, "arrayliteral", p->topallocapoint());
+    dstMem = DtoAlloca(llStoType, "arrayliteral");
 
     // store elements
     for (size_t i=0; i<len; ++i)
@@ -2143,7 +2143,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
     LLValue* mem = 0;
 
-    LLValue* sptr = new llvm::AllocaInst(llt,"tmpstructliteral",p->topallocapoint());
+    LLValue* sptr = DtoAlloca(llt,"tmpstructliteral");
 
 
     // num elements in literal
@@ -2255,7 +2255,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     const LLType* aalltype = DtoType(type);
 
     // it should be possible to avoid the temporary in some cases
-    LLValue* tmp = new llvm::AllocaInst(aalltype,"aaliteral",p->topallocapoint());
+    LLValue* tmp = DtoAlloca(aalltype,"aaliteral");
     DValue* aa = new DVarValue(type, tmp, true);
     DtoStore(LLConstant::getNullValue(aalltype), tmp);
 

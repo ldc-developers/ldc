@@ -144,7 +144,7 @@ void IfStatement::toIR(IRState* p)
 
     if (match)
     {
-        LLValue* allocainst = new llvm::AllocaInst(DtoType(match->type), "._tmp_if_var", p->topallocapoint());
+        LLValue* allocainst = DtoAlloca(DtoType(match->type), "._tmp_if_var");
         match->ir.irLocal = new IrLocal(match);
         match->ir.irLocal->value = allocainst;
     }
@@ -675,7 +675,7 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
     if (DSliceValue* sval = val->isSlice())
     {
         // give storage
-        llval = new llvm::AllocaInst(DtoType(e->type), "tmp", gIR->topallocapoint());
+        llval = DtoAlloca(DtoType(e->type), "tmp");
         DVarValue* vv = new DVarValue(e->type, llval, true);
         DtoAssign(e->loc, vv, val);
     }
@@ -913,7 +913,7 @@ void ForeachStatement::toIR(IRState* p)
 
     // key
     const LLType* keytype = key ? DtoType(key->type) : DtoSize_t();
-    LLValue* keyvar = new llvm::AllocaInst(keytype, "foreachkey", p->topallocapoint());
+    LLValue* keyvar = DtoAlloca(keytype, "foreachkey");
     if (key)
     {
         //key->llvmValue = keyvar;
@@ -928,7 +928,7 @@ void ForeachStatement::toIR(IRState* p)
     const LLType* valtype = DtoType(value->type);
     LLValue* valvar = NULL;
     if (!value->isRef() && !value->isOut())
-        valvar = new llvm::AllocaInst(valtype, "foreachval", p->topallocapoint());
+        valvar = DtoAlloca(valtype, "foreachval");
     if (!value->ir.irLocal)
         value->ir.irLocal = new IrLocal(value);
 
@@ -1248,7 +1248,7 @@ void SwitchErrorStatement::toIR(IRState* p)
     llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
     if (!alloc)
     {
-        alloc = new llvm::AllocaInst(c->getType(), ".srcfile", gIR->topallocapoint());
+        alloc = DtoAlloca(c->getType(), ".srcfile");
         gIR->func()->srcfileArg = alloc;
     }
     LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");

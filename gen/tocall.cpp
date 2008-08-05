@@ -118,7 +118,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
     }
     const LLStructType* vtype = LLStructType::get(vtypes);
     Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
-    LLValue* mem = new llvm::AllocaInst(vtype,"_argptr_storage",gIR->topallocapoint());
+    LLValue* mem = DtoAlloca(vtype,"_argptr_storage");
 
     // store arguments in the struct
     for (int i=begin,k=0; i<arguments->dim; i++,k++)
@@ -230,7 +230,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // return in hidden ptr is first
     if (retinptr)
     {
-        LLValue* retvar = new llvm::AllocaInst(argiter->get()->getContainedType(0), ".rettmp", gIR->topallocapoint());
+        LLValue* retvar = DtoAlloca(argiter->get()->getContainedType(0), ".rettmp");
         ++argiter;
         args.push_back(retvar);
         palist = palist.addAttr(1, llvm::ParamAttr::StructRet);

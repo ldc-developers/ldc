@@ -572,7 +572,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
     if (fd->vresult && !fd->vresult->nestedref) {
         Logger::println("non-nested vresult value");
         fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-        fd->vresult->ir.irLocal->value = new llvm::AllocaInst(DtoType(fd->vresult->type),"function_vresult",allocaPoint);
+        fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type),"function_vresult");
     }
 
     // give the 'this' argument storage and debug info
@@ -582,7 +582,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
         LLValue* thisvar = irfunction->thisVar;
         assert(thisvar);
 
-        LLValue* thismem = new llvm::AllocaInst(thisvar->getType(), ".newthis", allocaPoint);
+        LLValue* thismem = DtoAlloca(thisvar->getType(), ".newthis");
         DtoStore(thisvar, thismem);
         irfunction->thisVar = thismem;
 
@@ -619,7 +619,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
             }
 
             LLValue* a = irloc->value;
-            LLValue* v = new llvm::AllocaInst(a->getType(), "."+a->getName(), allocaPoint);
+            LLValue* v = DtoAlloca(a->getType(), "."+a->getName());
             DtoStore(a,v);
             irloc->value = v;
         }
@@ -665,7 +665,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
         }
         const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
         Logger::cout() << "nested var struct has type:" << *nestSType << '\n';
-        fd->ir.irFunc->nestedVar = new llvm::AllocaInst(nestSType,"nestedvars",allocaPoint);
+        fd->ir.irFunc->nestedVar = DtoAlloca(nestSType,"nestedvars");
         if (parentNested) {
             assert(fd->ir.irFunc->thisVar);
             LLValue* ptr = gIR->ir->CreateBitCast(fd->ir.irFunc->thisVar, parentNested->getType(), "tmp");
@@ -684,7 +684,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
     // copy _argptr to a memory location
     if (f->linkage == LINKd && f->varargs == 1)
     {
-        LLValue* argptrmem = new llvm::AllocaInst(fd->ir.irFunc->_argptr->getType(), "_argptrmem", gIR->topallocapoint());
+        LLValue* argptrmem = DtoAlloca(fd->ir.irFunc->_argptr->getType(), "_argptrmem");
         new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
         fd->ir.irFunc->_argptr = argptrmem;
     }
@@ -791,7 +791,7 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
     // byval arg, but expr has no storage yet
     else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isComplex() || arg->isNull()))
     {
-        LLValue* alloc = new llvm::AllocaInst(DtoType(argexp->type), "tmpparam", gIR->topallocapoint());
+        LLValue* alloc = DtoAlloca(DtoType(argexp->type), "tmpparam");
         DVarValue* vv = new DVarValue(argexp->type, alloc, true);
         DtoAssign(argexp->loc, vv, arg);
         arg = vv;

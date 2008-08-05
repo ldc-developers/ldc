@@ -85,6 +85,23 @@ void DtoDeleteArray(DValue* arr)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
+// ALLOCA HELPERS
+////////////////////////////////////////////////////////////////////////////////////////*/
+
+
+llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name)
+{
+    return new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+}
+
+llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name)
+{
+    return new llvm::AllocaInst(lltype, arraysize, name, gIR->topallocapoint());
+}
+
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
 // ASSERT HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
@@ -112,7 +129,7 @@ void DtoAssert(Loc* loc, DValue* msg)
             llvm::AllocaInst* alloc = gIR->func()->msgArg;
             if (!alloc)
             {
-                alloc = new llvm::AllocaInst(c->getType(), ".assertmsg", gIR->topallocapoint());
+                alloc = DtoAlloca(c->getType(), ".assertmsg");
                 DtoSetArray(alloc, DtoArrayLen(s), DtoArrayPtr(s));
                 gIR->func()->msgArg = alloc;
             }
@@ -129,7 +146,7 @@ void DtoAssert(Loc* loc, DValue* msg)
     llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
     if (!alloc)
     {
-        alloc = new llvm::AllocaInst(c->getType(), ".srcfile", gIR->topallocapoint());
+        alloc = DtoAlloca(c->getType(), ".srcfile");
         gIR->func()->srcfileArg = alloc;
     }
     LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");
@@ -1211,7 +1228,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 if(gTargetData->getTypeSizeInBits(lltype) == 0) 
                     allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
                 else
-                    allocainst = new llvm::AllocaInst(lltype, vd->toChars(), gIR->topallocapoint());
+                    allocainst = DtoAlloca(lltype, vd->toChars());
 
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->ir.irLocal = new IrLocal(vd);

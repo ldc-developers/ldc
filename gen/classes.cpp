@@ -795,7 +795,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     LLValue* mem;
     if (newexp->onstack)
     {
-        mem = new llvm::AllocaInst(DtoType(tc)->getContainedType(0), ".newclass_alloca", gIR->topallocapoint());
+        mem = DtoAlloca(DtoType(tc)->getContainedType(0), ".newclass_alloca");
     }
     // custom allocator
     else if (newexp->allocator)

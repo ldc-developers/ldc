@@ -475,7 +475,7 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
 
         // unfortunately at this point, the cast value can show up as the lvalue for += and similar expressions.
         // so we need to give it storage, or fix the system that handles this stuff (DLRValue)
-        LLValue* mem = new llvm::AllocaInst(DtoType(_to), "castcomplextmp", gIR->topallocapoint());
+        LLValue* mem = DtoAlloca(DtoType(_to), "castcomplextmp");
         DtoComplexSet(mem, re, im);
         return new DLRValue(val, new DImValue(_to, mem));
     }

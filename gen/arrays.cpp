@@ -118,7 +118,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     // give slices and complex values storage (and thus an address to pass)
     if (value->isSlice() || value->isComplex())
     {
-        val = new llvm::AllocaInst(DtoType(value->getType()), ".tmpparam", gIR->topallocapoint());
+        val = DtoAlloca(DtoType(value->getType()), ".tmpparam");
         DVarValue lval(value->getType(), val, true);
         DtoAssign(loc, &lval, value);
     }
@@ -445,7 +445,7 @@ DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarraymT" : "_d_newarraymiT" );
 
     // build dims
-    LLValue* dimsArg = new llvm::AllocaInst(DtoSize_t(), DtoConstUint(ndims), ".newdims", gIR->topallocapoint());
+    LLValue* dimsArg = DtoAlloca(DtoSize_t(), DtoConstUint(ndims), ".newdims");
     LLValue* firstDim = NULL; 
     for (size_t i=0; i<ndims; ++i)
     {
@@ -698,13 +698,13 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
 
     // we need to give slices storage
     if (l->isSlice()) {
-        lmem = new llvm::AllocaInst(DtoType(l->getType()), "tmpparam", gIR->topallocapoint());
+        lmem = DtoAlloca(DtoType(l->getType()), "tmpparam");
         DtoSetArray(lmem, DtoArrayLen(l), DtoArrayPtr(l));
     }
     // also null
     else if (l->isNull())
     {
-        lmem = new llvm::AllocaInst(DtoType(l->getType()), "tmpparam", gIR->topallocapoint());
+        lmem = DtoAlloca(DtoType(l->getType()), "tmpparam");
         DtoSetArray(lmem, llvm::Constant::getNullValue(DtoSize_t()), llvm::Constant::getNullValue(DtoType(l->getType()->next->pointerTo())));
     }
     else
@@ -713,13 +713,13 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
     // and for the rvalue ...
     // we need to give slices storage
     if (r->isSlice()) {
-        rmem = new llvm::AllocaInst(DtoType(r->getType()), "tmpparam", gIR->topallocapoint());
+        rmem = DtoAlloca(DtoType(r->getType()), "tmpparam");
         DtoSetArray(rmem, DtoArrayLen(r), DtoArrayPtr(r));
     }
     // also null
     else if (r->isNull())
     {
-        rmem = new llvm::AllocaInst(DtoType(r->getType()), "tmpparam", gIR->topallocapoint());
+        rmem = DtoAlloca(DtoType(r->getType()), "tmpparam");
         DtoSetArray(rmem, llvm::Constant::getNullValue(DtoSize_t()), llvm::Constant::getNullValue(DtoType(r->getType()->next->pointerTo())));
     }
     else
@@ -1078,7 +1078,7 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
     if (!alloc)
     {
-        alloc = new llvm::AllocaInst(c->getType(), ".srcfile", gIR->topallocapoint());
+        alloc = DtoAlloca(c->getType(), ".srcfile");
         gIR->func()->srcfileArg = alloc;
     }
     LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");

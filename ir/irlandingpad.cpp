@@ -187,7 +187,7 @@ LLValue* IRLandingPad::getExceptionStorage()
     {
         Logger::println("Making new catch var");
         const LLType* objectTy = DtoType(ClassDeclaration::object->type);
-        catch_var = new llvm::AllocaInst(objectTy,"catchvar",gIR->topallocapoint());
+        catch_var = DtoAlloca(objectTy,"catchvar");
     }
     return catch_var;
 }

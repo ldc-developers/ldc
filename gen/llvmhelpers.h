@@ -11,6 +11,10 @@ void DtoDeleteClass(LLValue* inst);
 void DtoDeleteInterface(LLValue* inst);
 void DtoDeleteArray(DValue* arr);
 
+// emit an alloca
+llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name = "");
+llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name = "");
+
 // assertion generator
 void DtoAssert(Loc* loc, DValue* msg);
 
