@@ -91,11 +91,22 @@ void DtoDeleteArray(DValue* arr)
 
 llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name)
 {
+    if(lltype == LLType::X86_FP80Ty)
+    {
+        llvm::AllocaInst* alloca = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+        LLValue* castv = new llvm::BitCastInst(alloca, getPtrToType(LLType::Int16Ty), "fp80toi16", gIR->scopebb());
+        LLValue* padding = DtoGEPi1(castv, 5, "fp80padding");
+	new llvm::StoreInst(llvm::Constant::getNullValue(LLType::Int16Ty), padding, gIR->scopebb());
+
+        return alloca;
+    }
+
     return new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
 }
 
 llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name)
 {
+    assert(lltype != LLType::X86_FP80Ty && "Zero-init of fp80 padding for array allocas not yet implemented");
     return new llvm::AllocaInst(lltype, arraysize, name, gIR->topallocapoint());
 }
 
