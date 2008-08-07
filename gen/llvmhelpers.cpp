@@ -1448,6 +1448,8 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
             padding = DtoGEPi1(castv, 11);
             DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
         }
+
+        return res;
     }
     else if (init->isVoidInitializer())
     {
