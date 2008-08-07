@@ -81,7 +81,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration);
 // initializer helpers
 LLConstant* DtoConstInitializer(Type* type, Initializer* init);
 LLConstant* DtoConstFieldInitializer(Type* type, Initializer* init);
-DValue* DtoInitializer(Initializer* init);
+DValue* DtoInitializer(LLValue* target, Initializer* init);
 
 // annotation generator
 void DtoAnnotation(const char* str);

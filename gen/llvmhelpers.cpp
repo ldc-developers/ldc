@@ -20,6 +20,8 @@
 #include "gen/typeinf.h"
 #include "gen/todebug.h"
 
+#include <stack>
+
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
 // DYNAMIC MEMORY HELPERS
@@ -91,22 +93,11 @@ void DtoDeleteArray(DValue* arr)
 
 llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name)
 {
-    if(lltype == LLType::X86_FP80Ty)
-    {
-        llvm::AllocaInst* alloca = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
-        LLValue* castv = DtoBitCast(alloca, getPtrToType(LLType::Int16Ty), "fp80toi16");
-        LLValue* padding = DtoGEPi1(castv, 5, "fp80padding");
-        DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
-
-        return alloca;
-    }
-
     return new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
 }
 
 llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name)
 {
-    assert(lltype != LLType::X86_FP80Ty && "Zero-init of fp80 padding for array allocas not yet implemented");
     return new llvm::AllocaInst(lltype, arraysize, name, gIR->topallocapoint());
 }
 
@@ -887,7 +878,7 @@ void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
     LLValue* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);
-    DValue* ie = DtoInitializer(init);
+    DValue* ie = DtoInitializer(gvar, init);
     if (!ie->inPlace()) {
         DValue* dst = new DVarValue(t, gvar, true);
         DtoAssign(init->loc, dst, ie);
@@ -1252,7 +1243,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             }
 
             Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
-            DValue* ie = DtoInitializer(vd->init);
+            DValue* ie = DtoInitializer(vd->ir.irLocal->value, vd->init);
         }
 
         return new DVarValue(vd->type, vd, vd->ir.getIrValue(), true);
@@ -1427,7 +1418,7 @@ LLConstant* DtoConstFieldInitializer(Type* t, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoInitializer(Initializer* init)
+DValue* DtoInitializer(LLValue* target, Initializer* init)
 {
     if (!init)
         return 0;
@@ -1435,7 +1426,28 @@ DValue* DtoInitializer(Initializer* init)
     {
         Logger::println("expression initializer");
         assert(ex->exp);
-        return ex->exp->toElem(gIR);
+        DValue* res = ex->exp->toElem(gIR);
+
+        assert(llvm::isa<llvm::PointerType>(target->getType()) && "init target must be ptr");
+        const LLType* targetty = target->getType()->getContainedType(0);
+        if(targetty == LLType::X86_FP80Ty)
+        {
+            Logger::println("setting fp80 padding to zero");
+
+            LLValue* castv = DtoBitCast(target, getPtrToType(LLType::Int16Ty));
+            LLValue* padding = DtoGEPi1(castv, 5);
+            DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
+        }
+        else if(targetty == DtoComplexType(Type::tcomplex80))
+        {
+            Logger::println("setting complex fp80 padding to zero");
+
+            LLValue* castv = DtoBitCast(target, getPtrToType(LLType::Int16Ty));
+            LLValue* padding = DtoGEPi1(castv, 5);
+            DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
+            padding = DtoGEPi1(castv, 11);
+            DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
+        }
     }
     else if (init->isVoidInitializer())
     {
