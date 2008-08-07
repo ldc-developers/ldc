@@ -319,7 +319,6 @@ int main(int argc, char *argv[])
     tt_os = "-pc-mingw32";
 #elif linux
     VersionCondition::addPredefinedGlobalIdent("linux");
-    VersionCondition::addPredefinedGlobalIdent("Unix");
     global.params.isLinux = 1;
     tt_os = "-pc-linux-gnu";
 #else
