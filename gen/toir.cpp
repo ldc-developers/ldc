@@ -2145,6 +2145,13 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
     LLValue* sptr = DtoAlloca(llt,"tmpstructliteral");
 
+    // default init the struct to take care of padding
+    // and unspecified members
+    TypeStruct* ts = (TypeStruct*)type;
+    assert(ts->sym);
+    DtoForceConstInitDsymbol(ts->sym);
+    assert(ts->sym->ir.irStruct->init);
+    DtoAggrCopy(sptr, ts->sym->ir.irStruct->init);
 
     // num elements in literal
     unsigned n = elements->dim;
