@@ -3,8 +3,10 @@
 # I'm no good bash scripter ...
 
 # copy imports
-cp -u internal/llvmdc/bitmanip.d ../import/llvmdc/bitmanip.di
-cp -u internal/llvmdc/vararg.d ../import/llvmdc/vararg.di
+mkdir -p ../tango/llvmdc
+cp -u internal/llvmdc/bitmanip.d ../tango/llvmdc/bitmanip.di
+cp -u internal/llvmdc/vararg.d ../tango/llvmdc/vararg.di
+cp -u import/llvmdc/* ../tango/llvmdc
 
 # make the runtime
 cp -Ru lib ../tango
