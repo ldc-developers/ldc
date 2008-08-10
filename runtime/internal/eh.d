@@ -14,6 +14,7 @@ version(X86) version(linux) version=X86_LINUX;
 
 private extern(C) void abort();
 private extern(C) int printf(char*, ...);
+private extern(C) int vprintf(char*, va_list va);
 
 // D runtime functions
 extern(C) {
@@ -88,7 +89,8 @@ extern(C) private void fatalerror(char* format, ...)
   va_list args;
   va_start(args, format);
   printf("Fatal error in EH code: ");
-  printf(format, args);
+  vprintf(format, args);
+  printf("\n");
   abort();
 }
 
