@@ -1002,10 +1002,20 @@ unsigned TypeBasic::alignsize()
 
     switch (ty)
     {
+//LLVMDC: llvm aligns 12 byte reals to 4 byte
 	case Tfloat80:
 	case Timaginary80:
 	case Tcomplex80:
-	    sz = REALSIZE;
+	    //sz = REALSIZE;
+	    sz = 4;
+	    break;
+
+//LLVMDC: llvm aligns these to 4 byte boundaries
+	case Tint64:
+	case Tuns64:
+	case Tfloat64:
+	case Timaginary64:
+	    sz = 4;
 	    break;
 
 	default:
