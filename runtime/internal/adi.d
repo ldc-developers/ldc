@@ -67,7 +67,7 @@ struct Array
  * reversed.
  */
 
-extern (C) Array _adReverseChar(char[] a)
+extern (C) char[] _adReverseChar(char[] a)
 {
     if (a.length > 1)
     {
@@ -127,14 +127,14 @@ extern (C) Array _adReverseChar(char[] a)
             hi = hi - 1 + (stridehi - stridelo);
         }
     }
-    return Array(a.length, a.ptr);
+    return a;
 }
 
 unittest
 {
-    auto a = "abcd"c;
+    char[] a = "abcd"c;
 
-    auto r = a.dup.reverse;
+    char[] r = a.dup.reverse;
     //writefln(r);
     assert(r == "dcba");
 
@@ -162,7 +162,7 @@ unittest
  * reversed.
  */
 
-extern (C) Array _adReverseWchar(wchar[] a)
+extern (C) wchar[] _adReverseWchar(wchar[] a)
 {
     if (a.length > 1)
     {
@@ -220,13 +220,13 @@ extern (C) Array _adReverseWchar(wchar[] a)
             hi = hi - 1 + (stridehi - stridelo);
         }
     }
-    return Array(a.length, a.ptr);
+    return a;
 }
 
 unittest
 {
-    wstring a = "abcd";
-    wstring r;
+    wchar[] a = "abcd";
+    wchar[] r;
 
     r = a.dup.reverse;
     assert(r == "dcba");
@@ -331,7 +331,7 @@ unittest
  * Sort array of chars.
  */
 
-extern (C) Array _adSortChar(char[] a)
+extern (C) char[] _adSortChar(char[] a)
 {
     if (a.length > 1)
     {
@@ -346,14 +346,14 @@ extern (C) Array _adSortChar(char[] a)
         }
         delete da;
     }
-    return Array(a.length, a.ptr);
+    return a;
 }
 
 /**********************************************
  * Sort array of wchars.
  */
 
-extern (C) Array _adSortWchar(wchar[] a)
+extern (C) wchar[] _adSortWchar(wchar[] a)
 {
     if (a.length > 1)
     {
@@ -368,7 +368,7 @@ extern (C) Array _adSortWchar(wchar[] a)
         }
         delete da;
     }
-    return Array(a.length, a.ptr);
+    return a;
 }
 
 /***************************************
@@ -392,7 +392,7 @@ unittest
 {
     debug(adi) printf("array.Eq unittest\n");
 
-    auto a = "hello"c;
+    char[] a = "hello"c;
 
     assert(a != "hel");
     assert(a != "helloo");
@@ -425,7 +425,7 @@ unittest
 {
     debug(adi) printf("array.Cmp unittest\n");
 
-    auto a = "hello"c;
+    char[] a = "hello"c;
 
     assert(a >  "hel");
     assert(a >= "hel");
@@ -575,7 +575,7 @@ unittest
 {
     debug(adi) printf("array.CmpChar unittest\n");
 
-    auto a = "hello"c;
+    char[] a = "hello"c;
 
     assert(a >  "hel");
     assert(a >= "hel");

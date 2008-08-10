@@ -106,7 +106,7 @@ DValue* VarExp::toElem(IRState* p)
         // nested variable
         else if (vd->nestedref) {
             Logger::println("nested variable");
-            return DtoNestedVariable(type, vd);
+            return DtoNestedVariable(loc, type, vd);
         }
         // function parameter
         else if (vd->isParameter()) {
@@ -114,7 +114,7 @@ DValue* VarExp::toElem(IRState* p)
             FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
             if (fd && fd != p->func()->decl) {
                 Logger::println("nested parameter");
-                return DtoNestedVariable(type, vd);
+                return DtoNestedVariable(loc, type, vd);
             }
             else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
                 return new DVarValue(type, vd, vd->ir.getIrValue(), true);
@@ -151,7 +151,7 @@ DValue* VarExp::toElem(IRState* p)
     else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
         // this seems to be the static initialiser for structs
-        Type* sdecltype = DtoDType(sdecl->type);
+        Type* sdecltype = sdecl->type->toBasetype();
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
@@ -177,7 +177,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
     if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
         // this seems to be the static initialiser for structs
-        Type* sdecltype = DtoDType(sdecl->type);
+        Type* sdecltype = sdecl->type->toBasetype();
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
@@ -242,7 +242,7 @@ LLConstant* RealExp::toConstElem(IRState* p)
 {
     Logger::print("RealExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
     return DtoConstFP(t, value);
 }
 
@@ -283,7 +283,7 @@ DValue* ComplexExp::toElem(IRState* p)
     LLConstant* c = toConstElem(p);
 
     if (c->isNullValue()) {
-        Type* t = DtoDType(type);
+        Type* t = type->toBasetype();
         if (t->ty == Tcomplex32)
             c = DtoConstFP(Type::tfloat32, 0);
         else if (t->ty == Tcomplex64)
@@ -314,8 +314,8 @@ DValue* StringExp::toElem(IRState* p)
     Logger::print("StringExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    Type* dtype = DtoDType(type);
-    Type* cty = DtoDType(dtype->next);
+    Type* dtype = type->toBasetype();
+    Type* cty = dtype->next->toBasetype();
 
     const LLType* ct = DtoTypeNotVoid(cty);
     //printf("ct = %s\n", type->next->toChars());
@@ -382,8 +382,8 @@ LLConstant* StringExp::toConstElem(IRState* p)
     Logger::print("StringExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    Type* t = DtoDType(type);
-    Type* cty = DtoDType(t->next);
+    Type* t = type->toBasetype();
+    Type* cty = t->next->toBasetype();
 
     bool nullterm = (t->ty != Tsarray);
     size_t endlen = nullterm ? len+1 : len;
@@ -472,7 +472,19 @@ DValue* AssignExp::toElem(IRState* p)
     if (l->isSlice() || l->isComplex())
         return l;
 
+#if 0
+    if (type->toBasetype()->ty == Tstruct && e2->type->isintegral())
+    { 
+        // handle struct = 0; 
+        return l; 
+    } 
+    else 
+    { 
+        return r;
+    }
+#else
     return r;
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -485,10 +497,10 @@ DValue* AddExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    Type* t = DtoDType(type);
-    Type* e1type = DtoDType(e1->type);
-    Type* e1next = e1type->next ? DtoDType(e1type->next) : NULL;
-    Type* e2type = DtoDType(e2->type);
+    Type* t = type->toBasetype();
+    Type* e1type = e1->type->toBasetype();
+    Type* e1next = e1type->next ? e1type->next->toBasetype() : NULL;
+    Type* e2type = e2->type->toBasetype();
 
     if (e1type != e2type) {
         if (llvmFieldIndex) {
@@ -537,10 +549,10 @@ DValue* AddAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     DValue* res;
-    if (DtoDType(e1->type)->ty == Tpointer) {
+    if (e1->type->toBasetype()->ty == Tpointer) {
         LLValue* gep = llvm::GetElementPtrInst::Create(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
         res = new DImValue(type, gep);
     }
@@ -565,9 +577,9 @@ DValue* MinExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    Type* t = DtoDType(type);
-    Type* t1 = DtoDType(e1->type);
-    Type* t2 = DtoDType(e2->type);
+    Type* t = type->toBasetype();
+    Type* t1 = e1->type->toBasetype();
+    Type* t2 = e2->type->toBasetype();
 
     if (t1->ty == Tpointer && t2->ty == Tpointer) {
         LLValue* lv = l->getRVal();
@@ -603,10 +615,10 @@ DValue* MinAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     DValue* res;
-    if (DtoDType(e1->type)->ty == Tpointer) {
+    if (e1->type->toBasetype()->ty == Tpointer) {
         Logger::println("ptr");
         LLValue* tmp = r->getRVal();
         LLValue* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
@@ -770,7 +782,7 @@ DValue* CallExp::toElem(IRState* p)
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
-            return new DImValue(type, DtoAlloca(LLType::Int8Ty, expv->getRVal(), ".alloca"));
+            return new DImValue(type, p->ir->CreateAlloca(LLType::Int8Ty, expv->getRVal(), ".alloca"));
         }
     }
 
@@ -844,6 +856,12 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     assert(e1->op == TOKvar);
     VarExp* vexp = (VarExp*)e1;
 
+    if (vexp->var->needThis())
+    {
+        error("need 'this' to access %s", vexp->var->toChars());
+        fatal();
+    }
+
     // global variable
     if (VarDeclaration* vd = vexp->var->isVarDeclaration())
     {
@@ -892,8 +910,8 @@ DValue* DotVarExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
 
-    Type* t = DtoDType(type);
-    Type* e1type = DtoDType(e1->type);
+    Type* t = type->toBasetype();
+    Type* e1type = e1->type->toBasetype();
 
     //Logger::println("e1type=%s", e1type->toChars());
     //Logger::cout() << *DtoType(e1type) << '\n';
@@ -903,6 +921,16 @@ DValue* DotVarExp::toElem(IRState* p)
         if (e1type->ty == Tpointer) {
             assert(e1type->next->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)e1type->next;
+            Logger::println("Struct member offset:%d", vd->offset);
+
+            LLValue* src = l->getRVal();
+
+            DStructIndexVector vdoffsets;
+            arrptr = DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
+        }
+        // happens for tuples
+        else if (e1type->ty == Tstruct) {
+            TypeStruct* ts = (TypeStruct*)e1type;
             Logger::println("Struct member offset:%d", vd->offset);
 
             LLValue* src = l->getRVal();
@@ -953,7 +981,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
             LLValue* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
             LLValue* vtblidx = llvm::ConstantInt::get(LLType::Int32Ty, (size_t)fdecl->vtblIndex, false);
-            //Logger::cout() << "vthis: " << *vthis << '\n';
+            Logger::cout() << "vthis: " << *vthis << '\n';
             funcval = DtoGEP(vthis, zero, zero);
             funcval = DtoLoad(funcval);
             funcval = DtoGEP(funcval, zero, vtblidx, toChars());
@@ -991,7 +1019,7 @@ DValue* ThisExp::toElem(IRState* p)
     // FIXME: check for TOKthis in AssertExp instead
     if (!var)
     {
-        LLValue* v = p->func()->thisVar;
+        LLValue* v = p->func()->thisArg;
         assert(v);
         return new DVarValue(type, v, true);
     }
@@ -1000,11 +1028,11 @@ DValue* ThisExp::toElem(IRState* p)
         LLValue* v;
         if (vd->toParent2() != p->func()->decl) {
             Logger::println("nested this exp");
-            return DtoNestedVariable(type, vd);
+            return DtoNestedVariable(loc, type, vd);
         }
         else {
             Logger::println("normal this exp");
-            v = p->func()->decl->ir.irFunc->thisVar;
+            v = p->func()->thisArg;
         }
         return new DVarValue(type, vd, v, true);
     }
@@ -1023,7 +1051,7 @@ DValue* IndexExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
 
-    Type* e1type = DtoDType(e1->type);
+    Type* e1type = e1->type->toBasetype();
 
     p->arrays.push_back(l); // if $ is used it must be an array so this is fine.
     DValue* r = e2->toElem(p);
@@ -1141,8 +1169,8 @@ DValue* CmpExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    Type* t = DtoDType(e1->type);
-    Type* e2t = DtoDType(e2->type);
+    Type* t = e1->type->toBasetype();
+    Type* e2t = e2->type->toBasetype();
     assert(DtoType(t) == DtoType(e2t));
 
     LLValue* eval = 0;
@@ -1254,8 +1282,8 @@ DValue* EqualExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    Type* t = DtoDType(e1->type);
-    Type* e2t = DtoDType(e2->type);
+    Type* t = e1->type->toBasetype();
+    Type* e2t = e2->type->toBasetype();
     //assert(t == e2t);
 
     LLValue* eval = 0;
@@ -1341,8 +1369,8 @@ DValue* PostExp::toElem(IRState* p)
     LLValue* val = l->getRVal();
     LLValue* post = 0;
 
-    Type* e1type = DtoDType(e1->type);
-    Type* e2type = DtoDType(e2->type);
+    Type* e1type = e1->type->toBasetype();
+    Type* e2type = e2->type->toBasetype();
 
     if (e1type->isintegral())
     {
@@ -1379,7 +1407,7 @@ DValue* PostExp::toElem(IRState* p)
 
     DtoStore(post,l->getLVal());
 
-    return new DImValue(type,val,true);
+    return new DImValue(type,val);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1390,12 +1418,12 @@ DValue* NewExp::toElem(IRState* p)
     LOG_SCOPE;
 
     assert(newtype);
-    Type* ntype = DtoDType(newtype);
+    Type* ntype = newtype->toBasetype();
 
     // new class
     if (ntype->ty == Tclass) {
         Logger::println("new class");
-        return DtoNewClass((TypeClass*)ntype, this);
+        return DtoNewClass(loc, (TypeClass*)ntype, this);
     }
     // new dynamic array
     else if (ntype->ty == Tarray)
@@ -1439,7 +1467,7 @@ DValue* NewExp::toElem(IRState* p)
             assert(ts->sym);
             DtoAggrCopy(mem,ts->sym->ir.irStruct->init);
         }
-        return new DImValue(type, mem, false);
+        return new DImValue(type, mem);
     }
     // new basic type
     else
@@ -1454,7 +1482,7 @@ DValue* NewExp::toElem(IRState* p)
         DtoAssign(loc, &tmpvar, iv);
 
         // return as pointer-to
-        return new DImValue(type, mem, false);
+        return new DImValue(type, mem);
     }
 
     assert(0);
@@ -1468,7 +1496,7 @@ DValue* DeleteExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* dval = e1->toElem(p);
-    Type* et = DtoDType(e1->type);
+    Type* et = e1->type->toBasetype();
 
     // simple pointer
     if (et->ty == Tpointer)
@@ -1763,12 +1791,13 @@ DValue* DelegateExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     LLValue* uval;
     if (DFuncValue* f = u->isFunc()) {
-        assert(f->func);
-        LLValue* contextptr = DtoNestedContext(f->func->toParent2()->isFuncDeclaration());
-        if (!contextptr)
-            uval = LLConstant::getNullValue(getVoidPtrType());
+        assert(f->func);        
+        LLValue* contextptr;
+        if (p->func()->decl == f->func)
+            contextptr = p->func()->thisArg;
         else
-            uval = DtoBitCast(contextptr, getVoidPtrType());
+            contextptr = DtoNestedContext(loc, f->func);
+        uval = DtoBitCast(contextptr, getVoidPtrType());
     }
     else {
         DValue* src = u;
@@ -1892,7 +1921,7 @@ DValue* CondExp::toElem(IRState* p)
     Logger::print("CondExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    Type* dtype = DtoDType(type);
+    Type* dtype = type->toBasetype();
     const LLType* resty = DtoType(dtype);
 
     // allocate a temporary for the final result. failed to come up with a better way :/
@@ -1953,7 +1982,7 @@ DValue* NegExp::toElem(IRState* p)
     }
 
     LLValue* val = l->getRVal();
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     LLValue* zero = 0;
     if (t->isintegral())
@@ -1975,9 +2004,9 @@ DValue* CatExp::toElem(IRState* p)
     Logger::print("CatExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
-    bool arrNarr = DtoDType(e1->type) == DtoDType(e2->type);
+    bool arrNarr = e1->type->toBasetype() == e2->type->toBasetype();
 
     // array ~ array
     if (arrNarr)
@@ -2001,9 +2030,9 @@ DValue* CatAssignExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
 
-    Type* e1type = DtoDType(e1->type);
-    Type* elemtype = DtoDType(e1type->next);
-    Type* e2type = DtoDType(e2->type);
+    Type* e1type = e1->type->toBasetype();
+    Type* elemtype = e1type->next->toBasetype();
+    Type* e2type = e2->type->toBasetype();
 
     if (e2type == elemtype) {
         DSliceValue* slice = DtoCatAssignElement(l,e2);
@@ -2037,17 +2066,17 @@ DValue* FuncExp::toElem(IRState* p)
     LLValue* lval = DtoAlloca(dgty,"dgstorage");
 
     LLValue* context = DtoGEPi(lval,0,0);
-    const LLPointerType* pty = isaPointer(context->getType()->getContainedType(0));
-    LLValue* llvmNested = p->func()->decl->ir.irFunc->nestedVar;
-    if (llvmNested == NULL) {
-        LLValue* nullcontext = llvm::ConstantPointerNull::get(pty);
-        DtoStore(nullcontext, context);
-    }
-    else {
-        LLValue* nestedcontext = DtoBitCast(llvmNested, pty);
-        DtoStore(nestedcontext, context);
-    }
-
+    LLValue* cval;
+    IrFunction* irfn = p->func();
+    if (irfn->nestedVar)
+        cval = irfn->nestedVar;
+    else if (irfn->nestArg)
+        cval = irfn->nestArg;
+    else
+        cval = getNullPtr(getVoidPtrType());
+    cval = DtoBitCast(cval, context->getType()->getContainedType(0));
+    DtoStore(cval, context);
+    
     LLValue* fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
 
     assert(fd->ir.irFunc->func);
@@ -2072,8 +2101,6 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     bool dyn = (arrayType->ty == Tarray);
     // length
     size_t len = elements->dim;
-    // store into slice?
-    bool sliceInPlace = false;
 
     // llvm target type
     const LLType* llType = DtoType(arrayType);
@@ -2096,15 +2123,13 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         // emulate assignment
         DVarValue* vv = new DVarValue(expr->type, elemAddr, true);
         DValue* e = expr->toElem(p);
-        DImValue* im = e->isIm();
-        if (!im || !im->inPlace()) {
-            DtoAssign(loc, vv, e);
-        }
+        DtoAssign(loc, vv, e);
     }
 
     // return storage directly ?
-    if (!dyn || (dyn && sliceInPlace))
-        return new DImValue(type, dstMem, false);
+    if (!dyn)
+        return new DImValue(type, dstMem);
+
     // wrap in a slice
     return new DSliceValue(type, DtoConstSize_t(len), DtoGEPi(dstMem,0,0,"tmp"));
 }
@@ -2188,9 +2213,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         DValue* darrptr = new DVarValue(vx->type, arrptr, true);
 
         DValue* ve = vx->toElem(p);
-
-        if (!ve->inPlace())
-            DtoAssign(loc, darrptr, ve);
+        DtoAssign(loc, darrptr, ve);
 
         j++;
     }
@@ -2214,7 +2237,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
         vals[i] = vx->toConstElem(p);
     }
 
-    assert(DtoDType(type)->ty == Tstruct);
+    assert(type->toBasetype()->ty == Tstruct);
     const LLType* t = DtoType(type);
     const LLStructType* st = isaStruct(t);
     return llvm::ConstantStruct::get(st,vals);
@@ -2257,7 +2280,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     assert(values);
     assert(keys->dim == values->dim);
 
-    Type* aatype = DtoDType(type);
+    Type* aatype = type->toBasetype();
     Type* vtype = aatype->next;
     const LLType* aalltype = DtoType(type);
 

@@ -178,6 +178,7 @@ struct Id
     static Identifier *vacopy;
     static Identifier *vaend;
     static Identifier *vaarg;
+    static Identifier *llvmdc;
     static Identifier *tohash;
     static Identifier *tostring;
     static Identifier *main;

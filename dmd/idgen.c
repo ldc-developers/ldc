@@ -223,6 +223,7 @@ Msgtable msgtable[] =
     { "vacopy", "va_copy" },
     { "vaend", "va_end" },
     { "vaarg", "va_arg" },
+    { "llvmdc" },
 
     // For toHash/toString
     { "tohash", "toHash" },

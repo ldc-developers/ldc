@@ -162,6 +162,9 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     bcfile = new File(bcfilename);
     llfile = new File(llfilename);
     symfile = new File(symfilename);
+    
+    // LLVMDC
+    llvmForceLogging = false;
 }
 
 void Module::setDocfile()

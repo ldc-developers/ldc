@@ -311,6 +311,7 @@ int main(int argc, char *argv[])
     VersionCondition::addPredefinedGlobalIdent("LLVM");
     VersionCondition::addPredefinedGlobalIdent("LLVMDC");
 #endif
+
 #if _WIN32
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent("Win32");

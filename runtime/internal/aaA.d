@@ -101,7 +101,6 @@ alias BB* AA;
 
 size_t aligntsize(size_t tsize)
 {
-    // Is pointer alignment on the x64 4 bytes or 8?
     return (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
 }
 

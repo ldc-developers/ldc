@@ -71,6 +71,7 @@ LLValue* DtoCallableValue(DValue* fn)
     else if (type->ty == Tdelegate)
     {
         LLValue* dg = fn->getRVal();
+        Logger::cout() << "delegate: " << *dg << '\n';
         LLValue* funcptr = DtoGEPi(dg, 0, 1);
         return DtoLoad(funcptr);
     }
@@ -200,10 +201,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     TypeFunction* tf = DtoTypeFunction(fnval);
 
     // misc
-    bool retinptr = tf->llvmRetInPtr;
-    bool usesthis = tf->llvmUsesThis;
+    bool retinptr = tf->retInPtr;
+    bool thiscall = tf->usesThis;
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
-    bool nestedcall = (dfnval && dfnval->func && dfnval->func->isNested());
+    bool nestedcall = tf->usesNest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
     unsigned callconv = DtoCallingConv(tf->linkage);
@@ -221,8 +222,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     llvm::PAListPtr palist;
 
     // return attrs
-    if (tf->llvmRetAttrs)
-        palist = palist.addAttr(0, tf->llvmRetAttrs);
+    if (tf->retAttrs)
+        palist = palist.addAttr(0, tf->retAttrs);
 
     // handle implicit arguments
     std::vector<LLValue*> args;
@@ -237,11 +238,12 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // then comes a context argument...
-    if(usesthis || delegatecall || nestedcall)
+    if(thiscall || delegatecall || nestedcall)
     {
         // ... which can be a 'this' argument
-        if (dfnval && dfnval->vthis)
+        if (thiscall)
         {
+            assert(dfnval && dfnval->vthis);
             LLValue* thisarg = DtoBitCast(dfnval->vthis, argiter->get());
             ++argiter;
             args.push_back(thisarg);
@@ -257,11 +259,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // ... or a nested function context arg
         else if (nestedcall)
         {
-            LLValue* contextptr = DtoNestedContext(dfnval->func->toParent2()->isFuncDeclaration());
-            if (!contextptr)
-                contextptr = getNullPtr(getVoidPtrType());
-            else
-                contextptr = DtoBitCast(contextptr, getVoidPtrType());
+            LLValue* contextptr = DtoNestedContext(loc, dfnval->func);
+            contextptr = DtoBitCast(contextptr, getVoidPtrType());
             ++argiter;
             args.push_back(contextptr);
         }
@@ -354,7 +353,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         call->setCallingConv(callconv);
     call->setParamAttrs(palist);
 
-    return new DImValue(resulttype, retllval, false);
+    return new DImValue(resulttype, retllval);
 }
 
 

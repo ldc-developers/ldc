@@ -1,4 +1,4 @@
-module tangotests.nested2;
+module mini.nested13;
 
 extern(C) int printf(char*, ...);
 

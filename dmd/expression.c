@@ -260,6 +260,10 @@ Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
 		    {
 			//printf("rewriting e1 to %s's this\n", f->toChars());
 			n++;
+
+            // LLVMDC seems dmd misses it sometimes here :/
+            f->vthis->nestedref = 1;
+
 			e1 = new VarExp(loc, f->vthis);
 		    }
 		}
@@ -5982,6 +5986,13 @@ Expression *AddrExp::semantic(Scope *sc)
 	    VarExp *dve = (VarExp *)e1;
 	    FuncDeclaration *f = dve->var->isFuncDeclaration();
         VarDeclaration *v = dve->var->isVarDeclaration();
+
+        // LLVMDC
+        if (f && f->isIntrinsic())
+        {
+            error("cannot take the address of intrinsic function %s", e1->toChars());
+            return this;
+        }
 
 	    if (f && f->isNested())
 	    {	Expression *e;

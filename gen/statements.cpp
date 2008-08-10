@@ -57,7 +57,7 @@ void ReturnStatement::toIR(IRState* p)
     {
         if (p->topfunc()->getReturnType() == LLType::VoidTy) {
             IrFunction* f = p->func();
-            assert(f->type->llvmRetInPtr);
+            assert(f->type->retInPtr);
             assert(f->decl->ir.irFunc->retArg);
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
@@ -66,8 +66,7 @@ void ReturnStatement::toIR(IRState* p)
 
             DValue* e = exp->toElem(p);
 
-            if (!e->inPlace())
-                DtoAssign(loc, rvar, e);
+            DtoAssign(loc, rvar, e);
 
             DtoEnclosingHandlers(enclosinghandler, NULL);
 
@@ -647,8 +646,8 @@ struct Case : Object
 
 static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expression* e)
 {
-    Type* dt = DtoDType(e->type);
-    Type* dtnext = DtoDType(dt->next);
+    Type* dt = e->type->toBasetype();
+    Type* dtnext = dt->next->toBasetype();
     TY ty = dtnext->ty;
     const char* fname;
     if (ty == Tchar) {
@@ -934,7 +933,7 @@ void ForeachStatement::toIR(IRState* p)
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);
-    Type* aggrtype = DtoDType(aggr->type);
+    Type* aggrtype = aggr->type->toBasetype();
 
     // get length and pointer
     LLValue* niters = DtoArrayLen(aggrval);

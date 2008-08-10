@@ -349,154 +349,70 @@ void DtoLeaveMonitor(LLValue* v)
 // NESTED VARIABLE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-/*
-
-got:
-
-    context pointer of 'this' function
-
-    declaration for target context's function
-
-want:
-
-    context pointer of target function in call chain
-
-*/
-
-static LLValue* dive_into_nested(Dsymbol* from, LLValue* val)
+DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
 {
-    from = from->toParent2();
-
-    // parent is a function
-    if (FuncDeclaration* f = from->isFuncDeclaration())
+    Dsymbol* vdparent = vd->toParent2();
+    assert(vdparent);
+    
+    IrFunction* irfunc = gIR->func();
+    
+    // is the nested variable in this scope?
+    if (vdparent == irfunc->decl)
     {
-        IrFunction* irfunc = f->ir.irFunc;
-        // parent has nested var struct
-        if (irfunc->nestedVar)
-        {
-            return DtoBitCast(val, irfunc->nestedVar->getType());
-        }
-        // parent has this argument
-        else if (irfunc->thisVar)
-        {
-            return DtoBitCast(val, irfunc->thisVar->getType()->getContainedType(0));
-        }
-        // none of the above, means no context is required, dummy.
-        else
-        {
-            return getNullPtr(getVoidPtrType());
-        }
+        LLValue* val = vd->ir.getIrValue();
+        return new DVarValue(astype, vd, val, true);
     }
-    // parent is a class
-    else if (ClassDeclaration* c = from->isClassDeclaration())
+    
+    // get it from the nested context
+    LLValue* ctx = 0;
+    if (irfunc->decl->isMember2())
     {
-        return DtoBitCast(DtoLoad(val), DtoType(c->type));
+        ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
+        LLValue* val = DtoLoad(irfunc->thisArg);
+        ctx = DtoLoad(DtoGEPi(val, 0,2+cd->vthis->ir.irField->index, ".vthis"));
     }
-    // parent is not valid
     else
-    {
-        assert(0 && "!(class|function)");
-    }
+        ctx = irfunc->nestArg;
+    assert(ctx);
+    
+    assert(vd->ir.irLocal);
+    LLValue* val = DtoBitCast(ctx, getPtrToType(getVoidPtrType()));
+    val = DtoGEPi1(val, vd->ir.irLocal->nestedIndex);
+    val = DtoLoad(val);
+    assert(vd->ir.irLocal->value);
+    val = DtoBitCast(val, vd->ir.irLocal->value->getType(), vd->toChars());
+    return new DVarValue(astype, vd, val, true);
 }
 
-LLValue* DtoNestedContext(FuncDeclaration* func)
+LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 {
-    Logger::println("listing context frame list for funcdecl '%s'", func->toPrettyChars());
+    Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
     LOG_SCOPE;
 
-    int level = 0;
-
     IrFunction* irfunc = gIR->func();
-    Dsymbol* current = irfunc->decl;
-
-    // this context ?
-    if (current == func)
-    {
+    
+    if (irfunc->nestedVar)
         return irfunc->nestedVar;
-    }
-
-    // otherwise use the context argument
-    LLValue* val = dive_into_nested(current, irfunc->thisVar);
-    current = current->toParent2();
-    assert(val);
-
-    for (;;)
+    else if (irfunc->nestArg)
+        return irfunc->nestArg;
+    else if (irfunc->thisArg)
     {
-        Logger::cout() << "context: " << *val << '\n';
-        Logger::println("(%d) looking in: %s (%s)", level, current->toPrettyChars(), current->kind());
-        if (FuncDeclaration* f = current->isFuncDeclaration())
-        {
-            if (f == func)
-            {
-                Logger::println("-> found <-");
-                Logger::cout() << "-> val: " << *val << '\n';
-                return val;
-            }
-            else
-            {
-                val = DtoLoad(DtoGEPi(val,0,0));
-            }
-        }
-        else if (ClassDeclaration* c = current->isClassDeclaration())
-        {
-            val = DtoLoad(DtoGEPi(val, 0, 2+c->vthis->ir.irField->index));
-            val = dive_into_nested(current, val);
-        }
-        else
-        {
-            Logger::cout() << "val: " << *val << '\n';
-            assert(0 && "!(class|function)");
-        }
-        current = current->toParent2();
-        ++level;
+        ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
+        assert(cd);
+        if (!cd->vthis)
+            return getNullPtr(getVoidPtrType());
+        LLValue* val = DtoLoad(irfunc->thisArg);
+        return DtoLoad(DtoGEPi(val, 0,2+cd->vthis->ir.irField->index, ".vthis"));
     }
-
-    assert(0);
-    return val;
-}
-
-DValue* DtoNestedVariable(Type* astype, VarDeclaration* vd)
-{
-    IrFunction* irfunc = gIR->func();
-
-    // var parent (the scope we're looking for)
-    Dsymbol* varParent = vd->toParent2();
-
-    // on level 0
-    if (varParent == irfunc->decl)
+    else
     {
-        LLValue* nest = irfunc->nestedVar;
-        LLValue* v = DtoGEPi(nest, 0, vd->ir.irLocal->nestedIndex, "tmp");
-        // references must be loaded to get the variable address
-        if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
-            v = DtoLoad(v);
-        return new DVarValue(astype, vd, v, true);
+        if (irfunc->decl->isStatic())
+        {
+            irfunc->decl->error("is static and cannot access nested %s %s", sym->kind(), sym->toChars());
+            fatal();
+        }
+        return getNullPtr(getVoidPtrType());
     }
-
-    // on level n != 0
-    FuncDeclaration* varFunc = varParent->isFuncDeclaration();
-    assert(varFunc);
-
-    // get context of variable
-    LLValue* ctx = DtoNestedContext(varFunc);
-
-    // if no local var, it's the context itself (class this)
-    if (!vd->ir.irLocal)
-        return new DImValue(astype, ctx);
-
-    // extract variable
-    IrLocal* local = vd->ir.irLocal;
-    assert(local);
-    assert(local->nestedIndex >= 0);
-    LLValue* val = DtoGEPi(ctx, 0, local->nestedIndex);
-
-    // references must be loaded to get the variable address
-    if (vd->isParameter() && (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type)))
-        val = DtoLoad(val);
-
-    Logger::cout() << "value: " << *val << '\n';
-
-    return new DVarValue(astype, vd, val, true);
 }
 
 /****************************************************************************************/
@@ -509,15 +425,15 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
     Logger::cout() << "DtoAssign(...);\n";
     LOG_SCOPE;
 
-    Type* t = DtoDType(lhs->getType());
-    Type* t2 = DtoDType(rhs->getType());
+    Type* t = lhs->getType()->toBasetype();
+    Type* t2 = rhs->getType()->toBasetype();
 
     if (t->ty == Tstruct) {
         if (!t->equals(t2)) {
             // TODO: fix this, use 'rhs' for something
             DtoAggrZeroInit(lhs->getLVal());
         }
-        else if (!rhs->inPlace()) {
+        else {
             DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
         }
     }
@@ -559,7 +475,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
     else if (t->ty == Tdelegate) {
         if (rhs->isNull())
             DtoAggrZeroInit(lhs->getLVal());
-        else if (!rhs->inPlace()) {
+        else {
             LLValue* l = lhs->getLVal();
             LLValue* r = rhs->getRVal();
             Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
@@ -665,8 +581,8 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
 {
     const LLType* tolltype = DtoType(_to);
 
-    Type* to = DtoDType(_to);
-    Type* from = DtoDType(val->getType());
+    Type* to = _to->toBasetype();
+    Type* from = val->getType()->toBasetype();
     assert(from->isintegral());
 
     size_t fromsz = from->size();
@@ -720,8 +636,8 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
 {
     const LLType* tolltype = DtoType(to);
 
-    Type* totype = DtoDType(to);
-    Type* fromtype = DtoDType(val->getType());
+    Type* totype = to->toBasetype();
+    Type* fromtype = val->getType()->toBasetype();
     assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
 
     LLValue* rval;
@@ -749,8 +665,8 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
 
     const LLType* tolltype = DtoType(to);
 
-    Type* totype = DtoDType(to);
-    Type* fromtype = DtoDType(val->getType());
+    Type* totype = to->toBasetype();
+    Type* fromtype = val->getType()->toBasetype();
     assert(fromtype->isfloating());
 
     size_t fromsz = fromtype->size();
@@ -814,7 +730,7 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
 
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
-    Type* fromtype = DtoDType(val->getType());
+    Type* fromtype = val->getType()->toBasetype();
     Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);
@@ -879,10 +795,10 @@ void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);
     DValue* ie = DtoInitializer(gvar, init);
-    if (!ie->inPlace()) {
-        DValue* dst = new DVarValue(t, gvar, true);
-        DtoAssign(init->loc, dst, ie);
-    }
+    
+    DVarValue dst(t, gvar, true);
+    DtoAssign(init->loc, &dst, ie);
+    
     gIR->ir->CreateStore(DtoConstBool(true), gflag);
     gIR->ir->CreateBr(endinitbb);
     gIR->scope() = IRScope(endinitbb,oldend);
@@ -1001,7 +917,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     }
 
     const LLType* _type = DtoType(vd->type);
-    Type* t = DtoDType(vd->type);
+    Type* t = vd->type->toBasetype();
 
     //Logger::cout() << "initializer: " << *_init << '\n';
     if (_type != _init->getType()) {
@@ -1218,9 +1134,23 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             if (vd->nestedref) {
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
-                vd->ir.irLocal->value = gIR->func()->decl->ir.irFunc->nestedVar;
-                assert(vd->ir.irLocal->value);
+                
+                // alloca as usual is no value already
+                if (!vd->ir.irLocal->value)
+                {
+                    vd->ir.irLocal->value = DtoAlloca(DtoType(vd->type), vd->toChars());
+                }
+                
+                // store the address into the nested vars array
+                
                 assert(vd->ir.irLocal->nestedIndex >= 0);
+                LLValue* gep = DtoGEPi(gIR->func()->decl->ir.irFunc->nestedVar, 0, vd->ir.irLocal->nestedIndex);
+                
+                assert(isaPointer(vd->ir.irLocal->value));
+                LLValue* val = DtoBitCast(vd->ir.irLocal->value, getVoidPtrType());
+                
+                DtoStore(val, gep);
+                
             }
             // normal stack variable, allocate storage on the stack if it has not already been done
             else if(!vd->ir.irLocal) {
@@ -1240,6 +1170,10 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 {
                     DtoDwarfLocalVariable(allocainst, vd);
                 }
+            }
+            else
+            {
+                assert(vd->ir.irLocal->value);
             }
 
             Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';

@@ -21,13 +21,13 @@ void main()
                 }
             }
 
-            {
-                scope c2 = new C2;
-                c2.func2();
-            }
+            auto c2 = new C2;
+            c2.func2();
         }
     }
 
-    scope c = new C;
+    auto c = new C;
     c.func();
+    
+    assert(i == 45);
 }

@@ -26,7 +26,7 @@ void DtoDefineClass(ClassDeclaration* cd);
 void DtoDeclareClassInfo(ClassDeclaration* cd);
 void DtoDefineClassInfo(ClassDeclaration* cd);
 
-DValue* DtoNewClass(TypeClass* type, NewExp* newexp);
+DValue* DtoNewClass(Loc loc, TypeClass* type, NewExp* newexp);
 void DtoInitClass(TypeClass* tc, LLValue* dst);
 DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, LLValue* mem);
 void DtoFinalizeClass(LLValue* inst);

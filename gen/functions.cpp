@@ -21,7 +21,7 @@
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 
-const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bool ismain)
+const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, const LLType* nesttype, bool ismain)
 {
     assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
@@ -46,6 +46,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     Type* rt = f->next;
     bool retinptr = false;
     bool usesthis = false;
+    bool usesnest = false;
 
     // parameter types
     std::vector<const LLType*> paramvec;
@@ -66,7 +67,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
         if (DtoIsReturnedInArg(rt)) {
             rettype = getPtrToType(DtoType(rt));
             actualRettype = LLType::VoidTy;
-            f->llvmRetInPtr = retinptr = true;
+            f->retInPtr = retinptr = true;
         }
         else {
             rettype = DtoType(rt);
@@ -75,7 +76,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
 
         if (unsigned ea = DtoShouldExtend(rt))
         {
-            f->llvmRetAttrs |= ea;
+            f->retAttrs |= ea;
         }
     }
 
@@ -87,6 +88,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     if (thistype) {
         paramvec.push_back(thistype);
         usesthis = true;
+    }
+    else if (nesttype) {
+        paramvec.push_back(nesttype);
+        usesnest = true;
     }
 
     if (typesafeVararg) {
@@ -111,7 +116,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
         // ensure scalar
-        Type* argT = DtoDType(arg->type);
+        Type* argT = arg->type->toBasetype();
         assert(argT);
 
         bool refOrOut = ((arg->storageClass & STCref) || (arg->storageClass & STCout));
@@ -166,8 +171,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, bo
     bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
-    f->llvmRetInPtr = retinptr;
-    f->llvmUsesThis = usesthis;
+    f->retInPtr = retinptr;
+    f->usesThis = usesthis;
+    f->usesNest = usesnest;
 
     f->ir.type = new llvm::PATypeHolder(functype);
 
@@ -210,7 +216,9 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
     if (fdecl->type->ir.type != 0)
         return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
 
-    const LLType* thisty = NULL;
+    const LLType* thisty = 0;
+    const LLType* nestty = 0;
+
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
             Logger::println("isMember = this is: %s", ad->type->toChars());
@@ -225,10 +233,10 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         }
     }
     else if (fdecl->isNested()) {
-        thisty = getPtrToType(LLType::Int8Ty);
+        nestty = getPtrToType(LLType::Int8Ty);
     }
 
-    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, fdecl->isMain());
+    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, nestty, fdecl->isMain());
 
     return functype;
 }
@@ -237,7 +245,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
 static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 {
-    TypeFunction* f = (TypeFunction*)DtoDType(fdecl->type);
+    TypeFunction* f = (TypeFunction*)fdecl->type->toBasetype();
     const llvm::FunctionType* fty = DtoVaFunctionType(fdecl);
     llvm::Function* func = 0;
 
@@ -306,8 +314,9 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
     int llidx = 1;
-    if (f->llvmRetInPtr) ++llidx;
-    if (f->llvmUsesThis) ++llidx;
+    if (f->retInPtr) ++llidx;
+    if (f->usesThis) ++llidx;
+    else if (f->usesNest) ++llidx;
     if (f->linkage == LINKd && f->varargs == 1)
         llidx += 2;
 
@@ -318,15 +327,15 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     llvm::ParamAttrsWithIndex PAWI;
 
     // set return value attrs if any
-    if (f->llvmRetAttrs)
+    if (f->retAttrs)
     {
         PAWI.Index = 0;
-        PAWI.Attrs = f->llvmRetAttrs;
+        PAWI.Attrs = f->retAttrs;
         attrs.push_back(PAWI);
     }
 
     // set sret param
-    if (f->llvmRetInPtr)
+    if (f->retInPtr)
     {
         PAWI.Index = 1;
         PAWI.Attrs = llvm::ParamAttr::StructRet;
@@ -378,7 +387,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // get TypeFunction*
-    Type* t = DtoDType(fdecl->type);
+    Type* t = fdecl->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
 
     bool declareOnly = false;
@@ -417,8 +426,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func)
         func = llvm::Function::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
-    else
-        assert(func->getFunctionType() == functype);
 
     // add func to IRFunc
     fdecl->ir.irFunc->func = func;
@@ -457,15 +464,22 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         // name parameters
         llvm::Function::arg_iterator iarg = func->arg_begin();
         int k = 0;
-        if (f->llvmRetInPtr) {
-            iarg->setName("retval");
+        if (f->retInPtr) {
+            iarg->setName(".sretarg");
             fdecl->ir.irFunc->retArg = iarg;
             ++iarg;
         }
-        if (f->llvmUsesThis) {
-            iarg->setName(fdecl->isNested()?".context":"this");
-            fdecl->ir.irFunc->thisVar = iarg;
-            assert(fdecl->ir.irFunc->thisVar);
+        
+        if (f->usesThis) {
+            iarg->setName("this");
+            fdecl->ir.irFunc->thisArg = iarg;
+            assert(fdecl->ir.irFunc->thisArg);
+            ++iarg;
+        }
+        else if (f->usesNest) {
+            iarg->setName(".nest");
+            fdecl->ir.irFunc->nestArg = iarg;
+            assert(fdecl->ir.irFunc->nestArg);
             ++iarg;
         }
 
@@ -520,13 +534,19 @@ void DtoDefineFunc(FuncDeclaration* fd)
     Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
+    // warn about naked
+    if (fd->naked)
+    {
+        warning("%s: naked is currently ignored", fd->locToChars());
+    }
+
     // debug info
     if (global.params.symdebug) {
         Module* mo = fd->getModule();
         fd->ir.irFunc->dwarfSubProg = DtoDwarfSubProgram(fd);
     }
 
-    Type* t = DtoDType(fd->type);
+    Type* t = fd->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
     assert(f->ir.type);
 
@@ -568,26 +588,32 @@ void DtoDefineFunc(FuncDeclaration* fd)
     // debug info - after all allocas, but before any llvm.dbg.declare etc
     if (global.params.symdebug) DtoDwarfFuncStart(fd);
 
-    // need result variable? (not nested)
-    if (fd->vresult && !fd->vresult->nestedref) {
-        Logger::println("non-nested vresult value");
+    // need result variable?
+    if (fd->vresult) {
+        Logger::println("vresult value");
         fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-        fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type),"function_vresult");
+        fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type), "function_vresult");
     }
 
     // give the 'this' argument storage and debug info
-    // only if not referenced by nested functions
-    if (fd->needThis() && !fd->vthis->nestedref)
+    if (f->usesThis)
     {
-        LLValue* thisvar = irfunction->thisVar;
+        LLValue* thisvar = irfunction->thisArg;
         assert(thisvar);
 
-        LLValue* thismem = DtoAlloca(thisvar->getType(), ".newthis");
+        LLValue* thismem = DtoAlloca(thisvar->getType(), ".this");
         DtoStore(thisvar, thismem);
-        irfunction->thisVar = thismem;
+        irfunction->thisArg = thismem;
+        
+        assert(!fd->vthis->ir.irLocal);
+        fd->vthis->ir.irLocal = new IrLocal(fd->vthis);
+        fd->vthis->ir.irLocal->value = thismem;
 
         if (global.params.symdebug)
             DtoDwarfLocalVariable(thismem, fd->vthis);
+        
+        if (fd->vthis->nestedref)
+            fd->nestedVars.insert(fd->vthis);
     }
 
     // give arguments storage
@@ -600,13 +626,16 @@ void DtoDefineFunc(FuncDeclaration* fd)
             Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
+            
+            if (vd->nestedref)
+                fd->nestedVars.insert(vd);
 
             IrLocal* irloc = vd->ir.irLocal;
             assert(irloc);
 
             bool refoutlazy = vd->storage_class & (STCref | STCout | STClazy);
 
-            if (vd->nestedref || refoutlazy)
+            if (refoutlazy)
             {
                 continue;
             }
@@ -625,66 +654,99 @@ void DtoDefineFunc(FuncDeclaration* fd)
         }
     }
 
-    LLValue* parentNested = NULL;
-    if (FuncDeclaration* fd2 = fd->toParent2()->isFuncDeclaration()) {
-        if (!fd->isStatic()) // huh?
-            parentNested = fd2->ir.irFunc->nestedVar;
-    }
-
     // need result variable? (nested)
     if (fd->vresult && fd->vresult->nestedref) {
         Logger::println("nested vresult value: %s", fd->vresult->toChars());
         fd->nestedVars.insert(fd->vresult);
     }
 
-    // construct nested variables struct
-    if (!fd->nestedVars.empty() || parentNested) {
-        std::vector<const LLType*> nestTypes;
-        int j = 0;
-        if (parentNested) {
-            nestTypes.push_back(parentNested->getType());
-            j++;
+    // construct nested variables array
+    if (!fd->nestedVars.empty())
+    {
+        Logger::println("has nested frame");
+        // start with add all enclosing parent frames
+        int nparelems = 0;
+        Dsymbol* par = fd->toParent2();
+        while (par)
+        {
+            if (FuncDeclaration* parfd = par->isFuncDeclaration())
+            {
+                nparelems += parfd->nestedVars.size();
+            }
+            else if (ClassDeclaration* parcd = par->isClassDeclaration())
+            {
+                // nothing needed
+            }
+            else
+            {
+                break;
+            }
+            par = par->toParent2();
         }
-        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
+        int nelems = fd->nestedVars.size() + nparelems;
+        
+        // make array type for nested vars
+        const LLType* nestedVarsTy = LLArrayType::get(getVoidPtrType(), nelems);
+    
+        // alloca it
+        LLValue* nestedVars = DtoAlloca(nestedVarsTy, ".nested_vars");
+        
+        // copy parent frame into beginning
+        if (nparelems)
+        {
+            LLValue* src = irfunction->nestArg;
+            if (!src)
+            {
+                assert(irfunction->thisArg);
+                assert(fd->isMember2());
+                LLValue* thisval = DtoLoad(irfunction->thisArg);
+                ClassDeclaration* cd = fd->isMember2()->isClassDeclaration();
+                assert(cd);
+                assert(cd->vthis);
+                src = DtoLoad(DtoGEPi(thisval, 0,2+cd->vthis->ir.irField->index, ".vthis"));
+            }
+            DtoMemCpy(nestedVars, src, DtoConstSize_t(nparelems*PTRSIZE));
+        }
+        
+        // store in IrFunction
+        irfunction->nestedVar = nestedVars;
+        
+        // go through all nested vars and assign indices
+        int idx = nparelems;
+        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i)
+        {
             VarDeclaration* vd = *i;
-            Logger::println("referenced nested variable %s", vd->toChars());
             if (!vd->ir.irLocal)
                 vd->ir.irLocal = new IrLocal(vd);
-            vd->ir.irLocal->nestedIndex = j++;
-            if (vd->isParameter()) {
-                if (!vd->ir.irLocal->value) {
-                    assert(vd == fd->vthis);
-                    vd->ir.irLocal->value = fd->ir.irFunc->thisVar;
-                }
-                assert(vd->ir.irLocal->value);
-                nestTypes.push_back(vd->ir.irLocal->value->getType());
+
+            if (vd->isParameter())
+            {
+                Logger::println("nested param: %s", vd->toChars());
+                LLValue* gep = DtoGEPi(nestedVars, 0, idx);
+                LLValue* val = DtoBitCast(vd->ir.irLocal->value, getVoidPtrType());
+                DtoStore(val, gep);
             }
-            else {
-                nestTypes.push_back(DtoType(vd->type));
+            else
+            {
+                Logger::println("nested var:   %s", vd->toChars());
             }
+
+            vd->ir.irLocal->nestedIndex = idx++;
         }
-        const llvm::StructType* nestSType = llvm::StructType::get(nestTypes);
-        Logger::cout() << "nested var struct has type:" << *nestSType << '\n';
-        fd->ir.irFunc->nestedVar = DtoAlloca(nestSType,"nestedvars");
-        if (parentNested) {
-            assert(fd->ir.irFunc->thisVar);
-            LLValue* ptr = gIR->ir->CreateBitCast(fd->ir.irFunc->thisVar, parentNested->getType(), "tmp");
-            gIR->ir->CreateStore(ptr, DtoGEPi(fd->ir.irFunc->nestedVar, 0,0, "tmp"));
-        }
-        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i) {
-            VarDeclaration* vd = *i;
-            if (vd->isParameter()) {
-                assert(vd->ir.irLocal);
-                gIR->ir->CreateStore(vd->ir.irLocal->value, DtoGEPi(fd->ir.irFunc->nestedVar, 0, vd->ir.irLocal->nestedIndex, "tmp"));
-                vd->ir.irLocal->value = fd->ir.irFunc->nestedVar;
-            }
+        
+        // fixup nested result variable
+        if (fd->vresult && fd->vresult->nestedref) {
+            Logger::println("nested vresult value: %s", fd->vresult->toChars());
+            LLValue* gep = DtoGEPi(nestedVars, 0, fd->vresult->ir.irLocal->nestedIndex);
+            LLValue* val = DtoBitCast(fd->vresult->ir.irLocal->value, getVoidPtrType());
+            DtoStore(val, gep);
         }
     }
 
     // copy _argptr to a memory location
     if (f->linkage == LINKd && f->varargs == 1)
     {
-        LLValue* argptrmem = DtoAlloca(fd->ir.irFunc->_argptr->getType(), "_argptrmem");
+        LLValue* argptrmem = DtoAlloca(fd->ir.irFunc->_argptr->getType(), "_argptr_mem");
         new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
         fd->ir.irFunc->_argptr = argptrmem;
     }
@@ -784,14 +846,14 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
     if (fnarg && ((fnarg->storageClass & STCref) || (fnarg->storageClass & STCout)))
     {
         if (arg->isVar() || arg->isLRValue())
-            arg = new DImValue(argexp->type, arg->getLVal(), false);
+            arg = new DImValue(argexp->type, arg->getLVal());
         else
-            arg = new DImValue(argexp->type, arg->getRVal(), false);
+            arg = new DImValue(argexp->type, arg->getRVal());
     }
     // byval arg, but expr has no storage yet
     else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isComplex() || arg->isNull()))
     {
-        LLValue* alloc = DtoAlloca(DtoType(argexp->type), "tmpparam");
+        LLValue* alloc = DtoAlloca(DtoType(argexp->type), ".tmp_arg");
         DVarValue* vv = new DVarValue(argexp->type, alloc, true);
         DtoAssign(argexp->loc, vv, arg);
         arg = vv;

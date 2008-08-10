@@ -23,10 +23,6 @@ bool DtoIsReturnedInArg(Type* type);
 
 unsigned DtoShouldExtend(Type* type);
 
-// resolve typedefs to their real type.
-// TODO should probably be removed in favor of DMD's Type::toBasetype
-Type* DtoDType(Type* t);
-
 // delegate helpers
 const LLStructType* DtoDelegateType(Type* t);
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
@@ -92,6 +88,7 @@ llvm::ConstantPointerNull* getNullPtr(const LLType* t);
 size_t getTypeBitSize(const LLType* t);
 size_t getTypeStoreSize(const LLType* t);
 size_t getABITypeSize(const LLType* t);
+
 // type alignments
 unsigned char getABITypeAlign(const LLType* t);
 unsigned char getPrefTypeAlign(const LLType* t);

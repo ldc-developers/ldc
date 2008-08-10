@@ -13,7 +13,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 {
     decl = fd;
 
-    Type* t = DtoDType(fd->type);
+    Type* t = fd->type->toBasetype();
     assert(t->ty == Tfunction);
     type = (TypeFunction*)t;
     func = NULL;
@@ -23,10 +23,14 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     defined = false;
 
     retArg = NULL;
-    thisVar = NULL;
+    thisArg = NULL;
+    nestArg = NULL;
+
     nestedVar = NULL;
+    
     _arguments = NULL;
     _argptr = NULL;
+    
     dwarfSubProg = NULL;
 
     srcfileArg = NULL;

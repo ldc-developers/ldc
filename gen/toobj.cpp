@@ -55,8 +55,16 @@ void llvmdc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 void Module::genobjfile(int multiobj)
 {
+    bool logenabled = Logger::enabled();
+    if (llvmForceLogging && !logenabled)
+    {
+        Logger::enable();
+    }
+
     Logger::cout() << "Generating module: " << (md ? md->toChars() : toChars()) << '\n';
     LOG_SCOPE;
+
+    //printf("codegen: %s\n", srcfile->toChars());
 
     // start by deleting the old object file
     deleteObjFile();
@@ -161,10 +169,10 @@ void Module::genobjfile(int multiobj)
 
     if (global.params.fqnPaths)
     {
-        bcpath = LLPath(md->toChars());
+        bcpath = LLPath(mname);
         bcpath.appendSuffix("bc");
 
-        llpath = LLPath(md->toChars());
+        llpath = LLPath(mname);
         llpath.appendSuffix("ll");
     }
     else
@@ -190,6 +198,11 @@ void Module::genobjfile(int multiobj)
     delete ir.module;
     gTargetData = 0;
     gIR = NULL;
+    
+    if (llvmForceLogging && !logenabled)
+    {
+        Logger::disable();
+    }
 }
 
 /* ================================================================== */

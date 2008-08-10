@@ -786,7 +786,7 @@ void DtoDefineClass(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
+DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
 {
     // resolve type
     DtoForceDeclareDsymbol(tc->sym);
@@ -829,25 +829,18 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
         DtoStore(src, dst);
     }
     // set the context for nested classes
-    else if (tc->sym->isNested())
+    else if (tc->sym->isNested() && tc->sym->vthis)
     {
         Logger::println("Resolving nested context");
         LOG_SCOPE;
 
+        // get context
+        LLValue* nest = DtoNestedContext(loc, tc->sym);
+
+        // store into right location
         size_t idx = 2 + tc->sym->vthis->ir.irField->index;
         LLValue* gep = DtoGEPi(mem,0,idx,"tmp");
-
-        // this value might be zero if it was not necessary to generate it ...
-        LLValue* nest = gIR->func()->nestedVar;
-        // ... then revert to the this ptr if there is one
-        if (!nest)
-            nest = gIR->func()->thisVar;
-        // ... or just use zero, since it must be unused.
-        if (!nest)
-            nest = llvm::Constant::getNullValue(gep->getType()->getContainedType(0));
-        else
-            nest = DtoBitCast(nest, gep->getType()->getContainedType(0));
-        DtoStore(nest, gep);
+        DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
     }
 
     // call constructor
@@ -860,7 +853,7 @@ DValue* DtoNewClass(TypeClass* tc, NewExp* newexp)
     }
 
     // return default constructed class
-    return new DImValue(tc, mem, false);
+    return new DImValue(tc, mem);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -912,7 +905,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(), _to->toChars());
     LOG_SCOPE;
 
-    Type* to = DtoDType(_to);
+    Type* to = _to->toBasetype();
     if (to->ty == Tpointer) {
         const LLType* tolltype = DtoType(_to);
         LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
@@ -922,7 +915,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     assert(to->ty == Tclass);
     TypeClass* tc = (TypeClass*)to;
 
-    Type* from = DtoDType(val->getType());
+    Type* from = val->getType()->toBasetype();
     TypeClass* fc = (TypeClass*)from;
 
     if (tc->sym->isInterfaceDeclaration()) {
@@ -977,7 +970,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     assert(funcTy->getParamType(0) == obj->getType());
 
     // ClassInfo c
-    TypeClass* to = (TypeClass*)DtoDType(_to);
+    TypeClass* to = (TypeClass*)_to->toBasetype();
     DtoForceDeclareDsymbol(to->sym);
     assert(to->sym->ir.irStruct->classInfo);
     LLValue* cinfo = to->sym->ir.irStruct->classInfo;
@@ -1041,7 +1034,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     ptr = DtoBitCast(ptr, funcTy->getParamType(0));
 
     // ClassInfo c
-    TypeClass* to = (TypeClass*)DtoDType(_to);
+    TypeClass* to = (TypeClass*)_to->toBasetype();
     DtoForceDeclareDsymbol(to->sym);
     assert(to->sym->ir.irStruct->classInfo);
     LLValue* cinfo = to->sym->ir.irStruct->classInfo;
@@ -1116,7 +1109,7 @@ LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os,
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
         VarDeclaration* vd = i->second.var;
         assert(vd);
-        Type* vdtype = DtoDType(vd->type);
+        Type* vdtype = vd->type->toBasetype();
         //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         assert(vd->ir.irField->index >= 0);
         if (os == vd->offset && vdtype->toBasetype() == t->toBasetype()) {
@@ -1173,7 +1166,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
 {
     assert(fdecl->isVirtual());//fdecl->isAbstract() || (!fdecl->isFinal() && fdecl->isVirtual()));
     assert(fdecl->vtblIndex > 0);
-    assert(DtoDType(inst->getType())->ty == Tclass);
+    assert(inst->getType()->toBasetype()->ty == Tclass);
 
     LLValue* vthis = inst->getRVal();
     Logger::cout() << "vthis: " << *vthis << '\n';

@@ -54,8 +54,6 @@ struct DValue : Object
     virtual DComplexValue* isComplex() { return NULL; }
     virtual DLRValue* isLRValue() { return NULL; }
 
-    virtual bool inPlace() { return false; }
-
 protected:
     DValue() {}
     DValue(const DValue&) { }
@@ -67,16 +65,13 @@ struct DImValue : DValue
 {
     Type* type;
     LLValue* val;
-    bool inplace;
 
-    DImValue(Type* t, LLValue* v, bool in_place = false) { type = t; val = v; inplace = in_place; }
+    DImValue(Type* t, LLValue* v) : type(t), val(v) { }
 
     virtual LLValue* getRVal() { assert(val); return val; }
 
     virtual Type*& getType() { assert(type); return type; }
     virtual DImValue* isIm() { return this; }
-
-    virtual bool inPlace() { return inplace; }
 };
 
 // constant d-value

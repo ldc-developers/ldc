@@ -67,7 +67,7 @@ LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned o
 
     for (unsigned i=0; i<sd->fields.dim; ++i) {
         VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
-        Type* vdtype = DtoDType(vd->type);
+        Type* vdtype = vd->type->toBasetype();
         //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
         assert(vd->ir.irField->index >= 0);
         if (os == vd->offset && vdtype == t) {
@@ -125,7 +125,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     if (sd->prot() == PROTprivate && sd->getModule() != gIR->dmodule)
         Logger::println("using a private struct from outside its module");
 
-    TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
+    TypeStruct* ts = (TypeStruct*)sd->type->toBasetype();
 
     bool ispacked = (ts->alignsize() == 1);
 
@@ -279,7 +279,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     Logger::println("DtoDeclareStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
-    TypeStruct* ts = (TypeStruct*)DtoDType(sd->type);
+    TypeStruct* ts = (TypeStruct*)sd->type->toBasetype();
 
     std::string initname("_D");
     initname.append(sd->mangle());

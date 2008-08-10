@@ -13,7 +13,7 @@
 
 const llvm::StructType* DtoComplexType(Type* type)
 {
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     const LLType* base = DtoComplexBaseType(t);
 
@@ -26,7 +26,7 @@ const llvm::StructType* DtoComplexType(Type* type)
 
 const LLType* DtoComplexBaseType(Type* t)
 {
-    TY ty = DtoDType(t)->ty;
+    TY ty = t->toBasetype()->ty;
     const LLType* base;
     if (ty == Tcomplex32) {
         return LLType::FloatTy;
@@ -62,7 +62,7 @@ LLConstant* DtoConstComplex(Type* ty, LLConstant* re, LLConstant* im)
 
 LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
 {
-    TY ty = DtoDType(_ty)->ty;
+    TY ty = _ty->toBasetype()->ty;
 
     llvm::ConstantFP* fre;
     llvm::ConstantFP* fim;
@@ -106,7 +106,7 @@ LLValue* DtoImagPart(DValue* val)
 
 DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 {
-    Type* t = DtoDType(val->getType());
+    Type* t = val->getType()->toBasetype();
 
     if (val->isComplex() || t->iscomplex()) {
         return DtoCastComplex(loc, val, to);
@@ -448,7 +448,7 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
 
 DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
 {
-    Type* to = DtoDType(_to);
+    Type* to = _to->toBasetype();
     Type* vty = val->getType();
     if (to->iscomplex()) {
         if (vty->size() == to->size())

@@ -176,6 +176,7 @@ Identifier *Id::vastart;
 Identifier *Id::vacopy;
 Identifier *Id::vaend;
 Identifier *Id::vaarg;
+Identifier *Id::llvmdc;
 Identifier *Id::tohash;
 Identifier *Id::tostring;
 Identifier *Id::main;
@@ -357,6 +358,7 @@ void Id::initialize()
     vacopy = Lexer::idPool("va_copy");
     vaend = Lexer::idPool("va_end");
     vaarg = Lexer::idPool("va_arg");
+    llvmdc = Lexer::idPool("llvmdc");
     tohash = Lexer::idPool("toHash");
     tostring = Lexer::idPool("toString");
     main = Lexer::idPool("main");

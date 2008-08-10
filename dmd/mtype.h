@@ -441,9 +441,11 @@ struct TypeFunction : Type
 
     unsigned totym();
 
-    bool llvmRetInPtr;
-    bool llvmUsesThis;
-    unsigned llvmRetAttrs;
+    // LLVMDC
+    bool retInPtr;
+    bool usesThis;
+    bool usesNest;
+    unsigned retAttrs;
 };
 
 struct TypeDelegate : Type
@@ -556,6 +558,7 @@ struct TypeEnum : Type
     d_uns64 size(Loc loc);
     unsigned alignsize();
     char *toChars();
+    Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf);

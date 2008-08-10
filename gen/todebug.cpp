@@ -239,7 +239,7 @@ static LLGlobalVariable* dwarfBasicType(Type* type, llvm::GlobalVariable* compil
 static LLGlobalVariable* dwarfDerivedType(Type* type, llvm::GlobalVariable* compileUnit)
 {
     const LLType* T = DtoType(type);
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     // defaults
     LLConstant* name = getNullPtr(getVoidPtrType());
@@ -300,7 +300,7 @@ static LLGlobalVariable* dwarfDerivedType(Type* type, llvm::GlobalVariable* comp
 static LLGlobalVariable* dwarfMemberType(unsigned linnum, Type* type, LLGlobalVariable* compileUnit, LLGlobalVariable* definedCU, const char* c_name, unsigned offset)
 {
     const LLType* T = DtoType(type);
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     // defaults
     LLConstant* name;
@@ -356,7 +356,7 @@ static LLGlobalVariable* dwarfMemberType(unsigned linnum, Type* type, LLGlobalVa
 static LLGlobalVariable* dwarfCompositeType(Type* type, llvm::GlobalVariable* compileUnit)
 {
     const LLType* T = DtoType(type);
-    Type* t = DtoDType(type);
+    Type* t = type->toBasetype();
 
     // defaults
     LLConstant* name = getNullPtr(getVoidPtrType());

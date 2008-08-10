@@ -831,7 +831,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 // LLVMDC
 #if IN_LLVM
 
-    // pragma(intrinsic, string) { funcdecl(s) }
+    // pragma(intrinsic, "string") { funcdecl(s) }
     else if (ident == Id::intrinsic)
     {
         Expression* expr = (Expression *)args->data[0];
@@ -919,6 +919,27 @@ void PragmaDeclaration::semantic(Scope *sc)
              fatal();
         }
         llvm_internal = LLVMva_arg;
+    }
+    
+    // pragma(llvmdc, "string") { templdecl(s) }
+    else if (ident == Id::llvmdc)
+    {
+        Expression* expr = (Expression *)args->data[0];
+        expr = expr->semantic(sc);
+        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
+        {
+             error("pragma llvmdc requires exactly 1 string literal parameter");
+             fatal();
+        }
+        else if (arg1str == "verbose")
+        {
+            sc->module->llvmForceLogging = true;
+        }
+        else
+        {
+            error("pragma llvmdc command '%s' invalid");
+            fatal();
+        }
     }
 
 #endif // LLVMDC

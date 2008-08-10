@@ -2651,9 +2651,10 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->varargs = varargs;
     this->linkage = linkage;
     this->inuse = 0;
-    this->llvmRetInPtr = false;
-    this->llvmUsesThis = false;
-    this->llvmRetAttrs = 0;
+    this->retInPtr = false;
+    this->usesThis = false;
+    this->usesNest = false;
+    this->retAttrs = 0;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2661,9 +2662,10 @@ Type *TypeFunction::syntaxCopy()
     Type *treturn = next ? next->syntaxCopy() : NULL;
     Arguments *params = Argument::arraySyntaxCopy(parameters);
     TypeFunction *t = new TypeFunction(params, treturn, varargs, linkage);
-    t->llvmRetInPtr = llvmRetInPtr;
-    t->llvmUsesThis = llvmUsesThis;
-    t->llvmRetAttrs = llvmRetAttrs;
+    t->retInPtr = retInPtr;
+    t->usesThis = usesThis;
+    t->usesNest = usesNest;
+    t->retAttrs = retAttrs;
     return t;
 }
 
@@ -3811,6 +3813,11 @@ TypeEnum::TypeEnum(EnumDeclaration *sym)
 char *TypeEnum::toChars()
 {
     return sym->toChars();
+}
+
+Type *TypeEnum::syntaxCopy()
+{
+    return this;
 }
 
 Type *TypeEnum::semantic(Loc loc, Scope *sc)

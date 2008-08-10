@@ -89,7 +89,7 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
         const LLArrayType* arrty = isaArray(src->getType()->getContainedType(0));
         if (!arrty)
         {
-            Logger::cout() << "invalid: " << *src << '\n';
+            std::cout << "invalid: " << *src << '\n';
             assert(0);
         }
         const LLType* dstty = getPtrToType(arrty->getElementType());
@@ -244,7 +244,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
     LOG_SCOPE;
 
-    Type* arrinittype = DtoDType(arrinit->type);
+    Type* arrinittype = arrinit->type->toBasetype();
 
     Type* t;
     integer_t tdim;
@@ -530,8 +530,7 @@ DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
 
     DValue* e = exp->toElem(gIR);
 
-    if (!e->inPlace())
-        DtoAssign(exp->loc, dptr, e);
+    DtoAssign(exp->loc, dptr, e);
 
     return slice;
 }
@@ -573,8 +572,8 @@ DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
     Logger::println("DtoCatArrays");
     LOG_SCOPE;
 
-    Type* t1 = DtoDType(exp1->type);
-    Type* t2 = DtoDType(exp2->type);
+    Type* t1 = exp1->type->toBasetype();
+    Type* t2 = exp2->type->toBasetype();
 
     assert(t1->ty == Tarray || t1->ty == Tsarray);
     assert(t2->ty == Tarray || t2->ty == Tsarray);
@@ -614,8 +613,8 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
     Logger::println("DtoCatArrayElement");
     LOG_SCOPE;
 
-    Type* t1 = DtoDType(exp1->type);
-    Type* t2 = DtoDType(exp2->type);
+    Type* t1 = exp1->type->toBasetype();
+    Type* t2 = exp2->type->toBasetype();
 
     DValue* e1 = exp1->toElem(gIR);
     DValue* e2 = exp2->toElem(gIR);
@@ -623,7 +622,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
     llvm::Value *len1, *src1, *res;
 
     // handle prefix case, eg. int~int[]
-    if (t2->next && t1 == DtoDType(t2->next))
+    if (t2->next && t1 == t2->next->toBasetype())
     {
         len1 = DtoArrayLen(e2);
         res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
@@ -683,8 +682,8 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
 
     // cast static arrays to dynamic ones, this turns them into DSliceValues
     Logger::println("casting to dynamic arrays");
-    Type* l_ty = DtoDType(l->getType());
-    Type* r_ty = DtoDType(r->getType());
+    Type* l_ty = l->getType()->toBasetype();
+    Type* r_ty = r->getType()->toBasetype();
     assert(l_ty->next == r_ty->next);
     if ((l_ty->ty == Tsarray) || (r_ty->ty == Tsarray)) {
         Type* a_ty = l_ty->next->arrayOf();
@@ -815,7 +814,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
 
     if (!skip)
     {
-        Type* t = DtoDType(DtoDType(l->getType())->next);
+        Type* t = l->getType()->toBasetype()->next->toBasetype();
         if (t->ty == Tchar)
             res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
         else
@@ -900,7 +899,7 @@ LLValue* DtoArrayLen(DValue* v)
     Logger::println("DtoArrayLen");
     LOG_SCOPE;
 
-    Type* t = DtoDType(v->getType());
+    Type* t = v->getType()->toBasetype();
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice())
             return s->len;
@@ -926,7 +925,7 @@ LLValue* DtoArrayPtr(DValue* v)
     Logger::println("DtoArrayPtr");
     LOG_SCOPE;
 
-    Type* t = DtoDType(v->getType());
+    Type* t = v->getType()->toBasetype();
     if (t->ty == Tarray) {
         if (DSliceValue* s = v->isSlice())
             return s->ptr;
@@ -951,8 +950,8 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 
     const LLType* tolltype = DtoType(to);
 
-    Type* totype = DtoDType(to);
-    Type* fromtype = DtoDType(u->getType());
+    Type* totype = to->toBasetype();
+    Type* fromtype = u->getType()->toBasetype();
     assert(fromtype->ty == Tarray || fromtype->ty == Tsarray);
 
     LLValue* rval;

@@ -38,9 +38,18 @@ void DtoEnterMonitor(LLValue* v);
 // leaves a monitor lock
 void DtoLeaveMonitor(LLValue* v);
 
-// nested variable/class helpers
-LLValue* DtoNestedContext(FuncDeclaration* func);
-DValue* DtoNestedVariable(Type* astype, VarDeclaration* vd);
+// nested variable and context helpers
+
+// gets the context value for a call to a nested function or newing a class, with arbitrary nesting
+LLValue* DtoNestedContext(Loc loc, Dsymbol* sym);
+
+// gets the dvalue of a nested variable with arbitrary nesting
+DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd);
+
+// old nested stuff
+// LLValue* DtoNestedContext(Loc loc, FuncDeclaration* func);
+// LLValue* DtoNestedContext(Loc loc, ClassDeclaration* cd);
+// DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd);
 
 // basic operations
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs);

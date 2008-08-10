@@ -23,14 +23,14 @@
 
 bool DtoIsPassedByRef(Type* type)
 {
-    Type* typ = DtoDType(type);
+    Type* typ = type->toBasetype();
     TY t = typ->ty;
     return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
 }
 
 bool DtoIsReturnedInArg(Type* type)
 {
-    Type* typ = DtoDType(type);
+    Type* typ = type->toBasetype();
     TY t = typ->ty;
     return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
 }
@@ -52,16 +52,6 @@ unsigned DtoShouldExtend(Type* type)
         }
     }
     return llvm::ParamAttr::None;
-}
-
-Type* DtoDType(Type* t)
-{
-    if (t->ty == Ttypedef) {
-        Type* bt = t->toBasetype();
-        assert(bt);
-        return DtoDType(bt);
-    }
-    return t;
 }
 
 const LLType* DtoType(Type* t)
@@ -143,7 +133,7 @@ const LLType* DtoType(Type* t)
     case Tfunction:
     {
         if (!t->ir.type || *t->ir.type == NULL) {
-            return DtoFunctionType(t,NULL);
+            return DtoFunctionType(t,NULL,NULL);
         }
         else {
             return t->ir.type->get();
@@ -205,7 +195,7 @@ const LLType* DtoTypeNotVoid(Type* t)
 const LLStructType* DtoDelegateType(Type* t)
 {
     const LLType* i8ptr = getVoidPtrType();
-    const LLType* func = DtoFunctionType(t->next, i8ptr);
+    const LLType* func = DtoFunctionType(t->next, NULL, i8ptr);
     const LLType* funcptr = getPtrToType(func);
     return LLStructType::get(i8ptr, funcptr, 0);
 }
@@ -666,8 +656,9 @@ size_t getTypeStoreSize(const LLType* t)
 
 size_t getABITypeSize(const LLType* t)
 {
-    Logger::cout() << "getting abi type of: " << *t << '\n';
-    return gTargetData->getABITypeSize(t);
+    size_t sz = gTargetData->getABITypeSize(t);
+    Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
+    return sz;
 }
 
 unsigned char getABITypeAlign(const LLType* t)

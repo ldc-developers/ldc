@@ -18,11 +18,16 @@ struct IrFunction : IrBase
 
     bool queued;
     bool defined;
-    llvm::Value* retArg;
-    llvm::Value* thisVar;
-    llvm::Value* nestedVar;
+    
+    llvm::Value* retArg; // return in ptr arg
+    llvm::Value* thisArg; // class/struct 'this' arg
+    llvm::Value* nestArg; // nested function 'this' arg
+    
+    llvm::Value* nestedVar; // nested var alloca
+    
     llvm::Value* _arguments;
     llvm::Value* _argptr;
+    
     llvm::Constant* dwarfSubProg;
 
     llvm::AllocaInst* srcfileArg;

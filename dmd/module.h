@@ -66,8 +66,11 @@ struct Module : Package
     ModuleDeclaration *md; // if !NULL, the contents of the ModuleDeclaration declaration
     File *srcfile;	// input source file
     File *objfile;	// output .obj file
+    
+    // LLVMDC
     File *bcfile;  // output .bc file
     File *llfile;  // output .ll file
+
     File *hdrfile;	// 'header' file
     File *symfile;	// output symbol file
     File *docfile;	// output documentation file
@@ -171,6 +174,8 @@ struct Module : Package
 
     // LLVMDC
     Module *isModule() { return this; }
+    
+    bool llvmForceLogging;
 };
 
 
