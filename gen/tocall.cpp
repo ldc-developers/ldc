@@ -241,9 +241,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if(thiscall || delegatecall || nestedcall)
     {
         // ... which can be a 'this' argument
-        if (thiscall)
+        if (thiscall && dfnval && dfnval->vthis)
         {
-            assert(dfnval && dfnval->vthis);
             LLValue* thisarg = DtoBitCast(dfnval->vthis, argiter->get());
             ++argiter;
             args.push_back(thisarg);
