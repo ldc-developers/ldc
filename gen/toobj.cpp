@@ -229,7 +229,7 @@ static llvm::Function* build_module_ctor()
     fn->setCallingConv(llvm::CallingConv::Fast);
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
-    IRBuilder builder(bb);
+    IRBuilder<> builder(bb);
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
@@ -263,7 +263,7 @@ static llvm::Function* build_module_dtor()
     fn->setCallingConv(llvm::CallingConv::Fast);
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
-    IRBuilder builder(bb);
+    IRBuilder<> builder(bb);
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
@@ -297,7 +297,7 @@ static llvm::Function* build_module_unittest()
     fn->setCallingConv(llvm::CallingConv::Fast);
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
-    IRBuilder builder(bb);
+    IRBuilder<> builder(bb);
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
@@ -343,7 +343,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // make the function insert this moduleinfo as the beginning of the _Dmodule_ref linked list
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("moduleinfoCtorEntry", ctor);
-    IRBuilder builder(bb);
+    IRBuilder<> builder(bb);
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");

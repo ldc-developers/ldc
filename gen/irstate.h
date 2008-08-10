@@ -32,7 +32,7 @@ struct IRScope
 {
     llvm::BasicBlock* begin;
     llvm::BasicBlock* end;
-    IRBuilder builder;
+    IRBuilder<> builder;
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
@@ -56,7 +56,7 @@ struct IRLoopScope : IRScope
 struct IRBuilderHelper
 {
     IRState* state;
-    IRBuilder* operator->();
+    IRBuilder<>* operator->();
 };
 
 struct IRAsmStmt

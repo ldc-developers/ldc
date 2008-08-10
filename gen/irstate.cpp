@@ -162,9 +162,9 @@ CallOrInvoke* IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLVal
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-IRBuilder* IRBuilderHelper::operator->()
+IRBuilder<>* IRBuilderHelper::operator->()
 {
-    IRBuilder& b = state->scope().builder;
+    IRBuilder<>& b = state->scope().builder;
     assert(b.GetInsertBlock() != NULL);
     return &b;
 }
