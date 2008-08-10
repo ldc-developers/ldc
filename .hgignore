@@ -5,6 +5,7 @@ tests/reference
 *.o
 *.s
 *.a
+*.orig
 obj/*
 tango
 import
