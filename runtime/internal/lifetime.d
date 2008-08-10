@@ -407,7 +407,7 @@ void* _d_allocmemory(size_t nbytes)
  */
 extern (C) void* _d_allocmemoryT(TypeInfo ti)
 {
-    return gc_malloc(ti.tsize(), (ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
+    return gc_malloc(ti.tsize(), !(ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
 }
 
 /**
