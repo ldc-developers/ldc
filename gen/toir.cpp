@@ -2172,7 +2172,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
     // default init the struct to take care of padding
     // and unspecified members
-    TypeStruct* ts = (TypeStruct*)type;
+    TypeStruct* ts = (TypeStruct*)type->toBasetype();
     assert(ts->sym);
     DtoForceConstInitDsymbol(ts->sym);
     assert(ts->sym->ir.irStruct->init);
