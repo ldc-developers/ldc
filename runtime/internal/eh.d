@@ -5,6 +5,7 @@
 module eh;
 
 import util.console;
+import llvmdc.cstdarg;
 
 // debug = EH_personality;
 
@@ -81,9 +82,18 @@ else
 
 }
 
+// error and exit
+extern(C) private void fatalerror(char* format, ...)
+{
+  va_list args;
+  va_start(args, format);
+  printf("Fatal error in EH code: ");
+  printf(format, args);
+  abort();
+}
+
 
 // helpers for reading certain DWARF data
-//TODO: It may not be a good idea to use exceptions for error handling within exception handling code
 private ubyte* get_uleb128(ubyte* addr, ref size_t res)
 {
   res = 0;
@@ -95,11 +105,11 @@ private ubyte* get_uleb128(ubyte* addr, ref size_t res)
     bitsize += 7;
     addr += 1;
     if(bitsize >= size_t.sizeof*8)
-       throw new Exception("tried to read uleb128 that exceeded size of size_t");
+       fatalerror("tried to read uleb128 that exceeded size of size_t");
   }
   // read last
   if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
-    throw new Exception("tried to read uleb128 that exceeded size of size_t");
+    fatalerror("Fatal error in EH code: tried to read uleb128 that exceeded size of size_t");
   res |= (*addr) << bitsize;
 
   return addr + 1;
@@ -116,11 +126,11 @@ private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
     bitsize += 7;
     addr += 1;
     if(bitsize >= size_t.sizeof*8)
-       throw new Exception("tried to read sleb128 that exceeded size of size_t");
+       fatalerror("tried to read sleb128 that exceeded size of size_t");
   }
   // read last
   if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
-    throw new Exception("tried to read sleb128 that exceeded size of size_t");
+    fatalerror("tried to read sleb128 that exceeded size of size_t");
   res |= (*addr) << bitsize;
 
   // take care of sign
@@ -249,11 +259,13 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     get_sleb128(action_walker, next_action_offset);
 
     // negative are 'filters' which we don't use
-    assert(ti_offset >= 0 && "Filter actions are unsupported");
+    if(!(ti_offset >= 0))
+      fatalerror("Filter actions are unsupported");
 
     // zero means cleanup, which we require to be the last action
     if(ti_offset == 0) {
-      assert(next_action_offset == 0 && "Cleanup action must be last in chain");
+      if(!(next_action_offset == 0))
+        fatalerror("Cleanup action must be last in chain");
       return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
     }
 
@@ -271,7 +283,8 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
       action_walker += next_action_offset;
   }
 
-  assert(false);
+  fatalerror("reached unreachable");
+  return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
 }
 
 // These are the register numbers for SetGR that
@@ -297,7 +310,8 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
   }
 
-  assert(false);
+  fatalerror("reached unreachable");
+  return _Unwind_Reason_Code.FATAL_PHASE2_ERROR;
 }
 
 private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
@@ -319,14 +333,17 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
   ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
 
   //TODO: Do proper DWARF reading here
-  assert(*data++ == 0xff);
+  if(*data++ != 0xff)
+    fatalerror("DWARF header has unexpected format 1");
 
-  assert(*data++ == 0x00);
+  if(*data++ != 0x00)
+    fatalerror("DWARF header has unexpected format 2");
   size_t cioffset;
   data = get_uleb128(data, cioffset);
   ci = cast(ClassInfo*)(data + cioffset);
 
-  assert(*data++ == 0x03);
+  if(*data++ != 0x03)
+    fatalerror("DWARF header has unexpected format 3");
   size_t callsitelength;
   data = get_uleb128(data, callsitelength);
   action = data + callsitelength;
