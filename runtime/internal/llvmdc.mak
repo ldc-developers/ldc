@@ -21,13 +21,13 @@ RM=rm -f
 MD=mkdir -p
 
 #CFLAGS=-O3 $(ADD_CFLAGS)
-CFLAGS=-g $(ADD_CFLAGS)
+CFLAGS=$(ADD_CFLAGS)
 
 #DFLAGS=-release -O3 -inline -w $(ADD_DFLAGS)
-DFLAGS=-g -w $(ADD_DFLAGS)
+DFLAGS=-w $(ADD_DFLAGS)
 
 #TFLAGS=-O3 -inline -w $(ADD_DFLAGS)
-TFLAGS=-g -w $(ADD_DFLAGS)
+TFLAGS=-w $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc
 

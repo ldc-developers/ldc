@@ -21,13 +21,13 @@ ADD_CFLAGS=
 ADD_DFLAGS=
 
 #CFLAGS=-O3 $(ADD_CFLAGS)
-CFLAGS=-g $(ADD_CFLAGS)
+CFLAGS=$(ADD_CFLAGS)
 
 #DFLAGS=-release -O3 -inline -w -nofloat $(ADD_DFLAGS)
-DFLAGS=-g -w -nofloat $(ADD_DFLAGS)
+DFLAGS=-w -nofloat $(ADD_DFLAGS)
 
 #TFLAGS=-O3 -inline -w -nofloat $(ADD_DFLAGS)
-TFLAGS=-g -w -nofloat $(ADD_DFLAGS)
+TFLAGS=-w -nofloat $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc
 
