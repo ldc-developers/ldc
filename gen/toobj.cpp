@@ -64,7 +64,7 @@ void Module::genobjfile(int multiobj)
     Logger::cout() << "Generating module: " << (md ? md->toChars() : toChars()) << '\n';
     LOG_SCOPE;
 
-    printf("codegen: %s\n", srcfile->toChars());
+    //printf("codegen: %s\n", srcfile->toChars());
 
     // start by deleting the old object file
     deleteObjFile();
