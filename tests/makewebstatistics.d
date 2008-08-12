@@ -377,73 +377,169 @@ int main(char[][] args){
 	BufferedFile index = new BufferedFile(std.path.join(basedir, "index.html"), FileMode.OutNew);
 	scope(exit) index.close();
 	index.writefln(`
-		<html><body>
-		<h1>DStress results for x86-32 Linux.</h1>
-		<p>
-		In short, results are defined as follows
-		<ul>
-			<li>PASS: test passed and was expected to pass</li>
-			<li>XFAIL: test failed and was exprected to fail</li>
-			<li>FAIL: test failed but was expected to pass</li>
-			<li>XPASS: test passed but was expected to fail</li>
-			<li>ERROR: compiler, linker or test segfaulted</li>
-		</ul>
-		while the differences between tests are grouped into
-		<ul>
-			<li>Improvements: changed from FAIL, XPASS or ERROR to PASS or XFAIL</li>
-			<li>Regressions: changed from PASS or XFAIL to FAIL, XPASS or ERROR</li>
-			<li>Changes: changed within the good or bad group without crossing over</li>
-		</ul>
-		</p>
-		<br><br>
-		<table style="border-collapse:collapse; text-align:center;">
-		<colgroup>
-			<col style="border-right: medium solid black;">
-			<col style="background-color: #AAFFAA;">
-			<col style="background-color: #AAFFAA; border-right: thin solid black;">
-			<col style="background-color: #FFAAAA;">
-			<col style="background-color: #FFAAAA;">
-			<col style="background-color: #FFAAAA;">
-			<col style="border-left: medium solid black;">
-		</colgroup>
-		<tr style="border-bottom: medium solid black;">
-			<th>name</th>
-			<th style="padding-left:1em;padding-right:1em;">PASS</th>
-			<th style="padding-left:1em;padding-right:1em;">XFAIL</th>
-			<th style="padding-left:1em;padding-right:1em;">FAIL</th>
-			<th style="padding-left:1em;padding-right:1em;">XPASS</th>
-			<th style="padding-left:1em;padding-right:1em;">ERROR</th>
-			<th style="padding-left:1em;padding-right:1em;">comparison to ` ~ std.path.getBaseName(reference) ~ `</th>
-		</tr>
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>DStress results for x86-32 Linux</title>
+		<style type="text/css">
+			body {
+				font-family: Arial, Helvetica, sans-serif;
+				font-size: 0.8em;
+			}
+			a {
+				text-decoration: none;
+			}
+			a:hover {
+				border-bottom: 1px dotted blue;
+			}
+			table {
+				border-collapse: collapse;
+			}
+			tr {
+				border-bottom: 1px solid #CCC;
+			}
+			tr.odd {
+				background: #e0e0e0;
+			}
+			tr.head {
+				border-bottom: none;
+			}
+			td,th {
+				padding: 2px 10px 2px 10px;
+			}
+			.result:hover {
+				background: #C3DFFF;
+			}
+			.pass,.xfail,.xpass,.fail,.xpass,.error,.generic {
+				text-align: center;
+			}
+			.generic {
+				background: #EEE;
+				color: gray;
+			}
+			.pass {
+				background: #98FF90;
+				color: green;
+			}
+			tr:hover .pass {
+				background: #83E67B;
+			}
+			.xfail {
+				background: #BDFFB8;
+				color: #0CAE00;
+			}
+			tr:hover .xfail {
+				background: #98FF90;
+			}
+			.fail {
+				background: #FF6E7A;
+				color: maroon;
+			}
+			.xpass {
+				background: #FF949D;
+				color: maroon;
+			}
+			.error {
+				background: #FFB3B9;
+				color: maroon;
+			}
+			.borderleft {
+				border-left: 1px solid #CCC;
+			}
+		</style>
+	</head>
+
+	<body>
+		<h1>DStress results for x86-32 Linux</h1>
+
+		<h2>Legend</h2>
+		<table id="legend">
+			<tr>
+				<th>Color</th>
+				<th>Description</th>
+			</tr>
+			<tr class="result">
+				<td class="pass">PASS</td>
+				<td>Test passed and was expected to pass</td>
+			</tr>
+			<tr class="result">
+				<td class="xfail">XFAIL</td>
+				<td>Test failed and expected to fail</td>
+			</tr>
+			<tr class="result">
+				<td class="fail">FAIL</td>
+				<td>Test failed but was expected to pass</td>
+			</tr>
+			<tr class="result">
+				<td class="xpass">XPASS</td>
+				<td>Test passed but was expected to fail</td>
+			</tr>
+			<tr class="result">
+				<td class="error">ERROR</td>
+				<td>The compiler, linker or the test segfaulted</td>
+			</tr>
+			<tr class="result">
+				<td class="generic">+</td>
+				<td>Changes from FAIL, XPASS or ERROR to PASS or XFAIL</td>
+			</tr>
+			<tr class="result">
+				<td class="generic">-</td>
+				<td>Changes from PASS or XFAIL to FAIL, XPASS or ERROR</td>
+			</tr>
+			<tr class="result">
+				<td class="generic">chg</td>
+				<td>Changed within the good or bad group without crossing over</td>
+			</tr>
+		</table>
+		
+		<h2>Results</h2>
+		<table>
+			<tr class="head">
+				<th></th>
+				<th colspan="5" class="borderleft">Test results</th>
+				<th colspan="3" class="borderleft">Diff to previous</th>
+				<th colspan="3" class="borderleft">Diff to ` ~ std.path.getBaseName(reference) ~ `</th>
+			</tr>
+			<tr>
+				<th>Name</th>
+				<th class="borderleft">PASS</th>
+				<th>XFAIL</th>
+				<th>FAIL</th>
+				<th>XPASS</th>
+				<th>ERROR</th>
+				<th class="borderleft">+</th>
+				<th>-</th>
+				<th>chg</th>
+				<th class="borderleft">+</th>
+				<th>-</th>
+				<th>chg</th>
+			</tr>
 	`);
 
 	for(int i = files.length - 1; i >= 0; --i) {
 		auto file = files[i];
-		index.writefln(`<tr>`);
+		index.writefln(`<tr class="` ~ (i%2 ? `result` : `odd result`) ~ `">`);
 		char[] id = std.path.getBaseName(file);
 		char[] statsname = std.path.join(std.path.join(basedir, id), "stats.base");
 		index.writef(cast(char[])std.file.read(statsname));
 
+		if(i != 0) {
+			char[] newid = std.path.getBaseName(files[i-1]);
+			statsname = std.path.join(std.path.join(basedir, newid ~ "-to-" ~ id), "stats.base");
+			index.writef(cast(char[])std.file.read(statsname));
+		} else {
+			index.writefln(`<td class="borderleft"></td><td></td><td></td>`);
+		}
+
 		if(i != files.length - 1) {
-			index.writefln(`<td>`);
 			char[] refid = std.path.getBaseName(reference);
 			statsname = std.path.join(std.path.join(basedir, refid ~ "-to-" ~ id), "stats.base");
 			index.writef(cast(char[])std.file.read(statsname));
-			index.writefln(`</td></tr>`);
 		} else {
-			index.writefln(`<td></td></tr>`);
+			index.writefln(`<td class="borderleft"></td><td></td><td></td>`);
 		}
 
-		if(i == 0) {
-			continue;
-		}
-
-		index.writefln(`<tr><td></td>`);
-		index.writefln(`<td style="background-color:white;" colspan="5">`);
-		char[] newid = std.path.getBaseName(files[i-1]);
-		statsname = std.path.join(std.path.join(basedir, newid ~ "-to-" ~ id), "stats.base");
-		index.writef(cast(char[])std.file.read(statsname));
-		index.writefln(`</td><td></td></tr>`);
+		index.writefln(`</tr>`);
 	}
 
 	index.writefln(`</table></body></html>`);
@@ -505,12 +601,12 @@ void generateLogStatistics(char[] file, ref Log[char[]] logs)
 
 	BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
 	scope(exit) stats.close();
-	stats.writefln(`<td style="padding-right:1em; text-align:left;">`, id, `</td>`);
-	stats.writefln(`<td><a href="`, std.path.join(log.id, "pass.html"), `">`, log.counts[Result.PASS], `</a></td>`);
-	stats.writefln(`<td><a href="`, std.path.join(log.id, "xfail.html"), `">`, log.counts[Result.XFAIL], `</a></td>`);
-	stats.writefln(`<td><a href="`, std.path.join(log.id, "fail.html"), `">`, log.counts[Result.FAIL], `</a></td>`);
-	stats.writefln(`<td><a href="`, std.path.join(log.id, "xpass.html"), `">`, log.counts[Result.XPASS], `</a></td>`);
-	stats.writefln(`<td><a href="`, std.path.join(log.id, "error.html"), `">`, log.counts[Result.ERROR], `</a></td>`);
+	stats.writefln(`<td>`, id, `</td>`);
+	stats.writefln(`<td class="pass borderleft"><a href="`, std.path.join(log.id, "pass.html"), `">`, log.counts[Result.PASS], `</a></td>`);
+	stats.writefln(`<td class="xfail"><a href="`, std.path.join(log.id, "xfail.html"), `">`, log.counts[Result.XFAIL], `</a></td>`);
+	stats.writefln(`<td class="fail"><a href="`, std.path.join(log.id, "fail.html"), `">`, log.counts[Result.FAIL], `</a></td>`);
+	stats.writefln(`<td class="xpass"><a href="`, std.path.join(log.id, "xpass.html"), `">`, log.counts[Result.XPASS], `</a></td>`);
+	stats.writefln(`<td class="error"><a href="`, std.path.join(log.id, "error.html"), `">`, log.counts[Result.ERROR], `</a></td>`);
 }
 
 void generateChangeStatistics(char[] file1, char[] file2, ref Log[char[]] logs)
@@ -595,7 +691,7 @@ void generateChangeStatistics(char[] file1, char[] file2, ref Log[char[]] logs)
 	BufferedFile stats = new BufferedFile(std.path.join(dirname, "stats.base"), FileMode.OutNew);
 	scope(exit) stats.close();
 	auto dir = oldid ~ "-to-" ~ newid;
-	stats.writefln(`<a href="`, std.path.join(dir, "improvements.html"), `">Improvements: `, nImprovements, `</a>, `);
-	stats.writefln(`<a href="`, std.path.join(dir, "regressions.html"), `">Regressions: `, nRegressions, `</a>, `);
-	stats.writefln(`<a href="`, std.path.join(dir, "changes.html"), `">Changes: `, nChanges, `</a>`);
+	stats.writefln(`<td class="borderleft"><a href="`, std.path.join(dir, "improvements.html"), `">`, nImprovements, `</a></td>`);
+	stats.writefln(`<td><a href="`, std.path.join(dir, "regressions.html"), `">`, nRegressions, `</a></td>`);
+	stats.writefln(`<td><a href="`, std.path.join(dir, "changes.html"), `">`, nChanges, `</a></td>`);
 }
