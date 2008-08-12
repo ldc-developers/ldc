@@ -406,11 +406,6 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     }
     else
     {
-        if (irfunc->decl->isStatic())
-        {
-            irfunc->decl->error("is static and cannot access nested %s %s", sym->kind(), sym->toChars());
-            fatal();
-        }
         return getNullPtr(getVoidPtrType());
     }
 }
