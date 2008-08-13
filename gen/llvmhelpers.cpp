@@ -961,6 +961,9 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->ir.irGlobal->value);
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
     {
+        Logger::println("setting initializer");
+        Logger::cout() << "global: " << *gvar << '\n';
+        Logger::cout() << "init:   " << *_init << '\n';
         gvar->setInitializer(_init);
         // do debug info
         if (global.params.symdebug)
@@ -1258,22 +1261,7 @@ LLConstant* DtoConstInitializer(Type* type, Initializer* init)
     if (!init)
     {
         Logger::println("const default initializer for %s", type->toChars());
-
-        if(type->ty == Tsarray)
-        {
-            Logger::println("type is a static array, building constant array initializer");
-            TypeSArray* arrtype = (TypeSArray*)type;
-            Type* elemtype = type->next;
-
-            integer_t arraydim;
-            arraydim = arrtype->dim->toInteger();
-
-            std::vector<LLConstant*> inits(arraydim, elemtype->defaultInit()->toConstElem(gIR));
-            const LLArrayType* arrty = LLArrayType::get(DtoType(elemtype),arraydim);
-            _init = LLConstantArray::get(arrty, inits);
-        }
-        else
-            _init = type->defaultInit()->toConstElem(gIR);
+        _init = DtoDefaultInit(type);
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
@@ -1394,6 +1382,74 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
         assert(0);
     }
     return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static LLConstant* expand_to_sarray(Type *base, Expression* exp)
+{
+    Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
+    const LLType* dstTy = DtoType(base);
+    Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
+    
+    LLConstant* val = exp->toConstElem(gIR);
+    
+    Type* expbase = exp->type->toBasetype();
+    Type* t = base;
+    
+    LLSmallVector<size_t, 4> dims;
+
+    while(1)
+    {
+        if (t->equals(expbase))
+            break;
+        assert(t->ty == Tsarray);
+        TypeSArray* tsa = (TypeSArray*)t;
+        dims.push_back(tsa->dim->toInteger());
+        assert(t->next);
+        t = t->next->toBasetype();
+    }
+    
+    size_t i = dims.size();
+    assert(i);
+
+    std::vector<LLConstant*> inits;
+    while (i--)
+    {
+        const LLArrayType* arrty = LLArrayType::get(val->getType(), dims[i]);
+        inits.clear();
+        inits.insert(inits.end(), dims[i], val);
+        val = LLConstantArray::get(arrty, inits);
+    }
+    
+    return val;
+}
+
+LLConstant* DtoDefaultInit(Type* type)
+{
+    Expression* exp = type->defaultInit();
+    
+    Type* expbase = exp->type->toBasetype();
+    Type* base = type->toBasetype();
+    
+    // if not the same basetypes, we won't get the same llvm types either
+    if (!expbase->equals(base))
+    {
+        if (base->ty == Tsarray)
+        {
+            Logger::println("type is a static array, building constant array initializer from single value");
+            return expand_to_sarray(base, exp);
+        }
+        else
+        {
+            error("cannot yet convert default initializer %s from type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
+            fatal();
+        }
+        assert(0);
+        
+    }
+    
+    return exp->toConstElem(gIR);
 }
 
 
