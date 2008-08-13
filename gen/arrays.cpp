@@ -1035,23 +1035,8 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     Type* arrty = arr->getType()->toBasetype();
     assert((arrty->ty == Tsarray || arrty->ty == Tarray) && "Can only array bounds check for static or dynamic arrays");
 
-    // static arrays can get static checks for static indices
-
-    if(arr->getType()->ty == Tsarray)
-    {
-        TypeSArray* tsa = (TypeSArray*)arrty;
-        size_t tdim = tsa->dim->toInteger();
-
-        if(llvm::ConstantInt* cindex = llvm::dyn_cast<llvm::ConstantInt>(index->getRVal()))
-            if(cindex->uge(tdim + (isslice ? 1 : 0))) {
-                size_t cindexval = cindex->getValue().getZExtValue();
-                if(!isslice)
-                    error(loc, "index %u is larger or equal array size %u", cindexval, tdim);
-                else
-                    error(loc, "slice upper bound %u is larger than array size %u", cindexval, tdim);
-                return;
-            }
-    }
+    // static arrays could get static checks for static indices
+    // but shouldn't since it might be generic code that's never executed
 
     // runtime check
 
