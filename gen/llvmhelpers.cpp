@@ -398,8 +398,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     else if (irfunc->thisArg)
     {
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
-        assert(cd);
-        if (!cd->vthis)
+        if (!cd || !cd->vthis)
             return getNullPtr(getVoidPtrType());
         LLValue* val = DtoLoad(irfunc->thisArg);
         return DtoLoad(DtoGEPi(val, 0,2+cd->vthis->ir.irField->index, ".vthis"));
