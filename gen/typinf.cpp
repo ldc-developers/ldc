@@ -224,6 +224,11 @@ int TypeDArray::builtinTypeInfo()
     return next->isTypeBasic() != NULL;
 }
 
+int TypeClass::builtinTypeInfo()
+{
+    return 1;
+}
+
 /* ========================================================================= */
 
 /***************************************
