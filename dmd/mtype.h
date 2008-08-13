@@ -640,7 +640,6 @@ struct TypeClass : Type
     int checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    int builtinTypeInfo();
 
     type *toCtype();
 
