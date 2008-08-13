@@ -834,6 +834,12 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
         Logger::println("Resolving nested context");
         LOG_SCOPE;
 
+        if (gIR->func()->decl->isStatic())
+        {
+            gIR->func()->decl->error("is static and cannot access nested class %s", tc->sym->toChars());
+            fatal();
+        }
+
         // get context
         LLValue* nest = DtoNestedContext(loc, tc->sym);
 
