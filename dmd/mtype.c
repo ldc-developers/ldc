@@ -1676,10 +1676,9 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
 	arguments->push(e);
-	if (next->ty != Tbit)
-	    arguments->push(n->ty == Tsarray
-			? n->getTypeInfo(sc)	// don't convert to dynamic array
-			: n->getInternalTypeInfo(sc));
+    if (next->ty != Tbit)
+        arguments->push(n->getTypeInfo(sc));   // LLVMDC, we don't support the getInternalTypeInfo
+                                               // optimization arbitrarily, not yet at least...
 	e = new CallExp(e->loc, ec, arguments);
 	e->type = next->arrayOf();
     }
