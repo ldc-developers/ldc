@@ -46,6 +46,14 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 	    warning("%s: implicit conversion of expression (%s) of type %s to %s can cause loss of data",
 		loc.toChars(), toChars(), type->toChars(), t->toChars());
 	}
+#if DMDV2
+	if (match == MATCHconst && t == type->constOf())
+	{
+	    Expression *e = copy();
+	    e->type = t;
+	    return e;
+	}
+#endif
 	return castTo(sc, t);
     }
 
@@ -54,12 +62,13 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 	return e->implicitCastTo(sc, t);
 
 #if 0
+printf("ty = %d\n", type->ty);
 print();
 type->print();
 printf("to:\n");
 t->print();
 printf("%p %p type: %s to: %s\n", type->deco, t->deco, type->deco, t->deco);
-//printf("%p %p %p\n", type->next->arrayOf(), type, t);
+//printf("%p %p %p\n", type->nextOf()->arrayOf(), type, t);
 fflush(stdout);
 #endif
     if (!t->deco)
@@ -92,6 +101,7 @@ MATCH Expression::implicitConvTo(Type *t)
     printf("Expression::implicitConvTo(this=%s, type=%s, t=%s)\n",
 	toChars(), type->toChars(), t->toChars());
 #endif
+    //static int nest; if (++nest == 10) halt();
     if (!type)
     {	error("%s is not an expression", toChars());
 	type = Type::terror;
@@ -110,16 +120,16 @@ MATCH Expression::implicitConvTo(Type *t)
     Type *tb = t->toBasetype();
     if (tb->ty == Tdelegate)
     {	TypeDelegate *td = (TypeDelegate *)tb;
-	TypeFunction *tf = (TypeFunction *)td->next;
+	TypeFunction *tf = (TypeFunction *)td->nextOf();
 
 	if (!tf->varargs &&
 	    !(tf->arguments && tf->arguments->dim)
 	   )
 	{
-	    match = type->implicitConvTo(tf->next);
+	    match = type->implicitConvTo(tf->nextOf());
 	    if (match)
 		return match;
-	    if (tf->next->toBasetype()->ty == Tvoid)
+	    if (tf->nextOf()->toBasetype()->ty == Tvoid)
 		return MATCHconvert;
 	}
     }
@@ -332,6 +342,39 @@ MATCH NullExp::implicitConvTo(Type *t)
     return Expression::implicitConvTo(t);
 }
 
+#if DMDV2
+MATCH StructLiteralExp::implicitConvTo(Type *t)
+{
+#if 0
+    printf("StructLiteralExp::implicitConvTo(this=%s, type=%s, t=%s)\n",
+	toChars(), type->toChars(), t->toChars());
+#endif
+    MATCH m = Expression::implicitConvTo(t);
+    if (m != MATCHnomatch)
+	return m;
+    if (type->ty == t->ty && type->ty == Tstruct &&
+	((TypeStruct *)type)->sym == ((TypeStruct *)t)->sym)
+    {
+	m = MATCHconst;
+	for (int i = 0; i < elements->dim; i++)
+	{   Expression *e = (Expression *)elements->data[i];
+	    Type *te = e->type;
+	    if (t->mod == 0)
+		te = te->mutableOf();
+	    else
+	    {	assert(t->mod == MODinvariant);
+		te = te->invariantOf();
+	    }
+	    MATCH m2 = e->implicitConvTo(te);
+	    //printf("\t%s => %s, match = %d\n", e->toChars(), te->toChars(), m2);
+	    if (m2 < m)
+		m = m2;
+	}
+    }
+    return m;
+}
+#endif
+
 MATCH StringExp::implicitConvTo(Type *t)
 {   MATCH m;
 
@@ -387,6 +430,10 @@ MATCH StringExp::implicitConvTo(Type *t)
 MATCH ArrayLiteralExp::implicitConvTo(Type *t)
 {   MATCH result = MATCHexact;
 
+#if 0
+    printf("ArrayLiteralExp::implicitConvTo(this=%s, type=%s, t=%s)\n",
+	toChars(), type->toChars(), t->toChars());
+#endif
     Type *typeb = type->toBasetype();
     Type *tb = t->toBasetype();
     if ((tb->ty == Tarray || tb->ty == Tsarray) &&
@@ -400,7 +447,7 @@ MATCH ArrayLiteralExp::implicitConvTo(Type *t)
 
 	for (int i = 0; i < elements->dim; i++)
 	{   Expression *e = (Expression *)elements->data[i];
-	    MATCH m = (MATCH)e->implicitConvTo(tb->next);
+	    MATCH m = (MATCH)e->implicitConvTo(tb->nextOf());
 	    if (m < result)
 		result = m;			// remember worst match
 	    if (result == MATCHnomatch)
@@ -427,7 +474,7 @@ MATCH AssocArrayLiteralExp::implicitConvTo(Type *t)
 	    if (result == MATCHnomatch)
 		break;				// no need to check for worse
 	    e = (Expression *)values->data[i];
-	    m = (MATCH)e->implicitConvTo(tb->next);
+	    m = (MATCH)e->implicitConvTo(tb->nextOf());
 	    if (m < result)
 		result = m;			// remember worst match
 	    if (result == MATCHnomatch)
@@ -516,10 +563,10 @@ MATCH DelegateExp::implicitConvTo(Type *t)
 	FuncDeclaration *f;
 
 	t = t->toBasetype();
-	if (type->ty == Tdelegate && type->next->ty == Tfunction &&
-	    t->ty == Tdelegate && t->next->ty == Tfunction)
+	if (type->ty == Tdelegate && type->nextOf()->ty == Tfunction &&
+	    t->ty == Tdelegate && t->nextOf()->ty == Tfunction)
 	{
-	    if (func && func->overloadExactMatch(t->next))
+	    if (func && func->overloadExactMatch(t->nextOf()))
 		result = MATCHexact;
 	}
     }
@@ -948,7 +995,7 @@ Expression *TupleExp::castTo(Scope *sc, Type *t)
 Expression *ArrayLiteralExp::castTo(Scope *sc, Type *t)
 {
 #if 0
-    printf("ArrayLiteralExp::castTo(this=%s, type=%s, t=%s)\n",
+    printf("ArrayLiteralExp::castTo(this=%s, type=%s, => %s)\n",
 	toChars(), type->toChars(), t->toChars());
 #endif
     if (type == t)
@@ -1015,7 +1062,6 @@ Expression *AssocArrayLiteralExp::castTo(Scope *sc, Type *t)
 L1:
     return e->Expression::castTo(sc, t);
 }
-
 
 Expression *SymOffExp::castTo(Scope *sc, Type *t)
 {
@@ -1134,7 +1180,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	// Replace (ptr + int) with (ptr + (int * stride))
 	Type *t = Type::tptrdiff_t;
 
-	stride = t1b->next->size();
+	stride = t1b->nextOf()->size(loc);
 	if (!t->equals(t2b))
 	    e2 = e2->castTo(sc, t);
     // LLVMDC: llvm uses typesafe pointer arithmetic
@@ -1156,7 +1202,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	Type *t = Type::tptrdiff_t;
 	Expression *e;
 
-	stride = t2b->next->size();
+	stride = t2b->nextOf()->size(loc);
 	if (!t->equals(t1b))
 	    e = e1->castTo(sc, t);
 	else
@@ -1327,13 +1373,17 @@ Expression *BinExp::typeCombine(Scope *sc)
 	    goto Lincompatible;
     }
     else if ((t1->ty == Tsarray || t1->ty == Tarray) &&
-	     e2->op == TOKnull && t2->ty == Tpointer && t2->next->ty == Tvoid)
-    {
+	     e2->op == TOKnull && t2->ty == Tpointer && t2->nextOf()->ty == Tvoid)
+    {	/*  (T[n] op void*)
+	 *  (T[] op void*)
+	 */
 	goto Lx1;
     }
     else if ((t2->ty == Tsarray || t2->ty == Tarray) &&
-	     e1->op == TOKnull && t1->ty == Tpointer && t1->next->ty == Tvoid)
-    {
+	     e1->op == TOKnull && t1->ty == Tpointer && t1->nextOf()->ty == Tvoid)
+    {	/*  (void* op T[n])
+	 *  (void* op T[])
+	 */
 	goto Lx2;
     }
     else if ((t1->ty == Tsarray || t1->ty == Tarray) && t1->implicitConvTo(t2))
@@ -1375,7 +1425,7 @@ Expression *BinExp::typeCombine(Scope *sc)
 		/* Pick 'tightest' type
 		 */
 		ClassDeclaration *cd1 = tc1->sym->baseClass;
-		ClassDeclaration *cd2 = tc1->sym->baseClass;
+		ClassDeclaration *cd2 = tc2->sym->baseClass;
 
 		if (cd1 && cd2)
 		{   t1 = cd1->type;
@@ -1402,20 +1452,47 @@ Expression *BinExp::typeCombine(Scope *sc)
 	goto Lt1;
     }
     else if (t1->ty == Tsarray && t2->ty == Tsarray &&
-	     e2->implicitConvTo(t1->next->arrayOf()))
+	     e2->implicitConvTo(t1->nextOf()->arrayOf()))
     {
      Lx1:
-	t = t1->next->arrayOf();
+	t = t1->nextOf()->arrayOf();
 	e1 = e1->castTo(sc, t);
 	e2 = e2->castTo(sc, t);
     }
     else if (t1->ty == Tsarray && t2->ty == Tsarray &&
-	     e1->implicitConvTo(t2->next->arrayOf()))
+	     e1->implicitConvTo(t2->nextOf()->arrayOf()))
     {
      Lx2:
-	t = t2->next->arrayOf();
+	t = t2->nextOf()->arrayOf();
 	e1 = e1->castTo(sc, t);
 	e2 = e2->castTo(sc, t);
+    }
+    else if (t1->isintegral() && t2->isintegral())
+    {
+	assert(0);
+    }
+    else if (e1->op == TOKslice && t1->ty == Tarray &&
+	     e2->implicitConvTo(t1->nextOf()))
+    {	// T[] op T
+	e2 = e2->castTo(sc, t1->nextOf());
+	t = t1->nextOf()->arrayOf();
+    }
+    else if (e2->op == TOKslice && t2->ty == Tarray &&
+	     e1->implicitConvTo(t2->nextOf()))
+    {	// T op T[]
+	e1 = e1->castTo(sc, t2->nextOf());
+	t = t2->nextOf()->arrayOf();
+
+	//printf("test %s\n", e->toChars());
+	e1 = e1->optimize(WANTvalue);
+	if (isCommutative() && e1->isConst())
+	{   /* Swap operands to minimize number of functions generated
+	     */
+	    //printf("swap %s\n", e->toChars());
+	    Expression *tmp = e1;
+	    e1 = e2;
+	    e2 = tmp;
+	}
     }
     else
     {
@@ -1446,9 +1523,10 @@ Lt2:
  */
 
 Expression *Expression::integralPromotions(Scope *sc)
-{   Expression *e;
+{
+    Expression *e = this;
 
-    e = this;
+    //printf("integralPromotions %s %s\n", e->toChars(), e->type->toChars());
     switch (type->toBasetype()->ty)
     {
 	case Tvoid:

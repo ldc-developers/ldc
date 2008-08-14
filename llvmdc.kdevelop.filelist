@@ -3,6 +3,7 @@ dmd
 dmd/access.c
 dmd/aggregate.h
 dmd/array.c
+dmd/arrayop.c
 dmd/arraytypes.h
 dmd/attrib.c
 dmd/attrib.h

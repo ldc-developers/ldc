@@ -865,6 +865,7 @@ int main(int argc, char *argv[])
 #endif
 
 	    if (stricmp(ext, global.mars_ext) == 0 ||
+        stricmp(ext, global.hdr_ext) == 0 ||
 		stricmp(ext, "htm") == 0 ||
 		stricmp(ext, "html") == 0 ||
 		stricmp(ext, "xhtml") == 0)

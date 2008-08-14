@@ -40,7 +40,8 @@ struct Identifier : Object
     char *toHChars2();
     int dyncast();
 
-    static Identifier *generateId(char *prefix);
+    static Identifier *generateId(const char *prefix);
+    static Identifier *generateId(const char *prefix, size_t i);
 };
 
 #endif /* DMD_IDENTIFIER_H */
