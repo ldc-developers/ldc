@@ -621,8 +621,11 @@ void VarDeclaration::toObjFile(int multiobj)
     // global variable or magic
     if (isDataseg())
     {
+        Logger::println("data segment");
+
         // we don't want to touch private static members at all !!!
-        if ((prot() == PROTprivate) && getModule() != gIR->dmodule)
+        // template instances should always be emitted
+        if (!DtoIsTemplateInstance(this) && prot() == PROTprivate && getModule() != gIR->dmodule)
             return;
 
         // don't duplicate work
