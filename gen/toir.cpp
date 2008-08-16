@@ -2064,22 +2064,31 @@ DValue* FuncExp::toElem(IRState* p)
 
     DtoForceDefineDsymbol(fd);
 
-    const LLType* dgty = DtoType(type);
-    LLValue* lval = DtoAlloca(dgty,"dgstorage");
+    LLValue *lval, *fptr;
+    if(fd->tok == TOKdelegate) {
+        const LLType* dgty = DtoType(type);
+        lval = DtoAlloca(dgty,"dgstorage");
 
-    LLValue* context = DtoGEPi(lval,0,0);
-    LLValue* cval;
-    IrFunction* irfn = p->func();
-    if (irfn->nestedVar)
-        cval = irfn->nestedVar;
-    else if (irfn->nestArg)
-        cval = irfn->nestArg;
+        LLValue* context = DtoGEPi(lval,0,0);
+        LLValue* cval;
+        IrFunction* irfn = p->func();
+        if (irfn->nestedVar)
+            cval = irfn->nestedVar;
+        else if (irfn->nestArg)
+            cval = irfn->nestArg;
+        else
+            cval = getNullPtr(getVoidPtrType());
+        cval = DtoBitCast(cval, context->getType()->getContainedType(0));
+        DtoStore(cval, context);
+
+        fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
+    } else if(fd->tok == TOKfunction) {
+        const LLType* fnty = DtoType(type);
+        lval = DtoAlloca(fnty,"fnstorage");
+        fptr = lval;
+    }
     else
-        cval = getNullPtr(getVoidPtrType());
-    cval = DtoBitCast(cval, context->getType()->getContainedType(0));
-    DtoStore(cval, context);
-    
-    LLValue* fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
+        assert(0 && "fd->tok must be TOKfunction or TOKdelegate");
 
     assert(fd->ir.irFunc->func);
     LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, fptr->getType()->getContainedType(0));
