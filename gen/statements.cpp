@@ -122,7 +122,14 @@ void ExpStatement::toIR(IRState* p)
     if (exp) {
         if (global.params.llvmAnnotate)
             DtoAnnotation(exp->toChars());
-        elem* e = exp->toElem(p);
+        elem* e;
+        // a cast(void) around the expression is allowed, but doesn't require any code
+        if(exp->op == TOKcast && exp->type == Type::tvoid) {
+            CastExp* cexp = (CastExp*)exp;
+            e = cexp->e1->toElem(p);
+        }
+        else
+            e = exp->toElem(p);
         delete e;
     }
     /*elem* e = exp->toElem(p);
