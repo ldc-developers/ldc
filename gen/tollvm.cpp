@@ -205,25 +205,24 @@ const LLStructType* DtoDelegateType(Type* t)
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
 {
     Logger::println("Doing delegate equality");
-    llvm::ICmpInst::Predicate pred = (op == TOKequal || op == TOKidentity) ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
     llvm::Value *b1, *b2;
     if (rhs == NULL)
     {
         LLValue* l = DtoLoad(DtoGEPi(lhs,0,0));
         LLValue* r = llvm::Constant::getNullValue(l->getType());
-        b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+        b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
         l = DtoLoad(DtoGEPi(lhs,0,1));
         r = llvm::Constant::getNullValue(l->getType());
-        b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+        b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
     }
     else
     {
         LLValue* l = DtoLoad(DtoGEPi(lhs,0,0));
         LLValue* r = DtoLoad(DtoGEPi(rhs,0,0));
-        b1 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+        b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
         l = DtoLoad(DtoGEPi(lhs,0,1));
         r = DtoLoad(DtoGEPi(rhs,0,1));
-        b2 = gIR->ir->CreateICmp(pred,l,r,"tmp");
+        b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
     }
     LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
     if (op == TOKnotequal || op == TOKnotidentity)
