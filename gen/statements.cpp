@@ -282,6 +282,7 @@ void DoStatement::toIR(IRState* p)
     // create while blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* dowhilebb = llvm::BasicBlock::Create("dowhile", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condbb = llvm::BasicBlock::Create("dowhilecond", gIR->topfunc(), oldend);
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("enddowhile", gIR->topfunc(), oldend);
 
     // move into the while block
@@ -289,12 +290,16 @@ void DoStatement::toIR(IRState* p)
     llvm::BranchInst::Create(dowhilebb, gIR->scopebb());
 
     // replace current scope
-    gIR->scope() = IRScope(dowhilebb,endbb);
+    gIR->scope() = IRScope(dowhilebb,condbb);
 
     // do-while body code
-    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,dowhilebb,endbb));
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,condbb,endbb));
     body->toIR(p);
     p->loopbbs.pop_back();
+
+    // branch to condition block
+    llvm::BranchInst::Create(condbb, gIR->scopebb());
+    gIR->scope() = IRScope(condbb,endbb);
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
