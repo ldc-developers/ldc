@@ -2063,6 +2063,7 @@ DValue* FuncExp::toElem(IRState* p)
     Logger::println("kind = %s\n", fd->kind());
 
     DtoForceDefineDsymbol(fd);
+    assert(fd->ir.irFunc->func);
 
     LLValue *lval, *fptr;
     if(fd->tok == TOKdelegate) {
@@ -2082,19 +2083,17 @@ DValue* FuncExp::toElem(IRState* p)
         DtoStore(cval, context);
 
         fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
+
+        LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, fptr->getType()->getContainedType(0));
+        DtoStore(castfptr, fptr);
+
+        return new DVarValue(type, lval, true);
+
     } else if(fd->tok == TOKfunction) {
-        const LLType* fnty = DtoType(type);
-        lval = DtoAlloca(fnty,"fnstorage");
-        fptr = lval;
+        return new DVarValue(type, fd->ir.irFunc->func, false);
     }
-    else
-        assert(0 && "fd->tok must be TOKfunction or TOKdelegate");
 
-    assert(fd->ir.irFunc->func);
-    LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, fptr->getType()->getContainedType(0));
-    DtoStore(castfptr, fptr);
-
-    return new DVarValue(type, lval, true);
+    assert(0 && "fd->tok must be TOKfunction or TOKdelegate");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
