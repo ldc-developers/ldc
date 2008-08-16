@@ -1146,8 +1146,17 @@ void TypeInfoTupleDeclaration::llvmDefine()
     const LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
     LLConstant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
 
+    // need the pointer to the first element of arrC, so create a global for it
+    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,_linkage,arrC,".tupleelements",gIR->module);
+
+    // get pointer to first element
+    llvm::ConstantInt* zero = DtoConstSize_t(0);
+    LLConstant* idxs[2] = { zero, zero };
+    LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, 2);
+
     // build the slice
-    LLConstant* slice = DtoConstSlice(DtoConstSize_t(dim), arrC);
+    LLConstant* slice = DtoConstSlice(DtoConstSize_t(dim), arrptr);
     sinits.push_back(slice);
 
     // create the symbol
