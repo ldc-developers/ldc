@@ -913,7 +913,6 @@ void ForeachStatement::toIR(IRState* p)
 
     //assert(arguments->dim == 1);
     assert(value != 0);
-    assert(body != 0);
     assert(aggr != 0);
     assert(func != 0);
 
@@ -1011,7 +1010,8 @@ void ForeachStatement::toIR(IRState* p)
 
     // emit body
     p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,nextbb,endbb));
-    body->toIR(p);
+    if(body)
+        body->toIR(p);
     p->loopbbs.pop_back();
 
     if (!p->scopereturned())
