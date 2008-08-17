@@ -378,8 +378,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
-    assert(!fdecl->isAbstract());
-
     // intrinsic sanity check
     if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
         error(fdecl->loc, "intrinsics cannot have function bodies");
