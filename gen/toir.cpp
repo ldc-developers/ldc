@@ -671,7 +671,7 @@ DValue* MulAssignExp::toElem(IRState* p)
         res = DtoComplexMul(loc, type, l, r);
     }
     else {
-        res = DtoBinMul(type, l, r);
+        res = DtoBinMul(l->getType(), l, r);
     }
     DtoAssign(loc, l, res);
 
@@ -710,7 +710,7 @@ DValue* DivAssignExp::toElem(IRState* p)
         res = DtoComplexDiv(loc, type, l, r);
     }
     else {
-        res = DtoBinDiv(type, l, r);
+        res = DtoBinDiv(l->getType(), l, r);
     }
     DtoAssign(loc, l, res);
 
@@ -740,7 +740,7 @@ DValue* ModAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
-    DValue* res = DtoBinRem(type, l, r);
+    DValue* res = DtoBinRem(l->getType(), l, r);
     DtoAssign(loc, l, res);
 
     return res;
