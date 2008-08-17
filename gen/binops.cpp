@@ -24,15 +24,15 @@ DValue* DtoBinSub(DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoBinMul(DValue* lhs, DValue* rhs)
+DValue* DtoBinMul(Type* targettype, DValue* lhs, DValue* rhs)
 {
     LLValue* v = gIR->ir->CreateMul(lhs->getRVal(), rhs->getRVal(), "tmp");
-    return new DImValue( lhs->getType(), v );
+    return new DImValue( targettype, v );
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
+DValue* DtoBinDiv(Type* targettype, DValue* lhs, DValue* rhs)
 {
     Type* t = lhs->getType();
     LLValue *l, *r;
@@ -45,12 +45,12 @@ DValue* DtoBinDiv(DValue* lhs, DValue* rhs)
         res = gIR->ir->CreateSDiv(l, r, "tmp");
     else
         res = gIR->ir->CreateUDiv(l, r, "tmp");
-    return new DImValue( lhs->getType(), res );
+    return new DImValue( targettype, res );
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoBinRem(DValue* lhs, DValue* rhs)
+DValue* DtoBinRem(Type* targettype, DValue* lhs, DValue* rhs)
 {
     Type* t = lhs->getType();
     LLValue *l, *r;
@@ -63,5 +63,5 @@ DValue* DtoBinRem(DValue* lhs, DValue* rhs)
         res = gIR->ir->CreateSRem(l, r, "tmp");
     else
         res = gIR->ir->CreateURem(l, r, "tmp");
-    return new DImValue( lhs->getType(), res );
+    return new DImValue( targettype, res );
 }

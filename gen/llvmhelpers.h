@@ -95,9 +95,11 @@ LLConstant* DtoTypeInfoOf(Type* ty, bool base=true);
 // binary operations
 DValue* DtoBinAdd(DValue* lhs, DValue* rhs);
 DValue* DtoBinSub(DValue* lhs, DValue* rhs);
-DValue* DtoBinMul(DValue* lhs, DValue* rhs);
-DValue* DtoBinDiv(DValue* lhs, DValue* rhs);
-DValue* DtoBinRem(DValue* lhs, DValue* rhs);
+// these binops need an explicit result type to handling
+// to give 'ifloat op float' and 'float op ifloat' the correct type
+DValue* DtoBinMul(Type* resulttype, DValue* lhs, DValue* rhs);
+DValue* DtoBinDiv(Type* resulttype, DValue* lhs, DValue* rhs);
+DValue* DtoBinRem(Type* resulttype, DValue* lhs, DValue* rhs);
 
 // target stuff
 void findDefaultTarget();
