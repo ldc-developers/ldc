@@ -245,16 +245,65 @@ pragma(intrinsic, "llvm.part.select.i64")
     ulong llvm_part_select_i(ulong val, uint loBit, uint hiBit);
 
 
+// The 'llvm.part.set' family of intrinsic functions replaces a range of bits in an integer value with another integer value. It returns the integer with the replaced bits.
+
+// TODO
+// declare i17 @llvm.part.set.i17.i9 (i17 %val, i9 %repl, i32 %lo, i32 %hi)
+// declare i29 @llvm.part.set.i29.i9 (i29 %val, i9 %repl, i32 %lo, i32 %hi)
+
+
 
 
 //
 // ATOMIC OPERATIONS AND SYNCHRONIZATION INTRINSICS
 //
 
-// TODO
+// The llvm.memory.barrier intrinsic guarantees ordering between specific pairs of memory access types.
 
+pragma(intrinsic, "llvm.memory.barrier")
+    void llvm_memory_barrier(bool ll, bool ls, bool sl, bool ss, bool device);
 
+// This loads a value in memory and compares it to a given value. If they are equal, it stores a new value into the memory.
 
+pragma(intrinsic, "llvm.atomic.cmp.swap.i#.p0i#")
+    T llvm_atomic_cmp_swap(T)(T* ptr, T cmp, T val);
+
+// This intrinsic loads the value stored in memory at ptr and yields the value from memory. It then stores the value in val in the memory at ptr.
+
+pragma(intrinsic, "llvm.atomic.swap.i#.p0i#")
+    T llvm_atomic_swap(T)(T* ptr, T val);
+
+// This intrinsic adds delta to the value stored in memory at ptr. It yields the original value at ptr.
+
+pragma(intrinsic, "llvm.atomic.load.add.i#.p0i#")
+    T llvm_atomic_load_add(T)(T* ptr, T val);
+
+// This intrinsic subtracts delta to the value stored in memory at ptr. It yields the original value at ptr.
+
+pragma(intrinsic, "llvm.atomic.load.sub.i#.p0i#")
+    T llvm_atomic_load_sub(T)(T* ptr, T val);
+
+// These intrinsics bitwise the operation (and, nand, or, xor) delta to the value stored in memory at ptr. It yields the original value at ptr.
+
+pragma(intrinsic, "llvm.atomic.load.and.i#.p0i#")
+    T llvm_atomic_load_and(T)(T* ptr, T val);
+pragma(intrinsic, "llvm.atomic.load.nand.i#.p0i#")
+    T llvm_atomic_load_nand(T)(T* ptr, T val);
+pragma(intrinsic, "llvm.atomic.load.or.i#.p0i#")
+    T llvm_atomic_load_or(T)(T* ptr, T val);
+pragma(intrinsic, "llvm.atomic.load.xor.i#.p0i#")
+    T llvm_atomic_load_xor(T)(T* ptr, T val);
+
+// These intrinsics takes the signed or unsigned minimum or maximum of delta and the value stored in memory at ptr. It yields the original value at ptr. 
+
+pragma(intrinsic, "llvm.atomic.load.max.i#.p0i#")
+    T llvm_atomic_load_max(T)(T* ptr, T val);
+pragma(intrinsic, "llvm.atomic.load.min.i#.p0i#")
+    T llvm_atomic_load_min(T)(T* ptr, T val);
+pragma(intrinsic, "llvm.atomic.load.umax.i#.p0i#")
+    T llvm_atomic_load_umax(T)(T* ptr, T val);
+pragma(intrinsic, "llvm.atomic.load.umin.i#.p0i#")
+    T llvm_atomic_load_umin(T)(T* ptr, T val);
 
 //
 // GENERAL INTRINSICS

@@ -300,6 +300,12 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             Logger::println("magic va_start found");
             fdecl->llvmInternal = LLVMva_start;
         }
+        else if (tempdecl->llvmInternal == LLVMintrinsic)
+        {
+            Logger::println("overloaded intrinsic found");
+            fdecl->llvmInternal = LLVMintrinsic;
+            DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
+        }
     }
 
     DtoFunctionType(fdecl);

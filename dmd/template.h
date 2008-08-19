@@ -15,6 +15,8 @@
 #pragma once
 #endif /* __DMC__ */
 
+#include <string>
+
 #include "root.h"
 #include "arraytypes.h"
 #include "dsymbol.h"
@@ -83,6 +85,9 @@ struct TemplateDeclaration : ScopeDsymbol
 
     TemplateTupleParameter *isVariadic();
     int isOverloadable();
+    
+    // LLVMDC
+    std::string intrinsicName;
 };
 
 struct TemplateParameter

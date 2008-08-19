@@ -1553,3 +1553,32 @@ LLValue* DtoBoolean(Loc& loc, DValue* dval)
     assert(0);
     return 0;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name)
+{
+    Logger::println("DtoOverloadedIntrinsicName");
+    LOG_SCOPE;
+
+    Logger::println("template instance: %s", ti->toChars());
+    Logger::println("template declaration: %s", td->toChars());
+    Logger::println("intrinsic name: %s", td->intrinsicName.c_str());
+    
+    // for now use the size in bits of the first template param in the instance
+    assert(ti->tdtypes.dim == 1);
+    Type* T = (Type*)ti->tdtypes.data[0];
+
+    char tmp[10];
+    sprintf(tmp, "%d", T->size()*8);
+    
+    // replace # in name with bitsize
+    name = td->intrinsicName;
+
+    std::string needle("#");
+    size_t pos;
+    while(std::string::npos != (pos = name.find(needle)))
+        name.replace(pos, 1, tmp);
+    
+    Logger::println("final intrinsic name: %s", name.c_str());
+}

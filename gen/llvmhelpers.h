@@ -110,6 +110,9 @@ LLValue* DtoBoolean(Loc& loc, DValue* dval);
 /// get the default initializer of the type
 LLConstant* DtoDefaultInit(Type* t);
 
+// fixup an overloaded intrinsic name string
+void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////

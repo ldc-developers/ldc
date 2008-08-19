@@ -838,7 +838,7 @@ void PragmaDeclaration::semantic(Scope *sc)
         expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
-             error("pragma intrinsic requires exactly 1 string literal parameter");
+             error("requires exactly 1 string literal parameter");
              fatal();
         }
         llvm_internal = LLVMintrinsic;
@@ -849,7 +849,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma no_typeinfo takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMno_typeinfo;
@@ -860,7 +860,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma no_moduleinfo takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMno_moduleinfo;
@@ -871,7 +871,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma alloca takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMalloca;
@@ -882,7 +882,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma va_start takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMva_start;
@@ -893,7 +893,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma va_copy takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMva_copy;
@@ -904,7 +904,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma va_end takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMva_end;
@@ -915,7 +915,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
         if (args && args->dim > 0)
         {
-             error("pragma va_arg takes no parameters");
+             error("takes no parameters");
              fatal();
         }
         llvm_internal = LLVMva_arg;
@@ -928,7 +928,7 @@ void PragmaDeclaration::semantic(Scope *sc)
         expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
-             error("pragma llvmdc requires exactly 1 string literal parameter");
+             error("requires exactly 1 string literal parameter");
              fatal();
         }
         else if (arg1str == "verbose")
@@ -937,7 +937,7 @@ void PragmaDeclaration::semantic(Scope *sc)
         }
         else
         {
-            error("pragma llvmdc command '%s' invalid");
+            error("command '%s' invalid");
             fatal();
         }
     }
@@ -1000,9 +1000,14 @@ void PragmaDeclaration::semantic(Scope *sc)
                 fd->llvmInternal = llvm_internal;
                 fd->intrinsicName = arg1str;
             }
+            else if (TemplateDeclaration* td = s->isTemplateDeclaration())
+            {
+                td->llvmInternal = llvm_internal;
+                td->intrinsicName = arg1str;
+            }
             else
             {
-                error("the intrinsic pragma is only allowed on function declarations");
+                error("only allowed on function declarations");
                 fatal();
             }
             break;

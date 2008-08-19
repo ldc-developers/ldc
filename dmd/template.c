@@ -303,6 +303,10 @@ Dsymbol *TemplateDeclaration::syntaxCopy(Dsymbol *)
     }
     d = Dsymbol::arraySyntaxCopy(members);
     td = new TemplateDeclaration(loc, ident, p, d);
+    
+    // LLVMDC
+    td->intrinsicName = intrinsicName;
+    
     return td;
 }
 
