@@ -592,6 +592,16 @@ void DtoDefineFunc(FuncDeclaration* fd)
         fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
         fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type), "function_vresult");
     }
+    
+    // this hack makes sure the frame pointer elimination optimization is disabled.
+    // this this eliminates a bunch of inline asm related issues.
+    // naked must always eliminate the framepointer however...
+    if (fd->inlineAsm && !fd->naked)
+    {
+        // emit a call to llvm_eh_unwind_init
+        LLFunction* hack = GET_INTRINSIC_DECL(eh_unwind_init);
+        gIR->ir->CreateCall(hack, "");
+    }
 
     // give the 'this' argument storage and debug info
     if (f->usesThis)

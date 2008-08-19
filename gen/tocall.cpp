@@ -37,7 +37,12 @@ unsigned DtoCallingConv(LINK l)
     if (l == LINKc || l == LINKcpp)
         return llvm::CallingConv::C;
     else if (l == LINKd || l == LINKdefault)
-        return llvm::CallingConv::Fast;
+    {
+        if (global.params.cpu == ARCHx86)
+            return llvm::CallingConv::X86_StdCall;
+        else
+            return llvm::CallingConv::Fast;
+    }
     else if (l == LINKwindows)
         return llvm::CallingConv::X86_StdCall;
     else
