@@ -1570,7 +1570,10 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     Type* T = (Type*)ti->tdtypes.data[0];
 
     char tmp[10];
-    sprintf(tmp, "%d", T->size()*8);
+    if (T->toBasetype()->ty == Tbool) // otherwise we'd get a mismatch
+        sprintf(tmp, "1");
+    else
+        sprintf(tmp, "%d", T->size()*8);
     
     // replace # in name with bitsize
     name = td->intrinsicName;
