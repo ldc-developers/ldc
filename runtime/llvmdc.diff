@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 3831)
+--- object.di	(revision 3880)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -12,9 +12,66 @@ Index: object.di
      static int opApply( int delegate( inout ModuleInfo ) );
  }
  
+Index: lib/unittest.sh
+===================================================================
+--- lib/unittest.sh	(revision 3880)
++++ lib/unittest.sh	(working copy)
+@@ -18,8 +18,9 @@
+   --help: This message
+   --run-all: Reports result instead of breaking. Do not use this if you want to
+          run unittest runner through a debugger.
+-  dmd: Builds unittests for dmd
+-  gdc: Builds unittests for gdc
++  dmd:    Builds unittests for dmd
++  gdc:    Builds unittests for gdc
++  llvmdc: Builds unittests for llvmdc
+ 
+   <none>: Builds unittests for all known compilers.'
+   exit 0
+@@ -86,7 +87,7 @@
+ void main() {}
+ EOF
+ 
+-        rebuild -w -d -g -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
++        rebuild -w -d -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
+         -version=UnitTest $EXE.d tango/core/*.d tango/core/sync/*.d tango/io/digest/*.d \
+         tango/io/model/*.d tango/io/protocol/*.d tango/io/selector/*.d tango/io/*.d \
+         tango/io/vfs/*.d tango/io/vfs/model/*.d \
+@@ -125,6 +126,9 @@
+         gdc)
+             GDC=1
+             ;;
++        llvmdc)
++            LLVMDC=1
++            ;;
+         *)
+             usage
+             ;;
+@@ -132,10 +136,11 @@
+     shift
+ done
+ 
+-if [ ! "$DMD" -a ! "$GDC" ]
++if [ ! "$DMD" -a ! "$GDC" -a ! "$LLVMDC" ]
+ then
+     DMD=1
+     GDC=1
++    LLVMDC=1
+ fi
+ 
+ if [ "$DMD" = "1" ]
+@@ -146,4 +151,7 @@
+ then
+     compile gdc runUnitTest_gdc
+ fi
+-
++if [ "$LLVMDC" = "1" ]
++then
++    compile llvmdc runUnitTest_llvmdc
++fi
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 3831)
+--- lib/common/tango/core/BitManip.d	(revision 3880)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -29,7 +86,7 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 3831)
+--- lib/common/tango/core/Thread.d	(revision 3880)
 +++ lib/common/tango/core/Thread.d	(working copy)
 @@ -244,10 +244,33 @@
          }
@@ -94,57 +151,9 @@ Index: lib/common/tango/core/Thread.d
          version( X86_64 )
          {
  
-Index: lib/unittest.sh
-===================================================================
---- lib/unittest.sh	(revision 3831)
-+++ lib/unittest.sh	(working copy)
-@@ -18,8 +18,9 @@
-   --help: This message
-   --run-all: Reports result instead of breaking. Do not use this if you want to
-          run unittest runner through a debugger.
--  dmd: Builds unittests for dmd
--  gdc: Builds unittests for gdc
-+  dmd:    Builds unittests for dmd
-+  gdc:    Builds unittests for gdc
-+  llvmdc: Builds unittests for llvmdc
- 
-   <none>: Builds unittests for all known compilers.'
-   exit 0
-@@ -125,6 +126,9 @@
-         gdc)
-             GDC=1
-             ;;
-+        llvmdc)
-+            LLVMDC=1
-+            ;;
-         *)
-             usage
-             ;;
-@@ -132,10 +136,11 @@
-     shift
- done
- 
--if [ ! "$DMD" -a ! "$GDC" ]
-+if [ ! "$DMD" -a ! "$GDC" -a ! "$LLVMDC" ]
- then
-     DMD=1
-     GDC=1
-+    LLVMDC=1
- fi
- 
- if [ "$DMD" = "1" ]
-@@ -146,4 +151,7 @@
- then
-     compile gdc runUnitTest_gdc
- fi
--
-+if [ "$LLVMDC" = "1" ]
-+then
-+    compile llvmdc runUnitTest_llvmdc
-+fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 3831)
+--- lib/gc/basic/gcx.d	(revision 3880)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -2178,6 +2178,28 @@
              __builtin_unwind_init();
@@ -188,7 +197,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 3831)
+--- lib/gc/basic/gcbits.d	(revision 3880)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -203,7 +212,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 3831)
+--- tango/text/convert/Layout.d	(revision 3880)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -240,7 +249,7 @@ Index: tango/text/convert/Layout.d
                          long[64] longargs = void;
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 3831)
+--- tango/core/Vararg.d	(revision 3880)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -253,9 +262,229 @@ Index: tango/core/Vararg.d
  else
  {
      /**
+Index: tango/core/Variant.d
+===================================================================
+--- tango/core/Variant.d	(revision 3880)
++++ tango/core/Variant.d	(working copy)
+@@ -102,13 +102,45 @@
+             const isInterface = false;
+     }
+ 
+-    template isStaticArray(T)
++//     template isStaticArray(T)
++//     {
++//         static if( is( typeof(T.init)[(T).sizeof / typeof(T.init).sizeof] == T ) )
++//             const isStaticArray = true;
++//         else
++//             const isStaticArray = false;
++//     }
++    /* *******************************************
++    */
++    template isStaticArray_impl(T)
+     {
+-        static if( is( typeof(T.init)[(T).sizeof / typeof(T.init).sizeof] == T ) )
+-            const isStaticArray = true;
++        const T inst = void;
++    
++        static if (is(typeof(T.length)))
++        {
++        static if (!is(T == typeof(T.init)))
++        {           // abuses the fact that int[5].init == int
++            static if (is(T == typeof(T[0])[inst.length]))
++            {   // sanity check. this check alone isn't enough because dmd complains about dynamic arrays
++            const bool res = true;
++            }
++            else
++            const bool res = false;
++        }
+         else
+-            const isStaticArray = false;
++            const bool res = false;
++        }
++        else
++        {
++            const bool res = false;
++        }
+     }
++    /**
++    * Detect whether type T is a static array.
++    */
++    template isStaticArray(T)
++    {
++        const bool isStaticArray = isStaticArray_impl!(T).res;
++    }
+ 
+     bool isAny(T,argsT...)(T v, argsT args)
+     {
+Index: tango/core/Atomic.d
+===================================================================
+--- tango/core/Atomic.d	(revision 3880)
++++ tango/core/Atomic.d	(working copy)
+@@ -270,6 +270,161 @@
+ 
+ 
+ ////////////////////////////////////////////////////////////////////////////////
++// LLVMDC Atomics Implementation
++////////////////////////////////////////////////////////////////////////////////
++
++
++else version( LLVMDC )
++{
++    import llvmdc.intrinsics;
++
++
++    ////////////////////////////////////////////////////////////////////////////
++    // Atomic Load
++    ////////////////////////////////////////////////////////////////////////////
++
++
++    template atomicLoad( msync ms = msync.seq, T )
++    {
++        T atomicLoad(ref T val)
++        {
++            llvm_memory_barrier(
++                ms == msync.hlb || ms == msync.acq || ms == msync.seq,
++                ms == msync.hsb || ms == msync.acq || ms == msync.seq,
++                ms == msync.slb || ms == msync.rel || ms == msync.seq,
++                ms == msync.ssb || ms == msync.rel || ms == msync.seq,
++                false);
++            static if (isPointerType!(T))
++            {
++                return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
++            }
++            else
++            {
++                return llvm_atomic_load_add!(T)(&val, cast(T)0);
++            }
++        }
++    }
++
++
++    ////////////////////////////////////////////////////////////////////////////
++    // Atomic Store
++    ////////////////////////////////////////////////////////////////////////////
++
++
++    template atomicStore( msync ms = msync.seq, T )
++    {
++        void atomicStore( ref T val, T newval )
++        {
++            llvm_memory_barrier(
++                ms == msync.hlb || ms == msync.acq || ms == msync.seq,
++                ms == msync.hsb || ms == msync.acq || ms == msync.seq,
++                ms == msync.slb || ms == msync.rel || ms == msync.seq,
++                ms == msync.ssb || ms == msync.rel || ms == msync.seq,
++                false);
++            static if (isPointerType!(T))
++            {
++                llvm_atomic_swap!(size_t)(cast(size_t*)&val, cast(size_t)newval);
++            }
++            else static if (is(T == bool))
++            {
++                llvm_atomic_swap!(ubyte)(cast(ubyte*)&val, newval?1:0);
++            }
++            else
++            {
++                llvm_atomic_swap!(T)(&val, newval);
++            }
++        }
++    }
++
++
++    ////////////////////////////////////////////////////////////////////////////
++    // Atomic Store If
++    ////////////////////////////////////////////////////////////////////////////
++
++
++    template atomicStoreIf( msync ms = msync.seq, T )
++    {
++        bool atomicStoreIf( ref T val, T newval, T equalTo )
++        {
++            llvm_memory_barrier(
++                ms == msync.hlb || ms == msync.acq || ms == msync.seq,
++                ms == msync.hsb || ms == msync.acq || ms == msync.seq,
++                ms == msync.slb || ms == msync.rel || ms == msync.seq,
++                ms == msync.ssb || ms == msync.rel || ms == msync.seq,
++                false);
++            T oldval = void;
++            static if (isPointerType!(T))
++            {
++                oldval = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(size_t*)&val, cast(size_t)equalTo, cast(size_t)newval);
++            }
++            else static if (is(T == bool))
++            {
++                oldval = llvm_atomic_cmp_swap!(ubyte)(cast(ubyte*)&val, equalTo?1:0, newval?1:0)?0:1;
++            }
++            else
++            {
++                oldval = llvm_atomic_cmp_swap!(T)(&val, equalTo, newval);
++            }
++            return oldval == equalTo;
++        }
++    }
++    
++    
++    ////////////////////////////////////////////////////////////////////////////
++    // Atomic Increment
++    ////////////////////////////////////////////////////////////////////////////
++
++
++    template atomicIncrement( msync ms = msync.seq, T )
++    {
++        //
++        // NOTE: This operation is only valid for integer or pointer types
++        //
++        static assert( isValidNumericType!(T) );
++
++
++        T atomicIncrement( ref T val )
++        {
++            static if (isPointerType!(T))
++            {
++                return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 1);
++            }
++            else
++            {
++                return llvm_atomic_load_add!(T)(&val, cast(T)1);
++            }
++        }
++    }
++    
++    
++    ////////////////////////////////////////////////////////////////////////////
++    // Atomic Decrement
++    ////////////////////////////////////////////////////////////////////////////
++
++
++    template atomicDecrement( msync ms = msync.seq, T )
++    {
++        //
++        // NOTE: This operation is only valid for integer or pointer types
++        //
++        static assert( isValidNumericType!(T) );
++
++
++        T atomicDecrement( ref T val )
++        {
++            static if (isPointerType!(T))
++            {
++                return cast(T)llvm_atomic_load_sub!(size_t)(cast(size_t*)&val, 1);
++            }
++            else
++            {
++                return llvm_atomic_load_sub!(T)(&val, cast(T)1);
++            }
++        }
++    }
++}
++
++////////////////////////////////////////////////////////////////////////////////
+ // x86 Atomic Function Implementation
+ ////////////////////////////////////////////////////////////////////////////////
+ 
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 3831)
+--- tango/math/Math.d	(revision 3880)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -404,7 +633,7 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 3831)
+--- tango/stdc/stdlib.d	(revision 3880)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -420,7 +649,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 3831)
+--- tango/stdc/stdarg.d	(revision 3880)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
