@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 3880)
+--- object.di	(revision 3899)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -14,7 +14,7 @@ Index: object.di
  
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 3880)
+--- lib/unittest.sh	(revision 3899)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -71,7 +71,7 @@ Index: lib/unittest.sh
 +fi
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 3880)
+--- lib/common/tango/core/BitManip.d	(revision 3899)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -86,118 +86,80 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 3880)
+--- lib/common/tango/core/Thread.d	(revision 3899)
 +++ lib/common/tango/core/Thread.d	(working copy)
-@@ -244,10 +244,33 @@
-         }
-         body
-         {
--            version( D_InlineAsm_X86 )
-+            version( LLVMDC )
+@@ -255,6 +255,10 @@
              {
-+                // put registers on the stack
-+                version(D_InlineAsm_X86)
-+                {
-+                uint _eax, _ecx, _edx, _ebx, _esp, _ebp, _esi, _edi;
-                 asm
-                 {
-+                    mov _eax, EAX;
-+                    mov _ecx, ECX;
-+                    mov _edx, EDX;
-+                    mov _ebx, EBX;
-+                    mov _esp, ESP;
-+                    mov _ebp, EBP;
-+                    mov _esi, ESI;
-+                    mov _edi, EDI;
-+                }
-+                }
-+                else
-+                {
-+                    // FIXME
-+                }
-+            }
-+            else version( D_InlineAsm_X86 )
+                 __builtin_unwind_init();
+             }
++            else version( LLVMDC )
 +            {
-+                asm
-+                {
-                     pushad;
-                 }
-             }
-@@ -297,8 +320,12 @@
-                 }
-             }
- 
--            version( D_InlineAsm_X86 )
-+            version( LLVMDC )
++                pragma(msg, "don't know how to push registers on the stack for this architecture with LLVMDC");
++            }
+             else
              {
-+                // nothing to do
-+            }
-+            else version( D_InlineAsm_X86 )
+                 static assert( false, "Architecture not supported." );
+@@ -308,6 +312,10 @@
+             {
+                 // registers will be popped automatically
+             }
++            else version( LLVMDC )
 +            {
-                 asm
-                 {
-                     popad;
-@@ -2266,8 +2293,12 @@
- 
- private
- {
--    version( D_InlineAsm_X86 )
-+    version( LLVMDC )
-     {
-+
-+    }
-+    else version( D_InlineAsm_X86 )
-+    {
-         version( X86_64 )
-         {
- 
++                // TODO
++            }
+             else
+             {
+                 static assert( false, "Architecture not supported." );
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 3880)
+--- lib/gc/basic/gcx.d	(revision 3899)
 +++ lib/gc/basic/gcx.d	(working copy)
-@@ -2178,6 +2178,28 @@
+@@ -2178,6 +2178,21 @@
              __builtin_unwind_init();
              sp = & sp;
          }
 +        else version(LLVMDC)
 +        {
-+            version(D_InlineAsm_X86)
++            version(X86)
 +            {
-+            uint _eax, _ecx, _edx, _ebx, _ebp, _esi, _edi;
-+            asm
-+            {
-+                mov _eax, EAX;
-+                mov _ecx, ECX;
-+                mov _edx, EDX;
-+                mov _ebx, EBX;
-+                mov _ebp, EBP;
-+                mov _esi, ESI;
-+                mov _edi, EDI;
-+                mov sp, ESP;
-+            }
++                asm
++                {
++                    pushad              ;
++                    mov sp[EBP],ESP     ;
++                }
 +            }
 +            else
 +            {
-+                // FIXME
++                pragma(msg, "don't know how to push registers on the stack for this architecture with llvmdc");
 +            }
 +        }
          else
          {
          asm
-@@ -2191,6 +2213,10 @@
+@@ -2191,6 +2206,20 @@
          {
              // nothing to do
          }
 +        else version(LLVMDC)
 +        {
-+            // nothing to do
++            version(X86)
++            {
++                asm
++                {
++                    popad               ;
++                }
++            }
++            else
++            {
++                // TODO
++            }
 +        }
          else
          {
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 3880)
+--- lib/gc/basic/gcbits.d	(revision 3899)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -212,7 +174,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 3880)
+--- tango/text/convert/Layout.d	(revision 3899)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -249,7 +211,7 @@ Index: tango/text/convert/Layout.d
                          long[64] longargs = void;
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 3880)
+--- tango/core/Vararg.d	(revision 3899)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -262,63 +224,9 @@ Index: tango/core/Vararg.d
  else
  {
      /**
-Index: tango/core/Variant.d
-===================================================================
---- tango/core/Variant.d	(revision 3880)
-+++ tango/core/Variant.d	(working copy)
-@@ -102,13 +102,45 @@
-             const isInterface = false;
-     }
- 
--    template isStaticArray(T)
-+//     template isStaticArray(T)
-+//     {
-+//         static if( is( typeof(T.init)[(T).sizeof / typeof(T.init).sizeof] == T ) )
-+//             const isStaticArray = true;
-+//         else
-+//             const isStaticArray = false;
-+//     }
-+    /* *******************************************
-+    */
-+    template isStaticArray_impl(T)
-     {
--        static if( is( typeof(T.init)[(T).sizeof / typeof(T.init).sizeof] == T ) )
--            const isStaticArray = true;
-+        const T inst = void;
-+    
-+        static if (is(typeof(T.length)))
-+        {
-+        static if (!is(T == typeof(T.init)))
-+        {           // abuses the fact that int[5].init == int
-+            static if (is(T == typeof(T[0])[inst.length]))
-+            {   // sanity check. this check alone isn't enough because dmd complains about dynamic arrays
-+            const bool res = true;
-+            }
-+            else
-+            const bool res = false;
-+        }
-         else
--            const isStaticArray = false;
-+            const bool res = false;
-+        }
-+        else
-+        {
-+            const bool res = false;
-+        }
-     }
-+    /**
-+    * Detect whether type T is a static array.
-+    */
-+    template isStaticArray(T)
-+    {
-+        const bool isStaticArray = isStaticArray_impl!(T).res;
-+    }
- 
-     bool isAny(T,argsT...)(T v, argsT args)
-     {
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 3880)
+--- tango/core/Atomic.d	(revision 3899)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,161 @@
  
@@ -484,7 +392,7 @@ Index: tango/core/Atomic.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 3880)
+--- tango/math/Math.d	(revision 3899)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -631,9 +539,38 @@ Index: tango/math/Math.d
  }
  
  debug(UnitTest) {
+Index: tango/math/internal/BignumX86.d
+===================================================================
+--- tango/math/internal/BignumX86.d	(revision 3899)
++++ tango/math/internal/BignumX86.d	(working copy)
+@@ -50,6 +50,8 @@
+ private:
+ version(GNU) {
+     // GDC is a filthy liar. It can't actually do inline asm.
++} else version(LLVMDC) {
++    // I guess the same goes for llvmdc to some extent :(
+ } else version(D_InlineAsm_X86) {
+ /* Duplicate string s, with n times, substituting index for '@'.
+  *
+Index: tango/math/internal/BiguintCore.d
+===================================================================
+--- tango/math/internal/BiguintCore.d	(revision 3899)
++++ tango/math/internal/BiguintCore.d	(working copy)
+@@ -12,7 +12,10 @@
+ } else version(GNU) {
+     // GDC lies about its X86 support
+ private import tango.math.internal.BignumNoAsm;    
+-} else version(D_InlineAsm_X86) { 
++} else version(LLVMDC) {
++    // I guess llvmdc does too :(
++private import tango.math.internal.BignumNoAsm;    
++} else version(D_InlineAsm_X86) {
+ private import tango.math.internal.BignumX86;
+ } else {
+ private import tango.math.internal.BignumNoAsm;
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 3880)
+--- tango/stdc/stdlib.d	(revision 3899)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -649,7 +586,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 3880)
+--- tango/stdc/stdarg.d	(revision 3899)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {

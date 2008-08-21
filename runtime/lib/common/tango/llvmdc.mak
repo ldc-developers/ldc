@@ -26,10 +26,10 @@ ADD_DFLAGS=
 CFLAGS=$(ADD_CFLAGS)
 
 #DFLAGS=-release -O3 -inline -w $(ADD_DFLAGS)
-DFLAGS=-w -noasm $(ADD_DFLAGS)
+DFLAGS=-w $(ADD_DFLAGS)
 
 #TFLAGS=-O3 -inline -w $(ADD_DFLAGS)
-TFLAGS=-w -noasm $(ADD_DFLAGS)
+TFLAGS=-w $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc
 
