@@ -883,4 +883,17 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
+    // void _d_invariant(Object o)
+    {
+        std::string fname("_d_invariant");
+        std::vector<const LLType*> types;
+        types.push_back(objectTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
 }
