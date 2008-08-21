@@ -1569,30 +1569,56 @@ DValue* AssertExp::toElem(IRState* p)
     Logger::print("AssertExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
+    if(!global.params.useAssert)
+        return NULL;
+
     // condition
     DValue* cond = e1->toElem(p);
+    Type* condty = e1->type->toBasetype();
 
-    // create basic blocks
-    llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* assertbb = llvm::BasicBlock::Create("assert", p->topfunc(), oldend);
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
+    InvariantDeclaration* invdecl;
 
-    // test condition
-    LLValue* condval = DtoBoolean(loc, cond);
+    // class invariants
+    if(
+        global.params.useInvariants && 
+        condty->ty == Tclass &&
+        !((TypeClass*)condty)->sym->isInterfaceDeclaration())
+    {
+        Logger::print("calling class invariant");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_invariant");
+        LLValue* arg = DtoBitCast(cond->getRVal(), fn->getFunctionType()->getParamType(0));
+        gIR->CreateCallOrInvoke(fn, arg);
+    }
+    // struct invariants
+    else if(
+        global.params.useInvariants && 
+        condty->ty == Tpointer && condty->next->ty == Tstruct &&
+        (invdecl = ((TypeStruct*)condty->next)->sym->inv) != NULL)
+    {
+        Logger::print("calling struct invariant");
+        DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
+        DtoCallFunction(loc, NULL, &invfunc, NULL);
+    }
+    else
+    {
+        // create basic blocks
+        llvm::BasicBlock* oldend = p->scopeend();
+        llvm::BasicBlock* assertbb = llvm::BasicBlock::Create("assert", p->topfunc(), oldend);
+        llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
 
-    // branch
-    llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
+        // test condition
+        LLValue* condval = DtoBoolean(loc, cond);
 
-    // call assert runtime functions
-    p->scope() = IRScope(assertbb,endbb);
-    DtoAssert(&loc, msg ? msg->toElem(p) : NULL);
+        // branch
+        llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
 
-    // assert inserts unreachable terminator
-//     if (!gIR->scopereturned())
-//         llvm::BranchInst::Create(endbb, p->scopebb());
+        // call assert runtime functions
+        p->scope() = IRScope(assertbb,endbb);
+        DtoAssert(&loc, msg ? msg->toElem(p) : NULL);
 
-    // rewrite the scope
-    p->scope() = IRScope(endbb,oldend);
+        // rewrite the scope
+        p->scope() = IRScope(endbb,oldend);
+    }
 
     // no meaningful return value
     return NULL;

@@ -113,8 +113,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
     int begin = tf->parameters->dim;
     Logger::println("num non vararg params = %d", begin);
 
+    // get n args in arguments list
+    size_t n_arguments = arguments ? arguments->dim : 0;
+
     // build struct with argument types (non variadic args)
-    for (int i=begin; i<arguments->dim; i++)
+    for (int i=begin; i<n_arguments; i++)
     {
         Expression* argexp = (Expression*)arguments->data[i];
         vtypes.push_back(DtoType(argexp->type));
@@ -127,7 +130,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
     LLValue* mem = DtoAlloca(vtype,"_argptr_storage");
 
     // store arguments in the struct
-    for (int i=begin,k=0; i<arguments->dim; i++,k++)
+    for (int i=begin,k=0; i<n_arguments; i++,k++)
     {
         Expression* argexp = (Expression*)arguments->data[i];
         if (global.params.llvmAnnotate)
@@ -147,7 +150,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
     Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
     std::vector<LLConstant*> vtypeinfos;
-    for (int i=begin,k=0; i<arguments->dim; i++,k++)
+    for (int i=begin,k=0; i<n_arguments; i++,k++)
     {
         Expression* argexp = (Expression*)arguments->data[i];
         vtypeinfos.push_back(DtoTypeInfoOf(argexp->type));
@@ -219,6 +222,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     const LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
 
+    // get n arguments
+    size_t n_arguments = arguments ? arguments->dim : 0;
+
     // get llvm argument iterator, for types
     LLFunctionType::param_iterator argbegin = callableTy->param_begin();
     LLFunctionType::param_iterator argiter = argbegin;
@@ -280,8 +286,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // variadic instrinsics need some custom casts
     if (va_intrinsic)
     {
-        size_t n = arguments->dim;
-        for (int i=0; i<n; i++)
+        for (int i=0; i<n_arguments; i++)
         {
             Expression* exp = (Expression*)arguments->data[i];
             DValue* expelem = exp->toElem(gIR);
@@ -302,7 +307,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     else
     {
         Logger::println("doing normal arguments");
-        for (int i=0; i<arguments->dim; i++) {
+        for (int i=0; i<n_arguments; i++) {
             int j = argiter-argbegin;
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
