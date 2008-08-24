@@ -761,6 +761,7 @@ int main(int argc, char *argv[])
 	VersionCondition::addPredefinedGlobalIdent("darwin");
     VersionCondition::addPredefinedGlobalIdent("Posix");
 	global.params.tt_os = "-pc-darwin-gnu";
+    break;
 
     default:
 	assert(false && "Target OS not supported");
