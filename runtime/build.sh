@@ -4,12 +4,12 @@
 
 # copy imports
 mkdir -p ../tango/llvmdc
-cp -u internal/llvmdc/bitmanip.d ../tango/llvmdc/bitmanip.di
-cp -u internal/llvmdc/vararg.d ../tango/llvmdc/vararg.di
-cp -u import/llvmdc/* ../tango/llvmdc
+cp internal/llvmdc/bitmanip.d ../tango/llvmdc/bitmanip.di
+cp internal/llvmdc/vararg.d ../tango/llvmdc/vararg.di
+cp import/llvmdc/* ../tango/llvmdc
 
 # make the runtime
-cp -Ru lib ../tango
+cp -R lib ../tango
 cd ../tango/lib
 make -f llvmdc-posix.mak clean
 make -f llvmdc-posix.mak
