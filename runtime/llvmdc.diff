@@ -120,17 +120,20 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      pushad;
-@@ -297,6 +319,10 @@
+@@ -297,8 +319,12 @@
                  }
              }
  
+-            version( D_InlineAsm_X86 )
 +            version( LLVMDC)
-+            {
+             {
 +                // nothing to pop
 +            }
-             version( D_InlineAsm_X86 )
-             {
++            else version( D_InlineAsm_X86 )
++            {
                  asm
+                 {
+                     popad;
 Index: lib/gc/basic/gcx.d
 ===================================================================
 --- lib/gc/basic/gcx.d	(revision 3899)
