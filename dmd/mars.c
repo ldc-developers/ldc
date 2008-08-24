@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
     global.params.os = OSWindows;
 #elif linux
     global.params.os = OSLinux;
-#elif __APPLY__
+#elif __APPLE__
     global.params.os = OSMacOSX;
 #else
 #error
@@ -759,6 +759,7 @@ int main(int argc, char *argv[])
 
     case OSMacOSX:
 	VersionCondition::addPredefinedGlobalIdent("darwin");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
 	global.params.tt_os = "-pc-darwin-gnu";
 
     default:
