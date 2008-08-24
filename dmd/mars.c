@@ -231,9 +231,6 @@ int main(int argc, char *argv[])
     Module *m;
     int status = EXIT_SUCCESS;
     int argcstart = argc;
-    char* tt_arch = 0;
-    char* tt_os = 0;
-    char* data_layout = 0;
     bool very_verbose = false;
 
     // Check for malformed input
@@ -312,23 +309,14 @@ int main(int argc, char *argv[])
     VersionCondition::addPredefinedGlobalIdent("LLVMDC");
 #endif
 
+    // setup default target os to be build os
 #if _WIN32
-    VersionCondition::addPredefinedGlobalIdent("Windows");
-    VersionCondition::addPredefinedGlobalIdent("Win32");
-    VersionCondition::addPredefinedGlobalIdent("mingw32");
-    global.params.isWindows = 1;
-    tt_os = "-pc-mingw32";
+    global.params.os = OSWindows;
 #elif linux
-    VersionCondition::addPredefinedGlobalIdent("linux");
-    global.params.isLinux = 1;
-    tt_os = "-pc-linux-gnu";
+    global.params.os = OSLinux;
 #else
 #error
 #endif /* linux */
-
-    // !win32 == posix for now
-    if (!global.params.isWindows)
-        VersionCondition::addPredefinedGlobalIdent("Posix");
 
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
     VersionCondition::addPredefinedGlobalIdent("all");
@@ -700,8 +688,8 @@ int main(int argc, char *argv[])
         global.params.isLE = true;
         global.params.is64bit = false;
         global.params.cpu = ARCHx86;
-        tt_arch = "i686";
-        data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
+        global.params.tt_arch = "i686";
+        global.params.data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
         if (global.params.useInlineAsm) {
             VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
             VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
@@ -712,24 +700,24 @@ int main(int argc, char *argv[])
         global.params.isLE = true;
         global.params.is64bit = true;
         global.params.cpu = ARCHx86_64;
-        tt_arch = "x86_64";
-        data_layout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
+        global.params.tt_arch = "x86_64";
+        global.params.data_layout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"ppc32")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC");
         global.params.isLE = false;
         global.params.is64bit = false;
         global.params.cpu = ARCHppc;
-        tt_arch = "powerpc";
-        data_layout = "E-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64";
+        global.params.tt_arch = "powerpc";
+        global.params.data_layout = "E-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"ppc64")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC64");
         global.params.isLE = false;
         global.params.is64bit = true;
         global.params.cpu = ARCHppc_64;
-        tt_arch = "powerpc64";
-        data_layout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
+        global.params.tt_arch = "powerpc64";
+        global.params.data_layout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else {
         assert(0 && "Invalid arch");
@@ -750,12 +738,27 @@ int main(int argc, char *argv[])
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
     }
 
-    assert(tt_arch != 0);
-    assert(tt_os != 0);
-    assert(data_layout != 0);
-    global.params.tt_arch = tt_arch;
-    global.params.tt_os = tt_os;
-    global.params.data_layout = data_layout;
+
+    // setup version idents and tt_os for chosen target os
+    switch(global.params.os)
+    {
+    case OSWindows:
+	VersionCondition::addPredefinedGlobalIdent("Windows");
+	VersionCondition::addPredefinedGlobalIdent("Win32");
+	VersionCondition::addPredefinedGlobalIdent("mingw32");
+	global.params.tt_os = "-pc-mingw32";
+	break;
+
+    case OSLinux: 
+	VersionCondition::addPredefinedGlobalIdent("linux");
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	global.params.tt_os = "-pc-linux-gnu";
+	break;
+
+    default:
+	assert(false && "Target OS not supported");
+    }
+
 
     // Initialization
     Type::init();

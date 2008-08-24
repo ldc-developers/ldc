@@ -705,7 +705,7 @@ const LLStructType* DtoMutexType()
         return gIR->mutexType;
 
     // win32
-    if (global.params.isWindows)
+    if (global.params.os == OSWindows)
     {
         // CRITICAL_SECTION.sizeof == 68
         std::vector<const LLType*> types(17, LLType::Int32Ty);

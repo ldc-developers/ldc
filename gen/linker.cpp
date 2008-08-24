@@ -72,7 +72,7 @@ int linkExecutable(const char* argv0)
         else
             exestr = "a.out";
     }
-    if (global.params.isWindows)
+    if (global.params.os == OSWindows)
         exestr.append(".exe");
 
     std::string outopt = "-o=" + exestr;
@@ -151,13 +151,13 @@ int linkExecutable(const char* argv0)
     }
 
     // default libs
-    if(global.params.isLinux)
+    if(global.params.os == OSLinux)
     {
         args.push_back("-lpthread");
         args.push_back("-ldl");
         args.push_back("-lm");
     }
-    else if (global.params.isWindows)
+    else if (global.params.os == OSWindows)
     {
         // FIXME: I'd assume kernel32 etc
     }
@@ -174,12 +174,11 @@ int linkExecutable(const char* argv0)
     std::string runtime_path(global.params.runtimePath);
 
     // path seperator can be \ on windows, but we check for /
-    if (global.params.isWindows)
-    {
-        int i=0;
-        while ((i = runtime_path.find("\\", i)) > 0)
-            runtime_path.replace(i, 1, "/");
-    }
+#if _WIN32
+    int i=0;
+    while ((i = runtime_path.find("\\", i)) > 0)
+        runtime_path.replace(i, 1, "/");
+#endif
 
     if (*runtime_path.rbegin() != '/')
         runtime_path.append("/");

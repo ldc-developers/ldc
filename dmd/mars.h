@@ -37,6 +37,22 @@
 
 struct Array;
 
+// LLVMDC
+enum ARCH
+{
+    ARCHx86,
+    ARCHx86_64,
+    ARCHppc,
+    ARCHppc_64
+};
+
+enum OS
+{
+    OSLinux,
+    OSWindows,
+    OSMacOSX
+};
+
 // Put command line switches in here
 struct Param
 {
@@ -48,11 +64,10 @@ struct Param
     char symdebug;	// insert debug symbolic information
     char optimize;	// run optimizer
     char optimizeLevel; // optimization level
-    char cpu;		// target CPU
+    ARCH cpu;		// target CPU
+    OS   os;		// target OS
     char is64bit;	// generate 64 bit code
     char isLE;      // generate little endian code
-    char isLinux;	// generate code for linux
-    char isWindows;	// generate code for Windows
     char scheduler;	// which scheduler to use
     char useDeprecated;	// allow use of deprecated features
     char useAssert;	// generate runtime code for assert()'s
@@ -303,15 +318,6 @@ enum MATCH
     MATCHconst,		// match with conversion to const
 #endif
     MATCHexact		// exact match
-};
-
-// LLVMDC
-enum ARCH
-{
-    ARCHx86,
-    ARCHx86_64,
-    ARCHppc,
-    ARCHppc_64
 };
 
 void error(Loc loc, const char *format, ...);
