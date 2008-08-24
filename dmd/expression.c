@@ -38,7 +38,7 @@ extern "C" char * __cdecl __locale_decpoint;
 #include "mem.h"
 #elif _WIN32
 #include "..\root\mem.h"
-#elif linux
+#elif linux || __APPLE__
 #include "../root/mem.h"
 #endif
 

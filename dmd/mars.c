@@ -19,7 +19,7 @@
 #include <dos.h>
 #endif
 
-#if linux
+#if linux || __APPLE__
 #include <errno.h>
 #elif _WIN32
 #include <windows.h>
@@ -60,7 +60,7 @@ Global::Global()
     bc_ext  = "bc";
 #if _WIN32
     nativeobj_ext = "obj";
-#elif linux
+#elif linux || __APPLE__
     nativeobj_ext = "o";
 #else
 #error "fix this"
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
 
 #if _WIN32
     inifile(global.params.argv0, "llvmdc.ini");
-#elif linux
+#elif linux || __APPLE__
     inifile(global.params.argv0, "llvmdc.conf");
 #else
 #error

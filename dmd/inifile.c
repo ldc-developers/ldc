@@ -79,7 +79,7 @@ void inifile(char *argv0, char *inifile)
 		filename = FileName::replaceName(argv0, inifile);
 		if (!FileName::exists(filename))
 		{
-#if linux
+#if linux || __APPLE__
 
 #if 0
 #if __GLIBC__	    // This fix by Thomas Kuehne

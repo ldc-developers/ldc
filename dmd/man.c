@@ -26,7 +26,7 @@ void browse(const char *url)
 
 #endif
 
-#if linux
+#if linux || __APPLE__
 
 #include	<sys/types.h>
 #include	<sys/wait.h>
