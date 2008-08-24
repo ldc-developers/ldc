@@ -177,6 +177,9 @@ AsmStatement::toIR(IRState * irs)
     Logger::println("AsmStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    // sanity check
+    assert(irs->func()->decl->inlineAsm);
+
     // get asm block
     IRAsmBlock* asmblock = irs->asmBlock;
     assert(asmblock);
