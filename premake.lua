@@ -6,14 +6,11 @@ project.name = llvmdc
 OPAQUE_VTBLS = 1
 
 -- use of boehm gc
-if OS == "windows" then
-    USE_BOEHM_GC = 0
-else
-    addoption("no-boehm", "Disable use of the Boehm GC")
+USE_BOEHM_GC = 0
+if OS ~= "windows" then
+    addoption("enable-boehm-gc", "Enable use of the Boehm GC (broken!)")
 
-    if options["no-boehm"] then
-        USE_BOEHM_GC = 0
-    else
+    if options["enable-boehm-gc"] then
         USE_BOEHM_GC = 1
     end
 end
