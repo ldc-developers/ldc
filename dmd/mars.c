@@ -314,6 +314,8 @@ int main(int argc, char *argv[])
     global.params.os = OSWindows;
 #elif linux
     global.params.os = OSLinux;
+#elif __APPLY__
+    global.params.os = OSMacOSX;
 #else
 #error
 #endif /* linux */
@@ -749,11 +751,15 @@ int main(int argc, char *argv[])
 	global.params.tt_os = "-pc-mingw32";
 	break;
 
-    case OSLinux: 
+    case OSLinux:
 	VersionCondition::addPredefinedGlobalIdent("linux");
 	VersionCondition::addPredefinedGlobalIdent("Posix");
 	global.params.tt_os = "-pc-linux-gnu";
 	break;
+
+    case OSMacOSX:
+	VersionCondition::addPredefinedGlobalIdent("darwin");
+	global.params.tt_os = "-pc-darwin-gnu";
 
     default:
 	assert(false && "Target OS not supported");
