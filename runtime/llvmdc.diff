@@ -88,7 +88,7 @@ Index: lib/common/tango/core/Thread.d
 ===================================================================
 --- lib/common/tango/core/Thread.d	(revision 3899)
 +++ lib/common/tango/core/Thread.d	(working copy)
-@@ -244,8 +244,30 @@
+@@ -244,8 +244,29 @@
          }
          body
          {
@@ -100,7 +100,6 @@ Index: lib/common/tango/core/Thread.d
 +                    uint eax,ecx,edx,ebx,ebp,esi,edi;
 +                    asm
 +                    {
-+                        //pushad              ;
 +                        mov eax[EBP], EAX      ;
 +                        mov ecx[EBP], ECX      ;
 +                        mov edx[EBP], EDX      ;
@@ -120,7 +119,7 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      pushad;
-@@ -297,8 +319,12 @@
+@@ -297,8 +318,12 @@
                  }
              }
  
@@ -138,7 +137,7 @@ Index: lib/gc/basic/gcx.d
 ===================================================================
 --- lib/gc/basic/gcx.d	(revision 3899)
 +++ lib/gc/basic/gcx.d	(working copy)
-@@ -2178,6 +2178,29 @@
+@@ -2178,6 +2178,28 @@
              __builtin_unwind_init();
              sp = & sp;
          }
@@ -149,7 +148,6 @@ Index: lib/gc/basic/gcx.d
 +                uint eax,ecx,edx,ebx,ebp,esi,edi;
 +                asm
 +                {
-+                    pushad                 ;
 +                    mov eax[EBP], EAX      ;
 +                    mov ecx[EBP], ECX      ;
 +                    mov edx[EBP], EDX      ;
@@ -168,7 +166,7 @@ Index: lib/gc/basic/gcx.d
          else
          {
          asm
-@@ -2191,6 +2214,10 @@
+@@ -2191,6 +2213,10 @@
          {
              // nothing to do
          }
