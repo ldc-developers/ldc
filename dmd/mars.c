@@ -68,7 +68,7 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.033";
+    version = "v1.034";
     llvmdc_version = "0.1";
     global.structalign = 8;
 
@@ -156,7 +156,7 @@ extern void backend_term();
 
 void usage()
 {
-    printf("LLVM D Compiler %s (based on DMD %s and LLVM 2.3)\n%s\n%s\n",
+    printf("LLVM D Compiler %s (based on DMD %s and LLVM 2.4svn)\n%s\n%s\n",
     global.llvmdc_version, global.version, global.copyright, global.written);
     printf("\
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
@@ -693,8 +693,7 @@ int main(int argc, char *argv[])
         global.params.tt_arch = "i686";
         global.params.data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
         if (global.params.useInlineAsm) {
-            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
-            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
+            VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
         }
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {

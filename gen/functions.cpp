@@ -538,10 +538,11 @@ void DtoDefineFunc(FuncDeclaration* fd)
     Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
-    // warn about naked
+    // error on naked
     if (fd->naked)
     {
-        warning("%s: naked is currently ignored", fd->locToChars());
+        fd->error("naked is not supported");
+        fatal();
     }
 
     // debug info
