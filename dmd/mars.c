@@ -213,7 +213,6 @@ Codegen control:\n\
   -version=ident compile in version code identified by ident\n\
 \n\
   -noasm         do not allow use of inline asm\n\
-  -nofloat       do not emit reference to floating point\n\
   -noruntime     do not allow code that generates implicit runtime calls\n\
   -noverify      do not run the validation pass before writing bitcode\n\
   -unittest      compile in unit tests\n\
@@ -222,8 +221,6 @@ Codegen control:\n\
   -annotate      annotate the bitcode with human readable source code\n\
   -dis           disassemble module after compiling\n\
   -ignore        ignore unsupported pragmas\n\
-  -profile       profile runtime performance of generated code\n\
-  -cov           do code coverage analysis\n\
 \n\
 Path options:\n\
   -R<path>       provide path to the directory containing the runtime library\n\
@@ -372,20 +369,12 @@ int main(int argc, char *argv[])
 		global.params.useDeprecated = 1;
 	    else if (strcmp(p + 1, "c") == 0)
 		global.params.link = 0;
-	    else if (strcmp(p + 1, "cov") == 0)
-		global.params.cov = 1;
 	    else if (strcmp(p + 1, "fPIC") == 0)
 		global.params.pic = 1;
 	    else if (strcmp(p + 1, "g") == 0)
 		global.params.symdebug = 1;
 	    else if (strcmp(p + 1, "gc") == 0)
 		global.params.symdebug = 2;
-	    else if (strcmp(p + 1, "gt") == 0)
-	    {	error("use -profile instead of -gt\n");
-		global.params.trace = 1;
-	    }
-	    else if (strcmp(p + 1, "profile") == 0)
-		global.params.trace = 1;
 	    else if (strcmp(p + 1, "v") == 0)
 		global.params.verbose = 1;
 		else if (strcmp(p + 1, "vv") == 0) {
@@ -538,8 +527,6 @@ int main(int argc, char *argv[])
             global.params.useInline = 0; //1
             global.params.llvmInline = 1;
         }
-	    else if (strcmp(p + 1, "nofloat") == 0)
-		global.params.nofloat = 1;
 	    else if (strcmp(p + 1, "quiet") == 0)
 		global.params.quiet = 1;
 	    else if (strcmp(p + 1, "release") == 0)
@@ -734,8 +721,6 @@ int main(int argc, char *argv[])
 	    fatal();
 	}
     }
-    if (global.params.cov)
-	VersionCondition::addPredefinedGlobalIdent("D_Coverage");
 
     bool allowForceEndianness = false;
 

@@ -58,7 +58,6 @@ struct Param
 {
     char obj;		// write object file
     char link;		// perform link
-    char trace;		// insert profiling hooks
     char quiet;		// suppress non-error messages
     char verbose;	// verbose compile
     char symdebug;	// insert debug symbolic information
@@ -81,8 +80,6 @@ struct Param
     char preservePaths;	// !=0 means don't strip path from source file
     char warnings;	// enable warnings
     char pic;		// generate position-independent-code for shared libs
-    char cov;		// generate code coverage data
-    char nofloat;	// code should not pull in floating point support
     char noruntime;	// code is not allowed to make implicit calls to the runtime
     char novalidate;// no bitcode validation
     char Dversion;	// D version number

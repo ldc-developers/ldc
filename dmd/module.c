@@ -802,7 +802,7 @@ void Module::gensymfile()
 
 int Module::needModuleInfo()
 {
-    return needmoduleinfo || global.params.cov;
+    return needmoduleinfo;
 }
 
 Dsymbol *Module::search(Loc loc, Identifier *ident, int flags)
