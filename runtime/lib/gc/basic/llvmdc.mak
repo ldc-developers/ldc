@@ -24,10 +24,10 @@ ADD_DFLAGS=
 CFLAGS=$(ADD_CFLAGS)
 
 #DFLAGS=-release -O3 -inline -w -nofloat $(ADD_DFLAGS)
-DFLAGS=-w -nofloat $(ADD_DFLAGS)
+DFLAGS=-w -nofloat -disable-invariants $(ADD_DFLAGS)
 
 #TFLAGS=-O3 -inline -w -nofloat $(ADD_DFLAGS)
-TFLAGS=-w -nofloat $(ADD_DFLAGS)
+TFLAGS=-w -nofloat -disable-invariants $(ADD_DFLAGS)
 
 DOCFLAGS=-version=DDoc
 
