@@ -295,7 +295,7 @@ int main(int argc, char *argv[])
     global.params.useInline = 0; // this one messes things up to a point where codegen breaks
     global.params.llvmInline = 0; // use this one instead to know if inline passes should be run
     global.params.obj = 1;
-    global.params.Dversion = 1;
+    global.params.Dversion = 2;
     global.params.quiet = 1;
 
     global.params.linkswitches = new Array();
