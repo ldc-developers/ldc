@@ -78,7 +78,6 @@ struct Param
     char useSwitchError; // check for switches without a default
     char useUnitTests;	// generate unittest code
     char useInline;	// inline expand functions
-    char release;	// build release version
     char preservePaths;	// !=0 means don't strip path from source file
     char warnings;	// enable warnings
     char pic;		// generate position-independent-code for shared libs

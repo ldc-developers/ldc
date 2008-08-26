@@ -165,55 +165,79 @@ Usage:\n\
   llvmdc files.d ... { -switch }\n\
 \n\
   files.d        D source files\n%s\
-  -annotate      annotate the bitcode with human readable source code\n\
+  -of<filename>  name output file to <filename>\n\
+  -o-            do not write object file\n\
+  -od<objdir>    write object files to directory <objdir>\n\
+  -op            do not strip paths from source file\n\
+  -oq            write object files with fully qualified names\n\
+\n\
   -c             do not link\n\
-  -cov           do code coverage analysis\n\
-  -D             generate documentation\n\
-  -Dd<docdir>    write documentation file to <docdir> directory\n\
-  -Df<filename>  write documentation file to <filename>\n\
-  -d             allow deprecated features\n\
-  -debug         compile in debug code\n\
-  -debug=level   compile in debug code <= level\n\
-  -debug=ident   compile in debug code identified by ident\n\
-  -debuglib=name    set symbolic debug library to name\n\
-  -defaultlib=name  set default library to name\n\
-  -dis           disassemble module after compiling\n\
+  -L<linkerflag> pass <linkerflag> to llvm-ld\n\
+\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
+\n\
+  -w             enable warnings\n\
+\n\
   -H             generate 'header' file\n\
   -Hd<hdrdir>    write 'header' file to <hdrdir> directory\n\
   -Hf<filename>  write 'header' file to <filename>\n\
-  --help         print help\n\
-  -I<path>       where to look for imports\n\
-  -J<path>       where to look for string imports\n\
-  -ignore        ignore unsupported pragmas\n\
-  -inline        do function inlining\n\
-  -L<linkerflag> pass <linkerflag> to llvm-ld\n\
+\n\
+  -D             generate documentation\n\
+  -Dd<docdir>    write documentation file to <docdir> directory\n\
+  -Df<filename>  write documentation file to <filename>\n\
+\n\
+Codegen control:\n\
   -m<arch>       emit code specific to <arch> being one of:\n\
                  x86 x86-64 ppc32 ppc64\n\
+  -t<os>         emit code specific to <os> being one of:\n\
+                 Linux, Windows, MacOSX\n\
+\n\
+  -O             optimize, same as -O2\n\
+  -O<n>          optimize at level <n> (0-5)\n\
+  -inline        do function inlining\n\
+\n\
+  -debug         enables asserts, invariants, contracts, boundscheck\n\
+                 and sets debug=1\n\
+  -release       disables asserts, invariants, contracts boundscheck\n\
+\n\
+  -enable-<feature>    and\n\
+  -disable-<feature>   where <feature> is one of\n\
+    asserts      assert statements (default: on)\n\
+    invariants   class and struct invariants (default: on)\n\
+    contracts    function contracts (default: on)\n\
+    boundscheck  array bounds checking (default: on)\n\
+  -debug=level   compile in debug stmts <= level (default: 0)\n\
+  -debug=ident   compile in debug stmts identified by ident\n\
+  -version=level compile in version code >= level\n\
+  -version=ident compile in version code identified by ident\n\
+\n\
   -noasm         do not allow use of inline asm\n\
   -nofloat       do not emit reference to floating point\n\
   -noruntime     do not allow code that generates implicit runtime calls\n\
   -noverify      do not run the validation pass before writing bitcode\n\
-  -O             optimize, same as -O2\n\
-  -O<n>          optimize at level <n> (0-5)\n\
-  -o-            do not write object file\n\
-  -od<objdir>    write object files to directory <objdir>\n\
-  -of<filename>  name output file to <filename>\n\
-  -op            do not strip paths from source file\n\
-  -oq            write object files with fully qualified names\n\
-  -profile       profile runtime performance of generated code\n\
-  -quiet         suppress unnecessary messages\n\
-  -release       compile release version\n\
-  -run srcfile args...   run resulting program, passing args\n\
-  -R<path>       provide path to the directory containing the runtime library\n\
   -unittest      compile in unit tests\n\
+  -d             allow deprecated features\n\
+\n\
+  -annotate      annotate the bitcode with human readable source code\n\
+  -dis           disassemble module after compiling\n\
+  -ignore        ignore unsupported pragmas\n\
+  -profile       profile runtime performance of generated code\n\
+  -cov           do code coverage analysis\n\
+\n\
+Path options:\n\
+  -R<path>       provide path to the directory containing the runtime library\n\
+  -I<path>       where to look for imports\n\
+  -J<path>       where to look for string imports\n\
+  -debuglib=name    set symbolic debug library to name (currently ignored)\n\
+  -defaultlib=name  set default library to name (currently ignored)\n\
+\n\
+Misc options:\n\
   -v             verbose\n\
   -vv            very verbose (does not include -v)\n\
-  -v1            D language version 1\n\
-  -version=level compile in version code >= level\n\
-  -version=ident compile in version code identified by ident\n\
-  -w             enable warnings\n\
+  -quiet         suppress unnecessary messages\n\
+  -run srcfile args...   run resulting program, passing args\n\
+  --help         print help\n\
 ",
 #if WIN32
 "  @cmdfile       read arguments from cmdfile\n"
@@ -271,7 +295,7 @@ int main(int argc, char *argv[])
     global.params.useInline = 0; // this one messes things up to a point where codegen breaks
     global.params.llvmInline = 0; // use this one instead to know if inline passes should be run
     global.params.obj = 1;
-    global.params.Dversion = 2;
+    global.params.Dversion = 1;
     global.params.quiet = 1;
 
     global.params.linkswitches = new Array();
@@ -397,6 +421,25 @@ int main(int argc, char *argv[])
             global.params.disassemble = 1;
         else if (strcmp(p + 1, "annotate") == 0)
             global.params.llvmAnnotate = 1;
+        else if (strncmp(p + 1, "enable-", 7) == 0 ||
+                 strncmp(p + 1, "disable-", 8) == 0)
+        {
+            bool enable = (p[1] == 'e');
+            char* feature = p + 1 + (enable ? 7 : 8);
+            if (strcmp(feature, "asserts") == 0)
+                global.params.useAssert = enable;
+            else if (strcmp(feature, "boundscheck") == 0)
+                global.params.useArrayBounds = enable;
+            else if (strcmp(feature, "contracts") == 0)
+            {
+                global.params.useIn = enable;
+                global.params.useOut = enable;
+            }
+            else if (strcmp(feature, "invariants") == 0)
+                global.params.useInvariants = enable;
+            else
+                error("unrecognized feature '%s'", feature);
+        }
         else if (strcmp(p + 1, "noasm") == 0)
             global.params.useInlineAsm = 0;
 	    else if (p[1] == 'o')
@@ -500,7 +543,13 @@ int main(int argc, char *argv[])
 	    else if (strcmp(p + 1, "quiet") == 0)
 		global.params.quiet = 1;
 	    else if (strcmp(p + 1, "release") == 0)
-		global.params.release = 1;
+	    {
+		global.params.useInvariants = 0;
+		global.params.useIn = 0;
+		global.params.useOut = 0;
+		global.params.useAssert = 0;
+		global.params.useArrayBounds = 0;
+	    }
 	    else if (strcmp(p + 1, "unittest") == 0)
 		global.params.useUnitTests = 1;
 	    else if (p[1] == 'I')
@@ -544,7 +593,14 @@ int main(int argc, char *argv[])
 		else if (p[6])
 		    goto Lerror;
 		else
+		{
+		    global.params.useInvariants = 1;
+		    global.params.useIn = 1;
+		    global.params.useOut = 1;
+		    global.params.useAssert = 1;
+		    global.params.useArrayBounds = 1;
 		    global.params.debuglevel = 1;
+		}
 	    }
 	    else if (memcmp(p + 1, "version", 5) == 0)
 	    {
@@ -617,6 +673,17 @@ int main(int argc, char *argv[])
         {
             global.params.llvmArch = p+2;
         }
+        else if (p[1] == 't')
+        {
+            if(strcmp(p + 2, "Linux") == 0)
+                global.params.os = OSLinux;
+            else if(strcmp(p + 2, "Windows") == 0)
+                global.params.os = OSWindows;
+            else if(strcmp(p + 2, "MacOSX") == 0)
+                global.params.os = OSMacOSX;
+            else
+                error("unrecognized target os '%s'", p + 2);
+        }
 	    else
 	    {
 	     Lerror:
@@ -638,15 +705,6 @@ int main(int argc, char *argv[])
     if (files.dim == 0)
     {	usage();
 	return EXIT_FAILURE;
-    }
-
-    if (global.params.release)
-    {	global.params.useInvariants = 0;
-	global.params.useIn = 0;
-	global.params.useOut = 0;
-	global.params.useAssert = 0;
-	global.params.useArrayBounds = 0;
-	global.params.useSwitchError = 0;
     }
 
     if (global.params.run)
