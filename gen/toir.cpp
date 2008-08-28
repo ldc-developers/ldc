@@ -130,7 +130,7 @@ DValue* VarExp::toElem(IRState* p)
                 vd->toObjFile(0); // TODO: multiobj
                 DtoConstInitGlobal(vd);
             }
-            if (!vd->ir.getIrValue() || DtoType(vd->type)->isAbstract()) {
+            if (!vd->ir.isSet() || !vd->ir.getIrValue() || DtoType(vd->type)->isAbstract()) {
                 error("global variable %s not resolved", vd->toChars());
                 Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
                 fatal();
