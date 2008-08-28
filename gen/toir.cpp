@@ -1520,8 +1520,7 @@ DValue* DeleteExp::toElem(IRState* p)
         }
         else if (DVarValue* vv = dval->isVar()) {
             if (vv->var && vv->var->onstack) {
-                if (tc->sym->dtors.dim > 0)
-                    DtoFinalizeClass(dval->getRVal());
+                DtoFinalizeClass(dval->getRVal());
                 onstack = true;
             }
         }
