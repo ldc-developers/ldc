@@ -667,11 +667,11 @@ void generateChangeStatistics(char[] file1, char[] file2, ref Log[char[]] logs)
 			if(oldT !is null){
 				if(oldT.r == t.r)
 					continue;
-				else if(oldT.r < t.r && oldT.r && oldT.r <= Result.XFAIL){
+				else if(t.r >= Result.XPASS && oldT.r && oldT.r <= Result.XFAIL){
 					targetFile = regressionsFile;
 					nRegressions++;
 				}
-				else if(t.r < oldT.r && t.r && t.r <= Result.XFAIL){
+				else if(t.r && t.r <= Result.XFAIL && oldT.r >= Result.XPASS){
 					targetFile = improvementsFile;
 					nImprovements++;
 				}

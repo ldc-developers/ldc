@@ -344,10 +344,10 @@ int main(char[][] args){
 		if(oldT !is null){
 			if(oldT.r == t.r)
 				continue;
-			else if(oldT.r < t.r && oldT.r && oldT.r <= Result.XFAIL){
+			else if(t.r >= Result.XPASS && oldT.r && oldT.r <= Result.XFAIL){
 				writef("Regression   ");
 			}
-			else if(t.r < oldT.r && t.r && t.r <= Result.XFAIL){
+			else if(t.r && t.r <= Result.XFAIL && oldT.r >= Result.XPASS){
 				writef("Improvement  ");
 			}
 			else {
