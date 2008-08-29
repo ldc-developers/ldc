@@ -20,3 +20,6 @@ dmd/impcnvtab.c
 tests/runminitest
 tests/findregressions
 tests/mini/obj/*
+
+# Mac OS X
+.DS_Store
