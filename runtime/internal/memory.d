@@ -87,7 +87,8 @@ extern (C) void* rt_stackBottom()
     }
     else version( darwin )
     {
-        static assert( false, "darwin not supported" );
+        // darwin has a fixed stack bottom
+        return cast(void*) 0xc0000000;
     }
     else
     {
