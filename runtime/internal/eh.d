@@ -9,8 +9,12 @@ import llvmdc.cstdarg;
 
 // debug = EH_personality;
 
-// current EH implementation works on x86 linux only
-version(X86) version(linux) version=X86_LINUX;
+// current EH implementation works on x86
+// if it has a working unwind runtime
+version(X86) {
+    version(linux) version=X86_UNWIND;
+    version(darwin) version=X86_UNWIND;
+}
 
 private extern(C) void abort();
 private extern(C) int printf(char*, ...);
@@ -57,7 +61,7 @@ extern(C)
         int private_2;
     }
 
-version(X86_LINUX) 
+version(X86_UNWIND) 
 {
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
@@ -161,10 +165,10 @@ char[8] _d_exception_class = "LLDCD1\0\0";
 
 
 //
-// x86 Linux specific implementation of personality function
+// x86 unwind specific implementation of personality function
 // and helpers
 //
-version(X86_LINUX) 
+version(X86_UNWIND) 
 {
 
 // the personality routine gets called by the unwind handler and is responsible for
