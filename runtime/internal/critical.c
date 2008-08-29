@@ -75,11 +75,15 @@ void _STD_critical_term()
 
 /* ================================= linux ============================ */
 
-#if linux
+#if linux || __APPLE__
 
 #include	<stdio.h>
 #include	<stdlib.h>
 #include	<pthread.h>
+
+#ifndef HAVE_PTHREAD_MUTEX_RECURSIVE
+#define PTHREAD_MUTEX_RECURSIVE_NP PTHREAD_MUTEX_RECURSIVE
+#endif
 
 /******************************************
  * Enter/exit critical section.

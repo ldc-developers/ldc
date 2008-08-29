@@ -127,6 +127,10 @@ void _d_monitor_unlock(Object *h)
 
 #if USE_PTHREADS
 
+#ifndef HAVE_PTHREAD_MUTEX_RECURSIVE
+#define PTHREAD_MUTEX_RECURSIVE_NP PTHREAD_MUTEX_RECURSIVE
+#endif
+
 // Includes attribute fixes from David Friedman's GDC port
 
 static pthread_mutex_t _monitor_critsec;

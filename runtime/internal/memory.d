@@ -85,6 +85,10 @@ extern (C) void* rt_stackBottom()
                 return *libc_stack_end;
         }
     }
+    else version( darwin )
+    {
+        static assert( false, "darwin not supported" );
+    }
     else
     {
         static assert( false, "Operating system not supported." );
@@ -147,6 +151,10 @@ private
             alias __data_start  Data_Start;
             alias _end          Data_End;
     }
+    else version( darwin )
+    {
+        // TODO: How to access the darwin data segment?
+    }
 
     alias void delegate( void*, void* ) scanFn;
 }
@@ -165,6 +173,10 @@ extern (C) void rt_scanStaticData( scanFn scan )
     {
         //printf("scanning static data from %p to %p\n", &Data_Start, &Data_End);
         scan( &Data_Start, &Data_End );
+    }
+    else version( darwin )
+    {
+        static assert( false, "darwin not supported." );
     }
     else
     {
