@@ -151,7 +151,7 @@ int linkExecutable(const char* argv0)
     }
 
     // default libs
-    if(global.params.os == OSLinux)
+    if(global.params.os == OSLinux || global.params.os == OSMacOSX)
     {
         args.push_back("-lpthread");
         args.push_back("-ldl");
