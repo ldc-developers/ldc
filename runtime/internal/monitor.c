@@ -127,7 +127,7 @@ void _d_monitor_unlock(Object *h)
 
 #if USE_PTHREADS
 
-#ifndef HAVE_PTHREAD_MUTEX_RECURSIVE
+#if __APPLE__
 #define PTHREAD_MUTEX_RECURSIVE_NP PTHREAD_MUTEX_RECURSIVE
 #endif
 
