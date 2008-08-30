@@ -2775,6 +2775,7 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->havetempdecl = 0;
     this->isnested = NULL;
     this->errors = 0;
+    this->tinst = NULL;
 }
 
 
@@ -2798,6 +2799,7 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
     this->havetempdecl = 1;
     this->isnested = NULL;
     this->errors = 0;
+    this->tinst = NULL;
 
     assert((size_t)tempdecl->scope > 0x10000);
 }
@@ -2873,6 +2875,9 @@ void TemplateInstance::semantic(Scope *sc)
 	return;
     }
     semanticdone = 1;
+
+    // get the enclosing template instance from the scope tinst
+    tinst = sc->tinst;
 
 #if LOG
     printf("\tdo semantic\n");
@@ -3062,6 +3067,7 @@ void TemplateInstance::semantic(Scope *sc)
     sc2 = scope->push(this);
     //printf("isnested = %d, sc->parent = %s\n", isnested, sc->parent->toChars());
     sc2->parent = /*isnested ? sc->parent :*/ this;
+    sc2->tinst = this;
 
 #if !IN_LLVM    
 #if _WIN32
@@ -3130,6 +3136,8 @@ void TemplateInstance::semantic(Scope *sc)
     if (global.errors != errorsave)
     {
 	error("error instantiating");
+	if(tinst)
+	    tinst->printInstantiationTrace();
 	errors = 1;
 	if (global.gag)
 	    tempdecl->instances.remove(tempdecl_instance_idx);
@@ -3687,6 +3695,7 @@ void TemplateInstance::semantic2(Scope *sc)
 	assert(sc);
 	sc = sc->push(argsym);
 	sc = sc->push(this);
+	sc->tinst = this;
 	for (i = 0; i < members->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)members->data[i];
@@ -3717,6 +3726,7 @@ void TemplateInstance::semantic3(Scope *sc)
 	sc = tempdecl->scope;
 	sc = sc->push(argsym);
 	sc = sc->push(this);
+	sc->tinst = this;
 	for (int i = 0; i < members->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)members->data[i];
@@ -3835,6 +3845,43 @@ char *TemplateInstance::toChars()
     s = buf.toChars();
     buf.data = NULL;
     return s;
+}
+
+void TemplateInstance::printInstantiationTrace()
+{
+    if(global.gag)
+	return;
+
+    const int max_shown = 6;
+
+    // determine instantiation depth
+    int n_instantiations = 1;
+    TemplateInstance* cur = this;
+    while(cur = cur->tinst)
+	++n_instantiations;
+
+    // show full trace only if it's short or verbose is on
+    if(n_instantiations <= max_shown || global.params.verbose)
+    {
+	cur = this;
+	while(cur)
+	{
+	    fprintf(stdmsg,"    instantiatied in %s: %s\n", cur->loc.toChars(), cur->toChars());
+	    cur = cur->tinst;
+	}
+    }
+    else
+    {
+	cur = this;
+	size_t i = 0;
+	for(; i < max_shown/2; ++i, cur = cur->tinst)
+	    fprintf(stdmsg,"    instantiatied in %s: %s\n", cur->loc.toChars(), cur->toChars());
+	fprintf(stdmsg,"    ... (%d instantiations, -v to show) ...\n", n_instantiations - max_shown);
+	for(; i < n_instantiations - max_shown + max_shown/2; ++i, cur = cur->tinst) 
+	{}
+	for(; i < n_instantiations; ++i, cur = cur->tinst) 
+	    fprintf(stdmsg,"    instantiatied in %s: %s\n", cur->loc.toChars(), cur->toChars());
+    }
 }
 
 /* ======================== TemplateMixin ================================ */

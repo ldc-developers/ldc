@@ -47,6 +47,7 @@ struct Scope
     SwitchStatement *sw;	// enclosing switch statement
     TryFinallyStatement *tf;	// enclosing try finally statement; set inside its finally block
     EnclosingHandler *tfOfTry; // enclosing try-finally, volatile or synchronized statement; set inside its try or body block
+    TemplateInstance *tinst;	// enclosing template instance
     Statement *sbreak;		// enclosing statement that supports "break"
     Statement *scontinue;	// enclosing statement that supports "continue"
     ForeachStatement *fes;	// if nested function for ForeachStatement, this is it
