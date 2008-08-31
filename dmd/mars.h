@@ -40,6 +40,7 @@ struct Array;
 // LLVMDC
 enum ARCH
 {
+    ARCHinvalid,
     ARCHx86,
     ARCHx86_64,
     ARCHppc,
@@ -48,6 +49,7 @@ enum ARCH
 
 enum OS
 {
+    OSinvalid,
     OSLinux,
     OSWindows,
     OSMacOSX

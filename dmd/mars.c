@@ -341,6 +341,8 @@ int main(int argc, char *argv[])
 #error
 #endif /* linux */
 
+    assert(global.params.os != OSinvalid);
+
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
     VersionCondition::addPredefinedGlobalIdent("all");
 
@@ -766,6 +768,8 @@ int main(int argc, char *argv[])
     else {
         assert(0 && "Invalid arch");
     }
+
+    assert(global.params.cpu != ARCHinvalid);
 
     if (allowForceEndianness && global.params.forceBE) {
         VersionCondition::addPredefinedGlobalIdent("BigEndian");
