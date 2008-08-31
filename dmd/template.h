@@ -314,6 +314,10 @@ struct TemplateInstance : ScopeDsymbol
 
     TemplateInstance *isTemplateInstance() { return this; }
     AliasDeclaration *isAliasDeclaration();
+
+    // LLVMDC
+    TemplateInstance *tinst; // enclosing template instance
+    void printInstantiationTrace();
 };
 
 struct TemplateMixin : TemplateInstance

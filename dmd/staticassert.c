@@ -16,6 +16,8 @@
 #include "expression.h"
 #include "id.h"
 #include "hdrgen.h"
+#include "scope.h"
+#include "template.h"
 
 /********************************* AttribDeclaration ****************************/
 
@@ -66,6 +68,8 @@ void StaticAssert::semantic2(Scope *sc)
 	}
 	else
 	    error("is false");
+	if(sc->tinst)
+	    sc->tinst->printInstantiationTrace();
 	if (!global.gag)
 	    fatal();
     }
