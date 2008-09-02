@@ -23,7 +23,7 @@
 #include <direct.h>
 #endif
 
-#if linux || __APPLE__
+#if POSIX
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -370,13 +370,10 @@ Array *FileName::splitPath(const char *path)
 			instring ^= 1;	// toggle inside/outside of string
 			continue;
 
-/*#if MACINTOSH
-		    case ',':
-#endif*/
 #if _WIN32
 		    case ';':
 #endif
-#if linux || __APPLE__
+#if POSIX
 		    case ':':
 #endif
 			p++;
@@ -390,7 +387,7 @@ Array *FileName::splitPath(const char *path)
 		    case '\r':
 			continue;	// ignore carriage returns
 
-#if linux || __APPLE__
+#if POSIX
 		    case '~':
 			buf.writestring(getenv("HOME"));
 			continue;
@@ -714,7 +711,7 @@ int FileName::equalsExt(const char *ext)
 	return 1;
     if (!e || !ext)
 	return 0;
-#if linux || __APPLE__
+#if POSIX
     return strcmp(e,ext) == 0;
 #endif
 #if _WIN32
@@ -733,7 +730,7 @@ void FileName::CopyTo(FileName *to)
 #if _WIN32
     file.touchtime = mem.malloc(sizeof(WIN32_FIND_DATAA));	// keep same file time
 #endif
-#if linux || __APPLE__
+#if POSIX
     file.touchtime = mem.malloc(sizeof(struct stat)); // keep same file time
 #endif
     file.readv();
@@ -775,7 +772,7 @@ char *FileName::searchPath(Array *path, char *name, int cwd)
 
 int FileName::exists(const char *name)
 {
-#if linux || __APPLE__
+#if POSIX
     struct stat st;
 
     if (stat(name, &st) < 0)
@@ -822,7 +819,7 @@ void FileName::ensurePathExists(const char *path)
 #if _WIN32
 	    if (path[strlen(path) - 1] != '\\')
 #endif
-#if linux || __APPLE__
+#if POSIX
 	    if (path[strlen(path) - 1] != '\\')
 #endif
 	    {
@@ -830,7 +827,7 @@ void FileName::ensurePathExists(const char *path)
 #if _WIN32
 		if (mkdir(path))
 #endif
-#if linux || __APPLE__
+#if POSIX
 		if (mkdir(path, 0777))
 #endif
 		    error("cannot create directory %s", path);
@@ -886,7 +883,7 @@ void File::mark()
 
 int File::read()
 {
-#if linux || __APPLE__
+#if POSIX
     off_t size;
     ssize_t numread;
     int fd;
@@ -1018,7 +1015,7 @@ err1:
 
 int File::mmread()
 {
-#if linux || __APPLE__
+#if POSIX
     return read();
 #endif
 #if _WIN32
@@ -1072,7 +1069,7 @@ Lerr:
 
 int File::write()
 {
-#if linux || __APPLE__
+#if POSIX
     int fd;
     ssize_t numwritten;
     char *name;
@@ -1145,7 +1142,7 @@ err:
 
 int File::append()
 {
-#if linux || __APPLE__
+#if POSIX
     return 1;
 #endif
 #if _WIN32
@@ -1225,7 +1222,7 @@ void File::appendv()
 
 int File::exists()
 {
-#if linux || __APPLE__
+#if POSIX
     return 0;
 #endif
 #if _WIN32
@@ -1250,7 +1247,7 @@ int File::exists()
 
 void File::remove()
 {
-#if linux || __APPLE__
+#if POSIX
     ::remove(this->name->toChars());
 #endif
 #if _WIN32
@@ -1265,7 +1262,7 @@ Array *File::match(char *n)
 
 Array *File::match(FileName *n)
 {
-#if linux || __APPLE__
+#if POSIX
     return NULL;
 #endif
 #if _WIN32
@@ -1303,7 +1300,7 @@ Array *File::match(FileName *n)
 
 int File::compareTime(File *f)
 {
-#if linux || __APPLE__
+#if POSIX
     return 0;
 #endif
 #if _WIN32
@@ -1317,7 +1314,7 @@ int File::compareTime(File *f)
 
 void File::stat()
 {
-#if linux || __APPLE__
+#if POSIX
     if (!touchtime)
     {
 	touchtime = mem.calloc(1, sizeof(struct stat));
@@ -1622,7 +1619,7 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	    break;
 	psize *= 2;
 #endif
-#if linux || __APPLE__
+#if POSIX
 	count = vsnprintf(p,psize,format,args);
 	if (count == -1)
 	    psize *= 2;
@@ -1654,7 +1651,7 @@ void OutBuffer::vprintf(const wchar_t *format, va_list args)
 	    break;
 	psize *= 2;
 #endif
-#if linux || __APPLE__
+#if POSIX
 	count = vsnwprintf(p,psize,format,args);
 	if (count == -1)
 	    psize *= 2;

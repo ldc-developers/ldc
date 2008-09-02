@@ -15,6 +15,12 @@ if OS ~= "windows" then
     end
 end
 
+-- are we on a Posix system?
+POSIX = 1
+if OS == "windows" then
+    POSIX = 0
+end
+
 -- D version - don't change these !!!
 DMDV1 = "1"
 
@@ -58,6 +64,7 @@ package.defines = {
     "OPAQUE_VTBLS="..OPAQUE_VTBLS,
     "USE_BOEHM_GC="..USE_BOEHM_GC,
     "DMDV1="..DMDV1,
+    "POSIX="..POSIX,
 }
 package.config.Release.defines = { "LLVMD_NO_LOGGER" }
 package.config.Debug.buildoptions = { "-g -O0" }

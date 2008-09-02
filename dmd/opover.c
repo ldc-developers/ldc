@@ -20,7 +20,7 @@
 
 #if IN_GCC || IN_LLVM
 #include "mem.h"
-#elif linux || __APPLE__
+#elif POSIX
 #include "../root/mem.h"
 #elif _WIN32
 #include "..\root\mem.h"
