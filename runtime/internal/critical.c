@@ -81,7 +81,7 @@ void _STD_critical_term()
 #include	<stdlib.h>
 #include	<pthread.h>
 
-#if __APPLE__
+#if !linux
 #define PTHREAD_MUTEX_RECURSIVE_NP PTHREAD_MUTEX_RECURSIVE
 #endif
 

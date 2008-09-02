@@ -192,7 +192,7 @@ void Module::genobjfile(int multiobj)
     if (global.params.disassemble) {
         Logger::println("Writing LLVM asm to: %s\n", llfile->name->toChars());
         std::ofstream aos(llpath.c_str());
-        ir.module->print(aos);
+        ir.module->print(aos, NULL);
     }
 
     delete ir.module;
