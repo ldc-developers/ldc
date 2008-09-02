@@ -223,11 +223,10 @@ Codegen control:\n\
   -ignore        ignore unsupported pragmas\n\
 \n\
 Path options:\n\
-  -R<path>       provide path to the directory containing the runtime library\n\
   -I<path>       where to look for imports\n\
   -J<path>       where to look for string imports\n\
-  -debuglib=name    set symbolic debug library to name (currently ignored)\n\
-  -defaultlib=name  set default library to name (currently ignored)\n\
+  -defaultlib=name  set default library for non-debug build\n\
+  -debuglib=name    set default library for debug build\n\
 \n\
 Misc options:\n\
   -v             verbose\n\
@@ -320,9 +319,6 @@ int main(int argc, char *argv[])
     global.params.optimizeLevel = -1;
     global.params.runtimeImppath = 0;
     global.params.useInlineAsm = 1;
-
-    global.params.defaultlibname = "phobos";
-    global.params.debuglibname = global.params.defaultlibname;
 
     // Predefine version identifiers
 #if IN_LLVM
@@ -551,10 +547,6 @@ int main(int argc, char *argv[])
 		    global.params.fileImppath = new Array();
 		global.params.fileImppath->push(p + 2);
 	    }
-        else if (p[1] == 'R')
-        {
-        global.params.runtimePath = p+2;
-        }
 	    else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l')
 	    {
 		// Parse:
@@ -635,11 +627,15 @@ int main(int argc, char *argv[])
 	    }
 	    else if (memcmp(p + 1, "defaultlib=", 11) == 0)
 	    {
-		global.params.defaultlibname = p + 1 + 11;
+		if(!global.params.defaultlibnames)
+		    global.params.defaultlibnames = new Array();
+		global.params.defaultlibnames->push(p + 1 + 11);
 	    }
 	    else if (memcmp(p + 1, "debuglib=", 9) == 0)
 	    {
-		global.params.debuglibname = p + 1 + 9;
+		if(!global.params.debuglibnames)
+		    global.params.debuglibnames = new Array();
+		global.params.debuglibnames->push(p + 1 + 9);
 	    }
 	    else if (strcmp(p + 1, "run") == 0)
 	    {	global.params.run = 1;
@@ -692,6 +688,29 @@ int main(int argc, char *argv[])
     if (files.dim == 0)
     {	usage();
 	return EXIT_FAILURE;
+    }
+
+    Array* libs;
+    if (global.params.symdebug)
+	libs = global.params.debuglibnames;
+    else
+	libs = global.params.defaultlibnames;
+
+    if (libs)
+    {
+	for (int i = 0; i < libs->dim; i++)
+	{
+	    char *arg = (char *)mem.malloc(64);
+	    strcpy(arg, "-l");
+	    strncat(arg, (char *)libs->data[i], 64);
+	    global.params.linkswitches->push(arg);
+	}
+    }
+    else
+    {
+	char *arg = (char *)mem.malloc(64);
+	strcpy(arg, "-ltango-base-llvmdc-native");
+	global.params.linkswitches->push(arg);
     }
 
     if (global.params.run)

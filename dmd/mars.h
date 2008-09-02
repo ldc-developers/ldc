@@ -109,8 +109,8 @@ struct Param
 
     bool dump_source;
 
-    char *defaultlibname;	// default library for non-debug builds
-    char *debuglibname;		// default library for debug builds
+    Array *defaultlibnames;	// default libraries for non-debug builds
+    Array *debuglibnames;	// default libraries for debug builds
 
     char *xmlname;		// filename for XML output
 
@@ -145,7 +145,6 @@ struct Param
     char disassemble;
     char llvmInline;
     char llvmAnnotate;
-    char *runtimePath;
     char useInlineAsm;
     char fqnPaths; // use fully qualified object names
 };
