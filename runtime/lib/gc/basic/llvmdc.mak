@@ -10,7 +10,8 @@
 #	make clean
 #		Delete unneeded files created by build process
 
-LIB_TARGET=libtango-gc-basic.a
+LIB_TARGET_BC=libtango-gc-basic-bc.a
+LIB_TARGET_NATIVE=libtango-gc-basic.a
 LIB_MASK=libtango-gc-basic*.a
 
 CP=cp -f
@@ -33,6 +34,10 @@ DOCFLAGS=-version=DDoc
 
 CC=gcc
 LC=llvm-ar rsv
+LCC=llc
+LLINK=llvm-link
+CLC=ar rsv
+LD=llvm-ld
 DC=llvmdc
 
 LIB_DEST=..
@@ -60,7 +65,7 @@ LIB_DEST=..
 
 targets : lib doc
 all     : lib doc
-lib     : basic.lib
+lib     : basic.lib basic.nlib
 doc     : basic.doc
 
 ######################################################
@@ -78,11 +83,20 @@ ALL_DOCS=
 
 ######################################################
 
-basic.lib : $(LIB_TARGET)
+basic.lib : $(LIB_TARGET_BC)
+basic.nlib : $(LIB_TARGET_NATIVE)
 
-$(LIB_TARGET) : $(ALL_OBJS)
+$(LIB_TARGET_BC) : $(ALL_OBJS)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS)
+
+
+$(LIB_TARGET_NATIVE) : $(ALL_OBJS)
+	$(RM) $@ $@.bc $@.s $@.o
+	$(LLINK) -o=$@.bc $(ALL_OBJS)
+	$(LCC) -o=$@.s $@.bc
+	$(CC) -c -o $@.o $@.s
+	$(CLC) $@ $@.o
 
 basic.doc : $(ALL_DOCS)
 	echo No documentation available.

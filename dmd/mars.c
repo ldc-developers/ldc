@@ -710,8 +710,15 @@ int main(int argc, char *argv[])
     }
     else
     {
-	char *arg = (char *)mem.malloc(64);
-	strcpy(arg, "-ltango-base-llvmdc-native");
+	char *arg;
+	arg = (char *)mem.malloc(64);
+	strcpy(arg, "-lllvmdc-runtime");
+	global.params.linkswitches->push(arg);
+	arg = (char *)mem.malloc(64);
+	strcpy(arg, "-ltango-cc-tango");
+	global.params.linkswitches->push(arg);
+	arg = (char *)mem.malloc(64);
+	strcpy(arg, "-ltango-gc-basic");
 	global.params.linkswitches->push(arg);
     }
 

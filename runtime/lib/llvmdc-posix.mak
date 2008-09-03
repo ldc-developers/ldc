@@ -37,8 +37,8 @@ ADD_CFLAGS=
 #ADD_DFLAGS=
 ADD_DFLAGS=-I`pwd`/common/
 
-targets : nativelib doc
-all     : nativelib lib doc
+targets : lib doc
+all     : lib doc
 
 ######################################################
 
@@ -54,29 +54,7 @@ lib : $(ALL_OBJS)
 	make -C $(DIR_CC) -fllvmdc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	make -C $(DIR_RT) -fllvmdc.mak lib
 	make -C $(DIR_GC) -fllvmdc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-	find . -name $(LIB_MASK) | xargs $(RM)
-	$(LC) $(LIB_TARGET) `find $(DIR_CC) -name "*.bc" | xargs echo`
-	$(LC) $(LIB_TARGET) `find $(DIR_RT) -name "*.bc" | xargs echo`
-	$(LC) $(LIB_TARGET) `find $(DIR_GC) -name "*.bc" | xargs echo`
-	$(CLC) $(LIB_TARGET_C) `find $(DIR_CC) -name "*.o" | xargs echo`
-	$(CLC) $(LIB_TARGET_C) `find $(DIR_RT) -name "*.o" | xargs echo`
-
-nativelib: $(ALL_OBJS)
-	make -C $(DIR_CC) -fllvmdc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-	make -C $(DIR_RT) -fllvmdc.mak lib
-	make -C $(DIR_GC) -fllvmdc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-
-	$(RM) $(LIB_NAME_NATIVE)*
-
-	# first link all bcs together to a single bitcode file
-	$(LLVMLINK) -o=$(LIB_NAME_NATIVE)-llvm.bc `find $(DIR_CC) $(DIR_RT) $(DIR_GC) -name "*.bc"`
-	# then compile to assembler
-	$(LLC) -o=$(LIB_NAME_NATIVE)-llvm.s $(LIB_NAME_NATIVE)-llvm.bc
-	# assemble native code
-	$(CC) -c -o $(LIB_NAME_NATIVE)-llvm.o $(LIB_NAME_NATIVE)-llvm.s
-	# make an archive containing it and the other native object files
-	$(CLC) $(LIB_TARGET_NATIVE) $(LIB_NAME_NATIVE)-llvm.o `find $(DIR_CC) $(DIR_RT) -name "*.o"`
-	
+	# could link the three parts into one here, but why should we
 
 doc : $(ALL_DOCS)
 	make -C $(DIR_CC) -fllvmdc.mak doc

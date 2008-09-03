@@ -10,11 +10,11 @@
 #	make clean
 #		Delete unneeded files created by build process
 
-LIB_TARGET=libtango-base-llvmdc.a
-LIB_MASK=libtango-base-llvmdc*.a
+LIB_TARGET_FULL=libllvmdc-runtime.a
+LIB_TARGET_BC_ONLY=libllvmdc-runtime-bc-only.a
+LIB_TARGET_C_ONLY=libllvmdc-runtime-c-only.a
+LIB_MASK=libllvmdc-runtime*.a
 
-LIB_TARGET_C=libtango-base-c-llvmdc.a
-LIB_MASK_C=libtango-base-c-llvmdc*.a
 
 CP=cp -f
 RM=rm -f
@@ -33,6 +33,8 @@ DOCFLAGS=-version=DDoc
 
 CC=gcc
 LC=llvm-ar rsv
+LLINK=llvm-link
+LCC=llc
 CLC=ar rsv
 DC=llvmdc
 LLC=llvm-as
@@ -61,7 +63,7 @@ LIB_DEST=..
 
 targets : lib doc
 all     : lib doc
-lib     : llvmdc.lib llvmdc.clib
+lib     : llvmdc.lib llvmdc.bclib llvmdc.clib
 doc     : llvmdc.doc
 
 ######################################################
@@ -144,15 +146,24 @@ ALL_DOCS=
 
 ######################################################
 
-llvmdc.lib : $(LIB_TARGET)
+llvmdc.bclib : $(LIB_TARGET_BC_ONLY)
+llvmdc.clib : $(LIB_TARGET_C_ONLY)
+llvmdc.lib : $(LIB_TARGET_FULL)
 
-$(LIB_TARGET) : $(ALL_OBJS)
+$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS)
 
-llvmdc.clib : $(LIB_TARGET_C)
 
-$(LIB_TARGET_C) : $(OBJ_C)
+$(LIB_TARGET_FULL) : $(ALL_OBJS) $(OBJ_C)
+	$(RM) $@ $@.bc $@.s $@.o
+	$(LLINK) -o=$@.bc $(ALL_OBJS)
+	$(LCC) -o=$@.s $@.bc
+	$(CC) -c -o $@.o $@.s
+	$(CLC) $@ $@.o $(OBJ_C)
+
+
+$(LIB_TARGET_C_ONLY) : $(OBJ_C)
 	$(RM) $@
 	$(CLC) $@ $(OBJ_C)
 
@@ -167,9 +178,7 @@ clean :
 	$(RM) $(OBJ_C)
 	$(RM) $(ALL_DOCS)
 	$(RM) $(LIB_MASK)
-	$(RM) $(LIB_MASK_C)
 
 install :
 	$(MD) $(LIB_DEST)
 	$(CP) $(LIB_MASK) $(LIB_DEST)/.
-	$(CP) $(LIB_MASK_C) $(LIB_DEST)/.
