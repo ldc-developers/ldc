@@ -10,10 +10,10 @@
 #	make clean
 #		Delete unneeded files created by build process
 
-LIB_TARGET=libtango-cc-tango.a
+LIB_TARGET_FULL=libtango-cc-tango.a
+LIB_TARGET_BC_ONLY=libtango-cc-tango-c-only.a
+LIB_TARGET_C_ONLY=libtango-cc-tango-bc-only.a
 LIB_MASK=libtango-cc-tango*.a
-LIB_TARGET_C=libtango-cc-c-tango.a
-LIB_MASK_C=libtango-cc-c-tango*.a
 
 CP=cp -f
 RM=rm -f
@@ -35,6 +35,8 @@ DOCFLAGS=-version=DDoc
 
 CC=gcc
 LC=llvm-ar rsv
+LLINK=llvm-link
+LCC=llc
 CLC=ar rsv
 DC=llvmdc
 LLC=llvm-as
@@ -71,7 +73,7 @@ DOC_DEST=../../../doc/tango
 targets : lib doc
 all     : lib doc
 tango   : lib
-lib     : tango.lib tango.clib
+lib     : tango.lib tango.bclib tango.clib
 doc     : tango.doc
 
 ######################################################
@@ -110,16 +112,24 @@ ALL_DOCS=
 
 ######################################################
 
-tango.lib : $(LIB_TARGET)
+tango.bclib : $(LIB_TARGET_BC_ONLY)
+tango.lib : $(LIB_TARGET_FULL)
+tango.clib : $(LIB_TARGET_C_ONLY)
 
-$(LIB_TARGET) : $(ALL_OBJS)
+$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS)
 
 
-tango.clib : $(LIB_TARGET_C)
+$(LIB_TARGET_FULL) : $(ALL_OBJS) $(OBJ_STDC)
+	$(RM) $@ $@.bc $@.s $@.o
+	$(LLINK) -o=$@.bc $(ALL_OBJS)
+	$(LCC) -o=$@.s $@.bc
+	$(CC) -c -o $@.o $@.s
+	$(CLC) $@ $@.o $(OBJ_STDC)
 
-$(LIB_TARGET_C) : $(OBJ_STDC)
+
+$(LIB_TARGET_C_ONLY) : $(OBJ_STDC)
 	$(RM) $@
 	$(CLC) $@ $(OBJ_STDC)
 
@@ -142,7 +152,6 @@ clean :
 	$(RM) $(OBJ_STDC)
 	$(RM) $(ALL_DOCS)
 	find . -name "$(LIB_MASK)" | xargs $(RM)
-	find . -name "$(LIB_MASK_C)" | xargs $(RM)
 
 install :
 	$(MD) $(INC_DEST)
@@ -151,4 +160,3 @@ install :
 	find . -name "*.html" -exec cp -f {} $(DOC_DEST)/{} \;
 	$(MD) $(LIB_DEST)
 	find . -name "$(LIB_MASK)" -exec cp -f {} $(LIB_DEST)/{} \;
-	find . -name "$(LIB_MASK_C)" -exec cp -f {} $(LIB_DEST)/{} \;
