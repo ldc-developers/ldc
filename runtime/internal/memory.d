@@ -25,6 +25,25 @@
  */
 module memory;
 
+version = GC_Use_Dynamic_Ranges;
+
+// does Posix suffice?
+version(Posix)
+{
+    version = GC_Use_Data_Proc_Maps;
+}
+
+version(GC_Use_Data_Proc_Maps)
+{
+    version(Posix) {} else {
+        static assert(false, "Proc Maps only supported on Posix systems");
+    }
+    private import tango.stdc.posix.unistd;
+    private import tango.stdc.posix.fcntl;
+    private import tango.stdc.string;
+
+    version = GC_Use_Dynamic_Ranges;
+}
 
 private
 {
@@ -152,12 +171,53 @@ private
             alias __data_start  Data_Start;
             alias _end          Data_End;
     }
-    else version( darwin )
+
+    version( GC_Use_Dynamic_Ranges )
     {
-        // TODO: How to access the darwin data segment?
+        private import tango.stdc.stdlib;
+
+        struct DataSeg
+        {
+            void* beg;
+            void* end;
+        }
+
+        DataSeg* allSegs = null;
+        size_t   numSegs = 0;
+
+        extern (C) void _d_gc_add_range( void* beg, void* end )
+        {
+            void* ptr = realloc( allSegs, (numSegs + 1) * DataSeg.sizeof );
+
+            if( ptr ) // if realloc fails, we have problems
+            {
+                allSegs = cast(DataSeg*) ptr;
+                allSegs[numSegs].beg = beg;
+                allSegs[numSegs].end = end;
+                numSegs++;
+            }
+        }
+
+        extern (C) void _d_gc_remove_range( void* beg )
+        {
+            for( size_t pos = 0; pos < numSegs; ++pos )
+            {
+                if( beg == allSegs[pos].beg )
+                {
+                    while( ++pos < numSegs )
+                    {
+                        allSegs[pos-1] = allSegs[pos];
+                    }
+                    numSegs--;
+                    return;
+                }
+            }
+        }
     }
 
     alias void delegate( void*, void* ) scanFn;
+
+    void* dataStart,  dataEnd;
 }
 
 
@@ -166,18 +226,130 @@ private
  */
 extern (C) void rt_scanStaticData( scanFn scan )
 {
+    scan( dataStart, dataEnd );
+
+    version( GC_Use_Dynamic_Ranges )
+    {
+        for( size_t pos = 0; pos < numSegs; ++pos )
+        {
+            scan( allSegs[pos].beg, allSegs[pos].end );
+        }
+    }
+}
+
+void initStaticDataPtrs()
+{
+    const int S = (void*).sizeof;
+
+    // Can't assume the input addresses are word-aligned
+    static void* adjust_up( void* p )
+    {
+        return p + ((S - (cast(size_t)p & (S-1))) & (S-1)); // cast ok even if 64-bit
+    }
+
+    static void * adjust_down( void* p )
+    {
+        return p - (cast(size_t) p & (S-1));
+    }
+
     version( Win32 )
     {
-        scan( &Data_Start, &Data_End );
+        dataStart = adjust_up( &Data_Start );
+        dataEnd   = adjust_down( &Data_End );
     }
-    else version( linux )
+    else version( GC_Use_Data_Proc_Maps )
     {
-        //printf("scanning static data from %p to %p\n", &Data_Start, &Data_End);
-        scan( &Data_Start, &Data_End );
+        // TODO: Exclude zero-mapped regions
+
+        int   fd = open("/proc/self/maps", O_RDONLY);
+        int   count; // %% need to configure ret for read..
+        char  buf[2024];
+        char* p;
+        char* e;
+        char* s;
+        void* start;
+        void* end;
+
+        p = buf.ptr;
+        if (fd != -1)
+        {
+            while ( (count = read(fd, p, buf.sizeof - (p - buf.ptr))) > 0 )
+            {
+                e = p + count;
+                p = buf.ptr;
+                while (true)
+                {
+                    s = p;
+                    while (p < e && *p != '\n')
+                        p++;
+                    if (p < e)
+                    {
+                        // parse the entry in [s, p)
+                        static if( S == 4 )
+                        {
+                            enum Ofs
+                            {
+                                Write_Prot = 19,
+                                Start_Addr = 0,
+                                End_Addr   = 9,
+                                Addr_Len   = 8,
+                            }
+                        }
+                        else static if( S == 8 )
+                        {
+                            enum Ofs
+                            {
+                                Write_Prot = 35,
+                                Start_Addr = 0,
+                                End_Addr   = 9,
+                                Addr_Len   = 17,
+                            }
+                        }
+                        else
+                        {
+                            static assert( false );
+                        }
+
+                        // %% this is wrong for 64-bit:
+                        // uint   strtoul(char *,char **,int);
+
+                        if( s[Ofs.Write_Prot] == 'w' )
+                        {
+                            s[Ofs.Start_Addr + Ofs.Addr_Len] = '\0';
+                            s[Ofs.End_Addr + Ofs.Addr_Len] = '\0';
+                            start = cast(void*) strtoul(s + Ofs.Start_Addr, null, 16);
+                            end   = cast(void*) strtoul(s + Ofs.End_Addr, null, 16);
+
+                            // 1. Exclude anything overlapping [dataStart, dataEnd)
+                            // 2. Exclude stack
+                            if ( ( !dataEnd ||
+                                   !( dataStart >= start && dataEnd <= end ) ) &&
+                                 !( &buf[0] >= start && &buf[0] < end ) )
+                            {
+                                // we already have static data from this region.  anything else
+                                // is heap (%% check)
+                                debug (ProcMaps) printf("Adding map range %p 0%p\n", start, end);
+                                _d_gc_add_range(start, end);
+                            }
+                        }
+                        p++;
+                    }
+                    else
+                    {
+                        count = p - s;
+                        memmove(buf.ptr, s, count);
+                        p = buf.ptr + count;
+                        break;
+                    }
+                }
+            }
+            close(fd);
+        }
     }
-    else version( darwin )
+    else version(linux)
     {
-        static assert( false, "darwin not supported." );
+        dataStart = adjust_up( &Data_Start );
+        dataEnd   = adjust_down( &Data_End );
     }
     else
     {

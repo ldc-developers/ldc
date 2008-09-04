@@ -15,6 +15,7 @@ private
     import tango.stdc.stddef;
     import tango.stdc.stdlib;
     import tango.stdc.string;
+    import memory;
 }
 
 version( Win32 )
@@ -89,6 +90,7 @@ void _d_criticalInit()
 {
     _STI_monitor_staticctor();
     _STI_critical_init();
+    initStaticDataPtrs();
 }
 
 alias void delegate( Exception ) ExceptionHandler;
@@ -171,6 +173,7 @@ extern (C) int main(int argc, char **argv, char** env)
     debug(PRINTF) printf("main ctors\n");
     _STI_monitor_staticctor();
     _STI_critical_init();
+    initStaticDataPtrs();
 
     debug(PRINTF) printf("main args\n");
     version (Win32)
