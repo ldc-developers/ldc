@@ -11,8 +11,8 @@
 #		Delete unneeded files created by build process
 
 LIB_TARGET_FULL=libtango-cc-tango.a
-LIB_TARGET_BC_ONLY=libtango-cc-tango-c-only.a
-LIB_TARGET_C_ONLY=libtango-cc-tango-bc-only.a
+LIB_TARGET_BC_ONLY=libtango-cc-tango-bc-only.a
+LIB_TARGET_C_ONLY=libtango-cc-tango-c-only.a
 LIB_MASK=libtango-cc-tango*.a
 
 CP=cp -f
