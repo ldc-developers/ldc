@@ -1178,23 +1178,25 @@ DValue* CmpExp::toElem(IRState* p)
     {
         llvm::ICmpInst::Predicate cmpop;
         bool skip = false;
+        // pointers don't report as being unsigned
+        bool uns = (t->isunsigned() || t->ty == Tpointer);
         switch(op)
         {
         case TOKlt:
         case TOKul:
-            cmpop = t->isunsigned() ? llvm::ICmpInst::ICMP_ULT : llvm::ICmpInst::ICMP_SLT;
+            cmpop = uns ? llvm::ICmpInst::ICMP_ULT : llvm::ICmpInst::ICMP_SLT;
             break;
         case TOKle:
         case TOKule:
-            cmpop = t->isunsigned() ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_SLE;
+            cmpop = uns ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_SLE;
             break;
         case TOKgt:
         case TOKug:
-            cmpop = t->isunsigned() ? llvm::ICmpInst::ICMP_UGT : llvm::ICmpInst::ICMP_SGT;
+            cmpop = uns ? llvm::ICmpInst::ICMP_UGT : llvm::ICmpInst::ICMP_SGT;
             break;
         case TOKge:
         case TOKuge:
-            cmpop = t->isunsigned() ? llvm::ICmpInst::ICMP_UGE : llvm::ICmpInst::ICMP_SGE;
+            cmpop = uns ? llvm::ICmpInst::ICMP_UGE : llvm::ICmpInst::ICMP_SGE;
             break;
         case TOKue:
             cmpop = llvm::ICmpInst::ICMP_EQ;
