@@ -1171,7 +1171,6 @@ DValue* CmpExp::toElem(IRState* p)
 
     Type* t = e1->type->toBasetype();
     Type* e2t = e2->type->toBasetype();
-    assert(DtoType(t) == DtoType(e2t));
 
     LLValue* eval = 0;
 
@@ -1221,6 +1220,8 @@ DValue* CmpExp::toElem(IRState* p)
             LLValue* b = r->getRVal();
             Logger::cout() << "type 1: " << *a << '\n';
             Logger::cout() << "type 2: " << *b << '\n';
+            if (a->getType() != b->getType())
+                b = DtoBitCast(b, a->getType());
             eval = p->ir->CreateICmp(cmpop, a, b, "tmp");
         }
     }
