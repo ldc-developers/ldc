@@ -77,12 +77,13 @@ extern (C) void* rt_stackBottom()
 {
     version( Win32 )
     {
+        void* bottom;
         asm
         {
-            naked;
-            mov EAX,FS:4;
-            ret;
+            mov EAX, FS:4;
+            mov bottom, EAX;
         }
+        return bottom;
     }
     else version( linux )
     {
