@@ -13,7 +13,8 @@
 LIB_TARGET_FULL=libllvmdc-runtime.a
 LIB_TARGET_BC_ONLY=libllvmdc-runtime-bc-only.a
 LIB_TARGET_C_ONLY=libllvmdc-runtime-c-only.a
-LIB_MASK=libllvmdc-runtime*.a
+LIB_TARGET_SHARED=libllvmdc-runtime-shared.so
+LIB_MASK=libllvmdc-runtime*.*
 
 
 CP=cp -f
@@ -61,9 +62,10 @@ LIB_DEST=..
 .d.html:
 	$(DC) -c -o- $(DOCFLAGS) -Df$*.html llvmdc.ddoc $<
 
-targets : lib doc
-all     : lib doc
+targets : lib sharedlib doc
+all     : lib sharedlib doc
 lib     : llvmdc.lib llvmdc.bclib llvmdc.clib
+sharedlib : llvmdc.sharedlib
 doc     : llvmdc.doc
 
 ######################################################
@@ -149,6 +151,7 @@ ALL_DOCS=
 llvmdc.bclib : $(LIB_TARGET_BC_ONLY)
 llvmdc.clib : $(LIB_TARGET_C_ONLY)
 llvmdc.lib : $(LIB_TARGET_FULL)
+llvmdc.sharedlib : $(LIB_TARGET_SHARED)
 
 $(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
 	$(RM) $@
@@ -166,6 +169,15 @@ $(LIB_TARGET_FULL) : $(ALL_OBJS) $(OBJ_C)
 $(LIB_TARGET_C_ONLY) : $(OBJ_C)
 	$(RM) $@
 	$(CLC) $@ $(OBJ_C)
+
+
+$(LIB_TARGET_SHARED) : $(ALL_OBJS) $(OBJ_C)
+	$(RM) $@ $@.bc $@.s $@.o
+	$(LLINK) -o=$@.bc $(ALL_OBJS)
+	$(LCC) -relocation-model=pic -o=$@.s $@.bc
+	$(CC) -c -o $@.o $@.s
+	$(CC) -shared -o $@ $@.o $(OBJ_C)
+
 
 llvmdc.doc : $(ALL_DOCS)
 	echo No documentation available.

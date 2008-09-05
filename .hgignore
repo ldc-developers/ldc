@@ -5,6 +5,7 @@ tests/reference
 *.o
 *.s
 *.a
+*.so
 *.orig
 obj/*
 tango
@@ -19,6 +20,7 @@ llvmdc.make
 dmd/impcnvtab.c
 tests/runminitest
 tests/findregressions
+tests/makewebstatistics
 tests/mini/obj/*
 
 # Mac OS X

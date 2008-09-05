@@ -13,7 +13,8 @@
 LIB_TARGET_FULL=libtango-cc-tango.a
 LIB_TARGET_BC_ONLY=libtango-cc-tango-bc-only.a
 LIB_TARGET_C_ONLY=libtango-cc-tango-c-only.a
-LIB_MASK=libtango-cc-tango*.a
+LIB_TARGET_SHARED=libtango-cc-tango-shared.so
+LIB_MASK=libtango-cc-tango*.*
 
 CP=cp -f
 RM=rm -f
@@ -70,10 +71,11 @@ DOC_DEST=../../../doc/tango
 	$(DC) -c -o- $(DOCFLAGS) -Df$*.html $<
 #	$(DC) -c -o- $(DOCFLAGS) -Df$*.html tango.ddoc $<
 
-targets : lib doc
-all     : lib doc
+targets : lib sharedlib doc
+all     : lib sharedlib doc
 tango   : lib
 lib     : tango.lib tango.bclib tango.clib
+sharedlib : tango.sharedlib
 doc     : tango.doc
 
 ######################################################
@@ -115,6 +117,7 @@ ALL_DOCS=
 tango.bclib : $(LIB_TARGET_BC_ONLY)
 tango.lib : $(LIB_TARGET_FULL)
 tango.clib : $(LIB_TARGET_C_ONLY)
+tango.sharedlib : $(LIB_TARGET_SHARED)
 
 $(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
 	$(RM) $@
@@ -132,6 +135,14 @@ $(LIB_TARGET_FULL) : $(ALL_OBJS) $(OBJ_STDC)
 $(LIB_TARGET_C_ONLY) : $(OBJ_STDC)
 	$(RM) $@
 	$(CLC) $@ $(OBJ_STDC)
+
+
+$(LIB_TARGET_SHARED) : $(ALL_OBJS) $(OBJ_STDC)
+	$(RM) $@ $@.bc $@.s $@.o
+	$(LLINK) -o=$@.bc $(ALL_OBJS)
+	$(LCC) -relocation-model=pic -o=$@.s $@.bc
+	$(CC) -c -o $@.o $@.s
+	$(CC) -shared -o $@ $@.o $(OBJ_STDC)
 
 
 tango.doc : $(ALL_DOCS)

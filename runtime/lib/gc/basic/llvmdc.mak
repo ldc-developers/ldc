@@ -12,7 +12,8 @@
 
 LIB_TARGET_BC=libtango-gc-basic-bc.a
 LIB_TARGET_NATIVE=libtango-gc-basic.a
-LIB_MASK=libtango-gc-basic*.a
+LIB_TARGET_SHARED=libtango-gc-basic-shared.so
+LIB_MASK=libtango-gc-basic*.*
 
 CP=cp -f
 RM=rm -f
@@ -63,9 +64,10 @@ LIB_DEST=..
 	$(DC) -c -o- $(DOCFLAGS) -Df$*.html $<
 #	$(DC) -c -o- $(DOCFLAGS) -Df$*.html dmd.ddoc $<
 
-targets : lib doc
-all     : lib doc
+targets : lib sharedlib doc
+all     : lib sharedlib doc
 lib     : basic.lib basic.nlib
+sharedlib : basic.sharedlib
 doc     : basic.doc
 
 ######################################################
@@ -85,6 +87,7 @@ ALL_DOCS=
 
 basic.lib : $(LIB_TARGET_BC)
 basic.nlib : $(LIB_TARGET_NATIVE)
+basic.sharedlib : $(LIB_TARGET_SHARED)
 
 $(LIB_TARGET_BC) : $(ALL_OBJS)
 	$(RM) $@
@@ -97,6 +100,13 @@ $(LIB_TARGET_NATIVE) : $(ALL_OBJS)
 	$(LCC) -o=$@.s $@.bc
 	$(CC) -c -o $@.o $@.s
 	$(CLC) $@ $@.o
+
+
+$(LIB_TARGET_SHARED) : $(ALL_OBJS)
+	$(RM) $@ $@.bc $@.s $@.o
+	$(LLINK) -o=$@.bc $(ALL_OBJS)
+	$(LCC) -relocation-model=pic -o=$@.s $@.bc
+	$(CC) -shared -o $@ $@.s
 
 basic.doc : $(ALL_DOCS)
 	echo No documentation available.
