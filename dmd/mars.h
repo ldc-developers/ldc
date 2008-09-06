@@ -148,7 +148,7 @@ struct Param
     char llvmInline;
     char llvmAnnotate;
     char useInlineAsm;
-    char fqnPaths; // use fully qualified object names
+    char fqnNames; // use fully qualified object names
 };
 
 struct Global

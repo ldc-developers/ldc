@@ -455,11 +455,11 @@ int main(int argc, char *argv[])
 			global.params.preservePaths = 1;
 			break;
 
-            case 'q':
-            if (p[3])
-                goto Lerror;
-            global.params.fqnPaths = 1;
-            break;
+		    case 'q':
+			if (p[3])
+			    goto Lerror;
+			global.params.fqnNames = 1;
+			break;
 
 		    case 0:
 			error("-o no longer supported, use -of or -od");
@@ -982,8 +982,6 @@ int main(int argc, char *argv[])
 	id = new Identifier(name, 0);
 	m = new Module((char *) files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
 	modules.push(m);
-
-	global.params.objfiles->push(m->objfile->name->str);
     }
 
     // Read files, parse them
@@ -995,9 +993,10 @@ int main(int argc, char *argv[])
 	if (!Module::rootModule)
 	    Module::rootModule = m;
 	m->importedFrom = m;
-	m->deleteObjFile();
 	m->read(0);
 	m->parse();
+	m->buildTargetFiles();
+	m->deleteObjFile();
 	if (m->isDocFile)
 	{
 	    m->gendocfile();
@@ -1005,19 +1004,6 @@ int main(int argc, char *argv[])
 	    // Remove m from list of modules
 	    modules.remove(i);
 	    i--;
-
-	    // Remove m's object file from list of object files
-	    for (int j = 0; j < global.params.objfiles->dim; j++)
-	    {
-		if (m->objfile->name->str == global.params.objfiles->data[j])
-		{
-		    global.params.objfiles->remove(j);
-		    break;
-		}
-	    }
-
-	    if (global.params.objfiles->dim == 0)
-		global.params.link = 0;
 	}
     }
     if (global.errors)
@@ -1120,7 +1106,10 @@ int main(int argc, char *argv[])
 	if (global.params.verbose)
 	    printf("code      %s\n", m->toChars());
 	if (global.params.obj)
+	{
 	    m->genobjfile(0);
+	    global.params.objfiles->push(m->objfile->name->str);
+	}
 	if (global.errors)
 	    m->deleteObjFile();
 	else

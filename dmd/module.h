@@ -65,15 +65,11 @@ struct Module : Package
     const char *arg;	// original argument name
     ModuleDeclaration *md; // if !NULL, the contents of the ModuleDeclaration declaration
     File *srcfile;	// input source file
-    File *objfile;	// output .obj file
-    
-    // LLVMDC
-    File *bcfile;  // output .bc file
-    File *llfile;  // output .ll file
 
-    File *hdrfile;	// 'header' file
-    File *symfile;	// output symbol file
-    File *docfile;	// output documentation file
+    File *objfile; // output object file
+    File *docfile; // output doc file
+    File *hdrfile; // output hdr file
+    
     unsigned errors;	// if any errors in file
     unsigned numlines;	// number of lines in source file
     int isHtml;		// if it is an HTML file
@@ -121,7 +117,6 @@ struct Module : Package
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
-    void setDocfile();	// set docfile member
     void read(Loc loc);	// read file
 #if IN_GCC
     void parse(bool dump_source = false);	// syntactic parse
@@ -132,12 +127,11 @@ struct Module : Package
     void semantic2();	// pass 2 semantic analysis
     void semantic3();	// pass 3 semantic analysis
     void inlineScan();	// scan for functions to inline
-    void setHdrfile();	// set hdrfile member
 #ifdef _DH
     void genhdrfile();  // generate D import file
 #endif
     void genobjfile(int multiobj);
-    void gensymfile();
+//    void gensymfile();
     void gendocfile();
     int needModuleInfo();
     Dsymbol *search(Loc loc, Identifier *ident, int flags);
@@ -173,6 +167,8 @@ struct Module : Package
     void genmoduleinfo();
 
     // LLVMDC
+    void buildTargetFiles();
+    File* buildFilePath(char* forcename, char* path, char* ext);
     Module *isModule() { return this; }
     
     bool llvmForceLogging;

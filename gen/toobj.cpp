@@ -164,22 +164,10 @@ void Module::genobjfile(int multiobj)
 
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::sys::Path LLPath;
-    LLPath bcpath;
-    LLPath llpath;
-
-    if (global.params.fqnPaths)
-    {
-        bcpath = LLPath(mname);
-        bcpath.appendSuffix("bc");
-
-        llpath = LLPath(mname);
-        llpath.appendSuffix("ll");
-    }
-    else
-    {
-        bcpath = LLPath(bcfile->name->toChars());
-        llpath = LLPath(llfile->name->toChars());
-    }
+    LLPath bcpath = LLPath(objfile->name->toChars());
+    LLPath llpath = bcpath;
+    llpath.eraseSuffix();
+    llpath.appendSuffix(std::string(global.ll_ext));
 
     // write bytecode
     {
@@ -190,7 +178,7 @@ void Module::genobjfile(int multiobj)
 
     // disassemble ?
     if (global.params.disassemble) {
-        Logger::println("Writing LLVM asm to: %s\n", llfile->name->toChars());
+        Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::ofstream aos(llpath.c_str());
         ir.module->print(aos, NULL);
     }
