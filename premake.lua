@@ -5,13 +5,6 @@ project.name = llvmdc
 -- we always make vtables opaque, it simply kills performance...
 OPAQUE_VTBLS = 1
 
--- enables additional backends
-addoption("add-backend", "Link in more than the native LLVM backend")
-EXTRA_BACKENDS=""
-if options["add-backend"] then
-    EXTRA_BACKENDS=options["add-backend"]
-end
-
 -- use of boehm gc
 USE_BOEHM_GC = 0
 if OS ~= "windows" then
@@ -62,7 +55,7 @@ package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++", "`llvm-config --cxxflags`" }
 package.linkoptions = {
     -- long but it's faster than just 'all'
-    "`llvm-config --libs backend asmparser bitreader bitwriter linker ipo instrumentation " .. EXTRA_BACKENDS .. "`",
+    "`llvm-config --libs bitwriter linker ipo instrumentation`",
     "`llvm-config --ldflags`",
 }
 package.defines = {
