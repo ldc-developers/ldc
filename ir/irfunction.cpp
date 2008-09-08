@@ -63,3 +63,17 @@ void IrFunction::popLabelScope()
     labelScopes.pop_back();
     nextUnique.pop();
 }
+
+void IrFunction::setNeverInline()
+{
+    llvm::FunctionNotes cur = func->getNotes();
+    assert(!(cur & llvm::FN_NOTE_AlwaysInline) && "function can't be never- and always-inline at the same time");
+    func->setNotes(cur | llvm::FN_NOTE_NoInline);
+}
+
+void IrFunction::setAlwaysInline()
+{
+    llvm::FunctionNotes cur = func->getNotes();
+    assert(!(cur & llvm::FN_NOTE_NoInline) && "function can't be never- and always-inline at the same time");
+    func->setNotes(cur | llvm::FN_NOTE_AlwaysInline);
+}

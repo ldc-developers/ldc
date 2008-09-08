@@ -52,6 +52,10 @@ struct IrFunction : IrBase
 
     IrFunction(FuncDeclaration* fd);
 
+    // annotations
+    void setNeverInline();
+    void setAlwaysInline();
+
 private:
     // prefix for labels and gotos
     // used for allowing labels to be emitted twice

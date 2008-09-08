@@ -450,6 +450,9 @@ void AsmBlockStatement::toIR(IRState* p)
     LOG_SCOPE;
     Logger::println("BEGIN ASM");
 
+    // disable inlining
+    gIR->func()->setNeverInline();
+
     // create asm block structure
     assert(!p->asmBlock);
     IRAsmBlock* asmblock = new IRAsmBlock;
