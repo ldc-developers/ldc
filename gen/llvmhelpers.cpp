@@ -1483,23 +1483,6 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void findDefaultTarget()
-{
-    std::string err_str;
-    const llvm::TargetMachineRegistry::entry* e = llvm::TargetMachineRegistry::getClosestTargetForJIT(err_str);
-    if (e == 0)
-    {
-        error("Failed to find a default target machine: %s", err_str.c_str());
-        fatal();
-    }
-    else
-    {
-        global.params.llvmArch = const_cast<char*>(e->Name);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLValue* DtoBoolean(Loc& loc, DValue* dval)
 {
     Type* dtype = dval->getType()->toBasetype();

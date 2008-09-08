@@ -95,15 +95,7 @@ void Module::genobjfile(int multiobj)
     ir.module->setTargetTriple(target_triple);
     ir.module->setDataLayout(global.params.data_layout);
 
-    // heavily inspired by tools/llc/llc.cpp:200-230
-    const llvm::TargetMachineRegistry::entry* targetEntry;
-    std::string targetError;
-    targetEntry = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, targetError);
-    assert(targetEntry && "Failed to find a static target for module");
-    std::auto_ptr<llvm::TargetMachine> targetPtr(targetEntry->CtorFn(*ir.module, "")); // TODO: replace "" with features
-    assert(targetPtr.get() && "Could not allocate target machine!");
-    llvm::TargetMachine &targetMachine = *targetPtr.get();
-    gTargetData = targetMachine.getTargetData();
+    gTargetData = new llvm::TargetData(global.params.data_layout);
 
     // debug info
     if (global.params.symdebug) {

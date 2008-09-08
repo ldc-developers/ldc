@@ -41,9 +41,6 @@
 
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
-// llvmdc
-void findDefaultTarget();
-
 Global global;
 
 Global::Global()
@@ -753,7 +750,18 @@ int main(int argc, char *argv[])
     bool allowForceEndianness = false;
 
     if (global.params.llvmArch == 0) {
-        findDefaultTarget();
+    #if defined(__x86_64__) || defined(_M_X64)
+        global.params.llvmArch = "x86-64";
+    #elif defined(__i386__) || defined(_M_IX86)
+        global.params.llvmArch = "x86";
+    #elif defined(__ppc__) || defined(_M_PPC)
+        if (global.params.is64bit)
+            global.params.llvmArch = "ppc64";
+        else
+            global.params.llvmArch = "ppc32";
+    #else
+    #error
+    #endif
     }
 
     if (strcmp(global.params.llvmArch,"x86")==0) {
