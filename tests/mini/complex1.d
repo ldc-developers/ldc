@@ -7,12 +7,8 @@ void main()
     cfloat cf3 = func();
     auto c1 = cf1 + cf2;
     auto c2 = cf2 - cf3;
-    {
     auto c3 = cf1 * cf3;
-    {
     auto c4 = cf2 / cf3;
-    }
-    }
 }
 
 cfloat func()

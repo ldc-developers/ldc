@@ -60,7 +60,6 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
 LLConstant* DtoConstBool(bool);
 
 // llvm wrappers
-bool DtoCanLoad(LLValue* ptr);
 LLValue* DtoLoad(LLValue* src, const char* name=0);
 void DtoStore(LLValue* src, LLValue* dst);
 LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
@@ -92,6 +91,9 @@ size_t getABITypeSize(const LLType* t);
 // type alignments
 unsigned char getABITypeAlign(const LLType* t);
 unsigned char getPrefTypeAlign(const LLType* t);
+
+// pair type helpers
+LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).

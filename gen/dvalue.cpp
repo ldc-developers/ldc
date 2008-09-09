@@ -4,60 +4,40 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/dvalue.h"
+#include "gen/llvmhelpers.h"
 
 #include "declaration.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue, bool lvalue)
+DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue)
 {
     var = vd;
     val = llvmValue;
-    rval = 0;
-    lval = lvalue;
     type = t;
 }
 
-DVarValue::DVarValue(Type* t, LLValue* lv, LLValue* rv)
-{
-    var = 0;
-    val = lv;
-    rval = rv;
-    lval = true;
-    type = t;
-}
-
-DVarValue::DVarValue(Type* t, LLValue* llvmValue, bool lvalue)
+DVarValue::DVarValue(Type* t, LLValue* llvmValue)
 {
     var = 0;
     val = llvmValue;
-    rval = 0;
-    lval = lvalue;
     type = t;
 }
 
 LLValue* DVarValue::getLVal()
 {
-    assert(val && lval);
+    assert(val);
     return val;
 }
 
 LLValue* DVarValue::getRVal()
 {
-    assert(rval || val);
-    if (DtoIsPassedByRef(type)) {
-        if (rval) return rval;
+    assert(val);
+    Type* bt = type->toBasetype();
+    if (DtoIsPassedByRef(bt))
         return val;
-    }
-    else {
-        if (rval) return rval;
-        //Logger::cout() << "val: " << *val << '\n';
-        if (!isField() && DtoCanLoad(val)) {
-            return DtoLoad(val);
-        }
-        return val;
-    }
+    return DtoLoad(val);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

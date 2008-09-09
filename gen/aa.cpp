@@ -23,13 +23,8 @@ static LLValue* to_pkey(Loc& loc, DValue* key)
         pkey = key->getRVal();
     }
     else if (DVarValue* var = key->isVar()) {
-        if (var->lval) {
-            pkey = key->getLVal();
-            needmem = false;
-        }
-        else {
-            pkey = key->getRVal();
-        }
+        pkey = key->getLVal();
+        needmem = false;
     }
     else if (key->isConst()) {
         needmem = true;
@@ -37,8 +32,8 @@ static LLValue* to_pkey(Loc& loc, DValue* key)
     }
     else {
         LLValue* tmp = DtoAlloca(DtoType(keytype), "aatmpkeystorage");
-        DVarValue* var = new DVarValue(keytype, tmp, true);
-        DtoAssign(loc, var, key);
+        DVarValue var(keytype, tmp);
+        DtoAssign(loc, &var, key);
         return tmp;
     }
 
@@ -96,7 +91,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     if (ret->getType() != targettype)
         ret = DtoBitCast(ret, targettype);
 
-    return new DVarValue(type, ret, true);
+    return new DVarValue(type, ret);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

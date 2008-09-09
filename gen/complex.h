@@ -4,7 +4,6 @@
 const llvm::StructType* DtoComplexType(Type* t);
 const LLType* DtoComplexBaseType(Type* t);
 
-LLConstant* DtoConstComplex(Type* t, LLConstant* re, LLConstant* im);
 LLConstant* DtoConstComplex(Type* t, long double re, long double im);
 
 LLConstant* DtoComplexShuffleMask(unsigned a, unsigned b);
@@ -13,7 +12,6 @@ LLValue* DtoRealPart(DValue* val);
 LLValue* DtoImagPart(DValue* val);
 DValue* DtoComplex(Loc& loc, Type* to, DValue* val);
 
-void DtoComplexAssign(LLValue* l, LLValue* r);
 void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im);
 
 void DtoGetComplexParts(DValue* c, LLValue*& re, LLValue*& im);

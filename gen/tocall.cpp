@@ -314,6 +314,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             LLValue* arg = argval->getRVal();
             if (fnarg) // can fnarg ever be null in this block?
             {
+                Logger::cout() << "arg:     " << *arg << '\n';
+                Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
                 if (arg->getType() != callableTy->getParamType(j))
                     arg = DtoBitCast(arg, callableTy->getParamType(j));
                 if (fnarg->llvmAttrs)

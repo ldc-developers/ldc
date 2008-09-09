@@ -122,7 +122,13 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         bool refOrOut = ((arg->storageClass & STCref) || (arg->storageClass & STCout));
 
         const LLType* at = DtoType(argT);
-        if (isaStruct(at)) {
+
+        // FIXME: using the llvm type for these is a bad idea... aggregates are first class now and we're starting to use it ...
+
+        if (argT->iscomplex()) {
+            goto Lbadstuff;
+        }
+        else if (isaStruct(at)) {
             Logger::println("struct param");
             paramvec.push_back(getPtrToType(at));
             if (!refOrOut)
@@ -140,6 +146,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             paramvec.push_back(getPtrToType(at));
         }
         else {
+Lbadstuff:
             if (refOrOut) {
                 Logger::println("by ref param");
                 at = getPtrToType(at);
@@ -866,10 +873,10 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
             arg = new DImValue(argexp->type, arg->getRVal());
     }
     // byval arg, but expr has no storage yet
-    else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isComplex() || arg->isNull()))
+    else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull()))
     {
         LLValue* alloc = DtoAlloca(DtoType(argexp->type), ".tmp_arg");
-        DVarValue* vv = new DVarValue(argexp->type, alloc, true);
+        DVarValue* vv = new DVarValue(argexp->type, alloc);
         DtoAssign(argexp->loc, vv, arg);
         arg = vv;
     }
@@ -883,7 +890,7 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
 {
     Logger::println("DtoVariadicArgument");
     LOG_SCOPE;
-    DVarValue vv(argexp->type, dst, true);
+    DVarValue vv(argexp->type, dst);
     DtoAssign(argexp->loc, &vv, argexp->toElem(gIR));
 }
 

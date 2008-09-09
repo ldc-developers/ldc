@@ -1173,9 +1173,6 @@ struct AddExp : BinExp
     Identifier *opId_r();
 
     elem *toElem(IRState *irs);
-
-    // LLVMDC
-    bool llvmFieldIndex;
 };
 
 struct MinExp : BinExp

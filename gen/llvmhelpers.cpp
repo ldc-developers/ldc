@@ -360,7 +360,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
     if (vdparent == irfunc->decl)
     {
         LLValue* val = vd->ir.getIrValue();
-        return new DVarValue(astype, vd, val, true);
+        return new DVarValue(astype, vd, val);
     }
     
     // get it from the nested context
@@ -381,7 +381,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
     val = DtoLoad(val);
     assert(vd->ir.irLocal->value);
     val = DtoBitCast(val, vd->ir.irLocal->value->getType(), vd->toChars());
-    return new DVarValue(astype, vd, val, true);
+    return new DVarValue(astype, vd, val);
 }
 
 LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
@@ -486,21 +486,15 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         DtoStore(r, l);
     }
     else if (t->iscomplex()) {
-        assert(!lhs->isComplex());
-
         LLValue* dst;
         if (DLRValue* lr = lhs->isLRValue()) {
             dst = lr->getLVal();
             rhs = DtoCastComplex(loc, rhs, lr->getLType());
         }
         else {
-            dst = lhs->getRVal();
+            dst = lhs->getLVal();
         }
-
-        if (DComplexValue* cx = rhs->isComplex())
-            DtoComplexSet(dst, cx->re, cx->im);
-        else
-            DtoComplexAssign(dst, rhs->getRVal());
+        DtoStore(rhs->getRVal(), dst);
     }
     else {
         LLValue* l = lhs->getLVal();
@@ -538,7 +532,8 @@ DValue* DtoNullValue(Type* type)
     if (basetype->iscomplex())
     {
         const LLType* basefp = DtoComplexBaseType(basetype);
-        return new DComplexValue(type, LLConstant::getNullValue(basefp), LLConstant::getNullValue(basefp));
+        LLValue* res = DtoAggrPair(DtoType(type), LLConstant::getNullValue(basefp), LLConstant::getNullValue(basefp));
+        return new DImValue(type, res);
     }
     // integer, floating, pointer and class have no special representation
     else if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer || basety == Tclass)
@@ -790,7 +785,7 @@ void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
     gIR->scope() = IRScope(initbb,endinitbb);
     DValue* ie = DtoInitializer(gvar, init);
     
-    DVarValue dst(t, gvar, true);
+    DVarValue dst(t, gvar);
     DtoAssign(init->loc, &dst, ie);
     
     gIR->ir->CreateStore(DtoConstBool(true), gflag);
@@ -1177,7 +1172,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             DValue* ie = DtoInitializer(vd->ir.irLocal->value, vd->init);
         }
 
-        return new DVarValue(vd->type, vd, vd->ir.getIrValue(), true);
+        return new DVarValue(vd->type, vd, vd->ir.getIrValue());
     }
     // struct declaration
     else if (StructDeclaration* s = declaration->isStructDeclaration())

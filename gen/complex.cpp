@@ -8,20 +8,15 @@
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/dvalue.h"
+#include "gen/logger.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 const llvm::StructType* DtoComplexType(Type* type)
 {
     Type* t = type->toBasetype();
-
     const LLType* base = DtoComplexBaseType(t);
-
-    std::vector<const LLType*> types;
-    types.push_back(base);
-    types.push_back(base);
-
-    return llvm::StructType::get(types);
+    return llvm::StructType::get(base, base, NULL);
 }
 
 const LLType* DtoComplexBaseType(Type* t)
@@ -46,19 +41,6 @@ const LLType* DtoComplexBaseType(Type* t)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-LLConstant* DtoConstComplex(Type* ty, LLConstant* re, LLConstant* im)
-{
-    assert(0);
-    const LLType* base = DtoComplexBaseType(ty);
-
-    std::vector<LLConstant*> inits;
-    inits.push_back(re);
-    inits.push_back(im);
-
-    const llvm::VectorType* vt = llvm::VectorType::get(base, 2);
-    return llvm::ConstantVector::get(vt, inits);
-}
 
 LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
 {
@@ -108,7 +90,7 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 {
     Type* t = val->getType()->toBasetype();
 
-    if (val->isComplex() || t->iscomplex()) {
+    if (t->iscomplex()) {
         return DtoCastComplex(loc, val, to);
     }
 
@@ -127,26 +109,26 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
         baserety = Type::tfloat80;
         baseimty = Type::timaginary80;
     }
+    else {
+        assert(0);
+    }
+
+    const LLType* complexTy = DtoType(to);
+    LLValue* res;
 
     if (t->isimaginary()) {
-        return new DComplexValue(to, LLConstant::getNullValue(DtoType(baserety)), DtoCastFloat(loc, val, baseimty)->getRVal());
+        res = DtoAggrPair(complexTy, LLConstant::getNullValue(DtoType(baserety)), DtoCastFloat(loc, val, baseimty)->getRVal());
     }
-    else if (t->isfloating()) {
-        return new DComplexValue(to, DtoCastFloat(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
+    else if (t->isfloating() || t->isintegral()) {
+        res = DtoAggrPair(complexTy, DtoCastFloat(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
     }
-    else if (t->isintegral()) {
-        return new DComplexValue(to, DtoCastInt(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
+    else {
+        assert(0);
     }
-    assert(0);
+    return new DImValue(to, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoComplexAssign(LLValue* l, LLValue* r)
-{
-    DtoStore(DtoLoad(DtoGEPi(r, 0,0, "tmp")), DtoGEPi(l,0,0,"tmp"));
-    DtoStore(DtoLoad(DtoGEPi(r, 0,1, "tmp")), DtoGEPi(l,0,1,"tmp"));
-}
 
 void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im)
 {
@@ -158,15 +140,10 @@ void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im)
 
 void DtoGetComplexParts(DValue* c, LLValue*& re, LLValue*& im)
 {
-    // get LLValues
-    if (DComplexValue* cx = c->isComplex()) {
-        re = cx->re;
-        im = cx->im;
-    }
-    else {
-        re = DtoLoad(DtoGEPi(c->getRVal(),0,0,"tmp"));
-        im = DtoLoad(DtoGEPi(c->getRVal(),0,1,"tmp"));
-    }
+    LLValue* v = c->getRVal();
+    Logger::cout() << "extracting real and imaginary parts from: " << *v << '\n';
+    re = gIR->ir->CreateExtractValue(v, 0, ".re_part");
+    im = gIR->ir->CreateExtractValue(v, 1, ".im_part");
 }
 
 DValue* resolveLR(DValue* val, bool getlval)
@@ -232,7 +209,8 @@ DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
     else // either hasIm(rhstype) or no im at all (then use any)
         res_im = rhs_im;
 
-    return new DComplexValue(type, res_re, res_im);
+    LLValue* res = DtoAggrPair(DtoType(type), res_re, res_im);
+    return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -262,7 +240,8 @@ DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
     else
         res_im = lhs_im;
 
-    return new DComplexValue(type, res_re, res_im);
+    LLValue* res = DtoAggrPair(DtoType(type), res_re, res_im);
+    return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -314,7 +293,8 @@ DValue* DtoComplexMul(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
     else
         res_im = hasRe(lhstype) ? rhs_im : lhs_re; // null!
 
-    return new DComplexValue(type, res_re, res_im);
+    LLValue* res = DtoAggrPair(DtoType(type), res_re, res_im);
+    return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -390,7 +370,8 @@ DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
         res_im = gIR->ir->CreateFDiv(res_im, denom, "res_im");
     }
 
-    return new DComplexValue(type, res_re, res_im);
+    LLValue* res = DtoAggrPair(DtoType(type), res_re, res_im);
+    return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -408,7 +389,8 @@ DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val)
     re = gIR->ir->CreateNeg(a, "tmp");
     im = gIR->ir->CreateNeg(b, "tmp");
 
-    return new DComplexValue(type, re, im);
+    LLValue* res = DtoAggrPair(DtoType(type), re, im);
+    return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -462,35 +444,35 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
             re = gIR->ir->CreateFPTrunc(re, toty, "tmp");
             im = gIR->ir->CreateFPTrunc(im, toty, "tmp");
         }
-        else if (to->size() > vty->size()) {
+        else {
             re = gIR->ir->CreateFPExt(re, toty, "tmp");
             im = gIR->ir->CreateFPExt(im, toty, "tmp");
         }
-        else {
-            return val;
+
+        LLValue* pair = DtoAggrPair(DtoType(_to), re, im);
+        DValue* rval = new DImValue(_to, pair);
+
+        // if the value we're casting is not a lvalue, the cast value can't be either
+        if (!val->isLVal()) {
+            return rval;
         }
 
-        if (val->isComplex())
-            return new DComplexValue(_to, re, im);
-
         // unfortunately at this point, the cast value can show up as the lvalue for += and similar expressions.
-        // so we need to give it storage, or fix the system that handles this stuff (DLRValue)
-        LLValue* mem = DtoAlloca(DtoType(_to), "castcomplextmp");
-        DtoComplexSet(mem, re, im);
-        return new DLRValue(val, new DImValue(_to, mem));
+        // so we need to maintain the storage
+        return new DLRValue(val, rval);
     }
     else if (to->isimaginary()) {
-        if (val->isComplex())
-            return new DImValue(to, val->isComplex()->im);
+        // FIXME: this loads both values, even when we only need one
         LLValue* v = val->getRVal();
-        DImValue* im = new DImValue(to, DtoLoad(DtoGEPi(v,0,1,"tmp")));
+        LLValue* impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
+        DImValue* im = new DImValue(to, impart);
         return DtoCastFloat(loc, im, to);
     }
     else if (to->isfloating()) {
-        if (val->isComplex())
-            return new DImValue(to, val->isComplex()->re);
+        // FIXME: this loads both values, even when we only need one
         LLValue* v = val->getRVal();
-        DImValue* re = new DImValue(to, DtoLoad(DtoGEPi(v,0,0,"tmp")));
+        LLValue* repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
+        DImValue* re = new DImValue(to, repart);
         return DtoCastFloat(loc, re, to);
     }
     else

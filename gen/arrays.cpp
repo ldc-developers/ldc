@@ -116,10 +116,10 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     LLValue* val;
 
     // give slices and complex values storage (and thus an address to pass)
-    if (value->isSlice() || value->isComplex())
+    if (value->isSlice())
     {
         val = DtoAlloca(DtoType(value->getType()), ".tmpparam");
-        DVarValue lval(value->getType(), val, true);
+        DVarValue lval(value->getType(), val);
         DtoAssign(loc, &lval, value);
     }
     else
@@ -526,7 +526,7 @@ DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
     LLValue* ptr = slice->ptr;
     ptr = llvm::GetElementPtrInst::Create(ptr, idx, "tmp", gIR->scopebb());
 
-    DValue* dptr = new DVarValue(exp->type, ptr, true);
+    DValue* dptr = new DVarValue(exp->type, ptr);
 
     DValue* e = exp->toElem(gIR);
 
@@ -631,7 +631,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
         DSliceValue* slice = DtoNewDynArray(type, lenval, false);
         LLValue* mem = slice->ptr;
 
-        DVarValue* memval = new DVarValue(e1->getType(), mem, true);
+        DVarValue* memval = new DVarValue(e1->getType(), mem);
         DtoAssign(exp1->loc, memval, e1);
 
         src1 = DtoArrayPtr(e2);
@@ -662,7 +662,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
         DtoMemCpy(mem,src1,bytelen);
 
         mem = gIR->ir->CreateGEP(mem,len1,"tmp");
-        DVarValue* memval = new DVarValue(e2->getType(), mem, true);
+        DVarValue* memval = new DVarValue(e2->getType(), mem);
         DtoAssign(exp1->loc, memval, e2);
 
         return slice;

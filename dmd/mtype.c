@@ -4456,18 +4456,17 @@ L1:
 
 	// *(&e + offset)
 	accessCheck(e->loc, sc, e, d);
+
+// LLVMDC we don't want dot exprs turned into pointer arithmetic. it complicates things for no apparent gain
+#ifndef IN_LLVM
 	b = new AddrExp(e->loc, e);
 	b->type = e->type->pointerTo();
 	b = new AddExp(e->loc, b, new IntegerExp(e->loc, v->offset, Type::tint32));
-#if IN_LLVM
-    // LLVMDC modification
-    // this is *essential*
-    ((AddExp*)b)->llvmFieldIndex = true;
-#endif
 	b->type = v->type->pointerTo();
 	e = new PtrExp(e->loc, b);
 	e->type = v->type;
 	return e;
+#endif
     }
 
     de = new DotVarExp(e->loc, e, d);

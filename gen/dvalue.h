@@ -31,7 +31,6 @@ struct DFuncValue;
 struct DSliceValue;
 struct DArrayLenValue;
 struct DLRValue;
-struct DComplexValue;
 
 // base class for d-values
 struct DValue : Object
@@ -51,7 +50,6 @@ struct DValue : Object
     virtual DSliceValue* isSlice() { return NULL; }
     virtual DFuncValue* isFunc() { return NULL; }
     virtual DArrayLenValue* isArrayLen() { return NULL; }
-    virtual DComplexValue* isComplex() { return NULL; }
     virtual DLRValue* isLRValue() { return NULL; }
 
 protected:
@@ -101,14 +99,11 @@ struct DVarValue : DValue
     Type* type;
     VarDeclaration* var;
     LLValue* val;
-    LLValue* rval;
-    bool lval;
 
-    DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue, bool lvalue);
-    DVarValue(Type* t, LLValue* lv, LLValue* rv);
-    DVarValue(Type* t, LLValue* llvmValue, bool lvalue);
+    DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue);
+    DVarValue(Type* t, LLValue* llvmValue);
 
-    virtual bool isLVal() { return val && lval; }
+    virtual bool isLVal() { return true; }
     virtual LLValue* getLVal();
     virtual LLValue* getRVal();
 
@@ -119,7 +114,7 @@ struct DVarValue : DValue
 // field d-value
 struct DFieldValue : DVarValue
 {
-    DFieldValue(Type* t, LLValue* llvmValue, bool l) : DVarValue(t, llvmValue, l) {}
+    DFieldValue(Type* t, LLValue* llvmValue) : DVarValue(t, llvmValue) {}
     virtual DFieldValue* isField() { return this; }
 };
 
@@ -171,23 +166,6 @@ struct DLRValue : DValue
     Type*& getRType() { return rvalue->getType(); }
     virtual Type*& getType() { return getRType(); }
     virtual DLRValue* isLRValue() { return this; }
-};
-
-// complex number immediate d-value (much like slice)
-struct DComplexValue : DValue
-{
-    Type* type;
-    LLValue* re;
-    LLValue* im;
-
-    DComplexValue(Type* t, LLValue* r, LLValue* i) {
-        type = t;
-        re = r;
-        im = i;
-    }
-
-    virtual Type*& getType() { assert(type); return type; }
-    virtual DComplexValue* isComplex() { return this; }
 };
 
 #endif // LLVMDC_GEN_DVALUE_H

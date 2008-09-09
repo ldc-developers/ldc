@@ -25,14 +25,14 @@ bool DtoIsPassedByRef(Type* type)
 {
     Type* typ = type->toBasetype();
     TY t = typ->ty;
-    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
+    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray);
 }
 
 bool DtoIsReturnedInArg(Type* type)
 {
     Type* typ = type->toBasetype();
     TY t = typ->ty;
-    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray || typ->iscomplex());
+    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray);
 }
 
 unsigned DtoShouldExtend(Type* type)
@@ -541,15 +541,6 @@ void DtoStore(LLValue* src, LLValue* dst)
     //st->setVolatile(gIR->func()->inVolatile);
 }
 
-bool DtoCanLoad(LLValue* ptr)
-{
-    if (isaPointer(ptr->getType())) {
-        const LLType* data = ptr->getType()->getContainedType(0);
-        return data->isFirstClassType() && !(isaStruct(data) || isaArray(data));
-    }
-    return false;
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
@@ -769,4 +760,13 @@ const LLStructType* DtoModuleReferenceType()
     gIR->moduleRefType = st;
     gIR->module->addTypeName("ModuleReference", st);
     return st;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name)
+{
+    LLValue* res = llvm::UndefValue::get(type);
+    res = gIR->ir->CreateInsertValue(res, V1, 0, "tmp");
+    return gIR->ir->CreateInsertValue(res, V2, 1, name?name:"tmp");
 }

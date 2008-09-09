@@ -64,14 +64,14 @@ DValue* VarExp::toElem(IRState* p)
         {
             Logger::println("Id::_arguments");
             LLValue* v = p->func()->_arguments;
-            return new DVarValue(type, vd, v, true);
+            return new DVarValue(type, vd, v);
         }
         // _argptr
         else if (vd->ident == Id::_argptr && p->func()->_argptr)
         {
             Logger::println("Id::_argptr");
             LLValue* v = p->func()->_argptr;
-            return new DVarValue(type, vd, v, true);
+            return new DVarValue(type, vd, v);
         }
         // _dollar
         else if (vd->ident == Id::dollar)
@@ -79,7 +79,7 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("Id::dollar");
             assert(!p->arrays.empty());
             LLValue* tmp = DtoArrayLen(p->arrays.back());
-            return new DVarValue(type, vd, tmp, false);
+            return new DImValue(type, tmp);
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
@@ -88,12 +88,10 @@ DValue* VarExp::toElem(IRState* p)
             DtoForceDeclareDsymbol(tid);
             assert(tid->ir.getIrValue());
             const LLType* vartype = DtoType(type);
-            LLValue* m;
-            if (tid->ir.getIrValue()->getType() != getPtrToType(vartype))
-                m = p->ir->CreateBitCast(tid->ir.getIrValue(), vartype, "tmp");
-            else
-                m = tid->ir.getIrValue();
-            return new DVarValue(type, vd, m, true);
+            LLValue* m = tid->ir.getIrValue();
+            if (m->getType() != getPtrToType(vartype))
+                m = p->ir->CreateBitCast(m, vartype, "tmp");
+            return new DImValue(type, m);
         }
         // classinfo
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
@@ -101,7 +99,7 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
             DtoForceDeclareDsymbol(cid->cd);
             assert(cid->cd->ir.irStruct->classInfo);
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->classInfo, true);
+            return new DVarValue(type, vd, cid->cd->ir.irStruct->classInfo);
         }
         // nested variable
         else if (vd->nestedref) {
@@ -117,7 +115,7 @@ DValue* VarExp::toElem(IRState* p)
                 return DtoNestedVariable(loc, type, vd);
             }
             else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
-                return new DVarValue(type, vd, vd->ir.getIrValue(), true);
+                return new DVarValue(type, vd, vd->ir.getIrValue());
             }
             else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue())) {
                 return new DImValue(type, vd->ir.getIrValue());
@@ -125,6 +123,7 @@ DValue* VarExp::toElem(IRState* p)
             else assert(0);
         }
         else {
+            Logger::println("a normal variable");
             // take care of forward references of global variables
             if (vd->isDataseg() || (vd->storage_class & STCextern)) {
                 vd->toObjFile(0); // TODO: multiobj
@@ -135,7 +134,7 @@ DValue* VarExp::toElem(IRState* p)
                 Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
                 fatal();
             }
-            return new DVarValue(type, vd, vd->ir.getIrValue(), true);
+            return new DVarValue(type, vd, vd->ir.getIrValue());
         }
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
@@ -158,7 +157,7 @@ DValue* VarExp::toElem(IRState* p)
         assert(ts->sym);
         DtoForceConstInitDsymbol(ts->sym);
         assert(ts->sym->ir.irStruct->init);
-        return new DVarValue(type, ts->sym->ir.irStruct->init, true);
+        return new DVarValue(type, ts->sym->ir.irStruct->init);
     }
     else
     {
@@ -281,6 +280,7 @@ DValue* ComplexExp::toElem(IRState* p)
     Logger::print("ComplexExp::toElem(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     LLConstant* c = toConstElem(p);
+    LLValue* res;
 
     if (c->isNullValue()) {
         Type* t = type->toBasetype();
@@ -292,10 +292,13 @@ DValue* ComplexExp::toElem(IRState* p)
             c = DtoConstFP(Type::tfloat80, 0);
         else
             assert(0);
-        return new DComplexValue(type, c, c);
+        res = DtoAggrPair(DtoType(type), c, c);
+    }
+    else {
+        res = DtoAggrPair(DtoType(type), c->getOperand(0), c->getOperand(1));
     }
 
-    return new DComplexValue(type, c->getOperand(0), c->getOperand(1));
+    return new DImValue(type, res);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -360,12 +363,12 @@ DValue* StringExp::toElem(IRState* p)
         LLConstant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
         LLValue* tmpmem = DtoAlloca(DtoType(dtype),"tempstring");
         DtoSetArray(tmpmem, clen, arrptr);
-        return new DVarValue(type, tmpmem, true);
+        return new DVarValue(type, tmpmem);
     }
     else if (dtype->ty == Tsarray) {
         const LLType* dstType = getPtrToType(LLArrayType::get(ct, len));
         LLValue* emem = (gvar->getType() == dstType) ? gvar : DtoBitCast(gvar, dstType);
-        return new DVarValue(type, emem, true);
+        return new DVarValue(type, emem);
     }
     else if (dtype->ty == Tpointer) {
         return new DImValue(type, arrptr);
@@ -456,7 +459,7 @@ DValue* AssignExp::toElem(IRState* p)
         Logger::println("performing array.length assignment");
         ArrayLengthExp *ale = (ArrayLengthExp *)e1;
         DValue* arr = ale->e1->toElem(p);
-        DVarValue arrval(ale->e1->type, arr->getLVal(), true);
+        DVarValue arrval(ale->e1->type, arr->getLVal());
         DValue* newlen = e2->toElem(p);
         DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, newlen);
         DtoAssign(loc, &arrval, slice);
@@ -469,7 +472,7 @@ DValue* AssignExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
     DtoAssign(loc, l, r);
 
-    if (l->isSlice() || l->isComplex())
+    if (l->isSlice())
         return l;
 
 #if 0
@@ -503,7 +506,7 @@ DValue* AddExp::toElem(IRState* p)
     Type* e2type = e2->type->toBasetype();
 
     if (e1type != e2type) {
-        if (llvmFieldIndex) {
+        /*if (llvmFieldIndex) {
             assert(e1type->ty == Tpointer && e1next && e1next->ty == Tstruct);
             Logger::println("add to AddrExp of struct");
             assert(r->isConst());
@@ -512,9 +515,9 @@ DValue* AddExp::toElem(IRState* p)
             TypeStruct* ts = (TypeStruct*)e1next;
             DStructIndexVector offsets;
             LLValue* v = DtoIndexStruct(l->getRVal(), ts->sym, t->next, cofs->getZExtValue(), offsets);
-            return new DFieldValue(type, v, true);
+            return new DFieldValue(type, v);
         }
-        else if (e1type->ty == Tpointer) {
+        else*/ if (e1type->ty == Tpointer) {
             Logger::println("add to pointer");
             if (r->isConst()) {
                 llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
@@ -848,7 +851,9 @@ DValue* AddrExp::toElem(IRState* p)
         return v;
     }
     Logger::println("is nothing special");
-    return new DFieldValue(type, v->getLVal(), false);
+    LLValue* lval = v->getLVal();
+    Logger::cout() << "lval: " << *lval << '\n';
+    return new DImValue(type, v->getLVal());
 }
 
 LLConstant* AddrExp::toConstElem(IRState* p)
@@ -893,12 +898,18 @@ DValue* PtrExp::toElem(IRState* p)
 
     DValue* a = e1->toElem(p);
 
-    // this should be deterministic but right now lvalue casts don't propagate lvalueness !?!
+    // this is *so* ugly.. I'd really like to figure out some way to avoid this badness...
     LLValue* lv = a->getRVal();
     LLValue* v = lv;
-    if (DtoCanLoad(v))
+
+    Type* bt = type->toBasetype();
+
+    // we can't load function pointers, but they aren't passed by reference either
+    // FIXME: maybe a MayLoad function isn't a bad idea after all ...
+    if (!DtoIsPassedByRef(bt) && bt->ty != Tfunction)
         v = DtoLoad(v);
-    return new DLRValue(new DVarValue(type, lv, true), new DImValue(type, v));
+
+    return new DLRValue(new DVarValue(type, lv), new DImValue(type, v));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -951,7 +962,7 @@ DValue* DotVarExp::toElem(IRState* p)
             assert(0);
 
         //Logger::cout() << "mem: " << *arrptr << '\n';
-        return new DVarValue(type, vd, arrptr, true);
+        return new DVarValue(type, vd, arrptr);
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
@@ -1021,7 +1032,7 @@ DValue* ThisExp::toElem(IRState* p)
     {
         LLValue* v = p->func()->thisArg;
         assert(v);
-        return new DVarValue(type, v, true);
+        return new DVarValue(type, v);
     }
     // regular this expr
     else if (VarDeclaration* vd = var->isVarDeclaration()) {
@@ -1034,7 +1045,7 @@ DValue* ThisExp::toElem(IRState* p)
             Logger::println("normal this exp");
             v = p->func()->thisArg;
         }
-        return new DVarValue(type, vd, v, true);
+        return new DVarValue(type, vd, v);
     }
 
     // anything we're not yet handling ?
@@ -1082,7 +1093,7 @@ DValue* IndexExp::toElem(IRState* p)
         Logger::println("invalid index exp! e1type: %s", e1type->toChars());
         assert(0);
     }
-    return new DVarValue(type, arrptr, true);
+    return new DVarValue(type, arrptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1479,7 +1490,7 @@ DValue* NewExp::toElem(IRState* p)
     {
         // allocate
         LLValue* mem = DtoNew(newtype);
-        DVarValue tmpvar(newtype, mem, true);
+        DVarValue tmpvar(newtype, mem);
 
         // default initialize
         Expression* exp = newtype->defaultInit(loc);
@@ -1508,7 +1519,7 @@ DValue* DeleteExp::toElem(IRState* p)
     {
         LLValue* rval = dval->getRVal();
         DtoDeleteMemory(rval);
-        if (dval->isVar() && dval->isVar()->lval)
+        if (dval->isVar())
             DtoStore(llvm::Constant::getNullValue(rval->getType()), dval->getLVal());
     }
     // class
@@ -1531,7 +1542,7 @@ DValue* DeleteExp::toElem(IRState* p)
             LLValue* rval = dval->getRVal();
             DtoDeleteClass(rval);
         }
-        if (dval->isVar() && dval->isVar()->lval) {
+        if (dval->isVar()) {
             LLValue* lval = dval->getLVal();
             DtoStore(llvm::Constant::getNullValue(lval->getType()->getContainedType(0)), lval);
         }
@@ -1957,7 +1968,7 @@ DValue* CondExp::toElem(IRState* p)
     // allocate a temporary for the final result. failed to come up with a better way :/
     llvm::BasicBlock* entryblock = &p->topfunc()->front();
     LLValue* resval = DtoAlloca(resty,"condtmp");
-    DVarValue* dvv = new DVarValue(type, resval, true);
+    DVarValue* dvv = new DVarValue(type, resval);
 
     llvm::BasicBlock* oldend = p->scopeend();
     llvm::BasicBlock* condtrue = llvm::BasicBlock::Create("condtrue", gIR->topfunc(), oldend);
@@ -2115,10 +2126,10 @@ DValue* FuncExp::toElem(IRState* p)
         LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, fptr->getType()->getContainedType(0));
         DtoStore(castfptr, fptr);
 
-        return new DVarValue(type, lval, true);
+        return new DVarValue(type, lval);
 
     } else if(fd->tok == TOKfunction) {
-        return new DVarValue(type, fd->ir.irFunc->func, false);
+        return new DImValue(type, fd->ir.irFunc->func);
     }
 
     assert(0 && "fd->tok must be TOKfunction or TOKdelegate");
@@ -2159,7 +2170,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         LLValue* elemAddr = DtoGEPi(dstMem,0,i,"tmp",p->scopebb());
 
         // emulate assignment
-        DVarValue* vv = new DVarValue(expr->type, elemAddr, true);
+        DVarValue* vv = new DVarValue(expr->type, elemAddr);
         DValue* e = expr->toElem(p);
         DtoAssign(loc, vv, e);
     }
@@ -2248,7 +2259,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
         Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
         LLValue* arrptr = DtoGEPi(sptr,0,j);
-        DValue* darrptr = new DVarValue(vx->type, arrptr, true);
+        DValue* darrptr = new DVarValue(vx->type, arrptr);
 
         DValue* ve = vx->toElem(p);
         DtoAssign(loc, darrptr, ve);
@@ -2324,7 +2335,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
     // it should be possible to avoid the temporary in some cases
     LLValue* tmp = DtoAlloca(aalltype,"aaliteral");
-    DValue* aa = new DVarValue(type, tmp, true);
+    DValue* aa = new DVarValue(type, tmp);
     DtoStore(LLConstant::getNullValue(aalltype), tmp);
 
     const size_t n = keys->dim;

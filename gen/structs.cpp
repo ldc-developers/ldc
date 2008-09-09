@@ -60,6 +60,10 @@ LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned o
 
     const LLType* llt = getPtrToType(DtoType(t));
     const LLType* st = getPtrToType(DtoType(sd->type));
+
+    Logger::cout() << "ptr = " << *ptr << '\n';
+    Logger::cout() << "st  = " << *st << '\n';
+
     if (ptr->getType() != st) {
         assert(sd->ir.irStruct->hasUnions);
         ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");

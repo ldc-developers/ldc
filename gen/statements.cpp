@@ -62,7 +62,7 @@ void ReturnStatement::toIR(IRState* p)
 
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
-            DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg, true);
+            DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
 
             DValue* e = exp->toElem(p);
 
@@ -687,7 +687,7 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
     {
         // give storage
         llval = DtoAlloca(DtoType(e->type), "tmp");
-        DVarValue* vv = new DVarValue(e->type, llval, true);
+        DVarValue* vv = new DVarValue(e->type, llval);
         DtoAssign(e->loc, vv, val);
     }
     else
@@ -1002,9 +1002,9 @@ void ForeachStatement::toIR(IRState* p)
     value->ir.irLocal->value = DtoGEP1(val,loadedKey);
 
     if (!value->isRef() && !value->isOut()) {
-        DValue* dst = new DVarValue(value->type, valvar, true);
-        DValue* src = new DVarValue(value->type, value->ir.irLocal->value, true);
-        DtoAssign(loc, dst, src);
+        DVarValue dst(value->type, valvar);
+        DVarValue src(value->type, value->ir.irLocal->value);
+        DtoAssign(loc, &dst, &src);
         value->ir.irLocal->value = valvar;
     }
 
@@ -1151,7 +1151,8 @@ void WithStatement::toIR(IRState* p)
     DValue* e = exp->toElem(p);
     assert(!wthis->ir.isSet());
     wthis->ir.irLocal = new IrLocal(wthis);
-    wthis->ir.irLocal->value = e->getRVal();
+    wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
+    DtoStore(e->getRVal(), wthis->ir.irLocal->value);
 
     body->toIR(p);
 }

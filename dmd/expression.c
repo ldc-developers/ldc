@@ -7929,7 +7929,6 @@ Expression *XorAssignExp::semantic(Scope *sc)
 AddExp::AddExp(Loc loc, Expression *e1, Expression *e2)
 	: BinExp(loc, TOKadd, sizeof(AddExp), e1, e2)
 {
-    llvmFieldIndex = false;
 }
 
 Expression *AddExp::semantic(Scope *sc)
