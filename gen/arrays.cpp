@@ -194,6 +194,18 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
         funcname = "_d_array_init_real";
         break;
 
+    case Tcomplex32:
+        funcname = "_d_array_init_cfloat";
+        break;
+
+    case Tcomplex64:
+        funcname = "_d_array_init_cdouble";
+        break;
+
+    case Tcomplex80:
+        funcname = "_d_array_init_creal";
+        break;
+
     case Tpointer:
     case Tclass:
         funcname = "_d_array_init_pointer";
@@ -207,9 +219,6 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     case Tdelegate:
     case Tarray:
     case Tsarray:
-    case Tcomplex32:
-    case Tcomplex64:
-    case Tcomplex80:
         funcname = "_d_array_init_mem";
         args[0] = DtoBitCast(args[0], getVoidPtrType());
         args[2] = DtoBitCast(args[2], getVoidPtrType());

@@ -163,6 +163,8 @@ static void LLVM_D_BuildRuntimeModule()
     const LLType* shortTy = LLType::Int16Ty;
     const LLType* intTy = LLType::Int32Ty;
     const LLType* longTy = LLType::Int64Ty;
+    const LLType* sizeTy = DtoSize_t();
+
     const LLType* floatTy = LLType::FloatTy;
     const LLType* doubleTy = LLType::DoubleTy;
     const LLType* realTy;
@@ -170,7 +172,11 @@ static void LLVM_D_BuildRuntimeModule()
         realTy = LLType::X86_FP80Ty;
     else
         realTy = LLType::DoubleTy;
-    const LLType* sizeTy = DtoSize_t();
+
+    const LLType* cfloatTy = llvm::StructType::get(floatTy, floatTy, 0);
+    const LLType* cdoubleTy = llvm::StructType::get(doubleTy, doubleTy, 0);
+    const LLType* crealTy = llvm::StructType::get(realTy, realTy, 0);
+
     const LLType* voidPtrTy = rt_ptr(byteTy);
     const LLType* stringTy = rt_array(byteTy);
     const LLType* wstringTy = rt_array(shortTy);
@@ -338,6 +344,9 @@ static void LLVM_D_BuildRuntimeModule()
     ARRAY_INIT(floatTy,"float")
     ARRAY_INIT(doubleTy,"double")
     ARRAY_INIT(realTy,"real")
+    ARRAY_INIT(cfloatTy,"cfloat")
+    ARRAY_INIT(cdoubleTy,"cdouble")
+    ARRAY_INIT(crealTy,"creal")
     ARRAY_INIT(voidPtrTy,"pointer")
 
     #undef ARRAY_INIT

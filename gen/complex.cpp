@@ -119,8 +119,11 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
     if (t->isimaginary()) {
         res = DtoAggrPair(complexTy, LLConstant::getNullValue(DtoType(baserety)), DtoCastFloat(loc, val, baseimty)->getRVal());
     }
-    else if (t->isfloating() || t->isintegral()) {
+    else if (t->isfloating()) {
         res = DtoAggrPair(complexTy, DtoCastFloat(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
+    }
+    else if (t->isintegral()) {
+        res = DtoAggrPair(complexTy, DtoCastInt(loc, val, baserety)->getRVal(), LLConstant::getNullValue(DtoType(baseimty)));
     }
     else {
         assert(0);

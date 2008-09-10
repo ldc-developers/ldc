@@ -76,6 +76,30 @@ void _d_array_init_real(real* a, size_t n, real v)
         *p++ = v;
 }
 
+void _d_array_init_cfloat(cfloat* a, size_t n, cfloat v)
+{
+    auto p = a;
+    auto end = a+n;
+    while (p !is end)
+        *p++ = v;
+}
+
+void _d_array_init_cdouble(cdouble* a, size_t n, cdouble v)
+{
+    auto p = a;
+    auto end = a+n;
+    while (p !is end)
+        *p++ = v;
+}
+
+void _d_array_init_creal(creal* a, size_t n, creal v)
+{
+    auto p = a;
+    auto end = a+n;
+    while (p !is end)
+        *p++ = v;
+}
+
 void _d_array_init_pointer(void** a, size_t n, void* v)
 {
     auto p = a;
