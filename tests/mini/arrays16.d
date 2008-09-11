@@ -1,4 +1,4 @@
-module tangotests.arrays2;
+module mini.arrays16;
 
 void main()
 {

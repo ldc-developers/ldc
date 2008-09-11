@@ -2156,12 +2156,20 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
 
     // llvm storage type
-    const LLType* llStoType = LLArrayType::get(DtoType(elemType), len);
+    const LLType* llElemType = DtoTypeNotVoid(elemType);
+    const LLType* llStoType = LLArrayType::get(llElemType, len);
     Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
 
+    // don't allocate storage for zero length dynamic array literals
+    if (dyn && len == 0)
+    {
+        // dmd seems to just make them null...
+        return new DSliceValue(type, DtoConstSize_t(0), getNullPtr(getPtrToType(llElemType)));
+    }
+
     // dst pointer
-    LLValue* dstMem = 0;
-    dstMem = DtoAlloca(llStoType, "arrayliteral");
+    // FIXME: dynamic array literals should be allocated with the GC
+    LLValue* dstMem = DtoAlloca(llStoType, "arrayliteral");
 
     // store elements
     for (size_t i=0; i<len; ++i)

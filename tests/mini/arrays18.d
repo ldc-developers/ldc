@@ -1,4 +1,4 @@
-module tangotests.arrays4;
+module mini.arrays18;
 
 struct Str { int a,b; }
 void main() {

@@ -130,7 +130,7 @@ void VersionCondition::checkPredefined(Loc loc, char *ident)
 	"DigitalMars", "LLVM", "LLVMDC", "LLVM64",
     "X86", "X86_64", "PPC", "PPC64",
 	"Windows", "Win32", "Win64",
-	"linux",
+	"linux", "darwin", "Posix",
 	"LittleEndian", "BigEndian",
 	"all",
 	"none",
