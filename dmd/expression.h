@@ -825,6 +825,11 @@ struct DotVarExp : UnaExp
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void dump(int indent);
     elem *toElem(IRState *irs);
+
+    //LLVMDC: since we don't convert abc.def -> *(&abc + ABC.def.offsetof)
+    // these are needed
+    Expression *optimize(int result);
+    Expression *interpret(InterState *istate);
 };
 
 struct DotTemplateInstanceExp : UnaExp

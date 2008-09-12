@@ -2157,6 +2157,27 @@ Expression *PtrExp::interpret(InterState *istate)
     return e;
 }
 
+Expression *DotVarExp::interpret(InterState *istate)
+{   Expression *e = EXP_CANT_INTERPRET;
+
+    Expression *ex = e1->interpret(istate);
+
+    // Constant fold structliteral.member
+    if (ex != EXP_CANT_INTERPRET && ex->op == TOKstructliteral)
+    {	StructLiteralExp *se = (StructLiteralExp *)ex;
+
+	VarDeclaration* v;
+	if (v = var->isVarDeclaration())
+	{
+	    e = se->getField(type, v->offset);
+	    if (!e)
+		e = EXP_CANT_INTERPRET;
+	}
+    }
+
+    return e;
+}
+
 /******************************* Special Functions ***************************/
 
 Expression *interpret_aaLen(InterState *istate, Expressions *arguments)

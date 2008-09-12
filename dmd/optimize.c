@@ -276,6 +276,27 @@ Expression *PtrExp::optimize(int result)
     return this;
 }
 
+Expression *DotVarExp::optimize(int result)
+{
+    e1 = e1->optimize(result);
+
+    // Constant fold structliteral.member
+    if (e1->op == TOKstructliteral)
+    {	StructLiteralExp *se = (StructLiteralExp *)e1;
+
+	VarDeclaration* v;
+	if (v = var->isVarDeclaration())
+	{
+	    Expression *e = se->getField(type, v->offset);
+	    if (!e)
+		e = EXP_CANT_INTERPRET;
+	    return e;
+	}
+    }
+
+    return this;
+}
+
 Expression *CallExp::optimize(int result)
 {   Expression *e = this;
 
