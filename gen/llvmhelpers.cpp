@@ -1216,7 +1216,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         Logger::println("AttribDeclaration");
         for (int i=0; i < a->decl->dim; ++i)
         {
-            DtoForceDeclareDsymbol((Dsymbol*)a->decl->data[i]);
+            DtoDeclarationExp((Dsymbol*)a->decl->data[i]);
         }
     }
     // mixin declaration
