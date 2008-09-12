@@ -836,7 +836,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
 
         if (gIR->func()->decl->isStatic())
         {
-            gIR->func()->decl->error("is static and cannot access nested class %s", tc->sym->toChars());
+            newexp->error("function %s is static and cannot access nested class %s", gIR->func()->decl->toPrettyChars(), tc->sym->toPrettyChars());
             fatal();
         }
 
