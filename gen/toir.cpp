@@ -2168,14 +2168,25 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     }
 
     // dst pointer
-    // FIXME: dynamic array literals should be allocated with the GC
-    LLValue* dstMem = DtoAlloca(llStoType, "arrayliteral");
+    LLValue* dstMem;
+    DSliceValue* dynSlice = NULL;
+    if(dyn)
+    {
+        dynSlice = DtoNewDynArray(loc, arrayType, new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
+        dstMem = dynSlice->ptr;
+    }
+    else
+        dstMem = DtoAlloca(llStoType, "arrayliteral");
 
     // store elements
     for (size_t i=0; i<len; ++i)
     {
         Expression* expr = (Expression*)elements->data[i];
-        LLValue* elemAddr = DtoGEPi(dstMem,0,i,"tmp",p->scopebb());
+        LLValue* elemAddr;
+        if(dyn)
+            elemAddr = DtoGEPi1(dstMem, i, "tmp", p->scopebb());
+        else
+            elemAddr = DtoGEPi(dstMem,0,i,"tmp",p->scopebb());
 
         // emulate assignment
         DVarValue* vv = new DVarValue(expr->type, elemAddr);
@@ -2187,8 +2198,8 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     if (!dyn)
         return new DImValue(type, dstMem);
 
-    // wrap in a slice
-    return new DSliceValue(type, DtoConstSize_t(len), DtoGEPi(dstMem,0,0,"tmp"));
+    // return slice
+    return dynSlice;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
