@@ -172,6 +172,15 @@ void Module::buildTargetFiles()
     objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
     docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
     hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
+
+    // safety check: never allow obj, doc or hdr file to have the source file's name
+    if(stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0 ||
+       stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0 ||
+       stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
+    {
+	error("Object-, ddoc-, and header- output files with the same name as the source file are forbidden");
+	fatal();
+    }
 }
 
 void Module::deleteObjFile()
