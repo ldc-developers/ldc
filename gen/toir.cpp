@@ -1452,7 +1452,7 @@ DValue* NewExp::toElem(IRState* p)
         {
             DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
             // allocate & init
-            return DtoNewDynArray(newtype, sz, true);
+            return DtoNewDynArray(loc, newtype, sz, true);
         }
         else
         {
@@ -1460,7 +1460,7 @@ DValue* NewExp::toElem(IRState* p)
             std::vector<DValue*> dims(ndims);
             for (size_t i=0; i<ndims; ++i)
                 dims[i] = ((Expression*)arguments->data[i])->toElem(p);
-            return DtoNewMulDimDynArray(newtype, &dims[0], ndims, true);
+            return DtoNewMulDimDynArray(loc, newtype, &dims[0], ndims, true);
         }
     }
     // new static array

@@ -19,8 +19,8 @@ void DtoArrayAssign(LLValue* l, LLValue* r);
 void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);
 
-DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit=true);
-DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, bool defaultInit=true);
+DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit=true);
+DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit=true);
 DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim);
 
 DSliceValue* DtoCatAssignElement(DValue* arr, Expression* exp);

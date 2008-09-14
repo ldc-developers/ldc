@@ -399,7 +399,7 @@ LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
+DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit)
 {
     Logger::println("DtoNewDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
@@ -412,8 +412,7 @@ DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
     LLValue* arrayLen = dim->getRVal();
 
     // get runtime function
-    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarrayT" : "_d_newarrayiT" );
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newarrayvT");
 
     // call allocator
     LLValue* newptr = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem")->get();
@@ -425,18 +424,18 @@ DSliceValue* DtoNewDynArray(Type* arrayType, DValue* dim, bool defaultInit)
 
     Logger::cout() << "final ptr = " << *newptr << '\n';
 
-#if 0
-    if (defaultInit) {
-        DValue* e = dty->defaultInit()->toElem(gIR);
-        DtoArrayInit(newptr,dim,e->getRVal());
-    }
-#endif
+    DSliceValue* ret = new DSliceValue(arrayType, arrayLen, newptr);
 
-    return new DSliceValue(arrayType, arrayLen, newptr);
+    if (defaultInit) {
+        DValue* e = arrayType->nextOf()->defaultInit()->toElem(gIR);
+        DtoArrayInit(loc, ret, e);
+    }
+
+    return ret;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, bool defaultInit)
+DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit)
 {
     Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
@@ -474,6 +473,7 @@ DSliceValue* DtoNewMulDimDynArray(Type* arrayType, DValue** dims, size_t ndims, 
     Logger::cout() << "final ptr = " << *newptr << '\n';
 
 #if 0
+    // using this would reinit all arrays beyond the first level to []
     if (defaultInit) {
         DValue* e = dty->defaultInit()->toElem(gIR);
         DtoArrayInit(newptr,dim,e->getRVal());
@@ -597,7 +597,7 @@ DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
     res = gIR->ir->CreateAdd(len1,len2,"tmp");
 
     DValue* lenval = new DImValue(Type::tsize_t, res);
-    DSliceValue* slice = DtoNewDynArray(type, lenval, false);
+    DSliceValue* slice = DtoNewDynArray(exp1->loc, type, lenval, false);
     LLValue* mem = slice->ptr;
 
     src1 = DtoArrayPtr(e1);
@@ -637,7 +637,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
         res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
 
         DValue* lenval = new DImValue(Type::tsize_t, res);
-        DSliceValue* slice = DtoNewDynArray(type, lenval, false);
+        DSliceValue* slice = DtoNewDynArray(exp1->loc, type, lenval, false);
         LLValue* mem = slice->ptr;
 
         DVarValue* memval = new DVarValue(e1->getType(), mem);
@@ -661,7 +661,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
         res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
 
         DValue* lenval = new DImValue(Type::tsize_t, res);
-        DSliceValue* slice = DtoNewDynArray(type, lenval, false);
+        DSliceValue* slice = DtoNewDynArray(exp1->loc, type, lenval, false);
         LLValue* mem = slice->ptr;
 
         src1 = DtoArrayPtr(e1);

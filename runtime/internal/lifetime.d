@@ -202,7 +202,7 @@ struct Array
 /**
  * Allocate a new array of length elements.
  * ti is the type of the resulting array, or pointer to element.
- * (For when the array is initialized to 0)
+ * The resulting array is initialized to 0
  */
 extern (C) void* _d_newarrayT(TypeInfo ti, size_t length)
 {
@@ -236,7 +236,8 @@ Loverflow:
 }
 
 /**
- * For when the array has a non-zero initializer.
+ * As _d_newarrayT, but 
+ * for when the array has a non-zero initializer.
  */
 extern (C) void* _d_newarrayiT(TypeInfo ti, size_t length)
 {
@@ -294,7 +295,44 @@ Loverflow:
 }
 
 /**
- *
+ * As _d_newarrayT, but without initialization
+ */
+extern (C) void* _d_newarrayvT(TypeInfo ti, size_t length)
+{
+    void* p;
+    auto size = ti.next.tsize();                // array element size
+
+    debug(PRINTF) printf("_d_newarrayvT(length = %u, size = %d)\n", length, size);
+    if (length == 0 || size == 0)
+        return null;
+
+    version (D_InlineAsm_X86)
+    {
+        asm
+        {
+            mov     EAX,size        ;
+            mul     EAX,length      ;
+            mov     size,EAX        ;
+            jc      Loverflow       ;
+        }
+    }
+    else
+        size *= length;
+    p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
+    debug(PRINTF) printf(" p = %p\n", p);
+    return p;
+
+Loverflow:
+    onOutOfMemoryError();
+    return null;
+}
+
+/**
+ * Allocate a new array of arrays of arrays of arrays ...
+ * ti is the type of the resulting array.
+ * ndims is the number of nested arrays.
+ * dims it the array of dimensions, its size is ndims.
+ * The resulting array is initialized to 0
  */
 extern (C) void* _d_newarraymT(TypeInfo ti, int ndims, size_t* dims)
 {
@@ -343,7 +381,8 @@ extern (C) void* _d_newarraymT(TypeInfo ti, int ndims, size_t* dims)
 
 
 /**
- *
+ * As _d_newarraymT, but 
+ * for when the array has a non-zero initializer.
  */
 extern (C) void* _d_newarraymiT(TypeInfo ti, int ndims, size_t* dims)
 {
@@ -384,6 +423,54 @@ extern (C) void* _d_newarraymiT(TypeInfo ti, int ndims, size_t* dims)
             {
                 printf("index %d: %d\n", i, *dims++);
                 printf("init = %d\n", *dims++);
+            }
+        }
+    }
+    return result;
+}
+
+/**
+ * As _d_newarraymT, but without initialization
+ */
+extern (C) void* _d_newarraymvT(TypeInfo ti, int ndims, size_t* dims)
+{
+    void* result;
+
+    debug(PRINTF) printf("_d_newarraymvT(ndims = %d)\n", ndims);
+    if (ndims == 0)
+        result = null;
+    else
+    {
+        static void[] foo(TypeInfo ti, size_t* pdim, int ndims)
+        {
+            size_t dim = *pdim;
+            void[] p;
+
+            debug(PRINTF) printf("foo(ti = %p, ti.next = %p, dim = %d, ndims = %d\n", ti, ti.next, dim, ndims);
+            if (ndims == 1)
+            {
+                auto r = _d_newarrayvT(ti, dim);
+                return r[0 .. dim];
+            }
+            else
+            {
+                p = gc_malloc(dim * (void[]).sizeof + 1)[0 .. dim];
+                for (int i = 0; i < dim; i++)
+                {
+                    (cast(void[]*)p.ptr)[i] = foo(ti.next, pdim + 1, ndims - 1);
+                }
+            }
+            return p;
+        }
+
+        result = foo(ti, dims, ndims).ptr;
+        debug(PRINTF) printf("result = %p\n", result);
+
+        version (none)
+        {
+            for (int i = 0; i < ndims; i++)
+            {
+                printf("index %d: %d\n", i, *dims++);
             }
         }
     }

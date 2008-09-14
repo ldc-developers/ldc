@@ -237,22 +237,27 @@ static void LLVM_D_BuildRuntimeModule()
 
     // void* _d_newarrayT(TypeInfo ti, size_t length)
     // void* _d_newarrayiT(TypeInfo ti, size_t length)
+    // void* _d_newarrayvT(TypeInfo ti, size_t length)
     {
         std::string fname("_d_newarrayT");
         std::string fname2("_d_newarrayiT");
+        std::string fname3("_d_newarrayvT");
         std::vector<const LLType*> types;
         types.push_back(typeInfoTy);
         types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
 
     // void* _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
     // void* _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
+    // void* _d_newarraymvT(TypeInfo ti, size_t length, size_t* dims)
     {
         std::string fname("_d_newarraymT");
         std::string fname2("_d_newarraymiT");
+        std::string fname3("_d_newarraymvT");
         std::vector<const LLType*> types;
         types.push_back(typeInfoTy);
         types.push_back(sizeTy);
@@ -260,6 +265,7 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
 
     // void* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)

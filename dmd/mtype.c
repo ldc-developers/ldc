@@ -1375,6 +1375,9 @@ Expression *TypeBasic::defaultInit(Loc loc)
 #endif
     switch (ty)
     {
+	case Tvoid:
+	    return new IntegerExp(loc, value, Type::tbool);
+
 	case Tchar:
 	    value = 0xFF;
 	    break;
