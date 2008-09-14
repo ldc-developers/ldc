@@ -158,7 +158,7 @@ File* Module::buildFilePath(char* forcename, char* path, char* ext)
 
     FileName::ensurePathExists(FileName::path(argobj));
 
-    if (global.params.objname)
+    if (forcename)
 	return new File(argobj);
     else
 	return new File(FileName::forceExt(argobj, ext));
