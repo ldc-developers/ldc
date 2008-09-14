@@ -136,7 +136,8 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
 
     // determine the right runtime function to call
     const char* funcname = NULL;
-    Type* t = value->getType()->toBasetype();
+    Type* arrayelemty = array->getType()->nextOf()->toBasetype();
+    Type* valuety = value->getType()->toBasetype();
 
     // lets first optimize all zero initializations down to a memset.
     // this simplifies codegen later on as llvm null's have no address!
@@ -149,7 +150,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     }
 
     // if not a zero initializer, call the appropriate runtime function!
-    switch (t->ty)
+    switch (arrayelemty->ty)
     {
     case Tbool:
         funcname = "_d_array_init_i1";
@@ -220,9 +221,10 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     case Tarray:
     case Tsarray:
         funcname = "_d_array_init_mem";
+        assert(arrayelemty == valuety && "ArrayInit doesn't work on elem-initialized static arrays");
         args[0] = DtoBitCast(args[0], getVoidPtrType());
         args[2] = DtoBitCast(args[2], getVoidPtrType());
-        args.push_back(DtoConstSize_t(getABITypeSize(DtoType(t))));
+        args.push_back(DtoConstSize_t(getABITypeSize(DtoType(arrayelemty))));
         break;
 
     default:
@@ -412,7 +414,9 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     LLValue* arrayLen = dim->getRVal();
 
     // get runtime function
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newarrayvT");
+    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    const char* fnname = defaultInit ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") : "_d_newarrayvT";
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // call allocator
     LLValue* newptr = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem")->get();
@@ -424,14 +428,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
 
     Logger::cout() << "final ptr = " << *newptr << '\n';
 
-    DSliceValue* ret = new DSliceValue(arrayType, arrayLen, newptr);
-
-    if (defaultInit) {
-        DValue* e = arrayType->nextOf()->defaultInit()->toElem(gIR);
-        DtoArrayInit(loc, ret, e);
-    }
-
-    return ret;
+    return new DSliceValue(arrayType, arrayLen, newptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -450,7 +447,8 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 
     // get runtime function
     bool zeroInit = vtype->isZeroInit();
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_newarraymT" : "_d_newarraymiT" );
+    const char* fnname = defaultInit ? (zeroInit ? "_d_newarraymT" : "_d_newarraymiT") : "_d_newarraymvT";
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // build dims
     LLValue* dimsArg = DtoAlloca(DtoSize_t(), DtoConstUint(ndims), ".newdims");
@@ -471,14 +469,6 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
         newptr = DtoBitCast(newptr, dstType, ".gc_mem");
 
     Logger::cout() << "final ptr = " << *newptr << '\n';
-
-#if 0
-    // using this would reinit all arrays beyond the first level to []
-    if (defaultInit) {
-        DValue* e = dty->defaultInit()->toElem(gIR);
-        DtoArrayInit(newptr,dim,e->getRVal());
-    }
-#endif
 
     assert(firstDim);
     return new DSliceValue(arrayType, firstDim, newptr);

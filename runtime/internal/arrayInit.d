@@ -118,6 +118,33 @@ void _d_array_init_mem(void* a, size_t na, void* v, size_t nv)
     }
 }
 
+/*
+void _d_array_init(TypeInfo ti, void* a)
+{
+    auto initializer = ti.next.init();
+    auto isize = initializer.length;
+    auto q = initializer.ptr;
+
+    if (isize == 1)
+        memset(p, *cast(ubyte*)q, size);
+    else if (isize == int.sizeof)
+    {
+        int init = *cast(int*)q;
+        size /= int.sizeof;
+        for (size_t u = 0; u < size; u++)
+        {
+            (cast(int*)p)[u] = init;
+        }
+    }
+    else
+    {
+        for (size_t u = 0; u < size; u += isize)
+        {
+            memcpy(p + u, q, isize);
+        }
+    }
+}*/
+
 // for array cast
 size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
 {
