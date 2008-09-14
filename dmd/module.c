@@ -145,10 +145,9 @@ File* Module::buildFilePath(char* forcename, char* path, char* ext)
 		argobj = FileName::replaceName(argobj, toChars());
 
 	int clen = strlen(argobj);
-	char* tmp = (char *)alloca(clen + 2);
+	char* tmp = (char *)alloca(clen + 1);
 	memcpy(tmp, argobj, clen);
-	tmp[clen] = '.';
-	tmp[clen+1] = 0;
+	tmp[clen] = 0;
 	argobj = tmp;
     }
 
