@@ -21,6 +21,7 @@
 #include "template.h"
 #include "hdrgen.h"
 #include "port.h"
+#include "mem.h"
 
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -2551,9 +2552,12 @@ int TypedefDeclaration::cvMember(unsigned char*)
     return 0;
 }
 
-void obj_includelib(char*)
+void obj_includelib(char* lib)
 {
-// FIXME: we want to support pragma(lib)
+    char *arg = (char *)mem.malloc(64);
+    strcpy(arg, "-l");
+    strncat(arg, lib, 64);
+    global.params.linkswitches->push(arg);
 }
 
 void backend_init()
