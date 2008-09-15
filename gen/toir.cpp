@@ -854,7 +854,7 @@ DValue* AddrExp::toElem(IRState* p)
     Logger::println("is nothing special");
     LLValue* lval = v->getLVal();
     Logger::cout() << "lval: " << *lval << '\n';
-    return new DImValue(type, v->getLVal());
+    return new DImValue(type, DtoBitCast(v->getLVal(), DtoType(type)));
 }
 
 LLConstant* AddrExp::toConstElem(IRState* p)
