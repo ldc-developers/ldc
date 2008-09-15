@@ -5,5 +5,5 @@ void main()
   auto dg = &foo;
 
   if(dg.funcptr is null)
-  {}
+  { assert(0); }
 }

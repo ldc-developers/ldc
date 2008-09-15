@@ -3174,17 +3174,14 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident)
 #endif
     if (ident == Id::ptr)
     {
+    e = new GEPExp(e->loc, e, ident, 0);
 	e->type = tvoidptr;
 	return e;
     }
     else if (ident == Id::funcptr)
     {
-	e = e->addressOf(sc);
-	e->type = tvoidptr;
-	e = new AddExp(e->loc, e, new IntegerExp(PTRSIZE));
-	e->type = tvoidptr;
-	e = new PtrExp(e->loc, e);
-	e->type = next->pointerTo();
+    e = new GEPExp(e->loc, e, ident, 1);
+    e->type = tvoidptr;
 	return e;
     }
     else

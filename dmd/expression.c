@@ -9071,4 +9071,30 @@ void CondExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     expToCBuffer(buf, hgs, e2, PREC_cond);
 }
 
+/************************************************************/
 
+#if IN_LLVM
+
+// Strictly LLVMDC specific stuff
+
+GEPExp::GEPExp(Loc loc, Expression* e, Identifier* id, unsigned idx)
+    : UnaExp(loc, TOKgep, sizeof(GEPExp), e)
+{
+    index = idx;
+    ident = id;
+}
+
+void GEPExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
+{
+    expToCBuffer(buf, hgs, e1, PREC_primary);
+    buf->writeByte('.');
+    buf->writestring(ident->toChars());
+}
+
+Expression* GEPExp::toLvalue(Scope* sc, Expression* e)
+{
+    // GEP's are always lvalues, at least in the "LLVM sense" ...
+    return this;
+}
+
+#endif

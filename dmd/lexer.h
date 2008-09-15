@@ -160,6 +160,11 @@ enum TOK
 	TOKfile,
 #endif
 
+// LLVMDC specific
+#if IN_LLVM
+    TOKgep,
+#endif
+
 	TOKMAX
 };
 

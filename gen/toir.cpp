@@ -2380,6 +2380,17 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* GEPExp::toElem(IRState* p)
+{
+    // this should be good enough for now!
+    DValue* val = e1->toElem(p);
+    assert(val->isLVal());
+    LLValue* v = DtoGEPi(val->getLVal(), 0, index);
+    return new DVarValue(type, DtoBitCast(v, getPtrToType(DtoType(type))));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
 STUB(DotTypeExp);
