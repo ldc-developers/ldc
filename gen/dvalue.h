@@ -162,7 +162,7 @@ struct DLRValue : DValue
     virtual LLValue* getLVal() { return lvalue->isLVal() ? lvalue->getLVal() : lvalue->getRVal(); }
     virtual LLValue* getRVal() { return rvalue->getRVal(); }
 
-    Type*& getLType() { return lvalue->getType(); }
+    Type*& getLType();
     Type*& getRType() { return rvalue->getType(); }
     virtual Type*& getType() { return getRType(); }
     virtual DLRValue* isLRValue() { return this; }
