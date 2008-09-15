@@ -347,7 +347,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     else
         assert(arrinittype->ty == Tarray);
 
-    LLGlobalVariable* gvar = new LLGlobalVariable(arrty,true,LLGlobalValue::InternalLinkage,constarr,"constarray",gIR->module);
+    LLGlobalVariable* gvar = new LLGlobalVariable(arrty,true,LLGlobalValue::InternalLinkage,constarr,".constarray",gIR->module);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
     return DtoConstSlice(DtoConstSize_t(tdim),gep);

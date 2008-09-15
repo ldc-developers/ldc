@@ -2210,12 +2210,21 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     Logger::print("ArrayLiteralExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    const LLType* t = DtoType(type);
-    Logger::cout() << "array literal has llvm type: " << *t << '\n';
-    assert(isaArray(t));
-    const LLArrayType* arrtype = isaArray(t);
+    // extract D types
+    Type* bt = type->toBasetype();
+    Type* elemt = bt->next;
 
-    assert(arrtype->getNumElements() == elements->dim);
+    // build llvm array type
+    const LLArrayType* arrtype = LLArrayType::get(DtoType(elemt), elements->dim);
+
+    // dynamic arrays can occur here as well ...
+    bool dyn = (bt->ty == Tsarray);
+    if (!dyn)
+        assert(arrtype->getNumElements() == elements->dim);
+    else
+        assert(bt->ty == Tarray);
+
+    // build the initializer
     std::vector<LLConstant*> vals(elements->dim, NULL);
     for (unsigned i=0; i<elements->dim; ++i)
     {
@@ -2223,7 +2232,19 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
         vals[i] = expr->toConstElem(p);
     }
 
-    return llvm::ConstantArray::get(arrtype, vals);
+    // build the constant array initializer
+    LLConstant* initval = llvm::ConstantArray::get(arrtype, vals);
+
+    // if static array, we're done
+    if (!dyn)
+        return initval;
+
+    // for dynamic arrays we need to put the initializer in a global, and build a constant dynamic array reference with the .ptr field pointing into this global
+    LLConstant* globalstore = new LLGlobalVariable(arrtype, true, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage", p->module);
+    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+
+    return DtoConstSlice(DtoConstSize_t(elements->dim), globalstorePtr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
