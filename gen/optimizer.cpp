@@ -41,7 +41,8 @@ void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
         pm.add(createIPConstantPropagationPass());
         pm.add(createDeadArgEliminationPass());
         pm.add(createInstructionCombiningPass());
-        pm.add(createCFGSimplificationPass());
+        // this doesn't work, llvm PR 2800
+        //pm.add(createCFGSimplificationPass());
         pm.add(createPruneEHPass());
     }
 

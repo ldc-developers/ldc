@@ -2219,8 +2219,6 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty == Tarray);
-    if (!dyn)
-        assert(arrtype->getNumElements() == elements->dim);
 
     // build the initializer
     std::vector<LLConstant*> vals(elements->dim, NULL);

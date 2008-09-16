@@ -154,6 +154,21 @@ void Module::genobjfile(int multiobj)
     // run optimizer
     llvmdc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
 
+    // verify the llvm
+    if (!global.params.novalidate && (global.params.optimizeLevel >= 0 || global.params.llvmInline)) {
+        std::string verifyErr;
+        Logger::println("Verifying module... again...");
+        LOG_SCOPE;
+        if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
+        {
+            error("%s", verifyErr.c_str());
+            fatal();
+        }
+        else {
+            Logger::println("Verification passed!");
+        }
+    }
+
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::sys::Path LLPath;
     LLPath bcpath = LLPath(objfile->name->toChars());
