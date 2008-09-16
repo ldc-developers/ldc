@@ -124,6 +124,8 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 
     // LLVMDC
     llvmForceLogging = false;
+    this->doDocComment = doDocComment;
+    this->doHdrGen = doHdrGen;
 }
 
 File* Module::buildFilePath(char* forcename, char* path, char* ext)
@@ -166,19 +168,32 @@ File* Module::buildFilePath(char* forcename, char* path, char* ext)
 
 void Module::buildTargetFiles()
 {
-    if(objfile && docfile && hdrfile)
+    if(objfile && 
+       (!doDocComment || docfile) && 
+       (!doHdrGen || hdrfile))
 	return;
 
-    objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
-    docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
-    hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
+    if(!objfile)
+	objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
+    if(doDocComment && !docfile)
+	docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
+    if(doHdrGen && !hdrfile)
+	hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
 
     // safety check: never allow obj, doc or hdr file to have the source file's name
-    if(stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0 ||
-       stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0 ||
-       stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
+    if(stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
     {
-	error("Object-, ddoc-, and header- output files with the same name as the source file are forbidden");
+	error("Output object files with the same name as the source file are forbidden");
+	fatal();
+    }
+    if(docfile && stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
+    {
+	error("Output doc files with the same name as the source file are forbidden");
+	fatal();
+    }
+    if(hdrfile && stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
+    {
+	error("Output header files with the same name as the source file are forbidden");
 	fatal();
     }
 }
@@ -189,8 +204,10 @@ void Module::deleteObjFile()
 	objfile->remove();
     //if (global.params.llvmBC)
     //bcfile->remove();
-    if (docfile)
+    if (doDocComment && docfile)
 	docfile->remove();
+    if (doHdrGen && hdrfile)
+	hdrfile->remove();
 }
 
 Module::~Module()

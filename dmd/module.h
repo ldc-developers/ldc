@@ -110,6 +110,9 @@ struct Module : Package
     Macro *macrotable;		// document comment macros
     struct Escape *escapetable;	// document comment escapes
 
+    int doDocComment;		// enable generating doc comments for this module
+    int doHdrGen;		// enable generating header file for this module
+
     Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();
 
