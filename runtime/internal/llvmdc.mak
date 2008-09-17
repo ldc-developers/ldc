@@ -88,6 +88,7 @@ OBJ_BASE= \
     qsort2.bc \
     switch.bc \
     invariant.bc \
+    dmdintrinsic.bc \
 
 OBJ_UTIL= \
     util/console.bc \
