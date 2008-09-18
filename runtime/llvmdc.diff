@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 3899)
+--- object.di	(revision 3936)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -14,7 +14,7 @@ Index: object.di
  
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 3899)
+--- lib/unittest.sh	(revision 3936)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -71,7 +71,7 @@ Index: lib/unittest.sh
 +fi
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 3899)
+--- lib/common/tango/core/BitManip.d	(revision 3936)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -86,7 +86,7 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 3899)
+--- lib/common/tango/core/Thread.d	(revision 3936)
 +++ lib/common/tango/core/Thread.d	(working copy)
 @@ -244,8 +244,29 @@
          }
@@ -135,7 +135,7 @@ Index: lib/common/tango/core/Thread.d
                      popad;
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 3899)
+--- lib/gc/basic/gcx.d	(revision 3936)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -2178,6 +2178,28 @@
              __builtin_unwind_init();
@@ -179,7 +179,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 3899)
+--- lib/gc/basic/gcbits.d	(revision 3936)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -194,7 +194,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 3899)
+--- tango/text/convert/Layout.d	(revision 3936)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -231,7 +231,7 @@ Index: tango/text/convert/Layout.d
                          long[64] longargs = void;
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 3899)
+--- tango/core/Vararg.d	(revision 3936)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -246,7 +246,7 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 3899)
+--- tango/core/Atomic.d	(revision 3936)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,161 @@
  
@@ -412,7 +412,7 @@ Index: tango/core/Atomic.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 3899)
+--- tango/math/Math.d	(revision 3936)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -561,9 +561,9 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/math/internal/BignumX86.d
 ===================================================================
---- tango/math/internal/BignumX86.d	(revision 3899)
+--- tango/math/internal/BignumX86.d	(revision 3936)
 +++ tango/math/internal/BignumX86.d	(working copy)
-@@ -50,6 +50,8 @@
+@@ -49,6 +49,8 @@
  private:
  version(GNU) {
      // GDC is a filthy liar. It can't actually do inline asm.
@@ -574,23 +574,20 @@ Index: tango/math/internal/BignumX86.d
   *
 Index: tango/math/internal/BiguintCore.d
 ===================================================================
---- tango/math/internal/BiguintCore.d	(revision 3899)
+--- tango/math/internal/BiguintCore.d	(revision 3936)
 +++ tango/math/internal/BiguintCore.d	(working copy)
-@@ -12,7 +12,10 @@
- } else version(GNU) {
-     // GDC lies about its X86 support
- private import tango.math.internal.BignumNoAsm;    
--} else version(D_InlineAsm_X86) { 
-+} else version(LLVMDC) {
-+    // I guess llvmdc does too :(
-+private import tango.math.internal.BignumNoAsm;    
-+} else version(D_InlineAsm_X86) {
- private import tango.math.internal.BignumX86;
- } else {
- private import tango.math.internal.BignumNoAsm;
+@@ -859,7 +859,7 @@
+     result[half..$].simpleAddAssign(mid);
+ }
+ 
+-import std.intrinsic;
++import tango.core.BitManip;
+ 
+ 
+ /* Knuth's Algorithm D, as presented in "Hacker's Delight"
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 3899)
+--- tango/stdc/stdlib.d	(revision 3936)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -606,7 +603,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 3899)
+--- tango/stdc/stdarg.d	(revision 3936)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
