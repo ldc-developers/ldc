@@ -572,19 +572,6 @@ Index: tango/math/internal/BignumX86.d
  } else version(D_InlineAsm_X86) {
  /* Duplicate string s, with n times, substituting index for '@'.
   *
-Index: tango/math/internal/BiguintCore.d
-===================================================================
---- tango/math/internal/BiguintCore.d	(revision 3936)
-+++ tango/math/internal/BiguintCore.d	(working copy)
-@@ -859,7 +859,7 @@
-     result[half..$].simpleAddAssign(mid);
- }
- 
--import std.intrinsic;
-+import tango.core.BitManip;
- 
- 
- /* Knuth's Algorithm D, as presented in "Hacker's Delight"
 Index: tango/stdc/stdlib.d
 ===================================================================
 --- tango/stdc/stdlib.d	(revision 3936)
