@@ -81,11 +81,15 @@ void ReturnStatement::toIR(IRState* p)
             delete e;
             Logger::cout() << "return value is '" <<*v << "'\n";
 
-            // can happen for classes
             if (v->getType() != p->topfunc()->getReturnType())
             {
-                v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
-                Logger::cout() << "return value after cast: " << *v << '\n';
+                // can happen for classes
+                if(isaPointer(v) && isaPointer(p->topfunc()->getReturnType()))
+                    v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
+                // or for i1 vs i8 bools
+                if(v->getType() == LLType::Int1Ty && p->topfunc()->getReturnType() == LLType::Int8Ty)
+                    v = gIR->ir->CreateZExt(v, LLType::Int8Ty);
+                Logger::cout() << "adjusted return value: " << *v << '\n';
             }
 
             DtoEnclosingHandlers(enclosinghandler, NULL);

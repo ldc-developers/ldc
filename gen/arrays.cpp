@@ -153,9 +153,6 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     switch (arrayelemty->ty)
     {
     case Tbool:
-        funcname = "_d_array_init_i1";
-        break;
-
     case Tvoid:
     case Tchar:
     case Tint8:
