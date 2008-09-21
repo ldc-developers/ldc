@@ -206,8 +206,6 @@ void Module::deleteObjFile()
     //bcfile->remove();
     if (doDocComment && docfile)
 	docfile->remove();
-    if (doHdrGen && hdrfile)
-	hdrfile->remove();
 }
 
 Module::~Module()
