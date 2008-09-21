@@ -2024,18 +2024,8 @@ DValue* NegExp::toElem(IRState* p)
     }
 
     LLValue* val = l->getRVal();
-    Type* t = type->toBasetype();
 
-    LLValue* zero = 0;
-    if (t->isintegral())
-        zero = llvm::ConstantInt::get(val->getType(), 0, true);
-    else if (t->isfloating()) {
-        zero = DtoConstFP(type, 0.0);
-    }
-    else
-        assert(0);
-
-    val = llvm::BinaryOperator::createSub(zero,val,"tmp",p->scopebb());
+    val = gIR->ir->CreateNeg(val,"negval");
     return new DImValue(type, val);
 }
 
