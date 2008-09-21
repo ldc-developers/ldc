@@ -30,8 +30,6 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
         gIR->ir->CreateBr(end);
 
     assert(catchstmt->type);
-    //TODO: Is toBasetype correct here? Should catch handlers with typedefed
-    // classes behave differently?
     catchType = catchstmt->type->toBasetype()->isClassHandle();
     assert(catchType);
     DtoForceDeclareDsymbol(catchType);
@@ -96,17 +94,11 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
 
     // build selector arguments
     LLSmallVector<LLValue*, 6> selectorargs;
-    selectorargs.push_back(eh_ptr);
 
-    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
-    LLValue* personality_fn_arg = gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::Int8Ty));
-    selectorargs.push_back(personality_fn_arg);
-
+    // put in classinfos in the right order
     bool hasFinally = false;
-    // associate increasing ints with each unique classdecl encountered
-    std::map<ClassDeclaration*, int> catchToInt;
-    std::deque<IRLandingPadInfo>::reverse_iterator it = infos.rbegin(), end = infos.rend();
-    for(size_t i = infos.size() - 1; it != end; ++it, --i)
+    std::deque<IRLandingPadInfo>::iterator it = infos.begin(), end = infos.end();
+    for(; it != end; ++it)
     {
         if(it->finallyBody)
             hasFinally = true;
@@ -114,17 +106,26 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
         {
             if(catchToInt.find(it->catchType) == catchToInt.end())
             {
-                int newval = catchToInt.size();
+                int newval = 1 + catchToInt.size();
                 catchToInt[it->catchType] = newval;
             }
             assert(it->catchType);
             assert(it->catchType->ir.irStruct);
-            selectorargs.push_back(it->catchType->ir.irStruct->classInfo);
+            selectorargs.insert(selectorargs.begin(), it->catchType->ir.irStruct->classInfo);
         }
     }
     // if there's a finally, the eh table has to have a 0 action
     if(hasFinally)
         selectorargs.push_back(llvm::ConstantInt::get(LLType::Int32Ty, 0));
+
+    // personality fn
+    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
+    LLValue* personality_fn_arg = gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::Int8Ty));
+    selectorargs.insert(selectorargs.begin(), personality_fn_arg);
+
+    // eh storage target
+    selectorargs.insert(selectorargs.begin(), eh_ptr);
+
     // if there is a catch and some catch allocated storage, store exception object
     if(catchToInt.size() && catch_var) 
     {
@@ -143,10 +144,11 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     // emit finallys and switches that branch to catches until there are no more catches
     // then simply branch to the finally chain
     llvm::SwitchInst* switchinst = NULL;
-    for(it = infos.rbegin(); it != end; ++it)
+    std::deque<IRLandingPadInfo>::reverse_iterator rit, rend = infos.rend();
+    for(rit = infos.rbegin(); rit != rend; ++rit)
     {
         // if it's a finally, emit its code
-        if(it->finallyBody)
+        if(rit->finallyBody)
         {
             if(switchinst)
                 switchinst = NULL;
@@ -154,7 +156,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             // since this may be emitted multiple times
             // give the labels a new scope
             gIR->func()->pushUniqueLabelScope("finally");
-            it->finallyBody->toIR(gIR);
+            rit->finallyBody->toIR(gIR);
             gIR->func()->popLabelScope();
         }
         // otherwise it's a catch and we'll add a switch case
@@ -165,11 +167,12 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
                 switchinst = gIR->ir->CreateSwitch(eh_sel, llvm::BasicBlock::Create("switchdefault", gIR->topfunc(), gIR->scopeend()), infos.size());
                 gIR->scope() = IRScope(switchinst->getDefaultDest(), gIR->scopeend());
             }
+            // dubious comment
             // catches matched first get the largest switchval, so do size - unique int
-            llvm::ConstantInt* switchval = llvm::ConstantInt::get(DtoSize_t(), catchToInt.size() - catchToInt[it->catchType]);
+            llvm::ConstantInt* switchval = llvm::ConstantInt::get(DtoSize_t(), catchToInt[rit->catchType]);
             // and make sure we don't add the same switchval twice, may happen with nested trys
             if(!switchinst->findCaseValue(switchval))
-                switchinst->addCase(switchval, it->target);
+                switchinst->addCase(switchval, rit->target);
         }
     }
 
