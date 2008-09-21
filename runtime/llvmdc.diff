@@ -248,7 +248,7 @@ Index: tango/core/Atomic.d
 ===================================================================
 --- tango/core/Atomic.d	(revision 3939)
 +++ tango/core/Atomic.d	(working copy)
-@@ -270,6 +270,173 @@
+@@ -270,6 +270,167 @@
  
  
  ////////////////////////////////////////////////////////////////////////////////
@@ -373,16 +373,13 @@ Index: tango/core/Atomic.d
 +        {
 +            static if (isPointerType!(T))
 +            {
-+                return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 1);
++                llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 1);
 +            }
-+	    else static if (is(T == bool))
-+	    {
-+                return llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, 1)?1:0;
-+	    }
 +            else
 +            {
-+                return llvm_atomic_load_add!(T)(&val, cast(T)1);
++                llvm_atomic_load_add!(T)(&val, cast(T)1);
 +            }
++            return val;
 +        }
 +    }
 +    
@@ -404,16 +401,13 @@ Index: tango/core/Atomic.d
 +        {
 +            static if (isPointerType!(T))
 +            {
-+                return cast(T)llvm_atomic_load_sub!(size_t)(cast(size_t*)&val, 1);
++                llvm_atomic_load_sub!(size_t)(cast(size_t*)&val, 1);
 +            }
-+	    else static if (is(T == bool))
-+	    {
-+                return llvm_atomic_load_sub!(ubyte)(cast(ubyte*)&val, 1)?1:0;
-+	    }
 +            else
 +            {
-+                return llvm_atomic_load_sub!(T)(&val, cast(T)1);
++                llvm_atomic_load_sub!(T)(&val, cast(T)1);
 +            }
++            return val;
 +        }
 +    }
 +}
