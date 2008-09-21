@@ -1649,7 +1649,7 @@ DValue* NotExp::toElem(IRState* p)
 
     LLValue* b = DtoBoolean(loc, u);
 
-    LLConstant* zero = llvm::ConstantInt::get(b->getType(), 0);
+    LLConstant* zero = DtoConstBool(false);
     b = p->ir->CreateICmpEQ(b,zero);
 
     return new DImValue(type, b);

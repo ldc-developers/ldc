@@ -77,7 +77,7 @@ const LLType* DtoType(Type* t)
         return (const LLType*)LLType::Int64Ty;
 
     case Tbool:
-        return (const LLType*)LLType::Int8Ty;
+        return (const LLType*)llvm::ConstantInt::getTrue()->getType();
 
     // floats
     case Tfloat32:
@@ -462,11 +462,11 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
     assert(fn != NULL);
 
     LLSmallVector<LLValue*, 5> llargs;
-    llargs.push_back(DtoConstI1(ll));
-    llargs.push_back(DtoConstI1(ls));
-    llargs.push_back(DtoConstI1(sl));
-    llargs.push_back(DtoConstI1(ss));
-    llargs.push_back(DtoConstI1(device));
+    llargs.push_back(DtoConstBool(ll));
+    llargs.push_back(DtoConstBool(ls));
+    llargs.push_back(DtoConstBool(sl));
+    llargs.push_back(DtoConstBool(ss));
+    llargs.push_back(DtoConstBool(device));
 
     llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
 }
@@ -486,10 +486,6 @@ llvm::ConstantInt* DtoConstInt(int i)
     return llvm::ConstantInt::get(LLType::Int32Ty, i, true);
 }
 LLConstant* DtoConstBool(bool b)
-{
-    return llvm::ConstantInt::get(LLType::Int8Ty, b, false);
-}
-LLConstant* DtoConstI1(bool b)
 {
     return llvm::ConstantInt::get(LLType::Int1Ty, b, false);
 }

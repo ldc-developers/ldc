@@ -574,8 +574,8 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     Type* from = val->getType()->toBasetype();
     assert(from->isintegral());
 
-    size_t fromsz = getTypeBitSize(val->getRVal()->getType());
-    size_t tosz = to->size()*8;
+    size_t fromsz = from->size();
+    size_t tosz = to->size();
 
     LLValue* rval = val->getRVal();
     if (rval->getType() == tolltype) {
@@ -774,13 +774,13 @@ void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
     llvm::GlobalValue::LinkageTypes gflaglink = istempl ? llvm::GlobalValue::WeakLinkage : llvm::GlobalValue::InternalLinkage;
     std::string gflagname(gvar->getName());
     gflagname.append("__initflag");
-    llvm::GlobalVariable* gflag = new llvm::GlobalVariable(LLType::Int1Ty,false,gflaglink,DtoConstI1(false),gflagname,gIR->module);
+    llvm::GlobalVariable* gflag = new llvm::GlobalVariable(LLType::Int1Ty,false,gflaglink,DtoConstBool(false),gflagname,gIR->module);
 
     // check flag and do init if not already done
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* initbb = llvm::BasicBlock::Create("ifnotinit",gIR->topfunc(),oldend);
     llvm::BasicBlock* endinitbb = llvm::BasicBlock::Create("ifnotinitend",gIR->topfunc(),oldend);
-    LLValue* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstI1(false));
+    LLValue* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
     gIR->ir->CreateCondBr(cond, initbb, endinitbb);
     gIR->scope() = IRScope(initbb,endinitbb);
     DValue* ie = DtoInitializer(gvar, init);
@@ -788,7 +788,7 @@ void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
     DVarValue dst(t, gvar);
     DtoAssign(init->loc, &dst, ie);
     
-    gIR->ir->CreateStore(DtoConstI1(true), gflag);
+    gIR->ir->CreateStore(DtoConstBool(true), gflag);
     gIR->ir->CreateBr(endinitbb);
     gIR->scope() = IRScope(endinitbb,oldend);
 }
@@ -1548,7 +1548,10 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     Type* T = (Type*)ti->tdtypes.data[0];
 
     char tmp[10];
-    sprintf(tmp, "%d", T->size()*8);
+    if (T->toBasetype()->ty == Tbool) // otherwise we'd get a mismatch
+        sprintf(tmp, "1");
+    else
+        sprintf(tmp, "%d", T->size()*8);
     
     // replace # in name with bitsize
     name = td->intrinsicName;

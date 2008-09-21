@@ -58,7 +58,6 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value);
 LLConstant* DtoConstString(const char*);
 LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
 LLConstant* DtoConstBool(bool);
-LLConstant* DtoConstI1(bool);
 
 // llvm wrappers
 LLValue* DtoLoad(LLValue* src, const char* name=0);

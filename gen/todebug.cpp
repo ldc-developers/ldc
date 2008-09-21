@@ -162,8 +162,8 @@ static LLGlobalVariable* dwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariab
     vals[6] = DBG_CAST( DtoDwarfCompileUnit(fd->getModule()) );
     vals[7] = DtoConstUint(fd->loc.linnum);
     vals[8] = DBG_NULL;
-    vals[9] = DtoConstI1(fd->protection == PROTprivate);
-    vals[10] = DtoConstI1(fd->getModule() == gIR->dmodule);
+    vals[9] = DtoConstBool(fd->protection == PROTprivate);
+    vals[10] = DtoConstBool(fd->getModule() == gIR->dmodule);
 
     Logger::println("emitting subprogram global");
 
@@ -519,8 +519,8 @@ static LLGlobalVariable* dwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaratio
 
     LLGlobalVariable* TY = dwarfTypeDescription_impl(vd->type, compileUnit, NULL);
     vals[8] = TY ? DBG_CAST(TY) : DBG_NULL;
-    vals[9] = DtoConstI1(vd->protection == PROTprivate);
-    vals[10] = DtoConstI1(vd->getModule() == gIR->dmodule);
+    vals[9] = DtoConstBool(vd->protection == PROTprivate);
+    vals[10] = DtoConstBool(vd->getModule() == gIR->dmodule);
 
     vals[11] = DBG_CAST(ll);
 
