@@ -14,7 +14,7 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val);
 
 void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im);
 
-void DtoGetComplexParts(DValue* c, LLValue*& re, LLValue*& im);
+void DtoGetComplexParts(Loc& loc, Type* to, DValue* c, LLValue*& re, LLValue*& im);
 
 DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
