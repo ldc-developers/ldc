@@ -340,7 +340,7 @@ void DtoResolveClass(ClassDeclaration* cd)
 #endif
 
     // log
-    Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
+    //Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
 
     // pop state
     gIR->classes.pop_back();

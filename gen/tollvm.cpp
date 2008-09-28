@@ -647,7 +647,7 @@ size_t getTypeStoreSize(const LLType* t)
 size_t getABITypeSize(const LLType* t)
 {
     size_t sz = gTargetData->getABITypeSize(t);
-    Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
+    //Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
     return sz;
 }
 
