@@ -819,6 +819,22 @@ DValue* CastExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+LLConstant* CastExp::toConstElem(IRState* p)
+{
+    Logger::print("CastExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    LLConstant* c = e1->toConstElem(p);
+    assert(isaPointer(c->getType()));
+
+    const LLType* lltype = DtoType(type);
+    assert(isaPointer(lltype));
+
+    return llvm::ConstantExpr::getBitCast(c, lltype);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* SymOffExp::toElem(IRState* p)
 {
     Logger::print("SymOffExp::toElem: %s | %s\n", toChars(), type->toChars());

@@ -1003,6 +1003,9 @@ struct CastExp : UnaExp
 
     // For operator overloading
     Identifier *opId();
+
+    // LLVMDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 
