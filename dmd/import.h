@@ -34,6 +34,7 @@ struct Import : Dsymbol
     Identifier *id;		// module Identifier
     Identifier *aliasId;
     int isstatic;		// !=0 if static import
+    enum PROT protection;
 
     // Pairs of alias=name to bind into current namespace
     Array names;
@@ -49,6 +50,7 @@ struct Import : Dsymbol
     void addAlias(Identifier *name, Identifier *alias);
 
     const char *kind();
+    enum PROT prot();
     Dsymbol *syntaxCopy(Dsymbol *s);	// copy only syntax trees
     void load(Scope *sc);
     void semantic(Scope *sc);

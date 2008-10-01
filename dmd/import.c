@@ -33,6 +33,7 @@ Import::Import(Loc loc, Array *packages, Identifier *id, Identifier *aliasId,
     this->id = id;
     this->aliasId = aliasId;
     this->isstatic = isstatic;
+    protection = PROTundefined;
     pkg = NULL;
     mod = NULL;
 
@@ -60,6 +61,10 @@ const char *Import::kind()
     return isstatic ? (char *)"static import" : (char *)"import";
 }
 
+enum PROT Import::prot()
+{
+    return protection;
+}
 
 Dsymbol *Import::syntaxCopy(Dsymbol *s)
 {
@@ -131,14 +136,15 @@ void Import::semantic(Scope *sc)
 	}
 #endif
 
+	/* Default to private importing
+	 */
+	protection = sc->protection;
+	if (!sc->explicitProtection)
+	    protection = PROTprivate;
+
 	if (!isstatic && !aliasId && !names.dim)
 	{
-	    /* Default to private importing
-	     */
-	    enum PROT prot = sc->protection;
-	    if (!sc->explicitProtection)
-		prot = PROTprivate;
-	    sc->scopesym->importScope(mod, prot);
+	    sc->scopesym->importScope(mod, protection);
 	}
 
 	// Modules need a list of each imported module
@@ -149,13 +155,14 @@ void Import::semantic(Scope *sc)
 
 	sc = sc->push(mod);
 	for (size_t i = 0; i < aliasdecls.dim; i++)
-	{   Dsymbol *s = (Dsymbol *)aliasdecls.data[i];
+	{   AliasDeclaration *ad = (AliasDeclaration *)aliasdecls.data[i];
 
 	    //printf("\tImport alias semantic('%s')\n", s->toChars());
 	    if (!mod->search(loc, (Identifier *)names.data[i], 0))
 		error("%s not found", ((Identifier *)names.data[i])->toChars());
 
-	    s->semantic(sc);
+	    ad->semantic(sc);
+	    ad->protection = protection;
 	}
 	sc = sc->pop();
     }

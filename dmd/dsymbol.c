@@ -646,6 +646,11 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
 
     // Look in symbols declared in this module
     Dsymbol *s = symtab ? symtab->lookup(ident) : NULL;
+
+    // hide private nonlocal symbols
+    if (flags & 1 && s && s->prot() == PROTprivate)
+	s = NULL;
+
     if (s)
     {
 	//printf("\ts = '%s.%s'\n",toChars(),s->toChars());
