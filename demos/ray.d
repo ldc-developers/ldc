@@ -15,7 +15,7 @@ int atoi(char[] s) {
 
 version(LLVMDC)
 {
-pragma(LLVM_internal, "intrinsic", "llvm.sqrt.f64")
+pragma(intrinsic, "llvm.sqrt.f64")
 double sqrt(double val);
 }
 else
