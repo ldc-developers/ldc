@@ -117,7 +117,7 @@ void DtoAssert(Loc* loc, DValue* msg)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
 
     // param attrs
-    llvm::PAListPtr palist;
+    llvm::AttrListPtr palist;
     int idx = 1;
 
     // FIXME: every assert creates a global for the filename !!!
@@ -141,7 +141,7 @@ void DtoAssert(Loc* loc, DValue* msg)
         {
             args.push_back(msg->getRVal());
         }
-        palist = palist.addAttr(idx++, llvm::ParamAttr::ByVal);
+        palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
     }
 
     // file param
@@ -157,7 +157,7 @@ void DtoAssert(Loc* loc, DValue* msg)
     DtoStore(c->getOperand(1), ptr);
 
     args.push_back(alloc);
-    palist = palist.addAttr(idx++, llvm::ParamAttr::ByVal);
+    palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
 
 
     // line param
@@ -166,7 +166,7 @@ void DtoAssert(Loc* loc, DValue* msg)
 
     // call
     CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
-    call->setParamAttrs(palist);
+    call->setAttributes(palist);
 
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();

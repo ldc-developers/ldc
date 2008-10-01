@@ -9,7 +9,7 @@
 #include <llvm/BasicBlock.h>
 #include <llvm/Instructions.h>
 #include <llvm/InlineAsm.h>
-#include <llvm/ParameterAttributes.h>
+#include <llvm/Attributes.h>
 #include <llvm/Support/MathExtras.h>
 #include <llvm/Pass.h>
 #include <llvm/PassManager.h>

@@ -758,10 +758,10 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
     CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), "tmp");
 
     // set param attrs
-    llvm::PAListPtr palist;
-    palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
-    palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
-    call->setParamAttrs(palist);
+    llvm::AttrListPtr palist;
+    palist = palist.addAttr(1, llvm::Attribute::ByVal);
+    palist = palist.addAttr(2, llvm::Attribute::ByVal);
+    call->setAttributes(palist);
 
     return call->get();
 }
@@ -1072,7 +1072,7 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     gIR->scope() = IRScope(failbb, okbb);
 
     std::vector<LLValue*> args;
-    llvm::PAListPtr palist;
+    llvm::AttrListPtr palist;
 
     // file param
     // FIXME: every array bounds check creates a global for the filename !!!
@@ -1090,7 +1090,7 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     DtoStore(c->getOperand(1), ptr);
 
     args.push_back(alloc);
-    palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
+    palist = palist.addAttr(1, llvm::Attribute::ByVal);
 
     // line param
     c = DtoConstUint(loc.linnum);
@@ -1099,7 +1099,7 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     // call
     llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_bounds");
     CallOrInvoke* call = gIR->CreateCallOrInvoke(errorfn, args.begin(), args.end());
-    call->setParamAttrs(palist);
+    call->setAttributes(palist);
 
     // the function does not return
     gIR->ir->CreateUnreachable();

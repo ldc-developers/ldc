@@ -44,14 +44,14 @@ unsigned DtoShouldExtend(Type* type)
         {
         case Tint8:
         case Tint16:
-            return llvm::ParamAttr::SExt;
+            return llvm::Attribute::SExt;
 
         case Tuns8:
         case Tuns16:
-            return llvm::ParamAttr::ZExt;
+            return llvm::Attribute::ZExt;
         }
     }
-    return llvm::ParamAttr::None;
+    return llvm::Attribute::None;
 }
 
 const LLType* DtoType(Type* t)

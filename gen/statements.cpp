@@ -705,10 +705,10 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
 
     CallOrInvoke* call = gIR->CreateCallOrInvoke2(fn, table, llval, "tmp");
 
-    llvm::PAListPtr palist;
-    palist = palist.addAttr(1, llvm::ParamAttr::ByVal);
-    palist = palist.addAttr(2, llvm::ParamAttr::ByVal);
-    call->setParamAttrs(palist);
+    llvm::AttrListPtr palist;
+    palist = palist.addAttr(1, llvm::Attribute::ByVal);
+    palist = palist.addAttr(2, llvm::Attribute::ByVal);
+    call->setAttributes(palist);
 
     return call->get();
 }
@@ -1255,7 +1255,7 @@ void SwitchErrorStatement::toIR(IRState* p)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_switch_error");
 
     // param attrs
-    llvm::PAListPtr palist;
+    llvm::AttrListPtr palist;
     int idx = 1;
 
     std::vector<LLValue*> args;
@@ -1276,7 +1276,7 @@ void SwitchErrorStatement::toIR(IRState* p)
     DtoStore(c->getOperand(1), ptr);
 
     args.push_back(alloc);
-    palist = palist.addAttr(idx++, llvm::ParamAttr::ByVal);
+    palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
 
     // line param
     c = DtoConstUint(loc.linnum);
@@ -1284,7 +1284,7 @@ void SwitchErrorStatement::toIR(IRState* p)
 
     // call
     CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
-    call->setParamAttrs(palist);
+    call->setAttributes(palist);
 
     gIR->ir->CreateUnreachable();
 }

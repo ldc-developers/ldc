@@ -133,7 +133,7 @@ LLValue* DtoCallableValue(DValue* fn);
 const LLFunctionType* DtoExtractFunctionType(const LLType* type);
 
 ///
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
+void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
 
 ///
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments);

@@ -104,7 +104,7 @@ const LLFunctionType* DtoExtractFunctionType(const LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx)
+void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx)
 {
     Logger::println("doing d-style variadic arguments");
 
@@ -235,7 +235,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLFunctionType::param_iterator argiter = argbegin;
 
     // parameter attributes
-    llvm::PAListPtr palist;
+    llvm::AttrListPtr palist;
 
     // return attrs
     if (tf->retAttrs)
@@ -250,7 +250,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         LLValue* retvar = DtoAlloca(argiter->get()->getContainedType(0), ".rettmp");
         ++argiter;
         args.push_back(retvar);
-        palist = palist.addAttr(1, llvm::ParamAttr::StructRet);
+        palist = palist.addAttr(1, llvm::Attribute::StructRet);
     }
 
     // then comes a context argument...
@@ -364,26 +364,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
         if (llfunc && llfunc->isIntrinsic())
-            palist = llvm::Intrinsic::getParamAttrs((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
+            palist = llvm::Intrinsic::getAttributes((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
         else
             call->setCallingConv(callconv);
     }
     else
         call->setCallingConv(callconv);
-    call->setParamAttrs(palist);
+    call->setAttributes(palist);
 
     return new DImValue(resulttype, retllval);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

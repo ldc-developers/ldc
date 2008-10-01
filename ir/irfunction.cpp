@@ -66,14 +66,12 @@ void IrFunction::popLabelScope()
 
 void IrFunction::setNeverInline()
 {
-    llvm::FunctionNotes cur = func->getNotes();
-    assert(!(cur & llvm::FN_NOTE_AlwaysInline) && "function can't be never- and always-inline at the same time");
-    func->setNotes(cur | llvm::FN_NOTE_NoInline);
+    assert(!func->hasFnAttr(llvm::Attribute::AlwaysInline) && "function can't be never- and always-inline at the same time");
+    func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline()
 {
-    llvm::FunctionNotes cur = func->getNotes();
-    assert(!(cur & llvm::FN_NOTE_NoInline) && "function can't be never- and always-inline at the same time");
-    func->setNotes(cur | llvm::FN_NOTE_AlwaysInline);
+    assert(!func->hasFnAttr(llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
+    func->addFnAttr(llvm::Attribute::AlwaysInline);
 }

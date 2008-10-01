@@ -132,7 +132,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             Logger::println("struct param");
             paramvec.push_back(getPtrToType(at));
             if (!refOrOut)
-                arg->llvmAttrs |= llvm::ParamAttr::ByVal;
+                arg->llvmAttrs |= llvm::Attribute::ByVal;
         }
         else if (isaArray(at)) {
             // static array are passed by reference
@@ -341,10 +341,10 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         llidx += 2;
 
     int funcNumArgs = func->getArgumentList().size();
-    std::vector<llvm::ParamAttrsWithIndex> attrs;
+    std::vector<llvm::AttributeWithIndex> attrs;
     int k = 0;
 
-    llvm::ParamAttrsWithIndex PAWI;
+    llvm::AttributeWithIndex PAWI;
 
     // set return value attrs if any
     if (f->retAttrs)
@@ -358,7 +358,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     if (f->retInPtr)
     {
         PAWI.Index = 1;
-        PAWI.Attrs = llvm::ParamAttr::StructRet;
+        PAWI.Attrs = llvm::Attribute::StructRet;
         attrs.push_back(PAWI);
     }
 
@@ -366,7 +366,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
     {
         PAWI.Index = llidx;
-        PAWI.Attrs = llvm::ParamAttr::ByVal;
+        PAWI.Attrs = llvm::Attribute::ByVal;
         attrs.push_back(PAWI);
         llidx++;
     }
@@ -384,8 +384,8 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
             attrs.push_back(PAWI);
     }
 
-    llvm::PAListPtr palist = llvm::PAListPtr::get(attrs.begin(), attrs.end());
-    func->setParamAttrs(palist);
+    llvm::AttrListPtr palist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
+    func->setAttributes(palist);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

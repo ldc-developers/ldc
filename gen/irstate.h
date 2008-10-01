@@ -88,7 +88,7 @@ struct IRAsmBlock
 // adjusting these common properties these structs are made
 struct CallOrInvoke
 {
-    virtual void setParamAttrs(const llvm::PAListPtr& Attrs) = 0;
+    virtual void setAttributes(const llvm::AttrListPtr& Attrs) = 0;
     virtual void setCallingConv(unsigned CC) = 0;
     virtual llvm::Instruction* get() = 0;
 };
@@ -98,8 +98,8 @@ struct CallOrInvoke_Call : public CallOrInvoke
     llvm::CallInst* inst;
     CallOrInvoke_Call(llvm::CallInst* call) : inst(call) {}
 
-    virtual void setParamAttrs(const llvm::PAListPtr& Attrs)
-    { inst->setParamAttrs(Attrs); }
+    virtual void setAttributes(const llvm::AttrListPtr& Attrs)
+    { inst->setAttributes(Attrs); }
     virtual void setCallingConv(unsigned CC)
     { inst->setCallingConv(CC); }
     virtual llvm::Instruction* get()
@@ -111,8 +111,8 @@ struct CallOrInvoke_Invoke : public CallOrInvoke
     llvm::InvokeInst* inst;
     CallOrInvoke_Invoke(llvm::InvokeInst* invoke) : inst(invoke) {}
 
-    virtual void setParamAttrs(const llvm::PAListPtr& Attrs)
-    { inst->setParamAttrs(Attrs); }
+    virtual void setAttributes(const llvm::AttrListPtr& Attrs)
+    { inst->setAttributes(Attrs); }
     virtual void setCallingConv(unsigned CC)
     { inst->setCallingConv(CC); }
     virtual llvm::Instruction* get()

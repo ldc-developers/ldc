@@ -10,7 +10,7 @@
 #include "llvm/Function.h"
 #include "llvm/Module.h"
 #include "llvm/Value.h"
-#include "llvm/ParameterAttributes.h"
+#include "llvm/Attributes.h"
 
 #include "llvm/Target/TargetData.h"
 
