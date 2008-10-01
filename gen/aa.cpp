@@ -105,12 +105,16 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaIn");
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
-    Logger::cout() << "_aaIn = " << *func << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "_aaIn = " << *func << '\n';
 
     // aa param
     LLValue* aaval = aa->getRVal();
-    Logger::cout() << "aaval: " << *aaval << '\n';
-    Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
+    if (Logger::enabled())
+    {
+        Logger::cout() << "aaval: " << *aaval << '\n';
+        Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
+    }
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
     // keyti param
@@ -143,12 +147,16 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaDel");
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
-    Logger::cout() << "_aaDel = " << *func << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "_aaDel = " << *func << '\n';
 
     // aa param
     LLValue* aaval = aa->getRVal();
-    Logger::cout() << "aaval: " << *aaval << '\n';
-    Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
+    if (Logger::enabled())
+    {
+        Logger::cout() << "aaval: " << *aaval << '\n';
+        Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
+    }
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
     // keyti param

@@ -79,13 +79,16 @@ void ReturnStatement::toIR(IRState* p)
             DValue* e = exp->toElem(p);
             LLValue* v = e->getRVal();
             delete e;
-            Logger::cout() << "return value is '" <<*v << "'\n";
+
+            if (Logger::enabled())
+                Logger::cout() << "return value is '" <<*v << "'\n";
 
             // can happen for classes
             if (v->getType() != p->topfunc()->getReturnType())
             {
                 v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
-                Logger::cout() << "return value after cast: " << *v << '\n';
+                if (Logger::enabled())
+                    Logger::cout() << "return value after cast: " << *v << '\n';
             }
 
             DtoEnclosingHandlers(enclosinghandler, NULL);
@@ -165,7 +168,8 @@ void IfStatement::toIR(IRState* p)
     llvm::BasicBlock* elsebb = elsebody ? llvm::BasicBlock::Create("else", gIR->topfunc(), endbb) : endbb;
 
     if (cond_val->getType() != LLType::Int1Ty) {
-        Logger::cout() << "if conditional: " << *cond_val << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "if conditional: " << *cond_val << '\n';
         cond_val = DtoBoolean(loc, cond_e);
     }
     LLValue* ifgoback = llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
@@ -677,8 +681,11 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
 
-    Logger::cout() << *table->getType() << '\n';
-    Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
+    if (Logger::enabled())
+    {
+        Logger::cout() << *table->getType() << '\n';
+        Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
+    }
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
 
     DValue* val = e->toElem(gIR);

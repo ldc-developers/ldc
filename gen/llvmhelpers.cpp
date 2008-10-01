@@ -416,7 +416,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
 {
-    Logger::cout() << "DtoAssign(...);\n";
+    Logger::println("DtoAssign(...);\n");
     LOG_SCOPE;
 
     Type* t = lhs->getType()->toBasetype();
@@ -472,7 +472,8 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         else {
             LLValue* l = lhs->getLVal();
             LLValue* r = rhs->getRVal();
-            Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
             DtoAggrCopy(l, r);
         }
     }
@@ -480,8 +481,11 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         assert(t2->ty == Tclass);
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        Logger::cout() << "l : " << *l << '\n';
-        Logger::cout() << "r : " << *r << '\n';
+        if (Logger::enabled())
+        {
+            Logger::cout() << "l : " << *l << '\n';
+            Logger::cout() << "r : " << *r << '\n';
+        }
         r = DtoBitCast(r, l->getType()->getContainedType(0));
         DtoStore(r, l);
     }
@@ -499,7 +503,8 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
     else {
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
         const LLType* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
             // handle lvalue cast assignments
@@ -510,7 +515,8 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
             else {
                 r = DtoCast(loc, rhs, lhs->getType())->getRVal();
             }
-            Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
             assert(r->getType() == l->getType()->getContainedType(0));
         }
         gIR->ir->CreateStore(r, l);
@@ -584,7 +590,8 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
 
     if (to->isintegral()) {
         if (fromsz < tosz) {
-            Logger::cout() << "cast to: " << *tolltype << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "cast to: " << *tolltype << '\n';
             if (from->isunsigned() || from->ty == Tbool) {
                 rval = new llvm::ZExtInst(rval, tolltype, "tmp", gIR->scopebb());
             } else {
@@ -610,7 +617,8 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
         }
     }
     else if (to->ty == Tpointer) {
-        Logger::cout() << "cast pointer: " << *tolltype << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "cast pointer: " << *tolltype << '\n';
         rval = gIR->ir->CreateIntToPtr(rval, tolltype, "tmp");
     }
     else {
@@ -633,7 +641,8 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
 
     if (totype->ty == Tpointer || totype->ty == Tclass) {
         LLValue* src = val->getRVal();
-        Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
         rval = DtoBitCast(src, tolltype);
     }
     else if (totype->isintegral()) {
@@ -910,7 +919,9 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
     //Logger::cout() << "initializer: " << *_init << '\n';
     if (_type != _init->getType()) {
-        Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
+        if (Logger::enabled())
+            Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
+
         // zero initalizer
         if (_init->isNullValue())
             _init = llvm::Constant::getNullValue(_type);
@@ -930,7 +941,8 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             _init = DtoConstStaticArray(_type, _init);
         }
         else {
-            Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
             //assert(0);
         }
     }
@@ -950,9 +962,12 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->ir.irGlobal->value);
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
     {
-        Logger::println("setting initializer");
-        Logger::cout() << "global: " << *gvar << '\n';
-        Logger::cout() << "init:   " << *_init << '\n';
+        if (Logger::enabled())
+        {
+            Logger::println("setting initializer");
+            Logger::cout() << "global: " << *gvar << '\n';
+            Logger::cout() << "init:   " << *_init << '\n';
+        }
         gvar->setInitializer(_init);
         // do debug info
         if (global.params.symdebug)
@@ -1168,7 +1183,8 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 assert(vd->ir.irLocal->value);
             }
 
-            Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
             DValue* ie = DtoInitializer(vd->ir.irLocal->value, vd->init);
         }
 
@@ -1292,7 +1308,8 @@ LLConstant* DtoConstFieldInitializer(Type* t, Initializer* init)
     assert(_init);
     if (_type != _init->getType())
     {
-        Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
         if (t->ty == Tsarray)
         {
             const LLArrayType* arrty = isaArray(_type);
@@ -1379,7 +1396,8 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 {
     Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
     const LLType* dstTy = DtoType(base);
-    Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
     
     LLConstant* val = exp->toConstElem(gIR);
     
@@ -1510,8 +1528,11 @@ LLValue* DtoBoolean(Loc& loc, DValue* dval)
     else if (ty == Tpointer || ty == Tclass) {
         LLValue* val = dval->getRVal();
         LLValue* zero = LLConstant::getNullValue(val->getType());
-        Logger::cout() << "val:  " << *val << '\n';
-        Logger::cout() << "zero: " << *zero << '\n';
+        if (Logger::enabled())
+        {
+            Logger::cout() << "val:  " << *val << '\n';
+            Logger::cout() << "zero: " << *zero << '\n';
+        }
         return gIR->ir->CreateICmpNE(val, zero, "tmp");
     }
     // dynamic array

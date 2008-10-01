@@ -95,6 +95,8 @@ void DtoResolveClass(ClassDeclaration* cd)
     Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
+    //printf("resolve class: %s\n", cd->toPrettyChars());
+
     // get the TypeClass
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
@@ -244,7 +246,8 @@ void DtoResolveClass(ClassDeclaration* cd)
         TypeClass* itc = (TypeClass*)id->type;
         const LLType* ivtblTy = itc->ir.vtblType->get();
         assert(ivtblTy);
-        Logger::cout() << "interface vtbl type: " << *ivtblTy << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "interface vtbl type: " << *ivtblTy << '\n';
         fieldtypes.push_back(getPtrToType(ivtblTy));
 
         // fix the interface vtable type
@@ -359,6 +362,8 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
     Logger::println("DtoDeclareClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
+
+    //printf("declare class: %s\n", cd->toPrettyChars());
 
     assert(cd->type->ty == Tclass);
     TypeClass* ts = (TypeClass*)cd->type;
@@ -654,7 +659,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
             for (int k=1; k < b->vtbl.dim; k++)
             {
-                Logger::println("interface vtbl const init nr. %d", k);
+//                 Logger::println("interface vtbl const init nr. %d", k);
                 Dsymbol* dsym = (Dsymbol*)b->vtbl.data[k];
 
                 // error on unimplemented functions, error was already generated earlier
@@ -674,11 +679,13 @@ void DtoConstInitClass(ClassDeclaration* cd)
                 // we have to bitcast, as the type created in ResolveClass expects a different this type
                 c = llvm::ConstantExpr::getBitCast(c, targetTy);
                 iinits.push_back(c);
-                Logger::cout() << "c: " << *c << '\n';
+//                 if (Logger::enabled())
+//                     Logger::cout() << "c: " << *c << '\n';
             }
 
         #if OPAQUE_VTBLS
-            Logger::cout() << "n: " << iinits.size() << " ivtbl_ty: " << *ivtbl_ty << '\n';
+//             if (Logger::enabled())
+//                 Logger::cout() << "n: " << iinits.size() << " ivtbl_ty: " << *ivtbl_ty << '\n';
             LLConstant* civtblInit = llvm::ConstantArray::get(ivtbl_ty, iinits);
             iri->vtblInit = llvm::cast<llvm::ConstantArray>(civtblInit);
         #else
@@ -825,7 +832,8 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
         size_t idx = 2 + tc->sym->vthis->ir.irField->index;
         LLValue* src = thisval->getRVal();
         LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
-        Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
         DtoStore(src, dst);
     }
     // set the context for nested classes
@@ -1175,7 +1183,8 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     assert(inst->getType()->toBasetype()->ty == Tclass);
 
     LLValue* vthis = inst->getRVal();
-    Logger::cout() << "vthis: " << *vthis << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "vthis: " << *vthis << '\n';
 
     LLValue* funcval;
     funcval = DtoGEPi(vthis, 0, 0, "tmp");
@@ -1183,11 +1192,13 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toPrettyChars());
     funcval = DtoLoad(funcval);
 
-    Logger::cout() << "funcval: " << *funcval << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "funcval: " << *funcval << '\n';
 
 #if OPAQUE_VTBLS
     funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
-    Logger::cout() << "funcval casted: " << *funcval << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "funcval casted: " << *funcval << '\n';
 #endif
 
     return funcval;

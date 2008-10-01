@@ -624,7 +624,8 @@ void AsmBlockStatement::toIR(IRState* p)
     types.insert(types.end(), outtypes.begin(), outtypes.end());
     types.insert(types.end(), intypes.begin(), intypes.end());
     llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, types, false);
-    Logger::cout() << "function type = " << *fty << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "function type = " << *fty << '\n';
     llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
 
     std::vector<LLValue*> args;

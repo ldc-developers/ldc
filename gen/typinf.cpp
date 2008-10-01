@@ -369,7 +369,8 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     DtoForceConstInitDsymbol(base);
 
     const LLStructType* stype = isaStruct(base->type->ir.type->get());
-    Logger::cout() << "got stype: " << *stype << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "got stype: " << *stype << '\n';
 
     // vtbl
     std::vector<LLConstant*> sinits;

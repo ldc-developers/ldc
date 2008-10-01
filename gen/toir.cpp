@@ -132,7 +132,8 @@ DValue* VarExp::toElem(IRState* p)
             }
             if (!vd->ir.isSet() || !vd->ir.getIrValue() || DtoType(vd->type)->isAbstract()) {
                 error("global variable %s not resolved", vd->toChars());
-                Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
+                if (Logger::enabled())
+                    Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
                 fatal();
             }
             return new DVarValue(type, vd, vd->ir.getIrValue());
@@ -222,7 +223,8 @@ LLConstant* IntegerExp::toConstElem(IRState* p)
     assert(llvm::isa<LLIntegerType>(t));
     LLConstant* c = llvm::ConstantInt::get(t,(uint64_t)value,!type->isunsigned());
     assert(c);
-    Logger::cout() << "value = " << *c << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "value = " << *c << '\n';
     return c;
 }
 
@@ -353,7 +355,8 @@ DValue* StringExp::toElem(IRState* p)
     assert(0);
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
-    Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,".stringliteral",gIR->module);
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
@@ -588,7 +591,8 @@ DValue* MinExp::toElem(IRState* p)
     if (t1->ty == Tpointer && t2->ty == Tpointer) {
         LLValue* lv = l->getRVal();
         LLValue* rv = r->getRVal();
-        Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
         lv = p->ir->CreatePtrToInt(lv, DtoSize_t(), "tmp");
         rv = p->ir->CreatePtrToInt(rv, DtoSize_t(), "tmp");
         LLValue* diff = p->ir->CreateSub(lv,rv,"tmp");
@@ -869,7 +873,8 @@ DValue* AddrExp::toElem(IRState* p)
     }
     Logger::println("is nothing special");
     LLValue* lval = v->getLVal();
-    Logger::cout() << "lval: " << *lval << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "lval: " << *lval << '\n';
     return new DImValue(type, DtoBitCast(v->getLVal(), DtoType(type)));
 }
 
@@ -1009,14 +1014,16 @@ DValue* DotVarExp::toElem(IRState* p)
 
             LLValue* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
             LLValue* vtblidx = llvm::ConstantInt::get(LLType::Int32Ty, (size_t)fdecl->vtblIndex, false);
-            Logger::cout() << "vthis: " << *vthis << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "vthis: " << *vthis << '\n';
             funcval = DtoGEP(vthis, zero, zero);
             funcval = DtoLoad(funcval);
             funcval = DtoGEP(funcval, zero, vtblidx, toChars());
             funcval = DtoLoad(funcval);
         #if OPAQUE_VTBLS
             funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
-            Logger::cout() << "funcval casted: " << *funcval << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "funcval casted: " << *funcval << '\n';
         #endif
         }
         // static call
@@ -1248,8 +1255,11 @@ DValue* CmpExp::toElem(IRState* p)
         {
             LLValue* a = l->getRVal();
             LLValue* b = r->getRVal();
-            Logger::cout() << "type 1: " << *a << '\n';
-            Logger::cout() << "type 2: " << *b << '\n';
+            if (Logger::enabled())
+            {
+                Logger::cout() << "type 1: " << *a << '\n';
+                Logger::cout() << "type 2: " << *b << '\n';
+            }
             if (a->getType() != b->getType())
                 b = DtoBitCast(b, a->getType());
             eval = p->ir->CreateICmp(cmpop, a, b, "tmp");
@@ -1871,7 +1881,8 @@ DValue* DelegateExp::toElem(IRState* p)
         uval = src->getRVal();
     }
 
-    Logger::cout() << "context = " << *uval << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "context = " << *uval << '\n';
 
     LLValue* context = DtoGEPi(lval,0,0);
     LLValue* castcontext = DtoBitCast(uval, int8ptrty);
@@ -2160,12 +2171,14 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
 
     // llvm target type
     const LLType* llType = DtoType(arrayType);
-    Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
+    if (Logger::enabled())
+        Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
 
     // llvm storage type
     const LLType* llElemType = DtoTypeNotVoid(elemType);
     const LLType* llStoType = LLArrayType::get(llElemType, len);
-    Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
+    if (Logger::enabled())
+        Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
 
     // don't allocate storage for zero length dynamic array literals
     if (dyn && len == 0)
@@ -2285,11 +2298,13 @@ DValue* StructLiteralExp::toElem(IRState* p)
         const LLStructType* t = LLStructType::get(tys, sd->ir.irStruct->packed);
         if (t != llt) {
             if (getABITypeSize(t) != getABITypeSize(llt)) {
-                Logger::cout() << "got size " << getABITypeSize(t) << ", expected " << getABITypeSize(llt) << '\n';
+                if (Logger::enabled())
+                    Logger::cout() << "got size " << getABITypeSize(t) << ", expected " << getABITypeSize(llt) << '\n';
                 assert(0 && "type size mismatch");
             }
             sptr = DtoBitCast(sptr, getPtrToType(t));
-            Logger::cout() << "sptr type is now: " << *t << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "sptr type is now: " << *t << '\n';
         }
     }
 
@@ -2300,7 +2315,8 @@ DValue* StructLiteralExp::toElem(IRState* p)
         Expression* vx = (Expression*)elements->data[i];
         if (!vx) continue;
 
-        Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
         LLValue* arrptr = DtoGEPi(sptr,0,j);
         DValue* darrptr = new DVarValue(vx->type, arrptr);
 

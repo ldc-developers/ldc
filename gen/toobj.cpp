@@ -61,10 +61,10 @@ void Module::genobjfile(int multiobj)
         Logger::enable();
     }
 
-    Logger::cout() << "Generating module: " << (md ? md->toChars() : toChars()) << '\n';
+    Logger::println("Generating module: %s\n", (md ? md->toChars() : toChars()));
     LOG_SCOPE;
 
-    //printf("codegen: %s\n", srcfile->toChars());
+    printf("codegen: %s\n", srcfile->toChars());
 
     // start by deleting the old object file
     deleteObjFile();
@@ -652,7 +652,8 @@ void VarDeclaration::toObjFile(int multiobj)
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
         this->ir.irGlobal->value = gvar;
 
-        Logger::cout() << *gvar << '\n';
+        if (Logger::enabled())
+            Logger::cout() << *gvar << '\n';
 
         if (static_local)
             DtoConstInitGlobal(this);

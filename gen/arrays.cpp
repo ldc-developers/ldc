@@ -85,7 +85,8 @@ void DtoArrayAssign(LLValue* dst, LLValue* src)
     }
     else
     {
-        Logger::cout() << "array assignment type dont match: " << *dst->getType() << "\n\n" << *src->getType() << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "array assignment type dont match: " << *dst->getType() << "\n\n" << *src->getType() << '\n';
         const LLArrayType* arrty = isaArray(src->getType()->getContainedType(0));
         if (!arrty)
         {
@@ -234,7 +235,8 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
     assert(fn);
-    Logger::cout() << "calling array init function: " << *fn <<'\n';
+    if (Logger::enabled())
+        Logger::cout() << "calling array init function: " << *fn <<'\n';
     CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
     call->setCallingConv(llvm::CallingConv::C);
 }
@@ -335,7 +337,8 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         assert(v);
 
         inits[i] = v;
-        Logger::cout() << "llval: " << *v << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "llval: " << *v << '\n';
     }
 
     Logger::println("building constant array");
@@ -426,7 +429,8 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     if (newptr->getType() != dstType)
         newptr = DtoBitCast(newptr, dstType, ".gc_mem");
 
-    Logger::cout() << "final ptr = " << *newptr << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "final ptr = " << *newptr << '\n';
 
     return new DSliceValue(arrayType, arrayLen, newptr);
 }
@@ -468,7 +472,8 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     if (newptr->getType() != dstType)
         newptr = DtoBitCast(newptr, dstType, ".gc_mem");
 
-    Logger::cout() << "final ptr = " << *newptr << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "final ptr = " << *newptr << '\n';
 
     assert(firstDim);
     return new DSliceValue(arrayType, firstDim, newptr);
@@ -497,7 +502,8 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
     args.push_back(DtoArrayLen(array));
 
     LLValue* arrPtr = DtoArrayPtr(array);
-    Logger::cout() << "arrPtr = " << *arrPtr << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "arrPtr = " << *arrPtr << '\n';
     args.push_back(DtoBitCast(arrPtr, fn->getFunctionType()->getParamType(3), "tmp"));
 
     LLValue* newptr = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".gc_mem")->get();
@@ -726,9 +732,12 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
     const LLType* pt = fn->getFunctionType()->getParamType(0);
 
     LLSmallVector<LLValue*, 3> args;
-    Logger::cout() << "bitcasting to " << *pt << '\n';
-    Logger::cout() << *lmem << '\n';
-    Logger::cout() << *rmem << '\n';
+    if (Logger::enabled())
+    {
+        Logger::cout() << "bitcasting to " << *pt << '\n';
+        Logger::cout() << *lmem << '\n';
+        Logger::cout() << *rmem << '\n';
+    }
     args.push_back(DtoBitCast(lmem,pt));
     args.push_back(DtoBitCast(rmem,pt));
 
@@ -738,7 +747,9 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
         LLValue* tival = DtoTypeInfoOf(t);
         // DtoTypeInfoOf only does declare, not enough in this case :/
         DtoForceConstInitDsymbol(t->vtinfo);
-        Logger::cout() << "typeinfo decl: " << *tival << '\n';
+
+        if (Logger::enabled())
+            Logger::cout() << "typeinfo decl: " << *tival << '\n';
 
         pt = fn->getFunctionType()->getParamType(2);
         args.push_back(DtoBitCast(tival, pt));
@@ -957,22 +968,29 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
     LLValue* rval2;
     bool isslice = false;
 
-    Logger::cout() << "from array or sarray" << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "from array or sarray" << '\n';
+
     if (totype->ty == Tpointer) {
-        Logger::cout() << "to pointer" << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "to pointer" << '\n';
         rval = DtoArrayPtr(u);
         if (rval->getType() != tolltype)
             rval = gIR->ir->CreateBitCast(rval, tolltype, "tmp");
     }
     else if (totype->ty == Tarray) {
-        Logger::cout() << "to array" << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "to array" << '\n';
 
         const LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
         const LLType* ety = DtoTypeNotVoid(fromtype->next);
 
         if (DSliceValue* usl = u->isSlice()) {
-            Logger::println("from slice");
-            Logger::cout() << "from: " << *usl->ptr << " to: " << *ptrty << '\n';
+            if (Logger::enabled())
+            {
+                Logger::println("from slice");
+                Logger::cout() << "from: " << *usl->ptr << " to: " << *ptrty << '\n';
+            }
             rval = DtoBitCast(usl->ptr, ptrty);
             if (fromtype->next->size() == totype->next->size())
                 rval2 = DtoArrayLen(usl);
@@ -982,7 +1000,8 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         else {
             LLValue* uval = u->getRVal();
             if (fromtype->ty == Tsarray) {
-                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+                if (Logger::enabled())
+                    Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
                 assert(isaPointer(uval->getType()));
                 const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
 
@@ -1012,7 +1031,8 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         isslice = true;
     }
     else if (totype->ty == Tsarray) {
-        Logger::cout() << "to sarray" << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "to sarray" << '\n';
         assert(0);
     }
     else {

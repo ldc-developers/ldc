@@ -164,11 +164,16 @@ Lbadstuff:
         // handle lazy args
         if (arg->storageClass & STClazy)
         {
-            Logger::cout() << "for lazy got: " << *paramvec.back() << '\n';
+            if (Logger::enabled())
+                Logger::cout() << "for lazy got: " << *paramvec.back() << '\n';
+
             TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
             TypeDelegate *ltd = new TypeDelegate(ltf);
             at = getPtrToType(DtoType(ltd));
-            Logger::cout() << "lazy updated to: " << *at << '\n';
+
+            if (Logger::enabled())
+                Logger::cout() << "lazy updated to: " << *at << '\n';
+
             paramvec.back() = at;
             // lazy doesn't need byval as the delegate is not visible to the user
         }
@@ -289,6 +294,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
+    //printf("resolve function: %s\n", fdecl->toPrettyChars());
+
     if (fdecl->parent)
     if (TemplateInstance* tinst = fdecl->parent->isTemplateInstance())
     {
@@ -390,6 +397,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
+
+    //printf("declare function: %s\n", fdecl->toPrettyChars());
 
     // intrinsic sanity check
     if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
@@ -530,7 +539,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     else
         assert(func->getLinkage() != llvm::GlobalValue::InternalLinkage);
 
-    Logger::cout() << "func decl: " << *func << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "func decl: " << *func << '\n';
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

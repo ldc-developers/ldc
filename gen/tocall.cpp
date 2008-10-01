@@ -76,7 +76,8 @@ LLValue* DtoCallableValue(DValue* fn)
     else if (type->ty == Tdelegate)
     {
         LLValue* dg = fn->getRVal();
-        Logger::cout() << "delegate: " << *dg << '\n';
+        if (Logger::enabled())
+            Logger::cout() << "delegate: " << *dg << '\n';
         LLValue* funcptr = DtoGEPi(dg, 0, 1);
         return DtoLoad(funcptr);
     }
@@ -126,7 +127,10 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
             vtypes.back() = DtoSize_t();
     }
     const LLStructType* vtype = LLStructType::get(vtypes);
-    Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
+
+    if (Logger::enabled())
+        Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
+
     LLValue* mem = DtoAlloca(vtype,"_argptr_storage");
 
     // store arguments in the struct
@@ -147,7 +151,8 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::PAListPtr& palist, T
 
     llvm::GlobalVariable* typeinfomem =
         new llvm::GlobalVariable(typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage", gIR->module);
-    Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
     std::vector<LLConstant*> vtypeinfos;
     for (int i=begin,k=0; i<n_arguments; i++,k++)
@@ -314,8 +319,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             LLValue* arg = argval->getRVal();
             if (fnarg) // can fnarg ever be null in this block?
             {
-                Logger::cout() << "arg:     " << *arg << '\n';
-                Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
+//                 if (Logger::enabled())
+//                 {
+//                     Logger::cout() << "arg:     " << *arg << '\n';
+//                     Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
+//                 }
                 if (arg->getType() != callableTy->getParamType(j))
                     arg = DtoBitCast(arg, callableTy->getParamType(j));
                 if (fnarg->llvmAttrs)

@@ -29,7 +29,9 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
     DtoResolveDsymbol(si->ad);
 
     const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
-    Logger::cout() << "llvm struct type: " << *structtype << '\n';
+
+    if (Logger::enabled())
+        Logger::cout() << "llvm struct type: " << *structtype << '\n';
 
     assert(si->value.dim == si->vars.dim);
 
@@ -61,8 +63,11 @@ LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned o
     const LLType* llt = getPtrToType(DtoType(t));
     const LLType* st = getPtrToType(DtoType(sd->type));
 
-    Logger::cout() << "ptr = " << *ptr << '\n';
-    Logger::cout() << "st  = " << *st << '\n';
+    if (Logger::enabled())
+    {
+        Logger::cout() << "ptr = " << *ptr << '\n';
+        Logger::cout() << "st  = " << *st << '\n';
+    }
 
     if (ptr->getType() != st) {
         assert(sd->ir.irStruct->hasUnions);

@@ -319,7 +319,8 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
     // something else unsupported
     else
     {
-        Logger::cout() << *ptrTy << '|' << *valTy << '\n';
+        if (Logger::enabled())
+            Logger::cout() << *ptrTy << '|' << *valTy << '\n';
         assert(0);
     }
     return 0;
