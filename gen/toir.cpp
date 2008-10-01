@@ -1863,12 +1863,8 @@ DValue* DelegateExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     LLValue* uval;
     if (DFuncValue* f = u->isFunc()) {
-        assert(f->func);        
-        LLValue* contextptr;
-        if (p->func()->decl == f->func)
-            contextptr = p->func()->thisArg;
-        else
-            contextptr = DtoNestedContext(loc, f->func);
+        assert(f->func);
+        LLValue* contextptr = DtoNestedContext(loc, f->func);
         uval = DtoBitCast(contextptr, getVoidPtrType());
     }
     else {
