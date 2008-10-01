@@ -92,7 +92,7 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 
     Type* baserety;
     Type* baseimty;
-    TY ty = to->ty;
+    TY ty = to->toBasetype()->ty;
     if (ty == Tcomplex32) {
         baserety = Type::tfloat32;
         baseimty = Type::timaginary32;
@@ -136,7 +136,7 @@ void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, LLValue*& re, LLValue*&
 
     Type* baserety;
     Type* baseimty;
-    TY ty = to->ty;
+    TY ty = to->toBasetype()->ty;
     if (ty == Tcomplex32) {
         baserety = Type::tfloat32;
         baseimty = Type::timaginary32;
