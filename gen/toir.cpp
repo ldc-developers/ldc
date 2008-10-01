@@ -128,13 +128,15 @@ DValue* VarExp::toElem(IRState* p)
             // take care of forward references of global variables
             if (vd->isDataseg() || (vd->storage_class & STCextern)) {
                 vd->toObjFile(0); // TODO: multiobj
-                DtoConstInitGlobal(vd);
             }
             if (!vd->ir.isSet() || !vd->ir.getIrValue() || DtoType(vd->type)->isAbstract()) {
                 error("global variable %s not resolved", vd->toChars());
                 if (Logger::enabled())
                     Logger::cout() << "unresolved global had type: " << *DtoType(vd->type) << '\n';
                 fatal();
+            }
+            if (vd->isDataseg() || (vd->storage_class & STCextern)) {
+                DtoConstInitGlobal(vd);
             }
             return new DVarValue(type, vd, vd->ir.getIrValue());
         }
