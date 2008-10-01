@@ -17,6 +17,9 @@
 #include "llvm/Support/IRBuilder.h"
 using llvm::IRBuilder;
 
+// for WriteTypeSymbolic
+#include "llvm/Assembly/Writer.h"
+
 #define GET_INTRINSIC_DECL(_X) (llvm::Intrinsic::getDeclaration(gIR->module, llvm::Intrinsic:: _X ))
 
 // shortcuts for the common llvm types

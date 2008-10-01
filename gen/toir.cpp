@@ -1954,7 +1954,7 @@ DValue* IdentityExp::toElem(IRState* p)
         ?   p->ir->CreateFCmpOEQ(l,r,"tmp")
         :   p->ir->CreateFCmpONE(l,r,"tmp");
     }
-    else if (t1->ty == Tpointer)
+    else if (t1->ty == Tpointer || t1->ty == Tclass)
     {
         if (l->getType() != r->getType()) {
             if (v->isNull())
@@ -1967,6 +1967,7 @@ DValue* IdentityExp::toElem(IRState* p)
         :   p->ir->CreateICmpNE(l,r,"tmp");
     }
     else {
+        assert(l->getType() == r->getType());
         eval = (op == TOKidentity)
         ?   p->ir->CreateICmpEQ(l,r,"tmp")
         :   p->ir->CreateICmpNE(l,r,"tmp");
