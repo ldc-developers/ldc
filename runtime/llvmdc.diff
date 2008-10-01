@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 3939)
+--- object.di	(revision 3950)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -12,9 +12,86 @@ Index: object.di
      static int opApply( int delegate( inout ModuleInfo ) );
  }
  
+Index: lib/common/tango/core/BitManip.d
+===================================================================
+--- lib/common/tango/core/BitManip.d	(revision 3950)
++++ lib/common/tango/core/BitManip.d	(working copy)
+@@ -171,6 +171,10 @@
+      */
+     uint outpl( uint port_address, uint value );
+ }
++else version( LLVMDC )
++{
++    public import llvmdc.bitmanip;
++}
+ else
+ {
+     public import std.intrinsic;
+Index: lib/common/tango/core/Thread.d
+===================================================================
+--- lib/common/tango/core/Thread.d	(revision 3950)
++++ lib/common/tango/core/Thread.d	(working copy)
+@@ -244,8 +244,29 @@
+         }
+         body
+         {
+-            version( D_InlineAsm_X86 )
++            version( LLVMDC)
+             {
++                version(X86)
++                {
++                    uint eax,ecx,edx,ebx,ebp,esi,edi;
++                    asm
++                    {
++                        mov eax[EBP], EAX      ;
++                        mov ecx[EBP], ECX      ;
++                        mov edx[EBP], EDX      ;
++                        mov ebx[EBP], EBX      ;
++                        mov ebp[EBP], EBP      ;
++                        mov esi[EBP], ESI      ;
++                        mov edi[EBP], EDI      ;
++                    }
++                }
++                else
++                {
++                    static assert( false, "Architecture not supported." );
++                }
++            }
++            else version( D_InlineAsm_X86 )
++            {
+                 asm
+                 {
+                     pushad;
+@@ -297,8 +318,12 @@
+                 }
+             }
+ 
+-            version( D_InlineAsm_X86 )
++            version( LLVMDC)
+             {
++                // nothing to pop
++            }
++            else version( D_InlineAsm_X86 )
++            {
+                 asm
+                 {
+                     popad;
+@@ -2306,10 +2331,10 @@
+             import tango.stdc.posix.ucontext;
+         }
+     }
+-
+-    const size_t PAGESIZE;
+ }
+ 
++// this can't be private since it's used as default argument to a public function
++const size_t PAGESIZE;
+ 
+ static this()
+ {
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 3939)
+--- lib/unittest.sh	(revision 3950)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -69,73 +146,9 @@ Index: lib/unittest.sh
 +then
 +    compile llvmdc runUnitTest_llvmdc
 +fi
-Index: lib/common/tango/core/BitManip.d
-===================================================================
---- lib/common/tango/core/BitManip.d	(revision 3939)
-+++ lib/common/tango/core/BitManip.d	(working copy)
-@@ -171,6 +171,10 @@
-      */
-     uint outpl( uint port_address, uint value );
- }
-+else version( LLVMDC )
-+{
-+    public import llvmdc.bitmanip;
-+}
- else
- {
-     public import std.intrinsic;
-Index: lib/common/tango/core/Thread.d
-===================================================================
---- lib/common/tango/core/Thread.d	(revision 3939)
-+++ lib/common/tango/core/Thread.d	(working copy)
-@@ -244,8 +244,29 @@
-         }
-         body
-         {
--            version( D_InlineAsm_X86 )
-+            version( LLVMDC)
-             {
-+                version(X86)
-+                {
-+                    uint eax,ecx,edx,ebx,ebp,esi,edi;
-+                    asm
-+                    {
-+                        mov eax[EBP], EAX      ;
-+                        mov ecx[EBP], ECX      ;
-+                        mov edx[EBP], EDX      ;
-+                        mov ebx[EBP], EBX      ;
-+                        mov ebp[EBP], EBP      ;
-+                        mov esi[EBP], ESI      ;
-+                        mov edi[EBP], EDI      ;
-+                    }
-+                }
-+                else
-+                {
-+                    static assert( false, "Architecture not supported." );
-+                }
-+            }
-+            else version( D_InlineAsm_X86 )
-+            {
-                 asm
-                 {
-                     pushad;
-@@ -297,8 +318,12 @@
-                 }
-             }
- 
--            version( D_InlineAsm_X86 )
-+            version( LLVMDC)
-             {
-+                // nothing to pop
-+            }
-+            else version( D_InlineAsm_X86 )
-+            {
-                 asm
-                 {
-                     popad;
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 3939)
+--- lib/gc/basic/gcx.d	(revision 3950)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -207,7 +220,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 3939)
+--- lib/gc/basic/gcbits.d	(revision 3950)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -222,7 +235,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 3939)
+--- tango/text/convert/Layout.d	(revision 3950)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -259,7 +272,7 @@ Index: tango/text/convert/Layout.d
                          long[64] longargs = void;
 Index: tango/text/xml/Document.d
 ===================================================================
---- tango/text/xml/Document.d	(revision 3939)
+--- tango/text/xml/Document.d	(revision 3950)
 +++ tango/text/xml/Document.d	(working copy)
 @@ -1243,7 +1243,8 @@
                     freeIndex = 0;
@@ -364,7 +377,7 @@ Index: tango/text/xml/Document.d
                          foreach (node; nodes)
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 3939)
+--- tango/core/Vararg.d	(revision 3950)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -379,7 +392,7 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 3939)
+--- tango/core/Atomic.d	(revision 3950)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -551,7 +564,7 @@ Index: tango/core/Atomic.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 3939)
+--- tango/math/Math.d	(revision 3950)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -700,9 +713,9 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/math/internal/BignumX86.d
 ===================================================================
---- tango/math/internal/BignumX86.d	(revision 3939)
+--- tango/math/internal/BignumX86.d	(revision 3950)
 +++ tango/math/internal/BignumX86.d	(working copy)
-@@ -49,6 +49,8 @@
+@@ -53,6 +53,8 @@
  private:
  version(GNU) {
      // GDC is a filthy liar. It can't actually do inline asm.
@@ -713,7 +726,7 @@ Index: tango/math/internal/BignumX86.d
   *
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 3939)
+--- tango/stdc/stdlib.d	(revision 3950)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -729,7 +742,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 3939)
+--- tango/stdc/stdarg.d	(revision 3950)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
