@@ -829,10 +829,12 @@ LLConstant* CastExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     LLConstant* c = e1->toConstElem(p);
-    assert(isaPointer(c->getType()));
-
     const LLType* lltype = DtoType(type);
-    assert(isaPointer(lltype));
+
+    if(!isaPointer(c->getType()) || !isaPointer(lltype)) {
+        error("can only cast pointers to pointers at compile time, not %s to %s", type->toChars(), e1->type->toChars());
+        fatal();
+    }
 
     return llvm::ConstantExpr::getBitCast(c, lltype);
 }
