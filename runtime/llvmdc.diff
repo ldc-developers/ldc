@@ -137,6 +137,34 @@ Index: lib/gc/basic/gcx.d
 ===================================================================
 --- lib/gc/basic/gcx.d	(revision 3939)
 +++ lib/gc/basic/gcx.d	(working copy)
+@@ -65,6 +65,13 @@
+ }
+ 
+ 
++struct BlkInfo
++{
++    void*  base;
++    size_t size;
++    uint   attr;
++}
++
+ private
+ {
+     enum BlkAttr : uint
+@@ -75,13 +82,6 @@
+         ALL_BITS = 0b1111_1111
+     }
+ 
+-    struct BlkInfo
+-    {
+-        void*  base;
+-        size_t size;
+-        uint   attr;
+-    }
+-
+     extern (C) void* rt_stackBottom();
+     extern (C) void* rt_stackTop();
+ 
 @@ -2178,6 +2178,28 @@
              __builtin_unwind_init();
              sp = & sp;
@@ -229,6 +257,111 @@ Index: tango/text/convert/Layout.d
                          int[64] intargs = void;
                          byte[64] byteargs = void;
                          long[64] longargs = void;
+Index: tango/text/xml/Document.d
+===================================================================
+--- tango/text/xml/Document.d	(revision 3939)
++++ tango/text/xml/Document.d	(working copy)
+@@ -1243,7 +1243,8 @@
+                    freeIndex = 0;
+                    }
+ 
+-                NodeSet set = {this};
++                NodeSet set;
++                set.host = this;
+                 auto mark = freeIndex;
+                 allocate(root);
+                 return set.assign (mark);
+@@ -1273,7 +1274,8 @@
+         
+                 NodeSet dup ()
+                 {
+-                        NodeSet copy = {host};
++                        NodeSet copy;
++                        copy.host = host;
+                         copy.nodes = nodes.dup;
+                         return copy;
+                 }
+@@ -1337,7 +1339,7 @@
+         
+                 NodeSet nth (uint index)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+                         if (index < nodes.length)
+                             host.allocate (nodes [index]);
+@@ -1495,7 +1497,7 @@
+         
+                 NodeSet filter (bool delegate(Node) filter)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (node; nodes)
+@@ -1514,7 +1516,7 @@
+                 NodeSet child (bool delegate(Node) filter, 
+                                XmlNodeType type = XmlNodeType.Element)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (parent; nodes)
+@@ -1534,7 +1536,7 @@
+         
+                 NodeSet attribute (bool delegate(Node) filter)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (node; nodes)
+@@ -1565,7 +1567,7 @@
+                                          }                                                
+                         }
+ 
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (node; nodes)
+@@ -1583,7 +1585,7 @@
+         
+                 NodeSet parent (bool delegate(Node) filter)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (node; nodes)
+@@ -1613,7 +1615,7 @@
+         
+                 NodeSet ancestor (bool delegate(Node) filter)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         void traverse (Node child)
+@@ -1648,7 +1650,7 @@
+                 NodeSet next (bool delegate(Node) filter, 
+                               XmlNodeType type = XmlNodeType.Element)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (node; nodes)
+@@ -1675,7 +1677,7 @@
+                 NodeSet prev (bool delegate(Node) filter, 
+                               XmlNodeType type = XmlNodeType.Element)
+                 {
+-                        NodeSet set = {host};
++                        NodeSet set; set.host = host;
+                         auto mark = host.mark;
+ 
+                         foreach (node; nodes)
 Index: tango/core/Vararg.d
 ===================================================================
 --- tango/core/Vararg.d	(revision 3939)
