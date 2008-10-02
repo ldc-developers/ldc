@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 3950)
+--- object.di	(revision 3954)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -14,7 +14,7 @@ Index: object.di
  
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 3950)
+--- lib/common/tango/core/BitManip.d	(revision 3954)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -29,7 +29,7 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 3950)
+--- lib/common/tango/core/Thread.d	(revision 3954)
 +++ lib/common/tango/core/Thread.d	(working copy)
 @@ -244,8 +244,29 @@
          }
@@ -76,7 +76,30 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      popad;
-@@ -2306,10 +2331,10 @@
+@@ -2286,6 +2311,13 @@
+             version = AsmPPC_Posix;
+     }
+ 
++    version( LLVM_InlineAsm_X86 )
++    {
++        version( Win32 )
++            version = LLVM_AsmX86_Win32;
++        else version( Posix )
++            version = LLVM_AsmX86_Posix;
++    }
+ 
+     version( Posix )
+     {
+@@ -2296,6 +2328,8 @@
+         version( AsmX86_Win32 ) {} else
+         version( AsmX86_Posix ) {} else
+         version( AsmPPC_Posix ) {} else
++        version( LLVM_AsmX86_Win32 ) {} else
++        version( LLVM_AsmX86_Posix ) {} else
+         {
+             // NOTE: The ucontext implementation requires architecture specific
+             //       data definitions to operate so testing for it must be done
+@@ -2306,10 +2340,10 @@
              import tango.stdc.posix.ucontext;
          }
      }
@@ -89,9 +112,50 @@ Index: lib/common/tango/core/Thread.d
  
  static this()
  {
+@@ -2336,7 +2370,7 @@
+     }
+ }
+ 
+-
++extern(C) int printf(char*, ...);
+ ////////////////////////////////////////////////////////////////////////////////
+ // Fiber Entry Point and Context Switch
+ ////////////////////////////////////////////////////////////////////////////////
+@@ -2450,6 +2484,17 @@
+                 ret;
+             }
+         }
++        else version( LLVM_AsmX86_Posix )
++        {
++            asm
++            {
++                // store oldp again with more accurate address
++                mov EAX, oldp;
++                mov [EAX], ESP;
++                // load newp to begin context switch
++                mov ESP, newp;
++            }
++        }
+         else static if( is( ucontext_t ) )
+         {
+             Fiber   cfib = Fiber.getThis();
+@@ -3115,6 +3160,13 @@
+             push( 0x00000000 );                                     // ESI
+             push( 0x00000000 );                                     // EDI
+         }
++        else version( LLVM_AsmX86_Posix )
++        {
++            push( cast(size_t) &fiber_entryPoint );                 // EIP
++            push( 0x00000000 );                                     // EBP
++            push( 0x00000000 );                                     // newp
++            push( 0x00000000 );                                     // oldp
++        }
+         else version( AsmPPC_Posix )
+         {
+             version( StackGrowsDown )
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 3950)
+--- lib/unittest.sh	(revision 3954)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -148,7 +212,7 @@ Index: lib/unittest.sh
 +fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 3950)
+--- lib/gc/basic/gcx.d	(revision 3954)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -220,7 +284,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 3950)
+--- lib/gc/basic/gcbits.d	(revision 3954)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -235,7 +299,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 3950)
+--- tango/text/convert/Layout.d	(revision 3954)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -270,114 +334,9 @@ Index: tango/text/convert/Layout.d
                          int[64] intargs = void;
                          byte[64] byteargs = void;
                          long[64] longargs = void;
-Index: tango/text/xml/Document.d
-===================================================================
---- tango/text/xml/Document.d	(revision 3950)
-+++ tango/text/xml/Document.d	(working copy)
-@@ -1243,7 +1243,8 @@
-                    freeIndex = 0;
-                    }
- 
--                NodeSet set = {this};
-+                NodeSet set;
-+                set.host = this;
-                 auto mark = freeIndex;
-                 allocate(root);
-                 return set.assign (mark);
-@@ -1273,7 +1274,8 @@
-         
-                 NodeSet dup ()
-                 {
--                        NodeSet copy = {host};
-+                        NodeSet copy;
-+                        copy.host = host;
-                         copy.nodes = nodes.dup;
-                         return copy;
-                 }
-@@ -1337,7 +1339,7 @@
-         
-                 NodeSet nth (uint index)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
-                         if (index < nodes.length)
-                             host.allocate (nodes [index]);
-@@ -1495,7 +1497,7 @@
-         
-                 NodeSet filter (bool delegate(Node) filter)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (node; nodes)
-@@ -1514,7 +1516,7 @@
-                 NodeSet child (bool delegate(Node) filter, 
-                                XmlNodeType type = XmlNodeType.Element)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (parent; nodes)
-@@ -1534,7 +1536,7 @@
-         
-                 NodeSet attribute (bool delegate(Node) filter)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (node; nodes)
-@@ -1565,7 +1567,7 @@
-                                          }                                                
-                         }
- 
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (node; nodes)
-@@ -1583,7 +1585,7 @@
-         
-                 NodeSet parent (bool delegate(Node) filter)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (node; nodes)
-@@ -1613,7 +1615,7 @@
-         
-                 NodeSet ancestor (bool delegate(Node) filter)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         void traverse (Node child)
-@@ -1648,7 +1650,7 @@
-                 NodeSet next (bool delegate(Node) filter, 
-                               XmlNodeType type = XmlNodeType.Element)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (node; nodes)
-@@ -1675,7 +1677,7 @@
-                 NodeSet prev (bool delegate(Node) filter, 
-                               XmlNodeType type = XmlNodeType.Element)
-                 {
--                        NodeSet set = {host};
-+                        NodeSet set; set.host = host;
-                         auto mark = host.mark;
- 
-                         foreach (node; nodes)
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 3950)
+--- tango/core/Vararg.d	(revision 3954)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -392,7 +351,7 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 3950)
+--- tango/core/Atomic.d	(revision 3954)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -564,7 +523,7 @@ Index: tango/core/Atomic.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 3950)
+--- tango/math/Math.d	(revision 3954)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -713,9 +672,9 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/math/internal/BignumX86.d
 ===================================================================
---- tango/math/internal/BignumX86.d	(revision 3950)
+--- tango/math/internal/BignumX86.d	(revision 3954)
 +++ tango/math/internal/BignumX86.d	(working copy)
-@@ -53,6 +53,8 @@
+@@ -56,6 +56,8 @@
  private:
  version(GNU) {
      // GDC is a filthy liar. It can't actually do inline asm.
@@ -726,7 +685,7 @@ Index: tango/math/internal/BignumX86.d
   *
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 3950)
+--- tango/stdc/stdlib.d	(revision 3954)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -742,7 +701,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 3950)
+--- tango/stdc/stdarg.d	(revision 3954)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
