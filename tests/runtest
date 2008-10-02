@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # check for command line arguments
 if [ -z "$1" ] ; then

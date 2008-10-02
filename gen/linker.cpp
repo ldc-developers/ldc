@@ -151,15 +151,18 @@ int linkExecutable(const char* argv0)
     }
 
     // default libs
-    if(global.params.os == OSLinux || global.params.os == OSMacOSX)
-    {
-        args.push_back("-lpthread");
+    switch(global.params.os) {
+    case OSLinux:
+    case OSMacOSX:
         args.push_back("-ldl");
+    case OSFreeBSD:
+        args.push_back("-lpthread");
         args.push_back("-lm");
-    }
-    else if (global.params.os == OSWindows)
-    {
+        break;
+
+    case OSWindows:
         // FIXME: I'd assume kernel32 etc
+        break;
     }
 
     // object files

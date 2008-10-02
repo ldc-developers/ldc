@@ -52,7 +52,8 @@ enum OS
     OSinvalid,
     OSLinux,
     OSWindows,
-    OSMacOSX
+    OSMacOSX,
+    OSFreeBSD
 };
 
 // Put command line switches in here

@@ -330,8 +330,10 @@ int main(int argc, char *argv[])
     global.params.os = OSLinux;
 #elif __APPLE__
     global.params.os = OSMacOSX;
+#elif __FreeBSD__
+    global.params.os = OSFreeBSD;
 #else
-#error
+#error Unsupported OS
 #endif /* linux */
 
     assert(global.params.os != OSinvalid);
@@ -841,6 +843,11 @@ int main(int argc, char *argv[])
 	VersionCondition::addPredefinedGlobalIdent("darwin");
     VersionCondition::addPredefinedGlobalIdent("Posix");
 	global.params.tt_os = "-pc-darwin-gnu";
+    break;
+
+    case OSFreeBSD:
+    VersionCondition::addPredefinedGlobalIdent("freebsd");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
 
     default:

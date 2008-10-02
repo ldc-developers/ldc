@@ -75,7 +75,7 @@ void _STD_critical_term()
 
 /* ================================= linux ============================ */
 
-#if linux || __APPLE__
+#if linux || __APPLE__ || __FreeBSD__
 
 #include	<stdio.h>
 #include	<stdlib.h>

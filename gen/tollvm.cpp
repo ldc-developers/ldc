@@ -704,6 +704,12 @@ const LLStructType* DtoMutexType()
         return LLStructType::get(types);
     }
 
+    // FreeBSD
+    else if (global.params.os == OSFreeBSD) {
+        // Just a pointer
+        return LLStructType::get(DtoSize_t(), 0);
+    }
+
     // pthread_fastlock
     std::vector<const LLType*> types2;
     types2.push_back(DtoSize_t());
