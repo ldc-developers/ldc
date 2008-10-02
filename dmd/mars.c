@@ -188,7 +188,7 @@ Codegen control:\n\
   -m<arch>       emit code specific to <arch> being one of:\n\
                  x86 x86-64 ppc32 ppc64\n\
   -t<os>         emit code specific to <os> being one of:\n\
-                 Linux, Windows, MacOSX\n\
+                 Linux, Windows, MacOSX, FreeBSD\n\
 \n\
   -O             optimize, same as -O2\n\
   -O<n>          optimize at level <n> (0-5)\n\
@@ -665,6 +665,8 @@ int main(int argc, char *argv[])
                 global.params.os = OSWindows;
             else if(strcmp(p + 2, "MacOSX") == 0)
                 global.params.os = OSMacOSX;
+            else if(strcmp(p + 2, "FreeBSD") == 0)
+                global.params.os = OSFreeBSD;
             else
                 error("unrecognized target os '%s'", p + 2);
         }
