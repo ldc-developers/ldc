@@ -390,11 +390,15 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     LOG_SCOPE;
 
     IrFunction* irfunc = gIR->func();
-    
+
+    // if this func has its own vars that are accessed by nested funcs
+    // use its own context
     if (irfunc->nestedVar)
         return irfunc->nestedVar;
+    // otherwise, it may have gotten a context from the caller
     else if (irfunc->nestArg)
         return irfunc->nestArg;
+    // or just have a this argument
     else if (irfunc->thisArg)
     {
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();

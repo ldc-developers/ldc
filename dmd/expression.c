@@ -3370,6 +3370,7 @@ Lagain:
 	     */
 	    Dsymbol *s = cd->toParent2();
 	    ClassDeclaration *cdn = s->isClassDeclaration();
+	    FuncDeclaration *fdn = s->isFuncDeclaration();
 
 	    //printf("cd isNested, cdn = %s\n", cdn ? cdn->toChars() : "null");
 	    if (cdn)
@@ -3421,6 +3422,22 @@ Lagain:
 	    }
 	    else if (thisexp)
 		error("e.new is only for allocating nested classes");
+	    else if (fdn)
+	    {
+		// make sure the parent context fdn of cd is reachable from sc
+		for (Dsymbol *sp = sc->parent; 1; sp = sp->parent)
+		{
+		    if (fdn == sp)
+			break;
+		    FuncDeclaration *fsp = sp ? sp->isFuncDeclaration() : NULL;
+		    if (!sp || (fsp && fsp->isStatic()))
+		    {
+			error("outer function context of %s is needed to 'new' nested class %s", fdn->toPrettyChars(), cd->toPrettyChars());
+			break;
+		    }
+		}
+		
+	    }
 	}
 	else if (thisexp)
 	    error("e.new is only for allocating nested classes");
