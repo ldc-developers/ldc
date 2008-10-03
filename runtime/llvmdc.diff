@@ -121,7 +121,7 @@ Index: lib/common/tango/core/Thread.d
  ////////////////////////////////////////////////////////////////////////////////
  // Fiber Entry Point and Context Switch
  ////////////////////////////////////////////////////////////////////////////////
-@@ -2450,6 +2484,17 @@
+@@ -2450,6 +2484,22 @@
                  ret;
              }
          }
@@ -129,6 +129,11 @@ Index: lib/common/tango/core/Thread.d
 +        {
 +            asm
 +            {
++                // clobber registers to save
++                inc EBX;
++                inc ESI;
++                inc EDI;
++
 +                // store oldp again with more accurate address
 +                mov EAX, oldp;
 +                mov [EAX], ESP;
@@ -139,16 +144,19 @@ Index: lib/common/tango/core/Thread.d
          else static if( is( ucontext_t ) )
          {
              Fiber   cfib = Fiber.getThis();
-@@ -3115,6 +3160,13 @@
+@@ -3115,6 +3165,16 @@
              push( 0x00000000 );                                     // ESI
              push( 0x00000000 );                                     // EDI
          }
 +        else version( LLVM_AsmX86_Posix )
 +        {
 +            push( cast(size_t) &fiber_entryPoint );                 // EIP
-+            push( 0x00000000 );                                     // EBP
 +            push( 0x00000000 );                                     // newp
 +            push( 0x00000000 );                                     // oldp
++            push( 0x00000000 );                                     // EBP
++            push( 0x00000000 );                                     // EBX
++            push( 0x00000000 );                                     // ESI
++            push( 0x00000000 );                                     // EDI
 +        }
          else version( AsmPPC_Posix )
          {
