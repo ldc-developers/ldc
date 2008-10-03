@@ -244,7 +244,7 @@ DValue* RealExp::toElem(IRState* p)
 
 LLConstant* RealExp::toConstElem(IRState* p)
 {
-    Logger::print("RealExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("RealExp::toConstElem: %s | %s | %LX\n", toChars(), type->toChars(), value);
     LOG_SCOPE;
     Type* t = type->toBasetype();
     return DtoConstFP(t, value);

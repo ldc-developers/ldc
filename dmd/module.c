@@ -141,16 +141,22 @@ File* Module::buildFilePath(char* forcename, char* path, char* ext)
 	    argobj = FileName::name((char*)this->arg);
 
 	if (global.params.fqnNames)
+	{
 	    if(md)
 		argobj = FileName::replaceName(argobj, md->toChars());
 	    else
 		argobj = FileName::replaceName(argobj, toChars());
 
-	int clen = strlen(argobj);
-	char* tmp = (char *)alloca(clen + 1);
-	memcpy(tmp, argobj, clen);
-	tmp[clen] = 0;
-	argobj = tmp;
+	    // add ext, otherwise forceExt will make nested.module into nested.bc
+	    size_t len = strlen(argobj);
+	    size_t extlen = strlen(ext);
+	    char* s = (char *)alloca(len + 1 + extlen + 1);
+	    memcpy(s, argobj, len);
+	    s[len] = '.';
+	    memcpy(s + len + 1, ext, extlen + 1);
+	    s[len+1+extlen] = 0;
+	    argobj = s;
+	}
     }
 
     if (!FileName::absolute(argobj))
