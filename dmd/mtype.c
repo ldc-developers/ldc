@@ -2939,7 +2939,7 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
 		// this check only catches the common case that the default arg Exp is a VarExp
 		if(arg->defaultArg->op == TOKvar)
 		{   VarExp *ve = (VarExp *)arg->defaultArg;
-		    if(ve->var->protection < sc->protection)
+		    if(ve->var->protection != PROTundefined && ve->var->protection < sc->protection)
 			error(loc, "default argument %s has stronger protection than function %s", ve->var->toChars(), toChars());
 		}
 	    }

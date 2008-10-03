@@ -12,6 +12,28 @@ Index: object.di
      static int opApply( int delegate( inout ModuleInfo ) );
  }
  
+Index: lib/common/tango/core/Exception.d
+===================================================================
+--- lib/common/tango/core/Exception.d	(revision 3954)
++++ lib/common/tango/core/Exception.d	(working copy)
+@@ -223,7 +223,7 @@
+ /**
+  * The basic exception thrown by the tango.io.vfs package.
+  */
+-private class VfsException : IOException
++class VfsException : IOException
+ {
+     this( char[] msg )
+     {
+@@ -234,7 +234,7 @@
+ /**
+  * The basic exception thrown by the tango.io.cluster package.
+  */
+-private class ClusterException : IOException
++class ClusterException : IOException
+ {
+     this( char[] msg )
+     {
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
 --- lib/common/tango/core/BitManip.d	(revision 3954)
@@ -342,6 +364,19 @@ Index: tango/text/convert/Layout.d
                          int[64] intargs = void;
                          byte[64] byteargs = void;
                          long[64] longargs = void;
+Index: tango/io/vfs/model/Vfs.d
+===================================================================
+--- tango/io/vfs/model/Vfs.d	(revision 3954)
++++ tango/io/vfs/model/Vfs.d	(working copy)
+@@ -38,7 +38,7 @@
+ 
+ *******************************************************************************/
+ 
+-private struct VfsStats
++struct VfsStats
+ {
+         ulong   bytes;                  // byte count of files
+         uint    files,                  // number of files
 Index: tango/core/Vararg.d
 ===================================================================
 --- tango/core/Vararg.d	(revision 3954)
@@ -722,3 +757,29 @@ Index: tango/stdc/stdarg.d
  else
  {
      alias void* va_list;
+Index: tango/util/log/Log.d
+===================================================================
+--- tango/util/log/Log.d	(revision 3954)
++++ tango/util/log/Log.d	(working copy)
+@@ -1275,7 +1275,7 @@
+ 
+ *******************************************************************************/
+ 
+-private struct LogEvent
++struct LogEvent
+ {
+         private char[]          msg_,
+                                 name_;
+Index: tango/time/chrono/GregorianBased.d
+===================================================================
+--- tango/time/chrono/GregorianBased.d	(revision 3954)
++++ tango/time/chrono/GregorianBased.d	(working copy)
+@@ -21,7 +21,7 @@
+ 
+ 
+ 
+-private class GregorianBased : Gregorian {
++class GregorianBased : Gregorian {
+ 
+   private EraRange[] eraRanges_;
+   private int maxYear_, minYear_;
