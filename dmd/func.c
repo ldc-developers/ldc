@@ -674,6 +674,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 	sc2->structalign = 8;
 	sc2->incontract = 0;
 	sc2->tf = NULL;
+	sc2->tfOfTry = NULL;
 	sc2->noctor = 0;
 
 	// Declare 'this'
