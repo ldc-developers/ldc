@@ -176,6 +176,7 @@ extern (C) int main(int argc, char **argv, char** env)
     initStaticDataPtrs();
 
     debug(PRINTF) printf("main args\n");
+    // GDC seems to get by without this Windows special case...
     version (Win32)
     {
         wchar_t*  wcbuf = GetCommandLineW();
@@ -202,7 +203,7 @@ extern (C) int main(int argc, char **argv, char** env)
         wargs = null;
         wargc = 0;
     }
-    else version (linux)
+    else
     {
         char[]* am = cast(char[]*) malloc(argc * (char[]).sizeof);
         scope(exit) free(am);
