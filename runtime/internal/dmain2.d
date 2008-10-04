@@ -233,14 +233,22 @@ extern (C) int main(int argc, char **argv, char** env)
                 {
                     if (e.file)
                     {
-                       debug(PRINTF) printf("%.*s(%u): %.*s\n", e.file.length, e.file.ptr, e.line, e.msg.length, e.msg.ptr);
-                       console (e.classinfo.name)("@")(e.file)("(")(e.line)("): ")(e.msg)("\n");
+                       // fprintf(stderr, "%.*s(%u): %.*s\n", e.file, e.line, e.msg);
+                       console (e.classinfo.name)("@")(e.file)("(")(e.line)("): ")(e.toString)("\n");
                     }
                     else
                     {
-                       // debug(PRINTF) printf("%.*s\n", e.toString());
+                       // fprintf(stderr, "%.*s\n", e.toString());
                        console (e.classinfo.name)(": ")(e.toString)("\n");
                     }
+                    if (e.info)
+                    {
+                        console ("----------------\n");
+                        foreach (t; e.info)
+                            console (t)("\n");
+                    }
+                    if (e.next)
+                        console ("\n");
                     e = e.next;
                 }
                 result = EXIT_FAILURE;
