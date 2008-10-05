@@ -511,6 +511,17 @@ void TryFinallyStatement::toIR(IRState* p)
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
+    // if there's no finalbody or no body, things are simple
+    if (!finalbody) {
+        if (body)
+            body->toIR(p);
+        return;
+    }
+    if (!body) {
+        finalbody->toIR(p);
+        return;
+    }
+
     // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
 
@@ -529,6 +540,7 @@ void TryFinallyStatement::toIR(IRState* p)
     //
     p->scope() = IRScope(landingpadbb, endbb);
 
+    assert(finalbody);
     gIR->func()->landingPad.addFinally(finalbody);
     gIR->func()->landingPad.push(landingpadbb);
 
@@ -550,7 +562,6 @@ void TryFinallyStatement::toIR(IRState* p)
     // do finally block
     //
     p->scope() = IRScope(finallybb,landingpadbb);
-    assert(finalbody);
     finalbody->toIR(p);
 
     // terminate finally
