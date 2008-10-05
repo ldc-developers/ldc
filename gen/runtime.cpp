@@ -1,5 +1,3 @@
-#include <cassert>
-
 #include "gen/llvm.h"
 #include "llvm/Module.h"
 #include "llvm/Bitcode/ReaderWriter.h"
