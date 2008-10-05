@@ -224,6 +224,7 @@ Path options:\n\
   -J<path>       where to look for string imports\n\
   -defaultlib=name  set default library for non-debug build\n\
   -debuglib=name    set default library for debug build\n\
+  -nodefaultlib  don't add a default library for linking implicitly\n\
 \n\
 Misc options:\n\
   -v             verbose\n\
@@ -428,6 +429,8 @@ int main(int argc, char *argv[])
         }
         else if (strcmp(p + 1, "noasm") == 0)
             global.params.useInlineAsm = 0;
+        else if (strcmp(p + 1, "nodefaultlib") == 0)
+            global.params.noDefaultLib = 1;
 	    else if (p[1] == 'o')
 	    {
 		switch (p[2])
@@ -709,7 +712,7 @@ int main(int argc, char *argv[])
 	    global.params.linkswitches->push(arg);
 	}
     }
-    else
+    else if (!global.params.noDefaultLib)
     {
 	char *arg;
 	arg = (char *)mem.malloc(64);

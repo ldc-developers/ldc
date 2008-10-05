@@ -150,6 +150,7 @@ struct Param
     char llvmAnnotate;
     char useInlineAsm;
     char fqnNames; // use fully qualified object names
+    char noDefaultLib;
 };
 
 struct Global
