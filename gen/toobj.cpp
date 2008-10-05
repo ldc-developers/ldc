@@ -618,11 +618,6 @@ void VarDeclaration::toObjFile(int multiobj)
     {
         Logger::println("data segment");
 
-        // we don't want to touch private static members at all !!!
-        // template instances should always be emitted
-        if (!DtoIsTemplateInstance(this) && prot() == PROTprivate && getModule() != gIR->dmodule)
-            return;
-
         // don't duplicate work
         if (this->ir.resolved) return;
         this->ir.resolved = true;

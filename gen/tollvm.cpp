@@ -184,7 +184,7 @@ const LLType* DtoType(Type* t)
         return llvm::OpaqueType::get();
 
     default:
-        printf("trying to convert unknown type with value %d\n", t->ty);
+        printf("trying to convert unknown type '%s' with value %d\n", t->toChars(), t->ty);
         assert(0);
     }
     return 0;
