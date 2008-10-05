@@ -1129,6 +1129,12 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     {
         Logger::println("VarDeclaration");
 
+        // if aliassym is set, this VarDecl is redone as an alias to another symbol
+        // this seems to be done to rewrite Tuple!(...) v;
+        // as a TupleDecl that contains a bunch of individual VarDecls
+        if (vd->aliassym)
+            return DtoDeclarationExp(vd->aliassym);
+
         // static
         if (vd->isDataseg())
         {
@@ -1247,6 +1253,22 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         {
             Dsymbol* mdsym = (Dsymbol*)m->members->data[i];
             DtoDeclarationExp(mdsym);
+        }
+    }
+    // tuple declaration
+    else if (TupleDeclaration* tupled = declaration->isTupleDeclaration())
+    {
+        Logger::println("TupleDeclaration");
+        if(!tupled->isexp) {
+            error(declaration->loc, "don't know how to handle non-expression tuple decls yet");
+            assert(0);
+        }
+
+        assert(tupled->objects);
+        for (int i=0; i < tupled->objects->dim; ++i)
+        {
+            DsymbolExp* exp = (DsymbolExp*)tupled->objects->data[i];
+            DtoDeclarationExp(exp->s);
         }
     }
     // unsupported declaration

@@ -23,6 +23,10 @@ bool DtoIsReturnedInArg(Type* type);
 
 unsigned DtoShouldExtend(Type* type);
 
+// tuple helper
+// takes a arguments list and makes a struct type out of them
+//const LLType* DtoStructTypeFromArguments(Arguments* arguments);
+
 // delegate helpers
 const LLStructType* DtoDelegateType(Type* t);
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);

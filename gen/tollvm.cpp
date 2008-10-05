@@ -169,6 +169,16 @@ const LLType* DtoType(Type* t)
         return getPtrToType(LLStructType::get(DtoType(taa->key), DtoType(taa->next), 0));
     }
 
+/*
+    Not needed atm as VarDecls for tuples are rewritten as a string of 
+    VarDecls for the fields (u -> _u_field_0, ...)
+
+    case Ttuple:
+    {
+        TypeTuple* ttupl = (TypeTuple*)t;
+        return DtoStructTypeFromArguments(ttupl->arguments);
+    }
+*/
     // opaque type
     case Topaque:
         return llvm::OpaqueType::get();
@@ -179,6 +189,26 @@ const LLType* DtoType(Type* t)
     }
     return 0;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+const LLType* DtoStructTypeFromArguments(Arguments* arguments)
+{
+    if (!arguments)
+        return LLType::VoidTy;
+
+    std::vector<const LLType*> types;
+    for (size_t i = 0; i < arguments->dim; i++)
+    {
+        Argument *arg = (Argument *)arguments->data[i];
+        assert(arg && arg->type);
+
+        types.push_back(DtoType(arg->type));
+    }
+    return LLStructType::get(types);
+}
+*/
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
