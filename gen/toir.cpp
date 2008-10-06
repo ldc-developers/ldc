@@ -2603,7 +2603,7 @@ int TypedefDeclaration::cvMember(unsigned char*)
     return 0;
 }
 
-void obj_includelib(char* lib)
+void obj_includelib(const char* lib)
 {
     char *arg = (char *)mem.malloc(64);
     strcpy(arg, "-l");
