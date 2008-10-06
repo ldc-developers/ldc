@@ -55,9 +55,9 @@ safe=yes
 oneatatime=yes
 cmd=llvm-ar rsc $o $i
 
-libdir=-L=$i
-lib=-l=$i
-flag=$i
+libdir=
+lib=
+flag=
 
 
 [postliblink]
