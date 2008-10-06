@@ -32,7 +32,7 @@ testversion=LLVM64
 
 
 [compile]
-cmd=llvmdc -version=Tango -c $i
+cmd=llvmdc -c $i
 
 flag=$i
 incdir=-I$i

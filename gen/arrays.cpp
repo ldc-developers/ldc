@@ -998,10 +998,12 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 rval2 = DtoArrayCastLength(DtoArrayLen(usl), ety, ptrty->getContainedType(0));
         }
         else {
-            LLValue* uval = u->getRVal();
             if (fromtype->ty == Tsarray) {
+                LLValue* uval = u->getRVal();
+
                 if (Logger::enabled())
                     Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+
                 assert(isaPointer(uval->getType()));
                 const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
 
@@ -1016,15 +1018,10 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 rval = DtoBitCast(uval, ptrty);
             }
             else {
-                LLValue* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
-                LLValue* one = llvm::ConstantInt::get(LLType::Int32Ty, 1, false);
-                rval2 = DtoGEP(uval,zero,zero);
-                rval2 = DtoLoad(rval2);
+                rval2 = DtoArrayLen(u);
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
 
-                rval = DtoGEP(uval,zero,one);
-                rval = DtoLoad(rval);
-                //Logger::cout() << *e->mem->getType() << '|' << *ptrty << '\n';
+                rval = DtoArrayPtr(u);
                 rval = DtoBitCast(rval, ptrty);
             }
         }
