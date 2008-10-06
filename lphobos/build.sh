@@ -5,8 +5,8 @@ mkdir -p obj
 rm -f obj/*.bc
 rm -f ../lib/*.bc
 
-LLVMDCFLAGS="-c -odobj -oq -gc -noasm"
-LLVMDCFLAGS_ASM="-c -odobj -oq -gc"
+LLVMDCFLAGS_ASM="-c -oq -release"
+LLVMDCFLAGS="$LLVMDCFLAGS_ASM -noasm"
 
 echo "compiling contract runtime"
 llvmdc internal/contract.d -c -of../lib/llvmdcore.bc || exit 1 #-noruntime || exit 1
@@ -16,8 +16,10 @@ echo "compiling common runtime"
         internal/mem.d \
         internal/critical.d \
         internal/dmain2.d \
+        internal/inv.d \
         $LLVMDCFLAGS_ASM || exit 1
 mv *.bc obj
+llvm-link -f -o=../lib/llvmdcore.bc obj/internal.*.bc ../lib/llvmdcore.bc
 
 echo "compiling typeinfo 1"
 ./llvmdc-build typeinfos1.d $LLVMDCFLAGS || exit 1
@@ -47,24 +49,26 @@ mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc obj/aApply.bc obj/aApplyR.bc obj/switch.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling array runtime support"
-llvmdc internal/qsort2.d $LLVMDCFLAGS || exit 1
+llvmdc internal/qsort2.d internal/adi.d internal/aaA.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
-llvm-link -f -o=../lib/llvmdcore.bc obj/qsort2.bc ../lib/llvmdcore.bc || exit 1
-llvmdc internal/adi.d $LLVMDCFLAGS || exit 1
-mv *.bc obj
-llvm-link -f -o=../lib/llvmdcore.bc obj/adi.bc ../lib/llvmdcore.bc || exit 1
-llvmdc internal/aaA.d $LLVMDCFLAGS || exit 1
-mv *.bc obj
-llvm-link -f -o=../lib/llvmdcore.bc obj/aaA.bc ../lib/llvmdcore.bc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/qsort2.bc obj/adi.bc obj/aaA.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling object implementation"
-llvmdc internal/objectimpl.d -c -odobj -g || exit 1
+llvmdc internal/objectimpl.d $LLVMDCFLAGS || exit 1
+mv object.bc objectimpl.bc
+mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc obj/objectimpl.bc ../lib/llvmdcore.bc || exit 1
 
-echo "compiling llvm runtime support"
-./llvmdc-build llvmsupport.d $LLVMDCFLAGS || exit 1
+echo "compiling crc32"
+llvmdc crc32.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
-llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm.*.bc` ../lib/llvmdcore.bc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc obj/crc32.bc || exit 1
+
+echo "compiling llvm runtime support"
+# ./llvmdc-build llvmsupport.d $LLVMDCFLAGS || exit 1
+llvmdc llvmsupport.d -oq -c || exit 1
+mv *.bc obj
+llvm-link -f -o=../lib/llvmdcore.bc `ls obj/llvm*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "compiling garbage collector"
 cd gc
@@ -72,17 +76,22 @@ llvmdc $(ls *.d |grep -v win32) $LLVMDCFLAGS_ASM -I.. ||exit 1
 # llvmdc gclinux.d $LLVMDCFLAGS -I.. || exit 1
 # llvmdc gcx.d $LLVMDCFLAGS -I.. || exit 1
 # llvmdc gcbits.d $LLVMDCFLAGS -I.. || exit 1
-# llvmdc gc.d $LLVMDCFLAGS -I.. || exit 1
-mv std.gc.bc gc.bc
+# llvmdc gc.d -oq -c -I.. || exit 1
+mv std.gc.bc std_gc.bc
 mv *.bc ../obj
+# mv -v obj/*.bc ../obj 
 cd ..
-llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcx.bc obj/gcbits.bc obj/gc.bc ../lib/llvmdcore.bc || exit 1
+llvm-link -f -o=../lib/llvmdcore.bc obj/gclinux.bc obj/gcx.bc obj/gcbits.bc obj/std_gc.bc ../lib/llvmdcore.bc || exit 1
 
 echo "compiling phobos"
 ./llvmdc-build phobos.d $LLVMDCFLAGS || exit 1
 mv *.bc obj
 echo "linking phobos"
-llvm-link -f -o=../lib/llvmdcore.bc `ls obj/std.*.bc` ../lib/llvmdcore.bc || exit 1
+# llvm-link -f -o=../lib/llvmdcore.bc `ls obj/std.*.bc` ../lib/llvmdcore.bc || exit 1
+for i in $(ls obj/std.*.bc); do
+	echo $i
+	llvm-link -f -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc $i || exit 1
+done
 
 echo "Compiling auxiliary"
 ./llvmdc-build etc/c/zlib.d $LLVMDCFLAGS || exit 1
@@ -90,7 +99,6 @@ mv *.bc obj
 llvm-link -f -o=../lib/llvmdcore.bc `ls obj/etc.*.bc` ../lib/llvmdcore.bc || exit 1
 
 echo "optimizing"
-opt -stats -p -f -std-compile-opts -disable-inlining -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc || exit 1
-
+opt -stats -p -f -std-compile-opts -o=../lib/llvmdcore.bc ../lib/llvmdcore.bc || exit 1
 
 echo "SUCCESS"

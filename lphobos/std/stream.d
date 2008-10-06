@@ -1139,7 +1139,7 @@ class Stream : InputStream, OutputStream {
 	if (count != -1)
 	  break;
 	psize *= 2;
-	p = cast(char*) alloca(psize);
+	p = cast(char*) /*alloca*/malloc(psize);
       } else version (Unix) {
 	count = vsnprintf(p, psize, f, args_copy);
 	if (count == -1)
@@ -1148,7 +1148,7 @@ class Stream : InputStream, OutputStream {
 	  psize = count + 1;
 	else
 	  break;
-	p = cast(char*) alloca(psize);
+	p = cast(char*) /*alloca*/malloc(psize);
       } else
 	  throw new Exception("unsupported platform");
     }
@@ -1779,6 +1779,8 @@ enum FileMode {
   Append = 10 // includes FileMode.Out
 }
 
+version(linux) version = Unix;
+
 version (Win32) {
   private import std.c.windows.windows;
   extern (Windows) {
@@ -2232,7 +2234,8 @@ ubyte[][NBOMS] ByteOrderMarks =
  * manner with the source stream so the source stream's position and state will be
  * kept in sync with the EndianStream if only non-getc functions are called.
  */
-class EndianStream : FilterStream {
+/// This causes a crash in -O2
+/+class EndianStream : FilterStream {
 
   Endian endian;        /// Endianness property of the source stream.
 
@@ -2510,6 +2513,7 @@ class EndianStream : FilterStream {
     em.position(0);
   }
 }
++/
 
 /***
  * Parameterized subclass that wraps an array-like buffer with a stream

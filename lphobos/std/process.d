@@ -43,6 +43,8 @@ private import std.c.string;
 private import std.string;
 private import std.c.process;
 
+version(linux) version = Unix;
+
 /**
  * Execute command in a _command shell.
  *

@@ -568,7 +568,7 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 		    if (sl != -1)
 			break;
 		    sl = fbuf.length * 2;
-		    fbuf = (cast(char*)alloca(sl * char.sizeof))[0 .. sl];
+		    fbuf = (cast(char*)/*alloca*/malloc(sl * char.sizeof))[0 .. sl];
 		}
 		putstr(fbuf[0 .. sl]);
 	    }
@@ -613,7 +613,7 @@ void doFormat(void delegate(dchar) putc, TypeInfo[] arguments, void* argptr)
 			sl = sl * 2;
 		    else
 			sl = n + 1;
-		    fbuf = (cast(char*)alloca(sl * char.sizeof))[0 .. sl];
+		    fbuf = (cast(char*)/*alloca*/malloc(sl * char.sizeof))[0 .. sl];
 		}
 		putstr(fbuf[0 .. sl]);
 	    }

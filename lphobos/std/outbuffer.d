@@ -268,7 +268,7 @@ class OutBuffer
 		if (count != -1)
 		    break;
 		psize *= 2;
-		p = cast(char *) alloca(psize);	// buffer too small, try again with larger size
+		p = cast(char *) /*alloca*/malloc(psize);	// buffer too small, try again with larger size
 	    }
 	    else version(GNU) {
 		count = vsnprintf(p,psize,f,args_copy);
@@ -278,7 +278,7 @@ class OutBuffer
 		    psize = count + 1;
 		else
 		    break;
-		p = cast(char *) alloca(psize);	// buffer too small, try again with larger size
+		p = cast(char *) /*alloca*/std.gc.malloc(psize);	// buffer too small, try again with larger size
 	    }
 	    else version(linux)
 	    {
@@ -294,7 +294,7 @@ class OutBuffer
 		    c.stdlib.free(p);
 		p = (char *) c.stdlib.malloc(psize);	// buffer too small, try again with larger size
 		+/
-		p = cast(char *) alloca(psize);	// buffer too small, try again with larger size
+		p = cast(char *) /*alloca*/std.gc.malloc(psize);	// buffer too small, try again with larger size
 	    }
 	}
 	write(p[0 .. count]);

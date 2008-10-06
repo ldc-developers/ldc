@@ -43,6 +43,8 @@ private import std.string;
 private import std.regexp;
 private import std.gc;
 
+version(linux) version = Unix;
+
 /* =========================== Win32 ======================= */
 
 version (Win32)

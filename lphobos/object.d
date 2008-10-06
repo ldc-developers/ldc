@@ -81,6 +81,7 @@ class TypeInfo
     OffsetTypeInfo[] offTi();
 }
 
+pragma(no_typeinfo)
 class TypeInfo_Typedef : TypeInfo
 {
     TypeInfo base;
@@ -205,3 +206,4 @@ class Error : Exception
     this(string msg);
     this(string msg, Error next);
 }
+

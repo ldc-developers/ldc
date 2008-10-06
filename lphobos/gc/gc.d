@@ -276,6 +276,10 @@ Loverflow:
     _d_OutOfMemory();
 }
 
+void* _d_newarrayvT(TypeInfo ti, size_t length) {
+  return _d_newarrayT(ti, length);
+}
+
 /* For when the array has a non-zero initializer.
  */
 void* _d_newarrayiT(TypeInfo ti, size_t length)
@@ -1025,4 +1029,6 @@ void* _d_arrayliteralT(TypeInfo ti, size_t length, ...)
     void* ptr;
 }*/
 
-extern(C) void* _d_allocmemoryT(size_t foo) { return malloc(foo).ptr; }
+extern(C) void* _d_allocmemoryT(TypeInfo ti) {
+  return malloc(ti.tsize).ptr; // Tit size :)
+}

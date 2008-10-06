@@ -287,8 +287,8 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
       action_walker += next_action_offset;
   }
   
-  printf("Assertion failure ;_;\n");
-  assert(false);
+  /*printf("Assertion failure ;_;\n");
+  assert(false);*/
 }
 
 // These are the register numbers for SetGR that
@@ -353,12 +353,14 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
 
 } // end of x86 Linux specific implementation
 
+extern(C) void* malloc(size_t size);
 
 extern(C) void _d_throw_exception(Object e)
 {
     if (e !is null)
     {
-        _d_exception* exc_struct = new _d_exception;
+        // _d_exception* exc_struct = new _d_exception;
+        auto exc_struct = cast(_d_exception*)malloc(_d_exception.sizeof);
         exc_struct.unwind_info.exception_class[] = _d_exception_class;
         exc_struct.exception_object = e;
         printf("Raising exception\n");

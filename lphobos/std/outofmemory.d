@@ -33,10 +33,11 @@ class OutOfMemoryException : Exception
 
 extern (C) void _d_OutOfMemory()
 {
-    assert(0);
-    /*throw cast(OutOfMemoryException)
+    printf("Out of memory!\n");
+    *(cast(int*) 0) = 0;
+    throw cast(OutOfMemoryException)
 	  cast(void *)
-	  OutOfMemoryException.classinfo.init;*/
+	  OutOfMemoryException.classinfo.init;
 }
 
 static this()

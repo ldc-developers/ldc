@@ -29,6 +29,8 @@ module std.path;
 
 import std.string;
 
+version(linux) version = Unix;
+
 version(Unix)
 {
     import std.c.stdlib;

@@ -1820,7 +1820,7 @@ int trymatch(int pc, int pcend)
 		if (!psave && count < m)
 		{
 		    //version (Win32)
-			psave = cast(regmatch_t *)alloca((re_nsub + 1) * regmatch_t.sizeof);
+			psave = cast(regmatch_t *)/*alloca*/malloc((re_nsub + 1) * regmatch_t.sizeof);
 		    //else
 			//psave = new regmatch_t[re_nsub + 1];
 		}

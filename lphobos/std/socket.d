@@ -44,7 +44,7 @@ module std.socket;
 
 private import std.string, std.stdint, std.c.string, std.c.stdlib;
 
-
+version(linux) version = Unix;
 version(Unix) version = BsdSockets;
 
 version (skyos) { /* nothging */ }

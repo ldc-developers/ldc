@@ -39,6 +39,8 @@ private import std.c.stdio;
 private import std.c.stdlib;
 private import std.string;
 
+version(linux) version = Unix;
+
 //debug = MMFILE;
 
 version (Win32)
