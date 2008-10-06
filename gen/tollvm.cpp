@@ -529,7 +529,23 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value)
 {
     const LLType* llty = DtoType(t);
     assert(llty->isFloatingPoint());
-    return LLConstantFP::get(llty, value);
+
+    if(llty == LLType::FloatTy || llty == LLType::DoubleTy)
+        return LLConstantFP::get(llty, value);
+    else if(llty == LLType::X86_FP80Ty) {
+        uint64_t bits[] = {0, 0};
+        bits[1] = *(uint16_t*)&value;
+        bits[0] = *((uint16_t*)&value + 4);
+        bits[0] <<= 16;
+        bits[0] += *((uint16_t*)&value + 3);
+        bits[0] <<= 16;
+        bits[0] += *((uint16_t*)&value + 2);
+        bits[0] <<= 16;
+        bits[0] += *((uint16_t*)&value + 1);
+        return LLConstantFP::get(APFloat(APInt(80, 2, bits)));
+    } else {
+        assert(0 && "Unknown floating point type encountered");
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

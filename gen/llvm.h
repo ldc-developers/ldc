@@ -47,6 +47,7 @@ using llvm::IRBuilder;
 
 #define LLSmallVector llvm::SmallVector
 
-#define APFloat llvm::APFloat
+using llvm::APFloat;
+using llvm::APInt;
 
 #endif // GEN_LLVM_H
