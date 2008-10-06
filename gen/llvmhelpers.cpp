@@ -960,8 +960,6 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         _type = _init->getType();
     llvm::cast<LLOpaqueType>(vd->ir.irGlobal->type.get())->refineAbstractTypeTo(_type);
     _type = vd->ir.irGlobal->type.get();
-    //_type->dump();
-    assert(!_type->isAbstract());
 
     llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->ir.irGlobal->value);
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
