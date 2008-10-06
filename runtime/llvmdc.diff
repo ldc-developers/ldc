@@ -20,9 +20,9 @@ Index: lib/common/tango/core/BitManip.d
       */
      uint outpl( uint port_address, uint value );
  }
-+else version( LLVMDC )
++else version( LDC )
 +{
-+    public import llvmdc.bitmanip;
++    public import ldc.bitmanip;
 +}
  else
  {
@@ -36,7 +36,7 @@ Index: lib/common/tango/core/Thread.d
          body
          {
 -            version( D_InlineAsm_X86 )
-+            version( LLVMDC)
++            version( LDC)
              {
 +                version(X86)
 +                {
@@ -67,7 +67,7 @@ Index: lib/common/tango/core/Thread.d
              }
  
 -            version( D_InlineAsm_X86 )
-+            version( LLVMDC)
++            version( LDC)
              {
 +                // nothing to pop
 +            }
@@ -173,7 +173,7 @@ Index: lib/unittest.sh
 -  gdc: Builds unittests for gdc
 +  dmd:    Builds unittests for dmd
 +  gdc:    Builds unittests for gdc
-+  llvmdc: Builds unittests for llvmdc
++  ldc: Builds unittests for ldc
  
    <none>: Builds unittests for all known compilers.'
    exit 0
@@ -190,8 +190,8 @@ Index: lib/unittest.sh
          gdc)
              GDC=1
              ;;
-+        llvmdc)
-+            LLVMDC=1
++        ldc)
++            LDC=1
 +            ;;
          *)
              usage
@@ -201,11 +201,11 @@ Index: lib/unittest.sh
  done
  
 -if [ ! "$DMD" -a ! "$GDC" ]
-+if [ ! "$DMD" -a ! "$GDC" -a ! "$LLVMDC" ]
++if [ ! "$DMD" -a ! "$GDC" -a ! "$LDC" ]
  then
      DMD=1
      GDC=1
-+    LLVMDC=1
++    LDC=1
  fi
  
  if [ "$DMD" = "1" ]
@@ -214,9 +214,9 @@ Index: lib/unittest.sh
      compile gdc runUnitTest_gdc
  fi
 -
-+if [ "$LLVMDC" = "1" ]
++if [ "$LDC" = "1" ]
 +then
-+    compile llvmdc runUnitTest_llvmdc
++    compile ldc runUnitTest_ldc
 +fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
@@ -254,7 +254,7 @@ Index: lib/gc/basic/gcx.d
              __builtin_unwind_init();
              sp = & sp;
          }
-+        else version(LLVMDC)
++        else version(LDC)
 +        {
 +            version(X86)
 +            {
@@ -283,7 +283,7 @@ Index: lib/gc/basic/gcx.d
          {
              // nothing to do
          }
-+        else version(LLVMDC)
++        else version(LDC)
 +        {
 +            // nothing to do
 +        }
@@ -298,7 +298,7 @@ Index: lib/gc/basic/gcbits.d
  {
      // use the unoptimized version
  }
-+else version(LLVMDC)
++else version(LDC)
 +{
 +    // ditto
 +}
@@ -313,7 +313,7 @@ Index: tango/text/convert/Layout.d
          alias void* Arg;
          alias va_list ArgList;
          }
-+else version(LLVMDC)
++else version(LDC)
 +        {
 +        private import tango.core.Vararg;
 +        alias void* Arg;
@@ -327,7 +327,7 @@ Index: tango/text/convert/Layout.d
                  assert (arguments.length < 64, "too many args in Layout.convert");
  
 -                version (GNU)
-+                version (LLVMDC)
++                version (LDC)
                          {
                          Arg[64] arglist = void;
 +                        foreach (i, arg; arguments)
@@ -350,9 +350,9 @@ Index: tango/core/Vararg.d
  {
      public import std.stdarg;
  }
-+else version( LLVMDC )
++else version( LDC )
 +{
-+    public import llvmdc.vararg;
++    public import ldc.vararg;
 +}
  else
  {
@@ -365,13 +365,13 @@ Index: tango/core/Atomic.d
  
  
  ////////////////////////////////////////////////////////////////////////////////
-+// LLVMDC Atomics Implementation
++// LDC Atomics Implementation
 +////////////////////////////////////////////////////////////////////////////////
 +
 +
-+else version( LLVMDC )
++else version( LDC )
 +{
-+    import llvmdc.intrinsics;
++    import ldc.intrinsics;
 +
 +
 +    ////////////////////////////////////////////////////////////////////////////
@@ -537,12 +537,12 @@ Index: tango/math/Math.d
          version = DigitalMars_D_InlineAsm_X86;
      }
  }
-+else version(LLVMDC)
++else version(LDC)
 +{
-+    import llvmdc.intrinsics;
++    import ldc.intrinsics;
 +    version(X86)
 +    {
-+        version = LLVMDC_X86;
++        version = LDC_X86;
 +    }
 +}
  
@@ -552,7 +552,7 @@ Index: tango/math/Math.d
   * Bugs:
   *  Results are undefined if |x| >= $(POWER 2,64).
   */
-+version(LLVMDC)
++version(LDC)
 +{
 +    alias llvm_cos_f32 cos;
 +    alias llvm_cos_f64 cos;
@@ -585,7 +585,7 @@ Index: tango/math/Math.d
   * Bugs:
   *  Results are undefined if |x| >= $(POWER 2,64).
   */
-+version(LLVMDC)
++version(LDC)
 +{
 +    alias llvm_sin_f32 sin;
 +    alias llvm_sin_f64 sin;
@@ -620,7 +620,7 @@ Index: tango/math/Math.d
          return tanl(x);
 -    } else {
 +    }
-+    else version(LLVMDC) {
++    else version(LDC) {
 +        return tango.stdc.math.tanl(x);
 +    }
 +    else {
@@ -631,7 +631,7 @@ Index: tango/math/Math.d
   *  <tr> <td> +&infin; <td> +&infin; <td> no
   *  )
   */
-+version(LLVMDC)
++version(LDC)
 +{
 +    alias llvm_sqrt_f32 sqrt;
 +    alias llvm_sqrt_f64 sqrt;
@@ -667,7 +667,7 @@ Index: tango/math/Math.d
      }
      }
 -    return tango.stdc.math.powl(x, y);
-+    version(LLVMDC_X86)
++    version(LDC_X86)
 +    {
 +        return llvm_pow_f80(x, y);
 +    }
@@ -686,7 +686,7 @@ Index: tango/stdc/stdlib.d
  {
      void* alloca(size_t size);
  }
-+else version( LLVMDC )
++else version( LDC )
 +{
 +    pragma(alloca)
 +        void* alloca(size_t size);
@@ -702,9 +702,9 @@ Index: tango/stdc/stdarg.d
  {
      public import std.c.stdarg;
  }
-+else version( LLVMDC )
++else version( LDC )
 +{
-+    public import llvmdc.cstdarg;
++    public import ldc.cstdarg;
 +}
  else
  {

@@ -1,4 +1,4 @@
-project.name = llvmdc
+project.name = ldc
 
 -- options
 
@@ -44,10 +44,10 @@ package.buildoptions = { "-x c++" }
 package.postbuildcommands = { "./impcnvgen", "mv -f impcnvtab.c dmd" }
 package.defines = { "DMDV1="..DMDV1 }
 
--- llvmdc
+-- ldc
 package = newpackage()
 package.bindir = "bin"
-package.name = "llvmdc"
+package.name = "ldc"
 package.kind = "exe"
 package.language = "c++"
 package.files = { matchfiles("dmd/*.c"), matchfiles("gen/*.cpp"), matchfiles("ir/*.cpp") }

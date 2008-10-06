@@ -10,7 +10,7 @@ using namespace llvm;
 // this function runs some or all of the std-compile-opts passes depending on the
 // optimization level given.
 
-void llvmdc_optimize_module(Module* m, char lvl, bool doinline)
+void ldc_optimize_module(Module* m, char lvl, bool doinline)
 {
     if (!doinline && lvl < 0)
         return;

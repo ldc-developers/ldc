@@ -329,7 +329,7 @@ struct TypeInfoDeclaration : VarDeclaration
 
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return this; }
 
-    // LLVMDC
+    // LDC
     virtual void llvmDeclare();
     virtual void llvmDefine();
 };
@@ -340,7 +340,7 @@ struct TypeInfoStructDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -351,7 +351,7 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -362,7 +362,7 @@ struct TypeInfoInterfaceDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -373,7 +373,7 @@ struct TypeInfoTypedefDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -384,7 +384,7 @@ struct TypeInfoPointerDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -395,7 +395,7 @@ struct TypeInfoArrayDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -406,7 +406,7 @@ struct TypeInfoStaticArrayDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -417,7 +417,7 @@ struct TypeInfoAssociativeArrayDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -428,7 +428,7 @@ struct TypeInfoEnumDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -439,7 +439,7 @@ struct TypeInfoFunctionDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -450,7 +450,7 @@ struct TypeInfoDelegateDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -461,7 +461,7 @@ struct TypeInfoTupleDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -473,7 +473,7 @@ struct TypeInfoConstDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -484,7 +484,7 @@ struct TypeInfoInvariantDeclaration : TypeInfoDeclaration
 
     void toDt(dt_t **pdt);
 
-    // LLVMDC
+    // LDC
     void llvmDeclare();
     void llvmDefine();
 };
@@ -624,7 +624,7 @@ struct FuncDeclaration : Declaration
     const char *kind();
     void toDocBuffer(OutBuffer *buf);
 
-// LLVMDC: give argument types to runtime functions
+// LDC: give argument types to runtime functions
     static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, char *name);
     static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, Identifier *id);
 
@@ -635,7 +635,7 @@ struct FuncDeclaration : Declaration
 
     FuncDeclaration *isFuncDeclaration() { return this; }
 
-    // llvmdc stuff
+    // LDC stuff
 
     // vars declared in this function that nested funcs reference
     // is this is not empty, nestedFrameRef is set and these VarDecls

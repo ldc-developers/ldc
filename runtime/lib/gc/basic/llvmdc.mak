@@ -1,4 +1,4 @@
-# Makefile to build the garbage collector D library for LLVMDC
+# Makefile to build the garbage collector D library for LDC
 # Designed to work with GNU make
 # Targets:
 #	make
@@ -39,7 +39,7 @@ LCC=llc
 LLINK=llvm-link
 CLC=ar rsv
 LD=llvm-ld
-DC=llvmdc
+DC=ldc
 
 LIB_DEST=..
 

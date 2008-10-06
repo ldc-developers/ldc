@@ -49,7 +49,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // in gen/optimize.cpp
-void llvmdc_optimize_module(llvm::Module* m, char lvl, bool doinline);
+void ldc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -152,7 +152,7 @@ void Module::genobjfile(int multiobj)
     }
 
     // run optimizer
-    llvmdc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
+    ldc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
 
     // verify the llvm
     if (!global.params.novalidate && (global.params.optimizeLevel >= 0 || global.params.llvmInline)) {

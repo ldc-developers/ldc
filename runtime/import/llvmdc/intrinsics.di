@@ -7,16 +7,16 @@
  *
  */
 
-module llvmdc.intrinsics;
+module ldc.intrinsics;
 
 // Check for the right compiler
-version(LLVMDC)
+version(LDC)
 {
     // OK
 }
 else
 {
-    static assert(false, "This module is only valid for LLVMDC");
+    static assert(false, "This module is only valid for LDC");
 }
 
 //

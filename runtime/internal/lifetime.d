@@ -127,7 +127,7 @@ extern (C) Object _d_newclass(ClassInfo ci)
     }
 
     // initialize it
-    // llvmdc does this inline
+    // ldc does this inline
     //(cast(byte*) p)[0 .. ci.init.length] = ci.init[];
 
     debug(PRINTF) printf("initialization done\n");

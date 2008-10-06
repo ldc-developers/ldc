@@ -213,7 +213,7 @@ Msgtable msgtable[] =
     { "lib" },
     { "msg" },
 
-    // LLVMDC pragma's
+    // LDC pragma's
     { "intrinsic" },
     { "va_intrinsic" },
     { "no_typeinfo" },
@@ -223,7 +223,7 @@ Msgtable msgtable[] =
     { "vacopy", "va_copy" },
     { "vaend", "va_end" },
     { "vaarg", "va_arg" },
-    { "llvmdc" },
+    { "ldc" },
 
     // For special functions
     { "tohash", "toHash" },

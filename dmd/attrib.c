@@ -828,7 +828,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     }
 #endif
 
-// LLVMDC
+// LDC
 #if IN_LLVM
 
     // pragma(intrinsic, "string") { funcdecl(s) }
@@ -921,8 +921,8 @@ void PragmaDeclaration::semantic(Scope *sc)
         llvm_internal = LLVMva_arg;
     }
     
-    // pragma(llvmdc, "string") { templdecl(s) }
-    else if (ident == Id::llvmdc)
+    // pragma(ldc, "string") { templdecl(s) }
+    else if (ident == Id::ldc)
     {
         Expression* expr = (Expression *)args->data[0];
         expr = expr->semantic(sc);
@@ -942,7 +942,7 @@ void PragmaDeclaration::semantic(Scope *sc)
         }
     }
 
-#endif // LLVMDC
+#endif // LDC
 
     else if (global.params.ignoreUnsupportedPragmas)
     {
@@ -982,14 +982,14 @@ void PragmaDeclaration::semantic(Scope *sc)
 
 	    s->semantic(sc);
 
-// LLVMDC
+// LDC
 #if IN_LLVM
 
         if (llvm_internal)
         {
         if (s->llvmInternal)
         {
-            error("multiple LLVMDC specific pragmas not allowed not affect the same declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
+            error("multiple LDC specific pragmas not allowed not affect the same declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
             fatal();
         }
         switch(llvm_internal)
@@ -1070,11 +1070,11 @@ void PragmaDeclaration::semantic(Scope *sc)
             break;
 
         default:
-            warning("the LLVMDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
+            warning("the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
         }
         }
 
-#endif // LLVMDC
+#endif // LDC
 
     }
     }

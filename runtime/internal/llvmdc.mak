@@ -1,4 +1,4 @@
-# Makefile to build the LLVMDC compiler runtime D library for Linux
+# Makefile to build the LDC compiler runtime D library for Linux
 # Designed to work with GNU make
 # Targets:
 #	make
@@ -10,11 +10,11 @@
 #	make clean
 #		Delete unneeded files created by build process
 
-LIB_TARGET_FULL=libllvmdc-runtime.a
-LIB_TARGET_BC_ONLY=libllvmdc-runtime-bc-only.a
-LIB_TARGET_C_ONLY=libllvmdc-runtime-c-only.a
-LIB_TARGET_SHARED=libllvmdc-runtime-shared.so
-LIB_MASK=libllvmdc-runtime*.*
+LIB_TARGET_FULL=libldc-runtime.a
+LIB_TARGET_BC_ONLY=libldc-runtime-bc-only.a
+LIB_TARGET_C_ONLY=libldc-runtime-c-only.a
+LIB_TARGET_SHARED=libldc-runtime-shared.so
+LIB_MASK=libldc-runtime*.*
 
 
 CP=cp -f
@@ -37,7 +37,7 @@ LC=llvm-ar rsv
 LLINK=llvm-link
 LCC=llc
 CLC=ar rsv
-DC=llvmdc
+DC=ldc
 LLC=llvm-as
 
 LIB_DEST=..
@@ -60,13 +60,13 @@ LIB_DEST=..
 	$(DC) -c $(DFLAGS) $< -of$@
 
 .d.html:
-	$(DC) -c -o- $(DOCFLAGS) -Df$*.html llvmdc.ddoc $<
+	$(DC) -c -o- $(DOCFLAGS) -Df$*.html ldc.ddoc $<
 
 targets : lib sharedlib doc
 all     : lib sharedlib doc
-lib     : llvmdc.lib llvmdc.bclib llvmdc.clib
-sharedlib : llvmdc.sharedlib
-doc     : llvmdc.doc
+lib     : ldc.lib ldc.bclib ldc.clib
+sharedlib : ldc.sharedlib
+doc     : ldc.doc
 
 ######################################################
 OBJ_C= \
@@ -95,9 +95,9 @@ OBJ_UTIL= \
     util/string.bc \
     util/utf.bc
 
-OBJ_LLVMDC= \
-    llvmdc/bitmanip.bc \
-    llvmdc/vararg.bc
+OBJ_LDC= \
+    ldc/bitmanip.bc \
+    ldc/vararg.bc
 
 OBJ_TI= \
     typeinfo/ti_AC.bc \
@@ -140,7 +140,7 @@ ALL_OBJS= \
     $(OBJ_BASE) \
     $(OBJ_UTIL) \
     $(OBJ_TI) \
-    $(OBJ_LLVMDC)
+    $(OBJ_LDC)
 
 ######################################################
 
@@ -148,10 +148,10 @@ ALL_DOCS=
 
 ######################################################
 
-llvmdc.bclib : $(LIB_TARGET_BC_ONLY)
-llvmdc.clib : $(LIB_TARGET_C_ONLY)
-llvmdc.lib : $(LIB_TARGET_FULL)
-llvmdc.sharedlib : $(LIB_TARGET_SHARED)
+ldc.bclib : $(LIB_TARGET_BC_ONLY)
+ldc.clib : $(LIB_TARGET_C_ONLY)
+ldc.lib : $(LIB_TARGET_FULL)
+ldc.sharedlib : $(LIB_TARGET_SHARED)
 
 $(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
 	$(RM) $@
@@ -179,7 +179,7 @@ $(LIB_TARGET_SHARED) : $(ALL_OBJS) $(OBJ_C)
 	$(CC) -shared -o $@ $@.o $(OBJ_C)
 
 
-llvmdc.doc : $(ALL_DOCS)
+ldc.doc : $(ALL_DOCS)
 	echo No documentation available.
 
 ######################################################

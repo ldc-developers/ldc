@@ -291,7 +291,7 @@ void line(T...)(int x0, int y0, int x1, int y1, T p) {
   }
 }
 
-import llvmdc.intrinsics;
+import ldc.intrinsics;
 alias llvm_sqrt_f32 sqrt;
 alias llvm_sqrt_f64 sqrt;
 version(X86)

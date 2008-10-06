@@ -140,7 +140,7 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
     if (srcpath.empty())
 		srcpath = llvm::sys::Path::GetCurrentDirectory().toString();
     vals[4] = DtoConstStringPtr(srcpath.c_str(), "llvm.metadata");
-    vals[5] = DtoConstStringPtr("LLVMDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata");
+    vals[5] = DtoConstStringPtr("LDC (http://www.dsource.org/projects/llvmdc)", "llvm.metadata");
 
     LLGlobalVariable* gv = emitDwarfGlobal(getDwarfCompileUnitType(), vals, "llvm.dbg.compile_unit");
     m->ir.irModule->dwarfCompileUnit = gv;

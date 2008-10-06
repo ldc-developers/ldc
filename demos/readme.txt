@@ -1,1 +1,1 @@
-use rebuild with -dc=llvmdc-posix to build the demos
+use rebuild with -dc=ldc-posix to build the demos

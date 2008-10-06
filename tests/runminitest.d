@@ -49,7 +49,7 @@ int main(string[] args)
         auto testname = getName(getBaseName(c));
         writefln("TEST NAME: ", testname);
 
-        string cmd = format("llvmdc %s -quiet -ofobj" ~ std.path.sep ~ "%s -odobj", c, testname);
+        string cmd = format("ldc %s -quiet -ofobj" ~ std.path.sep ~ "%s -odobj", c, testname);
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;

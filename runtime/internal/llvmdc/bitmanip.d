@@ -1,18 +1,18 @@
 /*
- * D phobos intrinsics for LLVMDC
+ * D phobos intrinsics for LDC
  *
  * From GDC ... public domain!
  */
-module llvmdc.bitmanip;
+module ldc.bitmanip;
 
 // Check for the right compiler
-version(LLVMDC)
+version(LDC)
 {
     // OK
 }
 else
 {
-    static assert(false, "This module is only valid for LLVMDC");
+    static assert(false, "This module is only valid for LDC");
 }
 
 int bsf(uint v)

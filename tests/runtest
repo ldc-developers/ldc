@@ -37,8 +37,8 @@ echo "Remember to make sure you have an up to date runtime!"
 echo
 
 if [ -z "$DMD" ] ; then
-	echo "Testing with llvmdc. Set DMD environment variable to select compiler."
-	DMD="llvmdc -I$BASEPATH/testincludes -L$BASEPATH/testincludes/libtangobos-partial.a"
+	echo "Testing with LDC. Set DMD environment variable to select compiler."
+	DMD="ldc -I$BASEPATH/testincludes -L$BASEPATH/testincludes/libtangobos-partial.a"
 	echo "Default is $DMD"
 else
 	echo "Using compiler given by DMD environment variable: $DMD"

@@ -153,7 +153,7 @@ static const LLType* rt_dg2()
 
 static void LLVM_D_BuildRuntimeModule()
 {
-    M = new llvm::Module("llvmdc internal runtime");
+    M = new llvm::Module("ldc internal runtime");
 
     const LLType* voidTy = LLType::VoidTy;
     const LLType* boolTy = LLType::Int1Ty;

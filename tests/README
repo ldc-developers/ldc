@@ -1,6 +1,6 @@
-After making sure llvmdc and its runtime are up to date, use
+After making sure LDC and its runtime are up to date, use
 ./runtest tmp-sensible-name
-to run tests for llvmdc.
+to run tests for LDC.
 Move into reference/ subfolder and add to svn if desired.
 
 Use
@@ -8,4 +8,4 @@ Use
 to find changes.
 
 Recommended for comparing to DMD:
-./findregressions reference/dmd-version llvmdc-something | grep -v "PASS -> XFAIL" | sort > tmp-new-regressions
+./findregressions reference/dmd-version ldc-something | grep -v "PASS -> XFAIL" | sort > tmp-new-regressions

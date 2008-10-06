@@ -1,4 +1,4 @@
-private import llvmdc.intrinsics;
+private import ldc.intrinsics;
 
 extern(C):
 

@@ -337,7 +337,7 @@ int main(char[][] args){
 
 	if(args.length < 3 || (args[1] == "--regenerate" && args.length < 4)){
 		fwritefln(stderr, "%s [--regenerate] <reference-log> <log> <log> ...", args[0]);
-		fwritefln(stderr, "bash example: %s reference/dmd-something $(ls reference/llvmdc*)", args[0]);
+		fwritefln(stderr, "bash example: %s reference/dmd-something $(ls reference/ldc*)", args[0]);
 		return 1;
 	}
 

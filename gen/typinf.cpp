@@ -8,7 +8,7 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
-// Modifications for LLVMDC:
+// Modifications for LDC:
 // Copyright (c) 2007 by Tomas Lindquist Olsen
 // tomas at famolsen dk
 
@@ -234,7 +234,7 @@ int TypeDArray::builtinTypeInfo()
 
 Expression *createTypeInfoArray(Scope *sc, Expression *exps[], int dim)
 {
-    assert(0); // done elsewhere in llvmdc
+    assert(0); // done elsewhere in LDC
     return NULL;
 }
 

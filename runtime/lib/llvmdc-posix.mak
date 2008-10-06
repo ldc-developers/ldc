@@ -10,11 +10,11 @@
 #	make clean
 #		Delete unneeded files created by build process
 
-LIB_TARGET=libtango-base-llvmdc.a
-LIB_MASK=libtango-base-llvmdc*.a
-LIB_TARGET_C=libtango-base-c-llvmdc.a
-LIB_MASK_C=libtango-base-c-llvmdc*.a
-LIB_NAME_NATIVE=libtango-base-llvmdc-native
+LIB_TARGET=libtango-base-ldc.a
+LIB_MASK=libtango-base-ldc*.a
+LIB_TARGET_C=libtango-base-c-ldc.a
+LIB_MASK_C=libtango-base-c-ldc*.a
+LIB_NAME_NATIVE=libtango-base-ldc-native
 LIB_TARGET_NATIVE=$(LIB_NAME_NATIVE).a
 
 DIR_CC=./common/tango
@@ -29,7 +29,7 @@ MD=mkdir -p
 CC=gcc
 LC=llvm-ar rsv
 CLC=ar rsv
-DC=llvmdc
+DC=ldc
 LLVMLINK=llvm-link
 LLC=llc
 
@@ -51,21 +51,21 @@ ALL_DOCS=
 ######################################################
 
 lib : $(ALL_OBJS)
-	make -C $(DIR_CC) -fllvmdc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-	make -C $(DIR_RT) -fllvmdc.mak lib
-	make -C $(DIR_GC) -fllvmdc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
+	make -C $(DIR_CC) -fldc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
+	make -C $(DIR_RT) -fldc.mak lib
+	make -C $(DIR_GC) -fldc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	# could link the three parts into one here, but why should we
 
 sharedlib : $(ALL_OBJS)
-	make -C $(DIR_CC) -fllvmdc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-	make -C $(DIR_RT) -fllvmdc.mak sharedlib
-	make -C $(DIR_GC) -fllvmdc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
+	make -C $(DIR_CC) -fldc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
+	make -C $(DIR_RT) -fldc.mak sharedlib
+	make -C $(DIR_GC) -fldc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	# could link the three parts into one here, but why should we
 
 doc : $(ALL_DOCS)
-	make -C $(DIR_CC) -fllvmdc.mak doc
-	make -C $(DIR_RT) -fllvmdc.mak doc
-	make -C $(DIR_GC) -fllvmdc.mak doc
+	make -C $(DIR_CC) -fldc.mak doc
+	make -C $(DIR_RT) -fldc.mak doc
+	make -C $(DIR_GC) -fldc.mak doc
 
 ######################################################
 
@@ -73,16 +73,16 @@ clean :
 	find . -name "*.di" | xargs $(RM)
 	$(RM) $(ALL_OBJS)
 	$(RM) $(ALL_DOCS)
-	make -C $(DIR_CC) -fllvmdc.mak clean
-	make -C $(DIR_RT) -fllvmdc.mak clean
-	make -C $(DIR_GC) -fllvmdc.mak clean
+	make -C $(DIR_CC) -fldc.mak clean
+	make -C $(DIR_RT) -fldc.mak clean
+	make -C $(DIR_GC) -fldc.mak clean
 	$(RM) $(LIB_MASK)
 	$(RM) $(LIB_MASK_C)
 	$(RM) $(LIB_NAME_NATIVE)*
 
 install :
-	make -C $(DIR_CC) -fllvmdc.mak install
-	make -C $(DIR_RT) -fllvmdc.mak install
-	make -C $(DIR_GC) -fllvmdc.mak install
+	make -C $(DIR_CC) -fldc.mak install
+	make -C $(DIR_RT) -fldc.mak install
+	make -C $(DIR_GC) -fldc.mak install
 	$(CP) $(LIB_MASK) $(LIB_DEST)/.
 	$(CP) $(LIB_MASK_C) $(LIB_DEST)/.

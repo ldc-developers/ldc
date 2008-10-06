@@ -37,7 +37,7 @@
 
 struct Array;
 
-// LLVMDC
+// LDC
 enum ARCH
 {
     ARCHinvalid,
@@ -139,7 +139,7 @@ struct Param
     char *resfile;
     char *exefile;
 
-    // LLVMDC stuff
+    // LDC stuff
     char *llvmArch;
     char forceBE;
     char *tt_arch;
@@ -170,7 +170,7 @@ struct Global
     Array *filePath;	// Array of char*'s which form the file import lookup path
     int structalign;
     char *version;
-    char *llvmdc_version;
+    char *ldc_version;
 
     Param params;
     unsigned errors;	// number of errors reported so far

@@ -33,7 +33,7 @@ DOCFLAGS=-version=DDoc
 
 CC=gcc
 LC=llvm-ar rsv
-DC=llvmdc
+DC=ldc
 
 LIB_DEST=..
 

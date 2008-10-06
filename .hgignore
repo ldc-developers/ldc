@@ -11,12 +11,12 @@ obj/*
 tango
 import
 Makefile
-bin/llvmdc
+bin/ldc
 idgen
 idgen.make
 impcnvgen
 impcnvgen.make
-llvmdc.make
+ldc.make
 dmd/impcnvtab.c
 tests/runminitest
 tests/findregressions

@@ -1,14 +1,14 @@
 ignore=object
 
-compiler=llvmdc
-inifile=llvmdc.conf
+compiler=ldc
+inifile=ldc.conf
 
 exeext=
 objext=bc
 
 
 version=LLVM
-version=LLVMDC
+version=LDC
 noversion=DigitalMars
 noversion=GNU
 testversion=linux
@@ -37,7 +37,7 @@ testversion=PIC
 
 
 [compile]
-cmd=llvmdc -c $i
+cmd=ldc -c $i
 
 flag=$i
 incdir=-I$i
@@ -48,7 +48,7 @@ version=-version=$i
 
 [link]
 oneatatime=yes
-cmd=llvmdc $i -of$o
+cmd=ldc $i -of$o
 
 libdir=-L-L=$i
 lib=-L-l=$i

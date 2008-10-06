@@ -39,7 +39,7 @@ LC=llvm-ar rsv
 LLINK=llvm-link
 LCC=llc
 CLC=ar rsv
-DC=llvmdc
+DC=ldc
 LLC=llvm-as
 
 INC_DEST=../../../tango

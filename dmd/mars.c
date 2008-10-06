@@ -51,7 +51,7 @@ Global::Global()
     doc_ext  = "html";
     ddoc_ext = "ddoc";
 
-// LLVMDC
+// LDC
     obj_ext  = "bc";
     ll_ext  = "ll";
     bc_ext  = "bc";
@@ -66,7 +66,7 @@ Global::Global()
     copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     version = "v1.035";
-    llvmdc_version = "0.1";
+    ldc_version = "0.1";
     global.structalign = 8;
 
     memset(&params, 0, sizeof(Param));
@@ -154,12 +154,12 @@ extern void backend_term();
 void usage()
 {
     printf("LLVM D Compiler %s (based on DMD %s and LLVM 2.4svn)\n%s\n%s\n",
-    global.llvmdc_version, global.version, global.copyright, global.written);
+    global.ldc_version, global.version, global.copyright, global.written);
     printf("\
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
-LLVMDC Homepage: http://www.dsource.org/projects/llvmdc\n\
+LDC Homepage: http://www.dsource.org/projects/llvmdc\n\
 Usage:\n\
-  llvmdc files.d ... { -switch }\n\
+  ldc files.d ... { -switch }\n\
 \n\
   files.d        D source files\n%s\
   -of<filename>  name output file to <filename>\n\
@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
     // Predefine version identifiers
 #if IN_LLVM
     VersionCondition::addPredefinedGlobalIdent("LLVM");
-    VersionCondition::addPredefinedGlobalIdent("LLVMDC");
+    VersionCondition::addPredefinedGlobalIdent("LDC");
 #endif
 
     // setup default target os to be build os
@@ -343,9 +343,9 @@ int main(int argc, char *argv[])
     VersionCondition::addPredefinedGlobalIdent("all");
 
 #if _WIN32
-    inifile(global.params.argv0, "llvmdc.ini");
+    inifile(global.params.argv0, "ldc.ini");
 #elif POSIX
-    inifile(global.params.argv0, "llvmdc.conf");
+    inifile(global.params.argv0, "ldc.conf");
 #else
 #error
 #endif
@@ -716,7 +716,7 @@ int main(int argc, char *argv[])
     {
 	char *arg;
 	arg = (char *)mem.malloc(64);
-	strcpy(arg, "-lllvmdc-runtime");
+	strcpy(arg, "-lldc-runtime");
 	global.params.linkswitches->push(arg);
 	arg = (char *)mem.malloc(64);
 	strcpy(arg, "-ltango-cc-tango");

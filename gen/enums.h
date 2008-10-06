@@ -9,5 +9,5 @@ enum
     LLVMva_copy,
     LLVMva_end,
     LLVMva_arg,
-    LLVMllvmdc
+    LLVMldc
 };

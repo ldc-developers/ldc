@@ -3,21 +3,21 @@
 # I'm no good bash scripter ...
 
 # copy imports
-mkdir -p ../tango/llvmdc
-cp internal/llvmdc/bitmanip.d ../tango/llvmdc/bitmanip.di
-cp internal/llvmdc/vararg.d ../tango/llvmdc/vararg.di
-cp import/llvmdc/* ../tango/llvmdc
+mkdir -p ../tango/ldc
+cp internal/ldc/bitmanip.d ../tango/ldc/bitmanip.di
+cp internal/ldc/vararg.d ../tango/ldc/vararg.di
+cp import/ldc/* ../tango/ldc
 
 # make the runtime
 cp -R lib ../tango
 cd ../tango/lib
-make -f llvmdc-posix.mak clean
-make -f llvmdc-posix.mak sharedlib
+make -f ldc-posix.mak clean
+make -f ldc-posix.mak sharedlib
 cd ../..
 
 # install the runtime
-rm -f lib/libllvmdc-runtime-shared.so
-cp runtime/internal/libllvmdc-runtime-shared.so lib
+rm -f lib/libldc-runtime-shared.so
+cp runtime/internal/libldc-runtime-shared.so lib
 rm -f lib/libtango-gc-basic-shared.so
 cp tango/lib/gc/basic/libtango-gc-basic-shared.so lib
 rm -f lib/libtango-cc-tango-shared.so

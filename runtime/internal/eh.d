@@ -5,7 +5,7 @@
 module eh;
 
 import util.console;
-import llvmdc.cstdarg;
+import ldc.cstdarg;
 
 // debug = EH_personality;
 

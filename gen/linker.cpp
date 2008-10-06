@@ -21,7 +21,7 @@ void linkModules(llvm::Module* dst, const Module_vector& MV)
     if (MV.empty())
         return;
 
-    llvm::Linker linker("llvmdc", dst);
+    llvm::Linker linker("ldc", dst);
 
     std::string err;
     for (Module_vector::const_iterator i=MV.begin(); i!=MV.end(); ++i)

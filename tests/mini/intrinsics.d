@@ -1,4 +1,4 @@
-import llvmdc.intrinsics;
+import ldc.intrinsics;
 
 extern(C) int printf(char*,...);
 extern(C) int scanf(char*,...);

@@ -34,7 +34,7 @@ DOCFLAGS=-version=DDoc
 CC=gcc
 LC=llvm-ar rsv
 CLC=ar rsv
-DC=llvmdc
+DC=ldc
 LLC=llvm-as
 LLVMLINK=llvm-link
 LLC=llc

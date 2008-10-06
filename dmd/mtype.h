@@ -98,7 +98,7 @@ enum TY
     Ttuple,
     Tslice,
 
-// LLVMDC
+// LDC
     Topaque,
 
     TMAX
@@ -177,7 +177,7 @@ struct Type : Object
     static ClassDeclaration *typeinfodelegate;
     static ClassDeclaration *typeinfotypelist;
 
-    // LLVMDC, for runtime function signatures that contain
+    // LDC, for runtime function signatures that contain
     // AAs or arrays of unknown type
     static Type* topaque;
 
@@ -260,7 +260,7 @@ struct Type : Object
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
 
-    // llvmdc
+    // LDC
     IrType ir;
 };
 
@@ -389,7 +389,7 @@ struct TypePointer : Type
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH implicitConvTo(Type *to);
     int isscalar();
-    // LLVMDC: pointers are unsigned
+    // LDC: pointers are unsigned
     int isunsigned() { return TRUE; };
     Expression *defaultInit(Loc loc);
     int isZeroInit();
@@ -441,7 +441,7 @@ struct TypeFunction : Type
 
     unsigned totym();
 
-    // LLVMDC
+    // LDC
     bool retInPtr;
     bool usesThis;
     bool usesNest;
@@ -674,7 +674,7 @@ struct TypeSlice : Type
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
 };
 
-//LLVMDC
+//LDC
 struct TypeOpaque : Type
 { 
     TypeOpaque() : Type(Topaque, NULL) {}
@@ -704,7 +704,7 @@ struct Argument : Object
     static size_t dim(Arguments *arguments);
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
 
-    // LLVMDC
+    // LDC
     unsigned llvmAttrs;
 };
 
