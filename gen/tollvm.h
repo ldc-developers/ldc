@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_TOLLVM_H
-#define LLVMDC_GEN_TOLLVM_H
+#ifndef LDC_GEN_TOLLVM_H
+#define LDC_GEN_TOLLVM_H
 
 #include "gen/llvm.h"
 #include "lexer.h"
@@ -144,4 +144,4 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
 
 #include "enums.h"
 
-#endif // LLVMDC_GEN_TOLLVM_H
+#endif // LDC_GEN_TOLLVM_H

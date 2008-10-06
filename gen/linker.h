@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_LINKER_H
-#define LLVMDC_GEN_LINKER_H
+#ifndef LDC_GEN_LINKER_H
+#define LDC_GEN_LINKER_H
 
 #include <vector>
 
@@ -33,4 +33,4 @@ void deleteExecutable();
  */
 int runExectuable();
 
-#endif // LLVMDC_GEN_LINKER_H
+#endif // LDC_GEN_LINKER_H

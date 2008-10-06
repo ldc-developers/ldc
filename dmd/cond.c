@@ -127,7 +127,7 @@ void VersionCondition::checkPredefined(Loc loc, char *ident)
 {
     static char* reserved[] =
     {
-	"DigitalMars", "LLVM", "LLVMDC", "LLVM64",
+	"DigitalMars", "LLVM", "LDC", "LLVM64",
     "X86", "X86_64", "PPC", "PPC64",
 	"Windows", "Win32", "Win64",
 	"linux", "darwin", "Posix",

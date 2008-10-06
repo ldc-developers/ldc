@@ -158,7 +158,7 @@ struct Expression : Object
     // Back end
     virtual elem *toElem(IRState *irs);
     virtual dt_t **toDt(dt_t **pdt);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -185,7 +185,7 @@ struct IntegerExp : Expression
     Expression *toLvalue(Scope *sc, Expression *e);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -210,7 +210,7 @@ struct RealExp : Expression
     void toMangleBuffer(OutBuffer *buf);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -238,7 +238,7 @@ struct ComplexExp : Expression
 #endif
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -317,7 +317,7 @@ struct NullExp : Expression
     Expression *interpret(InterState *istate);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -347,7 +347,7 @@ struct StringExp : Expression
     void toMangleBuffer(OutBuffer *buf);
     elem *toElem(IRState *irs);
     dt_t **toDt(dt_t **pdt);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -400,7 +400,7 @@ struct ArrayLiteralExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -427,7 +427,7 @@ struct AssocArrayLiteralExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -460,7 +460,7 @@ struct StructLiteralExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -594,7 +594,7 @@ struct VarExp : Expression
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -826,7 +826,7 @@ struct DotVarExp : UnaExp
     void dump(int indent);
     elem *toElem(IRState *irs);
 
-    //LLVMDC: since we don't convert abc.def -> *(&abc + ABC.def.offsetof)
+    //LDC: since we don't convert abc.def -> *(&abc + ABC.def.offsetof)
     // these are needed
     Expression *optimize(int result);
     Expression *interpret(InterState *istate);
@@ -901,7 +901,7 @@ struct AddrExp : UnaExp
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
     Expression *optimize(int result);
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -1004,7 +1004,7 @@ struct CastExp : UnaExp
     // For operator overloading
     Identifier *opId();
 
-    // LLVMDC
+    // LDC
     virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
@@ -1501,7 +1501,7 @@ struct LineInitExp : DefaultInitExp
 
 #if IN_LLVM
 
-// this stuff is strictly LLVMDC
+// this stuff is strictly LDC
 
 struct GEPExp : UnaExp
 {

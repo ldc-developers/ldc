@@ -6,7 +6,7 @@
 
 /* This is for use with variable argument lists with extern(D) linkage. */
 
-/* Modified for LLVMDC (LLVM D Compiler) by Tomas Lindquist Olsen, 2007 */
+/* Modified for LDC (LLVM D Compiler) by Tomas Lindquist Olsen, 2007 */
 
 module std.stdarg;
 

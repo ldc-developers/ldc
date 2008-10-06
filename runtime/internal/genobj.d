@@ -33,7 +33,7 @@
 
 /*
  *  Modified by Sean Kelly <sean@f4.ca> for use with Tango.
- *  Modified by Tomas Lindquist Olsen <tomas@famolsen.dk> for use with LLVMDC.
+ *  Modified by Tomas Lindquist Olsen <tomas@famolsen.dk> for use with LDC.
  */
 
 module object;

@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_LLVMHELPERS_H
-#define LLVMDC_GEN_LLVMHELPERS_H
+#ifndef LDC_GEN_LLVMHELPERS_H
+#define LDC_GEN_LLVMHELPERS_H
 
 #include "gen/llvm.h"
 #include "statement.h"

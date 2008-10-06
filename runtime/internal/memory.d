@@ -60,7 +60,7 @@ private
             import tango.stdc.posix.dlfcn;
         }
     }
-    version(LLVMDC)
+    version(LDC)
     {
         pragma(intrinsic, "llvm.frameaddress")
         {
@@ -122,7 +122,7 @@ extern (C) void* rt_stackBottom()
  */
 extern (C) void* rt_stackTop()
 {
-    version(LLVMDC)
+    version(LDC)
     {
         return llvm_frameaddress();
     }

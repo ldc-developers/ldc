@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_TODEBUG_H
-#define LLVMDC_GEN_TODEBUG_H
+#ifndef LDC_GEN_TODEBUG_H
+#define LDC_GEN_TODEBUG_H
 
 void RegisterDwarfSymbols(llvm::Module* mod);
 
@@ -37,6 +37,6 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
  */
 LLGlobalVariable* DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
 
-#endif // LLVMDC_GEN_TODEBUG_H
+#endif // LDC_GEN_TODEBUG_H
 
 

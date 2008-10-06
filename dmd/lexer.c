@@ -702,7 +702,7 @@ void Lexer::scan(Token *t)
 		    }
 		    else if (id == Id::VENDOR)
 		    {
-			t->ustring = (unsigned char *)"LLVMDC";
+			t->ustring = (unsigned char *)"LDC";
 			goto Lstring;
 		    }
 		    else if (id == Id::TIMESTAMP)

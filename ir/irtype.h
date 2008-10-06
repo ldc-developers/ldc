@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRTYPE_H
-#define LLVMDC_IR_IRTYPE_H
+#ifndef LDC_IR_IRTYPE_H
+#define LDC_IR_IRTYPE_H
 
 #include <set>
 

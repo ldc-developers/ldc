@@ -7,7 +7,7 @@
 /* NOTE: This file has been patched from the original DMD distribution to
    work with the GDC compiler.
    NOTE: This file has been patched from the original GDC distribution to
-   work with the LLVMDC compiler.
+   work with the LDC compiler.
 
    Modified by David Friedman, May 2006
    Modified by Tomas Lindquist Olsen, August 2007

@@ -119,7 +119,7 @@
 
 /*
     NOTE: This file has been patched from the original DMD distribution to
-    work with the LLVMDC compiler.
+    work with the LDC compiler.
 
     Modified by Tomas Lindquist Olsen, August 2007
 */

@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRLANDINGPADINFO_H
-#define LLVMDC_IR_IRLANDINGPADINFO_H
+#ifndef LDC_IR_IRLANDINGPADINFO_H
+#define LDC_IR_IRLANDINGPADINFO_H
 
 #include "ir/ir.h"
 #include "statement.h"

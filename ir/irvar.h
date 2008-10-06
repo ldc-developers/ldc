@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRVAR_H
-#define LLVMDC_IR_IRVAR_H
+#ifndef LDC_IR_IRVAR_H
+#define LDC_IR_IRVAR_H
 
 #include "ir/ir.h"
 #include "llvm/Type.h"

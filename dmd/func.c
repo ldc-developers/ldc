@@ -94,7 +94,7 @@ Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
     f->fbody    = fbody    ? fbody->syntaxCopy()    : NULL;
     assert(!fthrows); // deprecated
 
-    // LLVMDC
+    // LDC
     f->intrinsicName = intrinsicName;
 
     return f;
@@ -2020,7 +2020,7 @@ int FuncDeclaration::addPostInvariant()
  */
 
 //
-// LLVMDC: Adjusted to give argument info to the runtime function decl.
+// LDC: Adjusted to give argument info to the runtime function decl.
 //
 
 FuncDeclaration *FuncDeclaration::genCfunc(Arguments *args, Type *treturn, char *name)

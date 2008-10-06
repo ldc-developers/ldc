@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRSYMBOL_H
-#define LLVMDC_IR_IRSYMBOL_H
+#ifndef LDC_IR_IRSYMBOL_H
+#define LDC_IR_IRSYMBOL_H
 
 #include <set>
 

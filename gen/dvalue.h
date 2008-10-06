@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_DVALUE_H
-#define LLVMDC_GEN_DVALUE_H
+#ifndef LDC_GEN_DVALUE_H
+#define LDC_GEN_DVALUE_H
 
 /*
 These classes are used for generating the IR. They encapsulate D values and
@@ -168,4 +168,4 @@ struct DLRValue : DValue
     virtual DLRValue* isLRValue() { return this; }
 };
 
-#endif // LLVMDC_GEN_DVALUE_H
+#endif // LDC_GEN_DVALUE_H

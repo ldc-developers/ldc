@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_TYPEINF_H
-#define LLVMDC_GEN_TYPEINF_H
+#ifndef LDC_GEN_TYPEINF_H
+#define LDC_GEN_TYPEINF_H
 
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid);
 void DtoDeclareTypeInfo(TypeInfoDeclaration* tid);

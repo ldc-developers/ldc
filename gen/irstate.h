@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_IRSTATE_H
-#define LLVMDC_GEN_IRSTATE_H
+#ifndef LDC_GEN_IRSTATE_H
+#define LDC_GEN_IRSTATE_H
 
 #include <vector>
 #include <list>
@@ -234,4 +234,4 @@ CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegi
         return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
 }
 
-#endif // LLVMDC_GEN_IRSTATE_H
+#endif // LDC_GEN_IRSTATE_H

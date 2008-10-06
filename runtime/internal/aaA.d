@@ -29,7 +29,7 @@
 
 /*
  *  Modified by Sean Kelly <sean@f4.ca> for use with Tango.
- *  Modified by Tomas Lindquist Olsen <tomas@famolsen.dk> for use with LLVMDC.
+ *  Modified by Tomas Lindquist Olsen <tomas@famolsen.dk> for use with LDC.
  */
 
 private
@@ -90,7 +90,7 @@ struct BB
  * it is completely opaque.
  */
 
-// LLVMDC doesn't pass structs in registers so no need to wrap it ...
+// LDC doesn't pass structs in registers so no need to wrap it ...
 alias BB* AA;
 
 /**********************************

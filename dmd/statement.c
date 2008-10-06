@@ -1598,7 +1598,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		/* Call:
 		 *	_aaApply(aggr, keysize, flde)
 		 */
-		//LLVMDC: Build arguments.
+		//LDC: Build arguments.
 		static FuncDeclaration *aaApply2_fd = NULL;
 		if(!aaApply2_fd) {
 		    Arguments* args = new Arguments;
@@ -1667,7 +1667,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		const char *r = (op == TOKforeach_reverse) ? "R" : "";
 		int j = sprintf(fdname, "_aApply%s%.*s%d", r, 2, fntab[flag], dim);
 		assert(j < sizeof(fdname));
-		//LLVMDC: Build arguments.
+		//LDC: Build arguments.
 		Arguments* args = new Arguments;
 		args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
 		if (dim == 2) {
@@ -2243,7 +2243,7 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b)
     sdefault = NULL;
     cases = NULL;
     hasNoDefault = 0;
-    // LLVMDC
+    // LDC
     enclosinghandler = NULL;
 }
 
@@ -3200,7 +3200,7 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, Expression *exp, Statement
     this->body = body;
     this->esync = NULL;
     this->enclosinghandler = NULL;
-    // LLVMDC
+    // LDC
     this->llsync = NULL;
 }
 
@@ -3211,7 +3211,7 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *bo
     this->body = body;
     this->esync = esync;
     this->enclosinghandler = NULL;
-    // LLVMDC
+    // LDC
     this->llsync = NULL;
 }
 
@@ -3961,7 +3961,7 @@ Statement *LabelStatement::semantic(Scope *sc)
 	statement = statement->semantic(sc);
     sc->pop();
 
-    // LLVMDC put in labmap
+    // LDC put in labmap
     fd->labmap[ident->toChars()] = this;
 
     return this;

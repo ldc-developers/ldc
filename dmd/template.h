@@ -86,7 +86,7 @@ struct TemplateDeclaration : ScopeDsymbol
     TemplateTupleParameter *isVariadic();
     int isOverloadable();
     
-    // LLVMDC
+    // LDC
     std::string intrinsicName;
 };
 
@@ -315,7 +315,7 @@ struct TemplateInstance : ScopeDsymbol
     TemplateInstance *isTemplateInstance() { return this; }
     AliasDeclaration *isAliasDeclaration();
 
-    // LLVMDC
+    // LDC
     TemplateInstance *tinst; // enclosing template instance
     void printInstantiationTrace();
 };

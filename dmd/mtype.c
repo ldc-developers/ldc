@@ -103,7 +103,7 @@ ClassDeclaration *Type::typeinfofunction;
 ClassDeclaration *Type::typeinfodelegate;
 ClassDeclaration *Type::typeinfotypelist;
 
-// LLVMDC
+// LDC
 Type* Type::topaque;
 
 Type *Type::tvoidptr;
@@ -210,7 +210,7 @@ void Type::init()
     mangleChar[Ttuple] = 'B';
     mangleChar[Tslice] = '@';
 
-    // LLVMDC
+    // LDC
     mangleChar[Topaque] = 'O';
 
     for (i = 0; i < TMAX; i++)
@@ -234,7 +234,7 @@ void Type::init()
 
     tvoidptr = tvoid->pointerTo();
 
-    // LLVMDC
+    // LDC
     topaque = new TypeOpaque();
 
     // set size_t / ptrdiff_t types and pointer size
@@ -726,7 +726,7 @@ Identifier *Type::getTypeInfoIdent(int internal)
     name = (char *)alloca(19 + sizeof(len) * 3 + len + 1);
     buf.writeByte(0);
     sprintf(name, "_D%dTypeInfo_%s6__initZ", 9 + len, buf.data);
-// LLVMDC
+// LDC
 // it is not clear where the underscore that's stripped here is added back in
 //    if (global.params.isWindows)
 //	name++;			// C mangling will add it back in
@@ -1002,7 +1002,7 @@ unsigned TypeBasic::alignsize()
 
     switch (ty)
     {
-//LLVMDC: llvm aligns 12 byte reals to 4 byte
+//LDC: llvm aligns 12 byte reals to 4 byte
 	case Tfloat80:
 	case Timaginary80:
 	case Tcomplex80:
@@ -1010,7 +1010,7 @@ unsigned TypeBasic::alignsize()
 	    sz = 4;
 	    break;
 
-//LLVMDC: llvm aligns these to 4 byte boundaries
+//LDC: llvm aligns these to 4 byte boundaries
 	case Tint64:
 	case Tuns64:
 	case Tfloat64:
@@ -1554,7 +1554,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expression *ec;
 	Expressions *arguments;
 
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *adReverseChar_fd = NULL;
 	if(!adReverseChar_fd) {
 	    Arguments* args = new Arguments;
@@ -1585,7 +1585,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expression *ec;
 	Expressions *arguments;
 
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *adSortChar_fd = NULL;
 	if(!adSortChar_fd) {
 	    Arguments* args = new Arguments;
@@ -1620,7 +1620,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
 	assert(size);
 	dup = (ident == Id::dup);
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *adDup_fd = NULL;
 	if(!adDup_fd) {
 	    Arguments* args = new Arguments;
@@ -1656,7 +1656,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expressions *arguments;
 	bool isBit = (n->ty == Tbit);
 
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *adSort_fd = NULL;
 	if(!adSort_fd) {
 	    Arguments* args = new Arguments;
@@ -1680,7 +1680,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	arguments = new Expressions();
 	arguments->push(e);
     if (next->ty != Tbit)
-        arguments->push(n->getTypeInfo(sc));   // LLVMDC, we don't support the getInternalTypeInfo
+        arguments->push(n->getTypeInfo(sc));   // LDC, we don't support the getInternalTypeInfo
                                                // optimization arbitrarily, not yet at least...
 	e = new CallExp(e->loc, ec, arguments);
 	e->type = next->arrayOf();
@@ -2346,7 +2346,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expression *ec;
 	Expressions *arguments;
 
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *aaLen_fd = NULL;
 	if(!aaLen_fd) {
 	    Arguments* args = new Arguments;
@@ -2367,7 +2367,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	int size = key->size(e->loc);
 
 	assert(size);
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *aaKeys_fd = NULL;
 	if(!aaKeys_fd) {
 	    Arguments* args = new Arguments;
@@ -2388,7 +2388,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expression *ec;
 	Expressions *arguments;
 
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *aaValues_fd = NULL;
 	if(!aaValues_fd) {
 	    Arguments* args = new Arguments;
@@ -2413,7 +2413,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	Expression *ec;
 	Expressions *arguments;
 
-	//LLVMDC: Build arguments.
+	//LDC: Build arguments.
 	static FuncDeclaration *aaRehash_fd = NULL;
 	if(!aaRehash_fd) {
 	    Arguments* args = new Arguments;
@@ -4465,7 +4465,7 @@ L1:
 	// *(&e + offset)
 	accessCheck(e->loc, sc, e, d);
 
-// LLVMDC we don't want dot exprs turned into pointer arithmetic. it complicates things for no apparent gain
+// LDC we don't want dot exprs turned into pointer arithmetic. it complicates things for no apparent gain
 #ifndef IN_LLVM
 	b = new AddrExp(e->loc, e);
 	b->type = e->type->pointerTo();
@@ -4730,7 +4730,7 @@ L1:
 		e = new PtrExp(e->loc, e, t);
         }
 
-#endif // !LLVMDC
+#endif // !LDC
 
 	    return e;
 	}

@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRSTRUCT_H
-#define LLVMDC_IR_IRSTRUCT_H
+#ifndef LDC_IR_IRSTRUCT_H
+#define LDC_IR_IRSTRUCT_H
 
 #include "ir/ir.h"
 

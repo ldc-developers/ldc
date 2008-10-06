@@ -13,7 +13,7 @@ int atoi(char[] s) {
     return !neg ? i : -i;
 }
 
-version(LLVMDC)
+version(LDC)
 {
 pragma(intrinsic, "llvm.sqrt.f64")
 double sqrt(double val);

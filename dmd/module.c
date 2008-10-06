@@ -122,7 +122,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     }
     srcfile = new File(srcfilename);
 
-    // LLVMDC
+    // LDC
     llvmForceLogging = false;
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;

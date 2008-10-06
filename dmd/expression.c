@@ -267,7 +267,7 @@ Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
 			//printf("rewriting e1 to %s's this\n", f->toChars());
 			n++;
 
-            // LLVMDC seems dmd misses it sometimes here :/
+            // LDC seems dmd misses it sometimes here :/
             f->vthis->nestedref = 1;
 
 			e1 = new VarExp(loc, f->vthis);
@@ -3756,7 +3756,7 @@ Expression *VarExp::semantic(Scope *sc)
 #endif
     }
 
-    // LLVMDC: Fixes bug 1161, http://d.puremagic.com/issues/show_bug.cgi?id=1161
+    // LDC: Fixes bug 1161, http://d.puremagic.com/issues/show_bug.cgi?id=1161
     // check access to VarDeclaration
     accessCheck(loc, sc, NULL, var);
 
@@ -5555,7 +5555,7 @@ Expression *DelegateExp::semantic(Scope *sc)
     if (!type)
     {
 	e1 = e1->semantic(sc);
-    // LLVMDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
+    // LDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
 	type = new TypeDelegate(func->type->syntaxCopy());
 	type = type->semantic(loc, sc);
 	AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
@@ -6223,7 +6223,7 @@ Expression *AddrExp::semantic(Scope *sc)
 	    FuncDeclaration *f = dve->var->isFuncDeclaration();
         VarDeclaration *v = dve->var->isVarDeclaration();
 
-        // LLVMDC
+        // LDC
         if (f && f->isIntrinsic())
         {
             error("cannot take the address of intrinsic function %s", e1->toChars());
@@ -7843,7 +7843,7 @@ Expression *ShlAssignExp::semantic(Scope *sc)
     e1->checkIntegral();
     e2 = e2->checkIntegral();
     //e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LLVMDC
+    e2 = e2->castTo(sc, e1->type); // LDC
     return this;
 }
 
@@ -7872,7 +7872,7 @@ Expression *ShrAssignExp::semantic(Scope *sc)
     e1->checkIntegral();
     e2 = e2->checkIntegral();
     //e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LLVMDC
+    e2 = e2->castTo(sc, e1->type); // LDC
     return this;
 }
 
@@ -7901,7 +7901,7 @@ Expression *UshrAssignExp::semantic(Scope *sc)
     e1->checkIntegral();
     e2 = e2->checkIntegral();
     //e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LLVMDC
+    e2 = e2->castTo(sc, e1->type); // LDC
     return this;
 }
 
@@ -8389,7 +8389,7 @@ Expression *ShlExp::semantic(Scope *sc)
 	e2 = e2->checkIntegral();
 	e1 = e1->integralPromotions(sc);
 	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LLVMDC
+    e2 = e2->castTo(sc, e1->type); // LDC
 	type = e1->type;
     }
     return this;
@@ -8414,7 +8414,7 @@ Expression *ShrExp::semantic(Scope *sc)
 	e2 = e2->checkIntegral();
 	e1 = e1->integralPromotions(sc);
 	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LLVMDC
+    e2 = e2->castTo(sc, e1->type); // LDC
 	type = e1->type;
     }
     return this;
@@ -8439,7 +8439,7 @@ Expression *UshrExp::semantic(Scope *sc)
 	e2 = e2->checkIntegral();
 	e1 = e1->integralPromotions(sc);
 	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LLVMDC
+    e2 = e2->castTo(sc, e1->type); // LDC
 	type = e1->type;
     }
     return this;
@@ -9092,7 +9092,7 @@ void CondExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 #if IN_LLVM
 
-// Strictly LLVMDC specific stuff
+// Strictly LDC specific stuff
 
 GEPExp::GEPExp(Loc loc, Expression* e, Identifier* id, unsigned idx)
     : UnaExp(loc, TOKgep, sizeof(GEPExp), e)

@@ -1,4 +1,4 @@
-// Modified for LLVMDC
+// Modified for LDC
 
 module std.moduleinit;
 

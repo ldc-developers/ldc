@@ -94,7 +94,7 @@ enum BE
     BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt),
 };
 
-// LLVMDC this is used for tracking try-finally, synchronized and volatile scopes
+// LDC this is used for tracking try-finally, synchronized and volatile scopes
 // definitions in gen/llvmhelpers.cpp
 struct EnclosingHandler : Object
 {
@@ -544,7 +544,7 @@ struct CaseStatement : Statement
 
     CaseStatement* isCaseStatement() { return this; }
 
-    // LLVMDC
+    // LDC
     llvm::BasicBlock* bodyBB;
     llvm::ConstantInt* llvmIdx;
 };
@@ -570,7 +570,7 @@ struct DefaultStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LLVMDC
+    // LDC
     llvm::BasicBlock* bodyBB;
 };
 
@@ -655,7 +655,7 @@ struct BreakStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LLVMDC: only set if ident is set: label statement to jump to
+    // LDC: only set if ident is set: label statement to jump to
     LabelStatement *target;
 };
 
@@ -674,7 +674,7 @@ struct ContinueStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LLVMDC: only set if ident is set: label statement to jump to
+    // LDC: only set if ident is set: label statement to jump to
     LabelStatement *target;
 };
 
@@ -871,7 +871,7 @@ struct LabelStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LLVMDC
+    // LDC
     bool asmLabel;       // for labels inside inline assembler
 };
 
@@ -903,7 +903,7 @@ struct AsmStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LLVMDC
+    // LDC
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;
 };

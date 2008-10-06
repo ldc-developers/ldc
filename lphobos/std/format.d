@@ -12,7 +12,7 @@
 /*
  *  Copyright (C) 2004-2006 by Digital Mars, www.digitalmars.com
  *  Written by Walter Bright
- *  Modified for LLVMDC by Tomas Lindquist Olsen
+ *  Modified for LDC by Tomas Lindquist Olsen
  *
  *  This software is provided 'as-is', without any express or implied
  *  warranty. In no event will the authors be held liable for any damages

@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRFORW_H
-#define LLVMDC_IR_IRFORW_H
+#ifndef LDC_IR_IRFORW_H
+#define LDC_IR_IRFORW_H
 
 // dmd forward declarations
 struct Module;

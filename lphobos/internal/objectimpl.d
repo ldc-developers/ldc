@@ -33,7 +33,7 @@
  */
 
 /*
- * This copy is modified to work with LLVMDC
+ * This copy is modified to work with LDC
  * by Tomas Lindquist Olsen, September 2007
  */
 

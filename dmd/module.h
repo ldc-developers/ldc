@@ -169,7 +169,7 @@ struct Module : Package
     Symbol *toSymbol();
     void genmoduleinfo();
 
-    // LLVMDC
+    // LDC
     void buildTargetFiles();
     File* buildFilePath(char* forcename, char* path, char* ext);
     Module *isModule() { return this; }

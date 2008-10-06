@@ -1183,7 +1183,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	stride = t1b->nextOf()->size(loc);
 	if (!t->equals(t2b))
 	    e2 = e2->castTo(sc, t);
-    // LLVMDC: llvm uses typesafe pointer arithmetic
+    // LDC: llvm uses typesafe pointer arithmetic
     #if !IN_LLVM
 	if (t1b->next->isbit())
 	    // BUG: should add runtime check for misaligned offsets

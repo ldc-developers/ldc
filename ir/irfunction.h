@@ -1,5 +1,5 @@
-#ifndef LLVMDC_IR_IRFUNCTION_H
-#define LLVMDC_IR_IRFUNCTION_H
+#ifndef LDC_IR_IRFUNCTION_H
+#define LDC_IR_IRFUNCTION_H
 
 #include "ir/ir.h"
 #include "ir/irlandingpad.h"

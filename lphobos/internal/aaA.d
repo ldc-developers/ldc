@@ -28,7 +28,7 @@
  */
 
 /*
- * Modified for LLVMDC by Tomas Lindquist Olsen.
+ * Modified for LDC by Tomas Lindquist Olsen.
  * The DMD implementation wont quite work due to the differences in how
  * structs are handled.
  */

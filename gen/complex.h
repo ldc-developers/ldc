@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_COMPLEX_H
-#define LLVMDC_GEN_COMPLEX_H
+#ifndef LDC_GEN_COMPLEX_H
+#define LDC_GEN_COMPLEX_H
 
 const llvm::StructType* DtoComplexType(Type* t);
 const LLType* DtoComplexBaseType(Type* t);
@@ -26,4 +26,4 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs);
 
 DValue* DtoCastComplex(Loc& loc, DValue* val, Type* to);
 
-#endif // LLVMDC_GEN_COMPLEX_H
+#endif // LDC_GEN_COMPLEX_H

@@ -1,5 +1,5 @@
-#ifndef LLVMDC_GEN_CLASSES_H
-#define LLVMDC_GEN_CLASSES_H
+#ifndef LDC_GEN_CLASSES_H
+#define LDC_GEN_CLASSES_H
 
 #include "gen/structs.h"
 

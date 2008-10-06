@@ -161,7 +161,7 @@ enum TOK
     TOKshared,
 #endif
 
-// LLVMDC specific
+// LDC specific
 #if IN_LLVM
     TOKgep,
 #endif

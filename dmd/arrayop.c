@@ -308,7 +308,7 @@ Expression *BinExp::arrayOp(Scope *sc)
 	else
 	{   /* In library, refer to it.
 	     */
-        // LLVMDC FIXME   
+        // LDC FIXME   
 	    fd = FuncDeclaration::genCfunc(NULL, type, name);
 	}
 	sv->ptrvalue = fd;	// cache symbol in hash table
