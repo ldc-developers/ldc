@@ -88,7 +88,7 @@ static void cmtable_init()
 
 /************************* Token **********************************************/
 
-char *Token::tochars[TOKMAX];
+const char *Token::tochars[TOKMAX];
 
 void *Token::operator new(size_t size)
 {   Token *t;
@@ -110,8 +110,8 @@ void Token::print()
 }
 #endif
 
-char *Token::toChars()
-{   char *p;
+const char *Token::toChars()
+{   const char *p;
     static char buffer[3 + 3 * sizeof(value) + 1];
 
     p = buffer;
@@ -239,8 +239,8 @@ char *Token::toChars()
     return p;
 }
 
-char *Token::toChars(enum TOK value)
-{   char *p;
+const char *Token::toChars(enum TOK value)
+{   const char *p;
     static char buffer[3 + 3 * sizeof(value) + 1];
 
     p = tochars[value];
@@ -467,7 +467,7 @@ int Lexer::isValidIdentifier(char *p)
     while (p[idx])
     {   dchar_t dc;
 
-	char *q = utf_decodeChar((unsigned char *)p, len, &idx, &dc);
+	const char *q = utf_decodeChar((unsigned char *)p, len, &idx, &dc);
 	if (q)
 	    goto Linvalid;
 
@@ -718,7 +718,7 @@ void Lexer::scan(Token *t)
 		    {	unsigned major = 0;
 			unsigned minor = 0;
 
-			for (char *p = global.version + 1; 1; p++)
+			for (const char *p = global.version + 1; 1; p++)
 			{
 			    char c = *p;
 			    if (isdigit(c))
@@ -2186,13 +2186,15 @@ done:
 		break;
 	    if (d >= r)
 		break;
-	    if (n && n * r + d <= n)
+	    uinteger_t n2 = n * r;
+	    //printf("n2 / r = %llx, n = %llx\n", n2/r, n);
+	    if (n2 / r != n || n2 + d < n)
 	    {
 		error ("integer overflow");
 		break;
 	    }
 
-	    n = n * r + d;
+	    n = n2 + d;
 	    p++;
 	}
 #endif
@@ -2603,7 +2605,7 @@ unsigned Lexer::decodeUTF()
     unsigned char *s = p;
     size_t len;
     size_t idx;
-    char *msg;
+    const char *msg;
 
     c = *s;
     assert(c & 0x80);
@@ -2801,7 +2803,7 @@ Identifier *Lexer::uniqueId(const char *s)
  */
 
 struct Keyword
-{   char *name;
+{   const char *name;
     enum TOK value;
 };
 
@@ -2928,6 +2930,7 @@ static Keyword keywords[] =
     {	"__overloadset", TOKoverloadset	},
     {	"__FILE__",	TOKfile		},
     {	"__LINE__",	TOKline		},
+    {	"shared",	TOKshared	},
 #endif
 };
 
@@ -2953,7 +2956,7 @@ void Lexer::initKeywords()
     cmtable_init();
 
     for (u = 0; u < nkeywords; u++)
-    {	char *s;
+    {	const char *s;
 
 	//printf("keyword[%d] = '%s'\n",u, keywords[u].name);
 	s = keywords[u].name;

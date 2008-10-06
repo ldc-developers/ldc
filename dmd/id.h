@@ -166,9 +166,9 @@ struct Id
     static Identifier *aaKeys;
     static Identifier *aaValues;
     static Identifier *aaRehash;
+    static Identifier *GNU_asm;
     static Identifier *lib;
     static Identifier *msg;
-    static Identifier *GNU_asm;
     static Identifier *intrinsic;
     static Identifier *va_intrinsic;
     static Identifier *no_typeinfo;

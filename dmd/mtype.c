@@ -789,8 +789,8 @@ int Type::hasPointers()
 
 TypeBasic::TypeBasic(TY ty)
 	: Type(ty, NULL)
-{   char *c;
-    char *d;
+{   const char *c;
+    const char *d;
     unsigned flags;
 
 #define TFLAGSintegral	1
@@ -935,7 +935,7 @@ Type *TypeBasic::syntaxCopy()
 
 char *TypeBasic::toChars()
 {
-    return dstring;
+    return (char *)dstring;
 }
 
 void TypeBasic::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)

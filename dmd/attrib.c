@@ -34,7 +34,7 @@
 #include "../gen/enums.h"
 #include "../gen/logger.h"
 
-extern void obj_includelib(char *name);
+extern void obj_includelib(const char *name);
 void obj_startaddress(Symbol *s);
 
 
