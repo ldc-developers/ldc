@@ -29,9 +29,11 @@ testvestion=D_InlineAsm_X86
 testversion=D_InlineAsm_PPC
 testversion=D_InlineAsm_X86_64
 testversion=D_InlineAsm_PPC64
+testversion=LLVM_InlineAsm_X86
 testversion=LittleEndian
 testversion=BigEndian
 testversion=LLVM64
+testversion=PIC
 
 
 [compile]
