@@ -131,10 +131,16 @@ void DtoResolveStruct(StructDeclaration* sd)
     Logger::println("DtoResolveStruct(%s): %s", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
-    if (sd->prot() == PROTprivate && sd->getModule() != gIR->dmodule)
-        Logger::println("using a private struct from outside its module");
-
     TypeStruct* ts = (TypeStruct*)sd->type->toBasetype();
+
+    // this struct is a forward declaration
+    // didn't even know had those ...
+    if (sd->sizeok != 1)
+    {
+        sd->ir.irStruct = new IrStruct(ts);
+        ts->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
+        return;
+    }
 
     bool ispacked = (ts->alignsize() == 1);
 
