@@ -2431,13 +2431,19 @@ DValue* GEPExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* BoolExp::toElem(IRState* p)
+{
+    return new DImValue(type, DtoBoolean(loc, e1->toElem(p)));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
 STUB(DotTypeExp);
 STUB(TypeDotIdExp);
 STUB(ScopeExp);
 STUB(TypeExp);
-STUB(BoolExp);
 STUB(TupleExp);
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); fatal(); return NULL; }
