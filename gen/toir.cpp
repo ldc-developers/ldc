@@ -2438,9 +2438,18 @@ DValue* BoolExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* DotTypeExp::toElem(IRState* p)
+{
+    Type* t = sym->getType();
+    assert(t);
+    assert(t == e1->type && t == type);
+    return e1->toElem(p);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
-STUB(DotTypeExp);
 STUB(TypeDotIdExp);
 STUB(ScopeExp);
 STUB(TypeExp);
