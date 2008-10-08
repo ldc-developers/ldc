@@ -1512,6 +1512,7 @@ DValue* NewExp::toElem(IRState* p)
         }
         else {
             assert(ts->sym);
+            DtoForceConstInitDsymbol(ts->sym);
             DtoAggrCopy(mem,ts->sym->ir.irStruct->init);
         }
         return new DImValue(type, mem);
