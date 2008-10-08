@@ -1562,8 +1562,10 @@ LLValue* DtoBoolean(Loc& loc, DValue* dval)
     // dynamic array
     else if (ty == Tarray)
     {
-        // return (arr.length != 0)
-        return gIR->ir->CreateICmpNE(DtoArrayLen(dval), DtoConstSize_t(0), "tmp");
+        // return (arr.ptr !is null)
+        LLValue* ptr = DtoArrayPtr(dval);
+        LLConstant* nul = getNullPtr(ptr->getType());
+        return gIR->ir->CreateICmpNE(ptr, nul, "tmp");
     }
     // delegate
     else if (ty == Tdelegate)
