@@ -279,9 +279,6 @@ void DtoResolveClass(ClassDeclaration* cd)
     // name the type
     gIR->module->addTypeName(cd->mangle(), ts->ir.type->get());
 
-    // get interface info type
-    const llvm::StructType* infoTy = DtoInterfaceInfoType();
-
     // create vtable type
     llvm::GlobalVariable* svtblVar = 0;
 #if OPAQUE_VTBLS
@@ -311,7 +308,7 @@ void DtoResolveClass(ClassDeclaration* cd)
             Logger::println("*** ClassDeclaration in vtable: %s", cd2->toChars());
             const LLType* cinfoty;
             if (cd->isInterfaceDeclaration()) {
-                cinfoty = infoTy;
+                cinfoty = DtoInterfaceInfoType();
             }
             else if (cd != ClassDeclaration::classinfo) {
                 cinfoty = ClassDeclaration::classinfo->type->ir.type->get();
