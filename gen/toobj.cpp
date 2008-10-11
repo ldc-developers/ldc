@@ -420,7 +420,8 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, ch
     args.push_back("-o");
     args.push_back(objpath.toString());
 
-//TODO: Add other options, like -fpic
+    //FIXME: only use this if needed?
+    args.push_back("-fpic");
 
     // Now that "args" owns all the std::strings for the arguments, call the c_str
     // method to get the underlying string array.  We do this game so that the

@@ -23,6 +23,13 @@ void linkModules(llvm::Module* dst, const std::vector<llvm::Module*>& MV);
 int linkExecutable(const char* argv0);
 
 /**
+ * Link an executable only from object files.
+ * @param argv0 the argv[0] value as passed to main
+ * @return 0 on success.
+ */
+int linkObjToExecutable(const char* argv0);
+
+/**
  * Delete the executable that was previously linked with linkExecutable.
  */
 void deleteExecutable();

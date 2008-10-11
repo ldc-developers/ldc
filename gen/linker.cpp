@@ -197,6 +197,133 @@ int linkExecutable(const char* argv0)
 
 //////////////////////////////////////////////////////////////////////////////
 
+int linkObjToExecutable(const char* argv0)
+{
+    Logger::println("*** Linking executable ***");
+
+    // error string
+    std::string errstr;
+
+    // find gcc for linking
+    llvm::sys::Path gcc = llvm::sys::Program::FindProgramByName("gcc");
+    if (gcc.isEmpty())
+    {
+        gcc.set("gcc");
+    }
+
+    // build arguments
+    std::vector<const char*> args;
+
+    // first the program name ??
+    args.push_back("gcc");
+
+    // output filename
+    std::string exestr;
+    if (global.params.exefile)
+    {   // explicit
+        exestr = global.params.exefile;
+    }
+    else
+    {   // inferred
+        // try root module name
+        if (Module::rootModule)
+            exestr = Module::rootModule->toChars();
+        else
+            exestr = "a.out";
+    }
+    if (global.params.os == OSWindows)
+        exestr.append(".exe");
+
+    args.push_back("-o");
+    args.push_back(exestr.c_str());
+
+    // set the global gExePath
+    gExePath.set(exestr);
+    assert(gExePath.isValid());
+
+    // create path to exe
+    llvm::sys::Path exedir(gExePath);
+    exedir.set(gExePath.getDirname());
+    if (!exedir.exists())
+    {
+	    exedir.createDirectoryOnDisk(true, &errstr);
+	    if (!errstr.empty())
+	    {	
+	        error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
+	        fatal();
+	    }
+	}    
+
+    // additional linker switches
+    for (int i = 0; i < global.params.linkswitches->dim; i++)
+    {
+        char *p = (char *)global.params.linkswitches->data[i];
+        args.push_back(p);
+    }
+
+    // user libs
+    for (int i = 0; i < global.params.libfiles->dim; i++)
+    {
+        char *p = (char *)global.params.libfiles->data[i];
+        args.push_back(p);
+    }
+
+    // default libs
+    switch(global.params.os) {
+    case OSLinux:
+    case OSMacOSX:
+        args.push_back("-ldl");
+    case OSFreeBSD:
+        args.push_back("-lpthread");
+        args.push_back("-lm");
+        break;
+
+    case OSWindows:
+        // FIXME: I'd assume kernel32 etc
+        break;
+    }
+
+    // object files
+    for (int i = 0; i < global.params.objfiles->dim; i++)
+    {
+        char *p = (char *)global.params.objfiles->data[i];
+        args.push_back(p);
+    }
+
+    // print link command?
+    if (!global.params.quiet || global.params.verbose)
+    {
+        // Print it
+        for (int i = 0; i < args.size(); i++)
+            printf("%s ", args[i]);
+        printf("\n");
+        fflush(stdout);
+    }
+
+    Logger::println("Linking with: ");
+    std::vector<const char*>::const_iterator I = args.begin(), E = args.end(); 
+    std::ostream& logstr = Logger::cout();
+    for (; I != E; ++I)
+        if (*I)
+            logstr << "'" << *I << "'" << " ";
+    logstr << "\n" << std::flush;
+
+
+    // terminate args list
+    args.push_back(NULL);
+
+    // try to call linker!!!
+    if (int status = llvm::sys::Program::ExecuteAndWait(gcc, &args[0], NULL, NULL, 0,0, &errstr))
+    {
+        error("linking failed:\nstatus: %d", status);
+        if (!errstr.empty())
+            error("message: %s", errstr.c_str());
+        fatal();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void deleteExecutable()
 {
     if (!gExePath.isEmpty())
