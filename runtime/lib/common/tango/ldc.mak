@@ -60,9 +60,11 @@ DOC_DEST=../../../doc/tango
 .cpp.o:
 	g++ -c $(CFLAGS) $< -o$@
 
-.d.bc:
+.d.o:
 	$(DC) -c $(DFLAGS) -Hf$*.di $< -of$@
-#	$(DC) -c $(DFLAGS) $< -of$@
+
+.d.bc:
+	$(DC) -c $(DFLAGS) -Hf$*.di $< -of$@ -output-bc
 
 .ll.bc:
 	$(LLC) -f -o=$@ $<
@@ -80,13 +82,20 @@ doc     : tango.doc
 
 ######################################################
 
-OBJ_CORE= \
+OBJ_CORE_BC= \
     core/BitManip.bc \
     core/Exception.bc \
     core/Memory.bc \
     core/Runtime.bc \
     core/Thread.bc
 #    core/ThreadASM.o
+
+OBJ_CORE_O= \
+    core/BitManip.o \
+    core/Exception.o \
+    core/Memory.o \
+    core/Runtime.o \
+    core/Thread.o
 
 OBJ_STDC= \
     stdc/wrap.o
@@ -95,10 +104,15 @@ OBJ_STDC= \
 OBJ_STDC_POSIX= \
     stdc/posix/pthread_darwin.o
 
-ALL_OBJS= \
-    $(OBJ_CORE)
+ALL_OBJS_BC= \
+    $(OBJ_CORE_BC)
 #    $(OBJ_STDC)
 #    $(OBJ_STDC_POSIX)
+
+ALL_OBJS_O= \
+    $(OBJ_CORE_O) \
+    $(OBJ_STDC) \
+    $(OBJ_STDC_POSIX)
 
 ######################################################
 
@@ -119,17 +133,14 @@ tango.lib : $(LIB_TARGET_FULL)
 tango.clib : $(LIB_TARGET_C_ONLY)
 tango.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
+$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_BC)
 	$(RM) $@
-	$(LC) $@ $(ALL_OBJS)
+	$(LC) $@ $(ALL_OBJS_BC)
 
 
-$(LIB_TARGET_FULL) : $(ALL_OBJS) $(OBJ_STDC)
-	$(RM) $@ $@.bc $@.s $@.o
-	$(LLINK) -o=$@.bc $(ALL_OBJS)
-	$(LCC) -o=$@.s $@.bc
-	$(CC) -c -o $@.o $@.s
-	$(CLC) $@ $@.o $(OBJ_STDC)
+$(LIB_TARGET_FULL) : $(ALL_OBJS_O)
+	$(RM) $@
+	$(CLC) $@ $(ALL_OBJS_O)
 
 
 $(LIB_TARGET_C_ONLY) : $(OBJ_STDC)
@@ -137,12 +148,9 @@ $(LIB_TARGET_C_ONLY) : $(OBJ_STDC)
 	$(CLC) $@ $(OBJ_STDC)
 
 
-$(LIB_TARGET_SHARED) : $(ALL_OBJS) $(OBJ_STDC)
-	$(RM) $@ $@.bc $@.s $@.o
-	$(LLINK) -o=$@.bc $(ALL_OBJS)
-	$(LCC) -relocation-model=pic -o=$@.s $@.bc
-	$(CC) -c -o $@.o $@.s
-	$(CC) -shared -o $@ $@.o $(OBJ_STDC)
+$(LIB_TARGET_SHARED) : $(ALL_OBJS_O)
+	$(RM) $@
+	$(CC) -shared -o $@ $(ALL_OBJS_O)
 
 
 tango.doc : $(ALL_DOCS)

@@ -58,6 +58,9 @@ LIB_DEST=..
 	g++ -c $(CFLAGS) $< -o$@
 
 .d.bc:
+	$(DC) -c $(DFLAGS) $< -of$@ -output-bc
+
+.d.o:
 	$(DC) -c $(DFLAGS) $< -of$@
 
 .d.html:
@@ -72,12 +75,19 @@ doc     : basic.doc
 
 ######################################################
 
-ALL_OBJS= \
+ALL_OBJS_BC= \
     gc.bc \
     gcalloc.bc \
     gcbits.bc \
     gcstats.bc \
     gcx.bc
+
+ALL_OBJS_O= \
+    gc.o \
+    gcalloc.o \
+    gcbits.o \
+    gcstats.o \
+    gcx.o
 
 ######################################################
 
@@ -89,24 +99,19 @@ basic.lib : $(LIB_TARGET_BC)
 basic.nlib : $(LIB_TARGET_NATIVE)
 basic.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC) : $(ALL_OBJS)
+$(LIB_TARGET_BC) : $(ALL_OBJS_BC)
 	$(RM) $@
-	$(LC) $@ $(ALL_OBJS)
+	$(LC) $@ $(ALL_OBJS_BC)
 
 
-$(LIB_TARGET_NATIVE) : $(ALL_OBJS)
-	$(RM) $@ $@.bc $@.s $@.o
-	$(LLINK) -o=$@.bc $(ALL_OBJS)
-	$(LCC) -o=$@.s $@.bc
-	$(CC) -c -o $@.o $@.s
-	$(CLC) $@ $@.o
+$(LIB_TARGET_NATIVE) : $(ALL_OBJS_O)
+	$(RM) $@
+	$(CLC) $@ $(ALL_OBJS_O)
 
 
-$(LIB_TARGET_SHARED) : $(ALL_OBJS)
-	$(RM) $@ $@.bc $@.s $@.o
-	$(LLINK) -o=$@.bc $(ALL_OBJS)
-	$(LCC) -relocation-model=pic -o=$@.s $@.bc
-	$(CC) -shared -o $@ $@.s
+$(LIB_TARGET_SHARED) : $(ALL_OBJS_O)
+	$(RM) $@
+	$(CC) -shared -o $@ $(ALL_OBJS_O)
 
 basic.doc : $(ALL_DOCS)
 	echo No documentation available.

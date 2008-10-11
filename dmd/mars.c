@@ -738,6 +738,11 @@ int main(int argc, char *argv[], char** envp)
 	arg = (char *)mem.malloc(64);
 	strcpy(arg, "-ltango-gc-basic");
 	global.params.linkswitches->push(arg);
+	// pass the runtime again to resolve issues
+	// with linking order
+	arg = (char *)mem.malloc(64);
+	strcpy(arg, "-lldc-runtime");
+	global.params.linkswitches->push(arg);
     }
 
     if (global.params.run)
