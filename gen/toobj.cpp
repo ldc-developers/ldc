@@ -14,9 +14,14 @@
 #include "gen/llvm.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Module.h"
+#include "llvm/ModuleProvider.h"
+#include "llvm/PassManager.h"
 #include "llvm/System/Path.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include "mars.h"
 #include "module.h"
@@ -188,6 +193,68 @@ void Module::genobjfile(int multiobj)
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::ofstream aos(llpath.c_str());
         ir.module->print(aos, NULL);
+    }
+
+
+    //TODO: Move all of this into a helper function?
+    if(false)
+    {
+        using namespace llvm;
+
+    //FIXME: Proper out file name.
+        std::string Err;
+        raw_fd_ostream Out("test.s", Err);
+        if(!Err.empty()) {}
+
+        const TargetMachineRegistry::entry* MArch;
+        MArch = TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, Err);
+        if (MArch == 0) {
+            error("error auto-selecting target for module '%s'", Err.c_str());
+            fatal();
+        }
+ 
+        SubtargetFeatures Features;
+    //TODO: Features?
+    //    Features.setCPU(MCPU);
+    //    for (unsigned i = 0; i != MAttrs.size(); ++i)
+    //      Features.AddFeature(MAttrs[i]);
+
+    //TODO: Set PIC if shared (or just do it always?)
+    //  TargetMachine::setRelocationModel(...);
+
+        std::auto_ptr<TargetMachine> target(MArch->CtorFn(*ir.module, Features.getString()));
+        assert(target.get() && "Could not allocate target machine!");
+        TargetMachine &Target = *target.get();
+
+        // Build up all of the passes that we want to do to the module.
+        ExistingModuleProvider Provider(ir.module);
+        FunctionPassManager Passes(&Provider);
+    //FIXME does this TargetData match gTargetData?
+        Passes.add(new TargetData(*Target.getTargetData()));
+
+        // Ask the target to add backend passes as necessary.
+        MachineCodeEmitter *MCE = 0;
+
+    //TODO: May want to switch it on for -O0?
+        bool Fast = false;
+        FileModel::Model mod = Target.addPassesToEmitFile(Passes, Out, TargetMachine::AssemblyFile, Fast);
+        assert(mod == FileModel::AsmFile);
+
+        bool err = Target.addPassesToEmitFileFinish(Passes, MCE, Fast);
+        assert(!err);
+
+        Passes.doInitialization();
+
+        // Run our queue of passes all at once now, efficiently.
+        for (llvm::Module::iterator I = ir.module->begin(), E = ir.module->end(); I != E; ++I)
+        if (!I->isDeclaration())
+            Passes.run(*I);
+
+        Passes.doFinalization();
+
+        // release module from module provider so we can delete it ourselves
+        llvm::Module* rmod = Provider.releaseModule(&Err);
+        assert(rmod);
     }
 
     delete ir.module;

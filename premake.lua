@@ -55,7 +55,7 @@ package.excludes = { "dmd/idgen.c", "dmd/impcnvgen.c" }
 package.buildoptions = { "-x c++", "`llvm-config --cxxflags`" }
 package.linkoptions = {
     -- long but it's faster than just 'all'
-    "`llvm-config --libs bitwriter linker ipo instrumentation`",
+    "`llvm-config --libs bitwriter linker ipo instrumentation backend`",
     "`llvm-config --ldflags`",
 }
 package.defines = {
