@@ -56,6 +56,9 @@
 // in gen/optimize.cpp
 void ldc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
+// fwd decl
+void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& Out);
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void Module::genobjfile(int multiobj)
@@ -195,66 +198,14 @@ void Module::genobjfile(int multiobj)
         ir.module->print(aos, NULL);
     }
 
-
-    //TODO: Move all of this into a helper function?
+    //TODO: command line switch
     if(false)
     {
-        using namespace llvm;
-
-    //FIXME: Proper out file name.
-        std::string Err;
-        raw_fd_ostream Out("test.s", Err);
-        if(!Err.empty()) {}
-
-        const TargetMachineRegistry::entry* MArch;
-        MArch = TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, Err);
-        if (MArch == 0) {
-            error("error auto-selecting target for module '%s'", Err.c_str());
-            fatal();
-        }
- 
-        SubtargetFeatures Features;
-    //TODO: Features?
-    //    Features.setCPU(MCPU);
-    //    for (unsigned i = 0; i != MAttrs.size(); ++i)
-    //      Features.AddFeature(MAttrs[i]);
-
-    //TODO: Set PIC if shared (or just do it always?)
-    //  TargetMachine::setRelocationModel(...);
-
-        std::auto_ptr<TargetMachine> target(MArch->CtorFn(*ir.module, Features.getString()));
-        assert(target.get() && "Could not allocate target machine!");
-        TargetMachine &Target = *target.get();
-
-        // Build up all of the passes that we want to do to the module.
-        ExistingModuleProvider Provider(ir.module);
-        FunctionPassManager Passes(&Provider);
-    //FIXME does this TargetData match gTargetData?
-        Passes.add(new TargetData(*Target.getTargetData()));
-
-        // Ask the target to add backend passes as necessary.
-        MachineCodeEmitter *MCE = 0;
-
-    //TODO: May want to switch it on for -O0?
-        bool Fast = false;
-        FileModel::Model mod = Target.addPassesToEmitFile(Passes, Out, TargetMachine::AssemblyFile, Fast);
-        assert(mod == FileModel::AsmFile);
-
-        bool err = Target.addPassesToEmitFileFinish(Passes, MCE, Fast);
-        assert(!err);
-
-        Passes.doInitialization();
-
-        // Run our queue of passes all at once now, efficiently.
-        for (llvm::Module::iterator I = ir.module->begin(), E = ir.module->end(); I != E; ++I)
-        if (!I->isDeclaration())
-            Passes.run(*I);
-
-        Passes.doFinalization();
-
-        // release module from module provider so we can delete it ourselves
-        llvm::Module* rmod = Provider.releaseModule(&Err);
-        assert(rmod);
+        //FIXME: Proper out file name.
+        Logger::println("Writing native asm to: %s\n", "");
+        std::string err;
+        llvm::raw_fd_ostream out("test.s", err);
+        write_asm_to_file(*ir.module, out);
     }
 
     delete ir.module;
@@ -265,6 +216,66 @@ void Module::genobjfile(int multiobj)
     {
         Logger::disable();
     }
+}
+
+/* ================================================================== */
+
+void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& out)
+{
+    using namespace llvm;
+
+    std::string Err;
+
+    const TargetMachineRegistry::entry* MArch;
+    MArch = TargetMachineRegistry::getClosestStaticTargetForModule(m, Err);
+    if (MArch == 0) {
+        error("error auto-selecting target for module '%s'", Err.c_str());
+        fatal();
+    }
+
+    SubtargetFeatures Features;
+//TODO: Features?
+//    Features.setCPU(MCPU);
+//    for (unsigned i = 0; i != MAttrs.size(); ++i)
+//      Features.AddFeature(MAttrs[i]);
+
+    //FIXME: Only set this if required?
+    TargetMachine::setRelocationModel(Reloc::PIC_);
+
+    std::auto_ptr<TargetMachine> target(MArch->CtorFn(m, Features.getString()));
+    assert(target.get() && "Could not allocate target machine!");
+    TargetMachine &Target = *target.get();
+
+    // Build up all of the passes that we want to do to the module.
+    ExistingModuleProvider Provider(&m);
+    FunctionPassManager Passes(&Provider);
+    //FIXME: Will gTargetData always be Target.getTargetData anyway?
+    assert(gTargetData->getStringRepresentation() == Target.getTargetData()->getStringRepresentation());
+    Passes.add(new TargetData(*Target.getTargetData()));
+
+    // Ask the target to add backend passes as necessary.
+    MachineCodeEmitter *MCE = 0;
+
+//TODO: May want to switch it on for -O0?
+    bool Fast = false;
+    FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, Fast);
+    assert(mod == FileModel::AsmFile);
+
+    bool err = Target.addPassesToEmitFileFinish(Passes, MCE, Fast);
+    assert(!err);
+
+    Passes.doInitialization();
+
+    // Run our queue of passes all at once now, efficiently.
+    for (llvm::Module::iterator I = m.begin(), E = m.end(); I != E; ++I)
+        if (!I->isDeclaration())
+            Passes.run(*I);
+
+    Passes.doFinalization();
+
+    // release module from module provider so we can delete it ourselves
+    llvm::Module* rmod = Provider.releaseModule(&Err);
+    assert(rmod);
 }
 
 /* ================================================================== */
