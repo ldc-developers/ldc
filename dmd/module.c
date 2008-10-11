@@ -180,7 +180,7 @@ void Module::buildTargetFiles()
 	return;
 
     if(!objfile)
-	objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
+	objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.obj_ext);
     if(doDocComment && !docfile)
 	docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
     if(doHdrGen && !hdrfile)

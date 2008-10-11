@@ -52,13 +52,13 @@ Global::Global()
     ddoc_ext = "ddoc";
 
 // LDC
-    obj_ext  = "bc";
     ll_ext  = "ll";
     bc_ext  = "bc";
+    s_ext   = "s";
 #if _WIN32
-    nativeobj_ext = "obj";
+    obj_ext = "obj";
 #elif POSIX
-    nativeobj_ext = "o";
+    obj_ext = "o";
 #else
 #error "fix this"
 #endif
@@ -168,6 +168,10 @@ Usage:\n\
   -op            do not strip paths from source file\n\
   -oq            write object files with fully qualified names\n\
 \n\
+  -output-ll     write LLVM IR\n\
+  -output-bc     write LLVM bitcode\n\
+  -output-s      write native assembly\n\
+\n\
   -c             do not link\n\
   -L<linkerflag> pass <linkerflag> to llvm-ld\n\
 \n\
@@ -216,7 +220,6 @@ Codegen control:\n\
   -d             allow deprecated features\n\
 \n\
   -annotate      annotate the bitcode with human readable source code\n\
-  -dis           disassemble module after compiling\n\
   -ignore        ignore unsupported pragmas\n\
 \n\
 Path options:\n\
@@ -404,8 +407,6 @@ int main(int argc, char *argv[])
             global.params.noruntime = 1;
         else if (strcmp(p + 1, "noverify") == 0)
             global.params.novalidate = 1;
-        else if (strcmp(p + 1, "dis") == 0)
-            global.params.disassemble = 1;
         else if (strcmp(p + 1, "annotate") == 0)
             global.params.llvmAnnotate = 1;
         else if (strncmp(p + 1, "enable-", 7) == 0 ||
@@ -461,6 +462,19 @@ int main(int argc, char *argv[])
 			if (p[3])
 			    goto Lerror;
 			global.params.fqnNames = 1;
+			break;
+
+		    case 'u':
+			if (strncmp(p+1, "output-", 7) != 0)
+			    goto Lerror;
+			if (strcmp(p+8, "ll") == 0)
+			    global.params.output_ll = 1;
+			else if (strcmp(p+8, "bc") == 0)
+			    global.params.output_bc = 1;
+			else if (strcmp(p+8, "s") == 0)
+			    global.params.output_s = 1;
+			else
+			    goto Lerror;
 			break;
 
 		    case 0:
@@ -918,13 +932,12 @@ int main(int argc, char *argv[])
 	ext = FileName::ext(p);
 	if (ext)
 	{
-#if IN_LLVM
-        if (strcmp(ext, global.nativeobj_ext) == 0 ||
-            strcmp(ext, global.obj_ext) == 0)
-#elif TARGET_LINUX
-	    if (strcmp(ext, global.obj_ext) == 0)
+#if TARGET_LINUX
+	    if (strcmp(ext, global.obj_ext) == 0 ||
+		strcmp(ext, global.bc_ext) == 0)
 #else
-	    if (stricmp(ext, global.obj_ext) == 0)
+	    if (stricmp(ext, global.obj_ext) == 0 ||
+		stricmp(ext, global.bc_ext) == 0)
 #endif
 	    {
 		global.params.objfiles->push(files.data[i]);

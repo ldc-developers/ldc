@@ -145,7 +145,9 @@ struct Param
     char *tt_arch;
     char *tt_os;
     char *data_layout;
-    char disassemble;
+    char output_ll;
+    char output_bc;
+    char output_s;
     char llvmInline;
     char llvmAnnotate;
     char useInlineAsm;
@@ -160,7 +162,7 @@ struct Global
     char *obj_ext;
     char *ll_ext;
     char *bc_ext;
-    char *nativeobj_ext;
+    char *s_ext;
     char *doc_ext;	// for Ddoc generated files
     char *ddoc_ext;	// for Ddoc macro include files
     char *hdr_ext;	// for D 'header' import files

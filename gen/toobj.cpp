@@ -179,33 +179,43 @@ void Module::genobjfile(int multiobj)
 
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::sys::Path LLPath;
-    LLPath bcpath = LLPath(objfile->name->toChars());
-    LLPath llpath = bcpath;
-    llpath.eraseSuffix();
-    llpath.appendSuffix(std::string(global.ll_ext));
 
-    // write bytecode
-    {
+    // write LLVM bitcode
+    if (global.params.output_bc) {
+        LLPath bcpath = LLPath(objfile->name->toChars());
+        bcpath.eraseSuffix();
+        bcpath.appendSuffix(std::string(global.bc_ext));
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::ofstream bos(bcpath.c_str(), std::ios::binary);
         llvm::WriteBitcodeToFile(ir.module, bos);
     }
 
-    // disassemble ?
-    if (global.params.disassemble) {
+    // write LLVM IR
+    if (global.params.output_ll) {
+        LLPath llpath = LLPath(objfile->name->toChars());
+        llpath.eraseSuffix();
+        llpath.appendSuffix(std::string(global.ll_ext));
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::ofstream aos(llpath.c_str());
         ir.module->print(aos, NULL);
     }
 
-    //TODO: command line switch
-    if(false)
-    {
-        //FIXME: Proper out file name.
-        Logger::println("Writing native asm to: %s\n", "");
-        std::string err;
-        llvm::raw_fd_ostream out("test.s", err);
-        write_asm_to_file(*ir.module, out);
+    // write native assembly
+    LLPath spath = LLPath(objfile->name->toChars());
+    spath.eraseSuffix();
+    spath.appendSuffix(std::string(global.s_ext));
+    if (!global.params.output_s) {
+        spath.createTemporaryFileOnDisk();
+    }
+    Logger::println("Writing native asm to: %s\n", spath.c_str());
+    std::string err;
+    llvm::raw_fd_ostream out(spath.c_str(), err);
+    write_asm_to_file(*ir.module, out);
+
+    //TODO: call gcc to convert assembly to object file
+
+    if (!global.params.output_s) {
+        spath.eraseFromDisk();
     }
 
     delete ir.module;
