@@ -23,10 +23,6 @@ sed -e 's/torture-//g' -i Makefile
 sed -e 's/find run -type f |/find run -type f -name "*\\\\.d" |/' -i Makefile
 sed -e 's/find norun -type f |/find norun -type f -name "*\\\\.d" |/' -i Makefile
 
-# make sure linker-generated bc files are deleted
-sed -e 's/find run -type f  -name "\*\\\\\.exe" |/find run -type f -name "*\\\\.exe" -o -name "*\\\\.bc" |/' -i Makefile
-sed -e 's/find norun -type f  -name "\*\\\\\.exe" |/find norun -type f -name "*\\\\.exe" -o -name "*\\\\.bc" |/' -i Makefile
-
 # impose more conservative constraints (10s and 256 MB)
 sed -e 's/crashRun 30 1000/crashRun 10 256/' -i dstress.c
 
@@ -54,7 +50,7 @@ DMD=$DMD make compile nocompile run norun > ../$TARGETFILE
 cd ..
 
 echo
-echo "Cleanup... (removing all .bc and .exe files)"
+echo "Cleanup... (removing all .o and .exe files)"
 echo
 
-find dstress -name "*\.bc" -o -name "*\.exe" -exec rm {} \;
+find dstress -name "*\.o" -o -name "*\.exe" -delete
