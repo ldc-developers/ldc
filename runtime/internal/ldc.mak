@@ -56,8 +56,11 @@ LIB_DEST=..
 .cpp.o:
 	g++ -c $(CFLAGS) $< -o$@
 
-.d.bc:
+.d.o:
 	$(DC) -c $(DFLAGS) $< -of$@
+
+.d.bc:
+	$(DC) -c $(DFLAGS) $< -of$@ -output-bc
 
 .d.html:
 	$(DC) -c -o- $(DOCFLAGS) -Df$*.html ldc.ddoc $<
@@ -73,7 +76,7 @@ OBJ_C= \
     monitor.o \
     critical.o
 
-OBJ_BASE= \
+OBJ_BASE_BC= \
     aaA.bc \
     aApply.bc \
     aApplyR.bc \
@@ -89,17 +92,17 @@ OBJ_BASE= \
     switch.bc \
     invariant.bc
 
-OBJ_UTIL= \
+OBJ_UTIL_BC= \
     util/console.bc \
     util/ctype.bc \
     util/string.bc \
     util/utf.bc
 
-OBJ_LDC= \
+OBJ_LDC_BC= \
     ldc/bitmanip.bc \
     ldc/vararg.bc
 
-OBJ_TI= \
+OBJ_TI_BC= \
     typeinfo/ti_AC.bc \
     typeinfo/ti_Acdouble.bc \
     typeinfo/ti_Acfloat.bc \
@@ -136,11 +139,81 @@ OBJ_TI= \
     typeinfo/ti_void.bc \
     typeinfo/ti_wchar.bc
 
-ALL_OBJS= \
-    $(OBJ_BASE) \
-    $(OBJ_UTIL) \
-    $(OBJ_TI) \
-    $(OBJ_LDC)
+OBJ_BASE_O= \
+    aaA.o \
+    aApply.o \
+    aApplyR.o \
+    adi.o \
+    arrayInit.o \
+    cast.o \
+    dmain2.o \
+    eh.o \
+    genobj.o \
+    lifetime.o \
+    memory.o \
+    qsort2.o \
+    switch.o \
+    invariant.o
+
+OBJ_UTIL_O= \
+    util/console.o \
+    util/ctype.o \
+    util/string.o \
+    util/utf.o
+
+OBJ_LDC_O= \
+    ldc/bitmanip.o \
+    ldc/vararg.o
+
+OBJ_TI_O= \
+    typeinfo/ti_AC.o \
+    typeinfo/ti_Acdouble.o \
+    typeinfo/ti_Acfloat.o \
+    typeinfo/ti_Acreal.o \
+    typeinfo/ti_Adouble.o \
+    typeinfo/ti_Afloat.o \
+    typeinfo/ti_Ag.o \
+    typeinfo/ti_Aint.o \
+    typeinfo/ti_Along.o \
+    typeinfo/ti_Areal.o \
+    typeinfo/ti_Ashort.o \
+    typeinfo/ti_byte.o \
+    typeinfo/ti_C.o \
+    typeinfo/ti_cdouble.o \
+    typeinfo/ti_cfloat.o \
+    typeinfo/ti_char.o \
+    typeinfo/ti_creal.o \
+    typeinfo/ti_dchar.o \
+    typeinfo/ti_delegate.o \
+    typeinfo/ti_double.o \
+    typeinfo/ti_float.o \
+    typeinfo/ti_idouble.o \
+    typeinfo/ti_ifloat.o \
+    typeinfo/ti_int.o \
+    typeinfo/ti_ireal.o \
+    typeinfo/ti_long.o \
+    typeinfo/ti_ptr.o \
+    typeinfo/ti_real.o \
+    typeinfo/ti_short.o \
+    typeinfo/ti_ubyte.o \
+    typeinfo/ti_uint.o \
+    typeinfo/ti_ulong.o \
+    typeinfo/ti_ushort.o \
+    typeinfo/ti_void.o \
+    typeinfo/ti_wchar.o
+
+ALL_OBJS_BC= \
+    $(OBJ_BASE_BC) \
+    $(OBJ_UTIL_BC) \
+    $(OBJ_TI_BC) \
+    $(OBJ_LDC_BC)
+
+ALL_OBJS_O= \
+    $(OBJ_BASE_O) \
+    $(OBJ_UTIL_O) \
+    $(OBJ_TI_O) \
+    $(OBJ_LDC_O) \
+    $(OBJ_C)
 
 ######################################################
 
@@ -153,17 +226,14 @@ ldc.clib : $(LIB_TARGET_C_ONLY)
 ldc.lib : $(LIB_TARGET_FULL)
 ldc.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS)
+$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_BC)
 	$(RM) $@
-	$(LC) $@ $(ALL_OBJS)
+	$(LC) $@ $(ALL_OBJS_BC)
 
 
-$(LIB_TARGET_FULL) : $(ALL_OBJS) $(OBJ_C)
-	$(RM) $@ $@.bc $@.s $@.o
-	$(LLINK) -o=$@.bc $(ALL_OBJS)
-	$(LCC) -o=$@.s $@.bc
-	$(CC) -c -o $@.o $@.s
-	$(CLC) $@ $@.o $(OBJ_C)
+$(LIB_TARGET_FULL) : $(ALL_OBJS_O)
+	$(RM) $@
+	$(CLC) $@ $(ALL_OBJS_O)
 
 
 $(LIB_TARGET_C_ONLY) : $(OBJ_C)
@@ -171,12 +241,9 @@ $(LIB_TARGET_C_ONLY) : $(OBJ_C)
 	$(CLC) $@ $(OBJ_C)
 
 
-$(LIB_TARGET_SHARED) : $(ALL_OBJS) $(OBJ_C)
-	$(RM) $@ $@.bc $@.s $@.o
-	$(LLINK) -o=$@.bc $(ALL_OBJS)
-	$(LCC) -relocation-model=pic -o=$@.s $@.bc
-	$(CC) -c -o $@.o $@.s
-	$(CC) -shared -o $@ $@.o $(OBJ_C)
+$(LIB_TARGET_SHARED) : $(ALL_OBJS_O)
+	$(RM) $@
+	$(CC) -shared -o $@ $(ALL_OBJS_O)
 
 
 ldc.doc : $(ALL_DOCS)
