@@ -2443,7 +2443,6 @@ DValue* DotTypeExp::toElem(IRState* p)
 {
     Type* t = sym->getType();
     assert(t);
-    assert(t == e1->type && t == type);
     return e1->toElem(p);
 }
 
