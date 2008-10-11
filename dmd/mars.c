@@ -244,7 +244,7 @@ Misc options:\n\
 );
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char** envp)
 {
     int i;
     Array files;
@@ -1140,7 +1140,7 @@ int main(int argc, char *argv[])
 	    printf("code      %s\n", m->toChars());
 	if (global.params.obj)
 	{
-	    m->genobjfile(0);
+	    m->genobjfile(0, envp);
 	    global.params.objfiles->push(m->objfile->name->str);
 	}
 	if (global.errors)

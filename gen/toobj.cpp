@@ -20,6 +20,7 @@
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
+#include "llvm/System/Program.h"
 #include "llvm/System/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -58,10 +59,11 @@ void ldc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 // fwd decl
 void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& Out);
+void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, char** envp);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void Module::genobjfile(int multiobj)
+void Module::genobjfile(int multiobj, char** envp)
 {
     bool logenabled = Logger::enabled();
     if (llvmForceLogging && !logenabled)
@@ -209,10 +211,14 @@ void Module::genobjfile(int multiobj)
     }
     Logger::println("Writing native asm to: %s\n", spath.c_str());
     std::string err;
-    llvm::raw_fd_ostream out(spath.c_str(), err);
-    write_asm_to_file(*ir.module, out);
+    {
+        llvm::raw_fd_ostream out(spath.c_str(), err);
+        write_asm_to_file(*ir.module, out);
+    }
 
-    //TODO: call gcc to convert assembly to object file
+    // call gcc to convert assembly to object file
+    LLPath objpath = LLPath(objfile->name->toChars());
+    assemble(spath, objpath, envp);
 
     if (!global.params.output_s) {
         spath.eraseFromDisk();
@@ -230,6 +236,7 @@ void Module::genobjfile(int multiobj)
 
 /* ================================================================== */
 
+// based on llc code, University of Illinois Open Source License
 void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& out)
 {
     using namespace llvm;
@@ -290,9 +297,159 @@ void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& out)
 
 /* ================================================================== */
 
+// helper functions for gcc call to assemble
+// based on llvm-ld code, University of Illinois Open Source License
+
+/// CopyEnv - This function takes an array of environment variables and makes a
+/// copy of it.  This copy can then be manipulated any way the caller likes
+/// without affecting the process's real environment.
+///
+/// Inputs:
+///  envp - An array of C strings containing an environment.
+///
+/// Return value:
+///  NULL - An error occurred.
+///
+///  Otherwise, a pointer to a new array of C strings is returned.  Every string
+///  in the array is a duplicate of the one in the original array (i.e. we do
+///  not copy the char *'s from one array to another).
+///
+static char ** CopyEnv(char ** const envp) {
+  // Count the number of entries in the old list;
+  unsigned entries;   // The number of entries in the old environment list
+  for (entries = 0; envp[entries] != NULL; entries++)
+    /*empty*/;
+
+  // Add one more entry for the NULL pointer that ends the list.
+  ++entries;
+
+  // If there are no entries at all, just return NULL.
+  if (entries == 0)
+    return NULL;
+
+  // Allocate a new environment list.
+  char **newenv = new char* [entries];
+  if ((newenv = new char* [entries]) == NULL)
+    return NULL;
+
+  // Make a copy of the list.  Don't forget the NULL that ends the list.
+  entries = 0;
+  while (envp[entries] != NULL) {
+    newenv[entries] = new char[strlen (envp[entries]) + 1];
+    strcpy (newenv[entries], envp[entries]);
+    ++entries;
+  }
+  newenv[entries] = NULL;
+
+  return newenv;
+}
+
+// based on llvm-ld code, University of Illinois Open Source License
+
+/// RemoveEnv - Remove the specified environment variable from the environment
+/// array.
+///
+/// Inputs:
+///  name - The name of the variable to remove.  It cannot be NULL.
+///  envp - The array of environment variables.  It cannot be NULL.
+///
+/// Notes:
+///  This is mainly done because functions to remove items from the environment
+///  are not available across all platforms.  In particular, Solaris does not
+///  seem to have an unsetenv() function or a setenv() function (or they are
+///  undocumented if they do exist).
+///
+static void RemoveEnv(const char * name, char ** const envp) {
+  for (unsigned index=0; envp[index] != NULL; index++) {
+    // Find the first equals sign in the array and make it an EOS character.
+    char *p = strchr (envp[index], '=');
+    if (p == NULL)
+      continue;
+    else
+      *p = '\0';
+
+    // Compare the two strings.  If they are equal, zap this string.
+    // Otherwise, restore it.
+    if (!strcmp(name, envp[index]))
+      *envp[index] = '\0';
+    else
+      *p = '=';
+  }
+
+  return;
+}
+
+// uses gcc to make an obj out of an assembly file
+// based on llvm-ld code, University of Illinois Open Source License
+void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, char** envp)
+{
+    using namespace llvm;
+
+    sys::Path gcc = llvm::sys::Program::FindProgramByName("gcc");
+
+    // Remove these environment variables from the environment of the
+    // programs that we will execute.  It appears that GCC sets these
+    // environment variables so that the programs it uses can configure
+    // themselves identically.
+    //
+    // However, when we invoke GCC below, we want it to use its normal
+    // configuration.  Hence, we must sanitize its environment.
+    char ** clean_env = CopyEnv(envp);
+    if (clean_env == NULL)
+        return;
+    RemoveEnv("LIBRARY_PATH", clean_env);
+    RemoveEnv("COLLECT_GCC_OPTIONS", clean_env);
+    RemoveEnv("GCC_EXEC_PREFIX", clean_env);
+    RemoveEnv("COMPILER_PATH", clean_env);
+    RemoveEnv("COLLECT_GCC", clean_env);
+
+
+    // Run GCC to assemble and link the program into native code.
+    //
+    // Note:
+    //  We can't just assemble and link the file with the system assembler
+    //  and linker because we don't know where to put the _start symbol.
+    //  GCC mysteriously knows how to do it.
+    std::vector<std::string> args;
+    args.push_back(gcc.toString());
+    args.push_back("-fno-strict-aliasing");
+    args.push_back("-O3");
+    args.push_back("-c");
+    args.push_back("-xassembler");
+    args.push_back(asmpath.toString());
+    args.push_back("-o");
+    args.push_back(objpath.toString());
+
+//TODO: Add other options, like -fpic
+
+    // Now that "args" owns all the std::strings for the arguments, call the c_str
+    // method to get the underlying string array.  We do this game so that the
+    // std::string array is guaranteed to outlive the const char* array.
+    std::vector<const char *> Args;
+    for (unsigned i = 0, e = args.size(); i != e; ++i)
+        Args.push_back(args[i].c_str());
+    Args.push_back(0);
+
+    Logger::println("Assembling with: ");
+    std::vector<const char*>::const_iterator I = Args.begin(), E = Args.end(); 
+    std::ostream& logstr = Logger::cout();
+    for (; I != E; ++I)
+        if (*I)
+            logstr << "'" << *I << "'" << " ";
+    logstr << "\n" << std::flush;
+
+    // Run the compiler to assembly the program.
+    std::string ErrMsg;
+    int R = sys::Program::ExecuteAndWait(
+        gcc, &Args[0], (const char**)clean_env, 0, 0, 0, &ErrMsg);
+    delete [] clean_env;
+}
+
+
+/* ================================================================== */
 // build module ctor
 
-static llvm::Function* build_module_ctor()
+llvm::Function* build_module_ctor()
 {
     if (gIR->ctors.empty())
         return NULL;
