@@ -217,6 +217,13 @@ int linkObjToExecutable(const char* argv0)
     // first the program name ??
     args.push_back("gcc");
 
+    // object files
+    for (int i = 0; i < global.params.objfiles->dim; i++)
+    {
+        char *p = (char *)global.params.objfiles->data[i];
+        args.push_back(p);
+    }
+
     // output filename
     std::string exestr;
     if (global.params.exefile)
@@ -281,13 +288,6 @@ int linkObjToExecutable(const char* argv0)
     case OSWindows:
         // FIXME: I'd assume kernel32 etc
         break;
-    }
-
-    // object files
-    for (int i = 0; i < global.params.objfiles->dim; i++)
-    {
-        char *p = (char *)global.params.objfiles->data[i];
-        args.push_back(p);
     }
 
     // print link command?
