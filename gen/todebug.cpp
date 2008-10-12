@@ -149,6 +149,28 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static LLGlobalVariable* dwarfSubProgram(llvm::GlobalVariable* emitUnit, llvm::GlobalVariable* defineUnit, const char* prettyname, const char* mangledname, uint linenum, bool isprivate)
+{
+    std::vector<LLConstant*> vals(11);
+    vals[0] = DBG_TAG(DW_TAG_subprogram);
+    vals[1] = DBG_CAST(getDwarfAnchor(DW_TAG_subprogram));
+
+    vals[2] = DBG_CAST(emitUnit);
+    vals[3] = DtoConstStringPtr(prettyname, "llvm.metadata");
+    vals[4] = vals[3];
+    vals[5] = DtoConstStringPtr(mangledname, "llvm.metadata");
+    vals[6] = DBG_CAST(defineUnit);
+    vals[7] = DtoConstUint(linenum);
+    vals[8] = DBG_NULL;
+    vals[9] = DtoConstBool(isprivate);
+    vals[10] = DtoConstBool(emitUnit == defineUnit);
+
+    Logger::println("emitting subprogram global");
+
+    return emitDwarfGlobal(getDwarfSubProgramType(), vals, "llvm.dbg.subprogram");
+}
+
+/*
 static LLGlobalVariable* dwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariable* compileUnit)
 {
     std::vector<LLConstant*> vals(11);
@@ -168,7 +190,7 @@ static LLGlobalVariable* dwarfSubProgram(FuncDeclaration* fd, llvm::GlobalVariab
     Logger::println("emitting subprogram global");
 
     return emitDwarfGlobal(getDwarfSubProgramType(), vals, "llvm.dbg.subprogram");
-}
+}*/
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -648,7 +670,28 @@ LLGlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd)
     LOG_SCOPE;
 
     // FIXME: duplicates ?
-    return dwarfSubProgram(fd, DtoDwarfCompileUnit(gIR->dmodule));
+    return dwarfSubProgram(
+        DtoDwarfCompileUnit(gIR->dmodule),
+        DtoDwarfCompileUnit(fd->getModule()),
+        fd->toPrettyChars(), fd->mangle(),
+        fd->loc.linnum,
+        fd->protection == PROTprivate);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+LLGlobalVariable* DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname)
+{
+    Logger::println("D to dwarf subprogram");
+    LOG_SCOPE;
+
+    // FIXME: duplicates ?
+    return dwarfSubProgram(
+        DtoDwarfCompileUnit(gIR->dmodule),
+        DtoDwarfCompileUnit(gIR->dmodule),
+        prettyname, mangledname,
+        0,
+        true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

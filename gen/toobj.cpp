@@ -449,6 +449,12 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, ch
 
 
 /* ================================================================== */
+
+// the following code generates functions and needs to output
+// debug info. these macros are useful for that
+#define DBG_TYPE    ( getPtrToType(llvm::StructType::get(NULL,NULL)) )
+#define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
+
 // build module ctor
 
 llvm::Function* build_module_ctor()
@@ -473,11 +479,22 @@ llvm::Function* build_module_ctor()
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
 
+    // debug info
+    LLGlobalVariable* subprog;
+    if(global.params.symdebug) {
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
+    }
+
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
+
+    // debug info end
+    if(global.params.symdebug)
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
 
     builder.CreateRetVoid();
     return fn;
@@ -507,11 +524,22 @@ static llvm::Function* build_module_dtor()
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
 
+    // debug info
+    LLGlobalVariable* subprog;
+    if(global.params.symdebug) {
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
+    }
+
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
+
+    // debug info end
+    if(global.params.symdebug)
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
 
     builder.CreateRetVoid();
     return fn;
@@ -541,11 +569,22 @@ static llvm::Function* build_module_unittest()
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
 
+    // debug info
+    LLGlobalVariable* subprog;
+    if(global.params.symdebug) {
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
+    }
+
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(llvm::CallingConv::Fast);
     }
+
+    // debug info end
+    if(global.params.symdebug)
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
 
     builder.CreateRetVoid();
     return fn;
@@ -587,6 +626,13 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("moduleinfoCtorEntry", ctor);
     IRBuilder<> builder(bb);
 
+    // debug info
+    LLGlobalVariable* subprog;
+    if(global.params.symdebug) {
+        subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
+    }
+
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");
 
@@ -596,6 +642,10 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // replace beginning
     builder.CreateStore(thismref, mref);
+
+    // debug info end
+    if(global.params.symdebug)
+        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
 
     // return
     builder.CreateRetVoid();

@@ -17,6 +17,14 @@ llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m);
  */
 llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd);
 
+/**
+ * Emit the Dwarf subprogram global for a internal function.
+ * This is used for generated functions like moduleinfoctors, 
+ * module ctors/dtors and unittests.
+ * @return the Dwarf subprogram global.
+ */
+llvm::GlobalVariable* DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname);
+
 void DtoDwarfFuncStart(FuncDeclaration* fd);
 void DtoDwarfFuncEnd(FuncDeclaration* fd);
 
