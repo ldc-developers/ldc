@@ -641,6 +641,9 @@ void ThrowStatement::toIR(IRState* p)
 
     assert(exp);
     DValue* e = exp->toElem(p);
+
+    if (global.params.symdebug) DtoDwarfFuncEnd(gIR->func()->decl);
+
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_throw_exception");
     //Logger::cout() << "calling: " << *fn << '\n';
     LLValue* arg = DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
