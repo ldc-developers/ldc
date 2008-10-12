@@ -157,7 +157,7 @@ void usage()
     global.ldc_version, global.version, global.copyright, global.written);
     printf("\
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
-LDC Homepage: http://www.dsource.org/projects/llvmdc\n\
+LDC Homepage: http://www.dsource.org/projects/ldc\n\
 Usage:\n\
   ldc files.d ... { -switch }\n\
 \n\
