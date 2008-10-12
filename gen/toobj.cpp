@@ -20,6 +20,7 @@
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
+#include "llvm/LinkAllPasses.h"
 #include "llvm/System/Program.h"
 #include "llvm/System/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -161,6 +162,12 @@ void Module::genobjfile(int multiobj, char** envp)
             Logger::println("Verification passed!");
         }
     }
+
+    // always run this pass to eliminate dead code that breaks debug info
+    llvm::PassManager pm;
+    pm.add(new llvm::TargetData(ir.module));
+    pm.add(llvm::createCFGSimplificationPass());
+    pm.run(*ir.module);
 
     // run optimizer
     ldc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
