@@ -35,7 +35,7 @@ LLC=llc
 
 ADD_CFLAGS=
 #ADD_DFLAGS=
-ADD_DFLAGS=-I`pwd`/common/
+ADD_DFLAGS=-g -I`pwd`/common/
 
 targets : lib sharedlib doc
 all     : lib sharedlib doc
@@ -52,13 +52,13 @@ ALL_DOCS=
 
 lib : $(ALL_OBJS)
 	make -C $(DIR_CC) -fldc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-	make -C $(DIR_RT) -fldc.mak lib
+	make -C $(DIR_RT) -fldc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	make -C $(DIR_GC) -fldc.mak lib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	# could link the three parts into one here, but why should we
 
 sharedlib : $(ALL_OBJS)
 	make -C $(DIR_CC) -fldc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
-	make -C $(DIR_RT) -fldc.mak sharedlib
+	make -C $(DIR_RT) -fldc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	make -C $(DIR_GC) -fldc.mak sharedlib DC=$(DC) ADD_DFLAGS="$(ADD_DFLAGS)" ADD_CFLAGS="$(ADD_CFLAGS)"
 	# could link the three parts into one here, but why should we
 
