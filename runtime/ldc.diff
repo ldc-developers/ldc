@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 3954)
+--- object.di	(revision 4002)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -14,7 +14,7 @@ Index: object.di
  
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 3954)
+--- lib/common/tango/core/BitManip.d	(revision 4002)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -29,7 +29,7 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 3954)
+--- lib/common/tango/core/Thread.d	(revision 4002)
 +++ lib/common/tango/core/Thread.d	(working copy)
 @@ -244,8 +244,29 @@
          }
@@ -163,7 +163,7 @@ Index: lib/common/tango/core/Thread.d
              version( StackGrowsDown )
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 3954)
+--- lib/unittest.sh	(revision 4002)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -220,7 +220,7 @@ Index: lib/unittest.sh
 +fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 3954)
+--- lib/gc/basic/gcx.d	(revision 4002)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -292,7 +292,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 3954)
+--- lib/gc/basic/gcbits.d	(revision 4002)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -305,9 +305,41 @@ Index: lib/gc/basic/gcbits.d
  else version (D_InlineAsm_X86)
  {
      version = Asm86;
+Index: lib/build-tango.sh
+===================================================================
+--- lib/build-tango.sh	(revision 4002)
++++ lib/build-tango.sh	(working copy)
+@@ -23,7 +23,7 @@
+   --debug: Will enable debug info
+   --warn: Will enable warnings
+   --verbose: Increase verbosity 
+-  <identifier> is one of {dmd, gdc, mac} and will build libtango.a,
++  <identifier> is one of {dmd, gdc, ldc, mac} and will build libtango.a,
+                 libgtango.a or universal Mac binaries respectively
+ 
+   The script must be called from within lib/ and the resulting
+@@ -105,7 +105,7 @@
+     if filter $OBJNAME
+     then
+         if [ $VERBOSE == 1 ]; then echo "[$DC] $FILENAME"; fi
+-        $DC $WARN -c $INLINE $DEBUG $RELEASE -version=Posix -version=Tango -of$OBJNAME $FILENAME
++        $DC $WARN -c $INLINE $DEBUG $RELEASE -version=Tango -of$OBJNAME $FILENAME
+         if [ "$?" != 0 ]
+         then
+             return 1;
+@@ -189,6 +189,9 @@
+         gdc)
+             build gdmd libgtango.a libgphobos.a
+             ;;
++        ldc)
++            build ldc libtango-user-ldc.a build-tango.sh
++            ;;
+         mac)
+             # build Universal Binary version of the Tango library
+             build powerpc-apple-darwin8-gdmd libgtango.a.ppc libgphobos.a.ppc
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 3954)
+--- tango/text/convert/Layout.d	(revision 4002)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -342,9 +374,22 @@ Index: tango/text/convert/Layout.d
                          int[64] intargs = void;
                          byte[64] byteargs = void;
                          long[64] longargs = void;
+Index: tango/net/cluster/CacheInvalidator.d
+===================================================================
+--- tango/net/cluster/CacheInvalidator.d	(revision 4002)
++++ tango/net/cluster/CacheInvalidator.d	(working copy)
+@@ -79,7 +79,7 @@
+ 
+ *******************************************************************************/
+ 
+-private class InvalidatorPayload : NetworkMessage
++package class InvalidatorPayload : NetworkMessage
+ {
+         private char[] key_;
+ 
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 3954)
+--- tango/core/Vararg.d	(revision 4002)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -359,7 +404,7 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 3954)
+--- tango/core/Atomic.d	(revision 4002)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -531,7 +576,7 @@ Index: tango/core/Atomic.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 3954)
+--- tango/math/Math.d	(revision 4002)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -680,7 +725,7 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 3954)
+--- tango/stdc/stdlib.d	(revision 4002)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -696,7 +741,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 3954)
+--- tango/stdc/stdarg.d	(revision 4002)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
