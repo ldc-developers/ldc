@@ -57,11 +57,8 @@ LIB_DEST=..
 .cpp.o:
 	g++ -c $(CFLAGS) $< -o$@
 
-.d.bc:
-	$(DC) -c $(DFLAGS) $< -of$@ -output-bc
-
 .d.o:
-	$(DC) -c $(DFLAGS) $< -of$@
+	$(DC) -c $(DFLAGS) $< -of$@ -output-bc
 
 .d.html:
 	$(DC) -c -o- $(DOCFLAGS) -Df$*.html $<
@@ -99,7 +96,7 @@ basic.lib : $(LIB_TARGET_BC)
 basic.nlib : $(LIB_TARGET_NATIVE)
 basic.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC) : $(ALL_OBJS_BC)
+$(LIB_TARGET_BC) : $(ALL_OBJS_O)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS_BC)
 
@@ -120,7 +117,8 @@ basic.doc : $(ALL_DOCS)
 
 clean :
 	find . -name "*.di" | xargs $(RM)
-	$(RM) $(ALL_OBJS)
+	$(RM) $(ALL_OBJS_BC)
+	$(RM) $(ALL_OBJS_O)
 	$(RM) $(ALL_DOCS)
 	$(RM) $(LIB_MASK)
 

@@ -57,9 +57,6 @@ LIB_DEST=..
 	g++ -c $(CFLAGS) $< -o$@
 
 .d.o:
-	$(DC) -c $(DFLAGS) $< -of$@
-
-.d.bc:
 	$(DC) -c $(DFLAGS) $< -of$@ -output-bc
 
 .d.html:
@@ -67,7 +64,7 @@ LIB_DEST=..
 
 targets : lib sharedlib doc
 all     : lib sharedlib doc
-lib     : ldc.lib ldc.bclib ldc.clib
+lib     : ldc.bclib ldc.clib ldc.lib
 sharedlib : ldc.sharedlib
 doc     : ldc.doc
 
@@ -226,7 +223,7 @@ ldc.clib : $(LIB_TARGET_C_ONLY)
 ldc.lib : $(LIB_TARGET_FULL)
 ldc.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_BC)
+$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_O)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS_BC)
 
@@ -253,8 +250,8 @@ ldc.doc : $(ALL_DOCS)
 
 clean :
 	find . -name "*.di" | xargs $(RM)
-	$(RM) $(ALL_OBJS)
-	$(RM) $(OBJ_C)
+	$(RM) $(ALL_OBJS_BC)
+	$(RM) $(ALL_OBJS_O)
 	$(RM) $(ALL_DOCS)
 	$(RM) $(LIB_MASK)
 

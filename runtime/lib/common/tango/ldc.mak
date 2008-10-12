@@ -61,9 +61,6 @@ DOC_DEST=../../../doc/tango
 	g++ -c $(CFLAGS) $< -o$@
 
 .d.o:
-	$(DC) -c $(DFLAGS) -Hf$*.di $< -of$@
-
-.d.bc:
 	$(DC) -c $(DFLAGS) -Hf$*.di $< -of$@ -output-bc
 
 .ll.bc:
@@ -133,7 +130,7 @@ tango.lib : $(LIB_TARGET_FULL)
 tango.clib : $(LIB_TARGET_C_ONLY)
 tango.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_BC)
+$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_O)
 	$(RM) $@
 	$(LC) $@ $(ALL_OBJS_BC)
 
@@ -167,8 +164,8 @@ tango.doc : $(ALL_DOCS)
 
 clean :
 	find . -name "*.di" | xargs $(RM)
-	$(RM) $(ALL_OBJS)
-	$(RM) $(OBJ_STDC)
+	$(RM) $(ALL_OBJS_BC)
+	$(RM) $(ALL_OBJS_O)
 	$(RM) $(ALL_DOCS)
 	find . -name "$(LIB_MASK)" | xargs $(RM)
 
