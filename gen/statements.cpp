@@ -16,6 +16,7 @@
 #include "mtype.h"
 #include "hdrgen.h"
 #include "port.h"
+#include "module.h"
 
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -27,6 +28,7 @@
 #include "gen/dvalue.h"
 
 #include "ir/irfunction.h"
+#include "ir/irmodule.h"
 #include "ir/irlandingpad.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1270,27 +1272,13 @@ void SwitchErrorStatement::toIR(IRState* p)
     int idx = 1;
 
     std::vector<LLValue*> args;
-    LLConstant* c;
 
     // file param
-    // FIXME: every use creates a global for the filename !!!
-    c = DtoConstString(loc.filename);
-    llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
-    if (!alloc)
-    {
-        alloc = DtoAlloca(c->getType(), ".srcfile");
-        gIR->func()->srcfileArg = alloc;
-    }
-    LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");
-    DtoStore(c->getOperand(0), ptr);
-    ptr = DtoGEPi(alloc, 0,1, "tmp");
-    DtoStore(c->getOperand(1), ptr);
-
-    args.push_back(alloc);
+    args.push_back(gIR->dmodule->ir.irModule->fileName);
     palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
 
     // line param
-    c = DtoConstUint(loc.linnum);
+    LLConstant* c = DtoConstUint(loc.linnum);
     args.push_back(c);
 
     // call

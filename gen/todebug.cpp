@@ -628,7 +628,7 @@ LLGlobalVariable* DtoDwarfCompileUnit(Module* m)
 
     // we might be generating for an import
     if (!m->ir.irModule)
-        m->ir.irModule = new IrModule(m);
+        m->ir.irModule = new IrModule(m, m->srcfile->toChars());
     else if (m->ir.irModule->dwarfCompileUnit)
     {
         if (m->ir.irModule->dwarfCompileUnit->getParent() == gIR->module)

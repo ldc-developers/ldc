@@ -6,6 +6,7 @@
 #include "id.h"
 #include "expression.h"
 #include "template.h"
+#include "module.h"
 
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
@@ -19,6 +20,7 @@
 #include "gen/functions.h"
 #include "gen/typeinf.h"
 #include "gen/todebug.h"
+#include "ir/irmodule.h"
 
 #include <stack>
 
@@ -110,7 +112,6 @@ llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std:
 void DtoAssert(Loc* loc, DValue* msg)
 {
     std::vector<LLValue*> args;
-    LLConstant* c;
 
     // func
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
@@ -120,9 +121,6 @@ void DtoAssert(Loc* loc, DValue* msg)
     llvm::AttrListPtr palist;
     int idx = 1;
 
-    // FIXME: every assert creates a global for the filename !!!
-    c = DtoConstString(loc->filename);
-
     // msg param
     if (msg)
     {
@@ -131,7 +129,7 @@ void DtoAssert(Loc* loc, DValue* msg)
             llvm::AllocaInst* alloc = gIR->func()->msgArg;
             if (!alloc)
             {
-                alloc = DtoAlloca(c->getType(), ".assertmsg");
+                alloc = DtoAlloca(DtoArrayType(LLType::Int8Ty), ".assertmsg");
                 DtoSetArray(alloc, DtoArrayLen(s), DtoArrayPtr(s));
                 gIR->func()->msgArg = alloc;
             }
@@ -145,23 +143,12 @@ void DtoAssert(Loc* loc, DValue* msg)
     }
 
     // file param
-    llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
-    if (!alloc)
-    {
-        alloc = DtoAlloca(c->getType(), ".srcfile");
-        gIR->func()->srcfileArg = alloc;
-    }
-    LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");
-    DtoStore(c->getOperand(0), ptr);
-    ptr = DtoGEPi(alloc, 0,1, "tmp");
-    DtoStore(c->getOperand(1), ptr);
-
-    args.push_back(alloc);
+    args.push_back(gIR->dmodule->ir.irModule->fileName);
     palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
 
 
     // line param
-    c = DtoConstUint(loc->linnum);
+    LLConstant* c = DtoConstUint(loc->linnum);
     args.push_back(c);
 
     // call

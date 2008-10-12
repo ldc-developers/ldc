@@ -89,15 +89,16 @@ void Module::genobjfile(int multiobj, char** envp)
     IrDsymbol::resetAll();
     IrType::resetAll();
 
-    // module ir state
-    // might already exist via import, just overwrite...
-    this->ir.irModule = new IrModule(this);
-
     // name the module
     std::string mname(toChars());
     if (md != 0)
         mname = md->toChars();
     ir.module = new llvm::Module(mname);
+
+    // module ir state
+    // might already exist via import, just overwrite...
+    //FIXME: is there a good reason for overwriting?
+    this->ir.irModule = new IrModule(this, srcfile->toChars());
 
     // set target stuff
     std::string target_triple(global.params.tt_arch);

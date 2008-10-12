@@ -1,6 +1,7 @@
 #include "gen/llvm.h"
 
 #include "mtype.h"
+#include "module.h"
 #include "dsymbol.h"
 #include "aggregate.h"
 #include "declaration.h"
@@ -13,6 +14,7 @@
 #include "gen/runtime.h"
 #include "gen/logger.h"
 #include "gen/dvalue.h"
+#include "ir/irmodule.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1072,25 +1074,11 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     llvm::AttrListPtr palist;
 
     // file param
-    // FIXME: every array bounds check creates a global for the filename !!!
-    LLConstant* c = DtoConstString(loc.filename);
-
-    llvm::AllocaInst* alloc = gIR->func()->srcfileArg;
-    if (!alloc)
-    {
-        alloc = DtoAlloca(c->getType(), ".srcfile");
-        gIR->func()->srcfileArg = alloc;
-    }
-    LLValue* ptr = DtoGEPi(alloc, 0,0, "tmp");
-    DtoStore(c->getOperand(0), ptr);
-    ptr = DtoGEPi(alloc, 0,1, "tmp");
-    DtoStore(c->getOperand(1), ptr);
-
-    args.push_back(alloc);
+    args.push_back(gIR->dmodule->ir.irModule->fileName);
     palist = palist.addAttr(1, llvm::Attribute::ByVal);
 
     // line param
-    c = DtoConstUint(loc.linnum);
+    LLConstant* c = DtoConstUint(loc.linnum);
     args.push_back(c);
 
     // call
