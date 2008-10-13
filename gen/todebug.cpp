@@ -149,7 +149,7 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static LLGlobalVariable* dwarfSubProgram(llvm::GlobalVariable* emitUnit, llvm::GlobalVariable* defineUnit, const char* prettyname, const char* mangledname, uint linenum, bool isprivate)
+static LLGlobalVariable* dwarfSubProgram(llvm::GlobalVariable* emitUnit, llvm::GlobalVariable* defineUnit, const char* prettyname, const char* mangledname, unsigned int linenum, bool isprivate)
 {
     std::vector<LLConstant*> vals(11);
     vals[0] = DBG_TAG(DW_TAG_subprogram);
