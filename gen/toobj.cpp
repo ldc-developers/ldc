@@ -211,25 +211,31 @@ void Module::genobjfile(int multiobj, char** envp)
     }
 
     // write native assembly
-    LLPath spath = LLPath(objfile->name->toChars());
-    spath.eraseSuffix();
-    spath.appendSuffix(std::string(global.s_ext));
-    if (!global.params.output_s) {
-        spath.createTemporaryFileOnDisk();
-    }
-    Logger::println("Writing native asm to: %s\n", spath.c_str());
-    std::string err;
-    {
-        llvm::raw_fd_ostream out(spath.c_str(), err);
-        write_asm_to_file(*ir.module, out);
-    }
+    if (global.params.output_s || global.params.output_o) {
+        LLPath spath = LLPath(objfile->name->toChars());
+        spath.eraseSuffix();
+        spath.appendSuffix(std::string(global.s_ext));
+        if (!global.params.output_s) {
+            spath.createTemporaryFileOnDisk();
+        }
+        Logger::println("Writing native asm to: %s\n", spath.c_str());
+        std::string err;
+        {
+            llvm::raw_fd_ostream out(spath.c_str(), err);
+            write_asm_to_file(*ir.module, out);
+        }
 
-    // call gcc to convert assembly to object file
-    LLPath objpath = LLPath(objfile->name->toChars());
-    assemble(spath, objpath, envp);
+        // call gcc to convert assembly to object file
+        if (global.params.output_o) {
+            LLPath objpath = LLPath(objfile->name->toChars());
+            objpath.eraseSuffix();
+            objpath.appendSuffix(std::string(global.obj_ext));
+            assemble(spath, objpath, envp);
+        }
 
-    if (!global.params.output_s) {
-        spath.eraseFromDisk();
+        if (!global.params.output_s) {
+            spath.eraseFromDisk();
+        }
     }
 
     delete ir.module;

@@ -148,6 +148,7 @@ struct Param
     char output_ll;
     char output_bc;
     char output_s;
+    char output_o;
     char llvmInline;
     char llvmAnnotate;
     char useInlineAsm;

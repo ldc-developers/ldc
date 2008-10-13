@@ -162,15 +162,19 @@ Usage:\n\
   ldc files.d ... { -switch }\n\
 \n\
   files.d        D source files\n%s\
-  -of<filename>  name output file to <filename>\n\
   -o-            do not write object file\n\
   -od<objdir>    write object files to directory <objdir>\n\
   -op            do not strip paths from source file\n\
   -oq            write object files with fully qualified names\n\
+  -of<filename>  name output file to <filename>\n\
+                 extension of <filename> determines output type\n\
+                 no extension means native object or executable\n\
+                 if the extension is ll, bc, s, or o/obj, linking is disabled\n\
 \n\
   -output-ll     write LLVM IR\n\
   -output-bc     write LLVM bitcode\n\
   -output-s      write native assembly\n\
+  -output-o      write native object\n\
 \n\
   -c             do not link\n\
   -L<linkerflag> pass <linkerflag> to llvm-ld\n\
@@ -248,7 +252,7 @@ int main(int argc, char *argv[], char** envp)
 {
     int i;
     Array files;
-    char *p;
+    char *p, *ext;
     Module *m;
     int status = EXIT_SUCCESS;
     int argcstart = argc;
@@ -294,6 +298,8 @@ int main(int argc, char *argv[], char** envp)
     global.params.obj = 1;
     global.params.Dversion = 2;
     global.params.quiet = 1;
+
+    global.params.output_o = 1;
 
     global.params.linkswitches = new Array();
     global.params.libfiles = new Array();
@@ -450,6 +456,35 @@ int main(int argc, char *argv[], char** envp)
 			if (!p[3])
 			    goto Lnoarg;
 			global.params.objname = p + 3;
+
+			// remove default output
+			if (global.params.output_ll == 1)
+			    global.params.output_ll = 0;
+			if (global.params.output_bc == 1)
+			    global.params.output_bc = 0;
+			if (global.params.output_s == 1)
+			    global.params.output_s = 0;
+			if (global.params.output_o == 1)
+			    global.params.output_o = 0;
+
+			// determine output based on ext
+			ext = FileName::ext(global.params.objname);
+			if (strcmp(ext, global.ll_ext) == 0) {
+			    global.params.output_ll = 1;
+			    global.params.link = 0;
+			} else if (strcmp(ext, global.bc_ext) == 0) {
+			    global.params.output_bc = 1;
+			    global.params.link = 0;
+			} else if (strcmp(ext, global.s_ext) == 0) {
+			    global.params.output_s = 1;
+			    global.params.link = 0;
+			} else if (strcmp(ext, global.obj_ext) == 0) {
+			    global.params.output_o = 1;
+			    global.params.link = 0;
+			} else {
+			    global.params.output_o = 1;
+			}
+
 			break;
 
 		    case 'p':
@@ -467,12 +502,14 @@ int main(int argc, char *argv[], char** envp)
 		    case 'u':
 			if (strncmp(p+1, "output-", 7) != 0)
 			    goto Lerror;
-			if (strcmp(p+8, "ll") == 0)
-			    global.params.output_ll = 1;
-			else if (strcmp(p+8, "bc") == 0)
-			    global.params.output_bc = 1;
-			else if (strcmp(p+8, "s") == 0)
-			    global.params.output_s = 1;
+			if (strcmp(p+8, global.ll_ext) == 0)
+			    global.params.output_ll = 2;
+			else if (strcmp(p+8, global.bc_ext) == 0)
+			    global.params.output_bc = 2;
+			else if (strcmp(p+8, global.s_ext) == 0)
+			    global.params.output_s = 2;
+			else if (strcmp(p+8, global.obj_ext) == 0)
+			    global.params.output_o = 2;
 			else
 			    goto Lerror;
 			break;
