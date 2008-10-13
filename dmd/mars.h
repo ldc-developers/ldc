@@ -142,9 +142,6 @@ struct Param
     // LDC stuff
     char *llvmArch;
     char forceBE;
-    char *tt_arch;
-    char *tt_os;
-    char *data_layout;
     char output_ll;
     char output_bc;
     char output_s;
@@ -154,6 +151,9 @@ struct Param
     char useInlineAsm;
     char fqnNames; // use fully qualified object names
     char noDefaultLib;
+
+    // target stuff
+    char *targetTriple;
 };
 
 struct Global

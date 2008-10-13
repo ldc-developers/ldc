@@ -59,7 +59,7 @@
 void ldc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 // fwd decl
-void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& Out);
+void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out);
 void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, char** envp);
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -102,12 +102,36 @@ void Module::genobjfile(int multiobj, char** envp)
     this->ir.irModule = new IrModule(this, srcfile->toChars());
 
     // set target stuff
-    std::string target_triple(global.params.tt_arch);
-    target_triple.append(global.params.tt_os);
-    ir.module->setTargetTriple(target_triple);
-    ir.module->setDataLayout(global.params.data_layout);
 
-    gTargetData = new llvm::TargetData(global.params.data_layout);
+    ir.module->setTargetTriple(global.params.targetTriple);
+
+    // get the target machine
+    const llvm::TargetMachineRegistry::entry* MArch;
+
+    std::string Err;
+    MArch = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, Err);
+    if (MArch == 0) {
+        error("error auto-selecting target for module '%s'", Err.c_str());
+        fatal();
+    }
+
+    llvm::SubtargetFeatures Features;
+//TODO: Features?
+//    Features.setCPU(MCPU);
+//    for (unsigned i = 0; i != MAttrs.size(); ++i)
+//      Features.AddFeature(MAttrs[i]);
+
+    // only generate PIC code when -fPIC switch is used
+    if (global.params.pic)
+        llvm::TargetMachine::setRelocationModel(llvm::Reloc::PIC_);
+
+    // allocate the target machine
+    std::auto_ptr<llvm::TargetMachine> target(MArch->CtorFn(*ir.module, Features.getString()));
+    assert(target.get() && "Could not allocate target machine!");
+    llvm::TargetMachine &Target = *target.get();
+
+    gTargetData = Target.getTargetData();
+    ir.module->setDataLayout(gTargetData->getStringRepresentation());
 
     // debug info
     if (global.params.symdebug) {
@@ -222,7 +246,7 @@ void Module::genobjfile(int multiobj, char** envp)
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), err);
-            write_asm_to_file(*ir.module, out);
+            write_asm_to_file(Target, *ir.module, out);
         }
 
         // call gcc to convert assembly to object file
@@ -251,37 +275,14 @@ void Module::genobjfile(int multiobj, char** envp)
 /* ================================================================== */
 
 // based on llc code, University of Illinois Open Source License
-void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& out)
+void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out)
 {
     using namespace llvm;
-
-    std::string Err;
-
-    const TargetMachineRegistry::entry* MArch;
-    MArch = TargetMachineRegistry::getClosestStaticTargetForModule(m, Err);
-    if (MArch == 0) {
-        error("error auto-selecting target for module '%s'", Err.c_str());
-        fatal();
-    }
-
-    SubtargetFeatures Features;
-//TODO: Features?
-//    Features.setCPU(MCPU);
-//    for (unsigned i = 0; i != MAttrs.size(); ++i)
-//      Features.AddFeature(MAttrs[i]);
-
-    //FIXME: Only set this if required?
-    TargetMachine::setRelocationModel(Reloc::PIC_);
-
-    std::auto_ptr<TargetMachine> target(MArch->CtorFn(m, Features.getString()));
-    assert(target.get() && "Could not allocate target machine!");
-    TargetMachine &Target = *target.get();
 
     // Build up all of the passes that we want to do to the module.
     ExistingModuleProvider Provider(&m);
     FunctionPassManager Passes(&Provider);
-    //FIXME: Will gTargetData always be Target.getTargetData anyway?
-    assert(gTargetData->getStringRepresentation() == Target.getTargetData()->getStringRepresentation());
+
     Passes.add(new TargetData(*Target.getTargetData()));
 
     // Ask the target to add backend passes as necessary.
@@ -305,6 +306,7 @@ void write_asm_to_file(llvm::Module& m, llvm::raw_fd_ostream& out)
     Passes.doFinalization();
 
     // release module from module provider so we can delete it ourselves
+    std::string Err;
     llvm::Module* rmod = Provider.releaseModule(&Err);
     assert(rmod);
 }

@@ -21,6 +21,20 @@ if OS == "windows" then
     POSIX = 0
 end
 
+
+-- guess the host machine description
+-- also allow overriding it
+
+addoption("target-override", "Override the default target machine");
+
+TRIPLE = "";
+if options["target-override"] then
+    TRIPLE = options["target-override"]
+else
+    local p = io.popen("./config.guess")
+    TRIPLE = p:read()
+end
+
 -- D version - don't change these !!!
 DMDV1 = "1"
 
@@ -65,6 +79,7 @@ package.defines = {
     "USE_BOEHM_GC="..USE_BOEHM_GC,
     "DMDV1="..DMDV1,
     "POSIX="..POSIX,
+    "DEFAULT_TARGET_TRIPLE=\\\""..TRIPLE.."\\\"",
 }
 package.config.Release.defines = { "LLVMD_NO_LOGGER" }
 package.config.Debug.buildoptions = { "-g -O0" }
