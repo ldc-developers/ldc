@@ -31,7 +31,15 @@ Index: lib/common/tango/core/Thread.d
 ===================================================================
 --- lib/common/tango/core/Thread.d	(revision 4002)
 +++ lib/common/tango/core/Thread.d	(working copy)
-@@ -244,8 +244,29 @@
+@@ -235,6 +235,7 @@
+         // used to track the number of suspended threads
+         //
+         sem_t   suspendCount;
++        sem_t*  suspendCountPtr;
+ 
+ 
+         extern (C) void thread_suspendHandler( int sig )
+@@ -244,8 +245,29 @@
          }
          body
          {
@@ -62,7 +70,16 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      pushad;
-@@ -297,8 +318,12 @@
+@@ -286,7 +308,7 @@
+                 status = sigdelset( &sigres, SIGUSR2 );
+                 assert( status == 0 );
+ 
+-                status = sem_post( &suspendCount );
++                status = sem_post( suspendCountPtr );
+                 assert( status == 0 );
+ 
+                 sigsuspend( &sigres );
+@@ -297,8 +319,12 @@
                  }
              }
  
@@ -76,7 +93,33 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      popad;
-@@ -2286,6 +2311,13 @@
+@@ -1572,8 +1598,14 @@
+         status = sigaction( SIGUSR2, &sigusr2, null );
+         assert( status == 0 );
+ 
+-        status = sem_init( &suspendCount, 0, 0 );
+-        assert( status == 0 );
++        version(darwin){
++            suspendCountPtr = sem_open( "/thread_init/sem\0".ptr, 0 );
++            assert( suspendCountPtr !is null );
++        }else {
++            status=sem_init(&suspendCount,0,0);
++            suspendCountPtr=&suspendCount;
++            assert(status==0);
++        }
+ 
+         status = pthread_key_create( &Thread.sm_this, null );
+         assert( status == 0 );
+@@ -1781,7 +1813,7 @@
+                 //       to simply loop on sem_wait at the end, but I'm not
+                 //       convinced that this would be much faster than the
+                 //       current approach.
+-                sem_wait( &suspendCount );
++                sem_wait( suspendCountPtr );
+             }
+             else if( !t.m_lock )
+             {
+@@ -2286,6 +2318,13 @@
              version = AsmPPC_Posix;
      }
  
@@ -402,6 +445,58 @@ Index: tango/core/Vararg.d
  else
  {
      /**
+Index: tango/core/sync/Semaphore.d
+===================================================================
+--- tango/core/sync/Semaphore.d	(revision 3979)
++++ tango/core/sync/Semaphore.d	(working copy)
+@@ -329,7 +329,8 @@
+             {
+                 synchronized( synComplete )
+                 {
+-                    if( numComplete == numConsumers )
++                    // if( numComplete == numConsumers )
++                    if( numComplete == numToProduce )
+                         break;
+                 }
+                 Thread.yield();
+@@ -337,9 +338,9 @@
+ 
+             synchronized( synComplete )
+             {
+-                assert( numComplete == numConsumers );
++                assert( numComplete == numToProduce );
++                // assert( numComplete == numConsumers );
+             }
+-
+             synchronized( synConsumed )
+             {
+                 assert( numConsumed == numToProduce );
+@@ -400,7 +401,8 @@
+ 
+     unittest
+     {
++        version(darwin){}else{
+         testWait();
+-        testWaitTimeout();
++        testWaitTimeout();}
+     }
+ }
+Index: tango/core/sync/Condition.d
+===================================================================
+--- tango/core/sync/Condition.d	(revision 3979)
++++ tango/core/sync/Condition.d	(working copy)
+@@ -553,8 +553,11 @@
+ 
+     unittest
+     {
++        version(darwin){}
++        else{
+         testNotify();
+         testNotifyAll();
+         testWaitTimeout();
++        }
+     }
+ }
 Index: tango/core/Atomic.d
 ===================================================================
 --- tango/core/Atomic.d	(revision 4002)
@@ -574,6 +669,36 @@ Index: tango/core/Atomic.d
  // x86 Atomic Function Implementation
  ////////////////////////////////////////////////////////////////////////////////
  
+@@ -282,9 +598,9 @@
+         {
+             pragma( msg, "tango.core.Atomic: using IA-32 inline asm" );
+         }
+-
++        version(darwin){}
++        else { version = Has64BitCAS; }
+         version = Has32BitOps;
+-        version = Has64BitCAS;
+     }
+     version( X86_64 )
+     {
+Index: tango/math/IEEE.d
+===================================================================
+--- tango/math/IEEE.d	(revision 3979)
++++ tango/math/IEEE.d	(working copy)
+@@ -1543,7 +1543,12 @@
+         else return 0;
+      }  
+  } else {
+-    assert(0, "Unsupported");
++     static if (is(X==real)){
++         static assert(0, X.stringof~" unsupported by feqrel");
++     } else {
++         int res=feqrel(cast(real)x,cast(real)y);
++         return ((res>X.mant_dig)?X.mant_dig:res);
++     }
+  }
+ }
+ 
 Index: tango/math/Math.d
 ===================================================================
 --- tango/math/Math.d	(revision 4002)
@@ -723,6 +848,23 @@ Index: tango/math/Math.d
  }
  
  debug(UnitTest) {
+Index: tango/stdc/posix/sys/types.d
+===================================================================
+--- tango/stdc/posix/sys/types.d	(revision 3979)
++++ tango/stdc/posix/sys/types.d	(working copy)
+@@ -422,7 +422,11 @@
+ }
+ else version( darwin )
+ {
+-    struct pthread_spinlock_t;
++    version (LDC)
++        alias void* pthread_spinlock_t;
++        
++    else
++        struct pthread_spinlock_t;
+ }
+ else version( freebsd )
+ {
 Index: tango/stdc/stdlib.d
 ===================================================================
 --- tango/stdc/stdlib.d	(revision 4002)
