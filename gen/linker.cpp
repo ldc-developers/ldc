@@ -235,6 +235,8 @@ int linkObjToExecutable(const char* argv0)
         // try root module name
         if (Module::rootModule)
             exestr = Module::rootModule->toChars();
+        else if (global.params.objfiles->dim)
+            exestr = FileName::removeExt((char*)global.params.objfiles->data[0]);
         else
             exestr = "a.out";
     }
