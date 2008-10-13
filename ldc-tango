@@ -4,7 +4,7 @@ compiler=ldc
 inifile=ldc.conf
 
 exeext=
-objext=bc
+objext=o
 
 
 version=LLVM
@@ -58,7 +58,7 @@ flag=-L$i
 [liblink]
 safe=yes
 oneatatime=yes
-cmd=llvm-ar rsc $o $i
+cmd=ar rc $o $i
 
 libdir=
 lib=
@@ -66,7 +66,7 @@ flag=
 
 
 [postliblink]
-#cmd=ranlib $i
+cmd=ranlib $i
 
 
 [shliblink]

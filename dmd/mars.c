@@ -466,7 +466,10 @@ int main(int argc, char *argv[], char** envp)
 
 			// determine output based on ext
 			ext = FileName::ext(global.params.objname);
-			if (strcmp(ext, global.ll_ext) == 0) {
+            if (!ext) {
+                global.params.link = 1;
+                global.params.output_o = 1;
+			} else if (strcmp(ext, global.ll_ext) == 0) {
 			    global.params.output_ll = 1;
 			    global.params.link = 0;
 			} else if (strcmp(ext, global.bc_ext) == 0) {
