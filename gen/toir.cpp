@@ -471,15 +471,6 @@ DValue* AssignExp::toElem(IRState* p)
         DtoAssign(loc, &arrval, slice);
         return newlen;
     }
-    else if (e1->op == TOKslice && !ismemset &&
-        (e2->op == TOKadd || e2->op == TOKmin ||
-        e2->op == TOKmul || e2->op == TOKdiv ||
-        e2->op == TOKmod || e2->op == TOKxor ||
-        e2->op == TOKand || e2->op == TOKor  ||
-        e2->op == TOKtilde || e2->op == TOKneg))
-    {
-        assert(0 && "array op assignment is TODO");
-    }
 
     Logger::println("performing normal assignment");
 

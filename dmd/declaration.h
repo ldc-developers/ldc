@@ -651,6 +651,9 @@ struct FuncDeclaration : Declaration
     // don't always carry their corresponding statement along ...
     typedef std::map<const char*, LabelStatement*> LabelMap;
     LabelMap labmap;
+
+    // if this is an array operation it gets a little special attention
+    bool isArrayOp;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

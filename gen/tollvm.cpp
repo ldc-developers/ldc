@@ -280,6 +280,9 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         assert(fdecl->type->ty == Tfunction);
         TypeFunction* ft = (TypeFunction*)fdecl->type;
 
+        // array operations are always internal
+        if (fdecl->isArrayOp)
+            return llvm::GlobalValue::InternalLinkage;
         // intrinsics are always external
         if (fdecl->llvmInternal == LLVMintrinsic)
             return llvm::GlobalValue::ExternalLinkage;

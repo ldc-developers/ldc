@@ -175,6 +175,9 @@ struct Module : Package
     Module *isModule() { return this; }
     
     bool llvmForceLogging;
+
+    // array ops emitted in this module already
+    StringTable arrayfuncs;
 };
 
 

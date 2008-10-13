@@ -31,7 +31,7 @@ TRIPLE = "";
 if options["target-override"] then
     TRIPLE = options["target-override"]
 else
-    local p = io.popen("./config.guess")
+    local p = io.popen("sh config.guess")
     TRIPLE = p:read()
 end
 
