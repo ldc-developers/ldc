@@ -2425,6 +2425,8 @@ done:
     t->float80value = strtold((char *)stringbuffer.data, NULL);
 #endif
     errno = 0;
+    float strtofres;
+    double strtodres;
     switch (*p)
     {
 	case 'F':
@@ -2432,7 +2434,11 @@ done:
 #ifdef IN_GCC
 	    real_t::parse((char *)stringbuffer.data, real_t::Float);
 #else
-	    strtof((char *)stringbuffer.data, NULL);
+	    strtofres = strtof((char *)stringbuffer.data, NULL);
+	    // LDC change: don't error on gradual underflow
+	    if (errno == ERANGE && 
+		    strtofres != 0 && strtofres != HUGE_VALF && strtofres != -HUGE_VALF)
+		errno = 0;
 #endif
 	    result = TOKfloat32v;
 	    p++;
@@ -2442,7 +2448,11 @@ done:
 #ifdef IN_GCC
 	    real_t::parse((char *)stringbuffer.data, real_t::Double);
 #else	    
-	    strtod((char *)stringbuffer.data, NULL);
+	    strtodres = strtod((char *)stringbuffer.data, NULL);
+	    // LDC change: don't error on gradual underflow
+	    if (errno == ERANGE && 
+		    strtodres != 0 && strtodres != HUGE_VAL && strtodres != -HUGE_VAL)
+		errno = 0;
 #endif
 	    result = TOKfloat64v;
 	    break;
