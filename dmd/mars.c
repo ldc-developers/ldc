@@ -177,10 +177,7 @@ Usage:\n\
   -output-o      write native object\n\
 \n\
   -c             do not link\n\
-  -L<linkerflag> pass <linkerflag> to llvm-ld\n\
-\n\
-  -g             add symbolic debug info\n\
-  -gc            add symbolic debug info, pretend to be C\n\
+  -L<linkerflag> pass <linkerflag> to linker\n\
 \n\
   -w             enable warnings\n\
 \n\
@@ -198,13 +195,15 @@ Codegen control:\n\
   -t<os>         emit code specific to <os> being one of:\n\
                  Linux, Windows, MacOSX, FreeBSD\n\
 \n\
+  -g, -gc        add symbolic debug info\n\
+\n\
   -O             optimize, same as -O2\n\
   -O<n>          optimize at level <n> (0-5)\n\
   -inline        do function inlining\n\
 \n\
   -debug         enables asserts, invariants, contracts, boundscheck\n\
                  and sets debug=1\n\
-  -release       disables asserts, invariants, contracts boundscheck\n\
+  -release       disables asserts, invariants, contracts, boundscheck\n\
 \n\
   -enable-<feature>    and\n\
   -disable-<feature>   where <feature> is one of\n\
@@ -378,10 +377,8 @@ int main(int argc, char *argv[], char** envp)
 		global.params.link = 0;
 	    else if (strcmp(p + 1, "fPIC") == 0)
 		global.params.pic = 1;
-	    else if (strcmp(p + 1, "g") == 0)
+	    else if (strcmp(p + 1, "g") == 0 || strcmp(p + 1, "gc") == 0)
 		global.params.symdebug = 1;
-	    else if (strcmp(p + 1, "gc") == 0)
-		global.params.symdebug = 2;
 	    else if (strcmp(p + 1, "v") == 0)
 		global.params.verbose = 1;
 		else if (strcmp(p + 1, "vv") == 0) {
