@@ -389,20 +389,6 @@ LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::B
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoGEPi(LLValue* ptr, const DStructIndexVector& src, const char* var, llvm::BasicBlock* bb)
-{
-    size_t n = src.size();
-    LLSmallVector<LLValue*, 3> dst(n);
-
-    size_t j=0;
-    for (DStructIndexVector::const_iterator i=src.begin(); i!=src.end(); ++i)
-        dst[j++] = DtoConstUint(*i);
-
-    return llvm::GetElementPtrInst::Create(ptr, dst.begin(), dst.end(), var?var:"tmp", bb?bb:gIR->scopebb());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
     return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var?var:"tmp", bb?bb:gIR->scopebb());

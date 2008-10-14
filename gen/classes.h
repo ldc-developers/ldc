@@ -37,7 +37,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* to);
 DValue* DtoCastInterfaceToObject(DValue* val, Type* to);
 DValue* DtoDynamicCastInterface(DValue* val, Type* to);
 
-LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, DStructIndexVector& idxs);
+LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* sd, VarDeclaration* vd);
 
 LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl);
 

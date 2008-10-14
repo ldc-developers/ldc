@@ -30,8 +30,8 @@ void DtoDefineStruct(StructDeclaration* sd);
  */
 LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
 
-typedef LLSmallVector<unsigned, 3> DStructIndexVector;
-LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, DStructIndexVector& idxs);
+// index a struct one level
+LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd);
 
 struct DUnionField
 {

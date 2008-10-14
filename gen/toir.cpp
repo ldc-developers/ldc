@@ -500,18 +500,7 @@ DValue* AddExp::toElem(IRState* p)
     Type* e2type = e2->type->toBasetype();
 
     if (e1type != e2type) {
-        /*if (llvmFieldIndex) {
-            assert(e1type->ty == Tpointer && e1next && e1next->ty == Tstruct);
-            Logger::println("add to AddrExp of struct");
-            assert(r->isConst());
-            llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
-
-            TypeStruct* ts = (TypeStruct*)e1next;
-            DStructIndexVector offsets;
-            LLValue* v = DtoIndexStruct(l->getRVal(), ts->sym, t->next, cofs->getZExtValue(), offsets);
-            return new DFieldValue(type, v);
-        }
-        else*/ if (e1type->ty == Tpointer) {
+        if (e1type->ty == Tpointer) {
             Logger::println("add to pointer");
             if (r->isConst()) {
                 llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
@@ -943,34 +932,21 @@ DValue* DotVarExp::toElem(IRState* p)
 
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* arrptr;
+        // indexing struct pointer
         if (e1type->ty == Tpointer) {
             assert(e1type->next->ty == Tstruct);
             TypeStruct* ts = (TypeStruct*)e1type->next;
-            Logger::println("Struct member offset:%d", vd->offset);
-
-            LLValue* src = l->getRVal();
-
-            DStructIndexVector vdoffsets;
-            arrptr = DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
+            arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
         }
-        // happens for tuples
+        // indexing normal struct
         else if (e1type->ty == Tstruct) {
             TypeStruct* ts = (TypeStruct*)e1type;
-            Logger::println("Struct member offset:%d", vd->offset);
-
-            LLValue* src = l->getRVal();
-
-            DStructIndexVector vdoffsets;
-            arrptr = DtoIndexStruct(src, ts->sym, vd->type, vd->offset, vdoffsets);
+            arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
         }
+        // indexing class
         else if (e1type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1type;
-            Logger::println("Class member offset: %d", vd->offset);
-
-            LLValue* src = l->getRVal();
-
-            DStructIndexVector vdoffsets;
-            arrptr = DtoIndexClass(src, tc->sym, vd->type, vd->offset, vdoffsets);
+            arrptr = DtoIndexClass(l->getRVal(), tc->sym, vd);
         }
         else
             assert(0);
@@ -1342,6 +1318,11 @@ DValue* EqualExp::toElem(IRState* p)
         LLValue* rv = r->getRVal();
         if (rv->getType() != lv->getType()) {
             rv = DtoBitCast(rv, lv->getType());
+        }
+        if (Logger::enabled())
+        {
+            Logger::cout() << "lv: " << *lv << '\n';
+            Logger::cout() << "rv: " << *rv << '\n';
         }
         eval = p->ir->CreateICmp(cmpop, lv, rv, "tmp");
     }

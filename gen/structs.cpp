@@ -52,73 +52,31 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoIndexStruct(LLValue* ptr, StructDeclaration* sd, Type* t, unsigned os, DStructIndexVector& idxs)
+LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
 {
-    Logger::println("checking for offset %u type %s:", os, t->toChars());
+    Logger::println("indexing struct field %s:", vd->toPrettyChars());
     LOG_SCOPE;
 
-    if (idxs.empty())
-        idxs.push_back(0);
+    // vd must be a field
+    IrField* field = vd->ir.irField;
+    assert(field);
 
-    const LLType* llt = getPtrToType(DtoType(t));
+    unsigned idx = field->index;
+    unsigned off = field->indexOffset;
+
     const LLType* st = getPtrToType(DtoType(sd->type));
+    src = DtoBitCast(src, st);
+
+    LLValue* val = DtoGEPi(src, 0,idx);
+    val = DtoBitCast(val, getPtrToType(DtoType(vd->type)));
+
+    if (off)
+        val = DtoGEPi1(val, off);
 
     if (Logger::enabled())
-    {
-        Logger::cout() << "ptr = " << *ptr << '\n';
-        Logger::cout() << "st  = " << *st << '\n';
-    }
+        Logger::cout() << "value: " << *val << '\n';
 
-    if (ptr->getType() != st) {
-        assert(sd->ir.irStruct->hasUnions);
-        ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
-    }
-
-    for (unsigned i=0; i<sd->fields.dim; ++i) {
-        VarDeclaration* vd = (VarDeclaration*)sd->fields.data[i];
-        Type* vdtype = vd->type->toBasetype();
-        //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
-        assert(vd->ir.irField->index >= 0);
-        if (os == vd->offset && vdtype == t) {
-            idxs.push_back(vd->ir.irField->index);
-            ptr = DtoGEPi(ptr, idxs, "tmp");
-            if (ptr->getType() != llt)
-                ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-            if (vd->ir.irField->indexOffset)
-                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
-            return ptr;
-        }
-        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
-            TypeStruct* ts = (TypeStruct*)vdtype;
-            StructDeclaration* ssd = ts->sym;
-            idxs.push_back(vd->ir.irField->index);
-            if (vd->ir.irField->indexOffset) {
-                Logger::println("has union field offset");
-                ptr = DtoGEPi(ptr, idxs, "tmp");
-                if (ptr->getType() != llt)
-                    ptr = DtoBitCast(ptr, llt);
-                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
-                DStructIndexVector tmp;
-                return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
-            }
-            else {
-                const LLType* sty = getPtrToType(DtoType(vd->type));
-                if (ptr->getType() != sty) {
-                    ptr = DtoBitCast(ptr, sty);
-                    DStructIndexVector tmp;
-                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
-                }
-                else {
-                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
-                }
-            }
-        }
-    }
-
-    size_t llt_sz = getTypeStoreSize(llt->getContainedType(0));
-    assert(os % llt_sz == 0);
-    ptr = DtoBitCast(ptr, llt);
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+    return val;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

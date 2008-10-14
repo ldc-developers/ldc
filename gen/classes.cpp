@@ -1094,75 +1094,34 @@ void ClassDeclaration::offsetToIndex(Type* t, unsigned os, std::vector<unsigned>
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoIndexClass(LLValue* ptr, ClassDeclaration* cd, Type* t, unsigned os, DStructIndexVector& idxs)
+LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
 {
-    Logger::println("checking for offset %u type %s:", os, t->toChars());
+    Logger::println("indexing class field %s:", vd->toPrettyChars());
     LOG_SCOPE;
 
-    if (idxs.empty())
-        idxs.push_back(0);
+    if (Logger::enabled())
+        Logger::cout() << "src: " << *src << '\n';
+
+    // vd must be a field
+    IrField* field = vd->ir.irField;
+    assert(field);
+
+    unsigned idx = field->index + 2; // vtbl & monitor
+    unsigned off = field->indexOffset;
 
     const LLType* st = DtoType(cd->type);
-    if (ptr->getType() != st) {
-        ptr = gIR->ir->CreateBitCast(ptr, st, "tmp");
-    }
+    src = DtoBitCast(src, st);
 
-    const LLType* llt = getPtrToType(DtoType(t));
-    unsigned dataoffset = 2;
+    LLValue* val = DtoGEPi(src, 0,idx);
+    val = DtoBitCast(val, getPtrToType(DtoType(vd->type)));
 
-    IrStruct* irstruct = cd->ir.irStruct;
-    for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
-        VarDeclaration* vd = i->second.var;
-        assert(vd);
-        Type* vdtype = vd->type->toBasetype();
-        //Logger::println("found %u type %s", vd->offset, vdtype->toChars());
-        assert(vd->ir.irField->index >= 0);
-        if (os == vd->offset && vdtype->toBasetype() == t->toBasetype()) {
-            Logger::println("found %s %s", vdtype->toChars(), vd->toChars());
-            idxs.push_back(vd->ir.irField->index + dataoffset);
-            //Logger::cout() << "indexing: " << *ptr << '\n';
-            ptr = DtoGEPi(ptr, idxs, "tmp");
-            if (ptr->getType() != llt)
-                ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-            //Logger::cout() << "indexing: " << *ptr << '\n';
-            if (vd->ir.irField->indexOffset)
-                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
-            //Logger::cout() << "indexing: " << *ptr << '\n';
-            return ptr;
-        }
-        else if (vdtype->ty == Tstruct && (vd->offset + vdtype->size()) > os) {
-            TypeStruct* ts = (TypeStruct*)vdtype;
-            StructDeclaration* ssd = ts->sym;
-            idxs.push_back(vd->ir.irField->index + dataoffset);
-            if (vd->ir.irField->indexOffset) {
-                Logger::println("has union field offset");
-                ptr = DtoGEPi(ptr, idxs, "tmp");
-                if (ptr->getType() != llt)
-                    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-                ptr = llvm::GetElementPtrInst::Create(ptr, DtoConstUint(vd->ir.irField->indexOffset), "tmp", gIR->scopebb());
-                DStructIndexVector tmp;
-                return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
-            }
-            else {
-                const LLType* sty = getPtrToType(DtoType(vd->type));
-                if (ptr->getType() != sty) {
-                    ptr = gIR->ir->CreateBitCast(ptr, sty, "tmp");
-                    DStructIndexVector tmp;
-                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, tmp);
-                }
-                else {
-                    return DtoIndexStruct(ptr, ssd, t, os-vd->offset, idxs);
-                }
-            }
-        }
-    }
+    if (off)
+        val = DtoGEPi1(val, off);
 
-    assert(0);
+    if (Logger::enabled())
+        Logger::cout() << "value: " << *val << '\n';
 
-    size_t llt_sz = getABITypeSize(llt->getContainedType(0));
-    assert(os % llt_sz == 0);
-    ptr = gIR->ir->CreateBitCast(ptr, llt, "tmp");
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(os / llt_sz), "tmp", gIR->scopebb());
+    return val;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
