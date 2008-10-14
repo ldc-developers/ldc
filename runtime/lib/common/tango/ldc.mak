@@ -108,8 +108,8 @@ ALL_OBJS_BC= \
 
 ALL_OBJS_O= \
     $(OBJ_CORE_O) \
-    $(OBJ_STDC) \
-    $(OBJ_STDC_POSIX)
+    $(OBJ_STDC) 
+#    $(OBJ_STDC_POSIX)
 
 ######################################################
 
