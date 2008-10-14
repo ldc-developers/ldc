@@ -1137,7 +1137,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
                 
-                // alloca as usual is no value already
+                // alloca as usual if no value already
                 if (!vd->ir.irLocal->value)
                 {
                     vd->ir.irLocal->value = DtoAlloca(DtoType(vd->type), vd->toChars());

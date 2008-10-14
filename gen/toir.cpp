@@ -620,7 +620,7 @@ DValue* MinAssignExp::toElem(IRState* p)
         Logger::println("ptr");
         LLValue* tmp = r->getRVal();
         LLValue* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
-        tmp = llvm::BinaryOperator::createSub(zero,tmp,"tmp",p->scopebb());
+        tmp = llvm::BinaryOperator::CreateSub(zero,tmp,"tmp",p->scopebb());
         tmp = llvm::GetElementPtrInst::Create(l->getRVal(),tmp,"tmp",p->scopebb());
         res = new DImValue(type, tmp);
     }
@@ -1412,10 +1412,10 @@ DValue* PostExp::toElem(IRState* p)
         assert(e2type->isintegral());
         LLValue* one = llvm::ConstantInt::get(val->getType(), 1, !e2type->isunsigned());
         if (op == TOKplusplus) {
-            post = llvm::BinaryOperator::createAdd(val,one,"tmp",p->scopebb());
+            post = llvm::BinaryOperator::CreateAdd(val,one,"tmp",p->scopebb());
         }
         else if (op == TOKminusminus) {
-            post = llvm::BinaryOperator::createSub(val,one,"tmp",p->scopebb());
+            post = llvm::BinaryOperator::CreateSub(val,one,"tmp",p->scopebb());
         }
     }
     else if (e1type->ty == Tpointer)
@@ -1431,10 +1431,10 @@ DValue* PostExp::toElem(IRState* p)
         assert(e2type->isfloating());
         LLValue* one = DtoConstFP(e1type, 1.0);
         if (op == TOKplusplus) {
-            post = llvm::BinaryOperator::createAdd(val,one,"tmp",p->scopebb());
+            post = llvm::BinaryOperator::CreateAdd(val,one,"tmp",p->scopebb());
         }
         else if (op == TOKminusminus) {
-            post = llvm::BinaryOperator::createSub(val,one,"tmp",p->scopebb());
+            post = llvm::BinaryOperator::CreateSub(val,one,"tmp",p->scopebb());
         }
     }
     else
@@ -1700,7 +1700,7 @@ DValue* AndAndExp::toElem(IRState* p)
     DValue* v = e2->toElem(p);
 
     LLValue* vbool = DtoBoolean(loc, v);
-    LLValue* uandvbool = llvm::BinaryOperator::create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
+    LLValue* uandvbool = llvm::BinaryOperator::Create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
     DtoStore(uandvbool,resval);
     llvm::BranchInst::Create(andandend,p->scopebb());
 
@@ -1754,7 +1754,7 @@ DValue* X##Exp::toElem(IRState* p) \
     LOG_SCOPE; \
     DValue* u = e1->toElem(p); \
     DValue* v = e2->toElem(p); \
-    LLValue* x = llvm::BinaryOperator::create(llvm::Instruction::Y, u->getRVal(), v->getRVal(), "tmp", p->scopebb()); \
+    LLValue* x = llvm::BinaryOperator::Create(llvm::Instruction::Y, u->getRVal(), v->getRVal(), "tmp", p->scopebb()); \
     return new DImValue(type, x); \
 } \
 \
@@ -1766,7 +1766,7 @@ DValue* X##AssignExp::toElem(IRState* p) \
     DValue* v = e2->toElem(p); \
     LLValue* uval = u->getRVal(); \
     LLValue* vval = v->getRVal(); \
-    LLValue* tmp = llvm::BinaryOperator::create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
+    LLValue* tmp = llvm::BinaryOperator::Create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
     DtoStore(DtoPointedType(u->getLVal(), tmp), u->getLVal()); \
     return u; \
 }
@@ -2022,7 +2022,7 @@ DValue* ComExp::toElem(IRState* p)
 
     LLValue* value = u->getRVal();
     LLValue* minusone = llvm::ConstantInt::get(value->getType(), -1, true);
-    value = llvm::BinaryOperator::create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
+    value = llvm::BinaryOperator::Create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
 
     return new DImValue(type, value);
 }
