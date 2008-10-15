@@ -489,7 +489,7 @@ llvm::Function* build_module_ctor()
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(llvm::CallingConv::Fast);
+    fn->setCallingConv(DtoCallingConv(LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
@@ -504,7 +504,7 @@ llvm::Function* build_module_ctor()
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(llvm::CallingConv::Fast);
+        call->setCallingConv(DtoCallingConv(LINKd));
     }
 
     // debug info end
@@ -534,7 +534,7 @@ static llvm::Function* build_module_dtor()
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(llvm::CallingConv::Fast);
+    fn->setCallingConv(DtoCallingConv(LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
@@ -549,7 +549,7 @@ static llvm::Function* build_module_dtor()
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(llvm::CallingConv::Fast);
+        call->setCallingConv(DtoCallingConv(LINKd));
     }
 
     // debug info end
@@ -579,7 +579,7 @@ static llvm::Function* build_module_unittest()
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(llvm::CallingConv::Fast);
+    fn->setCallingConv(DtoCallingConv(LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
@@ -594,7 +594,7 @@ static llvm::Function* build_module_unittest()
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(llvm::CallingConv::Fast);
+        call->setCallingConv(DtoCallingConv(LINKd));
     }
 
     // debug info end
