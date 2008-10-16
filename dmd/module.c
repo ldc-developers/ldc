@@ -166,10 +166,17 @@ File* Module::buildFilePath(char* forcename, char* path, char* ext)
 
     FileName::ensurePathExists(FileName::path(argobj));
 
-    if (forcename)
+// always append the extension! otherwise hard to make output switches consistent
+//    if (forcename)
+//	return new File(argobj);
+//    else
+    // allow for .o and .obj on windows
+#if _WIN32
+    if (ext == global.params.objdir && FileName::ext(argobj) 
+	    && stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
 	return new File(argobj);
-    else
-	return new File(FileName::forceExt(argobj, ext));
+#endif
+    return new File(FileName::forceExt(argobj, ext));
 }
 
 void Module::buildTargetFiles()

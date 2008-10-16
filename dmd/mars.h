@@ -46,6 +46,12 @@ enum ARCH
     ARCHppc,
     ARCHppc_64
 };
+enum OUTPUTFLAG
+{
+    OUTPUTFLAGno,
+    OUTPUTFLAGdefault, // for the .o default
+    OUTPUTFLAGset // for -output
+};
 
 enum OS
 {
@@ -161,6 +167,9 @@ struct Global
     char *mars_ext;
     char *sym_ext;
     char *obj_ext;
+#if _WIN32
+    char *obj_ext_alt;
+#endif
     char *ll_ext;
     char *bc_ext;
     char *s_ext;

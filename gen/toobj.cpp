@@ -252,8 +252,6 @@ void Module::genobjfile(int multiobj, char** envp)
         // call gcc to convert assembly to object file
         if (global.params.output_o) {
             LLPath objpath = LLPath(objfile->name->toChars());
-            objpath.eraseSuffix();
-            objpath.appendSuffix(std::string(global.obj_ext));
             assemble(spath, objpath, envp);
         }
 
