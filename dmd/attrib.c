@@ -492,10 +492,14 @@ void ProtDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 /********************************* AlignDeclaration ****************************/
 
-AlignDeclaration::AlignDeclaration(unsigned sa, Array *decl)
+AlignDeclaration::AlignDeclaration(Loc loc, unsigned sa, Array *decl)
 	: AttribDeclaration(decl)
 {
+    this->loc = loc;
     salign = sa;
+
+    if (salign != 1)
+	error("align(%d) is not implemented and specified to be unportable anyway, use align(1) and manual fillers instead", salign);
 }
 
 Dsymbol *AlignDeclaration::syntaxCopy(Dsymbol *s)
@@ -503,7 +507,7 @@ Dsymbol *AlignDeclaration::syntaxCopy(Dsymbol *s)
     AlignDeclaration *ad;
 
     assert(!s);
-    ad = new AlignDeclaration(salign, Dsymbol::arraySyntaxCopy(decl));
+    ad = new AlignDeclaration(loc, salign, Dsymbol::arraySyntaxCopy(decl));
     return ad;
 }
 

@@ -90,7 +90,7 @@ struct AlignDeclaration : AttribDeclaration
 {
     unsigned salign;
 
-    AlignDeclaration(unsigned sa, Array *decl);
+    AlignDeclaration(Loc loc, unsigned sa, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

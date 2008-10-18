@@ -367,7 +367,7 @@ Array *Parser::parseDeclDefs(int once)
 		    n = global.structalign;		// default
 
 		a = parseBlock();
-		s = new AlignDeclaration(n, a);
+		s = new AlignDeclaration(loc, n, a);
 		break;
 	    }
 
