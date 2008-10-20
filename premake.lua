@@ -31,9 +31,11 @@ TRIPLE = "";
 if options["target-override"] then
     TRIPLE = options["target-override"]
 else
-    local p = io.popen("sh config.guess")
-    TRIPLE = p:read()
+    os.execute("sh config.guess > default-target-triple.tmp")
+    TRIPLE = io.open("default-target-triple.tmp"):read()
 end
+
+io.write("Default target: '"..TRIPLE.."'\n");
 
 -- D version - don't change these !!!
 DMDV1 = "1"
