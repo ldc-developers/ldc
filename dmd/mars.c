@@ -781,7 +781,7 @@ int main(int argc, char *argv[], char** envp)
 	    // append dot, so forceExt won't change existing name even if it contains dots
 	    size_t len = strlen(global.params.objname);
 	    size_t extlen = strlen(".");
-	    char* s = (char *)alloca(len + 1 + extlen + 1);
+	    char* s = (char *)mem.malloc(len + 1 + extlen + 1);
 	    memcpy(s, global.params.objname, len);
 	    s[len] = '.';
 	    s[len+1+extlen] = 0;
