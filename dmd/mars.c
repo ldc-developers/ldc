@@ -799,6 +799,8 @@ int main(int argc, char *argv[], char** envp)
     if (global.params.link)
     {
 	global.params.exefile = global.params.objname;
+	if (files.dim > 1)
+	    global.params.objname = NULL;
     }
     else if (global.params.run)
     {
