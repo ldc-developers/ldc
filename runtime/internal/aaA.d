@@ -440,6 +440,8 @@ void _aaDel(AA aa, TypeInfo keyti, void *pkey)
 
 /********************************************
  * Produce array of values from aa.
+ * The actual type is painted on the return value by the frontend
+ * This means the returned length should be the number of elements
  */
 
 void[] _aaValues(AA aa, size_t keysize, size_t valuesize)
@@ -585,6 +587,8 @@ body
 
 /********************************************
  * Produce array of N byte keys from aa.
+ * The actual type is painted on the return value by the frontend
+ * This means the returned length should be the number of elements
  */
 
 void[] _aaKeys(AA aa, size_t keysize)

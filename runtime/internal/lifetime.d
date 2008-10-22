@@ -1091,6 +1091,9 @@ extern (C) void* _d_arrayliteralT(TypeInfo ti, size_t length, ...)
 
 /**
  * Support for array.dup property.
+ * The actual type is painted on the return value by the frontend
+ * Given length is number of elements
+ * Returned length is number of elements
  */
 
 

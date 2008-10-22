@@ -240,6 +240,8 @@ unittest
 
 /**********************************************
  * Support for array.reverse property.
+ * The actual type is painted on the return value by the frontend
+ * Given and returned length are number of elements
  */
 
 extern (C) void[] _adReverse(void[] a, size_t szelem)
@@ -370,6 +372,8 @@ extern (C) wchar[] _adSortWchar(wchar[] a)
 
 /***************************************
  * Support for array equality test.
+ * The actual type is painted on the return value by the frontend
+ * Given lengths are number of elements
  */
 
 extern (C) int _adEq(void[] a1, void[] a2, TypeInfo ti)
@@ -400,6 +404,8 @@ unittest
 
 /***************************************
  * Support for array compare test.
+ * The actual type is painted on the return value by the frontend
+ * Given lengths are number of elements
  */
 
 extern (C) int _adCmp(void[] a1, void[] a2, TypeInfo ti)
@@ -437,6 +443,8 @@ unittest
 
 /***************************************
  * Support for array compare test.
+ * The actual type is painted on the return value by the frontend
+ * Given lengths are number of elements
  */
 
 extern (C) int _adCmpChar(void[] a1, void[] a2)

@@ -4373,7 +4373,7 @@ L1:
     s = s->toAlias();
 
     v = s->isVarDeclaration();
-    if (v && v->isConst())
+    if (v && v->isConst() && v->type->toBasetype()->ty != Tsarray)
     {	ExpInitializer *ei = v->getExpInitializer();
 
 	if (ei)
@@ -4781,7 +4781,7 @@ L1:
 	s->checkDeprecated(e->loc, sc);
     s = s->toAlias();
     v = s->isVarDeclaration();
-    if (v && v->isConst())
+    if (v && v->isConst() && v->type->toBasetype()->ty != Tsarray)
     {	ExpInitializer *ei = v->getExpInitializer();
 
 	if (ei)
