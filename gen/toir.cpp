@@ -110,10 +110,16 @@ DValue* VarExp::toElem(IRState* p)
         // function parameter
         else if (vd->isParameter()) {
             Logger::println("function param");
+            Logger::println("type: %s", vd->type->toChars());
             FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
             if (fd && fd != p->func()->decl) {
                 Logger::println("nested parameter");
                 return DtoNestedVariable(loc, type, vd);
+            }
+            else if (vd->storage_class & STClazy) {
+                Logger::println("lazy parameter");
+                assert(type->ty == Tdelegate);
+                return new DVarValue(type, vd->ir.getIrValue());
             }
             else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
                 return new DVarValue(type, vd, vd->ir.getIrValue());
@@ -1833,7 +1839,8 @@ DValue* DelegateExp::toElem(IRState* p)
 
     const LLPointerType* int8ptrty = getPtrToType(LLType::Int8Ty);
 
-    LLValue* lval = DtoAlloca(DtoType(type), "tmpdelegate");
+    assert(type->toBasetype()->ty == Tdelegate);
+    const LLType* dgty = DtoType(type);
 
     DValue* u = e1->toElem(p);
     LLValue* uval;
@@ -1859,11 +1866,7 @@ DValue* DelegateExp::toElem(IRState* p)
     if (Logger::enabled())
         Logger::cout() << "context = " << *uval << '\n';
 
-    LLValue* context = DtoGEPi(lval,0,0);
     LLValue* castcontext = DtoBitCast(uval, int8ptrty);
-    DtoStore(castcontext, context);
-
-    LLValue* fptr = DtoGEPi(lval,0,1);
 
     Logger::println("func: '%s'", func->toPrettyChars());
 
@@ -1880,10 +1883,9 @@ DValue* DelegateExp::toElem(IRState* p)
         castfptr = func->ir.irFunc->func;
     }
 
-    castfptr = DtoBitCast(castfptr, fptr->getType()->getContainedType(0));
-    DtoStore(castfptr, fptr);
+    castfptr = DtoBitCast(castfptr, dgty->getContainedType(1));
 
-    return new DImValue(type, lval);
+    return new DImValue(type, DtoAggrPair(castcontext, castfptr, ".dg"));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2098,12 +2100,9 @@ DValue* FuncExp::toElem(IRState* p)
     DtoForceDefineDsymbol(fd);
     assert(fd->ir.irFunc->func);
 
-    LLValue *lval, *fptr;
     if(fd->tok == TOKdelegate) {
         const LLType* dgty = DtoType(type);
-        lval = DtoAlloca(dgty,"dgstorage");
 
-        LLValue* context = DtoGEPi(lval,0,0);
         LLValue* cval;
         IrFunction* irfn = p->func();
         if (irfn->nestedVar)
@@ -2112,15 +2111,11 @@ DValue* FuncExp::toElem(IRState* p)
             cval = irfn->nestArg;
         else
             cval = getNullPtr(getVoidPtrType());
-        cval = DtoBitCast(cval, context->getType()->getContainedType(0));
-        DtoStore(cval, context);
+        cval = DtoBitCast(cval, dgty->getContainedType(0));
 
-        fptr = DtoGEPi(lval,0,1,"tmp",p->scopebb());
+        LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, dgty->getContainedType(1));
 
-        LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, fptr->getType()->getContainedType(0));
-        DtoStore(castfptr, fptr);
-
-        return new DVarValue(type, lval);
+        return new DImValue(type, DtoAggrPair(cval, castfptr, ".func"));
 
     } else if(fd->tok == TOKfunction) {
         return new DImValue(type, fd->ir.irFunc->func);

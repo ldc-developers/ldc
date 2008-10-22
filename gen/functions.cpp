@@ -123,15 +123,24 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
 
         const LLType* at = DtoType(argT);
 
+        // handle lazy args
+        if (arg->storageClass & STClazy)
+        {
+            Logger::println("lazy param");
+            TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
+            TypeDelegate *ltd = new TypeDelegate(ltf);
+            at = DtoType(ltd);
+            paramvec.push_back(at);
+        }
         // opaque types need special handling
-        if (llvm::isa<llvm::OpaqueType>(at)) {
+        else if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");
             assert(argT->ty == Tstruct || argT->ty == Tclass);
             paramvec.push_back(getPtrToType(at));
         }
-        // structs and delegates are passed as a reference, but by value
-        else if (argT->ty == Tstruct || argT->ty == Tdelegate) {
-            Logger::println("struct/sarray param");
+        // structs are passed as a reference, but by value
+        else if (argT->ty == Tstruct) {
+            Logger::println("struct param");
             if (!refOrOut)
                 arg->llvmAttrs |= llvm::Attribute::ByVal;
             paramvec.push_back(getPtrToType(at));
@@ -155,23 +164,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             if (unsigned ea = DtoShouldExtend(argT))
                 arg->llvmAttrs |= ea;
             paramvec.push_back(at);
-        }
-
-        // handle lazy args
-        if (arg->storageClass & STClazy)
-        {
-            if (Logger::enabled())
-                Logger::cout() << "for lazy got: " << *paramvec.back() << '\n';
-
-            TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
-            TypeDelegate *ltd = new TypeDelegate(ltf);
-            at = getPtrToType(DtoType(ltd));
-
-            if (Logger::enabled())
-                Logger::cout() << "lazy updated to: " << *at << '\n';
-
-            paramvec.back() = at;
-            // lazy doesn't need byval as the delegate is not visible to the user
         }
     }
 
@@ -652,13 +644,14 @@ void DtoDefineFunc(FuncDeclaration* fd)
             IrLocal* irloc = vd->ir.irLocal;
             assert(irloc);
 
-            bool refoutlazy = vd->storage_class & (STCref | STCout | STClazy);
+            bool refout = vd->storage_class & (STCref | STCout);
+            bool lazy = vd->storage_class & STClazy;
 
-            if (refoutlazy)
+            if (refout)
             {
                 continue;
             }
-            else if (DtoIsPassedByRef(vd->type))
+            else if (!lazy && DtoIsPassedByRef(vd->type))
             {
                 LLValue* vdirval = irloc->value;
                 if (global.params.symdebug && !(isaArgument(vdirval) && !isaArgument(vdirval)->hasByValAttr()))
@@ -874,6 +867,13 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
             arg = new DImValue(argexp->type, arg->getLVal());
         else
             arg = new DImValue(argexp->type, arg->getRVal());
+    }
+    // lazy arg
+    else if (fnarg && (fnarg->storageClass & STClazy))
+    {
+        assert(argexp->type->toBasetype()->ty == Tdelegate);
+        assert(!arg->isLVal());
+        return arg;
     }
     // byval arg, but expr has no storage yet
     else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull()))

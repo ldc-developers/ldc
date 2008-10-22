@@ -25,14 +25,14 @@ bool DtoIsPassedByRef(Type* type)
 {
     Type* typ = type->toBasetype();
     TY t = typ->ty;
-    return (t == Tstruct || t == Tdelegate || t == Tsarray);
+    return (t == Tstruct || t == Tsarray);
 }
 
 bool DtoIsReturnedInArg(Type* type)
 {
     Type* typ = type->toBasetype();
     TY t = typ->ty;
-    return (t == Tstruct || t == Tdelegate || t == Tsarray);
+    return (t == Tstruct || t == Tsarray);
 }
 
 unsigned DtoShouldExtend(Type* type)
@@ -221,6 +221,7 @@ const LLType* DtoTypeNotVoid(Type* t)
 
 const LLStructType* DtoDelegateType(Type* t)
 {
+    assert(t->ty == Tdelegate);
     const LLType* i8ptr = getVoidPtrType();
     const LLType* func = DtoFunctionType(t->next, NULL, i8ptr);
     const LLType* funcptr = getPtrToType(func);
@@ -235,25 +236,22 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
     llvm::Value *b1, *b2;
     if (rhs == NULL)
     {
-        LLValue* l = DtoLoad(DtoGEPi(lhs,0,0));
-        LLValue* r = llvm::Constant::getNullValue(l->getType());
-        b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
-        l = DtoLoad(DtoGEPi(lhs,0,1));
-        r = llvm::Constant::getNullValue(l->getType());
-        b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+        rhs = LLConstant::getNullValue(lhs->getType());
     }
-    else
-    {
-        LLValue* l = DtoLoad(DtoGEPi(lhs,0,0));
-        LLValue* r = DtoLoad(DtoGEPi(rhs,0,0));
-        b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
-        l = DtoLoad(DtoGEPi(lhs,0,1));
-        r = DtoLoad(DtoGEPi(rhs,0,1));
-        b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
-    }
+
+    LLValue* l = gIR->ir->CreateExtractValue(lhs, 0);
+    LLValue* r = gIR->ir->CreateExtractValue(rhs, 0);
+    b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+
+    l = gIR->ir->CreateExtractValue(lhs, 1);
+    r = gIR->ir->CreateExtractValue(rhs, 1);
+    b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+
     LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+
     if (op == TOKnotequal || op == TOKnotidentity)
         return gIR->ir->CreateNot(b,"tmp");
+
     return b;
 }
 
@@ -557,8 +555,8 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section)
 
 LLValue* DtoLoad(LLValue* src, const char* name)
 {
-    if (Logger::enabled())
-        Logger::cout() << "loading " << *src <<  '\n';
+//     if (Logger::enabled())
+//         Logger::cout() << "loading " << *src <<  '\n';
     LLValue* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
     //ld->setVolatile(gIR->func()->inVolatile);
     return ld;
@@ -566,8 +564,8 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 
 void DtoStore(LLValue* src, LLValue* dst)
 {
-    if (Logger::enabled())
-        Logger::cout() << "storing " << *src << " into " << *dst << '\n';
+//     if (Logger::enabled())
+//         Logger::cout() << "storing " << *src << " into " << *dst << '\n';
     LLValue* st = gIR->ir->CreateStore(src,dst);
     //st->setVolatile(gIR->func()->inVolatile);
 }

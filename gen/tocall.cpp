@@ -75,11 +75,18 @@ LLValue* DtoCallableValue(DValue* fn)
     }
     else if (type->ty == Tdelegate)
     {
-        LLValue* dg = fn->getRVal();
-        if (Logger::enabled())
-            Logger::cout() << "delegate: " << *dg << '\n';
-        LLValue* funcptr = DtoGEPi(dg, 0, 1);
-        return DtoLoad(funcptr);
+        if (fn->isLVal())
+        {
+            LLValue* dg = fn->getLVal();
+            LLValue* funcptr = DtoGEPi(dg, 0, 1);
+            return DtoLoad(funcptr);
+        }
+        else
+        {
+            LLValue* dg = fn->getRVal();
+            assert(isaStruct(dg));
+            return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
+        }
     }
     else
     {
@@ -266,7 +273,15 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // ... or a delegate context arg
         else if (delegatecall)
         {
-            LLValue* ctxarg = DtoLoad(DtoGEPi(fnval->getRVal(), 0,0));
+            LLValue* ctxarg;
+            if (fnval->isLVal())
+            {
+                ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0,0));
+            }
+            else
+            {
+                ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
+            }
             assert(ctxarg->getType() == argiter->get());
             ++argiter;
             args.push_back(ctxarg);

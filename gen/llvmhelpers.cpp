@@ -452,15 +452,11 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         }
     }
     else if (t->ty == Tdelegate) {
-        if (rhs->isNull())
-            DtoAggrZeroInit(lhs->getLVal());
-        else {
-            LLValue* l = lhs->getLVal();
-            LLValue* r = rhs->getRVal();
-            if (Logger::enabled())
-                Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
-            DtoAggrCopy(l, r);
-        }
+        LLValue* l = lhs->getLVal();
+        LLValue* r = rhs->getRVal();
+        if (Logger::enabled())
+            Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        DtoStore(r, l);
     }
     else if (t->ty == Tclass) {
         assert(t2->ty == Tclass);
@@ -694,21 +690,15 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
 
 DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
 {
-    LLValue* res = 0;
-    to = to->toBasetype();
-
-    if (to->ty == Tdelegate)
+    if (to->toBasetype()->ty == Tdelegate)
     {
-        const LLType* toll = getPtrToType(DtoType(to));
-        res = DtoBitCast(val->getRVal(), toll);
+        return DtoPaintType(loc, val, to);
     }
     else
     {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
         fatal();
     }
-
-    return new DImValue(to, res);
 }
 
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
@@ -771,6 +761,31 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
             ptr = DtoArrayPtr(val);
             ptr = DtoBitCast(ptr, DtoType(elem));
             return new DImValue(to, DtoAggrPair(len, ptr, "tmp"));
+        }
+    }
+    else if (from->ty == Tdelegate)
+    {
+        Type* dgty = to->toBasetype();
+        assert(dgty->ty == Tdelegate);
+        if (val->isLVal())
+        {
+            LLValue* ptr = val->getLVal();
+            assert(isaPointer(ptr));
+            ptr = DtoBitCast(ptr, getPtrToType(DtoType(dgty)));
+            if (Logger::enabled())
+                Logger::cout() << "dg ptr: " << *ptr << '\n';
+            return new DVarValue(to, ptr);
+        }
+        else
+        {
+            LLValue* dg = val->getRVal();
+            LLValue* context = gIR->ir->CreateExtractValue(dg, 0, ".context");
+            LLValue* funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
+            funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
+            LLValue* aggr = DtoAggrPair(context, funcptr, "tmp");
+            if (Logger::enabled())
+                Logger::cout() << "dg: " << *aggr << '\n';
+            return new DImValue(to, aggr);
         }
     }
     else if (from->ty == Tpointer || from->ty == Tclass || from->ty == Taarray)

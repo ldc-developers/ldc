@@ -1517,6 +1517,9 @@ Statement *ForeachStatement::semantic(Scope *sc)
 	    Expression *flde;
 	    Identifier *id;
 	    Type *tret;
+        TypeDelegate* dgty;
+        TypeDelegate* dgty2;
+        TypeDelegate* fldeTy;
 
 	    tret = func->type->nextOf();
 
@@ -1600,6 +1603,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		 */
 		//LDC: Build arguments.
 		static FuncDeclaration *aaApply2_fd = NULL;
+        static TypeDelegate* aaApply2_dg;
 		if(!aaApply2_fd) {
 		    Arguments* args = new Arguments;
 		    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
@@ -1607,25 +1611,28 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
-		    args->push(new Argument(STCin, dgty, NULL, NULL));
+		    aaApply2_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+		    args->push(new Argument(STCin, aaApply2_dg, NULL, NULL));
 		    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply2");
 		}
 		static FuncDeclaration *aaApply_fd = NULL;
+        static TypeDelegate* aaApply_dg;
 		if(!aaApply_fd) {
 		    Arguments* args = new Arguments;
 		    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 		    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
-		    args->push(new Argument(STCin, dgty, NULL, NULL));
+		    aaApply_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+		    args->push(new Argument(STCin, aaApply_dg, NULL, NULL));
 		    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply");
 		}
 		if (dim == 2) {
 		    fdapply = aaApply2_fd;
+            fldeTy = aaApply2_dg;
 		} else {
 		    fdapply = aaApply_fd;
+            fldeTy = aaApply_dg;
 		}
 		ec = new VarExp(0, fdapply);
 		Expressions *exps = new Expressions();
@@ -1633,7 +1640,15 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		size_t keysize = taa->key->size();
 		keysize = (keysize + 3) & ~3;
 		exps->push(new IntegerExp(0, keysize, Type::tsize_t));
+
+        // LDC paint delegate argument to the type runtime expects
+        if (!fldeTy->equals(flde->type))
+        {
+            flde = new CastExp(loc, flde, flde->type);
+            flde->type = fldeTy;
+        }
 		exps->push(flde);
+
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e
 	    }
@@ -1674,13 +1689,13 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+		    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
 		    args->push(new Argument(STCin, dgty, NULL, NULL));
 		    fdapply = FuncDeclaration::genCfunc(args, Type::tindex, fdname);
 		} else {
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
-		    TypeDelegate* dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+		    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
 		    args->push(new Argument(STCin, dgty, NULL, NULL));
 		    fdapply = FuncDeclaration::genCfunc(args, Type::tindex, fdname);
 		}
@@ -1690,7 +1705,15 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		if (tab->ty == Tsarray)
 		   aggr = aggr->castTo(sc, tn->arrayOf());
         exps->push(aggr);
+
+        // LDC paint delegate argument to the type runtime expects
+        if (!dgty->equals(flde->type))
+        {
+            flde = new CastExp(loc, flde, flde->type);
+            flde->type = dgty;
+        }
 		exps->push(flde);
+
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e
 	    }
