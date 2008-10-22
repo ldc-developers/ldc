@@ -498,8 +498,8 @@ AlignDeclaration::AlignDeclaration(Loc loc, unsigned sa, Array *decl)
     this->loc = loc;
     salign = sa;
 
-    if (salign != 1)
-	error("align(%d) is not implemented and specified to be unportable anyway, use align(1) and manual fillers instead", salign);
+    if (global.params.warnings && salign != 1)
+	warning("%s: align(%d) is not implemented and specified to be unportable anyway, use align(1) and manual fillers instead", loc.toChars(), salign);
 }
 
 Dsymbol *AlignDeclaration::syntaxCopy(Dsymbol *s)
