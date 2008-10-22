@@ -37,11 +37,12 @@ testversion=PIC
 
 
 [compile]
+oneatatime=yes
 cmd=ldc -c $i
 
 flag=$i
 incdir=-I$i
-libdir=-L-L=$i
+libdir=-L-L$i
 optimize=-O3
 version=-version=$i
 
@@ -50,8 +51,8 @@ version=-version=$i
 oneatatime=yes
 cmd=ldc $i -of$o
 
-libdir=-L-L=$i
-lib=-L-l=$i
+libdir=-L-L$i
+lib=-L-l$i
 flag=-L$i
 
 
