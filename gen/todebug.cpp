@@ -135,10 +135,13 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
     vals[1] = DBG_CAST(getDwarfAnchor(DW_TAG_compile_unit));
 
     vals[2] = DtoConstUint(DW_LANG_C);// _D)); // doesn't seem to work
-    vals[3] = DtoConstStringPtr(m->srcfile->name->toChars(), "llvm.metadata");
+    vals[3] = DtoConstStringPtr(FileName::name(m->srcfile->name->toChars()), "llvm.metadata");
     std::string srcpath(FileName::path(m->srcfile->name->toChars()));
-    if (srcpath.empty())
-		srcpath = llvm::sys::Path::GetCurrentDirectory().toString();
+    if (!FileName::absolute(srcpath.c_str())) {
+        llvm::sys::Path tmp = llvm::sys::Path::GetCurrentDirectory();
+        tmp.appendComponent(srcpath);
+        srcpath = tmp.toString();
+    }
     vals[4] = DtoConstStringPtr(srcpath.c_str(), "llvm.metadata");
     vals[5] = DtoConstStringPtr("LDC (http://www.dsource.org/projects/ldc)", "llvm.metadata");
 
