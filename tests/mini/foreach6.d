@@ -1,4 +1,4 @@
-module foreach6;
+module mini.foreach6;
 
 struct S
 {

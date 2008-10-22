@@ -25,14 +25,14 @@ bool DtoIsPassedByRef(Type* type)
 {
     Type* typ = type->toBasetype();
     TY t = typ->ty;
-    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray);
+    return (t == Tstruct || t == Tdelegate || t == Tsarray);
 }
 
 bool DtoIsReturnedInArg(Type* type)
 {
     Type* typ = type->toBasetype();
     TY t = typ->ty;
-    return (t == Tstruct || t == Tarray || t == Tdelegate || t == Tsarray);
+    return (t == Tstruct || t == Tdelegate || t == Tsarray);
 }
 
 unsigned DtoShouldExtend(Type* type)
@@ -179,9 +179,6 @@ const LLType* DtoType(Type* t)
         return DtoStructTypeFromArguments(ttupl->arguments);
     }
 */
-    // opaque type
-    case Topaque:
-        return llvm::OpaqueType::get();
 
     default:
         printf("trying to convert unknown type '%s' with value %d\n", t->toChars(), t->ty);
@@ -560,6 +557,8 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section)
 
 LLValue* DtoLoad(LLValue* src, const char* name)
 {
+    if (Logger::enabled())
+        Logger::cout() << "loading " << *src <<  '\n';
     LLValue* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
     //ld->setVolatile(gIR->func()->inVolatile);
     return ld;
@@ -567,6 +566,8 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 
 void DtoStore(LLValue* src, LLValue* dst)
 {
+    if (Logger::enabled())
+        Logger::cout() << "storing " << *src << " into " << *dst << '\n';
     LLValue* st = gIR->ir->CreateStore(src,dst);
     //st->setVolatile(gIR->func()->inVolatile);
 }
@@ -577,6 +578,7 @@ LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
 {
     if (v->getType() == t)
         return v;
+    assert(!(isaStruct(t) || isaStruct(v->getType())));
     return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
 }
 
@@ -805,4 +807,26 @@ LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* n
     LLValue* res = llvm::UndefValue::get(type);
     res = gIR->ir->CreateInsertValue(res, V1, 0, "tmp");
     return gIR->ir->CreateInsertValue(res, V2, 1, name?name:"tmp");
+}
+
+LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
+{
+    const LLType* t = LLStructType::get(V1->getType(), V2->getType(), 0);
+    return DtoAggrPair(t, V1, V2, name);
+}
+
+LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as)
+{
+    if (aggr->getType() == as)
+        return aggr;
+
+    LLValue* res = llvm::UndefValue::get(as);
+
+    LLValue* V = gIR->ir->CreateExtractValue(aggr, 0, "tmp");;
+    V = DtoBitCast(V, as->getContainedType(0));
+    res = gIR->ir->CreateInsertValue(res, V, 0, "tmp");
+
+    V = gIR->ir->CreateExtractValue(aggr, 1, "tmp");;
+    V = DtoBitCast(V, as->getContainedType(1));
+    return gIR->ir->CreateInsertValue(res, V, 1, "tmp");
 }

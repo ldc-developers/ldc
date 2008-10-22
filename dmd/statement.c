@@ -1602,7 +1602,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		static FuncDeclaration *aaApply2_fd = NULL;
 		if(!aaApply2_fd) {
 		    Arguments* args = new Arguments;
-		    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+		    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 		    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
@@ -1614,7 +1614,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		static FuncDeclaration *aaApply_fd = NULL;
 		if(!aaApply_fd) {
 		    Arguments* args = new Arguments;
-		    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+		    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 		    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
@@ -1669,7 +1669,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		assert(j < sizeof(fdname));
 		//LDC: Build arguments.
 		Arguments* args = new Arguments;
-		args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+		args->push(new Argument(STCin, tn->arrayOf(), NULL, NULL));
 		if (dim == 2) {
 		    Arguments* dgargs = new Arguments;
 		    dgargs->push(new Argument(STCin, Type::tvoidptr, NULL, NULL));
@@ -1689,7 +1689,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		Expressions *exps = new Expressions();
 		if (tab->ty == Tsarray)
 		   aggr = aggr->castTo(sc, tn->arrayOf());
-		exps->push(aggr);
+        exps->push(aggr);
 		exps->push(flde);
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e

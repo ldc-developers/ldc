@@ -103,9 +103,6 @@ ClassDeclaration *Type::typeinfofunction;
 ClassDeclaration *Type::typeinfodelegate;
 ClassDeclaration *Type::typeinfotypelist;
 
-// LDC
-Type* Type::topaque;
-
 Type *Type::tvoidptr;
 Type *Type::basic[TMAX];
 unsigned char Type::mangleChar[TMAX];
@@ -210,9 +207,6 @@ void Type::init()
     mangleChar[Ttuple] = 'B';
     mangleChar[Tslice] = '@';
 
-    // LDC
-    mangleChar[Topaque] = 'O';
-
     for (i = 0; i < TMAX; i++)
     {	if (!mangleChar[i])
 	    fprintf(stdmsg, "ty = %d\n", i);
@@ -233,9 +227,6 @@ void Type::init()
     basic[Terror] = basic[Tint32];
 
     tvoidptr = tvoid->pointerTo();
-
-    // LDC
-    topaque = new TypeOpaque();
 
     // set size_t / ptrdiff_t types and pointer size
     if (global.params.is64bit)
@@ -1625,15 +1616,15 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	if(!adDup_fd) {
 	    Arguments* args = new Arguments;
 	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
-	    adDup_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::adDup);
+	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+	    adDup_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adDup);
 	}
 	static FuncDeclaration *adReverse_fd = NULL;
 	if(!adReverse_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	    adReverse_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::adReverse);
+	    adReverse_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adReverse);
 	}
 
 	if(dup)
@@ -1644,7 +1635,14 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	arguments = new Expressions();
 	if (dup)
 	    arguments->push(getTypeInfo(sc));
-	arguments->push(e);
+
+    // LDC repaint array type to void[]
+    if (n->ty != Tvoid) {
+        e = new CastExp(e->loc, e, e->type);
+        e->type = Type::tvoid->arrayOf();
+    }
+    arguments->push(e);
+
 	if (!dup)
 	    arguments->push(new IntegerExp(0, size, Type::tint32));
 	e = new CallExp(e->loc, ec, arguments);
@@ -1660,16 +1658,16 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static FuncDeclaration *adSort_fd = NULL;
 	if(!adSort_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	    adSort_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), "_adSort");
+	    adSort_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
 	}
 	static FuncDeclaration *adSortBit_fd = NULL;
 	if(!adSortBit_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->arrayOf(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->arrayOf(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	    adSortBit_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), "_adSortBit");
+	    adSortBit_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSortBit");
 	}
 
 	if(isBit)
@@ -1678,7 +1676,14 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	    ec = new VarExp(0, adSort_fd);
 	e = e->castTo(sc, n->arrayOf());	// convert to dynamic array
 	arguments = new Expressions();
-	arguments->push(e);
+
+    // LDC repaint array type to void[]
+    if (n->ty != Tvoid) {
+        e = new CastExp(e->loc, e, e->type);
+        e->type = Type::tvoid->arrayOf();
+    }
+    arguments->push(e);
+
     if (next->ty != Tbit)
         arguments->push(n->getTypeInfo(sc));   // LDC, we don't support the getInternalTypeInfo
                                                // optimization arbitrarily, not yet at least...
@@ -2350,7 +2355,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static FuncDeclaration *aaLen_fd = NULL;
 	if(!aaLen_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 	    aaLen_fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
 	}
 
@@ -2371,9 +2376,9 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static FuncDeclaration *aaKeys_fd = NULL;
 	if(!aaKeys_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	    aaKeys_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaKeys);
+	    aaKeys_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaKeys);
 	}
 
 	ec = new VarExp(0, aaKeys_fd);
@@ -2392,10 +2397,10 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static FuncDeclaration *aaValues_fd = NULL;
 	if(!aaValues_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
 	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	    aaValues_fd = FuncDeclaration::genCfunc(args, Type::topaque->arrayOf(), Id::aaValues);
+	    aaValues_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaValues);
 	}
 
 	ec = new VarExp(0, aaValues_fd);
@@ -2417,7 +2422,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	static FuncDeclaration *aaRehash_fd = NULL;
 	if(!aaRehash_fd) {
 	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::topaque->pointerTo(), NULL, NULL));
+	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
 	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
 	    aaRehash_fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
 	}
@@ -5240,16 +5245,6 @@ void TypeSlice::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 
     buf->printf("[%s .. ", lwr->toChars());
     buf->printf("%s]", upr->toChars());
-}
-
-void TypeOpaque::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
-{
-    //printf("TypeOpaquePtr::toCBuffer2()");
-    if (mod != this->mod)
-    {	toCBuffer3(buf, hgs, mod);
-	return;
-    }
-   buf->writestring("opaque");
 }
 
 /***************************** Argument *****************************/

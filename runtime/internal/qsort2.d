@@ -17,12 +17,6 @@
 
 private import tango.stdc.stdlib;
 
-struct Array
-{
-    size_t length;
-    void*  ptr;
-}
-
 private TypeInfo tiglobal;
 
 extern (C) int cmp(void* p1, void* p2)
@@ -30,7 +24,7 @@ extern (C) int cmp(void* p1, void* p2)
     return tiglobal.compare(p1, p2);
 }
 
-extern (C) Array _adSort(Array a, TypeInfo ti)
+extern (C) void[] _adSort(void[] a, TypeInfo ti)
 {
     synchronized
     {

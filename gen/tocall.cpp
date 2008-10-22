@@ -175,7 +175,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array", gIR->module);
 
     // specify arguments
-    args.push_back(typeinfoarrayparam);
+    args.push_back(DtoLoad(typeinfoarrayparam));
     ++argidx;
     args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::Int8Ty), "tmp"));
     ++argidx;
@@ -319,11 +319,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             LLValue* arg = argval->getRVal();
             if (fnarg) // can fnarg ever be null in this block?
             {
-//                 if (Logger::enabled())
-//                 {
-//                     Logger::cout() << "arg:     " << *arg << '\n';
-//                     Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
-//                 }
+                if (Logger::enabled())
+                {
+                    Logger::cout() << "arg:     " << *arg << '\n';
+                    Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
+                }
                 if (arg->getType() != callableTy->getParamType(j))
                     arg = DtoBitCast(arg, callableTy->getParamType(j));
                 if (fnarg->llvmAttrs)
@@ -355,9 +355,33 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call->get();
 
-    // if the type of retllval is abstract, refine to concrete
-    if (retllval->getType()->isAbstract())
-        retllval = DtoBitCast(retllval, getPtrToType(DtoType(resulttype)), "retval");
+    // repaint the type if necessary
+    if (resulttype)
+    {
+        Type* rbase = resulttype->toBasetype();
+        Type* nextbase = tf->next->toBasetype();
+        if (!rbase->equals(nextbase))
+        {
+            Logger::println("repainting return value from '%s' to '%s'", tf->next->toChars(), rbase->toChars());
+            switch(rbase->ty)
+            {
+            case Tarray:
+                retllval = DtoAggrPaint(retllval, DtoType(rbase));
+                break;
+
+            case Tclass:
+            case Taarray:
+            case Tpointer:
+                retllval = DtoBitCast(retllval, DtoType(rbase));
+                break;
+
+            default:
+                assert(0 && "unhandled repainting of return value");
+            }
+            if (Logger::enabled())
+                Logger::cout() << "final return value: " << *retllval << '\n';
+        }
+    }
 
     // set calling convention and parameter attributes
     if (dfnval && dfnval->func)

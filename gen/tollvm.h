@@ -98,6 +98,8 @@ unsigned char getPrefTypeAlign(const LLType* t);
 
 // pair type helpers
 LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
+LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name = 0);
+LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).

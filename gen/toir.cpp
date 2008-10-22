@@ -783,21 +783,26 @@ DValue* CastExp::toElem(IRState* p)
     Logger::print("CastExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    // get the value to cast
     DValue* u = e1->toElem(p);
-    DValue* v = DtoCast(loc, u, to);
-    // force d type to this->type
-    v->getType() = type;
 
-    if (v->isSlice()) {
-        // only valid as rvalue!
+    // cast it to the 'to' type, if necessary
+    DValue* v = u;
+    if (!to->equals(e1->type))
+        v = DtoCast(loc, u, to);
+
+    // paint the type, if necessary
+    if (!type->equals(to))
+        v = DtoPaintType(loc, v, type);
+
+    // slices are not valid lvalues
+    if (v->isSlice())
         return v;
-    }
-
+    // if we're casting a lvalue, keep it around, we might be in a lvalue cast.
     else if(u->isLVal())
         return new DLRValue(u, v);
-
-    else
-        return v;
+    // otherwise just return the new value
+    return v;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -811,7 +816,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
     const LLType* lltype = DtoType(type);
 
     if(!isaPointer(c->getType()) || !isaPointer(lltype)) {
-        error("can only cast pointers to pointers at compile time, not %s to %s", type->toChars(), e1->type->toChars());
+        error("can only cast pointers to pointers at code generation time, not %s to %s", type->toChars(), e1->type->toChars());
         fatal();
     }
 
@@ -1552,8 +1557,8 @@ DValue* DeleteExp::toElem(IRState* p)
     else if (et->ty == Tarray)
     {
         DtoDeleteArray(dval);
-        if (!dval->isSlice())
-            DtoSetArrayToNull(dval->getRVal());
+        if (dval->isLVal())
+            DtoSetArrayToNull(dval->getLVal());
     }
     // unknown/invalid
     else

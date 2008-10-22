@@ -63,13 +63,6 @@ static size_t[] prime_list = [
 //  8_589_934_513UL, 17_179_869_143UL
 ];
 
-// This is the type of the return value for dynamic arrays.
-struct Array
-{
-    size_t length;
-    void* ptr;
-}
-
 struct aaA
 {
     aaA *left;
@@ -449,7 +442,7 @@ void _aaDel(AA aa, TypeInfo keyti, void *pkey)
  * Produce array of values from aa.
  */
 
-Array _aaValues(AA aa, size_t keysize, size_t valuesize)
+void[] _aaValues(AA aa, size_t keysize, size_t valuesize)
 in
 {
     assert(keysize == aligntsize(keysize));
@@ -457,7 +450,7 @@ in
 body
 {
     size_t resi;
-    Array a;
+    void[] a;
 
     void _aaValues_x(aaA* e)
     {
@@ -480,9 +473,10 @@ body
 
     if (aa)
     {
-        a.length = _aaLen(aa);
-        a.ptr = cast(byte*) gc_malloc(a.length * valuesize,
+        auto len = _aaLen(aa);
+        auto ptr = cast(byte*) gc_malloc(len * valuesize,
                                       valuesize < (void*).sizeof ? BlkAttr.NO_SCAN : 0);
+        a = ptr[0 .. len];
         resi = 0;
         foreach (e; aa.b)
         {
@@ -593,7 +587,7 @@ body
  * Produce array of N byte keys from aa.
  */
 
-Array _aaKeys(AA aa, size_t keysize)
+void[] _aaKeys(AA aa, size_t keysize)
 {
     byte[] res;
     size_t resi;
@@ -617,7 +611,7 @@ Array _aaKeys(AA aa, size_t keysize)
 
     auto len = _aaLen(aa);
     if (!len)
-        return Array();
+        return null;
     res = (cast(byte*) gc_malloc(len * keysize,
                                  !(aa.keyti.flags() & 1) ? BlkAttr.NO_SCAN : 0)) [0 .. len * keysize];
     resi = 0;
@@ -628,7 +622,7 @@ Array _aaKeys(AA aa, size_t keysize)
     }
     assert(resi == len);
 
-    return Array(len, res.ptr);
+    return res.ptr[0 .. len];
 }
 
 

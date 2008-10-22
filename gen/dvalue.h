@@ -29,7 +29,6 @@ struct DVarValue;
 struct DFieldValue;
 struct DFuncValue;
 struct DSliceValue;
-struct DArrayLenValue;
 struct DLRValue;
 
 // base class for d-values
@@ -49,7 +48,6 @@ struct DValue : Object
     virtual DFieldValue* isField() { return NULL; }
     virtual DSliceValue* isSlice() { return NULL; }
     virtual DFuncValue* isFunc() { return NULL; }
-    virtual DArrayLenValue* isArrayLen() { return NULL; }
     virtual DLRValue* isLRValue() { return NULL; }
 
 protected:
@@ -126,6 +124,8 @@ struct DSliceValue : DValue
     LLValue* ptr;
 
     DSliceValue(Type* t, LLValue* l, LLValue* p) { type=t; ptr=p; len=l; }
+
+    virtual LLValue* getRVal();
 
     virtual Type*& getType() { assert(type); return type; }
     virtual DSliceValue* isSlice() { return this; }

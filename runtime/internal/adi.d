@@ -55,12 +55,6 @@ private
 }
 
 
-struct Array
-{
-    size_t  length;
-    void*   ptr;
-}
-
 /**********************************************
  * Reverse array of chars.
  * Handled separately because embedded multibyte encodings should not be
@@ -92,6 +86,9 @@ extern (C) char[] _adReverseChar(char[] a)
             }
 
             uint stridelo = UTF8stride[clo];
+            // don't barf on invalid strides, just ignore it
+            if (stridelo == 0xFF)
+                stridelo = 1;
 
             uint stridehi = 1;
             while ((chi & 0xC0) == 0x80)
@@ -245,7 +242,7 @@ unittest
  * Support for array.reverse property.
  */
 
-extern (C) Array _adReverse(Array a, size_t szelem)
+extern (C) void[] _adReverse(void[] a, size_t szelem)
     out (result)
     {
         assert(result.ptr is a.ptr);
@@ -287,7 +284,7 @@ extern (C) Array _adReverse(Array a, size_t szelem)
                     //gc_free(tmp);
             }
         }
-        return Array(a.length, a.ptr);
+        return a.ptr[0 .. a.length];
     }
 
 unittest
@@ -375,7 +372,7 @@ extern (C) wchar[] _adSortWchar(wchar[] a)
  * Support for array equality test.
  */
 
-extern (C) int _adEq(Array a1, Array a2, TypeInfo ti)
+extern (C) int _adEq(void[] a1, void[] a2, TypeInfo ti)
 {
     debug(adi) printf("_adEq(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
 
@@ -405,7 +402,7 @@ unittest
  * Support for array compare test.
  */
 
-extern (C) int _adCmp(Array a1, Array a2, TypeInfo ti)
+extern (C) int _adCmp(void[] a1, void[] a2, TypeInfo ti)
 {
     debug(adi) printf("adCmp()\n");
 
@@ -442,7 +439,7 @@ unittest
  * Support for array compare test.
  */
 
-extern (C) int _adCmpChar(Array a1, Array a2)
+extern (C) int _adCmpChar(void[] a1, void[] a2)
 {
   version(D_InlineAsm_X86)
   {

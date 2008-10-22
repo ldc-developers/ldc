@@ -110,18 +110,7 @@ static const LLType* rt_ptr(const LLType* t)
 
 static const LLType* rt_array(const LLType* elemty)
 {
-    std::vector<const LLType*> t;
-    t.push_back(DtoSize_t());
-    t.push_back(rt_ptr(elemty));
-    return rt_ptr(llvm::StructType::get(t));
-}
-
-static const LLType* rt_array2(const LLType* elemty)
-{
-    std::vector<const LLType*> t;
-    t.push_back(DtoSize_t());
-    t.push_back(rt_ptr(elemty));
-    return llvm::StructType::get(t);
+    return llvm::StructType::get(DtoSize_t(), rt_ptr(elemty), 0);
 }
 
 static const LLType* rt_dg1()
@@ -199,11 +188,9 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(stringTy);
         types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
 
     // void _d_assert_msg( char[] msg, char[] file, uint line )
@@ -214,10 +201,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(stringTy);
         types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -382,7 +366,6 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_dg1()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
         llvm::AttrListPtr palist; \
-        palist = palist.addAttr(1, llvm::Attribute::ByVal); \
         palist = palist.addAttr(2, llvm::Attribute::ByVal); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist); \
@@ -402,7 +385,6 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_dg2()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
         llvm::AttrListPtr palist; \
-        palist = palist.addAttr(1, llvm::Attribute::ByVal); \
         palist = palist.addAttr(2, llvm::Attribute::ByVal); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist); \
@@ -421,7 +403,6 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_dg1()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
         llvm::AttrListPtr palist; \
-        palist = palist.addAttr(1, llvm::Attribute::ByVal); \
         palist = palist.addAttr(2, llvm::Attribute::ByVal); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist); \
@@ -440,7 +421,6 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_dg2()); \
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false); \
         llvm::AttrListPtr palist; \
-        palist = palist.addAttr(1, llvm::Attribute::ByVal); \
         palist = palist.addAttr(2, llvm::Attribute::ByVal); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist); \
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist); \
@@ -463,22 +443,6 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(sizeTy);
         types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(sizeTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-
-    // builds the d string[] for the D main args from the C main args
-    // void _d_main_args(uint n, char** args, ref char[][] res)
-    {
-        std::string fname("_d_main_args");
-        std::vector<const LLType*> types;
-        types.push_back(intTy);
-        types.push_back(rt_ptr(rt_ptr(byteTy)));
-        types.push_back(rt_array(stringTy->getContainedType(0)));
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -529,12 +493,9 @@ static void LLVM_D_BuildRuntimeModule()
         std::string fname2("_adSortChar");
         std::vector<const LLType*> types;
         types.push_back(stringTy);
-        types.push_back(stringTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(stringTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
     // wchar[] _adReverseWchar(wchar[] a)
@@ -544,42 +505,33 @@ static void LLVM_D_BuildRuntimeModule()
         std::string fname2("_adSortWchar");
         std::vector<const LLType*> types;
         types.push_back(wstringTy);
-        types.push_back(wstringTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(wstringTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // Array _adReverse(Array a, size_t szelem)
+    // void[] _adReverse(void[] a, size_t szelem)
     {
         std::string fname("_adReverse");
         std::vector<const LLType*> types;
         types.push_back(rt_array(byteTy));
-        types.push_back(rt_array(byteTy));
         types.push_back(sizeTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // Array _adDupT(TypeInfo ti, Array a)
+    // void[] _adDupT(TypeInfo ti, void[] a)
     {
         std::string fname("_adDupT");
         std::vector<const LLType*> types;
-        types.push_back(rt_array(byteTy));
         types.push_back(typeInfoTy);
         types.push_back(rt_array(byteTy));
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(3, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // int _adEq(Array a1, Array a2, TypeInfo ti)
-    // int _adCmp(Array a1, Array a2, TypeInfo ti)
+    // int _adEq(void[] a1, void[] a2, TypeInfo ti)
+    // int _adCmp(void[] a1, void[] a2, TypeInfo ti)
     {
         std::string fname("_adEq");
         std::string fname2("_adCmp");
@@ -588,37 +540,28 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         types.push_back(typeInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // int _adCmpChar(Array a1, Array a2)
+    // int _adCmpChar(void[] a1, void[] a2)
     {
         std::string fname("_adCmpChar");
         std::vector<const LLType*> types;
         types.push_back(rt_array(byteTy));
         types.push_back(rt_array(byteTy));
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // Array _adSort(Array a, TypeInfo ti)
+    // void[] _adSort(void[] a, TypeInfo ti)
     {
         std::string fname("_adSort");
         std::vector<const LLType*> types;
         types.push_back(rt_array(byteTy));
-        types.push_back(rt_array(byteTy));
         types.push_back(typeInfoTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -680,15 +623,14 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // ArrayRet_t _aaValues(AA aa, size_t keysize, size_t valuesize)
+    // void[] _aaValues(AA aa, size_t keysize, size_t valuesize)
     {
         std::string fname("_aaValues");
         std::vector<const LLType*> types;
-        types.push_back(rt_array(byteTy));
         types.push_back(aaTy);
         types.push_back(sizeTy);
         types.push_back(sizeTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -702,14 +644,13 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // ArrayRet_t _aaKeys(AA aa, size_t keysize)
+    // void[] _aaKeys(AA aa, size_t keysize)
     {
         std::string fname("_aaKeys");
         std::vector<const LLType*> types;
-        types.push_back(rt_array(byteTy));
         types.push_back(aaTy);
         types.push_back(sizeTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -732,7 +673,7 @@ static void LLVM_D_BuildRuntimeModule()
         std::vector<const LLType*> types;
         types.push_back(aaTy);
         types.push_back(sizeTy);
-        types.push_back(rt_dg1());
+        types.push_back(rt_dg2());
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         llvm::AttrListPtr palist;
         palist = palist.addAttr(3, llvm::Attribute::ByVal);
@@ -808,39 +749,30 @@ static void LLVM_D_BuildRuntimeModule()
     {
         std::string fname("_d_switch_string");
         std::vector<const LLType*> types;
-        types.push_back(rt_array(rt_array2(byteTy)));
+        types.push_back(rt_array(stringTy));
         types.push_back(stringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     // int _d_switch_ustring(wchar[][] table, wchar[] ca)
     {
         std::string fname("_d_switch_ustring");
         std::vector<const LLType*> types;
-        types.push_back(rt_array(rt_array2(shortTy)));
+        types.push_back(rt_array(wstringTy));
         types.push_back(wstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     // int _d_switch_dstring(dchar[][] table, dchar[] ca)
     {
         std::string fname("_d_switch_dstring");
         std::vector<const LLType*> types;
-        types.push_back(rt_array(rt_array2(intTy)));
+        types.push_back(rt_array(dstringTy));
         types.push_back(dstringTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::AttrListPtr palist;
-        palist = palist.addAttr(1, llvm::Attribute::ByVal);
-        palist = palist.addAttr(2, llvm::Attribute::ByVal);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->setAttributes(palist);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////

@@ -64,7 +64,8 @@ LIB_DEST=..
 
 targets : lib sharedlib doc
 all     : lib sharedlib doc
-lib     : ldc.bclib ldc.clib ldc.lib
+#lib     : ldc.bclib ldc.clib ldc.lib
+lib     : ldc.clib ldc.lib
 sharedlib : ldc.sharedlib
 doc     : ldc.doc
 
@@ -218,14 +219,14 @@ ALL_DOCS=
 
 ######################################################
 
-ldc.bclib : $(LIB_TARGET_BC_ONLY)
+#ldc.bclib : $(LIB_TARGET_BC_ONLY)
 ldc.clib : $(LIB_TARGET_C_ONLY)
 ldc.lib : $(LIB_TARGET_FULL)
 ldc.sharedlib : $(LIB_TARGET_SHARED)
 
-$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_O)
-	$(RM) $@
-	$(LC) $@ $(ALL_OBJS_BC)
+#$(LIB_TARGET_BC_ONLY) : $(ALL_OBJS_O)
+#	$(RM) $@
+#	$(LC) $@ $(ALL_OBJS_BC)
 
 
 $(LIB_TARGET_FULL) : $(ALL_OBJS_O)
@@ -250,7 +251,7 @@ ldc.doc : $(ALL_DOCS)
 
 clean :
 	find . -name "*.di" | xargs $(RM)
-	$(RM) $(ALL_OBJS_BC)
+#	$(RM) $(ALL_OBJS_BC)
 	$(RM) $(ALL_OBJS_O)
 	$(RM) $(ALL_DOCS)
 	$(RM) $(LIB_MASK)

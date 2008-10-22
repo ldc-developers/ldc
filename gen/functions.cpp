@@ -59,7 +59,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         {
         const LLType* arrTy = DtoArrayType(LLType::Int8Ty);
         const LLType* arrArrTy = DtoArrayType(arrTy);
-        paramvec.push_back(getPtrToType(arrArrTy));
+        paramvec.push_back(arrArrTy);
         }
     }
     else{
@@ -103,7 +103,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         types.push_back(DtoSize_t());
         types.push_back(getPtrToType(getPtrToType(ti->ir.irStruct->constInit->getType())));
         const LLType* t1 = llvm::StructType::get(types);
-        paramvec.push_back(getPtrToType(t1));
+        paramvec.push_back(t1);
         paramvec.push_back(getPtrToType(LLType::Int8Ty));
     }
     else if (arrayVararg)
@@ -123,41 +123,37 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
 
         const LLType* at = DtoType(argT);
 
-        // FIXME: using the llvm type for these is a bad idea... aggregates are first class now and we're starting to use it ...
-
-        if (argT->iscomplex()) {
-            goto Lbadstuff;
-        }
-        else if (isaStruct(at)) {
-            Logger::println("struct param");
-            paramvec.push_back(getPtrToType(at));
-            if (!refOrOut)
-                arg->llvmAttrs |= llvm::Attribute::ByVal;
-        }
-        else if (isaArray(at)) {
-            // static array are passed by reference
-            Logger::println("sarray param");
-            assert(argT->ty == Tsarray);
-            paramvec.push_back(getPtrToType(at));
-        }
-        else if (llvm::isa<llvm::OpaqueType>(at)) {
+        // opaque types need special handling
+        if (llvm::isa<llvm::OpaqueType>(at)) {
             Logger::println("opaque param");
             assert(argT->ty == Tstruct || argT->ty == Tclass);
             paramvec.push_back(getPtrToType(at));
         }
+        // structs and delegates are passed as a reference, but by value
+        else if (argT->ty == Tstruct || argT->ty == Tdelegate) {
+            Logger::println("struct/sarray param");
+            if (!refOrOut)
+                arg->llvmAttrs |= llvm::Attribute::ByVal;
+            paramvec.push_back(getPtrToType(at));
+        }
+        // static arrays are passed directly by reference
+        else if (argT->ty == Tsarray)
+        {
+            Logger::println("static array param");
+            at = getPtrToType(at);
+            paramvec.push_back(at);
+        }
+        // firstclass ' ref/out ' parameter
+        else if (refOrOut) {
+            Logger::println("ref/out param");
+            at = getPtrToType(at);
+            paramvec.push_back(at);
+        }
+        // firstclass ' in ' parameter
         else {
-Lbadstuff:
-            if (refOrOut) {
-                Logger::println("by ref param");
-                at = getPtrToType(at);
-            }
-            else {
-                Logger::println("in param");
-                if (unsigned ea = DtoShouldExtend(argT))
-                {
-                    arg->llvmAttrs |= ea;
-                }
-            }
+            Logger::println("in param");
+            if (unsigned ea = DtoShouldExtend(argT))
+                arg->llvmAttrs |= ea;
             paramvec.push_back(at);
         }
 
@@ -360,15 +356,6 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         PAWI.Index = 1;
         PAWI.Attrs = llvm::Attribute::StructRet;
         attrs.push_back(PAWI);
-    }
-
-    // set byval attrs on implicit main arg
-    if (fdecl->isMain() && Argument::dim(f->parameters) == 0)
-    {
-        PAWI.Index = llidx;
-        PAWI.Attrs = llvm::Attribute::ByVal;
-        attrs.push_back(PAWI);
-        llidx++;
     }
 
     // set attrs on the rest of the arguments
@@ -775,12 +762,18 @@ void DtoDefineFunc(FuncDeclaration* fd)
         }
     }
 
-    // copy _argptr to a memory location
+    // copy _argptr and _arguments to a memory location
     if (f->linkage == LINKd && f->varargs == 1)
     {
+        // _argptr
         LLValue* argptrmem = DtoAlloca(fd->ir.irFunc->_argptr->getType(), "_argptr_mem");
         new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
         fd->ir.irFunc->_argptr = argptrmem;
+
+        // _arguments
+        LLValue* argumentsmem = DtoAlloca(fd->ir.irFunc->_arguments->getType(), "_arguments_mem");
+        new llvm::StoreInst(fd->ir.irFunc->_arguments, argumentsmem, gIR->scopebb());
+        fd->ir.irFunc->_arguments = argumentsmem;
     }
 
     // output function body

@@ -36,6 +36,12 @@
 
 private import util.utf;
 
+//debug = apply;
+debug(apply)
+{
+    extern(C) int printf(char*, ...);
+}
+
 /**********************************************
  */
 
@@ -356,6 +362,7 @@ extern (C) int _aApplydc2(dchar[] aa, dg2_t dg)
         char c;
 
         d = aa[i];
+        debug(apply) printf("d = %u\n", d);
         if (d & ~0x7F)
         {
             char[4] buf;
@@ -363,6 +370,7 @@ extern (C) int _aApplydc2(dchar[] aa, dg2_t dg)
             auto b = toUTF8(buf, d);
             foreach (char c2; b)
             {
+                debug(apply) printf("c2 = %d\n", c2);
                 result = dg(&i, cast(void *)&c2);
                 if (result)
                     return result;

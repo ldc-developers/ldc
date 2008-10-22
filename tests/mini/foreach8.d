@@ -1,9 +1,10 @@
-module tangotests.foreach1;
+module mini.foreach8;
 
 extern(C) int printf(char*, ...);
 
 int main(){
     dchar[] array="\u2260";
+    printf("array[0] == %u\n", array[0]);
     int test=0;
     int count=0;
     assert(count==0);

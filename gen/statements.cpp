@@ -676,7 +676,7 @@ struct Case : Object
     }
 };
 
-static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expression* e)
+static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
 {
     Type* dt = e->type->toBasetype();
     Type* dtnext = dt->next->toBasetype();
@@ -705,26 +705,10 @@ static LLValue* call_string_switch_runtime(llvm::GlobalVariable* table, Expressi
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
 
     DValue* val = e->toElem(gIR);
-    LLValue* llval;
-    if (DSliceValue* sval = val->isSlice())
-    {
-        // give storage
-        llval = DtoAlloca(DtoType(e->type), "tmp");
-        DVarValue* vv = new DVarValue(e->type, llval);
-        DtoAssign(e->loc, vv, val);
-    }
-    else
-    {
-        llval = val->getRVal();
-    }
+    LLValue* llval = val->getRVal();
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
     CallOrInvoke* call = gIR->CreateCallOrInvoke2(fn, table, llval, "tmp");
-
-    llvm::AttrListPtr palist;
-    palist = palist.addAttr(1, llvm::Attribute::ByVal);
-    palist = palist.addAttr(2, llvm::Attribute::ByVal);
-    call->setAttributes(palist);
 
     return call->get();
 }
@@ -748,7 +732,7 @@ void SwitchStatement::toIR(IRState* p)
     }
 
     // string switch?
-    llvm::GlobalVariable* switchTable = 0;
+    llvm::Value* switchTable = 0;
     Array caseArray;
     if (!condition->type->isintegral())
     {
@@ -790,9 +774,7 @@ void SwitchStatement::toIR(IRState* p)
         std::vector<LLConstant*> sinits;
         sinits.push_back(DtoConstSize_t(inits.size()));
         sinits.push_back(arrPtr);
-        LLConstant* sInit = llvm::ConstantStruct::get(sTy, sinits);
-
-        switchTable = new llvm::GlobalVariable(sTy, true, llvm::GlobalValue::InternalLinkage, sInit, ".string_switch_table", gIR->module);
+        switchTable = llvm::ConstantStruct::get(sTy, sinits);
     }
 
     // body block
@@ -1173,7 +1155,16 @@ void WithStatement::toIR(IRState* p)
 
     DValue* e = exp->toElem(p);
 
+#if 1
+    // this doesn't handle the mini/with2.d test case ...
+    assert(!wthis->ir.isSet());
+    wthis->ir.irLocal = new IrLocal(wthis); 
+    wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
+#else
+    // ... this does, but it also silently breaks MiniD!!!
     DtoDeclarationExp(wthis);
+#endif
+
     DtoStore(e->getRVal(), wthis->ir.irLocal->value);
 
     body->toIR(p);
@@ -1269,15 +1260,10 @@ void SwitchErrorStatement::toIR(IRState* p)
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_switch_error");
 
-    // param attrs
-    llvm::AttrListPtr palist;
-    int idx = 1;
-
     std::vector<LLValue*> args;
 
     // file param
-    args.push_back(gIR->dmodule->ir.irModule->fileName);
-    palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
+    args.push_back(DtoLoad(gIR->dmodule->ir.irModule->fileName));
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
@@ -1285,7 +1271,6 @@ void SwitchErrorStatement::toIR(IRState* p)
 
     // call
     CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
-    call->setAttributes(palist);
 
     gIR->ir->CreateUnreachable();
 }

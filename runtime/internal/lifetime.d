@@ -1092,17 +1092,12 @@ extern (C) void* _d_arrayliteralT(TypeInfo ti, size_t length, ...)
 /**
  * Support for array.dup property.
  */
-struct Array2
-{
-    size_t length;
-    void*  ptr;
-}
 
 
 /**
  *
  */
-extern (C) Array2 _adDupT(TypeInfo ti, Array2 a)
+extern (C) void[] _adDupT(TypeInfo ti, void[] a)
 out (result)
 {
     auto sizeelem = ti.next.tsize();            // array element size
@@ -1110,17 +1105,16 @@ out (result)
 }
 body
 {
-    Array2 r;
+    void* ptr;
 
     if (a.length)
     {
         auto sizeelem = ti.next.tsize();                // array element size
         auto size = a.length * sizeelem;
-        r.ptr = gc_malloc(size, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-        r.length = a.length;
-        memcpy(r.ptr, a.ptr, size);
+        ptr = gc_malloc(size, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
+        memcpy(ptr, a.ptr, size);
     }
-    return r;
+    return ptr[0 .. a.length];
 }
 
 

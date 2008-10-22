@@ -117,35 +117,14 @@ void DtoAssert(Loc* loc, DValue* msg)
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
 
-    // param attrs
-    llvm::AttrListPtr palist;
-    int idx = 1;
-
     // msg param
     if (msg)
     {
-        if (DSliceValue* s = msg->isSlice())
-        {
-            llvm::AllocaInst* alloc = gIR->func()->msgArg;
-            if (!alloc)
-            {
-                alloc = DtoAlloca(DtoArrayType(LLType::Int8Ty), ".assertmsg");
-                DtoSetArray(alloc, DtoArrayLen(s), DtoArrayPtr(s));
-                gIR->func()->msgArg = alloc;
-            }
-            args.push_back(alloc);
-        }
-        else
-        {
-            args.push_back(msg->getRVal());
-        }
-        palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
+        args.push_back(msg->getRVal());
     }
 
     // file param
-    args.push_back(gIR->dmodule->ir.irModule->fileName);
-    palist = palist.addAttr(idx++, llvm::Attribute::ByVal);
-
+    args.push_back(DtoLoad(gIR->dmodule->ir.irModule->fileName));
 
     // line param
     LLConstant* c = DtoConstUint(loc->linnum);
@@ -153,7 +132,10 @@ void DtoAssert(Loc* loc, DValue* msg)
 
     // call
     CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
-    call->setAttributes(palist);
+
+    // end debug info
+    if (global.params.symdebug)
+        DtoDwarfFuncEnd(gIR->func()->decl);
 
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();
@@ -445,8 +427,12 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
             DtoSetArrayToNull(lhs->getLVal());
         }
         // reference assignment
+        else if (t2->ty == Tarray) {
+            DtoStore(rhs->getRVal(), lhs->getLVal());
+        }
+        // some implicitly converting ref assignment
         else {
-            DtoArrayAssign(lhs->getLVal(), rhs->getRVal());
+            DtoSetArray(lhs->getLVal(), DtoArrayLen(rhs), DtoArrayPtr(rhs));
         }
     }
     else if (t->ty == Tsarray) {
@@ -753,6 +739,52 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     else {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
         fatal();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
+{
+    Type* from = val->getType()->toBasetype();
+    Logger::println("repainting from '%s' to '%s'", from->toChars(), to->toChars());
+
+    if (from->ty == Tarray)
+    {
+        Type* at = to->toBasetype();
+        assert(at->ty == Tarray);
+        Type* elem = at->next->pointerTo();
+        if (DSliceValue* slice = val->isSlice())
+        {
+            return new DSliceValue(to, slice->len, DtoBitCast(slice->ptr, DtoType(elem)));
+        }
+        else if (val->isLVal())
+        {
+            LLValue* ptr = val->getLVal();
+            ptr = DtoBitCast(ptr, DtoType(at->pointerTo()));
+            return new DVarValue(to, ptr);
+        }
+        else
+        {
+            LLValue *len, *ptr;
+            len = DtoArrayLen(val);
+            ptr = DtoArrayPtr(val);
+            ptr = DtoBitCast(ptr, DtoType(elem));
+            return new DImValue(to, DtoAggrPair(len, ptr, "tmp"));
+        }
+    }
+    else if (from->ty == Tpointer || from->ty == Tclass || from->ty == Taarray)
+    {
+        Type* b = to->toBasetype();
+        assert(b->ty == Tpointer || b->ty == Tclass || b->ty == Taarray);
+        LLValue* ptr = DtoBitCast(val->getRVal(), DtoType(b));
+        return new DImValue(to, ptr);
+    }
+    else
+    {
+        assert(!val->isLVal());
+        assert(DtoType(to) == DtoType(to));
+        return new DImValue(to, val->getRVal());
     }
 }
 
@@ -1413,7 +1445,7 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
 
 static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 {
-    Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
+    Logger::println("building type %s to expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
     const LLType* dstTy = DtoType(base);
     if (Logger::enabled())
         Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
@@ -1463,12 +1495,12 @@ LLConstant* DtoDefaultInit(Type* type)
     {
         if (base->ty == Tsarray)
         {
-            Logger::println("type is a static array, building constant array initializer from single value");
+            Logger::println("type is a static array, building constant array initializer to single value");
             return expand_to_sarray(base, exp);
         }
         else
         {
-            error("cannot yet convert default initializer %s from type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
+            error("cannot yet convert default initializer %s to type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
             fatal();
         }
         assert(0);
