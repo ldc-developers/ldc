@@ -373,9 +373,7 @@ DValue* StringExp::toElem(IRState* p)
 
     if (dtype->ty == Tarray) {
         LLConstant* clen = llvm::ConstantInt::get(DtoSize_t(),len,false);
-        LLValue* tmpmem = DtoAlloca(DtoType(dtype),"tempstring");
-        DtoSetArray(tmpmem, clen, arrptr);
-        return new DVarValue(type, tmpmem);
+        return new DImValue(type, DtoConstSlice(clen, arrptr));
     }
     else if (dtype->ty == Tsarray) {
         const LLType* dstType = getPtrToType(LLArrayType::get(ct, len));

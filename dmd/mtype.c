@@ -2672,6 +2672,7 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->usesThis = false;
     this->usesNest = false;
     this->retAttrs = 0;
+    this->thisAttrs = 0;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2683,6 +2684,7 @@ Type *TypeFunction::syntaxCopy()
     t->usesThis = usesThis;
     t->usesNest = usesNest;
     t->retAttrs = retAttrs;
+    t->thisAttrs = thisAttrs;
     return t;
 }
 

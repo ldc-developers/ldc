@@ -257,6 +257,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         LLValue* retvar = DtoAlloca(argiter->get()->getContainedType(0), ".rettmp");
         ++argiter;
         args.push_back(retvar);
+
+        // add attrs for hidden ptr
         palist = palist.addAttr(1, llvm::Attribute::StructRet);
     }
 
@@ -299,6 +301,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             error(loc, "Context argument required but none given");
             fatal();
         }
+
+        // add attributes for context argument
+        if (tf->thisAttrs)
+            palist = palist.addAttr(retinptr?2:1, tf->thisAttrs);
     }
 
     // handle the rest of the arguments based on param passing style

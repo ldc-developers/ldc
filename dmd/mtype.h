@@ -439,6 +439,7 @@ struct TypeFunction : Type
     bool usesThis;
     bool usesNest;
     unsigned retAttrs;
+    unsigned thisAttrs; // also used for nest
 };
 
 struct TypeDelegate : Type

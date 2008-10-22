@@ -171,6 +171,39 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
+    // tell first param to be passed in a register if we can
+    // ONLY extern(D) functions !
+    if ((n > 0 || usesthis || usesnest) && f->linkage == LINKd)
+    {
+        // FIXME: Only x86 right now ...
+        if (global.params.cpu == ARCHx86)
+        {
+            // pass first param in EAX if it fits, is not floating point and is not a 3 byte struct.
+            // FIXME: struct are not passed in EAX yet
+
+            // if there is a implicit context parameter, pass it in EAX
+            if (usesthis || usesnest)
+            {
+                f->thisAttrs |= llvm::Attribute::InReg;
+            }
+            // otherwise check the first formal parameter
+            else
+            {
+                Argument* arg = Argument::getNth(f->parameters, 0);
+                Type* t = arg->type->toBasetype();
+
+                // 32bit ints, pointers, classes and static arrays are candidate for being passed in EAX
+                if ((arg->storageClass & STCin) &&
+                    ((t->isscalar() && !t->isfloating()) || t->ty == Tclass || t->ty == Tsarray) &&
+                    (t->size() <= PTRSIZE))
+                {
+                    arg->llvmAttrs |= llvm::Attribute::InReg;
+                }
+            }
+        }
+    }
+
+    // done
     f->retInPtr = retinptr;
     f->usesThis = usesthis;
     f->usesNest = usesnest;
@@ -347,6 +380,14 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         PAWI.Index = 1;
         PAWI.Attrs = llvm::Attribute::StructRet;
+        attrs.push_back(PAWI);
+    }
+
+    // set this/nest param attrs
+    if (f->thisAttrs)
+    {
+        PAWI.Index = f->retInPtr ? 2 : 1;
+        PAWI.Attrs = f->thisAttrs;
         attrs.push_back(PAWI);
     }
 
