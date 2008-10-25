@@ -21,7 +21,7 @@ void main()
 
     real r;
     printf("Enter real: ");
-    //scanf("%lf", &d);
+    //scanf("%llf", &r);
     r = 3.2311167891231231234754764576;
     version(X86)
     {

@@ -416,6 +416,10 @@ void LinkDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	case LINKcpp:		p = "C++";		break;
 	case LINKwindows:	p = "Windows";		break;
 	case LINKpascal:	p = "Pascal";		break;
+
+    // LDC
+    case LINKintrinsic: p = "Intrinsic"; break;
+
 	default:
 	    assert(0);
 	    break;
@@ -1003,6 +1007,8 @@ void PragmaDeclaration::semantic(Scope *sc)
             {
                 fd->llvmInternal = llvm_internal;
                 fd->intrinsicName = arg1str;
+                fd->linkage = LINKintrinsic;
+                ((TypeFunction*)fd->type)->linkage = LINKintrinsic;
             }
             else if (TemplateDeclaration* td = s->isTemplateDeclaration())
             {

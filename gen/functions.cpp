@@ -21,6 +21,8 @@
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 
+#include <algorithm>
+
 const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, const LLType* nesttype, bool ismain)
 {
     assert(type->ty == Tfunction);
@@ -111,7 +113,22 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         // do nothing?
     }
 
+    // number of formal params
     size_t n = Argument::dim(f->parameters);
+
+    // on x86 we need to reverse the formal params in some cases to match the ABI
+    if (global.params.cpu == ARCHx86)
+    {
+        // more than one formal arg,
+        // extern(D) linkage
+        // not a D-style vararg
+        if (n > 1 && f->linkage == LINKd && !typesafeVararg)
+        {
+            f->reverseParams = true;
+            f->reverseIndex = paramvec.size();
+        }
+    }
+
 
     for (int i=0; i < n; ++i) {
         Argument* arg = Argument::getNth(f->parameters, i);
@@ -167,6 +184,12 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         }
     }
 
+    // reverse params?
+    if (f->reverseParams)
+    {
+        std::reverse(paramvec.begin() + f->reverseIndex, paramvec.end());
+    }
+
     // construct function type
     bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
@@ -189,6 +212,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             // otherwise check the first formal parameter
             else
             {
+                int inreg = f->reverseParams ? n - 1 : 0;
                 Argument* arg = Argument::getNth(f->parameters, 0);
                 Type* t = arg->type->toBasetype();
 
@@ -340,6 +364,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             Logger::println("overloaded intrinsic found");
             fdecl->llvmInternal = LLVMintrinsic;
             DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
+            fdecl->linkage = LINKintrinsic;
+            ((TypeFunction*)fdecl->type)->linkage = LINKintrinsic;
         }
     }
 
@@ -354,7 +380,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    int llidx = 1;
+    int llidx = 0;
     if (f->retInPtr) ++llidx;
     if (f->usesThis) ++llidx;
     else if (f->usesNest) ++llidx;
@@ -362,9 +388,8 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         llidx += 2;
 
     int funcNumArgs = func->getArgumentList().size();
-    std::vector<llvm::AttributeWithIndex> attrs;
-    int k = 0;
 
+    LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
     llvm::AttributeWithIndex PAWI;
 
     // set return value attrs if any
@@ -392,20 +417,38 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     }
 
     // set attrs on the rest of the arguments
-    for (; llidx <= funcNumArgs && Argument::dim(f->parameters) > k; ++llidx,++k)
+    size_t n = Argument::dim(f->parameters);
+    assert(funcNumArgs >= n); // main might mismatch, for the implicit char[][] arg
+
+    LLSmallVector<unsigned,8> attrptr(n, 0);
+
+    for (size_t k = 0; k < n; ++k)
     {
         Argument* fnarg = Argument::getNth(f->parameters, k);
         assert(fnarg);
 
-        PAWI.Index = llidx;
-        PAWI.Attrs = fnarg->llvmAttrs;
-
-        if (PAWI.Attrs)
-            attrs.push_back(PAWI);
+        attrptr[k] = fnarg->llvmAttrs;
     }
 
-    llvm::AttrListPtr palist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
-    func->setAttributes(palist);
+    // reverse params?
+    if (f->reverseParams)
+    {
+        std::reverse(attrptr.begin(), attrptr.end());
+    }
+
+    // build rest of attrs list
+    for (int i = 0; i < n; i++)
+    {
+        if (attrptr[i])
+        {
+            PAWI.Index = llidx+i+1;
+            PAWI.Attrs = attrptr[i];
+            attrs.push_back(PAWI);
+        }
+    }
+
+    llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
+    func->setAttributes(attrlist);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -503,13 +546,13 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     {
         // name parameters
         llvm::Function::arg_iterator iarg = func->arg_begin();
-        int k = 0;
+
         if (f->retInPtr) {
             iarg->setName(".sretarg");
             fdecl->ir.irFunc->retArg = iarg;
             ++iarg;
         }
-        
+
         if (f->usesThis) {
             iarg->setName("this");
             fdecl->ir.irFunc->thisArg = iarg;
@@ -532,17 +575,26 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             ++iarg;
         }
 
+        int k = 0;
+
         for (; iarg != func->arg_end(); ++iarg)
         {
             if (fdecl->parameters && fdecl->parameters->dim > k)
             {
-                Dsymbol* argsym = (Dsymbol*)fdecl->parameters->data[k++];
+                Dsymbol* argsym;
+                if (f->reverseParams)
+                    argsym = (Dsymbol*)fdecl->parameters->data[fdecl->parameters->dim-k-1];
+                else
+                    argsym = (Dsymbol*)fdecl->parameters->data[k];
+
                 VarDeclaration* argvd = argsym->isVarDeclaration();
                 assert(argvd);
                 assert(!argvd->ir.irLocal);
                 argvd->ir.irLocal = new IrLocal(argvd);
                 argvd->ir.irLocal->value = iarg;
                 iarg->setName(argvd->ident->toChars());
+
+                k++;
             }
             else
             {
@@ -902,7 +954,7 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
     DValue* arg = argexp->toElem(gIR);
 
     // ref/out arg
-    if (fnarg && ((fnarg->storageClass & STCref) || (fnarg->storageClass & STCout)))
+    if (fnarg && (fnarg->storageClass & (STCref | STCout)))
     {
         if (arg->isVar() || arg->isLRValue())
             arg = new DImValue(argexp->type, arg->getLVal());

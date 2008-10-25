@@ -684,12 +684,16 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		    //arg->error("cannot modify slice %s", arg->toChars());
 	    }
 
+// LDC we don't want this!
+#if !IN_LLVM
 	    // Convert static arrays to pointers
 	    tb = arg->type->toBasetype();
 	    if (tb->ty == Tsarray)
 	    {
 		arg = arg->checkToPointer();
 	    }
+#endif
+
 
 	    // Convert lazy argument to a delegate
 	    if (p->storageClass & STClazy)
@@ -701,7 +705,8 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 	{
 
 	    // If not D linkage, do promotions
-	    if (tf->linkage != LINKd)
+        // LDC: don't do promotions on intrinsics
+	    if (tf->linkage != LINKd && tf->linkage != LINKintrinsic)
 	    {
 		// Promote bytes, words, etc., to ints
 		arg = arg->integralPromotions(sc);

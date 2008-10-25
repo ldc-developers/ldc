@@ -2673,6 +2673,8 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->usesNest = false;
     this->retAttrs = 0;
     this->thisAttrs = 0;
+    this->reverseParams = false;
+    this->reverseIndex = 0;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2685,6 +2687,8 @@ Type *TypeFunction::syntaxCopy()
     t->usesNest = usesNest;
     t->retAttrs = retAttrs;
     t->thisAttrs = thisAttrs;
+    t->reverseParams = reverseParams;
+    t->reverseIndex = reverseIndex;
     return t;
 }
 
@@ -2794,6 +2798,10 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf)
 	case LINKwindows:	mc = 'W';	break;
 	case LINKpascal:	mc = 'V';	break;
 	case LINKcpp:		mc = 'R';	break;
+
+    // LDC
+    case LINKintrinsic: mc = 'Q';   break;
+
 	default:
 	    assert(0);
     }
@@ -2826,6 +2834,10 @@ void TypeFunction::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs
 	    case LINKwindows:	p = "Windows ";	break;
 	    case LINKpascal:	p = "Pascal ";	break;
 	    case LINKcpp:	p = "C++ ";	break;
+
+        // LDC
+        case LINKintrinsic: p = "Intrinsic"; break;
+
 	    default:
 		assert(0);
 	}
@@ -2861,6 +2873,10 @@ void TypeFunction::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 	    case LINKwindows:	p = "Windows ";	break;
 	    case LINKpascal:	p = "Pascal ";	break;
 	    case LINKcpp:	p = "C++ ";	break;
+
+        // LDC
+        case LINKintrinsic: p = "Intrinsic"; break;
+
 	    default:
 		assert(0);
 	}

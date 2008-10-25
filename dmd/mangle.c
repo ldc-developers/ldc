@@ -104,6 +104,9 @@ char *Declaration::mangle()
 		case LINKd:
 		    break;
 
+        // LDC
+        case LINKintrinsic:
+
 		case LINKc:
 		case LINKwindows:
 		case LINKpascal:

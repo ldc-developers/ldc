@@ -163,11 +163,15 @@ const LLType* DtoType(Type* t)
 
     // associative arrays
     case Taarray:
+    #if 1
+        return getVoidPtrType();
+    #else
     {
         TypeAArray* taa = (TypeAArray*)t;
         // aa key/val can't be void
         return getPtrToType(LLStructType::get(DtoType(taa->key), DtoType(taa->next), 0));
     }
+    #endif
 
 /*
     Not needed atm as VarDecls for tuples are rewritten as a string of 

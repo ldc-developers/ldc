@@ -34,7 +34,7 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 unsigned DtoCallingConv(LINK l)
 {
-    if (l == LINKc || l == LINKcpp)
+    if (l == LINKc || l == LINKcpp || l == LINKintrinsic)
         return llvm::CallingConv::C;
     else if (l == LINKd || l == LINKdefault)
     {
@@ -111,7 +111,7 @@ const LLFunctionType* DtoExtractFunctionType(const LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx)
+void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::AttributeWithIndex>& attrs, TypeFunction* tf, Expressions* arguments, size_t argidx)
 {
     Logger::println("doing d-style variadic arguments");
 
@@ -195,7 +195,12 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist,
         args.push_back(argval->getRVal());
 
         if (fnarg->llvmAttrs)
-            palist = palist.addAttr(argidx, fnarg->llvmAttrs);
+        {
+            llvm::AttributeWithIndex Attr;
+            Attr.Index = argidx;
+            Attr.Attrs = fnarg->llvmAttrs;
+            attrs.push_back(Attr);
+        }
 
         ++argidx;
     }
@@ -234,6 +239,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     const LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
 
+    if (Logger::enabled())
+    {
+        Logger::cout() << "callable: " << *callable << '\n';
+    }
+
     // get n arguments
     size_t n_arguments = arguments ? arguments->dim : 0;
 
@@ -242,11 +252,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLFunctionType::param_iterator argiter = argbegin;
 
     // parameter attributes
-    llvm::AttrListPtr palist;
+    std::vector<llvm::AttributeWithIndex> attrs;
+    llvm::AttributeWithIndex Attr;
 
     // return attrs
     if (tf->retAttrs)
-        palist = palist.addAttr(0, tf->retAttrs);
+    {
+        Attr.Index = 0;
+        Attr.Attrs = tf->retAttrs;
+        attrs.push_back(Attr);
+    }
 
     // handle implicit arguments
     std::vector<LLValue*> args;
@@ -259,7 +274,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         args.push_back(retvar);
 
         // add attrs for hidden ptr
-        palist = palist.addAttr(1, llvm::Attribute::StructRet);
+        Attr.Index = 1;
+        Attr.Attrs = llvm::Attribute::StructRet;
+        attrs.push_back(Attr);
     }
 
     // then comes a context argument...
@@ -304,7 +321,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
         // add attributes for context argument
         if (tf->thisAttrs)
-            palist = palist.addAttr(retinptr?2:1, tf->thisAttrs);
+        {
+            Attr.Index = retinptr ? 2 : 1;
+            Attr.Attrs = tf->thisAttrs;
+            attrs.push_back(Attr);
+        }
     }
 
     // handle the rest of the arguments based on param passing style
@@ -326,32 +347,82 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // d style varargs needs a few more hidden arguments as well as special passing
     else if (dvarargs)
     {
-        DtoBuildDVarArgList(args, palist, tf, arguments, argiter-argbegin+1);
+        DtoBuildDVarArgList(args, attrs, tf, arguments, argiter-argbegin+1);
     }
 
     // otherwise we're looking at a normal function call
+    // or a C style vararg call
     else
     {
         Logger::println("doing normal arguments");
-        for (int i=0; i<n_arguments; i++) {
-            int j = argiter-argbegin;
+
+        size_t n = Argument::dim(tf->parameters);
+
+        LLSmallVector<unsigned, 10> attrptr(n, 0);
+
+        // do formal params
+        int beg = argiter-argbegin;
+        for (int i=0; i<n; i++)
+        {
             Argument* fnarg = Argument::getNth(tf->parameters, i);
+            assert(fnarg);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             LLValue* arg = argval->getRVal();
-            if (fnarg) // can fnarg ever be null in this block?
+
+            int j = tf->reverseParams ? beg + n - i - 1 : beg + i;
+
+            // parameter type mismatch, this is hard to get rid of
+            if (arg->getType() != callableTy->getParamType(j))
             {
+            #if 0
                 if (Logger::enabled())
                 {
                     Logger::cout() << "arg:     " << *arg << '\n';
                     Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
                 }
-                if (arg->getType() != callableTy->getParamType(j))
-                    arg = DtoBitCast(arg, callableTy->getParamType(j));
-                if (fnarg->llvmAttrs)
-                    palist = palist.addAttr(j+1, fnarg->llvmAttrs);
+            #endif
+                arg = DtoBitCast(arg, callableTy->getParamType(j));
             }
+
+            // param attrs
+            attrptr[i] = fnarg->llvmAttrs;
+
             ++argiter;
             args.push_back(arg);
+        }
+
+        // reverse the relevant params as well as the param attrs
+        if (tf->reverseParams)
+        {
+            std::reverse(args.begin() + tf->reverseIndex, args.end());
+            std::reverse(attrptr.begin(), attrptr.end());
+        }
+
+        // add attributes
+        for (int i = 0; i < n; i++)
+        {
+            if (attrptr[i])
+            {
+                Attr.Index = beg + i + 1;
+                Attr.Attrs = attrptr[i];
+                attrs.push_back(Attr);
+            }
+        }
+
+        // do C varargs
+        if (n_arguments > n)
+        {
+            for (int i=n; i<n_arguments; i++)
+            {
+                Argument* fnarg = Argument::getNth(tf->parameters, i);
+                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                LLValue* arg = argval->getRVal();
+
+                // FIXME: do we need any param attrs here ?
+
+                ++argiter;
+                args.push_back(arg);
+            }
         }
     }
 
@@ -405,17 +476,18 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // set calling convention and parameter attributes
+    llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
     if (dfnval && dfnval->func)
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
-        if (llfunc && llfunc->isIntrinsic())
-            palist = llvm::Intrinsic::getAttributes((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
+        if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
+            attrlist = llvm::Intrinsic::getAttributes((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
         else
             call->setCallingConv(callconv);
     }
     else
         call->setCallingConv(callconv);
-    call->setAttributes(palist);
+    call->setAttributes(attrlist);
 
     return new DImValue(resulttype, retllval);
 }

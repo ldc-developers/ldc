@@ -440,6 +440,9 @@ struct TypeFunction : Type
     bool usesNest;
     unsigned retAttrs;
     unsigned thisAttrs; // also used for nest
+
+    bool reverseParams;
+    size_t reverseIndex;
 };
 
 struct TypeDelegate : Type
