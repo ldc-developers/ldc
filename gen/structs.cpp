@@ -108,19 +108,12 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     irstruct->packed = ispacked;
 
-    // fields
-    Array* arr = &sd->fields;
-    for (int k=0; k < arr->dim; k++) {
-        VarDeclaration* v = (VarDeclaration*)arr->data[k];
-        v->toObjFile(0); // TODO: multiobj
-    }
-
     bool thisModule = false;
     if (sd->getModule() == gIR->dmodule)
         thisModule = true;
 
-    // methods
-    arr = sd->members;
+    // methods, fields
+    Array* arr = sd->members;
     for (int k=0; k < arr->dim; k++) {
         Dsymbol* s = (Dsymbol*)arr->data[k];
         if (FuncDeclaration* fd = s->isFuncDeclaration()) {
@@ -128,7 +121,9 @@ void DtoResolveStruct(StructDeclaration* sd)
                 fd->toObjFile(0); // TODO: multiobj
             }
         }
-        else if (s->isAttribDeclaration()) {
+        else if (s->isAttribDeclaration() ||
+                 s->isVarDeclaration() ||
+                 s->isTemplateMixin()) {
             s->toObjFile(0); // TODO: multiobj
         }
         else {
