@@ -37,6 +37,10 @@ end
 
 io.write("Default target: '"..TRIPLE.."'\n");
 
+-- x86 ABI support
+X86_REVERSE_PARAMS = 0 --disabled for now
+X86_PASS_IN_EAX = 1
+
 -- D version - don't change these !!!
 DMDV1 = "1"
 
@@ -82,6 +86,8 @@ package.defines = {
     "DMDV1="..DMDV1,
     "POSIX="..POSIX,
     "DEFAULT_TARGET_TRIPLE=\\\""..TRIPLE.."\\\"",
+    "X86_REVERSE_PARAMS="..X86_REVERSE_PARAMS,
+    "X86_PASS_IN_EAX="..X86_PASS_IN_EAX,
 }
 package.config.Release.defines = { "LLVMD_NO_LOGGER" }
 package.config.Debug.buildoptions = { "-g -O0" }

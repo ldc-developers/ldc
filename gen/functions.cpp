@@ -108,14 +108,11 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         paramvec.push_back(t1);
         paramvec.push_back(getPtrToType(LLType::Int8Ty));
     }
-    else if (arrayVararg)
-    {
-        // do nothing?
-    }
 
     // number of formal params
     size_t n = Argument::dim(f->parameters);
 
+#if X86_REVERSE_PARAMS
     // on x86 we need to reverse the formal params in some cases to match the ABI
     if (global.params.cpu == ARCHx86)
     {
@@ -128,6 +125,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             f->reverseIndex = paramvec.size();
         }
     }
+#endif // X86_REVERSE_PARAMS
 
 
     for (int i=0; i < n; ++i) {
@@ -194,6 +192,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
+#if X86_PASS_IN_EAX
     // tell first param to be passed in a register if we can
     // ONLY extern(D) functions !
     if ((n > 0 || usesthis || usesnest) && f->linkage == LINKd)
@@ -213,12 +212,14 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             else
             {
                 int inreg = f->reverseParams ? n - 1 : 0;
-                Argument* arg = Argument::getNth(f->parameters, 0);
+                Argument* arg = Argument::getNth(f->parameters, inreg);
                 Type* t = arg->type->toBasetype();
 
-                // 32bit ints, pointers, classes and static arrays are candidate for being passed in EAX
+                // 32bit ints, pointers, classes, static arrays and AAs
+                // are candidate for being passed in EAX
                 if ((arg->storageClass & STCin) &&
-                    ((t->isscalar() && !t->isfloating()) || t->ty == Tclass || t->ty == Tsarray) &&
+                    ((t->isscalar() && !t->isfloating()) ||
+                     t->ty == Tclass || t->ty == Tsarray || t->ty == Taarray) &&
                     (t->size() <= PTRSIZE))
                 {
                     arg->llvmAttrs |= llvm::Attribute::InReg;
@@ -226,6 +227,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             }
         }
     }
+#endif // X86_PASS_IN_EAX
 
     // done
     f->retInPtr = retinptr;
