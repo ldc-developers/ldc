@@ -48,7 +48,7 @@ private
     debug(PRINTF) import tango.stdc.stdio; // : printf;
 
     extern (C) void onOutOfMemoryError();
-    extern (C) Object _d_newclass(ClassInfo ci);
+    extern (C) Object _d_allocclass(ClassInfo ci);
 }
 
 // NOTE: For some reason, this declaration method doesn't work
@@ -188,7 +188,11 @@ class ClassInfo : Object
     {
         if (flags & 8 && !defaultConstructor)
             return null;
-        Object o = _d_newclass(this);
+
+        Object o = _d_allocclass(this);
+        // initialize it
+        (cast(byte*) o)[0 .. init.length] = init[];
+
         if (flags & 8 && defaultConstructor)
         {
             defaultConstructor(o);

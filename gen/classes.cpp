@@ -812,7 +812,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // default allocator
     else
     {
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocclass");
         mem = gIR->CreateCallOrInvoke(fn, tc->sym->ir.irStruct->classInfo, ".newclass_gc_alloc")->get();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
     }

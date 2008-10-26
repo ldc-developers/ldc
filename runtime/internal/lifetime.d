@@ -88,11 +88,11 @@ private
 /**
  *
  */
-extern (C) Object _d_newclass(ClassInfo ci)
+extern (C) Object _d_allocclass(ClassInfo ci)
 {
     void* p;
 
-    debug(PRINTF2) printf("_d_newclass(ci = %p, %s)\n", ci, cast(char *)ci.name.ptr);
+    debug(PRINTF2) printf("_d_allocclass(ci = %p, %s)\n", ci, cast(char *)ci.name.ptr);
     /+
     if (ci.flags & 1) // if COM object
     {   /* COM objects are not garbage collected, they are reference counted

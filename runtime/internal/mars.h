@@ -94,7 +94,7 @@ void _d_monitorexit(Object *h);
 int _d_isbaseof(ClassInfo *b, ClassInfo *c);
 Object *_d_dynamic_cast(Object *o, ClassInfo *ci);
 
-Object * _d_newclass(ClassInfo *ci);
+Object * _d_allocclass(ClassInfo *ci);
 void _d_delclass(Object **p);
 
 void _d_OutOfMemory();

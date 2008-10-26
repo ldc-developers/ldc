@@ -257,9 +257,9 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // Object _d_newclass(ClassInfo ci)
+    // Object _d_allocclass(ClassInfo ci)
     {
-        std::string fname("_d_newclass");
+        std::string fname("_d_allocclass");
         std::vector<const LLType*> types;
         types.push_back(classInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
