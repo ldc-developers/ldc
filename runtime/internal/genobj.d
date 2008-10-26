@@ -800,7 +800,11 @@ class TypeInfo_Struct : TypeInfo
             {   if (!p2)
                     c = 1;
                 else if (xopCmp)
-                    c = (*xopCmp)(p1, p2);
+		    // the x86 D calling conv requires the this arg to be last here
+		    version(X86)
+                        c = (*xopCmp)(p2, p1);
+		    else
+		        c = (*xopCmp)(p1, p2);
                 else
                     // BUG: relies on the GC not moving objects
                     c = memcmp(p1, p2, m_init.length);
