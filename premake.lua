@@ -39,7 +39,7 @@ io.write("Default target: '"..TRIPLE.."'\n");
 
 -- x86 ABI support
 X86_REVERSE_PARAMS = 0 --disabled for now
-X86_PASS_IN_EAX = 1
+X86_PASS_IN_EAX = 0
 
 -- D version - don't change these !!!
 DMDV1 = "1"
