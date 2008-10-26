@@ -141,6 +141,8 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
         llvm::sys::Path tmp = llvm::sys::Path::GetCurrentDirectory();
         tmp.appendComponent(srcpath);
         srcpath = tmp.toString();
+        if (*srcpath.rbegin() != '/' || *srcpath.rbegin() != '\\')
+            srcpath = srcpath + '/';
     }
     vals[4] = DtoConstStringPtr(srcpath.c_str(), "llvm.metadata");
     vals[5] = DtoConstStringPtr("LDC (http://www.dsource.org/projects/ldc)", "llvm.metadata");
