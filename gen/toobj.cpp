@@ -923,6 +923,7 @@ void TupleDeclaration::toObjFile(int multiobj)
     for (int i=0; i < n; ++i)
     {
         DsymbolExp* exp = (DsymbolExp*)objects->data[i];
+        assert(exp->op == TOKdsymbol);
         exp->s->toObjFile(multiobj);
     }
 }

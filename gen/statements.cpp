@@ -1155,15 +1155,26 @@ void WithStatement::toIR(IRState* p)
 
     DValue* e = exp->toElem(p);
 
-#if 1
-    // this doesn't handle the mini/with2.d test case ...
-    assert(!wthis->ir.isSet());
-    wthis->ir.irLocal = new IrLocal(wthis); 
-    wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
-#else
-    // ... this does, but it also silently breaks MiniD!!!
-    DtoDeclarationExp(wthis);
-#endif
+    if (wthis->ir.isSet())
+    {
+        assert(wthis->nestedref);
+        assert(wthis->ir.irLocal);
+        assert(!wthis->ir.irLocal->value);
+        wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
+
+        // store the address into the nested vars array
+        assert(wthis->ir.irLocal->nestedIndex >= 0);
+        LLValue* gep = DtoGEPi(gIR->func()->decl->ir.irFunc->nestedVar, 0, wthis->ir.irLocal->nestedIndex);
+        assert(isaPointer(wthis->ir.irLocal->value));
+        LLValue* val = DtoBitCast(wthis->ir.irLocal->value, getVoidPtrType());
+        DtoStore(val, gep);
+    }
+    else
+    {
+        assert(!wthis->nestedref);
+        wthis->ir.irLocal = new IrLocal(wthis);
+        wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
+    }
 
     DtoStore(e->getRVal(), wthis->ir.irLocal->value);
 
