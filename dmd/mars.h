@@ -45,7 +45,8 @@ enum ARCH
     ARCHx86_64,
     ARCHppc,
     ARCHppc_64,
-    ARCHarm
+    ARCHarm,
+    ARCHthumb
 };
 enum OUTPUTFLAG
 {
@@ -161,6 +162,7 @@ struct Param
 
     // target stuff
     char *targetTriple;
+    char *dataLayout;
 };
 
 struct Global

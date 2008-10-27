@@ -186,7 +186,7 @@ Usage:\n\
 \n\
 Codegen control:\n\
   -m<arch>       emit code specific to <arch> being one of:\n\
-                 x86 x86-64 ppc32 ppc64\n\
+                 x86 x86-64 ppc32 ppc64 arm thumb\n\
   -t<os>         emit code specific to <os> being one of:\n\
                  Linux, Windows, MacOSX, FreeBSD\n\
 \n\
@@ -830,6 +830,8 @@ int main(int argc, char *argv[], char** envp)
             global.params.llvmArch = "ppc32";
     #elif defined(__arm__)
         global.params.llvmArch = "arm";
+    #elif defined(__thumb__)
+        global.params.llvmArch = "thumb";
     #else
     #error
     #endif
@@ -840,7 +842,6 @@ int main(int argc, char *argv[], char** envp)
         global.params.isLE = true;
         global.params.is64bit = false;
         global.params.cpu = ARCHx86;
-        //global.params.data_layout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-f80:32:32-v64:64:64-v128:128:128-a0:0:64";
         if (global.params.useInlineAsm) {
             VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
         }
@@ -850,27 +851,30 @@ int main(int argc, char *argv[], char** envp)
         global.params.isLE = true;
         global.params.is64bit = true;
         global.params.cpu = ARCHx86_64;
-        //global.params.data_layout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"ppc32")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC");
         global.params.isLE = false;
         global.params.is64bit = false;
         global.params.cpu = ARCHppc;
-        //global.params.data_layout = "E-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"ppc64")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC64");
         global.params.isLE = false;
         global.params.is64bit = true;
         global.params.cpu = ARCHppc_64;
-        //global.params.data_layout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
     }
     else if (strcmp(global.params.llvmArch,"arm")==0) {
         VersionCondition::addPredefinedGlobalIdent("ARM");
         global.params.isLE = true;
         global.params.is64bit = false;
         global.params.cpu = ARCHarm;
+    }
+    else if (strcmp(global.params.llvmArch,"thumb")==0) {
+        VersionCondition::addPredefinedGlobalIdent("Thumb");
+        global.params.isLE = true;
+        global.params.is64bit = false;
+        global.params.cpu = ARCHthumb;
     }
     else {
         assert(0 && "Invalid arch");
@@ -926,6 +930,12 @@ int main(int argc, char *argv[], char** envp)
         global.params.targetTriple = DEFAULT_TARGET_TRIPLE;
 
     Logger::println("Target triple: %s", global.params.targetTriple);
+
+    // build a minimal data layout so llvm can find the target
+    global.params.dataLayout = global.params.isLE
+        ? (char*)(global.params.is64bit ? "e-p:64:64" : "e-p:32:32")
+        : (char*)(global.params.is64bit ? "E-p:64:64" : "E-p:32:32");
+    Logger::println("Layout: %s", global.params.dataLayout);
 
     // Initialization
     Type::init();

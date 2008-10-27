@@ -487,7 +487,7 @@ Expression *Mod(Type *type, Expression *e1, Expression *e2)
 	    c = fmodl(e1->toReal(), r2) + fmodl(e1->toImaginary(), r2) * I;
 #elif defined(IN_GCC)
 	    c = complex_t(e1->toReal() % r2, e1->toImaginary() % r2);
-#elif (defined(__FreeBSD__) && __FreeBSD_version < 800000) || defined(__arm__)
+#elif (defined(__FreeBSD__) && __FreeBSD_version < 800000) || defined(__arm__) || defined(__thumb__)
 	// freebsd is kinda messed up. the STABLE branch doesn't support C99's fmodl !?!
 	// arm also doesn't like fmodl
 	    c = complex_t(fmod(e1->toReal(), r2), fmod(e1->toImaginary(), r2));
@@ -502,7 +502,7 @@ Expression *Mod(Type *type, Expression *e1, Expression *e2)
 	    c = fmodl(e1->toReal(), i2) + fmodl(e1->toImaginary(), i2) * I;
 #elif defined(IN_GCC)
 	    c = complex_t(e1->toReal() % i2, e1->toImaginary() % i2);
-#elif (defined(__FreeBSD__) && __FreeBSD_version < 800000) || defined(__arm__)
+#elif (defined(__FreeBSD__) && __FreeBSD_version < 800000) || defined(__arm__) || defined(__thumb__)
         // freebsd is kinda messed up. the STABLE branch doesn't support C99's fmodl !?!
 	// arm also doesn't like fmodl
 	    c = complex_t(fmod(e1->toReal(), i2), fmod(e1->toImaginary(), i2));

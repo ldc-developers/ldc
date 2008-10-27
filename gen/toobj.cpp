@@ -104,6 +104,7 @@ void Module::genobjfile(int multiobj, char** envp)
     // set target stuff
 
     ir.module->setTargetTriple(global.params.targetTriple);
+    ir.module->setDataLayout(global.params.dataLayout);
 
     // get the target machine
     const llvm::TargetMachineRegistry::entry* MArch;
@@ -131,7 +132,13 @@ void Module::genobjfile(int multiobj, char** envp)
     llvm::TargetMachine &Target = *target.get();
 
     gTargetData = Target.getTargetData();
-    ir.module->setDataLayout(gTargetData->getStringRepresentation());
+
+    // set final data layout
+    std::string datalayout = gTargetData->getStringRepresentation();
+    ir.module->setDataLayout(datalayout);
+    if (Logger::enabled())
+        Logger::cout() << "Final data layout: " << datalayout << '\n';
+    assert(memcmp(global.params.dataLayout, datalayout.c_str(), 9) == 0); // "E-p:xx:xx"
 
     // debug info
     if (global.params.symdebug) {
