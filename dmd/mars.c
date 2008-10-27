@@ -828,6 +828,8 @@ int main(int argc, char *argv[], char** envp)
             global.params.llvmArch = "ppc64";
         else
             global.params.llvmArch = "ppc32";
+    #elif defined(__arm__)
+        global.params.llvmArch = "arm";
     #else
     #error
     #endif
@@ -863,6 +865,12 @@ int main(int argc, char *argv[], char** envp)
         global.params.is64bit = true;
         global.params.cpu = ARCHppc_64;
         //global.params.data_layout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64";
+    }
+    else if (strcmp(global.params.llvmArch,"arm")==0) {
+        VersionCondition::addPredefinedGlobalIdent("ARM");
+        global.params.isLE = true;
+        global.params.is64bit = false;
+        global.params.cpu = ARCHarm;
     }
     else {
         assert(0 && "Invalid arch");

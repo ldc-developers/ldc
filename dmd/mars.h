@@ -44,7 +44,8 @@ enum ARCH
     ARCHx86,
     ARCHx86_64,
     ARCHppc,
-    ARCHppc_64
+    ARCHppc_64,
+    ARCHarm
 };
 enum OUTPUTFLAG
 {
