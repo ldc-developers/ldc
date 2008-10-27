@@ -911,6 +911,24 @@ unsigned ClassDeclaration::baseVtblOffset(BaseClass *bc)
 
 /* ================================================================== */
 
+void TupleDeclaration::toObjFile(int multiobj)
+{
+    Logger::println("TupleDeclaration::toObjFile(): %s", toChars());
+
+    assert(isexp);
+    assert(objects);
+
+    int n = objects->dim;
+
+    for (int i=0; i < n; ++i)
+    {
+        DsymbolExp* exp = (DsymbolExp*)objects->data[i];
+        exp->s->toObjFile(multiobj);
+    }
+}
+
+/* ================================================================== */
+
 void VarDeclaration::toObjFile(int multiobj)
 {
     Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());

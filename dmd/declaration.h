@@ -157,6 +157,9 @@ struct TupleDeclaration : Declaration
     int needThis();
 
     TupleDeclaration *isTupleDeclaration() { return this; }
+
+    // LDC we need this
+    void toObjFile(int multiobj);           // compile to .obj file
 };
 
 /**************************************************************/
