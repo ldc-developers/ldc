@@ -991,19 +991,10 @@ void VarDeclaration::toObjFile(int multiobj)
         else
             gIR->constInitList.push_back(this);
     }
-
-    // inside aggregate declaration. declare a field.
     else
     {
-        Logger::println("Aggregate var declaration: '%s' offset=%d", toChars(), offset);
-
-        const LLType* _type = DtoType(type);
-        this->ir.irField = new IrField(this);
-
-        // add the field in the IRStruct
-        gIR->topstruct()->offsets.insert(std::make_pair(offset, IrStruct::Offset(this, _type)));
+        assert(ir.irField != 0);
     }
-
     Logger::println("VarDeclaration::toObjFile is done");
 }
 

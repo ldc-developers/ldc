@@ -53,6 +53,8 @@ public:
     IrStruct(Type*);
     virtual ~IrStruct();
 
+    void addField(VarDeclaration* v);
+
     Type* type;
     llvm::PATypeHolder recty;
     OffsetMap offsets;

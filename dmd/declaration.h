@@ -37,6 +37,7 @@ struct StructDeclaration;
 struct TupleType;
 struct InterState;
 struct IRState;
+struct AnonDeclaration;
 
 enum PROT;
 enum LINK;
@@ -269,6 +270,9 @@ struct VarDeclaration : Declaration
 
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
+
+    // LDC
+    AnonDeclaration* anonDecl;
 };
 
 /**************************************************************/

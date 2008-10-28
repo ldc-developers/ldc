@@ -57,7 +57,7 @@ static void LLVM_AddBaseClassInterfaces(ClassDeclaration* target, BaseClasses* b
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void LLVM_AddBaseClassData(BaseClasses* bcs)
+static void LLVM_AddBaseClassData(IrStruct* irstruct, BaseClasses* bcs)
 {
     // add base class data members first
     for (int j=0; j<bcs->dim; j++)
@@ -69,7 +69,7 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
             continue;
 
         // recursively add baseclass data
-        LLVM_AddBaseClassData(&bc->base->baseclasses);
+        LLVM_AddBaseClassData(irstruct, &bc->base->baseclasses);
 
         Array* arr = &bc->base->fields;
         if (arr->dim == 0)
@@ -80,7 +80,9 @@ static void LLVM_AddBaseClassData(BaseClasses* bcs)
 
         for (int k=0; k < arr->dim; k++) {
             VarDeclaration* v = (VarDeclaration*)(arr->data[k]);
-            v->toObjFile(0); // TODO: multiobj
+            Logger::println("Adding field: %s %s", v->type->toChars(), v->toChars());
+            // init fields, used to happen in VarDeclaration::toObjFile
+            irstruct->addField(v);
         }
     }
 }
@@ -143,9 +145,19 @@ void DtoResolveClass(ClassDeclaration* cd)
     fieldtypes.push_back(getVoidPtrType());
 
     // add base class data fields first
-    LLVM_AddBaseClassData(&cd->baseclasses);
+    LLVM_AddBaseClassData(irstruct, &cd->baseclasses);
 
-    // then add own members, if any
+    // add own fields
+    Array* fields = &cd->fields;
+    for (int k=0; k < fields->dim; k++)
+    {
+        VarDeclaration* v = (VarDeclaration*)fields->data[k];
+        Logger::println("Adding field: %s %s", v->type->toChars(), v->toChars());
+        // init fields, used to happen in VarDeclaration::toObjFile
+        irstruct->addField(v);
+    }
+
+    // then add other members of us, if any
     if(cd->members) {
         for (int k=0; k < cd->members->dim; k++) {
             Dsymbol* dsym = (Dsymbol*)(cd->members->data[k]);

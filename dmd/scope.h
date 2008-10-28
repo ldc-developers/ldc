@@ -30,6 +30,7 @@ struct AnonymousAggregateDeclaration;
 struct FuncDeclaration;
 struct DocComment;
 struct EnclosingHandler;
+struct AnonDeclaration;
 enum LINK;
 enum PROT;
 
