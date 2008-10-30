@@ -92,7 +92,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     TypeStruct* ts = (TypeStruct*)sd->type->toBasetype();
 
     // this struct is a forward declaration
-    // didn't even know had those ...
+    // didn't even know D had those ...
     if (sd->sizeok != 1)
     {
         sd->ir.irStruct = new IrStruct(ts);
@@ -102,9 +102,20 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     bool ispacked = (ts->alignsize() == 1);
 
+    // create the IrStruct
     IrStruct* irstruct = new IrStruct(ts);
     sd->ir.irStruct = irstruct;
     gIR->structs.push_back(irstruct);
+
+    // add fields
+    Array* fields = &sd->fields;
+    for (int k=0; k < fields->dim; k++)
+    {
+        VarDeclaration* v = (VarDeclaration*)fields->data[k];
+        Logger::println("Adding field: %s %s", v->type->toChars(), v->toChars());
+        // init fields, used to happen in VarDeclaration::toObjFile
+        irstruct->addField(v);
+    }
 
     irstruct->packed = ispacked;
 

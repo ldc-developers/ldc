@@ -501,9 +501,6 @@ AlignDeclaration::AlignDeclaration(Loc loc, unsigned sa, Array *decl)
 {
     this->loc = loc;
     salign = sa;
-
-    if (global.params.warnings && salign != 1)
-	warning("%s: align(%d) is not implemented and specified to be unportable anyway, use align(1) and manual fillers instead", loc.toChars(), salign);
 }
 
 Dsymbol *AlignDeclaration::syntaxCopy(Dsymbol *s)
@@ -517,21 +514,33 @@ Dsymbol *AlignDeclaration::syntaxCopy(Dsymbol *s)
 
 void AlignDeclaration::semantic(Scope *sc)
 {
+// LDC
+// we only support packed structs, as from the spec: align(1) struct Packed { ... }
+// other alignments are simply ignored. my tests show this is what llvm-gcc does too ...
+
     //printf("\tAlignDeclaration::semantic '%s'\n",toChars());
     if (decl)
     {	unsigned salign_save = sc->structalign;
 
-	sc->structalign = salign;
 	for (unsigned i = 0; i < decl->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)decl->data[i];
 
-	    s->semantic(sc);
+        if (s->isStructDeclaration() && salign == 1)
+        {
+            sc->structalign = salign;
+            s->semantic(sc);
+            sc->structalign = salign_save;
+        }
+        else
+        {
+            s->semantic(sc);
+        }
 	}
 	sc->structalign = salign_save;
     }
     else
-	sc->structalign = salign;
+    assert(0 && "what kind of align use triggers this?");
 }
 
 
@@ -658,12 +667,17 @@ void AnonDeclaration::semantic(Scope *sc)
 //printf("sc->offset = %d\n", sc->offset);
 
 	// Add members of aad to ad
-	//printf("\tadding members of aad to '%s'\n", ad->toChars());
+	//printf("\tadding members of aad (%p) to '%s'\n", &aad, ad->toChars());
 	for (unsigned i = 0; i < aad.fields.dim; i++)
 	{
 	    VarDeclaration *v = (VarDeclaration *)aad.fields.data[i];
 
 	    v->offset += sc->offset;
+
+        // LDC
+        if (!v->anonDecl)
+            v->anonDecl = this;
+
 	    ad->fields.push(v);
 	}
 

@@ -1,8 +1,12 @@
 #include "gen/llvm.h"
+
 #include "mtype.h"
 #include "aggregate.h"
+#include "declaration.h"
+
 #include "ir/irstruct.h"
 #include "gen/irstate.h"
+#include "gen/tollvm.h"
 
 IrInterface::IrInterface(BaseClass* b)
 {
@@ -55,4 +59,16 @@ IrStruct::IrStruct(Type* t)
 
 IrStruct::~IrStruct()
 {
+}
+
+void IrStruct::addField(VarDeclaration* v)
+{
+    // might already have its irField, as classes derive each other without getting copies of the VarDeclaration
+    if (!v->ir.irField)
+    {
+        assert(!v->ir.isSet());
+        v->ir.irField = new IrField(v);
+    }
+    const LLType* _type = DtoType(v->type);
+    offsets.insert(std::make_pair(v->offset, IrStruct::Offset(v, _type)));
 }
