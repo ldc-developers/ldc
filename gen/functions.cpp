@@ -203,16 +203,18 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             // pass first param in EAX if it fits, is not floating point and is not a 3 byte struct.
             // FIXME: struct are not passed in EAX yet
 
+            int n_inreg = f->reverseParams ? n - 1 : 0;
+            Argument* arg = Argument::getNth(f->parameters, n_inreg);
+
             // if there is a implicit context parameter, pass it in EAX
             if (usesthis || usesnest)
             {
                 f->thisAttrs |= llvm::Attribute::InReg;
+                assert((!arg || (arg->llvmAttrs & llvm::Attribute::InReg) == 0) && "can't have two inreg args!");
             }
             // otherwise check the first formal parameter
             else
             {
-                int inreg = f->reverseParams ? n - 1 : 0;
-                Argument* arg = Argument::getNth(f->parameters, inreg);
                 Type* t = arg->type->toBasetype();
 
                 // 32bit ints, pointers, classes, static arrays and AAs
@@ -223,6 +225,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
                     (t->size() <= PTRSIZE))
                 {
                     arg->llvmAttrs |= llvm::Attribute::InReg;
+                    assert((f->thisAttrs & llvm::Attribute::InReg) == 0 && "can't have two inreg args!");
                 }
             }
         }

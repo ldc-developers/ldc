@@ -3454,7 +3454,7 @@ L1:
 	    }
 	}
 	if (t->ty == Ttuple)
-	    *pt = t;
+	    *pt = t->syntaxCopy();
 	else
 	    *pt = t->merge();
     }
