@@ -231,27 +231,32 @@ void Type::init()
     // set size_t / ptrdiff_t types and pointer size
     if (global.params.is64bit)
     {
-    Tsize_t = Tuns64;
-    Tptrdiff_t = Tint64;
-    PTRSIZE = 8;
+	Tsize_t = Tuns64;
+	Tptrdiff_t = Tint64;
+	PTRSIZE = 8;
     }
     else
     {
-    Tsize_t = Tuns32;
-    Tptrdiff_t = Tint32;
-    PTRSIZE = 4;
+	Tsize_t = Tuns32;
+	Tptrdiff_t = Tint32;
+	PTRSIZE = 4;
     }
 
     // set real size and padding
     if (global.params.cpu == ARCHx86)
     {
-    REALSIZE = 12;
-    REALPAD = 2;
+	REALSIZE = 12;
+	REALPAD = 2;
+    }
+    else if (global.params.cpu == ARCHx86_64)
+    {
+	REALSIZE = 16;
+	REALPAD = 6;
     }
     else
     {
-    REALSIZE = 8;
-    REALPAD = 0;
+	REALSIZE = 8;
+	REALPAD = 0;
     }
 }
 
@@ -991,22 +996,29 @@ d_uns64 TypeBasic::size(Loc loc)
 unsigned TypeBasic::alignsize()
 {   unsigned sz;
 
+    //LDC: it's bad that we always have to check LLVM's align and
+    // dmd's align info match. Can't we somehow get at LLVM's align
+    // here?
+
     switch (ty)
     {
-//LDC: llvm aligns 12 byte reals to 4 byte
 	case Tfloat80:
 	case Timaginary80:
 	case Tcomplex80:
-	    //sz = REALSIZE;
-	    sz = 4;
+	    if (global.params.cpu == ARCHx86_64)
+		sz = 16;
+	    else
+		sz = 4;
 	    break;
 
-//LDC: llvm aligns these to 4 byte boundaries
 	case Tint64:
 	case Tuns64:
 	case Tfloat64:
 	case Timaginary64:
-	    sz = 4;
+	    if (global.params.cpu == ARCHx86_64)
+		sz = 8;
+	    else
+		sz = 4;
 	    break;
 
 	default:
