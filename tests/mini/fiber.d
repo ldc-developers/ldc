@@ -1,5 +1,4 @@
-private import
-	tango.core.Thread;
+private import tango.core.Thread;
 
 extern(C) void printf(char*, ...);
 

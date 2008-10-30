@@ -6,10 +6,23 @@ void main()
 {
     char* fmt = "Hello D World\n";
     printf(fmt);
-    asm
+    version (LLVM_InlineAsm_X86)
     {
-        push fmt;
-        call printf;
-        pop EAX;
+	asm
+    	{
+		push fmt;
+        	call printf;
+        	pop AX;
+    	}
     }
+    else version(LLVM_InlineAsm_X86_64)
+    {
+        asm
+        {
+                movq    RDI, fmt;
+                xor     AL, AL;
+                call    printf;
+        }
+    }
+
 }

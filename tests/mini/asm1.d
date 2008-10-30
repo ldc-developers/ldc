@@ -14,13 +14,13 @@ void main()
 	}
 	printf("x = %d\n", x);
     }
-    else version(D_InlineAsm_X86_64)
+    else version(LLVM_InlineAsm_X86_64)
     {
         long x;
         asm
         {
-            mov RAX, 42L;
-            mov x, RAX;
+            movq RAX, 42L;
+            movq x, RAX;
         }
         printf("x = %ld\n", x);
     }

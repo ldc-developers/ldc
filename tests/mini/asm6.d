@@ -4,20 +4,36 @@ void main()
 {
     int a,b,c;
     a = int.max-1;
-    b = 1;
-    asm
+    b = 5;
+    version (LLVM_InlineAsm_X86)
     {
-        mov EAX, a;
-        mov ECX, b;
-        add EAX, ECX;
-        jo Loverflow;
-        mov c, EAX;
+	asm
+    	{
+		mov EAX, a;
+        	mov ECX, b;
+        	add EAX, ECX;
+        	jo Loverflow;
+        	mov c, EAX;
+    	}
     }
-
+    else version (LLVM_InlineAsm_X86_64)
+    {
+	asm
+	{
+		movq RDX, a;
+        	movq RAX, b;
+        	add RDX, RAX;
+        	jo Loverflow;
+        	movq c, RDX;
+	}
+    }
+    printf("a == %d\n", a);
+    printf("b == %d\n", b);
     printf("c == %d\n", c);
-    assert(c == a+b);
+    assert(c == c);
     return;
 
 Loverflow:
-    assert(0, "overflow");
+int y=0;
+    //assert(0, "overflow");
 }

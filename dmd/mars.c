@@ -851,6 +851,9 @@ int main(int argc, char *argv[], char** envp)
         global.params.isLE = true;
         global.params.is64bit = true;
         global.params.cpu = ARCHx86_64;
+        if (global.params.useInlineAsm) {
+            VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86_64");
+        }
     }
     else if (strcmp(global.params.llvmArch,"ppc32")==0) {
         VersionCondition::addPredefinedGlobalIdent("PPC");

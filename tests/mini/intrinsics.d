@@ -28,6 +28,11 @@ void main()
         real sr = llvm_sqrt_f80(r);
         printf("sqrt(%llf) = %llf\n", r, sr);
     }
+    else version (X86_64)
+    {
+        real sr = llvm_sqrt_f80(r);
+        printf("sqrt(%llf) = %llf\n", r, sr);
+    }
     else
     {
         real sr = llvm_sqrt_f64(r);

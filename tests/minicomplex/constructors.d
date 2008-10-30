@@ -1,3 +1,5 @@
+module constructors;
+
 import tango.io.Console;
 
 class C

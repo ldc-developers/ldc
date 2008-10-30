@@ -15,6 +15,9 @@ version(X86) {
     version(linux) version=X86_UNWIND;
     version(darwin) version=X86_UNWIND;
 }
+version(X86_64) {
+    version(linux) version=X86_UNWIND;
+}
 
 private extern(C) void abort();
 private extern(C) int printf(char*, ...);
@@ -168,7 +171,7 @@ char[8] _d_exception_class = "LLDCD1\0\0";
 // x86 unwind specific implementation of personality function
 // and helpers
 //
-version(X86_UNWIND) 
+version(X86_UNWIND)
 {
 
 // the personality routine gets called by the unwind handler and is responsible for
@@ -296,9 +299,15 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 // These are the register numbers for SetGR that
 // llvm's eh.exception and eh.selector intrinsics
 // will pick up.
-// Found by trial-and-error and probably platform dependent!
-private int eh_exception_regno = 0;
-private int eh_selector_regno = 2;
+// Found by trial-and-error :/
+version (X86_64)
+{
+  private int eh_exception_regno = 3;
+  private int eh_selector_regno = 1;
+} else {
+  private int eh_exception_regno = 0;
+  private int eh_selector_regno = 2;
+}
 
 private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {

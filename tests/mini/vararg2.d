@@ -5,7 +5,7 @@ void func(...)
     assert(_arguments.length == 2);
     assert(_arguments[0] is typeid(int));
     int a = *cast(int*)_argptr;
-    _argptr += int.sizeof;
+    _argptr += size_t.sizeof;
     assert(_arguments[1] is typeid(int));
     a += *cast(int*)_argptr;
     _argptr += int.sizeof;

@@ -11,10 +11,20 @@ void main()
 
 int func()
 {
-    asm
+    version (LLVM_InlineAsm_X86)
     {
-    naked;
-    mov EAX, 42;
-    ret;
+	asm
+    	{
+		naked;
+    		mov EAX, 42;
+    		ret;
+    	}
+    }
+    else version(LLVM_InlineAsm_X86_64)
+    {
+        asm
+        {
+                movq RAX, 42;
+        }
     }
 }

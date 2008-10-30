@@ -1,6 +1,7 @@
 module tangotests.asm7;
 
 // test massive label collisions (runtime uses Loverflow too)
+extern(C) int printf(char*, ...);
 
 void main()
 {
@@ -13,13 +14,27 @@ void main()
 int add(int a, int b)
 {
     int res;
-    asm
+    version (LLVM_InlineAsm_X86)
     {
-        mov EAX, a;
-        add EAX, b;
-        jo Loverflow;
-        mov res, EAX;
+	asm
+    	{
+		mov EAX, a;
+        	add EAX, b;
+        	jo Loverflow;
+        	mov res, EAX;
+    	}
     }
+    else version (LLVM_InlineAsm_X86_64)
+    {
+	asm
+	{
+		mov EAX, a;
+        	add EAX, b;
+        	jo Loverflow;
+        	mov res, EAX;
+	}		
+    }
+    printf("%d\n",res);
     return res;
 Loverflow:
     assert(0, "add overflow");
@@ -28,14 +43,29 @@ Loverflow:
 int sub(int a, int b)
 {
     int res;
-    asm
+    version (LLVM_InlineAsm_X86)
     {
-        mov EAX, a;
-        sub EAX, b;
-        jo Loverflow;
-        mov res, EAX;
+    	asm
+    	{
+		mov EAX, a;
+        	sub EAX, b;
+        	jo Loverflow;
+        	mov res, EAX;
+    	}
     }
+    else version (LLVM_InlineAsm_X86_64)
+    {
+	asm
+	{
+		mov EAX, a;
+        	sub EAX, b;
+        	jo Loverflow;
+        	mov res, EAX;
+	}		
+    }
+    printf("%d\n",res);
     return res;
 Loverflow:
     assert(0, "sub overflow");
+    int x;
 }

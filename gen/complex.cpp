@@ -30,7 +30,7 @@ const LLType* DtoComplexBaseType(Type* t)
         return LLType::DoubleTy;
     }
     else if (ty == Tcomplex80) {
-        if (global.params.cpu == ARCHx86)
+        if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
             return LLType::X86_FP80Ty;
         else
             return LLType::DoubleTy;

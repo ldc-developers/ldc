@@ -147,7 +147,7 @@ static void LLVM_D_BuildRuntimeModule()
     const LLType* floatTy = LLType::FloatTy;
     const LLType* doubleTy = LLType::DoubleTy;
     const LLType* realTy;
-    if (global.params.cpu == ARCHx86)
+    if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
         realTy = LLType::X86_FP80Ty;
     else
         realTy = LLType::DoubleTy;

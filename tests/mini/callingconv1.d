@@ -13,19 +13,31 @@ void main()
     float b = 2.5;
     float c;
 
-    asm
+    version(LLVM_InlineAsm_X86)
     {
-        mov EAX, [a];
-        push EAX;
-        mov EAX, [b];
-        push EAX;
-        call foo;
-        fstp c;
+	asm
+    	{
+		mov EAX, [a];
+        	push EAX;
+        	mov EAX, [b];
+        	push EAX;
+        	call foo;
+        	fstp c;
+    	}
     }
-
+    else version(LLVM_InlineAsm_X86_64)
+    {
+    	asm
+    	{
+		movss XMM0, [a];
+		movss XMM1, [b];
+        	call foo;
+		movss [c], XMM0;
+    	}
+    }
     printf("%f\n", c);
-    
+
     assert(c == 4.0);
     
-    printf("passed\n", c);
+    printf("passed %f\n", c);
 }

@@ -4,17 +4,38 @@ extern(C) int printf(char*,...);
 
 void main()
 {
-    char* fmt = "yay!\n";
-    asm
+    char* stmt = "yay!\n";
+    char* fmt = "%s";
+    version (LLVM_InlineAsm_X86)
     {
-        jmp L2;
-    L1:;
-        jmp L3;
-    L2:;
-        jmp L1;
-    L3:;
-        push fmt;
-        call printf;
-        pop EAX;
+	asm
+    	{
+		jmp L2;
+   	L1:;
+		jmp L3;
+    	L2:;
+		jmp L1;
+    	L3:;
+		push fmt;
+        	call printf;
+        	pop AX;
+    	}
     }
+    else version(LLVM_InlineAsm_X86_64)
+    {
+	asm
+	{
+		jmp L2;
+   	L1:;
+		jmp L3;
+    	L2:;
+		jmp L1;
+    	L3:;	
+		movq	RDI, fmt;
+		movq	RSI, stmt;
+		xor	AL, AL;
+		call	printf;
+	}
+    }
+    printf(fmt,stmt);
 }
