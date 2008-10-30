@@ -26,7 +26,7 @@ body
     char* p = tmp.ptr + tmp.length;
 
     do {
-       *--p = (val % 10) + '0';
+       *--p = cast(char)((val % 10) + '0');
        } while (val /= 10);
 
     return tmp [cast(size_t)(p - tmp.ptr) .. $];
