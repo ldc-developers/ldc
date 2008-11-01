@@ -16,7 +16,7 @@ void main()
     	L2:;
 		jmp L1;
     	L3:;
-		push fmt;
+		push stmt;
         	call printf;
         	pop EAX;
     	}
