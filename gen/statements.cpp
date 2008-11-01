@@ -154,11 +154,7 @@ void IfStatement::toIR(IRState* p)
         DtoDwarfStopPoint(loc.linnum);
 
     if (match)
-    {
-        LLValue* allocainst = DtoAlloca(DtoType(match->type), "._tmp_if_var");
-        match->ir.irLocal = new IrLocal(match);
-        match->ir.irLocal->value = allocainst;
-    }
+        DtoDeclarationExp(match);
 
     DValue* cond_e = condition->toElem(p);
     LLValue* cond_val = cond_e->getRVal();
@@ -928,24 +924,23 @@ void ForeachStatement::toIR(IRState* p)
 
     // key
     const LLType* keytype = key ? DtoType(key->type) : DtoSize_t();
-    LLValue* keyvar = DtoAlloca(keytype, "foreachkey");
+    LLValue* keyvar;
     if (key)
     {
-        //key->llvmValue = keyvar;
-        assert(!key->ir.irLocal);
-        key->ir.irLocal = new IrLocal(key);
-        key->ir.irLocal->value = keyvar;
+        DtoDeclarationExp(key);
+        keyvar = key->ir.irLocal->value;
     }
+    else
+        keyvar = DtoAlloca(keytype, "foreachkey");
     LLValue* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
     // value
     Logger::println("value = %s", value->toPrettyChars());
+    DtoDeclarationExp(value);
     const LLType* valtype = DtoType(value->type);
     LLValue* valvar = NULL;
     if (!value->isRef() && !value->isOut())
-        valvar = DtoAlloca(valtype, "foreachval");
-    if (!value->ir.irLocal)
-        value->ir.irLocal = new IrLocal(value);
+        valvar = value->ir.irLocal->value;
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);
@@ -1155,6 +1150,7 @@ void WithStatement::toIR(IRState* p)
 
     DValue* e = exp->toElem(p);
 
+    // DtoDeclarationExp(wthis); or preferably equivalent without initialization...
     if (wthis->ir.isSet())
     {
         assert(wthis->nestedref);

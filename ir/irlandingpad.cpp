@@ -15,10 +15,23 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
 
     // assign storage to catch var
     if(catchstmt->var) {
-        assert(!catchstmt->var->ir.irLocal);
-        catchstmt->var->ir.irLocal = new IrLocal(catchstmt->var);
-        LLValue* catch_var = gIR->func()->landingPad.getExceptionStorage();
-        catchstmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchstmt->var->type)));
+        // use the same storage for all exceptions that are not accessed in
+        // nested functions
+        if(!catchstmt->var->nestedref) {
+            assert(!catchstmt->var->ir.irLocal);
+            catchstmt->var->ir.irLocal = new IrLocal(catchstmt->var);
+            LLValue* catch_var = gIR->func()->landingPad.getExceptionStorage();
+            catchstmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchstmt->var->type)));
+        }
+
+        // this will alloca if we haven't already and take care of nested refs
+        DtoDeclarationExp(catchstmt->var);
+
+        // the exception will only be stored in catch_var. copy it over if necessary
+        if(catchstmt->var->ir.irLocal->value != gIR->func()->landingPad.getExceptionStorage()) {
+            LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->landingPad.getExceptionStorage()), DtoType(catchstmt->var->type));
+            DtoStore(exc, catchstmt->var->ir.irLocal->value);
+        }
     }
 
     // emit handler, if there is one
