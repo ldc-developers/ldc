@@ -12,7 +12,7 @@ void main()
     	{
 		push fmt;
         	call printf;
-        	pop AX;
+        	pop EAX;
     	}
     }
     else version(LLVM_InlineAsm_X86_64)
