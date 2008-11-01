@@ -154,7 +154,7 @@ void IfStatement::toIR(IRState* p)
         DtoDwarfStopPoint(loc.linnum);
 
     if (match)
-        DtoDeclarationExp(match);
+        DtoRawVarDeclaration(match);
 
     DValue* cond_e = condition->toElem(p);
     LLValue* cond_val = cond_e->getRVal();
@@ -926,17 +926,14 @@ void ForeachStatement::toIR(IRState* p)
     const LLType* keytype = key ? DtoType(key->type) : DtoSize_t();
     LLValue* keyvar;
     if (key)
-    {
-        DtoDeclarationExp(key);
-        keyvar = key->ir.irLocal->value;
-    }
+        keyvar = DtoRawVarDeclaration(key);
     else
         keyvar = DtoAlloca(keytype, "foreachkey");
     LLValue* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
     // value
     Logger::println("value = %s", value->toPrettyChars());
-    DtoDeclarationExp(value);
+    DtoRawVarDeclaration(value);
     const LLType* valtype = DtoType(value->type);
     LLValue* valvar = NULL;
     if (!value->isRef() && !value->isOut())
@@ -1149,30 +1146,8 @@ void WithStatement::toIR(IRState* p)
     assert(body);
 
     DValue* e = exp->toElem(p);
-
-    // DtoDeclarationExp(wthis); or preferably equivalent without initialization...
-    if (wthis->ir.isSet())
-    {
-        assert(wthis->nestedref);
-        assert(wthis->ir.irLocal);
-        assert(!wthis->ir.irLocal->value);
-        wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
-
-        // store the address into the nested vars array
-        assert(wthis->ir.irLocal->nestedIndex >= 0);
-        LLValue* gep = DtoGEPi(gIR->func()->decl->ir.irFunc->nestedVar, 0, wthis->ir.irLocal->nestedIndex);
-        assert(isaPointer(wthis->ir.irLocal->value));
-        LLValue* val = DtoBitCast(wthis->ir.irLocal->value, getVoidPtrType());
-        DtoStore(val, gep);
-    }
-    else
-    {
-        assert(!wthis->nestedref);
-        wthis->ir.irLocal = new IrLocal(wthis);
-        wthis->ir.irLocal->value = DtoAlloca(DtoType(wthis->type), wthis->toChars());
-    }
-
-    DtoStore(e->getRVal(), wthis->ir.irLocal->value);
+    LLValue* mem = DtoRawVarDeclaration(wthis);
+    DtoStore(e->getRVal(), mem);
 
     body->toIR(p);
 }

@@ -1320,6 +1320,46 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     return NULL;
 }
 
+// does pretty much the same as DtoDeclarationExp, except it doesn't initialize, and only handles var declarations
+LLValue* DtoRawVarDeclaration(VarDeclaration* var)
+{
+    // we don't handle globals with this one
+    assert(!var->isDataseg());
+
+    // we don't handle aliases either
+    assert(!var->aliassym);
+
+    // referenced by nested function?
+    if (var->nestedref)
+    {
+        assert(var->ir.irLocal);
+        assert(!var->ir.irLocal->value);
+
+        // alloca
+        var->ir.irLocal->value = DtoAlloca(DtoType(var->type), var->toChars());
+
+        // store the address into the nested vars array
+        assert(var->ir.irLocal->nestedIndex >= 0);
+        LLValue* gep = DtoGEPi(gIR->func()->decl->ir.irFunc->nestedVar, 0, var->ir.irLocal->nestedIndex);
+        assert(isaPointer(var->ir.irLocal->value));
+        LLValue* val = DtoBitCast(var->ir.irLocal->value, getVoidPtrType());
+        DtoStore(val, gep);
+    }
+    // normal local variable
+    else
+    {
+        assert(!var->ir.isSet());
+        var->ir.irLocal = new IrLocal(var);
+        var->ir.irLocal->value = DtoAlloca(DtoType(var->type), var->toChars());
+    }
+
+    // add debug info
+    if (global.params.symdebug)
+        DtoDwarfLocalVariable(var->ir.irLocal->value, var);
+
+    // return the alloca
+    return var->ir.irLocal->value;
+}
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////

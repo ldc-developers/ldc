@@ -83,6 +83,7 @@ void DtoForceDefineDsymbol(Dsymbol* dsym);
 
 // declaration inside a declarationexp
 DValue* DtoDeclarationExp(Dsymbol* declaration);
+LLValue* DtoRawVarDeclaration(VarDeclaration* var);
 
 // initializer helpers
 LLConstant* DtoConstInitializer(Type* type, Initializer* init);
