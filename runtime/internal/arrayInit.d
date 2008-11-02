@@ -151,7 +151,7 @@ size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
     if (newelemsz == 1) {
         return len*elemsz;
     }
-    else if (len % newelemsz) {
+    else if ((len*elemsz) % newelemsz) {
         throw new Exception("Bad array cast");
     }
     return (len*elemsz)/newelemsz;
