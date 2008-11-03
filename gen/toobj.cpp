@@ -879,7 +879,7 @@ void Dsymbol::toObjFile(int multiobj)
 
 /* ================================================================== */
 
-void Declaration::toObjFile()
+void Declaration::toObjFile(int unused)
 {
     Logger::println("Ignoring Declaration::toObjFile for %s", toChars());
 }

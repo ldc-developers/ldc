@@ -126,9 +126,9 @@ struct Module : Package
 #else
     void parse();	// syntactic parse
 #endif
-    void semantic();	// semantic analysis
-    void semantic2();	// pass 2 semantic analysis
-    void semantic3();	// pass 3 semantic analysis
+    void semantic(Scope* unused_sc = NULL);	// semantic analysis
+    void semantic2(Scope* unused_sc = NULL);	// pass 2 semantic analysis
+    void semantic3(Scope* unused_sc = NULL);	// pass 3 semantic analysis
     void inlineScan();	// scan for functions to inline
 #ifdef _DH
     void genhdrfile();  // generate D import file

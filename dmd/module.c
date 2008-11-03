@@ -613,7 +613,7 @@ void Module::parse()
     }
 }
 
-void Module::semantic()
+void Module::semantic(Scope* unused_sc)
 {   int i;
 
     if (semanticstarted)
@@ -661,7 +661,7 @@ void Module::semantic()
     //printf("-Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
 }
 
-void Module::semantic2()
+void Module::semantic2(Scope* unused_sc)
 {   int i;
 
     if (deferred.dim)
@@ -700,7 +700,7 @@ void Module::semantic2()
     //printf("-Module::semantic2('%s'): parent = %p\n", toChars(), parent);
 }
 
-void Module::semantic3()
+void Module::semantic3(Scope* unused_sc)
 {   int i;
 
     //printf("Module::semantic3('%s'): parent = %p\n", toChars(), parent);

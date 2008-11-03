@@ -1,7 +1,7 @@
 // Taken from GDC source tree. Original by David Friedman.
 // Released under the Artistic License found in dmd/artistic.txt
 
-#include "dmd/id.h"
+#include "id.h"
 
 typedef enum {
     Reg_Invalid = -1,

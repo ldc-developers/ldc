@@ -139,7 +139,7 @@ struct Declaration : Dsymbol
     Declaration *isDeclaration() { return this; }
 
     // llvm
-    virtual void toObjFile();           // compile to .obj file
+    virtual void toObjFile(int unused = 0);           // compile to .obj file
 };
 
 /**************************************************************/
