@@ -23,9 +23,7 @@ dmd/func.c
 dmd/gnuc.c
 dmd/hdrgen.c
 dmd/html.c
-dmd/id.c
 dmd/identifier.c
-dmd/impcnvtab.c
 dmd/import.c
 dmd/inifile.c
 dmd/init.c
@@ -84,32 +82,86 @@ ir/irmodule.cpp
 ir/irstruct.cpp
 ir/irsymbol.cpp
 ir/irtype.cpp
-ir/irvar.cpp)
+ir/irvar.cpp
+)
 
-add_executable (ldc ${LDC_SOURCE_FILES})
-set_source_files_properties (${LDC_SOURCE_FILES} PROPERTIES LANGUAGE CXX)
+set (LDC_GENERATED_SOURCE_FILES
+${CMAKE_CURRENT_BINARY_DIR}/impcnvtab.c
+${CMAKE_CURRENT_BINARY_DIR}/id.c
+)
+set (LDC_GENERATED_HEADER_FILES
+${CMAKE_CURRENT_BINARY_DIR}/id.h
+)
 
-execute_process (COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-#execute_process (COMMAND llvm-config --includedir OUTPUT_VARIABLE LLVM_INCLUDE_DIR)
-#execute_process (COMMAND llvm-config --libs bitwriter linker ipo instrumentation backend OUTPUT_VARIABLE LLVM_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process (COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/config.guess OUTPUT_VARIABLE DEFAULT_TRIPLE OUTPUT_STRIP_TRAILING_WHITESPACE)
+# some sources are generated
+set_source_files_properties (
+  ${LDC_GENERATED_SOURCE_FILES} 
+  ${LDC_GENERATED_HEADER_FILES} 
+  PROPERTIES GENERATED 1
+)
 
+# mark all source as c++
+set_source_files_properties (
+  ${LDC_SOURCE_FILES} ${LDC_GENERATED_SOURCE_FILES} 
+  PROPERTIES LANGUAGE CXX
+)
+
+# build and run idgen and impcnvgen
+set_source_files_properties (
+  dmd/impcnvgen.c
+  dmd/idgen.c
+  PROPERTIES LANGUAGE CXX
+)
+add_executable (impcnvgen dmd/impcnvgen.c)
+add_executable (idgen dmd/idgen.c)
+set_target_properties (impcnvgen idgen PROPERTIES LINKER_LANGUAGE CXX)
+get_target_property (IMPCNVGEN_EXE impcnvgen LOCATION)
+get_target_property (IDGEN_EXE idgen LOCATION)
+add_custom_command (
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/impcnvtab.c
+  COMMAND ${IMPCNVGEN_EXE}
+  DEPENDS impcnvgen
+)
+add_custom_command (
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/id.c ${CMAKE_CURRENT_BINARY_DIR}/id.h
+  COMMAND ${IDGEN_EXE}
+  DEPENDS idgen
+)
+
+# ldc itself
+add_executable (ldc ${LDC_SOURCE_FILES} ${LDC_GENERATED_SOURCE_FILES} ${LDC_GENERATED_HEADER_FILES})
+
+
+# setup DEFAULT_TARGET_TRIPLE
+execute_process (COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/config.guess OUTPUT_VARIABLE DEFAULT_TARGET_TRIPLE_GUESS OUTPUT_STRIP_TRAILING_WHITESPACE)
+set (DEFAULT_TARGET_TRIPLE ${DEFAULT_TARGET_TRIPLE_GUESS} CACHE STRING "the default target triple LDC should compile for")
+
+# setup POSIX
+if (WIN32)
+  set (POSIX_GUESS 0)
+else (WIN32)
+  set (POSIX_GUESS 1)
+endif (WIN32)
+set (POSIX ${POSIX_GUESS} CACHE BOOL "is LDC build on POSIX?")
+
+# setup defines
 set (LDC_DEFINES
 -DIN_LLVM
 -D_DH
 -DOPAQUE_VTBLS
 -DUSE_BOEHM_GC=0
 -DDMDV1
--DPOSIX=1
--DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TRIPLE}\\"
+-DPOSIX=${POSIX}
+-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET_TRIPLE}\\"
 -DX86_REVERSE_PARAMS=1
 -DX86_PASS_IN_EAX=1)
-
+execute_process (COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 # passing CXXFLAGS here is not good style
 add_definitions (${LDC_DEFINES} ${LLVM_CXXFLAGS})
-include_directories (. dmd)
+
+include_directories (. dmd ${CMAKE_CURRENT_BINARY_DIR})
 
 # this is hackish, but works
 target_link_libraries (ldc "`llvm-config --ldflags` `llvm-config --libs bitwriter linker ipo instrumentation backend`")
 
-#TODO: POSIX detection, runtime build
+#TODO: runtime build
