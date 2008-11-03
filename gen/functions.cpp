@@ -745,22 +745,15 @@ void DtoDefineFunc(FuncDeclaration* fd)
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
 
-            if (refout)
+            if (!refout && (!DtoIsPassedByRef(vd->type) || lazy))
             {
-                continue;
+                LLValue* a = irloc->value;
+                LLValue* v = DtoAlloca(a->getType(), "."+a->getName());
+                DtoStore(a,v);
+                irloc->value = v;
             }
-            else if (!lazy && DtoIsPassedByRef(vd->type))
-            {
-                LLValue* vdirval = irloc->value;
-                if (global.params.symdebug && !(isaArgument(vdirval) && !isaArgument(vdirval)->hasByValAttr()))
-                    DtoDwarfLocalVariable(vdirval, vd);
-                continue;
-            }
-
-            LLValue* a = irloc->value;
-            LLValue* v = DtoAlloca(a->getType(), "."+a->getName());
-            DtoStore(a,v);
-            irloc->value = v;
+            if (global.params.symdebug && !(isaArgument(irloc->value) && !isaArgument(irloc->value)->hasByValAttr()) && !refout)
+                DtoDwarfLocalVariable(irloc->value, vd);
         }
     }
 
