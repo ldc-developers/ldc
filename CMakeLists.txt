@@ -1,167 +1,169 @@
-project (ldc)
+project(ldc)
 
-set (LDC_SOURCE_FILES 
-dmd/access.c
-dmd/array.c
-dmd/arrayop.c
-dmd/attrib.c
-dmd/cast.c
-dmd/class.c
-dmd/clone.c
-dmd/cond.c
-dmd/constfold.c
-dmd/dchar.c
-dmd/declaration.c
-dmd/delegatize.c
-dmd/doc.c
-dmd/dsymbol.c
-dmd/dump.c
-dmd/entity.c
-dmd/enum.c
-dmd/expression.c
-dmd/func.c
-dmd/gnuc.c
-dmd/hdrgen.c
-dmd/html.c
-dmd/identifier.c
-dmd/import.c
-dmd/inifile.c
-dmd/init.c
-dmd/inline.c
-dmd/interpret.c
-dmd/lexer.c
-dmd/lstring.c
-dmd/macro.c
-dmd/man.c
-dmd/mangle.c
-dmd/mars.c
-dmd/mem.c
-dmd/module.c
-dmd/mtype.c
-dmd/opover.c
-dmd/optimize.c
-dmd/parse.c
-dmd/root.c
-dmd/scope.c
-dmd/statement.c
-dmd/staticassert.c
-dmd/stringtable.c
-dmd/struct.c
-dmd/template.c
-dmd/unialpha.c
-dmd/utf.c
-dmd/version.c
-gen/aa.cpp
-gen/arrays.cpp
-gen/asmstmt.cpp
-gen/binops.cpp
-gen/classes.cpp
-gen/complex.cpp
-gen/dvalue.cpp
-gen/dwarftypes.cpp
-gen/functions.cpp
-gen/irstate.cpp
-gen/linker.cpp
-gen/llvmhelpers.cpp
-gen/logger.cpp
-gen/optimizer.cpp
-gen/runtime.cpp
-gen/statements.cpp
-gen/structs.cpp
-gen/tocall.cpp
-gen/tocsym.cpp
-gen/todebug.cpp
-gen/todt.cpp
-gen/toir.cpp
-gen/tollvm.cpp
-gen/toobj.cpp
-gen/typinf.cpp
-ir/irfunction.cpp
-ir/irlandingpad.cpp
-ir/irmodule.cpp
-ir/irstruct.cpp
-ir/irsymbol.cpp
-ir/irtype.cpp
-ir/irvar.cpp
+cmake_minimum_required(VERSION 2.6)
+# actually, 2.4 will work, with a warning
+# if we required 2.4, 2.6+ would switch to a compatibility mode and cause problems on 2.6+ specifics
+
+include(FindPerl)
+if(NOT PERL)
+	message(FATAL_ERROR "perl not found")
+endif(NOT PERL)
+
+set(LLVM_INSTDIR CACHE PATH "LLVM installation directory")
+
+find_program(LLVM_CONFIG llvm-config ${LLVM_INSTDIR}/bin DOC "path to llvm-config tool")
+if(NOT LLVM_CONFIG)
+	message(FATAL_ERROR "llvm-config not found")
+endif(NOT LLVM_CONFIG)
+
+execute_process(
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --host-target
+	OUTPUT_VARIABLE HOST_TARGET
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --cxxflags
+	OUTPUT_VARIABLE LLVM_CXXFLAGS
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --ldflags
+	OUTPUT_VARIABLE LLVM_LDFLAGS
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend
+	OUTPUT_VARIABLE LLVM_LIBS
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
+string(REPLACE "/bin/llvm-config" "" LLVM_INSTDIR ${LLVM_CONFIG})
+
+file(MAKE_DIRECTORY
+	${PROJECT_BINARY_DIR}/bin
+	${PROJECT_BINARY_DIR}/dmd
 )
 
-set (LDC_GENERATED_SOURCE_FILES
-${CMAKE_CURRENT_BINARY_DIR}/impcnvtab.c
-${CMAKE_CURRENT_BINARY_DIR}/id.c
+# idgen and impcnvgen
+set_source_files_properties(
+	dmd/idgen.c
+	dmd/impcnvgen.c
+	PROPERTIES LANGUAGE CXX
 )
-set (LDC_GENERATED_HEADER_FILES
-${CMAKE_CURRENT_BINARY_DIR}/id.h
+add_executable(idgen dmd/idgen.c)
+add_executable(impcnvgen dmd/impcnvgen.c)
+# cmake 2.4
+set_target_properties(
+	idgen impcnvgen PROPERTIES
+	LINKER_LANGUAGE CXX
+)
+get_target_property(IDGEN_LOC idgen LOCATION)
+get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
+# 
+add_custom_command(
+	OUTPUT
+		${PROJECT_BINARY_DIR}/dmd/id.c
+		${PROJECT_BINARY_DIR}/dmd/id.h
+	# 2.4
+	COMMAND ${IDGEN_LOC}
+	#COMMAND idgen
+	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/dmd
+	DEPENDS idgen
+)
+add_custom_command(
+	OUTPUT ${PROJECT_BINARY_DIR}/dmd/impcnvtab.c
+	# 2.4
+	COMMAND ${IMPCNVGEN_LOC}
+	#COMMAND impcnvgen 
+	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/dmd
+	DEPENDS impcnvgen
+)
+set(LDC_GENERATED
+	${PROJECT_BINARY_DIR}/dmd/id.c
+	${PROJECT_BINARY_DIR}/dmd/id.h
+	${PROJECT_BINARY_DIR}/dmd/impcnvtab.c
+)
+# idgen and impcnvgen done
+
+set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
+
+include_directories(. dmd ${PROJECT_BINARY_DIR}/dmd ${LLVM_INSTDIR}/include)
+
+file(GLOB FE_SRC dmd/*.c)
+file(GLOB GEN_SRC gen/*.cpp)
+file(GLOB IR_SRC ir/*.cpp)
+# exclude idgen and impcnvgen and generated sources, just in case
+list(REMOVE_ITEM FE_SRC
+	${PROJECT_SOURCE_DIR}/dmd/idgen.c
+	${PROJECT_SOURCE_DIR}/dmd/impcnvgen.c
+	${PROJECT_SOURCE_DIR}/dmd/id.c
+	${PROJECT_SOURCE_DIR}/dmd/impcnvtab.c
+)
+set(LDC_SOURCE_FILES
+	${LDC_GENERATED}
+	${FE_SRC}
+	${GEN_SRC}
+	${IR_SRC}
+)
+set_source_files_properties(
+	${LDC_SOURCE_FILES}	PROPERTIES
+	LANGUAGE CXX
 )
 
-# some sources are generated
-set_source_files_properties (
-  ${LDC_GENERATED_SOURCE_FILES} 
-  ${LDC_GENERATED_HEADER_FILES} 
-  PROPERTIES GENERATED 1
+add_definitions(
+	-DIN_LLVM
+	-D_DH
+	-DOPAQUE_VTBLS
+	-DUSE_BOEHM_GC=0
+	-DDMDV1
+	-DX86_REVERSE_PARAMS
+	-DX86_PASS_IN_EAX
 )
 
-# mark all source as c++
-set_source_files_properties (
-  ${LDC_SOURCE_FILES} ${LDC_GENERATED_SOURCE_FILES} 
-  PROPERTIES LANGUAGE CXX
+if(UNIX)
+	add_definitions(-DPOSIX)
+	#set(CONF_SUFFIX conf)
+endif(UNIX)
+
+if(CMAKE_MINOR_VERSION LESS 6)
+	add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
+else(CMAKE_MINOR_VERSION LESS 6)
+	add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
+endif(CMAKE_MINOR_VERSION LESS 6)
+
+add_executable(ldc ${LDC_SOURCE_FILES})
+
+set_target_properties(
+	ldc PROPERTIES
+	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+	COMPILE_FLAGS "${LLVM_CXXFLAGS} -Wno-deprecated"
 )
 
-# build and run idgen and impcnvgen
-set_source_files_properties (
-  dmd/impcnvgen.c
-  dmd/idgen.c
-  PROPERTIES LANGUAGE CXX
-)
-add_executable (impcnvgen dmd/impcnvgen.c)
-add_executable (idgen dmd/idgen.c)
-set_target_properties (impcnvgen idgen PROPERTIES LINKER_LANGUAGE CXX)
-get_target_property (IMPCNVGEN_EXE impcnvgen LOCATION)
-get_target_property (IDGEN_EXE idgen LOCATION)
-add_custom_command (
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/impcnvtab.c
-  COMMAND ${IMPCNVGEN_EXE}
-  DEPENDS impcnvgen
-)
-add_custom_command (
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/id.c ${CMAKE_CURRENT_BINARY_DIR}/id.h
-  COMMAND ${IDGEN_EXE}
-  DEPENDS idgen
-)
+# LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
+target_link_libraries(ldc "${LLVM_LDFLAGS} ${LLVM_LIBS}")
+if(WIN32)
+	target_link_libraries(ldc psapi)
+	#set(CONF_SUFFIX ini)
+endif(WIN32)
 
-# ldc itself
-add_executable (ldc ${LDC_SOURCE_FILES} ${LDC_GENERATED_SOURCE_FILES} ${LDC_GENERATED_HEADER_FILES})
+# cmake pre 2.6 doesn't support the RUNTIME_OUTPUT_DIRECTORY target property
+if(CMAKE_MINOR_VERSION LESS 6)
+	get_target_property(LDC_LOC ldc LOCATION)
+	add_custom_command(
+		TARGET ldc
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy ${LDC_LOC} ${PROJECT_BINARY_DIR}/bin/
+		COMMAND ${CMAKE_COMMAND} -E remove ${LDC_LOC}
+	)
+endif(CMAKE_MINOR_VERSION LESS 6)
 
-
-# setup DEFAULT_TARGET_TRIPLE
-execute_process (COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/config.guess OUTPUT_VARIABLE DEFAULT_TARGET_TRIPLE_GUESS OUTPUT_STRIP_TRAILING_WHITESPACE)
-set (DEFAULT_TARGET_TRIPLE ${DEFAULT_TARGET_TRIPLE_GUESS} CACHE STRING "the default target triple LDC should compile for")
-
-# setup POSIX
-if (WIN32)
-  set (POSIX_GUESS 0)
-else (WIN32)
-  set (POSIX_GUESS 1)
-endif (WIN32)
-set (POSIX ${POSIX_GUESS} CACHE BOOL "is LDC build on POSIX?")
-
-# setup defines
-set (LDC_DEFINES
--DIN_LLVM
--D_DH
--DOPAQUE_VTBLS
--DUSE_BOEHM_GC=0
--DDMDV1
--DPOSIX=${POSIX}
--DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET_TRIPLE}\\"
--DX86_REVERSE_PARAMS=1
--DX86_PASS_IN_EAX=1)
-execute_process (COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-# passing CXXFLAGS here is not good style
-add_definitions (${LDC_DEFINES} ${LLVM_CXXFLAGS})
-
-include_directories (. dmd ${CMAKE_CURRENT_BINARY_DIR})
-
-# this is hackish, but works
-target_link_libraries (ldc "`llvm-config --ldflags` `llvm-config --libs bitwriter linker ipo instrumentation backend`")
-
-#TODO: runtime build
+#configure_file(${PROJECT_SOURCE_DIR}/ldc.conf.in ${PROJECT_BINARY_DIR}/bin/ldc.${CONF_SUFFIX})
+	
+# TODO: runtime build
+# possible problems:
+#	with an oos-build, how to set up a working environment, with conf/ini and tango in place?
+#	patch tango? how to determine if that's already been done?
+#	std but compatible runtime build, or shared, which doesn't yet work on every platform
+#	
+# TODO: install target
+# TODO: testrun
