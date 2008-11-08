@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 4002)
+--- object.di	(revision 4071)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -12,201 +12,9 @@ Index: object.di
      static int opApply( int delegate( inout ModuleInfo ) );
  }
  
-Index: lib/common/tango/core/BitManip.d
-===================================================================
---- lib/common/tango/core/BitManip.d	(revision 4002)
-+++ lib/common/tango/core/BitManip.d	(working copy)
-@@ -171,6 +171,10 @@
-      */
-     uint outpl( uint port_address, uint value );
- }
-+else version( LDC )
-+{
-+    public import ldc.bitmanip;
-+}
- else
- {
-     public import std.intrinsic;
-Index: lib/common/tango/core/Thread.d
-===================================================================
---- lib/common/tango/core/Thread.d	(revision 4002)
-+++ lib/common/tango/core/Thread.d	(working copy)
-@@ -235,6 +235,7 @@
-         // used to track the number of suspended threads
-         //
-         sem_t   suspendCount;
-+        sem_t*  suspendCountPtr;
- 
- 
-         extern (C) void thread_suspendHandler( int sig )
-@@ -244,8 +245,29 @@
-         }
-         body
-         {
--            version( D_InlineAsm_X86 )
-+            version( LDC)
-             {
-+                version(X86)
-+                {
-+                    uint eax,ecx,edx,ebx,ebp,esi,edi;
-+                    asm
-+                    {
-+                        mov eax[EBP], EAX      ;
-+                        mov ecx[EBP], ECX      ;
-+                        mov edx[EBP], EDX      ;
-+                        mov ebx[EBP], EBX      ;
-+                        mov ebp[EBP], EBP      ;
-+                        mov esi[EBP], ESI      ;
-+                        mov edi[EBP], EDI      ;
-+                    }
-+                }
-+                else
-+                {
-+                    static assert( false, "Architecture not supported." );
-+                }
-+            }
-+            else version( D_InlineAsm_X86 )
-+            {
-                 asm
-                 {
-                     pushad;
-@@ -286,7 +308,7 @@
-                 status = sigdelset( &sigres, SIGUSR2 );
-                 assert( status == 0 );
- 
--                status = sem_post( &suspendCount );
-+                status = sem_post( suspendCountPtr );
-                 assert( status == 0 );
- 
-                 sigsuspend( &sigres );
-@@ -297,8 +319,12 @@
-                 }
-             }
- 
--            version( D_InlineAsm_X86 )
-+            version( LDC)
-             {
-+                // nothing to pop
-+            }
-+            else version( D_InlineAsm_X86 )
-+            {
-                 asm
-                 {
-                     popad;
-@@ -1572,8 +1598,14 @@
-         status = sigaction( SIGUSR2, &sigusr2, null );
-         assert( status == 0 );
- 
--        status = sem_init( &suspendCount, 0, 0 );
--        assert( status == 0 );
-+        version(darwin){
-+            suspendCountPtr = sem_open( "/thread_init/sem\0".ptr, 0 );
-+            assert( suspendCountPtr !is null );
-+        }else {
-+            status=sem_init(&suspendCount,0,0);
-+            suspendCountPtr=&suspendCount;
-+            assert(status==0);
-+        }
- 
-         status = pthread_key_create( &Thread.sm_this, null );
-         assert( status == 0 );
-@@ -1781,7 +1813,7 @@
-                 //       to simply loop on sem_wait at the end, but I'm not
-                 //       convinced that this would be much faster than the
-                 //       current approach.
--                sem_wait( &suspendCount );
-+                sem_wait( suspendCountPtr );
-             }
-             else if( !t.m_lock )
-             {
-@@ -2286,6 +2318,13 @@
-             version = AsmPPC_Posix;
-     }
- 
-+    version( LLVM_InlineAsm_X86 )
-+    {
-+        version( Win32 )
-+            version = LLVM_AsmX86_Win32;
-+        else version( Posix )
-+            version = LLVM_AsmX86_Posix;
-+    }
- 
-     version( Posix )
-     {
-@@ -2296,6 +2328,8 @@
-         version( AsmX86_Win32 ) {} else
-         version( AsmX86_Posix ) {} else
-         version( AsmPPC_Posix ) {} else
-+        version( LLVM_AsmX86_Win32 ) {} else
-+        version( LLVM_AsmX86_Posix ) {} else
-         {
-             // NOTE: The ucontext implementation requires architecture specific
-             //       data definitions to operate so testing for it must be done
-@@ -2306,10 +2340,10 @@
-             import tango.stdc.posix.ucontext;
-         }
-     }
--
--    const size_t PAGESIZE;
- }
- 
-+// this can't be private since it's used as default argument to a public function
-+const size_t PAGESIZE;
- 
- static this()
- {
-@@ -2336,7 +2370,7 @@
-     }
- }
- 
--
-+extern(C) int printf(char*, ...);
- ////////////////////////////////////////////////////////////////////////////////
- // Fiber Entry Point and Context Switch
- ////////////////////////////////////////////////////////////////////////////////
-@@ -2450,6 +2484,22 @@
-                 ret;
-             }
-         }
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+            asm
-+            {
-+                // clobber registers to save
-+                inc EBX;
-+                inc ESI;
-+                inc EDI;
-+
-+                // store oldp again with more accurate address
-+                mov EAX, oldp;
-+                mov [EAX], ESP;
-+                // load newp to begin context switch
-+                mov ESP, newp;
-+            }
-+        }
-         else static if( is( ucontext_t ) )
-         {
-             Fiber   cfib = Fiber.getThis();
-@@ -3115,6 +3165,16 @@
-             push( 0x00000000 );                                     // ESI
-             push( 0x00000000 );                                     // EDI
-         }
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+            push( cast(size_t) &fiber_entryPoint );                 // EIP
-+            push( 0x00000000 );                                     // newp
-+            push( 0x00000000 );                                     // oldp
-+            push( 0x00000000 );                                     // EBP
-+            push( 0x00000000 );                                     // EBX
-+            push( 0x00000000 );                                     // ESI
-+            push( 0x00000000 );                                     // EDI
-+        }
-         else version( AsmPPC_Posix )
-         {
-             version( StackGrowsDown )
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 4002)
+--- lib/unittest.sh	(revision 4071)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -261,9 +69,201 @@ Index: lib/unittest.sh
 +then
 +    compile ldc runUnitTest_ldc
 +fi
+Index: lib/common/tango/core/BitManip.d
+===================================================================
+--- lib/common/tango/core/BitManip.d	(revision 4071)
++++ lib/common/tango/core/BitManip.d	(working copy)
+@@ -171,6 +171,10 @@
+      */
+     uint outpl( uint port_address, uint value );
+ }
++else version( LDC )
++{
++    public import ldc.bitmanip;
++}
+ else
+ {
+     public import std.intrinsic;
+Index: lib/common/tango/core/Thread.d
+===================================================================
+--- lib/common/tango/core/Thread.d	(revision 4071)
++++ lib/common/tango/core/Thread.d	(working copy)
+@@ -247,6 +247,7 @@
+         // used to track the number of suspended threads
+         //
+         sem_t   suspendCount;
++        sem_t*  suspendCountPtr;
+ 
+ 
+         extern (C) void thread_suspendHandler( int sig )
+@@ -256,8 +257,29 @@
+         }
+         body
+         {
+-            version( D_InlineAsm_X86 )
++            version( LDC)
+             {
++                version(X86)
++                {
++                    uint eax,ecx,edx,ebx,ebp,esi,edi;
++                    asm
++                    {
++                        mov eax[EBP], EAX      ;
++                        mov ecx[EBP], ECX      ;
++                        mov edx[EBP], EDX      ;
++                        mov ebx[EBP], EBX      ;
++                        mov ebp[EBP], EBP      ;
++                        mov esi[EBP], ESI      ;
++                        mov edi[EBP], EDI      ;
++                    }
++                }
++                else
++                {
++                    static assert( false, "Architecture not supported." );
++                }
++            }
++            else version( D_InlineAsm_X86 )
++            {
+                 asm
+                 {
+                     pushad;
+@@ -298,7 +320,7 @@
+                 status = sigdelset( &sigres, SIGUSR2 );
+                 assert( status == 0 );
+ 
+-                status = sem_post( &suspendCount );
++                status = sem_post( suspendCountPtr );
+                 assert( status == 0 );
+ 
+                 sigsuspend( &sigres );
+@@ -309,8 +331,12 @@
+                 }
+             }
+ 
+-            version( D_InlineAsm_X86 )
++            version( LDC)
+             {
++                // nothing to pop
++            }
++            else version( D_InlineAsm_X86 )
++            {
+                 asm
+                 {
+                     popad;
+@@ -1584,8 +1610,14 @@
+         status = sigaction( SIGUSR2, &sigusr2, null );
+         assert( status == 0 );
+ 
+-        status = sem_init( &suspendCount, 0, 0 );
+-        assert( status == 0 );
++        version(darwin){
++            suspendCountPtr = sem_open( "/thread_init/sem\0".ptr, 0 );
++            assert( suspendCountPtr !is null );
++        }else {
++            status=sem_init(&suspendCount,0,0);
++            suspendCountPtr=&suspendCount;
++            assert(status==0);
++        }
+ 
+         status = pthread_key_create( &Thread.sm_this, null );
+         assert( status == 0 );
+@@ -1793,7 +1825,7 @@
+                 //       to simply loop on sem_wait at the end, but I'm not
+                 //       convinced that this would be much faster than the
+                 //       current approach.
+-                sem_wait( &suspendCount );
++                sem_wait( suspendCountPtr );
+             }
+             else if( !t.m_lock )
+             {
+@@ -2298,6 +2330,13 @@
+             version = AsmPPC_Posix;
+     }
+ 
++    version( LLVM_InlineAsm_X86 )
++    {
++        version( Win32 )
++            version = LLVM_AsmX86_Win32;
++        else version( Posix )
++            version = LLVM_AsmX86_Posix;
++    }
+ 
+     version( Posix )
+     {
+@@ -2308,6 +2347,8 @@
+         version( AsmX86_Win32 ) {} else
+         version( AsmX86_Posix ) {} else
+         version( AsmPPC_Posix ) {} else
++        version( LLVM_AsmX86_Win32 ) {} else
++        version( LLVM_AsmX86_Posix ) {} else
+         {
+             // NOTE: The ucontext implementation requires architecture specific
+             //       data definitions to operate so testing for it must be done
+@@ -2318,10 +2359,10 @@
+             import tango.stdc.posix.ucontext;
+         }
+     }
+-
+-    const size_t PAGESIZE;
+ }
+ 
++// this can't be private since it's used as default argument to a public function
++const size_t PAGESIZE;
+ 
+ static this()
+ {
+@@ -2348,7 +2389,7 @@
+     }
+ }
+ 
+-
++extern(C) int printf(char*, ...);
+ ////////////////////////////////////////////////////////////////////////////////
+ // Fiber Entry Point and Context Switch
+ ////////////////////////////////////////////////////////////////////////////////
+@@ -2462,6 +2503,22 @@
+                 ret;
+             }
+         }
++        else version( LLVM_AsmX86_Posix )
++        {
++            asm
++            {
++                // clobber registers to save
++                inc EBX;
++                inc ESI;
++                inc EDI;
++
++                // store oldp again with more accurate address
++                mov EAX, oldp;
++                mov [EAX], ESP;
++                // load newp to begin context switch
++                mov ESP, newp;
++            }
++        }
+         else static if( is( ucontext_t ) )
+         {
+             Fiber   cfib = Fiber.getThis();
+@@ -3127,6 +3184,16 @@
+             push( 0x00000000 );                                     // ESI
+             push( 0x00000000 );                                     // EDI
+         }
++        else version( LLVM_AsmX86_Posix )
++        {
++            push( cast(size_t) &fiber_entryPoint );                 // EIP
++            push( 0x00000000 );                                     // newp
++            push( 0x00000000 );                                     // oldp
++            push( 0x00000000 );                                     // EBP
++            push( 0x00000000 );                                     // EBX
++            push( 0x00000000 );                                     // ESI
++            push( 0x00000000 );                                     // EDI
++        }
+         else version( AsmPPC_Posix )
+         {
+             version( StackGrowsDown )
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 4002)
+--- lib/gc/basic/gcx.d	(revision 4071)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -335,7 +335,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 4002)
+--- lib/gc/basic/gcbits.d	(revision 4071)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -350,7 +350,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: lib/build-tango.sh
 ===================================================================
---- lib/build-tango.sh	(revision 4002)
+--- lib/build-tango.sh	(revision 4071)
 +++ lib/build-tango.sh	(working copy)
 @@ -23,7 +23,7 @@
    --debug: Will enable debug info
@@ -382,7 +382,7 @@ Index: lib/build-tango.sh
              build powerpc-apple-darwin8-gdmd libgtango.a.ppc libgphobos.a.ppc
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 4002)
+--- tango/text/convert/Layout.d	(revision 4071)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -397,29 +397,18 @@ Index: tango/text/convert/Layout.d
       else
          {
          alias void* Arg;
-@@ -197,9 +203,18 @@
-                 assert (formatStr, "null format specifier");
-                 assert (arguments.length < 64, "too many args in Layout.convert");
- 
--                version (GNU)
-+                version (LDC)
-                         {
-                         Arg[64] arglist = void;
-+                        foreach (i, arg; arguments)
-+                                {
-+                                arglist[i] = args;
+@@ -295,7 +301,7 @@
+                         foreach (i, arg; arguments)
+                                 {
+                                 arglist[i] = args;
+-                                args += (arg.tsize + int.sizeof - 1) & ~ (int.sizeof - 1);
 +                                args += (arg.tsize + size_t.sizeof - 1) & ~ (size_t.sizeof - 1);
-+                                }
-+                        }
-+                else version (GNU)
-+                        {
-+                        Arg[64] arglist = void;
-                         int[64] intargs = void;
-                         byte[64] byteargs = void;
-                         long[64] longargs = void;
+                                 }
+                         }
+                 return parse (formatStr, arguments, arglist, sink);
 Index: tango/net/cluster/CacheInvalidator.d
 ===================================================================
---- tango/net/cluster/CacheInvalidator.d	(revision 4002)
+--- tango/net/cluster/CacheInvalidator.d	(revision 4071)
 +++ tango/net/cluster/CacheInvalidator.d	(working copy)
 @@ -79,7 +79,7 @@
  
@@ -432,7 +421,7 @@ Index: tango/net/cluster/CacheInvalidator.d
  
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 4002)
+--- tango/core/Vararg.d	(revision 4071)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -447,7 +436,7 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/sync/Semaphore.d
 ===================================================================
---- tango/core/sync/Semaphore.d	(revision 3979)
+--- tango/core/sync/Semaphore.d	(revision 4071)
 +++ tango/core/sync/Semaphore.d	(working copy)
 @@ -329,7 +329,8 @@
              {
@@ -483,7 +472,7 @@ Index: tango/core/sync/Semaphore.d
  }
 Index: tango/core/sync/Condition.d
 ===================================================================
---- tango/core/sync/Condition.d	(revision 3979)
+--- tango/core/sync/Condition.d	(revision 4071)
 +++ tango/core/sync/Condition.d	(working copy)
 @@ -553,8 +553,11 @@
  
@@ -499,7 +488,7 @@ Index: tango/core/sync/Condition.d
  }
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 4002)
+--- tango/core/Atomic.d	(revision 4071)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -669,7 +658,7 @@ Index: tango/core/Atomic.d
  // x86 Atomic Function Implementation
  ////////////////////////////////////////////////////////////////////////////////
  
-@@ -282,9 +598,9 @@
+@@ -282,9 +443,9 @@
          {
              pragma( msg, "tango.core.Atomic: using IA-32 inline asm" );
          }
@@ -683,7 +672,7 @@ Index: tango/core/Atomic.d
      {
 Index: tango/math/IEEE.d
 ===================================================================
---- tango/math/IEEE.d	(revision 3979)
+--- tango/math/IEEE.d	(revision 4071)
 +++ tango/math/IEEE.d	(working copy)
 @@ -1543,7 +1543,12 @@
          else return 0;
@@ -701,7 +690,7 @@ Index: tango/math/IEEE.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 4002)
+--- tango/math/Math.d	(revision 4071)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -850,7 +839,7 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/stdc/posix/sys/types.d
 ===================================================================
---- tango/stdc/posix/sys/types.d	(revision 3979)
+--- tango/stdc/posix/sys/types.d	(revision 4071)
 +++ tango/stdc/posix/sys/types.d	(working copy)
 @@ -422,7 +422,11 @@
  }
@@ -867,7 +856,7 @@ Index: tango/stdc/posix/sys/types.d
  {
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 4002)
+--- tango/stdc/stdlib.d	(revision 4071)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -883,7 +872,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 4002)
+--- tango/stdc/stdarg.d	(revision 4071)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
