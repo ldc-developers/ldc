@@ -96,7 +96,7 @@ Index: lib/common/tango/core/Thread.d
  
  
          extern (C) void thread_suspendHandler( int sig )
-@@ -256,8 +257,29 @@
+@@ -256,8 +257,50 @@
          }
          body
          {
@@ -117,6 +117,27 @@ Index: lib/common/tango/core/Thread.d
 +                        mov edi[EBP], EDI      ;
 +                    }
 +                }
++                else version (X86_64)
++                {
++                    ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r10,r11,r12,r13,r14,r15;
++                    asm
++                    {
++                        movq rax[RBP], RAX        ;
++                        movq rbx[RBP], RBX        ;
++                        movq rcx[RBP], RCX        ;
++                        movq rdx[RBP], RDX        ;
++                        movq rbp[RBP], RBP        ;
++                        movq rsi[RBP], RSI        ;
++                        movq rdi[RBP], RDI        ;
++                        movq rsp[RBP], RSP        ;
++                        movq r10[RBP], R10        ;
++                        movq r11[RBP], R11        ;
++                        movq r12[RBP], R12        ;
++                        movq r13[RBP], R13        ;
++                        movq r14[RBP], R14        ;
++                        movq r15[RBP], R15        ;
++                    }
++                }
 +                else
 +                {
 +                    static assert( false, "Architecture not supported." );
@@ -127,7 +148,7 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      pushad;
-@@ -298,7 +320,7 @@
+@@ -298,7 +341,7 @@
                  status = sigdelset( &sigres, SIGUSR2 );
                  assert( status == 0 );
  
@@ -136,7 +157,7 @@ Index: lib/common/tango/core/Thread.d
                  assert( status == 0 );
  
                  sigsuspend( &sigres );
-@@ -309,8 +331,12 @@
+@@ -309,8 +352,12 @@
                  }
              }
  
@@ -150,7 +171,7 @@ Index: lib/common/tango/core/Thread.d
                  asm
                  {
                      popad;
-@@ -1584,8 +1610,14 @@
+@@ -1584,8 +1631,14 @@
          status = sigaction( SIGUSR2, &sigusr2, null );
          assert( status == 0 );
  
@@ -167,7 +188,7 @@ Index: lib/common/tango/core/Thread.d
  
          status = pthread_key_create( &Thread.sm_this, null );
          assert( status == 0 );
-@@ -1793,7 +1825,7 @@
+@@ -1793,7 +1846,7 @@
                  //       to simply loop on sem_wait at the end, but I'm not
                  //       convinced that this would be much faster than the
                  //       current approach.
@@ -176,7 +197,7 @@ Index: lib/common/tango/core/Thread.d
              }
              else if( !t.m_lock )
              {
-@@ -2298,6 +2330,13 @@
+@@ -2298,7 +2351,20 @@
              version = AsmPPC_Posix;
      }
  
@@ -187,19 +208,28 @@ Index: lib/common/tango/core/Thread.d
 +        else version( Posix )
 +            version = LLVM_AsmX86_Posix;
 +    }
++    else version( LLVM_InlineAsm_X86_64 )
++    {
++        version( Posix )
++            version = LLVM_AsmX86_64_Posix;
++    }
  
++
      version( Posix )
      {
-@@ -2308,6 +2347,8 @@
+         import tango.stdc.posix.unistd;   // for sysconf
+@@ -2308,6 +2374,10 @@
          version( AsmX86_Win32 ) {} else
          version( AsmX86_Posix ) {} else
          version( AsmPPC_Posix ) {} else
 +        version( LLVM_AsmX86_Win32 ) {} else
 +        version( LLVM_AsmX86_Posix ) {} else
++//TODO: Enable when x86-64 Posix supports fibers
++//        version( LLVM_AsmX86_64_Posix ) {} else
          {
              // NOTE: The ucontext implementation requires architecture specific
              //       data definitions to operate so testing for it must be done
-@@ -2318,10 +2359,10 @@
+@@ -2318,10 +2388,10 @@
              import tango.stdc.posix.ucontext;
          }
      }
@@ -212,7 +242,7 @@ Index: lib/common/tango/core/Thread.d
  
  static this()
  {
-@@ -2348,7 +2389,7 @@
+@@ -2348,7 +2418,7 @@
      }
  }
  
@@ -221,7 +251,7 @@ Index: lib/common/tango/core/Thread.d
  ////////////////////////////////////////////////////////////////////////////////
  // Fiber Entry Point and Context Switch
  ////////////////////////////////////////////////////////////////////////////////
-@@ -2462,6 +2503,22 @@
+@@ -2462,6 +2532,28 @@
                  ret;
              }
          }
@@ -241,10 +271,46 @@ Index: lib/common/tango/core/Thread.d
 +                mov ESP, newp;
 +            }
 +        }
++/+
++        version( LLVM_AsmX86_64_Posix )
++        {
++            //TODO: Fiber implementation here
++        }
+++/
          else static if( is( ucontext_t ) )
          {
              Fiber   cfib = Fiber.getThis();
-@@ -3127,6 +3184,16 @@
+@@ -2980,16 +3072,25 @@
+             m_size = sz;
+         }
+         else
+-        {   static if( is( typeof( mmap ) ) )
++        {
++            static if( is( typeof( mmap ) ) )
+             {
+-                m_pmem = mmap( null,
++                //TODO: This seems a bit dubious.
++                version (X86_64)
++                {
++                    m_pmem = malloc( sz );
++                }
++                else
++                {
++                    m_pmem = mmap( null,
+                                sz,
+                                PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_ANON,
+                                -1,
+                                0 );
+-                if( m_pmem == MAP_FAILED )
+-                    m_pmem = null;
++                    if( m_pmem == MAP_FAILED )
++                        m_pmem = null;
++                }
+             }
+             else static if( is( typeof( valloc ) ) )
+             {
+@@ -3127,6 +3228,22 @@
              push( 0x00000000 );                                     // ESI
              push( 0x00000000 );                                     // EDI
          }
@@ -258,6 +324,12 @@ Index: lib/common/tango/core/Thread.d
 +            push( 0x00000000 );                                     // ESI
 +            push( 0x00000000 );                                     // EDI
 +        }
++//TODO: Implement x86-64 fibers
++/+
++        else version( LLVM_AsmX86_Posix )
++        {
++        }
+++/
          else version( AsmPPC_Posix )
          {
              version( StackGrowsDown )
@@ -293,7 +365,7 @@ Index: lib/gc/basic/gcx.d
      extern (C) void* rt_stackBottom();
      extern (C) void* rt_stackTop();
  
-@@ -2178,6 +2178,28 @@
+@@ -2178,6 +2178,49 @@
              __builtin_unwind_init();
              sp = & sp;
          }
@@ -314,6 +386,27 @@ Index: lib/gc/basic/gcx.d
 +                    mov sp[EBP],ESP     ;
 +                }
 +            }
++            else version (X86_64)
++            {
++                ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r10,r11,r12,r13,r14,r15;
++                asm
++                {
++                    movq rax[RBP], RAX      ;
++                    movq rbx[RBP], RBX      ;
++                    movq rcx[RBP], RCX      ;
++                    movq rdx[RBP], RDX      ;
++                    movq rbp[RBP], RBP      ;
++                    movq rsi[RBP], RSI      ;
++                    movq rdi[RBP], RDI      ;
++                    movq rsp[RBP], RSP      ;
++                    movq r10[RBP], R10      ;
++                    movq r11[RBP], R11      ;
++                    movq r12[RBP], R12      ;
++                    movq r13[RBP], R13      ;
++                    movq r14[RBP], R14      ;
++                    movq r15[RBP], R15      ;
++                }
++            }
 +            else
 +            {
 +                static assert( false, "Architecture not supported." );
@@ -322,7 +415,7 @@ Index: lib/gc/basic/gcx.d
          else
          {
          asm
-@@ -2191,6 +2213,10 @@
+@@ -2191,6 +2234,10 @@
          {
              // nothing to do
          }
