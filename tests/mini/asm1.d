@@ -4,7 +4,7 @@ extern(C) int printf(char*, ...);
 
 void main()
 {
-    version(D_InlineAsm_X86)
+    version(LLVM_InlineAsm_X86)
     {
 	int x;
 	asm

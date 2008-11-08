@@ -3,6 +3,8 @@
 
 #include "id.h"
 
+namespace AsmParserx8632 {
+
 typedef enum {
     Reg_Invalid = -1,
     Reg_EAX = 0,
@@ -17,7 +19,6 @@ typedef enum {
     Reg_ST1, Reg_ST2, Reg_ST3, Reg_ST4, Reg_ST5, Reg_ST6, Reg_ST7,
     Reg_MM0, Reg_MM1, Reg_MM2, Reg_MM3, Reg_MM4, Reg_MM5, Reg_MM6, Reg_MM7,
     Reg_XMM0, Reg_XMM1, Reg_XMM2, Reg_XMM3, Reg_XMM4, Reg_XMM5, Reg_XMM6, Reg_XMM7,
-    // will need 64-bit rax,etc. eventually
     // xmm8-15?
     Reg_EFLAGS,
     Reg_CS,
@@ -1348,7 +1349,7 @@ struct AsmProcessor
 // 	}
 
 	if ( matchOperands(operand_i) ) {
-	    AsmCode * asmcode = new AsmCode;
+	    AsmCode * asmcode = new AsmCode(N_Regs);
 
 	    if (formatInstruction(operand_i, asmcode))
 		stmt->asmcode = (code *) asmcode;
@@ -1356,7 +1357,7 @@ struct AsmProcessor
     }
 
     void setAsmCode() {
-	AsmCode * asmcode = new AsmCode;
+	AsmCode * asmcode = new AsmCode(N_Regs);
 	asmcode->insnTemplateLen = insnTemplate->offset;
 	asmcode->insnTemplate = (char*) insnTemplate->extractData();
 	stmt->asmcode = (code*) asmcode;
@@ -1693,12 +1694,12 @@ struct AsmProcessor
 	switch (opInfo->implicitClobbers & Clb_DXAX_Mask) {
 	case Clb_SizeAX:
 	case Clb_EAX:
-	    stmt->regs |= (1<<Reg_EAX);
+	    asmcode->regs[Reg_EAX] = true;
 	    break;
 	case Clb_SizeDXAX:
-	    stmt->regs |= (1<<Reg_EAX);
+	    asmcode->regs[Reg_EAX] = true;
 	    if (type_char != 'b')
-		stmt->regs |= (1<<Reg_EDX);
+		asmcode->regs[Reg_EDX] = true;
 	    break;
 	default:
 	    // nothing
@@ -1706,13 +1707,13 @@ struct AsmProcessor
 	}
 
 	if (opInfo->implicitClobbers & Clb_DI)
-	    stmt->regs |= (1 << Reg_EDI);
+	    asmcode->regs[Reg_EDI] = true;
 	if (opInfo->implicitClobbers & Clb_SI)
-	    stmt->regs |= (1 << Reg_ESI);
+	    asmcode->regs[Reg_ESI] = true;
 	if (opInfo->implicitClobbers & Clb_CX)
-	    stmt->regs |= (1 << Reg_ECX);
+	    asmcode->regs[Reg_ECX] = true;
 	if (opInfo->implicitClobbers & Clb_SP)
-	    stmt->regs |= (1 << Reg_ESP);
+	    asmcode->regs[Reg_ESP] = true;
 	if (opInfo->implicitClobbers & Clb_ST)
 	{
 	    /* Can't figure out how to tell GCC that an
@@ -1720,20 +1721,22 @@ struct AsmProcessor
 	       Maybe if the statment had and input or output
 	       operand it would work...  In any case, clobbering
 	       all FP prevents incorrect code generation. */
-	    stmt->regs |= (1 << Reg_ST);
-	    stmt->regs |= (1 << Reg_ST1);
-	    stmt->regs |= (1 << Reg_ST2);
-	    stmt->regs |= (1 << Reg_ST3);
-	    stmt->regs |= (1 << Reg_ST4);
-	    stmt->regs |= (1 << Reg_ST5);
-	    stmt->regs |= (1 << Reg_ST6);
-	    stmt->regs |= (1 << Reg_ST7);
+	    asmcode->regs[Reg_ST] = true;
+	    asmcode->regs[Reg_ST1] = true;
+	    asmcode->regs[Reg_ST2] = true;
+	    asmcode->regs[Reg_ST3] = true;
+	    asmcode->regs[Reg_ST4] = true;
+	    asmcode->regs[Reg_ST5] = true;
+	    asmcode->regs[Reg_ST6] = true;
+	    asmcode->regs[Reg_ST7] = true;
 	}
 	if (opInfo->implicitClobbers & Clb_Flags)
-	    asmcode->moreRegs |= (1 << (Reg_EFLAGS - 32));
-	if (op == Op_cpuid)
-	    stmt->regs |= (1 << Reg_EAX)|
-		(1 << Reg_ECX)|(1 << Reg_EDX);
+	    asmcode->regs[Reg_EFLAGS] = true;
+	if (op == Op_cpuid) {
+	    asmcode->regs[Reg_EAX] = true;
+	    asmcode->regs[Reg_ECX] = true;
+	    asmcode->regs[Reg_EDX] = true;
+	}
 
 	insnTemplate->writebyte(' ');
 	for (int i__ = 0; i__ < nOperands; i__++) {
@@ -1806,10 +1809,7 @@ struct AsmProcessor
 		if (opInfo->operands[i] & Opr_Dest) {
 		    Reg clbr_reg = (Reg) regInfo[operand->reg].baseReg;
 		    if (clbr_reg != Reg_Invalid) {
-			if (clbr_reg < 32)
-			    stmt->regs |= (1 << clbr_reg);
-			else
-			    asmcode->moreRegs |= (1 << (clbr_reg - 32));
+			asmcode->regs[clbr_reg] = true;
 		    }
 		}
 		if (opTakesLabel()/*opInfo->takesLabel()*/)
@@ -2636,6 +2636,7 @@ struct AsmProcessor
     #define HOST_WIDE_INT long
 bool getFrameRelativeValue(LLValue* decl, HOST_WIDE_INT * result)
 {
+assert(0);
 // FIXME
 //     // Using this instead of DECL_RTL for struct args seems like a
 //     // good way to get hit by a truck because it may not agree with
@@ -2667,4 +2668,19 @@ bool getFrameRelativeValue(LLValue* decl, HOST_WIDE_INT * result)
 //     }
 //     
     return false;
+}
+
+
+struct AsmParser : public AsmParserCommon
+{
+    virtual void run(Scope* sc, AsmStatement* asmst) {
+        AsmProcessor ap(sc, asmst);
+        ap.run();
+    }
+
+    virtual std::string getRegName(int i) {
+        return regInfo[i].gccName;
+    }
+};
+
 }

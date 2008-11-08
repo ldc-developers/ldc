@@ -890,7 +890,6 @@ struct AsmStatement : Statement
     unsigned asmalign;		// alignment of this statement
     unsigned refparam;		// !=0 if function parameter is referenced
     unsigned naked;		// !=0 if function is to be naked
-    unsigned regs;		// mask of registers modified
 
     AsmStatement(Loc loc, Token *tokens);
     Statement *syntaxCopy();

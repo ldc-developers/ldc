@@ -57,13 +57,13 @@ struct AsmCode {
     char *   insnTemplate;
     unsigned insnTemplateLen;
     Array    args; // of AsmArg
-    unsigned moreRegs;
+    std::vector<bool> regs;
     unsigned dollarLabel;
     int      clobbersMemory;
-    AsmCode() {
+    AsmCode(int n_regs) {
 	insnTemplate = NULL;
 	insnTemplateLen = 0;
-	moreRegs = 0;
+	regs.resize(n_regs, false);
 	dollarLabel = 0;
 	clobbersMemory = 0;
     }
@@ -77,7 +77,6 @@ AsmStatement::AsmStatement(Loc loc, Token *tokens) :
     asmalign = 0;
     refparam = 0;
     naked = 0;
-    regs = 0;
 
     isBranchToLabel = NULL;
 }
@@ -89,7 +88,6 @@ Statement *AsmStatement::syntaxCopy()
     a_s->asmcode = asmcode;
     a_s->refparam = refparam;
     a_s->naked = naked;
-    a_s->regs = a_s->regs;
     return a_s;
 }
 
@@ -130,15 +128,22 @@ int AsmStatement::comeFrom()
     return FALSE;
 }
 
+struct AsmParserCommon
+{
+    virtual void run(Scope* sc, AsmStatement* asmst) = 0;
+    virtual std::string getRegName(int i) = 0;
+};
+AsmParserCommon* asmparser = NULL;
 
-#include "d-asm-i386.h"
+#include "asm-x86-32.h"
+#include "asm-x86-64.h"
 
 bool d_have_inline_asm() { return true; }
 
 Statement *AsmStatement::semantic(Scope *sc)
 {
     bool err = false;
-    if (global.params.cpu != ARCHx86)
+    if ((global.params.cpu != ARCHx86) && (global.params.cpu != ARCHx86_64))
     {
         error("inline asm is not supported for the \"%s\" architecture", global.params.llvmArch);
         err = true;
@@ -160,8 +165,14 @@ Statement *AsmStatement::semantic(Scope *sc)
     if (! tokens)
 	return this;
     
-    AsmProcessor ap(sc, this);
-    ap.run();
+    if (!asmparser)
+        if (global.params.cpu == ARCHx86)
+            asmparser = new AsmParserx8632::AsmParser;
+        else if (global.params.cpu == ARCHx86_64)
+            asmparser = new AsmParserx8664::AsmParser;
+
+    asmparser->run(sc, this);
+
     return this;
 }
 
@@ -251,7 +262,7 @@ assert(0);
 /*	    if (arg->expr->op == TOKvar)
 		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
 	    else
-		assert(0);*/
+		assert(0);
 	    if ( getFrameRelativeValue(arg_val, & var_frame_offset) ) {
 //		arg_val = irs->integerConstant(var_frame_offset);
 		cns = i_cns;
@@ -261,7 +272,7 @@ assert(0);
 	    }
 	    if (arg->mode != Mode_Input)
 		clobbers_mem = true;
-	    break;
+	    break;*/
 	case Arg_LocalSize:
 // FIXME
 std::cout << "asm fixme Arg_LocalSize" << std::endl;
@@ -294,16 +305,11 @@ assert(0);
     
 // FIXME
 //    if (! irs->func->naked) {
-	for (int i = 0; i < 32; i++) {
-	    if (regs & (1 << i)) {
+        assert(asmparser);
+	for (int i = 0; i < code->regs.size(); i++) {
+	    if (code->regs[i]) {
 		//clobbers.cons(NULL_TREE, regInfo[i].gccName);
-		clobbers.push_back(regInfo[i].gccName);
-	    }
-	}
-	for (int i = 0; i < 32; i++) {
-	    if (code->moreRegs & (1 << (i-32))) {
-		//clobbers.cons(NULL_TREE, regInfo[i].gccName);
-		clobbers.push_back(regInfo[i].gccName);
+		clobbers.push_back(asmparser->getRegName(i));
 	    }
 	}
 	if (clobbers_mem)
