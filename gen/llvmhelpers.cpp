@@ -570,7 +570,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     }
 
     if (to->isintegral()) {
-        if (fromsz < tosz) {
+        if (fromsz < tosz || from->ty == Tbool) {
             if (Logger::enabled())
                 Logger::cout() << "cast to: " << *tolltype << '\n';
             if (from->isunsigned() || from->ty == Tbool) {
@@ -579,7 +579,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
                 rval = new llvm::SExtInst(rval, tolltype, "tmp", gIR->scopebb());
             }
         }
-        else if (fromsz > tosz) {
+        else if (fromsz > tosz || to->ty == Tbool) {
             rval = new llvm::TruncInst(rval, tolltype, "tmp", gIR->scopebb());
         }
         else {
