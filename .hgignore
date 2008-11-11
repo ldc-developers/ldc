@@ -1,27 +1,27 @@
 syntax: glob
-tests/dstress
-tests/reference
 *.bc
 *.o
 *.s
 *.a
 *.so
 *.orig
-obj/*
-tango
-import
 Makefile
-bin/ldc
-idgen
-idgen.make
-impcnvgen
-impcnvgen.make
-ldc.make
-dmd/impcnvtab.c
-tests/runminitest
-tests/findregressions
-tests/makewebstatistics
-tests/mini/obj/*
-
-# Mac OS X
 .DS_Store
+
+syntax: regexp
+^obj/.*
+^tests/dstress
+^tests/reference
+^tango
+^import
+^bin/ldc
+^idgen
+^idgen.make
+^impcnvgen
+^impcnvgen.make
+^ldc.make
+^dmd/impcnvtab.c
+^tests/runminitest
+^tests/findregressions
+^tests/makewebstatistics
+^tests/mini/obj/.*
