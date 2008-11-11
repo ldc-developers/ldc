@@ -61,7 +61,10 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
     switch (t->ty)
     {
     case Tsarray:
-        t = t->next->arrayOf(); // convert to corresponding dynamic array type
+#if 0
+        // convert to corresponding dynamic array type
+        t = t->nextOf()->mutableOf()->arrayOf();
+#endif
         break;
 
     case Tclass:
@@ -70,7 +73,11 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         goto Linternal;
 
     case Tarray:
-        if (t->next->ty != Tclass)
+    #if DMDV2
+        // convert to corresponding dynamic array type
+        t = t->nextOf()->mutableOf()->arrayOf();
+    #endif
+        if (t->nextOf()->ty != Tclass)
         break;
         goto Linternal;
 
@@ -84,7 +91,7 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         internalTI[t->ty] = tid;
         }
         e = new VarExp(0, tid);
-        //e = e->addressOf(sc);
+        e = e->addressOf(sc);
         e->type = tid->type;    // do this so we don't get redundant dereference
         return e;
 
@@ -94,7 +101,6 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
     //printf("\tcalling getTypeInfo() %s\n", t->toChars());
     return t->getTypeInfo(sc);
 }
-
 
 /****************************************************
  * Get the exact TypeInfo.
@@ -108,7 +114,15 @@ Expression *Type::getTypeInfo(Scope *sc)
     //printf("Type::getTypeInfo() %p, %s\n", this, toChars());
     t = merge();    // do this since not all Type's are merge'd
     if (!t->vtinfo)
-    {   t->vtinfo = t->getTypeInfoDeclaration();
+    {
+#if DMDV2
+    if (t->isConst())
+        t->vtinfo = new TypeInfoConstDeclaration(t);
+    else if (t->isInvariant())
+        t->vtinfo = new TypeInfoInvariantDeclaration(t);
+    else
+#endif
+        t->vtinfo = t->getTypeInfoDeclaration();
     assert(t->vtinfo);
 
     /* If this has a custom implementation in std/typeinfo, then
@@ -476,6 +490,9 @@ void TypeInfoEnumDeclaration::llvmDefine()
     }
     else
     {
+    #if DMDV2
+        assert(0 && "initializer not implemented");
+    #else
         const LLType* memty = DtoType(sd->memtype);
         LLConstant* ci = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
         std::string ciname(sd->mangle());
@@ -484,6 +501,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
         LLConstant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
         size_t cisize = getTypeStoreSize(memty);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
+    #endif
     }
 
     // create the symbol
@@ -761,7 +779,7 @@ void TypeInfoDelegateDeclaration::llvmDefine()
     assert(tinfo->ty == Tdelegate);
     TypeDelegate *tc = (TypeDelegate *)tinfo;
 
-    LLVM_D_Define_TypeInfoBase(tc->next->next, this, Type::typeinfodelegate);
+    LLVM_D_Define_TypeInfoBase(tc->nextOf()->nextOf(), this, Type::typeinfodelegate);
 }
 
 void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
@@ -961,6 +979,19 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     // uint m_flags;
     sinits.push_back(DtoConstUint(tc->hasPointers()));
+
+#if DMDV2
+
+    // const(MemberInfo[]) function(in char[]) xgetMembers;
+    sinits.push_back(LLConstant::getNullValue(stype->getElementType(sinits.size())));
+
+    //void function(void*)                    xdtor;
+    sinits.push_back(LLConstant::getNullValue(stype->getElementType(sinits.size())));
+
+    //void function(void*)                    xpostblit;
+    sinits.push_back(LLConstant::getNullValue(stype->getElementType(sinits.size())));
+
+#endif
 
     // create the symbol
     LLConstant* tiInit = llvm::ConstantStruct::get(stype, sinits);
@@ -1169,3 +1200,74 @@ void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
 {
     assert(0);
 }
+
+/* ========================================================================= */
+
+#if DMDV2
+
+void TypeInfoConstDeclaration::llvmDeclare()
+{
+    Logger::println("TypeInfoConstDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoconst);
+}
+
+void TypeInfoConstDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoConstDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    Type *tm = tinfo->mutableOf();
+    tm = tm->merge();
+
+    LLVM_D_Define_TypeInfoBase(tm, this, Type::typeinfoconst);
+}
+
+void TypeInfoConstDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
+}
+
+// void TypeInfoConstDeclaration::toDt(dt_t **pdt)
+// {
+//     //printf("TypeInfoConstDeclaration::toDt() %s\n", toChars());
+//     dtxoff(pdt, Type::typeinfoconst->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Const
+//     dtdword(pdt, 0);                // monitor
+//     Type *tm = tinfo->mutableOf();
+//     tm = tm->merge();
+//     tm->getTypeInfo(NULL);
+//     dtxoff(pdt, tm->vtinfo->toSymbol(), 0, TYnptr);
+// }
+
+///////////////////////////////////////////////////////////
+
+/* ========================================================================= */
+
+void TypeInfoInvariantDeclaration::toDt(dt_t **pdt)
+{
+    assert(0 && "TypeInfoInvariantDeclaration::toDt");
+}
+
+void TypeInfoInvariantDeclaration::llvmDeclare()
+{
+    assert(0 && "TypeInfoInvariantDeclaration::llvmDeclare");
+}
+
+void TypeInfoInvariantDeclaration::llvmDefine()
+{
+    assert(0 && "TypeInfoInvariantDeclaration::llvmDeclare");
+}
+
+// void TypeInfoInvariantDeclaration::toDt(dt_t **pdt)
+// {
+//     //printf("TypeInfoInvariantDeclaration::toDt() %s\n", toChars());
+//     dtxoff(pdt, Type::typeinfoinvariant->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Invariant
+//     dtdword(pdt, 0);                // monitor
+//     Type *tm = tinfo->mutableOf();
+//     tm = tm->merge();
+//     tm->getTypeInfo(NULL);
+//     dtxoff(pdt, tm->vtinfo->toSymbol(), 0, TYnptr);
+// }
+
+#endif

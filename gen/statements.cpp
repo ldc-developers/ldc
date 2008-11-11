@@ -353,9 +353,17 @@ void ForStatement::toIR(IRState* p)
     gIR->scope() = IRScope(forbb,forbodybb);
 
     // create the condition
-    DValue* cond_e = condition->toElem(p);
-    LLValue* cond_val = DtoBoolean(loc, cond_e);
-    delete cond_e;
+    LLValue* cond_val;
+    if (condition)
+    {
+        DValue* cond_e = condition->toElem(p);
+        cond_val = DtoBoolean(loc, cond_e);
+        delete cond_e;
+    }
+    else
+    {
+        cond_val = DtoConstBool(true);
+    }
 
     // conditional branch
     assert(!gIR->scopereturned());
@@ -675,7 +683,7 @@ struct Case : Object
 static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
 {
     Type* dt = e->type->toBasetype();
-    Type* dtnext = dt->next->toBasetype();
+    Type* dtnext = dt->nextOf()->toBasetype();
     TY ty = dtnext->ty;
     const char* fname;
     if (ty == Tchar) {
@@ -1029,6 +1037,111 @@ void ForeachStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+#if DMDV2
+
+void ForeachRangeStatement::toIR(IRState* p)
+{
+    Logger::println("ForeachRangeStatement::toIR(): %s", loc.toChars());
+    LOG_SCOPE;
+
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+
+    // evaluate lwr/upr
+    assert(lwr->type->isintegral());
+    LLValue* lower = lwr->toElem(p)->getRVal();
+    assert(upr->type->isintegral());
+    LLValue* upper = upr->toElem(p)->getRVal();
+
+    // handle key
+    assert(key->type->isintegral());
+    LLValue* keyval = DtoRawVarDeclaration(key);
+
+    // store initial value in key
+    if (op == TOKforeach)
+        DtoStore(lower, keyval);
+    else
+        DtoStore(upper, keyval);
+
+    // set up the block we'll need
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* condbb = llvm::BasicBlock::Create("foreachrange_cond", p->topfunc(), oldend);
+    llvm::BasicBlock* bodybb = llvm::BasicBlock::Create("foreachrange_body", p->topfunc(), oldend);
+    llvm::BasicBlock* nextbb = llvm::BasicBlock::Create("foreachrange_next", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("foreachrange_end", p->topfunc(), oldend);
+
+    // jump to condition
+    llvm::BranchInst::Create(condbb, p->scopebb());
+
+    // CONDITION
+    p->scope() = IRScope(condbb,bodybb);
+
+    // first we test that lwr < upr
+    lower = DtoLoad(keyval);
+    assert(lower->getType() == upper->getType());
+    llvm::ICmpInst::Predicate cmpop;
+    if (key->type->isunsigned())
+    {
+        cmpop = (op == TOKforeach)
+        ? llvm::ICmpInst::ICMP_ULT
+        : llvm::ICmpInst::ICMP_UGT;
+    }
+    else
+    {
+        cmpop = (op == TOKforeach)
+        ? llvm::ICmpInst::ICMP_SLT
+        : llvm::ICmpInst::ICMP_SGT;
+    }
+    LLValue* cond = p->ir->CreateICmp(cmpop, lower, upper);
+
+    // jump to the body if range is ok, to the end if not
+    llvm::BranchInst::Create(bodybb, endbb, cond, p->scopebb());
+
+    // BODY
+    p->scope() = IRScope(bodybb,nextbb);
+
+    // reverse foreach decrements here
+    if (op == TOKforeach_reverse)
+    {
+        LLValue* v = DtoLoad(keyval);
+        LLValue* one = LLConstantInt::get(v->getType(), 1, false);
+        v = p->ir->CreateSub(v, one);
+        DtoStore(v, keyval);
+    }
+
+    // emit body
+    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,nextbb,endbb));
+    if (body)
+        body->toIR(p);
+    p->loopbbs.pop_back();
+
+    // jump to next iteration
+    if (!p->scopereturned())
+        llvm::BranchInst::Create(nextbb, p->scopebb());
+
+    // NEXT
+    p->scope() = IRScope(nextbb,endbb);
+
+    // forward foreach increments here
+    if (op == TOKforeach)
+    {
+        LLValue* v = DtoLoad(keyval);
+        LLValue* one = LLConstantInt::get(v->getType(), 1, false);
+        v = p->ir->CreateAdd(v, one);
+        DtoStore(v, keyval);
+    }
+
+    // jump to condition
+    llvm::BranchInst::Create(condbb, p->scopebb());
+
+    // END
+    p->scope() = IRScope(endbb,oldend);
+}
+
+#endif // D2
+
+//////////////////////////////////////////////////////////////////////////////
+
 void LabelStatement::toIR(IRState* p)
 {
     Logger::println("LabelStatement::toIR(): %s", loc.toChars());
@@ -1291,3 +1404,7 @@ STUBST(Statement);
 //STUBST(GotoStatement);
 //STUBST(UnrolledLoopStatement);
 //STUBST(OnScopeStatement);
+
+#if DMDV2
+STUBST(PragmaStatement);
+#endif

@@ -39,19 +39,32 @@ execute_process(
 # get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
 string(REPLACE "/bin/llvm-config" "" LLVM_INSTDIR ${LLVM_CONFIG})
 
+set(D_VERSION 1 CACHE STRING "D language version")
+if(D_VERSION EQUAL 1)
+	set(DMDFE_PATH dmd)
+	set(LDC_EXE ldc)
+	add_definitions(-DDMDV1)
+elseif(D_VERSION EQUAL 2)
+	set(DMDFE_PATH dmd2)
+	set(LDC_EXE ldc2)
+	add_definitions(-DDMDV2)
+else(D_VERSION EQUAL 1)
+	message(FATAL_ERROR "unsupported D version")
+endif(D_VERSION EQUAL 1)
+
 file(MAKE_DIRECTORY
 	${PROJECT_BINARY_DIR}/bin
-	${PROJECT_BINARY_DIR}/dmd
+	${PROJECT_BINARY_DIR}/${DMDFE_PATH}
 )
 
 # idgen and impcnvgen
 set_source_files_properties(
-	dmd/idgen.c
-	dmd/impcnvgen.c
+	${DMDFE_PATH}/idgen.c
+	${DMDFE_PATH}/impcnvgen.c
 	PROPERTIES LANGUAGE CXX
 )
-add_executable(idgen dmd/idgen.c)
-add_executable(impcnvgen dmd/impcnvgen.c)
+add_executable(idgen ${DMDFE_PATH}/idgen.c)
+add_executable(impcnvgen ${DMDFE_PATH}/impcnvgen.c)
 # cmake 2.4
 set_target_properties(
 	idgen impcnvgen PROPERTIES
@@ -62,42 +75,42 @@ get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
 # 
 add_custom_command(
 	OUTPUT
-		${PROJECT_BINARY_DIR}/dmd/id.c
-		${PROJECT_BINARY_DIR}/dmd/id.h
+		${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
+		${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
 	# 2.4
 	COMMAND ${IDGEN_LOC}
 	#COMMAND idgen
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/dmd
+	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
 	DEPENDS idgen
 )
 add_custom_command(
-	OUTPUT ${PROJECT_BINARY_DIR}/dmd/impcnvtab.c
+	OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
 	# 2.4
 	COMMAND ${IMPCNVGEN_LOC}
 	#COMMAND impcnvgen 
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/dmd
+	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
 	DEPENDS impcnvgen
 )
 set(LDC_GENERATED
-	${PROJECT_BINARY_DIR}/dmd/id.c
-	${PROJECT_BINARY_DIR}/dmd/id.h
-	${PROJECT_BINARY_DIR}/dmd/impcnvtab.c
+	${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
+	${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
+	${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
 # idgen and impcnvgen done
 
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 
-include_directories(. dmd ${PROJECT_BINARY_DIR}/dmd ${LLVM_INSTDIR}/include)
+include_directories(. ${DMDFE_PATH} ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${LLVM_INSTDIR}/include)
 
-file(GLOB FE_SRC dmd/*.c)
+file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
 file(GLOB GEN_SRC gen/*.cpp)
 file(GLOB IR_SRC ir/*.cpp)
 # exclude idgen and impcnvgen and generated sources, just in case
 list(REMOVE_ITEM FE_SRC
-	${PROJECT_SOURCE_DIR}/dmd/idgen.c
-	${PROJECT_SOURCE_DIR}/dmd/impcnvgen.c
-	${PROJECT_SOURCE_DIR}/dmd/id.c
-	${PROJECT_SOURCE_DIR}/dmd/impcnvtab.c
+	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
+	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvgen.c
+	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
+	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
 set(LDC_SOURCE_FILES
 	${LDC_GENERATED}
@@ -115,7 +128,6 @@ add_definitions(
 	-D_DH
 	-DOPAQUE_VTBLS
 	-DUSE_BOEHM_GC=0
-	-DDMDV1
 	-DX86_REVERSE_PARAMS
 	-DX86_PASS_IN_EAX
 )
@@ -131,26 +143,26 @@ else(CMAKE_MINOR_VERSION LESS 6)
 	add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
 endif(CMAKE_MINOR_VERSION LESS 6)
 
-add_executable(ldc ${LDC_SOURCE_FILES})
+add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 
 set_target_properties(
-	ldc PROPERTIES
+	${LDC_EXE} PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-	COMPILE_FLAGS "${LLVM_CXXFLAGS} -Wno-deprecated"
+	COMPILE_FLAGS "${LLVM_CXXFLAGS} -Wno-deprecated -Wno-write-strings"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(ldc "${LLVM_LDFLAGS} ${LLVM_LIBS}")
+target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}")
 if(WIN32)
-	target_link_libraries(ldc psapi)
+	target_link_libraries(${LDC_EXE} psapi)
 	#set(CONF_SUFFIX ini)
 endif(WIN32)
 
 # cmake pre 2.6 doesn't support the RUNTIME_OUTPUT_DIRECTORY target property
 if(CMAKE_MINOR_VERSION LESS 6)
-	get_target_property(LDC_LOC ldc LOCATION)
+	get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 	add_custom_command(
-		TARGET ldc
+		TARGET ${LDC_EXE}
 		POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy ${LDC_LOC} ${PROJECT_BINARY_DIR}/bin/
 		COMMAND ${CMAKE_COMMAND} -E remove ${LDC_LOC}

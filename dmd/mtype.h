@@ -368,7 +368,7 @@ struct TypeAArray : TypeArray
     int hasPointers();
 
     // Back end
-    Symbol *aaGetSymbol(char *func, int flags);
+    Symbol *aaGetSymbol(const char *func, int flags);
 
     type *toCtype();
 };

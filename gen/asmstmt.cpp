@@ -6,10 +6,10 @@
 
 //#include "d-gcc-includes.h"
 //#include "total.h"
-#include "dmd/statement.h"
-#include "dmd/scope.h"
-#include "dmd/declaration.h"
-#include "dmd/dsymbol.h"
+#include "statement.h"
+#include "scope.h"
+#include "declaration.h"
+#include "dsymbol.h"
 
 #include <cassert>
 #include <deque>

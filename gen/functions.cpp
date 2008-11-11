@@ -32,12 +32,12 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         return llvm::cast<llvm::FunctionType>(type->ir.type->get());
     }
 
-    bool typesafeVararg = false;
+    bool dVararg = false;
     bool arrayVararg = false;
     if (f->linkage == LINKd)
     {
         if (f->varargs == 1)
-            typesafeVararg = true;
+            dVararg = true;
         else if (f->varargs == 2)
             arrayVararg = true;
     }
@@ -96,7 +96,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         usesnest = true;
     }
 
-    if (typesafeVararg) {
+    if (dVararg) {
         ClassDeclaration* ti = Type::typeinfo;
         ti->toObjFile(0); // TODO: multiobj
         DtoForceConstInitDsymbol(ti);
@@ -119,7 +119,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         // more than one formal arg,
         // extern(D) linkage
         // not a D-style vararg
-        if (n > 1 && f->linkage == LINKd && !typesafeVararg)
+        if (n > 1 && f->linkage == LINKd && !dVararg)
         {
             f->reverseParams = true;
             f->reverseIndex = paramvec.size();
@@ -189,7 +189,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     }
 
     // construct function type
-    bool isvararg = !(typesafeVararg || arrayVararg) && f->varargs;
+    bool isvararg = !(dVararg || arrayVararg) && f->varargs;
     llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
 #if X86_PASS_IN_EAX
@@ -720,9 +720,15 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
         if (global.params.symdebug)
             DtoDwarfLocalVariable(thismem, fd->vthis);
-        
+
+    #if DMDV2
+        if (fd->vthis->nestedrefs.dim)
+    #else
         if (fd->vthis->nestedref)
+    #endif
+        {
             fd->nestedVars.insert(fd->vthis);
+        }
     }
 
     // give arguments storage
@@ -735,9 +741,15 @@ void DtoDefineFunc(FuncDeclaration* fd)
             Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
-            
+
+        #if DMDV2
+            if (vd->nestedrefs.dim)
+        #else
             if (vd->nestedref)
+        #endif
+            {
                 fd->nestedVars.insert(vd);
+            }
 
             IrLocal* irloc = vd->ir.irLocal;
             assert(irloc);
@@ -757,8 +769,12 @@ void DtoDefineFunc(FuncDeclaration* fd)
         }
     }
 
-    // need result variable? (nested)
+// need result variable? (nested)
+#if DMDV2
+    if (fd->vresult && fd->vresult->nestedrefs.dim) {
+#else
     if (fd->vresult && fd->vresult->nestedref) {
+#endif
         Logger::println("nested vresult value: %s", fd->vresult->toChars());
         fd->nestedVars.insert(fd->vresult);
     }
@@ -836,9 +852,13 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
             vd->ir.irLocal->nestedIndex = idx++;
         }
-        
+
         // fixup nested result variable
+    #if DMDV2
+        if (fd->vresult && fd->vresult->nestedrefs.dim) {
+    #else
         if (fd->vresult && fd->vresult->nestedref) {
+    #endif
             Logger::println("nested vresult value: %s", fd->vresult->toChars());
             LLValue* gep = DtoGEPi(nestedVars, 0, fd->vresult->ir.irLocal->nestedIndex);
             LLValue* val = DtoBitCast(fd->vresult->ir.irLocal->value, getVoidPtrType());

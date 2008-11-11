@@ -146,6 +146,16 @@ void Module::genobjfile(int multiobj, char** envp)
         DtoDwarfCompileUnit(this);
     }
 
+    // handle invalid 'objectø module
+    if (!ClassDeclaration::object) {
+        error("is missing 'class Object'");
+        fatal();
+    }
+    if (!ClassDeclaration::classinfo) {
+        error("is missing 'class ClassInfo'");
+        fatal();
+    }
+
     // start out by providing opaque for the built-in class types
     if (!ClassDeclaration::object->type->ir.type)
         ClassDeclaration::object->type->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
@@ -993,7 +1003,15 @@ void VarDeclaration::toObjFile(int multiobj)
     }
     else
     {
-        assert(ir.irField != 0);
+    #if DMDV2
+        if (!ir.irField)
+        {
+            printf("dataseg: %d\n", isDataseg());
+            printf("parent: %s %s\n", parent->kind(), parent->toPrettyChars());
+            printf("this: %s %s\n", this->kind(), this->toPrettyChars());
+        }
+    #endif
+//         assert(ir.irField != 0);
     }
     Logger::println("VarDeclaration::toObjFile is done");
 }

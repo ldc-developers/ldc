@@ -102,7 +102,7 @@ const LLType* DtoType(Type* t)
     // pointers
     case Tpointer:
         // getPtrToType checks for void itself
-        return getPtrToType(DtoType(t->next));
+        return getPtrToType(DtoType(t->nextOf()));
 
     // arrays
     case Tarray:
@@ -227,7 +227,7 @@ const LLStructType* DtoDelegateType(Type* t)
 {
     assert(t->ty == Tdelegate);
     const LLType* i8ptr = getVoidPtrType();
-    const LLType* func = DtoFunctionType(t->next, NULL, i8ptr);
+    const LLType* func = DtoFunctionType(t->nextOf(), NULL, i8ptr);
     const LLType* funcptr = getPtrToType(func);
     return LLStructType::get(i8ptr, funcptr, 0);
 }

@@ -17,7 +17,11 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
     if(catchstmt->var) {
         // use the same storage for all exceptions that are not accessed in
         // nested functions
+    #if DMDV2
+        if(!catchstmt->var->nestedrefs.dim) {
+    #else
         if(!catchstmt->var->nestedref) {
+    #endif
             assert(!catchstmt->var->ir.irLocal);
             catchstmt->var->ir.irLocal = new IrLocal(catchstmt->var);
             LLValue* catch_var = gIR->func()->landingPad.getExceptionStorage();

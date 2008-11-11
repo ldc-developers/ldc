@@ -207,7 +207,7 @@ Symbol *Module::toModuleArray()
  *		1	add value signature
  */
 
-Symbol *TypeAArray::aaGetSymbol(char *func, int flags)
+Symbol *TypeAArray::aaGetSymbol(const char *func, int flags)
 {
   return 0;
 }

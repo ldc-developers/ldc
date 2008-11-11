@@ -22,8 +22,9 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
     }
     else if (type->ty == Tdelegate)
     {
-        assert(type->next->ty == Tfunction);
-        return (TypeFunction*)type->next;
+        Type* next = type->nextOf();
+        assert(next->ty == Tfunction);
+        return (TypeFunction*)next;
     }
 
     assert(0 && "cant get TypeFunction* from non lazy/function/delegate");
@@ -426,8 +427,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
     }
 
-    #if 0
-    Logger::println("%d params passed", n);
+    #if 1
+    Logger::println("%lu params passed", args.size());
     for (int i=0; i<args.size(); ++i) {
         assert(args[i]);
         Logger::cout() << "arg["<<i<<"] = " << *args[i] << '\n';
@@ -439,7 +440,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (callableTy->getReturnType() != LLType::VoidTy)
         varname = "tmp";
 
-    //Logger::cout() << "Calling: " << *funcval << '\n';
+    Logger::cout() << "Calling: " << *callable << '\n';
 
     // call the function
     CallOrInvoke* call = gIR->CreateCallOrInvoke(callable, args.begin(), args.end(), varname);
@@ -451,10 +452,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (resulttype)
     {
         Type* rbase = resulttype->toBasetype();
-        Type* nextbase = tf->next->toBasetype();
+        Type* nextbase = tf->nextOf()->toBasetype();
+    #if DMDV2
+        rbase = rbase->mutableOf();
+        nextbase = nextbase->mutableOf();
+    #endif
         if (!rbase->equals(nextbase))
         {
-            Logger::println("repainting return value from '%s' to '%s'", tf->next->toChars(), rbase->toChars());
+            Logger::println("repainting return value from '%s' to '%s'", tf->nextOf()->toChars(), rbase->toChars());
             switch(rbase->ty)
             {
             case Tarray:

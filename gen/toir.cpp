@@ -103,7 +103,11 @@ DValue* VarExp::toElem(IRState* p)
             return new DVarValue(type, vd, cid->cd->ir.irStruct->classInfo);
         }
         // nested variable
+    #if DMDV2
+        else if (vd->nestedrefs.dim) {
+    #else
         else if (vd->nestedref) {
+    #endif
             Logger::println("nested variable");
             return DtoNestedVariable(loc, type, vd);
         }
@@ -329,10 +333,10 @@ DValue* StringExp::toElem(IRState* p)
     LOG_SCOPE;
 
     Type* dtype = type->toBasetype();
-    Type* cty = dtype->next->toBasetype();
+    Type* cty = dtype->nextOf()->toBasetype();
 
     const LLType* ct = DtoTypeNotVoid(cty);
-    //printf("ct = %s\n", type->next->toChars());
+    //printf("ct = %s\n", type->nextOf()->toChars());
     const LLArrayType* at = LLArrayType::get(ct,len+1);
 
     LLConstant* _init;
@@ -396,7 +400,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     Type* t = type->toBasetype();
-    Type* cty = t->next->toBasetype();
+    Type* cty = t->nextOf()->toBasetype();
 
     bool nullterm = (t->ty != Tsarray);
     size_t endlen = nullterm ? len+1 : len;
@@ -500,7 +504,7 @@ DValue* AddExp::toElem(IRState* p)
 
     Type* t = type->toBasetype();
     Type* e1type = e1->type->toBasetype();
-    Type* e1next = e1type->next ? e1type->next->toBasetype() : NULL;
+    Type* e1next = e1type->nextOf() ? e1type->nextOf()->toBasetype() : NULL;
     Type* e2type = e2->type->toBasetype();
 
     if (e1type != e2type) {
@@ -943,8 +947,8 @@ DValue* DotVarExp::toElem(IRState* p)
         LLValue* arrptr;
         // indexing struct pointer
         if (e1type->ty == Tpointer) {
-            assert(e1type->next->ty == Tstruct);
-            TypeStruct* ts = (TypeStruct*)e1type->next;
+            assert(e1type->nextOf()->ty == Tstruct);
+            TypeStruct* ts = (TypeStruct*)e1type->nextOf();
             arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
         }
         // indexing normal struct
@@ -1615,8 +1619,8 @@ DValue* AssertExp::toElem(IRState* p)
     // struct invariants
     else if(
         global.params.useInvariants && 
-        condty->ty == Tpointer && condty->next->ty == Tstruct &&
-        (invdecl = ((TypeStruct*)condty->next)->sym->inv) != NULL)
+        condty->ty == Tpointer && condty->nextOf()->ty == Tstruct &&
+        (invdecl = ((TypeStruct*)condty->nextOf())->sym->inv) != NULL)
     {
         Logger::print("calling struct invariant");
         DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
@@ -2066,7 +2070,7 @@ DValue* CatAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
 
     Type* e1type = e1->type->toBasetype();
-    Type* elemtype = e1type->next->toBasetype();
+    Type* elemtype = e1type->nextOf()->toBasetype();
     Type* e2type = e2->type->toBasetype();
 
     if (e2type == elemtype) {
@@ -2200,7 +2204,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
     // extract D types
     Type* bt = type->toBasetype();
-    Type* elemt = bt->next;
+    Type* elemt = bt->nextOf();
 
     // build llvm array type
     const LLArrayType* arrtype = LLArrayType::get(DtoType(elemt), elements->dim);
@@ -2358,7 +2362,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     assert(keys->dim == values->dim);
 
     Type* aatype = type->toBasetype();
-    Type* vtype = aatype->next;
+    Type* vtype = aatype->nextOf();
     const LLType* aalltype = DtoType(type);
 
     // it should be possible to avoid the temporary in some cases
@@ -2421,6 +2425,10 @@ STUB(TypeDotIdExp);
 STUB(ScopeExp);
 STUB(TypeExp);
 STUB(TupleExp);
+
+#if DMDV2
+STUB(SymbolExp);
+#endif
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); fatal(); return NULL; }
 CONSTSTUB(Expression);

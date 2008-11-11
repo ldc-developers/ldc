@@ -20,8 +20,8 @@
 
 const LLStructType* DtoArrayType(Type* arrayTy)
 {
-    assert(arrayTy->next);
-    const LLType* elemty = DtoType(arrayTy->next);
+    assert(arrayTy->nextOf());
+    const LLType* elemty = DtoType(arrayTy->nextOf());
     if (elemty == LLType::VoidTy)
         elemty = LLType::Int8Ty;
     return LLStructType::get(DtoSize_t(), getPtrToType(elemty), 0);
@@ -39,7 +39,7 @@ const LLArrayType* DtoStaticArrayType(Type* t)
     t = t->toBasetype();
     assert(t->ty == Tsarray);
     TypeSArray* tsa = (TypeSArray*)t;
-    Type* tnext = tsa->next;
+    Type* tnext = tsa->nextOf();
 
     const LLType* elemty = DtoType(tnext);
     if (elemty == LLType::VoidTy)
@@ -238,8 +238,8 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     std::vector<LLConstant*> inits(tdim, NULL);
 
-    Type* arrnext = arrinittype->next;
-    const LLType* elemty = DtoType(arrinittype->next);
+    Type* arrnext = arrinittype->nextOf();
+    const LLType* elemty = DtoType(arrinittype->nextOf());
 
     assert(arrinit->index.dim == arrinit->value.dim);
     for (unsigned i=0,j=0; i < tdim; ++i)
@@ -289,7 +289,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         }
 
         if (!v)
-            v = DtoConstInitializer(t->next, init);
+            v = DtoConstInitializer(t->nextOf(), init);
         assert(v);
 
         inits[i] = v;
@@ -447,7 +447,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
     assert(arrayType->toBasetype()->ty == Tarray);
 
     // decide on what runtime function to call based on whether the type is zero initialized
-    bool zeroInit = arrayType->toBasetype()->next->isZeroInit();
+    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
 
     // call runtime
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, zeroInit ? "_d_arraysetlengthT" : "_d_arraysetlengthiT" );
@@ -583,7 +583,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
     llvm::Value *len1, *src1, *res;
 
     // handle prefix case, eg. int~int[]
-    if (t2->next && t1 == t2->next->toBasetype())
+    if (t2->nextOf() && t1 == t2->nextOf()->toBasetype())
     {
         len1 = DtoArrayLen(e2);
         res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
@@ -733,7 +733,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
 
     if (!skip)
     {
-        Type* t = l->getType()->toBasetype()->next->toBasetype();
+        Type* t = l->getType()->toBasetype()->nextOf()->toBasetype();
         if (t->ty == Tchar)
             res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
         else
@@ -851,7 +851,7 @@ LLValue* DtoArrayPtr(DValue* v)
         if (DSliceValue* s = v->isSlice())
             return s->ptr;
         else if (v->isNull())
-            return getNullPtr(getPtrToType(DtoType(t->next)));
+            return getNullPtr(getPtrToType(DtoType(t->nextOf())));
         else if (v->isLVal())
             return DtoLoad(DtoGEPi(v->getLVal(), 0,1), ".ptr");
         return gIR->ir->CreateExtractValue(v->getRVal(), 1, ".ptr");
@@ -896,7 +896,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
             Logger::cout() << "to array" << '\n';
 
         const LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
-        const LLType* ety = DtoTypeNotVoid(fromtype->next);
+        const LLType* ety = DtoTypeNotVoid(fromtype->nextOf());
 
         if (DSliceValue* usl = u->isSlice()) {
             if (Logger::enabled())
@@ -905,7 +905,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 Logger::cout() << "from: " << *usl->ptr << " to: " << *ptrty << '\n';
             }
             rval = DtoBitCast(usl->ptr, ptrty);
-            if (fromtype->next->size() == totype->next->size())
+            if (fromtype->nextOf()->size() == totype->nextOf()->size())
                 rval2 = DtoArrayLen(usl);
             else
                 rval2 = DtoArrayCastLength(DtoArrayLen(usl), ety, ptrty->getContainedType(0));
@@ -920,7 +920,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 assert(isaPointer(uval->getType()));
                 const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
 
-                if(arrty->getNumElements()*fromtype->next->size() % totype->next->size() != 0)
+                if(arrty->getNumElements()*fromtype->nextOf()->size() % totype->nextOf()->size() != 0)
                 {
                     error(loc, "invalid cast from '%s' to '%s', the element sizes don't line up", fromtype->toChars(), totype->toChars());
                     fatal();

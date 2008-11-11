@@ -1498,6 +1498,15 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     }
     inits.push_back(c);
 
+#if DMDV2
+
+    // xgetMembers
+    c = defc->getOperand(13);
+    inits.push_back(c);
+
+#else
+#endif
+
     /*size_t n = inits.size();
     for (size_t i=0; i<n; ++i)
     {
