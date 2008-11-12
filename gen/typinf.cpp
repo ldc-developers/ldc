@@ -1229,45 +1229,32 @@ void TypeInfoConstDeclaration::toDt(dt_t **pdt)
     assert(0);
 }
 
-// void TypeInfoConstDeclaration::toDt(dt_t **pdt)
-// {
-//     //printf("TypeInfoConstDeclaration::toDt() %s\n", toChars());
-//     dtxoff(pdt, Type::typeinfoconst->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Const
-//     dtdword(pdt, 0);                // monitor
-//     Type *tm = tinfo->mutableOf();
-//     tm = tm->merge();
-//     tm->getTypeInfo(NULL);
-//     dtxoff(pdt, tm->vtinfo->toSymbol(), 0, TYnptr);
-// }
-
 ///////////////////////////////////////////////////////////
 
 /* ========================================================================= */
 
-void TypeInfoInvariantDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoInvariantDeclaration::toDt");
-}
-
 void TypeInfoInvariantDeclaration::llvmDeclare()
 {
-    assert(0 && "TypeInfoInvariantDeclaration::llvmDeclare");
+    Logger::println("TypeInfoInvariantDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoinvariant);
 }
 
 void TypeInfoInvariantDeclaration::llvmDefine()
 {
-    assert(0 && "TypeInfoInvariantDeclaration::llvmDeclare");
+    Logger::println("TypeInfoInvariantDeclaration::toDt() %s", toChars());
+    LOG_SCOPE;
+
+    Type *tm = tinfo->mutableOf();
+    tm = tm->merge();
+
+    LLVM_D_Define_TypeInfoBase(tm, this, Type::typeinfoinvariant);
 }
 
-// void TypeInfoInvariantDeclaration::toDt(dt_t **pdt)
-// {
-//     //printf("TypeInfoInvariantDeclaration::toDt() %s\n", toChars());
-//     dtxoff(pdt, Type::typeinfoinvariant->toVtblSymbol(), 0, TYnptr); // vtbl for TypeInfo_Invariant
-//     dtdword(pdt, 0);                // monitor
-//     Type *tm = tinfo->mutableOf();
-//     tm = tm->merge();
-//     tm->getTypeInfo(NULL);
-//     dtxoff(pdt, tm->vtinfo->toSymbol(), 0, TYnptr);
-// }
+void TypeInfoInvariantDeclaration::toDt(dt_t **pdt)
+{
+    assert(0);
+}
 
 #endif

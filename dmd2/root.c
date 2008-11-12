@@ -1613,6 +1613,11 @@ void OutBuffer::vprintf(const char *format, va_list args)
     unsigned psize;
     int count;
 
+    // On some platforms (i.e. x86_64) va_list is an array and thus passed by
+    // reference. Copy the input list so we can copy it back before retrying.
+    va_list orig_args;
+    va_copy(orig_args, args);
+
     p = buffer;
     psize = sizeof(buffer);
     for (;;)
@@ -1622,8 +1627,7 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	if (count != -1)
 	    break;
 	psize *= 2;
-#endif
-#if POSIX
+#elif POSIX
 	count = vsnprintf(p,psize,format,args);
 	if (count == -1)
 	    psize *= 2;
@@ -1632,6 +1636,7 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	else
 	    break;
 #endif
+	va_copy(args, orig_args);
 	p = (char *) alloca(psize);	// buffer too small, try again with larger size
     }
     write(p,count);
