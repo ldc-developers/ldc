@@ -964,6 +964,13 @@ void VarDeclaration::toObjFile(int multiobj)
     {
         Logger::println("data segment");
 
+    #if DMDV2
+        if (storage_class & STCmanifest)
+        {
+            assert(0 && "manifest constant being codegened!!!");
+        }
+    #endif
+
         // don't duplicate work
         if (this->ir.resolved) return;
         this->ir.resolved = true;
@@ -975,7 +982,12 @@ void VarDeclaration::toObjFile(int multiobj)
 
         // handle static local variables
         bool static_local = false;
+    #if DMDV2
+        // not sure why this is only needed for d2
+        bool _isconst = isConst() && init;
+    #else
         bool _isconst = isConst();
+    #endif
         if (parent && parent->isFuncDeclaration())
         {
             static_local = true;
