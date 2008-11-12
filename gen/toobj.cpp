@@ -1003,7 +1003,8 @@ void VarDeclaration::toObjFile(int multiobj)
     }
     else
     {
-    #if DMDV2
+#if DMDV2
+    #if 0
         if (!ir.irField)
         {
             printf("dataseg: %d\n", isDataseg());
@@ -1011,7 +1012,9 @@ void VarDeclaration::toObjFile(int multiobj)
             printf("this: %s %s\n", this->kind(), this->toPrettyChars());
         }
     #endif
-//         assert(ir.irField != 0);
+#else
+        assert(ir.irField != 0);
+#endif
     }
     Logger::println("VarDeclaration::toObjFile is done");
 }

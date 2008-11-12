@@ -2759,8 +2759,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	ec = new VarExp(0, aaRehash_fd);
 	arguments = new Expressions();
 	arguments->push(e->addressOf(sc));
-    arguments->push(index->getTypeInfo(sc));   // LDC, we don't support the getInternalTypeInfo
-                                               // optimization arbitrarily, not yet at least...   
+    arguments->push(index->getInternalTypeInfo(sc));
 	e = new CallExp(e->loc, ec, arguments);
 	e->type = this;
     }

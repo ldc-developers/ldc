@@ -58,7 +58,7 @@ DValue* VarExp::toElem(IRState* p)
     assert(var);
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
-        Logger::println("VarDeclaration %s", vd->toChars());
+        Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
 
         // _arguments
         if (vd->ident == Id::_arguments && p->func()->_arguments)

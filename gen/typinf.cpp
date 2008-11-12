@@ -230,12 +230,16 @@ int Type::builtinTypeInfo()
 
 int TypeBasic::builtinTypeInfo()
 {
-    return 1;
+    return !mod;
 }
 
 int TypeDArray::builtinTypeInfo()
 {
+#if DMDV2
+    return !mod && next->isTypeBasic() != NULL && !next->mod;
+#else
     return next->isTypeBasic() != NULL;
+#endif
 }
 
 /* ========================================================================= */
