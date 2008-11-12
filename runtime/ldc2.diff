@@ -83,24 +83,6 @@ Index: src/common/core/thread.d
                  asm
                  {
                      popad;
-@@ -717,7 +763,7 @@
-      * represents the minimum valid priority for the scheduling policy of
-      * the process.
-      */
--    static const int PRIORITY_MIN;
-+    static int PRIORITY_MIN;
- 
- 
-     /**
-@@ -726,7 +772,7 @@
-      * represents the minimum valid priority for the scheduling policy of
-      * the process.
-      */
--    static const int PRIORITY_MAX;
-+    static int PRIORITY_MAX;
- 
- 
-     /**
 @@ -2259,6 +2305,18 @@
              version = AsmPPC_Posix;
      }
