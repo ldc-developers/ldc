@@ -1,32 +1,40 @@
+This should help get the runtime built.
 FOR D1:
 =======
-1) Do a checkout of tango trunk in the ldc root dir (along dmd, gen, runtime etc).
+1) Do a checkout of tango trunk into the ldc root dir (along dmd, gen, runtime etc).
 
-    *    svn co http://svn.dsource.org/projects/tango/trunk ../tango
+    *   $ ls
+    *   dmd dmd2 gen ir ...
+    *   $ svn co http://svn.dsource.org/projects/tango/trunk tango
 
 2) Patch the runtime
 
-    *    sh patch-tango.sh
+    *   cd runtime
+    *   sh patch-tango.sh
 
 3) Compile the runtime
 
-    *    sh build.sh
+    *   sh build.sh
 
 FOR D2:
 =======
 Highly experimental!!!
 
-1) Do a checkout of druntime trunk in the ldc root dir (along dmd, gen, runtime etc).
+1) Do a checkout of druntime trunk into the ldc root dir (along dmd, gen, runtime etc).
 
-    *    svn co http://svn.dsource.org/projects/druntime/trunk ../druntime
+    *   $ ls
+    *   dmd dmd2 gen ir ...
+    *   $ svn co http://svn.dsource.org/projects/druntime/trunk druntime
 
 2) Patch druntime
 
-    *    sh patch-druntime.sh
+    *   cd runtime
+    *   sh patch-druntime.sh
 
 3) Compile druntime
 
-    *    cd ../druntime/src
-    *    sh build-ldc.sh
+    *   cd ../druntime/src
+    *   sh build-ldc.sh
 
+=======
 Enjoy!
