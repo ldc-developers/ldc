@@ -1638,7 +1638,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		Expressions *exps = new Expressions();
 		exps->push(aggr);
 		size_t keysize = taa->key->size();
-		keysize = (keysize + 3) & ~3;
+		keysize = (keysize + (PTRSIZE-1)) & ~(PTRSIZE-1);
 		exps->push(new IntegerExp(0, keysize, Type::tsize_t));
 
         // LDC paint delegate argument to the type runtime expects
