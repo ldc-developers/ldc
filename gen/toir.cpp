@@ -537,7 +537,7 @@ DValue* AddExp::toElem(IRState* p)
 
 DValue* AddAssignExp::toElem(IRState* p)
 {
-    Logger::print("AddAssignExp::toElem: %s\n", toChars());
+    Logger::print("AddAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -557,6 +557,9 @@ DValue* AddAssignExp::toElem(IRState* p)
         res = DtoBinAdd(l,r);
     }
     DtoAssign(loc, l, res);
+
+    if (res->getType() != type)
+        res = DtoCast(loc, res, type);
 
     return res;
 }
@@ -631,6 +634,9 @@ DValue* MinAssignExp::toElem(IRState* p)
     }
     DtoAssign(loc, l, res);
 
+    if (res->getType() != type)
+        res = DtoCast(loc, res, type);
+
     return res;
 }
 
@@ -669,6 +675,9 @@ DValue* MulAssignExp::toElem(IRState* p)
         res = DtoBinMul(l->getType(), l, r);
     }
     DtoAssign(loc, l, res);
+
+    if (res->getType() != type)
+        res = DtoCast(loc, res, type);
 
     return res;
 }
@@ -709,6 +718,9 @@ DValue* DivAssignExp::toElem(IRState* p)
     }
     DtoAssign(loc, l, res);
 
+    if (res->getType() != type)
+        res = DtoCast(loc, res, type);
+
     return res;
 }
 
@@ -737,6 +749,9 @@ DValue* ModAssignExp::toElem(IRState* p)
 
     DValue* res = DtoBinRem(l->getType(), l, r);
     DtoAssign(loc, l, res);
+
+    if (res->getType() != type)
+        res = DtoCast(loc, res, type);
 
     return res;
 }
