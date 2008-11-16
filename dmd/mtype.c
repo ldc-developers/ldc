@@ -2419,7 +2419,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 	arguments = new Expressions();
 	arguments->push(e);
 	size_t keysize = key->size(e->loc);
-	keysize = (keysize + 4 - 1) & ~(4 - 1);
+	keysize = (keysize + PTRSIZE - 1) & ~(PTRSIZE - 1);
 	arguments->push(new IntegerExp(0, keysize, Type::tsize_t));
 	arguments->push(new IntegerExp(0, next->size(e->loc), Type::tsize_t));
 	e = new CallExp(e->loc, ec, arguments);
