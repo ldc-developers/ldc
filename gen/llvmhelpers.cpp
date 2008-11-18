@@ -1332,6 +1332,10 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var)
 
     // we don't handle aliases either
     assert(!var->aliassym);
+        
+    // if this already has storage, it must've been handled already
+    if (var->ir.irLocal && var->ir.irLocal->value)
+        return var->ir.irLocal->value;
 
     // referenced by nested function?
 #if DMDV2
