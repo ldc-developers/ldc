@@ -889,24 +889,66 @@ void UnrolledLoopStatement::toIR(IRState* p)
     Logger::println("UnrolledLoopStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    // if no statements, there's nothing to do
+    if (!statements || !statements->dim)
+        return;
+
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
 
+    // DMD doesn't fold stuff like continue/break, and since this isn't really a loop
+    // we have to keep track of each statement and jump to next the next/end on continue/break
+
     llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("unrolledend", p->topfunc(), oldend);
 
-    p->scope() = IRScope(p->scopebb(),endbb);
-    p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,p->scopebb(),endbb));
+    // create a block for each statement
+    size_t nstmt = statements->dim;
+    LLSmallVector<llvm::BasicBlock*, 4> blocks(nstmt, NULL);
 
-    for (int i=0; i<statements->dim; ++i)
+    for (size_t i=0; i<nstmt; i++)
     {
-        Statement* s = (Statement*)statements->data[i];
-        s->toIR(p);
+        blocks[i] = llvm::BasicBlock::Create("unrolledstmt", p->topfunc(), oldend);
     }
 
-    p->loopbbs.pop_back();
+    // create end block
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("unrolledend", p->topfunc(), oldend);
 
-    llvm::BranchInst::Create(endbb, p->scopebb());
+    // enter first stmt
+    if (!p->scopereturned())
+        p->ir->CreateBr(blocks[0]);
+
+    // do statements
+    Statement** stmts = (Statement**)statements->data;
+
+    for (int i=0; i<nstmt; i++)
+    {
+        Statement* s = stmts[i];
+
+        // get blocks
+        llvm::BasicBlock* thisbb = blocks[i];
+        llvm::BasicBlock* nextbb = (i+1 == nstmt) ? endbb : blocks[i+1];
+
+        // update scope
+        p->scope() = IRScope(thisbb,nextbb);
+
+        // push loop scope
+        // continue goes to next statement, break goes to end
+        p->loopbbs.push_back(IRLoopScope(this,enclosinghandler,nextbb,endbb));
+
+        // do statement
+        s->toIR(p);
+
+        // pop loop scope
+        p->loopbbs.pop_back();
+
+        // next stmt
+        if (!p->scopereturned())
+            p->ir->CreateBr(nextbb);
+    }
+
+    // finish scope
+    if (!p->scopereturned())
+        p->ir->CreateBr(endbb);
     p->scope() = IRScope(endbb,oldend);
 }
 
