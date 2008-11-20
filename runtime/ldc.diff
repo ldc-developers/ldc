@@ -12,6 +12,63 @@ Index: object.di
      static int opApply( int delegate( inout ModuleInfo ) );
  }
  
+Index: lib/unittest.sh
+===================================================================
+--- lib/unittest.sh	(revision 4097)
++++ lib/unittest.sh	(working copy)
+@@ -18,8 +18,9 @@
+   --help: This message
+   --run-all: Reports result instead of breaking. Do not use this if you want to
+          run unittest runner through a debugger.
+-  dmd: Builds unittests for dmd
+-  gdc: Builds unittests for gdc
++  dmd:    Builds unittests for dmd
++  gdc:    Builds unittests for gdc
++  ldc: Builds unittests for ldc
+ 
+   <none>: Builds unittests for all known compilers.'
+   exit 0
+@@ -86,7 +87,7 @@
+ void main() {}
+ EOF
+ 
+-        rebuild -w -d -g -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
++        rebuild -w -d -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
+         -version=UnitTest $EXE.d tango/core/*.d tango/core/sync/*.d tango/io/digest/*.d \
+         tango/io/model/*.d tango/io/protocol/*.d tango/io/selector/*.d tango/io/*.d \
+         tango/io/vfs/*.d tango/io/vfs/model/*.d \
+@@ -125,6 +126,9 @@
+         gdc)
+             GDC=1
+             ;;
++        ldc)
++            LDC=1
++            ;;
+         *)
+             usage
+             ;;
+@@ -132,10 +136,11 @@
+     shift
+ done
+ 
+-if [ ! "$DMD" -a ! "$GDC" ]
++if [ ! "$DMD" -a ! "$GDC" -a ! "$LDC" ]
+ then
+     DMD=1
+     GDC=1
++    LDC=1
+ fi
+ 
+ if [ "$DMD" = "1" ]
+@@ -146,4 +151,7 @@
+ then
+     compile gdc runUnitTest_gdc
+ fi
+-
++if [ "$LDC" = "1" ]
++then
++    compile ldc runUnitTest_ldc
++fi
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
 --- lib/common/tango/core/BitManip.d	(revision 4097)
@@ -108,7 +165,20 @@ Index: lib/common/tango/core/Thread.d
          {
              // NOTE: The ucontext implementation requires architecture specific
              //       data definitions to operate so testing for it must be done
-@@ -2522,7 +2572,7 @@
+@@ -2367,9 +2417,11 @@
+             import tango.stdc.posix.ucontext;
+         }
+     }
+-    const size_t PAGESIZE;
+ }
+ 
++// this currently need to be public for LDC
++const size_t PAGESIZE;
++
+ static this()
+ {
+     static if( is( typeof( GetSystemInfo ) ) )
+@@ -2522,7 +2574,7 @@
      }
  }
  
@@ -117,7 +187,7 @@ Index: lib/common/tango/core/Thread.d
  ////////////////////////////////////////////////////////////////////////////////
  // Fiber
  ////////////////////////////////////////////////////////////////////////////////
-@@ -3204,6 +3254,28 @@
+@@ -3204,6 +3256,28 @@
  
              assert( cast(uint) pstack & 0x0f == 0 );
          }
@@ -146,63 +216,6 @@ Index: lib/common/tango/core/Thread.d
          else static if( is( ucontext_t ) )
          {
              getcontext( &m_utxt );
-Index: lib/unittest.sh
-===================================================================
---- lib/unittest.sh	(revision 4097)
-+++ lib/unittest.sh	(working copy)
-@@ -18,8 +18,9 @@
-   --help: This message
-   --run-all: Reports result instead of breaking. Do not use this if you want to
-          run unittest runner through a debugger.
--  dmd: Builds unittests for dmd
--  gdc: Builds unittests for gdc
-+  dmd:    Builds unittests for dmd
-+  gdc:    Builds unittests for gdc
-+  ldc: Builds unittests for ldc
- 
-   <none>: Builds unittests for all known compilers.'
-   exit 0
-@@ -86,7 +87,7 @@
- void main() {}
- EOF
- 
--        rebuild -w -d -g -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
-+        rebuild -w -d -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
-         -version=UnitTest $EXE.d tango/core/*.d tango/core/sync/*.d tango/io/digest/*.d \
-         tango/io/model/*.d tango/io/protocol/*.d tango/io/selector/*.d tango/io/*.d \
-         tango/io/vfs/*.d tango/io/vfs/model/*.d \
-@@ -125,6 +126,9 @@
-         gdc)
-             GDC=1
-             ;;
-+        ldc)
-+            LDC=1
-+            ;;
-         *)
-             usage
-             ;;
-@@ -132,10 +136,11 @@
-     shift
- done
- 
--if [ ! "$DMD" -a ! "$GDC" ]
-+if [ ! "$DMD" -a ! "$GDC" -a ! "$LDC" ]
- then
-     DMD=1
-     GDC=1
-+    LDC=1
- fi
- 
- if [ "$DMD" = "1" ]
-@@ -146,4 +151,7 @@
- then
-     compile gdc runUnitTest_gdc
- fi
--
-+if [ "$LDC" = "1" ]
-+then
-+    compile ldc runUnitTest_ldc
-+fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
 --- lib/gc/basic/gcx.d	(revision 4097)
