@@ -1,6 +1,6 @@
 Index: object.di
 ===================================================================
---- object.di	(revision 4071)
+--- object.di	(revision 4097)
 +++ object.di	(working copy)
 @@ -150,6 +150,9 @@
      void function() dtor;
@@ -12,9 +12,143 @@ Index: object.di
      static int opApply( int delegate( inout ModuleInfo ) );
  }
  
+Index: lib/common/tango/core/BitManip.d
+===================================================================
+--- lib/common/tango/core/BitManip.d	(revision 4097)
++++ lib/common/tango/core/BitManip.d	(working copy)
+@@ -171,6 +171,10 @@
+      */
+     uint outpl( uint port_address, uint value );
+ }
++else version( LDC )
++{
++    public import ldc.bitmanip;
++}
+ else
+ {
+     public import std.intrinsic;
+Index: lib/common/tango/core/Thread.d
+===================================================================
+--- lib/common/tango/core/Thread.d	(revision 4097)
++++ lib/common/tango/core/Thread.d	(working copy)
+@@ -273,8 +273,50 @@
+         }
+         body
+         {
+-            version( D_InlineAsm_X86 )
++            version( LDC)
+             {
++                version(X86)
++                {
++                    uint eax,ecx,edx,ebx,ebp,esi,edi;
++                    asm
++                    {
++                        mov eax[EBP], EAX      ;
++                        mov ecx[EBP], ECX      ;
++                        mov edx[EBP], EDX      ;
++                        mov ebx[EBP], EBX      ;
++                        mov ebp[EBP], EBP      ;
++                        mov esi[EBP], ESI      ;
++                        mov edi[EBP], EDI      ;
++                    }
++                }
++                else version (X86_64)
++                {
++                    ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r10,r11,r12,r13,r14,r15;
++                    asm
++                    {
++                        movq rax[RBP], RAX        ;
++                        movq rbx[RBP], RBX        ;
++                        movq rcx[RBP], RCX        ;
++                        movq rdx[RBP], RDX        ;
++                        movq rbp[RBP], RBP        ;
++                        movq rsi[RBP], RSI        ;
++                        movq rdi[RBP], RDI        ;
++                        movq rsp[RBP], RSP        ;
++                        movq r10[RBP], R10        ;
++                        movq r11[RBP], R11        ;
++                        movq r12[RBP], R12        ;
++                        movq r13[RBP], R13        ;
++                        movq r14[RBP], R14        ;
++                        movq r15[RBP], R15        ;
++                    }
++                }
++                else
++                {
++                    static assert( false, "Architecture not supported." );
++                }
++            }
++            else version( D_InlineAsm_X86 )
++            {
+                 asm
+                 {
+                     pushad;
+@@ -330,8 +372,12 @@
+                 }
+             }
+ 
+-            version( D_InlineAsm_X86 )
++            version( LDC)
+             {
++                // nothing to pop
++            }
++            else version( D_InlineAsm_X86 )
++            {
+                 asm
+                 {
+                     popad;
+@@ -2357,6 +2403,10 @@
+         version( AsmX86_Win32 ) {} else
+         version( AsmX86_Posix ) {} else
+         version( AsmPPC_Posix ) {} else
++        version( LLVM_AsmX86_Win32 ) {} else
++        version( LLVM_AsmX86_Posix ) {} else
++//TODO: Enable when x86-64 Posix supports fibers
++//        version( LLVM_AsmX86_64_Posix ) {} else
+         {
+             // NOTE: The ucontext implementation requires architecture specific
+             //       data definitions to operate so testing for it must be done
+@@ -2522,7 +2572,7 @@
+     }
+ }
+ 
+-
++extern(C) int printf(char*, ...);
+ ////////////////////////////////////////////////////////////////////////////////
+ // Fiber
+ ////////////////////////////////////////////////////////////////////////////////
+@@ -3204,6 +3254,28 @@
+ 
+             assert( cast(uint) pstack & 0x0f == 0 );
+         }
++        else version( LLVM_AsmX86_Posix )
++        {
++            asm
++            {
++                // clobber registers to save
++                inc EBX;
++                inc ESI;
++                inc EDI;
++
++                // store oldp again with more accurate address
++                mov EAX, oldp;
++                mov [EAX], ESP;
++                // load newp to begin context switch
++                mov ESP, newp;
++            }
++        }
++/+
++        version( LLVM_AsmX86_64_Posix )
++        {
++            //TODO: Fiber implementation here
++        }
+++/
+         else static if( is( ucontext_t ) )
+         {
+             getcontext( &m_utxt );
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 4071)
+--- lib/unittest.sh	(revision 4097)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -69,273 +203,9 @@ Index: lib/unittest.sh
 +then
 +    compile ldc runUnitTest_ldc
 +fi
-Index: lib/common/tango/core/BitManip.d
-===================================================================
---- lib/common/tango/core/BitManip.d	(revision 4071)
-+++ lib/common/tango/core/BitManip.d	(working copy)
-@@ -171,6 +171,10 @@
-      */
-     uint outpl( uint port_address, uint value );
- }
-+else version( LDC )
-+{
-+    public import ldc.bitmanip;
-+}
- else
- {
-     public import std.intrinsic;
-Index: lib/common/tango/core/Thread.d
-===================================================================
---- lib/common/tango/core/Thread.d	(revision 4071)
-+++ lib/common/tango/core/Thread.d	(working copy)
-@@ -247,6 +247,7 @@
-         // used to track the number of suspended threads
-         //
-         sem_t   suspendCount;
-+        sem_t*  suspendCountPtr;
- 
- 
-         extern (C) void thread_suspendHandler( int sig )
-@@ -256,8 +257,50 @@
-         }
-         body
-         {
--            version( D_InlineAsm_X86 )
-+            version( LDC)
-             {
-+                version(X86)
-+                {
-+                    uint eax,ecx,edx,ebx,ebp,esi,edi;
-+                    asm
-+                    {
-+                        mov eax[EBP], EAX      ;
-+                        mov ecx[EBP], ECX      ;
-+                        mov edx[EBP], EDX      ;
-+                        mov ebx[EBP], EBX      ;
-+                        mov ebp[EBP], EBP      ;
-+                        mov esi[EBP], ESI      ;
-+                        mov edi[EBP], EDI      ;
-+                    }
-+                }
-+                else version (X86_64)
-+                {
-+                    ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r10,r11,r12,r13,r14,r15;
-+                    asm
-+                    {
-+                        movq rax[RBP], RAX        ;
-+                        movq rbx[RBP], RBX        ;
-+                        movq rcx[RBP], RCX        ;
-+                        movq rdx[RBP], RDX        ;
-+                        movq rbp[RBP], RBP        ;
-+                        movq rsi[RBP], RSI        ;
-+                        movq rdi[RBP], RDI        ;
-+                        movq rsp[RBP], RSP        ;
-+                        movq r10[RBP], R10        ;
-+                        movq r11[RBP], R11        ;
-+                        movq r12[RBP], R12        ;
-+                        movq r13[RBP], R13        ;
-+                        movq r14[RBP], R14        ;
-+                        movq r15[RBP], R15        ;
-+                    }
-+                }
-+                else
-+                {
-+                    static assert( false, "Architecture not supported." );
-+                }
-+            }
-+            else version( D_InlineAsm_X86 )
-+            {
-                 asm
-                 {
-                     pushad;
-@@ -298,7 +341,7 @@
-                 status = sigdelset( &sigres, SIGUSR2 );
-                 assert( status == 0 );
- 
--                status = sem_post( &suspendCount );
-+                status = sem_post( suspendCountPtr );
-                 assert( status == 0 );
- 
-                 sigsuspend( &sigres );
-@@ -309,8 +352,12 @@
-                 }
-             }
- 
--            version( D_InlineAsm_X86 )
-+            version( LDC)
-             {
-+                // nothing to pop
-+            }
-+            else version( D_InlineAsm_X86 )
-+            {
-                 asm
-                 {
-                     popad;
-@@ -1584,8 +1631,14 @@
-         status = sigaction( SIGUSR2, &sigusr2, null );
-         assert( status == 0 );
- 
--        status = sem_init( &suspendCount, 0, 0 );
--        assert( status == 0 );
-+        version(darwin){
-+            suspendCountPtr = sem_open( "/thread_init/sem\0".ptr, 0 );
-+            assert( suspendCountPtr !is null );
-+        }else {
-+            status=sem_init(&suspendCount,0,0);
-+            suspendCountPtr=&suspendCount;
-+            assert(status==0);
-+        }
- 
-         status = pthread_key_create( &Thread.sm_this, null );
-         assert( status == 0 );
-@@ -1793,7 +1846,7 @@
-                 //       to simply loop on sem_wait at the end, but I'm not
-                 //       convinced that this would be much faster than the
-                 //       current approach.
--                sem_wait( &suspendCount );
-+                sem_wait( suspendCountPtr );
-             }
-             else if( !t.m_lock )
-             {
-@@ -2298,7 +2351,20 @@
-             version = AsmPPC_Posix;
-     }
- 
-+    version( LLVM_InlineAsm_X86 )
-+    {
-+        version( Win32 )
-+            version = LLVM_AsmX86_Win32;
-+        else version( Posix )
-+            version = LLVM_AsmX86_Posix;
-+    }
-+    else version( LLVM_InlineAsm_X86_64 )
-+    {
-+        version( Posix )
-+            version = LLVM_AsmX86_64_Posix;
-+    }
- 
-+
-     version( Posix )
-     {
-         import tango.stdc.posix.unistd;   // for sysconf
-@@ -2308,6 +2374,10 @@
-         version( AsmX86_Win32 ) {} else
-         version( AsmX86_Posix ) {} else
-         version( AsmPPC_Posix ) {} else
-+        version( LLVM_AsmX86_Win32 ) {} else
-+        version( LLVM_AsmX86_Posix ) {} else
-+//TODO: Enable when x86-64 Posix supports fibers
-+//        version( LLVM_AsmX86_64_Posix ) {} else
-         {
-             // NOTE: The ucontext implementation requires architecture specific
-             //       data definitions to operate so testing for it must be done
-@@ -2318,10 +2388,10 @@
-             import tango.stdc.posix.ucontext;
-         }
-     }
--
--    const size_t PAGESIZE;
- }
- 
-+// this can't be private since it's used as default argument to a public function
-+const size_t PAGESIZE;
- 
- static this()
- {
-@@ -2348,7 +2418,7 @@
-     }
- }
- 
--
-+extern(C) int printf(char*, ...);
- ////////////////////////////////////////////////////////////////////////////////
- // Fiber Entry Point and Context Switch
- ////////////////////////////////////////////////////////////////////////////////
-@@ -2462,6 +2532,28 @@
-                 ret;
-             }
-         }
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+            asm
-+            {
-+                // clobber registers to save
-+                inc EBX;
-+                inc ESI;
-+                inc EDI;
-+
-+                // store oldp again with more accurate address
-+                mov EAX, oldp;
-+                mov [EAX], ESP;
-+                // load newp to begin context switch
-+                mov ESP, newp;
-+            }
-+        }
-+/+
-+        version( LLVM_AsmX86_64_Posix )
-+        {
-+            //TODO: Fiber implementation here
-+        }
-++/
-         else static if( is( ucontext_t ) )
-         {
-             Fiber   cfib = Fiber.getThis();
-@@ -2980,16 +3072,25 @@
-             m_size = sz;
-         }
-         else
--        {   static if( is( typeof( mmap ) ) )
-+        {
-+            static if( is( typeof( mmap ) ) )
-             {
--                m_pmem = mmap( null,
-+                //TODO: This seems a bit dubious.
-+                version (X86_64)
-+                {
-+                    m_pmem = malloc( sz );
-+                }
-+                else
-+                {
-+                    m_pmem = mmap( null,
-                                sz,
-                                PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_ANON,
-                                -1,
-                                0 );
--                if( m_pmem == MAP_FAILED )
--                    m_pmem = null;
-+                    if( m_pmem == MAP_FAILED )
-+                        m_pmem = null;
-+                }
-             }
-             else static if( is( typeof( valloc ) ) )
-             {
-@@ -3127,6 +3228,22 @@
-             push( 0x00000000 );                                     // ESI
-             push( 0x00000000 );                                     // EDI
-         }
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+            push( cast(size_t) &fiber_entryPoint );                 // EIP
-+            push( 0x00000000 );                                     // newp
-+            push( 0x00000000 );                                     // oldp
-+            push( 0x00000000 );                                     // EBP
-+            push( 0x00000000 );                                     // EBX
-+            push( 0x00000000 );                                     // ESI
-+            push( 0x00000000 );                                     // EDI
-+        }
-+//TODO: Implement x86-64 fibers
-+/+
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+        }
-++/
-         else version( AsmPPC_Posix )
-         {
-             version( StackGrowsDown )
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 4071)
+--- lib/gc/basic/gcx.d	(revision 4097)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -428,7 +298,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 4071)
+--- lib/gc/basic/gcbits.d	(revision 4097)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -443,7 +313,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: lib/build-tango.sh
 ===================================================================
---- lib/build-tango.sh	(revision 4071)
+--- lib/build-tango.sh	(revision 4097)
 +++ lib/build-tango.sh	(working copy)
 @@ -23,7 +23,7 @@
    --debug: Will enable debug info
@@ -475,7 +345,7 @@ Index: lib/build-tango.sh
              build powerpc-apple-darwin8-gdmd libgtango.a.ppc libgphobos.a.ppc
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 4071)
+--- tango/text/convert/Layout.d	(revision 4097)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -501,7 +371,7 @@ Index: tango/text/convert/Layout.d
                  return parse (formatStr, arguments, arglist, sink);
 Index: tango/net/cluster/CacheInvalidator.d
 ===================================================================
---- tango/net/cluster/CacheInvalidator.d	(revision 4071)
+--- tango/net/cluster/CacheInvalidator.d	(revision 4097)
 +++ tango/net/cluster/CacheInvalidator.d	(working copy)
 @@ -79,7 +79,7 @@
  
@@ -514,7 +384,7 @@ Index: tango/net/cluster/CacheInvalidator.d
  
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 4071)
+--- tango/core/Vararg.d	(revision 4097)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -529,9 +399,9 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/sync/Semaphore.d
 ===================================================================
---- tango/core/sync/Semaphore.d	(revision 4071)
+--- tango/core/sync/Semaphore.d	(revision 4097)
 +++ tango/core/sync/Semaphore.d	(working copy)
-@@ -329,7 +329,8 @@
+@@ -376,7 +376,8 @@
              {
                  synchronized( synComplete )
                  {
@@ -541,7 +411,7 @@ Index: tango/core/sync/Semaphore.d
                          break;
                  }
                  Thread.yield();
-@@ -337,9 +338,9 @@
+@@ -384,9 +385,9 @@
  
              synchronized( synComplete )
              {
@@ -553,7 +423,7 @@ Index: tango/core/sync/Semaphore.d
              synchronized( synConsumed )
              {
                  assert( numConsumed == numToProduce );
-@@ -400,7 +401,8 @@
+@@ -447,7 +448,8 @@
  
      unittest
      {
@@ -565,7 +435,7 @@ Index: tango/core/sync/Semaphore.d
  }
 Index: tango/core/sync/Condition.d
 ===================================================================
---- tango/core/sync/Condition.d	(revision 4071)
+--- tango/core/sync/Condition.d	(revision 4097)
 +++ tango/core/sync/Condition.d	(working copy)
 @@ -553,8 +553,11 @@
  
@@ -581,7 +451,7 @@ Index: tango/core/sync/Condition.d
  }
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 4071)
+--- tango/core/Atomic.d	(revision 4097)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -765,7 +635,7 @@ Index: tango/core/Atomic.d
      {
 Index: tango/math/IEEE.d
 ===================================================================
---- tango/math/IEEE.d	(revision 4071)
+--- tango/math/IEEE.d	(revision 4097)
 +++ tango/math/IEEE.d	(working copy)
 @@ -1543,7 +1543,12 @@
          else return 0;
@@ -783,7 +653,7 @@ Index: tango/math/IEEE.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 4071)
+--- tango/math/Math.d	(revision 4097)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -932,7 +802,7 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/stdc/posix/sys/types.d
 ===================================================================
---- tango/stdc/posix/sys/types.d	(revision 4071)
+--- tango/stdc/posix/sys/types.d	(revision 4097)
 +++ tango/stdc/posix/sys/types.d	(working copy)
 @@ -422,7 +422,11 @@
  }
@@ -949,7 +819,7 @@ Index: tango/stdc/posix/sys/types.d
  {
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 4071)
+--- tango/stdc/stdlib.d	(revision 4097)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -965,7 +835,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 4071)
+--- tango/stdc/stdarg.d	(revision 4097)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
