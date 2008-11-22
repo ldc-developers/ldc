@@ -2951,14 +2951,19 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
 	{   Argument *arg = Argument::getNth(tf->parameters, i);
 	    Type *t;
 
-	    // each function needs its own copy of a tuple arg, since
-	    // they mustn't share arg flags like inreg, ...
-	    if (arg->type->ty == Ttuple)
-		arg->type = arg->type->syntaxCopy();
-
 	    tf->inuse++;
 	    arg->type = arg->type->semantic(loc,sc);
 	    if (tf->inuse == 1) tf->inuse--;
+
+	    // each function needs its own copy of a tuple arg, since
+	    // they mustn't share arg flags like inreg, ...
+	    if (arg->type->ty == Ttuple) {
+		arg->type = arg->type->syntaxCopy();
+		tf->inuse++;
+		arg->type = arg->type->semantic(loc,sc);
+		if (tf->inuse == 1) tf->inuse--;
+	    }
+
 	    t = arg->type->toBasetype();
 
 	    if (arg->storageClass & (STCout | STCref | STClazy))
