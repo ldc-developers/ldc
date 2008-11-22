@@ -1649,7 +1649,7 @@ DValue* AssertExp::toElem(IRState* p)
         llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
 
         // test condition
-        LLValue* condval = DtoBoolean(loc, cond);
+        LLValue* condval = DtoCast(loc, cond, Type::tbool)->getRVal();
 
         // branch
         llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
@@ -1675,7 +1675,7 @@ DValue* NotExp::toElem(IRState* p)
 
     DValue* u = e1->toElem(p);
 
-    LLValue* b = DtoBoolean(loc, u);
+    LLValue* b = DtoCast(loc, u, Type::tbool)->getRVal();
 
     LLConstant* zero = DtoConstBool(false);
     b = p->ir->CreateICmpEQ(b,zero);
@@ -1701,14 +1701,14 @@ DValue* AndAndExp::toElem(IRState* p)
     llvm::BasicBlock* andand = llvm::BasicBlock::Create("andand", gIR->topfunc(), oldend);
     llvm::BasicBlock* andandend = llvm::BasicBlock::Create("andandend", gIR->topfunc(), oldend);
 
-    LLValue* ubool = DtoBoolean(loc, u);
+    LLValue* ubool = DtoCast(loc, u, Type::tbool)->getRVal();
     DtoStore(ubool,resval);
     llvm::BranchInst::Create(andand,andandend,ubool,p->scopebb());
 
     p->scope() = IRScope(andand, andandend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoBoolean(loc, v);
+    LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
     LLValue* uandvbool = llvm::BinaryOperator::Create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
     DtoStore(uandvbool,resval);
     llvm::BranchInst::Create(andandend,p->scopebb());
@@ -1737,14 +1737,14 @@ DValue* OrOrExp::toElem(IRState* p)
     llvm::BasicBlock* oror = llvm::BasicBlock::Create("oror", gIR->topfunc(), oldend);
     llvm::BasicBlock* ororend = llvm::BasicBlock::Create("ororend", gIR->topfunc(), oldend);
 
-    LLValue* ubool = DtoBoolean(loc, u);
+    LLValue* ubool = DtoCast(loc, u, Type::tbool)->getRVal();
     DtoStore(ubool,resval);
     llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
     p->scope() = IRScope(oror, ororend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoBoolean(loc, v);
+    LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
     DtoStore(vbool,resval);
     llvm::BranchInst::Create(ororend,p->scopebb());
 
@@ -1999,7 +1999,7 @@ DValue* CondExp::toElem(IRState* p)
     llvm::BasicBlock* condend = llvm::BasicBlock::Create("condend", gIR->topfunc(), oldend);
 
     DValue* c = econd->toElem(p);
-    LLValue* cond_val = DtoBoolean(loc, c);
+    LLValue* cond_val = DtoCast(loc, c, Type::tbool)->getRVal();
     llvm::BranchInst::Create(condtrue,condfalse,cond_val,p->scopebb());
 
     p->scope() = IRScope(condtrue, condfalse);
@@ -2420,7 +2420,7 @@ DValue* GEPExp::toElem(IRState* p)
 
 DValue* BoolExp::toElem(IRState* p)
 {
-    return new DImValue(type, DtoBoolean(loc, e1->toElem(p)));
+    return new DImValue(type, DtoCast(loc, e1->toElem(p), Type::tbool)->getRVal());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

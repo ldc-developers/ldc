@@ -569,7 +569,11 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
         return new DImValue(_to, rval);
     }
 
-    if (to->isintegral()) {
+    if (to->ty == Tbool) {
+        LLValue* zero = LLConstantInt::get(rval->getType(), 0, false);
+        rval = gIR->ir->CreateICmpNE(rval, zero, "tmp");
+    }
+    else if (to->isintegral()) {
         if (fromsz < tosz || from->ty == Tbool) {
             if (Logger::enabled())
                 Logger::cout() << "cast to: " << *tolltype << '\n';
@@ -579,7 +583,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
                 rval = new llvm::SExtInst(rval, tolltype, "tmp", gIR->scopebb());
             }
         }
-        else if (fromsz > tosz || to->ty == Tbool) {
+        else if (fromsz > tosz) {
             rval = new llvm::TruncInst(rval, tolltype, "tmp", gIR->scopebb());
         }
         else {
@@ -626,6 +630,11 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
             Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
         rval = DtoBitCast(src, tolltype);
     }
+    else if (totype->ty == Tbool) {
+        LLValue* src = val->getRVal();
+        LLValue* zero = LLConstant::getNullValue(src->getType());
+        rval = gIR->ir->CreateICmpNE(src, zero, "tmp");
+    }
     else if (totype->isintegral()) {
         rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
     }
@@ -653,7 +662,12 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
 
     LLValue* rval;
 
-    if (totype->iscomplex()) {
+    if (totype->ty == Tbool) {
+        rval = val->getRVal();
+        LLValue* zero = LLConstant::getNullValue(rval->getType());
+        rval = gIR->ir->CreateFCmpONE(rval, zero, "tmp");
+    }
+    else if (totype->iscomplex()) {
         return DtoComplex(loc, to, val);
     }
     else if (totype->isfloating()) {
@@ -693,6 +707,10 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
     if (to->toBasetype()->ty == Tdelegate)
     {
         return DtoPaintType(loc, val, to);
+    }
+    else if (to->toBasetype()->ty == Tbool)
+    {
+        return new DImValue(to, DtoDelegateEquals(TOKnotequal, val->getRVal(), NULL));
     }
     else
     {
@@ -1610,67 +1628,6 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     if (base)
         return llvm::ConstantExpr::getBitCast(c, DtoType(Type::typeinfo->type));
     return c;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoBoolean(Loc& loc, DValue* dval)
-{
-    Type* dtype = dval->getType()->toBasetype();
-    TY ty = dtype->ty;
-
-    // integer
-    if (dtype->isintegral())
-    {
-        LLValue* val = dval->getRVal();
-        if (val->getType() == LLType::Int1Ty)
-            return val;
-        else {
-            LLValue* zero = LLConstantInt::get(val->getType(), 0, false);
-            return gIR->ir->CreateICmpNE(val, zero, "tmp");
-        }
-    }
-    // complex
-    else if (dtype->iscomplex())
-    {
-        return DtoComplexEquals(loc, TOKnotequal, dval, DtoNullValue(dtype));
-    }
-    // floating point
-    else if (dtype->isfloating())
-    {
-        LLValue* val = dval->getRVal();
-        LLValue* zero = LLConstant::getNullValue(val->getType());
-        return gIR->ir->CreateFCmpONE(val, zero, "tmp");
-    }
-    // pointer/class
-    else if (ty == Tpointer || ty == Tclass) {
-        LLValue* val = dval->getRVal();
-        LLValue* zero = LLConstant::getNullValue(val->getType());
-        if (Logger::enabled())
-        {
-            Logger::cout() << "val:  " << *val << '\n';
-            Logger::cout() << "zero: " << *zero << '\n';
-        }
-        return gIR->ir->CreateICmpNE(val, zero, "tmp");
-    }
-    // dynamic array
-    else if (ty == Tarray)
-    {
-        // return (arr.ptr !is null)
-        LLValue* ptr = DtoArrayPtr(dval);
-        LLConstant* nul = getNullPtr(ptr->getType());
-        return gIR->ir->CreateICmpNE(ptr, nul, "tmp");
-    }
-    // delegate
-    else if (ty == Tdelegate)
-    {
-        // return (dg !is null)
-        return DtoDelegateEquals(TOKnotequal, dval->getRVal(), NULL);
-    }
-    // unknown
-    std::cout << "unsupported -> bool : " << dtype->toChars() << '\n';
-    assert(0);
-    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

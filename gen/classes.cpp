@@ -924,9 +924,16 @@ DValue* DtoCastClass(DValue* val, Type* _to)
 
     Type* to = _to->toBasetype();
     if (to->ty == Tpointer) {
+        Logger::println("to pointer");
         const LLType* tolltype = DtoType(_to);
         LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(_to, rval);
+    }
+    else if (to->ty == Tbool) {
+        Logger::println("to bool");
+        LLValue* llval = val->getRVal();
+        LLValue* zero = LLConstant::getNullValue(llval->getType());
+        return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero, "tmp"));
     }
 
     assert(to->ty == Tclass);
@@ -947,7 +954,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
         }
     }
     else {
-        Logger::println("to object");
+        Logger::println("to class");
         int poffset;
         if (fc->sym->isInterfaceDeclaration()) {
             Logger::println("interface cast");

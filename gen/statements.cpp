@@ -168,7 +168,7 @@ void IfStatement::toIR(IRState* p)
     if (cond_val->getType() != LLType::Int1Ty) {
         if (Logger::enabled())
             Logger::cout() << "if conditional: " << *cond_val << '\n';
-        cond_val = DtoBoolean(loc, cond_e);
+        cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
     }
     LLValue* ifgoback = llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
 
@@ -256,7 +256,7 @@ void WhileStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    LLValue* cond_val = DtoBoolean(loc, cond_e);
+    LLValue* cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
     delete cond_e;
 
     // conditional branch
@@ -312,7 +312,7 @@ void DoStatement::toIR(IRState* p)
 
     // create the condition
     DValue* cond_e = condition->toElem(p);
-    LLValue* cond_val = DtoBoolean(loc, cond_e);
+    LLValue* cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
     delete cond_e;
 
     // conditional branch
@@ -357,7 +357,7 @@ void ForStatement::toIR(IRState* p)
     if (condition)
     {
         DValue* cond_e = condition->toElem(p);
-        cond_val = DtoBoolean(loc, cond_e);
+        cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
     }
     else

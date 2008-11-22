@@ -454,6 +454,9 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         DImValue* re = new DImValue(to, repart);
         return DtoCastFloat(loc, re, to);
     }
+    else if (to->ty == Tbool) {
+        return new DImValue(_to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
+    }
     else
     assert(0);
 }

@@ -108,9 +108,6 @@ DValue* DtoBinRem(Type* resulttype, DValue* lhs, DValue* rhs);
 // target stuff
 void findDefaultTarget();
 
-/// Converts any value to a boolean (llvm i1)
-LLValue* DtoBoolean(Loc& loc, DValue* dval);
-
 /// get the default initializer of the type
 LLConstant* DtoDefaultInit(Type* t);
 

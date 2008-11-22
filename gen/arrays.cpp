@@ -945,6 +945,12 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
             Logger::cout() << "to sarray" << '\n';
         assert(0);
     }
+    else if (totype->ty == Tbool) {
+        // return (arr.ptr !is null)
+        LLValue* ptr = DtoArrayPtr(u);
+        LLConstant* nul = getNullPtr(ptr->getType());
+        rval = gIR->ir->CreateICmpNE(ptr, nul, "tmp");
+    }
     else {
         assert(0);
     }
