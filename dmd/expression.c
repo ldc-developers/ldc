@@ -8593,7 +8593,7 @@ Expression *OrOrExp::semantic(Scope *sc)
     e2 = e2->checkToPointer();
 
     type = Type::tboolean;
-    if (e1->type->ty == Tvoid)
+    if (e2->type->ty == Tvoid)
 	type = Type::tvoid;
     if (e2->op == TOKtype || e2->op == TOKimport)
 	error("%s is not an expression", e2->toChars());
@@ -8658,7 +8658,7 @@ Expression *AndAndExp::semantic(Scope *sc)
     e2 = e2->checkToPointer();
 
     type = Type::tboolean;
-    if (e1->type->ty == Tvoid)
+    if (e2->type->ty == Tvoid)
 	type = Type::tvoid;
     if (e2->op == TOKtype || e2->op == TOKimport)
 	error("%s is not an expression", e2->toChars());
