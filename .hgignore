@@ -1,11 +1,15 @@
 syntax: glob
 *.bc
 *.o
-*.s
-*.a
-*.so
+*.obj
 *.orig
+*.a
+*.s
+*.so
 Makefile
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
 .DS_Store
 
 syntax: regexp
@@ -20,7 +24,9 @@ syntax: regexp
 ^impcnvgen
 ^impcnvgen.make
 ^ldc.make
-^dmd/impcnvtab.c
+^dmd2?/impcnvtab.c
+^dmd2?/id.c
+^dmd2?/id.h
 ^tests/runminitest
 ^tests/findregressions
 ^tests/makewebstatistics
