@@ -665,7 +665,7 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
     if (totype->ty == Tbool) {
         rval = val->getRVal();
         LLValue* zero = LLConstant::getNullValue(rval->getType());
-        rval = gIR->ir->CreateFCmpONE(rval, zero, "tmp");
+        rval = gIR->ir->CreateFCmpUNE(rval, zero, "tmp");
     }
     else if (totype->iscomplex()) {
         return DtoComplex(loc, to, val);
