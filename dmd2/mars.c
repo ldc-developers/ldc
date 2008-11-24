@@ -350,15 +350,15 @@ int main(int argc, char *argv[], char** envp)
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
     VersionCondition::addPredefinedGlobalIdent("all");
 
-#if _WIN32
+//#if _WIN32
 
-#if DMDV2
-    inifile(global.params.argv0, "ldc2.ini");
-#else
-    inifile(global.params.argv0, "ldc.ini");
-#endif
+//#if DMDV2
+//    inifile(global.params.argv0, "ldc2.ini");
+//#else
+//    inifile(global.params.argv0, "ldc.ini");
+//#endif
 
-#elif POSIX
+//#elif POSIX
 
 #if DMDV2
     inifile(global.params.argv0, "ldc2.conf");
@@ -366,9 +366,9 @@ int main(int argc, char *argv[], char** envp)
     inifile(global.params.argv0, "ldc.conf");
 #endif
 
-#else
-#error
-#endif
+//#else
+//#error
+//#endif
     getenv_setargv("DFLAGS", &argc, &argv);
 
 #if 0
