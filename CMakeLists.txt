@@ -9,12 +9,14 @@ if(NOT PERL)
 	message(FATAL_ERROR "perl not found")
 endif(NOT PERL)
 
-set(LLVM_INSTDIR CACHE PATH "LLVM installation directory")
-
 find_program(LLVM_CONFIG llvm-config ${LLVM_INSTDIR}/bin DOC "path to llvm-config tool")
-if(NOT LLVM_CONFIG)
-	message(FATAL_ERROR "llvm-config not found")
-endif(NOT LLVM_CONFIG)
+# get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
+string(REPLACE "/bin/llvm-config" "" LLVM_DIR ${LLVM_CONFIG})
+
+set(LLVM_INSTDIR ${LLVM_DIR} CACHE PATH "LLVM installation directory" FORCE)
+if(NOT LLVM_INSTDIR)
+	message(FATAL_ERROR "llvm not found")
+endif(NOT LLVM_INSTDIR)
 
 execute_process(
 	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --host-target
@@ -36,10 +38,10 @@ execute_process(
 	OUTPUT_VARIABLE LLVM_LIBS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-# get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
-string(REPLACE "/bin/llvm-config" "" LLVM_INSTDIR ${LLVM_CONFIG})
 
 set(D_VERSION 1 CACHE STRING "D language version")
+option(USE_BOEHM_GC "use the Boehm garbage collector internally")
+
 if(D_VERSION EQUAL 1)
 	set(DMDFE_PATH dmd)
 	set(LDC_EXE ldc)
@@ -69,6 +71,7 @@ add_executable(impcnvgen ${DMDFE_PATH}/impcnvgen.c)
 set_target_properties(
 	idgen impcnvgen PROPERTIES
 	LINKER_LANGUAGE CXX
+	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
@@ -127,17 +130,21 @@ add_definitions(
 	-DIN_LLVM
 	-D_DH
 	-DOPAQUE_VTBLS
-	-DUSE_BOEHM_GC=0
 	-DX86_REVERSE_PARAMS
 	-DX86_PASS_IN_EAX
 )
 
 if(UNIX)
 	add_definitions(-DPOSIX)
-	#set(CONF_SUFFIX conf)
 endif(UNIX)
 
+if(USE_BOEHM_GC)
+	add_definitions(-DUSE_BOEHM_GC)
+endif(USE_BOEHM_GC)
+
 if(CMAKE_MINOR_VERSION LESS 6)
+	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
+	set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib CACHE PATH "output dir for built libraries")
 	add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
 else(CMAKE_MINOR_VERSION LESS 6)
 	add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
@@ -155,27 +162,15 @@ set_target_properties(
 target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}")
 if(WIN32)
 	target_link_libraries(${LDC_EXE} psapi)
-	#set(CONF_SUFFIX ini)
 endif(WIN32)
 
-# cmake pre 2.6 doesn't support the RUNTIME_OUTPUT_DIRECTORY target property
-if(CMAKE_MINOR_VERSION LESS 6)
-	get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
-	add_custom_command(
-		TARGET ${LDC_EXE}
-		POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy ${LDC_LOC} ${PROJECT_BINARY_DIR}/bin/
-		COMMAND ${CMAKE_COMMAND} -E remove ${LDC_LOC}
-	)
-endif(CMAKE_MINOR_VERSION LESS 6)
+if(USE_BOEHM_GC)
+	target_link_libraries(${LDC_EXE} gc)
+endif(USE_BOEHM_GC)
 
-#configure_file(${PROJECT_SOURCE_DIR}/ldc.conf.in ${PROJECT_BINARY_DIR}/bin/ldc.${CONF_SUFFIX})
-	
-# TODO: runtime build
-# possible problems:
-#	with an oos-build, how to set up a working environment, with conf/ini and tango in place?
-#	patch tango? how to determine if that's already been done?
-#	std but compatible runtime build, or shared, which doesn't yet work on every platform
-#	
+get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
+
 # TODO: install target
 # TODO: testrun
+
+add_subdirectory(runtime EXCLUDE_FROM_ALL)

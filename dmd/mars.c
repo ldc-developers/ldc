@@ -345,13 +345,13 @@ int main(int argc, char *argv[], char** envp)
     //VersionCondition::addPredefinedGlobalIdent("D_Bits");
     VersionCondition::addPredefinedGlobalIdent("all");
 
-#if _WIN32
-    inifile(global.params.argv0, "ldc.ini");
-#elif POSIX
+//#if _WIN32
+//    inifile(global.params.argv0, "ldc.ini");
+//#elif POSIX
     inifile(global.params.argv0, "ldc.conf");
-#else
-#error
-#endif
+//#else
+//#error
+//#endif
     getenv_setargv("DFLAGS", &argc, &argv);
 
 #if 0
