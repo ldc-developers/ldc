@@ -41,7 +41,7 @@ unsigned DtoCallingConv(LINK l)
     {
         //TODO: StdCall is not a good base on Windows due to extra name mangling
         // applied there
-        if (global.params.cpu == ARCHx86 && !global.params.os == OSWindows)
+        if (global.params.cpu == ARCHx86 && global.params.os != OSWindows)
             return llvm::CallingConv::X86_StdCall;
         else
             return llvm::CallingConv::Fast;
