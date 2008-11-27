@@ -2,9 +2,6 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.6)
 
-# not working, gcc has to be on the path before invoking make
-#set(ENV{PATH} ENV{PATH} CMAKE_C_COMPILER:FILEPATH)
-
 find_program(GCC_EXE gcc DOC "path to gcc binary")
 if(NOT GCC_EXE)
 	message(STATUS "gcc needs to be on your path to build the runtime")
@@ -15,18 +12,50 @@ option(BUILD_BC_LIBS "build the runtime as bytecode libraries")
 option(BUILD_SINGLE_LIB "build single runtime library" ON)
 set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
-get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 if(D_VERSION EQUAL 1)
 	set(RUNTIME tango)
-	set(LDC_EXE ldc)
 elseif(D_VERSION EQUAL 2)
 	set(RUNTIME druntime)
-	set(LDC_EXE ldc2)
 else(D_VERSION EQUAL 1)
 	message(FATAL_ERROR "set d version to 1 or 2")
 endif(D_VERSION EQUAL 1)
-
+get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir" FORCE)
+
+if(D_VERSION EQUAL 1)
+	# build tango for D1, druntime for D2
+	set(LDC_EXE ldc)
+	# copy imports to runtime dir
+	add_custom_command(
+		OUTPUT ldc-imports
+		COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/import/ldc ${RUNTIME_DIR}/ldc
+		COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/internal/ldc/bitmanip.d ${RUNTIME_DIR}/ldc
+		COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/internal/ldc/vararg.d ${RUNTIME_DIR}/ldc
+	)
+	set(LDC_IMPORTS ldc-imports)
+	# library names
+	set(RUNTIME_CC tango-cc-tango)
+	set(RUNTIME_GC tango-gc-basic)
+	set(RUNTIME_DC ldc-runtime)
+	set(RUNTIME_AIO tango-ldc)
+	# set paths to source files, or fill lists directly
+	set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
+	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
+	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
+	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
+elseif(D_VERSION EQUAL 2)
+	set(LDC_EXE ldc2)
+	set(RUNTIME_CC druntime-core)
+	set(RUNTIME_GC druntime-gc-basic)
+	set(RUNTIME_DC druntime-rt-ldc)
+	set(RUNTIME_AIO druntime-ldc)
+	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/compiler/ldc)
+	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc/basic)
+	file(GLOB CORE_D ${RUNTIME_DIR}/src/common/core/*.d)
+	file(GLOB CORE_C ${RUNTIME_DIR}/src/common/core/stdc/*.c)
+else(D_VERSION EQUAL 1)
+	message(FATAL_ERROR "set d version to 1 or 2")
+endif(D_VERSION EQUAL 1)
 
 # should only be necessary if run independently from ldc cmake project
 if(NOT LDC_LOC)
@@ -43,7 +72,6 @@ if(NOT LDC_LOC)
 		message(SEND_ERROR "ldc not found")
 	endif(NOT LDC_LOC)
 endif(NOT LDC_LOC)
-#
 
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 
@@ -57,40 +85,12 @@ else(NOT PATCH_EXE)
 		COMMAND ${PATCH_EXE} -t -N -p0 -i ${PROJECT_SOURCE_DIR}/${LDC_EXE}.diff
 		WORKING_DIRECTORY ${RUNTIME_DIR}
 	)
-	add_custom_target(patch DEPENDS patch-runtime)
-endif(NOT PATCH_EXE)
-#
-
-# build tango for D1, druntime for D2
-if(D_VERSION EQUAL 1)
-	# library names
-	set(RUNTIME_CC tango-cc-tango)
-	set(RUNTIME_GC tango-gc-basic)
-	set(RUNTIME_DC ldc-runtime)
-	set(RUNTIME_AIO tango-ldc)
-	# set paths to source files, or fill lists directly
-	set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
-	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
-	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
-	# copy imports to runtime dir
 	add_custom_command(
-		TARGET ldc-runtime
-		POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/import/ldc ${RUNTIME_DIR}/ldc
-		COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/internal/ldc/bitmanip.d ${RUNTIME_DIR}/ldc
-		COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/internal/ldc/vararg.d ${RUNTIME_DIR}/ldc
+		OUTPUT recache
+		COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_BINARY_DIR}/..
 	)
-elseif(D_VERSION EQUAL 2)
-	set(RUNTIME_CC druntime-core)
-	set(RUNTIME_GC druntime-gc-basic)
-	set(RUNTIME_DC druntime-rt-ldc)
-	set(RUNTIME_AIO druntime-ldc)
-	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/compiler/ldc)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc/basic)
-	file(GLOB CORE_D ${RUNTIME_DIR}/src/common/core/*.d)
-	file(GLOB CORE_C ${RUNTIME_DIR}/src/common/core/stdc/*.c)
-endif(D_VERSION EQUAL 1)
+	add_custom_target(patch DEPENDS patch-runtime recache ${LDC_IMPORTS})
+endif(NOT PATCH_EXE)
 
 file(GLOB GC_D ${RUNTIME_GC_DIR}/*.d)
 file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
@@ -112,12 +112,13 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR)
 	)
 endmacro(dc)
 
+# dc_dir include for core and gc only necessary with druntime
 foreach(f ${CORE_D})
-	dc(${f} CORE_O CORE_BC core .)
+	dc(${f} CORE_O CORE_BC core ${RUNTIME_DC_DIR})
 endforeach(f)
 
 foreach(f ${GC_D})
-	dc(${f} GC_O GC_BC gc ${RUNTIME_GC_DIR})
+	dc(${f} GC_O GC_BC gc "${RUNTIME_GC_DIR} ${RUNTIME_DC_DIR}")
 endforeach(f)
 
 foreach(f ${DCRT_D})
