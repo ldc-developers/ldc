@@ -1,17 +1,3 @@
-Index: object.di
-===================================================================
---- object.di	(revision 4110)
-+++ object.di	(working copy)
-@@ -150,6 +150,9 @@
-     void function() dtor;
-     void function() unitTest;
- 
-+    void* xgetMembers;
-+    void function() ictor;
-+
-     static int opApply( int delegate( inout ModuleInfo ) );
- }
- 
 Index: lib/unittest.sh
 ===================================================================
 --- lib/unittest.sh	(revision 4110)
