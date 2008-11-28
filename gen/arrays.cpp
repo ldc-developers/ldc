@@ -24,12 +24,12 @@ const LLStructType* DtoArrayType(Type* arrayTy)
     const LLType* elemty = DtoType(arrayTy->nextOf());
     if (elemty == LLType::VoidTy)
         elemty = LLType::Int8Ty;
-    return LLStructType::get(DtoSize_t(), getPtrToType(elemty), 0);
+    return LLStructType::get(DtoSize_t(), getPtrToType(elemty), NULL);
 }
 
 const LLStructType* DtoArrayType(const LLType* t)
 {
-    return LLStructType::get(DtoSize_t(), getPtrToType(t), 0);
+    return LLStructType::get(DtoSize_t(), getPtrToType(t), NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

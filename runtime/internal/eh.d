@@ -280,7 +280,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 
     // get classinfo for action and check if the one in the
     // exception structure is a base
-    ClassInfo catch_ci = classinfo_table[-ti_offset];
+    ClassInfo catch_ci = *(classinfo_table - ti_offset);
     debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
     if(_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
       return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
@@ -320,7 +320,7 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
   {
     debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
     _Unwind_SetGR(context, eh_exception_regno, cast(ulong)cast(void*)(exception_struct.exception_object));
-    _Unwind_SetGR(context, eh_selector_regno, switchval);
+    _Unwind_SetGR(context, eh_selector_regno, cast(ulong)switchval);
     _Unwind_SetIP(context, landing_pad);
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
   }

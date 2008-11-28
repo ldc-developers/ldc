@@ -39,7 +39,7 @@ namespace Logger
     void println(const char* fmt,...)
     {
         if (_enabled) {
-            printf(indent_str.c_str());
+            printf("%s", indent_str.c_str());
             va_list va;
             va_start(va,fmt);
             vprintf(fmt,va);
@@ -50,7 +50,7 @@ namespace Logger
     void print(const char* fmt,...)
     {
         if (_enabled) {
-            printf(indent_str.c_str());
+            printf("%s", indent_str.c_str());
             va_list va;
             va_start(va,fmt);
             vprintf(fmt,va);

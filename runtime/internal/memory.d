@@ -263,7 +263,7 @@ void initStaticDataPtrs()
         // TODO: Exclude zero-mapped regions
 
         int   fd = open("/proc/self/maps", O_RDONLY);
-        int   count; // %% need to configure ret for read..
+        ptrdiff_t   count; // %% need to configure ret for read..
         char  buf[2024];
         char* p;
         char* e;
@@ -338,7 +338,7 @@ void initStaticDataPtrs()
                     else
                     {
                         count = p - s;
-                        memmove(buf.ptr, s, count);
+                        memmove(buf.ptr, s, cast(size_t)count);
                         p = buf.ptr + count;
                         break;
                     }

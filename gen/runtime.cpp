@@ -110,7 +110,7 @@ static const LLType* rt_ptr(const LLType* t)
 
 static const LLType* rt_array(const LLType* elemty)
 {
-    return llvm::StructType::get(DtoSize_t(), rt_ptr(elemty), 0);
+    return llvm::StructType::get(DtoSize_t(), rt_ptr(elemty), NULL);
 }
 
 static const LLType* rt_dg1()
@@ -119,7 +119,7 @@ static const LLType* rt_dg1()
     types.push_back(rt_ptr(LLType::Int8Ty));
     types.push_back(rt_ptr(LLType::Int8Ty));
     const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::Int32Ty, types, false);
-    return llvm::StructType::get(rt_ptr(LLType::Int8Ty), rt_ptr(fty), 0);
+    return llvm::StructType::get(rt_ptr(LLType::Int8Ty), rt_ptr(fty), NULL);
 }
 
 static const LLType* rt_dg2()
@@ -129,7 +129,7 @@ static const LLType* rt_dg2()
     types.push_back(rt_ptr(LLType::Int8Ty));
     types.push_back(rt_ptr(LLType::Int8Ty));
     const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::Int32Ty, types, false);
-    return llvm::StructType::get(rt_ptr(LLType::Int8Ty), rt_ptr(fty), 0);
+    return llvm::StructType::get(rt_ptr(LLType::Int8Ty), rt_ptr(fty), NULL);
 }
 
 static void LLVM_D_BuildRuntimeModule()
@@ -152,9 +152,9 @@ static void LLVM_D_BuildRuntimeModule()
     else
         realTy = LLType::DoubleTy;
 
-    const LLType* cfloatTy = llvm::StructType::get(floatTy, floatTy, 0);
-    const LLType* cdoubleTy = llvm::StructType::get(doubleTy, doubleTy, 0);
-    const LLType* crealTy = llvm::StructType::get(realTy, realTy, 0);
+    const LLType* cfloatTy = llvm::StructType::get(floatTy, floatTy, NULL);
+    const LLType* cdoubleTy = llvm::StructType::get(doubleTy, doubleTy, NULL);
+    const LLType* crealTy = llvm::StructType::get(realTy, realTy, NULL);
 
     const LLType* voidPtrTy = rt_ptr(byteTy);
     const LLType* stringTy = rt_array(byteTy);

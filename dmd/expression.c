@@ -4864,7 +4864,7 @@ Expression *FileExp::semantic(Scope *sc)
     }
 
     if (global.params.verbose)
-	printf("file      %s\t(%s)\n", se->string, name);
+	printf("file      %s\t(%s)\n", (char*)se->string, name);
 
     {	File f(name);
 	if (f.read())

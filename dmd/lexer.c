@@ -138,11 +138,11 @@ const char *Token::toChars()
 	    break;
 
 	case TOKint64v:
-	    sprintf(buffer,"%lldL",int64value);
+	    sprintf(buffer,"%lldL",(long long)int64value);
 	    break;
 
 	case TOKuns64v:
-	    sprintf(buffer,"%lluUL",uns64value);
+	    sprintf(buffer,"%lluUL",(unsigned long long)uns64value);
 	    break;
 
 #if IN_GCC

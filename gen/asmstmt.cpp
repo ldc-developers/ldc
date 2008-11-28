@@ -6,6 +6,7 @@
 
 //#include "d-gcc-includes.h"
 //#include "total.h"
+#include "mars.h"
 #include "statement.h"
 #include "scope.h"
 #include "declaration.h"
@@ -419,7 +420,7 @@ static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
         needle = prefix + digits[i] + suffix;
         size_t pos = insnt.find(needle);
         if(std::string::npos != pos)
-            sprintf(buf, "%u", idx++);
+            sprintf(buf, "%" PRIuSIZE, idx++);
         while(std::string::npos != (pos = insnt.find(needle)))
             insnt.replace(pos, needle.size(), buf);
     }
@@ -444,7 +445,7 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
         needle = prefix + digits[i] + suffix;
         size_t pos = insnt.find(needle);
         if(std::string::npos != pos)
-            sprintf(buf, "%u", idx++);
+            sprintf(buf, "%" PRIuSIZE, idx++);
         while(std::string::npos != (pos = insnt.find(needle)))
             insnt.replace(pos, needle.size(), buf);
     }

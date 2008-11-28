@@ -229,7 +229,7 @@ const LLStructType* DtoDelegateType(Type* t)
     const LLType* i8ptr = getVoidPtrType();
     const LLType* func = DtoFunctionType(t->nextOf(), NULL, i8ptr);
     const LLType* funcptr = getPtrToType(func);
-    return LLStructType::get(i8ptr, funcptr, 0);
+    return LLStructType::get(i8ptr, funcptr, NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -740,7 +740,7 @@ const LLStructType* DtoMutexType()
     // FreeBSD
     else if (global.params.os == OSFreeBSD) {
         // Just a pointer
-        return LLStructType::get(DtoSize_t(), 0);
+        return LLStructType::get(DtoSize_t(), NULL);
     }
 
     // pthread_fastlock
@@ -813,7 +813,7 @@ LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* n
 
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
 {
-    const LLType* t = LLStructType::get(V1->getType(), V2->getType(), 0);
+    const LLType* t = LLStructType::get(V1->getType(), V2->getType(), NULL);
     return DtoAggrPair(t, V1, V2, name);
 }
 
