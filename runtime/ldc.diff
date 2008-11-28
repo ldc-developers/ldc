@@ -1,6 +1,6 @@
 Index: lib/unittest.sh
 ===================================================================
---- lib/unittest.sh	(revision 4110)
+--- lib/unittest.sh	(revision 4134)
 +++ lib/unittest.sh	(working copy)
 @@ -18,8 +18,9 @@
    --help: This message
@@ -57,7 +57,7 @@ Index: lib/unittest.sh
 +fi
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 4110)
+--- lib/common/tango/core/BitManip.d	(revision 4134)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -72,7 +72,7 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 4110)
+--- lib/common/tango/core/Thread.d	(revision 4134)
 +++ lib/common/tango/core/Thread.d	(working copy)
 @@ -273,8 +273,50 @@
          }
@@ -246,7 +246,7 @@ Index: lib/common/tango/core/Thread.d
              getcontext( &m_utxt );
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 4110)
+--- lib/gc/basic/gcx.d	(revision 4134)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -339,7 +339,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 4110)
+--- lib/gc/basic/gcbits.d	(revision 4134)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -354,7 +354,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: lib/build-tango.sh
 ===================================================================
---- lib/build-tango.sh	(revision 4110)
+--- lib/build-tango.sh	(revision 4134)
 +++ lib/build-tango.sh	(working copy)
 @@ -23,7 +23,7 @@
    --debug: Will enable debug info
@@ -386,7 +386,7 @@ Index: lib/build-tango.sh
              build powerpc-apple-darwin8-gdmd libgtango.a.ppc libgphobos.a.ppc
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 4110)
+--- tango/text/convert/Layout.d	(revision 4134)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -412,7 +412,7 @@ Index: tango/text/convert/Layout.d
                  return parse (formatStr, arguments, arglist, sink);
 Index: tango/net/cluster/CacheInvalidator.d
 ===================================================================
---- tango/net/cluster/CacheInvalidator.d	(revision 4110)
+--- tango/net/cluster/CacheInvalidator.d	(revision 4134)
 +++ tango/net/cluster/CacheInvalidator.d	(working copy)
 @@ -79,7 +79,7 @@
  
@@ -425,7 +425,7 @@ Index: tango/net/cluster/CacheInvalidator.d
  
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 4110)
+--- tango/core/Vararg.d	(revision 4134)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -440,9 +440,9 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/sync/Semaphore.d
 ===================================================================
---- tango/core/sync/Semaphore.d	(revision 4110)
+--- tango/core/sync/Semaphore.d	(revision 4134)
 +++ tango/core/sync/Semaphore.d	(working copy)
-@@ -376,7 +376,8 @@
+@@ -380,7 +380,8 @@
              {
                  synchronized( synComplete )
                  {
@@ -452,7 +452,7 @@ Index: tango/core/sync/Semaphore.d
                          break;
                  }
                  Thread.yield();
-@@ -384,9 +385,9 @@
+@@ -388,9 +389,9 @@
  
              synchronized( synComplete )
              {
@@ -464,7 +464,7 @@ Index: tango/core/sync/Semaphore.d
              synchronized( synConsumed )
              {
                  assert( numConsumed == numToProduce );
-@@ -447,7 +448,8 @@
+@@ -451,7 +452,8 @@
  
      unittest
      {
@@ -476,7 +476,7 @@ Index: tango/core/sync/Semaphore.d
  }
 Index: tango/core/sync/Condition.d
 ===================================================================
---- tango/core/sync/Condition.d	(revision 4110)
+--- tango/core/sync/Condition.d	(revision 4134)
 +++ tango/core/sync/Condition.d	(working copy)
 @@ -553,8 +553,11 @@
  
@@ -492,7 +492,7 @@ Index: tango/core/sync/Condition.d
  }
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 4110)
+--- tango/core/Atomic.d	(revision 4134)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -662,21 +662,9 @@ Index: tango/core/Atomic.d
  // x86 Atomic Function Implementation
  ////////////////////////////////////////////////////////////////////////////////
  
-@@ -282,9 +443,9 @@
-         {
-             pragma( msg, "tango.core.Atomic: using IA-32 inline asm" );
-         }
--
-+        version(darwin){}
-+        else { version = Has64BitCAS; }
-         version = Has32BitOps;
--        version = Has64BitCAS;
-     }
-     version( X86_64 )
-     {
 Index: tango/math/IEEE.d
 ===================================================================
---- tango/math/IEEE.d	(revision 4110)
+--- tango/math/IEEE.d	(revision 4134)
 +++ tango/math/IEEE.d	(working copy)
 @@ -1554,7 +1554,12 @@
          return (bitsdiff == 0 && !((pa[F.EXPPOS_SHORT] ^ pb[F.EXPPOS_SHORT])& F.EXPMASK)) ? 1 : 0;
@@ -694,7 +682,7 @@ Index: tango/math/IEEE.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 4110)
+--- tango/math/Math.d	(revision 4134)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -843,7 +831,7 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/stdc/posix/sys/types.d
 ===================================================================
---- tango/stdc/posix/sys/types.d	(revision 4110)
+--- tango/stdc/posix/sys/types.d	(revision 4134)
 +++ tango/stdc/posix/sys/types.d	(working copy)
 @@ -422,7 +422,11 @@
  }
@@ -860,7 +848,7 @@ Index: tango/stdc/posix/sys/types.d
  {
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 4110)
+--- tango/stdc/stdlib.d	(revision 4134)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -876,7 +864,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 4110)
+--- tango/stdc/stdarg.d	(revision 4134)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
