@@ -560,7 +560,7 @@ static void init_class_vtbl_initializer(ClassDeclaration* cd)
         FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd);
 
-        if (fd->isAbstract())
+        if (fd->isAbstract() || (cd->isAbstract() && !fd->fbody))
         {
             sinits[k] = getNullPtr(getVoidPtrType());
         }
