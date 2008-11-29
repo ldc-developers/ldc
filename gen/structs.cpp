@@ -18,7 +18,6 @@
 #include "ir/irstruct.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void addZeros(std::vector<llvm::Constant*>& inits, unsigned pos, unsigned offset); // defined in irstruct.cpp
 
 // pair of var and its init
 typedef std::pair<VarDeclaration*,Initializer*> VarInitPair;

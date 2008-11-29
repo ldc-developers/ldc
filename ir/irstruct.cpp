@@ -120,8 +120,6 @@ void IrStruct::popAnon()
 
 //////////////////////////////////////////
 
-void addZeros(std::vector<const llvm::Type*>& inits, size_t pos, size_t offset);
-
 void IrStruct::addVar(VarDeclaration * var)
 {
     TypeVector* tvec = &types;

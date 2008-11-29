@@ -2277,8 +2277,6 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void addZeros(std::vector<llvm::Value*>& inits, unsigned pos, unsigned offset);
-
 DValue* StructLiteralExp::toElem(IRState* p)
 {
     Logger::print("StructLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
@@ -2361,8 +2359,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-void addZeros(std::vector<llvm::Constant*>& inits, unsigned pos, unsigned offset);
 
 LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {

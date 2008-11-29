@@ -421,10 +421,6 @@ void DtoDeclareClass(ClassDeclaration* cd)
         DtoTypeInfoOf(cd->type, false);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void addZeros(std::vector<llvm::Constant*>& inits, size_t pos, size_t offset); // irstruct.cpp
-
 //////////////////////////////////////////////////////////////////////////////
 
 // adds data fields and interface vtables to the constant initializer of class cd
@@ -547,6 +543,9 @@ static void init_class_vtbl_initializer(ClassDeclaration* cd)
         FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd);
 
+        // if function is abstract,
+        // or class is abstract, and func has no body,
+        // emit a null vtbl entry
         if (fd->isAbstract() || (cd->isAbstract() && !fd->fbody))
         {
             sinits[k] = getNullPtr(getVoidPtrType());
