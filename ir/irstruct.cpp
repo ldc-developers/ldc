@@ -319,7 +319,7 @@ void IrStruct::buildDefaultConstInit(std::vector<llvm::Constant*>& inits)
             // add the field
             // lazily default initialize
             if (!var->ir.irField->constInit)
-                var->ir.irField->constInit = DtoConstFieldInitializer(var->loc, var->type, var->init);
+                var->ir.irField->constInit = DtoConstInitializer(var->loc, var->type, var->init);
             inits.push_back(var->ir.irField->constInit);
 
             lastoffset = offset;

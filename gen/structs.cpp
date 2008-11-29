@@ -208,7 +208,7 @@ Lpadding:
                 // do the default
                 Logger::println("adding default field: %s : +%u", nextdef->toChars(), nextdef->offset);
                 if (!nextdef->ir.irField->constInit)
-                    nextdef->ir.irField->constInit = DtoConstFieldInitializer(nextdef->loc, nextdef->type, nextdef->init);
+                    nextdef->ir.irField->constInit = DtoConstInitializer(nextdef->loc, nextdef->type, nextdef->init);
                 LLConstant* c = nextdef->ir.irField->constInit;
                 inits.push_back(c);
 
@@ -263,7 +263,7 @@ Lpadding2:
             // do the default
             Logger::println("adding default field: %s : +%u", nextdef->toChars(), nextdef->offset);
             if (!nextdef->ir.irField->constInit)
-                nextdef->ir.irField->constInit = DtoConstFieldInitializer(nextdef->loc, nextdef->type, nextdef->init);
+                nextdef->ir.irField->constInit = DtoConstInitializer(nextdef->loc, nextdef->type, nextdef->init);
             LLConstant* c = nextdef->ir.irField->constInit;
             inits.push_back(c);
 

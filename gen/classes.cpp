@@ -485,7 +485,7 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
         // add the field
         // and build its constant initializer lazily
         if (!var->ir.irField->constInit)
-            var->ir.irField->constInit = DtoConstFieldInitializer(var->loc, var->type, var->init);
+            var->ir.irField->constInit = DtoConstInitializer(var->loc, var->type, var->init);
         inits.push_back(var->ir.irField->constInit);
 
         lastoffset = offset;

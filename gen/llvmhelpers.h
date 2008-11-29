@@ -87,7 +87,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var);
 
 // initializer helpers
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
-LLConstant* DtoConstFieldInitializer(Loc loc, Type* type, Initializer* init);
 LLConstant* DtoConstExpInit(Loc loc, Type* t, Expression* exp);
 DValue* DtoInitializer(LLValue* target, Initializer* init);
 

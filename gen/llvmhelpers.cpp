@@ -1428,55 +1428,6 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLConstant* DtoConstFieldInitializer(Loc loc, Type* t, Initializer* init)
-{
-    Logger::println("DtoConstFieldInitializer");
-    LOG_SCOPE;
-
-    const LLType* _type = DtoType(t);
-
-    LLConstant* _init = DtoConstInitializer(loc, t, init);
-    assert(_init);
-    if (_type != _init->getType())
-    {
-        if (Logger::enabled())
-            Logger::cout() << "field init is: " << *_init << " type should be " << *_type << '\n';
-        if (t->ty == Tsarray)
-        {
-            const LLArrayType* arrty = isaArray(_type);
-            uint64_t n = arrty->getNumElements();
-            std::vector<LLConstant*> vals(n,_init);
-            _init = llvm::ConstantArray::get(arrty, vals);
-        }
-        else if (t->ty == Tarray)
-        {
-            assert(isaStruct(_type));
-            _init = llvm::ConstantAggregateZero::get(_type);
-        }
-        else if (t->ty == Tstruct)
-        {
-            const LLStructType* structty = isaStruct(_type);
-            TypeStruct* ts = (TypeStruct*)t;
-            assert(ts);
-            assert(ts->sym);
-            assert(ts->sym->ir.irStruct->constInit);
-            _init = ts->sym->ir.irStruct->constInit;
-        }
-        else if (t->ty == Tclass)
-        {
-            _init = llvm::Constant::getNullValue(_type);
-        }
-        else {
-            Logger::println("failed for type %s", t->toChars());
-            assert(0);
-        }
-    }
-
-    return _init;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DtoInitializer(LLValue* target, Initializer* init)
 {
     if (!init)
@@ -1537,17 +1488,6 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
     Type* t = base->toBasetype();
 
     LLSmallVector<size_t, 4> dims;
-
-    // handle zero initializers
-    if (expbase->isintegral() && exp->isConst())
-    {
-        if (!exp->toInteger())
-            return LLConstant::getNullValue(dstTy);
-    }
-    else if (exp->op == TOKnull)
-    {
-        return LLConstant::getNullValue(dstTy);
-    }
 
     while(1)
     {
