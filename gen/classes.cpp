@@ -491,7 +491,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
     {
         IrStruct::Offset* so = &i->second;
-        LLConstant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
+        LLConstant* finit = DtoConstFieldInitializer(so->var->loc, so->var->type, so->var->init);
         so->init = finit;
         so->var->ir.irField->constInit = finit;
     }

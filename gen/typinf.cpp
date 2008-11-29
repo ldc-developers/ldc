@@ -424,7 +424,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     }
     else
     {
-        LLConstant* ci = DtoConstInitializer(sd->basetype, sd->init);
+        LLConstant* ci = DtoConstInitializer(sd->loc, sd->basetype, sd->init);
         std::string ciname(sd->mangle());
         ciname.append("__init");
         llvm::GlobalVariable* civar = new llvm::GlobalVariable(DtoType(sd->basetype),true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);

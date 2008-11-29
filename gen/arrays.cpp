@@ -289,7 +289,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         }
 
         if (!v)
-            v = DtoConstInitializer(t->nextOf(), init);
+            v = DtoConstInitializer(arrinit->loc, t->nextOf(), init);
         assert(v);
 
         inits[i] = v;

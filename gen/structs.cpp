@@ -42,7 +42,7 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
         assert(ini);
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
         assert(vd);
-        LLConstant* v = DtoConstInitializer(vd->type, ini);
+        LLConstant* v = DtoConstInitializer(vd->loc, vd->type, ini);
         inits.push_back(DUnionIdx(vd->ir.irField->index, vd->ir.irField->indexOffset, v));
     }
 
@@ -290,7 +290,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
     {
         IrStruct::Offset* so = &i->second;
-        LLConstant* finit = DtoConstFieldInitializer(so->var->type, so->var->init);
+        LLConstant* finit = DtoConstFieldInitializer(so->var->loc, so->var->type, so->var->init);
         so->init = finit;
         so->var->ir.irField->constInit = finit;
     }

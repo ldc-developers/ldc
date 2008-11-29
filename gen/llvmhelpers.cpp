@@ -971,11 +971,11 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
     LLConstant* _init = 0;
     if (vd->parent && vd->parent->isFuncDeclaration() && vd->init && vd->init->isExpInitializer()) {
-        _init = DtoConstInitializer(vd->type, NULL);
+        _init = DtoConstInitializer(vd->loc, vd->type, NULL);
         emitRTstaticInit = true;
     }
     else {
-        _init = DtoConstInitializer(vd->type, vd->init);
+        _init = DtoConstInitializer(vd->loc, vd->type, vd->init);
     }
 
     const LLType* _type = DtoType(vd->type);
@@ -1396,13 +1396,13 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var)
 //      INITIALIZER HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-LLConstant* DtoConstInitializer(Type* type, Initializer* init)
+LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init)
 {
     LLConstant* _init = 0; // may return zero
     if (!init)
     {
         Logger::println("const default initializer for %s", type->toChars());
-        _init = DtoDefaultInit(type);
+        _init = DtoDefaultInit(loc, type);
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
@@ -1433,14 +1433,14 @@ LLConstant* DtoConstInitializer(Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLConstant* DtoConstFieldInitializer(Type* t, Initializer* init)
+LLConstant* DtoConstFieldInitializer(Loc& loc, Type* t, Initializer* init)
 {
     Logger::println("DtoConstFieldInitializer");
     LOG_SCOPE;
 
     const LLType* _type = DtoType(t);
 
-    LLConstant* _init = DtoConstInitializer(t, init);
+    LLConstant* _init = DtoConstInitializer(loc, t, init);
     assert(_init);
     if (_type != _init->getType())
     {
@@ -1568,7 +1568,7 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
     return val;
 }
 
-LLConstant* DtoDefaultInit(Type* type)
+LLConstant* DtoDefaultInit(Loc& loc, Type* type)
 {
     Expression* exp = type->defaultInit();
     
@@ -1580,6 +1580,11 @@ LLConstant* DtoDefaultInit(Type* type)
     {
         if (base->ty == Tsarray)
         {
+            if (base->nextOf()->toBasetype()->ty == Tvoid) {
+                error(loc, "static arrays of voids have no default initializer");
+                fatal();
+            }
+            
             Logger::println("type is a static array, building constant array initializer to single value");
             return expand_to_sarray(base, exp);
         }
