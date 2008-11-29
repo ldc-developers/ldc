@@ -897,7 +897,7 @@ void UnrolledLoopStatement::toIR(IRState* p)
         DtoDwarfStopPoint(loc.linnum);
 
     // DMD doesn't fold stuff like continue/break, and since this isn't really a loop
-    // we have to keep track of each statement and jump to next the next/end on continue/break
+    // we have to keep track of each statement and jump to the next/end on continue/break
 
     llvm::BasicBlock* oldend = gIR->scopeend();
 

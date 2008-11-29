@@ -18,36 +18,279 @@
 #include "ir/irstruct.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
+void addZeros(std::vector<llvm::Constant*>& inits, unsigned pos, unsigned offset); // defined in irstruct.cpp
+
+// pair of var and its init
+typedef std::pair<VarDeclaration*,Initializer*> VarInitPair;
+
+// comparison func for qsort
+static int varinit_offset_cmp_func(const void* p1, const void* p2)
+{
+    VarDeclaration* v1 = ((VarInitPair*)p1)->first;
+    VarDeclaration* v2 = ((VarInitPair*)p2)->first;
+    if (v1->offset < v2->offset)
+        return -1;
+    else if (v1->offset > v2->offset)
+        return 1;
+    else
+        return 0;
+}
+
+/*
+this uses a simple algorithm to build the correct constant
+
+(1) first sort the explicit initializers by offset... well, DMD doesn't :)
+
+(2) if there is NO space before the next explicit initializeer, goto (9)
+(3) find the next default initializer that fits before it, if NOT found goto (7)
+(4) insert zero padding up to the next default initializer
+(5) insert the next default initializer
+(6) goto (2)
+
+(7) insert zero padding up to the next explicit initializer
+
+(9) insert the next explicit initializer
+(10) goto (2)
+
+(11) done
+
+(next can be the end too)
+
+*/
+
+// return the next default initializer to use or null
+static VarDeclaration* nextDefault(IrStruct* irstruct, size_t& idx, size_t pos, size_t offset)
+{
+    IrStruct::VarDeclVector& defaults = irstruct->defVars;
+    size_t ndefaults = defaults.size();
+
+    // for each valid index
+    while(idx < ndefaults)
+    {
+        VarDeclaration* v = defaults[idx];
+
+        // skip defaults before pos
+        if (v->offset < pos)
+        {
+            idx++;
+            continue;
+        }
+
+        // this var default fits
+        if (v->offset >= pos && v->offset + v->type->size() <= offset)
+            return v;
+
+        // not usable
+        break;
+    }
+
+    // not usable
+    return NULL;
+}
+
 LLConstant* DtoConstStructInitializer(StructInitializer* si)
 {
     Logger::println("DtoConstStructInitializer: %s", si->toChars());
     LOG_SCOPE;
 
+    // get TypeStruct
     assert(si->ad);
     TypeStruct* ts = (TypeStruct*)si->ad->type;
 
-    DtoResolveDsymbol(si->ad);
+    // force constant initialization of the symbol
+    DtoForceConstInitDsymbol(si->ad);
 
+    // get formal type
     const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
 
+    // log it
     if (Logger::enabled())
         Logger::cout() << "llvm struct type: " << *structtype << '\n';
 
+    // sanity check
+    assert(si->value.dim > 0);
     assert(si->value.dim == si->vars.dim);
 
-    std::vector<DUnionIdx> inits;
-    for (int i = 0; i < si->value.dim; ++i)
+    // vector of final initializer constants
+    std::vector<LLConstant*> inits;
+
+    // get the ir struct
+    IrStruct* irstruct = si->ad->ir.irStruct;
+
+    // get default fields
+    IrStruct::VarDeclVector& defaults = irstruct->defVars;
+    size_t ndefaults = defaults.size();
+
+    // make sure si->vars is sorted by offset
+    std::vector<VarInitPair> vars;
+    size_t nvars = si->vars.dim;
+    vars.resize(nvars);
+
+    // fill pair vector
+    for (size_t i = 0; i < nvars; i++)
     {
+        VarDeclaration* var = (VarDeclaration*)si->vars.data[i];
         Initializer* ini = (Initializer*)si->value.data[i];
+        assert(var);
         assert(ini);
-        VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
-        assert(vd);
-        LLConstant* v = DtoConstInitializer(vd->loc, vd->type, ini);
-        inits.push_back(DUnionIdx(vd->ir.irField->index, vd->ir.irField->indexOffset, v));
+        vars[i] = std::make_pair(var, ini);
+    }
+    // sort it
+    qsort(&vars[0], nvars, sizeof(VarInitPair), &varinit_offset_cmp_func);
+
+    // check integrity
+    // and do error checking, since the frontend does verify static struct initializers
+    size_t lastoffset = 0;
+    size_t lastsize = 0;
+    bool overlap = false;
+    for (size_t i=0; i < nvars; i++)
+    {
+        // next explicit init var
+        VarDeclaration* var = vars[i].first;
+        Logger::println("var = %s : +%u", var->toChars(), var->offset);
+
+        // I would have thought this to be a frontend check
+        for (size_t j=i+1; j<nvars; j++)
+        {
+            if (j == i)
+                continue;
+            VarDeclaration* var2 = vars[j].first;
+            if (var2->offset >= var->offset && var2->offset < var->offset + var->type->size())
+            {
+                fprintf(stdmsg, "Error: %s: initializer '%s' overlaps with '%s'\n", si->loc.toChars(), var->toChars(), var2->toChars());
+                overlap = true;
+            }
+        }
+
+        // update offsets
+        lastoffset = var->offset;
+        lastsize = var->type->size();
     }
 
-    DtoConstInitStruct((StructDeclaration*)si->ad);
-    return si->ad->ir.irStruct->dunion->getConst(inits);
+    // error handling, report all overlaps before aborting
+    if (overlap)
+    {
+        error("%s: overlapping union initializers", si->loc.toChars());
+    }
+
+    // go through each explicit initalizer, falling back to defaults or zeros when necessary
+    lastoffset = 0;
+    lastsize = 0;
+
+    size_t j=0; // defaults
+
+    for (size_t i=0; i < nvars; i++)
+    {
+        // get var and init
+        VarDeclaration* var = vars[i].first;
+        Initializer* ini = vars[i].second;
+
+        size_t offset = var->offset;
+        size_t size = var->type->size();
+
+        // if there is space before the next explicit initializer
+Lpadding:
+        size_t pos = lastoffset+lastsize;
+        if (offset > pos)
+        {
+            // find the the next default initializer that fits in this space
+            VarDeclaration* nextdef = nextDefault(irstruct, j, lastoffset+lastsize, offset);
+
+            // found
+            if (nextdef)
+            {
+                // need zeros before the default
+                if (nextdef->offset > pos)
+                {
+                    Logger::println("inserting %lu byte padding at %lu", nextdef->offset - pos, pos);
+                    addZeros(inits, pos, nextdef->offset);
+                }
+
+                // do the default
+                Logger::println("adding default field: %s : +%u", nextdef->toChars(), nextdef->offset);
+                LLConstant* c = nextdef->ir.irField->constInit;
+                inits.push_back(c);
+
+                // update offsets
+                lastoffset = nextdef->offset;
+                lastsize = nextdef->type->size();
+
+                // check if more defaults would fit
+                goto Lpadding;
+            }
+            // not found, pad with zeros
+            else
+            {
+                Logger::println("inserting %lu byte padding at %lu", offset - pos, pos);
+                addZeros(inits, pos, offset);
+                // offsets are updated by the explicit initializer
+            }
+        }
+
+        // insert next explicit
+        Logger::println("adding explicit field: %s : +%lu", var->toChars(), offset);
+        LOG_SCOPE;
+        LLConstant* c = DtoConstInitializer(var->loc, var->type, ini);
+        inits.push_back(c);
+
+        lastoffset = offset;
+        lastsize = size;
+    }
+
+    // there might still be padding after the last one, make sure that is defaulted/zeroed as well
+    size_t structsize = getABITypeSize(structtype);
+
+    // if there is space before the next explicit initializer
+    // FIXME: this should be handled in the loop above as well
+Lpadding2:
+    size_t pos = lastoffset+lastsize;
+    if (structsize > pos)
+    {
+        // find the the next default initializer that fits in this space
+        VarDeclaration* nextdef = nextDefault(irstruct, j, lastoffset+lastsize, structsize);
+
+        // found
+        if (nextdef)
+        {
+            // need zeros before the default
+            if (nextdef->offset > pos)
+            {
+                Logger::println("inserting %lu byte padding at %lu", nextdef->offset - pos, pos);
+                addZeros(inits, pos, nextdef->offset);
+            }
+
+            // do the default
+            Logger::println("adding default field: %s : +%u", nextdef->toChars(), nextdef->offset);
+            LLConstant* c = nextdef->ir.irField->constInit;
+            inits.push_back(c);
+
+            // update offsets
+            lastoffset = nextdef->offset;
+            lastsize = nextdef->type->size();
+
+            // check if more defaults would fit
+            goto Lpadding2;
+        }
+        // not found, pad with zeros
+        else
+        {
+            Logger::println("inserting %lu byte padding at %lu", structsize - pos, pos);
+            addZeros(inits, pos, structsize);
+            lastoffset = pos;
+            lastsize = structsize - pos;
+        }
+    }
+
+    assert(lastoffset+lastsize == structsize);
+
+    // make the constant struct
+    LLConstant* c = LLConstantStruct::get(inits, si->ad->ir.irStruct->packed);
+    if (Logger::enabled())
+    {
+        Logger::cout() << "constant struct initializer: " << *c << '\n';
+    }
+    assert(getABITypeSize(c->getType()) == structsize);
+    return c;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -61,17 +304,26 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     IrField* field = vd->ir.irField;
     assert(field);
 
-    unsigned idx = field->index;
-    unsigned off = field->indexOffset;
-
+    // get the start pointer
     const LLType* st = getPtrToType(DtoType(sd->type));
+
+    // cast to the formal struct type
     src = DtoBitCast(src, st);
 
-    LLValue* val = DtoGEPi(src, 0,idx);
-    val = DtoBitCast(val, getPtrToType(DtoType(vd->type)));
+    // gep to the index
+    LLValue* val = DtoGEPi(src, 0, field->index);
 
-    if (off)
-        val = DtoGEPi1(val, off);
+    // do we need to offset further? (union area)
+    if (field->unionOffset)
+    {
+        // cast to void*
+        val = DtoBitCast(val, getVoidPtrType());
+        // offset
+        val = DtoGEPi1(val, field->unionOffset);
+    }
+
+    // cast it to the right type
+    val = DtoBitCast(val, getPtrToType(DtoType(vd->type)));
 
     if (Logger::enabled())
         Logger::cout() << "value: " << *val << '\n';
@@ -79,46 +331,46 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     return val;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
 void DtoResolveStruct(StructDeclaration* sd)
 {
+    // don't do anything if already been here
     if (sd->ir.resolved) return;
+    // make sure above works :P
     sd->ir.resolved = true;
 
-    Logger::println("DtoResolveStruct(%s): %s", sd->toChars(), sd->loc.toChars());
+    // log what we're doing
+    Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->locToChars());
     LOG_SCOPE;
 
-    TypeStruct* ts = (TypeStruct*)sd->type->toBasetype();
+    // get the DMD TypeStruct
+    TypeStruct* ts = (TypeStruct*)sd->type;
 
-    // this struct is a forward declaration
+    // create the IrStruct
+    IrStruct* irstruct = new IrStruct(sd);
+    sd->ir.irStruct = irstruct;
+
+    // create the type
+    ts->ir.type = new LLPATypeHolder(llvm::OpaqueType::get());
+
+    // handle forward declaration structs (opaques)
     // didn't even know D had those ...
     if (sd->sizeok != 1)
     {
-        sd->ir.irStruct = new IrStruct(ts);
-        ts->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
+        // nothing more to do
         return;
     }
 
-    bool ispacked = (ts->alignsize() == 1);
-
-    // create the IrStruct
-    IrStruct* irstruct = new IrStruct(ts);
-    sd->ir.irStruct = irstruct;
+    // make this struct current
     gIR->structs.push_back(irstruct);
 
-    // add fields
-    Array* fields = &sd->fields;
-    for (int k=0; k < fields->dim; k++)
-    {
-        VarDeclaration* v = (VarDeclaration*)fields->data[k];
-        Logger::println("Adding field: %s %s", v->type->toChars(), v->toChars());
-        // init fields, used to happen in VarDeclaration::toObjFile
-        irstruct->addField(v);
-    }
+    // get some info
+    bool ispacked = (ts->alignsize() == 1);
+    bool isunion = sd->isUnionDeclaration();
 
+    // set irstruct info
     irstruct->packed = ispacked;
 
+    // defined in this module?
     bool thisModule = false;
     if (sd->getModule() == gIR->dmodule)
         thisModule = true;
@@ -127,20 +379,28 @@ void DtoResolveStruct(StructDeclaration* sd)
     Array* arr = sd->members;
     for (int k=0; k < arr->dim; k++) {
         Dsymbol* s = (Dsymbol*)arr->data[k];
-        if (FuncDeclaration* fd = s->isFuncDeclaration()) {
-            if (thisModule || (fd->prot() != PROTprivate)) {
-                fd->toObjFile(0); // TODO: multiobj
-            }
-        }
-        else if (s->isAttribDeclaration() ||
-                 s->isVarDeclaration() ||
-                 s->isTemplateMixin()) {
-            s->toObjFile(0); // TODO: multiobj
-        }
-        else {
-            Logger::println("Ignoring dsymbol '%s' in this->members of kind '%s'", s->toPrettyChars(), s->kind());
-        }
+        s->toObjFile(0);
     }
+
+    const LLType* ST = irstruct->build();
+
+#if 0
+    std::cout << sd->kind() << ' ' << sd->toPrettyChars() << " type: " << *ST << '\n';
+
+    // add fields
+    for (int k=0; k < fields->dim; k++)
+    {
+        VarDeclaration* v = (VarDeclaration*)fields->data[k];
+        printf("  field: %s %s\n", v->type->toChars(), v->toChars());
+        printf("    index: %u offset: %u\n", v->ir.irField->index, v->ir.irField->unionOffset);
+    }
+
+    unsigned llvmSize = (unsigned)getABITypeSize(ST);
+    unsigned dmdSize = (unsigned)sd->type->size();
+    printf("  llvm size: %u     dmd size: %u\n", llvmSize, dmdSize);
+    assert(llvmSize == dmdSize);
+
+#endif
 
     /*for (int k=0; k < sd->members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(sd->members->data[k]);
@@ -149,98 +409,13 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     Logger::println("doing struct fields");
 
-    const llvm::StructType* structtype = 0;
-    std::vector<const LLType*> fieldtypes;
-
-    if (irstruct->offsets.empty())
-    {
-        Logger::println("has no fields");
-        fieldtypes.push_back(LLType::Int8Ty);
-        structtype = llvm::StructType::get(fieldtypes, ispacked);
-    }
-    else
-    {
-        Logger::println("has fields");
-        unsigned prevsize = (unsigned)-1;
-        unsigned lastoffset = (unsigned)-1;
-        const LLType* fieldtype = NULL;
-        VarDeclaration* fieldinit = NULL;
-        size_t fieldpad = 0;
-        int idx = 0;
-        for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i) {
-            // first iteration
-            if (lastoffset == (unsigned)-1) {
-                lastoffset = i->first;
-                assert(lastoffset == 0);
-                fieldtype = i->second.type;
-                fieldinit = i->second.var;
-                prevsize = fieldinit->type->size();
-                i->second.var->ir.irField->index = idx;
-            }
-            // colliding offset?
-            else if (lastoffset == i->first) {
-                size_t s = i->second.var->type->size();
-                if (s > prevsize) {
-                    fieldpad += s - prevsize;
-                    prevsize = s;
-                }
-                sd->ir.irStruct->hasUnions = true;
-                i->second.var->ir.irField->index = idx;
-            }
-            // intersecting offset?
-            else if (i->first < (lastoffset + prevsize)) {
-                size_t s = i->second.var->type->size();
-                assert((i->first + s) <= (lastoffset + prevsize)); // this holds because all types are aligned to their size
-                sd->ir.irStruct->hasUnions = true;
-                i->second.var->ir.irField->index = idx;
-                i->second.var->ir.irField->indexOffset = (i->first - lastoffset) / s;
-            }
-            // fresh offset
-            else {
-                // commit the field
-                fieldtypes.push_back(fieldtype);
-                irstruct->defaultFields.push_back(fieldinit);
-                if (fieldpad) {
-                    fieldtypes.push_back(llvm::ArrayType::get(LLType::Int8Ty, fieldpad));
-                    irstruct->defaultFields.push_back(NULL);
-                    idx++;
-                }
-
-                idx++;
-
-                // start new
-                lastoffset = i->first;
-                fieldtype = i->second.type;
-                fieldinit = i->second.var;
-                prevsize = fieldinit->type->size();
-                i->second.var->ir.irField->index = idx;
-                fieldpad = 0;
-            }
-        }
-        fieldtypes.push_back(fieldtype);
-        irstruct->defaultFields.push_back(fieldinit);
-        if (fieldpad) {
-            fieldtypes.push_back(llvm::ArrayType::get(LLType::Int8Ty, fieldpad));
-            irstruct->defaultFields.push_back(NULL);
-        }
-
-        Logger::println("creating struct type");
-        structtype = llvm::StructType::get(fieldtypes, ispacked);
-    }
-
     // refine abstract types for stuff like: struct S{S* next;}
-    if (irstruct->recty != 0)
-    {
-        llvm::PATypeHolder& pa = irstruct->recty;
-        llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(structtype);
-        structtype = isaStruct(pa.get());
-    }
+    llvm::cast<llvm::OpaqueType>(ts->ir.type->get())->refineAbstractTypeTo(ST);
+    ST = ts->ir.type->get();
 
-    assert(ts->ir.type == 0);
-    ts->ir.type = new llvm::PATypeHolder(structtype);
-
+    // name type
     if (sd->parent->isModule()) {
-        gIR->module->addTypeName(sd->mangle(),structtype);
+        gIR->module->addTypeName(sd->mangle(),ST);
     }
 
     gIR->structs.pop_back();
@@ -265,7 +440,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     initname.append("6__initZ");
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(sd);
-    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(ts->ir.type->get(), true, _linkage, NULL, initname, gIR->module);
+    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(sd->ir.irStruct->initOpaque.get(), true, _linkage, NULL, initname, gIR->module);
     sd->ir.irStruct->init = initvar;
 
     gIR->constInitList.push_back(sd);
@@ -286,59 +461,33 @@ void DtoConstInitStruct(StructDeclaration* sd)
     IrStruct* irstruct = sd->ir.irStruct;
     gIR->structs.push_back(irstruct);
 
-    // make sure each offset knows its default initializer
-    for (IrStruct::OffsetMap::iterator i=irstruct->offsets.begin(); i!=irstruct->offsets.end(); ++i)
-    {
-        IrStruct::Offset* so = &i->second;
-        LLConstant* finit = DtoConstFieldInitializer(so->var->loc, so->var->type, so->var->init);
-        so->init = finit;
-        so->var->ir.irField->constInit = finit;
-    }
-
     const llvm::StructType* structtype = isaStruct(sd->type->ir.type->get());
 
-    // go through the field inits and build the default initializer
-    std::vector<LLConstant*> fieldinits_ll;
-    size_t nfi = irstruct->defaultFields.size();
-    for (size_t i=0; i<nfi; ++i) {
-        LLConstant* c;
-        if (irstruct->defaultFields[i] != NULL) {
-            c = irstruct->defaultFields[i]->ir.irField->constInit;
-            assert(c);
-        }
-        else {
-            const llvm::ArrayType* arrty = isaArray(structtype->getElementType(i));
-            std::vector<LLConstant*> vals(arrty->getNumElements(), llvm::ConstantInt::get(LLType::Int8Ty, 0, false));
-            c = llvm::ConstantArray::get(arrty, vals);
-        }
-        fieldinits_ll.push_back(c);
+    // make sure each offset knows its default initializer
+    Array* fields = &sd->fields;
+    for (int k=0; k < fields->dim; k++)
+    {
+        VarDeclaration* v = (VarDeclaration*)fields->data[k];
+        LLConstant* finit = DtoConstFieldInitializer(v->loc, v->type, v->init);
+        v->ir.irField->constInit = finit;
     }
-
-    // generate the union mapper
-    sd->ir.irStruct->dunion = new DUnion(); // uses gIR->topstruct()
 
     // always generate the constant initalizer
-    if (!sd->zeroInit) {
-        Logger::println("Not zero initialized");
-    #if 0
-        //assert(tk == gIR->gIR->topstruct()().size());
-        #ifndef LLVMD_NO_LOGGER
-        Logger::cout() << "struct type: " << *structtype << '\n';
-        for (size_t k=0; k<fieldinits_ll.size(); ++k) {
-            Logger::cout() << "Type:" << '\n';
-            Logger::cout() << *fieldinits_ll[k]->getType() << '\n';
-            Logger::cout() << "Value:" << '\n';
-            Logger::cout() << *fieldinits_ll[k] << '\n';
-        }
-        Logger::cout() << "Initializer printed" << '\n';
-        #endif
-    #endif
-        sd->ir.irStruct->constInit = llvm::ConstantStruct::get(structtype,fieldinits_ll);
-    }
-    else {
+    if (sd->zeroInit)
+    {
         Logger::println("Zero initialized");
-        sd->ir.irStruct->constInit = llvm::ConstantAggregateZero::get(structtype);
+        irstruct->constInit = llvm::ConstantAggregateZero::get(structtype);
     }
+    else
+    {
+        Logger::println("Not zero initialized");
+
+        LLConstant* c = irstruct->buildDefaultConstInit();
+        irstruct->constInit = c;
+    }
+
+    // refine __initZ global type to the one of the initializer
+    llvm::cast<llvm::OpaqueType>(irstruct->initOpaque.get())->refineAbstractTypeTo(irstruct->constInit->getType());
 
     gIR->structs.pop_back();
 
@@ -385,163 +534,3 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
     LLValue* val = DtoMemCmp(lhs->getRVal(), rhs->getRVal(), DtoConstSize_t(sz));
     return gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false), "tmp");
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////   D UNION HELPER CLASS   ////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////
-
-DUnion::DUnion()
-{
-    DUnionField* f = NULL;
-    IrStruct* topstruct = gIR->topstruct();
-    bool unions = false;
-    for (IrStruct::OffsetMap::iterator i=topstruct->offsets.begin(); i!=topstruct->offsets.end(); ++i)
-    {
-        unsigned o = i->first;
-        IrStruct::Offset* so = &i->second;
-        const LLType* ft = so->init->getType();
-        size_t sz = getABITypeSize(ft);
-        if (f == NULL) { // new field
-            fields.push_back(DUnionField());
-            f = &fields.back();
-            f->size = sz;
-            f->offset = o;
-            f->init = so->init;
-            f->initsize = sz; 
-            f->types.push_back(ft);
-        }
-        else if (o == f->offset) { // same offset
-            if (sz > f->size)
-                f->size = sz;
-            f->types.push_back(ft);
-            unions = true;
-        }
-        else if (o < f->offset+f->size) {
-            assert((o+sz) <= (f->offset+f->size));
-            unions = true;
-        }
-        else {
-            fields.push_back(DUnionField());
-            f = &fields.back();
-            f->size = sz;
-            f->offset = o;
-            f->init = so->init;
-            f->initsize = sz;
-            f->types.push_back(ft);
-        }
-    }
-
-    ispacked = topstruct->packed;
-
-    /*{
-        LOG_SCOPE;
-        Logger::println("******** DUnion BEGIN");
-        size_t n = fields.size();
-        for (size_t i=0; i<n; ++i) {
-            Logger::cout()<<"field #"<<i<<" offset: "<<fields[i].offset<<" size: "<<fields[i].size<<'('<<fields[i].initsize<<")\n";
-            LOG_SCOPE;
-            size_t nt = fields[i].types.size();
-            for (size_t j=0; j<nt; ++j) {
-                Logger::cout()<<*fields[i].types[j]<<'\n';
-            }
-        }
-        Logger::println("******** DUnion END");
-    }*/
-}
-
-static void push_nulls(size_t nbytes, std::vector<LLConstant*>& out)
-{
-    assert(nbytes > 0);
-    std::vector<LLConstant*> i(nbytes, llvm::ConstantInt::get(LLType::Int8Ty, 0, false));
-    out.push_back(llvm::ConstantArray::get(llvm::ArrayType::get(LLType::Int8Ty, nbytes), i));
-}
-
-LLConstant* DUnion::getConst(std::vector<DUnionIdx>& in)
-{
-    std::sort(in.begin(), in.end());
-    std::vector<LLConstant*> out;
-
-    size_t nin = in.size();
-    size_t nfields = fields.size();
-
-    size_t fi = 0;
-    size_t last = 0;
-    size_t ii = 0;
-    size_t os = 0;
-
-    for(;;)
-    {
-        if (fi == nfields) break;
-
-        bool nextSame = (ii+1 < nin) && (in[ii+1].idx == fi);
-
-        if (ii < nin && fi == in[ii].idx)
-        {
-            size_t s = getABITypeSize(in[ii].c->getType());
-            if (in[ii].idx == last)
-            {
-                size_t nos = in[ii].idxos * s;
-                if (nos && nos-os) {
-                    assert(nos >= os);
-                    push_nulls(nos-os, out);
-                }
-                os = nos + s;
-            }
-            else
-            {
-                os = s;
-            }
-            out.push_back(in[ii].c);
-            ii++;
-            if (!nextSame)
-            {
-                if (os < fields[fi].size)
-                    push_nulls(fields[fi].size - os, out);
-                os = 0;
-                last = fi++;
-            }
-            continue;
-        }
-
-        // default initialize if necessary
-        if (ii == nin || fi < in[ii].idx)
-        {
-            DUnionField& f = fields[fi];
-            out.push_back(f.init);
-            if (f.initsize < f.size)
-                push_nulls(f.size - f.initsize, out);
-            last = fi++;
-            os = 0;
-            continue;
-        }
-    }
-
-    std::vector<const LLType*> tys;
-    size_t nout = out.size();
-    for (size_t i=0; i<nout; ++i)
-        tys.push_back(out[i]->getType());
-
-    const llvm::StructType* st = llvm::StructType::get(tys, ispacked);
-    return llvm::ConstantStruct::get(st, out);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

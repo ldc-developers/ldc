@@ -452,14 +452,19 @@ static LLGlobalVariable* dwarfCompositeType(Type* type, llvm::GlobalVariable* co
         definedCU = DtoDwarfCompileUnit(sd->getModule());
 
         std::vector<LLConstant*> elems;
-        elems.reserve(ir->offsets.size());
-        for (IrStruct::OffsetMap::iterator i=ir->offsets.begin(); i!=ir->offsets.end(); ++i)
+        if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
         {
-            unsigned offset = i->first;
-            IrStruct::Offset& o = i->second;
+            std::vector<VarDeclaration*>& arr = ir->varDecls;
+            size_t narr = arr.size();
+            elems.reserve(narr);
+            for (int k=0; k<narr; k++)
+            {
+                VarDeclaration* vd = arr[k];
+                assert(vd);
 
-            LLGlobalVariable* ptr = dwarfMemberType(o.var->loc.linnum, o.var->type, compileUnit, definedCU, o.var->toChars(), offset);
-            elems.push_back(DBG_CAST(ptr));
+                LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset);
+                elems.push_back(DBG_CAST(ptr));
+            }
         }
 
         const LLArrayType* at = LLArrayType::get(DBG_TYPE, elems.size());

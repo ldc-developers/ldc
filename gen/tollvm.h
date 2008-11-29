@@ -67,6 +67,7 @@ LLConstant* DtoConstBool(bool);
 LLValue* DtoLoad(LLValue* src, const char* name=0);
 void DtoStore(LLValue* src, LLValue* dst);
 LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
+LLConstant* DtoBitCast(LLConstant* v, const LLType* t);
 
 // llvm::dyn_cast wrappers
 const LLPointerType* isaPointer(LLValue* v);
@@ -95,6 +96,9 @@ size_t getABITypeSize(const LLType* t);
 // type alignments
 unsigned char getABITypeAlign(const LLType* t);
 unsigned char getPrefTypeAlign(const LLType* t);
+
+// get biggest type, for unions ...
+const LLType* getBiggestType(const LLType** begin, size_t n);
 
 // pair type helpers
 LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);

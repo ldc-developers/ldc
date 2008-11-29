@@ -629,7 +629,6 @@ void AnonDeclaration::semantic(Scope *sc)
 	sc->flags = 0;
 	aad.structalign = sc->structalign;
 	aad.parent = ad;
-
 	for (unsigned i = 0; i < decl->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)decl->data[i];
@@ -684,6 +683,9 @@ void AnonDeclaration::semantic(Scope *sc)
 	for (unsigned i = 0; i < aad.fields.dim; i++)
 	{
 	    VarDeclaration *v = (VarDeclaration *)aad.fields.data[i];
+
+        // LDC
+        v->offset2 = sc->offset;
 
 	    v->offset += sc->offset;
 

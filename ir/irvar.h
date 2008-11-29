@@ -34,8 +34,9 @@ struct IrField : IrVar
 {
     IrField(VarDeclaration* v);
 
-    int index;
-    size_t indexOffset;
+    unsigned index;
+    unsigned unionOffset;
+
     llvm::Constant* constInit;
 };
 

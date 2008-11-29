@@ -21,9 +21,6 @@ IrType::IrType(const IrType& s)
 {
     assert(list.insert(this).second);
     type = s.type;
-#if OPAQUE_VTBLS
-    vtblType = s.type;
-#endif
 }
 
 IrType::~IrType()
@@ -34,7 +31,4 @@ IrType::~IrType()
 void IrType::reset()
 {
     type = NULL;
-#if OPAQUE_VTBLS
-    vtblType = NULL;
-#endif
 }

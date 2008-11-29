@@ -350,7 +350,7 @@ void inifile(const char *argv0, const char *inifile);
 void halt();
 
 /*** Where to send error messages ***/
-#if IN_GCC
+#if IN_GCC || IN_LLVM
 #define stdmsg stderr
 #else
 #define stdmsg stdout

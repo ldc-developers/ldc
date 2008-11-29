@@ -77,6 +77,8 @@ void Module::genobjfile(int multiobj, char** envp)
 
     //printf("codegen: %s\n", srcfile->toChars());
 
+    assert(!global.errors);
+
     // start by deleting the old object file
     deleteObjFile();
 
@@ -155,16 +157,6 @@ void Module::genobjfile(int multiobj, char** envp)
         error("is missing 'class ClassInfo'");
         fatal();
     }
-
-    // start out by providing opaque for the built-in class types
-    if (!ClassDeclaration::object->type->ir.type)
-        ClassDeclaration::object->type->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
-
-    if (!Type::typeinfo->type->ir.type)
-        Type::typeinfo->type->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
-
-    if (!ClassDeclaration::classinfo->type->ir.type)
-        ClassDeclaration::classinfo->type->ir.type = new llvm::PATypeHolder(llvm::OpaqueType::get());
 
     // process module members
     for (int k=0; k < members->dim; k++) {
@@ -638,7 +630,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     const LLStructType* modulerefTy = DtoModuleReferenceType();
     std::vector<LLConstant*> mrefvalues;
     mrefvalues.push_back(LLConstant::getNullValue(modulerefTy->getContainedType(0)));
-    mrefvalues.push_back(moduleinfo);
+    mrefvalues.push_back(llvm::ConstantExpr::getBitCast(moduleinfo, modulerefTy->getContainedType(1)));
     LLConstant* thismrefinit = LLConstantStruct::get(modulerefTy, mrefvalues);
 
     // create the ModuleReference node for this module
@@ -703,6 +695,13 @@ void Module::genmoduleinfo()
     // resolve ModuleInfo
     assert(moduleinfo);
     DtoForceConstInitDsymbol(moduleinfo);
+
+    // check for patch
+    if (moduleinfo->ir.irStruct->constInit->getNumOperands() != 11)
+    {
+        error("unpatched object.d detected, ModuleInfo incorrect");
+        fatal();
+    }
 
     // moduleinfo llvm struct type
     const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->ir.type->get());
@@ -783,9 +782,15 @@ void Module::genmoduleinfo()
             Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
+        else if (cd->sizeok != 1)
+        {
+            Logger::println("skipping opaque class declaration '%s' in moduleinfo", cd->toPrettyChars());
+            continue;
+        }
         Logger::println("class: %s", cd->toPrettyChars());
         assert(cd->ir.irStruct->classInfo);
-        classInits.push_back(cd->ir.irStruct->classInfo);
+        c = llvm::ConstantExpr::getBitCast(cd->ir.irStruct->classInfo, getPtrToType(classinfoTy));
+        classInits.push_back(c);
     }
     // has class array?
     if (!classInits.empty())
@@ -842,7 +847,7 @@ void Module::genmoduleinfo()
     }*/
 
     // create initializer
-    LLConstant* constMI = llvm::ConstantStruct::get(moduleinfoTy, initVec);
+    LLConstant* constMI = llvm::ConstantStruct::get(initVec);
 
     // create name
     std::string MIname("_D");
@@ -853,7 +858,8 @@ void Module::genmoduleinfo()
     // flags will be modified at runtime so can't make it constant
 
     llvm::GlobalVariable* gvar = gIR->module->getGlobalVariable(MIname);
-    if (!gvar) gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname, gIR->module);
+    if (!gvar) gvar = new llvm::GlobalVariable(constMI->getType(), false, llvm::GlobalValue::ExternalLinkage, NULL, MIname, gIR->module);
+    else assert(gvar->getType()->getContainedType(0) == constMI->getType());
     gvar->setInitializer(constMI);
 
     // build the modulereference and ctor for registering it
@@ -988,7 +994,8 @@ void VarDeclaration::toObjFile(int multiobj)
     #else
         bool _isconst = isConst();
     #endif
-        if (parent && parent->isFuncDeclaration())
+        Dsymbol* par = toParent2();
+        if (par && par->isFuncDeclaration())
         {
             static_local = true;
             if (init && init->isExpInitializer()) {
@@ -1015,20 +1022,17 @@ void VarDeclaration::toObjFile(int multiobj)
     }
     else
     {
-#if DMDV2
-    #if 0
+        // might already have its irField, as classes derive each other without getting copies of the VarDeclaration
         if (!ir.irField)
         {
-            printf("dataseg: %d\n", isDataseg());
-            printf("parent: %s %s\n", parent->kind(), parent->toPrettyChars());
-            printf("this: %s %s\n", this->kind(), this->toPrettyChars());
+            assert(!ir.isSet());
+            ir.irField = new IrField(this);
         }
-    #endif
-#else
-        assert(ir.irField != 0);
-#endif
+        IrStruct* irstruct = gIR->topstruct();
+        irstruct->addVar(this);
+
+        Logger::println("added offset %u", offset);
     }
-    Logger::println("VarDeclaration::toObjFile is done");
 }
 
 /* ================================================================== */
@@ -1055,4 +1059,29 @@ void EnumDeclaration::toObjFile(int multiobj)
 void FuncDeclaration::toObjFile(int multiobj)
 {
     gIR->resolveList.push_back(this);
+}
+
+/* ================================================================== */
+
+void AnonDeclaration::toObjFile(int multiobj)
+{
+    Array *d = include(NULL, NULL);
+
+    if (d)
+    {
+        // get real aggregate parent
+        IrStruct* irstruct = gIR->topstruct();
+
+        // push a block on the stack
+        irstruct->pushAnon(isunion);
+
+        // go over children
+        for (unsigned i = 0; i < d->dim; i++)
+        {   Dsymbol *s = (Dsymbol *)d->data[i];
+            s->toObjFile(multiobj);
+        }
+
+        // finish
+        irstruct->popAnon();
+    }
 }

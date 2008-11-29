@@ -653,6 +653,9 @@ struct FuncExp : Expression
     int inlineCost(InlineCostState *ics);
     //Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
+
+    // LDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 // Declaration of a symbol

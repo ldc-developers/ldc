@@ -119,14 +119,14 @@ const LLType* DtoType(Type* t)
         TypeStruct* ts = (TypeStruct*)t;
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
-        return ts->sym->ir.irStruct->recty.get(); // t->ir.type->get();
+        return ts->ir.type->get();
     }
 
     case Tclass:    {
         TypeClass* tc = (TypeClass*)t;
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
-        return getPtrToType(tc->sym->ir.irStruct->recty.get()); // t->ir.type->get());
+        return getPtrToType(tc->ir.type->get());
     }
 
     // functions
@@ -584,6 +584,13 @@ LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
     return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
 }
 
+LLConstant* DtoBitCast(LLConstant* v, const LLType* t)
+{
+    if (v->getType() == t)
+        return v;
+    return llvm::ConstantExpr::getBitCast(v, t);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 const LLPointerType* isaPointer(LLValue* v)
@@ -693,6 +700,33 @@ unsigned char getABITypeAlign(const LLType* t)
 unsigned char getPrefTypeAlign(const LLType* t)
 {
     return gTargetData->getPrefTypeAlignment(t);
+}
+
+const LLType* getBiggestType(const LLType** begin, size_t n)
+{
+    const LLType* bigTy = 0;
+    size_t bigSize = 0;
+    size_t bigAlign = 0;
+
+    const LLType** end = begin+n;
+    while (begin != end)
+    {
+        const LLType* T = *begin;
+
+        size_t sz = getABITypeSize(T);
+        size_t ali = getABITypeAlign(T);
+        if (sz > bigSize || (sz == bigSize && ali > bigAlign))
+        {
+            bigTy = T;
+            bigSize = sz;
+            bigAlign = ali;
+        }
+
+        ++begin;
+    }
+
+    // will be null for n==0
+    return bigTy;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

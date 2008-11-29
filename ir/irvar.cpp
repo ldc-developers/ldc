@@ -1,4 +1,4 @@
-#include "llvm/DerivedTypes.h"
+#include "gen/llvm.h"
 #include "declaration.h"
 #include "ir/irvar.h"
 
@@ -38,8 +38,8 @@ IrLocal::IrLocal(VarDeclaration* v) : IrVar(v)
 
 IrField::IrField(VarDeclaration* v) : IrVar(v)
 {
-    index = -1;
-    indexOffset = 0;
+    index = 0;
+    unionOffset = 0;
     constInit = NULL;
 }
 

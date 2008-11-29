@@ -41,11 +41,12 @@ unsigned DtoCallingConv(LINK l)
     {
         //TODO: StdCall is not a good base on Windows due to extra name mangling
         // applied there
-        if (global.params.cpu == ARCHx86 && global.params.os != OSWindows)
-            return llvm::CallingConv::X86_StdCall;
+        if (global.params.cpu == ARCHx86)
+            return (global.params.os != OSWindows) ? llvm::CallingConv::X86_StdCall : llvm::CallingConv::C;
         else
             return llvm::CallingConv::Fast;
     }
+    // on the other hand, here, it's exactly what we want!!! TODO: right?
     else if (l == LINKwindows)
         return llvm::CallingConv::X86_StdCall;
     else
@@ -155,7 +156,6 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     }
 
     // build type info array
-    assert(Type::typeinfo->ir.irStruct->constInit);
     const LLType* typeinfotype = DtoType(Type::typeinfo->type);
     const LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
 

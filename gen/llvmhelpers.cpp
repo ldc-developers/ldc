@@ -338,7 +338,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
     {
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
         LLValue* val = DtoLoad(irfunc->thisArg);
-        ctx = DtoLoad(DtoGEPi(val, 0,2+cd->vthis->ir.irField->index, ".vthis"));
+        ctx = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
     else
         ctx = irfunc->nestArg;
@@ -374,7 +374,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         if (!cd || !cd->vthis)
             return getNullPtr(getVoidPtrType());
         LLValue* val = DtoLoad(irfunc->thisArg);
-        return DtoLoad(DtoGEPi(val, 0,2+cd->vthis->ir.irField->index, ".vthis"));
+        return DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
     else
     {
@@ -964,73 +964,68 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     if (vd->ir.initialized) return;
     vd->ir.initialized = gIR->dmodule;
 
-    Logger::println("* DtoConstInitGlobal(%s)", vd->toChars());
+    Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->locToChars());
     LOG_SCOPE;
 
-    bool emitRTstaticInit = false;
+    // if the variable is a function local static variable with a runtime initializer
+    // we must do lazy initialization, which involves a boolean flag to make sure it happens only once
+    // FIXME: I don't think it's thread safe ...
 
-    LLConstant* _init = 0;
-    if (vd->parent && vd->parent->isFuncDeclaration() && vd->init && vd->init->isExpInitializer()) {
-        _init = DtoConstInitializer(vd->loc, vd->type, NULL);
-        emitRTstaticInit = true;
-    }
-    else {
-        _init = DtoConstInitializer(vd->loc, vd->type, vd->init);
-    }
+    bool doLazyInit = false;
+    Dsymbol* par = vd->toParent2();
 
-    const LLType* _type = DtoType(vd->type);
-    Type* t = vd->type->toBasetype();
-
-    //Logger::cout() << "initializer: " << *_init << '\n';
-    if (_type != _init->getType()) {
-        if (Logger::enabled())
-            Logger::cout() << "got type '" << *_init->getType() << "' expected '" << *_type << "'\n";
-
-        // zero initalizer
-        if (_init->isNullValue())
-            _init = llvm::Constant::getNullValue(_type);
-        // pointer to global constant (struct.init)
-        else if (llvm::isa<llvm::GlobalVariable>(_init))
+    if (par && par->isFuncDeclaration() && vd->init)
+    {
+        if (ExpInitializer* einit = vd->init->isExpInitializer())
         {
-            assert(_init->getType()->getContainedType(0) == _type);
-            llvm::GlobalVariable* gv = llvm::cast<llvm::GlobalVariable>(_init);
-            assert(t->ty == Tstruct);
-            TypeStruct* ts = (TypeStruct*)t;
-            assert(ts->sym->ir.irStruct->constInit);
-            _init = ts->sym->ir.irStruct->constInit;
-        }
-        // array single value init
-        else if (isaArray(_type))
-        {
-            _init = DtoConstStaticArray(_type, _init);
-        }
-        else {
-            if (Logger::enabled())
-                Logger::cout() << "Unexpected initializer type: " << *_type << '\n';
-            //assert(0);
+            if (!einit->exp->isConst())
+            {
+                // mark as needing lazy now
+                doLazyInit = true;
+            }
         }
     }
+
+    // if we do lazy init, we start out with an undefined initializer
+    LLConstant* initVal;
+    if (doLazyInit)
+    {
+        initVal = llvm::UndefValue::get(DtoType(vd->type));
+    }
+    // otherwise we build it
+    else
+    {
+        initVal = DtoConstInitializer(vd->loc, vd->type, vd->init);
+    }
+
+    // set the initializer if appropriate
+    IrGlobal* glob = vd->ir.irGlobal;
+    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(glob->value);
+
+    // refine the global's opaque type to the type of the initializer
+    llvm::cast<LLOpaqueType>(glob->type.get())->refineAbstractTypeTo(initVal->getType());
+
+    glob->constInit = initVal;
 
     bool istempl = false;
     if ((vd->storage_class & STCcomdat) || (vd->parent && DtoIsTemplateInstance(vd->parent))) {
         istempl = true;
     }
 
-    if (_init && _init->getType() != _type)
-        _type = _init->getType();
-    llvm::cast<LLOpaqueType>(vd->ir.irGlobal->type.get())->refineAbstractTypeTo(_type);
-    _type = vd->ir.irGlobal->type.get();
+    // assign the initializer
+    llvm::GlobalVariable* globalvar = llvm::cast<llvm::GlobalVariable>(glob->value);
 
-    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(vd->ir.irGlobal->value);
     if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
     {
         if (Logger::enabled())
         {
             Logger::println("setting initializer");
             Logger::cout() << "global: " << *gvar << '\n';
-            Logger::cout() << "init:   " << *_init << '\n';
+            Logger::cout() << "init:   " << *initVal << '\n';
         }
-        gvar->setInitializer(_init);
+
+        gvar->setInitializer(initVal);
+
         // do debug info
         if (global.params.symdebug)
         {
@@ -1040,8 +1035,8 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         }
     }
 
-    if (emitRTstaticInit)
-        DtoLazyStaticInit(istempl, gvar, vd->init, t);
+    if (doLazyInit)
+        DtoLazyStaticInit(istempl, gvar, vd->init, vd->type);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1396,18 +1391,18 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var)
 //      INITIALIZER HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init)
+LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 {
     LLConstant* _init = 0; // may return zero
     if (!init)
     {
         Logger::println("const default initializer for %s", type->toChars());
-        _init = DtoDefaultInit(loc, type);
+        _init = DtoConstExpInit(loc, type, type->defaultInit());
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("const expression initializer");
-        _init = ex->exp->toConstElem(gIR);
+        _init = DtoConstExpInit(loc, type, ex->exp);;
     }
     else if (StructInitializer* si = init->isStructInitializer())
     {
@@ -1433,7 +1428,7 @@ LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLConstant* DtoConstFieldInitializer(Loc& loc, Type* t, Initializer* init)
+LLConstant* DtoConstFieldInitializer(Loc loc, Type* t, Initializer* init)
 {
     Logger::println("DtoConstFieldInitializer");
     LOG_SCOPE;
@@ -1530,20 +1525,33 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
 
 static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 {
-    Logger::println("building type %s to expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
+    Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
     const LLType* dstTy = DtoType(base);
     if (Logger::enabled())
         Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
-    
+
     LLConstant* val = exp->toConstElem(gIR);
-    
+
     Type* expbase = exp->type->toBasetype();
-    Type* t = base;
-    
+    Logger::println("expbase: %s", expbase->toChars());
+    Type* t = base->toBasetype();
+
     LLSmallVector<size_t, 4> dims;
+
+    // handle zero initializers
+    if (expbase->isintegral() && exp->isConst())
+    {
+        if (!exp->toInteger())
+            return LLConstant::getNullValue(dstTy);
+    }
+    else if (exp->op == TOKnull)
+    {
+        return LLConstant::getNullValue(dstTy);
+    }
 
     while(1)
     {
+        Logger::println("t: %s", t->toChars());
         if (t->equals(expbase))
             break;
         assert(t->ty == Tsarray);
@@ -1552,7 +1560,7 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
         assert(t->nextOf());
         t = t->nextOf()->toBasetype();
     }
-    
+
     size_t i = dims.size();
     assert(i);
 
@@ -1564,17 +1572,15 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
         inits.insert(inits.end(), dims[i], val);
         val = LLConstantArray::get(arrty, inits);
     }
-    
+
     return val;
 }
 
-LLConstant* DtoDefaultInit(Loc& loc, Type* type)
+LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
 {
-    Expression* exp = type->defaultInit();
-    
     Type* expbase = exp->type->toBasetype();
     Type* base = type->toBasetype();
-    
+
     // if not the same basetypes, we won't get the same llvm types either
     if (!expbase->equals(base))
     {
@@ -1584,7 +1590,6 @@ LLConstant* DtoDefaultInit(Loc& loc, Type* type)
                 error(loc, "static arrays of voids have no default initializer");
                 fatal();
             }
-            
             Logger::println("type is a static array, building constant array initializer to single value");
             return expand_to_sarray(base, exp);
         }
@@ -1594,9 +1599,8 @@ LLConstant* DtoDefaultInit(Loc& loc, Type* type)
             fatal();
         }
         assert(0);
-        
     }
-    
+
     return exp->toConstElem(gIR);
 }
 
@@ -1615,6 +1619,7 @@ void DtoAnnotation(const char* str)
         ++p;
     }
     // create a noop with the code as the result name!
+    // FIXME: this is const folded and eliminated immediately ... :/
     gIR->ir->CreateAnd(DtoConstSize_t(0),DtoConstSize_t(0),s.c_str());
 }
 

@@ -208,6 +208,9 @@ void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+// FIXME: this looks like it could use a cleanup
+
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 {
     Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
@@ -240,6 +243,9 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     Type* arrnext = arrinittype->nextOf();
     const LLType* elemty = DtoType(arrinittype->nextOf());
+
+    // true if there is a mismatch with one of the initializers
+    bool mismatch = false;
 
     assert(arrinit->index.dim == arrinit->value.dim);
     for (unsigned i=0,j=0; i < tdim; ++i)
@@ -292,23 +298,51 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
             v = DtoConstInitializer(arrinit->loc, t->nextOf(), init);
         assert(v);
 
+        // global arrays of unions might have type mismatch for each element
+        // if there is any mismatch at all, we need to use a struct instead :/
+        if (v->getType() != elemty)
+            mismatch = true;
+
         inits[i] = v;
         if (Logger::enabled())
             Logger::cout() << "llval: " << *v << '\n';
     }
 
     Logger::println("building constant array");
+
+    LLConstant* constarr;
     const LLArrayType* arrty = LLArrayType::get(elemty,tdim);
-    LLConstant* constarr = LLConstantArray::get(arrty, inits);
+
+    if (mismatch)
+    {
+        constarr = LLConstantStruct::get(inits);
+    }
+    else
+    {
+        constarr = LLConstantArray::get(arrty, inits);
+    }
+
+#if 0
+    if (Logger::enabled())
+    {
+        Logger::cout() << "array type: " << *arrty << '\n';
+        size_t n = inits.size();
+        for (size_t i=0; i<n; i++)
+            Logger::cout() << "  init " << i << " = " << *inits[i] << '\n';
+    }
+#endif
 
     if (arrinittype->ty == Tsarray)
         return constarr;
     else
         assert(arrinittype->ty == Tarray);
 
-    LLGlobalVariable* gvar = new LLGlobalVariable(arrty,true,LLGlobalValue::InternalLinkage,constarr,".constarray",gIR->module);
+    LLGlobalVariable* gvar = new LLGlobalVariable(constarr->getType(),true,LLGlobalValue::InternalLinkage,constarr,".constarray",gIR->module);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+    gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(elemty));
+
     return DtoConstSlice(DtoConstSize_t(tdim),gep);
 }
 
@@ -792,24 +826,6 @@ LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r)
 
     // return result
     return (op == TOKnotidentity) ? gIR->ir->CreateNot(res) : res;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-LLConstant* DtoConstStaticArray(const LLType* t, LLConstant* c)
-{
-    const LLArrayType* at = isaArray(t);
-    assert(at);
-
-    if (isaArray(at->getElementType()))
-    {
-        c = DtoConstStaticArray(at->getElementType(), c);
-    }
-    else {
-        assert(at->getElementType() == c->getType());
-    }
-    std::vector<LLConstant*> initvals;
-    initvals.resize(at->getNumElements(), c);
-    return llvm::ConstantArray::get(at, initvals);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

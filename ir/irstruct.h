@@ -6,86 +6,168 @@
 #include <vector>
 #include <map>
 
-struct IrInterface : IrBase
-{
-    BaseClass* base;
-    ClassDeclaration* decl;
-
-    llvm::PATypeHolder* vtblTy;
-    LLConstant* vtblInit;
-    LLGlobalVariable* vtbl;
-
-    const LLStructType* infoTy;
-    LLConstantStruct* infoInit;
-    LLConstant* info;
-
-    int index;
-
-    IrInterface(BaseClass* b);
-    ~IrInterface();
-};
+struct IrInterface;
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
 // represents a struct or class
+// it is used during codegen to hold all the vital info we need
 struct IrStruct : IrBase
 {
-    struct Offset
-    {
-        VarDeclaration* var;
-        const LLType* type;
-        LLConstant* init;
+    /////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
-        Offset(VarDeclaration* v, const LLType* ty)
-        : var(v), type(ty), init(NULL) {}
-    };
-
-    typedef std::multimap<unsigned, Offset> OffsetMap;
     typedef std::vector<VarDeclaration*> VarDeclVector;
-    typedef std::map<ClassDeclaration*, IrInterface*> InterfaceMap;
-    typedef InterfaceMap::iterator InterfaceMapIter;
+
+    typedef std::map<ClassDeclaration*, IrInterface*>   InterfaceMap;
+    typedef InterfaceMap::iterator                      InterfaceMapIter;
+
     typedef std::vector<IrInterface*> InterfaceVector;
     typedef InterfaceVector::iterator InterfaceVectorIter;
 
-public:
-    IrStruct(Type*);
+    // vector of LLVM types
+    typedef std::vector<const llvm::Type*> TypeVector;
+
+    /////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    // Anon represents an anonymous struct union block inside an aggregate
+    // during LLVM type construction.
+    struct Anon
+    {
+        bool isunion;
+        Anon* parent;
+
+        TypeVector types;
+
+        Anon(bool IsUnion, Anon* par) : isunion(IsUnion), parent(par) {}
+    };
+
+    /////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    /// ctor
+    IrStruct(AggregateDeclaration* agg);
+
+    /// dtor
     virtual ~IrStruct();
 
-    void addField(VarDeclaration* v);
+    /////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
 
+    /// push an anonymous struct/union
+    void pushAnon(bool isunion);
+
+    /// pops an anonymous struct/union
+    void popAnon();
+
+    /// adds field
+    void addVar(VarDeclaration* var);
+
+    /////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    /// build the aggr type
+    const LLType* build();
+
+    /// put the aggr initializers in a vector
+    void buildDefaultConstInit(std::vector<llvm::Constant*>& inits);
+
+    /// ditto - but also builds the constant struct, for convenience
+    LLConstant* buildDefaultConstInit();
+
+    /////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////
+
+    // the D aggregate
+    AggregateDeclaration* aggrdecl;
+
+    // vector of VarDeclarations in this aggregate
+    VarDeclVector varDecls;
+
+    // vector of VarDeclarations that contribute to the default initializer
+    VarDeclVector defVars;
+
+    // true if the default initializer has been built
+    bool defaultFound;
+
+    // top element
+    Anon* anon;
+
+    // toplevel types in this aggr
+    TypeVector types;
+
+    // current index
+    // always the same as types.size()
+    size_t index; 
+
+    // aggregate D type
     Type* type;
-    llvm::PATypeHolder recty;
-    OffsetMap offsets;
-    VarDeclVector defaultFields;
 
+    // class vtable type
+    llvm::PATypeHolder vtblTy;
+    llvm::PATypeHolder vtblInitTy;
+
+    // initializer type opaque (type of global matches initializer, not formal type)
+    llvm::PATypeHolder initOpaque;
+    llvm::PATypeHolder classInfoOpaque;
+
+    // map/vector of interfaces implemented
     InterfaceMap interfaceMap;
     InterfaceVector interfaceVec;
-    const llvm::ArrayType* interfaceInfosTy;
+
+    // interface info array global
     LLGlobalVariable* interfaceInfos;
 
+    // ...
     bool defined;
     bool constinited;
 
+    // vtbl global and initializer
     LLGlobalVariable* vtbl;
-#if OPAQUE_VTBLS
     LLConstant* constVtbl;
-#else
-    LLConstantStruct* constVtbl;
-#endif
+
+    // static initializers global and constant
     LLGlobalVariable* init;
     LLConstant* constInit;
+
+    // classinfo global and initializer constant
     LLGlobalVariable* classInfo;
     LLConstant* constClassInfo;
-    bool hasUnions;
-    DUnion* dunion;
-    bool classDeclared;
-    bool classDefined;
+    bool classInfoDeclared;
+    bool classInfoDefined;
 
-    bool packed; // true for: align(1) struct S { ... }
+    // align(1) struct S { ... }
+    bool packed;
 
+    // dwarf composite global
     LLGlobalVariable* dwarfComposite;
+};
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+// represents interface implemented by a class
+struct IrInterface : IrBase
+{
+    BaseClass* base;
+    ClassDeclaration* decl;
+
+    llvm::PATypeHolder vtblInitTy;
+
+    LLConstant* vtblInit;
+    LLGlobalVariable* vtbl;
+
+    const LLStructType* infoTy;
+    LLConstant* infoInit;
+    LLConstant* info;
+
+    size_t index;
+
+    IrInterface(BaseClass* b);
 };
 
 #endif

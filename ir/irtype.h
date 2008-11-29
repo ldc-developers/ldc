@@ -21,7 +21,6 @@ struct IrType
     void reset();
 
     llvm::PATypeHolder* type;
-    llvm::PATypeHolder* vtblType;
 };
 
 #endif

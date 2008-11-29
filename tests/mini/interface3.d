@@ -12,14 +12,14 @@ class C : I
     int i = 42;
     override void func()
     {
-        printf("hello %d\n", i);
+        printf("hello %d from %p\n", i, this);
         i++;
     }
 }
 
 void main()
 {
-    scope c = new C;
+    auto c = new C;
     {c.func();}
     {
         I i = c;

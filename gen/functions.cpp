@@ -97,16 +97,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     }
 
     if (dVararg) {
-        ClassDeclaration* ti = Type::typeinfo;
-        ti->toObjFile(0); // TODO: multiobj
-        DtoForceConstInitDsymbol(ti);
-        assert(ti->ir.irStruct->constInit);
-        std::vector<const LLType*> types;
-        types.push_back(DtoSize_t());
-        types.push_back(getPtrToType(getPtrToType(ti->ir.irStruct->constInit->getType())));
-        const LLType* t1 = llvm::StructType::get(types);
-        paramvec.push_back(t1);
-        paramvec.push_back(getPtrToType(LLType::Int8Ty));
+        paramvec.push_back(DtoType(Type::typeinfo->type->arrayOf())); // _arguments
+        paramvec.push_back(getVoidPtrType()); // _argptr
     }
 
     // number of formal params
@@ -286,7 +278,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
             Logger::println("isMember = this is: %s", ad->type->toChars());
             thisty = DtoType(ad->type);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->recty.get()))
+            if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->type->ir.type->get()))
                 thisty = getPtrToType(thisty);
         }
         else {
@@ -547,35 +539,36 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // we never reference parameters of function prototypes
+    std::string str;
     if (!declareOnly)
     {
         // name parameters
         llvm::Function::arg_iterator iarg = func->arg_begin();
 
         if (f->retInPtr) {
-            iarg->setName(".sretarg");
+            iarg->setName(".sret_arg");
             fdecl->ir.irFunc->retArg = iarg;
             ++iarg;
         }
 
         if (f->usesThis) {
-            iarg->setName("this");
+            iarg->setName(".this_arg");
             fdecl->ir.irFunc->thisArg = iarg;
             assert(fdecl->ir.irFunc->thisArg);
             ++iarg;
         }
         else if (f->usesNest) {
-            iarg->setName(".nest");
+            iarg->setName(".nest_arg");
             fdecl->ir.irFunc->nestArg = iarg;
             assert(fdecl->ir.irFunc->nestArg);
             ++iarg;
         }
 
         if (f->linkage == LINKd && f->varargs == 1) {
-            iarg->setName("_arguments");
+            iarg->setName("._arguments");
             fdecl->ir.irFunc->_arguments = iarg;
             ++iarg;
-            iarg->setName("_argptr");
+            iarg->setName("._argptr");
             fdecl->ir.irFunc->_argptr = iarg;
             ++iarg;
         }
@@ -597,7 +590,10 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 assert(!argvd->ir.irLocal);
                 argvd->ir.irLocal = new IrLocal(argvd);
                 argvd->ir.irLocal->value = iarg;
-                iarg->setName(argvd->ident->toChars());
+
+                str = argvd->ident->toChars();
+                str.append("_arg");
+                iarg->setName(str);
 
                 k++;
             }
@@ -671,8 +667,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
     if (fd->isMain())
         gIR->emitMain = true;
 
-    std::string entryname("entry_");
-    entryname.append(fd->toPrettyChars());
+    std::string entryname("entry");
 
     llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(entryname,func);
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endentry",func);
@@ -710,7 +705,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
         LLValue* thisvar = irfunction->thisArg;
         assert(thisvar);
 
-        LLValue* thismem = DtoAlloca(thisvar->getType(), ".this");
+        LLValue* thismem = DtoAlloca(thisvar->getType(), "this");
         DtoStore(thisvar, thismem);
         irfunction->thisArg = thismem;
         
@@ -760,7 +755,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
             if (!refout && (!DtoIsPassedByRef(vd->type) || lazy))
             {
                 LLValue* a = irloc->value;
-                LLValue* v = DtoAlloca(a->getType(), "."+a->getName());
+                LLValue* v = DtoAlloca(a->getType(), vd->ident->toChars());
                 DtoStore(a,v);
                 irloc->value = v;
             }
@@ -822,7 +817,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
                 ClassDeclaration* cd = fd->isMember2()->isClassDeclaration();
                 assert(cd);
                 assert(cd->vthis);
-                src = DtoLoad(DtoGEPi(thisval, 0,2+cd->vthis->ir.irField->index, ".vthis"));
+                src = DtoLoad(DtoGEPi(thisval, 0,cd->vthis->ir.irField->index, ".vthis"));
             }
             DtoMemCpy(nestedVars, src, DtoConstSize_t(nparelems*PTRSIZE));
         }

@@ -50,7 +50,7 @@ struct AttribDeclaration : Dsymbol
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
-    void toObjFile(int multiobj);			// compile to .obj file
+    virtual void toObjFile(int multiobj);			// compile to .obj file
     int cvMember(unsigned char *p);
 };
 

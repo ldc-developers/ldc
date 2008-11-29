@@ -1220,9 +1220,9 @@ int main(int argc, char *argv[], char** envp)
 	    m->inlineScan();
 	}
     }
+#endif
     if (global.errors)
 	fatal();
-#endif
 
     // Generate output files
     for (i = 0; i < modules.dim; i++)

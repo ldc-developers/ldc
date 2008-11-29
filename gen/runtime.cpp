@@ -134,8 +134,10 @@ static const LLType* rt_dg2()
 
 static void LLVM_D_BuildRuntimeModule()
 {
+    Logger::println("building module");
     M = new llvm::Module("ldc internal runtime");
 
+    Logger::println("building basic types");
     const LLType* voidTy = LLType::VoidTy;
     const LLType* boolTy = LLType::Int1Ty;
     const LLType* byteTy = LLType::Int8Ty;
@@ -144,6 +146,7 @@ static void LLVM_D_BuildRuntimeModule()
     const LLType* longTy = LLType::Int64Ty;
     const LLType* sizeTy = DtoSize_t();
 
+    Logger::println("building float types");
     const LLType* floatTy = LLType::FloatTy;
     const LLType* doubleTy = LLType::DoubleTy;
     const LLType* realTy;
@@ -156,14 +159,21 @@ static void LLVM_D_BuildRuntimeModule()
     const LLType* cdoubleTy = llvm::StructType::get(doubleTy, doubleTy, NULL);
     const LLType* crealTy = llvm::StructType::get(realTy, realTy, NULL);
 
+    Logger::println("building aggr types");
     const LLType* voidPtrTy = rt_ptr(byteTy);
     const LLType* stringTy = rt_array(byteTy);
     const LLType* wstringTy = rt_array(shortTy);
     const LLType* dstringTy = rt_array(intTy);
-    const LLType* objectTy = rt_ptr(ClassDeclaration::object->type->ir.type->get());
-    const LLType* classInfoTy = rt_ptr(ClassDeclaration::classinfo->type->ir.type->get());
-    const LLType* typeInfoTy = rt_ptr(Type::typeinfo->type->ir.type->get());
+
+    Logger::println("building class types");
+    const LLType* objectTy = DtoType(ClassDeclaration::object->type);
+    const LLType* classInfoTy = DtoType(ClassDeclaration::classinfo->type);
+    const LLType* typeInfoTy = DtoType(Type::typeinfo->type);
+
+    Logger::println("building aa type");
     const LLType* aaTy = rt_ptr(llvm::OpaqueType::get());
+
+    Logger::println("building functions");
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////

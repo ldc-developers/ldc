@@ -45,7 +45,6 @@ namespace llvm
     class ConstantStruct;
     class GlobalVariable;
 }
-struct DUnion;
 
 struct AggregateDeclaration : ScopeDsymbol
 {
@@ -257,9 +256,6 @@ struct ClassDeclaration : AggregateDeclaration
     void toDt2(dt_t **pdt, ClassDeclaration *cd);
 
     Symbol *vtblsym;
-
-    // llvm
-    void offsetToIndex(Type* t, unsigned os, std::vector<unsigned>& result);
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
 };

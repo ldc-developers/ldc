@@ -9,7 +9,6 @@ const llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr);
-LLConstant* DtoConstStaticArray(const LLType* t, LLConstant* c);
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);

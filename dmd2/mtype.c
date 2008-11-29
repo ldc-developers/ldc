@@ -3694,6 +3694,14 @@ d_uns64 TypeDelegate::size(Loc loc)
     return PTRSIZE * 2;
 }
 
+// LDC added, no reason to align to 2*PTRSIZE
+unsigned TypeDelegate::alignsize()
+{
+    // A Delegate consists of two ptr values, so align it on pointer size
+    // boundary
+    return PTRSIZE;
+}
+
 void TypeDelegate::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 {
     if (mod != this->mod)

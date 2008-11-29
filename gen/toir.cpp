@@ -135,20 +135,27 @@ DValue* VarExp::toElem(IRState* p)
         }
         else {
             Logger::println("a normal variable");
+
             // take care of forward references of global variables
             if (vd->isDataseg() || (vd->storage_class & STCextern)) {
                 vd->toObjFile(0); // TODO: multiobj
             }
-            if (!vd->ir.isSet() || !vd->ir.getIrValue()) {
+
+            LLValue* val;
+
+            if (!vd->ir.isSet() || !(val = vd->ir.getIrValue())) {
                 error("variable %s not resolved", vd->toChars());
                 if (Logger::enabled())
                     Logger::cout() << "unresolved variable had type: " << *DtoType(vd->type) << '\n';
                 fatal();
             }
+
             if (vd->isDataseg() || (vd->storage_class & STCextern)) {
                 DtoConstInitGlobal(vd);
+                val = DtoBitCast(val, DtoType(type->pointerTo()));
             }
-            return new DVarValue(type, vd, vd->ir.getIrValue());
+
+            return new DVarValue(type, vd, val);
         }
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
@@ -369,7 +376,7 @@ DValue* StringExp::toElem(IRState* p)
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
     if (Logger::enabled())
         Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,".stringliteral",gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,".str",gIR->module);
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
     LLConstant* idxs[2] = { zero, zero };
@@ -443,7 +450,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     }
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,".stringliteral",gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,".str",gIR->module);
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
     LLConstant* idxs[2] = { zero, zero };
@@ -1008,19 +1015,21 @@ DValue* DotVarExp::toElem(IRState* p)
             assert(fdecl->vtblIndex > 0);
             assert(e1type->ty == Tclass);
 
-            LLValue* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
-            LLValue* vtblidx = llvm::ConstantInt::get(LLType::Int32Ty, (size_t)fdecl->vtblIndex, false);
+            LLValue* zero = DtoConstUint(0);
+            size_t vtblidx = fdecl->vtblIndex;
             if (Logger::enabled())
                 Logger::cout() << "vthis: " << *vthis << '\n';
-            funcval = DtoGEP(vthis, zero, zero);
+            funcval = vthis;
+            if (!fdecl->isMember2()->isInterfaceDeclaration())
+                funcval = DtoGEP(funcval, zero, zero);
             funcval = DtoLoad(funcval);
-            funcval = DtoGEP(funcval, zero, vtblidx, toChars());
+            Logger::println("vtblidx = %lu", vtblidx);
+            funcval = DtoGEP(funcval, zero, DtoConstUint(vtblidx), toChars());
             funcval = DtoLoad(funcval);
-        #if OPAQUE_VTBLS
+
             funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
             if (Logger::enabled())
                 Logger::cout() << "funcval casted: " << *funcval << '\n';
-        #endif
         }
         // static call
         else {
@@ -2143,6 +2152,22 @@ DValue* FuncExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+LLConstant* FuncExp::toConstElem(IRState* p)
+{
+    Logger::print("FuncExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    assert(fd);
+    assert(fd->tok == TOKfunction);
+
+    DtoForceDefineDsymbol(fd);
+    assert(fd->ir.irFunc->func);
+
+    return fd->ir.irFunc->func;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* ArrayLiteralExp::toElem(IRState* p)
 {
     Logger::print("ArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
@@ -2252,91 +2277,147 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void addZeros(std::vector<llvm::Value*>& inits, unsigned pos, unsigned offset);
+
 DValue* StructLiteralExp::toElem(IRState* p)
 {
     Logger::print("StructLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    const LLType* llt = DtoType(type);
+    // get arrays 
+    size_t n = elements->dim;
+    Expression** exprs = (Expression**)elements->data;
 
-    LLValue* mem = 0;
+    assert(sd->fields.dim == n);
+    VarDeclaration** vars = (VarDeclaration**)sd->fields.data;
 
-    LLValue* sptr = DtoAlloca(llt,"tmpstructliteral");
+    // vector of values to build aggregate from
+    std::vector<llvm::Value*> values;
 
-    // default init the struct to take care of padding
-    // and unspecified members
-    TypeStruct* ts = (TypeStruct*)type->toBasetype();
-    assert(ts->sym);
-    DtoForceConstInitDsymbol(ts->sym);
-    assert(ts->sym->ir.irStruct->init);
-    DtoAggrCopy(sptr, ts->sym->ir.irStruct->init);
+    // trackers
+    size_t lastoffset = 0;
+    size_t lastsize = 0;
 
-    // num elements in literal
-    unsigned n = elements->dim;
-
-    // unions might have different types for each literal
-    if (sd->ir.irStruct->hasUnions) {
-        // build the type of the literal
-        std::vector<const LLType*> tys;
-        for (unsigned i=0; i<n; ++i) {
-            Expression* vx = (Expression*)elements->data[i];
-            if (!vx) continue;
-            tys.push_back(DtoType(vx->type));
-        }
-        const LLStructType* t = LLStructType::get(tys, sd->ir.irStruct->packed);
-        if (t != llt) {
-            if (getABITypeSize(t) != getABITypeSize(llt)) {
-                if (Logger::enabled())
-                    Logger::cout() << "got size " << getABITypeSize(t) << ", expected " << getABITypeSize(llt) << '\n';
-                assert(0 && "type size mismatch");
-            }
-            sptr = DtoBitCast(sptr, getPtrToType(t));
-            if (Logger::enabled())
-                Logger::cout() << "sptr type is now: " << *t << '\n';
-        }
-    }
-
-    // build
-    unsigned j = 0;
-    for (unsigned i=0; i<n; ++i)
+    // for through each field and build up the struct, padding with zeros
+    for (size_t i=0; i<n; i++)
     {
-        Expression* vx = (Expression*)elements->data[i];
-        if (!vx) continue;
+        Expression* e = exprs[i];
+        VarDeclaration* var = vars[i];
 
-        if (Logger::enabled())
-            Logger::cout() << "getting index " << j << " of " << *sptr << '\n';
-        LLValue* arrptr = DtoGEPi(sptr,0,j);
-        DValue* darrptr = new DVarValue(vx->type, arrptr);
+        // field is skipped
+        if (!e)
+            continue;
 
-        DValue* ve = vx->toElem(p);
-        DtoAssign(loc, darrptr, ve);
+        // add any 0 padding needed before this field
+        if (var->offset > lastoffset + lastsize)
+        {
+            addZeros(values, lastoffset + lastsize, var->offset);
+        }
 
-        j++;
+        // add the expression value
+        DValue* v = e->toElem(p);
+        values.push_back(v->getRVal());
+
+        // update offsets
+        lastoffset = var->offset;
+        lastsize = var->type->size();
     }
 
-    return new DImValue(type, sptr);
+    // add any 0 padding needed at the end of the literal
+    const LLType* structtype = DtoType(sd->type);
+    size_t structsize = getABITypeSize(structtype);
+
+    if (structsize > lastoffset+lastsize)
+    {
+        addZeros(values, lastoffset + lastsize, structsize);
+    }
+
+    // get the struct type from the values
+    n = values.size();
+    std::vector<const LLType*> types(n, NULL);
+
+    for (size_t i=0; i<n; i++)
+    {
+        types[i] = values[i]->getType();
+    }
+
+    const LLStructType* sty = LLStructType::get(types, sd->ir.irStruct->packed);
+
+    // allocate storage for the struct literal on the stack
+    LLValue* mem = DtoAlloca(sty, "tmpstructliteral");
+
+    // put all the values into the storage
+    for (size_t i=0; i<n; i++)
+    {
+        LLValue* ptr = DtoGEPi(mem, 0, i);
+        DtoStore(values[i], ptr);
+    }
+
+    // cast the alloca pointer to the "formal" struct type
+    mem = DtoBitCast(mem, getPtrToType(structtype));
+
+    // return as a var
+    return new DVarValue(type, mem);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+void addZeros(std::vector<llvm::Constant*>& inits, unsigned pos, unsigned offset);
 
 LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {
     Logger::print("StructLiteralExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    unsigned n = elements->dim;
-    std::vector<LLConstant*> vals(n, NULL);
+    // get arrays 
+    size_t n = elements->dim;
+    Expression** exprs = (Expression**)elements->data;
 
-    for (unsigned i=0; i<n; ++i)
+    assert(sd->fields.dim == n);
+    VarDeclaration** vars = (VarDeclaration**)sd->fields.data;
+
+    // vector of values to build aggregate from
+    std::vector<llvm::Constant*> values;
+
+    // trackers
+    size_t lastoffset = 0;
+    size_t lastsize = 0;
+
+    // for through each field and build up the struct, padding with zeros
+    for (size_t i=0; i<n; i++)
     {
-        Expression* vx = (Expression*)elements->data[i];
-        vals[i] = vx->toConstElem(p);
+        Expression* e = exprs[i];
+        VarDeclaration* var = vars[i];
+
+        // field is skipped
+        if (!e)
+            continue;
+
+        // add any 0 padding needed before this field
+        if (var->offset > lastoffset + lastsize)
+        {
+            addZeros(values, lastoffset + lastsize, var->offset);
+        }
+
+        // add the expression value
+        values.push_back(e->toConstElem(p));
+
+        // update offsets
+        lastoffset = var->offset;
+        lastsize = var->type->size();
     }
 
-    assert(type->toBasetype()->ty == Tstruct);
-    const LLType* t = DtoType(type);
-    const LLStructType* st = isaStruct(t);
-    return llvm::ConstantStruct::get(st,vals);
+    // add any 0 padding needed at the end of the literal
+    const LLType* structtype = DtoType(sd->type);
+    size_t structsize = getABITypeSize(structtype);
+
+    if (structsize > lastoffset+lastsize)
+    {
+        addZeros(values, lastoffset + lastsize, structsize);
+    }
+
+    // return constant struct
+    return LLConstantStruct::get(values, sd->ir.irStruct->packed);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

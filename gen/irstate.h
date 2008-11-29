@@ -23,6 +23,7 @@ struct FuncDeclaration;
 struct Module;
 struct TypeStruct;
 struct BaseClass;
+struct AnonDeclaration;
 struct EnclosingHandler;
 
 struct IrModule;
@@ -146,10 +147,6 @@ struct IRState
     typedef std::vector<IrStruct*> StructVector;
     StructVector structs;
     IrStruct* topstruct();
-
-    // classes TODO move into IRClass
-    typedef std::vector<ClassDeclaration*> ClassDeclVec;
-    ClassDeclVec classes;
 
     // D main function
     bool emitMain;

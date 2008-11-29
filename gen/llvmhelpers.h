@@ -86,8 +86,9 @@ DValue* DtoDeclarationExp(Dsymbol* declaration);
 LLValue* DtoRawVarDeclaration(VarDeclaration* var);
 
 // initializer helpers
-LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init);
-LLConstant* DtoConstFieldInitializer(Loc& loc, Type* type, Initializer* init);
+LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
+LLConstant* DtoConstFieldInitializer(Loc loc, Type* type, Initializer* init);
+LLConstant* DtoConstExpInit(Loc loc, Type* t, Expression* exp);
 DValue* DtoInitializer(LLValue* target, Initializer* init);
 
 // annotation generator
@@ -107,9 +108,6 @@ DValue* DtoBinRem(Type* resulttype, DValue* lhs, DValue* rhs);
 
 // target stuff
 void findDefaultTarget();
-
-/// get the default initializer of the type
-LLConstant* DtoDefaultInit(Loc& loc, Type* t);
 
 // fixup an overloaded intrinsic name string
 void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name);
