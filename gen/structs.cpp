@@ -208,6 +208,8 @@ Lpadding:
 
                 // do the default
                 Logger::println("adding default field: %s : +%u", nextdef->toChars(), nextdef->offset);
+                if (!nextdef->ir.irField->constInit)
+                    nextdef->ir.irField->constInit = DtoConstFieldInitializer(nextdef->loc, nextdef->type, nextdef->init);
                 LLConstant* c = nextdef->ir.irField->constInit;
                 inits.push_back(c);
 
@@ -261,6 +263,8 @@ Lpadding2:
 
             // do the default
             Logger::println("adding default field: %s : +%u", nextdef->toChars(), nextdef->offset);
+            if (!nextdef->ir.irField->constInit)
+                nextdef->ir.irField->constInit = DtoConstFieldInitializer(nextdef->loc, nextdef->type, nextdef->init);
             LLConstant* c = nextdef->ir.irField->constInit;
             inits.push_back(c);
 
@@ -462,15 +466,6 @@ void DtoConstInitStruct(StructDeclaration* sd)
     gIR->structs.push_back(irstruct);
 
     const llvm::StructType* structtype = isaStruct(sd->type->ir.type->get());
-
-    // make sure each offset knows its default initializer
-    Array* fields = &sd->fields;
-    for (int k=0; k < fields->dim; k++)
-    {
-        VarDeclaration* v = (VarDeclaration*)fields->data[k];
-        LLConstant* finit = DtoConstFieldInitializer(v->loc, v->type, v->init);
-        v->ir.irField->constInit = finit;
-    }
 
     // always generate the constant initalizer
     if (sd->zeroInit)

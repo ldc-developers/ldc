@@ -9,6 +9,7 @@
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
+#include "gen/llvmhelpers.h"
 
 IrInterface::IrInterface(BaseClass* b)
 :   vtblInitTy(llvm::OpaqueType::get())
@@ -318,7 +319,9 @@ void IrStruct::buildDefaultConstInit(std::vector<llvm::Constant*>& inits)
             }
 
             // add the field
-            assert(var->ir.irField->constInit);
+            // lazily default initialize
+            if (!var->ir.irField->constInit)
+                var->ir.irField->constInit = DtoConstFieldInitializer(var->loc, var->type, var->init);
             inits.push_back(var->ir.irField->constInit);
 
             lastoffset = offset;

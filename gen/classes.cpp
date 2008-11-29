@@ -427,21 +427,6 @@ void addZeros(std::vector<llvm::Constant*>& inits, size_t pos, size_t offset); /
 
 //////////////////////////////////////////////////////////////////////////////
 
-// assigns constant initializers to fields introduced by cd
-static void init_field_inits(ClassDeclaration* cd)
-{
-    size_t n = cd->fields.dim;
-    for (size_t i=0; i<n; i++)
-    {
-        VarDeclaration* v = (VarDeclaration*)cd->fields.data[i];
-        IrField* f = v->ir.irField;
-        assert(!f->constInit);
-        f->constInit = DtoConstFieldInitializer(v->loc, v->type, v->init);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 // adds data fields and interface vtables to the constant initializer of class cd
 static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDeclaration* target, ClassDeclaration* cd, size_t offsetbegin)
 {
@@ -502,7 +487,9 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
         }
 
         // add the field
-        assert(var->ir.irField->constInit);
+        // and build its constant initializer lazily
+        if (!var->ir.irField->constInit)
+            var->ir.irField->constInit = DtoConstFieldInitializer(var->loc, var->type, var->init);
         inits.push_back(var->ir.irField->constInit);
 
         lastoffset = offset;
@@ -730,9 +717,6 @@ void DtoConstInitClass(ClassDeclaration* cd)
     assert(structtype);
     const llvm::ArrayType* vtbltype = isaArray(irstruct->vtblTy.get());
     assert(vtbltype);
-
-    // make sure each field knows its default initializer
-    init_field_inits(cd);
 
     // build initializer list
     std::vector<LLConstant*> inits;
