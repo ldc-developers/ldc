@@ -430,10 +430,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     #if 1
-    Logger::println("%lu params passed", args.size());
-    for (int i=0; i<args.size(); ++i) {
-        assert(args[i]);
-        Logger::cout() << "arg["<<i<<"] = " << *args[i] << '\n';
+    if (Logger::enabled())
+    {
+        Logger::println("%lu params passed", args.size());
+        for (int i=0; i<args.size(); ++i) {
+            assert(args[i]);
+            Logger::cout() << "arg["<<i<<"] = " << *args[i] << '\n';
+        }
     }
     #endif
 
@@ -442,7 +445,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (callableTy->getReturnType() != LLType::VoidTy)
         varname = "tmp";
 
-    Logger::cout() << "Calling: " << *callable << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "Calling: " << *callable << '\n';
 
     // call the function
     CallOrInvoke* call = gIR->CreateCallOrInvoke(callable, args.begin(), args.end(), varname);

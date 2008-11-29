@@ -247,7 +247,8 @@ void DtoResolveClass(ClassDeclaration* cd)
     llvm::cast<llvm::OpaqueType>(irstruct->vtblTy.get())->refineAbstractTypeTo(LLArrayType::get(getVoidPtrType(), cd->vtbl.dim));
 
     // log
-    Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
+    if (Logger::enabled())
+        Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
 
     // pop state
     gIR->structs.pop_back();
