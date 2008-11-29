@@ -1266,7 +1266,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     if (!fdecl->isMember2()->isInterfaceDeclaration())
         funcval = DtoGEPi(funcval, 0, 0, "tmp");
     funcval = DtoLoad(funcval);
-    funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toPrettyChars());
+    funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toChars());
     funcval = DtoLoad(funcval);
 
     if (Logger::enabled())
