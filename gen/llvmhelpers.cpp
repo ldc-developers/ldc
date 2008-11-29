@@ -972,7 +972,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     // FIXME: I don't think it's thread safe ...
 
     bool doLazyInit = false;
-    Dsymbol* par = vd->toParent2();
+    Dsymbol* par = vd->toParent();
 
     if (par && par->isFuncDeclaration() && vd->init)
     {
