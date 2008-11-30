@@ -559,7 +559,7 @@ void ClassDeclaration::semantic(Scope *sc)
     }
     else
     {	sc->offset = PTRSIZE * 2;	// allow room for __vptr and __monitor
-	alignsize = 4;
+	alignsize = PTRSIZE;
     }
     structsize = sc->offset;
     Scope scsave = *sc;

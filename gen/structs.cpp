@@ -138,7 +138,7 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
     qsort(&vars[0], nvars, sizeof(VarInitPair), &varinit_offset_cmp_func);
 
     // check integrity
-    // and do error checking, since the frontend does verify static struct initializers
+    // and do error checking, since the frontend does not verify static struct initializers
     size_t lastoffset = 0;
     size_t lastsize = 0;
     bool overlap = false;

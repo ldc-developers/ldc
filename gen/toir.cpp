@@ -2035,7 +2035,7 @@ DValue* ComExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     LLValue* value = u->getRVal();
-    LLValue* minusone = llvm::ConstantInt::get(value->getType(), -1, true);
+    LLValue* minusone = llvm::ConstantInt::get(value->getType(), (uint64_t)-1, true);
     value = llvm::BinaryOperator::Create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
 
     return new DImValue(type, value);
