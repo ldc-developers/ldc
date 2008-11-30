@@ -697,7 +697,7 @@ void Module::genmoduleinfo()
     DtoForceConstInitDsymbol(moduleinfo);
 
     // check for patch
-    if (moduleinfo->ir.irStruct->constInit->getNumOperands() != 11)
+    if (moduleinfo->fields.dim != 9)
     {
         error("unpatched object.d detected, ModuleInfo incorrect");
         fatal();
