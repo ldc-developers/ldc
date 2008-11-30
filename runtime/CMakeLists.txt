@@ -12,6 +12,11 @@ option(BUILD_BC_LIBS "build the runtime as bytecode libraries")
 option(BUILD_SINGLE_LIB "build single runtime library" ON)
 set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
+if(BUILD_SHARED_LIBS)
+	list(APPEND D_FLAGS -fPIC)
+endif(BUILD_SHARED_LIBS)
+
+# build tango for D1, druntime for D2
 if(D_VERSION EQUAL 1)
 	set(RUNTIME tango)
 elseif(D_VERSION EQUAL 2)
@@ -23,7 +28,6 @@ get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT
 set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir" FORCE)
 
 if(D_VERSION EQUAL 1)
-	# build tango for D1, druntime for D2
 	set(LDC_EXE ldc)
 	# copy imports to runtime dir
 	add_custom_command(
@@ -53,8 +57,6 @@ elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc/basic)
 	file(GLOB CORE_D ${RUNTIME_DIR}/src/common/core/*.d)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/common/core/stdc/*.c)
-else(D_VERSION EQUAL 1)
-	message(FATAL_ERROR "set d version to 1 or 2")
 endif(D_VERSION EQUAL 1)
 
 # should only be necessary if run independently from ldc cmake project
@@ -85,6 +87,7 @@ else(NOT PATCH_EXE)
 		COMMAND ${PATCH_EXE} -t -N -p0 -i ${PROJECT_SOURCE_DIR}/${LDC_EXE}.diff
 		WORKING_DIRECTORY ${RUNTIME_DIR}
 	)
+	# rebuild cache to include sources added by patch
 	add_custom_command(
 		OUTPUT recache
 		COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_BINARY_DIR}/..
@@ -97,7 +100,7 @@ file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 
 # compile d file into outdir, include incdir, and append names of generated .o and .bc to outlist_o and _bc
-macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR)
+macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR MOREFLAGS)
 	get_filename_component(BASENAME ${INPUT_D} NAME_WE)
 	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${OUTDIR}/${BASENAME}.o)
 	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${OUTDIR}/${BASENAME}.bc)
@@ -107,22 +110,22 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR)
 		OUTPUT
 			${OUTPUT_O}
 			${OUTPUT_BC}
-		COMMAND ${LDC_LOC} -c -I${INCDIR} -output-bc ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS}
+		COMMAND ${LDC_LOC} -c -I${INCDIR} -output-bc ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
 		DEPENDS ${LDC_LOC}
 	)
 endmacro(dc)
 
 # dc_dir include for core and gc only necessary with druntime
 foreach(f ${CORE_D})
-	dc(${f} CORE_O CORE_BC core ${RUNTIME_DC_DIR})
+	dc(${f} CORE_O CORE_BC core ${RUNTIME_DC_DIR} "")
 endforeach(f)
 
 foreach(f ${GC_D})
-	dc(${f} GC_O GC_BC gc "${RUNTIME_GC_DIR} ${RUNTIME_DC_DIR}")
+	dc(${f} GC_O GC_BC gc "${RUNTIME_GC_DIR} ${RUNTIME_DC_DIR}" "-disable-invariants")
 endforeach(f)
 
 foreach(f ${DCRT_D})
-	dc(${f} DCRT_O DCRT_BC dcrt ${RUNTIME_DC_DIR})
+	dc(${f} DCRT_O DCRT_BC dcrt ${RUNTIME_DC_DIR} "")
 endforeach(f)
 
 if(BUILD_SINGLE_LIB)
