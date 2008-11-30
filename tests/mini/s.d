@@ -52,8 +52,8 @@ void main()
             auto ci = c.classinfo;
             printf("ci = %.*s\n", ci.name.length, ci.name.ptr);
             printf("ci.interfaces.length = %lu\n", ci.interfaces.length);
-            printf("i[0] = %.*s\n", ci.interfaces[0].classinfo.name.length, ci.interfaces[0].classinfo.name.ptr);
-            printf("i[1] = %.*s\n", ci.interfaces[1].classinfo.name.length, ci.interfaces[1].classinfo.name.ptr);
+	    foreach (i, iface; ci.interfaces)
+                printf("i[%d] = %.*s\n", i, iface.classinfo.name.length, iface.classinfo.name.ptr);
         }
     }
     {
@@ -62,16 +62,15 @@ void main()
             auto ci = c.classinfo;
             printf("ci = %.*s\n", ci.name.length, ci.name.ptr);
             printf("ci.interfaces.length = %lu\n", ci.interfaces.length);
-            printf("i[0] = %.*s\n", ci.interfaces[0].classinfo.name.length, ci.interfaces[0].classinfo.name.ptr);
-            printf("i[1] = %.*s\n", ci.interfaces[1].classinfo.name.length, ci.interfaces[1].classinfo.name.ptr);
-            printf("i[2] = %.*s\n", ci.interfaces[2].classinfo.name.length, ci.interfaces[2].classinfo.name.ptr);
+	    foreach (i, iface; ci.interfaces)
+                printf("i[%d] = %.*s\n", i, iface.classinfo.name.length, iface.classinfo.name.ptr);
         }
-        auto i = cast(InterOne)c;
+        InterOne i = c;
         {
             auto ci = i.classinfo;
             printf("ci = %.*s\n", ci.name.length, ci.name.ptr);
         }
-        auto i2 = cast(Inter2)i;
+        auto i2 = cast(Inter2)c;
         {
             auto ci = i2.classinfo;
             printf("ci = %.*s\n", ci.name.length, ci.name.ptr);
