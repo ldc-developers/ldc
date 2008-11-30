@@ -154,6 +154,8 @@ struct UnionDeclaration : StructDeclaration
     UnionDeclaration *isUnionDeclaration() { return this; }
 };
 
+// warning: two classes with the same base class share the same
+//   BaseClass instance.
 struct BaseClass
 {
     Type *type;				// (before semantic processing)

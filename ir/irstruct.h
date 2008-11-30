@@ -164,6 +164,7 @@ struct IrInterface : IrBase
 
     LLConstant* vtblInit;
     LLGlobalVariable* vtbl;
+    Array vtblDecls; // array of FuncDecls that make up the vtbl
 
     const LLStructType* infoTy;
     LLConstant* infoInit;

@@ -66,7 +66,7 @@ static void add_interface(ClassDeclaration* target, BaseClass* b, int newinstanc
     }
 
     // build the interface vtable
-    b->fillVtbl(target, &b->vtbl, newinstance);
+    b->fillVtbl(target, &iri->vtblDecls, newinstance);
 
     // add the vtable type
     assert(inter->type->ir.type);
@@ -493,8 +493,8 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
         lastsize = var->type->size();
     }
 
-    // if it's a class, and it implements interfaces, add the vtables
-    IrStruct* irstruct = cd->ir.irStruct;
+    // if it's a class, and it implements interfaces, add the vtables - as found in the target class!
+    IrStruct* irstruct = target->ir.irStruct;
 
     size_t nvtbls = cd->vtblInterfaces->dim;
     for(size_t i=0; i<nvtbls; i++)
@@ -592,7 +592,7 @@ static void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
         Logger::println("interface %s", iri->decl->toChars());
 
         // build vtable intializer for this interface implementation
-        Array& arr = iri->base->vtbl;
+        Array& arr = iri->vtblDecls;
         size_t narr = arr.dim;
 
         if (narr > 0)
