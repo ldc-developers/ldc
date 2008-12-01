@@ -107,6 +107,9 @@ struct AnonDeclaration : AttribDeclaration
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
+
+    // LDC
+    void toObjFile(int multiobj);           // compile to .obj file
 };
 
 struct PragmaDeclaration : AttribDeclaration
