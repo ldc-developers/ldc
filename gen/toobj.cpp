@@ -409,6 +409,11 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, ch
     using namespace llvm;
 
     sys::Path gcc = llvm::sys::Program::FindProgramByName("gcc");
+    if (gcc.empty())
+    {
+        error("failed to locate gcc");
+        fatal();
+    }
 
     // Remove these environment variables from the environment of the
     // programs that we will execute.  It appears that GCC sets these
