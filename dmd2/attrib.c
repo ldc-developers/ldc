@@ -32,7 +32,6 @@
 #include "template.h"
 
 #include "../gen/enums.h"
-#include "../gen/logger.h"
 
 extern void obj_includelib(const char *name);
 void obj_startaddress(Symbol *s);

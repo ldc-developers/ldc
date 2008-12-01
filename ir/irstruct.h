@@ -142,6 +142,8 @@ struct IrStruct : IrBase
     LLConstant* constClassInfo;
     bool classInfoDeclared;
     bool classInfoDefined;
+    // vector of interfaces that should be put in ClassInfo.interfaces
+    InterfaceVector classInfoInterfaces;
 
     // align(1) struct S { ... }
     bool packed;

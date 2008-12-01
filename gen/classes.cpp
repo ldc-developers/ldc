@@ -51,8 +51,13 @@ static void add_interface(ClassDeclaration* target, BaseClass* b, int newinstanc
         irstruct->interfaceMap[b->base] = iri;
     else
         irstruct->interfaceMap.insert(std::make_pair(b->base, iri));
+
     // add to ordered list
     irstruct->interfaceVec.push_back(iri);
+
+    // add to classinfo interfaces
+    if (newinstance)
+        irstruct->classInfoInterfaces.push_back(iri);
 
     // assign this iri to all base interfaces of this one
     for (unsigned j = 0; j < b->baseInterfaces_dim; j++)
@@ -148,6 +153,7 @@ static void DtoResolveInterface(InterfaceDeclaration* cd)
             // add to interfaceInfos
             IrInterface* iri = new IrInterface(bc);
             irstruct->interfaceVec.push_back(iri);
+            irstruct->classInfoInterfaces.push_back(iri);
         }
     }
 
@@ -378,7 +384,6 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
     // interface vtables
     unsigned idx = 0;
-
     for (IrStruct::InterfaceVectorIter i=irstruct->interfaceVec.begin(); i!=irstruct->interfaceVec.end(); ++i)
     {
         IrInterface* iri = *i;
@@ -392,7 +397,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
 
         iri->vtbl = new llvm::GlobalVariable(iri->vtblInitTy.get(), true, _linkage, 0, nam, gIR->module);
 
-        // always create interfaceinfos
+        // always set the interface info as it's need as the first vtbl entry
         LLConstant* idxs[2] = {DtoConstUint(0), DtoConstUint(idx)};
         iri->info = llvm::ConstantExpr::getGetElementPtr(irstruct->interfaceInfos, idxs, 2);
         idx++;
@@ -1506,8 +1511,15 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
         c = LLConstant::getNullValue(intersTy);
     else {
         const LLType* t = intersTy->getContainedType(1); // .ptr
+        // cast to Interface*
         c = DtoBitCast(ir->interfaceInfos, t);
-        size_t iisz = ir->interfaceVec.size();
+        size_t isz = ir->interfaceVec.size();
+        size_t iisz = ir->classInfoInterfaces.size();
+        assert(iisz <= isz);
+        // offset - we only want the 'iisz' last ones
+        LLConstant* idx = DtoConstUint(isz - iisz);
+        c = llvm::ConstantExpr::getGetElementPtr(c, &idx, 1);
+        // make array
         c = DtoConstSlice(DtoConstSize_t(iisz), c);
     }
     inits.push_back(c);
