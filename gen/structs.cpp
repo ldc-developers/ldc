@@ -467,6 +467,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     const llvm::StructType* structtype = isaStruct(sd->type->ir.type->get());
 
     // always generate the constant initalizer
+    assert(!irstruct->constInit);
     if (sd->zeroInit)
     {
         Logger::println("Zero initialized");

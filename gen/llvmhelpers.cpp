@@ -1005,6 +1005,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     // refine the global's opaque type to the type of the initializer
     llvm::cast<LLOpaqueType>(glob->type.get())->refineAbstractTypeTo(initVal->getType());
 
+    assert(!glob->constInit);
     glob->constInit = initVal;
 
     bool istempl = false;

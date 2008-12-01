@@ -435,7 +435,7 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
         offsetbegin = init_class_initializer(inits, target, cd->baseClass, offsetbegin);
     }
 
-    Logger::println("adding data of %s to %s", cd->toChars(), target->toChars());
+    Logger::println("adding data of %s to %s starting at %lu", cd->toChars(), target->toChars(), offsetbegin);
     LOG_SCOPE;
 
     // add default fields
@@ -464,7 +464,7 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
         }
         else
         {
-            Logger::println("  skipped %s", var->toChars());
+            Logger::println("  skipped %s at offset %u, current pos is %lu", var->toChars(), var->offset, lastoffset+lastsize);
         }
     }
 
@@ -519,7 +519,7 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
         else // abstract impl
             inits.push_back(getNullPtr(getVoidPtrType()));
 
-        lastoffset += PTRSIZE;
+        lastoffset += lastsize;
         lastsize = PTRSIZE;
     }
 
@@ -749,6 +749,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
     init_class_interface_vtbl_initializers(cd);
 
     // build constant from inits
+    assert(!irstruct->constInit);
     irstruct->constInit = LLConstantStruct::get(inits); // classes are never packed
 
     // refine __initZ global type to the one of the initializer
@@ -1437,7 +1438,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     assert(ir->classInfo);
 
     TypeClass* cdty = (TypeClass*)cd->type;
-    if (!cd->isInterfaceDeclaration() && !cd->isAbstract())
+    if (!cd->isInterfaceDeclaration())
     {
         assert(ir->init);
         assert(ir->constInit);
@@ -1450,7 +1451,6 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
     DtoForceConstInitDsymbol(cinfo);
-    assert(cinfo->ir.irStruct->constInit);
 
     LLConstant* c;
 
@@ -1473,7 +1473,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     {
         c = DtoBitCast(ir->init, voidPtr);
         //Logger::cout() << *ir->constInit->getType() << std::endl;
-        size_t initsz = getABITypeSize(ir->constInit->getType());
+        size_t initsz = getABITypeSize(ir->init->getType()->getContainedType(0));
         c = DtoConstSlice(DtoConstSize_t(initsz), c);
     }
     inits.push_back(c);
