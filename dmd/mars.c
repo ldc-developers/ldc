@@ -374,8 +374,10 @@ int main(int argc, char *argv[], char** envp)
 		global.params.link = 0;
 	    else if (strcmp(p + 1, "fPIC") == 0)
 		global.params.pic = 1;
-	    else if (strcmp(p + 1, "g") == 0 || strcmp(p + 1, "gc") == 0)
+	    else if (strcmp(p + 1, "g") == 0)
 		global.params.symdebug = 1;
+        else if (strcmp(p + 1, "gc") == 0)
+        global.params.symdebug = 2;
 	    else if (strcmp(p + 1, "v") == 0)
 		global.params.verbose = 1;
 		else if (strcmp(p + 1, "vv") == 0) {

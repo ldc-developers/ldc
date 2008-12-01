@@ -87,6 +87,7 @@ LLGlobalVariable* isaGlobalVar(LLValue* v);
 const LLPointerType* getPtrToType(const LLType* t);
 const LLPointerType* getVoidPtrType();
 llvm::ConstantPointerNull* getNullPtr(const LLType* t);
+LLConstant* getNullValue(const LLType* t);
 
 // type sizes
 size_t getTypeBitSize(const LLType* t);

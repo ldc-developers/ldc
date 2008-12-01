@@ -134,7 +134,10 @@ static LLGlobalVariable* dwarfCompileUnit(Module* m)
     vals[0] = DBG_TAG(DW_TAG_compile_unit);
     vals[1] = DBG_CAST(getDwarfAnchor(DW_TAG_compile_unit));
 
-    vals[2] = DtoConstUint(DW_LANG_C);// _D)); // doesn't seem to work
+    if (global.params.symdebug == 2)
+        vals[2] = DtoConstUint(DW_LANG_C);
+    else
+        vals[2] = DtoConstUint(DW_LANG_D);
     vals[3] = DtoConstStringPtr(FileName::name(m->srcfile->name->toChars()), "llvm.metadata");
     std::string srcpath(FileName::path(m->srcfile->name->toChars()));
     if (!FileName::absolute(srcpath.c_str())) {

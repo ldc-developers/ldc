@@ -673,6 +673,11 @@ llvm::ConstantPointerNull* getNullPtr(const LLType* t)
     return llvm::ConstantPointerNull::get(pt);
 }
 
+LLConstant* getNullValue(const LLType* t)
+{
+    return LLConstant::getNullValue(t);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 size_t getTypeBitSize(const LLType* t)

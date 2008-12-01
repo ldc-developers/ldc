@@ -679,18 +679,20 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
 void Module::genmoduleinfo()
 {
-//      The layout is:
-//        {
-//         void **vptr;
-//         monitor_t monitor;
-//         char[] name;        // class name
-//         ModuleInfo importedModules[];
-//         ClassInfo localClasses[];
-//         uint flags;         // initialization state
-//         void *ctor;
-//         void *dtor;
-//         void *unitTest;
-//        }
+//     The layout is:
+//         {
+//         char[]          name;
+//         ModuleInfo[]    importedModules;
+//         ClassInfo[]     localClasses;
+//         uint            flags;
+// 
+//         void function() ctor;
+//         void function() dtor;
+//         void function() unitTest;
+// 
+//         void* xgetMembers;
+//         void function() ictor;
+//         }
 
     // resolve ModuleInfo
     assert(moduleinfo);
@@ -705,7 +707,6 @@ void Module::genmoduleinfo()
 
     // moduleinfo llvm struct type
     const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->ir.type->get());
-
     // classinfo llvm struct type
     const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->ir.type->get());
 
@@ -733,16 +734,15 @@ void Module::genmoduleinfo()
     {
         Module *m = (Module *)aimports.data[i];
         if (!m->needModuleInfo())
-            aimports_dim--;
-        else { // declare
-            // create name
-            std::string m_name("_D");
-            m_name.append(m->mangle());
-            m_name.append("8__ModuleZ");
-            llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
-            if (!m_gvar) m_gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name, gIR->module);
-            importInits.push_back(m_gvar);
-        }
+            continue;
+
+        // declare the imported module info
+        std::string m_name("_D");
+        m_name.append(m->mangle());
+        m_name.append("8__ModuleZ");
+        llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
+        if (!m_gvar) m_gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name, gIR->module);
+        importInits.push_back(m_gvar);
     }
     // has import array?
     if (!importInits.empty())
@@ -758,7 +758,7 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
     else
-        c = moduleinfo->ir.irStruct->constInit->getOperand(3);
+        c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(moduleinfoTy)) );
     initVec.push_back(c);
 
     // localClasses[]
@@ -789,7 +789,7 @@ void Module::genmoduleinfo()
         }
         Logger::println("class: %s", cd->toPrettyChars());
         assert(cd->ir.irStruct->classInfo);
-        c = llvm::ConstantExpr::getBitCast(cd->ir.irStruct->classInfo, getPtrToType(classinfoTy));
+        c = DtoBitCast(cd->ir.irStruct->classInfo, getPtrToType(classinfoTy));
         classInits.push_back(c);
     }
     // has class array?
@@ -802,11 +802,11 @@ void Module::genmoduleinfo()
         m_name.append("9__classesZ");
         assert(gIR->module->getGlobalVariable(m_name) == NULL);
         llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
-        c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(classArrTy->getElementType()));
+        c = DtoBitCast(m_gvar, getPtrToType(classinfoTy));
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
-        c = moduleinfo->ir.irStruct->constInit->getOperand(4);
+        c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(classinfoTy)) );
     initVec.push_back(c);
 
     // flags
@@ -815,27 +815,30 @@ void Module::genmoduleinfo()
         c = DtoConstUint(4);        // flags (4 means MIstandalone)
     initVec.push_back(c);
 
+    // function pointer type for next three fields
+    const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false));
+
     // ctor
     llvm::Function* fctor = build_module_ctor();
-    c = fctor ? fctor : moduleinfo->ir.irStruct->constInit->getOperand(6);
+    c = fctor ? fctor : getNullValue(fnptrTy);
     initVec.push_back(c);
 
     // dtor
     llvm::Function* fdtor = build_module_dtor();
-    c = fdtor ? fdtor : moduleinfo->ir.irStruct->constInit->getOperand(7);
+    c = fdtor ? fdtor : getNullValue(fnptrTy);
     initVec.push_back(c);
 
     // unitTest
     llvm::Function* unittest = build_module_unittest();
-    c = unittest ? unittest : moduleinfo->ir.irStruct->constInit->getOperand(8);
+    c = unittest ? unittest : getNullValue(fnptrTy);
     initVec.push_back(c);
 
     // xgetMembers
-    c = moduleinfo->ir.irStruct->constInit->getOperand(9);
+    c = getNullValue(getVoidPtrType());
     initVec.push_back(c);
 
     // ictor
-    c = moduleinfo->ir.irStruct->constInit->getOperand(10);
+    c = getNullValue(fnptrTy);
     initVec.push_back(c);
 
     /*Logger::println("MODULE INFO INITIALIZERS");
