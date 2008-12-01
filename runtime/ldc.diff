@@ -183,41 +183,9 @@ Index: lib/common/tango/core/Thread.d
  static this()
  {
      static if( is( typeof( GetSystemInfo ) ) )
-@@ -2522,7 +2586,7 @@
-     }
- }
- 
--
-+extern(C) int printf(char*, ...);
- ////////////////////////////////////////////////////////////////////////////////
- // Fiber
- ////////////////////////////////////////////////////////////////////////////////
-@@ -3177,6 +3241,22 @@
-             push( 0x00000000 );                                     // ESI
-             push( 0x00000000 );                                     // EDI
-         }
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+            push( cast(size_t) &fiber_entryPoint );                 // EIP
-+            push( 0x00000000 );                                     // newp
-+            push( 0x00000000 );                                     // oldp
-+            push( 0x00000000 );                                     // EBP
-+            push( 0x00000000 );                                     // EBX
-+            push( 0x00000000 );                                     // ESI
-+            push( 0x00000000 );                                     // EDI
-+        }
-+//TODO: Implement x86-64 fibers
-+/+
-+        else version( LLVM_AsmX86_Posix )
-+        {
-+        }
-++/
-         else version( AsmPPC_Posix )
-         {
-             version( StackGrowsDown )
-@@ -3204,6 +3284,28 @@
- 
-             assert( cast(uint) pstack & 0x0f == 0 );
+@@ -2510,6 +2574,28 @@
+                 ret;
+             }
          }
 +        else version( LLVM_AsmX86_Posix )
 +        {
@@ -243,7 +211,39 @@ Index: lib/common/tango/core/Thread.d
 ++/
          else static if( is( ucontext_t ) )
          {
-             getcontext( &m_utxt );
+             Fiber   cfib = Fiber.getThis();
+@@ -2522,7 +2608,7 @@
+     }
+ }
+ 
+-
++extern(C) int printf(char*, ...);
+ ////////////////////////////////////////////////////////////////////////////////
+ // Fiber
+ ////////////////////////////////////////////////////////////////////////////////
+@@ -3177,6 +3263,22 @@
+             push( 0x00000000 );                                     // ESI
+             push( 0x00000000 );                                     // EDI
+         }
++        else version( LLVM_AsmX86_Posix )
++        {
++            push( cast(size_t) &fiber_entryPoint );                 // EIP
++            push( 0x00000000 );                                     // newp
++            push( 0x00000000 );                                     // oldp
++            push( 0x00000000 );                                     // EBP
++            push( 0x00000000 );                                     // EBX
++            push( 0x00000000 );                                     // ESI
++            push( 0x00000000 );                                     // EDI
++        }
++//TODO: Implement x86-64 fibers
++/+
++        else version( LLVM_AsmX86_Posix )
++        {
++        }
+++/
+         else version( AsmPPC_Posix )
+         {
+             version( StackGrowsDown )
 Index: lib/gc/basic/gcx.d
 ===================================================================
 --- lib/gc/basic/gcx.d	(revision 4134)
