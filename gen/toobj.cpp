@@ -466,6 +466,11 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, ch
     std::string ErrMsg;
     int R = sys::Program::ExecuteAndWait(
         gcc, &Args[0], (const char**)clean_env, 0, 0, 0, &ErrMsg);
+    if (R)
+    {
+        error("failed to invoke gcc");
+        fatal();
+    }
     delete [] clean_env;
 }
 
