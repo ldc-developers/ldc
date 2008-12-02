@@ -41,6 +41,7 @@ execute_process(
 
 set(D_VERSION 1 CACHE STRING "D language version")
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
+option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 
 if(D_VERSION EQUAL 1)
 	set(DMDFE_PATH dmd)
@@ -141,6 +142,10 @@ endif(UNIX)
 if(USE_BOEHM_GC)
 	add_definitions(-DUSE_BOEHM_GC)
 endif(USE_BOEHM_GC)
+
+if(GENERATE_OFFTI)
+	add_definitions(-DGENERATE_OFFTI)
+endif(GENERATE_OFFTI)
 
 if(CMAKE_MINOR_VERSION LESS 6)
 	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")

@@ -11,7 +11,8 @@ class C
 void main()
 {
     auto c = C.classinfo;
-    assert(c.offTi !is null);
+    if (c.offTi !is null)
+    {
     assert(c.offTi.length == 4);
 
     size_t base = 2*size_t.sizeof;
@@ -24,4 +25,5 @@ void main()
     assert(c.offTi[2].ti == typeid(long));
     assert(c.offTi[3].offset == base+16);
     assert(c.offTi[3].ti == typeid(int));
+    }
 }

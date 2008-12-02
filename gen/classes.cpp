@@ -1312,6 +1312,8 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#if GENERATE_OFFTI
+
 // build a single element for the OffsetInfo[] of ClassInfo
 static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
 {
@@ -1370,6 +1372,8 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
 
     return DtoConstSlice(size, ptr);
 }
+
+#endif // GENERATE_OFFTI
 
 static LLConstant* build_class_dtor(ClassDeclaration* cd)
 {
@@ -1581,10 +1585,20 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // offset typeinfo
     VarDeclaration* offTiVar = (VarDeclaration*)cinfo->fields.data[9];
     const LLType* offTiTy = DtoType(offTiVar->type);
+
+#if GENERATE_OFFTI
+
     if (cd->isInterfaceDeclaration())
         c = LLConstant::getNullValue(offTiTy);
     else
         c = build_offti_array(cd, offTiTy);
+
+#else // GENERATE_OFFTI
+
+    c = LLConstant::getNullValue(offTiTy);
+
+#endif // GENERATE_OFFTI
+
     inits.push_back(c);
 
     // default constructor
@@ -1606,8 +1620,6 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
 
     // FIXME: fill it out!
     inits.push_back( LLConstant::getNullValue(xgetTy) );
-
-#else
 #endif
 
     /*size_t n = inits.size();
