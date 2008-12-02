@@ -896,32 +896,71 @@ DValue* AddrExp::toElem(IRState* p)
 
 LLConstant* AddrExp::toConstElem(IRState* p)
 {
-    assert(e1->op == TOKvar);
-    VarExp* vexp = (VarExp*)e1;
+    // FIXME: this should probably be generalized more so we don't
+    // need to have a case for each thing we can take the address of
 
-    if (vexp->var->needThis())
+    // address of global variable
+    if (e1->op == TOKvar)
     {
-        error("need 'this' to access %s", vexp->var->toChars());
-        fatal();
-    }
+        VarExp* vexp = (VarExp*)e1;
 
-    // global variable
-    if (VarDeclaration* vd = vexp->var->isVarDeclaration())
-    {
-        LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
-        assert(llc);
-        return llc;
+        // make sure 'this' isn't needed
+        if (vexp->var->needThis())
+        {
+            error("need 'this' to access %s", vexp->var->toChars());
+            fatal();
+        }
+
+        // global variable
+        if (VarDeclaration* vd = vexp->var->isVarDeclaration())
+        {
+            LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
+            assert(llc);
+            return llc;
+        }
+        // static function
+        else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
+        {
+            IrFunction* irfunc = fd->ir.irFunc;
+            assert(irfunc);
+            return irfunc->func;
+        }
+        // something else
+        else
+        {
+            // fail
+            goto Lerr;
+        }
     }
-    // static function
-    else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
+    // address of indexExp
+    else if (e1->op == TOKindex)
     {
-        IrFunction* irfunc = fd->ir.irFunc;
-        assert(irfunc);
-        return irfunc->func;
+        IndexExp* iexp = (IndexExp*)e1;
+
+        // indexee must be global static array var
+        assert(iexp->e1->op == TOKvar);
+        VarExp* vexp = (VarExp*)iexp->e1;
+        VarDeclaration* vd = vexp->var->isVarDeclaration();
+        assert(vd);
+        assert(vd->type->toBasetype()->ty == Tsarray);
+        assert(vd->ir.irGlobal);
+
+        // get index
+        LLConstant* index = iexp->e2->toConstElem(p);
+        assert(index->getType() == DtoSize_t());
+
+        // gep
+        LLConstant* idxs[2] = { DtoConstSize_t(0), index };
+        LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(isaConstant(vd->ir.irGlobal->value), idxs, 2);
+
+        // bitcast to requested type
+        assert(type->toBasetype()->ty == Tpointer);
+        return DtoBitCast(gep, DtoType(type));
     }
     // not yet supported
     else
     {
+    Lerr:
         error("constant expression '%s' not yet implemented", toChars());
         fatal();
     }
