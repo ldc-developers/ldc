@@ -888,10 +888,23 @@ DValue* AddrExp::toElem(IRState* p)
         return v;
     }
     Logger::println("is nothing special");
-    LLValue* lval = v->getLVal();
+
+    // we special case here, since apparently taking the address of a slice is ok
+    LLValue* lval;
+    if (v->isLVal())
+        lval = v->getLVal();
+    else
+    {
+        assert(v->isSlice());
+        LLValue* rval = v->getRVal();
+        lval = DtoAlloca(rval->getType(), ".tmp_slice_storage");
+        DtoStore(rval, lval);
+    }
+
     if (Logger::enabled())
         Logger::cout() << "lval: " << *lval << '\n';
-    return new DImValue(type, DtoBitCast(v->getLVal(), DtoType(type)));
+
+    return new DImValue(type, DtoBitCast(lval, DtoType(type)));
 }
 
 LLConstant* AddrExp::toConstElem(IRState* p)
