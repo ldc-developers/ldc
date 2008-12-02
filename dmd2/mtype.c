@@ -3465,14 +3465,6 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
 		arg->defaultArg = arg->defaultArg->semantic(sc);
 		arg->defaultArg = resolveProperties(sc, arg->defaultArg);
 		arg->defaultArg = arg->defaultArg->implicitCastTo(sc, arg->type);
-
-		// make sure default arguments only use variables with lower protection
-		// this check only catches the common case that the default arg Exp is a VarExp
-		if(arg->defaultArg->op == TOKvar)
-		{   VarExp *ve = (VarExp *)arg->defaultArg;
-		    if(ve->var->protection != PROTundefined && ve->var->protection < sc->protection)
-			error(loc, "default argument %s has stronger protection than function %s", ve->var->toChars(), toChars());
-		}
 	    }
 
 	    /* If arg turns out to be a tuple, the number of parameters may
