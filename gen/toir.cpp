@@ -2335,33 +2335,98 @@ DValue* StructLiteralExp::toElem(IRState* p)
     LOG_SCOPE;
 
     // get arrays 
-    size_t n = elements->dim;
+    size_t nexprs = elements->dim;;
     Expression** exprs = (Expression**)elements->data;
 
-    assert(sd->fields.dim == n);
+    size_t nvars = sd->fields.dim;
     VarDeclaration** vars = (VarDeclaration**)sd->fields.data;
+
+    assert(nexprs <= nvars);
+
+    // first locate all explicit initializers
+    std::vector<VarDeclaration*> explicitInits;
+    for (size_t i=0; i < nexprs; i++)
+    {
+        if (exprs[i])
+        {
+            explicitInits.push_back(vars[i]);
+        }
+    }
 
     // vector of values to build aggregate from
     std::vector<llvm::Value*> values;
 
-    // trackers
+    // offset trackers
     size_t lastoffset = 0;
     size_t lastsize = 0;
 
+    // index of next explicit init
+    size_t exidx = 0;
+    // number of explicit inits
+    size_t nex = explicitInits.size();
+
     // for through each field and build up the struct, padding with zeros
-    for (size_t i=0; i<n; i++)
+    size_t i;
+    for (i=0; i<nvars; i++)
     {
-        Expression* e = exprs[i];
+        Expression* e = (nexprs > i) ? exprs[i] : NULL;
         VarDeclaration* var = vars[i];
 
-        // field is skipped
+        // get var info
+        size_t os = var->offset;
+        size_t sz = var->type->size();
+
+        // get next explicit
+        VarDeclaration* nextVar = NULL;
+        size_t nextOs = 0;
+        if (exidx < nex)
+        {
+            nextVar = explicitInits[exidx];
+            nextOs = nextVar->offset;
+        }
+        // none, rest is defaults
+        else
+        {
+            break;
+        }
+
+        // not explicit initializer, default initialize if there is room, otherwise skip
         if (!e)
+        {
+            // default init if there is room
+            // (past current offset) and (small enough to fit before next explicit)
+            if ((os >= lastoffset + lastsize) && (os+sz <= nextOs))
+            {
+                // add any 0 padding needed before this field
+                if (os > lastoffset + lastsize)
+                {
+                    //printf("1added %lu zeros\n", os - lastoffset - lastsize);
+                    addZeros(values, lastoffset + lastsize, os);
+                }
+
+                // get field default init
+                IrField* f = var->ir.irField;
+                assert(f);
+                if (!f->constInit)
+                    f->constInit = DtoConstInitializer(var->loc, var->type, var->init);
+
+                values.push_back(f->constInit);
+
+                lastoffset = os;
+                lastsize = sz;
+                //printf("added default: %s : %lu (%lu)\n", var->toChars(), os, sz);
+            }
+            // skip
             continue;
+        }
+
+        assert(nextVar == var);
 
         // add any 0 padding needed before this field
-        if (var->offset > lastoffset + lastsize)
+        if (os > lastoffset + lastsize)
         {
-            addZeros(values, lastoffset + lastsize, var->offset);
+            //printf("added %lu zeros\n", os - lastoffset - lastsize);
+            addZeros(values, lastoffset + lastsize, os);
         }
 
         // add the expression value
@@ -2369,21 +2434,64 @@ DValue* StructLiteralExp::toElem(IRState* p)
         values.push_back(v->getRVal());
 
         // update offsets
-        lastoffset = var->offset;
-        lastsize = var->type->size();
+        lastoffset = os;
+        lastsize = sz;
+
+        // go to next explicit init
+        exidx++;
+
+        //printf("added field: %s : %lu (%lu)\n", var->toChars(), os, sz);
     }
 
-    // add any 0 padding needed at the end of the literal
+    // fill out rest with default initializers
     const LLType* structtype = DtoType(sd->type);
     size_t structsize = getABITypeSize(structtype);
 
+    // FIXME: this could probably share some code with the above
     if (structsize > lastoffset+lastsize)
     {
+        for (/*continue from first loop*/; i < nvars; i++)
+        {
+            VarDeclaration* var = vars[i];
+
+            // get var info
+            size_t os = var->offset;
+            size_t sz = var->type->size();
+
+            // skip?
+            if (os < lastoffset + lastsize)
+                continue;
+
+            // add any 0 padding needed before this field
+            if (os > lastoffset + lastsize)
+            {
+                //printf("2added %lu zeros\n", os - lastoffset - lastsize);
+                addZeros(values, lastoffset + lastsize, os);
+            }
+
+            // get field default init
+            IrField* f = var->ir.irField;
+            assert(f);
+            if (!f->constInit)
+                f->constInit = DtoConstInitializer(var->loc, var->type, var->init);
+
+            values.push_back(f->constInit);
+
+            lastoffset = os;
+            lastsize = sz;
+            //printf("2added default: %s : %lu (%lu)\n", var->toChars(), os, sz);
+        }
+    }
+
+    // add any 0 padding needed at the end of the literal
+    if (structsize > lastoffset+lastsize)
+    {
+        //printf("3added %lu zeros\n", structsize - lastoffset - lastsize);
         addZeros(values, lastoffset + lastsize, structsize);
     }
 
     // get the struct type from the values
-    n = values.size();
+    size_t n = values.size();
     std::vector<const LLType*> types(n, NULL);
 
     for (size_t i=0; i<n; i++)
