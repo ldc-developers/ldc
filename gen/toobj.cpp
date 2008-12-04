@@ -743,7 +743,7 @@ void Module::genmoduleinfo()
     for (size_t i = 0; i < aimports.dim; i++)
     {
         Module *m = (Module *)aimports.data[i];
-        if (!m->needModuleInfo())
+        if (!m->needModuleInfo() || m == this)
             continue;
 
         // declare the imported module info
@@ -867,13 +867,12 @@ void Module::genmoduleinfo()
     MIname.append(mangle());
     MIname.append("8__ModuleZ");
 
-    // declare
+    // declare global
     // flags will be modified at runtime so can't make it constant
 
-    llvm::GlobalVariable* gvar = gIR->module->getGlobalVariable(MIname);
-    if (!gvar) gvar = new llvm::GlobalVariable(constMI->getType(), false, llvm::GlobalValue::ExternalLinkage, NULL, MIname, gIR->module);
-    else assert(gvar->getType()->getContainedType(0) == constMI->getType());
-    gvar->setInitializer(constMI);
+    // it makes no sense that the our own module info already exists!
+    assert(!gIR->module->getGlobalVariable(MIname));
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(constMI->getType(), false, llvm::GlobalValue::ExternalLinkage, constMI, MIname, gIR->module);
 
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(gvar);
