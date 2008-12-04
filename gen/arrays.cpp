@@ -189,6 +189,13 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
         assert(0 && "unhandled array init");
     }
 
+    if (Logger::enabled())
+    {
+        Logger::cout() << "ptr = " << *args[0] << std::endl;
+        Logger::cout() << "dim = " << *args[1] << std::endl;
+        Logger::cout() << "val = " << *args[2] << std::endl;
+    }
+
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
     assert(fn);
     if (Logger::enabled())

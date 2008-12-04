@@ -1240,6 +1240,9 @@ DValue* SliceExp::toElem(IRState* p)
         {
             TypeSArray* tsa = (TypeSArray*)etype;
             elen = DtoConstSize_t(tsa->dim->toUInteger());
+
+            // in this case, we also need to make sure the pointer is cast to the innermost element type
+            eptr = DtoBitCast(eptr, DtoType(tsa->nextOf()->pointerTo()));
         }
         // for normal code the actual array length is what we want!
         else

@@ -255,8 +255,8 @@ void DtoResolveClass(ClassDeclaration* cd)
     llvm::cast<llvm::OpaqueType>(irstruct->vtblTy.get())->refineAbstractTypeTo(LLArrayType::get(getVoidPtrType(), cd->vtbl.dim));
 
     // log
-    if (Logger::enabled())
-        Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
+//     if (Logger::enabled())
+//         Logger::cout() << "final class type: " << *ts->ir.type->get() << '\n';
 
     // pop state
     gIR->structs.pop_back();
@@ -582,8 +582,8 @@ static void init_class_vtbl_initializer(ClassDeclaration* cd)
     // refine type
     llvm::cast<llvm::OpaqueType>(irstruct->vtblInitTy.get())->refineAbstractTypeTo(irstruct->constVtbl->getType());
 
-    if (Logger::enabled())
-        Logger::cout() << "vtbl initializer: " << *irstruct->constVtbl << std::endl;
+//     if (Logger::enabled())
+//         Logger::cout() << "vtbl initializer: " << *irstruct->constVtbl << std::endl;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -760,12 +760,12 @@ void DtoConstInitClass(ClassDeclaration* cd)
     // refine __initZ global type to the one of the initializer
     llvm::cast<llvm::OpaqueType>(irstruct->initOpaque.get())->refineAbstractTypeTo(irstruct->constInit->getType());
 
-    if (Logger::enabled())
-    {
-        Logger::cout() << "class " << cd->toChars() << std::endl;
-        Logger::cout() << "type " << *cd->type->ir.type->get() << std::endl;
-        Logger::cout() << "initializer " << *irstruct->constInit << std::endl;
-    }
+//     if (Logger::enabled())
+//     {
+//         Logger::cout() << "class " << cd->toChars() << std::endl;
+//         Logger::cout() << "type " << *cd->type->ir.type->get() << std::endl;
+//         Logger::cout() << "initializer " << *irstruct->constInit << std::endl;
+//     }
 
     gIR->structs.pop_back();
 }
