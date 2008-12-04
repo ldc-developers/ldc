@@ -40,6 +40,8 @@ execute_process(
 )
 
 set(D_VERSION 1 CACHE STRING "D language version")
+set(PROGRAM_PREFIX CACHE STRING "prepended to ldc binary name")
+set(PROGRAM_SUFFIX CACHE STRING "appended to ldc binary name")
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 
@@ -137,6 +139,7 @@ add_definitions(
 
 if(UNIX)
 	add_definitions(-DPOSIX)
+	set(CONF_INST_DIR etc)
 endif(UNIX)
 
 if(USE_BOEHM_GC)
@@ -157,8 +160,11 @@ endif(CMAKE_MINOR_VERSION LESS 6)
 
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 
+set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
+
 set_target_properties(
 	${LDC_EXE} PROPERTIES
+	OUTPUT_NAME ${LDC_EXE_NAME}
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
 	COMPILE_FLAGS "${LLVM_CXXFLAGS} -Wno-deprecated -Wno-write-strings"
 )
@@ -167,6 +173,7 @@ set_target_properties(
 target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}")
 if(WIN32)
 	target_link_libraries(${LDC_EXE} psapi)
+	set(CONF_INST_DIR bin)
 endif(WIN32)
 
 if(USE_BOEHM_GC)
@@ -175,7 +182,10 @@ endif(USE_BOEHM_GC)
 
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
-# TODO: install target
 # TODO: testrun
 
-add_subdirectory(runtime EXCLUDE_FROM_ALL)
+install(TARGETS ${LDC_EXE} DESTINATION bin)
+
+install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}.conf DESTINATION ${CONF_INST_DIR})
+
+add_subdirectory(runtime)

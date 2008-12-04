@@ -28,7 +28,6 @@ get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT
 set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir" FORCE)
 
 if(D_VERSION EQUAL 1)
-	set(LDC_EXE ldc)
 	# copy imports to runtime dir
 	add_custom_command(
 		OUTPUT ldc-imports
@@ -48,7 +47,6 @@ if(D_VERSION EQUAL 1)
 	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
 	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
 elseif(D_VERSION EQUAL 2)
-	set(LDC_EXE ldc2)
 	set(RUNTIME_CC druntime-core)
 	set(RUNTIME_GC druntime-gc-basic)
 	set(RUNTIME_DC druntime-rt-ldc)
@@ -73,9 +71,10 @@ if(NOT LDC_LOC)
 	if(NOT LDC_LOC)
 		message(SEND_ERROR "ldc not found")
 	endif(NOT LDC_LOC)
+	set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE_NAME}.conf)
 
 # patch runtime source, uses LDC_EXE for ldc / ldc2
 find_program(PATCH_EXE patch DOC "path to patch tool")
@@ -178,3 +177,5 @@ set_target_properties(
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
 add_custom_target(runtime DEPENDS ${LIBS} ${BCLIBS})
+
+install(DIRECTORY ${PROJECT_BINARY_DIR}/../lib DESTINATION .)
