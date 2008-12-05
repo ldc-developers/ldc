@@ -139,7 +139,7 @@ add_definitions(
 
 if(UNIX)
 	add_definitions(-DPOSIX)
-	set(CONF_INST_DIR etc)
+	set(CONF_INST_DIR bin)
 endif(UNIX)
 
 if(USE_BOEHM_GC)
@@ -185,7 +185,7 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 # TODO: testrun
 
 install(TARGETS ${LDC_EXE} DESTINATION bin)
+install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf DESTINATION ${CONF_INST_DIR})
+install(DIRECTORY ${PROJECT_BINARY_DIR}/lib DESTINATION . USE_SOURCE_PERMISSIONS)
 
-install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE_NAME}.conf DESTINATION ${CONF_INST_DIR})
-
-add_subdirectory(runtime)
+add_subdirectory(runtime EXCLUDE_FROM_ALL)

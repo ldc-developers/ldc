@@ -74,7 +74,7 @@ if(NOT LDC_LOC)
 	set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE_NAME}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 
 # patch runtime source, uses LDC_EXE for ldc / ldc2
 find_program(PATCH_EXE patch DOC "path to patch tool")
@@ -177,5 +177,3 @@ set_target_properties(
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
 add_custom_target(runtime DEPENDS ${LIBS} ${BCLIBS})
-
-install(DIRECTORY ${PROJECT_BINARY_DIR}/../lib DESTINATION .)
