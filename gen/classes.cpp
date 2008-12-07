@@ -21,9 +21,25 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+// adds the base interfaces of b and the given iri to IrStruct's interfaceMap
+void add_base_interfaces(IrStruct* to, IrInterface* iri, BaseClass* b)
+{
+    for (unsigned j = 0; j < b->baseInterfaces_dim; j++)
+    {
+        BaseClass *bc = &b->baseInterfaces[j];
+        // add to map
+        if (to->interfaceMap.find(bc->base) == to->interfaceMap.end())
+        {
+            to->interfaceMap.insert(std::make_pair(bc->base, iri));
+        }
+        // add base interfaces
+        add_base_interfaces(to, iri, bc);
+    }
+}
+
 // adds interface b to target, if newinstance != 0, then target must provide all
 // functions required to implement b (it reimplements b)
-static void add_interface(ClassDeclaration* target, BaseClass* b, int newinstance)
+void add_interface(ClassDeclaration* target, BaseClass* b, int newinstance)
 {
     Logger::println("adding interface: %s", b->base->toChars());
     LOG_SCOPE;
@@ -59,16 +75,8 @@ static void add_interface(ClassDeclaration* target, BaseClass* b, int newinstanc
     if (newinstance)
         irstruct->classInfoInterfaces.push_back(iri);
 
-    // assign this iri to all base interfaces of this one
-    for (unsigned j = 0; j < b->baseInterfaces_dim; j++)
-    {
-        BaseClass *bc = &b->baseInterfaces[j];
-        // add to map
-        if (irstruct->interfaceMap.find(bc->base) == irstruct->interfaceMap.end())
-        {
-            irstruct->interfaceMap.insert(std::make_pair(bc->base, iri));
-        }
-    }
+    // recursively assign this iri to all base interfaces
+    add_base_interfaces(irstruct, iri, b);
 
     // build the interface vtable
     b->fillVtbl(target, &iri->vtblDecls, newinstance);
@@ -82,7 +90,7 @@ static void add_interface(ClassDeclaration* target, BaseClass* b, int newinstanc
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void add_class_data(ClassDeclaration* target, ClassDeclaration* cd)
+void add_class_data(ClassDeclaration* target, ClassDeclaration* cd)
 {
     Logger::println("Adding data from class: %s", cd->toChars());
     LOG_SCOPE;
@@ -117,7 +125,7 @@ static void add_class_data(ClassDeclaration* target, ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void DtoResolveInterface(InterfaceDeclaration* cd)
+void DtoResolveInterface(InterfaceDeclaration* cd)
 {
     if (cd->ir.resolved) return;
     cd->ir.resolved = true;
@@ -267,7 +275,7 @@ void DtoResolveClass(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void DtoDeclareInterface(InterfaceDeclaration* cd)
+void DtoDeclareInterface(InterfaceDeclaration* cd)
 {
     if (cd->ir.declared) return;
     cd->ir.declared = true;
@@ -432,7 +440,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
 //////////////////////////////////////////////////////////////////////////////
 
 // adds data fields and interface vtables to the constant initializer of class cd
-static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDeclaration* target, ClassDeclaration* cd, size_t offsetbegin)
+size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDeclaration* target, ClassDeclaration* cd, size_t offsetbegin)
 {
     // first do baseclasses
     if (cd->baseClass)
@@ -535,7 +543,7 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
 //////////////////////////////////////////////////////////////////////////////
 
 // build the vtable initializer for class cd
-static void init_class_vtbl_initializer(ClassDeclaration* cd)
+void init_class_vtbl_initializer(ClassDeclaration* cd)
 {
     // generate vtable initializer
     std::vector<LLConstant*> sinits(cd->vtbl.dim, NULL);
@@ -588,7 +596,7 @@ static void init_class_vtbl_initializer(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-static void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
+void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
 {
     IrStruct* irstruct = cd->ir.irStruct;
 
@@ -689,7 +697,7 @@ static void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-static void DtoConstInitInterface(InterfaceDeclaration* cd)
+void DtoConstInitInterface(InterfaceDeclaration* cd)
 {
     if (cd->ir.initialized) return;
     cd->ir.initialized = true;
@@ -772,7 +780,7 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void DefineInterfaceInfos(IrStruct* irstruct)
+void DefineInterfaceInfos(IrStruct* irstruct)
 {
     // always do interface info array when possible
     std::vector<LLConstant*> infoInits;
@@ -802,7 +810,7 @@ static void DefineInterfaceInfos(IrStruct* irstruct)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void DtoDefineInterface(InterfaceDeclaration* cd)
+void DtoDefineInterface(InterfaceDeclaration* cd)
 {
     if (cd->ir.defined) return;
     cd->ir.defined = true;
@@ -1048,7 +1056,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
         }
         // class -> interface - static cast
         else if (it->isBaseOf(fc->sym,NULL)) {
-            Logger::println("static down cast)");
+            Logger::println("static down cast");
             // get the from class
             ClassDeclaration* cd = fc->sym->isClassDeclaration();
             IrStruct* irstruct = cd->ir.irStruct;
@@ -1315,7 +1323,7 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
 #if GENERATE_OFFTI
 
 // build a single element for the OffsetInfo[] of ClassInfo
-static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
+LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
 {
     std::vector<LLConstant*> inits(2);
 
@@ -1340,7 +1348,7 @@ static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
     return llvm::ConstantStruct::get(inits);
 }
 
-static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
+LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
 {
     IrStruct* irstruct = cd->ir.irStruct;
 
@@ -1375,7 +1383,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
 
 #endif // GENERATE_OFFTI
 
-static LLConstant* build_class_dtor(ClassDeclaration* cd)
+LLConstant* build_class_dtor(ClassDeclaration* cd)
 {
     FuncDeclaration* dtor = cd->dtor;
 
@@ -1387,7 +1395,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::Int8Ty));
 }
 
-static unsigned build_classinfo_flags(ClassDeclaration* cd)
+unsigned build_classinfo_flags(ClassDeclaration* cd)
 {
     // adapted from original dmd code
     unsigned flags = 0;
