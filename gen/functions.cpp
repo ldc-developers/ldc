@@ -604,7 +604,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         }
     }
 
-    if (fdecl->isUnitTestDeclaration())
+    if (fdecl->isUnitTestDeclaration() && !declareOnly)
         gIR->unitTests.push_back(fdecl);
 
     if (!declareOnly)
