@@ -1300,9 +1300,13 @@ void WithStatement::toIR(IRState* p)
     assert(exp);
     assert(body);
 
-    DValue* e = exp->toElem(p);
-    LLValue* mem = DtoRawVarDeclaration(wthis);
-    DtoStore(e->getRVal(), mem);
+    // with(..) can either be used with expressions or with symbols
+    // wthis == null indicates the symbol form
+    if (wthis) {
+        DValue* e = exp->toElem(p);
+        LLValue* mem = DtoRawVarDeclaration(wthis);
+        DtoStore(e->getRVal(), mem);
+    }
 
     body->toIR(p);
 }
