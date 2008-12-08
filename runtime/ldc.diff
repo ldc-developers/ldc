@@ -1,6 +1,63 @@
+Index: lib/unittest.sh
+===================================================================
+--- lib/unittest.sh	(revision 4150)
++++ lib/unittest.sh	(working copy)
+@@ -18,8 +18,9 @@
+   --help: This message
+   --run-all: Reports result instead of breaking. Do not use this if you want to
+          run unittest runner through a debugger.
+-  dmd: Builds unittests for dmd
+-  gdc: Builds unittests for gdc
++  dmd:    Builds unittests for dmd
++  gdc:    Builds unittests for gdc
++  ldc: Builds unittests for ldc
+ 
+   <none>: Builds unittests for all known compilers.'
+   exit 0
+@@ -86,7 +87,7 @@
+ void main() {}
+ EOF
+ 
+-        rebuild -w -d -g -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
++        rebuild -w -d -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
+         -version=UnitTest $EXE.d tango/core/*.d tango/core/sync/*.d tango/io/digest/*.d \
+         tango/io/model/*.d tango/io/protocol/*.d tango/io/selector/*.d tango/io/*.d \
+         tango/io/vfs/*.d tango/io/vfs/model/*.d \
+@@ -125,6 +126,9 @@
+         gdc)
+             GDC=1
+             ;;
++        ldc)
++            LDC=1
++            ;;
+         *)
+             usage
+             ;;
+@@ -132,10 +136,11 @@
+     shift
+ done
+ 
+-if [ ! "$DMD" -a ! "$GDC" ]
++if [ ! "$DMD" -a ! "$GDC" -a ! "$LDC" ]
+ then
+     DMD=1
+     GDC=1
++    LDC=1
+ fi
+ 
+ if [ "$DMD" = "1" ]
+@@ -146,4 +151,7 @@
+ then
+     compile gdc runUnitTest_gdc
+ fi
+-
++if [ "$LDC" = "1" ]
++then
++    compile ldc runUnitTest_ldc
++fi
 Index: lib/common/tango/core/BitManip.d
 ===================================================================
---- lib/common/tango/core/BitManip.d	(revision 4145)
+--- lib/common/tango/core/BitManip.d	(revision 4150)
 +++ lib/common/tango/core/BitManip.d	(working copy)
 @@ -171,6 +171,10 @@
       */
@@ -15,7 +72,7 @@ Index: lib/common/tango/core/BitManip.d
      public import std.intrinsic;
 Index: lib/common/tango/core/Thread.d
 ===================================================================
---- lib/common/tango/core/Thread.d	(revision 4145)
+--- lib/common/tango/core/Thread.d	(revision 4150)
 +++ lib/common/tango/core/Thread.d	(working copy)
 @@ -273,8 +273,50 @@
          }
@@ -151,7 +208,7 @@ Index: lib/common/tango/core/Thread.d
  ////////////////////////////////////////////////////////////////////////////////
  // Fiber
  ////////////////////////////////////////////////////////////////////////////////
-@@ -3177,6 +3261,22 @@
+@@ -3255,6 +3339,22 @@
              push( 0x00000000 );                                     // ESI
              push( 0x00000000 );                                     // EDI
          }
@@ -174,66 +231,9 @@ Index: lib/common/tango/core/Thread.d
          else version( AsmPPC_Posix )
          {
              version( StackGrowsDown )
-Index: lib/unittest.sh
-===================================================================
---- lib/unittest.sh	(revision 4145)
-+++ lib/unittest.sh	(working copy)
-@@ -18,8 +18,9 @@
-   --help: This message
-   --run-all: Reports result instead of breaking. Do not use this if you want to
-          run unittest runner through a debugger.
--  dmd: Builds unittests for dmd
--  gdc: Builds unittests for gdc
-+  dmd:    Builds unittests for dmd
-+  gdc:    Builds unittests for gdc
-+  ldc: Builds unittests for ldc
- 
-   <none>: Builds unittests for all known compilers.'
-   exit 0
-@@ -86,7 +87,7 @@
- void main() {}
- EOF
- 
--        rebuild -w -d -g -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
-+        rebuild -w -d -L-ldl -L-lz -L-lbz2 -debug=UnitTest -debug -full -clean -unittest \
-         -version=UnitTest $EXE.d tango/core/*.d tango/core/sync/*.d tango/io/digest/*.d \
-         tango/io/model/*.d tango/io/protocol/*.d tango/io/selector/*.d tango/io/*.d \
-         tango/io/vfs/*.d tango/io/vfs/model/*.d \
-@@ -125,6 +126,9 @@
-         gdc)
-             GDC=1
-             ;;
-+        ldc)
-+            LDC=1
-+            ;;
-         *)
-             usage
-             ;;
-@@ -132,10 +136,11 @@
-     shift
- done
- 
--if [ ! "$DMD" -a ! "$GDC" ]
-+if [ ! "$DMD" -a ! "$GDC" -a ! "$LDC" ]
- then
-     DMD=1
-     GDC=1
-+    LDC=1
- fi
- 
- if [ "$DMD" = "1" ]
-@@ -146,4 +151,7 @@
- then
-     compile gdc runUnitTest_gdc
- fi
--
-+if [ "$LDC" = "1" ]
-+then
-+    compile ldc runUnitTest_ldc
-+fi
 Index: lib/gc/basic/gcx.d
 ===================================================================
---- lib/gc/basic/gcx.d	(revision 4145)
+--- lib/gc/basic/gcx.d	(revision 4150)
 +++ lib/gc/basic/gcx.d	(working copy)
 @@ -65,6 +65,13 @@
  }
@@ -326,7 +326,7 @@ Index: lib/gc/basic/gcx.d
          asm
 Index: lib/gc/basic/gcbits.d
 ===================================================================
---- lib/gc/basic/gcbits.d	(revision 4145)
+--- lib/gc/basic/gcbits.d	(revision 4150)
 +++ lib/gc/basic/gcbits.d	(working copy)
 @@ -39,6 +39,10 @@
  {
@@ -341,7 +341,7 @@ Index: lib/gc/basic/gcbits.d
      version = Asm86;
 Index: lib/build-tango.sh
 ===================================================================
---- lib/build-tango.sh	(revision 4145)
+--- lib/build-tango.sh	(revision 4150)
 +++ lib/build-tango.sh	(working copy)
 @@ -23,7 +23,7 @@
    --debug: Will enable debug info
@@ -373,7 +373,7 @@ Index: lib/build-tango.sh
              build powerpc-apple-darwin8-gdmd libgtango.a.ppc libgphobos.a.ppc
 Index: tango/text/convert/Layout.d
 ===================================================================
---- tango/text/convert/Layout.d	(revision 4145)
+--- tango/text/convert/Layout.d	(revision 4150)
 +++ tango/text/convert/Layout.d	(working copy)
 @@ -47,6 +47,12 @@
          alias void* Arg;
@@ -399,7 +399,7 @@ Index: tango/text/convert/Layout.d
                  return parse (formatStr, arguments, arglist, sink);
 Index: tango/net/cluster/CacheInvalidator.d
 ===================================================================
---- tango/net/cluster/CacheInvalidator.d	(revision 4145)
+--- tango/net/cluster/CacheInvalidator.d	(revision 4150)
 +++ tango/net/cluster/CacheInvalidator.d	(working copy)
 @@ -79,7 +79,7 @@
  
@@ -412,7 +412,7 @@ Index: tango/net/cluster/CacheInvalidator.d
  
 Index: tango/core/Vararg.d
 ===================================================================
---- tango/core/Vararg.d	(revision 4145)
+--- tango/core/Vararg.d	(revision 4150)
 +++ tango/core/Vararg.d	(working copy)
 @@ -15,6 +15,10 @@
  {
@@ -427,7 +427,7 @@ Index: tango/core/Vararg.d
      /**
 Index: tango/core/sync/Semaphore.d
 ===================================================================
---- tango/core/sync/Semaphore.d	(revision 4145)
+--- tango/core/sync/Semaphore.d	(revision 4150)
 +++ tango/core/sync/Semaphore.d	(working copy)
 @@ -384,7 +384,8 @@
              {
@@ -463,7 +463,7 @@ Index: tango/core/sync/Semaphore.d
  }
 Index: tango/core/sync/Condition.d
 ===================================================================
---- tango/core/sync/Condition.d	(revision 4145)
+--- tango/core/sync/Condition.d	(revision 4150)
 +++ tango/core/sync/Condition.d	(working copy)
 @@ -553,8 +553,11 @@
  
@@ -479,7 +479,7 @@ Index: tango/core/sync/Condition.d
  }
 Index: tango/core/Atomic.d
 ===================================================================
---- tango/core/Atomic.d	(revision 4145)
+--- tango/core/Atomic.d	(revision 4150)
 +++ tango/core/Atomic.d	(working copy)
 @@ -270,6 +270,167 @@
  
@@ -651,7 +651,7 @@ Index: tango/core/Atomic.d
  
 Index: tango/math/IEEE.d
 ===================================================================
---- tango/math/IEEE.d	(revision 4145)
+--- tango/math/IEEE.d	(revision 4150)
 +++ tango/math/IEEE.d	(working copy)
 @@ -1554,7 +1554,12 @@
          return (bitsdiff == 0 && !((pa[F.EXPPOS_SHORT] ^ pb[F.EXPPOS_SHORT])& F.EXPMASK)) ? 1 : 0;
@@ -669,7 +669,7 @@ Index: tango/math/IEEE.d
  
 Index: tango/math/Math.d
 ===================================================================
---- tango/math/Math.d	(revision 4145)
+--- tango/math/Math.d	(revision 4150)
 +++ tango/math/Math.d	(working copy)
 @@ -76,6 +76,14 @@
          version = DigitalMars_D_InlineAsm_X86;
@@ -818,7 +818,7 @@ Index: tango/math/Math.d
  debug(UnitTest) {
 Index: tango/stdc/posix/sys/types.d
 ===================================================================
---- tango/stdc/posix/sys/types.d	(revision 4145)
+--- tango/stdc/posix/sys/types.d	(revision 4150)
 +++ tango/stdc/posix/sys/types.d	(working copy)
 @@ -422,7 +422,11 @@
  }
@@ -835,7 +835,7 @@ Index: tango/stdc/posix/sys/types.d
  {
 Index: tango/stdc/stdlib.d
 ===================================================================
---- tango/stdc/stdlib.d	(revision 4145)
+--- tango/stdc/stdlib.d	(revision 4150)
 +++ tango/stdc/stdlib.d	(working copy)
 @@ -94,6 +94,11 @@
  {
@@ -851,7 +851,7 @@ Index: tango/stdc/stdlib.d
      private import gcc.builtins;
 Index: tango/stdc/stdarg.d
 ===================================================================
---- tango/stdc/stdarg.d	(revision 4145)
+--- tango/stdc/stdarg.d	(revision 4150)
 +++ tango/stdc/stdarg.d	(working copy)
 @@ -13,6 +13,10 @@
  {
