@@ -1218,6 +1218,9 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
     if (Logger::enabled())
         Logger::cout() << "src: " << *src << '\n';
 
+    // make sure class is resolved
+    DtoResolveClass(cd);
+
     // vd must be a field
     IrField* field = vd->ir.irField;
     assert(field);
