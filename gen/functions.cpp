@@ -771,24 +771,31 @@ void DtoDefineFunc(FuncDeclaration* fd)
     if (!fd->nestedVars.empty())
     {
         Logger::println("has nested frame");
-        // start with add all enclosing parent frames
+        // start with adding all enclosing parent frames until a static parent is reached
         int nparelems = 0;
-        Dsymbol* par = fd->toParent2();
-        while (par)
+        if (!fd->isStatic())
         {
-            if (FuncDeclaration* parfd = par->isFuncDeclaration())
+            Dsymbol* par = fd->toParent2();
+            while (par)
             {
-                nparelems += parfd->nestedVars.size();
+                if (FuncDeclaration* parfd = par->isFuncDeclaration())
+                {
+                    nparelems += parfd->nestedVars.size();
+                    // stop at first static
+                    if (parfd->isStatic())
+                        break;
+                }
+                else if (ClassDeclaration* parcd = par->isClassDeclaration())
+                {
+                    // nothing needed
+                }
+                else
+                {
+                    break;
+                }
+
+                par = par->toParent2();
             }
-            else if (ClassDeclaration* parcd = par->isClassDeclaration())
-            {
-                // nothing needed
-            }
-            else
-            {
-                break;
-            }
-            par = par->toParent2();
         }
         int nelems = fd->nestedVars.size() + nparelems;
         
