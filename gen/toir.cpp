@@ -224,6 +224,13 @@ LLConstant* VarExp::toConstElem(IRState* p)
             m = llvm::ConstantExpr::getBitCast(m, vartype);
         return m;
     }
+    else if (VarDeclaration* vd = var->isVarDeclaration())
+    {
+        // return the initializer
+        assert(vd->init);
+        return DtoConstInitializer(loc, type, vd->init);
+    }
+    // fail
     assert(0 && "Unsupported const VarExp kind");
     return NULL;
 }
