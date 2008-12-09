@@ -1059,6 +1059,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             Logger::println("static down cast");
             // get the from class
             ClassDeclaration* cd = fc->sym->isClassDeclaration();
+            DtoResolveClass(cd); // add this
             IrStruct* irstruct = cd->ir.irStruct;
             // find interface impl
             IrStruct::InterfaceMapIter iriter = irstruct->interfaceMap.find(it);

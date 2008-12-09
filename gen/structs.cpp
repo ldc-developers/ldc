@@ -303,6 +303,8 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     Logger::println("indexing struct field %s:", vd->toPrettyChars());
     LOG_SCOPE;
 
+    DtoResolveStruct(sd);
+
     // vd must be a field
     IrField* field = vd->ir.irField;
     assert(field);
