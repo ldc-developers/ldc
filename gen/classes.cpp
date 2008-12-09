@@ -1260,6 +1260,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
 {
     // sanity checks
     assert(fdecl->isVirtual());
+    assert(!fdecl->isFinal());
     assert(fdecl->vtblIndex > 0); // 0 is always ClassInfo/Interface*
     assert(inst->getType()->toBasetype()->ty == Tclass);
 

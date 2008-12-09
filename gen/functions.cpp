@@ -628,13 +628,6 @@ void DtoDefineFunc(FuncDeclaration* fd)
     Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
-    // error on naked
-    if (fd->naked)
-    {
-        fd->error("naked is not supported");
-        fatal();
-    }
-
     // debug info
     if (global.params.symdebug) {
         Module* mo = fd->getModule();
