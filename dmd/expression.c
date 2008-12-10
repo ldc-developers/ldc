@@ -3761,10 +3761,6 @@ Expression *VarExp::semantic(Scope *sc)
 #endif
     }
 
-    // LDC: Fixes bug 1161, http://d.puremagic.com/issues/show_bug.cgi?id=1161
-    // check access to VarDeclaration
-    accessCheck(loc, sc, NULL, var);
-
     VarDeclaration *v = var->isVarDeclaration();
     if (v)
     {
