@@ -242,10 +242,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     const LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
 
-    if (Logger::enabled())
-    {
-        Logger::cout() << "callable: " << *callable << '\n';
-    }
+//     if (Logger::enabled())
+//         Logger::cout() << "callable: " << *callable << '\n';
 
     // get n arguments
     size_t n_arguments = arguments ? arguments->dim : 0;

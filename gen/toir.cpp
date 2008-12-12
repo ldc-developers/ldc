@@ -56,9 +56,17 @@ DValue* VarExp::toElem(IRState* p)
     LOG_SCOPE;
 
     assert(var);
+
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
+
+        // this is an error! must be accessed with DotVarExp
+        if (var->needThis())
+        {
+            error("need 'this' to access member %s", toChars());
+            fatal();
+        }
 
         // _arguments
         if (vd->ident == Id::_arguments && p->func()->_arguments)
@@ -144,6 +152,9 @@ DValue* VarExp::toElem(IRState* p)
             LLValue* val;
 
             if (!vd->ir.isSet() || !(val = vd->ir.getIrValue())) {
+                // FIXME: this error is bad!
+                // We should be VERY careful about adding errors in general, as they have
+                // a tendency to "mask" out the underlying problems ...
                 error("variable %s not resolved", vd->toChars());
                 if (Logger::enabled())
                     Logger::cout() << "unresolved variable had type: " << *DtoType(vd->type) << '\n';
@@ -213,6 +224,13 @@ LLConstant* VarExp::toConstElem(IRState* p)
             m = llvm::ConstantExpr::getBitCast(m, vartype);
         return m;
     }
+    else if (VarDeclaration* vd = var->isVarDeclaration())
+    {
+        // return the initializer
+        assert(vd->init);
+        return DtoConstInitializer(loc, type, vd->init);
+    }
+    // fail
     assert(0 && "Unsupported const VarExp kind");
     return NULL;
 }
@@ -1952,7 +1970,7 @@ DValue* DelegateExp::toElem(IRState* p)
     Logger::println("func: '%s'", func->toPrettyChars());
 
     LLValue* castfptr;
-    if (func->isVirtual())
+    if (func->isVirtual() && !func->isFinal())
         castfptr = DtoVirtualFunctionPointer(u, func);
     else if (func->isAbstract())
         assert(0 && "TODO delegate to abstract method");
