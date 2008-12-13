@@ -685,24 +685,36 @@ void FuncDeclaration::semantic3(Scope *sc)
 		Type *thandle = ad->handle;
 		if (storage_class & STCconst || type->isConst())
 		{
+#if STRUCTTHISREF
+		    thandle = thandle->constOf();
+#else
 		    if (thandle->ty == Tclass)
 			thandle = thandle->constOf();
 		    else
 		    {	assert(thandle->ty == Tpointer);
 			thandle = thandle->nextOf()->constOf()->pointerTo();
 		    }
+#endif
 		}
 		else if (storage_class & STCinvariant || type->isInvariant())
 		{
+#if STRUCTTHISREF
+		    thandle = thandle->invariantOf();
+#else
 		    if (thandle->ty == Tclass)
 			thandle = thandle->invariantOf();
 		    else
 		    {	assert(thandle->ty == Tpointer);
 			thandle = thandle->nextOf()->invariantOf()->pointerTo();
 		    }
+#endif
 		}
 		v = new ThisDeclaration(thandle);
 		v->storage_class |= STCparameter;
+#if STRUCTTHISREF
+		if (thandle->ty == Tstruct)
+		    v->storage_class |= STCref;
+#endif
 		v->semantic(sc2);
 		if (!sc2->insert(v))
 		    assert(0);
@@ -950,8 +962,12 @@ void FuncDeclaration::semantic3(Scope *sc)
 		}
 		else
 		{   // Call invariant virtually
-		    ThisExp *v = new ThisExp(0);
+		    Expression *v = new ThisExp(0);
 		    v->type = vthis->type;
+#if STRUCTTHISREF
+		    if (ad->isStructDeclaration())
+			v = v->addressOf(sc);
+#endif
 		    e = new AssertExp(0, v);
 		}
 		if (e)
@@ -1214,8 +1230,12 @@ void FuncDeclaration::semantic3(Scope *sc)
 		}
 		else
 		{   // Call invariant virtually
-		    ThisExp *v = new ThisExp(0);
+		    Expression *v = new ThisExp(0);
 		    v->type = vthis->type;
+#if STRUCTTHISREF
+		    if (ad->isStructDeclaration())
+			v = v->addressOf(sc);
+#endif
 		    Expression *se = new StringExp(0, (char *)"null this");
 		    se = se->semantic(sc);
 		    se->type = Type::tchar->arrayOf();
@@ -2017,15 +2037,16 @@ int FuncDeclaration::isVirtual()
 
 int FuncDeclaration::isFinal()
 {
+    ClassDeclaration *cd;
 #if 0
     printf("FuncDeclaration::isFinal(%s)\n", toChars());
     printf("%p %d %d %d %d\n", isMember(), isStatic(), protection == PROTprivate, isCtorDeclaration(), linkage != LINKd);
     printf("result is %d\n",
 	isMember() &&
 	!(isStatic() || protection == PROTprivate || protection == PROTpackage) &&
-	toParent()->isClassDeclaration());
+	(cd = toParent()->isClassDeclaration()) != NULL &&
+	cd->storage_class & STCfinal);
 #endif
-    ClassDeclaration *cd;
     return isMember() &&
 	(Declaration::isFinal() ||
 	 ((cd = toParent()->isClassDeclaration()) != NULL && cd->storage_class & STCfinal));
@@ -2331,6 +2352,10 @@ void CtorDeclaration::semantic(Scope *sc)
 	assert(tret);
     }
     type = new TypeFunction(arguments, tret, varargs, LINKd);
+#if STRUCTTHISREF
+    if (ad && ad->isStructDeclaration())
+	((TypeFunction *)type)->isref = 1;
+#endif
     if (!originalType)
 	originalType = type;
 
@@ -2857,10 +2882,11 @@ void UnitTestDeclaration::semantic(Scope *sc)
 {
     if (global.params.useUnitTests)
     {
-	Type *tret;
-
 	type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);
-	FuncDeclaration::semantic(sc);
+	Scope *sc2 = sc->push();
+	sc2->linkage = LINKd;
+	FuncDeclaration::semantic(sc2);
+	sc2->pop();
     }
 
     // We're going to need ModuleInfo even if the unit tests are not

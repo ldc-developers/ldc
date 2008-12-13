@@ -35,9 +35,10 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 
     MATCH match = implicitConvTo(t);
     if (match)
-    {
+    {	TY tyfrom = type->toBasetype()->ty;
+	TY tyto = t->toBasetype()->ty;
 	if (global.params.warnings &&
-	    Type::impcnvWarn[type->toBasetype()->ty][t->toBasetype()->ty] &&
+	    Type::impcnvWarn[tyfrom][tyto] &&
 	    op != TOKint64)
 	{
 	    Expression *e = optimize(WANTflags | WANTvalue);
@@ -45,8 +46,24 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 	    if (e->op == TOKint64)
 		return e->implicitCastTo(sc, t);
 
-	    warning("%s: implicit conversion of expression (%s) of type %s to %s can cause loss of data",
-		loc.toChars(), toChars(), type->toChars(), t->toChars());
+	    if (tyfrom == Tint32 &&
+		(op == TOKadd || op == TOKmin ||
+		 op == TOKand || op == TOKor || op == TOKxor)
+	       )
+	    {
+		/* This is really only a semi-kludge fix,
+		 * we really should look at the operands of op
+		 * and see if they are narrower types.
+		 * For example, b=b|b and b=b|7 and s=b+b should be allowed,
+		 * but b=b|i should be an error.
+		 */
+		;
+	    }
+	    else
+	    {
+		warning("%s: implicit conversion of expression (%s) of type %s to %s can cause loss of data",
+		    loc.toChars(), toChars(), type->toChars(), t->toChars());
+	    }
 	}
 #if DMDV2
 	if (match == MATCHconst && t == type->constOf())
@@ -1042,7 +1059,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 		}
 	    }
 	    if (f)
-	    {	f->tookAddressOf = 1;
+	    {	f->tookAddressOf++;
 		SymOffExp *se = new SymOffExp(loc, f, 0, 0);
 		se->semantic(sc);
 		// Let SymOffExp::castTo() do the heavy lifting
@@ -1205,7 +1222,7 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
 			e = new SymOffExp(loc, f, 0);
 			e->type = t;
 		    }
-		    f->tookAddressOf = 1;
+		    f->tookAddressOf++;
 		    return e;
 		}
 	    }
@@ -1246,7 +1263,7 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
 		{   int offset;
 		    if (f->tintro && f->tintro->nextOf()->isBaseOf(f->type->nextOf(), &offset) && offset)
 			error("%s", msg);
-		    f->tookAddressOf = 1;
+		    f->tookAddressOf++;
 		    e = new DelegateExp(loc, e1, f);
 		    e->type = t;
 		    return e;
@@ -1260,7 +1277,7 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
     else
     {	int offset;
 
-	func->tookAddressOf = 1;
+	func->tookAddressOf++;
 	if (func->tintro && func->tintro->nextOf()->isBaseOf(func->type->nextOf(), &offset) && offset)
 	    error("%s", msg);
 	e = copy();

@@ -2656,10 +2656,13 @@ unsigned Lexer::decodeUTF()
 
 void Lexer::getDocComment(Token *t, unsigned lineComment)
 {
-    OutBuffer buf;
+    /* ct tells us which kind of comment it is: '/', '*', or '+'
+     */
     unsigned char ct = t->ptr[2];
+
+    /* Start of comment text skips over / * *, / + +, or / / /
+     */
     unsigned char *q = t->ptr + 3;	// start of comment text
-    int linestart = 0;
 
     unsigned char *qend = p;
     if (ct == '*' || ct == '+')
@@ -2683,6 +2686,12 @@ void Lexer::getDocComment(Token *t, unsigned lineComment)
 		break;
 	}
     }
+
+    /* Comment is now [q .. qend].
+     * Canonicalize it into buf[].
+     */
+    OutBuffer buf;
+    int linestart = 0;
 
     for (; q < qend; q++)
     {
@@ -2760,11 +2769,14 @@ void Lexer::getDocComment(Token *t, unsigned lineComment)
 }
 
 /********************************************
- * Combine two document comments into one.
+ * Combine two document comments into one,
+ * separated by a newline.
  */
 
 unsigned char *Lexer::combineComments(unsigned char *c1, unsigned char *c2)
 {
+    //printf("Lexer::combineComments('%s', '%s')\n", c1, c2);
+
     unsigned char *c = c2;
 
     if (c1)
@@ -2775,9 +2787,12 @@ unsigned char *Lexer::combineComments(unsigned char *c1, unsigned char *c2)
 
 	    c = (unsigned char *)mem.malloc(len1 + 1 + len2 + 1);
 	    memcpy(c, c1, len1);
-	    c[len1] = '\n';
-	    memcpy(c + len1 + 1, c2, len2);
-	    c[len1 + 1 + len2] = 0;
+	    if (len1 && c1[len1 - 1] != '\n')
+	    {	c[len1] = '\n';
+		len1++;
+	    }
+	    memcpy(c + len1, c2, len2);
+	    c[len1 + len2] = 0;
 	}
     }
     return c;
@@ -2912,7 +2927,6 @@ static Keyword keywords[] =
     {	"static",	TOKstatic	},
     {	"final",	TOKfinal	},
     {	"const",	TOKconst	},
-    {	"immutable",	TOKimmutable	},
     {	"typedef",	TOKtypedef	},
     {	"alias",	TOKalias	},
     {	"override",	TOKoverride	},
@@ -2952,6 +2966,7 @@ static Keyword keywords[] =
     {	"__FILE__",	TOKfile		},
     {	"__LINE__",	TOKline		},
     {	"shared",	TOKshared	},
+    {	"immutable",	TOKimmutable	},
 #endif
 };
 

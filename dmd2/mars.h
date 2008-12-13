@@ -33,6 +33,7 @@
 #endif
 
 #define BREAKABI 1	// 0 if not ready to break the ABI just yet
+#define STRUCTTHISREF V2	// if 'this' for struct is a reference, not a pointer
 
 struct Array;
 
@@ -99,6 +100,7 @@ struct Param
     char novalidate;// no bitcode validation
     char Dversion;	// D version number
     char ignoreUnsupportedPragmas;	// rather than error on them
+    char safe;		// enforce safe memory model
 
     char *argv0;	// program name
     Array *imppath;	// array of char*'s of where to look for import modules
@@ -200,6 +202,12 @@ struct Global
 };
 
 extern Global global;
+
+/* Set if Windows Structured Exception Handling C extensions are supported.
+ * Apparently, VC has dropped support for these?
+ */
+#define WINDOWS_SEH	_WIN32 && __DMC__
+
 
 #if __GNUC__
 //#define memicmp strncasecmp

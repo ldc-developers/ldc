@@ -239,7 +239,7 @@ struct ScopeDsymbol : Dsymbol
     DsymbolTable *symtab;	// members[] sorted into table
 
     Array *imports;		// imported ScopeDsymbol's
-    unsigned char *prots;	// PROT for each import
+    unsigned char *prots;	// array of PROT, one for each import
 
     ScopeDsymbol();
     ScopeDsymbol(Identifier *id);

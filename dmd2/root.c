@@ -16,6 +16,7 @@
 
 #if _MSC_VER ||__MINGW32__
 #include <malloc.h>
+#include <string>
 #endif
 
 #if _WIN32
@@ -46,6 +47,7 @@ extern "C" void __cdecl _assert(void *e, void *f, unsigned line)
     *(char *)0 = 0;
 }
 #endif
+
 
 /*************************************
  * Convert wchar string to ascii string.
@@ -1606,6 +1608,36 @@ void OutBuffer::align(unsigned size)
     fill0(nbytes);
 }
 
+
+////////////////////////////////////////////////////////////////
+// The compiler shipped with Visual Studio 2005 (and possible
+// other versions) does not support C99 printf format specfiers
+// such as %z and %j
+#if _MSC_VER
+using std::string;
+using std::wstring;
+
+template<typename S>
+inline void 
+search_and_replace(S& str, const S& what, const S& replacement)
+{
+    assert(!what.empty());
+    size_t pos = str.find(what);
+    while (pos != S::npos) 
+    {
+        str.replace(pos, what.size(), replacement);
+        pos = str.find(what, pos + replacement.size());
+    }
+}
+#define WORKAROUND_C99_SPECIFIERS_BUG(S,tmp,f) \
+    S tmp = f;                                 \
+    search_and_replace(fmt, S("%z"), S("%l")); \
+    search_and_replace(fmt, S("%j"), S("%i")); \
+    f = tmp.c_str();
+#else
+#define WORKAROUND_C99_SPECIFIERS_BUG(S,tmp,f)
+#endif
+
 void OutBuffer::vprintf(const char *format, va_list args)
 {
     char buffer[128];
@@ -1613,10 +1645,7 @@ void OutBuffer::vprintf(const char *format, va_list args)
     unsigned psize;
     int count;
 
-    // On some platforms (i.e. x86_64) va_list is an array and thus passed by
-    // reference. Copy the input list so we can copy it back before retrying.
-    va_list orig_args;
-    va_copy(orig_args, args);
+    WORKAROUND_C99_SPECIFIERS_BUG(string, fmt, format);
 
     p = buffer;
     psize = sizeof(buffer);
@@ -1628,7 +1657,19 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	    break;
 	psize *= 2;
 #elif POSIX
-	count = vsnprintf(p,psize,format,args);
+        va_list va;
+        va_copy(va, args);
+/*
+  The functions vprintf(), vfprintf(), vsprintf(), vsnprintf()
+  are equivalent to the functions printf(), fprintf(), sprintf(),
+  snprintf(), respectively, except that they are called with a
+  va_list instead of a variable number of arguments. These
+  functions do not call the va_end macro. Consequently, the value
+  of ap is undefined after the call. The application should call
+  va_end(ap) itself afterwards.
+ */
+	count = vsnprintf(p,psize,format,va);
+        va_end(va);
 	if (count == -1)
 	    psize *= 2;
 	else if (count >= psize)
@@ -1636,7 +1677,6 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	else
 	    break;
 #endif
-	va_copy(args, orig_args);
 	p = (char *) alloca(psize);	// buffer too small, try again with larger size
     }
     write(p,count);
@@ -1650,6 +1690,8 @@ void OutBuffer::vprintf(const wchar_t *format, va_list args)
     unsigned psize;
     int count;
 
+    WORKAROUND_C99_SPECIFIERS_BUG(wstring, fmt, format);
+
     p = buffer;
     psize = sizeof(buffer) / sizeof(buffer[0]);
     for (;;)
@@ -1661,7 +1703,11 @@ void OutBuffer::vprintf(const wchar_t *format, va_list args)
 	psize *= 2;
 #endif
 #if POSIX
-	count = vsnwprintf(p,psize,format,args);
+        va_list va;
+        va_copy(va, args);
+	count = vsnwprintf(p,psize,format,va);
+        va_end(va); 
+
 	if (count == -1)
 	    psize *= 2;
 	else if (count >= psize)

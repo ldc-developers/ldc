@@ -14,12 +14,7 @@
 #include <assert.h>
 
 #if !IN_LLVM
-#if _WIN32
-#include <windows.h>
-long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
 #endif
-#endif
-
 #include "root.h"
 #include "mem.h"
 #include "stringtable.h"
@@ -36,7 +31,13 @@ long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
 #include "dsymbol.h"
 #include "hdrgen.h"
 
+#if WINDOWS_SEH
+#include <windows.h>
+long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
+#endif
+
 #define LOG	0
+
 
 /********************************************
  * These functions substitute for dynamic_cast. dynamic_cast does not work
@@ -3311,7 +3312,7 @@ void TemplateInstance::semantic(Scope *sc)
     sc2->tinst = this;
 
 #if !IN_LLVM    
-#if _WIN32
+#if WINDOWS_SEH
   __try
   {
 #endif
@@ -3329,7 +3330,7 @@ void TemplateInstance::semantic(Scope *sc)
 	sc2->module->runDeferredSemantic();
     }
 #if !IN_LLVM    
-#if _WIN32
+#if WINDOWS_SEH
   }
   __except (__ehfilter(GetExceptionInformation()))
   {

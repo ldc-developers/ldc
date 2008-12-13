@@ -12,7 +12,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <assert.h>
+#if _MSC_VER
 #include <complex>
+#else
+#endif
 #include <math.h>
 
 #if _WIN32 && __DMC__
@@ -714,6 +717,36 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 	    if (p->storageClass & STClazy)
 	    {
 		arg = arg->toDelegate(sc, p->type);
+	    }
+
+	    /* Look for arguments that cannot 'escape' from the called
+	     * function.
+	     */
+	    if (!tf->parameterEscapes(p))
+	    {
+		/* Function literals can only appear once, so if this
+		 * appearance was scoped, there cannot be any others.
+		 */
+		if (arg->op == TOKfunction)
+		{   FuncExp *fe = (FuncExp *)arg;
+		    fe->fd->tookAddressOf = 0;
+		}
+
+		/* For passing a delegate to a scoped parameter,
+		 * this doesn't count as taking the address of it.
+		 * We only worry about 'escaping' references to the function.
+		 */
+		else if (arg->op == TOKdelegate)
+		{   DelegateExp *de = (DelegateExp *)arg;
+		    if (de->e1->op == TOKvar)
+		    {	VarExp *ve = (VarExp *)de->e1;
+			FuncDeclaration *f = ve->var->isFuncDeclaration();
+			if (f)
+			{   f->tookAddressOf--;
+			    //printf("tookAddressOf = %d\n", f->tookAddressOf);
+			}
+		    }
+		}
 	    }
 	}
 	else
@@ -2184,7 +2217,11 @@ Expression *ThisExp::semantic(Scope *sc)
 	    sd = s->isStructDeclaration();
 	    if (sd)
 	    {
+#if STRUCTTHISREF
+		type = sd->type;
+#else
 		type = sd->type->pointerTo();
+#endif
 		return this;
 	    }
 	}
@@ -5176,10 +5213,14 @@ Expression *DotIdExp::semantic(Scope *sc)
 
     if (eright->op == TOKimport)	// also used for template alias's
     {
-	Dsymbol *s;
 	ScopeExp *ie = (ScopeExp *)eright;
 
-	s = ie->sds->search(loc, ident, 0);
+	/* Disable access to another module's private imports.
+	 * The check for 'is sds our current module' is because
+	 * the current module should have access to its own imports.
+	 */
+	Dsymbol *s = ie->sds->search(loc, ident,
+	    (ie->sds->isModule() && ie->sds != sc->module) ? 1 : 0);
 	if (s)
 	{
 	    s = s->toAlias();
@@ -6019,7 +6060,11 @@ Lagain:
 
 		Expression *e = new DotVarExp(loc, av, ad->ctor, 1);
 		e = new CallExp(loc, e, arguments);
+#if !STRUCTTHISREF
+		/* Constructors return a pointer to the instance
+		 */
 		e = new PtrExp(loc, e);
+#endif
 		e = e->semantic(sc);
 		return e;
 	    }
@@ -6460,7 +6505,7 @@ Expression *AddrExp::semantic(Scope *sc)
 	    if (f)
 	    {
 		if (!dve->hasOverloads)
-		    f->tookAddressOf = 1;
+		    f->tookAddressOf++;
 		Expression *e = new DelegateExp(loc, dve->e1, f, dve->hasOverloads);
 		e = e->semantic(sc);
 		return e;
@@ -6478,8 +6523,13 @@ Expression *AddrExp::semantic(Scope *sc)
 
 	    if (f)
 	    {
-		if (!ve->hasOverloads)
-		    f->tookAddressOf = 1;
+		if (!ve->hasOverloads ||
+		    /* Because nested functions cannot be overloaded,
+		     * mark here that we took its address because castTo()
+		     * may not be called with an exact match.
+		     */
+		    f->toParent2()->isFuncDeclaration())
+		    f->tookAddressOf++;
 
         // LDC
         if (f && f->isIntrinsic())

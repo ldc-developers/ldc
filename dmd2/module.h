@@ -113,6 +113,8 @@ struct Module : Package
     int doDocComment;		// enable generating doc comments for this module
     int doHdrGen;		// enable generating header file for this module
 
+    bool safe;
+
     Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();
 
@@ -185,8 +187,9 @@ struct ModuleDeclaration
 {
     Identifier *id;
     Array *packages;		// array of Identifier's representing packages
+    bool safe;
 
-    ModuleDeclaration(Array *packages, Identifier *id);
+    ModuleDeclaration(Array *packages, Identifier *id, bool safe);
 
     char *toChars();
 };

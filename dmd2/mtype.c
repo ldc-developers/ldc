@@ -2802,7 +2802,7 @@ Expression *TypeAArray::defaultInit(Loc loc)
 
 int TypeAArray::isZeroInit()
 {
-    return 1;
+    return TRUE;
 }
 
 int TypeAArray::checkBoolean()
@@ -3145,7 +3145,10 @@ int Type::covariant(Type *t)
 
 	    if (!arg1->type->equals(arg2->type))
 		goto Ldistinct;
-	    if (arg1->storageClass != arg2->storageClass)
+	    if ((arg1->storageClass & ~STCscope) != (arg2->storageClass & ~STCscope))
+		inoutmismatch = 1;
+	    // We can add scope, but not subtract it
+	    if (!(arg1->storageClass & STCscope) && (arg2->storageClass & STCscope))
 		inoutmismatch = 1;
 	}
     }
@@ -3648,6 +3651,41 @@ Type *TypeFunction::reliesOnTident()
 	}
     }
     return next->reliesOnTident();
+}
+
+/***************************
+ * Examine function signature for parameter p and see if
+ * p can 'escape' the scope of the function.
+ */
+
+bool TypeFunction::parameterEscapes(Argument *p)
+{
+
+    /* Scope parameters do not escape.
+     * Allow 'lazy' to imply 'scope' -
+     * lazy parameters can be passed along
+     * as lazy parameters to the next function, but that isn't
+     * escaping.
+     */
+    if (p->storageClass & (STCscope | STClazy))
+	return FALSE;
+
+    if (ispure)
+    {	/* With pure functions, we need only be concerned if p escapes
+	 * via any return statement.
+	 */
+	Type* tret = nextOf()->toBasetype();
+	if (!isref && !tret->hasPointers())
+	{   /* The result has no references, so p could not be escaping
+	     * that way.
+	     */
+	    return FALSE;
+	}
+    }
+
+    /* Assume it escapes in the absence of better information.
+     */
+    return TRUE;
 }
 
 /***************************** TypeDelegate *****************************/
@@ -4597,6 +4635,12 @@ Expression *TypeEnum::getProperty(Loc loc, Identifier *ident)
     else if (ident == Id::init)
     {
 	e = defaultInit(loc);
+    }
+    else if (ident == Id::stringof)
+    {	char *s = toChars();
+	e = new StringExp(loc, s, strlen(s), 'c');
+	Scope sc;
+	e = e->semantic(&sc);
     }
     else
     {
@@ -6192,10 +6236,15 @@ void Argument::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Arguments *argume
 	    else if (arg->storageClass & STCauto)
 		buf->writestring("auto ");
 
+	    if (arg->storageClass & STCscope)
+		buf->writestring("scope ");
+
 	    if (arg->storageClass & STCconst)
 		buf->writestring("const ");
 	    if (arg->storageClass & STCinvariant)
 		buf->writestring("invariant ");
+	    if (arg->storageClass & STCshared)
+		buf->writestring("shared ");
 
 	    argbuf.reset();
 	    if (arg->storageClass & STCalias)
@@ -6292,6 +6341,8 @@ Type *Argument::isLazyArray()
 
 void Argument::toDecoBuffer(OutBuffer *buf)
 {
+    if (storageClass & STCscope)
+	buf->writeByte('M');
     switch (storageClass & (STCin | STCout | STCref | STClazy))
     {   case 0:
 	case STCin:

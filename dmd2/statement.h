@@ -380,6 +380,7 @@ struct ForeachStatement : Statement
     ForeachStatement(Loc loc, enum TOK op, Arguments *arguments, Expression *aggr, Statement *body);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
+    bool checkForArgTypes();
     int hasBreak();
     int hasContinue();
     int usesEH();
