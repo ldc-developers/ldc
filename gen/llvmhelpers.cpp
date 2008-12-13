@@ -246,8 +246,8 @@ EnclosingHandler* EnclosingVolatile::getEnclosing()
 
 void EnclosingTryFinally::emitCode(IRState * p)
 {
-    assert(tf->finalbody);
-    tf->finalbody->toIR(p);
+    if (tf->finalbody)
+        tf->finalbody->toIR(p);
 }
 
 EnclosingHandler* EnclosingTryFinally::getEnclosing()
