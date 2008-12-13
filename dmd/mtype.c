@@ -2485,7 +2485,7 @@ Expression *TypeAArray::defaultInit(Loc loc)
 
 int TypeAArray::isZeroInit()
 {
-    return 1;
+    return TRUE;
 }
 
 int TypeAArray::checkBoolean()
@@ -3993,6 +3993,12 @@ Expression *TypeEnum::getProperty(Loc loc, Identifier *ident)
 	if (!sym->symtab)
 	    goto Lfwd;
 	e = defaultInit(loc);
+    }
+    else if (ident == Id::stringof)
+    {	char *s = toChars();
+	e = new StringExp(loc, s, strlen(s), 'c');
+	Scope sc;
+	e = e->semantic(&sc);
     }
     else
     {

@@ -386,7 +386,7 @@ Array *Parser::parseDeclDefs(int once)
 		}
 		ident = token.ident;
 		nextToken();
-		if (token.value == TOKcomma)
+		if (token.value == TOKcomma && peekNext() != TOKrparen)
 		    args = parseArguments();	// pragma(identifier, args...)
 		else
 		    check(TOKrparen);		// pragma(identifier)
@@ -3068,7 +3068,7 @@ Statement *Parser::parseStatement(int flags)
 	    }
 	    ident = token.ident;
 	    nextToken();
-	    if (token.value == TOKcomma)
+	    if (token.value == TOKcomma && peekNext() != TOKrparen)
 		args = parseArguments();	// pragma(identifier, args...);
 	    else
 		check(TOKrparen);		// pragma(identifier);

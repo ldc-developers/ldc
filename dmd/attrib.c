@@ -615,6 +615,7 @@ void AnonDeclaration::semantic(Scope *sc)
 	sc->flags = 0;
 	aad.structalign = sc->structalign;
 	aad.parent = ad;
+
 	for (unsigned i = 0; i < decl->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)decl->data[i];
