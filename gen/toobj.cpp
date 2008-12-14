@@ -377,7 +377,6 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
         error("failed to invoke gcc");
         fatal();
     }
-    delete [] clean_env;
 }
 
 
