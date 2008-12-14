@@ -133,7 +133,7 @@ struct Module : Package
 #ifdef _DH
     void genhdrfile();  // generate D import file
 #endif
-    void genobjfile(int multiobj, char** envp);
+    void genobjfile(int multiobj);
 //    void gensymfile();
     void gendocfile();
     int needModuleInfo();
