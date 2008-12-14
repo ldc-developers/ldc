@@ -193,6 +193,7 @@ struct Global
     int structalign;
     const char *version;
     const char *ldc_version;
+    const char *llvm_version;
 
     Param params;
     unsigned errors;	// number of errors reported so far

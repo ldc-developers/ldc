@@ -38,8 +38,7 @@
 
 #include "gen/logger.h"
 #include "gen/linker.h"
-
-#include "llvm/Config/config.h"
+#include "revisions.h"
 
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
@@ -65,7 +64,8 @@ Global::Global()
     copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     version = "v1.037";
-    ldc_version = "0.1";
+    ldc_version = LDC_REV;
+    llvm_version = LLVM_REV;
     global.structalign = 8;
 
     memset(&params, 0, sizeof(Param));
@@ -152,8 +152,8 @@ extern void backend_term();
 
 void usage()
 {
-    printf("LLVM D Compiler %s (based on DMD %s and %s)\n%s\n%s\n",
-    global.ldc_version, global.version, PACKAGE_STRING, global.copyright, global.written);
+    printf("LLVM D Compiler %s\nbased on DMD %s and %s\n%s\n%s\n",
+    global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
     printf("\
 D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
 LDC Homepage: http://www.dsource.org/projects/ldc\n\

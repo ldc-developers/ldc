@@ -6,6 +6,7 @@ syntax: glob
 *.a
 *.s
 *.so
+*.rej
 Makefile
 CMakeFiles
 CMakeCache.txt
@@ -25,6 +26,8 @@ syntax: regexp
 ^impcnvgen
 ^impcnvgen.make
 ^ldc.make
+^revisions.pl
+^dmd2?/revisions.h
 ^dmd2?/impcnvtab.c
 ^dmd2?/id.c
 ^dmd2?/id.h
