@@ -17,6 +17,7 @@ syntax: regexp
 ^tests/dstress
 ^tests/reference
 ^tango
+^druntime
 ^import
 ^bin/ldc
 ^idgen
