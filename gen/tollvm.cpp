@@ -116,14 +116,22 @@ const LLType* DtoType(Type* t)
 
     // aggregates
     case Tstruct:    {
+    #if DMDV2
+        TypeStruct* ts = (TypeStruct*)t->mutableOf();
+    #else
         TypeStruct* ts = (TypeStruct*)t;
+    #endif
         assert(ts->sym);
         DtoResolveDsymbol(ts->sym);
         return ts->ir.type->get();
     }
 
     case Tclass:    {
+    #if DMDV2
+        TypeClass* tc = (TypeClass*)t->mutableOf();
+    #else
         TypeClass* tc = (TypeClass*)t;
+    #endif
         assert(tc->sym);
         DtoResolveDsymbol(tc->sym);
         return getPtrToType(tc->ir.type->get());
