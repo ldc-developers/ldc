@@ -60,11 +60,11 @@ void ldc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 // fwd decl
 void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out);
-void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, char** envp);
+void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void Module::genobjfile(int multiobj, char** envp)
+void Module::genobjfile(int multiobj)
 {
     bool logenabled = Logger::enabled();
     if (llvmForceLogging && !logenabled)
@@ -261,7 +261,7 @@ void Module::genobjfile(int multiobj, char** envp)
         // call gcc to convert assembly to object file
         if (global.params.output_o) {
             LLPath objpath = LLPath(objfile->name->toChars());
-            assemble(spath, objpath, envp);
+            assemble(spath, objpath);
         }
 
         if (!global.params.output_s) {
@@ -320,91 +320,9 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
 
 /* ================================================================== */
 
-// helper functions for gcc call to assemble
-// based on llvm-ld code, University of Illinois Open Source License
-
-/// CopyEnv - This function takes an array of environment variables and makes a
-/// copy of it.  This copy can then be manipulated any way the caller likes
-/// without affecting the process's real environment.
-///
-/// Inputs:
-///  envp - An array of C strings containing an environment.
-///
-/// Return value:
-///  NULL - An error occurred.
-///
-///  Otherwise, a pointer to a new array of C strings is returned.  Every string
-///  in the array is a duplicate of the one in the original array (i.e. we do
-///  not copy the char *'s from one array to another).
-///
-static char ** CopyEnv(char ** const envp) {
-  // Count the number of entries in the old list;
-  unsigned entries;   // The number of entries in the old environment list
-  for (entries = 0; envp[entries] != NULL; entries++)
-    /*empty*/;
-
-  // Add one more entry for the NULL pointer that ends the list.
-  ++entries;
-
-  // If there are no entries at all, just return NULL.
-  if (entries == 0)
-    return NULL;
-
-  // Allocate a new environment list.
-  char **newenv = new char* [entries];
-  if ((newenv = new char* [entries]) == NULL)
-    return NULL;
-
-  // Make a copy of the list.  Don't forget the NULL that ends the list.
-  entries = 0;
-  while (envp[entries] != NULL) {
-    newenv[entries] = new char[strlen (envp[entries]) + 1];
-    strcpy (newenv[entries], envp[entries]);
-    ++entries;
-  }
-  newenv[entries] = NULL;
-
-  return newenv;
-}
-
-// based on llvm-ld code, University of Illinois Open Source License
-
-/// RemoveEnv - Remove the specified environment variable from the environment
-/// array.
-///
-/// Inputs:
-///  name - The name of the variable to remove.  It cannot be NULL.
-///  envp - The array of environment variables.  It cannot be NULL.
-///
-/// Notes:
-///  This is mainly done because functions to remove items from the environment
-///  are not available across all platforms.  In particular, Solaris does not
-///  seem to have an unsetenv() function or a setenv() function (or they are
-///  undocumented if they do exist).
-///
-static void RemoveEnv(const char * name, char ** const envp) {
-  for (unsigned index=0; envp[index] != NULL; index++) {
-    // Find the first equals sign in the array and make it an EOS character.
-    char *p = strchr (envp[index], '=');
-    if (p == NULL)
-      continue;
-    else
-      *p = '\0';
-
-    // Compare the two strings.  If they are equal, zap this string.
-    // Otherwise, restore it.
-    if (!strcmp(name, envp[index]))
-      *envp[index] = '\0';
-    else
-      *p = '=';
-  }
-
-  return;
-}
-
 // uses gcc to make an obj out of an assembly file
 // based on llvm-ld code, University of Illinois Open Source License
-void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, char** envp)
+void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 {
     using namespace llvm;
 
@@ -414,23 +332,6 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, ch
         error("failed to locate gcc");
         fatal();
     }
-
-    // Remove these environment variables from the environment of the
-    // programs that we will execute.  It appears that GCC sets these
-    // environment variables so that the programs it uses can configure
-    // themselves identically.
-    //
-    // However, when we invoke GCC below, we want it to use its normal
-    // configuration.  Hence, we must sanitize its environment.
-    char ** clean_env = CopyEnv(envp);
-    if (clean_env == NULL)
-        return;
-    RemoveEnv("LIBRARY_PATH", clean_env);
-    RemoveEnv("COLLECT_GCC_OPTIONS", clean_env);
-    RemoveEnv("GCC_EXEC_PREFIX", clean_env);
-    RemoveEnv("COMPILER_PATH", clean_env);
-    RemoveEnv("COLLECT_GCC", clean_env);
-
 
     // Run GCC to assemble and link the program into native code.
     //
@@ -470,7 +371,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath, ch
     // Run the compiler to assembly the program.
     std::string ErrMsg;
     int R = sys::Program::ExecuteAndWait(
-        gcc, &Args[0], (const char**)clean_env, 0, 0, 0, &ErrMsg);
+        gcc, &Args[0], 0, 0, 0, 0, &ErrMsg);
     if (R)
     {
         error("failed to invoke gcc");
