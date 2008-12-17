@@ -1780,7 +1780,6 @@ DValue* AndAndExp::toElem(IRState* p)
 
     // allocate a temporary for the final result. failed to come up with a better way :/
     LLValue* resval = 0;
-    llvm::BasicBlock* entryblock = &p->topfunc()->front();
     resval = DtoAlloca(LLType::Int1Ty,"andandtmp");
 
     DValue* u = e1->toElem(p);
@@ -1816,7 +1815,6 @@ DValue* OrOrExp::toElem(IRState* p)
 
     // allocate a temporary for the final result. failed to come up with a better way :/
     LLValue* resval = 0;
-    llvm::BasicBlock* entryblock = &p->topfunc()->front();
     resval = DtoAlloca(LLType::Int1Ty,"orortmp");
 
     DValue* u = e1->toElem(p);
@@ -2077,7 +2075,6 @@ DValue* CondExp::toElem(IRState* p)
     const LLType* resty = DtoType(dtype);
 
     // allocate a temporary for the final result. failed to come up with a better way :/
-    llvm::BasicBlock* entryblock = &p->topfunc()->front();
     LLValue* resval = DtoAlloca(resty,"condtmp");
     DVarValue* dvv = new DVarValue(type, resval);
 
