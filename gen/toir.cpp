@@ -1795,11 +1795,14 @@ DValue* AndAndExp::toElem(IRState* p)
     p->scope() = IRScope(andand, andandend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
-    LLValue* uandvbool = llvm::BinaryOperator::Create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
-    DtoStore(uandvbool,resval);
-    llvm::BranchInst::Create(andandend,p->scopebb());
+    if (!v->isFunc() && v->getType() != Type::tvoid)
+    {
+        LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
+        LLValue* uandvbool = llvm::BinaryOperator::Create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
+        DtoStore(uandvbool,resval);
+    }
 
+    llvm::BranchInst::Create(andandend,p->scopebb());
     p->scope() = IRScope(andandend, oldend);
 
     resval = DtoLoad(resval);
@@ -1830,13 +1833,16 @@ DValue* OrOrExp::toElem(IRState* p)
     p->scope() = IRScope(oror, ororend);
     DValue* v = e2->toElem(p);
 
-    LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
-    DtoStore(vbool,resval);
-    llvm::BranchInst::Create(ororend,p->scopebb());
+    if (!v->isFunc() && v->getType() != Type::tvoid)
+    {
+        LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
+        DtoStore(vbool,resval);
+    }
 
+    llvm::BranchInst::Create(ororend,p->scopebb());
     p->scope() = IRScope(ororend, oldend);
 
-    resval = new llvm::LoadInst(resval,"tmp",p->scopebb());
+    resval = DtoLoad(resval);
     return new DImValue(type, resval);
 }
 
