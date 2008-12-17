@@ -39,6 +39,8 @@ private import std.array;
 private import std.format;
 private import std.ctype;
 private import std.stdarg;
+alias std.c.string.strlen strlen;
+alias std.c.string.strcmp strcmp;
 
 extern (C)
 {
