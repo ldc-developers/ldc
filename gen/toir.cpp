@@ -988,6 +988,12 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         assert(type->toBasetype()->ty == Tpointer);
         return DtoBitCast(gep, DtoType(type));
     }
+    else if (e1->op == TOKstructliteral)
+    {
+        StructLiteralExp* slexp = (StructLiteralExp*)e1;
+        LLConstant* lit = slexp->toConstElem(p);
+        return lit;
+    }
     // not yet supported
     else
     {
