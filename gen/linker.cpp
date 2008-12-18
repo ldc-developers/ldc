@@ -72,7 +72,7 @@ int linkExecutable(const char* argv0)
         else
             exestr = "a.out";
     }
-    if (global.params.os == OSWindows)
+    if (global.params.os == OSWindows && !(exestr.substr(exestr.length()-4) == ".exe"))
         exestr.append(".exe");
 
     std::string outopt = "-o=" + exestr;
@@ -240,7 +240,7 @@ int linkObjToExecutable(const char* argv0)
         else
             exestr = "a.out";
     }
-    if (global.params.os == OSWindows)
+    if (global.params.os == OSWindows && !(exestr.rfind(".exe") == exestr.length()-4))
         exestr.append(".exe");
 
     args.push_back("-o");
