@@ -31,9 +31,10 @@ if(D_VERSION EQUAL 1)
 	# copy imports to runtime dir
 	add_custom_command(
 		OUTPUT ldc-imports
-		COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/import/ldc ${RUNTIME_DIR}/ldc
-		COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/internal/ldc/bitmanip.d ${RUNTIME_DIR}/ldc
-		COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/internal/ldc/vararg.d ${RUNTIME_DIR}/ldc
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/import/ldc/cstdarg.di ${RUNTIME_DIR}/ldc/cstdarg.di
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/import/ldc/intrinsics.di ${RUNTIME_DIR}/ldc/intrinsics.di
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/internal/ldc/bitmanip.d ${RUNTIME_DIR}/ldc/bitmanip.d
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/internal/ldc/vararg.d ${RUNTIME_DIR}/ldc/vararg.d
 	)
 	set(LDC_IMPORTS ldc-imports)
 	# library names
@@ -110,7 +111,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR MOREFLAGS)
 			${OUTPUT_O}
 			${OUTPUT_BC}
 		COMMAND ${LDC_LOC} -c -I${INCDIR} -output-bc ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
-		DEPENDS ${LDC_LOC}
+		DEPENDS ${LDC_LOC} ${LDC_IMPORTS}
 	)
 endmacro(dc)
 
