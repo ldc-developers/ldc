@@ -1080,6 +1080,9 @@ struct SliceExp : UnaExp
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
+
+    // LDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 struct ArrayLengthExp : UnaExp
@@ -1154,6 +1157,9 @@ struct IndexExp : BinExp
     void scanForNestedRef(Scope *sc);
 
     elem *toElem(IRState *irs);
+
+    // LDC
+    virtual llvm::Constant *toConstElem(IRState *irs);
 };
 
 /* For both i++ and i--
@@ -1565,6 +1571,7 @@ struct GEPExp : UnaExp
     Expression *toLvalue(Scope *sc, Expression *e);
 
     elem *toElem(IRState *irs);
+    llvm::Constant *toConstElem(IRState *irs);
 };
 
 #endif
