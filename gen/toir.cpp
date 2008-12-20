@@ -2712,7 +2712,7 @@ STUB(TupleExp);
 STUB(SymbolExp);
 #endif
 
-#define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) {error("const Exp type "#x" not implemented: '%s' type: '%s'", toChars(), type->toChars()); fatal(); return NULL; }
+#define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) {error("non-const expression '%s' or const Exp type "#x" not implemented", toChars()); fatal(); return NULL; }
 CONSTSTUB(Expression);
 CONSTSTUB(GEPExp);
 CONSTSTUB(SliceExp);
