@@ -70,7 +70,13 @@ int bts(uint *p, uint bitnum)
 }
 
 pragma(intrinsic, "llvm.bswap.i32")
-    uint bswap(uint val);
+uint bswap_impl(uint val);
+
+uint bswap(uint val)
+{
+    return bswap_impl(val);
+}
+
 
 ubyte  inp(uint p) { throw new Exception("inp intrinsic not yet implemented"); }
 ushort inpw(uint p) { throw new Exception("inpw intrinsic not yet implemented"); }
