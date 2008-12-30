@@ -4,6 +4,7 @@
 struct StructInitializer;
 
 LLConstant* DtoConstStructInitializer(StructInitializer* si);
+std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, const std::vector<llvm::Value*>& inits);
 
 /**
  * Resolves the llvm type for a struct
