@@ -8,6 +8,8 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
+#define __C99FEATURES__ 1
+
 /* Lexical Analyzer */
 
 #include <stdio.h>

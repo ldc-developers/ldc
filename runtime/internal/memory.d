@@ -73,6 +73,13 @@ private
 /**
  *
  */
+
+version( solaris ) {	
+    version(X86_64) {
+        extern (C) void* _userlimit;
+    }
+}
+
 extern (C) void* rt_stackBottom()
 {
     version( Win32 )
@@ -109,6 +116,16 @@ extern (C) void* rt_stackBottom()
     {
         // darwin has a fixed stack bottom
         return cast(void*) 0xc0000000;
+    }
+    else version( solaris )
+    {
+        version(X86_64) {
+            return _userlimit;
+        }
+        else {
+            // <sys/vmparam.h>
+            return cast(void*) 0x8048000;
+        }
     }
     else
     {

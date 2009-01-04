@@ -14,6 +14,10 @@
 #include <stdint.h>
 #include <assert.h>
 
+#if (defined (__SVR4) && defined (__sun))
+#include <alloca.h>
+#endif
+
 #if _MSC_VER ||__MINGW32__
 #include <malloc.h>
 #include <string>

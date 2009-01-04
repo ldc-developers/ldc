@@ -10,6 +10,10 @@
 #include	<stdlib.h>
 #include	<ctype.h>
 
+#if (defined (__SVR4) && defined (__sun))
+#include <alloca.h>
+#endif
+
 #include	"root.h"
 #include	"mem.h"
 

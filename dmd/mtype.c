@@ -8,7 +8,13 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
+#define __C99FEATURES__ 1	// Needed on Solaris for NaN and more
 #define __USE_ISOC99 1		// so signbit() gets defined
+
+#if (defined (__SVR4) && defined (__sun))
+#include <alloca.h>
+#endif
+
 #include <math.h>
 
 #include <stdio.h>

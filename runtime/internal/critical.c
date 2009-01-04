@@ -75,7 +75,7 @@ void _STD_critical_term()
 
 /* ================================= linux ============================ */
 
-#if linux || __APPLE__ || __FreeBSD__
+#if linux || __APPLE__ || __FreeBSD__ || (defined(__SVR4) && defined (__sun))
 
 #include	<stdio.h>
 #include	<stdlib.h>

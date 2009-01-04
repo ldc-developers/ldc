@@ -338,8 +338,10 @@ int main(int argc, char *argv[])
     global.params.os = OSMacOSX;
 #elif __FreeBSD__
     global.params.os = OSFreeBSD;
+#elif defined (__SVR4) && defined (__sun)
+    global.params.os = OSSolaris;
 #else
-#error Unsupported OS
+ #error Unsupported OS
 #endif /* linux */
 
     assert(global.params.os != OSinvalid);
@@ -694,6 +696,8 @@ int main(int argc, char *argv[])
                 global.params.os = OSMacOSX;
             else if(strcmp(p + 2, "FreeBSD") == 0)
                 global.params.os = OSFreeBSD;
+            else if(strcmp(p + 2, "Solaris") == 0)
+                global.params.os = OSSolaris;
             else
                 error("unrecognized target os '%s'", p + 2);
         }
@@ -926,6 +930,11 @@ int main(int argc, char *argv[])
 
     case OSFreeBSD:
     VersionCondition::addPredefinedGlobalIdent("freebsd");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    break;
+
+    case OSSolaris:
+    VersionCondition::addPredefinedGlobalIdent("solaris");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
 
