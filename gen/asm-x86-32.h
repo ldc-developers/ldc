@@ -1140,7 +1140,7 @@ typedef enum {
 
 // mov eax, 4
 // mov eax, fs:4
-// -- have to assume we know wheter or not to use '$'
+// -- have to assume we know whether or not to use '$'
 
 static Token eof_tok;
 static Expression * Handled;
@@ -2517,8 +2517,9 @@ struct AsmProcessor
 	Expression * e = parseAsmExp()->optimize(WANTvalue | WANTinterpret);
 	integer_t align = e->toInteger();
 
-	if (align >= 0) {
-	    // %% is this printf portable?
+	if (align & align - 1 == 0) {
+	    //FIXME: This printf is not portable. The use of `align` varies from system to system; 
+	    // on i386 using a.out, .align `n` will align on a 2^`n` boundary instead of an `n` boundary
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN 
 	    insnTemplate->printf(".balign\t%u", (unsigned) align);
 #else
