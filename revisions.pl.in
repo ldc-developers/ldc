@@ -6,7 +6,6 @@ use File::stat;
 use Time::localtime;
 
 my $llvm_src = `perl @LLVM_CONFIG@ --src-root`;
-#my $llvm_src = "k:/sources/llvm";
 
 my $llvm_rev = `svnversion $llvm_src`;
 
@@ -21,9 +20,7 @@ if ($llvm_rev =~ s/(\d+)\s+$/$1/) {
 
 my $ldc_rev = `hg -R@PROJECT_SOURCE_DIR@ tip --template {rev}`;
 
-open my $revh, ">", "revisions.h" or die "cannot create revisions.h";
-
-print $revh qq!#ifndef LDC_VERSIONS_H
+my $out = qq!#ifndef LDC_VERSIONS_H
 #define LDC_VERSIONS_H
 
 $llvm_rev
@@ -31,4 +28,12 @@ $llvm_rev
 
 #endif // LDC_VERSIONS_H\n!;
 
-close $revh;
+my $revh;
+my $old = "";
+open $revh, "revisions.h" and $old = join "", <$revh>;
+
+if ($old ne $out) {
+	open $revh, ">revisions.h" or die "cannot create revisions.h: $!";
+	print $revh $out;
+	close $revh;
+}
