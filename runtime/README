@@ -7,12 +7,7 @@ FOR D1:
     *   dmd dmd2 gen ir ...
     *   $ svn co http://svn.dsource.org/projects/tango/trunk tango
 
-2) Patch the runtime
-
-    *   cd runtime
-    *   sh patch-tango.sh
-
-3) Compile the runtime
+2) Compile the runtime
 
     *   sh build.sh
 
