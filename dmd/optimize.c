@@ -278,19 +278,35 @@ Expression *PtrExp::optimize(int result)
 
 Expression *DotVarExp::optimize(int result)
 {
+    //printf("DotVarExp::optimize(result = x%x) %s\n", result, toChars());
     e1 = e1->optimize(result);
 
-    // Constant fold structliteral.member
+#if DMDV2
+    if (e1->op == TOKvar)
+    {	VarExp *ve = (VarExp *)e1;
+	VarDeclaration *v = ve->var->isVarDeclaration();
+	Expression *e = expandVar(result, v);
+	if (e && e->op == TOKstructliteral)
+	{   StructLiteralExp *sle = (StructLiteralExp *)e;
+	    VarDeclaration *vf = var->isVarDeclaration();
+	    if (vf)
+	    {
+		e = sle->getField(type, vf->offset);
+		if (e != EXP_CANT_INTERPRET)
+		    return e;
+	    }
+	}
+    }
+    else
+#endif
     if (e1->op == TOKstructliteral)
-    {	StructLiteralExp *se = (StructLiteralExp *)e1;
-
-	VarDeclaration* v;
-	if (v = var->isVarDeclaration())
+    {   StructLiteralExp *sle = (StructLiteralExp *)e1;
+	VarDeclaration *vf = var->isVarDeclaration();
+	if (vf)
 	{
-	    Expression *e = se->getField(type, v->offset);
-	    if (!e)
-		e = EXP_CANT_INTERPRET;
-	    return e;
+	    Expression *e = sle->getField(type, vf->offset);
+	    if (e != EXP_CANT_INTERPRET)
+		return e;
 	}
     }
 
@@ -322,6 +338,7 @@ Expression *CastExp::optimize(int result)
     //printf("CastExp::optimize(result = %d) %s\n", result, toChars());
     //printf("from %s to %s\n", type->toChars(), to->toChars());
     //printf("from %s\n", type->toChars());
+    //printf("e1->type %s\n", e1->type->toChars());
     //printf("type = %p\n", type);
     assert(type);
     enum TOK op1 = e1->op;

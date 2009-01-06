@@ -148,7 +148,6 @@ struct Statement : Object
     virtual int hasBreak();
     virtual int hasContinue();
     virtual int usesEH();
-    virtual int fallOffEnd();
     virtual int blockExit();
     virtual int comeFrom();
     virtual void scopeCode(Statement **sentry, Statement **sexit, Statement **sfinally);
@@ -179,7 +178,6 @@ struct ExpStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
-    int fallOffEnd();
     int blockExit();
 
     int inlineCost(InlineCostState *ics);
@@ -225,7 +223,6 @@ struct CompoundStatement : Statement
     virtual Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     virtual Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
@@ -255,7 +252,6 @@ struct UnrolledLoopStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -280,7 +276,6 @@ struct ScopeStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
 
@@ -302,7 +297,6 @@ struct WhileStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -325,7 +319,6 @@ struct DoStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -351,7 +344,6 @@ struct ForStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -384,7 +376,6 @@ struct ForeachStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -413,7 +404,6 @@ struct ForeachRangeStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -440,7 +430,6 @@ struct IfStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     IfStatement *isIfStatement() { return this; }
 
     int inlineCost(InlineCostState *ics);
@@ -477,7 +466,6 @@ struct PragmaStatement : Statement
     Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
@@ -511,7 +499,6 @@ struct SwitchStatement : Statement
     int hasBreak();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -533,7 +520,6 @@ struct CaseStatement : Statement
     int compare(Object *obj);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -561,7 +547,6 @@ struct DefaultStatement : Statement
     Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -584,7 +569,6 @@ struct GotoDefaultStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -602,7 +586,6 @@ struct GotoCaseStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -612,7 +595,6 @@ struct SwitchErrorStatement : Statement
 {
     SwitchErrorStatement(Loc loc);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -628,7 +610,6 @@ struct ReturnStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
     int blockExit();
-    int fallOffEnd();
     Expression *interpret(InterState *istate);
 
     int inlineCost(InlineCostState *ics);
@@ -650,7 +631,6 @@ struct BreakStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -669,7 +649,6 @@ struct ContinueStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -691,7 +670,6 @@ struct SynchronizedStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -715,7 +693,6 @@ struct WithStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -733,7 +710,6 @@ struct TryCatchStatement : Statement
     int hasBreak();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -771,7 +747,6 @@ struct TryFinallyStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -803,7 +778,6 @@ struct ThrowStatement : Statement
     Statement *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -820,7 +794,6 @@ struct VolatileStatement : Statement
     Statement *semantic(Scope *sc);
     Statements *flatten(Scope *sc);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -839,7 +812,6 @@ struct GotoStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int blockExit();
-    int fallOffEnd();
     Expression *interpret(InterState *istate);
 
     void toIR(IRState *irs);
@@ -862,7 +834,6 @@ struct LabelStatement : Statement
     Statements *flatten(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

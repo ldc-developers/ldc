@@ -1375,7 +1375,7 @@ void VolatileStatement::toIR(IRState* p)
         statement->toIR(p);
 
         // no point in a unreachable barrier, terminating statements must insert this themselves.
-        if (statement->fallOffEnd())
+        if (statement->blockExit() & BEfallthru)
         {
             // store-load
             DtoMemoryBarrier(false, false, true, false);

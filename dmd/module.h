@@ -141,6 +141,7 @@ struct Module : Package
     void deleteObjFile();
     void addDeferredSemantic(Dsymbol *s);
     void runDeferredSemantic();
+    int imports(Module *m);
 
     // Back end
 

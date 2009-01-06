@@ -63,7 +63,7 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.037";
+    version = "v1.038";
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV;
     global.structalign = 8;

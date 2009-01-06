@@ -112,7 +112,6 @@ void Import::load(Scope *sc)
     }
     if (!pkg)
 	pkg = mod;
-    mod->semantic();
 
     //printf("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
 }
@@ -136,6 +135,12 @@ void Import::semantic(Scope *sc)
 	}
 #endif
 
+	// Modules need a list of each imported module
+	//printf("%s imports %s\n", sc->module->toChars(), mod->toChars());
+	sc->module->aimports.push(mod);
+
+	mod->semantic();
+
 	/* Default to private importing
 	 */
 	protection = sc->protection;
@@ -146,9 +151,6 @@ void Import::semantic(Scope *sc)
 	{
 	    sc->scopesym->importScope(mod, protection);
 	}
-
-	// Modules need a list of each imported module
-	sc->module->aimports.push(mod);
 
 	if (mod->needmoduleinfo)
 	    sc->module->needmoduleinfo = 1;
@@ -224,7 +226,9 @@ Dsymbol *Import::search(Loc loc, Identifier *ident, int flags)
     //printf("%s.Import::search(ident = '%s', flags = x%x)\n", toChars(), ident->toChars(), flags);
 
     if (!pkg)
-	load(NULL);
+    {	load(NULL);
+	mod->semantic();
+    }
 
     // Forward it to the package/module
     return pkg->search(loc, ident, flags);
