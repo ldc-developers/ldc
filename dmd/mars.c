@@ -1,5 +1,5 @@
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -61,9 +61,9 @@ Global::Global()
     obj_ext_alt = "obj";
 #endif
 
-    copyright = "Copyright (c) 1999-2008 by Digital Mars and Tomas Lindquist Olsen";
+    copyright = "Copyright (c) 1999-2009 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.038";
+    version = "v1.039";
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV;
     global.structalign = 8;
@@ -913,6 +913,7 @@ int main(int argc, char *argv[])
     switch(global.params.os)
     {
     case OSWindows:
+    // TODO Win64 stuff!
 	VersionCondition::addPredefinedGlobalIdent("Windows");
 	VersionCondition::addPredefinedGlobalIdent("Win32");
 	VersionCondition::addPredefinedGlobalIdent("mingw32");
@@ -952,6 +953,10 @@ int main(int argc, char *argv[])
         ? (char*)(global.params.is64bit ? "e-p:64:64" : "e-p:32:32")
         : (char*)(global.params.is64bit ? "E-p:64:64" : "E-p:32:32");
     Logger::println("Layout: %s", global.params.dataLayout);
+
+    // added in 1.039
+    if (global.params.doDocComments)
+        VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
 
     // Initialization
     Type::init();

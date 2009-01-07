@@ -3306,6 +3306,12 @@ TypeExp::TypeExp(Loc loc, Type *type)
     this->type = type;
 }
 
+Expression *TypeExp::syntaxCopy()
+{
+    //printf("TypeExp::syntaxCopy()\n");
+    return new TypeExp(loc, type->syntaxCopy());
+}
+
 Expression *TypeExp::semantic(Scope *sc)
 {
     //printf("TypeExp::semantic(%s)\n", type->toChars());
@@ -7239,7 +7245,7 @@ Lerror:
     else
 	s = t->toChars();
     error("%s cannot be sliced with []", s);
-    type = Type::terror;
+    e = new IntegerExp(0);
     return e;
 }
 
