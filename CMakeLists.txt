@@ -143,7 +143,7 @@ if(UNIX)
 endif(UNIX)
 
 if(USE_BOEHM_GC)
-	add_definitions(-DUSE_BOEHM_GC)
+	add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
 endif(USE_BOEHM_GC)
 
 if(GENERATE_OFFTI)
@@ -188,7 +188,7 @@ if(WIN32)
 endif(WIN32)
 
 if(USE_BOEHM_GC)
-	target_link_libraries(${LDC_EXE} gc)
+	target_link_libraries(${LDC_EXE} ${PROJECT_SOURCE_DIR}/libgc.a)
 endif(USE_BOEHM_GC)
 
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
