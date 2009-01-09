@@ -522,7 +522,7 @@ void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
 
 /* ========================================================================= */
 
-static LLConstant* LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDeclaration* cd)
+static void LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDeclaration* cd)
 {
     ClassDeclaration* base = cd;
     DtoResolveClass(base);
@@ -531,7 +531,7 @@ static LLConstant* LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDe
     tid->ir.irGlobal->value = new llvm::GlobalVariable(tid->ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,tid->toChars(),gIR->module);
 }
 
-static LLConstant* LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
+static void LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
 {
     ClassDeclaration* base = cd;
     DtoForceConstInitDsymbol(base);
