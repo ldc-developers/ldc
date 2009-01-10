@@ -1662,7 +1662,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     arguments->push(e);
 
 	if (!dup)
-	    arguments->push(new IntegerExp(0, size, Type::tint32));
+	    arguments->push(new IntegerExp(0, size, Type::tsize_t));
 	e = new CallExp(e->loc, ec, arguments);
 	e->type = next->arrayOf();
     }
