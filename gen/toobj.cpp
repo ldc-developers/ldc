@@ -326,7 +326,14 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 {
     using namespace llvm;
 
-    sys::Path gcc = llvm::sys::Program::FindProgramByName("gcc");
+    const char *cc;
+#if !_WIN32
+    cc = getenv("CC");
+    if (!cc)
+#endif
+	cc = "gcc";
+
+    sys::Path gcc = llvm::sys::Program::FindProgramByName(cc);
     if (gcc.empty())
     {
         error("failed to locate gcc");

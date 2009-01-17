@@ -204,18 +204,25 @@ int linkObjToExecutable(const char* argv0)
     // error string
     std::string errstr;
 
+    const char *cc;
+#if !_WIN32
+    cc = getenv("CC");
+    if (!cc)
+#endif
+	cc = "gcc";
+
     // find gcc for linking
-    llvm::sys::Path gcc = llvm::sys::Program::FindProgramByName("gcc");
+    llvm::sys::Path gcc = llvm::sys::Program::FindProgramByName(cc);
     if (gcc.isEmpty())
     {
-        gcc.set("gcc");
+        gcc.set(cc);
     }
 
     // build arguments
     std::vector<const char*> args;
 
     // first the program name ??
-    args.push_back("gcc");
+    args.push_back(cc);
 
     // object files
     for (int i = 0; i < global.params.objfiles->dim; i++)
