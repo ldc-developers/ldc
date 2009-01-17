@@ -352,6 +352,9 @@ Expression *CastExp::optimize(int result)
 	type->next->equals(e1->type->next)
        )
     {
+	// make a copy before adjusting type to avoid
+	// messing up the type of an existing initializer
+	e1 = e1->syntaxCopy();
 	e1->type = type;
 	return e1;
     }
@@ -362,6 +365,7 @@ Expression *CastExp::optimize(int result)
     if (e1->op == TOKnull &&
 	(type->ty == Tpointer || type->ty == Tclass))
     {
+	e1 = e1->syntaxCopy();
 	e1->type = type;
 	return e1;
     }
@@ -377,6 +381,7 @@ Expression *CastExp::optimize(int result)
 	cdto   = type->isClassHandle();
 	if (cdto->isBaseOf(cdfrom, &offset) && offset == 0)
 	{
+	    e1 = e1->syntaxCopy();
 	    e1->type = type;
 	    return e1;
 	}
@@ -391,6 +396,7 @@ Expression *CastExp::optimize(int result)
 	    if (type->size() == e1->type->size() &&
 		type->toBasetype()->ty != Tsarray)
 	    {
+		e1 = e1->syntaxCopy();
 		e1->type = type;
 		return e1;
 	    }
