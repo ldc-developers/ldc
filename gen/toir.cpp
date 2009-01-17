@@ -2099,9 +2099,15 @@ DValue* CondExp::toElem(IRState* p)
     Type* dtype = type->toBasetype();
     const LLType* resty = DtoType(dtype);
 
-    // allocate a temporary for the final result. failed to come up with a better way :/
-    LLValue* resval = DtoAlloca(resty,"condtmp");
-    DVarValue* dvv = new DVarValue(type, resval);
+    DValue* dvv;
+    // voids returns will need no storage
+    if (dtype->ty != Tvoid) {
+        // allocate a temporary for the final result. failed to come up with a better way :/
+        LLValue* resval = DtoAlloca(resty,"condtmp");
+        dvv = new DVarValue(type, resval);
+    } else {
+        dvv = new DConstValue(type, getNullValue(DtoTypeNotVoid(dtype)));
+    }
 
     llvm::BasicBlock* oldend = p->scopeend();
     llvm::BasicBlock* condtrue = llvm::BasicBlock::Create("condtrue", gIR->topfunc(), oldend);
@@ -2114,12 +2120,14 @@ DValue* CondExp::toElem(IRState* p)
 
     p->scope() = IRScope(condtrue, condfalse);
     DValue* u = e1->toElem(p);
-    DtoAssign(loc, dvv, u);
+    if (dtype->ty != Tvoid)
+        DtoAssign(loc, dvv, u);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condfalse, condend);
     DValue* v = e2->toElem(p);
-    DtoAssign(loc, dvv, v);
+    if (dtype->ty != Tvoid)
+        DtoAssign(loc, dvv, v);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condend, oldend);
