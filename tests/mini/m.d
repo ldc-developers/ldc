@@ -6,5 +6,10 @@ void main()
 }
 
 extern(C):
-int* __errno_location();
+version(darwin) {
+    int* __error();
+    alias __error __errno_location;
+} else {
+    int* __errno_location();
+}
 int printf(char*,...);
