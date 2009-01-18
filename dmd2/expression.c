@@ -3537,8 +3537,8 @@ Lagain:
 
 	if (cd->aggNew)
 	{
-	    // Prepend the uint size argument to newargs[]
-	    Expression *e = new IntegerExp(loc, cd->size(loc), Type::tuns32);
+	    // Prepend the size_t size argument to newargs[]
+	    Expression *e = new IntegerExp(loc, cd->size(loc), Type::tsize_t);
 	    if (!newargs)
 		newargs = new Expressions();
 	    newargs->shift(e);

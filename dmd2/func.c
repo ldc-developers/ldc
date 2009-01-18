@@ -2974,13 +2974,13 @@ void NewDeclaration::semantic(Scope *sc)
     TypeFunction *tf = (TypeFunction *)type;
     if (Argument::dim(tf->parameters) < 1)
     {
-	error("at least one argument of type uint expected");
+	error("at least one argument of type size_t expected");
     }
     else
     {
 	Argument *a = Argument::getNth(tf->parameters, 0);
-	if (!a->type->equals(Type::tuns32))
-	    error("first argument must be type uint, not %s", a->type->toChars());
+	if (!a->type->equals(Type::tsize_t))
+	    error("first argument must be type size_t, not %s", a->type->toChars());
     }
 
     FuncDeclaration::semantic(sc);
