@@ -30,7 +30,11 @@ version = GC_Use_Dynamic_Ranges;
 // does Posix suffice?
 version(Posix)
 {
-    version = GC_Use_Data_Proc_Maps;
+    //FIXME: proc map parsing is too naive to work on x86-64
+    version(X86)
+    {
+        version = GC_Use_Data_Proc_Maps;
+    }
 }
 
 version(GC_Use_Data_Proc_Maps)
@@ -278,6 +282,7 @@ void initStaticDataPtrs()
     else version( GC_Use_Data_Proc_Maps )
     {
         // TODO: Exclude zero-mapped regions
+        //FIXME: proc map parsing is too naive to work on x86-64
 
         int   fd = open("/proc/self/maps", O_RDONLY);
         ptrdiff_t   count; // %% need to configure ret for read..
