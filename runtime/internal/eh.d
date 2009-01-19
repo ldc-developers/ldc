@@ -62,19 +62,20 @@ extern(C)
     {
         char[8] exception_class;
         _Unwind_Exception_Cleanup_Fn exception_cleanup;
-        int private_1;
-        int private_2;
+        ptrdiff_t private_1;
+        ptrdiff_t private_2;
     }
 
 version(X86_UNWIND) 
 {
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
-    ulong _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
-    ulong _Unwind_GetIP(_Unwind_Context_Ptr context);
-    ulong _Unwind_SetIP(_Unwind_Context_Ptr context, ulong new_value);
-    ulong _Unwind_SetGR(_Unwind_Context_Ptr context, int index, ulong new_value);
-    ulong _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
+    ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
+    ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
+    ptrdiff_t _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
+    ptrdiff_t _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
+            ptrdiff_t new_value);
+    ptrdiff_t _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
 }
 else
 {
@@ -208,14 +209,14 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   // get the instruction pointer
   // will be used to find the right entry in the callsite_table
   // -1 because it will point past the last instruction
-  ulong ip = _Unwind_GetIP(context) - 1;
+  ptrdiff_t ip = _Unwind_GetIP(context) - 1;
 
   // address block_start is relative to
-  ulong region_start = _Unwind_GetRegionStart(context);
+  ptrdiff_t region_start = _Unwind_GetRegionStart(context);
 
   // table entries
   uint block_start_offset, block_size;
-  ulong landing_pad;
+  ptrdiff_t landing_pad;
   size_t action_offset;
 
   while(true) {
@@ -230,7 +231,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
       landing_pad += region_start;
     callsite_walker = get_uleb128(callsite_walker + 3*uint.sizeof, action_offset);
 
-    debug(EH_personality_verbose) printf("%d %d %d\n", block_start_offset, block_size, landing_pad);
+    debug(EH_personality_verbose) printf("ip=%llx %d %d %llx\n", ip, block_start_offset, block_size, landing_pad);
 
     // since the list is sorted, as soon as we're past the ip
     // there's no handler to be found
@@ -311,7 +312,7 @@ version (X86_64)
   private int eh_selector_regno = 2;
 }
 
-private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {
   debug(EH_personality) printf("Found catch clause!\n");
 
@@ -321,8 +322,8 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
   else if(actions & _Unwind_Action.HANDLER_PHASE)
   {
     debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
-    _Unwind_SetGR(context, eh_exception_regno, cast(ulong)cast(void*)(exception_struct.exception_object));
-    _Unwind_SetGR(context, eh_selector_regno, cast(ulong)switchval);
+    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct.exception_object));
+    _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
     _Unwind_SetIP(context, landing_pad);
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
   }
@@ -331,7 +332,7 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
   return _Unwind_Reason_Code.FATAL_PHASE2_ERROR;
 }
 
-private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ulong landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {
   // if we're merely in search phase, continue
   if(actions & _Unwind_Action.SEARCH_PHASE)
@@ -339,7 +340,7 @@ private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions
 
   debug(EH_personality) printf("Calling cleanup routine...\n");
 
-  _Unwind_SetGR(context, eh_exception_regno, cast(ulong)exception_struct);
+  _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
   _Unwind_SetGR(context, eh_selector_regno, 0);
   _Unwind_SetIP(context, landing_pad);
   return _Unwind_Reason_Code.INSTALL_CONTEXT;
