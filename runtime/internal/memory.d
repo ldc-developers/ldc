@@ -30,11 +30,7 @@ version = GC_Use_Dynamic_Ranges;
 // does Posix suffice?
 version(Posix)
 {
-    //FIXME: proc map parsing is too naive to work on x86-64
-    version(X86)
-    {
-        version = GC_Use_Data_Proc_Maps;
-    }
+    version = GC_Use_Data_Proc_Maps;
 }
 
 version(GC_Use_Data_Proc_Maps)
@@ -279,10 +275,20 @@ void initStaticDataPtrs()
         dataStart = adjust_up( &Data_Start );
         dataEnd   = adjust_down( &Data_End );
     }
-    else version( GC_Use_Data_Proc_Maps )
+    else version(linux)
+    {
+        dataStart = adjust_up( &Data_Start );
+        dataEnd   = adjust_down( &Data_End );
+    }
+    else
+    {
+        static assert( false, "Operating system not supported." );
+    }
+
+    //TODO: This could use cleanup!
+    version( GC_Use_Data_Proc_Maps )
     {
         // TODO: Exclude zero-mapped regions
-        //FIXME: proc map parsing is too naive to work on x86-64
 
         int   fd = open("/proc/self/maps", O_RDONLY);
         ptrdiff_t   count; // %% need to configure ret for read..
@@ -320,12 +326,30 @@ void initStaticDataPtrs()
                         }
                         else static if( S == 8 )
                         {
-                            enum Ofs
+                            //X86-64 only has 12 bytes address space(in PAE mode) - not 16
+                            //We also need the 32 bit offsets for 32 bit apps
+                            version(X86_64) {
+                                enum Ofs
+                                {
+                                    Write_Prot = 27,
+                                    Start_Addr = 0,
+                                    End_Addr   = 13,
+                                    Addr_Len   = 12,
+                                    Write_Prot_32 = 19,
+                                    Start_Addr_32 = 0,
+                                    End_Addr_32   = 9,
+                                    Addr_Len_32   = 8,
+                                }
+                            }
+                            else
                             {
-                                Write_Prot = 35,
-                                Start_Addr = 0,
-                                End_Addr   = 9,
-                                Addr_Len   = 17,
+                                enum Ofs
+                                {
+                                    Write_Prot = 35,
+                                    Start_Addr = 0,
+                                    End_Addr   = 9,
+                                    Addr_Len   = 17,
+                                }
                             }
                         }
                         else
@@ -334,7 +358,9 @@ void initStaticDataPtrs()
                         }
 
                         // %% this is wrong for 64-bit:
-                        // uint   strtoul(char *,char **,int);
+                        // long strtoul(const char*,char**,int);
+                        // but seems to work on x86-64:
+                        // probably because C's long is 64 bit there
 
                         if( s[Ofs.Write_Prot] == 'w' )
                         {
@@ -346,8 +372,8 @@ void initStaticDataPtrs()
                             // 1. Exclude anything overlapping [dataStart, dataEnd)
                             // 2. Exclude stack
                             if ( ( !dataEnd ||
-                                   !( dataStart >= start && dataEnd <= end ) ) &&
-                                 !( &buf[0] >= start && &buf[0] < end ) )
+                                !( dataStart >= start && dataEnd <= end ) ) &&
+                                !( &buf[0] >= start && &buf[0] < end ) )
                             {
                                 // we already have static data from this region.  anything else
                                 // is heap (%% check)
@@ -355,6 +381,25 @@ void initStaticDataPtrs()
                                 _d_gc_add_range(start, end);
                             }
                         }
+                        version(X86_64)
+                        {
+                            //We need to check here for 32 bit apps like ldc produces
+                            //and add them to the gc scan range
+                            if( s[Ofs.Write_Prot_32] == 'w' )
+                            {
+                                s[Ofs.Start_Addr_32 + Ofs.Addr_Len_32] = '\0';
+                                s[Ofs.End_Addr_32 + Ofs.Addr_Len_32] = '\0';
+                                start = cast(void*) strtoul(s + Ofs.Start_Addr_32, null, 16);
+                                end   = cast(void*) strtoul(s + Ofs.End_Addr_32, null, 16);
+                                if ( ( !dataEnd ||
+                                    !( dataStart >= start && dataEnd <= end ) ) &&
+                                    !( &buf[0] >= start && &buf[0] < end ) )
+                                {
+                                    _d_gc_add_range(start, end);
+                                }
+                            }
+                        }
+
                         p++;
                     }
                     else
@@ -368,14 +413,5 @@ void initStaticDataPtrs()
             }
             close(fd);
         }
-    }
-    else version(linux)
-    {
-        dataStart = adjust_up( &Data_Start );
-        dataEnd   = adjust_down( &Data_End );
-    }
-    else
-    {
-        static assert( false, "Operating system not supported." );
     }
 }
