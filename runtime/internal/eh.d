@@ -302,10 +302,12 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 // These are the register numbers for SetGR that
 // llvm's eh.exception and eh.selector intrinsics
 // will pick up.
-// Found by trial-and-error :/
+// Hints for these can be found by looking at the
+// EH_RETURN_DATA_REGNO macro in GCC, careful testing
+// is required though.
 version (X86_64)
 {
-  private int eh_exception_regno = 3;
+  private int eh_exception_regno = 0;
   private int eh_selector_regno = 1;
 } else {
   private int eh_exception_regno = 0;
