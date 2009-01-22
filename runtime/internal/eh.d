@@ -21,6 +21,8 @@ version(X86_64) {
     version(solaris) version=X86_UNWIND;
 }
 
+//version = HP_LIBUNWIND;
+
 private extern(C) void abort();
 private extern(C) int printf(char*, ...);
 private extern(C) int vprintf(char*, va_list va);
@@ -66,7 +68,30 @@ extern(C)
         ptrdiff_t private_2;
     }
 
-version(X86_UNWIND) 
+// interface to HP's libunwind from http://www.nongnu.org/libunwind/
+version(HP_LIBUNWIND)
+{
+    void __libunwind_Unwind_Resume(_Unwind_Exception *);
+    _Unwind_Reason_Code __libunwind_Unwind_RaiseException(_Unwind_Exception *);
+    ptrdiff_t __libunwind_Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr
+            context);
+    ptrdiff_t __libunwind_Unwind_GetIP(_Unwind_Context_Ptr context);
+    ptrdiff_t __libunwind_Unwind_SetIP(_Unwind_Context_Ptr context,
+            ptrdiff_t new_value);
+    ptrdiff_t __libunwind_Unwind_SetGR(_Unwind_Context_Ptr context, int index,
+            ptrdiff_t new_value);
+    ptrdiff_t __libunwind_Unwind_GetRegionStart(_Unwind_Context_Ptr context);
+
+    alias __libunwind_Unwind_Resume _Unwind_Resume;
+    alias __libunwind_Unwind_RaiseException _Unwind_RaiseException;
+    alias __libunwind_Unwind_GetLanguageSpecificData
+        _Unwind_GetLanguageSpecificData;
+    alias __libunwind_Unwind_GetIP _Unwind_GetIP;
+    alias __libunwind_Unwind_SetIP _Unwind_SetIP;
+    alias __libunwind_Unwind_SetGR _Unwind_SetGR;
+    alias __libunwind_Unwind_GetRegionStart _Unwind_GetRegionStart;
+}
+else version(X86_UNWIND) 
 {
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
