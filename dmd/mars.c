@@ -190,7 +190,7 @@ Codegen control:\n\
   -m<arch>       emit code specific to <arch> being one of:\n\
                  x86 x86-64 ppc32 ppc64 arm thumb\n\
   -t<os>         emit code specific to <os> being one of:\n\
-                 Linux, Windows, MacOSX, FreeBSD\n\
+                 Linux, Windows, MacOSX, FreeBSD, Solaris\n\
 \n\
   -g, -gc        add symbolic debug info\n\
 \n\

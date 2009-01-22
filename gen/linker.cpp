@@ -286,12 +286,19 @@ int linkObjToExecutable(const char* argv0)
 
     // default libs
     switch(global.params.os) {
-    case OSLinux:
+    case OSLinux: 
     case OSMacOSX:
         args.push_back("-ldl");
+        // fallthrough
     case OSFreeBSD:
         args.push_back("-lpthread");
         args.push_back("-lm");
+        break;
+
+    case OSSolaris:
+        args.push_back("-lm");
+        args.push_back("-lumem");
+        // solaris TODO
         break;
 
     case OSWindows:

@@ -45,8 +45,10 @@ static double zero = 0;
 static double zero = 0;
 #elif __GNUC__
 #include <math.h>
+#if !(defined (__SVR4) && defined (__sun))
 #include <bits/nan.h>
 #include <bits/mathdef.h>
+#endif
 static double zero = 0;
 #endif
 

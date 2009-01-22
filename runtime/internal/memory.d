@@ -27,8 +27,11 @@ module memory;
 
 version = GC_Use_Dynamic_Ranges;
 
-// does Posix suffice?
 version(Posix)
+{
+    version = GC_Use_Data_Proc_Maps;
+}
+version(solaris)
 {
     version = GC_Use_Data_Proc_Maps;
 }
@@ -167,10 +170,10 @@ private
         {
             extern int _data_start__;
             extern int _bss_end__;
-
-            alias _data_start__ Data_Start;
-            alias _bss_end__    Data_End;
         }
+
+        alias _data_start__ Data_Start;
+        alias _bss_end__    Data_End;
     }
     else version( linux )
     {
@@ -186,8 +189,19 @@ private
             extern int __fini_array_end;
         }
 
-            alias __data_start  Data_Start;
-            alias _end          Data_End;
+        alias __data_start  Data_Start;
+        alias _end          Data_End;
+    }
+    else version( solaris )
+    {
+        extern(C)
+        {
+            extern int _edata;
+            extern int _end;
+        }
+
+        alias _edata        Data_Start;
+        alias _end          Data_End;
     }
 
     version( GC_Use_Dynamic_Ranges )
@@ -280,13 +294,78 @@ void initStaticDataPtrs()
         dataStart = adjust_up( &Data_Start );
         dataEnd   = adjust_down( &Data_End );
     }
+    else version(solaris)
+    {
+        dataStart = adjust_up( &Data_Start );
+        dataEnd   = adjust_down( &Data_End );
+    }
     else
     {
         static assert( false, "Operating system not supported." );
     }
 
-    //TODO: This could use cleanup!
     version( GC_Use_Data_Proc_Maps )
+    {
+        parseDataProcMaps();
+    }
+}
+
+version( GC_Use_Data_Proc_Maps )
+{
+version(solaris)
+{
+    typedef long offset_t;
+    enum : uint { PRMAPSZ = 64, MA_WRITE = 0x02 }
+    extern(C)
+    {
+        struct prmap {
+            uintptr_t pr_vaddr;         /* virtual address of mapping */
+            size_t pr_size;             /* size of mapping in bytes */
+            char[PRMAPSZ]  pr_mapname;  /* name in /proc/<pid>/object */
+            private offset_t pr_offset; /* offset into mapped object, if any */
+            int pr_mflags;              /* protection and attribute flags (see below) */
+            int pr_pagesize;            /* pagesize (bytes) for this mapping */
+            int pr_shmid;               /* SysV shmid, -1 if not SysV shared memory */
+
+            private int[1] pr_filler;
+        }
+    }
+
+    void parseDataProcMaps()
+    {
+        debug (ProcMaps) printf("initStaticDataPtrs()\n");
+        // http://docs.sun.com/app/docs/doc/816-5174/proc-4
+        prmap pr;
+
+        int   fd = open("/proc/self/map", O_RDONLY);
+        scope (exit) close(fd);
+
+        while (prmap.sizeof == read(fd, &pr, prmap.sizeof))
+        if (pr.pr_mflags & MA_WRITE)
+        {
+            void* start = cast(void*) pr.pr_vaddr;
+            void* end   = cast(void*)(pr.pr_vaddr + pr.pr_size);
+            debug (ProcMaps) printf("  vmem at %p - %p with size %d bytes\n", start, end, pr.pr_size);
+
+            // Exclude stack  and  dataStart..dataEnd
+            if ( ( !dataEnd ||
+                !( dataStart >= start && dataEnd <= end ) ) &&
+                !( &pr >= start && &pr < end ) )
+            {
+                // we already have static data from this region.  anything else
+                // is heap (%% check)
+                debug (ProcMaps) printf("  Adding map range %p - %p\n", start, end);
+                _d_gc_add_range(start, end);
+            }
+        }
+    }
+}
+else
+{
+    const int S = (void*).sizeof;
+
+    // TODO: This could use cleanup!
+    void parseDataProcMaps()
     {
         // TODO: Exclude zero-mapped regions
 
@@ -414,4 +493,5 @@ void initStaticDataPtrs()
             close(fd);
         }
     }
+}
 }
