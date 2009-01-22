@@ -2334,7 +2334,12 @@ Statement *SwitchStatement::semantic(Scope *sc)
 
 	a->reserve(4);
 	a->push(body);
-	a->push(new BreakStatement(loc, NULL));
+
+	// LDC needs semantic to be run on break
+	Statement *breakstmt = new BreakStatement(loc, NULL);
+	breakstmt->semantic(sc);
+	a->push(breakstmt);
+
 	sc->sw->sdefault = new DefaultStatement(loc, s);
 	a->push(sc->sw->sdefault);
 	cs = new CompoundStatement(loc, a);
