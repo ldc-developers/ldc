@@ -196,11 +196,11 @@ private
     {
         extern(C)
         {
-            extern int _edata;
+            extern int _environ;
             extern int _end;
         }
 
-        alias _edata        Data_Start;
+        alias _environ      Data_Start;
         alias _end          Data_End;
     }
 
@@ -330,6 +330,8 @@ version(solaris)
             private int[1] pr_filler;
         }
     }
+
+    debug (ProcMaps) extern (C) int printf(char*, ...);
 
     void parseDataProcMaps()
     {
