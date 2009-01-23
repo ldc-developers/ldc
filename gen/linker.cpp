@@ -306,6 +306,10 @@ int linkObjToExecutable(const char* argv0)
         break;
     }
 
+    //FIXME: enforce 64 bit
+    if (global.params.is64bit)
+        args.push_back("-m64");
+
     // print link command?
     if (!global.params.quiet || global.params.verbose)
     {
