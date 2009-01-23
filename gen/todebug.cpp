@@ -439,6 +439,11 @@ static LLGlobalVariable* dwarfCompositeType(Type* type, llvm::GlobalVariable* co
         }
         assert(sd);
 
+        // if we don't know the aggregate's size, we don't know enough about it
+        // to provide debug info. probably a forward-declared struct?
+        if (sd->sizeok == 0)
+            return NULL;
+
         IrStruct* ir = sd->ir.irStruct;
         assert(ir);
         if (ir->dwarfComposite)
