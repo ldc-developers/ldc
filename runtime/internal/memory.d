@@ -27,11 +27,16 @@ module memory;
 
 version = GC_Use_Dynamic_Ranges;
 
-version(Posix)
+version(darwin)
+{
+    version = GC_Use_Data_Dyld;
+    version = GC_Use_Dynamic_Ranges;
+}
+else version(Posix)
 {
     version = GC_Use_Data_Proc_Maps;
 }
-version(solaris)
+else version(solaris)
 {
     version = GC_Use_Data_Proc_Maps;
 }
@@ -299,6 +304,10 @@ void initStaticDataPtrs()
         dataStart = adjust_up( &Data_Start );
         dataEnd   = adjust_down( &Data_End );
     }
+    else version(GC_Use_Data_Dyld)
+    {
+        _d_dyld_start();
+    }
     else
     {
         static assert( false, "Operating system not supported." );
@@ -497,3 +506,113 @@ else
     }
 }
 }
+
+/*
+ * GDC dyld memory module: 
+ * http://www.dsource.org/projects/tango/browser/trunk/lib/compiler/gdc/memory_dyld.c
+ * Port to the D programming language: Jacob Carlborg
+ */
+version (GC_Use_Data_Dyld)
+{
+    private
+    {
+        const char* SEG_DATA = "__DATA".ptr;
+        const char* SECT_DATA = "__data".ptr;
+        const char* SECT_BSS = "__bss".ptr;
+        const char* SECT_COMMON = "__common".ptr;
+
+        struct SegmentSection
+        {
+            const char* segment;
+            const char* section;
+        }
+
+        struct mach_header
+        {
+            uint magic;
+            int cputype;
+            int cpusubtype;
+            uint filetype;
+            uint ncmds;
+            uint sizeofcmds;
+            uint flags;
+        }
+
+        struct section
+        {
+            char[16] sectname;
+            char[16] segname;
+            uint addr;
+            uint size;
+            uint offset;
+            uint align_;
+            uint reloff;
+            uint nreloc;
+            uint flags;
+            uint reserved1;
+            uint reserved2;
+        }
+
+        alias extern (C) void function (mach_header* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
+
+        extern (C) /*const*/ section* getsectbynamefromheader(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
+        extern (C) void _dyld_register_func_for_add_image(DyldFuncPointer func);
+        extern (C) void _dyld_register_func_for_remove_image(DyldFuncPointer func);
+
+        const SegmentSection[3] GC_dyld_sections = [SegmentSection(SEG_DATA, SECT_DATA), SegmentSection(SEG_DATA, SECT_BSS), SegmentSection(SEG_DATA, SECT_COMMON)];    
+
+        extern (C) void on_dyld_add_image (/*const*/ mach_header* hdr, ptrdiff_t slide)
+        {
+            void* start;
+            void* end;
+            /*const*/ section* sec;
+
+            foreach (s ; GC_dyld_sections)
+            {
+                sec = getsectbynamefromheader(hdr, s.segment, s.section);
+
+                if (sec == null || sec.size == 0)
+                    continue;
+
+                start = cast(void*) (sec.addr + slide);
+                end = cast(void*) (start + sec.size);
+
+                _d_gc_add_range(start, end);
+            }
+        }
+
+        extern (C) void on_dyld_remove_image (/*const*/ mach_header* hdr, ptrdiff_t slide)
+        {
+            void* start;
+            void* end;
+            /*const*/ section* sec;
+
+            foreach (s ; GC_dyld_sections)
+            {
+                sec = getsectbynamefromheader(hdr, s.segment, s.section);
+
+                if (sec == null || sec.size == 0)
+                    continue;
+
+                start = cast(void*) (sec.addr + slide);
+                end = cast(void*) (start + sec.size);
+
+                _d_gc_remove_range(start);
+            }
+        }
+
+        void _d_dyld_start ()
+        {
+            static bool started;
+
+            if (!started)
+            {
+                started = true;
+
+                _dyld_register_func_for_add_image(&on_dyld_add_image);
+                _dyld_register_func_for_remove_image(&on_dyld_remove_image);
+            }
+        }
+    }
+}
+
