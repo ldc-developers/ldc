@@ -1090,11 +1090,11 @@ DValue* DtoCastClass(DValue* val, Type* _to)
         // interface -> class
         if (fc->sym->isInterfaceDeclaration()) {
             Logger::println("interface cast");
-            return DtoCastInterfaceToObject(val, _to);
+            return DtoDynamicCastInterface(val, _to);
         }
         // class -> class - static down cast
         else if (tc->sym->isBaseOf(fc->sym,NULL)) {
-            Logger::println("static down cast)");
+            Logger::println("static down cast");
             const LLType* tolltype = DtoType(_to);
             LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
             return new DImValue(_to, rval);
