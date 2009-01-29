@@ -607,7 +607,9 @@ extern (C) byte* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plengt
 in
 {
     assert(ti);
-    assert(!plength || pdata);
+// This assert on array consistency may fail with casts or in unions.
+// This function still does something sensible even if plength && !pdata. 
+//    assert(!plength || pdata);
 }
 body
 {
@@ -698,7 +700,9 @@ Loverflow:
 extern (C) byte* _d_arraysetlengthiT(TypeInfo ti, size_t newlength, size_t plength, byte* pdata)
 in
 {
-    assert(!plength || pdata);
+// This assert on array consistency may fail with casts or in unions.
+// This function still does something sensible even if plength && !pdata. 
+//    assert(!plength || pdata);
 }
 body
 {
