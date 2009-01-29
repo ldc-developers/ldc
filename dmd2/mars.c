@@ -346,7 +346,6 @@ int main(int argc, char *argv[])
 #elif defined (__SVR4) && defined (__sun)
     global.params.os = OSSolaris;
 #else
-#else
 #error Unsupported OS
 #endif /* linux */
 
