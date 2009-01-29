@@ -61,7 +61,8 @@ enum OS
     OSLinux,
     OSWindows,
     OSMacOSX,
-    OSFreeBSD
+    OSFreeBSD,
+    OSSolaris,
 };
 
 // Put command line switches in here

@@ -926,18 +926,18 @@ int main(int argc, char *argv[])
 
     case OSMacOSX:
 	VersionCondition::addPredefinedGlobalIdent("darwin");
-    VersionCondition::addPredefinedGlobalIdent("Posix");
-    break;
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	break;
 
     case OSFreeBSD:
-    VersionCondition::addPredefinedGlobalIdent("freebsd");
-    VersionCondition::addPredefinedGlobalIdent("Posix");
-    break;
+	VersionCondition::addPredefinedGlobalIdent("freebsd");
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	break;
 
     case OSSolaris:
-    VersionCondition::addPredefinedGlobalIdent("solaris");
-    VersionCondition::addPredefinedGlobalIdent("Posix");
-    break;
+	VersionCondition::addPredefinedGlobalIdent("solaris");
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	break;
 
     default:
 	assert(false && "Target OS not supported");

@@ -190,7 +190,7 @@ Codegen control:\n\
   -m<arch>       emit code specific to <arch> being one of:\n\
                  x86 x86-64 ppc32 ppc64 arm thumb\n\
   -t<os>         emit code specific to <os> being one of:\n\
-                 Linux, Windows, MacOSX, FreeBSD\n\
+                 Linux, Windows, MacOSX, FreeBSD, Solaris\n\
 \n\
   -g, -gc        add symbolic debug info\n\
 \n\
@@ -343,6 +343,9 @@ int main(int argc, char *argv[])
     global.params.os = OSMacOSX;
 #elif __FreeBSD__
     global.params.os = OSFreeBSD;
+#elif defined (__SVR4) && defined (__sun)
+    global.params.os = OSSolaris;
+#else
 #else
 #error Unsupported OS
 #endif /* linux */
@@ -711,6 +714,8 @@ int main(int argc, char *argv[])
                 global.params.os = OSMacOSX;
             else if(strcmp(p + 2, "FreeBSD") == 0)
                 global.params.os = OSFreeBSD;
+            else if(strcmp(p + 2, "Solaris") == 0)
+                global.params.os = OSSolaris;
             else
                 error("unrecognized target os '%s'", p + 2);
         }
@@ -945,13 +950,18 @@ int main(int argc, char *argv[])
 
     case OSMacOSX:
 	VersionCondition::addPredefinedGlobalIdent("darwin");
-    VersionCondition::addPredefinedGlobalIdent("Posix");
-    break;
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	break;
 
     case OSFreeBSD:
-    VersionCondition::addPredefinedGlobalIdent("freebsd");
-    VersionCondition::addPredefinedGlobalIdent("Posix");
-    break;
+	VersionCondition::addPredefinedGlobalIdent("freebsd");
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	break;
+
+    case OSSolaris:
+	VersionCondition::addPredefinedGlobalIdent("solaris");
+	VersionCondition::addPredefinedGlobalIdent("Posix");
+	break;
 
     default:
 	assert(false && "Target OS not supported");
