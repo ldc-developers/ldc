@@ -1669,7 +1669,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		    default:		assert(0);
 		}
 		const char *r = (op == TOKforeach_reverse) ? "R" : "";
-		int j = sprintf(fdname, "_aApply%s%.*s%d", r, 2, fntab[flag], dim);
+		int j = sprintf(fdname, "_aApply%s%.*s%" PRIuSIZE, r, 2, fntab[flag], dim);
 		assert(j < sizeof(fdname));
 		//LDC: Build arguments.
 		Arguments* args = new Arguments;
