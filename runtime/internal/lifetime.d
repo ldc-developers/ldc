@@ -504,7 +504,9 @@ extern (C) void _d_delarray(size_t plength, void* pdata)
 {
 //     if (p)
 //     {
-        assert(!plength || pdata);
+// This assert on array consistency may fail with casts or in unions.
+// This function still does something sensible even if plength && !pdata. 
+//     assert(!plength || pdata);
 
         if (pdata)
             gc_free(pdata);
