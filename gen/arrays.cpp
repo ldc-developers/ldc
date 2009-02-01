@@ -216,141 +216,114 @@ void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// FIXME: this looks like it could use a cleanup
-
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 {
     Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
     LOG_SCOPE;
 
-    Type* arrinittype = arrinit->type->toBasetype();
+    assert(arrinit->value.dim == arrinit->index.dim);
 
-    Type* t;
-    integer_t tdim;
-    if (arrinittype->ty == Tsarray) {
-        Logger::println("static array");
-        TypeSArray* tsa = (TypeSArray*)arrinittype;
-        tdim = tsa->dim->toInteger();
-        t = tsa;
+    // get base array type
+    Type* arrty = arrinit->type->toBasetype();
+    size_t arrlen = arrinit->dim;
+
+    // for statis arrays, dmd does not include any trailing default
+    // initialized elements in the value/index lists
+    if (arrty->ty == Tsarray)
+    {
+        TypeSArray* tsa = (TypeSArray*)arrty;
+        arrlen = (size_t)tsa->dim->toInteger();
     }
-    else if (arrinittype->ty == Tarray) {
-        Logger::println("dynamic array");
-        t = arrinittype;
-        tdim = arrinit->dim;
+
+    // make sure the number of initializers is sane
+    if (arrinit->index.dim > arrlen || arrinit->dim > arrlen)
+    {
+        error(arrinit->loc, "too many initializers, %d, for array[%d]", arrinit->index.dim, arrlen);
+        fatal();
     }
-    else
-    assert(0);
 
-    if(arrinit->dim > tdim)
-        error(arrinit->loc, "array initializer for %s is too long (%d)", arrinit->type->toChars(), arrinit->dim);
+    // get elem type
+    Type* elemty = arrty->nextOf();
+    const LLType* llelemty = DtoType(elemty);
 
-    Logger::println("dim = %u", tdim);
-
-    std::vector<LLConstant*> inits(tdim, NULL);
-
-    Type* arrnext = arrinittype->nextOf();
-    const LLType* elemty = DtoType(arrinittype->nextOf());
-
-    // true if there is a mismatch with one of the initializers
+    // true if array elements differ in type, can happen with array of unions
     bool mismatch = false;
 
-    assert(arrinit->index.dim == arrinit->value.dim);
-    for (unsigned i=0,j=0; i < tdim; ++i)
+    // allocate room for initializers
+    std::vector<LLConstant*> initvals(arrlen, NULL);
+
+    // go through each initializer, they're not sorted by index by the frontend
+    size_t j = 0;
+    for (size_t i = 0; i < arrinit->index.dim; i++)
     {
-        Initializer* init = 0;
-        Expression* idx;
+        // get index
+        Expression* idx = (Expression*)arrinit->index.data[i];
 
-        if (j < arrinit->index.dim)
-            idx = (Expression*)arrinit->index.data[j];
-        else
-            idx = NULL;
-
-        LLConstant* v = NULL;
-
+        // idx can be null, then it's just the next element
         if (idx)
+            j = idx->toInteger();
+        assert(j < arrlen);
+
+        // get value
+        Initializer* val = (Initializer*)arrinit->value.data[i];
+        assert(val);
+
+        // error check from dmd
+        if (initvals[j] != NULL)
         {
-            Logger::println("%d has idx", i);
-            // this is pretty weird :/ idx->type turned out NULL for the initializer:
-            //     const in6_addr IN6ADDR_ANY = { s6_addr8: [0] };
-            // in std.c.linux.socket
-            if (idx->type) {
-                Logger::println("has idx->type", i);
-                //integer_t k = idx->toInteger();
-                //Logger::println("getting value for exp: %s | %s", idx->toChars(), arrnext->toChars());
-                LLConstant* cc = idx->toConstElem(gIR);
-                Logger::println("value gotten");
-                assert(cc != NULL);
-                LLConstantInt* ci = llvm::dyn_cast<LLConstantInt>(cc);
-                assert(ci != NULL);
-                uint64_t k = ci->getZExtValue();
-                if (i == k)
-                {
-                    init = (Initializer*)arrinit->value.data[j];
-                    assert(init);
-                    ++j;
-                }
-            }
-        }
-        else
-        {
-            if (j < arrinit->value.dim) {
-                init = (Initializer*)arrinit->value.data[j];
-                ++j;
-            }
-            else
-                v = arrnext->defaultInit()->toConstElem(gIR);
+            error(arrinit->loc, "duplicate initialization for index %d", j);
         }
 
-        if (!v)
-            v = DtoConstInitializer(arrinit->loc, t->nextOf(), init);
-        assert(v);
-
-        // global arrays of unions might have type mismatch for each element
-        // if there is any mismatch at all, we need to use a struct instead :/
-        if (v->getType() != elemty)
+        LLConstant* c = DtoConstInitializer(val->loc, elemty, val);
+        assert(c);
+        if (c->getType() != llelemty)
             mismatch = true;
 
-        inits[i] = v;
-        if (Logger::enabled())
-            Logger::cout() << "llval: " << *v << '\n';
+        initvals[j] = c;
+        j++;
     }
 
-    Logger::println("building constant array");
+    // die now if there was errors
+    if (global.errors)
+        fatal();
+
+    // fill out any null entries still left with default values
+
+    // element default initializer
+    LLConstant* defelem = elemty->defaultInit(arrinit->loc)->toConstElem(gIR);
+    bool mismatch2 =  (defelem->getType() != llelemty);
+
+    for (size_t i = 0; i < arrlen; i++)
+    {
+        if (initvals[i] != NULL)
+            continue;
+
+        initvals[i] = defelem;
+
+        if (mismatch2)
+            mismatch = true;
+    }
 
     LLConstant* constarr;
-    const LLArrayType* arrty = LLArrayType::get(elemty,tdim);
-
     if (mismatch)
-    {
-        constarr = LLConstantStruct::get(inits);
-    }
+        constarr = LLConstantStruct::get(initvals);
     else
-    {
-        constarr = LLConstantArray::get(arrty, inits);
-    }
+        constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
 
-#if 0
-    if (Logger::enabled())
-    {
-        Logger::cout() << "array type: " << *arrty << '\n';
-        size_t n = inits.size();
-        for (size_t i=0; i<n; i++)
-            Logger::cout() << "  init " << i << " = " << *inits[i] << '\n';
-    }
-#endif
+//     std::cout << "constarr: " << *constarr << std::endl;
 
-    if (arrinittype->ty == Tsarray)
+    // if the type is a static array, we're done
+    if (arrty->ty == Tsarray)
         return constarr;
-    else
-        assert(arrinittype->ty == Tarray);
 
-    LLGlobalVariable* gvar = new LLGlobalVariable(constarr->getType(),true,LLGlobalValue::InternalLinkage,constarr,".constarray",gIR->module);
+    // for dynamic array we need to make a global with the data, so we have a pointer for the dynamic array
+    LLGlobalVariable* gvar = new LLGlobalVariable(constarr->getType(), true, LLGlobalValue::InternalLinkage, constarr, ".constarray", gIR->module);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
-    gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(elemty));
+    gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
-    return DtoConstSlice(DtoConstSize_t(tdim),gep);
+    return DtoConstSlice(DtoConstSize_t(arrlen),gep);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
