@@ -22,16 +22,10 @@
 #include "attrib.h"
 #include "lexer.h"
 
-/********************************* SymbolDeclaration ****************************/
 
-SymbolDeclaration::SymbolDeclaration(Loc loc, Symbol *s, StructDeclaration *dsym)
-    : Declaration(new Identifier("", TOKidentifier))
+Symbol *StaticStructInitDeclaration::toSymbol()
 {
-}
-
-Symbol *SymbolDeclaration::toSymbol()
-{
-    return sym;
+    return 0;
 }
 
 /*************************************

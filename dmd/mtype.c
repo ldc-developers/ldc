@@ -4584,14 +4584,12 @@ unsigned TypeStruct::memalign(unsigned salign)
 }
 
 Expression *TypeStruct::defaultInit(Loc loc)
-{   Symbol *s;
-    Declaration *d;
+{   Declaration *d;
 
 #if LOGDEFAULTINIT
     printf("TypeStruct::defaultInit() '%s'\n", toChars());
 #endif
-    s = sym->toInitializer();
-    d = new SymbolDeclaration(sym->loc, s, sym);
+    d = new StaticStructInitDeclaration(sym->loc, sym);
     assert(d);
     d->type = this;
     return new VarExp(sym->loc, d);

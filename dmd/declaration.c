@@ -1408,4 +1408,13 @@ Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *s)
     return NULL;
 }
 
+/********************** StaticStructInitDeclaration ***************************/
+
+StaticStructInitDeclaration::StaticStructInitDeclaration(Loc loc, StructDeclaration *dsym)
+    : Declaration(new Identifier("", TOKidentifier))
+{
+    this->loc = loc;
+    this->dsym = dsym;
+    storage_class |= STCconst;
+}
 

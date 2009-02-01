@@ -179,7 +179,7 @@ DValue* VarExp::toElem(IRState* p)
         }
         return new DFuncValue(fdecl, func);
     }
-    else if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
+    else if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
     {
         // this seems to be the static initialiser for structs
         Type* sdecltype = sdecl->type->toBasetype();
@@ -205,7 +205,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
 {
     Logger::print("VarExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-    if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
+    if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
     {
         // this seems to be the static initialiser for structs
         Type* sdecltype = sdecl->type->toBasetype();

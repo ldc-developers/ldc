@@ -65,7 +65,7 @@ struct EnumMember;
 struct ScopeDsymbol;
 struct WithScopeSymbol;
 struct ArrayScopeSymbol;
-struct SymbolDeclaration;
+struct StaticStructInitDeclaration;
 struct Expression;
 struct DeleteDeclaration;
 struct HdrGenState;
@@ -216,7 +216,7 @@ struct Dsymbol : Object
 #ifdef _DH
     virtual DeleteDeclaration *isDeleteDeclaration() { return NULL; }
 #endif
-    virtual SymbolDeclaration *isSymbolDeclaration() { return NULL; }
+    virtual StaticStructInitDeclaration *isStaticStructInitDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
