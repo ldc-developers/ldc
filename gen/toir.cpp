@@ -2403,6 +2403,10 @@ DValue* StructLiteralExp::toElem(IRState* p)
         {
             DValue* v = exprs[i]->toElem(p);
             inits[i] = v->getRVal();
+
+            // make sure we get inner structs/staticarrays right
+            if (DtoIsPassedByRef(v->getType()))
+                inits[i] = DtoLoad(inits[i]);
         }
     }
 
