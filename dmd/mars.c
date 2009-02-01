@@ -1016,7 +1016,7 @@ int main(int argc, char *argv[])
 	ext = FileName::ext(p);
 	if (ext)
 	{
-#if TARGET_LINUX
+#if POSIX
 	    if (strcmp(ext, global.obj_ext) == 0 ||
 		strcmp(ext, global.bc_ext) == 0)
 #else
@@ -1028,8 +1028,10 @@ int main(int argc, char *argv[])
 		continue;
 	    }
 
-#if TARGET_LINUX || __MINGW32__
+#if POSIX
 	    if (strcmp(ext, "a") == 0)
+#elif __MINGW32__
+        if (stricmp(ext, "a") == 0)
 #else
 	    if (stricmp(ext, "lib") == 0)
 #endif
@@ -1044,7 +1046,7 @@ int main(int argc, char *argv[])
 		continue;
 	    }
 
-#if !TARGET_LINUX
+#if !POSIX
 	    if (stricmp(ext, "res") == 0)
 	    {
 		global.params.resfile = (char *)files.data[i];
