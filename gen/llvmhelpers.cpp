@@ -844,7 +844,7 @@ bool DtoIsTemplateInstance(Dsymbol* s)
 void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
 {
     // create a flag to make sure initialization only happens once
-    llvm::GlobalValue::LinkageTypes gflaglink = istempl ? llvm::GlobalValue::WeakLinkage : llvm::GlobalValue::InternalLinkage;
+    llvm::GlobalValue::LinkageTypes gflaglink = istempl ? TEMPLATE_LINKAGE_TYPE : llvm::GlobalValue::InternalLinkage;
     std::string gflagname(gvar->getName());
     gflagname.append("__initflag");
     llvm::GlobalVariable* gflag = new llvm::GlobalVariable(LLType::Int1Ty,false,gflaglink,DtoConstBool(false),gflagname,gIR->module);

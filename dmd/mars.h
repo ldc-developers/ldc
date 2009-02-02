@@ -65,6 +65,10 @@ enum OS
     OSSolaris,
 };
 
+// make it easier to test new linkage types
+#define TEMPLATE_LINKAGE_TYPE   llvm::GlobalValue::LinkOnceLinkage
+#define TYPEINFO_LINKAGE_TYPE   llvm::GlobalValue::LinkOnceLinkage
+
 // Put command line switches in here
 struct Param
 {

@@ -391,7 +391,7 @@ DValue* StringExp::toElem(IRState* p)
     else
     assert(0);
 
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
+    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     if (Logger::enabled())
         Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,".str",gIR->module);
@@ -467,7 +467,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
         return _init;
     }
 
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
+    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,".str",gIR->module);
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);

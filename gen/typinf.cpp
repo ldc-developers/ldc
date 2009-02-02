@@ -379,7 +379,7 @@ void TypeInfoTypedefDeclaration::llvmDeclare()
     const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoTypedefDeclaration::llvmDefine()
@@ -453,7 +453,7 @@ void TypeInfoEnumDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoEnumDeclaration::llvmDefine()
@@ -528,7 +528,7 @@ static void LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDeclarati
     DtoResolveClass(base);
 
     // create the symbol
-    tid->ir.irGlobal->value = new llvm::GlobalVariable(tid->ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,tid->toChars(),gIR->module);
+    tid->ir.irGlobal->value = new llvm::GlobalVariable(tid->ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, tid->toChars(), gIR->module);
 }
 
 static void LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
@@ -627,7 +627,7 @@ void TypeInfoStaticArrayDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoStaticArrayDeclaration::llvmDefine()
@@ -687,7 +687,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoAssociativeArrayDeclaration::llvmDefine()
@@ -808,7 +808,7 @@ void TypeInfoStructDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoStructDeclaration::llvmDefine()
@@ -1024,7 +1024,7 @@ void TypeInfoClassDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, llvm::GlobalValue::WeakLinkage, NULL, toChars(), gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoClassDeclaration::llvmDefine()
@@ -1080,7 +1080,7 @@ void TypeInfoInterfaceDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoInterfaceDeclaration::llvmDefine()
@@ -1138,7 +1138,7 @@ void TypeInfoTupleDeclaration::llvmDeclare()
     DtoResolveClass(base);
 
     // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true,llvm::GlobalValue::WeakLinkage,NULL,toChars(),gIR->module);
+    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
 }
 
 void TypeInfoTupleDeclaration::llvmDefine()
@@ -1185,7 +1185,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     LLConstant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
 
     // need the pointer to the first element of arrC, so create a global for it
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;//WeakLinkage;
+    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,_linkage,arrC,".tupleelements",gIR->module);
 
     // get pointer to first element
