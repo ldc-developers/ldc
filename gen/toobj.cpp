@@ -616,13 +616,18 @@ void Module::genmoduleinfo()
 //         }
 
     // resolve ModuleInfo
-    assert(moduleinfo);
+    if (!moduleinfo)
+    {
+        error("object.d is missing the ModuleInfo class");
+        fatal();
+    }
+
     DtoForceConstInitDsymbol(moduleinfo);
 
     // check for patch
     if (moduleinfo->fields.dim != 9)
     {
-        error("unpatched object.d detected, ModuleInfo incorrect");
+        error("object.d ModuleInfo class is incorrect");
         fatal();
     }
 
