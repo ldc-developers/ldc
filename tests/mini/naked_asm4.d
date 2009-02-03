@@ -8,6 +8,14 @@ void foo()
         hlt;
 pass:   ret;
     }
+    version(X86_64)
+    asm
+    {
+        naked;
+        jmp pass;
+        hlt;
+pass:   ret;
+    }
     else static assert(0, "todo");
 }
 
