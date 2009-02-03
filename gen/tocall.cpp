@@ -370,6 +370,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             LLValue* arg = argval->getRVal();
 
+            // if it's a struct inreg arg, load first to pass as first-class value
+            if (tf->structInregArg && i == (tf->reverseParams ? n - 1 : 0))
+            {
+                assert(fnarg->llvmAttrs & llvm::Attribute::InReg);
+                arg = DtoLoad(arg);
+            }
+
             int j = tf->reverseParams ? beg + n - i - 1 : beg + i;
 
             // parameter type mismatch, this is hard to get rid of
@@ -395,7 +402,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // reverse the relevant params as well as the param attrs
         if (tf->reverseParams)
         {
-            std::reverse(args.begin() + tf->reverseIndex, args.end());
+            std::reverse(args.begin() + tf->firstRealArg, args.end());
             std::reverse(attrptr.begin(), attrptr.end());
         }
 

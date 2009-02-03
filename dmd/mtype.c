@@ -2691,10 +2691,11 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->retInPtr = false;
     this->usesThis = false;
     this->usesNest = false;
+    this->structInregArg = false;
     this->retAttrs = 0;
     this->thisAttrs = 0;
     this->reverseParams = false;
-    this->reverseIndex = 0;
+    this->firstRealArg = 0;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2708,7 +2709,7 @@ Type *TypeFunction::syntaxCopy()
     t->retAttrs = retAttrs;
     t->thisAttrs = thisAttrs;
     t->reverseParams = reverseParams;
-    t->reverseIndex = reverseIndex;
+    t->firstRealArg = firstRealArg;
     return t;
 }
 
