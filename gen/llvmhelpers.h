@@ -113,7 +113,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 ////////////////////////////////////////////
 
 /// convert DMD calling conv to LLVM
-unsigned DtoCallingConv(LINK l);
+unsigned DtoCallingConv(Loc loc, LINK l);
 
 ///
 TypeFunction* DtoTypeFunction(DValue* fnval);

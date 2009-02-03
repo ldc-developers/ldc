@@ -33,7 +33,7 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-unsigned DtoCallingConv(LINK l)
+unsigned DtoCallingConv(Loc loc, LINK l)
 {
     if (l == LINKc || l == LINKcpp || l == LINKintrinsic)
         return llvm::CallingConv::C;
@@ -50,7 +50,10 @@ unsigned DtoCallingConv(LINK l)
     else if (l == LINKwindows)
         return llvm::CallingConv::X86_StdCall;
     else
-        assert(0 && "Unsupported calling convention");
+    {
+        error(loc, "unsupported calling convention");
+        fatal();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -235,7 +238,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool nestedcall = tf->usesNest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
-    unsigned callconv = DtoCallingConv(tf->linkage);
+    unsigned callconv = DtoCallingConv(loc, tf->linkage);
 
     // get callee llvm value
     LLValue* callable = DtoCallableValue(fnval);

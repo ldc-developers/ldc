@@ -528,7 +528,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // calling convention
     if (!vafunc && fdecl->llvmInternal != LLVMintrinsic)
-        func->setCallingConv(DtoCallingConv(f->linkage));
+        func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
 
