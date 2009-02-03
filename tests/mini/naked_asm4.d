@@ -8,7 +8,7 @@ void foo()
         hlt;
 pass:   ret;
     }
-    version(X86_64)
+    else version(X86_64)
     asm
     {
         naked;

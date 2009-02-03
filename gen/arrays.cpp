@@ -290,7 +290,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     // fill out any null entries still left with default values
 
     // element default initializer
-    LLConstant* defelem = elemty->defaultInit(arrinit->loc)->toConstElem(gIR);
+    LLConstant* defelem = DtoConstExpInit(arrinit->loc, elemty, elemty->defaultInit(arrinit->loc));
     bool mismatch2 =  (defelem->getType() != llelemty);
 
     for (size_t i = 0; i < arrlen; i++)

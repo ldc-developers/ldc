@@ -1632,6 +1632,8 @@ DValue* NewExp::toElem(IRState* p)
         DVarValue tmpvar(newtype, mem);
 
         // default initialize
+        // FIXME: should this use DtoConstExpInit instead ?
+        // or is static arrays the only troublemaker?
         Expression* exp = newtype->defaultInit(loc);
         DValue* iv = exp->toElem(gIR);
         DtoAssign(loc, &tmpvar, iv);
