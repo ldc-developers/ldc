@@ -616,6 +616,7 @@ static AsmOpEnt opData[] = {
     { "add",    Op_DstSrcNT }, //Op_UpdSrcF },
     { "addpd",  Op_DstSrcSSE },
     { "addps",  Op_DstSrcSSE },
+    { "addq",    Op_DstSrcSSE },
     { "addsd",  Op_DstSrcSSE },
     { "addss",  Op_DstSrcSSE },
     { "addsubpd", Op_DstSrcSSE },
@@ -951,9 +952,9 @@ static AsmOpEnt opData[] = {
     { "minss", Op_DstSrcSSE },
     { "monitor", Op_0 },
     { "mov",   Op_DstSrc },
-    { "movb",   Op_DstSrcNT  },
     { "movapd",  Op_DstSrcSSE },
     { "movaps",  Op_DstSrcSSE },
+    { "movb",   Op_DstSrcNT  },
     { "movd",    Op_DstSrcNT  }, // also mmx and sse
     { "movddup", Op_DstSrcSSE },
     { "movdq2q", Op_DstSrcNT }, // mmx/sse
@@ -962,6 +963,7 @@ static AsmOpEnt opData[] = {
     { "movhlps", Op_DstSrcSSE },
     { "movhpd",  Op_DstSrcSSE },
     { "movhps",  Op_DstSrcSSE },
+    { "movl",   Op_DstSrc },
     { "movlhps", Op_DstSrcSSE },
     { "movlpd",  Op_DstSrcSSE },
     { "movlps",  Op_DstSrcSSE },
@@ -994,6 +996,7 @@ static AsmOpEnt opData[] = {
     { "mulsd", Op_DstSrcSSE },
     { "mulss", Op_DstSrcSSE },
     { "mwait", Op_0 },
+    { "naked", Op_Naked },
     { "neg",   Op_UpdF },
     { "nop",   Op_0 },
     { "not",   Op_Upd },
@@ -1051,7 +1054,6 @@ static AsmOpEnt opData[] = {
     { "pmulhw",   Op_DstSrcMMX },
     { "pmullw",   Op_DstSrcMMX },
     { "pmuludq",  Op_DstSrcMMX }, // also sse
-    { "pop",      Op_DstW },
     { "popf",     Op_SizedStack },  // rewrite the insn with a special case
     { "popfq",    Op_SizedStack }, 
     { "popq",    Op_push }, 
@@ -1095,7 +1097,6 @@ static AsmOpEnt opData[] = {
     { "punpckldq", Op_DstSrcMMX },
     { "punpcklqdq",Op_DstSrcMMX },
     { "punpcklwd", Op_DstSrcMMX },
-    { "push",   Op_push },
     { "pushf",  Op_SizedStack },
     { "pushfq", Op_SizedStack },
     { "pushq", Op_push },
@@ -1188,6 +1189,7 @@ static AsmOpEnt opData[] = {
     { "sub",    Op_UpdSrcF },
     { "subpd",  Op_DstSrcSSE },
     { "subps",  Op_DstSrcSSE },
+    { "subq",    Op_DstSrcSSE },
     { "subsd",  Op_DstSrcSSE },
     { "subss",  Op_DstSrcSSE },
     { "swapgs",  Op_DstSrcSSE },
@@ -1555,10 +1557,6 @@ struct AsmProcessor
                             stmt->error("only global variables can be referenced by identifier in naked asm");
                             break;
                         }
-
-                        // osx needs an extra underscore
-                        if (global.params.os == OSMacOSX)
-                            insnTemplate->writestring("_");
 
                         // print out the mangle
                         insnTemplate->writestring(vd->mangle());
