@@ -7,6 +7,13 @@ int foo(int op)(int a, int b)
     mixin("asm{"~OP~" EAX, [ESP+4];}");
     asm { ret 4; }
     }
+    else version(X86_64)
+    {
+    const OP = (op == '+') ? "add" : "sub";
+    asm { naked; }
+    mixin("asm{"~OP~" ESI,EDI; mov EAX, ESI;}");
+    asm { ret; }
+    }
     else static assert(0, "todo");
 }
 
