@@ -912,7 +912,7 @@ int main(int argc, char *argv[])
         global.params.cpu = ARCHthumb;
     }
     else {
-        assert(0 && "Invalid arch");
+        error("invalid cpu architecture specified: %s", global.params.llvmArch); 
     }
 
     assert(global.params.cpu != ARCHinvalid);

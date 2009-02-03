@@ -162,6 +162,9 @@ struct Statement : Object
     // Back end
     virtual void toIR(IRState *irs);
 
+    // LDC
+    virtual void toNakedIR(IRState *irs);
+
     // Avoid dynamic_cast
     virtual DeclarationStatement *isDeclarationStatement() { return NULL; }
     virtual CompoundStatement *isCompoundStatement() { return NULL; }
@@ -187,6 +190,9 @@ struct ExpStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
+
+    // LDC
+    virtual void toNakedIR(IRState *irs);
 };
 
 struct CompileStatement : Statement
@@ -236,6 +242,9 @@ struct CompoundStatement : Statement
     Statement *inlineScan(InlineScanState *iss);
 
     virtual void toIR(IRState *irs);
+
+    // LDC
+    virtual void toNakedIR(IRState *irs);
 
     virtual CompoundStatement *isCompoundStatement() { return this; }
 };
@@ -879,6 +888,7 @@ struct LabelStatement : Statement
 
     // LDC
     bool asmLabel;       // for labels inside inline assembler
+    virtual void toNakedIR(IRState *irs);
 };
 
 struct LabelDsymbol : Dsymbol
@@ -912,6 +922,8 @@ struct AsmStatement : Statement
     // LDC
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;
+
+    virtual void toNakedIR(IRState *irs);
 };
 
 struct AsmBlockStatement : CompoundStatement
@@ -928,6 +940,7 @@ struct AsmBlockStatement : CompoundStatement
     AsmBlockStatement *isAsmBlockStatement() { return this; }
 
     void toIR(IRState *irs);
+    virtual void toNakedIR(IRState *irs);
 };
 
 #endif /* DMD_STATEMENT_H */
