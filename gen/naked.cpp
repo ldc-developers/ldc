@@ -104,34 +104,60 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // build function header
 
-    // REALLY FIXME: this is most likely extremely platform dependent
+    // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
     const char* mangle = fd->mangle();
-    const char* linkage = "globl";
-    std::string section = "text";
-    unsigned align = 16;
-
     std::ostringstream tmpstr;
 
-    if (DtoIsTemplateInstance(fd))
+    // osx is different
+    // also mangling has an extra underscore prefixed
+    if (global.params.os == OSMacOSX)
     {
-        linkage = "weak";
-        tmpstr << "section\t.gnu.linkonce.t." << mangle << ",\"ax\",@progbits";
-        section = tmpstr.str();
+        std::string section = "text";
+        bool weak = false;
+        if (DtoIsTemplateInstance(fd))
+        {
+            tmpstr << "section\t__TEXT,__textcoal_nt,coalesced,pure_instructions";
+            section = tmpstr.str();
+            weak = true;
+        }
+        asmstr << "\t." << section << std::endl;
+        asmstr << "\t.align\t4,0x90" << std::endl;
+        asmstr << "\t.globl\t_" << mangle << std::endl;
+        if (weak)
+        {
+            asmstr << "\t.weak_definition\t_" << mangle << std::endl;
+        }
+        asmstr << "_" << mangle << ":" << std::endl;
     }
-
-    asmstr << "\t." << section << std::endl;
-    asmstr << "\t.align\t" << align << std::endl;
-    asmstr << "\t." << linkage << "\t" << mangle << std::endl;
-    asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
-    asmstr << mangle << ":" << std::endl;
+    // this works on linux x86 32 and 64 bit
+    // assume it works everywhere else as well for now
+    else
+    {
+        const char* linkage = "globl";
+        std::string section = "text";
+        if (DtoIsTemplateInstance(fd))
+        {
+            linkage = "weak";
+            tmpstr << "section\t.gnu.linkonce.t." << mangle << ",\"ax\",@progbits";
+            section = tmpstr.str();
+        }
+        asmstr << "\t." << section << std::endl;
+        asmstr << "\t.align\t16" << std::endl;
+        asmstr << "\t." << linkage << "\t" << mangle << std::endl;
+        asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
+        asmstr << mangle << ":" << std::endl;
+    }
 
     // emit body
     fd->fbody->toNakedIR(gIR);
 
     // emit size after body
-    // why? dunno, llvm seems to do it by default ..
-    asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl << std::endl;
+    // llvm does this on linux, but not on osx
+    if (global.params.os != OSMacOSX)
+    {
+        asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl << std::endl;
+    }
 
     gIR->module->appendModuleInlineAsm(asmstr.str());
     asmstr.str("");
