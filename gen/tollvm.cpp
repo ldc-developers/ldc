@@ -294,8 +294,9 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         if (fdecl->llvmInternal == LLVMintrinsic)
             return llvm::GlobalValue::ExternalLinkage;
         // template instances should have weak linkage
-        // but only if there's a body, otherwise we make it external
-        else if (DtoIsTemplateInstance(fdecl) && fdecl->fbody)
+        // but only if there's a body, and it's not naked
+        // otherwise we make it external
+        else if (DtoIsTemplateInstance(fdecl) && fdecl->fbody && !fdecl->naked)
             return TEMPLATE_LINKAGE_TYPE;
         // extern(C) functions are always external
         else if (ft->linkage == LINKc)

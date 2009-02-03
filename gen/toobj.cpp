@@ -914,22 +914,13 @@ void VarDeclaration::toObjFile(int multiobj)
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
-        // handle static local variables
-        bool static_local = false;
     #if DMDV2
         // not sure why this is only needed for d2
         bool _isconst = isConst() && init;
     #else
         bool _isconst = isConst();
     #endif
-        Dsymbol* par = toParent2();
-        if (par && par->isFuncDeclaration())
-        {
-            static_local = true;
-            if (init && init->isExpInitializer()) {
-                _isconst = false;
-            }
-        }
+
 
         Logger::println("Creating global variable");
 
@@ -943,10 +934,12 @@ void VarDeclaration::toObjFile(int multiobj)
         if (Logger::enabled())
             Logger::cout() << *gvar << '\n';
 
-        if (static_local)
-            DtoConstInitGlobal(this);
-        else
-            gIR->constInitList.push_back(this);
+        // if this global is used from a nested function, this is necessary or
+        // optimization could potentially remove the global (if it's the only use)
+        if (nakedUse)
+            gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+
+        gIR->constInitList.push_back(this);
     }
     else
     {

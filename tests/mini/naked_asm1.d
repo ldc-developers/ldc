@@ -1,5 +1,3 @@
-module tangotests.asm5;
-
 extern(C) int printf(char*, ...);
 
 void main()
@@ -13,18 +11,20 @@ int func()
 {
     version (LLVM_InlineAsm_X86)
     {
-	asm
-    	{
-		naked;
-    		mov EAX, 42;
-    		ret;
-    	}
+        asm
+        {
+            naked;
+            mov EAX, 42;
+            ret;
+        }
     }
     else version(LLVM_InlineAsm_X86_64)
     {
         asm
         {
-                movq RAX, 42;
+            naked;
+            movq RAX, 42;
+            ret;
         }
     }
 }

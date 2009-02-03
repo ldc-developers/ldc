@@ -274,6 +274,7 @@ struct VarDeclaration : Declaration
     // LDC
     AnonDeclaration* anonDecl;
     unsigned offset2;
+    bool nakedUse;
 };
 
 /**************************************************************/

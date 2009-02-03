@@ -8,7 +8,8 @@ const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
 
 void DtoResolveFunction(FuncDeclaration* fdecl);
 void DtoDeclareFunction(FuncDeclaration* fdecl);
-void DtoDefineFunc(FuncDeclaration* fd);
+void DtoDefineFunction(FuncDeclaration* fd);
+void DtoDefineNakedFunction(FuncDeclaration* fd);
 
 DValue* DtoArgument(Argument* fnarg, Expression* argexp);
 void DtoVariadicArgument(Expression* argexp, LLValue* dst);

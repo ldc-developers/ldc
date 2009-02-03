@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <sstream>
 #include <fstream>
 #include <iostream>
 
@@ -205,6 +204,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
 {
     Logger::print("VarExp::toConstElem: %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
     if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
     {
         // this seems to be the static initialiser for structs
@@ -216,7 +216,8 @@ LLConstant* VarExp::toConstElem(IRState* p)
         assert(ts->sym->ir.irStruct->constInit);
         return ts->sym->ir.irStruct->constInit;
     }
-    else if (TypeInfoDeclaration* ti = var->isTypeInfoDeclaration())
+
+    if (TypeInfoDeclaration* ti = var->isTypeInfoDeclaration())
     {
         const LLType* vartype = DtoType(type);
         LLConstant* m = DtoTypeInfoOf(ti->tinfo, false);
@@ -224,15 +225,17 @@ LLConstant* VarExp::toConstElem(IRState* p)
             m = llvm::ConstantExpr::getBitCast(m, vartype);
         return m;
     }
-    else if (VarDeclaration* vd = var->isVarDeclaration())
+
+    VarDeclaration* vd = var->isVarDeclaration();
+    if (vd && vd->isConst() && vd->init)
     {
         // return the initializer
-        assert(vd->init);
         return DtoConstInitializer(loc, type, vd->init);
     }
+
     // fail
-    assert(0 && "Unsupported const VarExp kind");
-    return NULL;
+    error("non-constant expression %s", toChars());
+    return llvm::UndefValue::get(DtoType(type));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

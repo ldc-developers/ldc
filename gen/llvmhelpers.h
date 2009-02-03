@@ -64,9 +64,6 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 // is template instance check
 bool DtoIsTemplateInstance(Dsymbol* s);
 
-// generates lazy static initialization code for a global variable
-void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t);
-
 // these are all basically drivers for the codegeneration called by the main loop
 void DtoResolveDsymbol(Dsymbol* dsym);
 void DtoDeclareDsymbol(Dsymbol* dsym);

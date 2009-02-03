@@ -1529,21 +1529,66 @@ struct AsmProcessor
     }
 
     void addOperand(const char * fmt, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
-	insnTemplate->writestring((char*) fmt);
-	insnTemplate->printf("<<%s%d>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
-	asmcode->args.push( new AsmArg(type, e, mode) );
+        if (sc->func->naked)
+        {
+            switch(type)
+            {
+            case Arg_Integer:
+                if (e->type->isunsigned())
+                    insnTemplate->printf("$%llu", e->toUInteger());
+                else
+                    insnTemplate->printf("$%lld", e->toInteger());
+                break;
+
+            case Arg_Pointer:
+                stmt->error("unsupported pointer reference to '%s' in naked asm", e->toChars());
+                break;
+
+            case Arg_Memory:
+                if (e->op == TOKvar)
+                {
+                    VarExp* v = (VarExp*)e;
+                    if (VarDeclaration* vd = v->var->isVarDeclaration())
+                    {
+                        if (!vd->isDataseg())
+                        {
+                            stmt->error("only global variables can be referenced by identifier in naked asm");
+                            break;
+                        }
+
+                        // print out the mangle
+                        insnTemplate->writestring(vd->mangle());
+                        vd->nakedUse = true;
+                        break;
+                    }
+                }
+                stmt->error("unsupported memory reference to '%s' in naked asm", e->toChars());
+                break;
+
+            default:
+                assert(0 && "asm unsupported arg");
+                break;
+            }
+        }
+        else
+        {
+            insnTemplate->writestring((char*) fmt);
+            insnTemplate->printf("<<%s%d>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
+            asmcode->args.push( new AsmArg(type, e, mode) );
+        }
     }
     void addOperand2(const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input) {
-    insnTemplate->writestring((char*) fmtpre);
-    insnTemplate->printf("<<%s%d>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
-    insnTemplate->writestring((char*) fmtpost);
-    asmcode->args.push( new AsmArg(type, e, mode) );
+        assert(!sc->func->naked);
+        insnTemplate->writestring((char*) fmtpre);
+        insnTemplate->printf("<<%s%d>>", (mode==Mode_Input)?"in":"out", asmcode->args.dim);
+        insnTemplate->writestring((char*) fmtpost);
+        asmcode->args.push( new AsmArg(type, e, mode) );
     }
 
     void addLabel(char* id) {
-    insnTemplate->writestring(sc->func->mangle());
-    insnTemplate->writestring("_");
-    insnTemplate->writestring(id);
+        insnTemplate->writestring(sc->func->mangle());
+        insnTemplate->writestring("_");
+        insnTemplate->writestring(id);
     }
 
     /* Determines whether the operand is a register, memory reference
@@ -2037,9 +2082,12 @@ struct AsmProcessor
 				insnTemplate->writebyte('*');
 				use_star = false;
 			    }
+
+                if (!sc->func->naked) { // no addrexp in naked asm please :)
                 Type* tt = e->type->pointerTo();
 			    e = new AddrExp(0, e);
 			    e->type = tt;
+                }
 
 			    addOperand(fmt, Arg_Memory, e, asmcode, mode);
 			}
@@ -2636,9 +2684,9 @@ struct AsmProcessor
 	// parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
 	// GAS is padding with NOPs last time I checked.
 	Expression * e = parseAsmExp()->optimize(WANTvalue | WANTinterpret);
-	integer_t align = e->toInteger();
+	uinteger_t align = e->toUInteger();
 
-	if (align & align - 1 == 0) {
+	if ((align & (align - 1)) == 0) {
 	    //FIXME: This printf is not portable. The use of `align` varies from system to system; 
 	    // on i386 using a.out, .align `n` will align on a 2^`n` boundary instead of an `n` boundary
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN 
@@ -2647,7 +2695,7 @@ struct AsmProcessor
 	    insnTemplate->printf(".align\t%u", (unsigned) align);
 #endif
 	} else {
-	    stmt->error("alignment must be a power of 2");
+	    stmt->error("alignment must be a power of 2, not %u", (unsigned) align);
 	}
 
 	setAsmCode();

@@ -838,36 +838,6 @@ bool DtoIsTemplateInstance(Dsymbol* s)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-//      LAZY STATIC INIT HELPER
-////////////////////////////////////////////////////////////////////////////////////////*/
-
-void DtoLazyStaticInit(bool istempl, LLValue* gvar, Initializer* init, Type* t)
-{
-    // create a flag to make sure initialization only happens once
-    llvm::GlobalValue::LinkageTypes gflaglink = istempl ? TEMPLATE_LINKAGE_TYPE : llvm::GlobalValue::InternalLinkage;
-    std::string gflagname(gvar->getName());
-    gflagname.append("__initflag");
-    llvm::GlobalVariable* gflag = new llvm::GlobalVariable(LLType::Int1Ty,false,gflaglink,DtoConstBool(false),gflagname,gIR->module);
-
-    // check flag and do init if not already done
-    llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* initbb = llvm::BasicBlock::Create("ifnotinit",gIR->topfunc(),oldend);
-    llvm::BasicBlock* endinitbb = llvm::BasicBlock::Create("ifnotinitend",gIR->topfunc(),oldend);
-    LLValue* cond = gIR->ir->CreateICmpEQ(gIR->ir->CreateLoad(gflag,"tmp"),DtoConstBool(false));
-    gIR->ir->CreateCondBr(cond, initbb, endinitbb);
-    gIR->scope() = IRScope(initbb,endinitbb);
-    DValue* ie = DtoInitializer(gvar, init);
-    
-    DVarValue dst(t, gvar);
-    DtoAssign(init->loc, &dst, ie);
-    
-    gIR->ir->CreateStore(DtoConstBool(true), gflag);
-    gIR->ir->CreateBr(endinitbb);
-    gIR->scope() = IRScope(endinitbb,oldend);
-}
-
-/****************************************************************************************/
-/*////////////////////////////////////////////////////////////////////////////////////////
 //      PROCESSING QUEUE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
@@ -946,7 +916,7 @@ void DtoDefineDsymbol(Dsymbol* dsym)
         DtoDefineClass(cd);
     }
     else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-        DtoDefineFunc(fd);
+        DtoDefineFunction(fd);
     }
     else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
         DtoDefineTypeInfo(fd);
@@ -967,36 +937,10 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->locToChars());
     LOG_SCOPE;
 
-    // if the variable is a function local static variable with a runtime initializer
-    // we must do lazy initialization, which involves a boolean flag to make sure it happens only once
-    // FIXME: I don't think it's thread safe ...
-
-    bool doLazyInit = false;
     Dsymbol* par = vd->toParent();
 
-    if (par && par->isFuncDeclaration() && vd->init)
-    {
-        if (ExpInitializer* einit = vd->init->isExpInitializer())
-        {
-            if (!einit->exp->isConst())
-            {
-                // mark as needing lazy now
-                doLazyInit = true;
-            }
-        }
-    }
-
-    // if we do lazy init, we start out with an undefined initializer
-    LLConstant* initVal;
-    if (doLazyInit)
-    {
-        initVal = llvm::UndefValue::get(DtoType(vd->type));
-    }
-    // otherwise we build it
-    else
-    {
-        initVal = DtoConstInitializer(vd->loc, vd->type, vd->init);
-    }
+    // build the initializer
+    LLConstant* initVal = DtoConstInitializer(vd->loc, vd->type, vd->init);
 
     // set the initializer if appropriate
     IrGlobal* glob = vd->ir.irGlobal;
@@ -1035,9 +979,6 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             gIR->usedArray.push_back(llvm::ConstantExpr::getBitCast(gv, getVoidPtrType()));
         }
     }
-
-    if (doLazyInit)
-        DtoLazyStaticInit(istempl, gvar, vd->init, vd->type);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -209,12 +209,16 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             {
                 Type* t = arg->type->toBasetype();
 
-                // 32bit ints, pointers, classes, static arrays and AAs
+                // 32bit ints, pointers, classes, static arrays, AAs, ref and out params
                 // are candidate for being passed in EAX
-                if ((arg->storageClass & STCin) &&
-                    ((t->isscalar() && !t->isfloating()) ||
+                if (
+                    (arg->storageClass & (STCref|STCout))
+                    ||
+                    ((arg->storageClass & STCin) &&
+                     ((t->isscalar() && !t->isfloating()) ||
                      t->ty == Tclass || t->ty == Tsarray || t->ty == Taarray) &&
-                    (t->size() <= PTRSIZE))
+                     (t->size() <= PTRSIZE))
+                   )
                 {
                     arg->llvmAttrs |= llvm::Attribute::InReg;
                     assert((f->thisAttrs & llvm::Attribute::InReg) == 0 && "can't have two inreg args!");
@@ -618,7 +622,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDefineFunc(FuncDeclaration* fd)
+void DtoDefineFunction(FuncDeclaration* fd)
 {
     if (fd->ir.defined) return;
     fd->ir.defined = true;
@@ -627,6 +631,13 @@ void DtoDefineFunc(FuncDeclaration* fd)
 
     Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
+
+    // if this function is naked, we take over right away! no standard processing!
+    if (fd->naked)
+    {
+        DtoDefineNakedFunction(fd);
+        return;
+    }
 
     // debug info
     if (global.params.symdebug) {
@@ -684,8 +695,7 @@ void DtoDefineFunc(FuncDeclaration* fd)
     
     // this hack makes sure the frame pointer elimination optimization is disabled.
     // this this eliminates a bunch of inline asm related issues.
-    // naked must always eliminate the framepointer however...
-    if (fd->inlineAsm && !fd->naked)
+    if (fd->inlineAsm)
     {
         // emit a call to llvm_eh_unwind_init
         LLFunction* hack = GET_INTRINSIC_DECL(eh_unwind_init);

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <list>
+#include <sstream>
 
 #include "root.h"
 #include "aggregate.h"
@@ -200,10 +201,12 @@ struct IRState
 
     // for inline asm
     IRAsmBlock* asmBlock;
+    std::ostringstream nakedAsm;
 
-    // dwarf dbg stuff
     // 'used' array solely for keeping a reference to globals
     std::vector<LLConstant*> usedArray;
+
+    // dwarf dbg stuff
     LLGlobalVariable* dwarfCUs;
     LLGlobalVariable* dwarfSPs;
     LLGlobalVariable* dwarfGVs;
