@@ -8,6 +8,13 @@ int foo()
         mov EAX, fourty2;
         ret;
     }
+    else version(X86_64)
+    asm
+    {
+        naked;
+        mov EAX, fourty2;
+        ret;
+    }
     else static assert(0, "todo");
 }
 
