@@ -284,19 +284,18 @@ struct VarDeclaration : Declaration
 
 /**************************************************************/
 
-// This is a shell around a back end symbol
+// LDC uses this to denote static struct initializers
 
-struct SymbolDeclaration : Declaration
+struct StaticStructInitDeclaration : Declaration
 {
-    Symbol *sym;
     StructDeclaration *dsym;
 
-    SymbolDeclaration(Loc loc, Symbol *s, StructDeclaration *dsym);
+    StaticStructInitDeclaration(Loc loc, StructDeclaration *dsym);
 
     Symbol *toSymbol();
 
     // Eliminate need for dynamic_cast
-    SymbolDeclaration *isSymbolDeclaration() { return (SymbolDeclaration *)this; }
+    StaticStructInitDeclaration *isStaticStructInitDeclaration() { return (StaticStructInitDeclaration *)this; }
 };
 
 struct ClassInfoDeclaration : VarDeclaration

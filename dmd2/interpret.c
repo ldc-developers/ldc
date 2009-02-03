@@ -987,7 +987,7 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d)
 {
     Expression *e = EXP_CANT_INTERPRET;
     VarDeclaration *v = d->isVarDeclaration();
-    SymbolDeclaration *s = d->isSymbolDeclaration();
+    StaticStructInitDeclaration *s = d->isStaticStructInitDeclaration();
     if (v)
     {
 #if DMDV2
@@ -1011,11 +1011,9 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d)
     }
     else if (s)
     {
-	if (s->dsym->toInitializer() == s->sym)
-	{   Expressions *exps = new Expressions();
-	    e = new StructLiteralExp(0, s->dsym, exps);
-	    e = e->semantic(NULL);
-	}
+	Expressions *exps = new Expressions();
+	e = new StructLiteralExp(0, s->dsym, exps);
+	e = e->semantic(NULL);
     }
     return e;
 }
@@ -1466,10 +1464,10 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, fp_t fp, int post)
 	    if (v->value && v->value->op == TOKvar)
 	    {
 		VarExp *ve2 = (VarExp *)v->value;
-		if (ve2->var->isSymbolDeclaration())
+		if (ve2->var->isStaticStructInitDeclaration())
 		{
 		    /* This can happen if v is a struct initialized to
-		     * 0 using an __initZ SymbolDeclaration from
+		     * 0 using an StaticStructInitDeclaration from
 		     * TypeStruct::defaultInit()
 		     */
 		}
