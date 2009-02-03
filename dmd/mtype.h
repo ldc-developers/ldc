@@ -438,11 +438,13 @@ struct TypeFunction : Type
     bool retInPtr;
     bool usesThis;
     bool usesNest;
+    bool structInregArg;
     unsigned retAttrs;
     unsigned thisAttrs; // also used for nest
+    // parameter index in the llvm function that contains the first not-implicit arg
+    size_t firstRealArg;
 
     bool reverseParams;
-    size_t reverseIndex;
 };
 
 struct TypeDelegate : Type

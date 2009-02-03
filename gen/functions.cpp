@@ -101,6 +101,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         paramvec.push_back(getVoidPtrType()); // _argptr
     }
 
+    // now that all implicit args are done, store the start of the real args
+    f->firstRealArg = paramvec.size();
+
     // number of formal params
     size_t n = Argument::dim(f->parameters);
 
@@ -114,7 +117,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         if (n > 1 && f->linkage == LINKd && !dVararg)
         {
             f->reverseParams = true;
-            f->reverseIndex = paramvec.size();
         }
     }
 #endif // X86_REVERSE_PARAMS
@@ -177,24 +179,17 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     // reverse params?
     if (f->reverseParams)
     {
-        std::reverse(paramvec.begin() + f->reverseIndex, paramvec.end());
+        std::reverse(paramvec.begin() + f->firstRealArg, paramvec.end());
     }
 
-    // construct function type
-    bool isvararg = !(dVararg || arrayVararg) && f->varargs;
-    llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
-
 #if X86_PASS_IN_EAX
-    // tell first param to be passed in a register if we can
+    // pass first param in EAX if it fits, is not floating point and is not a 3 byte struct.
     // ONLY extern(D) functions !
     if ((n > 0 || usesthis || usesnest) && f->linkage == LINKd)
     {
         // FIXME: Only x86 right now ...
         if (global.params.cpu == ARCHx86)
         {
-            // pass first param in EAX if it fits, is not floating point and is not a 3 byte struct.
-            // FIXME: struct are not passed in EAX yet
-
             int n_inreg = f->reverseParams ? n - 1 : 0;
             Argument* arg = Argument::getNth(f->parameters, n_inreg);
 
@@ -209,24 +204,41 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             {
                 Type* t = arg->type->toBasetype();
 
-                // 32bit ints, pointers, classes, static arrays, AAs, ref and out params
+                // 32bit ints, pointers, classes, static arrays, AAs, ref and out params,
+                // and structs with size <= 4 and != 3
                 // are candidate for being passed in EAX
                 if (
                     (arg->storageClass & (STCref|STCout))
                     ||
                     ((arg->storageClass & STCin) &&
                      ((t->isscalar() && !t->isfloating()) ||
-                     t->ty == Tclass || t->ty == Tsarray || t->ty == Taarray) &&
-                     (t->size() <= PTRSIZE))
+                      t->ty == Tclass || t->ty == Tsarray || t->ty == Taarray ||
+                      (t->ty == Tstruct && t->size() != 3)
+                     ) && (t->size() <= PTRSIZE))
                    )
                 {
                     arg->llvmAttrs |= llvm::Attribute::InReg;
                     assert((f->thisAttrs & llvm::Attribute::InReg) == 0 && "can't have two inreg args!");
+
+                    // structs need to go from {...}* byval to {...} inreg
+                    if ((arg->storageClass & STCin) && t->ty == Tstruct)
+                    {
+                        int n_param = f->reverseParams ? f->firstRealArg + n - 1 - n_inreg : f->firstRealArg + n_inreg;
+                        assert(isaPointer(paramvec[n_param]) && (arg->llvmAttrs & llvm::Attribute::ByVal)
+                            && "struct parameter expected to be {...}* byval before inreg is applied");
+                        paramvec[n_param] = paramvec[n_param]->getContainedType(0);
+                        arg->llvmAttrs &= ~llvm::Attribute::ByVal;
+                        f->structInregArg = true;
+                    }
                 }
             }
         }
     }
 #endif // X86_PASS_IN_EAX
+
+    // construct function type
+    bool isvararg = !(dVararg || arrayVararg) && f->varargs;
+    llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
 
     // done
     f->retInPtr = retinptr;
@@ -740,6 +752,21 @@ void DtoDefineFunction(FuncDeclaration* fd)
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
+            IrLocal* irloc = vd->ir.irLocal;
+            assert(irloc);
+
+            // if it's inreg struct arg, allocate storage
+            if (f->structInregArg && i == (f->reverseParams ? n - 1 : 0))
+            {
+                int n_param = f->reverseParams ? f->firstRealArg + n - 1 - i : f->firstRealArg + i;
+                assert(!f->usesNest && !f->usesThis && isaStruct(functype->getParamType(n_param))
+                    && "Preconditions for inreg struct arg not met!");
+
+                LLValue* mem = DtoAlloca(functype->getParamType(n_param), "inregstructarg");
+                DtoStore(irloc->value, mem);
+                irloc->value = mem;
+            }
+
         #if DMDV2
             if (vd->nestedrefs.dim)
         #else
@@ -748,9 +775,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
             {
                 fd->nestedVars.insert(vd);
             }
-
-            IrLocal* irloc = vd->ir.irLocal;
-            assert(irloc);
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
