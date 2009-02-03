@@ -826,6 +826,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 //      TEMPLATE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
+// FIXME: when is this the right one to use instead of Dsymbol::inTemplateInstance() ?
 bool DtoIsTemplateInstance(Dsymbol* s)
 {
     if (!s) return false;
