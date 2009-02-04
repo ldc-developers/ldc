@@ -851,7 +851,7 @@ int main(int argc, char *argv[])
         global.params.is64bit = false;
         global.params.cpu = ARCHx86;
         if (global.params.useInlineAsm) {
-            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
+            VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
         }
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
