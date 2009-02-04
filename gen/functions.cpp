@@ -220,15 +220,15 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
                     arg->llvmAttrs |= llvm::Attribute::InReg;
                     assert((f->thisAttrs & llvm::Attribute::InReg) == 0 && "can't have two inreg args!");
 
-                    // structs need to go from {...}* byval to {...} inreg
+                    // structs need to go from {...}* byval to i8/i16/i32 inreg
                     if ((arg->storageClass & STCin) && t->ty == Tstruct)
                     {
                         int n_param = f->reverseParams ? f->firstRealArg + n - 1 - n_inreg : f->firstRealArg + n_inreg;
                         assert(isaPointer(paramvec[n_param]) && (arg->llvmAttrs & llvm::Attribute::ByVal)
                             && "struct parameter expected to be {...}* byval before inreg is applied");
-                        paramvec[n_param] = paramvec[n_param]->getContainedType(0);
+                        f->structInregArg = paramvec[n_param]->getContainedType(0);
+                        paramvec[n_param] = LLIntegerType::get(8*t->size());
                         arg->llvmAttrs &= ~llvm::Attribute::ByVal;
-                        f->structInregArg = true;
                     }
                 }
             }
@@ -759,11 +759,14 @@ void DtoDefineFunction(FuncDeclaration* fd)
             if (f->structInregArg && i == (f->reverseParams ? n - 1 : 0))
             {
                 int n_param = f->reverseParams ? f->firstRealArg + n - 1 - i : f->firstRealArg + i;
-                assert(!f->usesNest && !f->usesThis && isaStruct(functype->getParamType(n_param))
+                const LLType* paramty = functype->getParamType(n_param);
+                assert(!f->usesNest && !f->usesThis && 
+                    llvm::isa<LLIntegerType>(paramty) && isaStruct(f->structInregArg)
                     && "Preconditions for inreg struct arg not met!");
 
-                LLValue* mem = DtoAlloca(functype->getParamType(n_param), "inregstructarg");
-                DtoStore(irloc->value, mem);
+                LLValue* mem = DtoAlloca(f->structInregArg, "inregstructarg");
+                
+                DtoStore(irloc->value, DtoBitCast(mem, getPtrToType(paramty)));
                 irloc->value = mem;
             }
 

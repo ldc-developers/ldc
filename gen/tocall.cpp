@@ -370,14 +370,15 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             LLValue* arg = argval->getRVal();
 
+            int j = tf->reverseParams ? beg + n - i - 1 : beg + i;
+
             // if it's a struct inreg arg, load first to pass as first-class value
             if (tf->structInregArg && i == (tf->reverseParams ? n - 1 : 0))
             {
-                assert(fnarg->llvmAttrs & llvm::Attribute::InReg);
+                assert((fnarg->llvmAttrs & llvm::Attribute::InReg) && isaStruct(tf->structInregArg));
+                arg = DtoBitCast(arg, getPtrToType(callableTy->getParamType(j)));
                 arg = DtoLoad(arg);
             }
-
-            int j = tf->reverseParams ? beg + n - i - 1 : beg + i;
 
             // parameter type mismatch, this is hard to get rid of
             if (arg->getType() != callableTy->getParamType(j))

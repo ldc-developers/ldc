@@ -2691,7 +2691,7 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->retInPtr = false;
     this->usesThis = false;
     this->usesNest = false;
-    this->structInregArg = false;
+    this->structInregArg = NULL;
     this->retAttrs = 0;
     this->thisAttrs = 0;
     this->reverseParams = false;
