@@ -16,7 +16,7 @@ llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name = "");
 llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name = "");
 
 // assertion generator
-void DtoAssert(Loc* loc, DValue* msg);
+void DtoAssert(Module* M, Loc* loc, DValue* msg);
 
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);

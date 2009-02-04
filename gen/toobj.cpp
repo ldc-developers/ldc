@@ -99,8 +99,9 @@ void Module::genobjfile(int multiobj)
     ir.module = new llvm::Module(mname);
 
     // module ir state
-    // might already exist via import, just overwrite...
-    //FIXME: is there a good reason for overwriting?
+    // might already exist via import, just overwrite since
+    // the global created for the filename must belong to the right llvm module
+    // FIXME: but shouldn't this always get reset between modules? like other IrSymbols
     this->ir.irModule = new IrModule(this, srcfile->toChars());
 
     // set target stuff
