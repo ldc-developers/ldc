@@ -324,7 +324,7 @@ static void DtoDeclareInterface(InterfaceDeclaration* cd)
     gIR->constInitList.push_back(cd);
 
     // emit typeinfo and request definition
-    if (cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd))
+    if (mustDefineSymbol(cd))
     {
         gIR->defineList.push_back(cd);
         DtoTypeInfoOf(cd->type, false);
@@ -360,7 +360,7 @@ void DtoDeclareClass(ClassDeclaration* cd)
     gIR->structs.push_back(irstruct);
 
     bool needs_definition = false;
-    if (cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd)) {
+    if (mustDefineSymbol(cd)) {
         needs_definition = true;
     }
 
@@ -821,7 +821,7 @@ static void DtoDefineInterface(InterfaceDeclaration* cd)
     DefineInterfaceInfos(cd->ir.irStruct);
 
     // define the classinfo
-    if (cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd))
+    if (mustDefineSymbol(cd))
     {
         DtoDefineClassInfo(cd);
     }
@@ -851,7 +851,7 @@ void DtoDefineClass(ClassDeclaration* cd)
 
     IrStruct* irstruct = cd->ir.irStruct;
 
-    assert(cd->getModule() == gIR->dmodule || DtoIsTemplateInstance(cd));
+    assert(mustDefineSymbol(cd));
 
     // sanity check
     assert(irstruct->init);

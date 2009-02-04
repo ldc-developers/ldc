@@ -607,7 +607,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
     sd->ir.irStruct->init = initvar;
 
     gIR->constInitList.push_back(sd);
-    if (DtoIsTemplateInstance(sd) || sd->getModule() == gIR->dmodule)
+    if (mustDefineSymbol(sd))
         gIR->defineList.push_back(sd);
 }
 

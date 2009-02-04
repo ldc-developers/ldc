@@ -275,7 +275,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     if (VarDeclaration* vd = sym->isVarDeclaration())
     {
         // template
-        if (DtoIsTemplateInstance(sym))
+        if (needsTemplateLinkage(sym))
             return TEMPLATE_LINKAGE_TYPE;
         // local static
         else if (sym->parent && sym->parent->isFuncDeclaration())
@@ -296,7 +296,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         // template instances should have weak linkage
         // but only if there's a body, and it's not naked
         // otherwise we make it external
-        else if (DtoIsTemplateInstance(fdecl) && fdecl->fbody && !fdecl->naked)
+        else if (needsTemplateLinkage(fdecl) && fdecl->fbody && !fdecl->naked)
             return TEMPLATE_LINKAGE_TYPE;
         // extern(C) functions are always external
         else if (ft->linkage == LINKc)
@@ -306,7 +306,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     else if (ClassDeclaration* cd = sym->isClassDeclaration())
     {
         // template
-        if (DtoIsTemplateInstance(cd))
+        if (needsTemplateLinkage(cd))
             return TEMPLATE_LINKAGE_TYPE;
     }
     else
@@ -320,7 +320,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
 
 llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
 {
-    if (DtoIsTemplateInstance(sym))
+    if (needsTemplateLinkage(sym))
         return TEMPLATE_LINKAGE_TYPE;
     else
         return llvm::GlobalValue::InternalLinkage;
@@ -328,7 +328,7 @@ llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
 
 llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
 {
-    if (DtoIsTemplateInstance(sym))
+    if (needsTemplateLinkage(sym))
         return TEMPLATE_LINKAGE_TYPE;
     else
         return llvm::GlobalValue::ExternalLinkage;

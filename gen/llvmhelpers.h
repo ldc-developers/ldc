@@ -61,8 +61,8 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to);
 // return the same val as passed in, modified to the target type, if possible, otherwise returns a new DValue
 DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 
-// is template instance check
-bool DtoIsTemplateInstance(Dsymbol* s);
+// is template instance check, returns module where instantiated
+Module* DtoIsTemplateInstance(Dsymbol* s);
 
 // these are all basically drivers for the codegeneration called by the main loop
 void DtoResolveDsymbol(Dsymbol* dsym);
@@ -107,6 +107,12 @@ void findDefaultTarget();
 
 // fixup an overloaded intrinsic name string
 void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name);
+
+// return true if the symbol should be defined in the current module, not just declared
+bool mustDefineSymbol(Dsymbol* s);
+
+// returns true if the symbol needs template linkage, or just external
+bool needsTemplateLinkage(Dsymbol* s);
 
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below

@@ -831,15 +831,14 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 //      TEMPLATE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-// FIXME: when is this the right one to use instead of Dsymbol::inTemplateInstance() ?
-bool DtoIsTemplateInstance(Dsymbol* s)
+Module* DtoIsTemplateInstance(Dsymbol* s)
 {
-    if (!s) return false;
+    if (!s) return NULL;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
-        return true;
+        return s->isTemplateInstance()->tmodule;
     else if (s->parent)
         return DtoIsTemplateInstance(s->parent);
-    return false;
+    return NULL;
 }
 
 /****************************************************************************************/
@@ -958,15 +957,10 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     assert(!glob->constInit);
     glob->constInit = initVal;
 
-    bool istempl = false;
-    if ((vd->storage_class & STCcomdat) || (vd->parent && DtoIsTemplateInstance(vd->parent))) {
-        istempl = true;
-    }
-
     // assign the initializer
     llvm::GlobalVariable* globalvar = llvm::cast<llvm::GlobalVariable>(glob->value);
 
-    if (!(vd->storage_class & STCextern) && (vd->getModule() == gIR->dmodule || istempl))
+    if (!(vd->storage_class & STCextern) && mustDefineSymbol(vd))
     {
         if (Logger::enabled())
         {
@@ -1558,4 +1552,28 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
         name.replace(pos, 1, tmp);
     
     Logger::println("final intrinsic name: %s", name.c_str());
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool mustDefineSymbol(Dsymbol* s)
+{
+    Module* M = DtoIsTemplateInstance(s);
+    // if it's a template instance, check the instantiating module
+    // not the module that defines the template
+    if (M)
+        return M == gIR->dmodule;
+    return s->getModule() == gIR->dmodule;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool needsTemplateLinkage(Dsymbol* s)
+{
+    Module* M = DtoIsTemplateInstance(s);
+    // only return true if the symbol is a template instances
+    // and if this instance originated in the current module
+    if (M)
+        return M == gIR->dmodule;
+    return false;
 }

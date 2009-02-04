@@ -486,20 +486,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     Type* t = fdecl->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
 
-    bool declareOnly = false;
-    bool templInst = fdecl->parent && DtoIsTemplateInstance(fdecl->parent);
-    if (!templInst && fdecl->getModule() != gIR->dmodule)
-    {
-        Logger::println("not template instance, and not in this module. declare only!");
-        Logger::println("current module: %s", gIR->dmodule->ident->toChars());
-        if(fdecl->getModule())
-            Logger::println("func module: %s", fdecl->getModule()->ident->toChars());
-        else {
-            Logger::println("func not in a module, is runtime");
-        }
-        declareOnly = true;
-    }
-    else if (fdecl->llvmInternal == LLVMva_start)
+    bool declareOnly = !mustDefineSymbol(fdecl);
+
+    if (fdecl->llvmInternal == LLVMva_start)
         declareOnly = true;
 
     if (!fdecl->ir.irFunc) {
@@ -668,9 +657,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
     llvm::Function* func = fd->ir.irFunc->func;
     const llvm::FunctionType* functype = func->getFunctionType();
 
-    // only members of the current module or template instances maybe be defined
-    if (!(fd->getModule() == gIR->dmodule || DtoIsTemplateInstance(fd->parent)))
-        return;
+    // sanity check
+    assert(mustDefineSymbol(fd));
 
     // set module owner
     fd->ir.DModule = gIR->dmodule;
