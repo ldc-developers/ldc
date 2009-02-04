@@ -99,8 +99,9 @@ void Module::genobjfile(int multiobj)
     ir.module = new llvm::Module(mname);
 
     // module ir state
-    // might already exist via import, just overwrite...
-    //FIXME: is there a good reason for overwriting?
+    // might already exist via import, just overwrite since
+    // the global created for the filename must belong to the right llvm module
+    // FIXME: but shouldn't this always get reset between modules? like other IrSymbols
     this->ir.irModule = new IrModule(this, srcfile->toChars());
 
     // set target stuff
@@ -417,7 +418,7 @@ llvm::Function* build_module_ctor()
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(LINKd));
+    fn->setCallingConv(DtoCallingConv(0, LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
@@ -432,7 +433,7 @@ llvm::Function* build_module_ctor()
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(LINKd));
+        call->setCallingConv(DtoCallingConv(0, LINKd));
     }
 
     // debug info end
@@ -462,7 +463,7 @@ static llvm::Function* build_module_dtor()
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(LINKd));
+    fn->setCallingConv(DtoCallingConv(0, LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
@@ -477,7 +478,7 @@ static llvm::Function* build_module_dtor()
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(LINKd));
+        call->setCallingConv(DtoCallingConv(0, LINKd));
     }
 
     // debug info end
@@ -507,7 +508,7 @@ static llvm::Function* build_module_unittest()
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(LINKd));
+    fn->setCallingConv(DtoCallingConv(0, LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
     IRBuilder<> builder(bb);
@@ -522,7 +523,7 @@ static llvm::Function* build_module_unittest()
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(LINKd));
+        call->setCallingConv(DtoCallingConv(0, LINKd));
     }
 
     // debug info end

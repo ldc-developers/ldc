@@ -1558,6 +1558,10 @@ struct AsmProcessor
                             break;
                         }
 
+			// osx needs an extra underscore
+			if (global.params.os == OSMacOSX)
+			  insnTemplate->writestring("_");
+
                         // print out the mangle
                         insnTemplate->writestring(vd->mangle());
                         vd->nakedUse = true;

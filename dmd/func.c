@@ -2566,7 +2566,7 @@ void StaticDtorDeclaration::semantic(Scope *sc)
 	Statement *s = new DeclarationStatement(0, v);
 	sa->push(s);
 	Expression *e = new IdentifierExp(0, id);
-	e = new AddAssignExp(0, e, new IntegerExp(-1));
+	e = new AddAssignExp(0, e, new IntegerExp((uint64_t)-1));
 	e = new EqualExp(TOKnotequal, 0, e, new IntegerExp(0));
 	s = new IfStatement(0, NULL, e, new ReturnStatement(0, NULL), NULL);
 	sa->push(s);

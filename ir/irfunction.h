@@ -30,9 +30,6 @@ struct IrFunction : IrBase
     
     llvm::Constant* dwarfSubProg;
 
-    llvm::AllocaInst* srcfileArg;
-    llvm::AllocaInst* msgArg;
-
     // pushes a unique label scope of the given name
     void pushUniqueLabelScope(const char* name);
     // pops a label scope

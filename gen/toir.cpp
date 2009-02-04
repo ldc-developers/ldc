@@ -1632,6 +1632,8 @@ DValue* NewExp::toElem(IRState* p)
         DVarValue tmpvar(newtype, mem);
 
         // default initialize
+        // FIXME: should this use DtoConstExpInit instead ?
+        // or is static arrays the only troublemaker?
         Expression* exp = newtype->defaultInit(loc);
         DValue* iv = exp->toElem(gIR);
         DtoAssign(loc, &tmpvar, iv);
@@ -1766,7 +1768,7 @@ DValue* AssertExp::toElem(IRState* p)
 
         // call assert runtime functions
         p->scope() = IRScope(assertbb,endbb);
-        DtoAssert(&loc, msg ? msg->toElem(p) : NULL);
+        DtoAssert(p->func()->decl->getModule(), &loc, msg ? msg->toElem(p) : NULL);
 
         // rewrite the scope
         p->scope() = IRScope(endbb,oldend);
@@ -1941,7 +1943,7 @@ DValue* HaltExp::toElem(IRState* p)
     // FIXME: DMD inserts a trap here... we probably should as well !?!
 
 #if 1
-    DtoAssert(&loc, NULL);
+    DtoAssert(p->func()->decl->getModule(), &loc, NULL);
 #else
     // call the new (?) trap intrinsic
     p->ir->CreateCall(GET_INTRINSIC_DECL(trap),"");

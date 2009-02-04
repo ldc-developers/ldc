@@ -33,9 +33,6 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     
     dwarfSubProg = NULL;
 
-    srcfileArg = NULL;
-    msgArg = NULL;
-
     nextUnique.push(0);
 }
 

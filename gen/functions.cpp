@@ -528,7 +528,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // calling convention
     if (!vafunc && fdecl->llvmInternal != LLVMintrinsic)
-        func->setCallingConv(DtoCallingConv(f->linkage));
+        func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
 
@@ -546,12 +546,16 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // static ctor
-    if (fdecl->isStaticCtorDeclaration() && fdecl->getModule() == gIR->dmodule) {
-        gIR->ctors.push_back(fdecl);
+    if (fdecl->isStaticCtorDeclaration()) {
+        if (fdecl->getModule() == gIR->dmodule || fdecl->inTemplateInstance()) {
+            gIR->ctors.push_back(fdecl);
+        }
     }
     // static dtor
-    else if (fdecl->isStaticDtorDeclaration() && fdecl->getModule() == gIR->dmodule) {
-        gIR->dtors.push_back(fdecl);
+    else if (fdecl->isStaticDtorDeclaration()) {
+        if (fdecl->getModule() == gIR->dmodule || fdecl->inTemplateInstance()) {
+            gIR->dtors.push_back(fdecl);
+        }
     }
 
     // we never reference parameters of function prototypes

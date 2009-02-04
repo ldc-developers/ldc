@@ -109,7 +109,7 @@ llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std:
 // ASSERT HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-void DtoAssert(Loc* loc, DValue* msg)
+void DtoAssert(Module* M, Loc* loc, DValue* msg)
 {
     std::vector<LLValue*> args;
 
@@ -124,7 +124,12 @@ void DtoAssert(Loc* loc, DValue* msg)
     }
 
     // file param
-    args.push_back(DtoLoad(gIR->dmodule->ir.irModule->fileName));
+
+    // we might be generating for an imported template function
+    if (!M->ir.irModule)
+        M->ir.irModule = new IrModule(M, M->srcfile->toChars());
+
+    args.push_back(DtoLoad(M->ir.irModule->fileName));
 
     // line param
     LLConstant* c = DtoConstUint(loc->linnum);
@@ -826,6 +831,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 //      TEMPLATE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
+// FIXME: when is this the right one to use instead of Dsymbol::inTemplateInstance() ?
 bool DtoIsTemplateInstance(Dsymbol* s)
 {
     if (!s) return false;
