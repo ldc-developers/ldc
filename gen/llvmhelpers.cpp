@@ -1558,22 +1558,30 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
 bool mustDefineSymbol(Dsymbol* s)
 {
+#if 1
+    return s->getModule() == gIR->dmodule || DtoIsTemplateInstance(s) != NULL;
+#else
     Module* M = DtoIsTemplateInstance(s);
     // if it's a template instance, check the instantiating module
     // not the module that defines the template
     if (M)
         return M == gIR->dmodule;
     return s->getModule() == gIR->dmodule;
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 bool needsTemplateLinkage(Dsymbol* s)
 {
+#if 1
+    return DtoIsTemplateInstance(s) != NULL;
+#else
     Module* M = DtoIsTemplateInstance(s);
     // only return true if the symbol is a template instances
     // and if this instance originated in the current module
     if (M)
         return M == gIR->dmodule;
     return false;
+#endif
 }
