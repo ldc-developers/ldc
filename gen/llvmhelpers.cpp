@@ -1557,13 +1557,14 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
 bool mustDefineSymbol(Dsymbol* s)
 {
-#if 0
+#if 1
     return s->getModule() == gIR->dmodule || DtoIsTemplateInstance(s) != NULL;
 #else
     Module* M = DtoIsTemplateInstance(s);
     // if it's a template instance, check the instantiating module
     // not the module that defines the template
     if (M) {
+	//Logger::println("TINST %s from %s cur %s", s->toPrettyChars(), M->toChars(), gIR->dmodule->toChars());
         return M == gIR->dmodule;
     }
     return s->getCompilationModule() == gIR->dmodule;
@@ -1574,7 +1575,7 @@ bool mustDefineSymbol(Dsymbol* s)
 
 bool needsTemplateLinkage(Dsymbol* s)
 {
-#if 0
+#if 1
     return DtoIsTemplateInstance(s) != NULL;
 #else
     Module* M = DtoIsTemplateInstance(s);

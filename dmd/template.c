@@ -2873,7 +2873,10 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->havetempdecl = 0;
     this->isnested = NULL;
     this->errors = 0;
+
+    // LDC
     this->tinst = NULL;
+    this->tmodule = NULL;
 }
 
 /*****************
@@ -2988,6 +2991,7 @@ void TemplateInstance::semantic(Scope *sc)
 	tmodule = tinst->tmodule;
     else
 	tmodule = sc->module;
+    //printf("%s in %s\n", toChars(), tmodule->toChars());
 
 #if LOG
     printf("\tdo semantic\n");
