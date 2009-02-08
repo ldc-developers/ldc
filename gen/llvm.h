@@ -14,6 +14,8 @@
 
 #include "llvm/Target/TargetData.h"
 
+#include "llvm/Analysis/DebugInfo.h"
+
 #include "llvm/Support/IRBuilder.h"
 using llvm::IRBuilder;
 

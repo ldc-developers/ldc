@@ -974,7 +974,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         // do debug info
         if (global.params.symdebug)
         {
-            LLGlobalVariable* gv = DtoDwarfGlobalVariable(gvar, vd);
+            LLGlobalVariable* gv = DtoDwarfGlobalVariable(gvar, vd).getGV();
             // keep a reference so GDCE doesn't delete it !
             gIR->usedArray.push_back(llvm::ConstantExpr::getBitCast(gv, getVoidPtrType()));
         }
@@ -1557,7 +1557,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
 bool mustDefineSymbol(Dsymbol* s)
 {
-#if 1
+#if 0
     return s->getModule() == gIR->dmodule || DtoIsTemplateInstance(s) != NULL;
 #else
     Module* M = DtoIsTemplateInstance(s);
@@ -1573,7 +1573,7 @@ bool mustDefineSymbol(Dsymbol* s)
 
 bool needsTemplateLinkage(Dsymbol* s)
 {
-#if 1
+#if 0
     return DtoIsTemplateInstance(s) != NULL;
 #else
     Module* M = DtoIsTemplateInstance(s);

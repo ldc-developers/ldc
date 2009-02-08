@@ -131,7 +131,7 @@ struct CallOrInvoke_Invoke : public CallOrInvoke
 // represents the module
 struct IRState
 {
-    IRState();
+    IRState(llvm::Module* m);
 
     // module
     Module* dmodule;
@@ -189,6 +189,9 @@ struct IRState
 
     // builder helper
     IRBuilderHelper ir;
+
+    // debug info helper
+    llvm::DIFactory difactory;
 
     typedef std::list<Dsymbol*> DsymbolList;
     // dsymbols that need to be resolved

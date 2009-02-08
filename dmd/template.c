@@ -2982,7 +2982,12 @@ void TemplateInstance::semantic(Scope *sc)
 
     // get the enclosing template instance from the scope tinst
     tinst = sc->tinst;
-    tmodule = sc->module;
+
+    // get the module of the outermost enclosing instantiation
+    if (tinst)
+	tmodule = tinst->tmodule;
+    else
+	tmodule = sc->module;
 
 #if LOG
     printf("\tdo semantic\n");

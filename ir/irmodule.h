@@ -12,8 +12,8 @@ struct IrModule : IrBase
 
     Module* M;
 
-    LLGlobalVariable* dwarfCompileUnit;
     LLGlobalVariable* fileName;
+    llvm::DICompileUnit diCompileUnit;
 };
 
 #endif

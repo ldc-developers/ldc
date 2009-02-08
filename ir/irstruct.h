@@ -148,8 +148,8 @@ struct IrStruct : IrBase
     // align(1) struct S { ... }
     bool packed;
 
-    // dwarf composite global
-    LLGlobalVariable* dwarfComposite;
+    // composite type debug description
+    llvm::DICompositeType diCompositeType;
 };
 
 //////////////////////////////////////////////////////////////////////////////

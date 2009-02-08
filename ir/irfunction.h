@@ -28,7 +28,7 @@ struct IrFunction : IrBase
     llvm::Value* _arguments;
     llvm::Value* _argptr;
     
-    llvm::Constant* dwarfSubProg;
+    llvm::DISubprogram diSubprogram;
 
     // pushes a unique label scope of the given name
     void pushUniqueLabelScope(const char* name);

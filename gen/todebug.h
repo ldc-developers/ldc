@@ -8,14 +8,14 @@ void RegisterDwarfSymbols(llvm::Module* mod);
  * @param m
  * @return the Dwarf compile_unit.
  */
-llvm::GlobalVariable* DtoDwarfCompileUnit(Module* m);
+llvm::DICompileUnit DtoDwarfCompileUnit(Module* m);
 
 /**
  * Emit the Dwarf subprogram global for a function declaration fd.
  * @param fd
  * @return the Dwarf subprogram global.
  */
-llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd);
+llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd);
 
 /**
  * Emit the Dwarf subprogram global for a internal function.
@@ -23,7 +23,7 @@ llvm::GlobalVariable* DtoDwarfSubProgram(FuncDeclaration* fd);
  * module ctors/dtors and unittests.
  * @return the Dwarf subprogram global.
  */
-llvm::GlobalVariable* DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname);
+llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname);
 
 void DtoDwarfFuncStart(FuncDeclaration* fd);
 void DtoDwarfFuncEnd(FuncDeclaration* fd);
@@ -43,7 +43,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
  * @param vd 
  * @return 
  */
-LLGlobalVariable* DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
+llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
 
 #endif // LDC_GEN_TODEBUG_H
 

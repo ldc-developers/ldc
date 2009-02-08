@@ -554,6 +554,34 @@ Module *Dsymbol::getModule()
     return NULL;
 }
 
+
+/**********************************
+ * Determine which Module a Dsymbol will be compiled in.
+ * This may be different from getModule for templates.
+ */
+
+Module *Dsymbol::getCompilationModule()
+{
+    Module *m;
+    TemplateInstance *ti;
+    Dsymbol *s;
+
+    //printf("Dsymbol::getModule()\n");
+    s = this;
+    while (s)
+    {
+	//printf("\ts = '%s'\n", s->toChars());
+	m = s->isModule();
+	if (m)
+	    return m;
+	ti = s->isTemplateInstance();
+	if (ti && ti->tmodule)
+	    return ti->tmodule;
+	s = s->parent;
+    }
+    return NULL;
+}
+
 /*************************************
  */
 

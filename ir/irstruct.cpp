@@ -33,7 +33,8 @@ IrStruct::IrStruct(AggregateDeclaration* aggr)
 :   initOpaque(llvm::OpaqueType::get()),
     classInfoOpaque(llvm::OpaqueType::get()),
     vtblTy(llvm::OpaqueType::get()),
-    vtblInitTy(llvm::OpaqueType::get())
+    vtblInitTy(llvm::OpaqueType::get()),
+    diCompositeType(NULL)
 {
     aggrdecl = aggr;
     defaultFound = false;
@@ -57,8 +58,6 @@ IrStruct::IrStruct(AggregateDeclaration* aggr)
     classInfoDefined = false;
 
     packed = false;
-
-    dwarfComposite = NULL;
 }
 
 IrStruct::~IrStruct()

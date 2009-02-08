@@ -31,8 +31,6 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     _arguments = NULL;
     _argptr = NULL;
     
-    dwarfSubProg = NULL;
-
     nextUnique.push(0);
 }
 

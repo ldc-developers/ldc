@@ -119,7 +119,8 @@ struct Dsymbol : Object
     void error(Loc loc, const char *format, ...);
     void error(const char *format, ...);
     void checkDeprecated(Loc loc, Scope *sc);
-    Module *getModule();
+    Module *getModule();        // module where declared
+    Module *getCompilationModule(); // possibly different for templates
     Dsymbol *pastMixin();
     Dsymbol *toParent();
     Dsymbol *toParent2();

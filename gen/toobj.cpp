@@ -82,21 +82,20 @@ void Module::genobjfile(int multiobj)
     // start by deleting the old object file
     deleteObjFile();
 
+    // name the module
+    std::string mname(toChars());
+    if (md != 0)
+        mname = md->toChars();
+
     // create a new ir state
     // TODO look at making the instance static and moving most functionality into IrModule where it belongs
-    IRState ir;
+    IRState ir(new llvm::Module(mname));
     gIR = &ir;
     ir.dmodule = this;
 
     // reset all IR data stored in Dsymbols and Types
     IrDsymbol::resetAll();
     IrType::resetAll();
-
-    // name the module
-    std::string mname(toChars());
-    if (md != 0)
-        mname = md->toChars();
-    ir.module = new llvm::Module(mname);
 
     // module ir state
     // might already exist via import, just overwrite since
@@ -426,7 +425,7 @@ llvm::Function* build_module_ctor()
     // debug info
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
 
@@ -471,7 +470,7 @@ static llvm::Function* build_module_dtor()
     // debug info
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
 
@@ -516,7 +515,7 @@ static llvm::Function* build_module_unittest()
     // debug info
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
 
@@ -573,7 +572,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     // debug info
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
+        subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
 

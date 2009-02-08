@@ -47,14 +47,14 @@ IRLoopScope::IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm:
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-IRState::IRState()
+IRState::IRState(llvm::Module* m)
+    : module(m), difactory(*m)
 {
     interfaceInfoType = NULL;
     mutexType = NULL;
     moduleRefType = NULL;
 
     dmodule = 0;
-    module = 0;
     emitMain = false;
     mainFunc = 0;
     ir.state = this;
