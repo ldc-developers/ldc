@@ -1563,9 +1563,10 @@ bool mustDefineSymbol(Dsymbol* s)
     Module* M = DtoIsTemplateInstance(s);
     // if it's a template instance, check the instantiating module
     // not the module that defines the template
-    if (M)
+    if (M) {
         return M == gIR->dmodule;
-    return s->getModule() == gIR->dmodule;
+    }
+    return s->getCompilationModule() == gIR->dmodule;
 #endif
 }
 

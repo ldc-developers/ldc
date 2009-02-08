@@ -533,11 +533,6 @@ void DtoResolveStruct(StructDeclaration* sd)
     // set irstruct info
     irstruct->packed = ispacked;
 
-    // defined in this module?
-    bool thisModule = false;
-    if (sd->getModule() == gIR->dmodule)
-        thisModule = true;
-
     // methods, fields
     Array* arr = sd->members;
     for (int k=0; k < arr->dim; k++) {
@@ -647,7 +642,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
     gIR->structs.pop_back();
 
     // emit typeinfo
-    if (sd->getModule() == gIR->dmodule && sd->llvmInternal != LLVMno_typeinfo)
+    if (sd->getCompilationModule() == gIR->dmodule && sd->llvmInternal != LLVMno_typeinfo)
         DtoTypeInfoOf(sd->type, false);
 }
 

@@ -646,7 +646,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     // debug info
     if (global.params.symdebug) {
-        Module* mo = fd->getModule();
         fd->ir.irFunc->diSubprogram = DtoDwarfSubProgram(fd);
     }
 
