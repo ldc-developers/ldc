@@ -8,21 +8,20 @@ void main()
     printf(fmt);
     version (LLVM_InlineAsm_X86)
     {
-	asm
-    	{
-		push fmt;
-        	call printf;
-        	pop EAX;
-    	}
+        asm
+        {
+            push fmt;
+            call printf;
+            pop EAX;
+        }
     }
     else version(LLVM_InlineAsm_X86_64)
     {
         asm
         {
-                movq    RDI, fmt;
-                xor     AL, AL;
-                call    printf;
+            movq    RDI, fmt;
+            xor     AL, AL;
+            call    printf;
         }
     }
-
 }

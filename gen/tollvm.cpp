@@ -419,11 +419,9 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
 {
     dst = DtoBitCast(dst,getVoidPtrType());
 
-    llvm::Function* fn;
-    if (global.params.is64bit)
-        fn = GET_INTRINSIC_DECL(memset_i64);
-    else
-        fn = GET_INTRINSIC_DECL(memset_i32);
+    const LLType* intTy = DtoSize_t();
+    llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
+        llvm::Intrinsic::memset, &intTy, 1);
 
     gIR->ir->CreateCall4(fn, dst, DtoConstUbyte(0), nbytes, DtoConstUint(0), "");
 }
@@ -435,11 +433,9 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes)
     dst = DtoBitCast(dst,getVoidPtrType());
     src = DtoBitCast(src,getVoidPtrType());
 
-    llvm::Function* fn;
-    if (global.params.is64bit)
-        fn = GET_INTRINSIC_DECL(memcpy_i64);
-    else
-        fn = GET_INTRINSIC_DECL(memcpy_i32);
+    const LLType* intTy = DtoSize_t();
+    llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
+        llvm::Intrinsic::memcpy, &intTy, 1);
 
     gIR->ir->CreateCall4(fn, dst, src, nbytes, DtoConstUint(0), "");
 }
@@ -700,9 +696,9 @@ size_t getTypeStoreSize(const LLType* t)
     return gTargetData->getTypeStoreSize(t);
 }
 
-size_t getABITypeSize(const LLType* t)
+size_t getTypePaddedSize(const LLType* t)
 {
-    size_t sz = gTargetData->getABITypeSize(t);
+    size_t sz = gTargetData->getTypePaddedSize(t);
     //Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
     return sz;
 }
@@ -728,7 +724,7 @@ const LLType* getBiggestType(const LLType** begin, size_t n)
     {
         const LLType* T = *begin;
 
-        size_t sz = getABITypeSize(T);
+        size_t sz = getTypePaddedSize(T);
         size_t ali = getABITypeAlign(T);
         if (sz > bigSize || (sz == bigSize && ali > bigAlign))
         {
@@ -880,4 +876,12 @@ LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as)
     V = gIR->ir->CreateExtractValue(aggr, 1, "tmp");;
     V = DtoBitCast(V, as->getContainedType(1));
     return gIR->ir->CreateInsertValue(res, V, 1, "tmp");
+}
+
+LLValue* DtoAggrPairSwap(LLValue* aggr)
+{
+    Logger::println("swapping aggr pair");
+    LLValue* r = gIR->ir->CreateExtractValue(aggr, 0);
+    LLValue* i = gIR->ir->CreateExtractValue(aggr, 1);
+    return DtoAggrPair(i, r, "swapped");
 }

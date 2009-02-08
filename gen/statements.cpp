@@ -81,6 +81,12 @@ void ReturnStatement::toIR(IRState* p)
             LLValue* v = e->getRVal();
             delete e;
 
+            // swap real/imag parts on a x87
+            if (global.params.cpu == ARCHx86 && exp->type->toBasetype()->iscomplex())
+            {
+                v = DtoAggrPairSwap(v);
+            }
+
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
 
@@ -1198,6 +1204,9 @@ void LabelStatement::toIR(IRState* p)
         a->code += ":";
         p->asmBlock->s.push_back(a);
         p->asmBlock->internalLabels.push_back(ident);
+
+        // disable inlining
+        gIR->func()->setNeverInline();
     }
     else
     {
@@ -1453,3 +1462,31 @@ STUBST(Statement);
 #if DMDV2
 STUBST(PragmaStatement);
 #endif
+
+//////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+
+AsmBlockStatement* Statement::endsWithAsm()
+{
+    // does not end with inline asm
+    return NULL;
+}
+
+AsmBlockStatement* CompoundStatement::endsWithAsm()
+{
+    // make the last inner statement decide
+    if (statements && statements->dim)
+    {
+        unsigned last = statements->dim - 1;
+        Statement* s = (Statement*)statements->data[last];
+        if (s) return s->endsWithAsm();
+    }
+    return NULL;
+}
+
+AsmBlockStatement* AsmBlockStatement::endsWithAsm()
+{
+    // yes this is inline asm
+    return this;
+}

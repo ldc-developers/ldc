@@ -2,6 +2,7 @@
 #define LDC_GEN_IRSTATE_H
 
 #include <vector>
+#include <deque>
 #include <list>
 #include <sstream>
 
@@ -78,11 +79,17 @@ struct IRAsmStmt
 
 struct IRAsmBlock
 {
-    std::vector<IRAsmStmt*> s;
+    std::deque<IRAsmStmt*> s;
     std::set<std::string> clobs;
 
     // stores the labels within the asm block
     std::vector<Identifier*> internalLabels;
+
+    AsmBlockStatement* asmBlock;
+    const LLType* retty;
+    unsigned retn;
+
+    IRAsmBlock(AsmBlockStatement* b) : asmBlock(b), retty(NULL), retn(0) {}
 };
 
 // llvm::CallInst and llvm::InvokeInst don't share a common base

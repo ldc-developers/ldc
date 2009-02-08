@@ -973,8 +973,8 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     DtoForceConstInitDsymbol(tc->sym);
 
-    size_t presz = 2*getABITypeSize(DtoSize_t());
-    uint64_t n = getABITypeSize(tc->ir.type->get()) - presz;
+    size_t presz = 2*getTypePaddedSize(DtoSize_t());
+    uint64_t n = getTypePaddedSize(tc->ir.type->get()) - presz;
 
     // set vtable field seperately, this might give better optimization
     assert(tc->sym->ir.irStruct->vtbl);
@@ -1494,7 +1494,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     {
         c = DtoBitCast(ir->init, voidPtr);
         //Logger::cout() << *ir->constInit->getType() << std::endl;
-        size_t initsz = getABITypeSize(ir->init->getType()->getContainedType(0));
+        size_t initsz = getTypePaddedSize(ir->init->getType()->getContainedType(0));
         c = DtoConstSlice(DtoConstSize_t(initsz), c);
     }
     inits.push_back(c);

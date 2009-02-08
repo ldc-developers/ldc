@@ -136,7 +136,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     {
         Expression* argexp = (Expression*)arguments->data[i];
         vtypes.push_back(DtoType(argexp->type));
-        size_t sz = getABITypeSize(vtypes.back());
+        size_t sz = getTypePaddedSize(vtypes.back());
         if (sz < PTRSIZE)
             vtypes.back() = DtoSize_t();
     }
@@ -462,6 +462,12 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call->get();
+
+    // swap real/imag parts on a x87
+    if (global.params.cpu == ARCHx86 && tf->nextOf()->toBasetype()->iscomplex())
+    {
+        retllval = DtoAggrPairSwap(retllval);
+    }
 
     // repaint the type if necessary
     if (resulttype)

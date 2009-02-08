@@ -100,7 +100,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     // this simplifies codegen later on as llvm null's have no address!
     if (isaConstant(val) && isaConstant(val)->isNullValue())
     {
-        size_t X = getABITypeSize(val->getType());
+        size_t X = getTypePaddedSize(val->getType());
         LLValue* nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(X), ".nbytes");
         DtoMemSetZero(ptr, nbytes);
         return;
@@ -181,7 +181,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
         assert(arrayelemty == valuety && "ArrayInit doesn't work on elem-initialized static arrays");
         args[0] = DtoBitCast(args[0], getVoidPtrType());
         args[2] = DtoBitCast(args[2], getVoidPtrType());
-        args.push_back(DtoConstSize_t(getABITypeSize(DtoType(arrayelemty))));
+        args.push_back(DtoConstSize_t(getTypePaddedSize(DtoType(arrayelemty))));
         break;
 
     default:
@@ -331,7 +331,7 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
 {
     assert(e->len != 0);
     const LLType* t = e->ptr->getType()->getContainedType(0);
-    sz = gIR->ir->CreateMul(DtoConstSize_t(getABITypeSize(t)), e->len, "tmp");
+    sz = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(t)), e->len, "tmp");
     return e->ptr;
 }
 
@@ -362,7 +362,7 @@ void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 {
     Logger::println("StaticArrayCopy");
 
-    size_t n = getABITypeSize(dst->getType()->getContainedType(0));
+    size_t n = getTypePaddedSize(dst->getType()->getContainedType(0));
     DtoMemCpy(dst, src, DtoConstSize_t(n));
 }
 
@@ -534,7 +534,7 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
     src1 = gIR->ir->CreateGEP(src1,len1,"tmp");
 
     // memcpy
-    LLValue* elemSize = DtoConstSize_t(getABITypeSize(src2->getType()->getContainedType(0)));
+    LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src2->getType()->getContainedType(0)));
     LLValue* bytelen = gIR->ir->CreateMul(len2, elemSize, "tmp");
     DtoMemCpy(src1,src2,bytelen);
 
@@ -570,7 +570,7 @@ DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
     src2 = DtoArrayPtr(e2);
 
     // first memcpy
-    LLValue* elemSize = DtoConstSize_t(getABITypeSize(src1->getType()->getContainedType(0)));
+    LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src1->getType()->getContainedType(0)));
     LLValue* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
     DtoMemCpy(mem,src1,bytelen);
 
@@ -613,7 +613,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 
         mem = gIR->ir->CreateGEP(mem,DtoConstSize_t(1),"tmp");
 
-        LLValue* elemSize = DtoConstSize_t(getABITypeSize(src1->getType()->getContainedType(0)));
+        LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src1->getType()->getContainedType(0)));
         LLValue* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
         DtoMemCpy(mem,src1,bytelen);
 
@@ -632,7 +632,7 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 
         src1 = DtoArrayPtr(e1);
 
-        LLValue* elemSize = DtoConstSize_t(getABITypeSize(src1->getType()->getContainedType(0)));
+        LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src1->getType()->getContainedType(0)));
         LLValue* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
         DtoMemCpy(mem,src1,bytelen);
 
@@ -769,8 +769,8 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
     assert(elemty);
     assert(newelemty);
 
-    size_t esz = getABITypeSize(elemty);
-    size_t nsz = getABITypeSize(newelemty);
+    size_t esz = getTypePaddedSize(elemty);
+    size_t nsz = getTypePaddedSize(newelemty);
     if (esz == nsz)
         return len;
 

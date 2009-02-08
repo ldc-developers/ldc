@@ -663,6 +663,9 @@ struct FuncDeclaration : Declaration
 
     // if this is an array operation it gets a little special attention
     bool isArrayOp;
+
+    // true if overridden with the pragma(allow_inline); stmt
+    bool allowInlining;
 };
 
 struct FuncAliasDeclaration : FuncDeclaration

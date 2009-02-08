@@ -907,6 +907,10 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // output function body
     fd->fbody->toIR(gIR);
 
+    // TODO: clean up this mess
+
+//     std::cout << *func << std::endl;
+
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
     // in automatically, so we do it here.
     if (!gIR->scopereturned()) {
@@ -917,11 +921,22 @@ void DtoDefineFunction(FuncDeclaration* fd)
         }
         else {
             if (!fd->isMain())
-                llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
+            {
+                AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
+                if (asmb) {
+                    assert(asmb->abiret);
+                    llvm::ReturnInst::Create(asmb->abiret, gIR->scopebb());
+                }
+                else {
+                    llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
+                }
+            }
             else
                 llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), gIR->scopebb());
         }
     }
+
+//     std::cout << *func << std::endl;
 
     // erase alloca point
     allocaPoint->eraseFromParent();
@@ -934,28 +949,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
     assert(!func->getBasicBlockList().empty());
     func->getBasicBlockList().pop_back();
 
-    // if the last block is empty now, it must be unreachable or it's a bug somewhere else
-    // would be nice to figure out how to assert that this is correct
-    llvm::BasicBlock* lastbb = &func->getBasicBlockList().back();
-    if (lastbb->empty())
-    {
-        new llvm::UnreachableInst(lastbb);
-    }
-
-    // if the last block is not terminated we return a null value or void
-    // for some unknown reason this is needed when a void main() has a inline asm block ...
-    // this should be harmless for well formed code!
-    lastbb = &func->getBasicBlockList().back();
-    if (!lastbb->getTerminator())
-    {
-        Logger::println("adding missing return statement");
-        if (func->getReturnType() == LLType::VoidTy)
-            llvm::ReturnInst::Create(lastbb);
-        else
-            llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), lastbb);
-    }
-
     gIR->functions.pop_back();
+
+//     std::cout << *func << std::endl;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

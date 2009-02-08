@@ -2146,6 +2146,13 @@ Statement *PragmaStatement::semantic(Scope *sc)
 	}
 #endif
     }
+
+    // LDC
+    else if (ident == Id::allow_inline)
+    {
+        sc->func->allowInlining = true;
+    }
+
     else
         error("unrecognized pragma(%s)", ident->toChars());
 

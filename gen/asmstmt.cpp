@@ -26,6 +26,7 @@
 #include "gen/logger.h"
 #include "gen/todebug.h"
 #include "gen/llvmhelpers.h"
+#include "gen/functions.h"
 
 typedef enum {
     Arg_Integer,
@@ -400,6 +401,8 @@ AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
 {
     enclosinghandler = NULL;
     tf = NULL;
+
+    abiret = NULL;
 }
 
 // rewrite argument indices to the block scope indices
@@ -452,18 +455,21 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
     }
 }
 
+LLValue* DtoAggrPairSwap(LLValue* aggr);
+
 void AsmBlockStatement::toIR(IRState* p)
 {
     Logger::println("AsmBlockStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
     Logger::println("BEGIN ASM");
 
-    // disable inlining
-    gIR->func()->setNeverInline();
+    // disable inlining by default
+    if (!p->func()->decl->allowInlining)
+        p->func()->setNeverInline();
 
     // create asm block structure
     assert(!p->asmBlock);
-    IRAsmBlock* asmblock = new IRAsmBlock;
+    IRAsmBlock* asmblock = new IRAsmBlock(this);
     assert(asmblock);
     p->asmBlock = asmblock;
 
@@ -562,6 +568,20 @@ void AsmBlockStatement::toIR(IRState* p)
     }
 
 
+    // build a fall-off-end-properly asm statement
+
+    FuncDeclaration* thisfunc = p->func()->decl;
+    bool useabiret = false;
+    p->asmBlock->asmBlock->abiret = NULL;
+    if (thisfunc->fbody->endsWithAsm() == this && thisfunc->type->nextOf()->ty != Tvoid)
+    {
+        // there can't be goto forwarders in this case
+        assert(gotoToVal.empty());
+        emitABIReturnAsmStmt(asmblock, loc, thisfunc);
+        useabiret = true;
+    }
+
+
     // build asm block
     std::vector<LLValue*> outargs;
     std::vector<LLValue*> inargs;
@@ -571,8 +591,9 @@ void AsmBlockStatement::toIR(IRState* p)
     std::string in_c;
     std::string clobbers;
     std::string code;
-    size_t asmIdx = 0;
+    size_t asmIdx = asmblock->retn;
 
+    Logger::println("do outputs");
     size_t n = asmblock->s.size();
     for (size_t i=0; i<n; ++i)
     {
@@ -590,6 +611,8 @@ void AsmBlockStatement::toIR(IRState* p)
         }
         remap_outargs(a->code, onn+a->in.size(), asmIdx);
     }
+
+    Logger::println("do inputs");
     for (size_t i=0; i<n; ++i)
     {
         IRAsmStmt* a = asmblock->s[i];
@@ -628,10 +651,18 @@ void AsmBlockStatement::toIR(IRState* p)
     Logger::println("code = \"%s\"", code.c_str());
     Logger::println("constraints = \"%s\"", out_c.c_str());
 
+    // build return types
+    const LLType* retty;
+    if (asmblock->retn)
+        retty = asmblock->retty;
+    else
+        retty = llvm::Type::VoidTy;
+
+    // build argument types
     std::vector<const LLType*> types;
     types.insert(types.end(), outtypes.begin(), outtypes.end());
     types.insert(types.end(), intypes.begin(), intypes.end());
-    llvm::FunctionType* fty = llvm::FunctionType::get(llvm::Type::VoidTy, types, false);
+    llvm::FunctionType* fty = llvm::FunctionType::get(retty, types, false);
     if (Logger::enabled())
         Logger::cout() << "function type = " << *fty << '\n';
     llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
@@ -640,6 +671,10 @@ void AsmBlockStatement::toIR(IRState* p)
     args.insert(args.end(), outargs.begin(), outargs.end());
     args.insert(args.end(), inargs.begin(), inargs.end());
     llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(), "");
+    if (useabiret)
+    {
+        p->asmBlock->asmBlock->abiret = call;
+    }
 
     p->asmBlock = NULL;
     Logger::println("END ASM");

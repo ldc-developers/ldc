@@ -77,7 +77,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // valuesize param
-    LLValue* valsize = DtoConstSize_t(getABITypeSize(DtoType(type)));
+    LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
 
     // pkey param
     LLValue* pkey = to_pkey(loc, key);

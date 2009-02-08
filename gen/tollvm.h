@@ -92,7 +92,7 @@ LLConstant* getNullValue(const LLType* t);
 // type sizes
 size_t getTypeBitSize(const LLType* t);
 size_t getTypeStoreSize(const LLType* t);
-size_t getABITypeSize(const LLType* t);
+size_t getTypePaddedSize(const LLType* t);
 
 // type alignments
 unsigned char getABITypeAlign(const LLType* t);
@@ -105,6 +105,7 @@ const LLType* getBiggestType(const LLType** begin, size_t n);
 LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name = 0);
 LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as);
+LLValue* DtoAggrPairSwap(LLValue* aggr);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).

@@ -239,7 +239,7 @@ Lpadding:
     }
 
     // there might still be padding after the last one, make sure that is defaulted/zeroed as well
-    size_t structsize = getABITypeSize(structtype);
+    size_t structsize = getTypePaddedSize(structtype);
 
     // if there is space before the next explicit initializer
     // FIXME: this should be handled in the loop above as well
@@ -292,7 +292,7 @@ Lpadding2:
     {
         Logger::cout() << "constant struct initializer: " << *c << '\n';
     }
-    assert(getABITypeSize(c->getType()) == structsize);
+    assert(getTypePaddedSize(c->getType()) == structsize);
     return c;
 }
 
@@ -406,7 +406,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
 
     // fill out rest with default initializers
     const LLType* structtype = DtoType(sd->type);
-    size_t structsize = getABITypeSize(structtype);
+    size_t structsize = getTypePaddedSize(structtype);
 
     // FIXME: this could probably share some code with the above
     if (structsize > lastoffset+lastsize)
@@ -558,7 +558,7 @@ void DtoResolveStruct(StructDeclaration* sd)
         printf("    index: %u offset: %u\n", v->ir.irField->index, v->ir.irField->unionOffset);
     }
 
-    unsigned llvmSize = (unsigned)getABITypeSize(ST);
+    unsigned llvmSize = (unsigned)getTypePaddedSize(ST);
     unsigned dmdSize = (unsigned)sd->type->size();
     printf("  llvm size: %u     dmd size: %u\n", llvmSize, dmdSize);
     assert(llvmSize == dmdSize);
@@ -685,7 +685,7 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
         cmpop = llvm::ICmpInst::ICMP_NE;
 
     // call memcmp
-    size_t sz = getABITypeSize(DtoType(t));
+    size_t sz = getTypePaddedSize(DtoType(t));
     LLValue* val = DtoMemCmp(lhs->getRVal(), rhs->getRVal(), DtoConstSize_t(sz));
     return gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false), "tmp");
 }

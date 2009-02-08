@@ -1486,7 +1486,6 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
     return exp->toConstElem(gIR);
 }
 
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoAnnotation(const char* str)

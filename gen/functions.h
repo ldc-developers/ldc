@@ -9,7 +9,9 @@ const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
 void DtoResolveFunction(FuncDeclaration* fdecl);
 void DtoDeclareFunction(FuncDeclaration* fdecl);
 void DtoDefineFunction(FuncDeclaration* fd);
+
 void DtoDefineNakedFunction(FuncDeclaration* fd);
+void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl);
 
 DValue* DtoArgument(Argument* fnarg, Expression* argexp);
 void DtoVariadicArgument(Expression* argexp, LLValue* dst);

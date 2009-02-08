@@ -2197,6 +2197,13 @@ Statement *IfStatement::semantic(Scope *sc)
 	condition = new AssignExp(loc, v, condition);
 	condition = condition->semantic(scd);
     }
+
+    // LDC
+    else if (ident == Id::allow_inline)
+    {
+        sc->func->allowInlining = true;
+    }
+
     else
 	scd = sc->push();
     ifbody = ifbody->semantic(scd);

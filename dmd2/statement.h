@@ -162,15 +162,16 @@ struct Statement : Object
     // Back end
     virtual void toIR(IRState *irs);
 
-    // LDC
-    virtual void toNakedIR(IRState *irs);
-
     // Avoid dynamic_cast
     virtual DeclarationStatement *isDeclarationStatement() { return NULL; }
     virtual CompoundStatement *isCompoundStatement() { return NULL; }
     virtual ReturnStatement *isReturnStatement() { return NULL; }
     virtual IfStatement *isIfStatement() { return NULL; }
     virtual CaseStatement* isCaseStatement() { return NULL; }
+
+    // LDC
+    virtual void toNakedIR(IRState *irs);
+    virtual AsmBlockStatement* endsWithAsm();
 };
 
 struct ExpStatement : Statement
@@ -245,6 +246,7 @@ struct CompoundStatement : Statement
 
     // LDC
     virtual void toNakedIR(IRState *irs);
+    virtual AsmBlockStatement* endsWithAsm();
 
     virtual CompoundStatement *isCompoundStatement() { return this; }
 };
@@ -941,6 +943,9 @@ struct AsmBlockStatement : CompoundStatement
 
     void toIR(IRState *irs);
     virtual void toNakedIR(IRState *irs);
+    AsmBlockStatement* endsWithAsm();
+
+    llvm::Value* abiret;
 };
 
 #endif /* DMD_STATEMENT_H */

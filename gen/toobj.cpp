@@ -255,7 +255,7 @@ void Module::genobjfile(int multiobj)
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(spath.c_str(), err);
+            llvm::raw_fd_ostream out(spath.c_str(), false, err);
             write_asm_to_file(Target, *ir.module, out);
         }
 

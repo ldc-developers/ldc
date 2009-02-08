@@ -328,7 +328,7 @@ void IrStruct::buildDefaultConstInit(std::vector<llvm::Constant*>& inits)
 
         // there might still be padding after the last one, make sure that is zeroed as well
         // is there space in between last last offset and this one?
-        size_t structsize = getABITypeSize(structtype);
+        size_t structsize = getTypePaddedSize(structtype);
 
         if (structsize > lastoffset+lastsize)
         {

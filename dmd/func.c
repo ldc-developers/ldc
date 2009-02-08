@@ -80,6 +80,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
 
     // LDC
     isArrayOp = false;
+    allowInlining = false;
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

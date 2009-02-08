@@ -240,6 +240,7 @@ Msgtable msgtable[] =
     { "vaend", "va_end" },
     { "vaarg", "va_arg" },
     { "ldc" },
+    { "allow_inline" },
 
     // For special functions
     { "tohash", "toHash" },

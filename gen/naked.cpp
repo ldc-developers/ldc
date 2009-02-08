@@ -9,6 +9,7 @@
 #include "gen/logger.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
+#include "gen/tollvm.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -163,4 +164,64 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     asmstr.str("");
 
     gIR->functions.pop_back();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
+{
+    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
+    LOG_SCOPE;
+
+    IRAsmStmt* as = new IRAsmStmt;
+
+    const LLType* llretTy = DtoType(fdecl->type->nextOf());
+    asmblock->retty = llretTy;
+    asmblock->retn = 1;
+
+    // x86
+    if (global.params.cpu == ARCHx86)
+    {
+        LINK l = fdecl->linkage;
+        assert((l == LINKd || l == LINKc || l == LINKwindows) && "invalid linkage for asm implicit return");
+
+        Type* rt = fdecl->type->nextOf()->toBasetype();
+        if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass || rt->ty == Taarray)
+        {
+            if (rt->size() == 8) {
+                as->out_c = "=A,";
+            } else {
+                as->out_c = "={ax},";
+            }
+        }
+        else if (rt->isfloating())
+        {
+            if (rt->iscomplex()) {
+                as->out_c = "={st},={st(1)},";
+                asmblock->retn = 2;
+            } else {
+                as->out_c = "={st},";
+            }
+        }
+        else if (rt->ty == Tarray || rt->ty == Tdelegate)
+        {
+            as->out_c = "={ax},={dx},";
+            asmblock->retn = 2;
+        }
+        else
+        {
+            error(loc, "unimplemented return type '%s' for implicit abi return", rt->toChars());
+            fatal();
+        }
+    }
+
+    // unsupported
+    else
+    {
+        error(loc, "this target (%s) does not implement inline asm falling off the end of the function", global.params.targetTriple);
+        fatal();
+    }
+
+    // return values always go in the front
+    asmblock->s.push_front(as);
 }
