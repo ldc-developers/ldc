@@ -179,8 +179,8 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     asmblock->retty = llretTy;
     asmblock->retn = 1;
 
-    // x86
-    if (global.params.cpu == ARCHx86)
+    // x86 or x86_64
+    if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
     {
         LINK l = fdecl->linkage;
         assert((l == LINKd || l == LINKc || l == LINKwindows) && "invalid linkage for asm implicit return");
