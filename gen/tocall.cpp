@@ -464,7 +464,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLValue* retllval = (retinptr) ? args[0] : call->get();
 
     // swap real/imag parts on a x87
-    if ((global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64) && tf->nextOf()->toBasetype()->iscomplex())
+    if (global.params.cpu == ARCHx86 && tf->nextOf()->toBasetype()->iscomplex())
     {
         retllval = DtoAggrPairSwap(retllval);
     }
