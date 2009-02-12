@@ -196,12 +196,6 @@ void Module::genobjfile(int multiobj)
         }
     }
 
-    // always run this pass to eliminate dead code that breaks debug info
-    llvm::PassManager pm;
-    pm.add(new llvm::TargetData(ir.module));
-    pm.add(llvm::createCFGSimplificationPass());
-    pm.run(*ir.module);
-
     // run optimizer
     ldc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
 
