@@ -3013,7 +3013,10 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->havetempdecl = 0;
     this->isnested = NULL;
     this->errors = 0;
+
+    // LDC
     this->tinst = NULL;
+    this->tmodule = NULL;
 }
 
 /*****************
@@ -3041,7 +3044,10 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
     this->havetempdecl = 1;
     this->isnested = NULL;
     this->errors = 0;
+
+    // LDC
     this->tinst = NULL;
+    this->tmodule = NULL;
 
     assert((size_t)tempdecl->scope > 0x10000);
 }
@@ -3111,6 +3117,13 @@ void TemplateInstance::semantic(Scope *sc)
 
     // get the enclosing template instance from the scope tinst
     tinst = sc->tinst;
+
+    // get the module of the outermost enclosing instantiation
+    if (tinst)
+    tmodule = tinst->tmodule;
+    else
+    tmodule = sc->module;
+    //printf("%s in %s\n", toChars(), tmodule->toChars());
 
 #if LOG
     printf("\tdo semantic\n");

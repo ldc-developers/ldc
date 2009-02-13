@@ -322,6 +322,7 @@ struct TemplateInstance : ScopeDsymbol
 
     // LDC
     TemplateInstance *tinst; // enclosing template instance
+    Module* tmodule; // module from outermost enclosing template instantiation
     void printInstantiationTrace();
 };
 

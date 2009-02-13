@@ -2198,12 +2198,6 @@ Statement *IfStatement::semantic(Scope *sc)
 	condition = condition->semantic(scd);
     }
 
-    // LDC
-    else if (ident == Id::allow_inline)
-    {
-        sc->func->allowInlining = true;
-    }
-
     else
 	scd = sc->push();
     ifbody = ifbody->semantic(scd);
@@ -2478,6 +2472,13 @@ Statement *PragmaStatement::semantic(Scope *sc)
 	    return this;
 	}
     }
+
+    // LDC
+    else if (ident == Id::allow_inline)
+    {
+        sc->func->allowInlining = true;
+    }
+
     else
         error("unrecognized pragma(%s)", ident->toChars());
 
