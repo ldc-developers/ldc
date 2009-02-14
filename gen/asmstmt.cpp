@@ -629,7 +629,7 @@ void AsmBlockStatement::toIR(IRState* p)
         }
         remap_inargs(a->code, inn+a->out.size(), asmIdx);
         if (!code.empty())
-            code += " ; ";
+            code += "\n\t";
         code += a->code;
     }
     asmblock->s.clear();
@@ -671,8 +671,13 @@ void AsmBlockStatement::toIR(IRState* p)
     args.insert(args.end(), outargs.begin(), outargs.end());
     args.insert(args.end(), inargs.begin(), inargs.end());
     llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(), "");
+
+    // capture abi return value
     if (useabiret)
     {
+        if (p->asmBlock->retemu)
+        p->asmBlock->asmBlock->abiret = DtoLoad(p->asmBlock->asmBlock->abiret);
+        else
         p->asmBlock->asmBlock->abiret = call;
     }
 

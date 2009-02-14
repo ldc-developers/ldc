@@ -207,6 +207,29 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
         {
             as->out_c = "={ax},={dx},";
             asmblock->retn = 2;
+        #if 0
+            // this is to show how to allocate a temporary for the return value
+            // in case the appropriate multi register constraint isn't supported.
+            // this way abi return from inline asm can still be emulated.
+
+            // generate asm
+            as->out_c = "=*m,=*m,";
+            LLValue* tmp = DtoAlloca(llretTy, ".tmp_asm_ret");
+            as->out.push_back( tmp );
+            as->out.push_back( DtoGEPi(tmp, 0,1) );
+            as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
+
+            // fix asmblock
+            asmblock->retn = 0;
+            asmblock->retemu = true;
+            asmblock->asmBlock->abiret = tmp;
+
+            // add "ret" stmt
+            asmblock->s.push_back(as);
+
+            // done, we don't want anything pushed in the front of the block
+            return;
+        #endif
         }
         else
         {
