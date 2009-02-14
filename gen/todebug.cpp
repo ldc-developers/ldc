@@ -11,6 +11,7 @@
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
+#include "gen/llvmhelpers.h"
 
 #include "ir/irmodule.h"
 
@@ -85,6 +86,16 @@ static const llvm::StructType* getDwarfGlobalVariableType() {
     return isaStruct(gIR->module->getTypeByName("llvm.dbg.global_variable.type"));
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+// get the module the symbol is in, or - for template instances - the current module
+static Module* getDefinedModule(Dsymbol* s)
+{
+    if (!DtoIsTemplateInstance(s))
+        return s->getModule();
+    else
+	return gIR->dmodule;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -269,7 +280,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
 
         name = DtoConstStringPtr(sd->toChars(), "llvm.metadata");
         linnum = sd->loc.linnum;
-        definedCU = DtoDwarfCompileUnit(sd->getCompilationModule());
+        definedCU = DtoDwarfCompileUnit(getDefinedModule(sd));
 
         std::vector<LLConstant*> elems;
         if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
@@ -361,11 +372,11 @@ static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDecla
         vd->mangle(), // name
         vd->toPrettyChars(), // displayname
         vd->toChars(), // linkage name
-        DtoDwarfCompileUnit(vd->getCompilationModule()), // compile unit
+        DtoDwarfCompileUnit(getDefinedModule(vd)), // compile unit
         vd->loc.linnum, // line num
         dwarfTypeDescription_impl(vd->type, compileUnit, NULL), // type
         vd->protection == PROTprivate, // is local to unit
-        vd->getCompilationModule() == gIR->dmodule, // is definition
+        getDefinedModule(vd) == gIR->dmodule, // is definition
         ll // value
     );
 }
@@ -386,7 +397,7 @@ static llvm::DIVariable dwarfVariable(VarDeclaration* vd, llvm::DIType type)
         tag, // tag
         gIR->func()->diSubprogram, // context
         vd->toChars(), // name
-        DtoDwarfCompileUnit(vd->getCompilationModule()), // compile unit
+        DtoDwarfCompileUnit(getDefinedModule(vd)), // compile unit
         vd->loc.linnum, // line num
         type // type
     );
@@ -434,9 +445,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
 
     // get compile units
     llvm::DICompileUnit thisCU = DtoDwarfCompileUnit(gIR->dmodule);
-    llvm::DICompileUnit varCU = thisCU;
-    if (vd->getCompilationModule() != gIR->dmodule)
-        varCU = DtoDwarfCompileUnit(vd->getCompilationModule());
+    llvm::DICompileUnit varCU = DtoDwarfCompileUnit(getDefinedModule(vd));
 
     // get type description
     llvm::DIType TD = dwarfTypeDescription(vd->type, thisCU, NULL);
@@ -499,7 +508,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     LOG_SCOPE;
 
     llvm::DICompileUnit context = DtoDwarfCompileUnit(gIR->dmodule);
-    llvm::DICompileUnit definition = DtoDwarfCompileUnit(fd->getCompilationModule());
+    llvm::DICompileUnit definition = DtoDwarfCompileUnit(getDefinedModule(fd));
 
     // FIXME: duplicates ?
     return gIR->difactory.CreateSubprogram(
@@ -581,7 +590,7 @@ void DtoDwarfStopPoint(unsigned ln)
     LOG_SCOPE;
 
     gIR->difactory.InsertStopPoint(
-        DtoDwarfCompileUnit(gIR->func()->decl->getCompilationModule()), // compile unit
+        DtoDwarfCompileUnit(getDefinedModule(gIR->func()->decl)), // compile unit
         ln, // line no
         0, // col no
         gIR->scopebb()
