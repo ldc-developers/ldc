@@ -536,13 +536,13 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // static ctor
     if (fdecl->isStaticCtorDeclaration()) {
-        if (fdecl->getModule() == gIR->dmodule || fdecl->inTemplateInstance()) {
+        if (mustDefineSymbol(fdecl)) {
             gIR->ctors.push_back(fdecl);
         }
     }
     // static dtor
     else if (fdecl->isStaticDtorDeclaration()) {
-        if (fdecl->getModule() == gIR->dmodule || fdecl->inTemplateInstance()) {
+        if (mustDefineSymbol(fdecl)) {
             gIR->dtors.push_back(fdecl);
         }
     }
