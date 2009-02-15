@@ -168,6 +168,13 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static LLValue* x86_64_cfloatRetFixup(IRBuilderHelper b, LLValue* orig) {
+    assert(orig->getType() == LLType::DoubleTy);
+    LLType* retty = LLStructType::get(LLType::DoubleTy, NULL);
+    LLValue* undef = llvm::UndefValue::get(retty);
+    return b->CreateInsertValue(undef, orig, 0, "asm.ret");
+}
+
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
     Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
@@ -179,8 +186,8 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     asmblock->retty = llretTy;
     asmblock->retn = 1;
 
-    // x86 or x86_64
-    if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
+    // x86
+    if (global.params.cpu == ARCHx86)
     {
         LINK l = fdecl->linkage;
         assert((l == LINKd || l == LINKc || l == LINKwindows) && "invalid linkage for asm implicit return");
@@ -230,6 +237,69 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
             // done, we don't want anything pushed in the front of the block
             return;
         #endif
+        }
+        else
+        {
+            error(loc, "unimplemented return type '%s' for implicit abi return", rt->toChars());
+            fatal();
+        }
+    }
+
+    // x86_64
+    else if (global.params.cpu == ARCHx86_64)
+    {
+        LINK l = fdecl->linkage;
+        /* TODO: Check if this works with extern(Windows), completely untested.
+         *       In particular, returning cdouble may not work with
+         *       extern(Windows) since according to X86CallingConv.td it
+         *       doesn't allow XMM1 to be used.
+         * (So is extern(C), but that should be fine as the calling convention
+         * is identical to that of extern(D))
+         */
+        assert((l == LINKd || l == LINKc || l == LINKwindows) && "invalid linkage for asm implicit return");
+
+        Type* rt = fdecl->type->nextOf()->toBasetype();
+        if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass || rt->ty == Taarray)
+        {
+            as->out_c = "={ax},";
+        }
+        else if (rt->isfloating())
+        {
+            if (rt == Type::tcomplex80) {
+                // On x87 stack, re=st, im=st(1)
+                as->out_c = "={st},={st(1)},";
+                asmblock->retn = 2;
+            } else if (rt == Type::tfloat80 || rt == Type::timaginary80) {
+                // On x87 stack
+                as->out_c = "={st},";
+            } else if (l != LINKd && rt == Type::tcomplex32) {
+                // LLVM and GCC disagree on how to return {float, float}.
+                // For compatibility, use the GCC/LLVM-GCC way for extern(C/Windows)
+                // extern(C) cfloat -> %xmm0 (extract two floats)
+            #if 0
+                // Disabled because "regular" extern(C) functions aren't
+                // ABI-compatible with GCC yet.
+                // TODO: enable when "extern(C) cfloat foo();" compiles to "declare { double } @foo();"
+                as->out_c = "={xmm0},";
+                asmblock->retty = LLStructType::get(LLType::DoubleTy, NULL);;
+                asmblock->retfixup = &x86_64_cfloatRetFixup;
+            #else
+                error(loc, "unimplemented return type '%s' for implicit abi return", rt->toChars());
+                fatal();
+            #endif
+            } else if (rt->iscomplex()) {
+                // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1
+                as->out_c = "={xmm0},={xmm1},";
+                asmblock->retn = 2;
+            } else {
+                // Plain float/double/ifloat/idouble
+                as->out_c = "={xmm0},";
+            }
+        }
+        else if (rt->ty == Tarray || rt->ty == Tdelegate)
+        {
+            as->out_c = "={ax},={dx},";
+            asmblock->retn = 2;
         }
         else
         {

@@ -670,15 +670,19 @@ void AsmBlockStatement::toIR(IRState* p)
     std::vector<LLValue*> args;
     args.insert(args.end(), outargs.begin(), outargs.end());
     args.insert(args.end(), inargs.begin(), inargs.end());
-    llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(), "");
+    llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(),
+        retty == LLType::VoidTy ? "" : "asm");
 
     // capture abi return value
     if (useabiret)
     {
-        if (p->asmBlock->retemu)
-        p->asmBlock->asmBlock->abiret = DtoLoad(p->asmBlock->asmBlock->abiret);
+        IRAsmBlock* block = p->asmBlock;
+        if (block->retfixup)
+            block->asmBlock->abiret = (*block->retfixup)(p->ir, call);
+        else if (p->asmBlock->retemu)
+            block->asmBlock->abiret = DtoLoad(block->asmBlock->abiret);
         else
-        p->asmBlock->asmBlock->abiret = call;
+            block->asmBlock->abiret = call;
     }
 
     p->asmBlock = NULL;

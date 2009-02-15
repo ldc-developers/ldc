@@ -89,8 +89,10 @@ struct IRAsmBlock
     const LLType* retty;
     unsigned retn;
     bool retemu; // emulate abi ret with a temporary
+    LLValue* (*retfixup)(IRBuilderHelper b, LLValue* orig); // Modifies retval
 
-    IRAsmBlock(AsmBlockStatement* b) : asmBlock(b), retty(NULL), retn(0), retemu(false) {}
+    IRAsmBlock(AsmBlockStatement* b)
+        : asmBlock(b), retty(NULL), retn(0), retemu(false), retfixup(NULL) {}
 };
 
 // llvm::CallInst and llvm::InvokeInst don't share a common base

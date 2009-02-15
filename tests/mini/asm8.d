@@ -1,3 +1,7 @@
+const float  one_f = 1;
+const double one_d = 1;
+const real   one_r = 1;
+
 int foo()
 {
     version(X86)
@@ -24,6 +28,7 @@ ulong bar()
     else static assert(0, "todo");
 }
 
+
 float onef()
 {
     version(X86)
@@ -32,7 +37,7 @@ float onef()
     }
     else version (X86_64)
     {
-        asm { fld1; }
+        asm { movss XMM0, [one_f]; }
     }
     else static assert(0, "todo");
 }
@@ -45,7 +50,7 @@ double oned()
     }
     else version (X86_64)
     {
-        asm { fld1; }
+        asm { movsd XMM0, [one_d]; }
     }
     else static assert(0, "todo");
 }
@@ -63,18 +68,172 @@ real oner()
     else static assert(0, "todo");
 }
 
+ifloat oneif()
+{
+    version(X86)
+    {
+        asm { fld1; }
+    }
+    else version (X86_64)
+    {
+        asm { movss XMM0, [one_f]; }
+    }
+    else static assert(0, "todo");
+}
 
-real two = 2.0;
+idouble oneid()
+{
+    version(X86)
+    {
+        asm { fld1; }
+    }
+    else version (X86_64)
+    {
+        asm { movsd XMM0, [one_d]; }
+    }
+    else static assert(0, "todo");
+}
+
+ireal oneir()
+{
+    version(X86)
+    {
+        asm { fld1; }
+    }
+    else version (X86_64)
+    {
+        asm { fld1; }
+    }
+    else static assert(0, "todo");
+}
+
+
+const float two_f = 2;
+
+cfloat cf()
+{
+    version(X86)
+    {
+        asm { fld1; flds two_f; }
+    }
+    else version (X86_64)
+    {
+        asm
+        {
+            movss XMM1, [two_f];
+            movss XMM0, [one_f];
+            movd ECX, XMM1;
+            movd EAX, XMM0;
+            
+            // invalid operand size :(
+            //shl RCX, 32;
+            //or RAX, RCX;
+            
+            pushq RAX;
+            mov [RSP + 4], EAX;
+            popq RAX;
+            
+            movd XMM0, RAX;
+        }
+    }
+    else static assert(0, "todo");
+}
+
+cfloat cf2()
+{
+    version(X86)
+    {
+        asm
+        {
+            naked;
+            fld1;
+            flds two_f;
+            ret;
+        }
+    }
+    else version (X86_64)
+    {
+        asm
+        {
+            naked;
+            movss XMM1, [two_f];
+            movss XMM0, [one_f];
+            movd ECX, XMM1;
+            movd EAX, XMM0;
+            
+            // invalid operand size :(
+            //shl RCX, 32;
+            //or RAX, RCX;
+            
+            pushq RAX;
+            mov [RSP + 4], EAX;
+            popq RAX;
+            
+            movd RAX, XMM0;
+            ret;
+        }
+    }
+    else static assert(0, "todo");
+}
+
+
+const double two_d = 2;
+
+cdouble cd()
+{
+    version(X86)
+    {
+        asm { fld1; fld two_d }
+    }
+    else version (X86_64)
+    {
+        asm
+        {
+            leaq RAX, [one_d];
+            leaq RCX, [two_d];
+            movsd XMM0, [RAX];
+            movsd XMM1, [RCX];
+        }
+    }
+    else static assert(0, "todo");
+}
+
+cdouble cd2()
+{
+    version(X86)
+    {
+        asm
+        {
+            naked;
+            fld1;
+            fld two_d;
+            ret;
+        }
+    }
+    else version (X86_64)
+    {
+        asm
+        {
+            naked;
+            movsd XMM0, [one_d];
+            movsd XMM1, [two_d];
+        }
+    }
+    else static assert(0, "todo");
+}
+
+
+const real two_r = 2.0;
 
 creal cr()
 {
     version(X86)
     {
-        asm { fld1; fld two; }
+        asm { fld1; fld two_r; }
     }
     else version (X86_64)
     {
-        asm { fld1; fld two; }
+        asm { fld two_r; fld1; }
     }
     else static assert(0, "todo");
 }
@@ -87,17 +246,17 @@ creal cr2()
         {
             naked;
             fld1;
-            fld two;
+            fld two_r;
             ret;
         }
     }
     else version (X86_64)
     {
-    asm
+        asm
         {
             naked;
+            fld two_r;
             fld1;
-            fld two;
             ret;
         }
     }
@@ -193,8 +352,20 @@ void main()
     assert(onef() == 1);
     assert(oned() == 1);
     assert(oner() == 1);
+    
+    assert(oneif() == 1i);
+    assert(oneid() == 1i);
+    assert(oneir() == 1i);
+    
+    assert(cf() == 1+2i);
+    assert(cf2() == 1+2i);
+    
+    assert(cd() == 1+2i);
+    assert(cd2() == 1+2i);
+    
     assert(cr() == 1+2i);
     assert(cr2() == 1+2i);
+    
     assert(vp() == cast(void*)0x80);
     assert(aa() is gaa);
     assert(ob() is gobj);
