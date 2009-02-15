@@ -1712,8 +1712,11 @@ namespace AsmParserx8664
                         operand->dataSize = Byte_Ptr;
                     else if ( operand->constDisplacement < 0x10000 )
                         operand->dataSize = Short_Ptr;
-                    else
+                    else if ( operand->constDisplacement < 0x100000000 )
                         operand->dataSize = Int_Ptr;
+                    else
+                        //This could be possible since we are using 48 bits
+                        operand->dataSize = QWord_Ptr;
                 }
                 return Opr_Immediate;
             }
@@ -1758,6 +1761,7 @@ namespace AsmParserx8664
                         case Byte_Ptr:  type_char = 'b'; break;
                         case Short_Ptr: type_char = 'w'; break;
                         case Int_Ptr:   type_char = 'l'; break;
+                        case QWord_Ptr: type_char = 'q'; break;
                         default:
                             // %% these may be too strict
                             return false;
@@ -1825,7 +1829,7 @@ namespace AsmParserx8664
                     case FP_Types:    min_type = Float_Ptr; break;
                 }
                 if ( op == Op_push && operands[0].cls == Opr_Immediate )
-                    min_type = Int_Ptr;
+                    min_type = QWord_Ptr;
 
                 for ( int i = 0; i < nOperands; i++ )
                 {
@@ -2137,7 +2141,7 @@ namespace AsmParserx8664
                                 if ( operand->indexReg == Reg_Invalid &&
                                         decl->isVarDeclaration() &&
                                         ( ( ( operand->baseReg == Reg_EBP || ( operand->baseReg == Reg_RBP ) ) && ! sc->func->naked ) ||
-                                          ( ( operand->baseReg == Reg_ESP || ( operand->baseReg == Reg_RSP ) ) && sc->func->naked ) ) )
+                                          ( ( operand->baseReg == Reg_ESP || ( operand->baseReg == Reg_RSP ) ) && ! sc->func->naked ) ) )
                                 {
 
                                     if ( mode == Mode_Output )
@@ -2155,7 +2159,7 @@ namespace AsmParserx8664
                                     {
                                         e = new AddExp ( 0, e,
                                                          new IntegerExp ( 0, operand->constDisplacement,
-                                                                          Type::tint32 ) );
+                                                                          Type::tint64 ) );
                                         e->type = decl->type->pointerTo();
                                     }
                                     e = new PtrExp ( 0, e );
@@ -2297,10 +2301,10 @@ namespace AsmParserx8664
             return e;
         }
 
-        Expression * newIntExp ( int v /* %% type */ )
+        Expression * newIntExp ( long v /* %% type */ )
         {
-            // Only handles 32-bit numbers as this is IA-32.
-            return new IntegerExp ( stmt->loc, v, Type::tint32 );
+            // Handle 64 bit ... incoming long may need to be 'long long' for Windows???
+            return new IntegerExp ( stmt->loc, v, Type::tint64 );
         }
 
         void slotExp ( Expression * exp )
@@ -2676,7 +2680,8 @@ namespace AsmParserx8664
                 case TOKint8: return Byte_Ptr;
                 case TOKint16: return Short_Ptr;
                 case TOKint32: return Int_Ptr;
-                    // 'long ptr' isn't accepted?
+                case TOKint64: return QWord_Ptr;
+                    // 'long ptr' isn't accepted? (it is now for x64 - qword)
                 case TOKfloat32: return Float_Ptr;
                 case TOKfloat64: return Double_Ptr;
                 case TOKfloat80: return Extended_Ptr;
@@ -2769,7 +2774,7 @@ namespace AsmParserx8664
                 case TOKuns64v:
                     // semantic here?
                     // %% for tok64 really should use 64bit type
-                    e = new IntegerExp ( stmt->loc, token->uns64value, Type::tint32 );
+                    e = new IntegerExp ( stmt->loc, token->uns64value, Type::tint64 );
                     nextToken();
                     break;
                 case TOKfloat32v:
