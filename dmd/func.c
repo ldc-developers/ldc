@@ -2420,7 +2420,7 @@ void DtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 StaticCtorDeclaration::StaticCtorDeclaration(Loc loc, Loc endloc)
     : FuncDeclaration(loc, endloc,
-      Identifier::generateId("_staticCtor"), STCstatic, NULL)
+      Lexer::idPool("_staticCtor"), STCstatic, NULL)
 {
 }
 
@@ -2437,6 +2437,9 @@ Dsymbol *StaticCtorDeclaration::syntaxCopy(Dsymbol *s)
 void StaticCtorDeclaration::semantic(Scope *sc)
 {
     //printf("StaticCtorDeclaration::semantic()\n");
+
+    // get ourselves a scope-unique id
+    ident = sc->module->generateId(ident);
 
     type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);
 
@@ -2521,7 +2524,7 @@ void StaticCtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 StaticDtorDeclaration::StaticDtorDeclaration(Loc loc, Loc endloc)
     : FuncDeclaration(loc, endloc,
-      Identifier::generateId("_staticDtor"), STCstatic, NULL)
+      Lexer::idPool("_staticDtor"), STCstatic, NULL)
 {
     vgate = NULL;
 }
@@ -2538,6 +2541,9 @@ Dsymbol *StaticDtorDeclaration::syntaxCopy(Dsymbol *s)
 
 void StaticDtorDeclaration::semantic(Scope *sc)
 {
+    // get ourselves a scope-unique id
+    ident = sc->module->generateId(ident);
+
     ClassDeclaration *cd;
     Type *tret;
 

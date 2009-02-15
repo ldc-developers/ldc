@@ -179,6 +179,10 @@ struct Module : Package
 
     // array ops emitted in this module already
     StringTable arrayfuncs;
+
+    // for numbering staticCtors etc.
+    int uniqueId;
+    Identifier* generateId(Identifier* id);
 };
 
 
