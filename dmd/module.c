@@ -130,7 +130,6 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     llvmForceLogging = false;
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
-    uniqueId = 0;
 }
 
 File* Module::buildFilePath(char* forcename, char* path, char* ext)
@@ -1007,9 +1006,4 @@ DsymbolTable *Package::resolve(Array *packages, Dsymbol **pparent, Package **ppk
 	}
     }
     return dst;
-}
-
-Identifier* Module::generateId(Identifier* id)
-{
-    return Identifier::generateId(id->string, uniqueId++);
 }
