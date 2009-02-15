@@ -925,6 +925,7 @@ int main(int argc, char *argv[])
 	break;
 
     case OSMacOSX:
+	VersionCondition::addPredefinedGlobalIdent("OSX");
 	VersionCondition::addPredefinedGlobalIdent("darwin");
 	VersionCondition::addPredefinedGlobalIdent("Posix");
 	break;
