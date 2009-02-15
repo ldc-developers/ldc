@@ -507,7 +507,7 @@ namespace AsmParserx8664
         /* Op_SrcSrcFW  */  {   mr,  mri,  0,    Word_Types, Clb_Flags },
         /* Op_SrcSrcSSEF*/  {   sse, ssem, 0,    0, Clb_Flags },
         /* Op_SrcSrcMMX */  {   mmx, mmx,  0, },
-        /* Op_Shift     */  { D|mr,N|shft, 0,/**/1, Clb_Flags },
+        /* Op_Shift     */  { D|mr,N|shft, 0,/**/0, Clb_Flags },
         /* Op_Branch    */  {   mri },
         /* Op_CBranch   */  {   imm },
         /* Op_0         */  {   0,0,0 },
