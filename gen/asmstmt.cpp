@@ -385,18 +385,25 @@ assert(0);
     for(it i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i, ++n) {
         // rewrite update constraint to in and out constraints
         if((*i)[0] == '+') {
-            (*i)[0] = '=';
-            std::string input_constraint;
-            std::stringstream ss;
-            ss << n;
-            ss >> input_constraint;
-            //FIXME: I think multiple inout constraints will mess up the order!
-            input_constraints.push_front(input_constraint);
+            assert(*i == mrw_cns && "What else are we updating except memory?");
+            /* LLVM doesn't support updating operands, so split into an input
+             * and an output operand.
+             */
+            
+            // Change update operand to pure output operand.
+            *i = mw_cns;
+            
+            // Add input operand with same value, with original as "matching output".
+            std::ostringstream ss;
+            ss << m_cns << (n + asmblock->outputcount);
+            input_constraints.push_front(ss.str());
             input_values.push_front(output_values[n]);
         }
         llvmOutConstraints += *i;
         llvmOutConstraints += ",";
     }
+    asmblock->outputcount += n;
+
     for(it i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
         llvmInConstraints += *i;
         llvmInConstraints += ",";

@@ -81,6 +81,7 @@ struct IRAsmBlock
 {
     std::deque<IRAsmStmt*> s;
     std::set<std::string> clobs;
+    size_t outputcount;
 
     // stores the labels within the asm block
     std::vector<Identifier*> internalLabels;
@@ -92,7 +93,9 @@ struct IRAsmBlock
     LLValue* (*retfixup)(IRBuilderHelper b, LLValue* orig); // Modifies retval
 
     IRAsmBlock(AsmBlockStatement* b)
-        : asmBlock(b), retty(NULL), retn(0), retemu(false), retfixup(NULL) {}
+        : asmBlock(b), retty(NULL), retn(0), retemu(false), retfixup(NULL),
+          outputcount(0)
+    {}
 };
 
 // llvm::CallInst and llvm::InvokeInst don't share a common base
