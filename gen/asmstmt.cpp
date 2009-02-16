@@ -346,7 +346,34 @@ assert(0);
 	++p;
     }
 
-    Logger::println("final asm: %.*s", code->insnTemplateLen, code->insnTemplate);
+    if (Logger::enabled()) {
+        Logger::println("final asm: %.*s", code->insnTemplateLen, code->insnTemplate);
+        std::ostringstream ss;
+        
+        ss << "GCC-style output constraints: {";
+        typedef std::deque<std::string>::iterator It;
+        for (It i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i) {
+            ss << " " << *i;
+        }
+        ss << " }";
+        Logger::println("%s", ss.str().c_str());
+        
+        ss.str("");
+        ss << "GCC-style input constraints: {";
+        for (It i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
+            ss << " " << *i;
+        }
+        ss << " }";
+        Logger::println("%s", ss.str().c_str());
+        
+        ss.str("");
+        ss << "GCC-style clobbers: {";
+        for (It i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
+            ss << " " << *i;
+        }
+        ss << " }";
+        Logger::println("%s", ss.str().c_str());
+    }
 
     std::string insnt(code->insnTemplate, code->insnTemplateLen);
 
@@ -665,13 +692,26 @@ void AsmBlockStatement::toIR(IRState* p)
     llvm::FunctionType* fty = llvm::FunctionType::get(retty, types, false);
     if (Logger::enabled())
         Logger::cout() << "function type = " << *fty << '\n';
-    llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
 
     std::vector<LLValue*> args;
     args.insert(args.end(), outargs.begin(), outargs.end());
     args.insert(args.end(), inargs.begin(), inargs.end());
+
+    if (Logger::enabled()) {
+        Logger::cout() << "Arguments:" << '\n';
+        Logger::indent();
+        for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i)
+            Logger::cout() << '$' << (i - b) << " ==> " << **i;
+        Logger::undent();
+    }
+
+    llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
+
     llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(),
         retty == LLType::VoidTy ? "" : "asm");
+
+    if (Logger::enabled())
+        Logger::cout() << "Complete asm statement: " << *call << '\n';
 
     // capture abi return value
     if (useabiret)
