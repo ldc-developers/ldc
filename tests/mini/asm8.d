@@ -118,22 +118,29 @@ cfloat cf()
     }
     else version (X86_64)
     {
-        asm
-        {
-            movss XMM1, [two_f];
-            movss XMM0, [one_f];
-            movd ECX, XMM1;
-            movd EAX, XMM0;
-            
-            // invalid operand size :(
-            //shl RCX, 32;
-            //or RAX, RCX;
-            
-            pushq RAX;
-            mov [RSP + 4], EAX;
-            popq RAX;
-            
-            movd XMM0, RAX;
+        version(all) {
+            asm
+            {
+                movss XMM0, [one_f];
+                movss XMM1, [two_f];
+            }
+        } else {
+            // Code for when LDC becomes ABI-compatible with GCC
+            // regarding cfloat returns.
+            asm {
+                movd EAX, [one_f];
+                movd ECX, [two_f];
+                
+                // invalid operand size :(
+                //shl RCX, 32;
+                //or RAX, RCX;
+                
+                pushq RAX;
+                mov [RSP + 4], EAX;
+                popq RAX;
+                
+                movd XMM0, RAX;
+            }
         }
     }
     else static assert(0, "todo");
@@ -153,24 +160,33 @@ cfloat cf2()
     }
     else version (X86_64)
     {
-        asm
-        {
-            naked;
-            movss XMM1, [two_f];
-            movss XMM0, [one_f];
-            movd ECX, XMM1;
-            movd EAX, XMM0;
-            
-            // invalid operand size :(
-            //shl RCX, 32;
-            //or RAX, RCX;
-            
-            pushq RAX;
-            mov [RSP + 4], EAX;
-            popq RAX;
-            
-            movd RAX, XMM0;
-            ret;
+        version(all) {
+            asm
+            {
+                naked;
+                movss XMM0, [one_f];
+                movss XMM1, [two_f];
+                ret;
+            }
+        } else {
+            // Code for when LDC becomes ABI-compatible with GCC
+            // regarding cfloat returns.
+            asm {
+                naked;
+                mov EAX, [one_f];
+                mov ECX, [two_f];
+                
+                // invalid operand size :(
+                //shl RCX, 32;
+                //or RAX, RCX;
+                
+                pushq RAX;
+                mov [RSP + 4], EAX;
+                popq RAX;
+                
+                movd RAX, XMM0;
+                ret;
+            }
         }
     }
     else static assert(0, "todo");
@@ -183,7 +199,7 @@ cdouble cd()
 {
     version(X86)
     {
-        asm { fld1; fld two_d }
+        asm { fld1; fld two_d; }
     }
     else version (X86_64)
     {
