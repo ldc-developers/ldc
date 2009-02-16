@@ -146,11 +146,13 @@ void print(TypeInfo ti, void* arg)
         printf("%llf", *cast(real*)arg);
 
     else if (ti == typeid(char))
-        printf("%.*s", 1, arg);
+        printf("%c", *cast(char*)arg);
     else if (ti == typeid(wchar))
-        printf("%.*s", 2, arg);
+        foreach (char c; (cast(wchar*)arg)[0..1])
+            printf("%c", c);
     else if (ti == typeid(dchar))
-        printf("%.*s", 4, arg);
+        foreach (char c; (cast(dchar*)arg)[0..1])
+            printf("%c", c);
 
     else if (ti == typeid(char[]))
     {
