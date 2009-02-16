@@ -114,7 +114,7 @@ cfloat cf()
 {
     version(X86)
     {
-        asm { fld1; flds two_f; }
+        asm { fld1; fld two_f; }
     }
     else version (X86_64)
     {
@@ -154,7 +154,7 @@ cfloat cf2()
         {
             naked;
             fld1;
-            flds two_f;
+            fld two_f;
             ret;
         }
     }
