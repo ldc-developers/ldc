@@ -1712,7 +1712,7 @@ namespace AsmParserx8664
                         operand->dataSize = Byte_Ptr;
                     else if ( operand->constDisplacement < 0x10000 )
                         operand->dataSize = Short_Ptr;
-                    else if ( operand->constDisplacement < 0x100000000 )
+                    else if ( operand->constDisplacement <= 0xFFFFFFFF )
                         operand->dataSize = Int_Ptr;
                     else
                         //This could be possible since we are using 48 bits
