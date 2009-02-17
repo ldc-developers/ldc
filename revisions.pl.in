@@ -9,8 +9,8 @@ my $llvm_src = `perl @LLVM_CONFIG@ --src-root`;
 
 my $llvm_rev = `svnversion $llvm_src`;
 
-if ($llvm_rev =~ s/(\d+)\s+$/$1/) {
-	$llvm_rev = qq!#define LLVM_REV "LLVM rev.$llvm_rev"!
+if ($llvm_rev =~ s/(\d+M?)\s+$/$1/) {
+	$llvm_rev = qq!#define LLVM_REV "LLVM rev. $llvm_rev"!
 } else {
 	my $llvm_lib = `perl @LLVM_CONFIG@ --libdir`;
 	$llvm_lib =~ s/\s+$//;
@@ -18,13 +18,13 @@ if ($llvm_rev =~ s/(\d+)\s+$/$1/) {
 	$llvm_rev = qq!#include "llvm/Config/config.h"\n#define LLVM_REV PACKAGE_STRING" ($llvm_rev)"!;
 }
 
-my $ldc_rev = `hg -R@PROJECT_SOURCE_DIR@ tip --template {rev}`;
+my $ldc_rev = `hg -R@PROJECT_SOURCE_DIR@ log -r qparent --template '{rev}:{node|short} ({date|isodate})' 2>/dev/null || hg -R@PROJECT_SOURCE_DIR@ tip --template '{rev}:{node|short} ({date|isodate})'`;
 
 my $out = qq!#ifndef LDC_VERSIONS_H
 #define LDC_VERSIONS_H
 
 $llvm_rev
-#define LDC_REV "rev.$ldc_rev"
+#define LDC_REV "rev. $ldc_rev"
 
 #endif // LDC_VERSIONS_H\n!;
 
