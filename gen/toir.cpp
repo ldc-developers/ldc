@@ -2571,11 +2571,21 @@ DValue* DotTypeExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* TypeExp::toElem(IRState *p)
+{
+    error("type %s is not an expression", toChars());
+    //TODO: Improve error handling. DMD just returns some value here and hopes
+    // some more sensible error messages will be triggered.
+    fatal();
+    return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
 STUB(TypeDotIdExp);
 STUB(ScopeExp);
-STUB(TypeExp);
 STUB(TupleExp);
 
 #if DMDV2
