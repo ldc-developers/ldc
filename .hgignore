@@ -1,8 +1,10 @@
 syntax: glob
 *.bc
+*.diff
 *.o
 *.obj
 *.orig
+*.patch
 *.a
 *.s
 *.so
@@ -21,12 +23,12 @@ syntax: regexp
 ^druntime
 ^import
 ^bin/ldc
-^idgen
 ^idgen.make
-^impcnvgen
 ^impcnvgen.make
 ^ldc.make
 ^revisions.pl
+^dmd2?/idgen
+^dmd2?/impcnvgen
 ^dmd2?/revisions.h
 ^dmd2?/impcnvtab.c
 ^dmd2?/id.c
