@@ -93,8 +93,12 @@ void ReturnStatement::toIR(IRState* p)
             // can happen for classes and void main
             if (v->getType() != p->topfunc()->getReturnType())
             {
-                // for main and a void expression: return 0 instead, else bitcast
-                if (p->topfunc() == p->mainFunc && v->getType() == LLType::VoidTy)
+                // for the main function this only happens if it is declared as void
+                // and then contains a return (exp); statement. Since the actual
+                // return type remains i32, we just throw away the exp value
+                // and return 0 instead
+                // if we're not in main, just bitcast
+                if (p->topfunc() == p->mainFunc)
                     v = llvm::Constant::getNullValue(p->mainFunc->getReturnType());
                 else
                     v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
