@@ -90,10 +90,15 @@ void ReturnStatement::toIR(IRState* p)
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
 
-            // can happen for classes
+            // can happen for classes and void main
             if (v->getType() != p->topfunc()->getReturnType())
             {
-                v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
+                // for main and a void expression: return 0 instead, else bitcast
+                if (p->topfunc() == p->mainFunc && v->getType() == LLType::VoidTy)
+                    v = llvm::Constant::getNullValue(p->mainFunc->getReturnType());
+                else
+                    v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
+                
                 if (Logger::enabled())
                     Logger::cout() << "return value after cast: " << *v << '\n';
             }
