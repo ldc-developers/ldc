@@ -540,7 +540,7 @@ void AsmBlockStatement::toIR(IRState* p)
 
         // initialize the setter statement we're going to build
         IRAsmStmt* outSetterStmt = new IRAsmStmt;
-        std::string asmGotoEnd = "jmp "+asmGotoEndLabel.str()+" ; ";
+        std::string asmGotoEnd = "\n\tjmp "+asmGotoEndLabel.str()+"\n";
         std::ostringstream code;
         code << asmGotoEnd;
 
@@ -574,8 +574,8 @@ void AsmBlockStatement::toIR(IRState* p)
 
             // provide an in-asm target for the branch and set value
             Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
-            code << fdmangle << '_' << a->isBranchToLabel->string << ": ; ";
-            code << "movl $<<in" << n_goto << ">>, $<<out0>> ; ";
+            code << fdmangle << '_' << a->isBranchToLabel->string << ":\n\t";
+            code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
             //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
             outSetterStmt->in.push_back(DtoConstUint(n_goto));
             outSetterStmt->in_c += "i,";
@@ -587,7 +587,7 @@ void AsmBlockStatement::toIR(IRState* p)
         {
             // finalize code
             outSetterStmt->code = code.str();
-            outSetterStmt->code += asmGotoEndLabel.str()+": ; ";
+            outSetterStmt->code += asmGotoEndLabel.str()+":\n";
 
             // create storage for and initialize the temporary
             jump_target = DtoAlloca(LLType::Int32Ty, "__llvm_jump_target");

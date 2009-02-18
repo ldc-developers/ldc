@@ -1224,13 +1224,13 @@ void LabelStatement::toIR(IRState* p)
 
         llvm::BasicBlock* oldend = gIR->scopeend();
         if (labelBB != NULL) {
-                labelBB->moveBefore(oldend);
+            labelBB->moveBefore(oldend);
         } else {
-                labelBB = llvm::BasicBlock::Create("label", p->topfunc(), oldend);
+            labelBB = llvm::BasicBlock::Create("label_" + labelname, p->topfunc(), oldend);
         }
 
         if (!p->scopereturned())
-                llvm::BranchInst::Create(labelBB, p->scopebb());
+            llvm::BranchInst::Create(labelBB, p->scopebb());
 
         p->scope() = IRScope(labelBB,oldend);
     }
