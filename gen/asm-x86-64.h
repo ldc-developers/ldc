@@ -630,8 +630,7 @@ namespace AsmParserx8664
     static AsmOpEnt opData[] =
     {
         { "adc",    Op_UpdSrcF },
-
-        { "add",    Op_DstSrcNT }, //Op_UpdSrcF },
+        { "add",    Op_UpdSrcF },
         { "addpd",  Op_DstSrcSSE },
         { "addps",  Op_DstSrcSSE },
         { "addq",    Op_DstSrcSSE },

@@ -396,8 +396,9 @@ assert(0);
             // Add input operand with same value, with original as "matching output".
             std::ostringstream ss;
             ss << '*' << (n + asmblock->outputcount);
-            input_constraints.push_front(ss.str());
-            input_values.push_front(output_values[n]);
+            // Must be at the back; unused operands before used ones screw up numbering.
+            input_constraints.push_back(ss.str());
+            input_values.push_back(output_values[n]);
         }
         llvmOutConstraints += *i;
         llvmOutConstraints += ",";
@@ -440,7 +441,7 @@ AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
 }
 
 // rewrite argument indices to the block scope indices
-static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
+static void remap_outargs(std::string& insnt, size_t nargs, size_t idx)
 {
     static const std::string digits[10] =
     {
@@ -465,7 +466,7 @@ static void remap_outargs(std::string& insnt, size_t nargs, size_t& idx)
 }
 
 // rewrite argument indices to the block scope indices
-static void remap_inargs(std::string& insnt, size_t nargs, size_t& idx)
+static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
 {
     static const std::string digits[10] =
     {
@@ -644,6 +645,7 @@ void AsmBlockStatement::toIR(IRState* p)
             out_c += a->out_c;
         }
         remap_outargs(a->code, onn+a->in.size(), asmIdx);
+        asmIdx += onn;
     }
 
     Logger::println("do inputs");
@@ -662,6 +664,7 @@ void AsmBlockStatement::toIR(IRState* p)
             in_c += a->in_c;
         }
         remap_inargs(a->code, inn+a->out.size(), asmIdx);
+        asmIdx += inn;
         if (!code.empty())
             code += "\n\t";
         code += a->code;
@@ -707,8 +710,12 @@ void AsmBlockStatement::toIR(IRState* p)
     if (Logger::enabled()) {
         Logger::cout() << "Arguments:" << '\n';
         Logger::indent();
-        for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i)
-            Logger::cout() << '$' << (i - b) << " ==> " << **i;
+        for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i) {
+            std::ostream& cout = Logger::cout();
+            cout << '$' << (i - b) << " ==> " << **i;
+            if (llvm::isa<LLConstant>(*i))
+                cout << '\n';
+        }
         Logger::undent();
     }
 
