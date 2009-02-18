@@ -395,7 +395,7 @@ assert(0);
             
             // Add input operand with same value, with original as "matching output".
             std::ostringstream ss;
-            ss << m_cns << (n + asmblock->outputcount);
+            ss << '*' << (n + asmblock->outputcount);
             input_constraints.push_front(ss.str());
             input_values.push_front(output_values[n]);
         }
