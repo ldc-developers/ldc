@@ -1,6 +1,6 @@
 int foo()
 {
-    static int fourty2 = 42;
+    static size_t fourty2 = 42;
     version(X86)
     asm
     {

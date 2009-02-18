@@ -17,7 +17,7 @@ ulong bar()
       asm { mov EAX, 0xFF; mov EDX, 0xAA; }
     } else version(X86_64)
     {
-      asm { movq RAX, 0xFF; }
+      asm { movq RAX, 0xAA000000FF; }
     }
     else static assert(0, "todo");
 }
@@ -29,11 +29,5 @@ void main()
     l = 4;
     l = 8;
     assert(foo() == 42);
-    version(X86)
-    {
-        assert(bar() == 0x000000AA000000FF);
-    } else version(X86_64)
-    {
-        assert(bar() == 0x00000000000000FF);
-    }
+    assert(bar() == 0xAA000000FF);
 }

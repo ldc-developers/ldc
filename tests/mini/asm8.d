@@ -23,7 +23,7 @@ ulong bar()
     }
     else version (X86_64)
     {
-        asm { movq RAX, 0xFF; }
+        asm { movq RAX, 0xAA000000FF; }
     }
     else static assert(0, "todo");
 }
@@ -357,14 +357,7 @@ void main()
     auto adg = &gobj.toString;
 
     assert(foo() == 42);
-    version(X86)
-    {
-        assert(bar() == 0x000000AA000000FF);
-    } 
-    else version (X86_64)
-    {
-        assert(bar() == 0x00000000000000FF);
-    }
+    assert(bar() == 0xAA000000FF);
     assert(onef() == 1);
     assert(oned() == 1);
     assert(oner() == 1);
