@@ -114,7 +114,9 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR MOREFLAGS)
 			${OUTPUT_O}
 			${OUTPUT_BC}
 		COMMAND ${LDC_LOC} -c -I${INCDIR} -output-bc ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
-		DEPENDS ${LDC_LOC} ${LDC_IMPORTS}
+		DEPENDS ${LDC_LOC}
+			${LDC_IMPORTS}
+			${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
 	)
 endmacro(dc)
 
@@ -168,6 +170,7 @@ if(BUILD_BC_LIBS)
 			${CORE_BC}
 			${GC_BC}
 			${DCRT_BC}
+			${LDC_IMPORTS}
 	)
 	set(BCLIBS bclibs)
 endif(BUILD_BC_LIBS)

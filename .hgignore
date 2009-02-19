@@ -23,6 +23,7 @@ syntax: regexp
 ^druntime
 ^import
 ^bin/ldc
+^bin/ldc2?\.conf
 ^idgen.make
 ^impcnvgen.make
 ^ldc.make
