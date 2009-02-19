@@ -25,18 +25,19 @@ else(D_VERSION EQUAL 1)
 	message(FATAL_ERROR "set d version to 1 or 2")
 endif(D_VERSION EQUAL 1)
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
-set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir" FORCE)
+set(RUNTIME_DIR ${PROJECT_BINARY_DIR}/../${RUNTIME} CACHE PATH "runtime source dir")
 
 if(D_VERSION EQUAL 1)
 	# copy imports to runtime dir
+	set(LDC_IMPORTS ${RUNTIME_DIR}/ldc-imports)
 	add_custom_command(
-		OUTPUT ldc-imports
+		OUTPUT ${LDC_IMPORTS}
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/import/ldc/cstdarg.di ${RUNTIME_DIR}/ldc/cstdarg.di
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/import/ldc/intrinsics.di ${RUNTIME_DIR}/ldc/intrinsics.di
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/internal/ldc/bitmanip.d ${RUNTIME_DIR}/ldc/bitmanip.d
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/internal/ldc/vararg.d ${RUNTIME_DIR}/ldc/vararg.d
 	)
-	set(LDC_IMPORTS ldc-imports)
+	set_source_files_properties(${LDC_IMPORTS} PROPERTIES SYMBOLIC YES)
 	# library names
 	set(RUNTIME_CC tango-cc-tango)
 	set(RUNTIME_GC tango-gc-basic)
