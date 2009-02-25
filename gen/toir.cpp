@@ -37,6 +37,8 @@
 #include "gen/functions.h"
 #include "gen/todebug.h"
 
+#include "llvm/Support/ManagedStatic.h"
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DeclarationExp::toElem(IRState* p)
@@ -2775,4 +2777,5 @@ void backend_init()
 void backend_term()
 {
     LLVM_D_FreeRuntime();
+    llvm::llvm_shutdown();
 }
