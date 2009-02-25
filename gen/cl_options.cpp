@@ -1,0 +1,337 @@
+#include "gen/cl_options.h"
+#include "gen/cl_helpers.h"
+
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetData.h"
+
+#include "gen/logger.h"
+
+#include "llvm/Support/CommandLine.h"
+
+namespace opts {
+
+// Positional options first, in order:
+cl::list<std::string> fileList(
+    cl::Positional, cl::desc("files"));
+
+cl::list<std::string> runargs("run",
+    cl::desc("program args..."),
+    cl::Positional,
+    cl::PositionalEatsArgs);
+
+
+
+// TODO: Replace this with a proper PassNameParser-based solution
+static cl::opt<bool, true> doInline("inline",
+    cl::desc("Do function inlining"),
+    cl::location(global.params.llvmInline),
+    cl::ZeroOrMore,
+    cl::init(false));
+
+
+
+static cl::opt<bool, true> useDeprecated("d",
+    cl::desc("Allow deprecated language features"),
+    cl::ZeroOrMore,
+    cl::location(global.params.useDeprecated));
+
+static cl::opt<char, true> useDv1(
+    cl::desc("Force language version:"),
+    cl::ZeroOrMore,
+    cl::values(
+        clEnumValN(1, "v1", "D language version 1.00"),
+        clEnumValEnd),
+    cl::location(global.params.Dversion),
+    cl::init(2),
+    cl::Hidden);
+
+cl::opt<bool> compileOnly("c",
+    cl::desc("Do not link"),
+    cl::ZeroOrMore);
+
+static cl::opt<bool, true> verbose("v",
+    cl::desc("Verbose"),
+    cl::ZeroOrMore,
+    cl::location(global.params.verbose));
+
+static cl::opt<bool, true> warnings("w",
+    cl::desc("Enable warnings"),
+    cl::ZeroOrMore,
+    cl::location(global.params.warnings));
+
+
+static cl::opt<char, true> optimizeLevel(
+    cl::desc("Setting the optimization level:"),
+    cl::ZeroOrMore,
+    cl::values(
+        clEnumValN(2, "O",  "Equivalent to -O2"),
+        clEnumValN(0, "O0", "Trivial optimizations only"),
+        clEnumValN(1, "O1", "Simple optimizations"),
+        clEnumValN(2, "O2", "Good optimizations"),
+        clEnumValN(3, "O3", "Aggressive optimizations"),
+        clEnumValN(4, "O4", "Link-time optimization"), //  not implemented?
+        clEnumValN(5, "O5", "Link-time optimization"), //  not implemented?
+        clEnumValEnd),
+    cl::location(global.params.optimizeLevel),
+    cl::init(-1));
+
+static cl::opt<char, true> debugInfo(
+    cl::desc("Generating debug information:"),
+    cl::ZeroOrMore,
+    cl::values(
+        clEnumValN(1, "g",  "Generate debug information"),
+        clEnumValN(2, "gc", "Same as -g, but pretend to be C"),
+        clEnumValEnd),
+    cl::location(global.params.symdebug),
+    cl::init(0));
+
+
+static cl::opt<bool, true> annotate("annotate",
+    cl::desc("Annotate the bitcode with human readable source code"),
+    cl::location(global.params.llvmAnnotate));
+
+cl::opt<bool> noAsm("noasm",
+    cl::desc("Disallow use of inline assembler"));
+
+// Output file options
+cl::opt<bool> dontWriteObj("o-",
+    cl::desc("Do not write object file"));
+
+cl::opt<std::string> objectFile("of",
+    cl::value_desc("filename"),
+    cl::Prefix,
+    cl::desc("Use <filename> as output file name"));
+
+cl::opt<std::string> objectDir("od",
+    cl::value_desc("objdir"),
+    cl::Prefix,
+    cl::desc("Write object files to directory <objdir>"));
+
+
+// Output format options
+cl::opt<bool> output_bc("output-bc",
+    cl::desc("Write LLVM bitcode"));
+
+cl::opt<bool> output_ll("output-ll",
+    cl::desc("Write LLVM IR"));
+
+cl::opt<bool> output_s("output-s",
+    cl::desc("Write native assembly"));
+
+cl::opt<cl::boolOrDefault> output_o("output-o",
+    cl::desc("Write native object"));
+
+
+// DDoc options
+static cl::opt<bool, true> doDdoc("D",
+    cl::desc("Generate documentation"),
+    cl::location(global.params.doDocComments));
+
+cl::opt<std::string> ddocDir("Dd",
+    cl::desc("Write documentation file to <docdir> directory"),
+    cl::value_desc("docdir"),
+    cl::Prefix);
+
+cl::opt<std::string> ddocFile("Df",
+    cl::desc("Write documentation file to <filename>"),
+    cl::value_desc("filename"),
+    cl::Prefix);
+
+
+// Header generation options
+#ifdef _DH
+static cl::opt<bool, true> doHdrGen("H",
+    cl::desc("Generate 'header' file"),
+    cl::location(global.params.doHdrGeneration));
+
+cl::opt<std::string> hdrDir("Hd",
+    cl::desc("Write 'header' file to <hdrdir> directory"),
+    cl::value_desc("hdrdir"),
+    cl::Prefix);
+
+cl::opt<std::string> hdrFile("Hf",
+    cl::desc("Write 'header' file to <filename>"),
+    cl::value_desc("filename"),
+    cl::Prefix);
+#endif
+
+
+
+static cl::opt<bool, true> unittest("unittest",
+    cl::desc("Compile in unit tests"),
+    cl::location(global.params.useUnitTests));
+
+
+static ArrayAdapter strImpPathStore("J", global.params.fileImppath);
+static cl::list<std::string, ArrayAdapter> stringImportPaths("J",
+    cl::desc("Where to look for string imports"),
+    cl::value_desc("path"),
+    cl::location(strImpPathStore),
+    cl::Prefix);
+
+
+
+// -d-debug is a bit messy, it has 3 modes:
+// -d-debug=ident, -d-debug=level and -d-debug (without argument)
+// That last of these must be acted upon immediately to ensure proper
+// interaction with other options, so it needs some special handling:
+std::vector<std::string> debugArgs;
+
+struct D_DebugStorage {
+    void push_back(const std::string& str) {
+        if (str.empty()) {
+            // Bare "-d-debug" has a special meaning.
+            global.params.useAssert = true;
+            global.params.useArrayBounds = true;
+            global.params.useInvariants = true;
+            global.params.useIn = true;
+            global.params.useOut = true;
+            debugArgs.push_back("1");
+        } else {
+            debugArgs.push_back(str);
+        }
+    }
+};
+
+static D_DebugStorage dds;
+
+// -debug is already declared in LLVM (at least, in debug builds),
+// so we need to be a bit more verbose.
+static cl::list<std::string, D_DebugStorage> debugVersionsOption("d-debug",
+    cl::desc("Compile in debug code >= <level> or identified by <idents>."),
+    cl::value_desc("level/idents"),
+    cl::location(dds),
+    cl::CommaSeparated,
+    cl::ValueOptional);
+
+
+
+// -version is also declared in LLVM, so again we need to be a bit more verbose.
+cl::list<std::string> versions("d-version",
+    cl::desc("Compile in version code >= <level> or identified by <idents>"),
+    cl::value_desc("level/idents"),
+    cl::CommaSeparated);
+
+
+static ArrayAdapter linkSwitchStore("L", global.params.linkswitches);
+static cl::list<std::string, ArrayAdapter> linkerSwitches("L",
+    cl::desc("Pass <linkerflag> to the linker"),
+    cl::value_desc("linkerflag"),
+    cl::location(linkSwitchStore),
+    cl::Prefix);
+
+
+cl::opt<const llvm::TargetMachineRegistry::entry*, false,
+        llvm::RegistryParser<llvm::TargetMachine> > mArch("march",
+    cl::desc("Architecture to generate code for:"));
+
+static cl::alias m("m",
+    cl::desc("Alias for '-march' for backwards compatibility"),
+    cl::Prefix,
+    cl::aliasopt(mArch));
+
+
+static cl::opt<OS, true> os("t",
+    cl::desc("Emit code for the specified OS:"),
+    cl::values(
+#define ENUMVAL_N(Name, Desc) clEnumValN(OS##Name, #Name, Desc)
+#define ENUMVAL(Name) ENUMVAL_N(Name, #Name)
+        ENUMVAL(Linux),
+        ENUMVAL(Windows),
+        ENUMVAL_N(MacOSX, "Mac OS X"),
+        ENUMVAL(FreeBSD),
+        ENUMVAL(Solaris),
+#undef ENUMVAL
+#undef ENUMVAL_N
+        clEnumValEnd),
+    cl::Prefix,
+    cl::location(global.params.os));
+
+
+// "Hidden debug switches"
+// Are these ever used?
+static cl::opt<bool, true> debuga("hidden-debug--a",
+    cl::desc("Hidden debug option A"),
+    cl::ReallyHidden,
+    cl::location(global.params.debuga));
+static cl::opt<bool, true> debugb("hidden-debug-b",
+    cl::desc("Hidden debug option B"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugb));
+static cl::opt<bool, true> debugc("hidden-debug-c",
+    cl::desc("Hidden debug option C"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugc));
+static cl::opt<bool, true> debugf("hidden-debug-f",
+    cl::desc("Hidden debug option F"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugf));
+static cl::opt<bool, true> debugr("hidden-debug-r",
+    cl::desc("Hidden debug option R"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugr));
+static cl::opt<bool, true> debugw("hidden-debug-w",
+    cl::desc("Hidden debug option W"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugw));
+static cl::opt<bool, true> debugx("hidden-debug-x",
+    cl::desc("Hidden debug option X"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugx));
+static cl::opt<bool, true> debugy("hidden-debug-y",
+    cl::desc("Hidden debug option Y"),
+    cl::ReallyHidden,
+    cl::location(global.params.debugy));
+
+
+static cl::opt<bool, true, FlagParser> asserts("asserts",
+    cl::desc("(*) Enable assertions"),
+    cl::value_desc("bool"),
+    cl::location(global.params.useAssert),
+    cl::init(true));
+
+static cl::opt<bool, true, FlagParser> boundsChecks("boundscheck",
+    cl::desc("(*) Enable array bounds checks"),
+    cl::value_desc("bool"),
+    cl::location(global.params.useArrayBounds),
+    cl::init(true));
+
+static cl::opt<bool, true, FlagParser> invariants("invariants",
+    cl::desc("(*) Enable invariants"),
+    cl::location(global.params.useInvariants),
+    cl::init(true));
+
+static cl::opt<bool, true, FlagParser> preconditions("preconditions",
+    cl::desc("(*) Enable function preconditions"),
+    cl::location(global.params.useIn),
+    cl::init(true));
+
+static cl::opt<bool, true, FlagParser> postconditions("postconditions",
+    cl::desc("(*) Enable function postconditions"),
+    cl::location(global.params.useOut),
+    cl::init(true));
+
+
+static MultiSetter ContractsSetter(false, 
+    &global.params.useIn, &global.params.useOut, NULL);
+static cl::opt<MultiSetter, true, FlagParser> contracts("contracts",
+    cl::desc("(*) Enable function pre- and post-conditions"),
+    cl::location(ContractsSetter));
+
+static MultiSetter ReleaseSetter(true, &global.params.useAssert,
+    &global.params.useArrayBounds, &global.params.useInvariants,
+    &global.params.useOut, &global.params.useIn, NULL);
+static cl::opt<MultiSetter, true, cl::parser<bool> > release("release",
+    cl::desc("Disables asserts, invariants, contracts and boundscheck"),
+    cl::location(ReleaseSetter),
+    cl::ValueDisallowed);
+
+
+static cl::extrahelp footer("\n"
+"-d-debug can also be specified without options, in which case it enables all\n"
+"debug checks (i.e. (asserts, boundchecks, contracts and invariants) as well\n"
+"as acting as -d-debug=1\n\n"
+"Options marked with (*) also have a -disable-FOO variant with inverted\n"
+"meaning.\n");
+
+} // namespace opts

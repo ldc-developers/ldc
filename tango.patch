@@ -1,0 +1,56 @@
+Index: lib/unittest.sh
+===================================================================
+--- lib/unittest.sh	(revision 4330)
++++ lib/unittest.sh	(working copy)
+@@ -15,14 +15,14 @@
+ usage() {
+     echo 'Usage: ./unittest.sh [otions ...]
+ Options:
+-  --help: This message
++  --help:    This message
+   --run-all: Reports result instead of breaking. Do not use this if you want to
+-         run unittest runner through a debugger.
+-  dmd:    Builds unittests for dmd
+-  gdc:    Builds unittests for gdc
+-  ldc: Builds unittests for ldc
++             run unittest runner through a debugger.
++  dmd:       Builds unittests for dmd
++  gdc:       Builds unittests for gdc
++  ldc:       Builds unittests for ldc
+ 
+-  <none>: Builds unittests for all known compilers.'
++  <none>:    Builds unittests for all known compilers.'
+   exit 0
+ }
+ 
+@@ -37,7 +37,7 @@
+ 
+     rebuild --help >& /dev/null || die "rebuild required, aborting" 1
+ 
+-    if ! $DC --help >& /dev/null
++    if ! which $DC >& /dev/null
+     then
+         echo "$DC not found on your \$PATH!"
+     else
+Index: lib/build-tango.sh
+===================================================================
+--- lib/build-tango.sh	(revision 4330)
++++ lib/build-tango.sh	(working copy)
+@@ -131,7 +131,7 @@
+     DC=$1
+     LIB=$2
+ 
+-    if ! $DC --help >& /dev/null
++    if ! which "$DC" >& /dev/null
+     then
+         echo "$DC not found on your \$PATH!"
+         return
+@@ -203,7 +203,7 @@
+             build gdmd libgtango.a libgphobos.a
+             ;;
+         ldc)
+-            build ldc libtango-user-ldc.a build-tango.sh
++            build ldmd libtango-user-ldc.a build-tango.sh
+             ;;
+         mac)
+             POSIXFLAG="-version=Posix"

@@ -33,6 +33,15 @@
 
 #include "../gen/enums.h"
 
+
+#include "llvm/Support/CommandLine.h"
+
+static llvm::cl::opt<bool> ignoreUnsupportedPragmas("ignore",
+    llvm::cl::desc("Ignore unsupported pragmas"),
+    llvm::cl::ZeroOrMore);
+
+
+
 extern void obj_includelib(const char *name);
 void obj_startaddress(Symbol *s);
 
@@ -962,7 +971,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 
 #endif // LDC
 
-    else if (global.params.ignoreUnsupportedPragmas)
+    else if (ignoreUnsupportedPragmas)
     {
 	if (global.params.verbose)
 	{

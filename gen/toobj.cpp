@@ -24,6 +24,7 @@
 #include "llvm/System/Program.h"
 #include "llvm/System/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "mars.h"
 #include "module.h"
@@ -52,6 +53,12 @@
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static llvm::cl::opt<bool> noVerify("noverify",
+    llvm::cl::desc("Do not run the validation pass before writing bitcode"),
+    llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -124,10 +131,6 @@ void Module::genobjfile(int multiobj)
 //    for (unsigned i = 0; i != MAttrs.size(); ++i)
 //      Features.AddFeature(MAttrs[i]);
 
-    // only generate PIC code when -fPIC switch is used
-    if (global.params.pic)
-        llvm::TargetMachine::setRelocationModel(llvm::Reloc::PIC_);
-
     // allocate the target machine
     std::auto_ptr<llvm::TargetMachine> target(MArch->CtorFn(*ir.module, Features.getString()));
     assert(target.get() && "Could not allocate target machine!");
@@ -182,7 +185,7 @@ void Module::genobjfile(int multiobj)
     }
 
     // verify the llvm
-    if (!global.params.novalidate) {
+    if (!noVerify) {
         std::string verifyErr;
         Logger::println("Verifying module...");
         LOG_SCOPE;
@@ -200,7 +203,7 @@ void Module::genobjfile(int multiobj)
     ldc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
 
     // verify the llvm
-    if (!global.params.novalidate && (global.params.optimizeLevel >= 0 || global.params.llvmInline)) {
+    if (!noVerify && (global.params.optimizeLevel >= 0 || global.params.llvmInline)) {
         std::string verifyErr;
         Logger::println("Verifying module... again...");
         LOG_SCOPE;

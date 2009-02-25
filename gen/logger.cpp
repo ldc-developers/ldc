@@ -8,6 +8,7 @@
 
 #include "mars.h"
 
+#include "llvm/Support/CommandLine.h"
 #include "gen/logger.h"
 
 namespace Logger
@@ -15,7 +16,10 @@ namespace Logger
     static std::string indent_str;
     static std::ofstream null_out("/dev/null");
 
-    static bool _enabled = false;
+    llvm::cl::opt<bool> _enabled("vv",
+        llvm::cl::desc("Very verbose"),
+        llvm::cl::ZeroOrMore);
+
     void indent()
     {
         if (_enabled) {

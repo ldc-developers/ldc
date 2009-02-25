@@ -1,7 +1,10 @@
 #ifndef LDC_GEN_LINKER_H
 #define LDC_GEN_LINKER_H
 
+#include "llvm/Support/CommandLine.h"
 #include <vector>
+
+extern llvm::cl::opt<bool> quiet;
 
 namespace llvm
 {

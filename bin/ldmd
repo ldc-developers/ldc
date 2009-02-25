@@ -1,0 +1,41 @@
+#! /usr/bin/env bash
+
+# Default to 'ldc' next to this file
+LDC=`basename "$0"`/ldc
+if [ ! -x "$LDC" ]; then
+    # If that doesn't work, assume this script was called via $PATH
+    # and do the same for ldc
+    if which ldc &> /dev/null; then
+        LDC=ldc
+    else
+        echo 'ldc not found, check your installation' >/dev/stderr
+        exit 1
+    fi
+fi
+
+declare -a ARGS
+SeenFile=0
+IDX=0
+for arg; do
+    case "$arg" in
+    -debug|-debug=*|-version=*)
+        arg="-d$arg"
+        ;;
+    -fPIC)
+        arg="-relocation-model=pic"
+        ;;
+    --a|--b|--c|--f|--r|--w|--x|--y)
+        # "Hidden debug switches"
+        # Are these ever used?
+        arg="-hidden-debug${arg:1}"
+        ;;
+    -*)
+        ;;
+    *)
+        SeenFile=1
+        ;;
+    esac
+    ARGS[IDX++]="$arg"
+done
+
+exec "$LDC" "${ARGS[@]}"

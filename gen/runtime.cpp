@@ -2,6 +2,7 @@
 #include "llvm/Module.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "root.h"
 #include "mars.h"
@@ -14,6 +15,14 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/irstate.h"
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+static llvm::cl::opt<bool> noruntime("noruntime",
+    llvm::cl::desc("Do not allow code that generates implicit runtime calls"),
+    llvm::cl::ZeroOrMore);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::Module* M = NULL;
 static bool runtime_failed = false;
@@ -44,7 +53,7 @@ void LLVM_D_FreeRuntime()
 
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
-    if (global.params.noruntime) {
+    if (noruntime) {
         error("No implicit runtime calls allowed with -noruntime option enabled");
         fatal();
     }
@@ -80,7 +89,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
         return gv;
     }
 
-    if (global.params.noruntime) {
+    if (noruntime) {
         error("No implicit runtime calls allowed with -noruntime option enabled");
         fatal();
     }

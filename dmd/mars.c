@@ -40,6 +40,42 @@
 #include "gen/linker.h"
 #include "revisions.h"
 
+#include "gen/cl_options.h"
+#include "gen/cl_helpers.h"
+using namespace opts;
+
+
+static cl::opt<bool> forceBE("forcebe",
+    cl::desc("Force big-endian"),
+    cl::Hidden,
+    cl::ZeroOrMore);
+
+static cl::opt<bool> noDefaultLib("nodefaultlib",
+    cl::desc("Don't add a default library for linking implicitly"),
+    cl::ZeroOrMore);
+
+static ArrayAdapter impPathsStore("I", global.params.imppath);
+static cl::list<std::string, ArrayAdapter> importPaths("I",
+    cl::desc("Where to look for imports"),
+    cl::value_desc("path"),
+    cl::location(impPathsStore),
+    cl::Prefix);
+
+static ArrayAdapter defaultLibStore("defaultlib", global.params.defaultlibnames);
+static cl::list<std::string, ArrayAdapter> defaultlibs("defaultlib",
+    cl::desc("Set default libraries for non-debug build"),
+    cl::value_desc("lib,..."),
+    cl::location(defaultLibStore),
+    cl::CommaSeparated);
+
+static ArrayAdapter debugLibStore("debuglib", global.params.debuglibnames);
+static cl::list<std::string, ArrayAdapter> debuglibs("debuglib",
+    cl::desc("Set default libraries for debug build"),
+    cl::value_desc("lib,..."),
+    cl::location(debugLibStore),
+    cl::CommaSeparated);
+
+
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
 Global global;
@@ -68,13 +104,17 @@ Global::Global()
     llvm_version = LLVM_REV;
     global.structalign = 8;
 
-    memset(&params, 0, sizeof(Param));
+    // This should only be used as a global, so the other fields are
+    // automatically initialized to zero when the program is loaded.
+    // In particular, DO NOT zero-initialize .params here (like DMD
+    // does) because command-line options initialize some of those
+    // fields to non-zero defaults, and do so from constructors that
+    // may run before this one.
 }
 
 char *Loc::toChars() const
 {
     OutBuffer buf;
-    char *p;
 
     if (filename)
     {
@@ -150,98 +190,49 @@ void halt()
 extern void backend_init();
 extern void backend_term();
 
-void usage()
-{
+void printVersion() {
     printf("LLVM D Compiler %s\nbased on DMD %s and %s\n%s\n%s\n",
     global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
-    printf("\
-D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n\
-LDC Homepage: http://www.dsource.org/projects/ldc\n\
-Usage:\n\
-  ldc files.d ... { -switch }\n\
-\n\
-  files.d        D source files\n%s\
-  -o-            do not write object file\n\
-  -od<objdir>    write object files to directory <objdir>\n\
-  -op            do not strip paths from source file\n\
-  -oq            write object files with fully qualified names\n\
-  -of<filename>  name output file to <filename>\n\
-                 if -c and extension of <filename> is known, it determines the output type\n\
-\n\
-  -output-ll     write LLVM IR\n\
-  -output-bc     write LLVM bitcode\n\
-  -output-s      write native assembly\n\
-  -output-o      write native object (default if no -output switch passed)\n\
-\n\
-  -c             do not link\n\
-  -L<linkerflag> pass <linkerflag> to linker\n\
-\n\
-  -w             enable warnings\n\
-\n\
-  -H             generate 'header' file\n\
-  -Hd<hdrdir>    write 'header' file to <hdrdir> directory\n\
-  -Hf<filename>  write 'header' file to <filename>\n\
-\n\
-  -D             generate documentation\n\
-  -Dd<docdir>    write documentation file to <docdir> directory\n\
-  -Df<filename>  write documentation file to <filename>\n\
-\n\
-Codegen control:\n\
-  -m<arch>       emit code specific to <arch> being one of:\n\
-                 x86 x86-64 ppc32 ppc64 arm thumb\n\
-  -t<os>         emit code specific to <os> being one of:\n\
-                 Linux, Windows, MacOSX, FreeBSD, Solaris\n\
-\n\
-  -g, -gc        add symbolic debug info\n\
-\n\
-  -O             optimize, same as -O2\n\
-  -O<n>          optimize at level <n> (0-5)\n\
-  -inline        do function inlining\n\
-\n\
-  -debug         enables asserts, invariants, contracts, boundscheck\n\
-                 and sets debug=1\n\
-  -release       disables asserts, invariants, contracts, boundscheck\n\
-\n\
-  -enable-<feature>    and\n\
-  -disable-<feature>   where <feature> is one of\n\
-    asserts      assert statements (default: on)\n\
-    invariants   class and struct invariants (default: on)\n\
-    contracts    function contracts (default: on)\n\
-    boundscheck  array bounds checking (default: on)\n\
-  -debug=level   compile in debug stmts <= level (default: 0)\n\
-  -debug=ident   compile in debug stmts identified by ident\n\
-  -version=level compile in version code >= level\n\
-  -version=ident compile in version code identified by ident\n\
-\n\
-  -noasm         do not allow use of inline asm\n\
-  -noruntime     do not allow code that generates implicit runtime calls\n\
-  -noverify      do not run the validation pass before writing bitcode\n\
-  -unittest      compile in unit tests\n\
-  -d             allow deprecated features\n\
-\n\
-  -annotate      annotate the bitcode with human readable source code\n\
-  -ignore        ignore unsupported pragmas\n\
-\n\
-Path options:\n\
-  -I<path>       where to look for imports\n\
-  -J<path>       where to look for string imports\n\
-  -defaultlib=name  set default library for non-debug build\n\
-  -debuglib=name    set default library for debug build\n\
-  -nodefaultlib  don't add a default library for linking implicitly\n\
-\n\
-Misc options:\n\
-  -v             verbose\n\
-  -vv            very verbose (does not include -v)\n\
-  -quiet         suppress unnecessary messages\n\
-  -run srcfile args...   run resulting program, passing args\n\
-  --help         print help\n\
-",
-#if WIN32
-"  @cmdfile       read arguments from cmdfile\n"
-#else
-""
-#endif
-);
+    printf("D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n"
+           "LDC Homepage: http://www.dsource.org/projects/ldc\n");
+}
+
+// Helper function to handle -d-debug=* and -d-version=*
+static void processVersions(std::vector<std::string>& list, char* type,
+        void (*setLevel)(unsigned), void (*addIdent)(char*)) {
+    typedef std::vector<std::string>::iterator It;
+
+    for(It I = list.begin(), E = list.end(); I != E; ++I) {
+        const char* value = I->c_str();
+        if (isdigit(value[0])) {
+            errno = 0;
+            char* end;
+            long level = strtol(value, &end, 10);
+            if (*end || errno || level > INT_MAX) {
+                error("Invalid %s level: %s", type, I->c_str());
+            } else {
+                setLevel((unsigned)level);
+            }
+        } else {
+            char* cstr = mem.strdup(value);
+            if (Lexer::isValidIdentifier(cstr)) {
+                addIdent(cstr);
+                continue;
+            } else {
+                error("Invalid %s identifier or level: '%s'", type, I->c_str());
+            }
+        }
+    }
+}
+
+// Helper function to handle -of, -od, etc.
+static void initFromString(char*& dest, const cl::opt<std::string>& src) {
+    dest = 0;
+    if (src.getNumOccurrences() != 0) {
+        if (src.empty())
+            error("Expected argument to '-%s'", src.ArgStr);
+        dest = mem.strdup(src.c_str());
+    }
 }
 
 int main(int argc, char *argv[])
@@ -251,28 +242,6 @@ int main(int argc, char *argv[])
     char *p, *ext;
     Module *m;
     int status = EXIT_SUCCESS;
-    int argcstart = argc;
-    bool very_verbose = false;
-
-    // Check for malformed input
-    if (argc < 1 || !argv)
-    {
-      Largs:
-	error("missing or null command line arguments");
-	fatal();
-    }
-    for (i = 0; i < argc; i++)
-    {
-	if (!argv[i])
-	    goto Largs;
-    }
-
-#if __DMC__	// DMC unique support for response files
-    if (response_expand(&argc,&argv))	// expand response files
-	error("can't open response file");
-#endif
-
-    files.reserve(argc - 1);
 
     // Set default values
 #if _WIN32
@@ -282,20 +251,7 @@ int main(int argc, char *argv[])
 #else
     global.params.argv0 = argv[0];
 #endif
-    global.params.link = 1;
-    global.params.useAssert = 1;
-    global.params.useInvariants = 1;
-    global.params.useIn = 1;
-    global.params.useOut = 1;
-    global.params.useArrayBounds = 1;
     global.params.useSwitchError = 1;
-    global.params.useInline = 0; // this one messes things up to a point where codegen breaks
-    global.params.llvmInline = 0; // use this one instead to know if inline passes should be run
-    global.params.obj = 1;
-    global.params.Dversion = 2;
-    global.params.quiet = 1;
-
-    global.params.output_o = OUTPUTFLAGdefault;
 
     global.params.linkswitches = new Array();
     global.params.libfiles = new Array();
@@ -314,14 +270,6 @@ int main(int argc, char *argv[])
         error("Endian test is broken");
         fatal();
     }
-
-    global.params.llvmArch = 0;
-    global.params.forceBE = 0;
-    global.params.noruntime = 0;
-    global.params.novalidate = 0;
-    global.params.optimizeLevel = -1;
-    global.params.runtimeImppath = 0;
-    global.params.useInlineAsm = 1;
 
     // Predefine version identifiers
 #if IN_LLVM
@@ -365,362 +313,81 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    for (i = 1; i < argc; i++)
-    {
-	p = argv[i];
-	if (*p == '-')
-	{
-	    if (strcmp(p + 1, "d") == 0)
-		global.params.useDeprecated = 1;
-	    else if (strcmp(p + 1, "c") == 0)
-		global.params.link = 0;
-	    else if (strcmp(p + 1, "fPIC") == 0)
-		global.params.pic = 1;
-	    else if (strcmp(p + 1, "g") == 0)
-		global.params.symdebug = 1;
-        else if (strcmp(p + 1, "gc") == 0)
-        global.params.symdebug = 2;
-	    else if (strcmp(p + 1, "v") == 0)
-		global.params.verbose = 1;
-		else if (strcmp(p + 1, "vv") == 0) {
-    		Logger::enable();
-    		very_verbose = true;
-		}
-	    else if (strcmp(p + 1, "v1") == 0)
-		global.params.Dversion = 1;
-	    else if (strcmp(p + 1, "w") == 0)
-		global.params.warnings = 1;
-	    else if (p[1] == 'O')
-        {
-            global.params.optimize = 1;
-            global.params.optimizeLevel = 2;
-            if (p[2] != 0) {
-                int optlevel = atoi(p+2);
-                if (optlevel < 0 || optlevel > 5) {
-                    error("Optimization level must be between 0 and 5. Using default (%d)",
-                    global.params.optimizeLevel);
-                }
-                else {
-                    global.params.optimizeLevel = optlevel;
-                }
-            }
-        }
-        else if (strcmp(p + 1, "forcebe") == 0)
-            global.params.forceBE = 1;
-        else if (strcmp(p + 1, "noruntime") == 0)
-            global.params.noruntime = 1;
-        else if (strcmp(p + 1, "noverify") == 0)
-            global.params.novalidate = 1;
-        else if (strcmp(p + 1, "annotate") == 0)
-            global.params.llvmAnnotate = 1;
-        else if (strncmp(p + 1, "enable-", 7) == 0 ||
-                 strncmp(p + 1, "disable-", 8) == 0)
-        {
-            bool enable = (p[1] == 'e');
-            char* feature = p + 1 + (enable ? 7 : 8);
-            if (strcmp(feature, "asserts") == 0)
-                global.params.useAssert = enable;
-            else if (strcmp(feature, "boundscheck") == 0)
-                global.params.useArrayBounds = enable;
-            else if (strcmp(feature, "contracts") == 0)
-            {
-                global.params.useIn = enable;
-                global.params.useOut = enable;
-            }
-            else if (strcmp(feature, "invariants") == 0)
-                global.params.useInvariants = enable;
-            else
-                error("unrecognized feature '%s'", feature);
-        }
-        else if (strcmp(p + 1, "noasm") == 0)
-            global.params.useInlineAsm = 0;
-        else if (strcmp(p + 1, "nodefaultlib") == 0)
-            global.params.noDefaultLib = 1;
-	    else if (p[1] == 'o')
-	    {
-		switch (p[2])
-		{
-		    case '-':
-			global.params.obj = 0;
-			break;
+    cl::SetVersionPrinter(&printVersion);
+    cl::ParseCommandLineOptions(argc, argv, "LLVM-based D Compiler\n");
 
-		    case 'd':
-			if (!p[3])
-			    goto Lnoarg;
-			global.params.objdir = p + 3;
-			break;
+    global.params.optimize = (global.params.optimizeLevel >= 0);
 
-		    case 'f':
-			if (!p[3])
-			    goto Lnoarg;
-			global.params.objname = p + 3;
-			break;
+    // Negated options
+    global.params.link = !compileOnly;
+    global.params.obj = !dontWriteObj;
+    global.params.useInlineAsm = !noAsm;
 
-		    case 'p':
-			if (p[3])
-			    goto Lerror;
-			global.params.preservePaths = 1;
-			break;
-
-		    case 'q':
-			if (p[3])
-			    goto Lerror;
-			global.params.fqnNames = 1;
-			break;
-
-		    case 'u':
-			if (strncmp(p+1, "output-", 7) != 0)
-			    goto Lerror;
-
-			// remove default output
-			if (global.params.output_o == OUTPUTFLAGdefault)
-			    global.params.output_o = OUTPUTFLAGno;
-
-			if (strcmp(p+8, global.ll_ext) == 0)
-			    global.params.output_ll = OUTPUTFLAGset;
-			else if (strcmp(p+8, global.bc_ext) == 0)
-			    global.params.output_bc = OUTPUTFLAGset;
-			else if (strcmp(p+8, global.s_ext) == 0)
-			    global.params.output_s = OUTPUTFLAGset;
-			else if (strcmp(p+8, global.obj_ext) == 0)
-			    global.params.output_o = OUTPUTFLAGset;
-			else
-			    goto Lerror;
-
-			break;
-
-		    case 0:
-			error("-o no longer supported, use -of or -od");
-			break;
-
-		    default:
-			goto Lerror;
-		}
-	    }
-	    else if (p[1] == 'D')
-	    {	global.params.doDocComments = 1;
-		switch (p[2])
-		{
-		    case 'd':
-			if (!p[3])
-			    goto Lnoarg;
-			global.params.docdir = p + 3;
-			break;
-		    case 'f':
-			if (!p[3])
-			    goto Lnoarg;
-			global.params.docname = p + 3;
-			break;
-
-		    case 0:
-			break;
-
-		    default:
-			goto Lerror;
-		}
-	    }
+    // String options: std::string --> char*
+    initFromString(global.params.objname, objectFile);
+    initFromString(global.params.objdir, objectDir);
+    
+    initFromString(global.params.docdir, ddocDir);
+    initFromString(global.params.docname, ddocFile);
+    global.params.doDocComments |=
+        global.params.docdir || global.params.docname;
+    
 #ifdef _DH
-	    else if (p[1] == 'H')
-	    {	global.params.doHdrGeneration = 1;
-		switch (p[2])
-		{
-		    case 'd':
-			if (!p[3])
-			    goto Lnoarg;
-			global.params.hdrdir = p + 3;
-			break;
-
-		    case 'f':
-			if (!p[3])
-			    goto Lnoarg;
-			global.params.hdrname = p + 3;
-			break;
-
-		    case 0:
-			break;
-
-		    default:
-			goto Lerror;
-		}
-	    }
+    initFromString(global.params.hdrdir, hdrDir);
+    initFromString(global.params.hdrname, hdrFile);
+    global.params.doHdrGeneration |=
+        global.params.hdrdir || global.params.hdrname;
 #endif
-	    else if (strcmp(p + 1, "ignore") == 0)
-		global.params.ignoreUnsupportedPragmas = 1;
-	    else if (strcmp(p + 1, "inline") == 0) {
-            // TODO
-            // the ast rewrites dmd does for inlining messes up the ast.
-            // someday maybe we can support it, for now llvm does an excellent job at inlining
-            global.params.useInline = 0; //1
-            global.params.llvmInline = 1;
-        }
-	    else if (strcmp(p + 1, "quiet") == 0)
-		global.params.quiet = 1;
-	    else if (strcmp(p + 1, "release") == 0)
-	    {
-		global.params.useInvariants = 0;
-		global.params.useIn = 0;
-		global.params.useOut = 0;
-		global.params.useAssert = 0;
-		global.params.useArrayBounds = 0;
-	    }
-	    else if (strcmp(p + 1, "unittest") == 0)
-		global.params.useUnitTests = 1;
-	    else if (p[1] == 'I')
-	    {
-		if (!global.params.imppath)
-		    global.params.imppath = new Array();
-		global.params.imppath->push(p + 2);
-	    }
-	    else if (p[1] == 'J')
-	    {
-		if (!global.params.fileImppath)
-		    global.params.fileImppath = new Array();
-		global.params.fileImppath->push(p + 2);
-	    }
-	    else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l')
-	    {
-		// Parse:
-		//	-debug
-		//	-debug=number
-		//	-debug=identifier
-		if (p[6] == '=')
-		{
-		    if (isdigit(p[7]))
-		    {	long level;
 
-			errno = 0;
-			level = strtol(p + 7, &p, 10);
-			if (*p || errno || level > INT_MAX)
-			    goto Lerror;
-			DebugCondition::setGlobalLevel((int)level);
-		    }
-		    else if (Lexer::isValidIdentifier(p + 7))
-			DebugCondition::addGlobalIdent(p + 7);
-		    else
-			goto Lerror;
-		}
-		else if (p[6])
-		    goto Lerror;
-		else
-		{
-		    global.params.useInvariants = 1;
-		    global.params.useIn = 1;
-		    global.params.useOut = 1;
-		    global.params.useAssert = 1;
-		    global.params.useArrayBounds = 1;
-		    global.params.debuglevel = 1;
-		}
-	    }
-	    else if (memcmp(p + 1, "version", 5) == 0)
-	    {
-		// Parse:
-		//	-version=number
-		//	-version=identifier
-		if (p[8] == '=')
-		{
-		    if (isdigit(p[9]))
-		    {	long level;
+    processVersions(debugArgs, "debug",
+        DebugCondition::setGlobalLevel,
+        DebugCondition::addGlobalIdent);
+    processVersions(versions, "version",
+        VersionCondition::setGlobalLevel,
+        VersionCondition::addGlobalIdent);
 
-			errno = 0;
-			level = strtol(p + 9, &p, 10);
-			if (*p || errno || level > INT_MAX)
-			    goto Lerror;
-			VersionCondition::setGlobalLevel((int)level);
-		    }
-		    else if (Lexer::isValidIdentifier(p + 9))
-			VersionCondition::addGlobalIdent(p + 9);
-		    else
-			goto Lerror;
-		}
-		else
-		    goto Lerror;
-	    }
-	    else if (strcmp(p + 1, "-b") == 0)
-		global.params.debugb = 1;
-	    else if (strcmp(p + 1, "-c") == 0)
-		global.params.debugc = 1;
-	    else if (strcmp(p + 1, "-f") == 0)
-		global.params.debugf = 1;
-	    else if (strcmp(p + 1, "-help") == 0)
-	    {	usage();
-		exit(EXIT_SUCCESS);
-	    }
-	    else if (strcmp(p + 1, "-r") == 0)
-		global.params.debugr = 1;
-	    else if (strcmp(p + 1, "-x") == 0)
-		global.params.debugx = 1;
-	    else if (strcmp(p + 1, "-y") == 0)
-		global.params.debugy = 1;
-	    else if (p[1] == 'L')
-	    {
-		global.params.linkswitches->push(p + 2);
-	    }
-	    else if (memcmp(p + 1, "defaultlib=", 11) == 0)
-	    {
-		if(!global.params.defaultlibnames)
-		    global.params.defaultlibnames = new Array();
-		global.params.defaultlibnames->push(p + 1 + 11);
-	    }
-	    else if (memcmp(p + 1, "debuglib=", 9) == 0)
-	    {
-		if(!global.params.debuglibnames)
-		    global.params.debuglibnames = new Array();
-		global.params.debuglibnames->push(p + 1 + 9);
-	    }
-	    else if (strcmp(p + 1, "run") == 0)
-	    {	global.params.run = 1;
-		global.params.runargs_length = ((i >= argcstart) ? argc : argcstart) - i - 1;
-		if (global.params.runargs_length)
-		{
-		    files.push(argv[i + 1]);
-		    global.params.runargs = &argv[i + 2];
-		    i += global.params.runargs_length;
-		    global.params.runargs_length--;
-		}
-		else
-		{   global.params.run = 0;
-		    goto Lnoarg;
-		}
-	    }
-        else if (p[1] == 'm')
-        {
-            global.params.llvmArch = p+2;
-        }
-        else if (p[1] == 't')
-        {
-            if(strcmp(p + 2, "Linux") == 0)
-                global.params.os = OSLinux;
-            else if(strcmp(p + 2, "Windows") == 0)
-                global.params.os = OSWindows;
-            else if(strcmp(p + 2, "MacOSX") == 0)
-                global.params.os = OSMacOSX;
-            else if(strcmp(p + 2, "FreeBSD") == 0)
-                global.params.os = OSFreeBSD;
-            else if(strcmp(p + 2, "Solaris") == 0)
-                global.params.os = OSSolaris;
-            else
-                error("unrecognized target os '%s'", p + 2);
-        }
-	    else
-	    {
-	     Lerror:
-		error("unrecognized switch '%s'", argv[i]);
-		continue;
+    global.params.output_o =
+        opts::output_o == cl::BOU_UNSET
+        ? OUTPUTFLAGdefault
+        : opts::output_o == cl::BOU_TRUE
+            ? OUTPUTFLAGset
+            : OUTPUTFLAGno;
+    global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
+    global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
+    global.params.output_s  = opts::output_s  ? OUTPUTFLAGset : OUTPUTFLAGno;
 
-	     Lnoarg:
-		error("argument expected for switch '%s'", argv[i]);
-		continue;
-	    }
-	}
-	else
-	    files.push(p);
+    if (global.params.run || !runargs.empty()) {
+        // FIXME: how to properly detect the presence of a PositionalEatsArgs
+        // option without parameters? We want to emit an error in that case...
+        // You'd think getNumOccurrences would do it, but it just returns the
+        // number of parameters)
+        // NOTE: Hacked around it by detecting -run in getenv_setargv(), where
+        // we're looking for it anyway, and pre-setting the flag...
+        global.params.run = true;
+        if (!runargs.empty()) {
+            files.push(mem.strdup(runargs[0].c_str()));
+        } else {
+            global.params.run = false;
+            error("Expected at least one argument to '-run'\n");
+        }
     }
+
+    if (mArch)
+        global.params.llvmArch = mArch->Name;
+
+    files.reserve(fileList.size());
+    typedef std::vector<std::string>::iterator It;
+    for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
+        if (!I->empty())
+            files.push(mem.strdup(I->c_str()));
+
     if (global.errors)
     {
 	fatal();
     }
     if (files.dim == 0)
-    {	usage();
+    {
+        cl::PrintHelpMessage();
 	return EXIT_FAILURE;
     }
 
@@ -740,7 +407,7 @@ int main(int argc, char *argv[])
 	    global.params.linkswitches->push(arg);
 	}
     }
-    else if (!global.params.noDefaultLib)
+    else if (!noDefaultLib)
     {
 	char *arg;
 	arg = (char *)mem.malloc(64);
@@ -760,7 +427,7 @@ int main(int argc, char *argv[])
     }
 
     if (global.params.run)
-	global.params.quiet = 1;
+        quiet = 1;
 
     if (global.params.useUnitTests)
 	global.params.useAssert = 1;
@@ -893,7 +560,7 @@ int main(int argc, char *argv[])
 
     assert(global.params.cpu != ARCHinvalid);
 
-    if (allowForceEndianness && global.params.forceBE) {
+    if (allowForceEndianness && forceBE) {
         VersionCondition::addPredefinedGlobalIdent("BigEndian");
         global.params.isLE = false;
     }
@@ -1306,8 +973,24 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     argv = new Array();
     argv->setDim(argc);
 
-    for (int i = 0; i < argc; i++)
-	argv->data[i] = (void *)(*pargv)[i];
+    int argc_left = 0;
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp((*pargv)[i], "-run") || !strcmp((*pargv)[i], "--run")) {
+            // HACK: set flag to indicate we saw '-run' here
+            global.params.run = true;
+            // Don't eat -run yet so the program arguments don't get changed
+            argc_left = argc - i;
+            argc = i;
+            *pargv = &(*pargv)[i];
+            argv->setDim(i);
+            break;
+        } else {
+            argv->data[i] = (void *)(*pargv)[i];
+        }
+    }
+    // HACK to stop required values from command line being drawn from DFLAGS
+    argv->push((char*)"");
+    argc++;
 
     j = 1;			// leave argv[0] alone
     while (1)
@@ -1382,6 +1065,11 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     }
 
 Ldone:
+    assert(argc == argv->dim);
+    argv->reserve(argc_left);
+    for (int i = 0; i < argc_left; i++)
+        argv->data[argc++] = (void *)(*pargv)[i];
+
     *pargc = argc;
     *pargv = (char **)argv->data;
 }

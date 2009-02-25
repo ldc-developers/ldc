@@ -1,3 +1,4 @@
+#include "gen/linker.h"
 #include "gen/llvm.h"
 #include "llvm/Linker.h"
 #include "llvm/System/Program.h"
@@ -11,6 +12,16 @@
 
 #define NO_COUT_LOGGER
 #include "gen/logger.h"
+#include "gen/cl_options.h"
+
+//////////////////////////////////////////////////////////////////////////////
+
+// Is this useful?
+llvm::cl::opt<bool> quiet("quiet",
+    llvm::cl::desc("Suppress output of link command (unless -v is also passed)"),
+    llvm::cl::Hidden,
+    llvm::cl::ZeroOrMore,
+    llvm::cl::init(true));
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -173,7 +184,7 @@ int linkExecutable(const char* argv0)
     }
 
     // print link command?
-    if (!global.params.quiet || global.params.verbose)
+    if (!quiet || global.params.verbose)
     {
         // Print it
         for (int i = 0; i < args.size(); i++)
@@ -311,7 +322,7 @@ int linkObjToExecutable(const char* argv0)
         args.push_back("-m64");
 
     // print link command?
-    if (!global.params.quiet || global.params.verbose)
+    if (!quiet || global.params.verbose)
     {
         // Print it
         for (int i = 0; i < args.size(); i++)
@@ -363,10 +374,12 @@ int runExectuable()
 
     // build arguments
     std::vector<const char*> args;
-    for (size_t i = 0; i < global.params.runargs_length; i++)
+    // args[0] should be the name of the executable
+    args.push_back(gExePath.toString().c_str());
+    // Skip first argument to -run; it's a D source file.
+    for (size_t i = 1, length = opts::runargs.size(); i < length; i++)
     {
-        char *a = global.params.runargs[i];
-        args.push_back(a);
+        args.push_back(opts::runargs[i].c_str());
     }
     // terminate args list
     args.push_back(NULL);

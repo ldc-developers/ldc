@@ -38,7 +38,7 @@ testversion=PIC
 
 [compile]
 oneatatime=yes
-cmd=ldc -c $i
+cmd=ldmd -c $i
 
 flag=$i
 incdir=-I$i

@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include <stdarg.h>
+#include <stddef.h>
 #define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>
 #include <stdarg.h>
@@ -72,48 +73,40 @@ enum OS
 // Put command line switches in here
 struct Param
 {
-    char obj;		// write object file
-    char link;		// perform link
-    char quiet;		// suppress non-error messages
-    char verbose;	// verbose compile
+    bool obj;           // write object file
+    bool link;          // perform link
+    bool verbose;       // verbose compile
     char symdebug;	// insert debug symbolic information
-    char optimize;	// run optimizer
+    bool optimize;      // run optimizer
     char optimizeLevel; // optimization level
     ARCH cpu;		// target CPU
     OS   os;		// target OS
-    char is64bit;	// generate 64 bit code
-    char isLE;      // generate little endian code
-    char scheduler;	// which scheduler to use
-    char useDeprecated;	// allow use of deprecated features
-    char useAssert;	// generate runtime code for assert()'s
-    char useInvariants;	// generate class invariant checks
-    char useIn;		// generate precondition checks
-    char useOut;	// generate postcondition checks
-    char useArrayBounds; // generate array bounds checks
-    char useSwitchError; // check for switches without a default
-    char useUnitTests;	// generate unittest code
-    char useInline;	// inline expand functions
-    char preservePaths;	// !=0 means don't strip path from source file
-    char warnings;	// enable warnings
-    char pic;		// generate position-independent-code for shared libs
-    char noruntime;	// code is not allowed to make implicit calls to the runtime
-    char novalidate;// no bitcode validation
+    bool is64bit;       // generate 64 bit code
+    bool isLE;          // generate little endian code
+    bool useDeprecated; // allow use of deprecated features
+    bool useAssert;     // generate runtime code for assert()'s
+    bool useInvariants; // generate class invariant checks
+    bool useIn;         // generate precondition checks
+    bool useOut;        // generate postcondition checks
+    bool useArrayBounds; // generate array bounds checks
+    bool useSwitchError; // check for switches without a default
+    bool useUnitTests;  // generate unittest code
+    bool useInline;     // inline expand functions
+    bool warnings;      // enable warnings
     char Dversion;	// D version number
-    char ignoreUnsupportedPragmas;	// rather than error on them
 
     char *argv0;	// program name
     Array *imppath;	// array of char*'s of where to look for import modules
     Array *fileImppath;	// array of char*'s of where to look for file import modules
-    char *runtimeImppath; // char* of where to look for the core runtime
     char *objdir;	// .obj file output directory
     char *objname;	// .obj file output name
 
-    char doDocComments;	// process embedded documentation comments
+    bool doDocComments; // process embedded documentation comments
     char *docdir;	// write documentation file to docdir directory
     char *docname;	// write documentation file to docname
     Array *ddocfiles;	// macro include files for Ddoc
 
-    char doHdrGeneration;	// process embedded documentation comments
+    bool doHdrGeneration;       // process embedded documentation comments
     char *hdrdir;		// write 'header' file to docdir directory
     char *hdrname;		// write 'header' file to docname
 
@@ -131,18 +124,16 @@ struct Param
     char *xmlname;		// filename for XML output
 
     // Hidden debug switches
-    char debuga;
-    char debugb;
-    char debugc;
-    char debugf;
-    char debugr;
-    char debugw;
-    char debugx;
-    char debugy;
+    bool debuga;
+    bool debugb;
+    bool debugc;
+    bool debugf;
+    bool debugr;
+    bool debugw;
+    bool debugx;
+    bool debugy;
 
-    char run;		// run resulting executable
-    size_t runargs_length;
-    char** runargs;	// arguments for executable
+    bool run;           // run resulting executable
 
     // Linker stuff
     Array *objfiles;
@@ -153,17 +144,14 @@ struct Param
     char *exefile;
 
     // LDC stuff
-    char *llvmArch;
-    char forceBE;
-    char output_ll;
-    char output_bc;
-    char output_s;
-    char output_o;
-    char llvmInline;
-    char llvmAnnotate;
-    char useInlineAsm;
-    char fqnNames; // use fully qualified object names
-    char noDefaultLib;
+    const char *llvmArch;
+    OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_bc;
+    OUTPUTFLAG output_s;
+    OUTPUTFLAG output_o;
+    bool llvmInline;
+    bool llvmAnnotate;
+    bool useInlineAsm;
 
     // target stuff
     char *targetTriple;
