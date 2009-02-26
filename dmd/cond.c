@@ -71,11 +71,11 @@ void DebugCondition::setGlobalLevel(unsigned level)
     global.params.debuglevel = level;
 }
 
-void DebugCondition::addGlobalIdent(char *ident)
+void DebugCondition::addGlobalIdent(const char *ident)
 {
     if (!global.params.debugids)
 	global.params.debugids = new Array();
-    global.params.debugids->push(ident);
+    global.params.debugids->push((void*)ident);
 }
 
 
@@ -123,7 +123,7 @@ void VersionCondition::setGlobalLevel(unsigned level)
     global.params.versionlevel = level;
 }
 
-void VersionCondition::checkPredefined(Loc loc, char *ident)
+void VersionCondition::checkPredefined(Loc loc, const char *ident)
 {
     static const char* reserved[] =
     {
@@ -151,17 +151,17 @@ void VersionCondition::checkPredefined(Loc loc, char *ident)
     error(loc, "version identifier '%s' is reserved and cannot be set", ident);
 }
 
-void VersionCondition::addGlobalIdent(char *ident)
+void VersionCondition::addGlobalIdent(const char *ident)
 {
     checkPredefined(0, ident);
     addPredefinedGlobalIdent(ident);
 }
 
-void VersionCondition::addPredefinedGlobalIdent(char *ident)
+void VersionCondition::addPredefinedGlobalIdent(const char *ident)
 {
     if (!global.params.versionids)
 	global.params.versionids = new Array();
-    global.params.versionids->push(ident);
+    global.params.versionids->push((void*)ident);
 }
 
 

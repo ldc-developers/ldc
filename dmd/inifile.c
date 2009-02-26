@@ -50,7 +50,7 @@ char *strupr(char *s)
 void inifile(char *argv0, const char *inifile)
 {
     char *path;		// need path for @P macro
-    char *filename;
+    const char *filename;
     OutBuffer buf;
     int i;
     int k;
@@ -80,7 +80,7 @@ void inifile(char *argv0, const char *inifile)
 	    filename = FileName::combine(getenv("HOME"), inifile);
 	    if (!FileName::exists(filename))
 	    {
-		filename = FileName::replaceName(argv0, inifile);
+		filename = FileName::replaceName(argv0, (char*)inifile);
 		if (!FileName::exists(filename))
 		{
 #if POSIX
@@ -112,7 +112,7 @@ void inifile(char *argv0, const char *inifile)
 		    filename = FileName::searchPath(paths, argv0, 0);
 		    if (!filename)
 			goto Letc;		// argv0 not found on path
-		    filename = FileName::replaceName(filename, inifile);
+		    filename = FileName::replaceName((char*)filename, (char*)inifile);
 		    if (FileName::exists(filename))
 			goto Ldone;
 #endif
@@ -132,7 +132,7 @@ void inifile(char *argv0, const char *inifile)
     printf("\tpath = '%s', filename = '%s'\n", path, filename);
 #endif
 
-    File file(filename);
+    File file((char*)filename);
 
     if (file.read())
 	return;			// error reading file
