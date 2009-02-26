@@ -364,7 +364,11 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
 
 static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd)
 {
+#if DMDV2
+    assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCinvariant) && vd->init));
+#else
     assert(vd->isDataseg());
+#endif
     llvm::DICompileUnit compileUnit = DtoDwarfCompileUnit(gIR->dmodule);
 
     return gIR->difactory.CreateGlobalVariable(
