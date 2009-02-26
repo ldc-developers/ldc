@@ -359,7 +359,7 @@ int main(int argc, char** argv)
         mArch = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(mod, Err);
         if (mArch == 0)
         {
-            error("failed to auto-select target '%s', please use the -march option");
+            error("failed to auto-select target: %s, please use the -march option", Err.c_str());
             fatal();
         }
     }
