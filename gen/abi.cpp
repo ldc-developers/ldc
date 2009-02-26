@@ -180,7 +180,8 @@ struct X86_64_cfloat_rewrite : ABIRetRewrite
     // test if rewrite applies to function
     bool test(TypeFunction* tf)
     {
-        return (tf->next->toBasetype() == Type::tcomplex32);
+        return (tf->linkage != LINKd) 
+            && (tf->next->toBasetype() == Type::tcomplex32);
     }
 };
 

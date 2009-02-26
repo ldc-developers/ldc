@@ -279,7 +279,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
                 // For compatibility, use the GCC/LLVM-GCC way for extern(C/Windows)
                 // extern(C) cfloat -> %xmm0 (extract two floats)
                 as->out_c = "={xmm0},";
-                asmblock->retty = LLStructType::get(LLType::DoubleTy, NULL);;
+                asmblock->retty = LLType::DoubleTy;
                 asmblock->retfixup = &x86_64_cfloatRetFixup;
             } else if (rt->iscomplex()) {
                 // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1

@@ -118,29 +118,31 @@ cfloat cf()
     }
     else version (X86_64)
     {
-        version(all) {
-            asm
-            {
-                movss XMM0, [one_f];
-                movss XMM1, [two_f];
-            }
-        } else {
-            // Code for when LDC becomes ABI-compatible with GCC
-            // regarding cfloat returns.
-            asm {
-                movd EAX, [one_f];
-                movd ECX, [two_f];
-                
-                // invalid operand size :(
-                //shl RCX, 32;
-                //or RAX, RCX;
-                
-                pushq RAX;
-                mov [RSP + 4], EAX;
-                popq RAX;
-                
-                movd XMM0, RAX;
-            }
+        asm
+        {
+            movss XMM0, [one_f];
+            movss XMM1, [two_f];
+        }
+    }
+    else static assert(0, "todo");
+}
+
+extern(C) cfloat cf_C()
+{
+    version(X86)
+    {
+        asm { fld1; fld two_f; }
+    }
+    else version (X86_64)
+    {
+        asm {
+            mov EAX, [one_f];
+            mov ECX, [two_f];
+            
+            shl RCX, 32;
+            or RAX, RCX;
+            
+            movd XMM0, RAX;
         }
     }
     else static assert(0, "todo");
@@ -160,33 +162,41 @@ cfloat cf2()
     }
     else version (X86_64)
     {
-        version(all) {
-            asm
-            {
-                naked;
-                movss XMM0, [one_f];
-                movss XMM1, [two_f];
-                ret;
-            }
-        } else {
-            // Code for when LDC becomes ABI-compatible with GCC
-            // regarding cfloat returns.
-            asm {
-                naked;
-                mov EAX, [one_f];
-                mov ECX, [two_f];
-                
-                // invalid operand size :(
-                //shl RCX, 32;
-                //or RAX, RCX;
-                
-                pushq RAX;
-                mov [RSP + 4], EAX;
-                popq RAX;
-                
-                movd RAX, XMM0;
-                ret;
-            }
+        asm
+        {
+            naked;
+            movss XMM0, [one_f];
+            movss XMM1, [two_f];
+            ret;
+        }
+    }
+    else static assert(0, "todo");
+}
+
+extern(C) cfloat cf2_C()
+{
+    version(X86)
+    {
+        asm
+        {
+            naked;
+            fld1;
+            fld two_f;
+            ret;
+        }
+    }
+    else version (X86_64)
+    {
+        asm {
+            naked;
+            mov EAX, [one_f];
+            mov ECX, [two_f];
+            
+            shl RCX, 32;
+            or RAX, RCX;
+            
+            movd XMM0, RAX;
+            ret;
         }
     }
     else static assert(0, "todo");
@@ -368,6 +378,9 @@ void main()
     
     assert(cf() == 1+2i);
     assert(cf2() == 1+2i);
+    
+    assert(cf_C() == 1+2i);
+    assert(cf2_C() == 1+2i);
     
     assert(cd() == 1+2i);
     assert(cd2() == 1+2i);
