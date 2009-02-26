@@ -133,10 +133,15 @@ int main(int argc, char** argv)
     global.params.objfiles = new Array();
     global.params.ddocfiles = new Array();
 
+
     // Set predefined version identifiers
     VersionCondition::addPredefinedGlobalIdent("LLVM");
     VersionCondition::addPredefinedGlobalIdent("LDC");
     VersionCondition::addPredefinedGlobalIdent("all");
+#if DMDV2
+    VersionCondition::addPredefinedGlobalIdent("D_Version2");
+#endif
+
 
     // read the inifile
 #if DMDV2
@@ -442,9 +447,10 @@ int main(int argc, char** argv)
     }
 
     // a generic 64bit version
-    // why isn't this in D to begin with ?
     if (global.params.is64bit) {
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
+        // FIXME: is this always correct?
+        VersionCondition::addPredefinedGlobalIdent("D_LP64");
     }
 
     // parse the OS out of the target triple
@@ -507,6 +513,12 @@ int main(int argc, char** argv)
     // added in 1.039
     if (global.params.doDocComments)
         VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
+
+#if DMDV2
+    // unittests?
+    if (global.params.useUnitTests)
+        VersionCondition::addPredefinedGlobalIdent("unittest");
+#endif
 
     // Initialization
     Type::init();
