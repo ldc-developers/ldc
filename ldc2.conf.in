@@ -1,2 +1,2 @@
 [Environment]
-DFLAGS=-I@RUNTIME_DIR@/import -L-L@RUNTIME_DIR@/lib
+DFLAGS=-I@RUNTIME_DIR@/import -L-L%@P%/../lib
