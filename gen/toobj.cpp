@@ -867,7 +867,12 @@ void VarDeclaration::toObjFile(int multiobj)
     }
 
     // global variable or magic
+#if DMDV2
+    // taken from dmd2/structs
+    if (isDataseg() || (storage_class & (STCconst | STCinvariant) && init))
+#else
     if (isDataseg())
+#endif
     {
         Logger::println("data segment");
 
