@@ -1,7 +1,7 @@
 #ifndef _llvmd_gen_logger_h_
 #define _llvmd_gen_logger_h_
 
-#include <iostream>
+#include "llvm/Support/Streams.h"
 
 struct Loc;
 
@@ -9,7 +9,7 @@ namespace Logger
 {
     void indent();
     void undent();
-    std::ostream& cout();
+    llvm::OStream cout();
     void println(const char* fmt, ...);
     void print(const char* fmt, ...);
     void enable();

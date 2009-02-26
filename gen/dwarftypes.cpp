@@ -16,7 +16,6 @@
 #include <llvm/Analysis/Verifier.h>
 #include <llvm/Assembly/PrintModulePass.h>
 #include <algorithm>
-#include <iostream>
 
 void RegisterDwarfSymbols(llvm::Module* mod) {
   using namespace llvm;

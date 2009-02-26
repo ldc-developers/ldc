@@ -14,7 +14,6 @@
 
 #include <cassert>
 #include <deque>
-#include <iostream>
 #include <cstring>
 
 //#include "d-lang.h"
@@ -260,7 +259,7 @@ AsmStatement::toIR(IRState * irs)
 	    break;
 	case Arg_FrameRelative:
 // FIXME
-std::cout << "asm fixme Arg_FrameRelative" << std::endl;
+llvm::cout << "asm fixme Arg_FrameRelative" << std::endl;
 assert(0);
 /*	    if (arg->expr->op == TOKvar)
 		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
@@ -278,7 +277,7 @@ assert(0);
 	    break;*/
 	case Arg_LocalSize:
 // FIXME
-std::cout << "asm fixme Arg_LocalSize" << std::endl;
+llvm::cout << "asm fixme Arg_LocalSize" << std::endl;
 assert(0);
 /*	    var_frame_offset = cfun->x_frame_offset;
 	    if (var_frame_offset < 0)
@@ -711,7 +710,7 @@ void AsmBlockStatement::toIR(IRState* p)
         Logger::cout() << "Arguments:" << '\n';
         Logger::indent();
         for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i) {
-            std::ostream& cout = Logger::cout();
+            llvm::OStream cout = Logger::cout();
             cout << '$' << (i - b) << " ==> " << **i;
             if (llvm::isa<LLConstant>(*i))
                 cout << '\n';

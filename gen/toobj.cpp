@@ -8,7 +8,6 @@
 // See the included readme.txt for details.
 
 #include <cstddef>
-#include <iostream>
 #include <fstream>
 
 #include "gen/llvm.h"
@@ -344,13 +343,15 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
         Args.push_back(args[i].c_str());
     Args.push_back(0);
 
-    Logger::println("Assembling with: ");
-    std::vector<const char*>::const_iterator I = Args.begin(), E = Args.end(); 
-    std::ostream& logstr = Logger::cout();
-    for (; I != E; ++I)
-        if (*I)
-            logstr << "'" << *I << "'" << " ";
-    logstr << "\n" << std::flush;
+    if (Logger::enabled()) {
+        Logger::println("Assembling with: ");
+        std::vector<const char*>::const_iterator I = Args.begin(), E = Args.end();
+        std::ostream& logstr = *Logger::cout().stream();
+        for (; I != E; ++I)
+            if (*I)
+                logstr << "'" << *I << "'" << " ";
+        logstr << "\n" << std::flush;
+    }
 
     // Run the compiler to assembly the program.
     std::string ErrMsg;

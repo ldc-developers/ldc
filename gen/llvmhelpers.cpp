@@ -546,7 +546,7 @@ DValue* DtoNullValue(Type* type)
     }
 
     // unknown
-    std::cout << "unsupported: null value for " << type->toChars() << '\n';
+    llvm::cout << "unsupported: null value for " << type->toChars() << '\n';
     assert(0);
     return 0;
 

@@ -2,7 +2,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
-#include <iostream>
 #include <fstream>
 #include <string>
 
@@ -14,7 +13,6 @@
 namespace Logger
 {
     static std::string indent_str;
-    static std::ofstream null_out("/dev/null");
 
     llvm::cl::opt<bool> _enabled("vv",
         llvm::cl::desc("Very verbose"),
@@ -33,12 +31,12 @@ namespace Logger
             indent_str.resize(indent_str.size()-2);
         }
     }
-    std::ostream& cout()
+    llvm::OStream cout()
     {
         if (_enabled)
-            return std::cout << indent_str;
+            return llvm::cout << indent_str;
         else
-            return null_out;
+            return 0;
     }
     void println(const char* fmt,...)
     {
