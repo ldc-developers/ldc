@@ -165,7 +165,7 @@ struct X86_64_cfloat_rewrite : ABIRetRewrite
         v = gIR->ir->CreateBitCast(v, LLType::DoubleTy);
 
         // return {double}
-        const LLType* t = LLStructType::get(LLType::DoubleTy, 0);
+        const LLType* t = LLStructType::get(LLType::DoubleTy, NULL);
         LLValue* undef = llvm::UndefValue::get(t);
         return gIR->ir->CreateInsertValue(undef, v, 0);
     }
@@ -173,7 +173,7 @@ struct X86_64_cfloat_rewrite : ABIRetRewrite
     // {float,float} -> {double}
     const LLType* type(const LLType* t)
     {
-        return LLStructType::get(LLType::DoubleTy, 0);
+        return LLStructType::get(LLType::DoubleTy, NULL);
     }
 
     // test if rewrite applies to function
