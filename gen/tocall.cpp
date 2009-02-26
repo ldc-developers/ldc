@@ -464,8 +464,22 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call->get();
 
-    // do abi specific return value fixups
-    retllval = gABI->getRet(tf, retllval);
+    if (tf->linkage == LINKintrinsic)
+    {
+        // Ignore ABI for intrinsics
+        Type* rettype = tf->next;
+        if (rettype->ty == Tstruct) {
+            // LDC assumes structs are in memory, so put it there.
+            LLValue* mem = DtoAlloca(retllval->getType());
+            DtoStore(retllval, mem);
+            retllval = mem;
+        }
+    }
+    else
+    {
+        // do abi specific return value fixups
+        retllval = gABI->getRet(tf, retllval);
+    }
 
     // repaint the type if necessary
     if (resulttype)

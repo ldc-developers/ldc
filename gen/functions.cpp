@@ -70,23 +70,33 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     else
     {
         assert(rt);
-        if (gABI->returnInArg(rt))
+        if (f->linkage == LINKintrinsic)
         {
-            rettype = getPtrToType(DtoType(rt));
-            actualRettype = LLType::VoidTy;
-            f->retInPtr = retinptr = true;
+            // Intrinsics don't care about ABI
+            Logger::cout() << "Intrinsic returning " << rt->toChars() << '\n';
+            actualRettype = rettype = DtoType(rt);
+            Logger::cout() << "  (LLVM type: " << *rettype << ")\n";
         }
         else
         {
-            rettype = DtoType(rt);
-            // do abi specific transformations
-            actualRettype = gABI->getRetType(f, rettype);
-        }
+            if (gABI->returnInArg(rt))
+            {
+                rettype = getPtrToType(DtoType(rt));
+                actualRettype = LLType::VoidTy;
+                f->retInPtr = retinptr = true;
+            }
+            else
+            {
+                rettype = DtoType(rt);
+                // do abi specific transformations
+                actualRettype = gABI->getRetType(f, rettype);
+            }
 
-        // FIXME: should probably be part of the abi
-        if (unsigned ea = DtoShouldExtend(rt))
-        {
-            f->retAttrs |= ea;
+            // FIXME: should probably be part of the abi
+            if (unsigned ea = DtoShouldExtend(rt))
+            {
+                f->retAttrs |= ea;
+            }
         }
     }
 

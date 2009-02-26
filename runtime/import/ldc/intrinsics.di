@@ -332,6 +332,45 @@ pragma(intrinsic, "llvm.atomic.load.umax.i#.p0i#")
 pragma(intrinsic, "llvm.atomic.load.umin.i#.p0i#")
     T llvm_atomic_load_umin(T)(T* ptr, T val);
 
+
+//
+// ARITHMETIC-WITH-OVERFLOW INTRINSICS
+//
+
+struct OverflowRet(T) {
+    static assert(is(T : int), T.stringof ~ " is not an integer type!");
+    T result;
+    bool overflow;
+}
+
+// Signed and unsigned addition
+pragma(intrinsic, "llvm.sadd.with.overflow.i#")
+    OverflowRet!(T) llvm_sadd_with_overflow(T)(T lhs, T rhs);
+
+pragma(intrinsic, "llvm.uadd.with.overflow.i#")
+    OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs);
+
+// Signed and unsigned subtraction
+pragma(intrinsic, "llvm.ssub.with.overflow.i#")
+    OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs);
+
+pragma(intrinsic, "llvm.usub.with.overflow.i#")
+    OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs);
+
+// Signed and unsigned multiplication
+pragma(intrinsic, "llvm.smul.with.overflow.i#")
+    OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs);
+
+/* Note: LLVM documentations says:
+ *  Warning: 'llvm.umul.with.overflow' is badly broken.
+ *  It is actively being fixed, but it should not currently be used!
+ *
+ * See: http://llvm.org/docs/LangRef.html#int_umul_overflow
+ */
+pragma(intrinsic, "llvm.umul.with.overflow.i#")
+    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
+
+
 //
 // GENERAL INTRINSICS
 //
