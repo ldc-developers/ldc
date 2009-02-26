@@ -14,9 +14,6 @@
 #include "gen/llvm.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Target/SubtargetFeature.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetMachineRegistry.h"
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
@@ -25,6 +22,7 @@
 #include "llvm/System/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetMachine.h"
 
 #include "mars.h"
 #include "module.h"
@@ -50,6 +48,8 @@
 #include "gen/functions.h"
 #include "gen/todebug.h"
 #include "gen/runtime.h"
+#include "gen/abi.h"
+#include "gen/cl_options.h"
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
@@ -110,40 +110,16 @@ void Module::genobjfile(int multiobj)
     // FIXME: but shouldn't this always get reset between modules? like other IrSymbols
     this->ir.irModule = new IrModule(this, srcfile->toChars());
 
-    // set target stuff
-
+    // set target triple
     ir.module->setTargetTriple(global.params.targetTriple);
-    ir.module->setDataLayout(global.params.dataLayout);
-
-    // get the target machine
-    const llvm::TargetMachineRegistry::entry* MArch;
-
-    std::string Err;
-    MArch = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(*ir.module, Err);
-    if (MArch == 0) {
-        error("error auto-selecting target for module '%s'", Err.c_str());
-        fatal();
-    }
-
-    llvm::SubtargetFeatures Features;
-//TODO: Features?
-//    Features.setCPU(MCPU);
-//    for (unsigned i = 0; i != MAttrs.size(); ++i)
-//      Features.AddFeature(MAttrs[i]);
-
-    // allocate the target machine
-    std::auto_ptr<llvm::TargetMachine> target(MArch->CtorFn(*ir.module, Features.getString()));
-    assert(target.get() && "Could not allocate target machine!");
-    llvm::TargetMachine &Target = *target.get();
-
-    gTargetData = Target.getTargetData();
 
     // set final data layout
-    std::string datalayout = gTargetData->getStringRepresentation();
-    ir.module->setDataLayout(datalayout);
+    ir.module->setDataLayout(global.params.dataLayout);
     if (Logger::enabled())
-        Logger::cout() << "Final data layout: " << datalayout << '\n';
-    assert(memcmp(global.params.dataLayout, datalayout.c_str(), 9) == 0); // "E-p:xx:xx"
+        Logger::cout() << "Final data layout: " << global.params.dataLayout << '\n';
+
+    // allocate the target abi
+    gABI = TargetABI::getTarget();
 
     // debug info
     if (global.params.symdebug) {
@@ -252,7 +228,7 @@ void Module::genobjfile(int multiobj)
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), false, err);
-            write_asm_to_file(Target, *ir.module, out);
+            write_asm_to_file(*gTargetMachine, *ir.module, out);
         }
 
         // call gcc to convert assembly to object file

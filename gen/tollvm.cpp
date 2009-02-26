@@ -28,13 +28,6 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
-bool DtoIsReturnedInArg(Type* type)
-{
-    Type* typ = type->toBasetype();
-    TY t = typ->ty;
-    return (t == Tstruct || t == Tsarray);
-}
-
 unsigned DtoShouldExtend(Type* type)
 {
     type = type->toBasetype();

@@ -43,7 +43,7 @@ char *strupr(char *s)
  *	inifile	.ini file name
  */
 
-void inifile(const char *argv0x, const char *inifilex)
+void inifile(char *argv0x, const char *inifilex)
 {
     char *argv0 = (char *)argv0x;
     char *inifile = (char *)inifilex;	// do const-correct later

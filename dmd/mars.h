@@ -144,7 +144,6 @@ struct Param
     char *exefile;
 
     // LDC stuff
-    const char *llvmArch;
     OUTPUTFLAG output_ll;
     OUTPUTFLAG output_bc;
     OUTPUTFLAG output_s;
@@ -154,8 +153,9 @@ struct Param
     bool useInlineAsm;
 
     // target stuff
-    char *targetTriple;
-    char *dataLayout;
+    const char* llvmArch;
+    const char *targetTriple;
+    const char *dataLayout;
 };
 
 struct Global
@@ -341,7 +341,7 @@ void error(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void fatal();
 void err_nomem();
-void inifile(char *argv0, char *inifile);
+void inifile(char *argv0, const char *inifile);
 void halt();
 
 /*** Where to send error messages ***/

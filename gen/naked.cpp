@@ -218,6 +218,8 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
             // this is to show how to allocate a temporary for the return value
             // in case the appropriate multi register constraint isn't supported.
             // this way abi return from inline asm can still be emulated.
+            // note that "$<<out0>>" etc in the asm will translate to the correct
+            // numbered output when the asm block in finalized
 
             // generate asm
             as->out_c = "=*m,=*m,";
@@ -231,7 +233,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
             asmblock->retemu = true;
             asmblock->asmBlock->abiret = tmp;
 
-            // add "ret" stmt
+            // add "ret" stmt at the end of the block
             asmblock->s.push_back(as);
 
             // done, we don't want anything pushed in the front of the block
@@ -276,17 +278,9 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
                 // LLVM and GCC disagree on how to return {float, float}.
                 // For compatibility, use the GCC/LLVM-GCC way for extern(C/Windows)
                 // extern(C) cfloat -> %xmm0 (extract two floats)
-            #if 0
-                // Disabled because "regular" extern(C) functions aren't
-                // ABI-compatible with GCC yet.
-                // TODO: enable when "extern(C) cfloat foo();" compiles to "declare { double } @foo();"
                 as->out_c = "={xmm0},";
                 asmblock->retty = LLStructType::get(LLType::DoubleTy, NULL);;
                 asmblock->retfixup = &x86_64_cfloatRetFixup;
-            #else
-                error(loc, "unimplemented return type '%s' for implicit abi return", rt->toChars());
-                fatal();
-            #endif
             } else if (rt->iscomplex()) {
                 // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1
                 as->out_c = "={xmm0},={xmm1},";

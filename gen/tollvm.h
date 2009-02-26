@@ -18,9 +18,7 @@ const LLType* DtoTypeNotVoid(Type* t);
 // returns true is the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
 
-// returns if the type should be returned in a hidden pointer arguement
-bool DtoIsReturnedInArg(Type* type);
-
+// should argument be zero or sign extended
 unsigned DtoShouldExtend(Type* type);
 
 // tuple helper

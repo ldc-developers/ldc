@@ -8,6 +8,7 @@
 #include "gen/irstate.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
+#include "gen/abi.h"
 
 #include "gen/logger.h"
 
@@ -463,11 +464,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call->get();
 
-    // swap real/imag parts on a x87
-    if (global.params.cpu == ARCHx86 && tf->nextOf()->toBasetype()->iscomplex())
-    {
-        retllval = DtoAggrPairSwap(retllval);
-    }
+    // do abi specific return value fixups
+    retllval = gABI->getRet(tf, retllval);
 
     // repaint the type if necessary
     if (resulttype)

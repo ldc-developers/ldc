@@ -47,7 +47,7 @@ char *strupr(char *s)
  *	inifile	.ini file name
  */
 
-void inifile(char *argv0, char *inifile)
+void inifile(char *argv0, const char *inifile)
 {
     char *path;		// need path for @P macro
     char *filename;

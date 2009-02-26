@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include <stdarg.h>
+#include <stddef.h>
 #define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>
 #include <stdarg.h>
@@ -32,8 +33,8 @@
 /* Changes for the GDC compiler by David Friedman */
 #endif
 
-#define BREAKABI 1	// 0 if not ready to break the ABI just yet
-#define STRUCTTHISREF V2	// if 'this' for struct is a reference, not a pointer
+#define BREAKABI 1  // 0 if not ready to break the ABI just yet
+#define STRUCTTHISREF V2    // if 'this' for struct is a reference, not a pointer
 
 struct Array;
 
@@ -72,83 +73,68 @@ enum OS
 // Put command line switches in here
 struct Param
 {
-    char obj;		// write object file
-    char link;		// perform link
-    char lib;		// write library file instead of object file(s)
-    char multiobj;	// break one object file into multiple ones
-    char oneobj;	// write one object file instead of multiple ones
-    char trace;		// insert profiling hooks
-    char quiet;		// suppress non-error messages
-    char verbose;	// verbose compile
-    char symdebug;	// insert debug symbolic information
-    char optimize;	// run optimizer
+    bool obj;           // write object file
+    bool link;          // perform link
+    bool verbose;       // verbose compile
+    char symdebug;  // insert debug symbolic information
+    bool optimize;      // run optimizer
     char optimizeLevel; // optimization level
-    ARCH cpu;		// target CPU
-    OS   os;		// target OS
-    char is64bit;	// generate 64 bit code
-    char isLE;      // generate little endian code
-    char scheduler;	// which scheduler to use
-    char useDeprecated;	// allow use of deprecated features
-    char useAssert;	// generate runtime code for assert()'s
-    char useInvariants;	// generate class invariant checks
-    char useIn;		// generate precondition checks
-    char useOut;	// generate postcondition checks
-    char useArrayBounds; // generate array bounds checks
-    char useSwitchError; // check for switches without a default
-    char useUnitTests;	// generate unittest code
-    char useInline;	// inline expand functions
-    char release;	// build release version
-    char preservePaths;	// !=0 means don't strip path from source file
-    char warnings;	// enable warnings
-    char pic;		// generate position-independent-code for shared libs
-    char noruntime;	// code is not allowed to make implicit calls to the runtime
-    char novalidate;// no bitcode validation
-    char Dversion;	// D version number
-    char ignoreUnsupportedPragmas;	// rather than error on them
-    char safe;		// enforce safe memory model
+    ARCH cpu;       // target CPU
+    OS   os;        // target OS
+    bool is64bit;       // generate 64 bit code
+    bool isLE;          // generate little endian code
+    bool useDeprecated; // allow use of deprecated features
+    bool useAssert;     // generate runtime code for assert()'s
+    bool useInvariants; // generate class invariant checks
+    bool useIn;         // generate precondition checks
+    bool useOut;        // generate postcondition checks
+    bool useArrayBounds; // generate array bounds checks
+    bool useSwitchError; // check for switches without a default
+    bool useUnitTests;  // generate unittest code
+    bool useInline;     // inline expand functions
+    bool warnings;      // enable warnings
+    bool safe;          // enforce safe memory model
+    char Dversion;  // D version number
 
-    char *argv0;	// program name
-    Array *imppath;	// array of char*'s of where to look for import modules
-    Array *fileImppath;	// array of char*'s of where to look for file import modules
-    char *runtimeImppath; // char* of where to look for the core runtime
-    char *objdir;	// .obj file output directory
-    char *objname;	// .obj file output name
+    char *argv0;    // program name
+    Array *imppath; // array of char*'s of where to look for import modules
+    Array *fileImppath; // array of char*'s of where to look for file import modules
+    char *objdir;   // .obj file output directory
+    char *objname;  // .obj file output name
 
-    char doDocComments;	// process embedded documentation comments
-    char *docdir;	// write documentation file to docdir directory
-    char *docname;	// write documentation file to docname
-    Array *ddocfiles;	// macro include files for Ddoc
+    bool doDocComments; // process embedded documentation comments
+    char *docdir;   // write documentation file to docdir directory
+    char *docname;  // write documentation file to docname
+    Array *ddocfiles;   // macro include files for Ddoc
 
-    char doHdrGeneration;	// process embedded documentation comments
-    char *hdrdir;		// write 'header' file to docdir directory
-    char *hdrname;		// write 'header' file to docname
+    bool doHdrGeneration;       // process embedded documentation comments
+    char *hdrdir;       // write 'header' file to docdir directory
+    char *hdrname;      // write 'header' file to docname
 
-    unsigned debuglevel;	// debug level
-    Array *debugids;		// debug identifiers
+    unsigned debuglevel;    // debug level
+    Array *debugids;        // debug identifiers
 
-    unsigned versionlevel;	// version level
-    Array *versionids;		// version identifiers
+    unsigned versionlevel;  // version level
+    Array *versionids;      // version identifiers
 
     bool dump_source;
 
-    Array *defaultlibnames;	// default libraries for non-debug builds
-    Array *debuglibnames;	// default libraries for debug builds
+    Array *defaultlibnames; // default libraries for non-debug builds
+    Array *debuglibnames;   // default libraries for debug builds
 
-    const char *xmlname;	// filename for XML output
+    char *xmlname;      // filename for XML output
 
     // Hidden debug switches
-    char debuga;
-    char debugb;
-    char debugc;
-    char debugf;
-    char debugr;
-    char debugw;
-    char debugx;
-    char debugy;
+    bool debuga;
+    bool debugb;
+    bool debugc;
+    bool debugf;
+    bool debugr;
+    bool debugw;
+    bool debugx;
+    bool debugy;
 
-    char run;		// run resulting executable
-    size_t runargs_length;
-    char** runargs;	// arguments for executable
+    bool run;           // run resulting executable
 
     // Linker stuff
     Array *objfiles;
@@ -159,50 +145,46 @@ struct Param
     char *exefile;
 
     // LDC stuff
-    const char *llvmArch;
-    char forceBE;
-    char output_ll;
-    char output_bc;
-    char output_s;
-    char output_o;
-    char llvmInline;
-    char llvmAnnotate;
-    char useInlineAsm;
-    char fqnNames; // use fully qualified object names
-    char noDefaultLib;
+    OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_bc;
+    OUTPUTFLAG output_s;
+    OUTPUTFLAG output_o;
+    bool llvmInline;
+    bool llvmAnnotate;
+    bool useInlineAsm;
 
     // target stuff
+    const char* llvmArch;
     const char *targetTriple;
     const char *dataLayout;
 };
 
 struct Global
 {
-    const char *mars_ext;
-    const char *sym_ext;
-    const char *obj_ext;
+    char *mars_ext;
+    char *sym_ext;
+    char *obj_ext;
 #if _WIN32
-    const char *obj_ext_alt;
+    char *obj_ext_alt;
 #endif
-    const char *ll_ext;
-    const char *bc_ext;
-    const char *s_ext;
-    const char *lib_ext;
-    const char *doc_ext;	// for Ddoc generated files
-    const char *ddoc_ext;	// for Ddoc macro include files
-    const char *hdr_ext;	// for D 'header' import files
-    const char *copyright;
-    const char *written;
-    Array *path;	// Array of char*'s which form the import lookup path
-    Array *filePath;	// Array of char*'s which form the file import lookup path
+    char *ll_ext;
+    char *bc_ext;
+    char *s_ext;
+    char *doc_ext;  // for Ddoc generated files
+    char *ddoc_ext; // for Ddoc macro include files
+    char *hdr_ext;  // for D 'header' import files
+    char *copyright;
+    char *written;
+    Array *path;    // Array of char*'s which form the import lookup path
+    Array *filePath;    // Array of char*'s which form the file import lookup path
     int structalign;
-    const char *version;
-    const char *ldc_version;
-    const char *llvm_version;
+    char *version;
+    char *ldc_version;
+    char *llvm_version;
 
     Param params;
-    unsigned errors;	// number of errors reported so far
-    unsigned gag;	// !=0 means gag reporting of errors
+    unsigned errors;    // number of errors reported so far
+    unsigned gag;   // !=0 means gag reporting of errors
 
     Global();
 };
@@ -212,7 +194,7 @@ extern Global global;
 /* Set if Windows Structured Exception Handling C extensions are supported.
  * Apparently, VC has dropped support for these?
  */
-#define WINDOWS_SEH	_WIN32 && __DMC__
+#define WINDOWS_SEH (_WIN32 && __DMC__)
 
 
 #if __GNUC__
@@ -239,22 +221,22 @@ typedef uint64_t integer_t;
 typedef int64_t sinteger_t;
 typedef uint64_t uinteger_t;
 
-typedef int8_t			d_int8;
-typedef uint8_t			d_uns8;
-typedef int16_t			d_int16;
-typedef uint16_t		d_uns16;
-typedef int32_t			d_int32;
-typedef uint32_t		d_uns32;
-typedef int64_t			d_int64;
-typedef uint64_t		d_uns64;
+typedef int8_t          d_int8;
+typedef uint8_t         d_uns8;
+typedef int16_t         d_int16;
+typedef uint16_t        d_uns16;
+typedef int32_t         d_int32;
+typedef uint32_t        d_uns32;
+typedef int64_t         d_int64;
+typedef uint64_t        d_uns64;
 
-typedef float			d_float32;
-typedef double			d_float64;
-typedef long double		d_float80;
+typedef float           d_float32;
+typedef double          d_float64;
+typedef long double     d_float80;
 
-typedef d_uns8			d_char;
-typedef d_uns16			d_wchar;
-typedef d_uns32			d_dchar;
+typedef d_uns8          d_char;
+typedef d_uns16         d_wchar;
+typedef d_uns32         d_dchar;
 
 #ifdef IN_GCC
 #include "d-gcc-real.h"
@@ -289,7 +271,7 @@ typedef long double real_t;
 
 struct Module;
 
-//typedef unsigned Loc;		// file location
+//typedef unsigned Loc;     // file location
 struct Loc
 {
     char *filename;
@@ -297,14 +279,14 @@ struct Loc
 
     Loc()
     {
-	linnum = 0;
-	filename = NULL;
+    linnum = 0;
+    filename = NULL;
     }
 
     Loc(int x)
     {
-	linnum = x;
-	filename = NULL;
+    linnum = x;
+    filename = NULL;
     }
 
     Loc(Module *mod, unsigned linnum);
@@ -313,15 +295,15 @@ struct Loc
 };
 
 #ifndef GCC_SAFE_DMD
-#define TRUE	1
-#define FALSE	0
+#define TRUE    1
+#define FALSE   0
 #endif
 
-#define INTERFACE_OFFSET	0	// if 1, put classinfo as first entry
-					// in interface vtbl[]'s
-#define INTERFACE_VIRTUAL	0	// 1 means if an interface appears
-					// in the inheritance graph multiple
-					// times, only one is used
+#define INTERFACE_OFFSET    0   // if 1, put classinfo as first entry
+                    // in interface vtbl[]'s
+#define INTERFACE_VIRTUAL   0   // 1 means if an interface appears
+                    // in the inheritance graph multiple
+                    // times, only one is used
 
 enum LINK
 {
@@ -348,19 +330,19 @@ enum DYNCAST
 
 enum MATCH
 {
-    MATCHnomatch,	// no match
-    MATCHconvert,	// match with conversions
+    MATCHnomatch,   // no match
+    MATCHconvert,   // match with conversions
 #if DMDV2
-    MATCHconst,		// match with conversion to const
+    MATCHconst,     // match with conversion to const
 #endif
-    MATCHexact		// exact match
+    MATCHexact      // exact match
 };
 
 void error(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void fatal();
 void err_nomem();
-void inifile(const char *argv0, const char *inifile);
+void inifile(char *argv0, const char *inifile);
 void halt();
 
 /*** Where to send error messages ***/

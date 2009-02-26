@@ -38,7 +38,10 @@ namespace opts {
 
     extern cl::opt<const llvm::TargetMachineRegistry::entry*, false,
                     llvm::RegistryParser<llvm::TargetMachine> > mArch;
-    
+    extern cl::opt<std::string> mCPU;
+    extern cl::list<std::string> mAttrs;
+    extern cl::opt<std::string> mTargetTriple;
+
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;
     // Arguments to -run

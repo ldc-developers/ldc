@@ -40,6 +40,19 @@
 #include "d-dmd-gcc.h"
 #endif
 
+
+#include "llvm/Support/CommandLine.h"
+
+static llvm::cl::opt<bool> preservePaths("op",
+    llvm::cl::desc("Do not strip paths from source file"),
+    llvm::cl::ZeroOrMore);
+
+static llvm::cl::opt<bool> fqnNames("oq",
+    llvm::cl::desc("Write object files with fully qualified names"),
+    llvm::cl::ZeroOrMore);
+
+
+
 ClassDeclaration *Module::moduleinfo;
 
 Module *Module::rootModule;
@@ -139,12 +152,12 @@ File* Module::buildFilePath(char* forcename, const char* path, const char* ext)
 	argobj = forcename;
     else
     {
-	if (global.params.preservePaths)
+	if (preservePaths)
 	    argobj = (char*)this->arg;
 	else
 	    argobj = FileName::name((char*)this->arg);
 
-	if (global.params.fqnNames)
+	if (fqnNames)
 	{
 	    if(md)
 		argobj = FileName::replaceName(argobj, md->toChars());

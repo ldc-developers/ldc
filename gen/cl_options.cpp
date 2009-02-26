@@ -230,22 +230,18 @@ static cl::alias m("m",
     cl::Prefix,
     cl::aliasopt(mArch));
 
+cl::opt<std::string> mCPU("mcpu",
+    cl::desc("Target a specific cpu type (-mcpu=help for details)"),
+    cl::value_desc("cpu-name"),
+    cl::init(""));
 
-static cl::opt<OS, true> os("t",
-    cl::desc("Emit code for the specified OS:"),
-    cl::values(
-#define ENUMVAL_N(Name, Desc) clEnumValN(OS##Name, #Name, Desc)
-#define ENUMVAL(Name) ENUMVAL_N(Name, #Name)
-        ENUMVAL(Linux),
-        ENUMVAL(Windows),
-        ENUMVAL_N(MacOSX, "Mac OS X"),
-        ENUMVAL(FreeBSD),
-        ENUMVAL(Solaris),
-#undef ENUMVAL
-#undef ENUMVAL_N
-        clEnumValEnd),
-    cl::Prefix,
-    cl::location(global.params.os));
+cl::list<std::string> mAttrs("mattr",
+    cl::CommaSeparated,
+    cl::desc("Target specific attributes (-mattr=help for details)"),
+    cl::value_desc("a1,+a2,-a3,..."));
+
+cl::opt<std::string> mTargetTriple("mtriple",
+    cl::desc("Override target triple"));
 
 
 // "Hidden debug switches"

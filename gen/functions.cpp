@@ -20,6 +20,7 @@
 #include "gen/todebug.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/abi.h"
 
 #include <algorithm>
 
@@ -53,40 +54,49 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
     // parameter types
     std::vector<const LLType*> paramvec;
 
+    // special case main
     if (ismain)
     {
         rettype = LLType::Int32Ty;
         actualRettype = rettype;
         if (Argument::dim(f->parameters) == 0)
         {
-        const LLType* arrTy = DtoArrayType(LLType::Int8Ty);
-        const LLType* arrArrTy = DtoArrayType(arrTy);
-        paramvec.push_back(arrArrTy);
+            const LLType* arrTy = DtoArrayType(LLType::Int8Ty);
+            const LLType* arrArrTy = DtoArrayType(arrTy);
+            paramvec.push_back(arrArrTy);
         }
     }
-    else{
+    // default handling
+    else
+    {
         assert(rt);
-        if (DtoIsReturnedInArg(rt)) {
+        if (gABI->returnInArg(rt))
+        {
             rettype = getPtrToType(DtoType(rt));
             actualRettype = LLType::VoidTy;
             f->retInPtr = retinptr = true;
         }
-        else {
+        else
+        {
             rettype = DtoType(rt);
-            actualRettype = rettype;
+            // do abi specific transformations
+            actualRettype = gABI->getRetType(f, rettype);
         }
 
+        // FIXME: should probably be part of the abi
         if (unsigned ea = DtoShouldExtend(rt))
         {
             f->retAttrs |= ea;
         }
     }
 
+    // build up parameter list
     if (retinptr) {
         //Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
         paramvec.push_back(rettype);
     }
 
+    // this/context param
     if (thistype) {
         paramvec.push_back(thistype);
         usesthis = true;
@@ -96,6 +106,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         usesnest = true;
     }
 
+    // dstyle vararg
     if (dVararg) {
         paramvec.push_back(DtoType(Type::typeinfo->type->arrayOf())); // _arguments
         paramvec.push_back(getVoidPtrType()); // _argptr

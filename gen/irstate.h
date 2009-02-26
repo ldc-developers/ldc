@@ -13,10 +13,18 @@
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
 
+namespace llvm {
+    class TargetMachine;
+}
+
 // global ir state for current module
 struct IRState;
+struct TargetABI;
+
 extern IRState* gIR;
+extern llvm::TargetMachine* gTargetMachine;
 extern const llvm::TargetData* gTargetData;
+extern TargetABI* gABI;
 
 struct TypeFunction;
 struct TypeStruct;

@@ -25,6 +25,7 @@
 #include "gen/arrays.h"
 #include "gen/todebug.h"
 #include "gen/dvalue.h"
+#include "gen/abi.h"
 
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
@@ -54,38 +55,47 @@ void ReturnStatement::toIR(IRState* p)
     Logger::println("ReturnStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    // is there a return value expression?
     if (exp)
     {
-        if (p->topfunc()->getReturnType() == LLType::VoidTy) {
+        // if the functions return type is void this means that
+        // we are returning through a pointer argument
+        if (p->topfunc()->getReturnType() == LLType::VoidTy)
+        {
+            // sanity check
             IrFunction* f = p->func();
             assert(f->type->retInPtr);
             assert(f->decl->ir.irFunc->retArg);
 
+            // emit dbg line
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
+            // get return pointer
             DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
-
             DValue* e = exp->toElem(p);
-
+            // store return value
             DtoAssign(loc, rvar, e);
 
+            // emit scopes
             DtoEnclosingHandlers(enclosinghandler, NULL);
 
+            // emit dbg end function
             if (global.params.symdebug) DtoDwarfFuncEnd(f->decl);
+
+            // emit ret
             llvm::ReturnInst::Create(p->scopebb());
 
         }
-        else {
+        // the return type is not void, so this is a normal "register" return
+        else
+        {
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
             DValue* e = exp->toElem(p);
             LLValue* v = e->getRVal();
             delete e;
 
-            // swap real/imag parts on a x87
-            if (global.params.cpu == ARCHx86 && exp->type->toBasetype()->iscomplex())
-            {
-                v = DtoAggrPairSwap(v);
-            }
+            // do abi specific transformations on the return value
+            v = gABI->putRet(p->func()->type, v);
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
@@ -113,6 +123,7 @@ void ReturnStatement::toIR(IRState* p)
             llvm::ReturnInst::Create(v, p->scopebb());
         }
     }
+    // no return value expression means it's a void function
     else
     {
         assert(p->topfunc()->getReturnType() == LLType::VoidTy);
