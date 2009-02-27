@@ -134,7 +134,7 @@ int AggregateDeclaration::isDeprecated()
 
 void AggregateDeclaration::alignmember(unsigned salign, unsigned size, unsigned *poffset)
 {
-    //printf("salign = %d, size = %d, offset = %d\n",salign,size,offset);
+    //printf("salign = %d, size = %d, offset = %d\n",salign,size,*poffset);
     if (salign > 1)
     {	int sa;
 
@@ -152,11 +152,11 @@ void AggregateDeclaration::alignmember(unsigned salign, unsigned size, unsigned 
 		*poffset = (*poffset + 3) & ~3;	// align to dword
 		break;
 	    default:
-		*poffset = (*poffset + salign - 1) & ~(salign - 1);
+		*poffset = (*poffset + size - 1) & ~(size - 1);
 		break;
 	}
     }
-    //printf("result = %d\n",offset);
+    //printf("result = %d\n",*poffset);
 }
 
 
