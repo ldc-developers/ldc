@@ -1378,30 +1378,7 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
     {
         Logger::println("expression initializer");
         assert(ex->exp);
-        DValue* res = ex->exp->toElem(gIR);
-
-        assert(llvm::isa<llvm::PointerType>(target->getType()) && "init target must be ptr");
-        const LLType* targetty = target->getType()->getContainedType(0);
-        if(targetty == LLType::X86_FP80Ty)
-        {
-            Logger::println("setting fp80 padding to zero");
-
-            LLValue* castv = DtoBitCast(target, getPtrToType(LLType::Int16Ty));
-            LLValue* padding = DtoGEPi1(castv, 5);
-            DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
-        }
-        else if(targetty == DtoComplexType(Type::tcomplex80))
-        {
-            Logger::println("setting complex fp80 padding to zero");
-
-            LLValue* castv = DtoBitCast(target, getPtrToType(LLType::Int16Ty));
-            LLValue* padding = DtoGEPi1(castv, 5);
-            DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
-            padding = DtoGEPi1(castv, 11);
-            DtoStore(llvm::Constant::getNullValue(LLType::Int16Ty), padding);
-        }
-
-        return res;
+        return ex->exp->toElem(gIR);
     }
     else if (init->isVoidInitializer())
     {
