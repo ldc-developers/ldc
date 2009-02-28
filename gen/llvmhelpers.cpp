@@ -37,7 +37,7 @@ LLValue* DtoNew(Type* newtype)
     LLConstant* ti = DtoTypeInfoOf(newtype);
     assert(isaPointer(ti));
     // call runtime allocator
-    LLValue* mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem")->get();
+    LLValue* mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem").getInstruction();
     // cast
     return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
 }
@@ -136,7 +136,7 @@ void DtoAssert(Module* M, Loc* loc, DValue* msg)
     args.push_back(c);
 
     // call
-    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
+    gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
 
     // end debug info
     if (global.params.symdebug)

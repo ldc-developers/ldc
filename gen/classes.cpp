@@ -919,7 +919,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocclass");
         LLConstant* ci = DtoBitCast(tc->sym->ir.irStruct->classInfo, DtoType(ClassDeclaration::classinfo->type));
-        mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc")->get();
+        mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
     }
 
@@ -1137,7 +1137,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     assert(funcTy->getParamType(1) == cinfo->getType());
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke2(func, obj, cinfo, "tmp")->get();
+    LLValue* ret = gIR->CreateCallOrInvoke2(func, obj, cinfo, "tmp").getInstruction();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -1160,7 +1160,7 @@ DValue* DtoCastInterfaceToObject(DValue* val, Type* to)
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke(func, tmp, "tmp")->get();
+    LLValue* ret = gIR->CreateCallOrInvoke(func, tmp, "tmp").getInstruction();
 
     // cast return value
     if (to != NULL)
@@ -1200,7 +1200,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke2(func, ptr, cinfo, "tmp")->get();
+    LLValue* ret = gIR->CreateCallOrInvoke2(func, ptr, cinfo, "tmp").getInstruction();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));

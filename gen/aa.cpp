@@ -84,7 +84,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     pkey = DtoBitCast(pkey, funcTy->getParamType(3));
 
     // call runtime
-    LLValue* ret = gIR->CreateCallOrInvoke4(func, aaval, keyti, valsize, pkey, "aa.index")->get();
+    LLValue* ret = gIR->CreateCallOrInvoke4(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
 
     // cast return value
     const LLType* targettype = getPtrToType(DtoType(type));
@@ -126,7 +126,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
     // call runtime
-    LLValue* ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.in")->get();
+    LLValue* ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.in").getInstruction();
 
     // cast return value
     const LLType* targettype = DtoType(type);

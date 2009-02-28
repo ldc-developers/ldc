@@ -13,6 +13,8 @@
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
 
+#include "llvm/Support/CallSite.h"
+
 namespace llvm {
     class TargetMachine;
 }
@@ -106,42 +108,6 @@ struct IRAsmBlock
     {}
 };
 
-// llvm::CallInst and llvm::InvokeInst don't share a common base
-// but share common functionality. to avoid duplicating code for
-// adjusting these common properties these structs are made
-struct CallOrInvoke
-{
-    virtual void setAttributes(const llvm::AttrListPtr& Attrs) = 0;
-    virtual void setCallingConv(unsigned CC) = 0;
-    virtual llvm::Instruction* get() = 0;
-};
-
-struct CallOrInvoke_Call : public CallOrInvoke
-{
-    llvm::CallInst* inst;
-    CallOrInvoke_Call(llvm::CallInst* call) : inst(call) {}
-
-    virtual void setAttributes(const llvm::AttrListPtr& Attrs)
-    { inst->setAttributes(Attrs); }
-    virtual void setCallingConv(unsigned CC)
-    { inst->setCallingConv(CC); }
-    virtual llvm::Instruction* get()
-    { return inst; }
-};
-
-struct CallOrInvoke_Invoke : public CallOrInvoke
-{
-    llvm::InvokeInst* inst;
-    CallOrInvoke_Invoke(llvm::InvokeInst* invoke) : inst(invoke) {}
-
-    virtual void setAttributes(const llvm::AttrListPtr& Attrs)
-    { inst->setAttributes(Attrs); }
-    virtual void setCallingConv(unsigned CC)
-    { inst->setCallingConv(CC); }
-    virtual llvm::Instruction* get()
-    { return inst; }
-};
-
 // represents the module
 struct IRState
 {
@@ -184,12 +150,12 @@ struct IRState
     // create a call or invoke, depending on the landing pad info
     // the template function is defined further down in this file
     template <typename InputIterator>
-    CallOrInvoke* CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name="");
-    CallOrInvoke* CreateCallOrInvoke(LLValue* Callee, const char* Name="");
-    CallOrInvoke* CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name="");
-    CallOrInvoke* CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name="");
-    CallOrInvoke* CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name="");
-    CallOrInvoke* CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name="");
 
     // loop blocks
     typedef std::vector<IRLoopScope> LoopScopeVec;
@@ -237,7 +203,7 @@ struct IRState
 };
 
 template <typename InputIterator>
-CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name)
+llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name)
 {
     llvm::BasicBlock* pad;
     if(pad = func()->landingPad.get())
@@ -246,16 +212,16 @@ CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegi
         LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
         if (funcval && funcval->isIntrinsic())
         {
-            return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
+            return ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
         }
 
         llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create("postinvoke", topfunc(), scopeend());
         llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, ArgBegin, ArgEnd, Name);
         scope() = IRScope(postinvoke, scopeend());
-        return new CallOrInvoke_Invoke(invoke);
+        return invoke;
     }
     else
-        return new CallOrInvoke_Call(ir->CreateCall(Callee, ArgBegin, ArgEnd, Name));
+        return ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
 }
 
 #endif // LDC_GEN_IRSTATE_H

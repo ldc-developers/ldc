@@ -16,6 +16,8 @@
 
 #include "llvm/Analysis/DebugInfo.h"
 
+#include "llvm/Support/CallSite.h"
+
 #include "llvm/Support/IRBuilder.h"
 using llvm::IRBuilder;
 
@@ -46,6 +48,8 @@ using llvm::IRBuilder;
 #define LLConstantFP llvm::ConstantFP
 
 #define LLPATypeHolder llvm::PATypeHolder
+
+#define LLCallSite llvm::CallSite
 
 #define LLSmallVector llvm::SmallVector
 

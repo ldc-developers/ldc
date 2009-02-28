@@ -736,9 +736,9 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
     LLValue* llval = val->getRVal();
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
-    CallOrInvoke* call = gIR->CreateCallOrInvoke2(fn, table, llval, "tmp");
+    LLCallSite call = gIR->CreateCallOrInvoke2(fn, table, llval, "tmp");
 
-    return call->get();
+    return call.getInstruction();
 }
 
 void SwitchStatement::toIR(IRState* p)
@@ -1438,7 +1438,7 @@ void SwitchErrorStatement::toIR(IRState* p)
     args.push_back(c);
 
     // call
-    CallOrInvoke* call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
+    gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
 
     gIR->ir->CreateUnreachable();
 }

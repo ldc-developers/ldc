@@ -121,20 +121,20 @@ bool IRState::scopereturned()
     return !scopebb()->empty() && scopebb()->back().isTerminator();
 }
 
-CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, const char* Name)
 {
     LLSmallVector<LLValue*, 1> args;
     return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
 }
 
-CallOrInvoke* IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name)
 {
     LLSmallVector<LLValue*, 1> args;
     args.push_back(Arg1);
     return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
 }
 
-CallOrInvoke* IRState::CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name)
 {
     LLSmallVector<LLValue*, 2> args;
     args.push_back(Arg1);
@@ -142,7 +142,7 @@ CallOrInvoke* IRState::CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLVal
     return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
 }
 
-CallOrInvoke* IRState::CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name)
 {
     LLSmallVector<LLValue*, 3> args;
     args.push_back(Arg1);
@@ -151,7 +151,7 @@ CallOrInvoke* IRState::CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLVal
     return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
 }
 
-CallOrInvoke* IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name)
 {
     LLSmallVector<LLValue*, 4> args;
     args.push_back(Arg1);

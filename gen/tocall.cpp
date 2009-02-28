@@ -459,10 +459,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         Logger::cout() << "Calling: " << *callable << '\n';
 
     // call the function
-    CallOrInvoke* call = gIR->CreateCallOrInvoke(callable, args.begin(), args.end(), varname);
+    LLCallSite call = gIR->CreateCallOrInvoke(callable, args.begin(), args.end(), varname);
 
     // get return value
-    LLValue* retllval = (retinptr) ? args[0] : call->get();
+    LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
 
     if (tf->linkage == LINKintrinsic)
     {
@@ -521,11 +521,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
             attrlist = llvm::Intrinsic::getAttributes((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
         else
-            call->setCallingConv(callconv);
+            call.setCallingConv(callconv);
     }
     else
-        call->setCallingConv(callconv);
-    call->setAttributes(attrlist);
+        call.setCallingConv(callconv);
+    call.setAttributes(attrlist);
 
     return new DImValue(resulttype, retllval);
 }
