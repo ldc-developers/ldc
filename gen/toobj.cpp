@@ -242,7 +242,6 @@ void Module::genobjfile(int multiobj)
     }
 
     delete ir.module;
-    gTargetData = 0;
     gIR = NULL;
     
     if (llvmForceLogging && !logenabled)
