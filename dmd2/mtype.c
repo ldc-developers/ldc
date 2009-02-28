@@ -9,7 +9,7 @@
 // See the included readme.txt for details.
 
 #define __USE_ISOC99 1		// so signbit() gets defined
-#include <math.h>
+#include <cmath>
 
 #include <stdio.h>
 #include <assert.h>
@@ -32,13 +32,13 @@
 #endif
 
 #if __APPLE__
-#include <math.h>
+#include <cmath>
 static double zero = 0;
 #elif __MINGW32__
-#include <math.h>
+#include <cmath>
 static double zero = 0;
 #elif __GNUC__
-#include <math.h>
+#include <cmath>
 #include <bits/nan.h>
 #include <bits/mathdef.h>
 static double zero = 0;
@@ -59,6 +59,8 @@ static double zero = 0;
 #include "import.h"
 #include "aggregate.h"
 #include "hdrgen.h"
+
+#include "gen/tollvm.h"
 
 FuncDeclaration *hasThis(Scope *sc);
 
@@ -1229,38 +1231,8 @@ d_uns64 TypeBasic::size(Loc loc)
 }
 
 unsigned TypeBasic::alignsize()
-{   unsigned sz;
-
-    //LDC: it's bad that we always have to check LLVM's align and
-    // dmd's align info match. Can't we somehow get at LLVM's align
-    // here?
-
-    switch (ty)
-    {
-	case Tfloat80:
-	case Timaginary80:
-	case Tcomplex80:
-	    if (global.params.cpu == ARCHx86_64)
-		sz = 16;
-	    else
-		sz = 4;
-	    break;
-
-	case Tint64:
-	case Tuns64:
-	case Tfloat64:
-	case Timaginary64:
-	    if (global.params.cpu == ARCHx86_64)
-		sz = 8;
-	    else
-		sz = 4;
-	    break;
-
-	default:
-	    sz = size(0);
-	    break;
-    }
-    return sz;
+{
+    return getABITypeAlign(DtoType(this));
 }
 
 
@@ -1354,7 +1326,7 @@ Expression *TypeBasic::getProperty(Loc loc, Identifier *ident)
 		// constant folding.
 		volatile d_float80 foo;
 		foo = NAN;
-		if (signbit(foo))	// signbit sometimes, not always, set
+		if (std::signbit(foo))	// signbit sometimes, not always, set
 		    foo = -foo;		// turn off sign bit
 		fvalue = foo;
 #elif _MSC_VER
