@@ -1023,10 +1023,15 @@ unsigned TypeBasic::alignsize()
 	case Tuns64:
 	case Tfloat64:
 	case Timaginary64:
+	case Tcomplex64:
 	    if (global.params.cpu == ARCHx86_64)
 		sz = 8;
 	    else
 		sz = 4;
+	    break;
+
+	case Tcomplex32:
+	    sz = 4;
 	    break;
 
 	default:
