@@ -228,112 +228,112 @@ int main(int argc, char** argv)
 
     if (global.errors)
     {
-    fatal();
+        fatal();
     }
     if (files.dim == 0)
     {
         cl::PrintHelpMessage();
-    return EXIT_FAILURE;
+        return EXIT_FAILURE;
     }
 
     Array* libs;
     if (global.params.symdebug)
-    libs = global.params.debuglibnames;
+        libs = global.params.debuglibnames;
     else
-    libs = global.params.defaultlibnames;
+        libs = global.params.defaultlibnames;
 
     if (libs)
     {
-    for (int i = 0; i < libs->dim; i++)
-    {
-        char *arg = (char *)mem.malloc(64);
-        strcpy(arg, "-l");
-        strncat(arg, (char *)libs->data[i], 64);
-        global.params.linkswitches->push(arg);
-    }
+        for (int i = 0; i < libs->dim; i++)
+        {
+            char *arg = (char *)mem.malloc(64);
+            strcpy(arg, "-l");
+            strncat(arg, (char *)libs->data[i], 64);
+            global.params.linkswitches->push(arg);
+        }
     }
     else if (!noDefaultLib)
     {
-    char *arg;
-    arg = (char *)mem.malloc(64);
-    strcpy(arg, "-lldc-runtime");
-    global.params.linkswitches->push(arg);
-    arg = (char *)mem.malloc(64);
-    strcpy(arg, "-ltango-cc-tango");
-    global.params.linkswitches->push(arg);
-    arg = (char *)mem.malloc(64);
-    strcpy(arg, "-ltango-gc-basic");
-    global.params.linkswitches->push(arg);
-    // pass the runtime again to resolve issues
-    // with linking order
-    arg = (char *)mem.malloc(64);
-    strcpy(arg, "-lldc-runtime");
-    global.params.linkswitches->push(arg);
+        char *arg;
+        arg = (char *)mem.malloc(64);
+        strcpy(arg, "-lldc-runtime");
+        global.params.linkswitches->push(arg);
+        arg = (char *)mem.malloc(64);
+        strcpy(arg, "-ltango-cc-tango");
+        global.params.linkswitches->push(arg);
+        arg = (char *)mem.malloc(64);
+        strcpy(arg, "-ltango-gc-basic");
+        global.params.linkswitches->push(arg);
+        // pass the runtime again to resolve issues
+        // with linking order
+        arg = (char *)mem.malloc(64);
+        strcpy(arg, "-lldc-runtime");
+        global.params.linkswitches->push(arg);
     }
 
     if (global.params.run)
         quiet = 1;
 
     if (global.params.useUnitTests)
-    global.params.useAssert = 1;
+        global.params.useAssert = 1;
 
     // LDC output determination
 
     // if we don't link, autodetect target from extension
     if(!global.params.link && global.params.objname) {
-    ext = FileName::ext(global.params.objname);
-    bool autofound = false;
-    if (!ext) {
-        // keep things as they are
-    } else if (strcmp(ext, global.ll_ext) == 0) {
-        global.params.output_ll = OUTPUTFLAGset;
-        autofound = true;
-    } else if (strcmp(ext, global.bc_ext) == 0) {
-        global.params.output_bc = OUTPUTFLAGset;
-        autofound = true;
-    } else if (strcmp(ext, global.s_ext) == 0) {
-        global.params.output_s = OUTPUTFLAGset;
-        autofound = true;
-    } else if (strcmp(ext, global.obj_ext) == 0) {
-        global.params.output_o = OUTPUTFLAGset;
-        autofound = true;
-    } else {
-        // append dot, so forceExt won't change existing name even if it contains dots
-        size_t len = strlen(global.params.objname);
-        size_t extlen = strlen(".");
-        char* s = (char *)mem.malloc(len + 1 + extlen + 1);
-        memcpy(s, global.params.objname, len);
-        s[len] = '.';
-        s[len+1+extlen] = 0;
-        global.params.objname = s;
+        ext = FileName::ext(global.params.objname);
+        bool autofound = false;
+        if (!ext) {
+            // keep things as they are
+        } else if (strcmp(ext, global.ll_ext) == 0) {
+            global.params.output_ll = OUTPUTFLAGset;
+            autofound = true;
+        } else if (strcmp(ext, global.bc_ext) == 0) {
+            global.params.output_bc = OUTPUTFLAGset;
+            autofound = true;
+        } else if (strcmp(ext, global.s_ext) == 0) {
+            global.params.output_s = OUTPUTFLAGset;
+            autofound = true;
+        } else if (strcmp(ext, global.obj_ext) == 0) {
+            global.params.output_o = OUTPUTFLAGset;
+            autofound = true;
+        } else {
+            // append dot, so forceExt won't change existing name even if it contains dots
+            size_t len = strlen(global.params.objname);
+            size_t extlen = strlen(".");
+            char* s = (char *)mem.malloc(len + 1 + extlen + 1);
+            memcpy(s, global.params.objname, len);
+            s[len] = '.';
+            s[len+1+extlen] = 0;
+            global.params.objname = s;
 
-    }
-    if(autofound && global.params.output_o == OUTPUTFLAGdefault)
-        global.params.output_o = OUTPUTFLAGno;
+        }
+        if(autofound && global.params.output_o == OUTPUTFLAGdefault)
+            global.params.output_o = OUTPUTFLAGno;
     }
 
     // only link if possible
     if (!global.params.obj || !global.params.output_o)
-    global.params.link = 0;
+        global.params.link = 0;
 
     if (global.params.link)
     {
-    global.params.exefile = global.params.objname;
-    if (files.dim > 1)
-        global.params.objname = NULL;
+        global.params.exefile = global.params.objname;
+        if (files.dim > 1)
+            global.params.objname = NULL;
     }
     else if (global.params.run)
     {
-    error("flags conflict with -run");
-    fatal();
+        error("flags conflict with -run");
+        fatal();
     }
     else
     {
-    if (global.params.objname && files.dim > 1)
-    {
-        error("multiple source files, but only one .obj name");
-        fatal();
-    }
+        if (global.params.objname && files.dim > 1)
+        {
+            error("multiple source files, but only one .obj name");
+            fatal();
+        }
     }
 
     // create a proper target
@@ -533,35 +533,35 @@ int main(int argc, char** argv)
     // Build import search path
     if (global.params.imppath)
     {
-    for (int i = 0; i < global.params.imppath->dim; i++)
-    {
-        char *path = (char *)global.params.imppath->data[i];
-        Array *a = FileName::splitPath(path);
-
-        if (a)
+        for (int i = 0; i < global.params.imppath->dim; i++)
         {
-        if (!global.path)
-            global.path = new Array();
-        global.path->append(a);
+            char *path = (char *)global.params.imppath->data[i];
+            Array *a = FileName::splitPath(path);
+
+            if (a)
+            {
+                if (!global.path)
+                    global.path = new Array();
+                global.path->append(a);
+            }
         }
-    }
     }
 
     // Build string import search path
     if (global.params.fileImppath)
     {
-    for (int i = 0; i < global.params.fileImppath->dim; i++)
-    {
-        char *path = (char *)global.params.fileImppath->data[i];
-        Array *a = FileName::splitPath(path);
-
-        if (a)
+        for (int i = 0; i < global.params.fileImppath->dim; i++)
         {
-        if (!global.filePath)
-            global.filePath = new Array();
-        global.filePath->append(a);
+            char *path = (char *)global.params.fileImppath->data[i];
+            Array *a = FileName::splitPath(path);
+
+            if (a)
+            {
+                if (!global.filePath)
+                    global.filePath = new Array();
+                global.filePath->append(a);
+            }
         }
-    }
     }
 
     // Create Modules
@@ -569,268 +569,268 @@ int main(int argc, char** argv)
     modules.reserve(files.dim);
     for (int i = 0; i < files.dim; i++)
     {   Identifier *id;
-    char *ext;
-    char *name;
+        char *ext;
+        char *name;
 
-    p = (char *) files.data[i];
+        p = (char *) files.data[i];
 
-    p = FileName::name(p);      // strip path
-    ext = FileName::ext(p);
-    if (ext)
-    {
-#if POSIX
-        if (strcmp(ext, global.obj_ext) == 0 ||
-        strcmp(ext, global.bc_ext) == 0)
-#else
-        if (stricmp(ext, global.obj_ext) == 0 ||
-        stricmp(ext, global.bc_ext) == 0)
-#endif
+        p = FileName::name(p);      // strip path
+        ext = FileName::ext(p);
+        if (ext)
         {
-        global.params.objfiles->push(files.data[i]);
-        continue;
-        }
+#if POSIX
+            if (strcmp(ext, global.obj_ext) == 0 ||
+            strcmp(ext, global.bc_ext) == 0)
+#else
+            if (stricmp(ext, global.obj_ext) == 0 ||
+            stricmp(ext, global.bc_ext) == 0)
+#endif
+            {
+                global.params.objfiles->push(files.data[i]);
+                continue;
+            }
 
 #if POSIX
-        if (strcmp(ext, "a") == 0)
+            if (strcmp(ext, "a") == 0)
 #elif __MINGW32__
-        if (stricmp(ext, "a") == 0)
+            if (stricmp(ext, "a") == 0)
 #else
-        if (stricmp(ext, "lib") == 0)
+            if (stricmp(ext, "lib") == 0)
 #endif
-        {
-        global.params.libfiles->push(files.data[i]);
-        continue;
-        }
+            {
+                global.params.libfiles->push(files.data[i]);
+                continue;
+            }
 
-        if (strcmp(ext, global.ddoc_ext) == 0)
-        {
-        global.params.ddocfiles->push(files.data[i]);
-        continue;
-        }
+            if (strcmp(ext, global.ddoc_ext) == 0)
+            {
+                global.params.ddocfiles->push(files.data[i]);
+                continue;
+            }
 
 #if !POSIX
-        if (stricmp(ext, "res") == 0)
-        {
-        global.params.resfile = (char *)files.data[i];
-        continue;
-        }
+            if (stricmp(ext, "res") == 0)
+            {
+                global.params.resfile = (char *)files.data[i];
+                continue;
+            }
 
-        if (stricmp(ext, "def") == 0)
-        {
-        global.params.deffile = (char *)files.data[i];
-        continue;
-        }
+            if (stricmp(ext, "def") == 0)
+            {
+                global.params.deffile = (char *)files.data[i];
+                continue;
+            }
 
-        if (stricmp(ext, "exe") == 0)
-        {
-        global.params.exefile = (char *)files.data[i];
-        continue;
-        }
+            if (stricmp(ext, "exe") == 0)
+            {
+                global.params.exefile = (char *)files.data[i];
+                continue;
+            }
 #endif
 
-        if (stricmp(ext, global.mars_ext) == 0 ||
-        stricmp(ext, global.hdr_ext) == 0 ||
-        stricmp(ext, "htm") == 0 ||
-        stricmp(ext, "html") == 0 ||
-        stricmp(ext, "xhtml") == 0)
-        {
-        ext--;          // skip onto '.'
-        assert(*ext == '.');
-        name = (char *)mem.malloc((ext - p) + 1);
-        memcpy(name, p, ext - p);
-        name[ext - p] = 0;      // strip extension
+            if (stricmp(ext, global.mars_ext) == 0 ||
+            stricmp(ext, global.hdr_ext) == 0 ||
+            stricmp(ext, "htm") == 0 ||
+            stricmp(ext, "html") == 0 ||
+            stricmp(ext, "xhtml") == 0)
+            {
+                ext--;          // skip onto '.'
+                assert(*ext == '.');
+                name = (char *)mem.malloc((ext - p) + 1);
+                memcpy(name, p, ext - p);
+                name[ext - p] = 0;      // strip extension
 
-        if (name[0] == 0 ||
-            strcmp(name, "..") == 0 ||
-            strcmp(name, ".") == 0)
-        {
-        Linvalid:
-            error("invalid file name '%s'", (char *)files.data[i]);
-            fatal();
-        }
+                if (name[0] == 0 ||
+                    strcmp(name, "..") == 0 ||
+                    strcmp(name, ".") == 0)
+                {
+            Linvalid:
+                    error("invalid file name '%s'", (char *)files.data[i]);
+                    fatal();
+                }
+            }
+            else
+            {   error("unrecognized file extension %s\n", ext);
+                fatal();
+            }
         }
         else
-        {   error("unrecognized file extension %s\n", ext);
-        fatal();
+        {   name = p;
+            if (!*name)
+            goto Linvalid;
         }
-    }
-    else
-    {   name = p;
-        if (!*name)
-        goto Linvalid;
-    }
 
-    id = new Identifier(name, 0);
-    m = new Module((char *) files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
-    modules.push(m);
+        id = new Identifier(name, 0);
+        m = new Module((char *) files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
+        modules.push(m);
     }
 
     // Read files, parse them
     for (int i = 0; i < modules.dim; i++)
     {
-    m = (Module *)modules.data[i];
-    if (global.params.verbose)
-        printf("parse     %s\n", m->toChars());
-    if (!Module::rootModule)
-        Module::rootModule = m;
-    m->importedFrom = m;
-    m->read(0);
-    m->parse();
-    m->buildTargetFiles();
-    m->deleteObjFile();
-    if (m->isDocFile)
-    {
-        m->gendocfile();
+        m = (Module *)modules.data[i];
+        if (global.params.verbose)
+            printf("parse     %s\n", m->toChars());
+        if (!Module::rootModule)
+            Module::rootModule = m;
+        m->importedFrom = m;
+        m->read(0);
+        m->parse();
+        m->buildTargetFiles();
+        m->deleteObjFile();
+        if (m->isDocFile)
+        {
+            m->gendocfile();
 
-        // Remove m from list of modules
-        modules.remove(i);
-        i--;
-    }
+            // Remove m from list of modules
+            modules.remove(i);
+            i--;
+        }
     }
     if (global.errors)
-    fatal();
+        fatal();
 #ifdef _DH
     if (global.params.doHdrGeneration)
     {
-    /* Generate 'header' import files.
-     * Since 'header' import files must be independent of command
-     * line switches and what else is imported, they are generated
-     * before any semantic analysis.
-     */
-    for (int i = 0; i < modules.dim; i++)
-    {
-        m = (Module *)modules.data[i];
-        if (global.params.verbose)
-        printf("import    %s\n", m->toChars());
-        m->genhdrfile();
-    }
+        /* Generate 'header' import files.
+         * Since 'header' import files must be independent of command
+         * line switches and what else is imported, they are generated
+         * before any semantic analysis.
+         */
+        for (int i = 0; i < modules.dim; i++)
+        {
+            m = (Module *)modules.data[i];
+            if (global.params.verbose)
+                printf("import    %s\n", m->toChars());
+            m->genhdrfile();
+        }
     }
     if (global.errors)
-    fatal();
+        fatal();
 #endif
 
     // Do semantic analysis
     for (int i = 0; i < modules.dim; i++)
     {
-    m = (Module *)modules.data[i];
-    if (global.params.verbose)
-        printf("semantic  %s\n", m->toChars());
-    m->semantic();
+        m = (Module *)modules.data[i];
+        if (global.params.verbose)
+            printf("semantic  %s\n", m->toChars());
+        m->semantic();
     }
     if (global.errors)
-    fatal();
+        fatal();
 
     // Do pass 2 semantic analysis
     for (int i = 0; i < modules.dim; i++)
     {
-    m = (Module *)modules.data[i];
-    if (global.params.verbose)
-        printf("semantic2 %s\n", m->toChars());
-    m->semantic2();
+        m = (Module *)modules.data[i];
+        if (global.params.verbose)
+            printf("semantic2 %s\n", m->toChars());
+        m->semantic2();
     }
     if (global.errors)
-    fatal();
+        fatal();
 
     // Do pass 3 semantic analysis
     for (int i = 0; i < modules.dim; i++)
     {
-    m = (Module *)modules.data[i];
-    if (global.params.verbose)
-        printf("semantic3 %s\n", m->toChars());
-    m->semantic3();
+        m = (Module *)modules.data[i];
+        if (global.params.verbose)
+            printf("semantic3 %s\n", m->toChars());
+        m->semantic3();
     }
     if (global.errors)
-    fatal();
+        fatal();
 
 #if !IN_LLVM
     // Scan for functions to inline
     if (global.params.useInline)
     {
-    /* The problem with useArrayBounds and useAssert is that the
-     * module being linked to may not have generated them, so if
-     * we inline functions from those modules, the symbols for them will
-     * not be found at link time.
-     */
-    if (!global.params.useArrayBounds && !global.params.useAssert)
-    {
-#endif
-        // Do pass 3 semantic analysis on all imported modules,
-        // since otherwise functions in them cannot be inlined
-        for (int i = 0; i < Module::amodules.dim; i++)
+        /* The problem with useArrayBounds and useAssert is that the
+         * module being linked to may not have generated them, so if
+         * we inline functions from those modules, the symbols for them will
+         * not be found at link time.
+         */
+        if (!global.params.useArrayBounds && !global.params.useAssert)
         {
-        m = (Module *)Module::amodules.data[i];
-        if (global.params.verbose)
-            printf("semantic3 %s\n", m->toChars());
-        m->semantic3();
-        }
-        if (global.errors)
-        fatal();
+#endif
+            // Do pass 3 semantic analysis on all imported modules,
+            // since otherwise functions in them cannot be inlined
+            for (int i = 0; i < Module::amodules.dim; i++)
+            {
+                m = (Module *)Module::amodules.data[i];
+                if (global.params.verbose)
+                    printf("semantic3 %s\n", m->toChars());
+                m->semantic3();
+            }
+            if (global.errors)
+                fatal();
 #if !IN_LLVM
-    }
+        }
 
-    for (int i = 0; i < modules.dim; i++)
-    {
-        m = (Module *)modules.data[i];
-        if (global.params.verbose)
-        printf("inline scan %s\n", m->toChars());
-        m->inlineScan();
-    }
+        for (int i = 0; i < modules.dim; i++)
+        {
+            m = (Module *)modules.data[i];
+            if (global.params.verbose)
+                printf("inline scan %s\n", m->toChars());
+            m->inlineScan();
+        }
     }
 #endif
     if (global.errors)
-    fatal();
+        fatal();
 
     // Generate output files
     for (int i = 0; i < modules.dim; i++)
     {
-    m = (Module *)modules.data[i];
-    if (global.params.verbose)
-        printf("code      %s\n", m->toChars());
-    if (global.params.obj)
-    {
-        m->genobjfile(0);
-        global.params.objfiles->push(m->objfile->name->str);
-    }
-    if (global.errors)
-        m->deleteObjFile();
-    else
-    {
-        if (global.params.doDocComments)
-        m->gendocfile();
-    }
+        m = (Module *)modules.data[i];
+        if (global.params.verbose)
+            printf("code      %s\n", m->toChars());
+        if (global.params.obj)
+        {
+            m->genobjfile(0);
+            global.params.objfiles->push(m->objfile->name->str);
+        }
+        if (global.errors)
+            m->deleteObjFile();
+        else
+        {
+            if (global.params.doDocComments)
+            m->gendocfile();
+        }
     }
 
     backend_term();
     if (global.errors)
-    fatal();
+        fatal();
 
     if (!global.params.objfiles->dim)
     {
-    if (global.params.link)
-        error("no object files to link");
+        if (global.params.link)
+            error("no object files to link");
     }
     else
     {
-    if (global.params.link)
-        //status = runLINK();
-        linkObjToExecutable(global.params.argv0);
+        if (global.params.link)
+            //status = runLINK();
+            linkObjToExecutable(global.params.argv0);
 
-    if (global.params.run)
-    {
-        if (!status)
+        if (global.params.run)
         {
-        status = runExectuable();
+            if (!status)
+            {
+                status = runExectuable();
 
-        /* Delete .obj files and .exe file
-         */
-        for (int i = 0; i < modules.dim; i++)
-        {
-            m = (Module *)modules.data[i];
-            m->deleteObjFile();
+                /* Delete .obj files and .exe file
+                 */
+                for (int i = 0; i < modules.dim; i++)
+                {
+                    m = (Module *)modules.data[i];
+                    m->deleteObjFile();
+                }
+                deleteExecutable();
+            }
         }
-        deleteExecutable();
-        }
-    }
     }
 
     return status;
