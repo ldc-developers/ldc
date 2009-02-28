@@ -8031,6 +8031,9 @@ Expression *AddAssignExp::semantic(Scope *sc)
 		e2 = e2->castTo(sc, e1->type);
 	    }
 	    e = this;
+
+	    if (e2->type->iscomplex() && !type->iscomplex())
+		error("Cannot assign %s to %s", e2->type->toChars(), type->toChars());
 	}
     }
     return e;
@@ -8080,6 +8083,9 @@ Expression *MinAssignExp::semantic(Scope *sc)
 	    e2 = e2->castTo(sc, e1->type);
 	}
 	e = this;
+
+	if (e2->type->iscomplex() && !type->iscomplex())
+	    error("Cannot assign %s to %s", e2->type->toChars(), type->toChars());
     }
     return e;
 }
@@ -8201,6 +8207,9 @@ Expression *MulAssignExp::semantic(Scope *sc)
 		e2 = e2->castTo(sc, t2);
 	    }
 	}
+
+	if (e2->type->iscomplex() && !type->iscomplex())
+	    error("Cannot assign %s to %s", e2->type->toChars(), type->toChars());
     }
     return this;
 }
@@ -8267,6 +8276,10 @@ Expression *DivAssignExp::semantic(Scope *sc)
 	    return e;
 	}
     }
+
+    if (e2->type->iscomplex() && !type->iscomplex())
+	error("Cannot assign %s to %s", e2->type->toChars(), type->toChars());
+
     return this;
 }
 
