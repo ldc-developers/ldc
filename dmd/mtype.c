@@ -65,6 +65,8 @@ static double zero = 0;
 #include "aggregate.h"
 #include "hdrgen.h"
 
+#include "gen/tollvm.h"
+
 FuncDeclaration *hasThis(Scope *sc);
 
 
@@ -999,43 +1001,8 @@ d_uns64 TypeBasic::size(Loc loc)
 }
 
 unsigned TypeBasic::alignsize()
-{   unsigned sz;
-
-    //LDC: it's bad that we always have to check LLVM's align and
-    // dmd's align info match. Can't we somehow get at LLVM's align
-    // here?
-
-    switch (ty)
-    {
-	case Tfloat80:
-	case Timaginary80:
-	case Tcomplex80:
-	    if (global.params.cpu == ARCHx86_64)
-		sz = 16;
-	    else
-		sz = 4;
-	    break;
-
-	case Tint64:
-	case Tuns64:
-	case Tfloat64:
-	case Timaginary64:
-	case Tcomplex64:
-	    if (global.params.cpu == ARCHx86_64)
-		sz = 8;
-	    else
-		sz = 4;
-	    break;
-
-	case Tcomplex32:
-	    sz = 4;
-	    break;
-
-	default:
-	    sz = size(0);
-	    break;
-    }
-    return sz;
+{
+    return getABITypeAlign(DtoType(this));
 }
 
 
