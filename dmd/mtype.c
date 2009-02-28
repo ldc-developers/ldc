@@ -15,7 +15,7 @@
 #include <alloca.h>
 #endif
 
-#include <math.h>
+#include <cmath>
 
 #include <stdio.h>
 #include <assert.h>
@@ -38,13 +38,10 @@
 #endif
 
 #if __APPLE__
-#include <math.h>
 static double zero = 0;
 #elif __MINGW32__
-#include <math.h>
 static double zero = 0;
 #elif __GNUC__
-#include <math.h>
 #if !(defined (__SVR4) && defined (__sun))
 #include <bits/nan.h>
 #include <bits/mathdef.h>
@@ -1134,7 +1131,7 @@ Expression *TypeBasic::getProperty(Loc loc, Identifier *ident)
 		// constant folding.
 		volatile d_float80 foo;
 		foo = NAN;
-		if (signbit(foo))	// signbit sometimes, not always, set
+		if (std::signbit(foo))	// signbit sometimes, not always, set
 		    foo = -foo;		// turn off sign bit
 		fvalue = foo;
 #elif _MSC_VER
