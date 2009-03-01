@@ -225,10 +225,13 @@ cl::opt<const llvm::TargetMachineRegistry::entry*, false,
         llvm::RegistryParser<llvm::TargetMachine> > mArch("march",
     cl::desc("Architecture to generate code for:"));
 
-static cl::alias m("m",
-    cl::desc("Alias for '-march' for backwards compatibility"),
-    cl::Prefix,
-    cl::aliasopt(mArch));
+cl::opt<bool> m32bits("m32",
+    cl::desc("32 bit target"),
+    cl::ZeroOrMore);
+
+cl::opt<bool> m64bits("m64",
+    cl::desc("64 bit target"),
+    cl::ZeroOrMore);
 
 cl::opt<std::string> mCPU("mcpu",
     cl::desc("Target a specific cpu type (-mcpu=help for details)"),

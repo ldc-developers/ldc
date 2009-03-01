@@ -337,7 +337,23 @@ int main(int argc, char** argv)
     }
 
     // create a proper target
+
+    // check -m32/64 sanity
+    if (m32bits && m64bits)
+        error("cannot use both -m32 and -m64 options");
+    else if ((m32bits || m64bits) && (mArch != 0 || !mTargetTriple.empty()))
+        error("-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
+    if (global.errors)
+        fatal();
+
     llvm::Module mod("dummy");
+
+    // override triple if needed
+    const char* defaultTriple = DEFAULT_TARGET_TRIPLE;
+    if ((sizeof(void*) == 4 && m64bits) || (sizeof(void*) == 8 && m32bits))
+    {
+        defaultTriple = DEFAULT_ALT_TARGET_TRIPLE;
+    }
 
     // did the user override the target triple?
     if (mTargetTriple.empty())
@@ -347,7 +363,7 @@ int main(int argc, char** argv)
             error("you must specify a target triple as well with -mtriple when using the -march option");
             fatal();
         }
-        global.params.targetTriple = DEFAULT_TARGET_TRIPLE;
+        global.params.targetTriple = defaultTriple;
     }
     else
     {

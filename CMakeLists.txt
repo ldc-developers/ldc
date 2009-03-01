@@ -24,6 +24,11 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 execute_process(
+    COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${HOST_TARGET}
+    OUTPUT_VARIABLE HOST_ALT_TARGET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+execute_process(
 	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --cxxflags
 	OUTPUT_VARIABLE LLVM_CXXFLAGS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -105,6 +110,7 @@ set(LDC_GENERATED
 # idgen and impcnvgen done
 
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
+set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
 include_directories(. ${DMDFE_PATH} ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${LLVM_INSTDIR}/include)
 
@@ -154,8 +160,10 @@ if(CMAKE_MINOR_VERSION LESS 6)
 	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
 	set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib CACHE PATH "output dir for built libraries")
 	add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
+    add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
 else(CMAKE_MINOR_VERSION LESS 6)
 	add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
+    add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
 endif(CMAKE_MINOR_VERSION LESS 6)
 
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})

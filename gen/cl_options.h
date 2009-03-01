@@ -38,6 +38,8 @@ namespace opts {
 
     extern cl::opt<const llvm::TargetMachineRegistry::entry*, false,
                     llvm::RegistryParser<llvm::TargetMachine> > mArch;
+    extern cl::opt<bool> m32bits;
+    extern cl::opt<bool> m64bits;
     extern cl::opt<std::string> mCPU;
     extern cl::list<std::string> mAttrs;
     extern cl::opt<std::string> mTargetTriple;
