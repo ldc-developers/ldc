@@ -215,6 +215,8 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
                 } else {
                     // cdouble and creal extern(C) are returned in pointer
                     // don't add anything!
+                    asmblock->retty = LLType::VoidTy;
+                    asmblock->retn = 0;
                     return;
                 }
             } else {
