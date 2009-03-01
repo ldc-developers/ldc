@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 HOST_TARGET=$1
 
-[ "$HOST_TARGET" == "" ] && exit 1
+[ "$HOST_TARGET" = "" ] && exit 1
 
 REST=`echo $HOST_TARGET   | sed -e 's/[a-zA-Z0-9_]*\(\-.*\)/\1/'`
 X86=`echo $HOST_TARGET    | sed -e 's/\(i[3-9]86\)\-.*/\1/'`
