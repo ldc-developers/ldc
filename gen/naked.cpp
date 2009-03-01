@@ -175,13 +175,6 @@ static LLValue* x86_64_cfloatRetFixup(IRBuilderHelper b, LLValue* orig) {
     return b->CreateInsertValue(undef, orig, 0, "asm.ret");
 }
 
-static LLValue* x86_cfloatRetFixup(IRBuilderHelper b, LLValue* orig) {
-    assert(orig->getType() == LLType::DoubleTy);
-    LLType* retty = LLStructType::get(LLType::DoubleTy, NULL);
-    LLValue* undef = llvm::UndefValue::get(retty);
-    return b->CreateInsertValue(undef, orig, 0, "asm.ret");
-}
-
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
     Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());

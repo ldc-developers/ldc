@@ -478,7 +478,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         DtoStore(r, l);
     }
     else if (t->iscomplex()) {
-        LLValue *dst, *src;
+        LLValue* dst;
         if (DLRValue* lr = lhs->isLRValue()) {
             dst = lr->getLVal();
             rhs = DtoCastComplex(loc, rhs, lr->getLType());
