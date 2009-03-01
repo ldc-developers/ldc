@@ -333,6 +333,9 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
     //FIXME: enforce 64 bit
     if (global.params.is64bit)
         args.push_back("-m64");
+    else
+        // Assume 32-bit?
+        args.push_back("-m32");
 
     // Now that "args" owns all the std::strings for the arguments, call the c_str
     // method to get the underlying string array.  We do this game so that the

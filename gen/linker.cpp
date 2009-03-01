@@ -320,6 +320,9 @@ int linkObjToExecutable(const char* argv0)
     //FIXME: enforce 64 bit
     if (global.params.is64bit)
         args.push_back("-m64");
+    else
+        // Assume 32-bit?
+        args.push_back("-m32");
 
     // print link command?
     if (!quiet || global.params.verbose)
