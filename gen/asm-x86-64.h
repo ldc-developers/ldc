@@ -693,6 +693,7 @@ namespace AsmParserx8664
         { "cmp",    Op_SrcSrcF },
         { "cmppd",  Op_DstSrcImmS },
         { "cmpps",  Op_DstSrcImmS },
+        { "cmpq",   Op_DstSrcNT },
         { "cmps",   Op_cmps  },
         { "cmpsb",  Op_cmpsX },
         { "cmpsd",  Op_cmpsd }, // string cmp, and SSE cmp
