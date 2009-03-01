@@ -85,7 +85,65 @@ struct X87_complex_swap : ABIRetRewrite
     }
     bool test(TypeFunction* tf)
     {
-        return (tf->next->toBasetype()->iscomplex());
+        // extern(D) && is(T:creal)
+        return (tf->linkage == LINKd && tf->next->toBasetype()->iscomplex());
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+struct X86_cfloat_rewrite : ABIRetRewrite
+{
+    // i64 -> {float,float}
+    LLValue* get(LLValue* in)
+    {
+        // extract real part
+        LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::Int32Ty);
+        rpart = gIR->ir->CreateBitCast(rpart, LLType::FloatTy, ".re");
+
+        // extract imag part
+        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::Int64Ty, 32, false));
+        ipart = gIR->ir->CreateTrunc(ipart, LLType::Int32Ty);
+        ipart = gIR->ir->CreateBitCast(ipart, LLType::FloatTy, ".im");
+
+        // return {float,float} aggr pair with same bits
+        return DtoAggrPair(rpart, ipart, ".final_cfloat");
+    }
+
+    // {float,float} -> i64
+    LLValue* put(LLValue* v)
+    {
+        // extract real
+        LLValue* r = gIR->ir->CreateExtractValue(v, 0);
+        // cast to i32
+        r = gIR->ir->CreateBitCast(r, LLType::Int32Ty);
+        // zext to i64
+        r = gIR->ir->CreateZExt(r, LLType::Int64Ty);
+
+        // extract imag
+        LLValue* i = gIR->ir->CreateExtractValue(v, 1);
+        // cast to i32
+        i = gIR->ir->CreateBitCast(i, LLType::Int32Ty);
+        // zext to i64
+        i = gIR->ir->CreateZExt(i, LLType::Int64Ty);
+        // shift up
+        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::Int64Ty, 32, false));
+
+        // combine and return
+        return v = gIR->ir->CreateOr(r, i);
+    }
+
+    // {float,float} -> i64
+    const LLType* type(const LLType* t)
+    {
+        return LLType::Int64Ty;
+    }
+
+    // test if rewrite applies to function
+    bool test(TypeFunction* tf)
+    {
+        return (tf->linkage != LINKd) 
+            && (tf->next->toBasetype() == Type::tcomplex32);
     }
 };
 
@@ -96,18 +154,19 @@ struct X86TargetABI : TargetABI
     X86TargetABI()
     {
         retOps.push_back(new X87_complex_swap);
+        retOps.push_back(new X86_cfloat_rewrite);
     }
 
-    bool returnInArg(Type* t)
+    bool returnInArg(TypeFunction* tf)
     {
-        Type* rt = t->toBasetype();
-        return (rt->ty == Tstruct);
-    }
-
-    bool passByRef(Type* t)
-    {
-        t = t->toBasetype();
-        return (t->ty == Tstruct || t->ty == Tsarray);
+        Type* rt = tf->next->toBasetype();
+        // D only returns structs on the stack
+        if (tf->linkage == LINKd)
+            return (rt->ty == Tstruct);
+        // other ABI's follow C, which is cdouble and creal returned on the stack
+        // as well as structs
+        else
+            return (rt->ty == Tstruct || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
     }
 };
 
@@ -194,16 +253,10 @@ struct X86_64TargetABI : TargetABI
         retOps.push_back(new X86_64_cfloat_rewrite);
     }
 
-    bool returnInArg(Type* t)
+    bool returnInArg(TypeFunction* tf)
     {
-        Type* rt = t->toBasetype();
+        Type* rt = tf->next->toBasetype();
         return (rt->ty == Tstruct);
-    }
-
-    bool passByRef(Type* t)
-    {
-        t = t->toBasetype();
-        return (t->ty == Tstruct || t->ty == Tsarray);
     }
 };
 
@@ -221,16 +274,10 @@ struct UnknownTargetABI : TargetABI
         // Don't push anything into retOps, assume defaults will be fine.
     }
 
-    bool returnInArg(Type* t)
+    bool returnInArg(TypeFunction* tf)
     {
-        Type* rt = t->toBasetype();
+        Type* rt = tf->next->toBasetype();
         return (rt->ty == Tstruct);
-    }
-
-    bool passByRef(Type* t)
-    {
-        t = t->toBasetype();
-        return (t->ty == Tstruct || t->ty == Tsarray);
     }
 };
 

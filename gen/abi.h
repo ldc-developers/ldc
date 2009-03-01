@@ -38,8 +38,7 @@ struct TargetABI
     llvm::Value* getRet(TypeFunction* tf, llvm::Value* v);
     llvm::Value* putRet(TypeFunction* tf, llvm::Value* v);
 
-    virtual bool returnInArg(Type* t) = 0;
-    virtual bool passByRef(Type* t) = 0;
+    virtual bool returnInArg(TypeFunction* t) = 0;
 
 protected:
     std::vector<ABIRetRewrite*> retOps;

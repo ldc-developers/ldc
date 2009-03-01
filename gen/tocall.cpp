@@ -527,5 +527,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         call.setCallingConv(callconv);
     call.setAttributes(attrlist);
 
+    // if we are returning through a pointer arg
+    // make sure we provide a lvalue back!
+    if (retinptr)
+        return new DVarValue(resulttype, retllval);
+
     return new DImValue(resulttype, retllval);
 }

@@ -175,6 +175,13 @@ static LLValue* x86_64_cfloatRetFixup(IRBuilderHelper b, LLValue* orig) {
     return b->CreateInsertValue(undef, orig, 0, "asm.ret");
 }
 
+static LLValue* x86_cfloatRetFixup(IRBuilderHelper b, LLValue* orig) {
+    assert(orig->getType() == LLType::DoubleTy);
+    LLType* retty = LLStructType::get(LLType::DoubleTy, NULL);
+    LLValue* undef = llvm::UndefValue::get(retty);
+    return b->CreateInsertValue(undef, orig, 0, "asm.ret");
+}
+
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
     Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
@@ -204,8 +211,19 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
         else if (rt->isfloating())
         {
             if (rt->iscomplex()) {
-                as->out_c = "={st},={st(1)},";
-                asmblock->retn = 2;
+                if (fdecl->linkage == LINKd) {
+                    // extern(D) always returns on the FPU stack
+                    as->out_c = "={st},={st(1)},";
+                    asmblock->retn = 2;
+                } else if (rt->ty == Tcomplex32) {
+                    // extern(C) cfloat is return as i64
+                    as->out_c = "=A,";
+                    asmblock->retty = LLType::Int64Ty;
+                } else {
+                    // cdouble and creal extern(C) are returned in pointer
+                    // don't add anything!
+                    return;
+                }
             } else {
                 as->out_c = "={st},";
             }

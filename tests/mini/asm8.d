@@ -131,7 +131,10 @@ extern(C) cfloat cf_C()
 {
     version(X86)
     {
-        asm { fld1; fld two_f; }
+        asm {
+            mov EAX, [one_f];
+            mov EDX, [two_f];
+        }
     }
     else version (X86_64)
     {
@@ -180,8 +183,8 @@ extern(C) cfloat cf2_C()
         asm
         {
             naked;
-            fld1;
-            fld two_f;
+            mov EAX, [one_f];
+            mov EDX, [two_f];
             ret;
         }
     }

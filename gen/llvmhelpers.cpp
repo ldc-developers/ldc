@@ -392,6 +392,8 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 // ASSIGNMENT HELPER (store this in that)
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
+// is this a good approach at all ?
+
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
 {
     Logger::println("DtoAssign(...);\n");
@@ -402,7 +404,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
 
     if (t->ty == Tstruct) {
         if (!t->equals(t2)) {
-            // TODO: fix this, use 'rhs' for something
+            // FIXME: use 'rhs' for something !?!
             DtoAggrZeroInit(lhs->getLVal());
         }
         else {
@@ -476,7 +478,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         DtoStore(r, l);
     }
     else if (t->iscomplex()) {
-        LLValue* dst;
+        LLValue *dst, *src;
         if (DLRValue* lr = lhs->isLRValue()) {
             dst = lr->getLVal();
             rhs = DtoCastComplex(loc, rhs, lr->getLType());

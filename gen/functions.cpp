@@ -79,7 +79,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
         }
         else
         {
-            if (gABI->returnInArg(rt))
+            if (gABI->returnInArg(f))
             {
                 rettype = getPtrToType(DtoType(rt));
                 actualRettype = LLType::VoidTy;
