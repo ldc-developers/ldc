@@ -1232,6 +1232,8 @@ d_uns64 TypeBasic::size(Loc loc)
 
 unsigned TypeBasic::alignsize()
 {
+    if (ty == Tvoid)
+        return 1;
     return getABITypeAlign(DtoType(this));
 }
 
