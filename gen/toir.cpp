@@ -975,8 +975,8 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         // static function
         else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
         {
+            DtoForceDeclareDsymbol(fd);
             IrFunction* irfunc = fd->ir.irFunc;
-            assert(irfunc);
             return irfunc->func;
         }
         // something else
