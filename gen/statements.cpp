@@ -63,7 +63,6 @@ void ReturnStatement::toIR(IRState* p)
         {
             // sanity check
             IrFunction* f = p->func();
-            assert(f->type->retInPtr);
             assert(f->decl->ir.irFunc->retArg);
 
             // emit dbg line
@@ -94,7 +93,7 @@ void ReturnStatement::toIR(IRState* p)
             delete e;
 
             // do abi specific transformations on the return value
-            v = gABI->putRet(p->func()->type, v);
+            v = p->func()->type->fty->putRet(exp->type, v);
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
@@ -111,7 +110,7 @@ void ReturnStatement::toIR(IRState* p)
                     v = llvm::Constant::getNullValue(p->mainFunc->getReturnType());
                 else
                     v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
-                
+
                 if (Logger::enabled())
                     Logger::cout() << "return value after cast: " << *v << '\n';
             }

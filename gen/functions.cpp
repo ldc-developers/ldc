@@ -22,136 +22,114 @@
 #include "gen/dvalue.h"
 #include "gen/abi.h"
 
-#include <algorithm>
-
-const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, const LLType* nesttype, bool ismain)
+const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
+    // sanity check
     assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
 
+    // already built ?
     if (type->ir.type != NULL) {
+        assert(f->fty != NULL);
         return llvm::cast<llvm::FunctionType>(type->ir.type->get());
     }
 
-    bool dVararg = false;
-    bool arrayVararg = false;
-    if (f->linkage == LINKd)
-    {
-        if (f->varargs == 1)
-            dVararg = true;
-        else if (f->varargs == 2)
-            arrayVararg = true;
-    }
+    // create new ir funcTy
+    assert(f->fty == NULL);
+    f->fty = new IrFuncTy();
 
-    // return value type
-    const LLType* rettype;
-    const LLType* actualRettype;
-    Type* rt = f->next;
-    bool retinptr = false;
-    bool usesthis = false;
-    bool usesnest = false;
+    // llvm idx counter
+    size_t lidx = 0;
 
-    // parameter types
-    std::vector<const LLType*> paramvec;
-
-    // special case main
+    // main needs a little special handling
     if (ismain)
     {
-        rettype = LLType::Int32Ty;
-        actualRettype = rettype;
-        if (Argument::dim(f->parameters) == 0)
-        {
-            const LLType* arrTy = DtoArrayType(LLType::Int8Ty);
-            const LLType* arrArrTy = DtoArrayType(arrTy);
-            paramvec.push_back(arrArrTy);
-        }
+        f->fty->ret = new IrFuncTyArg(Type::tint32, false);
     }
-    // default handling
+    // sane return value
     else
     {
-        assert(rt);
-        if (f->linkage == LINKintrinsic)
+        Type* rt = f->next;
+        unsigned a = 0;
+        // sret return
+        if (gABI->returnInArg(f))
         {
-            // Intrinsics don't care about ABI
-            Logger::cout() << "Intrinsic returning " << rt->toChars() << '\n';
-            actualRettype = rettype = DtoType(rt);
-            Logger::cout() << "  (LLVM type: " << *rettype << ")\n";
+            f->fty->arg_sret = new IrFuncTyArg(rt, true, llvm::Attribute::StructRet);
+            rt = Type::tvoid;
+            lidx++;
+        }
+        // sext/zext return
+        else if (unsigned se = DtoShouldExtend(rt))
+        {
+            a = se;
+        }
+        f->fty->ret = new IrFuncTyArg(rt, false, a);
+    }
+    lidx++;
+
+    // member functions
+    if (thistype)
+    {
+        bool toref = (thistype->toBasetype()->ty == Tstruct);
+        f->fty->arg_this = new IrFuncTyArg(thistype, toref);
+        lidx++;
+    }
+
+    // and nested functions
+    else if (nesttype)
+    {
+        f->fty->arg_nest = new IrFuncTyArg(nesttype, false);
+        lidx++;
+    }
+
+    // vararg functions are special too
+    if (f->varargs)
+    {
+        if (f->linkage == LINKd)
+        {
+            // d style with hidden args
+            // 2 (array) is handled by the frontend
+            if (f->varargs == 1)
+            {
+                // _arguments
+                f->fty->arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
+                lidx++;
+                // _argptr
+                f->fty->arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false);
+                lidx++;
+            }
+        }
+        else if (f->linkage == LINKc)
+        {
+            f->fty->c_vararg = true;
         }
         else
         {
-            if (gABI->returnInArg(f))
-            {
-                rettype = getPtrToType(DtoType(rt));
-                actualRettype = LLType::VoidTy;
-                f->retInPtr = retinptr = true;
-            }
-            else
-            {
-                rettype = DtoType(rt);
-                // do abi specific transformations
-                actualRettype = gABI->getRetType(f, rettype);
-            }
-
-            // FIXME: should probably be part of the abi
-            if (unsigned ea = DtoShouldExtend(rt))
-            {
-                f->retAttrs |= ea;
-            }
+            type->error(0, "invalid linkage for variadic function");
+            fatal();
         }
     }
 
-    // build up parameter list
-    if (retinptr) {
-        //Logger::cout() << "returning through pointer parameter: " << *rettype << '\n';
-        paramvec.push_back(rettype);
-    }
+    // if this _Dmain() doesn't have an argument, we force it to have one
+    int nargs = Argument::dim(f->parameters);
 
-    // this/context param
-    if (thistype) {
-        paramvec.push_back(thistype);
-        usesthis = true;
-    }
-    else if (nesttype) {
-        paramvec.push_back(nesttype);
-        usesnest = true;
-    }
-
-    // dstyle vararg
-    if (dVararg) {
-        paramvec.push_back(DtoType(Type::typeinfo->type->arrayOf())); // _arguments
-        paramvec.push_back(getVoidPtrType()); // _argptr
-    }
-
-    // now that all implicit args are done, store the start of the real args
-    f->firstRealArg = paramvec.size();
-
-    // number of formal params
-    size_t n = Argument::dim(f->parameters);
-
-#if X86_REVERSE_PARAMS
-    // on x86 we need to reverse the formal params in some cases to match the ABI
-    if (global.params.cpu == ARCHx86)
+    if (ismain && nargs == 0)
     {
-        // more than one formal arg,
-        // extern(D) linkage
-        // not a D-style vararg
-        if (n > 1 && f->linkage == LINKd && !dVararg)
-        {
-            f->reverseParams = true;
-        }
+        Type* mainargs = Type::tchar->arrayOf()->arrayOf();
+        f->fty->args.push_back(new IrFuncTyArg(mainargs, false));
+        lidx++;
     }
-#endif // X86_REVERSE_PARAMS
-
-
-    for (int i=0; i < n; ++i) {
+    // add explicit parameters
+    else for (int i = 0; i < nargs; i++)
+    {
+        // get argument
         Argument* arg = Argument::getNth(f->parameters, i);
-        // ensure scalar
-        Type* argT = arg->type->toBasetype();
-        assert(argT);
 
-        bool refOrOut = ((arg->storageClass & STCref) || (arg->storageClass & STCout));
+        // reference semantics? ref, out and static arrays are
+        bool byref = (arg->storageClass & (STCref|STCout)) || (arg->type->toBasetype()->ty == Tsarray);
 
-        const LLType* at = DtoType(argT);
+        Type* argtype = arg->type;
+        unsigned a = 0;
 
         // handle lazy args
         if (arg->storageClass & STClazy)
@@ -159,113 +137,51 @@ const llvm::FunctionType* DtoFunctionType(Type* type, const LLType* thistype, co
             Logger::println("lazy param");
             TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
             TypeDelegate *ltd = new TypeDelegate(ltf);
-            at = DtoType(ltd);
-            paramvec.push_back(at);
+            argtype = ltd;
         }
-        // opaque types need special handling
-        else if (llvm::isa<llvm::OpaqueType>(at)) {
-            Logger::println("opaque param");
-            assert(argT->ty == Tstruct || argT->ty == Tclass);
-            paramvec.push_back(getPtrToType(at));
-        }
-        // structs are passed as a reference, but by value
-        else if (argT->ty == Tstruct) {
-            Logger::println("struct param");
-            if (!refOrOut)
-                arg->llvmAttrs |= llvm::Attribute::ByVal;
-            paramvec.push_back(getPtrToType(at));
-        }
-        // static arrays are passed directly by reference
-        else if (argT->ty == Tsarray)
+        // byval
+        else if (gABI->passByVal(argtype))
         {
-            Logger::println("static array param");
-            at = getPtrToType(at);
-            paramvec.push_back(at);
+            if (!byref) a |= llvm::Attribute::ByVal;
+            byref = true;
         }
-        // firstclass ' ref/out ' parameter
-        else if (refOrOut) {
-            Logger::println("ref/out param");
-            at = getPtrToType(at);
-            paramvec.push_back(at);
+        // sext/zext
+        else if (!byref)
+        {
+            a |= DtoShouldExtend(argtype);
         }
-        // firstclass ' in ' parameter
-        else {
-            Logger::println("in param");
-            if (unsigned ea = DtoShouldExtend(argT))
-                arg->llvmAttrs |= ea;
-            paramvec.push_back(at);
-        }
+
+        f->fty->args.push_back(new IrFuncTyArg(argtype, byref, a));
+        lidx++;
+    }
+
+    // let the abi rewrite the types as necesary
+    gABI->rewriteFunctionType(f);
+
+    // build the function type
+    std::vector<const LLType*> argtypes;
+    argtypes.reserve(lidx);
+
+    if (f->fty->arg_sret) argtypes.push_back(f->fty->arg_sret->ltype);
+    if (f->fty->arg_this) argtypes.push_back(f->fty->arg_this->ltype);
+    if (f->fty->arg_nest) argtypes.push_back(f->fty->arg_nest->ltype);
+    if (f->fty->arg_arguments) argtypes.push_back(f->fty->arg_arguments->ltype);
+    if (f->fty->arg_argptr) argtypes.push_back(f->fty->arg_argptr->ltype);
+
+    size_t beg = argtypes.size();
+    size_t nargs2 = f->fty->args.size();
+    for (size_t i = 0; i < nargs2; i++)
+    {
+        argtypes.push_back(f->fty->args[i]->ltype);
     }
 
     // reverse params?
-    if (f->reverseParams)
+    if (f->fty->reverseParams && f->parameters->dim > 1)
     {
-        std::reverse(paramvec.begin() + f->firstRealArg, paramvec.end());
+        std::reverse(argtypes.begin() + beg, argtypes.end());
     }
 
-#if X86_PASS_IN_EAX
-    // pass first param in EAX if it fits, is not floating point and is not a 3 byte struct.
-    // ONLY extern(D) functions !
-    if ((n > 0 || usesthis || usesnest) && f->linkage == LINKd)
-    {
-        // FIXME: Only x86 right now ...
-        if (global.params.cpu == ARCHx86)
-        {
-            int n_inreg = f->reverseParams ? n - 1 : 0;
-            Argument* arg = Argument::getNth(f->parameters, n_inreg);
-
-            // if there is a implicit context parameter, pass it in EAX
-            if (usesthis || usesnest)
-            {
-                f->thisAttrs |= llvm::Attribute::InReg;
-                assert((!arg || (arg->llvmAttrs & llvm::Attribute::InReg) == 0) && "can't have two inreg args!");
-            }
-            // otherwise check the first formal parameter
-            else
-            {
-                Type* t = arg->type->toBasetype();
-
-                // 32bit ints, pointers, classes, static arrays, AAs, ref and out params,
-                // and structs with size <= 4 and != 3
-                // are candidate for being passed in EAX
-                if (
-                    (arg->storageClass & (STCref|STCout))
-                    ||
-                    ((arg->storageClass & STCin) &&
-                     ((t->isscalar() && !t->isfloating()) ||
-                      t->ty == Tclass || t->ty == Tsarray || t->ty == Taarray ||
-                      (t->ty == Tstruct && t->size() != 3)
-                     ) && (t->size() <= PTRSIZE))
-                   )
-                {
-                    arg->llvmAttrs |= llvm::Attribute::InReg;
-                    assert((f->thisAttrs & llvm::Attribute::InReg) == 0 && "can't have two inreg args!");
-
-                    // structs need to go from {...}* byval to i8/i16/i32 inreg
-                    if ((arg->storageClass & STCin) && t->ty == Tstruct)
-                    {
-                        int n_param = f->reverseParams ? f->firstRealArg + n - 1 - n_inreg : f->firstRealArg + n_inreg;
-                        assert(isaPointer(paramvec[n_param]) && (arg->llvmAttrs & llvm::Attribute::ByVal)
-                            && "struct parameter expected to be {...}* byval before inreg is applied");
-                        f->structInregArg = paramvec[n_param]->getContainedType(0);
-                        paramvec[n_param] = LLIntegerType::get(8*t->size());
-                        arg->llvmAttrs &= ~llvm::Attribute::ByVal;
-                    }
-                }
-            }
-        }
-    }
-#endif // X86_PASS_IN_EAX
-
-    // construct function type
-    bool isvararg = !(dVararg || arrayVararg) && f->varargs;
-    llvm::FunctionType* functype = llvm::FunctionType::get(actualRettype, paramvec, isvararg);
-
-    // done
-    f->retInPtr = retinptr;
-    f->usesThis = usesthis;
-    f->usesNest = usesnest;
-
+    llvm::FunctionType* functype = llvm::FunctionType::get(f->fty->ret->ltype, argtypes, f->fty->c_vararg);
     f->ir.type = new llvm::PATypeHolder(functype);
 
     return functype;
@@ -283,10 +199,19 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
     TypeFunction* f = (TypeFunction*)fdecl->type;
     const llvm::FunctionType* fty = 0;
 
+    // create new ir funcTy
+    assert(f->fty == NULL);
+    f->fty = new IrFuncTy();
+    f->fty->ret = new IrFuncTyArg(Type::tvoid, false);
+
+    f->fty->args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
+
     if (fdecl->llvmInternal == LLVMva_start)
         fty = GET_INTRINSIC_DECL(vastart)->getFunctionType();
-    else if (fdecl->llvmInternal == LLVMva_copy)
+    else if (fdecl->llvmInternal == LLVMva_copy) {
         fty = GET_INTRINSIC_DECL(vacopy)->getFunctionType();
+        f->fty->args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
+    }
     else if (fdecl->llvmInternal == LLVMva_end)
         fty = GET_INTRINSIC_DECL(vaend)->getFunctionType();
     assert(fty);
@@ -307,13 +232,13 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
     if (fdecl->type->ir.type != 0)
         return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
 
-    const LLType* thisty = 0;
-    const LLType* nestty = 0;
+    Type *dthis=0, *dnest=0;
 
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
             Logger::println("isMember = this is: %s", ad->type->toChars());
-            thisty = DtoType(ad->type);
+            dthis = ad->type;
+            const LLType* thisty = DtoType(dthis);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
             if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->type->ir.type->get()))
                 thisty = getPtrToType(thisty);
@@ -324,10 +249,10 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         }
     }
     else if (fdecl->isNested()) {
-        nestty = getPtrToType(LLType::Int8Ty);
+        dnest = Type::tvoid->pointerTo();
     }
 
-    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, thisty, nestty, fdecl->isMain());
+    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, dthis, dnest, fdecl->isMain());
 
     return functype;
 }
@@ -414,46 +339,35 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    int llidx = 0;
-    if (f->retInPtr) ++llidx;
-    if (f->usesThis) ++llidx;
-    else if (f->usesNest) ++llidx;
-    if (f->linkage == LINKd && f->varargs == 1)
-        llidx += 2;
-
     int funcNumArgs = func->getArgumentList().size();
 
     LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
     llvm::AttributeWithIndex PAWI;
 
-    // set return value attrs if any
-    if (f->retAttrs)
-    {
-        PAWI.Index = 0;
-        PAWI.Attrs = f->retAttrs;
-        attrs.push_back(PAWI);
+    int idx = 0;
+
+    // handle implicit args
+    #define ADD_PA(X) \
+    if (f->fty->X) { \
+        if (f->fty->X->attrs) { \
+            PAWI.Index = idx; \
+            PAWI.Attrs = f->fty->X->attrs; \
+            attrs.push_back(PAWI); \
+        } \
+        idx++; \
     }
 
-    // set sret param
-    if (f->retInPtr)
-    {
-        PAWI.Index = 1;
-        PAWI.Attrs = llvm::Attribute::StructRet;
-        attrs.push_back(PAWI);
-    }
+    ADD_PA(ret)
+    ADD_PA(arg_sret)
+    ADD_PA(arg_this)
+    ADD_PA(arg_nest)
+    ADD_PA(arg_arguments)
+    ADD_PA(arg_argptr)
 
-    // set this/nest param attrs
-    if (f->thisAttrs)
-    {
-        PAWI.Index = f->retInPtr ? 2 : 1;
-        PAWI.Attrs = f->thisAttrs;
-        attrs.push_back(PAWI);
-    }
+    #undef ADD_PA
 
     // set attrs on the rest of the arguments
     size_t n = Argument::dim(f->parameters);
-    assert(funcNumArgs >= n); // main might mismatch, for the implicit char[][] arg
-
     LLSmallVector<unsigned,8> attrptr(n, 0);
 
     for (size_t k = 0; k < n; ++k)
@@ -461,11 +375,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         Argument* fnarg = Argument::getNth(f->parameters, k);
         assert(fnarg);
 
-        attrptr[k] = fnarg->llvmAttrs;
+        attrptr[k] = f->fty->args[k]->attrs;
     }
 
     // reverse params?
-    if (f->reverseParams)
+    if (f->fty->reverseParams)
     {
         std::reverse(attrptr.begin(), attrptr.end());
     }
@@ -475,7 +389,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         if (attrptr[i])
         {
-            PAWI.Index = llidx+i+1;
+            PAWI.Index = idx+i;
             PAWI.Attrs = attrptr[i];
             attrs.push_back(PAWI);
         }
@@ -575,26 +489,26 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         // name parameters
         llvm::Function::arg_iterator iarg = func->arg_begin();
 
-        if (f->retInPtr) {
+        if (f->fty->arg_sret) {
             iarg->setName(".sret_arg");
             fdecl->ir.irFunc->retArg = iarg;
             ++iarg;
         }
 
-        if (f->usesThis) {
+        if (f->fty->arg_this) {
             iarg->setName(".this_arg");
             fdecl->ir.irFunc->thisArg = iarg;
             assert(fdecl->ir.irFunc->thisArg);
             ++iarg;
         }
-        else if (f->usesNest) {
+        else if (f->fty->arg_nest) {
             iarg->setName(".nest_arg");
             fdecl->ir.irFunc->nestArg = iarg;
             assert(fdecl->ir.irFunc->nestArg);
             ++iarg;
         }
 
-        if (f->linkage == LINKd && f->varargs == 1) {
+        if (f->fty->arg_argptr) {
             iarg->setName("._arguments");
             fdecl->ir.irFunc->_arguments = iarg;
             ++iarg;
@@ -610,7 +524,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             if (fdecl->parameters && fdecl->parameters->dim > k)
             {
                 Dsymbol* argsym;
-                if (f->reverseParams)
+                if (f->fty->reverseParams)
                     argsym = (Dsymbol*)fdecl->parameters->data[fdecl->parameters->dim-k-1];
                 else
                     argsym = (Dsymbol*)fdecl->parameters->data[k];
@@ -647,6 +561,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+// FIXME: this isn't too pretty!
 
 void DtoDefineFunction(FuncDeclaration* fd)
 {
@@ -727,7 +643,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // give the 'this' argument storage and debug info
-    if (f->usesThis)
+    if (f->fty->arg_this)
     {
         LLValue* thisvar = irfunction->thisArg;
         assert(thisvar);
@@ -757,7 +673,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // and debug info
     if (fd->parameters)
     {
-        size_t n = fd->parameters->dim;
+        size_t n = f->fty->args.size();
+        assert(n == fd->parameters->dim);
         for (int i=0; i < n; ++i)
         {
             Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
@@ -767,20 +684,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
             IrLocal* irloc = vd->ir.irLocal;
             assert(irloc);
 
-            // if it's inreg struct arg, allocate storage
-            if (f->structInregArg && i == (f->reverseParams ? n - 1 : 0))
-            {
-                int n_param = f->reverseParams ? f->firstRealArg + n - 1 - i : f->firstRealArg + i;
-                const LLType* paramty = functype->getParamType(n_param);
-                assert(!f->usesNest && !f->usesThis && 
-                    llvm::isa<LLIntegerType>(paramty) && isaStruct(f->structInregArg)
-                    && "Preconditions for inreg struct arg not met!");
-
-                LLValue* mem = DtoAlloca(f->structInregArg, "inregstructarg");
-                
-                DtoStore(irloc->value, DtoBitCast(mem, getPtrToType(paramty)));
-                irloc->value = mem;
-            }
+            // let the abi transform the argument back first
+            LLValue* argvalue = f->fty->getParam(vd->type, i, irloc->value);
 
         #if DMDV2
             if (vd->nestedrefs.dim)
@@ -794,9 +699,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
 
-            if (!refout && (!DtoIsPassedByRef(vd->type) || lazy))
+            if (!refout && (!f->fty->args[i]->byref || lazy))
             {
-                LLValue* a = irloc->value;
+                LLValue* a = argvalue;
                 LLValue* v = DtoAlloca(a->getType(), vd->ident->toChars());
                 DtoStore(a,v);
                 irloc->value = v;

@@ -1,9 +1,59 @@
 
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
+#include "gen/abi.h"
 #include "ir/irfunction.h"
 
 #include <sstream>
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, unsigned a)
+{
+    type = t;
+    ltype = bref ? DtoType(t->pointerTo()) : DtoType(t);
+    attrs = a;
+    byref = bref;
+    rewrite = NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Value* IrFuncTy::putRet(Type* dty, llvm::Value* val)
+{
+    assert(!arg_sret);
+    if (ret->rewrite)
+        return ret->rewrite->put(dty, val);
+    return val;
+}
+
+llvm::Value* IrFuncTy::getRet(Type* dty, llvm::Value* val)
+{
+    assert(!arg_sret);
+    if (ret->rewrite)
+        return ret->rewrite->get(dty, val);
+    return val;
+}
+
+llvm::Value* IrFuncTy::putParam(Type* dty, int idx, llvm::Value* val)
+{
+    assert(idx >= 0 && idx < args.size() && "invalid putParam");
+    if (args[idx]->rewrite)
+        return args[idx]->rewrite->put(dty, val);
+    return val;
+}
+
+llvm::Value* IrFuncTy::getParam(Type* dty, int idx, llvm::Value* val)
+{
+    assert(idx >= 0 && idx < args.size() && "invalid getParam");
+    if (args[idx]->rewrite)
+        return args[idx]->rewrite->get(dty, val);
+    return val;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////

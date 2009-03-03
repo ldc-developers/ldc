@@ -1,12 +1,73 @@
 #ifndef LDC_IR_IRFUNCTION_H
 #define LDC_IR_IRFUNCTION_H
 
+#include "gen/llvm.h"
 #include "ir/ir.h"
 #include "ir/irlandingpad.h"
 
 #include <vector>
 #include <stack>
 #include <map>
+
+struct ABIRewrite;
+
+// represents a function type argument
+// both explicit and implicit as well as return values
+struct IrFuncTyArg : IrBase
+{
+    Type* type;
+    const llvm::Type* ltype;
+    unsigned attrs;
+    bool byref;
+
+    ABIRewrite* rewrite;
+
+    bool isInReg() const { return (attrs & llvm::Attribute::InReg) != 0; }
+    bool isSRet() const  { return (attrs & llvm::Attribute::StructRet) != 0; }
+    bool isByVal() const { return (attrs & llvm::Attribute::ByVal) != 0; }
+
+    IrFuncTyArg(Type* t, bool byref, unsigned a = 0);
+};
+
+// represents a function type
+struct IrFuncTy : IrBase
+{
+    // return value
+    IrFuncTyArg* ret;
+
+    // null if not applicable
+    IrFuncTyArg* arg_sret;
+    IrFuncTyArg* arg_this;
+    IrFuncTyArg* arg_nest;
+    IrFuncTyArg* arg_arguments;
+    IrFuncTyArg* arg_argptr;
+
+    // normal explicit arguments
+    LLSmallVector<IrFuncTyArg*, 4> args;
+
+    // C varargs
+    bool c_vararg;
+
+    // range of normal parameters to reverse
+    bool reverseParams;
+
+    IrFuncTy()
+    :   ret(NULL),
+        arg_sret(NULL),
+        arg_this(NULL),
+        arg_nest(NULL),
+        arg_arguments(NULL),
+        arg_argptr(NULL),
+        c_vararg(false),
+        reverseParams(false)
+    {}
+
+    llvm::Value* putRet(Type* dty, llvm::Value* val);
+    llvm::Value* getRet(Type* dty, llvm::Value* val);
+
+    llvm::Value* getParam(Type* dty, int idx, llvm::Value* val);
+    llvm::Value* putParam(Type* dty, int idx, llvm::Value* val);
+};
 
 // represents a function
 struct IrFunction : IrBase

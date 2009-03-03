@@ -227,7 +227,7 @@ const LLStructType* DtoDelegateType(Type* t)
 {
     assert(t->ty == Tdelegate);
     const LLType* i8ptr = getVoidPtrType();
-    const LLType* func = DtoFunctionType(t->nextOf(), NULL, i8ptr);
+    const LLType* func = DtoFunctionType(t->nextOf(), NULL, Type::tvoid->pointerTo());
     const LLType* funcptr = getPtrToType(func);
     return LLStructType::get(i8ptr, funcptr, NULL);
 }

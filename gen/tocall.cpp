@@ -201,11 +201,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
         DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
         args.push_back(argval->getRVal());
 
-        if (fnarg->llvmAttrs)
+        if (tf->fty->args[i]->attrs)
         {
             llvm::AttributeWithIndex Attr;
             Attr.Index = argidx;
-            Attr.Attrs = fnarg->llvmAttrs;
+            Attr.Attrs = tf->fty->args[i]->attrs;
             attrs.push_back(Attr);
         }
 
@@ -213,6 +213,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     }
 }
 
+// FIXME: this function is a mess !
 
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments)
 {
@@ -233,10 +234,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     TypeFunction* tf = DtoTypeFunction(fnval);
 
     // misc
-    bool retinptr = tf->retInPtr;
-    bool thiscall = tf->usesThis;
+    bool retinptr = tf->fty->arg_sret;
+    bool thiscall = tf->fty->arg_this;
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
-    bool nestedcall = tf->usesNest;
+    bool nestedcall = tf->fty->arg_nest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
     unsigned callconv = DtoCallingConv(loc, tf->linkage);
@@ -261,15 +262,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     llvm::AttributeWithIndex Attr;
 
     // return attrs
-    if (tf->retAttrs)
+    if (tf->fty->ret->attrs)
     {
         Attr.Index = 0;
-        Attr.Attrs = tf->retAttrs;
+        Attr.Attrs = tf->fty->ret->attrs;
         attrs.push_back(Attr);
     }
 
     // handle implicit arguments
     std::vector<LLValue*> args;
+    args.reserve(tf->fty->args.size());
 
     // return in hidden ptr is first
     if (retinptr)
@@ -325,10 +327,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         // add attributes for context argument
-        if (tf->thisAttrs)
+        if (tf->fty->arg_this && tf->fty->arg_this->attrs)
         {
             Attr.Index = retinptr ? 2 : 1;
-            Attr.Attrs = tf->thisAttrs;
+            Attr.Attrs = tf->fty->arg_this->attrs;
+            attrs.push_back(Attr);
+        }
+        else if (tf->fty->arg_nest && tf->fty->arg_nest->attrs)
+        {
+            Attr.Index = retinptr ? 2 : 1;
+            Attr.Attrs = tf->fty->arg_nest->attrs;
             attrs.push_back(Attr);
         }
     }
@@ -374,20 +382,15 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
             LLValue* arg = argval->getRVal();
 
-            int j = tf->reverseParams ? beg + n - i - 1 : beg + i;
+            int j = tf->fty->reverseParams ? beg + n - i - 1 : beg + i;
 
-            // if it's a struct inreg arg, load first to pass as first-class value
-            if (tf->structInregArg && i == (tf->reverseParams ? n - 1 : 0))
-            {
-                assert((fnarg->llvmAttrs & llvm::Attribute::InReg) && isaStruct(tf->structInregArg));
-                arg = DtoBitCast(arg, getPtrToType(callableTy->getParamType(j)));
-                arg = DtoLoad(arg);
-            }
+            // give the ABI a say
+            arg = tf->fty->putParam(argval->getType(), i, arg);
 
             // parameter type mismatch, this is hard to get rid of
             if (arg->getType() != callableTy->getParamType(j))
             {
-            #if 0
+            #if 1
                 if (Logger::enabled())
                 {
                     Logger::cout() << "arg:     " << *arg << '\n';
@@ -398,16 +401,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             }
 
             // param attrs
-            attrptr[i] = fnarg->llvmAttrs;
+            attrptr[i] = tf->fty->args[i]->attrs;
 
             ++argiter;
             args.push_back(arg);
         }
 
         // reverse the relevant params as well as the param attrs
-        if (tf->reverseParams)
+        if (tf->fty->reverseParams)
         {
-            std::reverse(args.begin() + tf->firstRealArg, args.end());
+            std::reverse(args.begin() + beg, args.end());
             std::reverse(attrptr.begin(), attrptr.end());
         }
 
@@ -475,10 +478,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             retllval = mem;
         }
     }
-    else
+    else if (!retinptr)
     {
         // do abi specific return value fixups
-        retllval = gABI->getRet(tf, retllval);
+        retllval = tf->fty->getRet(tf->next, retllval);
     }
 
     // repaint the type if necessary
