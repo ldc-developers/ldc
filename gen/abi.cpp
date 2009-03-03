@@ -183,7 +183,7 @@ struct X86TargetABI : TargetABI
 
                 if (last->byref && !last->isByVal())
                 {
-                    last->attrs = llvm::Attribute::InReg;
+                    last->attrs |= llvm::Attribute::InReg;
                 }
                 else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) // right?
                 {
@@ -193,8 +193,10 @@ struct X86TargetABI : TargetABI
                         last->rewrite = &structToReg;
                         last->ltype = structToReg.type(last->type, last->ltype);
                         last->byref = false;
+                        // erase previous attributes
+                        last->attrs = 0;
                     }
-                    last->attrs = llvm::Attribute::InReg;
+                    last->attrs |= llvm::Attribute::InReg;
                 }
             }
 
