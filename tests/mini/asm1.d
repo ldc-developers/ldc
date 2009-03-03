@@ -4,7 +4,7 @@ extern(C) int printf(char*, ...);
 
 void main()
 {
-    version(LLVM_InlineAsm_X86)
+    version(D_InlineAsm_X86)
     {
 	int x;
 	asm
@@ -14,7 +14,7 @@ void main()
 	}
 	printf("x = %d\n", x);
     }
-    else version(LLVM_InlineAsm_X86_64)
+    else version(D_InlineAsm_X86_64)
     {
         long x;
         asm

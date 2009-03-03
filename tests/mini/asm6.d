@@ -5,7 +5,7 @@ void main()
     int a,b,c;
     a = int.max-1;
     b = 5;
-    version (LLVM_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
 	asm
     	{
@@ -16,7 +16,7 @@ void main()
         	mov c, EAX;
     	}
     }
-    else version (LLVM_InlineAsm_X86_64)
+    else version (D_InlineAsm_X86_64)
     {
 	asm
 	{

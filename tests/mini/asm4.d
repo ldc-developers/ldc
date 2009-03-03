@@ -6,7 +6,7 @@ void main()
 {
     char* stmt = "yay!\n";
     char* fmt = "%s";
-    version (LLVM_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
 	asm
     	{
@@ -21,7 +21,7 @@ void main()
         	pop EAX;
     	}
     }
-    else version(LLVM_InlineAsm_X86_64)
+    else version(D_InlineAsm_X86_64)
     {
 	asm
 	{

@@ -9,7 +9,7 @@ void main()
 
 int func()
 {
-    version (LLVM_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
         asm
         {
@@ -18,7 +18,7 @@ int func()
             ret;
         }
     }
-    else version(LLVM_InlineAsm_X86_64)
+    else version(D_InlineAsm_X86_64)
     {
         asm
         {
