@@ -13,7 +13,7 @@ void main()
     float b = 2.5;
     float c;
 
-    version(LLVM_InlineAsm_X86)
+    version(D_InlineAsm_X86)
     {
 	asm
     	{
@@ -25,7 +25,7 @@ void main()
         	fstp c;
     	}
     }
-    else version(LLVM_InlineAsm_X86_64)
+    else version(D_InlineAsm_X86_64)
     {
     	asm
     	{

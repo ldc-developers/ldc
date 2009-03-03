@@ -6,7 +6,7 @@ int main()
 {
     int i = 40;
     int j = 2;
-    version(LLVM_InlineAsm_X86)
+    version(D_InlineAsm_X86)
     {
 	asm
     	{	
@@ -16,7 +16,7 @@ int main()
         	mov i, EAX;
     	}
     }
-    else version(LLVM_InlineAsm_X86_64)
+    else version(D_InlineAsm_X86_64)
     {
 	asm
 	{

@@ -14,7 +14,7 @@ void main()
 int add(int a, int b)
 {
     int res;
-    version (LLVM_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
 	asm
     	{
@@ -24,7 +24,7 @@ int add(int a, int b)
         	mov res, EAX;
     	}
     }
-    else version (LLVM_InlineAsm_X86_64)
+    else version (D_InlineAsm_X86_64)
     {
 	asm
 	{
@@ -43,7 +43,7 @@ Loverflow:
 int sub(int a, int b)
 {
     int res;
-    version (LLVM_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
     	asm
     	{
@@ -53,7 +53,7 @@ int sub(int a, int b)
         	mov res, EAX;
     	}
     }
-    else version (LLVM_InlineAsm_X86_64)
+    else version (D_InlineAsm_X86_64)
     {
 	asm
 	{

@@ -7,7 +7,7 @@ int main()
     int i = 12;
     int* ip = &i;
     printf("%d\n", i);
-    version (LLVM_InlineAsm_X86)
+    version (D_InlineAsm_X86)
     {
 	asm
     	{
@@ -18,7 +18,7 @@ int main()
         	mov [EBX], EAX;
     	}
     }
-    else version (LLVM_InlineAsm_X86_64)
+    else version (D_InlineAsm_X86_64)
     {
 	asm
 	{ 
