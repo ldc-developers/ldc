@@ -85,9 +85,20 @@ private
 
     size_t length_adjust(size_t sizeelem, size_t newlength)
     {
-        size_t newsize = sizeelem * newlength;
-        if (newsize / newlength != sizeelem)
-            onOutOfMemoryError();
+        size_t newsize = void;
+        static if (size_t.sizeof < ulong.sizeof)
+        {
+            ulong s = cast(ulong)sizeelem * cast(ulong)newlength;
+            if (s > size_t.max)
+                onOutOfMemoryError();
+            newsize = cast(size_t)s;
+        }
+        else
+        {
+            newsize = sizeelem * newlength;
+            if (newsize / newlength != sizeelem)
+                onOutOfMemoryError();
+        }
         return newsize;
     }
 }
