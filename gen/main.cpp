@@ -413,7 +413,7 @@ int main(int argc, char** argv)
         global.params.is64bit = false;
         global.params.cpu = ARCHx86;
         if (global.params.useInlineAsm) {
-            VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86");
+            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
         }
     }
     else if (strcmp(global.params.llvmArch,"x86-64")==0) {
@@ -422,7 +422,7 @@ int main(int argc, char** argv)
         global.params.is64bit = true;
         global.params.cpu = ARCHx86_64;
         if (global.params.useInlineAsm) {
-            VersionCondition::addPredefinedGlobalIdent("LLVM_InlineAsm_X86_64");
+            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         }
     }
     else if (strcmp(global.params.llvmArch,"ppc32")==0) {
