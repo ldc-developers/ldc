@@ -442,7 +442,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
     }
 
-    #if 1
+#if 0
     if (Logger::enabled())
     {
         Logger::println("%lu params passed", args.size());
@@ -451,15 +451,17 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             Logger::cout() << "arg["<<i<<"] = " << *args[i] << '\n';
         }
     }
-    #endif
+#endif
 
     // void returns cannot not be named
     const char* varname = "";
     if (callableTy->getReturnType() != LLType::VoidTy)
         varname = "tmp";
 
+#if 0
     if (Logger::enabled())
         Logger::cout() << "Calling: " << *callable << '\n';
+#endif
 
     // call the function
     LLCallSite call = gIR->CreateCallOrInvoke(callable, args.begin(), args.end(), varname);

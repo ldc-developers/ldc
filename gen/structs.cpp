@@ -102,9 +102,11 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
     // get formal type
     const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
 
+#if 0
     // log it
     if (Logger::enabled())
         Logger::cout() << "llvm struct type: " << *structtype << '\n';
+#endif
 
     // sanity check
     assert(si->value.dim > 0);
@@ -528,7 +530,6 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     // get some info
     bool ispacked = (ts->alignsize() == 1);
-    bool isunion = sd->isUnionDeclaration();
 
     // set irstruct info
     irstruct->packed = ispacked;
