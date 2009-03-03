@@ -82,6 +82,14 @@ private
 
     alias bool function(Object) CollectHandler;
     CollectHandler collectHandler = null;
+
+    size_t length_adjust(size_t sizeelem, size_t newlength)
+    {
+        size_t newsize = sizeelem * newlength;
+        if (newsize / newlength != sizeelem)
+            onOutOfMemoryError();
+        return newsize;
+    }
 }
 
 
@@ -213,26 +221,13 @@ extern (C) void* _d_newarrayT(TypeInfo ti, size_t length)
     if (length == 0 || size == 0)
         return null;
 
-    version (D_InlineAsm_X86)
-    {
-        asm
-        {
-            mov     EAX,size        ;
-            mul     EAX,length      ;
-            mov     size,EAX        ;
-            jc      Loverflow       ;
-        }
-    }
-    else
-        size *= length;
+    size = length_adjust(size, length);
+
     p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
     debug(PRINTF) printf(" p = %p\n", p);
     memset(p, 0, size);
-    return p;
 
-Loverflow:
-    onOutOfMemoryError();
-    return null;
+    return p;
 }
 
 /**
@@ -253,18 +248,9 @@ extern (C) void* _d_newarrayiT(TypeInfo ti, size_t length)
         auto initializer = ti.next.init();
         auto isize = initializer.length;
         auto q = initializer.ptr;
-        version (D_InlineAsm_X86)
-        {
-            asm
-            {
-                mov     EAX,size        ;
-                mul     EAX,length      ;
-                mov     size,EAX        ;
-                jc      Loverflow       ;
-            }
-        }
-        else
-            size *= length;
+
+        size = length_adjust(size, length);
+
         auto p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
         debug(PRINTF) printf(" p = %p\n", p);
         if (isize == 1)
@@ -288,10 +274,6 @@ extern (C) void* _d_newarrayiT(TypeInfo ti, size_t length)
         result = p;
     }
     return result;
-
-Loverflow:
-    onOutOfMemoryError();
-    return null;
 }
 
 /**
@@ -306,25 +288,11 @@ extern (C) void* _d_newarrayvT(TypeInfo ti, size_t length)
     if (length == 0 || size == 0)
         return null;
 
-    version (D_InlineAsm_X86)
-    {
-        asm
-        {
-            mov     EAX,size        ;
-            mul     EAX,length      ;
-            mov     size,EAX        ;
-            jc      Loverflow       ;
-        }
-    }
-    else
-        size *= length;
+    size = length_adjust(size, length);
+
     p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
     debug(PRINTF) printf(" p = %p\n", p);
     return p;
-
-Loverflow:
-    onOutOfMemoryError();
-    return null;
 }
 
 /**
@@ -626,25 +594,7 @@ body
 
     if (newlength)
     {
-        version (D_InlineAsm_X86)
-        {
-            size_t newsize = void;
-
-            asm
-            {
-                mov EAX, newlength;
-                mul EAX, sizeelem;
-                mov newsize, EAX;
-                jc  Loverflow;
-            }
-        }
-        else
-        {
-            size_t newsize = sizeelem * newlength;
-
-            if (newsize / newlength != sizeelem)
-                goto Loverflow;
-        }
+        size_t newsize = length_adjust(sizeelem, newlength);
 
         debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
 
@@ -684,10 +634,6 @@ body
     }
 
     return newdata;
-
-Loverflow:
-    onOutOfMemoryError();
-    return null;
 }
 
 
@@ -727,25 +673,7 @@ body
 
     if (newlength)
     {
-        version (D_InlineAsm_X86)
-        {
-            size_t newsize = void;
-
-            asm
-            {
-                mov     EAX,newlength   ;
-                mul     EAX,sizeelem    ;
-                mov     newsize,EAX     ;
-                jc      Loverflow       ;
-            }
-        }
-        else
-        {
-            size_t newsize = sizeelem * newlength;
-
-            if (newsize / newlength != sizeelem)
-                goto Loverflow;
-        }
+        size_t newsize = length_adjust(sizeelem, newlength);
         debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
 
         size_t size = plength * sizeelem;
