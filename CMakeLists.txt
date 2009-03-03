@@ -139,8 +139,6 @@ add_definitions(
 	-DIN_LLVM
 	-D_DH
 	-DOPAQUE_VTBLS
-	-DX86_REVERSE_PARAMS
-	-DX86_PASS_IN_EAX
 )
 
 if(UNIX)
