@@ -2593,7 +2593,11 @@ STUB(TupleExp);
 STUB(SymbolExp);
 #endif
 
-#define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) {error("non-const expression '%s' or const Exp type "#x" not implemented", toChars()); fatal(); return NULL; }
+#define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
+    error("expression '%s' is not a constant", toChars()); \
+    fatal(); \
+    return NULL; \
+}
 CONSTSTUB(Expression);
 CONSTSTUB(GEPExp);
 CONSTSTUB(SliceExp);
@@ -2761,9 +2765,10 @@ int TypedefDeclaration::cvMember(unsigned char*)
 
 void obj_includelib(const char* lib)
 {
-    char *arg = (char *)mem.malloc(64);
+    size_t n = strlen(lib)+3;
+    char *arg = (char *)mem.malloc(n);
     strcpy(arg, "-l");
-    strncat(arg, lib, 64);
+    strncat(arg, lib, n);
     global.params.linkswitches->push(arg);
 }
 

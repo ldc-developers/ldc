@@ -594,6 +594,7 @@ void AsmBlockStatement::toIR(IRState* p)
             // setup variable for output from asm
             outSetterStmt->out_c = "=*m,";
             outSetterStmt->out.push_back(jump_target);
+            asmblock->clobs.insert("~{memory},");
 
             asmblock->s.push_back(outSetterStmt);
         }
