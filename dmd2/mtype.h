@@ -24,6 +24,7 @@
 // llvm
 #include "../ir/irtype.h"
 namespace llvm { class Type; }
+struct IrFuncTy;
 
 struct Scope;
 struct Identifier;
@@ -502,17 +503,7 @@ struct TypeFunction : TypeNext
     unsigned totym();
 
     // LDC
-    bool retInPtr;
-    bool usesThis;
-    bool usesNest;
-    // when the last arg is a struct and passed in EAX, this holds its real type
-    const llvm::Type* structInregArg;
-    unsigned retAttrs;
-    unsigned thisAttrs; // also used for nest
-    // parameter index in the llvm function that contains the first not-implicit arg
-    size_t firstRealArg;
-
-    bool reverseParams;
+    IrFuncTy* fty;
 };
 
 struct TypeDelegate : TypeNext
@@ -802,9 +793,6 @@ struct Argument : Object
     static int isTPL(Arguments *arguments);
     static size_t dim(Arguments *arguments);
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
-
-    // LDC
-    unsigned llvmAttrs;
 };
 
 extern int PTRSIZE;
