@@ -1565,3 +1565,33 @@ bool needsTemplateLinkage(Dsymbol* s)
     return false;
 #endif
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool hasUnalignedFields(Type* t)
+{
+    t = t->toBasetype();
+    if (t->ty != Tstruct)
+        return false;
+
+    TypeStruct* ts = (TypeStruct*)t;
+    if (ts->unaligned)
+        return (ts->unaligned == 2);
+
+    StructDeclaration* sym = ts->sym;
+
+    // go through all the fields and try to find something unaligned
+    ts->unaligned = 2;
+    for (int i = 0; i < sym->fields.dim; i++)
+    {
+        VarDeclaration* f = (VarDeclaration*)sym->fields.data[i];
+        unsigned a = f->type->alignsize() - 1;
+        if (((f->offset + a) & ~a) != f->offset)
+            return true;
+        else if (f->type->toBasetype()->ty == Tstruct && hasUnalignedFields(f->type))
+            return true;
+    }
+
+    ts->unaligned = 1;
+    return false;
+}

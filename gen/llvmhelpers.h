@@ -114,6 +114,9 @@ bool mustDefineSymbol(Dsymbol* s);
 // returns true if the symbol needs template linkage, or just external
 bool needsTemplateLinkage(Dsymbol* s);
 
+// returns true if there is any unaligned type inside the aggregate
+bool hasUnalignedFields(Type* t);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////

@@ -4929,6 +4929,9 @@ TypeStruct::TypeStruct(StructDeclaration *sym)
 	: Type(Tstruct)
 {
     this->sym = sym;
+
+    // LDC
+    this->unaligned = 0;
 }
 
 char *TypeStruct::toChars()

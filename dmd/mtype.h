@@ -542,6 +542,11 @@ struct TypeStruct : Type
     int hasPointers();
 
     type *toCtype();
+
+    // LDC
+    // cache the hasUnalignedFields check
+    // 0 = not checked, 1 = aligned, 2 = unaligned
+    int unaligned;
 };
 
 struct TypeEnum : Type
