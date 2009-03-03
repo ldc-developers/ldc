@@ -4,6 +4,7 @@
 #include <vector>
 
 struct Type;
+struct IrFuncTyArg;
 namespace llvm
 {
     class Type;
@@ -11,38 +12,27 @@ namespace llvm
 }
 
 // return rewrite rule
-struct ABIRetRewrite
+struct ABIRewrite
 {
     // get original value from rewritten one
-    virtual LLValue* get(LLValue* v) = 0;
+    virtual LLValue* get(Type* dty, LLValue* v) = 0;
 
     // rewrite original value
-    virtual LLValue* put(LLValue* v) = 0;
+    virtual LLValue* put(Type* dty, LLValue* v) = 0;
 
     // returns target type of this rewrite
-    virtual const LLType* type(const LLType* t) = 0;
-
-    // test if rewrite applies
-    virtual bool test(TypeFunction* tf) = 0;
+    virtual const LLType* type(Type* dty, const LLType* t) = 0;
 };
-
 
 // interface called by codegen
 struct TargetABI
 {
     static TargetABI* getTarget();
 
-    TargetABI();
+    virtual bool returnInArg(TypeFunction* tf) = 0;
+    virtual bool passByVal(Type* t) = 0;
 
-    const llvm::Type* getRetType(TypeFunction* tf, const llvm::Type* t);
-    llvm::Value* getRet(TypeFunction* tf, llvm::Value* v);
-    llvm::Value* putRet(TypeFunction* tf, llvm::Value* v);
-
-    virtual bool returnInArg(TypeFunction* t) = 0;
-
-protected:
-    std::vector<ABIRetRewrite*> retOps;
-    ABIRetRewrite* findRetRewrite(TypeFunction* tf);
+    virtual void rewriteFunctionType(TypeFunction* t) = 0;
 };
 
 #endif

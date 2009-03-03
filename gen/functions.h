@@ -1,7 +1,7 @@
 #ifndef LDC_GEN_FUNCTIONS_H
 #define LDC_GEN_FUNCTIONS_H
 
-const llvm::FunctionType* DtoFunctionType(Type* t, const LLType* thistype, const LLType* nesttype, bool ismain = false);
+const llvm::FunctionType* DtoFunctionType(Type* t, Type* thistype, Type* nesttype, bool ismain = false);
 const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 
 const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);

@@ -2659,14 +2659,9 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->varargs = varargs;
     this->linkage = linkage;
     this->inuse = 0;
-    this->retInPtr = false;
-    this->usesThis = false;
-    this->usesNest = false;
-    this->structInregArg = NULL;
-    this->retAttrs = 0;
-    this->thisAttrs = 0;
-    this->reverseParams = false;
-    this->firstRealArg = 0;
+
+    // LDC
+    this->fty = NULL;
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2674,13 +2669,6 @@ Type *TypeFunction::syntaxCopy()
     Type *treturn = next ? next->syntaxCopy() : NULL;
     Arguments *params = Argument::arraySyntaxCopy(parameters);
     TypeFunction *t = new TypeFunction(params, treturn, varargs, linkage);
-    t->retInPtr = retInPtr;
-    t->usesThis = usesThis;
-    t->usesNest = usesNest;
-    t->retAttrs = retAttrs;
-    t->thisAttrs = thisAttrs;
-    t->reverseParams = reverseParams;
-    t->firstRealArg = firstRealArg;
     return t;
 }
 
@@ -5316,7 +5304,6 @@ Argument::Argument(unsigned storageClass, Type *type, Identifier *ident, Express
     this->ident = ident;
     this->storageClass = storageClass;
     this->defaultArg = defaultArg;
-    this->llvmAttrs = 0;
 }
 
 Argument *Argument::syntaxCopy()
@@ -5325,7 +5312,6 @@ Argument *Argument::syntaxCopy()
 		type ? type->syntaxCopy() : NULL,
 		ident,
 		defaultArg ? defaultArg->syntaxCopy() : NULL);
-    a->llvmAttrs = llvmAttrs;
     return a;
 }
 

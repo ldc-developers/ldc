@@ -1,5 +1,7 @@
 #include "gen/llvm.h"
 
+#include <algorithm>
+
 #include "mars.h"
 
 #include "gen/irstate.h"
@@ -8,59 +10,7 @@
 #include "gen/abi.h"
 #include "gen/logger.h"
 
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-/////////////////////        baseclass            ////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-
-// FIXME: Would be nice to come up a better and faster way to do this, right
-// now I'm more worried about actually making this abstraction work at all ...
-// It's definitely way overkill with the amount of return value rewrites we
-// have right now, but I expect this to change with proper x86-64 abi support
-
-TargetABI::TargetABI()
-{
-}
-
-llvm::Value* TargetABI::getRet(TypeFunction* tf, llvm::Value* io)
-{
-    if (ABIRetRewrite* r = findRetRewrite(tf))
-    {
-        return r->get(io);
-    }
-    return io;
-}
-
-llvm::Value* TargetABI::putRet(TypeFunction* tf, llvm::Value* io)
-{
-    if (ABIRetRewrite* r = findRetRewrite(tf))
-    {
-        return r->put(io);
-    }
-    return io;
-}
-
-const llvm::Type* TargetABI::getRetType(TypeFunction* tf, const llvm::Type* t)
-{
-    if (ABIRetRewrite* r = findRetRewrite(tf))
-    {
-        return r->type(t);
-    }
-    return t;
-}
-
-ABIRetRewrite * TargetABI::findRetRewrite(TypeFunction * tf)
-{
-    size_t n = retOps.size();
-    if (n)
-    for (size_t i = 0; i < n; i++)
-    {
-        if (retOps[i]->test(tf))
-            return retOps[i];
-    }
-    return NULL;
-}
+#include "ir/irfunction.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -69,33 +19,28 @@ ABIRetRewrite * TargetABI::findRetRewrite(TypeFunction * tf)
 //////////////////////////////////////////////////////////////////////////////
 
 // simply swap of real/imag parts for proper x87 complex abi
-struct X87_complex_swap : ABIRetRewrite
+struct X87_complex_swap : ABIRewrite
 {
-    LLValue* get(LLValue* v)
+    LLValue* get(Type*, LLValue* v)
     {
         return DtoAggrPairSwap(v);
     }
-    LLValue* put(LLValue* v)
+    LLValue* put(Type*, LLValue* v)
     {
         return DtoAggrPairSwap(v);
     }
-    const LLType* type(const LLType* t)
+    const LLType* type(Type*, const LLType* t)
     {
         return t;
-    }
-    bool test(TypeFunction* tf)
-    {
-        // extern(D) && is(T:creal)
-        return (tf->linkage == LINKd && tf->next->toBasetype()->iscomplex());
     }
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
-struct X86_cfloat_rewrite : ABIRetRewrite
+struct X86_cfloat_rewrite : ABIRewrite
 {
     // i64 -> {float,float}
-    LLValue* get(LLValue* in)
+    LLValue* get(Type*, LLValue* in)
     {
         // extract real part
         LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::Int32Ty);
@@ -111,7 +56,7 @@ struct X86_cfloat_rewrite : ABIRetRewrite
     }
 
     // {float,float} -> i64
-    LLValue* put(LLValue* v)
+    LLValue* put(Type*, LLValue* v)
     {
         // extract real
         LLValue* r = gIR->ir->CreateExtractValue(v, 0);
@@ -134,16 +79,41 @@ struct X86_cfloat_rewrite : ABIRetRewrite
     }
 
     // {float,float} -> i64
-    const LLType* type(const LLType* t)
+    const LLType* type(Type*, const LLType* t)
     {
         return LLType::Int64Ty;
     }
+};
 
-    // test if rewrite applies to function
-    bool test(TypeFunction* tf)
+//////////////////////////////////////////////////////////////////////////////
+
+// FIXME: try into eliminating the alloca or if at least check
+// if it gets optimized away
+
+// convert byval struct
+// when 
+struct X86_struct_to_register : ABIRewrite
+{
+    // int -> struct
+    LLValue* get(Type* dty, LLValue* v)
     {
-        return (tf->linkage != LINKd) 
-            && (tf->next->toBasetype() == Type::tcomplex32);
+        Logger::println("rewriting int -> struct");
+        LLValue* mem = DtoAlloca(DtoType(dty), ".int_to_struct");
+        DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
+        return DtoLoad(mem);
+    }
+    // struct -> int
+    LLValue* put(Type* dty, LLValue* v)
+    {
+        Logger::println("rewriting struct -> int");
+        LLValue* mem = DtoAlloca(v->getType(), ".struct_to_int");
+        DtoStore(v, mem);
+        DtoLoad(DtoBitCast(mem, getPtrToType(type(dty, v->getType()))));
+    }
+    const LLType* type(Type*, const LLType* t)
+    {
+        size_t sz = getTypePaddedSize(t)*8;
+        return LLIntegerType::get(sz);
     }
 };
 
@@ -151,11 +121,9 @@ struct X86_cfloat_rewrite : ABIRetRewrite
 
 struct X86TargetABI : TargetABI
 {
-    X86TargetABI()
-    {
-        retOps.push_back(new X87_complex_swap);
-        retOps.push_back(new X86_cfloat_rewrite);
-    }
+    X87_complex_swap swapComplex;
+    X86_cfloat_rewrite cfloatToInt;
+    X86_struct_to_register structToReg;
 
     bool returnInArg(TypeFunction* tf)
     {
@@ -168,6 +136,98 @@ struct X86TargetABI : TargetABI
         else
             return (rt->ty == Tstruct || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
     }
+
+    bool passByVal(Type* t)
+    {
+        return t->toBasetype()->ty == Tstruct;
+    }
+
+    void rewriteFunctionType(TypeFunction* tf)
+    {
+        IrFuncTy* fty = tf->fty;
+        Type* rt = fty->ret->type->toBasetype();
+
+        // extern(D)
+        if (tf->linkage == LINKd)
+        {
+            // RETURN VALUE
+
+            // complex {re,im} -> {im,re}
+            if (rt->iscomplex())
+            {
+                fty->ret->rewrite = &swapComplex;
+            }
+
+            // IMPLICIT PARAMETERS
+
+            // mark this/nested params inreg
+            if (fty->arg_this)
+            {
+                fty->arg_this->attrs = llvm::Attribute::InReg;
+            }
+            else if (fty->arg_nest)
+            {
+                fty->arg_nest->attrs = llvm::Attribute::InReg;
+            }
+            // otherwise try to mark the last param inreg
+            else if (!fty->arg_sret && !fty->args.empty())
+            {
+                // The last parameter is passed in EAX rather than being pushed on the stack if the following conditions are met:
+                //   * It fits in EAX.
+                //   * It is not a 3 byte struct.
+                //   * It is not a floating point type.
+
+                IrFuncTyArg* last = fty->args.back();
+                Type* lastTy = last->type->toBasetype();
+                unsigned sz = lastTy->size();
+
+                if (last->byref && !last->isByVal())
+                {
+                    last->attrs = llvm::Attribute::InReg;
+                }
+                else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) // right?
+                {
+                    // rewrite the struct into an integer to make inreg work
+                    if (lastTy->ty == Tstruct)
+                    {
+                        last->rewrite = &structToReg;
+                        last->ltype = structToReg.type(last->type, last->ltype);
+                        last->byref = false;
+                    }
+                    last->attrs = llvm::Attribute::InReg;
+                }
+            }
+
+            // FIXME: tf->varargs == 1 need to use C calling convention and vararg mechanism to live up to the spec:
+            // "The caller is expected to clean the stack. _argptr is not passed, it is computed by the callee."
+
+            // EXPLICIT PARAMETERS
+
+            // reverse parameter order
+            // for non variadics
+            if (!fty->args.empty() && tf->varargs != 1)
+            {
+                fty->reverseParams = true;
+            }
+        }
+
+        // extern(C) and all others
+        else
+        {
+            // RETURN VALUE
+
+            // cfloat -> i64
+            if (tf->next->toBasetype() == Type::tcomplex32)
+            {
+                fty->ret->rewrite = &cfloatToInt;
+                fty->ret->ltype = LLType::Int64Ty;
+            }
+
+            // IMPLICIT PARAMETERS
+
+            // EXPLICIT PARAMETERS
+        }
+    }
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -176,10 +236,10 @@ struct X86TargetABI : TargetABI
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-struct X86_64_cfloat_rewrite : ABIRetRewrite
+struct X86_64_cfloat_rewrite : ABIRewrite
 {
     // {double} -> {float,float}
-    LLValue* get(LLValue* in)
+    LLValue* get(Type*, LLValue* in)
     {
         // extract double
         LLValue* v = gIR->ir->CreateExtractValue(in, 0);
@@ -200,7 +260,7 @@ struct X86_64_cfloat_rewrite : ABIRetRewrite
     }
 
     // {float,float} -> {double}
-    LLValue* put(LLValue* v)
+    LLValue* put(Type*, LLValue* v)
     {
         // extract real
         LLValue* r = gIR->ir->CreateExtractValue(v, 0);
@@ -231,16 +291,9 @@ struct X86_64_cfloat_rewrite : ABIRetRewrite
     }
 
     // {float,float} -> {double}
-    const LLType* type(const LLType* t)
+    const LLType* type(Type*, const LLType* t)
     {
         return LLStructType::get(LLType::DoubleTy, NULL);
-    }
-
-    // test if rewrite applies to function
-    bool test(TypeFunction* tf)
-    {
-        return (tf->linkage != LINKd) 
-            && (tf->next->toBasetype() == Type::tcomplex32);
     }
 };
 
@@ -248,15 +301,30 @@ struct X86_64_cfloat_rewrite : ABIRetRewrite
 
 struct X86_64TargetABI : TargetABI
 {
-    X86_64TargetABI()
-    {
-        retOps.push_back(new X86_64_cfloat_rewrite);
-    }
+    X86_64_cfloat_rewrite cfloat_rewrite;
 
     bool returnInArg(TypeFunction* tf)
     {
         Type* rt = tf->next->toBasetype();
         return (rt->ty == Tstruct);
+    }
+
+    bool passByVal(Type* t)
+    {
+        return t->toBasetype()->ty == Tstruct;
+    }
+
+    void rewriteFunctionType(TypeFunction* tf)
+    {
+        IrFuncTy* fty = tf->fty;
+        Type* rt = fty->ret->type->toBasetype();
+
+        // rewrite cfloat return for !extern(D)
+        if (tf->linkage != LINKd && rt == Type::tcomplex32)
+        {
+            fty->ret->rewrite = &cfloat_rewrite;
+            fty->ret->ltype = cfloat_rewrite.type(fty->ret->type, fty->ret->ltype);
+        }
     }
 };
 
@@ -269,15 +337,19 @@ struct X86_64TargetABI : TargetABI
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI
 {
-    UnknownTargetABI()
-    {
-        // Don't push anything into retOps, assume defaults will be fine.
-    }
-
     bool returnInArg(TypeFunction* tf)
     {
-        Type* rt = tf->next->toBasetype();
-        return (rt->ty == Tstruct);
+        return (tf->next->toBasetype()->ty == Tstruct);
+    }
+
+    bool passByVal(Type* t)
+    {
+        return t->toBasetype()->ty == Tstruct;
+    }
+
+    void rewriteFunctionType(TypeFunction* t)
+    {
+        // why?
     }
 };
 
