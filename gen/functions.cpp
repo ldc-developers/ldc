@@ -684,9 +684,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
             IrLocal* irloc = vd->ir.irLocal;
             assert(irloc);
 
-            // let the abi transform the argument back first
-            LLValue* argvalue = f->fty->getParam(vd->type, i, irloc->value);
-
         #if DMDV2
             if (vd->nestedrefs.dim)
         #else
@@ -701,11 +698,17 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             if (!refout && (!f->fty->args[i]->byref || lazy))
             {
-                LLValue* a = argvalue;
-                LLValue* v = DtoAlloca(a->getType(), vd->ident->toChars());
-                DtoStore(a,v);
-                irloc->value = v;
+                // alloca a stack slot for this first class value arg
+                LLValue* mem = DtoAlloca(DtoType(vd->type), vd->ident->toChars());
+
+                // let the abi transform the argument back first
+                DImValue arg_dval(vd->type, irloc->value);
+                f->fty->getParam(vd->type, i, &arg_dval, mem);
+
+                // set the arg var value to the alloca
+                irloc->value = mem;
             }
+
             if (global.params.symdebug && !(isaArgument(irloc->value) && !isaArgument(irloc->value)->hasByValAttr()) && !refout)
                 DtoDwarfLocalVariable(irloc->value, vd);
         }

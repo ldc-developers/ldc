@@ -5,6 +5,8 @@
 
 struct Type;
 struct IrFuncTyArg;
+struct DValue;
+
 namespace llvm
 {
     class Type;
@@ -14,13 +16,17 @@ namespace llvm
 // return rewrite rule
 struct ABIRewrite
 {
-    // get original value from rewritten one
-    virtual LLValue* get(Type* dty, LLValue* v) = 0;
+    /// get a rewritten value back to its original form
+    virtual LLValue* get(Type* dty, DValue* v) = 0;
 
-    // rewrite original value
-    virtual LLValue* put(Type* dty, LLValue* v) = 0;
+    /// get a rewritten value back to its original form and store result in provided lvalue
+    /// this one is optional and defaults to calling the one above
+    virtual void getL(Type* dty, DValue* v, llvm::Value* lval);
 
-    // returns target type of this rewrite
+    /// put out rewritten value
+    virtual LLValue* put(Type* dty, DValue* v) = 0;
+
+    /// should return the transformed type for this rewrite
     virtual const LLType* type(Type* dty, const LLType* t) = 0;
 };
 

@@ -9,8 +9,18 @@
 #include "gen/tollvm.h"
 #include "gen/abi.h"
 #include "gen/logger.h"
+#include "gen/dvalue.h"
 
 #include "ir/irfunction.h"
+
+//////////////////////////////////////////////////////////////////////////////
+
+void ABIRewrite::getL(Type* dty, DValue* v, llvm::Value* lval)
+{
+    LLValue* rval = v->getRVal();
+    assert(rval->getType() == lval->getType()->getContainedType(0));
+    DtoStore(rval, lval);
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -21,13 +31,13 @@
 // simply swap of real/imag parts for proper x87 complex abi
 struct X87_complex_swap : ABIRewrite
 {
-    LLValue* get(Type*, LLValue* v)
+    LLValue* get(Type*, DValue* v)
     {
-        return DtoAggrPairSwap(v);
+        return DtoAggrPairSwap(v->getRVal());
     }
-    LLValue* put(Type*, LLValue* v)
+    LLValue* put(Type*, DValue* v)
     {
-        return DtoAggrPairSwap(v);
+        return DtoAggrPairSwap(v->getRVal());
     }
     const LLType* type(Type*, const LLType* t)
     {
@@ -40,8 +50,10 @@ struct X87_complex_swap : ABIRewrite
 struct X86_cfloat_rewrite : ABIRewrite
 {
     // i64 -> {float,float}
-    LLValue* get(Type*, LLValue* in)
+    LLValue* get(Type*, DValue* dv)
     {
+        LLValue* in = dv->getRVal();
+
         // extract real part
         LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::Int32Ty);
         rpart = gIR->ir->CreateBitCast(rpart, LLType::FloatTy, ".re");
@@ -56,8 +68,10 @@ struct X86_cfloat_rewrite : ABIRewrite
     }
 
     // {float,float} -> i64
-    LLValue* put(Type*, LLValue* v)
+    LLValue* put(Type*, DValue* dv)
     {
+        LLValue* v = dv->getRVal();
+
         // extract real
         LLValue* r = gIR->ir->CreateExtractValue(v, 0);
         // cast to i32
@@ -95,20 +109,29 @@ struct X86_cfloat_rewrite : ABIRewrite
 struct X86_struct_to_register : ABIRewrite
 {
     // int -> struct
-    LLValue* get(Type* dty, LLValue* v)
+    LLValue* get(Type* dty, DValue* dv)
     {
         Logger::println("rewriting int -> struct");
         LLValue* mem = DtoAlloca(DtoType(dty), ".int_to_struct");
+        LLValue* v = dv->getRVal();
         DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
         return DtoLoad(mem);
     }
+    // int -> struct (with dst lvalue given)
+    void getL(Type* dty, DValue* dv, llvm::Value* lval)
+    {
+        Logger::println("rewriting int -> struct");
+        LLValue* v = dv->getRVal();
+        DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));
+    }
     // struct -> int
-    LLValue* put(Type* dty, LLValue* v)
+    LLValue* put(Type* dty, DValue* dv)
     {
         Logger::println("rewriting struct -> int");
-        LLValue* mem = DtoAlloca(v->getType(), ".struct_to_int");
-        DtoStore(v, mem);
-        DtoLoad(DtoBitCast(mem, getPtrToType(type(dty, v->getType()))));
+        assert(dv->isLVal());
+        LLValue* mem = dv->getLVal();
+        const LLType* t = LLIntegerType::get(dty->size()*8);
+        DtoLoad(DtoBitCast(mem, getPtrToType(t)));
     }
     const LLType* type(Type*, const LLType* t)
     {
@@ -241,8 +264,10 @@ struct X86TargetABI : TargetABI
 struct X86_64_cfloat_rewrite : ABIRewrite
 {
     // {double} -> {float,float}
-    LLValue* get(Type*, LLValue* in)
+    LLValue* get(Type*, DValue* dv)
     {
+        LLValue* in = dv->getRVal();
+
         // extract double
         LLValue* v = gIR->ir->CreateExtractValue(in, 0);
         // cast to i64
@@ -262,8 +287,10 @@ struct X86_64_cfloat_rewrite : ABIRewrite
     }
 
     // {float,float} -> {double}
-    LLValue* put(Type*, LLValue* v)
+    LLValue* put(Type*, DValue* dv)
     {
+        LLValue* v = dv->getRVal();
+
         // extract real
         LLValue* r = gIR->ir->CreateExtractValue(v, 0);
         // cast to i32

@@ -380,12 +380,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             Argument* fnarg = Argument::getNth(tf->parameters, i);
             assert(fnarg);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
-            LLValue* arg = argval->getRVal();
-
-            int j = tf->fty->reverseParams ? beg + n - i - 1 : beg + i;
 
             // give the ABI a say
-            arg = tf->fty->putParam(argval->getType(), i, arg);
+            LLValue* arg = tf->fty->putParam(argval->getType(), i, argval);
+
+            int j = tf->fty->reverseParams ? beg + n - i - 1 : beg + i;
 
             // parameter type mismatch, this is hard to get rid of
             if (arg->getType() != callableTy->getParamType(j))
@@ -483,7 +482,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     else if (!retinptr)
     {
         // do abi specific return value fixups
-        retllval = tf->fty->getRet(tf->next, retllval);
+        DImValue dretval(tf->next, retllval);
+        retllval = tf->fty->getRet(tf->next, &dretval);
     }
 
     // repaint the type if necessary

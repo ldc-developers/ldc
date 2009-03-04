@@ -68,6 +68,8 @@ void ReturnStatement::toIR(IRState* p)
             // emit dbg line
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
+            // FIXME: is there ever a case where a sret return needs to be rewritten for the ABI?
+
             // get return pointer
             DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
             DValue* e = exp->toElem(p);
@@ -88,12 +90,9 @@ void ReturnStatement::toIR(IRState* p)
         else
         {
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
-            DValue* e = exp->toElem(p);
-            LLValue* v = e->getRVal();
-            delete e;
 
             // do abi specific transformations on the return value
-            v = p->func()->type->fty->putRet(exp->type, v);
+            LLValue* v = p->func()->type->fty->putRet(exp->type, exp->toElem(p));
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
