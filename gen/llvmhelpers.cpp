@@ -1571,7 +1571,10 @@ bool needsTemplateLinkage(Dsymbol* s)
 bool hasUnalignedFields(Type* t)
 {
     t = t->toBasetype();
-    if (t->ty != Tstruct)
+    if (t->ty == Tsarray) {
+        assert(t->next->size() % t->next->alignsize() == 0);
+        return hasUnalignedFields(t->next);
+    } else if (t->ty != Tstruct)
         return false;
 
     TypeStruct* ts = (TypeStruct*)t;
