@@ -17,7 +17,7 @@
 
 void ABIRewrite::getL(Type* dty, DValue* v, llvm::Value* lval)
 {
-    LLValue* rval = v->getRVal();
+    LLValue* rval = get(dty, v);
     assert(rval->getType() == lval->getType()->getContainedType(0));
     DtoStore(rval, lval);
 }
