@@ -15,17 +15,37 @@ struct ABIRewrite;
 // both explicit and implicit as well as return values
 struct IrFuncTyArg : IrBase
 {
+    /** This is the original D type as the frontend knows it
+     *  May NOT be rewritten!!! */
     Type* type;
+
+    /// This is the final LLVM Type used for the parameter/returnvalue type
     const llvm::Type* ltype;
+
+    /** These are the final llvm attributes needed
+     *  must be valid for the LLVM Type and byref setting */
     unsigned attrs;
+
+    /** true if the argument final argument is a reference argument
+     *  must be true when the D Type is a value type, but the final
+     *  LLVM Type is a reference type */
     bool byref;
 
+    /** Pointer to the ABIRewrite structure needed to rewrite llvm ValueS
+     *  to match the final LLVM Type */
     ABIRewrite* rewrite;
 
+    /// Helper to check is the 'inreg' attribute is set
     bool isInReg() const { return (attrs & llvm::Attribute::InReg) != 0; }
+    /// Helper to check is the 'sret' attribute is set
     bool isSRet() const  { return (attrs & llvm::Attribute::StructRet) != 0; }
+    /// Helper to check is the 'byval' attribute is set
     bool isByVal() const { return (attrs & llvm::Attribute::ByVal) != 0; }
 
+    /** Constructor
+     *  @param t D type of argument/returnvalue as known by the frontend
+     *  @param byref Initial value for the 'byref' field. If true the initial LLVM Type will be of type->pointerTo()
+     */
     IrFuncTyArg(Type* t, bool byref, unsigned a = 0);
 };
 
