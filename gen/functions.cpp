@@ -699,7 +699,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
             if (!refout && (!f->fty->args[i]->byref || lazy))
             {
                 // alloca a stack slot for this first class value arg
-                LLValue* mem = DtoAlloca(DtoType(vd->type), vd->ident->toChars());
+                const LLType* argt;
+                if (lazy)
+                    argt = irloc->value->getType();
+                else
+                    argt = DtoType(vd->type);
+                LLValue* mem = DtoAlloca(argt, vd->ident->toChars());
 
                 // let the abi transform the argument back first
                 DImValue arg_dval(vd->type, irloc->value);
