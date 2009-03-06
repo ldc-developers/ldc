@@ -563,6 +563,7 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
 }
 
 bool X86_64TargetABI::passByVal(Type* t) {
+    t = t->toBasetype();
     if (linkage() == LINKd) {
         if (t->ty != Tstruct)
             return false;

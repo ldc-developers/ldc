@@ -185,7 +185,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     }
 
     // reverse params?
-    if (f->fty->reverseParams && f->parameters->dim > 1)
+    if (f->fty->reverseParams && nargs2 > 1)
     {
         std::reverse(argtypes.begin() + beg, argtypes.end());
     }
