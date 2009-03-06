@@ -97,6 +97,15 @@ void ReturnStatement::toIR(IRState* p)
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
 
+            IrFunction* f = p->func();
+            // Hack around LDC assuming structs are in memory:
+            // If the function returns a struct, and the return value is a
+            // pointer to a struct, load from it before returning.
+            if (f->type->next->ty == Tstruct && isaPointer(v->getType())) {
+                Logger::println("Loading struct type for return");
+                v = DtoLoad(v);
+            }
+
             // can happen for classes and void main
             if (v->getType() != p->topfunc()->getReturnType())
             {

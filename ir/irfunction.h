@@ -64,7 +64,9 @@ struct IrFuncTy : IrBase
     IrFuncTyArg* arg_argptr;
 
     // normal explicit arguments
-    LLSmallVector<IrFuncTyArg*, 4> args;
+    typedef LLSmallVector<IrFuncTyArg*, 4> ArgList;
+    typedef ArgList::iterator ArgIter;
+    ArgList args;
 
     // C varargs
     bool c_vararg;

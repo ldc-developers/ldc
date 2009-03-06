@@ -261,101 +261,7 @@ struct X86TargetABI : TargetABI
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-struct X86_64_cfloat_rewrite : ABIRewrite
-{
-    // {double} -> {float,float}
-    LLValue* get(Type*, DValue* dv)
-    {
-        LLValue* in = dv->getRVal();
-
-        // extract double
-        LLValue* v = gIR->ir->CreateExtractValue(in, 0);
-        // cast to i64
-        v = gIR->ir->CreateBitCast(v, LLType::Int64Ty);
-
-        // extract real part
-        LLValue* rpart = gIR->ir->CreateTrunc(v, LLType::Int32Ty);
-        rpart = gIR->ir->CreateBitCast(rpart, LLType::FloatTy, ".re");
-
-        // extract imag part
-        LLValue* ipart = gIR->ir->CreateLShr(v, LLConstantInt::get(LLType::Int64Ty, 32, false));
-        ipart = gIR->ir->CreateTrunc(ipart, LLType::Int32Ty);
-        ipart = gIR->ir->CreateBitCast(ipart, LLType::FloatTy, ".im");
-
-        // return {float,float} aggr pair with same bits
-        return DtoAggrPair(rpart, ipart, ".final_cfloat");
-    }
-
-    // {float,float} -> {double}
-    LLValue* put(Type*, DValue* dv)
-    {
-        LLValue* v = dv->getRVal();
-
-        // extract real
-        LLValue* r = gIR->ir->CreateExtractValue(v, 0);
-        // cast to i32
-        r = gIR->ir->CreateBitCast(r, LLType::Int32Ty);
-        // zext to i64
-        r = gIR->ir->CreateZExt(r, LLType::Int64Ty);
-
-        // extract imag
-        LLValue* i = gIR->ir->CreateExtractValue(v, 1);
-        // cast to i32
-        i = gIR->ir->CreateBitCast(i, LLType::Int32Ty);
-        // zext to i64
-        i = gIR->ir->CreateZExt(i, LLType::Int64Ty);
-        // shift up
-        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::Int64Ty, 32, false));
-
-        // combine
-        v = gIR->ir->CreateOr(r, i);
-
-        // cast to double
-        v = gIR->ir->CreateBitCast(v, LLType::DoubleTy);
-
-        // return {double}
-        const LLType* t = LLStructType::get(LLType::DoubleTy, NULL);
-        LLValue* undef = llvm::UndefValue::get(t);
-        return gIR->ir->CreateInsertValue(undef, v, 0);
-    }
-
-    // {float,float} -> {double}
-    const LLType* type(Type*, const LLType* t)
-    {
-        return LLStructType::get(LLType::DoubleTy, NULL);
-    }
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
-struct X86_64TargetABI : TargetABI
-{
-    X86_64_cfloat_rewrite cfloat_rewrite;
-
-    bool returnInArg(TypeFunction* tf)
-    {
-        Type* rt = tf->next->toBasetype();
-        return (rt->ty == Tstruct);
-    }
-
-    bool passByVal(Type* t)
-    {
-        return t->toBasetype()->ty == Tstruct;
-    }
-
-    void rewriteFunctionType(TypeFunction* tf)
-    {
-        IrFuncTy* fty = tf->fty;
-        Type* rt = fty->ret->type->toBasetype();
-
-        // rewrite cfloat return for !extern(D)
-        if (tf->linkage != LINKd && rt == Type::tcomplex32)
-        {
-            fty->ret->rewrite = &cfloat_rewrite;
-            fty->ret->ltype = cfloat_rewrite.type(fty->ret->type, fty->ret->ltype);
-        }
-    }
-};
+#include "gen/abi-x86-64.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -395,7 +301,7 @@ TargetABI * TargetABI::getTarget()
     case ARCHx86:
         return new X86TargetABI;
     case ARCHx86_64:
-        return new X86_64TargetABI;
+        return getX86_64TargetABI();
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
         return new UnknownTargetABI;

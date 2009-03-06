@@ -35,8 +35,10 @@ struct TargetABI
 {
     static TargetABI* getTarget();
 
+    virtual void newFunctionType(TypeFunction* tf) {}
     virtual bool returnInArg(TypeFunction* tf) = 0;
     virtual bool passByVal(Type* t) = 0;
+    virtual void doneWithFunctionType() {}
 
     virtual void rewriteFunctionType(TypeFunction* t) = 0;
 };

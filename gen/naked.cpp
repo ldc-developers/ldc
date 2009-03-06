@@ -168,13 +168,6 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLValue* x86_64_cfloatRetFixup(IRBuilderHelper b, LLValue* orig) {
-    assert(orig->getType() == LLType::DoubleTy);
-    LLType* retty = LLStructType::get(LLType::DoubleTy, NULL);
-    LLValue* undef = llvm::UndefValue::get(retty);
-    return b->CreateInsertValue(undef, orig, 0, "asm.ret");
-}
-
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
     Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
@@ -185,6 +178,9 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     const LLType* llretTy = DtoType(fdecl->type->nextOf());
     asmblock->retty = llretTy;
     asmblock->retn = 1;
+
+    // FIXME: This should probably be handled by the TargetABI somehow.
+    //        It should be able to do this for a greater variety of types.
 
     // x86
     if (global.params.cpu == ARCHx86)
@@ -293,7 +289,6 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
                 // extern(C) cfloat -> %xmm0 (extract two floats)
                 as->out_c = "={xmm0},";
                 asmblock->retty = LLType::DoubleTy;
-                asmblock->retfixup = &x86_64_cfloatRetFixup;
             } else if (rt->iscomplex()) {
                 // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1
                 as->out_c = "={xmm0},={xmm1},";

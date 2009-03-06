@@ -24,6 +24,9 @@
 
 const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
+    if (Logger::enabled())
+        Logger::println("DtoFunctionType(%s)", type->toChars());
+    LOG_SCOPE
     // sanity check
     assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
@@ -33,6 +36,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         assert(f->fty != NULL);
         return llvm::cast<llvm::FunctionType>(type->ir.type->get());
     }
+
+    // Tell the ABI we're resolving a new function type
+    gABI->newFunctionType(f);
 
     // create new ir funcTy
     assert(f->fty == NULL);
@@ -158,6 +164,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // let the abi rewrite the types as necesary
     gABI->rewriteFunctionType(f);
 
+    // Tell the ABI we're done with this function type
+    gABI->doneWithFunctionType();
+
     // build the function type
     std::vector<const LLType*> argtypes;
     argtypes.reserve(lidx);
@@ -183,6 +192,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
 
     llvm::FunctionType* functype = llvm::FunctionType::get(f->fty->ret->ltype, argtypes, f->fty->c_vararg);
     f->ir.type = new llvm::PATypeHolder(functype);
+
+    Logger::cout() << "Final function type: " << *functype << "\n";
 
     return functype;
 }
@@ -571,7 +582,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     assert(fd->ir.declared);
 
-    Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
+    if (Logger::enabled())
+        Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
     // if this function is naked, we take over right away! no standard processing!

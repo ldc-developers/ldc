@@ -217,6 +217,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
 
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments)
 {
+    if (Logger::enabled()) {
+        Logger::println("DtoCallFunction()");
+    }
+    LOG_SCOPE
+
     // the callee D type
     Type* calleeType = fnval->getType();
 
@@ -386,6 +391,15 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
             int j = tf->fty->reverseParams ? beg + n - i - 1 : beg + i;
 
+            // Hack around LDC assuming structs are in memory:
+            // If the function wants a struct, and the argument value is a
+            // pointer to a struct, load from it before passing it in.
+            if (argval->getType()->ty == Tstruct
+                    && isaPointer(arg) && !isaPointer(callableTy->getParamType(j))) {
+                Logger::println("Loading struct type for function argument");
+                arg = DtoLoad(arg);
+            }
+
             // parameter type mismatch, this is hard to get rid of
             if (arg->getType() != callableTy->getParamType(j))
             {
@@ -468,22 +482,22 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
 
-    if (tf->linkage == LINKintrinsic)
-    {
-        // Ignore ABI for intrinsics
-        Type* rettype = tf->next;
-        if (rettype->ty == Tstruct) {
-            // LDC assumes structs are in memory, so put it there.
-            LLValue* mem = DtoAlloca(retllval->getType());
-            DtoStore(retllval, mem);
-            retllval = mem;
-        }
-    }
-    else if (!retinptr)
+    // Ignore ABI for intrinsics
+    if (tf->linkage != LINKintrinsic && !retinptr)
     {
         // do abi specific return value fixups
         DImValue dretval(tf->next, retllval);
         retllval = tf->fty->getRet(tf->next, &dretval);
+    }
+
+    // Hack around LDC assuming structs are in memory:
+    // If the function returns a struct, and the return value is not a
+    // pointer to a struct, store it to a stack slot before continuing.
+    if (tf->next->ty == Tstruct && !isaPointer(retllval)) {
+        Logger::println("Storing return value to stack slot");
+        LLValue* mem = DtoAlloca(retllval->getType());
+        DtoStore(retllval, mem);
+        retllval = mem;
     }
 
     // repaint the type if necessary

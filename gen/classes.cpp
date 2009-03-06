@@ -957,6 +957,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // call constructor
     if (newexp->member)
     {
+        Logger::println("Calling constructor");
         assert(newexp->arguments != NULL);
         DtoForceDeclareDsymbol(newexp->member);
         DFuncValue dfn(newexp->member, newexp->member->ir.irFunc->func, mem);
