@@ -616,7 +616,7 @@ bool X86_64TargetABI::passByVal(Type* t) {
                 //       http://llvm.org/bugs/show_bug.cgi?id=3741
                 return true;
             } else {
-                assert(t == Type::tfloat80 || t == Type::timaginary80 || t->size() < 8
+                assert(t == Type::tfloat80 || t == Type::timaginary80 || t->size() <= 8
                     && "What other big types are there?"); // other than static arrays...
                 // In any case, they shouldn't be represented as structs in LLVM:
                 assert(!isaStruct(DtoType(t)));
