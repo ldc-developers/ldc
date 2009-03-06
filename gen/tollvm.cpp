@@ -578,7 +578,7 @@ LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
 {
     if (v->getType() == t)
         return v;
-    assert(!(isaStruct(t) || isaStruct(v->getType())));
+    assert(!isaStruct(t));
     return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
 }
 

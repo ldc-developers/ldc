@@ -3,6 +3,7 @@
 #include "gen/tollvm.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"
+#include "gen/logger.h"
 #include "ir/irfunction.h"
 
 #include <sstream>
@@ -27,32 +28,44 @@ IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, unsigned a)
 llvm::Value* IrFuncTy::putRet(Type* dty, DValue* val)
 {
     assert(!arg_sret);
-    if (ret->rewrite)
+    if (ret->rewrite) {
+        Logger::println("Rewrite: putRet");
+        LOG_SCOPE
         return ret->rewrite->put(dty, val);
+    }
     return val->getRVal();
 }
 
 llvm::Value* IrFuncTy::getRet(Type* dty, DValue* val)
 {
     assert(!arg_sret);
-    if (ret->rewrite)
+    if (ret->rewrite) {
+        Logger::println("Rewrite: getRet");
+        LOG_SCOPE
         return ret->rewrite->get(dty, val);
+    }
     return val->getRVal();
 }
 
 llvm::Value* IrFuncTy::putParam(Type* dty, int idx, DValue* val)
 {
     assert(idx >= 0 && idx < args.size() && "invalid putParam");
-    if (args[idx]->rewrite)
+    if (args[idx]->rewrite) {
+        Logger::println("Rewrite: putParam");
+        LOG_SCOPE
         return args[idx]->rewrite->put(dty, val);
+    }
     return val->getRVal();
 }
 
 llvm::Value* IrFuncTy::getParam(Type* dty, int idx, DValue* val)
 {
     assert(idx >= 0 && idx < args.size() && "invalid getParam");
-    if (args[idx]->rewrite)
+    if (args[idx]->rewrite) {
+        Logger::println("Rewrite: getParam (get)");
+        LOG_SCOPE
         return args[idx]->rewrite->get(dty, val);
+    }
     return val->getRVal();
 }
 
@@ -62,6 +75,8 @@ void IrFuncTy::getParam(Type* dty, int idx, DValue* val, llvm::Value* lval)
 
     if (args[idx]->rewrite)
     {
+        Logger::println("Rewrite: getParam (getL)");
+        LOG_SCOPE
         args[idx]->rewrite->getL(dty, val, lval);
         return;
     }

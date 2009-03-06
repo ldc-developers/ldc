@@ -373,6 +373,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     else
     {
         Logger::println("doing normal arguments");
+        if (Logger::enabled()) {
+            Logger::println("Arguments so far: (%d)", (int)args.size());
+            Logger::indent();
+            for (size_t i = 0; i < args.size(); i++) {
+                Logger::cout() << *args[i] << '\n';
+            }
+            Logger::undent();
+            Logger::cout() << "Function type: " << tf->toChars() << '\n';
+            Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
+        }
 
         size_t n = Argument::dim(tf->parameters);
 
@@ -386,8 +396,18 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             assert(fnarg);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
 
+            if (Logger::enabled()) {
+                Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
+                Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
+            }
+
             // give the ABI a say
             LLValue* arg = tf->fty->putParam(argval->getType(), i, argval);
+
+            if (Logger::enabled()) {
+                Logger::cout() << "Argument after ABI: " << *arg << '\n';
+                Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
+            }
 
             int j = tf->fty->reverseParams ? beg + n - i - 1 : beg + i;
 

@@ -133,9 +133,9 @@ struct X86_struct_to_register : ABIRewrite
         const LLType* t = LLIntegerType::get(dty->size()*8);
         DtoLoad(DtoBitCast(mem, getPtrToType(t)));
     }
-    const LLType* type(Type*, const LLType* t)
+    const LLType* type(Type* t, const LLType*)
     {
-        size_t sz = getTypePaddedSize(t)*8;
+        size_t sz = t->size()*8;
         return LLIntegerType::get(sz);
     }
 };
@@ -178,6 +178,7 @@ struct X86TargetABI : TargetABI
             // complex {re,im} -> {im,re}
             if (rt->iscomplex())
             {
+                Logger::println("Rewriting complex return value");
                 fty->ret->rewrite = &swapComplex;
             }
 
@@ -186,10 +187,12 @@ struct X86TargetABI : TargetABI
             // mark this/nested params inreg
             if (fty->arg_this)
             {
+                Logger::println("Putting 'this' in register");
                 fty->arg_this->attrs = llvm::Attribute::InReg;
             }
             else if (fty->arg_nest)
             {
+                Logger::println("Putting context ptr in register");
                 fty->arg_nest->attrs = llvm::Attribute::InReg;
             }
             // otherwise try to mark the last param inreg
@@ -206,6 +209,7 @@ struct X86TargetABI : TargetABI
 
                 if (last->byref && !last->isByVal())
                 {
+                    Logger::println("Putting last (byref) parameter in register");
                     last->attrs |= llvm::Attribute::InReg;
                 }
                 else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) // right?
