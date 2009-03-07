@@ -201,11 +201,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
         DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
         args.push_back(argval->getRVal());
 
-        if (tf->fty->args[i]->attrs)
+        if (tf->fty.args[i]->attrs)
         {
             llvm::AttributeWithIndex Attr;
             Attr.Index = argidx;
-            Attr.Attrs = tf->fty->args[i]->attrs;
+            Attr.Attrs = tf->fty.args[i]->attrs;
             attrs.push_back(Attr);
         }
 
@@ -239,10 +239,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     TypeFunction* tf = DtoTypeFunction(fnval);
 
     // misc
-    bool retinptr = tf->fty->arg_sret;
-    bool thiscall = tf->fty->arg_this;
+    bool retinptr = tf->fty.arg_sret;
+    bool thiscall = tf->fty.arg_this;
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
-    bool nestedcall = tf->fty->arg_nest;
+    bool nestedcall = tf->fty.arg_nest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
     unsigned callconv = DtoCallingConv(loc, tf->linkage);
@@ -267,16 +267,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     llvm::AttributeWithIndex Attr;
 
     // return attrs
-    if (tf->fty->ret->attrs)
+    if (tf->fty.ret->attrs)
     {
         Attr.Index = 0;
-        Attr.Attrs = tf->fty->ret->attrs;
+        Attr.Attrs = tf->fty.ret->attrs;
         attrs.push_back(Attr);
     }
 
     // handle implicit arguments
     std::vector<LLValue*> args;
-    args.reserve(tf->fty->args.size());
+    args.reserve(tf->fty.args.size());
 
     // return in hidden ptr is first
     if (retinptr)
@@ -332,16 +332,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         // add attributes for context argument
-        if (tf->fty->arg_this && tf->fty->arg_this->attrs)
+        if (tf->fty.arg_this && tf->fty.arg_this->attrs)
         {
             Attr.Index = retinptr ? 2 : 1;
-            Attr.Attrs = tf->fty->arg_this->attrs;
+            Attr.Attrs = tf->fty.arg_this->attrs;
             attrs.push_back(Attr);
         }
-        else if (tf->fty->arg_nest && tf->fty->arg_nest->attrs)
+        else if (tf->fty.arg_nest && tf->fty.arg_nest->attrs)
         {
             Attr.Index = retinptr ? 2 : 1;
-            Attr.Attrs = tf->fty->arg_nest->attrs;
+            Attr.Attrs = tf->fty.arg_nest->attrs;
             attrs.push_back(Attr);
         }
     }
@@ -402,14 +402,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             }
 
             // give the ABI a say
-            LLValue* arg = tf->fty->putParam(argval->getType(), i, argval);
+            LLValue* arg = tf->fty.putParam(argval->getType(), i, argval);
 
             if (Logger::enabled()) {
                 Logger::cout() << "Argument after ABI: " << *arg << '\n';
                 Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
             }
 
-            int j = tf->fty->reverseParams ? beg + n - i - 1 : beg + i;
+            int j = tf->fty.reverseParams ? beg + n - i - 1 : beg + i;
 
             // Hack around LDC assuming structs are in memory:
             // If the function wants a struct, and the argument value is a
@@ -434,14 +434,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             }
 
             // param attrs
-            attrptr[i] = tf->fty->args[i]->attrs;
+            attrptr[i] = tf->fty.args[i]->attrs;
 
             ++argiter;
             args.push_back(arg);
         }
 
         // reverse the relevant params as well as the param attrs
-        if (tf->fty->reverseParams)
+        if (tf->fty.reverseParams)
         {
             std::reverse(args.begin() + beg, args.end());
             std::reverse(attrptr.begin(), attrptr.end());
@@ -507,7 +507,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         // do abi specific return value fixups
         DImValue dretval(tf->next, retllval);
-        retllval = tf->fty->getRet(tf->next, &dretval);
+        retllval = tf->fty.getRet(tf->next, &dretval);
     }
 
     // Hack around LDC assuming structs are in memory:

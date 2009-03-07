@@ -167,8 +167,8 @@ struct X86TargetABI : TargetABI
 
     void rewriteFunctionType(TypeFunction* tf)
     {
-        IrFuncTy* fty = tf->fty;
-        Type* rt = fty->ret->type->toBasetype();
+        IrFuncTy& fty = tf->fty;
+        Type* rt = fty.ret->type->toBasetype();
 
         // extern(D)
         if (tf->linkage == LINKd)
@@ -179,31 +179,31 @@ struct X86TargetABI : TargetABI
             if (rt->iscomplex())
             {
                 Logger::println("Rewriting complex return value");
-                fty->ret->rewrite = &swapComplex;
+                fty.ret->rewrite = &swapComplex;
             }
 
             // IMPLICIT PARAMETERS
 
             // mark this/nested params inreg
-            if (fty->arg_this)
+            if (fty.arg_this)
             {
                 Logger::println("Putting 'this' in register");
-                fty->arg_this->attrs = llvm::Attribute::InReg;
+                fty.arg_this->attrs = llvm::Attribute::InReg;
             }
-            else if (fty->arg_nest)
+            else if (fty.arg_nest)
             {
                 Logger::println("Putting context ptr in register");
-                fty->arg_nest->attrs = llvm::Attribute::InReg;
+                fty.arg_nest->attrs = llvm::Attribute::InReg;
             }
             // otherwise try to mark the last param inreg
-            else if (!fty->arg_sret && !fty->args.empty())
+            else if (!fty.arg_sret && !fty.args.empty())
             {
                 // The last parameter is passed in EAX rather than being pushed on the stack if the following conditions are met:
                 //   * It fits in EAX.
                 //   * It is not a 3 byte struct.
                 //   * It is not a floating point type.
 
-                IrFuncTyArg* last = fty->args.back();
+                IrFuncTyArg* last = fty.args.back();
                 Type* lastTy = last->type->toBasetype();
                 unsigned sz = lastTy->size();
 
@@ -234,9 +234,9 @@ struct X86TargetABI : TargetABI
 
             // reverse parameter order
             // for non variadics
-            if (!fty->args.empty() && tf->varargs != 1)
+            if (!fty.args.empty() && tf->varargs != 1)
             {
-                fty->reverseParams = true;
+                fty.reverseParams = true;
             }
         }
 
@@ -248,8 +248,8 @@ struct X86TargetABI : TargetABI
             // cfloat -> i64
             if (tf->next->toBasetype() == Type::tcomplex32)
             {
-                fty->ret->rewrite = &cfloatToInt;
-                fty->ret->ltype = LLType::Int64Ty;
+                fty.ret->rewrite = &cfloatToInt;
+                fty.ret->ltype = LLType::Int64Ty;
             }
 
             // IMPLICIT PARAMETERS

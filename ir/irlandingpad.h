@@ -7,6 +7,13 @@
 #include <deque>
 #include <stack>
 
+namespace llvm {
+    class Type;
+    class Value;
+    class BasicBlock;
+    class Function;
+}
+
 // only to be used within IRLandingPad
 // holds information about a single catch or finally
 struct IRLandingPadInfo
@@ -57,7 +64,7 @@ struct IRLandingPad
     llvm::BasicBlock* get();
 
     // creates or gets storage for exception object
-    LLValue* getExceptionStorage();
+    llvm::Value* getExceptionStorage();
 
 private:
     // constructs the landing pad from infos
@@ -77,7 +84,7 @@ private:
     std::map<ClassDeclaration*, int> catchToInt;
 
     // storage for the catch variable
-    LLValue* catch_var;
+    llvm::Value* catch_var;
 };
 
 #endif

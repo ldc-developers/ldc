@@ -2659,9 +2659,6 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->varargs = varargs;
     this->linkage = linkage;
     this->inuse = 0;
-
-    // LDC
-    this->fty = NULL;
 }
 
 Type *TypeFunction::syntaxCopy()

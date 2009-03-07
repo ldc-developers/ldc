@@ -23,8 +23,8 @@
 
 // llvm
 #include "../ir/irtype.h"
+#include "../ir/irfuncty.h"
 namespace llvm { class Type; }
-struct IrFuncTy;
 
 struct Scope;
 struct Identifier;
@@ -437,7 +437,7 @@ struct TypeFunction : Type
     unsigned totym();
 
     // LDC
-    IrFuncTy* fty;
+    IrFuncTy fty;
 };
 
 struct TypeDelegate : Type

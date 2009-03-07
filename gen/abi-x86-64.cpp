@@ -647,20 +647,20 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
     if (tf->linkage != LINKd) {
         // TODO: See if this is correct for more than just extern(C).
         
-        IrFuncTy* fty = tf->fty;
+        IrFuncTy& fty = tf->fty;
         
-        if (!fty->arg_sret) {
+        if (!fty.arg_sret) {
             Logger::println("x86-64 ABI: Transforming return type");
-            Type* rt = fty->ret->type->toBasetype();
+            Type* rt = fty.ret->type->toBasetype();
             if (rt != Type::tvoid)
-                fixup(*fty->ret);
+                fixup(*fty.ret);
         }
         
         
         Logger::println("x86-64 ABI: Transforming arguments");
         LOG_SCOPE;
         
-        for (IrFuncTy::ArgIter I = fty->args.begin(), E = fty->args.end(); I != E; ++I) {
+        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
             IrFuncTyArg& arg = **I;
             
             if (Logger::enabled())

@@ -92,7 +92,7 @@ void ReturnStatement::toIR(IRState* p)
             if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
             // do abi specific transformations on the return value
-            LLValue* v = p->func()->type->fty->putRet(exp->type, exp->toElem(p));
+            LLValue* v = p->func()->type->fty.putRet(exp->type, exp->toElem(p));
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";

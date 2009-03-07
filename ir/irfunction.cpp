@@ -5,6 +5,7 @@
 #include "gen/dvalue.h"
 #include "gen/logger.h"
 #include "ir/irfunction.h"
+#include "ir/irfuncty.h"
 
 #include <sstream>
 
@@ -20,6 +21,10 @@ IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, unsigned a)
     byref = bref;
     rewrite = NULL;
 }
+
+bool IrFuncTyArg::isInReg() const { return (attrs & llvm::Attribute::InReg) != 0; }
+bool IrFuncTyArg::isSRet() const  { return (attrs & llvm::Attribute::StructRet) != 0; }
+bool IrFuncTyArg::isByVal() const { return (attrs & llvm::Attribute::ByVal) != 0; }
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
