@@ -4,6 +4,7 @@
 // which uses the llvm license
 
 #include "gen/llvm.h"
+#include "llvm/Linker.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetMachineRegistry.h"
@@ -32,6 +33,7 @@
 #include "gen/logger.h"
 #include "gen/linker.h"
 #include "gen/irstate.h"
+#include "gen/toobj.h"
 
 #include "gen/cl_options.h"
 #include "gen/cl_helpers.h"
@@ -40,6 +42,10 @@ using namespace opts;
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
 extern void backend_term();
+
+static cl::opt<bool> singleObj("singleobj",
+    cl::desc("Create only a single output object file"),
+    cl::ZeroOrMore);
 
 static cl::opt<bool> noDefaultLib("nodefaultlib",
     cl::desc("Don't add a default library for linking implicitly"),
@@ -796,6 +802,9 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
+    // collects llvm modules to be linked if singleobj is passed
+    std::vector<llvm::Module*> llvmModules;
+
     // Generate output files
     for (int i = 0; i < modules.dim; i++)
     {
@@ -804,8 +813,16 @@ int main(int argc, char** argv)
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
         {
-            m->genobjfile(0);
-            global.params.objfiles->push(m->objfile->name->str);
+            llvm::Module* lm = m->genLLVMModule(0);
+            if (!singleObj)
+            {
+                m->deleteObjFile();
+                writeModule(lm, m->objfile->name->str);
+                global.params.objfiles->push(m->objfile->name->str);
+                delete lm;
+            }
+            else
+                llvmModules.push_back(lm);
         }
         if (global.errors)
             m->deleteObjFile();
@@ -815,7 +832,34 @@ int main(int argc, char** argv)
             m->gendocfile();
         }
     }
-
+    
+    // internal linking for singleobj
+    if (singleObj && llvmModules.size() > 0)
+    {
+        Module* m = (Module*)modules.data[0];
+        char* name = m->toChars();
+        char* filename = m->objfile->name->str;
+        
+        llvm::Linker linker(name, name);
+        std::string errormsg;
+        for (int i = 0; i < llvmModules.size(); i++)
+        {
+            if(linker.LinkInModule(llvmModules[i], &errormsg))
+                error(errormsg.c_str());
+            delete llvmModules[i];
+        }
+        
+        // workaround for llvm::Linker bug, see llvm #3749
+        llvm::GlobalVariable* ctors = linker.getModule()->getGlobalVariable("llvm.global_ctors");
+        if (ctors)
+            while (ctors->getNumUses() > 0)
+                delete *ctors->use_begin();
+        
+        m->deleteObjFile();
+        writeModule(linker.getModule(), filename);
+        global.params.objfiles->push(filename);
+    }
+    
     backend_term();
     if (global.errors)
         fatal();

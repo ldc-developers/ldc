@@ -70,7 +70,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void Module::genobjfile(int multiobj)
+llvm::Module* Module::genLLVMModule(int multiobj)
 {
     bool logenabled = Logger::enabled();
     if (llvmForceLogging && !logenabled)
@@ -84,9 +84,6 @@ void Module::genobjfile(int multiobj)
     //printf("codegen: %s\n", srcfile->toChars());
 
     assert(!global.errors);
-
-    // start by deleting the old object file
-    deleteObjFile();
 
     // name the module
     std::string mname(toChars());
@@ -174,17 +171,29 @@ void Module::genobjfile(int multiobj)
         }
     }
 
+    gIR = NULL;
+    
+    if (llvmForceLogging && !logenabled)
+    {
+        Logger::disable();
+    }
+    
+    return ir.module;
+}
+
+void writeModule(llvm::Module* m, std::string filename)
+{
     // run optimizer
-    ldc_optimize_module(ir.module, global.params.optimizeLevel, global.params.llvmInline);
+    ldc_optimize_module(m, global.params.optimizeLevel, global.params.llvmInline);
 
     // verify the llvm
     if (!noVerify && (global.params.optimizeLevel >= 0 || global.params.llvmInline)) {
         std::string verifyErr;
         Logger::println("Verifying module... again...");
         LOG_SCOPE;
-        if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
+        if (llvm::verifyModule(*m,llvm::ReturnStatusAction,&verifyErr))
         {
-            error("%s", verifyErr.c_str());
+            //error("%s", verifyErr.c_str());
             fatal();
         }
         else {
@@ -197,27 +206,27 @@ void Module::genobjfile(int multiobj)
 
     // write LLVM bitcode
     if (global.params.output_bc) {
-        LLPath bcpath = LLPath(objfile->name->toChars());
+        LLPath bcpath = LLPath(filename);
         bcpath.eraseSuffix();
         bcpath.appendSuffix(std::string(global.bc_ext));
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::ofstream bos(bcpath.c_str(), std::ios::binary);
-        llvm::WriteBitcodeToFile(ir.module, bos);
+        llvm::WriteBitcodeToFile(m, bos);
     }
 
     // write LLVM IR
     if (global.params.output_ll) {
-        LLPath llpath = LLPath(objfile->name->toChars());
+        LLPath llpath = LLPath(filename);
         llpath.eraseSuffix();
         llpath.appendSuffix(std::string(global.ll_ext));
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::ofstream aos(llpath.c_str());
-        ir.module->print(aos, NULL);
+        m->print(aos, NULL);
     }
 
     // write native assembly
     if (global.params.output_s || global.params.output_o) {
-        LLPath spath = LLPath(objfile->name->toChars());
+        LLPath spath = LLPath(filename);
         spath.eraseSuffix();
         spath.appendSuffix(std::string(global.s_ext));
         if (!global.params.output_s) {
@@ -227,26 +236,18 @@ void Module::genobjfile(int multiobj)
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), false, err);
-            write_asm_to_file(*gTargetMachine, *ir.module, out);
+            write_asm_to_file(*gTargetMachine, *m, out);
         }
 
         // call gcc to convert assembly to object file
         if (global.params.output_o) {
-            LLPath objpath = LLPath(objfile->name->toChars());
+            LLPath objpath = LLPath(filename);
             assemble(spath, objpath);
         }
 
         if (!global.params.output_s) {
             spath.eraseFromDisk();
         }
-    }
-
-    delete ir.module;
-    gIR = NULL;
-    
-    if (llvmForceLogging && !logenabled)
-    {
-        Logger::disable();
     }
 }
 

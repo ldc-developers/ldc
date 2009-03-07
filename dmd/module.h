@@ -30,6 +30,7 @@ struct Library;
 #if IN_LLVM
 struct DValue;
 typedef DValue elem;
+namespace llvm { class Module; }
 #else
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
@@ -133,7 +134,6 @@ struct Module : Package
 #ifdef _DH
     void genhdrfile();  // generate D import file
 #endif
-    void genobjfile(int multiobj);
 //    void gensymfile();
     void gendocfile();
     int needModuleInfo();
@@ -171,6 +171,7 @@ struct Module : Package
     void genmoduleinfo();
 
     // LDC
+    llvm::Module* genLLVMModule(int multiobj);
     void buildTargetFiles();
     File* buildFilePath(char* forcename, char* path, char* ext);
     Module *isModule() { return this; }
