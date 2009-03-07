@@ -415,6 +415,26 @@ assert(0);
         asmblock->clobs.insert(clobstr);
     }
 
+    if (Logger::enabled()) {
+        typedef std::deque<LLValue*>::iterator It;
+        {
+            Logger::println("Output values:");
+            LOG_SCOPE
+            size_t i = 0;
+            for (It I = output_values.begin(), E = output_values.end(); I != E; ++I) {
+                Logger::cout() << "Out " << i++ << " = " << **I << '\n';
+            }
+        }
+        {
+            Logger::println("Input values:");
+            LOG_SCOPE
+            size_t i = 0;
+            for (It I = input_values.begin(), E = input_values.end(); I != E; ++I) {
+                Logger::cout() << "In  " << i++ << " = " << **I << '\n';
+            }
+        }
+    }
+
     // excessive commas are removed later...
 
     // push asm statement
