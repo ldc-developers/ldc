@@ -65,6 +65,7 @@ endif(D_VERSION EQUAL 1)
 file(MAKE_DIRECTORY
 	${PROJECT_BINARY_DIR}/bin
 	${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+	${PROJECT_BINARY_DIR}/gen
 )
 
 # idgen and impcnvgen

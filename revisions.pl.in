@@ -11,9 +11,9 @@ my $llvm_rev = `svnversion --committed $llvm_src`;
 my $llvm_rev_str;
 my $llvm_rev_nr;
 
-if ($llvm_rev =~ /^\s*(\d+:)?(?<str>(?<nr>\d+)[MSP]*)\s*$/) {
-	$llvm_rev_str = qq!#define LLVM_REV_STR "LLVM rev. $+{str}"!;
-	$llvm_rev_nr = "$+{nr}";
+if ($llvm_rev =~ /^\s*(\d+:)?((\d+)[MSP]*)\s*$/) {
+	$llvm_rev_str = qq!#define LLVM_REV_STR "LLVM rev. $2"!;
+	$llvm_rev_nr = "$3";
 } else {
 	my $llvm_lib = `perl @LLVM_CONFIG@ --libdir`;
 	$llvm_lib =~ s/\s+$//;
