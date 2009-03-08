@@ -62,7 +62,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to);
 DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 
 // is template instance check, returns module where instantiated
-Module* DtoIsTemplateInstance(Dsymbol* s);
+TemplateInstance* DtoIsTemplateInstance(Dsymbol* s);
 
 // these are all basically drivers for the codegeneration called by the main loop
 void DtoResolveDsymbol(Dsymbol* dsym);

@@ -2875,6 +2875,7 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->errors = 0;
 
     // LDC
+    this->emittedInModule = NULL;
     this->tinst = NULL;
     this->tmodule = NULL;
 }
