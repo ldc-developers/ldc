@@ -362,7 +362,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
         gcc, &Args[0], 0, 0, 0, 0, &ErrMsg);
     if (R)
     {
-        error("failed to invoke gcc");
+        error("Failed to invoke gcc. %s", ErrMsg.c_str());
         fatal();
     }
 }
