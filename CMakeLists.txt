@@ -114,7 +114,7 @@ set(LDC_GENERATED
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
-include_directories(. ${DMDFE_PATH} ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${LLVM_INSTDIR}/include)
+include_directories(. ${DMDFE_PATH} ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INSTDIR}/include)
 
 file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
 file(GLOB GEN_SRC gen/*.cpp)
