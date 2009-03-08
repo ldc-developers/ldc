@@ -20,6 +20,7 @@
 #include "gen/functions.h"
 #include "gen/typeinf.h"
 #include "gen/todebug.h"
+#include "gen/cl_options.h"
 #include "ir/irmodule.h"
 
 #include <stack>
@@ -833,11 +834,11 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 //      TEMPLATE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-Module* DtoIsTemplateInstance(Dsymbol* s)
+TemplateInstance* DtoIsTemplateInstance(Dsymbol* s)
 {
     if (!s) return NULL;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
-        return s->isTemplateInstance()->tmodule;
+        return s->isTemplateInstance();
     else if (s->parent)
         return DtoIsTemplateInstance(s->parent);
     return NULL;
@@ -1536,34 +1537,25 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
 bool mustDefineSymbol(Dsymbol* s)
 {
-#if 1
-    return s->getModule() == gIR->dmodule || DtoIsTemplateInstance(s) != NULL;
-#else
-    Module* M = DtoIsTemplateInstance(s);
-    // if it's a template instance, check the instantiating module
-    // not the module that defines the template
-    if (M) {
-	//Logger::println("TINST %s from %s cur %s", s->toPrettyChars(), M->toChars(), gIR->dmodule->toChars());
-        return M == gIR->dmodule;
+    TemplateInstance* tinst = DtoIsTemplateInstance(s);
+    if (tinst)
+    {
+        if (!opts::singleObj)
+            return true;
+    
+        if (!tinst->emittedInModule)
+            tinst->emittedInModule = gIR->dmodule;
+        return tinst->emittedInModule == gIR->dmodule;
     }
-    return s->getCompilationModule() == gIR->dmodule;
-#endif
+    
+    return s->getModule() == gIR->dmodule;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 bool needsTemplateLinkage(Dsymbol* s)
 {
-#if 1
-    return DtoIsTemplateInstance(s) != NULL;
-#else
-    Module* M = DtoIsTemplateInstance(s);
-    // only return true if the symbol is a template instances
-    // and if this instance originated in the current module
-    if (M)
-        return M == gIR->dmodule;
-    return false;
-#endif
+    return DtoIsTemplateInstance(s) && mustDefineSymbol(s);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

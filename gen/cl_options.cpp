@@ -326,6 +326,11 @@ static cl::opt<MultiSetter, true, cl::parser<bool> > release("release",
     cl::ValueDisallowed);
 
 
+cl::opt<bool> singleObj("singleobj",
+    cl::desc("Create only a single output object file"),
+    cl::ZeroOrMore);
+
+
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"
 "debug checks (i.e. (asserts, boundchecks, contracts and invariants) as well\n"
