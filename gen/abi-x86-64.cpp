@@ -153,13 +153,14 @@ namespace {
             // the other types that can get bigger than 16 bytes
             accum.addField(offset, Memory);
         } else if (ty->ty == Tsarray) {
-            d_uns64 eltsize = ty->next->size();
+            Type* eltType = ty->nextOf();
+            d_uns64 eltsize = eltType->size();
             if (eltsize > 0) {
                 d_uns64 dim = ty->size() / eltsize;
                 assert(dim <= 16
                         && "Array of non-empty type <= 16 bytes but > 16 elements?");
                 for (d_uns64 i = 0; i < dim; i++) {
-                    classifyType(accum, ty->next, offset);
+                    classifyType(accum, eltType, offset);
                     offset += eltsize;
                 }
             }
