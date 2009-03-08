@@ -12,6 +12,7 @@
 #include "gen/tollvm.h"
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
+#include "gen/linkage.h"
 
 #include "ir/irmodule.h"
 
@@ -33,7 +34,9 @@ using namespace llvm::dwarf;
  */
 static LLGlobalVariable* emitDwarfGlobalDecl(const LLStructType* type, const char* name, bool linkonce=false)
 {
-    LLGlobalValue::LinkageTypes linkage = linkonce ? LLGlobalValue::LinkOnceLinkage : LLGlobalValue::InternalLinkage;
+    LLGlobalValue::LinkageTypes linkage = linkonce
+        ? DEBUGINFO_LINKONCE_LINKAGE_TYPE
+        : LLGlobalValue::InternalLinkage;
     LLGlobalVariable* gv = new LLGlobalVariable(type, true, linkage, NULL, name, gIR->module);
     gv->setSection("llvm.metadata");
     return gv;

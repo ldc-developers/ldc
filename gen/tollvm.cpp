@@ -19,6 +19,7 @@
 #include "gen/typeinf.h"
 #include "gen/complex.h"
 #include "gen/llvmhelpers.h"
+#include "gen/linkage.h"
 
 bool DtoIsPassedByRef(Type* type)
 {

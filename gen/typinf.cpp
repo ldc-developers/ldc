@@ -39,6 +39,7 @@
 #include "gen/arrays.h"
 #include "gen/structs.h"
 #include "gen/classes.h"
+#include "gen/linkage.h"
 
 #include "ir/irvar.h"
 

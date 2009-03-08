@@ -168,13 +168,21 @@ endif(CMAKE_MINOR_VERSION LESS 6)
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 
 # generate revision info
-configure_file(${PROJECT_SOURCE_DIR}/revisions.pl.in ${PROJECT_BINARY_DIR}/revisions.pl)
-add_custom_command(
-	OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/revisions.h
-	COMMAND ${PERL_EXECUTABLE} ${PROJECT_BINARY_DIR}/revisions.pl
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+configure_file(
+        ${PROJECT_SOURCE_DIR}/revisions.pl.in
+        ${PROJECT_BINARY_DIR}/revisions.pl
+        @ONLY
 )
-add_custom_target(gen_revs_h ALL DEPENDS ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/revisions.h)
+add_custom_command(
+	OUTPUT ${PROJECT_BINARY_DIR}/gen/revisions.h
+	COMMAND ${PERL_EXECUTABLE} ${PROJECT_BINARY_DIR}/revisions.pl
+	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/gen
+)
+add_custom_target(
+        gen_revs_h ALL
+        DEPENDS ${PROJECT_BINARY_DIR}/revisions.pl
+                ${PROJECT_BINARY_DIR}/gen/revisions.h
+)
 add_dependencies(${LDC_EXE} gen_revs_h)
 #
 
