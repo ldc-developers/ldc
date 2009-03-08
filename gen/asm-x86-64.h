@@ -1875,7 +1875,7 @@ namespace AsmParserx8664
                 if ( operands[0].dataSize == Far_Ptr ) // %% type=Far_Ptr not set by Seg:Ofss OTOH, we don't support that..
                     insnTemplate->writebyte ( 'l' );
             }
-            else if ( op == Op_fxch )
+            else if ( op == Op_fxch || op == Op_FfdRR_P)
             {
                 // gas won't accept the two-operand form
                 if ( operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
