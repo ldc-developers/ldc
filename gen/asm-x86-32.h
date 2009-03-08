@@ -2018,11 +2018,8 @@ namespace AsmParserx8632
                                           ( operand->baseReg == Reg_ESP && sc->func->naked ) ) )
                                 {
 
-                                    if ( mode == Mode_Output )
-                                    {
-                                        e = new AddrExp ( 0, e );
-                                        e->type = decl->type->pointerTo();
-                                    }
+                                    e = new AddrExp ( 0, e );
+                                    e->type = decl->type->pointerTo();
 
 #if !IN_LLVM
                                     /* DMD uses the same frame offsets for naked functions. */
