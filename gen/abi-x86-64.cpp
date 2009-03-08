@@ -32,9 +32,9 @@
  * and the pointer in memory, as printf expects it.
  */
 
-#include "dmd/mtype.h"
-#include "dmd/declaration.h"
-#include "dmd/aggregate.h"
+#include "mtype.h"
+#include "declaration.h"
+#include "aggregate.h"
 
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
