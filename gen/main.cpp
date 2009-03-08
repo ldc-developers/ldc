@@ -43,10 +43,6 @@ extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
 extern void backend_term();
 
-static cl::opt<bool> singleObj("singleobj",
-    cl::desc("Create only a single output object file"),
-    cl::ZeroOrMore);
-
 static cl::opt<bool> noDefaultLib("nodefaultlib",
     cl::desc("Don't add a default library for linking implicitly"),
     cl::ZeroOrMore);

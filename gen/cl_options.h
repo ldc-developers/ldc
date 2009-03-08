@@ -43,6 +43,7 @@ namespace opts {
     extern cl::opt<std::string> mCPU;
     extern cl::list<std::string> mAttrs;
     extern cl::opt<std::string> mTargetTriple;
+    extern cl::opt<bool> singleObj;
 
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;
