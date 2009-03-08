@@ -14,7 +14,6 @@ if [ ! -x "$LDC" ]; then
 fi
 
 declare -a ARGS
-SeenFile=0
 IDX=0
 for arg; do
     case "$arg" in
@@ -28,11 +27,6 @@ for arg; do
         # "Hidden debug switches"
         # Are these ever used?
         arg="-hidden-debug${arg:1}"
-        ;;
-    -*)
-        ;;
-    *)
-        SeenFile=1
         ;;
     esac
     ARGS[IDX++]="$arg"
