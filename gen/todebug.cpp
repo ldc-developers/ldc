@@ -500,6 +500,12 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
         false, // isMain,
         false // isOptimized
     );
+    
+    // if the linkage stays internal, we can't llvm-link the generated modules together:
+    // llvm's DwarfWriter uses path and filename to determine the symbol name and we'd
+    // end up with duplicate symbols
+    m->ir.irModule->diCompileUnit.getGV()->setLinkage(llvm::GlobalValue::LinkOnceLinkage);
+    m->ir.irModule->diCompileUnit.getGV()->setName(std::string("llvm.dbg.compile_unit_") + srcpath + m->srcfile->name->toChars());
 
     return m->ir.irModule->diCompileUnit;
 }
