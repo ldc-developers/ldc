@@ -13,7 +13,7 @@ option(BUILD_SINGLE_LIB "build single runtime library" ON)
 set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
-	list(APPEND D_FLAGS -fPIC)
+	list(APPEND D_FLAGS -relocation-model=pic)
 endif(BUILD_SHARED_LIBS)
 
 # build tango for D1, druntime for D2
