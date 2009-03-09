@@ -29,43 +29,66 @@ else version(X86_64)
 //
 
 
-// The 'llvm.returnaddress' intrinsic attempts to compute a target-specific value indicating the return address of the current function or one of its callers. 
+// The 'llvm.returnaddress' intrinsic attempts to compute a target-specific
+// value indicating the return address of the current function or one of its
+// callers.
 
 pragma(intrinsic, "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 
 
-// The 'llvm.frameaddress' intrinsic attempts to return the target-specific frame pointer value for the specified stack frame. 
+// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
+// frame pointer value for the specified stack frame.
 
 pragma(intrinsic, "llvm.frameaddress")
     void* llvm_frameaddress(uint level);
 
 
-// The 'llvm.stacksave' intrinsic is used to remember the current state of the function stack, for use with llvm.stackrestore. This is useful for implementing language features like scoped automatic variable sized arrays in C99. 
+// The 'llvm.stacksave' intrinsic is used to remember the current state of the
+// function stack, for use with llvm.stackrestore. This is useful for
+// implementing language features like scoped automatic variable sized arrays
+// in C99.
 
 pragma(intrinsic, "llvm.stacksave")
     void* llvm_stacksave();
 
 
-// The 'llvm.stackrestore' intrinsic is used to restore the state of the function stack to the state it was in when the corresponding llvm.stacksave intrinsic executed. This is useful for implementing language features like scoped automatic variable sized arrays in C99. 
+// The 'llvm.stackrestore' intrinsic is used to restore the state of the
+// function stack to the state it was in when the corresponding llvm.stacksave
+// intrinsic executed. This is useful for implementing language features like
+// scoped automatic variable sized arrays in C99.
 
 pragma(intrinsic, "llvm.stackrestore")
     void llvm_stackrestore(void* ptr);
 
 
-// The 'llvm.prefetch' intrinsic is a hint to the code generator to insert a prefetch instruction if supported; otherwise, it is a noop. Prefetches have no effect on the behavior of the program but can change its performance characteristics.
+// The 'llvm.prefetch' intrinsic is a hint to the code generator to insert a
+// prefetch instruction if supported; otherwise, it is a noop. Prefetches have
+// no effect on the behavior of the program but can change its performance
+// characteristics.
 
 pragma(intrinsic, "llvm.prefetch")
     void llvm_prefetch(void* ptr, uint rw, uint locality);
 
 
-// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC) in a region of code to simulators and other tools. The method is target specific, but it is expected that the marker will use exported symbols to transmit the PC of the marker. The marker makes no guarantees that it will remain with any specific instruction after optimizations. It is possible that the presence of a marker will inhibit optimizations. The intended use is to be inserted after optimizations to allow correlations of simulation runs. 
+// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
+// in a region of code to simulators and other tools. The method is target
+// specific, but it is expected that the marker will use exported symbols to
+// transmit the PC of the marker. The marker makes no guarantees that it will
+// remain with any specific instruction after optimizations. It is possible
+// that the presence of a marker will inhibit optimizations. The intended use
+// is to be inserted after optimizations to allow correlations of simulation
+// runs.
 
 pragma(intrinsic, "llvm.pcmarker")
     void llvm_pcmarker(uint id);
 
 
-// The 'llvm.readcyclecounter' intrinsic provides access to the cycle counter register (or similar low latency, high accuracy clocks) on those targets that support it. On X86, it should map to RDTSC. On Alpha, it should map to RPCC. As the backing counters overflow quickly (on the order of 9 seconds on alpha), this should only be used for small timings. 
+// The 'llvm.readcyclecounter' intrinsic provides access to the cycle counter
+// register (or similar low latency, high accuracy clocks) on those targets that
+// support it. On X86, it should map to RDTSC. On Alpha, it should map to RPCC.
+// As the backing counters overflow quickly (on the order of 9 seconds on
+// alpha), this should only be used for small timings.
 
 pragma(intrinsic, "llvm.readcyclecounter")
     ulong readcyclecounter();
@@ -78,37 +101,53 @@ pragma(intrinsic, "llvm.readcyclecounter")
 //
 
 
-// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source location to the destination location.
-// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do not return a value, and takes an extra alignment argument.
+// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
+// location to the destination location.
+// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
+// not return a value, and takes an extra alignment argument.
 
 pragma(intrinsic, "llvm.memcpy.i32")
     void llvm_memcpy_i32(void* dst, void* src, uint len, uint alignment);
+
 pragma(intrinsic, "llvm.memcpy.i64")
     void llvm_memcpy_i64(void* dst, void* src, ulong len, uint alignment);
 
 
-// The 'llvm.memmove.*' intrinsics move a block of memory from the source location to the destination location. It is similar to the 'llvm.memcpy' intrinsic but allows the two memory locations to overlap.
-// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics do not return a value, and takes an extra alignment argument.
+// The 'llvm.memmove.*' intrinsics move a block of memory from the source
+// location to the destination location. It is similar to the 'llvm.memcpy'
+// intrinsic but allows the two memory locations to overlap.
+// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
+// do not return a value, and takes an extra alignment argument.
 
 pragma(intrinsic, "llvm.memmove.i32")
     void llvm_memmove_i32(void* dst, void* src, uint len, uint alignment);
+
 pragma(intrinsic, "llvm.memmove.i64")
     void llvm_memmove_i64(void* dst, void* src, ulong len, int alignment);
 
 
-// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte value.
-// Note that, unlike the standard libc function, the llvm.memset intrinsic does not return a value, and takes an extra alignment argument.
+// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
+// value.
+// Note that, unlike the standard libc function, the llvm.memset intrinsic does
+// not return a value, and takes an extra alignment argument.
 
 pragma(intrinsic, "llvm.memset.i32")
     void llvm_memset_i32(void* dst, ubyte val, uint len, uint alignment);
+
 pragma(intrinsic, "llvm.memset.i64")
     void llvm_memset_i64(void* dst, ubyte val, ulong len, uint alignment);
 
 
-// The 'llvm.sqrt' intrinsics return the sqrt of the specified operand, returning the same value as the libm 'sqrt' functions would. Unlike sqrt in libm, however, llvm.sqrt has undefined behavior for negative numbers other than -0.0 (which allows for better optimization, because there is no need to worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like IEEE sqrt. 
+// The 'llvm.sqrt' intrinsics return the sqrt of the specified operand,
+// returning the same value as the libm 'sqrt' functions would. Unlike sqrt in
+// libm, however, llvm.sqrt has undefined behavior for negative numbers other
+// than -0.0 (which allows for better optimization, because there is no need to
+// worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like
+// IEEE sqrt.
 
 pragma(intrinsic, "llvm.sqrt.f32")
     float llvm_sqrt_f32(float val);
+
 pragma(intrinsic, "llvm.sqrt.f64")
     double llvm_sqrt_f64(double val);
 
@@ -125,10 +164,11 @@ else
 }
 
 
-// The 'llvm.sin.*' intrinsics return the sine of the operand. 
+// The 'llvm.sin.*' intrinsics return the sine of the operand.
 
 pragma(intrinsic, "llvm.sin.f32")
     float llvm_sin_f32(float val);
+
 pragma(intrinsic, "llvm.sin.f64")
     double llvm_sin_f64(double val);
 
@@ -145,10 +185,11 @@ else
 }
 
 
-// The 'llvm.cos.*' intrinsics return the cosine of the operand. 
+// The 'llvm.cos.*' intrinsics return the cosine of the operand.
 
 pragma(intrinsic, "llvm.cos.f32")
     float llvm_cos_f32(float val);
+
 pragma(intrinsic, "llvm.cos.f64")
     double llvm_cos_f64(double val);
 
@@ -165,7 +206,10 @@ else
 }
 
 
-// The 'llvm.powi.*' intrinsics return the first operand raised to the specified (positive or negative) power. The order of evaluation of multiplications is not defined. When a vector of floating point type is used, the second argument remains a scalar integer value. 
+// The 'llvm.powi.*' intrinsics return the first operand raised to the specified
+// (positive or negative) power. The order of evaluation of multiplications is
+// not defined. When a vector of floating point type is used, the second
+// argument remains a scalar integer value.
 
 pragma(intrinsic, "llvm.powi.f32")
     float llvm_powi_f32(float val, int power);
@@ -186,7 +230,8 @@ else
 }
 
 
-// The 'llvm.pow.*' intrinsics return the first operand raised to the specified (positive or negative) power. 
+// The 'llvm.pow.*' intrinsics return the first operand raised to the specified
+// (positive or negative) power.
 
 pragma(intrinsic, "llvm.pow.f32")
     float llvm_pow_f32(float val, float power);
@@ -211,7 +256,10 @@ else
 // BIT MANIPULATION INTRINSICS
 //
 
-// The 'llvm.bswap' family of intrinsics is used to byte swap integer values with an even number of bytes (positive multiple of 16 bits). These are useful for performing operations on data that is not in the target's native byte order. 
+// The 'llvm.bswap' family of intrinsics is used to byte swap integer values
+// with an even number of bytes (positive multiple of 16 bits). These are
+// useful for performing operations on data that is not in the target's native
+// byte order.
 
 pragma(intrinsic, "llvm.bswap.i16.i16")
     ushort llvm_bswap_i16(ushort val);
@@ -223,7 +271,8 @@ pragma(intrinsic, "llvm.bswap.i64.i64")
     ulong llvm_bswap_i64(ulong val);
 
 
-// The 'llvm.ctpop' family of intrinsics counts the number of bits set in a value. 
+// The 'llvm.ctpop' family of intrinsics counts the number of bits set in a
+// value.
 
 pragma(intrinsic, "llvm.ctpop.i8")
     ubyte llvm_ctpop_i8(ubyte src);
@@ -238,7 +287,8 @@ pragma(intrinsic, "llvm.ctpop.i64")
     ulong llvm_ctpop_i64(ulong src);
 
 
-// The 'llvm.ctlz' family of intrinsic functions counts the number of leading zeros in a variable. 
+// The 'llvm.ctlz' family of intrinsic functions counts the number of leading
+// zeros in a variable.
 
 pragma(intrinsic, "llvm.ctlz.i8")
     ubyte llvm_ctlz_i8(ubyte src);
@@ -253,7 +303,8 @@ pragma(intrinsic, "llvm.ctlz.i64")
     ulong llvm_ctlz_i64(ulong src);
 
 
-// The 'llvm.cttz' family of intrinsic functions counts the number of trailing zeros. 
+// The 'llvm.cttz' family of intrinsic functions counts the number of trailing
+// zeros.
 
 pragma(intrinsic, "llvm.cttz.i8")
     ubyte llvm_cttz_i8(ubyte src);
@@ -268,7 +319,9 @@ pragma(intrinsic, "llvm.cttz.i64")
     ulong llvm_cttz_i64(ulong src);
 
 
-// The 'llvm.part.select' family of intrinsic functions selects a range of bits from an integer value and returns them in the same bit width as the original value.
+// The 'llvm.part.select' family of intrinsic functions selects a range of bits
+// from an integer value and returns them in the same bit width as the original
+// value.
 
 pragma(intrinsic, "llvm.part.select.i8")
     ubyte llvm_part_select_i(ubyte val, uint loBit, uint hiBit);
@@ -283,7 +336,9 @@ pragma(intrinsic, "llvm.part.select.i64")
     ulong llvm_part_select_i(ulong val, uint loBit, uint hiBit);
 
 
-// The 'llvm.part.set' family of intrinsic functions replaces a range of bits in an integer value with another integer value. It returns the integer with the replaced bits.
+// The 'llvm.part.set' family of intrinsic functions replaces a range of bits
+// in an integer value with another integer value. It returns the integer with
+// the replaced bits.
 
 // TODO
 // declare i17 @llvm.part.set.i17.i9 (i17 %val, i9 %repl, i32 %lo, i32 %hi)
@@ -296,50 +351,63 @@ pragma(intrinsic, "llvm.part.select.i64")
 // ATOMIC OPERATIONS AND SYNCHRONIZATION INTRINSICS
 //
 
-// The llvm.memory.barrier intrinsic guarantees ordering between specific pairs of memory access types.
+// The llvm.memory.barrier intrinsic guarantees ordering between specific
+// pairs of memory access types.
 
 pragma(intrinsic, "llvm.memory.barrier")
     void llvm_memory_barrier(bool ll, bool ls, bool sl, bool ss, bool device);
 
-// This loads a value in memory and compares it to a given value. If they are equal, it stores a new value into the memory.
+// This loads a value in memory and compares it to a given value. If they are
+// equal, it stores a new value into the memory.
 
 pragma(intrinsic, "llvm.atomic.cmp.swap.i#.p0i#")
     T llvm_atomic_cmp_swap(T)(T* ptr, T cmp, T val);
 
-// This intrinsic loads the value stored in memory at ptr and yields the value from memory. It then stores the value in val in the memory at ptr.
+// This intrinsic loads the value stored in memory at ptr and yields the value
+// from memory. It then stores the value in val in the memory at ptr.
 
 pragma(intrinsic, "llvm.atomic.swap.i#.p0i#")
     T llvm_atomic_swap(T)(T* ptr, T val);
 
-// This intrinsic adds delta to the value stored in memory at ptr. It yields the original value at ptr.
+// This intrinsic adds delta to the value stored in memory at ptr. It yields
+// the original value at ptr.
 
 pragma(intrinsic, "llvm.atomic.load.add.i#.p0i#")
     T llvm_atomic_load_add(T)(T* ptr, T val);
 
-// This intrinsic subtracts delta to the value stored in memory at ptr. It yields the original value at ptr.
+// This intrinsic subtracts delta to the value stored in memory at ptr. It
+// yields the original value at ptr.
 
 pragma(intrinsic, "llvm.atomic.load.sub.i#.p0i#")
     T llvm_atomic_load_sub(T)(T* ptr, T val);
 
-// These intrinsics bitwise the operation (and, nand, or, xor) delta to the value stored in memory at ptr. It yields the original value at ptr.
+// These intrinsics bitwise the operation (and, nand, or, xor) delta to the
+// value stored in memory at ptr. It yields the original value at ptr.
 
 pragma(intrinsic, "llvm.atomic.load.and.i#.p0i#")
     T llvm_atomic_load_and(T)(T* ptr, T val);
+
 pragma(intrinsic, "llvm.atomic.load.nand.i#.p0i#")
     T llvm_atomic_load_nand(T)(T* ptr, T val);
+
 pragma(intrinsic, "llvm.atomic.load.or.i#.p0i#")
     T llvm_atomic_load_or(T)(T* ptr, T val);
+
 pragma(intrinsic, "llvm.atomic.load.xor.i#.p0i#")
     T llvm_atomic_load_xor(T)(T* ptr, T val);
 
-// These intrinsics takes the signed or unsigned minimum or maximum of delta and the value stored in memory at ptr. It yields the original value at ptr. 
+// These intrinsics takes the signed or unsigned minimum or maximum of delta
+// and the value stored in memory at ptr. It yields the original value at ptr.
 
 pragma(intrinsic, "llvm.atomic.load.max.i#.p0i#")
     T llvm_atomic_load_max(T)(T* ptr, T val);
+
 pragma(intrinsic, "llvm.atomic.load.min.i#.p0i#")
     T llvm_atomic_load_min(T)(T* ptr, T val);
+
 pragma(intrinsic, "llvm.atomic.load.umax.i#.p0i#")
     T llvm_atomic_load_umax(T)(T* ptr, T val);
+
 pragma(intrinsic, "llvm.atomic.load.umin.i#.p0i#")
     T llvm_atomic_load_umin(T)(T* ptr, T val);
 
@@ -361,12 +429,14 @@ pragma(intrinsic, "llvm.sadd.with.overflow.i#")
 pragma(intrinsic, "llvm.uadd.with.overflow.i#")
     OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs);
 
+
 // Signed and unsigned subtraction
 pragma(intrinsic, "llvm.ssub.with.overflow.i#")
     OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs);
 
 pragma(intrinsic, "llvm.usub.with.overflow.i#")
     OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs);
+
 
 // Signed and unsigned multiplication
 pragma(intrinsic, "llvm.smul.with.overflow.i#")
@@ -387,7 +457,9 @@ pragma(intrinsic, "llvm.umul.with.overflow.i#")
 //
 
 
-// This intrinsics is lowered to the target dependent trap instruction. If the target does not have a trap instruction, this intrinsic will be lowered to the call of the abort() function. 
+// This intrinsics is lowered to the target dependent trap instruction. If the
+// target does not have a trap instruction, this intrinsic will be lowered to
+// the call of the abort() function.
 
 pragma(intrinsic, "llvm.trap")
     void llvm_trap();
