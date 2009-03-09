@@ -174,15 +174,12 @@ configure_file(
         ${PROJECT_BINARY_DIR}/revisions.pl
         @ONLY
 )
-add_custom_command(
-	OUTPUT ${PROJECT_BINARY_DIR}/gen/revisions.h
-	COMMAND ${PERL_EXECUTABLE} ${PROJECT_BINARY_DIR}/revisions.pl
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/gen
-)
 add_custom_target(
-        gen_revs_h ALL
-        DEPENDS ${PROJECT_BINARY_DIR}/revisions.pl
-                ${PROJECT_BINARY_DIR}/gen/revisions.h
+	gen_revs_h
+	COMMAND ${PERL_EXECUTABLE} ${PROJECT_BINARY_DIR}/revisions.pl
+	DEPENDS ${PROJECT_BINARY_DIR}/revisions.pl
+	COMMENT "Generating revisions.h"
+	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/gen
 )
 add_dependencies(${LDC_EXE} gen_revs_h)
 #
