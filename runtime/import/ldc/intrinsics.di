@@ -19,6 +19,11 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
+version(X86)
+    version = Reals_80Bit;
+else version(X86_64)
+    version = Reals_80Bit;
+
 //
 // CODE GENERATOR INTRINSICS
 //
@@ -106,16 +111,17 @@ pragma(intrinsic, "llvm.sqrt.f32")
     float llvm_sqrt_f32(float val);
 pragma(intrinsic, "llvm.sqrt.f64")
     double llvm_sqrt_f64(double val);
-version(X86)
-{
-pragma(intrinsic, "llvm.sqrt.f80")
-    real llvm_sqrt_f80(real val);
-}
 
-version(X86_64)
+version(Reals_80Bit)
 {
-pragma(intrinsic, "llvm.sqrt.f80")
-    real llvm_sqrt_f80(real val);
+    pragma(intrinsic, "llvm.sqrt.f80")
+        real llvm_sqrt_f80(real val);
+    alias llvm_sqrt_f80 llvm_sqrt_real;
+}
+else
+{
+    pragma(intrinsic, "llvm.sqrt.f64")
+        real llvm_sqrt_real(real val);
 }
 
 
@@ -125,16 +131,17 @@ pragma(intrinsic, "llvm.sin.f32")
     float llvm_sin_f32(float val);
 pragma(intrinsic, "llvm.sin.f64")
     double llvm_sin_f64(double val);
-version(X86)
-{
-pragma(intrinsic, "llvm.sin.f80")
-    real llvm_sin_f80(real val);
-}
 
-version(X86_64)
+version(Reals_80Bit)
 {
-pragma(intrinsic, "llvm.sin.f80")
-    real llvm_sin_f80(real val);
+    pragma(intrinsic, "llvm.sin.f80")
+        real llvm_sin_f80(real val);
+    alias llvm_sin_f80 llvm_sin_real;
+}
+else
+{
+    pragma(intrinsic, "llvm.sin.f64")
+        real llvm_sin_real(real val);
 }
 
 
@@ -144,16 +151,17 @@ pragma(intrinsic, "llvm.cos.f32")
     float llvm_cos_f32(float val);
 pragma(intrinsic, "llvm.cos.f64")
     double llvm_cos_f64(double val);
-version(X86)
-{
-pragma(intrinsic, "llvm.cos.f80")
-    real llvm_cos_f80(real val);
-}
 
-version(X86_64)
+version(Reals_80Bit)
 {
-pragma(intrinsic, "llvm.cos.f80")
-    real llvm_cos_f80(real val);
+    pragma(intrinsic, "llvm.cos.f80")
+        real llvm_cos_f80(real val);
+    alias llvm_cos_f80 llvm_cos_real;
+}
+else
+{
+    pragma(intrinsic, "llvm.cos.f64")
+        real llvm_cos_real(real val);
 }
 
 
@@ -164,17 +172,19 @@ pragma(intrinsic, "llvm.powi.f32")
 
 pragma(intrinsic, "llvm.powi.f64")
     double llvm_powi_f64(double val, int power);
-version(X86)
+
+version(Reals_80Bit)
 {
-pragma(intrinsic, "llvm.powi.f80")
-    real llvm_powi_f80(real val, int power);
+    pragma(intrinsic, "llvm.powi.f80")
+        real llvm_powi_f80(real val, int power);
+    alias llvm_powi_f80 llvm_powi_real;
+}
+else
+{
+    pragma(intrinsic, "llvm.powi.f64")
+        real llvm_powi_real(real val, int power);
 }
 
-version(X86_64)
-{
-pragma(intrinsic, "llvm.powi.f80")
-    real llvm_powi_f80(real val, int power);
-}
 
 // The 'llvm.pow.*' intrinsics return the first operand raised to the specified (positive or negative) power. 
 
@@ -183,16 +193,17 @@ pragma(intrinsic, "llvm.pow.f32")
 
 pragma(intrinsic, "llvm.pow.f64")
     double llvm_pow_f64(double val, double power);
-version(X86)
-{
-pragma(intrinsic, "llvm.pow.f80")
-    real llvm_pow_f80(real val, real power);
-}
 
-version(X86_64)
+version(Reals_80Bit)
 {
-pragma(intrinsic, "llvm.pow.f80")
-    real llvm_pow_f80(real val, real power);
+    pragma(intrinsic, "llvm.pow.f80")
+        real llvm_pow_f80(real val, real power);
+    alias llvm_pow_f80 llvm_pow_real;
+}
+else
+{
+    pragma(intrinsic, "llvm.pow.f64")
+        real llvm_pow_real(real val, real power);
 }
 
 
