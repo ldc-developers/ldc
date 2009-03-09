@@ -845,11 +845,15 @@ int main(int argc, char** argv)
             delete llvmModules[i];
         }
         
-        // workaround for llvm::Linker bug, see llvm #3749
+#if LLVM_REV < 66404
+        // Workaround for llvm bug #3749
+        // Not needed since LLVM r66404 (it no longer checks for this)
         llvm::GlobalVariable* ctors = linker.getModule()->getGlobalVariable("llvm.global_ctors");
-        if (ctors)
-            while (ctors->getNumUses() > 0)
-                delete *ctors->use_begin();
+        if (ctors) {
+            ctors->removeDeadConstantUsers();
+            assert(ctors->use_empty());
+        }
+#endif
         
         m->deleteObjFile();
         writeModule(linker.getModule(), filename);
