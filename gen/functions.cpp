@@ -37,8 +37,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         return llvm::cast<llvm::FunctionType>(type->ir.type->get());
     }
 
-    // Tell the ABI we're resolving a new function type
-    gABI->newFunctionType(f);
+    if (f->linkage != LINKintrinsic) {
+        // Tell the ABI we're resolving a new function type
+        gABI->newFunctionType(f);
+    }
 
     // start new ir funcTy
     f->fty.reset();
@@ -57,17 +59,18 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         Type* rt = f->next;
         unsigned a = 0;
         // sret return
-        if (gABI->returnInArg(f))
-        {
-            f->fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attribute::StructRet);
-            rt = Type::tvoid;
-            lidx++;
-        }
-        // sext/zext return
-        else if (unsigned se = DtoShouldExtend(rt))
-        {
-            a = se;
-        }
+        if (f->linkage != LINKintrinsic)
+            if (gABI->returnInArg(f))
+            {
+                f->fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attribute::StructRet);
+                rt = Type::tvoid;
+                lidx++;
+            }
+            // sext/zext return
+            else if (unsigned se = DtoShouldExtend(rt))
+            {
+                a = se;
+            }
         f->fty.ret = new IrFuncTyArg(rt, false, a);
     }
     lidx++;
@@ -145,7 +148,8 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             argtype = ltd;
         }
         // byval
-        else if (gABI->passByVal(argtype))
+        else if (f->linkage != LINKintrinsic
+                && gABI->passByVal(argtype))
         {
             if (!byref) a |= llvm::Attribute::ByVal;
             byref = true;
@@ -160,11 +164,13 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         lidx++;
     }
 
-    // let the abi rewrite the types as necesary
-    gABI->rewriteFunctionType(f);
+    if (f->linkage != LINKintrinsic) {
+        // let the abi rewrite the types as necesary
+        gABI->rewriteFunctionType(f);
 
-    // Tell the ABI we're done with this function type
-    gABI->doneWithFunctionType();
+        // Tell the ABI we're done with this function type
+        gABI->doneWithFunctionType();
+    }
 
     // build the function type
     std::vector<const LLType*> argtypes;
