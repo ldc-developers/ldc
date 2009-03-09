@@ -29,15 +29,23 @@ set(RUNTIME_DIR ${PROJECT_BINARY_DIR}/../${RUNTIME} CACHE PATH "runtime source d
 
 if(D_VERSION EQUAL 1)
 	# copy imports to runtime dir
-	set(LDC_IMPORTS ${RUNTIME_DIR}/ldc-imports)
-	add_custom_command(
-		OUTPUT ${LDC_IMPORTS}
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/import/ldc/cstdarg.di ${RUNTIME_DIR}/ldc/cstdarg.di
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/import/ldc/intrinsics.di ${RUNTIME_DIR}/ldc/intrinsics.di
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/internal/ldc/bitmanip.d ${RUNTIME_DIR}/ldc/bitmanip.d
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${PROJECT_SOURCE_DIR}/internal/ldc/vararg.d ${RUNTIME_DIR}/ldc/vararg.d
-	)
-	set_source_files_properties(${LDC_IMPORTS} PROPERTIES SYMBOLIC YES)
+	set(LDC_IMPORTS)
+	macro(imports_file SRC)
+		get_filename_component(DEST ${SRC} NAME)
+		set(SRC  ${PROJECT_SOURCE_DIR}/${SRC})
+		set(DEST ${RUNTIME_DIR}/ldc/${DEST})
+		
+		list(APPEND LDC_IMPORTS ${DEST})
+		add_custom_command(
+			OUTPUT  ${DEST}
+			DEPENDS ${SRC}
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC} ${DEST}
+		)
+	endmacro(imports_file)
+	imports_file(import/ldc/cstdarg.di)
+	imports_file(import/ldc/intrinsics.di)
+	imports_file(internal/ldc/bitmanip.d)
+	imports_file(internal/ldc/vararg.d)
 	# library names
 	set(RUNTIME_CC tango-cc-tango)
 	set(RUNTIME_GC tango-gc-basic)
@@ -109,12 +117,15 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR MOREFLAGS)
 	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${OUTDIR}/${BASENAME}.bc)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
 	list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
+	
+	# Compile
 	add_custom_command(
 		OUTPUT
 			${OUTPUT_O}
 			${OUTPUT_BC}
 		COMMAND ${LDC_LOC} -c -I${INCDIR} -output-bc ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
 		DEPENDS ${LDC_LOC}
+			${INPUT_D}
 			${LDC_IMPORTS}
 			${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
 	)
