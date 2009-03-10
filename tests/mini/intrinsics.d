@@ -9,33 +9,20 @@ void main()
     printf("Enter float: ");
     //scanf("%f", &f);
     f = 1.22345;
-    float sf = llvm_sqrt_f32(f);
+    float sf = llvm_sqrt(f);
     printf("sqrt(%f) = %f\n", f, sf);
 
     double d;
     printf("Enter double: ");
     //scanf("%lf", &d);
     d = 2.2311167895435245;
-    double sd = llvm_sqrt_f64(d);
+    double sd = llvm_sqrt(d);
     printf("sqrt(%lf) = %lf\n", d, sd);
 
     real r;
     printf("Enter real: ");
     //scanf("%llf", &r);
     r = 3.2311167891231231234754764576;
-    version(X86)
-    {
-        real sr = llvm_sqrt_f80(r);
-        printf("sqrt(%llf) = %llf\n", r, sr);
-    }
-    else version (X86_64)
-    {
-        real sr = llvm_sqrt_f80(r);
-        printf("sqrt(%llf) = %llf\n", r, sr);
-    }
-    else
-    {
-        real sr = llvm_sqrt_f64(r);
-        printf("sqrt(%f) = %lf\n", r, sr);
-    }
+    real sr = llvm_sqrt(r);
+    printf("sqrt(%Lf) = %Lf\n", r, sr);
 }
