@@ -1499,7 +1499,15 @@ namespace AsmParserx8664
                 }
 
                 if ( token->value == TOKcomma )
+                {
                     nextToken();
+                }
+                else if ( token->value == TOKint16 || token->value == TOKint32 || token->value == TOKint64 )
+                {
+                    //throw away the 'short' in "jle short Label;". Works for long also.
+                    operands[0] = operands[1];
+                    return;
+                }
                 else if ( token->value != TOKeof )
                 {
                     ok = false;
@@ -2910,6 +2918,12 @@ namespace AsmParserx8664
                     nextToken();
                     ident = Id::__dollar;
                     goto do_dollar;
+                    break;
+                case TOKint16:
+                case TOKint32:
+                case TOKint64:
+                    //This is for the 'short' in "jle short Label;"
+                    return Handled;
                     break;
                 default:
                     invalidExpression();
