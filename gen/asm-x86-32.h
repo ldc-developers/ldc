@@ -449,7 +449,7 @@ namespace AsmParserx8632
         /* Op_Fis_ST    */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // "
         /* Op_Fis_P     */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
         /* Op_Fid       */  { D|mem, 0,    0,    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
-        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
+        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST, Op_FfdRR_P }, // push and pop, fild so also 64 bit
         /* Op_Ffd       */  { D|mfp, 0,    0,    FP_Types, 0, Next_Form, Op_FfdR }, // only 16bit and 32bit, DMD defaults to 16bit, reg form doesn't need type
         /* Op_FfdR      */  { D|rfp, 0,    0  },
         /* Op_Ffd_P     */  { D|mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
@@ -1377,7 +1377,15 @@ namespace AsmParserx8632
                 }
 
                 if ( token->value == TOKcomma )
+                {
                     nextToken();
+                }
+		else if ( token->value == TOKint16 || token->value == TOKint32 )
+                {
+		    //throw away the 'short' in "jle short label;". Works for 'long' also.
+		    operands[0] = operands[1];
+                    return;
+                }
                 else if ( token->value != TOKeof )
                 {
                     ok = false;
@@ -2784,6 +2792,10 @@ namespace AsmParserx8632
                     ident = Id::__dollar;
                     goto do_dollar;
                     break;
+	        case TOKint16:
+	        case TOKint32:
+		    //This if for the 'short' in "jle short Label;"
+		    return Handled;
                 default:
                     invalidExpression();
                     return Handled;
