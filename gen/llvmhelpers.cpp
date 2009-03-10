@@ -1541,8 +1541,8 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
                     name.c_str(), T->toChars(),
                     (name[pos-1] == 'i' ? "n integral" : " floating-point"));
             } else {
-                // Just plain wrong.
-                ti->error("has an invalid intrinsic name: %s", name.c_str());
+                // Just plain wrong. (Error in declaration, not instantiation)
+                td->error("has an invalid intrinsic name: %s", name.c_str());
             }
             fatal(); // or LLVM asserts
         }
