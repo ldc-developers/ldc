@@ -525,8 +525,8 @@ namespace AsmParserx8664
         /* Op_Fis_ST    */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // "
         /* Op_Fis_P     */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
         /* Op_Fid       */  { D|mem, 0,    0,    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
-        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST, Op_FidR_P }, // push and pop, fild so also 64 bit
-        /* Op_Fid_P     */  { D|mem|mem,rfp, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
+        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST, Next_Form, Op_FidR_P }, // push and pop, fild so also 64 bit
+        /* Op_FidR_P    */  { D|mem,rfp,0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
         /* Op_Ffd       */  { D|mfp, 0,    0,    FP_Types, 0, Next_Form, Op_FfdR }, // only 16bit and 32bit, DMD defaults to 16bit, reg form doesn't need type
         /* Op_FfdR      */  { D|rfp, 0,    0  },
         /* Op_Ffd_P     */  { D|mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
@@ -817,8 +817,8 @@ namespace AsmParserx8664
         { "fincstp",Op_F0_P },
         { "finit",  Op_F0_P },
         { "fist",   Op_Fid }, // only 16,32bit
-        { "fistp",  Op_FidR_P },
-        { "fisttp", Op_FidR_P },
+        { "fistp",  Op_Fid_P },
+        { "fisttp", Op_Fid_P },
         { "fisub",  Op_Fis_ST },
         { "fisubr", Op_Fis_ST },
         { "fld",    Op_fld },
@@ -1549,7 +1549,7 @@ namespace AsmParserx8664
                 classifyOperand ( & operands[i] );
 
             while ( 1 )
-            {
+                {
                 if ( nOperands == opInfo->nOperands() )
                 {
                     wrong_number = false;
@@ -1886,14 +1886,14 @@ namespace AsmParserx8664
                 if ( operands[0].dataSize == Far_Ptr ) // %% type=Far_Ptr not set by Seg:Ofss OTOH, we don't support that..
                     insnTemplate->writebyte ( 'l' );
             }
-            else if ( op == Op_fxch || op == Op_FfdRR_P || Op_FidR_P)
+            else if ( op == Op_fxch || op == Op_FfdRR_P || op == Op_FidR_P )
             {
-                // gas won't accept the two-operand form
-                if ( operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
+                if ( operands[0].cls == Opr_Mem && op == Op_FidR_P )
                 {
                     nOperands = 1;
                 }
-                else if ( operands[1].cls == Opr_Mem && operands[1].reg == Reg_ST )
+                // gas won't accept the two-operand form
+                else if ( operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
                 {
                     nOperands = 1;
                 }
