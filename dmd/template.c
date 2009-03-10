@@ -3186,6 +3186,14 @@ void TemplateInstance::semantic(Scope *sc)
 	    {
 		//printf("setting aliasdecl\n");
 		aliasdecl = new AliasDeclaration(loc, s->ident, s);
+
+                // LDC propagate internal information
+                if (tempdecl->llvmInternal) {
+                    s->llvmInternal = tempdecl->llvmInternal;
+                    if (FuncDeclaration* fd = s->isFuncDeclaration()) {
+                        fd->intrinsicName = tempdecl->intrinsicName;
+                    }
+                }
 	    }
 	}
     }
