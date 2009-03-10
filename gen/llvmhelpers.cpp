@@ -1516,19 +1516,37 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     assert(ti->tdtypes.dim == 1);
     Type* T = (Type*)ti->tdtypes.data[0];
 
-    char tmp[10];
-    if (T->toBasetype()->ty == Tbool) // otherwise we'd get a mismatch
-        sprintf(tmp, "1");
-    else
-        sprintf(tmp, "%lu", T->size()*8);
+    char prefix = T->isreal() ? 'f' : T->isintegral() ? 'i' : 0;
+    if (!prefix) {
+        ti->error("has invalid template parameter for intrinsic: %s", T->toChars());
+        fatal(); // or LLVM asserts
+    }
+
+    char tmp[21]; // probably excessive, but covers a uint64_t
+    sprintf(tmp, "%lu", gTargetData->getTypeSizeInBits(DtoType(T)));
     
     // replace # in name with bitsize
     name = td->intrinsicName;
 
     std::string needle("#");
     size_t pos;
-    while(std::string::npos != (pos = name.find(needle)))
-        name.replace(pos, 1, tmp);
+    while(std::string::npos != (pos = name.find(needle))) {
+        if (pos > 0 && name[pos-1] == prefix) {
+            // Properly prefixed, insert bitwidth.
+            name.replace(pos, 1, tmp);
+        } else {
+            if (pos && (name[pos-1] == 'i' || name[pos-1] == 'f')) {
+                // Wrong type character.
+                ti->error("has invalid parameter type for intrinsic %s: %s is not a%s type",
+                    name.c_str(), T->toChars(),
+                    (name[pos-1] == 'i' ? "n integral" : " floating-point"));
+            } else {
+                // Just plain wrong.
+                ti->error("has an invalid intrinsic name: %s", name.c_str());
+            }
+            fatal(); // or LLVM asserts
+        }
+    }
     
     Logger::println("final intrinsic name: %s", name.c_str());
 }
