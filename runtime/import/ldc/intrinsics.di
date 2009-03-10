@@ -19,11 +19,6 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(X86)
-    version = Reals_80Bit;
-else version(X86_64)
-    version = Reals_80Bit;
-
 //
 // CODE GENERATOR INTRINSICS
 //
@@ -106,11 +101,13 @@ pragma(intrinsic, "llvm.readcyclecounter")
 // Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
 // not return a value, and takes an extra alignment argument.
 
-pragma(intrinsic, "llvm.memcpy.i32")
-    void llvm_memcpy_i32(void* dst, void* src, uint len, uint alignment);
+pragma(intrinsic, "llvm.memcpy.i#")
+    void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment);
 
-pragma(intrinsic, "llvm.memcpy.i64")
-    void llvm_memcpy_i64(void* dst, void* src, ulong len, uint alignment);
+deprecated {
+    alias llvm_memcpy!(uint)  llvm_memcpy_i32;
+    alias llvm_memcpy!(ulong) llvm_memcpy_i64;
+}
 
 
 // The 'llvm.memmove.*' intrinsics move a block of memory from the source
@@ -119,11 +116,13 @@ pragma(intrinsic, "llvm.memcpy.i64")
 // Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
 // do not return a value, and takes an extra alignment argument.
 
-pragma(intrinsic, "llvm.memmove.i32")
-    void llvm_memmove_i32(void* dst, void* src, uint len, uint alignment);
+pragma(intrinsic, "llvm.memmove.i#")
+    void llvm_memmove(T)(void* dst, void* src, T len, uint alignment);
 
-pragma(intrinsic, "llvm.memmove.i64")
-    void llvm_memmove_i64(void* dst, void* src, ulong len, int alignment);
+deprecated {
+    alias llvm_memmove!(uint)  llvm_memmove_i32;
+    alias llvm_memmove!(ulong) llvm_memmove_i64;
+}
 
 
 // The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
@@ -131,11 +130,13 @@ pragma(intrinsic, "llvm.memmove.i64")
 // Note that, unlike the standard libc function, the llvm.memset intrinsic does
 // not return a value, and takes an extra alignment argument.
 
-pragma(intrinsic, "llvm.memset.i32")
-    void llvm_memset_i32(void* dst, ubyte val, uint len, uint alignment);
+pragma(intrinsic, "llvm.memset.i#")
+    void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment);
 
-pragma(intrinsic, "llvm.memset.i64")
-    void llvm_memset_i64(void* dst, ubyte val, ulong len, uint alignment);
+deprecated {
+    alias llvm_memset!(uint)  llvm_memset_i32;
+    alias llvm_memset!(ulong) llvm_memset_i64;
+}
 
 
 // The 'llvm.sqrt' intrinsics return the sqrt of the specified operand,
@@ -145,64 +146,37 @@ pragma(intrinsic, "llvm.memset.i64")
 // worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like
 // IEEE sqrt.
 
-pragma(intrinsic, "llvm.sqrt.f32")
-    float llvm_sqrt_f32(float val);
+pragma(intrinsic, "llvm.sqrt.f#")
+    T llvm_sqrt(T)(T val);
 
-pragma(intrinsic, "llvm.sqrt.f64")
-    double llvm_sqrt_f64(double val);
-
-version(Reals_80Bit)
-{
-    pragma(intrinsic, "llvm.sqrt.f80")
-        real llvm_sqrt_f80(real val);
-    alias llvm_sqrt_f80 llvm_sqrt_real;
-}
-else
-{
-    pragma(intrinsic, "llvm.sqrt.f64")
-        real llvm_sqrt_real(real val);
+deprecated {
+    alias llvm_sqrt!(float)  llvm_sqrt_f32;
+    alias llvm_sqrt!(double) llvm_sqrt_f64;
+    alias llvm_sqrt!(real)   llvm_sqrt_f80;     // may not actually be .f80
 }
 
 
 // The 'llvm.sin.*' intrinsics return the sine of the operand.
 
-pragma(intrinsic, "llvm.sin.f32")
-    float llvm_sin_f32(float val);
+pragma(intrinsic, "llvm.sin.f#")
+    T llvm_sin(T)(T val);
 
-pragma(intrinsic, "llvm.sin.f64")
-    double llvm_sin_f64(double val);
-
-version(Reals_80Bit)
-{
-    pragma(intrinsic, "llvm.sin.f80")
-        real llvm_sin_f80(real val);
-    alias llvm_sin_f80 llvm_sin_real;
-}
-else
-{
-    pragma(intrinsic, "llvm.sin.f64")
-        real llvm_sin_real(real val);
+deprecated {
+    alias llvm_sin!(float)  llvm_sin_f32;
+    alias llvm_sin!(double) llvm_sin_f64;
+    alias llvm_sin!(real)   llvm_sin_f80;       // may not actually be .f80
 }
 
 
 // The 'llvm.cos.*' intrinsics return the cosine of the operand.
 
-pragma(intrinsic, "llvm.cos.f32")
-    float llvm_cos_f32(float val);
+pragma(intrinsic, "llvm.cos.f#")
+    T llvm_cos(T)(T val);
 
-pragma(intrinsic, "llvm.cos.f64")
-    double llvm_cos_f64(double val);
-
-version(Reals_80Bit)
-{
-    pragma(intrinsic, "llvm.cos.f80")
-        real llvm_cos_f80(real val);
-    alias llvm_cos_f80 llvm_cos_real;
-}
-else
-{
-    pragma(intrinsic, "llvm.cos.f64")
-        real llvm_cos_real(real val);
+deprecated {
+    alias llvm_cos!(float)  llvm_cos_f32;
+    alias llvm_cos!(double) llvm_cos_f64;
+    alias llvm_cos!(real)   llvm_cos_f80;       // may not actually be .f80
 }
 
 
@@ -211,44 +185,26 @@ else
 // not defined. When a vector of floating point type is used, the second
 // argument remains a scalar integer value.
 
-pragma(intrinsic, "llvm.powi.f32")
-    float llvm_powi_f32(float val, int power);
+pragma(intrinsic, "llvm.powi.f#")
+    T llvm_powi(T)(T val, int power);
 
-pragma(intrinsic, "llvm.powi.f64")
-    double llvm_powi_f64(double val, int power);
-
-version(Reals_80Bit)
-{
-    pragma(intrinsic, "llvm.powi.f80")
-        real llvm_powi_f80(real val, int power);
-    alias llvm_powi_f80 llvm_powi_real;
-}
-else
-{
-    pragma(intrinsic, "llvm.powi.f64")
-        real llvm_powi_real(real val, int power);
+deprecated {
+    alias llvm_powi!(float)  llvm_powi_f32;
+    alias llvm_powi!(double) llvm_powi_f64;
+    alias llvm_powi!(real)   llvm_powi_f80;     // may not actually be .f80
 }
 
 
 // The 'llvm.pow.*' intrinsics return the first operand raised to the specified
 // (positive or negative) power.
 
-pragma(intrinsic, "llvm.pow.f32")
-    float llvm_pow_f32(float val, float power);
+pragma(intrinsic, "llvm.pow.f#")
+    T llvm_pow(T)(T val, T power);
 
-pragma(intrinsic, "llvm.pow.f64")
-    double llvm_pow_f64(double val, double power);
-
-version(Reals_80Bit)
-{
-    pragma(intrinsic, "llvm.pow.f80")
-        real llvm_pow_f80(real val, real power);
-    alias llvm_pow_f80 llvm_pow_real;
-}
-else
-{
-    pragma(intrinsic, "llvm.pow.f64")
-        real llvm_pow_real(real val, real power);
+deprecated {
+    alias llvm_pow!(float)  llvm_pow_f32;
+    alias llvm_pow!(double) llvm_pow_f64;
+    alias llvm_pow!(real)   llvm_pow_f80;       // may not actually be .f80
 }
 
 
@@ -261,79 +217,71 @@ else
 // useful for performing operations on data that is not in the target's native
 // byte order.
 
-pragma(intrinsic, "llvm.bswap.i16.i16")
-    ushort llvm_bswap_i16(ushort val);
+pragma(intrinsic, "llvm.bswap.i#.i#")
+    T llvm_bswap(T)(T val);
 
-pragma(intrinsic, "llvm.bswap.i32.i32")
-    uint llvm_bswap_i32(uint val);
-
-pragma(intrinsic, "llvm.bswap.i64.i64")
-    ulong llvm_bswap_i64(ulong val);
+deprecated {
+    alias llvm_bswap!(ushort) llvm_bswap_i16;
+    alias llvm_bswap!(uint)   llvm_bswap_i32;
+    alias llvm_bswap!(ulong)  llvm_bswap_i64;
+}
 
 
 // The 'llvm.ctpop' family of intrinsics counts the number of bits set in a
 // value.
 
-pragma(intrinsic, "llvm.ctpop.i8")
-    ubyte llvm_ctpop_i8(ubyte src);
+pragma(intrinsic, "llvm.ctpop.i#")
+    T llvm_ctpop(T)(T src);
 
-pragma(intrinsic, "llvm.ctpop.i16")
-    ushort llvm_ctpop_i16(ushort src);
-
-pragma(intrinsic, "llvm.ctpop.i32")
-    uint llvm_ctpop_i32(uint src);
-
-pragma(intrinsic, "llvm.ctpop.i64")
-    ulong llvm_ctpop_i64(ulong src);
+deprecated {
+    alias llvm_ctpop!(ubyte)  llvm_ctpop_i8;
+    alias llvm_ctpop!(ushort) llvm_ctpop_i16;
+    alias llvm_ctpop!(uint)   llvm_ctpop_i32;
+    alias llvm_ctpop!(ulong)  llvm_ctpop_i64;
+}
 
 
 // The 'llvm.ctlz' family of intrinsic functions counts the number of leading
 // zeros in a variable.
 
-pragma(intrinsic, "llvm.ctlz.i8")
-    ubyte llvm_ctlz_i8(ubyte src);
+pragma(intrinsic, "llvm.ctlz.i#")
+    T llvm_ctlz(T)(T src);
 
-pragma(intrinsic, "llvm.ctlz.i16")
-    ushort llvm_ctlz_i16(ushort src);
-
-pragma(intrinsic, "llvm.ctlz.i32")
-    uint llvm_ctlz_i32(uint src);
-
-pragma(intrinsic, "llvm.ctlz.i64")
-    ulong llvm_ctlz_i64(ulong src);
+deprecated {
+    alias llvm_ctlz!(ubyte)  llvm_ctlz_i8;
+    alias llvm_ctlz!(ushort) llvm_ctlz_i16;
+    alias llvm_ctlz!(uint)   llvm_ctlz_i32;
+    alias llvm_ctlz!(ulong)  llvm_ctlz_i64;
+}
 
 
 // The 'llvm.cttz' family of intrinsic functions counts the number of trailing
 // zeros.
 
-pragma(intrinsic, "llvm.cttz.i8")
-    ubyte llvm_cttz_i8(ubyte src);
+pragma(intrinsic, "llvm.cttz.i#")
+    T llvm_cttz(T)(T src);
 
-pragma(intrinsic, "llvm.cttz.i16")
-    ushort llvm_cttz_i16(ushort src);
-
-pragma(intrinsic, "llvm.cttz.i32")
-    uint llvm_cttz_i32(uint src);
-
-pragma(intrinsic, "llvm.cttz.i64")
-    ulong llvm_cttz_i64(ulong src);
+deprecated {
+    alias llvm_cttz!(ubyte)  llvm_cttz_i8;
+    alias llvm_cttz!(ushort) llvm_cttz_i16;
+    alias llvm_cttz!(uint)   llvm_cttz_i32;
+    alias llvm_cttz!(ulong)  llvm_cttz_i64;
+}
 
 
 // The 'llvm.part.select' family of intrinsic functions selects a range of bits
 // from an integer value and returns them in the same bit width as the original
 // value.
 
-pragma(intrinsic, "llvm.part.select.i8")
-    ubyte llvm_part_select_i(ubyte val, uint loBit, uint hiBit);
+pragma(intrinsic, "llvm.part.select.i#")
+    T llvm_part_select(T)(T val, uint loBit, uint hiBit);
 
-pragma(intrinsic, "llvm.part.select.i16")
-    ushort llvm_part_select_i(ushort val, uint loBit, uint hiBit);
-
-pragma(intrinsic, "llvm.part.select.i32")
-    uint llvm_part_select_i(uint val, uint loBit, uint hiBit);
-
-pragma(intrinsic, "llvm.part.select.i64")
-    ulong llvm_part_select_i(ulong val, uint loBit, uint hiBit);
+deprecated {
+    alias llvm_part_select!(ubyte)  llvm_part_select_i;
+    alias llvm_part_select!(ushort) llvm_part_select_i;
+    alias llvm_part_select!(uint)   llvm_part_select_i;
+    alias llvm_part_select!(ulong)  llvm_part_select_i;
+}
 
 
 // The 'llvm.part.set' family of intrinsic functions replaces a range of bits
