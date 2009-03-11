@@ -17,7 +17,7 @@ namespace AsmParserx8664
         Reg_EDI,
         Reg_EBP,
         Reg_ESP,
-        Reg_ST, Reg_ST0,
+        Reg_ST,
         Reg_ST1, Reg_ST2, Reg_ST3, Reg_ST4, Reg_ST5, Reg_ST6, Reg_ST7,
         Reg_MM0, Reg_MM1, Reg_MM2, Reg_MM3, Reg_MM4, Reg_MM5, Reg_MM6, Reg_MM7,
         Reg_XMM0, Reg_XMM1, Reg_XMM2, Reg_XMM3, Reg_XMM4, Reg_XMM5, Reg_XMM6, Reg_XMM7,
@@ -45,7 +45,7 @@ namespace AsmParserx8664
         Reg_TR3, Reg_TR4, Reg_TR5, Reg_TR6, Reg_TR7
     } Reg;
 
-    static const int N_Regs = /*gp*/ 8 + /*fp*/ 9 + /*mmx*/ 8 + /*sse*/ 8 +
+    static const int N_Regs = /*gp*/ 8 + /*fp*/ 8 + /*mmx*/ 8 + /*sse*/ 8 +
                                      /*seg*/ 6 + /*16bit*/ 8 + /*8bit*/ 8 + /*sys*/ 4+6+5 + /*flags*/ + 1
                                      + 8 /*RAX, etc*/
                                      + 8 /*R8-15*/
@@ -78,7 +78,6 @@ namespace AsmParserx8664
         { "EBP", NULL_TREE, NULL, 4,  Reg_EBP },
         { "ESP", NULL_TREE, NULL, 4,  Reg_ESP },
         { "ST", NULL_TREE, NULL,   10, Reg_ST },
-        { "ST(0)", NULL_TREE, NULL,   10, Reg_ST0 },
         { "ST(1)", NULL_TREE, NULL,10, Reg_ST1 },
         { "ST(2)", NULL_TREE, NULL,10, Reg_ST2 },
         { "ST(3)", NULL_TREE, NULL,10, Reg_ST3 },
@@ -293,7 +292,10 @@ namespace AsmParserx8664
         Op_Fd_P,
         Op_FdST,
         Op_FMath,
+        Op_FMath0,
+        Op_FMath2,
         Op_FdSTiSTi,
+        Op_FdST0ST1,
         Op_FPMath,
         Op_FCmp,
         Op_FCmp1,
@@ -534,8 +536,11 @@ namespace AsmParserx8664
         /* Op_FfdRR_P    */ { D|mfp|rfp,rfp,0,   0, Clb_ST },
         /* Op_Fd_P      */  { D|mem, 0,    0,    0, Clb_ST }, // "
         /* Op_FdST      */  { D|rfp, 0,    0  },
-        /* Op_FMath     */  {   mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FdSTiSTi  }, // and only single or double prec
+        /* Op_FMath     */  {   mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
+        /* Op_FMath0    */  { 0,     0,    0,    0,     Clb_ST, Next_Form, Op_FMath2 }, // pops
+        /* Op_FMath2     */ { D|rfp, rfp,  0,    0,     Clb_ST, Next_Form, Op_FdST0ST1  }, // and only single or double prec
         /* Op_FdSTiSTi  */  { D|rfp, rfp,  0, },
+        /* Op_FdST0ST1  */  { 0, 0,  0, },
         /* Op_FPMath    */  { D|rfp, rfp,  0,    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
         /* Op_FCmp      */  {   mfp, 0,    0,    FP_Types, 0,      Next_Form, Op_FCmp1 }, // DMD defaults to float ptr
         /* Op_FCmp1     */  {   rfp, 0,    0,    0,        0,      Next_Form, Op_0 },
@@ -1484,6 +1489,38 @@ namespace AsmParserx8664
             opInfo = & asmOpInfo[op];
             memset ( operands, 0, sizeof ( operands ) );
 
+            if ( token->value == TOKeof && ( op == Op_FMath0) )
+            {
+                for ( operand_i = 0; operand_i < 1; operand_i++)
+                {
+                    operand = & operands[operand_i];
+                    operand->reg = operand->baseReg = operand->indexReg =
+                                                          operand->segmentPrefix = Reg_Invalid;
+
+                    operand->cls = Opr_Reg;
+                    if ( operand_i == 0)
+                    {
+                        operand->reg = Reg_ST;
+                    }
+                    else
+                    {
+                        operand->reg = Reg_ST1;
+                    }
+                    operand->hasNumber = 0;
+                    operand->constDisplacement = 0;
+                    parseOperand();
+
+                    if ( matchOperands ( operand_i ) )
+                    {
+                        AsmCode * asmcode = new AsmCode ( N_Regs );
+                        
+                        if ( formatInstruction ( operand_i, asmcode ) )
+                            stmt->asmcode = ( code * ) asmcode;
+                    }
+                }
+                return;
+            }
+
             while ( token->value != TOKeof )
             {
                 if ( operand_i < Max_Operands )
@@ -1549,7 +1586,7 @@ namespace AsmParserx8664
                 classifyOperand ( & operands[i] );
 
             while ( 1 )
-                {
+            {
                 if ( nOperands == opInfo->nOperands() )
                 {
                     wrong_number = false;
@@ -1710,7 +1747,7 @@ namespace AsmParserx8664
 
                 return Opr_Mem;
             }
-
+            
             if ( operand->reg != Reg_Invalid && ! operand->hasNumber )
                 return Opr_Reg;
 
@@ -1821,7 +1858,7 @@ namespace AsmParserx8664
                 mnemonic = alternateMnemonics[opInfo->link];
             else
                 mnemonic = opIdent->string;
-
+            
             if ( opInfo->needsType )
             {
                 PtrType exact_type = Default_Ptr;
@@ -1897,15 +1934,23 @@ namespace AsmParserx8664
                 {
                     nOperands = 1;
                 }
-                else if ( operands[0].cls == Opr_Reg && (operands[0].reg == Reg_ST1 || operands[0].reg == Reg_ST || operands[0].reg == Reg_ST0 ))
+                else if ( operands[0].cls == Opr_Reg && (operands[0].reg == Reg_ST1 || operands[0].reg == Reg_ST ))
                 {
-                    //fix previous update to to allow single operand form of fstp
+                    //fix previous update to allow single operand form of fstp
                 }
                 else
                 {
                     stmt->error ( "invalid operands" );
                     return false;
                 }
+            }
+            else if ( op == Op_FMath0 || op == Op_FdST0ST1 )
+            {
+                operands[0].cls = Opr_Reg;
+                operands[0].reg = Reg_ST;
+                operands[1].cls = Opr_Reg;
+                operands[1].reg = Reg_ST1;
+                nOperands = 2;
             }
 
             switch ( op )
@@ -2009,7 +2054,6 @@ namespace AsmParserx8664
                    operand it would work...  In any case, clobbering
                    all FP prevents incorrect code generation. */
                 asmcode->regs[Reg_ST] = true;
-                asmcode->regs[Reg_ST0] = true;
                 asmcode->regs[Reg_ST1] = true;
                 asmcode->regs[Reg_ST2] = true;
                 asmcode->regs[Reg_ST3] = true;
@@ -2938,6 +2982,8 @@ namespace AsmParserx8664
                     return Handled;
                     break;
                 default:
+                    if ( op == Op_FMath0 || op == Op_FdST0ST1 || op == Op_FMath )
+                        return Handled;
                     invalidExpression();
                     return Handled;
             }
