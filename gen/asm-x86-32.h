@@ -1945,6 +1945,7 @@ namespace AsmParserx8632
             if ( op == Op_cpuid )
             {
                 asmcode->regs[Reg_EAX] = true;
+                asmcode->regs[Reg_EBX] = true;
                 asmcode->regs[Reg_ECX] = true;
                 asmcode->regs[Reg_EDX] = true;
             }
