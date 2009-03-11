@@ -218,7 +218,10 @@ namespace AsmParserx8632
         Op_Fd_P,
         Op_FdST,
         Op_FMath,
+        Op_FMath0,
+        Op_FMath2,
         Op_FdSTiSTi,
+        Op_FdST0ST1,
         Op_FPMath,
         Op_FCmp,
         Op_FCmp1,
@@ -459,8 +462,11 @@ namespace AsmParserx8632
         /* Op_FfdRR_P    */ { D|mfp|rfp,rfp,0,   0, Clb_ST },
         /* Op_Fd_P      */  { D|mem, 0,    0,    0, Clb_ST }, // "
         /* Op_FdST      */  { D|rfp, 0,    0  },
-        /* Op_FMath     */  {   mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FdSTiSTi  }, // and only single or double prec
+        /* Op_FMath     */  { mfp,   0,    0,    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
+        /* Op_FMath0     */ { 0,     0,    0,    0,  Clb_ST, Next_Form, Op_FMath2  },
+        /* Op_FMath2     */ { D|rfp, rfp,  0,    0,  Clb_ST, Next_Form, Op_FdST0ST1  }, 
         /* Op_FdSTiSTi  */  { D|rfp, rfp,  0, },
+        /* Op_FdST0ST1  */  { 0, 0,  0, },
         /* Op_FPMath    */  { D|rfp, rfp,  0,    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
         /* Op_FCmp      */  {   mfp, 0,    0,    FP_Types, 0,      Next_Form, Op_FCmp1 }, // DMD defaults to float ptr
         /* Op_FCmp1     */  {   rfp, 0,    0,    0,        0,      Next_Form, Op_0 },
@@ -1361,6 +1367,38 @@ namespace AsmParserx8632
             opInfo = & asmOpInfo[op];
             memset ( operands, 0, sizeof ( operands ) );
 
+            if ( token->value == TOKeof && (op == Op_FMath0 ))
+            {
+                for (operand_i = 0; operand_i < 0; operand_i++)
+                {
+                    operand = & operands[operand_i];
+                    operand->reg = operand->baseReg = operand->indexReg =
+                                                          operand->segmentPrefix = Reg_Invalid;
+                    operand->cls = Opr_Reg;
+                    if (operand_i == 0)
+                    {
+                        operand->reg = Reg_ST;
+                    }
+                    else
+                    {
+                        operand->reg = Reg_ST1;
+                    }
+                    operand->hasNumber = 0;
+                    operand->constDisplacement = 0;
+                    parseOperand();
+                    
+                    if ( matchOperands ( operand_i ) )
+                    {
+                        AsmCode * asmcode = new AsmCode ( N_Regs );
+                        
+                        if ( formatInstruction ( operand_i, asmcode ) )
+                            stmt->asmcode = ( code * ) asmcode;
+                    }
+                    
+                }
+                return;
+            }
+
             while ( token->value != TOKeof )
             {
                 if ( operand_i < Max_Operands )
@@ -1783,6 +1821,14 @@ namespace AsmParserx8632
                     stmt->error ( "invalid operands" );
                     return false;
                 }
+            }
+            else if ( op == Op_FMath0 || op == Op_FdST0ST1 )
+            {
+                operands[0].cls = Opr_Reg;
+                operands[0].reg = Reg_ST;
+                operands[1].cls = Opr_Reg;
+                operands[1].reg = Reg_ST1;
+                nOperands = 2;
             }
 
             switch ( op )
@@ -2811,6 +2857,8 @@ namespace AsmParserx8632
 		    //This if for the 'short' in "jle short Label;"
 		    return Handled;
                 default:
+                    if ( op == Op_FMath0 || op == Op_FdST0ST1 || op == Op_FMath )
+                        return Handled;
                     invalidExpression();
                     return Handled;
             }
