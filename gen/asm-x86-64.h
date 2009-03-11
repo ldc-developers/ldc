@@ -2181,9 +2181,11 @@ namespace AsmParserx8664
 
                         if ( operand->segmentPrefix != Reg_Invalid || operand->constDisplacement )
                         {
-                            insnTemplate->printf ( "%d", operand->constDisplacement );
                             if ( operand->symbolDisplacement.dim )
+                            {
+                                insnTemplate->printf ( "%d", operand->constDisplacement );
                                 insnTemplate->writebyte ( '+' );
+                            }
                             //addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
                             if ( opInfo->operands[i] & Opr_Dest )
                                 asmcode->clobbersMemory = 1;
@@ -2308,6 +2310,12 @@ namespace AsmParserx8664
                         }
                         if ( use_star )
                             insnTemplate->writebyte ( '*' );
+                        if ( operand->segmentPrefix != Reg_Invalid || !(operand->constDisplacement))
+                        {
+                            insnTemplate->printf ( "%d", operand->constDisplacement );
+                            if ( opInfo->operands[i] & Opr_Dest )
+                                asmcode->clobbersMemory = 1;
+                        }
                         if ( operand->baseReg != Reg_Invalid || operand->indexReg != Reg_Invalid )
                         {
                             insnTemplate->writebyte ( '(' );
