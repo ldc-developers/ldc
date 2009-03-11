@@ -17,7 +17,7 @@ namespace AsmParserx8664
         Reg_EDI,
         Reg_EBP,
         Reg_ESP,
-        Reg_ST,
+        Reg_ST, Reg_ST0,
         Reg_ST1, Reg_ST2, Reg_ST3, Reg_ST4, Reg_ST5, Reg_ST6, Reg_ST7,
         Reg_MM0, Reg_MM1, Reg_MM2, Reg_MM3, Reg_MM4, Reg_MM5, Reg_MM6, Reg_MM7,
         Reg_XMM0, Reg_XMM1, Reg_XMM2, Reg_XMM3, Reg_XMM4, Reg_XMM5, Reg_XMM6, Reg_XMM7,
@@ -45,7 +45,7 @@ namespace AsmParserx8664
         Reg_TR3, Reg_TR4, Reg_TR5, Reg_TR6, Reg_TR7
     } Reg;
 
-    static const int N_Regs = /*gp*/ 8 + /*fp*/ 8 + /*mmx*/ 8 + /*sse*/ 8 +
+    static const int N_Regs = /*gp*/ 8 + /*fp*/ 9 + /*mmx*/ 8 + /*sse*/ 8 +
                                      /*seg*/ 6 + /*16bit*/ 8 + /*8bit*/ 8 + /*sys*/ 4+6+5 + /*flags*/ + 1
                                      + 8 /*RAX, etc*/
                                      + 8 /*R8-15*/
@@ -78,6 +78,7 @@ namespace AsmParserx8664
         { "EBP", NULL_TREE, NULL, 4,  Reg_EBP },
         { "ESP", NULL_TREE, NULL, 4,  Reg_ESP },
         { "ST", NULL_TREE, NULL,   10, Reg_ST },
+        { "ST(0)", NULL_TREE, NULL,   10, Reg_ST0 },
         { "ST(1)", NULL_TREE, NULL,10, Reg_ST1 },
         { "ST(2)", NULL_TREE, NULL,10, Reg_ST2 },
         { "ST(3)", NULL_TREE, NULL,10, Reg_ST3 },
@@ -283,6 +284,7 @@ namespace AsmParserx8664
         Op_Fis_P,
         Op_Fid,
         Op_Fid_P,
+        Op_FidR_P,
         Op_Ffd,
         Op_FfdR,
         Op_Ffd_P,
@@ -523,7 +525,8 @@ namespace AsmParserx8664
         /* Op_Fis_ST    */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // "
         /* Op_Fis_P     */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
         /* Op_Fid       */  { D|mem, 0,    0,    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
-        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
+        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST, Next_Form, Op_FidR_P }, // push and pop, fild so also 64 bit
+        /* Op_FidR_P    */  { D|mem,rfp,0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
         /* Op_Ffd       */  { D|mfp, 0,    0,    FP_Types, 0, Next_Form, Op_FfdR }, // only 16bit and 32bit, DMD defaults to 16bit, reg form doesn't need type
         /* Op_FfdR      */  { D|rfp, 0,    0  },
         /* Op_Ffd_P     */  { D|mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
@@ -1546,7 +1549,7 @@ namespace AsmParserx8664
                 classifyOperand ( & operands[i] );
 
             while ( 1 )
-            {
+                {
                 if ( nOperands == opInfo->nOperands() )
                 {
                     wrong_number = false;
@@ -1883,12 +1886,20 @@ namespace AsmParserx8664
                 if ( operands[0].dataSize == Far_Ptr ) // %% type=Far_Ptr not set by Seg:Ofss OTOH, we don't support that..
                     insnTemplate->writebyte ( 'l' );
             }
-            else if ( op == Op_fxch || op == Op_FfdRR_P)
+            else if ( op == Op_fxch || op == Op_FfdRR_P || op == Op_FidR_P )
             {
-                // gas won't accept the two-operand form
-                if ( operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
+                if ( operands[0].cls == Opr_Mem && op == Op_FidR_P )
                 {
                     nOperands = 1;
+                }
+                // gas won't accept the two-operand form
+                else if ( operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
+                {
+                    nOperands = 1;
+                }
+                else if ( operands[0].cls == Opr_Reg && (operands[0].reg == Reg_ST1 || operands[0].reg == Reg_ST || operands[0].reg == Reg_ST0 ))
+                {
+                    //fix previous update to to allow single operand form of fstp
                 }
                 else
                 {
@@ -1998,6 +2009,7 @@ namespace AsmParserx8664
                    operand it would work...  In any case, clobbering
                    all FP prevents incorrect code generation. */
                 asmcode->regs[Reg_ST] = true;
+                asmcode->regs[Reg_ST0] = true;
                 asmcode->regs[Reg_ST1] = true;
                 asmcode->regs[Reg_ST2] = true;
                 asmcode->regs[Reg_ST3] = true;
