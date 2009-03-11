@@ -2310,7 +2310,7 @@ namespace AsmParserx8664
                         }
                         if ( use_star )
                             insnTemplate->writebyte ( '*' );
-                        if ( operand->segmentPrefix != Reg_Invalid || !(operand->constDisplacement))
+                        if ( operand->segmentPrefix != Reg_Invalid && !(operand->constDisplacement))
                         {
                             insnTemplate->printf ( "%d", operand->constDisplacement );
                             if ( opInfo->operands[i] & Opr_Dest )
