@@ -1572,6 +1572,7 @@ namespace AsmParserx8664
         {
             AsmCode * asmcode = new AsmCode ( N_Regs );
             asmcode->insnTemplate = insnTemplate.str();
+            Logger::cout() << "insnTemplate = " << asmcode->insnTemplate << '\n';
             stmt->asmcode = ( code* ) asmcode;
         }
 
@@ -2170,21 +2171,34 @@ namespace AsmParserx8664
 
                         use_star = opTakesLabel();//opInfo->takesLabel();
 
-                        if ( operand->segmentPrefix != Reg_Invalid || operand->constDisplacement )
-                        {
-                            if ( operand->symbolDisplacement.dim )
-                            {
-                                insnTemplate << operand->constDisplacement << '+';
+                        if (Logger::enabled()) {
+                            Logger::cout() << "Opr_Mem\n";
+                            LOG_SCOPE
+                            Logger::cout() << "baseReg: " << operand->baseReg << '\n';
+                            Logger::cout() << "segmentPrefix: " << operand->segmentPrefix << '\n';
+                            Logger::cout() << "constDisplacement: " << operand->constDisplacement << '\n';
+                            for (int i = 0; i < operand->symbolDisplacement.dim; i++) {
+                                Expression* expr = (Expression*) operand->symbolDisplacement.data[i];
+                                Logger::cout() << "symbolDisplacement[" << i << "] = " << expr->toChars() << '\n';
                             }
-                            //addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
-                            if ( opInfo->operands[i] & Opr_Dest )
-                                asmcode->clobbersMemory = 1;
                         }
-
                         if ( operand->segmentPrefix != Reg_Invalid )
                         {
                             writeReg ( operand->segmentPrefix );
                             insnTemplate << ':';
+                        }
+                        if ( (operand->segmentPrefix != Reg_Invalid && operand->symbolDisplacement.dim == 0)
+                            || operand->constDisplacement )
+                        {
+                            insnTemplate << operand->constDisplacement;
+                            if ( operand->symbolDisplacement.dim )
+                            {
+                                insnTemplate << '+';
+                            }
+                            operand->constDisplacement = 0;
+                            //addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
+                            if ( opInfo->operands[i] & Opr_Dest )
+                                asmcode->clobbersMemory = 1;
                         }
                         if ( operand->symbolDisplacement.dim )
                         {
@@ -2300,12 +2314,6 @@ namespace AsmParserx8664
                         }
                         if ( use_star )
                             insnTemplate << '*';
-                        if ( operand->segmentPrefix != Reg_Invalid && !(operand->constDisplacement))
-                        {
-                            insnTemplate << operand->constDisplacement;
-                            if ( opInfo->operands[i] & Opr_Dest )
-                                asmcode->clobbersMemory = 1;
-                        }
                         if ( operand->baseReg != Reg_Invalid || operand->indexReg != Reg_Invalid )
                         {
                             insnTemplate << '(';
@@ -2331,6 +2339,7 @@ namespace AsmParserx8664
             }
 
             asmcode->insnTemplate = insnTemplate.str();
+            Logger::cout() << "insnTemplate = " << asmcode->insnTemplate << '\n';
             return true;
         }
 
