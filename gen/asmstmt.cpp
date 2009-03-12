@@ -15,6 +15,8 @@
 #include <cassert>
 #include <deque>
 #include <cstring>
+#include <string>
+#include <sstream>
 
 //#include "d-lang.h"
 //#include "d-codegen.h"
@@ -54,15 +56,12 @@ struct AsmArg {
 };
 
 struct AsmCode {
-    char *   insnTemplate;
-    unsigned insnTemplateLen;
+    std::string insnTemplate;
     std::vector<AsmArg> args;
     std::vector<bool> regs;
     unsigned dollarLabel;
     int      clobbersMemory;
     AsmCode(int n_regs) {
-	insnTemplate = NULL;
-	insnTemplateLen = 0;
 	regs.resize(n_regs, false);
 	dollarLabel = 0;
 	clobbersMemory = 0;
@@ -314,7 +313,6 @@ assert(0);
 	    clobbers.push_back(memory_name);
 //    }
 
-
     // Remap argument numbers
     for (unsigned i = 0; i < code->args.size(); i++) {
 	if (arg_map[i] < 0)
@@ -322,8 +320,9 @@ assert(0);
     }
     
     bool pct = false;
-    char * p = code->insnTemplate;
-    char * q = p + code->insnTemplateLen;
+    std::string::iterator
+        p = code->insnTemplate.begin(),
+        q = code->insnTemplate.end();
     //printf("start: %.*s\n", code->insnTemplateLen, code->insnTemplate);
     while (p < q) {
 	if (pct) {
@@ -342,7 +341,7 @@ assert(0);
 
     typedef std::vector<std::string>::iterator It;
     if (Logger::enabled()) {
-        Logger::println("final asm: %.*s", code->insnTemplateLen, code->insnTemplate);
+        Logger::cout() << "final asm: " << code->insnTemplate << '\n';
         std::ostringstream ss;
         
         ss << "GCC-style output constraints: {";
@@ -368,8 +367,6 @@ assert(0);
         ss << " }";
         Logger::println("%s", ss.str().c_str());
     }
-
-    std::string insnt(code->insnTemplate, code->insnTemplateLen);
 
     // rewrite GCC-style constraints to LLVM-style constraints
     std::string llvmOutConstraints;
@@ -433,7 +430,7 @@ assert(0);
 
     // push asm statement
     IRAsmStmt* asmStmt = new IRAsmStmt;
-    asmStmt->code = insnt;
+    asmStmt->code = code->insnTemplate;
     asmStmt->out_c = llvmOutConstraints;
     asmStmt->in_c = llvmInConstraints;
     asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(), output_values.end());
@@ -825,10 +822,7 @@ void AsmStatement::toNakedIR(IRState *p)
     AsmCode * code = (AsmCode *) asmcode;
 
     // build asm stmt
-    std::ostringstream& asmstr = p->nakedAsm;
-    asmstr << "\t";
-    asmstr.write(code->insnTemplate, code->insnTemplateLen);
-    asmstr << std::endl;
+    p->nakedAsm << "\t" << code->insnTemplate << std::endl;
 }
 
 void AsmBlockStatement::toNakedIR(IRState *p)

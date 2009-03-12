@@ -1206,7 +1206,7 @@ namespace AsmParserx8632
         Scope * sc;
 
         Token * token;
-        OutBuffer * insnTemplate;
+        std::ostringstream insnTemplate;
 
         AsmOp       op;
         AsmOpInfo * opInfo;
@@ -1219,7 +1219,6 @@ namespace AsmParserx8632
             this->sc = sc;
             this->stmt = stmt;
             token = stmt->tokens;
-            insnTemplate = new OutBuffer;
 
             opInfo = NULL;
 
@@ -1450,8 +1449,7 @@ namespace AsmParserx8632
         void setAsmCode()
         {
             AsmCode * asmcode = new AsmCode ( N_Regs );
-            asmcode->insnTemplateLen = insnTemplate->offset;
-            asmcode->insnTemplate = ( char* ) insnTemplate->extractData();
+            asmcode->insnTemplate = insnTemplate.str();
             stmt->asmcode = ( code* ) asmcode;
         }
 
@@ -1513,9 +1511,9 @@ namespace AsmParserx8632
                 {
                     case Arg_Integer:
                         if ( e->type->isunsigned() )
-                            insnTemplate->printf ( "$%llu", e->toUInteger() );
+                            insnTemplate << "$" << e->toUInteger();
                         else
-                            insnTemplate->printf ( "$%lld", e->toInteger() );
+                            insnTemplate << "$" << e->toInteger();
                         break;
 
                     case Arg_Pointer:
@@ -1536,10 +1534,10 @@ namespace AsmParserx8632
 
                                 // osx needs an extra underscore
                                 if ( global.params.os == OSMacOSX )
-                                    insnTemplate->writestring ( "_" );
+                                    insnTemplate << "_";
 
                                 // print out the mangle
-                                insnTemplate->writestring ( vd->mangle() );
+                                insnTemplate << vd->mangle();
                                 vd->nakedUse = true;
                                 break;
                             }
@@ -1554,25 +1552,23 @@ namespace AsmParserx8632
             }
             else
             {
-                insnTemplate->writestring ( ( char* ) fmt );
-                insnTemplate->printf ( "<<%s%d>>", ( mode==Mode_Input ) ?"in":"out", asmcode->args.size() );
+                insnTemplate << fmt
+                             << "<<" << (mode==Mode_Input ? "in" : "out") << asmcode->args.size() << ">>";
                 asmcode->args.push_back ( AsmArg ( type, e, mode ) );
             }
         }
         void addOperand2 ( const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
             assert ( !sc->func->naked );
-            insnTemplate->writestring ( ( char* ) fmtpre );
-            insnTemplate->printf ( "<<%s%d>>", ( mode==Mode_Input ) ?"in":"out", asmcode->args.size() );
-            insnTemplate->writestring ( ( char* ) fmtpost );
+            insnTemplate << fmtpre
+                         << "<<" << (mode==Mode_Input ? "in" : "out") << ">>"
+                         << fmtpost;
             asmcode->args.push_back ( AsmArg ( type, e, mode ) );
         }
 
         void addLabel ( char* id )
         {
-            insnTemplate->writestring ( sc->func->mangle() );
-            insnTemplate->writestring ( "_" );
-            insnTemplate->writestring ( id );
+            insnTemplate << sc->func->mangle() <<  "_" << id;
         }
 
         /* Determines whether the operand is a register, memory reference
@@ -1653,8 +1649,7 @@ namespace AsmParserx8632
 
         void writeReg ( Reg reg )
         {
-            insnTemplate->writestring ( ( char* ) "%" );
-            insnTemplate->write ( regInfo[reg].gccName.c_str(), regInfo[reg].gccName.length() );
+            insnTemplate << "%" << regInfo[reg].gccName;
         }
 
         bool opTakesLabel()
@@ -1726,7 +1721,7 @@ namespace AsmParserx8632
             bool use_star;
             AsmArgMode mode;
 
-            insnTemplate = new OutBuffer;
+            insnTemplate.str("");
             // %% todo: special case for something..
             if ( opInfo->linkType == Out_Mnemonic )
                 mnemonic = alternateMnemonics[opInfo->link];
@@ -1795,7 +1790,7 @@ namespace AsmParserx8632
             else if ( op == Op_Branch )
             {
                 if ( operands[0].dataSize == Far_Ptr ) // %% type=Far_Ptr not set by Seg:Ofss OTOH, we don't support that..
-                    insnTemplate->writebyte ( 'l' );
+                    insnTemplate << 'l';
             }
             else if ( op == Op_fxch || op == Op_FfdRR_P || op == Op_FidR_P )
             {
@@ -1837,11 +1832,10 @@ namespace AsmParserx8632
                 {
                     int mlen = strlen ( mnemonic );
                     if ( mnemonic[mlen-1] == 'd' )
-                        insnTemplate->write ( mnemonic, mlen-1 );
+                        insnTemplate.write(mnemonic, mlen-1);
                     else
                     {
-                        insnTemplate->writestring ( ( char* ) mnemonic );
-                        insnTemplate->writebyte ( 'w' );
+                        insnTemplate << mnemonic << 'w';
                     }
                 }
                 break;
@@ -1856,12 +1850,11 @@ namespace AsmParserx8632
                     int mlen = strlen ( mnemonic );
                     if ( mnemonic[mlen-1] == 'd' )
                     {
-                        insnTemplate->write ( mnemonic, mlen-1 );
-                        insnTemplate->writebyte ( 'l' );
+                        insnTemplate.write(mnemonic, mlen-1) << 'l';
                     }
                     else
                     {
-                        insnTemplate->writestring ( ( char* ) mnemonic );
+                        insnTemplate << mnemonic;
                     }
                 }
                 break;
@@ -1888,15 +1881,13 @@ namespace AsmParserx8632
                             return false;
                     }
                     assert ( type_char != 0 );
-                    insnTemplate->write ( mnemonic, mlen-1 );
-                    insnTemplate->writebyte ( tc_1 );
-                    insnTemplate->writebyte ( type_char );
+                    insnTemplate.write(mnemonic, mlen-1) << tc_1 << type_char;
                 }
                 break;
                 default:
-                    insnTemplate->writestring ( ( char* ) mnemonic );
+                    insnTemplate << mnemonic;
                     if ( type_char )
-                        insnTemplate->writebyte ( type_char );
+                        insnTemplate << type_char;
                     break;
             }
 
@@ -1950,12 +1941,12 @@ namespace AsmParserx8632
                 asmcode->regs[Reg_EDX] = true;
             }
 
-            insnTemplate->writebyte ( ' ' );
+            insnTemplate << ' ';
             for ( int i__ = 0; i__ < nOperands; i__++ )
             {
                 int i;
                 if ( i__ != 0 )
-                    insnTemplate->writestring ( ( char* ) ", " );
+                    insnTemplate << ", ";
 
                 fmt = "$";
 
@@ -2003,7 +1994,7 @@ namespace AsmParserx8632
                             addOperand ( "$", Arg_LocalSize,
                                          ( Expression * ) operand->symbolDisplacement.data[0], asmcode );
                             if ( operand->constDisplacement )
-                                insnTemplate->writebyte ( '+' );
+                                insnTemplate << '+';
                             else
                                 break;
                         }
@@ -2016,7 +2007,7 @@ namespace AsmParserx8632
                                          asmcode );
 
                             if ( operand->constDisplacement )
-                                insnTemplate->writebyte ( '+' );
+                                insnTemplate << '+';
                             else
                                 // skip the addOperand(fmt, Arg_Integer...) below
                                 break;
@@ -2033,11 +2024,11 @@ namespace AsmParserx8632
                             }
                         }
                         if ( opTakesLabel() /*opInfo->takesLabel()*/ )
-                            insnTemplate->writebyte ( '*' );
+                            insnTemplate << '*';
                         writeReg ( operand->reg );
                         /*
-                        insnTemplate->writestring("%");
-                        insnTemplate->writestring(regInfo[operand->reg].name);
+                        insnTemplate << "%";
+                        insnTemplate << regInfo[operand->reg].name;
                         */
                         break;
                     case Opr_Mem:
@@ -2061,8 +2052,7 @@ namespace AsmParserx8632
                         {
                             if ( operand->symbolDisplacement.dim )
                             {
-                                insnTemplate->printf ( "%d", operand->constDisplacement );
-                                insnTemplate->writebyte ( '+' );
+                                insnTemplate << operand->constDisplacement << '+';
                             }
                             //addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement), asmcode);
                             if ( opInfo->operands[i] & Opr_Dest )
@@ -2072,7 +2062,7 @@ namespace AsmParserx8632
                         if ( operand->segmentPrefix != Reg_Invalid )
                         {
                             writeReg ( operand->segmentPrefix );
-                            insnTemplate->writebyte ( ':' );
+                            insnTemplate << ':';
                         }
                         if ( operand->symbolDisplacement.dim )
                         {
@@ -2163,15 +2153,15 @@ namespace AsmParserx8632
                                     // simply write out the mangle
                                     // on osx, prepend extra _
                                     if ( global.params.os == OSMacOSX )
-                                        insnTemplate->writestring ( "_" );
-                                    insnTemplate->writestring ( decl->mangle() );
+                                        insnTemplate << "_";
+                                    insnTemplate << decl->mangle();
 //              addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
                                 }
                                 else
                                 {
                                     if ( use_star )
                                     {
-                                        insnTemplate->writebyte ( '*' );
+                                        insnTemplate << '*';
                                         use_star = false;
                                     }
 
@@ -2187,28 +2177,28 @@ namespace AsmParserx8632
                             }
                         }
                         if ( use_star )
-                            insnTemplate->writebyte ( '*' );
+                            insnTemplate << '*';
                         if ( operand->segmentPrefix != Reg_Invalid && !(operand->constDisplacement) )
                         {
-                            insnTemplate->printf ( "%d", operand->constDisplacement );
+                            insnTemplate << operand->constDisplacement;
                             if ( opInfo->operands[i] & Opr_Dest )
                                 asmcode->clobbersMemory = 1;
                         }
                         if ( operand->baseReg != Reg_Invalid || operand->indexReg != Reg_Invalid )
                         {
-                            insnTemplate->writebyte ( '(' );
+                            insnTemplate << '(';
                             if ( operand->baseReg != Reg_Invalid )
                                 writeReg ( operand->baseReg );
                             if ( operand->indexReg != Reg_Invalid )
                             {
-                                insnTemplate->writebyte ( ',' );
+                                insnTemplate << ',';
                                 writeReg ( operand->indexReg );
                                 if ( operand->scale )
                                 {
-                                    insnTemplate->printf ( ",%d", operand->scale );
+                                    insnTemplate << "," << operand->scale;
                                 }
                             }
-                            insnTemplate->writebyte ( ')' );
+                            insnTemplate << ')';
                             if ( opInfo->operands[i] & Opr_Dest )
                                 asmcode->clobbersMemory = 1;
                         }
@@ -2218,8 +2208,7 @@ namespace AsmParserx8632
                 }
             }
 
-            asmcode->insnTemplateLen = insnTemplate->offset;
-            asmcode->insnTemplate = ( char* ) insnTemplate->extractData();
+            asmcode->insnTemplate = insnTemplate.str();
             return true;
         }
 
@@ -2891,9 +2880,9 @@ namespace AsmParserx8632
                 //FIXME: This printf is not portable. The use of `align` varies from system to system;
                 // on i386 using a.out, .align `n` will align on a 2^`n` boundary instead of an `n` boundary
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
-                insnTemplate->printf ( ".balign\t%u", ( unsigned ) align );
+                insnTemplate << ".balign\t" << align;
 #else
-                insnTemplate->printf ( ".align\t%u", ( unsigned ) align );
+                insnTemplate << ".align\t" << align;
 #endif
             }
             else
@@ -2908,9 +2897,9 @@ namespace AsmParserx8632
         {
             // .align for GAS is in bits, others probably use bytes..
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
-            insnTemplate->writestring ( ( char * ) ".align\t2" );
+            insnTemplate << ".align\t2";
 #else
-            insnTemplate->writestring ( ( char * ) ".align\t2" );
+            insnTemplate << ".align\t2";
 #endif
             setAsmCode();
         }
