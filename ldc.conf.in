@@ -6,7 +6,6 @@ default:
 {
     // 'switches' holds array of string that are appends to the command line
     // arguments before they are parsed.
-    // {#} is replaced with the path to the directory holding the executable
     switches = [
         "-I@RUNTIME_DIR@",
         "-I@RUNTIME_DIR@/lib/common",
