@@ -9,6 +9,19 @@ if(NOT PERL)
 	message(FATAL_ERROR "perl not found")
 endif(NOT PERL)
 
+include(FindPkgConfig)
+if(NOT PKG_CONFIG_FOUND)
+    message(FATAL_ERROR "pkg-config not found")
+else(NOT PKG_CONFIG_FOUND)
+    pkg_search_module(LIBCONFIGPP libconfig++)
+    if(NOT LIBCONFIGPP_FOUND)
+        message(FATAL_ERROR "libconfig++ not found")
+    endif(NOT LIBCONFIGPP_FOUND)
+    set(LIBCONFIG_CXXFLAGS ${LIBCONFIGPP_CFLAGS} CACHE STRING "libconfig++ compiler flags")
+    set(LIBCONFIG_LDFLAGS ${LIBCONFIGPP_LDFLAGS} CACHE STRING "libconfig++ linker flags")
+endif(NOT PKG_CONFIG_FOUND)
+
+
 find_program(LLVM_CONFIG llvm-config ${LLVM_INSTDIR}/bin DOC "path to llvm-config tool")
 # get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
 string(REPLACE "/bin/llvm-config" "" LLVM_DIR ${LLVM_CONFIG})
@@ -39,7 +52,7 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend arm
 	OUTPUT_VARIABLE LLVM_LIBS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
@@ -161,9 +174,11 @@ if(CMAKE_MINOR_VERSION LESS 6)
 	set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib CACHE PATH "output dir for built libraries")
 	add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
+    add_definitions(-DLDC_INSTALL_PREFIX=\\"${CMAKE_INSTALL_PREFIX}\\")
 else(CMAKE_MINOR_VERSION LESS 6)
 	add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
+    add_definitions(-DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 endif(CMAKE_MINOR_VERSION LESS 6)
 
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
@@ -190,11 +205,11 @@ set_target_properties(
 	${LDC_EXE} PROPERTIES
 	OUTPUT_NAME ${LDC_EXE_NAME}
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-	COMPILE_FLAGS "${LLVM_CXXFLAGS} -Wno-deprecated -Wno-write-strings"
+	COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}")
+target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS} ${LIBCONFIG_LDFLAGS}")
 if(WIN32)
 	target_link_libraries(${LDC_EXE} psapi)
 	set(CONF_INST_DIR bin)

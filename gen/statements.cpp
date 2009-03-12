@@ -9,7 +9,6 @@
 #include "llvm/Support/CFG.h"
 
 #include "mars.h"
-#include "total.h"
 #include "init.h"
 #include "mtype.h"
 #include "hdrgen.h"

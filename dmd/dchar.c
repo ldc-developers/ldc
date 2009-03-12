@@ -14,7 +14,7 @@
 #include <assert.h>
 
 #include "dchar.h"
-#include "mem.h"
+#include "rmem.h"
 
 #if M_UNICODE
 

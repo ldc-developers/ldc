@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2008 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -31,7 +31,7 @@ int findCondition(Array *ids, Identifier *ident)
     {
 	for (int i = 0; i < ids->dim; i++)
 	{
-	    char *id = (char *)ids->data[i];
+	    const char *id = (const char *)ids->data[i];
 
 	    if (strcmp(id, ident->toChars()) == 0)
 		return TRUE;
@@ -75,7 +75,7 @@ void DebugCondition::addGlobalIdent(const char *ident)
 {
     if (!global.params.debugids)
 	global.params.debugids = new Array();
-    global.params.debugids->push((void*)ident);
+    global.params.debugids->push((void *)ident);
 }
 
 
@@ -127,13 +127,17 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
 {
     static const char* reserved[] =
     {
-	"DigitalMars", "LLVM", "LDC", "LLVM64",
-    "X86", "X86_64", "PPC", "PPC64",
+	"DigitalMars", "X86", "X86_64",
 	"Windows", "Win32", "Win64",
-	"linux", "darwin", "Posix",
+	"linux", "Posix", "OSX", "FreeBSD",
 	"LittleEndian", "BigEndian",
 	"all",
 	"none",
+
+    // LDC
+    "LLVM", "LDC", "LLVM64",
+    "PPC", "PPC64",
+    "darwin",
     };
 
     for (unsigned i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
@@ -161,7 +165,7 @@ void VersionCondition::addPredefinedGlobalIdent(const char *ident)
 {
     if (!global.params.versionids)
 	global.params.versionids = new Array();
-    global.params.versionids->push((void*)ident);
+    global.params.versionids->push((void *)ident);
 }
 
 

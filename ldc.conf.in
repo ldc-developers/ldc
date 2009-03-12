@@ -1,2 +1,17 @@
-[Environment]
-DFLAGS=-I@RUNTIME_DIR@ -I@RUNTIME_DIR@/lib/common -L-L%@P%/../lib -d-version=Tango -defaultlib=@RUNTIME_AIO@ -debuglib=@RUNTIME_AIO@
+// This configuration file uses libconfig.
+// See http://www.hyperrealm.com/libconfig/ for syntax details.
+
+// The default group is required
+default:
+{
+    // 'switches' holds array of string that are appends to the command line
+    // arguments before they are parsed.
+    // {#} is replaced with the path to the directory holding the executable
+    switches = [
+        "-I@RUNTIME_DIR@",
+        "-I@RUNTIME_DIR@/lib/common",
+        "-L-L@PROJECT_BINARY_DIR@/../lib",
+        "-d-version=Tango",
+        "-defaultlib=@RUNTIME_AIO@"
+    ];
+};

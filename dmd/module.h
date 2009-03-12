@@ -80,6 +80,9 @@ struct Module : Package
     int strictlyneedmoduleinfo;
 #endif
 
+    int selfimports;		// 0: don't know, 1: does not, 2: does
+    int selfImports();		// returns !=0 if module imports itself
+
     int insearch;
     Identifier *searchCacheIdent;
     Dsymbol *searchCacheSymbol;	// cached value of search
@@ -173,7 +176,7 @@ struct Module : Package
     // LDC
     llvm::Module* genLLVMModule(int multiobj);
     void buildTargetFiles();
-    File* buildFilePath(char* forcename, char* path, char* ext);
+    File* buildFilePath(const char* forcename, const char* path, const char* ext);
     Module *isModule() { return this; }
     
     bool llvmForceLogging;

@@ -24,6 +24,10 @@
 #include "id.h"
 #include "module.h"
 
+#if TARGET_LINUX || TARGET_OSX
+char *cpp_mangle(Dsymbol *s);
+#endif
+
 char *mangle(Declaration *sthis)
 {
     OutBuffer buf;
@@ -110,8 +114,15 @@ char *Declaration::mangle()
 		case LINKc:
 		case LINKwindows:
 		case LINKpascal:
-		case LINKcpp:
 		    return ident->toChars();
+
+		case LINKcpp:
+#if V2 && (TARGET_LINUX || TARGET_OSX)
+		    return cpp_mangle(this);
+#else
+		    // Windows C++ mangling is done by C++ back end
+		    return ident->toChars();
+#endif
 
 		case LINKdefault:
 		    error("forward declaration");
@@ -142,7 +153,7 @@ char *FuncDeclaration::mangle()
 #endif
     {
 	if (isMain())
-	    return "_Dmain";
+	    return (char *)"_Dmain";
 
     if (isWinMain() || isDllMain())
         return ident->toChars();
@@ -216,7 +227,7 @@ char *TemplateInstance::mangle()
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    buf.printf("%zu%s", strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("TemplateInstance::mangle() %s = %s\n", toChars(), id);
@@ -243,7 +254,7 @@ char *TemplateMixin::mangle()
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    buf.printf("%zu%s", strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("TemplateMixin::mangle() %s = %s\n", toChars(), id);
@@ -269,7 +280,7 @@ char *Dsymbol::mangle()
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    buf.printf("%zu%s", strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("Dsymbol::mangle() %s = %s\n", toChars(), id);

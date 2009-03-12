@@ -12,11 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if _WIN32 || IN_GCC || IN_LLVM
-#include "mem.h"
-#elif POSIX
-#include "../root/mem.h"
-#endif
+#include "rmem.h"
 
 #include "init.h"
 #include "declaration.h"
@@ -150,6 +146,14 @@ void AttribDeclaration::addComment(unsigned char *comment)
 void AttribDeclaration::emitComment(Scope *sc)
 {
     //printf("AttribDeclaration::emitComment(sc = %p)\n", sc);
+
+    /* A general problem with this, illustrated by BUGZILLA 2516,
+     * is that attributes are not transmitted through to the underlying
+     * member declarations for template bodies, because semantic analysis
+     * is not done for template declaration bodies
+     * (only template instantiations).
+     * Hence, Ddoc omits attributes from template members.
+     */
 
     Array *d = include(NULL, NULL);
 
@@ -326,11 +330,17 @@ void StorageClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	{ STCstatic,       TOKstatic },
 	{ STCextern,       TOKextern },
 	{ STCconst,        TOKconst },
+//	{ STCinvariant,    TOKimmutable },
+//	{ STCshared,       TOKshared },
 	{ STCfinal,        TOKfinal },
 	{ STCabstract,     TOKabstract },
 	{ STCsynchronized, TOKsynchronized },
 	{ STCdeprecated,   TOKdeprecated },
 	{ STCoverride,     TOKoverride },
+//	{ STCnothrow,      TOKnothrow },
+//	{ STCpure,         TOKpure },
+//	{ STCref,          TOKref },
+//	{ STCtls,          TOKtls },
     };
 
     int written = 0;
@@ -612,7 +622,7 @@ void AnonDeclaration::semantic(Scope *sc)
 
 	sc = sc->push();
 	sc->anonAgg = &aad;
-	sc->stc &= ~(STCauto | STCscope | STCstatic);
+	sc->stc &= ~(STCauto | STCscope | STCstatic | STCtls);
 	sc->inunion = isunion;
 	sc->offset = 0;
 	sc->flags = 0;
@@ -753,6 +763,7 @@ PragmaDeclaration::PragmaDeclaration(Loc loc, Identifier *ident, Expressions *ar
 
 Dsymbol *PragmaDeclaration::syntaxCopy(Dsymbol *s)
 {
+    //printf("PragmaDeclaration::syntaxCopy(%s)\n", toChars());
     PragmaDeclaration *pd;
 
     assert(!s);
@@ -1393,7 +1404,7 @@ Dsymbol *CompileDeclaration::syntaxCopy(Dsymbol *s)
 
 int CompileDeclaration::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 {
-    //printf("CompileDeclaration::addMember(sc = %p)\n", sc);
+    //printf("CompileDeclaration::addMember(sc = %p, memnum = %d)\n", sc, memnum);
     this->sd = sd;
     if (memnum == 0)
     {	/* No members yet, so parse the mixin now

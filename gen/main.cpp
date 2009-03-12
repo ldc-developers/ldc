@@ -21,7 +21,7 @@
 #include <windows.h>
 #endif
 
-#include "mem.h"
+#include "rmem.h"
 #include "root.h"
 
 #include "mars.h"
@@ -38,6 +38,8 @@
 #include "gen/cl_options.h"
 #include "gen/cl_helpers.h"
 using namespace opts;
+
+#include "gen/configfile.h"
 
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
@@ -144,15 +146,7 @@ int main(int argc, char** argv)
     VersionCondition::addPredefinedGlobalIdent("D_Version2");
 #endif
 
-
-    // read the inifile
-#if DMDV2
-    inifile(global.params.argv0, "ldc2.conf");
-#else
-    inifile(global.params.argv0, "ldc.conf");
-#endif
-
-    // merge DFLAGS into argc/argv
+    // merge DFLAGS environment variable into argc/argv
     getenv_setargv("DFLAGS", &argc, &argv);
 #if 0
     for (int i = 0; i < argc; i++)
@@ -161,9 +155,38 @@ int main(int argc, char** argv)
     }
 #endif
 
+    // build complete fixed up list of command line arguments
+    std::vector<const char*> final_args;
+    final_args.reserve(argc);
+
+    // insert argc + DFLAGS
+    final_args.insert(final_args.end(), &argv[0], &argv[argc]);
+
+    // read the configuration file
+    ConfigFile cfg_file;
+
+    // just ignore errors for now, they are still printed
+#if DMDV2
+#define CFG_FILENAME "ldc2.conf"
+#else
+#define CFG_FILENAME "ldc.conf"
+#endif
+    cfg_file.read(global.params.argv0, (void*)main, CFG_FILENAME);
+#undef CFG_FILENAME
+
+    // insert config file additions to the argument list
+    final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
+
+#if 0
+    for (size_t i = 0; i < final_args.size(); ++i)
+    {
+        printf("final_args[%zu] = %s\n", i, final_args[i]);
+    }
+#endif
+
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
-    cl::ParseCommandLineOptions(argc, argv, "LLVM-based D Compiler\n");
+    cl::ParseCommandLineOptions(final_args.size(), (char**)&final_args[0], "LLVM-based D Compiler\n", true);
 
     global.params.optimize = (global.params.optimizeLevel >= 0);
 

@@ -13,7 +13,7 @@
 #include <stdlib.h>
 
 #include "root.h"
-#include "mem.h"
+#include "rmem.h"
 #include "dchar.h"
 #include "lstring.h"
 #include "stringtable.h"

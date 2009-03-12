@@ -37,6 +37,7 @@ void warning(const char *format, ...);
 #define TYPEDEFS
 
 #if _MSC_VER
+#include <float.h>  // for _isnan
 typedef __int64 longlong;
 typedef unsigned __int64 ulonglong;
 #else

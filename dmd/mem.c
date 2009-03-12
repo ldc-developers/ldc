@@ -7,7 +7,7 @@
 #include <cstring>
 #include <cassert>
 
-#include "mem.h"
+#include "rmem.h"
 
 #if USE_BOEHM_GC
     // I needed to perfix the dir after upgrading to gc 7.0

@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // www.digitalmars.com
@@ -40,7 +40,7 @@
 #include "port.h"
 #include "root.h"
 #include "dchar.h"
-#include "mem.h"
+#include "rmem.h"
 #include "mars.h"
 
 #if 0 //__SC__ //def DEBUG
@@ -376,6 +376,9 @@ Array *FileName::splitPath(const char *path)
 			instring ^= 1;	// toggle inside/outside of string
 			continue;
 
+#if MACINTOSH
+		    case ',':
+#endif
 #if _WIN32
 		    case ';':
 #endif
@@ -1344,7 +1347,7 @@ void File::stat()
 void File::checkoffset(size_t offset, size_t nbytes)
 {
     if (offset > len || offset + nbytes > len)
-	error("Corrupt file '%s': offset x%"PRIxSIZE" off end of file",toChars(),offset);
+	error("Corrupt file '%s': offset x%zx off end of file",toChars(),offset);
 }
 
 char *File::toChars()
@@ -1385,14 +1388,10 @@ void OutBuffer::mark()
 
 void OutBuffer::reserve(unsigned nbytes)
 {
-  //printf("OutBuffer::reserve: size = %d, offset = %d, nbytes = %d\n", size, offset, nbytes);
+    //printf("OutBuffer::reserve: size = %d, offset = %d, nbytes = %d\n", size, offset, nbytes);
     if (size - offset < nbytes)
     {
-#if defined (__x86_64__)
-	size = (offset + nbytes) * 2+2;
-#else
 	size = (offset + nbytes) * 2;
-#endif
 	data = (unsigned char *)mem.realloc(data, size);
     }
 }

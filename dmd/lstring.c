@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 #include "dchar.h"
-#include "mem.h"
+#include "rmem.h"
 #include "lstring.h"
 
 Lstring Lstring::zero = LSTRING_EMPTY();

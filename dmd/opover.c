@@ -18,13 +18,7 @@
 #define integer_t dmd_integer_t
 #endif
 
-#if IN_GCC || IN_LLVM
-#include "mem.h"
-#elif POSIX
-#include "../root/mem.h"
-#elif _WIN32
-#include "..\root\mem.h"
-#endif
+#include "rmem.h"
 
 //#include "port.h"
 #include "mtype.h"
@@ -276,7 +270,7 @@ Expression *BinExp::op_overload(Scope *sc)
 		templateResolve(&m, td, sc, loc, NULL, &args2);
 	    }
 	}
-
+	
 	lastf = m.lastf;
 
 	if (s_r)
@@ -576,7 +570,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
 	    if (s)
 	    {
 		fd = s->isFuncDeclaration();
-		if (fd)
+		if (fd) 
 		    inferApplyArgTypesX(fd, arguments);
 	    }
 	    break;

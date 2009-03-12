@@ -337,8 +337,8 @@ void FuncDeclaration::semantic(Scope *sc)
 		    error("cannot override final function %s", fdv->toPrettyChars());
 
 #if DMDV2
-		if (!isOverride() && global.params.warnings)
-		    warning("%s: overrides base class function %s, but is not marked with 'override'", locToChars() fdv->toPrettyChars());
+		if (!isOverride())
+		    warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
 #endif
 
 		if (fdv->toParent() == parent)
@@ -1083,9 +1083,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		    if (offend)
 		    {   Expression *e;
 
-			if (global.params.warnings)
-			{   warning("%s: no return at end of function", locToChars());
-			}
+			warning(loc, "no return at end of function");
 
 			if (global.params.useAssert &&
 			    !global.params.useInline)
@@ -1095,7 +1093,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 			    e = new AssertExp(
 				  endloc,
 				  new IntegerExp(0),
-				  new StringExp(loc, "missing return expression")
+				  new StringExp(loc, (char *)"missing return expression")
 				);
 			}
 			else
@@ -2165,7 +2163,7 @@ FuncLiteralDeclaration::FuncLiteralDeclaration(Loc loc, Loc endloc, Type *type,
 	enum TOK tok, ForeachStatement *fes)
     : FuncDeclaration(loc, endloc, NULL, STCundefined, type)
 {
-    char *id;
+    const char *id;
 
     if (fes)
 	id = "__foreachbody";
@@ -2310,7 +2308,7 @@ const char *CtorDeclaration::kind()
 
 char *CtorDeclaration::toChars()
 {
-    return "this";
+    return (char *)"this";
 }
 
 int CtorDeclaration::isVirtual()
@@ -2652,7 +2650,7 @@ void InvariantDeclaration::semantic(Scope *sc)
     ad = parent->isAggregateDeclaration();
     if (!ad)
     {
-	error("invariants only are for struct/union/class definitions");
+	error("invariants are only for struct/union/class definitions");
 	return;
     }
     else if (ad->inv && ad->inv != this)

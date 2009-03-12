@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -49,7 +49,7 @@ static double zero = 0;
 static double zero = 0;
 #endif
 
-#include "mem.h"
+#include "rmem.h"
 
 #include "dsymbol.h"
 #include "mtype.h"
@@ -213,6 +213,7 @@ void Type::init()
     mangleChar[Ttypeof] = '@';
     mangleChar[Ttuple] = 'B';
     mangleChar[Tslice] = '@';
+    mangleChar[Treturn] = '@';
 
     for (i = 0; i < TMAX; i++)
     {	if (!mangleChar[i])
@@ -709,6 +710,18 @@ void Type::error(Loc loc, const char *format, ...)
     va_end( ap );
 }
 
+void Type::warning(Loc loc, const char *format, ...)
+{
+    if (global.params.warnings && !global.gag)
+    {
+	fprintf(stdmsg, "warning - ");
+	va_list ap;
+	va_start(ap, format);
+	::verror(loc, format, ap);
+	va_end( ap );
+    }
+}
+
 Identifier *Type::getTypeInfoIdent(int internal)
 {
     // _init_10TypeInfo_%s
@@ -721,7 +734,7 @@ Identifier *Type::getTypeInfoIdent(int internal)
     if (internal)
     {	buf.writeByte(mangleChar[ty]);
 	if (ty == Tarray)
-	    buf.writeByte(mangleChar[next->ty]);
+	    buf.writeByte(mangleChar[((TypeArray *)this)->next->ty]);
     }
     else
 	toDecoBuffer(&buf);
@@ -746,9 +759,8 @@ TypeBasic *Type::isTypeBasic()
 
 void Type::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps)
 {
-    Type *t;
-
-    t = semantic(loc, sc);
+    //printf("Type::resolve() %s, %d\n", toChars(), ty);
+    Type *t = semantic(loc, sc);
     *pt = t;
     *pe = NULL;
     *ps = NULL;
@@ -1873,7 +1885,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	dim = semanticLength(sc, tbn, dim);
 
 	dim = dim->optimize(WANTvalue | WANTinterpret);
-	if (sc->parameterSpecialization && dim->op == TOKvar &&
+	if (sc && sc->parameterSpecialization && dim->op == TOKvar &&
 	    ((VarExp *)dim)->var->storage_class & STCtemplateparameter)
 	{
 	    /* It could be a template parameter N which has no value yet:
@@ -1909,7 +1921,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	    if (n && n2 / n != d2)
 	    {
 	      Loverflow:
-		error(loc, "index %lld overflow for static array", d1);
+		error(loc, "index %jd overflow for static array", d1);
 		dim = new IntegerExp(0, 1, tsize_t);
 	    }
 	}
@@ -1923,7 +1935,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	    uinteger_t d = dim->toUInteger();
 
 	    if (d >= tt->arguments->dim)
-	    {	error(loc, "tuple index %llu exceeds %u", d, tt->arguments->dim);
+	    {	error(loc, "tuple index %ju exceeds %u", d, tt->arguments->dim);
 		return Type::terror;
 	    }
 	    Argument *arg = (Argument *)tt->arguments->data[(size_t)d];
@@ -1944,7 +1956,7 @@ void TypeSArray::toDecoBuffer(OutBuffer *buf)
 {
     buf->writeByte(mangleChar[ty]);
     if (dim)
-	buf->printf("%llu", dim->toInteger());
+	buf->printf("%ju", dim->toInteger());
     if (next)
 	next->toDecoBuffer(buf);
 }
@@ -2636,8 +2648,7 @@ Expression *TypeReference::defaultInit(Loc loc)
 #if LOGDEFAULTINIT
     printf("TypeReference::defaultInit() '%s'\n", toChars());
 #endif
-    Expression *e;
-    e = new NullExp(loc);
+    Expression *e = new NullExp(loc);
     e->type = this;
     return e;
 }
@@ -3719,6 +3730,7 @@ TypeTypeof::TypeTypeof(Loc loc, Expression *exp)
 
 Type *TypeTypeof::syntaxCopy()
 {
+    //printf("TypeTypeof::syntaxCopy() %s\n", toChars());
     TypeTypeof *t;
 
     t = new TypeTypeof(loc, exp->syntaxCopy());
@@ -3954,7 +3966,16 @@ Expression *TypeEnum::dotExp(Scope *sc, Expression *e, Identifier *ident)
     s = sym->symtab->lookup(ident);
     if (!s)
     {
-	return getProperty(e->loc, ident);
+	if (ident == Id::max ||
+	    ident == Id::min ||
+	    ident == Id::init ||
+	    ident == Id::stringof ||
+	    !sym->memtype
+	   )
+	{
+	    return getProperty(e->loc, ident);
+	}
+	return sym->memtype->dotExp(sc, e, ident);
     }
     m = s->isEnumMember();
     em = m->value->copy();
@@ -5038,6 +5059,7 @@ TypeTuple::TypeTuple(Arguments *arguments)
 {
     //printf("TypeTuple(this = %p)\n", this);
     this->arguments = arguments;
+    //printf("TypeTuple() %s\n", toChars());
 #ifdef DEBUG
     if (arguments)
     {
@@ -5083,6 +5105,7 @@ Type *TypeTuple::syntaxCopy()
 Type *TypeTuple::semantic(Loc loc, Scope *sc)
 {
     //printf("TypeTuple::semantic(this = %p)\n", this);
+    //printf("TypeTuple::semantic() %s\n", toChars());
     if (!deco)
 	deco = merge()->deco;
 
@@ -5206,7 +5229,7 @@ Type *TypeSlice::semantic(Loc loc, Scope *sc)
     uinteger_t i2 = upr->toUInteger();
 
     if (!(i1 <= i2 && i2 <= tt->arguments->dim))
-    {	error(loc, "slice [%llu..%llu] is out of range of [0..%u]", i1, i2, tt->arguments->dim);
+    {	error(loc, "slice [%ju..%ju] is out of range of [0..%u]", i1, i2, tt->arguments->dim);
 	return Type::terror;
     }
 
@@ -5251,7 +5274,7 @@ void TypeSlice::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol 
 	    sc = sc->pop();
 
 	    if (!(i1 <= i2 && i2 <= td->objects->dim))
-	    {   error(loc, "slice [%llu..%llu] is out of range of [0..%u]", i1, i2, td->objects->dim);
+	    {   error(loc, "slice [%ju..%ju] is out of range of [0..%u]", i1, i2, td->objects->dim);
 		goto Ldefault;
 	    }
 

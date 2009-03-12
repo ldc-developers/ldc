@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -11,12 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <math.h>
 #include <assert.h>
 #if _MSC_VER
 #include <complex>
 #else
 #endif
-#include <math.h>
 
 #if _WIN32 && __DMC__
 extern "C" char * __cdecl __locale_decpoint;
@@ -43,13 +43,7 @@ int isnan(double);
 #define integer_t dmd_integer_t
 #endif
 
-#if IN_GCC || IN_LLVM
-#include "mem.h"
-#elif _WIN32
-#include "..\root\mem.h"
-#elif POSIX
-#include "../root/mem.h"
-#endif
+#include "rmem.h"
 
 //#include "port.h"
 #include "mtype.h"
@@ -560,7 +554,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
     size_t nparams = Argument::dim(tf->parameters);
 
     if (nargs > nparams && tf->varargs == 0)
-        error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
+	error(loc, "expected %zu arguments, not %zu", nparams, nargs);
 
     n = (nargs > nparams) ? nargs : nparams;	// n = max(nargs, nparams)
 
@@ -585,7 +579,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		{
 		    if (tf->varargs == 2 && i + 1 == nparams)
 			goto L2;
-            error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
+		    error(loc, "expected %zu arguments, not %zu", nparams, nargs);
 		    break;
 		}
 		arg = p->defaultArg;
@@ -607,7 +601,7 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		if (arg->implicitConvTo(p->type))
 		{
 		    if (nargs != nparams)
-                error(loc, "expected %"PRIuSIZE" arguments, not %"PRIuSIZE, nparams, nargs);
+		        error(loc, "expected %zu arguments, not %zu", nparams, nargs);
 		    goto L1;
 		}
 	     L2:
@@ -965,6 +959,18 @@ void Expression::error(const char *format, ...)
     va_end( ap );
 }
 
+void Expression::warning(const char *format, ...)
+{
+    if (global.params.warnings && !global.gag)
+    {
+	fprintf(stdmsg, "warning - ");
+	va_list ap;
+	va_start(ap, format);
+	::warning(loc, format, ap);
+	va_end( ap );
+    }
+}
+
 void Expression::rvalue()
 {
     if (type && type->toBasetype()->ty == Tvoid)
@@ -1319,7 +1325,8 @@ char *IntegerExp::toChars()
     return Expression::toChars();
 #else
     static char buffer[sizeof(value) * 3 + 1];
-    sprintf(buffer, "%lld", value);
+
+    sprintf(buffer, "%jd", value);
     return buffer;
 #endif
 }
@@ -1501,11 +1508,11 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		break;
 
 	    case Tint64:
-		buf->printf("%lldL", v);
+		buf->printf("%jdL", v);
 		break;
 
 	    case Tuns64:
-		buf->printf("%lluLU", v);
+		buf->printf("%juLU", v);
 		break;
 
 	    case Tbit:
@@ -1534,17 +1541,17 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	}
     }
     else if (v & 0x8000000000000000LL)
-	buf->printf("0x%llx", v);
+	buf->printf("0x%jx", v);
     else
-	buf->printf("%lld", v);
+	buf->printf("%jd", v);
 }
 
 void IntegerExp::toMangleBuffer(OutBuffer *buf)
 {
     if ((sinteger_t)value < 0)
-	buf->printf("N%lld", -value);
+	buf->printf("N%jd", -value);
     else
-	buf->printf("%lld", value);
+	buf->printf("%jd", value);
 }
 
 /******************************** RealExp **************************/
@@ -1617,8 +1624,12 @@ complex_t RealExp::toComplex()
 
 int RealEquals(real_t x1, real_t x2)
 {
+#if __APPLE__
+    return (__inline_isnan(x1) && __inline_isnan(x2)) ||
+#else
     return // special case nans
 	   (isnan(x1) && isnan(x2)) ||
+#endif
 	   // and zero, in order to distinguish +0 from -0
 	   (x1 == 0 && x2 == 0 && 1./x1 == 1./x2) ||
 	   // otherwise just compare
@@ -1723,7 +1734,11 @@ void realToMangleBuffer(OutBuffer *buf, real_t value)
      * 0X1.9P+2			=> 19P2
      */
 
+#if __APPLE__
+    if (__inline_isnan(value))
+#else
     if (isnan(value))
+#endif
 	buf->writestring("NAN");	// no -NAN bugs
     else
     {
@@ -3859,9 +3874,7 @@ Expression *SymOffExp::semantic(Scope *sc)
 	type = var->type->pointerTo();
     VarDeclaration *v = var->isVarDeclaration();
     if (v)
-    {
-    v->checkNestedReference(sc, loc);
-    }
+	v->checkNestedReference(sc, loc);
     return this;
 }
 
@@ -7229,13 +7242,16 @@ Expression *SliceExp::semantic(Scope *sc)
 	}
 	else
 	{
-	    error("string slice [%llu .. %llu] is out of bounds", i1, i2);
+	    error("string slice [%ju .. %ju] is out of bounds", i1, i2);
 	    e = e1;
 	}
 	return e;
     }
 
-    type = t->nextOf()->arrayOf();
+    if (t->ty == Tarray)
+	type = e1->type;
+    else
+	type = t->nextOf()->arrayOf();
     return e;
 
 Lerror:
@@ -7610,9 +7626,9 @@ Expression *IndexExp::semantic(Scope *sc)
 	    }
 	    else
 	    {
-        error("array index [%llu] is outside array bounds [0 .. %"PRIuSIZE"]",
-            index, length);
-        e = e1;
+		error("array index [%ju] is outside array bounds [0 .. %zu]",
+			index, length);
+		e = e1;
 	    }
 	    break;
 	}

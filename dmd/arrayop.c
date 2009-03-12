@@ -11,11 +11,7 @@
 #include <string.h>
 #include <assert.h>
 
-#if _WIN32 || IN_GCC  || IN_LLVM
-#include "mem.h"
-#else
-#include "../root/mem.h"
-#endif
+#include "rmem.h"
 
 #include "stringtable.h"
 

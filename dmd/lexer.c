@@ -20,28 +20,21 @@
 #include <wchar.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <sys/time.h>
 #include <math.h>
 
+#if _MSC_VER
+#include <time.h>
+#else
+#include <sys/time.h>
+#endif
+
 #ifdef IN_GCC
-
 #include <time.h>
-#include "mem.h"
-
-#else
-
-#if __GNUC__
+#elif __GNUC__
 #include <time.h>
 #endif
 
-#if IN_LLVM
-#include "mem.h"
-#elif _WIN32
-#include "..\root\mem.h"
-#else
-#include "../root/mem.h"
-#endif
-#endif
+#include "rmem.h"
 
 #include "stringtable.h"
 
@@ -54,6 +47,10 @@
 #if _WIN32 && __DMC__
 // from \dm\src\include\setlocal.h
 extern "C" char * __cdecl __locale_decpoint;
+#endif
+
+#if _MSC_VER // workaround VC++ bug, labels and types should be in separate namespaces
+#define Lstring Lstr
 #endif
 
 extern int HtmlNamedEntity(unsigned char *p, int length);
@@ -140,11 +137,11 @@ const char *Token::toChars()
 	    break;
 
 	case TOKint64v:
-	    sprintf(buffer,"%lldL",(long long)int64value);
+	    sprintf(buffer,"%jdL",int64value);
 	    break;
 
 	case TOKuns64v:
-	    sprintf(buffer,"%lluUL",(unsigned long long)uns64value);
+	    sprintf(buffer,"%juUL",uns64value);
 	    break;
 
 #if IN_GCC

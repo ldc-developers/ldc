@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "mem.h"
+#include "rmem.h"
 
 #include "statement.h"
 #include "expression.h"
@@ -80,8 +80,8 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     if (semanticRun == 0 && scope)
     {
 	semantic3(scope);
-    if (global.errors)  // if errors compiling this function
-        return NULL;
+	if (global.errors)	// if errors compiling this function
+	    return NULL;
     }
     if (semanticRun < 2)
 	return NULL;

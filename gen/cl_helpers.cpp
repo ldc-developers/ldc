@@ -1,7 +1,7 @@
 #include "gen/cl_helpers.h"
 
 #include "root.h"
-#include "mem.h"
+#include "rmem.h"
 
 #include <cctype>       // isupper, tolower
 #include <algorithm>

@@ -16,17 +16,7 @@
 #include <ctype.h>
 #include <assert.h>
 
-#if IN_GCC || IN_LLVM
-#include "mem.h"
-#else
-#if _WIN32
-#include "..\root\mem.h"
-#elif POSIX
-#include "../root/mem.h"
-#else
-#error "fix this"
-#endif
-#endif
+#include "rmem.h"
 
 #include "root.h"
 

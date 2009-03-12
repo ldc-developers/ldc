@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -13,7 +13,49 @@
 
 #ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
+#endif
+
+/*
+It is very important to use version control macros correctly - the
+idea is that host and target are independent. If these are done
+correctly, cross compilers can be built.
+The host compiler and host operating system are also different,
+and are predefined by the host compiler. The ones used in
+dmd are:
+
+Macros defined by the compiler, not the code:
+
+    Compiler:
+	__DMC__		Digital Mars compiler
+	_MSC_VER	Microsoft compiler
+	__GNUC__	Gnu compiler
+
+    Host operating system:
+	_WIN32		Microsoft NT, Windows 95, Windows 98, Win32s,
+			Windows 2000, Win XP, Vista
+	_WIN64		Windows for AMD64
+	linux		Linux
+	__APPLE__	Mac OSX
+
+For the target systems, there are the target operating system and
+the target object file format:
+
+    Target operating system:
+	TARGET_WINDOS	Covers 32 bit windows and 64 bit windows
+	TARGET_LINUX	Covers 32 and 64 bit linux
+	TARGET_OSX	Covers 32 and 64 bit Mac OSX
+
+    It is expected that the compiler for each platform will be able
+    to generate 32 and 64 bit code from the same compiler binary.
+
+    Target object module format:
+	OMFOBJ		Intel Object Module Format, used on Windows
+	ELFOBJ		Elf Object Module Format, used on linux
+	MACHOBJ		Mach-O Object Module Format, used on Mac OSX
+
+    There are currently no macros for byte endianness order.
+ */
+
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -35,6 +77,29 @@
 
 #define DMDV2	0	// Version 2.0 features
 #define BREAKABI 1	// 0 if not ready to break the ABI just yet
+#define STRUCTTHISREF V2	// if 'this' for struct is a reference, not a pointer
+
+/* Other targets are TARGET_LINUX and TARGET_OSX, which are
+ * set on the command line via the compiler makefile.
+ */
+
+#if _WIN32
+#define TARGET_WINDOS 1		// Windows dmd generates Windows targets
+#define OMFOBJ 1
+#endif
+
+#if TARGET_LINUX
+#ifndef ELFOBJ
+#define ELFOBJ 1
+#endif
+#endif
+
+#if TARGET_OSX
+#ifndef MACHOBJ
+#define MACHOBJ 1
+#endif
+#endif
+
 
 struct Array;
 
@@ -90,6 +155,7 @@ struct Param
     bool useInline;     // inline expand functions
     bool warnings;      // enable warnings
     char Dversion;	// D version number
+    char safe;		// enforce safe memory model
 
     char *argv0;	// program name
     Array *imppath;	// array of char*'s of where to look for import modules
@@ -117,7 +183,7 @@ struct Param
     Array *defaultlibnames;	// default libraries for non-debug builds
     Array *debuglibnames;	// default libraries for debug builds
 
-    char *xmlname;		// filename for XML output
+    const char *xmlname;	// filename for XML output
 
     // Hidden debug switches
     bool debuga;
@@ -156,24 +222,25 @@ struct Param
 
 struct Global
 {
-    char *mars_ext;
-    char *sym_ext;
-    char *obj_ext;
+    const char *mars_ext;
+    const char *sym_ext;
+    const char *obj_ext;
 #if _WIN32
     char *obj_ext_alt;
 #endif
     char *ll_ext;
     char *bc_ext;
     char *s_ext;
-    char *doc_ext;	// for Ddoc generated files
-    char *ddoc_ext;	// for Ddoc macro include files
-    char *hdr_ext;	// for D 'header' import files
-    char *copyright;
-    char *written;
+    const char *lib_ext;
+    const char *doc_ext;	// for Ddoc generated files
+    const char *ddoc_ext;	// for Ddoc macro include files
+    const char *hdr_ext;	// for D 'header' import files
+    const char *copyright;
+    const char *written;
     Array *path;	// Array of char*'s which form the import lookup path
     Array *filePath;	// Array of char*'s which form the file import lookup path
     int structalign;
-    char *version;
+    const char *version;
     char *ldc_version;
     char *llvm_version;
 
@@ -251,19 +318,6 @@ typedef long double real_t;
 #include "d-gcc-complex_t.h"
 #endif
 
-// taken from GDC
-// for handling printf incompatibilities
-#if __MSVCRT__
-#define PRIuSIZE "Iu"
-#define PRIxSIZE "Ix"
-#elif __MINGW32__
-#define PRIuSIZE "u"
-#define PRIxSIZE "x"
-#else
-#define PRIuSIZE "zu"
-#define PRIxSIZE "zx"
-#endif
-
 struct Module;
 
 //typedef unsigned Loc;		// file location
@@ -333,6 +387,7 @@ enum MATCH
     MATCHexact		// exact match
 };
 
+void warning(Loc loc, const char *format, ...);
 void error(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void fatal();

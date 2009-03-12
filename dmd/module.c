@@ -24,7 +24,7 @@
 #include "gdc_alloca.h"
 #endif
 
-#include "mem.h"
+#include "rmem.h"
 
 #include "mars.h"
 #include "module.h"
@@ -88,6 +88,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 #ifdef IN_GCC
     strictlyneedmoduleinfo = 0;
 #endif
+    selfimports = 0;
     insearch = 0;
     searchCacheIdent = NULL;
     searchCacheSymbol = NULL;
@@ -145,9 +146,9 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     this->doHdrGen = doHdrGen;
 }
 
-File* Module::buildFilePath(char* forcename, char* path, char* ext)
+File* Module::buildFilePath(const char* forcename, const char* path, const char* ext)
 {
-    char *argobj;
+    const char *argobj;
     if (forcename)
 	argobj = forcename;
     else
@@ -160,9 +161,9 @@ File* Module::buildFilePath(char* forcename, char* path, char* ext)
 	if (fqnNames)
 	{
 	    if(md)
-		argobj = FileName::replaceName(argobj, md->toChars());
+		argobj = FileName::replaceName((char*)argobj, md->toChars());
 	    else
-		argobj = FileName::replaceName(argobj, toChars());
+		argobj = FileName::replaceName((char*)argobj, toChars());
 
 	    // add ext, otherwise forceExt will make nested.module into nested.bc
 	    size_t len = strlen(argobj);
@@ -926,13 +927,39 @@ int Module::imports(Module *m)
 	{
 	    mi->insearch = 1;
 	    int r = mi->imports(m);
-	    mi->insearch = 0;
 	    if (r)
 		return r;
 	}
     }
     return FALSE;
 }
+
+/*************************************
+ * Return !=0 if module imports itself.
+ */
+
+int Module::selfImports()
+{
+    //printf("Module::selfImports() %s\n", toChars());
+    if (!selfimports)
+    {
+	for (int i = 0; i < amodules.dim; i++)
+	{   Module *mi = (Module *)amodules.data[i];
+	    //printf("\t[%d] %s\n", i, mi->toChars());
+	    mi->insearch = 0;
+	}
+
+	selfimports = imports(this) + 1;
+
+	for (int i = 0; i < amodules.dim; i++)
+	{   Module *mi = (Module *)amodules.data[i];
+	    //printf("\t[%d] %s\n", i, mi->toChars());
+	    mi->insearch = 0;
+	}
+    }
+    return selfimports - 1;
+}
+
 
 /* =========================== ModuleDeclaration ===================== */
 

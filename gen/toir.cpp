@@ -13,13 +13,14 @@
 #include "gen/llvm.h"
 
 #include "attrib.h"
-#include "total.h"
 #include "init.h"
 #include "mtype.h"
 #include "template.h"
 #include "hdrgen.h"
 #include "port.h"
-#include "mem.h"
+#include "rmem.h"
+#include "id.h"
+#include "enum.h"
 
 #include "gen/irstate.h"
 #include "gen/logger.h"

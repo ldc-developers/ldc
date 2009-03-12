@@ -25,7 +25,7 @@
 #include <windows.h>
 #endif
 
-#include "mem.h"
+#include "rmem.h"
 #include "root.h"
 
 #include "mars.h"
@@ -103,6 +103,20 @@ void error(Loc loc, const char *format, ...)
     va_start(ap, format);
     verror(loc, format, ap);
     va_end( ap );
+}
+
+void warning(Loc loc, const char *format, ...)
+{
+    if (global.params.warnings && !global.gag)
+    {
+    fprintf(stdmsg, "warning - ");
+    va_list ap;
+    va_start(ap, format);
+    char* p = loc.toChars();
+    fprintf(stdmsg, "Warning: %s:", p?p:"");
+    vfprintf(stdmsg, format, ap);
+    va_end( ap );
+    }
 }
 
 void verror(Loc loc, const char *format, va_list ap)
