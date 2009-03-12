@@ -51,8 +51,10 @@ execute_process(
 	OUTPUT_VARIABLE LLVM_LDFLAGS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+
+set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend arm
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES}
 	OUTPUT_VARIABLE LLVM_LIBS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
