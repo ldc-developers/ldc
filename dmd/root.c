@@ -1391,7 +1391,11 @@ void OutBuffer::reserve(unsigned nbytes)
     //printf("OutBuffer::reserve: size = %d, offset = %d, nbytes = %d\n", size, offset, nbytes);
     if (size - offset < nbytes)
     {
-	size = (offset + nbytes) * 2;
+#if defined (__x86_64__)
+	size = (offset + nbytes) * 2 + 2;
+#else
+	size = (offset + nbytes) * 2 + 2;
+#endif
 	data = (unsigned char *)mem.realloc(data, size);
     }
 }
