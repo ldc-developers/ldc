@@ -43,8 +43,8 @@ typedef enum {
 } AsmArgMode;
 
 struct AsmArg {
-    AsmArgType   type;
     Expression * expr;
+    AsmArgType   type;
     AsmArgMode   mode;
     AsmArg(AsmArgType type, Expression * expr, AsmArgMode mode) {
 	this->type = type;
@@ -56,7 +56,7 @@ struct AsmArg {
 struct AsmCode {
     char *   insnTemplate;
     unsigned insnTemplateLen;
-    Array    args; // of AsmArg
+    std::vector<AsmArg> args;
     std::vector<bool> regs;
     unsigned dollarLabel;
     int      clobbersMemory;
@@ -212,25 +212,24 @@ AsmStatement::toIR(IRState * irs)
     static std::string memory_name = "memory";
 
     AsmCode * code = (AsmCode *) asmcode;
-    std::deque<LLValue*> input_values;
-    std::deque<std::string> input_constraints;
-    std::deque<LLValue*> output_values;
-    std::deque<std::string> output_constraints;
-    std::deque<std::string> clobbers;
+    std::vector<LLValue*> input_values;
+    std::vector<std::string> input_constraints;
+    std::vector<LLValue*> output_values;
+    std::vector<std::string> output_constraints;
+    std::vector<std::string> clobbers;
 
 // FIXME
-    #define HOST_WIDE_INT long
-    HOST_WIDE_INT var_frame_offset; // "frame_offset" is a macro
+    //#define HOST_WIDE_INT long
+    //HOST_WIDE_INT var_frame_offset; // "frame_offset" is a macro
     bool clobbers_mem = code->clobbersMemory;
     int input_idx = 0;
     int n_outputs = 0;
     int arg_map[10];
 
-    assert(code->args.dim <= 10);
+    assert(code->args.size() <= 10);
 
-    for (unsigned i = 0; i < code->args.dim; i++) {
-	AsmArg * arg = (AsmArg *) code->args.data[i];
-	
+    std::vector<AsmArg>::iterator arg = code->args.begin();
+    for (unsigned i = 0; i < code->args.size(); i++, ++arg) {
 	bool is_input = true;
 	LLValue* arg_val = 0;
 	std::string cns;
@@ -290,12 +289,10 @@ assert(0);
 
 	if (is_input) {
 	    arg_map[i] = --input_idx;
-	    //inputs.cons(tree_cons(NULL_TREE, cns, NULL_TREE), arg_val);
 	    input_values.push_back(arg_val);
 	    input_constraints.push_back(cns);
 	} else {
 	    arg_map[i] = n_outputs++;
-	    //outputs.cons(tree_cons(NULL_TREE, cns, NULL_TREE), arg_val);
 	    output_values.push_back(arg_val);
 	    output_constraints.push_back(cns);
 	}
@@ -310,18 +307,16 @@ assert(0);
         assert(asmparser);
 	for (int i = 0; i < code->regs.size(); i++) {
 	    if (code->regs[i]) {
-		//clobbers.cons(NULL_TREE, regInfo[i].gccName);
 		clobbers.push_back(asmparser->getRegName(i));
 	    }
 	}
 	if (clobbers_mem)
 	    clobbers.push_back(memory_name);
-	    //clobbers.cons(NULL_TREE, memory_name);
 //    }
 
 
     // Remap argument numbers
-    for (unsigned i = 0; i < code->args.dim; i++) {
+    for (unsigned i = 0; i < code->args.size(); i++) {
 	if (arg_map[i] < 0)
 	    arg_map[i] = -arg_map[i] - 1 + n_outputs;
     }
@@ -345,12 +340,12 @@ assert(0);
 	++p;
     }
 
+    typedef std::vector<std::string>::iterator It;
     if (Logger::enabled()) {
         Logger::println("final asm: %.*s", code->insnTemplateLen, code->insnTemplate);
         std::ostringstream ss;
         
         ss << "GCC-style output constraints: {";
-        typedef std::deque<std::string>::iterator It;
         for (It i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i) {
             ss << " " << *i;
         }
@@ -380,8 +375,7 @@ assert(0);
     std::string llvmOutConstraints;
     std::string llvmInConstraints;
     int n = 0;
-    typedef std::deque<std::string>::iterator it;
-    for(it i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i, ++n) {
+    for(It i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i, ++n) {
         // rewrite update constraint to in and out constraints
         if((*i)[0] == '+') {
             assert(*i == mrw_cns && "What else are we updating except memory?");
@@ -404,19 +398,19 @@ assert(0);
     }
     asmblock->outputcount += n;
 
-    for(it i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
+    for(It i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
         llvmInConstraints += *i;
         llvmInConstraints += ",";
     }
 
     std::string clobstr;
-    for(it i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
+    for(It i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
         clobstr = "~{" + *i + "},";
         asmblock->clobs.insert(clobstr);
     }
 
     if (Logger::enabled()) {
-        typedef std::deque<LLValue*>::iterator It;
+        typedef std::vector<LLValue*>::iterator It;
         {
             Logger::println("Output values:");
             LOG_SCOPE

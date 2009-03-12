@@ -459,12 +459,12 @@ namespace AsmParserx8632
         /* Op_FfdR      */  { D|rfp, 0,    0  },
         /* Op_Ffd_P     */  { D|mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
         /* Op_FfdR_P    */  { D|rfp, 0,    0,    0, Clb_ST, Next_Form, Op_FfdRR_P },
-        /* Op_FfdRR_P    */ { D|mfp|rfp,rfp,0,   0, Clb_ST },
+        /* Op_FfdRR_P   */  { D|mfp|rfp,rfp,0,   0, Clb_ST },
         /* Op_Fd_P      */  { D|mem, 0,    0,    0, Clb_ST }, // "
         /* Op_FdST      */  { D|rfp, 0,    0  },
         /* Op_FMath     */  { mfp,   0,    0,    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
-        /* Op_FMath0     */ { 0,     0,    0,    0,  Clb_ST, Next_Form, Op_FMath2  },
-        /* Op_FMath2     */ { D|rfp, rfp,  0,    0,  Clb_ST, Next_Form, Op_FdST0ST1  }, 
+        /* Op_FMath0    */  { 0,     0,    0,    0,  Clb_ST, Next_Form, Op_FMath2  },
+        /* Op_FMath2    */  { D|rfp, rfp,  0,    0,  Clb_ST, Next_Form, Op_FdST0ST1  }, 
         /* Op_FdSTiSTi  */  { D|rfp, rfp,  0, },
         /* Op_FdST0ST1  */  { 0, 0,  0, },
         /* Op_FPMath    */  { D|rfp, rfp,  0,    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
@@ -1555,17 +1555,17 @@ namespace AsmParserx8632
             else
             {
                 insnTemplate->writestring ( ( char* ) fmt );
-                insnTemplate->printf ( "<<%s%d>>", ( mode==Mode_Input ) ?"in":"out", asmcode->args.dim );
-                asmcode->args.push ( new AsmArg ( type, e, mode ) );
+                insnTemplate->printf ( "<<%s%d>>", ( mode==Mode_Input ) ?"in":"out", asmcode->args.size() );
+                asmcode->args.push_back ( AsmArg ( type, e, mode ) );
             }
         }
         void addOperand2 ( const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
             assert ( !sc->func->naked );
             insnTemplate->writestring ( ( char* ) fmtpre );
-            insnTemplate->printf ( "<<%s%d>>", ( mode==Mode_Input ) ?"in":"out", asmcode->args.dim );
+            insnTemplate->printf ( "<<%s%d>>", ( mode==Mode_Input ) ?"in":"out", asmcode->args.size() );
             insnTemplate->writestring ( ( char* ) fmtpost );
-            asmcode->args.push ( new AsmArg ( type, e, mode ) );
+            asmcode->args.push_back ( AsmArg ( type, e, mode ) );
         }
 
         void addLabel ( char* id )
