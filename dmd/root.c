@@ -1394,7 +1394,7 @@ void OutBuffer::reserve(unsigned nbytes)
 #if defined (__x86_64__)
 	size = (offset + nbytes) * 2 + 2;
 #else
-	size = (offset + nbytes) * 2 + 2;
+	size = (offset + nbytes) * 2;
 #endif
 	data = (unsigned char *)mem.realloc(data, size);
     }
