@@ -41,6 +41,10 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         {
             // 3) try the install-prefix/etc
             p = sys::Path(LDC_INSTALL_PREFIX);
+        #if !_WIN32
+            // Does Window need something similar?
+            p.appendComponent("etc");
+        #endif
             p.appendComponent(filename);
 
             if (!p.exists())
