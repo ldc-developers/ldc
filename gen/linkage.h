@@ -1,7 +1,7 @@
 #ifndef LDC_GEN_LINKAGE_H
 #define LDC_GEN_LINKAGE_H
 
-#include "gen/revisions.h"
+#include "gen/llvm-version.h"
 
 // Make it easier to test new linkage types
 // Also used to adapt to some changes in LLVM between 2.5 and 2.6

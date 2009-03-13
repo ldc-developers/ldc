@@ -195,7 +195,7 @@ add_custom_target(
 	gen_revs_h
 	COMMAND ${PERL_EXECUTABLE} ${PROJECT_BINARY_DIR}/revisions.pl
 	DEPENDS ${PROJECT_BINARY_DIR}/revisions.pl
-	COMMENT "Generating revisions.h"
+	COMMENT "Generating revisions.h and llvm-version.h"
 	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/gen
 )
 add_dependencies(${LDC_EXE} gen_revs_h)

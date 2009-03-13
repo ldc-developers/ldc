@@ -29,6 +29,7 @@ syntax: regexp
 ^ldc\.make$
 ^revisions\.pl$
 ^gen/revisions\.h$
+^gen/llvm-version\.h$
 ^dmd2?/idgen$
 ^dmd2?/impcnvgen$
 ^dmd2?/impcnvtab\.c$
