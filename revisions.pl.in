@@ -7,31 +7,47 @@ use Time::localtime;
 
 my $llvm_src = `perl @LLVM_CONFIG@ --src-root`;
 
-my $llvm_rev = `svnversion --committed $llvm_src`;
+my $svn_info = `svn info $llvm_src 2>/dev/null`;
+
+my $extra_includes = "";
 my $llvm_rev_str;
 my $llvm_rev_nr;
+my $llvm_date = "";
 
-if ($llvm_rev =~ /^\s*(\d+:)?((\d+)[MSP]*)\s*$/) {
-	$llvm_rev_str = qq!#define LLVM_REV_STR "LLVM rev. $2"!;
-	$llvm_rev_nr = "$3";
+if ($svn_info =~ /^URL:.*\/trunk\s*$/m && $svn_info =~ /^Last Changed Rev:\s*(\d+)\s*/m) {
+    $llvm_rev_str = qq!"LLVM trunk rev. $1"!;
+    $llvm_rev_nr = $1;
 } else {
-	my $llvm_lib = `perl @LLVM_CONFIG@ --libdir`;
-	$llvm_lib =~ s/\s+$//;
-	$llvm_rev = ctime(stat($llvm_lib)->mtime) if (-d $llvm_lib);
-	$llvm_rev_str = qq!#include "llvm/Config/config.h"\n#define LLVM_REV_STR PACKAGE_STRING" ($llvm_rev)"!;
-	# Assume latest release, so < any version we should be testing for.
-	$llvm_rev_nr = 0;
+    # Either non-trunk or 'svn info' didn't report "Last Changed Rev".
+    $extra_includes = qq!#include "llvm/Config/config.h"!;
+    $llvm_rev_str = "PACKAGE_STRING";
+    # Assume latest release, so < any version we should be testing for.
+    $llvm_rev_nr = 0;
+}
+
+# Use SVN date even if non-trunk:
+if ($svn_info =~ /^Last Changed Date: ([^(]*?)\s*(\(|$)/m) {
+    $llvm_date = qq!" ($1)"!;
+} else {
+    # Otherwise, try to get it from the libdir
+    my $llvm_lib = `perl @LLVM_CONFIG@ --libdir`;
+    $llvm_lib =~ s/\s+$//;
+    if (-d $llvm_lib) {
+        my $mod_time = ctime(stat($llvm_lib)->mtime);
+        $llvm_date = qq!" ($mod_time)"!;
+    }
 }
 
 my $ldc_rev = `hg -R@PROJECT_SOURCE_DIR@ log -r qparent --template '{rev}:{node|short} ({date|isodate})' 2>/dev/null || hg -R@PROJECT_SOURCE_DIR@ tip --template '{rev}:{node|short} ({date|isodate})'`;
 
 my $out = qq!#ifndef LDC_VERSIONS_H
 #define LDC_VERSIONS_H
+$extra_includes
 
 // LLVM version string, for use in -version output
-$llvm_rev_str
+#define LLVM_REV_STR $llvm_rev_str$llvm_date
 // LLVM svn revision number, used to adapt to changes in LLVM
-// (Is 0 if LLVM is not an SVN version)
+// (Is 0 if LLVM is not an SVN trunk version)
 #define LLVM_REV $llvm_rev_nr
 // LDC version string, for use in -version output
 #define LDC_REV "rev. $ldc_rev"
