@@ -22,6 +22,8 @@
 #include "gen/dvalue.h"
 #include "gen/abi.h"
 
+using namespace llvm::Attribute;
+
 const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
     if (Logger::enabled())
@@ -62,7 +64,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         if (f->linkage != LINKintrinsic)
             if (gABI->returnInArg(f))
             {
-                f->fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attribute::StructRet);
+                f->fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
                 rt = Type::tvoid;
                 lidx++;
             }
@@ -86,7 +88,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // and nested functions
     else if (nesttype)
     {
-        f->fty.arg_nest = new IrFuncTyArg(nesttype, false);
+        f->fty.arg_nest = new IrFuncTyArg(nesttype, false, NoAlias | NoCapture);
         lidx++;
     }
 
@@ -103,7 +105,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
                 f->fty.arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
                 lidx++;
                 // _argptr
-                f->fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false);
+                f->fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false, NoAlias | NoCapture);
                 lidx++;
             }
         }

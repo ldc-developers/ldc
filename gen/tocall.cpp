@@ -188,10 +188,22 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array", gIR->module);
 
+    llvm::AttributeWithIndex Attr;
     // specify arguments
     args.push_back(DtoLoad(typeinfoarrayparam));
+    if (unsigned atts = tf->fty.arg_arguments->attrs) {
+        Attr.Index = argidx;
+        Attr.Attrs = atts;
+        attrs.push_back(Attr);
+    }
     ++argidx;
+
     args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::Int8Ty), "tmp"));
+    if (unsigned atts = tf->fty.arg_argptr->attrs) {
+        Attr.Index = argidx;
+        Attr.Attrs = atts;
+        attrs.push_back(Attr);
+    }
     ++argidx;
 
     // pass non variadic args
@@ -287,7 +299,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
         // add attrs for hidden ptr
         Attr.Index = 1;
-        Attr.Attrs = llvm::Attribute::StructRet;
+        Attr.Attrs = tf->fty.arg_sret->attrs;
+        assert((Attr.Attrs & llvm::Attribute::StructRet) && "Sret arg not sret?");
         attrs.push_back(Attr);
     }
 
@@ -342,7 +355,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         {
             Attr.Index = retinptr ? 2 : 1;
             Attr.Attrs = tf->fty.arg_nest->attrs;
-            attrs.push_back(Attr);
+            // For delegates, we can't assume 'nest' is noalias and nocapture
+            // (like we can with nested functions) since it might actually be
+            // a 'this', and thus neither attribute generally applies to it.
+            // TODO: don't remove nocapture if it's a "pure" delegate?
+            if (delegatecall) {
+                Attr.Attrs &= ~(llvm::Attribute::NoAlias | llvm::Attribute::NoCapture);
+            }
+            // LLVM doesn't like it when no bits are set...
+            if (Attr.Attrs)
+                attrs.push_back(Attr);
         }
     }
 
