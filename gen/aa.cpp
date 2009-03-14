@@ -1,6 +1,7 @@
 #include "gen/llvm.h"
 
 #include "mtype.h"
+#include "module.h"
 #include "declaration.h"
 #include "aggregate.h"
 
@@ -11,6 +12,7 @@
 #include "gen/logger.h"
 #include "gen/irstate.h"
 #include "gen/dvalue.h"
+#include "ir/irmodule.h"
 
 // makes sure the key value lives in memory so it can be passed to the runtime functions without problems
 // returns the pointer
@@ -91,6 +93,40 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     if (ret->getType() != targettype)
         ret = DtoBitCast(ret, targettype);
 
+    // Only check bounds for rvalues ('aa[key]').
+    // Lvalue use ('aa[key] = value') auto-adds an element.
+    if (!lvalue) {
+        llvm::BasicBlock* oldend = gIR->scopeend();
+        llvm::BasicBlock* failbb = llvm::BasicBlock::Create("aaboundscheckfail", gIR->topfunc(), oldend);
+        llvm::BasicBlock* okbb = llvm::BasicBlock::Create("aaboundsok", gIR->topfunc(), oldend);
+
+        LLValue* nullaa = LLConstant::getNullValue(ret->getType());
+        LLValue* cond = gIR->ir->CreateICmpNE(nullaa, ret, "aaboundscheck");
+        gIR->ir->CreateCondBr(cond, okbb, failbb);
+
+        // set up failbb to call the array bounds error runtime function
+
+        gIR->scope() = IRScope(failbb, okbb);
+
+        std::vector<LLValue*> args;
+
+        // file param
+        args.push_back(DtoLoad(gIR->dmodule->ir.irModule->fileName));
+
+        // line param
+        LLConstant* c = DtoConstUint(loc.linnum);
+        args.push_back(c);
+
+        // call
+        llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_bounds");
+        gIR->CreateCallOrInvoke(errorfn, args.begin(), args.end());
+
+        // the function does not return
+        gIR->ir->CreateUnreachable();
+
+        // if ok, proceed in okbb
+        gIR->scope() = IRScope(okbb, oldend);
+    }
     return new DVarValue(type, ret);
 }
 
