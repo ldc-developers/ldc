@@ -23,7 +23,7 @@ void main()
     c.func();
     {
         I i = c;
-        c.func();
+        i.func();
 
         C c2 = cast(C)i;
         c2.func();
