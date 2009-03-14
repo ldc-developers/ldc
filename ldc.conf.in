@@ -11,6 +11,7 @@ default:
         "-I@RUNTIME_DIR@/lib/common",
         "-L-L@PROJECT_BINARY_DIR@/../lib",
         "-d-version=Tango",
-        "-defaultlib=@RUNTIME_AIO@"
+        "-defaultlib=@RUNTIME_AIO@",
+        "-debuglib=@RUNTIME_AIO@"
     ];
 };
