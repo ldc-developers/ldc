@@ -30,9 +30,9 @@ set(RUNTIME_DIR ${PROJECT_BINARY_DIR}/../${RUNTIME} CACHE PATH "runtime source d
 if(D_VERSION EQUAL 1)
 	# copy imports to runtime dir
 	set(LDC_IMPORTS)
-	macro(imports_file SRC)
-		get_filename_component(DEST ${SRC} NAME)
-		set(SRC  ${PROJECT_SOURCE_DIR}/${SRC})
+	macro(imports_file SRCARG)
+		get_filename_component(DEST ${SRCARG} NAME)
+		set(SRC  ${PROJECT_SOURCE_DIR}/${SRCARG})
 		set(DEST ${RUNTIME_DIR}/ldc/${DEST})
 		
 		list(APPEND LDC_IMPORTS ${DEST})
