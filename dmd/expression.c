@@ -1348,11 +1348,17 @@ integer_t IntegerExp::toInteger()
 	    case Twchar:
 	    case Tuns16:	value = (d_uns16) value;	break;
 	    case Tint32:	value = (d_int32) value;	break;
-	    case Tpointer:
 	    case Tdchar:
 	    case Tuns32:	value = (d_uns32) value;	break;
 	    case Tint64:	value = (d_int64) value;	break;
 	    case Tuns64:	value = (d_uns64) value;	break;
+	    case Tpointer:
+                // FIXME: Other pointer widths than 32 and 64?
+                if (PTRSIZE == 4)
+                    value = (d_uns32) value;
+                else
+                    value = (d_uns64) value;
+                break;
 
 	    case Tenum:
 	    {
@@ -1512,6 +1518,7 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		break;
 
 	    case Tuns64:
+            L4:
 		buf->printf("%juLU", v);
 		break;
 
@@ -1524,7 +1531,11 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		buf->writestring("cast(");
 		buf->writestring(t->toChars());
 		buf->writeByte(')');
-		goto L3;
+                // FIXME: Other pointer widths than 32 and 64?
+                if (PTRSIZE == 4)
+                    goto L3;
+                else
+                    goto L4;
 
 	    default:
 		/* This can happen if errors, such as
