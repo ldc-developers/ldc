@@ -61,14 +61,14 @@ if ($old ne $out) {
 	close $revh;
 }
 
-$out = qq!#ifndef LDC_LLVM_VERSION_H
-#define LDC_LLVM_VERSION_H
+# Allow the user to manually define it on the command line...
+$out = qq!#ifndef LLVM_REV
 
 // LLVM svn revision number, used to adapt to changes in LLVM
 // (Is 0 if LLVM is not an SVN trunk version)
 #define LLVM_REV $llvm_rev_nr
 
-#endif // LDC_LLVM_VERSION_H\n!;
+#endif // LLVM_REV\n!;
 
 $old = "";
 open $revh, "llvm-version.h" and $old = join "", <$revh>;
