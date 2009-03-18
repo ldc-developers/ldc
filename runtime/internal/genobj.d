@@ -45,7 +45,7 @@ private
     import tango.stdc.string; // : memcmp, memcpy, memmove;
     import tango.stdc.stdlib; // : calloc, realloc, free;
     import util.string;
-    debug(PRINTF) import tango.stdc.stdio; // : printf;
+    import tango.stdc.stdio;  // : printf, snprintf;
 
     extern (C) void onOutOfMemoryError();
     extern (C) Object _d_allocclass(ClassInfo ci);
@@ -915,13 +915,15 @@ class Exception : Object
         void writeOut(void delegate(char[])sink){
             char[25] buf;
             sink(func);
-            sprintf(buf.ptr,"@%zx ",address);
-            sink(buf[0..strlen(buf.ptr)]);
-            sprintf(buf.ptr," %+td ",address);
-            sink(buf[0..strlen(buf.ptr)]);
-            sink(file);
-            sprintf(buf.ptr,":%ld",line);
-            sink(buf[0..strlen(buf.ptr)]);
+            auto len = snprintf(buf.ptr,buf.length,"@%zx ",address);
+            sink(buf[0..len]);
+            len = snprintf(buf.ptr,buf.length," %+td ",address);
+            sink(buf[0..len]);
+            if (file.length != 0 || line) {
+                sink(file);
+                len = snprintf(buf.ptr,buf.length,":%ld",line);
+                sink(buf[0..len]);
+            }
         }
     }
     interface TraceInfo
@@ -947,7 +949,7 @@ class Exception : Object
 
     this( char[] msg, Exception next=null )
     {
-        this(msg,"",0,next,rt_createTraceContext(null));
+        this(msg,null,0,next,rt_createTraceContext(null));
     }
 
     this( char[] msg, char[] file, long line, Exception next=null )
@@ -961,15 +963,15 @@ class Exception : Object
     }
     
     void writeOut(void delegate(char[])sink){
-        if (file)
+        if (file.length != 0 || line)
         {
             char[25]buf;
             sink(this.classinfo.name);
             sink("@");
             sink(file);
             sink("(");
-            sprintf(buf.ptr,"%ld",line);
-            sink(buf[0..strlen(buf.ptr)]);
+            auto len = snprintf(buf.ptr,buf.length,"%ld",line);
+            sink(buf[0..len]);
             sink("): ");
             sink(toString());
             sink("\n");
@@ -1027,7 +1029,7 @@ extern (C) void  rt_setTraceHandler( TraceHandler h )
  *  An object describing the current calling context or null if no handler is
  *  supplied.
  */
-extern(C) Exception.TraceInfo rt_createTraceContext( void* ptr ){
+extern(C) Exception.TraceInfo rt_createTraceContext( void* ptr )
 {
     if( traceHandler is null )
         return null;
