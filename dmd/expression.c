@@ -963,10 +963,9 @@ void Expression::warning(const char *format, ...)
 {
     if (global.params.warnings && !global.gag)
     {
-	fprintf(stdmsg, "warning - ");
 	va_list ap;
 	va_start(ap, format);
-	::warning(loc, format, ap);
+	::vwarning(loc, format, ap);
 	va_end( ap );
     }
 }

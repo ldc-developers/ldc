@@ -71,13 +71,11 @@ namespace Logger
     {
         return _enabled;
     }
-    void attention(const Loc& loc, const char* fmt,...)
+    void attention(Loc loc, const char* fmt,...)
     {
-        printf("Warning: %s: ", loc.toChars());
         va_list va;
         va_start(va,fmt);
-        vprintf(fmt,va);
+        vwarning(loc,fmt,va);
         va_end(va);
-        printf("\n");
     }
 }

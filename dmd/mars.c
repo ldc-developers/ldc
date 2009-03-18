@@ -109,13 +109,10 @@ void warning(Loc loc, const char *format, ...)
 {
     if (global.params.warnings && !global.gag)
     {
-    fprintf(stdmsg, "warning - ");
-    va_list ap;
-    va_start(ap, format);
-    char* p = loc.toChars();
-    fprintf(stdmsg, "Warning: %s:", p?p:"");
-    vfprintf(stdmsg, format, ap);
-    va_end( ap );
+        va_list ap;
+        va_start(ap, format);
+        vwarning(loc, format, ap);
+        va_end( ap );
     }
 }
 
@@ -135,6 +132,23 @@ void verror(Loc loc, const char *format, va_list ap)
 	fflush(stdmsg);
     }
     global.errors++;
+}
+
+void vwarning(Loc loc, const char *format, va_list ap)
+{
+    if (global.params.warnings && !global.gag)
+    {
+        char *p = loc.toChars();
+
+        if (*p)
+            fprintf(stdmsg, "%s: ", p);
+        mem.free(p);
+
+        fprintf(stdmsg, "Warning: ");
+        vfprintf(stdmsg, format, ap);
+        fprintf(stdmsg, "\n");
+        fflush(stdmsg);
+    }
 }
 
 /***************************************

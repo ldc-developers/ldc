@@ -16,7 +16,7 @@ namespace Logger
     void disable();
     bool enabled();
 
-    void attention(const Loc& loc, const char* fmt, ...);
+    void attention(Loc loc, const char* fmt, ...);
 
     struct LoggerScope
     {

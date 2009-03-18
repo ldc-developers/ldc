@@ -388,6 +388,7 @@ enum MATCH
 };
 
 void warning(Loc loc, const char *format, ...);
+void vwarning(Loc loc, const char *format, va_list);
 void error(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void fatal();
