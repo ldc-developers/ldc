@@ -230,28 +230,7 @@ extern (C) int main(int argc, char **argv, char** env)
             }
             catch (Exception e)
             {
-                while (e)
-                {
-                    if (e.file)
-                    {
-                       // fprintf(stderr, "%.*s(%u): %.*s\n", e.file, e.line, e.msg);
-                       console (e.classinfo.name)("@")(e.file)("(")(e.line)("): ")(e.toString)("\n");
-                    }
-                    else
-                    {
-                       // fprintf(stderr, "%.*s\n", e.toString());
-                       console (e.classinfo.name)(": ")(e.toString)("\n");
-                    }
-                    if (e.info)
-                    {
-                        console ("----------------\n");
-                        foreach (t; e.info)
-                            console (t)("\n");
-                    }
-                    if (e.next)
-                        console ("\n");
-                    e = e.next;
-                }
+                e.writeOut(delegate void(char[]s){ console(s); });
                 result = EXIT_FAILURE;
             }
             catch (Object o)
