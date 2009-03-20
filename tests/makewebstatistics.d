@@ -226,11 +226,13 @@ class Log{
 						debug(drop) fwritefln(stderr, "dropped: %s", source);
 						counts[tests[source].r & Result.BASE_MASK]--;
 						tests.remove(source);
+						continue;
 					}
 				}catch(Exception e){
 					debug(drop) fwritefln(stderr, "dropped: %s", source);
 					counts[tests[source].r & Result.BASE_MASK]--;
 					tests.remove(source);
+					continue;
 				}
 			}
 			// asm-filter
@@ -238,6 +240,7 @@ class Log{
 			if(i >= 0){
 				counts[tests[source].r & Result.BASE_MASK]--;
 				tests.remove(source);
+				continue;
 			}
 		}
 		tests.rehash;
