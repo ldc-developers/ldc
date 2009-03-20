@@ -1067,13 +1067,21 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             IrInterface* iri = iriter->second;
             // offset pointer
             LLValue* v = val->getRVal();
+            LLValue* orig = v;
             v = DtoGEPi(v, 0, iri->index);
+            const LLType* ifType = DtoType(_to);
             if (Logger::enabled())
             {
                 Logger::cout() << "V = " << *v << std::endl;
-                Logger::cout() << "T = " << *DtoType(_to) << std::endl;
+                Logger::cout() << "T = " << *ifType << std::endl;
             }
-            v = DtoBitCast(v, DtoType(_to));
+            v = DtoBitCast(v, ifType);
+            // Check whether the original value was null, and return null if so.
+            // Sure we could have jumped over the code above in this case, but
+            // it's just a GEP and (maybe) a pointer-to-pointer BitCast, so it
+            // should be pretty cheap and perfectly safe even if the original was null.
+            LLValue* isNull = gIR->ir->CreateICmpEQ(orig, LLConstant::getNullValue(orig->getType()), ".nullcheck");
+            v = gIR->ir->CreateSelect(isNull, LLConstant::getNullValue(ifType), v, ".interface");
             // return r-value
             return new DImValue(_to, v);
         }
