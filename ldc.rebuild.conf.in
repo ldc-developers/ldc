@@ -1,0 +1,2 @@
+[Environment] 
+DFLAGS=-I@RUNTIME_DIR@ -I@RUNTIME_DIR@/lib/common -L-L%@P%/../lib -d-version=Tango -defaultlib=@RUNTIME_AIO@ -debuglib=@RUNTIME_AIO@ 

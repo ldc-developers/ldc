@@ -24,6 +24,7 @@ syntax: regexp
 ^import/
 ^bin/ldc2?$
 ^bin/ldc2?\.conf$
+^bin/ldc2?\.rebuild\.conf$
 ^idgen\.make$
 ^impcnvgen\.make$
 ^ldc\.make$

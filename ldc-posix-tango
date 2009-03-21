@@ -1,7 +1,7 @@
 ignore=object
 
 compiler=ldc
-inifile=ldc.conf
+inifile=ldc.rebuild.conf
 
 exeext=
 objext=o

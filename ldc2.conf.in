@@ -1,2 +1,15 @@
-[Environment]
-DFLAGS=-I@RUNTIME_DIR@/import -L-L%@P%/../lib
+// This configuration file uses libconfig.
+// See http://www.hyperrealm.com/libconfig/ for syntax details.
+
+// The default group is required
+default:
+{
+    // 'switches' holds array of string that are appends to the command line
+    // arguments before they are parsed.
+    switches = [
+        "-I@RUNTIME_DIR@/import",
+        "-L-L@PROJECT_BINARY_DIR@/../lib",
+        "-defaultlib=@RUNTIME_AIO@",
+        "-debuglib=@RUNTIME_AIO@"
+    ];
+};
