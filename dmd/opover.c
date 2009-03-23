@@ -12,7 +12,11 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <assert.h>
+#if _MSC_VER
 #include <complex>
+#else
+#include <complex>
+#endif
 
 #ifdef __APPLE__
 #define integer_t dmd_integer_t

@@ -634,7 +634,7 @@ struct FuncDeclaration : Declaration
     void toDocBuffer(OutBuffer *buf);
 
 // LDC: give argument types to runtime functions
-    static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, char *name);
+    static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, const char *name);
     static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, Identifier *id);
 
     Symbol *toSymbol();

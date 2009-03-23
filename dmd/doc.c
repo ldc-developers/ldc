@@ -17,7 +17,6 @@
 #include <assert.h>
 
 #include "rmem.h"
-
 #include "root.h"
 
 #include "mars.h"

@@ -26,7 +26,6 @@ struct VoidInitializer;
 struct StructInitializer;
 struct ArrayInitializer;
 struct ExpInitializer;
-struct StructInitializer;
 #ifdef _DH
 struct HdrGenState;
 #endif
@@ -85,7 +84,7 @@ struct StructInitializer : Initializer
 
     dt_t *toDt();
 
-    StructInitializer  *isStructInitializer()  { return this; }
+    StructInitializer *isStructInitializer() { return this; }
 };
 
 struct ArrayInitializer : Initializer

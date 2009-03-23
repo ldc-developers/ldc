@@ -15,7 +15,7 @@
 #include <alloca.h>
 #endif
 
-#include <cmath>
+#include <math.h>
 
 #include <stdio.h>
 #include <assert.h>
@@ -1741,7 +1741,7 @@ d_uns64 TypeSArray::size(Loc loc)
     return sz;
 
 Loverflow:
-    error(loc, "index %lld overflow for static array", sz);
+    error(loc, "index %jd overflow for static array", sz);
     return 1;
 }
 
@@ -1809,7 +1809,7 @@ void TypeSArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
 	    sc = sc->pop();
 
 	    if (d >= td->objects->dim)
-	    {	error(loc, "tuple index %llu exceeds %u", d, td->objects->dim);
+	    {	error(loc, "tuple index %ju exceeds %u", d, td->objects->dim);
 		goto Ldefault;
 	    }
 	    Object *o = (Object *)td->objects->data[(size_t)d];
@@ -1863,7 +1863,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	uinteger_t d = dim->toUInteger();
 
 	if (d >= sd->objects->dim)
-	{   error(loc, "tuple index %llu exceeds %u", d, sd->objects->dim);
+	{   error(loc, "tuple index %ju exceeds %u", d, sd->objects->dim);
 	    return Type::terror;
 	}
 	Object *o = (Object *)sd->objects->data[(size_t)d];
