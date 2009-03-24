@@ -52,8 +52,8 @@ Scope::Scope()
     this->enclosing = NULL;
     this->parent = NULL;
     this->sw = NULL;
-    this->tf = NULL;
-    this->tfOfTry = NULL;
+    this->enclosingFinally = NULL;
+    this->enclosingScopeExit = NULL;
     this->tinst = NULL;
     this->sbreak = NULL;
     this->scontinue = NULL;
@@ -91,8 +91,8 @@ Scope::Scope(Scope *enclosing)
     this->scopesym = NULL;
     this->sd = NULL;
     this->sw = enclosing->sw;
-    this->tf = enclosing->tf;
-    this->tfOfTry = enclosing->tfOfTry;
+    this->enclosingFinally = enclosing->enclosingFinally;
+    this->enclosingScopeExit = enclosing->enclosingScopeExit;
     this->tinst = enclosing->tinst;
     this->sbreak = enclosing->sbreak;
     this->scontinue = enclosing->scontinue;

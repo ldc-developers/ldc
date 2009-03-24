@@ -444,8 +444,8 @@ assert(0);
 AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
 :   CompoundStatement(loc, s)
 {
-    enclosinghandler = NULL;
-    tf = NULL;
+    enclosingFinally = NULL;
+    enclosingScopeExit = NULL;
 
     abiret = NULL;
 }
@@ -772,7 +772,7 @@ void AsmBlockStatement::toIR(IRState* p)
             sw->addCase(llvm::ConstantInt::get(llvm::IntegerType::get(32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
-            DtoGoto(&loc, it->first, enclosinghandler, tf);
+            DtoGoto(loc, it->first);
         }
 
         p->scope() = IRScope(bb,oldend);
@@ -803,8 +803,8 @@ Statement *AsmBlockStatement::syntaxCopy()
 // necessary for in-asm branches
 Statement *AsmBlockStatement::semantic(Scope *sc)
 {
-    enclosinghandler = sc->tfOfTry;
-    tf = sc->tf;
+    enclosingFinally = sc->enclosingFinally;
+    enclosingScopeExit = sc->enclosingScopeExit;
 
     return CompoundStatement::semantic(sc);
 }

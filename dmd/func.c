@@ -682,8 +682,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 	sc2->explicitProtection = 0;
 	sc2->structalign = 8;
 	sc2->incontract = 0;
-	sc2->tf = NULL;
-	sc2->tfOfTry = NULL;
+	sc2->enclosingFinally = NULL;
+	sc2->enclosingScopeExit = NULL;
 	sc2->noctor = 0;
 
 	// Declare 'this'
@@ -1243,6 +1243,38 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    }
 
 	    fbody = new CompoundStatement(0, a);
+
+	    // wrap body of synchronized functions in a synchronized statement
+	    if (isSynchronized())
+	    {
+		ClassDeclaration *cd = parent->isClassDeclaration();
+		if (!cd)
+		    error("synchronized function %s must be a member of a class", toChars());
+		    
+		Expression *sync;
+		if (isStatic())
+		{
+		    // static member functions synchronize on classinfo 
+		    // (the expression passed doesn't matter)
+		    sync = cd->type->dotExp(sc2, new DollarExp(loc), Id::classinfo);
+		}
+		else
+		{
+		    // non-static member functions synchronize on this
+		    sync = new VarExp(loc, vthis);
+		}
+                
+		// is is ok to not rerun semantic on the whole fbody here; only the enclosingScopeExit
+		// value will differ and as it is impossible to goto out of this synchronized statement,
+		// that should not lead to errors
+		SynchronizedStatement* s = new SynchronizedStatement(loc, sync, NULL);
+		s->semantic(sc2);
+		s->body = fbody;
+		
+		a = new Statements;
+		a->push(s);
+		fbody = new CompoundStatement(0, a);
+	    }
 	}
 
 	sc2->callSuper = 0;

@@ -110,7 +110,7 @@ llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std:
 // ASSERT HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-void DtoAssert(Module* M, Loc* loc, DValue* msg)
+void DtoAssert(Module* M, Loc loc, DValue* msg)
 {
     std::vector<LLValue*> args;
 
@@ -133,7 +133,7 @@ void DtoAssert(Module* M, Loc* loc, DValue* msg)
     args.push_back(DtoLoad(M->ir.irModule->fileName));
 
     // line param
-    LLConstant* c = DtoConstUint(loc->linnum);
+    LLConstant* c = DtoConstUint(loc.linnum);
     args.push_back(c);
 
     // call
@@ -172,19 +172,19 @@ LabelStatement* DtoLabelStatement(Identifier* ident)
 /*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler, TryFinallyStatement* sourcetf)
+void DtoGoto(Loc loc, Identifier* target)
 {
     assert(!gIR->scopereturned());
 
     LabelStatement* lblstmt = DtoLabelStatement(target);
     if(!lblstmt) {
-        error(*loc, "the label %s does not exist", target->toChars());
+        error(loc, "the label %s does not exist", target->toChars());
         fatal();
     }
 
     // if the target label is inside inline asm, error
     if(lblstmt->asmLabel) {
-        error(*loc, "cannot goto to label %s inside an inline asm block", target->toChars());
+        error(loc, "cannot goto to label %s inside an inline asm block", target->toChars());
         fatal();
     }
 
@@ -194,25 +194,16 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler, T
     if (targetBB == NULL)
         targetBB = llvm::BasicBlock::Create("label_" + labelname, gIR->topfunc());
 
-    // find finallys between goto and label
-    EnclosingHandler* endfinally = enclosinghandler;
-    while(endfinally != NULL && endfinally != lblstmt->enclosinghandler) {
-        endfinally = endfinally->getEnclosing();
-    }
-
-    // error if didn't find tf statement of label
-    if(endfinally != lblstmt->enclosinghandler)
-        error(*loc, "cannot goto into try block");
+    // emit code for finallys between goto and label
+    DtoEnclosingHandlers(loc, lblstmt);
 
     // goto into finally blocks is forbidden by the spec
-    // though it should not be problematic to implement
+    // but should work fine
+    /*
     if(lblstmt->tf != sourcetf) {
-        error(*loc, "spec disallows goto into finally block");
+        error(loc, "spec disallows goto into finally block");
         fatal();
-    }
-
-    // emit code for finallys between goto and label
-    DtoEnclosingHandlers(enclosinghandler, endfinally);
+    }*/
 
     llvm::BranchInst::Create(targetBB, gIR->scopebb());
 }
@@ -225,14 +216,9 @@ void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosinghandler, T
 void EnclosingSynchro::emitCode(IRState * p)
 {
     if (s->exp)
-        DtoLeaveMonitor(s->llsync);
+        DtoLeaveMonitor(s->exp->toElem(p)->getRVal());
     else
         DtoLeaveCritical(s->llsync);
-}
-
-EnclosingHandler* EnclosingSynchro::getEnclosing()
-{
-    return s->enclosinghandler;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -243,11 +229,6 @@ void EnclosingVolatile::emitCode(IRState * p)
     DtoMemoryBarrier(false, false, true, false);
 }
 
-EnclosingHandler* EnclosingVolatile::getEnclosing()
-{
-    return v->enclosinghandler;
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////
 
 void EnclosingTryFinally::emitCode(IRState * p)
@@ -256,34 +237,43 @@ void EnclosingTryFinally::emitCode(IRState * p)
         tf->finalbody->toIR(p);
 }
 
-EnclosingHandler* EnclosingTryFinally::getEnclosing()
-{
-    return tf->enclosinghandler;
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoEnclosingHandlers(EnclosingHandler* start, EnclosingHandler* end)
+void DtoEnclosingHandlers(Loc loc, Statement* target)
 {
-    // verify that end encloses start
-    EnclosingHandler* endfinally = start;
-    while(endfinally != NULL && endfinally != end) {
-        endfinally = endfinally->getEnclosing();
-    }
-    assert(endfinally == end);
+    // labels are a special case: they are not required to enclose the current scope
+    // for them we use the enclosing scope handler as a reference point
+    LabelStatement* lblstmt = dynamic_cast<LabelStatement*>(target);
+    if (lblstmt)
+        target = lblstmt->enclosingScopeExit;
 
+    // figure out up until what handler we need to emit
+    IRState::TargetScopeVec::reverse_iterator targetit;
+    for (targetit = gIR->targetScopes.rbegin(); targetit != gIR->targetScopes.rend(); ++targetit) {
+        if (targetit->s == target) {
+            break;
+        }
+    }
+
+    if (target && targetit == gIR->targetScopes.rend()) {
+        if (lblstmt)
+            error(loc, "cannot goto into try, volatile or synchronized statement at %s", target->loc.toChars());
+        else
+            error(loc, "internal error, cannot find jump path to statement at %s", target->loc.toChars());
+        return;
+    }
 
     //
-    // emit code for finallys between start and end
+    // emit code for enclosing handlers
     //
 
     // since the labelstatements possibly inside are private
     // and might already exist push a label scope
     gIR->func()->pushUniqueLabelScope("enclosing");
-    EnclosingHandler* tf = start;
-    while(tf != end) {
-        tf->emitCode(gIR);
-        tf = tf->getEnclosing();
+    IRState::TargetScopeVec::reverse_iterator it;
+    for (it = gIR->targetScopes.rbegin(); it != targetit; ++it) {
+        if (it->enclosinghandler)
+            it->enclosinghandler->emitCode(gIR);
     }
     gIR->func()->popLabelScope();
 }

@@ -51,19 +51,21 @@ struct IRScope
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
 };
 
-// scope for loops
-struct IRLoopScope : IRScope
+// scope statements that can be target of jumps
+// includes loops, switch, case, labels
+struct IRTargetScope
 {
     // generating statement
     Statement* s;
+    
     // the try of a TryFinally that encloses the loop
     EnclosingHandler* enclosinghandler;
-    // if it is a switch, we are a possible target for break
-    // but not for continue
-    bool isSwitch;
+    
+    llvm::BasicBlock* breakTarget;
+    llvm::BasicBlock* continueTarget;
 
-    IRLoopScope();
-    IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* b, llvm::BasicBlock* e, bool isSwitch = false);
+    IRTargetScope();
+    IRTargetScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* continueTarget, llvm::BasicBlock* breakTarget);
 };
 
 struct IRBuilderHelper
@@ -158,8 +160,8 @@ struct IRState
     llvm::CallSite CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name="");
 
     // loop blocks
-    typedef std::vector<IRLoopScope> LoopScopeVec;
-    LoopScopeVec loopbbs;
+    typedef std::vector<IRTargetScope> TargetScopeVec;
+    TargetScopeVec targetScopes;
 
     // this holds the array being indexed or sliced so $ will work
     // might be a better way but it works. problem is I only get a

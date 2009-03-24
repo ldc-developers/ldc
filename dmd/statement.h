@@ -94,35 +94,6 @@ enum BE
     BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt),
 };
 
-// LDC this is used for tracking try-finally, synchronized and volatile scopes
-// definitions in gen/llvmhelpers.cpp
-struct EnclosingHandler : Object
-{
-    virtual void emitCode(IRState* p) = 0;
-    virtual EnclosingHandler* getEnclosing() = 0;
-};
-struct EnclosingTryFinally : EnclosingHandler
-{
-    TryFinallyStatement* tf;
-    void emitCode(IRState* p);
-    EnclosingHandler* getEnclosing();
-    EnclosingTryFinally(TryFinallyStatement* _tf) : tf(_tf) {}
-};
-struct EnclosingVolatile : EnclosingHandler
-{
-    VolatileStatement* v;
-    void emitCode(IRState* p);
-    EnclosingHandler* getEnclosing();
-    EnclosingVolatile(VolatileStatement* _tf) : v(_tf) {}
-};
-struct EnclosingSynchro : EnclosingHandler
-{
-    SynchronizedStatement* s;
-    void emitCode(IRState* p);
-    EnclosingHandler* getEnclosing();
-    EnclosingSynchro(SynchronizedStatement* _tf) : s(_tf) {}
-};
-
 struct Statement : Object
 {
     Loc loc;
@@ -255,7 +226,6 @@ struct CompoundStatement : Statement
 struct UnrolledLoopStatement : Statement
 {
     Statements *statements;
-    EnclosingHandler* enclosinghandler;
 
     UnrolledLoopStatement(Loc loc, Statements *statements);
     Statement *syntaxCopy();
@@ -300,7 +270,6 @@ struct WhileStatement : Statement
 {
     Expression *condition;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     WhileStatement(Loc loc, Expression *c, Statement *b);
     Statement *syntaxCopy();
@@ -322,7 +291,6 @@ struct DoStatement : Statement
 {
     Statement *body;
     Expression *condition;
-    EnclosingHandler* enclosinghandler;
 
     DoStatement(Loc loc, Statement *b, Expression *c);
     Statement *syntaxCopy();
@@ -346,7 +314,6 @@ struct ForStatement : Statement
     Expression *condition;
     Expression *increment;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     ForStatement(Loc loc, Statement *init, Expression *condition, Expression *increment, Statement *body);
     Statement *syntaxCopy();
@@ -371,7 +338,6 @@ struct ForeachStatement : Statement
     Arguments *arguments;	// array of Argument*'s
     Expression *aggr;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     VarDeclaration *key;
     VarDeclaration *value;
@@ -499,7 +465,6 @@ struct SwitchStatement : Statement
     Statement *body;
 
     DefaultStatement *sdefault;
-    EnclosingHandler* enclosinghandler;
 
     Array gotoCases;		// array of unresolved GotoCaseStatement's
     Array *cases;		// array of CaseStatement's
@@ -574,7 +539,6 @@ struct DefaultStatement : Statement
 struct GotoDefaultStatement : Statement
 {
     SwitchStatement *sw;
-    EnclosingHandler* enclosinghandler;
 
     GotoDefaultStatement(Loc loc);
     Statement *syntaxCopy();
@@ -590,7 +554,6 @@ struct GotoCaseStatement : Statement
 {
     Expression *exp;		// NULL, or which case to goto
     CaseStatement *cs;		// case statement it resolves to
-    EnclosingHandler* enclosinghandler;
     SwitchStatement *sw;
 
     GotoCaseStatement(Loc loc, Expression *exp);
@@ -615,7 +578,6 @@ struct SwitchErrorStatement : Statement
 struct ReturnStatement : Statement
 {
     Expression *exp;
-    EnclosingHandler* enclosinghandler;
 
     ReturnStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -636,7 +598,6 @@ struct ReturnStatement : Statement
 struct BreakStatement : Statement
 {
     Identifier *ident;
-    EnclosingHandler* enclosinghandler;
 
     BreakStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -654,7 +615,6 @@ struct BreakStatement : Statement
 struct ContinueStatement : Statement
 {
     Identifier *ident;
-    EnclosingHandler* enclosinghandler;
 
     ContinueStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -673,7 +633,6 @@ struct SynchronizedStatement : Statement
 {
     Expression *exp;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     SynchronizedStatement(Loc loc, Expression *exp, Statement *body);
     Statement *syntaxCopy();
@@ -749,7 +708,6 @@ struct TryFinallyStatement : Statement
 {
     Statement *body;
     Statement *finalbody;
-    EnclosingHandler* enclosinghandler;
 
     TryFinallyStatement(Loc loc, Statement *body, Statement *finalbody);
     Statement *syntaxCopy();
@@ -799,7 +757,6 @@ struct ThrowStatement : Statement
 struct VolatileStatement : Statement
 {
     Statement *statement;
-    EnclosingHandler* enclosinghandler;
 
     VolatileStatement(Loc loc, Statement *statement);
     Statement *syntaxCopy();
@@ -817,8 +774,8 @@ struct GotoStatement : Statement
 {
     Identifier *ident;
     LabelDsymbol *label;
-    TryFinallyStatement *tf;
-    EnclosingHandler* enclosinghandler;
+    TryFinallyStatement *enclosingFinally;
+    Statement* enclosingScopeExit;
 
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -835,8 +792,8 @@ struct LabelStatement : Statement
 {
     Identifier *ident;
     Statement *statement;
-    TryFinallyStatement *tf;
-    EnclosingHandler* enclosinghandler;
+    TryFinallyStatement *enclosingFinally;
+    Statement* enclosingScopeExit;
     block *lblock;		// back end
     int isReturnLabel;
 
@@ -895,8 +852,8 @@ struct AsmStatement : Statement
 
 struct AsmBlockStatement : CompoundStatement
 {
-    EnclosingHandler* enclosinghandler;
-    TryFinallyStatement* tf;
+    TryFinallyStatement* enclosingFinally;
+    Statement* enclosingScopeExit;
 
     AsmBlockStatement(Loc loc, Statements *s);
     Statements *flatten(Scope *sc);

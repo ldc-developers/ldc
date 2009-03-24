@@ -582,7 +582,6 @@ UnrolledLoopStatement::UnrolledLoopStatement(Loc loc, Statements *s)
     : Statement(loc)
 {
     statements = s;
-    enclosinghandler = NULL;
 }
 
 Statement *UnrolledLoopStatement::syntaxCopy()
@@ -603,8 +602,6 @@ Statement *UnrolledLoopStatement::syntaxCopy()
 Statement *UnrolledLoopStatement::semantic(Scope *sc)
 {
     //printf("UnrolledLoopStatement::semantic(this = %p, sc = %p)\n", this, sc);
-
-    enclosinghandler = sc->tfOfTry;
 
     sc->noctor++;
     Scope *scd = sc->push();
@@ -795,7 +792,6 @@ WhileStatement::WhileStatement(Loc loc, Expression *c, Statement *b)
 {
     condition = c;
     body = b;
-    enclosinghandler = NULL;
 }
 
 Statement *WhileStatement::syntaxCopy()
@@ -829,8 +825,6 @@ Statement *WhileStatement::semantic(Scope *sc)
 	return si->semantic(sc);
     }
 #endif
-
-    enclosinghandler = sc->tfOfTry;
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -919,7 +913,6 @@ DoStatement::DoStatement(Loc loc, Statement *b, Expression *c)
 {
     body = b;
     condition = c;
-    enclosinghandler = NULL;
 }
 
 Statement *DoStatement::syntaxCopy()
@@ -931,8 +924,6 @@ Statement *DoStatement::syntaxCopy()
 
 Statement *DoStatement::semantic(Scope *sc)
 {
-    enclosinghandler = sc->tfOfTry;
-
     sc->noctor++;
     if (body)
 	body = body->semanticScope(sc, this, this);
@@ -1010,7 +1001,6 @@ ForStatement::ForStatement(Loc loc, Statement *init, Expression *condition, Expr
     this->condition = condition;
     this->increment = increment;
     this->body = body;
-    this->enclosinghandler = NULL;
 }
 
 Statement *ForStatement::syntaxCopy()
@@ -1030,8 +1020,6 @@ Statement *ForStatement::syntaxCopy()
 
 Statement *ForStatement::semantic(Scope *sc)
 {
-    enclosinghandler = sc->tfOfTry;
-
     ScopeDsymbol *sym = new ScopeDsymbol();
     sym->parent = sc->scopesym;
     sc = sc->push(sym);
@@ -1169,7 +1157,6 @@ ForeachStatement::ForeachStatement(Loc loc, enum TOK op, Arguments *arguments,
     this->arguments = arguments;
     this->aggr = aggr;
     this->body = body;
-    this->enclosinghandler = NULL;
 
     this->key = NULL;
     this->value = NULL;
@@ -1196,8 +1183,6 @@ Statement *ForeachStatement::semantic(Scope *sc)
 
     Type *tn = NULL;
     Type *tnv = NULL;
-
-    enclosinghandler = sc->tfOfTry;
 
     func = sc->func;
     if (func->fes)
@@ -2253,8 +2238,6 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b)
     sdefault = NULL;
     cases = NULL;
     hasNoDefault = 0;
-    // LDC
-    enclosinghandler = NULL;
 }
 
 Statement *SwitchStatement::syntaxCopy()
@@ -2268,8 +2251,6 @@ Statement *SwitchStatement::semantic(Scope *sc)
 {
     //printf("SwitchStatement::semantic(%p)\n", this);
     assert(!cases);		// ensure semantic() is only run once
-
-    enclosinghandler = sc->tfOfTry;
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -2571,7 +2552,6 @@ GotoDefaultStatement::GotoDefaultStatement(Loc loc)
     : Statement(loc)
 {
     sw = NULL;
-    enclosinghandler = NULL;
 }
 
 Statement *GotoDefaultStatement::syntaxCopy()
@@ -2582,7 +2562,6 @@ Statement *GotoDefaultStatement::syntaxCopy()
 
 Statement *GotoDefaultStatement::semantic(Scope *sc)
 {
-    enclosinghandler = sc->tfOfTry;
     sw = sc->sw;
     if (!sw)
 	error("goto default not in switch statement");
@@ -2606,7 +2585,6 @@ GotoCaseStatement::GotoCaseStatement(Loc loc, Expression *exp)
 {
     cs = NULL;
     this->exp = exp;
-    enclosinghandler = NULL;
     sw = NULL;
 }
 
@@ -2619,7 +2597,6 @@ Statement *GotoCaseStatement::syntaxCopy()
 
 Statement *GotoCaseStatement::semantic(Scope *sc)
 {
-    enclosinghandler = sc->tfOfTry;
     if (exp)
 	exp = exp->semantic(sc);
 
@@ -2678,7 +2655,6 @@ ReturnStatement::ReturnStatement(Loc loc, Expression *exp)
     : Statement(loc)
 {
     this->exp = exp;
-    this->enclosinghandler = NULL;
 }
 
 Statement *ReturnStatement::syntaxCopy()
@@ -2693,7 +2669,6 @@ Statement *ReturnStatement::syntaxCopy()
 Statement *ReturnStatement::semantic(Scope *sc)
 {
     //printf("ReturnStatement::semantic() %s\n", toChars());
-    this->enclosinghandler = sc->tfOfTry;
 
     FuncDeclaration *fd = sc->parent->isFuncDeclaration();
     Scope *scx = sc;
@@ -2730,7 +2705,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
 
     if (sc->incontract || scx->incontract)
 	error("return statements cannot be in contracts");
-    if (sc->tf || scx->tf)
+    if (sc->enclosingFinally || scx->enclosingFinally)
 	error("return statements cannot be in finally, scope(exit) or scope(success) bodies");
 
     if (fd->isCtorDeclaration())
@@ -2955,7 +2930,6 @@ BreakStatement::BreakStatement(Loc loc, Identifier *ident)
     : Statement(loc)
 {
     this->ident = ident;
-    this->enclosinghandler = NULL;
 }
 
 Statement *BreakStatement::syntaxCopy()
@@ -2967,7 +2941,6 @@ Statement *BreakStatement::syntaxCopy()
 Statement *BreakStatement::semantic(Scope *sc)
 {
     //printf("BreakStatement::semantic()\n");
-    enclosinghandler = sc->tfOfTry;
     // If:
     //	break Identifier;
     if (ident)
@@ -3005,7 +2978,7 @@ Statement *BreakStatement::semantic(Scope *sc)
 
 		if (!s->hasBreak())
 		    error("label '%s' has no break", ident->toChars());
-		if (ls->tf != sc->tf)
+		if (ls->enclosingFinally != sc->enclosingFinally)
 		    error("cannot break out of finally block");
 		
 		this->target = ls;
@@ -3051,7 +3024,6 @@ ContinueStatement::ContinueStatement(Loc loc, Identifier *ident)
     : Statement(loc)
 {
     this->ident = ident;
-    this->enclosinghandler = NULL;
 }
 
 Statement *ContinueStatement::syntaxCopy()
@@ -3062,7 +3034,6 @@ Statement *ContinueStatement::syntaxCopy()
 
 Statement *ContinueStatement::semantic(Scope *sc)
 {
-    enclosinghandler = sc->tfOfTry;
     //printf("ContinueStatement::semantic() %p\n", this);
     if (ident)
     {
@@ -3109,7 +3080,7 @@ Statement *ContinueStatement::semantic(Scope *sc)
 
 		if (!s->hasContinue())
 		    error("label '%s' has no continue", ident->toChars());
-		if (ls->tf != sc->tf)
+		if (ls->enclosingFinally != sc->enclosingFinally)
 		    error("cannot continue out of finally block");
 		
 		this->target = ls;
@@ -3156,7 +3127,6 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, Expression *exp, Statement
     this->exp = exp;
     this->body = body;
     this->esync = NULL;
-    this->enclosinghandler = NULL;
     // LDC
     this->llsync = NULL;
 }
@@ -3167,7 +3137,6 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *bo
     this->exp = NULL;
     this->body = body;
     this->esync = esync;
-    this->enclosinghandler = NULL;
     // LDC
     this->llsync = NULL;
 }
@@ -3199,10 +3168,10 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
     }
     if (body)
     {
-        enclosinghandler = sc->tfOfTry;
-        sc->tfOfTry = new EnclosingSynchro(this);
-        body = body->semantic(sc);
-        sc->tfOfTry = enclosinghandler;
+	Statement* oldScopeExit = sc->enclosingScopeExit;
+	sc->enclosingScopeExit = this;
+	body = body->semantic(sc);
+	sc->enclosingScopeExit = oldScopeExit;
     }
     return this;
 }
@@ -3455,7 +3424,7 @@ void Catch::semantic(Scope *sc)
     //printf("Catch::semantic(%s)\n", ident->toChars());
 
 #ifndef IN_GCC
-    if (sc->tf)
+    if (sc->enclosingFinally)
     {
 	/* This is because the _d_local_unwind() gets the stack munged
 	 * up on this. The workaround is to place any try-catches into
@@ -3516,7 +3485,6 @@ TryFinallyStatement::TryFinallyStatement(Loc loc, Statement *body, Statement *fi
 {
     this->body = body;
     this->finalbody = finalbody;
-    this->enclosinghandler = NULL;
 }
 
 Statement *TryFinallyStatement::syntaxCopy()
@@ -3530,13 +3498,13 @@ Statement *TryFinallyStatement::semantic(Scope *sc)
 {
     //printf("TryFinallyStatement::semantic()\n");
 
-    enclosinghandler = sc->tfOfTry;
-    sc->tfOfTry = new EnclosingTryFinally(this);
+    Statement* oldScopeExit = sc->enclosingScopeExit;
+    sc->enclosingScopeExit = this;
     body = body->semantic(sc);
-    sc->tfOfTry = enclosinghandler;
+    sc->enclosingScopeExit = oldScopeExit;
 
     sc = sc->push();
-    sc->tf = this;
+    sc->enclosingFinally = this;
     sc->sbreak = NULL;
     sc->scontinue = NULL;	// no break or continue out of finally block
     finalbody = finalbody->semantic(sc);
@@ -3711,7 +3679,6 @@ VolatileStatement::VolatileStatement(Loc loc, Statement *statement)
     : Statement(loc)
 {
     this->statement = statement;
-    this->enclosinghandler = NULL;
 }
 
 Statement *VolatileStatement::syntaxCopy()
@@ -3725,10 +3692,10 @@ Statement *VolatileStatement::semantic(Scope *sc)
 {
     if (statement)
     {
-    enclosinghandler = sc->tfOfTry;
-    sc->tfOfTry = new EnclosingVolatile(this);
-    statement = statement->semantic(sc);
-    sc->tfOfTry = enclosinghandler;
+	Statement* oldScopeExit = sc->enclosingScopeExit;
+	sc->enclosingScopeExit = this;
+	statement = statement->semantic(sc);
+	sc->enclosingScopeExit = oldScopeExit;
     }
     return this;
 }
@@ -3775,8 +3742,8 @@ GotoStatement::GotoStatement(Loc loc, Identifier *ident)
 {
     this->ident = ident;
     this->label = NULL;
-    this->tf = NULL;
-    this->enclosinghandler = NULL;
+    this->enclosingFinally = NULL;
+    this->enclosingScopeExit = NULL;
 }
 
 Statement *GotoStatement::syntaxCopy()
@@ -3789,8 +3756,9 @@ Statement *GotoStatement::semantic(Scope *sc)
 {   FuncDeclaration *fd = sc->parent->isFuncDeclaration();
 
     //printf("GotoStatement::semantic()\n");
-    tf = sc->tf;
-    enclosinghandler = sc->tfOfTry;
+    enclosingFinally = sc->enclosingFinally;
+    enclosingScopeExit = sc->enclosingScopeExit;
+
     label = fd->searchLabel(ident);
     if (!label->statement && sc->fes)
     {
@@ -3808,7 +3776,7 @@ Statement *GotoStatement::semantic(Scope *sc)
 	sc->fes->gotos.push(s);		// 'look at this later' list
 	return s;
     }
-    if (label->statement && label->statement->tf != sc->tf)
+    if (label->statement && label->statement->enclosingFinally != sc->enclosingFinally)
 	error("cannot goto in or out of finally block");
     return this;
 }
@@ -3834,8 +3802,8 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
 {
     this->ident = ident;
     this->statement = statement;
-    this->tf = NULL;
-    this->enclosinghandler = NULL;
+    this->enclosingFinally = NULL;
+    this->enclosingScopeExit = NULL;
     this->lblock = NULL;
     this->isReturnLabel = 0;
     this->asmLabel = false;
@@ -3857,8 +3825,10 @@ Statement *LabelStatement::semantic(Scope *sc)
 	error("Label '%s' already defined", ls->toChars());
     else
 	ls->statement = this;
-    tf = sc->tf;
-    enclosinghandler = sc->tfOfTry;
+
+    enclosingFinally = sc->enclosingFinally;
+    enclosingScopeExit = sc->enclosingScopeExit;
+
     sc = sc->push();
     sc->scopesym = sc->enclosing->scopesym;
     sc->callSuper |= CSXlabel;

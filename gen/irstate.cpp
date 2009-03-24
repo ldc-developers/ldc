@@ -34,18 +34,16 @@ IRScope::IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-IRLoopScope::IRLoopScope()
+IRTargetScope::IRTargetScope()
 {
 }
 
-IRLoopScope::IRLoopScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* b, llvm::BasicBlock* e, bool isSwitch)
+IRTargetScope::IRTargetScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* continueTarget, llvm::BasicBlock* breakTarget)
 {
-    begin = b;
-    end = e;
-    //builder.SetInsertPoint(b);
     this->s = s;
     this->enclosinghandler = enclosinghandler;
-    this->isSwitch = isSwitch;
+    this->breakTarget = breakTarget;
+    this->continueTarget = continueTarget;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -4,6 +4,31 @@
 #include "gen/llvm.h"
 #include "statement.h"
 
+// this is used for tracking try-finally, synchronized and volatile scopes
+struct EnclosingHandler
+{
+    virtual void emitCode(IRState* p) = 0;
+};
+struct EnclosingTryFinally : EnclosingHandler
+{
+    TryFinallyStatement* tf;
+    void emitCode(IRState* p);
+    EnclosingTryFinally(TryFinallyStatement* _tf) : tf(_tf) {}
+};
+struct EnclosingVolatile : EnclosingHandler
+{
+    VolatileStatement* v;
+    void emitCode(IRState* p);
+    EnclosingVolatile(VolatileStatement* _tf) : v(_tf) {}
+};
+struct EnclosingSynchro : EnclosingHandler
+{
+    SynchronizedStatement* s;
+    void emitCode(IRState* p);
+    EnclosingSynchro(SynchronizedStatement* _tf) : s(_tf) {}
+};
+
+
 // dynamic memory helpers
 LLValue* DtoNew(Type* newtype);
 void DtoDeleteMemory(LLValue* ptr);
@@ -16,17 +41,16 @@ llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name = "");
 llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name = "");
 
 // assertion generator
-void DtoAssert(Module* M, Loc* loc, DValue* msg);
+void DtoAssert(Module* M, Loc loc, DValue* msg);
 
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
 // emit goto
-void DtoGoto(Loc* loc, Identifier* target, EnclosingHandler* enclosingtryfinally, TryFinallyStatement* sourcetf);
+void DtoGoto(Loc loc, Identifier* target);
 
-// generates IR for finally blocks between the 'start' and 'end' statements
-// will begin with the finally block belonging to 'start' and does not include
-// the finally block of 'end'
-void DtoEnclosingHandlers(EnclosingHandler* start, EnclosingHandler* end);
+// Generates IR for enclosing handlers between the current state and
+// the scope created by the 'target' statement.
+void DtoEnclosingHandlers(Loc loc, Statement* target);
 
 // enters a critical section
 void DtoEnterCritical(LLValue* g);
