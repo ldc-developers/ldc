@@ -1647,7 +1647,6 @@ Statement *ForeachStatement::semantic(Scope *sc)
             flde->type = fldeTy;
         }
 		exps->push(flde);
-
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e
 	    }
@@ -1712,7 +1711,6 @@ Statement *ForeachStatement::semantic(Scope *sc)
             flde->type = dgty;
         }
 		exps->push(flde);
-
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e
 	    }

@@ -2043,7 +2043,7 @@ int FuncDeclaration::addPostInvariant()
 // LDC: Adjusted to give argument info to the runtime function decl.
 //
 
-FuncDeclaration *FuncDeclaration::genCfunc(Arguments *args, Type *treturn, char *name)
+FuncDeclaration *FuncDeclaration::genCfunc(Arguments *args, Type *treturn, const char *name)
 {
     return genCfunc(args, treturn, Lexer::idPool(name));
 }

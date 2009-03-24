@@ -400,13 +400,15 @@ namespace x86_64_D_cc {
     bool retStructInRegs(TypeStruct* st) {
         // 'fastcc' allows returns in up to two registers of each kind:
         DRegCount state(2, 2, 2);
-    #if 1
-        // TODO: Disable this if and when LLVM PR 3861 gets fixed.
-        
-        // LLVM currently doesn't allow a second int to be an i1 or i8.
-        // (See <http://llvm.org/PR3861>)
+    #if 1 //LLVM_REV < 67588
+        // LLVM before trunk r67588 doesn't allow a second int to be an i1 or
+        // i8. (See <http://llvm.org/PR3861>)
         // Rather than complicating shouldPassStructInRegs(), just disallow
         // second integers for now.
+        // FIXME: Disabling this for older LLVM only makes the abi dependent on
+        //        LLVM revision, which seems like a bad idea. We could extend
+        //        i8 parts to i16 to work around this issue until 2.6...
+        // TODO: Remove this workaround when support for LLVM 2.5 is dropped.
         state.ints = 1;
     #endif
         return shouldPassStructInRegs(st, state);

@@ -16,7 +16,7 @@
 #include <alloca.h>
 #endif
 
-#if _MSC_VER || __MINGW32__
+#if defined(_MSC_VER) || defined(__MINGW32__)
 #include <malloc.h>
 #endif
 
@@ -566,7 +566,7 @@ void Module::parse()
     }
 
 #ifdef IN_GCC
-    // dump utf-8 encoded source
+    // dump utf-8 encoded source 
     if (dump_source)
     {	// %% srcname could contain a path ...
 	d_gcc_dump_source(srcname, "utf-8", buf, buflen);

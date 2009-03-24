@@ -155,11 +155,11 @@ char *FuncDeclaration::mangle()
 	if (isMain())
 	    return (char *)"_Dmain";
 
-    if (isWinMain() || isDllMain())
-        return ident->toChars();
+	if (isWinMain() || isDllMain())
+	    return ident->toChars();
 
-    assert(this);
-    return Declaration::mangle();
+	assert(this);
+	return Declaration::mangle();
     }
 
 char *StructDeclaration::mangle()

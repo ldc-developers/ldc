@@ -55,8 +55,8 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 	    }
 	    else
 	    {
-		warning("%s: implicit conversion of expression (%s) of type %s to %s can cause loss of data",
-		    loc.toChars(), toChars(), type->toChars(), t->toChars());
+		warning("implicit conversion of expression (%s) of type %s to %s can cause loss of data",
+		    toChars(), type->toChars(), t->toChars());
 	    }
 	}
 #if DMDV2

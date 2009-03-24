@@ -708,7 +708,6 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 	    }
 #endif
 
-
 	    // Convert lazy argument to a delegate
 	    if (p->storageClass & STClazy)
 	    {
