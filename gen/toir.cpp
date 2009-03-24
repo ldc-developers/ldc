@@ -1104,14 +1104,32 @@ DValue* DotVarExp::toElem(IRState* p)
         LLValue* vthis = l->getRVal();
         if (!vthis2) vthis2 = vthis;
 
-        // super call
-        if (e1->op == TOKsuper) {
+        //
+        // decide whether this function needs to be looked up in the vtable
+        //
+        bool vtbllookup = fdecl->isAbstract() || (!fdecl->isFinal() && fdecl->isVirtual());
+        
+        // even virtual functions are looked up directly if super or DotTypeExp
+        // are used, thus we need to walk through the this expression and check
+        Expression* e = e1;
+        while (e && vtbllookup) {
+            if (e->op == TOKsuper || e->op == TOKdottype)
+                vtbllookup = false;
+            else if (e->op == TOKcast)
+                e = ((CastExp*)e)->e1;
+            else
+                break;
+        }
+        
+        //
+        // look up function
+        //
+        if (!vtbllookup) {
             DtoForceDeclareDsymbol(fdecl);
             funcval = fdecl->ir.irFunc->func;
             assert(funcval);
         }
-        // normal virtual call
-        else if (fdecl->isAbstract() || (!fdecl->isFinal() && fdecl->isVirtual())) {
+        else {
             assert(fdecl->vtblIndex > 0);
             assert(e1type->ty == Tclass);
 
@@ -1131,12 +1149,7 @@ DValue* DotVarExp::toElem(IRState* p)
             if (Logger::enabled())
                 Logger::cout() << "funcval casted: " << *funcval << '\n';
         }
-        // static call
-        else {
-            DtoForceDeclareDsymbol(fdecl);
-            funcval = fdecl->ir.irFunc->func;
-            assert(funcval);
-        }
+
         return new DFuncValue(fdecl, funcval, vthis2);
     }
     else {
