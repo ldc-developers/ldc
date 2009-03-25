@@ -1255,8 +1255,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		if (isStatic())
 		{
 		    // static member functions synchronize on classinfo 
-		    // (the expression passed doesn't matter)
-		    sync = cd->type->dotExp(sc2, new DollarExp(loc), Id::classinfo);
+		    sync = cd->type->dotExp(sc2, new TypeExp(loc, cd->type), Id::classinfo);
 		}
 		else
 		{
