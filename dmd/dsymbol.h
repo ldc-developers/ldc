@@ -22,7 +22,7 @@
 #include "arraytypes.h"
 
 // llvm
-#include "../ir/irsymbol.h"
+#include "../ir/irdsymbol.h"
 
 struct Identifier;
 struct Scope;
@@ -49,7 +49,6 @@ struct UnitTestDeclaration;
 struct NewDeclaration;
 struct VarDeclaration;
 struct AttribDeclaration;
-struct Symbol;
 struct Package;
 struct Module;
 struct Import;
@@ -71,6 +70,10 @@ struct DeleteDeclaration;
 struct HdrGenState;
 struct TypeInfoDeclaration;
 struct ClassInfoDeclaration;
+
+#if IN_DMD
+struct Symbol;
+#endif
 
 #if IN_GCC
 union tree_node;
@@ -104,8 +107,10 @@ struct Dsymbol : Object
     Identifier *ident;
     Identifier *c_ident;
     Dsymbol *parent;
+#if IN_DMD
     Symbol *csym;		// symbol for code generator
     Symbol *isym;		// import version of csym
+#endif
     unsigned char *comment;	// documentation comment for this Dsymbol
     Loc loc;			// where defined
 
@@ -171,16 +176,20 @@ struct Dsymbol : Object
     virtual void emitComment(Scope *sc);
     void emitDitto(Scope *sc);
 
+#if IN_DMD
     // Backend
 
     virtual Symbol *toSymbol();			// to backend symbol
+#endif
     virtual void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
     virtual int cvMember(unsigned char *p);	// emit cv debug info for member
 
     Symbol *toImport();				// to backend import symbol
     static Symbol *toImport(Symbol *s);		// to backend import symbol
 
     Symbol *toSymbolX(const char *prefix, int sclass, TYPE *t, const char *suffix);	// helper
+#endif
 
     // Eliminate need for dynamic_cast
     virtual Package *isPackage() { return NULL; }
@@ -222,10 +231,12 @@ struct Dsymbol : Object
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
 
+#if IN_LLVM
     // llvm stuff
     int llvmInternal;
 
     IrDsymbol ir;
+#endif
 };
 
 // Dsymbol that generates a scope

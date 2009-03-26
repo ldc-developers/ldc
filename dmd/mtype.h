@@ -21,10 +21,12 @@
 #include "arraytypes.h"
 #include "expression.h"
 
+#if IN_LLVM
 // llvm
 #include "../ir/irtype.h"
 #include "../ir/irfuncty.h"
 namespace llvm { class Type; }
+#endif
 
 struct Scope;
 struct Identifier;
@@ -48,10 +50,12 @@ struct Argument;
 #if IN_GCC
 union tree_node; typedef union tree_node TYPE;
 typedef TYPE type;
-#else
-typedef struct TYPE type;
 #endif
+
+#if IN_DMD
+typedef struct TYPE type;
 struct Symbol;
+#endif
 
 enum TY
 {
@@ -126,7 +130,9 @@ struct Type : Object
     Type *arrayof;	// array of this type
     TypeInfoDeclaration *vtinfo;	// TypeInfo object for this Type
 
+#if IN_DMD
     type *ctype;	// for back end
+#endif
 
     #define tvoid	basic[Tvoid]
     #define tint8	basic[Tint8]
@@ -236,7 +242,9 @@ struct Type : Object
     virtual unsigned memalign(unsigned salign);
     virtual Expression *defaultInit(Loc loc = 0);
     virtual int isZeroInit();		// if initializer is 0
+#if IN_DMD
     virtual dt_t **toDt(dt_t **pdt);
+#endif
     Identifier *getTypeInfoIdent(int internal);
     virtual MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     virtual void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
@@ -253,17 +261,21 @@ struct Type : Object
     static void error(Loc loc, const char *format, ...);
     static void warning(Loc loc, const char *format, ...);
 
+#if IN_DMD
     // For backend
     virtual unsigned totym();
     virtual type *toCtype();
     virtual type *toCParamtype();
     virtual Symbol *toSymbol();
+#endif
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
 
+#if IN_LLVM
     // LDC
     IrType ir;
+#endif
 };
 
 struct TypeBasic : Type
@@ -322,15 +334,19 @@ struct TypeSArray : TypeArray
     unsigned memalign(unsigned salign);
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
     dt_t **toDtElem(dt_t **pdt, Expression *e);
+#endif
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *toExpression();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
     type *toCParamtype();
+#endif
 };
 
 // Dynamic array, no dimension
@@ -353,7 +369,9 @@ struct TypeDArray : TypeArray
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeAArray : TypeArray
@@ -376,10 +394,12 @@ struct TypeAArray : TypeArray
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     // Back end
     Symbol *aaGetSymbol(const char *func, int flags);
 
     type *toCtype();
+#endif
 };
 
 struct TypePointer : Type
@@ -398,7 +418,9 @@ struct TypePointer : Type
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeReference : Type
@@ -438,13 +460,18 @@ struct TypeFunction : Type
     Type *reliesOnTident();
 
     int callMatch(Expressions *toargs);
+#if IN_DMD
     type *toCtype();
+#endif
+
     enum RET retStyle();
 
+#if IN_DMD
     unsigned totym();
-
+#elif IN_LLVM
     // LDC
     IrFuncTy fty;
+#endif
 };
 
 struct TypeDelegate : Type
@@ -462,7 +489,9 @@ struct TypeDelegate : Type
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeQualified : Type
@@ -543,17 +572,21 @@ struct TypeStruct : Type
     Expression *defaultInit(Loc loc);
     int isZeroInit();
     int checkBoolean();
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
+#endif
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
-
+#elif IN_LLVM
     // LDC
     // cache the hasUnalignedFields check
     // 0 = not checked, 1 = aligned, 2 = unaligned
     int unaligned;
+#endif
 };
 
 struct TypeEnum : Type
@@ -583,7 +616,9 @@ struct TypeEnum : Type
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeTypedef : Type
@@ -614,13 +649,17 @@ struct TypeTypedef : Type
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     int isZeroInit();
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
+#endif
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
     type *toCParamtype();
+#endif
 };
 
 struct TypeClass : Type
@@ -647,9 +686,11 @@ struct TypeClass : Type
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
+#if IN_DMD
     type *toCtype();
 
     Symbol *toSymbol();
+#endif
 };
 
 struct TypeTuple : Type

@@ -827,16 +827,6 @@ void ClassDeclaration::toObjFile(int multiobj)
     gIR->resolveList.push_back(this);
 }
 
-/******************************************
- * Get offset of base class's vtbl[] initializer from start of csym.
- * Returns ~0 if not this csym.
- */
-
-unsigned ClassDeclaration::baseVtblOffset(BaseClass *bc)
-{
-  return ~0;
-}
-
 /* ================================================================== */
 
 void TupleDeclaration::toObjFile(int multiobj)

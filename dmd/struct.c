@@ -41,8 +41,10 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     aggNew = NULL;
     aggDelete = NULL;
 
+#if IN_DMD
     stag = NULL;
     sinit = NULL;
+#endif
     scope = NULL;
 #if V2
     dtor = NULL;

@@ -97,6 +97,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     semanticdone = 0;
     decldefs = NULL;
     vmoduleinfo = NULL;
+#if IN_DMD
     massert = NULL;
     marray = NULL;
     sictor = NULL;
@@ -104,6 +105,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     sdtor = NULL;
     stest = NULL;
     sfilename = NULL;
+#endif
     root = 0;
     importedFrom = NULL;
     srcfile = NULL;
@@ -120,9 +122,11 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 
     macrotable = NULL;
     escapetable = NULL;
+#if IN_DMD
     doppelganger = 0;
     cov = NULL;
     covb = NULL;
+#endif
 
     srcfilename = FileName::defaultExt(filename, global.mars_ext);
     if (!srcfilename->equalsExt(global.mars_ext) &&

@@ -98,10 +98,12 @@ struct AggregateDeclaration : ScopeDsymbol
 
     enum PROT prot();
 
+#if IN_DMD
     // Back end
     Symbol *stag;		// tag symbol for debug data
     Symbol *sinit;
     Symbol *toInitializer();
+#endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };
@@ -250,6 +252,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     // Back end
     void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
     void toDebug();
     unsigned baseVtblOffset(BaseClass *bc);
     Symbol *toSymbol();
@@ -258,6 +261,7 @@ struct ClassDeclaration : AggregateDeclaration
     void toDt2(dt_t **pdt, ClassDeclaration *cd);
 
     Symbol *vtblsym;
+#endif
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
 };
@@ -280,7 +284,9 @@ struct InterfaceDeclaration : ClassDeclaration
     virtual int isCOMinterface();
 
     void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
     Symbol *toSymbol();
+#endif
 
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
 };

@@ -130,7 +130,9 @@ Type::Type(TY ty, Type *next)
     this->rto = NULL;
     this->arrayof = NULL;
     this->vtinfo = NULL;
+#if IN_DMD
     this->ctype = NULL;
+#endif
 }
 
 Type *Type::syntaxCopy()

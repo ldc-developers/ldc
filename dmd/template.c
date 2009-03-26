@@ -363,14 +363,18 @@ void TemplateDeclaration::semantic(Scope *sc)
     {
 	// Generate this function as it may be used
 	// when template is instantiated in other modules
-	sc->module->toModuleArray();
+
+	// FIXME: LDC
+	//sc->module->toModuleArray();
     }
 
     if (/*global.params.useAssert &&*/ sc->module)
     {
 	// Generate this function as it may be used
 	// when template is instantiated in other modules
-	sc->module->toModuleAssert();
+
+	// FIXME: LDC
+	//sc->module->toModuleAssert();
     }
 
     /* Remember Scope for later instantiations, but make

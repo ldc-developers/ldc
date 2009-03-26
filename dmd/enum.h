@@ -65,8 +65,10 @@ struct EnumDeclaration : ScopeDsymbol
     void toDebug();
     int cvMember(unsigned char *p);
 
+#if IN_DMD
     Symbol *sinit;
     Symbol *toInitializer();
+#endif
 };
 
 

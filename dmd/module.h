@@ -32,6 +32,7 @@ struct DValue;
 typedef DValue elem;
 namespace llvm { class Module; }
 #else
+
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
 #else
@@ -147,7 +148,7 @@ struct Module : Package
     int imports(Module *m);
 
     // Back end
-
+#if IN_DMD
     int doppelganger;		// sub-module
     Symbol *cov;		// private uint[] __coverage;
     unsigned *covb;		// bit array of valid code line numbers
@@ -171,6 +172,7 @@ struct Module : Package
     elem *toEmodulename();
 
     Symbol *toSymbol();
+#endif
     void genmoduleinfo();
 
     // LDC

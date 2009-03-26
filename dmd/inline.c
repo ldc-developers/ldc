@@ -551,8 +551,10 @@ Expression *DeclarationExp::doInline(InlineDoState *ids)
 	    vto = new VarDeclaration(vd->loc, vd->type, vd->ident, vd->init);
 	    *vto = *vd;
 	    vto->parent = ids->parent;
+#if IN_DMD
 	    vto->csym = NULL;
 	    vto->isym = NULL;
+#endif
 
 	    ids->from.push(vd);
 	    ids->to.push(vto);
@@ -645,8 +647,10 @@ Expression *IndexExp::doInline(InlineDoState *ids)
 	vto = new VarDeclaration(vd->loc, vd->type, vd->ident, vd->init);
 	*vto = *vd;
 	vto->parent = ids->parent;
+#if IN_DMD
 	vto->csym = NULL;
 	vto->isym = NULL;
+#endif
 
 	ids->from.push(vd);
 	ids->to.push(vto);
@@ -682,8 +686,10 @@ Expression *SliceExp::doInline(InlineDoState *ids)
 	vto = new VarDeclaration(vd->loc, vd->type, vd->ident, vd->init);
 	*vto = *vd;
 	vto->parent = ids->parent;
+#if IN_DMD
 	vto->csym = NULL;
 	vto->isym = NULL;
+#endif
 
 	ids->from.push(vd);
 	ids->to.push(vto);

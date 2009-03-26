@@ -1,6 +1,6 @@
 #include "gen/llvm.h"
 #include "ir/ir.h"
-#include "ir/irsymbol.h"
+#include "ir/irdsymbol.h"
 #include "ir/irvar.h"
 
 #include "gen/logger.h"

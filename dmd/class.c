@@ -57,7 +57,9 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
     staticCtor = NULL;
     staticDtor = NULL;
 
+#if IN_DMD
     vtblsym = NULL;
+#endif
     vclassinfo = NULL;
 
     if (id)

@@ -39,12 +39,16 @@ Dsymbol::Dsymbol()
     this->ident = NULL;
     this->c_ident = NULL;
     this->parent = NULL;
+#if IN_DMD
     this->csym = NULL;
     this->isym = NULL;
+#endif
     this->loc = 0;
     this->comment = NULL;
 
+#if IN_LLVM
     this->llvmInternal = LLVMnone;
+#endif
 }
 
 Dsymbol::Dsymbol(Identifier *ident)
@@ -53,12 +57,16 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->ident = ident;
     this->c_ident = NULL;
     this->parent = NULL;
+#if IN_DMD
     this->csym = NULL;
     this->isym = NULL;
+#endif
     this->loc = 0;
     this->comment = NULL;
 
+#if IN_LLVM
     this->llvmInternal = LLVMnone;
+#endif
 }
 
 int Dsymbol::equals(Object *o)

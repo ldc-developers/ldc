@@ -1,5 +1,5 @@
-#ifndef LDC_IR_IRSYMBOL_H
-#define LDC_IR_IRSYMBOL_H
+#ifndef LDC_IR_IRDSYMBOL_H
+#define LDC_IR_IRDSYMBOL_H
 
 #include <set>
 

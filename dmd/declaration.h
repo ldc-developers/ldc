@@ -191,13 +191,17 @@ struct TypedefDeclaration : Declaration
     void toDocBuffer(OutBuffer *buf);
 
     void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
     void toDebug();
     int cvMember(unsigned char *p);
+#endif
 
     TypedefDeclaration *isTypedefDeclaration() { return this; }
 
+#if IN_DMD
     Symbol *sinit;
     Symbol *toInitializer();
+#endif
 };
 
 /**************************************************************/
@@ -264,17 +268,21 @@ struct VarDeclaration : Declaration
     void checkNestedReference(Scope *sc, Loc loc);
     Dsymbol *toAlias();
 
-    Symbol *toSymbol();
     void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
+    Symbol *toSymbol();
     int cvMember(unsigned char *p);
+#endif
 
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
 
+#if IN_LLVM
     // LDC
     AnonDeclaration* anonDecl;
     unsigned offset2;
     bool nakedUse;
+#endif
 };
 
 /**************************************************************/
@@ -287,7 +295,9 @@ struct StaticStructInitDeclaration : Declaration
 
     StaticStructInitDeclaration(Loc loc, StructDeclaration *dsym);
 
+#if IN_DMD
     Symbol *toSymbol();
+#endif
 
     // Eliminate need for dynamic_cast
     StaticStructInitDeclaration *isStaticStructInitDeclaration() { return (StaticStructInitDeclaration *)this; }
@@ -303,7 +313,9 @@ struct ClassInfoDeclaration : VarDeclaration
 
     void emitComment(Scope *sc);
 
+#if IN_DMD
     Symbol *toSymbol();
+#endif
 
     ClassInfoDeclaration* isClassInfoDeclaration() { return this; }
 };
@@ -318,7 +330,9 @@ struct ModuleInfoDeclaration : VarDeclaration
 
     void emitComment(Scope *sc);
 
+#if IN_DMD
     Symbol *toSymbol();
+#endif
 };
 
 struct TypeInfoDeclaration : VarDeclaration
@@ -331,147 +345,199 @@ struct TypeInfoDeclaration : VarDeclaration
 
     void emitComment(Scope *sc);
 
-    Symbol *toSymbol();
     void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
+    Symbol *toSymbol();
     virtual void toDt(dt_t **pdt);
+#endif
 
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return this; }
 
+#if IN_LLVM
     // LDC
     virtual void llvmDeclare();
     virtual void llvmDefine();
+#endif
 };
 
 struct TypeInfoStructDeclaration : TypeInfoDeclaration
 {
     TypeInfoStructDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoClassDeclaration : TypeInfoDeclaration
 {
     TypeInfoClassDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoInterfaceDeclaration : TypeInfoDeclaration
 {
     TypeInfoInterfaceDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoTypedefDeclaration : TypeInfoDeclaration
 {
     TypeInfoTypedefDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoPointerDeclaration : TypeInfoDeclaration
 {
     TypeInfoPointerDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoArrayDeclaration : TypeInfoDeclaration
 {
     TypeInfoArrayDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoStaticArrayDeclaration : TypeInfoDeclaration
 {
     TypeInfoStaticArrayDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoAssociativeArrayDeclaration : TypeInfoDeclaration
 {
     TypeInfoAssociativeArrayDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoEnumDeclaration : TypeInfoDeclaration
 {
     TypeInfoEnumDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoFunctionDeclaration : TypeInfoDeclaration
 {
     TypeInfoFunctionDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoDelegateDeclaration : TypeInfoDeclaration
 {
     TypeInfoDelegateDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoTupleDeclaration : TypeInfoDeclaration
 {
     TypeInfoTupleDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 #if DMDV2
@@ -479,22 +545,30 @@ struct TypeInfoConstDeclaration : TypeInfoDeclaration
 {
     TypeInfoConstDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 
 struct TypeInfoInvariantDeclaration : TypeInfoDeclaration
 {
     TypeInfoInvariantDeclaration(Type *tinfo);
 
+#if IN_DMD
     void toDt(dt_t **pdt);
+#endif
 
+#if IN_LLVM
     // LDC
     void llvmDeclare();
     void llvmDefine();
+#endif
 };
 #endif
 
@@ -578,7 +652,9 @@ struct FuncDeclaration : Declaration
     // Support for NRVO (named return value optimization)
     int nrvo_can;			// !=0 means we can do it
     VarDeclaration *nrvo_var;		// variable to replace with shidden
+#if IN_DMD
     Symbol *shidden;			// hidden pointer passed to function
+#endif
 
 #if DMDV2
     enum BUILTIN builtin;		// set if this is a known, builtin
@@ -637,13 +713,18 @@ struct FuncDeclaration : Declaration
     static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, const char *name);
     static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, Identifier *id);
 
+#if IN_DMD
     Symbol *toSymbol();
     Symbol *toThunkSymbol(int offset);	// thunk version
+#endif
     void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
     int cvMember(unsigned char *p);
+#endif
 
     FuncDeclaration *isFuncDeclaration() { return this; }
 
+#if IN_LLVM
     // LDC stuff
 
     // vars declared in this function that nested funcs reference
@@ -666,6 +747,7 @@ struct FuncDeclaration : Declaration
 
     // true if overridden with the pragma(allow_inline); stmt
     bool allowInlining;
+#endif
 };
 
 struct FuncAliasDeclaration : FuncDeclaration
@@ -676,7 +758,9 @@ struct FuncAliasDeclaration : FuncDeclaration
 
     FuncAliasDeclaration *isFuncAliasDeclaration() { return this; }
     const char *kind();
+#if IN_DMD
     Symbol *toSymbol();
+#endif
 };
 
 struct FuncLiteralDeclaration : FuncDeclaration

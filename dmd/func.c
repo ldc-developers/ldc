@@ -76,11 +76,15 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     hasReturnExp = 0;
     nrvo_can = 1;
     nrvo_var = NULL;
+#if IN_DMD
     shidden = NULL;
+#endif
 
+#if IN_LLVM
     // LDC
     isArrayOp = false;
     allowInlining = false;
+#endif
 }
 
 Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)

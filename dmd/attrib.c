@@ -27,8 +27,8 @@
 #include "parse.h"
 #include "template.h"
 
+#if IN_LLVM
 #include "../gen/enums.h"
-
 
 #include "llvm/Support/CommandLine.h"
 
@@ -36,10 +36,14 @@ static llvm::cl::opt<bool> ignoreUnsupportedPragmas("ignore",
     llvm::cl::desc("Ignore unsupported pragmas"),
     llvm::cl::ZeroOrMore);
 
+#endif
 
 
 extern void obj_includelib(const char *name);
+
+#if IN_DMD
 void obj_startaddress(Symbol *s);
+#endif
 
 
 /********************************* AttribDeclaration ****************************/
@@ -180,6 +184,7 @@ void AttribDeclaration::toObjFile(int multiobj)
     }
 }
 
+#if IN_DMD
 int AttribDeclaration::cvMember(unsigned char *p)
 {
     int nwritten = 0;
@@ -198,6 +203,7 @@ int AttribDeclaration::cvMember(unsigned char *p)
     }
     return nwritten;
 }
+#endif
 
 int AttribDeclaration::hasPointers()
 {

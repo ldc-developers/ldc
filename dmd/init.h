@@ -44,7 +44,9 @@ struct Initializer : Object
 
     static Initializers *arraySyntaxCopy(Initializers *ai);
 
+#if IN_DMD
     virtual dt_t *toDt();
+#endif
 
     virtual VoidInitializer *isVoidInitializer() { return NULL; }
     virtual StructInitializer  *isStructInitializer()  { return NULL; }
@@ -62,7 +64,9 @@ struct VoidInitializer : Initializer
     Expression *toExpression();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+#if IN_DMD
     dt_t *toDt();
+#endif
 
     virtual VoidInitializer *isVoidInitializer() { return this; }
 };
@@ -82,7 +86,9 @@ struct StructInitializer : Initializer
     Expression *toExpression();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+#if IN_DMD
     dt_t *toDt();
+#endif
 
     StructInitializer *isStructInitializer() { return this; }
 };
@@ -104,8 +110,10 @@ struct ArrayInitializer : Initializer
     Initializer *toAssocArrayInitializer();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+#if IN_DMD
     dt_t *toDt();
     dt_t *toDtBit();	// for bit arrays
+#endif
 
     ArrayInitializer *isArrayInitializer() { return this; }
 };
@@ -121,7 +129,9 @@ struct ExpInitializer : Initializer
     Expression *toExpression();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+#if IN_DMD
     dt_t *toDt();
+#endif
 
     virtual ExpInitializer *isExpInitializer() { return this; }
 };

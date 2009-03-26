@@ -352,11 +352,6 @@ void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
 
 /* ========================================================================= */
 
-void TypeInfoDeclaration::toDt(dt_t **pdt)
-{
-    assert(0 && "TypeInfoDeclaration::toDt");
-}
-
 void TypeInfoDeclaration::llvmDeclare()
 {
     assert(0 && "TypeInfoDeclaration::llvmDeclare");
@@ -438,11 +433,6 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
 }
 
-void TypeInfoTypedefDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoEnumDeclaration::llvmDeclare()
@@ -516,11 +506,6 @@ void TypeInfoEnumDeclaration::llvmDefine()
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
 }
 
-void TypeInfoEnumDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 static void LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDeclaration* cd)
@@ -582,11 +567,6 @@ void TypeInfoPointerDeclaration::llvmDefine()
     LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfopointer);
 }
 
-void TypeInfoPointerDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoArrayDeclaration::llvmDeclare()
@@ -611,16 +591,11 @@ void TypeInfoArrayDeclaration::llvmDefine()
     LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfoarray);
 }
 
-void TypeInfoArrayDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoStaticArrayDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoStaticArrayDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoStaticArrayDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     // init typeinfo class
@@ -633,7 +608,7 @@ void TypeInfoStaticArrayDeclaration::llvmDeclare()
 
 void TypeInfoStaticArrayDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoStaticArrayDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     // init typeinfo class
@@ -671,16 +646,11 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
 }
 
-void TypeInfoStaticArrayDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoAssociativeArrayDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     // init typeinfo class
@@ -693,7 +663,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
 
 void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoAssociativeArrayDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     // init typeinfo class
@@ -730,16 +700,11 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
 }
 
-void TypeInfoAssociativeArrayDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoFunctionDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoFunctionDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoFunctionDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tfunction);
@@ -750,7 +715,7 @@ void TypeInfoFunctionDeclaration::llvmDeclare()
 
 void TypeInfoFunctionDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoFunctionDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tfunction);
@@ -759,16 +724,11 @@ void TypeInfoFunctionDeclaration::llvmDefine()
     LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfofunction);
 }
 
-void TypeInfoFunctionDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoDelegateDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoDelegateDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoDelegateDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tdelegate);
@@ -779,18 +739,13 @@ void TypeInfoDelegateDeclaration::llvmDeclare()
 
 void TypeInfoDelegateDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoDelegateDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoDelegateDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tdelegate);
     TypeDelegate *tc = (TypeDelegate *)tinfo;
 
     LLVM_D_Define_TypeInfoBase(tc->nextOf()->nextOf(), this, Type::typeinfodelegate);
-}
-
-void TypeInfoDelegateDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
 }
 
 /* ========================================================================= */
@@ -1007,11 +962,6 @@ void TypeInfoStructDeclaration::llvmDefine()
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
 }
 
-void TypeInfoStructDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 void TypeInfoClassDeclaration::llvmDeclare()
@@ -1061,11 +1011,6 @@ void TypeInfoClassDeclaration::llvmDefine()
 
     // set the initializer
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
-}
-
-void TypeInfoClassDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
 }
 
 /* ========================================================================= */
@@ -1119,11 +1064,6 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
 
     // set the initializer
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
-}
-
-void TypeInfoInterfaceDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
 }
 
 /* ========================================================================= */
@@ -1208,18 +1148,13 @@ void TypeInfoTupleDeclaration::llvmDefine()
     isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
 }
 
-void TypeInfoTupleDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
 /* ========================================================================= */
 
 #if DMDV2
 
 void TypeInfoConstDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoConstDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoConstDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoconst);
@@ -1227,7 +1162,7 @@ void TypeInfoConstDeclaration::llvmDeclare()
 
 void TypeInfoConstDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoConstDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoConstDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     Type *tm = tinfo->mutableOf();
@@ -1236,18 +1171,11 @@ void TypeInfoConstDeclaration::llvmDefine()
     LLVM_D_Define_TypeInfoBase(tm, this, Type::typeinfoconst);
 }
 
-void TypeInfoConstDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
-}
-
-///////////////////////////////////////////////////////////
-
 /* ========================================================================= */
 
 void TypeInfoInvariantDeclaration::llvmDeclare()
 {
-    Logger::println("TypeInfoInvariantDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoInvariantDeclaration::llvmDeclare() %s", toChars());
     LOG_SCOPE;
 
     LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoinvariant);
@@ -1255,18 +1183,13 @@ void TypeInfoInvariantDeclaration::llvmDeclare()
 
 void TypeInfoInvariantDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoInvariantDeclaration::toDt() %s", toChars());
+    Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     Type *tm = tinfo->mutableOf();
     tm = tm->merge();
 
     LLVM_D_Define_TypeInfoBase(tm, this, Type::typeinfoinvariant);
-}
-
-void TypeInfoInvariantDeclaration::toDt(dt_t **pdt)
-{
-    assert(0);
 }
 
 #endif
