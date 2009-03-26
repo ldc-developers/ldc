@@ -248,14 +248,16 @@ void DtoEnclosingHandlers(Loc loc, Statement* target)
         target = lblstmt->enclosingScopeExit;
 
     // figure out up until what handler we need to emit
-    IRState::TargetScopeVec::reverse_iterator targetit;
-    for (targetit = gIR->targetScopes.rbegin(); targetit != gIR->targetScopes.rend(); ++targetit) {
+    IrFunction::TargetScopeVec::reverse_iterator targetit = gIR->func()->targetScopes.rbegin();
+    IrFunction::TargetScopeVec::reverse_iterator it_end = gIR->func()->targetScopes.rend();
+    while(targetit != it_end) {
         if (targetit->s == target) {
             break;
         }
+        ++targetit;
     }
 
-    if (target && targetit == gIR->targetScopes.rend()) {
+    if (target && targetit == it_end) {
         if (lblstmt)
             error(loc, "cannot goto into try, volatile or synchronized statement at %s", target->loc.toChars());
         else
@@ -270,10 +272,11 @@ void DtoEnclosingHandlers(Loc loc, Statement* target)
     // since the labelstatements possibly inside are private
     // and might already exist push a label scope
     gIR->func()->pushUniqueLabelScope("enclosing");
-    IRState::TargetScopeVec::reverse_iterator it;
-    for (it = gIR->targetScopes.rbegin(); it != targetit; ++it) {
+    IrFunction::TargetScopeVec::reverse_iterator it = gIR->func()->targetScopes.rbegin();
+    while (it != targetit) {
         if (it->enclosinghandler)
             it->enclosinghandler->emitCode(gIR);
+        ++it;
     }
     gIR->func()->popLabelScope();
 }
