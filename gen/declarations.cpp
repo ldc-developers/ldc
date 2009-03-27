@@ -84,6 +84,9 @@ void VarDeclaration::codegen(Ir* p)
         return;
     }
 
+    if (AggregateDeclaration* ad = isMember())
+        ad->codegen(p);
+
     // global variable or magic
 #if DMDV2
     // taken from dmd2/structs
@@ -135,7 +138,12 @@ void VarDeclaration::codegen(Ir* p)
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        DtoConstInitGlobal(this);
+        // don't initialize static struct members yet, they might be of the struct type
+        // which doesn't have a static initializer yet.
+        if (AggregateDeclaration* ad = isMember())
+            ad->ir.irStruct->staticVars.push_back(this);
+        else
+            DtoConstInitGlobal(this);
     }
     else
     {

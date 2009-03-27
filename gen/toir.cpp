@@ -969,6 +969,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         // global variable
         if (VarDeclaration* vd = vexp->var->isVarDeclaration())
         {
+            vd->codegen(Type::sir);
             LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
             assert(llc);
             return llc;

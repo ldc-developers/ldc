@@ -326,7 +326,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             {
                 ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
             }
-            assert(ctxarg->getType() == argiter->get());
+            ctxarg = DtoBitCast(ctxarg, argiter->get());
             ++argiter;
             args.push_back(ctxarg);
         }

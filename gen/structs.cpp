@@ -97,16 +97,7 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
     TypeStruct* ts = (TypeStruct*)si->ad->type;
 
     // force constant initialization of the symbol
-    si->ad->codegen(Type::sir);;
-
-    // get formal type
-    const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
-
-#if 0
-    // log it
-    if (Logger::enabled())
-        Logger::cout() << "llvm struct type: " << *structtype << '\n';
-#endif
+    si->ad->codegen(Type::sir);
 
     // sanity check
     assert(si->value.dim > 0);
@@ -241,7 +232,7 @@ Lpadding:
     }
 
     // there might still be padding after the last one, make sure that is defaulted/zeroed as well
-    size_t structsize = getTypePaddedSize(structtype);
+    size_t structsize = si->ad->structsize;
 
     // if there is space before the next explicit initializer
     // FIXME: this should be handled in the loop above as well
@@ -644,6 +635,15 @@ void DtoConstInitStruct(StructDeclaration* sd)
 
     // refine __initZ global type to the one of the initializer
     llvm::cast<llvm::OpaqueType>(irstruct->initOpaque.get())->refineAbstractTypeTo(irstruct->constInit->getType());
+
+    // build initializers for static member variables
+    size_t n = irstruct->staticVars.size();
+    for (size_t i = 0; i < n; ++i)
+    {
+        DtoConstInitGlobal(irstruct->staticVars[i]);
+    }
+    // This is all we use it for. Clear the memory!
+    irstruct->staticVars.clear(); 
 
     gIR->structs.pop_back();
 

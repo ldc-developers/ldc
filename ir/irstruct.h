@@ -150,6 +150,8 @@ struct IrStruct : IrBase
 
     // composite type debug description
     llvm::DICompositeType diCompositeType;
+
+    std::vector<VarDeclaration*> staticVars;
 };
 
 //////////////////////////////////////////////////////////////////////////////

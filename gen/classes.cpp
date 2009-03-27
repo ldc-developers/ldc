@@ -145,6 +145,19 @@ static void DtoResolveInterface(InterfaceDeclaration* cd)
     IrStruct* irstruct = new IrStruct(cd);
     cd->ir.irStruct = irstruct;
 
+    // create the type
+    const LLType* t = LLArrayType::get(getVoidPtrType(), cd->vtbl.dim);
+    assert(!ts->ir.type);
+    ts->ir.type = new LLPATypeHolder(getPtrToType(t));
+
+    // ... and ClassInfo
+    std::string varname("_D");
+    varname.append(cd->mangle());
+    varname.append("11__InterfaceZ");
+
+    // create global
+    irstruct->classInfo = new llvm::GlobalVariable(irstruct->classInfoOpaque.get(), false, DtoLinkage(cd), NULL, varname, gIR->module);
+
     // handle base interfaces
     if (cd->baseclasses.dim)
     {
@@ -167,11 +180,6 @@ static void DtoResolveInterface(InterfaceDeclaration* cd)
             irstruct->classInfoInterfaces.push_back(iri);
         }
     }
-
-    // create the type
-    const LLType* t = LLArrayType::get(getVoidPtrType(), cd->vtbl.dim);
-    assert(!ts->ir.type);
-    ts->ir.type = new LLPATypeHolder(getPtrToType(t));
 
     // request declaration
     DtoDeclareInterface(cd);
@@ -238,10 +246,18 @@ void DtoResolveClass(ClassDeclaration* cd)
     irstruct->vtbl = new llvm::GlobalVariable(irstruct->vtblInitTy.get(), true, _linkage, NULL, varname, gIR->module);
 
     // ... and initZ
-    std::string initname("_D");
-    initname.append(cd->mangle());
-    initname.append("6__initZ");
-    irstruct->init = new llvm::GlobalVariable(irstruct->initOpaque.get(), true, _linkage, NULL, initname, gIR->module);
+    varname = "_D";
+    varname.append(cd->mangle());
+    varname.append("6__initZ");
+    irstruct->init = new llvm::GlobalVariable(irstruct->initOpaque.get(), true, _linkage, NULL, varname, gIR->module);
+
+    // ... and ClassInfo
+    varname = "_D";
+    varname.append(cd->mangle());
+    varname.append("7__ClassZ");
+
+    // create global
+    irstruct->classInfo = new llvm::GlobalVariable(irstruct->classInfoOpaque.get(), false, _linkage, NULL, varname, gIR->module);
 
     // push state
     gIR->structs.push_back(irstruct);
@@ -777,6 +793,15 @@ void DtoConstInitClass(ClassDeclaration* cd)
 
     // refine __initZ global type to the one of the initializer
     llvm::cast<llvm::OpaqueType>(irstruct->initOpaque.get())->refineAbstractTypeTo(irstruct->constInit->getType());
+
+    // build initializers for static member variables
+    size_t n = irstruct->staticVars.size();
+    for (size_t i = 0; i < n; ++i)
+    {
+        DtoConstInitGlobal(irstruct->staticVars[i]);
+    }
+    // This is all we use it for. Clear the memory!
+    irstruct->staticVars.clear();
 
 //     if (Logger::enabled())
 //     {
@@ -1333,17 +1358,6 @@ void DtoDeclareClassInfo(ClassDeclaration* cd)
     // resovle ClassInfo
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
     DtoResolveClass(cinfo);
-
-    // do the mangle
-    std::string gname("_D");
-    gname.append(cd->mangle());
-    if (!cd->isInterfaceDeclaration())
-        gname.append("7__ClassZ");
-    else
-        gname.append("11__InterfaceZ");
-
-    // create global
-    irstruct->classInfo = new llvm::GlobalVariable(irstruct->classInfoOpaque.get(), false, DtoLinkage(cd), NULL, gname, gIR->module);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

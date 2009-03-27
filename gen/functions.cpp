@@ -303,16 +303,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         return; // ignore declaration completely
     }
 
-    // is imported and we don't have access?
-    if (fdecl->getModule() != gIR->dmodule)
-    {
-        if (fdecl->prot() == PROTprivate)
-        {
-            Logger::println("Ignoring private imported function %s", fdecl->toPrettyChars());
-            return;
-        }
-    }
-
     //printf("resolve function: %s\n", fdecl->toPrettyChars());
 
     if (fdecl->parent)

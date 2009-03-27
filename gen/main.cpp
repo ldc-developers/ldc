@@ -4,11 +4,12 @@
 // which uses the llvm license
 
 #include "gen/llvm.h"
+#include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
+#include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetMachineRegistry.h"
-#include "llvm/LinkAllVMCore.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -117,6 +118,9 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
 
 int main(int argc, char** argv)
 {
+    // stack trace on signals
+    llvm::sys::PrintStackTraceOnErrorSignal();
+
     Array files;
     char *p, *ext;
     Module *m;
