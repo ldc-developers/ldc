@@ -145,6 +145,9 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
     // generate ModuleInfo
     genmoduleinfo();
 
+    // emit function bodies
+    sir->emitFunctionBodies();
+
     // emit usedArray
     if (!ir.usedArray.empty())
     {
@@ -599,7 +602,7 @@ void Module::genmoduleinfo()
         fatal();
     }
 
-    DtoForceConstInitDsymbol(moduleinfo);
+    moduleinfo->codegen(Type::sir);
 
     // check for patch
     if (moduleinfo->fields.dim != 9)

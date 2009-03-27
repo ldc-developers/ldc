@@ -153,16 +153,6 @@ struct IRState
     // debug info helper
     llvm::DIFactory difactory;
 
-    typedef std::list<Dsymbol*> DsymbolList;
-    // dsymbols that need to be resolved
-    DsymbolList resolveList;
-    // dsymbols that need to be declared
-    DsymbolList declareList;
-    // dsymbols that need constant initializers constructed
-    DsymbolList constInitList;
-    // dsymbols that need definitions
-    DsymbolList defineList;
-
     // static ctors/dtors/unittests
     typedef std::vector<FuncDeclaration*> FuncDeclVector;
     FuncDeclVector ctors;

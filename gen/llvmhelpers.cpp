@@ -866,6 +866,8 @@ void DtoResolveDsymbol(Dsymbol* dsym)
 
 void DtoDeclareDsymbol(Dsymbol* dsym)
 {
+    DtoResolveDsymbol(dsym);
+
     if (StructDeclaration* sd = dsym->isStructDeclaration()) {
         DtoDeclareStruct(sd);
     }
@@ -888,6 +890,8 @@ void DtoDeclareDsymbol(Dsymbol* dsym)
 
 void DtoConstInitDsymbol(Dsymbol* dsym)
 {
+    DtoDeclareDsymbol(dsym);
+
     if (StructDeclaration* sd = dsym->isStructDeclaration()) {
         DtoConstInitStruct(sd);
     }
@@ -910,6 +914,8 @@ void DtoConstInitDsymbol(Dsymbol* dsym)
 
 void DtoDefineDsymbol(Dsymbol* dsym)
 {
+    DtoConstInitDsymbol(dsym);
+
     if (StructDeclaration* sd = dsym->isStructDeclaration()) {
         DtoDefineStruct(sd);
     }
@@ -917,7 +923,7 @@ void DtoDefineDsymbol(Dsymbol* dsym)
         DtoDefineClass(cd);
     }
     else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-        DtoDefineFunction(fd);
+        Type::sir->addFunctionBody(fd->ir.irFunc);
     }
     else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
         DtoDefineTypeInfo(fd);
@@ -932,6 +938,8 @@ void DtoDefineDsymbol(Dsymbol* dsym)
 
 void DtoConstInitGlobal(VarDeclaration* vd)
 {
+    vd->codegen(Type::sir);
+
     if (vd->ir.initialized) return;
     vd->ir.initialized = gIR->dmodule;
 
@@ -975,42 +983,6 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             gIR->usedArray.push_back(llvm::ConstantExpr::getBitCast(gv, getVoidPtrType()));
         }
     }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoForceDeclareDsymbol(Dsymbol* dsym)
-{
-    if (dsym->ir.declared) return;
-    Logger::println("DtoForceDeclareDsymbol(%s)", dsym->toPrettyChars());
-    LOG_SCOPE;
-    DtoResolveDsymbol(dsym);
-    DtoDeclareDsymbol(dsym);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoForceConstInitDsymbol(Dsymbol* dsym)
-{
-    if (dsym->ir.initialized) return;
-    Logger::println("DtoForceConstInitDsymbol(%s)", dsym->toPrettyChars());
-    LOG_SCOPE;
-    DtoResolveDsymbol(dsym);
-    DtoDeclareDsymbol(dsym);
-    DtoConstInitDsymbol(dsym);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoForceDefineDsymbol(Dsymbol* dsym)
-{
-    if (dsym->ir.defined) return;
-    Logger::println("DtoForceDefineDsymbol(%s)", dsym->toPrettyChars());
-    LOG_SCOPE;
-    DtoResolveDsymbol(dsym);
-    DtoDeclareDsymbol(dsym);
-    DtoConstInitDsymbol(dsym);
-    DtoDefineDsymbol(dsym);
 }
 
 /****************************************************************************************/
@@ -1106,13 +1078,13 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (StructDeclaration* s = declaration->isStructDeclaration())
     {
         Logger::println("StructDeclaration");
-        DtoForceConstInitDsymbol(s);
+        s->codegen(Type::sir);
     }
     // function declaration
     else if (FuncDeclaration* f = declaration->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        DtoForceDeclareDsymbol(f);
+        f->codegen(Type::sir);
     }
     // alias declaration
     else if (AliasDeclaration* a = declaration->isAliasDeclaration())
@@ -1130,7 +1102,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (ClassDeclaration* e = declaration->isClassDeclaration())
     {
         Logger::println("ClassDeclaration");
-        DtoForceConstInitDsymbol(e);
+        e->codegen(Type::sir);
     }
     // typedef
     else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
@@ -1392,8 +1364,9 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
-    DtoForceDeclareDsymbol(tidecl);
+    tidecl->codegen(Type::sir);
     assert(tidecl->ir.irGlobal != NULL);
+    assert(tidecl->ir.irGlobal->value != NULL);
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
     assert(c != NULL);
     if (base)

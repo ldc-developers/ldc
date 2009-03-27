@@ -271,6 +271,15 @@ Expression *createTypeInfoArray(Scope *sc, Expression *exps[], int dim)
 //                             MAGIC   PLACE
 //////////////////////////////////////////////////////////////////////////////
 
+void DtoResolveTypeInfo(TypeInfoDeclaration* tid);
+void DtoDeclareTypeInfo(TypeInfoDeclaration* tid);
+void DtoConstInitTypeInfo(TypeInfoDeclaration* tid);
+
+void TypeInfoDeclaration::codegen(Ir*)
+{
+    DtoResolveTypeInfo(this);
+}
+
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 {
     if (tid->ir.resolved) return;
@@ -279,57 +288,46 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     Logger::println("DtoResolveTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
-    tid->ir.irGlobal = new IrGlobal(tid);
+    IrGlobal* irg = new IrGlobal(tid);
+    irg->value = new llvm::GlobalVariable(irg->type.get(), true,
+        TYPEINFO_LINKAGE_TYPE, NULL, tid->mangle(), gIR->module);
 
-    gIR->declareList.push_back(tid);
-}
+    tid->ir.irGlobal = irg;
 
-void TypeInfoDeclaration::codegen(Ir*)
-{
-    DtoResolveTypeInfo(this);
+    DtoDeclareTypeInfo(tid);
 }
 
 void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
 {
+    DtoResolveTypeInfo(tid);
+
     if (tid->ir.declared) return;
     tid->ir.declared = true;
 
     Logger::println("DtoDeclareTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
+    IrGlobal* irg = tid->ir.irGlobal;
+
     std::string mangled(tid->mangle());
 
     Logger::println("type = '%s'", tid->tinfo->toChars());
     Logger::println("typeinfo mangle: %s", mangled.c_str());
 
+    assert(irg->value != NULL);
+
     // this is a declaration of a builtin __initZ var
     if (tid->tinfo->builtinTypeInfo()) {
-        LLValue* found = gIR->module->getNamedGlobal(mangled);
-        if (!found)
-        {
-            const LLType* t = LLOpaqueType::get();
-            llvm::GlobalVariable* g = new llvm::GlobalVariable(t, true, llvm::GlobalValue::ExternalLinkage, NULL, mangled, gIR->module);
-            assert(g);
-            /*if (!tid->ir.irGlobal)
-                tid->ir.irGlobal = new IrGlobal(tid);*/
-            tid->ir.irGlobal->value = g;
-            mangled.append("__TYPE");
-            gIR->module->addTypeName(mangled, tid->ir.irGlobal->value->getType()->getContainedType(0));
-            Logger::println("Got typeinfo var: %s", tid->ir.irGlobal->value->getName().c_str());
-            tid->ir.initialized = true;
-            tid->ir.defined = true;
-        }
-        else if (!tid->ir.irGlobal->value) {
-            tid->ir.irGlobal->value = found;
-            tid->ir.initialized = true;
-            tid->ir.defined = true;
-        }
+        // fixup the global
+        const llvm::Type* rty = Type::typeinfo->type->ir.type->get();
+        llvm::cast<llvm::OpaqueType>(irg->type.get())->refineAbstractTypeTo(rty);
+        LLGlobalVariable* g = isaGlobalVar(irg->value);
+        g->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        return;
     }
+
     // custom typedef
-    else {
-        tid->llvmDeclare();
-        gIR->constInitList.push_back(tid);
-    }
+    DtoConstInitTypeInfo(tid);
 }
 
 void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
@@ -340,7 +338,7 @@ void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
     Logger::println("DtoConstInitTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
-    gIR->defineList.push_back(tid);
+    tid->llvmDefine();
 }
 
 void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
@@ -356,11 +354,6 @@ void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
 
 /* ========================================================================= */
 
-void TypeInfoDeclaration::llvmDeclare()
-{
-    assert(0 && "TypeInfoDeclaration::llvmDeclare");
-}
-
 void TypeInfoDeclaration::llvmDefine()
 {
     assert(0 && "TypeInfoDeclaration::llvmDeclare");
@@ -368,27 +361,13 @@ void TypeInfoDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoTypedefDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoTypedefDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    ClassDeclaration* base = Type::typeinfotypedef;
-    DtoResolveClass(base);
-
-    const LLStructType* stype = isaStruct(base->type->ir.type->get());
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoTypedefDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     ClassDeclaration* base = Type::typeinfotypedef;
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // vtbl
     std::vector<LLConstant*> sinits;
@@ -439,25 +418,13 @@ void TypeInfoTypedefDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoEnumDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoEnumDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    ClassDeclaration* base = Type::typeinfoenum;
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoEnumDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     ClassDeclaration* base = Type::typeinfoenum;
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // vtbl
     std::vector<LLConstant*> sinits;
@@ -512,19 +479,10 @@ void TypeInfoEnumDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-static void LLVM_D_Declare_TypeInfoBase(TypeInfoDeclaration* tid, ClassDeclaration* cd)
-{
-    ClassDeclaration* base = cd;
-    DtoResolveClass(base);
-
-    // create the symbol
-    tid->ir.irGlobal->value = new llvm::GlobalVariable(tid->ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, tid->toChars(), gIR->module);
-}
-
 static void LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
 {
     ClassDeclaration* base = cd;
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // vtbl
     std::vector<LLConstant*> sinits;
@@ -549,17 +507,6 @@ static void LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid,
 
 /* ========================================================================= */
 
-void TypeInfoPointerDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoPointerDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    assert(tinfo->ty == Tpointer);
-    TypePointer *tc = (TypePointer *)tinfo;
-
-    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfopointer);
-}
-
 void TypeInfoPointerDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s", toChars());
@@ -572,17 +519,6 @@ void TypeInfoPointerDeclaration::llvmDefine()
 }
 
 /* ========================================================================= */
-
-void TypeInfoArrayDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoArrayDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    assert(tinfo->ty == Tarray);
-    TypeDArray *tc = (TypeDArray *)tinfo;
-
-    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoarray);
-}
 
 void TypeInfoArrayDeclaration::llvmDefine()
 {
@@ -597,19 +533,6 @@ void TypeInfoArrayDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoStaticArrayDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoStaticArrayDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfostaticarray;
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoStaticArrayDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s", toChars());
@@ -617,7 +540,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
 
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfostaticarray;
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // get type of typeinfo class
     const LLStructType* stype = isaStruct(base->type->ir.type->get());
@@ -652,19 +575,6 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoAssociativeArrayDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfoassociativearray;
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDefine() %s", toChars());
@@ -672,7 +582,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfoassociativearray;
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -706,17 +616,6 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoFunctionDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoFunctionDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    assert(tinfo->ty == Tfunction);
-    TypeFunction *tc = (TypeFunction *)tinfo;
-
-    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfofunction);
-}
-
 void TypeInfoFunctionDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s", toChars());
@@ -729,17 +628,6 @@ void TypeInfoFunctionDeclaration::llvmDefine()
 }
 
 /* ========================================================================= */
-
-void TypeInfoDelegateDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoDelegateDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    assert(tinfo->ty == Tdelegate);
-    TypeDelegate *tc = (TypeDelegate *)tinfo;
-
-    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfodelegate);
-}
 
 void TypeInfoDelegateDeclaration::llvmDefine()
 {
@@ -754,23 +642,6 @@ void TypeInfoDelegateDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoStructDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoStructDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    assert(tinfo->ty == Tstruct);
-    TypeStruct *tc = (TypeStruct *)tinfo;
-    StructDeclaration *sd = tc->sym;
-    DtoResolveDsymbol(sd);
-
-    ClassDeclaration* base = Type::typeinfostruct;
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoStructDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
@@ -779,10 +650,10 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert(tinfo->ty == Tstruct);
     TypeStruct *tc = (TypeStruct *)tinfo;
     StructDeclaration *sd = tc->sym;
-    DtoForceConstInitDsymbol(sd);
+    sd->codegen(Type::sir);
 
     ClassDeclaration* base = Type::typeinfostruct;
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     const LLStructType* stype = isaStruct(base->type->ir.type->get());
 
@@ -870,7 +741,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         fd = fdx->overloadExactMatch(tftohash);
         if (fd) {
-            DtoForceDeclareDsymbol(fd);
+            fd->codegen(Type::sir);
             assert(fd->ir.irFunc->func != 0);
             LLConstant* c = isaConstant(fd->ir.irFunc->func);
             assert(c);
@@ -896,7 +767,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         {
             fd = fdx->overloadExactMatch(tfeqptr);
             if (fd) {
-                DtoForceDeclareDsymbol(fd);
+                fd->codegen(Type::sir);
                 assert(fd->ir.irFunc->func != 0);
                 LLConstant* c = isaConstant(fd->ir.irFunc->func);
                 assert(c);
@@ -924,7 +795,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         fd = fdx->overloadExactMatch(tftostring);
         if (fd) {
-            DtoForceDeclareDsymbol(fd);
+            fd->codegen(Type::sir);
             assert(fd->ir.irFunc->func != 0);
             LLConstant* c = isaConstant(fd->ir.irFunc->func);
             assert(c);
@@ -968,20 +839,6 @@ void TypeInfoStructDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoClassDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoClassDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfoclass;
-    assert(base);
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoClassDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoClassDeclaration::llvmDefine() %s", toChars());
@@ -990,7 +847,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfoclass;
     assert(base);
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -1003,7 +860,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     // get classinfo
     assert(tinfo->ty == Tclass);
     TypeClass *tc = (TypeClass *)tinfo;
-    DtoForceDeclareDsymbol(tc->sym);
+    tc->sym->codegen(Type::sir);;
     assert(tc->sym->ir.irStruct->classInfo);
     sinits.push_back(tc->sym->ir.irStruct->classInfo);
 
@@ -1019,20 +876,6 @@ void TypeInfoClassDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoInterfaceDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoInterfaceDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfointerface;
-    assert(base);
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoInterfaceDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s", toChars());
@@ -1041,7 +884,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfointerface;
     assert(base);
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // get type of typeinfo class
     const LLStructType* stype = isaStruct(base->type->ir.type->get());
@@ -1072,20 +915,6 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoTupleDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoTupleDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfotypelist;
-    assert(base);
-    DtoResolveClass(base);
-
-    // create the symbol
-    ir.irGlobal->value = new llvm::GlobalVariable(ir.irGlobal->type.get(), true, TYPEINFO_LINKAGE_TYPE, NULL, toChars(), gIR->module);
-}
-
 void TypeInfoTupleDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s", toChars());
@@ -1094,7 +923,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfotypelist;
     assert(base);
-    DtoForceConstInitDsymbol(base);
+    base->codegen(Type::sir);
 
     // get type of typeinfo class
     const LLStructType* stype = isaStruct(base->type->ir.type->get());
@@ -1156,14 +985,6 @@ void TypeInfoTupleDeclaration::llvmDefine()
 
 #if DMDV2
 
-void TypeInfoConstDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoConstDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoconst);
-}
-
 void TypeInfoConstDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoConstDeclaration::llvmDefine() %s", toChars());
@@ -1176,14 +997,6 @@ void TypeInfoConstDeclaration::llvmDefine()
 }
 
 /* ========================================================================= */
-
-void TypeInfoInvariantDeclaration::llvmDeclare()
-{
-    Logger::println("TypeInfoInvariantDeclaration::llvmDeclare() %s", toChars());
-    LOG_SCOPE;
-
-    LLVM_D_Declare_TypeInfoBase(this, Type::typeinfoinvariant);
-}
 
 void TypeInfoInvariantDeclaration::llvmDefine()
 {

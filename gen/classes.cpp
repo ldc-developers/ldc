@@ -124,6 +124,10 @@ static void add_class_data(ClassDeclaration* target, ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static void DtoDeclareInterface(InterfaceDeclaration* cd);
+static void DtoConstInitInterface(InterfaceDeclaration* cd);
+static void DtoDefineInterface(InterfaceDeclaration* cd);
+
 static void DtoResolveInterface(InterfaceDeclaration* cd)
 {
     if (cd->ir.resolved) return;
@@ -156,7 +160,7 @@ static void DtoResolveInterface(InterfaceDeclaration* cd)
             assert(id);
 
             DtoResolveInterface(id);
-    
+
             // add to interfaceInfos
             IrInterface* iri = new IrInterface(bc);
             irstruct->interfaceVec.push_back(iri);
@@ -170,7 +174,7 @@ static void DtoResolveInterface(InterfaceDeclaration* cd)
     ts->ir.type = new LLPATypeHolder(getPtrToType(t));
 
     // request declaration
-    gIR->declareList.push_back(cd);
+    DtoDeclareInterface(cd);
 
     // handle members
     // like "nested" interfaces
@@ -193,13 +197,15 @@ void DtoResolveClass(ClassDeclaration* cd)
         return;
     }
 
+    // make sure the base classes are processed first
+    if (cd->baseClass)
+        cd->baseClass->codegen(Type::sir);
+
     if (cd->ir.resolved) return;
     cd->ir.resolved = true;
 
     Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
-
-    //printf("resolve class: %s\n", cd->toPrettyChars());
 
     // get the TypeClass
     assert(cd->type->ty == Tclass);
@@ -221,10 +227,21 @@ void DtoResolveClass(ClassDeclaration* cd)
         return;
     }
 
-    // resolve the base class
-    if (cd->baseClass) {
-        DtoResolveClass(cd->baseClass);
-    }
+    // create the symbols we're going to need
+    // avoids chicken egg problems
+    llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(cd);
+
+    // there is always a vtbl symbol
+    std::string varname("_D");
+    varname.append(cd->mangle());
+    varname.append("6__vtblZ");
+    irstruct->vtbl = new llvm::GlobalVariable(irstruct->vtblInitTy.get(), true, _linkage, NULL, varname, gIR->module);
+
+    // ... and initZ
+    std::string initname("_D");
+    initname.append(cd->mangle());
+    initname.append("6__initZ");
+    irstruct->init = new llvm::GlobalVariable(irstruct->initOpaque.get(), true, _linkage, NULL, initname, gIR->module);
 
     // push state
     gIR->structs.push_back(irstruct);
@@ -252,6 +269,7 @@ void DtoResolveClass(ClassDeclaration* cd)
     llvm::PATypeHolder* spa = ts->ir.type;
     llvm::cast<llvm::OpaqueType>(spa->get())->refineAbstractTypeTo(structtype);
     structtype = isaStruct(spa->get());
+    assert(structtype);
 
     // name the type
     gIR->module->addTypeName(cd->mangle(), ts->ir.type->get());
@@ -269,13 +287,15 @@ void DtoResolveClass(ClassDeclaration* cd)
     gIR->structs.pop_back();
 
     // queue declare
-    gIR->declareList.push_back(cd);
+    DtoDeclareClass(cd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 static void DtoDeclareInterface(InterfaceDeclaration* cd)
 {
+    DtoResolveInterface(cd);
+
     if (cd->ir.declared) return;
     cd->ir.declared = true;
 
@@ -321,12 +341,12 @@ static void DtoDeclareInterface(InterfaceDeclaration* cd)
     DtoDeclareClassInfo(cd);
 
     // request const init
-    gIR->constInitList.push_back(cd);
+    DtoConstInitInterface(cd);
 
     // emit typeinfo and request definition
     if (mustDefineSymbol(cd))
     {
-        gIR->defineList.push_back(cd);
+        DtoDefineInterface(cd);
         DtoTypeInfoOf(cd->type, false);
     }
 }
@@ -342,6 +362,8 @@ void DtoDeclareClass(ClassDeclaration* cd)
         DtoDeclareInterface(id);
         return;
     }
+
+    DtoResolveClass(cd);
 
     if (cd->ir.declared) return;
     cd->ir.declared = true;
@@ -365,12 +387,6 @@ void DtoDeclareClass(ClassDeclaration* cd)
     }
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(cd);
-
-    // create vtbl symbol
-    std::string varname("_D");
-    varname.append(cd->mangle());
-    varname.append("6__vtblZ");
-    irstruct->vtbl = new llvm::GlobalVariable(irstruct->vtblInitTy.get(), true, _linkage, 0, varname, gIR->module);
 
     // get interface info type
     const llvm::StructType* infoTy = DtoInterfaceInfoType();
@@ -410,23 +426,14 @@ void DtoDeclareClass(ClassDeclaration* cd)
         idx++;
     }
 
-    // initZ init
-    std::string initname("_D");
-    initname.append(cd->mangle());
-    initname.append("6__initZ");
-
-    // initZ global
-    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(irstruct->initOpaque.get(), true, _linkage, NULL, initname, gIR->module);
-    irstruct->init = initvar;
-
     gIR->structs.pop_back();
 
     // request const init
-    gIR->constInitList.push_back(cd);
+    DtoConstInitClass(cd);
 
     // define ? (set initializers)
     if (needs_definition)
-        gIR->defineList.push_back(cd);
+        DtoDefineClass(cd);
 
     // classinfo
     DtoDeclareClassInfo(cd);
@@ -544,12 +551,16 @@ static size_t init_class_initializer(std::vector<LLConstant*>& inits, ClassDecla
 // build the vtable initializer for class cd
 static void init_class_vtbl_initializer(ClassDeclaration* cd)
 {
+    cd->codegen(Type::sir);
+
     // generate vtable initializer
     std::vector<LLConstant*> sinits(cd->vtbl.dim, NULL);
 
     IrStruct* irstruct = cd->ir.irStruct;
 
     assert(cd->vtbl.dim > 1);
+
+    DtoDeclareClassInfo(cd);
 
     // first entry always classinfo
     assert(irstruct->classInfo);
@@ -575,7 +586,9 @@ static void init_class_vtbl_initializer(ClassDeclaration* cd)
         }
         else
         {
-            DtoForceDeclareDsymbol(fd);
+            fd->codegen(Type::sir);
+            Logger::println("F = %s", fd->toPrettyChars());
+            assert(fd->ir.irFunc);
             assert(fd->ir.irFunc->func);
             sinits[k] = fd->ir.irFunc->func;
         }
@@ -645,7 +658,7 @@ static void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
                     inits[j] = getNullPtr(getVoidPtrType());
                 else
                 {
-                    DtoForceDeclareDsymbol(fd);
+                    fd->codegen(Type::sir);
 
                     assert(fd->ir.irFunc->func);
                     inits[j] = fd->ir.irFunc->func;
@@ -662,7 +675,7 @@ static void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
         // build the interface info for ClassInfo
         // generate interface info initializer
 
-        DtoForceDeclareDsymbol(iri->decl);
+        iri->decl->codegen(Type::sir);
 
         // classinfo
         IrStruct* iris = iri->decl->ir.irStruct;
@@ -698,6 +711,8 @@ static void init_class_interface_vtbl_initializers(ClassDeclaration* cd)
 
 static void DtoConstInitInterface(InterfaceDeclaration* cd)
 {
+    DtoDeclareInterface(cd);
+
     if (cd->ir.initialized) return;
     cd->ir.initialized = true;
 
@@ -717,17 +732,13 @@ void DtoConstInitClass(ClassDeclaration* cd)
         return;
     }
 
+    DtoDeclareClass(cd);
+
     if (cd->ir.initialized) return;
     cd->ir.initialized = true;
 
     Logger::println("DtoConstInitClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
-
-    assert(!cd->isInterfaceDeclaration());
-
-    // make sure the baseclass is const initialized
-    if (cd->baseClass)
-        DtoForceConstInitDsymbol(cd->baseClass);
 
     // get IrStruct
     IrStruct* irstruct = cd->ir.irStruct;
@@ -811,6 +822,8 @@ static void DefineInterfaceInfos(IrStruct* irstruct)
 
 static void DtoDefineInterface(InterfaceDeclaration* cd)
 {
+    DtoConstInitInterface(cd);
+
     if (cd->ir.defined) return;
     cd->ir.defined = true;
 
@@ -838,6 +851,8 @@ void DtoDefineClass(ClassDeclaration* cd)
         DtoDefineInterface(id);
         return;
     }
+
+    DtoConstInitClass(cd);
 
     if (cd->ir.defined) return;
     cd->ir.defined = true;
@@ -898,7 +913,7 @@ void DtoDefineClass(ClassDeclaration* cd)
 DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
 {
     // resolve type
-    DtoForceDeclareDsymbol(tc->sym);
+    tc->sym->codegen(Type::sir);
 
     // allocate
     LLValue* mem;
@@ -909,7 +924,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // custom allocator
     else if (newexp->allocator)
     {
-        DtoForceDeclareDsymbol(newexp->allocator);
+        newexp->allocator->codegen(Type::sir);
         DFuncValue dfn(newexp->allocator, newexp->allocator->ir.irFunc->func);
         DValue* res = DtoCallFunction(newexp->loc, NULL, &dfn, newexp->newargs);
         mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
@@ -959,7 +974,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     {
         Logger::println("Calling constructor");
         assert(newexp->arguments != NULL);
-        DtoForceDeclareDsymbol(newexp->member);
+        newexp->member->codegen(Type::sir);
         DFuncValue dfn(newexp->member, newexp->member->ir.irFunc->func, mem);
         return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
     }
@@ -972,7 +987,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
 
 void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
-    DtoForceConstInitDsymbol(tc->sym);
+    tc->sym->codegen(Type::sir);
 
     size_t presz = 2*getTypePaddedSize(DtoSize_t());
     uint64_t n = getTypePaddedSize(tc->ir.type->get()) - presz;
@@ -1122,8 +1137,8 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     // call:
     // Object _d_dynamic_cast(Object o, ClassInfo c)
 
-    DtoForceDeclareDsymbol(ClassDeclaration::object);
-    DtoForceDeclareDsymbol(ClassDeclaration::classinfo);
+    ClassDeclaration::object->codegen(Type::sir);
+    ClassDeclaration::classinfo->codegen(Type::sir);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     const llvm::FunctionType* funcTy = func->getFunctionType();
@@ -1137,7 +1152,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
 
     // ClassInfo c
     TypeClass* to = (TypeClass*)_to->toBasetype();
-    DtoForceDeclareDsymbol(to->sym);
+    to->sym->codegen(Type::sir);
     assert(to->sym->ir.irStruct->classInfo);
     LLValue* cinfo = to->sym->ir.irStruct->classInfo;
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
@@ -1187,8 +1202,8 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     // call:
     // Object _d_interface_cast(void* p, ClassInfo c)
 
-    DtoForceDeclareDsymbol(ClassDeclaration::object);
-    DtoForceDeclareDsymbol(ClassDeclaration::classinfo);
+    ClassDeclaration::object->codegen(Type::sir);
+    ClassDeclaration::classinfo->codegen(Type::sir);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
     const llvm::FunctionType* funcTy = func->getFunctionType();
@@ -1201,7 +1216,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
 
     // ClassInfo c
     TypeClass* to = (TypeClass*)_to->toBasetype();
-    DtoForceDeclareDsymbol(to->sym);
+    to->sym->codegen(Type::sir);
     assert(to->sym->ir.irStruct->classInfo);
     LLValue* cinfo = to->sym->ir.irStruct->classInfo;
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
@@ -1404,7 +1419,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     if (!dtor)
         return getNullPtr(getVoidPtrType());
 
-    DtoForceDeclareDsymbol(dtor);
+    dtor->codegen(Type::sir);
     return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::Int8Ty));
 }
 
@@ -1480,7 +1495,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     std::vector<LLConstant*> inits;
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
-    DtoForceConstInitDsymbol(cinfo);
+    cinfo->codegen(Type::sir);
 
     LLConstant* c;
 
@@ -1575,7 +1590,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     const LLType* invTy = DtoType(invVar->type);
     if (cd->inv)
     {
-        DtoForceDeclareDsymbol(cd->inv);
+        cd->inv->codegen(Type::sir);
         c = cd->inv->ir.irFunc->func;
         c = DtoBitCast(c, invTy);
     }
@@ -1595,7 +1610,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // deallocator
     if (cd->aggDelete)
     {
-        DtoForceDeclareDsymbol(cd->aggDelete);
+        cd->aggDelete->codegen(Type::sir);
         c = cd->aggDelete->ir.irFunc->func;
         c = DtoBitCast(c, voidPtr);
     }
@@ -1625,7 +1640,7 @@ void DtoDefineClassInfo(ClassDeclaration* cd)
     // default constructor
     if (cd->defaultCtor)
     {
-        DtoForceDeclareDsymbol(cd->defaultCtor);
+        cd->defaultCtor->codegen(Type::sir);
         c = isaConstant(cd->defaultCtor->ir.irFunc->func);
         c = DtoBitCast(c, voidPtr);
     }

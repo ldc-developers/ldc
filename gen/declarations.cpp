@@ -135,7 +135,7 @@ void VarDeclaration::codegen(Ir* p)
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        gIR->constInitList.push_back(this);
+        DtoConstInitGlobal(this);
     }
     else
     {

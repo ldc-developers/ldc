@@ -288,7 +288,7 @@ struct VarDeclaration : Declaration
 
 #if IN_LLVM
     /// Codegen traversal
-    void codegen(Ir* ir);
+    virtual void codegen(Ir* ir);
 
     // LDC
     AnonDeclaration* anonDecl;
@@ -368,7 +368,6 @@ struct TypeInfoDeclaration : VarDeclaration
 #if IN_LLVM
     /// Codegen traversal
     void codegen(Ir* ir);
-    virtual void llvmDeclare();
     virtual void llvmDefine();
 #endif
 };
@@ -382,7 +381,6 @@ struct TypeInfoStructDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -396,7 +394,6 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -410,7 +407,6 @@ struct TypeInfoInterfaceDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -424,7 +420,6 @@ struct TypeInfoTypedefDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -438,7 +433,6 @@ struct TypeInfoPointerDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -452,7 +446,6 @@ struct TypeInfoArrayDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -466,7 +459,6 @@ struct TypeInfoStaticArrayDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -480,7 +472,6 @@ struct TypeInfoAssociativeArrayDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -494,7 +485,6 @@ struct TypeInfoEnumDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -508,7 +498,6 @@ struct TypeInfoFunctionDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -522,7 +511,6 @@ struct TypeInfoDelegateDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -536,7 +524,6 @@ struct TypeInfoTupleDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -551,7 +538,6 @@ struct TypeInfoConstDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };
@@ -565,7 +551,6 @@ struct TypeInfoInvariantDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void llvmDeclare();
     void llvmDefine();
 #endif
 };

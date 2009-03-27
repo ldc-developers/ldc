@@ -95,7 +95,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
         {
             Logger::println("TypeInfoDeclaration");
-            DtoForceDeclareDsymbol(tid);
+            tid->codegen(Type::sir);
             assert(tid->ir.getIrValue());
             const LLType* vartype = DtoType(type);
             LLValue* m = tid->ir.getIrValue();
@@ -107,7 +107,7 @@ DValue* VarExp::toElem(IRState* p)
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            DtoForceDeclareDsymbol(cid->cd);
+            cid->cd->codegen(Type::sir);;
             assert(cid->cd->ir.irStruct->classInfo);
             return new DVarValue(type, vd, cid->cd->ir.irStruct->classInfo);
         }
@@ -175,7 +175,7 @@ DValue* VarExp::toElem(IRState* p)
         Logger::println("FuncDeclaration");
         LLValue* func = 0;
         if (fdecl->llvmInternal != LLVMva_arg) {
-            DtoForceDeclareDsymbol(fdecl);
+            fdecl->codegen(Type::sir);
             func = fdecl->ir.irFunc->func;
         }
         return new DFuncValue(fdecl, func);
@@ -188,7 +188,7 @@ DValue* VarExp::toElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
         assert(ts->sym);
-        DtoForceConstInitDsymbol(ts->sym);
+        ts->sym->codegen(Type::sir);
         assert(ts->sym->ir.irStruct->init);
         return new DVarValue(type, ts->sym->ir.irStruct->init);
     }
@@ -214,7 +214,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
-        DtoForceConstInitDsymbol(ts->sym);
+        ts->sym->codegen(Type::sir);
         assert(ts->sym->ir.irStruct->constInit);
         return ts->sym->ir.irStruct->constInit;
     }
@@ -922,7 +922,7 @@ DValue* AddrExp::toElem(IRState* p)
         //Logger::println("FuncDeclaration");
         FuncDeclaration* fd = fv->func;
         assert(fd);
-        DtoForceDeclareDsymbol(fd);
+        fd->codegen(Type::sir);
         return new DFuncValue(fd, fd->ir.irFunc->func);
     }
     else if (DImValue* im = v->isIm()) {
@@ -976,7 +976,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         // static function
         else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
         {
-            DtoForceDeclareDsymbol(fd);
+            fd->codegen(Type::sir);
             IrFunction* irfunc = fd->ir.irFunc;
             return irfunc->func;
         }
@@ -1125,7 +1125,7 @@ DValue* DotVarExp::toElem(IRState* p)
         // look up function
         //
         if (!vtbllookup) {
-            DtoForceDeclareDsymbol(fdecl);
+            fdecl->codegen(Type::sir);
             funcval = fdecl->ir.irFunc->func;
             assert(funcval);
         }
@@ -1634,7 +1634,7 @@ DValue* NewExp::toElem(IRState* p)
         }
         else {
             assert(ts->sym);
-            DtoForceConstInitDsymbol(ts->sym);
+            ts->sym->codegen(Type::sir);
             DtoAggrCopy(mem,ts->sym->ir.irStruct->init);
         }
         return new DImValue(type, mem);
@@ -2027,7 +2027,7 @@ DValue* DelegateExp::toElem(IRState* p)
         assert(0 && "TODO delegate to interface method");
     else
     {
-        DtoForceDeclareDsymbol(func);
+        func->codegen(Type::sir);
         castfptr = func->ir.irFunc->func;
     }
 
@@ -2252,7 +2252,7 @@ DValue* FuncExp::toElem(IRState* p)
     if (fd->isNested()) Logger::println("nested");
     Logger::println("kind = %s\n", fd->kind());
 
-    DtoForceDefineDsymbol(fd);
+    fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
     if(fd->tok == TOKdelegate) {
@@ -2289,7 +2289,7 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     assert(fd);
     assert(fd->tok == TOKfunction);
 
-    DtoForceDefineDsymbol(fd);
+    fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
     return fd->ir.irFunc->func;

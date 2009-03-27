@@ -97,7 +97,7 @@ LLConstant* DtoConstStructInitializer(StructInitializer* si)
     TypeStruct* ts = (TypeStruct*)si->ad->type;
 
     // force constant initialization of the symbol
-    DtoForceConstInitDsymbol(si->ad);
+    si->ad->codegen(Type::sir);;
 
     // get formal type
     const llvm::StructType* structtype = isaStruct(ts->ir.type->get());
@@ -517,6 +517,15 @@ void DtoResolveStruct(StructDeclaration* sd)
     // create the type
     ts->ir.type = new LLPATypeHolder(llvm::OpaqueType::get());
 
+    // create symbols we're going to need
+    // avoids chicken egg problems
+    std::string initname("_D");
+    initname.append(sd->mangle());
+    initname.append("6__initZ");
+
+    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(sd);
+    sd->ir.irStruct->init = new llvm::GlobalVariable(sd->ir.irStruct->initOpaque.get(), true, _linkage, NULL, initname, gIR->module);
+
     // handle forward declaration structs (opaques)
     // didn't even know D had those ...
     if (sd->sizeok != 1)
@@ -579,13 +588,15 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     gIR->structs.pop_back();
 
-    gIR->declareList.push_back(sd);
+    DtoDeclareStruct(sd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoDeclareStruct(StructDeclaration* sd)
 {
+    DtoResolveStruct(sd);
+
     if (sd->ir.declared) return;
     sd->ir.declared = true;
 
@@ -594,23 +605,17 @@ void DtoDeclareStruct(StructDeclaration* sd)
 
     TypeStruct* ts = (TypeStruct*)sd->type->toBasetype();
 
-    std::string initname("_D");
-    initname.append(sd->mangle());
-    initname.append("6__initZ");
-
-    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(sd);
-    llvm::GlobalVariable* initvar = new llvm::GlobalVariable(sd->ir.irStruct->initOpaque.get(), true, _linkage, NULL, initname, gIR->module);
-    sd->ir.irStruct->init = initvar;
-
-    gIR->constInitList.push_back(sd);
+    DtoConstInitStruct(sd);
     if (mustDefineSymbol(sd))
-        gIR->defineList.push_back(sd);
+        DtoDefineStruct(sd);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoConstInitStruct(StructDeclaration* sd)
 {
+    DtoDeclareStruct(sd);
+
     if (sd->ir.initialized) return;
     sd->ir.initialized = true;
 
@@ -651,6 +656,8 @@ void DtoConstInitStruct(StructDeclaration* sd)
 
 void DtoDefineStruct(StructDeclaration* sd)
 {
+    DtoConstInitStruct(sd);
+
     if (sd->ir.defined) return;
     sd->ir.defined = true;
 

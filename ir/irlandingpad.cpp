@@ -49,7 +49,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
     assert(catchstmt->type);
     catchType = catchstmt->type->toBasetype()->isClassHandle();
     assert(catchType);
-    DtoForceDeclareDsymbol(catchType);
+    catchType->codegen(Type::sir);
 }
 
 IRLandingPadInfo::IRLandingPadInfo(Statement* finallystmt)

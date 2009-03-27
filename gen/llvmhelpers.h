@@ -94,9 +94,6 @@ void DtoDeclareDsymbol(Dsymbol* dsym);
 void DtoDefineDsymbol(Dsymbol* dsym);
 void DtoConstInitDsymbol(Dsymbol* dsym);
 void DtoConstInitGlobal(VarDeclaration* vd);
-void DtoForceDeclareDsymbol(Dsymbol* dsym);
-void DtoForceConstInitDsymbol(Dsymbol* dsym);
-void DtoForceDefineDsymbol(Dsymbol* dsym);
 
 // declaration inside a declarationexp
 DValue* DtoDeclarationExp(Dsymbol* declaration);

@@ -26,18 +26,18 @@ using namespace llvm::Attribute;
 
 const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
+    // already built ?
+    if (type->ir.type != NULL) {
+        //assert(f->fty != NULL);
+        return llvm::cast<llvm::FunctionType>(type->ir.type->get());
+    }
+
     if (Logger::enabled())
         Logger::println("DtoFunctionType(%s)", type->toChars());
     LOG_SCOPE
     // sanity check
     assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
-
-    // already built ?
-    if (type->ir.type != NULL) {
-        //assert(f->fty != NULL);
-        return llvm::cast<llvm::FunctionType>(type->ir.type->get());
-    }
 
     if (f->linkage != LINKintrinsic) {
         // Tell the ABI we're resolving a new function type
@@ -241,13 +241,13 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 
 const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
-    // handle for C vararg intrinsics
-    if (fdecl->isVaIntrinsic())
-        return DtoVaFunctionType(fdecl);
-
     // type has already been resolved
     if (fdecl->type->ir.type != 0)
         return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
+
+    // handle for C vararg intrinsics
+    if (fdecl->isVaIntrinsic())
+        return DtoVaFunctionType(fdecl);
 
     Type *dthis=0, *dnest=0;
 
@@ -299,6 +299,7 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 void DtoResolveFunction(FuncDeclaration* fdecl)
 {
     if (!global.params.useUnitTests && fdecl->isUnitTestDeclaration()) {
+        Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
         return; // ignore declaration completely
     }
 
@@ -306,14 +307,11 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     if (fdecl->getModule() != gIR->dmodule)
     {
         if (fdecl->prot() == PROTprivate)
+        {
+            Logger::println("Ignoring private imported function %s", fdecl->toPrettyChars());
             return;
+        }
     }
-
-    if (fdecl->ir.resolved) return;
-    fdecl->ir.resolved = true;
-
-    Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
-    LOG_SCOPE;
 
     //printf("resolve function: %s\n", fdecl->toPrettyChars());
 
@@ -325,6 +323,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         {
             Logger::println("magic va_arg found");
             fdecl->llvmInternal = LLVMva_arg;
+            fdecl->ir.resolved = true;
             fdecl->ir.declared = true;
             fdecl->ir.initialized = true;
             fdecl->ir.defined = true;
@@ -347,9 +346,18 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
     DtoFunctionType(fdecl);
 
+    if (fdecl->ir.resolved) return;
+    fdecl->ir.resolved = true;
+
+    Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
+    LOG_SCOPE;
+
     // queue declaration
     if (!fdecl->isAbstract())
-        gIR->declareList.push_back(fdecl);
+    {
+        Logger::println("Ignoring declaration of abstract function %s", fdecl->toPrettyChars());
+        DtoDeclareFunction(fdecl);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -569,12 +577,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         gIR->unitTests.push_back(fdecl);
 
     if (!declareOnly)
-        gIR->defineList.push_back(fdecl);
+        Type::sir->addFunctionBody(fdecl->ir.irFunc);
     else
         assert(func->getLinkage() != llvm::GlobalValue::InternalLinkage);
-
-    if (Logger::enabled())
-        Logger::cout() << "func decl: " << *func << '\n';
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

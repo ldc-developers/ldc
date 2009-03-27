@@ -676,7 +676,7 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
         Type* t = l->getType();
         LLValue* tival = DtoTypeInfoOf(t);
         // DtoTypeInfoOf only does declare, not enough in this case :/
-        DtoForceConstInitDsymbol(t->vtinfo);
+        t->vtinfo->codegen(Type::sir);
 
         if (Logger::enabled())
             Logger::cout() << "typeinfo decl: " << *tival << '\n';
