@@ -70,7 +70,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Module* Module::genLLVMModule(int multiobj)
+llvm::Module* Module::genLLVMModule(Ir* sir)
 {
     bool logenabled = Logger::enabled();
     if (llvmForceLogging && !logenabled)
@@ -99,6 +99,8 @@ llvm::Module* Module::genLLVMModule(int multiobj)
     // reset all IR data stored in Dsymbols and Types
     IrDsymbol::resetAll();
     IrType::resetAll();
+
+    sir->setState(&ir);
 
     // module ir state
     // might already exist via import, just overwrite since
@@ -137,15 +139,11 @@ llvm::Module* Module::genLLVMModule(int multiobj)
     for (int k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);
         assert(dsym);
-        dsym->toObjFile(multiobj);
+        dsym->codegen(sir);
     }
 
-    // main driver loop
-    DtoEmptyAllLists();
     // generate ModuleInfo
     genmoduleinfo();
-    // do this again as moduleinfo might have pulled something in!
-    DtoEmptyAllLists();
 
     // emit usedArray
     if (!ir.usedArray.empty())
@@ -172,12 +170,14 @@ llvm::Module* Module::genLLVMModule(int multiobj)
     }
 
     gIR = NULL;
-    
+
     if (llvmForceLogging && !logenabled)
     {
         Logger::disable();
     }
-    
+
+    sir->setState(NULL);
+
     return ir.module;
 }
 
@@ -680,6 +680,8 @@ void Module::genmoduleinfo()
     for (size_t i = 0; i < aclasses.dim; i++)
     {
         ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
+        cd->codegen(Type::sir);
+
         if (cd->isInterfaceDeclaration())
         {
             Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
@@ -789,192 +791,4 @@ void Module::genmoduleinfo()
     LLConstant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
     std::string appendName("llvm.global_ctors");
     llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);
-}
-
-/* ================================================================== */
-
-void Dsymbol::toObjFile(int multiobj)
-{
-    Logger::println("Ignoring Dsymbol::toObjFile for %s", toChars());
-}
-
-/* ================================================================== */
-
-void Declaration::toObjFile(int unused)
-{
-    Logger::println("Ignoring Declaration::toObjFile for %s", toChars());
-}
-
-/* ================================================================== */
-
-void InterfaceDeclaration::toObjFile(int multiobj)
-{
-    //Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
-    gIR->resolveList.push_back(this);
-}
-
-/* ================================================================== */
-
-void StructDeclaration::toObjFile(int multiobj)
-{
-    gIR->resolveList.push_back(this);
-}
-
-/* ================================================================== */
-
-void ClassDeclaration::toObjFile(int multiobj)
-{
-    gIR->resolveList.push_back(this);
-}
-
-/* ================================================================== */
-
-void TupleDeclaration::toObjFile(int multiobj)
-{
-    Logger::println("TupleDeclaration::toObjFile(): %s", toChars());
-
-    assert(isexp);
-    assert(objects);
-
-    int n = objects->dim;
-
-    for (int i=0; i < n; ++i)
-    {
-        DsymbolExp* exp = (DsymbolExp*)objects->data[i];
-        assert(exp->op == TOKdsymbol);
-        exp->s->toObjFile(multiobj);
-    }
-}
-
-/* ================================================================== */
-
-void VarDeclaration::toObjFile(int multiobj)
-{
-    Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    if (aliassym)
-    {
-        Logger::println("alias sym");
-        toAlias()->toObjFile(multiobj);
-        return;
-    }
-
-    // global variable or magic
-#if DMDV2
-    // taken from dmd2/structs
-    if (isDataseg() || (storage_class & (STCconst | STCinvariant) && init))
-#else
-    if (isDataseg())
-#endif
-    {
-        Logger::println("data segment");
-
-    #if DMDV2
-        if (storage_class & STCmanifest)
-        {
-            assert(0 && "manifest constant being codegened!!!");
-        }
-    #endif
-
-        // don't duplicate work
-        if (this->ir.resolved) return;
-        this->ir.resolved = true;
-        this->ir.declared = true;
-
-        this->ir.irGlobal = new IrGlobal(this);
-
-        Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
-
-    #if DMDV2
-        // not sure why this is only needed for d2
-        bool _isconst = isConst() && init;
-    #else
-        bool _isconst = isConst();
-    #endif
-
-
-        Logger::println("Creating global variable");
-
-        const LLType* _type = this->ir.irGlobal->type.get();
-        llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
-        std::string _name(mangle());
-
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
-        this->ir.irGlobal->value = gvar;
-
-        if (Logger::enabled())
-            Logger::cout() << *gvar << '\n';
-
-        // if this global is used from a nested function, this is necessary or
-        // optimization could potentially remove the global (if it's the only use)
-        if (nakedUse)
-            gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
-
-        gIR->constInitList.push_back(this);
-    }
-    else
-    {
-        // might already have its irField, as classes derive each other without getting copies of the VarDeclaration
-        if (!ir.irField)
-        {
-            assert(!ir.isSet());
-            ir.irField = new IrField(this);
-        }
-        IrStruct* irstruct = gIR->topstruct();
-        irstruct->addVar(this);
-
-        Logger::println("added offset %u", offset);
-    }
-}
-
-/* ================================================================== */
-
-void TypedefDeclaration::toObjFile(int multiobj)
-{
-    static int tdi = 0;
-    Logger::print("TypedefDeclaration::toObjFile(%d): %s\n", tdi++, toChars());
-    LOG_SCOPE;
-
-    // generate typeinfo
-    DtoTypeInfoOf(type, false);
-}
-
-/* ================================================================== */
-
-void EnumDeclaration::toObjFile(int multiobj)
-{
-    Logger::println("Ignoring EnumDeclaration::toObjFile for %s", toChars());
-}
-
-/* ================================================================== */
-
-void FuncDeclaration::toObjFile(int multiobj)
-{
-    gIR->resolveList.push_back(this);
-}
-
-/* ================================================================== */
-
-void AnonDeclaration::toObjFile(int multiobj)
-{
-    Array *d = include(NULL, NULL);
-
-    if (d)
-    {
-        // get real aggregate parent
-        IrStruct* irstruct = gIR->topstruct();
-
-        // push a block on the stack
-        irstruct->pushAnon(isunion);
-
-        // go over children
-        for (unsigned i = 0; i < d->dim; i++)
-        {   Dsymbol *s = (Dsymbol *)d->data[i];
-            s->toObjFile(multiobj);
-        }
-
-        // finish
-        irstruct->popAnon();
-    }
 }

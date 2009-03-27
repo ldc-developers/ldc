@@ -84,6 +84,8 @@ struct TYPE;
 
 // llvm
 #if IN_LLVM
+struct Ir;
+struct IrSymbol;
 namespace llvm
 {
     class Value;
@@ -180,9 +182,7 @@ struct Dsymbol : Object
     // Backend
 
     virtual Symbol *toSymbol();			// to backend symbol
-#endif
     virtual void toObjFile(int multiobj);			// compile to .obj file
-#if IN_DMD
     virtual int cvMember(unsigned char *p);	// emit cv debug info for member
 
     Symbol *toImport();				// to backend import symbol
@@ -232,10 +232,14 @@ struct Dsymbol : Object
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
 
 #if IN_LLVM
+    /// Codegen traversal
+    virtual void codegen(Ir* ir);
+
     // llvm stuff
     int llvmInternal;
 
     IrDsymbol ir;
+    IrSymbol* irsym;
 #endif
 };
 

@@ -538,7 +538,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     Array* arr = sd->members;
     for (int k=0; k < arr->dim; k++) {
         Dsymbol* s = (Dsymbol*)arr->data[k];
-        s->toObjFile(0);
+        s->codegen(Type::sir);
     }
 
     const LLType* ST = irstruct->build();

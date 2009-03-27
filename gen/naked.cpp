@@ -72,7 +72,7 @@ void ExpStatement::toNakedIR(IRState *p)
     // enum decls should always be safe
 
     // make sure the symbols gets processed
-    d->declaration->toObjFile(0);
+    d->declaration->codegen(Type::sir);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -105,7 +105,7 @@ static void add_class_data(ClassDeclaration* target, ClassDeclaration* cd)
     Array* arr = cd->members;
     for (int k=0; k < arr->dim; k++) {
         Dsymbol* s = (Dsymbol*)arr->data[k];
-        s->toObjFile(0);
+        s->codegen(Type::sir);
     }
 
     // add interfaces
@@ -177,7 +177,7 @@ static void DtoResolveInterface(InterfaceDeclaration* cd)
     Array* arr = cd->members;
     for (int k=0; k < arr->dim; k++) {
         Dsymbol* s = (Dsymbol*)arr->data[k];
-        s->toObjFile(0);
+        s->codegen(Type::sir);
     }
 }
 

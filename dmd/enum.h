@@ -61,13 +61,17 @@ struct EnumDeclaration : ScopeDsymbol
 
     EnumDeclaration *isEnumDeclaration() { return this; }
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
     void toDebug();
     int cvMember(unsigned char *p);
 
-#if IN_DMD
     Symbol *sinit;
     Symbol *toInitializer();
+#endif
+
+#if IN_LLVM
+    void codegen(Ir*);
 #endif
 };
 

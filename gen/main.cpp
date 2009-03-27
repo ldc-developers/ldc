@@ -362,6 +362,7 @@ int main(int argc, char** argv)
     }
 
     // create a proper target
+    Ir ir;
 
     // check -m32/64 sanity
     if (m32bits && m64bits)
@@ -562,7 +563,7 @@ int main(int argc, char** argv)
 #endif
 
     // Initialization
-    Type::init();
+    Type::init(&ir);
     Id::initialize();
     Module::init();
     initPrecedence();
@@ -832,7 +833,7 @@ int main(int argc, char** argv)
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
         {
-            llvm::Module* lm = m->genLLVMModule(0);
+            llvm::Module* lm = m->genLLVMModule(&ir);
             if (!singleObj)
             {
                 m->deleteObjFile();

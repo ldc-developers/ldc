@@ -91,9 +91,11 @@ struct TemplateDeclaration : ScopeDsymbol
 
     TemplateTupleParameter *isVariadic();
     int isOverloadable();
-    
+
+#if IN_LLVM
     // LDC
     std::string intrinsicName;
+#endif
 };
 
 struct TemplateParameter
@@ -310,7 +312,9 @@ struct TemplateInstance : ScopeDsymbol
     char *toChars();
     char *mangle();
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
+#endif
 
     // Internal
     static void semanticTiargs(Loc loc, Scope *sc, Objects *tiargs);
@@ -324,11 +328,15 @@ struct TemplateInstance : ScopeDsymbol
     TemplateInstance *isTemplateInstance() { return this; }
     AliasDeclaration *isAliasDeclaration();
 
+#if IN_LLVM
     // LDC
     TemplateInstance *tinst; // enclosing template instance
     Module* tmodule; // module from outermost enclosing template instantiation
     Module* emittedInModule; // which module this template instance has been emitted in
     void printInstantiationTrace();
+
+    void codegen(Ir*);
+#endif
 };
 
 struct TemplateMixin : TemplateInstance
@@ -351,9 +359,15 @@ struct TemplateMixin : TemplateInstance
     char *mangle();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
+#endif
 
     TemplateMixin *isTemplateMixin() { return this; }
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 Expression *isExpression(Object *o);

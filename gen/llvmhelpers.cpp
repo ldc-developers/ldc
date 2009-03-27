@@ -979,99 +979,12 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoEmptyResolveList()
-{
-    //Logger::println("DtoEmptyResolveList()");
-    Dsymbol* dsym;
-    while (!gIR->resolveList.empty()) {
-        dsym = gIR->resolveList.front();
-        gIR->resolveList.pop_front();
-        DtoResolveDsymbol(dsym);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoEmptyDeclareList()
-{
-    //Logger::println("DtoEmptyDeclareList()");
-    Dsymbol* dsym;
-    while (!gIR->declareList.empty()) {
-        dsym = gIR->declareList.front();
-        gIR->declareList.pop_front();
-        DtoDeclareDsymbol(dsym);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoEmptyConstInitList()
-{
-    //Logger::println("DtoEmptyConstInitList()");
-    Dsymbol* dsym;
-    while (!gIR->constInitList.empty()) {
-        dsym = gIR->constInitList.front();
-        gIR->constInitList.pop_front();
-        DtoConstInitDsymbol(dsym);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoEmptyDefineList()
-{
-    //Logger::println("DtoEmptyDefineList()");
-    Dsymbol* dsym;
-    while (!gIR->defineList.empty()) {
-        dsym = gIR->defineList.front();
-        gIR->defineList.pop_front();
-        DtoDefineDsymbol(dsym);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-void DtoEmptyAllLists()
-{
-    for(;;)
-    {
-        Dsymbol* dsym;
-        if (!gIR->resolveList.empty()) {
-            dsym = gIR->resolveList.front();
-            gIR->resolveList.pop_front();
-            DtoResolveDsymbol(dsym);
-        }
-        else if (!gIR->declareList.empty()) {
-            dsym = gIR->declareList.front();
-            gIR->declareList.pop_front();
-            DtoDeclareDsymbol(dsym);
-        }
-        else if (!gIR->constInitList.empty()) {
-            dsym = gIR->constInitList.front();
-            gIR->constInitList.pop_front();
-            DtoConstInitDsymbol(dsym);
-        }
-        else if (!gIR->defineList.empty()) {
-            dsym = gIR->defineList.front();
-            gIR->defineList.pop_front();
-            DtoDefineDsymbol(dsym);
-        }
-        else {
-            break;
-        }
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 void DtoForceDeclareDsymbol(Dsymbol* dsym)
 {
     if (dsym->ir.declared) return;
     Logger::println("DtoForceDeclareDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
-
-    DtoEmptyResolveList();
-
     DtoDeclareDsymbol(dsym);
 }
 
@@ -1083,10 +996,7 @@ void DtoForceConstInitDsymbol(Dsymbol* dsym)
     Logger::println("DtoForceConstInitDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
-
-    DtoEmptyResolveList();
-    DtoEmptyDeclareList();
-
+    DtoDeclareDsymbol(dsym);
     DtoConstInitDsymbol(dsym);
 }
 
@@ -1098,11 +1008,8 @@ void DtoForceDefineDsymbol(Dsymbol* dsym)
     Logger::println("DtoForceDefineDsymbol(%s)", dsym->toPrettyChars());
     LOG_SCOPE;
     DtoResolveDsymbol(dsym);
-
-    DtoEmptyResolveList();
-    DtoEmptyDeclareList();
-    DtoEmptyConstInitList();
-
+    DtoDeclareDsymbol(dsym);
+    DtoConstInitDsymbol(dsym);
     DtoDefineDsymbol(dsym);
 }
 
@@ -1129,7 +1036,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         // static
         if (vd->isDataseg())
         {
-            vd->toObjFile(0); // TODO: multiobj
+            vd->codegen(Type::sir);
         }
         else
         {

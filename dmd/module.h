@@ -28,6 +28,7 @@ struct Library;
 
 // Back end
 #if IN_LLVM
+struct Ir;
 struct DValue;
 typedef DValue elem;
 namespace llvm { class Module; }
@@ -175,16 +176,18 @@ struct Module : Package
 #endif
     void genmoduleinfo();
 
+#if IN_LLVM
     // LDC
-    llvm::Module* genLLVMModule(int multiobj);
+    llvm::Module* genLLVMModule(Ir* sir);
     void buildTargetFiles();
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
     Module *isModule() { return this; }
-    
+
     bool llvmForceLogging;
 
     // array ops emitted in this module already
     StringTable arrayfuncs;
+#endif
 };
 
 

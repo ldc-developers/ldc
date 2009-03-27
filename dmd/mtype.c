@@ -15,7 +15,11 @@
 #include <alloca.h>
 #endif
 
+#ifdef __DMC__
 #include <math.h>
+#else
+#include <cmath>
+#endif
 
 #include <stdio.h>
 #include <assert.h>
@@ -65,7 +69,11 @@ static double zero = 0;
 #include "aggregate.h"
 #include "hdrgen.h"
 
-#include "gen/tollvm.h"
+#if IN_LLVM
+//#include "gen/tollvm.h"
+Ir* Type::sir = NULL;
+unsigned GetTypeAlignment(Ir* ir, Type* t);
+#endif
 
 FuncDeclaration *hasThis(Scope *sc);
 
@@ -164,7 +172,11 @@ char Type::needThisPrefix()
     return 'M';		// name mangling prefix for functions needing 'this'
 }
 
+#if IN_LLVM
+void Type::init(Ir* _sir)
+#else
 void Type::init()
+#endif
 {   int i;
     int j;
 
@@ -237,6 +249,9 @@ void Type::init()
     basic[Terror] = basic[Tint32];
 
     tvoidptr = tvoid->pointerTo();
+
+    // LDC
+    sir = _sir;
 
     // set size_t / ptrdiff_t types and pointer size
     if (global.params.is64bit)
@@ -1017,7 +1032,7 @@ unsigned TypeBasic::alignsize()
 {
     if (ty == Tvoid)
         return 1;
-    return getABITypeAlign(DtoType(this));
+    return GetTypeAlignment(sir, this);
 }
 
 

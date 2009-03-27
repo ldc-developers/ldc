@@ -6,9 +6,22 @@
 #include "ir/irforw.h"
 #include "root.h"
 
+struct IRState;
+
 struct IrBase : Object
 {
     virtual ~IrBase() {}
+};
+
+struct Ir
+{
+    Ir() : irs(NULL) {}
+
+    void setState(IRState* p)   { irs = p; }
+    IRState* getState()         { return irs; }
+
+private:
+    IRState* irs;
 };
 
 #endif

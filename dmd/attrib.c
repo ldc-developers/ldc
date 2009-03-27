@@ -171,6 +171,8 @@ void AttribDeclaration::emitComment(Scope *sc)
     }
 }
 
+#if IN_DMD
+
 void AttribDeclaration::toObjFile(int multiobj)
 {
     Array *d = include(NULL, NULL);
@@ -184,7 +186,6 @@ void AttribDeclaration::toObjFile(int multiobj)
     }
 }
 
-#if IN_DMD
 int AttribDeclaration::cvMember(unsigned char *p)
 {
     int nwritten = 0;
@@ -1142,6 +1143,7 @@ const char *PragmaDeclaration::kind()
     return "pragma";
 }
 
+#if IN_DMD
 void PragmaDeclaration::toObjFile(int multiobj)
 {
     if (ident == Id::lib)
@@ -1160,6 +1162,7 @@ void PragmaDeclaration::toObjFile(int multiobj)
     }
     AttribDeclaration::toObjFile(multiobj);
 }
+#endif
 
 void PragmaDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {

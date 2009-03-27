@@ -138,8 +138,10 @@ struct Declaration : Dsymbol
 
     Declaration *isDeclaration() { return this; }
 
-    // llvm
-    virtual void toObjFile(int unused = 0);           // compile to .obj file
+#if IN_LLVM
+    /// Codegen traversal
+    virtual void codegen(Ir* ir);
+#endif
 };
 
 /**************************************************************/
@@ -159,8 +161,10 @@ struct TupleDeclaration : Declaration
 
     TupleDeclaration *isTupleDeclaration() { return this; }
 
-    // LDC we need this
-    void toObjFile(int multiobj);           // compile to .obj file
+#if IN_LLVM
+    /// Codegen traversal
+    void codegen(Ir* ir);
+#endif
 };
 
 /**************************************************************/
@@ -190,8 +194,8 @@ struct TypedefDeclaration : Declaration
 
     void toDocBuffer(OutBuffer *buf);
 
-    void toObjFile(int multiobj);			// compile to .obj file
 #if IN_DMD
+    void toObjFile(int multiobj);			// compile to .obj file
     void toDebug();
     int cvMember(unsigned char *p);
 #endif
@@ -201,6 +205,11 @@ struct TypedefDeclaration : Declaration
 #if IN_DMD
     Symbol *sinit;
     Symbol *toInitializer();
+#endif
+
+#if IN_LLVM
+    /// Codegen traversal
+    void codegen(Ir* ir);
 #endif
 };
 
@@ -268,8 +277,8 @@ struct VarDeclaration : Declaration
     void checkNestedReference(Scope *sc, Loc loc);
     Dsymbol *toAlias();
 
-    void toObjFile(int multiobj);			// compile to .obj file
 #if IN_DMD
+    void toObjFile(int multiobj);			// compile to .obj file
     Symbol *toSymbol();
     int cvMember(unsigned char *p);
 #endif
@@ -278,6 +287,9 @@ struct VarDeclaration : Declaration
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
 
 #if IN_LLVM
+    /// Codegen traversal
+    void codegen(Ir* ir);
+
     // LDC
     AnonDeclaration* anonDecl;
     unsigned offset2;
@@ -345,8 +357,8 @@ struct TypeInfoDeclaration : VarDeclaration
 
     void emitComment(Scope *sc);
 
-    void toObjFile(int multiobj);			// compile to .obj file
 #if IN_DMD
+    void toObjFile(int multiobj);			// compile to .obj file
     Symbol *toSymbol();
     virtual void toDt(dt_t **pdt);
 #endif
@@ -354,7 +366,8 @@ struct TypeInfoDeclaration : VarDeclaration
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return this; }
 
 #if IN_LLVM
-    // LDC
+    /// Codegen traversal
+    void codegen(Ir* ir);
     virtual void llvmDeclare();
     virtual void llvmDefine();
 #endif
@@ -369,7 +382,6 @@ struct TypeInfoStructDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -384,7 +396,6 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -399,7 +410,6 @@ struct TypeInfoInterfaceDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -414,7 +424,6 @@ struct TypeInfoTypedefDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -429,7 +438,6 @@ struct TypeInfoPointerDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -444,7 +452,6 @@ struct TypeInfoArrayDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -459,7 +466,6 @@ struct TypeInfoStaticArrayDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -474,7 +480,6 @@ struct TypeInfoAssociativeArrayDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -489,7 +494,6 @@ struct TypeInfoEnumDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -504,7 +508,6 @@ struct TypeInfoFunctionDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -519,7 +522,6 @@ struct TypeInfoDelegateDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -534,7 +536,6 @@ struct TypeInfoTupleDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -550,7 +551,6 @@ struct TypeInfoConstDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -565,7 +565,6 @@ struct TypeInfoInvariantDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    // LDC
     void llvmDeclare();
     void llvmDefine();
 #endif
@@ -716,9 +715,7 @@ struct FuncDeclaration : Declaration
 #if IN_DMD
     Symbol *toSymbol();
     Symbol *toThunkSymbol(int offset);	// thunk version
-#endif
     void toObjFile(int multiobj);			// compile to .obj file
-#if IN_DMD
     int cvMember(unsigned char *p);
 #endif
 
@@ -726,6 +723,9 @@ struct FuncDeclaration : Declaration
 
 #if IN_LLVM
     // LDC stuff
+
+    /// Codegen traversal
+    void codegen(Ir* ir);
 
     // vars declared in this function that nested funcs reference
     // is this is not empty, nestedFrameRef is set and these VarDecls

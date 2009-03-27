@@ -138,13 +138,17 @@ Expression *Type::getTypeInfo(Scope *sc)
         }
         else            // if in obj generation pass
         {
+#if IN_DMD
         t->vtinfo->toObjFile(0); // TODO: multiobj
+#else
+        t->vtinfo->codegen(sir);
+#endif
         }
     }
     }
     e = new VarExp(0, t->vtinfo);
-    //e = e->addressOf(sc);
-    //e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
+    e = e->addressOf(sc);
+    e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
     return e;
 }
 
@@ -267,11 +271,6 @@ Expression *createTypeInfoArray(Scope *sc, Expression *exps[], int dim)
 //                             MAGIC   PLACE
 //////////////////////////////////////////////////////////////////////////////
 
-void TypeInfoDeclaration::toObjFile(int multiobj)
-{
-    gIR->resolveList.push_back(this);
-}
-
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 {
     if (tid->ir.resolved) return;
@@ -283,6 +282,11 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     tid->ir.irGlobal = new IrGlobal(tid);
 
     gIR->declareList.push_back(tid);
+}
+
+void TypeInfoDeclaration::codegen(Ir*)
+{
+    DtoResolveTypeInfo(this);
 }
 
 void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)

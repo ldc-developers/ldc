@@ -26,6 +26,7 @@
 #include "../ir/irtype.h"
 #include "../ir/irfuncty.h"
 namespace llvm { class Type; }
+struct Ir;
 #endif
 
 struct Scope;
@@ -207,7 +208,11 @@ struct Type : Object
     int covariant(Type *t);
     char *toChars();
     static char needThisPrefix();
+#if IN_LLVM
+    static void init(Ir*);
+#else
     static void init();
+#endif
     d_uns64 size();
     virtual d_uns64 size(Loc loc);
     virtual unsigned alignsize();
@@ -275,6 +280,7 @@ struct Type : Object
 #if IN_LLVM
     // LDC
     IrType ir;
+    static Ir* sir;
 #endif
 };
 

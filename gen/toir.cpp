@@ -147,7 +147,7 @@ DValue* VarExp::toElem(IRState* p)
 
             // take care of forward references of global variables
             if (vd->isDataseg() || (vd->storage_class & STCextern)) {
-                vd->toObjFile(0); // TODO: multiobj
+                vd->codegen(Type::sir);
             }
 
             LLValue* val;

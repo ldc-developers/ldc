@@ -337,10 +337,12 @@ Dsymbol *TemplateDeclaration::syntaxCopy(Dsymbol *)
 #endif
     d = Dsymbol::arraySyntaxCopy(members);
     td = new TemplateDeclaration(loc, ident, p, d);
-    
+
+#if IN_LLVM
     // LDC
     td->intrinsicName = intrinsicName;
-    
+#endif
+
     return td;
 }
 
@@ -2950,10 +2952,12 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->isnested = NULL;
     this->errors = 0;
 
+#if IN_LLVM
     // LDC
     this->emittedInModule = NULL;
     this->tinst = NULL;
     this->tmodule = NULL;
+#endif
 }
 
 /*****************
@@ -2982,9 +2986,11 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
     this->isnested = NULL;
     this->errors = 0;
 
+#if IN_LLVM
     // LDC
     this->tinst = NULL;
     this->tmodule = NULL;
+#endif
 
     assert((size_t)tempdecl->scope > 0x10000);
 }
@@ -3270,6 +3276,7 @@ void TemplateInstance::semantic(Scope *sc)
 		//printf("setting aliasdecl\n");
 		aliasdecl = new AliasDeclaration(loc, s->ident, s);
 
+#if IN_LLVM
                 // LDC propagate internal information
                 if (tempdecl->llvmInternal) {
                     s->llvmInternal = tempdecl->llvmInternal;
@@ -3277,6 +3284,7 @@ void TemplateInstance::semantic(Scope *sc)
                         fd->intrinsicName = tempdecl->intrinsicName;
                     }
                 }
+#endif
 	    }
 	}
     }
@@ -3957,6 +3965,8 @@ void TemplateInstance::semantic3(Scope *sc)
     }
 }
 
+#if IN_DMD
+
 void TemplateInstance::toObjFile(int multiobj)
 {
 #if LOG
@@ -3978,6 +3988,8 @@ void TemplateInstance::toObjFile(int multiobj)
 	}
     }
 }
+
+#endif
 
 void TemplateInstance::inlineScan()
 {
@@ -4559,9 +4571,10 @@ void TemplateMixin::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 }
 
 
+#if IN_DMD
 void TemplateMixin::toObjFile(int multiobj)
 {
     //printf("TemplateMixin::toObjFile('%s')\n", toChars());
     TemplateInstance::toObjFile(multiobj);
 }
-
+#endif

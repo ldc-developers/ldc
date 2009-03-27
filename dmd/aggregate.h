@@ -140,11 +140,17 @@ struct StructDeclaration : AggregateDeclaration
 
     PROT getAccess(Dsymbol *smember);	// determine access to smember
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
     void toDt(dt_t **pdt);
     void toDebug();			// to symbolic debug info
+#endif
 
     StructDeclaration *isStructDeclaration() { return this; }
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 struct UnionDeclaration : StructDeclaration
@@ -250,9 +256,9 @@ struct ClassDeclaration : AggregateDeclaration
 
     void addLocalClass(ClassDeclarations *);
 
+#if IN_DMD
     // Back end
     void toObjFile(int multiobj);			// compile to .obj file
-#if IN_DMD
     void toDebug();
     unsigned baseVtblOffset(BaseClass *bc);
     Symbol *toSymbol();
@@ -264,6 +270,10 @@ struct ClassDeclaration : AggregateDeclaration
 #endif
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
+
+#if IN_LLVM
+    virtual void codegen(Ir*);
+#endif
 };
 
 struct InterfaceDeclaration : ClassDeclaration
@@ -283,12 +293,16 @@ struct InterfaceDeclaration : ClassDeclaration
 #endif
     virtual int isCOMinterface();
 
-    void toObjFile(int multiobj);			// compile to .obj file
 #if IN_DMD
+    void toObjFile(int multiobj);			// compile to .obj file
     Symbol *toSymbol();
 #endif
 
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 #endif /* DMD_AGGREGATE_H */
