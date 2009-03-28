@@ -887,6 +887,10 @@ Expression::Expression(Loc loc, enum TOK op, int size)
     this->op = op;
     this->size = size;
     type = NULL;
+
+#if IN_LLVM
+    cachedLvalue = NULL;
+#endif
 }
 
 Expression *Expression::syntaxCopy()

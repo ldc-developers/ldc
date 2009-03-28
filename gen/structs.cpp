@@ -487,6 +487,12 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     return val;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static void DtoDeclareStruct(StructDeclaration* sd);
+static void DtoConstInitStruct(StructDeclaration* sd);
+static void DtoDefineStruct(StructDeclaration* sd);
+
 void DtoResolveStruct(StructDeclaration* sd)
 {
     // don't do anything if already been here
@@ -584,7 +590,7 @@ void DtoResolveStruct(StructDeclaration* sd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareStruct(StructDeclaration* sd)
+static void DtoDeclareStruct(StructDeclaration* sd)
 {
     DtoResolveStruct(sd);
 
@@ -603,7 +609,7 @@ void DtoDeclareStruct(StructDeclaration* sd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoConstInitStruct(StructDeclaration* sd)
+static void DtoConstInitStruct(StructDeclaration* sd)
 {
     DtoDeclareStruct(sd);
 
@@ -654,7 +660,7 @@ void DtoConstInitStruct(StructDeclaration* sd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDefineStruct(StructDeclaration* sd)
+static void DtoDefineStruct(StructDeclaration* sd)
 {
     DtoConstInitStruct(sd);
 

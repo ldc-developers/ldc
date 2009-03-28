@@ -429,16 +429,7 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         }
 
         LLValue* pair = DtoAggrPair(DtoType(_to), re, im);
-        DValue* rval = new DImValue(_to, pair);
-
-        // if the value we're casting is not a lvalue, the cast value can't be either
-        if (!val->isLVal()) {
-            return rval;
-        }
-
-        // unfortunately at this point, the cast value can show up as the lvalue for += and similar expressions.
-        // so we need to maintain the storage
-        return new DLRValue(val, rval);
+        return new DImValue(_to, pair);
     }
     else if (to->isimaginary()) {
         // FIXME: this loads both values, even when we only need one

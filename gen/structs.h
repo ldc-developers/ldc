@@ -3,35 +3,19 @@
 
 struct StructInitializer;
 
-LLConstant* DtoConstStructInitializer(StructInitializer* si);
-std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, const std::vector<llvm::Value*>& inits);
-
-/**
- * Resolves the llvm type for a struct
- */
+/// Generate code for the struct.
 void DtoResolveStruct(StructDeclaration* sd);
 
-/**
- * Provides the llvm declaration for a struct
- */
-void DtoDeclareStruct(StructDeclaration* sd);
+/// Build constant struct initializer.
+LLConstant* DtoConstStructInitializer(StructInitializer* si);
 
-/**
- * Constructs the constant default initializer a struct
- */
-void DtoConstInitStruct(StructDeclaration* sd);
+/// Build values for a struct literal.
+std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, const std::vector<llvm::Value*>& inits);
 
-/**
- * Provides the llvm definition for a struct
- */
-void DtoDefineStruct(StructDeclaration* sd);
-
-/**
- * Returns a boolean=true if the two structs are equal
- */
+/// Returns a boolean=true if the two structs are equal.
 LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
 
-// index a struct one level
+/// index a struct one level
 LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd);
 
 #endif

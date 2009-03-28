@@ -41,6 +41,14 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void Expression::cacheLvalue(IRState* irs)
+{
+    error("expression %s does not mask any l-value", toChars());
+    fatal();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* DeclarationExp::toElem(IRState* p)
 {
     Logger::print("DeclarationExp::toElem: %s | T=%s\n", toChars(), type->toChars());
@@ -51,12 +59,26 @@ DValue* DeclarationExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void VarExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = toElem(p)->getLVal();
+}
+
 DValue* VarExp::toElem(IRState* p)
 {
-    Logger::print("VarExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("VarExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(var);
+
+    if (cachedLvalue)
+    {
+        LLValue* V = cachedLvalue;
+        cachedLvalue = NULL;
+        return new DVarValue(type, V);
+    }
 
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
@@ -204,7 +226,7 @@ DValue* VarExp::toElem(IRState* p)
 
 LLConstant* VarExp::toConstElem(IRState* p)
 {
-    Logger::print("VarExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("VarExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
@@ -244,7 +266,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
 
 DValue* IntegerExp::toElem(IRState* p)
 {
-    Logger::print("IntegerExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("IntegerExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     LLConstant* c = toConstElem(p);
     return new DConstValue(type, c);
@@ -254,7 +276,7 @@ DValue* IntegerExp::toElem(IRState* p)
 
 LLConstant* IntegerExp::toConstElem(IRState* p)
 {
-    Logger::print("IntegerExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("IntegerExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     const LLType* t = DtoType(type);
     if (isaPointer(t)) {
@@ -274,7 +296,7 @@ LLConstant* IntegerExp::toConstElem(IRState* p)
 
 DValue* RealExp::toElem(IRState* p)
 {
-    Logger::print("RealExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("RealExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     LLConstant* c = toConstElem(p);
     return new DConstValue(type, c);
@@ -284,7 +306,7 @@ DValue* RealExp::toElem(IRState* p)
 
 LLConstant* RealExp::toConstElem(IRState* p)
 {
-    Logger::print("RealExp::toConstElem: %s | %s | %LX\n", toChars(), type->toChars(), value);
+    Logger::print("RealExp::toConstElem: %s @ %s | %LX\n", toChars(), type->toChars(), value);
     LOG_SCOPE;
     Type* t = type->toBasetype();
     return DtoConstFP(t, value);
@@ -322,7 +344,7 @@ LLConstant* NullExp::toConstElem(IRState* p)
 
 DValue* ComplexExp::toElem(IRState* p)
 {
-    Logger::print("ComplexExp::toElem(): %s | %s\n", toChars(), type->toChars());
+    Logger::print("ComplexExp::toElem(): %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     LLConstant* c = toConstElem(p);
     LLValue* res;
@@ -350,7 +372,7 @@ DValue* ComplexExp::toElem(IRState* p)
 
 LLConstant* ComplexExp::toConstElem(IRState* p)
 {
-    Logger::print("ComplexExp::toConstElem(): %s | %s\n", toChars(), type->toChars());
+    Logger::print("ComplexExp::toConstElem(): %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     return DtoConstComplex(type, value.re, value.im);
 }
@@ -359,7 +381,7 @@ LLConstant* ComplexExp::toConstElem(IRState* p)
 
 DValue* StringExp::toElem(IRState* p)
 {
-    Logger::print("StringExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("StringExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* dtype = type->toBasetype();
@@ -426,7 +448,7 @@ DValue* StringExp::toElem(IRState* p)
 
 LLConstant* StringExp::toConstElem(IRState* p)
 {
-    Logger::print("StringExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("StringExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* t = type->toBasetype();
@@ -524,9 +546,54 @@ DValue* AssignExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+/// Finds the proper lvalue for a binassign expressions.
+/// Makes sure the given LHS expression is only evaluated once.
+static Expression* findLvalue(IRState* irs, Expression* exp)
+{
+    Expression* e = exp;
+
+    // skip past any casts
+    while(e->op == TOKcast)
+        e = ((CastExp*)e)->e1;
+
+    // cache lvalue and return
+    e->cacheLvalue(irs);
+    return e;
+}
+
+#define BIN_ASSIGN(X) \
+DValue* X##AssignExp::toElem(IRState* p) \
+{ \
+    Logger::print(#X"AssignExp::toElem: %s @ %s\n", toChars(), type->toChars()); \
+    LOG_SCOPE; \
+    X##Exp e3(loc, e1, e2); \
+    e3.type = e1->type; \
+    DValue* dst = findLvalue(p, e1)->toElem(p); \
+    DValue* res = e3.toElem(p); \
+    DValue* stval = DtoCast(loc, res, dst->getType()); \
+    DtoAssign(loc, dst, stval); \
+    return DtoCast(loc, res, type); \
+}
+
+BIN_ASSIGN(Add)
+BIN_ASSIGN(Min)
+BIN_ASSIGN(Mul)
+BIN_ASSIGN(Div)
+BIN_ASSIGN(Mod)
+BIN_ASSIGN(And)
+BIN_ASSIGN(Or)
+BIN_ASSIGN(Xor)
+BIN_ASSIGN(Shl)
+BIN_ASSIGN(Shr)
+BIN_ASSIGN(Ushr)
+
+#undef BIN_ASSIGN
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* AddExp::toElem(IRState* p)
 {
-    Logger::print("AddExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("AddExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -565,40 +632,9 @@ DValue* AddExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* AddAssignExp::toElem(IRState* p)
-{
-    Logger::print("AddAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
-
-    Type* t = type->toBasetype();
-
-    DValue* res;
-    if (e1->type->toBasetype()->ty == Tpointer) {
-        LLValue* gep = llvm::GetElementPtrInst::Create(l->getRVal(),r->getRVal(),"tmp",p->scopebb());
-        res = new DImValue(type, gep);
-    }
-    else if (t->iscomplex()) {
-        res = DtoComplexAdd(loc, e1->type, l, r);
-    }
-    else {
-        res = DtoBinAdd(l,r);
-    }
-    DtoAssign(loc, l, res);
-
-    if (res->getType() != type)
-        res = DtoCast(loc, res, type);
-
-    return res;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* MinExp::toElem(IRState* p)
 {
-    Logger::print("MinExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("MinExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -635,46 +671,9 @@ DValue* MinExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* MinAssignExp::toElem(IRState* p)
-{
-    Logger::print("MinAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
-
-    Type* t = type->toBasetype();
-
-    DValue* res;
-    if (e1->type->toBasetype()->ty == Tpointer) {
-        Logger::println("ptr");
-        LLValue* tmp = r->getRVal();
-        LLValue* zero = llvm::ConstantInt::get(tmp->getType(),0,false);
-        tmp = llvm::BinaryOperator::CreateSub(zero,tmp,"tmp",p->scopebb());
-        tmp = llvm::GetElementPtrInst::Create(l->getRVal(),tmp,"tmp",p->scopebb());
-        res = new DImValue(type, tmp);
-    }
-    else if (t->iscomplex()) {
-        Logger::println("complex");
-        res = DtoComplexSub(loc, type, l, r);
-    }
-    else {
-        Logger::println("basic");
-        res = DtoBinSub(l,r);
-    }
-    DtoAssign(loc, l, res);
-
-    if (res->getType() != type)
-        res = DtoCast(loc, res, type);
-
-    return res;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* MulExp::toElem(IRState* p)
 {
-    Logger::print("MulExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("MulExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -689,34 +688,9 @@ DValue* MulExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* MulAssignExp::toElem(IRState* p)
-{
-    Logger::print("MulAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
-
-    DValue* res;
-    if (type->iscomplex()) {
-        res = DtoComplexMul(loc, type, l, r);
-    }
-    else {
-        res = DtoBinMul(l->getType(), l, r);
-    }
-    DtoAssign(loc, l, res);
-
-    if (res->getType() != type)
-        res = DtoCast(loc, res, type);
-
-    return res;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DivExp::toElem(IRState* p)
 {
-    Logger::print("DivExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("DivExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -731,34 +705,9 @@ DValue* DivExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DivAssignExp::toElem(IRState* p)
-{
-    Logger::print("DivAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
-
-    DValue* res;
-    if (type->iscomplex()) {
-        res = DtoComplexDiv(loc, type, l, r);
-    }
-    else {
-        res = DtoBinDiv(l->getType(), l, r);
-    }
-    DtoAssign(loc, l, res);
-
-    if (res->getType() != type)
-        res = DtoCast(loc, res, type);
-
-    return res;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* ModExp::toElem(IRState* p)
 {
-    Logger::print("ModExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ModExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -769,28 +718,9 @@ DValue* ModExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* ModAssignExp::toElem(IRState* p)
-{
-    Logger::print("ModAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
-
-    DValue* res = DtoBinRem(l->getType(), l, r);
-    DtoAssign(loc, l, res);
-
-    if (res->getType() != type)
-        res = DtoCast(loc, res, type);
-
-    return res;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* CallExp::toElem(IRState* p)
 {
-    Logger::print("CallExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CallExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // get the callee value
@@ -833,7 +763,7 @@ DValue* CallExp::toElem(IRState* p)
 
 DValue* CastExp::toElem(IRState* p)
 {
-    Logger::print("CastExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CastExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // get the value to cast
@@ -848,13 +778,7 @@ DValue* CastExp::toElem(IRState* p)
     if (!type->equals(to))
         v = DtoPaintType(loc, v, type);
 
-    // slices are not valid lvalues
-    if (v->isSlice())
-        return v;
-    // if we're casting a lvalue, keep it around, we might be in a lvalue cast.
-    else if(u->isLVal())
-        return new DLRValue(u, v);
-    // otherwise just return the new value
+    // return the new rvalue
     return v;
 }
 
@@ -862,7 +786,7 @@ DValue* CastExp::toElem(IRState* p)
 
 LLConstant* CastExp::toConstElem(IRState* p)
 {
-    Logger::print("CastExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CastExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     LLConstant* res;
@@ -899,7 +823,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
 
 DValue* SymOffExp::toElem(IRState* p)
 {
-    Logger::print("SymOffExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("SymOffExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(0 && "SymOffExp::toElem should no longer be called :/");
@@ -910,7 +834,7 @@ DValue* SymOffExp::toElem(IRState* p)
 
 DValue* AddrExp::toElem(IRState* p)
 {
-    Logger::println("AddrExp::toElem: %s | %s", toChars(), type->toChars());
+    Logger::println("AddrExp::toElem: %s @ %s", toChars(), type->toChars());
     LOG_SCOPE;
     DValue* v = e1->toElem(p);
     if (v->isField()) {
@@ -1030,33 +954,61 @@ LLConstant* AddrExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void PtrExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = e1->toElem(p)->getRVal();
+}
+
 DValue* PtrExp::toElem(IRState* p)
 {
-    Logger::println("PtrExp::toElem: %s | %s", toChars(), type->toChars());
+    Logger::println("PtrExp::toElem: %s @ %s", toChars(), type->toChars());
     LOG_SCOPE;
 
-    DValue* a = e1->toElem(p);
+    // function pointers are special
+    if (type->toBasetype()->ty == Tfunction)
+    {
+        assert(!cachedLvalue);
+        return new DImValue(type, e1->toElem(p)->getRVal());
+    }
 
-    // this is *so* ugly.. I'd really like to figure out some way to avoid this badness...
-    LLValue* lv = a->getRVal();
-    LLValue* v = lv;
-
-    Type* bt = type->toBasetype();
-
-    // we can't load function pointers, but they aren't passed by reference either
-    // FIXME: maybe a MayLoad function isn't a bad idea after all ...
-    if (!DtoIsPassedByRef(bt) && bt->ty != Tfunction)
-        v = DtoLoad(v);
-
-    return new DLRValue(new DVarValue(type, lv), new DImValue(type, v));
+    // get the rvalue and return it as an lvalue
+    LLValue* V;
+    if (cachedLvalue)
+    {
+        V = cachedLvalue;
+        cachedLvalue = NULL;
+    }
+    else
+    {
+        V = e1->toElem(p)->getRVal();
+    }
+    return new DVarValue(type, V);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void DotVarExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = toElem(p)->getLVal();
+}
+
 DValue* DotVarExp::toElem(IRState* p)
 {
-    Logger::print("DotVarExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("DotVarExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (cachedLvalue)
+    {
+        LLValue *V = cachedLvalue;
+        cachedLvalue = NULL;
+        VarDeclaration* vd = var->isVarDeclaration();
+        assert(vd);
+        return new DVarValue(type, vd, V);
+    }
 
     DValue* l = e1->toElem(p);
 
@@ -1165,7 +1117,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
 DValue* ThisExp::toElem(IRState* p)
 {
-    Logger::print("ThisExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ThisExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // this seems to happen for dmd generated assert statements like:
@@ -1198,10 +1150,24 @@ DValue* ThisExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void IndexExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = toElem(p)->getLVal();
+}
+
 DValue* IndexExp::toElem(IRState* p)
 {
-    Logger::print("IndexExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("IndexExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (cachedLvalue)
+    {
+        LLValue* V = cachedLvalue;
+        cachedLvalue = NULL;
+        return new DVarValue(type, V);
+    }
 
     DValue* l = e1->toElem(p);
 
@@ -1243,7 +1209,7 @@ DValue* IndexExp::toElem(IRState* p)
 
 DValue* SliceExp::toElem(IRState* p)
 {
-    Logger::print("SliceExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("SliceExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // this is the new slicing code, it's different in that a full slice will no longer retain the original pointer.
@@ -1320,7 +1286,7 @@ DValue* SliceExp::toElem(IRState* p)
 
 DValue* CmpExp::toElem(IRState* p)
 {
-    Logger::print("CmpExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CmpExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -1439,7 +1405,7 @@ DValue* CmpExp::toElem(IRState* p)
 
 DValue* EqualExp::toElem(IRState* p)
 {
-    Logger::print("EqualExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("EqualExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -1530,7 +1496,7 @@ DValue* EqualExp::toElem(IRState* p)
 
 DValue* PostExp::toElem(IRState* p)
 {
-    Logger::print("PostExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("PostExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -1584,7 +1550,7 @@ DValue* PostExp::toElem(IRState* p)
 
 DValue* NewExp::toElem(IRState* p)
 {
-    Logger::print("NewExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("NewExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(newtype);
@@ -1665,7 +1631,7 @@ DValue* NewExp::toElem(IRState* p)
 
 DValue* DeleteExp::toElem(IRState* p)
 {
-    Logger::print("DeleteExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("DeleteExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* dval = e1->toElem(p);
@@ -1725,7 +1691,7 @@ DValue* DeleteExp::toElem(IRState* p)
 
 DValue* ArrayLengthExp::toElem(IRState* p)
 {
-    Logger::print("ArrayLengthExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ArrayLengthExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
@@ -1798,7 +1764,7 @@ DValue* AssertExp::toElem(IRState* p)
 
 DValue* NotExp::toElem(IRState* p)
 {
-    Logger::print("NotExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("NotExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
@@ -1815,7 +1781,7 @@ DValue* NotExp::toElem(IRState* p)
 
 DValue* AndAndExp::toElem(IRState* p)
 {
-    Logger::print("AndAndExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("AndAndExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // allocate a temporary for the final result. failed to come up with a better way :/
@@ -1853,7 +1819,7 @@ DValue* AndAndExp::toElem(IRState* p)
 
 DValue* OrOrExp::toElem(IRState* p)
 {
-    Logger::print("OrOrExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("OrOrExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // allocate a temporary for the final result. failed to come up with a better way :/
@@ -1891,25 +1857,12 @@ DValue* OrOrExp::toElem(IRState* p)
 #define BinBitExp(X,Y) \
 DValue* X##Exp::toElem(IRState* p) \
 { \
-    Logger::print("%sExp::toElem: %s | %s\n", #X, toChars(), type->toChars()); \
+    Logger::print("%sExp::toElem: %s @ %s\n", #X, toChars(), type->toChars()); \
     LOG_SCOPE; \
     DValue* u = e1->toElem(p); \
     DValue* v = e2->toElem(p); \
     LLValue* x = llvm::BinaryOperator::Create(llvm::Instruction::Y, u->getRVal(), v->getRVal(), "tmp", p->scopebb()); \
     return new DImValue(type, x); \
-} \
-\
-DValue* X##AssignExp::toElem(IRState* p) \
-{ \
-    Logger::print("%sAssignExp::toElem: %s | %s\n", #X, toChars(), type->toChars()); \
-    LOG_SCOPE; \
-    DValue* u = e1->toElem(p); \
-    DValue* v = e2->toElem(p); \
-    LLValue* uval = u->getRVal(); \
-    LLValue* vval = v->getRVal(); \
-    LLValue* tmp = llvm::BinaryOperator::Create(llvm::Instruction::Y, uval, vval, "tmp", p->scopebb()); \
-    DtoStore(DtoPointedType(u->getLVal(), tmp), u->getLVal()); \
-    return u; \
 }
 
 BinBitExp(And,And);
@@ -1920,7 +1873,7 @@ BinBitExp(Ushr,LShr);
 
 DValue* ShrExp::toElem(IRState* p)
 {
-    Logger::print("ShrExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ShrExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
@@ -1930,23 +1883,6 @@ DValue* ShrExp::toElem(IRState* p)
     else
         x = p->ir->CreateAShr(u->getRVal(), v->getRVal(), "tmp");
     return new DImValue(type, x);
-}
-
-DValue* ShrAssignExp::toElem(IRState* p)
-{
-    Logger::print("ShrAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-    DValue* u = e1->toElem(p);
-    DValue* v = e2->toElem(p);
-    LLValue* uval = u->getRVal();
-    LLValue* vval = v->getRVal();
-    LLValue* tmp;
-    if (e1->type->isunsigned())
-        tmp = p->ir->CreateLShr(uval, vval, "tmp");
-    else
-        tmp = p->ir->CreateAShr(uval, vval, "tmp");
-    DtoStore(DtoPointedType(u->getLVal(), tmp), u->getLVal());
-    return u;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1980,7 +1916,7 @@ DValue* HaltExp::toElem(IRState* p)
 
 DValue* DelegateExp::toElem(IRState* p)
 {
-    Logger::print("DelegateExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("DelegateExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     if(func->isStatic())
@@ -2041,7 +1977,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
 DValue* IdentityExp::toElem(IRState* p)
 {
-    Logger::print("IdentityExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("IdentityExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
@@ -2101,7 +2037,7 @@ DValue* IdentityExp::toElem(IRState* p)
 
 DValue* CommaExp::toElem(IRState* p)
 {
-    Logger::print("CommaExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CommaExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
@@ -2114,7 +2050,7 @@ DValue* CommaExp::toElem(IRState* p)
 
 DValue* CondExp::toElem(IRState* p)
 {
-    Logger::print("CondExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CondExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* dtype = type->toBasetype();
@@ -2159,7 +2095,7 @@ DValue* CondExp::toElem(IRState* p)
 
 DValue* ComExp::toElem(IRState* p)
 {
-    Logger::print("ComExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ComExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* u = e1->toElem(p);
@@ -2175,7 +2111,7 @@ DValue* ComExp::toElem(IRState* p)
 
 DValue* NegExp::toElem(IRState* p)
 {
-    Logger::print("NegExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("NegExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -2194,7 +2130,7 @@ DValue* NegExp::toElem(IRState* p)
 
 DValue* CatExp::toElem(IRState* p)
 {
-    Logger::print("CatExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CatExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     Type* t = type->toBasetype();
@@ -2218,7 +2154,7 @@ DValue* CatExp::toElem(IRState* p)
 
 DValue* CatAssignExp::toElem(IRState* p)
 {
-    Logger::print("CatAssignExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("CatAssignExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
@@ -2245,7 +2181,7 @@ DValue* CatAssignExp::toElem(IRState* p)
 
 DValue* FuncExp::toElem(IRState* p)
 {
-    Logger::print("FuncExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("FuncExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(fd);
@@ -2284,7 +2220,7 @@ DValue* FuncExp::toElem(IRState* p)
 
 LLConstant* FuncExp::toConstElem(IRState* p)
 {
-    Logger::print("FuncExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("FuncExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(fd);
@@ -2300,7 +2236,7 @@ LLConstant* FuncExp::toConstElem(IRState* p)
 
 DValue* ArrayLiteralExp::toElem(IRState* p)
 {
-    Logger::print("ArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ArrayLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // D types
@@ -2369,7 +2305,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
 
 LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 {
-    Logger::print("ArrayLiteralExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("ArrayLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // extract D types
@@ -2409,7 +2345,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
 DValue* StructLiteralExp::toElem(IRState* p)
 {
-    Logger::print("StructLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // get inits
@@ -2467,7 +2403,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
 LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {
-    Logger::print("StructLiteralExp::toConstElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     // get inits
@@ -2496,7 +2432,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
 
 DValue* InExp::toElem(IRState* p)
 {
-    Logger::print("InExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("InExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* key = e1->toElem(p);
@@ -2522,7 +2458,7 @@ DValue* RemoveExp::toElem(IRState* p)
 
 DValue* AssocArrayLiteralExp::toElem(IRState* p)
 {
-    Logger::print("AssocArrayLiteralExp::toElem: %s | %s\n", toChars(), type->toChars());
+    Logger::print("AssocArrayLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     assert(keys);

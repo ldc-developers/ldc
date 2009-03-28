@@ -68,12 +68,9 @@ private
             import tango.stdc.posix.dlfcn;
         }
     }
-    version(LDC)
+    pragma(intrinsic, "llvm.frameaddress")
     {
-        pragma(intrinsic, "llvm.frameaddress")
-        {
-                void* llvm_frameaddress(uint level=0);
-        }
+            void* llvm_frameaddress(uint level=0);
     }
 }
 
@@ -147,11 +144,7 @@ extern (C) void* rt_stackBottom()
  */
 extern (C) void* rt_stackTop()
 {
-    version(LDC)
-    {
-        return llvm_frameaddress();
-    }
-    else version( D_InlineAsm_X86 )
+    version( D_InlineAsm_X86 )
     {
         asm
         {
@@ -162,7 +155,7 @@ extern (C) void* rt_stackTop()
     }
     else
     {
-            static assert( false, "Architecture not supported." );
+        return llvm_frameaddress();
     }
 }
 

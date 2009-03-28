@@ -472,15 +472,9 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         DtoStore(r, l);
     }
     else if (t->iscomplex()) {
-        LLValue* dst;
-        if (DLRValue* lr = lhs->isLRValue()) {
-            dst = lr->getLVal();
-            rhs = DtoCastComplex(loc, rhs, lr->getLType());
-        }
-        else {
-            dst = lhs->getLVal();
-        }
-        DtoStore(rhs->getRVal(), dst);
+        LLValue* dst = lhs->getLVal();
+        LLValue* src = DtoCast(loc, rhs, lhs->getType())->getRVal();
+        DtoStore(src, dst);
     }
     else {
         LLValue* l = lhs->getLVal();
@@ -489,14 +483,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
             Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
         const LLType* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
-            // handle lvalue cast assignments
-            if (DLRValue* lr = lhs->isLRValue()) {
-                Logger::println("lvalue cast!");
-                r = DtoCast(loc, rhs, lr->getLType())->getRVal();
-            }
-            else {
-                r = DtoCast(loc, rhs, lhs->getType())->getRVal();
-            }
+            r = DtoCast(loc, rhs, lhs->getType())->getRVal();
             if (Logger::enabled())
                 Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
             assert(r->getType() == l->getType()->getContainedType(0));
@@ -723,7 +710,13 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
     Type* fromtype = val->getType()->toBasetype();
+    Type* totype = to->toBasetype();
+    if (fromtype->equals(totype))
+        return val;
+
     Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
+    LOG_SCOPE;
+
     if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);
     }
@@ -859,78 +852,6 @@ void DtoResolveDsymbol(Dsymbol* dsym)
     else {
     error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
     assert(0 && "unsupported dsymbol for DtoResolveDsymbol");
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoDeclareDsymbol(Dsymbol* dsym)
-{
-    DtoResolveDsymbol(dsym);
-
-    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
-        DtoDeclareStruct(sd);
-    }
-    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-        DtoDeclareClass(cd);
-    }
-    else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-        DtoDeclareFunction(fd);
-    }
-    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
-        DtoDeclareTypeInfo(fd);
-    }
-    else {
-    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
-    assert(0 && "unsupported dsymbol for DtoDeclareDsymbol");
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoConstInitDsymbol(Dsymbol* dsym)
-{
-    DtoDeclareDsymbol(dsym);
-
-    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
-        DtoConstInitStruct(sd);
-    }
-    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-        DtoConstInitClass(cd);
-    }
-    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
-        DtoConstInitTypeInfo(fd);
-    }
-    else if (VarDeclaration* vd = dsym->isVarDeclaration()) {
-        DtoConstInitGlobal(vd);
-    }
-    else {
-    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
-    assert(0 && "unsupported dsymbol for DtoConstInitDsymbol");
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoDefineDsymbol(Dsymbol* dsym)
-{
-    DtoConstInitDsymbol(dsym);
-
-    if (StructDeclaration* sd = dsym->isStructDeclaration()) {
-        DtoDefineStruct(sd);
-    }
-    else if (ClassDeclaration* cd = dsym->isClassDeclaration()) {
-        DtoDefineClass(cd);
-    }
-    else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
-        Type::sir->addFunctionBody(fd->ir.irFunc);
-    }
-    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
-        DtoDefineTypeInfo(fd);
-    }
-    else {
-    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
-    assert(0 && "unsupported dsymbol for DtoDefineDsymbol");
     }
 }
 

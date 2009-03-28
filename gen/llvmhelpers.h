@@ -52,27 +52,29 @@ void DtoGoto(Loc loc, Identifier* target);
 // the scope created by the 'target' statement.
 void DtoEnclosingHandlers(Loc loc, Statement* target);
 
-// enters a critical section
+/// Enters a critical section.
 void DtoEnterCritical(LLValue* g);
-// leaves a critical section
+/// leaves a critical section.
 void DtoLeaveCritical(LLValue* g);
 
-// enters a monitor lock
+/// Enters a monitor lock.
 void DtoEnterMonitor(LLValue* v);
-// leaves a monitor lock
+/// Leaves a monitor lock.
 void DtoLeaveMonitor(LLValue* v);
 
 // nested variable and context helpers
 
-// gets the context value for a call to a nested function or newing a class, with arbitrary nesting
+/// Gets the context value for a call to a nested function or newing a nested
+/// class with arbitrary nesting.
 LLValue* DtoNestedContext(Loc loc, Dsymbol* sym);
-// gets the dvalue of a nested variable with arbitrary nesting
+
+/// Gets the DValue of a nested variable with arbitrary nesting.
 DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd);
 
 // basic operations
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs);
 
-// create a null dvalue
+/// Create a null DValue.
 DValue* DtoNullValue(Type* t);
 
 // casts
@@ -88,11 +90,11 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 // is template instance check, returns module where instantiated
 TemplateInstance* DtoIsTemplateInstance(Dsymbol* s);
 
-// these are all basically drivers for the codegeneration called by the main loop
+/// Generate code for the symbol.
+/// Dispatches as appropriate.
 void DtoResolveDsymbol(Dsymbol* dsym);
-void DtoDeclareDsymbol(Dsymbol* dsym);
-void DtoDefineDsymbol(Dsymbol* dsym);
-void DtoConstInitDsymbol(Dsymbol* dsym);
+
+/// Generates the constant initializer for a global variable.
 void DtoConstInitGlobal(VarDeclaration* vd);
 
 // declaration inside a declarationexp
@@ -122,16 +124,16 @@ DValue* DtoBinRem(Type* resulttype, DValue* lhs, DValue* rhs);
 // target stuff
 void findDefaultTarget();
 
-// fixup an overloaded intrinsic name string
+/// Fixup an overloaded intrinsic name string.
 void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name);
 
-// return true if the symbol should be defined in the current module, not just declared
+/// Returns true if the symbol should be defined in the current module, not just declared.
 bool mustDefineSymbol(Dsymbol* s);
 
-// returns true if the symbol needs template linkage, or just external
+/// Returns true if the symbol needs template linkage, or just external.
 bool needsTemplateLinkage(Dsymbol* s);
 
-// returns true if there is any unaligned type inside the aggregate
+/// Returns true if there is any unaligned type inside the aggregate.
 bool hasUnalignedFields(Type* t);
 
 ////////////////////////////////////////////

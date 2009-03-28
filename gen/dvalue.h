@@ -29,7 +29,6 @@ struct DVarValue;
 struct DFieldValue;
 struct DFuncValue;
 struct DSliceValue;
-struct DLRValue;
 
 // base class for d-values
 struct DValue : Object
@@ -48,7 +47,6 @@ struct DValue : Object
     virtual DFieldValue* isField() { return NULL; }
     virtual DSliceValue* isSlice() { return NULL; }
     virtual DFuncValue* isFunc() { return NULL; }
-    virtual DLRValue* isLRValue() { return NULL; }
 
 protected:
     DValue() {}
@@ -145,27 +143,6 @@ struct DFuncValue : DValue
 
     virtual Type*& getType() { assert(type); return type; }
     virtual DFuncValue* isFunc() { return this; }
-};
-
-// l-value and r-value pair d-value
-struct DLRValue : DValue
-{
-    DValue* lvalue;
-    DValue* rvalue;
-
-    DLRValue(DValue* lval, DValue* rval) {
-        lvalue = lval;
-        rvalue = rval;
-    }
-
-    virtual bool isLVal() { return true; }
-    virtual LLValue* getLVal() { return lvalue->isLVal() ? lvalue->getLVal() : lvalue->getRVal(); }
-    virtual LLValue* getRVal() { return rvalue->getRVal(); }
-
-    Type*& getLType();
-    Type*& getRType() { return rvalue->getType(); }
-    virtual Type*& getType() { return getRType(); }
-    virtual DLRValue* isLRValue() { return this; }
 };
 
 #endif // LDC_GEN_DVALUE_H
