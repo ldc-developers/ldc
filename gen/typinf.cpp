@@ -289,8 +289,13 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     LOG_SCOPE;
 
     IrGlobal* irg = new IrGlobal(tid);
-    irg->value = new llvm::GlobalVariable(irg->type.get(), true,
-        TYPEINFO_LINKAGE_TYPE, NULL, tid->mangle(), gIR->module);
+
+    std::string mangle(tid->mangle());
+
+    irg->value = gIR->module->getGlobalVariable(mangle);
+    if (!irg->value)
+        irg->value = new llvm::GlobalVariable(irg->type.get(), true,
+        TYPEINFO_LINKAGE_TYPE, NULL, mangle, gIR->module);
 
     tid->ir.irGlobal = irg;
 
