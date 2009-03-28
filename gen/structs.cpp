@@ -14,6 +14,7 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/dvalue.h"
+#include "gen/functions.h"
 
 #include "ir/irstruct.h"
 
@@ -582,6 +583,14 @@ void DtoResolveStruct(StructDeclaration* sd)
     if (sd->parent->isModule()) {
         gIR->module->addTypeName(sd->mangle(),ST);
     }
+
+    // emit functions
+    size_t n = irstruct->structFuncs.size();
+    for (size_t i = 0; i < n; ++i)
+    {
+        DtoResolveFunction(irstruct->structFuncs[i]);
+    }
+    irstruct->structFuncs.clear();
 
     gIR->structs.pop_back();
 

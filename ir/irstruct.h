@@ -152,6 +152,7 @@ struct IrStruct : IrBase
     llvm::DICompositeType diCompositeType;
 
     std::vector<VarDeclaration*> staticVars;
+    std::vector<FuncDeclaration*> structFuncs;
 };
 
 //////////////////////////////////////////////////////////////////////////////

@@ -303,6 +303,16 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         return; // ignore declaration completely
     }
 
+    if (AggregateDeclaration* ad = fdecl->isMember())
+    {
+        ad->codegen(Type::sir);
+        if (ad->isStructDeclaration() && llvm::isa<llvm::OpaqueType>(DtoType(ad->type)))
+        {
+            ad->ir.irStruct->structFuncs.push_back(fdecl);
+            return;
+        }
+    }
+
     //printf("resolve function: %s\n", fdecl->toPrettyChars());
 
     if (fdecl->parent)
@@ -434,6 +444,8 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
 void DtoDeclareFunction(FuncDeclaration* fdecl)
 {
+    DtoResolveFunction(fdecl);
+
     if (fdecl->ir.declared) return;
     fdecl->ir.declared = true;
 
@@ -477,6 +489,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func)
         func = llvm::Function::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+
+    if (Logger::enabled())
+        Logger::cout() << "func = " << *func << std::endl;
 
     // add func to IRFunc
     fdecl->ir.irFunc->func = func;
@@ -594,6 +609,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 void DtoDefineFunction(FuncDeclaration* fd)
 {
+    DtoDeclareFunction(fd);
+
     if (fd->ir.defined) return;
     fd->ir.defined = true;
 
