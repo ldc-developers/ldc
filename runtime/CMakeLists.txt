@@ -44,7 +44,7 @@ if(D_VERSION EQUAL 1)
 	endmacro(imports_file)
 	imports_file(import/ldc/cstdarg.di)
 	imports_file(import/ldc/intrinsics.di)
-	imports_file(internal/ldc/llvmasm.di)
+	imports_file(import/ldc/llvmasm.di)
 	imports_file(internal/ldc/bitmanip.d)
 	imports_file(internal/ldc/vararg.d)
 	# library names
