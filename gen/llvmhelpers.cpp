@@ -172,7 +172,7 @@ LabelStatement* DtoLabelStatement(Identifier* ident)
 /*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc loc, Identifier* target)
+void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
 {
     assert(!gIR->scopereturned());
 
@@ -199,11 +199,10 @@ void DtoGoto(Loc loc, Identifier* target)
 
     // goto into finally blocks is forbidden by the spec
     // but should work fine
-    /*
-    if(lblstmt->tf != sourcetf) {
-        error(loc, "spec disallows goto into finally block");
+    if(lblstmt->enclosingFinally != sourceFinally) {
+        error(loc, "spec disallows goto into or out of finally block");
         fatal();
-    }*/
+    }
 
     llvm::BranchInst::Create(targetBB, gIR->scopebb());
 }

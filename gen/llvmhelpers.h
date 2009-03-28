@@ -45,8 +45,10 @@ void DtoAssert(Module* M, Loc loc, DValue* msg);
 
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
-// emit goto
-void DtoGoto(Loc loc, Identifier* target);
+
+/// emits goto to LabelStatement with the target identifier
+/// the sourceFinally is only used for error checking
+void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally);
 
 // Generates IR for enclosing handlers between the current state and
 // the scope created by the 'target' statement.

@@ -772,7 +772,7 @@ void AsmBlockStatement::toIR(IRState* p)
             sw->addCase(llvm::ConstantInt::get(llvm::IntegerType::get(32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
-            DtoGoto(loc, it->first);
+            DtoGoto(loc, it->first, enclosingFinally);
         }
 
         p->scope() = IRScope(bb,oldend);

@@ -1288,7 +1288,7 @@ void GotoStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("aftergoto", p->topfunc(), oldend);
 
-    DtoGoto(loc, label->ident);
+    DtoGoto(loc, label->ident, enclosingFinally);
 
     p->scope() = IRScope(bb,oldend);
 }
