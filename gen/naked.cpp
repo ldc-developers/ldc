@@ -376,17 +376,36 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
     }
 
     // build asm function type
-    const llvm::Type* ret_type = DtoType(fd->type->nextOf());
+    Type* type = fd->type->nextOf()->toBasetype();
+    const llvm::Type* ret_type = DtoType(type);
     llvm::FunctionType* FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
     // build asm call
     bool sideeffect = true;
     llvm::InlineAsm* ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-    llvm::Value* v = gIR->ir->CreateCall(ia, args.begin(), args.end(), "");
+    llvm::Value* rv = gIR->ir->CreateCall(ia, args.begin(), args.end(), "");
+
+    // work around missing tuple support for users of the return value
+    if (type->ty == Tstruct)
+    {
+        // make a copy
+        llvm::Value* mem = DtoAlloca(ret_type, ".__asm_tuple_ret");
+
+        TypeStruct* ts = (TypeStruct*)type;
+        size_t n = ts->sym->fields.dim;
+        for (size_t i = 0; i < n; i++)
+        {
+            llvm::Value* v = gIR->ir->CreateExtractValue(rv, i, "");
+            llvm::Value* gep = DtoGEPi(mem, 0, i);
+            DtoStore(v, gep);
+        }
+
+        return new DVarValue(fd->type->nextOf(), mem);
+    }
 
     // return call as im value
-    return new DImValue(fd->type->nextOf(), v);
+    return new DImValue(fd->type->nextOf(), rv);
 }
 
 
