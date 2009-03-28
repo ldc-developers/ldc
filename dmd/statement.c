@@ -2424,16 +2424,16 @@ Statement *CaseStatement::semantic(Scope *sc)
 
     //printf("CaseStatement::semantic() %s\n", toChars());
     
-    // LDC
-    enclosingScopeExit = sc->enclosingScopeExit;
-    if (enclosingScopeExit != sw->enclosingScopeExit)
-    {
-	error("case must be inside the same try, synchronized or volatile level as switch");
-    }
-
     exp = exp->semantic(sc);
     if (sw)
     {
+	// LDC
+	enclosingScopeExit = sc->enclosingScopeExit;
+	if (enclosingScopeExit != sw->enclosingScopeExit)
+	{
+	    error("case must be inside the same try, synchronized or volatile level as switch");
+	}
+
 	exp = exp->implicitCastTo(sc, sw->condition->type);
 	exp = exp->optimize(WANTvalue | WANTinterpret);
 	if (exp->op != TOKstring && exp->op != TOKint64)
