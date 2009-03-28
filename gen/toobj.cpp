@@ -144,11 +144,11 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
         dsym->codegen(sir);
     }
 
-    // generate ModuleInfo
-    genmoduleinfo();
-
     // emit function bodies
     sir->emitFunctionBodies();
+
+    // generate ModuleInfo
+    genmoduleinfo();
 
     // emit usedArray
     if (!ir.usedArray.empty())
