@@ -1130,19 +1130,14 @@ void PragmaDeclaration::semantic(Scope *sc)
         case LLVMinline_asm:
             if (TemplateDeclaration* td = s->isTemplateDeclaration())
             {
-                if (td->parameters->dim != 0)
+                if (td->parameters->dim > 1)
                 {
-                    error("the '%s' pragma template must have exactly zero template parameters", ident->toChars());
+                    error("the '%s' pragma template must have exactly zero or one template parameters", ident->toChars());
                     fatal();
                 }
                 else if (!td->onemember)
                 {
                     error("the '%s' pragma template must have exactly one member", ident->toChars());
-                    fatal();
-                }
-                else if (td->overnext || td->overroot)
-                {
-                    error("the '%s' pragma template must not be overloaded", ident->toChars());
                     fatal();
                 }
                 td->llvmInternal = llvm_internal;

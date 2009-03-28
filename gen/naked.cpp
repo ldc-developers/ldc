@@ -376,7 +376,8 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
     }
 
     // build asm function type
-    llvm::FunctionType* FT = llvm::FunctionType::get(llvm::Type::VoidTy, argtypes, false);
+    const llvm::Type* ret_type = DtoType(fd->type->nextOf());
+    llvm::FunctionType* FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
     // build asm call
     bool sideeffect = true;
@@ -384,8 +385,8 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     llvm::Value* v = gIR->ir->CreateCall(ia, args.begin(), args.end(), "");
 
-    // return NULL for now
-    return NULL;
+    // return call as im value
+    return new DImValue(fd->type->nextOf(), v);
 }
 
 
