@@ -1267,12 +1267,18 @@ void FuncDeclaration::semantic3(Scope *sc)
 		    sync = new VarExp(loc, vthis);
 		}
                 
-		// is is ok to not rerun semantic on the whole fbody here; only the enclosingScopeExit
-		// value will differ and as it is impossible to goto out of this synchronized statement,
-		// that should not lead to errors
+		// we do not want to rerun semantics on the whole function, so we
+		// manually adjust all labels in the function that currently don't
+		// have an enclosingScopeExit to use the new SynchronizedStatement
 		SynchronizedStatement* s = new SynchronizedStatement(loc, sync, NULL);
 		s->semantic(sc2);
 		s->body = fbody;
+		
+		// LDC
+		LabelMap::iterator it, end = labmap.end();
+		for (it = labmap.begin(); it != end; ++it)
+		    if (it->second->enclosingScopeExit == NULL)
+			it->second->enclosingScopeExit = s;
 		
 		a = new Statements;
 		a->push(s);
