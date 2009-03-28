@@ -987,6 +987,17 @@ void PragmaDeclaration::semantic(Scope *sc)
         }
     }
 
+    // pragma(llvm_inline_asm) { templdecl(s) }
+    else if (ident == Id::llvm_inline_asm)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMinline_asm;
+    }
+
 #endif // LDC
 
     else if (ignoreUnsupportedPragmas)
@@ -1112,6 +1123,33 @@ void PragmaDeclaration::semantic(Scope *sc)
             else
             {
                 error("the '%s' pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
+                fatal();
+            }
+            break;
+
+        case LLVMinline_asm:
+            if (TemplateDeclaration* td = s->isTemplateDeclaration())
+            {
+                if (td->parameters->dim != 0)
+                {
+                    error("the '%s' pragma template must have exactly zero template parameters", ident->toChars());
+                    fatal();
+                }
+                else if (!td->onemember)
+                {
+                    error("the '%s' pragma template must have exactly one member", ident->toChars());
+                    fatal();
+                }
+                else if (td->overnext || td->overroot)
+                {
+                    error("the '%s' pragma template must not be overloaded", ident->toChars());
+                    fatal();
+                }
+                td->llvmInternal = llvm_internal;
+            }
+            else
+            {
+                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
                 fatal();
             }
             break;

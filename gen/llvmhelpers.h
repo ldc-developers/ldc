@@ -136,6 +136,9 @@ bool needsTemplateLinkage(Dsymbol* s);
 /// Returns true if there is any unaligned type inside the aggregate.
 bool hasUnalignedFields(Type* t);
 
+///
+DValue* DtoInlineAsmExpr(Loc loc, FuncDeclaration* fd, Expressions* arguments);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////

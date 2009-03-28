@@ -332,6 +332,22 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             fdecl->linkage = LINKintrinsic;
             ((TypeFunction*)fdecl->type)->linkage = LINKintrinsic;
         }
+        else if (tempdecl->llvmInternal == LLVMinline_asm)
+        {
+            Logger::println("magic inline asm found");
+            TypeFunction* tf = (TypeFunction*)fdecl->type;
+            if (tf->varargs != 1 || (fdecl->parameters && fdecl->parameters->dim != 0))
+            {
+                error("invalid __asm declaration, must be a D style variadic with no explicit parameters");
+                fatal();
+            }
+            fdecl->llvmInternal = LLVMinline_asm;
+            fdecl->ir.resolved = true;
+            fdecl->ir.declared = true;
+            fdecl->ir.initialized = true;
+            fdecl->ir.defined = true;
+            return; // this gets mapped to a special inline asm call, no point in going on.
+        }
     }
 
     DtoFunctionType(fdecl);

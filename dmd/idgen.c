@@ -225,6 +225,7 @@ Msgtable msgtable[] =
     { "vaarg", "va_arg" },
     { "ldc" },
     { "allow_inline" },
+    { "llvm_inline_asm" },
 
     // For special functions
     { "tohash", "toHash" },

@@ -1,8 +1,10 @@
 #include "gen/llvm.h"
+#include "llvm/InlineAsm.h"
 
 #include "expression.h"
 #include "statement.h"
 #include "declaration.h"
+#include "template.h"
 
 #include <cassert>
 
@@ -10,6 +12,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
+#include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -320,3 +323,78 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     // return values always go in the front
     asmblock->s.push_front(as);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// sort of kinda related to naked ...
+
+DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments)
+{
+    Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
+    LOG_SCOPE;
+
+    TemplateInstance* ti = fd->toParent()->isTemplateInstance();
+    assert(ti && "invalid inline __asm expr");
+
+    assert(arguments->dim >= 2 && "invalid __asm call");
+
+    // get code param
+    Expression* e = (Expression*)arguments->data[0];
+    Logger::println("code exp: %s", e->toChars());
+    StringExp* se = (StringExp*)e;
+    if (e->op != TOKstring || se->sz != 1)
+    {
+        e->error("__asm code argument is not a char[] string literal");
+        fatal();
+    }
+    std::string code((char*)se->string, se->len);
+
+    // get constraints param
+    e = (Expression*)arguments->data[1];
+    Logger::println("constraint exp: %s", e->toChars());
+    se = (StringExp*)e;
+    if (e->op != TOKstring || se->sz != 1)
+    {
+        e->error("__asm constraints argument is not a char[] string literal");
+        fatal();
+    }
+    std::string constraints((char*)se->string, se->len);
+
+    // build runtime arguments
+    size_t n = arguments->dim;
+
+    LLSmallVector<llvm::Value*, 8> args;
+    args.reserve(n-2);
+    std::vector<const llvm::Type*> argtypes;
+    argtypes.reserve(n-2);
+
+    for (size_t i = 2; i < n; i++)
+    {
+        e = (Expression*)arguments->data[i];
+        args.push_back(e->toElem(gIR)->getRVal());
+        argtypes.push_back(args.back()->getType());
+    }
+
+    // build asm function type
+    llvm::FunctionType* FT = llvm::FunctionType::get(llvm::Type::VoidTy, argtypes, false);
+
+    // build asm call
+    bool sideeffect = true;
+    llvm::InlineAsm* ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
+
+    llvm::Value* v = gIR->ir->CreateCall(ia, args.begin(), args.end(), "");
+
+    // return NULL for now
+    return NULL;
+}
+
+
+
+
+
+
+
+
+
+
+

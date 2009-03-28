@@ -1863,12 +1863,8 @@ struct GEPExp : UnaExp
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Expression *toLvalue(Scope *sc, Expression *e);
 
-#if IN_DMD
-    elem *toElem(IRState *irs);
-#elif IN_LLVM
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 #endif

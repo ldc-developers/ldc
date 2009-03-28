@@ -196,7 +196,11 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("FuncDeclaration");
         LLValue* func = 0;
-        if (fdecl->llvmInternal != LLVMva_arg) {
+        if (fdecl->llvmInternal == LLVMinline_asm) {
+            error("special ldc inline asm is not a normal function");
+            fatal();
+        }
+        else if (fdecl->llvmInternal != LLVMva_arg) {
             fdecl->codegen(Type::sir);
             func = fdecl->ir.irFunc->func;
         }
@@ -722,6 +726,19 @@ DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    // handle magic inline asm
+    if (e1->op == TOKvar)
+    {
+        VarExp* ve = (VarExp*)e1;
+        if (FuncDeclaration* fd = ve->var->isFuncDeclaration())
+        {
+            if (fd->llvmInternal == LLVMinline_asm)
+            {
+                return DtoInlineAsmExpr(loc, fd, arguments);
+            }
+        }
+    }
 
     // get the callee value
     DValue* fnval = e1->toElem(p);
