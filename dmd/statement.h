@@ -469,6 +469,9 @@ struct SwitchStatement : Statement
     Array gotoCases;		// array of unresolved GotoCaseStatement's
     Array *cases;		// array of CaseStatement's
     int hasNoDefault;		// !=0 if no default statement
+    
+    // LDC
+    Statement *enclosingScopeExit;
 
     SwitchStatement(Loc loc, Expression *c, Statement *b);
     Statement *syntaxCopy();
@@ -490,6 +493,9 @@ struct CaseStatement : Statement
     Statement *statement;
     int index;		// which case it is (since we sort this)
     block *cblock;	// back end: label for the block
+
+    // LDC
+    Statement *enclosingScopeExit;
 
     CaseStatement(Loc loc, Expression *exp, Statement *s);
     Statement *syntaxCopy();
@@ -518,6 +524,9 @@ struct DefaultStatement : Statement
 #if IN_GCC
     block *cblock;	// back end: label for the block
 #endif
+
+    // LDC
+    Statement *enclosingScopeExit;
 
     DefaultStatement(Loc loc, Statement *s);
     Statement *syntaxCopy();

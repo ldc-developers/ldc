@@ -2238,6 +2238,8 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b)
     sdefault = NULL;
     cases = NULL;
     hasNoDefault = 0;
+    // LDC
+    enclosingScopeExit = NULL;
 }
 
 Statement *SwitchStatement::syntaxCopy()
@@ -2251,6 +2253,9 @@ Statement *SwitchStatement::semantic(Scope *sc)
 {
     //printf("SwitchStatement::semantic(%p)\n", this);
     assert(!cases);		// ensure semantic() is only run once
+
+    // LDC
+    enclosingScopeExit = sc->enclosingScopeExit;
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -2404,6 +2409,8 @@ CaseStatement::CaseStatement(Loc loc, Expression *exp, Statement *s)
     cblock = NULL;
     bodyBB = NULL;
     llvmIdx = NULL;
+    // LDC
+    enclosingScopeExit = NULL;
 }
 
 Statement *CaseStatement::syntaxCopy()
@@ -2416,6 +2423,14 @@ Statement *CaseStatement::semantic(Scope *sc)
 {   SwitchStatement *sw = sc->sw;
 
     //printf("CaseStatement::semantic() %s\n", toChars());
+    
+    // LDC
+    enclosingScopeExit = sc->enclosingScopeExit;
+    if (enclosingScopeExit != sw->enclosingScopeExit)
+    {
+	error("case must be inside the same try, synchronized or volatile level as switch");
+    }
+
     exp = exp->semantic(sc);
     if (sw)
     {
@@ -2500,6 +2515,8 @@ DefaultStatement::DefaultStatement(Loc loc, Statement *s)
 +    cblock = NULL;
 #endif
     bodyBB = NULL;
+    // LDC
+    enclosingScopeExit = NULL;
 }
 
 Statement *DefaultStatement::syntaxCopy()
@@ -2511,6 +2528,7 @@ Statement *DefaultStatement::syntaxCopy()
 Statement *DefaultStatement::semantic(Scope *sc)
 {
     //printf("DefaultStatement::semantic()\n");
+
     if (sc->sw)
     {
 	if (sc->sw->sdefault)
@@ -2518,6 +2536,13 @@ Statement *DefaultStatement::semantic(Scope *sc)
 	    error("switch statement already has a default");
 	}
 	sc->sw->sdefault = this;
+
+	// LDC
+	enclosingScopeExit = sc->enclosingScopeExit;
+	if (enclosingScopeExit != sc->sw->enclosingScopeExit)
+	{
+	    error("default must be inside the same try, synchronized or volatile level as switch");
+	}
     }
     else
 	error("default not in switch statement");
