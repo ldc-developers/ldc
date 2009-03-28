@@ -2585,8 +2585,8 @@ void obj_includelib(const char* lib)
 
 void backend_init()
 {
-    // now lazily loaded
-    //LLVM_D_InitRuntime();
+    // LLVM_D_InitRuntime is done in Module::genLLVMModule
+    // since it requires the semantic pass to be done
 }
 
 void backend_term()

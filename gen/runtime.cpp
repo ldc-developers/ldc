@@ -36,7 +36,9 @@ bool LLVM_D_InitRuntime()
     Logger::println("*** Initializing D runtime declarations ***");
     LOG_SCOPE;
 
-    LLVM_D_BuildRuntimeModule();
+    if (!M)
+        LLVM_D_BuildRuntimeModule();
+
     return true;
 }
 

@@ -134,6 +134,8 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
         error("is missing 'class ClassInfo'");
         fatal();
     }
+    
+    LLVM_D_InitRuntime();
 
     // process module members
     for (int k=0; k < members->dim; k++) {
