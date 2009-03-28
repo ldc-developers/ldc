@@ -368,10 +368,10 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
-    // queue declaration
-    if (!fdecl->isAbstract())
+    // queue declaration unless the function is abstract without body
+    if (!fdecl->isAbstract() || fdecl->fbody)
     {
-        Logger::println("Ignoring declaration of abstract function %s", fdecl->toPrettyChars());
+        Logger::println("Ignoring declaration of abstract bodyless function %s", fdecl->toPrettyChars());
         DtoDeclareFunction(fdecl);
     }
 }
