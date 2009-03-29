@@ -769,6 +769,30 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    }
 	}
 
+#if IN_LLVM
+        // LDC make sure argument type is semanticed.
+        // Turns TypeTuple!(int, int) into two int parameters, for instance.
+        if (f->parameters)
+        {
+            for (size_t i = 0; i < Argument::dim(f->parameters); i++)
+	    {	Argument *arg = (Argument *)Argument::getNth(f->parameters, i);
+                Type* nw = arg->type->semantic(0, sc);
+                if (arg->type != nw) {
+                    arg->type = nw;
+                    // Examine this index again.
+                    // This is important if it turned into a tuple.
+                    // In particular, the empty tuple should be handled or the
+                    // next parameter will be skipped.
+                    // FIXME: Maybe we only need to do this for tuples,
+                    //        and can add tuple.length after decrement?
+                    i--;
+                }
+            }
+            // update nparams to include expanded tuples
+            nparams = Argument::dim(f->parameters);
+        }
+#endif
+
 	// Propagate storage class from tuple parameters to their element-parameters.
 	if (f->parameters)
 	{
