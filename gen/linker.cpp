@@ -121,9 +121,9 @@ int linkExecutable(const char* argv0)
         {
         case 0:
             args.push_back("-disable-opt");
-            args.push_back("-globaldce");
             break;
         case 1:
+            args.push_back("-globaldce");
             args.push_back("-disable-opt");
             args.push_back("-globaldce");
             args.push_back("-mem2reg");

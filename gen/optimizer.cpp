@@ -24,14 +24,14 @@ static cl::opt<char> optimizeLevel(
     cl::ZeroOrMore,
     cl::values(
         clEnumValN(2, "O",  "Equivalent to -O2"),
-        clEnumValN(0, "O0", "Trivial optimizations only"),
+        clEnumValN(0, "O0", "No optimizations (default)"),
         clEnumValN(1, "O1", "Simple optimizations"),
         clEnumValN(2, "O2", "Good optimizations"),
         clEnumValN(3, "O3", "Aggressive optimizations"),
         clEnumValN(4, "O4", "Link-time optimization"), //  not implemented?
         clEnumValN(5, "O5", "Link-time optimization"), //  not implemented?
         clEnumValEnd),
-    cl::init(-1));
+    cl::init(0));
 
 static cl::opt<bool> enableInlining("enable-inlining",
     cl::desc("Enable function inlining (in -O<N>, if given)"),
@@ -48,22 +48,17 @@ int optLevel() {
 }
 
 bool optimize() {
-    return (optimizeLevel != -1) || enableInlining || passList.empty();
+    return optimizeLevel || enableInlining || passList.empty();
 }
 
 // this function inserts some or all of the std-compile-opts passes depending on the
 // optimization level given.
 static void addPassesForOptLevel(PassManager& pm) {
-    // -O0
-    if (optimizeLevel >= 0)
-    {
-        //pm.add(createStripDeadPrototypesPass());
-        pm.add(createGlobalDCEPass());
-    }
-
     // -O1
     if (optimizeLevel >= 1)
     {
+        //pm.add(createStripDeadPrototypesPass());
+        pm.add(createGlobalDCEPass());
         pm.add(createRaiseAllocationsPass());
         pm.add(createCFGSimplificationPass());
         pm.add(createPromoteMemoryToRegisterPass());
@@ -129,15 +124,15 @@ static void addPassesForOptLevel(PassManager& pm) {
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module* m)
 {
-    if (!enableInlining && optimizeLevel == -1 && passList.empty())
+    if (!enableInlining && optimizeLevel == 0 && passList.empty())
         return false;
 
     PassManager pm;
     pm.add(new TargetData(m));
 
-    bool optimize = (optimizeLevel != -1) || enableInlining;
+    bool optimize = optimizeLevel != 0 || enableInlining;
 
-    unsigned optPos = optimizeLevel != -1
+    unsigned optPos = optimizeLevel != 0
                     ? optimizeLevel.getPosition()
                     : enableInlining.getPosition();
 
