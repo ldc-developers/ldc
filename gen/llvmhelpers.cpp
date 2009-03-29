@@ -1316,7 +1316,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     }
 
     char tmp[21]; // probably excessive, but covers a uint64_t
-    sprintf(tmp, "%lu", gTargetData->getTypeSizeInBits(DtoType(T)));
+    sprintf(tmp, "%lu", (unsigned long) gTargetData->getTypeSizeInBits(DtoType(T)));
     
     // replace # in name with bitsize
     name = td->intrinsicName;
