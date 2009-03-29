@@ -62,7 +62,23 @@ namespace opts {
             push_back(str.c_str());
         }
     };
-
+    
+    /// Helper class to allow use of a parser<bool> with BoolOrDefault
+    class BoolOrDefaultAdapter {
+        cl::boolOrDefault value;
+    public:
+        operator cl::boolOrDefault() {
+            return value;
+        }
+        
+        void operator=(cl::boolOrDefault val) {
+            value = val;
+        }
+        
+        void operator=(bool val) {
+            *this = (val ? cl::BOU_TRUE : cl::BOU_FALSE);
+        }
+    };
 }
 
 #endif

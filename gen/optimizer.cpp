@@ -1,4 +1,5 @@
 #include "gen/optimizer.h"
+#include "gen/cl_helpers.h"
 
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
@@ -32,22 +33,26 @@ static cl::opt<char> optimizeLevel(
         clEnumValEnd),
     cl::init(0));
 
-static cl::opt<bool> enableInlining("enable-inlining",
-    cl::desc("Enable function inlining (in -O<N>, if given)"),
-    cl::ZeroOrMore,
-    cl::init(false));
+static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
+enableInlining("inlining",
+    cl::desc("(*) Enable function inlining (in -O<N>, if given)"),
+    cl::ZeroOrMore);
 
-// Some accessors for the linker: (llvm-ld version only, currently unused?)
+// Determine whether or not to run the inliner as part of the default list of
+// optimization passes.
+// If not explicitly specified, treat as false for -O0-2, and true for -O3.
 bool doInline() {
-    return enableInlining;
+    return enableInlining == cl::BOU_TRUE
+        || (enableInlining == cl::BOU_UNSET && optimizeLevel >= 3);
 }
 
+// Some extra accessors for the linker: (llvm-ld version only, currently unused?)
 int optLevel() {
     return optimizeLevel;
 }
 
 bool optimize() {
-    return optimizeLevel || enableInlining || passList.empty();
+    return optimizeLevel || doInline() || passList.empty();
 }
 
 // this function inserts some or all of the std-compile-opts passes depending on the
@@ -76,7 +81,7 @@ static void addPassesForOptLevel(PassManager& pm) {
     }
 
     // -inline
-    if (enableInlining) {
+    if (doInline()) {
         pm.add(createFunctionInliningPass());
     }
 
@@ -123,13 +128,13 @@ static void addPassesForOptLevel(PassManager& pm) {
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module* m)
 {
-    if (!enableInlining && optimizeLevel == 0 && passList.empty())
+    if (!doInline() && optimizeLevel == 0 && passList.empty())
         return false;
 
     PassManager pm;
     pm.add(new TargetData(m));
 
-    bool optimize = optimizeLevel != 0 || enableInlining;
+    bool optimize = optimizeLevel != 0 || doInline();
 
     unsigned optPos = optimizeLevel != 0
                     ? optimizeLevel.getPosition()
