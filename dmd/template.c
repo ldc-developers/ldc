@@ -4578,3 +4578,4 @@ void TemplateMixin::toObjFile(int multiobj)
     TemplateInstance::toObjFile(multiobj);
 }
 #endif
+
