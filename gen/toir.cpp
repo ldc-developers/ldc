@@ -611,9 +611,8 @@ DValue* AddExp::toElem(IRState* p)
     if (e1type != e2type) {
         if (e1type->ty == Tpointer) {
             Logger::println("add to pointer");
-            if (r->isConst()) {
-                llvm::ConstantInt* cofs = llvm::cast<llvm::ConstantInt>(r->isConst()->c);
-                if (cofs->isZero()) {
+            if (DConstValue* cv = r->isConst()) {
+                if (cv->c->isNullValue()) {
                     Logger::println("is zero");
                     return new DImValue(type, l->getRVal());
                 }
