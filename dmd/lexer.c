@@ -118,22 +118,14 @@ const char *Token::toChars()
     switch (value)
     {
 	case TOKint32v:
-#if IN_GCC
 	    sprintf(buffer,"%d",(d_int32)int64value);
-#else
-	    sprintf(buffer,"%d",int32value);
-#endif
 	    break;
 
 	case TOKuns32v:
 	case TOKcharv:
 	case TOKwcharv:
 	case TOKdcharv:
-#if IN_GCC
 	    sprintf(buffer,"%uU",(d_uns32)uns64value);
-#else
-	    sprintf(buffer,"%uU",uns32value);
-#endif
 	    break;
 
 	case TOKint64v:
