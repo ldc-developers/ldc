@@ -122,11 +122,12 @@ const LLFunctionType* DtoExtractFunctionType(const LLType* type)
 void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::AttributeWithIndex>& attrs, TypeFunction* tf, Expressions* arguments, size_t argidx)
 {
     Logger::println("doing d-style variadic arguments");
+    LOG_SCOPE
 
     std::vector<const LLType*> vtypes;
 
     // number of non variadic args
-    int begin = tf->parameters->dim;
+    int begin = Argument::dim(tf->parameters);
     Logger::println("num non vararg params = %d", begin);
 
     // get n args in arguments list
@@ -136,6 +137,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     for (int i=begin; i<n_arguments; i++)
     {
         Expression* argexp = (Expression*)arguments->data[i];
+        assert(argexp->type->ty != Ttuple);
         vtypes.push_back(DtoType(argexp->type));
         size_t sz = getTypePaddedSize(vtypes.back());
         if (sz < PTRSIZE)
