@@ -138,8 +138,11 @@ struct Param
     bool link;          // perform link
     bool verbose;       // verbose compile
     char symdebug;	// insert debug symbolic information
+#if !IN_LLVM
+    // LDC uses a different mechanism
     bool optimize;      // run optimizer
     char optimizeLevel; // optimization level
+#endif
     ARCH cpu;		// target CPU
     OS   os;		// target OS
     bool is64bit;       // generate 64 bit code
@@ -210,7 +213,6 @@ struct Param
     OUTPUTFLAG output_bc;
     OUTPUTFLAG output_s;
     OUTPUTFLAG output_o;
-    bool llvmInline;
     bool llvmAnnotate;
     bool useInlineAsm;
 

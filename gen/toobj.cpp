@@ -49,6 +49,7 @@
 #include "gen/runtime.h"
 #include "gen/abi.h"
 #include "gen/cl_options.h"
+#include "gen/optimizer.h"
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
@@ -60,9 +61,6 @@ static llvm::cl::opt<bool> noVerify("noverify",
     llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-// in gen/optimize.cpp
-void ldc_optimize_module(llvm::Module* m, char lvl, bool doinline);
 
 // fwd decl
 void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out);
@@ -189,10 +187,10 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
 void writeModule(llvm::Module* m, std::string filename)
 {
     // run optimizer
-    ldc_optimize_module(m, global.params.optimizeLevel, global.params.llvmInline);
+    bool reverify = ldc_optimize_module(m);
 
     // verify the llvm
-    if (!noVerify && (global.params.optimizeLevel >= 0 || global.params.llvmInline)) {
+    if (!noVerify && reverify) {
         std::string verifyErr;
         Logger::println("Verifying module... again...");
         LOG_SCOPE;

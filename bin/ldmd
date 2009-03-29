@@ -17,8 +17,16 @@ declare -a ARGS
 IDX=0
 for arg; do
     case "$arg" in
+    -C*)
+        # turn -Cfoo into -foo.
+        # Useful for passing -inline to ldc, for instance.
+        arg="-${arg:2}"
+        ;;
     -debug|-debug=*|-version=*)
         arg="-d$arg"
+        ;;
+    -inline)
+        arg="-enable-inlining"
         ;;
     -fPIC)
         arg="-relocation-model=pic"

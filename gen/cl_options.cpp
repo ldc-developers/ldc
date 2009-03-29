@@ -20,16 +20,6 @@ cl::list<std::string> runargs("run",
     cl::PositionalEatsArgs);
 
 
-
-// TODO: Replace this with a proper PassNameParser-based solution
-static cl::opt<bool, true> doInline("inline",
-    cl::desc("Do function inlining"),
-    cl::location(global.params.llvmInline),
-    cl::ZeroOrMore,
-    cl::init(false));
-
-
-
 static cl::opt<bool, true> useDeprecated("d",
     cl::desc("Allow deprecated language features"),
     cl::ZeroOrMore,
@@ -58,22 +48,6 @@ static cl::opt<bool, true> warnings("w",
     cl::desc("Enable warnings"),
     cl::ZeroOrMore,
     cl::location(global.params.warnings));
-
-
-static cl::opt<char, true> optimizeLevel(
-    cl::desc("Setting the optimization level:"),
-    cl::ZeroOrMore,
-    cl::values(
-        clEnumValN(2, "O",  "Equivalent to -O2"),
-        clEnumValN(0, "O0", "Trivial optimizations only"),
-        clEnumValN(1, "O1", "Simple optimizations"),
-        clEnumValN(2, "O2", "Good optimizations"),
-        clEnumValN(3, "O3", "Aggressive optimizations"),
-        clEnumValN(4, "O4", "Link-time optimization"), //  not implemented?
-        clEnumValN(5, "O5", "Link-time optimization"), //  not implemented?
-        clEnumValEnd),
-    cl::location(global.params.optimizeLevel),
-    cl::init(-1));
 
 static cl::opt<char, true> debugInfo(
     cl::desc("Generating debug information:"),

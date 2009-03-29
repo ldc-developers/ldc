@@ -13,6 +13,7 @@
 #define NO_COUT_LOGGER
 #include "gen/logger.h"
 #include "gen/cl_options.h"
+#include "gen/optimizer.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -111,12 +112,12 @@ int linkExecutable(const char* argv0)
         args.push_back("-strip-debug");
 
     // optimization level
-    if (!global.params.optimize)
+    if (!optimize())
         args.push_back("-disable-opt");
     else
     {
         const char* s = 0;
-        switch(global.params.optimizeLevel)
+        switch(optLevel())
         {
         case 0:
             args.push_back("-disable-opt");
@@ -138,7 +139,7 @@ int linkExecutable(const char* argv0)
     }
 
     // inlining
-    if (!(global.params.useInline || global.params.llvmInline))
+    if (!(global.params.useInline || doInline()))
     {
         args.push_back("-disable-inlining");
     }

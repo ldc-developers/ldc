@@ -192,8 +192,6 @@ int main(int argc, char** argv)
     cl::SetVersionPrinter(&printVersion);
     cl::ParseCommandLineOptions(final_args.size(), (char**)&final_args[0], "LLVM-based D Compiler\n", true);
 
-    global.params.optimize = (global.params.optimizeLevel >= 0);
-
     // Negated options
     global.params.link = !compileOnly;
     global.params.obj = !dontWriteObj;
