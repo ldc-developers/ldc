@@ -7,8 +7,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PassNameParser.h"
 
-#include "root.h"       // error() & fatal()
-#include "mars.h"       // global flags
+#include "root.h"       // error()
 
 using namespace llvm;
 
@@ -152,7 +151,7 @@ bool ldc_optimize_module(llvm::Module* m)
                 error("Can't create pass '-%s' (%s)", arg, pass->getPassName());
             else
                 error("Can't create pass (%s)", pass->getPassName());
-            fatal();
+            assert(0);  // Should be unreachable; root.h:error() calls exit()
         }
     }
     // insert -O<N> / -enable-inlining if specified at the end,
