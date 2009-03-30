@@ -33,7 +33,10 @@ struct DSliceValue;
 // base class for d-values
 struct DValue : Object
 {
-    virtual Type*& getType() = 0;
+    Type* type;
+    DValue(Type* ty) : type(ty) {}
+
+    Type*& getType() { assert(type); return type; }
 
     virtual LLValue* getLVal() { assert(0); return 0; }
     virtual LLValue* getRVal() { assert(0); return 0; }
@@ -51,34 +54,30 @@ struct DValue : Object
 protected:
     DValue() {}
     DValue(const DValue&) { }
-    DValue& operator=(const DValue&) { return *this; }
+    DValue& operator=(const DValue& other) { type = other.type; return *this; }
 };
 
 // immediate d-value
 struct DImValue : DValue
 {
-    Type* type;
     LLValue* val;
 
-    DImValue(Type* t, LLValue* v) : type(t), val(v) { }
+    DImValue(Type* t, LLValue* v) : DValue(t), val(v) { }
 
     virtual LLValue* getRVal() { assert(val); return val; }
 
-    virtual Type*& getType() { assert(type); return type; }
     virtual DImValue* isIm() { return this; }
 };
 
 // constant d-value
 struct DConstValue : DValue
 {
-    Type* type;
     LLConstant* c;
 
-    DConstValue(Type* t, LLConstant* con) { type = t; c = con; }
+    DConstValue(Type* t, LLConstant* con) : DValue(t), c(con) {}
 
     virtual LLValue* getRVal();
 
-    virtual Type*& getType() { assert(type); return type; }
     virtual DConstValue* isConst() { return this; }
 };
 
@@ -92,7 +91,6 @@ struct DNullValue : DConstValue
 // variable d-value
 struct DVarValue : DValue
 {
-    Type* type;
     VarDeclaration* var;
     LLValue* val;
 
@@ -103,7 +101,6 @@ struct DVarValue : DValue
     virtual LLValue* getLVal();
     virtual LLValue* getRVal();
 
-    virtual Type*& getType() { assert(type); return type; }
     virtual DVarValue* isVar() { return this; }
 };
 
@@ -117,22 +114,19 @@ struct DFieldValue : DVarValue
 // slice d-value
 struct DSliceValue : DValue
 {
-    Type* type;
     LLValue* len;
     LLValue* ptr;
 
-    DSliceValue(Type* t, LLValue* l, LLValue* p) { type=t; ptr=p; len=l; }
+    DSliceValue(Type* t, LLValue* l, LLValue* p) : DValue(t), len(l), ptr(p) {}
 
     virtual LLValue* getRVal();
 
-    virtual Type*& getType() { assert(type); return type; }
     virtual DSliceValue* isSlice() { return this; }
 };
 
 // function d-value
 struct DFuncValue : DValue
 {
-    Type* type;
     FuncDeclaration* func;
     LLValue* val;
     LLValue* vthis;
@@ -141,7 +135,6 @@ struct DFuncValue : DValue
 
     virtual LLValue* getRVal();
 
-    virtual Type*& getType() { assert(type); return type; }
     virtual DFuncValue* isFunc() { return this; }
 };
 

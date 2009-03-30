@@ -12,18 +12,12 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue)
-{
-    var = vd;
-    val = llvmValue;
-    type = t;
-}
+: DValue(t), var(vd), val(llvmValue)
+{}
 
 DVarValue::DVarValue(Type* t, LLValue* llvmValue)
-{
-    var = 0;
-    val = llvmValue;
-    type = t;
-}
+: DValue(t), var(0), val(llvmValue)
+{}
 
 LLValue* DVarValue::getLVal()
 {
@@ -54,12 +48,8 @@ LLValue* DSliceValue::getRVal()
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 DFuncValue::DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt)
-{
-    func = fd;
-    type = func->type;
-    val = v;
-    vthis = vt;
-}
+: DValue(fd->type), func(fd), val(v), vthis(vt)
+{}
 
 LLValue* DFuncValue::getRVal()
 {
