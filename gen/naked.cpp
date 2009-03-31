@@ -167,30 +167,13 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         asmstr << mangle << ":" << std::endl;
             
     }
-    /*
-    else
-    {
-        const char* linkage = "globl";
-        std::string section = "text";
-        if (DtoIsTemplateInstance(fd))
-        {
-            linkage = "weak";
-            tmpstr << "section\t.gnu.linkonce.t." << mangle << ",\"ax\",@progbits";
-            section = tmpstr.str();
-        }
-        asmstr << "\t." << section << std::endl;
-        asmstr << "\t.align\t16" << std::endl;
-        asmstr << "\t." << linkage << "\t" << mangle << std::endl;
-        asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
-        asmstr << mangle << ":" << std::endl;
-        }*/
 
     // emit body
     fd->fbody->toNakedIR(gIR);
 
     // emit size after body
-    // llvm does this on linux, but not on osx
-    if (global.params.os != OSMacOSX)
+    // llvm does this on linux, but not on osx or Win
+    if (global.params.os != OSMacOSX && global.params.os != OSWindows)
     {
         asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl << std::endl;
     }
