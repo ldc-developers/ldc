@@ -23,7 +23,7 @@
 
 #if IN_LLVM
 // llvm
-#include "../ir/irtype.h"
+#include "../ir/irdtype.h"
 #include "../ir/irfuncty.h"
 namespace llvm { class Type; }
 struct Ir;
@@ -279,7 +279,7 @@ struct Type : Object
 
 #if IN_LLVM
     // LDC
-    IrType ir;
+    IrDType ir;
     static Ir* sir;
 #endif
 };

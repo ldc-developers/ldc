@@ -7,16 +7,16 @@ namespace llvm {
     class PATypeHolder;
 }
 
-struct IrType
+struct IrDType
 {
-    static std::set<IrType*> list;
+    static std::set<IrDType*> list;
     static void resetAll();
 
     // overload all of these to make sure
     // the static list is up to date
-    IrType();
-    IrType(const IrType& s);
-    ~IrType();
+    IrDType();
+    IrDType(const IrDType& s);
+    ~IrDType();
 
     void reset();
 

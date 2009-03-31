@@ -1,34 +1,34 @@
 #include "gen/llvm.h"
 #include "ir/ir.h"
-#include "ir/irtype.h"
+#include "ir/irdtype.h"
 
-std::set<IrType*> IrType::list;
+std::set<IrDType*> IrDType::list;
 
-void IrType::resetAll()
+void IrDType::resetAll()
 {
-    std::set<IrType*>::iterator it;
+    std::set<IrDType*>::iterator it;
     for(it = list.begin(); it != list.end(); ++it)
         (*it)->reset();
 }
 
-IrType::IrType()
+IrDType::IrDType()
 {
     assert(list.insert(this).second);
     reset();
 }
 
-IrType::IrType(const IrType& s)
+IrDType::IrDType(const IrDType& s)
 {
     assert(list.insert(this).second);
     type = s.type;
 }
 
-IrType::~IrType()
+IrDType::~IrDType()
 {
     list.erase(this);
 }
 
-void IrType::reset()
+void IrDType::reset()
 {
     type = NULL;
 }

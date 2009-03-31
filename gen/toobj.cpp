@@ -96,7 +96,7 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
 
     // reset all IR data stored in Dsymbols and Types
     IrDsymbol::resetAll();
-    IrType::resetAll();
+    IrDType::resetAll();
 
     sir->setState(&ir);
 
