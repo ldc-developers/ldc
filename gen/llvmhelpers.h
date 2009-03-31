@@ -101,7 +101,7 @@ void DtoConstInitGlobal(VarDeclaration* vd);
 
 // declaration inside a declarationexp
 DValue* DtoDeclarationExp(Dsymbol* declaration);
-LLValue* DtoRawVarDeclaration(VarDeclaration* var);
+LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr = 0);
 
 // initializer helpers
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);

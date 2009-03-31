@@ -1075,7 +1075,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
 }
 
 // does pretty much the same as DtoDeclarationExp, except it doesn't initialize, and only handles var declarations
-LLValue* DtoRawVarDeclaration(VarDeclaration* var)
+LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 {
     // we don't handle globals with this one
     assert(!var->isDataseg());
@@ -1083,10 +1083,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var)
     // we don't handle aliases either
     assert(!var->aliassym);
         
-    // if this already has storage, it must've been handled already
-    if (var->ir.irLocal && var->ir.irLocal->value)
-        return var->ir.irLocal->value;
-
     // referenced by nested function?
 #if DMDV2
     if (var->nestedrefs.dim)
@@ -1095,10 +1091,10 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var)
 #endif
     {
         assert(var->ir.irLocal);
-        assert(!var->ir.irLocal->value);
-
-        // alloca
-        var->ir.irLocal->value = DtoAlloca(DtoType(var->type), var->toChars());
+        if(!var->ir.irLocal->value)
+            var->ir.irLocal->value = addr ? addr : DtoAlloca(DtoType(var->type), var->toChars());
+        else
+            assert(!addr || addr == var->ir.irLocal->value);
 
         // store the address into the nested vars array
         assert(var->ir.irLocal->nestedIndex >= 0);
@@ -1110,9 +1106,15 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var)
     // normal local variable
     else
     {
+        // if this already has storage, it must've been handled already
+        if (var->ir.irLocal && var->ir.irLocal->value) {
+            assert(!addr || addr == var->ir.irLocal->value);
+            return var->ir.irLocal->value;
+        }
+
         assert(!var->ir.isSet());
         var->ir.irLocal = new IrLocal(var);
-        var->ir.irLocal->value = DtoAlloca(DtoType(var->type), var->toChars());
+        var->ir.irLocal->value = addr ? addr : DtoAlloca(DtoType(var->type), var->toChars());
     }
 
     // add debug info

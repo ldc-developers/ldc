@@ -1030,11 +1030,12 @@ void ForeachStatement::toIR(IRState* p)
 
     // value
     Logger::println("value = %s", value->toPrettyChars());
-    DtoRawVarDeclaration(value);
-    const LLType* valtype = DtoType(value->type);
     LLValue* valvar = NULL;
-    if (!value->isRef() && !value->isOut())
+    if (!value->isRef() && !value->isOut()) {
+        // Create a local variable to serve as the value.
+        DtoRawVarDeclaration(value);
         valvar = value->ir.irLocal->value;
+    }
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);
@@ -1093,13 +1094,17 @@ void ForeachStatement::toIR(IRState* p)
     // get value for this iteration
     LLConstant* zero = llvm::ConstantInt::get(keytype,0,false);
     LLValue* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
-    value->ir.irLocal->value = DtoGEP1(val,loadedKey);
+    LLValue* gep = DtoGEP1(val,loadedKey);
 
     if (!value->isRef() && !value->isOut()) {
+        // Copy value to local variable, and use it as the value variable.
         DVarValue dst(value->type, valvar);
-        DVarValue src(value->type, value->ir.irLocal->value);
+        DVarValue src(value->type, gep);
         DtoAssign(loc, &dst, &src);
         value->ir.irLocal->value = valvar;
+    } else {
+        // Use the GEP as the address of the value variable.
+        DtoRawVarDeclaration(value, gep);
     }
 
     // emit body
