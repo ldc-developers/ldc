@@ -273,29 +273,21 @@ int main(int argc, char** argv)
     {
         for (int i = 0; i < libs->dim; i++)
         {
-            char *arg = (char *)mem.malloc(64);
+            char* lib = (char *)libs->data[i];
+            char *arg = (char *)mem.malloc(strlen(lib) + 3);
             strcpy(arg, "-l");
-            strncat(arg, (char *)libs->data[i], 64);
+            strcpy(arg+2, lib);
             global.params.linkswitches->push(arg);
         }
     }
     else if (!noDefaultLib)
     {
-        char *arg;
-        arg = (char *)mem.malloc(64);
-        strcpy(arg, "-lldc-runtime");
-        global.params.linkswitches->push(arg);
-        arg = (char *)mem.malloc(64);
-        strcpy(arg, "-ltango-cc-tango");
-        global.params.linkswitches->push(arg);
-        arg = (char *)mem.malloc(64);
-        strcpy(arg, "-ltango-gc-basic");
-        global.params.linkswitches->push(arg);
+        global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
+        global.params.linkswitches->push(mem.strdup("-ltango-cc-tango"));
+        global.params.linkswitches->push(mem.strdup("-ltango-gc-basic"));
         // pass the runtime again to resolve issues
         // with linking order
-        arg = (char *)mem.malloc(64);
-        strcpy(arg, "-lldc-runtime");
-        global.params.linkswitches->push(arg);
+        global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
     }
 
     if (global.params.run)
