@@ -2165,8 +2165,8 @@ namespace AsmParserx8632
                                 {
                                     use_star = false;
                                     // simply write out the mangle
-                                    // on osx, prepend extra _
-                                    if ( global.params.os == OSMacOSX )
+                                    // on osx and mingw, prepend extra _
+                                    if ( global.params.os == OSMacOSX || global.params.os == OSWindows )
                                         insnTemplate << "_";
                                     insnTemplate << decl->mangle();
 //              addOperand2("${", ":c}", Arg_Pointer, e, asmcode);

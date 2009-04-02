@@ -144,7 +144,14 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         if (DtoIsTemplateInstance(fd))
         {
             linkage = "weak";
-            tmpstr << "section\t.gnu.linkonce.t." << mangle << ",\"ax\",@progbits";
+            tmpstr << "section\t.gnu.linkonce.t.";
+            if (global.params.os != OSWindows)
+            {
+                tmpstr << mangle << ",\"ax\",@progbits";
+            } else
+            {
+                tmpstr << "_" << mangle << ",\"ax\"";
+            }
             section = tmpstr.str();
         }
         asmstr << "\t." << section << std::endl;
@@ -154,10 +161,11 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         {
             std::string def = "def";
             std::string endef = "endef";
-            asmstr << "\t." << def << "\t" << mangle << ";";
+            asmstr << "\t." << def << "\t_" << mangle << ";";
             // hard code these two numbers for now since gas ignores .scl and llvm
             // is defaulting to .type 32 for everything I have seen
             asmstr << "\t.scl 2; .type 32;\t" << "." << endef << std::endl;
+            asmstr << "_";
         } else
         {
             asmstr << "\t." << linkage << "\t" << mangle << std::endl;
