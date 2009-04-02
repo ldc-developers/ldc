@@ -41,17 +41,13 @@
 //#define signbit 56
 #endif
 
-#if __APPLE__
-static double zero = 0;
-#elif __MINGW32__
-static double zero = 0;
-#elif __GNUC__
+#if __GNUC__
 #if !(defined (__SVR4) && defined (__sun))
 #include <bits/nan.h>
 #include <bits/mathdef.h>
 #endif
-static double zero = 0;
 #endif
+static double zero = 0;
 
 #include "rmem.h"
 

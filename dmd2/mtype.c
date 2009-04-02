@@ -9,7 +9,12 @@
 // See the included readme.txt for details.
 
 #define __USE_ISOC99 1		// so signbit() gets defined
+
+#ifdef __DMC__
+#include <math.h>
+#else
 #include <cmath>
+#endif
 
 #include <stdio.h>
 #include <assert.h>
@@ -31,18 +36,13 @@
 //#define signbit 56
 #endif
 
-#if __APPLE__
-#include <cmath>
-static double zero = 0;
-#elif __MINGW32__
-#include <cmath>
-static double zero = 0;
-#elif __GNUC__
-#include <cmath>
+#if __GNUC__
+#if !(defined (__SVR4) && defined (__sun))
 #include <bits/nan.h>
 #include <bits/mathdef.h>
-static double zero = 0;
 #endif
+#endif
+static double zero = 0;
 
 #include "mem.h"
 
