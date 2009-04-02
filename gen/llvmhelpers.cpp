@@ -1082,6 +1082,17 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 
     // we don't handle aliases either
     assert(!var->aliassym);
+    
+    // alloca if necessary
+    LLValue* allocaval = NULL;
+    if (!addr && (!var->ir.irLocal || !var->ir.irLocal->value))
+    {
+        addr = DtoAlloca(DtoType(var->type), var->toChars());
+        
+        // add debug info
+        if (global.params.symdebug)
+            DtoDwarfLocalVariable(addr, var);
+    }
         
     // referenced by nested function?
 #if DMDV2
@@ -1092,7 +1103,10 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     {
         assert(var->ir.irLocal);
         if(!var->ir.irLocal->value)
-            var->ir.irLocal->value = addr ? addr : DtoAlloca(DtoType(var->type), var->toChars());
+        {
+            assert(addr);
+            var->ir.irLocal->value = addr;
+        }
         else
             assert(!addr || addr == var->ir.irLocal->value);
 
@@ -1113,13 +1127,10 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         }
 
         assert(!var->ir.isSet());
+        assert(addr);
         var->ir.irLocal = new IrLocal(var);
-        var->ir.irLocal->value = addr ? addr : DtoAlloca(DtoType(var->type), var->toChars());
+        var->ir.irLocal->value = addr;
     }
-
-    // add debug info
-    if (global.params.symdebug)
-        DtoDwarfLocalVariable(var->ir.irLocal->value, var);
 
     // return the alloca
     return var->ir.irLocal->value;
