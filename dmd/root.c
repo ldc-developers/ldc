@@ -367,6 +367,8 @@ Array *FileName::splitPath(const char *path)
 	    while (isspace(*p))		// skip leading whitespace
 		p++;
 	    buf.reserve(strlen(p) + 1);	// guess size of path
+            // LDC remember first character
+            const char* start = p;
 	    for (; ; p++)
 	    {
 		c = *p;
@@ -398,6 +400,9 @@ Array *FileName::splitPath(const char *path)
 
 #if POSIX
 		    case '~':
+                        // LDC don't expand unless first character of path
+                        if (p != start)
+                            goto Ldefault;
 			buf.writestring(getenv("HOME"));
 			continue;
 #endif
@@ -407,6 +412,7 @@ Array *FileName::splitPath(const char *path)
 			if (!instring)	// if not in string
 			    break;	// treat as end of path
 		    default:
+                    Ldefault:
 			buf.writeByte(c);
 			continue;
 		}
