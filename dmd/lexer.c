@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -8,7 +8,7 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
-#define __C99FEATURES__ 1
+#include <cmath>
 
 /* Lexical Analyzer */
 
@@ -20,19 +20,7 @@
 #include <wchar.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <math.h>
-
-#if _MSC_VER
-#include <time.h>
-#else
-#include <sys/time.h>
-#endif
-
-#ifdef IN_GCC
-#include <time.h>
-#elif __GNUC__
-#include <time.h>
-#endif
+#include <time.h>	// for time() and ctime()
 
 #include "rmem.h"
 
@@ -47,10 +35,6 @@
 #if _WIN32 && __DMC__
 // from \dm\src\include\setlocal.h
 extern "C" char * __cdecl __locale_decpoint;
-#endif
-
-#if _MSC_VER // workaround VC++ bug, labels and types should be in separate namespaces
-#define Lstring Lstr
 #endif
 
 extern int HtmlNamedEntity(unsigned char *p, int length);
@@ -682,7 +666,7 @@ void Lexer::scan(Token *t)
 		    if (mod && id == Id::FILE)
 		    {
 			t->ustring = (unsigned char *)(loc.filename ? loc.filename : mod->ident->toChars());
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (mod && id == Id::LINE)
 		    {
@@ -694,22 +678,22 @@ void Lexer::scan(Token *t)
 		    if (id == Id::DATE)
 		    {
 			t->ustring = (unsigned char *)date;
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (id == Id::TIME)
 		    {
 			t->ustring = (unsigned char *)time;
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (id == Id::VENDOR)
 		    {
 			t->ustring = (unsigned char *)"LDC";
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (id == Id::TIMESTAMP)
 		    {
 			t->ustring = (unsigned char *)timestamp;
-		     Lstring:
+		     Lstr:
 			t->value = TOKstring;
 		     Llen:
 			t->postfix = 0;
@@ -3097,4 +3081,6 @@ void Lexer::initKeywords()
     Token::tochars[TOKdeclaration]	= "declaration";
     Token::tochars[TOKdottd]		= "dottd";
     Token::tochars[TOKon_scope_exit]	= "scope(exit)";
+    Token::tochars[TOKon_scope_success]	= "scope(success)";
+    Token::tochars[TOKon_scope_failure]	= "scope(failure)";
 }

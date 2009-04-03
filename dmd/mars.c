@@ -1,3 +1,4 @@
+
 // Compiler implementation of the D programming language
 // Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
@@ -14,10 +15,6 @@
 #include <limits.h>
 #include <string>
 #include <cstdarg>
-
-#if __DMC__
-#include <dos.h>
-#endif
 
 #if POSIX
 #include <errno.h>
@@ -59,7 +56,7 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2009 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.041";
+    version = "v1.042";
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV_STR;
     global.structalign = 8;

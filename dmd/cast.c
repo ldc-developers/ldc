@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -228,7 +228,7 @@ MATCH IntegerExp::implicitConvTo(Type *t)
 
 	case Tchar:
 	case Tuns8:
-	    //printf("value = %llu %llu\n", (integer_t)(unsigned char)value, value);
+	    //printf("value = %llu %llu\n", (dinteger_t)(unsigned char)value, value);
 	    if ((unsigned char)value != value)
 		goto Lno;
 	    goto Lyes;

@@ -27,6 +27,7 @@
 #include "hdrgen.h"
 #include "parse.h"
 #include "template.h"
+#include "attrib.h"
 
 /******************************** Statement ***************************/
 
@@ -207,6 +208,10 @@ Statement *ExpStatement::semantic(Scope *sc)
 	exp = resolveProperties(sc, exp);
 	exp->checkSideEffect(0);
 	exp = exp->optimize(0);
+	if (exp->op == TOKdeclaration && !isDeclarationStatement())
+	{   Statement *s = new DeclarationStatement(loc, exp);
+	    return s;
+	}
 	//exp = exp->optimize(isDeclarationStatement() ? WANTvalue : 0);
     }
     return this;
@@ -576,6 +581,82 @@ int CompoundStatement::comeFrom()
 }
 
 
+/******************************** CompoundDeclarationStatement ***************************/
+
+CompoundDeclarationStatement::CompoundDeclarationStatement(Loc loc, Statements *s)
+    : CompoundStatement(loc, s)
+{
+    statements = s;
+}
+
+Statement *CompoundDeclarationStatement::syntaxCopy()
+{
+    Statements *a = new Statements();
+    a->setDim(statements->dim);
+    for (size_t i = 0; i < statements->dim; i++)
+    {	Statement *s = (Statement *)statements->data[i];
+	if (s)
+	    s = s->syntaxCopy();
+	a->data[i] = s;
+    }
+    CompoundDeclarationStatement *cs = new CompoundDeclarationStatement(loc, a);
+    return cs;
+}
+
+void CompoundDeclarationStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
+{
+    int nwritten = 0;
+    for (int i = 0; i < statements->dim; i++)
+    {	Statement *s = (Statement *) statements->data[i];
+	if (s)
+	{   DeclarationStatement *ds = s->isDeclarationStatement();
+	    assert(ds);
+	    DeclarationExp *de = (DeclarationExp *)ds->exp;
+	    assert(de->op == TOKdeclaration);
+	    Declaration *d = de->declaration->isDeclaration();
+	    assert(d);
+	    VarDeclaration *v = d->isVarDeclaration();
+	    if (v)
+	    {
+		/* This essentially copies the part of VarDeclaration::toCBuffer()
+		 * that does not print the type.
+		 * Should refactor this.
+		 */
+		if (nwritten)
+		{
+		    buf->writeByte(',');
+		    buf->writestring(v->ident->toChars());
+		}
+		else
+		{
+		    StorageClassDeclaration::stcToCBuffer(buf, v->storage_class);
+		    if (v->type)
+			v->type->toCBuffer(buf, v->ident, hgs);
+		    else
+			buf->writestring(v->ident->toChars());
+		}
+
+		if (v->init)
+		{   buf->writestring(" = ");
+#if DMDV2
+		    ExpInitializer *ie = v->init->isExpInitializer();
+		    if (ie && (ie->exp->op == TOKconstruct || ie->exp->op == TOKblit))
+			((AssignExp *)ie->exp)->e2->toCBuffer(buf, hgs);
+		    else
+#endif
+			v->init->toCBuffer(buf, hgs);
+		}
+	    }
+	    else
+		d->toCBuffer(buf, hgs);
+	    nwritten++;
+	}
+    }
+    buf->writeByte(';');
+    if (!hgs->FLinit.init)
+        buf->writenl();
+}
+
 /**************************** UnrolledLoopStatement ***************************/
 
 UnrolledLoopStatement::UnrolledLoopStatement(Loc loc, Statements *s)
@@ -889,6 +970,7 @@ int WhileStatement::blockExit()
     return result;
 }
 
+
 int WhileStatement::comeFrom()
 {
     if (body)
@@ -973,6 +1055,7 @@ int DoStatement::blockExit()
     result &= ~(BEbreak | BEcontinue);
     return result;
 }
+
 
 int DoStatement::comeFrom()
 {
@@ -1103,6 +1186,7 @@ int ForStatement::blockExit()
     return result;
 }
 
+
 int ForStatement::comeFrom()
 {
     //printf("ForStatement::comeFrom()\n");
@@ -1120,11 +1204,7 @@ void ForStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     if (init)
     {
         hgs->FLinit.init++;
-        hgs->FLinit.decl = 0;
         init->toCBuffer(buf, hgs);
-        if (hgs->FLinit.decl > 0)
-            buf->writebyte(';');
-        hgs->FLinit.decl = 0;
         hgs->FLinit.init--;
     }
     else
@@ -1249,17 +1329,16 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		if (arg->storageClass & (STCout | STCref | STClazy))
 		    error("no storage class for key %s", arg->ident->toChars());
 		TY keyty = arg->type->ty;
-        if (global.params.is64bit)
-        {
-            if (keyty != Tint32 && keyty != Tuns32 && keyty != Tint64 && keyty != Tuns64)
-            {
-                error("foreach: key type must be int, uint, long or ulong, not %s", key->type->toChars());
-            }
-        }
-        else if (keyty != Tint32 && keyty != Tuns32)
-        {
-            error("foreach: key type must be int or uint, not %s", key->type->toChars());
-        }
+		if (keyty != Tint32 && keyty != Tuns32)
+		{
+		    if (global.params.is64bit)
+		    {
+			if (keyty != Tint64 && keyty != Tuns64)
+			    error("foreach: key type must be int or uint, long or ulong, not %s", arg->type->toChars());
+		    }
+		    else
+			error("foreach: key type must be int or uint, not %s", arg->type->toChars());
+		}
 		Initializer *ie = new ExpInitializer(0, new IntegerExp(k));
 		VarDeclaration *var = new VarDeclaration(loc, arg->type, arg->ident, ie);
 		var->storage_class |= STCconst;
@@ -1391,20 +1470,16 @@ Statement *ForeachStatement::semantic(Scope *sc)
 			tab->toChars(), value->type->toChars());
 	    }
 
-        if (key)
-        {
-            if (global.params.is64bit)
-            {
-                if (key->type->ty != Tint32 && key->type->ty != Tuns32 && key->type->ty != Tint64 && key->type->ty != Tuns64)
-                {
-                    error("foreach: key type must be int, uint, long or ulong, not %s", key->type->toChars());
-                }
-            }
-            else if (key->type->ty != Tint32 && key->type->ty != Tuns32)
-            {
-                error("foreach: key type must be int or uint, not %s", key->type->toChars());
-            }
-        }
+	    if (key && key->type->ty != Tint32 && key->type->ty != Tuns32)
+	    {
+		if (global.params.is64bit)
+		{
+		    if (key->type->ty != Tint64 && key->type->ty != Tuns64)
+			error("foreach: key type must be int or uint, long or ulong, not %s", key->type->toChars());
+		}
+		else
+		    error("foreach: key type must be int or uint, not %s", key->type->toChars());
+	    }
 
 	    if (key && key->storage_class & (STCout | STCref))
 		error("foreach: key cannot be out or ref");

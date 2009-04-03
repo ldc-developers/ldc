@@ -562,7 +562,7 @@ void ClassDeclaration::semantic(Scope *sc)
 //	    sc->offset += PTRSIZE;	// room for uplevel context pointer
     }
     else
-    {	sc->offset = 2*PTRSIZE;		// allow room for vptr[] and monitor
+    {	sc->offset = PTRSIZE * 2;	// allow room for vptr[] and monitor
 	alignsize = PTRSIZE;
     }
     structsize = sc->offset;
@@ -1152,7 +1152,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
 	sc->linkage = LINKwindows;
     sc->structalign = 8;
     structalign = sc->structalign;
-    sc->offset = 2*PTRSIZE;
+    sc->offset = PTRSIZE * 2;
     inuse++;
     for (i = 0; i < members->dim; i++)
     {

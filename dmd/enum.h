@@ -32,9 +32,9 @@ struct EnumDeclaration : ScopeDsymbol
     Type *memtype;		// type of the members
 
 #if DMDV1
-    integer_t maxval;
-    integer_t minval;
-    integer_t defaultval;	// default initializer
+    dinteger_t maxval;
+    dinteger_t minval;
+    dinteger_t defaultval;	// default initializer
 #else
     Expression *maxval;
     Expression *minval;

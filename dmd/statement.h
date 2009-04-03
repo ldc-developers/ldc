@@ -220,6 +220,13 @@ struct CompoundStatement : Statement
     virtual CompoundStatement *isCompoundStatement() { return this; }
 };
 
+struct CompoundDeclarationStatement : CompoundStatement
+{
+    CompoundDeclarationStatement(Loc loc, Statements *s);
+    Statement *syntaxCopy();
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+};
+
 /* The purpose of this is so that continue will go to the next
  * of the statements, and break will go to the end of the statements.
  */

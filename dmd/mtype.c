@@ -25,10 +25,6 @@
 #include <assert.h>
 #include <float.h>
 
-#ifdef __DMC__
-#include <fp.h>
-#endif
-
 #if _MSC_VER
 #include <malloc.h>
 #include <complex>
@@ -37,19 +33,10 @@
 #include <complex.h>
 #elif __MINGW32__
 #include <malloc.h>
-#else
-//#define signbit 56
 #endif
-
-#if __GNUC__
-#if !(defined (__SVR4) && defined (__sun))
-#include <bits/nan.h>
-#include <bits/mathdef.h>
-#endif
-#endif
-static double zero = 0;
 
 #include "rmem.h"
+#include "port.h"
 
 #include "dsymbol.h"
 #include "mtype.h"
@@ -85,15 +72,18 @@ FuncDeclaration *hasThis(Scope *sc);
  */
 
 int PTRSIZE = 4;
-#if IN_LLVM
-int REALSIZE = 8;
-int REALPAD = 0;
-#elif TARGET_LINUX
+#if TARGET_OSX
+int REALSIZE = 16;
+int REALPAD = 6;
+int REALALIGNSIZE = 16;
+#elif TARGET_LINUX || TARGET_FREEBSD
 int REALSIZE = 12;
 int REALPAD = 2;
+int REALALIGNSIZE = 4;
 #else
 int REALSIZE = 10;
 int REALPAD = 0;
+int REALALIGNSIZE = 2;
 #endif
 int Tsize_t = Tuns32;
 int Tptrdiff_t = Tint32;
@@ -1119,24 +1109,7 @@ Expression *TypeBasic::getProperty(Loc loc, Identifier *ident)
 	    case Tfloat64:
 	    case Tfloat80:
 	    {
-#if IN_GCC
-		// mode doesn't matter, will be converted in RealExp anyway
-		fvalue = real_t::getnan(real_t::LongDouble);
-#elif __GNUC__
-		// gcc nan's have the sign bit set by default, so turn it off
-		// Need the volatile to prevent gcc from doing incorrect
-		// constant folding.
-		volatile d_float80 foo;
-		foo = NAN;
-		if (std::signbit(foo))	// signbit sometimes, not always, set
-		    foo = -foo;		// turn off sign bit
-		fvalue = foo;
-#elif _MSC_VER
-		unsigned long nan[2]= { 0xFFFFFFFF, 0x7FFFFFFF };
-		fvalue = *(double*)nan;
-#else
-		fvalue = NAN;
-#endif
+		fvalue = Port::nan;
 		goto Lfvalue;
 	    }
 	}
@@ -1154,15 +1127,7 @@ Expression *TypeBasic::getProperty(Loc loc, Identifier *ident)
 	    case Tfloat32:
 	    case Tfloat64:
 	    case Tfloat80:
-#if IN_GCC
-		fvalue = real_t::getinfinity();
-#elif __GNUC__
-		fvalue = 1 / zero;
-#elif _MSC_VER
-		fvalue = std::numeric_limits<long double>::infinity();
-#else
-		fvalue = INFINITY;
-#endif
+		fvalue = Port::infinity;
 		goto Lfvalue;
 	}
     }
@@ -1378,7 +1343,7 @@ Expression *TypeBasic::dotExp(Scope *sc, Expression *e, Identifier *ident)
 }
 
 Expression *TypeBasic::defaultInit(Loc loc)
-{   integer_t value = 0;
+{   dinteger_t value = 0;
 
 #if LOGDEFAULTINIT
     printf("TypeBasic::defaultInit() '%s'\n", toChars());
@@ -1735,7 +1700,7 @@ Type *TypeSArray::syntaxCopy()
 }
 
 d_uns64 TypeSArray::size(Loc loc)
-{   integer_t sz;
+{   dinteger_t sz;
 
     if (!dim)
 	return Type::size(loc);
@@ -1747,7 +1712,7 @@ d_uns64 TypeSArray::size(Loc loc)
 	sz = ((sz + 31) & ~31) / 8;	// size in bytes, rounded up to 32 bit dwords
     }
     else
-    {	integer_t n, n2;
+    {	dinteger_t n, n2;
 
 	n = next->size();
 	n2 = n * sz;
@@ -1896,7 +1861,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
     Type *tbn = next->toBasetype();
 
     if (dim)
-    {	integer_t n, n2;
+    {	dinteger_t n, n2;
 
 	dim = semanticLength(sc, tbn, dim);
 
@@ -1909,10 +1874,10 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 	     */
 	    return this;
 	}
-	integer_t d1 = dim->toInteger();
+	dinteger_t d1 = dim->toInteger();
 	dim = dim->castTo(sc, tsize_t);
 	dim = dim->optimize(WANTvalue);
-	integer_t d2 = dim->toInteger();
+	dinteger_t d2 = dim->toInteger();
 
 	if (d1 != d2)
 	    goto Loverflow;
@@ -3052,7 +3017,7 @@ int TypeFunction::callMatch(Expressions *args)
 	    if (varargs == 2 && u + 1 == nparams)	// if last varargs param
 	    {	Type *tb = p->type->toBasetype();
 		TypeSArray *tsa;
-		integer_t sz;
+		dinteger_t sz;
 
 		switch (tb->ty)
 		{

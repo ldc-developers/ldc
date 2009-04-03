@@ -34,15 +34,6 @@ int isnan(double);
 #endif
 #endif
 
-#if IN_GCC
-// Issues with using -include total.h (defines integer_t) and then complex.h fails...
-#undef integer_t
-#endif
-
-#ifdef __APPLE__
-#define integer_t dmd_integer_t
-#endif
-
 #include "rmem.h"
 
 //#include "port.h"
@@ -700,7 +691,6 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		arg = arg->checkToPointer();
 	    }
 #endif
-
 #if DMDV2
 	    if (tb->ty == Tstruct && !(p->storageClass & (STCref | STCout)))
 	    {
@@ -1000,7 +990,7 @@ Expression *Expression::combine(Expression *e1, Expression *e2)
     return e1;
 }
 
-integer_t Expression::toInteger()
+dinteger_t Expression::toInteger()
 {
     //printf("Expression %s\n", Token::toChars(op));
     error("Integer constant expression expected instead of %s", toChars());
@@ -1289,7 +1279,7 @@ Expressions *Expression::arraySyntaxCopy(Expressions *exps)
 
 /******************************** IntegerExp **************************/
 
-IntegerExp::IntegerExp(Loc loc, integer_t value, Type *type)
+IntegerExp::IntegerExp(Loc loc, dinteger_t value, Type *type)
 	: Expression(loc, TOKint64, sizeof(IntegerExp))
 {
     //printf("IntegerExp(value = %lld, type = '%s')\n", value, type ? type->toChars() : "");
@@ -1303,7 +1293,7 @@ IntegerExp::IntegerExp(Loc loc, integer_t value, Type *type)
     this->value = value;
 }
 
-IntegerExp::IntegerExp(integer_t value)
+IntegerExp::IntegerExp(dinteger_t value)
 	: Expression(0, TOKint64, sizeof(IntegerExp))
 {
     this->type = Type::tint32;
@@ -1333,7 +1323,7 @@ char *IntegerExp::toChars()
 #endif
 }
 
-integer_t IntegerExp::toInteger()
+dinteger_t IntegerExp::toInteger()
 {   Type *t;
 
     t = type;
@@ -1355,11 +1345,12 @@ integer_t IntegerExp::toInteger()
 	    case Tint64:	value = (d_int64) value;	break;
 	    case Tuns64:	value = (d_uns64) value;	break;
 	    case Tpointer:
-                // FIXME: Other pointer widths than 32 and 64?
                 if (PTRSIZE == 4)
                     value = (d_uns32) value;
-                else
+                else if (PTRSIZE == 8)
                     value = (d_uns64) value;
+		else
+		    assert(0);
                 break;
 
 	    case Tenum:
@@ -1423,7 +1414,7 @@ Expression *IntegerExp::semantic(Scope *sc)
     if (!type)
     {
 	// Determine what the type of this number is
-	integer_t number = value;
+	dinteger_t number = value;
 
 	if (number & 0x8000000000000000LL)
 	    type = Type::tuns64;
@@ -1451,7 +1442,7 @@ Expression *IntegerExp::toLvalue(Scope *sc, Expression *e)
 
 void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    integer_t v = toInteger();
+    dinteger_t v = toInteger();
 
     if (type)
     {	Type *t = type;
@@ -1520,7 +1511,7 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		break;
 
 	    case Tuns64:
-            L4:
+	    L4:
 		buf->printf("%juLU", v);
 		break;
 
@@ -1533,11 +1524,12 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 		buf->writestring("cast(");
 		buf->writestring(t->toChars());
 		buf->writeByte(')');
-                // FIXME: Other pointer widths than 32 and 64?
                 if (PTRSIZE == 4)
                     goto L3;
-                else
+                else if (PTRSIZE == 8)
                     goto L4;
+		else
+		    assert(0);
 
 	    default:
 		/* This can happen if errors, such as
@@ -1592,7 +1584,7 @@ char *RealExp::toChars()
     return mem.strdup(buffer);
 }
 
-integer_t RealExp::toInteger()
+dinteger_t RealExp::toInteger()
 {
 #ifdef IN_GCC
     return toReal().toInt();
@@ -1817,7 +1809,7 @@ char *ComplexExp::toChars()
     return mem.strdup(buffer);
 }
 
-integer_t ComplexExp::toInteger()
+dinteger_t ComplexExp::toInteger()
 {
 #ifdef IN_GCC
     return (sinteger_t) toReal().toInt();
@@ -2163,9 +2155,11 @@ Lagain:
     imp = s->isImport();
     if (imp)
     {
-	ScopeExp *ie;
-
-	ie = new ScopeExp(loc, imp->pkg);
+	if (!imp->pkg)
+	{   error("forward reference of import %s", imp->toChars());
+	    return this;
+	}
+	ScopeExp *ie = new ScopeExp(loc, imp->pkg);
 	return ie->semantic(sc);
     }
     pkg = s->isPackage();
@@ -3650,7 +3644,7 @@ Lagain:
 
 	if (cd->aggNew)
 	{
-	    // Prepend the size_t size argument to newargs[]
+	    // Prepend the size argument to newargs[]
 	    Expression *e = new IntegerExp(loc, cd->size(loc), Type::tsize_t);
 	    if (!newargs)
 		newargs = new Expressions();
@@ -4319,7 +4313,8 @@ char *FuncExp::toChars()
 
 void FuncExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    buf->writestring(fd->toChars());
+    fd->toCBuffer(buf, hgs);
+    //buf->writestring(fd->toChars());
 }
 
 
@@ -7593,8 +7588,8 @@ Expression *IndexExp::semantic(Scope *sc)
 	    e2 = e2->optimize(WANTvalue);
 	    if (e2->op == TOKint64)
 	    {
-		integer_t index = e2->toInteger();
-		integer_t length = tsa->dim->toInteger();
+		dinteger_t index = e2->toInteger();
+		dinteger_t length = tsa->dim->toInteger();
 		if (index < 0 || index >= length)
 		    error("array index [%lld] is outside array bounds [0 .. %lld]",
 			    index, length);

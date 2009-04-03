@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -1098,21 +1098,11 @@ Dsymbol *VarDeclaration::toAlias()
 
 void VarDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    if (storage_class & STCconst)
-	buf->writestring("const ");
-    if (storage_class & STCstatic)
-	buf->writestring("static ");
-    if (storage_class & STCauto)
-	buf->writestring("auto ");
-#if DMDV2
-    if (storage_class & STCmanifest)
-	buf->writestring("manifest ");
-    if (storage_class & STCinvariant)
-	buf->writestring("invariant ");
-    if (storage_class & STCtls)
-	buf->writestring("__thread ");
-#endif
+    StorageClassDeclaration::stcToCBuffer(buf, storage_class);
 
+    /* If changing, be sure and fix CompoundDeclarationStatement::toCBuffer()
+     * too.
+     */
     if (type)
 	type->toCBuffer(buf, ident, hgs);
     else

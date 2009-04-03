@@ -1237,7 +1237,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		{   // Call invariant virtually
 		    ThisExp *v = new ThisExp(0);
 		    v->type = vthis->type;
-		    Expression *se = new StringExp(0, "null this");
+		    Expression *se = new StringExp(0, (char *)"null this");
 		    se = se->semantic(sc);
 		    se->type = Type::tchar->arrayOf();
 		    e = new AssertExp(loc, v, se);
@@ -2878,7 +2878,7 @@ void NewDeclaration::semantic(Scope *sc)
     type = type->semantic(loc, sc);
     assert(type->ty == Tfunction);
 
-    // Check that there is at least one argument of type uint
+    // Check that there is at least one argument of type size_t
     TypeFunction *tf = (TypeFunction *)type;
     if (Argument::dim(tf->parameters) < 1)
     {

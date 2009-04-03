@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2005 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -31,8 +31,14 @@ struct FuncDeclaration;
 struct DocComment;
 struct EnclosingHandler;
 struct AnonDeclaration;
+
+#if __GNUC__
+#include "dsymbol.h"    // PROT
+#include "mars.h"       // LINK
+#else
 enum LINK;
 enum PROT;
+#endif 
 
 struct Scope
 {
