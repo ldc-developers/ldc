@@ -27,6 +27,8 @@
 #include "../ir/irfuncty.h"
 namespace llvm { class Type; }
 struct Ir;
+
+class IrType;
 #endif
 
 struct Scope;
@@ -281,6 +283,8 @@ struct Type : Object
     // LDC
     IrDType ir;
     static Ir* sir;
+
+    IrType* irtype;
 #endif
 };
 

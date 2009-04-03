@@ -137,6 +137,10 @@ Type::Type(TY ty, Type *next)
 #if IN_DMD
     this->ctype = NULL;
 #endif
+
+#if IN_LLVM
+    this->irtype = NULL;
+#endif
 }
 
 Type *Type::syntaxCopy()

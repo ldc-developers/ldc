@@ -22,6 +22,8 @@
 #include "gen/linkage.h"
 #include "gen/llvm-version.h"
 
+#include "ir/irtype.h"
+
 bool DtoIsPassedByRef(Type* type)
 {
     Type* typ = type->toBasetype();
@@ -50,63 +52,62 @@ unsigned DtoShouldExtend(Type* type)
 
 const LLType* DtoType(Type* t)
 {
+    if (t->irtype)
+    {
+        return t->irtype->get();
+    }
+
     assert(t);
     switch (t->ty)
     {
-    // integers
+    // basic types
+    case Tvoid:
     case Tint8:
     case Tuns8:
-    case Tchar:
-        return (const LLType*)LLType::Int8Ty;
     case Tint16:
     case Tuns16:
-    case Twchar:
-        return (const LLType*)LLType::Int16Ty;
     case Tint32:
     case Tuns32:
-    case Tdchar:
-        return (const LLType*)LLType::Int32Ty;
     case Tint64:
     case Tuns64:
-        return (const LLType*)LLType::Int64Ty;
-
-    case Tbool:
-        return (const LLType*)llvm::ConstantInt::getTrue()->getType();
-
-    // floats
     case Tfloat32:
-    case Timaginary32:
-        return LLType::FloatTy;
     case Tfloat64:
-    case Timaginary64:
-        return LLType::DoubleTy;
     case Tfloat80:
+    case Timaginary32:
+    case Timaginary64:
     case Timaginary80:
-        if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            return LLType::X86_FP80Ty;
-        else
-            return LLType::DoubleTy;
-
-    // complex
     case Tcomplex32:
     case Tcomplex64:
     case Tcomplex80:
-        return DtoComplexType(t);
+    //case Tbit:
+    case Tbool:
+    case Tchar:
+    case Twchar:
+    case Tdchar:
+    {
+        t->irtype = new IrTypeBasic(t);
+        return t->irtype->get();
+    }
 
     // pointers
     case Tpointer:
-        // getPtrToType checks for void itself
-        return getPtrToType(DtoType(t->nextOf()));
+    {
+        t->irtype = new IrTypePointer(t);
+        return t->irtype->get();
+    }
 
     // arrays
     case Tarray:
-        return DtoArrayType(t);
-    case Tsarray:
-        return DtoStaticArrayType(t);
+    {
+        t->irtype = new IrTypeArray(t);
+        return t->irtype->get();
+    }
 
-    // void
-    case Tvoid:
-        return LLType::VoidTy;
+    case Tsarray:
+    {
+        t->irtype = new IrTypeSArray(t);
+        return t->irtype->get();
+    }
 
     // aggregates
     case Tstruct:    {
