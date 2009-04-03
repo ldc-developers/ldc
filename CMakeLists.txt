@@ -131,9 +131,10 @@ set(LDC_GENERATED
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
-include_directories(. ${DMDFE_PATH} ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INSTDIR}/include)
+include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INSTDIR}/include)
 
 file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
+file(GLOB FE_SRC_ROOT ${DMDFE_PATH}/root/*.c)
 file(GLOB GEN_SRC gen/*.cpp)
 file(GLOB IR_SRC ir/*.cpp)
 # exclude idgen and impcnvgen and generated sources, just in case
@@ -146,6 +147,7 @@ list(REMOVE_ITEM FE_SRC
 set(LDC_SOURCE_FILES
 	${LDC_GENERATED}
 	${FE_SRC}
+	${FE_SRC_ROOT}
 	${GEN_SRC}
 	${IR_SRC}
 )
