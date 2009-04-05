@@ -163,8 +163,11 @@ int main(int argc, char** argv)
     std::vector<const char*> final_args;
     final_args.reserve(argc);
 
-    // insert argc + DFLAGS
-    final_args.insert(final_args.end(), &argv[0], &argv[argc]);
+    // insert command line args until -run is reached
+    int run_argnum = 1;
+    while (run_argnum < argc && strncmp(argv[run_argnum], "-run", 4) != 0)
+        ++run_argnum;
+    final_args.insert(final_args.end(), &argv[0], &argv[run_argnum]);
 
     // read the configuration file
     ConfigFile cfg_file;
@@ -180,6 +183,9 @@ int main(int argc, char** argv)
 
     // insert config file additions to the argument list
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
+
+    // insert -run and everything beyond
+    final_args.insert(final_args.end(), &argv[run_argnum], &argv[argc]);
 
 #if 0
     for (size_t i = 0; i < final_args.size(); ++i)
