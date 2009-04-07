@@ -1,12 +1,15 @@
 module runminitest;
 
-import std.file;
-import std.path;
-import std.process;
-import std.stdio;
-import std.string;
+import tango.io.FileSystem,
+       tango.io.Stdout, 
+       tango.io.vfs.FileFolder;
+import Path = tango.io.Path;
+import Util = tango.text.Util;
+import tango.text.convert.Format;
+import tango.stdc.stdlib, 
+       tango.stdc.stringz;
 
-int main(string[] args)
+int main(char[][] args)
 {
     enum : int
     {
@@ -16,40 +19,41 @@ int main(string[] args)
         NORUN
     }
 
-    string[] compilefailed;
-    string[] nocompilefailed;
-    string[] runfailed;
-    string[] norunfailed;
+    char[][] compilefailed;
+    char[][] nocompilefailed;
+    char[][] runfailed;
+    char[][] norunfailed;
 
-    chdir("mini");
+    FileSystem.setDirectory("mini");
 
-    if (!exists("obj"))
-        mkdir("obj");
+    if (!Path.exists("obj"))
+        Path.createFolder("obj");
 
-    foreach(f; listdir("./obj", "*"))
+    foreach(f; Path.children("./obj"))
     {
-        std.file.remove(f);
+        Path.remove(f.path ~ f.name);
     }
 
     static int classify(char[] name)
     {
-        if (find(name, "compile_") == 0)
+        if (Util.containsPattern(name, "compile_"))
             return COMPILE;
-        else if (find(name, "nocompile_") == 0)
+        else if (Util.containsPattern(name, "nocompile_"))
             return NOCOMPILE;
-        else if (find(name, "run_") == 0)
+        else if (Util.containsPattern(name, "run_"))
             return RUN;
-        else if (find(name, "norun_") == 0)
+        else if (Util.containsPattern(name, "norun_"))
             return NORUN;
         return RUN;
     }
 
-    auto contents = listdir(".", "*.d");
+    auto scan = new FileFolder (".");
+    auto contents = scan.tree.catalog("*.d");
     foreach(c; contents) {
-        auto testname = getName(getBaseName(c));
-        writefln("TEST NAME: ", testname);
+        auto testname = Path.parse(c.name).name;
+        Stdout.formatln("TEST NAME: {}", testname);
 
-        string cmd = format("ldc %s -quiet -L-s -ofobj" ~ std.path.sep ~ "%s -odobj", c, testname);
+        char[] cmd = Format.convert("ldc {} -quiet -L-s -ofobj/{} -odobj", c, testname);
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;
@@ -57,24 +61,24 @@ int main(string[] args)
         int cl = classify(testname);
         if (cl == COMPILE || cl == NOCOMPILE)
             cmd ~= " -c";
-        writefln(cmd);
-        if (system(cmd) != 0) {
+        Stdout(cmd).newline;
+        if (system(toStringz(cmd)) != 0) {
             if (cl != NOCOMPILE)
-                compilefailed ~= c;
+                compilefailed ~= c.toString;
         }
         else if (cl == RUN || cl == NORUN) {
-            if (system("obj" ~ std.path.sep ~ testname) != 0) {
+            if (system(toStringz("obj/" ~ testname)) != 0) {
                 if (cl == RUN)
-                    runfailed ~= c;
+                    runfailed ~= c.toString;
             }
             else {
                 if (cl == NORUN)
-                    norunfailed ~= c;
+                    norunfailed ~= c.toString;
             }
         }
         else {
             if (cl == NOCOMPILE)
-                nocompilefailed ~= c;
+                nocompilefailed ~= c.toString;
         }
     }
 
@@ -82,41 +86,41 @@ int main(string[] args)
 
     if (compilefailed.length > 0)
     {
-        writefln(compilefailed.length, '/', contents.length, " of the tests failed to compile:");
+        Stdout.formatln("{}{}{}{}", compilefailed.length, '/', contents.files, " of the tests failed to compile:");
         foreach(b; compilefailed) {
-            writefln("  ",b);
+            Stdout.formatln(" {}",b);
         }
         nerrors += compilefailed.length;
     }
 
     if (nocompilefailed.length > 0)
     {
-        writefln(nocompilefailed.length, '/', contents.length, " of the tests failed to NOT compile:");
+        Stdout.formatln("{}{}{}{}", nocompilefailed.length, '/', contents.files, " of the tests failed to NOT compile:");
         foreach(b; nocompilefailed) {
-            writefln("  ",b);
+            Stdout.formatln(" {}",b);
         }
         nerrors += nocompilefailed.length;
     }
 
     if (runfailed.length > 0)
     {
-        writefln(runfailed.length, '/', contents.length, " of the tests failed to run:");
+        Stdout.formatln("{}{}{}{}", runfailed.length, '/', contents.files, " of the tests failed to run:");
         foreach(b; runfailed) {
-            writefln("  ",b);
+            Stdout.formatln("  {}",b);
         }
         nerrors += runfailed.length;
     }
 
     if (norunfailed.length > 0)
     {
-        writefln(norunfailed.length, '/', contents.length, " of the tests failed to NOT run:");
+        Stdout.formatln("{}{}{}{}", norunfailed.length, '/', contents.files, " of the tests failed to NOT run:");
         foreach(b; norunfailed) {
-            writefln("  ",b);
+            Stdout.formatln(" {}",b);
         }
         nerrors += norunfailed.length;
     }
 
-    writefln(contents.length - nerrors, '/', contents.length, " of the tests passed");
+    Stdout.formatln("{}{}{}{}", contents.files - nerrors, '/', contents.files, " of the tests passed");
 
     return nerrors ? 1 : 0;
 }
