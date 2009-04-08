@@ -9,6 +9,7 @@
 #include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachineRegistry.h"
 
 #include <stdio.h>
@@ -271,7 +272,10 @@ int main(int argc, char** argv)
 
     Array* libs;
     if (global.params.symdebug)
+    {
         libs = global.params.debuglibnames;
+        llvm::NoFramePointerElim = true;
+    }
     else
         libs = global.params.defaultlibnames;
 
