@@ -17,9 +17,6 @@ namespace opts {
     public:
         template <class Opt>
         void initialize(Opt &O) {
-            assert(!(O.getMiscFlags() & cl::AllowInverse)
-                && "FlagParser doesn't support redundant AllowInverse flag");
-            
             std::string Name = O.ArgStr;
             switches.push_back(make_pair("enable-" + Name, true));
             switches.push_back(make_pair("disable-" + Name, false));
