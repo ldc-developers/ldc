@@ -595,6 +595,23 @@ BIN_ASSIGN(Ushr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static void errorOnIllegalArrayOp(Expression* base, Expression* e1, Expression* e2)
+{
+    Type* t1 = e1->type->toBasetype();
+    Type* t2 = e2->type->toBasetype();
+
+    // valid array ops would have been transformed by optimize
+    if ((t1->ty == Tarray || t1->ty == Tsarray) &&
+        (t2->ty == Tarray || t2->ty == Tsarray)
+       ) 
+    {
+        error("Array operation %s not recognized", base->toChars());
+        fatal();
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* AddExp::toElem(IRState* p)
 {
     Logger::print("AddExp::toElem: %s @ %s\n", toChars(), type->toChars());
@@ -607,6 +624,8 @@ DValue* AddExp::toElem(IRState* p)
     Type* e1type = e1->type->toBasetype();
     Type* e1next = e1type->nextOf() ? e1type->nextOf()->toBasetype() : NULL;
     Type* e2type = e2->type->toBasetype();
+
+    errorOnIllegalArrayOp(this, e1, e2);
 
     if (e1type != e2type) {
         if (e1type->ty == Tpointer) {
@@ -647,6 +666,8 @@ DValue* MinExp::toElem(IRState* p)
     Type* t1 = e1->type->toBasetype();
     Type* t2 = e2->type->toBasetype();
 
+    errorOnIllegalArrayOp(this, e1, e2);
+
     if (t1->ty == Tpointer && t2->ty == Tpointer) {
         LLValue* lv = l->getRVal();
         LLValue* rv = r->getRVal();
@@ -682,6 +703,8 @@ DValue* MulExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
+    errorOnIllegalArrayOp(this, e1, e2);
+
     if (type->iscomplex()) {
         return DtoComplexMul(loc, type, l, r);
     }
@@ -699,6 +722,8 @@ DValue* DivExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
+    errorOnIllegalArrayOp(this, e1, e2);
+
     if (type->iscomplex()) {
         return DtoComplexDiv(loc, type, l, r);
     }
@@ -715,6 +740,8 @@ DValue* ModExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
+
+    errorOnIllegalArrayOp(this, e1, e2);
 
     return DtoBinRem(type, l, r);
 }
@@ -1877,6 +1904,7 @@ DValue* X##Exp::toElem(IRState* p) \
     LOG_SCOPE; \
     DValue* u = e1->toElem(p); \
     DValue* v = e2->toElem(p); \
+    errorOnIllegalArrayOp(this, e1, e2); \
     LLValue* x = llvm::BinaryOperator::Create(llvm::Instruction::Y, u->getRVal(), v->getRVal(), "tmp", p->scopebb()); \
     return new DImValue(type, x); \
 }
