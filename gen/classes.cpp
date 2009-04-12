@@ -1331,7 +1331,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     // index vtbl
     funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toChars());
     // load funcptr
-    funcval = DtoLoad(funcval);
+    funcval = DtoAlignedLoad(funcval);
 
     if (Logger::enabled())
         Logger::cout() << "funcval: " << *funcval << '\n';

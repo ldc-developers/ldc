@@ -426,7 +426,7 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes)
+void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
 {
     dst = DtoBitCast(dst,getVoidPtrType());
     src = DtoBitCast(src,getVoidPtrType());
@@ -435,7 +435,7 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes)
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
         llvm::Intrinsic::memcpy, &intTy, 1);
 
-    gIR->ir->CreateCall4(fn, dst, src, nbytes, DtoConstUint(0), "");
+    gIR->ir->CreateCall4(fn, dst, src, nbytes, DtoConstUint(align), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -573,10 +573,19 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 {
 //     if (Logger::enabled())
 //         Logger::cout() << "loading " << *src <<  '\n';
-    LLValue* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
     //ld->setVolatile(gIR->func()->inVolatile);
     return ld;
 }
+
+// Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for the type.
+LLValue* DtoAlignedLoad(LLValue* src, const char* name)
+{
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
+    ld->setAlignment(getABITypeAlign(ld->getType()));
+    return ld;
+}
+
 
 void DtoStore(LLValue* src, LLValue* dst)
 {
@@ -584,6 +593,13 @@ void DtoStore(LLValue* src, LLValue* dst)
 //         Logger::cout() << "storing " << *src << " into " << *dst << '\n';
     LLValue* st = gIR->ir->CreateStore(src,dst);
     //st->setVolatile(gIR->func()->inVolatile);
+}
+
+// Like DtoStore, but the pointer is guaranteed to be aligned appropriately for the type.
+void DtoAlignedStore(LLValue* src, LLValue* dst)
+{
+    llvm::StoreInst* st = gIR->ir->CreateStore(src,dst);
+    st->setAlignment(getABITypeAlign(src->getType()));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

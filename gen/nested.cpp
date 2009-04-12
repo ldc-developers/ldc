@@ -96,7 +96,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
     if (nestedCtx == NCArray) {
         LLValue* val = DtoBitCast(ctx, getPtrToType(getVoidPtrType()));
         val = DtoGEPi1(val, vd->ir.irLocal->nestedIndex);
-        val = DtoLoad(val);
+        val = DtoAlignedLoad(val);
         assert(vd->ir.irLocal->value);
         val = DtoBitCast(val, vd->ir.irLocal->value->getType(), vd->toChars());
         return new DVarValue(astype, vd, val);
@@ -107,10 +107,10 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
         
         LLValue* val = DtoBitCast(ctx, LLPointerType::getUnqual(parentfunc->ir.irFunc->framesType));
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedDepth);
-        val = DtoLoad(val, (std::string(".frame.") + parentfunc->toChars()).c_str());
+        val = DtoAlignedLoad(val, (std::string(".frame.") + parentfunc->toChars()).c_str());
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
         if (vd->ir.irLocal->byref)
-            val = DtoLoad(val);
+            val = DtoAlignedLoad(val);
         return new DVarValue(astype, vd, val);
     }
     else {
@@ -137,7 +137,7 @@ void DtoNestedInit(VarDeclaration* vd)
         assert(isaPointer(vd->ir.irLocal->value));
         LLValue* val = DtoBitCast(vd->ir.irLocal->value, getVoidPtrType());
         
-        DtoStore(val, gep);
+        DtoAlignedStore(val, gep);
     }
     else if (nestedCtx == NCHybrid) {
         assert(vd->ir.irLocal->value && "Nested variable without storage?");
@@ -147,10 +147,10 @@ void DtoNestedInit(VarDeclaration* vd)
             
             FuncDeclaration *parentfunc = getParentFunc(vd);
             assert(parentfunc && "No parent function for nested variable?");
-            LLValue* frame = DtoLoad(framep, (std::string(".frame.") + parentfunc->toChars()).c_str());
+            LLValue* frame = DtoAlignedLoad(framep, (std::string(".frame.") + parentfunc->toChars()).c_str());
             
             LLValue* slot = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex);
-            DtoStore(vd->ir.irLocal->value, slot);
+            DtoAlignedStore(vd->ir.irLocal->value, slot);
         } else {
             // Already initialized in DtoCreateNestedContext
         }
@@ -248,7 +248,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     assert(cd->vthis);
                     src = DtoLoad(DtoGEPi(thisval, 0,cd->vthis->ir.irField->index, ".vthis"));
                 }
-                DtoMemCpy(nestedVars, src, DtoConstSize_t(nparelems*PTRSIZE));
+                DtoMemCpy(nestedVars, src, DtoConstSize_t(nparelems*PTRSIZE),
+                    getABITypeAlign(getVoidPtrType()));
             }
             
             // store in IrFunction
@@ -267,7 +268,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     Logger::println("nested param: %s", vd->toChars());
                     LLValue* gep = DtoGEPi(nestedVars, 0, idx);
                     LLValue* val = DtoBitCast(vd->ir.irLocal->value, getVoidPtrType());
-                    DtoStore(val, gep);
+                    DtoAlignedStore(val, gep);
                 }
                 else
                 {
@@ -367,13 +368,14 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 }
                 src = DtoBitCast(src, getVoidPtrType());
                 LLValue* dst = DtoBitCast(nestedVars, getVoidPtrType());
-                DtoMemCpy(dst, src, DtoConstSize_t(depth * PTRSIZE));
+                DtoMemCpy(dst, src, DtoConstSize_t(depth * PTRSIZE),
+                    getABITypeAlign(getVoidPtrType()));
             }
             
             // Create frame for current function and append to frames list
             LLValue* frame = DtoAlloca(frameType, ".frame");
             // store current frame in list
-            DtoStore(frame, DtoGEPi(nestedVars, 0, depth));
+            DtoAlignedStore(frame, DtoGEPi(nestedVars, 0, depth));
             
             // store context in IrFunction
             irfunction->nestedVar = nestedVars;
@@ -386,7 +388,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
                 if (vd->isParameter()) {
                     Logger::println("nested param: %s", vd->toChars());
-                    DtoStore(vd->ir.irLocal->value, gep);
+                    DtoAlignedStore(vd->ir.irLocal->value, gep);
                     vd->ir.irLocal->byref = true;
                 } else if (vd->isRef() || vd->isOut()) {
                     // This slot is initialized in DtoNestedInit, to handle things like byref foreach variables
