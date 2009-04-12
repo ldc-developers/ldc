@@ -21,6 +21,7 @@
 #include "gen/typeinf.h"
 #include "gen/todebug.h"
 #include "gen/cl_options.h"
+#include "gen/nested.h"
 #include "ir/irmodule.h"
 
 #include <stack>
@@ -309,75 +310,6 @@ void DtoLeaveMonitor(LLValue* v)
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorexit");
     v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
     gIR->CreateCallOrInvoke(fn, v);
-}
-
-/****************************************************************************************/
-/*////////////////////////////////////////////////////////////////////////////////////////
-// NESTED VARIABLE HELPERS
-////////////////////////////////////////////////////////////////////////////////////////*/
-
-DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
-{
-    Dsymbol* vdparent = vd->toParent2();
-    assert(vdparent);
-    
-    IrFunction* irfunc = gIR->func();
-    
-    // is the nested variable in this scope?
-    if (vdparent == irfunc->decl)
-    {
-        LLValue* val = vd->ir.getIrValue();
-        return new DVarValue(astype, vd, val);
-    }
-    
-    // get it from the nested context
-    LLValue* ctx = 0;
-    if (irfunc->decl->isMember2())
-    {
-        ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
-        LLValue* val = DtoLoad(irfunc->thisArg);
-        ctx = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
-    }
-    else
-        ctx = irfunc->nestArg;
-    assert(ctx);
-    
-    assert(vd->ir.irLocal);
-    LLValue* val = DtoBitCast(ctx, getPtrToType(getVoidPtrType()));
-    val = DtoGEPi1(val, vd->ir.irLocal->nestedIndex);
-    val = DtoLoad(val);
-    assert(vd->ir.irLocal->value);
-    val = DtoBitCast(val, vd->ir.irLocal->value->getType(), vd->toChars());
-    return new DVarValue(astype, vd, val);
-}
-
-LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
-{
-    Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
-    LOG_SCOPE;
-
-    IrFunction* irfunc = gIR->func();
-
-    // if this func has its own vars that are accessed by nested funcs
-    // use its own context
-    if (irfunc->nestedVar)
-        return irfunc->nestedVar;
-    // otherwise, it may have gotten a context from the caller
-    else if (irfunc->nestArg)
-        return irfunc->nestArg;
-    // or just have a this argument
-    else if (irfunc->thisArg)
-    {
-        ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
-        if (!cd || !cd->vthis)
-            return getNullPtr(getVoidPtrType());
-        LLValue* val = DtoLoad(irfunc->thisArg);
-        return DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
-    }
-    else
-    {
-        return getNullPtr(getVoidPtrType());
-    }
 }
 
 /****************************************************************************************/
@@ -946,22 +878,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
                 
-                // alloca as usual if no value already
-                if (!vd->ir.irLocal->value)
-                {
-                    vd->ir.irLocal->value = DtoAlloca(DtoType(vd->type), vd->toChars());
-                }
-                
-                // store the address into the nested vars array
-                
-                assert(vd->ir.irLocal->nestedIndex >= 0);
-                LLValue* gep = DtoGEPi(gIR->func()->decl->ir.irFunc->nestedVar, 0, vd->ir.irLocal->nestedIndex);
-                
-                assert(isaPointer(vd->ir.irLocal->value));
-                LLValue* val = DtoBitCast(vd->ir.irLocal->value, getVoidPtrType());
-                
-                DtoStore(val, gep);
-                
+                DtoNestedInit(vd);
             }
             // normal stack variable, allocate storage on the stack if it has not already been done
             else if(!vd->ir.irLocal) {
@@ -1110,12 +1027,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         else
             assert(!addr || addr == var->ir.irLocal->value);
 
-        // store the address into the nested vars array
-        assert(var->ir.irLocal->nestedIndex >= 0);
-        LLValue* gep = DtoGEPi(gIR->func()->decl->ir.irFunc->nestedVar, 0, var->ir.irLocal->nestedIndex);
-        assert(isaPointer(var->ir.irLocal->value));
-        LLValue* val = DtoBitCast(var->ir.irLocal->value, getVoidPtrType());
-        DtoStore(val, gep);
+        DtoNestedInit(var);
     }
     // normal local variable
     else

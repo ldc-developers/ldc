@@ -15,6 +15,7 @@
 #include "gen/functions.h"
 #include "gen/runtime.h"
 #include "gen/dvalue.h"
+#include "gen/nested.h"
 
 #include "ir/irstruct.h"
 

@@ -9,6 +9,7 @@
 #include "gen/dvalue.h"
 #include "gen/functions.h"
 #include "gen/abi.h"
+#include "gen/nested.h"
 
 #include "gen/logger.h"
 

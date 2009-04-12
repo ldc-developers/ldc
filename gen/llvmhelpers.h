@@ -2,7 +2,10 @@
 #define LDC_GEN_LLVMHELPERS_H
 
 #include "gen/llvm.h"
+#include "gen/dvalue.h"
+
 #include "statement.h"
+#include "mtype.h"
 
 // this is used for tracking try-finally, synchronized and volatile scopes
 struct EnclosingHandler
@@ -63,15 +66,6 @@ void DtoLeaveCritical(LLValue* g);
 void DtoEnterMonitor(LLValue* v);
 /// Leaves a monitor lock.
 void DtoLeaveMonitor(LLValue* v);
-
-// nested variable and context helpers
-
-/// Gets the context value for a call to a nested function or newing a nested
-/// class with arbitrary nesting.
-LLValue* DtoNestedContext(Loc loc, Dsymbol* sym);
-
-/// Gets the DValue of a nested variable with arbitrary nesting.
-DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd);
 
 // basic operations
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs);

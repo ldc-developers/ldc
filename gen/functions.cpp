@@ -21,6 +21,7 @@
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 #include "gen/abi.h"
+#include "gen/nested.h"
 
 using namespace llvm::Attribute;
 
@@ -775,99 +776,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         fd->nestedVars.insert(fd->vresult);
     }
 
-    // construct nested variables array
-    if (!fd->nestedVars.empty())
-    {
-        Logger::println("has nested frame");
-        // start with adding all enclosing parent frames until a static parent is reached
-        int nparelems = 0;
-        if (!fd->isStatic())
-        {
-            Dsymbol* par = fd->toParent2();
-            while (par)
-            {
-                if (FuncDeclaration* parfd = par->isFuncDeclaration())
-                {
-                    nparelems += parfd->nestedVars.size();
-                    // stop at first static
-                    if (parfd->isStatic())
-                        break;
-                }
-                else if (ClassDeclaration* parcd = par->isClassDeclaration())
-                {
-                    // nothing needed
-                }
-                else
-                {
-                    break;
-                }
-
-                par = par->toParent2();
-            }
-        }
-        int nelems = fd->nestedVars.size() + nparelems;
-        
-        // make array type for nested vars
-        const LLType* nestedVarsTy = LLArrayType::get(getVoidPtrType(), nelems);
-    
-        // alloca it
-        LLValue* nestedVars = DtoAlloca(nestedVarsTy, ".nested_vars");
-        
-        // copy parent frame into beginning
-        if (nparelems)
-        {
-            LLValue* src = irfunction->nestArg;
-            if (!src)
-            {
-                assert(irfunction->thisArg);
-                assert(fd->isMember2());
-                LLValue* thisval = DtoLoad(irfunction->thisArg);
-                ClassDeclaration* cd = fd->isMember2()->isClassDeclaration();
-                assert(cd);
-                assert(cd->vthis);
-                src = DtoLoad(DtoGEPi(thisval, 0,cd->vthis->ir.irField->index, ".vthis"));
-            }
-            DtoMemCpy(nestedVars, src, DtoConstSize_t(nparelems*PTRSIZE));
-        }
-        
-        // store in IrFunction
-        irfunction->nestedVar = nestedVars;
-        
-        // go through all nested vars and assign indices
-        int idx = nparelems;
-        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i)
-        {
-            VarDeclaration* vd = *i;
-            if (!vd->ir.irLocal)
-                vd->ir.irLocal = new IrLocal(vd);
-
-            if (vd->isParameter())
-            {
-                Logger::println("nested param: %s", vd->toChars());
-                LLValue* gep = DtoGEPi(nestedVars, 0, idx);
-                LLValue* val = DtoBitCast(vd->ir.irLocal->value, getVoidPtrType());
-                DtoStore(val, gep);
-            }
-            else
-            {
-                Logger::println("nested var:   %s", vd->toChars());
-            }
-
-            vd->ir.irLocal->nestedIndex = idx++;
-        }
-
-        // fixup nested result variable
-    #if DMDV2
-        if (fd->vresult && fd->vresult->nestedrefs.dim) {
-    #else
-        if (fd->vresult && fd->vresult->nestedref) {
-    #endif
-            Logger::println("nested vresult value: %s", fd->vresult->toChars());
-            LLValue* gep = DtoGEPi(nestedVars, 0, fd->vresult->ir.irLocal->nestedIndex);
-            LLValue* val = DtoBitCast(fd->vresult->ir.irLocal->value, getVoidPtrType());
-            DtoStore(val, gep);
-        }
-    }
+    DtoCreateNestedContext(fd);
 
     // copy _argptr and _arguments to a memory location
     if (f->linkage == LINKd && f->varargs == 1)
