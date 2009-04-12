@@ -36,13 +36,15 @@ int main(char[][] args)
 
     static int classify(char[] name)
     {
-        if (Util.containsPattern(name, "compile_"))
+        char[] tail;
+        char[] desc = Util.head(name, "_", tail);
+        if ("compile" == desc)
             return COMPILE;
-        else if (Util.containsPattern(name, "nocompile_"))
+        else if ("nocompile" == desc)
             return NOCOMPILE;
-        else if (Util.containsPattern(name, "run_"))
+        else if ("run" == desc)
             return RUN;
-        else if (Util.containsPattern(name, "norun_"))
+        else if ("norun" == desc)
             return NORUN;
         return RUN;
     }
@@ -53,7 +55,7 @@ int main(char[][] args)
         auto testname = Path.parse(c.name).name;
         Stdout.formatln("TEST NAME: {}", testname);
 
-        char[] cmd = Format.convert("ldc {} -quiet -L-s -ofobj/{} -odobj", c, testname);
+        char[] cmd = Format.convert("ldc {} -quiet -L-s -ofobj/{}", c, testname);
         foreach(v; args[1..$]) {
             cmd ~= ' ';
             cmd ~= v;
