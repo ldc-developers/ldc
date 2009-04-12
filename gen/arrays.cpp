@@ -894,52 +894,6 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         const LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
         const LLType* ety = DtoTypeNotVoid(fromtype->nextOf());
 
-        if (DSliceValue* usl = u->isSlice()) {
-            if (Logger::enabled())
-            {
-                Logger::println("from slice");
-                Logger::cout() << "from: " << *usl->ptr << " to: " << *ptrty << '\n';
-            }
-            rval = DtoBitCast(usl->ptr, ptrty);
-            if (fromtype->nextOf()->size() == totype->nextOf()->size())
-                rval2 = DtoArrayLen(usl);
-            else
-                rval2 = DtoArrayCastLength(DtoArrayLen(usl), ety, ptrty->getContainedType(0));
-        }
-        else {
-            if (fromtype->ty == Tsarray) {
-                LLValue* uval = u->getRVal();
-
-                if (Logger::enabled())
-                    Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
-
-                assert(isaPointer(uval->getType()));
-                const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
-
-                if(arrty->getNumElements()*fromtype->nextOf()->size() % totype->nextOf()->size() != 0)
-                {
-                    error(loc, "invalid cast from '%s' to '%s', the element sizes don't line up", fromtype->toChars(), totype->toChars());
-                    fatal();
-                }
-
-                rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
-                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
-                rval = DtoBitCast(uval, ptrty);
-            }
-            else {
-                rval2 = DtoArrayLen(u);
-                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
-
-                rval = DtoArrayPtr(u);
-                rval = DtoBitCast(rval, ptrty);
-            }
-        }
-        isslice = true;
-    }
-    else if (totype->ty == Tsarray) {
-        if (Logger::enabled())
-            Logger::cout() << "to sarray" << '\n';
-        
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();
 
@@ -955,10 +909,52 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 fatal();
             }
 
+            rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+            if (fromtype->nextOf()->size() != totype->nextOf()->size())
+                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+            rval = DtoBitCast(uval, ptrty);
+        }
+        else {
+            rval2 = DtoArrayLen(u);
+            if (fromtype->nextOf()->size() != totype->nextOf()->size())
+                rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
+
+            rval = DtoArrayPtr(u);
+            rval = DtoBitCast(rval, ptrty);
+        }
+        isslice = true;
+    }
+    else if (totype->ty == Tsarray) {
+        if (Logger::enabled())
+            Logger::cout() << "to sarray" << '\n';
+        
+        size_t tosize = ((TypeSArray*)totype)->dim->toInteger();
+
+        if (fromtype->ty == Tsarray) {
+            LLValue* uval = u->getRVal();
+
+            if (Logger::enabled())
+                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+
+            assert(isaPointer(uval->getType()));
+            const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+
+            /*if(arrty->getNumElements()*fromtype->nextOf()->size() != tosize*totype->nextOf()->size())
+            {
+                error(loc, "invalid cast from '%s' to '%s', the sizes are not the same", fromtype->toChars(), totype->toChars());
+                fatal();
+            }*/
+
             rval = DtoBitCast(uval, getPtrToType(tolltype));
         }
-        else
-            assert(0 && "Cast to static array not implemented!");
+        else {
+            size_t i = (tosize * totype->nextOf()->size() - 1) / fromtype->nextOf()->size();
+            DConstValue index(Type::tsize_t, DtoConstSize_t(i));
+            DtoArrayBoundsCheck(loc, u, &index, false);
+            
+            rval = DtoArrayPtr(u);
+            rval = DtoBitCast(rval, getPtrToType(tolltype));            
+        }
     }
     else if (totype->ty == Tbool) {
         // return (arr.ptr !is null)
