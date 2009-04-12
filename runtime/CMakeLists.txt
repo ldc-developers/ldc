@@ -2,11 +2,6 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.6)
 
-find_program(GCC_EXE gcc DOC "path to gcc binary")
-if(NOT GCC_EXE)
-	message(STATUS "gcc needs to be on your path to build the runtime")
-endif(NOT GCC_EXE)
-
 option(BUILD_SHARED_LIBS "build the runtime as shared libraries (linux only)")
 option(BUILD_BC_LIBS "build the runtime as bytecode libraries")
 option(BUILD_SINGLE_LIB "build single runtime library" ON)
