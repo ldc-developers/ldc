@@ -111,6 +111,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     nestArg = NULL;
 
     nestedVar = NULL;
+    framesType = NULL;
     
     _arguments = NULL;
     _argptr = NULL;

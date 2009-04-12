@@ -26,6 +26,8 @@ struct IrLocal : IrVar
 {
     IrLocal(VarDeclaration* v);
 
+    bool byref;         // Not used for -nested-ctx=array
+    int nestedDepth;    // ditto
     int nestedIndex;
 };
 

@@ -673,13 +673,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // debug info - after all allocas, but before any llvm.dbg.declare etc
     if (global.params.symdebug) DtoDwarfFuncStart(fd);
 
-    // need result variable?
-    if (fd->vresult) {
-        Logger::println("vresult value");
-        fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-        fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type), "function_vresult");
-    }
-    
     // this hack makes sure the frame pointer elimination optimization is disabled.
     // this this eliminates a bunch of inline asm related issues.
     if (fd->inlineAsm)
@@ -778,6 +771,18 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     DtoCreateNestedContext(fd);
 
+#if DMDV2
+    if (fd->vresult && fd->vresult->nestedrefs.dim)
+#else
+    if (fd->vresult && fd->vresult->nestedref)
+#endif
+    {
+        DtoNestedInit(fd->vresult);
+    } else if (fd->vresult) {
+        fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
+        fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type), fd->vresult->toChars());
+    }
+    
     // copy _argptr and _arguments to a memory location
     if (f->linkage == LINKd && f->varargs == 1)
     {
