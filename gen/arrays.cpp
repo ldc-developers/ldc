@@ -939,7 +939,26 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
     else if (totype->ty == Tsarray) {
         if (Logger::enabled())
             Logger::cout() << "to sarray" << '\n';
-        assert(0);
+        
+        if (fromtype->ty == Tsarray) {
+            LLValue* uval = u->getRVal();
+
+            if (Logger::enabled())
+                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+
+            assert(isaPointer(uval->getType()));
+            const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+
+            if(arrty->getNumElements()*fromtype->nextOf()->size() % totype->nextOf()->size() != 0)
+            {
+                error(loc, "invalid cast from '%s' to '%s', the element sizes don't line up", fromtype->toChars(), totype->toChars());
+                fatal();
+            }
+
+            rval = DtoBitCast(uval, getPtrToType(tolltype));
+        }
+        else
+            assert(0 && "Cast to static array not implemented!");
     }
     else if (totype->ty == Tbool) {
         // return (arr.ptr !is null)
