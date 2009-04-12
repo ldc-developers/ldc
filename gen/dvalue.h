@@ -38,8 +38,8 @@ struct DValue : Object
 
     Type*& getType() { assert(type); return type; }
 
-    virtual LLValue* getLVal() { assert(0); return 0; }
-    virtual LLValue* getRVal() { assert(0); return 0; }
+    virtual llvm::Value* getLVal() { assert(0); return 0; }
+    virtual llvm::Value* getRVal() { assert(0); return 0; }
 
     virtual bool isLVal() { return false; }
 
@@ -60,11 +60,11 @@ protected:
 // immediate d-value
 struct DImValue : DValue
 {
-    LLValue* val;
+    llvm::Value* val;
 
-    DImValue(Type* t, LLValue* v) : DValue(t), val(v) { }
+    DImValue(Type* t, llvm::Value* v) : DValue(t), val(v) { }
 
-    virtual LLValue* getRVal() { assert(val); return val; }
+    virtual llvm::Value* getRVal() { assert(val); return val; }
 
     virtual DImValue* isIm() { return this; }
 };
@@ -72,11 +72,11 @@ struct DImValue : DValue
 // constant d-value
 struct DConstValue : DValue
 {
-    LLConstant* c;
+    llvm::Constant* c;
 
-    DConstValue(Type* t, LLConstant* con) : DValue(t), c(con) {}
+    DConstValue(Type* t, llvm::Constant* con) : DValue(t), c(con) {}
 
-    virtual LLValue* getRVal();
+    virtual llvm::Value* getRVal();
 
     virtual DConstValue* isConst() { return this; }
 };
@@ -84,7 +84,7 @@ struct DConstValue : DValue
 // null d-value
 struct DNullValue : DConstValue
 {
-    DNullValue(Type* t, LLConstant* con) : DConstValue(t,con) {}
+    DNullValue(Type* t, llvm::Constant* con) : DConstValue(t,con) {}
     virtual DNullValue* isNull() { return this; }
 };
 
@@ -92,14 +92,14 @@ struct DNullValue : DConstValue
 struct DVarValue : DValue
 {
     VarDeclaration* var;
-    LLValue* val;
+    llvm::Value* val;
 
-    DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue);
-    DVarValue(Type* t, LLValue* llvmValue);
+    DVarValue(Type* t, VarDeclaration* vd, llvm::Value* llvmValue);
+    DVarValue(Type* t, llvm::Value* llvmValue);
 
     virtual bool isLVal() { return true; }
-    virtual LLValue* getLVal();
-    virtual LLValue* getRVal();
+    virtual llvm::Value* getLVal();
+    virtual llvm::Value* getRVal();
 
     virtual DVarValue* isVar() { return this; }
 };
@@ -107,19 +107,19 @@ struct DVarValue : DValue
 // field d-value
 struct DFieldValue : DVarValue
 {
-    DFieldValue(Type* t, LLValue* llvmValue) : DVarValue(t, llvmValue) {}
+    DFieldValue(Type* t, llvm::Value* llvmValue) : DVarValue(t, llvmValue) {}
     virtual DFieldValue* isField() { return this; }
 };
 
 // slice d-value
 struct DSliceValue : DValue
 {
-    LLValue* len;
-    LLValue* ptr;
+    llvm::Value* len;
+    llvm::Value* ptr;
 
-    DSliceValue(Type* t, LLValue* l, LLValue* p) : DValue(t), len(l), ptr(p) {}
+    DSliceValue(Type* t, llvm::Value* l, llvm::Value* p) : DValue(t), len(l), ptr(p) {}
 
-    virtual LLValue* getRVal();
+    virtual llvm::Value* getRVal();
 
     virtual DSliceValue* isSlice() { return this; }
 };
@@ -128,12 +128,12 @@ struct DSliceValue : DValue
 struct DFuncValue : DValue
 {
     FuncDeclaration* func;
-    LLValue* val;
-    LLValue* vthis;
+    llvm::Value* val;
+    llvm::Value* vthis;
 
-    DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt = 0);
+    DFuncValue(FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt = 0);
 
-    virtual LLValue* getRVal();
+    virtual llvm::Value* getRVal();
 
     virtual DFuncValue* isFunc() { return this; }
 };

@@ -36,6 +36,7 @@
 #include "gen/aa.h"
 #include "gen/functions.h"
 #include "gen/todebug.h"
+#include "gen/nested.h"
 
 #include "llvm/Support/ManagedStatic.h"
 

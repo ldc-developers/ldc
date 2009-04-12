@@ -15,6 +15,7 @@
 #include "gen/functions.h"
 #include "gen/runtime.h"
 #include "gen/dvalue.h"
+#include "gen/nested.h"
 
 #include "ir/irstruct.h"
 
@@ -1330,7 +1331,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     // index vtbl
     funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toChars());
     // load funcptr
-    funcval = DtoLoad(funcval);
+    funcval = DtoAlignedLoad(funcval);
 
     if (Logger::enabled())
         Logger::cout() << "funcval: " << *funcval << '\n';

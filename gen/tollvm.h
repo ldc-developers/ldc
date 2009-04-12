@@ -63,7 +63,9 @@ LLConstant* DtoConstBool(bool);
 
 // llvm wrappers
 LLValue* DtoLoad(LLValue* src, const char* name=0);
+LLValue* DtoAlignedLoad(LLValue* src, const char* name=0);
 void DtoStore(LLValue* src, LLValue* dst);
+void DtoAlignedStore(LLValue* src, LLValue* dst);
 LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
 LLConstant* DtoBitCast(LLConstant* v, const LLType* t);
 
@@ -117,8 +119,9 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes);
  * @param dst Destination memory.
  * @param src Source memory.
  * @param nbytes Number of bytes to copy.
+ * @param align The minimum alignment of the source and destination memory.
  */
-void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes);
+void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align = 0);
 
 /**
  * Generates a call to C memcmp.
