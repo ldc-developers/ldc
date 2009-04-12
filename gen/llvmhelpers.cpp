@@ -1,3 +1,4 @@
+#include "gen/llvmhelpers.h"
 #include "gen/llvm.h"
 #include "llvm/Target/TargetMachineRegistry.h"
 
@@ -9,7 +10,6 @@
 #include "module.h"
 
 #include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/runtime.h"
 #include "gen/logger.h"
