@@ -1,31 +1,25 @@
 extern(C) int printf(char*, ...);
 
+version (D_InlineAsm_X86)
+    version = InlineAsm_X86_Any;
+version (D_InlineAsm_X86_64)
+    version = InlineAsm_X86_Any;
+
 void main()
 {
     int a,b,c;
     a = int.max-1;
     b = 5;
-    version (D_InlineAsm_X86)
+    version (InlineAsm_X86_Any)
     {
-	asm
-    	{
-		mov EAX, a;
-        	mov ECX, b;
-        	add EAX, ECX;
-        	jo Loverflow;
-        	mov c, EAX;
-    	}
-    }
-    else version (D_InlineAsm_X86_64)
-    {
-	asm
-	{
-		movq RDX, a;
-        	movq RAX, b;
-        	add RDX, RAX;
-        	jo Loverflow;
-        	movq c, RDX;
-	}
+        asm
+        {
+            mov EAX, a;
+            mov ECX, b;
+            add EAX, ECX;
+            jo Loverflow;
+            mov c, EAX;
+        }
     }
     printf("a == %d\n", a);
     printf("b == %d\n", b);

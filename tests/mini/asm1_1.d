@@ -9,25 +9,25 @@ int main()
     printf("%d\n", i);
     version (D_InlineAsm_X86)
     {
-	asm
-    	{
-		mov EBX, ip;
-        	mov EAX, [EBX];
-        	add EAX, 8;
-        	mul EAX, EAX;
-        	mov [EBX], EAX;
-    	}
+        asm
+        {
+            mov ECX, ip;
+            mov EAX, [ECX];
+            add EAX, 8;
+            mul EAX, EAX;
+            mov [ECX], EAX;
+        }
     }
     else version (D_InlineAsm_X86_64)
     {
-	asm
-	{ 
-		movq RCX, ip;
-		movq RAX, [RCX];
-		add RAX, 8;
-		imul RAX, RAX;
-		movq [RCX], RAX;
-	}
+        asm
+        { 
+            movq RCX, ip;
+            mov EAX, [RCX];
+            add EAX, 8;
+            imul EAX, EAX;
+            mov [RCX], EAX;
+        }
     }
     printf("%d\n", i);
     assert(i == 400);
