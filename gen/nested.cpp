@@ -50,6 +50,8 @@ static cl::opt<NestedCtxType> nestedCtx("nested-ctx",
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 static FuncDeclaration* getParentFunc(Dsymbol* sym) {
+    if (!sym)
+        return NULL;
     Dsymbol* parent = sym->parent;
     assert(parent);
     while (parent && !parent->isFuncDeclaration())
@@ -178,27 +180,54 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     LOG_SCOPE;
 
     IrFunction* irfunc = gIR->func();
+    bool fromParent = true;
 
+    LLValue* val;
     // if this func has its own vars that are accessed by nested funcs
     // use its own context
-    if (irfunc->nestedVar)
-        return irfunc->nestedVar;
+    if (irfunc->nestedVar) {
+        val = irfunc->nestedVar;
+        fromParent = false;
+    }
     // otherwise, it may have gotten a context from the caller
     else if (irfunc->nestArg)
-        return irfunc->nestArg;
+        val = irfunc->nestArg;
     // or just have a this argument
     else if (irfunc->thisArg)
     {
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
         if (!cd || !cd->vthis)
             return getNullPtr(getVoidPtrType());
-        LLValue* val = DtoLoad(irfunc->thisArg);
-        return DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
+        val = DtoLoad(irfunc->thisArg);
+        val = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
     else
     {
         return getNullPtr(getVoidPtrType());
     }
+    if (nestedCtx == NCHybrid) {
+        // If sym is a nested function, and its parent elided the context list but the
+        // context we got didn't, we need to index to the first frame.
+        if (FuncDeclaration* fd = getParentFunc(sym->isFuncDeclaration())) {
+            Logger::println("For nested function, parent is %s", fd->toChars());
+            FuncDeclaration* ctxfd = irfunc->decl;
+            Logger::println("Current function is %s", ctxfd->toChars());
+            if (fromParent) {
+                ctxfd = getParentFunc(ctxfd);
+                assert(ctxfd && "Context from outer function, but no outer function?");
+            }
+            Logger::println("Context is from %s", ctxfd->toChars());
+            if (fd->ir.irFunc->elidedCtxList && !ctxfd->ir.irFunc->elidedCtxList) {
+                Logger::println("Adjusting to remove context frame list", ctxfd->toChars());
+                val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->framesType));
+                val = DtoGEPi(val, 0, 0);
+                val = DtoAlignedLoad(val, (std::string(".frame.") + fd->toChars()).c_str());
+            }
+        }
+    }
+    Logger::cout() << "result = " << *val << '\n';
+    Logger::cout() << "of type " << *val->getType() << '\n';
+    return val;
 }
 
 void DtoCreateNestedContext(FuncDeclaration* fd) {

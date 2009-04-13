@@ -452,6 +452,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                 if (Logger::enabled())
                 {
                     Logger::cout() << "arg:     " << *arg << '\n';
+                    Logger::cout() << "of type: " << *arg->getType() << '\n';
                     Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
                 }
             #endif
