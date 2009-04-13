@@ -46,6 +46,7 @@ struct IrFunction : IrBase
     
     llvm::Value* nestedVar; // nested var alloca
     const llvm::StructType* framesType; // type of nested context (not for -nested-ctx=array)
+    bool elidedCtxList; // whether the nested context is a raw frame instead of a list of frames (-nested-ctx=hybrid only)
     
     llvm::Value* _arguments;
     llvm::Value* _argptr;

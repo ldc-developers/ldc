@@ -109,6 +109,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     retArg = NULL;
     thisArg = NULL;
     nestArg = NULL;
+    elidedCtxList = false;
 
     nestedVar = NULL;
     framesType = NULL;
