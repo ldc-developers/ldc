@@ -272,9 +272,6 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         // template
         if (needsTemplateLinkage(sym))
             return TEMPLATE_LINKAGE_TYPE;
-        // local static
-        else if (sym->parent && sym->parent->isFuncDeclaration())
-            return llvm::GlobalValue::InternalLinkage;
     }
     // function
     else if (FuncDeclaration* fdecl = sym->isFuncDeclaration())
@@ -311,7 +308,25 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     {
         assert(0 && "not global/function");
     }
-
+    
+    // Any symbol nested in a function can't be referenced directly from
+    // outside that function, so we can give such symbols internal linkage.
+    // This holds even if nested indirectly, such as member functions of
+    // aggregates nested in functions.
+    //
+    // Note: This must be checked after things like template member-ness or
+    // symbols nested in templates would get duplicated for each module,
+    // breaking things like
+    // ---
+    // int counter(T)() { static int i; return i++; }"
+    // ---
+    // if instances get emitted in multiple object files because they'd use
+    // different instances of 'i'.
+    for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent) {
+        if (parent->isFuncDeclaration())
+            return llvm::GlobalValue::InternalLinkage;
+    }
+    
     // default to external linkage
     return llvm::GlobalValue::ExternalLinkage;
 }
