@@ -45,8 +45,8 @@ struct IrFunction : IrBase
     llvm::Value* nestArg; // nested function 'this' arg
     
     llvm::Value* nestedVar; // nested var alloca
-    const llvm::StructType* framesType; // type of nested context (not for -nested-ctx=array)
-    bool elidedCtxList; // whether the nested context is a raw frame instead of a list of frames (-nested-ctx=hybrid only)
+    const llvm::StructType* frameType; // type of nested context (not for -nested-ctx=array)
+    unsigned depth; // number of enclosing functions with variables accessed by nested functions
     
     llvm::Value* _arguments;
     llvm::Value* _argptr;

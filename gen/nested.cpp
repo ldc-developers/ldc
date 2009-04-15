@@ -25,11 +25,12 @@ enum NestedCtxType {
     // NOTE: This is what DMD seems to do.
     NCStruct,
     
-    /// Context is a list of pointers to structs. Each function with variables
-    /// accessed by nested functions puts them in a struct, and appends a
-    /// pointer to that struct to it's local copy of the list.
-    /// As an additional optimization, if the list has length one it's not
-    /// generated; the only element is used directly instead.
+    /// Context is a list of pointers to structs of variables, followed by the
+    /// variables of the inner-most function with variables accessed by nested
+    /// functions. The initial pointers point to similar structs for enclosing
+    /// functions.
+    /// Only functions whose variables are accessed by nested functions create
+    /// new frames, others just pass on what got passed in.
     NCHybrid
 };
 
@@ -49,13 +50,19 @@ static cl::opt<NestedCtxType> nestedCtx("nested-ctx",
 // NESTED VARIABLE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-static FuncDeclaration* getParentFunc(Dsymbol* sym) {
+static FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
     if (!sym)
         return NULL;
     Dsymbol* parent = sym->parent;
     assert(parent);
-    while (parent && !parent->isFuncDeclaration())
+    while (parent && !parent->isFuncDeclaration()) {
+        if (stopOnStatic) {
+            Declaration* decl = sym->isDeclaration();
+            if (decl && decl->isStatic())
+                return NULL;
+        }
         parent = parent->parent;
+    }
     
     return (parent ? parent->isFuncDeclaration() : NULL);
 }
@@ -88,6 +95,8 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
         LLValue* val = DtoLoad(irfunc->thisArg);
         ctx = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
+    else if (irfunc->nestedVar)
+        ctx = irfunc->nestedVar;
     else
         ctx = irfunc->nestArg;
     assert(ctx);
@@ -106,20 +115,39 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
         return new DVarValue(astype, vd, val);
     }
     else if (nestedCtx == NCHybrid) {
-        FuncDeclaration* parentfunc  = getParentFunc(irfunc->decl);
-        assert(parentfunc && "No parent function for nested function?");
-        Logger::println("Parent function: %s", parentfunc->toChars());
-        
-        LLValue* val = DtoBitCast(ctx, LLPointerType::getUnqual(parentfunc->ir.irFunc->framesType));
+        LLValue* val = DtoBitCast(ctx, LLPointerType::getUnqual(irfunc->frameType));
         Logger::cout() << "Context: " << *val << '\n';
+        Logger::cout() << "of type: " << *val->getType() << '\n';
         
-        if (!parentfunc->ir.irFunc->elidedCtxList) {
+        unsigned vardepth = vd->ir.irLocal->nestedDepth;
+        unsigned funcdepth = irfunc->depth;
+        
+        Logger::cout() << "Variable: " << vd->toChars() << '\n';
+        Logger::cout() << "Variable depth: " << vardepth << '\n';
+        Logger::cout() << "Function: " << irfunc->decl->toChars() << '\n';
+        Logger::cout() << "Function depth: " << funcdepth << '\n';
+        
+        if (vardepth == funcdepth) {
+            // This is not always handled above because functions without
+            // variables accessed by nested functions don't create new frames.
+            Logger::println("Same depth");
+        } else {
+            // Load frame pointer and index that...
+            Logger::println("Lower depth");
             val = DtoGEPi(val, 0, vd->ir.irLocal->nestedDepth);
+            Logger::cout() << "Frame index: " << *val << '\n';
             val = DtoAlignedLoad(val, (std::string(".frame.") + vdparent->toChars()).c_str());
+            Logger::cout() << "Frame: " << *val << '\n';
         }
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
-        if (vd->ir.irLocal->byref)
+        Logger::cout() << "Addr: " << *val << '\n';
+        Logger::cout() << "of type: " << *val->getType() << '\n';
+        if (vd->ir.irLocal->byref) {
             val = DtoAlignedLoad(val);
+            Logger::cout() << "Was byref, now: " << *val << '\n';
+            Logger::cout() << "of type: " << *val->getType() << '\n';
+        }
+        
         return new DVarValue(astype, vd, val);
     }
     else {
@@ -151,20 +179,23 @@ void DtoNestedInit(VarDeclaration* vd)
     }
     else if (nestedCtx == NCHybrid) {
         assert(vd->ir.irLocal->value && "Nested variable without storage?");
+        
         if (!vd->isParameter() && (vd->isRef() || vd->isOut())) {
-            Logger::println("Initializing non-parameter byref value");
-            LLValue* frame;
-            if (!irfunc->elidedCtxList) {
-                LLValue* framep = DtoGEPi(nestedVar, 0, vd->ir.irLocal->nestedDepth);
-                
-                FuncDeclaration *parentfunc = getParentFunc(vd);
-                assert(parentfunc && "No parent function for nested variable?");
-                frame = DtoAlignedLoad(framep, (std::string(".frame.") + parentfunc->toChars()).c_str());
+            unsigned vardepth = vd->ir.irLocal->nestedDepth;
+            
+            LLValue* val = NULL;
+            // Retrieve frame pointer
+            if (vardepth == irfunc->depth) {
+                val = nestedVar;
             } else {
-                frame = nestedVar;
+                FuncDeclaration *parentfunc = getParentFunc(vd, true);
+                assert(parentfunc && "No parent function for nested variable?");
+                
+                val = DtoGEPi(val, 0, vardepth);
+                val = DtoAlignedLoad(val, (std::string(".frame.") + parentfunc->toChars()).c_str());
             }
-            LLValue* slot = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex);
-            DtoAlignedStore(vd->ir.irLocal->value, slot);
+            val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
+            DtoAlignedStore(vd->ir.irLocal->value, val);
         } else {
             // Already initialized in DtoCreateNestedContext
         }
@@ -206,21 +237,32 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         return getNullPtr(getVoidPtrType());
     }
     if (nestedCtx == NCHybrid) {
-        // If sym is a nested function, and its parent elided the context list but the
-        // context we got didn't, we need to index to the first frame.
-        if (FuncDeclaration* fd = getParentFunc(sym->isFuncDeclaration())) {
+        // If sym is a nested function, and it's parent context is different than the
+        // one we got, adjust it.
+        
+        if (FuncDeclaration* fd = getParentFunc(sym->isFuncDeclaration(), true)) {
             Logger::println("For nested function, parent is %s", fd->toChars());
             FuncDeclaration* ctxfd = irfunc->decl;
             Logger::println("Current function is %s", ctxfd->toChars());
             if (fromParent) {
-                ctxfd = getParentFunc(ctxfd);
+                ctxfd = getParentFunc(ctxfd, true);
                 assert(ctxfd && "Context from outer function, but no outer function?");
             }
             Logger::println("Context is from %s", ctxfd->toChars());
-            if (fd->ir.irFunc->elidedCtxList && !ctxfd->ir.irFunc->elidedCtxList) {
-                Logger::println("Adjusting to remove context frame list", ctxfd->toChars());
-                val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->framesType));
-                val = DtoGEPi(val, 0, 0);
+            
+            unsigned neededDepth = fd->ir.irFunc->depth;
+            unsigned ctxDepth = ctxfd->ir.irFunc->depth;
+            
+            Logger::cout() << "Needed depth: " << neededDepth << '\n';
+            Logger::cout() << "Context depth: " << ctxDepth << '\n';
+            
+            if (neededDepth >= ctxDepth) {
+                assert(neededDepth <= ctxDepth + 1 && "How are we going more than one nesting level up?");
+                // fd needs the same context as we do, so all is well
+                Logger::println("Calling sibling function or directly nested function");
+            } else {
+                val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->frameType));
+                val = DtoGEPi(val, 0, neededDepth);
                 val = DtoAlignedLoad(val, (std::string(".frame.") + fd->toChars()).c_str());
             }
         }
@@ -326,53 +368,51 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         {
             Logger::println("has nested frame");
             // start with adding all enclosing parent frames until a static parent is reached
-            typedef std::vector<const LLType*> TypeVec;
-            TypeVec frametypes;
+            
+            const LLStructType* innerFrameType = NULL;
+            unsigned depth = 0;
             if (!fd->isStatic()) {
-                Dsymbol* par = fd->toParent2();
-                while (par) {
-                    if (FuncDeclaration* parfd = par->isFuncDeclaration()) {
-                        // skip functions without nested parameters
-                        if (!parfd->nestedVars.empty()) {
-                            const LLStructType* parft = parfd->ir.irFunc->framesType;
-                            if (parfd->ir.irFunc->elidedCtxList) {
-                                // This is the outermost function with a nested context.
-                                // Its context is not a list of frames, but just the frame itself.
-                                frametypes.push_back(LLPointerType::getUnqual(parft));
-                            } else {
-                                // Copy the types of parent function frames.
-                                frametypes.insert(frametypes.begin(), parft->element_begin(), parft->element_end());
-                            }
-                            break;  // That's all the info needed.
-                        }
-                    } else if (ClassDeclaration* parcd = par->isClassDeclaration()) {
-                        // skip
-                    } else {
-                        break;
-                    }
-                    par = par->toParent2();
+                if (FuncDeclaration* parfd = getParentFunc(fd, true)) {
+                    innerFrameType = parfd->ir.irFunc->frameType;
+                    if (innerFrameType)
+                        depth = parfd->ir.irFunc->depth + 1;
                 }
             }
-            unsigned depth = frametypes.size();
+            fd->ir.irFunc->depth = depth;
+            
+            Logger::cout() << "Function " << fd->toChars() << " has depth " << depth << '\n';
+            
+            typedef std::vector<const LLType*> TypeVec;
+            TypeVec types;
+            if (depth != 0) {
+                assert(innerFrameType);
+                // Add frame pointer types for all but last frame
+                if (depth > 1) {
+                    for (unsigned i = 0; i < (depth - 1); ++i) {
+                        types.push_back(innerFrameType->getElementType(i));
+                    }
+                }
+                // Add frame pointer type for last frame
+                types.push_back(LLPointerType::getUnqual(innerFrameType));
+            }
             
             if (Logger::enabled()) {
                 Logger::println("Frame types: ");
                 LOG_SCOPE;
-                for (TypeVec::iterator i=frametypes.begin(); i!=frametypes.end(); ++i)
+                for (TypeVec::iterator i = types.begin(); i != types.end(); ++i)
                     Logger::cout() << **i << '\n';
             }
             
-            // Construct a struct for the direct nested variables of this function, and update their indices to match.
+            // Add the direct nested variables of this function, and update their indices to match.
             // TODO: optimize ordering for minimal space usage?
-            TypeVec types;
             for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i)
             {
                 VarDeclaration* vd = *i;
                 if (!vd->ir.irLocal)
                     vd->ir.irLocal = new IrLocal(vd);
                 
-                vd->ir.irLocal->nestedDepth = depth;
                 vd->ir.irLocal->nestedIndex = types.size();
+                vd->ir.irLocal->nestedDepth = depth;
                 if (vd->isParameter()) {
                     // Parameters already have storage associated with them (to handle byref etc.),
                     // so handle specially for now by storing a pointer instead of a value.
@@ -393,43 +433,21 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             
             // Append current frame type to frame type list
             const LLStructType* frameType = LLStructType::get(types);
-            const LLStructType* nestedVarsTy = NULL;
-            if (!frametypes.empty()) {
-                assert(depth > 0);
-                frametypes.push_back(LLPointerType::getUnqual(frameType));
             
-                // make struct type for nested frame list
-                nestedVarsTy = LLStructType::get(frametypes);
-            } else {
-                assert(depth == 0);
-                // For the outer function, just use the frame as the context
-                // instead of alloca'ing a single-element framelist and passing
-                // a pointer to that.
-                nestedVarsTy = frameType;
-                fd->ir.irFunc->elidedCtxList = true;
-            }
-            
-            Logger::cout() << "nestedVarsTy = " << *nestedVarsTy << '\n';
+            Logger::cout() << "frameType = " << *frameType << '\n';
             
             // Store type in IrFunction
             IrFunction* irfunction = fd->ir.irFunc;
-            irfunction->framesType = nestedVarsTy;
-            
-            LLValue* nestedVars = NULL;
+            irfunction->frameType = frameType;
             
             // Create frame for current function and append to frames list
             // FIXME: For D2, this should be a gc_malloc (or similar) call, not alloca
             LLValue* frame = DtoAlloca(frameType, ".frame");
             
             // copy parent frames into beginning
-            if (depth != 0)
-            {
-                // alloca frame list first
-                nestedVars = DtoAlloca(nestedVarsTy, ".frame_list");
-                
+            if (depth != 0) {
                 LLValue* src = irfunction->nestArg;
-                if (!src)
-                {
+                if (!src) {
                     assert(irfunction->thisArg);
                     assert(fd->isMember2());
                     LLValue* thisval = DtoLoad(irfunction->thisArg);
@@ -439,27 +457,20 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     Logger::println("Indexing to 'this'");
                     src = DtoLoad(DtoGEPi(thisval, 0, cd->vthis->ir.irField->index, ".vthis"));
                 }
-                if (depth == 1) {
-                    // Just copy nestArg into framelist; the outer frame is not a list of pointers
-                    // but a direct pointer.
-                    src = DtoBitCast(src, frametypes[0]);
-                    LLValue* gep = DtoGEPi(nestedVars, 0, 0);
-                    DtoAlignedStore(src, gep);
-                } else {
+                if (depth > 1) {
                     src = DtoBitCast(src, getVoidPtrType());
-                    LLValue* dst = DtoBitCast(nestedVars, getVoidPtrType());
-                    DtoMemCpy(dst, src, DtoConstSize_t(depth * PTRSIZE),
+                    LLValue* dst = DtoBitCast(frame, getVoidPtrType());
+                    DtoMemCpy(dst, src, DtoConstSize_t((depth-1) * PTRSIZE),
                         getABITypeAlign(getVoidPtrType()));
                 }
-                // store current frame in list
-                DtoAlignedStore(frame, DtoGEPi(nestedVars, 0, depth));
-            } else {
-                // Use frame as context directly
-                nestedVars = frame;
+                // Copy nestArg into framelist; the outer frame is not in the list of pointers
+                src = DtoBitCast(src, types[depth-1]);
+                LLValue* gep = DtoGEPi(frame, 0, depth-1);
+                DtoAlignedStore(src, gep);
             }
             
             // store context in IrFunction
-            irfunction->nestedVar = nestedVars;
+            irfunction->nestedVar = frame;
             
             // go through all nested vars and assign addresses where possible.
             for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i)
@@ -484,10 +495,10 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     vd->ir.irLocal->byref = false;
                 }
             }
-        } else if (FuncDeclaration* parFunc = getParentFunc(fd)) {
+        } else if (FuncDeclaration* parFunc = getParentFunc(fd, true)) {
             // Propagate context arg properties if the context arg is passed on unmodified.
-            fd->ir.irFunc->framesType = parFunc->ir.irFunc->framesType;
-            fd->ir.irFunc->elidedCtxList = parFunc->ir.irFunc->elidedCtxList;
+            fd->ir.irFunc->frameType = parFunc->ir.irFunc->frameType;
+            fd->ir.irFunc->depth = parFunc->ir.irFunc->depth;
         }
     }
     else {
