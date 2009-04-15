@@ -100,13 +100,17 @@ const LLType* DtoType(Type* t)
     case Tarray:
     {
         t->irtype = new IrTypeArray(t);
-        return t->irtype->get();
+        const LLType* arrty = t->irtype->get();
+        gIR->module->addTypeName(t->toChars(), arrty);
+        return arrty;
     }
 
     case Tsarray:
     {
         t->irtype = new IrTypeSArray(t);
-        return t->irtype->get();
+        const LLType* arrty = t->irtype->get();
+        gIR->module->addTypeName(t->toChars(), arrty);
+        return arrty;
     }
 
     // aggregates
@@ -232,7 +236,9 @@ const LLStructType* DtoDelegateType(Type* t)
     const LLType* i8ptr = getVoidPtrType();
     const LLType* func = DtoFunctionType(t->nextOf(), NULL, Type::tvoid->pointerTo());
     const LLType* funcptr = getPtrToType(func);
-    return LLStructType::get(i8ptr, funcptr, NULL);
+    const LLStructType* dgtype = LLStructType::get(i8ptr, funcptr, NULL);
+    gIR->module->addTypeName(t->toChars(), dgtype);
+    return dgtype;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

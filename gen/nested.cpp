@@ -431,8 +431,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 }
             }
             
-            // Append current frame type to frame type list
             const LLStructType* frameType = LLStructType::get(types);
+            gIR->module->addTypeName(std::string("nest.") + fd->toChars(), frameType);
             
             Logger::cout() << "frameType = " << *frameType << '\n';
             
