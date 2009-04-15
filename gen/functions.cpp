@@ -89,7 +89,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // and nested functions
     else if (nesttype)
     {
-        f->fty.arg_nest = new IrFuncTyArg(nesttype, false, NoAlias | NoCapture);
+        f->fty.arg_nest = new IrFuncTyArg(nesttype, false);
         lidx++;
     }
 

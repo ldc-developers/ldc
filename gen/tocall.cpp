@@ -358,16 +358,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         {
             Attr.Index = retinptr ? 2 : 1;
             Attr.Attrs = tf->fty.arg_nest->attrs;
-            // For delegates, we can't assume 'nest' is noalias and nocapture
-            // (like we can with nested functions) since it might actually be
-            // a 'this', and thus neither attribute generally applies to it.
-            // TODO: don't remove nocapture if it's a "pure" delegate?
-            if (delegatecall) {
-                Attr.Attrs &= ~(llvm::Attribute::NoAlias | llvm::Attribute::NoCapture);
-            }
-            // LLVM doesn't like it when no bits are set...
-            if (Attr.Attrs)
-                attrs.push_back(Attr);
+            attrs.push_back(Attr);
         }
     }
 
