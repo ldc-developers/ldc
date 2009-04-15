@@ -9,10 +9,13 @@
 
 struct Type;
 
+class IrTypeAggr;
 class IrTypeArray;
 class IrTypeBasic;
+class IrTypeClass;
 class IrTypePointer;
 class IrTypeSArray;
+class IrTypeStruct;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -24,19 +27,29 @@ public:
     IrType(Type* dt, const llvm::Type* lt);
 
     ///
-    Type* getD()                    { return dtype; }
-
-    ///
-    const llvm::Type* get()         { return pa.get(); }
-
+    virtual IrTypeAggr* isAggr()        { return NULL; }
     ///
     virtual IrTypeArray* isArray()      { return NULL; }
     ///
     virtual IrTypeBasic* isBasic()      { return NULL; }
     ///
+    virtual IrTypeClass* isClass()      { return NULL; }
+    ///
     virtual IrTypePointer* isPointer()  { return NULL; }
     ///
     virtual IrTypeSArray* isSArray()    { return NULL; }
+    ///
+    virtual IrTypeStruct* isStruct()    { return NULL; }
+
+    ///
+    Type* getD()                        { return dtype; }
+    ///
+    virtual const llvm::Type* get()     { return pa.get(); }
+    ///
+    llvm::PATypeHolder& getPA()         { return pa; }
+
+    ///
+    virtual const llvm::Type* buildType() = 0;
 
 protected:
     ///
@@ -58,6 +71,9 @@ public:
     ///
     IrTypeBasic* isBasic()          { return this; }
 
+    ///
+    const llvm::Type* buildType();
+
 protected:
     ///
     const llvm::Type* basic2llvm(Type* t);
@@ -75,6 +91,9 @@ public:
     ///
     IrTypePointer* isPointer()      { return this; }
 
+    ///
+    const llvm::Type* buildType();
+
 protected:
     ///
     const llvm::Type* pointer2llvm(Type* t);
@@ -91,6 +110,9 @@ public:
 
     ///
     IrTypeSArray* isSArray()  { return this; }
+
+    ///
+    const llvm::Type* buildType();
 
 protected:
     ///
@@ -111,6 +133,9 @@ public:
 
     ///
     IrTypeArray* isArray()  { return this; }
+
+    ///
+    const llvm::Type* buildType();
 
 protected:
     ///

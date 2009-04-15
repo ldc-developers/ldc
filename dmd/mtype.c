@@ -350,14 +350,14 @@ Type *Type::toBasetype()
  * Name mangling.
  */
 
-void Type::toDecoBuffer(OutBuffer *buf)
+void Type::toDecoBuffer(OutBuffer *buf, bool mangle)
 {
     buf->writeByte(mangleChar[ty]);
     if (next)
     {
 	assert(next != this);
 	//printf("this = %p, ty = %d, next = %p, ty = %d\n", this, this->ty, next, next->ty);
-	next->toDecoBuffer(buf);
+	next->toDecoBuffer(buf, mangle);
     }
 }
 
@@ -434,7 +434,7 @@ Type *Type::merge()
 
 	if (next)
 	    next = next->merge();
-	toDecoBuffer(&buf);
+	toDecoBuffer(&buf, false);
 	sv = stringtable.update((char *)buf.data, buf.offset);
 	if (sv->ptrvalue)
 	{   t = (Type *) sv->ptrvalue;
@@ -444,7 +444,11 @@ Type *Type::merge()
 	else
 	{
 	    sv->ptrvalue = this;
-	    deco = sv->lstring.string;
+	    
+	    OutBuffer mangle;
+	    toDecoBuffer(&mangle, true);
+	    mangle.writeByte(0);
+	    deco = mem.strdup((char *)mangle.data);
 	    //printf("new value, deco = '%s' %p\n", t->deco, t->deco);
 	}
     }
@@ -743,7 +747,7 @@ Identifier *Type::getTypeInfoIdent(int internal)
 	    buf.writeByte(mangleChar[((TypeArray *)this)->next->ty]);
     }
     else
-	toDecoBuffer(&buf);
+	toDecoBuffer(&buf, true);
     len = buf.offset;
     name = (char *)alloca(19 + sizeof(len) * 3 + len + 1);
     buf.writeByte(0);
@@ -1933,13 +1937,13 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
     return merge();
 }
 
-void TypeSArray::toDecoBuffer(OutBuffer *buf)
+void TypeSArray::toDecoBuffer(OutBuffer *buf, bool mangle)
 {
     buf->writeByte(mangleChar[ty]);
     if (dim)
 	buf->printf("%ju", dim->toInteger());
     if (next)
-	next->toDecoBuffer(buf);
+	next->toDecoBuffer(buf, mangle);
 }
 
 void TypeSArray::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
@@ -2099,11 +2103,11 @@ Type *TypeDArray::semantic(Loc loc, Scope *sc)
     return merge();
 }
 
-void TypeDArray::toDecoBuffer(OutBuffer *buf)
+void TypeDArray::toDecoBuffer(OutBuffer *buf, bool mangle)
 {
     buf->writeByte(mangleChar[ty]);
     if (next)
-	next->toDecoBuffer(buf);
+	next->toDecoBuffer(buf, mangle);
 }
 
 void TypeDArray::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
@@ -2425,11 +2429,11 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     return e;
 }
 
-void TypeAArray::toDecoBuffer(OutBuffer *buf)
+void TypeAArray::toDecoBuffer(OutBuffer *buf, bool mangle)
 {
     buf->writeByte(mangleChar[ty]);
-    index->toDecoBuffer(buf);
-    next->toDecoBuffer(buf);
+    index->toDecoBuffer(buf, mangle);
+    next->toDecoBuffer(buf, mangle);
 }
 
 void TypeAArray::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
@@ -2651,6 +2655,10 @@ TypeFunction::TypeFunction(Arguments *parameters, Type *treturn, int varargs, en
     this->varargs = varargs;
     this->linkage = linkage;
     this->inuse = 0;
+
+#if IN_LLVM
+    this->funcdecl = NULL;
+#endif
 }
 
 Type *TypeFunction::syntaxCopy()
@@ -2750,7 +2758,7 @@ Lnotcovariant:
     return 2;
 }
 
-void TypeFunction::toDecoBuffer(OutBuffer *buf)
+void TypeFunction::toDecoBuffer(OutBuffer *buf, bool mangle)
 {   unsigned char mc;
 
     //printf("TypeFunction::toDecoBuffer() this = %p %s\n", this, toChars());
@@ -2775,11 +2783,23 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf)
 	    assert(0);
     }
     buf->writeByte(mc);
+
+    // LDC: if we're not producing a mangle string, add the this
+    // type to prevent merging different member function
+    if (!mangle && funcdecl)
+    {
+        if (AggregateDeclaration* ad = funcdecl->isMember())
+        {
+            buf->writeByte('M');
+            ad->type->toDecoBuffer(buf, false);
+        }
+    }
+
     // Write argument types
-    Argument::argsToDecoBuffer(buf, parameters);
+    Argument::argsToDecoBuffer(buf, parameters, mangle);
     //if (buf->data[buf->offset - 1] == '@') halt();
     buf->writeByte('Z' - varargs);	// mark end of arg list
-    next->toDecoBuffer(buf);
+    next->toDecoBuffer(buf, mangle);
     inuse--;
 }
 
@@ -3461,7 +3481,7 @@ Type *TypeIdentifier::syntaxCopy()
     return t;
 }
 
-void TypeIdentifier::toDecoBuffer(OutBuffer *buf)
+void TypeIdentifier::toDecoBuffer(OutBuffer *buf, bool mangle)
 {   unsigned len;
     char *name;
 
@@ -3915,7 +3935,7 @@ Type *TypeEnum::toBasetype()
     return sym->memtype->toBasetype();
 }
 
-void TypeEnum::toDecoBuffer(OutBuffer *buf)
+void TypeEnum::toDecoBuffer(OutBuffer *buf, bool mangle)
 {   char *name;
 
     name = sym->mangle();
@@ -4103,7 +4123,7 @@ Dsymbol *TypeTypedef::toDsymbol(Scope *sc)
     return sym;
 }
 
-void TypeTypedef::toDecoBuffer(OutBuffer *buf)
+void TypeTypedef::toDecoBuffer(OutBuffer *buf, bool mangle)
 {   unsigned len;
     char *name;
 
@@ -4328,7 +4348,7 @@ Dsymbol *TypeStruct::toDsymbol(Scope *sc)
     return sym;
 }
 
-void TypeStruct::toDecoBuffer(OutBuffer *buf)
+void TypeStruct::toDecoBuffer(OutBuffer *buf, bool mangle)
 {   unsigned len;
     char *name;
 
@@ -4621,7 +4641,7 @@ Dsymbol *TypeClass::toDsymbol(Scope *sc)
     return sym;
 }
 
-void TypeClass::toDecoBuffer(OutBuffer *buf)
+void TypeClass::toDecoBuffer(OutBuffer *buf, bool mangle)
 {   unsigned len;
     char *name;
 
@@ -5143,11 +5163,11 @@ void TypeTuple::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
     Argument::argsToCBuffer(buf, hgs, arguments, 0);
 }
 
-void TypeTuple::toDecoBuffer(OutBuffer *buf)
+void TypeTuple::toDecoBuffer(OutBuffer *buf, bool mangle)
 {
     //printf("TypeTuple::toDecoBuffer() this = %p\n", this);
     OutBuffer buf2;
-    Argument::argsToDecoBuffer(&buf2, arguments);
+    Argument::argsToDecoBuffer(&buf2, arguments, mangle);
     unsigned len = buf2.offset;
     buf->printf("%c%d%.*s", mangleChar[ty], len, len, (char *)buf2.extractData());
 }
@@ -5409,7 +5429,7 @@ void Argument::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Arguments *argume
 }
 
 
-void Argument::argsToDecoBuffer(OutBuffer *buf, Arguments *arguments)
+void Argument::argsToDecoBuffer(OutBuffer *buf, Arguments *arguments, bool mangle)
 {
     //printf("Argument::argsToDecoBuffer()\n");
 
@@ -5420,7 +5440,7 @@ void Argument::argsToDecoBuffer(OutBuffer *buf, Arguments *arguments)
 	for (size_t i = 0; i < dim; i++)
 	{
 	    Argument *arg = Argument::getNth(arguments, i);
-	    arg->toDecoBuffer(buf);
+	    arg->toDecoBuffer(buf, mangle);
 	}
     }
 }
@@ -5454,7 +5474,7 @@ Type *Argument::isLazyArray()
     return NULL;
 }
 
-void Argument::toDecoBuffer(OutBuffer *buf)
+void Argument::toDecoBuffer(OutBuffer *buf, bool mangle)
 {
     switch (storageClass & (STCin | STCout | STCref | STClazy))
     {   case 0:
@@ -5475,7 +5495,7 @@ void Argument::toDecoBuffer(OutBuffer *buf)
 #endif
 	    assert(0);
     }
-    type->toDecoBuffer(buf);
+    type->toDecoBuffer(buf, mangle);
 }
 
 /***************************************

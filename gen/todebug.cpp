@@ -13,6 +13,7 @@
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/linkage.h"
+#include "gen/utils.h"
 
 #include "ir/irmodule.h"
 
@@ -288,14 +289,12 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         std::vector<LLConstant*> elems;
         if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
         {
-            std::vector<VarDeclaration*>& arr = ir->varDecls;
-            size_t narr = arr.size();
+            ArrayIter<VarDeclaration> it(sd->fields);
+            size_t narr = sd->fields.dim;
             elems.reserve(narr);
-            for (int k=0; k<narr; k++)
+            for (; !it.done(); it.next())
             {
-                VarDeclaration* vd = arr[k];
-                assert(vd);
-
+                VarDeclaration* vd = it.get();
                 LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset).getGV();
                 elems.push_back(DBG_CAST(ptr));
             }

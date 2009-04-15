@@ -6,178 +6,110 @@
 #include <vector>
 #include <map>
 
-struct IrInterface;
+// DMD forward declarations
+struct StructInitializer;
 
-void addZeros(std::vector<const llvm::Type*>& inits, size_t pos, size_t offset);
-void addZeros(std::vector<llvm::Constant*>& inits, size_t pos, size_t offset);
-void addZeros(std::vector<llvm::Value*>& inits, size_t pos, size_t offset);
-
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
 // represents a struct or class
 // it is used during codegen to hold all the vital info we need
 struct IrStruct : IrBase
 {
-    /////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////
-
-    typedef std::vector<VarDeclaration*> VarDeclVector;
-
-    typedef std::map<ClassDeclaration*, IrInterface*>   InterfaceMap;
-    typedef InterfaceMap::iterator                      InterfaceMapIter;
-
-    typedef std::vector<IrInterface*> InterfaceVector;
-    typedef InterfaceVector::iterator InterfaceVectorIter;
-
-    // vector of LLVM types
-    typedef std::vector<const llvm::Type*> TypeVector;
-
-    /////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////
-
-    // Anon represents an anonymous struct union block inside an aggregate
-    // during LLVM type construction.
-    struct Anon
-    {
-        bool isunion;
-        Anon* parent;
-
-        TypeVector types;
-
-        Anon(bool IsUnion, Anon* par) : isunion(IsUnion), parent(par) {}
-    };
-
-    /////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////
-
-    /// ctor
+    /// Constructor.
     IrStruct(AggregateDeclaration* agg);
 
-    /// dtor
-    virtual ~IrStruct();
+    //////////////////////////////////////////////////////////////////////////
+    // public fields,
+    // FIXME this is basically stuff I just haven't gotten around to yet.
 
-    /////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////
-
-    /// push an anonymous struct/union
-    void pushAnon(bool isunion);
-
-    /// pops an anonymous struct/union
-    void popAnon();
-
-    /// adds field
-    void addVar(VarDeclaration* var);
-
-    /////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////
-
-    /// build the aggr type
-    const LLType* build();
-
-    /// put the aggr initializers in a vector
-    void buildDefaultConstInit(std::vector<llvm::Constant*>& inits);
-
-    /// ditto - but also builds the constant struct, for convenience
-    LLConstant* buildDefaultConstInit();
-
-    /////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////
-
-    // the D aggregate
+    /// The D aggregate.
     AggregateDeclaration* aggrdecl;
 
-    // vector of VarDeclarations in this aggregate
-    VarDeclVector varDecls;
-
-    // vector of VarDeclarations that contribute to the default initializer
-    VarDeclVector defVars;
-
-    // true if the default initializer has been built
-    bool defaultFound;
-
-    // top element
-    Anon* anon;
-
-    // toplevel types in this aggr
-    TypeVector types;
-
-    // current index
-    // always the same as types.size()
-    size_t index; 
-
-    // aggregate D type
+    /// Aggregate D type.
     Type* type;
 
-    // class vtable type
-    llvm::PATypeHolder vtblTy;
-    llvm::PATypeHolder vtblInitTy;
-
-    // initializer type opaque (type of global matches initializer, not formal type)
-    llvm::PATypeHolder initOpaque;
-    llvm::PATypeHolder classInfoOpaque;
-
-    // map/vector of interfaces implemented
-    InterfaceMap interfaceMap;
-    InterfaceVector interfaceVec;
-
-    // interface info array global
-    LLGlobalVariable* interfaceInfos;
-
-    // ...
-    bool defined;
-    bool constinited;
-
-    // vtbl global and initializer
-    LLGlobalVariable* vtbl;
-    LLConstant* constVtbl;
-
-    // static initializers global and constant
-    LLGlobalVariable* init;
-    LLConstant* constInit;
-
-    // classinfo global and initializer constant
-    LLGlobalVariable* classInfo;
-    LLConstant* constClassInfo;
-    bool classInfoDeclared;
-    bool classInfoDefined;
-    // vector of interfaces that should be put in ClassInfo.interfaces
-    InterfaceVector classInfoInterfaces;
-
-    // align(1) struct S { ... }
+    /// true only for: align(1) struct S { ... } 
     bool packed;
 
-    // composite type debug description
+    /// Composite type debug description.
     llvm::DICompositeType diCompositeType;
 
-    std::vector<VarDeclaration*> staticVars;
-    std::vector<FuncDeclaration*> structFuncs;
+    //////////////////////////////////////////////////////////////////////////
+
+    /// Create the __initZ symbol lazily.
+    LLGlobalVariable* getInitSymbol();
+    /// Builds the __initZ initializer constant lazily.
+    LLConstant* getDefaultInit();
+
+    /// Create the __vtblZ symbol lazily.
+    LLGlobalVariable* getVtblSymbol();
+    /// Builds the __vtblZ initializer constant lazily.
+    LLConstant* getVtblInit();
+
+    /// Create the __ClassZ symbol lazily.
+    LLGlobalVariable* getClassInfoSymbol();
+    /// Builds the __ClassZ initializer constant lazily.
+    LLConstant* getClassInfoInit();
+
+    /// Create the __interfaceInfos symbol lazily.
+    LLGlobalVariable* getInterfaceArraySymbol();
+
+    /// Creates a StructInitializer constant.
+    LLConstant* createStructInitializer(StructInitializer* si);
+
+    //////////////////////////////////////////////////////////////////////////
+protected:
+    /// Static default initializer global.
+    llvm::GlobalVariable* init;
+    /// Static default initializer constant.
+    LLConstant* constInit;
+
+    /// Vtbl global.
+    llvm::GlobalVariable* vtbl;
+    /// Vtbl initializer constant.
+    LLConstant* constVtbl;
+
+    /// ClassInfo global.
+    llvm::GlobalVariable* classInfo;
+    /// ClassInfo initializer constant.
+    LLConstant* constClassInfo;
+
+    /// Map for mapping ClassDeclaration* to LLVM GlobalVariable.
+    typedef std::map<ClassDeclaration*, llvm::GlobalVariable*> ClassGlobalMap;
+
+    /// Map from of interface vtbls implemented by this class.
+    ClassGlobalMap interfaceVtblMap;
+
+    /// Interface info array global.
+    /// Basically: static object.Interface[num_interfaces]
+    llvm::GlobalVariable* classInterfacesArray;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    /// Create static default initializer for struct.
+    LLConstant* createStructDefaultInitializer();
+
+    /// Create static default initializer for class.
+    LLConstant* createClassDefaultInitializer();
+
+    /// Returns vtbl for interface implementation, creates it if not already built.
+    llvm::GlobalVariable* getInterfaceVtbl(BaseClass* b, bool new_inst);
+
+    /// Add base class data to initializer list.
+    /// Also creates the IrField instance for each data field.
+    void addBaseClassInits(
+        std::vector<llvm::Constant*>& constants,
+        ClassDeclaration* base,
+        size_t& offset,
+        size_t& field_index);
+
+    // FIXME make this a member instead
+    friend LLConstant* DtoDefineClassInfo(ClassDeclaration* cd);
+
+    /// Create the Interface[] interfaces ClassInfo field initializer.
+    LLConstant* getClassInfoInterfaces();
 };
 
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-
-// represents interface implemented by a class
-struct IrInterface : IrBase
-{
-    BaseClass* base;
-    ClassDeclaration* decl;
-
-    llvm::PATypeHolder vtblInitTy;
-
-    LLConstant* vtblInit;
-    LLGlobalVariable* vtbl;
-    Array vtblDecls; // array of FuncDecls that make up the vtbl
-
-    const LLStructType* infoTy;
-    LLConstant* infoInit;
-    LLConstant* info;
-
-    size_t index;
-
-    IrInterface(BaseClass* b);
-};
 
 #endif

@@ -23,6 +23,7 @@
 #include "gen/llvm-version.h"
 
 #include "ir/irtype.h"
+#include "ir/irtypeclass.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
@@ -52,10 +53,16 @@ unsigned DtoShouldExtend(Type* type)
 
 const LLType* DtoType(Type* t)
 {
+#if DMDV2
+    t = t->mutableOf();
+#endif
+
     if (t->irtype)
     {
         return t->irtype->get();
     }
+
+    IF_LOG Logger::println("Building type: %s", t->toChars());
 
     assert(t);
     switch (t->ty)
@@ -86,57 +93,50 @@ const LLType* DtoType(Type* t)
     case Tdchar:
     {
         t->irtype = new IrTypeBasic(t);
-        return t->irtype->get();
+        return t->irtype->buildType();
     }
 
     // pointers
     case Tpointer:
     {
         t->irtype = new IrTypePointer(t);
-        return t->irtype->get();
+        return t->irtype->buildType();
     }
 
     // arrays
     case Tarray:
     {
         t->irtype = new IrTypeArray(t);
-        return t->irtype->get();
+        return t->irtype->buildType();
     }
 
     case Tsarray:
     {
         t->irtype = new IrTypeSArray(t);
-        return t->irtype->get();
+        return t->irtype->buildType();
     }
 
     // aggregates
     case Tstruct:    {
-    #if DMDV2
-        TypeStruct* ts = (TypeStruct*)t->mutableOf();
-    #else
         TypeStruct* ts = (TypeStruct*)t;
-    #endif
-        assert(ts->sym);
-        DtoResolveDsymbol(ts->sym);
-        return ts->ir.type->get();
+        t->irtype = new IrTypeStruct(ts->sym);
+        return t->irtype->buildType();
     }
-
     case Tclass:    {
-    #if DMDV2
-        TypeClass* tc = (TypeClass*)t->mutableOf();
-    #else
         TypeClass* tc = (TypeClass*)t;
-    #endif
-        assert(tc->sym);
-        DtoResolveDsymbol(tc->sym);
-        return getPtrToType(tc->ir.type->get());
+        t->irtype = new IrTypeClass(tc->sym);
+        return t->irtype->buildType();
     }
 
     // functions
     case Tfunction:
     {
         if (!t->ir.type || *t->ir.type == NULL) {
-            return DtoFunctionType(t,NULL,NULL);
+            TypeFunction* tf = (TypeFunction*)t;
+            if (tf->funcdecl)
+                return DtoFunctionType(tf->funcdecl);
+            else
+                return DtoFunctionType(tf,NULL,NULL);
         }
         else {
             return t->ir.type->get();
@@ -156,6 +156,8 @@ const LLType* DtoType(Type* t)
 
     // typedefs
     // enum
+
+    // FIXME: maybe just call toBasetype first ?
     case Ttypedef:
     case Tenum:
     {
@@ -166,15 +168,7 @@ const LLType* DtoType(Type* t)
 
     // associative arrays
     case Taarray:
-    #if 1
         return getVoidPtrType();
-    #else
-    {
-        TypeAArray* taa = (TypeAArray*)t;
-        // aa key/val can't be void
-        return getPtrToType(LLStructType::get(DtoType(taa->key), DtoType(taa->next), 0));
-    }
-    #endif
 
 /*
     Not needed atm as VarDecls for tuples are rewritten as a string of 
