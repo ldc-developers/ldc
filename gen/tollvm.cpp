@@ -315,6 +315,11 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         assert(0 && "not global/function");
     }
     
+    // The following breaks for nested naked functions, so check for that.
+    bool skipNestedCheck = false;
+    if (FuncDeclaration* fd = sym->isFuncDeclaration())
+        skipNestedCheck = (fd->naked != 0);
+    
     // Any symbol nested in a function can't be referenced directly from
     // outside that function, so we can give such symbols internal linkage.
     // This holds even if nested indirectly, such as member functions of
@@ -328,10 +333,11 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     // ---
     // if instances get emitted in multiple object files because they'd use
     // different instances of 'i'.
-    for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent) {
-        if (parent->isFuncDeclaration())
-            return llvm::GlobalValue::InternalLinkage;
-    }
+    if (!skipNestedCheck)
+        for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent) {
+            if (parent->isFuncDeclaration())
+                return llvm::GlobalValue::InternalLinkage;
+        }
     
     // default to external linkage
     return llvm::GlobalValue::ExternalLinkage;
