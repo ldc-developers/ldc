@@ -93,7 +93,7 @@ static void addPassesForOptLevel(PassManager& pm) {
             pm.add(createScalarReplAggregatesPass());
             
             // Inline again, to catch things like foreach delegates
-            // passed inlined opApply's where the function wasn't
+            // passed to inlined opApply's where the function wasn't
             // known during the first inliner pass.
             pm.add(createFunctionInliningPass());
             
