@@ -14,6 +14,8 @@
 #include "ir/irstruct.h"
 #include "ir/irtypeclass.h"
 
+#include <algorithm>
+
 //////////////////////////////////////////////////////////////////////////////
 
 IrStruct::IrStruct(AggregateDeclaration* aggr)
@@ -206,6 +208,15 @@ LLConstant * IrStruct::createStructDefaultInitializer()
 
 // yet another rewrite of the notorious StructInitializer.
 
+typedef std::pair<VarDeclaration*, llvm::Constant*> VCPair;
+
+bool struct_init_data_sort(const VCPair& a, const VCPair& b)
+{
+    return (a.first && b.first)
+        ? a.first->offset < b.first->offset
+        : false;
+}
+
 // this time a bit more inspired by the DMD code.
 
 LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
@@ -218,7 +229,6 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
     assert(si->vars.dim == si->value.dim && "inconsistent StructInitializer");
 
     // array of things to build
-    typedef std::pair<VarDeclaration*, llvm::Constant*> VCPair;
     llvm::SmallVector<VCPair, 16> data(aggrdecl->fields.dim);
 
     // start by creating a map from initializer indices to field indices.
@@ -254,79 +264,103 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
             continue;
         }
 
+        IF_LOG Logger::println("Explicit initializer: %s @+%u", vd->toChars(), vd->offset);
+        LOG_SCOPE;
+
         data[idx].first = vd;
         data[idx].second = get_default_initializer(vd, ini);
     }
 
-    // build array of constants and try to fill in default initializers
-    // where there is room.
-    size_t offset = 0;
-    std::vector<llvm::Constant*> constants;
-    constants.reserve(16);
-
+    // fill in implicit initializers
     n = data.size();
     for (size_t i = 0; i < n; i++)
     {
         VarDeclaration* vd = data[i].first;
+        if (vd)
+            continue;
 
-        // explicitly initialized?
-        if (vd != NULL)
+        vd = (VarDeclaration*)aggrdecl->fields.data[i];
+
+        unsigned vd_begin = vd->offset;
+        unsigned vd_end = vd_begin + vd->type->size();
+
+        // make sure it doesn't overlap any explicit initializers.
+        VarDeclarationIter it(aggrdecl->fields);
+        bool overlaps = false;
+        size_t j = 0;
+        for (; it.more(); it.next(), j++)
         {
-            // get next aligned offset for this field
-            size_t alignedoffset = offset;
-            if (!packed)
-            {
-                size_t alignsize = vd->type->alignsize();
-                alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
-            }
+            if (i == j || !data[j].first)
+                continue;
 
-            // insert explicit padding?
-            if (alignedoffset < vd->offset)
-            {
-                add_zeros(constants, vd->offset - alignedoffset);
-            }
+            unsigned f_begin = it->offset;
+            unsigned f_end = f_begin + it->type->size();
 
-            IF_LOG Logger::println("using field: %s", vd->toChars());
-            constants.push_back(data[i].second);
-            offset = vd->offset + vd->type->size();
+            if (vd_begin >= f_end || vd_end <= f_begin)
+                continue;
+
+            overlaps = true;
+            break;
         }
-        // not explicit! try and fit in the default initialization instead
-        // make sure we don't overlap with any following explicity initialized fields
-        else
+        // add if no overlap found
+        if (!overlaps)
         {
-            vd = (VarDeclaration*)aggrdecl->fields.data[i];
+            IF_LOG Logger::println("Implicit initializer: %s @+%u", vd->toChars(), vd->offset);
+            LOG_SCOPE;
 
-            // check all the way that we don't overlap, slow but it works!
-            for (size_t j = i+1; j <= n; j++)
-            {
-                if (j == n) // no overlap
-                {
-                    IF_LOG Logger::println("using field default: %s", vd->toChars());
-                    constants.push_back(get_default_initializer(vd, NULL));
-                    offset = vd->offset + vd->type->size();
-                    break;
-                }
-
-                VarDeclaration* vd2 = (VarDeclaration*)aggrdecl->fields.data[j];
-
-                size_t o2 = vd->offset + vd->type->size();
-
-                if (vd2->offset < o2 && data[i].first)
-                    break; // overlaps
-            }
+            data[i].first = vd;
+            data[i].second = get_default_initializer(vd, NULL);
         }
-    }
-
-    // tail padding?
-    if (offset < aggrdecl->structsize)
-    {
-        add_zeros(constants, aggrdecl->structsize - offset);
     }
 
     // stop if there were errors
     if (global.errors)
     {
         fatal();
+    }
+
+    // sort data array by offset
+    std::sort(data.begin(), data.end(), struct_init_data_sort);
+
+    // build array of constants and make sure explicit zero padding is inserted when necessary.
+    size_t offset = 0;
+    std::vector<llvm::Constant*> constants;
+    constants.reserve(n);
+
+    for (size_t i = 0; i < n; i++)
+    {
+        VarDeclaration* vd = data[i].first;
+        if (vd == NULL)
+            continue;
+
+        // get next aligned offset for this field
+        size_t alignedoffset = offset;
+        if (!packed)
+        {
+            size_t alignsize = vd->type->alignsize();
+            alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
+        }
+
+        // insert explicit padding?
+        if (alignedoffset < vd->offset)
+        {
+            size_t diff = vd->offset - alignedoffset;
+            IF_LOG Logger::println("adding %zu bytes zero padding", diff);
+            add_zeros(constants, diff);
+        }
+
+        IF_LOG Logger::println("adding field %s", vd->toChars());
+
+        constants.push_back(data[i].second);
+        offset = vd->offset + vd->type->size();
+    }
+
+    // tail padding?
+    if (offset < aggrdecl->structsize)
+    {
+        size_t diff = aggrdecl->structsize - offset;
+        IF_LOG Logger::println("adding %zu bytes zero padding", diff);
+        add_zeros(constants, diff);
     }
 
     // build constant
