@@ -384,11 +384,10 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     assert(type->irtype->isClass()->getNumInterfaceVtbls() == n &&
         "inconsistent number of interface vtables in this class");
 
+    VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
+
     if (n == 0)
-    {
-        VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
-        return getNullValue(DtoType(idx->type));
-    }
+        return getNullValue(DtoType(interfaces_idx->type));
 
 // Build array of:
 //
@@ -447,22 +446,29 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     LLConstant* arr = llvm::ConstantArray::get(
         array_type,
         &constants[0],
-        constants.size());
+        n);
 
     // apply the initializer
     classInterfacesArray->setInitializer(arr);
 
+    // return null, only baseclass provide interfaces
+    if (cd->vtblInterfaces->dim == 0)
+    {
+        return getNullValue(DtoType(interfaces_idx->type));
+    }
+
+    // only the interface explicitly implemented by this class
+    // (not super classes) should show in ClassInfo
     LLConstant* idxs[2] = {
         DtoConstSize_t(0),
-        // only the interface explicitly implemented by this class
-        // (not super classes) should show in ClassInfo
         DtoConstSize_t(n - cd->vtblInterfaces->dim)
     };
 
+    LLConstant* ptr = llvm::ConstantExpr::getGetElementPtr(
+        classInterfacesArray, idxs, 2);
+
     // return as a slice
-    return DtoConstSlice(
-        DtoConstSize_t(n),
-        llvm::ConstantExpr::getGetElementPtr(classInterfacesArray, idxs, 2));
+    return DtoConstSlice( DtoConstSize_t(cd->vtblInterfaces->dim), ptr );
 }
 
 //////////////////////////////////////////////////////////////////////////////
