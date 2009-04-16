@@ -46,6 +46,18 @@ IrField::IrField(VarDeclaration* v, size_t idx, size_t offset) : IrVar(v)
     V->ir.irField = this;
 }
 
+extern LLConstant* get_default_initializer(
+    VarDeclaration* vd,
+    Initializer* init);
+
+llvm::Constant * IrField::getDefaultInit()
+{
+    if (constInit)
+        return constInit;
+    constInit = get_default_initializer(V, V->init);
+    return constInit;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////

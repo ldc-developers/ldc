@@ -81,6 +81,8 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
 
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
 
+    // FIXME:
+    // also happens for mini/s.d :(
     assert(cd->vtblInterfaces && cd->vtblInterfaces->dim > 0 &&
         "should not create interface info array for class with no explicit "
         "interface implementations");
@@ -324,7 +326,14 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     for (size_t i = 1; i < n; i++)
     {
         Dsymbol* dsym = (Dsymbol*)vtbl_array.data[i];
-        assert(dsym && "null vtbl member");
+        if (dsym == NULL)
+        {
+            // FIXME
+            // why is this null?
+            // happens for mini/s.d
+            constants.push_back(getNullValue(getVoidPtrType()));
+            continue;
+        }
 
         FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd && "vtbl entry not a function");

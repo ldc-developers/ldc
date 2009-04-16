@@ -23,7 +23,9 @@ IrStruct::IrStruct(AggregateDeclaration* aggr)
 
     type = aggr->type;
 
-    packed = false;
+    packed = (type->ty == Tstruct)
+        ? type->alignsize() == 1
+        : false;
 
     // above still need to be looked at
 
@@ -190,8 +192,10 @@ LLConstant * IrStruct::createStructDefaultInitializer()
     IF_LOG Logger::cout() << "final default initializer: " << *definit << std::endl;
 
     // sanity check
-    assert(definit->getType() == type->irtype->get() &&
-        "default initializer type does not match the default struct type");
+    if (definit->getType() != type->irtype->get())
+    {
+        assert(0 && "default initializer type does not match the default struct type");
+    }
 
     return definit;
 }

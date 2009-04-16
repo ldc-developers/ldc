@@ -982,6 +982,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     }
     else if (e1->op == TOKstructliteral)
     {
+        // FIXME: is this right?
         StructLiteralExp* slexp = (StructLiteralExp*)e1;
         LLConstant* lit = slexp->toConstElem(p);
         return lit;
@@ -2409,8 +2410,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     }
 
     // vector of values to build aggregate from
-    std::vector<LLValue*> values;// = DtoStructLiteralValues(sd, inits);
-    assert(0 && "struct literal exp todo");
+    std::vector<LLValue*> values = DtoStructLiteralValues(sd, inits);
 
     // get the struct type from the values
     size_t n = values.size();
@@ -2459,8 +2459,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
             inits[i] = exprs[i]->toConstElem(p);
 
     // vector of values to build aggregate from
-    std::vector<LLValue*> values;// = DtoStructLiteralValues(sd, inits);
-    assert(0 && "struct literal const exp todo");
+    std::vector<LLValue*> values = DtoStructLiteralValues(sd, inits);
 
     // we know those values are constants.. cast them
     std::vector<LLConstant*> constvals(values.size(), NULL);

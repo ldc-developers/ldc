@@ -138,8 +138,8 @@ const llvm::Type* IrTypeStruct::buildType()
     // name types
     Type::sir->getState()->module->addTypeName(sd->toPrettyChars(), pa.get());
 
-#if 0
-    IF_LOG Logger::cout() << "struct type: " << *pa.get() << std::endl;
+#if 1
+    IF_LOG Logger::cout() << "final struct type: " << *pa.get() << std::endl;
 #endif
 
     return pa.get();

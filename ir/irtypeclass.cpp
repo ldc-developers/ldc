@@ -212,7 +212,17 @@ const llvm::Type* IrTypeClass::buildVtblType(Type* first, Array* vtbl_array)
 
     for (; !it.done(); it.next())
     {
-        FuncDeclaration* fd = it.get()->isFuncDeclaration();
+        Dsymbol* dsym = it.get();
+        if (dsym == NULL)
+        {
+            // FIXME
+            // why is this null?
+            // happens for mini/s.d
+            types.push_back(getVoidPtrType());
+            continue;
+        }
+
+        FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd && "invalid vtbl entry");
 
         IF_LOG Logger::println("Adding type of %s", fd->toPrettyChars());

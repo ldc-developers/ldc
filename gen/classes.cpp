@@ -486,8 +486,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
 
     LLValue* funcval = vthis;
     // get the vtbl for objects
-    if (!fdecl->isMember()->isInterfaceDeclaration())
-        funcval = DtoGEPi(funcval, 0, 0, "tmp");
+    funcval = DtoGEPi(funcval, 0, 0, "tmp");
     // load vtbl ptr
     funcval = DtoLoad(funcval);
     // index vtbl
