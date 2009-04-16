@@ -456,9 +456,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     Type* t = fdecl->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
 
-    // sanity check
-    assert(fdecl == f->funcdecl && "the function type does not point to this function");
-
     bool declareOnly = !mustDefineSymbol(fdecl);
 
     if (fdecl->llvmInternal == LLVMva_start)
