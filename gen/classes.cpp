@@ -84,12 +84,12 @@ void DtoResolveClass(ClassDeclaration* cd)
         }
     }
 
-    // emit typeinfo
-    DtoTypeInfoOf(cd->type);
-
-    // define classinfo
     if (needs_def)
     {
+        // emit typeinfo
+        DtoTypeInfoOf(cd->type);
+
+        // define classinfo
         ClassZ->setInitializer(irstruct->getClassInfoInit());
     }
 }
