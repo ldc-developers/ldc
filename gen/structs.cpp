@@ -36,6 +36,10 @@ void DtoResolveStruct(StructDeclaration* sd)
     // make sure type exists
     DtoType(sd->type);
 
+    // if it's a forward declaration, all bets are off. The type should be enough
+    if (sd->sizeok != 1)
+        return;
+
     // create the IrStruct
     IrStruct* irstruct = new IrStruct(sd);
     sd->ir.irStruct = irstruct;

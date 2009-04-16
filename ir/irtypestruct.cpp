@@ -67,6 +67,10 @@ const llvm::Type* IrTypeStruct::buildType()
     IF_LOG Logger::println("Building struct type %s @ %s", sd->toPrettyChars(), sd->locToChars());
     LOG_SCOPE;
 
+    // if it's a forward declaration, all bets are off, stick with the opaque
+    if (sd->sizeok != 1)
+        return pa.get();
+
     // find the fields that contribute to the default initializer.
     // these will define the default type.
 
