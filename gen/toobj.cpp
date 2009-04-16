@@ -146,7 +146,7 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
     sir->emitFunctionBodies();
 
     // generate ModuleInfo
-    //genmoduleinfo();
+    genmoduleinfo();
 
     // emit usedArray
     if (!ir.usedArray.empty())
