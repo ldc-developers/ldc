@@ -60,7 +60,7 @@ void DtoResolveClass(ClassDeclaration* cd)
 
         // emit the interfaceInfosZ symbol if necessary
         if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
-            getInterfaceArraySymbol(); // initializer is applied when it's built
+            irstruct->getInterfaceArraySymbol(); // initializer is applied when it's built
 
         // perform definition
         if (needs_def)

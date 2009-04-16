@@ -83,10 +83,10 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
 
     assert(cd->vtblInterfaces && cd->vtblInterfaces->dim > 0 &&
         "should not create interface info array for class with no explicit "
-        "interface implementations")
+        "interface implementations");
 
     VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
-    const llvm::Type* InterfaceTy = DtoType(idx->type);
+    const llvm::Type* InterfaceTy = DtoType(idx->type->next);
 
     // create Interface[N]
     const llvm::ArrayType* array_type = llvm::ArrayType::get(
