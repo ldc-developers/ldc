@@ -131,8 +131,7 @@ DValue* VarExp::toElem(IRState* p)
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
             cid->cd->codegen(Type::sir);;
-            assert(cid->cd->ir.irStruct->classInfo);
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->classInfo);
+            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
         }
         // nested variable
     #if DMDV2
@@ -216,8 +215,8 @@ DValue* VarExp::toElem(IRState* p)
         TypeStruct* ts = (TypeStruct*)sdecltype;
         assert(ts->sym);
         ts->sym->codegen(Type::sir);
-        assert(ts->sym->ir.irStruct->init);
-        return new DVarValue(type, ts->sym->ir.irStruct->init);
+
+        return new DVarValue(type, ts->sym->ir.irStruct->getInitSymbol());
     }
     else
     {
@@ -242,8 +241,8 @@ LLConstant* VarExp::toConstElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = (TypeStruct*)sdecltype;
         ts->sym->codegen(Type::sir);
-        assert(ts->sym->ir.irStruct->constInit);
-        return ts->sym->ir.irStruct->constInit;
+
+        return ts->sym->ir.irStruct->getDefaultInit();
     }
 
     if (TypeInfoDeclaration* ti = var->isTypeInfoDeclaration())
@@ -983,6 +982,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     }
     else if (e1->op == TOKstructliteral)
     {
+        // FIXME: is this right?
         StructLiteralExp* slexp = (StructLiteralExp*)e1;
         LLConstant* lit = slexp->toConstElem(p);
         return lit;
@@ -1134,9 +1134,7 @@ DValue* DotVarExp::toElem(IRState* p)
             size_t vtblidx = fdecl->vtblIndex;
             if (Logger::enabled())
                 Logger::cout() << "vthis: " << *vthis << '\n';
-            funcval = vthis;
-            if (!fdecl->isMember2()->isInterfaceDeclaration())
-                funcval = DtoGEP(funcval, zero, zero);
+            funcval = DtoGEP(vthis, zero, zero);
             funcval = DtoLoad(funcval);
             Logger::println("vtblidx = %lu", vtblidx);
             funcval = DtoGEP(funcval, zero, DtoConstUint(vtblidx), toChars());
@@ -1646,7 +1644,7 @@ DValue* NewExp::toElem(IRState* p)
         else {
             assert(ts->sym);
             ts->sym->codegen(Type::sir);
-            DtoAggrCopy(mem,ts->sym->ir.irStruct->init);
+            DtoAggrCopy(mem,ts->sym->ir.irStruct->getInitSymbol());
         }
         return new DImValue(type, mem);
     }
@@ -1658,8 +1656,7 @@ DValue* NewExp::toElem(IRState* p)
         DVarValue tmpvar(newtype, mem);
 
         // default initialize
-        // FIXME: should this use DtoConstExpInit instead ?
-        // or is static arrays the only troublemaker?
+        // static arrays never appear here, so using the defaultInit is ok!
         Expression* exp = newtype->defaultInit(loc);
         DValue* iv = exp->toElem(gIR);
         DtoAssign(loc, &tmpvar, iv);

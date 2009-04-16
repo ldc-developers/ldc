@@ -5,353 +5,334 @@
 #include "declaration.h"
 #include "init.h"
 
-#include "ir/irstruct.h"
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
+#include "gen/utils.h"
 
-IrInterface::IrInterface(BaseClass* b)
-:   vtblInitTy(llvm::OpaqueType::get())
-{
-    base = b;
-    decl = b->base;
-    vtblInit = NULL;
-    vtbl = NULL;
-    infoTy = NULL;
-    infoInit = NULL;
-    info = NULL;
+#include "ir/irstruct.h"
+#include "ir/irtypeclass.h"
 
-    index = 0;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
 IrStruct::IrStruct(AggregateDeclaration* aggr)
-:   initOpaque(llvm::OpaqueType::get()),
-    classInfoOpaque(llvm::OpaqueType::get()),
-    vtblTy(llvm::OpaqueType::get()),
-    vtblInitTy(llvm::OpaqueType::get()),
-    diCompositeType(NULL)
+:   diCompositeType(NULL)
 {
     aggrdecl = aggr;
-    defaultFound = false;
-    anon = NULL;
-    index = 0;
 
     type = aggr->type;
-    defined = false;
-    constinited = false;
 
-    interfaceInfos = NULL;
-    vtbl = NULL;
-    constVtbl = NULL;
+    packed = (type->ty == Tstruct)
+        ? type->alignsize() == 1
+        : false;
+
+    // above still need to be looked at
 
     init = NULL;
     constInit = NULL;
 
+    vtbl = NULL;
+    constVtbl = NULL;
     classInfo = NULL;
     constClassInfo = NULL;
-    classInfoDeclared = false;
-    classInfoDefined = false;
 
-    packed = false;
+    classInterfacesArray = NULL;
 }
 
-IrStruct::~IrStruct()
+//////////////////////////////////////////////////////////////////////////////
+
+LLGlobalVariable * IrStruct::getInitSymbol()
 {
+    if (init)
+        return init;
+
+    // create the initZ symbol
+    std::string initname("_D");
+    initname.append(aggrdecl->mangle());
+    initname.append("6__initZ");
+
+    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
+
+    init = new llvm::GlobalVariable(
+        type->irtype->getPA().get(), true, _linkage, NULL, initname, gIR->module);
+
+    return init;
 }
 
-//////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
-void IrStruct::pushAnon(bool isunion)
+llvm::Constant * IrStruct::getDefaultInit()
 {
-    anon = new Anon(isunion, anon);
-}
+    if (constInit)
+        return constInit;
 
-//////////////////////////////////////////
-
-void IrStruct::popAnon()
-{
-    assert(anon);
-
-    const LLType* BT;
-
-    // get the anon type
-    if (anon->isunion)
+    if (type->ty == Tstruct)
     {
-        // get biggest type in block
-        const LLType* biggest = getBiggestType(&anon->types[0], anon->types.size());
-        std::vector<const LLType*> vec(1, biggest);
-        BT = LLStructType::get(vec, aggrdecl->ir.irStruct->packed);
+        constInit = createStructDefaultInitializer();
     }
     else
     {
-        // build a struct from the types
-        BT = LLStructType::get(anon->types, aggrdecl->ir.irStruct->packed);
+        constInit = createClassDefaultInitializer();
     }
 
-    // pop anon
-    Anon* tmp = anon;
-    anon = anon->parent;
-    delete tmp;
+    return constInit;
+}
 
-    // is there a parent anon?
-    if (anon)
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+// helper function that returns the static default initializer of a variable
+LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init)
+{
+    if (init)
     {
-        // make sure type gets pushed in the anon, not the main
-        anon->types.push_back(BT);
-        // index is only manipulated at the top level, anons use raw offsets
+        return DtoConstInitializer(init->loc, vd->type, init);
     }
-    // no parent anon, finally add to aggrdecl
+    else if (vd->init)
+    {
+        return DtoConstInitializer(vd->init->loc, vd->type, vd->init);
+    }
     else
     {
-        types.push_back(BT);
-        // only advance to next position if main is not a union
-        if (!aggrdecl->isUnionDeclaration())
+        return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
+    }
+}
+
+// helper function that adds zero bytes to a vector of constants
+size_t add_zeros(std::vector<llvm::Constant*>& constants, size_t diff)
+{
+    size_t n = constants.size();
+    while (diff)
+    {
+        if (global.params.is64bit && diff % 8 == 0)
         {
-            index++;
+            constants.push_back(llvm::Constant::getNullValue(llvm::Type::Int64Ty));
+            diff -= 8;
+        }
+        else if (diff % 4 == 0)
+        {
+            constants.push_back(llvm::Constant::getNullValue(llvm::Type::Int32Ty));
+            diff -= 4;
+        }
+        else if (diff % 2 == 0)
+        {
+            constants.push_back(llvm::Constant::getNullValue(llvm::Type::Int16Ty));
+            diff -= 2;
+        }
+        else
+        {
+            constants.push_back(llvm::Constant::getNullValue(llvm::Type::Int8Ty));
+            diff -= 1;
         }
     }
+    return constants.size() - n;
 }
 
-//////////////////////////////////////////
+// Matches the way the type is built in IrTypeStruct
+// maybe look at unifying the interface.
 
-void IrStruct::addVar(VarDeclaration * var)
+LLConstant * IrStruct::createStructDefaultInitializer()
 {
-    TypeVector* tvec = &types;
-    if (anon)
+    IF_LOG Logger::println("Building default initializer for %s", aggrdecl->toPrettyChars());
+    LOG_SCOPE;
+
+    assert(type->ty == Tstruct && "cannot build struct default initializer for non struct type");
+
+    // start at offset zero
+    size_t offset = 0;
+
+    // vector of constants
+    std::vector<llvm::Constant*> constants;
+
+    // go through fields
+    ArrayIter<VarDeclaration> it(aggrdecl->fields);
+    for (; !it.done(); it.next())
     {
-        // make sure type gets pushed in the anon, not the main
-        tvec = &anon->types;
+        VarDeclaration* vd = it.get();
 
-        // set but don't advance index
-        var->ir.irField->index = index;
-
-        // set offset in bytes from start of anon block
-        var->ir.irField->unionOffset = var->offset - var->offset2;
-    }
-    else if (aggrdecl->isUnionDeclaration())
-    {
-        // set but don't advance index
-        var->ir.irField->index = index;
-    }
-    else
-    {
-        // set and advance index
-        var->ir.irField->index = index++;
-    }
-
-    // add type
-    tvec->push_back(DtoType(var->type));
-
-    // add var
-    varDecls.push_back(var);
-}
-
-//////////////////////////////////////////
-
-const LLType* IrStruct::build()
-{
-    // if types is empty, add a byte
-    if (types.empty())
-    {
-        types.push_back(LLType::Int8Ty);
-    }
-
-    // union type
-    if (aggrdecl->isUnionDeclaration())
-    {
-        const LLType* biggest = getBiggestType(&types[0], types.size());
-        std::vector<const LLType*> vec(1, biggest);
-        return LLStructType::get(vec, aggrdecl->ir.irStruct->packed);
-    }
-    // struct/class type
-    else
-    {
-        return LLStructType::get(types, aggrdecl->ir.irStruct->packed);
-    }
-}
-
-void addZeros(std::vector<const llvm::Type*>& inits, size_t pos, size_t offset)
-{
-    assert(offset > pos);
-    size_t diff = offset - pos;
-
-    size_t sz;
-
-    do
-    {
-        if (pos%8 == 0 && diff >= 8)
-            sz = 8;
-        else if (pos%4 == 0 && diff >= 4)
-            sz = 4;
-        else if (pos%2 == 0 && diff >= 2)
-            sz = 2;
-        else // if (pos % 1 == 0)
-            sz = 1;
-        inits.push_back(LLIntegerType::get(sz*8));
-        pos += sz;
-        diff -= sz;
-    } while (pos < offset);
-
-    assert(pos == offset);
-}
-
-void addZeros(std::vector<llvm::Constant*>& inits, size_t pos, size_t offset)
-{
-    assert(offset > pos);
-    size_t diff = offset - pos;
-
-    size_t sz;
-
-    do
-    {
-        if (pos%8 == 0 && diff >= 8)
-            sz = 8;
-        else if (pos%4 == 0 && diff >= 4)
-            sz = 4;
-        else if (pos%2 == 0 && diff >= 2)
-            sz = 2;
-        else // if (pos % 1 == 0)
-            sz = 1;
-        inits.push_back(LLConstant::getNullValue(LLIntegerType::get(sz*8)));
-        pos += sz;
-        diff -= sz;
-    } while (pos < offset);
-
-    assert(pos == offset);
-}
-
-// FIXME: body is exact copy of above
-void addZeros(std::vector<llvm::Value*>& inits, size_t pos, size_t offset)
-{
-    assert(offset > pos);
-    size_t diff = offset - pos;
-
-    size_t sz;
-
-    do
-    {
-        if (pos%8 == 0 && diff >= 8)
-            sz = 8;
-        else if (pos%4 == 0 && diff >= 4)
-            sz = 4;
-        else if (pos%2 == 0 && diff >= 2)
-            sz = 2;
-        else // if (pos % 1 == 0)
-            sz = 1;
-        inits.push_back(LLConstant::getNullValue(LLIntegerType::get(sz*8)));
-        pos += sz;
-        diff -= sz;
-    } while (pos < offset);
-
-    assert(pos == offset);
-}
-
-void IrStruct::buildDefaultConstInit(std::vector<llvm::Constant*>& inits)
-{
-    assert(!defaultFound);
-    defaultFound = true;
-
-    const llvm::StructType* structtype = isaStruct(aggrdecl->type->ir.type->get());
-    Logger::cout() << "struct type: " << *structtype << '\n';
-
-    size_t lastoffset = 0;
-    size_t lastsize = 0;
-
-    {
-        Logger::println("Find the default fields");
-        LOG_SCOPE;
-
-        // go through all vars and find the ones that contribute to the default
-        size_t nvars = varDecls.size();
-        for (size_t i=0; i<nvars; i++)
+        if (vd->offset < offset)
         {
-            VarDeclaration* var = varDecls[i];
+            IF_LOG Logger::println("skipping field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
+            continue;
+        }
 
-            Logger::println("field %s %s = %s : +%u", var->type->toChars(), var->toChars(), var->init ? var->init->toChars() : var->type->defaultInit(var->loc)->toChars(), var->offset);
+        IF_LOG Logger::println("using field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
 
-            // only add vars that don't overlap
-            size_t offset = var->offset;
-            size_t size = var->type->size();
-            if (offset >= lastoffset+lastsize)
+        // get next aligned offset for this field
+        size_t alignedoffset = offset;
+        if (!packed)
+        {
+            size_t alignsize = vd->type->alignsize();
+            alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
+        }
+
+        // insert explicit padding?
+        if (alignedoffset < vd->offset)
+        {
+            add_zeros(constants, vd->offset - alignedoffset);
+        }
+
+        // add initializer
+        constants.push_back(get_default_initializer(vd, NULL));
+
+        // advance offset to right past this field
+        offset = vd->offset + vd->type->size();
+    }
+
+    // tail padding?
+    if (offset < aggrdecl->structsize)
+    {
+        add_zeros(constants, aggrdecl->structsize - offset);
+    }
+
+    // build constant struct
+    llvm::Constant* definit = llvm::ConstantStruct::get(constants, packed);
+    IF_LOG Logger::cout() << "final default initializer: " << *definit << std::endl;
+
+    // sanity check
+    if (definit->getType() != type->irtype->get())
+    {
+        assert(0 && "default initializer type does not match the default struct type");
+    }
+
+    return definit;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+// yet another rewrite of the notorious StructInitializer.
+
+// this time a bit more inspired by the DMD code.
+
+LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
+{
+    IF_LOG Logger::println("Building StructInitializer of type %s", si->ad->toPrettyChars());
+    LOG_SCOPE;
+
+    // sanity check
+    assert(si->ad == aggrdecl && "struct type mismatch");
+    assert(si->vars.dim == si->value.dim && "inconsistent StructInitializer");
+
+    // array of things to build
+    typedef std::pair<VarDeclaration*, llvm::Constant*> VCPair;
+    llvm::SmallVector<VCPair, 16> data(aggrdecl->fields.dim);
+
+    // start by creating a map from initializer indices to field indices.
+    // I have no fucking clue why dmd represents it like this :/
+    size_t n = si->vars.dim;
+    LLSmallVector<int, 16> datamap(n, 0);
+    for (size_t i = 0; i < n; i++)
+    {
+        for (size_t j = 0; 1; j++)
+        {
+            assert(j < aggrdecl->fields.dim);
+            if (aggrdecl->fields.data[j] == si->vars.data[i])
             {
-                Logger::println("  added");
-                lastoffset = offset;
-                lastsize = size;
-                defVars.push_back(var);
+                datamap[i] = j;
+                break;
             }
         }
     }
 
+    // fill in explicit initializers
+    n = si->vars.dim;
+    for (size_t i = 0; i < n; i++)
     {
-        Logger::println("Build the default initializer");
-        LOG_SCOPE;
+        VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
+        Initializer* ini = (Initializer*)si->value.data[i];
 
-        lastoffset = 0;
-        lastsize = 0;
+        size_t idx = datamap[i];
 
-        // go through the default vars and build the default constant initializer
-        // adding zeros along the way to live up to alignment expectations
-        size_t nvars = defVars.size();
-        for (size_t i=0; i<nvars; i++)
+        if (data[idx].first != NULL)
         {
-            VarDeclaration* var = defVars[i];
+            Loc l = ini ? ini->loc : si->loc;
+            error(l, "duplicate initialization of %s", vd->toChars());
+            continue;
+        }
 
-            Logger::println("field %s %s = %s : +%u", var->type->toChars(), var->toChars(), var->init ? var->init->toChars() : var->type->defaultInit(var->loc)->toChars(), var->offset);
+        data[idx].first = vd;
+        data[idx].second = get_default_initializer(vd, ini);
+    }
 
-            // get offset and size
-            size_t offset = var->offset;
-            size_t size = var->type->size();
+    // build array of constants and try to fill in default initializers
+    // where there is room.
+    size_t offset = 0;
+    std::vector<llvm::Constant*> constants;
+    constants.reserve(16);
 
-            // is there space in between last last offset and this one?
-            // if so, fill it with zeros
-            if (offset > lastoffset+lastsize)
+    n = data.size();
+    for (size_t i = 0; i < n; i++)
+    {
+        VarDeclaration* vd = data[i].first;
+
+        // explicitly initialized?
+        if (vd != NULL)
+        {
+            // get next aligned offset for this field
+            size_t alignedoffset = offset;
+            if (!packed)
             {
-                size_t pos = lastoffset + lastsize;
-                addZeros(inits, pos, offset);
+                size_t alignsize = vd->type->alignsize();
+                alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
             }
 
-            // add the field
-            // lazily default initialize
-            if (!var->ir.irField->constInit)
-                var->ir.irField->constInit = DtoConstInitializer(var->loc, var->type, var->init);
-            inits.push_back(var->ir.irField->constInit);
+            // insert explicit padding?
+            if (alignedoffset < vd->offset)
+            {
+                add_zeros(constants, vd->offset - alignedoffset);
+            }
 
-            lastoffset = offset;
-            lastsize = var->type->size();
+            IF_LOG Logger::println("using field: %s", vd->toChars());
+            constants.push_back(data[i].second);
+            offset = vd->offset + vd->type->size();
         }
-
-        // there might still be padding after the last one, make sure that is zeroed as well
-        // is there space in between last last offset and this one?
-        size_t structsize = getTypePaddedSize(structtype);
-
-        if (structsize > lastoffset+lastsize)
+        // not explicit! try and fit in the default initialization instead
+        // make sure we don't overlap with any following explicity initialized fields
+        else
         {
-            size_t pos = lastoffset + lastsize;
-            addZeros(inits, pos, structsize);
+            vd = (VarDeclaration*)aggrdecl->fields.data[i];
+
+            // check all the way that we don't overlap, slow but it works!
+            for (size_t j = i+1; j <= n; j++)
+            {
+                if (j == n) // no overlap
+                {
+                    IF_LOG Logger::println("using field default: %s", vd->toChars());
+                    constants.push_back(get_default_initializer(vd, NULL));
+                    offset = vd->offset + vd->type->size();
+                    break;
+                }
+
+                VarDeclaration* vd2 = (VarDeclaration*)aggrdecl->fields.data[j];
+
+                size_t o2 = vd->offset + vd->type->size();
+
+                if (vd2->offset < o2 && data[i].first)
+                    break; // overlaps
+            }
         }
     }
-}
 
-LLConstant* IrStruct::buildDefaultConstInit()
-{
-    // doesn't work for classes, they add stuff before and maybe after data fields
-    assert(!aggrdecl->isClassDeclaration());
+    // tail padding?
+    if (offset < aggrdecl->structsize)
+    {
+        add_zeros(constants, aggrdecl->structsize - offset);
+    }
 
-    // initializer llvm constant list
-    std::vector<LLConstant*> inits;
+    // stop if there were errors
+    if (global.errors)
+    {
+        fatal();
+    }
 
-    // just start with an empty list
-    buildDefaultConstInit(inits);
-
-    // build the constant
-    // note that the type matches the initializer, not the aggregate in cases with unions
-    LLConstant* c = LLConstantStruct::get(inits, aggrdecl->ir.irStruct->packed);
-    Logger::cout() << "llvm constant: " << *c << '\n';
-//     assert(0);
+    // build constant
+    assert(!constants.empty());
+    llvm::Constant* c = llvm::ConstantStruct::get(&constants[0], constants.size(), packed);
+    IF_LOG Logger::cout() << "final struct initializer: " << *c << std::endl;
     return c;
 }
+

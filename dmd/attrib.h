@@ -115,10 +115,6 @@ struct AnonDeclaration : AttribDeclaration
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
-
-#if IN_LLVM
-    void codegen(Ir*);
-#endif
 };
 
 struct PragmaDeclaration : AttribDeclaration

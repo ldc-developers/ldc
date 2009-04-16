@@ -84,6 +84,25 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     // LDC
     isArrayOp = false;
     allowInlining = false;
+
+    // function types in ldc don't merge if the context parameter differs
+    // so we actually don't care about the function declaration, but only
+    // what kind of context parameter it has.
+    // however, this constructor is usually called from the parser, which
+    // unfortunately doesn't provide the information needed to get to the
+    // aggregate type. So we have to stick with the FuncDeclaration and
+    // just be sure we don't actually rely on the symbol it points to,
+    // but rather just the type of its context parameter.
+    // this means some function might have a function type pointing to
+    // another function declaration
+
+    if (type)
+    {
+        assert(type->ty == Tfunction && "invalid function type");
+        TypeFunction* tf = (TypeFunction*)type;
+        if (tf->funcdecl == NULL)
+            tf->funcdecl = this;
+    }
 #endif
 }
 
