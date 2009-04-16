@@ -91,7 +91,7 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
     // create Interface[N]
     const llvm::ArrayType* array_type = llvm::ArrayType::get(
         InterfaceTy,
-        cd->vtblInterfaces->dim);
+        type->irtype->isClass()->getNumInterfaceVtbls());
 
     // put it in a global
     std::string name("_D");
@@ -222,12 +222,18 @@ void IrStruct::addBaseClassInits(
         // false when it's not okay to use functions from super classes
         bool newinsts = (base == aggrdecl->isClassDeclaration());
 
+        size_t inter_idx = interfacesWithVtbls.size();
+
         ArrayIter<BaseClass> it2(*base->vtblInterfaces);
         for (; !it2.done(); it2.next())
         {
             BaseClass* b = it2.get();
-            constants.push_back(getInterfaceVtbl(b, newinsts));
+            constants.push_back(getInterfaceVtbl(b, newinsts, inter_idx));
             offset += PTRSIZE;
+
+            // add to the interface list
+            interfacesWithVtbls.push_back(b);
+            inter_idx++;
         }
     }
 
@@ -279,18 +285,18 @@ LLConstant * IrStruct::createClassDefaultInitializer()
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instance)
+llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instance, size_t interfaces_index)
 {
-    ClassDeclaration* cd = aggrdecl->isClassDeclaration();
-    assert(cd && "not a class aggregate");
-
-    ClassGlobalMap::iterator it = interfaceVtblMap.find(cd);
+    ClassGlobalMap::iterator it = interfaceVtblMap.find(b->base);
     if (it != interfaceVtblMap.end())
         return it->second;
 
     IF_LOG Logger::println("Building vtbl for implementation of interface %s in class %s",
         b->base->toPrettyChars(), aggrdecl->toPrettyChars());
     LOG_SCOPE;
+
+    ClassDeclaration* cd = aggrdecl->isClassDeclaration();
+    assert(cd && "not a class aggregate");
 
     Array vtbl_array;
     b->fillVtbl(cd, &vtbl_array, new_instance);
@@ -299,7 +305,18 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     constants.reserve(vtbl_array.dim);
 
     // start with the interface info
-    llvm::Constant* c = getNullValue(DtoType(Type::tvoid->pointerTo()));
+    VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
+    Type* first = interfaces_idx->type->next->pointerTo();
+
+    // index into the interfaces array
+    llvm::Constant* idxs[2] = {
+        DtoConstSize_t(0),
+        DtoConstSize_t(interfaces_index)
+    };
+
+    llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
+        getInterfaceArraySymbol(), idxs, 2);
+
     constants.push_back(c);
 
     // add virtual function pointers
@@ -342,6 +359,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
         gIR->module
     );
 
+    // insert into the vtbl map
     interfaceVtblMap.insert(std::make_pair(b->base, GV));
 
     return GV;
@@ -357,7 +375,11 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
     assert(cd);
 
-    if (!cd->vtblInterfaces || cd->vtblInterfaces->dim == 0)
+    size_t n = interfacesWithVtbls.size();
+    assert(type->irtype->isClass()->getNumInterfaceVtbls() == n &&
+        "inconsistent number of interface vtables in this class");
+
+    if (n == 0)
     {
         VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
         return getNullValue(DtoType(idx->type));
@@ -381,9 +403,10 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
     const LLType* our_type = type->irtype->isClass()->getPA().get();
 
-    ArrayIter<BaseClass> it(*cd->vtblInterfaces);
-    while (it.more())
+    for (size_t i = 0; i < n; ++i)
     {
+        BaseClass* it = interfacesWithVtbls[i];
+
         IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
 
         IrStruct* irinter = it->base->ir.irStruct;
@@ -409,15 +432,12 @@ LLConstant * IrStruct::getClassInfoInterfaces()
         LLConstant* inits[3] = { ci, vtb, off };
         LLConstant* entry = llvm::ConstantStruct::get(inits, 3);
         constants.push_back(entry);
-
-        // next
-        it.next();
     }
 
     // create Interface[N]
     const llvm::ArrayType* array_type = llvm::ArrayType::get(
         constants[0]->getType(),
-        cd->vtblInterfaces->dim);
+        n);
 
     LLConstant* arr = llvm::ConstantArray::get(
         array_type,
@@ -429,12 +449,14 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
     LLConstant* idxs[2] = {
         DtoConstSize_t(0),
-        DtoConstSize_t(0)
+        // only the interface explicitly implemented by this class
+        // (not super classes) should show in ClassInfo
+        DtoConstSize_t(n - cd->vtblInterfaces->dim)
     };
 
     // return as a slice
     return DtoConstSlice(
-        DtoConstSize_t(cd->vtblInterfaces->dim),
+        DtoConstSize_t(n),
         llvm::ConstantExpr::getGetElementPtr(classInterfacesArray, idxs, 2));
 }
 

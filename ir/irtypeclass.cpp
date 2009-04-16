@@ -24,6 +24,7 @@ IrTypeClass::IrTypeClass(ClassDeclaration* cd)
     vtbl_pa(llvm::OpaqueType::get())
 {
     vtbl_size = cd->vtbl.dim;
+    num_interface_vtbls = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -91,6 +92,9 @@ void IrTypeClass::addBaseClassData(
 
         ArrayIter<BaseClass> it2(*base->vtblInterfaces);
 
+        VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
+        Type* first = interfaces_idx->type->next->pointerTo();
+
         for (; !it2.done(); it2.next())
         {
             BaseClass* b = it2.get();
@@ -99,15 +103,19 @@ void IrTypeClass::addBaseClassData(
             Array arr;
             b->fillVtbl(cd, &arr, new_instances);
 
-            const llvm::Type* ivtbl_type = buildVtblType(Type::tvoid->pointerTo(), &arr);
+            const llvm::Type* ivtbl_type = buildVtblType(first, &arr);
             defaultTypes.push_back(llvm::PointerType::get(ivtbl_type, 0));
 
             offset += PTRSIZE;
 
             // add to the interface map
+            // FIXME: and all it's baseinterfaces
             if (interfaceMap.find(b->base) == interfaceMap.end())
                 interfaceMap.insert(std::make_pair(b->base, field_index));
             field_index++;
+
+            // inc count
+            num_interface_vtbls++;
         }
     }
 

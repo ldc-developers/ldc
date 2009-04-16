@@ -84,6 +84,14 @@ protected:
     /// Basically: static object.Interface[num_interfaces]
     llvm::GlobalVariable* classInterfacesArray;
 
+    /// std::vector of BaseClass*
+    typedef std::vector<BaseClass*> BaseClassVector;
+
+    /// Array of all interface vtbl implementations - in order - implemented
+    /// by this class.
+    /// Corresponds to the Interface instances needed to be output.
+    BaseClassVector interfacesWithVtbls;
+
     //////////////////////////////////////////////////////////////////////////
 
     /// Create static default initializer for struct.
@@ -93,7 +101,10 @@ protected:
     LLConstant* createClassDefaultInitializer();
 
     /// Returns vtbl for interface implementation, creates it if not already built.
-    llvm::GlobalVariable* getInterfaceVtbl(BaseClass* b, bool new_inst);
+    llvm::GlobalVariable* getInterfaceVtbl(
+        BaseClass* b,
+        bool new_inst,
+        size_t interfaces_index);
 
     /// Add base class data to initializer list.
     /// Also creates the IrField instance for each data field.
