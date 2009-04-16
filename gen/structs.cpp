@@ -48,7 +48,8 @@ void DtoResolveStruct(StructDeclaration* sd)
     LLGlobalVariable* initZ = irstruct->getInitSymbol();
 
     // perform definition
-    if (mustDefineSymbol(sd))
+    bool needs_def = mustDefineSymbol(sd);
+    if (needs_def)
     {
         // set initZ initializer
         initZ->setInitializer(irstruct->getDefaultInit());
@@ -67,8 +68,11 @@ void DtoResolveStruct(StructDeclaration* sd)
         }
     }
 
-    // emit typeinfo
-    DtoTypeInfoOf(sd->type);
+    if (needs_def)
+    {
+        // emit typeinfo
+        DtoTypeInfoOf(sd->type);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
