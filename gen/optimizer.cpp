@@ -65,7 +65,10 @@ static void addPassesForOptLevel(PassManager& pm) {
         pm.add(createGlobalDCEPass());
         pm.add(createRaiseAllocationsPass());
         pm.add(createCFGSimplificationPass());
-        pm.add(createPromoteMemoryToRegisterPass());
+        if (optimizeLevel == 1)
+            pm.add(createPromoteMemoryToRegisterPass());
+        else
+            pm.add(createScalarReplAggregatesPass());
         pm.add(createGlobalOptimizerPass());
         pm.add(createGlobalDCEPass());
     }
@@ -83,6 +86,21 @@ static void addPassesForOptLevel(PassManager& pm) {
     // -inline
     if (doInline()) {
         pm.add(createFunctionInliningPass());
+        
+        if (optimizeLevel >= 2) {
+            // Run some optimizations to clean up after inlining.
+            pm.add(createInstructionCombiningPass());
+            pm.add(createScalarReplAggregatesPass());
+            
+            // Inline again, to catch things like foreach delegates
+            // passed inlined opApply's where the function wasn't
+            // known during the first inliner pass.
+            pm.add(createFunctionInliningPass());
+            
+            // Run clean-up again.
+            pm.add(createInstructionCombiningPass());
+            pm.add(createScalarReplAggregatesPass());
+        }
     }
 
     // -O3
