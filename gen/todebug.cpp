@@ -264,6 +264,9 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         }
         assert(sd);
 
+        // make sure it's resolved
+        sd->codegen(Type::sir);
+
         // if we don't know the aggregate's size, we don't know enough about it
         // to provide debug info. probably a forward-declared struct?
         if (sd->sizeok == 0)
