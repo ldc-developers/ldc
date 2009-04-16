@@ -81,19 +81,15 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
 
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
 
-    // FIXME:
-    // also happens for mini/s.d :(
-    assert(cd->vtblInterfaces && cd->vtblInterfaces->dim > 0 &&
-        "should not create interface info array for class with no explicit "
-        "interface implementations");
+    size_t n = type->irtype->isClass()->getNumInterfaceVtbls();
+    assert(n > 0 && "getting ClassInfo.interfaces storage symbol, but we "
+                    "don't implement any interfaces");
 
     VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
     const llvm::Type* InterfaceTy = DtoType(idx->type->next);
 
     // create Interface[N]
-    const llvm::ArrayType* array_type = llvm::ArrayType::get(
-        InterfaceTy,
-        type->irtype->isClass()->getNumInterfaceVtbls());
+    const llvm::ArrayType* array_type = llvm::ArrayType::get(InterfaceTy,n);
 
     // put it in a global
     std::string name("_D");
