@@ -55,7 +55,6 @@ int isnan(double);
 #include "hdrgen.h"
 #include "parse.h"
 
-Expression *createTypeInfoArray(Scope *sc, Expression *args[], int dim);
 Expression *expandVar(int result, VarDeclaration *v);
 
 #define LOGSEMANTIC	0

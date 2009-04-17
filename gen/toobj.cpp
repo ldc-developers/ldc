@@ -621,7 +621,7 @@ void Module::genmoduleinfo()
     LLConstant* c = 0;
 
     // vtable
-    c = moduleinfo->ir.irStruct->vtbl;
+    c = moduleinfo->ir.irStruct->getVtblSymbol();
     initVec.push_back(c);
 
     // monitor
@@ -696,8 +696,7 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        assert(cd->ir.irStruct->classInfo);
-        c = DtoBitCast(cd->ir.irStruct->classInfo, getPtrToType(classinfoTy));
+        c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), getPtrToType(classinfoTy));
         classInits.push_back(c);
     }
     // has class array?

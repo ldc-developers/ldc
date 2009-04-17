@@ -33,5 +33,7 @@ namespace Logger
 
 #define LOG_SCOPE    Logger::LoggerScope _logscope;
 
+#define IF_LOG       if (Logger::enabled())
+
 #endif
 

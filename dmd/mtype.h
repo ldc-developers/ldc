@@ -193,6 +193,9 @@ struct Type : Object
     static Type *basic[TMAX];
     static unsigned char mangleChar[TMAX];
     static StringTable stringtable;
+#if IN_LLVM
+    static StringTable deco_stringtable;
+#endif
 
     // These tables are for implicit conversion of binary ops;
     // the indices are the type of operand one, followed by operand two.
@@ -219,7 +222,8 @@ struct Type : Object
     virtual d_uns64 size(Loc loc);
     virtual unsigned alignsize();
     virtual Type *semantic(Loc loc, Scope *sc);
-    virtual void toDecoBuffer(OutBuffer *buf);
+    // append the mangleof or a string uniquely identifying this type to buf
+    virtual void toDecoBuffer(OutBuffer *buf, bool mangle);
     Type *merge();
     virtual void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     virtual void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
@@ -336,7 +340,7 @@ struct TypeSArray : TypeArray
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int isString();
@@ -367,7 +371,7 @@ struct TypeDArray : TypeArray
     d_uns64 size(Loc loc);
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int isString();
@@ -394,7 +398,7 @@ struct TypeAArray : TypeArray
     d_uns64 size(Loc loc);
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *defaultInit(Loc loc);
@@ -462,7 +466,7 @@ struct TypeFunction : Type
     TypeFunction(Arguments *parameters, Type *treturn, int varargs, enum LINK linkage);
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
@@ -481,6 +485,8 @@ struct TypeFunction : Type
 #elif IN_LLVM
     // LDC
     IrFuncTy fty;
+
+    FuncDeclaration* funcdecl;
 #endif
 };
 
@@ -525,7 +531,7 @@ struct TypeIdentifier : TypeQualified
     TypeIdentifier(Loc loc, Identifier *ident);
     Type *syntaxCopy();
     //char *toChars();
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
     Dsymbol *toDsymbol(Scope *sc);
@@ -544,7 +550,7 @@ struct TypeInstance : TypeQualified
     TypeInstance(Loc loc, TemplateInstance *tempinst);
     Type *syntaxCopy();
     //char *toChars();
-    //void toDecoBuffer(OutBuffer *buf);
+    //void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
     Type *semantic(Loc loc, Scope *sc);
@@ -575,7 +581,7 @@ struct TypeStruct : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     unsigned memalign(unsigned salign);
@@ -610,7 +616,7 @@ struct TypeEnum : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *getProperty(Loc loc, Identifier *ident);
@@ -642,7 +648,7 @@ struct TypeTypedef : Type
     char *toChars();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *getProperty(Loc loc, Identifier *ident);
@@ -682,7 +688,7 @@ struct TypeClass : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     ClassDeclaration *isClassHandle();
@@ -714,7 +720,7 @@ struct TypeTuple : Type
     int equals(Object *o);
     Type *reliesOnTident();
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     Expression *getProperty(Loc loc, Identifier *ident);
     TypeInfoDeclaration *getTypeInfoDeclaration();
 };
@@ -746,11 +752,11 @@ struct Argument : Object
     Argument(unsigned storageClass, Type *type, Identifier *ident, Expression *defaultArg);
     Argument *syntaxCopy();
     Type *isLazyArray();
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     static Arguments *arraySyntaxCopy(Arguments *args);
     static char *argsTypesToChars(Arguments *args, int varargs);
     static void argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Arguments *arguments, int varargs);
-    static void argsToDecoBuffer(OutBuffer *buf, Arguments *arguments);
+    static void argsToDecoBuffer(OutBuffer *buf, Arguments *arguments, bool mangle);
     static size_t dim(Arguments *arguments);
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
 };

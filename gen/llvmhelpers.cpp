@@ -1069,7 +1069,8 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (StructInitializer* si = init->isStructInitializer())
     {
         Logger::println("const struct initializer");
-        _init = DtoConstStructInitializer(si);
+        si->ad->codegen(Type::sir);
+        return si->ad->ir.irStruct->createStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {

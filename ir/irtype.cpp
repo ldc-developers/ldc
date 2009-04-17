@@ -1,8 +1,16 @@
 #include "llvm/DerivedTypes.h"
-#include "ir/irtype.h"
-
 #include "mars.h"
 #include "mtype.h"
+#include "gen/irstate.h"
+#include "gen/logger.h"
+#include "ir/irtype.h"
+
+//////////////////////////////////////////////////////////////////////////////
+
+extern const llvm::Type* DtoType(Type* dt);
+extern const llvm::Type* DtoSize_t();
+
+//////////////////////////////////////////////////////////////////////////////
 
 IrType::IrType(Type* dt, const llvm::Type* lt)
 :   dtype(dt),
@@ -10,6 +18,8 @@ IrType::IrType(Type* dt, const llvm::Type* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
+    assert(dt->ir.type == NULL && "llvm type (old one) already set");
+    dt->ir.type = &pa;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -19,6 +29,13 @@ IrType::IrType(Type* dt, const llvm::Type* lt)
 IrTypeBasic::IrTypeBasic(Type * dt)
 : IrType(dt, basic2llvm(dt))
 {
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+const llvm::Type * IrTypeBasic::buildType()
+{
+    return pa.get();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -101,19 +118,26 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypePointer::IrTypePointer(Type * dt)
-: IrType(dt, pointer2llvm(dt))
+: IrType(dt, llvm::OpaqueType::get())
 {
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-extern const llvm::Type* DtoType(Type* dt);
-
-const llvm::Type * IrTypePointer::pointer2llvm(Type * t)
+const llvm::Type * IrTypePointer::buildType()
 {
-    assert(t->ty == Tpointer && "not pointer type");
+    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(
+        pointer2llvm(dtype));
+    return pa.get();
+}
 
-    const llvm::Type* elemType = DtoType(t->nextOf());
+//////////////////////////////////////////////////////////////////////////////
+
+const llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
+{
+    assert(dt->ty == Tpointer && "not pointer type");
+
+    const llvm::Type* elemType = DtoType(dt->nextOf());
     if (elemType == llvm::Type::VoidTy)
         elemType = llvm::Type::Int8Ty;
     return llvm::PointerType::get(elemType, 0);
@@ -124,21 +148,26 @@ const llvm::Type * IrTypePointer::pointer2llvm(Type * t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeSArray::IrTypeSArray(Type * dt)
-: IrType(dt, sarray2llvm(dt))
+: IrType(dt, llvm::OpaqueType::get())
 {
+    assert(dt->ty == Tsarray && "not static array type");
     TypeSArray* tsa = (TypeSArray*)dt;
-    uint64_t d = (uint64_t)tsa->dim->toUInteger();
-    assert(d == dim);
+    dim = (uint64_t)tsa->dim->toUInteger();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+const llvm::Type * IrTypeSArray::buildType()
+{
+    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(
+        sarray2llvm(dtype));
+    return pa.get();
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 const llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 {
-    assert(t->ty == Tsarray && "not static array type");
-
-    TypeSArray* tsa = (TypeSArray*)t;
-    dim = (uint64_t)tsa->dim->toUInteger();
     const llvm::Type* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::VoidTy)
         elemType = llvm::Type::Int8Ty;
@@ -150,23 +179,38 @@ const llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeArray::IrTypeArray(Type * dt)
-: IrType(dt, array2llvm(dt))
+: IrType(dt, llvm::OpaqueType::get())
 {
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-extern const llvm::Type* DtoSize_t();
+const llvm::Type * IrTypeArray::buildType()
+{
+    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(
+        array2llvm(dtype));
+    return pa.get();
+}
+
+//////////////////////////////////////////////////////////////////////////////
 
 const llvm::Type * IrTypeArray::array2llvm(Type * t)
 {
     assert(t->ty == Tarray && "not dynamic array type");
 
+    // get .ptr type
     const llvm::Type* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::VoidTy)
         elemType = llvm::Type::Int8Ty;
     elemType = llvm::PointerType::get(elemType, 0);
-    return llvm::StructType::get(DtoSize_t(), elemType, NULL);
+
+    // create struct type
+    const llvm::Type* at = llvm::StructType::get(DtoSize_t(), elemType, NULL);
+
+    // name dynamic array types
+    Type::sir->getState()->module->addTypeName(t->toChars(), at);
+
+    return at;
 }
 
 //////////////////////////////////////////////////////////////////////////////
