@@ -28,8 +28,16 @@
 void DtoResolveClass(ClassDeclaration* cd)
 {
     // make sure the base classes are processed first
-    if (cd->baseClass)
-        cd->baseClass->codegen(Type::sir);
+    ArrayIter<BaseClass> base_iter(cd->baseclasses);
+    while (base_iter.more())
+    {
+        BaseClass* bc = base_iter.get();
+        if (bc)
+        {
+            bc->base->codegen(Type::sir);
+        }
+        base_iter.next();
+    }
 
     if (cd->ir.resolved) return;
     cd->ir.resolved = true;
