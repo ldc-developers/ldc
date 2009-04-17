@@ -109,9 +109,7 @@ void IrTypeClass::addBaseClassData(
             offset += PTRSIZE;
 
             // add to the interface map
-            // FIXME: and all it's baseinterfaces
-            if (interfaceMap.find(b->base) == interfaceMap.end())
-                interfaceMap.insert(std::make_pair(b->base, field_index));
+            addInterfaceToMap(b->base, field_index);
             field_index++;
 
             // inc count
@@ -249,6 +247,25 @@ size_t IrTypeClass::getInterfaceIndex(ClassDeclaration * inter)
     if (it == interfaceMap.end())
         return ~0;
     return it->second;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void IrTypeClass::addInterfaceToMap(ClassDeclaration * inter, size_t index)
+{
+    // don't duplicate work or overwrite indices
+    if (interfaceMap.find(inter) != interfaceMap.end())
+        return;
+
+    // add this interface
+    interfaceMap.insert(std::make_pair(inter, index));
+
+    // add all its base interfaces recursively
+    for (size_t i = 0; i < inter->interfaces_dim; i++)
+    {
+        BaseClass* b = inter->interfaces[i];
+        addInterfaceToMap(b->base, index);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////

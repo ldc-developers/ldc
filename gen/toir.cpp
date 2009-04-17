@@ -2390,6 +2390,9 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    // make sure the struct is resolved
+    sd->codegen(Type::sir);
+
     // get inits
     std::vector<LLValue*> inits(sd->fields.dim, NULL);
 
@@ -2447,6 +2450,9 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {
     Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    // make sure the struct is resolved
+    sd->codegen(Type::sir);
 
     // get inits
     std::vector<LLValue*> inits(sd->fields.dim, NULL);

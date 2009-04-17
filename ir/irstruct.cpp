@@ -191,7 +191,9 @@ LLConstant * IrStruct::createStructDefaultInitializer()
 
     // build constant struct
     llvm::Constant* definit = llvm::ConstantStruct::get(constants, packed);
+#if 0
     IF_LOG Logger::cout() << "final default initializer: " << *definit << std::endl;
+#endif
 
     // sanity check
     if (definit->getType() != type->irtype->get())

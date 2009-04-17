@@ -109,6 +109,10 @@ Type *Type::basic[TMAX];
 unsigned char Type::mangleChar[TMAX];
 StringTable Type::stringtable;
 
+#if IN_LLVM
+StringTable Type::deco_stringtable;
+#endif
+
 
 Type::Type(TY ty, Type *next)
 {
@@ -444,11 +448,23 @@ Type *Type::merge()
 	else
 	{
 	    sv->ptrvalue = this;
-	    
+
+            // we still need deco strings to be unique
+            // or Type::equals fails, which breaks a bunch of stuff,
+            // like covariant member function overloads.
 	    OutBuffer mangle;
 	    toDecoBuffer(&mangle, true);
-	    mangle.writeByte(0);
-	    deco = mem.strdup((char *)mangle.data);
+	    StringValue* sv2 = deco_stringtable.update((char *)mangle.data, mangle.offset);
+	    if (sv2->ptrvalue)
+	    {  Type* t2 = (Type *) sv2->ptrvalue;
+	       assert(t2->deco);
+	       deco = t2->deco;
+	    }
+	    else
+	    {
+	       sv2->ptrvalue = this;
+	       deco = (char *)sv2->lstring.string;
+	    }
 	    //printf("new value, deco = '%s' %p\n", t->deco, t->deco);
 	}
     }

@@ -86,14 +86,16 @@ const llvm::Type* IrTypeStruct::buildType()
     for (; !it.done(); it.next())
     {
         VarDeclaration* vd = it.get();
+        //Logger::println("vd: %s", vd->toPrettyChars());
 
-        assert(vd->ir.irField == NULL && "struct inheritance is not allowed, how can this happen?");
+        //assert(vd->ir.irField == NULL && "struct inheritance is not allowed, how can this happen?");
 
         // skip if offset moved backwards
         if (vd->offset < offset)
         {
             IF_LOG Logger::println("Skipping field %s %s (+%u) for default", vd->type->toChars(), vd->toChars(), vd->offset);
-            new IrField(vd, 0, vd->offset);
+            if (vd->ir.irField == NULL)
+                new IrField(vd, 0, vd->offset);
             continue;
         }
 
@@ -123,7 +125,8 @@ const llvm::Type* IrTypeStruct::buildType()
         // the IrField creation doesn't really belong here, but it's a trivial operation
         // and it save yet another of these loops.
         IF_LOG Logger::println("Field index: %zu", field_index);
-        new IrField(vd, field_index);
+        if (vd->ir.irField == NULL)
+            new IrField(vd, field_index);
         field_index++;
     }
 
@@ -142,7 +145,7 @@ const llvm::Type* IrTypeStruct::buildType()
     // name types
     Type::sir->getState()->module->addTypeName(sd->toPrettyChars(), pa.get());
 
-#if 1
+#if 0
     IF_LOG Logger::cout() << "final struct type: " << *pa.get() << std::endl;
 #endif
 

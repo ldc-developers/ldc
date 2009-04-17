@@ -638,6 +638,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
+    // make sure struct is resolved
     assert(tinfo->ty == Tstruct);
     TypeStruct *tc = (TypeStruct *)tinfo;
     StructDeclaration *sd = tc->sym;
@@ -835,6 +836,11 @@ void TypeInfoClassDeclaration::llvmDefine()
     Logger::println("TypeInfoClassDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
+    // make sure class is resolved
+    assert(tinfo->ty == Tclass);
+    TypeClass *tc = (TypeClass *)tinfo;
+    tc->sym->codegen(Type::sir);
+
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfoclass;
     assert(base);
@@ -849,11 +855,6 @@ void TypeInfoClassDeclaration::llvmDefine()
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // get classinfo
-    assert(tinfo->ty == Tclass);
-    TypeClass *tc = (TypeClass *)tinfo;
-
-    tc->sym->codegen(Type::sir);
-
     sinits.push_back(tc->sym->ir.irStruct->getClassInfoSymbol());
 
     // create the inititalizer
@@ -873,6 +874,11 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
+    // make sure interface is resolved
+    assert(tinfo->ty == Tclass);
+    TypeClass *tc = (TypeClass *)tinfo;
+    tc->sym->codegen(Type::sir);
+
     // init typeinfo class
     ClassDeclaration* base = Type::typeinfointerface;
     assert(base);
@@ -890,9 +896,6 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
 
     // get classinfo
-    assert(tinfo->ty == Tclass);
-    TypeClass *tc = (TypeClass *)tinfo;
-
     sinits.push_back(tc->sym->ir.irStruct->getClassInfoSymbol());
 
     // create the inititalizer

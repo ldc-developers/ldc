@@ -68,6 +68,10 @@ protected:
         ClassDeclaration* base,
         size_t& offset,
         size_t& field_index);
+
+    /// Adds the interface and all it's base interface to the interface
+    /// to index map.
+    void addInterfaceToMap(ClassDeclaration* inter, size_t index);
 };
 
 #endif

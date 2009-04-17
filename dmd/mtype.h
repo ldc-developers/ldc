@@ -193,6 +193,9 @@ struct Type : Object
     static Type *basic[TMAX];
     static unsigned char mangleChar[TMAX];
     static StringTable stringtable;
+#if IN_LLVM
+    static StringTable deco_stringtable;
+#endif
 
     // These tables are for implicit conversion of binary ops;
     // the indices are the type of operand one, followed by operand two.
