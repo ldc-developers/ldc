@@ -5,6 +5,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/functions.h"
 
 #include "llvm/Support/CommandLine.h"
 namespace cl = llvm::cl;
@@ -237,39 +238,43 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         return llvm::UndefValue::get(getVoidPtrType());
     }
     if (nestedCtx == NCHybrid) {
-        // If sym is a nested function, and it's parent context is different than the
-        // one we got, adjust it.
-        
-        if (FuncDeclaration* fd = getParentFunc(sym->isFuncDeclaration(), true)) {
+        if (FuncDeclaration* symfd = sym->isFuncDeclaration()) {
+            // Make sure we've had a chance to analyze nested context usage
+            DtoDefineFunction(symfd);
+            
             // if this is for a function that doesn't access variables from
             // enclosing scopes, it doesn't matter what we pass.
             // Tell LLVM about it by passing an 'undef'.
-            if (fd->ir.irFunc->depth == 0)
+            if (symfd && symfd->ir.irFunc->depth == -1)
                 return llvm::UndefValue::get(getVoidPtrType());
             
-            Logger::println("For nested function, parent is %s", fd->toChars());
-            FuncDeclaration* ctxfd = irfunc->decl;
-            Logger::println("Current function is %s", ctxfd->toChars());
-            if (fromParent) {
-                ctxfd = getParentFunc(ctxfd, true);
-                assert(ctxfd && "Context from outer function, but no outer function?");
-            }
-            Logger::println("Context is from %s", ctxfd->toChars());
-            
-            unsigned neededDepth = fd->ir.irFunc->depth;
-            unsigned ctxDepth = ctxfd->ir.irFunc->depth;
-            
-            Logger::cout() << "Needed depth: " << neededDepth << '\n';
-            Logger::cout() << "Context depth: " << ctxDepth << '\n';
-            
-            if (neededDepth >= ctxDepth) {
-                assert(neededDepth <= ctxDepth + 1 && "How are we going more than one nesting level up?");
-                // fd needs the same context as we do, so all is well
-                Logger::println("Calling sibling function or directly nested function");
-            } else {
-                val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->frameType));
-                val = DtoGEPi(val, 0, neededDepth);
-                val = DtoAlignedLoad(val, (std::string(".frame.") + fd->toChars()).c_str());
+            // If sym is a nested function, and it's parent context is different than the
+            // one we got, adjust it.
+            if (FuncDeclaration* fd = getParentFunc(symfd, true)) {
+                Logger::println("For nested function, parent is %s", fd->toChars());
+                FuncDeclaration* ctxfd = irfunc->decl;
+                Logger::println("Current function is %s", ctxfd->toChars());
+                if (fromParent) {
+                    ctxfd = getParentFunc(ctxfd, true);
+                    assert(ctxfd && "Context from outer function, but no outer function?");
+                }
+                Logger::println("Context is from %s", ctxfd->toChars());
+                
+                unsigned neededDepth = fd->ir.irFunc->depth;
+                unsigned ctxDepth = ctxfd->ir.irFunc->depth;
+                
+                Logger::cout() << "Needed depth: " << neededDepth << '\n';
+                Logger::cout() << "Context depth: " << ctxDepth << '\n';
+                
+                if (neededDepth >= ctxDepth) {
+                    assert(neededDepth <= ctxDepth + 1 && "How are we going more than one nesting level up?");
+                    // fd needs the same context as we do, so all is well
+                    Logger::println("Calling sibling function or directly nested function");
+                } else {
+                    val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->frameType));
+                    val = DtoGEPi(val, 0, neededDepth);
+                    val = DtoAlignedLoad(val, (std::string(".frame.") + fd->toChars()).c_str());
+                }
             }
         }
     }
@@ -376,15 +381,15 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             // start with adding all enclosing parent frames until a static parent is reached
             
             const LLStructType* innerFrameType = NULL;
-            unsigned depth = 0;
+            unsigned depth = -1;
             if (!fd->isStatic()) {
                 if (FuncDeclaration* parfd = getParentFunc(fd, true)) {
                     innerFrameType = parfd->ir.irFunc->frameType;
                     if (innerFrameType)
-                        depth = parfd->ir.irFunc->depth + 1;
+                        depth = parfd->ir.irFunc->depth;
                 }
             }
-            fd->ir.irFunc->depth = depth;
+            fd->ir.irFunc->depth = ++depth;
             
             Logger::cout() << "Function " << fd->toChars() << " has depth " << depth << '\n';
             

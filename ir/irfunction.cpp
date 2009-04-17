@@ -112,7 +112,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 
     nestedVar = NULL;
     frameType = NULL;
-    depth = 0;
+    depth = -1;
     
     _arguments = NULL;
     _argptr = NULL;
