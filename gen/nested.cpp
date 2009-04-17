@@ -228,19 +228,25 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     {
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
         if (!cd || !cd->vthis)
-            return getNullPtr(getVoidPtrType());
+            return llvm::UndefValue::get(getVoidPtrType());
         val = DtoLoad(irfunc->thisArg);
         val = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
     else
     {
-        return getNullPtr(getVoidPtrType());
+        return llvm::UndefValue::get(getVoidPtrType());
     }
     if (nestedCtx == NCHybrid) {
         // If sym is a nested function, and it's parent context is different than the
         // one we got, adjust it.
         
         if (FuncDeclaration* fd = getParentFunc(sym->isFuncDeclaration(), true)) {
+            // if this is for a function that doesn't access variables from
+            // enclosing scopes, it doesn't matter what we pass.
+            // Tell LLVM about it by passing an 'undef'.
+            if (fd->ir.irFunc->depth == 0)
+                return llvm::UndefValue::get(getVoidPtrType());
+            
             Logger::println("For nested function, parent is %s", fd->toChars());
             FuncDeclaration* ctxfd = irfunc->decl;
             Logger::println("Current function is %s", ctxfd->toChars());
