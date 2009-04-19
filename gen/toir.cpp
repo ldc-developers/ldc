@@ -1828,10 +1828,6 @@ DValue* AndAndExp::toElem(IRState* p)
     Logger::print("AndAndExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    // allocate a temporary for the final result. failed to come up with a better way :/
-    LLValue* resval = 0;
-    resval = DtoAlloca(LLType::Int1Ty,"andandtmp");
-
     DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
@@ -1839,23 +1835,36 @@ DValue* AndAndExp::toElem(IRState* p)
     llvm::BasicBlock* andandend = llvm::BasicBlock::Create("andandend", gIR->topfunc(), oldend);
 
     LLValue* ubool = DtoCast(loc, u, Type::tbool)->getRVal();
-    DtoStore(ubool,resval);
+
+    llvm::BasicBlock* oldblock = p->scopebb();
     llvm::BranchInst::Create(andand,andandend,ubool,p->scopebb());
 
     p->scope() = IRScope(andand, andandend);
     DValue* v = e2->toElem(p);
 
+    LLValue* vbool = 0;
     if (!v->isFunc() && v->getType() != Type::tvoid)
     {
-        LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
-        LLValue* uandvbool = llvm::BinaryOperator::Create(llvm::BinaryOperator::And, ubool, vbool,"tmp",p->scopebb());
-        DtoStore(uandvbool,resval);
+        vbool = DtoCast(loc, v, Type::tbool)->getRVal();
     }
 
+    llvm::BasicBlock* newblock = p->scopebb();
     llvm::BranchInst::Create(andandend,p->scopebb());
     p->scope() = IRScope(andandend, oldend);
 
-    resval = DtoLoad(resval);
+    LLValue* resval = 0;
+    if (ubool == vbool || !vbool) {
+        // No need to create a PHI node.
+        resval = ubool;
+    } else {
+        llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "andandval");
+        // If we jumped over evaluation of the right-hand side,
+        // the result is false. Otherwise it's the value of the right-hand side.
+        phi->addIncoming(LLConstantInt::getFalse(), oldblock);
+        phi->addIncoming(vbool, newblock);
+        resval = phi;
+    }
+
     return new DImValue(type, resval);
 }
 
@@ -1866,10 +1875,6 @@ DValue* OrOrExp::toElem(IRState* p)
     Logger::print("OrOrExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    // allocate a temporary for the final result. failed to come up with a better way :/
-    LLValue* resval = 0;
-    resval = DtoAlloca(LLType::Int1Ty,"orortmp");
-
     DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
@@ -1877,22 +1882,36 @@ DValue* OrOrExp::toElem(IRState* p)
     llvm::BasicBlock* ororend = llvm::BasicBlock::Create("ororend", gIR->topfunc(), oldend);
 
     LLValue* ubool = DtoCast(loc, u, Type::tbool)->getRVal();
-    DtoStore(ubool,resval);
+
+    llvm::BasicBlock* oldblock = p->scopebb();
     llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
     p->scope() = IRScope(oror, ororend);
     DValue* v = e2->toElem(p);
 
+    LLValue* vbool = 0;
     if (!v->isFunc() && v->getType() != Type::tvoid)
     {
-        LLValue* vbool = DtoCast(loc, v, Type::tbool)->getRVal();
-        DtoStore(vbool,resval);
+        vbool = DtoCast(loc, v, Type::tbool)->getRVal();
     }
 
+    llvm::BasicBlock* newblock = p->scopebb();
     llvm::BranchInst::Create(ororend,p->scopebb());
     p->scope() = IRScope(ororend, oldend);
 
-    resval = DtoLoad(resval);
+    LLValue* resval = 0;
+    if (ubool == vbool || !vbool) {
+        // No need to create a PHI node.
+        resval = ubool;
+    } else {
+        llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "ororval");
+        // If we jumped over evaluation of the right-hand side,
+        // the result is true. Otherwise, it's the value of the right-hand side.
+        phi->addIncoming(LLConstantInt::getTrue(), oldblock);
+        phi->addIncoming(vbool, newblock);
+        resval = phi;
+    }
+
     return new DImValue(type, resval);
 }
 
