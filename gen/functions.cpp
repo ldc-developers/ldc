@@ -171,10 +171,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // If the function type was forward referenced by one of the parameter types,
     // it has now been set.
     if (f->ir.type) {
-        for (size_t i = 0; i < fty.args.size(); i++) {
-            Logger::cout() << "Arg type: " << *fty.args[i]->ltype << '\n';
-        }
-
         // Notify ABI that we won't be needing it for this function type anymore.
         gABI->doneWithFunctionType();
         
@@ -189,7 +185,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             delete *It;
         }
 
-        Logger::cout() << "Function type: " << **f->ir.type << '\n';
+        Logger::cout() << "Final function type: " << **f->ir.type << '\n';
         return llvm::cast<LLFunctionType>(*f->ir.type);
     }
 
