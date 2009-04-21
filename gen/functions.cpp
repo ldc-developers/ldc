@@ -388,7 +388,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
     // queue declaration unless the function is abstract without body;
     // bodyless functions in an abstract class are considered abstract
-    ClassDeclaration* cd = fdecl->parent->isClassDeclaration();
+    ClassDeclaration* cd = fdecl->isMember() ? fdecl->isMember()->isClassDeclaration() : NULL;
     bool isabstract = fdecl->isAbstract() || (cd && cd->isAbstract());
     if (!isabstract || fdecl->fbody)
     {
