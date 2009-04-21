@@ -58,17 +58,21 @@ void DtoResolveClass(ClassDeclaration* cd)
     // emit the ClassZ symbol
     LLGlobalVariable* ClassZ = irstruct->getClassInfoSymbol();
 
+    // emit the interfaceInfosZ symbol if necessary
+    if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
+        irstruct->getInterfaceArraySymbol(); // initializer is applied when it's built
+
     // interface only emit typeinfo and classinfo
-    if (!cd->isInterfaceDeclaration())
+    if (cd->isInterfaceDeclaration())
+    {
+        irstruct->initializeInterface();
+    }
+    else
     {
         // emit the initZ symbol
         LLGlobalVariable* initZ = irstruct->getInitSymbol();
         // emit the vtblZ symbol
         LLGlobalVariable* vtblZ = irstruct->getVtblSymbol();
-
-        // emit the interfaceInfosZ symbol if necessary
-        if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
-            irstruct->getInterfaceArraySymbol(); // initializer is applied when it's built
 
         // perform definition
         if (needs_def)

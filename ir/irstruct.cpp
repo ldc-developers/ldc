@@ -371,4 +371,3 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
     IF_LOG Logger::cout() << "final struct initializer: " << *c << std::endl;
     return c;
 }
-

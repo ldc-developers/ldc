@@ -58,6 +58,11 @@ struct IrStruct : IrBase
     LLConstant* createStructInitializer(StructInitializer* si);
 
     //////////////////////////////////////////////////////////////////////////
+
+    /// Initialize interface.
+    void initializeInterface();
+
+    //////////////////////////////////////////////////////////////////////////
 protected:
     /// Static default initializer global.
     llvm::GlobalVariable* init;

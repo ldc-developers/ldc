@@ -142,8 +142,13 @@ const llvm::Type* IrTypeClass::buildType()
     // add vtbl
     defaultTypes.push_back(llvm::PointerType::get(vtbl_pa.get(), 0));
 
-    // interface are just a vtable
-    if (!cd->isInterfaceDeclaration())
+    // interfaces are just a vtable
+    if (cd->isInterfaceDeclaration())
+    {
+        num_interface_vtbls = cd->vtblInterfaces ? cd->vtblInterfaces->dim : 0;
+    }
+    // classes have monitor and fields
+    else
     {
         // add monitor
         defaultTypes.push_back(llvm::PointerType::get(llvm::Type::Int8Ty, 0));

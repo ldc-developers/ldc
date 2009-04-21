@@ -424,11 +424,20 @@ LLConstant * IrStruct::getClassInfoInterfaces()
         ci = DtoBitCast(ci, classinfo_type);
 
         // vtbl
-        ClassGlobalMap::iterator itv = interfaceVtblMap.find(it->base);
-        assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
-        LLConstant* vtb = itv->second;
-        vtb = DtoBitCast(vtb, voidptrptr_type);
-        vtb = DtoConstSlice(DtoConstSize_t(itc->getVtblSize()), vtb);
+        LLConstant* vtb;
+        // interface get a null
+        if (cd->isInterfaceDeclaration())
+        {
+            vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(voidptrptr_type));
+        }
+        else
+        {
+            ClassGlobalMap::iterator itv = interfaceVtblMap.find(it->base);
+            assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
+            vtb = itv->second;
+            vtb = DtoBitCast(vtb, voidptrptr_type);
+            vtb = DtoConstSlice(DtoConstSize_t(itc->getVtblSize()), vtb);
+        }
 
         // offset
         LLConstant* off = DtoConstSize_t(it->offset);
@@ -470,6 +479,25 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
     // return as a slice
     return DtoConstSlice( DtoConstSize_t(cd->vtblInterfaces->dim), ptr );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void IrStruct::initializeInterface()
+{
+    InterfaceDeclaration* base = aggrdecl->isInterfaceDeclaration();
+    assert(base && "not interface");
+
+    // has interface vtbls?
+    if (!base->vtblInterfaces)
+        return;
+
+    ArrayIter<BaseClass> it(*base->vtblInterfaces);
+    for (; !it.done(); it.next())
+    {
+        // add to the interface list
+        interfacesWithVtbls.push_back(it.get());
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
