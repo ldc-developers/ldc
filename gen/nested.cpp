@@ -426,10 +426,14 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 vd->ir.irLocal->nestedDepth = depth;
                 if (vd->isParameter()) {
                     // Parameters already have storage associated with them (to handle byref etc.),
-                    // so handle specially for now by storing a pointer instead of a value.
+                    // so handle those cases specially by storing a pointer instead of a value.
                     assert(vd->ir.irLocal->value);
-                    // FIXME: don't do this for normal parameters?
-                    types.push_back(vd->ir.irLocal->value->getType());
+                    LLValue* value = vd->ir.irLocal->value;
+                    const LLType* type = value->getType();
+                    if (llvm::isa<llvm::AllocaInst>(value->getUnderlyingObject()))
+                        // This will be copied to the nesting frame.
+                        type = type->getContainedType(0);
+                    types.push_back(type);
                 } else if (vd->isRef() || vd->isOut()) {
                     // Foreach variables can also be by reference, for instance.
                     types.push_back(DtoType(vd->type->pointerTo()));
@@ -453,6 +457,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             
             // Create frame for current function and append to frames list
             // FIXME: For D2, this should be a gc_malloc (or similar) call, not alloca
+            //        (Note that it'd also require more aggressive copying of
+            //        by-value parameters instead of just alloca'd ones)
             LLValue* frame = DtoAlloca(frameType, ".frame");
             
             // copy parent frames into beginning
@@ -491,8 +497,26 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
                 if (vd->isParameter()) {
                     Logger::println("nested param: %s", vd->toChars());
-                    DtoAlignedStore(vd->ir.irLocal->value, gep);
-                    vd->ir.irLocal->byref = true;
+                    LOG_SCOPE
+                    LLValue* value = vd->ir.irLocal->value;
+                    if (llvm::isa<llvm::AllocaInst>(value->getUnderlyingObject())) {
+                        Logger::println("Copying to nested frame");
+                        // The parameter value is an alloca'd stack slot.
+                        // Copy to the nesting frame and leave the alloca for
+                        // the optimizers to clean up.
+                        DtoStore(DtoLoad(value), gep);
+                        gep->takeName(value);
+                        vd->ir.irLocal->value = gep;
+                        vd->ir.irLocal->byref = false;
+                    } else {
+                        Logger::println("Adding pointer to nested frame");
+                        // The parameter value is something else, such as a
+                        // passed-in pointer (for 'ref' or 'out' parameters) or
+                        // a pointer arg with byval attribute.
+                        // Store the address into the frame and set the byref flag.
+                        DtoAlignedStore(vd->ir.irLocal->value, gep);
+                        vd->ir.irLocal->byref = true;
+                    }
                 } else if (vd->isRef() || vd->isOut()) {
                     // This slot is initialized in DtoNestedInit, to handle things like byref foreach variables
                     // which move around in memory.

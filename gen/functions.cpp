@@ -45,8 +45,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         gABI->newFunctionType(f);
     }
 
-    // start new ir funcTy
-    f->fty.reset();
+    // Do not modify f->fty yet; this function may be called recursively if any
+    // of the argument types refer to this type.
+    IrFuncTy fty;
 
     // llvm idx counter
     size_t lidx = 0;
@@ -54,7 +55,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // main needs a little special handling
     if (ismain)
     {
-        f->fty.ret = new IrFuncTyArg(Type::tint32, false);
+        fty.ret = new IrFuncTyArg(Type::tint32, false);
     }
     // sane return value
     else
@@ -65,7 +66,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         if (f->linkage != LINKintrinsic)
             if (gABI->returnInArg(f))
             {
-                f->fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
+                fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
                 rt = Type::tvoid;
                 lidx++;
             }
@@ -74,7 +75,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             {
                 a = se;
             }
-        f->fty.ret = new IrFuncTyArg(rt, false, a);
+        fty.ret = new IrFuncTyArg(rt, false, a);
     }
     lidx++;
 
@@ -82,14 +83,14 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     if (thistype)
     {
         bool toref = (thistype->toBasetype()->ty == Tstruct);
-        f->fty.arg_this = new IrFuncTyArg(thistype, toref);
+        fty.arg_this = new IrFuncTyArg(thistype, toref);
         lidx++;
     }
 
     // and nested functions
     else if (nesttype)
     {
-        f->fty.arg_nest = new IrFuncTyArg(nesttype, false);
+        fty.arg_nest = new IrFuncTyArg(nesttype, false);
         lidx++;
     }
 
@@ -103,16 +104,16 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             if (f->varargs == 1)
             {
                 // _arguments
-                f->fty.arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
+                fty.arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
                 lidx++;
                 // _argptr
-                f->fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false, NoAlias | NoCapture);
+                fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false, NoAlias | NoCapture);
                 lidx++;
             }
         }
         else if (f->linkage == LINKc)
         {
-            f->fty.c_vararg = true;
+            fty.c_vararg = true;
         }
         else
         {
@@ -127,7 +128,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     if (ismain && nargs == 0)
     {
         Type* mainargs = Type::tchar->arrayOf()->arrayOf();
-        f->fty.args.push_back(new IrFuncTyArg(mainargs, false));
+        fty.args.push_back(new IrFuncTyArg(mainargs, false));
         lidx++;
     }
     // add explicit parameters
@@ -163,9 +164,33 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             a |= DtoShouldExtend(argtype);
         }
 
-        f->fty.args.push_back(new IrFuncTyArg(argtype, byref, a));
+        fty.args.push_back(new IrFuncTyArg(argtype, byref, a));
         lidx++;
     }
+
+    // If the function type was forward referenced by one of the parameter types,
+    // it has now been set.
+    if (f->ir.type) {
+        // Notify ABI that we won't be needing it for this function type anymore.
+        gABI->doneWithFunctionType();
+        
+        // Some cleanup of memory we won't use
+        delete fty.ret;
+        delete fty.arg_sret;
+        delete fty.arg_this;
+        delete fty.arg_nest;
+        delete fty.arg_arguments;
+        delete fty.arg_argptr;
+        for (IrFuncTy::ArgIter It = fty.args.begin(), E = fty.args.end(); It != E; ++It) {
+            delete *It;
+        }
+
+        Logger::cout() << "Final function type: " << **f->ir.type << '\n';
+        return llvm::cast<LLFunctionType>(*f->ir.type);
+    }
+
+    // Now we can modify f->fty safely.
+    f->fty = fty;
 
     if (f->linkage != LINKintrinsic) {
         // let the abi rewrite the types as necesary
