@@ -14,6 +14,8 @@
 
 #include "ir/ir.h"
 #include "ir/irvar.h"
+#include "ir/irtype.h"
+#include "ir/irtypestruct.h"
 
 /* ================================================================== */
 
@@ -72,11 +74,14 @@ void TupleDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
+// FIXME: this is horrible!!!
+
 void VarDeclaration::codegen(Ir* p)
 {
     Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    // just forward aliases
     if (aliassym)
     {
         Logger::println("alias sym");
@@ -84,10 +89,11 @@ void VarDeclaration::codegen(Ir* p)
         return;
     }
 
+    // output the parent aggregate first
     if (AggregateDeclaration* ad = isMember())
         ad->codegen(p);
 
-    // global variable or magic
+    // global variable
 #if DMDV2
     // taken from dmd2/structs
     if (isDataseg() || (storage_class & (STCconst | STCinvariant) && init))
@@ -138,25 +144,8 @@ void VarDeclaration::codegen(Ir* p)
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        // don't initialize static struct members yet, they might be of the struct type
-        // which doesn't have a static initializer yet.
-        if (AggregateDeclaration* ad = isMember())
-            ad->ir.irStruct->staticVars.push_back(this);
-        else
-            DtoConstInitGlobal(this);
-    }
-    else
-    {
-        // might already have its irField, as classes derive each other without getting copies of the VarDeclaration
-        if (!ir.irField)
-        {
-            assert(!ir.isSet());
-            ir.irField = new IrField(this);
-        }
-        IrStruct* irstruct = gIR->topstruct();
-        irstruct->addVar(this);
-
-        Logger::println("added offset %u", offset);
+        // initialize
+        DtoConstInitGlobal(this);
     }
 }
 
@@ -164,8 +153,7 @@ void VarDeclaration::codegen(Ir* p)
 
 void TypedefDeclaration::codegen(Ir*)
 {
-    static int tdi = 0;
-    Logger::print("TypedefDeclaration::toObjFile(%d): %s\n", tdi++, toChars());
+    Logger::print("TypedefDeclaration::toObjFile: %s\n", toChars());
     LOG_SCOPE;
 
     // generate typeinfo
@@ -181,33 +169,12 @@ void EnumDeclaration::codegen(Ir*)
 
 /* ================================================================== */
 
-void FuncDeclaration::codegen(Ir*)
+void FuncDeclaration::codegen(Ir* p)
 {
-    DtoResolveDsymbol(this);
-}
-
-/* ================================================================== */
-
-void AnonDeclaration::codegen(Ir* p)
-{
-    Array *d = include(NULL, NULL);
-
-    if (d)
+    // don't touch function aliases, they don't contribute any new symbols
+    if (!isFuncAliasDeclaration())
     {
-        // get real aggregate parent
-        IrStruct* irstruct = gIR->topstruct();
-
-        // push a block on the stack
-        irstruct->pushAnon(isunion);
-
-        // go over children
-        for (unsigned i = 0; i < d->dim; i++)
-        {   Dsymbol *s = (Dsymbol *)d->data[i];
-            s->codegen(p);
-        }
-
-        // finish
-        irstruct->popAnon();
+        DtoResolveDsymbol(this);
     }
 }
 

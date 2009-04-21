@@ -8,7 +8,9 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
+#if IN_LLVM
 #include <cmath>
+#endif
 
 /* Lexical Analyzer */
 

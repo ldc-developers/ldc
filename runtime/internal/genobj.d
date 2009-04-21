@@ -161,7 +161,7 @@ class ClassInfo : Object
     //  8:                      // has constructors
     void*       deallocator;
     OffsetTypeInfo[] offTi;
-    void function(Object) defaultConstructor;   // default Constructor
+    void* defaultConstructor;   // default Constructor
 
     /**
      * Search all modules for ClassInfo corresponding to classname.
@@ -196,7 +196,8 @@ class ClassInfo : Object
 
         if (flags & 8 && defaultConstructor)
         {
-            defaultConstructor(o);
+            auto ctor = cast(Object function(Object))defaultConstructor;
+            return ctor(o);
         }
         return o;
     }

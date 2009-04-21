@@ -226,7 +226,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     llvm::FunctionType* functype = llvm::FunctionType::get(f->fty.ret->ltype, argtypes, f->fty.c_vararg);
     f->ir.type = new llvm::PATypeHolder(functype);
 
+#if 0
     Logger::cout() << "Final function type: " << *functype << "\n";
+#endif
 
     return functype;
 }
@@ -329,16 +331,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         return; // ignore declaration completely
     }
 
-    if (AggregateDeclaration* ad = fdecl->isMember())
-    {
-        ad->codegen(Type::sir);
-        if (ad->isStructDeclaration() && llvm::isa<llvm::OpaqueType>(DtoType(ad->type)))
-        {
-            ad->ir.irStruct->structFuncs.push_back(fdecl);
-            return;
-        }
-    }
-
     //printf("resolve function: %s\n", fdecl->toPrettyChars());
 
     if (fdecl->parent)
@@ -397,7 +389,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     // queue declaration unless the function is abstract without body
     if (!fdecl->isAbstract() || fdecl->fbody)
     {
-        Logger::println("Ignoring declaration of abstract bodyless function %s", fdecl->toPrettyChars());
         DtoDeclareFunction(fdecl);
     }
 }

@@ -94,9 +94,8 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
     gIR = &ir;
     ir.dmodule = this;
 
-    // reset all IR data stored in Dsymbols and Types
+    // reset all IR data stored in Dsymbols
     IrDsymbol::resetAll();
-    IrDType::resetAll();
 
     sir->setState(&ir);
 
@@ -621,7 +620,7 @@ void Module::genmoduleinfo()
     LLConstant* c = 0;
 
     // vtable
-    c = moduleinfo->ir.irStruct->vtbl;
+    c = moduleinfo->ir.irStruct->getVtblSymbol();
     initVec.push_back(c);
 
     // monitor
@@ -696,8 +695,7 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        assert(cd->ir.irStruct->classInfo);
-        c = DtoBitCast(cd->ir.irStruct->classInfo, getPtrToType(classinfoTy));
+        c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), getPtrToType(classinfoTy));
         classInits.push_back(c);
     }
     // has class array?

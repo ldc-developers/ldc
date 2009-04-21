@@ -1,6 +1,8 @@
 #ifndef LLVMC_GEN_ARRAYS_H
 #define LLVMC_GEN_ARRAYS_H
 
+struct ArrayInitializer;
+
 struct DSliceValue;
 
 const llvm::StructType* DtoArrayType(Type* arrayTy);

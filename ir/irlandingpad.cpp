@@ -128,7 +128,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             }
             assert(it->catchType);
             assert(it->catchType->ir.irStruct);
-            selectorargs.insert(selectorargs.begin(), it->catchType->ir.irStruct->classInfo);
+            selectorargs.insert(selectorargs.begin(), it->catchType->ir.irStruct->getClassInfoSymbol());
         }
     }
     // if there's a finally, the eh table has to have a 0 action
