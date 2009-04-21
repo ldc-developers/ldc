@@ -256,14 +256,33 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
     {
         VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
         Initializer* ini = (Initializer*)si->value.data[i];
+        Loc loc = ini ? ini->loc : si->loc;
 
         size_t idx = datamap[i];
 
+        // check for duplicate initialization
         if (data[idx].first != NULL)
         {
             Loc l = ini ? ini->loc : si->loc;
             error(l, "duplicate initialization of %s", vd->toChars());
             continue;
+        }
+
+        // check for overlapping initialization
+        for (size_t j = 0; j < i; j++)
+        {
+            size_t idx2 = datamap[j];
+            assert(data[idx2].first);
+
+            VarDeclarationIter it(aggrdecl->fields, idx2);
+
+            unsigned f_begin = it->offset;
+            unsigned f_end = f_begin + it->type->size();
+
+            if (vd->offset >= f_end || (vd->offset + vd->type->size()) <= f_begin)
+                continue;
+
+            error(loc, "initializer for %s overlaps previous initialization of %s", vd->toChars(), it->toChars());
         }
 
         IF_LOG Logger::println("Explicit initializer: %s @+%u", vd->toChars(), vd->offset);
