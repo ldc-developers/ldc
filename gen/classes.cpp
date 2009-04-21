@@ -77,18 +77,18 @@ void DtoResolveClass(ClassDeclaration* cd)
             initZ->setInitializer(irstruct->getDefaultInit());
             vtblZ->setInitializer(irstruct->getVtblInit());
         }
+    }
 
-        // emit members
-        if (cd->members)
+    // emit members
+    if (cd->members)
+    {
+        ArrayIter<Dsymbol> it(*cd->members);
+        while (!it.done())
         {
-            ArrayIter<Dsymbol> it(*cd->members);
-            while (!it.done())
-            {
-                Dsymbol* member = it.get();
-                if (member)
-                    member->codegen(Type::sir);
-                it.next();
-            }
+            Dsymbol* member = it.get();
+            if (member)
+                member->codegen(Type::sir);
+            it.next();
         }
     }
 
