@@ -579,9 +579,6 @@ char *FileName::name(const char *str)
 	switch (*e)
 	{
 
-	    case '/':
-	       return e + 1;
-
 #if _WIN32
 	    case '/':
 	    case '\\':
@@ -594,6 +591,9 @@ char *FileName::name(const char *str)
 		 */
 		if (e == str + 1 || e == str + len - 1)
 		    return e + 1;
+#else
+	    case '/':
+	       return e + 1;
 #endif
 	    default:
 		if (e == str)
@@ -1672,12 +1672,7 @@ void OutBuffer::vprintf(const char *format, va_list args)
     psize = sizeof(buffer);
     for (;;)
     {
-#if _WIN32
-	count = _vsnprintf(p,psize,format,args);
-	if (count != -1)
-	    break;
-	psize *= 2;
-#elif POSIX
+#if POSIX || IN_LLVM
         va_list va;
         va_copy(va, args);
 /*
@@ -1697,6 +1692,11 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	    psize = count + 1;
 	else
 	    break;
+#elif _WIN32
+	count = _vsnprintf(p,psize,format,args);
+	if (count != -1)
+	    break;
+	psize *= 2;
 #endif
 	p = (char *) alloca(psize);	// buffer too small, try again with larger size
     }

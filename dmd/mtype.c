@@ -88,6 +88,12 @@ int REALALIGNSIZE = 2;
 int Tsize_t = Tuns32;
 int Tptrdiff_t = Tint32;
 
+#if _WIN32
+static double zero = 0;
+double Port::nan = NAN;
+double Port::infinity = 1/zero;
+#endif
+
 /***************************** Type *****************************/
 
 ClassDeclaration *Type::typeinfo;

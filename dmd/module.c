@@ -196,7 +196,7 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
 #if _WIN32
     if (ext == global.params.objdir && FileName::ext(argobj) 
 	    && stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
-	return new File(argobj);
+	return new File((char*)argobj);
 #endif
     return new File(FileName::forceExt(argobj, ext));
 }
