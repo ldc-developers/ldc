@@ -102,6 +102,8 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
 LLConstant* DtoConstExpInit(Loc loc, Type* t, Expression* exp);
 DValue* DtoInitializer(LLValue* target, Initializer* init);
 
+LLValue* DtoExprValue(Type* type, Expression* e);
+
 // annotation generator
 void DtoAnnotation(const char* str);
 
