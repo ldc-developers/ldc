@@ -5800,7 +5800,10 @@ Expression *DotTemplateInstanceExp::semantic(Scope *sc)
     id = ti->name;
     s2 = s->search(loc, id, 0);
     if (!s2)
-    {	error("template identifier %s is not a member of %s %s", id->toChars(), s->kind(), s->ident->toChars());
+    {	if (s->ident)
+	    error("template identifier %s is not a member of %s %s", id->toChars(), s->kind(), s->ident->toChars());
+	else
+	    error("template identifier %s is not a member of %s", id->toChars(), s->kind());
 	goto Lerr;
     }
     s = s2;
