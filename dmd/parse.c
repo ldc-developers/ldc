@@ -1640,7 +1640,7 @@ Import *Parser::parseImport(Array *decldefs, int isstatic)
 	    nextToken();
 	}
 
-	s = new Import(loc, a, token.ident, aliasid, isstatic);
+	s = new Import(loc, a, id, aliasid, isstatic);
 	decldefs->push(s);
 
 	/* Look for
