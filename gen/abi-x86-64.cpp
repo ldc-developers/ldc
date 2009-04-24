@@ -43,6 +43,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/abi.h"
 #include "gen/abi-x86-64.h"
+//#include "gen/llvm-version.h"         // only use is commented out.
 #include "ir/irfunction.h"
 
 #include <cassert>
@@ -401,6 +402,8 @@ namespace x86_64_D_cc {
         // 'fastcc' allows returns in up to two registers of each kind:
         DRegCount state(2, 2, 2);
     #if 1 //LLVM_REV < 67588
+        // (If uncommenting the LLVM_REV line above, also uncomment llvm-version #include
+        
         // LLVM before trunk r67588 doesn't allow a second int to be an i1 or
         // i8. (See <http://llvm.org/PR3861>)
         // Rather than complicating shouldPassStructInRegs(), just disallow

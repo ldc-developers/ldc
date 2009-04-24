@@ -36,6 +36,7 @@
 #include "gen/linker.h"
 #include "gen/irstate.h"
 #include "gen/toobj.h"
+#include "gen/llvm-version.h"
 
 #include "gen/cl_options.h"
 #include "gen/cl_helpers.h"
