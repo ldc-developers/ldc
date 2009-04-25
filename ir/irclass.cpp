@@ -276,9 +276,6 @@ LLConstant * IrStruct::createClassDefaultInitializer()
     // build the constant
     llvm::Constant* definit = llvm::ConstantStruct::get(constants, false);
 
-    // sanity check
-    assert(definit->getType() == type->irtype->getPA().get() && "class initializer type mismatch");
-
     return definit;
 }
 

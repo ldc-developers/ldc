@@ -20,9 +20,20 @@ public:
     ///
     IrTypeAggr* isAggr()            { return this; }
 
+    ///
+    typedef std::vector<VarDeclaration*>::iterator iterator;
+
+    ///
+    iterator def_begin()        { return default_fields.begin(); }
+
+    ///
+    iterator def_end()          { return default_fields.end(); }
+
 protected:
     /// AggregateDeclaration this type represents.
     AggregateDeclaration* aggr;
+
+    std::vector<VarDeclaration*> default_fields;
 };
 
 //////////////////////////////////////////////////////////////////////////////

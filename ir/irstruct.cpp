@@ -142,6 +142,9 @@ LLConstant * IrStruct::createStructDefaultInitializer()
 
     assert(type->ty == Tstruct && "cannot build struct default initializer for non struct type");
 
+    IrTypeStruct* ts = type->irtype->isStruct();
+    assert(ts);
+
     // start at offset zero
     size_t offset = 0;
 
@@ -149,10 +152,10 @@ LLConstant * IrStruct::createStructDefaultInitializer()
     std::vector<llvm::Constant*> constants;
 
     // go through fields
-    ArrayIter<VarDeclaration> it(aggrdecl->fields);
-    for (; !it.done(); it.next())
+    IrTypeAggr::iterator it;
+    for (it = ts->def_begin(); it != ts->def_end(); ++it)
     {
-        VarDeclaration* vd = it.get();
+        VarDeclaration* vd = *it;
 
         if (vd->offset < offset)
         {
@@ -194,12 +197,6 @@ LLConstant * IrStruct::createStructDefaultInitializer()
 #if 0
     IF_LOG Logger::cout() << "final default initializer: " << *definit << std::endl;
 #endif
-
-    // sanity check
-    if (definit->getType() != type->irtype->get())
-    {
-        assert(0 && "default initializer type does not match the default struct type");
-    }
 
     return definit;
 }

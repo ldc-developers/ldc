@@ -62,18 +62,103 @@ size_t add_zeros(std::vector<const llvm::Type*>& defaultTypes, size_t diff)
     return defaultTypes.size() - n;
 }
 
+bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
+{
+    if (v1 && v2) return v1->offset < v2->offset;
+    else return false;
+}
+
 const llvm::Type* IrTypeStruct::buildType()
 {
-    IF_LOG Logger::println("Building struct type %s @ %s", sd->toPrettyChars(), sd->locToChars());
+    IF_LOG Logger::println("Building struct type %s @ %s",
+        sd->toPrettyChars(), sd->locToChars());
     LOG_SCOPE;
 
     // if it's a forward declaration, all bets are off, stick with the opaque
     if (sd->sizeok != 1)
         return pa.get();
 
-    // find the fields that contribute to the default initializer.
-    // these will define the default type.
+    // mirror the sd->fields array but only fill in contributors
+    size_t n = sd->fields.dim;
+    LLSmallVector<VarDeclaration*, 16> data(n, NULL);
+    default_fields.reserve(n);
 
+    // first fill in the fields with explicit initializers
+    VarDeclarationIter field_it(sd->fields);
+    for (; field_it.more(); field_it.next())
+    {
+        // init is !null for explicit inits
+        if (field_it->init != NULL)
+        {
+            IF_LOG Logger::println("adding explicit initializer for struct field %s",
+                field_it->toChars());
+
+            data[field_it.index] = *field_it;
+
+            size_t f_begin = field_it->offset;
+            size_t f_end = f_begin + field_it->type->size();
+
+            // make sure there is no overlap
+            for (size_t i = 0; i < field_it.index; i++)
+            {
+                if (data[i] != NULL)
+                {
+                    VarDeclaration* vd = data[i];
+                    size_t v_begin = vd->offset;
+                    size_t v_end = v_begin + vd->type->size();
+
+                    if (v_begin >= f_end || v_end <= f_begin)
+                        continue;
+
+                    sd->error(vd->loc, "overlapping initialization for %s and %s",
+                        field_it->toChars(), vd->toChars());
+                }
+            }
+        }
+    }
+
+    if (global.errors)
+    {
+        fatal();
+    }
+
+    // fill in default initializers
+    field_it = VarDeclarationIter(sd->fields);
+    for (;field_it.more(); field_it.next())
+    {
+        if (data[field_it.index])
+            continue;
+
+        size_t f_begin = field_it->offset;
+        size_t f_end = f_begin + field_it->type->size();
+
+        // make sure it doesn't overlap anything explicit
+        bool overlaps = false;
+        for (size_t i = 0; i < n; i++)
+        {
+            if (data[i])
+            {
+                size_t v_begin = data[i]->offset;
+                size_t v_end = v_begin + data[i]->type->size();
+
+                if (v_begin >= f_end || v_end <= f_begin)
+                    continue;
+
+                overlaps = true;
+                break;
+            }
+        }
+
+        // if no overlap was found, add the default initializer
+        if (!overlaps)
+        {
+            IF_LOG Logger::println("adding default initializer for struct field %s",
+                field_it->toChars());
+            data[field_it.index] = *field_it;
+        }
+    }
+
+    // ok. now we can build a list of llvm types. and make sure zeros are inserted if necessary.
     std::vector<const llvm::Type*> defaultTypes;
     defaultTypes.reserve(16);
 
@@ -82,24 +167,21 @@ const llvm::Type* IrTypeStruct::buildType()
 
     bool packed = (sd->type->alignsize() == 1);
 
-    ArrayIter<VarDeclaration> it(sd->fields);
-    for (; !it.done(); it.next())
+    // first we sort the list by offset
+    std::sort(data.begin(), data.end(), var_offset_sort_cb);
+
+    // add types to list
+    for (size_t i = 0; i < n; i++)
     {
-        VarDeclaration* vd = it.get();
-        //Logger::println("vd: %s", vd->toPrettyChars());
+        VarDeclaration* vd = data[i];
 
-        //assert(vd->ir.irField == NULL && "struct inheritance is not allowed, how can this happen?");
-
-        // skip if offset moved backwards
-        if (vd->offset < offset)
-        {
-            IF_LOG Logger::println("Skipping field %s %s (+%u) for default", vd->type->toChars(), vd->toChars(), vd->offset);
-            if (vd->ir.irField == NULL)
-                new IrField(vd, 0, vd->offset);
+        if (vd == NULL)
             continue;
-        }
 
-        IF_LOG Logger::println("Adding default field %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
+        assert(vd->offset >= offset);
+
+        // add to default field list
+        default_fields.push_back(vd);
 
         // get next aligned offset for this type
         size_t alignedoffset = offset;
@@ -121,12 +203,13 @@ const llvm::Type* IrTypeStruct::buildType()
         // advance offset to right past this field
         offset = vd->offset + vd->type->size();
 
-        // give field index
-        // the IrField creation doesn't really belong here, but it's a trivial operation
-        // and it save yet another of these loops.
-        IF_LOG Logger::println("Field index: %zu", field_index);
+        // create ir field
         if (vd->ir.irField == NULL)
             new IrField(vd, field_index);
+        else
+            assert(vd->ir.irField->index == field_index &&
+                vd->ir.irField->unionOffset == 0 &&
+                "inconsistent field data");
         field_index++;
     }
 
@@ -134,6 +217,15 @@ const llvm::Type* IrTypeStruct::buildType()
     if (offset < sd->structsize)
     {
         add_zeros(defaultTypes, sd->structsize - offset);
+    }
+
+    // make sure all fields really get their ir field
+    ArrayIter<VarDeclaration> it(sd->fields);
+    for (; !it.done(); it.next())
+    {
+        VarDeclaration* vd = it.get();
+        if (vd->ir.irField == NULL)
+            new IrField(vd, 0, vd->offset);
     }
 
     // build the llvm type

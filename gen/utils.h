@@ -7,34 +7,56 @@
 template<class C>
 struct ArrayIter
 {
-    Array& array;
+    Array* array;
     size_t index;
 
     ArrayIter(Array& arr, size_t idx = 0)
-    :   array(arr), index(idx)
+    :   array(&arr), index(idx)
     { }
+    ArrayIter(Array* arr, size_t idx = 0)
+    :   array(arr), index(idx)
+    { assert(arr && "null array"); }
+
+    ArrayIter<C>& operator=(const Array& arr)
+    {
+        array = &arr;
+        index = 0;
+        return *this;
+    }
+    ArrayIter<C>& operator=(const Array* arr)
+    {
+        assert(arr && "null array");
+        array = arr;
+        index = 0;
+        return *this;
+    }
 
     bool done()
     {
-        return index >= array.dim;
+        return index >= array->dim;
     }
     bool more()
     {
-        return index < array.dim;
+        return index < array->dim;
     }
 
-    C* get()
-    {
-        return static_cast<C*>(array.data[index]);
+    C* get() {
+        return static_cast<C*>(array->data[index]);
     }
-    C* operator->()
-    {
-        return static_cast<C*>(array.data[index]);
+    C* operator->() {
+        return get();
+    }
+    C* operator*() {
+        return get();
     }
 
     void next()
     {
         ++index;
+    }
+
+    bool operator==(const ArrayIter<C>& other) {
+        return &array->data[index] == &other.array->data[other.index];
     }
 };
 

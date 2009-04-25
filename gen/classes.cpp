@@ -187,8 +187,7 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     tc->sym->codegen(Type::sir);
 
-    size_t presz = 2*getTypePaddedSize(DtoSize_t());
-    uint64_t n = getTypePaddedSize(tc->ir.type->get()) - presz;
+    uint64_t n = tc->sym->structsize - PTRSIZE * 2;
 
     // set vtable field seperately, this might give better optimization
     LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");
