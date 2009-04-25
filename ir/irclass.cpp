@@ -132,7 +132,7 @@ LLConstant * IrStruct::getVtblInit()
         FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd && "vtbl entry not a function");
 
-        if ((cd->isAbstract() || fd->isAbstract()) && !fd->fbody)
+        if (fd->isAbstract() && !fd->fbody)
         {
             c = getNullValue(DtoType(fd->type->pointerTo()));
         }
@@ -335,7 +335,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
         FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd && "vtbl entry not a function");
 
-        assert(!((fd->isAbstract() || cd->isAbstract()) && !fd->fbody) &&
+        assert((!fd->isAbstract() || fd->fbody) &&
             "null symbol in interface implementation vtable");
 
         fd->codegen(Type::sir);

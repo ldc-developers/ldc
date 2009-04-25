@@ -386,11 +386,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
-    // queue declaration unless the function is abstract without body;
-    // bodyless functions in an abstract class are considered abstract
-    ClassDeclaration* cd = fdecl->isMember() ? fdecl->isMember()->isClassDeclaration() : NULL;
-    bool isabstract = fdecl->isAbstract() || (cd && cd->isAbstract());
-    if (!isabstract || fdecl->fbody)
+    // queue declaration unless the function is abstract without body
+    if (!fdecl->isAbstract() || fdecl->fbody)
     {
         DtoDeclareFunction(fdecl);
     }
