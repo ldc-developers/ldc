@@ -52,7 +52,7 @@ int optLevel() {
 }
 
 bool optimize() {
-    return optimizeLevel || doInline() || passList.empty();
+    return optimizeLevel || doInline() || !passList.empty();
 }
 
 // this function inserts some or all of the std-compile-opts passes depending on the
