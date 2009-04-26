@@ -265,10 +265,11 @@ void IrTypeClass::addInterfaceToMap(ClassDeclaration * inter, size_t index)
     // add this interface
     interfaceMap.insert(std::make_pair(inter, index));
 
-    // add all its base interfaces recursively
-    for (size_t i = 0; i < inter->interfaces_dim; i++)
+    // add the direct base interfaces recursively - they
+    // are accessed through the same index
+    if (inter->interfaces_dim > 0)
     {
-        BaseClass* b = inter->interfaces[i];
+        BaseClass* b = inter->interfaces[0];
         addInterfaceToMap(b->base, index);
     }
 }
