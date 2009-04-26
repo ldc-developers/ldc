@@ -269,8 +269,8 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     // Ask the target to add backend passes as necessary.
     MachineCodeEmitter *MCE = 0;
 
-//TODO: May want to switch it on for -O0?
-    bool Fast = false;
+    // debug info doesn't work properly without fast!
+    bool Fast = !optimize() || global.params.symdebug;
     FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, Fast);
     assert(mod == FileModel::AsmFile);
 
