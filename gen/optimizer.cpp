@@ -146,7 +146,7 @@ static void addPassesForOptLevel(PassManager& pm) {
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module* m)
 {
-    if (!doInline() && optimizeLevel == 0 && passList.empty())
+    if (!optimize())
         return false;
 
     PassManager pm;
