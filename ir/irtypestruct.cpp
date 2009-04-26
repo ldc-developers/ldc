@@ -110,7 +110,7 @@ const llvm::Type* IrTypeStruct::buildType()
                     if (v_begin >= f_end || v_end <= f_begin)
                         continue;
 
-                    sd->error(vd->loc, "overlapping initialization for %s and %s",
+                    sd->error(vd->loc, "has overlapping initialization for %s and %s",
                         field_it->toChars(), vd->toChars());
                 }
             }
