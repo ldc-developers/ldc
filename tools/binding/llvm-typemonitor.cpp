@@ -1,5 +1,6 @@
 /// Support for callbacks when an abstract type becomes more concrete.
 
+#include "llvm/Support/Streams.h"
 #include "llvm/Type.h"
 #include "llvm-c/Core.h"
 

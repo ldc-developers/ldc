@@ -111,7 +111,7 @@ class Type
     Type refineAbstractType(Type to) {
         assert(isAbstract());
         
-        LLVMRefineAbstractType(type, to.type);
+        LLVMRefineType(type, to.type);
         
         // Either type will do. Go through the registry to try to use the
         // "canonical" Type object for the type.

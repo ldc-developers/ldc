@@ -53,6 +53,13 @@ class Module
     ///
     private LLVMModuleRef mod;
     const char[] name;
+    
+    // Make all methods final to enable linking with just needed libs.
+    // To make use of this if compiling with GDC: use -ffunction-sections when
+    // compiling and --gc-sections when linking.
+    // (Final avoids references in the vtable)
+    final:
+    
     ///
     this(char[] nam)
     {
@@ -86,6 +93,8 @@ class Module
         {
             errmsg = from_stringz(msg).dup;
             LLVMDisposeMessage(msg);
+            if (errmsg.length == 0)
+                errmsg = "Error reading bitcode file";
             throw new LLVMException(errmsg);
         }
         scope(exit)
@@ -95,6 +104,8 @@ class Module
         {
             errmsg = from_stringz(msg).dup;
             LLVMDisposeMessage(msg);
+            if (errmsg.length == 0)
+                errmsg = "Error parsing bitcode";
             LLVMDisposeMemoryBuffer(bref);
             throw new LLVMException(errmsg);
         }
@@ -194,8 +205,11 @@ class Module
     {
         assert(mod !is null);
         auto c = LLVMGetOrInsertFunction(mod, to_stringz(nam), t.ll);
-        assert(c !is null);
-        return cast(Function)getValueOf(c);
+        auto val = getValueOf(c);
+        auto fn = cast(Function) val;
+        // Can happen if 'nam' names a function of a different type:
+        assert(fn !is null, "Not a function of type " ~ t.toString() ~ ": " ~ val.toString());
+        return fn;
     }
     /// Performs the same optimizations as `opt -std-compile-opts ...' would on the module.
     /// If inline is true, function inlining will be performed.
@@ -221,6 +235,8 @@ class Module
         {
             auto errmsg = from_stringz(msg).dup;
             LLVMDisposeMessage(msg);
+            if (errmsg.length == 0)
+                errmsg = "Module verification failed";
             throw new LLVMException(errmsg);
         }
     }
@@ -256,6 +272,8 @@ class ModuleProvider
         {
             auto errmsg = from_stringz(msg).dup;
             LLVMDisposeMessage(msg);
+            if (errmsg.length == 0)
+                errmsg = "ModuleProvider: Error reading bitcode file";
             throw new LLVMException(errmsg);
         }
         
@@ -268,6 +286,8 @@ class ModuleProvider
             
             auto errmsg = from_stringz(msg).dup;
             LLVMDisposeMessage(msg);
+            if (errmsg.length == 0)
+                errmsg = "Error creating ModuleProvider for bitcode file";
             throw new LLVMException(errmsg);
         }
         return new ModuleProvider(mp);
@@ -567,11 +587,30 @@ class Constant : Value
         ///
         mixin(GenericConstCmp!("Real","FCmp"));
         ///
-        Constant GetGEP(Constant ptr, Constant[] idxs)
+        Constant GetGEP(Constant ptr, Constant[] idxs...)
         {
+            static if (size_t.max > uint.max) {
+                assert(idxs.length <= uint.max, "Ridiculous number of indexes to GEP");
+            }
             auto ar = new LLVMValueRef[idxs.length];
             foreach(i,v; idxs) ar[i] = v.value;
             auto c = LLVMConstGEP(ptr.value, ar.ptr, ar.length);
+            return cast(Constant)getValueOf(c);
+        }
+        ///
+        Constant GetExtractValue(Constant agg, uint[] idxs...) {
+            static if (size_t.max > uint.max) {
+                assert(idxs.length <= uint.max, "Ridiculous number of indexes to ExtractValue");
+            }
+            auto c = LLVMConstExtractValue(agg.value, idxs.ptr, idxs.length);
+            return cast(Constant)getValueOf(c);
+        }
+        ///
+        Constant GetInsertValue(Constant agg, Constant elt, uint[] idxs...) {
+            static if (size_t.max > uint.max) {
+                assert(idxs.length <= uint.max, "Ridiculous number of indexes to InsertValue");
+            }
+            auto c = LLVMConstInsertValue(agg.value, elt.value, idxs.ptr, idxs.length);
             return cast(Constant)getValueOf(c);
         }
         ///
@@ -762,8 +801,7 @@ abstract class GlobalValue : Constant
 ///
 class GlobalVariable : GlobalValue
 {
-    /// TODO:
-    /// void DeleteGlobal(ValueRef GlobalVar);
+    /// TODO: void DeleteGlobal(ValueRef GlobalVar);
 
     ///
     private this(LLVMValueRef v, Type t) {
@@ -772,7 +810,7 @@ class GlobalVariable : GlobalValue
     ///
     bool hasInitializer()
     {
-        return LLVMHasInitializer(value) != 0;
+        return isDeclaration() == 0;
     }
     ///
     Constant initializer()
@@ -811,9 +849,8 @@ class GlobalVariable : GlobalValue
 ///
 class Function : GlobalValue
 {
-    /// TODO:
-    /// void GetParams(ValueRef Fn, ValueRef *Params);
-    /// void GetBasicBlocks(ValueRef Fn, BasicBlockRef *BasicBlocks);
+    /// TODO: void GetParams(ValueRef Fn, ValueRef *Params);
+    /// TODO: void GetBasicBlocks(ValueRef Fn, BasicBlockRef *BasicBlocks);
 
     ///
     package this(LLVMValueRef v, Type t) {
@@ -852,14 +889,14 @@ class Function : GlobalValue
         LLVMSetFunctionCallConv(value, cc);
     }
     ///
-    char[] collector()
+    char[] gc()
     {
-        return from_stringz(LLVMGetCollector(value));
+        return from_stringz(LLVMGetGC(value));
     }
     ///
-    void collector(char[] col)
+    void gc(char[] name)
     {
-        LLVMSetCollector(value, to_stringz(col));
+        LLVMSetGC(value, to_stringz(name));
     }
     ///
     uint numBasicBlocks()

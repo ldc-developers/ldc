@@ -72,6 +72,12 @@ private
     template Build_Value_Value_Value_Name(char[] N) {
        const Build_Value_Value_Value_Name = Build_Named_Mixin!(N, "Value a, Value b, Value c", `a.value, b.value, c.value`);
     }
+    template Build_Value_uint_Name(char[] N) {
+        const Build_Value_uint_Name = Build_Named_Mixin!(N, "Value a, uint n", `a.value, n`);
+    }
+    template Build_Value_Value_uint_Name(char[] N) {
+       const Build_Value_Value_uint_Name = Build_Named_Mixin!(N, "Value a, Value b, uint n", `a.value, b.value, n`);
+    }
     template Build_Cmp(char[] PRED, char[] N) {
        const Build_Cmp = Build_Named_Mixin!(N, ""~PRED~"Predicate p, Value l, Value r", `p, l.value, r.value`);
     }
@@ -171,6 +177,10 @@ class Builder
     mixin(StringDistribute!(Build_Value_Value_Value_Name,
         "Select", "InsertElement", "ShuffleVector"
     ));
+    ///
+    mixin(Build_Value_uint_Name!("ExtractValue"));
+    ///
+    mixin(Build_Value_Value_uint_Name!("InsertValue"));
     ///
     Value buildCall(Value fn, Value[] args, char[] name) {
         auto llargs = new LLVMValueRef[args.length];

@@ -100,6 +100,8 @@ class ExecutionEngine
         {
             auto errmsg = from_stringz(err).dup;
             LLVMDisposeMessage(err);
+            if (errmsg.length == 0)
+                errmsg = "Error creating execution engine";
             throw new LLVMException(errmsg);
         }
         return new ExecutionEngine(ee);
@@ -113,6 +115,8 @@ class ExecutionEngine
         {
             auto errmsg = from_stringz(err).dup;
             LLVMDisposeMessage(err);
+            if (errmsg.length == 0)
+                errmsg = "Error creating interpreter";
             throw new LLVMException(errmsg);
         }
         return new ExecutionEngine(ee);
@@ -126,6 +130,8 @@ class ExecutionEngine
         {
             auto errmsg = from_stringz(err).dup;
             LLVMDisposeMessage(err);
+            if (errmsg.length == 0)
+                errmsg = "Error creating JIT";
             throw new LLVMException(errmsg);
         }
         return new ExecutionEngine(ee);
@@ -199,6 +205,8 @@ class ExecutionEngine
         {
             auto errmsg = from_stringz(err).dup;
             LLVMDisposeMessage(err);
+            if (errmsg.length == 0)
+                errmsg = "Error removing ModuleProvider from ExecutionEngine";
             throw new LLVMException(errmsg);
         }
         return Module.GetExisting(mod);

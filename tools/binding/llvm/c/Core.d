@@ -1,4 +1,5 @@
 // Converted to the D programming language by Tomas Lindquist Olsen 2008
+//                                        and Frits van Bommel 2008
 // Original file header:
 /*===-- llvm-c/Core.h - Core Library C Interface ------------------*- C -*-===*\
 |*                                                                            *|
@@ -222,7 +223,6 @@ void LLVMDumpModule(LLVMModuleRef M);
  */
 
 LLVMTypeKind LLVMGetTypeKind(LLVMTypeRef Ty);
-void LLVMRefineAbstractType(LLVMTypeRef AbstractType, LLVMTypeRef ConcreteType);
 
 /* Operations on integer types */
 LLVMTypeRef LLVMInt1Type();
@@ -371,6 +371,11 @@ LLVMValueRef LLVMConstInsertElement(LLVMValueRef VectorConstant,
 LLVMValueRef LLVMConstShuffleVector(LLVMValueRef VectorAConstant,
                                     LLVMValueRef VectorBConstant,
                                     LLVMValueRef MaskConstant);
+LLVMValueRef LLVMConstExtractValue(LLVMValueRef AggConstant, uint *IdxList,
+                                   uint NumIdx);
+LLVMValueRef LLVMConstInsertValue(LLVMValueRef AggConstant,
+                                  LLVMValueRef ElementValueConstant,
+                                  uint *IdxList, uint NumIdx);
 
 /* Operations on global variables, functions, and aliases (globals) */
 LLVMModuleRef LLVMGetGlobalParent(LLVMValueRef Global);
@@ -392,7 +397,6 @@ LLVMValueRef LLVMGetLastGlobal(LLVMModuleRef M);
 LLVMValueRef LLVMGetNextGlobal(LLVMValueRef GlobalVar);
 LLVMValueRef LLVMGetPreviousGlobal(LLVMValueRef GlobalVar);
 void LLVMDeleteGlobal(LLVMValueRef GlobalVar);
-int LLVMHasInitializer(LLVMValueRef GlobalVar);
 LLVMValueRef LLVMGetInitializer(LLVMValueRef GlobalVar);
 void LLVMSetInitializer(LLVMValueRef GlobalVar, LLVMValueRef ConstantVal);
 int LLVMIsThreadLocal(LLVMValueRef GlobalVar);
@@ -412,8 +416,8 @@ void LLVMDeleteFunction(LLVMValueRef Fn);
 uint LLVMGetIntrinsicID(LLVMValueRef Fn);
 uint LLVMGetFunctionCallConv(LLVMValueRef Fn);
 void LLVMSetFunctionCallConv(LLVMValueRef Fn, uint CC);
-/*const*/ char *LLVMGetCollector(LLVMValueRef Fn);
-void LLVMSetCollector(LLVMValueRef Fn, /*const*/ char *Coll);
+/*const*/ char *LLVMGetGC(LLVMValueRef Fn);
+void LLVMSetGC(LLVMValueRef Fn, /*const*/ char *Name);
 
 /* Operations on parameters */
 uint LLVMCountParams(LLVMValueRef Fn);
@@ -604,6 +608,11 @@ LLVMValueRef LLVMBuildInsertElement(LLVMBuilderRef, LLVMValueRef VecVal,
 LLVMValueRef LLVMBuildShuffleVector(LLVMBuilderRef, LLVMValueRef V1,
                                     LLVMValueRef V2, LLVMValueRef Mask,
                                     /*const*/ char *Name);
+LLVMValueRef LLVMBuildExtractValue(LLVMBuilderRef, LLVMValueRef AggVal,
+                                   uint Index, /*const*/ char *Name);
+LLVMValueRef LLVMBuildInsertValue(LLVMBuilderRef, LLVMValueRef AggVal,
+                                  LLVMValueRef EltVal, uint Index,
+                                  /*const*/ char *Name);
 
 
 /*===-- Module providers --------------------------------------------------===*/
