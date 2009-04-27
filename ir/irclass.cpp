@@ -183,20 +183,19 @@ void IrStruct::addBaseClassInits(
         addBaseClassInits(constants, base->baseClass, offset, field_index);
     }
 
-    ArrayIter<VarDeclaration> it(base->fields);
-    for (; !it.done(); it.next())
-    {
-        VarDeclaration* vd = it.get();
+    IrTypeClass* tc = base->type->irtype->isClass();
+    assert(tc);
 
-        // skip if offset moved backwards
-        if (vd->offset < offset)
-        {
-            IF_LOG Logger::println("Skipping field %s %s (+%u) for default", vd->type->toChars(), vd->toChars(), vd->offset);
-            continue;
-        }
+    // go through fields
+    IrTypeAggr::iterator it;
+    for (it = tc->def_begin(); it != tc->def_end(); ++it)
+    {
+        VarDeclaration* vd = *it;
 
         IF_LOG Logger::println("Adding default field %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
         LOG_SCOPE;
+
+        assert(vd->offset >= offset && "default fields not sorted by offset");
 
         // get next aligned offset for this type
         size_t alignsize = vd->type->alignsize();
@@ -216,12 +215,14 @@ void IrStruct::addBaseClassInits(
     }
 
     // has interface vtbls?
-    if (base->vtblInterfaces)
+    if (base->vtblInterfaces && base->vtblInterfaces->dim > 0)
     {
         // false when it's not okay to use functions from super classes
         bool newinsts = (base == aggrdecl->isClassDeclaration());
 
         size_t inter_idx = interfacesWithVtbls.size();
+
+        offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);
 
         ArrayIter<BaseClass> it2(*base->vtblInterfaces);
         for (; !it2.done(); it2.next())

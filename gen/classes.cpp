@@ -205,7 +205,11 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 
     // copy the rest from the static initializer
     LLValue* dstarr = DtoGEPi(dst,0,2,"tmp");
-    LLValue* srcarr = DtoGEPi(tc->sym->ir.irStruct->getInitSymbol(),0,2,"tmp");
+
+    // init symbols might not have valid types
+    LLValue* initsym = tc->sym->ir.irStruct->getInitSymbol();
+    initsym = DtoBitCast(initsym, DtoType(tc));
+    LLValue* srcarr = DtoGEPi(initsym,0,2,"tmp");
 
     DtoMemCpy(dstarr, srcarr, DtoConstSize_t(n));
 }

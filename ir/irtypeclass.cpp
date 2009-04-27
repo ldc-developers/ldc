@@ -14,6 +14,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 extern size_t add_zeros(std::vector<const llvm::Type*>& defaultTypes, size_t diff);
+extern bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -40,29 +41,112 @@ void IrTypeClass::addBaseClassData(
         addBaseClassData(defaultTypes, base->baseClass, offset, field_index);
     }
 
-    ArrayIter<VarDeclaration> it(base->fields);
-    for (; !it.done(); it.next())
-    {
-        VarDeclaration* vd = it.get();
+    // FIXME: merge code with structs in IrTypeAggr
 
-        // skip if offset moved backwards
-        if (vd->offset < offset)
+    // mirror the sd->fields array but only fill in contributors
+    size_t n = base->fields.dim;
+    LLSmallVector<VarDeclaration*, 16> data(n, NULL);
+    default_fields.reserve(n);
+
+    // first fill in the fields with explicit initializers
+    VarDeclarationIter field_it(base->fields);
+    for (; field_it.more(); field_it.next())
+    {
+        // init is !null for explicit inits
+        if (field_it->init != NULL)
         {
-            IF_LOG Logger::println("Skipping field %s %s (+%u) for default", vd->type->toChars(), vd->toChars(), vd->offset);
-            if (vd->ir.irField == NULL)
+            IF_LOG Logger::println("adding explicit initializer for struct field %s",
+                field_it->toChars());
+
+            data[field_it.index] = *field_it;
+
+            size_t f_begin = field_it->offset;
+            size_t f_end = f_begin + field_it->type->size();
+
+            // make sure there is no overlap
+            for (size_t i = 0; i < field_it.index; i++)
             {
-                new IrField(vd, 2, vd->offset - PTRSIZE * 2);
+                if (data[i] != NULL)
+                {
+                    VarDeclaration* vd = data[i];
+                    size_t v_begin = vd->offset;
+                    size_t v_end = v_begin + vd->type->size();
+
+                    if (v_begin >= f_end || v_end <= f_begin)
+                        continue;
+
+                    base->error(vd->loc, "has overlapping initialization for %s and %s",
+                        field_it->toChars(), vd->toChars());
+                }
             }
+        }
+    }
+
+    if (global.errors)
+    {
+        fatal();
+    }
+
+    // fill in default initializers
+    field_it = VarDeclarationIter(base->fields);
+    for (;field_it.more(); field_it.next())
+    {
+        if (data[field_it.index])
             continue;
+
+        size_t f_begin = field_it->offset;
+        size_t f_end = f_begin + field_it->type->size();
+
+        // make sure it doesn't overlap anything explicit
+        bool overlaps = false;
+        for (size_t i = 0; i < n; i++)
+        {
+            if (data[i])
+            {
+                size_t v_begin = data[i]->offset;
+                size_t v_end = v_begin + data[i]->type->size();
+
+                if (v_begin >= f_end || v_end <= f_begin)
+                    continue;
+
+                overlaps = true;
+                break;
+            }
         }
 
-        IF_LOG Logger::println("Adding default field %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
+        // if no overlap was found, add the default initializer
+        if (!overlaps)
+        {
+            IF_LOG Logger::println("adding default initializer for struct field %s",
+                field_it->toChars());
+            data[field_it.index] = *field_it;
+        }
+    }
+
+    // ok. now we can build a list of llvm types. and make sure zeros are inserted if necessary.
+
+    // first we sort the list by offset
+    std::sort(data.begin(), data.end(), var_offset_sort_cb);
+
+    // add types to list
+    for (size_t i = 0; i < n; i++)
+    {
+        VarDeclaration* vd = data[i];
+
+        if (vd == NULL)
+            continue;
+
+        assert(vd->offset >= offset && "it's a bug...");
+
+        // add to default field list
+        if (cd == base)
+            default_fields.push_back(vd);
 
         // get next aligned offset for this type
         size_t alignsize = vd->type->alignsize();
         size_t alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
 
-        // do we need to insert explicit padding before the field?
+        // insert explicit padding?
         if (alignedoffset < vd->offset)
         {
             field_index += add_zeros(defaultTypes, vd->offset - alignedoffset);
@@ -74,19 +158,27 @@ void IrTypeClass::addBaseClassData(
         // advance offset to right past this field
         offset = vd->offset + vd->type->size();
 
-        // give field index
-        // the IrField creation doesn't really belong here, but it's a trivial operation
-        // and it save yet another of these loops.
-        IF_LOG Logger::println("Field index: %zu", field_index);
+        // create ir field
         if (vd->ir.irField == NULL)
-        {
             new IrField(vd, field_index);
-        }
+        else
+            assert(vd->ir.irField->index == field_index &&
+                vd->ir.irField->unionOffset == 0 &&
+                "inconsistent field data");
         field_index++;
     }
 
+    // make sure all fields really get their ir field
+    ArrayIter<VarDeclaration> it(base->fields);
+    for (; !it.done(); it.next())
+    {
+        VarDeclaration* vd = it.get();
+        if (vd->ir.irField == NULL)
+            new IrField(vd, 0, vd->offset);
+    }
+
     // any interface implementations?
-    if (base->vtblInterfaces)
+    if (base->vtblInterfaces && base->vtblInterfaces->dim > 0)
     {
         bool new_instances = (base == cd);
 
@@ -94,6 +186,9 @@ void IrTypeClass::addBaseClassData(
 
         VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
         Type* first = interfaces_idx->type->next->pointerTo();
+
+        // align offset
+        offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);
 
         for (; !it2.done(); it2.next())
         {
@@ -117,12 +212,14 @@ void IrTypeClass::addBaseClassData(
         }
     }
 
+#if 0
     // tail padding?
     if (offset < base->structsize)
     {
         field_index += add_zeros(defaultTypes, base->structsize - offset);
         offset = base->structsize;
     }
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -159,6 +256,15 @@ const llvm::Type* IrTypeClass::buildType()
 
         // add data members recursively
         addBaseClassData(defaultTypes, cd, offset, field_index);
+
+#if 1
+        // tail padding?
+        if (offset < cd->structsize)
+        {
+            field_index += add_zeros(defaultTypes, cd->structsize - offset);
+            offset = cd->structsize;
+        }
+#endif
     }
 
     // errors are fatal during codegen

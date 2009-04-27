@@ -19,7 +19,8 @@
 //////////////////////////////////////////////////////////////////////////////
 
 IrStruct::IrStruct(AggregateDeclaration* aggr)
-:   diCompositeType(NULL)
+:   diCompositeType(NULL),
+    init_pa(llvm::OpaqueType::get())
 {
     aggrdecl = aggr;
 
@@ -57,7 +58,7 @@ LLGlobalVariable * IrStruct::getInitSymbol()
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
     init = new llvm::GlobalVariable(
-        type->irtype->getPA().get(), true, _linkage, NULL, initname, gIR->module);
+        init_pa.get(), true, _linkage, NULL, initname, gIR->module);
 
     return init;
 }
@@ -77,6 +78,9 @@ llvm::Constant * IrStruct::getDefaultInit()
     {
         constInit = createClassDefaultInitializer();
     }
+
+    llvm::OpaqueType* o = llvm::cast<llvm::OpaqueType>(init_pa.get());
+    o->refineAbstractTypeTo(constInit->getType());
 
     return constInit;
 }
@@ -157,11 +161,7 @@ LLConstant * IrStruct::createStructDefaultInitializer()
     {
         VarDeclaration* vd = *it;
 
-        if (vd->offset < offset)
-        {
-            IF_LOG Logger::println("skipping field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
-            continue;
-        }
+        assert(vd->offset >= offset && "default fields not sorted by offset");
 
         IF_LOG Logger::println("using field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
 

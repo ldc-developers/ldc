@@ -68,6 +68,8 @@ protected:
     llvm::GlobalVariable* init;
     /// Static default initializer constant.
     LLConstant* constInit;
+    /// Static default initialier type holder.
+    llvm::PATypeHolder init_pa;
 
     /// Vtbl global.
     llvm::GlobalVariable* vtbl;

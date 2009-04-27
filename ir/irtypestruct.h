@@ -33,6 +33,11 @@ protected:
     /// AggregateDeclaration this type represents.
     AggregateDeclaration* aggr;
 
+    /// Sorted list of all default fields.
+    /// A default field is a field that contributes to the default initializer
+    /// and the default type, and thus it has it's own unique GEP index into
+    /// the aggregate.
+    /// For classes, field of any super classes are not included.
     std::vector<VarDeclaration*> default_fields;
 };
 

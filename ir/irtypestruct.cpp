@@ -64,9 +64,14 @@ size_t add_zeros(std::vector<const llvm::Type*>& defaultTypes, size_t diff)
 
 bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 {
-    if (v1 && v2) return v1->offset < v2->offset;
-    else return false;
+    if (v1 && v2)
+        return v1->offset < v2->offset;
+    else
+        return false;
 }
+
+// this is pretty much the exact same thing we need to do for fields in each
+// base class of a class
 
 const llvm::Type* IrTypeStruct::buildType()
 {

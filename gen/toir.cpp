@@ -217,7 +217,9 @@ DValue* VarExp::toElem(IRState* p)
         assert(ts->sym);
         ts->sym->codegen(Type::sir);
 
-        return new DVarValue(type, ts->sym->ir.irStruct->getInitSymbol());
+        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+        return new DVarValue(type, initsym);
     }
     else
     {
@@ -1645,7 +1647,7 @@ DValue* NewExp::toElem(IRState* p)
         else {
             assert(ts->sym);
             ts->sym->codegen(Type::sir);
-            DtoAggrCopy(mem,ts->sym->ir.irStruct->getInitSymbol());
+            DtoAggrCopy(mem, ts->sym->ir.irStruct->getInitSymbol());
         }
         return new DImValue(type, mem);
     }

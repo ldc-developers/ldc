@@ -44,13 +44,13 @@ void DtoResolveStruct(StructDeclaration* sd)
     IrStruct* irstruct = new IrStruct(sd);
     sd->ir.irStruct = irstruct;
 
-    // emit the initZ symbol
-    LLGlobalVariable* initZ = irstruct->getInitSymbol();
-
     // perform definition
     bool needs_def = mustDefineSymbol(sd);
     if (needs_def)
     {
+        // emit the initZ symbol
+        LLGlobalVariable* initZ = irstruct->getInitSymbol();
+
         // set initZ initializer
         initZ->setInitializer(irstruct->getDefaultInit());
     }
