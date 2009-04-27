@@ -137,6 +137,9 @@ bool hasUnalignedFields(Type* t);
 ///
 DValue* DtoInlineAsmExpr(Loc loc, FuncDeclaration* fd, Expressions* arguments);
 
+/// Create the IrModule if necessary and returns it.
+IrModule* getIrModule(Module* M);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////

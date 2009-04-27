@@ -978,7 +978,8 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
 {
     Type* arrty = arr->getType()->toBasetype();
-    assert((arrty->ty == Tsarray || arrty->ty == Tarray) && "Can only array bounds check for static or dynamic arrays");
+    assert((arrty->ty == Tsarray || arrty->ty == Tarray) &&
+        "Can only array bounds check for static or dynamic arrays");
 
     // static arrays could get static checks for static indices
     // but shouldn't since it might be generic code that's never executed
@@ -1000,7 +1001,10 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     std::vector<LLValue*> args;
 
     // file param
-    args.push_back(DtoLoad(gIR->dmodule->ir.irModule->fileName));
+    // get the filename from the function symbol instead of the current module
+    // it's wrong for instantiations of imported templates. Fixes LDC bug #271
+    Module* funcmodule = gIR->func()->decl->getModule();
+    args.push_back(DtoLoad(getIrModule(NULL)->fileName));
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);

@@ -476,13 +476,13 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
     LOG_SCOPE;
 
     // we might be generating for an import
-    if (!m->ir.irModule)
-        m->ir.irModule = new IrModule(m, m->srcfile->toChars());
-    else if (!m->ir.irModule->diCompileUnit.isNull())
+    IrModule* irmod = getIrModule(m);
+
+    if (!irmod->diCompileUnit.isNull())
     {
-        assert (m->ir.irModule->diCompileUnit.getGV()->getParent() == gIR->module
+        assert (irmod->diCompileUnit.getGV()->getParent() == gIR->module
             && "debug info compile unit belongs to incorrect llvm module!");
-        return m->ir.irModule->diCompileUnit;
+        return irmod->diCompileUnit;
     }
 
     // prepare srcpath
@@ -496,7 +496,7 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
     }
 
     // make compile unit
-    m->ir.irModule->diCompileUnit = gIR->difactory.CreateCompileUnit(
+    irmod->diCompileUnit = gIR->difactory.CreateCompileUnit(
         global.params.symdebug == 2 ? DW_LANG_C : DW_LANG_D,
         m->srcfile->name->toChars(),
         srcpath,
@@ -509,10 +509,10 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
     // if the linkage stays internal, we can't llvm-link the generated modules together:
     // llvm's DwarfWriter uses path and filename to determine the symbol name and we'd
     // end up with duplicate symbols
-    m->ir.irModule->diCompileUnit.getGV()->setLinkage(DEBUGINFO_LINKONCE_LINKAGE_TYPE);
-    m->ir.irModule->diCompileUnit.getGV()->setName(std::string("llvm.dbg.compile_unit_") + srcpath + m->srcfile->name->toChars());
+    irmod->diCompileUnit.getGV()->setLinkage(DEBUGINFO_LINKONCE_LINKAGE_TYPE);
+    irmod->diCompileUnit.getGV()->setName(std::string("llvm.dbg.compile_unit_") + srcpath + m->srcfile->name->toChars());
 
-    return m->ir.irModule->diCompileUnit;
+    return irmod->diCompileUnit;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

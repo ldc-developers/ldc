@@ -111,7 +111,8 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
         std::vector<LLValue*> args;
 
         // file param
-        args.push_back(DtoLoad(gIR->dmodule->ir.irModule->fileName));
+        IrModule* irmod = getIrModule(NULL);
+        args.push_back(DtoLoad(irmod->fileName));
 
         // line param
         LLConstant* c = DtoConstUint(loc.linnum);

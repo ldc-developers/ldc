@@ -1165,17 +1165,8 @@ DValue* ThisExp::toElem(IRState* p)
     Logger::print("ThisExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    // this seems to happen for dmd generated assert statements like:
-    //      assert(this, "null this");
-    // FIXME: check for TOKthis in AssertExp instead
-    if (!var)
-    {
-        LLValue* v = p->func()->thisArg;
-        assert(v);
-        return new DVarValue(type, v);
-    }
     // regular this expr
-    else if (VarDeclaration* vd = var->isVarDeclaration()) {
+    if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
         if (vd->toParent2() != p->func()->decl) {
             Logger::println("nested this exp");
@@ -1189,7 +1180,7 @@ DValue* ThisExp::toElem(IRState* p)
     }
 
     // anything we're not yet handling ?
-    assert(0);
+    assert(0 && "no var in ThisExp");
     return 0;
 }
 
@@ -1753,8 +1744,24 @@ DValue* AssertExp::toElem(IRState* p)
         return NULL;
 
     // condition
-    DValue* cond = e1->toElem(p);
-    Type* condty = e1->type->toBasetype();
+    DValue* cond;
+    Type* condty;
+
+    // special case assert(this);
+    if (e1->op == TOKthis)
+    {
+        LLValue* thisarg = p->func()->thisArg;
+        assert(thisarg && "null thisarg, but we're in assert(this) exp;");
+        LLValue* thisptr = DtoLoad(p->func()->thisArg);
+        LLValue* thisnotnull = p->ir->CreateIsNotNull(thisptr);
+        cond = new DImValue(Type::tbool, thisnotnull);
+        condty = Type::tbool;
+    }
+    else
+    {
+        cond = e1->toElem(p);
+        condty = e1->type->toBasetype();
+    }
 
     InvariantDeclaration* invdecl;
 

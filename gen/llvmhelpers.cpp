@@ -128,10 +128,9 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     // file param
 
     // we might be generating for an imported template function
-    if (!M->ir.irModule)
-        M->ir.irModule = new IrModule(M, M->srcfile->toChars());
+    IrModule* irmod = getIrModule(M);
 
-    args.push_back(DtoLoad(M->ir.irModule->fileName));
+    args.push_back(DtoLoad(irmod->fileName));
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
@@ -1399,3 +1398,17 @@ bool hasUnalignedFields(Type* t)
     ts->unaligned = 1;
     return false;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+IrModule * getIrModule(Module * M)
+{
+    if (M == NULL)
+        M = gIR->func()->decl->getModule();
+    assert(M && "null module");
+    if (!M->ir.irModule)
+        M->ir.irModule = new IrModule(M, M->srcfile->toChars());
+    return M->ir.irModule;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////

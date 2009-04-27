@@ -99,12 +99,6 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
 
     sir->setState(&ir);
 
-    // module ir state
-    // might already exist via import, just overwrite since
-    // the global created for the filename must belong to the right llvm module
-    // FIXME: but shouldn't this always get reset between modules? like other IrSymbols
-    this->ir.irModule = new IrModule(this, srcfile->toChars());
-
     // set target triple
     ir.module->setTargetTriple(global.params.targetTriple);
 
