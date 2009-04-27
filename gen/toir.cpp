@@ -1747,8 +1747,8 @@ DValue* AssertExp::toElem(IRState* p)
     DValue* cond;
     Type* condty;
 
-    // special case assert(this);
-    if (e1->op == TOKthis)
+    // special case for dmd generated assert(this); when not in -release mode
+    if (e1->op == TOKthis && ((ThisExp*)e1)->var == NULL)
     {
         LLValue* thisarg = p->func()->thisArg;
         assert(thisarg && "null thisarg, but we're in assert(this) exp;");
