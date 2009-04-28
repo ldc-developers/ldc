@@ -1,6 +1,8 @@
 #include "gen/optimizer.h"
 #include "gen/cl_helpers.h"
 
+#include "gen/passes/Passes.h"
+
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -33,9 +35,19 @@ static cl::opt<char> optimizeLevel(
         clEnumValEnd),
     cl::init(0));
 
+static cl::opt<bool>
+disableLangSpecificPasses("disable-d-passes",
+    cl::desc("Disable D-specific passes in -O<N>"),
+    cl::ZeroOrMore);
+
+static cl::opt<bool>
+disableSimplifyRuntimeCalls("disable-simplify-drtcalls",
+    cl::desc("Disable simplification of runtime calls in -O<N>"),
+    cl::ZeroOrMore);
+
 static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
 enableInlining("inlining",
-    cl::desc("(*) Enable function inlining (in -O<N>, if given)"),
+    cl::desc("(*) Enable function inlining in -O<N>"),
     cl::ZeroOrMore);
 
 // Determine whether or not to run the inliner as part of the default list of
@@ -101,6 +113,11 @@ static void addPassesForOptLevel(PassManager& pm) {
             pm.add(createInstructionCombiningPass());
             pm.add(createScalarReplAggregatesPass());
         }
+    }
+
+    if (optimizeLevel >= 2 && !disableLangSpecificPasses
+            && !disableSimplifyRuntimeCalls) {
+        pm.add(createSimplifyDRuntimeCalls());
     }
 
     // -O3
