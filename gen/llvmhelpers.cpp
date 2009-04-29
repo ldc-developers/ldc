@@ -1352,6 +1352,12 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
 bool mustDefineSymbol(Dsymbol* s)
 {
+    if (FuncDeclaration* fd = s->isFuncDeclaration())
+    {
+        if (fd->isArrayOp)
+            return true;
+    }
+
     TemplateInstance* tinst = DtoIsTemplateInstance(s);
     if (tinst)
     {

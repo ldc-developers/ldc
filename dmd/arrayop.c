@@ -275,7 +275,7 @@ Expression *BinExp::arrayOp(Scope *sc)
         //printf("ftype: %s\n", ftype->toChars());
         fd = new FuncDeclaration(0, 0, Lexer::idPool(name), STCundefined, ftype);
         fd->fbody = fbody;
-        fd->protection = PROTprotected;
+        fd->protection = PROTpublic;
         fd->linkage = LINKd;
 
         // special attention for array ops
