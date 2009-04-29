@@ -226,7 +226,7 @@ void IrTypeClass::addBaseClassData(
 
 const llvm::Type* IrTypeClass::buildType()
 {
-    IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(), cd->locToChars());
+    IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
     IF_LOG Logger::println("Instance size: %u", cd->structsize);
 

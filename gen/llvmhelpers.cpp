@@ -128,9 +128,16 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     // file param
 
     // we might be generating for an imported template function
-    IrModule* irmod = getIrModule(M);
-
-    args.push_back(DtoLoad(irmod->fileName));
+    const char* cur_file = M->srcfile->name->toChars();
+    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
+    {
+        args.push_back(DtoConstString(loc.filename));
+    }
+    else
+    {
+        IrModule* irmod = getIrModule(M);
+        args.push_back(DtoLoad(irmod->fileName));
+    }
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
@@ -794,7 +801,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     if (vd->ir.initialized) return;
     vd->ir.initialized = gIR->dmodule;
 
-    Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->locToChars());
+    Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->loc.toChars());
     LOG_SCOPE;
 
     Dsymbol* par = vd->toParent();

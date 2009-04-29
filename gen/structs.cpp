@@ -30,7 +30,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     sd->ir.resolved = true;
 
     // log what we're doing
-    Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->locToChars());
+    Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     // make sure type exists

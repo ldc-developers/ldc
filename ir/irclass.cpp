@@ -252,7 +252,7 @@ LLConstant * IrStruct::createClassDefaultInitializer()
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
     assert(cd && "invalid class aggregate");
 
-    IF_LOG Logger::println("Building class default initializer %s @ %s", cd->toPrettyChars(), cd->locToChars());
+    IF_LOG Logger::println("Building class default initializer %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
     IF_LOG Logger::println("Instance size: %u", cd->structsize);
 

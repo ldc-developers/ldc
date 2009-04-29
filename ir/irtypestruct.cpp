@@ -76,7 +76,7 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 const llvm::Type* IrTypeStruct::buildType()
 {
     IF_LOG Logger::println("Building struct type %s @ %s",
-        sd->toPrettyChars(), sd->locToChars());
+        sd->toPrettyChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     // if it's a forward declaration, all bets are off, stick with the opaque
