@@ -50,6 +50,7 @@
 #include "gen/abi.h"
 #include "gen/cl_options.h"
 #include "gen/optimizer.h"
+#include "gen/llvm-version.h"
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
@@ -263,12 +264,19 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     // Ask the target to add backend passes as necessary.
     MachineCodeEmitter *MCE = 0;
 
+#if LLVM_REV < 70343
+    // Last argument is bool Fast
     // debug info doesn't work properly without fast!
-    bool Fast = !optimize() || global.params.symdebug;
-    FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, Fast);
+    bool LastArg = !optimize() || global.params.symdebug;
+#else
+    // Last argument is unsigned OptLevel
+    // debug info doesn't work properly with OptLevel > 0!
+    unsigned LastArg = global.params.symdebug ? 0 : optLevel();
+#endif
+    FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, LastArg);
     assert(mod == FileModel::AsmFile);
 
-    bool err = Target.addPassesToEmitFileFinish(Passes, MCE, Fast);
+    bool err = Target.addPassesToEmitFileFinish(Passes, MCE, LastArg);
     assert(!err);
 
     Passes.doInitialization();
