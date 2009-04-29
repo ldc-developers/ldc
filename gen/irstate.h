@@ -182,16 +182,26 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBeg
         LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
         if (funcval && funcval->isIntrinsic())
         {
-            return ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
+            llvm::CallInst* call = ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
+            if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
+                call->setAttributes(fn->getAttributes());
+            return call;
         }
 
         llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create("postinvoke", topfunc(), scopeend());
         llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, ArgBegin, ArgEnd, Name);
+        if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
+            invoke->setAttributes(fn->getAttributes());
         scope() = IRScope(postinvoke, scopeend());
         return invoke;
     }
     else
-        return ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
+    {
+        llvm::CallInst* call = ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
+        if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
+            call->setAttributes(fn->getAttributes());
+        return call;
+    }
 }
 
 #endif // LDC_GEN_IRSTATE_H
