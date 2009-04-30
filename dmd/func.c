@@ -2084,7 +2084,7 @@ int FuncDeclaration::isNested()
     //if (!toParent())
 	//printf("FuncDeclaration::isNested('%s') parent=%p\n", toChars(), parent);
     //printf("\ttoParent() = '%s'\n", toParent()->toChars());
-    return ((storage_class & STCstatic) == 0) &&
+    return ((storage_class & STCstatic) == 0) && toParent2() &&
 	   (toParent2()->isFuncDeclaration() != NULL);
 }
 
