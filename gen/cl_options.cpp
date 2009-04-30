@@ -25,7 +25,7 @@ static cl::opt<bool, true> useDeprecated("d",
     cl::ZeroOrMore,
     cl::location(global.params.useDeprecated));
 
-static cl::opt<char, true> useDv1(
+static cl::opt<ubyte, true> useDv1(
     cl::desc("Force language version:"),
     cl::ZeroOrMore,
     cl::values(
@@ -49,7 +49,7 @@ static cl::opt<bool, true> warnings("w",
     cl::ZeroOrMore,
     cl::location(global.params.warnings));
 
-static cl::opt<char, true> debugInfo(
+static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"),
     cl::ZeroOrMore,
     cl::values(

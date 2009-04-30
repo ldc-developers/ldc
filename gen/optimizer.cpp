@@ -21,7 +21,7 @@ static cl::list<const PassInfo*, bool, PassNameParser>
         cl::Hidden      // to clean up --help output
     );
 
-static cl::opt<char> optimizeLevel(
+static cl::opt<unsigned char> optimizeLevel(
     cl::desc("Setting the optimization level:"),
     cl::ZeroOrMore,
     cl::values(

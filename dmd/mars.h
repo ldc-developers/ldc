@@ -133,13 +133,15 @@ enum OS
     OSSolaris,
 };
 
+typedef unsigned char ubyte;
+
 // Put command line switches in here
 struct Param
 {
     bool obj;           // write object file
     bool link;          // perform link
     bool verbose;       // verbose compile
-    char symdebug;	// insert debug symbolic information
+    ubyte symdebug;	// insert debug symbolic information
 #if !IN_LLVM
     // LDC uses a different mechanism
     bool optimize;      // run optimizer
@@ -159,7 +161,7 @@ struct Param
     bool useUnitTests;  // generate unittest code
     bool useInline;     // inline expand functions
     bool warnings;      // enable warnings
-    char Dversion;	// D version number
+    ubyte Dversion;	// D version number
     char safe;		// enforce safe memory model
 
     char *argv0;	// program name
