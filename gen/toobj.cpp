@@ -268,10 +268,18 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     // Last argument is bool Fast
     // debug info doesn't work properly without fast!
     bool LastArg = !optimize() || global.params.symdebug;
-#else
+#elif LLVM_REV < 70459
     // Last argument is unsigned OptLevel
     // debug info doesn't work properly with OptLevel > 0!
     unsigned LastArg = global.params.symdebug ? 0 : optLevel();
+#else
+    // Last argument is enum CodeGenOpt::Level OptLevel
+    // debug info doesn't work properly with OptLevel != None!
+    CodeGenOpt::Level LastArg = CodeGenOpt::Default;
+    if (global.params.symdebug)
+        LastArg = CodeGenOpt::None;
+    else if (optLevel() >= 3)
+        LastArg = CodeGenOpt::Aggressive;
 #endif
     FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, LastArg);
     assert(mod == FileModel::AsmFile);
