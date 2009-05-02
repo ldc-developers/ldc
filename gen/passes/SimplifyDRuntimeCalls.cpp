@@ -145,6 +145,15 @@ struct VISIBILITY_HIDDEN ArrayCastLenOpt : public LibCallOptimization {
     }
 };
 
+/// DeleteUnusedOpt - remove libcall if the return value is unused.
+struct VISIBILITY_HIDDEN DeleteUnusedOpt : public LibCallOptimization {
+    virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
+        if (CI->use_empty())
+            return CI;
+        return 0;
+    }
+};
+
 // TODO: More optimizations! :)
 
 } // end anonymous namespace.
@@ -162,6 +171,9 @@ namespace {
         // Array operations
         ArraySetLengthOpt ArraySetLength;
         ArrayCastLenOpt ArrayCastLen;
+        
+        // GC allocations
+        DeleteUnusedOpt DeleteUnused;
         
         public:
         static char ID; // Pass identification
@@ -188,9 +200,28 @@ FunctionPass *createSimplifyDRuntimeCalls() {
 /// Optimizations - Populate the Optimizations map with all the optimizations
 /// we know.
 void SimplifyDRuntimeCalls::InitOptimizations() {
+    // Some array-related optimizations
     Optimizations["_d_arraysetlengthT"] = &ArraySetLength;
     Optimizations["_d_arraysetlengthiT"] = &ArraySetLength;
     Optimizations["_d_array_cast_len"] = &ArrayCastLen;
+    
+    /* Delete calls to runtime functions which aren't needed if their result is
+     * unused. That comes down to functions that don't do anything but
+     * GC-allocate and initialize some memory.
+     * We don't need to do this for functions which are marked 'readnone' or
+     * 'readonly', since LLVM doesn't need our help figuring out when those can
+     * be deleted.
+     * (We can't mark allocating calls as readonly/readnone because they don't
+     * return the same pointer every time when called with the same arguments)
+     */
+    Optimizations["_d_allocmemoryT"] = &DeleteUnused;
+    Optimizations["_d_newarrayT"] = &DeleteUnused;
+    Optimizations["_d_newarrayiT"] = &DeleteUnused;
+    Optimizations["_d_newarrayvT"] = &DeleteUnused;
+    Optimizations["_d_newarraymT"] = &DeleteUnused;
+    Optimizations["_d_newarraymiT"] = &DeleteUnused;
+    Optimizations["_d_newarraymvT"] = &DeleteUnused;
+    Optimizations["_d_allocclass"] = &DeleteUnused;
 }
 
 
