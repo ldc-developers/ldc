@@ -40,6 +40,7 @@
 #include "gen/structs.h"
 #include "gen/classes.h"
 #include "gen/linkage.h"
+#include "gen/metadata.h"
 
 #include "ir/irvar.h"
 
@@ -284,6 +285,25 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
         TYPEINFO_LINKAGE_TYPE, NULL, mangle, gIR->module);
 
     tid->ir.irGlobal = irg;
+
+#ifdef USE_METADATA
+    // Add some metadata for use by optimization passes.
+    static std::string prefix = "llvm.ldc.typeinfo.";
+    std::string metaname = prefix + mangle;
+    LLGlobalVariable* meta = gIR->module->getGlobalVariable(metaname);
+    // Don't generate metadata for non-concrete types
+    // (such as tuple types, slice types, typeof(expr), etc.)
+    if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
+        LLConstant* mdVals[] = {
+            llvm::cast<LLConstant>(irg->value),
+            llvm::UndefValue::get(DtoType(tid->tinfo))
+        };
+        llvm::MDNode* metadata =
+            llvm::MDNode::get(mdVals, sizeof(mdVals) / sizeof(mdVals[0]));
+        new llvm::GlobalVariable(metadata->getType(), true,
+            METADATA_LINKAGE_TYPE, metadata, metaname, gIR->module);
+    }
+#endif
 
     DtoDeclareTypeInfo(tid);
 }
