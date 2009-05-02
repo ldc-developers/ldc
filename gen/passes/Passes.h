@@ -7,6 +7,7 @@ namespace llvm {
 
 // Performs simplifications on runtime calls.
 llvm::FunctionPass* createSimplifyDRuntimeCalls();
+llvm::FunctionPass* createGarbageCollect2Stack();
 
 
 #endif

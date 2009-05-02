@@ -45,6 +45,11 @@ disableSimplifyRuntimeCalls("disable-simplify-drtcalls",
     cl::desc("Disable simplification of runtime calls in -O<N>"),
     cl::ZeroOrMore);
 
+static cl::opt<bool>
+disableGCToStack("disable-gc2stack",
+    cl::desc("Disable promotion of GC allocations to stack memory in -O<N>"),
+    cl::ZeroOrMore);
+
 static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
 enableInlining("inlining",
     cl::desc("(*) Enable function inlining in -O<N>"),
@@ -93,6 +98,8 @@ static void addPassesForOptLevel(PassManager& pm) {
         pm.add(createInstructionCombiningPass());
         pm.add(createCFGSimplificationPass());
         pm.add(createPruneEHPass());
+        if (!disableLangSpecificPasses && !disableGCToStack)
+            pm.add(createGarbageCollect2Stack());
     }
 
     // -inline
@@ -101,8 +108,10 @@ static void addPassesForOptLevel(PassManager& pm) {
         
         if (optimizeLevel >= 2) {
             // Run some optimizations to clean up after inlining.
-            pm.add(createInstructionCombiningPass());
             pm.add(createScalarReplAggregatesPass());
+            pm.add(createInstructionCombiningPass());
+            if (!disableLangSpecificPasses && !disableGCToStack)
+                pm.add(createGarbageCollect2Stack());
             
             // Inline again, to catch things like foreach delegates
             // passed to inlined opApply's where the function wasn't
@@ -110,14 +119,23 @@ static void addPassesForOptLevel(PassManager& pm) {
             pm.add(createFunctionInliningPass());
             
             // Run clean-up again.
-            pm.add(createInstructionCombiningPass());
             pm.add(createScalarReplAggregatesPass());
+            pm.add(createInstructionCombiningPass());
+            if (!disableLangSpecificPasses && !disableGCToStack)
+                pm.add(createGarbageCollect2Stack());
         }
     }
 
-    if (optimizeLevel >= 2 && !disableLangSpecificPasses
-            && !disableSimplifyRuntimeCalls) {
-        pm.add(createSimplifyDRuntimeCalls());
+    if (optimizeLevel >= 2 && !disableLangSpecificPasses) {
+        if (!disableSimplifyRuntimeCalls)
+            pm.add(createSimplifyDRuntimeCalls());
+        
+        if (!disableGCToStack) {
+            // Run some clean-up after the last GC to stack promotion pass.
+            pm.add(createScalarReplAggregatesPass());
+            pm.add(createInstructionCombiningPass());
+            pm.add(createCFGSimplificationPass());
+        }
     }
 
     // -O3
