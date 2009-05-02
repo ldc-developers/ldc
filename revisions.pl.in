@@ -7,7 +7,7 @@ use Time::localtime;
 
 my $llvm_src = `perl @LLVM_CONFIG@ --src-root`;
 
-my $svn_info = `svn info $llvm_src 2>/dev/null`;
+my $svn_info = `LC_ALL=C svn info $llvm_src 2>/dev/null`;
 
 my $extra_includes = "";
 my $llvm_rev_str;
