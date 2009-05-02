@@ -288,18 +288,18 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
 #ifdef USE_METADATA
     // Add some metadata for use by optimization passes.
-    static std::string prefix = "llvm.ldc.typeinfo.";
-    std::string metaname = prefix + mangle;
+    std::string metaname = std::string(TD_PREFIX) + mangle;
     LLGlobalVariable* meta = gIR->module->getGlobalVariable(metaname);
     // Don't generate metadata for non-concrete types
     // (such as tuple types, slice types, typeof(expr), etc.)
     if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
-        LLConstant* mdVals[] = {
-            llvm::cast<LLConstant>(irg->value),
-            llvm::UndefValue::get(DtoType(tid->tinfo))
-        };
-        llvm::MDNode* metadata =
-            llvm::MDNode::get(mdVals, sizeof(mdVals) / sizeof(mdVals[0]));
+        // Construct the fields
+        LLConstant* mdVals[TD_NumFields];
+        mdVals[TD_Confirm] = llvm::cast<LLConstant>(irg->value);
+        mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
+        // Construct the metadata
+        llvm::MDNode* metadata = llvm::MDNode::get(mdVals, TD_NumFields);
+        // Insert it into the module
         new llvm::GlobalVariable(metadata->getType(), true,
             METADATA_LINKAGE_TYPE, metadata, metaname, gIR->module);
     }

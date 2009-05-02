@@ -197,7 +197,7 @@ const Type* GarbageCollect2Stack::getTypeFor(Value* typeinfo) {
           DOUT << ">> Value: " << *ti_global << "\n";
           DOUT << ">> Name: " << ti_global->getNameStr() << "\n");
     
-    std::string metaname = "llvm.ldc.typeinfo.";
+    std::string metaname = TD_PREFIX;
     metaname.append(ti_global->getNameStart(), ti_global->getNameEnd());
     
     DEBUG(DOUT << ">> Looking for global named " << metaname << "\n");
@@ -215,13 +215,13 @@ const Type* GarbageCollect2Stack::getTypeFor(Value* typeinfo) {
     
     DEBUG(DOUT << ">> Found metadata node\n");
     
-    if (node->getNumOperands() != 2 ||
-            node->getOperand(0)->stripPointerCasts() != ti_global)
+    if (node->getNumOperands() != TD_NumFields ||
+            node->getOperand(TD_Confirm)->stripPointerCasts() != ti_global)
         return NULL;
     
     DEBUG(DOUT << ">> Validated metadata node\n");
     
-    return node->getOperand(1)->getType();
+    return node->getOperand(TD_Type)->getType();
 }
 
 
