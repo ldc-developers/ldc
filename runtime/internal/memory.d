@@ -120,7 +120,10 @@ extern (C) void* rt_stackBottom()
     else version( darwin )
     {
         // darwin has a fixed stack bottom
-        return cast(void*) 0xc0000000;
+        version(X86_64)
+            return cast(void*) 0x7fff5fc00000;
+        else
+            return cast(void*) 0xc0000000;
     }
     else version( solaris )
     {
@@ -529,14 +532,24 @@ version (GC_Use_Data_Dyld)
             uint ncmds;
             uint sizeofcmds;
             uint flags;
+            version(X86_64)
+                uint reserved;
         }
 
         struct section
         {
             char[16] sectname;
             char[16] segname;
-            uint addr;
-            uint size;
+            version(X86_64)
+            {
+                ulong addr;
+                ulong size;
+            }
+            else
+            {
+                uint addr;
+                uint size;
+            }
             uint offset;
             uint align_;
             uint reloff;
@@ -544,11 +557,16 @@ version (GC_Use_Data_Dyld)
             uint flags;
             uint reserved1;
             uint reserved2;
+            version(X86_64)
+                uint reserved3;
         }
 
         alias extern (C) void function (mach_header* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
 
-        extern (C) /*const*/ section* getsectbynamefromheader(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
+        version(X86_64)
+            extern (C) /*const*/ section* getsectbynamefromheader_64(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
+        else
+            extern (C) /*const*/ section* getsectbynamefromheader(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
         extern (C) void _dyld_register_func_for_add_image(DyldFuncPointer func);
         extern (C) void _dyld_register_func_for_remove_image(DyldFuncPointer func);
 
@@ -562,7 +580,10 @@ version (GC_Use_Data_Dyld)
 
             foreach (s ; GC_dyld_sections)
             {
-                sec = getsectbynamefromheader(hdr, s.segment, s.section);
+                version(X86_64)
+                    sec = getsectbynamefromheader_64(hdr, s.segment, s.section);
+                else
+                    sec = getsectbynamefromheader(hdr, s.segment, s.section);
 
                 if (sec == null || sec.size == 0)
                     continue;
@@ -582,7 +603,10 @@ version (GC_Use_Data_Dyld)
 
             foreach (s ; GC_dyld_sections)
             {
-                sec = getsectbynamefromheader(hdr, s.segment, s.section);
+                version(X86_64)
+                    sec = getsectbynamefromheader_64(hdr, s.segment, s.section);
+                else
+                    sec = getsectbynamefromheader(hdr, s.segment, s.section);
 
                 if (sec == null || sec.size == 0)
                     continue;
