@@ -332,17 +332,6 @@ void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
     tid->llvmDefine();
 }
 
-void DtoDefineTypeInfo(TypeInfoDeclaration* tid)
-{
-    if (tid->ir.defined) return;
-    tid->ir.defined = true;
-
-    Logger::println("DtoDefineTypeInfo(%s)", tid->toChars());
-    LOG_SCOPE;
-
-    tid->llvmDefine();
-}
-
 /* ========================================================================= */
 
 void TypeInfoDeclaration::llvmDefine()
