@@ -45,6 +45,7 @@ disableSimplifyRuntimeCalls("disable-simplify-drtcalls",
     cl::desc("Disable simplification of runtime calls in -O<N>"),
     cl::ZeroOrMore);
 
+#ifdef USE_METADATA
 static cl::opt<bool>
 disableGCToStack("disable-gc2stack",
     cl::desc("Disable promotion of GC allocations to stack memory in -O<N>"),
@@ -55,6 +56,7 @@ static cl::opt<bool>
 disableStripMetaData("disable-strip-metadata",
     cl::desc("Disable default metadata stripping (not recommended)"),
     cl::ZeroOrMore);
+#endif
 
 static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
 enableInlining("inlining",
@@ -104,44 +106,55 @@ static void addPassesForOptLevel(PassManager& pm) {
         pm.add(createInstructionCombiningPass());
         pm.add(createCFGSimplificationPass());
         pm.add(createPruneEHPass());
+
+#ifdef USE_METADATA
         if (!disableLangSpecificPasses && !disableGCToStack)
             pm.add(createGarbageCollect2Stack());
+#endif
     }
 
     // -inline
     if (doInline()) {
         pm.add(createFunctionInliningPass());
-        
+
         if (optimizeLevel >= 2) {
             // Run some optimizations to clean up after inlining.
             pm.add(createScalarReplAggregatesPass());
             pm.add(createInstructionCombiningPass());
+
+#ifdef USE_METADATA
             if (!disableLangSpecificPasses && !disableGCToStack)
                 pm.add(createGarbageCollect2Stack());
-            
+#endif
+
             // Inline again, to catch things like foreach delegates
             // passed to inlined opApply's where the function wasn't
             // known during the first inliner pass.
             pm.add(createFunctionInliningPass());
-            
+
             // Run clean-up again.
             pm.add(createScalarReplAggregatesPass());
             pm.add(createInstructionCombiningPass());
+
+#ifdef USE_METADATA
             if (!disableLangSpecificPasses && !disableGCToStack)
                 pm.add(createGarbageCollect2Stack());
+#endif
         }
     }
 
     if (optimizeLevel >= 2 && !disableLangSpecificPasses) {
         if (!disableSimplifyRuntimeCalls)
             pm.add(createSimplifyDRuntimeCalls());
-        
+
+#ifdef USE_METADATA
         if (!disableGCToStack) {
             // Run some clean-up after the last GC to stack promotion pass.
             pm.add(createScalarReplAggregatesPass());
             pm.add(createInstructionCombiningPass());
             pm.add(createCFGSimplificationPass());
         }
+#endif
     }
 #ifdef USE_METADATA
     if (!disableStripMetaData) {
