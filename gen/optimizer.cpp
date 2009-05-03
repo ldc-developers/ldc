@@ -156,13 +156,6 @@ static void addPassesForOptLevel(PassManager& pm) {
         }
 #endif
     }
-#ifdef USE_METADATA
-    if (!disableStripMetaData) {
-        // This one is purposely not disabled by disableLangSpecificPasses
-        // because the code generator will assert if it's not used.
-        pm.add(createStripMetaData());
-    }
-#endif
 
     // -O3
     if (optimizeLevel >= 3)
@@ -251,6 +244,14 @@ bool ldc_optimize_module(llvm::Module* m)
     // insert -O<N> / -enable-inlining if specified at the end,
     if (optimize)
         addPassesForOptLevel(pm);
+
+#ifdef USE_METADATA
+    if (!disableStripMetaData) {
+        // This one is purposely not disabled by disableLangSpecificPasses
+        // because the code generator will assert if it's not used.
+        pm.add(createStripMetaData());
+    }
+#endif
 
     pm.run(*m);
     return true;
