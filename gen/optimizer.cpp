@@ -6,6 +6,7 @@
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PassNameParser.h"
@@ -34,6 +35,12 @@ static cl::opt<unsigned char> optimizeLevel(
         clEnumValN(5, "O5", "Link-time optimization"), //  not implemented?
         clEnumValEnd),
     cl::init(0));
+
+static cl::opt<bool>
+verifyEach("verify-each",
+    cl::desc("Run verifier after each optimization pass"),
+    cl::Hidden,
+    cl::ZeroOrMore);
 
 static cl::opt<bool>
 disableLangSpecificPasses("disable-d-passes",
@@ -80,79 +87,85 @@ bool optimize() {
     return optimizeLevel || doInline() || !passList.empty();
 }
 
+static void addPass(PassManager& pm, Pass* pass) {
+    pm.add(pass);
+    
+    if (verifyEach) pm.add(createVerifierPass());
+}
+
 // this function inserts some or all of the std-compile-opts passes depending on the
 // optimization level given.
 static void addPassesForOptLevel(PassManager& pm) {
     // -O1
     if (optimizeLevel >= 1)
     {
-        //pm.add(createStripDeadPrototypesPass());
-        pm.add(createGlobalDCEPass());
-        pm.add(createRaiseAllocationsPass());
-        pm.add(createCFGSimplificationPass());
+        //addPass(pm, createStripDeadPrototypesPass());
+        addPass(pm, createGlobalDCEPass());
+        addPass(pm, createRaiseAllocationsPass());
+        addPass(pm, createCFGSimplificationPass());
         if (optimizeLevel == 1)
-            pm.add(createPromoteMemoryToRegisterPass());
+            addPass(pm, createPromoteMemoryToRegisterPass());
         else
-            pm.add(createScalarReplAggregatesPass());
-        pm.add(createGlobalOptimizerPass());
-        pm.add(createGlobalDCEPass());
+            addPass(pm, createScalarReplAggregatesPass());
+        addPass(pm, createGlobalOptimizerPass());
+        addPass(pm, createGlobalDCEPass());
     }
 
     // -O2
     if (optimizeLevel >= 2)
     {
-        pm.add(createIPConstantPropagationPass());
-        pm.add(createDeadArgEliminationPass());
-        pm.add(createInstructionCombiningPass());
-        pm.add(createCFGSimplificationPass());
-        pm.add(createPruneEHPass());
+        addPass(pm, createIPConstantPropagationPass());
+        addPass(pm, createDeadArgEliminationPass());
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createCFGSimplificationPass());
+        addPass(pm, createPruneEHPass());
 
 #ifdef USE_METADATA
         if (!disableLangSpecificPasses && !disableGCToStack)
-            pm.add(createGarbageCollect2Stack());
+            addPass(pm, createGarbageCollect2Stack());
 #endif
     }
 
     // -inline
     if (doInline()) {
-        pm.add(createFunctionInliningPass());
+        addPass(pm, createFunctionInliningPass());
 
         if (optimizeLevel >= 2) {
             // Run some optimizations to clean up after inlining.
-            pm.add(createScalarReplAggregatesPass());
-            pm.add(createInstructionCombiningPass());
+            addPass(pm, createScalarReplAggregatesPass());
+            addPass(pm, createInstructionCombiningPass());
 
 #ifdef USE_METADATA
             if (!disableLangSpecificPasses && !disableGCToStack)
-                pm.add(createGarbageCollect2Stack());
+                addPass(pm, createGarbageCollect2Stack());
 #endif
 
             // Inline again, to catch things like foreach delegates
             // passed to inlined opApply's where the function wasn't
             // known during the first inliner pass.
-            pm.add(createFunctionInliningPass());
+            addPass(pm, createFunctionInliningPass());
 
             // Run clean-up again.
-            pm.add(createScalarReplAggregatesPass());
-            pm.add(createInstructionCombiningPass());
+            addPass(pm, createScalarReplAggregatesPass());
+            addPass(pm, createInstructionCombiningPass());
 
 #ifdef USE_METADATA
             if (!disableLangSpecificPasses && !disableGCToStack)
-                pm.add(createGarbageCollect2Stack());
+                addPass(pm, createGarbageCollect2Stack());
 #endif
         }
     }
 
     if (optimizeLevel >= 2 && !disableLangSpecificPasses) {
         if (!disableSimplifyRuntimeCalls)
-            pm.add(createSimplifyDRuntimeCalls());
+            addPass(pm, createSimplifyDRuntimeCalls());
 
 #ifdef USE_METADATA
         if (!disableGCToStack) {
             // Run some clean-up after the last GC to stack promotion pass.
-            pm.add(createScalarReplAggregatesPass());
-            pm.add(createInstructionCombiningPass());
-            pm.add(createCFGSimplificationPass());
+            addPass(pm, createScalarReplAggregatesPass());
+            addPass(pm, createInstructionCombiningPass());
+            addPass(pm, createCFGSimplificationPass());
         }
 #endif
     }
@@ -160,36 +173,36 @@ static void addPassesForOptLevel(PassManager& pm) {
     // -O3
     if (optimizeLevel >= 3)
     {
-        pm.add(createArgumentPromotionPass());
-        pm.add(createTailDuplicationPass());
-        pm.add(createInstructionCombiningPass());
-        pm.add(createCFGSimplificationPass());
-        pm.add(createScalarReplAggregatesPass());
-        pm.add(createInstructionCombiningPass());
-        pm.add(createCondPropagationPass());
+        addPass(pm, createArgumentPromotionPass());
+        addPass(pm, createTailDuplicationPass());
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createCFGSimplificationPass());
+        addPass(pm, createScalarReplAggregatesPass());
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createCondPropagationPass());
 
-        pm.add(createTailCallEliminationPass());
-        pm.add(createCFGSimplificationPass());
-        pm.add(createReassociatePass());
-        pm.add(createLoopRotatePass());
-        pm.add(createLICMPass());
-        pm.add(createLoopUnswitchPass());
-        pm.add(createInstructionCombiningPass());
-        pm.add(createIndVarSimplifyPass());
-        pm.add(createLoopUnrollPass());
-        pm.add(createInstructionCombiningPass());
-        pm.add(createGVNPass());
-        pm.add(createSCCPPass());
+        addPass(pm, createTailCallEliminationPass());
+        addPass(pm, createCFGSimplificationPass());
+        addPass(pm, createReassociatePass());
+        addPass(pm, createLoopRotatePass());
+        addPass(pm, createLICMPass());
+        addPass(pm, createLoopUnswitchPass());
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createIndVarSimplifyPass());
+        addPass(pm, createLoopUnrollPass());
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createGVNPass());
+        addPass(pm, createSCCPPass());
 
-        pm.add(createInstructionCombiningPass());
-        pm.add(createCondPropagationPass());
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createCondPropagationPass());
 
-        pm.add(createDeadStoreEliminationPass());
-        pm.add(createAggressiveDCEPass());
-        pm.add(createCFGSimplificationPass());
-        pm.add(createSimplifyLibCallsPass());
-        pm.add(createDeadTypeEliminationPass());
-        pm.add(createConstantMergePass());
+        addPass(pm, createDeadStoreEliminationPass());
+        addPass(pm, createAggressiveDCEPass());
+        addPass(pm, createCFGSimplificationPass());
+        addPass(pm, createSimplifyLibCallsPass());
+        addPass(pm, createDeadTypeEliminationPass());
+        addPass(pm, createConstantMergePass());
     }
 
     // level -O4 and -O5 are linktime optimizations
@@ -214,7 +227,10 @@ bool ldc_optimize_module(llvm::Module* m)
     }
 
     PassManager pm;
-    pm.add(new TargetData(m));
+    
+    if (verifyEach) pm.add(createVerifierPass());
+    
+    addPass(pm, new TargetData(m));
 
     bool optimize = optimizeLevel != 0 || doInline();
 
@@ -231,7 +247,7 @@ bool ldc_optimize_module(llvm::Module* m)
 
         const PassInfo* pass = passList[i];
         if (PassInfo::NormalCtor_t ctor = pass->getNormalCtor()) {
-            pm.add(ctor());
+            addPass(pm, ctor());
         } else {
             const char* arg = pass->getPassArgument(); // may return null
             if (arg)
@@ -249,7 +265,7 @@ bool ldc_optimize_module(llvm::Module* m)
     if (!disableStripMetaData) {
         // This one is purposely not disabled by disableLangSpecificPasses
         // because the code generator will assert if it's not used.
-        pm.add(createStripMetaData());
+        addPass(pm, createStripMetaData());
     }
 #endif
 
