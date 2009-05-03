@@ -29,6 +29,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/ADT/StringMap.h"
@@ -37,7 +38,8 @@
 #include "llvm/Support/Debug.h"
 using namespace llvm;
 
-STATISTIC(NumGcToStack, "Number of GC calls promoted to stack allocations");
+STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
+STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas");
 STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was unused");
 
 //===----------------------------------------------------------------------===//
@@ -47,14 +49,12 @@ STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was u
 namespace {
     struct FunctionInfo {
         unsigned TypeInfoArgNr;
+        int ArrSizeArgNr;
         bool SafeToDelete;
         
-        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete)
-        : TypeInfoArgNr(typeInfoArgNr), SafeToDelete(safeToDelete) {}
-        
-        Value* getArraySize(CallSite CS) {
-            return 0;
-        }
+        FunctionInfo(unsigned typeInfoArgNr, int arrSizeArgNr, bool safeToDelete)
+        : TypeInfoArgNr(typeInfoArgNr), ArrSizeArgNr(arrSizeArgNr),
+          SafeToDelete(safeToDelete) {}
     };
     
     /// This pass replaces GC calls with alloca's
@@ -92,7 +92,8 @@ FunctionPass *createGarbageCollect2Stack() {
 
 bool GarbageCollect2Stack::doInitialization(Module &M) {
     this->M = &M;
-    KnownFunctions["_d_allocmemoryT"] = new FunctionInfo(0, true);
+    KnownFunctions["_d_allocmemoryT"] = new FunctionInfo(0, -1, true);
+    KnownFunctions["_d_newarrayvT"] = new FunctionInfo(0, 1, true);
 }
 
 /// runOnFunction - Top level algorithm.
@@ -100,7 +101,7 @@ bool GarbageCollect2Stack::doInitialization(Module &M) {
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(DOUT << "Running -dgc2stack on function " << F.getName() << '\n');
     
-    const TargetData &TD = getAnalysis<TargetData>();
+    TargetData &TD = getAnalysis<TargetData>();
     const LoopInfo &LI = getAnalysis<LoopInfo>();
     
     BasicBlock& Entry = F.getEntryBlock();
@@ -161,26 +162,76 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 continue;
             }
             
+            Value* arrSize = 0;
+            if (info->ArrSizeArgNr != -1) {
+                arrSize = CS.getArgument(info->ArrSizeArgNr);
+                const IntegerType* SizeType =
+                    dyn_cast<IntegerType>(arrSize->getType());
+                if (!SizeType)
+                    continue;
+                unsigned bits = SizeType->getBitWidth();
+                if (bits > 32) {
+                    // The array size of an alloca must be an i32, so make sure
+                    // the conversion is safe.
+                    APInt Mask = APInt::getHighBitsSet(bits, bits - 32);
+                    APInt KnownZero(bits, 0), KnownOne(bits, 0);
+                    ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &TD);
+                    if ((KnownZero & Mask) != Mask)
+                        continue;
+                }
+                // Extract the element type from the array type.
+                const StructType* ArrTy = dyn_cast<StructType>(Ty);
+                assert(ArrTy && "Dynamic array type not a struct?");
+                assert(isa<IntegerType>(ArrTy->getElementType(0)));
+                const PointerType* PtrTy =
+                    cast<PointerType>(ArrTy->getElementType(1));
+                Ty = PtrTy->getElementType();
+            }
+            
             // Let's alloca this!
             Changed = true;
-            NumGcToStack++;
             
-            Value* arrSize = info->getArraySize(CS);
-            Value* newVal = AllocaBuilder.CreateAlloca(Ty, arrSize, ".nongc_mem");
+            IRBuilder<> Builder(BB, I);
             
+            // If the allocation is of constant size it's best to put it in the
+            // entry block, so do so if we're not already there.
+            // For dynamically-sized allocations it's best to avoid the overhead
+            // of allocating them if possible, so leave those where they are.
+            // While we're at it, update statistics too.
+            if (!arrSize || isa<Constant>(arrSize)) {
+                if (&*BB != &Entry)
+                    Builder = AllocaBuilder;
+                NumGcToStack++;
+            } else {
+                NumToDynSize++;
+            }
+            
+            // Convert array size to 32 bits if necessary
+            if (arrSize)
+                arrSize = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
+            
+            Value* newVal = Builder.CreateAlloca(Ty, arrSize, ".nongc_mem");
+            
+            // Make sure the type is the same as it was before, and replace all
+            // uses of the runtime call with the alloca.
             if (newVal->getType() != Inst->getType())
-                newVal = AllocaBuilder.CreateBitCast(newVal, Inst->getType());
-            
+                newVal = Builder.CreateBitCast(newVal, Inst->getType());
             Inst->replaceAllUsesWith(newVal);
             
+            // If this was an invoke instruction, update the control flow.
             if (InvokeInst* Invoke = dyn_cast<InvokeInst>(Inst)) {
+                // Notify the exception landing pad block that we won't be
+                // going there anymore.
                 Invoke->getUnwindDest()->removePredecessor(Invoke->getParent());
                 // Create a branch to the "normal" destination.
                 BranchInst::Create(Invoke->getNormalDest(), Invoke->getParent());
             }
+            
+            // Finally, remove the runtime call.
             Inst->eraseFromParent();
         }
     }
+    
     return Changed;
 }
 
