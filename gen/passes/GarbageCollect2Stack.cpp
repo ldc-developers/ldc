@@ -98,7 +98,7 @@ bool GarbageCollect2Stack::doInitialization(Module &M) {
 /// runOnFunction - Top level algorithm.
 ///
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
-    DEBUG(DOUT << "Running on function " << F.getName() << '\n');
+    DEBUG(DOUT << "Running -dgc2stack on function " << F.getName() << '\n');
     
     const TargetData &TD = getAnalysis<TargetData>();
     const LoopInfo &LI = getAnalysis<LoopInfo>();
@@ -115,7 +115,6 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
         // in loops.
         // TODO: Analyze loops too...
         if (LI.getLoopFor(BB)) {
-            DEBUG(DOUT << "Skipping loop block " << *BB << '\n');
             continue;
         }
         
@@ -153,15 +152,12 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             DEBUG(DOUT << "GarbageCollect2Stack inspecting: " << *Inst);
             
             if (PointerMayBeCaptured(Inst, true)) {
-                DEBUG(DOUT << ">> is captured :(\n");
                 continue;
             }
-            DEBUG(DOUT << ">> is not captured :)\n");
             
             Value* TypeInfo = CS.getArgument(info->TypeInfoArgNr);
             const Type* Ty = getTypeFor(TypeInfo);
             if (!Ty) {
-                DEBUG(DOUT << ">> Couldn't find valid TypeInfo metadata :(\n");
                 continue;
             }
             
@@ -193,33 +189,20 @@ const Type* GarbageCollect2Stack::getTypeFor(Value* typeinfo) {
     if (!ti_global)
         return NULL;
     
-    DEBUG(DOUT << ">> Found typeinfo init\n";
-          DOUT << ">> Value: " << *ti_global << "\n";
-          DOUT << ">> Name: " << ti_global->getNameStr() << "\n");
-    
     std::string metaname = TD_PREFIX;
     metaname.append(ti_global->getNameStart(), ti_global->getNameEnd());
     
-    DEBUG(DOUT << ">> Looking for global named " << metaname << "\n");
-    
     GlobalVariable* global = M->getGlobalVariable(metaname);
-    DEBUG(DOUT << ">> global: " << global->getInitializer() << "\n");
     if (!global || !global->hasInitializer())
         return NULL;
-    
-    DEBUG(DOUT << ">> Found metadata global\n");
     
     MDNode* node = dyn_cast<MDNode>(global->getInitializer());
     if (!node)
         return NULL;
     
-    DEBUG(DOUT << ">> Found metadata node\n");
-    
     if (node->getNumOperands() != TD_NumFields ||
             node->getOperand(TD_Confirm)->stripPointerCasts() != ti_global)
         return NULL;
-    
-    DEBUG(DOUT << ">> Validated metadata node\n");
     
     return node->getOperand(TD_Type)->getType();
 }
