@@ -2405,7 +2405,9 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
         return initval;
 
     // for dynamic arrays we need to put the initializer in a global, and build a constant dynamic array reference with the .ptr field pointing into this global
-    LLConstant* globalstore = new LLGlobalVariable(arrtype, true, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage", p->module);
+    // Important: don't make the global constant, since this const initializer might
+    // be used as an initializer for a static T[] - where modifying contents is allowed.
+    LLConstant* globalstore = new LLGlobalVariable(arrtype, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage", p->module);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
 

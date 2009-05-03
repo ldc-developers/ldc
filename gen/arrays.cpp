@@ -317,7 +317,9 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         return constarr;
 
     // for dynamic array we need to make a global with the data, so we have a pointer for the dynamic array
-    LLGlobalVariable* gvar = new LLGlobalVariable(constarr->getType(), true, LLGlobalValue::InternalLinkage, constarr, ".constarray", gIR->module);
+    // Important: don't make the gvar constant, since this const initializer might
+    // be used as an initializer for a static T[] - where modifying contents is allowed.
+    LLGlobalVariable* gvar = new LLGlobalVariable(constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray", gIR->module);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
