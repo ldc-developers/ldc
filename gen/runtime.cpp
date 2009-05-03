@@ -314,13 +314,8 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(sizeTy);
         types.push_back(voidPtrTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        
-        // ReadOnly is not technically true, but close enough: It only writes
-        // to memory the caller doesn't know about.
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_NoAlias);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
-            ->setAttributes(Attr_NoAlias);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
     // Object _d_allocclass(ClassInfo ci)
