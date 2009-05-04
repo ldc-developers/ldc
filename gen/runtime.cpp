@@ -198,14 +198,20 @@ static void LLVM_D_BuildRuntimeModule()
         NoAttrs,
         Attr_NoAlias
             = NoAttrs.addAttr(0, NoAlias),
+        Attr_NoUnwind
+            = NoAttrs.addAttr(~0U, NoUnwind),
         Attr_ReadOnly
             = NoAttrs.addAttr(~0U, ReadOnly),
+        Attr_ReadOnly_NoUnwind
+            = Attr_ReadOnly.addAttr(~0U, NoUnwind),
         Attr_ReadOnly_1_NoCapture
             = Attr_ReadOnly.addAttr(1, NoCapture),
         Attr_ReadOnly_1_3_NoCapture
             = Attr_ReadOnly_1_NoCapture.addAttr(3, NoCapture),
         Attr_ReadOnly_1_4_NoCapture
             = Attr_ReadOnly_1_NoCapture.addAttr(4, NoCapture),
+        Attr_ReadOnly_NoUnwind_1_NoCapture
+            = Attr_ReadOnly_1_NoCapture.addAttr(~0U, NoUnwind),
         Attr_ReadNone
             = NoAttrs.addAttr(~0U, ReadNone),
         Attr_1_NoCapture
@@ -507,7 +513,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(voidPtrTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly);
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
     }
 
     // cast interface
@@ -519,7 +525,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(classInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly);
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
     }
 
     // dynamic cast
@@ -531,7 +537,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(classInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly);
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -569,7 +575,8 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_NoUnwind);
     }
 
     // void[] _adDupT(TypeInfo ti, void[] a)
@@ -607,7 +614,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(rt_array(byteTy));
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly);
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
     }
 
     // void[] _adSort(void[] a, TypeInfo ti)
@@ -631,7 +638,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(aaTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(sizeTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly_1_NoCapture);
+            ->setAttributes(Attr_ReadOnly_NoUnwind_1_NoCapture);
     }
 
     // void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
@@ -754,32 +761,6 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-
-    // Object _d_dynamic_cast(Object o, ClassInfo c)
-    {
-        std::string fname("_d_dynamic_cast");
-        std::vector<const LLType*> types;
-        types.push_back(objectTy);
-        types.push_back(classInfoTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly);
-    }
-
-    // Object _d_interface_cast(void* p, ClassInfo c)
-    {
-        std::string fname("_d_interface_cast");
-        std::vector<const LLType*> types;
-        types.push_back(voidPtrTy);
-        types.push_back(classInfoTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////

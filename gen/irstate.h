@@ -178,13 +178,12 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBeg
     llvm::BasicBlock* pad;
     if(pad = func()->landingPad.get())
     {
-        // intrinsics don't support invoking
+        // intrinsics don't support invoking and 'nounwind' functions don't need it.
         LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
-        if (funcval && funcval->isIntrinsic())
+        if (funcval && (funcval->isIntrinsic() || funcval->doesNotThrow()))
         {
             llvm::CallInst* call = ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
-            if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
-                call->setAttributes(fn->getAttributes());
+            call->setAttributes(funcval->getAttributes());
             return call;
         }
 
