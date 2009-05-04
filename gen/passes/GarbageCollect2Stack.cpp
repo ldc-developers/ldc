@@ -96,6 +96,21 @@ bool GarbageCollect2Stack::doInitialization(Module &M) {
     KnownFunctions["_d_newarrayvT"] = new FunctionInfo(0, 1, true);
 }
 
+static void RemoveCall(Instruction* Inst) {
+    if (InvokeInst* Invoke = dyn_cast<InvokeInst>(Inst)) {
+        // If this was an invoke instruction, we need to do some extra
+        // work to preserve the control flow.
+        
+        // First notify the exception landing pad block that we won't be
+        // going there anymore.
+        Invoke->getUnwindDest()->removePredecessor(Invoke->getParent());
+        // Create a branch to the "normal" destination.
+        BranchInst::Create(Invoke->getNormalDest(), Invoke->getParent());
+    }
+    // Remove the runtime call.
+    Inst->eraseFromParent();
+}
+
 /// runOnFunction - Top level algorithm.
 ///
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
@@ -146,7 +161,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             if (Inst->use_empty() && info->SafeToDelete) {
                 Changed = true;
                 NumDeleted++;
-                Inst->eraseFromParent();
+                RemoveCall(Inst);
                 continue;
             }
             
@@ -218,17 +233,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 newVal = Builder.CreateBitCast(newVal, Inst->getType());
             Inst->replaceAllUsesWith(newVal);
             
-            // If this was an invoke instruction, update the control flow.
-            if (InvokeInst* Invoke = dyn_cast<InvokeInst>(Inst)) {
-                // Notify the exception landing pad block that we won't be
-                // going there anymore.
-                Invoke->getUnwindDest()->removePredecessor(Invoke->getParent());
-                // Create a branch to the "normal" destination.
-                BranchInst::Create(Invoke->getNormalDest(), Invoke->getParent());
-            }
-            
-            // Finally, remove the runtime call.
-            Inst->eraseFromParent();
+            RemoveCall(Inst);
         }
     }
     
