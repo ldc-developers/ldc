@@ -18,7 +18,6 @@
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/System/Program.h"
-#include "llvm/System/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
@@ -51,6 +50,7 @@
 #include "gen/cl_options.h"
 #include "gen/optimizer.h"
 #include "gen/llvm-version.h"
+#include "gen/programs.h"
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
@@ -310,19 +310,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 {
     using namespace llvm;
 
-    const char *cc;
-#if !_WIN32
-    cc = getenv("CC");
-    if (!cc)
-#endif
-	cc = "gcc";
-
-    sys::Path gcc = llvm::sys::Program::FindProgramByName(cc);
-    if (gcc.empty())
-    {
-        error("failed to locate gcc");
-        fatal();
-    }
+    sys::Path gcc = getGcc();
 
     // Run GCC to assemble and link the program into native code.
     //
