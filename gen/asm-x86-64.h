@@ -1943,9 +1943,9 @@ namespace AsmParserx8664
             else if ( op == Op_FMath0 || op == Op_FdST0ST1 )
             {
                 operands[0].cls = Opr_Reg;
-                operands[0].reg = Reg_ST;
+                operands[0].reg = Reg_ST1;
                 operands[1].cls = Opr_Reg;
-                operands[1].reg = Reg_ST1;
+                operands[1].reg = Reg_ST;
                 nOperands = 2;
             }
 
