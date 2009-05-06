@@ -2008,10 +2008,30 @@ namespace AsmParserx8664
                 }
                 break;
                 default:
+                // special case fdiv, fsub: see dmd 840, ldc 256
+                if (strncmp(mnemonic, "fsub", 4) == 0 ||
+                    strncmp(mnemonic, "fdiv", 4) == 0)
+                {
+                    // replace:
+                    //   f{sub,div}r{p,} <-> f{sub,div}{p,}
+                    if (mnemonic[4] == 'r')
+                    {
+                        insnTemplate.write(mnemonic, 4);
+                        insnTemplate.write(mnemonic+5, strlen(mnemonic)-5);
+                    }
+                    else
+                    {
+                        insnTemplate.write(mnemonic, 4) << "r";
+                        insnTemplate.write(mnemonic+4, strlen(mnemonic)-4);
+                    }
+                }
+                else
+                {
                     insnTemplate << mnemonic;
-                    if ( type_char )
-                        insnTemplate << type_char;
-                    break;
+                }
+                if ( type_char )
+                    insnTemplate << type_char;
+                break;
             }
 
             switch ( opInfo->implicitClobbers & Clb_DXAX_Mask )
