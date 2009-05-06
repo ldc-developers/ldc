@@ -1419,12 +1419,6 @@ namespace AsmParserx8632
                 {
                     nextToken();
                 }
-		else if ( token->value == TOKint16 || token->value == TOKint32 )
-                {
-		    //throw away the 'short' in "jle short label;". Works for 'long' also.
-		    operands[0] = operands[1];
-                    return;
-                }
                 else if ( token->value != TOKeof )
                 {
                     ok = false;
@@ -2741,6 +2735,10 @@ namespace AsmParserx8632
             Expression * e;
             Identifier * ident = NULL;
 
+            // get rid of short/long prefixes for branches
+            if (opTakesLabel() && (token->value == TOKint16 || token->value == TOKint64))
+                nextToken();
+
             switch ( token->value )
             {
                 case TOKint32v:
@@ -2887,10 +2885,6 @@ namespace AsmParserx8632
                     ident = Id::__dollar;
                     goto do_dollar;
                     break;
-	        case TOKint16:
-	        case TOKint32:
-		    //This if for the 'short' in "jle short Label;"
-		    return Handled;
                 default:
                     if ( op == Op_FMath0 || op == Op_FdST0ST1 || op == Op_FMath )
                         return Handled;
