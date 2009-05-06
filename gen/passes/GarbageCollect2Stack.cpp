@@ -167,10 +167,6 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             
             DEBUG(DOUT << "GarbageCollect2Stack inspecting: " << *Inst);
             
-            if (PointerMayBeCaptured(Inst, true)) {
-                continue;
-            }
-            
             Value* TypeInfo = CS.getArgument(info->TypeInfoArgNr);
             const Type* Ty = getTypeFor(TypeInfo);
             if (!Ty) {
@@ -201,6 +197,10 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 const PointerType* PtrTy =
                     cast<PointerType>(ArrTy->getElementType(1));
                 Ty = PtrTy->getElementType();
+            }
+            
+            if (PointerMayBeCaptured(Inst, true)) {
+                continue;
             }
             
             // Let's alloca this!
