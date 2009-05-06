@@ -25,6 +25,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
+#include "llvm/Intrinsics.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRBuilder.h"
@@ -43,7 +44,28 @@ STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas")
 STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was unused");
 
 //===----------------------------------------------------------------------===//
-// GarbageCollect2Stack Pass Implementation
+// Helper functions
+//===----------------------------------------------------------------------===//
+
+void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len) {
+    Dst = B.CreateBitCast(Dst, PointerType::getUnqual(Type::Int8Ty));
+    
+    Module *M = B.GetInsertBlock()->getParent()->getParent();
+    const Type* Tys[1];
+    Tys[0] = Len->getType();
+    Value *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
+    Value *Align = ConstantInt::get(Type::Int32Ty, 1);
+    
+    B.CreateCall4(MemSet, Dst, Val, Len, Align);
+}
+
+static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len) {
+    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len);
+}
+
+
+//===----------------------------------------------------------------------===//
+// Helpers for specific types of GC calls.
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -72,7 +94,7 @@ namespace {
         
         // Returns the alloca to replace this call.
         // It will always be inserted before the call.
-        virtual AllocaInst* promote(CallSite CS) {
+        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
             NumGcToStack++;
             
             Instruction* Begin = CS.getCaller()->getEntryBlock().begin();
@@ -86,10 +108,15 @@ namespace {
     class ArrayFI : public FunctionInfo {
         Value* arrSize;
         int ArrSizeArgNr;
+        bool Initialized;
         
     public:
-        ArrayFI(unsigned tiArgNr, bool safeToDelete, unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, safeToDelete), ArrSizeArgNr(arrSizeArgNr) {}
+        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool initialized,
+                unsigned arrSizeArgNr)
+        : FunctionInfo(tiArgNr, safeToDelete),
+          ArrSizeArgNr(arrSizeArgNr),
+          Initialized(initialized)
+        {}
         
         virtual bool analyze(CallSite CS, const Analysis& A) {
             if (!FunctionInfo::analyze(CS, A))
@@ -120,10 +147,8 @@ namespace {
             return true;
         }
         
-        virtual AllocaInst* promote(CallSite CS) {
-            Instruction* I = CS.getInstruction();
-            IRBuilder<> Builder(I->getParent(), I);
-            
+        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+            IRBuilder<> Builder = B;
             // If the allocation is of constant size it's best to put it in the
             // entry block, so do so if we're not already there.
             // For dynamically-sized allocations it's best to avoid the overhead
@@ -139,12 +164,30 @@ namespace {
             }
             
             // Convert array size to 32 bits if necessary
-            arrSize = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
+            Value* count = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
+            AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem");
             
-            return Builder.CreateAlloca(Ty, arrSize, ".nongc_mem");
+            if (Initialized) {
+                // For now, only zero-init is supported.
+                uint64_t size = A.TD.getTypeStoreSize(Ty);
+                Value* TypeSize = ConstantInt::get(arrSize->getType(), size);
+                // Use the original B to put initialization at the
+                // allocation site.
+                Value* Size = B.CreateMul(TypeSize, arrSize);
+                EmitMemZero(B, alloca, Size);
+            }
+            
+            return alloca;
         }
     };
-    
+}
+
+
+//===----------------------------------------------------------------------===//
+// GarbageCollect2Stack Pass Implementation
+//===----------------------------------------------------------------------===//
+
+namespace {
     /// This pass replaces GC calls with alloca's
     ///
     class VISIBILITY_HIDDEN GarbageCollect2Stack : public FunctionPass {
@@ -153,6 +196,7 @@ namespace {
         
         FunctionInfo AllocMemoryT;
         ArrayFI NewArrayVT;
+        ArrayFI NewArrayT;
         
     public:
         static char ID; // Pass identification
@@ -183,10 +227,12 @@ FunctionPass *createGarbageCollect2Stack() {
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(&ID),
   AllocMemoryT(0, true),
-  NewArrayVT(0, true, 1)
+  NewArrayVT(0, true, false, 1),
+  NewArrayT(0, true, true, 1)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
+    KnownFunctions["_d_newarrayT"] = &NewArrayT;
 }
 
 static void RemoveCall(Instruction* Inst) {
@@ -268,12 +314,13 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             // Let's alloca this!
             Changed = true;
             
-            Value* newVal = info->promote(CS);
+            IRBuilder<> Builder(BB, Inst);
+            Value* newVal = info->promote(CS, Builder, A);
             
             // Make sure the type is the same as it was before, and replace all
             // uses of the runtime call with the alloca.
             if (newVal->getType() != Inst->getType())
-                newVal = new BitCastInst(newVal, Inst->getType(), "", Inst);
+                newVal = Builder.CreateBitCast(newVal, Inst->getType());
             Inst->replaceAllUsesWith(newVal);
             
             RemoveCall(Inst);
