@@ -2007,6 +2007,12 @@ namespace AsmParserx8664
                     insnTemplate.write(mnemonic, mlen-1) << tc_1 << type_char;
                 }
                 break;
+
+                case Op_FMath0:
+                // the no-operand versions of floating point ops always pop
+                insnTemplate << mnemonic << "p";
+                break;
+                
                 default:
                 // special case fdiv, fsub: see dmd 840, ldc 256
                 if (strncmp(mnemonic, "fsub", 4) == 0 ||
