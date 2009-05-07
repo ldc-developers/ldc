@@ -159,22 +159,8 @@ void IrTypeClass::addBaseClassData(
         offset = vd->offset + vd->type->size();
 
         // create ir field
-        if (vd->ir.irField == NULL)
-            new IrField(vd, field_index);
-        else
-            assert(vd->ir.irField->index == field_index &&
-                vd->ir.irField->unionOffset == 0 &&
-                "inconsistent field data");
-        field_index++;
-    }
-
-    // make sure all fields really get their ir field
-    ArrayIter<VarDeclaration> it(base->fields);
-    for (; !it.done(); it.next())
-    {
-        VarDeclaration* vd = it.get();
-        if (vd->ir.irField == NULL)
-            new IrField(vd, 0, vd->offset);
+        vd->aggrIndex = (unsigned)field_index;
+        ++field_index;
     }
 
     // any interface implementations?

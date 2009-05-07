@@ -36,14 +36,22 @@ IrLocal::IrLocal(VarDeclaration* v) : IrVar(v)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-IrField::IrField(VarDeclaration* v, size_t idx, size_t offset) : IrVar(v)
+IrField::IrField(VarDeclaration* v) : IrVar(v)
 {
-    index = idx;
-    unionOffset = offset;
-    constInit = NULL;
-
     assert(V->ir.irField == NULL && "field for this variable already exists");
     V->ir.irField = this;
+
+    if (v->aggrIndex)
+    {
+        index = v->aggrIndex;
+        unionOffset = 0;
+    }
+    else
+    {
+        index = 0;
+        unionOffset = v->offset;
+    }
+    constInit = NULL;
 }
 
 extern LLConstant* get_default_initializer(

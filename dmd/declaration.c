@@ -624,10 +624,15 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     canassign = 0;
     value = NULL;
 
+#if IN_LLVM
+    aggrIndex = 0;
+
     // LDC
     anonDecl = NULL;
     offset2 = 0;
+
     nakedUse = false;
+#endif
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
