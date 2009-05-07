@@ -1880,15 +1880,11 @@ namespace AsmParserx8632
                 }
                 break;
                 
-                case Op_FMath0:
-                // the no-operand versions of floating point ops always pop
-                insnTemplate << mnemonic << "p";
-                break;
-                
                 default:
                 // special case fdiv, fsub: see dmd 840, ldc 256
-                if (strncmp(mnemonic, "fsub", 4) == 0 ||
-                    strncmp(mnemonic, "fdiv", 4) == 0)
+                if ((strncmp(mnemonic, "fsub", 4) == 0 ||
+                     strncmp(mnemonic, "fdiv", 4) == 0) && 
+                    operands[0].reg != Reg_ST)
                 {
                     // replace:
                     //   f{sub,div}r{p,} <-> f{sub,div}{p,}
@@ -1907,6 +1903,9 @@ namespace AsmParserx8632
                 {
                     insnTemplate << mnemonic;
                 }
+                // the no-operand versions of floating point ops always pop
+                if (op == Op_FMath0)
+                    insnTemplate << "p";
                 if ( type_char )
                     insnTemplate << type_char;
                 break;
