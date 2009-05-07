@@ -363,7 +363,7 @@ void deleteExecutable()
 
 //////////////////////////////////////////////////////////////////////////////
 
-int runExectuable()
+int runExecutable()
 {
     assert(!gExePath.isEmpty());
     assert(gExePath.isValid());

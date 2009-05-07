@@ -908,7 +908,7 @@ int main(int argc, char** argv)
         {
             if (!status)
             {
-                status = runExectuable();
+                status = runExecutable();
 
                 /* Delete .obj files and .exe file
                  */

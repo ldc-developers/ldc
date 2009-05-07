@@ -41,6 +41,6 @@ void deleteExecutable();
  * Runs the executable that was previously linked with linkExecutable.
  * @return the return status of the executable.
  */
-int runExectuable();
+int runExecutable();
 
 #endif // LDC_GEN_LINKER_H
