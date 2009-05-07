@@ -34,7 +34,7 @@ struct IrLocal : IrVar
 // represents an aggregate field variable
 struct IrField : IrVar
 {
-    IrField(VarDeclaration* v, size_t idx, size_t offset = 0);
+    IrField(VarDeclaration* v);
 
     unsigned index;
     unsigned unionOffset;

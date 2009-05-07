@@ -208,29 +208,14 @@ const llvm::Type* IrTypeStruct::buildType()
         // advance offset to right past this field
         offset = vd->offset + vd->type->size();
 
-        // create ir field
-        if (vd->ir.irField == NULL)
-            new IrField(vd, field_index);
-        else
-            assert(vd->ir.irField->index == field_index &&
-                vd->ir.irField->unionOffset == 0 &&
-                "inconsistent field data");
-        field_index++;
+        // set the field index
+        vd->aggrIndex = (unsigned)field_index++;
     }
 
     // tail padding?
     if (offset < sd->structsize)
     {
         add_zeros(defaultTypes, sd->structsize - offset);
-    }
-
-    // make sure all fields really get their ir field
-    ArrayIter<VarDeclaration> it(sd->fields);
-    for (; !it.done(); it.next())
-    {
-        VarDeclaration* vd = it.get();
-        if (vd->ir.irField == NULL)
-            new IrField(vd, 0, vd->offset);
     }
 
     // build the llvm type

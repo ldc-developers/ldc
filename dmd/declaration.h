@@ -290,9 +290,15 @@ struct VarDeclaration : Declaration
     /// Codegen traversal
     virtual void codegen(Ir* ir);
 
-    // LDC
+    /// Index into parent aggregate.
+    /// Set during type generation.
+    unsigned aggrIndex;
+
+    // FIXME: we're not using these anymore!
     AnonDeclaration* anonDecl;
     unsigned offset2;
+
+    /// This var is used by a naked function.
     bool nakedUse;
 #endif
 };

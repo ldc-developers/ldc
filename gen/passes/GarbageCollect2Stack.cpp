@@ -25,6 +25,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
+#include "llvm/Intrinsics.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRBuilder.h"
@@ -43,31 +44,167 @@ STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas")
 STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was unused");
 
 //===----------------------------------------------------------------------===//
+// Helper functions
+//===----------------------------------------------------------------------===//
+
+void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len) {
+    Dst = B.CreateBitCast(Dst, PointerType::getUnqual(Type::Int8Ty));
+    
+    Module *M = B.GetInsertBlock()->getParent()->getParent();
+    const Type* Tys[1];
+    Tys[0] = Len->getType();
+    Value *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
+    Value *Align = ConstantInt::get(Type::Int32Ty, 1);
+    
+    B.CreateCall4(MemSet, Dst, Val, Len, Align);
+}
+
+static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len) {
+    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len);
+}
+
+
+//===----------------------------------------------------------------------===//
+// Helpers for specific types of GC calls.
+//===----------------------------------------------------------------------===//
+
+namespace {
+    struct Analysis {
+        TargetData& TD;
+        const Module& M;
+        
+        const Type* getTypeFor(Value* typeinfo) const;
+    };
+    
+    class FunctionInfo {
+    protected:
+        const Type* Ty;
+        
+    public:
+        unsigned TypeInfoArgNr;
+        bool SafeToDelete;
+        
+        // Analyze the current call, filling in some fields. Returns true if
+        // this is an allocation we can stack-allocate.
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
+            Ty = A.getTypeFor(TypeInfo);
+            return (Ty != NULL);
+        }
+        
+        // Returns the alloca to replace this call.
+        // It will always be inserted before the call.
+        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+            NumGcToStack++;
+            
+            Instruction* Begin = CS.getCaller()->getEntryBlock().begin();
+            return new AllocaInst(Ty, ".nongc_mem", Begin);
+        }
+        
+        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete)
+        : TypeInfoArgNr(typeInfoArgNr), SafeToDelete(safeToDelete) {}
+    };
+    
+    class ArrayFI : public FunctionInfo {
+        Value* arrSize;
+        int ArrSizeArgNr;
+        bool Initialized;
+        
+    public:
+        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool initialized,
+                unsigned arrSizeArgNr)
+        : FunctionInfo(tiArgNr, safeToDelete),
+          ArrSizeArgNr(arrSizeArgNr),
+          Initialized(initialized)
+        {}
+        
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            if (!FunctionInfo::analyze(CS, A))
+                return false;
+            
+            arrSize = CS.getArgument(ArrSizeArgNr);
+            const IntegerType* SizeType =
+                dyn_cast<IntegerType>(arrSize->getType());
+            if (!SizeType)
+                return false;
+            unsigned bits = SizeType->getBitWidth();
+            if (bits > 32) {
+                // The array size of an alloca must be an i32, so make sure
+                // the conversion is safe.
+                APInt Mask = APInt::getHighBitsSet(bits, bits - 32);
+                APInt KnownZero(bits, 0), KnownOne(bits, 0);
+                ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &A.TD);
+                if ((KnownZero & Mask) != Mask)
+                    return false;
+            }
+            // Extract the element type from the array type.
+            const StructType* ArrTy = dyn_cast<StructType>(Ty);
+            assert(ArrTy && "Dynamic array type not a struct?");
+            assert(isa<IntegerType>(ArrTy->getElementType(0)));
+            const PointerType* PtrTy =
+                cast<PointerType>(ArrTy->getElementType(1));
+            Ty = PtrTy->getElementType();
+            return true;
+        }
+        
+        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+            IRBuilder<> Builder = B;
+            // If the allocation is of constant size it's best to put it in the
+            // entry block, so do so if we're not already there.
+            // For dynamically-sized allocations it's best to avoid the overhead
+            // of allocating them if possible, so leave those where they are.
+            // While we're at it, update statistics too.
+            if (isa<Constant>(arrSize)) {
+                BasicBlock& Entry = CS.getCaller()->getEntryBlock();
+                if (Builder.GetInsertBlock() != &Entry)
+                    Builder.SetInsertPoint(&Entry, Entry.begin());
+                NumGcToStack++;
+            } else {
+                NumToDynSize++;
+            }
+            
+            // Convert array size to 32 bits if necessary
+            Value* count = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
+            AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem");
+            
+            if (Initialized) {
+                // For now, only zero-init is supported.
+                uint64_t size = A.TD.getTypeStoreSize(Ty);
+                Value* TypeSize = ConstantInt::get(arrSize->getType(), size);
+                // Use the original B to put initialization at the
+                // allocation site.
+                Value* Size = B.CreateMul(TypeSize, arrSize);
+                EmitMemZero(B, alloca, Size);
+            }
+            
+            return alloca;
+        }
+    };
+}
+
+
+//===----------------------------------------------------------------------===//
 // GarbageCollect2Stack Pass Implementation
 //===----------------------------------------------------------------------===//
 
 namespace {
-    struct FunctionInfo {
-        unsigned TypeInfoArgNr;
-        int ArrSizeArgNr;
-        bool SafeToDelete;
-        
-        FunctionInfo(unsigned typeInfoArgNr, int arrSizeArgNr, bool safeToDelete)
-        : TypeInfoArgNr(typeInfoArgNr), ArrSizeArgNr(arrSizeArgNr),
-          SafeToDelete(safeToDelete) {}
-    };
-    
     /// This pass replaces GC calls with alloca's
     ///
     class VISIBILITY_HIDDEN GarbageCollect2Stack : public FunctionPass {
         StringMap<FunctionInfo*> KnownFunctions;
         Module* M;
         
-        public:
-        static char ID; // Pass identification
-        GarbageCollect2Stack() : FunctionPass(&ID) {}
+        FunctionInfo AllocMemoryT;
+        ArrayFI NewArrayVT;
+        ArrayFI NewArrayT;
         
-        bool doInitialization(Module &M);
+    public:
+        static char ID; // Pass identification
+        GarbageCollect2Stack();
+        
+        bool doInitialization(Module &M) {
+            this->M = &M;
+        }
         
         bool runOnFunction(Function &F);
         
@@ -75,9 +212,6 @@ namespace {
           AU.addRequired<TargetData>();
           AU.addRequired<LoopInfo>();
         }
-        
-        private:
-        const Type* getTypeFor(Value* typeinfo);
     };
     char GarbageCollect2Stack::ID = 0;
 } // end anonymous namespace.
@@ -90,10 +224,15 @@ FunctionPass *createGarbageCollect2Stack() {
   return new GarbageCollect2Stack(); 
 }
 
-bool GarbageCollect2Stack::doInitialization(Module &M) {
-    this->M = &M;
-    KnownFunctions["_d_allocmemoryT"] = new FunctionInfo(0, -1, true);
-    KnownFunctions["_d_newarrayvT"] = new FunctionInfo(0, 1, true);
+GarbageCollect2Stack::GarbageCollect2Stack()
+: FunctionPass(&ID),
+  AllocMemoryT(0, true),
+  NewArrayVT(0, true, false, 1),
+  NewArrayT(0, true, true, 1)
+{
+    KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
+    KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
+    KnownFunctions["_d_newarrayT"] = &NewArrayT;
 }
 
 static void RemoveCall(Instruction* Inst) {
@@ -118,6 +257,8 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     
     TargetData &TD = getAnalysis<TargetData>();
     const LoopInfo &LI = getAnalysis<LoopInfo>();
+    
+    Analysis A = { TD, *M };
     
     BasicBlock& Entry = F.getEntryBlock();
     
@@ -167,65 +308,14 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             
             DEBUG(DOUT << "GarbageCollect2Stack inspecting: " << *Inst);
             
-            if (PointerMayBeCaptured(Inst, true)) {
+            if (!info->analyze(CS, A) || PointerMayBeCaptured(Inst, true))
                 continue;
-            }
-            
-            Value* TypeInfo = CS.getArgument(info->TypeInfoArgNr);
-            const Type* Ty = getTypeFor(TypeInfo);
-            if (!Ty) {
-                continue;
-            }
-            
-            Value* arrSize = 0;
-            if (info->ArrSizeArgNr != -1) {
-                arrSize = CS.getArgument(info->ArrSizeArgNr);
-                const IntegerType* SizeType =
-                    dyn_cast<IntegerType>(arrSize->getType());
-                if (!SizeType)
-                    continue;
-                unsigned bits = SizeType->getBitWidth();
-                if (bits > 32) {
-                    // The array size of an alloca must be an i32, so make sure
-                    // the conversion is safe.
-                    APInt Mask = APInt::getHighBitsSet(bits, bits - 32);
-                    APInt KnownZero(bits, 0), KnownOne(bits, 0);
-                    ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &TD);
-                    if ((KnownZero & Mask) != Mask)
-                        continue;
-                }
-                // Extract the element type from the array type.
-                const StructType* ArrTy = dyn_cast<StructType>(Ty);
-                assert(ArrTy && "Dynamic array type not a struct?");
-                assert(isa<IntegerType>(ArrTy->getElementType(0)));
-                const PointerType* PtrTy =
-                    cast<PointerType>(ArrTy->getElementType(1));
-                Ty = PtrTy->getElementType();
-            }
             
             // Let's alloca this!
             Changed = true;
             
-            IRBuilder<> Builder(BB, I);
-            
-            // If the allocation is of constant size it's best to put it in the
-            // entry block, so do so if we're not already there.
-            // For dynamically-sized allocations it's best to avoid the overhead
-            // of allocating them if possible, so leave those where they are.
-            // While we're at it, update statistics too.
-            if (!arrSize || isa<Constant>(arrSize)) {
-                if (&*BB != &Entry)
-                    Builder = AllocaBuilder;
-                NumGcToStack++;
-            } else {
-                NumToDynSize++;
-            }
-            
-            // Convert array size to 32 bits if necessary
-            if (arrSize)
-                arrSize = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
-            
-            Value* newVal = Builder.CreateAlloca(Ty, arrSize, ".nongc_mem");
+            IRBuilder<> Builder(BB, Inst);
+            Value* newVal = info->promote(CS, Builder, A);
             
             // Make sure the type is the same as it was before, and replace all
             // uses of the runtime call with the alloca.
@@ -240,7 +330,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     return Changed;
 }
 
-const Type* GarbageCollect2Stack::getTypeFor(Value* typeinfo) {
+const Type* Analysis::getTypeFor(Value* typeinfo) const {
     GlobalVariable* ti_global = dyn_cast<GlobalVariable>(typeinfo->stripPointerCasts());
     if (!ti_global)
         return NULL;
@@ -248,7 +338,7 @@ const Type* GarbageCollect2Stack::getTypeFor(Value* typeinfo) {
     std::string metaname = TD_PREFIX;
     metaname.append(ti_global->getNameStart(), ti_global->getNameEnd());
     
-    GlobalVariable* global = M->getGlobalVariable(metaname);
+    GlobalVariable* global = M.getGlobalVariable(metaname);
     if (!global || !global->hasInitializer())
         return NULL;
     

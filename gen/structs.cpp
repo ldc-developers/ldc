@@ -44,6 +44,18 @@ void DtoResolveStruct(StructDeclaration* sd)
     IrStruct* irstruct = new IrStruct(sd);
     sd->ir.irStruct = irstruct;
 
+    // make sure all fields really get their ir field
+    ArrayIter<VarDeclaration> it(sd->fields);
+    for (; !it.done(); it.next())
+    {
+        VarDeclaration* vd = it.get();
+        if (vd->ir.irField == NULL) {
+            new IrField(vd);
+        } else {
+            IF_LOG Logger::println("struct field already exists!!!");
+        }
+    }
+
     // perform definition
     bool needs_def = mustDefineSymbol(sd);
     if (needs_def)

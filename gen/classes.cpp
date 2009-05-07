@@ -53,6 +53,18 @@ void DtoResolveClass(ClassDeclaration* cd)
     IrStruct* irstruct = new IrStruct(cd);
     cd->ir.irStruct = irstruct;
 
+    // make sure all fields really get their ir field
+    ArrayIter<VarDeclaration> it(cd->fields);
+    for (; !it.done(); it.next())
+    {
+        VarDeclaration* vd = it.get();
+        if (vd->ir.irField == NULL) {
+            new IrField(vd);
+        } else {
+            IF_LOG Logger::println("class field already exists!!!");
+        }
+    }
+
     bool needs_def = mustDefineSymbol(cd);
 
     // emit the ClassZ symbol
