@@ -331,3 +331,4 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
 
     return values;
 }
+
