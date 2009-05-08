@@ -15,7 +15,10 @@
 /// The fields in the metadata node for a TypeInfo instance.
 /// (Its name will be TD_PREFIX ~ <Name of TypeInfo global>)
 enum TypeDataFields {
-    TD_Confirm,     /// The TypeInfo this node is for
+    // TD_Confirm is disabled for now due to an LLVM bug when MDNodes contain
+    // globals (see http://llvm.org/PR4180 / http://llvm.org/PR4046 )
+    TD_Confirm = -1,/// The TypeInfo this node is for.
+    
     TD_Type,        /// A value of the LLVM type corresponding to this D type
     
     // Must be kept last:
