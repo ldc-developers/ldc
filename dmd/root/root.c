@@ -1594,7 +1594,7 @@ void OutBuffer::writeUTF16(unsigned w)
 void OutBuffer::write4(unsigned w)
 {
     reserve(4);
-    *(unsigned long *)(this->data + offset) = w;
+    *(unsigned *)(this->data + offset) = w;
     offset += 4;
 }
 
