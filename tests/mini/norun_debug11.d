@@ -28,6 +28,6 @@ void main()
 
     auto ci = c.classinfo;
 
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 0;
 }
