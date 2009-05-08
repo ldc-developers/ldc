@@ -180,6 +180,53 @@ namespace {
             return alloca;
         }
     };
+    
+    // FunctionInfo for _d_allocclass
+    class AllocClassFI : public FunctionInfo {
+        public:
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            // This call contains no TypeInfo parameter, so don't call the
+            // base class implementation here...
+            if (CS.arg_size() != 1)
+                return false;
+            Value* arg = CS.getArgument(0)->stripPointerCasts();
+            GlobalVariable* ClassInfo = dyn_cast<GlobalVariable>(arg);
+            if (!ClassInfo)
+                return false;
+            
+            std::string metaname = CD_PREFIX;
+            metaname.append(ClassInfo->getNameStart(), ClassInfo->getNameEnd());
+            
+            GlobalVariable* global = A.M.getGlobalVariable(metaname);
+            if (!global || !global->hasInitializer())
+                return false;
+            
+            MDNode* node = dyn_cast<MDNode>(global->getInitializer());
+            if (!node || node->getNumOperands() != CD_NumFields)
+                return false;
+            
+            // Inserting destructor calls is not implemented yet, so classes
+            // with destructors are ignored for now.
+            Constant* hasDestructor = dyn_cast<Constant>(node->getOperand(CD_Finalize));
+            // We can't stack-allocate if the class has a custom deallocator
+            // (Custom allocators don't get turned into this runtime call, so
+            // those can be ignored)
+            Constant* hasCustomDelete = dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
+            if (hasDestructor == NULL || hasCustomDelete == NULL)
+                return false;
+            
+            if (ConstantExpr::getOr(hasDestructor, hasCustomDelete)
+                    != ConstantInt::getFalse())
+                return false;
+            
+            Ty = node->getOperand(CD_BodyType)->getType();
+            return true;
+        }
+        
+        // The default promote() should be fine.
+        
+        AllocClassFI() : FunctionInfo(-1, true) {}
+    };
 }
 
 
@@ -197,6 +244,7 @@ namespace {
         FunctionInfo AllocMemoryT;
         ArrayFI NewArrayVT;
         ArrayFI NewArrayT;
+        AllocClassFI AllocClass;
         
     public:
         static char ID; // Pass identification
@@ -233,6 +281,7 @@ GarbageCollect2Stack::GarbageCollect2Stack()
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
+    KnownFunctions["_d_allocclass"] = &AllocClass;
 }
 
 static void RemoveCall(Instruction* Inst) {

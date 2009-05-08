@@ -11,6 +11,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/utils.h"
 #include "gen/arrays.h"
+#include "gen/metadata.h"
 
 #include "ir/irstruct.h"
 #include "ir/irtypeclass.h"
@@ -69,6 +70,29 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
     // classinfos cannot be constants since they're used a locks for synchronized
     classInfo = new llvm::GlobalVariable(
         tc->getPA().get(), false, _linkage, NULL, initname, gIR->module);
+
+#ifdef USE_METADATA
+    // Generate some metadata on this ClassInfo if it's for a class.
+    
+    ClassDeclaration* classdecl = aggrdecl->isClassDeclaration();
+    if (classdecl && !aggrdecl->isInterfaceDeclaration()) {
+        // Gather information
+        const LLType* type = DtoType(aggrdecl->type);
+        const LLType* bodyType = llvm::cast<LLPointerType>(type)->getElementType();
+        bool hasDestructor = (classdecl->dtor != NULL);
+        bool hasCustomDelete = (classdecl->aggDelete != NULL);
+        // Construct the fields
+        LLConstant* mdVals[CD_NumFields];
+        mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
+        mdVals[CD_Finalize] = LLConstantInt::get(LLType::Int1Ty, hasDestructor);
+        mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::Int1Ty, hasCustomDelete);
+        // Construct the metadata
+        llvm::MDNode* metadata = llvm::MDNode::get(mdVals, CD_NumFields);
+        // Insert it into the module
+        new llvm::GlobalVariable(metadata->getType(), true,
+            METADATA_LINKAGE_TYPE, metadata, CD_PREFIX + initname, gIR->module);
+    }
+#endif
 
     return classInfo;
 }
