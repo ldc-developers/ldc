@@ -36,6 +36,7 @@
 #include "gen/linker.h"
 #include "gen/irstate.h"
 #include "gen/toobj.h"
+#include "gen/passes/Passes.h"
 #include "gen/llvm-version.h"
 
 #include "gen/cl_options.h"
@@ -869,6 +870,12 @@ int main(int argc, char** argv)
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)
         {
+            //FIXME: workaround for llvm metadata bug:
+            //  the LinkInModule call asserts with metadata unstripped
+            llvm::ModulePass* stripMD = createStripMetaData();
+            stripMD->runOnModule(*llvmModules[i]);
+            delete stripMD;
+        
             if(linker.LinkInModule(llvmModules[i], &errormsg))
                 error(errormsg.c_str());
             delete llvmModules[i];
