@@ -1995,7 +1995,7 @@ namespace AsmParserx8664
                 // special case fdiv, fsub: see dmd 840, ldc 256
                 if ((strncmp(mnemonic, "fsub", 4) == 0 ||
                      strncmp(mnemonic, "fdiv", 4) == 0) && 
-                    operands[0].reg != Reg_ST)
+                    operands[0].reg != Reg_ST && op != Op_FMath)
                 {
                     // replace:
                     //   f{sub,div}r{p,} <-> f{sub,div}{p,}
