@@ -95,10 +95,19 @@ static const llvm::StructType* getDwarfGlobalVariableType() {
 // get the module the symbol is in, or - for template instances - the current module
 static Module* getDefinedModule(Dsymbol* s)
 {
-    if (!DtoIsTemplateInstance(s))
-        return s->getModule();
-    else
-	return gIR->dmodule;
+    // templates are defined in current module
+    if (DtoIsTemplateInstance(s))
+    {
+        return gIR->dmodule;
+    }
+    // array operations as well
+    else if (FuncDeclaration* fd = s->isFuncDeclaration())
+    {
+        if (fd->isArrayOp)
+            return gIR->dmodule;
+    }
+    // otherwise use the symbol's module
+    return s->getModule();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
