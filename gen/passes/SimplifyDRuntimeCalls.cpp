@@ -29,6 +29,7 @@
 using namespace llvm;
 
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
+STATISTIC(NumDeleted, "Number of runtime calls deleted");
 
 //===----------------------------------------------------------------------===//
 // Optimizer Base Class
@@ -79,6 +80,11 @@ struct VISIBILITY_HIDDEN ArraySetLengthOpt : public LibCallOptimization {
             FT->getParamType(1) != FT->getParamType(2) ||
             FT->getParamType(3) != FT->getReturnType())
           return 0;
+        
+        // Whether or not this allocates is irrelevant if the result isn't used.
+        // Just delete if that's the case.
+        if (CI->use_empty())
+            return CI;
         
         Value* NewLen = CI->getOperand(2);
         if (Constant* NewCst = dyn_cast<Constant>(NewLen)) {
@@ -182,6 +188,8 @@ namespace {
         void InitOptimizations();
         bool runOnFunction(Function &F);
         
+        bool runOnce(Function &F, const TargetData& TD);
+            
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
           AU.addRequired<TargetData>();
         }
@@ -233,6 +241,22 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     
     const TargetData &TD = getAnalysis<TargetData>();
     
+    // Iterate to catch opportunities opened up by other optimizations,
+    // such as calls that are only used as arguments to unused calls:
+    // When the second call gets deleted the first call will become unused, but
+    // without iteration we wouldn't notice if we inspected the first call
+    // before the second one.
+    bool EverChanged = false;
+    bool Changed;
+    do {
+        Changed = runOnce(F, TD);
+        EverChanged |= Changed;
+    } while (Changed);
+    
+    return EverChanged;
+}
+
+bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD) {
     IRBuilder<> Builder;
     
     bool Changed = false;
@@ -268,17 +292,24 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
             
             // Something changed!
             Changed = true;
-            ++NumSimplified;
+            
+            if (Result == CI) {
+                assert(CI->use_empty());
+                ++NumDeleted;
+            } else {
+                ++NumSimplified;
+                
+                if (!CI->use_empty())
+                    CI->replaceAllUsesWith(Result);
+                
+                if (!Result->hasName())
+                    Result->takeName(CI);
+            }
             
             // Inspect the instruction after the call (which was potentially just
             // added) next.
             I = CI; ++I;
             
-            if (CI != Result && !CI->use_empty()) {
-                CI->replaceAllUsesWith(Result);
-                if (!Result->hasName())
-                    Result->takeName(CI);
-            }
             CI->eraseFromParent();
         }
     }
