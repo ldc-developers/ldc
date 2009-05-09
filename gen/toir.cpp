@@ -1753,9 +1753,8 @@ DValue* AssertExp::toElem(IRState* p)
         LLValue* thisarg = p->func()->thisArg;
         assert(thisarg && "null thisarg, but we're in assert(this) exp;");
         LLValue* thisptr = DtoLoad(p->func()->thisArg);
-        LLValue* thisnotnull = p->ir->CreateIsNotNull(thisptr);
-        cond = new DImValue(Type::tbool, thisnotnull);
-        condty = Type::tbool;
+        condty = e1->type->toBasetype();
+        cond = new DImValue(condty, thisptr);
     }
     else
     {

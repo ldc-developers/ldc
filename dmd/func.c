@@ -1232,6 +1232,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    if (addPreInvariant())
 	    {
 		Expression *e = NULL;
+                Expression *ee = NULL;
 		if (isDtorDeclaration())
 		{
 		    // Call invariant directly only if it exists
@@ -1256,11 +1257,30 @@ void FuncDeclaration::semantic3(Scope *sc)
 		{   // Call invariant virtually
 		    ThisExp *v = new ThisExp(0);
 		    v->type = vthis->type;
+                    e = new AssertExp(loc, v, NULL);
+
+                    // LDC: check for null this
+                    v = new ThisExp(0);
+                    v->type = vthis->type;
+                    v->var = vthis;
+
+                    NullExp *nv = new NullExp(0);
+                    nv->type = v->type;
+
+                    IdentityExp *ie = new IdentityExp(TOKnotidentity, 0, v, nv);
+                    ie->type = Type::tbool;
+
 		    Expression *se = new StringExp(0, (char *)"null this");
 		    se = se->semantic(sc);
 		    se->type = Type::tchar->arrayOf();
-		    e = new AssertExp(loc, v, se);
+
+		    ee = new AssertExp(loc, ie, se);
 		}
+                if (ee)
+                {
+                    ExpStatement *s = new ExpStatement(0, ee);
+                    a->push(s);
+                }
 		if (e)
 		{
 		    ExpStatement *s = new ExpStatement(0, e);
