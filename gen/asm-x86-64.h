@@ -1849,6 +1849,16 @@ namespace AsmParserx8664
             else
                 mnemonic = opIdent->string;
             
+            // handle two-operand form where second arg is ignored.
+            // must be done before type_char detection
+            if ( op == Op_FidR_P || op == Op_fxch || op == Op_FfdRR_P )
+            {
+                if (operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
+                    nOperands = 1;
+                else
+                    stmt->error("instruction allows only ST as second argument");
+            }
+
             if ( opInfo->needsType )
             {
                 PtrType exact_type = Default_Ptr;
@@ -1912,27 +1922,6 @@ namespace AsmParserx8664
             {
                 if ( operands[0].dataSize == Far_Ptr ) // %% type=Far_Ptr not set by Seg:Ofss OTOH, we don't support that..
                     insnTemplate << 'l';
-            }
-            else if ( op == Op_fxch || op == Op_FfdRR_P || op == Op_FidR_P )
-            {
-                if ( operands[0].cls == Opr_Mem && op == Op_FidR_P )
-                {
-                    nOperands = 1;
-                }
-                // gas won't accept the two-operand form
-                else if ( operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
-                {
-                    nOperands = 1;
-                }
-                else if ( operands[0].cls == Opr_Reg && (operands[0].reg == Reg_ST1 || operands[0].reg == Reg_ST ))
-                {
-                    //fix previous update to allow single operand form of fstp
-                }
-                else
-                {
-                    stmt->error ( "invalid operands" );
-                    return false;
-                }
             }
             else if ( op == Op_FMath0 || op == Op_FdST0ST1 )
             {
