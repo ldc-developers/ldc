@@ -136,7 +136,7 @@ void IrTypeClass::addBaseClassData(
         if (vd == NULL)
             continue;
 
-        assert(vd->offset >= offset && "it's a bug...");
+        assert(vd->offset >= offset && "it's a bug... most likely DMD bug 2481");
 
         // add to default field list
         if (cd == base)
