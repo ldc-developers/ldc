@@ -737,7 +737,11 @@ size_t getTypeStoreSize(const LLType* t)
 
 size_t getTypePaddedSize(const LLType* t)
 {
+#if LLVM_REV > 71348
+    size_t sz = gTargetData->getTypeAllocSize(t);
+#else
     size_t sz = gTargetData->getTypePaddedSize(t);
+#endif
     //Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
     return sz;
 }
