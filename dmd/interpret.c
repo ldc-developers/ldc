@@ -1942,6 +1942,13 @@ Expression *CallExp::interpret(InterState *istate)
 	    if (fd->ident == Id::adDup && arguments && arguments->dim == 2)
 	    {
 		e = (Expression *)arguments->data[1];
+#if IN_LLVM
+                // in LDC we repaint the array argument to void[], skip past that
+                // or CTFE will fail!
+                assert(e->op == TOKcast);
+                CastExp* ce = (CastExp*)e;
+                e = ce->e1;
+#endif
 		e = e->interpret(istate);
 		if (e != EXP_CANT_INTERPRET)
 		{
