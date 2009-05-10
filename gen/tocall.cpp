@@ -141,8 +141,28 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
         assert(argexp->type->ty != Ttuple);
         vtypes.push_back(DtoType(argexp->type));
         size_t sz = getTypePaddedSize(vtypes.back());
-        if (sz < PTRSIZE)
-            vtypes.back() = DtoSize_t();
+        size_t asz = (sz + PTRSIZE - 1) & ~(PTRSIZE -1);
+        if (sz != asz)
+        {
+            if (sz < PTRSIZE)
+            {
+                vtypes.back() = DtoSize_t();
+            }
+            else
+            {
+                // ok then... so we build some type that is big enough
+                // and aligned to PTRSIZE
+                std::vector<const LLType*> gah;
+                gah.reserve(asz/PTRSIZE);
+                size_t gah_sz = 0;
+                while (gah_sz < asz)
+                {
+                    gah.push_back(DtoSize_t());
+                    gah_sz += PTRSIZE;
+                }
+                vtypes.back() = LLStructType::get(gah, true);
+            }
+        }
     }
     const LLStructType* vtype = LLStructType::get(vtypes);
 
