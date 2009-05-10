@@ -88,8 +88,17 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             int len = arr.getLength();
             for (int i=0; i<len; i++)
             {
-                const char* v = arr[i];
-                switches.push_back(v);
+                std::string v = arr[i];
+                
+                // replace binpathkey with binpath
+                std::string binpathkey = "%%ldcbinarypath%%";
+                sys::Path binpathgetter = sys::Path::GetMainExecutable(argv0, mainAddr);
+                binpathgetter.eraseComponent();
+                std::string binpath = binpathgetter.toString();
+                size_t p;
+                while (std::string::npos != (p = v.find(binpathkey)))
+                    v.replace(p, binpathkey.size(), binpath);
+                switches.push_back(strdup(v.c_str()));
             }
         }
 
