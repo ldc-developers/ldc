@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cassert>
+#include <string.h>
 
 #include "llvm/System/Path.h"
 
