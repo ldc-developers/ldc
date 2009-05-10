@@ -19,7 +19,7 @@ private import tango.stdc.string;
 // Returns a valid slice of the populated buffer
 char[] intToUtf8 (char[] tmp, size_t val)
 in {
-   assert (tmp.length > 20, "atoi buffer should be 20 or more chars wide");
+   assert (tmp.length >= 20, "atoi buffer should be 20 or more chars wide");
    }
 body
 {
