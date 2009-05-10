@@ -1049,10 +1049,22 @@ Expression *Cast(Type *type, Type *to, Expression *e1)
     if (type->equals(e1->type) && to->equals(type))
 	return e1;
 
+    Type *tb = to->toBasetype();
+    Type *typeb = type->toBasetype();
+
+    // LDC: ported from D2 to allow char[] ~ char[n] arguments in CTFE
+    if (e1->op == TOKstring)
+    {
+	if (tb->ty == Tarray && typeb->ty == Tarray &&
+	    tb->nextOf()->size() == typeb->nextOf()->size())
+	{
+	    return expType(to, e1);
+	}
+    }
+
     if (e1->isConst() != 1)
 	return EXP_CANT_INTERPRET;
 
-    Type *tb = to->toBasetype();
     if (tb->ty == Tbool)
 	e = new IntegerExp(loc, e1->toInteger() != 0, type);
     else if (type->isintegral())
@@ -1061,7 +1073,7 @@ Expression *Cast(Type *type, Type *to, Expression *e1)
 	{   dinteger_t result;
 	    real_t r = e1->toReal();
 
-	    switch (type->toBasetype()->ty)
+	    switch (typeb->ty)
 	    {
 		case Tint8:	result = (d_int8)r;	break;
 		case Tchar:
@@ -1126,7 +1138,7 @@ Expression *Cast(Type *type, Type *to, Expression *e1)
     else
     {
 	error(loc, "cannot cast %s to %s", e1->type->toChars(), type->toChars());
-	e = new IntegerExp(loc, 0, type);
+	e = new IntegerExp(loc, 0, Type::tint32);
     }
     return e;
 }
