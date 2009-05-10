@@ -16,6 +16,8 @@
 #include "gen/dvalue.h"
 #include "ir/irmodule.h"
 
+#include "gen/cl_options.h"
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 const LLStructType* DtoArrayType(Type* arrayTy)
@@ -334,7 +336,7 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
     assert(e->len != 0);
     const LLType* t = e->ptr->getType()->getContainedType(0);
     sz = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(t)), e->len, "tmp");
-    return e->ptr;
+    return DtoBitCast(e->ptr, getVoidPtrType());
 }
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
@@ -345,7 +347,15 @@ void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
     LLValue* dstarr = get_slice_ptr(dst,sz1);
     LLValue* srcarr = get_slice_ptr(src,sz2);
 
-    DtoMemCpy(dstarr, srcarr, sz1);
+    if (global.params.useAssert || global.params.useArrayBounds)
+    {
+        LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
+        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
+    }
+    else
+    {
+        DtoMemCpy(dstarr, srcarr, sz1);
+    }
 }
 
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
@@ -354,9 +364,17 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 
     LLValue* sz1;
     LLValue* dstarr = get_slice_ptr(dst,sz1);
-    LLValue* srcarr = DtoArrayPtr(src);
+    LLValue* srcarr = DtoBitCast(DtoArrayPtr(src), getVoidPtrType());
 
-    DtoMemCpy(dstarr, srcarr, sz1);
+    if (global.params.useAssert || global.params.useArrayBounds)
+    {
+        LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
+        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, DtoArrayLen(src));
+    }
+    else
+    {
+        DtoMemCpy(dstarr, srcarr, sz1);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

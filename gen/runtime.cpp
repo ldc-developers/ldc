@@ -402,8 +402,12 @@ static void LLVM_D_BuildRuntimeModule()
 
     // array init mem
     // void _d_array_init_mem(void* a, size_t na, void* v, size_t nv)
+    // +
+    // array slice copy when assertions are on!
+    // void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
     {
         std::string fname("_d_array_init_mem");
+        std::string fname2("_d_array_slice_copy");
         std::vector<const LLType*> types;
         types.push_back(voidPtrTy);
         types.push_back(sizeTy);
@@ -411,6 +415,8 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_1_3_NoCapture);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
             ->setAttributes(Attr_1_3_NoCapture);
     }
 

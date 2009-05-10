@@ -156,3 +156,14 @@ size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
     }
     return (len*elemsz)/newelemsz;
 }
+
+// slice copy when assertions are enabled
+void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
+{
+    if (dstlen != srclen)
+        throw new Exception("lengths don't match for array copy");
+    else if (dst+dstlen <= src || src+srclen <= dst)
+        llvm_memcpy(dst, src, dstlen, 0);
+    else
+        throw new Exception("overlapping array copy");
+}
