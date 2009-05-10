@@ -364,12 +364,15 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 
     LLValue* sz1;
     LLValue* dstarr = get_slice_ptr(dst,sz1);
+
     LLValue* srcarr = DtoBitCast(DtoArrayPtr(src), getVoidPtrType());
+    const LLType* arrayelemty = DtoType(src->getType()->nextOf()->toBasetype());
+    LLValue* sz2 = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(arrayelemty)), DtoArrayLen(src), "tmp");
 
     if (global.params.useAssert || global.params.useArrayBounds)
     {
         LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
-        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, DtoArrayLen(src));
+        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
     }
     else
     {
