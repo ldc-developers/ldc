@@ -19,7 +19,9 @@
 #include "Passes.h"
 
 #include "llvm/Pass.h"
+#include "llvm/Intrinsics.h"
 #include "llvm/Support/IRBuilder.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/ADT/StringMap.h"
@@ -42,6 +44,15 @@ namespace {
     protected:
         Function *Caller;
         const TargetData *TD;
+        AliasAnalysis *AA;
+        
+        /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
+        Value *CastToCStr(Value *V, IRBuilder<> &B);
+        
+        /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This
+        /// always expects that the size has type 'intptr_t' and Dst/Src are pointers.
+        Value *EmitMemCpy(Value *Dst, Value *Src, Value *Len, 
+                          unsigned Align, IRBuilder<> &B);
     public:
         LibCallOptimization() { }
         virtual ~LibCallOptimization() {}
@@ -53,14 +64,33 @@ namespace {
         /// delete CI.
         virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B)=0;
         
-        Value *OptimizeCall(CallInst *CI, const TargetData &TD, IRBuilder<> &B) {
+        Value *OptimizeCall(CallInst *CI, const TargetData &TD,
+                AliasAnalysis& AA, IRBuilder<> &B) {
             Caller = CI->getParent()->getParent();
             this->TD = &TD;
+            this->AA = &AA;
             return CallOptimizer(CI->getCalledFunction(), CI, B);
         }
     };
 } // End anonymous namespace.
 
+/// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
+Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
+  return B.CreateBitCast(V, PointerType::getUnqual(Type::Int8Ty), "cstr");
+}
+
+/// EmitMemCpy - Emit a call to the memcpy function to the builder.  This always
+/// expects that the size has type 'intptr_t' and Dst/Src are pointers.
+Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
+                                       unsigned Align, IRBuilder<> &B) {
+  Module *M = Caller->getParent();
+  Intrinsic::ID IID = Intrinsic::memcpy;
+  const Type *Tys[1];
+  Tys[0] = Len->getType();
+  Value *MemCpy = Intrinsic::getDeclaration(M, IID, Tys, 1);
+  return B.CreateCall4(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
+                       ConstantInt::get(Type::Int32Ty, Align));
+}
 
 //===----------------------------------------------------------------------===//
 // Miscellaneous LibCall Optimizations
@@ -160,6 +190,41 @@ struct VISIBILITY_HIDDEN DeleteUnusedOpt : public LibCallOptimization {
     }
 };
 
+/// ArraySliceCopyOpt - Turn slice copies into llvm.memcpy when safe
+struct VISIBILITY_HIDDEN ArraySliceCopyOpt : public LibCallOptimization {
+    virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
+        // Verify we have a reasonable prototype for _d_array_slice_copy
+        const FunctionType *FT = Callee->getFunctionType();
+        const Type* VoidPtrTy = PointerType::getUnqual(Type::Int8Ty);
+        if (Callee->arg_size() != 4 || FT->getReturnType() != Type::VoidTy ||
+            FT->getParamType(0) != VoidPtrTy ||
+            !isa<IntegerType>(FT->getParamType(1)) ||
+            FT->getParamType(2) != VoidPtrTy ||
+            FT->getParamType(3) != FT->getParamType(1))
+          return 0;
+        
+        Value* Size = CI->getOperand(2);
+        
+        // Check the lengths match
+        if (CI->getOperand(4) != Size)
+            return 0;
+        
+        // Assume unknown size unless we have constant size (that fits in an uint)
+        unsigned Sz = ~0U;
+        if (ConstantInt* Int = dyn_cast<ConstantInt>(Size))
+            if (Int->getValue().isIntN(32))
+                Sz = Int->getValue().getZExtValue();
+        
+        // Check if the pointers may alias
+        if (AA->alias(CI->getOperand(1), Sz, CI->getOperand(3), Sz))
+            return 0;
+        
+        // Equal length and the pointers definitely don't alias, so it's safe to
+        // replace the call with memcpy
+        return EmitMemCpy(CI->getOperand(1), CI->getOperand(3), Size, 0, B);
+    }
+};
+
 // TODO: More optimizations! :)
 
 } // end anonymous namespace.
@@ -177,6 +242,7 @@ namespace {
         // Array operations
         ArraySetLengthOpt ArraySetLength;
         ArrayCastLenOpt ArrayCastLen;
+        ArraySliceCopyOpt ArraySliceCopy;
         
         // GC allocations
         DeleteUnusedOpt DeleteUnused;
@@ -188,10 +254,11 @@ namespace {
         void InitOptimizations();
         bool runOnFunction(Function &F);
         
-        bool runOnce(Function &F, const TargetData& TD);
+        bool runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA);
             
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
           AU.addRequired<TargetData>();
+          AU.addRequired<AliasAnalysis>();
         }
     };
     char SimplifyDRuntimeCalls::ID = 0;
@@ -212,6 +279,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
     Optimizations["_d_arraysetlengthT"] = &ArraySetLength;
     Optimizations["_d_arraysetlengthiT"] = &ArraySetLength;
     Optimizations["_d_array_cast_len"] = &ArrayCastLen;
+    Optimizations["_d_array_slice_copy"] = &ArraySliceCopy;
     
     /* Delete calls to runtime functions which aren't needed if their result is
      * unused. That comes down to functions that don't do anything but
@@ -240,6 +308,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
         InitOptimizations();
     
     const TargetData &TD = getAnalysis<TargetData>();
+    AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
     
     // Iterate to catch opportunities opened up by other optimizations,
     // such as calls that are only used as arguments to unused calls:
@@ -249,14 +318,14 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     bool EverChanged = false;
     bool Changed;
     do {
-        Changed = runOnce(F, TD);
+        Changed = runOnce(F, TD, AA);
         EverChanged |= Changed;
     } while (Changed);
     
     return EverChanged;
 }
 
-bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD) {
+bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA) {
     IRBuilder<> Builder;
     
     bool Changed = false;
@@ -272,19 +341,19 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD) {
                     !(Callee->hasExternalLinkage() || Callee->hasDLLImportLinkage()))
                 continue;
             
-            DEBUG(DOUT << "SimplifyDRuntimeCalls inspecting: " << *CI);
-            
             // Ignore unknown calls.
             const char *CalleeName = Callee->getNameStart();
             StringMap<LibCallOptimization*>::iterator OMI =
                 Optimizations.find(CalleeName, CalleeName+Callee->getNameLen());
             if (OMI == Optimizations.end()) continue;
             
+            DEBUG(DOUT << "SimplifyDRuntimeCalls inspecting: " << *CI);
+            
             // Set the builder to the instruction after the call.
             Builder.SetInsertPoint(BB, I);
             
             // Try to optimize this call.
-            Value *Result = OMI->second->OptimizeCall(CI, TD, Builder);
+            Value *Result = OMI->second->OptimizeCall(CI, TD, AA, Builder);
             if (Result == 0) continue;
             
             DEBUG(DOUT << "SimplifyDRuntimeCalls simplified: " << *CI;
@@ -296,8 +365,10 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD) {
             if (Result == CI) {
                 assert(CI->use_empty());
                 ++NumDeleted;
+                AA.deleteValue(CI);
             } else {
                 ++NumSimplified;
+                AA.replaceWithNewValue(CI, Result);
                 
                 if (!CI->use_empty())
                     CI->replaceAllUsesWith(Result);
