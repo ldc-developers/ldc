@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cassert>
-#include <string.h>
+#include <cstring>
 
 #include "llvm/System/Path.h"
 
@@ -85,6 +85,9 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         // handle switches
         if (root.exists("switches"))
         {
+            std::string binpathkey = "%%ldcbinarypath%%";
+            std::string binpath = sys::Path::GetMainExecutable(argv0, mainAddr).getDirname();
+
             libconfig::Setting& arr = cfg->lookup("default.switches");
             int len = arr.getLength();
             for (int i=0; i<len; i++)
@@ -92,13 +95,10 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
                 std::string v = arr[i];
                 
                 // replace binpathkey with binpath
-                std::string binpathkey = "%%ldcbinarypath%%";
-                sys::Path binpathgetter = sys::Path::GetMainExecutable(argv0, mainAddr);
-                binpathgetter.eraseComponent();
-                std::string binpath = binpathgetter.toString();
                 size_t p;
                 while (std::string::npos != (p = v.find(binpathkey)))
                     v.replace(p, binpathkey.size(), binpath);
+                
                 switches.push_back(strdup(v.c_str()));
             }
         }
