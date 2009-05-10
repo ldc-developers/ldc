@@ -276,7 +276,7 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     // Last argument is enum CodeGenOpt::Level OptLevel
     // debug info doesn't work properly with OptLevel != None!
     CodeGenOpt::Level LastArg = CodeGenOpt::Default;
-    if (global.params.symdebug)
+    if (global.params.symdebug || !optimize())
         LastArg = CodeGenOpt::None;
     else if (optLevel() >= 3)
         LastArg = CodeGenOpt::Aggressive;
