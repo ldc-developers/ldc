@@ -397,8 +397,10 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
     if (!node)
         return NULL;
     
-    if (MD_GetNumElements(node) != TD_NumFields ||
-            (TD_Confirm >= 0 && MD_GetElement(node, TD_Confirm)->stripPointerCasts() != ti_global))
+    if (MD_GetNumElements(node) != TD_NumFields)
+        return NULL;
+    if (TD_Confirm >= 0 && (!MD_GetElement(node, TD_Confirm) ||
+            MD_GetElement(node, TD_Confirm)->stripPointerCasts() != ti_global))
         return NULL;
     
     return MD_GetElement(node, TD_Type)->getType();

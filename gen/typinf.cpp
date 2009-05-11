@@ -296,7 +296,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
         // Construct the fields
         MDNodeField* mdVals[TD_NumFields];
         if (TD_Confirm >= 0)
-            mdVals[TD_Confirm] = llvm::cast<LLConstant>(irg->value);
+            mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
         mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
         // Construct the metadata
         llvm::MDNode* metadata = llvm::MDNode::get(mdVals, TD_NumFields);
