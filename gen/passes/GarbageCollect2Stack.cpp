@@ -202,16 +202,16 @@ namespace {
                 return false;
             
             MDNode* node = dyn_cast<MDNode>(global->getInitializer());
-            if (!node || node->getNumOperands() != CD_NumFields)
+            if (!node || MD_GetNumElements(node) != CD_NumFields)
                 return false;
             
             // Inserting destructor calls is not implemented yet, so classes
             // with destructors are ignored for now.
-            Constant* hasDestructor = dyn_cast<Constant>(node->getOperand(CD_Finalize));
+            Constant* hasDestructor = dyn_cast<Constant>(MD_GetElement(node, CD_Finalize));
             // We can't stack-allocate if the class has a custom deallocator
             // (Custom allocators don't get turned into this runtime call, so
             // those can be ignored)
-            Constant* hasCustomDelete = dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
+            Constant* hasCustomDelete = dyn_cast<Constant>(MD_GetElement(node, CD_CustomDelete));
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
             
@@ -219,7 +219,7 @@ namespace {
                     != ConstantInt::getFalse())
                 return false;
             
-            Ty = node->getOperand(CD_BodyType)->getType();
+            Ty = MD_GetElement(node, CD_BodyType)->getType();
             return true;
         }
         
@@ -366,6 +366,8 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             IRBuilder<> Builder(BB, Inst);
             Value* newVal = info->promote(CS, Builder, A);
             
+            DEBUG(DOUT << "Promoted to: " << *newVal);
+            
             // Make sure the type is the same as it was before, and replace all
             // uses of the runtime call with the alloca.
             if (newVal->getType() != Inst->getType())
@@ -395,11 +397,11 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
     if (!node)
         return NULL;
     
-    if (node->getNumOperands() != TD_NumFields ||
-            (TD_Confirm >= 0 && node->getOperand(TD_Confirm)->stripPointerCasts() != ti_global))
+    if (MD_GetNumElements(node) != TD_NumFields ||
+            (TD_Confirm >= 0 && MD_GetElement(node, TD_Confirm)->stripPointerCasts() != ti_global))
         return NULL;
     
-    return node->getOperand(TD_Type)->getType();
+    return MD_GetElement(node, TD_Type)->getType();
 }
 
 

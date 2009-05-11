@@ -82,7 +82,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         bool hasDestructor = (classdecl->dtor != NULL);
         bool hasCustomDelete = (classdecl->aggDelete != NULL);
         // Construct the fields
-        LLConstant* mdVals[CD_NumFields];
+        MDNodeField* mdVals[CD_NumFields];
         mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
         mdVals[CD_Finalize] = LLConstantInt::get(LLType::Int1Ty, hasDestructor);
         mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::Int1Ty, hasCustomDelete);

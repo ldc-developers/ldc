@@ -294,7 +294,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     // (such as tuple types, slice types, typeof(expr), etc.)
     if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
         // Construct the fields
-        LLConstant* mdVals[TD_NumFields];
+        MDNodeField* mdVals[TD_NumFields];
         if (TD_Confirm >= 0)
             mdVals[TD_Confirm] = llvm::cast<LLConstant>(irg->value);
         mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));

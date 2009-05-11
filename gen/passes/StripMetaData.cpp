@@ -30,7 +30,6 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
-#include "llvm/Constants.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"

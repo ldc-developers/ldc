@@ -6,6 +6,33 @@
 #if LLVM_REV >= 68420
 // Yay, we have metadata!
 
+// The metadata interface is still in flux...
+#if LLVM_REV >= 71407
+    // MDNode was moved into its own header, and contains Value*s
+    #include "llvm/MDNode.h"
+    typedef llvm::Value MDNodeField;
+    
+    // Use getNumElements() and getElement() to access elements.
+    inline unsigned MD_GetNumElements(llvm::MDNode* N) {
+        return N->getNumElements();
+    }
+    inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
+        return N->getElement(i);
+    }
+#else
+    // MDNode is in Constants.h, and contains Constant*s
+    #include "llvm/Constants.h"
+    typedef llvm::Constant MDNodeField;
+    
+    // Use getNumOperands() and getOperand() to access elements.
+    inline unsigned MD_GetNumElements(llvm::MDNode* N) {
+        return N->getNumOperands();
+    }
+    inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
+        return N->getOperand(i);
+    }
+#endif
+
 #define USE_METADATA
 #define METADATA_LINKAGE_TYPE  llvm::GlobalValue::WeakODRLinkage
 
