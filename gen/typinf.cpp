@@ -652,6 +652,14 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert(tinfo->ty == Tstruct);
     TypeStruct *tc = (TypeStruct *)tinfo;
     StructDeclaration *sd = tc->sym;
+
+    // can't emit typeinfo for forward declarations
+    if (sd->sizeok != 1)
+    {
+        sd->error("cannot emit TypeInfo for forward declaration");
+        fatal();
+    }
+
     sd->codegen(Type::sir);
 
     ClassDeclaration* base = Type::typeinfostruct;
