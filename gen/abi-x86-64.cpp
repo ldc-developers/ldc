@@ -43,6 +43,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/abi.h"
 #include "gen/abi-x86-64.h"
+//#include "gen/llvm-version.h"         // only use is commented out.
 #include "ir/irfunction.h"
 
 #include <cassert>
@@ -400,6 +401,19 @@ namespace x86_64_D_cc {
     bool retStructInRegs(TypeStruct* st) {
         // 'fastcc' allows returns in up to two registers of each kind:
         DRegCount state(2, 2, 2);
+    #if 1 //LLVM_REV < 67588
+        // (If uncommenting the LLVM_REV line above, also uncomment llvm-version #include
+        
+        // LLVM before trunk r67588 doesn't allow a second int to be an i1 or
+        // i8. (See <http://llvm.org/PR3861>)
+        // Rather than complicating shouldPassStructInRegs(), just disallow
+        // second integers for now.
+        // FIXME: Disabling this for older LLVM only makes the abi dependent on
+        //        LLVM revision, which seems like a bad idea. We could extend
+        //        i8 parts to i16 to work around this issue until 2.6...
+        // TODO: Remove this workaround when support for LLVM 2.5 is dropped.
+        state.ints = 1;
+    #endif
         return shouldPassStructInRegs(st, state);
     }
     
