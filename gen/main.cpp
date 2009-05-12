@@ -37,7 +37,6 @@
 #include "gen/irstate.h"
 #include "gen/toobj.h"
 #include "gen/passes/Passes.h"
-#include "gen/llvm-version.h"
 
 #include "gen/cl_options.h"
 #include "gen/cl_helpers.h"
@@ -880,16 +879,6 @@ int main(int argc, char** argv)
                 error(errormsg.c_str());
             delete llvmModules[i];
         }
-        
-#if LLVM_REV < 66404
-        // Workaround for llvm bug #3749
-        // Not needed since LLVM r66404 (it no longer checks for this)
-        llvm::GlobalVariable* ctors = linker.getModule()->getGlobalVariable("llvm.global_ctors");
-        if (ctors) {
-            ctors->removeDeadConstantUsers();
-            assert(ctors->use_empty());
-        }
-#endif
         
         m->deleteObjFile();
         writeModule(linker.getModule(), filename);

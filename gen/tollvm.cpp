@@ -543,16 +543,8 @@ llvm::ConstantFP* DtoConstFP(Type* t, long double value)
         return LLConstantFP::get(llty, value);
     else if(llty == LLType::X86_FP80Ty) {
         uint64_t bits[] = {0, 0};
-    #if LLVM_REV < 67562
-        // Prior to r67562, the i80 APInt format expected by the APFloat
-        // constructor was different than the memory layout on the actual
-        // processor.
-        bits[1] = *(uint16_t*)&value;
-        bits[0] = *(uint64_t*)((uint16_t*)&value + 1);
-    #else
         bits[0] = *(uint64_t*)&value;
         bits[1] = *(uint16_t*)((uint64_t*)&value + 1);
-    #endif
         return LLConstantFP::get(APFloat(APInt(80, 2, bits)));
     } else {
         assert(0 && "Unknown floating point type encountered");
