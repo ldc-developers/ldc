@@ -21,10 +21,8 @@ sys::Path getGcc() {
         cc = gcc.c_str();
     
     if (!cc)
-#if !_WIN32
         cc = getenv("CC");
     if (!cc)
-#endif
         cc = "gcc";
     
     sys::Path path = sys::Program::FindProgramByName(cc);
