@@ -1465,7 +1465,7 @@ size_t realignOffset(size_t offset, Type* type)
 
     if (alignsize != alignsize2)
     {
-        assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
+        assert(alignsize2 > alignsize && "this is not good, the D and LLVM "
             "type alignments differ, but LLVM's is bigger! This will break "
             "the type mapping algorithms");
         // don't try and align the offset, and let the mappers pad 100% manually
