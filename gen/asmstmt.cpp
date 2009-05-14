@@ -600,7 +600,7 @@ void AsmBlockStatement::toIR(IRState* p)
             outSetterStmt->code += asmGotoEndLabel.str()+":\n";
 
             // create storage for and initialize the temporary
-            jump_target = DtoAlloca(LLType::Int32Ty, "__llvm_jump_target");
+            jump_target = DtoAlloca(Type::tint32, "__llvm_jump_target");
             gIR->ir->CreateStore(DtoConstUint(0), jump_target);
             // setup variable for output from asm
             outSetterStmt->out_c = "=*m,";

@@ -455,7 +455,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
         } else {
             // No memory location, create one.
             LLValue* rval = v->getRVal();
-            lval = DtoAlloca(rval->getType());
+            lval = DtoRawAlloca(rval->getType(), 0);
             DtoStore(rval, lval);
         }
         
@@ -479,7 +479,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
         } else {
             // No memory location, create one.
             LLValue* rval = v->getRVal();
-            lval = DtoAlloca(rval->getType());
+            lval = DtoRawAlloca(rval->getType(), 0);
             DtoStore(rval, lval);
         }
         

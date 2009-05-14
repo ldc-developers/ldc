@@ -129,7 +129,8 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     LLValue* mem;
     if (newexp->onstack)
     {
-        mem = DtoAlloca(DtoType(tc)->getContainedType(0), ".newclass_alloca");
+        // FIXME align scope class to its largest member
+        mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), 0, ".newclass_alloca");
     }
     // custom allocator
     else if (newexp->allocator)

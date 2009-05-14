@@ -1025,7 +1025,7 @@ void ForeachStatement::toIR(IRState* p)
     if (key)
         keyvar = DtoRawVarDeclaration(key);
     else
-        keyvar = DtoAlloca(keytype, "foreachkey");
+        keyvar = DtoRawAlloca(keytype, 0, "foreachkey"); // FIXME: align?
     LLValue* zerokey = llvm::ConstantInt::get(keytype,0,false);
 
     // value

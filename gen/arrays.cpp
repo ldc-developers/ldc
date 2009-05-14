@@ -77,7 +77,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     // give slices and complex values storage (and thus an address to pass)
     if (value->isSlice())
     {
-        val = DtoAlloca(DtoType(value->getType()), ".tmpparam");
+        val = DtoAlloca(value->getType(), ".tmpparam");
         DVarValue lval(value->getType(), val);
         DtoAssign(loc, &lval, value);
     }
@@ -448,7 +448,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // build dims
-    LLValue* dimsArg = DtoAlloca(DtoSize_t(), DtoConstUint(ndims), ".newdims");
+    LLValue* dimsArg = DtoArrayAlloca(Type::tsize_t, ndims, ".newdims");
     LLValue* firstDim = NULL; 
     for (size_t i=0; i<ndims; ++i)
     {

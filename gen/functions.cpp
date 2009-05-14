@@ -683,6 +683,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     gIR->scopes.push_back(IRScope(beginbb, endbb));
 
     // create alloca point
+    // this gets erased when the function is complete, so alignment etc does not matter at all
     llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::Int32Ty, "alloca point", beginbb);
     irfunction->allocapoint = allocaPoint;
 
@@ -704,7 +705,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         LLValue* thisvar = irfunction->thisArg;
         assert(thisvar);
 
-        LLValue* thismem = DtoAlloca(thisvar->getType(), "this");
+        LLValue* thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
         DtoStore(thisvar, thismem);
         irfunction->thisArg = thismem;
         
@@ -760,7 +761,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
                     argt = irloc->value->getType();
                 else
                     argt = DtoType(vd->type);
-                LLValue* mem = DtoAlloca(argt, vd->ident->toChars());
+                LLValue* mem = DtoRawAlloca(argt, 0, vd->ident->toChars());
 
                 // let the abi transform the argument back first
                 DImValue arg_dval(vd->type, irloc->value);
@@ -796,19 +797,19 @@ void DtoDefineFunction(FuncDeclaration* fd)
         DtoNestedInit(fd->vresult);
     } else if (fd->vresult) {
         fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-        fd->vresult->ir.irLocal->value = DtoAlloca(DtoType(fd->vresult->type), fd->vresult->toChars());
+        fd->vresult->ir.irLocal->value = DtoAlloca(fd->vresult->type, fd->vresult->toChars());
     }
     
     // copy _argptr and _arguments to a memory location
     if (f->linkage == LINKd && f->varargs == 1)
     {
         // _argptr
-        LLValue* argptrmem = DtoAlloca(fd->ir.irFunc->_argptr->getType(), "_argptr_mem");
+        LLValue* argptrmem = DtoRawAlloca(fd->ir.irFunc->_argptr->getType(), 0, "_argptr_mem");
         new llvm::StoreInst(fd->ir.irFunc->_argptr, argptrmem, gIR->scopebb());
         fd->ir.irFunc->_argptr = argptrmem;
 
         // _arguments
-        LLValue* argumentsmem = DtoAlloca(fd->ir.irFunc->_arguments->getType(), "_arguments_mem");
+        LLValue* argumentsmem = DtoRawAlloca(fd->ir.irFunc->_arguments->getType(), 0, "_arguments_mem");
         new llvm::StoreInst(fd->ir.irFunc->_arguments, argumentsmem, gIR->scopebb());
         fd->ir.irFunc->_arguments = argumentsmem;
     }
@@ -918,7 +919,7 @@ DValue* DtoArgument(Argument* fnarg, Expression* argexp)
     // byval arg, but expr has no storage yet
     else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull()))
     {
-        LLValue* alloc = DtoAlloca(DtoType(argexp->type), ".tmp_arg");
+        LLValue* alloc = DtoAlloca(argexp->type, ".tmp_arg");
         DVarValue* vv = new DVarValue(argexp->type, alloc);
         DtoAssign(argexp->loc, vv, arg);
         arg = vv;

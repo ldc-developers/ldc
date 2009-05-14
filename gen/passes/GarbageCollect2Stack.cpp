@@ -98,7 +98,7 @@ namespace {
             NumGcToStack++;
             
             Instruction* Begin = CS.getCaller()->getEntryBlock().begin();
-            return new AllocaInst(Ty, ".nongc_mem", Begin);
+            return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
         
         FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete)
@@ -165,7 +165,7 @@ namespace {
             
             // Convert array size to 32 bits if necessary
             Value* count = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
-            AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem");
+            AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
             
             if (Initialized) {
                 // For now, only zero-init is supported.

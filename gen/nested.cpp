@@ -167,7 +167,7 @@ void DtoNestedInit(VarDeclaration* vd)
     if (nestedCtx == NCArray) {
         // alloca as usual if no value already
         if (!vd->ir.irLocal->value)
-            vd->ir.irLocal->value = DtoAlloca(DtoType(vd->type), vd->toChars());
+            vd->ir.irLocal->value = DtoAlloca(vd->type, vd->toChars());
         
         // store the address into the nested vars array
         assert(vd->ir.irLocal->nestedIndex >= 0);
@@ -324,7 +324,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             const LLType* nestedVarsTy = LLArrayType::get(getVoidPtrType(), nelems);
         
             // alloca it
-            LLValue* nestedVars = DtoAlloca(nestedVarsTy, ".nested_vars");
+            // FIXME align ?
+            LLValue* nestedVars = DtoRawAlloca(nestedVarsTy, 0, ".nested_vars");
             
             IrFunction* irfunction = fd->ir.irFunc;
             
@@ -459,7 +460,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             // FIXME: For D2, this should be a gc_malloc (or similar) call, not alloca
             //        (Note that it'd also require more aggressive copying of
             //        by-value parameters instead of just alloca'd ones)
-            LLValue* frame = DtoAlloca(frameType, ".frame");
+            // FIXME: alignment ?
+            LLValue* frame = DtoRawAlloca(frameType, 0, ".frame");
             
             // copy parent frames into beginning
             if (depth != 0) {

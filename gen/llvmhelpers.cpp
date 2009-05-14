@@ -95,14 +95,29 @@ void DtoDeleteArray(DValue* arr)
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 
-llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name)
+llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 {
-    return new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+    const llvm::Type* lltype = DtoType(type);
+    llvm::AllocaInst* ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+    ai->setAlignment(type->alignsize());
+    return ai;
 }
 
-llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name)
+llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name)
 {
-    return new llvm::AllocaInst(lltype, arraysize, name, gIR->topallocapoint());
+    const llvm::Type* lltype = DtoType(type);
+    llvm::AllocaInst* ai = new llvm::AllocaInst(
+        lltype, DtoConstUint(arraysize), name, gIR->topallocapoint());
+    ai->setAlignment(type->alignsize());
+    return ai;
+}
+
+llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const char* name)
+{
+    llvm::AllocaInst* ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+    if (alignment)
+        ai->setAlignment(alignment);
+    return ai;
 }
 
 
@@ -894,7 +909,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 if(gTargetData->getTypeSizeInBits(lltype) == 0) 
                     allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
                 else
-                    allocainst = DtoAlloca(lltype, vd->toChars());
+                    allocainst = DtoAlloca(vd->type, vd->toChars());
 
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->ir.irLocal = new IrLocal(vd);
@@ -1010,7 +1025,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     LLValue* allocaval = NULL;
     if (!addr && (!var->ir.irLocal || !var->ir.irLocal->value))
     {
-        addr = DtoAlloca(DtoType(var->type), var->toChars());
+        addr = DtoAlloca(var->type, var->toChars());
         
         // add debug info
         if (global.params.symdebug)

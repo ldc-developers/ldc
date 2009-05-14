@@ -33,7 +33,7 @@ static LLValue* to_pkey(Loc& loc, DValue* key)
         pkey = key->getRVal();
     }
     else {
-        LLValue* tmp = DtoAlloca(DtoType(keytype), "aatmpkeystorage");
+        LLValue* tmp = DtoAlloca(keytype, "aatmpkeystorage");
         DVarValue var(keytype, tmp);
         DtoAssign(loc, &var, key);
         return tmp;
@@ -41,7 +41,7 @@ static LLValue* to_pkey(Loc& loc, DValue* key)
 
     // give memory
     if (needmem) {
-        LLValue* tmp = DtoAlloca(DtoType(keytype), "aatmpkeystorage");
+        LLValue* tmp = DtoAlloca(keytype, "aatmpkeystorage");
         DtoStore(pkey, tmp);
         pkey = tmp;
     }

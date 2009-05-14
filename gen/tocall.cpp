@@ -169,7 +169,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     if (Logger::enabled())
         Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
 
-    LLValue* mem = DtoAlloca(vtype,"_argptr_storage");
+    LLValue* mem = DtoRawAlloca(vtype, 0, "_argptr_storage");
 
     // store arguments in the struct
     for (int i=begin,k=0; i<n_arguments; i++,k++)
@@ -316,7 +316,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // return in hidden ptr is first
     if (retinptr)
     {
-        LLValue* retvar = DtoAlloca(argiter->get()->getContainedType(0), ".rettmp");
+        LLValue* retvar = DtoRawAlloca(argiter->get()->getContainedType(0), 0, ".rettmp");
         ++argiter;
         args.push_back(retvar);
 
@@ -552,7 +552,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // pointer to a struct, store it to a stack slot before continuing.
     if (tf->next->ty == Tstruct && !isaPointer(retllval)) {
         Logger::println("Storing return value to stack slot");
-        LLValue* mem = DtoAlloca(retllval->getType());
+        LLValue* mem = DtoRawAlloca(retllval->getType(), 0);
         DtoStore(retllval, mem);
         retllval = mem;
     }

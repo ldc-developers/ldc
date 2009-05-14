@@ -112,7 +112,7 @@ struct X86_struct_to_register : ABIRewrite
     LLValue* get(Type* dty, DValue* dv)
     {
         Logger::println("rewriting int -> struct");
-        LLValue* mem = DtoAlloca(DtoType(dty), ".int_to_struct");
+        LLValue* mem = DtoAlloca(dty, ".int_to_struct");
         LLValue* v = dv->getRVal();
         DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
         return DtoLoad(mem);

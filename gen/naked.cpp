@@ -258,7 +258,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 
             // generate asm
             as->out_c = "=*m,=*m,";
-            LLValue* tmp = DtoAlloca(llretTy, ".tmp_asm_ret");
+            LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
             as->out.push_back( tmp );
             as->out.push_back( DtoGEPi(tmp, 0,1) );
             as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
@@ -413,7 +413,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
     if (type->ty == Tstruct)
     {
         // make a copy
-        llvm::Value* mem = DtoAlloca(ret_type, ".__asm_tuple_ret");
+        llvm::Value* mem = DtoAlloca(type, ".__asm_tuple_ret");
 
         TypeStruct* ts = (TypeStruct*)type;
         size_t n = ts->sym->fields.dim;

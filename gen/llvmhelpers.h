@@ -40,8 +40,9 @@ void DtoDeleteInterface(LLValue* inst);
 void DtoDeleteArray(DValue* arr);
 
 // emit an alloca
-llvm::AllocaInst* DtoAlloca(const LLType* lltype, const std::string& name = "");
-llvm::AllocaInst* DtoAlloca(const LLType* lltype, LLValue* arraysize, const std::string& name = "");
+llvm::AllocaInst* DtoAlloca(Type* type, const char* name = "");
+llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name = "");
+llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const char* name = "");
 
 // assertion generator
 void DtoAssert(Module* M, Loc loc, DValue* msg);

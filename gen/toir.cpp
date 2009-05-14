@@ -909,7 +909,7 @@ DValue* AddrExp::toElem(IRState* p)
     {
         assert(v->isSlice());
         LLValue* rval = v->getRVal();
-        lval = DtoAlloca(rval->getType(), ".tmp_slice_storage");
+        lval = DtoRawAlloca(rval->getType(), 0, ".tmp_slice_storage");
         DtoStore(rval, lval);
     }
 
@@ -2124,13 +2124,12 @@ DValue* CondExp::toElem(IRState* p)
     LOG_SCOPE;
 
     Type* dtype = type->toBasetype();
-    const LLType* resty = DtoType(dtype);
 
     DValue* dvv;
     // voids returns will need no storage
     if (dtype->ty != Tvoid) {
         // allocate a temporary for the final result. failed to come up with a better way :/
-        LLValue* resval = DtoAlloca(resty,"condtmp");
+        LLValue* resval = DtoAlloca(dtype,"condtmp");
         dvv = new DVarValue(type, resval);
     } else {
         dvv = new DConstValue(type, getNullValue(DtoTypeNotVoid(dtype)));
@@ -2345,7 +2344,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         dstMem = dynSlice->ptr;
     }
     else
-        dstMem = DtoAlloca(llStoType, "arrayliteral");
+        dstMem = DtoRawAlloca(llStoType, 0, "arrayliteral");
 
     // store elements
     for (size_t i=0; i<len; ++i)
@@ -2509,7 +2508,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     const LLType* st = llvm::StructType::get(valuetypes, packed);
 
     // alloca a stack slot
-    LLValue* mem = DtoAlloca(st, ".structliteral");
+    LLValue* mem = DtoRawAlloca(st, 0, ".structliteral");
 
     // fill in values
     for (size_t i = 0; i < n; i++)
@@ -2596,12 +2595,11 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
     Type* aatype = type->toBasetype();
     Type* vtype = aatype->nextOf();
-    const LLType* aalltype = DtoType(type);
 
     // it should be possible to avoid the temporary in some cases
-    LLValue* tmp = DtoAlloca(aalltype,"aaliteral");
+    LLValue* tmp = DtoAlloca(type,"aaliteral");
     DValue* aa = new DVarValue(type, tmp);
-    DtoStore(LLConstant::getNullValue(aalltype), tmp);
+    DtoStore(LLConstant::getNullValue(DtoType(type)), tmp);
 
     const size_t n = keys->dim;
     for (size_t i=0; i<n; ++i)
