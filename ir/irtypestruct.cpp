@@ -8,6 +8,7 @@
 #include "gen/tollvm.h"
 #include "gen/logger.h"
 #include "gen/utils.h"
+#include "gen/llvmhelpers.h"
 #include "ir/irtypestruct.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -192,8 +193,7 @@ const llvm::Type* IrTypeStruct::buildType()
         size_t alignedoffset = offset;
         if (!packed)
         {
-            size_t alignsize = vd->type->alignsize();
-            alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
+            alignedoffset = realignOffset(alignedoffset, vd->type);
         }
 
         // insert explicit padding?

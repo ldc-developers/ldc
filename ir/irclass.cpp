@@ -222,8 +222,7 @@ void IrStruct::addBaseClassInits(
         assert(vd->offset >= offset && "default fields not sorted by offset");
 
         // get next aligned offset for this type
-        size_t alignsize = vd->type->alignsize();
-        size_t alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
+        size_t alignedoffset = realignOffset(offset, vd->type);
 
         // insert explicit padding?
         if (alignedoffset < vd->offset)

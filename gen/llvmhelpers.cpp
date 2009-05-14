@@ -1440,3 +1440,40 @@ IrModule * getIrModule(Module * M)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+size_t realignOffset(size_t offset, Type* type)
+{
+    size_t alignsize = type->alignsize();
+    size_t alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
+
+    // if the aligned offset already matches the input offset
+    // don't waste time checking things are ok!
+    if (alignedoffset == offset)
+        return alignedoffset;
+
+    // disabled since this can fail for opaques. if the check above is not in place
+    // it does so for gcx.d!!!
+    // this needs to be investigated, but I don't have time right now!
+#if 0
+    // if not, we have to make sure it agrees with what llvm thinks is the alignment
+    // sometimes this is different from what we really need (in case of unions, see #294)
+    // so if there we get different results we don't realign the offset at all and instead
+    // just return the original offset, and rely on the users to insert padding manually.
+    IF_LOG Logger::cout() << "getting alignment for type " << type->toChars()
+        << " with llvm type " << *DtoType(type) << std::endl;
+    size_t alignsize2 = gTargetData->getABITypeAlignment(DtoType(type));
+
+    if (alignsize != alignsize2)
+    {
+        assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
+            "type alignments differ, but LLVM's is bigger! This will break "
+            "the type mapping algorithms");
+        // don't try and align the offset, and let the mappers pad 100% manually
+        return offset;
+    }
+#endif
+
+    return alignedoffset;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
