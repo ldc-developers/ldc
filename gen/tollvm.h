@@ -68,6 +68,8 @@ void DtoStore(LLValue* src, LLValue* dst);
 void DtoAlignedStore(LLValue* src, LLValue* dst);
 LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
 LLConstant* DtoBitCast(LLConstant* v, const LLType* t);
+LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx);
+LLValue* DtoExtractValue(LLValue* aggr, unsigned idx);
 
 // llvm::dyn_cast wrappers
 const LLPointerType* isaPointer(LLValue* v);

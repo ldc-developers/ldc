@@ -630,6 +630,18 @@ LLConstant* DtoBitCast(LLConstant* v, const LLType* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx)
+{
+    return gIR->ir->CreateInsertValue(aggr, v, idx);
+}
+
+LLValue* DtoExtractValue(LLValue* aggr, unsigned idx)
+{
+    return gIR->ir->CreateExtractValue(aggr, idx);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 const LLPointerType* isaPointer(LLValue* v)
 {
     return llvm::dyn_cast<LLPointerType>(v->getType());

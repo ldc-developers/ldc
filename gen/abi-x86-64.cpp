@@ -43,6 +43,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/abi.h"
 #include "gen/abi-x86-64.h"
+#include "gen/structs.h"
 //#include "gen/llvm-version.h"         // only use is commented out.
 #include "ir/irfunction.h"
 
@@ -498,6 +499,38 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
 };
 
 
+/// Removes padding fields for (non-union-containing!) structs
+struct RemoveStructPadding : ABIRewrite {
+    /// get a rewritten value back to its original form
+    virtual LLValue* get(Type* dty, DValue* v) {
+        LLValue* lval = DtoAlloca(dty, ".rewritetmp");
+        
+        // Make sure the padding is zero, so struct comparisons work.
+        // TODO: Only do this if there's padding, and/or only initialize padding.
+        DtoMemSetZero(lval, DtoConstSize_t(getTypePaddedSize(DtoType(dty))));
+        
+        DtoPaddedStruct(dty, v->getRVal(), lval);
+        return lval;
+    }
+
+    /// get a rewritten value back to its original form and store result in provided lvalue
+    /// this one is optional and defaults to calling the one above
+    virtual void getL(Type* dty, DValue* v, llvm::Value* lval) {
+        DtoPaddedStruct(dty, v->getRVal(), lval);
+    }
+
+    /// put out rewritten value
+    virtual LLValue* put(Type* dty, DValue* v) {
+        return DtoUnpaddedStruct(dty, v->getRVal());
+    }
+
+    /// return the transformed type for this rewrite
+    virtual const LLType* type(Type* dty, const LLType* t) {
+        return DtoUnpaddedStructType(dty);
+    }
+};
+
+
 struct RegCount {
     unsigned char int_regs, sse_regs;
 };
@@ -505,6 +538,7 @@ struct RegCount {
 
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
+    RemoveStructPadding remove_padding;
     
     void newFunctionType(TypeFunction* tf) {
         funcTypeStack.push_back(FuncTypeData(tf->linkage));
@@ -544,6 +578,7 @@ private:
         return funcTypeStack.back().state;
     }
     
+    void fixup_D(IrFuncTyArg& arg);
     void fixup(IrFuncTyArg& arg);
 };
 
@@ -644,6 +679,19 @@ bool X86_64TargetABI::passByVal(Type* t) {
 }
 
 // Helper function for rewriteFunctionType.
+// Structs passed or returned in registers are passed here
+// to get their padding removed (if necessary).
+void X86_64TargetABI::fixup_D(IrFuncTyArg& arg) {
+    assert(arg.type->ty == Tstruct);
+    LLType* abiTy = DtoUnpaddedStructType(arg.type);
+    
+    if (abiTy && abiTy != arg.ltype) {
+        arg.ltype = abiTy;
+        arg.rewrite = &remove_padding;
+    }
+}
+
+// Helper function for rewriteFunctionType.
 // Return type and parameters are passed here (unless they're already in memory)
 // to get the rewrite applied (if necessary).
 void X86_64TargetABI::fixup(IrFuncTyArg& arg) {
@@ -657,12 +705,40 @@ void X86_64TargetABI::fixup(IrFuncTyArg& arg) {
 }
 
 void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
-    // extern(D) is handled entirely by passByVal and returnInArg
+    IrFuncTy& fty = tf->fty;
     
-    if (tf->linkage != LINKd) {
-        // TODO: See if this is correct for more than just extern(C).
+    if (tf->linkage == LINKd) {
+        if (!fty.arg_sret) {
+            Type* rt = fty.ret->type->toBasetype();
+            if (rt->ty == Tstruct)  {
+                Logger::println("x86-64 D ABI: Transforming return type");
+                fixup_D(*fty.ret);
+            }
+        }
         
-        IrFuncTy& fty = tf->fty;
+        Logger::println("x86-64 D ABI: Transforming arguments");
+        LOG_SCOPE;
+        
+        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
+            IrFuncTyArg& arg = **I;
+            
+            if (Logger::enabled())
+                Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
+            
+            // Arguments that are in memory are of no interest to us.
+            if (arg.byref)
+                continue;
+            
+            Type* ty = arg.type->toBasetype();
+            if (ty->ty == Tstruct)
+                fixup_D(arg);
+            
+            if (Logger::enabled())
+                Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+        }
+        
+    } else {
+        // TODO: See if this is correct for more than just extern(C).
         
         if (!fty.arg_sret) {
             Logger::println("x86-64 ABI: Transforming return type");
