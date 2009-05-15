@@ -1451,28 +1451,28 @@ size_t realignOffset(size_t offset, Type* type)
     if (alignedoffset == offset)
         return alignedoffset;
 
-    // disabled since this can fail for opaques. if the check above is not in place
-    // it does so for gcx.d!!!
-    // this needs to be investigated, but I don't have time right now!
-#if 0
-    // if not, we have to make sure it agrees with what llvm thinks is the alignment
-    // sometimes this is different from what we really need (in case of unions, see #294)
-    // so if there we get different results we don't realign the offset at all and instead
-    // just return the original offset, and rely on the users to insert padding manually.
-    IF_LOG Logger::cout() << "getting alignment for type " << type->toChars()
-        << " with llvm type " << *DtoType(type) << std::endl;
-    size_t alignsize2 = gTargetData->getABITypeAlignment(DtoType(type));
+    // we cannot get the llvm alignment if the type is still opaque, this can happen in some
+    // forward reference situations, so when this happens we fall back to manual padding.
+    const llvm::Type* T = DtoType(type);
+    if (llvm::isa<llvm::OpaqueType>(T))
+    {
+        return offset;
+    }
 
+    // then we check against the llvm alignment
+    size_t alignsize2 = gTargetData->getABITypeAlignment(T);
+
+    // if it differs we need to insert manual padding as well
     if (alignsize != alignsize2)
     {
         assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
             "type alignments differ, but LLVM's is bigger! This will break "
-            "the type mapping algorithms");
+            "aggregate type mapping");
         // don't try and align the offset, and let the mappers pad 100% manually
         return offset;
     }
-#endif
 
+    // ok, we're good, llvm will align properly!
     return alignedoffset;
 }
 
