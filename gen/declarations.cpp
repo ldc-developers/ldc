@@ -136,6 +136,9 @@ void VarDeclaration::codegen(Ir* p)
         llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
         this->ir.irGlobal->value = gvar;
 
+        // set the alignment
+        gvar->setAlignment(this->type->alignsize());
+
         if (Logger::enabled())
             Logger::cout() << *gvar << '\n';
 
