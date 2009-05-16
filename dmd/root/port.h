@@ -18,6 +18,11 @@
 #if _MSC_VER
 typedef __int64 longlong;
 typedef unsigned __int64 ulonglong;
+
+// According to VC 8.0 docs, long double is the same as double
+#define strtold strtod
+#define strtof  strtod
+
 #else
 typedef long long longlong;
 typedef unsigned long long ulonglong;
@@ -33,6 +38,7 @@ struct Port
     static double infinity;
     static double dbl_max;
     static double dbl_min;
+    static long double ldbl_max;
 
 #if __GNUC__
     // These conflict with macros in math.h, should rename them

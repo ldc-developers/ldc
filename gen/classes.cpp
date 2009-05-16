@@ -806,6 +806,9 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
         c = LLConstant::getNullValue(voidPtr);
     inits.push_back(c);
 
+    // typeinfo - since 1.045
+    inits.push_back(DtoTypeInfoOf(cd->type, true));
+
 #if DMDV2
 
     // xgetMembers

@@ -5,7 +5,6 @@
 // http://www.digitalmars.com
 
 #include "port.h"
-
 #if __DMC__
 #include <math.h>
 #include <float.h>
@@ -18,6 +17,7 @@ double Port::nan = NAN;
 double Port::infinity = INFINITY;
 double Port::dbl_max = DBL_MAX;
 double Port::dbl_min = DBL_MIN;
+long double Port::ldbl_max = LDBL_MAX;
 
 int Port::isNan(double r)
 {
@@ -123,6 +123,7 @@ char *Port::strupr(char *s)
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <limits> // for std::numeric_limits
 
 static unsigned long nanarray[2]= { 0xFFFFFFFF, 0x7FFFFFFF };
 //static unsigned long nanarray[2] = {0,0x7FF80000 };
@@ -134,6 +135,7 @@ double Port::infinity = 1 / zero;
 
 double Port::dbl_max = DBL_MAX;
 double Port::dbl_min = DBL_MIN;
+long double Port::ldbl_max = LDBL_MAX;
 
 struct PortInitializer
 {
@@ -326,12 +328,14 @@ char *Port::strupr(char *s)
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <float.h>
 
 static double zero = 0;
 double Port::nan = NAN;
 double Port::infinity = 1 / zero;
 double Port::dbl_max = 1.7976931348623157e308;
 double Port::dbl_min = 5e-324;
+long double Port::ldbl_max = LDBL_MAX;
 
 struct PortInitializer
 {
@@ -350,6 +354,13 @@ PortInitializer::PortInitializer()
     if (signbit(foo))	// signbit sometimes, not always, set
 	foo = -foo;	// turn off sign bit
     Port::nan = foo;
+
+#if __FreeBSD__
+    // LDBL_MAX comes out as infinity. Fix.
+    static unsigned char x[sizeof(long double)] =
+	{ 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE,0x7F };
+    Port::ldbl_max = *(long double *)&x[0];
+#endif
 }
 
 #undef isnan
@@ -466,7 +477,7 @@ char *Port::strupr(char *s)
 
 #endif
 
-#if defined (__SVR4) && defined (__sun)
+#if __sun&&__SVR4
 
 #define __C99FEATURES__ 1	// Needed on Solaris for NaN and more
 #include <math.h>
@@ -476,12 +487,15 @@ char *Port::strupr(char *s)
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <float.h>
+#include <ieeefp.h>
 
 static double zero = 0;
 double Port::nan = NAN;
 double Port::infinity = 1 / zero;
 double Port::dbl_max = 1.7976931348623157e308;
 double Port::dbl_min = 5e-324;
+long double Port::ldbl_max = LDBL_MAX;
 
 struct PortInitializer
 {
@@ -502,23 +516,14 @@ PortInitializer::PortInitializer()
     Port::nan = foo;
 }
 
-#undef isnan
 int Port::isNan(double r)
 {
-#if __APPLE__
-    return __inline_isnan(r);
-#else
-    return ::isnan(r);
-#endif
+    return isnan(r);
 }
 
 int Port::isNan(long double r)
 {
-#if __APPLE__
-    return __inline_isnan(r);
-#else
-    return ::isnan(r);
-#endif
+    return isnan(r);
 }
 
 int Port::isSignallingNan(double r)
@@ -540,13 +545,12 @@ int Port::isSignallingNan(long double r)
 #undef isfinite
 int Port::isFinite(double r)
 {
-    return ::finite(r);
+    return finite(r);
 }
 
-#undef isinf
 int Port::isInfinity(double r)
 {
-    return ::isinf(r);
+    return isinf(r);
 }
 
 #undef signbit
@@ -629,6 +633,7 @@ double Port::nan = NAN;
 double Port::infinity = 1 / zero;
 double Port::dbl_max = 1.7976931348623157e308;
 double Port::dbl_min = 5e-324;
+long double Port::ldbl_max = LDBL_MAX;
 
 #include "d-gcc-real.h"
 extern "C" bool real_isnan (const real_t *);

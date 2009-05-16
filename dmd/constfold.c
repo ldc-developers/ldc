@@ -19,6 +19,7 @@
 
 #include "rmem.h"
 #include "root.h"
+#include "port.h"
 
 #include "mtype.h"
 #include "expression.h"
@@ -33,6 +34,10 @@ extern "C" bool real_isnan (const real_t *);
 #endif
 
 static real_t zero;	// work around DMC bug for now
+
+#if __FreeBSD__
+#define fmodl fmod	// hack for now, fix later
+#endif
 
 #define LOG 0
 
@@ -460,7 +465,7 @@ Expression *Div(Type *type, Expression *e1, Expression *e2)
 	n2 = e2->toInteger();
 	if (n2 == 0)
 	{   e2->error("divide by 0");
-	    e2 = new IntegerExp(0, 1, e2->type);
+	    e2 = new IntegerExp(loc, 1, e2->type);
 	    n2 = 1;
 	}
 	if (e1->type->isunsigned() || e2->type->isunsigned())
@@ -531,7 +536,7 @@ Expression *Mod(Type *type, Expression *e1, Expression *e2)
 	n2 = e2->toInteger();
 	if (n2 == 0)
 	{   e2->error("divide by 0");
-	    e2 = new IntegerExp(0, 1, e2->type);
+	    e2 = new IntegerExp(loc, 1, e2->type);
 	    n2 = 1;
 	}
 	if (e1->type->isunsigned() || e2->type->isunsigned())
@@ -640,26 +645,21 @@ Expression *Ushr(Type *type, Expression *e1, Expression *e2)
 }
 
 Expression *And(Type *type, Expression *e1, Expression *e2)
-{   Expression *e;
-    Loc loc = e1->loc;
-
-    e = new IntegerExp(loc, e1->toInteger() & e2->toInteger(), type);
+{
+    Expression *e;
+    e = new IntegerExp(e1->loc, e1->toInteger() & e2->toInteger(), type);
     return e;
 }
 
 Expression *Or(Type *type, Expression *e1, Expression *e2)
 {   Expression *e;
-    Loc loc = e1->loc;
-
-    e = new IntegerExp(loc, e1->toInteger() | e2->toInteger(), type);
+    e = new IntegerExp(e1->loc, e1->toInteger() | e2->toInteger(), type);
     return e;
 }
 
 Expression *Xor(Type *type, Expression *e1, Expression *e2)
 {   Expression *e;
-    Loc loc = e1->loc;
-
-    e = new IntegerExp(loc, e1->toInteger() ^ e2->toInteger(), type);
+    e = new IntegerExp(e1->loc, e1->toInteger() ^ e2->toInteger(), type);
     return e;
 }
 
@@ -831,7 +831,7 @@ Expression *Equal(enum TOK op, Type *type, Expression *e1, Expression *e2)
 #if __DMC__
 	cmp = (r1 == r2);
 #else
-	if (isnan(r1) || isnan(r2))	// if unordered
+	if (Port::isNan(r1) || Port::isNan(r2))	// if unordered
 	{
 	    cmp = 0;
 	}
@@ -926,11 +926,7 @@ Expression *Cmp(enum TOK op, Type *type, Expression *e1, Expression *e2)
 	}
 #else
 	// Don't rely on compiler, handle NAN arguments separately
-#if IN_GCC
-	if (real_isnan(&r1) || real_isnan(&r2))	// if unordered
-#else
-	if (isnan(r1) || isnan(r2))	// if unordered
-#endif
+	if (Port::isNan(r1) || Port::isNan(r2))	// if unordered
 	{
 	    switch (op)
 	    {
@@ -1313,6 +1309,7 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
     Type *t2 = e2->type->toBasetype();
 
     //printf("Cat(e1 = %s, e2 = %s)\n", e1->toChars(), e2->toChars());
+    //printf("\tt1 = %s, t2 = %s\n", t1->toChars(), t2->toChars());
 
     if (e1->op == TOKnull && (e2->op == TOKint64 || e2->op == TOKstructliteral))
     {	e = e2;
@@ -1498,7 +1495,7 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
 
 	if (type->toBasetype()->ty == Tsarray)
 	{
-	    e->type = new TypeSArray(e2->type, new IntegerExp(0, es1->elements->dim, Type::tindex));
+	    e->type = new TypeSArray(e2->type, new IntegerExp(loc, es1->elements->dim, Type::tindex));
 	    e->type = e->type->semantic(loc, NULL);
 	}
 	else
@@ -1515,7 +1512,7 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
 
 	if (type->toBasetype()->ty == Tsarray)
 	{
-	    e->type = new TypeSArray(e1->type, new IntegerExp(0, es2->elements->dim, Type::tindex));
+	    e->type = new TypeSArray(e1->type, new IntegerExp(loc, es2->elements->dim, Type::tindex));
 	    e->type = e->type->semantic(loc, NULL);
 	}
 	else

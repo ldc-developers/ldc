@@ -522,7 +522,7 @@ void ClassDeclaration::semantic(Scope *sc)
 		    else
 			assert(0);
 		    assert(!vthis);
-		    vthis = new ThisDeclaration(t);
+		    vthis = new ThisDeclaration(loc, t);
 		    members->push(vthis);
 		}
 	    }
@@ -1225,11 +1225,14 @@ int InterfaceDeclaration::isBaseOf(BaseClass *bc, int *poffset)
 	{
 	    if (poffset)
 	    {	*poffset = b->offset;
+		if (j && bc->base->isInterfaceDeclaration())
+		    *poffset = OFFSET_RUNTIME;
 	    }
 	    return 1;
 	}
 	if (isBaseOf(b, poffset))
-	{
+	{   if (j && poffset && bc->base->isInterfaceDeclaration())
+		*poffset = OFFSET_RUNTIME;
 	    return 1;
 	}
     }

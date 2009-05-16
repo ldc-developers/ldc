@@ -12,7 +12,7 @@
 
 #ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
+#endif
 
 struct Dsymbol;
 struct ScopeDsymbol;
@@ -29,10 +29,15 @@ struct AggregateDeclaration;
 struct AnonymousAggregateDeclaration;
 struct FuncDeclaration;
 struct DocComment;
+struct TemplateInstance;
+
+#if IN_LLVM
 struct EnclosingHandler;
 struct AnonDeclaration;
+#endif
 
 #if __GNUC__
+// Requires a full definition for PROT and LINK
 #include "dsymbol.h"    // PROT
 #include "mars.h"       // LINK
 #else
@@ -53,8 +58,8 @@ struct Scope
     LabelStatement *slabel;	// enclosing labelled statement
     SwitchStatement *sw;	// enclosing switch statement
     TryFinallyStatement *enclosingFinally;	// enclosing try finally statement; set inside its finally block
+    TemplateInstance *tinst;    // enclosing template instance
     Statement *enclosingScopeExit; // enclosing statement that wants to do something on scope exit
-    TemplateInstance *tinst;	// enclosing template instance
     Statement *sbreak;		// enclosing statement that supports "break"
     Statement *scontinue;	// enclosing statement that supports "continue"
     ForeachStatement *fes;	// if nested function for ForeachStatement, this is it

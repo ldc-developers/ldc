@@ -1632,7 +1632,7 @@ DValue* NewExp::toElem(IRState* p)
         LLValue* mem = DtoNew(newtype);
         // init
         TypeStruct* ts = (TypeStruct*)ntype;
-        if (ts->isZeroInit()) {
+        if (ts->isZeroInit(ts->sym->loc)) {
             DtoAggrZeroInit(mem);
         }
         else {
@@ -2662,7 +2662,6 @@ DValue* TypeExp::toElem(IRState *p)
 
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
-STUB(TypeDotIdExp);
 STUB(ScopeExp);
 STUB(TupleExp);
 

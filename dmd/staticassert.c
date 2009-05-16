@@ -19,6 +19,7 @@
 #include "scope.h"
 #include "template.h"
 
+
 /********************************* AttribDeclaration ****************************/
 
 StaticAssert::StaticAssert(Loc loc, Expression *exp, Expression *msg)
@@ -47,6 +48,10 @@ void StaticAssert::semantic(Scope *sc)
 {
 }
 
+#include "scope.h"
+#include "template.h"
+#include "declaration.h"
+
 void StaticAssert::semantic2(Scope *sc)
 {
     Expression *e;
@@ -67,11 +72,12 @@ void StaticAssert::semantic2(Scope *sc)
 	    error("%s", buf.toChars());
 	}
 	else
-	    error("is false");
-	if(sc->tinst)
+	    error("(%s) is false", exp->toChars());
+		if(sc->tinst)
 	    sc->tinst->printInstantiationTrace();
-	if (!global.gag)
-	    fatal();
+	  if (!global.gag) {
+	      fatal();
+	  }
     }
     else if (!e->isBool(TRUE))
     {

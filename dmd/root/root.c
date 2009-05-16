@@ -7,6 +7,8 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
+#define POSIX (linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4)
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -329,17 +331,21 @@ char *FileName::combine(const char *path, const char *name)
     namelen = strlen(name);
     f = (char *)mem.malloc(pathlen + 1 + namelen + 1);
     memcpy(f, path, pathlen);
-
-    if (
-	path[pathlen - 1] != '/'
-#if _WIN32
-	&& path[pathlen - 1] != '\\' && path[pathlen - 1] != ':'
-#endif
-    )
+#if POSIX
+    if (path[pathlen - 1] != '/')
     {	f[pathlen] = '/';
 	pathlen++;
     }
-
+#elif _WIN32
+    if (path[pathlen - 1] != '\\' &&
+	path[pathlen - 1] != '/'  &&
+	path[pathlen - 1] != ':')
+    {	f[pathlen] = '\\';
+	pathlen++;
+    }
+#else
+    assert(0);
+#endif
     memcpy(f + pathlen, name, namelen + 1);
     return f;
 }
@@ -475,20 +481,26 @@ hash_t FileName::hashCode()
 
 int FileName::compare(Object *obj)
 {
+    return compare(str, ((FileName *)obj)->str);
+}
+
+int FileName::compare(const char *name1, const char *name2)
+{
 #if _WIN32
-    return stricmp(str,((FileName *)obj)->str);
+    return stricmp(name1, name2);
 #else
-    return String::compare(obj);
+    return strcmp(name1, name2);
 #endif
 }
 
 int FileName::equals(Object *obj)
 {
-#if _WIN32
-    return stricmp(str,((FileName *)obj)->str) == 0;
-#else
-    return String::equals(obj);
-#endif
+    return compare(obj) == 0;
+}
+
+int FileName::equals(const char *name1, const char *name2)
+{
+    return compare(name1, name2) == 0;
 }
 
 /************************************
@@ -497,13 +509,15 @@ int FileName::equals(Object *obj)
 
 int FileName::absolute(const char *name)
 {
-    return
 #if _WIN32
-	(*name == '\\') ||
-	(*name == '/')  ||
-	(*name && name[1] == ':') ||
+    return (*name == '\\') ||
+	   (*name == '/')  ||
+	   (*name && name[1] == ':');
+#elif POSIX
+    return (*name == '/');
+#else
+    assert(0);
 #endif
-	(*name == '/');
 }
 
 /********************************
@@ -523,13 +537,14 @@ char *FileName::ext(const char *str)
 	switch (*e)
 	{   case '.':
 		return e + 1;
-
+#if POSIX
 	    case '/':
 	        break;
-
+#endif
 #if _WIN32
 	    case '\\':
 	    case ':':
+	    case '/':
 		break;
 #endif
 	    default:
@@ -578,7 +593,10 @@ char *FileName::name(const char *str)
     {
 	switch (*e)
 	{
-
+#if POSIX
+	    case '/':
+	       return e + 1;
+#endif
 #if _WIN32
 	    case '/':
 	    case '\\':
@@ -591,9 +609,6 @@ char *FileName::name(const char *str)
 		 */
 		if (e == str + 1 || e == str + len - 1)
 		    return e + 1;
-#else
-	    case '/':
-	       return e + 1;
 #endif
 	    default:
 		if (e == str)
@@ -623,13 +638,14 @@ char *FileName::path(const char *str)
 
     if (n > str)
     {
-
+#if POSIX
 	if (n[-1] == '/')
 	    n--;
-
-#if _WIN32
+#elif _WIN32
 	if (n[-1] == '\\' || n[-1] == '/')
 	    n--;
+#else
+	assert(0);
 #endif
     }
     pathlen = n - str;
@@ -643,7 +659,7 @@ char *FileName::path(const char *str)
  * Replace filename portion of path.
  */
 
-char *FileName::replaceName(char *path, char *name)
+const char *FileName::replaceName(const char *path, const char *name)
 {   char *f;
     char *n;
     size_t pathlen;
@@ -659,17 +675,21 @@ char *FileName::replaceName(char *path, char *name)
     namelen = strlen(name);
     f = (char *)mem.malloc(pathlen + 1 + namelen + 1);
     memcpy(f, path, pathlen);
-
-    if  (
-	path[pathlen - 1] != '/'
-#if _WIN32
-	&& path[pathlen - 1] != '\\' && path[pathlen - 1] != ':'
-#endif
-	)
+#if POSIX
+    if (path[pathlen - 1] != '/')
     {	f[pathlen] = '/';
 	pathlen++;
     }
-
+#elif _WIN32
+    if (path[pathlen - 1] != '\\' &&
+	path[pathlen - 1] != '/' &&
+	path[pathlen - 1] != ':')
+    {	f[pathlen] = '\\';
+	pathlen++;
+    }
+#else
+    assert(0);
+#endif
     memcpy(f + pathlen, name, namelen + 1);
     return f;
 }
@@ -736,9 +756,10 @@ int FileName::equalsExt(const char *ext)
 	return 0;
 #if POSIX
     return strcmp(e,ext) == 0;
-#endif
-#if _WIN32
+#elif _WIN32
     return stricmp(e,ext) == 0;
+#else
+    assert(0);
 #endif
 }
 
@@ -752,9 +773,10 @@ void FileName::CopyTo(FileName *to)
 
 #if _WIN32
     file.touchtime = mem.malloc(sizeof(WIN32_FIND_DATAA));	// keep same file time
-#endif
-#if POSIX
+#elif POSIX
     file.touchtime = mem.malloc(sizeof(struct stat)); // keep same file time
+#else
+    assert(0);
 #endif
     file.readv();
     file.name = to;
@@ -803,8 +825,7 @@ int FileName::exists(const char *name)
     if (S_ISDIR(st.st_mode))
 	return 2;
     return 1;
-#endif
-#if _WIN32
+#elif _WIN32
     DWORD dw;
     int result;
 
@@ -816,6 +837,8 @@ int FileName::exists(const char *name)
     else
 	result = 1;
     return result;
+#else
+    assert(0);
 #endif
 }
 
@@ -974,8 +997,7 @@ err:
 err1:
     result = 1;
     return result;
-#endif
-#if _WIN32
+#elif _WIN32
     DWORD size;
     DWORD numread;
     HANDLE h;
@@ -1029,6 +1051,8 @@ err:
 err1:
     result = 1;
     return result;
+#else
+    assert(0);
 #endif
 }
 
@@ -1040,8 +1064,7 @@ int File::mmread()
 {
 #if POSIX
     return read();
-#endif
-#if _WIN32
+#elif _WIN32
     HANDLE hFile;
     HANDLE hFileMap;
     DWORD size;
@@ -1081,6 +1104,8 @@ int File::mmread()
 
 Lerr:
     return GetLastError();			// failure
+#else
+    assert(0);
 #endif
 }
 
@@ -1124,8 +1149,7 @@ err2:
     ::remove(name);
 err:
     return 1;
-#endif
-#if _WIN32
+#elif _WIN32
     HANDLE h;
     DWORD numwritten;
     char *name;
@@ -1154,6 +1178,8 @@ err2:
     DeleteFileA(name);
 err:
     return 1;
+#else
+    assert(0);
 #endif
 }
 
@@ -1167,8 +1193,7 @@ int File::append()
 {
 #if POSIX
     return 1;
-#endif
-#if _WIN32
+#elif _WIN32
     HANDLE h;
     DWORD numwritten;
     char *name;
@@ -1203,6 +1228,8 @@ err2:
     CloseHandle(h);
 err:
     return 1;
+#else
+    assert(0);
 #endif
 }
 
@@ -1247,8 +1274,7 @@ int File::exists()
 {
 #if POSIX
     return 0;
-#endif
-#if _WIN32
+#elif _WIN32
     DWORD dw;
     int result;
     char *name;
@@ -1265,6 +1291,8 @@ int File::exists()
     else
 	result = 1;
     return result;
+#else
+    assert(0);
 #endif
 }
 
@@ -1272,9 +1300,10 @@ void File::remove()
 {
 #if POSIX
     ::remove(this->name->toChars());
-#endif
-#if _WIN32
+#elif _WIN32
     DeleteFileA(this->name->toChars());
+#else
+    assert(0);
 #endif
 }
 
@@ -1287,8 +1316,7 @@ Array *File::match(FileName *n)
 {
 #if POSIX
     return NULL;
-#endif
-#if _WIN32
+#elif _WIN32
     HANDLE h;
     WIN32_FIND_DATAA fileinfo;
     Array *a;
@@ -1318,6 +1346,8 @@ Array *File::match(FileName *n)
 	FindClose(h);
     }
     return a;
+#else
+    assert(0);
 #endif
 }
 
@@ -1325,13 +1355,14 @@ int File::compareTime(File *f)
 {
 #if POSIX
     return 0;
-#endif
-#if _WIN32
+#elif _WIN32
     if (!touchtime)
 	stat();
     if (!f->touchtime)
 	f->stat();
     return CompareFileTime(&((WIN32_FIND_DATAA *)touchtime)->ftLastWriteTime, &((WIN32_FIND_DATAA *)f->touchtime)->ftLastWriteTime);
+#else
+    assert(0);
 #endif
 }
 
@@ -1342,8 +1373,7 @@ void File::stat()
     {
 	touchtime = mem.calloc(1, sizeof(struct stat));
     }
-#endif
-#if _WIN32
+#elif _WIN32
     HANDLE h;
 
     if (!touchtime)
@@ -1355,6 +1385,8 @@ void File::stat()
     {
 	FindClose(h);
     }
+#else
+    assert(0);
 #endif
 }
 
@@ -1672,7 +1704,12 @@ void OutBuffer::vprintf(const char *format, va_list args)
     psize = sizeof(buffer);
     for (;;)
     {
-#if POSIX || IN_LLVM
+#if _WIN32
+	count = _vsnprintf(p,psize,format,args);
+	if (count != -1)
+	    break;
+	psize *= 2;
+#elif POSIX
         va_list va;
         va_copy(va, args);
 /*
@@ -1692,11 +1729,8 @@ void OutBuffer::vprintf(const char *format, va_list args)
 	    psize = count + 1;
 	else
 	    break;
-#elif _WIN32
-	count = _vsnprintf(p,psize,format,args);
-	if (count != -1)
-	    break;
-	psize *= 2;
+#else
+    assert(0);
 #endif
 	p = (char *) alloca(psize);	// buffer too small, try again with larger size
     }
@@ -1722,8 +1756,7 @@ void OutBuffer::vprintf(const wchar_t *format, va_list args)
 	if (count != -1)
 	    break;
 	psize *= 2;
-#endif
-#if POSIX
+#elif POSIX
         va_list va;
         va_copy(va, args);
 	count = vsnwprintf(p,psize,format,va);
@@ -1735,6 +1768,8 @@ void OutBuffer::vprintf(const wchar_t *format, va_list args)
 	    psize = count + 1;
 	else
 	    break;
+#else
+    assert(0);
 #endif
 	p = (dchar *) alloca(psize * 2);	// buffer too small, try again with larger size
     }
