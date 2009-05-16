@@ -13,6 +13,7 @@ class IrTypeAggr;
 class IrTypeArray;
 class IrTypeBasic;
 class IrTypeClass;
+class IrTypeDelegate;
 class IrTypeFunction;
 class IrTypePointer;
 class IrTypeSArray;
@@ -35,6 +36,8 @@ public:
     virtual IrTypeBasic* isBasic()      { return NULL; }
     ///
     virtual IrTypeClass* isClass()      { return NULL; }
+    ///
+    virtual IrTypeDelegate* isDelegate(){ return NULL; }
     ///
     virtual IrTypeFunction* isFunction(){ return NULL; }
     ///
