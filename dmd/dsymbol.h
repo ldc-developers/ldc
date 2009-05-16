@@ -122,8 +122,8 @@ struct Dsymbol : Object
     char *locToChars();
     int equals(Object *o);
     int isAnonymous();
-    void error(Loc loc, const char *format, ...);
-    void error(const char *format, ...);
+    void error(Loc loc, const char *format, ...) IS_PRINTF(3);
+    void error(const char *format, ...) IS_PRINTF(2);
     void checkDeprecated(Loc loc, Scope *sc);
     Module *getModule();        // module where declared
     Module *getCompilationModule(); // possibly different for templates

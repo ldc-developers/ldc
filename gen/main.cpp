@@ -876,7 +876,7 @@ int main(int argc, char** argv)
             delete stripMD;
         
             if(linker.LinkInModule(llvmModules[i], &errormsg))
-                error(errormsg.c_str());
+                error("%s", errormsg.c_str());
             delete llvmModules[i];
         }
         

@@ -76,6 +76,14 @@ the target object file format:
 #endif
 #endif
 
+#ifndef IS_PRINTF
+# ifdef __GNUC__
+#  define IS_PRINTF(FMTARG) __attribute((__format__ (__printf__, (FMTARG), (FMTARG)+1) ))
+# else
+#  define IS_PRINTF(FMTARG)
+# endif
+#endif
+
 #ifdef IN_GCC
 /* Changes for the GDC compiler by David Friedman */
 #endif
@@ -395,9 +403,9 @@ enum MATCH
     MATCHexact		// exact match
 };
 
-void warning(Loc loc, const char *format, ...);
+void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 void vwarning(Loc loc, const char *format, va_list);
-void error(Loc loc, const char *format, ...);
+void error(Loc loc, const char *format, ...) IS_PRINTF(2);
 void verror(Loc loc, const char *format, va_list);
 void fatal();
 void err_nomem();

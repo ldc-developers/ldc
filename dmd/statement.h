@@ -104,8 +104,8 @@ struct Statement : Object
     void print();
     char *toChars();
 
-    void error(const char *format, ...);
-    void warning(const char *format, ...);
+    void error(const char *format, ...) IS_PRINTF(2);
+    void warning(const char *format, ...) IS_PRINTF(2);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual TryCatchStatement *isTryCatchStatement() { return NULL; }
     virtual GotoStatement *isGotoStatement() { return NULL; }

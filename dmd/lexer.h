@@ -292,8 +292,8 @@ struct Lexer
     unsigned wchar(unsigned u);
     TOK number(Token *t);
     TOK inreal(Token *t);
-    void error(const char *format, ...);
-    void error(Loc loc, const char *format, ...);
+    void error(const char *format, ...) IS_PRINTF(2);
+    void error(Loc loc, const char *format, ...) IS_PRINTF(3);
     void pragma();
     unsigned decodeUTF();
     void getDocComment(Token *t, unsigned lineComment);

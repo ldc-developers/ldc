@@ -27,7 +27,7 @@ struct Html
 
     Html(const char *sourcename, unsigned char *base, unsigned length);
 
-    void error(const char *format, ...);
+    void error(const char *format, ...) IS_PRINTF(2);
     void extractCode(OutBuffer *buf);
     void skipTag();
     void skipString();

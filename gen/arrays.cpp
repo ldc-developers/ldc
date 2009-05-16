@@ -240,7 +240,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     // make sure the number of initializers is sane
     if (arrinit->index.dim > arrlen || arrinit->dim > arrlen)
     {
-        error(arrinit->loc, "too many initializers, %d, for array[%d]", arrinit->index.dim, arrlen);
+        error(arrinit->loc, "too many initializers, %u, for array[%zu]", arrinit->index.dim, arrlen);
         fatal();
     }
 
@@ -273,7 +273,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         // error check from dmd
         if (initvals[j] != NULL)
         {
-            error(arrinit->loc, "duplicate initialization for index %d", j);
+            error(arrinit->loc, "duplicate initialization for index %zu", j);
         }
 
         LLConstant* c = DtoConstInitializer(val->loc, elemty, val);

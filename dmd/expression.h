@@ -98,8 +98,8 @@ struct Expression : Object
     void print();
     char *toChars();
     virtual void dump(int indent);
-    void error(const char *format, ...);
-    void warning(const char *format, ...);
+    void error(const char *format, ...) IS_PRINTF(2);
+    void warning(const char *format, ...) IS_PRINTF(2);
     virtual void rvalue();
 
     static Expression *combine(Expression *e1, Expression *e2);

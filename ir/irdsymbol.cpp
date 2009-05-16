@@ -9,7 +9,7 @@ std::set<IrDsymbol*> IrDsymbol::list;
 
 void IrDsymbol::resetAll()
 {
-    Logger::println("resetting %u Dsymbols", list.size());
+    Logger::println("resetting %zu Dsymbols", list.size());
     std::set<IrDsymbol*>::iterator it;
     for(it = list.begin(); it != list.end(); ++it)
         (*it)->reset();

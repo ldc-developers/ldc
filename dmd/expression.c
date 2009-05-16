@@ -1466,7 +1466,7 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	    case Tdchar:	// BUG: need to cast(dchar)
 		if ((uinteger_t)v > 0xFF)
 		{
-		     buf->printf("'\\U%08x'", v);
+		     buf->printf("'\\U%08x'", (unsigned)v);
 		     break;
 		}
 	    case Tchar:
@@ -2934,7 +2934,7 @@ void ArrayLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void ArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
 {
     size_t dim = elements ? elements->dim : 0;
-    buf->printf("A%u", dim);
+    buf->printf("A%zu", dim);
     for (size_t i = 0; i < dim; i++)
     {	Expression *e = (Expression *)elements->data[i];
 	e->toMangleBuffer(buf);
@@ -3068,7 +3068,7 @@ void AssocArrayLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void AssocArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
 {
     size_t dim = keys->dim;
-    buf->printf("A%u", dim);
+    buf->printf("A%zu", dim);
     for (size_t i = 0; i < dim; i++)
     {	Expression *key = (Expression *)keys->data[i];
 	Expression *value = (Expression *)values->data[i];
@@ -3284,7 +3284,7 @@ void StructLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void StructLiteralExp::toMangleBuffer(OutBuffer *buf)
 {
     size_t dim = elements ? elements->dim : 0;
-    buf->printf("S%u", dim);
+    buf->printf("S%zu", dim);
     for (size_t i = 0; i < dim; i++)
     {	Expression *e = (Expression *)elements->data[i];
 	if (e)

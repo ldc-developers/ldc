@@ -267,8 +267,8 @@ struct Type : Object
     Type *next;
     Type *nextOf() { return next; }
 
-    static void error(Loc loc, const char *format, ...);
-    static void warning(Loc loc, const char *format, ...);
+    static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
+    static void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 
 #if IN_DMD
     // For backend

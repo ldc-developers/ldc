@@ -18,6 +18,14 @@
 #pragma once
 #endif
 
+#ifndef IS_PRINTF
+# ifdef __GNUC__
+#  define IS_PRINTF(FMTARG) __attribute((__format__ (__printf__, (FMTARG), (FMTARG)+1) ))
+# else
+#  define IS_PRINTF(FMTARG)
+# endif
+#endif
+
 typedef size_t hash_t;
 
 #include "dchar.h"
@@ -29,9 +37,9 @@ int wcharIsAscii(wchar_t *, unsigned len);
 
 int bstrcmp(unsigned char *s1, unsigned char *s2);
 char *bstr2str(unsigned char *b);
-void error(const char *format, ...);
+void error(const char *format, ...) IS_PRINTF(1);
 void error(const wchar_t *format, ...);
-void warning(const char *format, ...);
+void warning(const char *format, ...) IS_PRINTF(1);
 
 #ifndef TYPEDEFS
 #define TYPEDEFS
@@ -291,7 +299,7 @@ struct OutBuffer : Object
     void fill0(unsigned nbytes);
     void align(unsigned size);
     void vprintf(const char *format, va_list args);
-    void printf(const char *format, ...);
+    void printf(const char *format, ...) IS_PRINTF(2);
 #if M_UNICODE
     void vprintf(const unsigned short *format, va_list args);
     void printf(const unsigned short *format, ...);

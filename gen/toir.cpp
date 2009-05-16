@@ -313,7 +313,8 @@ DValue* RealExp::toElem(IRState* p)
 
 LLConstant* RealExp::toConstElem(IRState* p)
 {
-    Logger::print("RealExp::toConstElem: %s @ %s | %LX\n", toChars(), type->toChars(), value);
+    Logger::print("RealExp::toConstElem: %s @ %s | %LX\n", toChars(), type->toChars(),
+        0xFFFFFFFFFFUL & *(long long unsigned*)&value);
     LOG_SCOPE;
     Type* t = type->toBasetype();
     return DtoConstFP(t, value);
@@ -2473,7 +2474,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         IF_LOG Logger::println("expr: %p", expr);
         if (expr)
         {
-            IF_LOG Logger::println("expr = %s", it.index, expr->toChars());
+            IF_LOG Logger::println("expr %zu = %s", it.index, expr->toChars());
             LLValue* v = DtoExprValue(vd->type, expr);
             initvalues.push_back(v);
         }
@@ -2606,7 +2607,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         Expression* ekey = (Expression*)keys->data[i];
         Expression* eval = (Expression*)values->data[i];
 
-        Logger::println("(%u) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+        Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
 
         // index
         DValue* key = ekey->toElem(p);

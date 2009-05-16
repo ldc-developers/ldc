@@ -983,7 +983,7 @@ void PragmaDeclaration::semantic(Scope *sc)
         }
         else
         {
-            error("command '%s' invalid");
+            error("command '%s' invalid", expr->toChars());
             fatal();
         }
     }
