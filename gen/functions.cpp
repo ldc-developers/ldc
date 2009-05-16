@@ -40,10 +40,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
 
-    if (f->linkage != LINKintrinsic) {
-        // Tell the ABI we're resolving a new function type
-        gABI->newFunctionType(f);
-    }
+    TargetABI* abi = (f->linkage == LINKintrinsic ? TargetABI::getIntrinsic() : gABI);
+    // Tell the ABI we're resolving a new function type
+    abi->newFunctionType(f);
 
     // Do not modify f->fty yet; this function may be called recursively if any
     // of the argument types refer to this type.
@@ -63,18 +62,17 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         Type* rt = f->next;
         unsigned a = 0;
         // sret return
-        if (f->linkage != LINKintrinsic)
-            if (gABI->returnInArg(f))
-            {
-                fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
-                rt = Type::tvoid;
-                lidx++;
-            }
-            // sext/zext return
-            else if (unsigned se = DtoShouldExtend(rt))
-            {
-                a = se;
-            }
+        if (abi->returnInArg(f))
+        {
+            fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
+            rt = Type::tvoid;
+            lidx++;
+        }
+        // sext/zext return
+        else if (unsigned se = DtoShouldExtend(rt))
+        {
+            a = se;
+        }
         fty.ret = new IrFuncTyArg(rt, false, a);
     }
     lidx++;
@@ -152,8 +150,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             argtype = ltd;
         }
         // byval
-        else if (f->linkage != LINKintrinsic
-                && gABI->passByVal(argtype))
+        else if (abi->passByVal(argtype))
         {
             if (!byref) a |= llvm::Attribute::ByVal;
             byref = true;
@@ -172,7 +169,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // it has now been set.
     if (f->ir.type) {
         // Notify ABI that we won't be needing it for this function type anymore.
-        gABI->doneWithFunctionType();
+        abi->doneWithFunctionType();
         
         // Some cleanup of memory we won't use
         delete fty.ret;
@@ -192,13 +189,11 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     // Now we can modify f->fty safely.
     f->fty = fty;
 
-    if (f->linkage != LINKintrinsic) {
-        // let the abi rewrite the types as necesary
-        gABI->rewriteFunctionType(f);
+    // let the abi rewrite the types as necesary
+    abi->rewriteFunctionType(f);
 
-        // Tell the ABI we're done with this function type
-        gABI->doneWithFunctionType();
-    }
+    // Tell the ABI we're done with this function type
+    abi->doneWithFunctionType();
 
     // build the function type
     std::vector<const LLType*> argtypes;
