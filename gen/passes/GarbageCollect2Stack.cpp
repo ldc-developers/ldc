@@ -225,7 +225,7 @@ namespace {
         
         // The default promote() should be fine.
         
-        AllocClassFI() : FunctionInfo(-1, true) {}
+        AllocClassFI() : FunctionInfo(~0u, true) {}
     };
 }
 
