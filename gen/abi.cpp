@@ -10,6 +10,7 @@
 #include "gen/abi.h"
 #include "gen/logger.h"
 #include "gen/dvalue.h"
+#include "gen/abi-generic.h"
 
 #include "ir/irfunction.h"
 
@@ -310,4 +311,80 @@ TargetABI * TargetABI::getTarget()
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
         return new UnknownTargetABI;
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+
+// A simple ABI for LLVM intrinsics.
+struct IntrinsicABI : TargetABI
+{
+    RemoveStructPadding remove_padding;
+
+    bool returnInArg(TypeFunction* tf)
+    {
+        return false;
+    }
+
+    bool passByVal(Type* t)
+    {
+        return false;
+    }
+
+    void fixup(IrFuncTyArg& arg) {
+        assert(arg.type->ty == Tstruct);
+        // TODO: Check that no unions are passed in or returned.
+
+        LLType* abiTy = DtoUnpaddedStructType(arg.type);
+
+        if (abiTy && abiTy != arg.ltype) {
+            arg.ltype = abiTy;
+            arg.rewrite = &remove_padding;
+        }
+    }
+
+    void rewriteFunctionType(TypeFunction* tf)
+    {
+        assert(tf->linkage == LINKintrinsic);
+
+        IrFuncTy& fty = tf->fty;
+
+        if (!fty.arg_sret) {
+            Type* rt = fty.ret->type->toBasetype();
+            if (rt->ty == Tstruct)  {
+                Logger::println("Intrinsic ABI: Transforming return type");
+                fixup(*fty.ret);
+            }
+        }
+
+        Logger::println("Intrinsic ABI: Transforming arguments");
+        LOG_SCOPE;
+
+        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
+            IrFuncTyArg& arg = **I;
+
+            if (Logger::enabled())
+                Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
+
+            // Arguments that are in memory are of no interest to us.
+            if (arg.byref)
+                continue;
+
+            Type* ty = arg.type->toBasetype();
+            if (ty->ty == Tstruct)
+                fixup(arg);
+
+            if (Logger::enabled())
+                Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+        }
+    }
+};
+
+TargetABI * TargetABI::getIntrinsic()
+{
+    static IntrinsicABI iabi;
+    return &iabi;
 }

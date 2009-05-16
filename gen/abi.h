@@ -33,7 +33,10 @@ struct ABIRewrite
 // interface called by codegen
 struct TargetABI
 {
+    /// Returns the ABI for the target we're compiling for
     static TargetABI* getTarget();
+    /// Returns the ABI for intrinsics
+    static TargetABI* getIntrinsic();
 
     virtual void newFunctionType(TypeFunction* tf) {}
     virtual bool returnInArg(TypeFunction* tf) = 0;

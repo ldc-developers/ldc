@@ -396,8 +396,8 @@ pragma(intrinsic, "llvm.smul.with.overflow.i#")
  *
  * See: http://llvm.org/docs/LangRef.html#int_umul_overflow
  */
-pragma(intrinsic, "llvm.umul.with.overflow.i#")
-    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
+//pragma(intrinsic, "llvm.umul.with.overflow.i#")
+//    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
 
 
 //
