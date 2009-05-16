@@ -60,6 +60,9 @@ LLGlobalVariable * IrStruct::getInitSymbol()
     init = new llvm::GlobalVariable(
         init_pa.get(), true, _linkage, NULL, initname, gIR->module);
 
+    // set alignment
+    init->setAlignment(aggrdecl->alignsize);
+
     return init;
 }
 
