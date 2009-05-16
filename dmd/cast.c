@@ -523,7 +523,7 @@ MATCH AddrExp::implicitConvTo(Type *t)
 	{
 	    ve = (VarExp *)e1;
 	    f = ve->var->isFuncDeclaration();
-	    if (f && f->overloadExactMatch(t->next))
+	    if (f && f->overloadExactMatch(t->next, m))
 		result = MATCHexact;
 	}
     }
@@ -552,7 +552,7 @@ MATCH SymOffExp::implicitConvTo(Type *t)
 	    t->ty == Tpointer && t->next->ty == Tfunction)
 	{
 	    f = var->isFuncDeclaration();
-	    if (f && f->overloadExactMatch(t->next))
+	    if (f && f->overloadExactMatch(t->next, m))
 		result = MATCHexact;
 	}
     }
@@ -579,7 +579,7 @@ MATCH DelegateExp::implicitConvTo(Type *t)
 	if (type->ty == Tdelegate && type->nextOf()->ty == Tfunction &&
 	    t->ty == Tdelegate && t->nextOf()->ty == Tfunction)
 	{
-	    if (func && func->overloadExactMatch(t->nextOf()))
+	    if (func && func->overloadExactMatch(t->nextOf(), m))
 		result = MATCHexact;
 	}
     }
@@ -975,7 +975,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 	    f = ve->var->isFuncDeclaration();
 	    if (f)
 	    {
-		f = f->overloadExactMatch(tb->next);
+		f = f->overloadExactMatch(tb->next, m);
 		if (f)
 		{
 		    e = new VarExp(loc, f);
@@ -1099,7 +1099,7 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
 	    f = var->isFuncDeclaration();
 	    if (f)
 	    {
-		f = f->overloadExactMatch(tb->next);
+		f = f->overloadExactMatch(tb->next, m);
 		if (f)
 		{
 		    e = new SymOffExp(loc, f, 0);
@@ -1136,7 +1136,7 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
 	{
 	    if (func)
 	    {
-		f = func->overloadExactMatch(tb->next);
+		f = func->overloadExactMatch(tb->next, m);
 		if (f)
 		{   int offset;
 		    if (f->tintro && f->tintro->next->isBaseOf(f->type->next, &offset) && offset)

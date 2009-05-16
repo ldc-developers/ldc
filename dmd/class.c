@@ -840,7 +840,7 @@ int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
     }
     FuncDeclaration *fdstart = s->toAlias()->isFuncDeclaration();
     //printf("%s fdstart = %p\n", s->kind(), fdstart);
-    return !overloadApply(fdstart, &isf, fd);
+    return !overloadApply(getModule(), fdstart, &isf, fd);
 }
 #endif
 

@@ -749,7 +749,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     fdx = s ? s->isFuncDeclaration() : NULL;
     if (fdx)
     {
-        fd = fdx->overloadExactMatch(tftohash);
+        fd = fdx->overloadExactMatch(tftohash, getModule());
         if (fd) {
             fd->codegen(Type::sir);
             assert(fd->ir.irFunc->func != 0);
@@ -775,7 +775,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         ptty = isaPointer(stype->getElementType(5+i));
         if (fdx)
         {
-            fd = fdx->overloadExactMatch(tfeqptr);
+            fd = fdx->overloadExactMatch(tfeqptr, getModule());
             if (fd) {
                 fd->codegen(Type::sir);
                 assert(fd->ir.irFunc->func != 0);
@@ -803,7 +803,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     fdx = s ? s->isFuncDeclaration() : NULL;
     if (fdx)
     {
-        fd = fdx->overloadExactMatch(tftostring);
+        fd = fdx->overloadExactMatch(tftostring, getModule());
         if (fd) {
             fd->codegen(Type::sir);
             assert(fd->ir.irFunc->func != 0);

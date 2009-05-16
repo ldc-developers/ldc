@@ -163,8 +163,8 @@ void Import::semantic(Scope *sc)
 	    if (!mod->search(loc, (Identifier *)names.data[i], 0))
 		error("%s not found", ((Identifier *)names.data[i])->toChars());
 
+	    ad->importprot = protection;
 	    ad->semantic(sc);
-	    ad->protection = protection;
 	}
 	sc = sc->pop();
     }

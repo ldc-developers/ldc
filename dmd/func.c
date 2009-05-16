@@ -326,7 +326,7 @@ void FuncDeclaration::semantic(Scope *sc)
 		    if (s)
 		    {
 			FuncDeclaration *f = s->isFuncDeclaration();
-			f = f->overloadExactMatch(type);
+			f = f->overloadExactMatch(type, getModule());
 			if (f && f->isFinal() && f->prot() != PROTprivate)
 			    error("cannot override final function %s", f->toPrettyChars());
 		    }
@@ -1530,7 +1530,7 @@ int FuncDeclaration::overloadInsert(Dsymbol *s)
  *	1	done
  */
 
-int overloadApply(FuncDeclaration *fstart,
+int overloadApply(Module* from, FuncDeclaration *fstart,
 	int (*fp)(void *, FuncDeclaration *),
 	void *param)
 {
@@ -1543,8 +1543,9 @@ int overloadApply(FuncDeclaration *fstart,
 
 	if (fa)
 	{
-	    if (overloadApply(fa->funcalias, fp, param))
-		return 1;
+	    if (fa->getModule() == from || fa->importprot != PROTprivate)
+		if (overloadApply(from, fa->funcalias, fp, param))
+		    return 1;
 	    next = fa->overnext;
 	}
 	else
@@ -1613,12 +1614,12 @@ int fp1(void *param, FuncDeclaration *f)
     return 0;
 }
 
-FuncDeclaration *FuncDeclaration::overloadExactMatch(Type *t)
+FuncDeclaration *FuncDeclaration::overloadExactMatch(Type *t, Module* from)
 {
     Param1 p;
     p.t = t;
     p.f = NULL;
-    overloadApply(this, &fp1, &p);
+    overloadApply(from, this, &fp1, &p);
     return p.f;
 }
 
@@ -1721,12 +1722,12 @@ int fp2(void *param, FuncDeclaration *f)
 }
 
 
-void overloadResolveX(Match *m, FuncDeclaration *fstart, Expressions *arguments)
+void overloadResolveX(Match *m, FuncDeclaration *fstart, Expressions *arguments, Module* from)
 {
     Param2 p;
     p.m = m;
     p.arguments = arguments;
-    overloadApply(fstart, &fp2, &p);
+    overloadApply(from, fstart, &fp2, &p);
 }
 
 #if 0
@@ -1811,7 +1812,7 @@ void overloadResolveX(Match *m, FuncDeclaration *fstart, Expressions *arguments)
 }
 #endif
 
-FuncDeclaration *FuncDeclaration::overloadResolve(Loc loc, Expressions *arguments)
+FuncDeclaration *FuncDeclaration::overloadResolve(Loc loc, Expressions *arguments, Module* from)
 {
     TypeFunction *tf;
     Match m;
@@ -1834,7 +1835,7 @@ if (arguments)
 
     memset(&m, 0, sizeof(m));
     m.last = MATCHnomatch;
-    overloadResolveX(&m, this, arguments);
+    overloadResolveX(&m, this, arguments, from);
 
     if (m.count == 1)		// exactly one match
     {
@@ -2253,6 +2254,7 @@ FuncAliasDeclaration::FuncAliasDeclaration(FuncDeclaration *funcalias)
 {
     assert(funcalias != this);
     this->funcalias = funcalias;
+    importprot = PROTundefined;
 }
 
 const char *FuncAliasDeclaration::kind()

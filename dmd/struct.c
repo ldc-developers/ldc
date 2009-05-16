@@ -346,9 +346,9 @@ void StructDeclaration::semantic(Scope *sc)
 	Dsymbol *s = search_function(this, id);
 	FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
 	if (fdx)
-	{   FuncDeclaration *fd = fdx->overloadExactMatch(tfeqptr);
+	{   FuncDeclaration *fd = fdx->overloadExactMatch(tfeqptr, getModule());
 	    if (!fd)
-	    {	fd = fdx->overloadExactMatch(tfeq);
+	    {	fd = fdx->overloadExactMatch(tfeq, getModule());
 		if (fd)
 		{   // Create the thunk, fdptr
 		    FuncDeclaration *fdptr = new FuncDeclaration(loc, loc, fdx->ident, STCundefined, tfeqptr);

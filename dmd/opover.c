@@ -28,9 +28,10 @@
 #include "declaration.h"
 #include "aggregate.h"
 #include "template.h"
+#include "scope.h"
 
 static Expression *build_overload(Loc loc, Scope *sc, Expression *ethis, Expression *earg, Identifier *id);
-static void inferApplyArgTypesX(FuncDeclaration *fstart, Arguments *arguments);
+static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Arguments *arguments);
 static int inferApplyArgTypesY(TypeFunction *tf, Arguments *arguments);
 static void templateResolve(Match *m, TemplateDeclaration *td, Scope *sc, Loc loc, Objects *targsi, Expressions *arguments);
 
@@ -263,7 +264,7 @@ Expression *BinExp::op_overload(Scope *sc)
 	    fd = s->isFuncDeclaration();
 	    if (fd)
 	    {
-		overloadResolveX(&m, fd, &args2);
+		overloadResolveX(&m, fd, &args2, sc->module);
 	    }
 	    else
 	    {   td = s->isTemplateDeclaration();
@@ -278,7 +279,7 @@ Expression *BinExp::op_overload(Scope *sc)
 	    fd = s_r->isFuncDeclaration();
 	    if (fd)
 	    {
-		overloadResolveX(&m, fd, &args1);
+		overloadResolveX(&m, fd, &args1, sc->module);
 	    }
 	    else
 	    {   td = s_r->isTemplateDeclaration();
@@ -352,7 +353,7 @@ Expression *BinExp::op_overload(Scope *sc)
 		fd = s_r->isFuncDeclaration();
 		if (fd)
 		{
-		    overloadResolveX(&m, fd, &args2);
+		    overloadResolveX(&m, fd, &args2, sc->module);
 		}
 		else
 		{   td = s_r->isTemplateDeclaration();
@@ -366,7 +367,7 @@ Expression *BinExp::op_overload(Scope *sc)
 		fd = s->isFuncDeclaration();
 		if (fd)
 		{
-		    overloadResolveX(&m, fd, &args1);
+		    overloadResolveX(&m, fd, &args1, sc->module);
 		}
 		else
 		{   td = s->isTemplateDeclaration();
@@ -482,7 +483,7 @@ Dsymbol *search_function(AggregateDeclaration *ad, Identifier *funcid)
  * them from the aggregate type.
  */
 
-void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
+void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Module* from)
 {
     if (!arguments || !arguments->dim)
 	return;
@@ -571,7 +572,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
 	    {
 		fd = s->isFuncDeclaration();
 		if (fd) 
-		    inferApplyArgTypesX(fd, arguments);
+		    inferApplyArgTypesX(from, fd, arguments);
 	    }
 	    break;
 	}
@@ -583,7 +584,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
 
 		fd = de->func->isFuncDeclaration();
 		if (fd)
-		    inferApplyArgTypesX(fd, arguments);
+		    inferApplyArgTypesX(from, fd, arguments);
 	    }
 	    else
 	    {
@@ -613,9 +614,9 @@ int fp3(void *param, FuncDeclaration *f)
     return 0;
 }
 
-static void inferApplyArgTypesX(FuncDeclaration *fstart, Arguments *arguments)
+static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Arguments *arguments)
 {
-    overloadApply(fstart, &fp3, arguments);
+    overloadApply(from, fstart, &fp3, arguments);
 }
 
 #if 0

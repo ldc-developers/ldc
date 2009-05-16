@@ -3621,7 +3621,7 @@ Lagain:
 	if (f)
 	{
 	    assert(f);
-	    f = f->overloadResolve(loc, arguments);
+	    f = f->overloadResolve(loc, arguments, sc->module);
 	    checkDeprecated(sc, f);
 	    member = f->isCtorDeclaration();
 	    assert(member);
@@ -3649,7 +3649,7 @@ Lagain:
 		newargs = new Expressions();
 	    newargs->shift(e);
 
-	    f = cd->aggNew->overloadResolve(loc, newargs);
+	    f = cd->aggNew->overloadResolve(loc, newargs, sc->module);
 	    allocator = f->isNewDeclaration();
 	    assert(allocator);
 
@@ -3682,7 +3682,7 @@ Lagain:
 		newargs = new Expressions();
 	    newargs->shift(e);
 
-	    f = f->overloadResolve(loc, newargs);
+	    f = f->overloadResolve(loc, newargs, sc->module);
 	    allocator = f->isNewDeclaration();
 	    assert(allocator);
 
@@ -3870,6 +3870,7 @@ SymOffExp::SymOffExp(Loc loc, Declaration *var, unsigned offset)
     assert(var);
     this->var = var;
     this->offset = offset;
+    m = NULL;
     VarDeclaration *v = var->isVarDeclaration();
     if (v && v->needThis())
 	error("need 'this' for address of %s", v->toChars());
@@ -3881,6 +3882,7 @@ Expression *SymOffExp::semantic(Scope *sc)
     printf("SymOffExp::semantic('%s')\n", toChars());
 #endif
     //var->semantic(sc);
+    m = sc->module;
     if (!type)
 	type = var->type->pointerTo();
     VarDeclaration *v = var->isVarDeclaration();
@@ -5858,6 +5860,7 @@ DelegateExp::DelegateExp(Loc loc, Expression *e, FuncDeclaration *f)
 	: UnaExp(loc, TOKdelegate, sizeof(DelegateExp), e)
 {
     this->func = f;
+    m = NULL;
 }
 
 Expression *DelegateExp::semantic(Scope *sc)
@@ -5867,6 +5870,7 @@ Expression *DelegateExp::semantic(Scope *sc)
 #endif
     if (!type)
     {
+	m = sc->module;
 	e1 = e1->semantic(sc);
     // LDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
 	type = new TypeDelegate(func->type->syntaxCopy());
@@ -6202,7 +6206,7 @@ Lagain:
 
 	    f = dve->var->isFuncDeclaration();
 	    assert(f);
-	    f = f->overloadResolve(loc, arguments);
+	    f = f->overloadResolve(loc, arguments, sc->module);
 
 	    ad = f->toParent()->isAggregateDeclaration();
 	}
@@ -6303,7 +6307,7 @@ Lagain:
 		    sc->callSuper |= CSXany_ctor | CSXsuper_ctor;
 		}
 
-		f = f->overloadResolve(loc, arguments);
+		f = f->overloadResolve(loc, arguments, sc->module);
 		checkDeprecated(sc, f);
 #if DMDV2
 		checkPurity(sc, f);
@@ -6343,7 +6347,7 @@ Lagain:
 	    }
 
 	    f = cd->ctor;
-	    f = f->overloadResolve(loc, arguments);
+	    f = f->overloadResolve(loc, arguments, sc->module);
 	    checkDeprecated(sc, f);
 #if DMDV2
 	    checkPurity(sc, f);
@@ -6437,7 +6441,7 @@ Lagain:
 	    }
 	}
 
-	f = f->overloadResolve(loc, arguments);
+	f = f->overloadResolve(loc, arguments, sc->module);
 	checkDeprecated(sc, f);
 #if DMDV2
 	checkPurity(sc, f);
@@ -6581,6 +6585,7 @@ void CallExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 AddrExp::AddrExp(Loc loc, Expression *e)
 	: UnaExp(loc, TOKaddress, sizeof(AddrExp), e)
 {
+    m = NULL;
 }
 
 Expression *AddrExp::semantic(Scope *sc)
@@ -6590,6 +6595,7 @@ Expression *AddrExp::semantic(Scope *sc)
 #endif
     if (!type)
     {
+	m = sc->module;
 	UnaExp::semantic(sc);
 	e1 = e1->toLvalue(sc, NULL);
 	if (!e1->type)

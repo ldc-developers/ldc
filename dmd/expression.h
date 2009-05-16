@@ -73,7 +73,7 @@ void initPrecedence();
 Expression *resolveProperties(Scope *sc, Expression *e);
 void accessCheck(Loc loc, Scope *sc, Expression *e, Declaration *d);
 Dsymbol *search_function(AggregateDeclaration *ad, Identifier *funcid);
-void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr);
+void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Module* from);
 void argExpTypesToCBuffer(OutBuffer *buf, Expressions *arguments, HdrGenState *hgs);
 void argsToCBuffer(OutBuffer *buf, Expressions *arguments, HdrGenState *hgs);
 void expandTuples(Expressions *exps);
@@ -634,6 +634,7 @@ struct SymOffExp : Expression
 {
     Declaration *var;
     unsigned offset;
+    Module* m;	// starting point for overload resolution
 
     SymOffExp(Loc loc, Declaration *var, unsigned offset);
     Expression *semantic(Scope *sc);
@@ -969,6 +970,7 @@ struct DotTemplateInstanceExp : UnaExp
 struct DelegateExp : UnaExp
 {
     FuncDeclaration *func;
+    Module* m;	// starting point for overload resolution
 
     DelegateExp(Loc loc, Expression *e, FuncDeclaration *func);
     Expression *semantic(Scope *sc);
@@ -1036,6 +1038,8 @@ struct CallExp : UnaExp
 
 struct AddrExp : UnaExp
 {
+    Module* m;	// starting point for overload resolution
+
     AddrExp(Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
 #if IN_DMD

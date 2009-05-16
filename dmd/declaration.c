@@ -369,6 +369,7 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
 #endif
     this->overnext = NULL;
     this->inSemantic = 0;
+    this->importprot = PROTundefined;
     assert(type);
 }
 
@@ -501,15 +502,16 @@ void AliasDeclaration::semantic(Scope *sc)
 	FuncDeclaration *f = s->toAlias()->isFuncDeclaration();
 	if (f)
 	{
+	    FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
+	    fa->importprot = importprot;
 	    if (overnext)
 	    {
-		FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
 		if (!fa->overloadInsert(overnext))
 		    ScopeDsymbol::multiplyDefined(0, f, overnext);
 		overnext = NULL;
-		s = fa;
-		s->parent = sc->parent;
 	    }
+	    s = fa;
+	    s->parent = sc->parent;
 	}
 	if (overnext)
 	    ScopeDsymbol::multiplyDefined(0, s, overnext);

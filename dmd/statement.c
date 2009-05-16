@@ -1277,7 +1277,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 	return this;
     }
 
-    inferApplyArgTypes(op, arguments, aggr);
+    inferApplyArgTypes(op, arguments, aggr, sc->module);
 
     /* Check for inference errors
      */
