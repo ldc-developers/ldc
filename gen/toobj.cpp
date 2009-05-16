@@ -54,6 +54,7 @@
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
+#include "ir/irtype.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -80,7 +81,8 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
     Logger::println("Generating module: %s\n", (md ? md->toChars() : toChars()));
     LOG_SCOPE;
 
-    //printf("codegen: %s\n", srcfile->toChars());
+    if (global.params.verbose_cg)
+        printf("codegen: %s (%s)\n", toPrettyChars(), srcfile->toChars());
 
     assert(!global.errors);
 
@@ -609,9 +611,9 @@ void Module::genmoduleinfo()
     }
 
     // moduleinfo llvm struct type
-    const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->ir.type->get());
+    const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->irtype->getPA());
     // classinfo llvm struct type
-    const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->ir.type->get());
+    const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->irtype->getPA());
 
     // initializer vector
     std::vector<LLConstant*> initVec;

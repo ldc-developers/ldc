@@ -26,7 +26,6 @@ unsigned DtoShouldExtend(Type* type);
 //const LLType* DtoStructTypeFromArguments(Arguments* arguments);
 
 // delegate helpers
-const LLStructType* DtoDelegateType(Type* t);
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
 
 // return linkage type for symbol using the current ir state for context

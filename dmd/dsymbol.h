@@ -82,10 +82,9 @@ typedef union tree_node TYPE;
 struct TYPE;
 #endif
 
-// llvm
 #if IN_LLVM
-struct Ir;
-struct IrSymbol;
+class Ir;
+class IrSymbol;
 namespace llvm
 {
     class Value;

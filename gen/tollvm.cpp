@@ -24,6 +24,7 @@
 
 #include "ir/irtype.h"
 #include "ir/irtypeclass.h"
+#include "ir/irtypefunction.h"
 
 bool DtoIsPassedByRef(Type* type)
 {
@@ -131,27 +132,15 @@ const LLType* DtoType(Type* t)
     // functions
     case Tfunction:
     {
-        if (!t->ir.type || *t->ir.type == NULL) {
-            TypeFunction* tf = (TypeFunction*)t;
-            if (tf->funcdecl)
-                return DtoFunctionType(tf->funcdecl);
-            else
-                return DtoFunctionType(tf,NULL,NULL);
-        }
-        else {
-            return t->ir.type->get();
-        }
+        t->irtype = new IrTypeFunction(t);
+        return t->irtype->buildType();
     }
 
     // delegates
     case Tdelegate:
     {
-        if (!t->ir.type || *t->ir.type == NULL) {
-            return DtoDelegateType(t);
-        }
-        else {
-            return t->ir.type->get();
-        }
+        t->irtype = new IrTypeDelegate(t);
+        return t->irtype->buildType();
     }
 
     // typedefs
@@ -216,19 +205,6 @@ const LLType* DtoTypeNotVoid(Type* t)
     if (lt == LLType::VoidTy)
         return LLType::Int8Ty;
     return lt;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-const LLStructType* DtoDelegateType(Type* t)
-{
-    assert(t->ty == Tdelegate);
-    const LLType* i8ptr = getVoidPtrType();
-    const LLType* func = DtoFunctionType(t->nextOf(), NULL, Type::tvoid->pointerTo());
-    const LLType* funcptr = getPtrToType(func);
-    const LLStructType* dgtype = LLStructType::get(i8ptr, funcptr, NULL);
-    gIR->module->addTypeName(t->toChars(), dgtype);
-    return dgtype;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -799,7 +775,7 @@ const LLStructType* DtoInterfaceInfoType()
     // ClassInfo classinfo
     ClassDeclaration* cd2 = ClassDeclaration::classinfo;
     DtoResolveClass(cd2);
-    types.push_back(getPtrToType(cd2->type->ir.type->get()));
+    types.push_back(DtoType(cd2->type));
     // void*[] vtbl
     std::vector<const LLType*> vtbltypes;
     vtbltypes.push_back(DtoSize_t());

@@ -28,7 +28,7 @@ struct Library;
 
 // Back end
 #if IN_LLVM
-struct Ir;
+class Ir;
 struct DValue;
 typedef DValue elem;
 namespace llvm { class Module; }

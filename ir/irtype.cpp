@@ -18,8 +18,7 @@ IrType::IrType(Type* dt, const llvm::Type* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
-    assert(dt->ir.type == NULL && "llvm type (old one) already set");
-    dt->ir.type = &pa;
+    assert(dt->irtype == NULL && "already has IrType");
 }
 
 //////////////////////////////////////////////////////////////////////////////

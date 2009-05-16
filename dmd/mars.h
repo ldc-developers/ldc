@@ -219,6 +219,7 @@ struct Param
     OUTPUTFLAG output_o;
     bool llvmAnnotate;
     bool useInlineAsm;
+    bool verbose_cg;
 
     // target stuff
     const char* llvmArch;

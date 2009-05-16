@@ -27,15 +27,10 @@ using namespace llvm::Attribute;
 
 const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
-    // already built ?
-    if (type->ir.type != NULL) {
-        //assert(f->fty != NULL);
-        return llvm::cast<llvm::FunctionType>(type->ir.type->get());
-    }
-
     if (Logger::enabled())
         Logger::println("DtoFunctionType(%s)", type->toChars());
     LOG_SCOPE
+
     // sanity check
     assert(type->ty == Tfunction);
     TypeFunction* f = (TypeFunction*)type;
@@ -165,27 +160,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         lidx++;
     }
 
-    // If the function type was forward referenced by one of the parameter types,
-    // it has now been set.
-    if (f->ir.type) {
-        // Notify ABI that we won't be needing it for this function type anymore.
-        abi->doneWithFunctionType();
-        
-        // Some cleanup of memory we won't use
-        delete fty.ret;
-        delete fty.arg_sret;
-        delete fty.arg_this;
-        delete fty.arg_nest;
-        delete fty.arg_arguments;
-        delete fty.arg_argptr;
-        for (IrFuncTy::ArgIter It = fty.args.begin(), E = fty.args.end(); It != E; ++It) {
-            delete *It;
-        }
-
-        Logger::cout() << "Final function type: " << **f->ir.type << '\n';
-        return llvm::cast<LLFunctionType>(*f->ir.type);
-    }
-
     // Now we can modify f->fty safely.
     f->fty = fty;
 
@@ -219,7 +193,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     }
 
     llvm::FunctionType* functype = llvm::FunctionType::get(f->fty.ret->ltype, argtypes, f->fty.c_vararg);
-    f->ir.type = new llvm::PATypeHolder(functype);
 
 #if 0
     Logger::cout() << "Final function type: " << *functype << "\n";
@@ -232,11 +205,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
 
 static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
-    // type has already been resolved
-    if (fdecl->type->ir.type != 0) {
-        return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
-    }
-
     TypeFunction* f = (TypeFunction*)fdecl->type;
     const llvm::FunctionType* fty = 0;
 
@@ -256,7 +224,6 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
         fty = GET_INTRINSIC_DECL(vaend)->getFunctionType();
     assert(fty);
 
-    f->ir.type = new llvm::PATypeHolder(fty);
     return fty;
 }
 
@@ -264,10 +231,6 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 
 const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
-    // type has already been resolved
-    if (fdecl->type->ir.type != 0)
-        return llvm::cast<llvm::FunctionType>(fdecl->type->ir.type->get());
-
     // handle for C vararg intrinsics
     if (fdecl->isVaIntrinsic())
         return DtoVaFunctionType(fdecl);
@@ -280,7 +243,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
             dthis = ad->type;
             const LLType* thisty = DtoType(dthis);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
-            if (isaStruct(thisty) || (!gIR->structs.empty() && thisty == gIR->topstruct()->type->ir.type->get()))
+            if (ad->isStructDeclaration())
                 thisty = getPtrToType(thisty);
         }
         else {
@@ -325,6 +288,9 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
         return; // ignore declaration completely
     }
+
+    if (fdecl->ir.resolved) return;
+    fdecl->ir.resolved = true;
 
     //printf("resolve function: %s\n", fdecl->toPrettyChars());
 
@@ -373,10 +339,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         }
     }
 
-    DtoFunctionType(fdecl);
-
-    if (fdecl->ir.resolved) return;
-    fdecl->ir.resolved = true;
+    DtoType(fdecl->type);
 
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
@@ -515,7 +478,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         func->setCallingConv(llvm::CallingConv::C);
 
     fdecl->ir.irFunc->func = func;
-    assert(llvm::isa<llvm::FunctionType>(f->ir.type->get()));
 
     // parameter attributes
     if (!fdecl->isIntrinsic()) {
@@ -646,7 +608,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     Type* t = fd->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
-    assert(f->ir.type);
+    assert(f->irtype);
 
     llvm::Function* func = fd->ir.irFunc->func;
     const llvm::FunctionType* functype = func->getFunctionType();

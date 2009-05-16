@@ -260,9 +260,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // the callee D type
     Type* calleeType = fnval->getType();
 
-    // if the type has not yet been processed, do so now
-    if (calleeType->ir.type == NULL)
-        DtoType(calleeType);
+    // make sure the callee type has been processed
+    DtoType(calleeType);
 
     // get func value if any
     DFuncValue* dfnval = fnval->isFunc();

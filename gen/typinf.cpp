@@ -43,6 +43,7 @@
 #include "gen/metadata.h"
 
 #include "ir/irvar.h"
+#include "ir/irtype.h"
 
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal
@@ -331,7 +332,7 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
     // this is a declaration of a builtin __initZ var
     if (tid->tinfo->builtinTypeInfo()) {
         // fixup the global
-        const llvm::Type* rty = Type::typeinfo->type->ir.type->get();
+        const llvm::Type* rty = Type::typeinfo->type->irtype->getPA().get();
         llvm::cast<llvm::OpaqueType>(irg->type.get())->refineAbstractTypeTo(rty);
         LLGlobalVariable* g = isaGlobalVar(irg->value);
         g->setLinkage(llvm::GlobalValue::ExternalLinkage);
@@ -544,7 +545,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     base->codegen(Type::sir);
 
     // get type of typeinfo class
-    const LLStructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->irtype->getPA().get());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -665,7 +666,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     ClassDeclaration* base = Type::typeinfostruct;
     base->codegen(Type::sir);
 
-    const LLStructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->irtype->getPA());
 
     // vtbl
     std::vector<LLConstant*> sinits;
@@ -691,7 +692,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     else
 #endif
     {
-        size_t cisize = getTypeStoreSize(tc->ir.type->get());
+        size_t cisize = getTypeStoreSize(tc->irtype->getPA().get());
         LLConstant* cicast = llvm::ConstantExpr::getBitCast(sd->ir.irStruct->getInitSymbol(), initpt);
         sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
     }
@@ -903,7 +904,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     base->codegen(Type::sir);
 
     // get type of typeinfo class
-    const LLStructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->irtype->getPA());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -939,7 +940,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     base->codegen(Type::sir);
 
     // get type of typeinfo class
-    const LLStructType* stype = isaStruct(base->type->ir.type->get());
+    const LLStructType* stype = isaStruct(base->type->irtype->getPA());
 
     // initializer vector
     std::vector<LLConstant*> sinits;
@@ -956,7 +957,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     size_t dim = tu->arguments->dim;
     std::vector<LLConstant*> arrInits;
 
-    const LLType* tiTy = Type::typeinfo->type->ir.type->get();
+    const LLType* tiTy = Type::typeinfo->type->irtype->getPA();
     tiTy = getPtrToType(tiTy);
 
     for (size_t i = 0; i < dim; i++)

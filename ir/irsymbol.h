@@ -4,8 +4,9 @@
 #include "ir/ir.h"
 
 /// Base class for all symbols.
-struct IrSymbol
+class IrSymbol
 {
+public:
     ///
     IrSymbol(Ir* ir) : ir(ir) {}
 

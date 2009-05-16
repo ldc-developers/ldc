@@ -44,6 +44,11 @@ static cl::opt<bool, true> verbose("v",
     cl::ZeroOrMore,
     cl::location(global.params.verbose));
 
+static cl::opt<bool, true> verbose_cg("v-cg",
+    cl::desc("Verbose codegen"),
+    cl::ZeroOrMore,
+    cl::location(global.params.verbose_cg));
+
 static cl::opt<bool, true> warnings("w",
     cl::desc("Enable warnings"),
     cl::ZeroOrMore,

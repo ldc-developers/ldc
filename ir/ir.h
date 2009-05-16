@@ -16,8 +16,9 @@ struct IrBase : Object
     virtual ~IrBase() {}
 };
 
-struct Ir
+class Ir
 {
+public:
     Ir();
 
     void setState(IRState* p)   { irs = p; }

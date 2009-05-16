@@ -22,12 +22,9 @@
 #include "expression.h"
 
 #if IN_LLVM
-// llvm
-#include "../ir/irdtype.h"
 #include "../ir/irfuncty.h"
 namespace llvm { class Type; }
-struct Ir;
-
+class Ir;
 class IrType;
 #endif
 
@@ -284,10 +281,7 @@ struct Type : Object
     virtual TypeBasic *isTypeBasic();
 
 #if IN_LLVM
-    // LDC
-    IrDType ir;
     static Ir* sir;
-
     IrType* irtype;
 #endif
 };
