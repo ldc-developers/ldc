@@ -636,6 +636,11 @@ static unsigned build_classinfo_flags(ClassDeclaration* cd)
 L2:
     if (hasOffTi)
         flags |= 4;
+
+    // always define the typeinfo field.
+    // why would ever not do this?
+    flags |= 32;
+
     return flags;
 }
 
