@@ -1,0 +1,79 @@
+Index: object.di
+===================================================================
+--- object.di	(revision 4655)
++++ object.di	(working copy)
+@@ -41,9 +41,11 @@
+     // 2:       // has no possible pointers into GC memory
+     // 4:       // has offTi[] member
+     // 8:       // has constructors
++    // 32:      // has typeinfo    
+     void*       deallocator;
+     OffsetTypeInfo[] offTi;
+     void*       defaultConstructor;
++    TypeInfo typeinfo;
+ 
+     static ClassInfo find(char[] classname);
+     Object create();
+Index: lib/common/tango/core/Thread.d
+===================================================================
+--- lib/common/tango/core/Thread.d	(revision 4655)
++++ lib/common/tango/core/Thread.d	(working copy)
+@@ -295,7 +295,7 @@
+                 }
+                 else version (X86_64)
+                 {
+-                    ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r10,r11,r12,r13,r14,r15;
++                    ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r8,r9,r10,r11,r12,r13,r14,r15;
+                     asm
+                     {
+                         movq rax[RBP], RAX        ;
+@@ -306,6 +306,8 @@
+                         movq rsi[RBP], RSI        ;
+                         movq rdi[RBP], RDI        ;
+                         movq rsp[RBP], RSP        ;
++                        movq  r8[RBP], R8         ;
++                        movq  r9[RBP], R9         ;
+                         movq r10[RBP], R10        ;
+                         movq r11[RBP], R11        ;
+                         movq r12[RBP], R12        ;
+Index: lib/gc/basic/gcx.d
+===================================================================
+--- lib/gc/basic/gcx.d	(revision 4655)
++++ lib/gc/basic/gcx.d	(working copy)
+@@ -2198,7 +2198,7 @@
+             }
+             else version (X86_64)
+             {
+-                ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r10,r11,r12,r13,r14,r15;
++                ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r8,r9,r10,r11,r12,r13,r14,r15;
+                 asm
+                 {
+                     movq rax[RBP], RAX      ;
+@@ -2209,6 +2209,8 @@
+                     movq rsi[RBP], RSI      ;
+                     movq rdi[RBP], RDI      ;
+                     movq rsp[RBP], RSP      ;
++                    movq  r8[RBP], R8       ;
++                    movq  r9[RBP], R9       ;
+                     movq r10[RBP], R10      ;
+                     movq r11[RBP], R11      ;
+                     movq r12[RBP], R12      ;
+Index: tango/net/Socket.d
+===================================================================
+--- tango/net/Socket.d	(revision 4655)
++++ tango/net/Socket.d	(working copy)
+@@ -1545,10 +1545,10 @@
+ 
+ abstract class Address
+ {
+-        protected sockaddr* name();
+-        protected int nameLen();
+-        AddressFamily addressFamily();
+-        char[] toString();
++        abstract protected sockaddr* name();
++        abstract protected int nameLen();
++        abstract AddressFamily addressFamily();
++        abstract char[] toString();
+ 
+         /***********************************************************************
+ 
