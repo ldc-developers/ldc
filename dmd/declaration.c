@@ -502,16 +502,16 @@ void AliasDeclaration::semantic(Scope *sc)
 	FuncDeclaration *f = s->toAlias()->isFuncDeclaration();
 	if (f)
 	{
-	    FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
-	    fa->importprot = importprot;
 	    if (overnext)
 	    {
+		FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
+		fa->importprot = importprot;
 		if (!fa->overloadInsert(overnext))
 		    ScopeDsymbol::multiplyDefined(0, f, overnext);
 		overnext = NULL;
+		s = fa;
+		s->parent = sc->parent;
 	    }
-	    s = fa;
-	    s->parent = sc->parent;
 	}
 	if (overnext)
 	    ScopeDsymbol::multiplyDefined(0, s, overnext);

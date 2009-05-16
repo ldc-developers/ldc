@@ -1560,6 +1560,9 @@ int overloadApply(Module* from, FuncDeclaration *fstart,
 		    break;
 		if (next == fstart)
 		    break;
+		if (a->importprot == PROTprivate && a->getModule() != from)
+		    if (FuncDeclaration* fd = next->isFuncDeclaration())
+			next = fd->overnext;
 	    }
 	    else
 	    {
