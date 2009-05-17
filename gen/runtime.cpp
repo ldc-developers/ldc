@@ -592,8 +592,7 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(typeInfoTy);
         types.push_back(rt_array(byteTy));
         const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_NoAlias);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     // int _adEq(void[] a1, void[] a2, TypeInfo ti)
