@@ -373,7 +373,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfotypedef);
+    RTTIBuilder b(Type::typeinfotypedef);
 
     assert(tinfo->ty == Ttypedef);
     TypeTypedef *tc = (TypeTypedef *)tinfo;
@@ -411,7 +411,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfoenum);
+    RTTIBuilder b(Type::typeinfoenum);
 
     assert(tinfo->ty == Tenum);
     TypeEnum *tc = (TypeEnum *)tinfo;
@@ -449,7 +449,7 @@ void TypeInfoPointerDeclaration::llvmDefine()
     Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfopointer);
+    RTTIBuilder b(Type::typeinfopointer);
     // TypeInfo base
     b.push_typeinfo(tinfo->nextOf());
     // finish
@@ -463,7 +463,7 @@ void TypeInfoArrayDeclaration::llvmDefine()
     Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfoarray);
+    RTTIBuilder b(Type::typeinfoarray);
     // TypeInfo base
     b.push_typeinfo(tinfo->nextOf());
     // finish
@@ -480,7 +480,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     assert(tinfo->ty == Tsarray);
     TypeSArray *tc = (TypeSArray *)tinfo;
 
-    TypeInfoBuilder b(Type::typeinfostaticarray);
+    RTTIBuilder b(Type::typeinfostaticarray);
 
     // value typeinfo
     b.push_typeinfo(tc->nextOf());
@@ -502,7 +502,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     assert(tinfo->ty == Taarray);
     TypeAArray *tc = (TypeAArray *)tinfo;
 
-    TypeInfoBuilder b(Type::typeinfoassociativearray);
+    RTTIBuilder b(Type::typeinfoassociativearray);
 
     // value typeinfo
     b.push_typeinfo(tc->nextOf());
@@ -521,7 +521,7 @@ void TypeInfoFunctionDeclaration::llvmDefine()
     Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfofunction);
+    RTTIBuilder b(Type::typeinfofunction);
     // TypeInfo base
     b.push_typeinfo(tinfo->nextOf());
     // finish
@@ -538,7 +538,7 @@ void TypeInfoDelegateDeclaration::llvmDefine()
     assert(tinfo->ty == Tdelegate);
     Type* ret_type = tinfo->nextOf()->nextOf();
 
-    TypeInfoBuilder b(Type::typeinfodelegate);
+    RTTIBuilder b(Type::typeinfodelegate);
     // TypeInfo base
     b.push_typeinfo(ret_type);
     // finish
@@ -582,7 +582,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     sd->codegen(Type::sir);
     IrStruct* irstruct = sd->ir.irStruct;
 
-    TypeInfoBuilder b(Type::typeinfostruct);
+    RTTIBuilder b(Type::typeinfostruct);
 
     // char[] name
     b.push_string(sd->toPrettyChars());
@@ -670,7 +670,7 @@ void TypeInfoClassDeclaration::llvmDefine()
     TypeClass *tc = (TypeClass *)tinfo;
     tc->sym->codegen(Type::sir);
 
-    TypeInfoBuilder b(Type::typeinfoclass);
+    RTTIBuilder b(Type::typeinfoclass);
 
     // TypeInfo base
     b.push_classinfo(tc->sym);
@@ -691,7 +691,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     TypeClass *tc = (TypeClass *)tinfo;
     tc->sym->codegen(Type::sir);
 
-    TypeInfoBuilder b(Type::typeinfointerface);
+    RTTIBuilder b(Type::typeinfointerface);
 
     // TypeInfo base
     b.push_classinfo(tc->sym);
@@ -727,7 +727,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     const LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
     LLConstant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
 
-    TypeInfoBuilder b(Type::typeinfotypelist);
+    RTTIBuilder b(Type::typeinfotypelist);
 
     // push TypeInfo[]
     b.push_array(arrC, dim, Type::typeinfo->type, NULL);
@@ -745,7 +745,7 @@ void TypeInfoConstDeclaration::llvmDefine()
     Logger::println("TypeInfoConstDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfoconst);
+    RTTIBuilder b(Type::typeinfoconst);
     // TypeInfo base
     b.push_typeinfo(tinfo->mutableOf()->merge());
     // finish
@@ -759,7 +759,7 @@ void TypeInfoInvariantDeclaration::llvmDefine()
     Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    TypeInfoBuilder b(Type::typeinfoinvariant);
+    RTTIBuilder b(Type::typeinfoinvariant);
     // TypeInfo base
     b.push_typeinfo(tinfo->mutableOf()->merge());
     // finish

@@ -12,7 +12,7 @@
 
 #include "ir/irstruct.h"
 
-TypeInfoBuilder::TypeInfoBuilder(ClassDeclaration* base_class)
+RTTIBuilder::RTTIBuilder(ClassDeclaration* base_class)
 {
     // make sure the base typeinfo class has been processed
     base_class->codegen(Type::sir);
@@ -29,38 +29,38 @@ TypeInfoBuilder::TypeInfoBuilder(ClassDeclaration* base_class)
     push_null_vp();
 }
 
-void TypeInfoBuilder::push(llvm::Constant* C)
+void RTTIBuilder::push(llvm::Constant* C)
 {
     inits.push_back(C);
 }
 
-void TypeInfoBuilder::push_null_vp()
+void RTTIBuilder::push_null_vp()
 {
     inits.push_back(getNullValue(getVoidPtrType()));
 }
 
-void TypeInfoBuilder::push_typeinfo(Type* t)
+void RTTIBuilder::push_typeinfo(Type* t)
 {
     inits.push_back(DtoTypeInfoOf(t, true));
 }
 
-void TypeInfoBuilder::push_classinfo(ClassDeclaration* cd)
+void RTTIBuilder::push_classinfo(ClassDeclaration* cd)
 {
     inits.push_back(cd->ir.irStruct->getClassInfoSymbol());
 }
 
-void TypeInfoBuilder::push_string(const char* str)
+void RTTIBuilder::push_string(const char* str)
 {
     inits.push_back(DtoConstString(str));
 }
 
-void TypeInfoBuilder::push_null_void_array()
+void RTTIBuilder::push_null_void_array()
 {
     const llvm::Type* T = DtoType(Type::tvoid->arrayOf());
     inits.push_back(getNullValue(T));
 }
 
-void TypeInfoBuilder::push_void_array(uint64_t dim, llvm::Constant* ptr)
+void RTTIBuilder::push_void_array(uint64_t dim, llvm::Constant* ptr)
 {
     inits.push_back(DtoConstSlice(
         DtoConstSize_t(dim),
@@ -68,7 +68,7 @@ void TypeInfoBuilder::push_void_array(uint64_t dim, llvm::Constant* ptr)
         ));
 }
 
-void TypeInfoBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym)
+void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym)
 {
     std::string initname(mangle_sym->mangle());
     initname.append(".rtti.void[].data");
@@ -83,7 +83,7 @@ void TypeInfoBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol
     push_void_array(dim, G);
 }
 
-void TypeInfoBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, Dsymbol * mangle_sym)
+void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, Dsymbol * mangle_sym)
 {
     std::string initname(mangle_sym?mangle_sym->mangle():".ldc");
     initname.append(".rtti.");
@@ -100,17 +100,17 @@ void TypeInfoBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtyp
         ));
 }
 
-void TypeInfoBuilder::push_uint(unsigned u)
+void RTTIBuilder::push_uint(unsigned u)
 {
     inits.push_back(DtoConstUint(u));
 }
 
-void TypeInfoBuilder::push_size(uint64_t s)
+void RTTIBuilder::push_size(uint64_t s)
 {
     inits.push_back(DtoConstSize_t(s));
 }
 
-void TypeInfoBuilder::push_funcptr(FuncDeclaration* fd)
+void RTTIBuilder::push_funcptr(FuncDeclaration* fd)
 {
     if (fd)
     {
@@ -124,7 +124,7 @@ void TypeInfoBuilder::push_funcptr(FuncDeclaration* fd)
     }
 }
 
-void TypeInfoBuilder::finalize(IrGlobal* tid)
+void RTTIBuilder::finalize(IrGlobal* tid)
 {
     // create the inititalizer
     LLConstant* tiInit = llvm::ConstantStruct::get(&inits[0], inits.size(), false);

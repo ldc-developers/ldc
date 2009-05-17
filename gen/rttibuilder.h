@@ -10,7 +10,7 @@ struct Type;
 
 struct IrStruct;
 
-struct TypeInfoBuilder
+struct RTTIBuilder
 {
     ClassDeclaration* base;
     TypeClass* basetype;
@@ -19,7 +19,7 @@ struct TypeInfoBuilder
     // 10 is enough for any D1 typeinfo
     llvm::SmallVector<llvm::Constant*, 10> inits;
 
-    TypeInfoBuilder(ClassDeclaration* base_class);
+    RTTIBuilder(ClassDeclaration* base_class);
 
     void push(llvm::Constant* C);
     void push_null_vp();
