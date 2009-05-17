@@ -1024,10 +1024,18 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     std::vector<LLValue*> args;
 
     // file param
-    // get the filename from the function symbol instead of the current module
-    // it's wrong for instantiations of imported templates. Fixes LDC bug #271
+    // we might be generating for an imported template function
     Module* funcmodule = gIR->func()->decl->getModule();
-    args.push_back(DtoLoad(getIrModule(NULL)->fileName));
+    const char* cur_file = funcmodule->srcfile->name->toChars();
+    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
+    {
+        args.push_back(DtoConstString(loc.filename));
+    }
+    else
+    {
+        IrModule* irmod = getIrModule(funcmodule);
+        args.push_back(DtoLoad(irmod->fileName));
+    }
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
