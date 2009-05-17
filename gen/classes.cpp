@@ -253,17 +253,30 @@ DValue* DtoCastClass(DValue* val, Type* _to)
 
     // class -> pointer
     if (to->ty == Tpointer) {
-        Logger::println("to pointer");
+        IF_LOG Logger::println("to pointer");
         const LLType* tolltype = DtoType(_to);
         LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(_to, rval);
     }
     // class -> bool
     else if (to->ty == Tbool) {
-        Logger::println("to bool");
+        IF_LOG Logger::println("to bool");
         LLValue* llval = val->getRVal();
         LLValue* zero = LLConstant::getNullValue(llval->getType());
         return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero, "tmp"));
+    }
+    // class -> integer
+    else if (to->isintegral()) {
+        IF_LOG Logger::println("to %s", to->toChars());
+
+        // get class ptr
+        LLValue* v = val->getRVal();
+        // cast to size_t
+        v = gIR->ir->CreatePtrToInt(v, DtoSize_t(), "");
+        // cast to the final int type
+        DImValue im(Type::tsize_t, v);
+        Loc loc;
+        return DtoCastInt(loc, &im, _to);
     }
 
     // must be class/interface
