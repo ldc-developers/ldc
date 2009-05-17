@@ -145,7 +145,7 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
     // LDC
     "LLVM", "LDC", "LLVM64",
     "PPC", "PPC64",
-    "darwin",
+    "darwin","solaris","freebsd"
     };
 
     for (unsigned i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)

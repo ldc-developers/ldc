@@ -541,6 +541,7 @@ int main(int argc, char** argv)
     {
         global.params.os = OSFreeBSD;
         VersionCondition::addPredefinedGlobalIdent("freebsd");
+        VersionCondition::addPredefinedGlobalIdent("FreeBSD");
         VersionCondition::addPredefinedGlobalIdent("Posix");
     }
     // solaris
@@ -548,6 +549,7 @@ int main(int argc, char** argv)
     {
         global.params.os = OSSolaris;
         VersionCondition::addPredefinedGlobalIdent("solaris");
+        VersionCondition::addPredefinedGlobalIdent("Solaris");
         VersionCondition::addPredefinedGlobalIdent("Posix");
     }
     // unsupported
