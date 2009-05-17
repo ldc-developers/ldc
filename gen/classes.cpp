@@ -690,6 +690,12 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
 
+    if (cinfo->fields.dim != 12)
+    {
+        error("object.d ClassInfo class is incorrect");
+        fatal();
+    }
+
     // use the rtti builder
     RTTIBuilder b(ClassDeclaration::classinfo);
 
