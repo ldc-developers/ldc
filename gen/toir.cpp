@@ -11,7 +11,6 @@
 #include <fstream>
 
 #include "gen/llvm.h"
-#include "llvm/Support/DataTypes.h"
 
 #include "attrib.h"
 #include "init.h"
@@ -314,8 +313,7 @@ DValue* RealExp::toElem(IRState* p)
 
 LLConstant* RealExp::toConstElem(IRState* p)
 {
-    Logger::print("RealExp::toConstElem: %s @ %s | %LX\n", toChars(), type->toChars(),
-        UINT64_C(0xFFFFFFFFFF) & *(long long unsigned*)&value);
+    Logger::print("RealExp::toConstElem: %s @ %s | %La\n", toChars(), type->toChars(), value);
     LOG_SCOPE;
     Type* t = type->toBasetype();
     return DtoConstFP(t, value);
