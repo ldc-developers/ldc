@@ -41,6 +41,7 @@
 #include "gen/classes.h"
 #include "gen/linkage.h"
 #include "gen/metadata.h"
+#include "gen/rttibuilder.h"
 
 #include "ir/irvar.h"
 #include "ir/irtype.h"
@@ -271,11 +272,11 @@ int TypeClass::builtinTypeInfo()
 
 //////////////////////////////////////////////////////////////////////////////
 //                             MAGIC   PLACE
+//                                (wut?)
 //////////////////////////////////////////////////////////////////////////////
 
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid);
 void DtoDeclareTypeInfo(TypeInfoDeclaration* tid);
-void DtoConstInitTypeInfo(TypeInfoDeclaration* tid);
 
 void TypeInfoDeclaration::codegen(Ir*)
 {
@@ -334,37 +335,27 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
     Logger::println("DtoDeclareTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
+    if (Logger::enabled())
+    {
+        std::string mangled(tid->mangle());
+        Logger::println("type = '%s'", tid->tinfo->toChars());
+        Logger::println("typeinfo mangle: %s", mangled.c_str());
+    }
+
     IrGlobal* irg = tid->ir.irGlobal;
-
-    std::string mangled(tid->mangle());
-
-    Logger::println("type = '%s'", tid->tinfo->toChars());
-    Logger::println("typeinfo mangle: %s", mangled.c_str());
-
     assert(irg->value != NULL);
 
     // this is a declaration of a builtin __initZ var
     if (tid->tinfo->builtinTypeInfo()) {
         // fixup the global
-        const llvm::Type* rty = Type::typeinfo->type->irtype->getPA().get();
+        const llvm::Type* rty = Type::typeinfo->type->irtype->getPA();
         llvm::cast<llvm::OpaqueType>(irg->type.get())->refineAbstractTypeTo(rty);
         LLGlobalVariable* g = isaGlobalVar(irg->value);
         g->setLinkage(llvm::GlobalValue::ExternalLinkage);
         return;
     }
 
-    // custom typedef
-    DtoConstInitTypeInfo(tid);
-}
-
-void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
-{
-    if (tid->ir.initialized) return;
-    tid->ir.initialized = true;
-
-    Logger::println("DtoConstInitTypeInfo(%s)", tid->toChars());
-    LOG_SCOPE;
-
+    // define custom typedef
     tid->llvmDefine();
 }
 
@@ -372,7 +363,7 @@ void DtoConstInitTypeInfo(TypeInfoDeclaration* tid)
 
 void TypeInfoDeclaration::llvmDefine()
 {
-    assert(0 && "TypeInfoDeclaration::llvmDeclare");
+    assert(0 && "cannot generate generic typeinfo");
 }
 
 /* ========================================================================= */
@@ -382,54 +373,35 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    ClassDeclaration* base = Type::typeinfotypedef;
-    base->codegen(Type::sir);
-
-    // vtbl
-    std::vector<LLConstant*> sinits;
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(getNullPtr(getPtrToType(LLType::Int8Ty)));
+    TypeInfoBuilder b(Type::typeinfotypedef);
 
     assert(tinfo->ty == Ttypedef);
     TypeTypedef *tc = (TypeTypedef *)tinfo;
     TypedefDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    sd->basetype = sd->basetype->merge(); // DMD does this!
-    LLConstant* castbase = DtoTypeInfoOf(sd->basetype, true);
-    sinits.push_back(castbase);
+    sd->basetype = sd->basetype->merge(); // dmd does it ... why?
+    b.push_typeinfo(sd->basetype);
 
     // char[] name
-    char *name = sd->toPrettyChars();
-    sinits.push_back(DtoConstString(name));
+    b.push_string(sd->toPrettyChars());
 
     // void[] init
-    const LLPointerType* initpt = getPtrToType(LLType::Int8Ty);
-    if (tinfo->isZeroInit() || !sd->init) // 0 initializer, or the same as the base type
+    // emit null array if we should use the basetype, or if the basetype
+    // uses default initialization.
+    if (!sd->init || tinfo->isZeroInit(0))
     {
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), getNullPtr(initpt)));
+        b.push_null_void_array();
     }
+    // otherwise emit a void[] with the default initializer
     else
     {
-        LLConstant* ci = DtoConstInitializer(sd->loc, sd->basetype, sd->init);
-        std::string ciname(sd->mangle());
-        ciname.append("__init");
-        llvm::GlobalVariable* civar = new llvm::GlobalVariable(DtoType(sd->basetype),true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
-        LLConstant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
-        size_t cisize = getTypeStoreSize(DtoType(sd->basetype));
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
+        LLConstant* C = DtoConstInitializer(sd->loc, sd->basetype, sd->init);
+        b.push_void_array(C, sd->basetype, sd);
     }
 
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -439,86 +411,35 @@ void TypeInfoEnumDeclaration::llvmDefine()
     Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    ClassDeclaration* base = Type::typeinfoenum;
-    base->codegen(Type::sir);
-
-    // vtbl
-    std::vector<LLConstant*> sinits;
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
+    TypeInfoBuilder b(Type::typeinfoenum);
 
     assert(tinfo->ty == Tenum);
     TypeEnum *tc = (TypeEnum *)tinfo;
     EnumDeclaration *sd = tc->sym;
 
     // TypeInfo base
-    LLConstant* castbase = DtoTypeInfoOf(sd->memtype, true);
-    sinits.push_back(castbase);
+    b.push_typeinfo(sd->memtype);
 
     // char[] name
-    char *name = sd->toPrettyChars();
-    sinits.push_back(DtoConstString(name));
+    b.push_string(sd->toPrettyChars());
 
     // void[] init
-    const LLPointerType* initpt = getPtrToType(LLType::Int8Ty);
-    if (tinfo->isZeroInit() || !sd->defaultval) // 0 initializer, or the same as the base type
+    // emit void[] with the default initialier, the array is null if the default
+    // initializer is zero
+    if (!sd->defaultval || tinfo->isZeroInit(0))
     {
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
+        b.push_null_void_array();
     }
+    // otherwise emit a void[] with the default initializer
     else
     {
-    #if DMDV2
-        assert(0 && "initializer not implemented");
-    #else
         const LLType* memty = DtoType(sd->memtype);
-        LLConstant* ci = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
-        std::string ciname(sd->mangle());
-        ciname.append("__init");
-        llvm::GlobalVariable* civar = new llvm::GlobalVariable(memty,true,llvm::GlobalValue::InternalLinkage,ci,ciname,gIR->module);
-        LLConstant* cicast = llvm::ConstantExpr::getBitCast(civar, initpt);
-        size_t cisize = getTypeStoreSize(memty);
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
-    #endif
+        LLConstant* C = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
+        b.push_void_array(C, sd->memtype, sd);
     }
 
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
-}
-
-/* ========================================================================= */
-
-static void LLVM_D_Define_TypeInfoBase(Type* basetype, TypeInfoDeclaration* tid, ClassDeclaration* cd)
-{
-    ClassDeclaration* base = cd;
-    base->codegen(Type::sir);
-
-    // vtbl
-    std::vector<LLConstant*> sinits;
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
-
-    // TypeInfo base
-    LLConstant* castbase = DtoTypeInfoOf(basetype, true);
-    sinits.push_back(castbase);
-
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(tid->ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(tid->ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -528,10 +449,11 @@ void TypeInfoPointerDeclaration::llvmDefine()
     Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    assert(tinfo->ty == Tpointer);
-    TypePointer *tc = (TypePointer *)tinfo;
-
-    LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfopointer);
+    TypeInfoBuilder b(Type::typeinfopointer);
+    // TypeInfo base
+    b.push_typeinfo(tinfo->nextOf());
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -541,10 +463,11 @@ void TypeInfoArrayDeclaration::llvmDefine()
     Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    assert(tinfo->ty == Tarray);
-    TypeDArray *tc = (TypeDArray *)tinfo;
-
-    LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfoarray);
+    TypeInfoBuilder b(Type::typeinfoarray);
+    // TypeInfo base
+    b.push_typeinfo(tinfo->nextOf());
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -554,39 +477,19 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfostaticarray;
-    base->codegen(Type::sir);
-
-    // get type of typeinfo class
-    const LLStructType* stype = isaStruct(base->type->irtype->getPA().get());
-
-    // initializer vector
-    std::vector<LLConstant*> sinits;
-    // first is always the vtable
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
-
-    // value typeinfo
     assert(tinfo->ty == Tsarray);
     TypeSArray *tc = (TypeSArray *)tinfo;
-    LLConstant* castbase = DtoTypeInfoOf(tc->next, true);
-    assert(castbase->getType() == stype->getElementType(2));
-    sinits.push_back(castbase);
+
+    TypeInfoBuilder b(Type::typeinfostaticarray);
+
+    // value typeinfo
+    b.push_typeinfo(tc->nextOf());
 
     // length
-    sinits.push_back(DtoConstSize_t(tc->dim->toInteger()));
+    b.push(DtoConstSize_t((size_t)tc->dim->toUInteger()));
 
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -596,38 +499,19 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfoassociativearray;
-    base->codegen(Type::sir);
-
-    // initializer vector
-    std::vector<LLConstant*> sinits;
-    // first is always the vtable
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
-
-    // get type
     assert(tinfo->ty == Taarray);
     TypeAArray *tc = (TypeAArray *)tinfo;
 
+    TypeInfoBuilder b(Type::typeinfoassociativearray);
+
     // value typeinfo
-    LLConstant* castbase = DtoTypeInfoOf(tc->next, true);
-    sinits.push_back(castbase);
+    b.push_typeinfo(tc->nextOf());
 
     // key typeinfo
-    castbase = DtoTypeInfoOf(tc->index, true);
-    sinits.push_back(castbase);
+    b.push_typeinfo(tc->index);
 
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -637,10 +521,11 @@ void TypeInfoFunctionDeclaration::llvmDefine()
     Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    assert(tinfo->ty == Tfunction);
-    TypeFunction *tc = (TypeFunction *)tinfo;
-
-    LLVM_D_Define_TypeInfoBase(tc->next, this, Type::typeinfofunction);
+    TypeInfoBuilder b(Type::typeinfofunction);
+    // TypeInfo base
+    b.push_typeinfo(tinfo->nextOf());
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -651,9 +536,13 @@ void TypeInfoDelegateDeclaration::llvmDefine()
     LOG_SCOPE;
 
     assert(tinfo->ty == Tdelegate);
-    TypeDelegate *tc = (TypeDelegate *)tinfo;
+    Type* ret_type = tinfo->nextOf()->nextOf();
 
-    LLVM_D_Define_TypeInfoBase(tc->nextOf()->nextOf(), this, Type::typeinfodelegate);
+    TypeInfoBuilder b(Type::typeinfodelegate);
+    // TypeInfo base
+    b.push_typeinfo(ret_type);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -874,30 +763,13 @@ void TypeInfoClassDeclaration::llvmDefine()
     TypeClass *tc = (TypeClass *)tinfo;
     tc->sym->codegen(Type::sir);
 
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfoclass;
-    assert(base);
-    base->codegen(Type::sir);
+    TypeInfoBuilder b(Type::typeinfoclass);
 
-    // initializer vector
-    std::vector<LLConstant*> sinits;
-    // first is always the vtable
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
+    // TypeInfo base
+    b.push_classinfo(tc->sym);
 
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
-
-    // get classinfo
-    sinits.push_back(tc->sym->ir.irStruct->getClassInfoSymbol());
-
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -912,33 +784,13 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     TypeClass *tc = (TypeClass *)tinfo;
     tc->sym->codegen(Type::sir);
 
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfointerface;
-    assert(base);
-    base->codegen(Type::sir);
+    TypeInfoBuilder b(Type::typeinfointerface);
 
-    // get type of typeinfo class
-    const LLStructType* stype = isaStruct(base->type->irtype->getPA());
+    // TypeInfo base
+    b.push_classinfo(tc->sym);
 
-    // initializer vector
-    std::vector<LLConstant*> sinits;
-    // first is always the vtable
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
-
-    // get classinfo
-    sinits.push_back(tc->sym->ir.irStruct->getClassInfoSymbol());
-
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -1018,10 +870,11 @@ void TypeInfoConstDeclaration::llvmDefine()
     Logger::println("TypeInfoConstDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    Type *tm = tinfo->mutableOf();
-    tm = tm->merge();
-
-    LLVM_D_Define_TypeInfoBase(tm, this, Type::typeinfoconst);
+    TypeInfoBuilder b(Type::typeinfoconst);
+    // TypeInfo base
+    b.push_typeinfo(tinfo->mutableOf()->merge());
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -1031,10 +884,11 @@ void TypeInfoInvariantDeclaration::llvmDefine()
     Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    Type *tm = tinfo->mutableOf();
-    tm = tm->merge();
-
-    LLVM_D_Define_TypeInfoBase(tm, this, Type::typeinfoinvariant);
+    TypeInfoBuilder b(Type::typeinfoinvariant);
+    // TypeInfo base
+    b.push_typeinfo(tinfo->mutableOf()->merge());
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 #endif
