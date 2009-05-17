@@ -36,21 +36,22 @@
 #include "template.h"
 #include "scope.h"
 
-#include "gen/irstate.h"
-#include "gen/logger.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/arrays.h"
-#include "gen/structs.h"
-#include "gen/classes.h"
-#include "gen/functions.h"
-#include "gen/todebug.h"
-#include "gen/runtime.h"
 #include "gen/abi.h"
+#include "gen/arrays.h"
+#include "gen/classes.h"
 #include "gen/cl_options.h"
-#include "gen/optimizer.h"
+#include "gen/functions.h"
+#include "gen/irstate.h"
+#include "gen/llvmhelpers.h"
 #include "gen/llvm-version.h"
+#include "gen/logger.h"
+#include "gen/optimizer.h"
 #include "gen/programs.h"
+#include "gen/rttibuilder.h"
+#include "gen/runtime.h"
+#include "gen/structs.h"
+#include "gen/todebug.h"
+#include "gen/tollvm.h"
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
@@ -618,41 +619,27 @@ void Module::genmoduleinfo()
         error("object.d is missing the ModuleInfo class");
         fatal();
     }
-
-    moduleinfo->codegen(Type::sir);
-
     // check for patch
-    if (moduleinfo->fields.dim != 9)
+    else if (moduleinfo->fields.dim != 9)
     {
         error("object.d ModuleInfo class is incorrect");
         fatal();
     }
 
-    // moduleinfo llvm struct type
-    const llvm::StructType* moduleinfoTy = isaStruct(moduleinfo->type->irtype->getPA());
-    // classinfo llvm struct type
-    const llvm::StructType* classinfoTy = isaStruct(ClassDeclaration::classinfo->type->irtype->getPA());
+    // use the RTTIBuilder
+    RTTIBuilder b(moduleinfo);
 
-    // initializer vector
-    std::vector<LLConstant*> initVec;
-    LLConstant* c = 0;
-
-    // vtable
-    c = moduleinfo->ir.irStruct->getVtblSymbol();
-    initVec.push_back(c);
-
-    // monitor
-    c = getNullPtr(getPtrToType(LLType::Int8Ty));
-    initVec.push_back(c);
+    // some types
+    const LLType* moduleinfoTy = moduleinfo->type->irtype->getPA();
+    const LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getPA();
 
     // name
-    char *name = toPrettyChars();
-    c = DtoConstString(name);
-    initVec.push_back(c);
+    b.push_string(toPrettyChars());
 
     // importedModules[]
     int aimports_dim = aimports.dim;
     std::vector<LLConstant*> importInits;
+    LLConstant* c = 0;
     for (size_t i = 0; i < aimports.dim; i++)
     {
         Module *m = (Module *)aimports.data[i];
@@ -681,8 +668,10 @@ void Module::genmoduleinfo()
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
     else
+    {
         c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(moduleinfoTy)) );
-    initVec.push_back(c);
+    }
+    b.push(c);
 
     // localClasses[]
     ClassDeclarations aclasses;
@@ -731,13 +720,11 @@ void Module::genmoduleinfo()
     }
     else
         c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(classinfoTy)) );
-    initVec.push_back(c);
+    b.push(c);
 
-    // flags
-    c = DtoConstUint(0);
-    if (!needmoduleinfo)
-        c = DtoConstUint(4);        // flags (4 means MIstandalone)
-    initVec.push_back(c);
+    // flags (4 means MIstandalone)
+    unsigned mi_flags = needmoduleinfo ? 0 : 4;
+    b.push_uint(mi_flags);
 
     // function pointer type for next three fields
     const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false));
@@ -745,25 +732,25 @@ void Module::genmoduleinfo()
     // ctor
     llvm::Function* fctor = build_module_ctor();
     c = fctor ? fctor : getNullValue(fnptrTy);
-    initVec.push_back(c);
+    b.push(c);
 
     // dtor
     llvm::Function* fdtor = build_module_dtor();
     c = fdtor ? fdtor : getNullValue(fnptrTy);
-    initVec.push_back(c);
+    b.push(c);
 
     // unitTest
     llvm::Function* unittest = build_module_unittest();
     c = unittest ? unittest : getNullValue(fnptrTy);
-    initVec.push_back(c);
+    b.push(c);
 
     // xgetMembers
     c = getNullValue(getVoidPtrType());
-    initVec.push_back(c);
+    b.push(c);
 
     // ictor
     c = getNullValue(fnptrTy);
-    initVec.push_back(c);
+    b.push(c);
 
     /*Logger::println("MODULE INFO INITIALIZERS");
     for (size_t i=0; i<initVec.size(); ++i)
@@ -774,7 +761,7 @@ void Module::genmoduleinfo()
     }*/
 
     // create initializer
-    LLConstant* constMI = llvm::ConstantStruct::get(initVec);
+    LLConstant* constMI = b.get_constant();
 
     // create name
     std::string MIname("_D");
