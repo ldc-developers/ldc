@@ -547,6 +547,21 @@ void TypeInfoDelegateDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
+static FuncDeclaration* find_method_overload(AggregateDeclaration* ad, Identifier* id, TypeFunction* tf, Module* mod)
+{
+    Dsymbol *s = search_function(ad, id);
+    FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
+    if (fdx)
+    {
+        FuncDeclaration *fd = fdx->overloadExactMatch(tf, mod);
+        if (fd)
+        {
+            return fd;
+        }
+    }
+    return NULL;
+}
+
 void TypeInfoStructDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
@@ -565,190 +580,82 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 
     sd->codegen(Type::sir);
+    IrStruct* irstruct = sd->ir.irStruct;
 
-    ClassDeclaration* base = Type::typeinfostruct;
-    base->codegen(Type::sir);
-
-    const LLStructType* stype = isaStruct(base->type->irtype->getPA());
-
-    // vtbl
-    std::vector<LLConstant*> sinits;
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
+    TypeInfoBuilder b(Type::typeinfostruct);
 
     // char[] name
-    char *name = sd->toPrettyChars();
-    sinits.push_back(DtoConstString(name));
-    //Logger::println("************** A");
-    assert(sinits.back()->getType() == stype->getElementType(2));
+    b.push_string(sd->toPrettyChars());
 
     // void[] init
-    const LLPointerType* initpt = getPtrToType(LLType::Int8Ty);
-#if 0
-    // the implementation of TypeInfo_Struct uses this to determine size. :/
-    if (sd->zeroInit) // 0 initializer, or the same as the base type
-    {
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(0), llvm::ConstantPointerNull::get(initpt)));
-    }
-    else
-#endif
-    {
-        size_t cisize = getTypeStoreSize(tc->irtype->getPA().get());
-        LLConstant* cicast = llvm::ConstantExpr::getBitCast(sd->ir.irStruct->getInitSymbol(), initpt);
-        sinits.push_back(DtoConstSlice(DtoConstSize_t(cisize), cicast));
-    }
+    // never emit a null array, even for zero initialized typeinfo
+    // the size() method uses this array!
+    size_t init_size = getTypeStoreSize(tc->irtype->getPA());
+    b.push_void_array(init_size, irstruct->getInitSymbol());
 
     // toX functions ground work
-    FuncDeclaration *fd;
-    FuncDeclaration *fdx;
-    TypeFunction *tf;
-    Type *ta;
-    Dsymbol *s;
-
     static TypeFunction *tftohash;
     static TypeFunction *tftostring;
 
     if (!tftohash)
     {
-    Scope sc;
-
-    tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
-    tftohash = (TypeFunction *)tftohash->semantic(0, &sc);
-
-    tftostring = new TypeFunction(NULL, Type::tchar->arrayOf(), 0, LINKd);
-    tftostring = (TypeFunction *)tftostring->semantic(0, &sc);
+        Scope sc;
+        tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
+        tftohash = (TypeFunction *)tftohash->semantic(0, &sc);
+        tftostring = new TypeFunction(NULL, Type::tchar->arrayOf(), 0, LINKd);
+        tftostring = (TypeFunction *)tftostring->semantic(0, &sc);
     }
 
+    // this one takes a parameter, so we need to build a new one each time
+    // to get the right type. can we avoid this?
     TypeFunction *tfeqptr;
     {
-    Scope sc;
-    Arguments *arguments = new Arguments;
-    Argument *arg = new Argument(STCin, tc->pointerTo(), NULL, NULL);
-
-    arguments->push(arg);
-    tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-    tfeqptr = (TypeFunction *)tfeqptr->semantic(0, &sc);
+        Scope sc;
+        Arguments *arguments = new Arguments;
+        Argument *arg = new Argument(STCin, tc->pointerTo(), NULL, NULL);
+        arguments->push(arg);
+        tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
+        tfeqptr = (TypeFunction *)tfeqptr->semantic(0, &sc);
     }
 
-#if 0
-    TypeFunction *tfeq;
-    {
-    Scope sc;
-    Array *arguments = new Array;
-    Argument *arg = new Argument(In, tc, NULL, NULL);
+    // well use this module for all overload lookups
+    Module *gm = getModule();
 
-    arguments->push(arg);
-    tfeq = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-    tfeq = (TypeFunction *)tfeq->semantic(0, &sc);
-    }
-#endif
+    // toHash
+    FuncDeclaration* fd = find_method_overload(sd, Id::tohash, tftohash, gm);
+    b.push_funcptr(fd);
 
-    //Logger::println("************** B");
-    const LLPointerType* ptty = isaPointer(stype->getElementType(4));
-    assert(ptty);
+    // opEquals
+    fd = find_method_overload(sd, Id::eq, tfeqptr, gm);
+    b.push_funcptr(fd);
 
-    s = search_function(sd, Id::tohash);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    if (fdx)
-    {
-        fd = fdx->overloadExactMatch(tftohash, getModule());
-        if (fd) {
-            fd->codegen(Type::sir);
-            assert(fd->ir.irFunc->func != 0);
-            LLConstant* c = isaConstant(fd->ir.irFunc->func);
-            assert(c);
-            c = llvm::ConstantExpr::getBitCast(c, ptty);
-            sinits.push_back(c);
-        }
-        else {
-            //fdx->error("must be declared as extern (D) uint toHash()");
-            sinits.push_back(llvm::ConstantPointerNull::get(ptty));
-        }
-    }
-    else {
-        sinits.push_back(llvm::ConstantPointerNull::get(ptty));
-    }
+    // opCmp
+    fd = find_method_overload(sd, Id::cmp, tfeqptr, gm);
+    b.push_funcptr(fd);
 
-    s = search_function(sd, Id::eq);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    for (int i = 0; i < 2; i++)
-    {
-        //Logger::println("************** C %d", i);
-        ptty = isaPointer(stype->getElementType(5+i));
-        if (fdx)
-        {
-            fd = fdx->overloadExactMatch(tfeqptr, getModule());
-            if (fd) {
-                fd->codegen(Type::sir);
-                assert(fd->ir.irFunc->func != 0);
-                LLConstant* c = isaConstant(fd->ir.irFunc->func);
-                assert(c);
-                c = llvm::ConstantExpr::getBitCast(c, ptty);
-                sinits.push_back(c);
-            }
-            else {
-                //fdx->error("must be declared as extern (D) int %s(%s*)", fdx->toChars(), sd->toChars());
-                sinits.push_back(llvm::ConstantPointerNull::get(ptty));
-            }
-        }
-        else {
-            sinits.push_back(llvm::ConstantPointerNull::get(ptty));
-        }
-
-        s = search_function(sd, Id::cmp);
-        fdx = s ? s->isFuncDeclaration() : NULL;
-    }
-
-    //Logger::println("************** D");
-    ptty = isaPointer(stype->getElementType(7));
-    s = search_function(sd, Id::tostring);
-    fdx = s ? s->isFuncDeclaration() : NULL;
-    if (fdx)
-    {
-        fd = fdx->overloadExactMatch(tftostring, getModule());
-        if (fd) {
-            fd->codegen(Type::sir);
-            assert(fd->ir.irFunc->func != 0);
-            LLConstant* c = isaConstant(fd->ir.irFunc->func);
-            assert(c);
-            c = llvm::ConstantExpr::getBitCast(c, ptty);
-            sinits.push_back(c);
-        }
-        else {
-            //fdx->error("must be declared as extern (D) char[] toString()");
-            sinits.push_back(llvm::ConstantPointerNull::get(ptty));
-        }
-    }
-    else {
-        sinits.push_back(llvm::ConstantPointerNull::get(ptty));
-    }
+    // toString
+    fd = find_method_overload(sd, Id::tostring, tftostring, gm);
+    b.push_funcptr(fd);
 
     // uint m_flags;
-    sinits.push_back(DtoConstUint(tc->hasPointers()));
+    unsigned hasptrs = tc->hasPointers() ? 1 : 0;
+    b.push_uint(hasptrs);
 
 #if DMDV2
+    // just (void*)null for now
 
     // const(MemberInfo[]) function(in char[]) xgetMembers;
-    sinits.push_back(LLConstant::getNullValue(stype->getElementType(sinits.size())));
+    b.push_null_vp();
 
     //void function(void*)                    xdtor;
-    sinits.push_back(LLConstant::getNullValue(stype->getElementType(sinits.size())));
+    b.push_null_vp();
 
     //void function(void*)                    xpostblit;
-    sinits.push_back(LLConstant::getNullValue(stype->getElementType(sinits.size())));
-
+    b.push_null_vp();
 #endif
 
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */

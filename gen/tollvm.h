@@ -50,7 +50,7 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i0, const char* var=NULL, llvm::BasicBl
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var=NULL, llvm::BasicBlock* bb=NULL);
 
 // to constant helpers
-LLConstantInt* DtoConstSize_t(size_t);
+LLConstantInt* DtoConstSize_t(uint64_t);
 LLConstantInt* DtoConstUint(unsigned i);
 LLConstantInt* DtoConstInt(int i);
 LLConstantInt* DtoConstUbyte(unsigned char i);

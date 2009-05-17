@@ -22,12 +22,17 @@ struct TypeInfoBuilder
 
     void push(llvm::Constant* C);
     void push_null_vp();
+    void push_null_void_array();
+    void push_uint(unsigned u);
+    void push_size(uint64_t s);
+    void push_string(const char* str);
     void push_typeinfo(Type* t);
     void push_classinfo(ClassDeclaration* cd);
-    void push_string(const char* str);
-    void push_null_void_array();
+    void push_funcptr(FuncDeclaration* fd);
     void push_void_array(size_t dim, llvm::Constant* ptr);
     void push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* sym);
+
+    /// Creates the initializer constant and assigns it to the global.
     void finalize(IrGlobal* tid);
 };
 

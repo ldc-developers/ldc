@@ -80,6 +80,30 @@ void TypeInfoBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol
     push_void_array(dim, G);
 }
 
+void TypeInfoBuilder::push_uint(unsigned u)
+{
+    inits.push_back(DtoConstUint(u));
+}
+
+void TypeInfoBuilder::push_size(uint64_t s)
+{
+    inits.push_back(DtoConstSize_t(s));
+}
+
+void TypeInfoBuilder::push_funcptr(FuncDeclaration* fd)
+{
+    if (fd)
+    {
+        fd->codegen(Type::sir);
+        LLConstant* F = fd->ir.irFunc->func;
+        inits.push_back(F);
+    }
+    else
+    {
+        push_null_vp();
+    }
+}
+
 void TypeInfoBuilder::finalize(IrGlobal* tid)
 {
     // create the inititalizer

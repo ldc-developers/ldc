@@ -489,7 +489,7 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::ConstantInt* DtoConstSize_t(size_t i)
+llvm::ConstantInt* DtoConstSize_t(uint64_t i)
 {
     return llvm::ConstantInt::get(DtoSize_t(), i, false);
 }
