@@ -1012,6 +1012,10 @@ void PragmaDeclaration::semantic(Scope *sc)
 	    {
 		for (size_t i = 0; i < args->dim; i++)
 		{
+                    // ignore errors in ignored pragmas.
+                    global.gag++;
+                    unsigned errors_save = global.errors;
+
 		    Expression *e = (Expression *)args->data[i];
 		    e = e->semantic(sc);
 		    e = e->optimize(WANTvalue | WANTinterpret);
@@ -1020,13 +1024,16 @@ void PragmaDeclaration::semantic(Scope *sc)
 		    else
 			printf(",");
 		    printf("%s", e->toChars());
+
+                    // restore error state.
+                    global.gag--;
+                    global.errors = errors_save;
 		}
 		if (args->dim)
 		    printf(")");
 	    }
 	    printf("\n");
 	}
-	goto Lnodecl;
     }
     else
 	error("unrecognized pragma(%s)", ident->toChars());
