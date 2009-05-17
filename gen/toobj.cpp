@@ -235,7 +235,15 @@ void writeModule(llvm::Module* m, std::string filename)
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), false, err);
-            write_asm_to_file(*gTargetMachine, *m, out);
+            if (err.empty())
+            {
+                write_asm_to_file(*gTargetMachine, *m, out);
+            }
+            else
+            {
+                error("cannot write native asm: %s", err.c_str());
+                fatal();
+            }
         }
 
         // call gcc to convert assembly to object file
