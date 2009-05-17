@@ -60,24 +60,44 @@ void TypeInfoBuilder::push_null_void_array()
     inits.push_back(getNullValue(T));
 }
 
-void TypeInfoBuilder::push_void_array(size_t dim, llvm::Constant* ptr)
+void TypeInfoBuilder::push_void_array(uint64_t dim, llvm::Constant* ptr)
 {
     inits.push_back(DtoConstSlice(
         DtoConstSize_t(dim),
-        DtoBitCast(ptr, getVoidPtrType())));
+        DtoBitCast(ptr, getVoidPtrType())
+        ));
 }
 
-void TypeInfoBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* sym)
+void TypeInfoBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym)
 {
-    std::string initname(sym->mangle());
-    initname.append("13__defaultInitZ");
+    std::string initname(mangle_sym->mangle());
+    initname.append(".rtti.void[].data");
 
     LLGlobalVariable* G = new llvm::GlobalVariable(
         CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname, gIR->module);
     G->setAlignment(valtype->alignsize());
 
     size_t dim = getTypePaddedSize(CI->getType());
+    LLConstant* ptr = DtoBitCast(CI, DtoType(valtype->pointerTo()));
+
     push_void_array(dim, G);
+}
+
+void TypeInfoBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, Dsymbol * mangle_sym)
+{
+    std::string initname(mangle_sym?mangle_sym->mangle():".ldc");
+    initname.append(".rtti.");
+    initname.append(valtype->arrayOf()->toChars());
+    initname.append(".data");
+
+    LLGlobalVariable* G = new llvm::GlobalVariable(
+        CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname, gIR->module);
+    G->setAlignment(valtype->alignsize());
+
+    inits.push_back(DtoConstSlice(
+        DtoConstSize_t(dim),
+        DtoBitCast(CI, DtoType(valtype->pointerTo()))
+        ));
 }
 
 void TypeInfoBuilder::push_uint(unsigned u)

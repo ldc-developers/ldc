@@ -707,65 +707,33 @@ void TypeInfoTupleDeclaration::llvmDefine()
     Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    // init typeinfo class
-    ClassDeclaration* base = Type::typeinfotypelist;
-    assert(base);
-    base->codegen(Type::sir);
-
-    // get type of typeinfo class
-    const LLStructType* stype = isaStruct(base->type->irtype->getPA());
-
-    // initializer vector
-    std::vector<LLConstant*> sinits;
-    // first is always the vtable
-    sinits.push_back(base->ir.irStruct->getVtblSymbol());
-
-    // monitor
-    sinits.push_back(llvm::ConstantPointerNull::get(getPtrToType(LLType::Int8Ty)));
-
     // create elements array
     assert(tinfo->ty == Ttuple);
     TypeTuple *tu = (TypeTuple *)tinfo;
 
     size_t dim = tu->arguments->dim;
     std::vector<LLConstant*> arrInits;
+    arrInits.reserve(dim);
 
-    const LLType* tiTy = Type::typeinfo->type->irtype->getPA();
-    tiTy = getPtrToType(tiTy);
+    const LLType* tiTy = DtoType(Type::typeinfo->type);
 
     for (size_t i = 0; i < dim; i++)
     {
         Argument *arg = (Argument *)tu->arguments->data[i];
-        LLConstant* castbase = DtoTypeInfoOf(arg->type, true);
-        assert(castbase->getType() == tiTy);
-        arrInits.push_back(castbase);
+        arrInits.push_back(DtoTypeInfoOf(arg->type, true));
     }
 
-    // build array type
+    // build array
     const LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
     LLConstant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
 
-    // need the pointer to the first element of arrC, so create a global for it
-    llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,_linkage,arrC,".tupleelements",gIR->module);
+    TypeInfoBuilder b(Type::typeinfotypelist);
 
-    // get pointer to first element
-    llvm::ConstantInt* zero = DtoConstSize_t(0);
-    LLConstant* idxs[2] = { zero, zero };
-    LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, 2);
+    // push TypeInfo[]
+    b.push_array(arrC, dim, Type::typeinfo->type, NULL);
 
-    // build the slice
-    LLConstant* slice = DtoConstSlice(DtoConstSize_t(dim), arrptr);
-    sinits.push_back(slice);
-
-    // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(sinits);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(ir.irGlobal->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(ir.irGlobal->value)->setInitializer(tiInit);
+    // finish
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */

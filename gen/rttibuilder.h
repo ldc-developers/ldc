@@ -6,6 +6,7 @@
 
 struct ClassDeclaration;
 struct TypeClass;
+struct Type;
 
 struct IrStruct;
 
@@ -29,8 +30,9 @@ struct TypeInfoBuilder
     void push_typeinfo(Type* t);
     void push_classinfo(ClassDeclaration* cd);
     void push_funcptr(FuncDeclaration* fd);
-    void push_void_array(size_t dim, llvm::Constant* ptr);
-    void push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* sym);
+    void push_void_array(uint64_t dim, llvm::Constant* ptr);
+    void push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym);
+    void push_array(llvm::Constant* CI, uint64_t dim, Type* valtype, Dsymbol* mangle_sym);
 
     /// Creates the initializer constant and assigns it to the global.
     void finalize(IrGlobal* tid);
