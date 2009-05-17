@@ -663,6 +663,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //         void *deallocator;
 //         OffsetTypeInfo[] offTi;
 //         void *defaultConstructor;
+//         TypeInfo typeinfo; // since dmd 1.045
 //        }
 
     Logger::println("DtoDefineClassInfo(%s)", cd->toChars());

@@ -17,7 +17,7 @@ struct RTTIBuilder
     IrStruct* baseir;
 
     // 10 is enough for any D1 typeinfo
-    llvm::SmallVector<llvm::Constant*, 10> inits;
+    llvm::SmallVector<llvm::Constant*, 14> inits;
 
     RTTIBuilder(ClassDeclaration* base_class);
 
