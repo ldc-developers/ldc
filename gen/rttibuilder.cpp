@@ -34,6 +34,11 @@ void RTTIBuilder::push(llvm::Constant* C)
     inits.push_back(C);
 }
 
+void RTTIBuilder::push_null(Type* T)
+{
+    inits.push_back(getNullValue(DtoType(T)));
+}
+
 void RTTIBuilder::push_null_vp()
 {
     inits.push_back(getNullValue(getVoidPtrType()));
@@ -77,10 +82,7 @@ void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* ma
         CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname, gIR->module);
     G->setAlignment(valtype->alignsize());
 
-    size_t dim = getTypePaddedSize(CI->getType());
-    LLConstant* ptr = DtoBitCast(CI, DtoType(valtype->pointerTo()));
-
-    push_void_array(dim, G);
+    push_void_array(getTypePaddedSize(CI->getType()), G);
 }
 
 void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, Dsymbol * mangle_sym)
@@ -94,10 +96,12 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
         CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname, gIR->module);
     G->setAlignment(valtype->alignsize());
 
-    inits.push_back(DtoConstSlice(
-        DtoConstSize_t(dim),
-        DtoBitCast(CI, DtoType(valtype->pointerTo()))
-        ));
+    push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));
+}
+
+void RTTIBuilder::push_array(uint64_t dim, llvm::Constant * ptr)
+{
+    inits.push_back(DtoConstSlice(DtoConstSize_t(dim), ptr));
 }
 
 void RTTIBuilder::push_uint(unsigned u)
@@ -110,13 +114,19 @@ void RTTIBuilder::push_size(uint64_t s)
     inits.push_back(DtoConstSize_t(s));
 }
 
-void RTTIBuilder::push_funcptr(FuncDeclaration* fd)
+void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
 {
     if (fd)
     {
         fd->codegen(Type::sir);
         LLConstant* F = fd->ir.irFunc->func;
+        if (castto)
+            F = DtoBitCast(F, DtoType(castto));
         inits.push_back(F);
+    }
+    else if (castto)
+    {
+        push_null(castto);
     }
     else
     {
@@ -134,4 +144,10 @@ void RTTIBuilder::finalize(IrGlobal* tid)
 
     // set the initializer
     isaGlobalVar(tid->value)->setInitializer(tiInit);
+}
+
+LLConstant* RTTIBuilder::get_constant()
+{
+    // just return the inititalizer
+    return llvm::ConstantStruct::get(&inits[0], inits.size(), false);
 }

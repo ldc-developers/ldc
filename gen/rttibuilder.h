@@ -22,6 +22,7 @@ struct RTTIBuilder
     RTTIBuilder(ClassDeclaration* base_class);
 
     void push(llvm::Constant* C);
+    void push_null(Type* T);
     void push_null_vp();
     void push_null_void_array();
     void push_uint(unsigned u);
@@ -29,13 +30,33 @@ struct RTTIBuilder
     void push_string(const char* str);
     void push_typeinfo(Type* t);
     void push_classinfo(ClassDeclaration* cd);
-    void push_funcptr(FuncDeclaration* fd);
+
+    /// pushes the function pointer or a null void* if it cannot.
+    void push_funcptr(FuncDeclaration* fd, Type* castto = NULL);
+
+    /// pushes the array slice given.
+    void push_array(uint64_t dim, llvm::Constant * ptr);
+
+    /// pushes void[] slice, dim is used directly, ptr is cast to void* .
     void push_void_array(uint64_t dim, llvm::Constant* ptr);
+
+    /// pushes void[] slice with data.
+    /// CI is the constant initializer the array should point to, the length
+    /// and ptr are resolved automatically
     void push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym);
+
+    /// pushes valtype[] slice with data.
+    /// CI is the constant initializer that .ptr should point to
+    /// dim is .length member directly
+    /// valtype provides the D element type, .ptr is cast to valtype->pointerTo()
+    /// mangle_sym provides the mangle prefix for the symbol generated.
     void push_array(llvm::Constant* CI, uint64_t dim, Type* valtype, Dsymbol* mangle_sym);
 
     /// Creates the initializer constant and assigns it to the global.
     void finalize(IrGlobal* tid);
+
+    /// Creates the initializer constant and assigns it to the global.
+    llvm::Constant* get_constant();
 };
 
 #endif
