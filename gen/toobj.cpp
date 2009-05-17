@@ -210,6 +210,11 @@ void writeModule(llvm::Module* m, std::string filename)
         bcpath.appendSuffix(std::string(global.bc_ext));
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::ofstream bos(bcpath.c_str(), std::ios::binary);
+        if (bos.fail())
+        {
+            error("cannot write LLVM bitcode, failed to open file '%s'", bcpath.c_str());
+            fatal();
+        }
         llvm::WriteBitcodeToFile(m, bos);
     }
 
@@ -220,6 +225,11 @@ void writeModule(llvm::Module* m, std::string filename)
         llpath.appendSuffix(std::string(global.ll_ext));
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::ofstream aos(llpath.c_str());
+        if (aos.fail())
+        {
+            error("cannot write LLVM asm, failed to open file '%s'", llpath.c_str());
+            fatal();
+        }
         m->print(aos, NULL);
     }
 
