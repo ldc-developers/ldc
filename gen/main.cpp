@@ -36,6 +36,7 @@
 #include "gen/linker.h"
 #include "gen/irstate.h"
 #include "gen/toobj.h"
+#include "gen/metadata.h"
 #include "gen/passes/Passes.h"
 
 #include "gen/cl_options.h"
@@ -871,12 +872,14 @@ int main(int argc, char** argv)
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)
         {
+#ifdef USE_METADATA
             //FIXME: workaround for llvm metadata bug:
             //  the LinkInModule call asserts with metadata unstripped
             llvm::ModulePass* stripMD = createStripMetaData();
             stripMD->runOnModule(*llvmModules[i]);
             delete stripMD;
-        
+#endif
+            
             if(linker.LinkInModule(llvmModules[i], &errormsg))
                 error("%s", errormsg.c_str());
             delete llvmModules[i];
