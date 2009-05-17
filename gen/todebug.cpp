@@ -215,6 +215,28 @@ static llvm::DIDerivedType dwarfMemberType(unsigned linnum, Type* type, llvm::DI
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static void add_base_fields(
+    ClassDeclaration* sd,
+    llvm::DICompileUnit compileUnit,
+    llvm::DICompileUnit definedCU,
+    std::vector<LLConstant*>& elems)
+{
+    if (sd->baseClass)
+    {
+        add_base_fields(sd->baseClass, compileUnit, definedCU, elems);
+    }
+
+    ArrayIter<VarDeclaration> it(sd->fields);
+    size_t narr = sd->fields.dim;
+    elems.reserve(narr);
+    for (; !it.done(); it.next())
+    {
+        VarDeclaration* vd = it.get();
+        LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset).getGV();
+        elems.push_back(DBG_CAST(ptr));
+    }
+}
+
 //FIXME: This does not use llvm's DIFactory as it can't 
 //   handle recursive types properly.
 static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit compileUnit)
@@ -301,14 +323,21 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         std::vector<LLConstant*> elems;
         if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
         {
-            ArrayIter<VarDeclaration> it(sd->fields);
-            size_t narr = sd->fields.dim;
-            elems.reserve(narr);
-            for (; !it.done(); it.next())
+            if (t->ty == Tstruct)
             {
-                VarDeclaration* vd = it.get();
-                LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset).getGV();
-                elems.push_back(DBG_CAST(ptr));
+                ArrayIter<VarDeclaration> it(sd->fields);
+                size_t narr = sd->fields.dim;
+                elems.reserve(narr);
+                for (; !it.done(); it.next())
+                {
+                    VarDeclaration* vd = it.get();
+                    LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset).getGV();
+                    elems.push_back(DBG_CAST(ptr));
+                }
+            }
+            else
+            {
+                add_base_fields(ir->aggrdecl->isClassDeclaration(), compileUnit, definedCU, elems);
             }
         }
 
