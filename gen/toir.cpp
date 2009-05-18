@@ -407,6 +407,7 @@ DValue* StringExp::toElem(IRState* p)
     else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
         std::vector<LLConstant*> vals;
+        vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
             vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
         }
@@ -416,6 +417,7 @@ DValue* StringExp::toElem(IRState* p)
     else if (cty->size() == 4) {
         uint32_t* str = (uint32_t*)string;
         std::vector<LLConstant*> vals;
+        vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
             vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
         }
@@ -476,6 +478,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
         std::vector<LLConstant*> vals;
+        vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
             vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
         }
@@ -486,6 +489,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     else if (cty->size() == 4) {
         uint32_t* str = (uint32_t*)string;
         std::vector<LLConstant*> vals;
+        vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
             vals.push_back(llvm::ConstantInt::get(ct, str[i], false));;
         }
