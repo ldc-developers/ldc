@@ -315,7 +315,7 @@ char *Port::strupr(char *s)
 
 #endif
 
-#if linux || __APPLE__ || __FreeBSD__
+#if linux || __APPLE__ || __FreeBSD__ || __MINGW32__
 
 #include <math.h>
 #if linux
@@ -363,11 +363,15 @@ PortInitializer::PortInitializer()
 #endif
 }
 
+#ifndef __MINGW32__
 #undef isnan
+#endif
 int Port::isNan(double r)
 {
 #if __APPLE__
     return __inline_isnan(r);
+#elif defined __MINGW32__
+    return isnan(r);
 #else
     return ::isnan(r);
 #endif
@@ -377,6 +381,8 @@ int Port::isNan(long double r)
 {
 #if __APPLE__
     return __inline_isnan(r);
+#elif defined __MINGW32__
+    return isnan(r);
 #else
     return ::isnan(r);
 #endif
@@ -404,11 +410,15 @@ int Port::isFinite(double r)
     return ::finite(r);
 }
 
+#ifndef __MINGW32__
 #undef isinf
+#endif
 int Port::isInfinity(double r)
 {
 #if __APPLE__
     return fpclassify(r) == FP_INFINITE;
+#elif defined __MINGW32__
+    return isinf(r);
 #else
     return ::isinf(r);
 #endif
@@ -443,7 +453,11 @@ char *Port::ull_to_string(char *buffer, ulonglong ull)
 
 wchar_t *Port::ull_to_string(wchar_t *buffer, ulonglong ull)
 {
+#ifndef __MINGW32__
     swprintf(buffer, sizeof(ulonglong) * 3 + 1, L"%llu", ull);
+#else
+   _snwprintf(buffer, sizeof(ulonglong) * 3 + 1, L"%llu", ull);
+#endif
     return buffer;
 }
 
