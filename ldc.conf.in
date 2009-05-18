@@ -1,6 +1,10 @@
 // This configuration file uses libconfig.
 // See http://www.hyperrealm.com/libconfig/ for syntax details.
 
+// Special macros:
+// %%ldcbinarydir%%
+//  - is replaced with the path to the directory holding the ldc executable
+
 // The default group is required
 default:
 {
