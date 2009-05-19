@@ -11,13 +11,14 @@ alias typeof(int.sizeof)                    size_t;
 alias typeof(cast(void*)0 - cast(void*)0)   ptrdiff_t;
 
 alias size_t hash_t;
+alias int equals_t;
 
 class Object
 {
     char[] toString();
     hash_t toHash();
     int    opCmp(Object o);
-    int    opEquals(Object o);
+    equals_t    opEquals(Object o);
 
     interface Monitor
     {
@@ -47,9 +48,11 @@ class ClassInfo : Object
     // 2:       // has no possible pointers into GC memory
     // 4:       // has offTi[] member
     // 8:       // has constructors
+    // 32:      // has typeinfo    
     void*       deallocator;
     OffsetTypeInfo[] offTi;
     void*       defaultConstructor;
+    TypeInfo typeinfo;
 
     static ClassInfo find(char[] classname);
     Object create();
@@ -64,7 +67,7 @@ struct OffsetTypeInfo
 class TypeInfo
 {
     hash_t   getHash(void *p);
-    int      equals(void *p1, void *p2);
+    equals_t equals(void *p1, void *p2);
     int      compare(void *p1, void *p2);
     size_t   tsize();
     void     swap(void *p1, void *p2);
@@ -165,12 +168,30 @@ class ModuleInfo
 
 class Exception : Object
 {
+    struct FrameInfo{
+        long line;
+        ptrdiff_t iframe;
+        ptrdiff_t offset;
+        size_t address;
+        char[] file;
+        char[] func;
+        char[256] charBuf;
+        void writeOut(void delegate(char[])sink);
+    }
+    interface TraceInfo
+    {
+        int opApply( int delegate( ref FrameInfo fInfo) );
+    }
+
     char[]      msg;
     char[]      file;
-    size_t      line;
+    size_t      line;  // long would be better
+    TraceInfo   info;
     Exception   next;
 
+    this(char[] msg, char[] file, long line, Exception next, TraceInfo info );
     this(char[] msg, Exception next = null);
-    this(char[] msg, char[] file, size_t line, Exception next = null);
+    this(char[] msg, char[] file, long line, Exception next = null);
     char[] toString();
+    void writeOut(void delegate(char[]) sink);
 }
