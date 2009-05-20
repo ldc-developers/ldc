@@ -575,7 +575,7 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
 	if (haliassym)
 	{
-	    haliassym->toCBuffer(buf, hgs);
+	    buf->writestring(haliassym->toChars());
 	    buf->writeByte(' ');
 	    buf->writestring(ident->toChars());
 	}
@@ -587,7 +587,7 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
 	if (aliassym)
 	{
-	    aliassym->toCBuffer(buf, hgs);
+	    buf->writestring(aliassym->toChars());
 	    buf->writeByte(' ');
 	    buf->writestring(ident->toChars());
 	}

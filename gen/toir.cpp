@@ -1774,7 +1774,7 @@ DValue* AssertExp::toElem(IRState* p)
         condty->ty == Tclass &&
         !((TypeClass*)condty)->sym->isInterfaceDeclaration())
     {
-        Logger::print("calling class invariant");
+        Logger::println("calling class invariant");
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_invariant");
         LLValue* arg = DtoBitCast(cond->getRVal(), fn->getFunctionType()->getParamType(0));
         gIR->CreateCallOrInvoke(fn, arg);
