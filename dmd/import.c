@@ -116,6 +116,25 @@ void Import::load(Scope *sc)
     //printf("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
 }
 
+char* escapePath(char* fname, char* buffer, int bufLen) {
+    char* res = buffer;
+    bufLen -= 2;    // for \0 and an occasional escape char
+    int dst = 0;
+    for (; dst < bufLen && *fname; ++dst, ++fname) {
+	switch (*fname) {
+	    case '(':
+	    case ')':
+	    case '\\':
+		    buffer[dst++] = '\\';
+		    // fall through
+
+	    default:
+		    buffer[dst] = *fname;
+	}
+    }
+    buffer[dst] = '\0';
+    return buffer;
+}
 
 void Import::semantic(Scope *sc)
 {
@@ -169,6 +188,68 @@ void Import::semantic(Scope *sc)
 	sc = sc->pop();
     }
     //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
+
+
+    if (global.params.moduleDeps != NULL) {
+	char fnameBuf[262];		// MAX_PATH+2
+
+	OutBuffer *const ob = global.params.moduleDeps;
+	ob->printf("%s (%s) : ",
+	    sc->module->toPrettyChars(),
+	    escapePath(sc->module->srcfile->toChars(), fnameBuf, sizeof(fnameBuf) / sizeof(*fnameBuf))
+	);
+
+	char* protStr = "";
+	switch (sc->protection) {
+	    case PROTpublic: protStr = "public"; break;
+	    case PROTprivate: protStr = "private"; break;
+	    case PROTpackage: protStr = "package"; break;
+	    default: break;
+	}
+	ob->writestring(protStr);
+	if (isstatic) {
+	    ob->writestring(" static");
+	}
+	ob->writestring(" : ");
+
+	if (this->packages) {
+	    for (size_t i = 0; i < this->packages->dim; i++) {
+		Identifier *pid = (Identifier *)this->packages->data[i];
+		ob->printf("%s.", pid->toChars());
+	    }
+	}
+
+	ob->printf("%s (%s)",
+	    this->id->toChars(),
+	    mod ? escapePath(mod->srcfile->toChars(), fnameBuf, sizeof(fnameBuf) / sizeof(*fnameBuf)) : "???"
+	);
+
+	if (aliasId) {
+	    ob->printf(" -> %s", aliasId->toChars());
+	} else {
+	    if (names.dim > 0) {
+		ob->writestring(" : ");
+		for (size_t i = 0; i < names.dim; i++)
+		{
+		    if (i > 0) {
+			ob->writebyte(',');
+		    }
+
+		    Identifier *name = (Identifier *)names.data[i];
+		    Identifier *alias = (Identifier *)aliases.data[i];
+
+		    if (!alias) {
+			ob->printf("%s", name->toChars());
+			alias = name;
+		    } else {
+			ob->printf("%s=%s", alias->toChars(), name->toChars());
+		    }
+		}
+	    }
+	}
+
+	ob->writenl();
+    }
 }
 
 void Import::semantic2(Scope *sc)
@@ -260,7 +341,27 @@ void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	    buf->printf("%s.", pid->toChars());
 	}
     }
-    buf->printf("%s;", id->toChars());
+    buf->printf("%s", id->toChars());
+    if (names.dim > 0) {
+	buf->writebyte(':');
+	for (size_t i = 0; i < names.dim; i++)
+	{
+	    if (i > 0) {
+		    buf->writebyte(',');
+	    }
+
+	    Identifier *name = (Identifier *)names.data[i];
+	    Identifier *alias = (Identifier *)aliases.data[i];
+
+	    if (!alias) {
+		buf->printf("%s", name->toChars());
+		alias = name;
+	    } else {
+		buf->printf("%s=%s", alias->toChars(), name->toChars());
+	    }
+	}
+    }
+    buf->writebyte(';');
     buf->writenl();
 }
 

@@ -200,6 +200,11 @@ static cl::list<std::string, ArrayAdapter> linkerSwitches("L",
     cl::Prefix);
 
 
+cl::opt<std::string> moduleDepsFile("deps",
+    cl::desc("Write module dependencies to filename"),
+    cl::value_desc("filename"));
+    
+
 cl::opt<const llvm::TargetMachineRegistry::entry*, false,
         llvm::RegistryParser<llvm::TargetMachine> > mArch("march",
     cl::desc("Architecture to generate code for:"));

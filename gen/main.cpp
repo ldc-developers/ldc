@@ -143,7 +143,9 @@ int main(int argc, char** argv)
     global.params.libfiles = new Array();
     global.params.objfiles = new Array();
     global.params.ddocfiles = new Array();
-
+    
+    global.params.moduleDeps = NULL;
+    global.params.moduleDepsFile = NULL;
 
     // Set predefined version identifiers
     VersionCondition::addPredefinedGlobalIdent("LLVM");
@@ -221,6 +223,12 @@ int main(int argc, char** argv)
     global.params.doHdrGeneration |=
         global.params.hdrdir || global.params.hdrname;
 #endif
+
+    initFromString(global.params.moduleDepsFile, moduleDepsFile);
+    if (global.params.moduleDepsFile != NULL) 
+    { 
+         global.params.moduleDeps = new OutBuffer; 
+    }
 
     processVersions(debugArgs, "debug",
         DebugCondition::setGlobalLevel,
@@ -829,6 +837,17 @@ int main(int argc, char** argv)
 #endif
     if (global.errors)
         fatal();
+
+    // write module dependencies to file if requested
+    if (global.params.moduleDepsFile != NULL) 
+    { 
+        assert (global.params.moduleDepsFile != NULL);
+
+        File deps(global.params.moduleDepsFile);
+        OutBuffer* ob = global.params.moduleDeps; 
+        deps.setbuffer((void*)ob->data, ob->offset);
+        deps.write();
+    }
 
     // collects llvm modules to be linked if singleobj is passed
     std::vector<llvm::Module*> llvmModules;

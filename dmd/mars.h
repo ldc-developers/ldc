@@ -117,6 +117,7 @@ the target object file format:
 
 
 struct Array;
+struct OutBuffer;
 
 // LDC
 enum ARCH
@@ -204,7 +205,10 @@ struct Param
     Array *debuglibnames;	// default libraries for debug builds
 
     const char *xmlname;	// filename for XML output
-
+    
+    OutBuffer *moduleDeps;	// buffer and filename for emitting module deps
+    char *moduleDepsFile;
+    
     // Hidden debug switches
     bool debuga;
     bool debugb;

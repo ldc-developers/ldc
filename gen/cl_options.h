@@ -35,6 +35,7 @@ namespace opts {
     extern cl::opt<std::string> hdrFile;
 #endif
     extern cl::list<std::string> versions;
+    extern cl::opt<std::string> moduleDepsFile;
 
     extern cl::opt<const llvm::TargetMachineRegistry::entry*, false,
                     llvm::RegistryParser<llvm::TargetMachine> > mArch;
