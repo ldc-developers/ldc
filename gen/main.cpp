@@ -811,7 +811,6 @@ int main(int argc, char** argv)
          */
         if (!global.params.useArrayBounds && !global.params.useAssert)
         {
-#endif
             // Do pass 3 semantic analysis on all imported modules,
             // since otherwise functions in them cannot be inlined
             for (int i = 0; i < Module::amodules.dim; i++)
@@ -823,7 +822,6 @@ int main(int argc, char** argv)
             }
             if (global.errors)
                 fatal();
-#if !IN_LLVM
         }
 
         for (int i = 0; i < modules.dim; i++)
@@ -834,9 +832,9 @@ int main(int argc, char** argv)
             m->inlineScan();
         }
     }
-#endif
     if (global.errors)
         fatal();
+#endif
 
     // write module dependencies to file if requested
     if (global.params.moduleDepsFile != NULL) 

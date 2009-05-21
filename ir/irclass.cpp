@@ -120,7 +120,9 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
     std::string name("_D");
     name.append(cd->mangle());
     name.append("16__interfaceInfosZ");
-    classInterfacesArray = new llvm::GlobalVariable(array_type, true, DtoLinkage(cd), NULL, name, classInfo);
+
+    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
+    classInterfacesArray = new llvm::GlobalVariable(array_type, true, _linkage, NULL, name, classInfo);
 
     return classInterfacesArray;
 }
