@@ -145,7 +145,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             argtype = ltd;
         }
         // byval
-        else if (abi->passByVal(argtype))
+        else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
             if (!byref) a |= llvm::Attribute::ByVal;
             byref = true;
