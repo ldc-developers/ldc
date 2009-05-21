@@ -7,7 +7,7 @@
 #  define TYPEINFO_LINKAGE_TYPE         llvm::GlobalValue::LinkOnceODRLinkage
 // The One-Definition-Rule shouldn't matter for debug info, right?
 #  define DEBUGINFO_LINKONCE_LINKAGE_TYPE \
-                                        llvm::GlobalValue::WeakAnyLinkage
+                                        llvm::GlobalValue::LinkOnceAnyLinkage
 
 
 #endif
