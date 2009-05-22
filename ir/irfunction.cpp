@@ -117,6 +117,8 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     _arguments = NULL;
     _argptr = NULL;
     
+    landingPad = NULL;
+    
     nextUnique.push(0);
 }
 

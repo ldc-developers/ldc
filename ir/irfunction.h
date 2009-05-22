@@ -70,7 +70,8 @@ struct IrFunction : IrBase
     LabelToBBMap labelToBB;
 
     // landing pads for try statements
-    IRLandingPad landingPad;
+    IRLandingPad landingPadInfo;
+    llvm::BasicBlock* landingPad;
 
     // loop blocks
     typedef std::vector<IRTargetScope> TargetScopeVec;

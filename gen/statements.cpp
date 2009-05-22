@@ -592,8 +592,10 @@ void TryFinallyStatement::toIR(IRState* p)
     p->scope() = IRScope(landingpadbb, endbb);
 
     assert(finalbody);
-    gIR->func()->landingPad.addFinally(finalbody);
-    gIR->func()->landingPad.push(landingpadbb);
+    gIR->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->landingPad),NULL,NULL));
+    gIR->func()->landingPadInfo.addFinally(finalbody);
+    gIR->func()->landingPadInfo.push(landingpadbb);
+    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
 
     //
     // do the try block
@@ -601,15 +603,15 @@ void TryFinallyStatement::toIR(IRState* p)
     p->scope() = IRScope(trybb,finallybb);
 
     assert(body);
-    p->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this),NULL,NULL));
     body->toIR(p);
-    p->func()->targetScopes.pop_back();
 
     // terminate try BB
     if (!p->scopereturned())
         llvm::BranchInst::Create(finallybb, p->scopebb());
 
-    gIR->func()->landingPad.pop();
+    gIR->func()->landingPadInfo.pop();
+    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
+    gIR->func()->targetScopes.pop_back();
 
     //
     // do finally block
@@ -658,10 +660,11 @@ void TryCatchStatement::toIR(IRState* p)
     for (int i = 0; i < catches->dim; i++)
     {
         Catch *c = (Catch *)catches->data[i];
-        gIR->func()->landingPad.addCatch(c, endbb);
+        gIR->func()->landingPadInfo.addCatch(c, endbb);
     }
 
-    gIR->func()->landingPad.push(landingpadbb);
+    gIR->func()->landingPadInfo.push(landingpadbb);
+    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
 
     //
     // do the try block
@@ -674,7 +677,8 @@ void TryCatchStatement::toIR(IRState* p)
     if (!gIR->scopereturned())
         llvm::BranchInst::Create(endbb, p->scopebb());
 
-    gIR->func()->landingPad.pop();
+    gIR->func()->landingPadInfo.pop();
+    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);

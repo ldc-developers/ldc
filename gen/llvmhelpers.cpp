@@ -255,7 +255,12 @@ void EnclosingVolatile::emitCode(IRState * p)
 void EnclosingTryFinally::emitCode(IRState * p)
 {
     if (tf->finalbody)
+    {
+        llvm::BasicBlock* oldpad = p->func()->landingPad;
+        p->func()->landingPad = landingPad;
         tf->finalbody->toIR(p);
+        p->func()->landingPad = oldpad;
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////

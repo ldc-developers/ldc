@@ -24,7 +24,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
     #endif
             assert(!catchstmt->var->ir.irLocal);
             catchstmt->var->ir.irLocal = new IrLocal(catchstmt->var);
-            LLValue* catch_var = gIR->func()->landingPad.getExceptionStorage();
+            LLValue* catch_var = gIR->func()->landingPadInfo.getExceptionStorage();
             catchstmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchstmt->var->type)));
         }
 
@@ -32,8 +32,8 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
         DtoDeclarationExp(catchstmt->var);
 
         // the exception will only be stored in catch_var. copy it over if necessary
-        if(catchstmt->var->ir.irLocal->value != gIR->func()->landingPad.getExceptionStorage()) {
-            LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->landingPad.getExceptionStorage()), DtoType(catchstmt->var->type));
+        if(catchstmt->var->ir.irLocal->value != gIR->func()->landingPadInfo.getExceptionStorage()) {
+            LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->landingPadInfo.getExceptionStorage()), DtoType(catchstmt->var->type));
             DtoStore(exc, catchstmt->var->ir.irLocal->value);
         }
     }
