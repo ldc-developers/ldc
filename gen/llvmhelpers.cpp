@@ -1055,8 +1055,20 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     {
         // if this already has storage, it must've been handled already
         if (var->ir.irLocal && var->ir.irLocal->value) {
-            assert(!addr || addr == var->ir.irLocal->value);
-            return var->ir.irLocal->value;
+            if (addr && addr != var->ir.irLocal->value) {
+                // This can happen, for example, in scope(exit) blocks which
+                // are translated to IR multiple times.
+                // That *should* only happen after the first one is completely done
+                // though, so just set the address.
+                IF_LOG {
+                    Logger::println("Replacing LLVM address of %s", var->toChars());
+                    LOG_SCOPE;
+                    Logger::cout() << "Old val: " << *var->ir.irLocal->value << '\n';
+                    Logger::cout() << "New val: " << *addr << '\n';
+                }
+                var->ir.irLocal->value = addr;
+            }
+            return addr;
         }
 
         assert(!var->ir.isSet());
