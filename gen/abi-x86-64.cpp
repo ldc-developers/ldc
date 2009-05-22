@@ -562,7 +562,14 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
             return false;
         
         Classification cl = classify(rt);
-        return cl.isMemory;
+        if (cl.isMemory) {
+            assert(state().int_regs > 0
+                && "No int registers available when determining sret-ness?");
+            // An sret parameter takes an integer register.
+            state().int_regs--;
+            return true;
+        }
+        return false;
     }
 }
 
