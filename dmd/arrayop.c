@@ -281,10 +281,10 @@ Expression *BinExp::arrayOp(Scope *sc)
         // special attention for array ops
         fd->isArrayOp = true;
 
-        sc->module->members->push(fd);
+        sc->module->importedFrom->members->push(fd);
 
         sc = sc->push();
-        sc->parent = sc->module;
+        sc->parent = sc->module->importedFrom;
         sc->stc = 0;
         sc->linkage = LINKd;
         fd->semantic(sc);

@@ -1369,13 +1369,13 @@ bool mustDefineSymbol(Dsymbol* s)
 {
     if (FuncDeclaration* fd = s->isFuncDeclaration())
     {
-        if (fd->isArrayOp)
-            return true;
-            
         // we can't (and probably shouldn't?) define functions 
         // that weren't semantic3'ed
         if (fd->semanticRun < 4)
             return false;
+
+	if (fd->isArrayOp)
+            return true;
     }
 
     TemplateInstance* tinst = DtoIsTemplateInstance(s);
