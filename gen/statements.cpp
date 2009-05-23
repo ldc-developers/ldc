@@ -592,9 +592,9 @@ void TryFinallyStatement::toIR(IRState* p)
     p->scope() = IRScope(landingpadbb, endbb);
 
     assert(finalbody);
-    gIR->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->landingPad),NULL,NULL));
     gIR->func()->landingPadInfo.addFinally(finalbody);
     gIR->func()->landingPadInfo.push(landingpadbb);
+    gIR->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->landingPad),NULL,NULL));
     gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
 
     //
