@@ -238,7 +238,8 @@ int main(int argc, char** argv)
         VersionCondition::addGlobalIdent);
 
     global.params.output_o =
-        opts::output_o == cl::BOU_UNSET
+        (opts::output_o == cl::BOU_UNSET
+            && !(opts::output_bc || opts::output_ll || opts::output_s))
         ? OUTPUTFLAGdefault
         : opts::output_o == cl::BOU_TRUE
             ? OUTPUTFLAGset
