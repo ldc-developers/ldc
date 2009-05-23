@@ -1668,7 +1668,7 @@ void OutBuffer::align(unsigned size)
 // The compiler shipped with Visual Studio 2005 (and possible
 // other versions) does not support C99 printf format specfiers
 // such as %z and %j
-#if _MSC_VER
+#if _MSC_VER || __MINGW32__
 using std::string;
 using std::wstring;
 

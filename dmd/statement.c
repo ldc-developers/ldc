@@ -1739,7 +1739,11 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		    default:		assert(0);
 		}
 		const char *r = (op == TOKforeach_reverse) ? "R" : "";
+#ifdef __MINGW32__
+		int j = sprintf(fdname, "_aApply%s%.*s%lu", r, 2, fntab[flag], dim);
+#else
 		int j = sprintf(fdname, "_aApply%s%.*s%zu", r, 2, fntab[flag], dim);
+#endif
 		assert(j < sizeof(fdname));
 		//LDC: Build arguments.
 		Arguments* args = new Arguments;
