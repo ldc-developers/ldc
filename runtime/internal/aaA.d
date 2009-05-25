@@ -292,43 +292,7 @@ Lret:
 /*************************************************
  * Get pointer to value in associative array indexed by key.
  * Returns null if it is not already there.
- */
-
-void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, void *pkey)
-{
-    //printf("_aaGetRvalue(valuesize = %u)\n", valuesize);
-    if (!aa)
-        return null;
-
-    //auto pkey = cast(void *)(&valuesize + 1);
-    auto keysize = aligntsize(keyti.tsize());
-    auto len = aa.b.length;
-
-    if (len)
-    {
-        auto key_hash = keyti.getHash(pkey);
-        //printf("hash = %d\n", key_hash);
-        size_t i = key_hash % len;
-        auto e = aa.b[i];
-        while (e !is null)
-        {
-            if (key_hash == e.hash)
-            {
-                auto c = keyti.compare(pkey, e + 1);
-            if (c == 0)
-                return cast(void *)(e + 1) + keysize;
-                e = (c < 0) ? e.left : e.right;
-            }
-            else
-                e = (key_hash < e.hash) ? e.left : e.right;
-        }
-    }
-    return null;    // not found, caller will throw exception
-}
-
-
-/*************************************************
- * Determine if key is in aa.
+ * Used for both "aa[key]" and "key in aa"
  * Returns:
  *      null    not in aa
  *      !=null  in aa, return pointer to value

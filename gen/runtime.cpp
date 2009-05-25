@@ -659,19 +659,6 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_4_NoCapture);
     }
 
-    // void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, void* pkey)
-    {
-        std::string fname("_aaGetRvalue");
-        std::vector<const LLType*> types;
-        types.push_back(aaTy);
-        types.push_back(typeInfoTy);
-        types.push_back(sizeTy);
-        types.push_back(voidPtrTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly_1_4_NoCapture);
-    }
-
     // void* _aaIn(AA aa, TypeInfo keyti, void* pkey)
     {
         std::string fname("_aaIn");

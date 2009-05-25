@@ -64,10 +64,10 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     // call:
     // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
     // or
-    // extern(C) void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, void* pkey)
+    // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
 
     // first get the runtime function
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGet":"_aaGetRvalue");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGet":"_aaIn");
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
     // aa param
@@ -78,15 +78,20 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     LLValue* keyti = to_keyti(key);
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
-    // valuesize param
-    LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
-
     // pkey param
     LLValue* pkey = to_pkey(loc, key);
-    pkey = DtoBitCast(pkey, funcTy->getParamType(3));
+    pkey = DtoBitCast(pkey, funcTy->getParamType(lvalue ? 3 : 2));
 
     // call runtime
-    LLValue* ret = gIR->CreateCallOrInvoke4(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
+    LLValue* ret;
+    if (lvalue) {
+        // valuesize param
+        LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
+        
+        ret = gIR->CreateCallOrInvoke4(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
+    } else {
+        ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.index").getInstruction();
+    }
 
     // cast return value
     const LLType* targettype = getPtrToType(DtoType(type));
