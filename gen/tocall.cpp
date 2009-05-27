@@ -416,7 +416,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             }
             Logger::undent();
             Logger::cout() << "Function type: " << tf->toChars() << '\n';
-            Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
+            //Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
         }
 
         size_t n = Argument::dim(tf->parameters);

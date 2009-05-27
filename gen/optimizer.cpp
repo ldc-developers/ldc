@@ -119,6 +119,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createPruneEHPass());
+        addPass(pm, createFunctionAttrsPass());
 
 #ifdef USE_METADATA
         if (!disableLangSpecificPasses && !disableGCToStack)
