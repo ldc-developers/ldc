@@ -265,9 +265,6 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         // extern(C) functions are always external
         else if (ft->linkage == LINKc)
             return llvm::GlobalValue::ExternalLinkage;
-        // Function & delegate literals, foreach bodies and lazy parameters: internal linkage
-        else if (fdecl->isFuncLiteralDeclaration())
-            return llvm::GlobalValue::InternalLinkage;
     }
     // class
     else if (ClassDeclaration* cd = sym->isClassDeclaration())

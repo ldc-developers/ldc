@@ -2297,7 +2297,11 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     assert(fd);
-    assert(fd->tok == TOKfunction);
+    if (fd->tok != TOKfunction)
+    {
+        assert(fd->tok == TOKdelegate);
+        error("delegate literals as constant expressions are not yet allowed");
+    }
 
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
