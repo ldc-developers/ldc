@@ -410,7 +410,7 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
 DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
 {
     Type* to = _to->toBasetype();
-    Type* vty = val->getType();
+    Type* vty = val->getType()->toBasetype();
     if (to->iscomplex()) {
         if (vty->size() == to->size())
             return val;
@@ -438,6 +438,9 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         DImValue* im = new DImValue(to, impart);
         return DtoCastFloat(loc, im, to);
     }
+    else if (to->ty == Tbool) {
+        return new DImValue(_to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
+    }
     else if (to->isfloating() || to->isintegral()) {
         // FIXME: this loads both values, even when we only need one
         LLValue* v = val->getRVal();
@@ -453,10 +456,7 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         DImValue* re = new DImValue(extractty, repart);
         return DtoCastFloat(loc, re, to);
     }
-    else if (to->ty == Tbool) {
-        return new DImValue(_to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
-    }
     else
-    assert(0);
+        error(loc, "Don't know how to cast %s to %s", vty->toChars(), to->toChars());
 }
 
