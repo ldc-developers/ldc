@@ -8,7 +8,7 @@ void main()
     while (iter < 25)
     {
         if (rand() % 20 == 10)
-            *cast(int*)null = 0;
+            *cast(int*)1 = 0;
         ++iter;
     }
     assert(0);

@@ -2,7 +2,7 @@ module mini.norun_debug1;
 
 void main()
 {
-    int* ptr;
+    int* ptr = cast(int*) 1;
 
     // all these should be inspectable
     int i = 1;

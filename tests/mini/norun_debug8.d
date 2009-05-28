@@ -26,6 +26,6 @@ void main()
     foo.bar.y = 3.1415;
     foo.bar.foo = &foo;
 
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 0;
 }

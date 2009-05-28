@@ -10,6 +10,6 @@ void main()
 
 void func(int i, real r, real* p)
 {
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 666;
 }
