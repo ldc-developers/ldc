@@ -30,6 +30,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Target/TargetData.h"
@@ -43,24 +44,40 @@ STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
 STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas");
 STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was unused");
 
+
+namespace {
+    struct Analysis {
+        TargetData& TD;
+        const Module& M;
+        CallGraph* CG;
+        CallGraphNode* CGNode;
+        
+        const Type* getTypeFor(Value* typeinfo) const;
+    };
+}
+
 //===----------------------------------------------------------------------===//
 // Helper functions
 //===----------------------------------------------------------------------===//
 
-void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len) {
+void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
+                const Analysis& A) {
     Dst = B.CreateBitCast(Dst, PointerType::getUnqual(Type::Int8Ty));
     
     Module *M = B.GetInsertBlock()->getParent()->getParent();
     const Type* Tys[1];
     Tys[0] = Len->getType();
-    Value *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
+    Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
     Value *Align = ConstantInt::get(Type::Int32Ty, 1);
     
-    B.CreateCall4(MemSet, Dst, Val, Len, Align);
+    CallSite CS = B.CreateCall4(MemSet, Dst, Val, Len, Align);
+    if (A.CGNode)
+        A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(MemSet));
 }
 
-static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len) {
-    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len);
+static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
+                        const Analysis& A) {
+    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len, A);
 }
 
 
@@ -69,13 +86,6 @@ static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len) {
 //===----------------------------------------------------------------------===//
 
 namespace {
-    struct Analysis {
-        TargetData& TD;
-        const Module& M;
-        
-        const Type* getTypeFor(Value* typeinfo) const;
-    };
-    
     class FunctionInfo {
     protected:
         const Type* Ty;
@@ -174,7 +184,7 @@ namespace {
                 // Use the original B to put initialization at the
                 // allocation site.
                 Value* Size = B.CreateMul(TypeSize, arrSize);
-                EmitMemZero(B, alloca, Size);
+                EmitMemZero(B, alloca, Size, A);
             }
             
             return alloca;
@@ -259,6 +269,7 @@ namespace {
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
           AU.addRequired<TargetData>();
           AU.addRequired<LoopInfo>();
+          AU.addPreserved<CallGraph>();
         }
     };
     char GarbageCollect2Stack::ID = 0;
@@ -284,8 +295,9 @@ GarbageCollect2Stack::GarbageCollect2Stack()
     KnownFunctions["_d_allocclass"] = &AllocClass;
 }
 
-static void RemoveCall(Instruction* Inst) {
-    if (InvokeInst* Invoke = dyn_cast<InvokeInst>(Inst)) {
+static void RemoveCall(CallSite CS, const Analysis& A) {
+    if (CS.isInvoke()) {
+        InvokeInst* Invoke = cast<InvokeInst>(CS.getInstruction());
         // If this was an invoke instruction, we need to do some extra
         // work to preserve the control flow.
         
@@ -296,7 +308,9 @@ static void RemoveCall(Instruction* Inst) {
         BranchInst::Create(Invoke->getNormalDest(), Invoke->getParent());
     }
     // Remove the runtime call.
-    Inst->eraseFromParent();
+    if (A.CGNode)
+        A.CGNode->removeCallEdgeFor(CS);
+    CS.getInstruction()->eraseFromParent();
 }
 
 /// runOnFunction - Top level algorithm.
@@ -306,8 +320,10 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     
     TargetData &TD = getAnalysis<TargetData>();
     const LoopInfo &LI = getAnalysis<LoopInfo>();
+    CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
+    CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
     
-    Analysis A = { TD, *M };
+    Analysis A = { TD, *M, CG, CGNode };
     
     BasicBlock& Entry = F.getEntryBlock();
     
@@ -351,7 +367,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             if (Inst->use_empty() && info->SafeToDelete) {
                 Changed = true;
                 NumDeleted++;
-                RemoveCall(Inst);
+                RemoveCall(CS, A);
                 continue;
             }
             
@@ -374,7 +390,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 newVal = Builder.CreateBitCast(newVal, Inst->getType());
             Inst->replaceAllUsesWith(newVal);
             
-            RemoveCall(Inst);
+            RemoveCall(CS, A);
         }
     }
     
