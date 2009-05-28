@@ -438,11 +438,19 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         DImValue* im = new DImValue(to, impart);
         return DtoCastFloat(loc, im, to);
     }
-    else if (to->isfloating()) {
+    else if (to->isfloating() || to->isintegral()) {
         // FIXME: this loads both values, even when we only need one
         LLValue* v = val->getRVal();
         LLValue* repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
-        DImValue* re = new DImValue(to, repart);
+        Type *extractty;
+        if (vty->ty == Tcomplex32) {
+            extractty = Type::tfloat32;
+        } else if (vty->ty == Tcomplex64) {
+            extractty = Type::tfloat64;
+        } else if (vty->ty == Tcomplex80) {
+            extractty = Type::tfloat80;
+        }
+        DImValue* re = new DImValue(extractty, repart);
         return DtoCastFloat(loc, re, to);
     }
     else if (to->ty == Tbool) {
