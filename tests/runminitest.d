@@ -69,7 +69,7 @@ int main(char[][] args)
                 compilefailed ~= c.toString;
         }
         else if (cl == RUN || cl == NORUN) {
-            if (system(toStringz("obj/" ~ testname)) != 0) {
+            if (system(toStringz(Path.native("obj/" ~ testname))) != 0) {
                 if (cl == RUN)
                     runfailed ~= c.toString;
             }
