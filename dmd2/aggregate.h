@@ -18,9 +18,11 @@
 #include "root.h"
 #include "dsymbol.h"
 
+#if IN_LLVM
 #include <vector>
 #include <set>
 #include <map>
+#endif
 
 struct Identifier;
 struct Type;
@@ -37,6 +39,7 @@ struct ClassInfoDeclaration;
 struct VarDeclaration;
 struct dt_t;
 
+#if IN_LLVM
 namespace llvm
 {
     class Type;
@@ -45,6 +48,7 @@ namespace llvm
     class ConstantStruct;
     class GlobalVariable;
 }
+#endif
 
 struct AggregateDeclaration : ScopeDsymbol
 {
@@ -64,14 +68,19 @@ struct AggregateDeclaration : ScopeDsymbol
     int isdeprecated;		// !=0 if deprecated
     Scope *scope;		// !=NULL means context to use
 
+    int isnested;		// !=0 if is nested
+    VarDeclaration *vthis;	// 'this' parameter if this aggregate is nested
+
     // Special member functions
     InvariantDeclaration *inv;		// invariant
     NewDeclaration *aggNew;		// allocator
     DeleteDeclaration *aggDelete;	// deallocator
 
 #if DMDV2
-    CtorDeclaration *ctor;
+    //CtorDeclaration *ctor;
+    Dsymbol *ctor;			// CtorDeclaration or TemplateDeclaration
     CtorDeclaration *defaultCtor;	// default constructor
+    Dsymbol *aliasthis;			// forward unresolved lookups to aliasthis
 #endif
 
     FuncDeclarations dtors;	// Array of destructors
@@ -91,6 +100,7 @@ struct AggregateDeclaration : ScopeDsymbol
     void addField(Scope *sc, VarDeclaration *v);
     int isDeprecated();		// is aggregate deprecated?
     FuncDeclaration *buildDtor(Scope *sc);
+    int isNested();
 
     void emitComment(Scope *sc);
     void toDocBuffer(OutBuffer *buf);
@@ -103,10 +113,12 @@ struct AggregateDeclaration : ScopeDsymbol
 
     enum PROT prot();
 
+#if IN_DMD
     // Back end
     Symbol *stag;		// tag symbol for debug data
     Symbol *sinit;
     Symbol *toInitializer();
+#endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
 };
@@ -146,11 +158,17 @@ struct StructDeclaration : AggregateDeclaration
 
     PROT getAccess(Dsymbol *smember);	// determine access to smember
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
     void toDt(dt_t **pdt);
     void toDebug();			// to symbolic debug info
+#endif
 
     StructDeclaration *isStructDeclaration() { return this; }
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 struct UnionDeclaration : StructDeclaration
@@ -162,6 +180,8 @@ struct UnionDeclaration : StructDeclaration
     UnionDeclaration *isUnionDeclaration() { return this; }
 };
 
+// warning: two classes with the same base class share the same
+//   BaseClass instance.
 struct BaseClass
 {
     Type *type;				// (before semantic processing)
@@ -184,9 +204,9 @@ struct BaseClass
 };
 
 #if DMDV2
-#define CLASSINFO_SIZE 	(0x3C+16)	// value of ClassInfo.size
+#define CLASSINFO_SIZE 	(0x3C+16+4)	// value of ClassInfo.size
 #else
-#define CLASSINFO_SIZE 	(0x3C+12)	// value of ClassInfo.size
+#define CLASSINFO_SIZE 	(0x3C+12+4)	// value of ClassInfo.size
 #endif
 
 struct ClassDeclaration : AggregateDeclaration
@@ -216,9 +236,6 @@ struct ClassDeclaration : AggregateDeclaration
     int isauto;				// !=0 if this is an auto class
     int isabstract;			// !=0 if abstract class
 
-    int isnested;			// !=0 if is nested
-    VarDeclaration *vthis;		// 'this' parameter if this class is nested
-
     int inuse;				// to prevent recursive attempts
 
     ClassDeclaration(Loc loc, Identifier *id, BaseClasses *baseclasses);
@@ -236,7 +253,6 @@ struct ClassDeclaration : AggregateDeclaration
 #endif
     FuncDeclaration *findFunc(Identifier *ident, TypeFunction *tf);
     void interfaceSemantic(Scope *sc);
-    int isNested();
     int isCOMclass();
     virtual int isCOMinterface();
 #if DMDV2
@@ -252,6 +268,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     void addLocalClass(ClassDeclarations *);
 
+#if IN_DMD
     // Back end
     void toObjFile(int multiobj);			// compile to .obj file
     void toDebug();
@@ -262,8 +279,13 @@ struct ClassDeclaration : AggregateDeclaration
     void toDt2(dt_t **pdt, ClassDeclaration *cd);
 
     Symbol *vtblsym;
+#endif
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
+
+#if IN_LLVM
+    virtual void codegen(Ir*);
+#endif
 };
 
 struct InterfaceDeclaration : ClassDeclaration
@@ -283,10 +305,16 @@ struct InterfaceDeclaration : ClassDeclaration
 #endif
     virtual int isCOMinterface();
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
     Symbol *toSymbol();
+#endif
 
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 #endif /* DMD_AGGREGATE_H */

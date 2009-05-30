@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "mem.h"
+#include "rmem.h"
 #include "lexer.h"
 #include "parse.h"
 #include "init.h"
@@ -32,6 +32,7 @@
 #include "enum.h"
 #include "id.h"
 #include "version.h"
+#include "aliasthis.h"
 
 // How multiple declarations are parsed.
 // If 1, treat as C.
@@ -73,11 +74,12 @@ Array *Parser::parseModule()
 	bool safe = FALSE;
 
 	nextToken();
+#if DMDV2
 	if (token.value == TOKlparen)
 	{
 	    nextToken();
 	    if (token.value != TOKidentifier)
-	    {	error("module (safe) identifier expected");
+	    {	error("module (system) identifier expected");
 		goto Lerr;
 	    }
 	    Identifier *id = token.ident;
@@ -89,6 +91,7 @@ Array *Parser::parseModule()
 	    nextToken();
 	    check(TOKrparen);
 	}
+#endif
 
 	if (token.value != TOKidentifier)
 	{   error("Identifier expected following module");
@@ -222,10 +225,11 @@ Array *Parser::parseDeclDefs(int once)
 		s = parseCtor();
 		break;
 
+#if 0 // dead end, use this(this){} instead
 	    case TOKassign:
 		s = parsePostBlit();
 		break;
-
+#endif
 	    case TOKtilde:
 		s = parseDtor();
 		break;
@@ -244,7 +248,7 @@ Array *Parser::parseDeclDefs(int once)
 		}
 		else
 		{
-		    stc = STCinvariant;
+		    stc = STCimmutable;
 		    goto Lstc;
 		}
 		break;
@@ -304,7 +308,13 @@ Array *Parser::parseDeclDefs(int once)
 	    case TOKimmutable:
 		if (peek(&token)->value == TOKlparen)
 		    goto Ldeclaration;
-		stc = STCinvariant;
+		stc = STCimmutable;
+		goto Lstc;
+
+	    case TOKshared:
+		if (peek(&token)->value == TOKlparen)
+		    goto Ldeclaration;
+		stc = STCshared;
 		goto Lstc;
 
 	    case TOKfinal:	  stc = STCfinal;	 goto Lstc;
@@ -314,21 +324,19 @@ Array *Parser::parseDeclDefs(int once)
 	    case TOKabstract:	  stc = STCabstract;	 goto Lstc;
 	    case TOKsynchronized: stc = STCsynchronized; goto Lstc;
 	    case TOKdeprecated:   stc = STCdeprecated;	 goto Lstc;
+#if DMDV2
 	    case TOKnothrow:      stc = STCnothrow;	 goto Lstc;
 	    case TOKpure:         stc = STCpure;	 goto Lstc;
 	    case TOKref:          stc = STCref;          goto Lstc;
 	    case TOKtls:          stc = STCtls;		 goto Lstc;
+	    case TOKgshared:      stc = STCgshared;	 goto Lstc;
 	    //case TOKmanifest:	  stc = STCmanifest;	 goto Lstc;
+#endif
 
 	    Lstc:
 		if (storageClass & stc)
 		    error("redundant storage class %s", Token::toChars(token.value));
-		{
-		unsigned u = storageClass | stc;
-		u &= STCconst | STCinvariant | STCmanifest;
-		if (u & (u - 1))
-		    error("conflicting storage class %s", Token::toChars(token.value));
-		}
+		composeStorageClass(storageClass | stc);
 		nextToken();
 	    Lstc2:
 		storageClass |= stc;
@@ -337,13 +345,16 @@ Array *Parser::parseDeclDefs(int once)
 		    case TOKconst:
 		    case TOKinvariant:
 		    case TOKimmutable:
+		    case TOKshared:
 			// If followed by a (, it is not a storage class
 			if (peek(&token)->value == TOKlparen)
 			    break;
 			if (token.value == TOKconst)
 			    stc = STCconst;
+			else if (token.value == TOKshared)
+			    stc = STCshared;
 			else
-			    stc = STCinvariant;
+			    stc = STCimmutable;
 			goto Lstc;
 		    case TOKfinal:	  stc = STCfinal;	 goto Lstc;
 		    case TOKauto:	  stc = STCauto;	 goto Lstc;
@@ -356,6 +367,7 @@ Array *Parser::parseDeclDefs(int once)
 		    case TOKpure:         stc = STCpure;	 goto Lstc;
 		    case TOKref:          stc = STCref;          goto Lstc;
 		    case TOKtls:          stc = STCtls;		 goto Lstc;
+		    case TOKgshared:      stc = STCgshared;	 goto Lstc;
 		    //case TOKmanifest:	  stc = STCmanifest;	 goto Lstc;
 		    default:
 			break;
@@ -378,7 +390,9 @@ Array *Parser::parseDeclDefs(int once)
 		if (token.value == TOKidentifier &&
 		    (tk = peek(&token))->value == TOKlparen &&
 		    skipParens(tk, &tk) &&
-		    peek(tk)->value == TOKlparen)
+		    (peek(tk)->value == TOKlparen ||
+		     peek(tk)->value == TOKlcurly)
+		   )
 		{
 		    a = parseDeclarations(storageClass);
 		    decldefs->append(a);
@@ -552,6 +566,21 @@ Array *Parser::parseDeclDefs(int once)
     return decldefs;
 }
 
+/*********************************************
+ * Give error on conflicting storage classes.
+ */
+
+void Parser::composeStorageClass(unsigned stc)
+{
+    unsigned u = stc;
+    u &= STCconst | STCimmutable | STCmanifest;
+    if (u & (u - 1))
+	error("conflicting storage class %s", Token::toChars(token.value));
+    u = stc;
+    u &= STCgshared | STCshared | STCtls;
+    if (u & (u - 1))
+	error("conflicting storage class %s", Token::toChars(token.value));
+}
 
 /********************************************
  * Parse declarations after an align, protection, or extern decl.
@@ -568,6 +597,10 @@ Array *Parser::parseBlock()
 	case TOKsemicolon:
 	    error("declaration expected following attribute, not ';'");
 	    nextToken();
+	    break;
+
+	case TOKeof:
+	    error("declaration expected following attribute, not EOF");
 	    break;
 
 	case TOKlcurly:
@@ -797,13 +830,15 @@ Condition *Parser::parseStaticIfCondition()
 
 /*****************************************
  * Parse a constructor definition:
- *	this(arguments) { body }
+ *	this(parameters) { body }
  * or postblit:
  *	this(this) { body }
+ * or constructor template:
+ *	this(templateparameters)(parameters) { body }
  * Current token is 'this'.
  */
 
-FuncDeclaration *Parser::parseCtor()
+Dsymbol *Parser::parseCtor()
 {
     Loc loc = this->loc;
 
@@ -817,6 +852,35 @@ FuncDeclaration *Parser::parseCtor()
 	parseContracts(f);
 	return f;
     }
+
+    /* Look ahead to see if:
+     *   this(...)(...)
+     * which is a constructor template
+     */
+    TemplateParameters *tpl = NULL;
+    if (token.value == TOKlparen && peekPastParen(&token)->value == TOKlparen)
+    {	tpl = parseTemplateParameterList();
+
+	int varargs;
+	Arguments *arguments = parseParameters(&varargs);
+
+	Expression *constraint = NULL;
+	if (tpl)
+	    constraint = parseConstraint();
+
+	CtorDeclaration *f = new CtorDeclaration(loc, 0, arguments, varargs);
+	parseContracts(f);
+
+	// Wrap a template around it
+	Array *decldefs = new Array();
+	decldefs->push(f);
+	TemplateDeclaration *tempdecl =
+	    new TemplateDeclaration(loc, f->ident, tpl, constraint, decldefs);
+	return tempdecl;
+    }
+
+    /* Just a regular constructor
+     */
     int varargs;
     Arguments *arguments = parseParameters(&varargs);
     CtorDeclaration *f = new CtorDeclaration(loc, 0, arguments, varargs);
@@ -1034,7 +1098,13 @@ Arguments *Parser::parseParameters(int *pvarargs)
 		case TOKimmutable:
 		    if (peek(&token)->value == TOKlparen)
 			goto Ldefault;
-		    stc = STCinvariant;
+		    stc = STCimmutable;
+		    goto L2;
+
+		case TOKshared:
+		    if (peek(&token)->value == TOKlparen)
+			goto Ldefault;
+		    stc = STCshared;
 		    goto L2;
 
 		case TOKin:	   stc = STCin;		goto L2;
@@ -1051,11 +1121,7 @@ Arguments *Parser::parseParameters(int *pvarargs)
 		       )
 			error("redundant storage class %s", Token::toChars(token.value));
 		    storageClass |= stc;
-		    {
-		    unsigned u = storageClass & (STCconst | STCinvariant);
-		    if (u & (u - 1))
-			error("conflicting storage class %s", Token::toChars(token.value));
-		    }
+		    composeStorageClass(storageClass);
 		    continue;
 
 #if 0
@@ -1092,8 +1158,8 @@ Arguments *Parser::parseParameters(int *pvarargs)
 			error("incompatible parameter storage classes");
 		    if ((storageClass & (STCconst | STCout)) == (STCconst | STCout))
 			error("out cannot be const");
-		    if ((storageClass & (STCinvariant | STCout)) == (STCinvariant | STCout))
-			error("out cannot be invariant");
+		    if ((storageClass & (STCimmutable | STCout)) == (STCimmutable | STCout))
+			error("out cannot be immutable");
 		    if ((storageClass & STCscope) &&
 			(storageClass & (STCref | STCout)))
 			error("scope cannot be ref or out");
@@ -1736,6 +1802,7 @@ Objects *Parser::parseTemplateArgumentList()
 
 Objects *Parser::parseTemplateArgumentList2()
 {
+    //printf("Parser::parseTemplateArgumentList2()\n");
     Objects *tiargs = new Objects();
     enum TOK endtok = TOKrparen;
     nextToken();
@@ -1754,8 +1821,57 @@ Objects *Parser::parseTemplateArgumentList2()
 	    else
 	    {	// Template argument is an expression
 		Expression *ea = parseAssignExp();
+
+		if (ea->op == TOKfunction)
+		{   FuncLiteralDeclaration *fd = ((FuncExp *)ea)->fd;
+		    if (fd->type->ty == Tfunction)
+		    {
+			TypeFunction *tf = (TypeFunction *)fd->type;
+			/* If there are parameters that consist of only an identifier,
+			 * rather than assuming the identifier is a type, as we would
+			 * for regular function declarations, assume the identifier
+			 * is the parameter name, and we're building a template with
+			 * a deduced type.
+			 */
+			TemplateParameters *tpl = NULL;
+			for (int i = 0; i < tf->parameters->dim; i++)
+			{   Argument *param = (Argument *)tf->parameters->data[i];
+			    if (param->ident == NULL &&
+				param->type &&
+				param->type->ty == Tident &&
+				((TypeIdentifier *)param->type)->idents.dim == 0
+			       )
+			    {
+				/* Switch parameter type to parameter identifier,
+				 * parameterize with template type parameter _T
+				 */
+				TypeIdentifier *pt = (TypeIdentifier *)param->type;
+				param->ident = pt->ident;
+				Identifier *id = Lexer::uniqueId("__T");
+				param->type = new TypeIdentifier(pt->loc, id);
+				TemplateParameter *tp = new TemplateTypeParameter(fd->loc, id, NULL, NULL);
+				if (!tpl)
+				    tpl = new TemplateParameters();
+				tpl->push(tp);
+			    }
+			}
+
+			if (tpl)
+			{   // Wrap a template around function fd
+			    Array *decldefs = new Array();
+			    decldefs->push(fd);
+			    TemplateDeclaration *tempdecl =
+				new TemplateDeclaration(fd->loc, fd->ident, tpl, NULL, decldefs);
+			    tempdecl->literal = 1;	// it's a template 'literal'
+			    tiargs->push(tempdecl);
+			    goto L1;
+			}
+		    }
+		}
+
 		tiargs->push(ea);
 	    }
+	 L1:
 	    if (token.value != TOKcomma)
 		break;
 	    nextToken();
@@ -1855,14 +1971,14 @@ Import *Parser::parseImport(Array *decldefs, int isstatic)
 	    a->push(id);
 	    nextToken();
 	    if (token.value != TOKidentifier)
-	    {   error("Identifier expected following package");
+	    {   error("identifier expected following package");
 		break;
 	    }
 	    id = token.ident;
 	    nextToken();
 	}
 
-	s = new Import(loc, a, token.ident, aliasid, isstatic);
+	s = new Import(loc, a, id, aliasid, isstatic);
 	decldefs->push(s);
 
 	/* Look for
@@ -1873,14 +1989,13 @@ Import *Parser::parseImport(Array *decldefs, int isstatic)
 	{
 	    do
 	    {	Identifier *name;
-		Identifier *alias;
 
 		nextToken();
 		if (token.value != TOKidentifier)
 		{   error("Identifier expected following :");
 		    break;
 		}
-		alias = token.ident;
+		Identifier *alias = token.ident;
 		nextToken();
 		if (token.value == TOKassign)
 		{
@@ -1915,10 +2030,26 @@ Import *Parser::parseImport(Array *decldefs, int isstatic)
     return NULL;
 }
 
+#if DMDV2
 Type *Parser::parseType(Identifier **pident, TemplateParameters **tpl)
 {   Type *t;
 
-    if (token.value == TOKconst && peek(&token)->value != TOKlparen)
+    /* Take care of the storage class prefixes that
+     * serve as type attributes:
+     *  const shared, shared const, const, invariant, shared
+     */
+    if (token.value == TOKconst && peekNext() == TOKshared && peekNext2() != TOKlparen ||
+	token.value == TOKshared && peekNext() == TOKconst && peekNext2() != TOKlparen)
+    {
+	nextToken();
+	nextToken();
+	/* shared const type
+	 */
+	t = parseType(pident, tpl);
+	t = t->makeSharedConst();
+	return t;
+    }
+    else if (token.value == TOKconst && peekNext() != TOKlparen)
     {
 	nextToken();
 	/* const type
@@ -1928,7 +2059,7 @@ Type *Parser::parseType(Identifier **pident, TemplateParameters **tpl)
 	return t;
     }
     else if ((token.value == TOKinvariant || token.value == TOKimmutable) &&
-             peek(&token)->value != TOKlparen)
+             peekNext() != TOKlparen)
     {
 	nextToken();
 	/* invariant type
@@ -1937,11 +2068,21 @@ Type *Parser::parseType(Identifier **pident, TemplateParameters **tpl)
 	t = t->makeInvariant();
 	return t;
     }
+    else if (token.value == TOKshared && peekNext() != TOKlparen)
+    {
+	nextToken();
+	/* shared type
+	 */
+	t = parseType(pident, tpl);
+	t = t->makeShared();
+	return t;
+    }
     else
 	t = parseBasicType();
     t = parseDeclarator(t, pident, tpl);
     return t;
 }
+#endif
 
 Type *Parser::parseBasicType()
 {   Type *t;
@@ -2016,7 +2157,10 @@ Type *Parser::parseBasicType()
 	    check(TOKlparen);
 	    t = parseType();
 	    check(TOKrparen);
-	    t = t->makeConst();
+	    if (t->isShared())
+		t = t->makeSharedConst();
+	    else
+		t = t->makeConst();
 	    break;
 
 	case TOKinvariant:
@@ -2027,6 +2171,18 @@ Type *Parser::parseBasicType()
 	    t = parseType();
 	    check(TOKrparen);
 	    t = t->makeInvariant();
+	    break;
+
+	case TOKshared:
+	    // shared(type)
+	    nextToken();
+	    check(TOKlparen);
+	    t = parseType();
+	    check(TOKrparen);
+	    if (t->isConst())
+		t = t->makeSharedConst();
+	    else
+		t = t->makeShared();
 	    break;
 
 	default:
@@ -2247,13 +2403,24 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
 		    switch (token.value)
 		    {
 			case TOKconst:
-			    tf = tf->makeConst();
+			    if (tf->isShared())
+				tf = tf->makeSharedConst();
+			    else
+				tf = tf->makeConst();
 			    nextToken();
 			    continue;
 
 			case TOKinvariant:
 			case TOKimmutable:
 			    tf = tf->makeInvariant();
+			    nextToken();
+			    continue;
+
+			case TOKshared:
+			    if (tf->isConst())
+				tf = tf->makeSharedConst();
+			    else
+				tf = tf->makeShared();
 			    nextToken();
 			    continue;
 
@@ -2316,8 +2483,25 @@ Array *Parser::parseDeclarations(unsigned storage_class)
 
     switch (token.value)
     {
-	case TOKtypedef:
 	case TOKalias:
+	    /* Look for:
+	     *   alias identifier this;
+	     */
+	    tok = token.value;
+	    nextToken();
+	    if (token.value == TOKidentifier && peek(&token)->value == TOKthis)
+	    {
+		AliasThis *s = new AliasThis(this->loc, token.ident);
+		nextToken();
+		check(TOKthis);
+		check(TOKsemicolon);
+		a = new Array();
+		a->push(s);
+		addComment(s, comment);
+		return a;
+	    }
+	    break;
+	case TOKtypedef:
 	    tok = token.value;
 	    nextToken();
 	    break;
@@ -2338,7 +2522,7 @@ Array *Parser::parseDeclarations(unsigned storage_class)
 	    case TOKimmutable:
 		if (peek(&token)->value == TOKlparen)
 		    break;
-		stc = STCinvariant;
+		stc = STCimmutable;
 		goto L1;
 
 	    case TOKshared:
@@ -2355,21 +2539,19 @@ Array *Parser::parseDeclarations(unsigned storage_class)
 	    case TOKabstract:	stc = STCabstract;	 goto L1;
 	    case TOKsynchronized: stc = STCsynchronized; goto L1;
 	    case TOKdeprecated: stc = STCdeprecated;	 goto L1;
+#if DMDV2
 	    case TOKnothrow:    stc = STCnothrow;	 goto L1;
 	    case TOKpure:       stc = STCpure;		 goto L1;
 	    case TOKref:        stc = STCref;            goto L1;
 	    case TOKtls:        stc = STCtls;		 goto L1;
+	    case TOKgshared:    stc = STCgshared;	 goto L1;
 	    case TOKenum:	stc = STCmanifest;	 goto L1;
+#endif
 	    L1:
 		if (storage_class & stc)
 		    error("redundant storage class '%s'", token.toChars());
 		storage_class = (STC) (storage_class | stc);
-		{
-		unsigned u = storage_class;
-		u &= STCconst | STCinvariant | STCmanifest;
-		if (u & (u - 1))
-		    error("conflicting storage class %s", Token::toChars(token.value));
-		}
+		composeStorageClass(storage_class);
 		nextToken();
 		continue;
 
@@ -3071,7 +3253,14 @@ Statement *Parser::parseStatement(int flags)
 	case TOKextern:
 	case TOKfinal:
 	case TOKinvariant:
+#if DMDV2
 	case TOKimmutable:
+	case TOKshared:
+	case TOKnothrow:
+	case TOKpure:
+	case TOKtls:
+	case TOKgshared:
+#endif
 //	case TOKtypeof:
 	Ldeclaration:
 	{   Array *a;
@@ -3087,7 +3276,7 @@ Statement *Parser::parseStatement(int flags)
 		    s = new DeclarationStatement(loc, d);
 		    as->push(s);
 		}
-		s = new CompoundStatement(loc, as);
+		s = new CompoundDeclarationStatement(loc, as);
 	    }
 	    else if (a->dim == 1)
 	    {
@@ -3843,17 +4032,23 @@ int Parser::isDeclaration(Token *t, int needId, enum TOK endtok, Token **pt)
     int haveId = 0;
 
 #if DMDV2
-    if ((t->value == TOKconst || t->value == TOKinvariant || token.value == TOKimmutable) &&
+    if ((t->value == TOKconst ||
+	 t->value == TOKinvariant ||
+	 t->value == TOKimmutable ||
+	 t->value == TOKshared) &&
 	peek(t)->value != TOKlparen)
     {	/* const type
-	 * invariant type
+	 * immutable type
+	 * shared type
 	 */
 	t = peek(t);
     }
 #endif
 
     if (!isBasicType(&t))
+    {
 	goto Lisnot;
+    }
     if (!isDeclarator(&t, &haveId, endtok))
 	goto Lisnot;
     if ( needId == 1 ||
@@ -3970,13 +4165,16 @@ int Parser::isBasicType(Token **pt)
 	case TOKconst:
 	case TOKinvariant:
 	case TOKimmutable:
-	    // const(type)  or  invariant(type)
+	case TOKshared:
+	    // const(type)  or  immutable(type)  or  shared(type)
 	    t = peek(t);
 	    if (t->value != TOKlparen)
 		goto Lfalse;
 	    t = peek(t);
 	    if (!isDeclaration(t, 0, TOKrparen, &t))
+	    {
 		goto Lfalse;
+	    }
 	    t = peek(t);
 	    break;
 
@@ -4008,7 +4206,7 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
 	switch (t->value)
 	{
 	    case TOKmul:
-//	    case TOKand:
+	    //case TOKand:
 		t = peek(t);
 		continue;
 
@@ -4113,6 +4311,7 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
 		parens = FALSE;
 		if (!isParameters(&t))
 		    return FALSE;
+#if DMDV2
 		while (1)
 		{
 		    switch (t->value)
@@ -4120,6 +4319,7 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
 			case TOKconst:
 			case TOKinvariant:
 			case TOKimmutable:
+			case TOKshared:
 			case TOKpure:
 			case TOKnothrow:
 			    t = peek(t);
@@ -4129,6 +4329,7 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
 		    }
 		    break;
 		}
+#endif
 		continue;
 
 	    // Valid tokens that follow a declaration
@@ -4182,6 +4383,7 @@ int Parser::isParameters(Token **pt)
 	    case TOKconst:
 	    case TOKinvariant:
 	    case TOKimmutable:
+	    case TOKshared:
 	    case TOKfinal:
 		continue;
 
@@ -4478,12 +4680,12 @@ Expression *Parser::parsePrimaryExp()
 	    break;
 
 	case TOKint32v:
-	    e = new IntegerExp(loc, token.int32value, Type::tint32);
+	    e = new IntegerExp(loc, (d_int32)token.int64value, Type::tint32);
 	    nextToken();
 	    break;
 
 	case TOKuns32v:
-	    e = new IntegerExp(loc, token.uns32value, Type::tuns32);
+	    e = new IntegerExp(loc, (d_uns32)token.uns64value, Type::tuns32);
 	    nextToken();
 	    break;
 
@@ -4534,8 +4736,8 @@ Expression *Parser::parsePrimaryExp()
 
 #if DMDV2
 	case TOKfile:
-	{   char *s = loc.filename ? loc.filename : mod->ident->toChars();
-	    e = new StringExp(loc, s, strlen(s), 0);
+	{   const char *s = loc.filename ? loc.filename : mod->ident->toChars();
+	    e = new StringExp(loc, (char *)s, strlen(s), 0);
 	    nextToken();
 	    break;
 	}
@@ -4557,17 +4759,17 @@ Expression *Parser::parsePrimaryExp()
 	    break;
 
 	case TOKcharv:
-	    e = new IntegerExp(loc, token.uns32value, Type::tchar);
+	    e = new IntegerExp(loc, (d_uns8)token.uns64value, Type::tchar);
 	    nextToken();
 	    break;
 
 	case TOKwcharv:
-	    e = new IntegerExp(loc, token.uns32value, Type::twchar);
+	    e = new IntegerExp(loc, (d_uns16)token.uns64value, Type::twchar);
 	    nextToken();
 	    break;
 
 	case TOKdcharv:
-	    e = new IntegerExp(loc, token.uns32value, Type::tdchar);
+	    e = new IntegerExp(loc, (d_uns32)token.uns64value, Type::tdchar);
 	    nextToken();
 	    break;
 
@@ -4617,7 +4819,7 @@ Expression *Parser::parsePrimaryExp()
 	    {   error("found '%s' when expecting identifier following '%s.'", token.toChars(), t->toChars());
 		goto Lerr;
 	    }
-	    e = new TypeDotIdExp(loc, t, token.ident);
+	    e = typeDotIdExp(loc, t, token.ident);
 	    nextToken();
 	    break;
 
@@ -4690,9 +4892,12 @@ Expression *Parser::parsePrimaryExp()
 			 token.value == TOKsuper ||
 			 token.value == TOKenum ||
 			 token.value == TOKinterface ||
+#if DMDV2
 			 token.value == TOKconst && peek(&token)->value == TOKrparen ||
 			 token.value == TOKinvariant && peek(&token)->value == TOKrparen ||
 			 token.value == TOKimmutable && peek(&token)->value == TOKrparen ||
+			 token.value == TOKshared && peek(&token)->value == TOKrparen ||
+#endif
 			 token.value == TOKfunction ||
 			 token.value == TOKdelegate ||
 			 token.value == TOKreturn))
@@ -4865,6 +5070,7 @@ Expression *Parser::parsePrimaryExp()
 		    nextToken();
 		}
 	    }
+
 	    TypeFunction *tf = new TypeFunction(arguments, t, varargs, linkage);
 	    tf->ispure = ispure;
 	    tf->isnothrow = isnothrow;
@@ -5058,23 +5264,48 @@ Expression *Parser::parseUnaryExp()
 	    break;
 
 	case TOKcast:				// cast(type) expression
-	{   Type *t;
-
+	{
 	    nextToken();
 	    check(TOKlparen);
-	    /* Look for cast(const) and cast(invariant)
+	    /* Look for cast(), cast(const), cast(immutable),
+	     * cast(shared), cast(shared const)
 	     */
-	    if ((token.value == TOKconst || token.value == TOKinvariant || token.value == TOKimmutable) &&
-		peek(&token)->value == TOKrparen)
-	    {	enum TOK tok = token.value;
+	    unsigned m;
+	    if (token.value == TOKrparen)
+	    {
+		m = 0;
+		goto Lmod1;
+	    }
+	    else if (token.value == TOKconst && peekNext() == TOKrparen)
+	    {
+		m = MODconst;
+		goto Lmod2;
+	    }
+	    else if ((token.value == TOKimmutable || token.value == TOKinvariant) && peekNext() == TOKrparen)
+	    {
+		m = MODinvariant;
+		goto Lmod2;
+	    }
+	    else if (token.value == TOKshared && peekNext() == TOKrparen)
+	    {
+		m = MODshared;
+		goto Lmod2;
+	    }
+	    else if (token.value == TOKconst && peekNext() == TOKshared && peekNext2() == TOKrparen ||
+		     token.value == TOKshared && peekNext() == TOKconst && peekNext2() == TOKrparen)
+	    {
+		m = MODshared | MODconst;
 		nextToken();
+	      Lmod2:
+		nextToken();
+	      Lmod1:
 		nextToken();
 		e = parseUnaryExp();
-		e = new CastExp(loc, e, tok);
+		e = new CastExp(loc, e, m);
 	    }
 	    else
 	    {
-		t = parseType();		// ( type )
+		Type *t = parseType();		// ( type )
 		check(TOKrparen);
 		e = parseUnaryExp();
 		e = new CastExp(loc, e, t);
@@ -5153,7 +5384,7 @@ Expression *Parser::parseUnaryExp()
 			    {   error("Identifier expected following (type).");
 				return NULL;
 			    }
-			    e = new TypeDotIdExp(loc, t, token.ident);
+			    e = typeDotIdExp(loc, t, token.ident);
 			    nextToken();
 			    e = parsePostExp(e);
 			}

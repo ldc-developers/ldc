@@ -50,8 +50,14 @@ struct AttribDeclaration : Dsymbol
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
-    virtual void toObjFile(int multiobj);			// compile to .obj file
+#if IN_DMD
+    void toObjFile(int multiobj);			// compile to .obj file
     int cvMember(unsigned char *p);
+#endif
+
+#if IN_LLVM
+    virtual void codegen(Ir*);
+#endif
 };
 
 struct StorageClassDeclaration: AttribDeclaration
@@ -62,6 +68,8 @@ struct StorageClassDeclaration: AttribDeclaration
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+
+    static void stcToCBuffer(OutBuffer *buf, int stc);
 };
 
 struct LinkDeclaration : AttribDeclaration
@@ -107,9 +115,6 @@ struct AnonDeclaration : AttribDeclaration
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
-
-    // LDC
-    void toObjFile(int multiobj);           // compile to .obj file
 };
 
 struct PragmaDeclaration : AttribDeclaration
@@ -122,7 +127,14 @@ struct PragmaDeclaration : AttribDeclaration
     int oneMember(Dsymbol **ps);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
+
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
+#endif
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 struct ConditionalDeclaration : AttribDeclaration

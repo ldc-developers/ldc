@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -28,12 +28,15 @@ Import::Import(Loc loc, Array *packages, Identifier *id, Identifier *aliasId,
 	int isstatic)
     : Dsymbol(id)
 {
+    assert(id);
     this->loc = loc;
     this->packages = packages;
     this->id = id;
     this->aliasId = aliasId;
     this->isstatic = isstatic;
+#if IN_LLVM
     protection = PROTundefined;
+#endif
     pkg = NULL;
     mod = NULL;
 
@@ -61,10 +64,12 @@ const char *Import::kind()
     return isstatic ? (char *)"static import" : (char *)"import";
 }
 
+#if IN_LLVM
 enum PROT Import::prot()
 {
     return protection;
 }
+#endif
 
 Dsymbol *Import::syntaxCopy(Dsymbol *s)
 {
@@ -112,11 +117,31 @@ void Import::load(Scope *sc)
     }
     if (!pkg)
 	pkg = mod;
-    mod->semantic();
 
     //printf("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
 }
 
+#if IN_LLVM
+char* escapePath(char* fname, char* buffer, int bufLen) {
+    char* res = buffer;
+    bufLen -= 2;    // for \0 and an occasional escape char
+    int dst = 0;
+    for (; dst < bufLen && *fname; ++dst, ++fname) {
+	switch (*fname) {
+	    case '(':
+	    case ')':
+	    case '\\':
+		    buffer[dst++] = '\\';
+		    // fall through
+
+	    default:
+		    buffer[dst] = *fname;
+	}
+    }
+    buffer[dst] = '\0';
+    return buffer;
+}
+#endif
 
 void Import::semantic(Scope *sc)
 {
@@ -136,19 +161,21 @@ void Import::semantic(Scope *sc)
 	}
 #endif
 
-	/* Default to private importing
-	 */
-	protection = sc->protection;
-	if (!sc->explicitProtection)
-	    protection = PROTprivate;
+	// Modules need a list of each imported module
+	//printf("%s imports %s\n", sc->module->toChars(), mod->toChars());
+	sc->module->aimports.push(mod);
+
+	mod->semantic();
 
 	if (!isstatic && !aliasId && !names.dim)
 	{
-	    sc->scopesym->importScope(mod, protection);
+	    /* Default to private importing
+	     */
+	    enum PROT prot = sc->protection;
+	    if (!sc->explicitProtection)
+		prot = PROTprivate;
+	    sc->scopesym->importScope(mod, prot);
 	}
-
-	// Modules need a list of each imported module
-	sc->module->aimports.push(mod);
 
 	if (mod->needmoduleinfo)
 	    sc->module->needmoduleinfo = 1;
@@ -161,12 +188,74 @@ void Import::semantic(Scope *sc)
 	    if (!mod->search(loc, (Identifier *)names.data[i], 0))
 		error("%s not found", ((Identifier *)names.data[i])->toChars());
 
+	    ad->importprot = protection;
 	    ad->semantic(sc);
-	    ad->protection = protection;
 	}
 	sc = sc->pop();
     }
     //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
+
+
+    if (global.params.moduleDeps != NULL) {
+	char fnameBuf[262];		// MAX_PATH+2
+
+	OutBuffer *const ob = global.params.moduleDeps;
+	ob->printf("%s (%s) : ",
+	    sc->module->toPrettyChars(),
+	    escapePath(sc->module->srcfile->toChars(), fnameBuf, sizeof(fnameBuf) / sizeof(*fnameBuf))
+	);
+
+	char* protStr = "";
+	switch (sc->protection) {
+	    case PROTpublic: protStr = "public"; break;
+	    case PROTprivate: protStr = "private"; break;
+	    case PROTpackage: protStr = "package"; break;
+	    default: break;
+	}
+	ob->writestring(protStr);
+	if (isstatic) {
+	    ob->writestring(" static");
+	}
+	ob->writestring(" : ");
+
+	if (this->packages) {
+	    for (size_t i = 0; i < this->packages->dim; i++) {
+		Identifier *pid = (Identifier *)this->packages->data[i];
+		ob->printf("%s.", pid->toChars());
+	    }
+	}
+
+	ob->printf("%s (%s)",
+	    this->id->toChars(),
+	    mod ? escapePath(mod->srcfile->toChars(), fnameBuf, sizeof(fnameBuf) / sizeof(*fnameBuf)) : "???"
+	);
+
+	if (aliasId) {
+	    ob->printf(" -> %s", aliasId->toChars());
+	} else {
+	    if (names.dim > 0) {
+		ob->writestring(" : ");
+		for (size_t i = 0; i < names.dim; i++)
+		{
+		    if (i > 0) {
+			ob->writebyte(',');
+		    }
+
+		    Identifier *name = (Identifier *)names.data[i];
+		    Identifier *alias = (Identifier *)aliases.data[i];
+
+		    if (!alias) {
+			ob->printf("%s", name->toChars());
+			alias = name;
+		    } else {
+			ob->printf("%s=%s", alias->toChars(), name->toChars());
+		    }
+		}
+	    }
+	}
+
+	ob->writenl();
+    }
 }
 
 void Import::semantic2(Scope *sc)
@@ -224,7 +313,9 @@ Dsymbol *Import::search(Loc loc, Identifier *ident, int flags)
     //printf("%s.Import::search(ident = '%s', flags = x%x)\n", toChars(), ident->toChars(), flags);
 
     if (!pkg)
-	load(NULL);
+    {	load(NULL);
+	mod->semantic();
+    }
 
     // Forward it to the package/module
     return pkg->search(loc, ident, flags);
@@ -256,7 +347,27 @@ void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	    buf->printf("%s.", pid->toChars());
 	}
     }
-    buf->printf("%s;", id->toChars());
+    buf->printf("%s", id->toChars());
+    if (names.dim > 0) {
+	buf->writebyte(':');
+	for (size_t i = 0; i < names.dim; i++)
+	{
+	    if (i > 0) {
+		    buf->writebyte(',');
+	    }
+
+	    Identifier *name = (Identifier *)names.data[i];
+	    Identifier *alias = (Identifier *)aliases.data[i];
+
+	    if (!alias) {
+		buf->printf("%s", name->toChars());
+		alias = name;
+	    } else {
+		buf->printf("%s=%s", alias->toChars(), name->toChars());
+	    }
+	}
+    }
+    buf->writebyte(';');
     buf->writenl();
 }
 

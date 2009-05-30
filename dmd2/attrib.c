@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -12,11 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if _WIN32 || IN_GCC || IN_LLVM
-#include "mem.h"
-#elif POSIX
-#include "../root/mem.h"
-#endif
+#include "rmem.h"
 
 #include "init.h"
 #include "declaration.h"
@@ -31,8 +27,8 @@
 #include "parse.h"
 #include "template.h"
 
+#if IN_LLVM
 #include "../gen/enums.h"
-
 
 #include "llvm/Support/CommandLine.h"
 
@@ -40,10 +36,14 @@ static llvm::cl::opt<bool> ignoreUnsupportedPragmas("ignore",
     llvm::cl::desc("Ignore unsupported pragmas"),
     llvm::cl::ZeroOrMore);
 
+#endif
 
 
 extern void obj_includelib(const char *name);
+
+#if IN_DMD
 void obj_startaddress(Symbol *s);
+#endif
 
 
 /********************************* AttribDeclaration ****************************/
@@ -151,11 +151,13 @@ void AttribDeclaration::emitComment(Scope *sc)
 {
     //printf("AttribDeclaration::emitComment(sc = %p)\n", sc);
 
-    /* If generating doc comment, skip this because if we're inside
-     * a template, then include(NULL, NULL) will fail.
+    /* A general problem with this, illustrated by BUGZILLA 2516,
+     * is that attributes are not transmitted through to the underlying
+     * member declarations for template bodies, because semantic analysis
+     * is not done for template declaration bodies
+     * (only template instantiations).
+     * Hence, Ddoc omits attributes from template members.
      */
-//    if (sc->docbuf)
-//	return;
 
     Array *d = include(NULL, NULL);
 
@@ -168,6 +170,8 @@ void AttribDeclaration::emitComment(Scope *sc)
 	}
     }
 }
+
+#if IN_DMD
 
 void AttribDeclaration::toObjFile(int multiobj)
 {
@@ -200,6 +204,7 @@ int AttribDeclaration::cvMember(unsigned char *p)
     }
     return nwritten;
 }
+#endif
 
 int AttribDeclaration::hasPointers()
 {
@@ -302,15 +307,8 @@ void StorageClassDeclaration::semantic(Scope *sc)
     if (decl)
     {	unsigned stc_save = sc->stc;
 
-	/* These sets of storage classes are mutually exclusive,
-	 * so choose the innermost or most recent one.
-	 */
-	if (stc & (STCauto | STCscope | STCstatic | STCextern | STCmanifest))
-	    sc->stc &= ~(STCauto | STCscope | STCstatic | STCextern | STCmanifest);
-	if (stc & (STCauto | STCscope | STCstatic | STCtls | STCmanifest))
-	    sc->stc &= ~(STCauto | STCscope | STCstatic | STCtls | STCmanifest);
-	if (stc & (STCconst | STCinvariant | STCmanifest))
-	    sc->stc &= ~(STCconst | STCinvariant | STCmanifest);
+	if (stc & (STCauto | STCscope | STCstatic | STCextern))
+	    sc->stc &= ~(STCauto | STCscope | STCstatic | STCextern);
 	sc->stc |= stc;
 	for (unsigned i = 0; i < decl->dim; i++)
 	{
@@ -324,7 +322,7 @@ void StorageClassDeclaration::semantic(Scope *sc)
 	sc->stc = stc;
 }
 
-void StorageClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
+void StorageClassDeclaration::stcToCBuffer(OutBuffer *buf, int stc)
 {
     struct SCstring
     {
@@ -339,7 +337,7 @@ void StorageClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	{ STCstatic,       TOKstatic },
 	{ STCextern,       TOKextern },
 	{ STCconst,        TOKconst },
-	{ STCinvariant,    TOKimmutable },
+	{ STCimmutable,    TOKimmutable },
 	{ STCshared,       TOKshared },
 	{ STCfinal,        TOKfinal },
 	{ STCabstract,     TOKabstract },
@@ -350,20 +348,26 @@ void StorageClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	{ STCpure,         TOKpure },
 	{ STCref,          TOKref },
 	{ STCtls,          TOKtls },
+	{ STCgshared,      TOKgshared },
+	{ STClazy,         TOKlazy },
+	{ STCalias,        TOKalias },
+	{ STCout,          TOKout },
+	{ STCin,           TOKin },
     };
 
-    int written = 0;
     for (int i = 0; i < sizeof(table)/sizeof(table[0]); i++)
     {
 	if (stc & table[i].stc)
 	{
-	    if (written)
-		buf->writeByte(' ');
-	    written = 1;
 	    buf->writestring(Token::toChars(table[i].tok));
+	    buf->writeByte(' ');
 	}
     }
+}
 
+void StorageClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
+{
+    stcToCBuffer(buf, stc);
     AttribDeclaration::toCBuffer(buf, hgs);
 }
 
@@ -438,9 +442,9 @@ void LinkDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	case LINKwindows:	p = "Windows";		break;
 	case LINKpascal:	p = "Pascal";		break;
 
-    // LDC
+#if IN_LLVM
     case LINKintrinsic: p = "Intrinsic"; break;
-
+#endif
 	default:
 	    assert(0);
 	    break;
@@ -542,7 +546,9 @@ void AlignDeclaration::semantic(Scope *sc)
     //printf("\tAlignDeclaration::semantic '%s'\n",toChars());
     if (decl)
     {	unsigned salign_save = sc->structalign;
-
+#if IN_DMD
+	sc->structalign = salign;
+#endif
 	for (unsigned i = 0; i < decl->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)decl->data[i];
@@ -631,12 +637,13 @@ void AnonDeclaration::semantic(Scope *sc)
 
 	sc = sc->push();
 	sc->anonAgg = &aad;
-	sc->stc &= ~(STCauto | STCscope | STCstatic | STCtls);
+	sc->stc &= ~(STCauto | STCscope | STCstatic | STCtls | STCgshared);
 	sc->inunion = isunion;
 	sc->offset = 0;
 	sc->flags = 0;
 	aad.structalign = sc->structalign;
 	aad.parent = ad;
+
 	for (unsigned i = 0; i < decl->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)decl->data[i];
@@ -687,20 +694,20 @@ void AnonDeclaration::semantic(Scope *sc)
 //printf("sc->offset = %d\n", sc->offset);
 
 	// Add members of aad to ad
-	//printf("\tadding members of aad (%p) to '%s'\n", &aad, ad->toChars());
+	//printf("\tadding members of aad to '%s'\n", ad->toChars());
 	for (unsigned i = 0; i < aad.fields.dim; i++)
 	{
 	    VarDeclaration *v = (VarDeclaration *)aad.fields.data[i];
 
-        // LDC
+#if IN_LLVM
         v->offset2 = sc->offset;
-
+#endif
 	    v->offset += sc->offset;
 
-        // LDC
+#if IN_LLVM
         if (!v->anonDecl)
             v->anonDecl = this;
-
+#endif
 	    ad->fields.push(v);
 	}
 
@@ -771,6 +778,7 @@ PragmaDeclaration::PragmaDeclaration(Loc loc, Identifier *ident, Expressions *ar
 
 Dsymbol *PragmaDeclaration::syntaxCopy(Dsymbol *s)
 {
+    //printf("PragmaDeclaration::syntaxCopy(%s)\n", toChars());
     PragmaDeclaration *pd;
 
     assert(!s);
@@ -785,7 +793,6 @@ void PragmaDeclaration::semantic(Scope *sc)
 #if IN_LLVM
     int llvm_internal = 0;
     std::string arg1str;
-
 #endif
 
     //printf("\tPragmaDeclaration::semantic '%s'\n",toChars());
@@ -802,7 +809,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 		if (e->op == TOKstring)
 		{
 		    StringExp *se = (StringExp *)e;
-		    fprintf(stdmsg, "%.*s", (int)se->len, se->string);
+		    fprintf(stdmsg, "%.*s", (int)se->len, (char*)se->string);
 		}
 		else
 		    error("string expected for message, not '%s'", e->toChars());
@@ -889,9 +896,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 	goto Lnodecl;
     }
 
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
-    // LDC
+// LDC
 #if IN_LLVM
 
     // pragma(intrinsic, "string") { funcdecl(s) }
@@ -1000,15 +1005,23 @@ void PragmaDeclaration::semantic(Scope *sc)
         }
         else
         {
-            error("command '%s' invalid");
+            error("command '%s' invalid", expr->toChars());
             fatal();
         }
     }
 
-#endif
-    // LDC
-    /////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////
+    // pragma(llvm_inline_asm) { templdecl(s) }
+    else if (ident == Id::llvm_inline_asm)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMinline_asm;
+    }
+
+#endif // LDC
 
     else if (ignoreUnsupportedPragmas)
     {
@@ -1021,6 +1034,10 @@ void PragmaDeclaration::semantic(Scope *sc)
 	    {
 		for (size_t i = 0; i < args->dim; i++)
 		{
+                    // ignore errors in ignored pragmas.
+                    global.gag++;
+                    unsigned errors_save = global.errors;
+
 		    Expression *e = (Expression *)args->data[i];
 		    e = e->semantic(sc);
 		    e = e->optimize(WANTvalue | WANTinterpret);
@@ -1029,13 +1046,16 @@ void PragmaDeclaration::semantic(Scope *sc)
 		    else
 			printf(",");
 		    printf("%s", e->toChars());
+
+                    // restore error state.
+                    global.gag--;
+                    global.errors = errors_save;
 		}
 		if (args->dim)
 		    printf(")");
 	    }
 	    printf("\n");
 	}
-	goto Lnodecl;
     }
     else
 	error("unrecognized pragma(%s)", ident->toChars());
@@ -1137,6 +1157,28 @@ void PragmaDeclaration::semantic(Scope *sc)
             }
             break;
 
+        case LLVMinline_asm:
+            if (TemplateDeclaration* td = s->isTemplateDeclaration())
+            {
+                if (td->parameters->dim > 1)
+                {
+                    error("the '%s' pragma template must have exactly zero or one template parameters", ident->toChars());
+                    fatal();
+                }
+                else if (!td->onemember)
+                {
+                    error("the '%s' pragma template must have exactly one member", ident->toChars());
+                    fatal();
+                }
+                td->llvmInternal = llvm_internal;
+            }
+            else
+            {
+                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+                fatal();
+            }
+            break;
+
         default:
             warning("the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
         }
@@ -1164,6 +1206,7 @@ const char *PragmaDeclaration::kind()
     return "pragma";
 }
 
+#if IN_DMD
 void PragmaDeclaration::toObjFile(int multiobj)
 {
     if (ident == Id::lib)
@@ -1178,8 +1221,23 @@ void PragmaDeclaration::toObjFile(int multiobj)
 	char *name = (char *)mem.malloc(se->len + 1);
 	memcpy(name, se->string, se->len);
 	name[se->len] = 0;
+#if OMFOBJ
+	/* The OMF format allows library names to be inserted
+	 * into the object file. The linker will then automatically
+	 * search that library, too.
+	 */
 	obj_includelib(name);
+#elif ELFOBJ || MACHOBJ
+	/* The format does not allow embedded library names,
+	 * so instead append the library name to the list to be passed
+	 * to the linker.
+	 */
+	global.params.libfiles->push((void *) name);
+#else
+	error("pragma lib not supported");
+#endif
     }
+#if DMDV2
     else if (ident == Id::startaddress)
     {
 	assert(args && args->dim == 1);
@@ -1188,11 +1246,12 @@ void PragmaDeclaration::toObjFile(int multiobj)
 	FuncDeclaration *f = sa->isFuncDeclaration();
 	assert(f);
 	Symbol *s = f->toSymbol();
-    assert(0 && "startaddress pragma not implemented");
-// 	obj_startaddress(s);
+	obj_startaddress(s);
     }
+#endif
     AttribDeclaration::toObjFile(multiobj);
 }
+#endif
 
 void PragmaDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
@@ -1247,6 +1306,17 @@ void ConditionalDeclaration::emitComment(Scope *sc)
     if (condition->inc)
     {
 	AttribDeclaration::emitComment(sc);
+    }
+    else if (sc->docbuf)
+    {
+	/* If generating doc comment, be careful because if we're inside
+	 * a template, then include(NULL, NULL) will fail.
+	 */
+	Array *d = decl ? decl : elsedecl;
+	for (unsigned i = 0; i < d->dim; i++)
+	{   Dsymbol *s = (Dsymbol *)d->data[i];
+	    s->emitComment(sc);
+	}
     }
 }
 

@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -107,10 +107,10 @@ void Html::extractCode(OutBuffer *buf)
 		{   // Comments start with <!--
 		    scanComment();
 		}
-  		else if(p[1] == '!' && isCDATAStart())
-  		{
-  		    scanCDATA();
-  		}
+		else if(p[1] == '!' && isCDATAStart())
+		{
+		    scanCDATA();
+		}
 		else if (p[1] == '/' && istagstart(*skipWhite(p + 2)))
 		    skipTag();
 		else if (istagstart(*skipWhite(p + 1)))
@@ -550,6 +550,7 @@ void Html::scanCDATA()
     }
 }
 
+
 /********************************************
  * Convert an HTML character entity into a character.
  * Forms are:
@@ -715,4 +716,5 @@ static int isLineSeparator(const unsigned char* p)
 
     return 0;
 }
+
 

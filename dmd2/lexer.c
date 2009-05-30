@@ -1,12 +1,16 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
 // License for redistribution is by either the Artistic License
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
+
+#if IN_LLVM
+#include <cmath>
+#endif
 
 /* Lexical Analyzer */
 
@@ -18,28 +22,9 @@
 #include <wchar.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <sys/time.h>
-#include <math.h>
+#include <time.h>	// for time() and ctime()
 
-#ifdef IN_GCC
-
-#include <time.h>
-#include "mem.h"
-
-#else
-
-#if __GNUC__
-#include <time.h>
-#endif
-
-#if IN_LLVM
-#include "mem.h"
-#elif _WIN32
-#include "..\root\mem.h"
-#else
-#include "../root/mem.h"
-#endif
-#endif
+#include "rmem.h"
 
 #include "stringtable.h"
 
@@ -119,30 +104,22 @@ const char *Token::toChars()
     switch (value)
     {
 	case TOKint32v:
-#if IN_GCC
 	    sprintf(buffer,"%d",(d_int32)int64value);
-#else
-	    sprintf(buffer,"%d",int32value);
-#endif
 	    break;
 
 	case TOKuns32v:
 	case TOKcharv:
 	case TOKwcharv:
 	case TOKdcharv:
-#if IN_GCC
 	    sprintf(buffer,"%uU",(d_uns32)uns64value);
-#else
-	    sprintf(buffer,"%uU",uns32value);
-#endif
 	    break;
 
 	case TOKint64v:
-	    sprintf(buffer,"%lldL",int64value);
+	    sprintf(buffer,"%jdL",int64value);
 	    break;
 
 	case TOKuns64v:
-	    sprintf(buffer,"%lluUL",uns64value);
+	    sprintf(buffer,"%juUL",uns64value);
 	    break;
 
 #if IN_GCC
@@ -403,6 +380,16 @@ TOK Lexer::peekNext()
     return peek(&token)->value;
 }
 
+/***********************
+ * Look 2 tokens ahead at value.
+ */
+
+TOK Lexer::peekNext2()
+{
+    Token *t = peek(&token);
+    return peek(t)->value;
+}
+
 /*********************************
  * tk is on the opening (.
  * Look ahead and return token that is past the closing ).
@@ -599,9 +586,10 @@ void Lexer::scan(Token *t)
 	    case '"':
 		t->value = escapeStringConstant(t,0);
 		return;
-
+#if ! TEXTUAL_ASSEMBLY_OUT
 	    case '\\':			// escaped string literal
 	    {	unsigned c;
+		unsigned char *pstart = p;
 
 		stringbuffer.reset();
 		do
@@ -628,9 +616,11 @@ void Lexer::scan(Token *t)
 		memcpy(t->ustring, stringbuffer.data, stringbuffer.offset);
 		t->postfix = 0;
 		t->value = TOKstring;
+		if (!global.params.useDeprecated)
+		    error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", p - pstart, pstart, p - pstart, pstart);
 		return;
 	    }
-
+#endif
 	    case 'l':
 	    case 'L':
 #endif
@@ -691,7 +681,7 @@ void Lexer::scan(Token *t)
 		    if (mod && id == Id::FILE)
 		    {
 			t->ustring = (unsigned char *)(loc.filename ? loc.filename : mod->ident->toChars());
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (mod && id == Id::LINE)
 		    {
@@ -703,22 +693,22 @@ void Lexer::scan(Token *t)
 		    if (id == Id::DATE)
 		    {
 			t->ustring = (unsigned char *)date;
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (id == Id::TIME)
 		    {
 			t->ustring = (unsigned char *)time;
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (id == Id::VENDOR)
 		    {
 			t->ustring = (unsigned char *)"LDC";
-			goto Lstring;
+			goto Lstr;
 		    }
 		    else if (id == Id::TIMESTAMP)
 		    {
 			t->ustring = (unsigned char *)timestamp;
-		     Lstring:
+		     Lstr:
 			t->value = TOKstring;
 		     Llen:
 			t->postfix = 0;
@@ -1228,11 +1218,14 @@ void Lexer::scan(Token *t)
  */
 
 unsigned Lexer::escapeSequence()
-{   unsigned c;
+{   unsigned c = *p;
+
+#ifdef TEXTUAL_ASSEMBLY_OUT
+    return c;
+#endif
     int n;
     int ndigits;
 
-    c = *p;
     switch (c)
     {
 	case '\'':
@@ -1587,6 +1580,8 @@ TOK Lexer::delimitedStringConstant(Token *t)
 	    else
 	    {	delimright = c;
 		nest = 0;
+		if (isspace(c))
+		    error("delimiter cannot be whitespace");
 	    }
 	}
 	else
@@ -1608,7 +1603,7 @@ TOK Lexer::delimitedStringConstant(Token *t)
 	    }
 	    else if (c == delimright)
 		goto Ldone;
-	    if (startline && isalpha(c))
+	    if (startline && isalpha(c) && hereid)
 	    {	Token t;
 		unsigned char *psave = p;
 		p--;
@@ -1717,6 +1712,7 @@ TOK Lexer::escapeStringConstant(Token *t, int wide)
 	c = *p++;
 	switch (c)
 	{
+#if !( TEXTUAL_ASSEMBLY_OUT )
 	    case '\\':
 		switch (*p)
 		{
@@ -1732,7 +1728,7 @@ TOK Lexer::escapeStringConstant(Token *t, int wide)
 			break;
 		}
 		break;
-
+#endif
 	    case '\n':
 		loc.linnum++;
 		break;
@@ -1793,6 +1789,7 @@ TOK Lexer::charConstant(Token *t, int wide)
     c = *p++;
     switch (c)
     {
+#if ! TEXTUAL_ASSEMBLY_OUT
 	case '\\':
 	    switch (*p)
 	    {
@@ -1812,7 +1809,7 @@ TOK Lexer::charConstant(Token *t, int wide)
 		    break;
 	    }
 	    break;
-
+#endif
 	case '\n':
 	L1:
 	    loc.linnum++;
@@ -2961,6 +2958,7 @@ static Keyword keywords[] =
     {	"pure",		TOKpure		},
     {	"nothrow",	TOKnothrow	},
     {	"__thread",	TOKtls		},
+    {	"__gshared",	TOKgshared	},
     {	"__traits",	TOKtraits	},
     {	"__overloadset", TOKoverloadset	},
     {	"__FILE__",	TOKfile		},
@@ -3095,7 +3093,6 @@ void Lexer::initKeywords()
     Token::tochars[TOKdotvar]		= "dotvar";
     Token::tochars[TOKdottype]		= "dottype";
     Token::tochars[TOKsymoff]		= "symoff";
-    Token::tochars[TOKtypedot]		= "typedot";
     Token::tochars[TOKarraylength]	= "arraylength";
     Token::tochars[TOKarrayliteral]	= "arrayliteral";
     Token::tochars[TOKassocarrayliteral] = "assocarrayliteral";
@@ -3106,4 +3103,6 @@ void Lexer::initKeywords()
     Token::tochars[TOKdeclaration]	= "declaration";
     Token::tochars[TOKdottd]		= "dottd";
     Token::tochars[TOKon_scope_exit]	= "scope(exit)";
+    Token::tochars[TOKon_scope_success]	= "scope(success)";
+    Token::tochars[TOKon_scope_failure]	= "scope(failure)";
 }

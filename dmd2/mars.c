@@ -1,3 +1,4 @@
+
 // Compiler implementation of the D programming language
 // Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
@@ -15,18 +16,17 @@
 #include <string>
 #include <cstdarg>
 
-#if __DMC__
-#include <dos.h>
-#endif
-
 #if POSIX
 #include <errno.h>
 #elif _WIN32
 #include <windows.h>
 #endif
 
-#include "mem.h"
+#include "rmem.h"
 #include "root.h"
+#if !IN_LLVM
+#include "async.h"
+#endif
 
 #include "mars.h"
 #include "module.h"
@@ -35,8 +35,24 @@
 #include "cond.h"
 #include "expression.h"
 #include "lexer.h"
+#if IN_LLVM
+#include "gen/revisions.h"
+#else
+#include "lib.h"
 
-#include "revisions.h"
+#if WINDOWS_SEH
+#include <windows.h>
+long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
+#endif
+
+
+int response_expand(int *pargc, char ***pargv);
+void browse(const char *url);
+void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
+
+void obj_start(char *srcfile);
+void obj_end(Library *library, File *objfile);
+#endif
 
 Global global;
 
@@ -48,7 +64,7 @@ Global::Global()
     doc_ext  = "html";
     ddoc_ext = "ddoc";
 
-// LDC
+#if IN_LLVM
     ll_ext  = "ll";
     bc_ext  = "bc";
     s_ext   = "s";
@@ -56,12 +72,37 @@ Global::Global()
 #if _WIN32
     obj_ext_alt = "obj";
 #endif
+#else
+#if TARGET_WINDOS
+    obj_ext  = "obj";
+#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
+    obj_ext  = "o";
+#elif TARGET_NET
+#else
+#error "fix this"
+#endif
 
-    copyright = "Copyright (c) 1999-2009 by Digital Mars and Tomas Lindquist Olsen";
-    written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v2.021";
+#if TARGET_WINDOS
+    lib_ext  = "lib";
+#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
+    lib_ext  = "a";
+#elif TARGET_NET
+#else
+#error "fix this"
+#endif
+#endif
+
+    copyright = "Copyright (c) 1999-2009 by Digital Mars";
+    written = "written by Walter Bright"
+#if TARGET_NET
+    "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
+#endif
+    ;
+    version = "v2.030";
+#if IN_LLVM
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV_STR;
+#endif
     global.structalign = 8;
 
     // This should only be used as a global, so the other fields are
@@ -72,17 +113,17 @@ Global::Global()
     // may run before this one.
 }
 
-char *Loc::toChars() const
+char *Loc::toChars()
 {
     OutBuffer buf;
 
     if (filename)
     {
-    buf.printf("%s", filename);
+	buf.printf("%s", filename);
     }
 
     if (linnum)
-    buf.printf("(%d)", linnum);
+	buf.printf("(%d)", linnum);
     buf.writeByte(0);
     return (char *)buf.extractData();
 }
@@ -91,6 +132,11 @@ Loc::Loc(Module *mod, unsigned linnum)
 {
     this->linnum = linnum;
     this->filename = mod ? mod->srcfile->toChars() : NULL;
+}
+
+bool Loc::equals(const Loc& loc)
+{
+    return linnum == loc.linnum && FileName::equals(filename, loc.filename);
 }
 
 /**************************************
@@ -105,22 +151,50 @@ void error(Loc loc, const char *format, ...)
     va_end( ap );
 }
 
+void warning(Loc loc, const char *format, ...)
+{
+    if (global.params.warnings && !global.gag)
+    {
+        va_list ap;
+        va_start(ap, format);
+        vwarning(loc, format, ap);
+        va_end( ap );
+    }
+}
+
 void verror(Loc loc, const char *format, va_list ap)
 {
     if (!global.gag)
     {
-    char *p = loc.toChars();
+	char *p = loc.toChars();
 
-    if (*p)
-        fprintf(stdmsg, "%s: ", p);
-    mem.free(p);
+	if (*p)
+	    fprintf(stdmsg, "%s: ", p);
+	mem.free(p);
 
-    fprintf(stdmsg, "Error: ");
-    vfprintf(stdmsg, format, ap);
-    fprintf(stdmsg, "\n");
-    fflush(stdmsg);
+	fprintf(stdmsg, "Error: ");
+	vfprintf(stdmsg, format, ap);
+	fprintf(stdmsg, "\n");
+	fflush(stdmsg);
     }
     global.errors++;
+}
+
+void vwarning(Loc loc, const char *format, va_list ap)
+{
+    if (global.params.warnings && !global.gag)
+    {
+        char *p = loc.toChars();
+
+        if (*p)
+            fprintf(stdmsg, "%s: ", p);
+        mem.free(p);
+
+        fprintf(stdmsg, "Warning: ");
+        vfprintf(stdmsg, format, ap);
+        fprintf(stdmsg, "\n");
+        fflush(stdmsg);
+    }
 }
 
 /***************************************
@@ -160,7 +234,7 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     Array *argv;
     int argc;
 
-    int wildcard;       // do wildcard expansion
+    int wildcard;		// do wildcard expansion
     int instring;
     int slash;
     char c;
@@ -168,9 +242,9 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
 
     env = getenv(envvar);
     if (!env)
-    return;
+	return;
 
-    env = mem.strdup(env);  // create our own writable copy
+    env = mem.strdup(env);	// create our own writable copy
 
     argc = *pargc;
     argv = new Array();
@@ -195,76 +269,76 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     argv->push((char*)"");
     argc++;
 
-    j = 1;          // leave argv[0] alone
+    j = 1;			// leave argv[0] alone
     while (1)
     {
-    wildcard = 1;
-    switch (*env)
-    {
-        case ' ':
-        case '\t':
-        env++;
-        break;
+	wildcard = 1;
+	switch (*env)
+	{
+	    case ' ':
+	    case '\t':
+		env++;
+		break;
 
-        case 0:
-        goto Ldone;
+	    case 0:
+		goto Ldone;
 
-        case '"':
-        wildcard = 0;
-        default:
-        argv->push(env);        // append
-        //argv->insert(j, env);     // insert at position j
-        j++;
-        argc++;
-        p = env;
-        slash = 0;
-        instring = 0;
-        c = 0;
+	    case '"':
+		wildcard = 0;
+	    default:
+		argv->push(env);		// append
+		//argv->insert(j, env);		// insert at position j
+		j++;
+		argc++;
+		p = env;
+		slash = 0;
+		instring = 0;
+		c = 0;
 
-        while (1)
-        {
-            c = *env++;
-            switch (c)
-            {
-            case '"':
-                p -= (slash >> 1);
-                if (slash & 1)
-                {   p--;
-                goto Laddc;
-                }
-                instring ^= 1;
-                slash = 0;
-                continue;
+		while (1)
+		{
+		    c = *env++;
+		    switch (c)
+		    {
+			case '"':
+			    p -= (slash >> 1);
+			    if (slash & 1)
+			    {	p--;
+				goto Laddc;
+			    }
+			    instring ^= 1;
+			    slash = 0;
+			    continue;
 
-            case ' ':
-            case '\t':
-                if (instring)
-                goto Laddc;
-                *p = 0;
-                //if (wildcard)
-                //wildcardexpand(); // not implemented
-                break;
+			case ' ':
+			case '\t':
+			    if (instring)
+				goto Laddc;
+			    *p = 0;
+			    //if (wildcard)
+				//wildcardexpand();	// not implemented
+			    break;
 
-            case '\\':
-                slash++;
-                *p++ = c;
-                continue;
+			case '\\':
+			    slash++;
+			    *p++ = c;
+			    continue;
 
-            case 0:
-                *p = 0;
-                //if (wildcard)
-                //wildcardexpand(); // not implemented
-                goto Ldone;
+			case 0:
+			    *p = 0;
+			    //if (wildcard)
+				//wildcardexpand();	// not implemented
+			    goto Ldone;
 
-            default:
-            Laddc:
-                slash = 0;
-                *p++ = c;
-                continue;
-            }
-            break;
-        }
-    }
+			default:
+			Laddc:
+			    slash = 0;
+			    *p++ = c;
+			    continue;
+		    }
+		    break;
+		}
+	}
     }
 
 Ldone:

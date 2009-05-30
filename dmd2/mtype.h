@@ -21,10 +21,12 @@
 #include "arraytypes.h"
 #include "expression.h"
 
-// llvm
-#include "../ir/irtype.h"
+#if IN_LLVM
+#include "../ir/irfuncty.h"
 namespace llvm { class Type; }
-struct IrFuncTy;
+class Ir;
+class IrType;
+#endif
 
 struct Scope;
 struct Identifier;
@@ -48,10 +50,13 @@ struct Argument;
 #if IN_GCC
 union tree_node; typedef union tree_node TYPE;
 typedef TYPE type;
-#else
-typedef struct TYPE type;
 #endif
+
+#if IN_DMD
+typedef struct TYPE type;
 struct Symbol;
+#endif
+
 
 enum ENUMTY
 {
@@ -116,18 +121,29 @@ struct Type : Object
 {
     TY ty;
     unsigned char mod;	// modifiers MODxxxx
+	/* pick this order of numbers so switch statements work better
+	 */
 	#define MODconst     1	// type is const
-	#define MODinvariant 2	// type is invariant
-	#define MODshared    4	// type is shared
+	#define MODinvariant 4	// type is invariant
+	#define MODshared    2	// type is shared
     char *deco;
+
+    /* Note that there is no "shared immutable", because that is just immutable
+     */
+
     Type *cto;		// MODconst ? mutable version of this type : const version
     Type *ito;		// MODinvariant ? mutable version of this type : invariant version
+    Type *sto;		// MODshared ? mutable version of this type : shared mutable version
+    Type *scto;		// MODshared|MODconst ? mutable version of this type : shared const version
+
     Type *pto;		// merged pointer to this type
     Type *rto;		// reference to this type
     Type *arrayof;	// array of this type
     TypeInfoDeclaration *vtinfo;	// TypeInfo object for this Type
 
+#if IN_DMD
     type *ctype;	// for back end
+#endif
 
     #define tvoid	basic[Tvoid]
     #define tint8	basic[Tint8]
@@ -183,11 +199,15 @@ struct Type : Object
     static ClassDeclaration *typeinfotypelist;
     static ClassDeclaration *typeinfoconst;
     static ClassDeclaration *typeinfoinvariant;
+    static ClassDeclaration *typeinfoshared;
 
     static Type *basic[TMAX];
     static unsigned char mangleChar[TMAX];
     static unsigned char sizeTy[TMAX];
     static StringTable stringtable;
+#if IN_LLVM
+    static StringTable deco_stringtable;
+#endif
 
     // These tables are for implicit conversion of binary ops;
     // the indices are the type of operand one, followed by operand two.
@@ -205,17 +225,24 @@ struct Type : Object
     int covariant(Type *t);
     char *toChars();
     static char needThisPrefix();
+#if IN_LLVM
+    static void init(Ir*);
+#else
     static void init();
+#endif
     d_uns64 size();
     virtual d_uns64 size(Loc loc);
     virtual unsigned alignsize();
     virtual Type *semantic(Loc loc, Scope *sc);
-    virtual void toDecoBuffer(OutBuffer *buf, int flag = 0);
+    Type *trySemantic(Loc loc, Scope *sc);
+    // append the mangleof or a string uniquely identifying this type to buf
+    virtual void toDecoBuffer(OutBuffer *buf, int flag = 0, bool mangle=false);
     Type *merge();
+    Type *merge2();
     virtual void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     virtual void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toCBuffer3(OutBuffer *buf, HdrGenState *hgs, int mod);
-#if TARGET_LINUX
+#if POSIX
     virtual void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
     virtual int isintegral();
@@ -234,14 +261,24 @@ struct Type : Object
     int isInvariant()	{ return mod & MODinvariant; }
     int isMutable()	{ return !(mod & (MODconst | MODinvariant)); }
     int isShared()	{ return mod & MODshared; }
+    int isSharedConst()	{ return mod == (MODshared | MODconst); }
     Type *constOf();
     Type *invariantOf();
     Type *mutableOf();
+    Type *sharedOf();
+    Type *sharedConstOf();
+    void fixTo(Type *t);
+    void check();
+    Type *castMod(unsigned mod);
+    Type *addMod(unsigned mod);
+    Type *addStorageClass(unsigned stc);
     Type *pointerTo();
     Type *referenceTo();
     Type *arrayOf();
     virtual Type *makeConst();
     virtual Type *makeInvariant();
+    virtual Type *makeShared();
+    virtual Type *makeSharedConst();
     virtual Dsymbol *toDsymbol(Scope *sc);
     virtual Type *toBasetype();
     virtual Type *toHeadMutable();
@@ -253,8 +290,10 @@ struct Type : Object
     virtual Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     virtual unsigned memalign(unsigned salign);
     virtual Expression *defaultInit(Loc loc = 0);
-    virtual int isZeroInit();		// if initializer is 0
+    virtual int isZeroInit(Loc loc = 0);		// if initializer is 0
+#if IN_DMD
     virtual dt_t **toDt(dt_t **pdt);
+#endif
     Identifier *getTypeInfoIdent(int internal);
     virtual MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     virtual void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
@@ -265,21 +304,27 @@ struct Type : Object
     virtual Type *reliesOnTident();
     virtual Expression *toExpression();
     virtual int hasPointers();
+    //Type *next;
     virtual Type *nextOf();
 
-    static void error(Loc loc, const char *format, ...);
+    static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
+    static void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 
+#if IN_DMD
     // For backend
     virtual unsigned totym();
     virtual type *toCtype();
     virtual type *toCParamtype();
     virtual Symbol *toSymbol();
+#endif
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
 
-    // LDC
-    IrType ir;
+#if IN_LLVM
+    static Ir* sir;
+    IrType* irtype;
+#endif
 };
 
 struct TypeNext : Type
@@ -287,13 +332,16 @@ struct TypeNext : Type
     Type *next;
 
     TypeNext(TY ty, Type *next);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void checkDeprecated(Loc loc, Scope *sc);
     Type *reliesOnTident();
     Type *nextOf();
     Type *makeConst();
     Type *makeInvariant();
+    Type *makeShared();
+    Type *makeSharedConst();
     MATCH constConv(Type *to);
+    void transitive();
 };
 
 struct TypeBasic : Type
@@ -309,7 +357,7 @@ struct TypeBasic : Type
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     char *toChars();
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
     int isintegral();
@@ -322,7 +370,7 @@ struct TypeBasic : Type
     int isunsigned();
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     int builtinTypeInfo();
 
     // For eliminating dynamic_cast
@@ -346,27 +394,31 @@ struct TypeSArray : TypeArray
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int isString();
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     unsigned memalign(unsigned salign);
     MATCH constConv(Type *to);
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
     dt_t **toDtElem(dt_t **pdt, Expression *e);
+#endif
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *toExpression();
     int hasPointers();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
     type *toCParamtype();
+#endif
 };
 
 // Dynamic array, no dimension
@@ -377,22 +429,25 @@ struct TypeDArray : TypeArray
     d_uns64 size(Loc loc);
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int isString();
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     int checkBoolean();
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     int builtinTypeInfo();
+    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeAArray : TypeArray
@@ -404,25 +459,27 @@ struct TypeAArray : TypeArray
     d_uns64 size(Loc loc);
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *defaultInit(Loc loc);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     int checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     // Back end
     Symbol *aaGetSymbol(const char *func, int flags);
 
     type *toCtype();
+#endif
 };
 
 struct TypePointer : TypeNext
@@ -437,14 +494,17 @@ struct TypePointer : TypeNext
     // LDC: pointers are unsigned
     int isunsigned() { return TRUE; };
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-#if TARGET_LINUX
+
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeReference : TypeNext
@@ -456,8 +516,8 @@ struct TypeReference : TypeNext
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
-#if TARGET_LINUX
+    int isZeroInit(Loc loc);
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 };
@@ -485,25 +545,32 @@ struct TypeFunction : TypeNext
     TypeFunction(Arguments *parameters, Type *treturn, int varargs, enum LINK linkage);
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Type *reliesOnTident();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
     bool parameterEscapes(Argument *p);
 
     int callMatch(Expression *ethis, Expressions *toargs);
+#if IN_DMD
     type *toCtype();
+#endif
+
     enum RET retStyle();
 
+#if IN_DMD
     unsigned totym();
-
+#elif IN_LLVM
     // LDC
-    IrFuncTy* fty;
+    IrFuncTy fty;
+
+    FuncDeclaration* funcdecl;
+#endif
 };
 
 struct TypeDelegate : TypeNext
@@ -517,16 +584,18 @@ struct TypeDelegate : TypeNext
     unsigned alignsize(); // added in LDC
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     int checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int hasPointers();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeQualified : Type
@@ -550,7 +619,7 @@ struct TypeIdentifier : TypeQualified
     TypeIdentifier(Loc loc, Identifier *ident);
     Type *syntaxCopy();
     //char *toChars();
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
     Dsymbol *toDsymbol(Scope *sc);
@@ -569,10 +638,11 @@ struct TypeInstance : TypeQualified
     TypeInstance(Loc loc, TemplateInstance *tempinst);
     Type *syntaxCopy();
     //char *toChars();
-    //void toDecoBuffer(OutBuffer *buf, int flag);
+    //void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
     Type *semantic(Loc loc, Scope *sc);
+    Dsymbol *toDsymbol(Scope *sc);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
 };
 
@@ -608,31 +678,35 @@ struct TypeStruct : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     unsigned memalign(unsigned salign);
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     int isAssignable();
     int checkBoolean();
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
+#endif
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     Type *toHeadMutable();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
-
+#elif IN_LLVM
     // LDC
     // cache the hasUnalignedFields check
     // 0 = not checked, 1 = aligned, 2 = unaligned
     int unaligned;
+#endif
 };
 
 struct TypeEnum : Type
@@ -646,7 +720,7 @@ struct TypeEnum : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *getProperty(Loc loc, Identifier *ident);
@@ -658,15 +732,17 @@ struct TypeEnum : Type
     MATCH constConv(Type *to);
     Type *toBasetype();
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
+#endif
 };
 
 struct TypeTypedef : Type
@@ -680,7 +756,7 @@ struct TypeTypedef : Type
     char *toChars();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     Expression *getProperty(Loc loc, Identifier *ident);
@@ -698,18 +774,22 @@ struct TypeTypedef : Type
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
+#endif
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
     Type *toHeadMutable();
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
 
+#if IN_DMD
     type *toCtype();
     type *toCParamtype();
+#endif
 };
 
 struct TypeClass : Type
@@ -722,28 +802,33 @@ struct TypeClass : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     ClassDeclaration *isClassHandle();
     int isBaseOf(Type *t, int *poffset);
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
-    int isZeroInit();
+    int isZeroInit(Loc loc);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     int isauto();
     int checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    int builtinTypeInfo();
+#if DMDV2
     Type *toHeadMutable();
     MATCH constConv(Type *to);
-#if TARGET_LINUX
+#if POSIX
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
+#endif
 
+#if IN_DMD
     type *toCtype();
 
     Symbol *toSymbol();
+#endif
 };
 
 struct TypeTuple : Type
@@ -757,7 +842,7 @@ struct TypeTuple : Type
     int equals(Object *o);
     Type *reliesOnTident();
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     Expression *getProperty(Loc loc, Identifier *ident);
     TypeInfoDeclaration *getTypeInfoDeclaration();
 };
@@ -789,12 +874,12 @@ struct Argument : Object
     Argument(unsigned storageClass, Type *type, Identifier *ident, Expression *defaultArg);
     Argument *syntaxCopy();
     Type *isLazyArray();
-    void toDecoBuffer(OutBuffer *buf);
+    void toDecoBuffer(OutBuffer *buf, bool mangle);
     static Arguments *arraySyntaxCopy(Arguments *args);
     static char *argsTypesToChars(Arguments *args, int varargs);
     static void argsCppMangle(OutBuffer *buf, CppMangleState *cms, Arguments *arguments, int varargs);
     static void argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Arguments *arguments, int varargs);
-    static void argsToDecoBuffer(OutBuffer *buf, Arguments *arguments);
+    static void argsToDecoBuffer(OutBuffer *buf, Arguments *arguments, bool mangle);
     static int isTPL(Arguments *arguments);
     static size_t dim(Arguments *arguments);
     static Argument *getNth(Arguments *arguments, size_t nth, size_t *pn = NULL);
@@ -805,5 +890,7 @@ extern int REALSIZE;
 extern int REALPAD;
 extern int Tsize_t;
 extern int Tptrdiff_t;
+
+int arrayTypeCompatible(Loc loc, Type *t1, Type *t2);
 
 #endif /* DMD_MTYPE_H */

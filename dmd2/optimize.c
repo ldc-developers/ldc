@@ -42,10 +42,20 @@ static real_t zero;	// work around DMC bug for now
 
 Expression *expandVar(int result, VarDeclaration *v)
 {
-    //printf("expandVar(result = %d, v = %s)\n", result, v ? v->toChars() : "null");
+    //printf("expandVar(result = %d, v = %p, %s)\n", result, v, v ? v->toChars() : "null");
+
     Expression *e = NULL;
-    if (v && (v->isConst() || v->isInvariant() || v->storage_class & STCmanifest))
+    if (!v)
+	return e;
+
+    if (v->isConst() || v->isInvariant() || v->storage_class & STCmanifest)
     {
+	if (!v->type)
+	{
+	    //error("ICE");
+	    return e;
+	}
+
 	Type *tb = v->type->toBasetype();
 	if (result & WANTinterpret ||
 	    v->storage_class & STCmanifest ||
@@ -55,7 +65,10 @@ Expression *expandVar(int result, VarDeclaration *v)
 	    if (v->init)
 	    {
 		if (v->inuse)
+		{   if (v->storage_class & STCmanifest)
+			v->error("recursive initialization of constant");
 		    goto L1;
+		}
 		Expression *ei = v->init->toExpression();
 		if (!ei)
 		    goto L1;
@@ -99,7 +112,9 @@ Expression *expandVar(int result, VarDeclaration *v)
 	    {
 		e = e->castTo(NULL, v->type);
 	    }
+	    v->inuse++;
 	    e = e->optimize(result);
+	    v->inuse--;
 	}
     }
 L1:
@@ -316,15 +331,15 @@ Expression *AddrExp::optimize(int result)
 
 	if (ae->e2->op == TOKint64 && ae->e1->op == TOKvar)
 	{
-	    integer_t index = ae->e2->toInteger();
+	    dinteger_t index = ae->e2->toInteger();
 	    VarExp *ve = (VarExp *)ae->e1;
 	    if (ve->type->ty == Tsarray
 		&& !ve->var->isImportedSymbol())
 	    {
 		TypeSArray *ts = (TypeSArray *)ve->type;
-		integer_t dim = ts->dim->toInteger();
+		dinteger_t dim = ts->dim->toInteger();
 		if (index < 0 || index >= dim)
-		    error("array index %lld is out of bounds [0..%lld]", index, dim);
+		    error("array index %jd is out of bounds [0..%jd]", index, dim);
 		e = new SymOffExp(loc, ve->var, index * ts->nextOf()->size());
 		e->type = type;
 		return e;
@@ -370,36 +385,46 @@ Expression *PtrExp::optimize(int result)
 	if (e && e->op == TOKstructliteral)
 	{   StructLiteralExp *sle = (StructLiteralExp *)e;
 	    e = sle->getField(type, se->offset);
-	    if (e != EXP_CANT_INTERPRET)
+	    if (e && e != EXP_CANT_INTERPRET)
 		return e;
 	}
     }
     return this;
 }
 
-///////////////////////////////////////////
-// LDC
 Expression *DotVarExp::optimize(int result)
 {
+    //printf("DotVarExp::optimize(result = x%x) %s\n", result, toChars());
     e1 = e1->optimize(result);
 
-    // Constant fold structliteral.member
-    if (e1->op == TOKstructliteral)
-    {   StructLiteralExp *se = (StructLiteralExp *)e1;
-
-    VarDeclaration* v;
-    if (v = var->isVarDeclaration())
-    {
-        Expression *e = se->getField(type, v->offset);
-        if (!e)
-        e = EXP_CANT_INTERPRET;
-        return e;
+    if (e1->op == TOKvar)
+    {	VarExp *ve = (VarExp *)e1;
+	VarDeclaration *v = ve->var->isVarDeclaration();
+	Expression *e = expandVar(result, v);
+	if (e && e->op == TOKstructliteral)
+	{   StructLiteralExp *sle = (StructLiteralExp *)e;
+	    VarDeclaration *vf = var->isVarDeclaration();
+	    if (vf)
+	    {
+		e = sle->getField(type, vf->offset);
+		if (e && e != EXP_CANT_INTERPRET)
+		    return e;
+	    }
+	}
     }
+    else if (e1->op == TOKstructliteral)
+    {   StructLiteralExp *sle = (StructLiteralExp *)e1;
+	VarDeclaration *vf = var->isVarDeclaration();
+	if (vf)
+	{
+	    Expression *e = sle->getField(type, vf->offset);
+	    if (e && e != EXP_CANT_INTERPRET)
+		return e;
+	}
     }
 
     return this;
 }
-///////////////////////////////////////////
 
 Expression *CallExp::optimize(int result)
 {
@@ -444,17 +469,28 @@ Expression *CastExp::optimize(int result)
     enum TOK op1 = e1->op;
 #define X 0
 
+    Expression *e1old = e1;
     e1 = e1->optimize(result);
     e1 = fromConstInitializer(result, e1);
+
+    if (e1 == e1old &&
+	e1->op == TOKarrayliteral &&
+	type->toBasetype()->ty == Tpointer &&
+	e1->type->toBasetype()->ty != Tsarray)
+    {
+	// Casting this will result in the same expression, and
+	// infinite loop because of Expression::implicitCastTo()
+	return this;		// no change
+    }
 
     if ((e1->op == TOKstring || e1->op == TOKarrayliteral) &&
 	(type->ty == Tpointer || type->ty == Tarray) &&
 	e1->type->nextOf()->size() == type->nextOf()->size()
        )
     {
-	e1 = e1->castTo(NULL, type);
-	if (X) printf(" returning1 %s\n", e1->toChars());
-	return e1;
+	Expression *e = e1->castTo(NULL, type);
+	if (X) printf(" returning1 %s\n", e->toChars());
+	return e;
     }
 
     if (e1->op == TOKstructliteral &&
@@ -539,11 +575,10 @@ Expression *BinExp::optimize(int result)
     {
 	if (e2->isConst() == 1)
 	{
-	    integer_t i2 = e2->toInteger();
+	    dinteger_t i2 = e2->toInteger();
 	    d_uns64 sz = e1->type->size() * 8;
 	    if (i2 < 0 || i2 > sz)
-	    {
-        error("shift assign by %lld is outside the range 0..%"PRIuSIZE, i2, sz);
+	    {   error("shift assign by %jd is outside the range 0..%zu", i2, sz);
 		e2 = new IntegerExp(0);
 	    }
 	}
@@ -635,11 +670,10 @@ Expression *shift_optimize(int result, BinExp *e, Expression *(*shift)(Type *, E
     e->e2 = e->e2->optimize(result);
     if (e->e2->isConst() == 1)
     {
-	integer_t i2 = e->e2->toInteger();
+	dinteger_t i2 = e->e2->toInteger();
 	d_uns64 sz = e->e1->type->size() * 8;
 	if (i2 < 0 || i2 > sz)
-	{
-        error("shift by %lld is outside the range 0..%"PRIuSIZE, i2, sz);
+	{   e->error("shift by %jd is outside the range 0..%zu", i2, sz);
 	    e->e2 = new IntegerExp(0);
 	}
 	if (e->e1->isConst() == 1)

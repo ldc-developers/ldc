@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -15,19 +15,14 @@
 #if _MSC_VER
 #include <complex>
 #else
+#include <complex>
 #endif
 
 #ifdef __APPLE__
 #define integer_t dmd_integer_t
 #endif
 
-#if IN_GCC || IN_LLVM
-#include "mem.h"
-#elif POSIX
-#include "../root/mem.h"
-#elif _WIN32
-#include "..\root\mem.h"
-#endif
+#include "rmem.h"
 
 //#include "port.h"
 #include "mtype.h"
@@ -37,8 +32,9 @@
 #include "declaration.h"
 #include "aggregate.h"
 #include "template.h"
+#include "scope.h"
 
-static void inferApplyArgTypesX(FuncDeclaration *fstart, Arguments *arguments);
+static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Arguments *arguments);
 static void inferApplyArgTypesZ(TemplateDeclaration *tstart, Arguments *arguments);
 static int inferApplyArgTypesY(TypeFunction *tf, Arguments *arguments);
 static void templateResolve(Match *m, TemplateDeclaration *td, Scope *sc, Loc loc, Objects *targsi, Expression *ethis, Expressions *arguments);
@@ -166,6 +162,7 @@ Identifier *PtrExp::opId()	{ return Id::opStar; }
 
 Expression *UnaExp::op_overload(Scope *sc)
 {
+    //printf("UnaExp::op_overload() (%s)\n", toChars());
     AggregateDeclaration *ad;
     Dsymbol *fd;
     Type *t1 = e1->type->toBasetype();
@@ -185,10 +182,11 @@ Expression *UnaExp::op_overload(Scope *sc)
 	{
 	    if (op == TOKarray)
 	    {
-		Expression *e;
+		/* Rewrite op e1[arguments] as:
+		 *    e1.fd(arguments)
+		 */
+		Expression *e = new DotIdExp(loc, e1, fd->ident);
 		ArrayExp *ae = (ArrayExp *)this;
-
-		e = new DotIdExp(loc, e1, fd->ident);
 		e = new CallExp(loc, e, ae->arguments);
 		e = e->semantic(sc);
 		return e;
@@ -198,6 +196,19 @@ Expression *UnaExp::op_overload(Scope *sc)
 		// Rewrite +e1 as e1.add()
 		return build_overload(loc, sc, e1, NULL, fd->ident);
 	    }
+	}
+
+	// Didn't find it. Forward to aliasthis
+	if (ad->aliasthis)
+	{
+	    /* Rewrite op(e1) as:
+	     *	op(e1.aliasthis)
+	     */
+	    Expression *e1 = new DotIdExp(loc, this->e1, ad->aliasthis->ident);
+	    Expression *e = copy();
+	    ((UnaExp *)e)->e1 = e1;
+	    e = e->semantic(sc);
+	    return e;
 	}
     }
     return NULL;
@@ -272,14 +283,14 @@ Expression *BinExp::op_overload(Scope *sc)
 	    fd = s->isFuncDeclaration();
 	    if (fd)
 	    {
-		overloadResolveX(&m, fd, NULL, &args2);
+		overloadResolveX(&m, fd, NULL, &args2, sc->module);
 	    }
 	    else
 	    {   td = s->isTemplateDeclaration();
 		templateResolve(&m, td, sc, loc, NULL, NULL, &args2);
 	    }
 	}
-
+	
 	lastf = m.lastf;
 
 	if (s_r)
@@ -287,7 +298,7 @@ Expression *BinExp::op_overload(Scope *sc)
 	    fd = s_r->isFuncDeclaration();
 	    if (fd)
 	    {
-		overloadResolveX(&m, fd, NULL, &args1);
+		overloadResolveX(&m, fd, NULL, &args1, sc->module);
 	    }
 	    else
 	    {   td = s_r->isTemplateDeclaration();
@@ -343,8 +354,6 @@ Expression *BinExp::op_overload(Scope *sc)
 	     *	b.opfunc(a)
 	     * and see which is better.
 	     */
-	    Expression *e;
-	    FuncDeclaration *lastf;
 
 	    if (!argsset)
 	    {	args1.setDim(1);
@@ -361,21 +370,21 @@ Expression *BinExp::op_overload(Scope *sc)
 		fd = s_r->isFuncDeclaration();
 		if (fd)
 		{
-		    overloadResolveX(&m, fd, NULL, &args2);
+		    overloadResolveX(&m, fd, NULL, &args2, sc->module);
 		}
 		else
 		{   td = s_r->isTemplateDeclaration();
 		    templateResolve(&m, td, sc, loc, NULL, NULL, &args2);
 		}
 	    }
-	    lastf = m.lastf;
+	    FuncDeclaration *lastf = m.lastf;
 
 	    if (s)
 	    {
 		fd = s->isFuncDeclaration();
 		if (fd)
 		{
-		    overloadResolveX(&m, fd, NULL, &args1);
+		    overloadResolveX(&m, fd, NULL, &args1, sc->module);
 		}
 		else
 		{   td = s->isTemplateDeclaration();
@@ -396,6 +405,7 @@ Expression *BinExp::op_overload(Scope *sc)
 		m.lastf = m.anyf;
 	    }
 
+	    Expression *e;
 	    if (lastf && m.lastf == lastf ||
 		id_r && m.last == MATCHnomatch)
 		// Rewrite (e1 op e2) as e1.opfunc_r(e2)
@@ -429,6 +439,32 @@ Expression *BinExp::op_overload(Scope *sc)
 
 	    return e;
 	}
+    }
+
+    // Try alias this on first operand
+    if (ad1 && ad1->aliasthis)
+    {
+	/* Rewrite (e1 op e2) as:
+	 *	(e1.aliasthis op e2)
+	 */
+	Expression *e1 = new DotIdExp(loc, this->e1, ad1->aliasthis->ident);
+	Expression *e = copy();
+	((BinExp *)e)->e1 = e1;
+	e = e->semantic(sc);
+	return e;
+    }
+
+    // Try alias this on second operand
+    if (ad2 && ad2->aliasthis)
+    {
+	/* Rewrite (e1 op e2) as:
+	 *	(e1 op e2.aliasthis)
+	 */
+	Expression *e2 = new DotIdExp(loc, this->e2, ad2->aliasthis->ident);
+	Expression *e = copy();
+	((BinExp *)e)->e2 = e2;
+	e = e->semantic(sc);
+	return e;
     }
 
     return NULL;
@@ -491,7 +527,7 @@ Dsymbol *search_function(ScopeDsymbol *ad, Identifier *funcid)
  * them from the aggregate type.
  */
 
-void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
+void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Module* from)
 {
     if (!arguments || !arguments->dim)
 	return;
@@ -581,8 +617,8 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
 	    if (s)
 	    {
 		FuncDeclaration *fd = s->isFuncDeclaration();
-		if (fd)
-		{   inferApplyArgTypesX(fd, arguments);
+		if (fd) 
+		{   inferApplyArgTypesX(from, fd, arguments);
 		    break;
 		}
 #if 0
@@ -603,7 +639,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr)
 
 		FuncDeclaration *fd = de->func->isFuncDeclaration();
 		if (fd)
-		    inferApplyArgTypesX(fd, arguments);
+		    inferApplyArgTypesX(from, fd, arguments);
 	    }
 	    else
 	    {
@@ -633,9 +669,9 @@ int fp3(void *param, FuncDeclaration *f)
     return 0;
 }
 
-static void inferApplyArgTypesX(FuncDeclaration *fstart, Arguments *arguments)
+static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Arguments *arguments)
 {
-    overloadApply(fstart, &fp3, arguments);
+    overloadApply(from, fstart, &fp3, arguments);
 }
 
 /******************************

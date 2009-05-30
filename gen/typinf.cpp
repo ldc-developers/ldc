@@ -434,7 +434,11 @@ void TypeInfoEnumDeclaration::llvmDefine()
     else
     {
         const LLType* memty = DtoType(sd->memtype);
+#if DMDV2
+        LLConstant* C = llvm::ConstantInt::get(memty, sd->defaultval->toInteger(), !sd->memtype->isunsigned());
+#else
         LLConstant* C = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
+#endif
         b.push_void_array(C, sd->memtype, sd);
     }
 

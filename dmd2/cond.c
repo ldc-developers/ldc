@@ -127,13 +127,26 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
 {
     static const char* reserved[] =
     {
-	"DigitalMars", "LLVM", "LDC", "LLVM64",
-    "X86", "X86_64", "PPC", "PPC64",
+	"DigitalMars", "X86", "X86_64",
 	"Windows", "Win32", "Win64",
-	"linux", "darwin", "Posix",
+	"linux",
+#if DMDV2
+	/* Although Posix is predefined by D1, disallowing its
+	 * redefinition breaks makefiles and older builds.
+	 */
+	"Posix",
+	"D_NET",
+#endif
+	"OSX", "FreeBSD",
+	"Solaris",
 	"LittleEndian", "BigEndian",
 	"all",
 	"none",
+
+    // LDC
+    "LLVM", "LDC", "LLVM64",
+    "PPC", "PPC64",
+    "darwin","solaris","freebsd"
     };
 
     for (unsigned i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
@@ -294,13 +307,14 @@ int IftypeCondition::include(Scope *sc, ScopeDsymbol *sd)
 	    inc = 2;
 	    return 0;
 	}
-	unsigned errors = global.errors;
-	global.gag++;			// suppress printing of error messages
-	targ = targ->semantic(loc, sc);
-	global.gag--;
-	if (errors != global.errors)	// if any errors happened
-	{   inc = 2;			// then condition is false
-	    global.errors = errors;
+	Type *t = targ->trySemantic(loc, sc);
+	if (t)
+	    targ = t;
+	else
+	    inc = 2;			// condition is false
+
+	if (!t)
+	{
 	}
 	else if (id && tspec)
 	{

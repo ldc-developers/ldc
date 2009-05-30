@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -10,11 +10,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#if _WIN32 || IN_GCC || IN_LLVM
-#include "mem.h"
-#else
-#include "../root/mem.h"
-#endif
+#include "rmem.h"
 
 #include "expression.h"
 #include "mtype.h"
@@ -61,8 +57,8 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 	    }
 	    else
 	    {
-		warning("%s: implicit conversion of expression (%s) of type %s to %s can cause loss of data",
-		    loc.toChars(), toChars(), type->toChars(), t->toChars());
+		warning("implicit conversion of expression (%s) of type %s to %s can cause loss of data",
+		    toChars(), type->toChars(), t->toChars());
 	    }
 	}
 #if DMDV2
@@ -107,6 +103,19 @@ fflush(stdout);
     error("cannot implicitly convert expression (%s) of type %s to %s",
 	toChars(), type->toChars(), t->toChars());
     return castTo(sc, t);
+}
+
+Expression *StringExp::implicitCastTo(Scope *sc, Type *t)
+{
+    //printf("StringExp::implicitCastTo(%s of type %s) => %s\n", toChars(), type->toChars(), t->toChars());
+    unsigned char committed = this->committed;
+    Expression *e = Expression::implicitCastTo(sc, t);
+    if (e->op == TOKstring)
+    {
+	// Retain polysemous nature if it started out that way
+	((StringExp *)e)->committed = committed;
+    }
+    return e;
 }
 
 /*******************************************
@@ -233,7 +242,7 @@ MATCH IntegerExp::implicitConvTo(Type *t)
 
 	case Tchar:
 	case Tuns8:
-	    //printf("value = %llu %llu\n", (integer_t)(unsigned char)value, value);
+	    //printf("value = %llu %llu\n", (dinteger_t)(unsigned char)value, value);
 	    if ((unsigned char)value != value)
 		goto Lno;
 	    goto Lyes;
@@ -446,6 +455,15 @@ MATCH StringExp::implicitConvTo(Type *t)
 			if (tynto == Tchar || tynto == Twchar || tynto == Tdchar)
 			    return MATCHexact;
 		    }
+		    else if (type->ty == Tarray)
+		    {
+			if (length() >
+			    ((TypeSArray *)t)->dim->toInteger())
+			    return MATCHnomatch;
+			TY tynto = t->nextOf()->ty;
+			if (tynto == Tchar || tynto == Twchar || tynto == Tdchar)
+			    return MATCHexact;
+		    }
 		case Tarray:
 		case Tpointer:
 		    tn = t->nextOf();
@@ -563,7 +581,7 @@ MATCH AddrExp::implicitConvTo(Type *t)
 	    {   Dsymbol *s = (Dsymbol *)eo->vars->a.data[i];
 		FuncDeclaration *f2 = s->isFuncDeclaration();
 		assert(f2);
-		if (f2->overloadExactMatch(t->nextOf()))
+		if (f2->overloadExactMatch(t->nextOf(), m))
 		{   if (f)
 			/* Error if match in more than one overload set,
 			 * even if one is a 'better' match than the other.
@@ -580,17 +598,14 @@ MATCH AddrExp::implicitConvTo(Type *t)
 	    t->ty == Tpointer && t->nextOf()->ty == Tfunction &&
 	    e1->op == TOKvar)
 	{
-// LDC: it happens for us
-#if !IN_LLVM
 	    /* I don't think this can ever happen -
 	     * it should have been
 	     * converted to a SymOffExp.
 	     */
 	    assert(0);
-#endif
 	    VarExp *ve = (VarExp *)e1;
 	    FuncDeclaration *f = ve->var->isFuncDeclaration();
-	    if (f && f->overloadExactMatch(t->nextOf()))
+	    if (f && f->overloadExactMatch(t->nextOf(), m))
 		result = MATCHexact;
 	}
     }
@@ -620,7 +635,7 @@ MATCH SymOffExp::implicitConvTo(Type *t)
 	{
 	    f = var->isFuncDeclaration();
 	    if (f)
-	    {	f = f->overloadExactMatch(t->nextOf());
+	    {	f = f->overloadExactMatch(t->nextOf(), m);
 		if (f)
 		{   if ((t->ty == Tdelegate && (f->needThis() || f->isNested())) ||
 			(t->ty == Tpointer && !(f->needThis() || f->isNested())))
@@ -654,7 +669,7 @@ MATCH DelegateExp::implicitConvTo(Type *t)
 	if (type->ty == Tdelegate && type->nextOf()->ty == Tfunction &&
 	    t->ty == Tdelegate && t->nextOf()->ty == Tfunction)
 	{
-	    if (func && func->overloadExactMatch(t->nextOf()))
+	    if (func && func->overloadExactMatch(t->nextOf(), m))
 		result = MATCHexact;
 	}
     }
@@ -716,6 +731,32 @@ Expression *Expression::castTo(Scope *sc, Type *t)
 #endif
 	else
 	{
+	    if (typeb->ty == Tstruct)
+	    {   TypeStruct *ts = (TypeStruct *)typeb;
+		if (!(tb->ty == Tstruct && ts->sym == ((TypeStruct *)tb)->sym) &&
+		    ts->sym->aliasthis)
+		{   /* Forward the cast to our alias this member, rewrite to:
+		     *   cast(to)e1.aliasthis
+		     */
+		    Expression *e1 = new DotIdExp(loc, this, ts->sym->aliasthis->ident);
+		    Expression *e = new CastExp(loc, e1, tb);
+		    e = e->semantic(sc);
+		    return e;
+		}
+	    }
+	    else if (typeb->ty == Tclass)
+	    {   TypeClass *ts = (TypeClass *)typeb;
+		if (tb->ty != Tclass &&
+		    ts->sym->aliasthis)
+		{   /* Forward the cast to our alias this member, rewrite to:
+		     *   cast(to)e1.aliasthis
+		     */
+		    Expression *e1 = new DotIdExp(loc, this, ts->sym->aliasthis->ident);
+		    Expression *e = new CastExp(loc, e1, tb);
+		    e = e->semantic(sc);
+		    return e;
+		}
+	    }
 	    e = new CastExp(loc, e, tb);
 	}
     }
@@ -847,6 +888,16 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
 	{   se = (StringExp *)copy();
 	    copied = 1;
 	}
+	se->type = t;
+	return se;
+    }
+
+    if (committed && tb->ty == Tsarray && typeb->ty == Tarray)
+    {
+	se = (StringExp *)copy();
+	se->sz = tb->nextOf()->size();
+	se->len = (len * sz) / se->sz;
+	se->committed = 1;
 	se->type = t;
 	return se;
     }
@@ -1048,7 +1099,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 	    {   Dsymbol *s = (Dsymbol *)eo->vars->a.data[i];
 		FuncDeclaration *f2 = s->isFuncDeclaration();
 		assert(f2);
-		if (f2->overloadExactMatch(t->nextOf()))
+		if (f2->overloadExactMatch(t->nextOf(), m))
 		{   if (f)
 			/* Error if match in more than one overload set,
 			 * even if one is a 'better' match than the other.
@@ -1076,11 +1127,8 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 	    FuncDeclaration *f = ve->var->isFuncDeclaration();
 	    if (f)
 	    {
-// LDC: not in ldc
-#if !IN_LLVM
 		assert(0);	// should be SymOffExp instead
-#endif
-		f = f->overloadExactMatch(tb->nextOf());
+		f = f->overloadExactMatch(tb->nextOf(), m);
 		if (f)
 		{
 		    e = new VarExp(loc, f);
@@ -1144,8 +1192,11 @@ Expression *ArrayLiteralExp::castTo(Scope *sc, Type *t)
     }
     if (tb->ty == Tpointer && typeb->ty == Tsarray)
     {
-	e = (ArrayLiteralExp *)copy();
-	e->type = typeb->nextOf()->pointerTo();
+	Type *tp = typeb->nextOf()->pointerTo();
+	if (!tp->equals(e->type))
+	{   e = (ArrayLiteralExp *)copy();
+	    e->type = tp;
+	}
     }
 L1:
     return e->Expression::castTo(sc, t);
@@ -1204,7 +1255,7 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
 	    f = var->isFuncDeclaration();
 	    if (f)
 	    {
-		f = f->overloadExactMatch(tb->nextOf());
+		f = f->overloadExactMatch(tb->nextOf(), m);
 		if (f)
 		{
 		    if (tb->ty == Tdelegate && f->needThis() && hasThis(sc))
@@ -1258,7 +1309,7 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
 	{
 	    if (func)
 	    {
-		f = func->overloadExactMatch(tb->nextOf());
+		f = func->overloadExactMatch(tb->nextOf(), m);
 		if (f)
 		{   int offset;
 		    if (f->tintro && f->tintro->nextOf()->isBaseOf(f->type->nextOf(), &offset) && offset)
@@ -1321,10 +1372,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	stride = t1b->nextOf()->size(loc);
 	if (!t->equals(t2b))
 	    e2 = e2->castTo(sc, t);
-    // LDC: llvm uses typesafe pointer arithmetic
-    #if !IN_LLVM
 	e2 = new MulExp(loc, e2, new IntegerExp(0, stride, t));
-    #endif
 	e2->type = t;
 	type = e1->type;
     }
@@ -1339,9 +1387,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
 	    e = e1->castTo(sc, t);
 	else
 	    e = e1;
-    #if !IN_LLVM
 	e = new MulExp(loc, e, new IntegerExp(0, stride, t));
-    #endif
 	e->type = t;
 	type = e2->type;
 	e1 = e2;
@@ -1666,6 +1712,8 @@ Expression *BinExp::typeCombine(Scope *sc)
 Lerror:
     incompatibleTypes();
     type = Type::terror;
+    e1 = new ErrorExp();
+    e2 = new ErrorExp();
     return this;
 }
 
@@ -1703,3 +1751,29 @@ Expression *Expression::integralPromotions(Scope *sc)
     return e;
 }
 
+/***********************************
+ * See if both types are arrays that can be compared
+ * for equality. Return !=0 if so.
+ * If they are arrays, but incompatible, issue error.
+ * This is to enable comparing things like an immutable
+ * array with a mutable one.
+ */
+
+int arrayTypeCompatible(Loc loc, Type *t1, Type *t2)
+{
+    t1 = t1->toBasetype();
+    t2 = t2->toBasetype();
+
+    if ((t1->ty == Tarray || t1->ty == Tsarray || t1->ty == Tpointer) &&
+	(t2->ty == Tarray || t2->ty == Tsarray || t2->ty == Tpointer))
+    {
+	if (t1->nextOf()->implicitConvTo(t2->nextOf()) < MATCHconst &&
+	    t2->nextOf()->implicitConvTo(t1->nextOf()) < MATCHconst &&
+	    (t1->nextOf()->ty != Tvoid && t2->nextOf()->ty != Tvoid))
+	{
+	    error(loc, "array equality comparison type mismatch, %s vs %s", t1->toChars(), t2->toChars());
+	}
+	return 1;
+    }
+    return 0;
+}

@@ -47,6 +47,8 @@ int StructDeclaration::needOpAssign()
 	Dsymbol *s = (Dsymbol *)fields.data[i];
 	VarDeclaration *v = s->isVarDeclaration();
 	assert(v && v->storage_class & STCfield);
+	if (v->storage_class & STCref)
+	    continue;
 	Type *tv = v->type->toBasetype();
 	while (tv->ty == Tsarray)
 	{   TypeSArray *ta = (TypeSArray *)tv;
@@ -264,6 +266,8 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
 	Dsymbol *s = (Dsymbol *)fields.data[i];
 	VarDeclaration *v = s->isVarDeclaration();
 	assert(v && v->storage_class & STCfield);
+	if (v->storage_class & STCref)
+	    continue;
 	Type *tv = v->type->toBasetype();
 	size_t dim = 1;
 	while (tv->ty == Tsarray)
@@ -282,7 +286,7 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
 		ex = new DotVarExp(0, ex, v, 0);
 
 		if (dim == 1)
-		{   // this.v.dtor()
+		{   // this.v.postblit()
 		    ex = new DotVarExp(0, ex, sd->postblit, 0);
 		    ex = new CallExp(0, ex);
 		}
@@ -308,7 +312,7 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
     {	//printf("Building __fieldPostBlit()\n");
 	PostBlitDeclaration *dd = new PostBlitDeclaration(0, 0, Lexer::idPool("__fieldPostBlit"));
 	dd->fbody = new ExpStatement(0, e);
-	dtors.push(dd);
+	postblits.shift(dd);
 	members->push(dd);
 	dd->semantic(sc);
     }
@@ -359,6 +363,8 @@ FuncDeclaration *AggregateDeclaration::buildDtor(Scope *sc)
 	Dsymbol *s = (Dsymbol *)fields.data[i];
 	VarDeclaration *v = s->isVarDeclaration();
 	assert(v && v->storage_class & STCfield);
+	if (v->storage_class & STCref)
+	    continue;
 	Type *tv = v->type->toBasetype();
 	size_t dim = 1;
 	while (tv->ty == Tsarray)

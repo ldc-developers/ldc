@@ -28,9 +28,12 @@ struct Library;
 
 // Back end
 #if IN_LLVM
+class Ir;
 struct DValue;
 typedef DValue elem;
+namespace llvm { class Module; }
 #else
+
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
 #else
@@ -79,6 +82,9 @@ struct Module : Package
     int strictlyneedmoduleinfo;
 #endif
 
+    int selfimports;		// 0: don't know, 1: does not, 2: does
+    int selfImports();		// returns !=0 if module imports itself
+
     int insearch;
     Identifier *searchCacheIdent;
     Dsymbol *searchCacheSymbol;	// cached value of search
@@ -108,12 +114,11 @@ struct Module : Package
     Array *versionidsNot;	// forward referenced version identifiers
 
     Macro *macrotable;		// document comment macros
-    struct Escape *escapetable;	// document comment escapes
+    Escape *escapetable;	// document comment escapes
+    bool safe;			// TRUE if module is marked as 'safe'
 
     int doDocComment;		// enable generating doc comments for this module
     int doHdrGen;		// enable generating header file for this module
-
-    bool safe;
 
     Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();
@@ -122,6 +127,9 @@ struct Module : Package
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
+#if !IN_LLVM
+    void setDocfile();	// set docfile member
+#endif
     void read(Loc loc);	// read file
 #if IN_GCC
     void parse(bool dump_source = false);	// syntactic parse
@@ -132,10 +140,12 @@ struct Module : Package
     void semantic2(Scope* unused_sc = NULL);	// pass 2 semantic analysis
     void semantic3(Scope* unused_sc = NULL);	// pass 3 semantic analysis
     void inlineScan();	// scan for functions to inline
+#if !IN_LLVM
+    void setHdrfile();	// set hdrfile member
+#endif
 #ifdef _DH
     void genhdrfile();  // generate D import file
 #endif
-    void genobjfile(int multiobj);
 //    void gensymfile();
     void gendocfile();
     int needModuleInfo();
@@ -143,9 +153,10 @@ struct Module : Package
     void deleteObjFile();
     void addDeferredSemantic(Dsymbol *s);
     void runDeferredSemantic();
+    int imports(Module *m);
 
     // Back end
-
+#if IN_DMD
     int doppelganger;		// sub-module
     Symbol *cov;		// private uint[] __coverage;
     unsigned *covb;		// bit array of valid code line numbers
@@ -169,17 +180,21 @@ struct Module : Package
     elem *toEmodulename();
 
     Symbol *toSymbol();
+#endif
     void genmoduleinfo();
 
+#if IN_LLVM
     // LDC
+    llvm::Module* genLLVMModule(Ir* sir);
     void buildTargetFiles();
-    File* buildFilePath(char* forcename, const char* path, const char* ext);
+    File* buildFilePath(const char* forcename, const char* path, const char* ext);
     Module *isModule() { return this; }
-    
+
     bool llvmForceLogging;
 
     // array ops emitted in this module already
     StringTable arrayfuncs;
+#endif
 };
 
 

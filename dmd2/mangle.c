@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -24,7 +24,7 @@
 #include "id.h"
 #include "module.h"
 
-#if TARGET_LINUX
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
 char *cpp_mangle(Dsymbol *s);
 #endif
 
@@ -73,7 +73,12 @@ L1:
     if (sthis->type->deco)
 	buf.writestring(sthis->type->deco);
     else
-    {	assert(fd->inferRetType);
+    {
+#ifdef DEBUG
+	if (!fd->inferRetType)
+	    printf("%s\n", fd->toChars());
+#endif
+	assert(fd->inferRetType);
     }
 
     id = buf.toChars();
@@ -117,7 +122,7 @@ char *Declaration::mangle()
 		    return ident->toChars();
 
 		case LINKcpp:
-#if TARGET_LINUX
+#if DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS)
 		    return cpp_mangle(this);
 #else
 		    // Windows C++ mangling is done by C++ back end
@@ -155,13 +160,12 @@ char *FuncDeclaration::mangle()
 	if (isMain())
 	    return (char *)"_Dmain";
 
-    if (isWinMain() || isDllMain())
-        return ident->toChars();
+	if (isWinMain() || isDllMain() || ident == Id::tls_get_addr)
+	    return ident->toChars();
 
-    assert(this);
-    return Declaration::mangle();
+	assert(this);
+	return Declaration::mangle();
     }
-
 
 char *StructDeclaration::mangle()
 {
@@ -221,21 +225,23 @@ char *TemplateInstance::mangle()
     printf("\n");
 #endif
     id = ident ? ident->toChars() : toChars();
-    if (tempdecl->parent)
+    if (!tempdecl)
+	error("is not defined");
+    else if (tempdecl->parent)
     {
 	char *p = tempdecl->parent->mangle();
 	if (p[0] == '_' && p[1] == 'D')
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    buf.printf("%zu%s", strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("TemplateInstance::mangle() %s = %s\n", toChars(), id);
     return id;
 }
 
-
+#if IN_LLVM
 char *TemplateMixin::mangle()
 {
     OutBuffer buf;
@@ -255,12 +261,13 @@ char *TemplateMixin::mangle()
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    buf.printf("%zu%s", strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("TemplateMixin::mangle() %s = %s\n", toChars(), id);
     return id;
 }
+#endif
 
 char *Dsymbol::mangle()
 {
@@ -281,7 +288,7 @@ char *Dsymbol::mangle()
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%"PRIuSIZE"%s", strlen(id), id);
+    buf.printf("%zu%s", strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("Dsymbol::mangle() %s = %s\n", toChars(), id);

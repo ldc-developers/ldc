@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -12,7 +12,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if _MSC_VER || __MINGW32__
+#if (defined (__SVR4) && defined (__sun))
+#include <alloca.h>
+#endif
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
 #include <malloc.h>
 #endif
 
@@ -20,7 +24,7 @@
 #include "gdc_alloca.h"
 #endif
 
-#include "mem.h"
+#include "rmem.h"
 
 #include "mars.h"
 #include "module.h"
@@ -40,7 +44,7 @@
 #include "d-dmd-gcc.h"
 #endif
 
-
+#if IN_LLVM
 #include "llvm/Support/CommandLine.h"
 
 static llvm::cl::opt<bool> preservePaths("op",
@@ -50,8 +54,7 @@ static llvm::cl::opt<bool> preservePaths("op",
 static llvm::cl::opt<bool> fqnNames("oq",
     llvm::cl::desc("Write object files with fully qualified names"),
     llvm::cl::ZeroOrMore);
-
-
+#endif
 
 ClassDeclaration *Module::moduleinfo;
 
@@ -71,6 +74,12 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 	: Package(ident)
 {
     FileName *srcfilename;
+#if IN_DMD
+    FileName *cfilename;
+    FileName *hfilename;
+    FileName *objfilename;
+    FileName *symfilename;
+#endif
 
 //    printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident->toChars());
     this->arg = filename;
@@ -84,6 +93,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 #ifdef IN_GCC
     strictlyneedmoduleinfo = 0;
 #endif
+    selfimports = 0;
     insearch = 0;
     searchCacheIdent = NULL;
     searchCacheSymbol = NULL;
@@ -92,6 +102,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     semanticdone = 0;
     decldefs = NULL;
     vmoduleinfo = NULL;
+#if IN_DMD
     massert = NULL;
     marray = NULL;
     sictor = NULL;
@@ -99,6 +110,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     sdtor = NULL;
     stest = NULL;
     sfilename = NULL;
+#endif
     root = 0;
     importedFrom = NULL;
     srcfile = NULL;
@@ -116,9 +128,11 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     macrotable = NULL;
     escapetable = NULL;
     safe = FALSE;
+#if IN-DMD
     doppelganger = 0;
     cov = NULL;
     covb = NULL;
+#endif
 
     srcfilename = FileName::defaultExt(filename, global.mars_ext);
     if (!srcfilename->equalsExt(global.mars_ext) &&
@@ -137,17 +151,53 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 	    fatal();
 	}
     }
-    srcfile = new File(srcfilename);
+#if !IN_LLVM
+    char *argobj;
+    if (global.params.objname)
+	argobj = global.params.objname;
+    else if (global.params.preservePaths)
+	argobj = filename;
+    else
+	argobj = FileName::name(filename);
+    if (!FileName::absolute(argobj))
+    {
+	argobj = FileName::combine(global.params.objdir, argobj);
+    }
 
+    if (global.params.objname)
+	objfilename = new FileName(argobj, 0);
+    else
+	objfilename = FileName::forceExt(argobj, global.obj_ext);
+
+    symfilename = FileName::forceExt(filename, global.sym_ext);
+#endif
+
+    srcfile = new File(srcfilename);
+#if IN_DMD
+    if (doDocComment)
+    {
+	setDocfile();
+    }
+
+    if (doHdrGen)
+    {
+	setHdrfile();
+    }
+
+    objfile = new File(objfilename);
+    symfile = new File(symfilename);
+#endif
+#if IN_LLVM
     // LDC
     llvmForceLogging = false;
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
+#endif
 }
-
-File* Module::buildFilePath(char* forcename, const char* path, const char* ext)
+#if IN_LLVM
+File* Module::buildFilePath(const char* forcename, const char* path, const char* ext)
 {
-    char *argobj;
+    const char *argobj;
     if (forcename)
 	argobj = forcename;
     else
@@ -160,9 +210,9 @@ File* Module::buildFilePath(char* forcename, const char* path, const char* ext)
 	if (fqnNames)
 	{
 	    if(md)
-		argobj = FileName::replaceName(argobj, md->toChars());
+		argobj = FileName::replaceName((char*)argobj, md->toChars());
 	    else
-		argobj = FileName::replaceName(argobj, toChars());
+		argobj = FileName::replaceName((char*)argobj, toChars());
 
 	    // add ext, otherwise forceExt will make nested.module into nested.bc
 	    size_t len = strlen(argobj);
@@ -191,11 +241,70 @@ File* Module::buildFilePath(char* forcename, const char* path, const char* ext)
 #if _WIN32
     if (ext == global.params.objdir && FileName::ext(argobj) 
 	    && stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
-	return new File(argobj);
+	return new File((char*)argobj);
 #endif
     return new File(FileName::forceExt(argobj, ext));
 }
+#endif
+#if IN_DMD
+void Module::setDocfile()
+{
+    FileName *docfilename;
+    char *argdoc;
 
+    if (global.params.docname)
+	argdoc = global.params.docname;
+    else if (global.params.preservePaths)
+	argdoc = (char *)arg;
+    else
+	argdoc = FileName::name((char *)arg);
+    if (!FileName::absolute(argdoc))
+    {	//FileName::ensurePathExists(global.params.docdir);
+	argdoc = FileName::combine(global.params.docdir, argdoc);
+    }
+    if (global.params.docname)
+	docfilename = new FileName(argdoc, 0);
+    else
+	docfilename = FileName::forceExt(argdoc, global.doc_ext);
+
+    if (docfilename->equals(srcfile->name))
+    {   error("Source file and documentation file have same name '%s'", srcfile->name->str);
+	fatal();
+    }
+
+    docfile = new File(docfilename);
+}
+
+void Module::setHdrfile()
+{
+    FileName *hdrfilename;
+    char *arghdr;
+
+    if (global.params.hdrname)
+	arghdr = global.params.hdrname;
+    else if (global.params.preservePaths)
+	arghdr = (char *)arg;
+    else
+	arghdr = FileName::name((char *)arg);
+    if (!FileName::absolute(arghdr))
+    {	//FileName::ensurePathExists(global.params.hdrdir);
+	arghdr = FileName::combine(global.params.hdrdir, arghdr);
+    }
+    if (global.params.hdrname)
+	hdrfilename = new FileName(arghdr, 0);
+    else
+	hdrfilename = FileName::forceExt(arghdr, global.hdr_ext);
+
+    if (hdrfilename->equals(srcfile->name))
+    {   error("Source file and 'header' file have same name '%s'", srcfile->name->str);
+	fatal();
+    }
+
+    hdrfile = new File(hdrfilename);
+}
+#endif
+
+#if IN_LLVM
 void Module::buildTargetFiles()
 {
     if(objfile && 
@@ -227,7 +336,7 @@ void Module::buildTargetFiles()
 	fatal();
     }
 }
-
+#endif
 void Module::deleteObjFile()
 {
     if (global.params.obj)
@@ -565,7 +674,7 @@ void Module::parse()
     }
 
 #ifdef IN_GCC
-    // dump utf-8 encoded source
+    // dump utf-8 encoded source 
     if (dump_source)
     {	// %% srcname could contain a path ...
 	d_gcc_dump_source(srcname, "utf-8", buf, buflen);
@@ -579,6 +688,10 @@ void Module::parse()
     {
 	comment = buf + 4;
 	isDocFile = 1;
+#if IN_DMD
+	if (!docfile)
+	    setDocfile();
+#endif
 	return;
     }
     if (isHtml)
@@ -902,6 +1015,64 @@ void Module::runDeferredSemantic()
     nested--;
     //printf("-Module::runDeferredSemantic('%s'), len = %d\n", toChars(), deferred.dim);
 }
+
+/************************************
+ * Recursively look at every module this module imports,
+ * return TRUE if it imports m.
+ * Can be used to detect circular imports.
+ */
+
+int Module::imports(Module *m)
+{
+    //printf("%s Module::imports(%s)\n", toChars(), m->toChars());
+    int aimports_dim = aimports.dim;
+#if 0
+    for (int i = 0; i < aimports.dim; i++)
+    {	Module *mi = (Module *)aimports.data[i];
+	printf("\t[%d] %s\n", i, mi->toChars());
+    }
+#endif
+    for (int i = 0; i < aimports.dim; i++)
+    {	Module *mi = (Module *)aimports.data[i];
+	if (mi == m)
+	    return TRUE;
+	if (!mi->insearch)
+	{
+	    mi->insearch = 1;
+	    int r = mi->imports(m);
+	    if (r)
+		return r;
+	}
+    }
+    return FALSE;
+}
+
+/*************************************
+ * Return !=0 if module imports itself.
+ */
+
+int Module::selfImports()
+{
+    //printf("Module::selfImports() %s\n", toChars());
+    if (!selfimports)
+    {
+	for (int i = 0; i < amodules.dim; i++)
+	{   Module *mi = (Module *)amodules.data[i];
+	    //printf("\t[%d] %s\n", i, mi->toChars());
+	    mi->insearch = 0;
+	}
+
+	selfimports = imports(this) + 1;
+
+	for (int i = 0; i < amodules.dim; i++)
+	{   Module *mi = (Module *)amodules.data[i];
+	    //printf("\t[%d] %s\n", i, mi->toChars());
+	    mi->insearch = 0;
+	}
+    }
+    return selfimports - 1;
+}
+
 
 /* =========================== ModuleDeclaration ===================== */
 

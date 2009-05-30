@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "mem.h"
+#include "rmem.h"
 
 #include "statement.h"
 #include "expression.h"
@@ -69,7 +69,7 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     else if (ident == Id::aaValues)
 	return interpret_aaValues(istate, arguments);
 
-    if (cantInterpret || semanticRun == 1)
+    if (cantInterpret || semanticRun == 3)
 	return NULL;
 
     if (needThis() || isNested() || !fbody)
@@ -77,13 +77,13 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
 	return NULL;
     }
 
-    if (semanticRun == 0 && scope)
+    if (semanticRun < 3 && scope)
     {
 	semantic3(scope);
-    if (global.errors)  // if errors compiling this function
-        return NULL;
+	if (global.errors)	// if errors compiling this function
+	    return NULL;
     }
-    if (semanticRun < 2)
+    if (semanticRun < 4)
 	return NULL;
 
     Type *tb = type->toBasetype();
@@ -987,7 +987,11 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d)
 {
     Expression *e = EXP_CANT_INTERPRET;
     VarDeclaration *v = d->isVarDeclaration();
+#if IN_LLVM
     StaticStructInitDeclaration *s = d->isStaticStructInitDeclaration();
+#else
+    SymbolDeclaration *s = d->isSymbolDeclaration();
+#endif
     if (v)
     {
 #if DMDV2
@@ -1511,6 +1515,80 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, fp_t fp, int post)
 		e = Cast(type, type, post ? ev : e2);
 	    }
 	}
+    }
+    /* Assignment to struct member of the form:
+     *   v.var = e2
+     */
+    else if (e1->op == TOKdotvar && ((DotVarExp *)e1)->e1->op == TOKvar)
+    {	VarExp *ve = (VarExp *)((DotVarExp *)e1)->e1;
+	VarDeclaration *v = ve->var->isVarDeclaration();
+
+	if (v->isDataseg())
+	    return EXP_CANT_INTERPRET;
+	if (fp && !v->value)
+	{   error("variable %s is used before initialization", v->toChars());
+	    return e;
+	}
+	if (v->value == NULL && v->init->isVoidInitializer())
+	{   /* Since a void initializer initializes to undefined
+	     * values, it is valid here to use the default initializer.
+	     * No attempt is made to determine if someone actually relies
+	     * on the void value - to do that we'd need a VoidExp.
+	     * That's probably a good enhancement idea.
+	     */
+	    v->value = v->type->defaultInit();
+	}
+	Expression *vie = v->value;
+	if (vie->op == TOKvar)
+	{
+	    Declaration *d = ((VarExp *)vie)->var;
+	    vie = getVarExp(e1->loc, istate, d);
+	}
+	if (vie->op != TOKstructliteral)
+	    return EXP_CANT_INTERPRET;
+	StructLiteralExp *se = (StructLiteralExp *)vie;
+	VarDeclaration *vf = ((DotVarExp *)e1)->var->isVarDeclaration();
+	if (!vf)
+	    return EXP_CANT_INTERPRET;
+	int fieldi = se->getFieldIndex(type, vf->offset);
+	if (fieldi == -1)
+	    return EXP_CANT_INTERPRET;
+	Expression *ev = se->getField(type, vf->offset);
+	if (fp)
+	    e2 = (*fp)(type, ev, e2);
+	else
+	    e2 = Cast(type, type, e2);
+	if (e2 == EXP_CANT_INTERPRET)
+	    return e2;
+
+	if (!v->isParameter())
+	{
+	    for (size_t i = 0; 1; i++)
+	    {
+		if (i == istate->vars.dim)
+		{   istate->vars.push(v);
+		    break;
+		}
+		if (v == (VarDeclaration *)istate->vars.data[i])
+		    break;
+	    }
+	}
+
+	/* Create new struct literal reflecting updated fieldi
+	 */
+	Expressions *expsx = new Expressions();
+	expsx->setDim(se->elements->dim);
+	for (size_t j = 0; j < expsx->dim; j++)
+	{
+	    if (j == fieldi)
+		expsx->data[j] = (void *)e2;
+	    else
+		expsx->data[j] = se->elements->data[j];
+	}
+	v->value = new StructLiteralExp(se->loc, se->sd, expsx);
+	v->value->type = se->type;
+
+	e = Cast(type, type, post ? ev : e2);
     }
     /* Assignment to struct member of the form:
      *   *(symoffexp) = e2
@@ -2159,21 +2237,29 @@ Expression *PtrExp::interpret(InterState *istate)
 Expression *DotVarExp::interpret(InterState *istate)
 {   Expression *e = EXP_CANT_INTERPRET;
 
+#if LOG
+    printf("DotVarExp::interpret() %s\n", toChars());
+#endif
+
     Expression *ex = e1->interpret(istate);
-
-    // Constant fold structliteral.member
-    if (ex != EXP_CANT_INTERPRET && ex->op == TOKstructliteral)
-    {	StructLiteralExp *se = (StructLiteralExp *)ex;
-
-	VarDeclaration* v;
-	if (v = var->isVarDeclaration())
-	{
-	    e = se->getField(type, v->offset);
-	    if (!e)
-		e = EXP_CANT_INTERPRET;
+    if (ex != EXP_CANT_INTERPRET)
+    {
+	if (ex->op == TOKstructliteral)
+	{   StructLiteralExp *se = (StructLiteralExp *)ex;
+	    VarDeclaration *v = var->isVarDeclaration();
+	    if (v)
+	    {	e = se->getField(type, v->offset);
+		if (!e)
+		    e = EXP_CANT_INTERPRET;
+		return e;
+	    }
 	}
     }
 
+#if LOG
+    if (e == EXP_CANT_INTERPRET)
+	printf("DotVarExp::interpret() %s = EXP_CANT_INTERPRET\n", toChars());
+#endif
     return e;
 }
 

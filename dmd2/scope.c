@@ -52,8 +52,8 @@ Scope::Scope()
     this->enclosing = NULL;
     this->parent = NULL;
     this->sw = NULL;
-    this->tf = NULL;
-    this->tfOfTry = NULL;
+    this->enclosingFinally = NULL;
+    this->enclosingScopeExit = NULL;
     this->tinst = NULL;
     this->sbreak = NULL;
     this->scontinue = NULL;
@@ -91,8 +91,8 @@ Scope::Scope(Scope *enclosing)
     this->scopesym = NULL;
     this->sd = NULL;
     this->sw = enclosing->sw;
-    this->tf = enclosing->tf;
-    this->tfOfTry = enclosing->tfOfTry;
+    this->enclosingFinally = enclosing->enclosingFinally;
+    this->enclosingScopeExit = enclosing->enclosingScopeExit;
     this->tinst = enclosing->tinst;
     this->sbreak = enclosing->sbreak;
     this->scontinue = enclosing->scontinue;
@@ -257,10 +257,7 @@ Dsymbol *Scope::search(Loc loc, Identifier *ident, Dsymbol **pscopesym)
 		    sc->enclosing &&
 		    sc->enclosing->search(loc, ident, NULL))
 		{
-            // WTF ?
-		    if (global.params.warnings)
-			fprintf(stdmsg, "warning - ");
-		    error(s->loc, "array 'length' hides other 'length' name in outer scope");
+		    warning(s->loc, "array 'length' hides other 'length' name in outer scope");
 		}
 
 		//printf("\tfound %s.%s, kind = '%s'\n", s->parent ? s->parent->toChars() : "", s->toChars(), s->kind());

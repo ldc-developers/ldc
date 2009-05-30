@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -33,6 +33,7 @@ Declaration::Declaration(Identifier *id)
     storage_class = STCundefined;
     protection = PROTundefined;
     linkage = LINKdefault;
+    inuse = 0;
 }
 
 void Declaration::semantic(Scope *sc)
@@ -66,6 +67,11 @@ int Declaration::isDelete()
 }
 
 int Declaration::isDataseg()
+{
+    return FALSE;
+}
+
+int Declaration::isThreadlocal()
 {
     return FALSE;
 }
@@ -135,14 +141,13 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
 	    if (isConst())
 		p = "const";
 	    else if (isInvariant())
-		p = "invariant";
+		p = "mutable";
 	    else if (storage_class & STCmanifest)
-		p = "manifest constant";
+		p = "enum";
 	    else if (!t->isAssignable())
 		p = "struct with immutable members";
 	    if (p)
 	    {	error(loc, "cannot modify %s", p);
-		halt();
 	    }
 	}
     }
@@ -253,9 +258,10 @@ TypedefDeclaration::TypedefDeclaration(Loc loc, Identifier *id, Type *basetype, 
     this->hbasetype = NULL;
 #endif
     this->sem = 0;
-    this->inuse = 0;
     this->loc = loc;
+#if IN_DMD
     this->sinit = NULL;
+#endif
 }
 
 Dsymbol *TypedefDeclaration::syntaxCopy(Dsymbol *s)
@@ -367,6 +373,7 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
 #endif
     this->overnext = NULL;
     this->inSemantic = 0;
+    this->importprot = PROTundefined;
     assert(type);
 }
 
@@ -456,8 +463,16 @@ void AliasDeclaration::semantic(Scope *sc)
     if (s && ((s->getType() && type->equals(s->getType())) || s->isEnumMember()))
 	goto L2;			// it's a symbolic alias
 
-    //printf("alias type is %s\n", type->toChars());
-    type->resolve(loc, sc, &e, &t, &s);
+    if (storage_class & STCref)
+    {	// For 'ref' to be attached to function types, and picked
+	// up by Type::resolve(), it has to go into sc.
+	sc = sc->push();
+	sc->stc |= STCref;
+	type->resolve(loc, sc, &e, &t, &s);
+	sc = sc->pop();
+    }
+    else
+	type->resolve(loc, sc, &e, &t, &s);
     if (s)
     {
 	goto L2;
@@ -496,6 +511,7 @@ void AliasDeclaration::semantic(Scope *sc)
 	    if (overnext)
 	    {
 		FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
+		fa->importprot = importprot;
 		if (!fa->overloadInsert(overnext))
 		    ScopeDsymbol::multiplyDefined(0, f, overnext);
 		overnext = NULL;
@@ -549,7 +565,7 @@ Dsymbol *AliasDeclaration::toAlias()
     //static int count; if (++count == 10) *(char*)0=0;
     if (inSemantic)
     {	error("recursive alias declaration");
-//	return this;
+	aliassym = new TypedefDeclaration(loc, ident, Type::terror, NULL);
     }
     Dsymbol *s = aliassym ? aliassym->toAlias() : this;
     return s;
@@ -563,7 +579,7 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
 	if (haliassym)
 	{
-	    haliassym->toCBuffer(buf, hgs);
+	    buf->writestring(haliassym->toChars());
 	    buf->writeByte(' ');
 	    buf->writestring(ident->toChars());
 	}
@@ -608,18 +624,21 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     this->loc = loc;
     offset = 0;
     noauto = 0;
-    inuse = 0;
     ctorinit = 0;
     aliassym = NULL;
     onstack = 0;
     canassign = 0;
     value = NULL;
     scope = NULL;
+#if IN_LLVM
+    aggrIndex = 0;
 
     // LDC
     anonDecl = NULL;
     offset2 = 0;
+
     nakedUse = false;
+#endif
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
@@ -709,6 +728,11 @@ void VarDeclaration::semantic(Scope *sc)
     //printf("sc->stc = %x\n", sc->stc);
     //printf("storage_class = x%x\n", storage_class);
 
+    if (storage_class & STCgshared && global.params.safe && !sc->module->safe)
+    {
+	error("__gshared not allowed in safe mode; use shared");
+    }
+
     Dsymbol *parent = toParent();
     FuncDeclaration *fd = parent->isFuncDeclaration();
 
@@ -746,7 +770,7 @@ void VarDeclaration::semantic(Scope *sc)
 	{   Argument *arg = Argument::getNth(tt->arguments, i);
 
 	    OutBuffer buf;
-        buf.printf("_%s_field_%"PRIuSIZE, ident->toChars(), i);
+	    buf.printf("_%s_field_%zu", ident->toChars(), i);
 	    buf.writeByte(0);
 	    char *name = (char *)buf.extractData();
 	    Identifier *id = new Identifier(name, TOKidentifier);
@@ -763,13 +787,16 @@ void VarDeclaration::semantic(Scope *sc)
 	    VarDeclaration *v = new VarDeclaration(loc, arg->type, id, ti);
 	    //printf("declaring field %s of type %s\n", v->toChars(), v->type->toChars());
 	    v->semantic(sc);
-
+            
+/*
+// removed for LDC since TupleDeclaration::toObj already creates the fields;
+// adding them to the scope again leads to duplicates
 	    if (sc->scopesym)
 	    {	//printf("adding %s to %s\n", v->toChars(), sc->scopesym->toChars());
 		if (sc->scopesym->members)
 		    sc->scopesym->members->push(v);
 	    }
-
+*/
 	    Expression *e = new DsymbolExp(loc, v);
 	    exps->data[i] = e;
 	}
@@ -780,19 +807,21 @@ void VarDeclaration::semantic(Scope *sc)
     }
 
 Lagain:
-    if (storage_class & STCinvariant)
-    {
-	type = type->invariantOf();
+    /* Storage class can modify the type
+     */
+    type = type->addStorageClass(storage_class);
+
+    /* Adjust storage class to reflect type
+     */
+    if (type->isConst())
+    {	storage_class |= STCconst;
+	if (type->isShared())
+	    storage_class |= STCshared;
     }
-    else if (storage_class & (STCconst | STCin))
-    {
-	if (!type->isInvariant())
-	    type = type->constOf();
-    }
-    else if (type->isConst())
-	storage_class |= STCconst;
     else if (type->isInvariant())
-	storage_class |= STCinvariant;
+	storage_class |= STCimmutable;
+    else if (type->isShared())
+	storage_class |= STCshared;
 
     if (isSynchronized())
     {
@@ -811,7 +840,7 @@ Lagain:
 	error("final cannot be applied to variable");
     }
 
-    if (storage_class & (STCstatic | STCextern | STCmanifest | STCtemplateparameter | STCtls))
+    if (storage_class & (STCstatic | STCextern | STCmanifest | STCtemplateparameter | STCtls | STCgshared))
     {
     }
     else
@@ -820,9 +849,9 @@ Lagain:
 	if (!aad)
 	    aad = parent->isAggregateDeclaration();
 	if (aad)
-	{   assert(!(storage_class & (STCextern | STCstatic | STCtls)));
+	{   assert(!(storage_class & (STCextern | STCstatic | STCtls | STCgshared)));
 
-	    if (storage_class & (STCconst | STCinvariant) && init)
+	    if (storage_class & (STCconst | STCimmutable) && init)
 	    {
 		if (!type->toBasetype()->isTypeBasic())
 		    storage_class |= STCstatic;
@@ -860,14 +889,17 @@ Lagain:
 	}
     }
 
-    if ((storage_class & (STCref | STCparameter | STCforeach)) == STCref)
+    if ((storage_class & (STCref | STCparameter | STCforeach)) == STCref &&
+	ident != Id::This)
+    {
 	error("only parameters or foreach declarations can be ref");
+    }
 
     if (type->isauto() && !noauto)
     {
-	if (storage_class & (STCfield | STCout | STCref | STCstatic | STCmanifest | STCtls) || !fd)
+	if (storage_class & (STCfield | STCout | STCref | STCstatic | STCmanifest | STCtls | STCgshared) || !fd)
 	{
-	    error("globals, statics, fields, manifest constants, ref and out parameters cannot be auto");
+	    error("globals, statics, fields, manifest constants, ref and out parameters cannot be scope");
 	}
 
 	if (!(storage_class & (STCauto | STCscope)))
@@ -906,6 +938,7 @@ Lagain:
 	    Expression *e1;
 	    e1 = new VarExp(loc, this);
 	    e = new AssignExp(loc, e1, e);
+	    e->op = TOKconstruct;
 	    e->type = e1->type;		// don't type check this, it would fail
 	    init = new ExpInitializer(loc, e);
 	    return;
@@ -933,7 +966,7 @@ Lagain:
     if (init)
     {
 	sc = sc->push();
-	sc->stc &= ~(STCconst | STCinvariant | STCpure | STCnothrow | STCref | STCshared);
+	sc->stc &= ~(STC_TYPECTOR | STCpure | STCnothrow | STCref);
 
 	ArrayInitializer *ai = init->isArrayInitializer();
 	if (ai && tb->ty == Taarray)
@@ -960,7 +993,8 @@ Lagain:
 	{
 	    // If local variable, use AssignExp to handle all the various
 	    // possibilities.
-	    if (fd && !isStatic() && !(storage_class & STCmanifest) &&
+	    if (fd &&
+		!(storage_class & (STCmanifest | STCstatic | STCtls | STCgshared | STCextern)) &&
 		!init->isVoidInitializer())
 	    {
 		//printf("fd = '%s', var = '%s'\n", fd->toChars(), toChars());
@@ -1062,7 +1096,7 @@ Lagain:
 		init = init->semantic(sc, type);
 	    }
 	}
-	else if (storage_class & (STCconst | STCinvariant | STCmanifest) ||
+	else if (storage_class & (STCconst | STCimmutable | STCmanifest) ||
 		 type->isConst() || type->isInvariant())
 	{
 	    /* Because we may need the results of a const declaration in a
@@ -1163,21 +1197,11 @@ Dsymbol *VarDeclaration::toAlias()
 
 void VarDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    if (storage_class & STCconst)
-	buf->writestring("const ");
-    if (storage_class & STCstatic)
-	buf->writestring("static ");
-    if (storage_class & STCauto)
-	buf->writestring("auto ");
-#if DMDV2
-    if (storage_class & STCmanifest)
-	buf->writestring("manifest ");
-    if (storage_class & STCinvariant)
-	buf->writestring("invariant ");
-    if (storage_class & STCtls)
-	buf->writestring("__thread ");
-#endif
+    StorageClassDeclaration::stcToCBuffer(buf, storage_class);
 
+    /* If changing, be sure and fix CompoundDeclarationStatement::toCBuffer()
+     * too.
+     */
     if (type)
 	type->toCBuffer(buf, ident, hgs);
     else
@@ -1241,7 +1265,6 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 		if (f == fdthis)
 		    goto L1;
 	    }
-        fdv->nestedVars.insert(this);
 	    nestedrefs.push(fdthis);
 	  L1: ;
 
@@ -1255,6 +1278,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 	    fdv->closureVars.push(this);
 	  L2: ;
 
+	    //printf("fdthis is %s\n", fdthis->toChars());
 	    //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
 	}
     }
@@ -1347,9 +1371,33 @@ int VarDeclaration::isDataseg()
 	return 0;
     }
     return canTakeAddressOf() &&
-	(storage_class & (STCstatic | STCextern | STCtls) ||
+	(storage_class & (STCstatic | STCextern | STCtls | STCgshared) ||
 	 toParent()->isModule() ||
 	 toParent()->isTemplateInstance());
+}
+
+/************************************
+ * Does symbol go into thread local storage?
+ */
+
+int VarDeclaration::isThreadlocal()
+{
+    //printf("VarDeclaration::isThreadlocal(%p, '%s')\n", this, toChars());
+#if 0 || TARGET_OSX
+    /* To be thread-local, must use the __thread storage class.
+     * BUG: OSX doesn't support thread local yet.
+     */
+    return isDataseg() &&
+	(storage_class & (STCtls | STCconst | STCimmutable | STCshared | STCgshared)) == STCtls;
+#else
+    /* Data defaults to being thread-local. It is not thread-local
+     * if it is immutable, const or shared.
+     */
+    int i = isDataseg() &&
+	!(storage_class & (STCimmutable | STCconst | STCshared | STCgshared));
+    //printf("\treturn %d\n", i);
+    return i;
+#endif
 }
 
 int VarDeclaration::hasPointers()
@@ -1476,7 +1524,7 @@ ClassInfoDeclaration::ClassInfoDeclaration(ClassDeclaration *cd)
     : VarDeclaration(0, ClassDeclaration::classinfo->type, cd->ident, NULL)
 {
     this->cd = cd;
-    storage_class = STCstatic;
+    storage_class = STCstatic | STCgshared;
 }
 
 Dsymbol *ClassInfoDeclaration::syntaxCopy(Dsymbol *s)
@@ -1495,7 +1543,7 @@ ModuleInfoDeclaration::ModuleInfoDeclaration(Module *mod)
     : VarDeclaration(0, Module::moduleinfo->type, mod->ident, NULL)
 {
     this->mod = mod;
-    storage_class = STCstatic;
+    storage_class = STCstatic | STCgshared;
 }
 
 Dsymbol *ModuleInfoDeclaration::syntaxCopy(Dsymbol *s)
@@ -1514,7 +1562,7 @@ TypeInfoDeclaration::TypeInfoDeclaration(Type *tinfo, int internal)
     : VarDeclaration(0, Type::typeinfo->type, tinfo->getTypeInfoIdent(internal), NULL)
 {
     this->tinfo = tinfo;
-    storage_class = STCstatic;
+    storage_class = STCstatic | STCgshared;
     protection = PROTpublic;
     linkage = LINKc;
 }
@@ -1543,6 +1591,15 @@ TypeInfoConstDeclaration::TypeInfoConstDeclaration(Type *tinfo)
 
 #if DMDV2
 TypeInfoInvariantDeclaration::TypeInfoInvariantDeclaration(Type *tinfo)
+    : TypeInfoDeclaration(tinfo, 0)
+{
+}
+#endif
+
+/***************************** TypeInfoSharedDeclaration **********************/
+
+#if DMDV2
+TypeInfoSharedDeclaration::TypeInfoSharedDeclaration(Type *tinfo)
     : TypeInfoDeclaration(tinfo, 0)
 {
 }
@@ -1636,8 +1693,8 @@ TypeInfoTupleDeclaration::TypeInfoTupleDeclaration(Type *tinfo)
 
 // For the "this" parameter to member functions
 
-ThisDeclaration::ThisDeclaration(Type *t)
-   : VarDeclaration(0, t, Id::This, NULL)
+ThisDeclaration::ThisDeclaration(Loc loc, Type *t)
+   : VarDeclaration(loc, t, Id::This, NULL)
 {
     noauto = 1;
 }
@@ -1648,13 +1705,12 @@ Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *s)
     return NULL;
 }
 
- 
-/********************** StaticStructInitDeclaration ***************************/ 
- 
-StaticStructInitDeclaration::StaticStructInitDeclaration(Loc loc, StructDeclaration *dsym) 
-    : Declaration(new Identifier("", TOKidentifier)) 
-{ 
-    this->loc = loc; 
-    this->dsym = dsym; 
-    storage_class |= STCconst; 
-} 
+/********************** StaticStructInitDeclaration ***************************/
+
+StaticStructInitDeclaration::StaticStructInitDeclaration(Loc loc, StructDeclaration *dsym)
+    : Declaration(new Identifier("", TOKidentifier))
+{
+    this->loc = loc;
+    this->dsym = dsym;
+    storage_class |= STCconst;
+}

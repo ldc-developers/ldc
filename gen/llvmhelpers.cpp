@@ -1422,8 +1422,13 @@ bool hasUnalignedFields(Type* t)
 {
     t = t->toBasetype();
     if (t->ty == Tsarray) {
+#if DMDV2
+        assert(t->nextOf()->size() % t->nextOf()->alignsize() == 0);
+        return hasUnalignedFields(t->nextOf());
+#else
         assert(t->next->size() % t->next->alignsize() == 0);
         return hasUnalignedFields(t->next);
+#endif
     } else if (t->ty != Tstruct)
         return false;
 

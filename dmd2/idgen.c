@@ -60,6 +60,7 @@ Msgtable msgtable[] =
     { "typeinfo" },
     { "outer" },
     { "Exception" },
+    { "Throwable" },
     { "withSym", "__withSym" },
     { "result", "__result" },
     { "returnLabel", "__returnLabel" },
@@ -87,6 +88,7 @@ Msgtable msgtable[] =
     { "TypeInfo_Tuple" },
     { "TypeInfo_Const" },
     { "TypeInfo_Invariant" },
+    { "TypeInfo_Shared" },
     { "elements" },
     { "_arguments_typeinfo" },
     { "_arguments" },
@@ -208,11 +210,19 @@ Msgtable msgtable[] =
     { "apply", "opApply" },
     { "applyReverse", "opApplyReverse" },
 
+#if 1
+    { "Fempty", "empty" },
+    { "Fhead", "front" },
+    { "Ftoe", "back" },
+    { "Fnext", "popFront" },
+    { "Fretreat", "popBack" },
+#else
     { "Fempty", "empty" },
     { "Fhead", "head" },
     { "Ftoe", "toe" },
     { "Fnext", "next" },
     { "Fretreat", "retreat" },
+#endif
 
     { "adDup", "_adDupT" },
     { "adReverse", "_adReverse" },
@@ -229,6 +239,7 @@ Msgtable msgtable[] =
     { "msg" },
     { "startaddress" },
 
+#if IN_LLVM
     // LDC pragma's
     { "intrinsic" },
     { "va_intrinsic" },
@@ -241,6 +252,8 @@ Msgtable msgtable[] =
     { "vaarg", "va_arg" },
     { "ldc" },
     { "allow_inline" },
+    { "llvm_inline_asm" },
+#endif
 
     // For special functions
     { "tohash", "toHash" },
@@ -248,10 +261,13 @@ Msgtable msgtable[] =
     { "getmembers", "getMembers" },
 
     // Special functions
-    //{ "alloca" },
+#if IN_DMD
+    { "alloca" },
+#endif
     { "main" },
     { "WinMain" },
     { "DllMain" },
+    { "tls_get_addr", "___tls_get_addr" },
 
     // Builtin functions
     { "std" },

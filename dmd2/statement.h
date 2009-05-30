@@ -41,26 +41,32 @@ struct CompoundStatement;
 struct Argument;
 struct StaticAssert;
 struct AsmStatement;
+#if IN_LLVM
 struct AsmBlockStatement;
+#endif
 struct GotoStatement;
 struct ScopeStatement;
 struct TryCatchStatement;
 struct TryFinallyStatement;
 struct HdrGenState;
 struct InterState;
+#if IN_LLVM
 struct CaseStatement;
 struct LabelStatement;
 struct VolatileStatement;
 struct SynchronizedStatement;
+#endif
 
 enum TOK;
 
+#if IN_LLVM
 namespace llvm
 {
     class Value;
     class BasicBlock;
     class ConstantInt;
 }
+#endif
 
 // Back end
 struct IRState;
@@ -79,7 +85,7 @@ struct block;
 #endif
 struct code;
 
-/* How a statement exits
+/* How a statement exits; this is returned by blockExit()
  */
 enum BE
 {
@@ -94,35 +100,6 @@ enum BE
     BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt),
 };
 
-// LDC this is used for tracking try-finally, synchronized and volatile scopes
-// definitions in gen/llvmhelpers.cpp
-struct EnclosingHandler : Object
-{
-    virtual void emitCode(IRState* p) = 0;
-    virtual EnclosingHandler* getEnclosing() = 0;
-};
-struct EnclosingTryFinally : EnclosingHandler
-{
-    TryFinallyStatement* tf;
-    void emitCode(IRState* p);
-    EnclosingHandler* getEnclosing();
-    EnclosingTryFinally(TryFinallyStatement* _tf) : tf(_tf) {}
-};
-struct EnclosingVolatile : EnclosingHandler
-{
-    VolatileStatement* v;
-    void emitCode(IRState* p);
-    EnclosingHandler* getEnclosing();
-    EnclosingVolatile(VolatileStatement* _tf) : v(_tf) {}
-};
-struct EnclosingSynchro : EnclosingHandler
-{
-    SynchronizedStatement* s;
-    void emitCode(IRState* p);
-    EnclosingHandler* getEnclosing();
-    EnclosingSynchro(SynchronizedStatement* _tf) : s(_tf) {}
-};
-
 struct Statement : Object
 {
     Loc loc;
@@ -133,7 +110,8 @@ struct Statement : Object
     void print();
     char *toChars();
 
-    void error(const char *format, ...);
+    void error(const char *format, ...) IS_PRINTF(2);
+    void warning(const char *format, ...) IS_PRINTF(2);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual TryCatchStatement *isTryCatchStatement() { return NULL; }
     virtual GotoStatement *isGotoStatement() { return NULL; }
@@ -148,7 +126,6 @@ struct Statement : Object
     virtual int hasBreak();
     virtual int hasContinue();
     virtual int usesEH();
-    virtual int fallOffEnd();
     virtual int blockExit();
     virtual int comeFrom();
     virtual void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
@@ -183,7 +160,6 @@ struct ExpStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
-    int fallOffEnd();
     int blockExit();
 
     int inlineCost(InlineCostState *ics);
@@ -193,7 +169,7 @@ struct ExpStatement : Statement
     void toIR(IRState *irs);
 
     // LDC
-    virtual void toNakedIR(IRState *irs);
+    void toNakedIR(IRState *irs);
 };
 
 struct CompileStatement : Statement
@@ -232,7 +208,6 @@ struct CompoundStatement : Statement
     virtual Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     virtual Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
@@ -251,13 +226,19 @@ struct CompoundStatement : Statement
     virtual CompoundStatement *isCompoundStatement() { return this; }
 };
 
+struct CompoundDeclarationStatement : CompoundStatement
+{
+    CompoundDeclarationStatement(Loc loc, Statements *s);
+    Statement *syntaxCopy();
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+};
+
 /* The purpose of this is so that continue will go to the next
  * of the statements, and break will go to the end of the statements.
  */
 struct UnrolledLoopStatement : Statement
 {
     Statements *statements;
-    EnclosingHandler* enclosinghandler;
 
     UnrolledLoopStatement(Loc loc, Statements *statements);
     Statement *syntaxCopy();
@@ -266,7 +247,6 @@ struct UnrolledLoopStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -291,7 +271,6 @@ struct ScopeStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
 
@@ -304,7 +283,6 @@ struct WhileStatement : Statement
 {
     Expression *condition;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     WhileStatement(Loc loc, Expression *c, Statement *b);
     Statement *syntaxCopy();
@@ -313,7 +291,6 @@ struct WhileStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -327,7 +304,6 @@ struct DoStatement : Statement
 {
     Statement *body;
     Expression *condition;
-    EnclosingHandler* enclosinghandler;
 
     DoStatement(Loc loc, Statement *b, Expression *c);
     Statement *syntaxCopy();
@@ -336,7 +312,6 @@ struct DoStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -352,7 +327,6 @@ struct ForStatement : Statement
     Expression *condition;
     Expression *increment;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     ForStatement(Loc loc, Statement *init, Expression *condition, Expression *increment, Statement *body);
     Statement *syntaxCopy();
@@ -362,7 +336,6 @@ struct ForStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -378,7 +351,6 @@ struct ForeachStatement : Statement
     Arguments *arguments;	// array of Argument*'s
     Expression *aggr;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     VarDeclaration *key;
     VarDeclaration *value;
@@ -396,7 +368,6 @@ struct ForeachStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -414,7 +385,6 @@ struct ForeachRangeStatement : Statement
     Expression *lwr;
     Expression *upr;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     VarDeclaration *key;
 
@@ -426,7 +396,6 @@ struct ForeachRangeStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -453,7 +422,6 @@ struct IfStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     IfStatement *isIfStatement() { return this; }
 
     int inlineCost(InlineCostState *ics);
@@ -490,7 +458,6 @@ struct PragmaStatement : Statement
     Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -514,13 +481,14 @@ struct SwitchStatement : Statement
     Statement *body;
 
     DefaultStatement *sdefault;
-    TryFinallyStatement *tf;
-    EnclosingHandler* enclosinghandler;
 
     Array gotoCases;		// array of unresolved GotoCaseStatement's
     Array *cases;		// array of CaseStatement's
     int hasNoDefault;		// !=0 if no default statement
     int hasVars;		// !=0 if has variable case values
+
+    // LDC
+    Statement *enclosingScopeExit;
 
     SwitchStatement(Loc loc, Expression *c, Statement *b);
     Statement *syntaxCopy();
@@ -528,7 +496,6 @@ struct SwitchStatement : Statement
     int hasBreak();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -544,13 +511,15 @@ struct CaseStatement : Statement
     int index;		// which case it is (since we sort this)
     block *cblock;	// back end: label for the block
 
+    // LDC
+    Statement *enclosingScopeExit;
+
     CaseStatement(Loc loc, Expression *exp, Statement *s);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int compare(Object *obj);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -573,12 +542,14 @@ struct DefaultStatement : Statement
     block *cblock;	// back end: label for the block
 #endif
 
+    // LDC
+    Statement *enclosingScopeExit;
+
     DefaultStatement(Loc loc, Statement *s);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -594,14 +565,12 @@ struct DefaultStatement : Statement
 struct GotoDefaultStatement : Statement
 {
     SwitchStatement *sw;
-    EnclosingHandler* enclosinghandler;
 
     GotoDefaultStatement(Loc loc);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -611,7 +580,6 @@ struct GotoCaseStatement : Statement
 {
     Expression *exp;		// NULL, or which case to goto
     CaseStatement *cs;		// case statement it resolves to
-    EnclosingHandler* enclosinghandler;
     SwitchStatement *sw;
 
     GotoCaseStatement(Loc loc, Expression *exp);
@@ -619,7 +587,6 @@ struct GotoCaseStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -629,7 +596,6 @@ struct SwitchErrorStatement : Statement
 {
     SwitchErrorStatement(Loc loc);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -638,14 +604,12 @@ struct SwitchErrorStatement : Statement
 struct ReturnStatement : Statement
 {
     Expression *exp;
-    EnclosingHandler* enclosinghandler;
 
     ReturnStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
     int blockExit();
-    int fallOffEnd();
     Expression *interpret(InterState *istate);
 
     int inlineCost(InlineCostState *ics);
@@ -660,14 +624,12 @@ struct ReturnStatement : Statement
 struct BreakStatement : Statement
 {
     Identifier *ident;
-    EnclosingHandler* enclosinghandler;
 
     BreakStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -679,14 +641,12 @@ struct BreakStatement : Statement
 struct ContinueStatement : Statement
 {
     Identifier *ident;
-    EnclosingHandler* enclosinghandler;
 
     ContinueStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
@@ -699,7 +659,6 @@ struct SynchronizedStatement : Statement
 {
     Expression *exp;
     Statement *body;
-    EnclosingHandler* enclosinghandler;
 
     SynchronizedStatement(Loc loc, Expression *exp, Statement *body);
     Statement *syntaxCopy();
@@ -708,7 +667,6 @@ struct SynchronizedStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -732,7 +690,6 @@ struct WithStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -750,7 +707,6 @@ struct TryCatchStatement : Statement
     int hasBreak();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -778,7 +734,6 @@ struct TryFinallyStatement : Statement
 {
     Statement *body;
     Statement *finalbody;
-    EnclosingHandler* enclosinghandler;
 
     TryFinallyStatement(Loc loc, Statement *body, Statement *finalbody);
     Statement *syntaxCopy();
@@ -788,7 +743,6 @@ struct TryFinallyStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -820,7 +774,6 @@ struct ThrowStatement : Statement
     Statement *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int blockExit();
-    int fallOffEnd();
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -830,14 +783,12 @@ struct ThrowStatement : Statement
 struct VolatileStatement : Statement
 {
     Statement *statement;
-    EnclosingHandler* enclosinghandler;
 
     VolatileStatement(Loc loc, Statement *statement);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Statements *flatten(Scope *sc);
     int blockExit();
-    int fallOffEnd();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -849,14 +800,13 @@ struct GotoStatement : Statement
 {
     Identifier *ident;
     LabelDsymbol *label;
-    TryFinallyStatement *tf;
-    EnclosingHandler* enclosinghandler;
+    TryFinallyStatement *enclosingFinally;
+    Statement* enclosingScopeExit;
 
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int blockExit();
-    int fallOffEnd();
     Expression *interpret(InterState *istate);
 
     void toIR(IRState *irs);
@@ -868,8 +818,8 @@ struct LabelStatement : Statement
 {
     Identifier *ident;
     Statement *statement;
-    TryFinallyStatement *tf;
-    EnclosingHandler* enclosinghandler;
+    TryFinallyStatement *enclosingFinally;
+    Statement* enclosingScopeExit;
     block *lblock;		// back end
     int isReturnLabel;
 
@@ -879,7 +829,6 @@ struct LabelStatement : Statement
     Statements *flatten(Scope *sc);
     int usesEH();
     int blockExit();
-    int fallOffEnd();
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -890,12 +839,15 @@ struct LabelStatement : Statement
 
     // LDC
     bool asmLabel;       // for labels inside inline assembler
-    virtual void toNakedIR(IRState *irs);
+    void toNakedIR(IRState *irs);
 };
 
 struct LabelDsymbol : Dsymbol
 {
     LabelStatement *statement;
+#if IN_GCC
+    unsigned asmLabelNum;       // GCC-specific
+#endif
 
     LabelDsymbol(Identifier *ident);
     LabelDsymbol *isLabel();
@@ -925,13 +877,13 @@ struct AsmStatement : Statement
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;
 
-    virtual void toNakedIR(IRState *irs);
+    void toNakedIR(IRState *irs);
 };
 
 struct AsmBlockStatement : CompoundStatement
 {
-    EnclosingHandler* enclosinghandler;
-    TryFinallyStatement* tf;
+    TryFinallyStatement* enclosingFinally;
+    Statement* enclosingScopeExit;
 
     AsmBlockStatement(Loc loc, Statements *s);
     Statements *flatten(Scope *sc);
@@ -942,7 +894,7 @@ struct AsmBlockStatement : CompoundStatement
     AsmBlockStatement *isAsmBlockStatement() { return this; }
 
     void toIR(IRState *irs);
-    virtual void toNakedIR(IRState *irs);
+    void toNakedIR(IRState *irs);
     AsmBlockStatement* endsWithAsm();
 
     llvm::Value* abiret;

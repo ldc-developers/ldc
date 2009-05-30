@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -19,6 +19,7 @@
 #include "module.h"
 #include "id.h"
 #include "statement.h"
+#include "template.h"
 
 /********************************* AggregateDeclaration ****************************/
 
@@ -41,13 +42,20 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     aggNew = NULL;
     aggDelete = NULL;
 
+#if IN_DMD
     stag = NULL;
     sinit = NULL;
+#endif
     scope = NULL;
-    dtor = NULL;
+    isnested = 0;
+    vthis = NULL;
 
+#if DMDV2
     ctor = NULL;
     defaultCtor = NULL;
+    aliasthis = NULL;
+#endif
+    dtor = NULL;
 }
 
 enum PROT AggregateDeclaration::prot()
@@ -132,31 +140,21 @@ int AggregateDeclaration::isDeprecated()
  * Align sizes of 0, as we may not know array sizes yet.
  */
 
-void AggregateDeclaration::alignmember(unsigned salign, unsigned size, unsigned *poffset)
+void AggregateDeclaration::alignmember(
+	unsigned salign,	// struct alignment that is in effect
+	unsigned size,		// alignment requirement of field
+	unsigned *poffset)
 {
-    //printf("salign = %d, size = %d, offset = %d\n",salign,size,*poffset);
+    //printf("salign = %d, size = %d, offset = %d\n",salign,size,offset);
     if (salign > 1)
-    {	int sa;
-
-	switch (size)
-	{   case 1:
-		break;
-	    case 2:
-	    case_2:
-		*poffset = (*poffset + 1) & ~1;	// align to word
-		break;
-	    case 3:
-	    case 4:
-		if (salign == 2)
-		    goto case_2;
-		*poffset = (*poffset + 3) & ~3;	// align to dword
-		break;
-	    default:
-		*poffset = (*poffset + size - 1) & ~(size - 1);
-		break;
-	}
+    {
+	assert(size != 3);
+	int sa = size;
+	if (sa == 0 || salign < sa)
+	    sa = salign;
+	*poffset = (*poffset + sa - 1) & ~(sa - 1);
     }
-    //printf("result = %d\n",*poffset);
+    //printf("result = %d\n",offset);
 }
 
 
@@ -171,13 +169,18 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
 
     // Check for forward referenced types which will fail the size() call
     Type *t = v->type->toBasetype();
+    if (v->storage_class & STCref)
+    {	// References are the size of a pointer
+	t = Type::tvoidptr;
+    }
     if (t->ty == Tstruct /*&& isStructDeclaration()*/)
     {	TypeStruct *ts = (TypeStruct *)t;
-
+#if DMDV2
 	if (ts->sym == this)
 	{
 	    error("cannot have field %s with same struct type", v->toChars());
 	}
+#endif
 
 	if (ts->sym->sizeok != 1)
 	{
@@ -191,9 +194,9 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
 	return;
     }
 
-    memsize = v->type->size(loc);
-    memalignsize = v->type->alignsize();
-    xalign = v->type->memalign(sc->structalign);
+    memsize = t->size(loc);
+    memalignsize = t->alignsize();
+    xalign = t->memalign(sc->structalign);
     alignmember(xalign, memalignsize, &sc->offset);
     v->offset = sc->offset;
     sc->offset += memsize;
@@ -211,15 +214,28 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
 }
 
 
+/****************************************
+ * Returns !=0 if there's an extra member which is the 'this'
+ * pointer to the enclosing context (enclosing aggregate or function)
+ */
+
+int AggregateDeclaration::isNested()
+{
+    return isnested;
+}
+
+
 /********************************* StructDeclaration ****************************/
 
 StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     : AggregateDeclaration(loc, id)
 {
     zeroInit = 0;	// assume false until we do semantic processing
+#if DMDV2
     hasIdentityAssign = 0;
     cpctor = NULL;
     postblit = NULL;
+#endif
 
     // For forward references
     type = new TypeStruct(this);
@@ -277,24 +293,64 @@ void StructDeclaration::semantic(Scope *sc)
     assert(!isAnonymous());
     if (sc->stc & STCabstract)
 	error("structs, unions cannot be abstract");
-    if (storage_class & STCinvariant)
+#if DMDV2
+    if (storage_class & STCimmutable)
         type = type->invariantOf();
     else if (storage_class & STCconst)
         type = type->constOf();
+    else if (storage_class & STCshared)
+        type = type->sharedOf();
+#endif
 
     if (sizeok == 0)		// if not already done the addMember step
     {
+	int hasfunctions = 0;
 	for (i = 0; i < members->dim; i++)
 	{
 	    Dsymbol *s = (Dsymbol *)members->data[i];
 	    //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
 	    s->addMember(sc, this, 1);
+	    if (s->isFuncDeclaration())
+		hasfunctions = 1;
 	}
+
+	// If nested struct, add in hidden 'this' pointer to outer scope
+	if (hasfunctions && !(storage_class & STCstatic))
+        {   Dsymbol *s = toParent2();
+            if (s)
+            {
+                AggregateDeclaration *ad = s->isAggregateDeclaration();
+                FuncDeclaration *fd = s->isFuncDeclaration();
+
+		TemplateInstance *ti;
+                if (ad && (ti = ad->parent->isTemplateInstance()) != NULL && ti->isnested || fd)
+                {   isnested = 1;
+                    Type *t;
+                    if (ad)
+                        t = ad->handle;
+                    else if (fd)
+                    {   AggregateDeclaration *ad = fd->isMember2();
+                        if (ad)
+                            t = ad->handle;
+                        else
+			    t = Type::tvoidptr;
+                    }
+                    else
+                        assert(0);
+		    if (t->ty == Tstruct)
+			t = Type::tvoidptr;	// t should not be a ref type
+                    assert(!vthis);
+                    vthis = new ThisDeclaration(loc, t);
+		    //vthis->storage_class |= STCref;
+                    members->push(vthis);
+                }
+            }
+        }
     }
 
     sizeok = 0;
     sc2 = sc->push(this);
-    sc2->stc &= storage_class & (STCconst | STCinvariant);
+    sc2->stc &= storage_class & STC_TYPECTOR;
     sc2->parent = this;
     if (isUnionDeclaration())
 	sc2->inunion = 1;
@@ -314,6 +370,14 @@ void StructDeclaration::semantic(Scope *sc)
 	    break;
 	}
 #endif
+	Type *t;
+	if (s->isDeclaration() &&
+	    (t = s->isDeclaration()->type) != NULL &&
+	    t->toBasetype()->ty == Tstruct)
+	{   StructDeclaration *sd = (StructDeclaration *)t->toDsymbol(sc);
+	    if (sd->isnested)
+		error("inner struct %s cannot be a field", sd->toChars());
+	}
     }
 
     /* The TypeInfo_Struct is expecting an opEquals and opCmp with
@@ -349,9 +413,9 @@ void StructDeclaration::semantic(Scope *sc)
 	Dsymbol *s = search_function(this, id);
 	FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
 	if (fdx)
-	{   FuncDeclaration *fd = fdx->overloadExactMatch(tfeqptr);
+	{   FuncDeclaration *fd = fdx->overloadExactMatch(tfeqptr, getModule());
 	    if (!fd)
-	    {	fd = fdx->overloadExactMatch(tfeq);
+	    {	fd = fdx->overloadExactMatch(tfeq, getModule());
 		if (fd)
 		{   // Create the thunk, fdptr
 		    FuncDeclaration *fdptr = new FuncDeclaration(loc, loc, fdx->ident, STCundefined, tfeqptr);
@@ -373,11 +437,12 @@ void StructDeclaration::semantic(Scope *sc)
 
 	id = Id::cmp;
     }
-
+#if DMDV2
     dtor = buildDtor(sc2);
     postblit = buildPostBlit(sc2);
     cpctor = buildCpCtor(sc2);
     buildOpAssign(sc2);
+#endif
 
     sc2->pop();
 
@@ -429,7 +494,7 @@ void StructDeclaration::semantic(Scope *sc)
 	    }
 	    else
 	    {
-		if (!vd->type->isZeroInit())
+		if (!vd->type->isZeroInit(loc))
 		{
 		    zeroInit = 0;
 		    break;
@@ -440,7 +505,9 @@ void StructDeclaration::semantic(Scope *sc)
 
     /* Look for special member functions.
      */
-    ctor =   (CtorDeclaration *)search(0, Id::ctor, 0);
+#if DMDV2
+    ctor = search(0, Id::ctor, 0);
+#endif
     inv =    (InvariantDeclaration *)search(0, Id::classInvariant, 0);
     aggNew =       (NewDeclaration *)search(0, Id::classNew,       0);
     aggDelete = (DeleteDeclaration *)search(0, Id::classDelete,    0);

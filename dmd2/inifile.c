@@ -1,21 +1,34 @@
-
-// Copyright (c) 1999-2006 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-
+/*
+ * Some portions copyright (c) 1994-1995 by Symantec
+ * Copyright (c) 1999-2009 by Digital Mars
+ * All Rights Reserved
+ * http://www.digitalmars.com
+ * Written by Walter Bright
+ *
+ * This source file is made available for personal use
+ * only. The license is in /dmd/src/dmd/backendlicense.txt
+ * For any other uses, please contact Digital Mars.
+ */
 
 #include	<stdio.h>
 #include	<string.h>
 #include	<stdlib.h>
 #include	<ctype.h>
 
-#include	"root.h"
-#include	"mem.h"
-
-#ifdef __MINGW32__
-#include <malloc.h>
+#if __APPLE__
+#include	<sys/syslimits.h>
 #endif
+#if __FreeBSD__ || __sun&&__SVR4
+// for PATH_MAX
+#include	<limits.h>
+#endif
+
+#if __sun&&__SVR4
+#include	<alloca.h>
+#endif
+
+#include	"root.h"
+#include	"rmem.h"
 
 #define LOG	0
 
@@ -43,7 +56,7 @@ char *strupr(char *s)
  *	inifile	.ini file name
  */
 
-void inifile(char *argv0x, const char *inifilex)
+void inifile(const char *argv0x, const char *inifilex)
 {
     char *argv0 = (char *)argv0x;
     char *inifile = (char *)inifilex;	// do const-correct later
@@ -78,41 +91,44 @@ void inifile(char *argv0x, const char *inifilex)
 	    filename = FileName::combine(getenv("HOME"), inifile);
 	    if (!FileName::exists(filename))
 	    {
-		filename = FileName::replaceName(argv0, inifile);
+		filename = (char *)FileName::replaceName(argv0, inifile);
 		if (!FileName::exists(filename))
 		{
-#if POSIX
-
-#if 0
-#if __GLIBC__	    // This fix by Thomas Kuehne
+#if linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4
+#if __GLIBC__ || __APPLE__ || __FreeBSD__ || __sun&&__SVR4   // This fix by Thomas Kuehne
 		    /* argv0 might be a symbolic link,
 		     * so try again looking past it to the real path
 		     */
+#if __APPLE__ || __FreeBSD__ || __sun&&__SVR4
+		    char resolved_name[PATH_MAX + 1];
+		    char* real_argv0 = realpath(argv0, resolved_name);
+#else
 		    char* real_argv0 = realpath(argv0, NULL);
+#endif
+		    //printf("argv0 = %s, real_argv0 = %p\n", argv0, real_argv0);
 		    if (real_argv0)
 		    {
-			filename = FileName::replaceName(real_argv0, inifile);
+			filename = (char *)FileName::replaceName(real_argv0, inifile);
+#if !(__APPLE__ || __FreeBSD__ || __sun&&__SVR4)
 			free(real_argv0);
+#endif
 			if (FileName::exists(filename))
 			    goto Ldone;
 		    }
 #else
 #error use of glibc non-standard extension realpath(char*, NULL)
 #endif
-#endif
-
-	// old way; problem is that argv0 might not be on the PATH at all
-	// and some other instance might be found
-
+		    if (1){
 		    // Search PATH for argv0
 		    const char *p = getenv("PATH");
 		    Array *paths = FileName::splitPath(p);
 		    filename = FileName::searchPath(paths, argv0, 0);
 		    if (!filename)
 			goto Letc;		// argv0 not found on path
-		    filename = FileName::replaceName(filename, inifile);
+		    filename = (char *)FileName::replaceName(filename, inifile);
 		    if (FileName::exists(filename))
 			goto Ldone;
+		    }
 #endif
 
 		    // Search /etc/ for inifile

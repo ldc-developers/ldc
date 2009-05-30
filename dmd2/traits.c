@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -12,25 +12,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <assert.h>
-#include <complex.h>
 #include <math.h>
 
-#if IN_GCC
-// Issues with using -include total.h (defines integer_t) and then complex.h fails...
-#undef integer_t
-#endif
-
-#ifdef __APPLE__
-#define integer_t dmd_integer_t
-#endif
-
-#if IN_GCC || IN_LLVM
-#include "mem.h"
-#elif _WIN32
-#include "..\root\mem.h"
-#elif linux
-#include "../root/mem.h"
-#endif
+#include "rmem.h"
 
 //#include "port.h"
 #include "mtype.h"
@@ -52,6 +36,8 @@
 #include "parse.h"
 
 #define LOGSEMANTIC	0
+
+#if DMDV2
 
 /************************************************
  * Delegate to be passed to overloadApply() that looks
@@ -197,7 +183,7 @@ Expression *TraitsExp::semantic(Scope *sc)
 	e = isExpression(o);
 	Dsymbol *s = isDsymbol(o);
 	if (t)
-	    e = new TypeDotIdExp(loc, t, id);
+	    e = typeDotIdExp(loc, t, id);
 	else if (e)
 	    e = new DotIdExp(loc, e, id);
 	else if (s)
@@ -212,13 +198,10 @@ Expression *TraitsExp::semantic(Scope *sc)
 	if (ident == Id::hasMember)
 	{   /* Take any errors as meaning it wasn't found
 	     */
-	    unsigned errors = global.errors;
-	    global.gag++;
-	    e = e->semantic(sc);
-	    global.gag--;
-	    if (errors != global.errors)
-	    {	if (global.gag == 0)
-		    global.errors = errors;
+	    e = e->trySemantic(sc);
+	    if (!e)
+	    {	if (global.gag)
+		    global.errors++;
 		goto Lfalse;
 	    }
 	    else
@@ -255,7 +238,7 @@ Expression *TraitsExp::semantic(Scope *sc)
 	    Pvirtuals p;
 	    p.exps = exps;
 	    p.e1 = e;
-	    overloadApply(f, fpvirtuals, &p);
+	    overloadApply(f->getModule(), f, fpvirtuals, &p);
 
 	    TupleExp *tup = new TupleExp(loc, exps);
 	    return tup->semantic(sc);
@@ -340,16 +323,15 @@ Expression *TraitsExp::semantic(Scope *sc)
 
 	for (size_t i = 0; i < dim; i++)
 	{   Object *o = (Object *)args->data[i];
-	    Type *t;
 	    Expression *e;
-	    Dsymbol *s;
 
 	    unsigned errors = global.errors;
 	    global.gag++;
 
-	    t = isType(o);
+	    Type *t = isType(o);
 	    if (t)
-	    {	t->resolve(loc, sc, &e, &t, &s);
+	    {	Dsymbol *s;
+		t->resolve(loc, sc, &e, &t, &s);
 		if (t)
 		    t->semantic(loc, sc);
 		else if (e)
@@ -438,3 +420,4 @@ Ltrue:
 }
 
 
+#endif

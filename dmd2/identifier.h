@@ -17,10 +17,12 @@
 
 #include "root.h"
 
+#if IN_LLVM
 namespace llvm
 {
     class Value;
 }
+#endif
 
 struct Identifier : Object
 {

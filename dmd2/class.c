@@ -13,7 +13,7 @@
 #include <assert.h>
 
 #include "root.h"
-#include "mem.h"
+#include "rmem.h"
 
 #include "enum.h"
 #include "init.h"
@@ -55,7 +55,9 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
     staticCtor = NULL;
     staticDtor = NULL;
 
+#if IN_DMD
     vtblsym = NULL;
+#endif
     vclassinfo = NULL;
 
     if (id)
@@ -157,6 +159,12 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
 		    Type::typeinfoinvariant->error("%s", msg);
 		Type::typeinfoinvariant = this;
 	    }
+
+	    if (id == Id::TypeInfo_Shared)
+	    {	if (Type::typeinfoshared)
+		    Type::typeinfoshared->error("%s", msg);
+		Type::typeinfoshared = this;
+	    }
 #endif
 	}
 
@@ -182,8 +190,6 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
     com = 0;
     isauto = 0;
     isabstract = 0;
-    isnested = 0;
-    vthis = NULL;
     inuse = 0;
 }
 
@@ -448,7 +454,7 @@ void ClassDeclaration::semantic(Scope *sc)
 	com = baseClass->isCOMclass();
 	isauto = baseClass->isauto;
 	vthis = baseClass->vthis;
-	storage_class |= baseClass->storage_class & (STCconst | STCinvariant);
+	storage_class |= baseClass->storage_class & STC_TYPECTOR;
     }
     else
     {
@@ -500,29 +506,30 @@ void ClassDeclaration::semantic(Scope *sc)
 	{   Dsymbol *s = toParent2();
 	    if (s)
 	    {
-		ClassDeclaration *cd = s->isClassDeclaration();
+		AggregateDeclaration *ad = s->isClassDeclaration();
 		FuncDeclaration *fd = s->isFuncDeclaration();
 
 
-		if (cd || fd)
+		if (ad || fd)
 		{   isnested = 1;
 		    Type *t;
-		    if (cd)
-			t = cd->type;
+		    if (ad)
+			t = ad->handle;
 		    else if (fd)
 		    {	AggregateDeclaration *ad = fd->isMember2();
 			if (ad)
 			    t = ad->handle;
 			else
 			{
-			    t = new TypePointer(Type::tvoid);
-			    t = t->semantic(0, sc);
+			    t = Type::tvoidptr;
 			}
 		    }
 		    else
 			assert(0);
+		    if (t->ty == Tstruct)	// ref to struct
+			t = Type::tvoidptr;
 		    assert(!vthis);
-		    vthis = new ThisDeclaration(t);
+		    vthis = new ThisDeclaration(loc, t);
 		    members->push(vthis);
 		}
 	    }
@@ -533,20 +540,31 @@ void ClassDeclaration::semantic(Scope *sc)
 	isauto = 1;
     if (storage_class & STCabstract)
 	isabstract = 1;
-    if (storage_class & STCinvariant)
+    if (storage_class & STCimmutable)
 	type = type->invariantOf();
     else if (storage_class & STCconst)
 	type = type->constOf();
+    else if (storage_class & STCshared)
+	type = type->sharedOf();
 
     sc = sc->push(this);
     sc->stc &= ~(STCfinal | STCauto | STCscope | STCstatic |
-		 STCabstract | STCdeprecated | STCconst | STCinvariant | STCtls);
-    sc->stc |= storage_class & (STCconst | STCinvariant);
+		 STCabstract | STCdeprecated | STC_TYPECTOR | STCtls | STCgshared);
+    sc->stc |= storage_class & STC_TYPECTOR;
     sc->parent = this;
     sc->inunion = 0;
 
     if (isCOMclass())
+    {
+#if _WIN32
 	sc->linkage = LINKwindows;
+#else
+	/* This enables us to use COM objects under Linux and
+	 * work with things like XPCOM
+	 */
+	sc->linkage = LINKc;
+#endif
+    }
     sc->protection = PROTpublic;
     sc->explicitProtection = 0;
     sc->structalign = 8;
@@ -619,13 +637,14 @@ void ClassDeclaration::semantic(Scope *sc)
     if (!ctor && baseClass && baseClass->ctor)
     {
 	//printf("Creating default this(){} for class %s\n", toChars());
-	ctor = new CtorDeclaration(loc, 0, NULL, 0);
+	CtorDeclaration *ctor = new CtorDeclaration(loc, 0, NULL, 0);
 	ctor->fbody = new CompoundStatement(0, new Statements());
 	members->push(ctor);
 	ctor->addMember(sc, this, 1);
 	*sc = scsave;	// why? What about sc->nofree?
 	sc->offset = structsize;
 	ctor->semantic(sc);
+	this->ctor = ctor;
 	defaultCtor = ctor;
     }
 
@@ -841,7 +860,7 @@ int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
 	for (int i = 0; i < os->a.dim; i++)
 	{   Dsymbol *s = (Dsymbol *)os->a.data[i];
 	    FuncDeclaration *f2 = s->isFuncDeclaration();
-	    if (f2 && overloadApply(f2, &isf, fd))
+	    if (f2 && overloadApply(getModule(), f2, &isf, fd))
 		return 0;
 	}
 	return 1;
@@ -850,7 +869,7 @@ int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
     {
 	FuncDeclaration *fdstart = s->isFuncDeclaration();
 	//printf("%s fdstart = %p\n", s->kind(), fdstart);
-	return !overloadApply(fdstart, &isf, fd);
+	return !overloadApply(getModule(), fdstart, &isf, fd);
     }
 }
 #endif
@@ -870,7 +889,9 @@ FuncDeclaration *ClassDeclaration::findFunc(Identifier *ident, TypeFunction *tf)
     {
 	for (size_t i = 0; i < vtbl->dim; i++)
 	{
-	    FuncDeclaration *fd = (FuncDeclaration *)vtbl->data[i];
+	    FuncDeclaration *fd = ((Dsymbol*)vtbl->data[i])->isFuncDeclaration();
+	    if (!fd)
+		continue;		// the first entry might be a ClassInfo
 
 	    //printf("\t[%d] = %s\n", i, fd->toChars());
 	    if (ident == fd->ident &&
@@ -955,16 +976,6 @@ int ClassDeclaration::isAbstract()
     return FALSE;
 }
 
-
-/****************************************
- * Returns !=0 if there's an extra member which is the 'this'
- * pointer to the enclosing context (enclosing class or function)
- */
-
-int ClassDeclaration::isNested()
-{
-    return isnested;
-}
 
 /****************************************
  * Determine if slot 0 of the vtbl[] is reserved for something else.
@@ -1126,7 +1137,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
 	}
 #if 0
 	// Inherit const/invariant from base class
-	storage_class |= b->base->storage_class & (STCconst | STCinvariant);
+	storage_class |= b->base->storage_class & STC_TYPECTOR;
 #endif
 	i++;
     }
@@ -1170,7 +1181,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
     }
 
     protection = sc->protection;
-    storage_class |= sc->stc & (STCconst | STCinvariant);
+    storage_class |= sc->stc & STC_TYPECTOR;
 
     for (i = 0; i < members->dim; i++)
     {
@@ -1180,8 +1191,8 @@ void InterfaceDeclaration::semantic(Scope *sc)
 
     sc = sc->push(this);
     sc->stc &= ~(STCfinal | STCauto | STCscope | STCstatic |
-                 STCabstract | STCdeprecated | STCconst | STCinvariant | STCtls);
-    sc->stc |= storage_class & (STCconst | STCinvariant);
+                 STCabstract | STCdeprecated | STC_TYPECTOR | STCtls | STCgshared);
+    sc->stc |= storage_class & STC_TYPECTOR;
     sc->parent = this;
     if (isCOMinterface())
 	sc->linkage = LINKwindows;
@@ -1262,11 +1273,14 @@ int InterfaceDeclaration::isBaseOf(BaseClass *bc, int *poffset)
 	{
 	    if (poffset)
 	    {	*poffset = b->offset;
+		if (j && bc->base->isInterfaceDeclaration())
+		    *poffset = OFFSET_RUNTIME;
 	    }
 	    return 1;
 	}
 	if (isBaseOf(b, poffset))
-	{
+	{   if (j && poffset && bc->base->isInterfaceDeclaration())
+		*poffset = OFFSET_RUNTIME;
 	    return 1;
 	}
     }

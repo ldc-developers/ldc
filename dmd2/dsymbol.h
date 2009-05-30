@@ -21,13 +21,15 @@
 #include "mars.h"
 #include "arraytypes.h"
 
-// llvm
-#include "../ir/irsymbol.h"
+#if IN_LLVM
+#include "../ir/irdsymbol.h"
+#endif
 
 struct Identifier;
 struct Scope;
 struct DsymbolTable;
 struct Declaration;
+struct ThisDeclaration;
 struct TupleDeclaration;
 struct TypedefDeclaration;
 struct AliasDeclaration;
@@ -50,7 +52,9 @@ struct UnitTestDeclaration;
 struct NewDeclaration;
 struct VarDeclaration;
 struct AttribDeclaration;
+#if IN_DMD
 struct Symbol;
+#endif
 struct Package;
 struct Module;
 struct Import;
@@ -70,8 +74,14 @@ struct Expression;
 struct DeleteDeclaration;
 struct HdrGenState;
 struct OverloadSet;
+#if IN_LLVM
 struct TypeInfoDeclaration;
 struct ClassInfoDeclaration;
+#endif
+
+#if IN_DMD
+struct Symbol;
+#endif
 
 #if IN_GCC
 union tree_node;
@@ -80,12 +90,17 @@ typedef union tree_node TYPE;
 struct TYPE;
 #endif
 
-// llvm
 #if IN_LLVM
+class Ir;
+class IrSymbol;
 namespace llvm
 {
     class Value;
 }
+#endif
+#if IN_DMD
+// Back end
+struct Classsym;
 #endif
 
 enum PROT
@@ -105,8 +120,10 @@ struct Dsymbol : Object
     Identifier *ident;
     Identifier *c_ident;
     Dsymbol *parent;
+#if IN_DMD
     Symbol *csym;		// symbol for code generator
     Symbol *isym;		// import version of csym
+#endif
     unsigned char *comment;	// documentation comment for this Dsymbol
     Loc loc;			// where defined
 
@@ -117,10 +134,10 @@ struct Dsymbol : Object
     char *locToChars();
     int equals(Object *o);
     int isAnonymous();
-    void error(Loc loc, const char *format, ...);
-    void error(const char *format, ...);
+    void error(Loc loc, const char *format, ...) IS_PRINTF(3);
+    void error(const char *format, ...) IS_PRINTF(2);
     void checkDeprecated(Loc loc, Scope *sc);
-    Module *getModule();
+    Module *getModule();        // module where declared
     Module *getCompilationModule(); // possibly different for templates
     Dsymbol *pastMixin();
     Dsymbol *toParent();
@@ -173,6 +190,7 @@ struct Dsymbol : Object
     virtual void emitComment(Scope *sc);
     void emitDitto(Scope *sc);
 
+#if IN_DMD
     // Backend
 
     virtual Symbol *toSymbol();			// to backend symbol
@@ -183,6 +201,7 @@ struct Dsymbol : Object
     static Symbol *toImport(Symbol *s);		// to backend import symbol
 
     Symbol *toSymbolX(const char *prefix, int sclass, TYPE *t, const char *suffix);	// helper
+#endif
 
     // Eliminate need for dynamic_cast
     virtual Package *isPackage() { return NULL; }
@@ -192,6 +211,7 @@ struct Dsymbol : Object
     virtual TemplateInstance *isTemplateInstance() { return NULL; }
     virtual TemplateMixin *isTemplateMixin() { return NULL; }
     virtual Declaration *isDeclaration() { return NULL; }
+    virtual ThisDeclaration *isThisDeclaration() { return NULL; }
     virtual TupleDeclaration *isTupleDeclaration() { return NULL; }
     virtual TypedefDeclaration *isTypedefDeclaration() { return NULL; }
     virtual AliasDeclaration *isAliasDeclaration() { return NULL; }
@@ -226,10 +246,16 @@ struct Dsymbol : Object
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
 
+#if IN_LLVM
+    /// Codegen traversal
+    virtual void codegen(Ir* ir);
+
     // llvm stuff
     int llvmInternal;
 
     IrDsymbol ir;
+    IrSymbol* irsym;
+#endif
 };
 
 // Dsymbol that generates a scope

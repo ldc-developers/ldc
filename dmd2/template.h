@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -14,14 +14,15 @@
 #ifdef __DMC__
 #pragma once
 #endif /* __DMC__ */
-
+#if IN_LLVM
 #include <string>
-
+#endif
 #include "root.h"
 #include "arraytypes.h"
 #include "dsymbol.h"
+#if IN_LLVM
 #include "mtype.h"
-
+#endif
 
 struct OutBuffer;
 struct Identifier;
@@ -54,9 +55,7 @@ struct TemplateDeclaration : ScopeDsymbol
     TemplateParameters *parameters;	// array of TemplateParameter's
 
     TemplateParameters *origParameters;	// originals for Ddoc
-
     Expression *constraint;
-
     Array instances;			// array of TemplateInstance's
 
     TemplateDeclaration *overnext;	// next overloaded TemplateDeclaration
@@ -64,6 +63,8 @@ struct TemplateDeclaration : ScopeDsymbol
 
     Scope *scope;
     Dsymbol *onemember;		// if !=NULL then one member of this template
+
+    int literal;		// this template declaration is a literal
 
     TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
 	Expression *constraint, Array *decldefs);
@@ -88,9 +89,11 @@ struct TemplateDeclaration : ScopeDsymbol
 
     TemplateTupleParameter *isVariadic();
     int isOverloadable();
-    
+
+#if IN_LLVM
     // LDC
     std::string intrinsicName;
+#endif
 };
 
 struct TemplateParameter
@@ -117,7 +120,9 @@ struct TemplateParameter
     virtual TemplateTypeParameter  *isTemplateTypeParameter();
     virtual TemplateValueParameter *isTemplateValueParameter();
     virtual TemplateAliasParameter *isTemplateAliasParameter();
+#if DMDV2
     virtual TemplateThisParameter *isTemplateThisParameter();
+#endif
     virtual TemplateTupleParameter *isTemplateTupleParameter();
 
     virtual TemplateParameter *syntaxCopy() = 0;
@@ -274,6 +279,7 @@ struct TemplateInstance : ScopeDsymbol
 
     TemplateDeclaration *tempdecl;	// referenced by foo.bar.abc
     TemplateInstance *inst;		// refer to existing instance
+    TemplateInstance *tinst;		// enclosing template instance
     ScopeDsymbol *argsym;		// argument symbol table
     AliasDeclaration *aliasdecl;	// !=NULL if instance is an alias for its
 					// sole member
@@ -305,8 +311,11 @@ struct TemplateInstance : ScopeDsymbol
     int oneMember(Dsymbol **ps);
     char *toChars();
     char *mangle();
+    void printInstantiationTrace();
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
+#endif
 
     // Internal
     static void semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int flags);
@@ -314,16 +323,19 @@ struct TemplateInstance : ScopeDsymbol
     TemplateDeclaration *findTemplateDeclaration(Scope *sc);
     TemplateDeclaration *findBestMatch(Scope *sc);
     void declareParameters(Scope *sc);
-    int isNested(Objects *tiargs);
+    int hasNestedArgs(Objects *tiargs);
     Identifier *genIdent();
 
     TemplateInstance *isTemplateInstance() { return this; }
     AliasDeclaration *isAliasDeclaration();
 
+#if IN_LLVM
     // LDC
-    TemplateInstance *tinst; // enclosing template instance
     Module* tmodule; // module from outermost enclosing template instantiation
-    void printInstantiationTrace();
+    Module* emittedInModule; // which module this template instance has been emitted in
+
+    void codegen(Ir*);
+#endif
 };
 
 struct TemplateMixin : TemplateInstance
@@ -346,9 +358,15 @@ struct TemplateMixin : TemplateInstance
     char *mangle();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+#if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file
+#endif
 
     TemplateMixin *isTemplateMixin() { return this; }
+
+#if IN_LLVM
+    void codegen(Ir*);
+#endif
 };
 
 Expression *isExpression(Object *o);

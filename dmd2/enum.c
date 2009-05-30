@@ -30,7 +30,9 @@ EnumDeclaration::EnumDeclaration(Loc loc, Identifier *id, Type *memtype)
     maxval = NULL;
     minval = NULL;
     defaultval = NULL;
+#if IN_DMD
     sinit = NULL;
+#endif
     scope = NULL;
     isdeprecated = 0;
 }
