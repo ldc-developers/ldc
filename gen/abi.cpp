@@ -132,7 +132,7 @@ struct X86_struct_to_register : ABIRewrite
         assert(dv->isLVal());
         LLValue* mem = dv->getLVal();
         const LLType* t = LLIntegerType::get(dty->size()*8);
-        DtoLoad(DtoBitCast(mem, getPtrToType(t)));
+        return DtoLoad(DtoBitCast(mem, getPtrToType(t)));
     }
     const LLType* type(Type* t, const LLType*)
     {

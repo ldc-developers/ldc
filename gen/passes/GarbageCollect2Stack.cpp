@@ -262,6 +262,7 @@ namespace {
         
         bool doInitialization(Module &M) {
             this->M = &M;
+            return false;
         }
         
         bool runOnFunction(Function &F);
