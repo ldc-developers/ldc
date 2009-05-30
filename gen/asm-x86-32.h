@@ -1528,9 +1528,8 @@ namespace AsmParserx8632
                                 }
 
                                 // osx needs an extra underscore
-                                if ( global.params.os == OSMacOSX )
-                                    insnTemplate << "_";
-
+                                if ( global.params.os == OSMacOSX || global.params.os == OSWindows )
+                                	insnTemplate << "_";
                                 // print out the mangle
                                 insnTemplate << vd->mangle();
                                 vd->nakedUse = true;
