@@ -15,15 +15,32 @@ void main()
 
     version(D_InlineAsm_X86)
     {
-	asm
-    	{
-		mov EAX, [a];
-        	push EAX;
-        	mov EAX, [b];
-        	push EAX;
-        	call foo;
-        	fstp c;
-    	}
+	    version(mingw32) 
+	    {
+    		asm
+    		{
+				movss XMM0, [a];
+				movss XMM1, [b];
+				movss [ESP], XMM1;
+				movss [ESP]+4, XMM0;		
+					call foo;
+				fstp [c]-4;
+				movss XMM0, [c]-4;
+				movss [c], XMM0;
+    		}
+		} else 
+		{
+		   
+			asm
+    		{
+				mov EAX, [a];
+        		push EAX;
+        		mov EAX, [b];
+        		push EAX;
+        		call foo;
+        		fstp c;
+    		}
+		}
     }
     else version(D_InlineAsm_X86_64)
     {
