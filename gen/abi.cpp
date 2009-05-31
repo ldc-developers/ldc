@@ -196,8 +196,16 @@ struct X86TargetABI : TargetABI
                 Logger::println("Putting context ptr in register");
                 fty.arg_nest->attrs = llvm::Attribute::InReg;
             }
+            else if (IrFuncTyArg* sret = fty.arg_sret)
+            {
+                Logger::println("Putting sret ptr in register");
+                // sret and inreg are incompatible, but the ABI requires the
+                // sret parameter to be in EAX in this situation...
+                sret->attrs = (sret->attrs | llvm::Attribute::InReg)
+                                & ~llvm::Attribute::StructRet;
+            }
             // otherwise try to mark the last param inreg
-            else if (!fty.arg_sret && !fty.args.empty())
+            else if (!fty.args.empty())
             {
                 // The last parameter is passed in EAX rather than being pushed on the stack if the following conditions are met:
                 //   * It fits in EAX.
