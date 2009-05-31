@@ -18,7 +18,10 @@ extern(C) void _d_invariant(Object o)
     {
 	if (c.classInvariant)
 	{
-	    (*c.classInvariant)(o);
+	    void delegate() inv;
+	    inv.ptr = cast(void*) o;
+	    inv.funcptr = c.classInvariant;
+	    inv();
 	}
 	c = c.base;
     } while (c);

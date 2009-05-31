@@ -153,7 +153,7 @@ class ClassInfo : Object
     Interface[] interfaces;     /// interfaces this class implements
     ClassInfo   base;           /// base class
     void*       destructor;
-    void function(Object) classInvariant;
+    void*       classInvariant;
     uint        flags;
     //  1:                      // IUnknown
     //  2:                      // has no possible pointers into GC memory
@@ -198,8 +198,10 @@ class ClassInfo : Object
 
         if (flags & 8 && defaultConstructor)
         {
-            auto ctor = cast(Object function(Object))defaultConstructor;
-            return ctor(o);
+            Object delegate() ctor;
+            ctor.ptr = cast(void*)o;
+            ctor.funcptr = cast(Object function())defaultConstructor;
+            return ctor();
         }
         return o;
     }
