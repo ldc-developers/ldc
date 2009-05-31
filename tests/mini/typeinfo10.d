@@ -58,7 +58,10 @@ void main()
         assert(ti.compare(&v,&u) > 0);
         {
             auto tis = cast(TypeInfo_Struct)ti;
-            assert(tis.xtoString(&s) == s.toString());
+            char[] delegate() structToString;
+            structToString.ptr = &s;
+            structToString.funcptr = tis.xtoString;
+            assert(structToString() == s.toString());
         }
     }
 }

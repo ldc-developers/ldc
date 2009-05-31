@@ -1,5 +1,5 @@
 // tries to implement a fairly complete variadic print function
-module tangotests.vararg3;
+module tangotests.vararg6;
 
 extern(C) int printf(char*, ...);
 
@@ -179,7 +179,10 @@ void print(TypeInfo ti, void* arg)
     {
         if (sti.xtoString !is null)
         {
-            char[] str = sti.xtoString(arg);
+            char[] delegate() toString;
+            toString.ptr = arg;
+            toString.funcptr = sti.xtoString;
+            char[] str = toString();
             printf("%.*s", str.length, str.ptr);
         }
         else
