@@ -15,7 +15,7 @@ void main()
 
     version(D_InlineAsm_X86)
     {
-	    version(mingw32) 
+	    version(Windows) 
 	    {
     		asm
     		{

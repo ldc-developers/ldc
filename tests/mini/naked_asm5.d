@@ -3,7 +3,7 @@ int foo(int op)(int a, int b)
     version(X86)
     {
     const OP = (op == '+') ? "add" : "sub";
-    version (mingw32)
+    version (Windows)
     {
     	asm { naked; }
     	mixin("asm{push EBP;mov EBP,ESP;sub ESP,8;mov ECX,[EBP+8];"~OP~" EAX, ECX;add ESP,8;pop EBP;}");

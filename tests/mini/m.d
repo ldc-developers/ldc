@@ -9,7 +9,7 @@ extern(C):
 version(darwin) {
     int* __error();
     alias __error __errno_location;
-} else version (mingw32) {
+} else version (Windows) {
     int* strerror();
     alias strerror __errno_location;
 } else {
