@@ -403,6 +403,14 @@ LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
+{
+    LLValue* v[2] = { DtoConstUint(i0), DtoConstUint(i1) };
+    return llvm::ConstantExpr::getGetElementPtr(ptr, v, 2);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
 {
     dst = DtoBitCast(dst,getVoidPtrType());
