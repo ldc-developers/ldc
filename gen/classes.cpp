@@ -672,6 +672,8 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //         ClassInfo *base;        // base class
 //         void *destructor;
 //         void *invariant;        // class invariant
+//         version(D_Version2)
+//         	void *xgetMembers; 
 //         uint flags;
 //         void *deallocator;
 //         OffsetTypeInfo[] offTi;
@@ -690,7 +692,11 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
 
+#if DMDV2
+    if (cinfo->fields.dim != 13)
+#else
     if (cinfo->fields.dim != 12)
+#endif
     {
         error("object.d ClassInfo class is incorrect");
         fatal();

@@ -178,12 +178,10 @@ LLConstant * IrStruct::getVtblInit()
     // build the constant struct
     constVtbl = llvm::ConstantStruct::get(constants, false);
 
-    // sanity check
 #if 0
-    IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
-    IF_LOG Logger::cout() << "vtbl type: " << *type->irtype->isClass()->getVtbl() << std::endl;
+   IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
+   IF_LOG Logger::cout() << "vtbl type: " << *type->irtype->isClass()->getVtbl() << std::endl;
 #endif
-
     assert(constVtbl->getType() == type->irtype->isClass()->getVtbl() &&
         "vtbl initializer type mismatch");
 

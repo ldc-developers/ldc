@@ -8,6 +8,7 @@ syntax: glob
 *.a
 *.s
 *.so
+*.swp
 *.rej
 Makefile
 CMakeFiles

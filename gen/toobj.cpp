@@ -620,7 +620,11 @@ void Module::genmoduleinfo()
         fatal();
     }
     // check for patch
+#if DMDV2
+    else if (moduleinfo->fields.dim != 10)
+#else
     else if (moduleinfo->fields.dim != 9)
+#endif
     {
         error("object.d ModuleInfo class is incorrect");
         fatal();
