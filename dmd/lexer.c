@@ -8,6 +8,10 @@
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
 
+#if __sun && __SVR4
+#define __C99FEATURES__ 1       // Needed on Solaris for NaN and more, LDC#313
+#endif
+
 #if IN_LLVM
 #include <cmath>
 #endif

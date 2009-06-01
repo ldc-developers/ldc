@@ -19,6 +19,6 @@ void main()
     scope c = new C;
     I i = c;
 
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 0;
 }

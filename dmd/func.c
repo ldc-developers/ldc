@@ -1266,12 +1266,17 @@ void FuncDeclaration::semantic3(Scope *sc)
 		}
 		else
 		{   // Call invariant virtually
-		    ThisExp *v = new ThisExp(0);
-		    v->type = vthis->type;
-                    e = new AssertExp(loc, v, NULL);
+                    // LDC: unless this is a struct without invariant
+                    StructDeclaration* sd = ad->isStructDeclaration();
+                    if (!sd || sd->inv)
+                    {
+                        ThisExp *v = new ThisExp(0);
+                        v->type = vthis->type;
+                        e = new AssertExp(loc, v, NULL);
+                    }
 
                     // LDC: check for null this
-                    v = new ThisExp(0);
+                    ThisExp* v = new ThisExp(0);
                     v->type = vthis->type;
                     v->var = vthis;
 

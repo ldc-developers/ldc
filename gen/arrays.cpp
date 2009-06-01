@@ -894,7 +894,10 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 
     Type* totype = to->toBasetype();
     Type* fromtype = u->getType()->toBasetype();
-    assert(fromtype->ty == Tarray || fromtype->ty == Tsarray);
+    if (fromtype->ty != Tarray && fromtype->ty != Tsarray) {
+        error(loc, "can't cast %s to %s", u->getType()->toChars(), to->toChars());
+        fatal();
+    }
 
     LLValue* rval;
     LLValue* rval2;

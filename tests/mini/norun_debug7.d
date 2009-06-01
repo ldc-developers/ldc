@@ -4,6 +4,6 @@ int gi;
 
 void main()
 {
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 0;
 }

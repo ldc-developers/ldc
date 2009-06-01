@@ -32,6 +32,6 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* to);
 
 LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* sd, VarDeclaration* vd);
 
-LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl);
+LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* name);
 
 #endif

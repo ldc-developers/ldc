@@ -6,6 +6,6 @@ void main()
     wchar wc = 'w';
     dchar dc = 'd';
 
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 32;
 }

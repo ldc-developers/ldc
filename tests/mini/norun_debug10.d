@@ -16,6 +16,6 @@ void main()
 
 void func(Vec2 v2, ref Vec2 rv2, char[] str, out int i, ref float f)
 {
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 0;
 }

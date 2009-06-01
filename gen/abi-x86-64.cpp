@@ -677,6 +677,13 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             }
         }
         
+        if (fty.arg_this) {
+            fty.arg_this->attrs |= llvm::Attribute::Nest;
+        }
+        if (fty.arg_nest) {
+            fty.arg_nest->attrs |= llvm::Attribute::Nest;
+        }
+        
         Logger::println("x86-64 D ABI: Transforming arguments");
         LOG_SCOPE;
         

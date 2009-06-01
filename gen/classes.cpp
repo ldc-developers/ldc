@@ -514,7 +514,7 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
+LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* name)
 {
     // sanity checks
     assert(fdecl->isVirtual());
@@ -533,7 +533,9 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
     // load vtbl ptr
     funcval = DtoLoad(funcval);
     // index vtbl
-    funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, fdecl->toChars());
+    std::string vtblname = name;
+    vtblname.append("@vtbl");
+    funcval = DtoGEPi(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
     // load funcptr
     funcval = DtoAlignedLoad(funcval);
 
@@ -542,6 +544,10 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl)
 
     // cast to final funcptr type
     funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
+
+    // postpone naming until after casting to get the name in call instructions
+    funcval->setName(name);
+
     if (Logger::enabled())
         Logger::cout() << "funcval casted: " << *funcval << '\n';
 

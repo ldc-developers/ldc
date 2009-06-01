@@ -1134,22 +1134,8 @@ DValue* DotVarExp::toElem(IRState* p)
             assert(funcval);
         }
         else {
-            assert(fdecl->vtblIndex > 0);
-            assert(e1type->ty == Tclass);
-
-            LLValue* zero = DtoConstUint(0);
-            size_t vtblidx = fdecl->vtblIndex;
-            if (Logger::enabled())
-                Logger::cout() << "vthis: " << *vthis << '\n';
-            funcval = DtoGEP(vthis, zero, zero);
-            funcval = DtoLoad(funcval);
-            Logger::println("vtblidx = %lu", vtblidx);
-            funcval = DtoGEP(funcval, zero, DtoConstUint(vtblidx), toChars());
-            funcval = DtoLoad(funcval);
-
-            funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
-            if (Logger::enabled())
-                Logger::cout() << "funcval casted: " << *funcval << '\n';
+            DImValue vthis3(e1type, vthis);
+            funcval = DtoVirtualFunctionPointer(&vthis3, fdecl, toChars());
         }
 
         return new DFuncValue(fdecl, funcval, vthis2);
@@ -2031,7 +2017,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     LLValue* castfptr;
     if (func->isVirtual() && !func->isFinal())
-        castfptr = DtoVirtualFunctionPointer(u, func);
+        castfptr = DtoVirtualFunctionPointer(u, func, toChars());
     else if (func->isAbstract())
         assert(0 && "TODO delegate to abstract method");
     else if (func->toParent()->isInterfaceDeclaration())

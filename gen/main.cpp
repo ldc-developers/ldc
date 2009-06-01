@@ -369,7 +369,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        if (global.params.objname && files.dim > 1)
+        if (global.params.objname && files.dim > 1 && !singleObj)
         {
             error("multiple source files, but only one .obj name");
             fatal();

@@ -560,8 +560,10 @@ extern (C) void rt_finalize(void* p, bool det = true)
                         if (c.destructor)
                         {
                             debug(PRINTF) printf("calling dtor of %.*s\n", c.name.length, c.name.ptr);
-                            fp_t fp = cast(fp_t)c.destructor;
-                            (*fp)(cast(Object)p); // call destructor
+                            void delegate() dg;
+                            dg.ptr = p;
+                            dg.funcptr = cast(void function()) c.destructor;
+                            dg(); // call destructor
                         }
                         c = c.base;
                     } while (c);

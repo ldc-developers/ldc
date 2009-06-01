@@ -322,7 +322,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // add attrs for hidden ptr
         Attr.Index = 1;
         Attr.Attrs = tf->fty.arg_sret->attrs;
-        assert((Attr.Attrs & llvm::Attribute::StructRet) && "Sret arg not sret?");
+        assert((Attr.Attrs & (llvm::Attribute::StructRet | llvm::Attribute::InReg))
+            && "Sret arg not sret or inreg?");
         attrs.push_back(Attr);
     }
 

@@ -4,6 +4,6 @@ void main()
 {
     char[] str = "hello world :)";
 
-    int* fail;
+    int* fail = cast(int*) 1;
     *fail = 32;
 }
