@@ -171,11 +171,7 @@ void IrTypeClass::addBaseClassData(
         ArrayIter<BaseClass> it2(*base->vtblInterfaces);
 
         VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
-#if DMDV2
 	Type* first = interfaces_idx->type->nextOf()->pointerTo();
-#else
-        Type* first = interfaces_idx->type->next->pointerTo();
-#endif
 
         // align offset
         offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);

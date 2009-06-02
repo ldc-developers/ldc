@@ -111,11 +111,7 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
                     "don't implement any interfaces");
 
     VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
-#if DMDV2
     const llvm::Type* InterfaceTy = DtoType(idx->type->nextOf());
-#else
-    const llvm::Type* InterfaceTy = DtoType(idx->type->next);
-#endif
 
     // create Interface[N]
     const llvm::ArrayType* array_type = llvm::ArrayType::get(InterfaceTy,n);
@@ -330,11 +326,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
 
     // start with the interface info
     VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
-#if DMDV2
     Type* first = interfaces_idx->type->nextOf()->pointerTo();
-#else
-    Type* first = interfaces_idx->type->next->pointerTo();
-#endif
 
     // index into the interfaces array
     llvm::Constant* idxs[2] = {
