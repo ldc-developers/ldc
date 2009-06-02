@@ -730,7 +730,6 @@ namespace AsmParserx8664
         { "invlpga", Op_SrcMemNT },
         { "rdtscp",  Op_0_DXAX },
         { "stgi",    Op_Flags },
-        { "sysret", Op_0 },
         */
 
         { "cmpxch16b", Op_cmpxchg8b },
@@ -1221,6 +1220,7 @@ namespace AsmParserx8664
         { "subsd",  Op_DstSrcSSE },
         { "subss",  Op_DstSrcSSE },
         { "swapgs",  Op_DstSrcSSE },
+        { "syscall", Op_0 },
         { "sysenter",Op_0 },
         { "sysexit", Op_0 },
         { "sysret", Op_0 },

@@ -719,11 +719,11 @@ void Module::genmoduleinfo()
         m_name.append("9__classesZ");
         assert(gIR->module->getGlobalVariable(m_name) == NULL);
         llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
-        c = DtoBitCast(m_gvar, getPtrToType(classinfoTy));
+        c = DtoGEPi(m_gvar, 0, 0);
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
-        c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(classinfoTy)) );
+        c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(getPtrToType(classinfoTy))) );
     b.push(c);
 
     // flags (4 means MIstandalone)

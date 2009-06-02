@@ -48,6 +48,7 @@ LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var=NULL, ll
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i0, const char* var=NULL, llvm::BasicBlock* bb=NULL);
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var=NULL, llvm::BasicBlock* bb=NULL);
+LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1);
 
 // to constant helpers
 LLConstantInt* DtoConstSize_t(uint64_t);
