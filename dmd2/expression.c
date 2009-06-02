@@ -694,10 +694,10 @@ void functionArguments(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argume
 		arg = arg->modifiableLvalue(sc, arg);
 	    }
 
+	    tb = arg->type->toBasetype();
 // LDC we don't want this!
 #if !IN_LLVM
 	    // Convert static arrays to pointers
-	    tb = arg->type->toBasetype();
 	    if (tb->ty == Tsarray)
 	    {
 		arg = arg->checkToPointer();
