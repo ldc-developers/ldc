@@ -408,7 +408,7 @@ Lnottype:
     goto Lfalse;
 
 Ldimerror:
-    error("wrong number of arguments %d", dim);
+    error("wrong number of arguments %d", (int)dim);
     goto Lfalse;
 
 
