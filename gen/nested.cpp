@@ -192,7 +192,7 @@ void DtoNestedInit(VarDeclaration* vd)
                 FuncDeclaration *parentfunc = getParentFunc(vd, true);
                 assert(parentfunc && "No parent function for nested variable?");
                 
-                val = DtoGEPi(val, 0, vardepth);
+                val = DtoGEPi(nestedVar, 0, vardepth);
                 val = DtoAlignedLoad(val, (std::string(".frame.") + parentfunc->toChars()).c_str());
             }
             val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());

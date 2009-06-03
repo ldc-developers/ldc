@@ -612,7 +612,8 @@ void Module::genmoduleinfo()
 //         void* xgetMembers;
 //         void function() ictor;
 //
-//         void*[4] reserved; // useless to us
+//         version(D_Version2)
+//             void*[4] reserved; // useless to us
 //         }
 
     // resolve ModuleInfo
