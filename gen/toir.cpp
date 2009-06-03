@@ -1054,6 +1054,7 @@ DValue* DotVarExp::toElem(IRState* p)
 
     if (cachedLvalue)
     {
+        Logger::println("using cached lvalue");
         LLValue *V = cachedLvalue;
         cachedLvalue = NULL;
         VarDeclaration* vd = var->isVarDeclaration();
