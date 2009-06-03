@@ -735,9 +735,10 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             Type* ty = arg.type->toBasetype();
             
             fixup(arg);
-            
+#if 0
             if (Logger::enabled())
                 Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+#endif
         }
     }
 }

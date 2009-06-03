@@ -3914,7 +3914,7 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 	    assert(0);
     }
     buf->writeByte(mc);
-// Possible conflict from merge
+
     if (ispure || isnothrow || isref)
     {
 	if (ispure)
@@ -3924,6 +3924,32 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 	if (isref)
 	    buf->writestring("Nc");
     }
+
+    // LDC: if we're not producing a mangle string, add the this
+    // type to prevent merging different member function
+    if (!mangle && funcdecl)
+    {
+        if (funcdecl->needThis())
+        {
+            AggregateDeclaration* ad = funcdecl->isMember2();
+            buf->writeByte('M');
+            ad->type->toDecoBuffer(buf, false);
+        }
+        /* BUG This causes problems with delegate types
+           On the other hand, the llvm type for nested functions *is* different
+           so not doing anything here may be lead to bugs!
+           A sane solution would be DtoType(Dsymbol)...
+        if (funcdecl->isNested())
+        {
+            buf->writeByte('M');
+            if (funcdecl->toParent2() && funcdecl->toParent2()->isFuncDeclaration())
+            {
+                FuncDeclaration* fd = funcdecl->toParent2()->isFuncDeclaration();
+                fd->type->toDecoBuffer(buf, false);
+            }
+        }*/
+    }
+
     // Write argument types
     Argument::argsToDecoBuffer(buf, parameters, mangle);
     //if (buf->data[buf->offset - 1] == '@') halt();

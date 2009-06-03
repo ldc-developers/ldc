@@ -565,7 +565,7 @@ int main(int argc, char** argv)
     // unsupported
     else
     {
-        error("target triple '%s' is not supported", global.params.targetTriple);
+        error("target '%s' is not yet supported", global.params.targetTriple);
         fatal();
     }
 

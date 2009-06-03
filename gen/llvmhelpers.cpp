@@ -848,7 +848,9 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         {
             Logger::println("setting initializer");
             Logger::cout() << "global: " << *gvar << '\n';
+#if 0
             Logger::cout() << "init:   " << *initVal << '\n';
+#endif
         }
 
         gvar->setInitializer(initVal);

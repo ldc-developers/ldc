@@ -701,8 +701,10 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
         // DtoTypeInfoOf only does declare, not enough in this case :/
         t->vtinfo->codegen(Type::sir);
 
+#if 0
         if (Logger::enabled())
             Logger::cout() << "typeinfo decl: " << *tival << '\n';
+#endif
 
         args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
     }

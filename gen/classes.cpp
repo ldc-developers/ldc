@@ -486,12 +486,14 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
     src = DtoBitCast(src, st);
 
     // gep to the index
+#if 0
     if (Logger::enabled())
     {
         Logger::cout() << "src2: " << *src << '\n';
         Logger::cout() << "index: " << field->index << '\n';
         Logger::cout() << "srctype: " << *src->getType() << '\n';
     }
+#endif
     LLValue* val = DtoGEPi(src, 0, field->index);
 
     // do we need to offset further? (union area)
@@ -678,12 +680,12 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //         ClassInfo *base;        // base class
 //         void *destructor;
 //         void *invariant;        // class invariant
-//         version(D_Version2)
-//         	void *xgetMembers; 
 //         uint flags;
 //         void *deallocator;
 //         OffsetTypeInfo[] offTi;
 //         void *defaultConstructor;
+//         version(D_Version2)
+//              const(MemberInfo[]) function(string) xgetMembers;
 //         TypeInfo typeinfo; // since dmd 1.045
 //        }
 
@@ -798,9 +800,6 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     // default constructor
     b.push_funcptr(cd->defaultCtor, Type::tvoid->pointerTo());
 
-    // typeinfo - since 1.045
-    b.push_typeinfo(cd->type);
-
 #if DMDV2
 
     // xgetMembers
@@ -810,6 +809,9 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     b.push_null(xgetVar->type);
 
 #endif
+
+    // typeinfo - since 1.045
+    b.push_typeinfo(cd->type);
 
     /*size_t n = inits.size();
     for (size_t i=0; i<n; ++i)

@@ -153,7 +153,7 @@ class TypeInfo_Struct : TypeInfo
     string name;
     void[] m_init;
 
-    uint function(in void*)               xtoHash;
+    hash_t function(in void*)               xtoHash;
     equals_t function(in void*, in void*) xopEquals;
     int function(in void*, in void*)      xopCmp;
     string function(in void*)             xtoString;

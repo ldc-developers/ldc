@@ -178,6 +178,24 @@ LLConstant * IrStruct::getVtblInit()
    IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
    IF_LOG Logger::cout() << "vtbl type: " << *type->irtype->isClass()->getVtbl() << std::endl;
 #endif
+
+#if 1
+
+    size_t nc = constants.size();
+    const LLType* vtblTy = type->irtype->isClass()->getVtbl();
+    for (size_t i = 0; i < nc; ++i)
+    {
+        if (constVtbl->getOperand(i)->getType() != vtblTy->getContainedType(i))
+        {
+            Logger::cout() << "type mismatch for entry # " << i << " in vtbl initializer" << std::endl;
+
+            constVtbl->getOperand(i)->dump();
+            vtblTy->getContainedType(i)->dump(gIR->module);
+        }
+    }
+
+#endif
+
     assert(constVtbl->getType() == type->irtype->isClass()->getVtbl() &&
         "vtbl initializer type mismatch");
 

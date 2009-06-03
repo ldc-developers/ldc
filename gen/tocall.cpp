@@ -432,18 +432,22 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             assert(fnarg);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
 
+#if 0
             if (Logger::enabled()) {
                 Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
                 Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
             }
+#endif
 
             // give the ABI a say
             LLValue* arg = tf->fty.putParam(argval->getType(), i, argval);
 
+#if 0
             if (Logger::enabled()) {
                 Logger::cout() << "Argument after ABI: " << *arg << '\n';
                 Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
             }
+#endif
 
             int j = tf->fty.reverseParams ? beg + n - i - 1 : beg + i;
 

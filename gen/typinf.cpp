@@ -646,16 +646,23 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_uint(hasptrs);
 
 #if DMDV2
-    // just (void*)null for now
+    // FIXME: just emit nulls for now
+
+    ClassDeclaration* tscd = Type::typeinfostruct;
+
+    assert(tscd->fields.dim == 10);
 
     // const(MemberInfo[]) function(in char[]) xgetMembers;
-    b.push_null_vp();
+    VarDeclaration* xgetMembers = (VarDeclaration*)tscd->fields.data[7];
+    b.push_null(xgetMembers->type);
 
     //void function(void*)                    xdtor;
-    b.push_null_vp();
+    VarDeclaration* xdtor = (VarDeclaration*)tscd->fields.data[8];
+    b.push_null(xdtor->type);
 
     //void function(void*)                    xpostblit;
-    b.push_null_vp();
+    VarDeclaration* xpostblit = (VarDeclaration*)tscd->fields.data[9];
+    b.push_null(xpostblit->type);
 #endif
 
     // finish

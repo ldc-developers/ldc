@@ -151,7 +151,7 @@ class ClassInfo : Object
     Interface[] interfaces;     /// interfaces this class implements
     ClassInfo   base;           /// base class
     void*       destructor;
-    void*	 classInvariant;
+    void(*classInvariant)(Object);
     uint        flags;
     //  1:                      // is IUnknown or is derived from IUnknown
     //  2:                      // has no possible pointers into GC memory
@@ -162,7 +162,7 @@ class ClassInfo : Object
     void*       deallocator;
     OffsetTypeInfo[] offTi;
     void*	 defaultConstructor;   // default Constructor
-    const(MemberInfo[]) function(in char[]) xgetMembers;
+    const(MemberInfo[]) function(string) xgetMembers;
     TypeInfo typeinfo;
 
     /**
@@ -207,7 +207,7 @@ class ClassInfo : Object
      * Search for all members with the name 'name'.
      * If name[] is null, return all members.
      */
-    const(MemberInfo[]) getMembers(in char[] name)
+    const(MemberInfo[]) getMembers(string name)
     {
         if (flags & 16 && xgetMembers)
             return xgetMembers(name);
@@ -230,7 +230,7 @@ struct OffsetTypeInfo
  * Can be retrieved for any type using a
  * <a href="../expression.html#typeidexpression">TypeidExpression</a>.
  */
-class TypeInfo
+class TypeInfo : Object
 {
     override hash_t toHash()
     {
@@ -881,7 +881,7 @@ class TypeInfo_Struct : TypeInfo
     hash_t   function(in void*)           xtoHash;
     equals_t function(in void*, in void*) xopEquals;
     int      function(in void*, in void*) xopCmp;
-    char[]   function(in void*)           xtoString;
+    string   function(in void*)           xtoString;
 
     uint m_flags;
 
