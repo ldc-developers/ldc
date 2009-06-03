@@ -62,13 +62,19 @@ if ($old ne $out) {
 }
 
 # Allow the user to manually define it on the command line...
-$out = qq!#ifndef LLVM_REV
+$out = qq@#ifndef LLVM_REV
 
 // LLVM svn revision number, used to adapt to changes in LLVM
 // (Is 0 if LLVM is not an SVN trunk version)
 #define LLVM_REV $llvm_rev_nr
 
-#endif // LLVM_REV\n!;
+#endif // LLVM_REV
+
+#if !LLVM_REV
+#error "You need to add '-DLLVM_REV=<your-llvm-rev>' to CMAKE_CXX_FLAGS in the cmake configuration"
+#elif LLVM_REV < 67588
+#error "Please update to a more recent LLVM version"
+#endif\n@;
 
 $old = "";
 open $revh, "llvm-version.h" and $old = join "", <$revh>;
