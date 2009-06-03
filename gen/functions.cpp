@@ -665,7 +665,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         LLValue* thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
         DtoStore(thisvar, thismem);
         irfunction->thisArg = thismem;
-        
+
         assert(!fd->vthis->ir.irLocal);
         fd->vthis->ir.irLocal = new IrLocal(fd->vthis);
         fd->vthis->ir.irLocal->value = thismem;
@@ -673,14 +673,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
         if (global.params.symdebug)
             DtoDwarfLocalVariable(thismem, fd->vthis);
 
-    #if DMDV2
-        if (fd->vthis->nestedrefs.dim)
-    #else
+    #if DMDV1
         if (fd->vthis->nestedref)
-    #endif
         {
             fd->nestedVars.insert(fd->vthis);
         }
+    #endif
     }
 
     // give arguments storage
@@ -698,14 +696,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
             IrLocal* irloc = vd->ir.irLocal;
             assert(irloc);
 
-        #if DMDV2
-            if (vd->nestedrefs.dim)
-        #else
+        #if DMDV1
             if (vd->nestedref)
-        #endif
             {
                 fd->nestedVars.insert(vd);
             }
+        #endif
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
@@ -734,19 +730,27 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
 // need result variable? (nested)
-#if DMDV2
-    if (fd->vresult && fd->vresult->nestedrefs.dim) {
-#else
+#if DMDV1
     if (fd->vresult && fd->vresult->nestedref) {
-#endif
         Logger::println("nested vresult value: %s", fd->vresult->toChars());
         fd->nestedVars.insert(fd->vresult);
     }
+#endif
+
+#if DMDV2
+    // fill nestedVars
+    size_t nnest = fd->closureVars.dim;
+    for (size_t i = 0; i < nnest; ++i)
+    {
+        VarDeclaration* vd = (VarDeclaration*)fd->closureVars.data[i];
+        fd->nestedVars.insert(vd);
+    }
+#endif
 
     DtoCreateNestedContext(fd);
 
 #if DMDV2
-    if (fd->vresult && fd->vresult->nestedrefs.dim)
+    if (fd->vresult && fd->vresult->nestedrefs.dim) // FIXME: not sure here :/
 #else
     if (fd->vresult && fd->vresult->nestedref)
 #endif

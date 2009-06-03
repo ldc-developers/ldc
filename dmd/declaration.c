@@ -1163,7 +1163,11 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 		fdthis->getLevel(loc, fdv);
 	    nestedref = 1;
 	    fdv->nestedFrameRef = 1;
+#if IN_LLVM
+#if DMDV1
         fdv->nestedVars.insert(this);
+#endif
+#endif
 	    //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
 	}
     }

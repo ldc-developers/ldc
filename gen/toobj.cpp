@@ -611,6 +611,8 @@ void Module::genmoduleinfo()
 // 
 //         void* xgetMembers;
 //         void function() ictor;
+//
+//         void*[4] reserved; // useless to us
 //         }
 
     // resolve ModuleInfo
@@ -755,6 +757,15 @@ void Module::genmoduleinfo()
     // ictor
     c = getNullValue(fnptrTy);
     b.push(c);
+
+#if DMDV2
+
+    // void*[4] reserved :/
+    const LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 4);
+    c = getNullValue(AT);
+    b.push(c);
+
+#endif
 
     /*Logger::println("MODULE INFO INITIALIZERS");
     for (size_t i=0; i<initVec.size(); ++i)
