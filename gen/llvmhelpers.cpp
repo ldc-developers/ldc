@@ -1318,7 +1318,12 @@ void DtoAnnotation(const char* str)
 
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
+#if DMDV2
+    // FIXME: this is probably wrong, but it makes druntime's genobj.d compile!
+    type = type->mutableOf()->merge(); // needed.. getTypeInfo does the same
+#else
     type = type->merge(); // needed.. getTypeInfo does the same
+#endif
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
