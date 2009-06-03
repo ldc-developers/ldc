@@ -1052,8 +1052,11 @@ void FuncDeclaration::semantic3(Scope *sc)
 		}
 		else
 		{   // Call invariant virtually
-		    Expression *v = new ThisExp(0);
-		    v->type = vthis->type;
+                    ThisExp *tv = new ThisExp(0);
+		    tv->type = vthis->type;
+                    tv->var = vthis;
+                    Expression* v = tv;
+
 #if STRUCTTHISREF
 		    if (ad->isStructDeclaration())
 			v = v->addressOf(sc);
@@ -1321,8 +1324,11 @@ void FuncDeclaration::semantic3(Scope *sc)
 		}
 		else
 		{   // Call invariant virtually
-		    Expression *v = new ThisExp(0);
-		    v->type = vthis->type;
+		    ThisExp* tv = new ThisExp(0);
+		    tv->type = vthis->type;
+                    tv->var = vthis;
+                    Expression *v = tv;
+
 #if STRUCTTHISREF
 		    if (ad->isStructDeclaration())
 			v = v->addressOf(sc);
