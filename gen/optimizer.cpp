@@ -125,6 +125,9 @@ static void addPassesForOptLevel(PassManager& pm) {
         if (!disableLangSpecificPasses && !disableGCToStack)
             addPass(pm, createGarbageCollect2Stack());
 #endif
+
+        addPass(pm, createTailCallEliminationPass());
+        addPass(pm, createCFGSimplificationPass());
     }
 
     // -inline
@@ -182,8 +185,6 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createCondPropagationPass());
 
-        addPass(pm, createTailCallEliminationPass());
-        addPass(pm, createCFGSimplificationPass());
         addPass(pm, createReassociatePass());
         addPass(pm, createLoopRotatePass());
         addPass(pm, createLICMPass());
