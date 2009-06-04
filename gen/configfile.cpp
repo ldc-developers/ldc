@@ -11,6 +11,11 @@
 
 #include "mars.h"
 
+#if _WIN32
+#include <windows.h>
+#undef GetCurrentDirectory
+#endif
+
 namespace sys = llvm::sys;
 
 ConfigFile::ConfigFile()
@@ -50,12 +55,18 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
 
             if (!p.exists())
             {
+            #if _WIN32
+	            char buf[256];
+	            GetModuleFileName(NULL, buf, 256);
+	            p = *(new std::string(buf));
+	     #else
                 // 4) try next to the executable
                 p = sys::Path::GetMainExecutable(argv0, mainAddr);
+            #endif
                 p.eraseComponent();
                 p.appendComponent(filename);
                 if (!p.exists())
-                {
+                {        
                     // 5) fail load cfg, users still have the DFLAGS environment var
                     std::cerr << "Error failed to locate the configuration file: " << filename << std::endl;
                     return false;
