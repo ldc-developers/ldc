@@ -58,7 +58,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             #if _WIN32
 	            char buf[256];
 	            GetModuleFileName(NULL, buf, 256);
-	            p = *(new std::string(buf));
+	            p = buf;
 	     #else
                 // 4) try next to the executable
                 p = sys::Path::GetMainExecutable(argv0, mainAddr);
