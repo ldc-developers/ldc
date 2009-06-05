@@ -71,9 +71,9 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             if (!p.exists())
             {
             #if _WIN32
-                   p = ConfigGetExePath(p);
-	            exeDirectoryName = p.toString();
-	     #else
+                p = ConfigGetExePath(p);
+                exeDirectoryName = p.toString();
+            #else
                 // 4) try next to the executable
                 p = sys::Path::GetMainExecutable(argv0, mainAddr);
                 p.eraseComponent();
