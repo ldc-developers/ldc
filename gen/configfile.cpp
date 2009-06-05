@@ -28,9 +28,24 @@ ConfigFile::~ConfigFile()
     delete cfg;
 }
 
+#if _WIN32
+sys::Path ConfigGetExePath(sys::Path p)
+{
+    char buf[MAX_PATH];
+    GetModuleFileName(NULL, buf, MAX_PATH);
+    p = buf;
+    p.eraseComponent();
+    return p;
+}
+#endif
+
+
 bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
 {
 
+#if _WIN32
+    std::string exeDirectoryName;
+#endif
     // try to find the config file
 
     // 1) try the current working dir
@@ -56,14 +71,13 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             if (!p.exists())
             {
             #if _WIN32
-	            char buf[256];
-	            GetModuleFileName(NULL, buf, 256);
-	            p = buf;
+                   p = ConfigGetExePath(p);
+	            exeDirectoryName = p.toString();
 	     #else
                 // 4) try next to the executable
                 p = sys::Path::GetMainExecutable(argv0, mainAddr);
-            #endif
                 p.eraseComponent();
+            #endif
                 p.appendComponent(filename);
                 if (!p.exists())
                 {        
@@ -97,7 +111,22 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         if (root.exists("switches"))
         {
             std::string binpathkey = "%%ldcbinarypath%%";
+
+        #if _WIN32
+            std::string binpath;
+            //This will happen if ldc.conf is found somewhere other than
+            //beside the ldc executable
+            if (exeDirectoryName == "")
+            {
+                sys::Path p;
+                p = ConfigGetExePath(p);
+                exeDirectoryName = p.toString();                
+            }
+            binpath = exeDirectoryName;
+        #else
             std::string binpath = sys::Path::GetMainExecutable(argv0, mainAddr).getDirname();
+        #endif
+        
 
             libconfig::Setting& arr = cfg->lookup("default.switches");
             int len = arr.getLength();
