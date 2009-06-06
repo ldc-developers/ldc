@@ -2409,10 +2409,14 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// building a struct literal is pretty much the same as building a default initializer.
-
-extern size_t add_zeros(std::vector<llvm::Value*>& values, size_t diff);
 extern LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init);
+
+static LLValue* write_zeroes(LLValue* mem, unsigned start, unsigned end) {
+    mem = DtoBitCast(mem, getVoidPtrType());
+    LLValue* gep = DtoGEPi1(mem, start, ".padding");
+    DtoMemSetZero(gep, DtoConstSize_t(end - start));
+    return mem;
+}
 
 DValue* StructLiteralExp::toElem(IRState* p)
 {
@@ -2422,19 +2426,16 @@ DValue* StructLiteralExp::toElem(IRState* p)
     // make sure the struct is fully resolved
     sd->codegen(Type::sir);
 
-    // final list of values to put in the struct
-    std::vector<LLValue*> initvalues;
-
-    // offset tracker
-    size_t offset = 0;
-
-    // align(1) struct S { ... }
-    bool packed = sd->type->alignsize() == 1;
+    // alloca a stack slot
+    LLValue* mem = DtoRawAlloca(DtoType(type), 0, ".structliteral");
 
     // ready elements data
     assert(elements && "struct literal has null elements");
-    size_t nexprs = elements->dim;;
+    size_t nexprs = elements->dim;
     Expression** exprs = (Expression**)elements->data;
+
+    LLValue* voidptr = mem;
+    unsigned offset = 0;
 
     // go through fields
     ArrayIter<VarDeclaration> it(sd->fields);
@@ -2442,77 +2443,45 @@ DValue* StructLiteralExp::toElem(IRState* p)
     {
         VarDeclaration* vd = it.get();
 
+        // don't re-initialize unions
         if (vd->offset < offset)
         {
             IF_LOG Logger::println("skipping field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
             continue;
         }
+        // initialize any padding so struct comparisons work
+        if (vd->offset != offset)
+            voidptr = write_zeroes(voidptr, offset, vd->offset);
+        offset = vd->offset + vd->type->size();
 
-        IF_LOG Logger::println("using field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
+        IF_LOG Logger::println("initializing field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
 
-        // get next aligned offset for this field
-        size_t alignedoffset = offset;
-        if (!packed)
-        {
-            alignedoffset = realignOffset(alignedoffset, vd->type);
-        }
-
-        // insert explicit padding?
-        if (alignedoffset < vd->offset)
-        {
-            add_zeros(initvalues, vd->offset - alignedoffset);
-        }
-
-        // add initializer
+        // get initializer
         Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
         IF_LOG Logger::println("expr: %p", expr);
+        DValue* val;
+        DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
         {
             IF_LOG Logger::println("expr %zu = %s", it.index, expr->toChars());
-            LLValue* v = DtoExprValue(vd->type, expr);
-            initvalues.push_back(v);
+            val = expr->toElem(gIR);
         }
         else
         {
             IF_LOG Logger::println("using default initializer");
-            initvalues.push_back(get_default_initializer(vd, NULL));
+            cv.c = get_default_initializer(vd, NULL);
+            val = &cv;
         }
 
-        // advance offset to right past this field
-        offset = vd->offset + vd->type->size();
+        // get a pointer to this field
+        DVarValue field(vd->type, vd, DtoIndexStruct(mem, sd, vd));
+
+        // store the initializer there
+        DtoAssign(loc, &field, val);
     }
-
-    // tail padding?
-    if (offset < sd->structsize)
-    {
-        add_zeros(initvalues, sd->structsize - offset);
-    }
-
-    // build type
-    std::vector<const LLType*> valuetypes;
-
-    size_t n = initvalues.size();
-    valuetypes.reserve(n);
-
-    for (size_t i = 0; i < n; i++)
-    {
-        valuetypes.push_back(initvalues[i]->getType());
-    }
-
-    const LLType* st = llvm::StructType::get(valuetypes, packed);
-
-    // alloca a stack slot
-    LLValue* mem = DtoRawAlloca(st, 0, ".structliteral");
-
-    // fill in values
-    for (size_t i = 0; i < n; i++)
-    {
-        LLValue* addr = DtoGEPi(mem, 0, i);
-        p->ir->CreateStore(initvalues[i], addr);
-    }
-
-    // cast to default struct type
-    mem = DtoBitCast(mem, DtoType(sd->type->pointerTo()));
+    // initialize trailing padding
+    if (sd->structsize != offset)
+        write_zeroes(voidptr, offset, sd->structsize);
 
     // return as a var
     return new DVarValue(type, mem);
