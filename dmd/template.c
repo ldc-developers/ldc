@@ -3106,7 +3106,7 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
 
 #if IN_LLVM
     // LDC
-    this->tinst = NULL;
+    this->emittedInModule = NULL;
     this->tmodule = NULL;
 #endif
 

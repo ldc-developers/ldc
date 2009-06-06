@@ -158,6 +158,13 @@ struct IRState
     FuncDeclVector ctors;
     FuncDeclVector dtors;
     FuncDeclVector unitTests;
+    
+    // all template instances that had members emitted
+    // currently only filled for singleobj
+    // used to make sure the complete template instance gets emitted in the
+    // first file that touches a member, see #318
+    typedef std::set<TemplateInstance*> TemplateInstanceSet;
+    TemplateInstanceSet seenTemplateInstances;
 
     // for inline asm
     IRAsmBlock* asmBlock;

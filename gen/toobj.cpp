@@ -142,6 +142,21 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
     // emit function bodies
     sir->emitFunctionBodies();
 
+    // for singleobj-compilation, fully emit all seen template instances
+    if (opts::singleObj)
+    {
+        while (!ir.seenTemplateInstances.empty())
+        {
+            IRState::TemplateInstanceSet::iterator it, end = ir.seenTemplateInstances.end();
+            for (it = ir.seenTemplateInstances.begin(); it != end; ++it)
+                (*it)->codegen(sir);
+            ir.seenTemplateInstances.clear();
+
+            // emit any newly added function bodies
+            sir->emitFunctionBodies();
+        }
+    }
+
     // generate ModuleInfo
     genmoduleinfo();
 

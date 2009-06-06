@@ -1409,7 +1409,10 @@ bool mustDefineSymbol(Dsymbol* s)
             return true;
     
         if (!tinst->emittedInModule)
+        {
+            gIR->seenTemplateInstances.insert(tinst);
             tinst->emittedInModule = gIR->dmodule;
+        }
         return tinst->emittedInModule == gIR->dmodule;
     }
     
