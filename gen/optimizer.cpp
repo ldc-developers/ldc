@@ -12,6 +12,7 @@
 #include "llvm/Support/PassNameParser.h"
 
 #include "root.h"       // error()
+#include <cstring>      // strcmp();
 
 using namespace llvm;
 
@@ -78,6 +79,19 @@ bool doInline() {
         || (enableInlining == cl::BOU_UNSET && optimizeLevel >= 3);
 }
 
+// Determine whether the inliner will be run.
+bool willInline() {
+    if (doInline())
+        return true;
+    // It may also have been specified explicitly on the command line as an explicit pass
+    typedef cl::list<const PassInfo*, bool, PassNameParser> PL;
+    for (PL::iterator I = passList.begin(), E = passList.end(); I != E; ++I) {
+        if (!std::strcmp((*I)->getPassArgument(), "inline"))
+            return true;
+    }
+    return false;
+}
+
 // Some extra accessors for the linker: (llvm-ld version only, currently unused?)
 int optLevel() {
     return optimizeLevel;
@@ -108,7 +122,6 @@ static void addPassesForOptLevel(PassManager& pm) {
         else
             addPass(pm, createScalarReplAggregatesPass());
         addPass(pm, createGlobalOptimizerPass());
-        addPass(pm, createGlobalDCEPass());
     }
 
     // -O2
@@ -206,6 +219,10 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createSimplifyLibCallsPass());
         addPass(pm, createDeadTypeEliminationPass());
         addPass(pm, createConstantMergePass());
+    }
+
+    if (optimizeLevel >= 1) {
+        addPass(pm, createGlobalDCEPass());
     }
 
     // level -O4 and -O5 are linktime optimizations

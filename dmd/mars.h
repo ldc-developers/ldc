@@ -237,6 +237,7 @@ struct Param
     bool llvmAnnotate;
     bool useInlineAsm;
     bool verbose_cg;
+    bool useAvailableExternally;
 
     // target stuff
     const char* llvmArch;

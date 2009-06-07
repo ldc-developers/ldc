@@ -106,6 +106,11 @@ struct AggregateDeclaration : ScopeDsymbol
 #endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
+
+#if IN_LLVM
+    // Aggregates that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
+    bool availableExternally;
+#endif
 };
 
 struct AnonymousAggregateDeclaration : AggregateDeclaration

@@ -300,6 +300,11 @@ struct VarDeclaration : Declaration
     /// Set during type generation.
     unsigned aggrIndex;
 
+    /// Variables that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
+    bool availableExternally;
+    /// Override added to set above flag.
+    void semantic3(Scope *sc);
+
     // FIXME: we're not using these anymore!
     AnonDeclaration* anonDecl;
     unsigned offset2;
@@ -753,6 +758,9 @@ struct FuncDeclaration : Declaration
 
     // if this is an array operation it gets a little special attention
     bool isArrayOp;
+
+    // Functions that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
+    bool availableExternally;
 
     // true if overridden with the pragma(allow_inline); stmt
     bool allowInlining;

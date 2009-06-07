@@ -9,6 +9,5 @@ enum
     LLVMva_copy,
     LLVMva_end,
     LLVMva_arg,
-    LLVMldc,
     LLVMinline_asm
 };

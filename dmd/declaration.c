@@ -635,6 +635,8 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     offset2 = 0;
 
     nakedUse = false;
+
+    availableExternally = true; // assume this unless proven otherwise
 #endif
 }
 
@@ -1091,6 +1093,16 @@ void VarDeclaration::semantic2(Scope *sc)
     }
 }
 
+void VarDeclaration::semantic3(Scope *sc)
+{
+    // LDC
+    if (!global.params.useAvailableExternally)
+        availableExternally = false;
+
+    // Preserve call chain
+    Declaration::semantic3(sc);
+}
+
 const char *VarDeclaration::kind()
 {
     return "variable";
@@ -1296,6 +1308,9 @@ Dsymbol *TypeInfoDeclaration::syntaxCopy(Dsymbol *s)
 void TypeInfoDeclaration::semantic(Scope *sc)
 {
     assert(linkage == LINKc);
+    // LDC
+    if (!global.params.useAvailableExternally)
+        availableExternally = false;
 }
 
 /***************************** TypeInfoConstDeclaration **********************/

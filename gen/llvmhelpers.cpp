@@ -1328,6 +1328,48 @@ bool mustDefineSymbol(Dsymbol* s)
 
 	if (fd->isArrayOp)
             return true;
+
+        if (global.params.useAvailableExternally && fd->availableExternally) {
+            // Emit extra functions if we're inlining.
+            // These will get available_externally linkage,
+            // so they shouldn't end up in object code.
+            
+            assert(fd->type->ty == Tfunction);
+            TypeFunction* tf = (TypeFunction*) fd->type;
+            // * If we define extra static constructors, static destructors
+            //   and unittests they'll get registered to run, and we won't
+            //   be calling them directly anyway.
+            // * If it's a large function, don't emit it unnecessarily.
+            //   Use DMD's canInline() to determine whether it's large.
+            //   inlineCost() members have been changed to pay less attention
+            //   to DMDs limitations, but still have some issues. The most glaring
+            //   offenders are any kind of control flow statements other than
+            //   'if' and 'return'.
+            if (   !fd->isStaticCtorDeclaration()
+                && !fd->isStaticDtorDeclaration()
+                && !fd->isUnitTestDeclaration()
+                && fd->canInline(true))
+            {
+                return true;
+            }
+            
+            // This was only semantic'ed for inlining checks.
+            // We won't be inlining this, so we only need to emit a declaration.
+            return false;
+        }
+    }
+
+    // Inlining checks may create some variable and class declarations
+    // we don't need to emit.
+    if (global.params.useAvailableExternally)
+    {
+        if (VarDeclaration* vd = s->isVarDeclaration())
+            if (vd->availableExternally)
+                return false;
+
+        if (ClassDeclaration* cd = s->isClassDeclaration())
+            if (cd->availableExternally)
+                return false;
     }
 
     TemplateInstance* tinst = DtoIsTemplateInstance(s);

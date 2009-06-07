@@ -83,14 +83,17 @@ int IfStatement::inlineCost(InlineCostState *ics)
 {
     int cost;
 
+#if !IN_LLVM
     /* Can't declare variables inside ?: expressions, so
      * we cannot inline if a variable is declared.
      */
     if (arg)
 	return COST_MAX;
+#endif
 
     cost = condition->inlineCost(ics);
 
+#if !IN_LLVM
     /* Specifically allow:
      *	if (condition)
      *	    return exp1;
@@ -108,6 +111,7 @@ int IfStatement::inlineCost(InlineCostState *ics)
 	//printf("cost = %d\n", cost);
     }
     else
+#endif
     {
 	ics->nested += 1;
 	if (ifbody)
@@ -121,9 +125,11 @@ int IfStatement::inlineCost(InlineCostState *ics)
 
 int ReturnStatement::inlineCost(InlineCostState *ics)
 {
+#if !IN_LLVM
     // Can't handle return statements nested in if's
     if (ics->nested)
 	return COST_MAX;
+#endif
     return exp ? exp->inlineCost(ics) : 0;
 }
 
@@ -157,19 +163,23 @@ int VarExp::inlineCost(InlineCostState *ics)
 
 int ThisExp::inlineCost(InlineCostState *ics)
 {
+#if !IN_LLVM
     FuncDeclaration *fd = ics->fd;
     if (!ics->hdrscan)
 	if (fd->isNested() || !ics->hasthis)
 	    return COST_MAX;
+#endif
     return 1;
 }
 
 int SuperExp::inlineCost(InlineCostState *ics)
 {
+#if !IN_LLVM
     FuncDeclaration *fd = ics->fd;
     if (!ics->hdrscan)
 	if (fd->isNested() || !ics->hasthis)
 	    return COST_MAX;
+#endif
     return 1;
 }
 
@@ -195,12 +205,16 @@ int StructLiteralExp::inlineCost(InlineCostState *ics)
 
 int FuncExp::inlineCost(InlineCostState *ics)
 {
+    // This breaks on LDC too, since nested functions have internal linkage
+    // and thus can't be referenced from other objects.
     // Right now, this makes the function be output to the .obj file twice.
     return COST_MAX;
 }
 
 int DelegateExp::inlineCost(InlineCostState *ics)
 {
+    // This breaks on LDC too, since nested functions have internal linkage
+    // and thus can't be referenced from other objects.
     return COST_MAX;
 }
 
@@ -229,6 +243,8 @@ int DeclarationExp::inlineCost(InlineCostState *ics)
 	    return td->objects->dim;
 #endif
 	}
+        // This breaks on LDC too, since nested static variables have internal
+        // linkage and thus can't be referenced from other objects.
 	if (!ics->hdrscan && vd->isDataseg())
 	    return COST_MAX;
 	cost += 1;
@@ -246,6 +262,8 @@ int DeclarationExp::inlineCost(InlineCostState *ics)
     }
 
     // These can contain functions, which when copied, get output twice.
+    // These break on LDC too, since nested static variables and functions have
+    // internal linkage and thus can't be referenced from other objects.
     if (declaration->isStructDeclaration() ||
 	declaration->isClassDeclaration() ||
 	declaration->isFuncDeclaration() ||
@@ -1269,6 +1287,10 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan)
     if (type)
     {	assert(type->ty == Tfunction);
 	TypeFunction *tf = (TypeFunction *)(type);
+#if IN_LLVM
+        // LDC: Only extern(C) varargs count.
+        if (tf->linkage != LINKd)
+#endif
 	if (tf->varargs == 1)	// no variadic parameter lists
 	    goto Lno;
 
@@ -1280,12 +1302,15 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan)
 	    !hdrscan)
 	    goto Lno;
     }
+#if !IN_LLVM
+    // LDC: Only extern(C) varargs count, and ctors use extern(D).
     else
     {	CtorDeclaration *ctor = isCtorDeclaration();
 
 	if (ctor && ctor->varargs == 1)
 	    goto Lno;
     }
+#endif
 
     if (
 	!fbody ||
@@ -1299,17 +1324,20 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan)
 #endif
 	isSynchronized() ||
 	isImportedSymbol() ||
+#if !IN_LLVM
 #if DMDV2
 	closureVars.dim ||	// no nested references to this frame
 #else
 	nestedFrameRef ||	// no nested references to this frame
 #endif
+#endif // !IN_LLVM
 	(isVirtual() && !isFinal())
        ))
     {
 	goto Lno;
     }
 
+#if !IN_LLVM
     /* If any parameters are Tsarray's (which are passed by reference)
      * or out parameters (also passed by reference), don't do inlining.
      */
@@ -1322,6 +1350,7 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan)
 		goto Lno;
 	}
     }
+#endif
 
     memset(&ics, 0, sizeof(ics));
     ics.hasthis = hasthis;
@@ -1334,8 +1363,10 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan)
     if (cost >= COST_MAX)
 	goto Lno;
 
+#if !IN_LLVM
     if (!hdrscan)    // Don't scan recursively for header content scan
 	inlineScan();
+#endif
 
 Lyes:
     if (!hdrscan)    // Don't modify inlineStatus for header content scan

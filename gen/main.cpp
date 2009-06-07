@@ -35,6 +35,7 @@
 #include "gen/logger.h"
 #include "gen/linker.h"
 #include "gen/irstate.h"
+#include "gen/optimizer.h"
 #include "gen/toobj.h"
 #include "gen/metadata.h"
 #include "gen/passes/Passes.h"
@@ -811,6 +812,17 @@ int main(int argc, char** argv)
          * not be found at link time.
          */
         if (!global.params.useArrayBounds && !global.params.useAssert)
+#elif LLVM_REV >= 68940
+    // This doesn't play nice with debug info at the moment
+    if (!global.params.symdebug && willInline())
+    {
+        global.params.useAvailableExternally = true;
+        Logger::println("Running some extra semantic3's for inlining purposes");
+#else
+    // IN_LLVM, but available_externally not available yet.
+    if (false)
+    {
+#endif
         {
             // Do pass 3 semantic analysis on all imported modules,
             // since otherwise functions in them cannot be inlined
@@ -825,6 +837,7 @@ int main(int argc, char** argv)
                 fatal();
         }
 
+#if !IN_LLVM
         for (int i = 0; i < modules.dim; i++)
         {
             m = (Module *)modules.data[i];
@@ -832,10 +845,10 @@ int main(int argc, char** argv)
                 printf("inline scan %s\n", m->toChars());
             m->inlineScan();
         }
+#endif
     }
     if (global.errors)
         fatal();
-#endif
 
     // write module dependencies to file if requested
     if (global.params.moduleDepsFile != NULL) 
