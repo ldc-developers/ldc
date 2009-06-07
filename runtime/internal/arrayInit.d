@@ -12,22 +12,6 @@ alias llvm_memcpy_i32 llvm_memcpy;
 
 // per-element array init routines
 
-void _d_array_init_i1(bool* a, size_t n, bool v)
-{
-    auto p = a;
-    auto end = a+n;
-    while (p !is end)
-        *p++ = v;
-}
-
-void _d_array_init_i8(ubyte* a, size_t n, ubyte v)
-{
-    auto p = a;
-    auto end = a+n;
-    while (p !is end)
-        *p++ = v;
-}
-
 void _d_array_init_i16(ushort* a, size_t n, ushort v)
 {
     auto p = a;

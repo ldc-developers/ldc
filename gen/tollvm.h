@@ -112,6 +112,14 @@ LLValue* DtoAggrPairSwap(LLValue* aggr);
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
  * @param dst Destination memory.
+ * @param val The value to set.
+ * @param nbytes Number of bytes to overwrite.
+ */
+void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes);
+
+/**
+ * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
+ * @param dst Destination memory.
  * @param nbytes Number of bytes to overwrite.
  */
 void DtoMemSetZero(LLValue* dst, LLValue* nbytes);

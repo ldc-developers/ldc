@@ -112,15 +112,16 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     switch (arrayelemty->ty)
     {
     case Tbool:
-        funcname = "_d_array_init_i1";
-        break;
+        val = gIR->ir->CreateZExt(val, LLType::Int8Ty, ".bool");
+        // fall through
 
     case Tvoid:
     case Tchar:
     case Tint8:
     case Tuns8:
-        funcname = "_d_array_init_i8";
-        break;
+        Logger::println("Using memset for array init");
+        DtoMemSet(ptr, val, dim);
+        return;
 
     case Twchar:
     case Tint16:

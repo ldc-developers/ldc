@@ -411,7 +411,7 @@ LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
+void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes)
 {
     dst = DtoBitCast(dst,getVoidPtrType());
 
@@ -419,7 +419,14 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
         llvm::Intrinsic::memset, &intTy, 1);
 
-    gIR->ir->CreateCall4(fn, dst, DtoConstUbyte(0), nbytes, DtoConstUint(0), "");
+    gIR->ir->CreateCall4(fn, dst, val, nbytes, DtoConstUint(0), "");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
+{
+    DtoMemSet(dst, DtoConstUbyte(0), nbytes);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
