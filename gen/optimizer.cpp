@@ -194,6 +194,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createLoopUnrollPass());
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createGVNPass());
+        addPass(pm, createMemCpyOptPass());
         addPass(pm, createSCCPPass());
 
         addPass(pm, createInstructionCombiningPass());
