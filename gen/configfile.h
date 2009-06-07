@@ -2,6 +2,7 @@
 #define LDC_CONF_CONFIGFILE_H
 
 #include <vector>
+#include <string>
 
 namespace libconfig
 {
@@ -23,8 +24,11 @@ public:
     s_iterator switches_begin()   { return switches.begin(); }
     s_iterator switches_end()     { return switches.end(); }
 
+    const std::string& path()     { return pathstr; }
+
 private:
     libconfig::Config* cfg;
+    std::string pathstr;
 
     s_vector switches;
 };

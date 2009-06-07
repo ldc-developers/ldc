@@ -204,6 +204,13 @@ int main(int argc, char** argv)
     cl::SetVersionPrinter(&printVersion);
     cl::ParseCommandLineOptions(final_args.size(), (char**)&final_args[0], "LLVM-based D Compiler\n", true);
 
+    // Print config file path if -v was passed
+    if (global.params.verbose) {
+        const std::string& path = cfg_file.path();
+        if (!path.empty())
+            printf("config    %s\n", path.c_str());
+    }
+
     // Negated options
     global.params.link = !compileOnly;
     global.params.obj = !dontWriteObj;

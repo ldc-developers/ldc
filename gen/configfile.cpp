@@ -89,6 +89,9 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         }
     }
 
+    // save config file path for -v output
+    pathstr = p.toString();
+
     try
     {
         // read the cfg
