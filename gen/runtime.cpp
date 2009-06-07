@@ -385,8 +385,6 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_NoCapture); \
     }
 
-    ARRAY_INIT(boolTy,"i1")
-    ARRAY_INIT(byteTy,"i8")
     ARRAY_INIT(shortTy,"i16")
     ARRAY_INIT(intTy,"i32")
     ARRAY_INIT(longTy,"i64")
