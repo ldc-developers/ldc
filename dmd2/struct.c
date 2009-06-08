@@ -56,6 +56,10 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     aliasthis = NULL;
 #endif
     dtor = NULL;
+
+#if IN_LLVM
+    availableExternally = true; // assume this unless proven otherwise
+#endif
 }
 
 enum PROT AggregateDeclaration::prot()
@@ -84,6 +88,10 @@ void AggregateDeclaration::semantic2(Scope *sc)
 
 void AggregateDeclaration::semantic3(Scope *sc)
 {   int i;
+
+    // LDC
+    if (!global.params.useAvailableExternally)
+        availableExternally = false;
 
     //printf("AggregateDeclaration::semantic3(%s)\n", toChars());
     if (members)

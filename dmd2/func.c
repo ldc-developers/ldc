@@ -87,6 +87,8 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     isArrayOp = false;
     allowInlining = false;
 
+    availableExternally = true; // assume this unless proven otherwise
+
     // function types in ldc don't merge if the context parameter differs
     // so we actually don't care about the function declaration, but only
     // what kind of context parameter it has.
@@ -671,6 +673,10 @@ void FuncDeclaration::semantic3(Scope *sc)
     if (semanticRun >= 3)
 	return;
     semanticRun = 3;
+
+    // LDC
+    if (!global.params.useAvailableExternally)
+        availableExternally = false;
 
     if (!type || type->ty != Tfunction)
 	return;
