@@ -50,12 +50,10 @@ namespace {
     struct Analysis {
         TargetData& TD;
         const Module& M;
-        DominatorTree& DT;
         CallGraph* CG;
         CallGraphNode* CGNode;
         
         const Type* getTypeFor(Value* typeinfo) const;
-        bool isSafeToStackAllocate(Instruction* Alloc);
     };
 }
 
@@ -319,6 +317,8 @@ static void RemoveCall(CallSite CS, const Analysis& A) {
     CS.getInstruction()->eraseFromParent();
 }
 
+static bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT);
+
 /// runOnFunction - Top level algorithm.
 ///
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
@@ -329,7 +329,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
     CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
     
-    Analysis A = { TD, *M, DT, CG, CGNode };
+    Analysis A = { TD, *M, CG, CGNode };
     
     BasicBlock& Entry = F.getEntryBlock();
     
@@ -370,7 +370,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             
             DEBUG(DOUT << "GarbageCollect2Stack inspecting: " << *Inst);
             
-            if (!info->analyze(CS, A) || !A.isSafeToStackAllocate(Inst))
+            if (!info->analyze(CS, A) || !isSafeToStackAllocate(Inst, DT))
                 continue;
             
             // Let's alloca this!
@@ -432,8 +432,8 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
 /// 
 /// Based on LLVM's PointerMayBeCaptured(), which only does escape analysis but
 /// doesn't care about loops.
-bool Analysis::isSafeToStackAllocate(Instruction* Alloc) {
-  assert(isa<PointerType>(Alloc->getType()) && "Capture is for pointers only!");
+bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
+  assert(isa<PointerType>(Alloc->getType()) && "Allocation is not a pointer?");
   Value* V = Alloc;
   
   SmallVector<Use*, 16> Worklist;
@@ -498,8 +498,9 @@ bool Analysis::isSafeToStackAllocate(Instruction* Alloc) {
       // the original allocation.
       // That can only be true if it dominates the allocation.
       // FIXME: To be more precise, it's also only true if it's then used after
-      //        the original allocation instruction gets performed again, but
-      //        how to check that?
+      //        the original allocation instruction gets performed again (and
+      //        the instruction generating the derived pointer doesn't), but how
+      //        to check that?
       if (!I->use_empty() && DT.dominates(I, Alloc))
         return false;
       
