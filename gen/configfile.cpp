@@ -40,53 +40,63 @@ sys::Path ConfigGetExePath(sys::Path p)
 #endif
 
 
+bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const char* filename)
+{
+    // 1) try the current working dir
+    p = sys::Path::GetCurrentDirectory();
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+
+    // 2) try the user home dir
+    p = sys::Path::GetUserHomeDirectory();
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+        
+    // 3) try the install-prefix/etc
+    p = sys::Path(LDC_INSTALL_PREFIX);
+#if !_WIN32
+    // Does Windows need something similar?
+    p.appendComponent("etc");
+#endif
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+
+    // 4) try the install-prefix/etc/ldc
+    p = sys::Path(LDC_INSTALL_PREFIX);
+#if !_WIN32
+    // Does Windows need something similar?
+    p.appendComponent("etc");
+    p.appendComponent("ldc");
+#endif
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+
+    // 5) try next to the executable
+#if _WIN32
+    p = ConfigGetExePath(p);
+#else
+    p = sys::Path::GetMainExecutable(argv0, mainAddr);
+    p.eraseComponent();
+#endif
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+        
+    return false;
+}
+
 bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
 {
-
-#if _WIN32
-    std::string exeDirectoryName;
-#endif
-    // try to find the config file
-
-    // 1) try the current working dir
-    sys::Path p = sys::Path::GetCurrentDirectory();
-    p.appendComponent(filename);
-
-    if (!p.exists())
-    {
-        // 2) try the user home dir
-        p = sys::Path::GetUserHomeDirectory();
-        p.appendComponent(filename);
-
-        if (!p.exists())
-        {
-            // 3) try the install-prefix/etc
-            p = sys::Path(LDC_INSTALL_PREFIX);
-        #if !_WIN32
-            // Does Window need something similar?
-            p.appendComponent("etc");
-        #endif
-            p.appendComponent(filename);
-
-            if (!p.exists())
-            {
-            #if _WIN32
-                p = ConfigGetExePath(p);
-                exeDirectoryName = p.toString();
-            #else
-                // 4) try next to the executable
-                p = sys::Path::GetMainExecutable(argv0, mainAddr);
-                p.eraseComponent();
-            #endif
-                p.appendComponent(filename);
-                if (!p.exists())
-                {        
-                    // 5) fail load cfg, users still have the DFLAGS environment var
-                    std::cerr << "Error failed to locate the configuration file: " << filename << std::endl;
-                    return false;
-                }
-            }
-        }
+    sys::Path p;
+    if (!locate(p, argv0, mainAddr, filename))
+    {        
+        // failed to find cfg, users still have the DFLAGS environment var
+        std::cerr << "Error failed to locate the configuration file: " << filename << std::endl;
+        return false;
     }
 
     // save config file path for -v output
@@ -116,16 +126,9 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             std::string binpathkey = "%%ldcbinarypath%%";
 
         #if _WIN32
-            std::string binpath;
-            //This will happen if ldc.conf is found somewhere other than
-            //beside the ldc executable
-            if (exeDirectoryName == "")
-            {
-                sys::Path p;
-                p = ConfigGetExePath(p);
-                exeDirectoryName = p.toString();                
-            }
-            binpath = exeDirectoryName;
+            sys::Path p;
+            p = ConfigGetExePath(p);
+            std::string binpath = p.toString();
         #else
             std::string binpath = sys::Path::GetMainExecutable(argv0, mainAddr).getDirname();
         #endif

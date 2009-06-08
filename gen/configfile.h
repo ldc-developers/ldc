@@ -27,6 +27,8 @@ public:
     const std::string& path()     { return pathstr; }
 
 private:
+    bool locate(llvm::sys::Path& path, const char* argv0, void* mainAddr, const char* filename);
+
     libconfig::Config* cfg;
     std::string pathstr;
 
