@@ -29,11 +29,12 @@
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/IRBuilder.h"
-#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
@@ -49,10 +50,12 @@ namespace {
     struct Analysis {
         TargetData& TD;
         const Module& M;
+        DominatorTree& DT;
         CallGraph* CG;
         CallGraphNode* CGNode;
         
         const Type* getTypeFor(Value* typeinfo) const;
+        bool isSafeToStackAllocate(Instruction* Alloc);
     };
 }
 
@@ -269,8 +272,10 @@ namespace {
         
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
           AU.addRequired<TargetData>();
-          AU.addRequired<LoopInfo>();
+          AU.addRequired<DominatorTree>();
+          
           AU.addPreserved<CallGraph>();
+          AU.addPreserved<DominatorTree>();
         }
     };
     char GarbageCollect2Stack::ID = 0;
@@ -319,12 +324,12 @@ static void RemoveCall(CallSite CS, const Analysis& A) {
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(DOUT << "Running -dgc2stack on function " << F.getName() << '\n');
     
-    TargetData &TD = getAnalysis<TargetData>();
-    const LoopInfo &LI = getAnalysis<LoopInfo>();
+    TargetData& TD = getAnalysis<TargetData>();
+    DominatorTree& DT = getAnalysis<DominatorTree>();
     CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
     CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
     
-    Analysis A = { TD, *M, CG, CGNode };
+    Analysis A = { TD, *M, DT, CG, CGNode };
     
     BasicBlock& Entry = F.getEntryBlock();
     
@@ -332,15 +337,6 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     
     bool Changed = false;
     for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-        // We don't yet have sufficient analysis to properly determine if
-        // allocations will be unreferenced when the loop returns to their
-        // allocation point, so we're playing it safe by ignoring allocations
-        // in loops.
-        // TODO: Analyze loops too...
-        if (LI.getLoopFor(BB)) {
-            continue;
-        }
-        
         for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ) {
             // Ignore non-calls.
             Instruction* Inst = I++;
@@ -374,7 +370,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             
             DEBUG(DOUT << "GarbageCollect2Stack inspecting: " << *Inst);
             
-            if (!info->analyze(CS, A) || PointerMayBeCaptured(Inst, true))
+            if (!info->analyze(CS, A) || !A.isSafeToStackAllocate(Inst))
                 continue;
             
             // Let's alloca this!
@@ -421,6 +417,108 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
         return NULL;
     
     return MD_GetElement(node, TD_Type)->getType();
+}
+
+
+/// isSafeToStackAllocate - Return true if the GC call passed in is safe to turn
+/// into a stack allocation. This requires that the return value does not
+/// escape from the function and no derived pointers are live at the call site
+/// (i.e. if it's in a loop then the function can't use any pointer returned
+/// from an earlier call after a new call has been made)
+/// 
+/// This is currently conservative where loops are involved: it can handle
+/// simple loops, but returns false if any derived pointer is used in a
+/// subsequent iteration.
+/// 
+/// Based on LLVM's PointerMayBeCaptured(), which only does escape analysis but
+/// doesn't care about loops.
+bool Analysis::isSafeToStackAllocate(Instruction* Alloc) {
+  assert(isa<PointerType>(Alloc->getType()) && "Capture is for pointers only!");
+  Value* V = Alloc;
+  
+  SmallVector<Use*, 16> Worklist;
+  SmallSet<Use*, 16> Visited;
+  
+  for (Value::use_iterator UI = V->use_begin(), UE = V->use_end();
+       UI != UE; ++UI) {
+    Use *U = &UI.getUse();
+    Visited.insert(U);
+    Worklist.push_back(U);
+  }
+  
+  while (!Worklist.empty()) {
+    Use *U = Worklist.pop_back_val();
+    Instruction *I = cast<Instruction>(U->getUser());
+    V = U->get();
+    
+    switch (I->getOpcode()) {
+    case Instruction::Call:
+    case Instruction::Invoke: {
+      CallSite CS = CallSite::get(I);
+      // Not captured if the callee is readonly, doesn't return a copy through
+      // its return value and doesn't unwind (a readonly function can leak bits
+      // by throwing an exception or not depending on the input value).
+      if (CS.onlyReadsMemory() && CS.doesNotThrow() &&
+          I->getType() == Type::VoidTy)
+        break;
+      
+      // Not captured if only passed via 'nocapture' arguments.  Note that
+      // calling a function pointer does not in itself cause the pointer to
+      // be captured.  This is a subtle point considering that (for example)
+      // the callee might return its own address.  It is analogous to saying
+      // that loading a value from a pointer does not cause the pointer to be
+      // captured, even though the loaded value might be the pointer itself
+      // (think of self-referential objects).
+      CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
+      for (CallSite::arg_iterator A = B; A != E; ++A)
+        if (A->get() == V && !CS.paramHasAttr(A - B + 1, Attribute::NoCapture))
+          // The parameter is not marked 'nocapture' - captured.
+          return false;
+      // Only passed via 'nocapture' arguments, or is the called function - not
+      // captured.
+      break;
+    }
+    case Instruction::Free:
+      // Freeing a pointer does not cause it to be captured.
+      break;
+    case Instruction::Load:
+      // Loading from a pointer does not cause it to be captured.
+      break;
+    case Instruction::Store:
+      if (V == I->getOperand(0))
+        // Stored the pointer - it may be captured.
+        return false;
+      // Storing to the pointee does not cause the pointer to be captured.
+      break;
+    case Instruction::BitCast:
+    case Instruction::GetElementPtr:
+    case Instruction::PHI:
+    case Instruction::Select:
+      // It's not safe to stack-allocate if this derived pointer is live across
+      // the original allocation.
+      // That can only be true if it dominates the allocation.
+      // FIXME: To be more precise, it's also only true if it's then used after
+      //        the original allocation instruction gets performed again, but
+      //        how to check that?
+      if (!I->use_empty() && DT.dominates(I, Alloc))
+        return false;
+      
+      // The original value is not captured via this if the new value isn't.
+      for (Instruction::use_iterator UI = I->use_begin(), UE = I->use_end();
+           UI != UE; ++UI) {
+        Use *U = &UI.getUse();
+        if (Visited.insert(U))
+          Worklist.push_back(U);
+      }
+      break;
+    default:
+      // Something else - be conservative and say it is captured.
+      return false;
+    }
+  }
+  
+  // All uses examined - not captured or live across original allocation.
+  return true;
 }
 
 

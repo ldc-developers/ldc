@@ -133,12 +133,6 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createPruneEHPass());
         addPass(pm, createFunctionAttrsPass());
-
-#ifdef USE_METADATA
-        if (!disableLangSpecificPasses && !disableGCToStack)
-            addPass(pm, createGarbageCollect2Stack());
-#endif
-
         addPass(pm, createTailCallEliminationPass());
         addPass(pm, createCFGSimplificationPass());
     }
@@ -152,11 +146,6 @@ static void addPassesForOptLevel(PassManager& pm) {
             addPass(pm, createScalarReplAggregatesPass());
             addPass(pm, createInstructionCombiningPass());
 
-#ifdef USE_METADATA
-            if (!disableLangSpecificPasses && !disableGCToStack)
-                addPass(pm, createGarbageCollect2Stack());
-#endif
-
             // Inline again, to catch things like foreach delegates
             // passed to inlined opApply's where the function wasn't
             // known during the first inliner pass.
@@ -165,11 +154,6 @@ static void addPassesForOptLevel(PassManager& pm) {
             // Run clean-up again.
             addPass(pm, createScalarReplAggregatesPass());
             addPass(pm, createInstructionCombiningPass());
-
-#ifdef USE_METADATA
-            if (!disableLangSpecificPasses && !disableGCToStack)
-                addPass(pm, createGarbageCollect2Stack());
-#endif
         }
     }
 
@@ -179,9 +163,10 @@ static void addPassesForOptLevel(PassManager& pm) {
 
 #ifdef USE_METADATA
         if (!disableGCToStack) {
-            // Run some clean-up after the last GC to stack promotion pass.
-            addPass(pm, createScalarReplAggregatesPass());
+            addPass(pm, createGarbageCollect2Stack());
+            // Run some clean-up
             addPass(pm, createInstructionCombiningPass());
+            addPass(pm, createScalarReplAggregatesPass());
             addPass(pm, createCFGSimplificationPass());
         }
 #endif
