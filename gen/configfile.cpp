@@ -64,18 +64,31 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     if (p.exists())
         return true;
 
+#if !_WIN32
+    // Does Windows need something similar to these?
+
     // 4) try the install-prefix/etc/ldc
     p = sys::Path(LDC_INSTALL_PREFIX);
-#if !_WIN32
-    // Does Windows need something similar?
     p.appendComponent("etc");
     p.appendComponent("ldc");
-#endif
     p.appendComponent(filename);
     if (p.exists())
         return true;
 
-    // 5) try next to the executable
+    // 5) try /etc (absolute path)
+    p = sys::Path("/etc");
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+
+    // 6) try /etc/ldc (absolute path)
+    p = sys::Path("/etc/ldc");
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+#endif
+
+    // 7) try next to the executable
 #if _WIN32
     p = ConfigGetExePath(p);
 #else
