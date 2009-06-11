@@ -177,7 +177,9 @@ static void addPassesForOptLevel(PassManager& pm) {
     {
         addPass(pm, createArgumentPromotionPass());
         addPass(pm, createTailDuplicationPass());
+        addPass(pm, createSimplifyLibCallsPass());
         addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createJumpThreadingPass());
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createScalarReplAggregatesPass());
         addPass(pm, createInstructionCombiningPass());
@@ -187,8 +189,10 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createLoopRotatePass());
         addPass(pm, createLICMPass());
         addPass(pm, createLoopUnswitchPass());
+        addPass(pm, createLoopIndexSplitPass());
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createIndVarSimplifyPass());
+        addPass(pm, createLoopDeletionPass());
         addPass(pm, createLoopUnrollPass());
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createGVNPass());
@@ -201,7 +205,6 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createDeadStoreEliminationPass());
         addPass(pm, createAggressiveDCEPass());
         addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createSimplifyLibCallsPass());
         addPass(pm, createDeadTypeEliminationPass());
         addPass(pm, createConstantMergePass());
     }
