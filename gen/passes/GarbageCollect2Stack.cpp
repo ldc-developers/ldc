@@ -25,6 +25,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
+#include "llvm/Constants.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
@@ -305,11 +306,10 @@ static void RemoveCall(CallSite CS, const Analysis& A) {
         // If this was an invoke instruction, we need to do some extra
         // work to preserve the control flow.
         
-        // First notify the exception landing pad block that we won't be
-        // going there anymore.
-        Invoke->getUnwindDest()->removePredecessor(Invoke->getParent());
-        // Create a branch to the "normal" destination.
-        BranchInst::Create(Invoke->getNormalDest(), Invoke->getParent());
+        // Create a "conditional" branch that -simplifycfg can clean up, so we
+        // can keep using the DominatorTree without updating it.
+        BranchInst::Create(Invoke->getNormalDest(), Invoke->getUnwindDest(),
+            ConstantInt::getTrue(), Invoke->getParent());
     }
     // Remove the runtime call.
     if (A.CGNode)
@@ -322,7 +322,7 @@ static bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT);
 /// runOnFunction - Top level algorithm.
 ///
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
-    DEBUG(DOUT << "Running -dgc2stack on function " << F.getName() << '\n');
+    DEBUG(DOUT << "\nRunning -dgc2stack on function " << F.getName() << '\n');
     
     TargetData& TD = getAnalysis<TargetData>();
     DominatorTree& DT = getAnalysis<DominatorTree>();
@@ -419,6 +419,137 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
     return MD_GetElement(node, TD_Type)->getType();
 }
 
+/// Returns whether Def is used by any instruction that is reachable from Alloc
+/// (without executing Def again).
+static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, DominatorTree& DT) {
+    DOUT << "### mayBeUsedAfterRealloc()\n" << *Def << *Alloc;
+    
+    // If the definition isn't used it obviously won't be used after the
+    // allocation.
+    // If it does not dominate the allocation, there's no way for it to be used
+    // without going through Def again first, since the definition couldn't
+    // dominate the user either.
+    if (Def->use_empty() || !DT.dominates(Def, Alloc)) {
+        DOUT << "### No uses or does not dominate allocation\n";
+        return false;
+    }
+    
+    DOUT << "### Def dominates Alloc\n";
+    
+    BasicBlock* DefBlock = Def->getParent();
+    BasicBlock* AllocBlock = Alloc->getParent();
+    
+    // Create a set of users and one of blocks containing users.
+    SmallSet<User*, 16> Users;
+    SmallSet<BasicBlock*, 16> UserBlocks;
+    for (Instruction::use_iterator UI = Def->use_begin(), UE = Def->use_end();
+         UI != UE; ++UI) {
+        Instruction* User = cast<Instruction>(*UI);
+        DOUT << "USER: " << *User;
+        BasicBlock* UserBlock = User->getParent();
+        
+        // This dominance check is not performed if they're in the same block
+        // because it will just walk the instruction list to figure it out.
+        // We will instead do that ourselves in the first iteration (for all
+        // users at once).
+        if (AllocBlock != UserBlock && DT.dominates(AllocBlock, UserBlock)) {
+            // There's definitely a path from alloc to this user that does not
+            // go through Def, namely any path that ends up in that user.
+            DOUT << "### Alloc dominates user " << *User;
+            return true;
+        }
+        
+        // Phi nodes are checked separately, so no need to enter them here.
+        if (!isa<PHINode>(User)) {
+            Users.insert(User);
+            UserBlocks.insert(UserBlock);
+        }
+    }
+    
+    // Contains first instruction of block to inspect.
+    typedef std::pair<BasicBlock*, BasicBlock::iterator> StartPoint;
+    SmallVector<StartPoint, 16> Worklist;
+    // Keeps track of successors that have been added to the work list.
+    SmallSet<BasicBlock*, 16> Visited;
+    
+    // Start just after the allocation.
+    // Note that we don't insert AllocBlock into the Visited set here so the
+    // start of the block will get inspected if it's reachable.
+    BasicBlock::iterator Start = Alloc;
+    ++Start;
+    Worklist.push_back(StartPoint(AllocBlock, Start));
+    
+    while (!Worklist.empty()) {
+        StartPoint sp = Worklist.pop_back_val();
+        BasicBlock* B = sp.first;
+        BasicBlock::iterator BBI = sp.second;
+        // BBI is either just after the allocation (in the first iteration)
+        // or just after the last phi node in B (in subsequent iterations) here.
+        
+        // This whole 'if' is just a way to avoid performing the inner 'for'
+        // loop when it can be determined not to be necessary, avoiding
+        // potentially expensive walks of the instruction list.
+        // It should be equivalent to just doing the loop.
+        if (UserBlocks.count(B)) {
+            if (B != DefBlock && B != AllocBlock) {
+                // This block does not contain the definition or the allocation,
+                // so any user in this block is definitely reachable without
+                // finding either the definition or the allocation.
+                DOUT << "### Block " << B->getName()
+                     << " contains a reachable user\n";
+                return true;
+            }
+            // We need to walk the instructions in the block to see whether we
+            // reach a user before we reach the definition or the allocation.
+            for (BasicBlock::iterator E = B->end(); BBI != E; ++BBI) {
+                if (&*BBI == Alloc || &*BBI == Def)
+                    break;
+                if (Users.count(BBI)) {
+                    DOUT << "### Problematic user: " << *BBI;
+                    return true;
+                }
+            }
+        } else if (B == DefBlock || (B == AllocBlock && BBI != Start)) {
+            // There are no users in the block so the def or the allocation
+            // will be encountered before any users though this path.
+            // Skip to the next item on the worklist.
+            continue;
+        } else {
+            // No users and no definition or allocation after the start point,
+            // so just keep going.
+        }
+        
+        // All instructions after the starting point in this block have been
+        // accounted for. Look for successors to add to the work list.
+        TerminatorInst* Term = B->getTerminator();
+        unsigned SuccCount = Term->getNumSuccessors();
+        for (unsigned i = 0; i < SuccCount; i++) {
+            BasicBlock* Succ = Term->getSuccessor(i);
+            BBI = Succ->begin();
+            // Check phi nodes here because we only care about the operand
+            // coming in from this block.
+            bool SeenDef = false;
+            while (isa<PHINode>(BBI)) {
+                if (Def == cast<PHINode>(BBI)->getIncomingValueForBlock(B)) {
+                    DOUT << "### Problematic phi user: " << *BBI;
+                    return true;
+                }
+                SeenDef |= (Def == &*BBI);
+                ++BBI;
+            }
+            // If none of the phis we just looked at were the definition, we
+            // haven't seen this block yet, and it's dominated by the def
+            // (meaning paths through it could lead to users), add the block and
+            // the first non-phi to the worklist.
+            if (!SeenDef && Visited.insert(Succ) && DT.dominates(DefBlock, Succ))
+                Worklist.push_back(StartPoint(Succ, BBI));
+        }
+    }
+    // No users found in any block reachable from Alloc
+    // without going through the definition again.
+    return false;
+}
+
 
 /// isSafeToStackAllocate - Return true if the GC call passed in is safe to turn
 /// into a stack allocation. This requires that the return value does not
@@ -496,12 +627,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
     case Instruction::Select:
       // It's not safe to stack-allocate if this derived pointer is live across
       // the original allocation.
-      // That can only be true if it dominates the allocation.
-      // FIXME: To be more precise, it's also only true if it's then used after
-      //        the original allocation instruction gets performed again (and
-      //        the instruction generating the derived pointer doesn't), but how
-      //        to check that?
-      if (!I->use_empty() && DT.dominates(I, Alloc))
+      if (mayBeUsedAfterRealloc(I, Alloc, DT))
         return false;
       
       // The original value is not captured via this if the new value isn't.
