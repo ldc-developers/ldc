@@ -54,36 +54,44 @@ ModulePass *createStripExternalsPass() { return new StripExternals(); }
 bool StripExternals::runOnModule(Module &M) {
   bool Changed = false;
 
-  for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
+  for (Module::iterator I = M.begin(); I != M.end(); ) {
     if (I->hasAvailableExternallyLinkage()) {
       assert(!I->isDeclaration()&&"Declarations can't be available_externally");
       Changed = true;
       ++NumFunctions;
       if (I->use_empty()) {
         DOUT << "Deleting function: " << *I;
-        I->eraseFromParent();
+        Module::iterator todelete = I;
+        ++I;
+        todelete->eraseFromParent();
+        continue;
       } else {
         I->deleteBody();
         DOUT << "Deleted function body: " << *I;
       }
     }
+    ++I;
   }
 
-  for (Module::global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; ++I) {
+  for (Module::global_iterator I = M.global_begin();
+       I != M.global_end(); ) {
     if (I->hasAvailableExternallyLinkage()) {
       assert(!I->isDeclaration()&&"Declarations can't be available_externally");
       Changed = true;
       ++NumVariables;
       if (I->use_empty()) {
         DOUT << "Deleting global: " << *I;
-        I->eraseFromParent();
+        Module::global_iterator todelete = I;
+        ++I;
+        todelete->eraseFromParent();
+        continue;
       } else {
         I->setInitializer(0);
         I->setLinkage(GlobalValue::ExternalLinkage);
         DOUT << "Deleted initializer: " << *I;
       }
     }
+    ++I;
   }
 
   return Changed;
