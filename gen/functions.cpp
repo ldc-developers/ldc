@@ -782,29 +782,33 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
 //     std::cout << *func << std::endl;
 
-    // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
-    // in automatically, so we do it here.
-    if (!gIR->scopereturned()) {
+    llvm::BasicBlock* bb = gIR->scopebb();
+    if (pred_begin(bb) == pred_end(bb) && bb != &bb->getParent()->getEntryBlock()) {
+        // This block is trivially unreachable, so just delete it.
+        // (This is a common case because it happens when 'return'
+        // is the last statement in a function)
+        bb->eraseFromParent();
+    } else if (!gIR->scopereturned()) {
+        // llvm requires all basic blocks to end with a TerminatorInst but DMD does not put a return statement
+        // in automatically, so we do it here.
+        
         // pass the previous block into this block
         if (global.params.symdebug) DtoDwarfFuncEnd(fd);
         if (func->getReturnType() == LLType::VoidTy) {
             llvm::ReturnInst::Create(gIR->scopebb());
         }
-        else {
-            if (!fd->isMain())
-            {
-                AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
-                if (asmb) {
-                    assert(asmb->abiret);
-                    llvm::ReturnInst::Create(asmb->abiret, gIR->scopebb());
-                }
-                else {
-                    llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), gIR->scopebb());
-                }
+        else if (!fd->isMain()) {
+            AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
+            if (asmb) {
+                assert(asmb->abiret);
+                llvm::ReturnInst::Create(asmb->abiret, bb);
             }
-            else
-                llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), gIR->scopebb());
+            else {
+                llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), bb);
+            }
         }
+        else
+            llvm::ReturnInst::Create(llvm::Constant::getNullValue(func->getReturnType()), bb);
     }
 
 //     std::cout << *func << std::endl;
