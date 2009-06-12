@@ -466,7 +466,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     bool nullterm = (t->ty != Tsarray);
     size_t endlen = nullterm ? len+1 : len;
 
-    const LLType* ct = DtoType(cty);
+    const LLType* ct = DtoTypeNotVoid(cty);
     const LLArrayType* at = LLArrayType::get(ct,endlen);
 
     LLConstant* _init;
@@ -2377,7 +2377,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     Type* elemt = bt->nextOf();
 
     // build llvm array type
-    const LLArrayType* arrtype = LLArrayType::get(DtoType(elemt), elements->dim);
+    const LLArrayType* arrtype = LLArrayType::get(DtoTypeNotVoid(elemt), elements->dim);
 
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty == Tarray);
