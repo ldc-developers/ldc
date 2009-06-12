@@ -184,7 +184,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
         assert(arrayelemty == valuety && "ArrayInit doesn't work on elem-initialized static arrays");
         args[0] = DtoBitCast(args[0], getVoidPtrType());
         args[2] = DtoBitCast(args[2], getVoidPtrType());
-        args.push_back(DtoConstSize_t(getTypePaddedSize(DtoType(arrayelemty))));
+        args.push_back(DtoConstSize_t(getTypePaddedSize(DtoTypeNotVoid(arrayelemty))));
         break;
 
     default:
@@ -247,7 +247,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     // get elem type
     Type* elemty = arrty->nextOf();
-    const LLType* llelemty = DtoType(elemty);
+    const LLType* llelemty = DtoTypeNotVoid(elemty);
 
     // true if array elements differ in type, can happen with array of unions
     bool mismatch = false;
@@ -367,7 +367,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
     LLValue* dstarr = get_slice_ptr(dst,sz1);
 
     LLValue* srcarr = DtoBitCast(DtoArrayPtr(src), getVoidPtrType());
-    const LLType* arrayelemty = DtoType(src->getType()->nextOf()->toBasetype());
+    const LLType* arrayelemty = DtoTypeNotVoid(src->getType()->nextOf()->toBasetype());
     LLValue* sz2 = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(arrayelemty)), DtoArrayLen(src), "tmp");
 
     if (global.params.useAssert || global.params.useArrayBounds)
