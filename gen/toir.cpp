@@ -987,12 +987,12 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         assert(type->toBasetype()->ty == Tpointer);
         return DtoBitCast(gep, DtoType(type));
     }
-    else if (e1->op == TOKstructliteral)
+    else if (
+        e1->op == TOKstructliteral || 
+        e1->op == TOKslice)
     {
-        // FIXME: is this right?
-        StructLiteralExp* slexp = (StructLiteralExp*)e1;
-        LLConstant* lit = slexp->toConstElem(p);
-        return lit;
+        error("non-constant expression '%s'", toChars());
+        fatal();
     }
     // not yet supported
     else
