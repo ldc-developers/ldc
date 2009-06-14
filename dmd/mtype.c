@@ -3409,7 +3409,7 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
 		v = s->isVarDeclaration();
 		if (v && id == Id::length)
 		{
-		    if (v->isConst() && v->getExpInitializer())
+		    if (v->isSameAsInitializer() && v->getExpInitializer())
 		    {	e = v->getExpInitializer()->exp;
 		    }
 		    else
@@ -3456,7 +3456,7 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
 	if (v)
 	{
 	    // It's not a type, it's an expression
-	    if (v->isConst() && v->getExpInitializer())
+	    if (v->isSameAsInitializer() && v->getExpInitializer())
 	    {
 		ExpInitializer *ei = v->getExpInitializer();
 		assert(ei);
@@ -4520,7 +4520,7 @@ L1:
     s = s->toAlias();
 
     v = s->isVarDeclaration();
-    if (v && v->isConst() && v->type->toBasetype()->ty != Tsarray)
+    if (v && v->isSameAsInitializer() && v->type->toBasetype()->ty != Tsarray)
     {	ExpInitializer *ei = v->getExpInitializer();
 
 	if (ei)
@@ -4932,7 +4932,7 @@ L1:
 	s->checkDeprecated(e->loc, sc);
     s = s->toAlias();
     v = s->isVarDeclaration();
-    if (v && v->isConst() && v->type->toBasetype()->ty != Tsarray)
+    if (v && v->isSameAsInitializer() && v->type->toBasetype()->ty != Tsarray)
     {	ExpInitializer *ei = v->getExpInitializer();
 
 	if (ei)

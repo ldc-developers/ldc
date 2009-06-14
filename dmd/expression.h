@@ -509,9 +509,7 @@ struct StructLiteralExp : Expression
     void scanForNestedRef(Scope *sc);
     Expression *optimize(int result);
     Expression *interpret(InterState *istate);
-    // LDC: struct literals aren't lvalues! Taking their address can lead to 
-    //      incorrect behavior, see LDC#218, DMD#2682
-    // Expression *toLvalue(Scope *sc, Expression *e);
+    Expression *toLvalue(Scope *sc, Expression *e);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);

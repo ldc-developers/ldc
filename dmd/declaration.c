@@ -1213,6 +1213,14 @@ int VarDeclaration::hasPointers()
     return (!isDataseg() && type->hasPointers());
 }
 
+int VarDeclaration::isSameAsInitializer()
+{
+    if (init && init->isExpInitializer() && 
+        init->isExpInitializer()->exp->op == TOKstructliteral)
+        return 0;
+    return isConst();
+}
+
 /******************************************
  * If a variable has an auto destructor call, return call for it.
  * Otherwise, return NULL.

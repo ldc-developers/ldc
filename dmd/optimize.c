@@ -194,7 +194,9 @@ Expression *AddrExp::optimize(int result)
 {   Expression *e;
 
     //printf("AddrExp::optimize(result = %d) %s\n", result, toChars());
-    e1 = e1->optimize(result);
+    // never try to interpret: it could change the semantics by turning
+    // const p = &s; into an something like const p = &(Struct());
+    e1 = e1->optimize(result & ~WANTinterpret);
     // Convert &*ex to ex
     if (e1->op == TOKstar)
     {	Expression *ex;

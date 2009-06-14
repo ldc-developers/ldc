@@ -135,6 +135,8 @@ struct Declaration : Dsymbol
     int isParameter()    { return storage_class & STCparameter; }
     int isDeprecated()   { return storage_class & STCdeprecated; }
     int isOverride()     { return storage_class & STCoverride; }
+    
+    virtual int isSameAsInitializer() { return isConst(); };
 
     int isIn()    { return storage_class & STCin; }
     int isOut()   { return storage_class & STCout; }
@@ -282,6 +284,8 @@ struct VarDeclaration : Declaration
     void checkCtorConstInit();
     void checkNestedReference(Scope *sc, Loc loc);
     Dsymbol *toAlias();
+    
+    virtual int isSameAsInitializer();
 
 #if IN_DMD
     void toObjFile(int multiobj);			// compile to .obj file

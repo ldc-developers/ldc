@@ -2113,7 +2113,7 @@ Lagain:
 		type = Type::terror;
 	    }
 	}
-	if (v->isConst() && type->toBasetype()->ty != Tsarray)
+	if (v->isSameAsInitializer() && type->toBasetype()->ty != Tsarray)
 	{
 	    if (v->init)
 	    {
@@ -3242,13 +3242,10 @@ int StructLiteralExp::isLvalue()
 }
 #endif
 
-/*
-Removed in LDC. See declaration.
 Expression *StructLiteralExp::toLvalue(Scope *sc, Expression *e)
 {
     return this;
 }
-*/
 
 
 int StructLiteralExp::checkSideEffect(int flag)
@@ -3949,7 +3946,7 @@ Expression *VarExp::semantic(Scope *sc)
     VarDeclaration *v = var->isVarDeclaration();
     if (v)
     {
-	if (v->isConst() && type->toBasetype()->ty != Tsarray && v->init)
+	if (v->isSameAsInitializer() && type->toBasetype()->ty != Tsarray && v->init)
 	{
 	    ExpInitializer *ei = v->init->isExpInitializer();
 	    if (ei)
@@ -5355,7 +5352,7 @@ Expression *DotIdExp::semantic(Scope *sc)
 		    return this;
 		}
 		type = v->type;
-		if (v->isConst())
+		if (v->isSameAsInitializer())
 		{
 		    if (v->init)
 		    {
@@ -5614,7 +5611,7 @@ Expression *DotVarExp::semantic(Scope *sc)
 		accessCheck(loc, sc, e1, var);
 
 	    VarDeclaration *v = var->isVarDeclaration();
-	    if (v && v->isConst())
+	    if (v && v->isSameAsInitializer())
 	    {	ExpInitializer *ei = v->getExpInitializer();
 		if (ei)
 		{   Expression *e = ei->exp->copy();
