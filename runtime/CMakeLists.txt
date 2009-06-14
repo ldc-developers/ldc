@@ -20,7 +20,7 @@ else(D_VERSION EQUAL 1)
 	message(FATAL_ERROR "set d version to 1 or 2")
 endif(D_VERSION EQUAL 1)
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
-set(RUNTIME_DIR ${PROJECT_BINARY_DIR}/../${RUNTIME} CACHE PATH "runtime source dir")
+set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/../${RUNTIME} CACHE PATH "runtime source dir")
 
 if(D_VERSION EQUAL 1)
 	# copy imports to runtime dir
