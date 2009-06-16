@@ -979,10 +979,11 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (AttribDeclaration* a = declaration->isAttribDeclaration())
     {
         Logger::println("AttribDeclaration");
-        for (int i=0; i < a->decl->dim; ++i)
-        {
-            DtoDeclarationExp((Dsymbol*)a->decl->data[i]);
-        }
+        if (a->decl)
+            for (int i=0; i < a->decl->dim; ++i)
+            {
+                DtoDeclarationExp((Dsymbol*)a->decl->data[i]);
+            }
     }
     // mixin declaration
     else if (TemplateMixin* m = declaration->isTemplateMixin())
