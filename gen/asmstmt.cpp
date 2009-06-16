@@ -721,7 +721,7 @@ void AsmBlockStatement::toIR(IRState* p)
         Logger::cout() << "Arguments:" << '\n';
         Logger::indent();
         for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i) {
-            llvm::OStream cout = Logger::cout();
+            Stream cout = Logger::cout();
             cout << '$' << (i - b) << " ==> " << **i;
             if (!llvm::isa<llvm::Instruction>(*i) && !llvm::isa<LLGlobalValue>(*i))
                 cout << '\n';

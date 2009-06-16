@@ -194,9 +194,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
 
     llvm::FunctionType* functype = llvm::FunctionType::get(f->fty.ret->ltype, argtypes, f->fty.c_vararg);
 
-#if 0
     Logger::cout() << "Final function type: " << *functype << "\n";
-#endif
 
     return functype;
 }

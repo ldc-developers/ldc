@@ -281,9 +281,7 @@ const llvm::Type* IrTypeClass::buildType()
     name.append(".__vtbl");
     Type::sir->getState()->module->addTypeName(name, vtbl_pa.get());
 
-#if 0
     IF_LOG Logger::cout() << "class type: " << *pa.get() << std::endl;
-#endif
 
     return get();
 }

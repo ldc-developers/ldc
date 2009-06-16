@@ -385,7 +385,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
     if (Logger::enabled()) {
         Logger::println("Assembling with: ");
         std::vector<const char*>::const_iterator I = Args.begin(), E = Args.end();
-        std::ostream& logstr = *Logger::cout().stream();
+        Stream logstr = Logger::cout();
         for (; I != E; ++I)
             if (*I)
                 logstr << "'" << *I << "'" << " ";

@@ -491,9 +491,7 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
     {
         Logger::cout() << "src2: " << *src << '\n';
         Logger::cout() << "index: " << field->index << '\n';
-#if 0
         Logger::cout() << "srctype: " << *src->getType() << '\n';
-#endif
     }
 #endif
     LLValue* val = DtoGEPi(src, 0, field->index);

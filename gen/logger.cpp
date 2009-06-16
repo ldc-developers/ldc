@@ -4,11 +4,34 @@
 #include <cstdlib>
 #include <fstream>
 #include <string>
+#include <iostream>
 
 #include "mars.h"
 
 #include "llvm/Support/CommandLine.h"
+
+#include "llvm/GlobalValue.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Assembly/Writer.h"
+
 #include "gen/logger.h"
+#include "gen/irstate.h"
+
+void Stream::writeType(std::ostream& OS, const llvm::Type& Ty) {
+    llvm::raw_os_ostream raw(OS);
+    llvm::WriteTypeSymbolic(raw, &Ty, gIR->module);
+}
+
+void Stream::writeValue(std::ostream& OS, const llvm::Value& V) {
+    // Constants don't always get their types pretty-printed.
+    // (Only treat non-global constants like this, so that e.g. global variables
+    // still get their initializers printed)
+    if (llvm::isa<llvm::Constant>(V) && !llvm::isa<llvm::GlobalValue>(V))
+        llvm::WriteAsOperand(OS, &V, true, gIR->module);
+    else
+        OS << V;
+}
 
 namespace Logger
 {
@@ -31,10 +54,10 @@ namespace Logger
             indent_str.resize(indent_str.size()-2);
         }
     }
-    llvm::OStream cout()
+    Stream cout()
     {
         if (_enabled)
-            return llvm::cout << indent_str;
+            return std::cout << indent_str;
         else
             return 0;
     }

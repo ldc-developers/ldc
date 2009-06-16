@@ -385,10 +385,8 @@ struct IntrinsicABI : TargetABI
             if (ty->ty == Tstruct)
                 fixup(arg);
 
-#if 0
             if (Logger::enabled())
                 Logger::cout() << "New arg type: " << *arg.ltype << '\n';
-#endif
         }
     }
 };

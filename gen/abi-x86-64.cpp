@@ -701,11 +701,8 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             if (ty->ty == Tstruct)
                 fixup_D(arg);
             
-#if 0
-            // These can get pretty large...
             if (Logger::enabled())
                 Logger::cout() << "New arg type: " << *arg.ltype << '\n';
-#endif
         }
         
     } else {
@@ -735,10 +732,8 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             Type* ty = arg.type->toBasetype();
             
             fixup(arg);
-#if 0
             if (Logger::enabled())
                 Logger::cout() << "New arg type: " << *arg.ltype << '\n';
-#endif
         }
     }
 }

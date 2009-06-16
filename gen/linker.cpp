@@ -329,7 +329,7 @@ int linkObjToExecutable(const char* argv0)
 
     Logger::println("Linking with: ");
     std::vector<const char*>::const_iterator I = args.begin(), E = args.end(); 
-    llvm::OStream logstr = Logger::cout();
+    Stream logstr = Logger::cout();
     for (; I != E; ++I)
         if (*I)
             logstr << "'" << *I << "'" << " ";
