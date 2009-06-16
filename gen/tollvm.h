@@ -37,7 +37,7 @@ LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
 
 // some types
-const LLType* DtoSize_t();
+const LLIntegerType* DtoSize_t();
 const LLStructType* DtoInterfaceInfoType();
 const LLStructType* DtoMutexType();
 const LLStructType* DtoModuleReferenceType();
@@ -55,7 +55,7 @@ LLConstantInt* DtoConstSize_t(uint64_t);
 LLConstantInt* DtoConstUint(unsigned i);
 LLConstantInt* DtoConstInt(int i);
 LLConstantInt* DtoConstUbyte(unsigned char i);
-llvm::ConstantFP* DtoConstFP(Type* t, long double value);
+LLConstant* DtoConstFP(Type* t, long double value);
 
 LLConstant* DtoConstString(const char*);
 LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);

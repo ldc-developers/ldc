@@ -399,10 +399,10 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLType* DtoSize_t()
+const LLIntegerType* DtoSize_t()
 {
     // the type of size_t does not change once set
-    static const LLType* t = NULL;
+    static const LLIntegerType* t = NULL;
     if (t == NULL)
         t = (global.params.is64bit) ? LLType::Int64Ty : LLType::Int32Ty;
     return t;
@@ -563,7 +563,7 @@ llvm::ConstantInt* DtoConstUbyte(unsigned char i)
     return llvm::ConstantInt::get(LLType::Int8Ty, i, false);
 }
 
-llvm::ConstantFP* DtoConstFP(Type* t, long double value)
+LLConstant* DtoConstFP(Type* t, long double value)
 {
     const LLType* llty = DtoType(t);
     assert(llty->isFloatingPoint());
