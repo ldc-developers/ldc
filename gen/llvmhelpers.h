@@ -119,6 +119,7 @@ DValue* DtoBinSub(DValue* lhs, DValue* rhs);
 DValue* DtoBinMul(Type* resulttype, DValue* lhs, DValue* rhs);
 DValue* DtoBinDiv(Type* resulttype, DValue* lhs, DValue* rhs);
 DValue* DtoBinRem(Type* resulttype, DValue* lhs, DValue* rhs);
+LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op);
 
 // target stuff
 void findDefaultTarget();

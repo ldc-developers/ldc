@@ -1437,6 +1437,8 @@ DValue* EqualExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
+    LLValue* lv = l->getRVal();
+    LLValue* rv = r->getRVal();
 
     Type* t = e1->type->toBasetype();
     Type* e2t = e2->type->toBasetype();
@@ -1461,8 +1463,6 @@ DValue* EqualExp::toElem(IRState* p)
         default:
             assert(0);
         }
-        LLValue* lv = l->getRVal();
-        LLValue* rv = r->getRVal();
         if (rv->getType() != lv->getType()) {
             rv = DtoBitCast(rv, lv->getType());
         }
@@ -1473,27 +1473,9 @@ DValue* EqualExp::toElem(IRState* p)
         }
         eval = p->ir->CreateICmp(cmpop, lv, rv, "tmp");
     }
-    else if (t->iscomplex())
+    else if (t->isfloating()) // includes iscomplex
     {
-        Logger::println("complex");
-        eval = DtoComplexEquals(loc, op, l, r);
-    }
-    else if (t->isfloating())
-    {
-        Logger::println("floating");
-        llvm::FCmpInst::Predicate cmpop;
-        switch(op)
-        {
-        case TOKequal:
-            cmpop = llvm::FCmpInst::FCMP_OEQ;
-            break;
-        case TOKnotequal:
-            cmpop = llvm::FCmpInst::FCMP_UNE;
-            break;
-        default:
-            assert(0);
-        }
-        eval = p->ir->CreateFCmp(cmpop, l->getRVal(), r->getRVal(), "tmp");
+        eval = DtoBinNumericEquals(loc, l, r, op);
     }
     else if (t->ty == Tsarray || t->ty == Tarray)
     {
@@ -2041,55 +2023,53 @@ DValue* IdentityExp::toElem(IRState* p)
     Logger::print("IdentityExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    DValue* u = e1->toElem(p);
-    DValue* v = e2->toElem(p);
+    DValue* l = e1->toElem(p);
+    DValue* r = e2->toElem(p);
+    LLValue* lv = l->getRVal();
+    LLValue* rv = r->getRVal();
 
     Type* t1 = e1->type->toBasetype();
 
     // handle dynarray specially
     if (t1->ty == Tarray)
-        return new DImValue(type, DtoDynArrayIs(op,u,v));
+        return new DImValue(type, DtoDynArrayIs(op,l,r));
     // also structs
     else if (t1->ty == Tstruct)
-        return new DImValue(type, DtoStructEquals(op,u,v));
+        return new DImValue(type, DtoStructEquals(op,l,r));
 
     // FIXME this stuff isn't pretty
-    LLValue* l = u->getRVal();
-    LLValue* r = v->getRVal();
     LLValue* eval = 0;
 
     if (t1->ty == Tdelegate) {
-        if (v->isNull()) {
-            r = NULL;
+        if (r->isNull()) {
+            rv = NULL;
         }
         else {
-            assert(l->getType() == r->getType());
+            assert(lv->getType() == rv->getType());
         }
-        eval = DtoDelegateEquals(op,l,r);
+        eval = DtoDelegateEquals(op,lv,rv);
     }
-    else if (t1->isfloating())
+    else if (t1->isfloating()) // includes iscomplex
     {
-        eval = (op == TOKidentity)
-        ?   p->ir->CreateFCmpOEQ(l,r,"tmp")
-        :   p->ir->CreateFCmpONE(l,r,"tmp");
+       eval = DtoBinNumericEquals(loc, l, r, op);
     }
     else if (t1->ty == Tpointer || t1->ty == Tclass)
     {
-        if (l->getType() != r->getType()) {
-            if (v->isNull())
-                r = llvm::ConstantPointerNull::get(isaPointer(l->getType()));
+        if (lv->getType() != rv->getType()) {
+            if (r->isNull())
+                rv = llvm::ConstantPointerNull::get(isaPointer(lv->getType()));
             else
-                r = DtoBitCast(r, l->getType());
+                rv = DtoBitCast(rv, lv->getType());
         }
         eval = (op == TOKidentity)
-        ?   p->ir->CreateICmpEQ(l,r,"tmp")
-        :   p->ir->CreateICmpNE(l,r,"tmp");
+        ?   p->ir->CreateICmpEQ(lv,rv,"tmp")
+        :   p->ir->CreateICmpNE(lv,rv,"tmp");
     }
     else {
-        assert(l->getType() == r->getType());
+        assert(lv->getType() == rv->getType());
         eval = (op == TOKidentity)
-        ?   p->ir->CreateICmpEQ(l,r,"tmp")
-        :   p->ir->CreateICmpNE(l,r,"tmp");
+        ?   p->ir->CreateICmpEQ(lv,rv,"tmp")
+        :   p->ir->CreateICmpNE(lv,rv,"tmp");
     }
     return new DImValue(type, eval);
 }

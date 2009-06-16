@@ -390,7 +390,7 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
 
     // select predicate
     llvm::FCmpInst::Predicate cmpop;
-    if (op == TOKequal)
+    if (op == TOKequal || op == TOKidentity)
         cmpop = llvm::FCmpInst::FCMP_OEQ;
     else
         cmpop = llvm::FCmpInst::FCMP_UNE;
