@@ -171,4 +171,6 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist,
 ///
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments);
 
+Type* stripModifiers(Type* type);
+
 #endif

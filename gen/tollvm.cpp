@@ -54,9 +54,7 @@ unsigned DtoShouldExtend(Type* type)
 
 const LLType* DtoType(Type* t)
 {
-#if DMDV2
-    t = t->mutableOf();
-#endif
+    t = stripModifiers( t );
 
     if (t->irtype)
     {

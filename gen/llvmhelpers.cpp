@@ -1480,3 +1480,76 @@ size_t realignOffset(size_t offset, Type* type)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+Type * stripModifiers( Type * type )
+{
+#if DMDV2
+	Type *t = type;
+	while (t->mod)
+	{
+		switch (t->mod)
+		{
+			case MODconst:
+				t = type->cto;
+				break;
+			case MODshared:
+				t = type->sto;
+				break;
+			case MODinvariant:
+				t = type->ito;
+				break;
+			case MODshared | MODconst:
+				t = type->scto;
+				break;
+			default:
+				assert(0 && "Unhandled type modifier");
+		}
+
+		if (!t)
+		{
+			unsigned sz = type->sizeTy[type->ty];
+			t = (Type *)malloc(sz);
+			memcpy(t, type, sz);
+			t->mod = 0;
+			t->deco = NULL;
+			t->arrayof = NULL;
+			t->pto = NULL;
+			t->rto = NULL;
+			t->cto = NULL;
+			t->ito = NULL;
+			t->sto = NULL;
+			t->scto = NULL;
+			t->vtinfo = NULL;
+			t = t->merge();
+
+			t->fixTo(type);
+			switch (type->mod)
+			{
+			    case MODconst:
+				t->cto = type;
+				break;
+
+			    case MODinvariant:
+				t->ito = type;
+				break;
+
+			    case MODshared:
+				t->sto = type;
+				break;
+
+			    case MODshared | MODconst:
+				t->scto = type;
+				break;
+
+			    default:
+				assert(0);
+			}
+		}
+	}
+	return t;
+#else
+	return type;
+#endif
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
