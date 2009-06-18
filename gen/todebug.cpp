@@ -408,7 +408,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
 static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd)
 {
 #if DMDV2
-    assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCinvariant) && vd->init));
+    assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init));
 #else
     assert(vd->isDataseg());
 #endif

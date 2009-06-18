@@ -96,7 +96,7 @@ void VarDeclaration::codegen(Ir* p)
     // global variable
 #if DMDV2
     // taken from dmd2/structs
-    if (isDataseg() || (storage_class & (STCconst | STCinvariant) && init))
+    if (isDataseg() || (storage_class & (STCconst | STCimmutable) && init))
 #else
     if (isDataseg())
 #endif
