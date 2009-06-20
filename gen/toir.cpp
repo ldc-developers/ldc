@@ -1448,7 +1448,7 @@ DValue* EqualExp::toElem(IRState* p)
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
-    if (t->isintegral() || t->ty == Tpointer || t->ty == Tclass)
+    if (t->isintegral() || t->ty == Tpointer || t->ty == Tclass || t->ty == Taarray)
     {
         Logger::println("integral or pointer or interface");
         llvm::ICmpInst::Predicate cmpop;
