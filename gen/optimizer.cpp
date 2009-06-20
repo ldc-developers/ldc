@@ -154,28 +154,26 @@ static void addPassesForOptLevel(PassManager& pm) {
             // opApply's, etc. where the actual function being called
             // wasn't known during the first inliner pass.
             addPass(pm, createFunctionInliningPass());
-
-            // Run clean-up again.
-            addPass(pm, createScalarReplAggregatesPass());
-            addPass(pm, createInstructionCombiningPass());
         }
     }
 
-    if (optimizeLevel >= 2 && !disableLangSpecificPasses) {
-        if (!disableSimplifyRuntimeCalls)
-            addPass(pm, createSimplifyDRuntimeCalls());
-
+    if (optimizeLevel >= 2) {
+        if (!disableLangSpecificPasses) {
+            if (!disableSimplifyRuntimeCalls)
+                addPass(pm, createSimplifyDRuntimeCalls());
+            
 #ifdef USE_METADATA
-        if (!disableGCToStack) {
-            addPass(pm, createGarbageCollect2Stack());
-            // Run some clean-up
-            addPass(pm, createInstructionCombiningPass());
-            addPass(pm, createScalarReplAggregatesPass());
-            addPass(pm, createCFGSimplificationPass());
-        }
+            if (!disableGCToStack)
+                addPass(pm, createGarbageCollect2Stack());
 #endif
+        }
+        // Run some clean-up passes
+        addPass(pm, createInstructionCombiningPass());
+        addPass(pm, createScalarReplAggregatesPass());
+        addPass(pm, createCFGSimplificationPass());
+        addPass(pm, createInstructionCombiningPass());
     }
-
+    
     // -O3
     if (optimizeLevel >= 3)
     {

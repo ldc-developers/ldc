@@ -43,6 +43,7 @@ namespace {
     class VISIBILITY_HIDDEN LibCallOptimization {
     protected:
         Function *Caller;
+        bool* Changed;
         const TargetData *TD;
         AliasAnalysis *AA;
         
@@ -64,9 +65,10 @@ namespace {
         /// delete CI.
         virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B)=0;
         
-        Value *OptimizeCall(CallInst *CI, const TargetData &TD,
+        Value *OptimizeCall(CallInst *CI, bool& Changed, const TargetData &TD,
                 AliasAnalysis& AA, IRBuilder<> &B) {
             Caller = CI->getParent()->getParent();
+            this->Changed = &Changed;
             this->TD = &TD;
             this->AA = &AA;
             return CallOptimizer(CI->getCalledFunction(), CI, B);
@@ -181,9 +183,36 @@ struct VISIBILITY_HIDDEN ArrayCastLenOpt : public LibCallOptimization {
     }
 };
 
-/// DeleteUnusedOpt - remove libcall if the return value is unused.
-struct VISIBILITY_HIDDEN DeleteUnusedOpt : public LibCallOptimization {
+/// AllocationOpt - Common optimizations for various GC allocations.
+struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
     virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
+        // Allocations are never equal to constants, so remove any equality
+        // comparisons to constants. (Most importantly comparisons to null at
+        // the start of inlined member functions)
+        for (CallInst::use_iterator I = CI->use_begin(), E = CI->use_end() ; I != E;) {
+            Instruction* User = cast<Instruction>(*I++);
+            
+            if (ICmpInst* Cmp = dyn_cast<ICmpInst>(User)) {
+                if (!Cmp->isEquality())
+                    continue;
+                Constant* C = 0;
+                if ((C = dyn_cast<Constant>(Cmp->getOperand(0)))
+                    || (C = dyn_cast<Constant>(Cmp->getOperand(1)))) {
+                    Value* Result = ConstantInt::get(Type::Int1Ty, !Cmp->isTrueWhenEqual());
+                    Cmp->replaceAllUsesWith(Result);
+                    // Don't delete the comparison because there may be an
+                    // iterator to it. Instead, set the operands to constants
+                    // and let dead code elimination clean it up later.
+                    // (It doesn't matter that this changes the value of the
+                    // icmp because it's not used anymore anyway)
+                    Cmp->setOperand(0, C);
+                    Cmp->setOperand(1, C);
+                    *Changed = true;
+                }
+            }
+        }
+        
+        // If it's not used (anymore), pre-emptively GC it.
         if (CI->use_empty())
             return CI;
         return 0;
@@ -245,7 +274,7 @@ namespace {
         ArraySliceCopyOpt ArraySliceCopy;
         
         // GC allocations
-        DeleteUnusedOpt DeleteUnused;
+        AllocationOpt Allocation;
         
         public:
         static char ID; // Pass identification
@@ -290,14 +319,14 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
      * (We can't mark allocating calls as readonly/readnone because they don't
      * return the same pointer every time when called with the same arguments)
      */
-    Optimizations["_d_allocmemoryT"] = &DeleteUnused;
-    Optimizations["_d_newarrayT"] = &DeleteUnused;
-    Optimizations["_d_newarrayiT"] = &DeleteUnused;
-    Optimizations["_d_newarrayvT"] = &DeleteUnused;
-    Optimizations["_d_newarraymT"] = &DeleteUnused;
-    Optimizations["_d_newarraymiT"] = &DeleteUnused;
-    Optimizations["_d_newarraymvT"] = &DeleteUnused;
-    Optimizations["_d_allocclass"] = &DeleteUnused;
+    Optimizations["_d_allocmemoryT"] = &Allocation;
+    Optimizations["_d_newarrayT"] = &Allocation;
+    Optimizations["_d_newarrayiT"] = &Allocation;
+    Optimizations["_d_newarrayvT"] = &Allocation;
+    Optimizations["_d_newarraymT"] = &Allocation;
+    Optimizations["_d_newarraymiT"] = &Allocation;
+    Optimizations["_d_newarraymvT"] = &Allocation;
+    Optimizations["_d_allocclass"] = &Allocation;
 }
 
 
@@ -353,7 +382,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
             Builder.SetInsertPoint(BB, I);
             
             // Try to optimize this call.
-            Value *Result = OMI->second->OptimizeCall(CI, TD, AA, Builder);
+            Value *Result = OMI->second->OptimizeCall(CI, Changed, TD, AA, Builder);
             if (Result == 0) continue;
             
             DEBUG(DOUT << "SimplifyDRuntimeCalls simplified: " << *CI;
