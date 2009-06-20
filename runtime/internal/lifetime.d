@@ -107,7 +107,7 @@ private
 /**
  *
  */
-extern (C) Object _d_allocclass(ClassInfo ci)
+extern (C) void* _d_allocclass(ClassInfo ci)
 {
     void* p;
 
@@ -150,7 +150,7 @@ extern (C) Object _d_allocclass(ClassInfo ci)
     //(cast(byte*) p)[0 .. ci.init.length] = ci.init[];
 
     debug(PRINTF) printf("initialization done\n");
-    return cast(Object) p;
+    return p;
 }
 
 /**

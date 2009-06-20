@@ -135,6 +135,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createFunctionAttrsPass());
         addPass(pm, createTailCallEliminationPass());
         addPass(pm, createCFGSimplificationPass());
+        addPass(pm, createGVNPass());
     }
 
     // -inline
@@ -145,10 +146,13 @@ static void addPassesForOptLevel(PassManager& pm) {
             // Run some optimizations to clean up after inlining.
             addPass(pm, createScalarReplAggregatesPass());
             addPass(pm, createInstructionCombiningPass());
+            // -instcombine + gvn == devirtualization :)
+            addPass(pm, createGVNPass());
 
-            // Inline again, to catch things like foreach delegates
-            // passed to inlined opApply's where the function wasn't
-            // known during the first inliner pass.
+            // Inline again, to catch things like now nonvirtual
+            // function calls, foreach delegates passed to inlined
+            // opApply's, etc. where the actual function being called
+            // wasn't known during the first inliner pass.
             addPass(pm, createFunctionInliningPass());
 
             // Run clean-up again.
