@@ -182,7 +182,7 @@ struct IRState
 template <typename InputIterator>
 llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name)
 {
-    llvm::BasicBlock* pad = func()->landingPad;
+    llvm::BasicBlock* pad = func()->gen->landingPad;
     if(pad)
     {
         // intrinsics don't support invoking and 'nounwind' functions don't need it.
