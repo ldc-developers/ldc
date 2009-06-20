@@ -296,9 +296,9 @@ void WhileStatement::toIR(IRState* p)
     gIR->scope() = IRScope(whilebodybb,endbb);
 
     // while body code
-    p->func()->targetScopes.push_back(IRTargetScope(this,NULL,whilebb,endbb));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,whilebb,endbb));
     body->toIR(p);
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     // loop
     if (!gIR->scopereturned())
@@ -332,9 +332,9 @@ void DoStatement::toIR(IRState* p)
     gIR->scope() = IRScope(dowhilebb,condbb);
 
     // do-while body code
-    p->func()->targetScopes.push_back(IRTargetScope(this,NULL,condbb,endbb));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,condbb,endbb));
     body->toIR(p);
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     // branch to condition block
     llvm::BranchInst::Create(condbb, gIR->scopebb());
@@ -377,7 +377,7 @@ void ForStatement::toIR(IRState* p)
     assert(!gIR->scopereturned());
     llvm::BranchInst::Create(forbb, gIR->scopebb());
 
-    p->func()->targetScopes.push_back(IRTargetScope(this,NULL,forincbb,endbb));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,forincbb,endbb));
 
     // replace current scope
     gIR->scope() = IRScope(forbb,forbodybb);
@@ -420,7 +420,7 @@ void ForStatement::toIR(IRState* p)
     if (!gIR->scopereturned())
         llvm::BranchInst::Create(forbb, gIR->scopebb());
 
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
@@ -454,8 +454,8 @@ void BreakStatement::toIR(IRState* p)
 
         // find the right break block and jump there
         bool found = false;
-        IrFunction::TargetScopeVec::reverse_iterator it = p->func()->targetScopes.rbegin();
-        IrFunction::TargetScopeVec::reverse_iterator it_end = p->func()->targetScopes.rend();
+        FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
+        FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
         while(it != it_end) {
             if(it->s == targetLoopStatement) {
                 llvm::BranchInst::Create(it->breakTarget, p->scopebb());
@@ -468,8 +468,8 @@ void BreakStatement::toIR(IRState* p)
     }
     else {
         // find closest scope with a break target
-        IrFunction::TargetScopeVec::reverse_iterator it = p->func()->targetScopes.rbegin();
-        IrFunction::TargetScopeVec::reverse_iterator it_end = p->func()->targetScopes.rend();
+        FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
+        FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
         while(it != it_end) {
             if(it->breakTarget) {
                 break;
@@ -509,8 +509,8 @@ void ContinueStatement::toIR(IRState* p)
 
         // find the right continue block and jump there
         bool found = false;
-        IrFunction::TargetScopeVec::reverse_iterator it = p->func()->targetScopes.rbegin();
-        IrFunction::TargetScopeVec::reverse_iterator it_end = p->func()->targetScopes.rend();
+        FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
+        FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
         while(it != it_end) {
             if(it->s == targetLoopStatement) {
                 llvm::BranchInst::Create(it->continueTarget, gIR->scopebb());
@@ -523,8 +523,8 @@ void ContinueStatement::toIR(IRState* p)
     }
     else {
         // find closest scope with a continue target
-        IrFunction::TargetScopeVec::reverse_iterator it = p->func()->targetScopes.rbegin();
-        IrFunction::TargetScopeVec::reverse_iterator it_end = p->func()->targetScopes.rend();
+        FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
+        FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
         while(it != it_end) {
             if(it->continueTarget) {
                 break;
@@ -592,10 +592,11 @@ void TryFinallyStatement::toIR(IRState* p)
     p->scope() = IRScope(landingpadbb, endbb);
 
     assert(finalbody);
-    gIR->func()->landingPadInfo.addFinally(finalbody);
-    gIR->func()->landingPadInfo.push(landingpadbb);
-    gIR->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->landingPad),NULL,NULL));
-    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
+    IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
+    pad.addFinally(finalbody);
+    pad.push(landingpadbb);
+    gIR->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->gen->landingPad),NULL,NULL));
+    gIR->func()->gen->landingPad = pad.get();
 
     //
     // do the try block
@@ -609,9 +610,9 @@ void TryFinallyStatement::toIR(IRState* p)
     if (!p->scopereturned())
         llvm::BranchInst::Create(finallybb, p->scopebb());
 
-    gIR->func()->landingPadInfo.pop();
-    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
-    gIR->func()->targetScopes.pop_back();
+    pad.pop();
+    gIR->func()->gen->landingPad = pad.get();
+    gIR->func()->gen->targetScopes.pop_back();
 
     //
     // do finally block
@@ -657,14 +658,15 @@ void TryCatchStatement::toIR(IRState* p)
     assert(catches);
     gIR->scope() = IRScope(landingpadbb, endbb);
 
+    IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
     for (int i = 0; i < catches->dim; i++)
     {
         Catch *c = (Catch *)catches->data[i];
-        gIR->func()->landingPadInfo.addCatch(c, endbb);
+        pad.addCatch(c, endbb);
     }
 
-    gIR->func()->landingPadInfo.push(landingpadbb);
-    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
+    pad.push(landingpadbb);
+    gIR->func()->gen->landingPad = pad.get();
 
     //
     // do the try block
@@ -677,8 +679,8 @@ void TryCatchStatement::toIR(IRState* p)
     if (!gIR->scopereturned())
         llvm::BranchInst::Create(endbb, p->scopebb());
 
-    gIR->func()->landingPadInfo.pop();
-    gIR->func()->landingPad = gIR->func()->landingPadInfo.get();
+    pad.pop();
+    gIR->func()->gen->landingPad = pad.get();
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
@@ -863,9 +865,9 @@ void SwitchStatement::toIR(IRState* p)
     assert(body);
 
     p->scope() = IRScope(bodybb, endbb);
-    p->func()->targetScopes.push_back(IRTargetScope(this,NULL,NULL,endbb));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,NULL,endbb));
     body->toIR(p);
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     if (!p->scopereturned())
         llvm::BranchInst::Create(endbb, p->scopebb());
@@ -984,13 +986,13 @@ void UnrolledLoopStatement::toIR(IRState* p)
 
         // push loop scope
         // continue goes to next statement, break goes to end
-        p->func()->targetScopes.push_back(IRTargetScope(this,NULL,nextbb,endbb));
+        p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,nextbb,endbb));
 
         // do statement
         s->toIR(p);
 
         // pop loop scope
-        p->func()->targetScopes.pop_back();
+        p->func()->gen->targetScopes.pop_back();
 
         // next stmt
         if (!p->scopereturned())
@@ -1112,10 +1114,10 @@ void ForeachStatement::toIR(IRState* p)
     }
 
     // emit body
-    p->func()->targetScopes.push_back(IRTargetScope(this,NULL,nextbb,endbb));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,nextbb,endbb));
     if(body)
         body->toIR(p);
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     if (!p->scopereturned())
         llvm::BranchInst::Create(nextbb, p->scopebb());
@@ -1208,10 +1210,10 @@ void ForeachRangeStatement::toIR(IRState* p)
     }
 
     // emit body
-    p->func()->targetScopes.push_back(IRTargetScope(this,NULL,nextbb,endbb));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,nextbb,endbb));
     if (body)
         body->toIR(p);
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     // jump to next iteration
     if (!p->scopereturned())
@@ -1261,8 +1263,8 @@ void LabelStatement::toIR(IRState* p)
     }
     else
     {
-        std::string labelname = p->func()->getScopedLabelName(ident->toChars());
-        llvm::BasicBlock*& labelBB = p->func()->labelToBB[labelname];
+        std::string labelname = p->func()->gen->getScopedLabelName(ident->toChars());
+        llvm::BasicBlock*& labelBB = p->func()->gen->labelToBB[labelname];
 
         llvm::BasicBlock* oldend = gIR->scopeend();
         if (labelBB != NULL) {
@@ -1278,9 +1280,9 @@ void LabelStatement::toIR(IRState* p)
     }
 
     if (statement) {
-        p->func()->targetScopes.push_back(IRTargetScope(this,NULL,NULL,NULL));
+        p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,NULL,NULL));
         statement->toIR(p);
-        p->func()->targetScopes.pop_back();
+        p->func()->gen->targetScopes.pop_back();
     }
 }
 
@@ -1402,9 +1404,9 @@ void SynchronizedStatement::toIR(IRState* p)
     }
 
     // emit body
-    p->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingSynchro(this),NULL,NULL));
+    p->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingSynchro(this),NULL,NULL));
     body->toIR(p);
-    p->func()->targetScopes.pop_back();
+    p->func()->gen->targetScopes.pop_back();
 
     // exit lock
     // no point in a unreachable unlock, terminating statements must insert this themselves.
@@ -1436,9 +1438,9 @@ void VolatileStatement::toIR(IRState* p)
         DtoMemoryBarrier(false, true, false, false);
 
         // do statement
-	p->func()->targetScopes.push_back(IRTargetScope(this,new EnclosingVolatile(this),NULL,NULL));
+	p->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingVolatile(this),NULL,NULL));
         statement->toIR(p);
-	p->func()->targetScopes.pop_back();
+	p->func()->gen->targetScopes.pop_back();
 
         // no point in a unreachable barrier, terminating statements must insert this themselves.
         if (statement->blockExit() & BEfallthru)

@@ -774,7 +774,10 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // output function body
+    irfunction->gen = new FuncGen;
     fd->fbody->toIR(gIR);
+    delete irfunction->gen;
+    irfunction->gen = 0;
 
     // TODO: clean up this mess
 

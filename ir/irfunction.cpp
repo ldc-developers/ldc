@@ -93,6 +93,37 @@ void IrFuncTy::getParam(Type* dty, int idx, DValue* val, llvm::Value* lval)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+FuncGen::FuncGen()
+{
+    landingPad = NULL;
+    nextUnique.push(0);
+}
+
+std::string FuncGen::getScopedLabelName(const char* ident)
+{
+    if(labelScopes.empty())
+        return std::string(ident);
+
+    std::string result = "__";
+    for(unsigned int i = 0; i < labelScopes.size(); ++i)
+        result += labelScopes[i] + "_";
+    return result + ident;
+}
+
+void FuncGen::pushUniqueLabelScope(const char* name)
+{
+    std::ostringstream uniquename;
+    uniquename << name << nextUnique.top()++;
+    nextUnique.push(0);
+    labelScopes.push_back(uniquename.str());
+}
+
+void FuncGen::popLabelScope()
+{
+    labelScopes.pop_back();
+    nextUnique.pop();
+}
+
 IrFunction::IrFunction(FuncDeclaration* fd)
 {
     decl = fd;
@@ -116,35 +147,6 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     
     _arguments = NULL;
     _argptr = NULL;
-    
-    landingPad = NULL;
-    
-    nextUnique.push(0);
-}
-
-std::string IrFunction::getScopedLabelName(const char* ident)
-{
-    if(labelScopes.empty())
-        return std::string(ident);
-
-    std::string result = "__";
-    for(unsigned int i = 0; i < labelScopes.size(); ++i)
-        result += labelScopes[i] + "_";
-    return result + ident;
-}
-
-void IrFunction::pushUniqueLabelScope(const char* name)
-{
-    std::ostringstream uniquename;
-    uniquename << name << nextUnique.top()++;
-    nextUnique.push(0);
-    labelScopes.push_back(uniquename.str());
-}
-
-void IrFunction::popLabelScope()
-{
-    labelScopes.pop_back();
-    nextUnique.pop();
 }
 
 void IrFunction::setNeverInline()

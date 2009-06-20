@@ -24,7 +24,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
     #endif
             assert(!catchstmt->var->ir.irLocal);
             catchstmt->var->ir.irLocal = new IrLocal(catchstmt->var);
-            LLValue* catch_var = gIR->func()->landingPadInfo.getExceptionStorage();
+            LLValue* catch_var = gIR->func()->gen->landingPadInfo.getExceptionStorage();
             catchstmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchstmt->var->type)));
         }
 
@@ -32,8 +32,8 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
         DtoDeclarationExp(catchstmt->var);
 
         // the exception will only be stored in catch_var. copy it over if necessary
-        if(catchstmt->var->ir.irLocal->value != gIR->func()->landingPadInfo.getExceptionStorage()) {
-            LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->landingPadInfo.getExceptionStorage()), DtoType(catchstmt->var->type));
+        if(catchstmt->var->ir.irLocal->value != gIR->func()->gen->landingPadInfo.getExceptionStorage()) {
+            LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->gen->landingPadInfo.getExceptionStorage()), DtoType(catchstmt->var->type));
             DtoStore(exc, catchstmt->var->ir.irLocal->value);
         }
     }
@@ -172,9 +172,9 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
 
             // since this may be emitted multiple times
             // give the labels a new scope
-            gIR->func()->pushUniqueLabelScope("finally");
+            gIR->func()->gen->pushUniqueLabelScope("finally");
             rit->finallyBody->toIR(gIR);
-            gIR->func()->popLabelScope();
+            gIR->func()->gen->popLabelScope();
         }
         // otherwise it's a catch and we'll add a switch case
         else

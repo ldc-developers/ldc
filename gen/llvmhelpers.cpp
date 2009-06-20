@@ -211,8 +211,8 @@ void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
     }
 
     // find target basic block
-    std::string labelname = gIR->func()->getScopedLabelName(target->toChars());
-    llvm::BasicBlock*& targetBB = gIR->func()->labelToBB[labelname];
+    std::string labelname = gIR->func()->gen->getScopedLabelName(target->toChars());
+    llvm::BasicBlock*& targetBB = gIR->func()->gen->labelToBB[labelname];
     if (targetBB == NULL)
         targetBB = llvm::BasicBlock::Create("label_" + labelname, gIR->topfunc());
 
@@ -256,10 +256,10 @@ void EnclosingTryFinally::emitCode(IRState * p)
 {
     if (tf->finalbody)
     {
-        llvm::BasicBlock* oldpad = p->func()->landingPad;
-        p->func()->landingPad = landingPad;
+        llvm::BasicBlock* oldpad = p->func()->gen->landingPad;
+        p->func()->gen->landingPad = landingPad;
         tf->finalbody->toIR(p);
-        p->func()->landingPad = oldpad;
+        p->func()->gen->landingPad = oldpad;
     }
 }
 
@@ -274,8 +274,8 @@ void DtoEnclosingHandlers(Loc loc, Statement* target)
         target = lblstmt->enclosingScopeExit;
 
     // figure out up until what handler we need to emit
-    IrFunction::TargetScopeVec::reverse_iterator targetit = gIR->func()->targetScopes.rbegin();
-    IrFunction::TargetScopeVec::reverse_iterator it_end = gIR->func()->targetScopes.rend();
+    FuncGen::TargetScopeVec::reverse_iterator targetit = gIR->func()->gen->targetScopes.rbegin();
+    FuncGen::TargetScopeVec::reverse_iterator it_end = gIR->func()->gen->targetScopes.rend();
     while(targetit != it_end) {
         if (targetit->s == target) {
             break;
@@ -297,14 +297,14 @@ void DtoEnclosingHandlers(Loc loc, Statement* target)
 
     // since the labelstatements possibly inside are private
     // and might already exist push a label scope
-    gIR->func()->pushUniqueLabelScope("enclosing");
-    IrFunction::TargetScopeVec::reverse_iterator it = gIR->func()->targetScopes.rbegin();
+    gIR->func()->gen->pushUniqueLabelScope("enclosing");
+    FuncGen::TargetScopeVec::reverse_iterator it = gIR->func()->gen->targetScopes.rbegin();
     while (it != targetit) {
         if (it->enclosinghandler)
             it->enclosinghandler->emitCode(gIR);
         ++it;
     }
-    gIR->func()->popLabelScope();
+    gIR->func()->gen->popLabelScope();
 }
 
 /****************************************************************************************/
