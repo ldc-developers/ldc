@@ -220,6 +220,8 @@ static void LLVM_D_BuildRuntimeModule()
             = Attr_1_NoCapture.addAttr(0, NoAlias),
         Attr_NoAlias_3_NoCapture
             = Attr_NoAlias.addAttr(3, NoCapture),
+        Attr_1_2_NoCapture
+            = Attr_1_NoCapture.addAttr(2, NoCapture),
         Attr_1_3_NoCapture
             = Attr_1_NoCapture.addAttr(3, NoCapture),
         Attr_1_4_NoCapture
@@ -736,6 +738,18 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_1_NoCapture);
+    }
+
+    // int _aaEq(AA aa, AA ab, TypeInfo_AssociativeArray ti)
+    {
+        std::string fname("_aaEq");
+        std::vector<const LLType*> types;
+        types.push_back(aaTy);
+        types.push_back(aaTy);
+        types.push_back(typeInfoTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_1_2_NoCapture);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////

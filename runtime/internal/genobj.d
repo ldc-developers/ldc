@@ -47,6 +47,8 @@ private
     import util.string;
     import tango.stdc.stdio;  // : printf, snprintf;
     import tango.core.Version;
+    
+    import aaA;
 
     extern (C) void onOutOfMemoryError();
     extern (C) Object _d_allocclass(ClassInfo ci);
@@ -555,6 +557,29 @@ class TypeInfo_AssociativeArray : TypeInfo
     }
 
     // BUG: need to add the rest of the functions
+    
+    int equals(void *p1, void *p2)
+    {
+        AA aa = *cast(AA*)p1;
+        AA ab = *cast(AA*)p2;
+        
+        if (_aaLen(aa) != _aaLen(ab))
+            return 0;
+        
+        int equal = 1;
+        int eq_x(void* k, void* va)
+        {
+            void* vb = _aaIn(ab, key, k);
+            if (!vb || !value.equals(va, vb))
+            {
+                equal = 0;
+                return 1; // break
+            }
+            return 0;
+        }
+        _aaApply2(aa, key.tsize(), &eq_x);
+        return equal;
+    }
 
     size_t tsize()
     {

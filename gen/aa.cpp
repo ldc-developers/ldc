@@ -218,3 +218,24 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     // call runtime
     gIR->CreateCallOrInvoke(func, args.begin(), args.end());
 }
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
+{
+    Type* t = l->getType()->toBasetype();
+    assert(t == r->getType()->toBasetype() && "aa equality is only defined for aas of same type");
+
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEq");
+    const llvm::FunctionType* funcTy = func->getFunctionType();
+    
+    LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(0));
+    LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(1));
+    LLValue* aaTypeInfo = DtoTypeInfoOf(t);
+    LLValue* res = gIR->CreateCallOrInvoke3(func, aaval, abval, aaTypeInfo, "aaEqRes").getInstruction();
+    
+    res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
+    if (op == TOKnotequal)
+        res = gIR->ir->CreateNot(res, "tmp");
+    return res;
+}

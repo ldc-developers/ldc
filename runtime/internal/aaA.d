@@ -705,6 +705,11 @@ body
 }
 
 
+int _aaEq(AA aa, AA ab, TypeInfo_AssociativeArray ti)
+{
+    return ti.equals(&aa, &ab);
+}
+
 /***********************************
  * Construct an associative array of type ti from
  * length pairs of key/value pairs.
