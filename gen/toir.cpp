@@ -612,7 +612,7 @@ static void errorOnIllegalArrayOp(Expression* base, Expression* e1, Expression* 
         (t2->ty == Tarray || t2->ty == Tsarray)
        ) 
     {
-        error("Array operation %s not recognized", base->toChars());
+        base->error("Array operation %s not recognized", base->toChars());
         fatal();
     }
 }
