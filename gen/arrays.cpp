@@ -398,6 +398,25 @@ LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+static bool isInitialized(Type* et) {
+    // Strip array types from element type
+    Type* bt = et->toBasetype();
+    while (bt->ty == Tsarray || bt->ty == Tarray) {
+        et = bt->nextOf();
+        bt = et->toBasetype();
+    }
+    // If it's a typedef with "= void" initializer then don't initialize.
+    if (et->ty == Ttypedef) {
+        Logger::println("Typedef: %s", et->toChars());
+        TypedefDeclaration* tdd = ((TypeTypedef*)et)->sym;
+        if (tdd && tdd->init && tdd->init->isVoidInitializer())
+            return false;
+    }
+    // Otherwise, it's always initialized.
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit)
 {
     Logger::println("DtoNewDynArray : %s", arrayType->toChars());
@@ -411,7 +430,10 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     LLValue* arrayLen = dim->getRVal();
 
     // get runtime function
-    bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
+    Type* eltType = arrayType->toBasetype()->nextOf();
+    if (defaultInit && !isInitialized(eltType))
+        defaultInit = false;
+    bool zeroInit = eltType->isZeroInit();
     const char* fnname = defaultInit ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") : "_d_newarrayvT";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
@@ -445,6 +467,8 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 
     // get runtime function
     bool zeroInit = vtype->isZeroInit();
+    if (defaultInit && !isInitialized(vtype))
+        defaultInit = false;
     const char* fnname = defaultInit ? (zeroInit ? "_d_newarraymT" : "_d_newarraymiT") : "_d_newarraymvT";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
