@@ -399,9 +399,9 @@ LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 static bool isInitialized(Type* et) {
-    // Strip array types from element type
+    // Strip static array types from element type
     Type* bt = et->toBasetype();
-    while (bt->ty == Tsarray || bt->ty == Tarray) {
+    while (bt->ty == Tsarray) {
         et = bt->nextOf();
         bt = et->toBasetype();
     }
