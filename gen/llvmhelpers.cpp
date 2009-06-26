@@ -979,10 +979,12 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (AttribDeclaration* a = declaration->isAttribDeclaration())
     {
         Logger::println("AttribDeclaration");
-        if (a->decl)
-            for (int i=0; i < a->decl->dim; ++i)
+        // choose the right set in case this is a conditional declaration
+        Array *d = a->include(NULL, NULL);
+        if (d)
+            for (int i=0; i < d->dim; ++i)
             {
-                DtoDeclarationExp((Dsymbol*)a->decl->data[i]);
+                DtoDeclarationExp((Dsymbol*)d->data[i]);
             }
     }
     // mixin declaration
