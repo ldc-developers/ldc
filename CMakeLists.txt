@@ -54,13 +54,6 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
-execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES}
-	OUTPUT_VARIABLE LLVM_LIBS
-	OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
 set(D_VERSION 1 CACHE STRING "D language version")
 set(PROGRAM_PREFIX CACHE STRING "prepended to ldc binary name")
 set(PROGRAM_SUFFIX CACHE STRING "appended to ldc binary name")
@@ -134,6 +127,29 @@ set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
 include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INSTDIR}/include)
+
+set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
+separate_arguments(EXTRA_LLVM_MODULES)
+execute_process(
+        COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES}
+        OUTPUT_VARIABLE LLVM_LIBS
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# build a define that contains all LLVM targets required and is usable for
+# preprocessor code generation. start with the native target.
+file(STRINGS ${LLVM_INSTDIR}/include/llvm/Config/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)Target$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
+set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
+# chain the extra target list to the define
+foreach(EXTRA_TARGET ${EXTRA_LLVM_MODULES})
+    set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${EXTRA_TARGET})")
+endforeach(EXTRA_TARGET)
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
+    COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
+)
+
 
 file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
 file(GLOB FE_SRC_ROOT ${DMDFE_PATH}/root/*.c)
