@@ -53,6 +53,11 @@ execute_process(
 	OUTPUT_VARIABLE LLVM_LDFLAGS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+execute_process(
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --includedir
+	OUTPUT_VARIABLE LLVM_INCLUDEDIR
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
 set(D_VERSION 1 CACHE STRING "D language version")
 set(PROGRAM_PREFIX CACHE STRING "prepended to ldc binary name")
@@ -126,7 +131,7 @@ set(LDC_GENERATED
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
-include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INSTDIR}/include)
+include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INCLUDEDIR})
 
 set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
 separate_arguments(EXTRA_LLVM_MODULES)
@@ -138,7 +143,7 @@ execute_process(
 
 # build a define that contains all LLVM targets required and is usable for
 # preprocessor code generation. start with the native target.
-file(STRINGS ${LLVM_INSTDIR}/include/llvm/Config/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+file(STRINGS ${LLVM_INCLUDEDIR}/llvm/Config/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
 string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)Target$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
 set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
 # chain the extra target list to the define
