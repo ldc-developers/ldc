@@ -143,7 +143,9 @@ execute_process(
 
 # build a define that contains all LLVM targets required and is usable for
 # preprocessor code generation. start with the native target.
-file(STRINGS ${LLVM_INCLUDEDIR}/llvm/Config/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+find_path(LLVM_CONFIG_FILE_PATH config.h PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
+message(${LLVM_CONFIG_FILE_PATH}/config.h)
+file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
 string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)Target$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
 set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
 # chain the extra target list to the define
