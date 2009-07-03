@@ -144,10 +144,18 @@ execute_process(
 # build a define that contains all LLVM targets required and is usable for
 # preprocessor code generation. start with the native target.
 find_path(LLVM_CONFIG_FILE_PATH config.h PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
-message(${LLVM_CONFIG_FILE_PATH}/config.h)
-file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
-string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)Target$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
-set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
+if(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
+        message("Couldn't find your llvm Config.h file in ${LLVM_INCLUDEDIR}, no native target will be initialized.")
+else(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
+        file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+        if(LLVM_NATIVE_ARCH)
+                string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)Target$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
+                message("Found native target ${LLVM_NATIVE_ARCH}")
+                set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
+        else(LLVM_NATIVE_ARCH)
+                message("Couldn't find the LLVM_NATIVE_ARCH define in ${LLVM_CONFIG_FILE_PATH}/config.h. Probably you have an older LLVM and can ignore this warning.")
+        endif(LLVM_NATIVE_ARCH)
+endif(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
 # chain the extra target list to the define
 foreach(EXTRA_TARGET ${EXTRA_LLVM_MODULES})
     set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${EXTRA_TARGET})")
