@@ -1,4 +1,8 @@
 #include "gen/llvm.h"
+#include "gen/llvm-version.h"
+#if LLVM_REV >= 74640
+#include "llvm/LLVMContext.h"
+#endif
 #include "llvm/Module.h"
 #include "llvm/Attributes.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -149,7 +153,11 @@ static const LLType* rt_dg2()
 static void LLVM_D_BuildRuntimeModule()
 {
     Logger::println("building module");
+#if LLVM_REV >= 74640
+    M = new llvm::Module("ldc internal runtime", llvm::getGlobalContext());
+#else
     M = new llvm::Module("ldc internal runtime");
+#endif
 
     Logger::println("building basic types");
     const LLType* voidTy = LLType::VoidTy;

@@ -7,6 +7,9 @@
 #include "gen/llvm-version.h"
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
+#if LLVM_REV >= 74640
+#include "llvm/LLVMContext.h"
+#endif
 #include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
@@ -399,7 +402,11 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
+#if LLVM_REV >= 74640
+    llvm::Module mod("dummy", llvm::getGlobalContext());
+#else
     llvm::Module mod("dummy");
+#endif
 
     // override triple if needed
     const char* defaultTriple = DEFAULT_TARGET_TRIPLE;
@@ -919,7 +926,11 @@ LDC_TARGETS
         char* name = m->toChars();
         char* filename = m->objfile->name->str;
         
+#if LLVM_REV >= 74640
+        llvm::Linker linker(name, name, llvm::getGlobalContext());
+#else
         llvm::Linker linker(name, name);
+#endif
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)
         {
