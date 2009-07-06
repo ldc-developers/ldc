@@ -11,8 +11,12 @@
 #include <fstream>
 
 #include "gen/llvm.h"
+#include "gen/llvm-version.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#if LLVM_REV >= 74640
+#include "llvm/LLVMContext.h"
+#endif
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
@@ -43,7 +47,6 @@
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
-#include "gen/llvm-version.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
@@ -94,7 +97,11 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
 
     // create a new ir state
     // TODO look at making the instance static and moving most functionality into IrModule where it belongs
+#if LLVM_REV >= 74640
+    IRState ir(new llvm::Module(mname, llvm::getGlobalContext()));
+#else
     IRState ir(new llvm::Module(mname));
+#endif
     gIR = &ir;
     ir.dmodule = this;
 

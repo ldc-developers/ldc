@@ -4,13 +4,20 @@
 // which uses the llvm license
 
 #include "gen/llvm.h"
+#include "gen/llvm-version.h"
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
+#if LLVM_REV >= 74640
+#include "llvm/LLVMContext.h"
+#endif
 #include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetMachineRegistry.h"
+#if LLVM_REV >= 73610
+#include "llvm/Target/TargetSelect.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -397,7 +404,11 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
+#if LLVM_REV >= 74640
+    llvm::Module mod("dummy", llvm::getGlobalContext());
+#else
     llvm::Module mod("dummy");
+#endif
 
     // override triple if needed
     const char* defaultTriple = DEFAULT_TARGET_TRIPLE;
@@ -423,8 +434,17 @@ int main(int argc, char** argv)
 
     mod.setTargetTriple(global.params.targetTriple);
 
-    // Allocate target machine.  First, check whether the user has
-    // explicitly specified an architecture to compile for.
+    // Allocate target machine.
+    
+    // first initialize llvm
+#if LLVM_REV >= 73610
+#define LLVM_TARGET(A) LLVMInitialize##A##Target(); LLVMInitialize##A##AsmPrinter();
+// this is defined to be LLVM_TARGET(target name 1) LLVM_TARGET(target name 2) ...
+LDC_TARGETS
+#undef LLVM_TARGET
+#endif
+
+    // Check whether the user has explicitly specified an architecture to compile for.
     if (mArch == 0)
     {
         std::string Err;
@@ -908,7 +928,11 @@ int main(int argc, char** argv)
         char* name = m->toChars();
         char* filename = m->objfile->name->str;
         
+#if LLVM_REV >= 74640
+        llvm::Linker linker(name, name, llvm::getGlobalContext());
+#else
         llvm::Linker linker(name, name);
+#endif
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)
         {

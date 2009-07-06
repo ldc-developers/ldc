@@ -45,23 +45,6 @@ static LLGlobalVariable* emitDwarfGlobalDecl(const LLStructType* type, const cha
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::DIAnchor getDwarfAnchor(dwarf_constants c)
-{
-    switch (c)
-    {
-    case DW_TAG_compile_unit:
-        return gIR->difactory.GetOrCreateCompileUnitAnchor();
-    case DW_TAG_variable:
-        return gIR->difactory.GetOrCreateGlobalVariableAnchor();
-    case DW_TAG_subprogram:
-        return gIR->difactory.GetOrCreateSubprogramAnchor();
-    default:
-        assert(0);
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
 static const llvm::StructType* getDwarfCompileUnitType() {
     return isaStruct(gIR->module->getTypeByName("llvm.dbg.compile_unit.type"));
 }
@@ -311,7 +294,11 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         // set to handle recursive types properly
         gv = emitDwarfGlobalDecl(getDwarfCompositeTypeType(), "llvm.dbg.compositetype");
         // set bogus initializer to satisfy asserts in DICompositeType constructor
-        gv->setInitializer(LLConstant::getNullValue(getDwarfCompositeTypeType()));
+        std::vector<LLConstant*> initvals(11);
+        initvals[0] = DBG_TAG(DW_TAG_structure_type);
+        for (int i = 1; i < initvals.size(); ++i)
+            initvals[i] = LLConstant::getNullValue(getDwarfCompositeTypeType()->getContainedType(i));
+        gv->setInitializer(LLConstantStruct::get(getDwarfCompositeTypeType(), initvals));
         ir->diCompositeType = llvm::DICompositeType(gv);
 
         tag = DW_TAG_structure_type;

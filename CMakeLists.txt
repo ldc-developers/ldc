@@ -53,11 +53,9 @@ execute_process(
 	OUTPUT_VARIABLE LLVM_LDFLAGS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
-set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES}
-	OUTPUT_VARIABLE LLVM_LIBS
+	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --includedir
+	OUTPUT_VARIABLE LLVM_INCLUDEDIR
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
@@ -133,7 +131,40 @@ set(LDC_GENERATED
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
-include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INSTDIR}/include)
+include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INCLUDEDIR})
+
+set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
+separate_arguments(EXTRA_LLVM_MODULES)
+execute_process(
+        COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES}
+        OUTPUT_VARIABLE LLVM_LIBS
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# build a define that contains all LLVM targets required and is usable for
+# preprocessor code generation. start with the native target.
+find_path(LLVM_CONFIG_FILE_PATH config.h PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
+if(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
+        message("Couldn't find your llvm Config.h file in ${LLVM_INCLUDEDIR}, no native target will be initialized.")
+else(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
+        file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+        if(LLVM_NATIVE_ARCH)
+                string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)Target$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
+                message("Found native target ${LLVM_NATIVE_ARCH}")
+                set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
+        else(LLVM_NATIVE_ARCH)
+                message("Couldn't find the LLVM_NATIVE_ARCH define in ${LLVM_CONFIG_FILE_PATH}/config.h. Probably you have an older LLVM and can ignore this warning.")
+        endif(LLVM_NATIVE_ARCH)
+endif(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
+# chain the extra target list to the define
+foreach(EXTRA_TARGET ${EXTRA_LLVM_MODULES})
+    set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${EXTRA_TARGET})")
+endforeach(EXTRA_TARGET)
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
+    COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
+)
+
 
 file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
 file(GLOB FE_SRC_ROOT ${DMDFE_PATH}/root/*.c)
