@@ -21,6 +21,7 @@
 #include "mtype.h"
 #include "declaration.h"
 #include "id.h"
+#include "attrib.h"
 
 /********************************* Import ****************************/
 
@@ -100,10 +101,14 @@ void Import::load(Scope *sc)
     s = dst->lookup(id);
     if (s)
     {
+#if TARGET_NET
+		mod = (Module *)s;
+#else
 	if (s->isModule())
 	    mod = (Module *)s;
 	else
 	    error("package and module have the same name");
+#endif
     }
 
     if (!mod)
@@ -121,27 +126,25 @@ void Import::load(Scope *sc)
     //printf("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
 }
 
-#if IN_LLVM
-char* escapePath(char* fname, char* buffer, int bufLen) {
-    char* res = buffer;
-    bufLen -= 2;    // for \0 and an occasional escape char
-    int dst = 0;
-    for (; dst < bufLen && *fname; ++dst, ++fname) {
-	switch (*fname) {
+void escapePath(OutBuffer *buf, const char *fname)
+{
+    while (1)
+    {
+	switch (*fname)
+	{
+	    case 0:
+		return;
 	    case '(':
 	    case ')':
 	    case '\\':
-		    buffer[dst++] = '\\';
-		    // fall through
-
+		buf->writebyte('\\');
 	    default:
-		    buffer[dst] = *fname;
+		buf->writebyte(*fname);
+		break;
 	}
+	fname++;
     }
-    buffer[dst] = '\0';
-    return buffer;
 }
-#endif
 
 void Import::semantic(Scope *sc)
 {
@@ -165,8 +168,6 @@ void Import::semantic(Scope *sc)
 	//printf("%s imports %s\n", sc->module->toChars(), mod->toChars());
 	sc->module->aimports.push(mod);
 
-	mod->semantic();
-
 	if (!isstatic && !aliasId && !names.dim)
 	{
 	    /* Default to private importing
@@ -176,6 +177,8 @@ void Import::semantic(Scope *sc)
 		prot = PROTprivate;
 	    sc->scopesym->importScope(mod, prot);
 	}
+
+	mod->semantic();
 
 	if (mod->needmoduleinfo)
 	    sc->module->needmoduleinfo = 1;
@@ -193,69 +196,77 @@ void Import::semantic(Scope *sc)
 	}
 	sc = sc->pop();
     }
-    //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
 
+    if (global.params.moduleDeps != NULL)
+    {
+	/* The grammar of the file is:
+	 *	ImportDeclaration
+	 *	    ::= BasicImportDeclaration [ " : " ImportBindList ] [ " -> "
+	 *	ModuleAliasIdentifier ] "\n"
+	 *
+	 *	BasicImportDeclaration
+	 *	    ::= ModuleFullyQualifiedName " (" FilePath ") : " Protection
+	 *		" [ " static" ] : " ModuleFullyQualifiedName " (" FilePath ")"
+	 *
+	 *	FilePath
+	 *	    - any string with '(', ')' and '\' escaped with the '\' character
+	 */
 
-    if (global.params.moduleDeps != NULL) {
-	char fnameBuf[262];		// MAX_PATH+2
+	OutBuffer *ob = global.params.moduleDeps;
 
-	OutBuffer *const ob = global.params.moduleDeps;
-	ob->printf("%s (%s) : ",
-	    sc->module->toPrettyChars(),
-	    escapePath(sc->module->srcfile->toChars(), fnameBuf, sizeof(fnameBuf) / sizeof(*fnameBuf))
-	);
+	ob->writestring(sc->module->toPrettyChars());
+	ob->writestring(" (");
+	escapePath(ob, sc->module->srcfile->toChars());
+	ob->writestring(") : ");
 
-	char* protStr = "";
-	switch (sc->protection) {
-	    case PROTpublic: protStr = "public"; break;
-	    case PROTprivate: protStr = "private"; break;
-	    case PROTpackage: protStr = "package"; break;
-	    default: break;
-	}
-	ob->writestring(protStr);
-	if (isstatic) {
-	    ob->writestring(" static");
-	}
-	ob->writestring(" : ");
+	ProtDeclaration::protectionToCBuffer(ob, sc->protection);
+	if (isstatic)
+	    StorageClassDeclaration::stcToCBuffer(ob, STCstatic);
+	ob->writestring(": ");
 
-	if (this->packages) {
-	    for (size_t i = 0; i < this->packages->dim; i++) {
-		Identifier *pid = (Identifier *)this->packages->data[i];
+	if (packages)
+	{
+	    for (size_t i = 0; i < packages->dim; i++)
+	    {
+		Identifier *pid = (Identifier *)packages->data[i];
 		ob->printf("%s.", pid->toChars());
 	    }
 	}
 
-	ob->printf("%s (%s)",
-	    this->id->toChars(),
-	    mod ? escapePath(mod->srcfile->toChars(), fnameBuf, sizeof(fnameBuf) / sizeof(*fnameBuf)) : "???"
-	);
+	ob->writestring(id->toChars());
+	ob->writestring(" (");
+	if (mod)
+	    escapePath(ob, mod->srcfile->toChars());
+	else
+	    ob->writestring("???");
+	ob->writebyte(')');
 
-	if (aliasId) {
-	    ob->printf(" -> %s", aliasId->toChars());
-	} else {
-	    if (names.dim > 0) {
-		ob->writestring(" : ");
-		for (size_t i = 0; i < names.dim; i++)
-		{
-		    if (i > 0) {
-			ob->writebyte(',');
-		    }
+	for (size_t i = 0; i < names.dim; i++)
+	{
+	    if (i == 0)
+		ob->writebyte(':');
+	    else
+		ob->writebyte(',');
 
-		    Identifier *name = (Identifier *)names.data[i];
-		    Identifier *alias = (Identifier *)aliases.data[i];
+	    Identifier *name = (Identifier *)names.data[i];
+	    Identifier *alias = (Identifier *)aliases.data[i];
 
-		    if (!alias) {
-			ob->printf("%s", name->toChars());
-			alias = name;
-		    } else {
-			ob->printf("%s=%s", alias->toChars(), name->toChars());
-		    }
-		}
+	    if (!alias)
+	    {
+		ob->printf("%s", name->toChars());
+		alias = name;
 	    }
+	    else
+		ob->printf("%s=%s", alias->toChars(), name->toChars());
 	}
+
+	if (aliasId)
+		ob->printf(" -> %s", aliasId->toChars());
 
 	ob->writenl();
     }
+
+   //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
 }
 
 void Import::semantic2(Scope *sc)
@@ -347,27 +358,7 @@ void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	    buf->printf("%s.", pid->toChars());
 	}
     }
-    buf->printf("%s", id->toChars());
-    if (names.dim > 0) {
-	buf->writebyte(':');
-	for (size_t i = 0; i < names.dim; i++)
-	{
-	    if (i > 0) {
-		    buf->writebyte(',');
-	    }
-
-	    Identifier *name = (Identifier *)names.data[i];
-	    Identifier *alias = (Identifier *)aliases.data[i];
-
-	    if (!alias) {
-		buf->printf("%s", name->toChars());
-		alias = name;
-	    } else {
-		buf->printf("%s=%s", alias->toChars(), name->toChars());
-	    }
-	}
-    }
-    buf->writebyte(';');
+    buf->printf("%s;", id->toChars());
     buf->writenl();
 }
 

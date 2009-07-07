@@ -306,6 +306,8 @@ struct Type : Object
     virtual int hasPointers();
     //Type *next;
     virtual Type *nextOf();
+    uinteger_t sizemask();
+
 
     static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
     static void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
@@ -714,10 +716,10 @@ struct TypeEnum : Type
     EnumDeclaration *sym;
 
     TypeEnum(EnumDeclaration *sym);
+    Type *syntaxCopy();
     d_uns64 size(Loc loc);
     unsigned alignsize();
     char *toChars();
-    Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);

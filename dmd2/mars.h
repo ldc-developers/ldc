@@ -209,10 +209,10 @@ struct Param
     Array *debuglibnames;	// default libraries for debug builds
 
     const char *xmlname;	// filename for XML output
-    
-    OutBuffer *moduleDeps;	// buffer and filename for emitting module deps
-    char *moduleDepsFile;
-    
+
+    char *moduleDepsFile;	// filename for deps output
+    OutBuffer *moduleDeps;	// contents to be written to deps file
+  
     // Hidden debug switches
     bool debuga;
     bool debugb;
@@ -443,7 +443,7 @@ void util_progress();
 #if IN_GCC || IN_LLVM
 #define stdmsg stderr
 #else
-#define stdmsg stdout
+#define stdmsg stderr
 #endif
 
 #if !IN_LLVM

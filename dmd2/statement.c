@@ -144,6 +144,13 @@ int Statement::comeFrom()
     return FALSE;
 }
 
+// Return TRUE if statement has no code in it
+int Statement::isEmpty()
+{
+    //printf("Statement::isEmpty()\n");
+    return FALSE;
+}
+
 /****************************************
  * If this statement has code that needs to run in a finally clause
  * at the end of the current scope, return that code in the form of
@@ -580,6 +587,16 @@ int CompoundStatement::comeFrom()
     return comefrom;
 }
 
+int CompoundStatement::isEmpty()
+{
+    for (int i = 0; i < statements->dim; i++)
+    {	Statement *s = (Statement *) statements->data[i];
+	if (s && !s->isEmpty())
+	    return FALSE;
+    }
+    return TRUE;
+}
+
 
 /******************************** CompoundDeclarationStatement ***************************/
 
@@ -854,6 +871,12 @@ int ScopeStatement::comeFrom()
 {
     //printf("ScopeStatement::comeFrom()\n");
     return statement ? statement->comeFrom() : FALSE;
+}
+
+int ScopeStatement::isEmpty()
+{
+    //printf("ScopeStatement::isEmpty() %d\n", statement ? statement->isEmpty() : TRUE);
+    return statement ? statement->isEmpty() : TRUE;
 }
 
 void ScopeStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -1536,7 +1559,6 @@ Statement *ForeachStatement::semantic(Scope *sc)
 	    /* Generate a temporary __r and initialize it with the aggregate.
 	     */
 	    Identifier *id = Identifier::generateId("__r");
-	    aggr = aggr->semantic(sc);
 	    Expression *rinit = new SliceExp(loc, aggr, NULL, NULL);
 	    rinit = rinit->trySemantic(sc);
 	    if (!rinit)			// if application of [] failed
@@ -1870,7 +1892,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		}
 
 		s = new CompoundStatement(loc, a);
-		s = new SwitchStatement(loc, e, s);
+		s = new SwitchStatement(loc, e, s, FALSE);
 		s = s->semantic(sc);
 	    }
 	    break;
@@ -2546,23 +2568,25 @@ void StaticAssertStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 /******************************** SwitchStatement ***************************/
 
-SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b)
+SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFinal)
     : Statement(loc)
 {
-    condition = c;
-    body = b;
+    this->condition = c;
+    this->body = b;
+    this->isFinal = isFinal;
     sdefault = NULL;
     cases = NULL;
     hasNoDefault = 0;
     hasVars = 0;
-    // LDC
+#if IN_LLVM
     enclosingScopeExit = NULL;
+#endif
 }
 
 Statement *SwitchStatement::syntaxCopy()
 {
     SwitchStatement *s = new SwitchStatement(loc,
-	condition->syntaxCopy(), body->syntaxCopy());
+	condition->syntaxCopy(), body->syntaxCopy(), isFinal);
     return s;
 }
 
@@ -2571,8 +2595,9 @@ Statement *SwitchStatement::semantic(Scope *sc)
     //printf("SwitchStatement::semantic(%p)\n", this);
     assert(!cases);		// ensure semantic() is only run once
 
-    // LDC
+#if IN_LLVM
     enclosingScopeExit = sc->enclosingScopeExit;
+#endif
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -2663,6 +2688,37 @@ Statement *SwitchStatement::semantic(Scope *sc)
 	body = cs;
     }
 
+#if DMDV2
+    if (isFinal)
+    {	Type *t = condition->type;
+	while (t->ty == Ttypedef)
+	{   // Don't use toBasetype() because that will skip past enums
+	    t = ((TypeTypedef *)t)->sym->basetype;
+	}
+	if (condition->type->ty == Tenum)
+	{   TypeEnum *te = (TypeEnum *)condition->type;
+	    EnumDeclaration *ed = te->toDsymbol(sc)->isEnumDeclaration();
+	    assert(ed);
+	    size_t dim = ed->members->dim;
+	    for (size_t i = 0; i < dim; i++)
+	    {
+		EnumMember *em = ((Dsymbol *)ed->members->data[i])->isEnumMember();
+		if (em)
+		{
+		    for (size_t j = 0; j < cases->dim; j++)
+		    {   CaseStatement *cs = (CaseStatement *)cases->data[j];
+			if (cs->exp->equals(em->value))
+			    goto L1;
+		    }
+		    error("enum member %s not represented in final switch", em->toChars());
+		}
+	      L1:
+		;
+	    }
+	}
+    }
+#endif
+
     sc->pop();
     return this;
 }
@@ -2746,13 +2802,13 @@ Statement *CaseStatement::semantic(Scope *sc)
     exp = exp->semantic(sc);
     if (sw)
     {
-	// LDC
+#if IN_LLVM
 	enclosingScopeExit = sc->enclosingScopeExit;
 	if (enclosingScopeExit != sw->enclosingScopeExit)
 	{
 	    error("case must be inside the same try, synchronized or volatile level as switch");
 	}
-
+#endif
 	exp = exp->implicitCastTo(sc, sw->condition->type);
 	exp = exp->optimize(WANTvalue | WANTinterpret);
 
@@ -2767,6 +2823,8 @@ Statement *CaseStatement::semantic(Scope *sc)
 		 * for this, i.e. generate a sequence of if-then-else
 		 */
 		sw->hasVars = 1;
+		if (sw->isFinal)
+		    error("case variables not allowed in final switch statements");
 		goto L1;
 	    }
 	}
@@ -2846,6 +2904,85 @@ void CaseStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     statement->toCBuffer(buf, hgs);
 }
 
+/******************************** CaseRangeStatement ***************************/
+
+#if DMDV2
+
+CaseRangeStatement::CaseRangeStatement(Loc loc, Expression *first,
+	Expression *last, Statement *s)
+    : Statement(loc)
+{
+    this->first = first;
+    this->last = last;
+    this->statement = s;
+}
+
+Statement *CaseRangeStatement::syntaxCopy()
+{
+    CaseRangeStatement *s = new CaseRangeStatement(loc,
+	first->syntaxCopy(), last->syntaxCopy(), statement->syntaxCopy());
+    return s;
+}
+
+Statement *CaseRangeStatement::semantic(Scope *sc)
+{   SwitchStatement *sw = sc->sw;
+
+    //printf("CaseRangeStatement::semantic() %s\n", toChars());
+    if (sw->isFinal)
+	error("case ranges not allowed in final switch");
+
+    first = first->semantic(sc);
+    first = first->implicitCastTo(sc, sw->condition->type);
+    first = first->optimize(WANTvalue | WANTinterpret);
+    dinteger_t fval = first->toInteger();
+
+    last = last->semantic(sc);
+    last = last->implicitCastTo(sc, sw->condition->type);
+    last = last->optimize(WANTvalue | WANTinterpret);
+    dinteger_t lval = last->toInteger();
+
+    if (lval - fval > 256)
+    {	error("more than 256 cases in case range");
+	lval = fval + 256;
+    }
+
+    /* This works by replacing the CaseRange with an array of Case's.
+     *
+     * case a: .. case b: s;
+     *    =>
+     * case a:
+     *   [...]
+     * case b:
+     *   s;
+     */
+
+    Statements *statements = new Statements();
+    for (dinteger_t i = fval; i <= lval; i++)
+    {
+	Statement *s = statement;
+	if (i != lval)
+	    s = new ExpStatement(loc, NULL);
+	Expression *e = new IntegerExp(loc, i, first->type);
+	Statement *cs = new CaseStatement(loc, e, s);
+	statements->push(cs);
+    }
+    Statement *s = new CompoundStatement(loc, statements);
+    s = s->semantic(sc);
+    return s;
+}
+
+void CaseRangeStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
+{
+    buf->writestring("case ");
+    first->toCBuffer(buf, hgs);
+    buf->writestring(": .. case ");
+    last->toCBuffer(buf, hgs);
+    buf->writenl();
+    statement->toCBuffer(buf, hgs);
+}
+
+#endif
+
 /******************************** DefaultStatement ***************************/
 
 DefaultStatement::DefaultStatement(Loc loc, Statement *s)
@@ -2877,12 +3014,18 @@ Statement *DefaultStatement::semantic(Scope *sc)
 	}
 	sc->sw->sdefault = this;
 
-	// LDC
+#if IN_LLVM
 	enclosingScopeExit = sc->enclosingScopeExit;
 	if (enclosingScopeExit != sc->sw->enclosingScopeExit)
 	{
 	    error("default must be inside the same try, synchronized or volatile level as switch");
 	}
+
+    if (sc->sw->isFinal)
+    {
+        error("default statement not allowed in final switch statement");
+    }
+#endif
     }
     else
 	error("default not in switch statement");
@@ -3217,6 +3360,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
 
 	    // Construct: { vresult = exp; return cases.dim + 1; }
 	    exp = new AssignExp(loc, new VarExp(0, fd->vresult), exp);
+	    exp->op = TOKconstruct;
 	    exp = exp->semantic(sc);
 	    Statement *s1 = new ExpStatement(loc, exp);
 	    Statement *s2 = new ReturnStatement(0, new IntegerExp(sc->fes->cases.dim + 1));
@@ -3233,6 +3377,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
 	    VarExp *v = new VarExp(0, fd->vresult);
 
 	    exp = new AssignExp(loc, v, exp);
+	    exp->op = TOKconstruct;
 	    exp = exp->semantic(sc);
 	}
 
@@ -3757,9 +3902,10 @@ Statement *TryCatchStatement::semantic(Scope *sc)
 	}
     }
 
-    if (!body)
+    if (!body || body->isEmpty())
+    {
 	return NULL;
-
+    }
     return this;
 }
 

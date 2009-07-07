@@ -1,5 +1,5 @@
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -64,6 +64,9 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
     inlineAsm = 0;
     cantInterpret = 0;
     semanticRun = 0;
+#if DMDV1
+    nestedFrameRef = 0;
+#endif
     fes = NULL;
     introducing = 0;
     tintro = NULL;
@@ -71,17 +74,16 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, enum STC s
      * NULL for the return type.
      */
     inferRetType = (type && type->nextOf() == NULL);
-    scope = NULL;
     hasReturnExp = 0;
     nrvo_can = 1;
     nrvo_var = NULL;
 #if IN_DMD
     shidden = NULL;
 #endif
-
+#if DMDV2
     builtin = BUILTINunknown;
     tookAddressOf = 0;
-
+#endif
 #if IN_LLVM
     // LDC
     isArrayOp = false;
@@ -125,8 +127,9 @@ Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
     f->fbody    = fbody    ? fbody->syntaxCopy()    : NULL;
     assert(!fthrows); // deprecated
 
-    // LDC
+#if IN_LLVM
     f->intrinsicName = intrinsicName;
+#endif
 
     return f;
 }
@@ -166,7 +169,7 @@ void FuncDeclaration::semantic(Scope *sc)
 
     if (!originalType)
 	originalType = type;
-    if (!type->deco && type->nextOf())
+    if (!type->deco)
     {
 	/* Apply const and invariant storage class
 	 * to the function type
@@ -304,7 +307,9 @@ void FuncDeclaration::semantic(Scope *sc)
 	storage_class |= STCabstract;
 
 	if (isCtorDeclaration() ||
+#if DMDV2
 	    isPostBlitDeclaration() ||
+#endif
 	    isDtorDeclaration() ||
 	    isInvariantDeclaration() ||
 	    isUnitTestDeclaration() || isNewDeclaration() || isDelete())
@@ -878,6 +883,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 	    for (size_t i = 0; i < f->parameters->dim; i++)
 	    {	Argument *arg = (Argument *)f->parameters->data[i];
 
+		//printf("[%d] arg->type->ty = %d %s\n", i, arg->type->ty, arg->type->toChars());
 		if (arg->type->ty == Ttuple)
 		{   TypeTuple *t = (TypeTuple *)arg->type;
 		    size_t dim = Argument::dim(t->arguments);
@@ -1008,6 +1014,12 @@ void FuncDeclaration::semantic3(Scope *sc)
 
 		v = new VarDeclaration(loc, type->nextOf(), outId, NULL);
 		v->noauto = 1;
+#if DMDV2
+		if (f->isref)
+		{
+		    v->storage_class |= STCref | STCforeach;
+		}
+#endif
 		sc2->incontract--;
 		v->semantic(sc2);
 		sc2->incontract++;
@@ -1108,6 +1120,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 		nrvo_can = 0;
 
 	    fbody = fbody->semantic(sc2);
+	    if (!fbody)
+		fbody = new CompoundStatement(0, new Statements());
 
 	    if (inferRetType)
 	    {	// If no return type inferred yet, then infer a void
@@ -1185,7 +1199,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		error("expected to return a value of type %s", type->nextOf()->toChars());
 	    else if (!inlineAsm)
 	    {
-		int blockexit = fbody ? fbody->blockExit() : 0;
+		int blockexit = fbody ? fbody->blockExit() : BEfallthru;
 		if (f->isnothrow && blockexit & BEthrow)
 		    error("'%s' is nothrow yet may throw", toChars());
 
@@ -1204,7 +1218,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 		    if (offend)
 		    {   Expression *e;
 
-			warning(loc, "no return at end of function");
+			//warning(loc, "no return exp; or assert(0); at end of function");
+			error("no return exp; or assert(0); at end of function");
 
 			if (global.params.useAssert &&
 			    !global.params.useInline)
@@ -2169,16 +2184,22 @@ void FuncDeclaration::appendExp(Expression *e)
 }
 
 void FuncDeclaration::appendState(Statement *s)
-{   CompoundStatement *cs;
-
+{
     if (!fbody)
-    {	Statements *a;
-
-	a = new Statements();
-	fbody = new CompoundStatement(0, a);
+	fbody = s;
+    else
+    {
+	CompoundStatement *cs = fbody->isCompoundStatement();
+	if (cs)
+	{
+	    if (!cs->statements)
+		fbody = s;
+	    else
+		cs->statements->push(s);
+	}
+	else
+	    fbody = new CompoundStatement(0, fbody, s);
     }
-    cs = fbody->isCompoundStatement();
-    cs->statements->push(s);
 }
 
 
@@ -2635,6 +2656,7 @@ void CtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 /********************************* PostBlitDeclaration ****************************/
 
+#if DMDV2
 PostBlitDeclaration::PostBlitDeclaration(Loc loc, Loc endloc)
     : FuncDeclaration(loc, endloc, Id::_postblit, STCundefined, NULL)
 {
@@ -2704,6 +2726,7 @@ void PostBlitDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writestring("=this()");
     bodyToCBuffer(buf, hgs);
 }
+#endif
 
 /********************************* DtorDeclaration ****************************/
 

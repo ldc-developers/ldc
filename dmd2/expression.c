@@ -380,6 +380,11 @@ Expression *resolveProperties(Scope *sc, Expression *e)
 	}
 
     }
+    else if (e->op == TOKdottd)
+    {
+	e = new CallExp(e->loc, e);
+	e = e->semantic(sc);
+    }
     return e;
 }
 
@@ -1002,7 +1007,7 @@ void Expression::rvalue()
 	dump(0);
 	halt();
 #endif
-	type = Type::tint32;
+	type = Type::terror;
     }
 }
 
@@ -1064,6 +1069,9 @@ void Expression::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void Expression::toMangleBuffer(OutBuffer *buf)
 {
     error("expression %s is not a valid template value argument", toChars());
+#ifdef DEBUG
+dump(0);
+#endif
 }
 
 /***************************************
@@ -1116,6 +1124,7 @@ void Expression::checkScalar()
 {
     if (!type->isscalar())
 	error("'%s' is not a scalar, it is a %s", toChars(), type->toChars());
+    rvalue();
 }
 
 void Expression::checkNoBool()
@@ -1130,6 +1139,7 @@ Expression *Expression::checkIntegral()
     {	error("'%s' is not of integral type, it is a %s", toChars(), type->toChars());
 	return new ErrorExp();
     }
+    rvalue();
     return this;
 }
 
@@ -1139,6 +1149,7 @@ Expression *Expression::checkArithmetic()
     {	error("'%s' is not of arithmetic type, it is a %s", toChars(), type->toChars());
 	return new ErrorExp();
     }
+    rvalue();
     return this;
 }
 
@@ -1996,6 +2007,28 @@ Expression *IdentifierExp::semantic(Scope *sc)
 	withsym = scopesym->isWithScopeSymbol();
 	if (withsym)
 	{
+#if DMDV2
+	    /* Disallow shadowing
+	     */
+	    // First find the scope of the with
+	    Scope *scwith = sc;
+	    while (scwith->scopesym != scopesym)
+	    {	scwith = scwith->enclosing;
+		assert(scwith);
+	    }
+	    // Look at enclosing scopes for symbols with the same name,
+	    // in the same function
+	    for (Scope *scx = scwith; scx && scx->func == scwith->func; scx = scx->enclosing)
+	    {   Dsymbol *s2;
+
+		if (scx->scopesym && scx->scopesym->symtab &&
+		    (s2 = scx->scopesym->symtab->lookup(s->ident)) != NULL &&
+		    s != s2)
+		{
+		    error("with symbol %s is shadowing local symbol %s", s->toPrettyChars(), s2->toPrettyChars());
+		}
+	    }
+#endif
 	    s = s->toAlias();
 
 	    // Same as wthis.ident
@@ -2160,7 +2193,7 @@ Lagain:
 	if (!type)
 	{   type = v->type;
 	    if (!v->type)
-	    {	error("forward reference of %s", v->toChars());
+	    {	error("forward reference of %s %s", v->kind(), v->toChars());
 		type = Type::terror;
 	    }
 	}
@@ -2178,6 +2211,11 @@ Lagain:
     f = s->isFuncDeclaration();
     if (f)
     {	//printf("'%s' is a function\n", f->toChars());
+
+	if (!f->type->deco)
+	{
+	    error("forward reference to %s", toChars());
+	}
 	return new VarExp(loc, f, hasOverloads);
     }
     o = s->isOverloadSet();
@@ -2237,7 +2275,7 @@ Lagain:
 
     TemplateInstance *ti = s->isTemplateInstance();
     if (ti && !global.errors)
-    {   if (!ti->semanticdone)
+    {   if (!ti->semanticRun)
 	    ti->semantic(sc);
 	s = ti->inst->toAlias();
 	if (!s->isTemplateInstance())
@@ -2926,6 +2964,7 @@ Expression *ArrayLiteralExp::semantic(Scope *sc)
     for (int i = 0; i < elements->dim; i++)
     {	e = (Expression *)elements->data[i];
 	e = e->semantic(sc);
+	assert(e->type);
 	elements->data[i] = (void *)e;
     }
     expandTuples(elements);
@@ -3405,6 +3444,11 @@ Expression *TypeExp::semantic(Scope *sc)
     return this;
 }
 
+void TypeExp::rvalue()
+{
+    error("type %s has no value", toChars());
+}
+
 void TypeExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     type->toCBuffer(buf, NULL, hgs);
@@ -3440,7 +3484,7 @@ Lagain:
     ti = sds->isTemplateInstance();
     if (ti && !global.errors)
     {	Dsymbol *s;
-	if (!ti->semanticdone)
+	if (!ti->semanticRun)
 	    ti->semantic(sc);
 	s = ti->inst->toAlias();
 	sds2 = s->isScopeDsymbol();
@@ -3655,7 +3699,26 @@ Lagain:
 		}
 #endif
 	    }
-	    else if (fdn) // Possible problems here, no obvious solution when merging
+#if 1
+	    else if (thisexp)
+		error("e.new is only for allocating nested classes");
+	    else if (fdn)
+ 	    {
+		// make sure the parent context fdn of cd is reachable from sc
+		for (Dsymbol *sp = sc->parent; 1; sp = sp->parent)
+		{
+		    if (fdn == sp)
+			break;
+		    FuncDeclaration *fsp = sp ? sp->isFuncDeclaration() : NULL;
+		    if (!sp || (fsp && fsp->isStatic()))
+		    {
+			error("outer function context of %s is needed to 'new' nested class %s", fdn->toPrettyChars(), cd->toPrettyChars());
+			break;
+		    }
+		}
+	    }
+#else
+	    else if (fdn)
 	    {	/* The nested class cd is nested inside a function,
 		 * we'll let getEthis() look for errors.
 		 */
@@ -3664,6 +3727,7 @@ Lagain:
 		    // Because thisexp cannot be a function frame pointer
 		    error("e.new is only for allocating nested classes");
 	    }
+#endif
 	    else
 		assert(0);
 	}
@@ -4028,6 +4092,7 @@ Expression *VarExp::semantic(Scope *sc)
 	}
 #endif
     }
+
     /* Fix for 1161 doesn't work because it causes protection
      * problems when instantiating imported templates passing private
      * variables as alias template parameters.
@@ -4109,6 +4174,7 @@ Expression *VarExp::semantic(Scope *sc)
 	return e;
     }
 #endif
+
     return this;
 }
 
@@ -4295,6 +4361,7 @@ Expression *TupleExp::semantic(Scope *sc)
 	return (Expression *)exps->data[0];
     }
     type = new TypeTuple(exps);
+    type = type->semantic(loc, sc);
     //printf("-TupleExp::semantic(%s)\n", toChars());
     return this;
 }
@@ -6159,7 +6226,7 @@ Expression *CallExp::semantic(Scope *sc)
     if (e1->op == TOKimport && !e1->type)
     {	ScopeExp *se = (ScopeExp *)e1;
 	TemplateInstance *ti = se->sds->isTemplateInstance();
-	if (ti && !ti->semanticdone)
+	if (ti && !ti->semanticRun)
 	{
 	    /* Attempt to instantiate ti. If that works, go with it.
 	     * If not, go with partial explicit specialization.
@@ -6187,7 +6254,7 @@ Expression *CallExp::semantic(Scope *sc)
     if (e1->op == TOKdotti && !e1->type)
     {	DotTemplateInstanceExp *se = (DotTemplateInstanceExp *)e1;
 	TemplateInstance *ti = se->ti;
-	if (!ti->semanticdone)
+	if (!ti->semanticRun)
 	{
 	    /* Attempt to instantiate ti. If that works, go with it.
 	     * If not, go with partial explicit specialization.
@@ -6795,7 +6862,9 @@ void CallExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 AddrExp::AddrExp(Loc loc, Expression *e)
 	: UnaExp(loc, TOKaddress, sizeof(AddrExp), e)
 {
+#if IN_LLVM
     m = NULL;
+#endif
 }
 
 Expression *AddrExp::semantic(Scope *sc)
@@ -6805,15 +6874,30 @@ Expression *AddrExp::semantic(Scope *sc)
 #endif
     if (!type)
     {
+#if IN_LLVM
 	m = sc->module;
+#endif
 	UnaExp::semantic(sc);
 	e1 = e1->toLvalue(sc, NULL);
 	if (!e1->type)
 	{
 	    error("cannot take address of %s", e1->toChars());
-	    type = Type::tint32;
-	    return this;
+	    return new ErrorExp();
 	}
+	if (!e1->type->deco)
+	{
+	    /* No deco means semantic() was not run on the type.
+	     * We have to run semantic() on the symbol to get the right type:
+	     *	auto x = &bar;
+	     *	pure: int bar() { return 1;}
+	     * otherwise the 'pure' is missing from the type assigned to x.
+	     */
+
+	    error("forward reference to %s", e1->toChars());
+	    return new ErrorExp();
+	}
+
+//printf("test3 deco = %p\n", e1->type->deco);
 	type = e1->type->pointerTo();
 
 	// See if this should really be a delegate
@@ -6878,8 +6962,8 @@ Expression *AddrExp::semantic(Scope *sc)
 PtrExp::PtrExp(Loc loc, Expression *e)
 	: UnaExp(loc, TOKstar, sizeof(PtrExp), e)
 {
-    if (e->type)
-	type = ((TypePointer *)e->type)->next;
+//    if (e->type)
+//	type = ((TypePointer *)e->type)->next;
 }
 
 PtrExp::PtrExp(Loc loc, Expression *e, Type *t)
@@ -6889,8 +6973,7 @@ PtrExp::PtrExp(Loc loc, Expression *e, Type *t)
 }
 
 Expression *PtrExp::semantic(Scope *sc)
-{   Type *tb;
-
+{
 #if LOGSEMANTIC
     printf("PtrExp::semantic('%s')\n", toChars());
 #endif
@@ -6903,7 +6986,7 @@ Expression *PtrExp::semantic(Scope *sc)
 	Expression *e = op_overload(sc);
 	if (e)
 	    return e;
-	tb = e1->type->toBasetype();
+	Type *tb = e1->type->toBasetype();
 	switch (tb->ty)
 	{
 	    case Tpointer:
@@ -6918,8 +7001,7 @@ Expression *PtrExp::semantic(Scope *sc)
 
 	    default:
 		error("can only * a pointer, not a '%s'", e1->type->toChars());
-		type = Type::tint32;
-		break;
+		return new ErrorExp();
 	}
 	rvalue();
     }
@@ -9744,8 +9826,11 @@ Expression *CmpExp::semantic(Scope *sc)
     }
 #endif
     else
+    {	e1->rvalue();
+	e2->rvalue();
 	e = this;
-    //printf("CmpExp: %s\n", e->toChars());
+    }
+    //printf("CmpExp: %s, type = %s\n", e->toChars(), e->type->toChars());
     return e;
 }
 

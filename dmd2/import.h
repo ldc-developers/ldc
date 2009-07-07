@@ -34,7 +34,9 @@ struct Import : Dsymbol
     Identifier *id;		// module Identifier
     Identifier *aliasId;
     int isstatic;		// !=0 if static import
+#if IN_LLVM
     enum PROT protection;
+#endif
 
     // Pairs of alias=name to bind into current namespace
     Array names;
@@ -50,7 +52,9 @@ struct Import : Dsymbol
     void addAlias(Identifier *name, Identifier *alias);
 
     const char *kind();
+#if IN_LLVM
     enum PROT prot();
+#endif
     Dsymbol *syntaxCopy(Dsymbol *s);	// copy only syntax trees
     void load(Scope *sc);
     void semantic(Scope *sc);

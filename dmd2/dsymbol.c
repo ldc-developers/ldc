@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -48,6 +48,7 @@ Dsymbol::Dsymbol()
 #endif
     this->loc = 0;
     this->comment = NULL;
+    this->scope = NULL;
 
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
@@ -67,6 +68,7 @@ Dsymbol::Dsymbol(Identifier *ident)
 #endif
     this->loc = 0;
     this->comment = NULL;
+    this->scope = NULL;
 
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
@@ -193,6 +195,16 @@ char *Dsymbol::toPrettyChars()
 	if (q == s)
 	    break;
 	q--;
+#if TARGET_NET
+    if (AggregateDeclaration* ad = p->isAggregateDeclaration())
+    {
+        if (ad->isNested() && p->parent && p->parent->isAggregateDeclaration())
+        {
+            *q = '/';
+            continue;
+        }
+    }
+#endif
 	*q = '.';
     }
     return s;
@@ -269,24 +281,53 @@ int Dsymbol::isAnonymous()
     return ident ? 0 : 1;
 }
 
+/*************************************
+ * Set scope for future semantic analysis so we can
+ * deal better with forward references.
+ */
+
+void Dsymbol::setScope(Scope *sc)
+{
+    //printf("Dsymbol::setScope() %p %s\n", this, toChars());
+    if (!sc->nofree)
+	sc->setNoFree();		// may need it even after semantic() finishes
+    scope = sc;
+}
+
+/*************************************
+ * Does semantic analysis on the public face of declarations.
+ */
+
 void Dsymbol::semantic(Scope *sc)
 {
     error("%p has no semantic routine", this);
 }
+
+/*************************************
+ * Does semantic analysis on initializers and members of aggregates.
+ */
 
 void Dsymbol::semantic2(Scope *sc)
 {
     // Most Dsymbols have no further semantic analysis needed
 }
 
+/*************************************
+ * Does semantic analysis on function bodies.
+ */
+
 void Dsymbol::semantic3(Scope *sc)
 {
     // Most Dsymbols have no further semantic analysis needed
 }
 
+/*************************************
+ * Look for function inlining possibilities.
+ */
+
 void Dsymbol::inlineScan()
 {
-    // Most Dsymbols have no further semantic analysis needed
+    // Most Dsymbols aren't functions
 }
 
 /*********************************************
@@ -344,7 +385,7 @@ Dsymbol *Dsymbol::searchX(Loc loc, Scope *sc, Identifier *id)
 		return NULL;
 	    }
 	    ti->tempdecl = td;
-	    if (!ti->semanticdone)
+	    if (!ti->semanticRun)
 		ti->semantic(sc);
 	    sm = ti->toAlias();
 	    break;

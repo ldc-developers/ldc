@@ -128,6 +128,7 @@ struct Statement : Object
     virtual int usesEH();
     virtual int blockExit();
     virtual int comeFrom();
+    virtual int isEmpty();
     virtual void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     virtual Statements *flatten(Scope *sc);
     virtual Expression *interpret(InterState *istate);
@@ -146,9 +147,10 @@ struct Statement : Object
     virtual IfStatement *isIfStatement() { return NULL; }
     virtual CaseStatement* isCaseStatement() { return NULL; }
 
-    // LDC
+#if IN_LLVM
     virtual void toNakedIR(IRState *irs);
     virtual AsmBlockStatement* endsWithAsm();
+#endif
 };
 
 struct ExpStatement : Statement
@@ -168,8 +170,9 @@ struct ExpStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LDC
+#if IN_LLVM
     void toNakedIR(IRState *irs);
+#endif
 };
 
 struct CompileStatement : Statement
@@ -209,6 +212,7 @@ struct CompoundStatement : Statement
     int usesEH();
     int blockExit();
     int comeFrom();
+    int isEmpty();
     virtual Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
     Expression *interpret(InterState *istate);
@@ -219,9 +223,10 @@ struct CompoundStatement : Statement
 
     virtual void toIR(IRState *irs);
 
-    // LDC
+#if IN_LLVM
     virtual void toNakedIR(IRState *irs);
     virtual AsmBlockStatement* endsWithAsm();
+#endif
 
     virtual CompoundStatement *isCompoundStatement() { return this; }
 };
@@ -272,6 +277,7 @@ struct ScopeStatement : Statement
     int usesEH();
     int blockExit();
     int comeFrom();
+    int isEmpty();
     Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -479,6 +485,7 @@ struct SwitchStatement : Statement
 {
     Expression *condition;
     Statement *body;
+    bool isFinal;
 
     DefaultStatement *sdefault;
 
@@ -487,10 +494,11 @@ struct SwitchStatement : Statement
     int hasNoDefault;		// !=0 if no default statement
     int hasVars;		// !=0 if has variable case values
 
-    // LDC
+#if IN_LLVM
     Statement *enclosingScopeExit;
+#endif
 
-    SwitchStatement(Loc loc, Expression *c, Statement *b);
+    SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFinal);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int hasBreak();
@@ -508,11 +516,13 @@ struct CaseStatement : Statement
 {
     Expression *exp;
     Statement *statement;
+
     int index;		// which case it is (since we sort this)
     block *cblock;	// back end: label for the block
 
-    // LDC
+#if IN_LLVM
     Statement *enclosingScopeExit;
+#endif
 
     CaseStatement(Loc loc, Expression *exp, Statement *s);
     Statement *syntaxCopy();
@@ -530,10 +540,27 @@ struct CaseStatement : Statement
 
     CaseStatement* isCaseStatement() { return this; }
 
-    // LDC
+#if IN_LLVM
     llvm::BasicBlock* bodyBB;
     llvm::ConstantInt* llvmIdx;
+#endif
 };
+
+#if DMDV2
+
+struct CaseRangeStatement : Statement
+{
+    Expression *first;
+    Expression *last;
+    Statement *statement;
+
+    CaseRangeStatement(Loc loc, Expression *first, Expression *last, Statement *s);
+    Statement *syntaxCopy();
+    Statement *semantic(Scope *sc);
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+};
+
+#endif
 
 struct DefaultStatement : Statement
 {
@@ -542,8 +569,9 @@ struct DefaultStatement : Statement
     block *cblock;	// back end: label for the block
 #endif
 
-    // LDC
+#if IN_LLVM
     Statement *enclosingScopeExit;
+#endif
 
     DefaultStatement(Loc loc, Statement *s);
     Statement *syntaxCopy();
@@ -558,8 +586,9 @@ struct DefaultStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LDC
+#if IN_LLVM
     llvm::BasicBlock* bodyBB;
+#endif
 };
 
 struct GotoDefaultStatement : Statement
@@ -634,8 +663,10 @@ struct BreakStatement : Statement
 
     void toIR(IRState *irs);
 
+#if IN_LLVM
     // LDC: only set if ident is set: label statement to jump to
     LabelStatement *target;
+#endif
 };
 
 struct ContinueStatement : Statement
@@ -651,8 +682,10 @@ struct ContinueStatement : Statement
 
     void toIR(IRState *irs);
 
+#if IN_LLVM
     // LDC: only set if ident is set: label statement to jump to
     LabelStatement *target;
+#endif
 };
 
 struct SynchronizedStatement : Statement
@@ -675,7 +708,9 @@ struct SynchronizedStatement : Statement
     elem *esync;
     SynchronizedStatement(Loc loc, elem *esync, Statement *body);
     void toIR(IRState *irs);
+#if IN_LLVM
     llvm::Value* llsync;
+#endif
 };
 
 struct WithStatement : Statement
@@ -837,9 +872,10 @@ struct LabelStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LDC
+#if IN_LLVM
     bool asmLabel;       // for labels inside inline assembler
     void toNakedIR(IRState *irs);
+#endif
 };
 
 struct LabelDsymbol : Dsymbol
@@ -873,11 +909,12 @@ struct AsmStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LDC
+#if IN_LLVM
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;
 
     void toNakedIR(IRState *irs);
+#endif
 };
 
 struct AsmBlockStatement : CompoundStatement

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -74,13 +74,12 @@ struct Expression;
 struct DeleteDeclaration;
 struct HdrGenState;
 struct OverloadSet;
+#if TARGET_NET
+struct PragmaScope;
+#endif
 #if IN_LLVM
 struct TypeInfoDeclaration;
 struct ClassInfoDeclaration;
-#endif
-
-#if IN_DMD
-struct Symbol;
 #endif
 
 #if IN_GCC
@@ -126,6 +125,7 @@ struct Dsymbol : Object
 #endif
     unsigned char *comment;	// documentation comment for this Dsymbol
     Loc loc;			// where defined
+    Scope *scope;		// !=NULL means context to use for semantic()
 
     Dsymbol();
     Dsymbol(Identifier *);
@@ -151,6 +151,7 @@ struct Dsymbol : Object
     virtual const char *kind();
     virtual Dsymbol *toAlias();			// resolve real symbol
     virtual int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
+    virtual void setScope(Scope *sc);
     virtual void semantic(Scope *sc);
     virtual void semantic2(Scope *sc);
     virtual void semantic3(Scope *sc);
@@ -245,7 +246,9 @@ struct Dsymbol : Object
     virtual OverloadSet *isOverloadSet() { return NULL; }
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
-
+#if TARGET_NET
+    virtual PragmaScope* isPragmaScope() { return NULL; }
+#endif
 #if IN_LLVM
     /// Codegen traversal
     virtual void codegen(Ir* ir);
