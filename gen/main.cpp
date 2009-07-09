@@ -318,7 +318,9 @@ int main(int argc, char** argv)
     }
     else if (!noDefaultLib)
     {
-#if !DMDV2
+#if DMDV2
+	global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
+#else
         global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
         global.params.linkswitches->push(mem.strdup("-ltango-cc-tango"));
         global.params.linkswitches->push(mem.strdup("-ltango-gc-basic"));

@@ -336,11 +336,7 @@ static void LLVM_D_BuildRuntimeModule()
 
     // Object _d_allocclass(ClassInfo ci)
     {
-#if DMDV2
-        std::string fname("_d_newclass");
-#else
         std::string fname("_d_allocclass");
-#endif
         std::vector<const LLType*> types;
         types.push_back(classInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
