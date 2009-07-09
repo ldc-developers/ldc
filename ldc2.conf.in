@@ -7,6 +7,8 @@ default:
     // 'switches' holds array of string that are appends to the command line
     // arguments before they are parsed.
     switches = [
+        "-I@RUNTIME_DIR@/src/compiler/ldc",
+        "-I@RUNTIME_DIR@/src/common",
         "-I@RUNTIME_DIR@/import",
         "-L-L@PROJECT_BINARY_DIR@/../lib",
         "-defaultlib=@RUNTIME_AIO@",
