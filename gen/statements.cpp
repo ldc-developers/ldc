@@ -818,7 +818,7 @@ void SwitchStatement::toIR(IRState* p)
         const LLType* elemTy = DtoType(condition->type);
         const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
         LLConstant* arrInit = llvm::ConstantArray::get(arrTy, inits);
-        llvm::GlobalVariable* arr = new llvm::GlobalVariable(arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data", gIR->module);
+        llvm::GlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
 
         const LLType* elemPtrTy = getPtrToType(elemTy);
         LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
@@ -1380,7 +1380,7 @@ void WithStatement::toIR(IRState* p)
 static LLConstant* generate_unique_critical_section()
 {
     const LLType* Mty = DtoMutexType();
-    return new llvm::GlobalVariable(Mty, false, llvm::GlobalValue::InternalLinkage, LLConstant::getNullValue(Mty), ".uniqueCS", gIR->module);
+    return new llvm::GlobalVariable(*gIR->module, Mty, false, llvm::GlobalValue::InternalLinkage, LLConstant::getNullValue(Mty), ".uniqueCS");
 }
 
 void SynchronizedStatement::toIR(IRState* p)

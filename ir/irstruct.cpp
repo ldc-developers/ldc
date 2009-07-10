@@ -58,7 +58,7 @@ LLGlobalVariable * IrStruct::getInitSymbol()
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
     init = new llvm::GlobalVariable(
-        init_pa.get(), true, _linkage, NULL, initname, gIR->module);
+        *gIR->module, init_pa.get(), true, _linkage, NULL, initname);
 
     // set alignment
     init->setAlignment(type->alignsize());

@@ -430,7 +430,7 @@ DValue* StringExp::toElem(IRState* p)
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     if (Logger::enabled())
         Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(at,true,_linkage,_init,".str",gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,at,true,_linkage,_init,".str");
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
     LLConstant* idxs[2] = { zero, zero };
@@ -506,7 +506,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     }
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_init->getType(),true,_linkage,_init,".str",gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_init->getType(),true,_linkage,_init,".str");
 
     llvm::ConstantInt* zero = llvm::ConstantInt::get(LLType::Int32Ty, 0, false);
     LLConstant* idxs[2] = { zero, zero };
@@ -2385,7 +2385,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // for dynamic arrays we need to put the initializer in a global, and build a constant dynamic array reference with the .ptr field pointing into this global
     // Important: don't make the global constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLConstant* globalstore = new LLGlobalVariable(arrtype, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage", p->module);
+    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
 

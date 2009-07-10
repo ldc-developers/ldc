@@ -38,7 +38,7 @@ static LLGlobalVariable* emitDwarfGlobalDecl(const LLStructType* type, const cha
     LLGlobalValue::LinkageTypes linkage = linkonce
         ? DEBUGINFO_LINKONCE_LINKAGE_TYPE
         : LLGlobalValue::InternalLinkage;
-    LLGlobalVariable* gv = new LLGlobalVariable(type, true, linkage, NULL, name, gIR->module);
+    LLGlobalVariable* gv = new LLGlobalVariable(*gIR->module, type, true, linkage, NULL, name);
     gv->setSection("llvm.metadata");
     return gv;
 }
@@ -256,7 +256,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         elems[1] = DBG_CAST(ptr);
 
         LLConstant* ca = LLConstantArray::get(at, elems);
-        members = new LLGlobalVariable(ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array", gIR->module);
+        members = new LLGlobalVariable(*gIR->module, ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array");
         members->setSection("llvm.metadata");
 
         name = DtoConstStringPtr(t->toChars(), "llvm.metadata");
@@ -330,7 +330,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
 
         const LLArrayType* at = LLArrayType::get(DBG_TYPE, elems.size());
         LLConstant* ca = LLConstantArray::get(at, elems);
-        members = new LLGlobalVariable(ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array", gIR->module);
+        members = new LLGlobalVariable(*gIR->module, ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array");
         members->setSection("llvm.metadata");
     }
 

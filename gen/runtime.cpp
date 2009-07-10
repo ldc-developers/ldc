@@ -116,7 +116,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
     }
 
     const llvm::PointerType* t = g->getType();
-    return new llvm::GlobalVariable(t->getElementType(),g->isConstant(),g->getLinkage(),NULL,g->getName(),target);
+    return new llvm::GlobalVariable(*target, t->getElementType(),g->isConstant(),g->getLinkage(),NULL,g->getName());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

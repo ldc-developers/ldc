@@ -172,7 +172,7 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
     {
         const LLArrayType* usedTy = LLArrayType::get(getVoidPtrType(), ir.usedArray.size());
         LLConstant* usedInit = LLConstantArray::get(usedTy, ir.usedArray);
-        LLGlobalVariable* usedArray = new LLGlobalVariable(usedTy, true, LLGlobalValue::AppendingLinkage, usedInit, "llvm.used", ir.module);
+        LLGlobalVariable* usedArray = new LLGlobalVariable(*ir.module, usedTy, true, LLGlobalValue::AppendingLinkage, usedInit, "llvm.used");
         usedArray->setSection("llvm.metadata");
     }
 
@@ -578,12 +578,12 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     std::string thismrefname = "_D";
     thismrefname += gIR->dmodule->mangle();
     thismrefname += "11__moduleRefZ";
-    LLGlobalVariable* thismref = new LLGlobalVariable(modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname, gIR->module);
+    LLGlobalVariable* thismref = new LLGlobalVariable(*gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname);
 
     // make sure _Dmodule_ref is declared
     LLGlobalVariable* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
     if (!mref)
-        mref = new LLGlobalVariable(getPtrToType(modulerefTy), false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref", gIR->module);
+        mref = new LLGlobalVariable(*gIR->module, getPtrToType(modulerefTy), false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref");
 
     // make the function insert this moduleinfo as the beginning of the _Dmodule_ref linked list
     llvm::BasicBlock* bb = llvm::BasicBlock::Create("moduleinfoCtorEntry", ctor);
@@ -680,7 +680,7 @@ void Module::genmoduleinfo()
         m_name.append(m->mangle());
         m_name.append("8__ModuleZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
-        if (!m_gvar) m_gvar = new llvm::GlobalVariable(moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name, gIR->module);
+        if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name);
         importInits.push_back(m_gvar);
     }
     // has import array?
@@ -692,7 +692,7 @@ void Module::genmoduleinfo()
         m_name.append(mangle());
         m_name.append("9__importsZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
-        if (!m_gvar) m_gvar = new llvm::GlobalVariable(importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
+        if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name);
         c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(importArrTy->getElementType()));
         c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
     }
@@ -743,7 +743,7 @@ void Module::genmoduleinfo()
         m_name.append(mangle());
         m_name.append("9__classesZ");
         assert(gIR->module->getGlobalVariable(m_name) == NULL);
-        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name, gIR->module);
+        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(*gIR->module, classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name);
         c = DtoGEPi(m_gvar, 0, 0);
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
@@ -811,7 +811,7 @@ void Module::genmoduleinfo()
 
     // it makes no sense that the our own module info already exists!
     assert(!gIR->module->getGlobalVariable(MIname));
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(constMI->getType(), false, llvm::GlobalValue::ExternalLinkage, constMI, MIname, gIR->module);
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, constMI->getType(), false, llvm::GlobalValue::ExternalLinkage, constMI, MIname);
 
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(gvar);
@@ -834,5 +834,5 @@ void Module::genmoduleinfo()
     std::vector<LLConstant*> appendInits(1, magicinit);
     LLConstant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
     std::string appendName("llvm.global_ctors");
-    llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName, gIR->module);
+    llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(*gIR->module, appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName);
 }

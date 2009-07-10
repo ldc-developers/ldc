@@ -133,7 +133,7 @@ void VarDeclaration::codegen(Ir* p)
         llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
         std::string _name(mangle());
 
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(_type,_isconst,_linkage,NULL,_name,gIR->module);
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_type,_isconst,_linkage,NULL,_name);
         this->ir.irGlobal->value = gvar;
 
         // set the alignment

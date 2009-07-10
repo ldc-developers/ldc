@@ -48,6 +48,8 @@ struct IRScope
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
+    
+    const IRScope& operator=(const IRScope& rhs);
 };
 
 struct IRBuilderHelper

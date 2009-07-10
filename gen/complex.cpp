@@ -396,8 +396,8 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
         cmpop = llvm::FCmpInst::FCMP_UNE;
 
     // (l.re==r.re && l.im==r.im) or (l.re!=r.re || l.im!=r.im)
-    LLValue* b1 = new llvm::FCmpInst(cmpop, lhs_re, rhs_re, "tmp", gIR->scopebb());
-    LLValue* b2 = new llvm::FCmpInst(cmpop, lhs_im, rhs_im, "tmp", gIR->scopebb());
+    LLValue* b1 = gIR->ir->CreateFCmp(cmpop, lhs_re, rhs_re, "tmp");
+    LLValue* b2 = gIR->ir->CreateFCmp(cmpop, lhs_im, rhs_im, "tmp");
 
     if (op == TOKequal)
         return gIR->ir->CreateAnd(b1,b2,"tmp");

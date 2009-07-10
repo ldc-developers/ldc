@@ -40,7 +40,7 @@ LLGlobalVariable * IrStruct::getVtblSymbol()
     const LLType* vtblTy = type->irtype->isClass()->getVtbl();
 
     vtbl = new llvm::GlobalVariable(
-        vtblTy, true, _linkage, NULL, initname, gIR->module);
+        *gIR->module, vtblTy, true, _linkage, NULL, initname);
 
     return vtbl;
 }
@@ -69,7 +69,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 
     // classinfos cannot be constants since they're used a locks for synchronized
     classInfo = new llvm::GlobalVariable(
-        tc->getPA().get(), false, _linkage, NULL, initname, gIR->module);
+        *gIR->module, tc->getPA().get(), false, _linkage, NULL, initname);
 
 #ifdef USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.
@@ -89,8 +89,8 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         // Construct the metadata
         llvm::MDNode* metadata = llvm::MDNode::get(mdVals, CD_NumFields);
         // Insert it into the module
-        new llvm::GlobalVariable(metadata->getType(), true,
-            METADATA_LINKAGE_TYPE, metadata, CD_PREFIX + initname, gIR->module);
+        new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
+            METADATA_LINKAGE_TYPE, metadata, CD_PREFIX + initname);
     }
 #endif
 
@@ -122,7 +122,8 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
     name.append("16__interfaceInfosZ");
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
-    classInterfacesArray = new llvm::GlobalVariable(array_type, true, _linkage, NULL, name, classInfo);
+    classInterfacesArray = new llvm::GlobalVariable(*gIR->module, 
+        array_type, true, _linkage, NULL, name);
 
     return classInterfacesArray;
 }
@@ -396,12 +397,12 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     mangle.append("6__vtblZ");
 
     llvm::GlobalVariable* GV = new llvm::GlobalVariable(
+        *gIR->module, 
         vtbl_constant->getType(),
         true,
         _linkage,
         vtbl_constant,
-        mangle,
-        gIR->module
+        mangle
     );
 
     // insert into the vtbl map

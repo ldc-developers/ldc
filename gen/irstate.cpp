@@ -22,15 +22,23 @@ TargetABI* gABI = 0;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 IRScope::IRScope()
+    : builder(llvm::getGlobalContext())
 {
     begin = end = NULL;
 }
 
 IRScope::IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e)
+    : builder(b)
 {
     begin = b;
     end = e;
-    builder.SetInsertPoint(b);
+}
+
+const IRScope& IRScope::operator=(const IRScope& rhs)
+{
+    begin = rhs.begin;
+    end = rhs.end;
+    builder.SetInsertPoint(begin);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

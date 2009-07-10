@@ -298,8 +298,8 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     irg->value = gIR->module->getGlobalVariable(mangle);
     if (!irg->value)
-        irg->value = new llvm::GlobalVariable(irg->type.get(), true,
-        TYPEINFO_LINKAGE_TYPE, NULL, mangle, gIR->module);
+        irg->value = new llvm::GlobalVariable(*gIR->module, irg->type.get(), true,
+        TYPEINFO_LINKAGE_TYPE, NULL, mangle);
 
     tid->ir.irGlobal = irg;
 
@@ -318,8 +318,8 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
         // Construct the metadata
         llvm::MDNode* metadata = llvm::MDNode::get(mdVals, TD_NumFields);
         // Insert it into the module
-        new llvm::GlobalVariable(metadata->getType(), true,
-            METADATA_LINKAGE_TYPE, metadata, metaname, gIR->module);
+        new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
+            METADATA_LINKAGE_TYPE, metadata, metaname);
     }
 #endif
 

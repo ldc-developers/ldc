@@ -187,7 +187,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     const LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
 
     llvm::GlobalVariable* typeinfomem =
-        new llvm::GlobalVariable(typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage", gIR->module);
+        new llvm::GlobalVariable(*gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage");
     if (Logger::enabled())
         Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
@@ -208,8 +208,8 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
     const LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
     tiinits = llvm::ConstantStruct::get(pinits);
-    LLValue* typeinfoarrayparam = new llvm::GlobalVariable(tiarrty,
-        true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array", gIR->module);
+    LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
+        true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
     llvm::AttributeWithIndex Attr;
     // specify arguments
