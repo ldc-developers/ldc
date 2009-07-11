@@ -11,11 +11,6 @@
 
 #include "mars.h"
 
-#if _WIN32
-#include <windows.h>
-#undef GetCurrentDirectory
-#endif
-
 namespace sys = llvm::sys;
 
 ConfigFile::ConfigFile()
@@ -27,17 +22,6 @@ ConfigFile::~ConfigFile()
 {
     delete cfg;
 }
-
-#if _WIN32
-sys::Path ConfigGetExePath(sys::Path p)
-{
-    char buf[MAX_PATH];
-    GetModuleFileName(NULL, buf, MAX_PATH);
-    p = buf;
-    p.eraseComponent();
-    return p;
-}
-#endif
 
 
 bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const char* filename)
@@ -89,12 +73,8 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
 #endif
 
     // 7) try next to the executable
-#if _WIN32
-    p = ConfigGetExePath(p);
-#else
     p = sys::Path::GetMainExecutable(argv0, mainAddr);
     p.eraseComponent();
-#endif
     p.appendComponent(filename);
     if (p.exists())
         return true;
@@ -138,14 +118,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         {
             std::string binpathkey = "%%ldcbinarypath%%";
 
-        #if _WIN32
-            sys::Path p;
-            p = ConfigGetExePath(p);
-            std::string binpath = p.toString();
-        #else
             std::string binpath = sys::Path::GetMainExecutable(argv0, mainAddr).getDirname();
-        #endif
-        
 
             libconfig::Setting& arr = cfg->lookup("default.switches");
             int len = arr.getLength();
