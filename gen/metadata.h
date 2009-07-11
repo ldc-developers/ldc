@@ -15,7 +15,6 @@
         return N->getElement(i);
     }
 
-#define USE_METADATA
 #define METADATA_LINKAGE_TYPE  llvm::GlobalValue::WeakODRLinkage
 
 // *** Metadata for TypeInfo instances ***

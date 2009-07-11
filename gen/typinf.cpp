@@ -303,7 +303,6 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     tid->ir.irGlobal = irg;
 
-#ifdef USE_METADATA
     // Add some metadata for use by optimization passes.
     std::string metaname = std::string(TD_PREFIX) + mangle;
     LLGlobalVariable* meta = gIR->module->getGlobalVariable(metaname);
@@ -321,7 +320,6 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
         new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
             METADATA_LINKAGE_TYPE, metadata, metaname);
     }
-#endif
 
     DtoDeclareTypeInfo(tid);
 }

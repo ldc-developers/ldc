@@ -53,7 +53,6 @@ disableSimplifyRuntimeCalls("disable-simplify-drtcalls",
     cl::desc("Disable simplification of runtime calls in -O<N>"),
     cl::ZeroOrMore);
 
-#ifdef USE_METADATA
 static cl::opt<bool>
 disableGCToStack("disable-gc2stack",
     cl::desc("Disable promotion of GC allocations to stack memory in -O<N>"),
@@ -64,7 +63,6 @@ static cl::opt<bool>
 disableStripMetaData("disable-strip-metadata",
     cl::desc("Disable default metadata stripping (not recommended)"),
     cl::ZeroOrMore);
-#endif
 
 static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
 enableInlining("inlining",
@@ -225,7 +223,6 @@ static void addPassesForOptLevel(PassManager& pm) {
 bool ldc_optimize_module(llvm::Module* m)
 {
     if (!optimize()) {
-#ifdef USE_METADATA
         if (!disableStripMetaData) {
             // This one always needs to run if metadata is generated, because
             // the code generator will assert if it's not used.
@@ -233,7 +230,6 @@ bool ldc_optimize_module(llvm::Module* m)
             stripMD->runOnModule(*m);
             delete stripMD;
         }
-#endif
         return false;
     }
 
@@ -272,13 +268,11 @@ bool ldc_optimize_module(llvm::Module* m)
     if (optimize)
         addPassesForOptLevel(pm);
 
-#ifdef USE_METADATA
     if (!disableStripMetaData) {
         // This one is purposely not disabled by disableLangSpecificPasses
         // because the code generator will assert if it's not used.
         addPass(pm, createStripMetaData());
     }
-#endif
 
     pm.run(*m);
     return true;

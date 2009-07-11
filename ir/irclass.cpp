@@ -71,9 +71,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
     classInfo = new llvm::GlobalVariable(
         *gIR->module, tc->getPA().get(), false, _linkage, NULL, initname);
 
-#ifdef USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.
-    
     ClassDeclaration* classdecl = aggrdecl->isClassDeclaration();
     if (classdecl && !aggrdecl->isInterfaceDeclaration()) {
         // Gather information
@@ -92,7 +90,6 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
             METADATA_LINKAGE_TYPE, metadata, CD_PREFIX + initname);
     }
-#endif
 
     return classInfo;
 }

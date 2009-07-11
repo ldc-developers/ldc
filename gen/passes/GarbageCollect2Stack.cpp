@@ -14,11 +14,6 @@
 
 #include "gen/metadata.h"
 
-// This pass doesn't work without metadata, so #ifdef it out entirely if the
-// LLVM version in use doesn't support it.
-#ifdef USE_METADATA
-
-
 #define DEBUG_TYPE "dgc2stack"
 
 #include "Passes.h"
@@ -647,6 +642,3 @@ bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
   // All uses examined - not captured or live across original allocation.
   return true;
 }
-
-
-#endif //USE_METADATA

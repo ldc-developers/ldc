@@ -19,11 +19,6 @@
 
 #include "gen/metadata.h"
 
-// This pass isn't needed without metadata, so #ifdef it out entirely if the
-// LLVM version in use doesn't support it.
-#ifdef USE_METADATA
-
-
 #define DEBUG_TYPE "strip-metadata"
 
 #include "Passes.h"
@@ -79,6 +74,3 @@ bool StripMetaData::runOnModule(Module &M) {
     }
     return Changed;
 }
-
-
-#endif //USE_METADATA
