@@ -15,8 +15,6 @@ llvm::FunctionPass* createGarbageCollect2Stack();
 llvm::ModulePass* createStripMetaData();
 #endif
 
-#if LLVM_REV >= 68940
 llvm::ModulePass* createStripExternalsPass();
-#endif
 
 #endif

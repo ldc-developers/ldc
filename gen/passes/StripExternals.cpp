@@ -17,9 +17,6 @@
 
 #include "gen/llvm-version.h"
 
-#if LLVM_REV >= 68940
-
-
 #define DEBUG_TYPE "strip-externals"
 
 #include "Passes.h"
@@ -96,5 +93,3 @@ bool StripExternals::runOnModule(Module &M) {
 
   return Changed;
 }
-
-#endif //LLVM_REV >= 68940

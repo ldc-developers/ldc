@@ -14,9 +14,7 @@
 #include "gen/llvm-version.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#if LLVM_REV >= 74640
 #include "llvm/LLVMContext.h"
-#endif
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
@@ -97,11 +95,7 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
 
     // create a new ir state
     // TODO look at making the instance static and moving most functionality into IrModule where it belongs
-#if LLVM_REV >= 74640
     IRState ir(new llvm::Module(mname, llvm::getGlobalContext()));
-#else
-    IRState ir(new llvm::Module(mname));
-#endif
     gIR = &ir;
     ir.dmodule = this;
 
@@ -307,15 +301,6 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     // Ask the target to add backend passes as necessary.
     MachineCodeEmitter *MCE = 0;
 
-#if LLVM_REV < 70343
-    // Last argument is bool Fast
-    // debug info doesn't work properly without fast!
-    bool LastArg = !optimize() || global.params.symdebug;
-#elif LLVM_REV < 70459
-    // Last argument is unsigned OptLevel
-    // debug info doesn't work properly with OptLevel > 0!
-    unsigned LastArg = global.params.symdebug ? 0 : optLevel();
-#else
     // Last argument is enum CodeGenOpt::Level OptLevel
     // debug info doesn't work properly with OptLevel != None!
     CodeGenOpt::Level LastArg = CodeGenOpt::Default;
@@ -323,7 +308,7 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
         LastArg = CodeGenOpt::None;
     else if (optLevel() >= 3)
         LastArg = CodeGenOpt::Aggressive;
-#endif
+
     FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, LastArg);
     assert(mod == FileModel::AsmFile);
 

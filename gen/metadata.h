@@ -3,11 +3,6 @@
 
 #include "gen/llvm-version.h"
 
-#if LLVM_REV >= 68420
-// Yay, we have metadata!
-
-// The metadata interface is still in flux...
-#if LLVM_REV >= 71407
     // MDNode was moved into its own header, and contains Value*s
     #include "llvm/MDNode.h"
     typedef llvm::Value MDNodeField;
@@ -19,19 +14,6 @@
     inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
         return N->getElement(i);
     }
-#else
-    // MDNode is in Constants.h, and contains Constant*s
-    #include "llvm/Constants.h"
-    typedef llvm::Constant MDNodeField;
-    
-    // Use getNumOperands() and getOperand() to access elements.
-    inline unsigned MD_GetNumElements(llvm::MDNode* N) {
-        return N->getNumOperands();
-    }
-    inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
-        return N->getOperand(i);
-    }
-#endif
 
 #define USE_METADATA
 #define METADATA_LINKAGE_TYPE  llvm::GlobalValue::WeakODRLinkage
@@ -42,14 +24,7 @@
 /// The fields in the metadata node for a TypeInfo instance.
 /// (Its name will be TD_PREFIX ~ <Name of TypeInfo global>)
 enum TypeDataFields {
-#if LLVM_REV < 71407
-    // TD_Confirm is disabled for older revisions due to an LLVM bug when
-    // MDNodes contain globals
-    // (see http://llvm.org/PR4180 / http://llvm.org/PR4046 )
-    TD_Confirm = -1,/// The TypeInfo this node is for.
-#else
     TD_Confirm,     /// The TypeInfo this node is for.
-#endif
     
     TD_Type,        /// A value of the LLVM type corresponding to this D type
     
@@ -71,7 +46,5 @@ enum ClassDataFields {
     // Must be kept last
     CD_NumFields    /// The number of fields in ClassInfo metadata
 };
-
-#endif
 
 #endif

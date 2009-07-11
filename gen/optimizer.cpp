@@ -212,9 +212,7 @@ static void addPassesForOptLevel(PassManager& pm) {
     }
 
     if (optimizeLevel >= 1) {
-#if LLVM_REV >= 68940
         addPass(pm, createStripExternalsPass());
-#endif
         addPass(pm, createGlobalDCEPass());
     }
 
