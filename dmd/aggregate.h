@@ -222,7 +222,7 @@ struct ClassDeclaration : AggregateDeclaration
     ClassInfoDeclaration *vclassinfo;	// the ClassInfo object for this ClassDeclaration
     int com;				// !=0 if this is a COM class (meaning
 					// it derives from IUnknown)
-    int isauto;				// !=0 if this is an auto class
+    int isscope;			// !=0 if this is a scope class
     int isabstract;			// !=0 if abstract class
 
     int isnested;			// !=0 if is nested

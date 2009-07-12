@@ -130,7 +130,7 @@ struct Declaration : Dsymbol
     int isConst()        { return storage_class & STCconst; }
     int isInvariant()    { return 0; }
     int isAuto()         { return storage_class & STCauto; }
-    int isScope()        { return storage_class & (STCscope | STCauto); }
+    int isScope()        { return storage_class & STCscope; }
     int isSynchronized() { return storage_class & STCsynchronized; }
     int isParameter()    { return storage_class & STCparameter; }
     int isDeprecated()   { return storage_class & STCdeprecated; }
@@ -254,7 +254,7 @@ struct VarDeclaration : Declaration
 {
     Initializer *init;
     unsigned offset;
-    int noauto;			// no auto semantics
+    int noscope;		// no scope semantics
     int nestedref;		// referenced by a lexically nested function
     int ctorinit;		// it has been initialized in a ctor
     int onstack;		// 1: it has been allocated on the stack
@@ -279,7 +279,7 @@ struct VarDeclaration : Declaration
     int isImportedSymbol();
     int isDataseg();
     int hasPointers();
-    Expression *callAutoDtor();
+    Expression *callScopeDtor();
     ExpInitializer *getExpInitializer();
     void checkCtorConstInit();
     void checkNestedReference(Scope *sc, Loc loc);

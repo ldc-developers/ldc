@@ -619,7 +619,7 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
 #endif
     this->loc = loc;
     offset = 0;
-    noauto = 0;
+    noscope = 0;
     nestedref = 0;
     ctorinit = 0;
     aliassym = NULL;
@@ -747,6 +747,8 @@ void VarDeclaration::semantic(Scope *sc)
 	    error("no definition of struct %s", ts->toChars());
 	}
     }
+    if ((storage_class & STCauto) && !inferred)
+	error("storage class has no effect: auto");
 
     if (tb->ty == Ttuple)
     {   /* Instead, declare variables for each of the tuple elements
@@ -862,14 +864,14 @@ void VarDeclaration::semantic(Scope *sc)
 	}
     }
 
-    if (type->isauto() && !noauto)
+    if (type->isscope() && !noscope)
     {
 	if (storage_class & (STCfield | STCout | STCref | STCstatic) || !fd)
 	{
-	    error("globals, statics, fields, ref and out parameters cannot be auto");
+	    error("globals, statics, fields, ref and out parameters cannot be scope");
 	}
 
-	if (!(storage_class & (STCauto | STCscope)))
+	if (!(storage_class & STCscope))
 	{
 	    if (!(storage_class & STCparameter) && ident != Id::withSym)
 		error("reference to scope class must be scope");
@@ -1222,15 +1224,15 @@ int VarDeclaration::isSameAsInitializer()
 }
 
 /******************************************
- * If a variable has an auto destructor call, return call for it.
+ * If a variable has an scope destructor call, return call for it.
  * Otherwise, return NULL.
  */
 
-Expression *VarDeclaration::callAutoDtor()
+Expression *VarDeclaration::callScopeDtor()
 {   Expression *e = NULL;
 
-    //printf("VarDeclaration::callAutoDtor() %s\n", toChars());
-    if (storage_class & (STCauto | STCscope) && !noauto)
+    //printf("VarDeclaration::callScopeDtor() %s\n", toChars());
+    if (storage_class & STCscope && !noscope)
     {
 	for (ClassDeclaration *cd = type->isClassHandle();
 	     cd;
@@ -1430,7 +1432,7 @@ TypeInfoTupleDeclaration::TypeInfoTupleDeclaration(Type *tinfo)
 ThisDeclaration::ThisDeclaration(Loc loc, Type *t)
    : VarDeclaration(loc, t, Id::This, NULL)
 {
-    noauto = 1;
+    noscope = 1;
 }
 
 Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *s)

@@ -184,7 +184,7 @@ void FuncDeclaration::semantic(Scope *sc)
 	error("_ctor is reserved for constructors");
 
     if (isConst() || isAuto() || isScope())
-	error("functions cannot be const or auto");
+	error("functions cannot be const, auto or scope");
 
     if (isAbstract() && !isVirtual())
 	error("non-virtual functions cannot be abstract");
@@ -960,7 +960,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 		    loc = fensure->loc;
 
 		v = new VarDeclaration(loc, type->nextOf(), outId, NULL);
-		v->noauto = 1;
+		v->noscope = 1;
 		sc2->incontract--;
 		v->semantic(sc2);
 		sc2->incontract++;
