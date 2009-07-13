@@ -14,7 +14,6 @@
 #include "gen/llvm-version.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
@@ -555,7 +554,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     // provide the default initializer
     const LLStructType* modulerefTy = DtoModuleReferenceType();
     std::vector<LLConstant*> mrefvalues;
-    mrefvalues.push_back(LLConstant::getNullValue(modulerefTy->getContainedType(0)));
+    mrefvalues.push_back(llvm::getGlobalContext().getNullValue(modulerefTy->getContainedType(0)));
     mrefvalues.push_back(llvm::ConstantExpr::getBitCast(moduleinfo, modulerefTy->getContainedType(1)));
     LLConstant* thismrefinit = LLConstantStruct::get(modulerefTy, mrefvalues);
 

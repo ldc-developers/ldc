@@ -7,7 +7,6 @@
 #include "gen/llvm-version.h"
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
-#include "llvm/LLVMContext.h"
 #include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"

@@ -60,7 +60,7 @@ void DtoSetArrayToNull(LLValue* v)
     assert(isaPointer(v));
     const LLType* t = v->getType()->getContainedType(0);
 
-    DtoStore(LLConstant::getNullValue(t), v);
+    DtoStore(llvm::getGlobalContext().getNullValue(t), v);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

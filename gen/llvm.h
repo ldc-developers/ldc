@@ -11,6 +11,7 @@
 #include "llvm/Module.h"
 #include "llvm/Value.h"
 #include "llvm/Attributes.h"
+#include "llvm/LLVMContext.h"
 
 #include "llvm/Target/TargetData.h"
 

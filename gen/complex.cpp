@@ -111,9 +111,9 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
     DtoGetComplexParts(loc, to, val, re, im);
 
     if(!re)
-        re = LLConstant::getNullValue(DtoType(baserety));
+        re = llvm::getGlobalContext().getNullValue(DtoType(baserety));
     if(!im)
-        im = LLConstant::getNullValue(DtoType(baseimty));
+        im = llvm::getGlobalContext().getNullValue(DtoType(baseimty));
 
     LLValue* res = DtoAggrPair(complexTy, re, im);
 
