@@ -26,19 +26,26 @@ ConfigFile::~ConfigFile()
 
 bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const char* filename)
 {
-    // 1) try the current working dir
+    // try the current working dir
     p = sys::Path::GetCurrentDirectory();
     p.appendComponent(filename);
     if (p.exists())
         return true;
 
-    // 2) try the user home dir
+    // try next to the executable
+    p = sys::Path::GetMainExecutable(argv0, mainAddr);
+    p.eraseComponent();
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+        
+    // try the user home dir
     p = sys::Path::GetUserHomeDirectory();
     p.appendComponent(filename);
     if (p.exists())
         return true;
         
-    // 3) try the install-prefix/etc
+    // try the install-prefix/etc
     p = sys::Path(LDC_INSTALL_PREFIX);
 #if !_WIN32
     // Does Windows need something similar?
@@ -51,7 +58,7 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
 #if !_WIN32
     // Does Windows need something similar to these?
 
-    // 4) try the install-prefix/etc/ldc
+    // try the install-prefix/etc/ldc
     p = sys::Path(LDC_INSTALL_PREFIX);
     p.appendComponent("etc");
     p.appendComponent("ldc");
@@ -59,26 +66,19 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     if (p.exists())
         return true;
 
-    // 5) try /etc (absolute path)
+    // try /etc (absolute path)
     p = sys::Path("/etc");
     p.appendComponent(filename);
     if (p.exists())
         return true;
 
-    // 6) try /etc/ldc (absolute path)
+    // try /etc/ldc (absolute path)
     p = sys::Path("/etc/ldc");
     p.appendComponent(filename);
     if (p.exists())
         return true;
 #endif
 
-    // 7) try next to the executable
-    p = sys::Path::GetMainExecutable(argv0, mainAddr);
-    p.eraseComponent();
-    p.appendComponent(filename);
-    if (p.exists())
-        return true;
-        
     return false;
 }
 
