@@ -26,37 +26,46 @@ ConfigFile::~ConfigFile()
 
 bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const char* filename)
 {
+    // temporary configuration
+
     // try the current working dir
     p = sys::Path::GetCurrentDirectory();
     p.appendComponent(filename);
     if (p.exists())
         return true;
 
-    // try next to the executable
-    p = sys::Path::GetMainExecutable(argv0, mainAddr);
-    p.eraseComponent();
-    p.appendComponent(filename);
-    if (p.exists())
-        return true;
-        
-    // try the user home dir
+    // user configuration
+
+    // try ~/.ldc
     p = sys::Path::GetUserHomeDirectory();
-    p.appendComponent(filename);
-    if (p.exists())
-        return true;
-        
-    // try the install-prefix/etc
-    p = sys::Path(LDC_INSTALL_PREFIX);
-#if !_WIN32
-    // Does Windows need something similar?
-    p.appendComponent("etc");
-#endif
+    p.appendComponent(".ldc");
     p.appendComponent(filename);
     if (p.exists())
         return true;
 
-#if !_WIN32
-    // Does Windows need something similar to these?
+#if _WIN32
+    // try home dir
+    p = sys::Path::GetUserHomeDirectory();
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+#endif
+
+    // system configuration
+
+#if _WIN32
+    // try the install-prefix
+    p = sys::Path(LDC_INSTALL_PREFIX);
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+#else
+    // try the install-prefix/etc
+    p = sys::Path(LDC_INSTALL_PREFIX);
+    p.appendComponent("etc");
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
 
     // try the install-prefix/etc/ldc
     p = sys::Path(LDC_INSTALL_PREFIX);
@@ -79,6 +88,13 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
         return true;
 #endif
 
+    // try next to the executable
+    p = sys::Path::GetMainExecutable(argv0, mainAddr);
+    p.eraseComponent();
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+        
     return false;
 }
 
