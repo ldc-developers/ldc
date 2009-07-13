@@ -114,7 +114,7 @@ void ReturnStatement::toIR(IRState* p)
                 // and return 0 instead
                 // if we're not in main, just bitcast
                 if (p->topfunc() == p->mainFunc)
-                    v = llvm::getGlobalContext().getNullValue(p->mainFunc->getReturnType());
+                    v = gIR->context().getNullValue(p->mainFunc->getReturnType());
                 else
                     v = gIR->ir->CreateBitCast(v, p->topfunc()->getReturnType(), "tmp");
 
@@ -1380,7 +1380,7 @@ void WithStatement::toIR(IRState* p)
 static LLConstant* generate_unique_critical_section()
 {
     const LLType* Mty = DtoMutexType();
-    return new llvm::GlobalVariable(*gIR->module, Mty, false, llvm::GlobalValue::InternalLinkage, llvm::getGlobalContext().getNullValue(Mty), ".uniqueCS");
+    return new llvm::GlobalVariable(*gIR->module, Mty, false, llvm::GlobalValue::InternalLinkage, gIR->context().getNullValue(Mty), ".uniqueCS");
 }
 
 void SynchronizedStatement::toIR(IRState* p)

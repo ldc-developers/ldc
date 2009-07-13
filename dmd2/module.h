@@ -31,7 +31,10 @@ struct Library;
 class Ir;
 struct DValue;
 typedef DValue elem;
-namespace llvm { class Module; }
+namespace llvm {
+    class LLVMContext;
+    class Module;
+}
 #else
 
 #ifdef IN_GCC
@@ -185,7 +188,7 @@ struct Module : Package
 
 #if IN_LLVM
     // LDC
-    llvm::Module* genLLVMModule(Ir* sir);
+    llvm::Module* genLLVMModule(llvm::LLVMContext& context, Ir* sir);
     void buildTargetFiles();
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
     Module *isModule() { return this; }

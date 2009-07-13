@@ -150,7 +150,7 @@ static const LLType* rt_dg2()
 static void LLVM_D_BuildRuntimeModule()
 {
     Logger::println("building module");
-    M = new llvm::Module("ldc internal runtime", llvm::getGlobalContext());
+    M = new llvm::Module("ldc internal runtime", gIR->context());
 
     Logger::println("building basic types");
     const LLType* voidTy = LLType::VoidTy;

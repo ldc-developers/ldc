@@ -19,7 +19,7 @@
 
 using namespace llvm::dwarf;
 
-#define DBG_NULL    ( llvm::getGlobalContext().getNullValue(DBG_TYPE) )
+#define DBG_NULL    ( gIR->context().getNullValue(DBG_TYPE) )
 #define DBG_TYPE    ( getPtrToType(llvm::StructType::get(NULL,NULL)) )
 #define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
 
@@ -297,7 +297,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         std::vector<LLConstant*> initvals(11);
         initvals[0] = DBG_TAG(DW_TAG_structure_type);
         for (int i = 1; i < initvals.size(); ++i)
-            initvals[i] = llvm::getGlobalContext().getNullValue(getDwarfCompositeTypeType()->getContainedType(i));
+            initvals[i] = gIR->context().getNullValue(getDwarfCompositeTypeType()->getContainedType(i));
         gv->setInitializer(LLConstantStruct::get(getDwarfCompositeTypeType(), initvals));
         ir->diCompositeType = llvm::DICompositeType(gv);
 

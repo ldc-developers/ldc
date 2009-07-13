@@ -464,13 +464,13 @@ DValue* DtoNullValue(Type* type)
     if (basetype->iscomplex())
     {
         const LLType* basefp = DtoComplexBaseType(basetype);
-        LLValue* res = DtoAggrPair(DtoType(type), llvm::getGlobalContext().getNullValue(basefp), llvm::getGlobalContext().getNullValue(basefp));
+        LLValue* res = DtoAggrPair(DtoType(type), gIR->context().getNullValue(basefp), gIR->context().getNullValue(basefp));
         return new DImValue(type, res);
     }
     // integer, floating, pointer and class have no special representation
     else if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer || basety == Tclass)
     {
-        return new DConstValue(type, llvm::getGlobalContext().getNullValue(lltype));
+        return new DConstValue(type, gIR->context().getNullValue(lltype));
     }
     // dynamic array
     else if (basety == Tarray)
@@ -482,7 +482,7 @@ DValue* DtoNullValue(Type* type)
     // delegate
     else if (basety == Tdelegate)
     {
-        return new DNullValue(type, llvm::getGlobalContext().getNullValue(lltype));
+        return new DNullValue(type, gIR->context().getNullValue(lltype));
     }
 
     // unknown
@@ -577,7 +577,7 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
     }
     else if (totype->ty == Tbool) {
         LLValue* src = val->getRVal();
-        LLValue* zero = llvm::getGlobalContext().getNullValue(src->getType());
+        LLValue* zero = gIR->context().getNullValue(src->getType());
         rval = gIR->ir->CreateICmpNE(src, zero, "tmp");
     }
     else if (totype->isintegral()) {
@@ -609,7 +609,7 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
 
     if (totype->ty == Tbool) {
         rval = val->getRVal();
-        LLValue* zero = llvm::getGlobalContext().getNullValue(rval->getType());
+        LLValue* zero = gIR->context().getNullValue(rval->getType());
         rval = gIR->ir->CreateFCmpUNE(rval, zero, "tmp");
     }
     else if (totype->iscomplex()) {
@@ -1124,7 +1124,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     {
         Logger::println("const void initializer");
         const LLType* ty = DtoType(type);
-        _init = llvm::getGlobalContext().getNullValue(ty);
+        _init = gIR->context().getNullValue(ty);
     }
     else {
         Logger::println("unsupported const initializer: %s", init->toChars());

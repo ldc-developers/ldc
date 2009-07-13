@@ -16,6 +16,7 @@
 #include "llvm/Support/CallSite.h"
 
 namespace llvm {
+    class LLVMContext;
     class TargetMachine;
 }
 
@@ -107,6 +108,9 @@ struct IRState
     const LLStructType* interfaceInfoType;
     const LLStructType* mutexType;
     const LLStructType* moduleRefType;
+
+    // helper to get the LLVMContext of the module
+    llvm::LLVMContext& context() const { return module->getContext(); }
 
     // functions
     typedef std::vector<IrFunction*> FunctionVector;

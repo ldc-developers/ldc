@@ -162,22 +162,22 @@ size_t add_zeros(std::vector<llvm::Value*>& values, size_t diff)
     {
         if (is64 && diff % 8 == 0)
         {
-            values.push_back(llvm::getGlobalContext().getNullValue(llvm::Type::Int64Ty));
+            values.push_back(gIR->context().getNullValue(llvm::Type::Int64Ty));
             diff -= 8;
         }
         else if (diff % 4 == 0)
         {
-            values.push_back(llvm::getGlobalContext().getNullValue(llvm::Type::Int32Ty));
+            values.push_back(gIR->context().getNullValue(llvm::Type::Int32Ty));
             diff -= 4;
         }
         else if (diff % 2 == 0)
         {
-            values.push_back(llvm::getGlobalContext().getNullValue(llvm::Type::Int16Ty));
+            values.push_back(gIR->context().getNullValue(llvm::Type::Int16Ty));
             diff -= 2;
         }
         else
         {
-            values.push_back(llvm::getGlobalContext().getNullValue(llvm::Type::Int8Ty));
+            values.push_back(gIR->context().getNullValue(llvm::Type::Int8Ty));
             diff -= 1;
         }
     }

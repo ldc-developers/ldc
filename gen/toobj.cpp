@@ -71,7 +71,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Module* Module::genLLVMModule(Ir* sir)
+llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
 {
     bool logenabled = Logger::enabled();
     if (llvmForceLogging && !logenabled)
@@ -94,7 +94,7 @@ llvm::Module* Module::genLLVMModule(Ir* sir)
 
     // create a new ir state
     // TODO look at making the instance static and moving most functionality into IrModule where it belongs
-    IRState ir(new llvm::Module(mname, llvm::getGlobalContext()));
+    IRState ir(new llvm::Module(mname, context));
     gIR = &ir;
     ir.dmodule = this;
 
@@ -554,7 +554,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     // provide the default initializer
     const LLStructType* modulerefTy = DtoModuleReferenceType();
     std::vector<LLConstant*> mrefvalues;
-    mrefvalues.push_back(llvm::getGlobalContext().getNullValue(modulerefTy->getContainedType(0)));
+    mrefvalues.push_back(gIR->context().getNullValue(modulerefTy->getContainedType(0)));
     mrefvalues.push_back(llvm::ConstantExpr::getBitCast(moduleinfo, modulerefTy->getContainedType(1)));
     LLConstant* thismrefinit = LLConstantStruct::get(modulerefTy, mrefvalues);
 

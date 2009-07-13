@@ -341,7 +341,7 @@ LLConstant* NullExp::toConstElem(IRState* p)
         return llvm::ConstantAggregateZero::get(t);
     }
     else {
-        return llvm::getGlobalContext().getNullValue(t);
+        return gIR->context().getNullValue(t);
     }
     assert(0);
     return NULL;
@@ -1656,7 +1656,7 @@ DValue* DeleteExp::toElem(IRState* p)
         LLValue* rval = dval->getRVal();
         DtoDeleteMemory(rval);
         if (dval->isVar())
-            DtoStore(llvm::getGlobalContext().getNullValue(rval->getType()), dval->getLVal());
+            DtoStore(gIR->context().getNullValue(rval->getType()), dval->getLVal());
     }
     // class
     else if (et->ty == Tclass)
@@ -1680,7 +1680,7 @@ DValue* DeleteExp::toElem(IRState* p)
         }
         if (dval->isVar()) {
             LLValue* lval = dval->getLVal();
-            DtoStore(llvm::getGlobalContext().getNullValue(lval->getType()->getContainedType(0)), lval);
+            DtoStore(gIR->context().getNullValue(lval->getType()->getContainedType(0)), lval);
         }
     }
     // dyn array
@@ -2547,7 +2547,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     // it should be possible to avoid the temporary in some cases
     LLValue* tmp = DtoAlloca(type,"aaliteral");
     DValue* aa = new DVarValue(type, tmp);
-    DtoStore(llvm::getGlobalContext().getNullValue(DtoType(type)), tmp);
+    DtoStore(gIR->context().getNullValue(DtoType(type)), tmp);
 
     const size_t n = keys->dim;
     for (size_t i=0; i<n; ++i)

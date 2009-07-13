@@ -355,7 +355,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
 }
 
 bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA) {
-    IRBuilder<> Builder(llvm::getGlobalContext());
+    IRBuilder<> Builder(*Context);
     
     bool Changed = false;
     for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {

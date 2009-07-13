@@ -213,7 +213,7 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
     llvm::Value *b1, *b2;
     if (rhs == NULL)
     {
-        rhs = llvm::getGlobalContext().getNullValue(lhs->getType());
+        rhs = gIR->context().getNullValue(lhs->getType());
     }
 
     LLValue* l = gIR->ir->CreateExtractValue(lhs, 0);
@@ -741,7 +741,7 @@ llvm::ConstantPointerNull* getNullPtr(const LLType* t)
 
 LLConstant* getNullValue(const LLType* t)
 {
-    return llvm::getGlobalContext().getNullValue(t);
+    return gIR->context().getNullValue(t);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

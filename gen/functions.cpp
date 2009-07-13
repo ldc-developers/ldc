@@ -811,7 +811,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             }
         }
         else
-            llvm::ReturnInst::Create(llvm::getGlobalContext().getNullValue(func->getReturnType()), bb);
+            llvm::ReturnInst::Create(gIR->context().getNullValue(func->getReturnType()), bb);
     }
 
 //     std::cout << *func << std::endl;

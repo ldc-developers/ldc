@@ -7,6 +7,7 @@
 #include "gen/llvm-version.h"
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
@@ -401,7 +402,8 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
-    llvm::Module mod("dummy", llvm::getGlobalContext());
+    llvm::LLVMContext context;
+    llvm::Module mod("dummy", context);
 
     // override triple if needed
     const char* defaultTriple = DEFAULT_TARGET_TRIPLE;
@@ -888,7 +890,7 @@ LDC_TARGETS
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
         {
-            llvm::Module* lm = m->genLLVMModule(&ir);
+            llvm::Module* lm = m->genLLVMModule(context, &ir);
             if (!singleObj)
             {
                 m->deleteObjFile();
@@ -915,7 +917,7 @@ LDC_TARGETS
         char* name = m->toChars();
         char* filename = m->objfile->name->str;
         
-        llvm::Linker linker(name, name, llvm::getGlobalContext());
+        llvm::Linker linker(name, name, context);
 
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)

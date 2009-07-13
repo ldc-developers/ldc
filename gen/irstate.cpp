@@ -22,7 +22,7 @@ TargetABI* gABI = 0;
 
 //////////////////////////////////////////////////////////////////////////////////////////
 IRScope::IRScope()
-    : builder(llvm::getGlobalContext())
+    : builder(gIR->context())
 {
     begin = end = NULL;
 }
