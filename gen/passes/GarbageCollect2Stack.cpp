@@ -85,6 +85,7 @@ static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
 namespace {
     class FunctionInfo {
     protected:
+        LLVMContext* Context;
         const Type* Ty;
         
     public:
@@ -108,8 +109,8 @@ namespace {
             return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
         
-        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete)
-        : TypeInfoArgNr(typeInfoArgNr), SafeToDelete(safeToDelete) {}
+        FunctionInfo(LLVMContext* context, unsigned typeInfoArgNr, bool safeToDelete)
+        : Context(context), TypeInfoArgNr(typeInfoArgNr), SafeToDelete(safeToDelete) {}
     };
     
     class ArrayFI : public FunctionInfo {
@@ -118,9 +119,9 @@ namespace {
         bool Initialized;
         
     public:
-        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool initialized,
-                unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, safeToDelete),
+        ArrayFI(LLVMContext* context, unsigned tiArgNr, bool safeToDelete,
+                bool initialized, unsigned arrSizeArgNr)
+        : FunctionInfo(context, tiArgNr, safeToDelete),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
@@ -222,7 +223,7 @@ namespace {
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
             
-            if (ConstantExpr::getOr(hasDestructor, hasCustomDelete)
+            if (Context->getConstantExprOr(hasDestructor, hasCustomDelete)
                     != ConstantInt::getFalse())
                 return false;
             
@@ -232,7 +233,7 @@ namespace {
         
         // The default promote() should be fine.
         
-        AllocClassFI() : FunctionInfo(~0u, true) {}
+        AllocClassFI(LLVMContext* context) : FunctionInfo(context, ~0u, true) {}
     };
 }
 
@@ -285,9 +286,10 @@ FunctionPass *createGarbageCollect2Stack() {
 
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(&ID),
-  AllocMemoryT(0, true),
-  NewArrayVT(0, true, false, 1),
-  NewArrayT(0, true, true, 1)
+  AllocMemoryT(Context, 0, true),
+  NewArrayVT(Context, 0, true, false, 1),
+  NewArrayT(Context, 0, true, true, 1),
+  AllocClass(Context)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;

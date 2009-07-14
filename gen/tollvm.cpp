@@ -557,7 +557,7 @@ LLConstant* DtoConstFP(Type* t, long double value)
     assert(llty->isFloatingPoint());
 
     if(llty == LLType::FloatTy || llty == LLType::DoubleTy)
-        return LLConstantFP::get(llty, value);
+        return gIR->context().getConstantFP(llty, value);
     else if(llty == LLType::X86_FP80Ty) {
         uint64_t bits[] = {0, 0};
         bits[0] = *(uint64_t*)&value;

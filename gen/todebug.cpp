@@ -23,7 +23,7 @@ using namespace llvm::dwarf;
 #define DBG_TYPE    ( getPtrToType(llvm::StructType::get(NULL,NULL)) )
 #define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
 
-#define DBG_TAG(X)  ( llvm::ConstantExpr::getAdd( DtoConstUint( X ), DtoConstUint( llvm::LLVMDebugVersion ) ) )
+#define DBG_TAG(X)  ( gIR->context().getConstantExprAdd( DtoConstUint( X ), DtoConstUint( llvm::LLVMDebugVersion ) ) )
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
