@@ -21,6 +21,7 @@
 #include "llvm/System/Program.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include "mars.h"
@@ -308,7 +309,8 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     else if (optLevel() >= 3)
         LastArg = CodeGenOpt::Aggressive;
 
-    FileModel::Model mod = Target.addPassesToEmitFile(Passes, out, TargetMachine::AssemblyFile, LastArg);
+    llvm::formatted_raw_ostream fout(out);
+    FileModel::Model mod = Target.addPassesToEmitFile(Passes, fout, TargetMachine::AssemblyFile, LastArg);
     assert(mod == FileModel::AsmFile);
 
     bool err = Target.addPassesToEmitFileFinish(Passes, MCE, LastArg);
@@ -322,6 +324,8 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
             Passes.run(*I);
 
     Passes.doFinalization();
+    
+    fout.flush();
 
     // release module from module provider so we can delete it ourselves
     std::string Err;
