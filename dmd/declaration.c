@@ -748,7 +748,7 @@ void VarDeclaration::semantic(Scope *sc)
 	}
     }
     if ((storage_class & STCauto) && !inferred)
-	error("storage class has no effect: auto");
+	error("both auto and explicit type given");
 
     if (tb->ty == Ttuple)
     {   /* Instead, declare variables for each of the tuple elements
