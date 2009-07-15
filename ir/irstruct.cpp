@@ -195,7 +195,7 @@ LLConstant * IrStruct::createStructDefaultInitializer()
     }
 
     // build constant struct
-    llvm::Constant* definit = llvm::ConstantStruct::get(constants, packed);
+    llvm::Constant* definit = gIR->context().getConstantStruct(constants, packed);
 #if 0
     IF_LOG Logger::cout() << "final default initializer: " << *definit << std::endl;
 #endif
@@ -384,7 +384,7 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
 
     // build constant
     assert(!constants.empty());
-    llvm::Constant* c = llvm::ConstantStruct::get(&constants[0], constants.size(), packed);
+    llvm::Constant* c = gIR->context().getConstantStruct(&constants[0], constants.size(), packed);
     IF_LOG Logger::cout() << "final struct initializer: " << *c << std::endl;
     return c;
 }

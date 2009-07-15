@@ -133,7 +133,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     }
     // if there's a finally, the eh table has to have a 0 action
     if(hasFinally)
-        selectorargs.push_back(llvm::ConstantInt::get(LLType::Int32Ty, 0));
+        selectorargs.push_back(gIR->context().getConstantInt(LLType::Int32Ty, 0));
 
     // personality fn
     llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
@@ -186,7 +186,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             }
             // dubious comment
             // catches matched first get the largest switchval, so do size - unique int
-            llvm::ConstantInt* switchval = llvm::ConstantInt::get(DtoSize_t(), catchToInt[rit->catchType]);
+            llvm::ConstantInt* switchval = gIR->context().getConstantInt(DtoSize_t(), catchToInt[rit->catchType]);
             // and make sure we don't add the same switchval twice, may happen with nested trys
             if(!switchinst->findCaseValue(switchval))
                 switchinst->addCase(switchval, rit->target);

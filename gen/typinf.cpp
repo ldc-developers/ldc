@@ -315,7 +315,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
             mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
         mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
         // Construct the metadata
-        llvm::MDNode* metadata = llvm::MDNode::get(mdVals, TD_NumFields);
+        llvm::MDNode* metadata = gIR->context().getMDNode(mdVals, TD_NumFields);
         // Insert it into the module
         new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
             METADATA_LINKAGE_TYPE, metadata, metaname);
@@ -434,9 +434,9 @@ void TypeInfoEnumDeclaration::llvmDefine()
     {
         const LLType* memty = DtoType(sd->memtype);
 #if DMDV2
-        LLConstant* C = llvm::ConstantInt::get(memty, sd->defaultval->toInteger(), !sd->memtype->isunsigned());
+        LLConstant* C = gIR->context().getConstantInt(memty, sd->defaultval->toInteger(), !sd->memtype->isunsigned());
 #else
-        LLConstant* C = llvm::ConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
+        LLConstant* C = gIR->context().getConstantInt(memty, sd->defaultval, !sd->memtype->isunsigned());
 #endif
         b.push_void_array(C, sd->memtype, sd);
     }

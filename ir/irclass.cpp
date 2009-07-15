@@ -82,10 +82,10 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         // Construct the fields
         MDNodeField* mdVals[CD_NumFields];
         mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
-        mdVals[CD_Finalize] = LLConstantInt::get(LLType::Int1Ty, hasDestructor);
-        mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::Int1Ty, hasCustomDelete);
+        mdVals[CD_Finalize] = gIR->context().getConstantInt(LLType::Int1Ty, hasDestructor);
+        mdVals[CD_CustomDelete] = gIR->context().getConstantInt(LLType::Int1Ty, hasCustomDelete);
         // Construct the metadata
-        llvm::MDNode* metadata = llvm::MDNode::get(mdVals, CD_NumFields);
+        llvm::MDNode* metadata = gIR->context().getMDNode(mdVals, CD_NumFields);
         // Insert it into the module
         new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
             METADATA_LINKAGE_TYPE, metadata, CD_PREFIX + initname);
@@ -170,7 +170,7 @@ LLConstant * IrStruct::getVtblInit()
     }
 
     // build the constant struct
-    constVtbl = llvm::ConstantStruct::get(constants, false);
+    constVtbl = gIR->context().getConstantStruct(constants, false);
 
 #if 0
    IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
@@ -314,7 +314,7 @@ LLConstant * IrStruct::createClassDefaultInitializer()
     addBaseClassInits(constants, cd, offset, field_index);
 
     // build the constant
-    llvm::Constant* definit = llvm::ConstantStruct::get(constants, false);
+    llvm::Constant* definit = gIR->context().getConstantStruct(constants, false);
 
     return definit;
 }
@@ -382,7 +382,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     }
 
     // build the vtbl constant
-    llvm::Constant* vtbl_constant = llvm::ConstantStruct::get(constants, false);
+    llvm::Constant* vtbl_constant = gIR->context().getConstantStruct(constants, false);
 
     // create the global variable to hold it
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
@@ -481,7 +481,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         // create Interface struct
         LLConstant* inits[3] = { ci, vtb, off };
-        LLConstant* entry = llvm::ConstantStruct::get(inits, 3);
+        LLConstant* entry = gIR->context().getConstantStruct(inits, 3);
         constants.push_back(entry);
     }
 
@@ -490,7 +490,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
         constants[0]->getType(),
         n);
 
-    LLConstant* arr = llvm::ConstantArray::get(
+    LLConstant* arr = gIR->context().getConstantArray(
         array_type,
         &constants[0],
         n);

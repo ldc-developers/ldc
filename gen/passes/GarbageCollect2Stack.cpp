@@ -57,24 +57,24 @@ namespace {
 // Helper functions
 //===----------------------------------------------------------------------===//
 
-void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
-                const Analysis& A) {
+void EmitMemSet(LLVMContext& Context, IRBuilder<>& B, Value* Dst, Value* Val,
+                Value* Len, const Analysis& A) {
     Dst = B.CreateBitCast(Dst, PointerType::getUnqual(Type::Int8Ty));
     
     Module *M = B.GetInsertBlock()->getParent()->getParent();
     const Type* Tys[1];
     Tys[0] = Len->getType();
     Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
-    Value *Align = ConstantInt::get(Type::Int32Ty, 1);
+    Value *Align = Context.getConstantInt(Type::Int32Ty, 1);
     
     CallSite CS = B.CreateCall4(MemSet, Dst, Val, Len, Align);
     if (A.CGNode)
         A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(MemSet));
 }
 
-static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
-                        const Analysis& A) {
-    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len, A);
+static void EmitMemZero(LLVMContext& Context, IRBuilder<>& B, Value* Dst,
+                        Value* Len, const Analysis& A) {
+    EmitMemSet(Context, B, Dst, Context.getConstantInt(Type::Int8Ty, 0), Len, A);
 }
 
 
@@ -178,11 +178,11 @@ namespace {
             if (Initialized) {
                 // For now, only zero-init is supported.
                 uint64_t size = A.TD.getTypeStoreSize(Ty);
-                Value* TypeSize = ConstantInt::get(arrSize->getType(), size);
+                Value* TypeSize = Context->getConstantInt(arrSize->getType(), size);
                 // Use the original B to put initialization at the
                 // allocation site.
                 Value* Size = B.CreateMul(TypeSize, arrSize);
-                EmitMemZero(B, alloca, Size, A);
+                EmitMemZero(*Context, B, alloca, Size, A);
             }
             
             return alloca;

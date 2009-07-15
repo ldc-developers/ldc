@@ -142,7 +142,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
 void RTTIBuilder::finalize(IrGlobal* tid)
 {
     // create the inititalizer
-    LLConstant* tiInit = llvm::ConstantStruct::get(&inits[0], inits.size(), false);
+    LLConstant* tiInit = gIR->context().getConstantStruct(&inits[0], inits.size(), false);
 
     // refine global type
     llvm::cast<llvm::OpaqueType>(tid->type.get())->refineAbstractTypeTo(tiInit->getType());
@@ -154,5 +154,5 @@ void RTTIBuilder::finalize(IrGlobal* tid)
 LLConstant* RTTIBuilder::get_constant()
 {
     // just return the inititalizer
-    return llvm::ConstantStruct::get(&inits[0], inits.size(), false);
+    return gIR->context().getConstantStruct(&inits[0], inits.size(), false);
 }

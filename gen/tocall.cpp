@@ -207,7 +207,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     pinits.push_back(DtoConstSize_t(vtype->getNumElements()));
     pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
     const LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
-    tiinits = llvm::ConstantStruct::get(pinits);
+    tiinits = gIR->context().getConstantStruct(pinits);
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 

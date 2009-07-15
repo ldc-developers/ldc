@@ -46,6 +46,7 @@ namespace {
         bool* Changed;
         const TargetData *TD;
         AliasAnalysis *AA;
+        LLVMContext *Context;
         
         /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
         Value *CastToCStr(Value *V, IRBuilder<> &B);
@@ -71,6 +72,8 @@ namespace {
             this->Changed = &Changed;
             this->TD = &TD;
             this->AA = &AA;
+            if (CI->getCalledFunction())
+              Context = CI->getCalledFunction()->getContext();
             return CallOptimizer(CI->getCalledFunction(), CI, B);
         }
     };
@@ -91,7 +94,7 @@ Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
   Tys[0] = Len->getType();
   Value *MemCpy = Intrinsic::getDeclaration(M, IID, Tys, 1);
   return B.CreateCall4(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
-                       ConstantInt::get(Type::Int32Ty, Align));
+                       Context->getConstantInt(Type::Int32Ty, Align));
 }
 
 //===----------------------------------------------------------------------===//
@@ -177,7 +180,7 @@ struct VISIBILITY_HIDDEN ArrayCastLenOpt : public LibCallOptimization {
                 APInt Quot, Rem;
                 APInt::udivrem(OldInt->getValue(), NewInt->getValue(), Quot, Rem);
                 if (Rem == 0)
-                    return B.CreateMul(OldLen, ConstantInt::get(Quot));
+                    return B.CreateMul(OldLen, Context->getConstantInt(Quot));
             }
         return 0;
     }
@@ -198,7 +201,7 @@ struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
                 Constant* C = 0;
                 if ((C = dyn_cast<Constant>(Cmp->getOperand(0)))
                     || (C = dyn_cast<Constant>(Cmp->getOperand(1)))) {
-                    Value* Result = ConstantInt::get(Type::Int1Ty, !Cmp->isTrueWhenEqual());
+                    Value* Result = Context->getConstantInt(Type::Int1Ty, !Cmp->isTrueWhenEqual());
                     Cmp->replaceAllUsesWith(Result);
                     // Don't delete the comparison because there may be an
                     // iterator to it. Instead, set the operands to constants

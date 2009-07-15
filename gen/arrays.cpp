@@ -309,7 +309,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* constarr;
     if (mismatch)
-        constarr = LLConstantStruct::get(initvals);
+        constarr = gIR->context().getConstantStruct(initvals);
     else
         constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
 
@@ -394,7 +394,7 @@ void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 {
     LLConstant* values[2] = { dim, ptr };
-    return llvm::ConstantStruct::get(values, 2);
+    return gIR->context().getConstantStruct(values, 2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -826,8 +826,8 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
 
     LLSmallVector<LLValue*, 3> args;
     args.push_back(len);
-    args.push_back(llvm::ConstantInt::get(DtoSize_t(), esz, false));
-    args.push_back(llvm::ConstantInt::get(DtoSize_t(), nsz, false));
+    args.push_back(gIR->context().getConstantInt(DtoSize_t(), esz, false));
+    args.push_back(gIR->context().getConstantInt(DtoSize_t(), nsz, false));
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
     return gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), "tmp").getInstruction();
@@ -962,7 +962,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 fatal();
             }
 
-            rval2 = llvm::ConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+            rval2 = gIR->context().getConstantInt(DtoSize_t(), arrty->getNumElements(), false);
             if (fromtype->nextOf()->size() != totype->nextOf()->size())
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
             rval = DtoBitCast(uval, ptrty);
