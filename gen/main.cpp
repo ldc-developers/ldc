@@ -432,21 +432,26 @@ int main(int argc, char** argv)
     // Allocate target machine.
     
     // first initialize llvm
-#define LLVM_TARGET(A) LLVMInitialize##A##Target(); LLVMInitialize##A##AsmPrinter();
+#define LLVM_TARGET(A) LLVMInitialize##A##TargetInfo(); LLVMInitialize##A##Target(); LLVMInitialize##A##AsmPrinter();
 // this is defined to be LLVM_TARGET(target name 1) LLVM_TARGET(target name 2) ...
 LDC_TARGETS
 #undef LLVM_TARGET
 
+    const llvm::Target *theTarget;
     // Check whether the user has explicitly specified an architecture to compile for.
     if (mArch == 0)
     {
         std::string Err;
-        mArch = llvm::TargetMachineRegistry::getClosestStaticTargetForModule(mod, Err);
-        if (mArch == 0)
+        theTarget = llvm::TargetRegistry::getClosestStaticTargetForModule(mod, Err);
+        if (theTarget == 0)
         {
             error("failed to auto-select target: %s, please use the -march option", Err.c_str());
             fatal();
         }
+    }
+    else
+    {
+        theTarget = &mArch->TheTarget;
     }
 
     // Package up features to be passed to target/subtarget
@@ -460,7 +465,7 @@ LDC_TARGETS
         FeaturesStr = Features.getString();
     }
 
-    std::auto_ptr<llvm::TargetMachine> target(mArch->CtorFn(mod, FeaturesStr));
+    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod, FeaturesStr));
     assert(target.get() && "Could not allocate target machine!");
     gTargetMachine = target.get();
     gTargetData = gTargetMachine->getTargetData();
@@ -469,7 +474,7 @@ LDC_TARGETS
     std::string datalayout = gTargetData->getStringRepresentation();
     global.params.dataLayout = datalayout.c_str();
 
-    global.params.llvmArch = mArch->Name;
+    global.params.llvmArch = theTarget->getName();
 
     if (strcmp(global.params.llvmArch,"x86")==0) {
         VersionCondition::addPredefinedGlobalIdent("X86");
