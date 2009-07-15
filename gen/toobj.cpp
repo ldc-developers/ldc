@@ -261,7 +261,7 @@ void writeModule(llvm::Module* m, std::string filename)
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(spath.c_str(), false, err);
+            llvm::raw_fd_ostream out(spath.c_str(), false, true, err);
             if (err.empty())
             {
                 write_asm_to_file(*gTargetMachine, *m, out);
