@@ -205,8 +205,7 @@ cl::opt<std::string> moduleDepsFile("deps",
     cl::value_desc("filename"));
     
 
-cl::opt<const llvm::TargetMachineRegistry::entry*, false,
-        llvm::RegistryParser<llvm::TargetMachine> > mArch("march",
+cl::opt<std::string> mArch("march",
     cl::desc("Architecture to generate code for:"));
 
 cl::opt<bool> m32bits("m32",

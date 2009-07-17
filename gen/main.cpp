@@ -12,7 +12,7 @@
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetSelect.h"
 
 #include <stdio.h>
@@ -397,7 +397,7 @@ int main(int argc, char** argv)
     // check -m32/64 sanity
     if (m32bits && m64bits)
         error("cannot use both -m32 and -m64 options");
-    else if ((m32bits || m64bits) && (mArch != 0 || !mTargetTriple.empty()))
+    else if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
         error("-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
     if (global.errors)
         fatal();
@@ -415,7 +415,7 @@ int main(int argc, char** argv)
     // did the user override the target triple?
     if (mTargetTriple.empty())
     {
-        if (mArch != 0)
+        if (!mArch.empty())
         {
             error("you must specify a target triple as well with -mtriple when using the -march option");
             fatal();
@@ -437,9 +437,9 @@ int main(int argc, char** argv)
 LDC_TARGETS
 #undef LLVM_TARGET
 
-    const llvm::Target *theTarget;
+    const llvm::Target *theTarget = NULL;
     // Check whether the user has explicitly specified an architecture to compile for.
-    if (mArch == 0)
+    if (mArch.empty())
     {
         std::string Err;
         theTarget = llvm::TargetRegistry::getClosestStaticTargetForModule(mod, Err);
@@ -451,7 +451,21 @@ LDC_TARGETS
     }
     else
     {
-        theTarget = &mArch->TheTarget;
+        for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
+             ie = llvm::TargetRegistry::end(); it != ie; ++it)
+        {
+            if (mArch == it->getName())
+            {
+                theTarget = &*it;
+                break;
+            }
+        }
+
+        if (!theTarget)
+        {
+            error("invalid target '%s'", mArch.c_str());
+            fatal();
+        }
     }
 
     // Package up features to be passed to target/subtarget

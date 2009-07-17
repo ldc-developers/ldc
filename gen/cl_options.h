@@ -6,8 +6,6 @@
 #include <deque>
 #include <vector>
 
-#include "llvm/Support/RegistryParser.h"
-#include "llvm/Target/TargetMachineRegistry.h"
 #include "llvm/Support/CommandLine.h"
 
 namespace opts {
@@ -37,8 +35,7 @@ namespace opts {
     extern cl::list<std::string> versions;
     extern cl::opt<std::string> moduleDepsFile;
 
-    extern cl::opt<const llvm::TargetMachineRegistry::entry*, false,
-                    llvm::RegistryParser<llvm::TargetMachine> > mArch;
+    extern cl::opt<std::string> mArch;
     extern cl::opt<bool> m32bits;
     extern cl::opt<bool> m64bits;
     extern cl::opt<std::string> mCPU;
