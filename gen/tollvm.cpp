@@ -20,7 +20,6 @@
 #include "gen/complex.h"
 #include "gen/llvmhelpers.h"
 #include "gen/linkage.h"
-#include "gen/llvm-version.h"
 
 #include "ir/irtype.h"
 #include "ir/irtypeclass.h"

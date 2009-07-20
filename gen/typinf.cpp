@@ -42,7 +42,6 @@
 #include "gen/linkage.h"
 #include "gen/metadata.h"
 #include "gen/rttibuilder.h"
-#include "gen/llvm-version.h"
 
 #include "ir/irvar.h"
 #include "ir/irtype.h"

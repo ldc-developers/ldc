@@ -1,19 +1,18 @@
 #ifndef LDC_GEN_METADATA_H
 #define LDC_GEN_METADATA_H
 
-#include "gen/llvm-version.h"
+// MDNode was moved into its own header, and contains Value*s
+#include "llvm/MDNode.h"
+typedef llvm::Value MDNodeField;
 
-    // MDNode was moved into its own header, and contains Value*s
-    #include "llvm/MDNode.h"
-    typedef llvm::Value MDNodeField;
-    
-    // Use getNumElements() and getElement() to access elements.
-    inline unsigned MD_GetNumElements(llvm::MDNode* N) {
-        return N->getNumElements();
-    }
-    inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
-        return N->getElement(i);
-    }
+// Use getNumElements() and getElement() to access elements.
+inline unsigned MD_GetNumElements(llvm::MDNode* N) {
+    return N->getNumElements();
+}
+
+inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
+    return N->getElement(i);
+}
 
 #define METADATA_LINKAGE_TYPE  llvm::GlobalValue::WeakODRLinkage
 

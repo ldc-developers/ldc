@@ -159,11 +159,9 @@ static void addPassesForOptLevel(PassManager& pm) {
         if (!disableLangSpecificPasses) {
             if (!disableSimplifyRuntimeCalls)
                 addPass(pm, createSimplifyDRuntimeCalls());
-            
-#ifdef USE_METADATA
+
             if (!disableGCToStack)
                 addPass(pm, createGarbageCollect2Stack());
-#endif
         }
         // Run some clean-up passes
         addPass(pm, createInstructionCombiningPass());

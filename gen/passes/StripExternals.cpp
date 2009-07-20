@@ -15,8 +15,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm-version.h"
-
 #define DEBUG_TYPE "strip-externals"
 
 #include "Passes.h"
