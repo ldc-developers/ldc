@@ -402,7 +402,7 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
-    llvm::LLVMContext context;
+    llvm::LLVMContext& context = llvm::getGlobalContext();
     llvm::Module mod("dummy", context);
 
     // override triple if needed
