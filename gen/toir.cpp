@@ -1356,11 +1356,11 @@ DValue* CmpExp::toElem(IRState* p)
             break;
         case TOKleg:
             skip = true;
-            eval = llvm::ConstantInt::getTrue();
+            eval = gIR->context().getConstantIntTrue();
             break;
         case TOKunord:
             skip = true;
-            eval = llvm::ConstantInt::getFalse();
+            eval = gIR->context().getConstantIntFalse();
             break;
 
         default:
@@ -1844,7 +1844,7 @@ DValue* AndAndExp::toElem(IRState* p)
         llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "andandval");
         // If we jumped over evaluation of the right-hand side,
         // the result is false. Otherwise it's the value of the right-hand side.
-        phi->addIncoming(LLConstantInt::getFalse(), oldblock);
+        phi->addIncoming(gIR->context().getConstantIntFalse(), oldblock);
         phi->addIncoming(vbool, newblock);
         resval = phi;
     }
@@ -1891,7 +1891,7 @@ DValue* OrOrExp::toElem(IRState* p)
         llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "ororval");
         // If we jumped over evaluation of the right-hand side,
         // the result is true. Otherwise, it's the value of the right-hand side.
-        phi->addIncoming(LLConstantInt::getTrue(), oldblock);
+        phi->addIncoming(gIR->context().getConstantIntTrue(), oldblock);
         phi->addIncoming(vbool, newblock);
         resval = phi;
     }
