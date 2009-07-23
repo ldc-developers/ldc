@@ -203,7 +203,7 @@ namespace {
                 return false;
             
             std::string metaname = CD_PREFIX;
-            metaname.append(ClassInfo->getNameStart(), ClassInfo->getNameEnd());
+            metaname += ClassInfo->getName();
             
             GlobalVariable* global = A.M.getGlobalVariable(metaname);
             if (!global || !global->hasInitializer())
@@ -348,9 +348,8 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 continue;
             
             // Ignore unknown calls.
-            const char *CalleeName = Callee->getNameStart();
             StringMap<FunctionInfo*>::iterator OMI =
-                KnownFunctions.find(CalleeName, CalleeName+Callee->getNameLen());
+                KnownFunctions.find(Callee->getName());
             if (OMI == KnownFunctions.end()) continue;
             
             assert(isa<PointerType>(Inst->getType())
@@ -397,7 +396,7 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
         return NULL;
     
     std::string metaname = TD_PREFIX;
-    metaname.append(ti_global->getNameStart(), ti_global->getNameEnd());
+    metaname += ti_global->getName();
     
     GlobalVariable* global = M.getGlobalVariable(metaname);
     if (!global || !global->hasInitializer())

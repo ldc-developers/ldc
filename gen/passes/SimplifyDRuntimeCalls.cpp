@@ -375,9 +375,8 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
                 continue;
             
             // Ignore unknown calls.
-            const char *CalleeName = Callee->getNameStart();
             StringMap<LibCallOptimization*>::iterator OMI =
-                Optimizations.find(CalleeName, CalleeName+Callee->getNameLen());
+                Optimizations.find(Callee->getName());
             if (OMI == Optimizations.end()) continue;
             
             DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);

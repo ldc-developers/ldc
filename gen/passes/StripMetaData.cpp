@@ -64,7 +64,7 @@ bool StripMetaData::runOnModule(Module &M) {
     bool Changed = false;
     for (Module::global_iterator I = M.global_begin(), E = M.global_end(); I != E;) {
         GlobalVariable* G = I++;
-        if (G->getNameLen() >= 9 && !strncmp(G->getNameStart(), "llvm.ldc.", 9)) {
+        if (G->getName().startswith("llvm.ldc.")) {
             assert(G->hasInitializer() && isa<MDNode>(G->getInitializer())
                 && "Not a metadata global?");
             Changed = true;
