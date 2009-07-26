@@ -1458,8 +1458,9 @@ size_t realignOffset(size_t offset, Type* type)
 
     // we cannot get the llvm alignment if the type is still opaque, this can happen in some
     // forward reference situations, so when this happens we fall back to manual padding.
+    // also handle arbitrary "by-value" opaques nested inside aggregates.
     const llvm::Type* T = DtoType(type);
-    if (llvm::isa<llvm::OpaqueType>(T))
+    if (!T->isSized())
     {
         return offset;
     }
