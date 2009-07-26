@@ -53,6 +53,9 @@ void ReturnStatement::toIR(IRState* p)
     Logger::println("ReturnStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
+    if (global.params.symdebug)
+        DtoDwarfStopPoint(loc.linnum);
+    
     // is there a return value expression?
     if (exp)
     {
@@ -63,9 +66,6 @@ void ReturnStatement::toIR(IRState* p)
             // sanity check
             IrFunction* f = p->func();
             assert(f->decl->ir.irFunc->retArg);
-
-            // emit dbg line
-            if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
 
             // FIXME: is there ever a case where a sret return needs to be rewritten for the ABI?
 
@@ -88,8 +88,6 @@ void ReturnStatement::toIR(IRState* p)
         // the return type is not void, so this is a normal "register" return
         else
         {
-            if (global.params.symdebug) DtoDwarfStopPoint(loc.linnum);
-
             // do abi specific transformations on the return value
             LLValue* v = p->func()->type->fty.putRet(exp->type, exp->toElem(p));
 
