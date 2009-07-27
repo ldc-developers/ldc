@@ -28,6 +28,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 STATISTIC(NumDeleted, "Number of metadata globals deleted");
@@ -68,7 +69,7 @@ bool StripMetaData::runOnModule(Module &M) {
                 && "Not a metadata global?");
             Changed = true;
             NumDeleted++;
-            DEBUG(DOUT << "Deleting " << *G << '\n');
+            DEBUG(errs() << "Deleting " << *G << '\n');
             G->eraseFromParent();
         }
     }

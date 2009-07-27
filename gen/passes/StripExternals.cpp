@@ -24,6 +24,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 STATISTIC(NumFunctions, "Number of function bodies removed");
@@ -55,14 +56,14 @@ bool StripExternals::runOnModule(Module &M) {
       Changed = true;
       ++NumFunctions;
       if (I->use_empty()) {
-        DOUT << "Deleting function: " << *I;
+        DEBUG(errs() << "Deleting function: " << *I);
         Module::iterator todelete = I;
         ++I;
         todelete->eraseFromParent();
         continue;
       } else {
         I->deleteBody();
-        DOUT << "Deleted function body: " << *I;
+        DEBUG(errs() << "Deleted function body: " << *I);
       }
     }
     ++I;
@@ -75,7 +76,7 @@ bool StripExternals::runOnModule(Module &M) {
       Changed = true;
       ++NumVariables;
       if (I->use_empty()) {
-        DOUT << "Deleting global: " << *I;
+        DEBUG(errs() << "Deleting global: " << *I);
         Module::global_iterator todelete = I;
         ++I;
         todelete->eraseFromParent();
@@ -83,7 +84,7 @@ bool StripExternals::runOnModule(Module &M) {
       } else {
         I->setInitializer(0);
         I->setLinkage(GlobalValue::ExternalLinkage);
-        DOUT << "Deleted initializer: " << *I;
+        DEBUG(errs() << "Deleted initializer: " << *I);
       }
     }
     ++I;

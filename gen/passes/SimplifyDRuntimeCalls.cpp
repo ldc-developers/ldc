@@ -28,6 +28,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
@@ -379,7 +380,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
                 Optimizations.find(CalleeName, CalleeName+Callee->getNameLen());
             if (OMI == Optimizations.end()) continue;
             
-            DEBUG(DOUT << "SimplifyDRuntimeCalls inspecting: " << *CI);
+            DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);
             
             // Set the builder to the instruction after the call.
             Builder.SetInsertPoint(BB, I);
@@ -388,8 +389,8 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
             Value *Result = OMI->second->OptimizeCall(CI, Changed, TD, AA, Builder);
             if (Result == 0) continue;
             
-            DEBUG(DOUT << "SimplifyDRuntimeCalls simplified: " << *CI;
-                  DOUT << "  into: " << *Result << "\n");
+            DEBUG(errs() << "SimplifyDRuntimeCalls simplified: " << *CI;
+                  errs() << "  into: " << *Result << "\n");
             
             // Something changed!
             Changed = true;

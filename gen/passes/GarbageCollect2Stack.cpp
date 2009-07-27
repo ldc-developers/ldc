@@ -35,6 +35,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
@@ -318,7 +319,7 @@ static bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT);
 /// runOnFunction - Top level algorithm.
 ///
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
-    DEBUG(DOUT << "\nRunning -dgc2stack on function " << F.getName() << '\n');
+    DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
     
     TargetData& TD = getAnalysis<TargetData>();
     DominatorTree& DT = getAnalysis<DominatorTree>();
@@ -364,7 +365,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 continue;
             }
             
-            DEBUG(DOUT << "GarbageCollect2Stack inspecting: " << *Inst);
+            DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *Inst);
             
             if (!info->analyze(*Context, CS, A) || !isSafeToStackAllocate(Inst, DT))
                 continue;
@@ -375,7 +376,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             IRBuilder<> Builder(BB, Inst);
             Value* newVal = info->promote(*Context, CS, Builder, A);
             
-            DEBUG(DOUT << "Promoted to: " << *newVal);
+            DEBUG(errs() << "Promoted to: " << *newVal);
             
             // Make sure the type is the same as it was before, and replace all
             // uses of the runtime call with the alloca.
@@ -418,7 +419,7 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
 /// Returns whether Def is used by any instruction that is reachable from Alloc
 /// (without executing Def again).
 static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, DominatorTree& DT) {
-    DOUT << "### mayBeUsedAfterRealloc()\n" << *Def << *Alloc;
+    DEBUG(errs() << "### mayBeUsedAfterRealloc()\n" << *Def << *Alloc);
     
     // If the definition isn't used it obviously won't be used after the
     // allocation.
@@ -426,11 +427,11 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
     // without going through Def again first, since the definition couldn't
     // dominate the user either.
     if (Def->use_empty() || !DT.dominates(Def, Alloc)) {
-        DOUT << "### No uses or does not dominate allocation\n";
+        DEBUG(errs() << "### No uses or does not dominate allocation\n");
         return false;
     }
     
-    DOUT << "### Def dominates Alloc\n";
+    DEBUG(errs() << "### Def dominates Alloc\n");
     
     BasicBlock* DefBlock = Def->getParent();
     BasicBlock* AllocBlock = Alloc->getParent();
@@ -441,7 +442,7 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
     for (Instruction::use_iterator UI = Def->use_begin(), UE = Def->use_end();
          UI != UE; ++UI) {
         Instruction* User = cast<Instruction>(*UI);
-        DOUT << "USER: " << *User;
+        DEBUG(errs() << "USER: " << *User);
         BasicBlock* UserBlock = User->getParent();
         
         // This dominance check is not performed if they're in the same block
@@ -451,7 +452,7 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
         if (AllocBlock != UserBlock && DT.dominates(AllocBlock, UserBlock)) {
             // There's definitely a path from alloc to this user that does not
             // go through Def, namely any path that ends up in that user.
-            DOUT << "### Alloc dominates user " << *User;
+            DEBUG(errs() << "### Alloc dominates user " << *User);
             return true;
         }
         
@@ -491,8 +492,8 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
                 // This block does not contain the definition or the allocation,
                 // so any user in this block is definitely reachable without
                 // finding either the definition or the allocation.
-                DOUT << "### Block " << B->getName()
-                     << " contains a reachable user\n";
+                DEBUG(errs() << "### Block " << B->getName()
+                     << " contains a reachable user\n");
                 return true;
             }
             // We need to walk the instructions in the block to see whether we
@@ -501,7 +502,7 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
                 if (&*BBI == Alloc || &*BBI == Def)
                     break;
                 if (Users.count(BBI)) {
-                    DOUT << "### Problematic user: " << *BBI;
+                    DEBUG(errs() << "### Problematic user: " << *BBI);
                     return true;
                 }
             }
@@ -527,7 +528,7 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
             bool SeenDef = false;
             while (isa<PHINode>(BBI)) {
                 if (Def == cast<PHINode>(BBI)->getIncomingValueForBlock(B)) {
-                    DOUT << "### Problematic phi user: " << *BBI;
+                    DEBUG(errs() << "### Problematic phi user: " << *BBI);
                     return true;
                 }
                 SeenDef |= (Def == &*BBI);
