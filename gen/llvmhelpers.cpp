@@ -1,6 +1,5 @@
 #include "gen/llvmhelpers.h"
 #include "gen/llvm.h"
-#include "llvm/Target/TargetMachineRegistry.h"
 
 #include "mars.h"
 #include "init.h"

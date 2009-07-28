@@ -442,7 +442,7 @@ LDC_TARGETS
     if (mArch.empty())
     {
         std::string Err;
-        theTarget = llvm::TargetRegistry::getClosestStaticTargetForModule(mod, Err);
+        theTarget = llvm::TargetRegistry::lookupTarget(mod.getTargetTriple(), false, false, Err);
         if (theTarget == 0)
         {
             error("failed to auto-select target: %s, please use the -march option", Err.c_str());
