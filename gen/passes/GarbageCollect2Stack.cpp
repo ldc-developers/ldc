@@ -201,18 +201,18 @@ namespace {
             GlobalVariable* ClassInfo = dyn_cast<GlobalVariable>(arg);
             if (!ClassInfo)
                 return false;
-            
+
             std::string metaname = CD_PREFIX;
             metaname += ClassInfo->getName();
-            
-            GlobalVariable* global = A.M.getGlobalVariable(metaname);
-            if (!global || !global->hasInitializer())
+
+            NamedMDNode* meta = A.M.getNamedMetadata(metaname);
+            if (!meta)
                 return false;
-            
-            MDNode* node = dyn_cast<MDNode>(global->getInitializer());
+
+            MDNode* node = static_cast<MDNode*>(meta->getElement(0));
             if (!node || MD_GetNumElements(node) != CD_NumFields)
                 return false;
-            
+
             // Inserting destructor calls is not implemented yet, so classes
             // with destructors are ignored for now.
             Constant* hasDestructor = dyn_cast<Constant>(MD_GetElement(node, CD_Finalize));
@@ -396,15 +396,15 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
     
     std::string metaname = TD_PREFIX;
     metaname += ti_global->getName();
-    
-    GlobalVariable* global = M.getGlobalVariable(metaname);
-    if (!global || !global->hasInitializer())
+
+    NamedMDNode* meta = M.getNamedMetadata(metaname);
+    if (!meta)
         return NULL;
-    
-    MDNode* node = dyn_cast<MDNode>(global->getInitializer());
+
+    MDNode* node = static_cast<MDNode*>(meta->getElement(0));
     if (!node)
         return NULL;
-    
+
     if (MD_GetNumElements(node) != TD_NumFields)
         return NULL;
     if (TD_Confirm >= 0 && (!MD_GetElement(node, TD_Confirm) ||

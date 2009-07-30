@@ -85,10 +85,10 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         mdVals[CD_Finalize] = LLConstantInt::get(LLType::Int1Ty, hasDestructor);
         mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::Int1Ty, hasCustomDelete);
         // Construct the metadata
-        llvm::MDNode* metadata = gIR->context().getMDNode(mdVals, CD_NumFields);
+        llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, CD_NumFields);
         // Insert it into the module
-        new llvm::GlobalVariable(*gIR->module, metadata->getType(), true,
-            METADATA_LINKAGE_TYPE, metadata, CD_PREFIX + initname);
+        std::string metaname = CD_PREFIX + initname;
+        llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
     }
 
     return classInfo;

@@ -2,7 +2,7 @@
 #define LDC_GEN_METADATA_H
 
 // MDNode was moved into its own header, and contains Value*s
-#include "llvm/MDNode.h"
+#include "llvm/Metadata.h"
 typedef llvm::Value MDNodeField;
 
 // Use getNumElements() and getElement() to access elements.
