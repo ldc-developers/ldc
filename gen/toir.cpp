@@ -338,7 +338,7 @@ LLConstant* NullExp::toConstElem(IRState* p)
     const LLType* t = DtoType(type);
     if (type->ty == Tarray) {
         assert(isaStruct(t));
-        return gIR->context().getConstantAggregateZero(t);
+        return llvm::ConstantAggregateZero::get(t);
     }
     else {
         return gIR->context().getNullValue(t);
