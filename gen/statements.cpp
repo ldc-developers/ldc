@@ -815,7 +815,7 @@ void SwitchStatement::toIR(IRState* p)
         // build static array for ptr or final array
         const LLType* elemTy = DtoType(condition->type);
         const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
-        LLConstant* arrInit = llvm::ConstantArray::get(arrTy, inits);
+        LLConstant* arrInit = LLConstantArray::get(arrTy, inits);
         llvm::GlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
 
         const LLType* elemPtrTy = getPtrToType(elemTy);
@@ -1030,7 +1030,7 @@ void ForeachStatement::toIR(IRState* p)
         keyvar = DtoRawVarDeclaration(key);
     else
         keyvar = DtoRawAlloca(keytype, 0, "foreachkey"); // FIXME: align?
-    LLValue* zerokey = gIR->context().getConstantInt(keytype,0,false);
+    LLValue* zerokey = LLConstantInt::get(keytype,0,false);
 
     // value
     Logger::println("value = %s", value->toPrettyChars());
@@ -1087,7 +1087,7 @@ void ForeachStatement::toIR(IRState* p)
     }
     else if (op == TOKforeach_reverse) {
         done = p->ir->CreateICmpUGT(load, zerokey, "tmp");
-        load = p->ir->CreateSub(load, gIR->context().getConstantInt(keytype, 1, false), "tmp");
+        load = p->ir->CreateSub(load, LLConstantInt::get(keytype, 1, false), "tmp");
         DtoStore(load, keyvar);
     }
     llvm::BranchInst::Create(bodybb, endbb, done, p->scopebb());
@@ -1096,7 +1096,7 @@ void ForeachStatement::toIR(IRState* p)
     p->scope() = IRScope(bodybb,nextbb);
 
     // get value for this iteration
-    LLConstant* zero = gIR->context().getConstantInt(keytype,0,false);
+    LLConstant* zero = LLConstantInt::get(keytype,0,false);
     LLValue* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     LLValue* gep = DtoGEP1(val,loadedKey);
 
@@ -1124,7 +1124,7 @@ void ForeachStatement::toIR(IRState* p)
     p->scope() = IRScope(nextbb,endbb);
     if (op == TOKforeach) {
         LLValue* load = DtoLoad(keyvar);
-        load = p->ir->CreateAdd(load, gIR->context().getConstantInt(keytype, 1, false), "tmp");
+        load = p->ir->CreateAdd(load, LLConstantInt::get(keytype, 1, false), "tmp");
         DtoStore(load, keyvar);
     }
     llvm::BranchInst::Create(condbb, p->scopebb());

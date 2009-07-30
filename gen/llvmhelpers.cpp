@@ -514,7 +514,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     }
 
     if (to->ty == Tbool) {
-        LLValue* zero = gIR->context().getConstantInt(rval->getType(), 0, false);
+        LLValue* zero = LLConstantInt::get(rval->getType(), 0, false);
         rval = gIR->ir->CreateICmpNE(rval, zero, "tmp");
     }
     else if (to->isintegral()) {

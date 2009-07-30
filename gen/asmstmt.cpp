@@ -769,7 +769,7 @@ void AsmBlockStatement::toIR(IRState* p)
         for(it = gotoToVal.begin(); it != end; ++it)
         {
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create("case", p->topfunc(), bb);
-            sw->addCase(gIR->context().getConstantInt(llvm::IntegerType::get(32), it->second), casebb);
+            sw->addCase(LLConstantInt::get(llvm::IntegerType::get(32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
             DtoGoto(loc, it->first, enclosingFinally);

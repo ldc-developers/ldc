@@ -60,7 +60,7 @@ struct X86_cfloat_rewrite : ABIRewrite
         rpart = gIR->ir->CreateBitCast(rpart, LLType::FloatTy, ".re");
 
         // extract imag part
-        LLValue* ipart = gIR->ir->CreateLShr(in, gIR->context().getConstantInt(LLType::Int64Ty, 32, false));
+        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::Int64Ty, 32, false));
         ipart = gIR->ir->CreateTrunc(ipart, LLType::Int32Ty);
         ipart = gIR->ir->CreateBitCast(ipart, LLType::FloatTy, ".im");
 
@@ -87,7 +87,7 @@ struct X86_cfloat_rewrite : ABIRewrite
         // zext to i64
         i = gIR->ir->CreateZExt(i, LLType::Int64Ty);
         // shift up
-        i = gIR->ir->CreateShl(i, gIR->context().getConstantInt(LLType::Int64Ty, 32, false));
+        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::Int64Ty, 32, false));
 
         // combine and return
         return v = gIR->ir->CreateOr(r, i);

@@ -288,11 +288,11 @@ LLConstant* IntegerExp::toConstElem(IRState* p)
     const LLType* t = DtoType(type);
     if (isaPointer(t)) {
         Logger::println("pointer");
-        LLConstant* i = gIR->context().getConstantInt(DtoSize_t(),(uint64_t)value,false);
+        LLConstant* i = LLConstantInt::get(DtoSize_t(),(uint64_t)value,false);
         return llvm::ConstantExpr::getIntToPtr(i, t);
     }
     assert(llvm::isa<LLIntegerType>(t));
-    LLConstant* c = gIR->context().getConstantInt(t,(uint64_t)value,!type->isunsigned());
+    LLConstant* c = LLConstantInt::get(t,(uint64_t)value,!type->isunsigned());
     assert(c);
     if (Logger::enabled())
         Logger::cout() << "value = " << *c << '\n';
@@ -338,7 +338,7 @@ LLConstant* NullExp::toConstElem(IRState* p)
     const LLType* t = DtoType(type);
     if (type->ty == Tarray) {
         assert(isaStruct(t));
-        return llvm::ConstantAggregateZero::get(t);
+        return gIR->context().getConstantAggregateZero(t);
     }
     else {
         return gIR->context().getNullValue(t);
@@ -402,27 +402,27 @@ DValue* StringExp::toElem(IRState* p)
     if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
         std::string cont((char*)str, len);
-        _init = gIR->context().getConstantArray(cont,true);
+        _init = LLConstantArray::get(cont,true);
     }
     else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
-            vals.push_back(gIR->context().getConstantInt(ct, str[i], false));;
+            vals.push_back(LLConstantInt::get(ct, str[i], false));;
         }
-        vals.push_back(gIR->context().getConstantInt(ct, 0, false));
-        _init = llvm::ConstantArray::get(at,vals);
+        vals.push_back(LLConstantInt::get(ct, 0, false));
+        _init = LLConstantArray::get(at,vals);
     }
     else if (cty->size() == 4) {
         uint32_t* str = (uint32_t*)string;
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
-            vals.push_back(gIR->context().getConstantInt(ct, str[i], false));;
+            vals.push_back(LLConstantInt::get(ct, str[i], false));;
         }
-        vals.push_back(gIR->context().getConstantInt(ct, 0, false));
-        _init = llvm::ConstantArray::get(at,vals);
+        vals.push_back(LLConstantInt::get(ct, 0, false));
+        _init = LLConstantArray::get(at,vals);
     }
     else
     assert(0);
@@ -432,12 +432,12 @@ DValue* StringExp::toElem(IRState* p)
         Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,at,true,_linkage,_init,".str");
 
-    llvm::ConstantInt* zero = gIR->context().getConstantInt(LLType::Int32Ty, 0, false);
+    llvm::ConstantInt* zero = LLConstantInt::get(LLType::Int32Ty, 0, false);
     LLConstant* idxs[2] = { zero, zero };
     LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 
     if (dtype->ty == Tarray) {
-        LLConstant* clen = gIR->context().getConstantInt(DtoSize_t(),len,false);
+        LLConstant* clen = LLConstantInt::get(DtoSize_t(),len,false);
         return new DImValue(type, DtoConstSlice(clen, arrptr));
     }
     else if (dtype->ty == Tsarray) {
@@ -473,29 +473,29 @@ LLConstant* StringExp::toConstElem(IRState* p)
     if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
         std::string cont((char*)str, len);
-        _init = gIR->context().getConstantArray(cont, nullterm);
+        _init = LLConstantArray::get(cont, nullterm);
     }
     else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
-            vals.push_back(gIR->context().getConstantInt(ct, str[i], false));;
+            vals.push_back(LLConstantInt::get(ct, str[i], false));;
         }
         if (nullterm)
-            vals.push_back(gIR->context().getConstantInt(ct, 0, false));
-        _init = llvm::ConstantArray::get(at,vals);
+            vals.push_back(LLConstantInt::get(ct, 0, false));
+        _init = LLConstantArray::get(at,vals);
     }
     else if (cty->size() == 4) {
         uint32_t* str = (uint32_t*)string;
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
-            vals.push_back(gIR->context().getConstantInt(ct, str[i], false));;
+            vals.push_back(LLConstantInt::get(ct, str[i], false));;
         }
         if (nullterm)
-            vals.push_back(gIR->context().getConstantInt(ct, 0, false));
-        _init = llvm::ConstantArray::get(at,vals);
+            vals.push_back(LLConstantInt::get(ct, 0, false));
+        _init = LLConstantArray::get(at,vals);
     }
     else
     assert(0);
@@ -508,7 +508,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_init->getType(),true,_linkage,_init,".str");
 
-    llvm::ConstantInt* zero = gIR->context().getConstantInt(LLType::Int32Ty, 0, false);
+    llvm::ConstantInt* zero = LLConstantInt::get(LLType::Int32Ty, 0, false);
     LLConstant* idxs[2] = { zero, zero };
     LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 
@@ -516,7 +516,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
         return arrptr;
     }
     else if (t->ty == Tarray) {
-        LLConstant* clen = gIR->context().getConstantInt(DtoSize_t(),len,false);
+        LLConstant* clen = LLConstantInt::get(DtoSize_t(),len,false);
         return DtoConstSlice(clen, arrptr);
     }
 
@@ -1356,11 +1356,11 @@ DValue* CmpExp::toElem(IRState* p)
             break;
         case TOKleg:
             skip = true;
-            eval = gIR->context().getConstantIntTrue();
+            eval = gIR->context().getTrue();
             break;
         case TOKunord:
             skip = true;
-            eval = gIR->context().getConstantIntFalse();
+            eval = gIR->context().getFalse();
             break;
 
         default:
@@ -1525,7 +1525,7 @@ DValue* PostExp::toElem(IRState* p)
     if (e1type->isintegral())
     {
         assert(e2type->isintegral());
-        LLValue* one = gIR->context().getConstantInt(val->getType(), 1, !e2type->isunsigned());
+        LLValue* one = LLConstantInt::get(val->getType(), 1, !e2type->isunsigned());
         if (op == TOKplusplus) {
             post = llvm::BinaryOperator::CreateAdd(val,one,"tmp",p->scopebb());
         }
@@ -1536,8 +1536,8 @@ DValue* PostExp::toElem(IRState* p)
     else if (e1type->ty == Tpointer)
     {
         assert(e2type->isintegral());
-        LLConstant* minusone = gIR->context().getConstantInt(DtoSize_t(),(uint64_t)-1,true);
-        LLConstant* plusone = gIR->context().getConstantInt(DtoSize_t(),(uint64_t)1,false);
+        LLConstant* minusone = LLConstantInt::get(DtoSize_t(),(uint64_t)-1,true);
+        LLConstant* plusone = LLConstantInt::get(DtoSize_t(),(uint64_t)1,false);
         LLConstant* whichone = (op == TOKplusplus) ? plusone : minusone;
         post = llvm::GetElementPtrInst::Create(val, whichone, "tmp", p->scopebb());
     }
@@ -1844,7 +1844,7 @@ DValue* AndAndExp::toElem(IRState* p)
         llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "andandval");
         // If we jumped over evaluation of the right-hand side,
         // the result is false. Otherwise it's the value of the right-hand side.
-        phi->addIncoming(gIR->context().getConstantIntFalse(), oldblock);
+        phi->addIncoming(gIR->context().getFalse(), oldblock);
         phi->addIncoming(vbool, newblock);
         resval = phi;
     }
@@ -1891,7 +1891,7 @@ DValue* OrOrExp::toElem(IRState* p)
         llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "ororval");
         // If we jumped over evaluation of the right-hand side,
         // the result is true. Otherwise, it's the value of the right-hand side.
-        phi->addIncoming(gIR->context().getConstantIntTrue(), oldblock);
+        phi->addIncoming(gIR->context().getTrue(), oldblock);
         phi->addIncoming(vbool, newblock);
         resval = phi;
     }
@@ -2146,7 +2146,7 @@ DValue* ComExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     LLValue* value = u->getRVal();
-    LLValue* minusone = gIR->context().getConstantInt(value->getType(), (uint64_t)-1, true);
+    LLValue* minusone = LLConstantInt::get(value->getType(), (uint64_t)-1, true);
     value = llvm::BinaryOperator::Create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
 
     return new DImValue(type, value);
@@ -2376,7 +2376,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     }
 
     // build the constant array initializer
-    LLConstant* initval = llvm::ConstantArray::get(arrtype, vals);
+    LLConstant* initval = LLConstantArray::get(arrtype, vals);
 
     // if static array, we're done
     if (!dyn)
@@ -2501,7 +2501,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
         constvals[i] = llvm::cast<LLConstant>(values[i]);
 
     // return constant struct
-    return gIR->context().getConstantStruct(constvals, sd->ir.irStruct->packed);
+    return LLConstantStruct::get(constvals, sd->ir.irStruct->packed);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

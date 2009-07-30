@@ -433,9 +433,9 @@ void TypeInfoEnumDeclaration::llvmDefine()
     {
         const LLType* memty = DtoType(sd->memtype);
 #if DMDV2
-        LLConstant* C = gIR->context().getConstantInt(memty, sd->defaultval->toInteger(), !sd->memtype->isunsigned());
+        LLConstant* C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !sd->memtype->isunsigned());
 #else
-        LLConstant* C = gIR->context().getConstantInt(memty, sd->defaultval, !sd->memtype->isunsigned());
+        LLConstant* C = LLConstantInt::get(memty, sd->defaultval, !sd->memtype->isunsigned());
 #endif
         b.push_void_array(C, sd->memtype, sd);
     }
@@ -734,7 +734,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
 
     // build array
     const LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
-    LLConstant* arrC = llvm::ConstantArray::get(arrTy, arrInits);
+    LLConstant* arrC = LLConstantArray::get(arrTy, arrInits);
 
     RTTIBuilder b(Type::typeinfotypelist);
 

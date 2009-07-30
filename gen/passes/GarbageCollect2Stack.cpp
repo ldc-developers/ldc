@@ -58,24 +58,24 @@ namespace {
 // Helper functions
 //===----------------------------------------------------------------------===//
 
-void EmitMemSet(LLVMContext& Context, IRBuilder<>& B, Value* Dst, Value* Val,
-                Value* Len, const Analysis& A) {
+void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
+                const Analysis& A) {
     Dst = B.CreateBitCast(Dst, PointerType::getUnqual(Type::Int8Ty));
     
     Module *M = B.GetInsertBlock()->getParent()->getParent();
     const Type* Tys[1];
     Tys[0] = Len->getType();
     Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
-    Value *Align = Context.getConstantInt(Type::Int32Ty, 1);
+    Value *Align = ConstantInt::get(Type::Int32Ty, 1);
     
     CallSite CS = B.CreateCall4(MemSet, Dst, Val, Len, Align);
     if (A.CGNode)
         A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(MemSet));
 }
 
-static void EmitMemZero(LLVMContext& Context, IRBuilder<>& B, Value* Dst,
-                        Value* Len, const Analysis& A) {
-    EmitMemSet(Context, B, Dst, Context.getConstantInt(Type::Int8Ty, 0), Len, A);
+static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
+                        const Analysis& A) {
+    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len, A);
 }
 
 
@@ -94,7 +94,7 @@ namespace {
         
         // Analyze the current call, filling in some fields. Returns true if
         // this is an allocation we can stack-allocate.
-        virtual bool analyze(LLVMContext& context, CallSite CS, const Analysis& A) {
+        virtual bool analyze(CallSite CS, const Analysis& A) {
             Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
             Ty = A.getTypeFor(TypeInfo);
             return (Ty != NULL);
@@ -102,7 +102,7 @@ namespace {
         
         // Returns the alloca to replace this call.
         // It will always be inserted before the call.
-        virtual AllocaInst* promote(LLVMContext& context, CallSite CS, IRBuilder<>& B, const Analysis& A) {
+        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
             NumGcToStack++;
             
             Instruction* Begin = CS.getCaller()->getEntryBlock().begin();
@@ -119,15 +119,15 @@ namespace {
         bool Initialized;
         
     public:
-        ArrayFI(unsigned tiArgNr, bool safeToDelete,
-                bool initialized, unsigned arrSizeArgNr)
+        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool initialized,
+                unsigned arrSizeArgNr)
         : FunctionInfo(tiArgNr, safeToDelete),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
         
-        virtual bool analyze(LLVMContext& context, CallSite CS, const Analysis& A) {
-            if (!FunctionInfo::analyze(context, CS, A))
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            if (!FunctionInfo::analyze(CS, A))
                 return false;
             
             arrSize = CS.getArgument(ArrSizeArgNr);
@@ -155,7 +155,7 @@ namespace {
             return true;
         }
         
-        virtual AllocaInst* promote(LLVMContext& context, CallSite CS, IRBuilder<>& B, const Analysis& A) {
+        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
             IRBuilder<> Builder = B;
             // If the allocation is of constant size it's best to put it in the
             // entry block, so do so if we're not already there.
@@ -178,11 +178,11 @@ namespace {
             if (Initialized) {
                 // For now, only zero-init is supported.
                 uint64_t size = A.TD.getTypeStoreSize(Ty);
-                Value* TypeSize = context.getConstantInt(arrSize->getType(), size);
+                Value* TypeSize = ConstantInt::get(arrSize->getType(), size);
                 // Use the original B to put initialization at the
                 // allocation site.
                 Value* Size = B.CreateMul(TypeSize, arrSize);
-                EmitMemZero(context, B, alloca, Size, A);
+                EmitMemZero(B, alloca, Size, A);
             }
             
             return alloca;
@@ -192,7 +192,7 @@ namespace {
     // FunctionInfo for _d_allocclass
     class AllocClassFI : public FunctionInfo {
         public:
-        virtual bool analyze(LLVMContext& context, CallSite CS, const Analysis& A) {
+        virtual bool analyze(CallSite CS, const Analysis& A) {
             // This call contains no TypeInfo parameter, so don't call the
             // base class implementation here...
             if (CS.arg_size() != 1)
@@ -223,8 +223,8 @@ namespace {
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
             
-            if (context.getConstantExprOr(hasDestructor, hasCustomDelete)
-                    != context.getConstantIntFalse())
+            if (ConstantExpr::getOr(hasDestructor, hasCustomDelete)
+                    != A.M.getContext().getFalse())
                 return false;
             
             Ty = MD_GetElement(node, CD_BodyType)->getType();
@@ -259,7 +259,6 @@ namespace {
         GarbageCollect2Stack();
         
         bool doInitialization(Module &M) {
-            Context = &M.getContext();
             this->M = &M;
             return false;
         }
@@ -297,7 +296,7 @@ GarbageCollect2Stack::GarbageCollect2Stack()
     KnownFunctions["_d_allocclass"] = &AllocClass;
 }
 
-static void RemoveCall(LLVMContext& context, CallSite CS, const Analysis& A) {
+static void RemoveCall(CallSite CS, const Analysis& A) {
     if (CS.isInvoke()) {
         InvokeInst* Invoke = cast<InvokeInst>(CS.getInstruction());
         // If this was an invoke instruction, we need to do some extra
@@ -306,7 +305,7 @@ static void RemoveCall(LLVMContext& context, CallSite CS, const Analysis& A) {
         // Create a "conditional" branch that -simplifycfg can clean up, so we
         // can keep using the DominatorTree without updating it.
         BranchInst::Create(Invoke->getNormalDest(), Invoke->getUnwindDest(),
-            context.getConstantIntTrue(), Invoke->getParent());
+            A.M.getContext().getTrue(), Invoke->getParent());
     }
     // Remove the runtime call.
     if (A.CGNode)
@@ -360,20 +359,20 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             if (Inst->use_empty() && info->SafeToDelete) {
                 Changed = true;
                 NumDeleted++;
-                RemoveCall(*Context, CS, A);
+                RemoveCall(CS, A);
                 continue;
             }
             
             DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *Inst);
             
-            if (!info->analyze(*Context, CS, A) || !isSafeToStackAllocate(Inst, DT))
+            if (!info->analyze(CS, A) || !isSafeToStackAllocate(Inst, DT))
                 continue;
             
             // Let's alloca this!
             Changed = true;
             
             IRBuilder<> Builder(BB, Inst);
-            Value* newVal = info->promote(*Context, CS, Builder, A);
+            Value* newVal = info->promote(CS, Builder, A);
             
             DEBUG(errs() << "Promoted to: " << *newVal);
             
@@ -383,7 +382,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 newVal = Builder.CreateBitCast(newVal, Inst->getType());
             Inst->replaceAllUsesWith(newVal);
             
-            RemoveCall(*Context, CS, A);
+            RemoveCall(CS, A);
         }
     }
     

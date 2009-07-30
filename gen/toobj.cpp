@@ -674,7 +674,7 @@ void Module::genmoduleinfo()
     if (!importInits.empty())
     {
         const llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
-        c = llvm::ConstantArray::get(importArrTy, importInits);
+        c = LLConstantArray::get(importArrTy, importInits);
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__importsZ");
@@ -725,7 +725,7 @@ void Module::genmoduleinfo()
     if (!classInits.empty())
     {
         const llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
-        c = llvm::ConstantArray::get(classArrTy, classInits);
+        c = LLConstantArray::get(classArrTy, classInits);
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__classesZ");
@@ -819,7 +819,7 @@ void Module::genmoduleinfo()
     // declare the appending array
     const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
     std::vector<LLConstant*> appendInits(1, magicinit);
-    LLConstant* appendInit = llvm::ConstantArray::get(appendArrTy, appendInits);
+    LLConstant* appendInit = LLConstantArray::get(appendArrTy, appendInits);
     std::string appendName("llvm.global_ctors");
     llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(*gIR->module, appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName);
 }

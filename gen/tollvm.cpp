@@ -531,23 +531,23 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
 
 llvm::ConstantInt* DtoConstSize_t(uint64_t i)
 {
-    return gIR->context().getConstantInt(DtoSize_t(), i, false);
+    return LLConstantInt::get(DtoSize_t(), i, false);
 }
 llvm::ConstantInt* DtoConstUint(unsigned i)
 {
-    return gIR->context().getConstantInt(LLType::Int32Ty, i, false);
+    return LLConstantInt::get(LLType::Int32Ty, i, false);
 }
 llvm::ConstantInt* DtoConstInt(int i)
 {
-    return gIR->context().getConstantInt(LLType::Int32Ty, i, true);
+    return LLConstantInt::get(LLType::Int32Ty, i, true);
 }
 LLConstant* DtoConstBool(bool b)
 {
-    return gIR->context().getConstantInt(LLType::Int1Ty, b, false);
+    return LLConstantInt::get(LLType::Int1Ty, b, false);
 }
 llvm::ConstantInt* DtoConstUbyte(unsigned char i)
 {
-    return gIR->context().getConstantInt(LLType::Int8Ty, i, false);
+    return LLConstantInt::get(LLType::Int8Ty, i, false);
 }
 
 LLConstant* DtoConstFP(Type* t, long double value)
@@ -556,12 +556,12 @@ LLConstant* DtoConstFP(Type* t, long double value)
     assert(llty->isFloatingPoint());
 
     if(llty == LLType::FloatTy || llty == LLType::DoubleTy)
-        return gIR->context().getConstantFP(llty, value);
+        return LLConstantFP::get(llty, value);
     else if(llty == LLType::X86_FP80Ty) {
         uint64_t bits[] = {0, 0};
         bits[0] = *(uint64_t*)&value;
         bits[1] = *(uint16_t*)((uint64_t*)&value + 1);
-        return gIR->context().getConstantFP(APFloat(APInt(80, 2, bits)));
+        return LLConstantFP::get(gIR->context(), APFloat(APInt(80, 2, bits)));
     } else {
         assert(0 && "Unknown floating point type encountered");
     }
@@ -572,7 +572,7 @@ LLConstant* DtoConstFP(Type* t, long double value)
 LLConstant* DtoConstString(const char* str)
 {
     std::string s(str?str:"");
-    LLConstant* init = gIR->context().getConstantArray(s, true);
+    LLConstant* init = LLConstantArray::get(s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
@@ -584,7 +584,7 @@ LLConstant* DtoConstString(const char* str)
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
     std::string s(str);
-    LLConstant* init = gIR->context().getConstantArray(s, true);
+    LLConstant* init = LLConstantArray::get(s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);

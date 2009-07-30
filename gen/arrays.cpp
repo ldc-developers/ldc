@@ -309,7 +309,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* constarr;
     if (mismatch)
-        constarr = gIR->context().getConstantStruct(initvals);
+        constarr = LLConstantStruct::get(initvals);
     else
         constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
 
@@ -394,7 +394,7 @@ void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 {
     LLConstant* values[2] = { dim, ptr };
-    return gIR->context().getConstantStruct(values, 2);
+    return LLConstantStruct::get(values, 2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -784,11 +784,11 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
         break;
     case TOKleg:
         skip = true;
-        res = gIR->context().getConstantIntTrue();
+        res = gIR->context().getTrue();
         break;
     case TOKunord:
         skip = true;
-        res = gIR->context().getConstantIntFalse();
+        res = gIR->context().getFalse();
         break;
 
     default:
@@ -826,8 +826,8 @@ LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* ne
 
     LLSmallVector<LLValue*, 3> args;
     args.push_back(len);
-    args.push_back(gIR->context().getConstantInt(DtoSize_t(), esz, false));
-    args.push_back(gIR->context().getConstantInt(DtoSize_t(), nsz, false));
+    args.push_back(LLConstantInt::get(DtoSize_t(), esz, false));
+    args.push_back(LLConstantInt::get(DtoSize_t(), nsz, false));
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_cast_len");
     return gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), "tmp").getInstruction();
@@ -962,7 +962,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 fatal();
             }
 
-            rval2 = gIR->context().getConstantInt(DtoSize_t(), arrty->getNumElements(), false);
+            rval2 = LLConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
             if (fromtype->nextOf()->size() != totype->nextOf()->size())
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
             rval = DtoBitCast(uval, ptrty);

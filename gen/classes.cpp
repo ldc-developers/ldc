@@ -606,7 +606,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
 
     // array type
     const llvm::ArrayType* arrTy = llvm::ArrayType::get(arrayInits[0]->getType(), nvars);
-    LLConstant* arrInit = llvm::ConstantArray::get(arrTy, arrayInits);
+    LLConstant* arrInit = LLConstantArray::get(arrTy, arrayInits);
 
     // mangle
     std::string name(cd->type->vtinfo->toChars());
