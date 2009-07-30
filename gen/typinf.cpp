@@ -302,21 +302,24 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     tid->ir.irGlobal = irg;
 
-    // Add some metadata for use by optimization passes.
-    std::string metaname = std::string(TD_PREFIX) + mangle;
-    llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
-    // Don't generate metadata for non-concrete types
-    // (such as tuple types, slice types, typeof(expr), etc.)
-    if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
-        // Construct the fields
-        MDNodeField* mdVals[TD_NumFields];
-        if (TD_Confirm >= 0)
-            mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
-        mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
-        // Construct the metadata
-        llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, TD_NumFields);
-        // Insert it into the module
-        llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
+    // don't do this for void or llvm will crash
+    if (tid->tinfo->ty != Tvoid) {
+        // Add some metadata for use by optimization passes.
+        std::string metaname = std::string(TD_PREFIX) + mangle;
+        llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
+        // Don't generate metadata for non-concrete types
+        // (such as tuple types, slice types, typeof(expr), etc.)
+        if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
+            // Construct the fields
+            MDNodeField* mdVals[TD_NumFields];
+            if (TD_Confirm >= 0)
+                mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
+            mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
+            // Construct the metadata
+            llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, TD_NumFields);
+            // Insert it into the module
+            llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
+        }
     }
 
     DtoDeclareTypeInfo(tid);
