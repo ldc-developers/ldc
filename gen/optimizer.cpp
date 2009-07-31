@@ -160,8 +160,10 @@ static void addPassesForOptLevel(PassManager& pm) {
             if (!disableSimplifyRuntimeCalls)
                 addPass(pm, createSimplifyDRuntimeCalls());
 
+#if USE_METADATA
             if (!disableGCToStack)
                 addPass(pm, createGarbageCollect2Stack());
+#endif // USE_METADATA
         }
         // Run some clean-up passes
         addPass(pm, createInstructionCombiningPass());
@@ -221,6 +223,7 @@ static void addPassesForOptLevel(PassManager& pm) {
 bool ldc_optimize_module(llvm::Module* m)
 {
     if (!optimize()) {
+#if USE_METADATA
         if (!disableStripMetaData) {
             // This one always needs to run if metadata is generated, because
             // the code generator will assert if it's not used.
@@ -228,6 +231,7 @@ bool ldc_optimize_module(llvm::Module* m)
             stripMD->runOnModule(*m);
             delete stripMD;
         }
+#endif
         return false;
     }
 
@@ -266,11 +270,13 @@ bool ldc_optimize_module(llvm::Module* m)
     if (optimize)
         addPassesForOptLevel(pm);
 
+#if USE_METADATA
     if (!disableStripMetaData) {
         // This one is purposely not disabled by disableLangSpecificPasses
         // because the code generator will assert if it's not used.
         addPass(pm, createStripMetaData());
     }
+#endif // USE_METADATA
 
     pm.run(*m);
     return true;

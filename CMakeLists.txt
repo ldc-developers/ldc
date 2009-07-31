@@ -64,6 +64,7 @@ set(PROGRAM_PREFIX CACHE STRING "prepended to ldc binary name")
 set(PROGRAM_SUFFIX CACHE STRING "appended to ldc binary name")
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
+option(USE_METADATA "use metadata and related custom optimization passes")
 
 if(D_VERSION EQUAL 1)
 	set(DMDFE_PATH dmd)
@@ -207,6 +208,10 @@ endif(USE_BOEHM_GC)
 if(GENERATE_OFFTI)
 	add_definitions(-DGENERATE_OFFTI)
 endif(GENERATE_OFFTI)
+
+if(USE_METADATA)
+    add_definitions(-DUSE_METADATA)
+endif(USE_METADATA)
 
 if(CMAKE_MINOR_VERSION LESS 6)
 	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")

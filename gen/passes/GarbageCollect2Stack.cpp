@@ -1,3 +1,5 @@
+#if USE_METADATA
+
 //===- GarbageCollect2Stack - Optimize calls to the D garbage collector ---===//
 //
 //                             The LLVM D Compiler
@@ -642,3 +644,5 @@ bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
   // All uses examined - not captured or live across original allocation.
   return true;
 }
+
+#endif // USE_METADATA

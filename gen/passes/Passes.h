@@ -10,8 +10,10 @@ namespace llvm {
 // Performs simplifications on runtime calls.
 llvm::FunctionPass* createSimplifyDRuntimeCalls();
 
+#if USE_METADATA
 llvm::FunctionPass* createGarbageCollect2Stack();
 llvm::ModulePass* createStripMetaData();
+#endif // USE_METADATA
 
 llvm::ModulePass* createStripExternalsPass();
 

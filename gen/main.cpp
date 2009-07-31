@@ -941,12 +941,13 @@ LDC_TARGETS
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)
         {
+#if USE_METADATA
             //FIXME: workaround for llvm metadata bug:
             //  the LinkInModule call asserts with metadata unstripped
             llvm::ModulePass* stripMD = createStripMetaData();
             stripMD->runOnModule(*llvmModules[i]);
             delete stripMD;
-            
+#endif // USE_METADATA
             if(linker.LinkInModule(llvmModules[i], &errormsg))
                 error("%s", errormsg.c_str());
             delete llvmModules[i];

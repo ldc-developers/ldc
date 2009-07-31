@@ -1,3 +1,5 @@
+#if USE_METADATA
+
 //===- StripMetaData - Strips D-specific metadata -------------------------===//
 //
 //                             The LLVM D Compiler
@@ -75,3 +77,5 @@ bool StripMetaData::runOnModule(Module &M) {
     }
     return Changed;
 }
+
+#endif // USE_METADATA

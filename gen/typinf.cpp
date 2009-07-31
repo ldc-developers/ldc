@@ -302,6 +302,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     tid->ir.irGlobal = irg;
 
+#if USE_METADATA
     // don't do this for void or llvm will crash
     if (tid->tinfo->ty != Tvoid) {
         // Add some metadata for use by optimization passes.
@@ -321,6 +322,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
             llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
         }
     }
+#endif // USE_METADATA
 
     DtoDeclareTypeInfo(tid);
 }

@@ -71,6 +71,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
     classInfo = new llvm::GlobalVariable(
         *gIR->module, tc->getPA().get(), false, _linkage, NULL, initname);
 
+#if USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.
     ClassDeclaration* classdecl = aggrdecl->isClassDeclaration();
     if (classdecl && !aggrdecl->isInterfaceDeclaration()) {
@@ -90,6 +91,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         std::string metaname = CD_PREFIX + initname;
         llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
     }
+#endif // USE_METADATA
 
     return classInfo;
 }
