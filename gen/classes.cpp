@@ -211,7 +211,7 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 
     // monitor always defaults to zero
     tmp = DtoGEPi(dst,0,1,"monitor");
-    val = gIR->context().getNullValue(tmp->getType()->getContainedType(0));
+    val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
 
     // done?
@@ -262,7 +262,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     else if (to->ty == Tbool) {
         IF_LOG Logger::println("to bool");
         LLValue* llval = val->getRVal();
-        LLValue* zero = gIR->context().getNullValue(llval->getType());
+        LLValue* zero = LLConstant::getNullValue(llval->getType());
         return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero, "tmp"));
     }
     // class -> integer
@@ -326,8 +326,8 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             // Sure we could have jumped over the code above in this case, but
             // it's just a GEP and (maybe) a pointer-to-pointer BitCast, so it
             // should be pretty cheap and perfectly safe even if the original was null.
-            LLValue* isNull = gIR->ir->CreateICmpEQ(orig, gIR->context().getNullValue(orig->getType()), ".nullcheck");
-            v = gIR->ir->CreateSelect(isNull, gIR->context().getNullValue(ifType), v, ".interface");
+            LLValue* isNull = gIR->ir->CreateICmpEQ(orig, LLConstant::getNullValue(orig->getType()), ".nullcheck");
+            v = gIR->ir->CreateSelect(isNull, LLConstant::getNullValue(ifType), v, ".interface");
 
             // return r-value
             return new DImValue(_to, v);
@@ -602,7 +602,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
     LLConstant* ptr;
 
     if (nvars == 0)
-        return gIR->context().getNullValue( arrayT );
+        return LLConstant::getNullValue( arrayT );
 
     // array type
     const llvm::ArrayType* arrTy = llvm::ArrayType::get(arrayInits[0]->getType(), nvars);
