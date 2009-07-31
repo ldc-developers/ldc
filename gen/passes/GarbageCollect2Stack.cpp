@@ -226,7 +226,7 @@ namespace {
                 return false;
             
             if (ConstantExpr::getOr(hasDestructor, hasCustomDelete)
-                    != A.M.getContext().getFalse())
+                    != ConstantInt::getFalse(A.M.getContext()))
                 return false;
             
             Ty = MD_GetElement(node, CD_BodyType)->getType();
@@ -307,7 +307,7 @@ static void RemoveCall(CallSite CS, const Analysis& A) {
         // Create a "conditional" branch that -simplifycfg can clean up, so we
         // can keep using the DominatorTree without updating it.
         BranchInst::Create(Invoke->getNormalDest(), Invoke->getUnwindDest(),
-            A.M.getContext().getTrue(), Invoke->getParent());
+            ConstantInt::getTrue(A.M.getContext()), Invoke->getParent());
     }
     // Remove the runtime call.
     if (A.CGNode)

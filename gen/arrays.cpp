@@ -784,11 +784,11 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
         break;
     case TOKleg:
         skip = true;
-        res = gIR->context().getTrue();
+        res = LLConstantInt::getTrue(gIR->context());
         break;
     case TOKunord:
         skip = true;
-        res = gIR->context().getFalse();
+        res = LLConstantInt::getFalse(gIR->context());
         break;
 
     default:
