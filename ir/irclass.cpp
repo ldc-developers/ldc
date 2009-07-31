@@ -5,6 +5,7 @@
 #include "declaration.h"
 #include "mtype.h"
 
+#include "gen/llvm-version.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
@@ -86,7 +87,11 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         mdVals[CD_Finalize] = LLConstantInt::get(LLType::Int1Ty, hasDestructor);
         mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::Int1Ty, hasCustomDelete);
         // Construct the metadata
+#if LLVM_REV < 77733
         llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, CD_NumFields);
+#else
+        llvm::MetadataBase* metadata = MDNode::get(Context, mdVals, CD_NumFields);
+#endif
         // Insert it into the module
         std::string metaname = CD_PREFIX + initname;
         llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);

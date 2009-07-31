@@ -16,6 +16,7 @@
 #include <cassert>
 
 #include "gen/llvm.h"
+#include "gen/llvm-version.h"
 
 #include "mars.h"
 #include "module.h"
@@ -317,7 +318,11 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
                 mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
             // Construct the metadata
+#if LLVM_REV < 77733
             llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, TD_NumFields);
+#else
+            llvm::MetadataBase* metadata = MDNode::get(Context, mdVals, TD_NumFields);
+#endif
             // Insert it into the module
             llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
         }
