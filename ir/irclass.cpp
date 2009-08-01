@@ -90,7 +90,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 #if LLVM_REV < 77733
         llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, CD_NumFields);
 #else
-        llvm::MetadataBase* metadata = MDNode::get(Context, mdVals, CD_NumFields);
+        llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, CD_NumFields);
 #endif
         // Insert it into the module
         std::string metaname = CD_PREFIX + initname;

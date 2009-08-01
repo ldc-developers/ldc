@@ -321,7 +321,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 #if LLVM_REV < 77733
             llvm::MetadataBase* metadata = gIR->context().getMDNode(mdVals, TD_NumFields);
 #else
-            llvm::MetadataBase* metadata = MDNode::get(Context, mdVals, TD_NumFields);
+            llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, TD_NumFields);
 #endif
             // Insert it into the module
             llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
