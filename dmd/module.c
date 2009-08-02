@@ -46,6 +46,7 @@
 
 
 #include "llvm/Support/CommandLine.h"
+#include <map>
 
 static llvm::cl::opt<bool> preservePaths("op",
     llvm::cl::desc("Do not strip paths from source file"),
@@ -201,6 +202,23 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
     return new File(FileName::forceExt(argobj, ext));
 }
 
+// LDC
+static void check_and_add_output_file(Module* NewMod, const std::string& str)
+{
+    typedef std::map<std::string, Module*> map_t;
+    static map_t files;
+
+    map_t::iterator i = files.find(str);
+    if (i != files.end())
+    {
+        Module* ThisMod = i->second;
+        error("Output file '%s' for module '%s' collides with previous module '%s'. See the -oq option",
+            str.c_str(), NewMod->toPrettyChars(), ThisMod->toPrettyChars());
+        fatal();
+    }
+    files.insert(std::make_pair(str, NewMod));
+}
+
 void Module::buildTargetFiles()
 {
     if(objfile && 
@@ -231,6 +249,14 @@ void Module::buildTargetFiles()
 	error("Output header files with the same name as the source file are forbidden");
 	fatal();
     }
+
+    // LDC
+    // another safety check to make sure we don't overwrite previous output files
+    check_and_add_output_file(this, objfile->name->str);
+    if (docfile)
+        check_and_add_output_file(this, docfile->name->str);
+    if (hdrfile)
+        check_and_add_output_file(this, hdrfile->name->str);
 }
 
 void Module::deleteObjFile()
