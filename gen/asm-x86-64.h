@@ -1676,7 +1676,13 @@ namespace AsmParserx8664
         }
         void addOperand2 ( const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
-            assert ( !sc->func->naked );
+            if ( sc->func->naked )
+            {
+                // taken from above
+                stmt->error ( "only global variables can be referenced by identifier in naked asm" );
+                return;
+            }
+
             insnTemplate << fmtpre
                          << "<<" << (mode==Mode_Input ? "in" : "out") << ">>"
                          << fmtpost;
