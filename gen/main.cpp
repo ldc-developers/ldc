@@ -442,7 +442,11 @@ LDC_TARGETS
     if (mArch.empty())
     {
         std::string Err;
+#if LLVM_REV < 77950
         theTarget = llvm::TargetRegistry::lookupTarget(mod.getTargetTriple(), false, false, Err);
+#else
+        theTarget = llvm::TargetRegistry::lookupTarget(mod.getTargetTriple(), Err);
+#endif
         if (theTarget == 0)
         {
             error("failed to auto-select target: %s, please use the -march option", Err.c_str());
@@ -479,7 +483,11 @@ LDC_TARGETS
         FeaturesStr = Features.getString();
     }
 
+#if LLVM_REV < 77946
     std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod, FeaturesStr));
+#else
+    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod, mod.getTargetTriple(), FeaturesStr));
+#endif
     assert(target.get() && "Could not allocate target machine!");
     gTargetMachine = target.get();
     gTargetData = gTargetMachine->getTargetData();
