@@ -486,7 +486,7 @@ LDC_TARGETS
 #if LLVM_REV < 77946
     std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod, FeaturesStr));
 #else
-    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod, mod.getTargetTriple(), FeaturesStr));
+    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod.getTargetTriple(), FeaturesStr));
 #endif
     assert(target.get() && "Could not allocate target machine!");
     gTargetMachine = target.get();

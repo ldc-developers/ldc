@@ -295,7 +295,10 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     ExistingModuleProvider Provider(&m);
     FunctionPassManager Passes(&Provider);
 
-    Passes.add(new TargetData(*Target.getTargetData()));
+    if (const TargetData *TD = Target.getTargetData())
+        Passes.add(new TargetData(*TD));
+    else
+        Passes.add(new TargetData(&m));
 
     // Ask the target to add backend passes as necessary.
     MachineCodeEmitter *MCE = 0;
