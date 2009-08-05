@@ -2517,7 +2517,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
         constvals[i] = llvm::cast<LLConstant>(values[i]);
 
     // return constant struct
-    return LLConstantStruct::get(constvals, sd->ir.irStruct->packed);
+    return LLConstantStruct::get(gIR->context(), constvals, sd->ir.irStruct->packed);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

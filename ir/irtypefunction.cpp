@@ -39,7 +39,7 @@ const llvm::Type * IrTypeDelegate::buildType()
     const LLType* i8ptr = getVoidPtrType();
     const LLType* func = DtoFunctionType(dtype->nextOf(), NULL, Type::tvoid->pointerTo());
     const LLType* funcptr = getPtrToType(func);
-    const LLStructType* dgtype = LLStructType::get(i8ptr, funcptr, NULL);
+    const LLStructType* dgtype = LLStructType::get(gIR->context(), i8ptr, funcptr, NULL);
     gIR->module->addTypeName(dtype->toChars(), dgtype);
 
     llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(dgtype);

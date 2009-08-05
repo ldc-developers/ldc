@@ -92,17 +92,17 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 
     case Tcomplex32:
         t2 = llvm::Type::FloatTy;
-        return llvm::StructType::get(t2, t2, NULL);
+        return llvm::StructType::get(gIR->context(), t2, t2, NULL);
 
     case Tcomplex64:
         t2 = llvm::Type::DoubleTy;
-        return llvm::StructType::get(t2, t2, NULL);
+        return llvm::StructType::get(gIR->context(), t2, t2, NULL);
 
     case Tcomplex80:
         t2 = (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
             ? llvm::Type::X86_FP80Ty
             : llvm::Type::DoubleTy;
-        return llvm::StructType::get(t2, t2, NULL);
+        return llvm::StructType::get(gIR->context(), t2, t2, NULL);
 
     case Tbool:
         return llvm::Type::Int1Ty;
@@ -204,7 +204,7 @@ const llvm::Type * IrTypeArray::array2llvm(Type * t)
     elemType = llvm::PointerType::get(elemType, 0);
 
     // create struct type
-    const llvm::Type* at = llvm::StructType::get(DtoSize_t(), elemType, NULL);
+    const llvm::Type* at = llvm::StructType::get(gIR->context(), DtoSize_t(), elemType, NULL);
 
     // name dynamic array types
     Type::sir->getState()->module->addTypeName(t->toChars(), at);

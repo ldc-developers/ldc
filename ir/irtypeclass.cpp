@@ -258,7 +258,7 @@ const llvm::Type* IrTypeClass::buildType()
         fatal();
 
     // build the llvm type
-    const llvm::Type* st = llvm::StructType::get(defaultTypes, false);
+    const llvm::Type* st = llvm::StructType::get(gIR->context(), defaultTypes, false);
 
     // refine type
     llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(st);
@@ -324,7 +324,7 @@ const llvm::Type* IrTypeClass::buildVtblType(Type* first, Array* vtbl_array)
     }
 
     // build the vtbl llvm type
-    return llvm::StructType::get(types, false);
+    return llvm::StructType::get(gIR->context(), types, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////

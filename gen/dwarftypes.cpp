@@ -23,13 +23,13 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   std::vector<const Type*>StructTy_llvm_dbg_anchor_type_fields;
   StructTy_llvm_dbg_anchor_type_fields.push_back(IntegerType::get(32));
   StructTy_llvm_dbg_anchor_type_fields.push_back(IntegerType::get(32));
-  StructType* StructTy_llvm_dbg_anchor_type = StructType::get(StructTy_llvm_dbg_anchor_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_anchor_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_anchor_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.anchor.type", StructTy_llvm_dbg_anchor_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_basictype_type_fields;
   StructTy_llvm_dbg_basictype_type_fields.push_back(IntegerType::get(32));
   std::vector<const Type*>StructTy_1_fields;
-  StructType* StructTy_1 = StructType::get(StructTy_1_fields, /*isPacked=*/false);
+  StructType* StructTy_1 = StructType::get(mod->getContext(), StructTy_1_fields, /*isPacked=*/false);
   
   PointerType* PointerTy_0 = PointerType::get(StructTy_1,0);
   
@@ -44,7 +44,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_basictype_type_fields.push_back(IntegerType::get(64));
   StructTy_llvm_dbg_basictype_type_fields.push_back(IntegerType::get(32));
   StructTy_llvm_dbg_basictype_type_fields.push_back(IntegerType::get(32));
-  StructType* StructTy_llvm_dbg_basictype_type = StructType::get(StructTy_llvm_dbg_basictype_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_basictype_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_basictype_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.basictype.type", StructTy_llvm_dbg_basictype_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_compile_unit_type_fields;
@@ -54,7 +54,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_compile_unit_type_fields.push_back(PointerTy_2);
   StructTy_llvm_dbg_compile_unit_type_fields.push_back(PointerTy_2);
   StructTy_llvm_dbg_compile_unit_type_fields.push_back(PointerTy_2);
-  StructType* StructTy_llvm_dbg_compile_unit_type = StructType::get(StructTy_llvm_dbg_compile_unit_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_compile_unit_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_compile_unit_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.compile_unit.type", StructTy_llvm_dbg_compile_unit_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_compositetype_type_fields;
@@ -69,7 +69,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_compositetype_type_fields.push_back(IntegerType::get(32));
   StructTy_llvm_dbg_compositetype_type_fields.push_back(PointerTy_0);
   StructTy_llvm_dbg_compositetype_type_fields.push_back(PointerTy_0);
-  StructType* StructTy_llvm_dbg_compositetype_type = StructType::get(StructTy_llvm_dbg_compositetype_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_compositetype_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_compositetype_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.compositetype.type", StructTy_llvm_dbg_compositetype_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_derivedtype_type_fields;
@@ -83,7 +83,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_derivedtype_type_fields.push_back(IntegerType::get(64));
   StructTy_llvm_dbg_derivedtype_type_fields.push_back(IntegerType::get(32));
   StructTy_llvm_dbg_derivedtype_type_fields.push_back(PointerTy_0);
-  StructType* StructTy_llvm_dbg_derivedtype_type = StructType::get(StructTy_llvm_dbg_derivedtype_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_derivedtype_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_derivedtype_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.derivedtype.type", StructTy_llvm_dbg_derivedtype_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_global_variable_type_fields;
@@ -99,7 +99,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_global_variable_type_fields.push_back(IntegerType::get(1));
   StructTy_llvm_dbg_global_variable_type_fields.push_back(IntegerType::get(1));
   StructTy_llvm_dbg_global_variable_type_fields.push_back(PointerTy_0);
-  StructType* StructTy_llvm_dbg_global_variable_type = StructType::get(StructTy_llvm_dbg_global_variable_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_global_variable_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_global_variable_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.global_variable.type", StructTy_llvm_dbg_global_variable_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_subprogram_type_fields;
@@ -114,7 +114,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_subprogram_type_fields.push_back(PointerTy_0);
   StructTy_llvm_dbg_subprogram_type_fields.push_back(IntegerType::get(1));
   StructTy_llvm_dbg_subprogram_type_fields.push_back(IntegerType::get(1));
-  StructType* StructTy_llvm_dbg_subprogram_type = StructType::get(StructTy_llvm_dbg_subprogram_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_subprogram_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_subprogram_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.subprogram.type", StructTy_llvm_dbg_subprogram_type);
   
   std::vector<const Type*>StructTy_llvm_dbg_variable_type_fields;
@@ -124,7 +124,7 @@ void RegisterDwarfSymbols(llvm::Module* mod) {
   StructTy_llvm_dbg_variable_type_fields.push_back(PointerTy_0);
   StructTy_llvm_dbg_variable_type_fields.push_back(IntegerType::get(32));
   StructTy_llvm_dbg_variable_type_fields.push_back(PointerTy_0);
-  StructType* StructTy_llvm_dbg_variable_type = StructType::get(StructTy_llvm_dbg_variable_type_fields, /*isPacked=*/false);
+  StructType* StructTy_llvm_dbg_variable_type = StructType::get(mod->getContext(), StructTy_llvm_dbg_variable_type_fields, /*isPacked=*/false);
   mod->addTypeName("llvm.dbg.variable.type", StructTy_llvm_dbg_variable_type);
 
   std::vector<const Type*>FuncTy_3_args;

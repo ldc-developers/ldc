@@ -405,7 +405,7 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 
 // the following code generates functions and needs to output
 // debug info. these macros are useful for that
-#define DBG_TYPE    ( getPtrToType(llvm::StructType::get(NULL,NULL)) )
+#define DBG_TYPE    ( getPtrToType(llvm::StructType::get(gIR->context(),NULL,NULL)) )
 #define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
 
 // build module ctor
@@ -811,7 +811,7 @@ void Module::genmoduleinfo()
     std::vector<const LLType*> magictypes;
     magictypes.push_back(LLType::Int32Ty);
     magictypes.push_back(getPtrToType(magicfty));
-    const LLStructType* magicsty = LLStructType::get(magictypes);
+    const LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
 
     // make the constant element
     std::vector<LLConstant*> magicconstants;

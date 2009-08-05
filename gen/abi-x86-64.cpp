@@ -36,6 +36,7 @@
 #include "declaration.h"
 #include "aggregate.h"
 
+#include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
@@ -281,7 +282,7 @@ namespace {
             default:
                 assert(0 && "Unanticipated argument class for second half");
         }
-        return LLStructType::get(parts);
+        return LLStructType::get(gIR->context(), parts);
     }
 }
 

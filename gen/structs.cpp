@@ -362,7 +362,7 @@ LLType* DtoUnpaddedStructType(Type* dty) {
         }
         types.push_back(fty);
     }
-    LLType* Ty = LLStructType::get(types);
+    LLType* Ty = LLStructType::get(gIR->context(), types);
     cache.insert(std::make_pair(dty, Ty));
     return Ty;
 }

@@ -817,11 +817,11 @@ const LLStructType* DtoInterfaceInfoType()
     vtbltypes.push_back(DtoSize_t());
     const LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::Int8Ty));
     vtbltypes.push_back(byteptrptrty);
-    types.push_back(LLStructType::get(vtbltypes));
+    types.push_back(LLStructType::get(gIR->context(), vtbltypes));
     // int offset
     types.push_back(LLType::Int32Ty);
     // create type
-    gIR->interfaceInfoType = LLStructType::get(types);
+    gIR->interfaceInfoType = LLStructType::get(gIR->context(), types);
 
     return gIR->interfaceInfoType;
 }
@@ -838,20 +838,20 @@ const LLStructType* DtoMutexType()
     {
         // CRITICAL_SECTION.sizeof == 68
         std::vector<const LLType*> types(17, LLType::Int32Ty);
-        return LLStructType::get(types);
+        return LLStructType::get(gIR->context(), types);
     }
 
     // FreeBSD
     else if (global.params.os == OSFreeBSD) {
         // Just a pointer
-        return LLStructType::get(DtoSize_t(), NULL);
+        return LLStructType::get(gIR->context(), DtoSize_t(), NULL);
     }
 
     // pthread_fastlock
     std::vector<const LLType*> types2;
     types2.push_back(DtoSize_t());
     types2.push_back(LLType::Int32Ty);
-    const LLStructType* fastlock = LLStructType::get(types2);
+    const LLStructType* fastlock = LLStructType::get(gIR->context(), types2);
 
     // pthread_mutex
     std::vector<const LLType*> types1;
@@ -860,7 +860,7 @@ const LLStructType* DtoMutexType()
     types1.push_back(getVoidPtrType());
     types1.push_back(LLType::Int32Ty);
     types1.push_back(fastlock);
-    const LLStructType* pmutex = LLStructType::get(types1);
+    const LLStructType* pmutex = LLStructType::get(gIR->context(), types1);
 
     // D_CRITICAL_SECTION
     LLOpaqueType* opaque = LLOpaqueType::get();
@@ -869,7 +869,7 @@ const LLStructType* DtoMutexType()
     types.push_back(pmutex);
 
     // resolve type
-    pmutex = LLStructType::get(types);
+    pmutex = LLStructType::get(gIR->context(), types);
     LLPATypeHolder pa(pmutex);
     opaque->refineAbstractTypeTo(pa.get());
     pmutex = isaStruct(pa.get());
@@ -895,7 +895,7 @@ const LLStructType* DtoModuleReferenceType()
     types.push_back(DtoType(Module::moduleinfo->type));
 
     // resolve type
-    const LLStructType* st = LLStructType::get(types);
+    const LLStructType* st = LLStructType::get(gIR->context(), types);
     LLPATypeHolder pa(st);
     opaque->refineAbstractTypeTo(pa.get());
     st = isaStruct(pa.get());
@@ -917,7 +917,7 @@ LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* n
 
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
 {
-    const LLType* t = LLStructType::get(V1->getType(), V2->getType(), NULL);
+    const LLType* t = LLStructType::get(gIR->context(), V1->getType(), V2->getType(), NULL);
     return DtoAggrPair(t, V1, V2, name);
 }
 

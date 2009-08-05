@@ -219,7 +219,7 @@ const llvm::Type* IrTypeStruct::buildType()
     }
 
     // build the llvm type
-    const llvm::Type* st = llvm::StructType::get(defaultTypes, packed);
+    const llvm::Type* st = llvm::StructType::get(gIR->context(), defaultTypes, packed);
 
     // refine type
     llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(st);

@@ -825,7 +825,7 @@ void SwitchStatement::toIR(IRState* p)
         std::vector<const LLType*> types;
         types.push_back(DtoSize_t());
         types.push_back(elemPtrTy);
-        const llvm::StructType* sTy = llvm::StructType::get(types);
+        const llvm::StructType* sTy = llvm::StructType::get(gIR->context(), types);
         std::vector<LLConstant*> sinits;
         sinits.push_back(DtoConstSize_t(inits.size()));
         sinits.push_back(arrPtr);

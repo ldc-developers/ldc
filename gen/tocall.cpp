@@ -160,11 +160,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
                     gah.push_back(DtoSize_t());
                     gah_sz += PTRSIZE;
                 }
-                vtypes.back() = LLStructType::get(gah, true);
+                vtypes.back() = LLStructType::get(gIR->context(), gah, true);
             }
         }
     }
-    const LLStructType* vtype = LLStructType::get(vtypes);
+    const LLStructType* vtype = LLStructType::get(gIR->context(), vtypes);
 
     if (Logger::enabled())
         Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
@@ -207,7 +207,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     pinits.push_back(DtoConstSize_t(vtype->getNumElements()));
     pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
     const LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
-    tiinits = LLConstantStruct::get(pinits);
+    tiinits = LLConstantStruct::get(gIR->context(), pinits);
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 

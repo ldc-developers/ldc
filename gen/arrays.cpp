@@ -26,12 +26,12 @@ const LLStructType* DtoArrayType(Type* arrayTy)
     const LLType* elemty = DtoType(arrayTy->nextOf());
     if (elemty == LLType::VoidTy)
         elemty = LLType::Int8Ty;
-    return LLStructType::get(DtoSize_t(), getPtrToType(elemty), NULL);
+    return LLStructType::get(gIR->context(), DtoSize_t(), getPtrToType(elemty), NULL);
 }
 
 const LLStructType* DtoArrayType(const LLType* t)
 {
-    return LLStructType::get(DtoSize_t(), getPtrToType(t), NULL);
+    return LLStructType::get(gIR->context(), DtoSize_t(), getPtrToType(t), NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -309,7 +309,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* constarr;
     if (mismatch)
-        constarr = LLConstantStruct::get(initvals);
+        constarr = LLConstantStruct::get(gIR->context(), initvals);
     else
         constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
 
@@ -394,7 +394,7 @@ void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 {
     LLConstant* values[2] = { dim, ptr };
-    return LLConstantStruct::get(values, 2);
+    return LLConstantStruct::get(gIR->context(), values, 2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
