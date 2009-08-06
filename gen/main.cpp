@@ -402,9 +402,6 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
-    llvm::LLVMContext& context = llvm::getGlobalContext();
-    llvm::Module mod("dummy", context);
-
     // override triple if needed
     const char* defaultTriple = DEFAULT_TARGET_TRIPLE;
     if ((sizeof(void*) == 4 && m64bits) || (sizeof(void*) == 8 && m32bits))
@@ -427,7 +424,7 @@ int main(int argc, char** argv)
         global.params.targetTriple = mTargetTriple.c_str();
     }
 
-    mod.setTargetTriple(global.params.targetTriple);
+    std::string triple = global.params.targetTriple;
 
     // Allocate target machine.
     
@@ -442,11 +439,7 @@ LDC_TARGETS
     if (mArch.empty())
     {
         std::string Err;
-#if LLVM_REV < 77950
-        theTarget = llvm::TargetRegistry::lookupTarget(mod.getTargetTriple(), false, false, Err);
-#else
-        theTarget = llvm::TargetRegistry::lookupTarget(mod.getTargetTriple(), Err);
-#endif
+        theTarget = llvm::TargetRegistry::lookupTarget(triple, Err);
         if (theTarget == 0)
         {
             error("failed to auto-select target: %s, please use the -march option", Err.c_str());
@@ -483,7 +476,7 @@ LDC_TARGETS
         FeaturesStr = Features.getString();
     }
 
-    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(mod.getTargetTriple(), FeaturesStr));
+    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(triple, FeaturesStr));
     assert(target.get() && "Could not allocate target machine!");
     gTargetMachine = target.get();
     gTargetData = gTargetMachine->getTargetData();
@@ -559,7 +552,6 @@ LDC_TARGETS
     // parse the OS out of the target triple
     // see http://gcc.gnu.org/install/specific.html for details
     // also llvm's different SubTargets have useful information
-    std::string triple = global.params.targetTriple;
     size_t npos = std::string::npos;
 
     // windows
@@ -904,6 +896,7 @@ LDC_TARGETS
 
     // collects llvm modules to be linked if singleobj is passed
     std::vector<llvm::Module*> llvmModules;
+    llvm::LLVMContext& context = llvm::getGlobalContext();
 
     // Generate output files
     for (int i = 0; i < modules.dim; i++)
