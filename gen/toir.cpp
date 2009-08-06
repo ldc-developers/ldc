@@ -11,6 +11,7 @@
 #include <fstream>
 
 #include "gen/llvm.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "attrib.h"
 #include "init.h"
@@ -38,8 +39,13 @@
 #include "gen/todebug.h"
 #include "gen/nested.h"
 #include "gen/utils.h"
+#include "gen/warnings.h"
 
 #include "llvm/Support/ManagedStatic.h"
+
+llvm::cl::opt<bool> checkPrintf("check-printf-calls",
+    llvm::cl::desc("Validate printf call format strings against arguments"),
+    llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -784,6 +790,16 @@ DValue* CallExp::toElem(IRState* p)
     if (dfnval && dfnval->func)
     {
         FuncDeclaration* fndecl = dfnval->func;
+
+        // as requested by bearophile, see if it's a C printf call and that it's valid.
+        if (global.params.warnings && checkPrintf)
+        {
+            if (fndecl->linkage == LINKc && strcmp(fndecl->ident->string, "printf") == 0)
+            {
+                warnInvalidPrintfCall(loc, (Expression*)arguments->data[0], arguments->dim);
+            }
+        }
+
         // va_start instruction
         if (fndecl->llvmInternal == LLVMva_start) {
             // llvm doesn't need the second param hence the override
