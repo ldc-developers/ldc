@@ -20,7 +20,7 @@
 
 IrStruct::IrStruct(AggregateDeclaration* aggr)
 :   diCompositeType(NULL),
-    init_pa(llvm::OpaqueType::get())
+    init_pa(llvm::OpaqueType::get(gIR->context()))
 {
     aggrdecl = aggr;
 
@@ -117,22 +117,22 @@ size_t add_zeros(std::vector<llvm::Constant*>& constants, size_t diff)
     {
         if (global.params.is64bit && diff % 8 == 0)
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::Int64Ty));
+            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt64Ty(gIR->context())));
             diff -= 8;
         }
         else if (diff % 4 == 0)
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::Int32Ty));
+            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt32Ty(gIR->context())));
             diff -= 4;
         }
         else if (diff % 2 == 0)
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::Int16Ty));
+            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt16Ty(gIR->context())));
             diff -= 2;
         }
         else
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::Int8Ty));
+            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt8Ty(gIR->context())));
             diff -= 1;
         }
     }

@@ -319,7 +319,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
             // Construct the metadata
             llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, TD_NumFields);
             // Insert it into the module
-            llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
+            llvm::NamedMDNode::Create(gIR->context(), metaname, &metadata, 1, gIR->module);
         }
     }
 #endif // USE_METADATA

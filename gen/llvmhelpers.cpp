@@ -213,7 +213,7 @@ void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
     std::string labelname = gIR->func()->gen->getScopedLabelName(target->toChars());
     llvm::BasicBlock*& targetBB = gIR->func()->gen->labelToBB[labelname];
     if (targetBB == NULL)
-        targetBB = llvm::BasicBlock::Create("label_" + labelname, gIR->topfunc());
+        targetBB = llvm::BasicBlock::Create(gIR->context(), "label_" + labelname, gIR->topfunc());
 
     // emit code for finallys between goto and label
     DtoEnclosingHandlers(loc, lblstmt);

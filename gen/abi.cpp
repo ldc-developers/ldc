@@ -56,13 +56,13 @@ struct X86_cfloat_rewrite : ABIRewrite
         LLValue* in = dv->getRVal();
 
         // extract real part
-        LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::Int32Ty);
-        rpart = gIR->ir->CreateBitCast(rpart, LLType::FloatTy, ".re");
+        LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::getInt32Ty(gIR->context()));
+        rpart = gIR->ir->CreateBitCast(rpart, LLType::getFloatTy(gIR->context()), ".re");
 
         // extract imag part
-        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::Int64Ty, 32, false));
-        ipart = gIR->ir->CreateTrunc(ipart, LLType::Int32Ty);
-        ipart = gIR->ir->CreateBitCast(ipart, LLType::FloatTy, ".im");
+        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
+        ipart = gIR->ir->CreateTrunc(ipart, LLType::getInt32Ty(gIR->context()));
+        ipart = gIR->ir->CreateBitCast(ipart, LLType::getFloatTy(gIR->context()), ".im");
 
         // return {float,float} aggr pair with same bits
         return DtoAggrPair(rpart, ipart, ".final_cfloat");
@@ -76,18 +76,18 @@ struct X86_cfloat_rewrite : ABIRewrite
         // extract real
         LLValue* r = gIR->ir->CreateExtractValue(v, 0);
         // cast to i32
-        r = gIR->ir->CreateBitCast(r, LLType::Int32Ty);
+        r = gIR->ir->CreateBitCast(r, LLType::getInt32Ty(gIR->context()));
         // zext to i64
-        r = gIR->ir->CreateZExt(r, LLType::Int64Ty);
+        r = gIR->ir->CreateZExt(r, LLType::getInt64Ty(gIR->context()));
 
         // extract imag
         LLValue* i = gIR->ir->CreateExtractValue(v, 1);
         // cast to i32
-        i = gIR->ir->CreateBitCast(i, LLType::Int32Ty);
+        i = gIR->ir->CreateBitCast(i, LLType::getInt32Ty(gIR->context()));
         // zext to i64
-        i = gIR->ir->CreateZExt(i, LLType::Int64Ty);
+        i = gIR->ir->CreateZExt(i, LLType::getInt64Ty(gIR->context()));
         // shift up
-        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::Int64Ty, 32, false));
+        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
 
         // combine and return
         return v = gIR->ir->CreateOr(r, i);
@@ -96,7 +96,7 @@ struct X86_cfloat_rewrite : ABIRewrite
     // {float,float} -> i64
     const LLType* type(Type*, const LLType* t)
     {
-        return LLType::Int64Ty;
+        return LLType::getInt64Ty(gIR->context());
     }
 };
 
@@ -131,13 +131,13 @@ struct X86_struct_to_register : ABIRewrite
         Logger::println("rewriting struct -> int");
         assert(dv->isLVal());
         LLValue* mem = dv->getLVal();
-        const LLType* t = LLIntegerType::get(dty->size()*8);
+        const LLType* t = LLIntegerType::get(gIR->context(), dty->size()*8);
         return DtoLoad(DtoBitCast(mem, getPtrToType(t)));
     }
     const LLType* type(Type* t, const LLType*)
     {
         size_t sz = t->size()*8;
-        return LLIntegerType::get(sz);
+        return LLIntegerType::get(gIR->context(), sz);
     }
 };
 
@@ -258,7 +258,7 @@ struct X86TargetABI : TargetABI
             if (tf->next->toBasetype() == Type::tcomplex32)
             {
                 fty.ret->rewrite = &cfloatToInt;
-                fty.ret->ltype = LLType::Int64Ty;
+                fty.ret->ltype = LLType::getInt64Ty(gIR->context());
             }
 
             // IMPLICIT PARAMETERS

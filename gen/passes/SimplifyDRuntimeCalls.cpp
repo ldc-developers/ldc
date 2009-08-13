@@ -82,7 +82,7 @@ namespace {
 
 /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
 Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
-  return B.CreateBitCast(V, PointerType::getUnqual(Type::Int8Ty), "cstr");
+  return B.CreateBitCast(V, PointerType::getUnqual(B.getInt8Ty()), "cstr");
 }
 
 /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This always
@@ -95,7 +95,7 @@ Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
   Tys[0] = Len->getType();
   Value *MemCpy = Intrinsic::getDeclaration(M, IID, Tys, 1);
   return B.CreateCall4(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
-                       ConstantInt::get(Type::Int32Ty, Align));
+                       ConstantInt::get(B.getInt32Ty(), Align));
 }
 
 //===----------------------------------------------------------------------===//
@@ -202,7 +202,7 @@ struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
                 Constant* C = 0;
                 if ((C = dyn_cast<Constant>(Cmp->getOperand(0)))
                     || (C = dyn_cast<Constant>(Cmp->getOperand(1)))) {
-                    Value* Result = ConstantInt::get(Type::Int1Ty, !Cmp->isTrueWhenEqual());
+                    Value* Result = ConstantInt::get(B.getInt1Ty(), !Cmp->isTrueWhenEqual());
                     Cmp->replaceAllUsesWith(Result);
                     // Don't delete the comparison because there may be an
                     // iterator to it. Instead, set the operands to constants
@@ -228,8 +228,8 @@ struct VISIBILITY_HIDDEN ArraySliceCopyOpt : public LibCallOptimization {
     virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
         // Verify we have a reasonable prototype for _d_array_slice_copy
         const FunctionType *FT = Callee->getFunctionType();
-        const Type* VoidPtrTy = PointerType::getUnqual(Type::Int8Ty);
-        if (Callee->arg_size() != 4 || FT->getReturnType() != Type::VoidTy ||
+        const Type* VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+        if (Callee->arg_size() != 4 || FT->getReturnType() != B.getVoidTy() ||
             FT->getParamType(0) != VoidPtrTy ||
             !isa<IntegerType>(FT->getParamType(1)) ||
             FT->getParamType(2) != VoidPtrTy ||

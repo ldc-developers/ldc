@@ -630,7 +630,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
         return getNullPtr(getVoidPtrType());
 
     dtor->codegen(Type::sir);
-    return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::Int8Ty));
+    return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 
 static unsigned build_classinfo_flags(ClassDeclaration* cd)

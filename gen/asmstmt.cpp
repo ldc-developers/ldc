@@ -703,7 +703,7 @@ void AsmBlockStatement::toIR(IRState* p)
     if (asmblock->retn)
         retty = asmblock->retty;
     else
-        retty = llvm::Type::VoidTy;
+        retty = llvm::Type::getVoidTy(gIR->context());
 
     // build argument types
     std::vector<const LLType*> types;
@@ -732,7 +732,7 @@ void AsmBlockStatement::toIR(IRState* p)
     llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
 
     llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(),
-        retty == LLType::VoidTy ? "" : "asm");
+        retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
 
     if (Logger::enabled())
         Logger::cout() << "Complete asm statement: " << *call << '\n';
@@ -759,7 +759,7 @@ void AsmBlockStatement::toIR(IRState* p)
 
         // make new blocks
         llvm::BasicBlock* oldend = gIR->scopeend();
-        llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterasmgotoforwarder", p->topfunc(), oldend);
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "afterasmgotoforwarder", p->topfunc(), oldend);
 
         llvm::LoadInst* val = p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
         llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
@@ -768,8 +768,8 @@ void AsmBlockStatement::toIR(IRState* p)
         std::map<Identifier*, int>::iterator it, end = gotoToVal.end();
         for(it = gotoToVal.begin(); it != end; ++it)
         {
-            llvm::BasicBlock* casebb = llvm::BasicBlock::Create("case", p->topfunc(), bb);
-            sw->addCase(LLConstantInt::get(llvm::IntegerType::get(32), it->second), casebb);
+            llvm::BasicBlock* casebb = llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
+            sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
             DtoGoto(loc, it->first, enclosingFinally);

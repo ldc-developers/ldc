@@ -221,7 +221,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     }
     ++argidx;
 
-    args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::Int8Ty), "tmp"));
+    args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context())), "tmp"));
     if (unsigned atts = tf->fty.arg_argptr->attrs) {
         Attr.Index = argidx;
         Attr.Attrs = atts;
@@ -529,7 +529,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // void returns cannot not be named
     const char* varname = "";
-    if (callableTy->getReturnType() != LLType::VoidTy)
+    if (callableTy->getReturnType() != LLType::getVoidTy(gIR->context()))
         varname = "tmp";
 
 #if 0

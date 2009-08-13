@@ -10,7 +10,7 @@
 IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
 : finallyBody(NULL)
 {
-    target = llvm::BasicBlock::Create("catch", gIR->topfunc(), end);
+    target = llvm::BasicBlock::Create(gIR->context(), "catch", gIR->topfunc(), end);
     gIR->scope() = IRScope(target,end);
 
     // assign storage to catch var
@@ -133,11 +133,11 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     }
     // if there's a finally, the eh table has to have a 0 action
     if(hasFinally)
-        selectorargs.push_back(LLConstantInt::get(LLType::Int32Ty, 0));
+        selectorargs.push_back(LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0));
 
     // personality fn
     llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
-    LLValue* personality_fn_arg = gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::Int8Ty));
+    LLValue* personality_fn_arg = gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::getInt8Ty(gIR->context())));
     selectorargs.insert(selectorargs.begin(), personality_fn_arg);
 
     // eh storage target
@@ -181,7 +181,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
         {
             if(!switchinst)
             {
-                switchinst = gIR->ir->CreateSwitch(eh_sel, llvm::BasicBlock::Create("switchdefault", gIR->topfunc(), gIR->scopeend()), infos.size());
+                switchinst = gIR->ir->CreateSwitch(eh_sel, llvm::BasicBlock::Create(gIR->context(), "switchdefault", gIR->topfunc(), gIR->scopeend()), infos.size());
                 gIR->scope() = IRScope(switchinst->getDefaultDest(), gIR->scopeend());
             }
             // dubious comment

@@ -424,12 +424,12 @@ llvm::Function* build_module_ctor()
     name.append("6__ctorZ");
 
     std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(DtoCallingConv(0, LINKd));
 
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
 
     // debug info
@@ -469,12 +469,12 @@ static llvm::Function* build_module_dtor()
     name.append("6__dtorZ");
 
     std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(DtoCallingConv(0, LINKd));
 
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
 
     // debug info
@@ -514,12 +514,12 @@ static llvm::Function* build_module_unittest()
     name.append("10__unittestZ");
 
     std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::VoidTy,argsTy,false);
+    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(DtoCallingConv(0, LINKd));
 
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("entry", fn);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
 
     // debug info
@@ -547,7 +547,7 @@ static llvm::Function* build_module_unittest()
 static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 {
     // build ctor type
-    const LLFunctionType* fty = LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false);
+    const LLFunctionType* fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);
 
     // build ctor name
     std::string fname = "_D";
@@ -576,7 +576,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
         mref = new LLGlobalVariable(*gIR->module, getPtrToType(modulerefTy), false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref");
 
     // make the function insert this moduleinfo as the beginning of the _Dmodule_ref linked list
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("moduleinfoCtorEntry", ctor);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "moduleinfoCtorEntry", ctor);
     IRBuilder<> builder(bb);
 
     // debug info
@@ -746,7 +746,7 @@ void Module::genmoduleinfo()
     b.push_uint(mi_flags);
 
     // function pointer type for next three fields
-    const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false));
+    const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false));
 
     // ctor
     llvm::Function* fctor = build_module_ctor();
@@ -807,9 +807,9 @@ void Module::genmoduleinfo()
     LLFunction* mictor = build_module_reference_and_ctor(gvar);
 
     // register this ctor in the magic llvm.global_ctors appending array
-    const LLFunctionType* magicfty = LLFunctionType::get(LLType::VoidTy, std::vector<const LLType*>(), false);
+    const LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);
     std::vector<const LLType*> magictypes;
-    magictypes.push_back(LLType::Int32Ty);
+    magictypes.push_back(LLType::getInt32Ty(gIR->context()));
     magictypes.push_back(getPtrToType(magicfty));
     const LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
 

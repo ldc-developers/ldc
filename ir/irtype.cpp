@@ -43,69 +43,70 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 {
     const llvm::Type* t2;
 
+    // FIXME: don't use getGlobalContext
     switch(t->ty)
     {
     case Tvoid:
-        return llvm::Type::VoidTy;
+        return llvm::Type::getVoidTy(llvm::getGlobalContext());
 
     case Tint8:
     case Tuns8:
     case Tchar:
-        return llvm::Type::Int8Ty;
+        return llvm::Type::getInt8Ty(llvm::getGlobalContext());
 
     case Tint16:
     case Tuns16:
     case Twchar:
-        return llvm::Type::Int16Ty;
+        return llvm::Type::getInt16Ty(llvm::getGlobalContext());
 
     case Tint32:
     case Tuns32:
     case Tdchar:
-        return llvm::Type::Int32Ty;
+        return llvm::Type::getInt32Ty(llvm::getGlobalContext());
 
     case Tint64:
     case Tuns64:
-        return llvm::Type::Int64Ty;
+        return llvm::Type::getInt64Ty(llvm::getGlobalContext());
 
     /*
     case Tint128:
     case Tuns128:
-        return llvm::IntegerType::get(128);
+        return llvm::IntegerType::get(llvm::getGlobalContext(), 128);
     */
 
     case Tfloat32:
     case Timaginary32:
-        return llvm::Type::FloatTy;
+        return llvm::Type::getFloatTy(llvm::getGlobalContext());
 
     case Tfloat64:
     case Timaginary64:
-        return llvm::Type::DoubleTy;
+        return llvm::Type::getDoubleTy(llvm::getGlobalContext());
 
     case Tfloat80:
     case Timaginary80:
         // only x86 has 80bit float
         if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            return llvm::Type::X86_FP80Ty;
+            return llvm::Type::getX86_FP80Ty(llvm::getGlobalContext());
         // other platforms use 64bit reals
         else
-            return llvm::Type::DoubleTy;
+            return llvm::Type::getDoubleTy(llvm::getGlobalContext());
 
     case Tcomplex32:
-        t2 = llvm::Type::FloatTy;
-        return llvm::StructType::get(gIR->context(), t2, t2, NULL);
+        t2 = llvm::Type::getFloatTy(llvm::getGlobalContext());
+        return llvm::StructType::get(llvm::getGlobalContext(), t2, t2, NULL);
 
     case Tcomplex64:
-        t2 = llvm::Type::DoubleTy;
-        return llvm::StructType::get(gIR->context(), t2, t2, NULL);
+        t2 = llvm::Type::getDoubleTy(llvm::getGlobalContext());
+        return llvm::StructType::get(llvm::getGlobalContext(), t2, t2, NULL);
 
     case Tcomplex80:
         t2 = (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            ? llvm::Type::X86_FP80Ty
-            : llvm::Type::DoubleTy;
-        return llvm::StructType::get(gIR->context(), t2, t2, NULL);
+            ? llvm::Type::getX86_FP80Ty(llvm::getGlobalContext())
+            : llvm::Type::getDoubleTy(llvm::getGlobalContext());
+        return llvm::StructType::get(llvm::getGlobalContext(), t2, t2, NULL);
 
     case Tbool:
-        return llvm::Type::Int1Ty;
+        return llvm::Type::getInt1Ty(llvm::getGlobalContext());
     }
 
     assert(0 && "not basic type");
@@ -117,7 +118,7 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypePointer::IrTypePointer(Type * dt)
-: IrType(dt, llvm::OpaqueType::get())
+: IrType(dt, llvm::OpaqueType::get(llvm::getGlobalContext()))
 {
 }
 
@@ -137,8 +138,8 @@ const llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
     assert(dt->ty == Tpointer && "not pointer type");
 
     const llvm::Type* elemType = DtoType(dt->nextOf());
-    if (elemType == llvm::Type::VoidTy)
-        elemType = llvm::Type::Int8Ty;
+    if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
+        elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     return llvm::PointerType::get(elemType, 0);
 }
 
@@ -147,7 +148,7 @@ const llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeSArray::IrTypeSArray(Type * dt)
-: IrType(dt, llvm::OpaqueType::get())
+: IrType(dt, llvm::OpaqueType::get(llvm::getGlobalContext()))
 {
     assert(dt->ty == Tsarray && "not static array type");
     TypeSArray* tsa = (TypeSArray*)dt;
@@ -168,8 +169,8 @@ const llvm::Type * IrTypeSArray::buildType()
 const llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 {
     const llvm::Type* elemType = DtoType(t->nextOf());
-    if (elemType == llvm::Type::VoidTy)
-        elemType = llvm::Type::Int8Ty;
+    if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
+        elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     return llvm::ArrayType::get(elemType, dim);
 }
 
@@ -178,7 +179,7 @@ const llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeArray::IrTypeArray(Type * dt)
-: IrType(dt, llvm::OpaqueType::get())
+: IrType(dt, llvm::OpaqueType::get(llvm::getGlobalContext()))
 {
 }
 
@@ -199,12 +200,12 @@ const llvm::Type * IrTypeArray::array2llvm(Type * t)
 
     // get .ptr type
     const llvm::Type* elemType = DtoType(t->nextOf());
-    if (elemType == llvm::Type::VoidTy)
-        elemType = llvm::Type::Int8Ty;
+    if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
+        elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     elemType = llvm::PointerType::get(elemType, 0);
 
     // create struct type
-    const llvm::Type* at = llvm::StructType::get(gIR->context(), DtoSize_t(), elemType, NULL);
+    const llvm::Type* at = llvm::StructType::get(llvm::getGlobalContext(), DtoSize_t(), elemType, NULL);
 
     // name dynamic array types
     Type::sir->getState()->module->addTypeName(t->toChars(), at);

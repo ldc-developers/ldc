@@ -24,16 +24,16 @@ const LLType* DtoComplexBaseType(Type* t)
     TY ty = t->toBasetype()->ty;
     const LLType* base;
     if (ty == Tcomplex32) {
-        return LLType::FloatTy;
+        return LLType::getFloatTy(gIR->context());
     }
     else if (ty == Tcomplex64) {
-        return LLType::DoubleTy;
+        return LLType::getDoubleTy(gIR->context());
     }
     else if (ty == Tcomplex80) {
         if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
-            return LLType::X86_FP80Ty;
+            return LLType::getX86_FP80Ty(gIR->context());
         else
-            return LLType::DoubleTy;
+            return LLType::getDoubleTy(gIR->context());
     }
     else {
         assert(0);

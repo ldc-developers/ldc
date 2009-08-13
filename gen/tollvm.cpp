@@ -180,7 +180,7 @@ const LLType* DtoType(Type* t)
 const LLType* DtoStructTypeFromArguments(Arguments* arguments)
 {
     if (!arguments)
-        return LLType::VoidTy;
+        return LLType::getVoidTy(gIR->context());
 
     std::vector<const LLType*> types;
     for (size_t i = 0; i < arguments->dim; i++)
@@ -199,8 +199,8 @@ const LLType* DtoStructTypeFromArguments(Arguments* arguments)
 const LLType* DtoTypeNotVoid(Type* t)
 {
     const LLType* lt = DtoType(t);
-    if (lt == LLType::VoidTy)
-        return LLType::Int8Ty;
+    if (lt == LLType::getVoidTy(gIR->context()))
+        return LLType::getInt8Ty(gIR->context());
     return lt;
 }
 
@@ -391,7 +391,7 @@ const LLIntegerType* DtoSize_t()
     // the type of size_t does not change once set
     static const LLIntegerType* t = NULL;
     if (t == NULL)
-        t = (global.params.is64bit) ? LLType::Int64Ty : LLType::Int32Ty;
+        t = (global.params.is64bit) ? LLType::getInt64Ty(gIR->context()) : LLType::getInt32Ty(gIR->context());
     return t;
 }
 
@@ -484,7 +484,7 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
         params[0] = getVoidPtrType();
         params[1] = getVoidPtrType();
         params[2] = DtoSize_t();
-        const LLFunctionType* fty = LLFunctionType::get(LLType::Int32Ty, params, false);
+        const LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()), params, false);
         fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", gIR->module);
     }
 
@@ -535,19 +535,19 @@ llvm::ConstantInt* DtoConstSize_t(uint64_t i)
 }
 llvm::ConstantInt* DtoConstUint(unsigned i)
 {
-    return LLConstantInt::get(LLType::Int32Ty, i, false);
+    return LLConstantInt::get(LLType::getInt32Ty(gIR->context()), i, false);
 }
 llvm::ConstantInt* DtoConstInt(int i)
 {
-    return LLConstantInt::get(LLType::Int32Ty, i, true);
+    return LLConstantInt::get(LLType::getInt32Ty(gIR->context()), i, true);
 }
 LLConstant* DtoConstBool(bool b)
 {
-    return LLConstantInt::get(LLType::Int1Ty, b, false);
+    return LLConstantInt::get(LLType::getInt1Ty(gIR->context()), b, false);
 }
 llvm::ConstantInt* DtoConstUbyte(unsigned char i)
 {
-    return LLConstantInt::get(LLType::Int8Ty, i, false);
+    return LLConstantInt::get(LLType::getInt8Ty(gIR->context()), i, false);
 }
 
 LLConstant* DtoConstFP(Type* t, long double value)
@@ -555,9 +555,9 @@ LLConstant* DtoConstFP(Type* t, long double value)
     const LLType* llty = DtoType(t);
     assert(llty->isFloatingPoint());
 
-    if(llty == LLType::FloatTy || llty == LLType::DoubleTy)
+    if(llty == LLType::getFloatTy(gIR->context()) || llty == LLType::getDoubleTy(gIR->context()))
         return LLConstantFP::get(llty, value);
-    else if(llty == LLType::X86_FP80Ty) {
+    else if(llty == LLType::getX86_FP80Ty(gIR->context())) {
         uint64_t bits[] = {0, 0};
         bits[0] = *(uint64_t*)&value;
         bits[1] = *(uint16_t*)((uint64_t*)&value + 1);
@@ -572,7 +572,7 @@ LLConstant* DtoConstFP(Type* t, long double value)
 LLConstant* DtoConstString(const char* str)
 {
     std::string s(str?str:"");
-    LLConstant* init = LLConstantArray::get(s, true);
+    LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
@@ -584,7 +584,7 @@ LLConstant* DtoConstString(const char* str)
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
     std::string s(str);
-    LLConstant* init = LLConstantArray::get(s, true);
+    LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);
@@ -722,14 +722,14 @@ llvm::GlobalVariable* isaGlobalVar(LLValue* v)
 
 const LLPointerType* getPtrToType(const LLType* t)
 {
-    if (t == LLType::VoidTy)
-        t = LLType::Int8Ty;
+    if (t == LLType::getVoidTy(gIR->context()))
+        t = LLType::getInt8Ty(gIR->context());
     return LLPointerType::get(t, 0);
 }
 
 const LLPointerType* getVoidPtrType()
 {
-    return getPtrToType(LLType::Int8Ty);
+    return getPtrToType(LLType::getInt8Ty(gIR->context()));
 }
 
 llvm::ConstantPointerNull* getNullPtr(const LLType* t)
@@ -815,11 +815,11 @@ const LLStructType* DtoInterfaceInfoType()
     // void*[] vtbl
     std::vector<const LLType*> vtbltypes;
     vtbltypes.push_back(DtoSize_t());
-    const LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::Int8Ty));
+    const LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::getInt8Ty(gIR->context())));
     vtbltypes.push_back(byteptrptrty);
     types.push_back(LLStructType::get(gIR->context(), vtbltypes));
     // int offset
-    types.push_back(LLType::Int32Ty);
+    types.push_back(LLType::getInt32Ty(gIR->context()));
     // create type
     gIR->interfaceInfoType = LLStructType::get(gIR->context(), types);
 
@@ -837,7 +837,7 @@ const LLStructType* DtoMutexType()
     if (global.params.os == OSWindows)
     {
         // CRITICAL_SECTION.sizeof == 68
-        std::vector<const LLType*> types(17, LLType::Int32Ty);
+        std::vector<const LLType*> types(17, LLType::getInt32Ty(gIR->context()));
         return LLStructType::get(gIR->context(), types);
     }
 
@@ -850,20 +850,20 @@ const LLStructType* DtoMutexType()
     // pthread_fastlock
     std::vector<const LLType*> types2;
     types2.push_back(DtoSize_t());
-    types2.push_back(LLType::Int32Ty);
+    types2.push_back(LLType::getInt32Ty(gIR->context()));
     const LLStructType* fastlock = LLStructType::get(gIR->context(), types2);
 
     // pthread_mutex
     std::vector<const LLType*> types1;
-    types1.push_back(LLType::Int32Ty);
-    types1.push_back(LLType::Int32Ty);
+    types1.push_back(LLType::getInt32Ty(gIR->context()));
+    types1.push_back(LLType::getInt32Ty(gIR->context()));
     types1.push_back(getVoidPtrType());
-    types1.push_back(LLType::Int32Ty);
+    types1.push_back(LLType::getInt32Ty(gIR->context()));
     types1.push_back(fastlock);
     const LLStructType* pmutex = LLStructType::get(gIR->context(), types1);
 
     // D_CRITICAL_SECTION
-    LLOpaqueType* opaque = LLOpaqueType::get();
+    LLOpaqueType* opaque = LLOpaqueType::get(gIR->context());
     std::vector<const LLType*> types;
     types.push_back(getPtrToType(opaque));
     types.push_back(pmutex);
@@ -887,7 +887,7 @@ const LLStructType* DtoModuleReferenceType()
         return gIR->moduleRefType;
 
     // this is a recursive type so start out with the opaque
-    LLOpaqueType* opaque = LLOpaqueType::get();
+    LLOpaqueType* opaque = LLOpaqueType::get(gIR->context());
 
     // add members
     std::vector<const LLType*> types;

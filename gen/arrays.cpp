@@ -24,8 +24,8 @@ const LLStructType* DtoArrayType(Type* arrayTy)
 {
     assert(arrayTy->nextOf());
     const LLType* elemty = DtoType(arrayTy->nextOf());
-    if (elemty == LLType::VoidTy)
-        elemty = LLType::Int8Ty;
+    if (elemty == LLType::getVoidTy(gIR->context()))
+        elemty = LLType::getInt8Ty(gIR->context());
     return LLStructType::get(gIR->context(), DtoSize_t(), getPtrToType(elemty), NULL);
 }
 
@@ -44,8 +44,8 @@ const LLArrayType* DtoStaticArrayType(Type* t)
     Type* tnext = tsa->nextOf();
 
     const LLType* elemty = DtoType(tnext);
-    if (elemty == LLType::VoidTy)
-        elemty = LLType::Int8Ty;
+    if (elemty == LLType::getVoidTy(gIR->context()))
+        elemty = LLType::getInt8Ty(gIR->context());
 
     return LLArrayType::get(elemty, tsa->dim->toUInteger());
 }
@@ -112,7 +112,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     switch (arrayelemty->ty)
     {
     case Tbool:
-        val = gIR->ir->CreateZExt(val, LLType::Int8Ty, ".bool");
+        val = gIR->ir->CreateZExt(val, LLType::getInt8Ty(gIR->context()), ".bool");
         // fall through
 
     case Tvoid:
@@ -713,10 +713,10 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
     LLSmallVector<LLValue*, 3> args;
 
     // get values, reinterpret cast to void[]
-    lmem = DtoAggrPaint(l->getRVal(), DtoArrayType(LLType::Int8Ty));
+    lmem = DtoAggrPaint(l->getRVal(), DtoArrayType(LLType::getInt8Ty(gIR->context())));
     args.push_back(lmem);
 
-    rmem = DtoAggrPaint(r->getRVal(), DtoArrayType(LLType::Int8Ty));
+    rmem = DtoAggrPaint(r->getRVal(), DtoArrayType(LLType::getInt8Ty(gIR->context())));
     args.push_back(rmem);
 
     // pass array typeinfo ?
@@ -1040,8 +1040,8 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
     // runtime check
 
     llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* failbb = llvm::BasicBlock::Create("arrayboundscheckfail", gIR->topfunc(), oldend);
-    llvm::BasicBlock* okbb = llvm::BasicBlock::Create("arrayboundsok", gIR->topfunc(), oldend);
+    llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundscheckfail", gIR->topfunc(), oldend);
+    llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundsok", gIR->topfunc(), oldend);
 
     llvm::ICmpInst::Predicate cmpop = isslice ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_ULT;
     LLValue* cond = gIR->ir->CreateICmp(cmpop, index->getRVal(), DtoArrayLen(arr), "boundscheck");

@@ -62,13 +62,13 @@ namespace {
 
 void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
                 const Analysis& A) {
-    Dst = B.CreateBitCast(Dst, PointerType::getUnqual(Type::Int8Ty));
+    Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
     
     Module *M = B.GetInsertBlock()->getParent()->getParent();
     const Type* Tys[1];
     Tys[0] = Len->getType();
     Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
-    Value *Align = ConstantInt::get(Type::Int32Ty, 1);
+    Value *Align = ConstantInt::get(B.getInt32Ty(), 1);
     
     CallSite CS = B.CreateCall4(MemSet, Dst, Val, Len, Align);
     if (A.CGNode)
@@ -77,7 +77,7 @@ void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
 
 static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
                         const Analysis& A) {
-    EmitMemSet(B, Dst, ConstantInt::get(Type::Int8Ty, 0), Len, A);
+    EmitMemSet(B, Dst, ConstantInt::get(B.getInt8Ty(), 0), Len, A);
 }
 
 
@@ -174,7 +174,7 @@ namespace {
             }
             
             // Convert array size to 32 bits if necessary
-            Value* count = Builder.CreateIntCast(arrSize, Type::Int32Ty, false);
+            Value* count = Builder.CreateIntCast(arrSize, Builder.getInt32Ty(), false);
             AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
             
             if (Initialized) {
@@ -587,7 +587,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
       if (CS.onlyReadsMemory() && CS.doesNotThrow() &&
-          I->getType() == Type::VoidTy)
+          I->getType() == Type::getVoidTy(I->getContext()))
         break;
       
       // Not captured if only passed via 'nocapture' arguments.  Note that

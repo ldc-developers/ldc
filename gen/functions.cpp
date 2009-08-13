@@ -631,15 +631,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     std::string entryname("entry");
 
-    llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(entryname,func);
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create("endentry",func);
+    llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), entryname,func);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry",func);
 
     //assert(gIR->scopes.empty());
     gIR->scopes.push_back(IRScope(beginbb, endbb));
 
     // create alloca point
     // this gets erased when the function is complete, so alignment etc does not matter at all
-    llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::Int32Ty, "alloca point", beginbb);
+    llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
     irfunction->allocapoint = allocaPoint;
 
     // debug info - after all allocas, but before any llvm.dbg.declare etc
@@ -797,21 +797,21 @@ void DtoDefineFunction(FuncDeclaration* fd)
         
         // pass the previous block into this block
         if (global.params.symdebug) DtoDwarfFuncEnd(fd);
-        if (func->getReturnType() == LLType::VoidTy) {
-            llvm::ReturnInst::Create(gIR->scopebb());
+        if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
+            llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
         }
         else if (!fd->isMain()) {
             AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
             if (asmb) {
                 assert(asmb->abiret);
-                llvm::ReturnInst::Create(asmb->abiret, bb);
+                llvm::ReturnInst::Create(gIR->context(), asmb->abiret, bb);
             }
             else {
-                llvm::ReturnInst::Create(llvm::UndefValue::get(func->getReturnType()), bb);
+                llvm::ReturnInst::Create(gIR->context(), llvm::UndefValue::get(func->getReturnType()), bb);
             }
         }
         else
-            llvm::ReturnInst::Create(LLConstant::getNullValue(func->getReturnType()), bb);
+            llvm::ReturnInst::Create(gIR->context(), LLConstant::getNullValue(func->getReturnType()), bb);
     }
 
 //     std::cout << *func << std::endl;

@@ -16,7 +16,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
-:   IrType(ad->type, llvm::OpaqueType::get()),
+:   IrType(ad->type, llvm::OpaqueType::get(gIR->context())),
     aggr(ad)
 {
 }
@@ -41,22 +41,22 @@ size_t add_zeros(std::vector<const llvm::Type*>& defaultTypes, size_t diff)
     {
         if (global.params.is64bit && diff % 8 == 0)
         {
-            defaultTypes.push_back(llvm::Type::Int64Ty);
+            defaultTypes.push_back(llvm::Type::getInt64Ty(gIR->context()));
             diff -= 8;
         }
         else if (diff % 4 == 0)
         {
-            defaultTypes.push_back(llvm::Type::Int32Ty);
+            defaultTypes.push_back(llvm::Type::getInt32Ty(gIR->context()));
             diff -= 4;
         }
         else if (diff % 2 == 0)
         {
-            defaultTypes.push_back(llvm::Type::Int16Ty);
+            defaultTypes.push_back(llvm::Type::getInt16Ty(gIR->context()));
             diff -= 2;
         }
         else
         {
-            defaultTypes.push_back(llvm::Type::Int8Ty);
+            defaultTypes.push_back(llvm::Type::getInt8Ty(gIR->context()));
             diff -= 1;
         }
     }

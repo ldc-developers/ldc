@@ -130,20 +130,20 @@ static const LLType* rt_array(const LLType* elemty)
 static const LLType* rt_dg1()
 {
     std::vector<const LLType*> types;
-    types.push_back(rt_ptr(LLType::Int8Ty));
-    types.push_back(rt_ptr(LLType::Int8Ty));
-    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::Int32Ty, types, false);
-    return llvm::StructType::get(gIR->context(), rt_ptr(LLType::Int8Ty), rt_ptr(fty), NULL);
+    types.push_back(rt_ptr(LLType::getInt8Ty(gIR->context())));
+    types.push_back(rt_ptr(LLType::getInt8Ty(gIR->context())));
+    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::getInt32Ty(gIR->context()), types, false);
+    return llvm::StructType::get(gIR->context(), rt_ptr(LLType::getInt8Ty(gIR->context())), rt_ptr(fty), NULL);
 }
 
 static const LLType* rt_dg2()
 {
     std::vector<const LLType*> types;
-    types.push_back(rt_ptr(LLType::Int8Ty));
-    types.push_back(rt_ptr(LLType::Int8Ty));
-    types.push_back(rt_ptr(LLType::Int8Ty));
-    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::Int32Ty, types, false);
-    return llvm::StructType::get(gIR->context(), rt_ptr(LLType::Int8Ty), rt_ptr(fty), NULL);
+    types.push_back(rt_ptr(LLType::getInt8Ty(gIR->context())));
+    types.push_back(rt_ptr(LLType::getInt8Ty(gIR->context())));
+    types.push_back(rt_ptr(LLType::getInt8Ty(gIR->context())));
+    const llvm::FunctionType* fty = llvm::FunctionType::get(LLType::getInt32Ty(gIR->context()), types, false);
+    return llvm::StructType::get(gIR->context(), rt_ptr(LLType::getInt8Ty(gIR->context())), rt_ptr(fty), NULL);
 }
 
 static void LLVM_D_BuildRuntimeModule()
@@ -152,22 +152,22 @@ static void LLVM_D_BuildRuntimeModule()
     M = new llvm::Module("ldc internal runtime", gIR->context());
 
     Logger::println("building basic types");
-    const LLType* voidTy = LLType::VoidTy;
-    const LLType* boolTy = LLType::Int1Ty;
-    const LLType* byteTy = LLType::Int8Ty;
-    const LLType* shortTy = LLType::Int16Ty;
-    const LLType* intTy = LLType::Int32Ty;
-    const LLType* longTy = LLType::Int64Ty;
+    const LLType* voidTy = LLType::getVoidTy(gIR->context());
+    const LLType* boolTy = LLType::getInt1Ty(gIR->context());
+    const LLType* byteTy = LLType::getInt8Ty(gIR->context());
+    const LLType* shortTy = LLType::getInt16Ty(gIR->context());
+    const LLType* intTy = LLType::getInt32Ty(gIR->context());
+    const LLType* longTy = LLType::getInt64Ty(gIR->context());
     const LLType* sizeTy = DtoSize_t();
 
     Logger::println("building float types");
-    const LLType* floatTy = LLType::FloatTy;
-    const LLType* doubleTy = LLType::DoubleTy;
+    const LLType* floatTy = LLType::getFloatTy(gIR->context());
+    const LLType* doubleTy = LLType::getDoubleTy(gIR->context());
     const LLType* realTy;
     if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
-        realTy = LLType::X86_FP80Ty;
+        realTy = LLType::getX86_FP80Ty(gIR->context());
     else
-        realTy = LLType::DoubleTy;
+        realTy = LLType::getDoubleTy(gIR->context());
 
     const LLType* cfloatTy = llvm::StructType::get(gIR->context(), floatTy, floatTy, NULL);
     const LLType* cdoubleTy = llvm::StructType::get(gIR->context(), doubleTy, doubleTy, NULL);
@@ -185,7 +185,7 @@ static void LLVM_D_BuildRuntimeModule()
     const LLType* typeInfoTy = DtoType(Type::typeinfo->type);
 
     Logger::println("building aa type");
-    const LLType* aaTy = rt_ptr(llvm::OpaqueType::get());
+    const LLType* aaTy = rt_ptr(llvm::OpaqueType::get(gIR->context()));
 
     Logger::println("building functions");
 

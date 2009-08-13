@@ -233,11 +233,11 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
                 } else if (rt->ty == Tcomplex32) {
                     // extern(C) cfloat is return as i64
                     as->out_c = "=A,";
-                    asmblock->retty = LLType::Int64Ty;
+                    asmblock->retty = LLType::getInt64Ty(gIR->context());
                 } else {
                     // cdouble and creal extern(C) are returned in pointer
                     // don't add anything!
-                    asmblock->retty = LLType::VoidTy;
+                    asmblock->retty = LLType::getVoidTy(gIR->context());
                     asmblock->retn = 0;
                     return;
                 }
@@ -314,7 +314,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
                 // For compatibility, use the GCC/LLVM-GCC way for extern(C/Windows)
                 // extern(C) cfloat -> %xmm0 (extract two floats)
                 as->out_c = "={xmm0},";
-                asmblock->retty = LLType::DoubleTy;
+                asmblock->retty = LLType::getDoubleTy(gIR->context());
             } else if (rt->iscomplex()) {
                 // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1
                 as->out_c = "={xmm0},={xmm1},";

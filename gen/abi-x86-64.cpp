@@ -231,19 +231,19 @@ namespace {
         switch (cl.classes[0]) {
             case Integer: {
                 unsigned bits = (size >= 8 ? 64 : (size * 8));
-                parts.push_back(LLIntegerType::get(bits));
+                parts.push_back(LLIntegerType::get(gIR->context(), bits));
                 break;
             }
             
             case Sse:
-                parts.push_back(size <= 4 ? LLType::FloatTy : LLType::DoubleTy);
+                parts.push_back(size <= 4 ? LLType::getFloatTy(gIR->context()) : LLType::getDoubleTy(gIR->context()));
                 break;
             
             case X87:
                 assert(cl.classes[1] == X87Up && "Upper half of real not X87Up?");
                 /// The type only contains a single real/ireal field,
                 /// so just use that type.
-                return const_cast<LLType*>(LLType::X86_FP80Ty);
+                return const_cast<LLType*>(LLType::getX86_FP80Ty(gIR->context()));
             
             default:
                 assert(0 && "Unanticipated argument class");
@@ -260,11 +260,11 @@ namespace {
             case Integer: {
                 assert(size > 8);
                 unsigned bits = (size - 8) * 8;
-                parts.push_back(LLIntegerType::get(bits));
+                parts.push_back(LLIntegerType::get(gIR->context(), bits));
                 break;
             }
             case Sse:
-                parts.push_back(size <= 12 ? LLType::FloatTy : LLType::DoubleTy);
+                parts.push_back(size <= 12 ? LLType::getFloatTy(gIR->context()) : LLType::getDoubleTy(gIR->context()));
                 break;
             
             case X87Up:
@@ -275,7 +275,7 @@ namespace {
                     // I can't find this anywhere in the ABI documentation,
                     // but this is what gcc does (both regular and llvm-gcc).
                     // (This triggers for types like union { real r; byte b; })
-                    parts.push_back(LLType::DoubleTy);
+                    parts.push_back(LLType::getDoubleTy(gIR->context()));
                 }
                 break;
             

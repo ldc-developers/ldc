@@ -18,7 +18,7 @@ IrVar::IrVar(VarDeclaration* var)
 //////////////////////////////////////////////////////////////////////////////
 
 IrGlobal::IrGlobal(VarDeclaration* v): IrVar(v),
-    type(llvm::OpaqueType::get())
+    type(llvm::OpaqueType::get(llvm::getGlobalContext()))
 {
     constInit = NULL;
 }

@@ -361,13 +361,13 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
     vals[4] = DtoConstInt(linnum);
 
     // size in bits
-    vals[5] = LLConstantInt::get(LLType::Int64Ty, getTypeBitSize(T), false);
+    vals[5] = LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getTypeBitSize(T), false);
 
     // alignment in bits
-    vals[6] = LLConstantInt::get(LLType::Int64Ty, getABITypeAlign(T)*8, false);
+    vals[6] = LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getABITypeAlign(T)*8, false);
 
     // offset in bits
-    vals[7] = LLConstantInt::get(LLType::Int64Ty, 0, false);
+    vals[7] = LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 0, false);
 
     // FIXME: dont know what this is
     vals[8] = DtoConstUint(0);

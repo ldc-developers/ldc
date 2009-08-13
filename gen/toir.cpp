@@ -408,7 +408,7 @@ DValue* StringExp::toElem(IRState* p)
     if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
         std::string cont((char*)str, len);
-        _init = LLConstantArray::get(cont,true);
+        _init = LLConstantArray::get(p->context(), cont, true);
     }
     else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
@@ -438,7 +438,7 @@ DValue* StringExp::toElem(IRState* p)
         Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,at,true,_linkage,_init,".str");
 
-    llvm::ConstantInt* zero = LLConstantInt::get(LLType::Int32Ty, 0, false);
+    llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant* idxs[2] = { zero, zero };
     LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 
@@ -479,7 +479,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
         std::string cont((char*)str, len);
-        _init = LLConstantArray::get(cont, nullterm);
+        _init = LLConstantArray::get(p->context(), cont, nullterm);
     }
     else if (cty->size() == 2) {
         uint16_t* str = (uint16_t*)string;
@@ -514,7 +514,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_init->getType(),true,_linkage,_init,".str");
 
-    llvm::ConstantInt* zero = LLConstantInt::get(LLType::Int32Ty, 0, false);
+    llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant* idxs[2] = { zero, zero };
     LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
 
@@ -818,7 +818,7 @@ DValue* CallExp::toElem(IRState* p)
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
-            return new DImValue(type, p->ir->CreateAlloca(LLType::Int8Ty, expv->getRVal(), ".alloca"));
+            return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
         }
     }
 
@@ -1783,8 +1783,8 @@ DValue* AssertExp::toElem(IRState* p)
     {
         // create basic blocks
         llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* assertbb = llvm::BasicBlock::Create("assert", p->topfunc(), oldend);
-        llvm::BasicBlock* endbb = llvm::BasicBlock::Create("noassert", p->topfunc(), oldend);
+        llvm::BasicBlock* assertbb = llvm::BasicBlock::Create(gIR->context(), "assert", p->topfunc(), oldend);
+        llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "noassert", p->topfunc(), oldend);
 
         // test condition
         LLValue* condval = DtoCast(loc, cond, Type::tbool)->getRVal();
@@ -1831,8 +1831,8 @@ DValue* AndAndExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* andand = llvm::BasicBlock::Create("andand", gIR->topfunc(), oldend);
-    llvm::BasicBlock* andandend = llvm::BasicBlock::Create("andandend", gIR->topfunc(), oldend);
+    llvm::BasicBlock* andand = llvm::BasicBlock::Create(gIR->context(), "andand", gIR->topfunc(), oldend);
+    llvm::BasicBlock* andandend = llvm::BasicBlock::Create(gIR->context(), "andandend", gIR->topfunc(), oldend);
 
     LLValue* ubool = DtoCast(loc, u, Type::tbool)->getRVal();
 
@@ -1857,7 +1857,7 @@ DValue* AndAndExp::toElem(IRState* p)
         // No need to create a PHI node.
         resval = ubool;
     } else {
-        llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "andandval");
+        llvm::PHINode* phi = p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), "andandval");
         // If we jumped over evaluation of the right-hand side,
         // the result is false. Otherwise it's the value of the right-hand side.
         phi->addIncoming(LLConstantInt::getFalse(gIR->context()), oldblock);
@@ -1878,8 +1878,8 @@ DValue* OrOrExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* oror = llvm::BasicBlock::Create("oror", gIR->topfunc(), oldend);
-    llvm::BasicBlock* ororend = llvm::BasicBlock::Create("ororend", gIR->topfunc(), oldend);
+    llvm::BasicBlock* oror = llvm::BasicBlock::Create(gIR->context(), "oror", gIR->topfunc(), oldend);
+    llvm::BasicBlock* ororend = llvm::BasicBlock::Create(gIR->context(), "ororend", gIR->topfunc(), oldend);
 
     LLValue* ubool = DtoCast(loc, u, Type::tbool)->getRVal();
 
@@ -1904,7 +1904,7 @@ DValue* OrOrExp::toElem(IRState* p)
         // No need to create a PHI node.
         resval = ubool;
     } else {
-        llvm::PHINode* phi = p->ir->CreatePHI(LLType::Int1Ty, "ororval");
+        llvm::PHINode* phi = p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), "ororval");
         // If we jumped over evaluation of the right-hand side,
         // the result is true. Otherwise, it's the value of the right-hand side.
         phi->addIncoming(LLConstantInt::getTrue(gIR->context()), oldblock);
@@ -1970,7 +1970,7 @@ DValue* HaltExp::toElem(IRState* p)
     // this is sensible, since someone might goto behind the assert
     // and prevents compiler errors if a terminator follows the assert
     llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create("afterhalt", p->topfunc(), oldend);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "afterhalt", p->topfunc(), oldend);
     p->scope() = IRScope(bb,oldend);
 
     return 0;
@@ -1986,7 +1986,7 @@ DValue* DelegateExp::toElem(IRState* p)
     if(func->isStatic())
         error("can't take delegate of static function %s, it does not require a context ptr", func->toChars());
 
-    const LLPointerType* int8ptrty = getPtrToType(LLType::Int8Ty);
+    const LLPointerType* int8ptrty = getPtrToType(LLType::getInt8Ty(gIR->context()));
 
     assert(type->toBasetype()->ty == Tdelegate);
     const LLType* dgty = DtoType(type);
@@ -2128,9 +2128,9 @@ DValue* CondExp::toElem(IRState* p)
     }
 
     llvm::BasicBlock* oldend = p->scopeend();
-    llvm::BasicBlock* condtrue = llvm::BasicBlock::Create("condtrue", gIR->topfunc(), oldend);
-    llvm::BasicBlock* condfalse = llvm::BasicBlock::Create("condfalse", gIR->topfunc(), oldend);
-    llvm::BasicBlock* condend = llvm::BasicBlock::Create("condend", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condtrue = llvm::BasicBlock::Create(gIR->context(), "condtrue", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condfalse = llvm::BasicBlock::Create(gIR->context(), "condfalse", gIR->topfunc(), oldend);
+    llvm::BasicBlock* condend = llvm::BasicBlock::Create(gIR->context(), "condend", gIR->topfunc(), oldend);
 
     DValue* c = econd->toElem(p);
     LLValue* cond_val = DtoCast(loc, c, Type::tbool)->getRVal();

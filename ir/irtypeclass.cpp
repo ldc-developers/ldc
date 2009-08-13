@@ -23,7 +23,7 @@ IrTypeClass::IrTypeClass(ClassDeclaration* cd)
 :   IrTypeAggr(cd),
     cd(cd),
     tc((TypeClass*)cd->type),
-    vtbl_pa(llvm::OpaqueType::get())
+    vtbl_pa(llvm::OpaqueType::get(gIR->context()))
 {
     vtbl_size = cd->vtbl.dim;
     num_interface_vtbls = 0;
@@ -234,7 +234,7 @@ const llvm::Type* IrTypeClass::buildType()
     else
     {
         // add monitor
-        defaultTypes.push_back(llvm::PointerType::get(llvm::Type::Int8Ty, 0));
+        defaultTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0));
 
         // we start right after the vtbl and monitor
         size_t offset = PTRSIZE * 2;

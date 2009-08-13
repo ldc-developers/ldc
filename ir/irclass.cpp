@@ -83,13 +83,13 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         // Construct the fields
         MDNodeField* mdVals[CD_NumFields];
         mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
-        mdVals[CD_Finalize] = LLConstantInt::get(LLType::Int1Ty, hasDestructor);
-        mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::Int1Ty, hasCustomDelete);
+        mdVals[CD_Finalize] = LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor);
+        mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete);
         // Construct the metadata
         llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, CD_NumFields);
         // Insert it into the module
         std::string metaname = CD_PREFIX + initname;
-        llvm::NamedMDNode::Create(metaname, &metadata, 1, gIR->module);
+        llvm::NamedMDNode::Create(gIR->context(), metaname, &metadata, 1, gIR->module);
     }
 #endif // USE_METADATA
 

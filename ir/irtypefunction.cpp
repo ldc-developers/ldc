@@ -8,7 +8,7 @@
 #include "ir/irtypefunction.h"
 
 IrTypeFunction::IrTypeFunction(Type * dt)
-:   IrType(dt, llvm::OpaqueType::get())
+:   IrType(dt, llvm::OpaqueType::get(gIR->context()))
 {
     irfty = NULL;
 }
@@ -29,7 +29,7 @@ const llvm::Type * IrTypeFunction::buildType()
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeDelegate::IrTypeDelegate(Type * dt)
-:   IrType(dt, llvm::OpaqueType::get())
+:   IrType(dt, llvm::OpaqueType::get(gIR->context()))
 {
 }
 
