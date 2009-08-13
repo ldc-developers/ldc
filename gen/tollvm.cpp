@@ -571,19 +571,19 @@ LLConstant* DtoConstFP(Type* t, long double value)
 
 LLConstant* DtoConstString(const char* str)
 {
-    std::string s(str?str:"");
+    llvm::StringRef s(str?str:"");
     LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
-        DtoConstSize_t(s.length()),
+        DtoConstSize_t(s.size()),
         llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
     );
 }
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
-    std::string s(str);
+    llvm::StringRef s(str);
     LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");

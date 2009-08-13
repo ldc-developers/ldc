@@ -88,7 +88,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     assert(!global.errors);
 
     // name the module
-    std::string mname(toChars());
+    llvm::StringRef mname(toChars());
     if (md != 0)
         mname = md->toChars();
 

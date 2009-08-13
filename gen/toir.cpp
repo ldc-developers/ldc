@@ -407,7 +407,7 @@ DValue* StringExp::toElem(IRState* p)
     LLConstant* _init;
     if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
-        std::string cont((char*)str, len);
+        llvm::StringRef cont((char*)str, len);
         _init = LLConstantArray::get(p->context(), cont, true);
     }
     else if (cty->size() == 2) {
@@ -478,7 +478,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     LLConstant* _init;
     if (cty->size() == 1) {
         uint8_t* str = (uint8_t*)string;
-        std::string cont((char*)str, len);
+        llvm::StringRef cont((char*)str, len);
         _init = LLConstantArray::get(p->context(), cont, nullterm);
     }
     else if (cty->size() == 2) {
