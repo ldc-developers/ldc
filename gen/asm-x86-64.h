@@ -330,6 +330,7 @@ namespace AsmParserx8664
         Op_insX,
         Op_iret,
         Op_iretd,
+        Op_iretq,
         Op_lods,
         Op_lodsX,
         Op_movs,
@@ -434,6 +435,7 @@ namespace AsmParserx8664
         Mn_fsetpm,
         Mn_iretw,
         Mn_iret,
+        Mn_iretq,
         Mn_lret,
         Mn_cmpxchg8b,
         N_AltMn
@@ -446,6 +448,7 @@ namespace AsmParserx8664
         ".byte 0xdb, 0xe4",
         "iretw",
         "iret",
+        "iretq",
         "lret",
         "cmpxchg8b"
     };
@@ -575,6 +578,7 @@ namespace AsmParserx8664
         /* Op_insX      */  {   0,   0,   0,     0, Clb_DI }, // output segment overrides %% needs work
         /* Op_iret      */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_iretw },
         /* Op_iretd     */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_iret },
+        /* Op_iretq     */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_iretq },
         /* Op_lods      */  {   mem, 0,   0,     1, Clb_SI },
         /* Op_lodsX     */  {   0,   0,   0,     0, Clb_SI },
         /* Op_movs      */  {   mem, mem, 0,     1, Clb_DI|Clb_SI }, // only src/DS can be overridden
