@@ -67,8 +67,8 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 {
     if (v1 && v2)
         return v1->offset < v2->offset;
-    else
-        return false;
+    // sort NULL pointers towards the end
+    return v1 && !v2;
 }
 
 // this is pretty much the exact same thing we need to do for fields in each
