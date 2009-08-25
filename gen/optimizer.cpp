@@ -58,12 +58,6 @@ disableGCToStack("disable-gc2stack",
     cl::desc("Disable promotion of GC allocations to stack memory in -O<N>"),
     cl::ZeroOrMore);
 
-// Not recommended; metadata currently triggers an assert in the backend...
-static cl::opt<bool>
-disableStripMetaData("disable-strip-metadata",
-    cl::desc("Disable default metadata stripping (not recommended)"),
-    cl::ZeroOrMore);
-
 static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
 enableInlining("inlining",
     cl::desc("(*) Enable function inlining in -O<N>"),
@@ -222,18 +216,8 @@ static void addPassesForOptLevel(PassManager& pm) {
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module* m)
 {
-    if (!optimize()) {
-#if USE_METADATA
-        if (!disableStripMetaData) {
-            // This one always needs to run if metadata is generated, because
-            // the code generator will assert if it's not used.
-            ModulePass* stripMD = createStripMetaData();
-            stripMD->runOnModule(*m);
-            delete stripMD;
-        }
-#endif
+    if (!optimize())
         return false;
-    }
 
     PassManager pm;
     
@@ -269,14 +253,6 @@ bool ldc_optimize_module(llvm::Module* m)
     // insert -O<N> / -enable-inlining if specified at the end,
     if (optimize)
         addPassesForOptLevel(pm);
-
-#if USE_METADATA
-    if (!disableStripMetaData) {
-        // This one is purposely not disabled by disableLangSpecificPasses
-        // because the code generator will assert if it's not used.
-        addPass(pm, createStripMetaData());
-    }
-#endif // USE_METADATA
 
     pm.run(*m);
     return true;
