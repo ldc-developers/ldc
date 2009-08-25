@@ -326,8 +326,6 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
             Passes.run(*I);
 
     Passes.doFinalization();
-    
-    fout.flush();
 
     // release module from module provider so we can delete it ourselves
     std::string Err;
