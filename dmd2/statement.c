@@ -3901,40 +3901,9 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
 
 #if IN_LLVM
-	// LDC: Build args (based on the code from gen/tollvm.cpp:DtoMutexType()
+	// LDC: Build args
 	Arguments* args = new Arguments;
-	StructDeclaration* dcs = new StructDeclaration(loc, id);
-	if (global.params.os == OSWindows)
-	{
-		dcs->addField(dcs->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
-	}
-	else if (global.params.os == OSFreeBSD)
-	{
-		dcs->addField(dcs->scope, new VarDeclaration(loc, Type::tsize_t, id, NULL));
-	}
-	else
-	{
-		// pthread_fastlock
-		StructDeclaration* pfl = new StructDeclaration(loc, id);
-		pfl->scope->linkage = LINKc;
-		pfl->addField(pfl->scope, new VarDeclaration(loc, Type::tsize_t, id, NULL));
-		pfl->addField(pfl->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
-
-		// pthread_mutex
-		StructDeclaration* pm = new StructDeclaration(loc, id);
-		pm->scope->linkage = LINKc;
-		pm->addField(pm->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
-		pm->addField(pm->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
-		pm->addField(pm->scope, new VarDeclaration(loc, Type::tvoidptr, id, NULL));
-		pm->addField(pm->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
-		pm->addField(pm->scope, new VarDeclaration(loc, pfl->type, id, NULL));
-
-		// D_CRITICAL_SECTION
-		dcs->scope->linkage = LINKc;
-		dcs->addField(dcs->scope, new VarDeclaration(loc, dcs->type->pointerTo(), id, NULL));
-		dcs->addField(dcs->scope, new VarDeclaration(loc, pm->type, id, NULL));
-	}
-	args->push(new Argument(STCin, dcs->type->pointerTo(), NULL, NULL));
+	args->push(new Argument(STCin, t->pointerTo(), NULL, NULL));
 
 	FuncDeclaration *fdenter = FuncDeclaration::genCfunc(args, Type::tvoid, Id::criticalenter);
 #else
