@@ -169,7 +169,7 @@ char *Dsymbol::toChars()
     return ident ? ident->toChars() : (char *)"__anonymous";
 }
 
-char *Dsymbol::toPrettyChars()
+const char *Dsymbol::toPrettyChars()
 {   Dsymbol *p;
     char *s;
     char *q;
@@ -452,10 +452,12 @@ int Dsymbol::isDeprecated()
     return FALSE;
 }
 
+#if DMDV2
 int Dsymbol::isOverloadable()
 {
     return 0;
 }
+#endif
 
 LabelDsymbol *Dsymbol::isLabel()		// is this a LabelDsymbol()?
 {
@@ -695,6 +697,7 @@ void Dsymbol::addComment(unsigned char *comment)
 
 /********************************* OverloadSet ****************************/
 
+#if DMDV2
 OverloadSet::OverloadSet()
     : Dsymbol()
 {
@@ -709,6 +712,7 @@ const char *OverloadSet::kind()
 {
     return "overloadset";
 }
+#endif
 
 
 /********************************* ScopeDsymbol ****************************/

@@ -141,7 +141,7 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
 	    if (isConst())
 		p = "const";
 	    else if (isInvariant())
-		p = "mutable";
+		p = "immutable";
 	    else if (storage_class & STCmanifest)
 		p = "enum";
 	    else if (!t->isAssignable())
@@ -639,6 +639,7 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     onstack = 0;
     canassign = 0;
     value = NULL;
+    rundtor = NULL;
 #if IN_LLVM
     aggrIndex = 0;
 
@@ -956,9 +957,7 @@ Lagain:
 	    Expression *e1;
 	    e1 = new VarExp(loc, this);
 	    e = new AssignExp(loc, e1, e);
-#if DMDV2
 	    e->op = TOKconstruct;
-#endif
 	    e->type = e1->type;		// don't type check this, it would fail
 	    init = new ExpInitializer(loc, e);
 	    return;
@@ -979,10 +978,8 @@ Lagain:
 	{
 	    init = getExpInitializer();
 	}
-#if DMDV2
 	// Default initializer is always a blit
 	op = TOKblit;
-#endif
     }
 
     if (init)
@@ -1039,7 +1036,7 @@ Lagain:
 		Expression *e1 = new VarExp(loc, this);
 
 		Type *t = type->toBasetype();
-		if (t->ty == Tsarray)
+		if (t->ty == Tsarray && !(storage_class & (STCref | STCout)))
 		{
 		    ei->exp = ei->exp->semantic(sc);
 		    if (!ei->exp->implicitConvTo(type))
@@ -1167,7 +1164,7 @@ Lagain:
 			e = e->optimize(WANTvalue | WANTinterpret);
 		    else
 			e = e->optimize(WANTvalue);
-		    if (e->op == TOKint64 || e->op == TOKstring)
+		    if (e->op == TOKint64 || e->op == TOKstring || e->op == TOKfloat64)
 		    {
 			ei->exp = e;		// no errors, keep result
 		    }

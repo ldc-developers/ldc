@@ -29,6 +29,12 @@
 #include "template.h"
 #include "attrib.h"
 
+#if IN_LLVM
+#include "gen/tollvm.h"
+#elif IN_DMD
+extern int os_critsecsize();
+#endif
+
 /******************************** Statement ***************************/
 
 Statement::Statement(Loc loc)
@@ -181,6 +187,22 @@ Statements *Statement::flatten(Scope *sc)
     return NULL;
 }
 
+
+/******************************** PeelStatement ***************************/
+
+PeelStatement::PeelStatement(Statement *s)
+    : Statement(s->loc)
+{
+    this->s = s;
+}
+
+Statement *PeelStatement::semantic(Scope *sc)
+{
+    /* "peel" off this wrapper, and don't run semantic()
+     * on the result.
+     */
+    return s;
+}
 
 /******************************** ExpStatement ***************************/
 
@@ -344,6 +366,25 @@ void DeclarationStatement::scopeCode(Scope *sc, Statement **sentry, Statement **
 		if (e)
 		{
 		    //printf("dtor is: "); e->print();
+#if 0
+		    if (v->type->toBasetype()->ty == Tstruct)
+		    {	/* Need a 'gate' to turn on/off destruction,
+			 * in case v gets moved elsewhere.
+			 */
+			Identifier *id = Lexer::uniqueId("__runDtor");
+			ExpInitializer *ie = new ExpInitializer(loc, new IntegerExp(1));
+			VarDeclaration *rd = new VarDeclaration(loc, Type::tint32, id, ie);
+			*sentry = new DeclarationStatement(loc, rd);
+			v->rundtor = rd;
+
+			/* Rewrite e as:
+			 *  rundtor && e
+			 */
+			Expression *ve = new VarExp(loc, v->rundtor);
+			e = new AndAndExp(loc, ve, e);
+			e->type = Type::tbool;
+		    }
+#endif
 		    *sfinally = new ExpStatement(loc, e);
 		}
 	    }
@@ -418,7 +459,12 @@ Statement *CompoundStatement::semantic(Scope *sc)
 		if (sentry)
 		{
 		    sentry = sentry->semantic(sc);
-		    statements->data[i] = sentry;
+		    if (s->isDeclarationStatement())
+		    {	statements->insert(i, sentry);
+			i++;
+		    }
+		    else
+			statements->data[i] = sentry;
 		}
 		if (sexception)
 		{
@@ -562,7 +608,8 @@ int CompoundStatement::blockExit()
 //printf("%s\n", s->toChars());
 	    if (!(result & BEfallthru) && !s->comeFrom())
 	    {
-		s->warning("statement is not reachable");
+		if (s->blockExit() != BEhalt)
+		    s->warning("statement is not reachable");
 	    }
 
 	    result &= ~BEfallthru;
@@ -909,46 +956,12 @@ Statement *WhileStatement::syntaxCopy()
 
 Statement *WhileStatement::semantic(Scope *sc)
 {
-#if 0
-    if (condition->op == TOKmatch)
-    {
-	/* Rewrite while (condition) body as:
-	 *   if (condition)
-	 *     do
-	 *       body
-	 *     while ((_match = _match.opNext), _match);
-	 */
+    /* Rewrite as a for(;condition;) loop
+     */
 
-	Expression *ew = new IdentifierExp(0, Id::_match);
-	ew = new DotIdExp(0, ew, Id::next);
-	ew = new AssignExp(0, new IdentifierExp(0, Id::_match), ew);
-	////ew = new EqualExp(TOKnotequal, 0, ew, new NullExp(0));
-	Expression *ev = new IdentifierExp(0, Id::_match);
-	//ev = new CastExp(0, ev, Type::tvoidptr);
-	ew = new CommaExp(0, ew, ev);
-	Statement *sw = new DoStatement(loc, body, ew);
-	Statement *si = new IfStatement(loc, condition, sw, NULL);
-	return si->semantic(sc);
-    }
-#endif
-
-    condition = condition->semantic(sc);
-    condition = resolveProperties(sc, condition);
-    condition = condition->optimize(WANTvalue);
-    condition = condition->checkToBoolean();
-
-    sc->noctor++;
-
-    Scope *scd = sc->push();
-    scd->sbreak = this;
-    scd->scontinue = this;
-    if (body)
-	body = body->semantic(scd);
-    scd->pop();
-
-    sc->noctor--;
-
-    return this;
+    Statement *s = new ForStatement(loc, NULL, condition, NULL, body);
+    s = s->semantic(sc);
+    return s;
 }
 
 int WhileStatement::hasBreak()
@@ -963,11 +976,13 @@ int WhileStatement::hasContinue()
 
 int WhileStatement::usesEH()
 {
+    assert(0);
     return body ? body->usesEH() : 0;
 }
 
 int WhileStatement::blockExit()
 {
+    assert(0);
     //printf("WhileStatement::blockExit(%p)\n", this);
 
     int result = BEnone;
@@ -998,6 +1013,7 @@ int WhileStatement::blockExit()
 
 int WhileStatement::comeFrom()
 {
+    assert(0);
     if (body)
 	return body->comeFrom();
     return FALSE;
@@ -1193,6 +1209,10 @@ int ForStatement::blockExit()
     if (condition)
     {	if (condition->canThrow())
 	    result |= BEthrow;
+	if (condition->isBool(TRUE))
+	    result &= ~BEfallthru;
+	else if (condition->isBool(FALSE))
+	    return result;
     }
     else
 	result &= ~BEfallthru;	// the body must do the exiting
@@ -1452,11 +1472,14 @@ Statement *ForeachStatement::semantic(Scope *sc)
 	    for (size_t i = 0; i < dim; i++)
 	    {	// Declare args
 		Argument *arg = (Argument *)arguments->data[i];
+		Type *argtype = arg->type->semantic(loc, sc);
 		VarDeclaration *var;
 
-		var = new VarDeclaration(loc, arg->type, arg->ident, NULL);
+		var = new VarDeclaration(loc, argtype, arg->ident, NULL);
 		var->storage_class |= STCforeach;
 		var->storage_class |= arg->storageClass & (STCin | STCout | STCref | STC_TYPECTOR);
+		if (var->storage_class & (STCref | STCout))
+		    var->storage_class |= STCnodtor;
 		if (dim == 2 && i == 0)
 		{   key = var;
 		    //var->storage_class |= STCfinal;
@@ -1471,20 +1494,68 @@ Statement *ForeachStatement::semantic(Scope *sc)
 			var->storage_class |= STCconst;
 		    }
 		}
-#if 1
+#if 0
 		DeclarationExp *de = new DeclarationExp(loc, var);
 		de->semantic(sc);
-#else
-		var->semantic(sc);
-		if (!sc->insert(var))
-		    error("%s already defined", var->ident->toChars());
 #endif
 	    }
 
-	    sc->sbreak = this;
-	    sc->scontinue = this;
-	    body = body->semantic(sc);
+#if 1
+	{
+	     /* Convert to a ForStatement
+	      *   foreach (key, value; a) body =>
+	      *   for (T[] tmp = a[], size_t key; key < tmp.length; ++key)
+	      *   { T value = tmp[k]; body }
+	      *
+	      *   foreach_reverse (key, value; a) body =>
+	      *   for (T[] tmp = a[], size_t key = tmp.length; key--; )
+	      *   { T value = tmp[k]; body }
+	      */
+	    Identifier *id = Lexer::uniqueId("__aggr");
+	    ExpInitializer *ie = new ExpInitializer(loc, new SliceExp(loc, aggr, NULL, NULL));
+	    VarDeclaration *tmp = new VarDeclaration(loc, aggr->type->nextOf()->arrayOf(), id, ie);
 
+	    Expression *tmp_length = new DotIdExp(loc, new VarExp(loc, tmp), Id::length);
+
+	    if (!key)
+	    {
+		Identifier *id = Lexer::uniqueId("__key");
+		key = new VarDeclaration(loc, Type::tsize_t, id, NULL);
+	    }
+	    if (op == TOKforeach_reverse)
+		key->init = new ExpInitializer(loc, tmp_length);
+	    else
+		key->init = new ExpInitializer(loc, new IntegerExp(0));
+
+	    Statements *cs = new Statements();
+	    cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
+	    cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, key)));
+	    Statement *forinit = new CompoundDeclarationStatement(loc, cs);
+
+	    Expression *cond;
+	    if (op == TOKforeach_reverse)
+		// key--
+		cond = new PostExp(TOKminusminus, loc, new VarExp(loc, key));
+	    else
+		// key < tmp.length
+		cond = new CmpExp(TOKlt, loc, new VarExp(loc, key), tmp_length);
+
+	    Expression *increment = NULL;
+	    if (op == TOKforeach)
+		// key += 1
+		increment = new AddAssignExp(loc, new VarExp(loc, key), new IntegerExp(1));
+
+	    // T value = tmp[key];
+	    value->init = new ExpInitializer(loc, new IndexExp(loc, new VarExp(loc, tmp), new VarExp(loc, key)));
+	    Statement *ds = new DeclarationStatement(loc, new DeclarationExp(loc, value));
+
+	    body = new CompoundStatement(loc, ds, body);
+
+	    ForStatement *fs = new ForStatement(loc, forinit, cond, increment, body);
+	    s = fs->semantic(sc);
+	    break;
+	}
+#else
 	    if (tab->nextOf()->implicitConvTo(value->type) < MATCHconst)
 	    {
 		if (aggr->op == TOKstring)
@@ -1494,20 +1565,23 @@ Statement *ForeachStatement::semantic(Scope *sc)
 			tab->toChars(), value->type->toChars());
 	    }
 
-	    if (key && key->type->ty != Tint32 && key->type->ty != Tuns32)
+	    if (key)
 	    {
 		if (global.params.is64bit)
 		{
 		    if (key->type->ty != Tint64 && key->type->ty != Tuns64)
 			error("foreach: key type must be int or uint, long or ulong, not %s", key->type->toChars());
 		}
-		else
-		    error("foreach: key type must be int or uint, not %s", key->type->toChars());
+
+		if (key->storage_class & (STCout | STCref))
+		    error("foreach: key cannot be out or ref");
 	    }
 
-	    if (key && key->storage_class & (STCout | STCref))
-		error("foreach: key cannot be out or ref");
+	    sc->sbreak = this;
+	    sc->scontinue = this;
+	    body = body->semantic(sc);
 	    break;
+#endif
 
 	case Taarray:
 	    if (!checkForArgTypes())
@@ -1745,12 +1819,14 @@ Statement *ForeachStatement::semantic(Scope *sc)
 		keysize = (keysize + (PTRSIZE-1)) & ~(PTRSIZE-1);
 		exps->push(new IntegerExp(0, keysize, Type::tsize_t));
 
+#if IN_LLVM
         // LDC paint delegate argument to the type runtime expects
         if (!fldeTy->equals(flde->type))
         {
             flde = new CastExp(loc, flde, flde->type);
             flde->type = fldeTy;
         }
+#endif
 		exps->push(flde);
 		e = new CallExp(loc, ec, exps);
 		e->type = Type::tindex;	// don't run semantic() on e
@@ -2055,6 +2131,55 @@ Statement *ForeachRangeStatement::semantic(Scope *sc)
 	lwr = ea.e1;
 	upr = ea.e2;
     }
+#if 1
+    /* Convert to a for loop:
+     *	foreach (key; lwr .. upr) =>
+     *	for (auto key = lwr, auto tmp = upr; key < tmp; ++key)
+     *
+     *	foreach_reverse (key; lwr .. upr) =>
+     *	for (auto tmp = lwr, auto key = upr; key-- > tmp;)
+     */
+
+    ExpInitializer *ie = new ExpInitializer(loc, (op == TOKforeach) ? lwr : upr);
+    key = new VarDeclaration(loc, arg->type, arg->ident, ie);
+
+    Identifier *id = Lexer::uniqueId("__limit");
+    ie = new ExpInitializer(loc, (op == TOKforeach) ? upr : lwr);
+    VarDeclaration *tmp = new VarDeclaration(loc, arg->type, id, ie);
+
+    Statements *cs = new Statements();
+    // Keep order of evaluation as lwr, then upr
+    if (op == TOKforeach)
+    {
+	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, key)));
+	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
+    }
+    else
+    {
+	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
+	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, key)));
+    }
+    Statement *forinit = new CompoundDeclarationStatement(loc, cs);
+
+    Expression *cond;
+    if (op == TOKforeach_reverse)
+    {	// key-- > tmp
+	cond = new PostExp(TOKminusminus, loc, new VarExp(loc, key));
+	cond = new CmpExp(TOKgt, loc, cond, new VarExp(loc, tmp));
+    }
+    else
+	// key < tmp
+	cond = new CmpExp(TOKlt, loc, new VarExp(loc, key), new VarExp(loc, tmp));
+
+    Expression *increment = NULL;
+    if (op == TOKforeach)
+	// key += 1
+	increment = new AddAssignExp(loc, new VarExp(loc, key), new IntegerExp(1));
+
+    ForStatement *fs = new ForStatement(loc, forinit, cond, increment, body);
+    s = fs->semantic(sc);
+    return s;
+#else
     if (!arg->type->isscalar())
 	error("%s is not a scalar type", arg->type->toChars());
 
@@ -2078,6 +2203,7 @@ Statement *ForeachRangeStatement::semantic(Scope *sc)
     sc->noctor--;
     sc->pop();
     return s;
+#endif
 }
 
 int ForeachRangeStatement::hasBreak()
@@ -2092,11 +2218,14 @@ int ForeachRangeStatement::hasContinue()
 
 int ForeachRangeStatement::usesEH()
 {
+    assert(0);
     return body->usesEH();
 }
 
 int ForeachRangeStatement::blockExit()
-{   int result = BEfallthru;
+{
+    assert(0);
+    int result = BEfallthru;
 
     if (lwr && lwr->canThrow())
 	result |= BEthrow;
@@ -2113,6 +2242,7 @@ int ForeachRangeStatement::blockExit()
 
 int ForeachRangeStatement::comeFrom()
 {
+    assert(0);
     if (body)
 	return body->comeFrom();
     return FALSE;
@@ -2462,7 +2592,7 @@ Statement *PragmaStatement::semantic(Scope *sc)
     {
         sc->func->allowInlining = true;
     }
-
+#if DMDV2
     else if (ident == Id::startaddress)
     {
 	if (!args || args->dim != 1)
@@ -2483,6 +2613,7 @@ Statement *PragmaStatement::semantic(Scope *sc)
 	    return this;
 	}
     }
+#endif
     else
         error("unrecognized pragma(%s)", ident->toChars());
 
@@ -2657,7 +2788,7 @@ Statement *SwitchStatement::semantic(Scope *sc)
 	;
     }
 
-    if (!sc->sw->sdefault)
+    if (!sc->sw->sdefault && !isFinal)
     {	hasNoDefault = 1;
 
 	warning("switch statement has no default");
@@ -3693,21 +3824,145 @@ Statement *SynchronizedStatement::syntaxCopy()
 Statement *SynchronizedStatement::semantic(Scope *sc)
 {
     if (exp)
-    {	ClassDeclaration *cd;
-
+    {
 	exp = exp->semantic(sc);
 	exp = resolveProperties(sc, exp);
-	cd = exp->type->isClassHandle();
+	ClassDeclaration *cd = exp->type->isClassHandle();
 	if (!cd)
 	    error("can only synchronize on class objects, not '%s'", exp->type->toChars());
 	else if (cd->isInterfaceDeclaration())
-	{   Type *t = new TypeIdentifier(0, Id::Object);
+	{   /* Cast the interface to an object, as the object has the monitor,
+	     * not the interface.
+	     */
+	    Type *t = new TypeIdentifier(0, Id::Object);
 
 	    t = t->semantic(0, sc);
 	    exp = new CastExp(loc, exp, t);
 	    exp = exp->semantic(sc);
 	}
+
+#if 1
+	/* Rewrite as:
+	 *  auto tmp = exp;
+	 *  _d_monitorenter(tmp);
+	 *  try { body } finally { _d_monitorexit(tmp); }
+	 */
+	Identifier *id = Lexer::uniqueId("__sync");
+	ExpInitializer *ie = new ExpInitializer(loc, exp);
+	VarDeclaration *tmp = new VarDeclaration(loc, exp->type, id, ie);
+
+	Statements *cs = new Statements();
+	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
+
+#if IN_LLVM
+	// LDC: Build args
+	Arguments* args = new Arguments;
+	args->push(new Argument(STCin, ClassDeclaration::object->type, NULL, NULL));
+	FuncDeclaration *fdenter = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorenter);
+#else
+	FuncDeclaration *fdenter = FuncDeclaration::genCfunc(Type::tvoid, Id::monitorenter);
+#endif
+	Expression *e = new CallExp(loc, new VarExp(loc, fdenter), new VarExp(loc, tmp));
+	e->type = Type::tvoid;			// do not run semantic on e
+	cs->push(new ExpStatement(loc, e));
+
+#if IN_LLVM
+	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorexit);
+#else
+	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorexit);
+#endif
+	e = new CallExp(loc, new VarExp(loc, fdexit), new VarExp(loc, tmp));
+	e->type = Type::tvoid;			// do not run semantic on e
+	Statement *s = new ExpStatement(loc, e);
+	s = new TryFinallyStatement(loc, body, s);
+	cs->push(s);
+
+	s = new CompoundStatement(loc, cs);
+	return s->semantic(sc);
+#endif
     }
+#if 1
+    else
+    {	/* Generate our own critical section, then rewrite as:
+	 *  __gshared byte[CriticalSection.sizeof] critsec;
+	 *  _d_criticalenter(critsec.ptr);
+	 *  try { body } finally { _d_criticalexit(critsec.ptr); }
+	 */
+	Identifier *id = Lexer::uniqueId("__critsec");
+#if IN_LLVM	
+	Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + getTypePaddedSize(DtoMutexType())));
+#elif IN_DMD
+	Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + os_critsecsize()));
+#endif
+	VarDeclaration *tmp = new VarDeclaration(loc, t, id, NULL);
+	tmp->storage_class |= STCgshared | STCstatic;
+
+	Statements *cs = new Statements();
+	cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
+
+#if IN_LLVM
+	// LDC: Build args (based on the code from gen/tollvm.cpp:DtoMutexType()
+	Arguments* args = new Arguments;
+	StructDeclaration* dcs = new StructDeclaration(loc, id);
+	if (global.params.os == OSWindows)
+	{
+		dcs->addField(dcs->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
+	}
+	else if (global.params.os == OSFreeBSD)
+	{
+		dcs->addField(dcs->scope, new VarDeclaration(loc, Type::tsize_t, id, NULL));
+	}
+	else
+	{
+		// pthread_fastlock
+		StructDeclaration* pfl = new StructDeclaration(loc, id);
+		pfl->scope->linkage = LINKc;
+		pfl->addField(pfl->scope, new VarDeclaration(loc, Type::tsize_t, id, NULL));
+		pfl->addField(pfl->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
+
+		// pthread_mutex
+		StructDeclaration* pm = new StructDeclaration(loc, id);
+		pm->scope->linkage = LINKc;
+		pm->addField(pm->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
+		pm->addField(pm->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
+		pm->addField(pm->scope, new VarDeclaration(loc, Type::tvoidptr, id, NULL));
+		pm->addField(pm->scope, new VarDeclaration(loc, Type::tint32, id, NULL));
+		pm->addField(pm->scope, new VarDeclaration(loc, pfl->type, id, NULL));
+
+		// D_CRITICAL_SECTION
+		dcs->scope->linkage = LINKc;
+		dcs->addField(dcs->scope, new VarDeclaration(loc, dcs->type->pointerTo(), id, NULL));
+		dcs->addField(dcs->scope, new VarDeclaration(loc, pm->type, id, NULL));
+	}
+	args->push(new Argument(STCin, dcs->type->pointerTo(), NULL, NULL));
+
+	FuncDeclaration *fdenter = FuncDeclaration::genCfunc(args, Type::tvoid, Id::criticalenter);
+#else
+	FuncDeclaration *fdenter = FuncDeclaration::genCfunc(Type::tvoid, Id::criticalenter);
+#endif
+	Expression *e = new DotIdExp(loc, new VarExp(loc, tmp), Id::ptr);
+	e = e->semantic(sc);
+	e = new CallExp(loc, new VarExp(loc, fdenter), e);
+	e->type = Type::tvoid;			// do not run semantic on e
+	cs->push(new ExpStatement(loc, e));
+
+#if IN_LLVM
+	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::criticalexit);
+#else
+	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(Type::tvoid, Id::criticalexit);
+#endif
+	e = new DotIdExp(loc, new VarExp(loc, tmp), Id::ptr);
+	e = e->semantic(sc);
+	e = new CallExp(loc, new VarExp(loc, fdexit), e);
+	e->type = Type::tvoid;			// do not run semantic on e
+	Statement *s = new ExpStatement(loc, e);
+	s = new TryFinallyStatement(loc, body, s);
+	cs->push(s);
+
+	s = new CompoundStatement(loc, cs);
+	return s->semantic(sc);
+    }
+#endif
     if (body)
     {
 	Statement* oldScopeExit = sc->enclosingScopeExit;

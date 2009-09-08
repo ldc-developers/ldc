@@ -105,6 +105,7 @@ struct Id
     static Identifier *reverse;
     static Identifier *dup;
     static Identifier *idup;
+    static Identifier *property;
     static Identifier *___out;
     static Identifier *___in;
     static Identifier *__int;
@@ -182,6 +183,10 @@ struct Id
     static Identifier *aaKeys;
     static Identifier *aaValues;
     static Identifier *aaRehash;
+    static Identifier *monitorenter;
+    static Identifier *monitorexit;
+    static Identifier *criticalenter;
+    static Identifier *criticalexit;
     static Identifier *GNU_asm;
     static Identifier *lib;
     static Identifier *msg;

@@ -153,6 +153,14 @@ struct Statement : Object
 #endif
 };
 
+struct PeelStatement : Statement
+{
+    Statement *s;
+
+    PeelStatement(Statement *s);
+    Statement *semantic(Scope *sc);
+};
+
 struct ExpStatement : Statement
 {
     Expression *exp;

@@ -31,7 +31,7 @@ struct Module;
 	+	-	+=	-=
 	*	/	%	*=	/=	%=
 	&	| 	^	&=	|=	^=
-	=	!	~
+	=	!	~	@
 	++	--
 	.	->	:	,
 	?	&&	||
@@ -159,7 +159,8 @@ enum TOK
 	TOKgshared,
 	TOKline,
 	TOKfile,
-    TOKshared,
+	TOKshared,
+	TOKat,
 #endif
 
 // LDC specific

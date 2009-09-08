@@ -1972,14 +1972,21 @@ MATCH TypeInstance::deduceType(Scope *sc,
 
       L2:
 
-	for (int i = 0; i < tempinst->tiargs->dim; i++)
+	for (int i = 0; 1; i++)
 	{
 	    //printf("\ttest: tempinst->tiargs[%d]\n", i);
+	    Object *o1;
+	    if (i < tempinst->tiargs->dim)
+		o1 = (Object *)tempinst->tiargs->data[i];
+	    else if (i < tempinst->tdtypes.dim && i < tp->tempinst->tiargs->dim)
+		// Pick up default arg
+		o1 = (Object *)tempinst->tdtypes.data[i];
+	    else
+		break;
+
 	    if (i >= tp->tempinst->tiargs->dim)
 		goto Lnomatch;
 
-	    int j;
-	    Object *o1 = (Object *)tempinst->tiargs->data[i];
 	    Object *o2 = (Object *)tp->tempinst->tiargs->data[i];
 
 	    Type *t1 = isType(o1);
@@ -2005,6 +2012,7 @@ MATCH TypeInstance::deduceType(Scope *sc,
 #endif
 
 	    TemplateTupleParameter *ttp;
+	    int j;
 	    if (t2 &&
 		t2->ty == Tident &&
 		i == tp->tempinst->tiargs->dim - 1 &&
@@ -2119,6 +2127,7 @@ MATCH TypeInstance::deduceType(Scope *sc,
     return Type::deduceType(sc, tparam, parameters, dedtypes);
 
 Lnomatch:
+    //printf("no match\n");
     return MATCHnomatch;
 }
 
@@ -4143,7 +4152,7 @@ Identifier *TemplateInstance::genIdent()
 	Expression *ea = isExpression(o);
 	Dsymbol *sa = isDsymbol(o);
 	Tuple *va = isTuple(o);
-	//printf("\to %p ta %p ea %p sa %p va %p\n", o, ta, ea, sa, va);
+	//printf("\to [%d] %p ta %p ea %p sa %p va %p\n", i, o, ta, ea, sa, va);
 	if (ta)
 	{
 	    buf.writeByte('T');

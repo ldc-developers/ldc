@@ -1160,6 +1160,7 @@ void Lexer::scan(Token *t)
 	    SINGLE(';', TOKsemicolon)
 	    SINGLE(':', TOKcolon)
 	    SINGLE('$', TOKdollar)
+	    SINGLE('@', TOKat)
 
 #undef SINGLE
 
@@ -3088,6 +3089,7 @@ void Lexer::initKeywords()
 
     Token::tochars[TOKorass]		= "|=";
     Token::tochars[TOKidentifier]	= "identifier";
+    Token::tochars[TOKat]		= "@";
 
      // For debugging
     Token::tochars[TOKdotexp]		= "dotexp";

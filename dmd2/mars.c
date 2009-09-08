@@ -98,7 +98,7 @@ Global::Global()
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.031";
+    version = "v2.032";
 #if IN_LLVM
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV_STR;
