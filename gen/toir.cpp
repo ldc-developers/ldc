@@ -989,6 +989,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         VarDeclaration* vd = vexp->var->isVarDeclaration();
         assert(vd);
         assert(vd->type->toBasetype()->ty == Tsarray);
+        vd->codegen(Type::sir);
         assert(vd->ir.irGlobal);
 
         // get index
