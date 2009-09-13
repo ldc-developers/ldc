@@ -2,6 +2,7 @@
 
 #include "aggregate.h"
 #include "declaration.h"
+#include "init.h"
 #include "mtype.h"
 
 #include "gen/irstate.h"
@@ -94,7 +95,7 @@ const llvm::Type* IrTypeStruct::buildType()
     for (; field_it.more(); field_it.next())
     {
         // init is !null for explicit inits
-        if (field_it->init != NULL)
+        if (field_it->init != NULL && !field_it->init->isVoidInitializer())
         {
             IF_LOG Logger::println("adding explicit initializer for struct field %s",
                 field_it->toChars());
