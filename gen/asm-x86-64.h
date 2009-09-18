@@ -1228,6 +1228,7 @@ namespace AsmParserx8664
         { "sysenter",Op_0 },
         { "sysexit", Op_0 },
         { "sysret", Op_0 },
+        { "sysretq", Op_0 },
         { "test",   Op_SrcSrcF  },
         { "ucomisd", Op_SrcSrcSSEF },
         { "ucomiss", Op_SrcSrcSSEF },
