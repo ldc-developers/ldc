@@ -30,7 +30,16 @@
 #include "attrib.h"
 
 #if IN_LLVM
-#include "gen/tollvm.h"
+// sizes based on those from tollvm.cpp:DtoMutexType()
+int os_critsecsize()
+{
+	if (global.params.os == OSWindows)
+		return 68;
+	else if (global.params.os == OSFreeBSD)
+		return sizeof(size_t);
+	else
+		return sizeof(pthread_mutex_t);
+}
 #elif IN_DMD
 extern int os_critsecsize();
 #endif
@@ -3869,7 +3878,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 #if IN_LLVM
 	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorexit);
 #else
-	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorexit);
+	FuncDeclaration *fdexit = FuncDeclaration::genCfunc(Type::tvoid, Id::monitorexit);
 #endif
 	e = new CallExp(loc, new VarExp(loc, fdexit), new VarExp(loc, tmp));
 	e->type = Type::tvoid;			// do not run semantic on e
@@ -3889,11 +3898,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 	 *  try { body } finally { _d_criticalexit(critsec.ptr); }
 	 */
 	Identifier *id = Lexer::uniqueId("__critsec");
-#if IN_LLVM	
-	Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + getTypePaddedSize(DtoMutexType())));
-#elif IN_DMD
 	Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + os_critsecsize()));
-#endif
 	VarDeclaration *tmp = new VarDeclaration(loc, t, id, NULL);
 	tmp->storage_class |= STCgshared | STCstatic;
 

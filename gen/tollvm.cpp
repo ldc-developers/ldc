@@ -874,11 +874,8 @@ const LLStructType* DtoMutexType()
     opaque->refineAbstractTypeTo(pa.get());
     pmutex = isaStruct(pa.get());
 
-    if (gIR->module != NULL)
-    {
-    	gIR->mutexType = pmutex;
-    	gIR->module->addTypeName("D_CRITICAL_SECTION", pmutex);
-    }
+    gIR->mutexType = pmutex;
+    gIR->module->addTypeName("D_CRITICAL_SECTION", pmutex);
     return pmutex;
 }
 
