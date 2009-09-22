@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
 # Default to 'ldc' next to this file
-LDC=`basename "$0"`/ldc2
+LDC=`dirname "$0"`/ldc2
 if [ ! -x "$LDC" ]; then
     # If that doesn't work, assume this script was called via $PATH
     # and do the same for ldc
