@@ -133,7 +133,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     }
     // if there's a finally, the eh table has to have a 0 action
     if(hasFinally)
-        selectorargs.push_back(LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0));
+        selectorargs.push_back(DtoConstSize_t(0));//LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0));
 
     // personality fn
     llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");

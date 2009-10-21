@@ -8,6 +8,7 @@ import util.console;
 import ldc.cstdarg;
 
 // debug = EH_personality;
+// debug = EH_personality_verbose;
 
 // current EH implementation works on x86
 // if it has a working unwind runtime
@@ -36,7 +37,7 @@ extern(C) {
 // libunwind headers
 extern(C)
 {
-    enum _Unwind_Reason_Code
+    enum _Unwind_Reason_Code : int
     {
         NO_REASON = 0,
         FOREIGN_EXCEPTION_CAUGHT = 1,
@@ -49,7 +50,7 @@ extern(C)
         CONTINUE_UNWIND = 8
     }
 
-    enum _Unwind_Action
+    enum _Unwind_Action : int
     {
         SEARCH_PHASE = 1,
         CLEANUP_PHASE = 2,
@@ -63,7 +64,7 @@ extern(C)
 
     struct _Unwind_Exception
     {
-        char[8] exception_class;
+        ulong exception_class;
         _Unwind_Exception_Cleanup_Fn exception_cleanup;
         ptrdiff_t private_1;
         ptrdiff_t private_2;
@@ -207,6 +208,7 @@ version(X86_UNWIND)
 // reading the EH tables and deciding what to do
 extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions, ulong exception_class, _Unwind_Exception* exception_info, _Unwind_Context_Ptr context)
 {
+  debug(EH_personality_verbose) printf("entering personality function. context: %p\n", context);
   // check ver: the C++ Itanium ABI only allows ver == 1
   if(ver != 1)
     return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
@@ -224,7 +226,8 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   ubyte* action_table;
   ClassInfo* classinfo_table;
   _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table);
-
+  if (callsite_table is null)
+    return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
   /*
     find landing pad and action table index belonging to ip by walking
@@ -377,6 +380,14 @@ private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions
 private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ClassInfo* ci)
 {
   ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
+  if (data is null)
+  {
+    //printf("language specific data was null\n");
+    callsite = null;
+    action = null;
+    ci = null;
+    return;
+  }
 
   //TODO: Do proper DWARF reading here
   if(*data++ != 0xff)
@@ -405,7 +416,7 @@ extern(C) void _d_throw_exception(Object e)
     if (e !is null)
     {
         _d_exception* exc_struct = new _d_exception;
-        exc_struct.unwind_info.exception_class[] = _d_exception_class;
+        exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
         exc_struct.exception_object = e;
         _Unwind_Reason_Code ret = _Unwind_RaiseException(&exc_struct.unwind_info);
         console("_Unwind_RaiseException failed with reason code: ")(ret)("\n");
