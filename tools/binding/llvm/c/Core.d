@@ -36,58 +36,43 @@ module llvm.c.Core;
 
 extern(C):
 
-/* Opaque types. */
-
-private
-{
-    struct LLVM_OpaqueModule {}
-    struct LLVM_OpaqueType {}
-    struct LLVM_OpaqueTypeHandle {}
-    struct LLVM_OpaqueValue {}
-    struct LLVM_OpaqueBasicBlock {}
-    struct LLVM_OpaqueBuilder {}
-    struct LLVM_OpaqueModuleProvider {}
-    struct LLVM_OpaqueMemoryBuffer {}
-    struct LLVM_OpaquePassManager {}
-}
-
 /**
  * The top-level container for all other LLVM Intermediate Representation (IR)
  * objects. See the llvm::Module class.
  */
-typedef LLVM_OpaqueModule* LLVMModuleRef;
+typedef void* LLVMModuleRef;
 
 /**
  * Each value in the LLVM IR has a type, an instance of [lltype]. See the
  * llvm::Type class.
  */
-typedef LLVM_OpaqueType* LLVMTypeRef;
+typedef void* LLVMTypeRef;
 
 /**
  * When building recursive types using [refine_type], [lltype] values may become
  * invalid; use [lltypehandle] to resolve this problem. See the
- * llvm::AbstractTypeHolder] class. 
+ * llvm::AbstractTypeHolder] class.
  */
-typedef LLVM_OpaqueTypeHandle* LLVMTypeHandleRef;
+typedef void* LLVMTypeHandleRef;
 
-typedef LLVM_OpaqueValue* LLVMValueRef;
-typedef LLVM_OpaqueBasicBlock* LLVMBasicBlockRef;
-typedef LLVM_OpaqueBuilder* LLVMBuilderRef;
+typedef void* LLVMValueRef;
+typedef void* LLVMBasicBlockRef;
+typedef void* LLVMBuilderRef;
 
 /* Used to provide a module to JIT or interpreter.
  * See the llvm::ModuleProvider class.
  */
-typedef LLVM_OpaqueModuleProvider* LLVMModuleProviderRef;
+typedef void* LLVMModuleProviderRef;
 
 /* Used to provide a module to JIT or interpreter.
  * See the llvm::MemoryBuffer class.
  */
-typedef LLVM_OpaqueMemoryBuffer* LLVMMemoryBufferRef;
+typedef void* LLVMMemoryBufferRef;
 
 /** See the llvm::PassManagerBase class. */
-typedef LLVM_OpaquePassManager* LLVMPassManagerRef;
+typedef void* LLVMPassManagerRef;
 
-enum LLVMParamAttr {
+enum LLVMAttribute {
     ZExt       = 1<<0,
     SExt       = 1<<1,
     NoReturn   = 1<<2,
@@ -98,36 +83,56 @@ enum LLVMParamAttr {
     ByVal      = 1<<7,
     Nest       = 1<<8,
     ReadNone   = 1<<9,
-    ReadOnly   = 1<<10
+    ReadOnly   = 1<<10,
+    NoInline   = 1<<11,
+    AlwaysInline    = 1<<12,
+    OptimizeForSize = 1<<13,
+    StackProtect    = 1<<14,
+    StackProtectReq = 1<<15,
+    NoCapture  = 1<<21,
+    NoRedZone  = 1<<22,
+    NoImplicitFloat = 1<<23,
+    Naked      = 1<<24
 }
 
 enum LLVMTypeKind {
-  Void,        /**< type with no size */
-  Float,       /**< 32 bit floating point type */
-  Double,      /**< 64 bit floating point type */
-  X86_FP80,    /**< 80 bit floating point type (X87) */
-  FP128,       /**< 128 bit floating point type (112-bit mantissa)*/
-  PPC_FP128,   /**< 128 bit floating point type (two 64-bits) */
-  Label,       /**< Labels */
-  Integer,     /**< Arbitrary bit width integers */
-  Function,    /**< Functions */
-  Struct,      /**< Structures */
-  Array,       /**< Arrays */
-  Pointer,     /**< Pointers */
-  Opaque,      /**< Opaque: type with unknown structure */
-  Vector       /**< SIMD 'packed' format, or other vector type */
+    Void,        /**< type with no size */
+    Float,       /**< 32 bit floating point type */
+    Double,      /**< 64 bit floating point type */
+    X86_FP80,    /**< 80 bit floating point type (X87) */
+    FP128,       /**< 128 bit floating point type (112-bit mantissa)*/
+    PPC_FP128,   /**< 128 bit floating point type (two 64-bits) */
+    Label,       /**< Labels */
+    Integer,     /**< Arbitrary bit width integers */
+    Function,    /**< Functions */
+    Struct,      /**< Structures */
+    Array,       /**< Arrays */
+    Pointer,     /**< Pointers */
+    Opaque,      /**< Opaque: type with unknown structure */
+    Vector,      /**< SIMD 'packed' format, or other vector type */
+    Metadata     /**< Metadata */
 }
 
 enum LLVMLinkage {
-  External,    /**< Externally visible function */
-  LinkOnce,    /**< Keep one copy of function when linking (inline)*/
-  Weak,        /**< Keep one copy of function when linking (weak) */
-  Appending,   /**< Special purpose, only applies to global arrays */
-  Internal,    /**< Rename collisions when linking (static functions) */
-  DLLImport,   /**< Function to be imported from DLL */
-  DLLExport,   /**< Function to be accessible from DLL */
-  ExternalWeak,/**< ExternalWeak linkage description */
-  Ghost        /**< Stand-in functions for streaming fns from bitcode */
+    External,    /**< Externally visible function */
+    AvailableExternally,
+    LinkOnceAny, /**< Keep one copy of function when linking (inline)*/
+    LinkOnceODR, /**< Same, but only replaced by something
+                                equivalent. */
+    WeakAny,     /**< Keep one copy of function when linking (weak) */
+    WeakODR,     /**< Same, but only replaced by something
+                                equivalent. */
+    Appending,   /**< Special purpose, only applies to global arrays */
+    Internal,    /**< Rename collisions when linking (static
+                                functions) */
+    Private,     /**< Like Internal, but omit from symbol table */
+    DLLImport,   /**< Function to be imported from DLL */
+    DLLExport,   /**< Function to be accessible from DLL */
+    ExternalWeak,/**< ExternalWeak linkage description */
+    Ghost,       /**< Stand-in functions for streaming fns from
+                                bitcode */
+    Common,      /**< Tentative definitions */
+    LinkerPrivate /**< Like Private, but linker removes. */
 }
 
 enum LLVMVisibility {
@@ -184,7 +189,7 @@ void LLVMDisposeMessage(char *Message);
 /*===-- Modules -----------------------------------------------------------===*/
 
 /* Create and destroy modules. */
-/** See llvm::Module::Module. */ 
+/** See llvm::Module::Module. */
 LLVMModuleRef LLVMModuleCreateWithName(/*const*/ char *ModuleID);
 
 /** See llvm::Module::~Module. */
@@ -192,7 +197,7 @@ void LLVMDisposeModule(LLVMModuleRef M);
 
 /** Data layout. See Module::getDataLayout. */
 /*const*/ char *LLVMGetDataLayout(LLVMModuleRef M);
-void LLVMSetDataLayout(LLVMModuleRef M, /*const*/ char *Triple);
+void LLVMSetDataLayout(LLVMModuleRef M, /*const*/ char *DataLayout);
 
 /** Target triple. See Module::getTargetTriple. */
 /*const*/ char *LLVMGetTarget(LLVMModuleRef M);
@@ -208,7 +213,7 @@ void LLVMDumpModule(LLVMModuleRef M);
 /*===-- Types -------------------------------------------------------------===*/
 
 /* LLVM types conform to the following hierarchy:
- * 
+ *
  *   types:
  *     integer type
  *     real type
@@ -282,7 +287,7 @@ void LLVMDisposeTypeHandle(LLVMTypeHandleRef TypeHandle);
 
 /* The bulk of LLVM's object model consists of values, which comprise a very
  * rich type hierarchy.
- * 
+ *
  *   values:
  *     constants:
  *       scalar constants
@@ -311,8 +316,14 @@ int LLVMIsUndef(LLVMValueRef Val);
 /* Operations on scalar constants */
 LLVMValueRef LLVMConstInt(LLVMTypeRef IntTy, ulong N,
                           int SignExtend);
+LLVMValueRef LLVMConstIntOfString(LLVMTypeRef IntTy, /*const*/ char *Text,
+                                  ubyte Radix);
+LLVMValueRef LLVMConstIntOfStringAndSize(LLVMTypeRef IntTy, /*const*/ char *Text,
+                                         uint SLen, ubyte Radix);
 LLVMValueRef LLVMConstReal(LLVMTypeRef RealTy, double N);
 LLVMValueRef LLVMConstRealOfString(LLVMTypeRef RealTy, /*const*/ char *Text);
+LLVMValueRef LLVMConstRealOfStringAndSize(LLVMTypeRef RealTy, /*const*/ char *Text,
+                                          uint SLen);
 
 /* Operations on composite constants */
 LLVMValueRef LLVMConstString(/*const*/ char *Str, uint Length,
@@ -418,6 +429,8 @@ uint LLVMGetFunctionCallConv(LLVMValueRef Fn);
 void LLVMSetFunctionCallConv(LLVMValueRef Fn, uint CC);
 /*const*/ char *LLVMGetGC(LLVMValueRef Fn);
 void LLVMSetGC(LLVMValueRef Fn, /*const*/ char *Name);
+void LLVMAddFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
+void LLVMRemoveFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA);
 
 /* Operations on parameters */
 uint LLVMCountParams(LLVMValueRef Fn);
@@ -428,8 +441,8 @@ LLVMValueRef LLVMGetFirstParam(LLVMValueRef Fn);
 LLVMValueRef LLVMGetLastParam(LLVMValueRef Fn);
 LLVMValueRef LLVMGetNextParam(LLVMValueRef Arg);
 LLVMValueRef LLVMGetPreviousParam(LLVMValueRef Arg);
-void LLVMAddParamAttr(LLVMValueRef Arg, LLVMParamAttr PA);
-void LLVMRemoveParamAttr(LLVMValueRef Arg, LLVMParamAttr PA);
+void LLVMAddAttribute(LLVMValueRef Arg, LLVMAttribute PA);
+void LLVMRemoveAttribute(LLVMValueRef Arg, LLVMAttribute PA);
 void LLVMSetParamAlignment(LLVMValueRef Arg, uint alignm);
 
 
@@ -460,12 +473,13 @@ LLVMValueRef LLVMGetPreviousInstruction(LLVMValueRef Inst);
 /* Operations on call sites */
 void LLVMSetInstructionCallConv(LLVMValueRef Instr, uint CC);
 uint LLVMGetInstructionCallConv(LLVMValueRef Instr);
-void LLVMAddInstrParamAttr(LLVMValueRef Instr, uint index, LLVMParamAttr);
-void LLVMRemoveInstrParamAttr(LLVMValueRef Instr, uint index, 
-                              LLVMParamAttr);
-void LLVMSetInstrParamAlignment(LLVMValueRef Instr, uint index, 
-                                uint alignm);
+void LLVMAddInstrAttribute(LLVMValueRef Instr, uint index, LLVMAttribute);
+void LLVMRemoveInstrAttribute(LLVMValueRef Instr, uint index, LLVMAttribute);
+void LLVMSetInstrParamAlignment(LLVMValueRef Instr, uint index, uint alignm);
 
+/* Operations on call instructions (only) */
+int LLVMIsTailCall(LLVMValueRef CallInst);
+void LLVMSetTailCall(LLVMValueRef CallInst, int IsTailCall);
 
 /* Operations on phi nodes */
 void LLVMAddIncoming(LLVMValueRef PhiNode, LLVMValueRef *IncomingValues,
@@ -555,6 +569,9 @@ LLVMValueRef LLVMBuildStore(LLVMBuilderRef, LLVMValueRef Val, LLVMValueRef Ptr);
 LLVMValueRef LLVMBuildGEP(LLVMBuilderRef B, LLVMValueRef Pointer,
                           LLVMValueRef *Indices, uint NumIndices,
                           /*const*/ char *Name);
+LLVMValueRef LLVMBuildInBoundsGEP(LLVMBuilderRef B, LLVMValueRef Pointer,
+                                  LLVMValueRef *Indices, uint NumIndices,
+                                  /*const*/ char *Name);
 
 /* Casts */
 LLVMValueRef LLVMBuildTrunc(LLVMBuilderRef, LLVMValueRef Val,

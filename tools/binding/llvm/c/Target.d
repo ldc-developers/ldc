@@ -27,13 +27,8 @@ extern(C):
 enum { LLVMBigEndian, LLVMLittleEndian };
 alias int LLVMByteOrdering;
 
-private
-{
-    struct LLVM_OpaqueTargetData {}
-    struct LLVM_OpaqueStructLayout {}
-}
-typedef LLVM_OpaqueTargetData* LLVMTargetDataRef;
-typedef LLVM_OpaqueStructLayout* LLVMStructLayoutRef;
+typedef void* LLVMTargetDataRef;
+typedef void* LLVMStructLayoutRef;
 
 
 /*===-- Target Data -------------------------------------------------------===*/
