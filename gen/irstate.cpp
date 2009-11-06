@@ -39,6 +39,7 @@ const IRScope& IRScope::operator=(const IRScope& rhs)
     begin = rhs.begin;
     end = rhs.end;
     builder.SetInsertPoint(begin);
+    return *this;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

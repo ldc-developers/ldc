@@ -412,7 +412,12 @@ void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 void vwarning(Loc loc, const char *format, va_list);
 void error(Loc loc, const char *format, ...) IS_PRINTF(2);
 void verror(Loc loc, const char *format, va_list);
+
+#ifdef __GNUC__
+__attribute__((noreturn))
+#endif
 void fatal();
+
 void err_nomem();
 void inifile(char *argv0, const char *inifile);
 void halt();

@@ -100,13 +100,13 @@ int linkExecutable(const char* argv0)
     exedir.set(gExePath.getDirname());
     if (!exedir.exists())
     {
-	    exedir.createDirectoryOnDisk(true, &errstr);
-	    if (!errstr.empty())
-	    {	
-	        error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
-	        fatal();
-	    }
-	}    
+        exedir.createDirectoryOnDisk(true, &errstr);
+        if (!errstr.empty())
+        {
+            error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
+            fatal();
+        }
+    }    
 
     // strip debug info
     if (!global.params.symdebug)
@@ -204,8 +204,10 @@ int linkExecutable(const char* argv0)
         error("linking failed:\nstatus: %d", status);
         if (!errstr.empty())
             error("message: %s", errstr.c_str());
-        fatal();
+        return status;
     }
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -266,13 +268,13 @@ int linkObjToExecutable(const char* argv0)
     exedir.set(gExePath.getDirname());
     if (!exedir.exists())
     {
-	    exedir.createDirectoryOnDisk(true, &errstr);
-	    if (!errstr.empty())
-	    {	
-	        error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
-	        fatal();
-	    }
-	}    
+        exedir.createDirectoryOnDisk(true, &errstr);
+        if (!errstr.empty())
+        {
+            error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
+            fatal();
+        }
+    }    
 
     // additional linker switches
     for (int i = 0; i < global.params.linkswitches->dim; i++)
@@ -339,14 +341,16 @@ int linkObjToExecutable(const char* argv0)
     // terminate args list
     args.push_back(NULL);
 
-    // try to call linker!!!
+    // try to call linker
     if (int status = llvm::sys::Program::ExecuteAndWait(gcc, &args[0], NULL, NULL, 0,0, &errstr))
     {
         error("linking failed:\nstatus: %d", status);
         if (!errstr.empty())
             error("message: %s", errstr.c_str());
-        fatal();
+        return status;
     }
+    
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////

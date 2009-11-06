@@ -960,8 +960,7 @@ LDC_TARGETS
     else
     {
         if (global.params.link)
-            //status = runLINK();
-            linkObjToExecutable(global.params.argv0);
+            status = linkObjToExecutable(global.params.argv0);
 
         if (global.params.run)
         {
