@@ -122,7 +122,8 @@ struct Statement : Object
     virtual int usesEH();
     virtual int blockExit();
     virtual int comeFrom();
-    virtual void scopeCode(Statement **sentry, Statement **sexit, Statement **sfinally);
+    virtual int isEmpty();
+    virtual void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     virtual Statements *flatten(Scope *sc);
     virtual Expression *interpret(InterState *istate);
 
@@ -145,6 +146,14 @@ struct Statement : Object
     virtual AsmBlockStatement* endsWithAsm();
 };
 
+struct PeelStatement : Statement
+{
+    Statement *s;
+
+    PeelStatement(Statement *s);
+    Statement *semantic(Scope *sc);
+};
+
 struct ExpStatement : Statement
 {
     Expression *exp;
@@ -155,6 +164,7 @@ struct ExpStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
+    int isEmpty();
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -186,7 +196,7 @@ struct DeclarationStatement : ExpStatement
     DeclarationStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void scopeCode(Statement **sentry, Statement **sexit, Statement **sfinally);
+    void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
 
     DeclarationStatement *isDeclarationStatement() { return this; }
 };
@@ -203,6 +213,7 @@ struct CompoundStatement : Statement
     int usesEH();
     int blockExit();
     int comeFrom();
+    int isEmpty();
     virtual Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
     Expression *interpret(InterState *istate);
@@ -266,6 +277,7 @@ struct ScopeStatement : Statement
     int usesEH();
     int blockExit();
     int comeFrom();
+    int isEmpty();
     Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -325,7 +337,7 @@ struct ForStatement : Statement
     ForStatement(Loc loc, Statement *init, Expression *condition, Expression *increment, Statement *body);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
-    void scopeCode(Statement **sentry, Statement **sexit, Statement **sfinally);
+    void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     int hasBreak();
     int hasContinue();
     int usesEH();
@@ -462,6 +474,7 @@ struct StaticAssertStatement : Statement
     StaticAssertStatement(StaticAssert *sa);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
+    int blockExit();
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
@@ -498,6 +511,7 @@ struct CaseStatement : Statement
 {
     Expression *exp;
     Statement *statement;
+
     int index;		// which case it is (since we sort this)
     block *cblock;	// back end: label for the block
 
@@ -519,11 +533,27 @@ struct CaseStatement : Statement
     void toIR(IRState *irs);
 
     CaseStatement* isCaseStatement() { return this; }
-
+    
     // LDC
     llvm::BasicBlock* bodyBB;
     llvm::ConstantInt* llvmIdx;
 };
+
+#if DMDV2
+
+struct CaseRangeStatement : Statement
+{
+    Expression *first;
+    Expression *last;
+    Statement *statement;
+
+    CaseRangeStatement(Loc loc, Expression *first, Expression *last, Statement *s);
+    Statement *syntaxCopy();
+    Statement *semantic(Scope *sc);
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+};
+
+#endif
 
 struct DefaultStatement : Statement
 {
@@ -750,7 +780,7 @@ struct OnScopeStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
     int usesEH();
-    void scopeCode(Statement **sentry, Statement **sexit, Statement **sfinally);
+    void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
 
     void toIR(IRState *irs);
 };

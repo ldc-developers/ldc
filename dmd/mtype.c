@@ -1514,16 +1514,8 @@ MATCH TypeBasic::implicitConvTo(Type *to)
 
     if (ty == Tvoid || to->ty == Tvoid)
 	return MATCHnomatch;
-    if (1 || global.params.Dversion == 1)
-    {
-	if (to->ty == Tbool)
-	    return MATCHnomatch;
-    }
-    else
-    {
-	if (ty == Tbool || to->ty == Tbool)
-	    return MATCHnomatch;
-    }
+    if (to->ty == Tbool)
+	return MATCHnomatch;
     if (!to->isTypeBasic())
 	return MATCHnomatch;
 
@@ -1534,6 +1526,7 @@ MATCH TypeBasic::implicitConvTo(Type *to)
 	if (tob->flags & (TFLAGSimaginary | TFLAGScomplex))
 	    return MATCHnomatch;
 
+#if DMDV2
 	// If converting to integral
 	if (0 && global.params.Dversion > 1 && tob->flags & TFLAGSintegral)
 	{   d_uns64 sz = size(0);
@@ -1547,6 +1540,7 @@ MATCH TypeBasic::implicitConvTo(Type *to)
 	    /*if (sz == tosz && (flags ^ tob->flags) & TFLAGSunsigned)
 		return MATCHnomatch;*/
 	}
+#endif
     }
     else if (flags & TFLAGSfloating)
     {
@@ -2347,6 +2341,7 @@ Type *TypeAArray::semantic(Loc loc, Scope *sc)
 	case Tfunction:
 	case Tvoid:
 	case Tnone:
+	case Ttuple:
 	    error(loc, "can't have associative array key of %s", key->toChars());
 	    break;
     }
@@ -2557,6 +2552,9 @@ Type *TypePointer::syntaxCopy()
 
 Type *TypePointer::semantic(Loc loc, Scope *sc)
 {
+    if (deco)
+	return this;
+
     //printf("TypePointer::semantic()\n");
     Type *n = next->semantic(loc, sc);
     switch (n->toBasetype()->ty)
@@ -2792,6 +2790,9 @@ int Type::covariant(Type *t)
     Type *t1n = t1->next;
     Type *t2n = t2->next;
 
+    if (!t1n || !t2n)		// happens with return type inference
+	goto Lnotcovariant;
+
     if (t1n->equals(t2n))
 	goto Lcovariant;
     if (t1n->ty != Tclass || t2n->ty != Tclass)
@@ -2936,10 +2937,10 @@ void TypeFunction::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 	switch (linkage)
 	{
 	    case LINKd:		p = NULL;	break;
-	    case LINKc:		p = "C ";	break;
-	    case LINKwindows:	p = "Windows ";	break;
-	    case LINKpascal:	p = "Pascal ";	break;
-	    case LINKcpp:	p = "C++ ";	break;
+	    case LINKc:		p = " C";	break;
+	    case LINKwindows:	p = " Windows";	break;
+	    case LINKpascal:	p = " Pascal";	break;
+	    case LINKcpp:	p = " C++";	break;
 
         // LDC
         case LINKintrinsic: p = "Intrinsic"; break;
@@ -2978,36 +2979,39 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
     }
 
     tf->linkage = sc->linkage;
-    if (!tf->next)
+    if (tf->next)
     {
-	assert(global.errors);
-	tf->next = tvoid;
+	tf->next = tf->next->semantic(loc,sc);
+	if (tf->next->toBasetype()->ty == Tsarray)
+	{   error(loc, "functions cannot return static array %s", tf->next->toChars());
+	    tf->next = Type::terror;
+	}
+	if (tf->next->toBasetype()->ty == Tfunction)
+	{   error(loc, "functions cannot return a function");
+	    tf->next = Type::terror;
+	}
+	if (tf->next->toBasetype()->ty == Ttuple)
+	{   error(loc, "functions cannot return a tuple");
+	    tf->next = Type::terror;
+	}
+	if (tf->next->isscope() && !(sc->flags & SCOPEctor))
+	    error(loc, "functions cannot return scope %s", tf->next->toChars());
     }
-    tf->next = tf->next->semantic(loc,sc);
-    if (tf->next->toBasetype()->ty == Tsarray)
-    {	error(loc, "functions cannot return static array %s", tf->next->toChars());
-	tf->next = Type::terror;
-    }
-    if (tf->next->toBasetype()->ty == Tfunction)
-    {	error(loc, "functions cannot return a function");
-	tf->next = Type::terror;
-    }
-    if (tf->next->toBasetype()->ty == Ttuple)
-    {	error(loc, "functions cannot return a tuple");
-	tf->next = Type::terror;
-    }
-    if (tf->next->isscope() && !(sc->flags & SCOPEctor))
-	error(loc, "functions cannot return scope %s", tf->next->toChars());
 
     if (tf->parameters)
-    {	size_t dim = Argument::dim(tf->parameters);
+    {
+	/* Create a scope for evaluating the default arguments for the parameters
+	 */
+	Scope *argsc = sc->push();
+	argsc->stc = 0;			// don't inherit storage class
+	argsc->protection = PROTpublic;
 
+	size_t dim = Argument::dim(tf->parameters);
 	for (size_t i = 0; i < dim; i++)
 	{   Argument *arg = Argument::getNth(tf->parameters, i);
-	    Type *t;
 
 	    tf->inuse++;
-	    arg->type = arg->type->semantic(loc,sc);
+	    arg->type = arg->type->semantic(loc, argsc);
 	    if (tf->inuse == 1) tf->inuse--;
 
 	    // each function needs its own copy of a tuple arg, since
@@ -3019,7 +3023,7 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
 		if (tf->inuse == 1) tf->inuse--;
 	    }
 
-	    t = arg->type->toBasetype();
+	    Type *t = arg->type->toBasetype();
 
 	    if (arg->storageClass & (STCout | STCref | STClazy))
 	    {
@@ -3031,9 +3035,9 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
 
 	    if (arg->defaultArg)
 	    {
-		arg->defaultArg = arg->defaultArg->semantic(sc);
-		arg->defaultArg = resolveProperties(sc, arg->defaultArg);
-		arg->defaultArg = arg->defaultArg->implicitCastTo(sc, arg->type);
+		arg->defaultArg = arg->defaultArg->semantic(argsc);
+		arg->defaultArg = resolveProperties(argsc, arg->defaultArg);
+		arg->defaultArg = arg->defaultArg->implicitCastTo(argsc, arg->type);
 	    }
 
 	    /* If arg turns out to be a tuple, the number of parameters may
@@ -3044,8 +3048,10 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
 		i--;
 	    }
 	}
+	argsc->pop();
     }
-    tf->deco = tf->merge()->deco;
+    if (tf->next)
+	tf->deco = tf->merge()->deco;
 
     if (tf->inuse)
     {	error(loc, "recursive type");
@@ -3419,6 +3425,19 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
 			goto Lerror;
 		    goto L3;
 		}
+		else if (v && id == Id::stringof)
+		{
+		    e = new DsymbolExp(loc, s);
+		    do
+		    {
+			id = (Identifier *)idents.data[i];
+			e = new DotIdExp(loc, e, id);
+		    } while (++i < idents.dim);
+		    e = e->semantic(sc);
+		    *pe = e;
+		    return;
+		}
+
 		t = s->getType();
 		if (!t && s->isDeclaration())
 		    t = s->isDeclaration()->type;
@@ -3515,23 +3534,33 @@ L1:
 	{
 	    if (t->reliesOnTident())
 	    {
-		Scope *scx;
-
-		for (scx = sc; 1; scx = scx->enclosing)
+		if (s->scope)
+		    t = t->semantic(loc, s->scope);
+		else
 		{
-		    if (!scx)
-		    {   error(loc, "forward reference to '%s'", t->toChars());
-			return;
+		    /* Attempt to find correct scope in which to evaluate t.
+		     * Not sure if this is right or not, or if we should just
+		     * give forward reference error if s->scope is not set.
+		     */
+		    for (Scope *scx = sc; 1; scx = scx->enclosing)
+		    {
+			if (!scx)
+			{   error(loc, "forward reference to '%s'", t->toChars());
+			    return;
+			}
+			if (scx->scopesym == scopesym)
+			{
+			    t = t->semantic(loc, scx);
+			    break;
+			}
 		    }
-		    if (scx->scopesym == scopesym)
-			break;
 		}
-		t = t->semantic(loc, scx);
-		//((TypeIdentifier *)t)->resolve(loc, scx, pe, &t, ps);
 	    }
 	}
 	if (t->ty == Ttuple)
 	    *pt = t;
+	else if (t->ty == Ttypeof)
+	    *pt = t->semantic(loc, sc);
 	else
 	    *pt = t->merge();
     }
@@ -3762,7 +3791,8 @@ Type *TypeInstance::semantic(Loc loc, Scope *sc)
     if (!t)
     {
 #ifdef DEBUG
-	printf("2: ");
+	if (s) printf("s = %s\n", s->kind());
+	printf("2: e:%p s:%p ", e, s);
 #endif
 	error(loc, "%s is used as a type", toChars());
 	t = tvoid;
@@ -3837,6 +3867,11 @@ void TypeTypeof::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
     exp->toCBuffer(buf, hgs);
     buf->writeByte(')');
     toCBuffer2Helper(buf, hgs);
+}
+
+void TypeTypeof::toDecoBuffer(OutBuffer *buf, bool mangle)
+{
+    assert(0);
 }
 
 Type *TypeTypeof::semantic(Loc loc, Scope *sc)
@@ -3970,7 +4005,7 @@ Type *TypeEnum::syntaxCopy()
 
 Type *TypeEnum::semantic(Loc loc, Scope *sc)
 {
-    sym->semantic(sc);
+    //sym->semantic(sc);
     return merge();
 }
 
@@ -4562,7 +4597,7 @@ L1:
 
     TemplateInstance *ti = s->isTemplateInstance();
     if (ti)
-    {	if (!ti->semanticdone)
+    {	if (!ti->semanticRun)
 	    ti->semantic(sc);
 	s = ti->inst->toAlias();
 	if (!s->isTemplateInstance())
@@ -4695,7 +4730,7 @@ TypeClass::TypeClass(ClassDeclaration *sym)
 
 char *TypeClass::toChars()
 {
-    return sym->toPrettyChars();
+    return (char *)sym->toPrettyChars();
 }
 
 Type *TypeClass::syntaxCopy()
@@ -4706,8 +4741,8 @@ Type *TypeClass::syntaxCopy()
 Type *TypeClass::semantic(Loc loc, Scope *sc)
 {
     //printf("TypeClass::semantic(%s)\n", sym->toChars());
-    if (sym->scope)
-	sym->semantic(sym->scope);
+    if (deco)
+	return this;
     return merge();
 }
 
@@ -4975,7 +5010,7 @@ L1:
 
     TemplateInstance *ti = s->isTemplateInstance();
     if (ti)
-    {	if (!ti->semanticdone)
+    {	if (!ti->semanticRun)
 	    ti->semantic(sc);
 	s = ti->inst->toAlias();
 	if (!s->isTemplateInstance())
@@ -4994,9 +5029,16 @@ L1:
 
     if (e->op == TOKtype)
     {
-	VarExp *ve;
-
-	if (d->needThis() && (hasThis(sc) || !d->isFuncDeclaration()))
+	/* It's:
+	 *    Class.d
+	 */
+	if (d->isTupleDeclaration())
+	{
+	    e = new TupleExp(e->loc, d->isTupleDeclaration());
+	    e = e->semantic(sc);
+	    return e;
+	}
+	else if (d->needThis() && (hasThis(sc) || !(sc->intypeof || d->isFuncDeclaration())))
 	{
 	    if (sc->func)
 	    {
@@ -5025,15 +5067,11 @@ L1:
 	    e = de->semantic(sc);
 	    return e;
 	}
-	else if (d->isTupleDeclaration())
-	{
-	    e = new TupleExp(e->loc, d->isTupleDeclaration());
-	    e = e->semantic(sc);
-	    return e;
-	}
 	else
-	    ve = new VarExp(e->loc, d);
-	return ve;
+	{
+	    VarExp *ve = new VarExp(e->loc, d);
+	    return ve;
+	}
     }
 
     if (d->isDataseg())

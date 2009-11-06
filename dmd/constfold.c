@@ -74,6 +74,11 @@ int ComplexExp::isConst()
     return 1;
 }
 
+int NullExp::isConst()
+{
+    return 1;
+}
+
 int SymOffExp::isConst()
 {
     return 2;
@@ -845,7 +850,7 @@ Expression *Equal(enum TOK op, Type *type, Expression *e1, Expression *e2)
     {
 	cmp = e1->toComplex() == e2->toComplex();
     }
-    else if (e1->type->isintegral())
+    else if (e1->type->isintegral() || e1->type->toBasetype()->ty == Tpointer)
     {
 	cmp = (e1->toInteger() == e2->toInteger());
     }
@@ -862,9 +867,13 @@ Expression *Identity(enum TOK op, Type *type, Expression *e1, Expression *e2)
     Loc loc = e1->loc;
     int cmp;
 
-    if (e1->op == TOKnull && e2->op == TOKnull)
+    if (e1->op == TOKnull)
     {
-	cmp = 1;
+	cmp = (e2->op == TOKnull);
+    }
+    else if (e2->op == TOKnull)
+    {
+	cmp = 0;
     }
     else if (e1->op == TOKsymoff && e2->op == TOKsymoff)
     {
@@ -1046,11 +1055,12 @@ Expression *Cast(Type *type, Type *to, Expression *e1)
 	return e1;
 
     Type *tb = to->toBasetype();
-    Type *typeb = type->toBasetype();
 
-    // LDC: ported from D2 to allow char[] ~ char[n] arguments in CTFE
+    /* Allow casting from one string type to another
+     */
     if (e1->op == TOKstring)
     {
+	Type *typeb = type->toBasetype();
 	if (tb->ty == Tarray && typeb->ty == Tarray &&
 	    tb->nextOf()->size() == typeb->nextOf()->size())
 	{
@@ -1069,7 +1079,7 @@ Expression *Cast(Type *type, Type *to, Expression *e1)
 	{   dinteger_t result;
 	    real_t r = e1->toReal();
 
-	    switch (typeb->ty)
+	    switch (type->toBasetype()->ty)
 	    {
 		case Tint8:	result = (d_int8)r;	break;
 		case Tchar:

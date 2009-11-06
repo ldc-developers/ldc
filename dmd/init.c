@@ -396,31 +396,88 @@ Expression *ArrayInitializer::toExpression()
 {   Expressions *elements;
     Expression *e;
 
-    //printf("ArrayInitializer::toExpression()\n");
+    //printf("ArrayInitializer::toExpression(), dim = %d\n", dim);
     //static int i; if (++i == 2) halt();
+
+    size_t edim;
+    Type *t = NULL;
+    if (type)
+    {
+	if (type == Type::terror)
+	    return new ErrorExp();
+
+	t = type->toBasetype();
+	switch (t->ty)
+	{
+	   case Tsarray:
+	       edim = ((TypeSArray *)t)->dim->toInteger();
+	       break;
+
+	   case Tpointer:
+	   case Tarray:
+	       edim = dim;
+	       break;
+
+	   default:
+	       assert(0);
+	}
+    }
+    else
+    {
+	edim = value.dim;
+	for (size_t i = 0, j = 0; i < value.dim; i++, j++)
+	{
+	    if (index.data[i])
+		j = ((Expression *)index.data[i])->toInteger();
+	    if (j >= edim)
+		edim = j + 1;
+	}
+    }
+
     elements = new Expressions();
-    for (size_t i = 0; i < value.dim; i++)
+    elements->setDim(edim);
+    for (size_t i = 0, j = 0; i < value.dim; i++, j++)
     {
 	if (index.data[i])
-	    goto Lno;
+	    j = ((Expression *)index.data[i])->toInteger();
+	assert(j < edim);
 	Initializer *iz = (Initializer *)value.data[i];
 	if (!iz)
 	    goto Lno;
 	Expression *ex = iz->toExpression();
 	if (!ex)
+	{
 	    goto Lno;
-	elements->push(ex);
+	}
+	elements->data[j] = ex;
     }
-    e = new ArrayLiteralExp(loc, elements);
+
+    /* Fill in any missing elements with the default initializer
+     */
+    {
+    Expression *init = NULL;
+    for (size_t i = 0; i < edim; i++)
+    {
+	if (!elements->data[i])
+	{
+	    if (!type)
+		goto Lno;
+	    if (!init)
+		init = t->next->defaultInit();
+	    elements->data[i] = init;
+	}
+    }
+
+    Expression *e = new ArrayLiteralExp(loc, elements);
     e->type = type;
     return e;
+    }
 
 Lno:
     delete elements;
     error(loc, "array initializers as expressions are not allowed");
-    return NULL;
+    return new ErrorExp();
 }
-
 
 /********************************
  * If possible, convert array initializer to associative array initializer.
@@ -469,7 +526,7 @@ Type *ArrayInitializer::inferType(Scope *sc)
     for (size_t i = 0; i < value.dim; i++)
     {
 	if (index.data[i])
-	    goto Lno;
+	    goto Laa;
     }
     if (value.dim)
     {
@@ -482,9 +539,21 @@ Type *ArrayInitializer::inferType(Scope *sc)
 	}
     }
 
-Lno:
-    error(loc, "cannot infer type from this array initializer");
-    return Type::terror;
+Laa:
+    /* It's possibly an associative array initializer
+     */
+    Initializer *iz = (Initializer *)value.data[0];
+    Expression *indexinit = (Expression *)index.data[0];
+    if (iz && indexinit)
+    {   Type *t = iz->inferType(sc);
+	indexinit = indexinit->semantic(sc);
+	Type *indext = indexinit->type;
+	t = new TypeAArray(t, indext);
+	type = t->semantic(loc, sc);
+    }
+    else
+	error(loc, "cannot infer type from this array initializer");
+    return type;
 }
 
 
@@ -569,14 +638,27 @@ Type *ExpInitializer::inferType(Scope *sc)
     exp = exp->semantic(sc);
     exp = resolveProperties(sc, exp);
 
-#if DMDV2
     // Give error for overloaded function addresses
     if (exp->op == TOKsymoff)
     {   SymOffExp *se = (SymOffExp *)exp;
-	if (se->hasOverloads && !se->var->isFuncDeclaration()->isUnique())
+	if (
+#if DMDV2
+	    se->hasOverloads &&
+#else
+	    se->var->isFuncDeclaration() &&
+#endif
+	    !se->var->isFuncDeclaration()->isUnique())
 	    exp->error("cannot infer type from overloaded function symbol %s", exp->toChars());
     }
-#endif
+
+    // Give error for overloaded function addresses
+    if (exp->op == TOKdelegate)
+    {   DelegateExp *se = (DelegateExp *)exp;
+	if (
+	    se->func->isFuncDeclaration() &&
+	    !se->func->isFuncDeclaration()->isUnique())
+	    exp->error("cannot infer type from overloaded function symbol %s", exp->toChars());
+    }
 
     Type *t = exp->type;
     if (!t)

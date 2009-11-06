@@ -62,12 +62,18 @@ struct AggregateDeclaration : ScopeDsymbol
 				// 1: size is correct
 				// 2: cannot determine size; fwd referenced
     int isdeprecated;		// !=0 if deprecated
-    Scope *scope;		// !=NULL means context to use
 
     // Special member functions
     InvariantDeclaration *inv;		// invariant
     NewDeclaration *aggNew;		// allocator
     DeleteDeclaration *aggDelete;	// deallocator
+
+#if DMDV2
+    //CtorDeclaration *ctor;
+    Dsymbol *ctor;			// CtorDeclaration or TemplateDeclaration
+    CtorDeclaration *defaultCtor;	// default constructor
+    Dsymbol *aliasthis;			// forward unresolved lookups to aliasthis
+#endif
 
     FuncDeclarations dtors;	// Array of destructors
     FuncDeclaration *dtor;	// aggregate destructor
@@ -88,6 +94,7 @@ struct AggregateDeclaration : ScopeDsymbol
     FuncDeclaration *buildDtor(Scope *sc);
 
     void emitComment(Scope *sc);
+    void toJsonBuffer(OutBuffer *buf);
     void toDocBuffer(OutBuffer *buf);
 
     // For access checking

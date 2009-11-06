@@ -95,7 +95,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     searchCacheSymbol = NULL;
     searchCacheFlags = 0;
     semanticstarted = 0;
-    semanticdone = 0;
+    semanticRun = 0;
     decldefs = NULL;
     vmoduleinfo = NULL;
 #if IN_DMD
@@ -123,6 +123,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 
     macrotable = NULL;
     escapetable = NULL;
+    safe = FALSE;
 #if IN_DMD
     doppelganger = 0;
     cov = NULL;
@@ -661,9 +662,65 @@ void Module::parse()
     }
 }
 
-void Module::semantic(Scope* unused_sc)
-{   int i;
+void Module::importAll(Scope *prevsc)
+{
+    //printf("+Module::importAll(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
 
+    if (scope)
+	return;			// already done
+
+    /* Note that modules get their own scope, from scratch.
+     * This is so regardless of where in the syntax a module
+     * gets imported, it is unaffected by context.
+     * Ignore prevsc.
+     */
+    Scope *sc = Scope::createGlobal(this);	// create root scope
+
+    // Add import of "object" if this module isn't "object"
+    if (ident != Id::object)
+    {
+	if (members->dim == 0 || ((Dsymbol *)members->data[0])->ident != Id::object)
+	{
+	    Import *im = new Import(0, NULL, Id::object, NULL, 0);
+	    members->shift(im);
+	}
+    }
+
+    if (!symtab)
+    {
+	// Add all symbols into module's symbol table
+	symtab = new DsymbolTable();
+	for (int i = 0; i < members->dim; i++)
+	{
+	    Dsymbol *s = (Dsymbol *)members->data[i];
+	    s->addMember(NULL, sc->scopesym, 1);
+	}
+    }
+    // anything else should be run after addMember, so version/debug symbols are defined
+
+    /* Set scope for the symbols so that if we forward reference
+     * a symbol, it can possibly be resolved on the spot.
+     * If this works out well, it can be extended to all modules
+     * before any semantic() on any of them.
+     */
+    setScope(sc);		// remember module scope for semantic
+    for (int i = 0; i < members->dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
+	s->setScope(sc);
+    }
+
+    for (int i = 0; i < members->dim; i++)
+    {
+	Dsymbol *s = (Dsymbol *)members->data[i];
+	s->importAll(sc);
+    }
+
+    sc = sc->pop();
+    sc->pop();		// 2 pops because Scope::createGlobal() created 2
+}
+
+void Module::semantic(Scope *unused_sc)
+{
     if (semanticstarted)
 	return;
 
@@ -673,10 +730,15 @@ void Module::semantic(Scope* unused_sc)
     // Note that modules get their own scope, from scratch.
     // This is so regardless of where in the syntax a module
     // gets imported, it is unaffected by context.
-    Scope *sc = Scope::createGlobal(this);	// create root scope
+    Scope *sc = scope;			// see if already got one from importAll()
+    if (!sc)
+    {	printf("test2\n");
+	Scope::createGlobal(this);	// create root scope
+    }
 
     //printf("Module = %p, linkage = %d\n", sc->scopesym, sc->linkage);
 
+#if 0
     // Add import of "object" if this module isn't "object"
     if (ident != Id::object)
     {
@@ -686,26 +748,36 @@ void Module::semantic(Scope* unused_sc)
 
     // Add all symbols into module's symbol table
     symtab = new DsymbolTable();
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s;
-
-	s = (Dsymbol *)members->data[i];
+    for (int i = 0; i < members->dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
 	s->addMember(NULL, sc->scopesym, 1);
     }
 
-    // Pass 1 semantic routines: do public side of the definition
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s;
+    /* Set scope for the symbols so that if we forward reference
+     * a symbol, it can possibly be resolved on the spot.
+     * If this works out well, it can be extended to all modules
+     * before any semantic() on any of them.
+     */
+    for (int i = 0; i < members->dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
+	s->setScope(sc);
+    }
+#endif
 
-	s = (Dsymbol *)members->data[i];
+    // Pass 1 semantic routines: do public side of the definition
+    for (int i = 0; i < members->dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
+
 	//printf("\tModule('%s'): '%s'.semantic()\n", toChars(), s->toChars());
 	s->semantic(sc);
 	runDeferredSemantic();
     }
 
-    sc = sc->pop();
-    sc->pop();
-    semanticdone = semanticstarted;
+    if (!scope)
+    {	sc = sc->pop();
+	sc->pop();		// 2 pops because Scope::createGlobal() created 2
+    }
+    semanticRun = semanticstarted;
     //printf("-Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
 }
 
@@ -744,7 +816,7 @@ void Module::semantic2(Scope* unused_sc)
 
     sc = sc->pop();
     sc->pop();
-    semanticdone = semanticstarted;
+    semanticRun = semanticstarted;
     //printf("-Module::semantic2('%s'): parent = %p\n", toChars(), parent);
 }
 
@@ -774,12 +846,11 @@ void Module::semantic3(Scope* unused_sc)
 
     sc = sc->pop();
     sc->pop();
-    semanticdone = semanticstarted;
+    semanticRun = semanticstarted;
 }
 
 void Module::inlineScan()
-{   int i;
-
+{
     if (semanticstarted >= 4)
 	return;
     assert(semanticstarted == 3);
@@ -790,16 +861,14 @@ void Module::inlineScan()
     // gets imported, it is unaffected by context.
     //printf("Module = %p\n", sc.scopesym);
 
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s;
-
-	s = (Dsymbol *)members->data[i];
+    for (int i = 0; i < members->dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
 	//if (global.params.verbose)
 	    //printf("inline scan symbol %s\n", s->toChars());
 
 	s->inlineScan();
     }
-    semanticdone = semanticstarted;
+    semanticRun = semanticstarted;
 }
 
 /****************************************************
@@ -844,6 +913,7 @@ Dsymbol *Module::search(Loc loc, Identifier *ident, int flags)
 {
     /* Since modules can be circularly referenced,
      * need to stop infinite recursive searches.
+     * This is done with the cache.
      */
 
     //printf("%s Module::search('%s', flags = %d) insearch = %d\n", toChars(), ident->toChars(), flags, insearch);
@@ -851,7 +921,10 @@ Dsymbol *Module::search(Loc loc, Identifier *ident, int flags)
     if (insearch)
 	s = NULL;
     else if (searchCacheIdent == ident && searchCacheFlags == flags)
+    {
 	s = searchCacheSymbol;
+	//printf("%s Module::search('%s', flags = %d) insearch = %d searchCacheSymbol = %s\n", toChars(), ident->toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol->toChars() : "null");
+    }
     else
     {
 	insearch = 1;
@@ -864,6 +937,13 @@ Dsymbol *Module::search(Loc loc, Identifier *ident, int flags)
     }
     return s;
 }
+
+Dsymbol *Module::symtabInsert(Dsymbol *s)
+{
+    searchCacheIdent = 0;	// symbol is inserted, so invalidate cache
+    return Package::symtabInsert(s);
+}
+
 
 /*******************************************
  * Can't run semantic on s now, try again later.
@@ -1059,11 +1139,14 @@ DsymbolTable *Package::resolve(Array *packages, Dsymbol **pparent, Package **ppk
 	    else
 	    {
 		assert(p->isPackage());
+#if TARGET_NET  //dot net needs modules and packages with same name
+#else
 		if (p->isModule())
 		{   p->error("module and package have the same name");
 		    fatal();
 		    break;
 		}
+#endif
 	    }
 	    parent = p;
 	    dst = ((Package *)p)->symtab;

@@ -732,11 +732,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     // class name
     // code from dmd
-#if DMDV2
     const char *name = cd->ident->toChars();
-#else
-    char *name = cd->ident->toChars();
-#endif
     size_t namelen = strlen(name);
     if (!(namelen > 9 && memcmp(name, "TypeInfo_", 9) == 0))
     {

@@ -71,6 +71,11 @@ int Declaration::isDataseg()
     return FALSE;
 }
 
+int Declaration::isThreadlocal()
+{
+    return FALSE;
+}
+
 int Declaration::isCodeseg()
 {
     return FALSE;
@@ -132,18 +137,17 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
 	VarDeclaration *v = isVarDeclaration();
 	if (v && v->canassign == 0)
 	{
-	    char *p = NULL;
+	    const char *p = NULL;
 	    if (isConst())
 		p = "const";
 	    else if (isInvariant())
-		p = "invariant";
+		p = "immutable";
 	    else if (storage_class & STCmanifest)
-		p = "manifest constant";
+		p = "enum";
 	    else if (!t->isAssignable())
 		p = "struct with immutable members";
 	    if (p)
 	    {	error(loc, "cannot modify %s", p);
-		halt();
 	    }
 	}
     }
@@ -200,6 +204,7 @@ Type *TupleDeclaration::getType()
 	Arguments *args = new Arguments();
 	args->setDim(objects->dim);
 	OutBuffer buf;
+	int hasdeco = 1;
 	for (size_t i = 0; i < objects->dim; i++)
 	{   Type *t = (Type *)objects->data[i];
 
@@ -213,9 +218,13 @@ Type *TupleDeclaration::getType()
 	    Argument *arg = new Argument(STCin, t, NULL, NULL);
 #endif
 	    args->data[i] = (void *)arg;
+	    if (!t->deco)
+		hasdeco = 0;
 	}
 
 	tupletype = new TypeTuple(args);
+	if (hasdeco)
+	    return tupletype->semantic(0, NULL);
     }
 
     return tupletype;
@@ -456,11 +465,25 @@ void AliasDeclaration::semantic(Scope *sc)
      * try to alias y to 3.
      */
     s = type->toDsymbol(sc);
-    if (s)
+    if (s
+#if DMDV2
+`	&& ((s->getType() && type->equals(s->getType())) || s->isEnumMember())
+#endif
+	)
 	goto L2;			// it's a symbolic alias
 
-    //printf("alias type is %s\n", type->toChars());
-    type->resolve(loc, sc, &e, &t, &s);
+#if DMDV2
+    if (storage_class & (STCref | STCnothrow | STCpure))
+    {	// For 'ref' to be attached to function types, and picked
+	// up by Type::resolve(), it has to go into sc.
+	sc = sc->push();
+	sc->stc |= storage_class & (STCref | STCnothrow | STCpure);
+	type->resolve(loc, sc, &e, &t, &s);
+	sc = sc->pop();
+    }
+    else
+#endif
+	type->resolve(loc, sc, &e, &t, &s);
     if (s)
     {
 	goto L2;
@@ -523,7 +546,8 @@ void AliasDeclaration::semantic(Scope *sc)
 	    s = NULL;
 	}
     }
-    aliassym = s;
+    if (!aliassym)
+	aliassym = s;
     this->inSemantic = 0;
 }
 
@@ -535,7 +559,12 @@ int AliasDeclaration::overloadInsert(Dsymbol *s)
 
     //printf("AliasDeclaration::overloadInsert('%s')\n", s->toChars());
     if (overnext == NULL)
-    {	overnext = s;
+    {
+	if (s == this)
+	{
+	    return TRUE;
+	}
+	overnext = s;
 	return TRUE;
     }
     else
@@ -551,6 +580,13 @@ const char *AliasDeclaration::kind()
 
 Type *AliasDeclaration::getType()
 {
+    //printf("AliasDeclaration::getType() %s\n", type->toChars());
+#if 0
+    if (!type->deco && scope)
+	semantic(scope);
+    if (type && !type->deco)
+	error("forward reference to alias %s\n", toChars());
+#endif
     return type;
 }
 
@@ -558,7 +594,7 @@ Dsymbol *AliasDeclaration::toAlias()
 {
     //printf("AliasDeclaration::toAlias('%s', this = %p, aliassym = %p, kind = '%s')\n", toChars(), this, aliassym, aliassym ? aliassym->kind() : "");
     assert(this != aliassym);
-    //static int count; if (++count == 10) *(char*)0=0;
+    //static int count; if (++count == 75) exit(0); //*(char*)0=0;
     if (inSemantic)
     {	error("recursive alias declaration");
 	aliassym = new TypedefDeclaration(loc, ident, Type::terror, NULL);
@@ -620,7 +656,9 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     this->loc = loc;
     offset = 0;
     noscope = 0;
+#if DMDV1
     nestedref = 0;
+#endif
     ctorinit = 0;
     aliassym = NULL;
     onstack = 0;
@@ -684,12 +722,14 @@ Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
 
 void VarDeclaration::semantic(Scope *sc)
 {
-    //printf("VarDeclaration::semantic('%s', parent = '%s')\n", toChars(), sc->parent->toChars());
-    //printf(" type = %s\n", type ? type->toChars() : "null");
-    //printf(" stc = x%x\n", sc->stc);
-    //printf(" storage_class = x%x\n", storage_class);
-    //printf("linkage = %d\n", sc->linkage);
+#if 0
+    printf("VarDeclaration::semantic('%s', parent = '%s')\n", toChars(), sc->parent->toChars());
+    printf(" type = %s\n", type ? type->toChars() : "null");
+    printf(" stc = x%x\n", sc->stc);
+    printf(" storage_class = x%x\n", storage_class);
+    printf("linkage = %d\n", sc->linkage);
     //if (strcmp(toChars(), "mul") == 0) halt();
+#endif
 
     storage_class |= sc->stc;
     if (storage_class & STCextern && init)
@@ -724,6 +764,13 @@ void VarDeclaration::semantic(Scope *sc)
     protection = sc->protection;
     //printf("sc->stc = %x\n", sc->stc);
     //printf("storage_class = x%x\n", storage_class);
+
+#if DMDV2
+    if (storage_class & STCgshared && global.params.safe && !sc->module->safe)
+    {
+	error("__gshared not allowed in safe mode; use shared");
+    }
+#endif
 
     Dsymbol *parent = toParent();
     FuncDeclaration *fd = parent->isFuncDeclaration();
@@ -832,7 +879,17 @@ void VarDeclaration::semantic(Scope *sc)
 	    aad = parent->isAggregateDeclaration();
 	if (aad)
 	{
-	    aad->addField(sc, this);
+#if DMDV2
+	    assert(!(storage_class & (STCextern | STCstatic | STCtls | STCgshared)));
+
+	    if (storage_class & (STCconst | STCimmutable) && init)
+	    {
+		if (!type->toBasetype()->isTypeBasic())
+		    storage_class |= STCstatic;
+	    }
+	    else
+#endif
+		aad->addField(sc, this);
 	}
 
 	InterfaceDeclaration *id = parent->isInterfaceDeclaration();
@@ -864,6 +921,14 @@ void VarDeclaration::semantic(Scope *sc)
 	}
     }
 
+#if DMDV2
+    if ((storage_class & (STCref | STCparameter | STCforeach)) == STCref &&
+	ident != Id::This)
+    {
+	error("only parameters or foreach declarations can be ref");
+    }
+#endif
+
     if (type->isscope() && !noscope)
     {
 	if (storage_class & (STCfield | STCout | STCref | STCstatic) || !fd)
@@ -878,6 +943,7 @@ void VarDeclaration::semantic(Scope *sc)
 	}
     }
 
+    enum TOK op = TOKconstruct;
     if (!init && !sc->inunion && !isStatic() && !isConst() && fd &&
 	!(storage_class & (STCfield | STCin | STCforeach)) &&
 	type->size() != 0)
@@ -896,8 +962,9 @@ void VarDeclaration::semantic(Scope *sc)
 	    Expression *e1;
 	    e1 = new VarExp(loc, this);
 	    e = new AssignExp(loc, e1, e);
-	    e->type = e1->type;
-	    init = new ExpInitializer(loc, e/*->type->defaultInit()*/);
+	    e->op = TOKconstruct;
+	    e->type = e1->type;		// don't type check this, it would fail
+	    init = new ExpInitializer(loc, e);
 	    return;
 	}
 	else if (type->ty == Ttypedef)
@@ -916,12 +983,14 @@ void VarDeclaration::semantic(Scope *sc)
 	{
 	    init = getExpInitializer();
 	}
+	// Default initializer is always a blit
+	op = TOKblit;
     }
 
     if (init)
     {
 	sc = sc->push();
-	sc->stc &= ~(STCconst | STCinvariant | STCpure);
+	sc->stc &= ~(STC_TYPECTOR | STCpure | STCnothrow | STCref);
 
 	ArrayInitializer *ai = init->isArrayInitializer();
 	if (ai && tb->ty == Taarray)
@@ -932,7 +1001,7 @@ void VarDeclaration::semantic(Scope *sc)
 	StructInitializer *si = init->isStructInitializer();
 	ExpInitializer *ei = init->isExpInitializer();
 
-	// See if we can allocate on the stack
+	// See if initializer is a NewExp that can be allocated on the stack
 	if (ei && isScope() && ei->exp->op == TOKnew)
 	{   NewExp *ne = (NewExp *)ei->exp;
 	    if (!(ne->newargs && ne->newargs->dim))
@@ -970,7 +1039,7 @@ void VarDeclaration::semantic(Scope *sc)
 		Expression *e1 = new VarExp(loc, this);
 
 		Type *t = type->toBasetype();
-		if (t->ty == Tsarray)
+		if (t->ty == Tsarray && !(storage_class & (STCref | STCout)))
 		{
 		    ei->exp = ei->exp->semantic(sc);
 		    if (!ei->exp->implicitConvTo(type))
@@ -991,8 +1060,62 @@ void VarDeclaration::semantic(Scope *sc)
 		else if (t->ty == Tstruct)
 		{
 		    ei->exp = ei->exp->semantic(sc);
+		    ei->exp = resolveProperties(sc, ei->exp);
+		    StructDeclaration *sd = ((TypeStruct *)t)->sym;
+#if DMDV2
+		    /* Look to see if initializer is a call to the constructor
+		     */
+		    if (sd->ctor &&		// there are constructors
+			ei->exp->type->ty == Tstruct &&	// rvalue is the same struct
+			((TypeStruct *)ei->exp->type)->sym == sd &&
+			ei->exp->op == TOKstar)
+		    {
+			/* Look for form of constructor call which is:
+			 *    *__ctmp.ctor(arguments...)
+			 */
+			PtrExp *pe = (PtrExp *)ei->exp;
+			if (pe->e1->op == TOKcall)
+			{   CallExp *ce = (CallExp *)pe->e1;
+			    if (ce->e1->op == TOKdotvar)
+			    {	DotVarExp *dve = (DotVarExp *)ce->e1;
+				if (dve->var->isCtorDeclaration())
+				{   /* It's a constructor call, currently constructing
+				     * a temporary __ctmp.
+				     */
+				    /* Before calling the constructor, initialize
+				     * variable with a bit copy of the default
+				     * initializer
+				     */
+				    Expression *e = new AssignExp(loc, new VarExp(loc, this), t->defaultInit(loc));
+				    e->op = TOKblit;
+				    e->type = t;
+				    ei->exp = new CommaExp(loc, e, ei->exp);
+
+				    /* Replace __ctmp being constructed with e1
+				     */
+				    dve->e1 = e1;
+				    return;
+				}
+			    }
+			}
+		    }
+#endif
 		    if (!ei->exp->implicitConvTo(type))
-			ei->exp = new CastExp(loc, ei->exp, type);
+		    {
+			/* Look for opCall
+			 * See bugzilla 2702 for more discussion
+			 */
+			Type *ti = ei->exp->type->toBasetype();
+			// Don't cast away invariant or mutability in initializer
+			if (search_function(sd, Id::call) &&
+			    /* Initializing with the same type is done differently
+			     */
+			    !(ti->ty == Tstruct && t->toDsymbol(sc) == ti->toDsymbol(sc)))
+			{   // Rewrite as e1.call(arguments)
+			    Expression * eCall = new DotIdExp(loc, e1, Id::call);
+			    ei->exp = new CallExp(loc, eCall, ei->exp);
+			}
+		    }
 		}
 		ei->exp = new AssignExp(loc, e1, ei->exp);
 		ei->exp->op = TOKconstruct;
@@ -1010,7 +1133,8 @@ void VarDeclaration::semantic(Scope *sc)
 		}
 	    }
 	}
-	else if (isConst() || isFinal())
+	else if (isConst() || isFinal() ||
+		 parent->isAggregateDeclaration())
 	{
 	    /* Because we may need the results of a const declaration in a
 	     * subsequent type, such as an array dimension, before semantic2()
@@ -1043,14 +1167,29 @@ void VarDeclaration::semantic(Scope *sc)
 		{
 		    if (global.gag == 0)
 			global.errors = errors;	// act as if nothing happened
+#if DMDV2
+		    /* Save scope for later use, to try again
+		     */
+		    scope = new Scope(*sc);
+		    scope->setNoFree();
+#endif
 		}
 		else if (ei)
 		{
 		    e = e->optimize(WANTvalue | WANTinterpret);
-		    if (e->op == TOKint64 || e->op == TOKstring)
+		    if (e->op == TOKint64 || e->op == TOKstring || e->op == TOKfloat64)
 		    {
 			ei->exp = e;		// no errors, keep result
 		    }
+#if DMDV2
+		    else
+		    {
+			/* Save scope for later use, to try again
+			 */
+			scope = new Scope(*sc);
+			scope->setNoFree();
+		    }
+#endif
 		}
 		else
 		    init = i2;		// no errors, keep result
@@ -1131,7 +1270,13 @@ void VarDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	buf->writestring(ident->toChars());
     if (init)
     {	buf->writestring(" = ");
-	init->toCBuffer(buf, hgs);
+#if DMDV2
+	ExpInitializer *ie = init->isExpInitializer();
+	if (ie && (ie->exp->op == TOKconstruct || ie->exp->op == TOKblit))
+	    ((AssignExp *)ie->exp)->e2->toCBuffer(buf, hgs);
+	else
+#endif
+	    init->toCBuffer(buf, hgs);
     }
     buf->writeByte(';');
     buf->writenl();
@@ -1210,8 +1355,18 @@ int VarDeclaration::isDataseg()
 	   parent->isTemplateInstance());
 }
 
+/************************************
+ * Does symbol go into thread local storage?
+ */
+
+int VarDeclaration::isThreadlocal()
+{
+    return 0;
+}
+
 int VarDeclaration::hasPointers()
 {
+    //printf("VarDeclaration::hasPointers() %s, ty = %d\n", toChars(), type->ty);
     return (!isDataseg() && type->hasPointers());
 }
 
@@ -1228,7 +1383,7 @@ int VarDeclaration::isSameAsInitializer()
  * Otherwise, return NULL.
  */
 
-Expression *VarDeclaration::callScopeDtor()
+Expression *VarDeclaration::callScopeDtor(Scope *sc)
 {   Expression *e = NULL;
 
     //printf("VarDeclaration::callScopeDtor() %s\n", toChars());
@@ -1336,6 +1491,15 @@ TypeInfoConstDeclaration::TypeInfoConstDeclaration(Type *tinfo)
 
 #if DMDV2
 TypeInfoInvariantDeclaration::TypeInfoInvariantDeclaration(Type *tinfo)
+    : TypeInfoDeclaration(tinfo, 0)
+{
+}
+#endif
+
+/***************************** TypeInfoSharedDeclaration **********************/
+
+#if DMDV2
+TypeInfoSharedDeclaration::TypeInfoSharedDeclaration(Type *tinfo)
     : TypeInfoDeclaration(tinfo, 0)
 {
 }
@@ -1450,4 +1614,3 @@ StaticStructInitDeclaration::StaticStructInitDeclaration(Loc loc, StructDeclarat
     this->dsym = dsym;
     storage_class |= STCconst;
 }
-

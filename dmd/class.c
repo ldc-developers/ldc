@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -161,6 +161,12 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
 		    Type::typeinfoinvariant->error("%s", msg);
 		Type::typeinfoinvariant = this;
 	    }
+
+	    if (id == Id::TypeInfo_Shared)
+	    {	if (Type::typeinfoshared)
+		    Type::typeinfoshared->error("%s", msg);
+		Type::typeinfoshared = this;
+	    }
 #endif
 	}
 
@@ -226,19 +232,19 @@ void ClassDeclaration::semantic(Scope *sc)
     //{ static int n;  if (++n == 20) *(char*)0=0; }
 
     if (!ident)		// if anonymous class
-    {	char *id = "__anonclass";
+    {	const char *id = "__anonclass";
 
 	ident = Identifier::generateId(id);
     }
 
-    if (!scope)
-    {
-	if (!parent && sc->parent && !sc->parent->isModule())
-	    parent = sc->parent;
+    if (!sc)
+	sc = scope;
+    if (!parent && sc->parent && !sc->parent->isModule())
+	parent = sc->parent;
 
-	type = type->semantic(loc, sc);
-	handle = handle->semantic(loc, sc);
-    }
+    type = type->semantic(loc, sc);
+    handle = type;
+
     if (!members)			// if forward reference
     {	//printf("\tclass '%s' is forward referenced\n", toChars());
 	return;
@@ -329,13 +335,21 @@ void ClassDeclaration::semantic(Scope *sc)
 			goto L7;
 		    }
 		}
+		if (!tc->sym->symtab || tc->sym->sizeok == 0)
+		{   // Try to resolve forward reference
+		    if (sc->mustsemantic && tc->sym->scope)
+			tc->sym->semantic(NULL);
+		}
 		if (!tc->sym->symtab || tc->sym->scope || tc->sym->sizeok == 0)
 		{
+		    //printf("%s: forward reference of base class %s\n", toChars(), tc->sym->toChars());
 		    //error("forward reference of base class %s", baseClass->toChars());
 		    // Forward reference of base class, try again later
 		    //printf("\ttry later, forward reference of base class %s\n", tc->sym->toChars());
 		    scope = scx ? scx : new Scope(*sc);
 		    scope->setNoFree();
+		    if (tc->sym->scope)
+		        tc->sym->scope->module->addDeferredSemantic(tc->sym);
 		    scope->module->addDeferredSemantic(this);
 		    return;
 		}
@@ -389,6 +403,12 @@ void ClassDeclaration::semantic(Scope *sc)
 		    error("inherits from duplicate interface %s", b2->base->toChars());
 	    }
 
+	    if (!tc->sym->symtab)
+	    {   // Try to resolve forward reference
+		if (sc->mustsemantic && tc->sym->scope)
+		    tc->sym->semantic(NULL);
+	    }
+
 	    b->base = tc->sym;
 	    if (!b->base->symtab || b->base->scope)
 	    {
@@ -397,6 +417,8 @@ void ClassDeclaration::semantic(Scope *sc)
 		//printf("\ttry later, forward reference of base %s\n", baseClass->toChars());
 		scope = scx ? scx : new Scope(*sc);
 		scope->setNoFree();
+		if (tc->sym->scope)
+		    tc->sym->scope->module->addDeferredSemantic(tc->sym);
 		scope->module->addDeferredSemantic(this);
 		return;
 	    }
@@ -500,15 +522,15 @@ void ClassDeclaration::semantic(Scope *sc)
 	{   Dsymbol *s = toParent2();
 	    if (s)
 	    {
-		ClassDeclaration *cd = s->isClassDeclaration();
+		AggregateDeclaration *ad = s->isClassDeclaration();
 		FuncDeclaration *fd = s->isFuncDeclaration();
 
 
-		if (cd || fd)
+		if (ad || fd)
 		{   isnested = 1;
 		    Type *t;
-		    if (cd)
-			t = cd->type;
+		    if (ad)
+			t = ad->handle;
 		    else if (fd)
 		    {	AggregateDeclaration *ad = fd->isMember2();
 			if (ad)
@@ -564,7 +586,7 @@ void ClassDeclaration::semantic(Scope *sc)
 //	    sc->offset += PTRSIZE;	// room for uplevel context pointer
     }
     else
-    {	sc->offset = PTRSIZE * 2;	// allow room for vptr[] and monitor
+    {	sc->offset = PTRSIZE * 2;	// allow room for __vptr and __monitor
 	alignsize = PTRSIZE;
     }
     structsize = sc->offset;
@@ -703,17 +725,22 @@ void ClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 	//buf->writestring(b->base->ident->toChars());
 	b->type->toCBuffer(buf, NULL, hgs);
     }
-    buf->writenl();
-    buf->writeByte('{');
-    buf->writenl();
-    for (int i = 0; i < members->dim; i++)
+    if (members)
     {
-	Dsymbol *s = (Dsymbol *)members->data[i];
+	buf->writenl();
+	buf->writeByte('{');
+	buf->writenl();
+	for (int i = 0; i < members->dim; i++)
+	{
+	    Dsymbol *s = (Dsymbol *)members->data[i];
 
-	buf->writestring("    ");
-	s->toCBuffer(buf, hgs);
+	    buf->writestring("    ");
+	    s->toCBuffer(buf, hgs);
+	}
+	buf->writestring("}");
     }
-    buf->writestring("}");
+    else
+	buf->writeByte(';');
     buf->writenl();
 }
 
@@ -777,13 +804,18 @@ int ClassDeclaration::isBaseOf(ClassDeclaration *cd, int *poffset)
 Dsymbol *ClassDeclaration::search(Loc loc, Identifier *ident, int flags)
 {
     Dsymbol *s;
-
     //printf("%s.ClassDeclaration::search('%s')\n", toChars(), ident->toChars());
+
     if (scope)
-	semantic(scope);
+    {	Scope *sc = scope;
+	sc->mustsemantic++;
+	semantic(sc);
+	sc->mustsemantic--;
+    }
 
     if (!members || !symtab || scope)
-    {	error("is forward referenced when looking for '%s'", ident->toChars());
+    {
+	error("is forward referenced when looking for '%s'", ident->toChars());
 	//*(char*)0=0;
 	return NULL;
     }
@@ -831,7 +863,7 @@ int isf(void *param, FuncDeclaration *fd)
 
 int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
 {
-    //printf("ClassDeclaration::isFuncHidden(%s)\n", fd->toChars());
+    //printf("ClassDeclaration::isFuncHidden(class = %s, fd = %s)\n", toChars(), fd->toChars());
     Dsymbol *s = search(0, fd->ident, 4|2);
     if (!s)
     {	//printf("not found\n");
@@ -915,6 +947,13 @@ int ClassDeclaration::isCOMinterface()
 {
     return 0;
 }
+
+#if DMDV2
+int ClassDeclaration::isCPPinterface()
+{
+    return 0;
+}
+#endif
 
 
 /****************************************
@@ -1006,10 +1045,15 @@ void InterfaceDeclaration::semantic(Scope *sc)
     //printf("InterfaceDeclaration::semantic(%s), type = %p\n", toChars(), type);
     if (inuse)
 	return;
-    if (!scope)
-    {	type = type->semantic(loc, sc);
-	handle = handle->semantic(loc, sc);
-    }
+
+    if (!sc)
+	sc = scope;
+    if (!parent && sc->parent && !sc->parent->isModule())
+	parent = sc->parent;
+
+    type = type->semantic(loc, sc);
+    handle = type;
+
     if (!members)			// if forward reference
     {	//printf("\tinterface '%s' is forward referenced\n", toChars());
 	return;
@@ -1089,6 +1133,11 @@ void InterfaceDeclaration::semantic(Scope *sc)
 		error("circular inheritance of interface");
 		baseclasses.remove(i);
 		continue;
+	    }
+	    if (!b->base->symtab)
+	    {   // Try to resolve forward reference
+		if (sc->mustsemantic && b->base->scope)
+		    b->base->semantic(NULL);
 	    }
 	    if (!b->base->symtab || b->base->scope || b->base->inuse)
 	    {
@@ -1261,6 +1310,13 @@ int InterfaceDeclaration::isCOMinterface()
 {
     return com;
 }
+
+#if DMDV2
+int InterfaceDeclaration::isCPPinterface()
+{
+    return cpp;
+}
+#endif
 
 /*******************************************
  */

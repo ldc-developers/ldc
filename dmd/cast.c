@@ -1078,22 +1078,20 @@ L1:
 
 Expression *SymOffExp::castTo(Scope *sc, Type *t)
 {
-    Type *tb;
-
 #if 0
     printf("SymOffExp::castTo(this=%s, type=%s, t=%s)\n",
 	toChars(), type->toChars(), t->toChars());
 #endif
     Expression *e = this;
 
-    tb = t->toBasetype();
-    type = type->toBasetype();
-    if (tb != type)
+    Type *tb = t->toBasetype();
+    Type *typeb = type->toBasetype();
+    if (tb != typeb)
     {
 	// Look for pointers to functions where the functions are overloaded.
 	FuncDeclaration *f;
 
-	if (type->ty == Tpointer && type->next->ty == Tfunction &&
+	if (typeb->ty == Tpointer && typeb->next->ty == Tfunction &&
 	    tb->ty == Tpointer && tb->next->ty == Tfunction)
 	{
 	    f = var->isFuncDeclaration();
@@ -1102,15 +1100,47 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
 		f = f->overloadExactMatch(tb->next, m);
 		if (f)
 		{
-		    e = new SymOffExp(loc, f, 0);
-		    e->type = t;
+#if DMDV2
+		    if (tb->ty == Tdelegate)
+		    {
+			if (f->needThis() && hasThis(sc))
+			{
+			    e = new DelegateExp(loc, new ThisExp(loc), f);
+			    e = e->semantic(sc);
+			}
+			else if (f->isNested())
+			{
+			    e = new DelegateExp(loc, new IntegerExp(0), f);
+			    e = e->semantic(sc);
+			}
+			else if (f->needThis())
+			{   error("no 'this' to create delegate for %s", f->toChars());
+			    e = new ErrorExp();
+			}
+			else
+			{   error("cannot cast from function pointer to delegate");
+			    e = new ErrorExp();
+			}
+		    }
+		    else
+#endif
+		    {
+			e = new SymOffExp(loc, f, 0);
+			e->type = t;
+		    }
+#if DMDV2
+		    f->tookAddressOf++;
+#endif
 		    return e;
 		}
 	    }
 	}
 	e = Expression::castTo(sc, t);
     }
-    e->type = t;
+    else
+    {
+	e->type = t;
+    }
     return e;
 }
 
@@ -1484,13 +1514,13 @@ Expression *BinExp::typeCombine(Scope *sc)
     {
 	assert(0);
     }
-    else if (e1->op == TOKslice && t1->ty == Tarray &&
+    else if (e1->isArrayOperand() && t1->ty == Tarray &&
 	     e2->implicitConvTo(t1->nextOf()))
     {	// T[] op T
 	e2 = e2->castTo(sc, t1->nextOf());
 	t = t1->nextOf()->arrayOf();
     }
-    else if (e2->op == TOKslice && t2->ty == Tarray &&
+    else if (e2->isArrayOperand() && t2->ty == Tarray &&
 	     e1->implicitConvTo(t2->nextOf()))
     {	// T op T[]
 	e1 = e1->castTo(sc, t2->nextOf());

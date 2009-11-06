@@ -2897,11 +2897,10 @@ Statement *Parser::parseStatement(int flags)
 	}
 
 	case TOKlcurly:
-	{   Statements *statements;
-
+	{
 	    nextToken();
-	    statements = new Statements();
-	    while (token.value != TOKrcurly)
+	    Statements *statements = new Statements();
+	    while (token.value != TOKrcurly && token.value != TOKeof)
 	    {
 		statements->push(parseStatement(PSsemi | PScurlyscope));
 	    }
@@ -3226,6 +3225,7 @@ Statement *Parser::parseStatement(int flags)
 	    statements = new Statements();
 	    while (token.value != TOKcase &&
 		   token.value != TOKdefault &&
+		   token.value != TOKeof &&
 		   token.value != TOKrcurly)
 	    {
 		statements->push(parseStatement(PSsemi | PScurlyscope));
@@ -3252,6 +3252,7 @@ Statement *Parser::parseStatement(int flags)
 	    statements = new Statements();
 	    while (token.value != TOKcase &&
 		   token.value != TOKdefault &&
+		   token.value != TOKeof &&
 		   token.value != TOKrcurly)
 	    {
 		statements->push(parseStatement(PSsemi | PScurlyscope));

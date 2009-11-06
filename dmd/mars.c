@@ -32,6 +32,7 @@
 #include "cond.h"
 #include "expression.h"
 #include "lexer.h"
+#include "json.h"
 
 #include "gen/revisions.h"
 
@@ -44,6 +45,7 @@ Global::Global()
     hdr_ext  = "di";
     doc_ext  = "html";
     ddoc_ext = "ddoc";
+    json_ext = "json";
 
 // LDC
     ll_ext  = "ll";
@@ -56,7 +58,7 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2009 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.045";
+    version = "v1.051";
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV_STR;
     global.structalign = 8;
@@ -88,6 +90,11 @@ Loc::Loc(Module *mod, unsigned linnum)
 {
     this->linnum = linnum;
     this->filename = mod ? mod->srcfile->toChars() : NULL;
+}
+
+bool Loc::equals(const Loc& loc)
+{
+    return linnum == loc.linnum && FileName::equals(filename, loc.filename);
 }
 
 /**************************************
@@ -180,25 +187,20 @@ void halt()
 
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
 {
-    char *env;
     char *p;
-    Array *argv;
-    int argc;
 
-    int wildcard;		// do wildcard expansion
     int instring;
     int slash;
     char c;
-    int j;
 
-    env = getenv(envvar);
+    char *env = getenv(envvar);
     if (!env)
 	return;
 
     env = mem.strdup(env);	// create our own writable copy
 
-    argc = *pargc;
-    argv = new Array();
+    int argc = *pargc;
+    Array *argv = new Array();
     argv->setDim(argc);
 
     int argc_left = 0;
@@ -220,10 +222,10 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     argv->push((char*)"");
     argc++;
 
-    j = 1;			// leave argv[0] alone
+    int j = 1;			// leave argv[0] alone
     while (1)
     {
-	wildcard = 1;
+	int wildcard = 1;	// do wildcard expansion
 	switch (*env)
 	{
 	    case ' ':

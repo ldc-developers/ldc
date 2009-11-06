@@ -806,6 +806,17 @@ LDC_TARGETS
         fatal();
 #endif
 
+    // load all unconditional imports for better symbol resolving
+    for (int i = 0; i < modules.dim; i++)
+    {
+       m = (Module *)modules.data[i];
+       if (global.params.verbose)
+           printf("importall %s\n", m->toChars());
+       m->importAll(0);
+    }
+    if (global.errors)
+       fatal();
+
     // Do semantic analysis
     for (int i = 0; i < modules.dim; i++)
     {

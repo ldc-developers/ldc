@@ -27,7 +27,8 @@ struct HdrGenState;
 
 
 struct EnumDeclaration : ScopeDsymbol
-{
+{   /* enum ident : memtype { ... }
+     */
     Type *type;			// the TypeEnum
     Type *memtype;		// type of the members
 
@@ -39,8 +40,6 @@ struct EnumDeclaration : ScopeDsymbol
     Expression *maxval;
     Expression *minval;
     Expression *defaultval;	// default initializer
-
-    Scope *scope;		// !=NULL means context to use
 #endif
     int isdeprecated;
 
@@ -57,6 +56,7 @@ struct EnumDeclaration : ScopeDsymbol
     int isDeprecated();			// is Dsymbol deprecated?
 
     void emitComment(Scope *sc);
+    void toJsonBuffer(OutBuffer *buf);
     void toDocBuffer(OutBuffer *buf);
 
     EnumDeclaration *isEnumDeclaration() { return this; }
@@ -86,6 +86,7 @@ struct EnumMember : Dsymbol
     const char *kind();
 
     void emitComment(Scope *sc);
+    void toJsonBuffer(OutBuffer *buf);
     void toDocBuffer(OutBuffer *buf);
 
     EnumMember *isEnumMember() { return this; }

@@ -45,7 +45,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     stag = NULL;
     sinit = NULL;
 #endif
-    scope = NULL;
 #if DMDV2
     dtor = NULL;
 
@@ -66,7 +65,7 @@ enum PROT AggregateDeclaration::prot()
 void AggregateDeclaration::semantic2(Scope *sc)
 {
     //printf("AggregateDeclaration::semantic2(%s)\n", toChars());
-    if (scope)
+    if (scope && members)
     {	error("has forward references");
 	return;
     }
@@ -268,6 +267,7 @@ void StructDeclaration::semantic(Scope *sc)
     }
 
     parent = sc->parent;
+    type = type->semantic(loc, sc);
 #if STRUCTTHISREF
     handle = type;
 #else

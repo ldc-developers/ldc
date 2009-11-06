@@ -94,7 +94,7 @@ struct Module : Package
     int searchCacheFlags;	// cached flags
 
     int semanticstarted;	// has semantic() been started?
-    int semanticdone;		// has semantic() been done?
+    int semanticRun;		// has semantic() been done?
     int root;			// != 0 if this is a 'root' module,
 				// i.e. a module that will be taken all the
 				// way to an object file
@@ -119,8 +119,10 @@ struct Module : Package
     Macro *macrotable;		// document comment macros
     struct Escape *escapetable;	// document comment escapes
 
-    int doDocComment;		// enable generating doc comments for this module
-    int doHdrGen;		// enable generating header file for this module
+    int doDocComment;          // enable generating doc comments for this module
+    int doHdrGen;              // enable generating header file for this module
+
+    bool safe;			// TRUE if module is marked as 'safe'
 
     Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();
@@ -128,6 +130,7 @@ struct Module : Package
     static Module *load(Loc loc, Array *packages, Identifier *ident);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    void toJsonBuffer(OutBuffer *buf);
     const char *kind();
     void read(Loc loc);	// read file
 #if IN_GCC
@@ -135,6 +138,7 @@ struct Module : Package
 #else
     void parse();	// syntactic parse
 #endif
+    void importAll(Scope *sc);
     void semantic(Scope* unused_sc = NULL);	// semantic analysis
     void semantic2(Scope* unused_sc = NULL);	// pass 2 semantic analysis
     void semantic3(Scope* unused_sc = NULL);	// pass 3 semantic analysis
@@ -146,6 +150,7 @@ struct Module : Package
     void gendocfile();
     int needModuleInfo();
     Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *symtabInsert(Dsymbol *s);
     void deleteObjFile();
     void addDeferredSemantic(Dsymbol *s);
     void runDeferredSemantic();
@@ -198,6 +203,7 @@ struct ModuleDeclaration
 {
     Identifier *id;
     Array *packages;		// array of Identifier's representing packages
+    bool safe;
 
     ModuleDeclaration(Array *packages, Identifier *id);
 

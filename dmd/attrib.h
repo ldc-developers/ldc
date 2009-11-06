@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -36,6 +36,12 @@ struct AttribDeclaration : Dsymbol
     AttribDeclaration(Array *decl);
     virtual Array *include(Scope *sc, ScopeDsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
+    void setScopeNewSc(Scope *sc,
+	unsigned newstc, enum LINK linkage, enum PROT protection, int explictProtection,
+	unsigned structalign);
+    void semanticNewSc(Scope *sc,
+	unsigned newstc, enum LINK linkage, enum PROT protection, int explictProtection,
+	unsigned structalign);
     void semantic(Scope *sc);
     void semantic2(Scope *sc);
     void semantic3(Scope *sc);
@@ -48,6 +54,7 @@ struct AttribDeclaration : Dsymbol
     void checkCtorConstInit();
     void addLocalClass(ClassDeclarations *);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    void toJsonBuffer(OutBuffer *buf);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
 #if IN_DMD
@@ -66,6 +73,7 @@ struct StorageClassDeclaration: AttribDeclaration
 
     StorageClassDeclaration(unsigned stc, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
+    void setScope(Scope *sc);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -78,6 +86,7 @@ struct LinkDeclaration : AttribDeclaration
 
     LinkDeclaration(enum LINK p, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
+    void setScope(Scope *sc);
     void semantic(Scope *sc);
     void semantic3(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -90,8 +99,12 @@ struct ProtDeclaration : AttribDeclaration
 
     ProtDeclaration(enum PROT p, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
+    void importAll(Scope *sc);
+    void setScope(Scope *sc);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+
+    static void protectionToCBuffer(OutBuffer *buf, enum PROT protection);
 };
 
 struct AlignDeclaration : AttribDeclaration
@@ -100,6 +113,7 @@ struct AlignDeclaration : AttribDeclaration
 
     AlignDeclaration(Loc loc, unsigned sa, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
+    void setScope(Scope *sc);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
@@ -107,7 +121,6 @@ struct AlignDeclaration : AttribDeclaration
 struct AnonDeclaration : AttribDeclaration
 {
     int isunion;
-    Scope *scope;		// !=NULL means context to use
     int sem;			// 1 if successful semantic()
 
     AnonDeclaration(Loc loc, int isunion, Array *decl);
@@ -124,6 +137,7 @@ struct PragmaDeclaration : AttribDeclaration
     PragmaDeclaration(Loc loc, Identifier *ident, Expressions *args, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
+    void setScope(Scope *sc);
     int oneMember(Dsymbol **ps);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
@@ -149,6 +163,9 @@ struct ConditionalDeclaration : AttribDeclaration
     Array *include(Scope *sc, ScopeDsymbol *s);
     void addComment(unsigned char *comment);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    void toJsonBuffer(OutBuffer *buf);
+    void importAll(Scope *sc);
+    void setScope(Scope *sc);
 };
 
 struct StaticIfDeclaration : ConditionalDeclaration
@@ -160,6 +177,8 @@ struct StaticIfDeclaration : ConditionalDeclaration
     Dsymbol *syntaxCopy(Dsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void semantic(Scope *sc);
+    void importAll(Scope *sc);
+    void setScope(Scope *sc);
     const char *kind();
 };
 

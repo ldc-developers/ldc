@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -28,7 +28,7 @@
 #include "init.h"
 #include "import.h"
 #include "template.h"
-
+#include "attrib.h"
 #include "../gen/enums.h"
 
 /****************************** Dsymbol ******************************/
@@ -45,7 +45,7 @@ Dsymbol::Dsymbol()
 #endif
     this->loc = 0;
     this->comment = NULL;
-
+    this->scope = NULL;
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
     this->irsym = NULL;
@@ -64,7 +64,7 @@ Dsymbol::Dsymbol(Identifier *ident)
 #endif
     this->loc = 0;
     this->comment = NULL;
-
+    this->scope = NULL;
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
     this->irsym = NULL;
@@ -164,7 +164,7 @@ char *Dsymbol::toChars()
     return ident ? ident->toChars() : (char *)"__anonymous";
 }
 
-char *Dsymbol::toPrettyChars()
+const char *Dsymbol::toPrettyChars()
 {   Dsymbol *p;
     char *s;
     char *q;
@@ -190,6 +190,16 @@ char *Dsymbol::toPrettyChars()
 	if (q == s)
 	    break;
 	q--;
+#if TARGET_NET
+    if (AggregateDeclaration* ad = p->isAggregateDeclaration())
+    {
+        if (ad->isNested() && p->parent && p->parent->isAggregateDeclaration())
+        {
+            *q = '/';
+            continue;
+        }
+    }
+#endif
 	*q = '.';
     }
     return s;
@@ -266,24 +276,57 @@ int Dsymbol::isAnonymous()
     return ident ? 0 : 1;
 }
 
+/*************************************
+ * Set scope for future semantic analysis so we can
+ * deal better with forward references.
+ */
+
+void Dsymbol::setScope(Scope *sc)
+{
+    //printf("Dsymbol::setScope() %p %s\n", this, toChars());
+    if (!sc->nofree)
+	sc->setNoFree();		// may need it even after semantic() finishes
+    scope = sc;
+}
+
+void Dsymbol::importAll(Scope *sc)
+{
+}
+
+/*************************************
+ * Does semantic analysis on the public face of declarations.
+ */
+
 void Dsymbol::semantic(Scope *sc)
 {
     error("%p has no semantic routine", this);
 }
+
+/*************************************
+ * Does semantic analysis on initializers and members of aggregates.
+ */
 
 void Dsymbol::semantic2(Scope *sc)
 {
     // Most Dsymbols have no further semantic analysis needed
 }
 
+/*************************************
+ * Does semantic analysis on function bodies.
+ */
+
 void Dsymbol::semantic3(Scope *sc)
 {
     // Most Dsymbols have no further semantic analysis needed
 }
 
+/*************************************
+ * Look for function inlining possibilities.
+ */
+
 void Dsymbol::inlineScan()
 {
-    // Most Dsymbols have no further semantic analysis needed
+    // Most Dsymbols aren't functions
 }
 
 /*********************************************
@@ -341,7 +384,7 @@ Dsymbol *Dsymbol::searchX(Loc loc, Scope *sc, Identifier *id)
 		return NULL;
 	    }
 	    ti->tempdecl = td;
-	    if (!ti->semanticdone)
+	    if (!ti->semanticRun)
 		ti->semantic(sc);
 	    sm = ti->toAlias();
 	    break;
@@ -408,6 +451,13 @@ int Dsymbol::isDeprecated()
     return FALSE;
 }
 
+#if DMDV2
+int Dsymbol::isOverloadable()
+{
+    return 0;
+}
+#endif
+
 LabelDsymbol *Dsymbol::isLabel()		// is this a LabelDsymbol()?
 {
     return NULL;
@@ -439,7 +489,7 @@ int Dsymbol::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
     parent = sd;
     if (!isAnonymous())		// no name, so can't add it to symbol table
     {
-	if (!sd->symtab->insert(this))	// if name is already defined
+	if (!sd->symtabInsert(this))	// if name is already defined
 	{
 	    Dsymbol *s2;
 
@@ -631,8 +681,8 @@ Array *Dsymbol::arraySyntaxCopy(Array *a)
 
 void Dsymbol::addComment(unsigned char *comment)
 {
-//    if (comment)
-//	printf("adding comment '%s' to symbol %p '%s'\n", comment, this, toChars());
+    //if (comment)
+	//printf("adding comment '%s' to symbol %p '%s'\n", comment, this, toChars());
 
     if (!this->comment)
 	this->comment = comment;
@@ -643,6 +693,25 @@ void Dsymbol::addComment(unsigned char *comment)
     }
 #endif
 }
+
+/********************************* OverloadSet ****************************/
+
+#if DMDV2
+OverloadSet::OverloadSet()
+    : Dsymbol()
+{
+}
+
+void OverloadSet::push(Dsymbol *s)
+{
+    a.push(s);
+}
+
+const char *OverloadSet::kind()
+{
+    return "overloadset";
+}
+#endif
 
 
 /********************************* ScopeDsymbol ****************************/
@@ -681,6 +750,7 @@ Dsymbol *ScopeDsymbol::syntaxCopy(Dsymbol *s)
 Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
 {
     //printf("%s->ScopeDsymbol::search(ident='%s', flags=x%x)\n", toChars(), ident->toChars(), flags);
+    //if (strcmp(ident->toChars(),"c") == 0) *(char*)0=0;
 
     // Look in symbols declared in this module
     Dsymbol *s = symtab ? symtab->lookup(ident) : NULL;
@@ -771,7 +841,7 @@ void ScopeDsymbol::importScope(ScopeDsymbol *s, enum PROT protection)
 	    {   ScopeDsymbol *ss;
 
 		ss = (ScopeDsymbol *) imports->data[i];
-		if (ss == s)
+		if (ss == s)			// if already imported
 		{
 		    if (protection > prots[i])
 			prots[i] = protection;	// upgrade access
@@ -849,6 +919,73 @@ const char *ScopeDsymbol::kind()
     return "ScopeDsymbol";
 }
 
+Dsymbol *ScopeDsymbol::symtabInsert(Dsymbol *s)
+{
+    return symtab->insert(s);
+}
+
+/***************************************
+ * Determine number of Dsymbols, folding in AttribDeclaration members.
+ */
+
+#if DMDV2
+size_t ScopeDsymbol::dim(Array *members)
+{
+    size_t n = 0;
+    if (members)
+    {
+	for (size_t i = 0; i < members->dim; i++)
+	{   Dsymbol *s = (Dsymbol *)members->data[i];
+	    AttribDeclaration *a = s->isAttribDeclaration();
+
+	    if (a)
+	    {
+		n += dim(a->decl);
+	    }
+	    else
+		n++;
+	}
+    }
+    return n;
+}
+#endif
+
+/***************************************
+ * Get nth Dsymbol, folding in AttribDeclaration members.
+ * Returns:
+ *	Dsymbol*	nth Dsymbol
+ *	NULL		not found, *pn gets incremented by the number
+ *			of Dsymbols
+ */
+
+#if DMDV2
+Dsymbol *ScopeDsymbol::getNth(Array *members, size_t nth, size_t *pn)
+{
+    if (!members)
+	return NULL;
+
+    size_t n = 0;
+    for (size_t i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
+	AttribDeclaration *a = s->isAttribDeclaration();
+
+	if (a)
+	{
+	    s = getNth(a->decl, nth - n, &n);
+	    if (s)
+		return s;
+	}
+	else if (n == nth)
+	    return s;
+	else
+	    n++;
+    }
+
+    if (pn)
+	*pn += n;
+    return NULL;
+}
+#endif
 
 /*******************************************
  * Look for member of the form:
@@ -938,7 +1075,8 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
     L1:
 
 	if (td)
- 	{
+ 	{   /* $ gives the number of elements in the tuple
+	     */
 	    VarDeclaration *v = new VarDeclaration(loc, Type::tsize_t, Id::dollar, NULL);
 	    Expression *e = new IntegerExp(0, td->objects->dim, Type::tsize_t);
 	    v->init = new ExpInitializer(0, e);
@@ -947,7 +1085,8 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
 	}
 
 	if (type)
- 	{
+ 	{   /* $ gives the number of type entries in the type tuple
+	     */
 	    VarDeclaration *v = new VarDeclaration(loc, Type::tsize_t, Id::dollar, NULL);
 	    Expression *e = new IntegerExp(0, type->arguments->dim, Type::tsize_t);
 	    v->init = new ExpInitializer(0, e);
@@ -956,22 +1095,30 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
 	}
 
 	if (exp->op == TOKindex)
-	{
+	{   /* array[index] where index is some function of $
+	     */
 	    IndexExp *ie = (IndexExp *)exp;
 
 	    pvar = &ie->lengthVar;
 	    ce = ie->e1;
 	}
 	else if (exp->op == TOKslice)
-	{
+	{   /* array[lwr .. upr] where lwr or upr is some function of $
+	     */
 	    SliceExp *se = (SliceExp *)exp;
 
 	    pvar = &se->lengthVar;
 	    ce = se->e1;
 	}
 	else
+	    /* Didn't find $, look in enclosing scope(s).
+	     */
 	    return NULL;
 
+	/* If we are indexing into an array that is really a type
+	 * tuple, rewrite this as an index into a type tuple and
+	 * try again.
+	 */
 	if (ce->op == TOKtype)
 	{
 	    Type *t = ((TypeExp *)ce)->type;
@@ -981,8 +1128,13 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
 	    }
 	}
 
-	if (!*pvar)
-	{
+	/* *pvar is lazily initialized, so if we refer to $
+	 * multiple times, it gets set only once.
+	 */
+	if (!*pvar)		// if not already initialized
+	{   /* Create variable v and set it to the value of $,
+	     * which will be a constant.
+	     */
 	    VarDeclaration *v = new VarDeclaration(loc, Type::tsize_t, Id::dollar, NULL);
 
 	    if (ce->op == TOKstring)
@@ -1030,13 +1182,12 @@ DsymbolTable::~DsymbolTable()
 }
 
 Dsymbol *DsymbolTable::lookup(Identifier *ident)
-{   StringValue *sv;
-
+{
 #ifdef DEBUG
     assert(ident);
     assert(tab);
 #endif
-    sv = tab->lookup((char*)ident->string, ident->len);
+    StringValue *sv = tab->lookup((char*)ident->string, ident->len);
     return (Dsymbol *)(sv ? sv->ptrvalue : NULL);
 }
 

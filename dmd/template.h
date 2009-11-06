@@ -60,7 +60,8 @@ struct TemplateDeclaration : ScopeDsymbol
     TemplateDeclaration *overnext;	// next overloaded TemplateDeclaration
     TemplateDeclaration *overroot;	// first in overnext list
 
-    Scope *scope;
+    int semanticRun;			// 1 semantic() run
+
     Dsymbol *onemember;		// if !=NULL then one member of this template
 
     TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
@@ -73,6 +74,7 @@ struct TemplateDeclaration : ScopeDsymbol
     char *toChars();
 
     void emitComment(Scope *sc);
+    void toJsonBuffer(OutBuffer *buf);
 //    void toDocBuffer(OutBuffer *buf);
 
     MATCH matchWithInstance(TemplateInstance *ti, Objects *atypes, int flag);
@@ -282,7 +284,7 @@ struct TemplateInstance : ScopeDsymbol
     AliasDeclaration *aliasdecl;	// !=NULL if instance is an alias for its
 					// sole member
     WithScopeSymbol *withsym;		// if a member of a with statement
-    int semanticdone;	// has semantic() been done?
+    int semanticRun;	// has semantic() been done?
     int semantictiargsdone;	// has semanticTiargs() been done?
     int nest;		// for recursion detection
     int havetempdecl;	// 1 if used second constructor
@@ -340,8 +342,6 @@ struct TemplateMixin : TemplateInstance
 {
     Array *idents;
     Type *tqual;
-
-    Scope *scope;		// for forward referencing
 
     TemplateMixin(Loc loc, Identifier *ident, Type *tqual, Array *idents, Objects *tiargs);
     Dsymbol *syntaxCopy(Dsymbol *s);

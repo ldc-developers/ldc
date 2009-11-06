@@ -81,6 +81,11 @@ FuncDeclaration *hasThis(Scope *sc);
 Expression *fromConstInitializer(int result, Expression *e);
 int arrayExpressionCanThrow(Expressions *exps);
 
+struct IntRange
+{   uinteger_t imin;
+    uinteger_t imax;
+};
+
 struct Expression : Object
 {
     Loc loc;			// file location
@@ -157,6 +162,7 @@ struct Expression : Object
     // For array ops
     virtual void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
     virtual Expression *buildArrayLoop(Arguments *fparams);
+    int isArrayOperand();
 
 #if IN_DMD
     // Back end
@@ -291,6 +297,7 @@ struct DollarExp : IdentifierExp
 struct DsymbolExp : Expression
 {
     Dsymbol *s;
+    int hasOverloads;
 
     DsymbolExp(Loc loc, Dsymbol *s);
     Expression *semantic(Scope *sc);
@@ -306,6 +313,7 @@ struct ThisExp : Expression
 
     ThisExp(Loc loc);
     Expression *semantic(Scope *sc);
+    Expression *interpret(InterState *istate);
     int isBool(int result);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Expression *toLvalue(Scope *sc, Expression *e);
@@ -343,6 +351,7 @@ struct NullExp : Expression
     NullExp(Loc loc);
     Expression *semantic(Scope *sc);
     int isBool(int result);
+    int isConst();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
     MATCH implicitConvTo(Type *t);
@@ -591,6 +600,7 @@ struct NewExp : Expression
 	Type *newtype, Expressions *arguments);
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
+    Expression *optimize(int result);
 #if IN_DMD
     elem *toElem(IRState *irs);
 #endif
@@ -842,6 +852,8 @@ struct BinExp : Expression
     Expression *commonSemanticAssign(Scope *sc);
     Expression *commonSemanticAssignIntegral(Scope *sc);
     int checkSideEffect(int flag);
+    void checkComplexMulAssign();
+    void checkComplexAddAssign();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Expression *scaleFactor(Scope *sc);
     Expression *typeCombine(Scope *sc);
@@ -1022,6 +1034,7 @@ struct CallExp : UnaExp
 #endif
     void scanForNestedRef(Scope *sc);
     Expression *toLvalue(Scope *sc, Expression *e);
+    Expression *modifiableLvalue(Scope *sc, Expression *e);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -1182,6 +1195,8 @@ struct CastExp : UnaExp
     int checkSideEffect(int flag);
     void checkEscape();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
+    Expression *buildArrayLoop(Arguments *fparams);
 #if IN_DMD
     elem *toElem(IRState *irs);
 #endif

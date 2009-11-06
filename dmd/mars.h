@@ -48,6 +48,7 @@ the target object file format:
 	TARGET_OSX	Covers 32 and 64 bit Mac OSX
 	TARGET_FREEBSD	Covers 32 and 64 bit FreeBSD
 	TARGET_SOLARIS	Covers 32 and 64 bit Solaris
+	TARGET_NET	Covers .Net
 
     It is expected that the compiler for each platform will be able
     to generate 32 and 64 bit code from the same compiler binary.
@@ -161,6 +162,7 @@ struct Param
     bool optimize;      // run optimizer
     char optimizeLevel; // optimization level
 #endif
+    char vtls;		// identify thread local variables
     ARCH cpu;		// target CPU
     OS   os;		// target OS
     bool is64bit;       // generate 64 bit code
@@ -193,6 +195,9 @@ struct Param
     char *hdrdir;		// write 'header' file to docdir directory
     char *hdrname;		// write 'header' file to docname
 
+    char doXGeneration;		// write JSON file
+    char *xfilename;		// write JSON file to xfilename
+
     unsigned debuglevel;	// debug level
     Array *debugids;		// debug identifiers
 
@@ -204,11 +209,9 @@ struct Param
     Array *defaultlibnames;	// default libraries for non-debug builds
     Array *debuglibnames;	// default libraries for debug builds
 
-    const char *xmlname;	// filename for XML output
-    
-    OutBuffer *moduleDeps;	// buffer and filename for emitting module deps
-    char *moduleDepsFile;
-    
+    char *moduleDepsFile;	// filename for deps output
+    OutBuffer *moduleDeps;	// contents to be written to deps file
+
     // Hidden debug switches
     bool debuga;
     bool debugb;
@@ -260,6 +263,7 @@ struct Global
     const char *doc_ext;	// for Ddoc generated files
     const char *ddoc_ext;	// for Ddoc macro include files
     const char *hdr_ext;	// for D 'header' import files
+    const char *json_ext;	// for JSON files
     const char *copyright;
     const char *written;
     Array *path;	// Array of char*'s which form the import lookup path
@@ -344,7 +348,7 @@ struct Module;
 //typedef unsigned Loc;		// file location
 struct Loc
 {
-    char *filename;
+    const char *filename;
     unsigned linnum;
 
     Loc()
@@ -362,6 +366,7 @@ struct Loc
     Loc(Module *mod, unsigned linnum);
 
     char *toChars() const;
+    bool equals(const Loc& loc);
 };
 
 #ifndef GCC_SAFE_DMD
@@ -426,7 +431,7 @@ void halt();
 #if IN_GCC || IN_LLVM
 #define stdmsg stderr
 #else
-#define stdmsg stdout
+#define stdmsg stderr
 #endif
 
 #endif /* DMD_MARS_H */

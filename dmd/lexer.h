@@ -110,6 +110,7 @@ enum TOK
 	TOKidentifier,	TOKstring,
 	TOKthis,	TOKsuper,
 	TOKhalt,	TOKtuple,
+	TOKerror,
 
 	// Basic types
 	TOKvoid,
@@ -123,6 +124,7 @@ enum TOK
 	TOKchar, TOKwchar, TOKdchar, TOKbit, TOKbool,
 	TOKcent, TOKucent,
 
+// 150
 	// Aggregates
 	TOKstruct, TOKclass, TOKinterface, TOKunion, TOKenum, TOKimport,
 	TOKtypedef, TOKalias, TOKoverride, TOKdelegate, TOKfunction,
