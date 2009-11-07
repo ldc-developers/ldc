@@ -28,5 +28,5 @@ void main()
     printf("var = %d\n", var);
     exec(&bar);
 
-    return 0;
+    return;
 }
