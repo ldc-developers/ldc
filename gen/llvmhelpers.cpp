@@ -908,23 +908,39 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 DtoNestedInit(vd);
             }
             // normal stack variable, allocate storage on the stack if it has not already been done
-            else if(!vd->ir.irLocal) {
+            else if(!vd->ir.irLocal && !vd->isRef()) {
+                vd->ir.irLocal = new IrLocal(vd);
+
                 const LLType* lltype = DtoType(vd->type);
 
                 llvm::Value* allocainst;
-                if(gTargetData->getTypeSizeInBits(lltype) == 0) 
+                if(gTargetData->getTypeSizeInBits(lltype) == 0)
                     allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
                 else
                     allocainst = DtoAlloca(vd->type, vd->toChars());
 
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
-                vd->ir.irLocal = new IrLocal(vd);
                 vd->ir.irLocal->value = allocainst;
 
                 if (global.params.symdebug)
                 {
                     DtoDwarfLocalVariable(allocainst, vd);
                 }
+            }
+            else if(vd->isRef())
+            {
+                // ref vardecls are generated when DMD lowers foreach to a for statement,
+                // and this is a hack to support them for this case only
+                if (!vd->ir.irLocal)
+                    vd->ir.irLocal = new IrLocal(vd);
+                    
+                ExpInitializer* ex = vd->init->isExpInitializer();
+                assert(ex && "ref vars must have expression initializer");
+                assert(ex->exp);
+                AssignExp* as = dynamic_cast<AssignExp*>(ex->exp);
+                assert(as && "ref vars must be initialized by an assign exp");
+                vd->ir.irLocal->value = as->e2->toElem(gIR)->getLVal();
+                return new DVarValue(vd->type, vd, vd->ir.getIrValue());
             }
             else
             {
