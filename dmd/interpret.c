@@ -196,15 +196,12 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
 		    }
 		    if (!v2->value || v2->value->op != TOKvar)
 			break;
-//TODO
-#ifdef IN_DMD
-		    if (((VarExp *)v2->value)->var->isSymbolDeclaration())
+		    if (((VarExp *)v2->value)->var->isStaticStructInitDeclaration())
 		    {	// This can happen if v is a struct initialized to
 			// 0 using an __initZ SymbolDeclaration from
 			// TypeStruct::defaultInit()
 			break; // eg default-initialized variable
 		    }
-#endif
 		    earg = v2->value;
 		}
 
@@ -1608,15 +1605,12 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, fp_t fp, int post)
 	if (v && v->value && v->value->op == TOKvar)
 	{
 	    VarExp *ve2 = (VarExp *)v->value;
-//TODO
-#ifdef IN_DMD
-	    if (ve2->var->isSymbolDeclaration())
+	    if (ve2->var->isStaticStructInitDeclaration())
 	    {	// This can happen if v is a struct initialized to
 		// 0 using an __initZ SymbolDeclaration from
 		// TypeStruct::defaultInit()
 	    }
 	    else
-#endif
 		e1 = v->value;
 	}
 	else if (v && v->value && (v->value->op==TOKindex || v->value->op == TOKdotvar))
@@ -1694,15 +1688,12 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, fp_t fp, int post)
 	    if (v->value && v->value->op == TOKvar)
 	    {
 		VarExp *ve2 = (VarExp *)v->value;
-//TODO
-#ifdef IN_DMD
-		if (ve2->var->isSymbolDeclaration())
+		if (ve2->var->isStaticStructInitDeclaration())
 		{	// This can happen if v is a struct initialized to
 			// 0 using an __initZ SymbolDeclaration from
 			// TypeStruct::defaultInit()
 		}
 		else
-#endif
 		    v = ve2->var->isVarDeclaration();
 		assert(v);
 	    }
@@ -1814,15 +1805,12 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, fp_t fp, int post)
 	    if (v->value && v->value->op == TOKvar)
 	    {
 		VarExp *ve2 = (VarExp *)v->value;
-// TODO
-#ifdef IN_DMD
-		if (ve2->var->isSymbolDeclaration())
+		if (ve2->var->isStaticStructInitDeclaration())
 		{	// This can happen if v is a struct initialized to
 			// 0 using an __initZ SymbolDeclaration from
 			// TypeStruct::defaultInit()
 		}
 		else
-#endif
 		    v = ve2->var->isVarDeclaration();
 		assert(v);
 	    }
@@ -2073,15 +2061,12 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, fp_t fp, int post)
 	    if (v->value && v->value->op == TOKvar)
 	    {
 		VarExp *ve2 = (VarExp *)v->value;
-// TODO
-#ifdef IN_DMD
-		if (ve2->var->isSymbolDeclaration())
+		if (ve2->var->isStaticStructInitDeclaration())
 		{	// This can happen if v is a struct initialized to
 			// 0 using an __initZ SymbolDeclaration from
 			// TypeStruct::defaultInit()
 		}
 		else
-#endif
 		    v = ve2->var->isVarDeclaration();
 		assert(v);
 	    }
