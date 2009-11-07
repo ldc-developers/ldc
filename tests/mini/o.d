@@ -5,7 +5,7 @@ void func()
     try
     {
         printf("try\n");
-        return 0;
+        return;
     }
     catch
     {
@@ -15,7 +15,7 @@ void func()
     {
         printf("finally\n");
     }
-    return 0;
+    return;
 }
 
 void main()
