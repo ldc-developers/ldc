@@ -896,6 +896,21 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
 
             Logger::println("vdtype = %s", vd->type->toChars());
 
+            // ref vardecls are generated when DMD lowers foreach to a for statement,
+            // and this is a hack to support them for this case only
+            if(vd->isRef())
+            {
+                if (!vd->ir.irLocal)
+                    vd->ir.irLocal = new IrLocal(vd);
+
+                ExpInitializer* ex = vd->init->isExpInitializer();
+                assert(ex && "ref vars must have expression initializer");
+                assert(ex->exp);
+                AssignExp* as = dynamic_cast<AssignExp*>(ex->exp);
+                assert(as && "ref vars must be initialized by an assign exp");
+                vd->ir.irLocal->value = as->e2->toElem(gIR)->getLVal();
+            }
+            
             // referenced by nested delegate?
         #if DMDV2
             if (vd->nestedrefs.dim) {
@@ -927,21 +942,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                     DtoDwarfLocalVariable(allocainst, vd);
                 }
             }
-            else if(vd->isRef())
-            {
-                // ref vardecls are generated when DMD lowers foreach to a for statement,
-                // and this is a hack to support them for this case only
-                if (!vd->ir.irLocal)
-                    vd->ir.irLocal = new IrLocal(vd);
-                    
-                ExpInitializer* ex = vd->init->isExpInitializer();
-                assert(ex && "ref vars must have expression initializer");
-                assert(ex->exp);
-                AssignExp* as = dynamic_cast<AssignExp*>(ex->exp);
-                assert(as && "ref vars must be initialized by an assign exp");
-                vd->ir.irLocal->value = as->e2->toElem(gIR)->getLVal();
-                return new DVarValue(vd->type, vd, vd->ir.getIrValue());
-            }
             else
             {
                 assert(vd->ir.irLocal->value);
@@ -949,7 +949,8 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
 
             if (Logger::enabled())
                 Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
-            DValue* ie = DtoInitializer(vd->ir.irLocal->value, vd->init);
+            if (!vd->isRef())
+                DValue* ie = DtoInitializer(vd->ir.irLocal->value, vd->init);
         }
 
         return new DVarValue(vd->type, vd, vd->ir.getIrValue());
