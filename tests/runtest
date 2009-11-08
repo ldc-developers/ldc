@@ -7,6 +7,14 @@ if [ -z "$1" ] ; then
 fi
 TARGETFILE=$1
 
+# check for libtangobos-partial
+if ! [ -f testincludes/libtangobos-partial.a ] ; then
+    echo "Could not find libtangobos-partial.a, attempting to build."
+    cd testincludes
+    make
+    cd ..
+fi
+
 # check for dstress
 if ! [ -d dstress ] ; then
     echo "Testing requires DStress to be checked out into dstress/"

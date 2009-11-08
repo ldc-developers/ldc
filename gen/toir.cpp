@@ -266,8 +266,16 @@ LLConstant* VarExp::toConstElem(IRState* p)
     VarDeclaration* vd = var->isVarDeclaration();
     if (vd && vd->isConst() && vd->init)
     {
+        if (vd->inuse)
+        {
+            error("recursive reference %s", toChars());
+            return llvm::UndefValue::get(DtoType(type));
+        }
+        vd->inuse++;
+        LLConstant* ret = DtoConstInitializer(loc, type, vd->init);
+        vd->inuse--;
         // return the initializer
-        return DtoConstInitializer(loc, type, vd->init);
+        return ret;
     }
 
     // fail
