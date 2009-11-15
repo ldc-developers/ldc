@@ -8,6 +8,13 @@
 
 module std.stdarg;
 
+version(LDC)
+{
+    public import ldc.vararg;
+}
+else
+{
+
 alias void* va_list;
 
 template va_arg(T)
@@ -20,3 +27,4 @@ template va_arg(T)
     }
 }
 
+}
