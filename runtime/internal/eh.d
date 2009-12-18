@@ -54,8 +54,8 @@ extern(C)
     {
         SEARCH_PHASE = 1,
         CLEANUP_PHASE = 2,
-        HANDLER_PHASE = 3,
-        FORCE_UNWIND = 4
+        HANDLER_FRAME = 4,
+        FORCE_UNWIND = 8
     }
 
     alias void* _Unwind_Context_Ptr;
@@ -350,7 +350,7 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
   if(actions & _Unwind_Action.SEARCH_PHASE)
     return _Unwind_Reason_Code.HANDLER_FOUND;
 
-  else if(actions & _Unwind_Action.HANDLER_PHASE)
+  else if(actions & _Unwind_Action.CLEANUP_PHASE)
   {
     debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
     _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct.exception_object));
