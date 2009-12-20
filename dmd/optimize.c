@@ -211,6 +211,15 @@ Expression *AddrExp::optimize(int result)
 	}
 	return e;
     }
+    if (e1->op == TOKdotvar)
+    {   DotVarExp *de = (DotVarExp *) e1;
+        if (de->e1->op == TOKvar && de->var->isVarDeclaration())
+        {
+            e = new SymOffExp(loc, ((VarExp*) de->e1)->var, ((VarDeclaration*) de->var)->offset);
+            e->type = type;
+            return e;
+        }
+    }
 #if !IN_LLVM
     if (e1->op == TOKvar)
     {	VarExp *ve = (VarExp *)e1;
