@@ -387,6 +387,12 @@ int runExecutable()
     // try to call linker!!!
     std::string errstr;
     int status = llvm::sys::Program::ExecuteAndWait(gExePath, &args[0], NULL, NULL, 0,0, &errstr);
+    if (status < 0)
+    {
+        error("program received signal %d (%s)", -status, strsignal(-status));
+        return -status;
+    }
+
     if (!errstr.empty())
     {
         error("failed to execute program");
