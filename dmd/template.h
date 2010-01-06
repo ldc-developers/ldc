@@ -89,6 +89,8 @@ struct TemplateDeclaration : ScopeDsymbol
     TemplateTupleParameter *isVariadic();
     int isOverloadable();
 
+    void makeParamNamesVisibleInConstraint(Scope *paramscope);
+
 #if IN_LLVM
     // LDC
     std::string intrinsicName;
