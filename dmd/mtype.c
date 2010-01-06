@@ -3935,6 +3935,7 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
 	if (exp->op == TOKtype)
 	{
 	    error(loc, "argument %s to typeof is not an expression", exp->toChars());
+	    goto Lerr;
 	}
 	t = exp->type;
 	if (!t)
@@ -3943,7 +3944,9 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
 	    goto Lerr;
 	}
 	if (t->ty == Ttypeof)
-	    error(loc, "forward reference to %s", toChars());
+	{   error(loc, "forward reference to %s", toChars());
+	    goto Lerr;
+	}
     }
 
     if (idents.dim)
@@ -3972,7 +3975,7 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     return t;
 
 Lerr:
-    return tvoid;
+    return terror;
 }
 
 d_uns64 TypeTypeof::size(Loc loc)
