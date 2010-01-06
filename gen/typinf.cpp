@@ -617,8 +617,8 @@ void TypeInfoStructDeclaration::llvmDefine()
     TypeFunction *tfeqptr;
     {
         Scope sc;
-        Arguments *arguments = new Arguments;
-        Argument *arg = new Argument(STCin, tc->pointerTo(), NULL, NULL);
+        Parameters *arguments = new Parameters;
+        Parameter *arg = new Parameter(STCin, tc->pointerTo(), NULL, NULL);
         arguments->push(arg);
         tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
         tfeqptr = (TypeFunction *)tfeqptr->semantic(0, &sc);
@@ -732,7 +732,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
 
     for (size_t i = 0; i < dim; i++)
     {
-        Argument *arg = (Argument *)tu->arguments->data[i];
+        Parameter *arg = (Parameter *)tu->arguments->data[i];
         arrInits.push_back(DtoTypeInfoOf(arg->type, true));
     }
 

@@ -765,8 +765,8 @@ struct FuncDeclaration : Declaration
     Statement *mergeFensure(Statement *);
 
 // LDC: give argument types to runtime functions
-    static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, const char *name);
-    static FuncDeclaration *genCfunc(Arguments *args, Type *treturn, Identifier *id);
+    static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name);
+    static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, Identifier *id);
 
 #if IN_DMD
     Symbol *toSymbol();
@@ -848,10 +848,10 @@ struct FuncLiteralDeclaration : FuncDeclaration
 };
 
 struct CtorDeclaration : FuncDeclaration
-{   Arguments *arguments;
+{   Parameters *arguments;
     int varargs;
 
-    CtorDeclaration(Loc loc, Loc endloc, Arguments *arguments, int varargs);
+    CtorDeclaration(Loc loc, Loc endloc, Parameters *arguments, int varargs);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -969,10 +969,10 @@ struct UnitTestDeclaration : FuncDeclaration
 };
 
 struct NewDeclaration : FuncDeclaration
-{   Arguments *arguments;
+{   Parameters *arguments;
     int varargs;
 
-    NewDeclaration(Loc loc, Loc endloc, Arguments *arguments, int varargs);
+    NewDeclaration(Loc loc, Loc endloc, Parameters *arguments, int varargs);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -986,9 +986,9 @@ struct NewDeclaration : FuncDeclaration
 
 
 struct DeleteDeclaration : FuncDeclaration
-{   Arguments *arguments;
+{   Parameters *arguments;
 
-    DeleteDeclaration(Loc loc, Loc endloc, Arguments *arguments);
+    DeleteDeclaration(Loc loc, Loc endloc, Parameters *arguments);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

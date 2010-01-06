@@ -116,7 +116,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     }
 
     // if this _Dmain() doesn't have an argument, we force it to have one
-    int nargs = Argument::dim(f->parameters);
+    int nargs = Parameter::dim(f->parameters);
 
     if (ismain && nargs == 0)
     {
@@ -128,7 +128,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     else for (int i = 0; i < nargs; i++)
     {
         // get argument
-        Argument* arg = Argument::getNth(f->parameters, i);
+        Parameter* arg = Parameter::getNth(f->parameters, i);
 
         // reference semantics? ref, out and static arrays are
         bool byref = (arg->storageClass & (STCref|STCout)) || (arg->type->toBasetype()->ty == Tsarray);
@@ -381,12 +381,12 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     #undef ADD_PA
 
     // set attrs on the rest of the arguments
-    size_t n = Argument::dim(f->parameters);
+    size_t n = Parameter::dim(f->parameters);
     LLSmallVector<unsigned,8> attrptr(n, 0);
 
     for (size_t k = 0; k < n; ++k)
     {
-        Argument* fnarg = Argument::getNth(f->parameters, k);
+        Parameter* fnarg = Parameter::getNth(f->parameters, k);
         assert(fnarg);
 
         attrptr[k] = f->fty.args[k]->attrs;
@@ -862,7 +862,7 @@ const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoArgument(Argument* fnarg, Expression* argexp)
+DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
 {
     Logger::println("DtoArgument");
     LOG_SCOPE;

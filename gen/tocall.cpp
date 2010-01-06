@@ -128,7 +128,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     std::vector<const LLType*> vtypes;
 
     // number of non variadic args
-    int begin = Argument::dim(tf->parameters);
+    int begin = Parameter::dim(tf->parameters);
     Logger::println("num non vararg params = %d", begin);
 
     // get n args in arguments list
@@ -232,7 +232,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     // pass non variadic args
     for (int i=0; i<begin; i++)
     {
-        Argument* fnarg = Argument::getNth(tf->parameters, i);
+        Parameter* fnarg = Parameter::getNth(tf->parameters, i);
         DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
         args.push_back(argval->getRVal());
 
@@ -420,7 +420,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             //Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
         }
 
-        size_t n = Argument::dim(tf->parameters);
+        size_t n = Parameter::dim(tf->parameters);
 
         LLSmallVector<unsigned, 10> attrptr(n, 0);
 
@@ -428,7 +428,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         int beg = argiter-argbegin;
         for (int i=0; i<n; i++)
         {
-            Argument* fnarg = Argument::getNth(tf->parameters, i);
+            Parameter* fnarg = Parameter::getNth(tf->parameters, i);
             assert(fnarg);
             DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
 
@@ -504,7 +504,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         {
             for (int i=n; i<n_arguments; i++)
             {
-                Argument* fnarg = Argument::getNth(tf->parameters, i);
+                Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
                 LLValue* arg = argval->getRVal();
 

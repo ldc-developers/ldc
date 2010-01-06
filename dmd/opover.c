@@ -31,8 +31,8 @@
 #include "scope.h"
 
 static Expression *build_overload(Loc loc, Scope *sc, Expression *ethis, Expression *earg, Identifier *id);
-static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Arguments *arguments);
-static int inferApplyArgTypesY(TypeFunction *tf, Arguments *arguments);
+static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Parameters *arguments);
+static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments);
 static void templateResolve(Match *m, TemplateDeclaration *td, Scope *sc, Loc loc, Objects *targsi, Expression *ethis, Expressions *arguments);
 
 /******************************** Expression **************************/
@@ -527,7 +527,7 @@ Dsymbol *search_function(AggregateDeclaration *ad, Identifier *funcid)
  * them from the aggregate type.
  */
 
-void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Module* from)
+void inferApplyArgTypes(enum TOK op, Parameters *arguments, Expression *aggr, Module* from)
 {
     if (!arguments || !arguments->dim)
 	return;
@@ -537,14 +537,14 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Mod
     for (size_t u = 0; 1; u++)
     {	if (u == arguments->dim)
 	    return;
-	Argument *arg = (Argument *)arguments->data[u];
+	Parameter *arg = (Parameter *)arguments->data[u];
 	if (!arg->type)
 	    break;
     }
 
     AggregateDeclaration *ad;
 
-    Argument *arg = (Argument *)arguments->data[0];
+    Parameter *arg = (Parameter *)arguments->data[0];
     Type *taggr = aggr->type;
     if (!taggr)
 	return;
@@ -558,7 +558,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Mod
 	    {
 		if (!arg->type)
 		    arg->type = Type::tsize_t;	// key type
-		arg = (Argument *)arguments->data[1];
+		arg = (Parameter *)arguments->data[1];
 	    }
 	    if (!arg->type && tab->ty != Ttuple)
 		arg->type = tab->nextOf();	// value type
@@ -571,7 +571,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Mod
 	    {
 		if (!arg->type)
 		    arg->type = taa->index;	// key type
-		arg = (Argument *)arguments->data[1];
+		arg = (Parameter *)arguments->data[1];
 	    }
 	    if (!arg->type)
 		arg->type = taa->next;		// value type
@@ -648,7 +648,7 @@ void inferApplyArgTypes(enum TOK op, Arguments *arguments, Expression *aggr, Mod
 
 int fp3(void *param, FuncDeclaration *f)
 {
-    Arguments *arguments = (Arguments *)param;
+    Parameters *arguments = (Parameters *)param;
     TypeFunction *tf = (TypeFunction *)f->type;
     if (inferApplyArgTypesY(tf, arguments) == 1)
 	return 0;
@@ -657,13 +657,13 @@ int fp3(void *param, FuncDeclaration *f)
     return 0;
 }
 
-static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Arguments *arguments)
+static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Parameters *arguments)
 {
     overloadApply(from, fstart, &fp3, arguments);
 }
 
 #if 0
-static void inferApplyArgTypesX(FuncDeclaration *fstart, Arguments *arguments)
+static void inferApplyArgTypesX(FuncDeclaration *fstart, Parameters *arguments)
 {
     Declaration *d;
     Declaration *next;
@@ -714,13 +714,13 @@ static void inferApplyArgTypesX(FuncDeclaration *fstart, Arguments *arguments)
  *	1 no match for this function
  */
 
-static int inferApplyArgTypesY(TypeFunction *tf, Arguments *arguments)
+static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments)
 {   size_t nparams;
-    Argument *p;
+    Parameter *p;
 
-    if (Argument::dim(tf->parameters) != 1)
+    if (Parameter::dim(tf->parameters) != 1)
 	goto Lnomatch;
-    p = Argument::getNth(tf->parameters, 0);
+    p = Parameter::getNth(tf->parameters, 0);
     if (p->type->ty != Tdelegate)
 	goto Lnomatch;
     tf = (TypeFunction *)p->type->nextOf();
@@ -729,7 +729,7 @@ static int inferApplyArgTypesY(TypeFunction *tf, Arguments *arguments)
     /* We now have tf, the type of the delegate. Match it against
      * the arguments, filling in missing argument types.
      */
-    nparams = Argument::dim(tf->parameters);
+    nparams = Parameter::dim(tf->parameters);
     if (nparams == 0 || tf->varargs)
 	goto Lnomatch;		// not enough parameters
     if (arguments->dim != nparams)
@@ -737,8 +737,8 @@ static int inferApplyArgTypesY(TypeFunction *tf, Arguments *arguments)
 
     for (size_t u = 0; u < nparams; u++)
     {
-	Argument *arg = (Argument *)arguments->data[u];
-	Argument *param = Argument::getNth(tf->parameters, u);
+	Parameter *arg = (Parameter *)arguments->data[u];
+	Parameter *param = Parameter::getNth(tf->parameters, u);
 	if (arg->type)
 	{   if (!arg->type->equals(param->type))
 	    {

@@ -25,7 +25,7 @@ void DtoDefineFunction(FuncDeclaration* fd);
 void DtoDefineNakedFunction(FuncDeclaration* fd);
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl);
 
-DValue* DtoArgument(Argument* fnarg, Expression* argexp);
+DValue* DtoArgument(Parameter* fnarg, Expression* argexp);
 void DtoVariadicArgument(Expression* argexp, llvm::Value* dst);
 
 #endif
