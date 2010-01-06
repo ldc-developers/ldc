@@ -123,6 +123,7 @@ struct Expression : Object
     virtual MATCH implicitConvTo(Type *t);
     virtual Expression *castTo(Scope *sc, Type *t);
     virtual void checkEscape();
+    virtual void checkEscapeRef();
     void checkScalar();
     void checkNoBool();
     Expression *checkIntegral();
@@ -678,6 +679,8 @@ struct VarExp : Expression
     char *toChars();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void checkEscape();
+    void checkEscapeRef();
+    int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
 #if IN_DMD
@@ -1051,6 +1054,7 @@ struct AddrExp : UnaExp
 
     AddrExp(Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
+    void checkEscape();
 #if IN_DMD
     elem *toElem(IRState *irs);
 #endif
@@ -1069,6 +1073,7 @@ struct PtrExp : UnaExp
     PtrExp(Loc loc, Expression *e);
     PtrExp(Loc loc, Expression *e, Type *t);
     Expression *semantic(Scope *sc);
+    void checkEscapeRef();
     Expression *toLvalue(Scope *sc, Expression *e);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 #if IN_DMD
@@ -1221,6 +1226,7 @@ struct SliceExp : UnaExp
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
     void checkEscape();
+    void checkEscapeRef();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -1294,6 +1300,7 @@ struct CommaExp : BinExp
     CommaExp(Loc loc, Expression *e1, Expression *e2);
     Expression *semantic(Scope *sc);
     void checkEscape();
+    void checkEscapeRef();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
     int isBool(int result);
@@ -1828,6 +1835,7 @@ struct CondExp : BinExp
     Expression *optimize(int result);
     Expression *interpret(InterState *istate);
     void checkEscape();
+    void checkEscapeRef();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
     Expression *checkToBoolean();

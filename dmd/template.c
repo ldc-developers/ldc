@@ -762,7 +762,8 @@ MATCH TemplateDeclaration::deduceFunctionTemplateMatch(Loc loc, Objects *targsi,
     int tuple_dim = 0;
     MATCH match = MATCHexact;
     FuncDeclaration *fd = onemember->toAlias()->isFuncDeclaration();
-    TypeFunction *fdtype;		// type of fd
+    Parameters *fparameters;		// function parameter list
+    int fvarargs;			// function varargs
     Objects dedtypes;	// for T:T*, the dedargs is the T*, dedtypes is the T
 
 #if 0
@@ -771,6 +772,8 @@ MATCH TemplateDeclaration::deduceFunctionTemplateMatch(Loc loc, Objects *targsi,
     {	Expression *e = (Expression *)fargs->data[i];
 	printf("\tfarg[%d] is %s, type is %s\n", i, e->toChars(), e->type->toChars());
     }
+    printf("fd = %s\n", fd->toChars());
+    printf("fd->type = %p\n", fd->type);
 #endif
 
     assert((size_t)scope > 0x10000);
@@ -849,10 +852,8 @@ MATCH TemplateDeclaration::deduceFunctionTemplateMatch(Loc loc, Objects *targsi,
     }
 #endif
 
-    assert(fd->type->ty == Tfunction);
-    fdtype = (TypeFunction *)fd->type;
-
-    nfparams = Parameter::dim(fdtype->parameters); // number of function parameters
+    fparameters = fd->getParameters(&fvarargs);
+    nfparams = Parameter::dim(fparameters);	// number of function parameters
     nfargs = fargs ? fargs->dim : 0;		// number of function arguments
 
     /* Check for match of function arguments with variadic template
@@ -882,14 +883,14 @@ MATCH TemplateDeclaration::deduceFunctionTemplateMatch(Loc loc, Objects *targsi,
 	     */
 	    for (fptupindex = 0; fptupindex < nfparams; fptupindex++)
 	    {
-		Parameter *fparam = (Parameter *)fdtype->parameters->data[fptupindex];
+		Parameter *fparam = (Parameter *)fparameters->data[fptupindex];
 		if (fparam->type->ty != Tident)
 		    continue;
 		TypeIdentifier *tid = (TypeIdentifier *)fparam->type;
 		if (!tp->ident->equals(tid->ident) || tid->idents.dim)
 		    continue;
 
-		if (fdtype->varargs)	// variadic function doesn't
+		if (fvarargs)		// variadic function doesn't
 		    goto Lnomatch;	// go with variadic template
 
 		/* The types of the function arguments
@@ -916,7 +917,7 @@ L1:
 	;
     else if (nfargs > nfparams)
     {
-	if (fdtype->varargs == 0)
+	if (fvarargs == 0)
 	    goto Lnomatch;		// too many args, no match
 	match = MATCHconvert;		// match ... with a conversion
     }
@@ -956,7 +957,7 @@ L2:
 	    continue;
 	}
 
-	Parameter *fparam = Parameter::getNth(fdtype->parameters, i);
+	Parameter *fparam = Parameter::getNth(fparameters, i);
 
 	if (i >= nfargs)		// if not enough arguments
 	{
@@ -1020,7 +1021,7 @@ L2:
 	/* The following code for variadic arguments closely
 	 * matches TypeFunction::callMatch()
 	 */
-	if (!(fdtype->varargs == 2 && i + 1 == nfparams))
+	if (!(fvarargs == 2 && i + 1 == nfparams))
 	    goto Lnomatch;
 
 	/* Check for match with function parameter T...
@@ -1132,6 +1133,7 @@ Lmatch:
     if (constraint)
     {	/* Check to see if constraint is satisfied.
 	 */
+	makeParamNamesVisibleInConstraint(paramscope);
 	Expression *e = constraint->syntaxCopy();
 	paramscope->flags |= SCOPEstaticif;
 	e = e->semantic(paramscope);
@@ -3262,7 +3264,10 @@ void TemplateInstance::semantic(Scope *sc)
 
 	// Nesting must match
 	if (isnested != ti->isnested)
+	{
+	    //printf("test2 isnested %s ti->isnested %s\n", isnested ? isnested->toChars() : "", ti->isnested ? ti->isnested->toChars() : "");
 	    continue;
+	}
 #if 0
 	if (isnested && sc->parent != ti->parent)
 	    continue;
@@ -3271,7 +3276,9 @@ void TemplateInstance::semantic(Scope *sc)
 	{   Object *o1 = (Object *)tdtypes.data[j];
 	    Object *o2 = (Object *)ti->tdtypes.data[j];
 	    if (!match(o1, o2, tempdecl, sc))
+	    {
 		goto L1;
+	    }
 	}
 
 	// It's a match
