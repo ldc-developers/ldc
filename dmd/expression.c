@@ -8559,7 +8559,9 @@ Expression *CatAssignExp::semantic(Scope *sc)
 	e2 = e2->castTo(sc, tb1next);
 	type = e1->type;
 	e = this;
-    }
+// Reenable when _d_arrayappendwd and cd are in the runtime.
+/*    }
+
     else if (tb1->ty == Tarray &&
 	(tb1next->ty == Tchar || tb1next->ty == Twchar) &&
 	e2->implicitConvTo(Type::tdchar)
