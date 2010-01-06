@@ -868,9 +868,7 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
 	    {	TypeSArray *ts = (TypeSArray *)tb;
 		Type *ta = ts->next->arrayOf();
 		if (ts->size(arg->loc) == 0)
-		{   arg = new NullExp(arg->loc);
-		    arg->type = ta;
-		}
+		    arg = new NullExp(arg->loc, ta);
 		else
 		    arg = arg->castTo(sc, ta);
 	    }
@@ -2587,10 +2585,11 @@ void SuperExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 /******************************** NullExp **************************/
 
-NullExp::NullExp(Loc loc)
+NullExp::NullExp(Loc loc, Type *type)
 	: Expression(loc, TOKnull, sizeof(NullExp))
 {
     committed = 0;
+    this->type = type;
 }
 
 Expression *NullExp::semantic(Scope *sc)
