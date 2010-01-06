@@ -763,6 +763,7 @@ struct FuncDeclaration : Declaration
     int needsClosure();
     Statement *mergeFrequire(Statement *);
     Statement *mergeFensure(Statement *);
+    Parameters *getParameters(int *pvarargs);
 
 // LDC: give argument types to runtime functions
     static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name);
