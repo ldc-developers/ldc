@@ -3264,9 +3264,7 @@ Expression *StructLiteralExp::semantic(Scope *sc)
 		}
 	    }
 	    else
-	    {	e = v->type->defaultInit();
-		e->loc = loc;
-	    }
+		e = v->type->defaultInitLiteral(loc);
 	    offset = v->offset + v->type->size();
 	}
 	elements->push(e);
