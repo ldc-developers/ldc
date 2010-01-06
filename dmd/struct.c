@@ -253,8 +253,11 @@ void StructDeclaration::semantic(Scope *sc)
 	return;
 
     if (symtab)
-    {   if (!scope)
+    {   if (sizeok == 1 || !scope)
+	{   //printf("already completed\n");
+	    scope = NULL;
             return;             // semantic() already completed
+	}
     }
     else
         symtab = new DsymbolTable();
