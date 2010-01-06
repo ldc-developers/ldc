@@ -994,6 +994,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 		v = new VarDeclaration(loc, type->nextOf(), outId, NULL);
 		v->noscope = 1;
 #if DMDV2
+		if (!isVirtual())
+		    v->storage_class |= STCconst;
 		if (f->isref)
 		{
 		    v->storage_class |= STCref | STCforeach;
