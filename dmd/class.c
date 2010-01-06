@@ -593,9 +593,24 @@ void ClassDeclaration::semantic(Scope *sc)
     Scope scsave = *sc;
     int members_dim = members->dim;
     sizeok = 0;
+
+    /* Set scope so if there are forward references, we still might be able to
+     * resolve individual members like enums.
+     */
     for (i = 0; i < members_dim; i++)
-    {
-	Dsymbol *s = (Dsymbol *)members->data[i];
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
+	/* There are problems doing this in the general case because
+	 * Scope keeps track of things like 'offset'
+	 */
+	if (s->isEnumDeclaration() || (s->isAggregateDeclaration() && s->ident))
+	{
+	    //printf("setScope %s %s\n", s->kind(), s->toChars());
+	    s->setScope(sc);
+	}
+    }
+
+    for (i = 0; i < members_dim; i++)
+    {	Dsymbol *s = (Dsymbol *)members->data[i];
 	s->semantic(sc);
     }
 
@@ -1168,7 +1183,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
 	// Skip if b has already appeared
 	for (int k = 0; k < i; k++)
 	{
-	    if (b == interfaces[i])
+	    if (b == interfaces[k])
 		goto Lcontinue;
 	}
 
