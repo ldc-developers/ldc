@@ -19,9 +19,11 @@
 
 #include "dsymbol.h"
 
+#if IN_LLVM
 #include <vector>
 #include <set>
 #include <map>
+#endif
 
 struct Identifier;
 struct Type;
@@ -38,6 +40,7 @@ struct ClassInfoDeclaration;
 struct VarDeclaration;
 struct dt_t;
 
+#if IN_LLVM
 namespace llvm
 {
     class Type;
@@ -46,6 +49,7 @@ namespace llvm
     class ConstantStruct;
     class GlobalVariable;
 }
+#endif
 
 struct AggregateDeclaration : ScopeDsymbol
 {

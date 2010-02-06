@@ -392,6 +392,8 @@ void StorageClassDeclaration::setScope(Scope *sc)
 	    scstc &= ~(STCconst | STCimmutable | STCmanifest);
 	if (stc & (STCgshared | STCshared | STCtls))
 	    scstc &= ~(STCgshared | STCshared | STCtls);
+	if (stc & (STCsafe | STCtrusted | STCsystem))
+	    scstc &= ~(STCsafe | STCtrusted | STCsystem);
 	scstc |= stc;
 
 	setScopeNewSc(sc, scstc, sc->linkage, sc->protection, sc->explicitProtection, sc->structalign);
@@ -415,6 +417,8 @@ void StorageClassDeclaration::semantic(Scope *sc)
 	    scstc &= ~(STCconst | STCimmutable | STCmanifest);
 	if (stc & (STCgshared | STCshared | STCtls))
 	    scstc &= ~(STCgshared | STCshared | STCtls);
+	if (stc & (STCsafe | STCtrusted | STCsystem))
+	    scstc &= ~(STCsafe | STCtrusted | STCsystem);
 	scstc |= stc;
 
 	semanticNewSc(sc, scstc, sc->linkage, sc->protection, sc->explicitProtection, sc->structalign);
@@ -453,6 +457,10 @@ void StorageClassDeclaration::stcToCBuffer(OutBuffer *buf, StorageClass stc)
 	{ STCref,          TOKref },
 	{ STCtls,          TOKtls },
 	{ STCgshared,      TOKgshared },
+	{ STCproperty,     TOKat },
+	{ STCsafe,         TOKat },
+	{ STCtrusted,      TOKat },
+	{ STCdisable,       TOKat },
 #endif
     };
 
@@ -714,6 +722,8 @@ void AnonDeclaration::semantic(Scope *sc)
 	scope = NULL;
     }
 
+    unsigned dprogress_save = Module::dprogress;
+
     assert(sc->parent);
 
     Dsymbol *parent = sc->parent->pastMixin();
@@ -743,7 +753,7 @@ void AnonDeclaration::semantic(Scope *sc)
 
 	sc = sc->push();
 	sc->anonAgg = &aad;
-	sc->stc &= ~(STCauto | STCscope | STCstatic | STCtls);
+	sc->stc &= ~(STCauto | STCscope | STCstatic | STCtls | STCgshared);
 	sc->inunion = isunion;
 	sc->offset = 0;
 	sc->flags = 0;
@@ -775,6 +785,7 @@ void AnonDeclaration::semantic(Scope *sc)
 		scope->setNoFree();
 		scope->module->addDeferredSemantic(this);
 	    }
+	    Module::dprogress = dprogress_save;
 	    //printf("\tforward reference %p\n", this);
 	    return;
 	}
@@ -805,15 +816,15 @@ void AnonDeclaration::semantic(Scope *sc)
 	{
 	    VarDeclaration *v = (VarDeclaration *)aad.fields.data[i];
 
-        // LDC
+#if IN_LLVM
         v->offset2 = sc->offset;
-
+#endif
 	    v->offset += sc->offset;
 
-        // LDC
+#if IN_LLVM
         if (!v->anonDecl)
             v->anonDecl = this;
-
+#endif
 	    ad->fields.push(v);
 	}
 
@@ -1369,7 +1380,21 @@ void PragmaDeclaration::toObjFile(int multiobj)
 	char *name = (char *)mem.malloc(se->len + 1);
 	memcpy(name, se->string, se->len);
 	name[se->len] = 0;
+#if OMFOBJ
+	/* The OMF format allows library names to be inserted
+	 * into the object file. The linker will then automatically
+	 * search that library, too.
+	 */
 	obj_includelib(name);
+#elif ELFOBJ || MACHOBJ
+	/* The format does not allow embedded library names,
+	 * so instead append the library name to the list to be passed
+	 * to the linker.
+	 */
+	global.params.libfiles->push((void *) name);
+#else
+	error("pragma lib not supported");
+#endif
     }
 #if DMDV2
     else if (ident == Id::startaddress)

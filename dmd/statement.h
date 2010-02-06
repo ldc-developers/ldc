@@ -54,13 +54,14 @@ struct VolatileStatement;
 struct SynchronizedStatement;
 
 enum TOK;
-
+#if IN_LLVM
 namespace llvm
 {
     class Value;
     class BasicBlock;
     class ConstantInt;
 }
+#endif
 
 // Back end
 struct IRState;
@@ -141,9 +142,10 @@ struct Statement : Object
     virtual IfStatement *isIfStatement() { return NULL; }
     virtual CaseStatement* isCaseStatement() { return NULL; }
 
-    // LDC
+#if IN_LLVM
     virtual void toNakedIR(IRState *irs);
     virtual AsmBlockStatement* endsWithAsm();
+#endif
 };
 
 struct PeelStatement : Statement
@@ -172,8 +174,9 @@ struct ExpStatement : Statement
 
     void toIR(IRState *irs);
 
-    // LDC
+#if IN_LLVM
     void toNakedIR(IRState *irs);
+#endif
 };
 
 struct CompileStatement : Statement

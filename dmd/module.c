@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -44,7 +44,7 @@
 #include "d-dmd-gcc.h"
 #endif
 
-
+#if IN_LLVM
 #include "llvm/Support/CommandLine.h"
 #include <map>
 
@@ -55,8 +55,7 @@ static llvm::cl::opt<bool> preservePaths("op",
 static llvm::cl::opt<bool> fqnNames("oq",
     llvm::cl::desc("Write object files with fully qualified names"),
     llvm::cl::ZeroOrMore);
-
-
+#endif
 
 ClassDeclaration *Module::moduleinfo;
 
@@ -971,7 +970,8 @@ void Module::addDeferredSemantic(Dsymbol *s)
 
 void Module::runDeferredSemantic()
 {
-    size_t len;
+    if (dprogress == 0)
+	return;
 
     static int nested;
     if (nested)
@@ -979,6 +979,7 @@ void Module::runDeferredSemantic()
     //if (deferred.dim) printf("+Module::runDeferredSemantic('%s'), len = %d\n", toChars(), deferred.dim);
     nested++;
 
+    size_t len;
     do
     {
 	dprogress = 0;

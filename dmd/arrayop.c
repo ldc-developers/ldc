@@ -24,6 +24,15 @@
 #include "module.h"
 #include "init.h"
 
+#if IN_DMD
+extern int binary(const char *p , const char **tab, int high);
+
+/**************************************
+ * Hash table of array op functions already generated or known about.
+ */
+
+StringTable arrayfuncs;
+#endif
 
 /***********************************
  * Construct the array operation expression.

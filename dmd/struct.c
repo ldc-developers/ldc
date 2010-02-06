@@ -19,6 +19,7 @@
 #include "module.h"
 #include "id.h"
 #include "statement.h"
+#include "template.h"
 
 /********************************* AggregateDeclaration ****************************/
 
@@ -269,6 +270,8 @@ void StructDeclaration::semantic(Scope *sc)
         scope = NULL;
     }
 
+    unsigned dprogress_save = Module::dprogress;
+
     parent = sc->parent;
     type = type->semantic(loc, sc);
 #if STRUCTTHISREF
@@ -417,6 +420,8 @@ void StructDeclaration::semantic(Scope *sc)
 	scope = scx ? scx : new Scope(*sc);
 	scope->setNoFree();
 	scope->module->addDeferredSemantic(this);
+
+	Module::dprogress = dprogress_save;
 	//printf("\tdeferring %s\n", toChars());
 	return;
     }

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -235,7 +235,9 @@ struct Param
     char *deffile;
     char *resfile;
     char *exefile;
+    char *mapfile;
 
+#if IN_LLVM
     // LDC stuff
     OUTPUTFLAG output_ll;
     OUTPUTFLAG output_bc;
@@ -250,6 +252,7 @@ struct Param
     const char* llvmArch;
     const char *targetTriple;
     const char *dataLayout;
+#endif
 };
 
 struct Global
@@ -268,6 +271,7 @@ struct Global
     const char *ddoc_ext;	// for Ddoc macro include files
     const char *hdr_ext;	// for D 'header' import files
     const char *json_ext;	// for JSON files
+    const char *map_ext;	// for .map files
     const char *copyright;
     const char *written;
     Array *path;	// Array of char*'s which form the import lookup path
@@ -393,8 +397,9 @@ enum LINK
     LINKwindows,
     LINKpascal,
 
-    // LDC
+#if IN_LLVM
     LINKintrinsic,
+#endif
 };
 
 enum DYNCAST

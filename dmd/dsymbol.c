@@ -29,7 +29,9 @@
 #include "import.h"
 #include "template.h"
 #include "attrib.h"
+#if IN_LLVM
 #include "../gen/enums.h"
+#endif
 
 /****************************** Dsymbol ******************************/
 

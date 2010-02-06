@@ -21,8 +21,9 @@
 #include "mars.h"
 #include "arraytypes.h"
 
-// llvm
+#if IN_LLVM
 #include "../ir/irdsymbol.h"
+#endif
 
 struct Identifier;
 struct Scope;
@@ -51,6 +52,9 @@ struct UnitTestDeclaration;
 struct NewDeclaration;
 struct VarDeclaration;
 struct AttribDeclaration;
+#if IN_DMD
+struct Symbol;
+#endif
 struct Package;
 struct Module;
 struct Import;
@@ -75,9 +79,6 @@ struct ClassInfoDeclaration;
 struct OverloadSet;
 #if TARGET_NET
 struct PragmaScope;
-#endif
-#if IN_DMD
-struct Symbol;
 #endif
 #if IN_GCC
 union tree_node;
@@ -109,6 +110,18 @@ enum PROT
     PROTexport,
 };
 
+/* State of symbol in winding its way through the passes of the compiler
+ */
+enum PASS
+{
+    PASSinit,		// initial state
+    PASSsemantic,	// semantic() started
+    PASSsemanticdone,	// semantic() done
+    PASSsemantic2,	// semantic2() run
+    PASSsemantic3,	// semantic3() started
+    PASSsemantic3done,	// semantic3() done
+    PASSobj,		// toObjFile() run
+};
 
 struct Dsymbol : Object
 {

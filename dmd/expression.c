@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -3710,7 +3710,6 @@ Lagain:
 			break;
 		    }
 		}
-		
 	    }
 	}
 	else if (thisexp)
@@ -8777,8 +8776,11 @@ Expression *ShlAssignExp::semantic(Scope *sc)
     typeCombine(sc);
     e1->checkIntegral();
     e2 = e2->checkIntegral();
-    //e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+#if !IN_LLVM
+    e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
     return this;
 }
 
@@ -8806,8 +8808,11 @@ Expression *ShrAssignExp::semantic(Scope *sc)
     typeCombine(sc);
     e1->checkIntegral();
     e2 = e2->checkIntegral();
-    //e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+#if !IN_LLVM
+    e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
     return this;
 }
 
@@ -8835,8 +8840,11 @@ Expression *UshrAssignExp::semantic(Scope *sc)
     typeCombine(sc);
     e1->checkIntegral();
     e2 = e2->checkIntegral();
-    //e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+#if !IN_LLVM
+    e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
     return this;
 }
 
@@ -9323,8 +9331,11 @@ Expression *ShlExp::semantic(Scope *sc)
 	e1 = e1->checkIntegral();
 	e2 = e2->checkIntegral();
 	e1 = e1->integralPromotions(sc);
-	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+#if !IN_LLVM
+	e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
 	type = e1->type;
     }
     return this;
@@ -9348,8 +9359,11 @@ Expression *ShrExp::semantic(Scope *sc)
 	e1 = e1->checkIntegral();
 	e2 = e2->checkIntegral();
 	e1 = e1->integralPromotions(sc);
-	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+#if !IN_LLVM
+	e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
 	type = e1->type;
     }
     return this;
@@ -9373,8 +9387,11 @@ Expression *UshrExp::semantic(Scope *sc)
 	e1 = e1->checkIntegral();
 	e2 = e2->checkIntegral();
 	e1 = e1->integralPromotions(sc);
-	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+#if !IN_LLVM
+	e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
 	type = e1->type;
     }
     return this;

@@ -15,9 +15,11 @@
 #pragma once
 #endif /* __DMC__ */
 
+#if IN_LLVM
 #include <set>
 #include <map>
 #include <string>
+#endif
 
 #include "dsymbol.h"
 #include "lexer.h"

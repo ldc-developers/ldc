@@ -113,9 +113,9 @@ char *Declaration::mangle()
 		case LINKd:
 		    break;
 
-        // LDC
+#if IN_LLVM
         case LINKintrinsic:
-
+#endif
 		case LINKc:
 		case LINKwindows:
 		case LINKpascal:

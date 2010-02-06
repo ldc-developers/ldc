@@ -392,12 +392,11 @@ void accessCheck(Loc loc, Scope *sc, Expression *e, Declaration *d)
 #endif
     if (!e)
     {
-	if (d->getModule() != sc->module)
-	    if (d->prot() == PROTprivate ||
-		d->prot() == PROTpackage && !hasPackageAccess(sc, d))
+	if (d->prot() == PROTprivate && d->getModule() != sc->module ||
+	    d->prot() == PROTpackage && !hasPackageAccess(sc, d))
 
-		error(loc, "%s %s.%s is not accessible from %s",
-		    d->kind(), d->getModule()->toChars(), d->toChars(), sc->module->toChars());
+	    error(loc, "%s %s.%s is not accessible from %s",
+		d->kind(), d->getModule()->toChars(), d->toChars(), sc->module->toChars());
     }
     else if (e->type->ty == Tclass)
     {   // Do access check

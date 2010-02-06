@@ -153,7 +153,7 @@ struct Module : Package
     Dsymbol *symtabInsert(Dsymbol *s);
     void deleteObjFile();
     void addDeferredSemantic(Dsymbol *s);
-    void runDeferredSemantic();
+    static void runDeferredSemantic();
     int imports(Module *m);
 
     // Back end

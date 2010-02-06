@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -13,8 +13,10 @@
 #include <ctype.h>
 #include <assert.h>
 #include <limits.h>
+#if IN_LLVM
 #include <string>
 #include <cstdarg>
+#endif
 
 #if POSIX
 #include <errno.h>
@@ -34,7 +36,9 @@
 #include "lexer.h"
 #include "json.h"
 
+#if IN_LLVM
 #include "gen/revisions.h"
+#endif
 
 Global global;
 
@@ -46,6 +50,7 @@ Global::Global()
     doc_ext  = "html";
     ddoc_ext = "ddoc";
     json_ext = "json";
+    map_ext  = "map";
 
 // LDC
     ll_ext  = "ll";
@@ -58,7 +63,7 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2009 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.055";
+    version = "v1.056";
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV_STR;
     global.structalign = 8;
