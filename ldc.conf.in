@@ -2,7 +2,7 @@
 // See http://www.hyperrealm.com/libconfig/ for syntax details.
 
 // Special macros:
-// %%ldcbinarydir%%
+// %%ldcbinarypath%%
 //  - is replaced with the path to the directory holding the ldc executable
 
 // The default group is required
