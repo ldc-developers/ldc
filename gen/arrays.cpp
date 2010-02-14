@@ -474,7 +474,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 
     // build dims
     LLValue* dimsArg = DtoArrayAlloca(Type::tsize_t, ndims, ".newdims");
-    LLValue* firstDim = NULL; 
+    LLValue* firstDim = NULL;
     for (size_t i=0; i<ndims; ++i)
     {
         LLValue* dim = dims[i]->getRVal();
@@ -532,30 +532,29 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-DSliceValue* DtoCatAssignElement(DValue* array, Expression* exp)
+void DtoCatAssignElement(Type* arrayType, DValue* array, Expression* exp)
 {
     Logger::println("DtoCatAssignElement");
     LOG_SCOPE;
 
     assert(array);
 
-    LLValue* idx = DtoArrayLen(array);
-    LLValue* one = DtoConstSize_t(1);
-    LLValue* len = gIR->ir->CreateAdd(idx,one,"tmp");
+    DValue *expVal = exp->toElem(gIR);
+    LLValue *valueToAppend;
+    if (expVal->isLVal())
+        valueToAppend = expVal->getLVal();
+    else {
+        valueToAppend = DtoAlloca(expVal->getType(), ".appendingElementOnStack");
+        DtoStore(expVal->getRVal(), valueToAppend);
+    }
 
-    DValue* newdim = new DImValue(Type::tsize_t, len);
-    DSliceValue* slice = DtoResizeDynArray(array->getType(), array, newdim);
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcT");
+    LLSmallVector<LLValue*,3> args;
+    args.push_back(DtoTypeInfoOf(arrayType));
+    args.push_back(DtoBitCast(array->getLVal(), getVoidPtrType()));
+    args.push_back(DtoBitCast(valueToAppend, getVoidPtrType()));
 
-    LLValue* ptr = slice->ptr;
-    ptr = llvm::GetElementPtrInst::Create(ptr, idx, "tmp", gIR->scopebb());
-
-    DValue* dptr = new DVarValue(exp->type, ptr);
-
-    DValue* e = exp->toElem(gIR);
-
-    DtoAssign(exp->loc, dptr, e);
-
-    return slice;
+    gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -980,7 +979,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
     else if (totype->ty == Tsarray) {
         if (Logger::enabled())
             Logger::cout() << "to sarray" << '\n';
-        
+
         size_t tosize = ((TypeSArray*)totype)->dim->toInteger();
 
         if (fromtype->ty == Tsarray) {
@@ -1004,9 +1003,9 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
             size_t i = (tosize * totype->nextOf()->size() - 1) / fromtype->nextOf()->size();
             DConstValue index(Type::tsize_t, DtoConstSize_t(i));
             DtoArrayBoundsCheck(loc, u, &index, false);
-            
+
             rval = DtoArrayPtr(u);
-            rval = DtoBitCast(rval, getPtrToType(tolltype));            
+            rval = DtoBitCast(rval, getPtrToType(tolltype));
         }
     }
     else if (totype->ty == Tbool) {

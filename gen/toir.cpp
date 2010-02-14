@@ -624,7 +624,7 @@ static void errorOnIllegalArrayOp(Expression* base, Expression* e1, Expression* 
     // valid array ops would have been transformed by optimize
     if ((t1->ty == Tarray || t1->ty == Tsarray) &&
         (t2->ty == Tarray || t2->ty == Tsarray)
-       ) 
+       )
     {
         base->error("Array operation %s not recognized", base->toChars());
         fatal();
@@ -1013,7 +1013,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         return DtoBitCast(gep, DtoType(type));
     }
     else if (
-        e1->op == TOKstructliteral || 
+        e1->op == TOKstructliteral ||
         e1->op == TOKslice)
     {
         error("non-constant expression '%s'", toChars());
@@ -1138,7 +1138,7 @@ DValue* DotVarExp::toElem(IRState* p)
         // decide whether this function needs to be looked up in the vtable
         //
         bool vtbllookup = fdecl->isAbstract() || (!fdecl->isFinal() && fdecl->isVirtual());
-        
+
         // even virtual functions are looked up directly if super or DotTypeExp
         // are used, thus we need to walk through the this expression and check
         Expression* e = e1;
@@ -1150,7 +1150,7 @@ DValue* DotVarExp::toElem(IRState* p)
             else
                 break;
         }
-        
+
         //
         // look up function
         //
@@ -1237,12 +1237,12 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP1(l->getRVal(),r->getRVal());
     }
     else if (e1type->ty == Tsarray) {
-        if(global.params.useArrayBounds) 
+        if(global.params.useArrayBounds)
             DtoArrayBoundsCheck(loc, l, r, false);
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
-        if(global.params.useArrayBounds) 
+        if(global.params.useArrayBounds)
             DtoArrayBoundsCheck(loc, l, r, false);
         arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());
@@ -1769,7 +1769,7 @@ DValue* AssertExp::toElem(IRState* p)
 
     // class invariants
     if(
-        global.params.useInvariants && 
+        global.params.useInvariants &&
         condty->ty == Tclass &&
         !((TypeClass*)condty)->sym->isInterfaceDeclaration())
     {
@@ -1780,7 +1780,7 @@ DValue* AssertExp::toElem(IRState* p)
     }
     // struct invariants
     else if(
-        global.params.useInvariants && 
+        global.params.useInvariants &&
         condty->ty == Tpointer && condty->nextOf()->ty == Tstruct &&
         (invdecl = ((TypeStruct*)condty->nextOf())->sym->inv) != NULL)
     {
@@ -2234,8 +2234,7 @@ DValue* CatAssignExp::toElem(IRState* p)
     Type* e2type = e2->type->toBasetype();
 
     if (e2type == elemtype) {
-        DSliceValue* slice = DtoCatAssignElement(l,e2);
-        DtoAssign(loc, l, slice);
+        DtoCatAssignElement(e1type, l, e2);
     }
     else if (e1type == e2type) {
         DSliceValue* slice = DtoCatAssignArray(l,e2);
