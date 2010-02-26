@@ -904,7 +904,7 @@ namespace AsmParserx8664
         { "invlpg", Op_SrcMemNT },
         { "iret",  Op_iret },
         { "iretd", Op_iretd },
-        { "iretq", Op_iretd },
+        { "iretq", Op_iretq },
         { "ja",    Op_CBranch },
         { "jae",   Op_CBranch },
         { "jb",    Op_CBranch },
