@@ -301,29 +301,32 @@ int main(int argc, char** argv)
     else
         libs = global.params.defaultlibnames;
 
-    if (libs)
+    if (!noDefaultLib)
     {
-        for (int i = 0; i < libs->dim; i++)
+        if (libs)
         {
-            char* lib = (char *)libs->data[i];
-            char *arg = (char *)mem.malloc(strlen(lib) + 3);
-            strcpy(arg, "-l");
-            strcpy(arg+2, lib);
-            global.params.linkswitches->push(arg);
+            for (int i = 0; i < libs->dim; i++)
+            {
+                char* lib = (char *)libs->data[i];
+                char *arg = (char *)mem.malloc(strlen(lib) + 3);
+                strcpy(arg, "-l");
+                strcpy(arg+2, lib);
+                global.params.linkswitches->push(arg);
+            }
         }
-    }
-    else if (!noDefaultLib)
-    {
+        else
+        {
 #if DMDV2
-	global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
+            global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
 #else
-        global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
-        global.params.linkswitches->push(mem.strdup("-ltango-cc-tango"));
-        global.params.linkswitches->push(mem.strdup("-ltango-gc-basic"));
-        // pass the runtime again to resolve issues
-        // with linking order
-        global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
+            global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
+            global.params.linkswitches->push(mem.strdup("-ltango-cc-tango"));
+            global.params.linkswitches->push(mem.strdup("-ltango-gc-basic"));
+            // pass the runtime again to resolve issues
+            // with linking order
+            global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
 #endif
+        }
     }
 
     if (global.params.run)
