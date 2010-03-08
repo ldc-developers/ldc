@@ -545,7 +545,9 @@ void DtoCatAssignElement(Type* arrayType, DValue* array, Expression* exp)
         valueToAppend = expVal->getLVal();
     else {
         valueToAppend = DtoAlloca(expVal->getType(), ".appendingElementOnStack");
-        DtoStore(expVal->getRVal(), valueToAppend);
+        DVarValue lval(expVal->getType(), valueToAppend);
+        Loc loc;
+        DtoAssign(loc, &lval, expVal);
     }
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcT");
