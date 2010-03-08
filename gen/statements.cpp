@@ -295,7 +295,8 @@ void WhileStatement::toIR(IRState* p)
 
     // while body code
     p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,whilebb,endbb));
-    body->toIR(p);
+    if (body)
+        body->toIR(p);
     p->func()->gen->targetScopes.pop_back();
 
     // loop
@@ -331,7 +332,8 @@ void DoStatement::toIR(IRState* p)
 
     // do-while body code
     p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,condbb,endbb));
-    body->toIR(p);
+    if (body)
+        body->toIR(p);
     p->func()->gen->targetScopes.pop_back();
 
     // branch to condition block
@@ -401,7 +403,8 @@ void ForStatement::toIR(IRState* p)
     gIR->scope() = IRScope(forbodybb,forincbb);
 
     // do for body code
-    body->toIR(p);
+    if (body)
+        body->toIR(p);
 
     // move into the for increment block
     if (!gIR->scopereturned())
