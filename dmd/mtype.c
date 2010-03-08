@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -135,6 +135,10 @@ Type::Type(TY ty, Type *next)
 #if DMDV2
     this->cto = NULL;
     this->ito = NULL;
+    this->sto = NULL;
+    this->scto = NULL;
+    this->wto = NULL;
+    this->swto = NULL;
 #endif
     this->pto = NULL;
     this->rto = NULL;
@@ -641,7 +645,7 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
     else if (ident == Id::size)
     {
 	error(loc, ".size property should be replaced with .sizeof");
-	e = new IntegerExp(loc, size(loc), Type::tsize_t);
+	e = new ErrorExp();
     }
     else if (ident == Id::alignof)
     {
@@ -679,8 +683,16 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
     }
     else
     {
-	error(loc, "no property '%s' for type '%s'", ident->toChars(), toChars());
-	e = new IntegerExp(loc, 1, Type::tint32);
+	Dsymbol *s = NULL;
+	if (ty == Tstruct || ty == Tclass || ty == Tenum || ty == Ttypedef)
+	    s = toDsymbol(NULL);
+	if (s)
+	    s = s->search_correct(ident);
+	if (s)
+	    error(loc, "no property '%s' for type '%s', did you mean '%s'?", ident->toChars(), toChars(), s->toChars());
+	else
+	    error(loc, "no property '%s' for type '%s'", ident->toChars(), toChars());
+	e = new ErrorExp();
     }
     return e;
 }
@@ -785,13 +797,10 @@ void Type::error(Loc loc, const char *format, ...)
 
 void Type::warning(Loc loc, const char *format, ...)
 {
-    if (global.params.warnings && !global.gag)
-    {
-	va_list ap;
-	va_start(ap, format);
-	::vwarning(loc, format, ap);
-	va_end( ap );
-    }
+    va_list ap;
+    va_start(ap, format);
+    ::vwarning(loc, format, ap);
+    va_end( ap );
 }
 
 Identifier *Type::getTypeInfoIdent(int internal)
@@ -4630,7 +4639,11 @@ L1:
     TemplateInstance *ti = s->isTemplateInstance();
     if (ti)
     {	if (!ti->semanticRun)
+	{
+	    if (global.errors)
+		return new ErrorExp();	// TemplateInstance::semantic() will fail anyway
 	    ti->semantic(sc);
+	}
 	s = ti->inst->toAlias();
 	if (!s->isTemplateInstance())
 	    goto L1;
@@ -5071,7 +5084,11 @@ L1:
     TemplateInstance *ti = s->isTemplateInstance();
     if (ti)
     {	if (!ti->semanticRun)
+	{
+	    if (global.errors)
+		return new ErrorExp();	// TemplateInstance::semantic() will fail anyway
 	    ti->semantic(sc);
+	}
 	s = ti->inst->toAlias();
 	if (!s->isTemplateInstance())
 	    goto L1;

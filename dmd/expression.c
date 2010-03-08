@@ -55,6 +55,7 @@ int isnan(double);
 #include "hdrgen.h"
 #include "parse.h"
 
+
 Expression *expandVar(int result, VarDeclaration *v);
 
 #define LOGSEMANTIC	0
@@ -1059,13 +1060,10 @@ void Expression::error(const char *format, ...)
 
 void Expression::warning(const char *format, ...)
 {
-    if (global.params.warnings && !global.gag)
-    {
-	va_list ap;
-	va_start(ap, format);
-	::vwarning(loc, format, ap);
-	va_end( ap );
-    }
+    va_list ap;
+    va_start(ap, format);
+    ::vwarning(loc, format, ap);
+    va_end( ap );
 }
 
 void Expression::rvalue()
@@ -1076,7 +1074,7 @@ void Expression::rvalue()
 	dump(0);
 	halt();
 #endif
-	type = Type::tint32;
+	type = Type::terror;
     }
 }
 
@@ -1138,6 +1136,9 @@ void Expression::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void Expression::toMangleBuffer(OutBuffer *buf)
 {
     error("expression %s is not a valid template value argument", toChars());
+#ifdef DEBUG
+dump(0);
+#endif
 }
 
 /***************************************
@@ -1666,7 +1667,18 @@ void IntegerExp::toMangleBuffer(OutBuffer *buf)
     if ((sinteger_t)value < 0)
 	buf->printf("N%jd", -value);
     else
+    {
+	/* This is an awful hack to maintain backwards compatibility.
+	 * There really always should be an 'i' before a number, but
+	 * there wasn't in earlier implementations, so to maintain
+	 * backwards compatibility it is only done if necessary to disambiguate.
+	 * See bugzilla 3029
+	 */
+	if (buf->offset > 0 && isdigit(buf->data[buf->offset - 1]))
+	    buf->writeByte('i');
+
 	buf->printf("%jd", value);
+    }
 }
 
 /******************************** ErrorExp **************************/
@@ -2103,7 +2115,21 @@ Expression *IdentifierExp::semantic(Scope *sc)
 	}
 	return e->semantic(sc);
     }
-    error("undefined identifier %s", ident->toChars());
+#if DMDV2
+    if (ident == Id::ctfe)
+    {  // Create the magic __ctfe bool variable
+       VarDeclaration *vd = new VarDeclaration(loc, Type::tbool, Id::ctfe, NULL);
+       Expression *e = new VarExp(loc, vd);
+       e = e->semantic(sc);
+       return e;
+    }
+#endif
+
+    s = sc->search_correct(ident);
+    if (s)
+	error("undefined identifier %s, did you mean %s %s?", ident->toChars(), s->kind(), s->toChars());
+    else
+	error("undefined identifier %s", ident->toChars());
     type = Type::terror;
     return this;
 }
@@ -5275,14 +5301,14 @@ Expression *FileExp::semantic(Scope *sc)
 	goto Lerror;
     }
 
-    if (name != FileName::name(name))
-    {	error("use -Jpath switch to provide path for filename %s", name);
-	goto Lerror;
-    }
+    /* Be wary of CWE-22: Improper Limitation of a Pathname to a Restricted Directory
+     * ('Path Traversal') attacks.
+     * http://cwe.mitre.org/data/definitions/22.html
+     */
 
-    name = FileName::searchPath(global.filePath, name, 0);
+    name = FileName::safeSearchPath(global.filePath, name);
     if (!name)
-    {	error("file %s cannot be found, check -Jpath", se->toChars());
+    {	error("file %s cannot be found or not in a path specified with -J", se->toChars());
 	goto Lerror;
     }
 
@@ -5820,6 +5846,14 @@ Expression *DotVarExp::semantic(Scope *sc)
 		    e = e->semantic(sc);
 		    return e;
 		}
+		if (v->init)
+		{   Expression *e = v->init->toExpression();
+		    if (e)
+		    {	e = e->copy();
+			e = e->semantic(sc);
+			return e;
+		    }
+		}
 	    }
 	}
     }
@@ -5941,11 +5975,15 @@ L1:
     e = e->semantic(sc);
     if (e->op == TOKdottd)
     {
+	if (global.errors)
+	    return new ErrorExp();	// TemplateInstance::semantic() will fail anyway
 	DotTemplateExp *dte = (DotTemplateExp *)e;
 	TemplateDeclaration *td = dte->td;
 	eleft = dte->e1;
 	ti->tempdecl = td;
 	ti->semantic(sc);
+	if (!ti->inst)			// if template failed to expand
+	    return new ErrorExp();
 	Dsymbol *s = ti->inst->toAlias();
 	Declaration *v = s->isDeclaration();
 	if (v)
@@ -7377,6 +7415,12 @@ Expression *CastExp::semantic(Scope *sc)
 	    }
 	}
     }
+
+    if (!e1->type)
+    {	error("cannot cast %s", e1->toChars());
+	return new ErrorExp();
+    }
+
     e = e1->castTo(sc, to);
     return e;
 }

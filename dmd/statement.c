@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -101,13 +101,10 @@ void Statement::error(const char *format, ...)
 
 void Statement::warning(const char *format, ...)
 {
-    if (global.params.warnings && !global.gag)
-    {
-	va_list ap;
-	va_start(ap, format);
-	::vwarning(loc, format, ap);
-	va_end( ap );
-    }
+    va_list ap;
+    va_start(ap, format);
+    ::vwarning(loc, format, ap);
+    va_end( ap );
 }
 
 int Statement::hasBreak()
@@ -737,6 +734,7 @@ Statement *UnrolledLoopStatement::semantic(Scope *sc)
 	Statement *s = (Statement *) statements->data[i];
 	if (s)
 	{
+	    //printf("[%d]: %s\n", i, s->toChars());
 	    s = s->semantic(scd);
 	    statements->data[i] = s;
 	}
@@ -797,6 +795,7 @@ int UnrolledLoopStatement::blockExit()
     }
     return result;
 }
+
 
 int UnrolledLoopStatement::comeFrom()
 {   int comefrom = FALSE;
@@ -3466,7 +3465,6 @@ Statement *ReturnStatement::semantic(Scope *sc)
 	Statement *s = new ExpStatement(loc, exp);
 	exp = NULL;
 	s = s->semantic(sc);
-	loc = 0;
 	return new CompoundStatement(loc, s, this);
     }
 

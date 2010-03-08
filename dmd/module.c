@@ -905,6 +905,7 @@ void Module::gensymfile()
 
 int Module::needModuleInfo()
 {
+    //printf("needModuleInfo() %s, %d, %d\n", toChars(), needmoduleinfo, global.params.cov);
     return needmoduleinfo;
 }
 
@@ -943,6 +944,13 @@ Dsymbol *Module::symtabInsert(Dsymbol *s)
     return Package::symtabInsert(s);
 }
 
+void Module::clearCache()
+{
+    for (int i = 0; i < amodules.dim; i++)
+    {	Module *m = (Module *)amodules.data[i];
+	m->searchCacheIdent = NULL;
+    }
+}
 
 /*******************************************
  * Can't run semantic on s now, try again later.

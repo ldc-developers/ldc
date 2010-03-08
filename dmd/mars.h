@@ -94,6 +94,7 @@ the target object file format:
 #define STRUCTTHISREF DMDV2	// if 'this' for struct is a reference, not a pointer
 #define SNAN_DEFAULT_INIT DMDV2	// if floats are default initialized to signalling NaN
 #define SARRAYVALUE DMDV2	// static arrays are value types
+#define MODULEINFO_IS_STRUCT DMDV2   // if ModuleInfo is a struct rather than a class
 
 // Set if C++ mangling is done by the front end
 #define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS))
@@ -182,6 +183,8 @@ struct Param
     bool useInline;     // inline expand functions
     bool warnings;      // enable warnings
     ubyte Dversion;	// D version number
+			// 1: warnings as errors
+			// 2: informational warnings (no errors)
     char safe;		// enforce safe memory model
 
     char *argv0;	// program name
@@ -283,7 +286,8 @@ struct Global
 
     Param params;
     unsigned errors;	// number of errors reported so far
-    unsigned gag;	// !=0 means gag reporting of errors
+    unsigned warnings;	// number of warnings reported so far
+    unsigned gag;	// !=0 means gag reporting of errors & warnings
 
     Global();
 };
@@ -426,10 +430,9 @@ typedef uint64_t StorageClass;
 
 
 void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
-void vwarning(Loc loc, const char *format, va_list);
 void error(Loc loc, const char *format, ...) IS_PRINTF(2);
 void verror(Loc loc, const char *format, va_list);
-
+void vwarning(Loc loc, const char *format, va_list);
 #ifdef __GNUC__
 __attribute__((noreturn))
 #endif

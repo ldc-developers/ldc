@@ -61,9 +61,9 @@ Global::Global()
     obj_ext_alt = "obj";
 #endif
 
-    copyright = "Copyright (c) 1999-2009 by Digital Mars and Tomas Lindquist Olsen";
+    copyright = "Copyright (c) 1999-2010 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.056";
+    version = "v1.057";
     ldc_version = LDC_REV;
     llvm_version = LLVM_REV_STR;
     global.structalign = 8;
@@ -116,13 +116,10 @@ void error(Loc loc, const char *format, ...)
 
 void warning(Loc loc, const char *format, ...)
 {
-    if (global.params.warnings && !global.gag)
-    {
-        va_list ap;
-        va_start(ap, format);
-        vwarning(loc, format, ap);
-        va_end( ap );
-    }
+    va_list ap;
+    va_start(ap, format);
+    vwarning(loc, format, ap);
+    va_end( ap );
 }
 
 void verror(Loc loc, const char *format, va_list ap)
@@ -147,16 +144,26 @@ void vwarning(Loc loc, const char *format, va_list ap)
 {
     if (global.params.warnings && !global.gag)
     {
-        char *p = loc.toChars();
+	char *p = loc.toChars();
 
-        if (*p)
-            fprintf(stdmsg, "%s: ", p);
-        mem.free(p);
+	if (*p)
+	    fprintf(stdmsg, "%s: ", p);
+	mem.free(p);
 
-        fprintf(stdmsg, "Warning: ");
-        vfprintf(stdmsg, format, ap);
-        fprintf(stdmsg, "\n");
-        fflush(stdmsg);
+	fprintf(stdmsg, "Warning: ");
+#if _MSC_VER
+	// MS doesn't recognize %zu format
+	OutBuffer tmp;
+	tmp.vprintf(format, ap);
+	fprintf(stdmsg, "%s", tmp.toChars());
+#else
+	vfprintf(stdmsg, format, ap);
+#endif
+	fprintf(stdmsg, "\n");
+	fflush(stdmsg);
+//halt();
+	if (global.params.warnings == 1)
+	    global.warnings++;	// warnings don't count if gagged
     }
 }
 
@@ -183,6 +190,7 @@ void halt()
     *(char*)0=0;
 #endif
 }
+
 
 /***********************************
  * Parse and append contents of environment variable envvar
