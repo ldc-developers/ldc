@@ -3,7 +3,7 @@
 
 // Make it easier to test new linkage types
 
-#  define TEMPLATE_LINKAGE_TYPE         llvm::GlobalValue::LinkOnceODRLinkage
+#  define TEMPLATE_LINKAGE_TYPE         llvm::GlobalValue::WeakODRLinkage
 #  define TYPEINFO_LINKAGE_TYPE         llvm::GlobalValue::LinkOnceODRLinkage
 // The One-Definition-Rule shouldn't matter for debug info, right?
 #  define DEBUGINFO_LINKONCE_LINKAGE_TYPE \
