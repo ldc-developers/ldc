@@ -1572,3 +1572,36 @@ Type * stripModifiers( Type * type )
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* makeLValue(Loc& loc, DValue* value)
+{
+    Type* valueType = value->getType();
+    bool needsMemory;
+    LLValue* valuePointer;
+    if (value->isIm()) {
+        valuePointer = value->getRVal();
+        needsMemory = !DtoIsPassedByRef(valueType);
+    }
+    else if (DVarValue* var = value->isVar()) {
+        valuePointer = value->getLVal();
+        needsMemory = false;
+    }
+    else if (value->isConst()) {
+        valuePointer = value->getRVal();
+        needsMemory = true;
+    }
+    else {
+        valuePointer = DtoAlloca(valueType, ".makelvaluetmp");
+        DVarValue var(valueType, valuePointer);
+        DtoAssign(loc, &var, value);
+        needsMemory = false;
+    }
+
+    if (needsMemory) {
+        LLValue* tmp = DtoAlloca(valueType, ".makelvaluetmp");
+        DtoStore(valuePointer, tmp);
+        valuePointer = tmp;
+    }
+
+    return valuePointer;
+}

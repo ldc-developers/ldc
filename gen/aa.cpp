@@ -14,41 +14,6 @@
 #include "gen/dvalue.h"
 #include "ir/irmodule.h"
 
-// makes sure the key value lives in memory so it can be passed to the runtime functions without problems
-// returns the pointer
-static LLValue* to_pkey(Loc& loc, DValue* key)
-{
-    Type* keytype = key->getType();
-    bool needmem = !DtoIsPassedByRef(keytype);
-    LLValue* pkey;
-    if (key->isIm()) {
-        pkey = key->getRVal();
-    }
-    else if (DVarValue* var = key->isVar()) {
-        pkey = key->getLVal();
-        needmem = false;
-    }
-    else if (key->isConst()) {
-        needmem = true;
-        pkey = key->getRVal();
-    }
-    else {
-        LLValue* tmp = DtoAlloca(keytype, "aatmpkeystorage");
-        DVarValue var(keytype, tmp);
-        DtoAssign(loc, &var, key);
-        return tmp;
-    }
-
-    // give memory
-    if (needmem) {
-        LLValue* tmp = DtoAlloca(keytype, "aatmpkeystorage");
-        DtoStore(pkey, tmp);
-        pkey = tmp;
-    }
-
-    return pkey;
-}
-
 // returns the keytype typeinfo
 static LLValue* to_keyti(DValue* key)
 {
@@ -79,7 +44,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
-    LLValue* pkey = to_pkey(loc, key);
+    LLValue* pkey = makeLValue(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(lvalue ? 3 : 2));
 
     // call runtime
@@ -164,7 +129,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
-    LLValue* pkey = to_pkey(loc, key);
+    LLValue* pkey = makeLValue(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
     // call runtime
@@ -206,7 +171,7 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
-    LLValue* pkey = to_pkey(loc, key);
+    LLValue* pkey = makeLValue(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
     // build arg vector

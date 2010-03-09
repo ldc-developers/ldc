@@ -146,6 +146,11 @@ IrModule* getIrModule(Module* M);
 /// Returns the offset rounded up to the closest safely aligned offset.
 size_t realignOffset(size_t offset, Type* type);
 
+/// Returns the llvm::Value of the passed DValue, making sure that it is an
+/// lvalue (has a memory address), so it can be passed to the D runtime
+/// functions without problems.
+LLValue* makeLValue(Loc& loc, DValue* value);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////

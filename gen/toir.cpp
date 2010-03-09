@@ -2234,7 +2234,7 @@ DValue* CatAssignExp::toElem(IRState* p)
     Type* e2type = e2->type->toBasetype();
 
     if (e2type == elemtype) {
-        DtoCatAssignElement(e1type, l, e2);
+        DtoCatAssignElement(loc, e1type, l, e2);
     }
     else if (e1type == e2type) {
         DSliceValue* slice = DtoCatAssignArray(l,e2);

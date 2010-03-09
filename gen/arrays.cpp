@@ -532,23 +532,14 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoCatAssignElement(Type* arrayType, DValue* array, Expression* exp)
+void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* exp)
 {
     Logger::println("DtoCatAssignElement");
     LOG_SCOPE;
 
     assert(array);
 
-    DValue *expVal = exp->toElem(gIR);
-    LLValue *valueToAppend;
-    if (expVal->isLVal())
-        valueToAppend = expVal->getLVal();
-    else {
-        valueToAppend = DtoAlloca(expVal->getType(), ".appendingElementOnStack");
-        DVarValue lval(expVal->getType(), valueToAppend);
-        Loc loc;
-        DtoAssign(loc, &lval, expVal);
-    }
+    LLValue *valueToAppend = makeLValue(loc, exp->toElem(gIR));
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcT");
     LLSmallVector<LLValue*,3> args;
