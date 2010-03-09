@@ -188,7 +188,7 @@ struct Module : Package
 #if IN_LLVM
     // LDC
     llvm::Module* genLLVMModule(llvm::LLVMContext& context, Ir* sir);
-    void buildTargetFiles();
+    void buildTargetFiles(bool singleObj);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
     Module *isModule() { return this; }
 

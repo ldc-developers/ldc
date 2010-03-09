@@ -219,7 +219,7 @@ static void check_and_add_output_file(Module* NewMod, const std::string& str)
     files.insert(std::make_pair(str, NewMod));
 }
 
-void Module::buildTargetFiles()
+void Module::buildTargetFiles(bool singleObj)
 {
     if(objfile && 
        (!doDocComment || docfile) && 
@@ -252,7 +252,8 @@ void Module::buildTargetFiles()
 
     // LDC
     // another safety check to make sure we don't overwrite previous output files
-    check_and_add_output_file(this, objfile->name->str);
+    if (!singleObj)
+        check_and_add_output_file(this, objfile->name->str);
     if (docfile)
         check_and_add_output_file(this, docfile->name->str);
     if (hdrfile)

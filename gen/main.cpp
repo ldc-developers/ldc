@@ -781,7 +781,7 @@ LDC_TARGETS
         m->importedFrom = m;
         m->read(0);
         m->parse();
-        m->buildTargetFiles();
+        m->buildTargetFiles(singleObj);
         m->deleteObjFile();
         if (m->isDocFile)
         {
