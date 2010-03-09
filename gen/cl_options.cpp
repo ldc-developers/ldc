@@ -313,6 +313,9 @@ cl::opt<bool> singleObj("singleobj",
     cl::desc("Create only a single output object file"),
     cl::ZeroOrMore);
 
+cl::opt<bool> linkonceTemplates("linkonce-templates",
+    cl::desc("Use linkonce_odr linkage for template symbols instead of weak_odr"),
+    cl::ZeroOrMore);
 
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"

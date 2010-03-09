@@ -36,6 +36,7 @@
 #include "cond.h"
 
 #include "gen/logger.h"
+#include "gen/linkage.h"
 #include "gen/linker.h"
 #include "gen/irstate.h"
 #include "gen/optimizer.h"
@@ -258,6 +259,10 @@ int main(int argc, char** argv)
     global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
     global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
     global.params.output_s  = opts::output_s  ? OUTPUTFLAGset : OUTPUTFLAGno;
+
+    templateLinkage =
+        opts::linkonceTemplates ? LLGlobalValue::LinkOnceODRLinkage
+                                : LLGlobalValue::WeakODRLinkage;
 
     if (global.params.run || !runargs.empty()) {
         // FIXME: how to properly detect the presence of a PositionalEatsArgs

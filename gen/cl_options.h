@@ -42,6 +42,7 @@ namespace opts {
     extern cl::list<std::string> mAttrs;
     extern cl::opt<std::string> mTargetTriple;
     extern cl::opt<bool> singleObj;
+    extern cl::opt<bool> linkonceTemplates;
 
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;

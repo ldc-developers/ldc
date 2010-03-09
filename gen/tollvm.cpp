@@ -245,7 +245,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
             return llvm::GlobalValue::AvailableExternallyLinkage;
         // template
         if (needsTemplateLinkage(sym))
-            return TEMPLATE_LINKAGE_TYPE;
+            return templateLinkage;
     }
     // function
     else if (FuncDeclaration* fdecl = sym->isFuncDeclaration())
@@ -263,12 +263,12 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
             return llvm::GlobalValue::AvailableExternallyLinkage;
         // array operations are always template linkage
         if (fdecl->isArrayOp)
-            return TEMPLATE_LINKAGE_TYPE;
+            return templateLinkage;
         // template instances should have weak linkage
         // but only if there's a body, and it's not naked
         // otherwise we make it external
         else if (needsTemplateLinkage(fdecl) && fdecl->fbody && !fdecl->naked)
-            return TEMPLATE_LINKAGE_TYPE;
+            return templateLinkage;
         // extern(C) functions are always external
         else if (ft->linkage == LINKc)
             return llvm::GlobalValue::ExternalLinkage;
@@ -283,7 +283,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
             return llvm::GlobalValue::AvailableExternallyLinkage;
         // template
         if (needsTemplateLinkage(cd))
-            return TEMPLATE_LINKAGE_TYPE;
+            return templateLinkage;
     }
     else
     {
@@ -334,7 +334,7 @@ llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
     if (needsTemplateLinkage(sym)) {
         if (isAvailableExternally(sym) && mustDefineSymbol(sym))
             return llvm::GlobalValue::AvailableExternallyLinkage;
-        return TEMPLATE_LINKAGE_TYPE;
+        return templateLinkage;
     }
     else
         return llvm::GlobalValue::InternalLinkage;
@@ -345,7 +345,7 @@ llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
     if (isAvailableExternally(sym) && mustDefineSymbol(sym))
         return llvm::GlobalValue::AvailableExternallyLinkage;
     if (needsTemplateLinkage(sym))
-        return TEMPLATE_LINKAGE_TYPE;
+        return templateLinkage;
     else
         return llvm::GlobalValue::ExternalLinkage;
 }
