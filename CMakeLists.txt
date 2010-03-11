@@ -23,7 +23,6 @@ else(NOT PKG_CONFIG_FOUND)
     endif(NOT LIBCONFIGPP_FOUND)
 endif(NOT PKG_CONFIG_FOUND)
 
-
 find_program(LLVM_CONFIG llvm-config ${LLVM_INSTDIR}/bin DOC "path to llvm-config tool")
 # get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
 string(REPLACE "/bin/llvm-config" "" LLVM_DIR ${LLVM_CONFIG})
