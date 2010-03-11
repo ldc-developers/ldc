@@ -57,7 +57,7 @@ void ReturnStatement::toIR(IRState* p)
         DtoDwarfStopPoint(loc.linnum);
     
     // is there a return value expression?
-    if (exp)
+    if (exp || (!exp && (p->topfunc() == p->mainFunc)) )
     {
         // if the functions return type is void this means that
         // we are returning through a pointer argument
@@ -88,8 +88,12 @@ void ReturnStatement::toIR(IRState* p)
         // the return type is not void, so this is a normal "register" return
         else
         {
-            // do abi specific transformations on the return value
-            LLValue* v = p->func()->type->fty.putRet(exp->type, exp->toElem(p));
+            LLValue* v;
+            if (!exp && (p->topfunc() == p->mainFunc))
+                v = LLConstant::getNullValue(p->mainFunc->getReturnType());
+            else
+                // do abi specific transformations on the return value
+                v = p->func()->type->fty.putRet(exp->type, exp->toElem(p));
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
