@@ -102,7 +102,7 @@ set_target_properties(
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
-# 
+#
 add_custom_command(
 	OUTPUT
 		${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
@@ -117,7 +117,7 @@ add_custom_command(
 	OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
 	# 2.4
 	COMMAND ${IMPCNVGEN_LOC}
-	#COMMAND impcnvgen 
+	#COMMAND impcnvgen
 	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
 	DEPENDS impcnvgen
 )
@@ -193,6 +193,7 @@ add_definitions(
 	-DIN_LLVM
 	-D_DH
 	-DOPAQUE_VTBLS
+    -DDISABLE_DEBUG_INFO
 )
 
 if(UNIX)
@@ -248,7 +249,7 @@ set_target_properties(
 	${LDC_EXE} PROPERTIES
 	OUTPUT_NAME ${LDC_EXE_NAME}
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-	COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings"
+	COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
