@@ -160,9 +160,11 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     // call
     gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
 
+    #ifndef DISABLE_DEBUG_INFO
     // end debug info
     if (global.params.symdebug)
         DtoDwarfFuncEnd(gIR->func()->decl);
+    #endif
 
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();
@@ -268,7 +270,7 @@ void DtoEnclosingHandlers(Loc loc, Statement* target)
 {
     // labels are a special case: they are not required to enclose the current scope
     // for them we use the enclosing scope handler as a reference point
-    LabelStatement* lblstmt = dynamic_cast<LabelStatement*>(target);
+    LabelStatement* lblstmt = target ? target->isLabelStatement() : 0;
     if (lblstmt)
         target = lblstmt->enclosingScopeExit;
 
@@ -485,7 +487,7 @@ DValue* DtoNullValue(Type* type)
     }
 
     // unknown
-    llvm::cout << "unsupported: null value for " << type->toChars() << '\n';
+    error("unsupported: null value for %s", type->toChars());
     assert(0);
     return 0;
 
@@ -854,6 +856,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
         gvar->setInitializer(initVal);
 
+        #ifndef DISABLE_DEBUG_INFO
         // do debug info
         if (global.params.symdebug)
         {
@@ -861,6 +864,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
             // keep a reference so GDCE doesn't delete it !
             gIR->usedArray.push_back(llvm::ConstantExpr::getBitCast(gv, getVoidPtrType()));
         }
+        #endif
     }
 }
 
@@ -906,11 +910,11 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 ExpInitializer* ex = vd->init->isExpInitializer();
                 assert(ex && "ref vars must have expression initializer");
                 assert(ex->exp);
-                AssignExp* as = dynamic_cast<AssignExp*>(ex->exp);
+                AssignExp* as = ex->exp->isAssignExp();
                 assert(as && "ref vars must be initialized by an assign exp");
                 vd->ir.irLocal->value = as->e2->toElem(gIR)->getLVal();
             }
-            
+
             // referenced by nested delegate?
         #if DMDV2
             if (vd->nestedrefs.dim) {
@@ -919,7 +923,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         #endif
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
-                
+
                 DtoNestedInit(vd);
             }
             // normal stack variable, allocate storage on the stack if it has not already been done
@@ -937,10 +941,10 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->ir.irLocal->value = allocainst;
 
+                #ifndef DISABLE_DEBUG_INFO
                 if (global.params.symdebug)
-                {
                     DtoDwarfLocalVariable(allocainst, vd);
-                }
+                #endif
             }
             else
             {
@@ -1046,18 +1050,20 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 
     // we don't handle aliases either
     assert(!var->aliassym);
-    
+
     // alloca if necessary
     LLValue* allocaval = NULL;
     if (!addr && (!var->ir.irLocal || !var->ir.irLocal->value))
     {
         addr = DtoAlloca(var->type, var->toChars());
-        
+
+        #ifndef DISABLE_DEBUG_INFO
         // add debug info
         if (global.params.symdebug)
             DtoDwarfLocalVariable(addr, var);
+        #endif
     }
-        
+
     // referenced by nested function?
 #if DMDV2
     if (var->nestedrefs.dim)
@@ -1294,7 +1300,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     Logger::println("template instance: %s", ti->toChars());
     Logger::println("template declaration: %s", td->toChars());
     Logger::println("intrinsic name: %s", td->intrinsicName.c_str());
-    
+
     // for now use the size in bits of the first template param in the instance
     assert(ti->tdtypes.dim == 1);
     Type* T = (Type*)ti->tdtypes.data[0];
@@ -1307,7 +1313,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
     char tmp[21]; // probably excessive, but covers a uint64_t
     sprintf(tmp, "%lu", (unsigned long) gTargetData->getTypeSizeInBits(DtoType(T)));
-    
+
     // replace # in name with bitsize
     name = td->intrinsicName;
 
@@ -1330,7 +1336,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
             fatal(); // or LLVM asserts
         }
     }
-    
+
     Logger::println("final intrinsic name: %s", name.c_str());
 }
 
@@ -1340,7 +1346,7 @@ bool mustDefineSymbol(Dsymbol* s)
 {
     if (FuncDeclaration* fd = s->isFuncDeclaration())
     {
-        // we can't (and probably shouldn't?) define functions 
+        // we can't (and probably shouldn't?) define functions
         // that weren't semantic3'ed
         if (fd->semanticRun < 4)
             return false;
@@ -1352,7 +1358,7 @@ bool mustDefineSymbol(Dsymbol* s)
             // Emit extra functions if we're inlining.
             // These will get available_externally linkage,
             // so they shouldn't end up in object code.
-            
+
             assert(fd->type->ty == Tfunction);
             TypeFunction* tf = (TypeFunction*) fd->type;
             // * If we define extra static constructors, static destructors
@@ -1371,7 +1377,7 @@ bool mustDefineSymbol(Dsymbol* s)
             {
                 return true;
             }
-            
+
             // This was only semantic'ed for inlining checks.
             // We won't be inlining this, so we only need to emit a declaration.
             return false;
@@ -1396,7 +1402,7 @@ bool mustDefineSymbol(Dsymbol* s)
     {
         if (!opts::singleObj)
             return true;
-    
+
         if (!tinst->emittedInModule)
         {
             gIR->seenTemplateInstances.insert(tinst);
@@ -1404,7 +1410,7 @@ bool mustDefineSymbol(Dsymbol* s)
         }
         return tinst->emittedInModule == gIR->dmodule;
     }
-    
+
     return s->getModule() == gIR->dmodule;
 }
 

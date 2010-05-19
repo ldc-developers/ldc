@@ -1,5 +1,6 @@
 #include "gen/llvm.h"
 #include "declaration.h"
+#include "gen/irstate.h"
 #include "ir/irvar.h"
 
 
@@ -18,7 +19,7 @@ IrVar::IrVar(VarDeclaration* var)
 //////////////////////////////////////////////////////////////////////////////
 
 IrGlobal::IrGlobal(VarDeclaration* v): IrVar(v),
-    type(llvm::OpaqueType::get(llvm::getGlobalContext()))
+    type(llvm::OpaqueType::get(gIR->context()))
 {
     constInit = NULL;
 }

@@ -309,7 +309,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* constarr;
     if (mismatch)
-        constarr = LLConstantStruct::get(gIR->context(), initvals);
+        constarr = LLConstantStruct::get(gIR->context(), initvals, false); // FIXME should this pack?
     else
         constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
 
@@ -394,7 +394,7 @@ void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr)
 {
     LLConstant* values[2] = { dim, ptr };
-    return LLConstantStruct::get(gIR->context(), values, 2);
+    return LLConstantStruct::get(gIR->context(), values, 2, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

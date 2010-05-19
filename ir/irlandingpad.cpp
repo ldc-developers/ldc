@@ -133,7 +133,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     }
     // if there's a finally, the eh table has to have a 0 action
     if(hasFinally)
-        selectorargs.push_back(DtoConstSize_t(0));//LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0));
+        selectorargs.push_back(DtoConstUint(0));
 
     // personality fn
     llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
@@ -144,18 +144,14 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     selectorargs.insert(selectorargs.begin(), eh_ptr);
 
     // if there is a catch and some catch allocated storage, store exception object
-    if(catchToInt.size() && catch_var) 
+    if(catchToInt.size() && catch_var)
     {
         const LLType* objectTy = DtoType(ClassDeclaration::object->type);
         gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
     }
 
     // eh_sel = llvm.eh.selector(eh_ptr, cast(byte*)&_d_eh_personality, <selectorargs>);
-    llvm::Function* eh_selector_fn;
-    if (global.params.is64bit)
-        eh_selector_fn = GET_INTRINSIC_DECL(eh_selector_i64);
-    else
-        eh_selector_fn = GET_INTRINSIC_DECL(eh_selector_i32);
+    llvm::Function* eh_selector_fn = GET_INTRINSIC_DECL(eh_selector);
     LLValue* eh_sel = gIR->ir->CreateCall(eh_selector_fn, selectorargs.begin(), selectorargs.end());
 
     // emit finallys and switches that branch to catches until there are no more catches
@@ -186,7 +182,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             }
             // dubious comment
             // catches matched first get the largest switchval, so do size - unique int
-            llvm::ConstantInt* switchval = LLConstantInt::get(DtoSize_t(), catchToInt[rit->catchType]);
+            llvm::ConstantInt* switchval = DtoConstUint(catchToInt[rit->catchType]);
             // and make sure we don't add the same switchval twice, may happen with nested trys
             if(!switchinst->findCaseValue(switchval))
                 switchinst->addCase(switchval, rit->target);

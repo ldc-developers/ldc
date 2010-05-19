@@ -41,6 +41,7 @@ struct TemplateDeclaration;
 struct ClassDeclaration;
 struct HdrGenState;
 struct BinExp;
+struct AssignExp;
 struct InterState;
 struct OverloadSet;
 
@@ -177,6 +178,8 @@ struct Expression : Object
     virtual void cacheLvalue(IRState* irs);
 
     llvm::Value* cachedLvalue;
+
+    virtual AssignExp* isAssignExp() { return NULL; }
 #endif
 };
 
@@ -942,7 +945,7 @@ struct DotIdExp : UnaExp
 struct DotTemplateExp : UnaExp
 {
     TemplateDeclaration *td;
-    
+
     DotTemplateExp(Loc loc, Expression *e, TemplateDeclaration *td);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
@@ -1378,6 +1381,8 @@ struct AssignExp : BinExp
 #if IN_LLVM
     DValue* toElem(IRState* irs);
 #endif
+
+    AssignExp* isAssignExp() { return this; }
 };
 
 #if IN_DMD

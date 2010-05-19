@@ -1,6 +1,8 @@
 #ifndef LDC_GEN_TODEBUG_H
 #define LDC_GEN_TODEBUG_H
 
+#ifndef DISABLE_DEBUG_INFO
+
 void RegisterDwarfSymbols(llvm::Module* mod);
 
 /**
@@ -19,7 +21,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd);
 
 /**
  * Emit the Dwarf subprogram global for a internal function.
- * This is used for generated functions like moduleinfoctors, 
+ * This is used for generated functions like moduleinfoctors,
  * module ctors/dtors and unittests.
  * @return the Dwarf subprogram global.
  */
@@ -39,12 +41,12 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
 
 /**
  * Emits all things necessary for making debug info for a global variable vd.
- * @param ll 
- * @param vd 
- * @return 
+ * @param ll
+ * @param vd
+ * @return
  */
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
 
+#endif // DISABLE_DEBUG_INFO
+
 #endif // LDC_GEN_TODEBUG_H
-
-

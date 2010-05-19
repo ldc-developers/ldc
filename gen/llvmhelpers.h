@@ -156,7 +156,7 @@ LLValue* makeLValue(Loc& loc, DValue* value);
 ////////////////////////////////////////////
 
 /// convert DMD calling conv to LLVM
-unsigned DtoCallingConv(Loc loc, LINK l);
+llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l);
 
 ///
 TypeFunction* DtoTypeFunction(DValue* fnval);

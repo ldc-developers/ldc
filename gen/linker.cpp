@@ -106,7 +106,7 @@ int linkExecutable(const char* argv0)
             error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
             fatal();
         }
-    }    
+    }
 
     // strip debug info
     if (!global.params.symdebug)
@@ -222,13 +222,13 @@ int linkObjToExecutable(const char* argv0)
     // find gcc for linking
     llvm::sys::Path gcc = getGcc();
     // get a string version for argv[0]
-    std::string gccStr = gcc.toString();
+    const char* gccStr = gcc.c_str();
 
     // build arguments
     std::vector<const char*> args;
 
     // first the program name ??
-    args.push_back(gccStr.c_str());
+    args.push_back(gccStr);
 
     // object files
     for (int i = 0; i < global.params.objfiles->dim; i++)
@@ -274,7 +274,7 @@ int linkObjToExecutable(const char* argv0)
             error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
             fatal();
         }
-    }    
+    }
 
     // additional linker switches
     for (int i = 0; i < global.params.linkswitches->dim; i++)
@@ -292,7 +292,7 @@ int linkObjToExecutable(const char* argv0)
 
     // default libs
     switch(global.params.os) {
-    case OSLinux: 
+    case OSLinux:
     case OSMacOSX:
         args.push_back("-ldl");
         // fallthrough
@@ -330,12 +330,12 @@ int linkObjToExecutable(const char* argv0)
     }
 
     Logger::println("Linking with: ");
-    std::vector<const char*>::const_iterator I = args.begin(), E = args.end(); 
+    std::vector<const char*>::const_iterator I = args.begin(), E = args.end();
     Stream logstr = Logger::cout();
     for (; I != E; ++I)
         if (*I)
             logstr << "'" << *I << "'" << " ";
-    logstr << "\n" << std::flush;
+    logstr << "\n"; // FIXME where's flush ?
 
 
     // terminate args list
@@ -349,7 +349,7 @@ int linkObjToExecutable(const char* argv0)
             error("message: %s", errstr.c_str());
         return status;
     }
-    
+
     return 0;
 }
 
@@ -375,7 +375,7 @@ int runExecutable()
     // build arguments
     std::vector<const char*> args;
     // args[0] should be the name of the executable
-    args.push_back(gExePath.toString().c_str());
+    args.push_back(gExePath.c_str());
     // Skip first argument to -run; it's a D source file.
     for (size_t i = 1, length = opts::runargs.size(); i < length; i++)
     {

@@ -17,19 +17,19 @@ static char toLower(char c) {
     return c;
 }
 
-bool FlagParser::parse(cl::Option &O, const char *ArgName, const std::string &Arg, bool &Val) {
+bool FlagParser::parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, bool &Val) {
     // Make a std::string out of it to make comparisons easier
     // (and avoid repeated conversion)
-    std::string argname = ArgName;
-    
+    llvm::StringRef argname = ArgName;
+
     typedef std::vector<std::pair<std::string, bool> >::iterator It;
     for (It I = switches.begin(), E = switches.end(); I != E; ++I) {
-        std::string name = I->first;
+        llvm::StringRef name = I->first;
         if (name == argname
-                || (name.length() < argname.length()
-                    && argname.substr(0, name.length()) == name
-                    && argname[name.length()] == '=')) {
-            
+                || (name.size() < argname.size()
+                    && argname.substr(0, name.size()) == name
+                    && argname[name.size()] == '=')) {
+
             if (!cl::parser<bool>::parse(O, ArgName, Arg, Val)) {
                 Val = (Val == I->second);
                 return false;
@@ -41,10 +41,10 @@ bool FlagParser::parse(cl::Option &O, const char *ArgName, const std::string &Ar
     return true;
 }
 
-void FlagParser::getExtraOptionNames(std::vector<const char*> &Names) {
+void FlagParser::getExtraOptionNames(llvm::SmallVectorImpl<const char*> &Names) {
     typedef std::vector<std::pair<std::string, bool> >::iterator It;
     for (It I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
-        Names.push_back(I->first.c_str());
+        Names.push_back(I->first.data());
     }
 }
 
@@ -60,7 +60,7 @@ MultiSetter::MultiSetter(bool invert, bool* p, ...) {
         }
     }
 }
-        
+
 void MultiSetter::operator=(bool val) {
     typedef std::vector<bool*>::iterator It;
     for (It I = locations.begin(), E = locations.end(); I != E; ++I) {
@@ -72,7 +72,7 @@ void MultiSetter::operator=(bool val) {
 void ArrayAdapter::push_back(const char* cstr) {
     if (!cstr || !*cstr)
         error("Expected argument to '-%s'", name);
-    
+
     if (!*arrp)
         *arrp = new Array;
     (*arrp)->push(mem.strdup(cstr));

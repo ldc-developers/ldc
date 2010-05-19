@@ -95,7 +95,7 @@ bool optimize() {
 
 static void addPass(PassManager& pm, Pass* pass) {
     pm.add(pass);
-    
+
     if (verifyEach) pm.add(createVerifierPass());
 }
 
@@ -107,7 +107,7 @@ static void addPassesForOptLevel(PassManager& pm) {
     {
         //addPass(pm, createStripDeadPrototypesPass());
         addPass(pm, createGlobalDCEPass());
-        addPass(pm, createRaiseAllocationsPass());
+        addPass(pm, createPromoteMemoryToRegisterPass());
         addPass(pm, createCFGSimplificationPass());
         if (optimizeLevel == 1)
             addPass(pm, createPromoteMemoryToRegisterPass());
@@ -165,7 +165,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createInstructionCombiningPass());
     }
-    
+
     // -O3
     if (optimizeLevel >= 3)
     {
@@ -177,7 +177,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createScalarReplAggregatesPass());
         addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createCondPropagationPass());
+        addPass(pm, createConstantPropagationPass());
 
         addPass(pm, createReassociatePass());
         addPass(pm, createLoopRotatePass());
@@ -194,7 +194,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createSCCPPass());
 
         addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createCondPropagationPass());
+        addPass(pm, createConstantPropagationPass());
 
         addPass(pm, createDeadStoreEliminationPass());
         addPass(pm, createAggressiveDCEPass());
@@ -220,9 +220,9 @@ bool ldc_optimize_module(llvm::Module* m)
         return false;
 
     PassManager pm;
-    
+
     if (verifyEach) pm.add(createVerifierPass());
-    
+
     addPass(pm, new TargetData(m));
 
     bool optimize = optimizeLevel != 0 || doInline();

@@ -19,6 +19,8 @@
 
 using namespace llvm::dwarf;
 
+#ifndef DISABLE_DEBUG_INFO
+
 #define DBG_NULL    ( LLConstant::getNullValue(DBG_TYPE) )
 #define DBG_TYPE    ( getPtrToType(llvm::StructType::get(gIR->context(),NULL,NULL)) )
 #define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
@@ -220,7 +222,7 @@ static void add_base_fields(
     }
 }
 
-//FIXME: This does not use llvm's DIFactory as it can't 
+//FIXME: This does not use llvm's DIFactory as it can't
 //   handle recursive types properly.
 static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit compileUnit)
 {
@@ -530,7 +532,7 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
         false, // isMain,
         false // isOptimized
     );
-    
+
     // if the linkage stays internal, we can't llvm-link the generated modules together:
     // llvm's DwarfWriter uses path and filename to determine the symbol name and we'd
     // end up with duplicate symbols
@@ -636,3 +638,5 @@ void DtoDwarfStopPoint(unsigned ln)
         gIR->scopebb()
     );
 }
+
+#endif

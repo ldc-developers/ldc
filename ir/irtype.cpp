@@ -1,9 +1,13 @@
 #include "llvm/DerivedTypes.h"
+#include "llvm/LLVMContext.h"
 #include "mars.h"
 #include "mtype.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "ir/irtype.h"
+
+// This code uses llvm::getGlobalContext() as these functions are invoked before gIR is set.
+// ... thus it segfaults on gIR==NULL
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -43,30 +47,31 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 {
     const llvm::Type* t2;
 
-    // FIXME: don't use getGlobalContext
+    llvm::LLVMContext& ctx = llvm::getGlobalContext();
+
     switch(t->ty)
     {
     case Tvoid:
-        return llvm::Type::getVoidTy(llvm::getGlobalContext());
+        return llvm::Type::getVoidTy(ctx);
 
     case Tint8:
     case Tuns8:
     case Tchar:
-        return llvm::Type::getInt8Ty(llvm::getGlobalContext());
+        return llvm::Type::getInt8Ty(ctx);
 
     case Tint16:
     case Tuns16:
     case Twchar:
-        return llvm::Type::getInt16Ty(llvm::getGlobalContext());
+        return llvm::Type::getInt16Ty(ctx);
 
     case Tint32:
     case Tuns32:
     case Tdchar:
-        return llvm::Type::getInt32Ty(llvm::getGlobalContext());
+        return llvm::Type::getInt32Ty(ctx);
 
     case Tint64:
     case Tuns64:
-        return llvm::Type::getInt64Ty(llvm::getGlobalContext());
+        return llvm::Type::getInt64Ty(ctx);
 
     /*
     case Tint128:
@@ -76,37 +81,37 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 
     case Tfloat32:
     case Timaginary32:
-        return llvm::Type::getFloatTy(llvm::getGlobalContext());
+        return llvm::Type::getFloatTy(ctx);
 
     case Tfloat64:
     case Timaginary64:
-        return llvm::Type::getDoubleTy(llvm::getGlobalContext());
+        return llvm::Type::getDoubleTy(ctx);
 
     case Tfloat80:
     case Timaginary80:
         // only x86 has 80bit float
         if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            return llvm::Type::getX86_FP80Ty(llvm::getGlobalContext());
+            return llvm::Type::getX86_FP80Ty(ctx);
         // other platforms use 64bit reals
         else
-            return llvm::Type::getDoubleTy(llvm::getGlobalContext());
+            return llvm::Type::getDoubleTy(ctx);
 
     case Tcomplex32:
-        t2 = llvm::Type::getFloatTy(llvm::getGlobalContext());
-        return llvm::StructType::get(llvm::getGlobalContext(), t2, t2, NULL);
+        t2 = llvm::Type::getFloatTy(ctx);
+        return llvm::StructType::get(ctx, t2, t2, NULL);
 
     case Tcomplex64:
-        t2 = llvm::Type::getDoubleTy(llvm::getGlobalContext());
-        return llvm::StructType::get(llvm::getGlobalContext(), t2, t2, NULL);
+        t2 = llvm::Type::getDoubleTy(ctx);
+        return llvm::StructType::get(ctx, t2, t2, NULL);
 
     case Tcomplex80:
         t2 = (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            ? llvm::Type::getX86_FP80Ty(llvm::getGlobalContext())
-            : llvm::Type::getDoubleTy(llvm::getGlobalContext());
-        return llvm::StructType::get(llvm::getGlobalContext(), t2, t2, NULL);
+            ? llvm::Type::getX86_FP80Ty(ctx)
+            : llvm::Type::getDoubleTy(ctx);
+        return llvm::StructType::get(ctx, t2, t2, NULL);
 
     case Tbool:
-        return llvm::Type::getInt1Ty(llvm::getGlobalContext());
+        return llvm::Type::getInt1Ty(ctx);
     }
 
     assert(0 && "not basic type");

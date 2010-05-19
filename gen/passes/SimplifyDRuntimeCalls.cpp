@@ -18,6 +18,7 @@
 
 #include "Passes.h"
 
+#include "llvm/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/Support/IRBuilder.h"
@@ -48,25 +49,25 @@ namespace {
         const TargetData *TD;
         AliasAnalysis *AA;
         LLVMContext *Context;
-        
+
         /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
         Value *CastToCStr(Value *V, IRBuilder<> &B);
-        
+
         /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This
         /// always expects that the size has type 'intptr_t' and Dst/Src are pointers.
-        Value *EmitMemCpy(Value *Dst, Value *Src, Value *Len, 
+        Value *EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                           unsigned Align, IRBuilder<> &B);
     public:
         LibCallOptimization() { }
         virtual ~LibCallOptimization() {}
-        
+
         /// CallOptimizer - This pure virtual method is implemented by base classes to
         /// do various optimizations.  If this returns null then no transformation was
         /// performed.  If it returns CI, then it transformed the call and CI is to be
         /// deleted.  If it returns something else, replace CI with the new value and
         /// delete CI.
         virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B)=0;
-        
+
         Value *OptimizeCall(CallInst *CI, bool& Changed, const TargetData &TD,
                 AliasAnalysis& AA, IRBuilder<> &B) {
             Caller = CI->getParent()->getParent();
@@ -116,27 +117,27 @@ struct VISIBILITY_HIDDEN ArraySetLengthOpt : public LibCallOptimization {
             FT->getParamType(1) != FT->getParamType(2) ||
             FT->getParamType(3) != FT->getReturnType())
           return 0;
-        
+
         // Whether or not this allocates is irrelevant if the result isn't used.
         // Just delete if that's the case.
         if (CI->use_empty())
             return CI;
-        
+
         Value* NewLen = CI->getOperand(2);
         if (Constant* NewCst = dyn_cast<Constant>(NewLen)) {
             Value* Data = CI->getOperand(4);
-            
+
             // For now, we just catch the simplest of cases.
             //
             // TODO: Implement a more general way to compare old and new
             //       lengths, to catch cases like "arr.length = arr.length - 1;"
             //       (But beware of unsigned overflow! For example, we can't
             //       safely transform that example if arr.length may be 0)
-            
+
             // Setting length to 0 never reallocates, so replace by data argument
             if (NewCst->isNullValue())
                 return Data;
-            
+
             // If both lengths are constant integers, see if NewLen <= OldLen
             Value* OldLen = CI->getOperand(3);
             if (ConstantInt* OldInt = dyn_cast<ConstantInt>(OldLen))
@@ -157,27 +158,27 @@ struct VISIBILITY_HIDDEN ArrayCastLenOpt : public LibCallOptimization {
         if (Callee->arg_size() != 3 || !isa<IntegerType>(RetTy) ||
             FT->getParamType(1) != RetTy || FT->getParamType(2) != RetTy)
           return 0;
-        
+
         Value* OldLen = CI->getOperand(1);
         Value* OldSize = CI->getOperand(2);
         Value* NewSize = CI->getOperand(3);
-        
+
         // If the old length was zero, always return zero.
         if (Constant* LenCst = dyn_cast<Constant>(OldLen))
             if (LenCst->isNullValue())
                 return OldLen;
-        
+
         // Equal sizes are much faster to check for, so do so now.
         if (OldSize == NewSize)
             return OldLen;
-        
+
         // If both sizes are constant integers, see if OldSize is a multiple of NewSize
         if (ConstantInt* OldInt = dyn_cast<ConstantInt>(OldSize))
             if (ConstantInt* NewInt = dyn_cast<ConstantInt>(NewSize)) {
                 // Don't crash on NewSize == 0, even though it shouldn't happen.
                 if (NewInt->isNullValue())
                     return 0;
-                
+
                 APInt Quot, Rem;
                 APInt::udivrem(OldInt->getValue(), NewInt->getValue(), Quot, Rem);
                 if (Rem == 0)
@@ -195,7 +196,7 @@ struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
         // the start of inlined member functions)
         for (CallInst::use_iterator I = CI->use_begin(), E = CI->use_end() ; I != E;) {
             Instruction* User = cast<Instruction>(*I++);
-            
+
             if (ICmpInst* Cmp = dyn_cast<ICmpInst>(User)) {
                 if (!Cmp->isEquality())
                     continue;
@@ -215,7 +216,7 @@ struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
                 }
             }
         }
-        
+
         // If it's not used (anymore), pre-emptively GC it.
         if (CI->use_empty())
             return CI;
@@ -235,23 +236,23 @@ struct VISIBILITY_HIDDEN ArraySliceCopyOpt : public LibCallOptimization {
             FT->getParamType(2) != VoidPtrTy ||
             FT->getParamType(3) != FT->getParamType(1))
           return 0;
-        
+
         Value* Size = CI->getOperand(2);
-        
+
         // Check the lengths match
         if (CI->getOperand(4) != Size)
             return 0;
-        
+
         // Assume unknown size unless we have constant size (that fits in an uint)
         unsigned Sz = ~0U;
         if (ConstantInt* Int = dyn_cast<ConstantInt>(Size))
             if (Int->getValue().isIntN(32))
                 Sz = Int->getValue().getZExtValue();
-        
+
         // Check if the pointers may alias
         if (AA->alias(CI->getOperand(1), Sz, CI->getOperand(3), Sz))
             return 0;
-        
+
         // Equal length and the pointers definitely don't alias, so it's safe to
         // replace the call with memcpy
         return EmitMemCpy(CI->getOperand(1), CI->getOperand(3), Size, 0, B);
@@ -271,24 +272,24 @@ namespace {
     ///
     class VISIBILITY_HIDDEN SimplifyDRuntimeCalls : public FunctionPass {
         StringMap<LibCallOptimization*> Optimizations;
-        
+
         // Array operations
         ArraySetLengthOpt ArraySetLength;
         ArrayCastLenOpt ArrayCastLen;
         ArraySliceCopyOpt ArraySliceCopy;
-        
+
         // GC allocations
         AllocationOpt Allocation;
-        
+
         public:
         static char ID; // Pass identification
         SimplifyDRuntimeCalls() : FunctionPass(&ID) {}
-        
+
         void InitOptimizations();
         bool runOnFunction(Function &F);
-        
+
         bool runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA);
-            
+
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
           AU.addRequired<TargetData>();
           AU.addRequired<AliasAnalysis>();
@@ -302,7 +303,7 @@ X("simplify-drtcalls", "Simplify calls to D runtime");
 
 // Public interface to the pass.
 FunctionPass *createSimplifyDRuntimeCalls() {
-  return new SimplifyDRuntimeCalls(); 
+  return new SimplifyDRuntimeCalls();
 }
 
 /// Optimizations - Populate the Optimizations map with all the optimizations
@@ -313,7 +314,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
     Optimizations["_d_arraysetlengthiT"] = &ArraySetLength;
     Optimizations["_d_array_cast_len"] = &ArrayCastLen;
     Optimizations["_d_array_slice_copy"] = &ArraySliceCopy;
-    
+
     /* Delete calls to runtime functions which aren't needed if their result is
      * unused. That comes down to functions that don't do anything but
      * GC-allocate and initialize some memory.
@@ -339,10 +340,10 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
 bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     if (Optimizations.empty())
         InitOptimizations();
-    
+
     const TargetData &TD = getAnalysis<TargetData>();
     AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
-    
+
     // Iterate to catch opportunities opened up by other optimizations,
     // such as calls that are only used as arguments to unused calls:
     // When the second call gets deleted the first call will become unused, but
@@ -354,7 +355,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
         Changed = runOnce(F, TD, AA);
         EverChanged |= Changed;
     } while (Changed);
-    
+
     return EverChanged;
 }
 
@@ -367,33 +368,33 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
             // Ignore non-calls.
             CallInst *CI = dyn_cast<CallInst>(I++);
             if (!CI) continue;
-            
+
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CI->getCalledFunction();
             if (Callee == 0 || !Callee->isDeclaration() ||
                     !(Callee->hasExternalLinkage() || Callee->hasDLLImportLinkage()))
                 continue;
-            
+
             // Ignore unknown calls.
             StringMap<LibCallOptimization*>::iterator OMI =
                 Optimizations.find(Callee->getName());
             if (OMI == Optimizations.end()) continue;
-            
+
             DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);
-            
+
             // Set the builder to the instruction after the call.
             Builder.SetInsertPoint(BB, I);
-            
+
             // Try to optimize this call.
             Value *Result = OMI->second->OptimizeCall(CI, Changed, TD, AA, Builder);
             if (Result == 0) continue;
-            
+
             DEBUG(errs() << "SimplifyDRuntimeCalls simplified: " << *CI;
                   errs() << "  into: " << *Result << "\n");
-            
+
             // Something changed!
             Changed = true;
-            
+
             if (Result == CI) {
                 assert(CI->use_empty());
                 ++NumDeleted;
@@ -401,18 +402,18 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
             } else {
                 ++NumSimplified;
                 AA.replaceWithNewValue(CI, Result);
-                
+
                 if (!CI->use_empty())
                     CI->replaceAllUsesWith(Result);
-                
+
                 if (!Result->hasName())
                     Result->takeName(CI);
             }
-            
+
             // Inspect the instruction after the call (which was potentially just
             // added) next.
             I = CI; ++I;
-            
+
             CI->eraseFromParent();
         }
     }

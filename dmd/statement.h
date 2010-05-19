@@ -141,6 +141,7 @@ struct Statement : Object
     virtual ReturnStatement *isReturnStatement() { return NULL; }
     virtual IfStatement *isIfStatement() { return NULL; }
     virtual CaseStatement* isCaseStatement() { return NULL; }
+    virtual LabelStatement* isLabelStatement() { return NULL; }
 
 #if IN_LLVM
     virtual void toNakedIR(IRState *irs);
@@ -492,7 +493,7 @@ struct SwitchStatement : Statement
     Array gotoCases;		// array of unresolved GotoCaseStatement's
     Array *cases;		// array of CaseStatement's
     int hasNoDefault;		// !=0 if no default statement
-    
+
     // LDC
     Statement *enclosingScopeExit;
 
@@ -536,7 +537,7 @@ struct CaseStatement : Statement
     void toIR(IRState *irs);
 
     CaseStatement* isCaseStatement() { return this; }
-    
+
     // LDC
     llvm::BasicBlock* bodyBB;
     llvm::ConstantInt* llvmIdx;
@@ -863,6 +864,8 @@ struct LabelStatement : Statement
     // LDC
     bool asmLabel;       // for labels inside inline assembler
     void toNakedIR(IRState *irs);
+
+    LabelStatement* isLabelStatement() { return this; }
 };
 
 struct LabelDsymbol : Dsymbol

@@ -35,7 +35,7 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-unsigned DtoCallingConv(Loc loc, LINK l)
+llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
 {
     if (l == LINKc || l == LINKcpp || l == LINKintrinsic)
         return llvm::CallingConv::C;
@@ -207,7 +207,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
     pinits.push_back(DtoConstSize_t(vtype->getNumElements()));
     pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
     const LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
-    tiinits = LLConstantStruct::get(gIR->context(), pinits);
+    tiinits = LLConstantStruct::get(gIR->context(), pinits, false);
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
@@ -279,7 +279,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool nestedcall = tf->fty.arg_nest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
-    unsigned callconv = DtoCallingConv(loc, tf->linkage);
+    llvm::CallingConv::ID callconv = DtoCallingConv(loc, tf->linkage);
 
     // get callee llvm value
     LLValue* callable = DtoCallableValue(fnval);

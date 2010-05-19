@@ -157,7 +157,7 @@ const LLType* DtoType(Type* t)
         return getVoidPtrType();
 
 /*
-    Not needed atm as VarDecls for tuples are rewritten as a string of 
+    Not needed atm as VarDecls for tuples are rewritten as a string of
     VarDecls for the fields (u -> _u_field_0, ...)
 
     case Ttuple:
@@ -289,12 +289,12 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     {
         assert(0 && "not global/function");
     }
-    
+
     // The following breaks for nested naked functions and other declarations, so check for that.
     bool skipNestedCheck = !mustDefineSymbol(sym);
     if (FuncDeclaration* fd = sym->isFuncDeclaration())
         skipNestedCheck = (fd->naked != 0);
-    
+
     // Any symbol nested in a function can't be referenced directly from
     // outside that function, so we can give such symbols internal linkage.
     // This holds even if nested indirectly, such as member functions of
@@ -313,7 +313,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
             if (parent->isFuncDeclaration())
                 return llvm::GlobalValue::InternalLinkage;
         }
-    
+
     // default to external linkage
     return llvm::GlobalValue::ExternalLinkage;
 }
@@ -362,7 +362,7 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
         return val;
     }
     // ptr is integer pointer
-    else if (ptrTy->isInteger())
+    else if (ptrTy->isIntegerTy())
     {
         // val is integer
         assert(valTy->isInteger());

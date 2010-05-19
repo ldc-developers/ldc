@@ -94,8 +94,8 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     bool sep = 0, nsep = 0;
     buf->writestring("asm { ");
-    
-    for (Token * t = tokens; t; t = t->next) {	
+
+    for (Token * t = tokens; t; t = t->next) {
 	switch (t->value) {
 	case TOKlparen:
 	case TOKrparen:
@@ -161,11 +161,11 @@ Statement *AsmStatement::semantic(Scope *sc)
     sc->func->inlineStatus = ILSno; // %% not sure
     // %% need to set DECL_UNINLINABLE too?
     sc->func->hasReturnExp = 1; // %% DMD does this, apparently...
-    
+
     // empty statement -- still do the above things because they might be expected?
     if (! tokens)
 	return this;
-    
+
     if (!asmparser)
         if (global.params.cpu == ARCHx86)
             asmparser = new AsmParserx8632::AsmParser;
@@ -196,9 +196,11 @@ AsmStatement::toIR(IRState * irs)
     IRAsmBlock* asmblock = irs->asmBlock;
     assert(asmblock);
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info
     if (global.params.symdebug)
         DtoDwarfStopPoint(loc.linnum);
+    #endif
 
     if (! asmcode)
     return;
@@ -257,8 +259,7 @@ AsmStatement::toIR(IRState * irs)
 	    break;
 	case Arg_FrameRelative:
 // FIXME
-llvm::cout << "asm fixme Arg_FrameRelative" << std::endl;
-assert(0);
+assert(0 && "asm fixme Arg_FrameRelative");
 /*	    if (arg->expr->op == TOKvar)
 		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
 	    else
@@ -275,8 +276,7 @@ assert(0);
 	    break;*/
 	case Arg_LocalSize:
 // FIXME
-llvm::cout << "asm fixme Arg_LocalSize" << std::endl;
-assert(0);
+assert(0 && "asm fixme Arg_LocalSize");
 /*	    var_frame_offset = cfun->x_frame_offset;
 	    if (var_frame_offset < 0)
 		var_frame_offset = - var_frame_offset;
@@ -300,7 +300,7 @@ assert(0);
     // Telling GCC that callee-saved registers are clobbered makes it preserve
     // those registers.   This changes the stack from what a naked function
     // expects.
-    
+
 // FIXME
 //    if (! irs->func->naked) {
         assert(asmparser);
@@ -318,7 +318,7 @@ assert(0);
 	if (arg_map[i] < 0)
 	    arg_map[i] = -arg_map[i] - 1 + n_outputs;
     }
-    
+
     bool pct = false;
     std::string::iterator
         p = code->insnTemplate.begin(),
@@ -343,14 +343,14 @@ assert(0);
     if (Logger::enabled()) {
         Logger::cout() << "final asm: " << code->insnTemplate << '\n';
         std::ostringstream ss;
-        
+
         ss << "GCC-style output constraints: {";
         for (It i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i) {
             ss << " " << *i;
         }
         ss << " }";
         Logger::println("%s", ss.str().c_str());
-        
+
         ss.str("");
         ss << "GCC-style input constraints: {";
         for (It i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
@@ -358,7 +358,7 @@ assert(0);
         }
         ss << " }";
         Logger::println("%s", ss.str().c_str());
-        
+
         ss.str("");
         ss << "GCC-style clobbers: {";
         for (It i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
@@ -379,10 +379,10 @@ assert(0);
             /* LLVM doesn't support updating operands, so split into an input
              * and an output operand.
              */
-            
+
             // Change update operand to pure output operand.
             *i = mw_cns;
-            
+
             // Add input operand with same value, with original as "matching output".
             std::ostringstream ss;
             ss << '*' << (n + asmblock->outputcount);
@@ -572,7 +572,7 @@ void AsmBlockStatement::toIR(IRState* p)
             for(it = asmblock->internalLabels.begin(); it != end; ++it)
                 if((*it)->equals(a->isBranchToLabel))
                     skip = true;
-            if(skip) 
+            if(skip)
                 continue;
 
             // if we already set things up for this branch target, skip

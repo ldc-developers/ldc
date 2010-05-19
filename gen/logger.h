@@ -20,36 +20,38 @@ struct Loc;
 
 class Stream {
     std::ostream* OS;
-    
+
 public:
     Stream() : OS(0) {}
     Stream(std::ostream* S) : OS(S) {}
     Stream(std::ostream& S) : OS(&S) {}
-    
+
+    /*
     Stream operator << (std::ios_base &(*Func)(std::ios_base&)) {
       if (OS) *OS << Func;
       return *this;
     }
-    
+    */
+
     Stream operator << (std::ostream &(*Func)(std::ostream&)) {
-      if (OS) *OS << Func;
+      if (OS) Func(*OS);
       return *this;
     }
-    
+
     template<typename Ty>
     Stream& operator << (const Ty& Thing) {
         if (OS)
             Writer<Ty, sizeof(sfinae_bait(Thing))>::write(*OS, Thing);
         return *this;
     }
-    
+
 private:
     // Implementation details to treat llvm::Value, llvm::Type and their
     // subclasses specially (to pretty-print types).
-    
+
     static void writeType(std::ostream& OS, const llvm::Type& Ty);
     static void writeValue(std::ostream& OS, const llvm::Value& Ty);
-    
+
     template<typename Ty, int N> friend struct Writer;
     // error: function template partial specialization is not allowed
     // So I guess type partial specialization + member function will have to do...
@@ -59,7 +61,7 @@ private:
             OS << Thing;
         }
     };
-    
+
     template<typename Ty>
     struct Writer<Ty, 1> {
         static void write(std::ostream& OS, const llvm::Type& Thing) {
@@ -69,7 +71,7 @@ private:
             Stream::writeValue(OS, Thing);
         }
     };
-    
+
     // NOT IMPLEMENTED
     char sfinae_bait(const llvm::Type&);
     char sfinae_bait(const llvm::Value&);

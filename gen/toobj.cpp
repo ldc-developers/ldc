@@ -14,7 +14,6 @@
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Module.h"
-#include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/System/Program.h"
@@ -22,6 +21,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/CodeGen/MachineCodeEmitter.h"
 
 #include "mars.h"
 #include "module.h"
@@ -114,11 +114,13 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     // allocate the target abi
     gABI = TargetABI::getTarget();
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info
     if (global.params.symdebug) {
         RegisterDwarfSymbols(ir.module);
         DtoDwarfCompileUnit(this);
     }
+    #endif
 
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
@@ -129,7 +131,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         error("is missing 'class ClassInfo'");
         fatal();
     }
-    
+
     LLVM_D_InitRuntime();
 
     // process module members
@@ -225,10 +227,11 @@ void writeModule(llvm::Module* m, std::string filename)
         bcpath.eraseSuffix();
         bcpath.appendSuffix(std::string(global.bc_ext));
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
-        std::ofstream bos(bcpath.c_str(), std::ios::binary);
-        if (bos.fail())
+        std::string errinfo;
+        llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::raw_fd_ostream::F_Binary);
+        if (bos.has_error())
         {
-            error("cannot write LLVM bitcode, failed to open file '%s'", bcpath.c_str());
+            error("cannot write LLVM bitcode file '%s': %s", bcpath.c_str(), errinfo.c_str());
             fatal();
         }
         llvm::WriteBitcodeToFile(m, bos);
@@ -240,10 +243,11 @@ void writeModule(llvm::Module* m, std::string filename)
         llpath.eraseSuffix();
         llpath.appendSuffix(std::string(global.ll_ext));
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
-        std::ofstream aos(llpath.c_str());
-        if (aos.fail())
+        std::string errinfo;
+        llvm::raw_fd_ostream aos(llpath.c_str(), errinfo);
+        if (aos.has_error())
         {
-            error("cannot write LLVM asm, failed to open file '%s'", llpath.c_str());
+            error("cannot write LLVM asm file '%s': %s", llpath.c_str(), errinfo.c_str());
             fatal();
         }
         m->print(aos, NULL);
@@ -260,7 +264,7 @@ void writeModule(llvm::Module* m, std::string filename)
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(spath.c_str(), false, true, err);
+            llvm::raw_fd_ostream out(spath.c_str(), err);
             if (err.empty())
             {
                 write_asm_to_file(*gTargetMachine, *m, out);
@@ -292,16 +296,12 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     using namespace llvm;
 
     // Build up all of the passes that we want to do to the module.
-    ExistingModuleProvider Provider(&m);
-    FunctionPassManager Passes(&Provider);
+    FunctionPassManager Passes(&m);
 
     if (const TargetData *TD = Target.getTargetData())
         Passes.add(new TargetData(*TD));
     else
         Passes.add(new TargetData(&m));
-
-    // Ask the target to add backend passes as necessary.
-    MachineCodeEmitter *MCE = 0;
 
     // Last argument is enum CodeGenOpt::Level OptLevel
     // debug info doesn't work properly with OptLevel != None!
@@ -312,11 +312,8 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
         LastArg = CodeGenOpt::Aggressive;
 
     llvm::formatted_raw_ostream fout(out);
-    FileModel::Model mod = Target.addPassesToEmitFile(Passes, fout, TargetMachine::AssemblyFile, LastArg);
-    assert(mod == FileModel::AsmFile);
-
-    bool err = Target.addPassesToEmitFileFinish(Passes, MCE, LastArg);
-    assert(!err);
+    if (Target.addPassesToEmitFile(Passes, fout, TargetMachine::CGFT_AssemblyFile, LastArg))
+        assert(0 && "no support for asm output");
 
     Passes.doInitialization();
 
@@ -328,9 +325,9 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     Passes.doFinalization();
 
     // release module from module provider so we can delete it ourselves
-    std::string Err;
-    llvm::Module* rmod = Provider.releaseModule(&Err);
-    assert(rmod);
+    //std::string Err;
+    //llvm::Module* rmod = Provider.releaseModule(&Err);
+    //assert(rmod);
 }
 
 /* ================================================================== */
@@ -350,14 +347,14 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
     //  and linker because we don't know where to put the _start symbol.
     //  GCC mysteriously knows how to do it.
     std::vector<std::string> args;
-    args.push_back(gcc.toString());
+    args.push_back(gcc.str());
     args.push_back("-fno-strict-aliasing");
     args.push_back("-O3");
     args.push_back("-c");
     args.push_back("-xassembler");
-    args.push_back(asmpath.toString());
+    args.push_back(asmpath.str());
     args.push_back("-o");
-    args.push_back(objpath.toString());
+    args.push_back(objpath.str());
 
     //FIXME: only use this if needed?
     args.push_back("-fpic");
@@ -431,11 +428,13 @@ llvm::Function* build_module_ctor()
     IRBuilder<> builder(bb);
 
     // debug info
+    #ifndef DISABLE_DEBUG_INFO
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
         subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
+    #endif
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
@@ -444,8 +443,10 @@ llvm::Function* build_module_ctor()
     }
 
     // debug info end
+    #ifndef DISABLE_DEBUG_INFO
     if(global.params.symdebug)
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
+    #endif
 
     builder.CreateRetVoid();
     return fn;
@@ -475,12 +476,14 @@ static llvm::Function* build_module_dtor()
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
         subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
+    #endif
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
@@ -488,9 +491,11 @@ static llvm::Function* build_module_dtor()
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info end
     if(global.params.symdebug)
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
+    #endif
 
     builder.CreateRetVoid();
     return fn;
@@ -520,12 +525,14 @@ static llvm::Function* build_module_unittest()
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
         subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
+    #endif
 
     for (size_t i=0; i<n; i++) {
         llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
@@ -533,9 +540,11 @@ static llvm::Function* build_module_unittest()
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info end
     if(global.params.symdebug)
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
+    #endif
 
     builder.CreateRetVoid();
     return fn;
@@ -578,11 +587,13 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     IRBuilder<> builder(bb);
 
     // debug info
+    #ifndef DISABLE_DEBUG_INFO
     LLGlobalVariable* subprog;
     if(global.params.symdebug) {
         subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str()).getGV();
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
     }
+    #endif
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");
@@ -594,9 +605,11 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     // replace beginning
     builder.CreateStore(thismref, mref);
 
+    #ifndef DISABLE_DEBUG_INFO
     // debug info end
     if(global.params.symdebug)
         builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
+    #endif
 
     // return
     builder.CreateRetVoid();
@@ -614,11 +627,11 @@ void Module::genmoduleinfo()
 //         ModuleInfo[]    importedModules;
 //         ClassInfo[]     localClasses;
 //         uint            flags;
-// 
+//
 //         void function() ctor;
 //         void function() dtor;
 //         void function() unitTest;
-// 
+//
 //         void* xgetMembers;
 //         void function() ictor;
 //

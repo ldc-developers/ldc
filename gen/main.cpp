@@ -148,7 +148,7 @@ int main(int argc, char** argv)
     global.params.libfiles = new Array();
     global.params.objfiles = new Array();
     global.params.ddocfiles = new Array();
-    
+
     global.params.moduleDeps = NULL;
     global.params.moduleDepsFile = NULL;
 
@@ -223,12 +223,12 @@ int main(int argc, char** argv)
     // String options: std::string --> char*
     initFromString(global.params.objname, objectFile);
     initFromString(global.params.objdir, objectDir);
-    
+
     initFromString(global.params.docdir, ddocDir);
     initFromString(global.params.docname, ddocFile);
     global.params.doDocComments |=
         global.params.docdir || global.params.docname;
-    
+
 #ifdef _DH
     initFromString(global.params.hdrdir, hdrDir);
     initFromString(global.params.hdrname, hdrFile);
@@ -237,9 +237,9 @@ int main(int argc, char** argv)
 #endif
 
     initFromString(global.params.moduleDepsFile, moduleDepsFile);
-    if (global.params.moduleDepsFile != NULL) 
-    { 
-         global.params.moduleDeps = new OutBuffer; 
+    if (global.params.moduleDepsFile != NULL)
+    {
+         global.params.moduleDeps = new OutBuffer;
     }
 
     processVersions(debugArgs, "debug",
@@ -435,7 +435,7 @@ int main(int argc, char** argv)
     std::string triple = global.params.targetTriple;
 
     // Allocate target machine.
-    
+
     // first initialize llvm
 #define LLVM_TARGET(A) LLVMInitialize##A##TargetInfo(); LLVMInitialize##A##Target(); LLVMInitialize##A##AsmPrinter();
 // this is defined to be LLVM_TARGET(target name 1) LLVM_TARGET(target name 2) ...
@@ -484,10 +484,15 @@ LDC_TARGETS
         FeaturesStr = Features.getString();
     }
 
-    std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(triple, FeaturesStr));
-    assert(target.get() && "Could not allocate target machine!");
-    gTargetMachine = target.get();
-    gTargetData = gTargetMachine->getTargetData();
+    // FIXME
+    //std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(triple, FeaturesStr));
+    //assert(target.get() && "Could not allocate target machine!");
+    //gTargetMachine = target.get();
+
+    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, FeaturesStr);
+    gTargetMachine = target;
+
+    gTargetData = target->getTargetData();
 
     // get final data layout
     std::string datalayout = gTargetData->getStringRepresentation();
@@ -903,12 +908,12 @@ LDC_TARGETS
         fatal();
 
     // write module dependencies to file if requested
-    if (global.params.moduleDepsFile != NULL) 
-    { 
+    if (global.params.moduleDepsFile != NULL)
+    {
         assert (global.params.moduleDepsFile != NULL);
 
         File deps(global.params.moduleDepsFile);
-        OutBuffer* ob = global.params.moduleDeps; 
+        OutBuffer* ob = global.params.moduleDeps;
         deps.setbuffer((void*)ob->data, ob->offset);
         deps.write();
     }
@@ -944,14 +949,14 @@ LDC_TARGETS
             m->gendocfile();
         }
     }
-    
+
     // internal linking for singleobj
     if (singleObj && llvmModules.size() > 0)
     {
         Module* m = (Module*)modules.data[0];
         char* name = m->toChars();
         char* filename = m->objfile->name->str;
-        
+
         llvm::Linker linker(name, name, context);
 
         std::string errormsg;
@@ -961,12 +966,12 @@ LDC_TARGETS
                 error("%s", errormsg.c_str());
             delete llvmModules[i];
         }
-        
+
         m->deleteObjFile();
         writeModule(linker.getModule(), filename);
         global.params.objfiles->push(filename);
     }
-    
+
     backend_term();
     if (global.errors)
         fatal();

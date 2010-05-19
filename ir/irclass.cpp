@@ -121,7 +121,7 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
     name.append("16__interfaceInfosZ");
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
-    classInterfacesArray = new llvm::GlobalVariable(*gIR->module, 
+    classInterfacesArray = new llvm::GlobalVariable(*gIR->module,
         array_type, true, _linkage, NULL, name);
 
     return classInterfacesArray;
@@ -396,7 +396,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     mangle.append("6__vtblZ");
 
     llvm::GlobalVariable* GV = new llvm::GlobalVariable(
-        *gIR->module, 
+        *gIR->module,
         vtbl_constant->getType(),
         true,
         _linkage,
@@ -483,7 +483,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         // create Interface struct
         LLConstant* inits[3] = { ci, vtb, off };
-        LLConstant* entry = LLConstantStruct::get(gIR->context(), inits, 3);
+        LLConstant* entry = LLConstantStruct::get(gIR->context(), inits, 3, false);
         constants.push_back(entry);
     }
 

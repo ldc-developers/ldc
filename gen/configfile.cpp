@@ -94,7 +94,7 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     p.appendComponent(filename);
     if (p.exists())
         return true;
-        
+
     return false;
 }
 
@@ -102,14 +102,14 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
 {
     sys::Path p;
     if (!locate(p, argv0, mainAddr, filename))
-    {        
+    {
         // failed to find cfg, users still have the DFLAGS environment var
         std::cerr << "Error failed to locate the configuration file: " << filename << std::endl;
         return false;
     }
 
     // save config file path for -v output
-    pathstr = p.toString();
+    pathstr = p.str();
 
     try
     {
@@ -141,12 +141,12 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             for (int i=0; i<len; i++)
             {
                 std::string v = arr[i];
-                
+
                 // replace binpathkey with binpath
                 size_t p;
                 while (std::string::npos != (p = v.find(binpathkey)))
                     v.replace(p, binpathkey.size(), binpath);
-                
+
                 switches.push_back(strdup(v.c_str()));
             }
         }

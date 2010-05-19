@@ -12,7 +12,7 @@
 
 #include "llvm/GlobalValue.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Assembly/Writer.h"
 
 #include "gen/logger.h"
@@ -27,10 +27,11 @@ void Stream::writeValue(std::ostream& OS, const llvm::Value& V) {
     // Constants don't always get their types pretty-printed.
     // (Only treat non-global constants like this, so that e.g. global variables
     // still get their initializers printed)
+    llvm::raw_os_ostream raw(OS);
     if (llvm::isa<llvm::Constant>(V) && !llvm::isa<llvm::GlobalValue>(V))
-        llvm::WriteAsOperand(OS, &V, true, gIR->module);
+        llvm::WriteAsOperand(raw, &V, true, gIR->module);
     else
-        OS << V;
+        V.print(raw);
 }
 
 namespace Logger
