@@ -365,7 +365,7 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
     else if (ptrTy->isIntegerTy())
     {
         // val is integer
-        assert(valTy->isInteger());
+        assert(valTy->isIntegerTy());
         const LLIntegerType* pt = llvm::cast<const LLIntegerType>(ptrTy);
         const LLIntegerType* vt = llvm::cast<const LLIntegerType>(valTy);
         if (pt->getBitWidth() < vt->getBitWidth()) {
@@ -553,7 +553,7 @@ llvm::ConstantInt* DtoConstUbyte(unsigned char i)
 LLConstant* DtoConstFP(Type* t, long double value)
 {
     const LLType* llty = DtoType(t);
-    assert(llty->isFloatingPoint());
+    assert(llty->isFloatingPointTy());
 
     if(llty == LLType::getFloatTy(gIR->context()) || llty == LLType::getDoubleTy(gIR->context()))
         return LLConstantFP::get(llty, value);
