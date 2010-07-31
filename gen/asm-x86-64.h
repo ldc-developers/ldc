@@ -1223,7 +1223,7 @@ namespace AsmParserx8664
         { "subq",    Op_DstSrcSSE },
         { "subsd",  Op_DstSrcSSE },
         { "subss",  Op_DstSrcSSE },
-        { "swapgs",  Op_DstSrcSSE },
+        { "swapgs",  Op_0 },
         { "syscall", Op_0 },
         { "sysenter",Op_0 },
         { "sysexit", Op_0 },
