@@ -3,6 +3,7 @@
 #include "gen/llvm.h"
 #include "llvm/AbstractTypeUser.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/ManagedStatic.h"
 
 #include "mtype.h"
 #include "aggregate.h"
@@ -341,9 +342,9 @@ LLType* DtoUnpaddedStructType(Type* dty) {
     assert(dty->ty == Tstruct);
     
     typedef llvm::DenseMap<Type*, llvm::PATypeHolder> CacheT;
-    static CacheT cache;
-    CacheT::iterator it = cache.find(dty);
-    if (it != cache.end())
+    static llvm::ManagedStatic<CacheT> cache;
+    CacheT::iterator it = cache->find(dty);
+    if (it != cache->end())
         return it->second;
     
     TypeStruct* sty = (TypeStruct*) dty;
@@ -363,7 +364,7 @@ LLType* DtoUnpaddedStructType(Type* dty) {
         types.push_back(fty);
     }
     LLType* Ty = LLStructType::get(gIR->context(), types);
-    cache.insert(std::make_pair(dty, Ty));
+    cache->insert(std::make_pair(dty, Ty));
     return Ty;
 }
 
