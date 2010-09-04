@@ -1,6 +1,6 @@
 module runminitest;
 
-import tango.io.FileSystem,
+import tango.sys.Environment,
        tango.io.Stdout, 
        tango.io.vfs.FileFolder;
 import Path = tango.io.Path;
@@ -24,7 +24,7 @@ int main(char[][] args)
     char[][] runfailed;
     char[][] norunfailed;
 
-    FileSystem.setDirectory("mini");
+    Environment.cwd("mini");
 
     if (!Path.exists("obj"))
         Path.createFolder("obj");
