@@ -373,6 +373,7 @@ struct ForeachStatement : Statement
     ForeachStatement(Loc loc, enum TOK op, Parameters *arguments, Expression *aggr, Statement *body);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
+    bool checkForArgTypes();
     int hasBreak();
     int hasContinue();
     int usesEH();
@@ -714,6 +715,7 @@ struct WithStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int usesEH();
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -731,6 +733,7 @@ struct TryCatchStatement : Statement
     int hasBreak();
     int usesEH();
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -767,6 +770,7 @@ struct TryFinallyStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -785,6 +789,7 @@ struct OnScopeStatement : Statement
     Statement *semantic(Scope *sc);
     int usesEH();
     void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
+    Expression *interpret(InterState *istate);
 
     void toIR(IRState *irs);
 };
@@ -798,6 +803,7 @@ struct ThrowStatement : Statement
     Statement *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -889,6 +895,7 @@ struct AsmStatement : Statement
     Statement *semantic(Scope *sc);
     int blockExit();
     int comeFrom();
+    Expression *interpret(InterState *istate);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual AsmStatement *isAsmStatement() { return this; }

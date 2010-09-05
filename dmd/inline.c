@@ -22,6 +22,7 @@
 #include "expression.h"
 #include "statement.h"
 #include "mtype.h"
+#include "scope.h"
 
 /* ========== Compute cost of inlining =============== */
 
@@ -164,7 +165,10 @@ int VarExp::inlineCost(InlineCostState *ics)
 int ThisExp::inlineCost(InlineCostState *ics)
 {
 #if !IN_LLVM
+    //printf("ThisExp::inlineCost() %s\n", toChars());
     FuncDeclaration *fd = ics->fd;
+    if (!fd)
+        return COST_MAX;
     if (!ics->hdrscan)
         if (fd->isNested() || !ics->hasthis)
             return COST_MAX;
@@ -176,6 +180,8 @@ int SuperExp::inlineCost(InlineCostState *ics)
 {
 #if !IN_LLVM
     FuncDeclaration *fd = ics->fd;
+    if (!fd)
+        return COST_MAX;
     if (!ics->hdrscan)
         if (fd->isNested() || !ics->hasthis)
             return COST_MAX;
@@ -205,6 +211,7 @@ int StructLiteralExp::inlineCost(InlineCostState *ics)
 
 int FuncExp::inlineCost(InlineCostState *ics)
 {
+    //printf("FuncExp::inlineCost()\n");
     // This breaks on LDC too, since nested functions have internal linkage
     // and thus can't be referenced from other objects.
     // Right now, this makes the function be output to the .obj file twice.
@@ -470,10 +477,8 @@ Expressions *arrayExpressiondoInline(Expressions *a, InlineDoState *ids)
         {   Expression *e = (Expression *)a->data[i];
 
             if (e)
-            {
                 e = e->doInline(ids);
-                newa->data[i] = (void *)e;
-            }
+            newa->data[i] = (void *)e;
         }
     }
     return newa;
@@ -1537,4 +1542,31 @@ Expression *FuncDeclaration::doInline(InlineScanState *iss, Expression *ethis, A
 }
 
 
+/****************************************************
+ * Perform the "inline copying" of a default argument for a function parameter.
+ */
+
+Expression *Expression::inlineCopy(Scope *sc)
+{
+#if 0
+    /* See Bugzilla 2935 for explanation of why just a copy() is broken
+     */
+    return copy();
+#else
+    InlineCostState ics;
+
+    memset(&ics, 0, sizeof(ics));
+    ics.hdrscan = 1;                    // so DeclarationExp:: will work on 'statics' which are not
+    int cost = inlineCost(&ics);
+    if (cost >= COST_MAX)
+    {   error("cannot inline default argument %s", toChars());
+        return new ErrorExp();
+    }
+    InlineDoState ids;
+    memset(&ids, 0, sizeof(ids));
+    ids.parent = sc->parent;
+    Expression *e = doInline(&ids);
+    return e;
+#endif
+}
 

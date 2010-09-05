@@ -214,11 +214,17 @@ void AttribDeclaration::toJsonBuffer(OutBuffer *buf)
 
     if (d)
     {
+        size_t offset = buf->offset;
         for (unsigned i = 0; i < d->dim; i++)
         {   Dsymbol *s = (Dsymbol *)d->data[i];
             //printf("AttribDeclaration::toJsonBuffer %s\n", s->toChars());
+            if (offset != buf->offset)
+            {   buf->writestring(",\n");
+                offset = buf->offset;
+            }
             s->toJsonBuffer(buf);
         }
+        JsonRemoveComma(buf);
     }
 }
 
@@ -240,6 +246,7 @@ void StaticDtorDeclaration::toJsonBuffer(OutBuffer *buf) { }
 void ClassInfoDeclaration::toJsonBuffer(OutBuffer *buf)  { }
 void ModuleInfoDeclaration::toJsonBuffer(OutBuffer *buf) { }
 void TypeInfoDeclaration::toJsonBuffer(OutBuffer *buf)   { }
+void UnitTestDeclaration::toJsonBuffer(OutBuffer *buf)   { }
 #if DMDV2
 void PostBlitDeclaration::toJsonBuffer(OutBuffer *buf)   { }
 #endif
@@ -307,19 +314,23 @@ void AggregateDeclaration::toJsonBuffer(OutBuffer *buf)
         }
     }
 
-    JsonString(buf, Pmembers);
-    buf->writestring(" : [\n");
-    size_t offset = buf->offset;
-    for (int i = 0; i < members->dim; i++)
-    {   Dsymbol *s = (Dsymbol *)members->data[i];
-        if (offset != buf->offset)
-        {   buf->writestring(",\n");
-            offset = buf->offset;
+    if (members)
+    {
+        JsonString(buf, Pmembers);
+        buf->writestring(" : [\n");
+        size_t offset = buf->offset;
+        for (int i = 0; i < members->dim; i++)
+        {   Dsymbol *s = (Dsymbol *)members->data[i];
+            if (offset != buf->offset)
+            {   buf->writestring(",\n");
+                offset = buf->offset;
+            }
+            s->toJsonBuffer(buf);
         }
-        s->toJsonBuffer(buf);
+        JsonRemoveComma(buf);
+        buf->writestring("]\n");
     }
     JsonRemoveComma(buf);
-    buf->writestring("]\n");
 
     buf->writestring("}\n");
 }
@@ -386,19 +397,23 @@ void EnumDeclaration::toJsonBuffer(OutBuffer *buf)
     if (memtype)
         JsonProperty(buf, "base", memtype->toChars());
 
-    JsonString(buf, Pmembers);
-    buf->writestring(" : [\n");
-    size_t offset = buf->offset;
-    for (int i = 0; i < members->dim; i++)
-    {   Dsymbol *s = (Dsymbol *)members->data[i];
-        if (offset != buf->offset)
-        {   buf->writestring(",\n");
-            offset = buf->offset;
+    if (members)
+    {
+        JsonString(buf, Pmembers);
+        buf->writestring(" : [\n");
+        size_t offset = buf->offset;
+        for (int i = 0; i < members->dim; i++)
+        {   Dsymbol *s = (Dsymbol *)members->data[i];
+            if (offset != buf->offset)
+            {   buf->writestring(",\n");
+                offset = buf->offset;
+            }
+            s->toJsonBuffer(buf);
         }
-        s->toJsonBuffer(buf);
+        JsonRemoveComma(buf);
+        buf->writestring("]\n");
     }
     JsonRemoveComma(buf);
-    buf->writestring("]\n");
 
     buf->writestring("}\n");
 }

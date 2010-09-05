@@ -284,6 +284,7 @@ Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
              */
             e1->error("this for %s needs to be type %s not type %s",
                 var->toChars(), ad->toChars(), t->toChars());
+            e1 = new ErrorExp();
         }
     }
     return e1;
@@ -371,6 +372,7 @@ Expression *resolveProperties(Scope *sc, Expression *e)
         else if (e->op == TOKdotexp)
         {
             e->error("expression has no value");
+            return new ErrorExp();
         }
 
     }
@@ -386,17 +388,19 @@ Expression *resolveProperties(Scope *sc, Expression *e)
  * Perform semantic() on an array of Expressions.
  */
 
-void arrayExpressionSemantic(Expressions *exps, Scope *sc)
+Expressions *arrayExpressionSemantic(Expressions *exps, Scope *sc)
 {
     if (exps)
     {
         for (size_t i = 0; i < exps->dim; i++)
         {   Expression *e = (Expression *)exps->data[i];
-
-            e = e->semantic(sc);
-            exps->data[i] = (void *)e;
+            if (e)
+            {   e = e->semantic(sc);
+                exps->data[i] = (void *)e;
+            }
         }
     }
+    return exps;
 }
 
 
@@ -497,6 +501,12 @@ Expressions *arrayExpressionToCommonType(Scope *sc, Expressions *exps, Type **pt
 #if DMDV2
     /* The type is determined by applying ?: to each pair.
      */
+    /* Still have a problem with:
+     *  ubyte[][] = [ cast(ubyte[])"hello", [1]];
+     * which works if the array literal is initialized top down with the ubyte[][]
+     * type, but fails with this function doing bottom up typing.
+     */
+    //printf("arrayExpressionToCommonType()\n");
     IntegerExp integerexp(0);
     CondExp condexp(0, &integerexp, NULL, NULL);
 
@@ -524,7 +534,9 @@ Expressions *arrayExpressionToCommonType(Scope *sc, Expressions *exps, Type **pt
                 condexp.semantic(sc);
                 exps->data[j0] = (void *)condexp.e1;
                 e = condexp.e2;
-                t0 = e->type;
+                j0 = i;
+                e0 = e;
+                t0 = e0->type;
             }
         }
         else
@@ -573,7 +585,7 @@ void preFunctionParameters(Loc loc, Scope *sc, Expressions *exps)
                     printf("1: \n");
 #endif
                 arg->error("%s is not an expression", arg->toChars());
-                arg = new IntegerExp(arg->loc, 0, Type::tint32);
+                arg = new ErrorExp();
             }
 
             arg = resolveProperties(sc, arg);
@@ -611,6 +623,7 @@ Expression *callCpCtor(Loc loc, Scope *sc, Expression *e)
          */
         Identifier *idtmp = Lexer::uniqueId("__tmp");
         VarDeclaration *tmp = new VarDeclaration(loc, tb, idtmp, new ExpInitializer(0, e));
+        tmp->storage_class |= STCctfe;
         Expression *ae = new DeclarationExp(loc, tmp);
         e = new CommaExp(loc, ae, new VarExp(loc, tmp));
         e = e->semantic(sc);
@@ -630,8 +643,6 @@ Expression *callCpCtor(Loc loc, Scope *sc, Expression *e)
 
 void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *arguments)
 {
-    unsigned n;
-
     //printf("functionParameters()\n");
     assert(arguments);
     size_t nargs = arguments ? arguments->dim : 0;
@@ -640,7 +651,7 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
     if (nargs > nparams && tf->varargs == 0)
         error(loc, "expected %zu arguments, not %zu for non-variadic function type %s", nparams, nargs, tf->toChars());
 
-    n = (nargs > nparams) ? nargs : nparams;    // n = max(nargs, nparams)
+    unsigned n = (nargs > nparams) ? nargs : nparams;   // n = max(nargs, nparams)
 
     int done = 0;
     for (size_t i = 0; i < n; i++)
@@ -667,14 +678,10 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
                     return;
                 }
                 arg = p->defaultArg;
+                arg = arg->inlineCopy(sc);
 #if DMDV2
-                if (arg->op == TOKdefault)
-                {   DefaultInitExp *de = (DefaultInitExp *)arg;
-                    arg = de->resolve(loc, sc);
-                }
-                else
+                arg = arg->resolveLoc(loc, sc);         // __FILE__ and __LINE__
 #endif
-                    arg = arg->copy();
                 arguments->push(arg);
                 nargs++;
             }
@@ -2130,8 +2137,7 @@ Expression *IdentifierExp::semantic(Scope *sc)
         error("undefined identifier %s, did you mean %s %s?", ident->toChars(), s->kind(), s->toChars());
     else
         error("undefined identifier %s", ident->toChars());
-    type = Type::terror;
-    return this;
+    return new ErrorExp();
 }
 
 char *IdentifierExp::toChars()
@@ -5694,12 +5700,11 @@ Expression *DotIdExp::semantic(Scope *sc)
             return e;
         }
         error("undefined identifier %s", toChars());
-        type = Type::tvoid;
-        return this;
+        return new ErrorExp();
     }
     else if (e1->type->ty == Tpointer &&
              ident != Id::init && ident != Id::__sizeof &&
-             ident != Id::alignof && ident != Id::offsetof &&
+             ident != Id::__xalignof && ident != Id::offsetof &&
              ident != Id::mangleof && ident != Id::stringof)
     {   /* Rewrite:
          *   p.ident
