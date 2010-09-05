@@ -26,37 +26,37 @@ dmd are:
 Macros defined by the compiler, not the code:
 
     Compiler:
-	__DMC__		Digital Mars compiler
-	_MSC_VER	Microsoft compiler
-	__GNUC__	Gnu compiler
+        __DMC__         Digital Mars compiler
+        _MSC_VER        Microsoft compiler
+        __GNUC__        Gnu compiler
 
     Host operating system:
-	_WIN32		Microsoft NT, Windows 95, Windows 98, Win32s,
-			Windows 2000, Win XP, Vista
-	_WIN64		Windows for AMD64
-	linux		Linux
-	__APPLE__	Mac OSX
-	__FreeBSD__	FreeBSD
-	__sun&&__SVR4	Solaris, OpenSolaris (yes, both macros are necessary)
+        _WIN32          Microsoft NT, Windows 95, Windows 98, Win32s,
+                        Windows 2000, Win XP, Vista
+        _WIN64          Windows for AMD64
+        linux           Linux
+        __APPLE__       Mac OSX
+        __FreeBSD__     FreeBSD
+        __sun&&__SVR4   Solaris, OpenSolaris (yes, both macros are necessary)
 
 For the target systems, there are the target operating system and
 the target object file format:
 
     Target operating system:
-	TARGET_WINDOS	Covers 32 bit windows and 64 bit windows
-	TARGET_LINUX	Covers 32 and 64 bit linux
-	TARGET_OSX	Covers 32 and 64 bit Mac OSX
-	TARGET_FREEBSD	Covers 32 and 64 bit FreeBSD
-	TARGET_SOLARIS	Covers 32 and 64 bit Solaris
-	TARGET_NET	Covers .Net
+        TARGET_WINDOS   Covers 32 bit windows and 64 bit windows
+        TARGET_LINUX    Covers 32 and 64 bit linux
+        TARGET_OSX      Covers 32 and 64 bit Mac OSX
+        TARGET_FREEBSD  Covers 32 and 64 bit FreeBSD
+        TARGET_SOLARIS  Covers 32 and 64 bit Solaris
+        TARGET_NET      Covers .Net
 
     It is expected that the compiler for each platform will be able
     to generate 32 and 64 bit code from the same compiler binary.
 
     Target object module format:
-	OMFOBJ		Intel Object Module Format, used on Windows
-	ELFOBJ		Elf Object Module Format, used on linux, FreeBSD and Solaris
-	MACHOBJ		Mach-O Object Module Format, used on Mac OSX
+        OMFOBJ          Intel Object Module Format, used on Windows
+        ELFOBJ          Elf Object Module Format, used on linux, FreeBSD and Solaris
+        MACHOBJ         Mach-O Object Module Format, used on Mac OSX
 
     There are currently no macros for byte endianness order.
  */
@@ -89,11 +89,11 @@ the target object file format:
 /* Changes for the GDC compiler by David Friedman */
 #endif
 
-#define DMDV2	0	// Version 2.0 features
-#define BREAKABI 1	// 0 if not ready to break the ABI just yet
-#define STRUCTTHISREF DMDV2	// if 'this' for struct is a reference, not a pointer
-#define SNAN_DEFAULT_INIT DMDV2	// if floats are default initialized to signalling NaN
-#define SARRAYVALUE DMDV2	// static arrays are value types
+#define DMDV2   0       // Version 2.0 features
+#define BREAKABI 1      // 0 if not ready to break the ABI just yet
+#define STRUCTTHISREF DMDV2     // if 'this' for struct is a reference, not a pointer
+#define SNAN_DEFAULT_INIT DMDV2 // if floats are default initialized to signalling NaN
+#define SARRAYVALUE DMDV2       // static arrays are value types
 #define MODULEINFO_IS_STRUCT DMDV2   // if ModuleInfo is a struct rather than a class
 
 // Set if C++ mangling is done by the front end
@@ -105,7 +105,7 @@ the target object file format:
  */
 
 #if _WIN32
-#define TARGET_WINDOS 1		// Windows dmd generates Windows targets
+#define TARGET_WINDOS 1         // Windows dmd generates Windows targets
 #define OMFOBJ 1
 #endif
 
@@ -161,15 +161,15 @@ struct Param
     bool obj;           // write object file
     bool link;          // perform link
     bool verbose;       // verbose compile
-    ubyte symdebug;	// insert debug symbolic information
+    ubyte symdebug;     // insert debug symbolic information
 #if !IN_LLVM
     // LDC uses a different mechanism
     bool optimize;      // run optimizer
     char optimizeLevel; // optimization level
 #endif
-    char vtls;		// identify thread local variables
-    ARCH cpu;		// target CPU
-    OS   os;		// target OS
+    char vtls;          // identify thread local variables
+    ARCH cpu;           // target CPU
+    OS   os;            // target OS
     bool is64bit;       // generate 64 bit code
     bool isLE;          // generate little endian code
     bool useDeprecated; // allow use of deprecated features
@@ -182,42 +182,42 @@ struct Param
     bool useUnitTests;  // generate unittest code
     bool useInline;     // inline expand functions
     bool warnings;      // enable warnings
-    ubyte Dversion;	// D version number
-			// 1: warnings as errors
-			// 2: informational warnings (no errors)
-    char safe;		// enforce safe memory model
+    ubyte Dversion;     // D version number
+                        // 1: warnings as errors
+                        // 2: informational warnings (no errors)
+    char safe;          // enforce safe memory model
 
-    char *argv0;	// program name
-    Array *imppath;	// array of char*'s of where to look for import modules
-    Array *fileImppath;	// array of char*'s of where to look for file import modules
-    char *objdir;	// .obj file output directory
-    char *objname;	// .obj file output name
+    char *argv0;        // program name
+    Array *imppath;     // array of char*'s of where to look for import modules
+    Array *fileImppath; // array of char*'s of where to look for file import modules
+    char *objdir;       // .obj file output directory
+    char *objname;      // .obj file output name
 
     bool doDocComments; // process embedded documentation comments
-    char *docdir;	// write documentation file to docdir directory
-    char *docname;	// write documentation file to docname
-    Array *ddocfiles;	// macro include files for Ddoc
+    char *docdir;       // write documentation file to docdir directory
+    char *docname;      // write documentation file to docname
+    Array *ddocfiles;   // macro include files for Ddoc
 
     bool doHdrGeneration;       // process embedded documentation comments
-    char *hdrdir;		// write 'header' file to docdir directory
-    char *hdrname;		// write 'header' file to docname
+    char *hdrdir;               // write 'header' file to docdir directory
+    char *hdrname;              // write 'header' file to docname
 
-    char doXGeneration;		// write JSON file
-    char *xfilename;		// write JSON file to xfilename
+    char doXGeneration;         // write JSON file
+    char *xfilename;            // write JSON file to xfilename
 
-    unsigned debuglevel;	// debug level
-    Array *debugids;		// debug identifiers
+    unsigned debuglevel;        // debug level
+    Array *debugids;            // debug identifiers
 
-    unsigned versionlevel;	// version level
-    Array *versionids;		// version identifiers
+    unsigned versionlevel;      // version level
+    Array *versionids;          // version identifiers
 
     bool dump_source;
 
-    Array *defaultlibnames;	// default libraries for non-debug builds
-    Array *debuglibnames;	// default libraries for debug builds
+    Array *defaultlibnames;     // default libraries for non-debug builds
+    Array *debuglibnames;       // default libraries for debug builds
 
-    char *moduleDepsFile;	// filename for deps output
-    OutBuffer *moduleDeps;	// contents to be written to deps file
+    char *moduleDepsFile;       // filename for deps output
+    OutBuffer *moduleDeps;      // contents to be written to deps file
 
     // Hidden debug switches
     bool debuga;
@@ -270,24 +270,24 @@ struct Global
     char *bc_ext;
     char *s_ext;
     const char *lib_ext;
-    const char *doc_ext;	// for Ddoc generated files
-    const char *ddoc_ext;	// for Ddoc macro include files
-    const char *hdr_ext;	// for D 'header' import files
-    const char *json_ext;	// for JSON files
-    const char *map_ext;	// for .map files
+    const char *doc_ext;        // for Ddoc generated files
+    const char *ddoc_ext;       // for Ddoc macro include files
+    const char *hdr_ext;        // for D 'header' import files
+    const char *json_ext;       // for JSON files
+    const char *map_ext;        // for .map files
     const char *copyright;
     const char *written;
-    Array *path;	// Array of char*'s which form the import lookup path
-    Array *filePath;	// Array of char*'s which form the file import lookup path
+    Array *path;        // Array of char*'s which form the import lookup path
+    Array *filePath;    // Array of char*'s which form the file import lookup path
     int structalign;
     const char *version;
     char *ldc_version;
     char *llvm_version;
 
     Param params;
-    unsigned errors;	// number of errors reported so far
-    unsigned warnings;	// number of warnings reported so far
-    unsigned gag;	// !=0 means gag reporting of errors & warnings
+    unsigned errors;    // number of errors reported so far
+    unsigned warnings;  // number of warnings reported so far
+    unsigned gag;       // !=0 means gag reporting of errors & warnings
 
     Global();
 };
@@ -297,7 +297,7 @@ extern Global global;
 /* Set if Windows Structured Exception Handling C extensions are supported.
  * Apparently, VC has dropped support for these?
  */
-#define WINDOWS_SEH	(_WIN32 && __DMC__)
+#define WINDOWS_SEH     (_WIN32 && __DMC__)
 
 
 #ifdef __DMC__
@@ -313,29 +313,29 @@ extern Global global;
 
 // Be careful not to care about sign when using dinteger_t
 //typedef uint64_t integer_t;
-typedef uint64_t dinteger_t;	// use this instead of integer_t to
-				// avoid conflicts with system #include's
+typedef uint64_t dinteger_t;    // use this instead of integer_t to
+                                // avoid conflicts with system #include's
 
 // Signed and unsigned variants
 typedef int64_t sinteger_t;
 typedef uint64_t uinteger_t;
 
-typedef int8_t			d_int8;
-typedef uint8_t			d_uns8;
-typedef int16_t			d_int16;
-typedef uint16_t		d_uns16;
-typedef int32_t			d_int32;
-typedef uint32_t		d_uns32;
-typedef int64_t			d_int64;
-typedef uint64_t		d_uns64;
+typedef int8_t                  d_int8;
+typedef uint8_t                 d_uns8;
+typedef int16_t                 d_int16;
+typedef uint16_t                d_uns16;
+typedef int32_t                 d_int32;
+typedef uint32_t                d_uns32;
+typedef int64_t                 d_int64;
+typedef uint64_t                d_uns64;
 
-typedef float			d_float32;
-typedef double			d_float64;
-typedef long double		d_float80;
+typedef float                   d_float32;
+typedef double                  d_float64;
+typedef long double             d_float80;
 
-typedef d_uns8			d_char;
-typedef d_uns16			d_wchar;
-typedef d_uns32			d_dchar;
+typedef d_uns8                  d_char;
+typedef d_uns16                 d_wchar;
+typedef d_uns32                 d_dchar;
 
 #ifdef IN_GCC
 #include "d-gcc-real.h"
@@ -357,7 +357,7 @@ typedef long double real_t;
 
 struct Module;
 
-//typedef unsigned Loc;		// file location
+//typedef unsigned Loc;         // file location
 struct Loc
 {
     const char *filename;
@@ -365,14 +365,14 @@ struct Loc
 
     Loc()
     {
-	linnum = 0;
-	filename = NULL;
+        linnum = 0;
+        filename = NULL;
     }
 
     Loc(int x)
     {
-	linnum = x;
-	filename = NULL;
+        linnum = x;
+        filename = NULL;
     }
 
     Loc(Module *mod, unsigned linnum);
@@ -382,15 +382,15 @@ struct Loc
 };
 
 #ifndef GCC_SAFE_DMD
-#define TRUE	1
-#define FALSE	0
+#define TRUE    1
+#define FALSE   0
 #endif
 
-#define INTERFACE_OFFSET	0	// if 1, put classinfo as first entry
-					// in interface vtbl[]'s
-#define INTERFACE_VIRTUAL	0	// 1 means if an interface appears
-					// in the inheritance graph multiple
-					// times, only one is used
+#define INTERFACE_OFFSET        0       // if 1, put classinfo as first entry
+                                        // in interface vtbl[]'s
+#define INTERFACE_VIRTUAL       0       // 1 means if an interface appears
+                                        // in the inheritance graph multiple
+                                        // times, only one is used
 
 enum LINK
 {
@@ -418,12 +418,12 @@ enum DYNCAST
 
 enum MATCH
 {
-    MATCHnomatch,	// no match
-    MATCHconvert,	// match with conversions
+    MATCHnomatch,       // no match
+    MATCHconvert,       // match with conversions
 #if DMDV2
-    MATCHconst,		// match with conversion to const
+    MATCHconst,         // match with conversion to const
 #endif
-    MATCHexact		// exact match
+    MATCHexact          // exact match
 };
 
 typedef uint64_t StorageClass;

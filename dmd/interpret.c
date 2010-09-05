@@ -25,16 +25,16 @@
 #include "aggregate.h"
 #include "id.h"
 
-#define LOG	0
+#define LOG     0
 
 struct InterState
 {
-    InterState *caller;		// calling function's InterState
-    FuncDeclaration *fd;	// function being interpreted
-    Dsymbols vars;		// variables used in this function
-    Statement *start;		// if !=NULL, start execution at this statement
-    Statement *gotoTarget;	// target of EXP_GOTO_INTERPRET result
-    Expression *localThis;	// value of 'this', or NULL if none
+    InterState *caller;         // calling function's InterState
+    FuncDeclaration *fd;        // function being interpreted
+    Dsymbols vars;              // variables used in this function
+    Statement *start;           // if !=NULL, start execution at this statement
+    Statement *gotoTarget;      // target of EXP_GOTO_INTERPRET result
+    Expression *localThis;      // value of 'this', or NULL if none
     bool awaitingLvalueReturn;  // Support for ref return values:
            // Any return to this function should return an lvalue.
     InterState();
@@ -59,9 +59,9 @@ Expression * resolveReferences(Expression *e, Expression *thisval, bool *isRefer
 /*************************************
  * Attempt to interpret a function given the arguments.
  * Input:
- *	istate     state for calling function (NULL if none)
+ *      istate     state for calling function (NULL if none)
  *      arguments  function arguments
- *      thisarg    'this', if a needThis() function, NULL if not.	
+ *      thisarg    'this', if a needThis() function, NULL if not.
  *
  * Return result expression if successful, NULL if not.
  */
@@ -73,61 +73,61 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     printf("cantInterpret = %d, semanticRun = %d\n", cantInterpret, semanticRun);
 #endif
     if (global.errors)
-	return NULL;
+        return NULL;
 
 #if DMDV2
     if (thisarg &&
-	(!arguments || arguments->dim == 0))
+        (!arguments || arguments->dim == 0))
     {
-	if (ident == Id::length)
-	    return interpret_length(istate, thisarg);
-	else if (ident == Id::keys)
-	    return interpret_keys(istate, thisarg, this);
-	else if (ident == Id::values)
-	    return interpret_values(istate, thisarg, this);
+        if (ident == Id::length)
+            return interpret_length(istate, thisarg);
+        else if (ident == Id::keys)
+            return interpret_keys(istate, thisarg, this);
+        else if (ident == Id::values)
+            return interpret_values(istate, thisarg, this);
     }
 #endif
 
     if (cantInterpret || semanticRun == PASSsemantic3)
-	return NULL;
+        return NULL;
 
     if (!fbody)
-    {	cantInterpret = 1;
-		error("cannot be interpreted at compile time,"
-		" because it has no available source code");
-	return NULL;
+    {   cantInterpret = 1;
+                error("cannot be interpreted at compile time,"
+                " because it has no available source code");
+        return NULL;
     }
 
     if (semanticRun < PASSsemantic3 && scope)
     {
-	semantic3(scope);
-	if (global.errors)	// if errors compiling this function
-	    return NULL;
+        semantic3(scope);
+        if (global.errors)      // if errors compiling this function
+            return NULL;
     }
     if (semanticRun < PASSsemantic3done)
-	return NULL;
+        return NULL;
 
     Type *tb = type->toBasetype();
     assert(tb->ty == Tfunction);
     TypeFunction *tf = (TypeFunction *)tb;
     Type *tret = tf->next->toBasetype();
     if (tf->varargs && arguments &&
-	((parameters && arguments->dim != parameters->dim) || (!parameters && arguments->dim)))
-    {	cantInterpret = 1;
-	error("C-style variadic functions are not yet implemented in CTFE");
-	return NULL;
+        ((parameters && arguments->dim != parameters->dim) || (!parameters && arguments->dim)))
+    {   cantInterpret = 1;
+        error("C-style variadic functions are not yet implemented in CTFE");
+        return NULL;
     }
-    
+
     // Ensure there are no lazy parameters
     if (tf->parameters)
-    {	size_t dim = Parameter::dim(tf->parameters);
-	for (size_t i = 0; i < dim; i++)
-	{   Parameter *arg = Parameter::getNth(tf->parameters, i);
-	    if (arg->storageClass & STClazy)
-	    {   cantInterpret = 1;
-		return NULL;
-	    }
-	}
+    {   size_t dim = Parameter::dim(tf->parameters);
+        for (size_t i = 0; i < dim; i++)
+        {   Parameter *arg = Parameter::getNth(tf->parameters, i);
+            if (arg->storageClass & STClazy)
+            {   cantInterpret = 1;
+                return NULL;
+            }
+        }
     }
 
     InterState istatex;
@@ -135,101 +135,101 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     istatex.fd = this;
     istatex.localThis = thisarg;
 
-    Expressions vsave;		// place to save previous parameter values
+    Expressions vsave;          // place to save previous parameter values
     size_t dim = 0;
     if (needThis() && !thisarg)
-    {	cantInterpret = 1;
-	// error, no this. Prevent segfault.
-	error("need 'this' to access member %s", toChars());
-	return NULL;
+    {   cantInterpret = 1;
+        // error, no this. Prevent segfault.
+        error("need 'this' to access member %s", toChars());
+        return NULL;
     }
     if (arguments)
     {
-	dim = arguments->dim;
-	assert(!dim || (parameters && (parameters->dim == dim)));
-	vsave.setDim(dim);
+        dim = arguments->dim;
+        assert(!dim || (parameters && (parameters->dim == dim)));
+        vsave.setDim(dim);
 
-	/* Evaluate all the arguments to the function,
-	 * store the results in eargs[]
-	 */
-	Expressions eargs;
-	eargs.setDim(dim);
+        /* Evaluate all the arguments to the function,
+         * store the results in eargs[]
+         */
+        Expressions eargs;
+        eargs.setDim(dim);
 
-	for (size_t i = 0; i < dim; i++)
-	{   Expression *earg = (Expression *)arguments->data[i];
-	    Parameter *arg = Parameter::getNth(tf->parameters, i);
+        for (size_t i = 0; i < dim; i++)
+        {   Expression *earg = (Expression *)arguments->data[i];
+            Parameter *arg = Parameter::getNth(tf->parameters, i);
 
-	    if (arg->storageClass & (STCout | STCref | STClazy))
-	    {
-	    }
-	    else
-	    {	/* Value parameters
-		 */
-		Type *ta = arg->type->toBasetype();
-		if (ta->ty == Tsarray && earg->op == TOKaddress)
-		{
-		    /* Static arrays are passed by a simple pointer.
-		     * Skip past this to get at the actual arg.
-		     */
-		    earg = ((AddrExp *)earg)->e1;
-		}
-		earg = earg->interpret(istate ? istate : &istatex);
-		if (earg == EXP_CANT_INTERPRET)
-		{   cantInterpret = 1;
-		    return NULL;
-		}
-	    }
-	    eargs.data[i] = earg;
-	}
+            if (arg->storageClass & (STCout | STCref | STClazy))
+            {
+            }
+            else
+            {   /* Value parameters
+                 */
+                Type *ta = arg->type->toBasetype();
+                if (ta->ty == Tsarray && earg->op == TOKaddress)
+                {
+                    /* Static arrays are passed by a simple pointer.
+                     * Skip past this to get at the actual arg.
+                     */
+                    earg = ((AddrExp *)earg)->e1;
+                }
+                earg = earg->interpret(istate ? istate : &istatex);
+                if (earg == EXP_CANT_INTERPRET)
+                {   cantInterpret = 1;
+                    return NULL;
+                }
+            }
+            eargs.data[i] = earg;
+        }
 
-	for (size_t i = 0; i < dim; i++)
-	{   Expression *earg = (Expression *)eargs.data[i];
-	    Parameter *arg = Parameter::getNth(tf->parameters, i);
-	    VarDeclaration *v = (VarDeclaration *)parameters->data[i];
-	    vsave.data[i] = v->value;
+        for (size_t i = 0; i < dim; i++)
+        {   Expression *earg = (Expression *)eargs.data[i];
+            Parameter *arg = Parameter::getNth(tf->parameters, i);
+            VarDeclaration *v = (VarDeclaration *)parameters->data[i];
+            vsave.data[i] = v->value;
 #if LOG
-	    printf("arg[%d] = %s\n", i, earg->toChars());
+            printf("arg[%d] = %s\n", i, earg->toChars());
 #endif
-		if (arg->storageClass & (STCout | STCref) && earg->op==TOKvar)
-		{
-			VarExp *ve = (VarExp *)earg;
-			VarDeclaration *v2 = ve->var->isVarDeclaration();
-			if (!v2)
-			{   cantInterpret = 1;
-					return NULL;
-			}
-			v->value = earg;
-			/* Don't restore the value of v2 upon function return
-			 */
-			assert(istate);
-			for (size_t i = 0; i < istate->vars.dim; i++)
-			{   VarDeclaration *vx = (VarDeclaration *)istate->vars.data[i];
-				if (vx == v2)
-				{   istate->vars.data[i] = NULL;
-					break;
-				}
-			}
-		}
-	    else
-	    {	// Value parameters and non-trivial references
-		v->value = earg;
-	    }
+                if (arg->storageClass & (STCout | STCref) && earg->op==TOKvar)
+                {
+                        VarExp *ve = (VarExp *)earg;
+                        VarDeclaration *v2 = ve->var->isVarDeclaration();
+                        if (!v2)
+                        {   cantInterpret = 1;
+                                        return NULL;
+                        }
+                        v->value = earg;
+                        /* Don't restore the value of v2 upon function return
+                         */
+                        assert(istate);
+                        for (size_t i = 0; i < istate->vars.dim; i++)
+                        {   VarDeclaration *vx = (VarDeclaration *)istate->vars.data[i];
+                                if (vx == v2)
+                                {   istate->vars.data[i] = NULL;
+                                        break;
+                                }
+                        }
+                }
+            else
+            {   // Value parameters and non-trivial references
+                v->value = earg;
+            }
 #if LOG
-	    printf("interpreted arg[%d] = %s\n", i, earg->toChars());
+            printf("interpreted arg[%d] = %s\n", i, earg->toChars());
 #endif
-	}
+        }
     }
     // Don't restore the value of 'this' upon function return
     if (needThis() && thisarg->op == TOKvar && istate)
     {
-	VarDeclaration *thisvar = ((VarExp *)(thisarg))->var->isVarDeclaration();
-    	for (size_t i = 0; i < istate->vars.dim; i++)
-	{   VarDeclaration *v = (VarDeclaration *)istate->vars.data[i];
-	    if (v == thisvar)
-	    {	istate->vars.data[i] = NULL;
-		break;
-	    }
-	}
+        VarDeclaration *thisvar = ((VarExp *)(thisarg))->var->isVarDeclaration();
+        for (size_t i = 0; i < istate->vars.dim; i++)
+        {   VarDeclaration *v = (VarDeclaration *)istate->vars.data[i];
+            if (v == thisvar)
+            {   istate->vars.data[i] = NULL;
+                break;
+            }
+        }
     }
 
     /* Save the values of the local variables used
@@ -237,84 +237,84 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     Expressions valueSaves;
     if (istate && !isNested())
     {
-	//printf("saving local variables...\n");
-	valueSaves.setDim(istate->vars.dim);
-	for (size_t i = 0; i < istate->vars.dim; i++)
-	{   VarDeclaration *v = (VarDeclaration *)istate->vars.data[i];
-	    if (v)
-	    {
-		//printf("\tsaving [%d] %s = %s\n", i, v->toChars(), v->value ? v->value->toChars() : "");
-		valueSaves.data[i] = v->value;
-		v->value = NULL;
-	    }
-	}
+        //printf("saving local variables...\n");
+        valueSaves.setDim(istate->vars.dim);
+        for (size_t i = 0; i < istate->vars.dim; i++)
+        {   VarDeclaration *v = (VarDeclaration *)istate->vars.data[i];
+            if (v)
+            {
+                //printf("\tsaving [%d] %s = %s\n", i, v->toChars(), v->value ? v->value->toChars() : "");
+                valueSaves.data[i] = v->value;
+                v->value = NULL;
+            }
+        }
     }
 
     Expression *e = NULL;
     while (1)
     {
-	e = fbody->interpret(&istatex);
-	if (e == EXP_CANT_INTERPRET)
-	{
+        e = fbody->interpret(&istatex);
+        if (e == EXP_CANT_INTERPRET)
+        {
 #if LOG
-	    printf("function body failed to interpret\n");
+            printf("function body failed to interpret\n");
 #endif
-	    e = NULL;
-	}
+            e = NULL;
+        }
 
-	/* This is how we deal with a recursive statement AST
-	 * that has arbitrary goto statements in it.
-	 * Bubble up a 'result' which is the target of the goto
-	 * statement, then go recursively down the AST looking
-	 * for that statement, then execute starting there.
-	 */
-	if (e == EXP_GOTO_INTERPRET)
-	{
-	    istatex.start = istatex.gotoTarget;	// set starting statement
-	    istatex.gotoTarget = NULL;
-	}
-	else
-	    break;
+        /* This is how we deal with a recursive statement AST
+         * that has arbitrary goto statements in it.
+         * Bubble up a 'result' which is the target of the goto
+         * statement, then go recursively down the AST looking
+         * for that statement, then execute starting there.
+         */
+        if (e == EXP_GOTO_INTERPRET)
+        {
+            istatex.start = istatex.gotoTarget; // set starting statement
+            istatex.gotoTarget = NULL;
+        }
+        else
+            break;
     }
     /* Restore the parameter values
      */
     for (size_t i = 0; i < dim; i++)
     {
-	VarDeclaration *v = (VarDeclaration *)parameters->data[i];
-	v->value = (Expression *)vsave.data[i];
+        VarDeclaration *v = (VarDeclaration *)parameters->data[i];
+        v->value = (Expression *)vsave.data[i];
     }
 
     if (istate && !isNested())
     {
-	/* Restore the variable values
-	 */
-	//printf("restoring local variables...\n");
-	for (size_t i = 0; i < istate->vars.dim; i++)
-	{   VarDeclaration *v = (VarDeclaration *)istate->vars.data[i];
-	    if (v)
-	    {	v->value = (Expression *)valueSaves.data[i];
-		//printf("\trestoring [%d] %s = %s\n", i, v->toChars(), v->value ? v->value->toChars() : "");
-	    }
-	}
+        /* Restore the variable values
+         */
+        //printf("restoring local variables...\n");
+        for (size_t i = 0; i < istate->vars.dim; i++)
+        {   VarDeclaration *v = (VarDeclaration *)istate->vars.data[i];
+            if (v)
+            {   v->value = (Expression *)valueSaves.data[i];
+                //printf("\trestoring [%d] %s = %s\n", i, v->toChars(), v->value ? v->value->toChars() : "");
+            }
+        }
     }
     return e;
 }
 
 /******************************** Statement ***************************/
 
-#define START()				\
-    if (istate->start)			\
-    {	if (istate->start != this)	\
-	    return NULL;		\
-	istate->start = NULL;		\
+#define START()                         \
+    if (istate->start)                  \
+    {   if (istate->start != this)      \
+            return NULL;                \
+        istate->start = NULL;           \
     }
 
 /***********************************
  * Interpret the statement.
  * Returns:
- *	NULL	continue to next statement
- *	EXP_CANT_INTERPRET	cannot interpret statement at compile time
- *	!NULL	expression from return statement
+ *      NULL    continue to next statement
+ *      EXP_CANT_INTERPRET      cannot interpret statement at compile time
+ *      !NULL   expression from return statement
  */
 
 Expression *Statement::interpret(InterState *istate)
@@ -334,12 +334,12 @@ Expression *ExpStatement::interpret(InterState *istate)
     START()
     if (exp)
     {
-	Expression *e = exp->interpret(istate);
-	if (e == EXP_CANT_INTERPRET)
-	{
-	    //printf("-ExpStatement::interpret(): %p\n", e);
-	    return EXP_CANT_INTERPRET;
-	}
+        Expression *e = exp->interpret(istate);
+        if (e == EXP_CANT_INTERPRET)
+        {
+            //printf("-ExpStatement::interpret(): %p\n", e);
+            return EXP_CANT_INTERPRET;
+        }
     }
     return NULL;
 }
@@ -351,19 +351,19 @@ Expression *CompoundStatement::interpret(InterState *istate)
     printf("CompoundStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (statements)
     {
-	for (size_t i = 0; i < statements->dim; i++)
-	{   Statement *s = (Statement *)statements->data[i];
+        for (size_t i = 0; i < statements->dim; i++)
+        {   Statement *s = (Statement *)statements->data[i];
 
-	    if (s)
-	    {
-		e = s->interpret(istate);
-		if (e)
-		    break;
-	    }
-	}
+            if (s)
+            {
+                e = s->interpret(istate);
+                if (e)
+                    break;
+            }
+        }
     }
 #if LOG
     printf("-CompoundStatement::interpret() %p\n", e);
@@ -378,26 +378,26 @@ Expression *UnrolledLoopStatement::interpret(InterState *istate)
     printf("UnrolledLoopStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (statements)
     {
-	for (size_t i = 0; i < statements->dim; i++)
-	{   Statement *s = (Statement *)statements->data[i];
+        for (size_t i = 0; i < statements->dim; i++)
+        {   Statement *s = (Statement *)statements->data[i];
 
-	    e = s->interpret(istate);
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e == EXP_CONTINUE_INTERPRET)
-	    {	e = NULL;
-		continue;
-	    }
-	    if (e == EXP_BREAK_INTERPRET)
-	    {	e = NULL;
-		break;
-	    }
-	    if (e)
-		break;
-	}
+            e = s->interpret(istate);
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e == EXP_CONTINUE_INTERPRET)
+            {   e = NULL;
+                continue;
+            }
+            if (e == EXP_BREAK_INTERPRET)
+            {   e = NULL;
+                break;
+            }
+            if (e)
+                break;
+        }
     }
     return e;
 }
@@ -409,15 +409,15 @@ Expression *IfStatement::interpret(InterState *istate)
 #endif
 
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (istate->start)
     {
-	Expression *e = NULL;
-	if (ifbody)
-	    e = ifbody->interpret(istate);
-	if (istate->start && elsebody)
-	    e = elsebody->interpret(istate);
-	return e;
+        Expression *e = NULL;
+        if (ifbody)
+            e = ifbody->interpret(istate);
+        if (istate->start && elsebody)
+            e = elsebody->interpret(istate);
+        return e;
     }
 
     Expression *e = condition->interpret(istate);
@@ -425,14 +425,14 @@ Expression *IfStatement::interpret(InterState *istate)
     //if (e == EXP_CANT_INTERPRET) printf("cannot interpret\n");
     if (e != EXP_CANT_INTERPRET)
     {
-	if (e->isBool(TRUE))
-	    e = ifbody ? ifbody->interpret(istate) : NULL;
-	else if (e->isBool(FALSE))
-	    e = elsebody ? elsebody->interpret(istate) : NULL;
-	else
-	{
-	    e = EXP_CANT_INTERPRET;
-	}
+        if (e->isBool(TRUE))
+            e = ifbody ? ifbody->interpret(istate) : NULL;
+        else if (e->isBool(FALSE))
+            e = elsebody ? elsebody->interpret(istate) : NULL;
+        else
+        {
+            e = EXP_CANT_INTERPRET;
+        }
     }
     return e;
 }
@@ -443,7 +443,7 @@ Expression *ScopeStatement::interpret(InterState *istate)
     printf("ScopeStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     return statement ? statement->interpret(istate) : NULL;
 }
 
@@ -537,8 +537,8 @@ Expression *ReturnStatement::interpret(InterState *istate)
 #endif
     START()
     if (!exp)
-	return EXP_VOID_INTERPRET;
-	assert(istate && istate->fd && istate->fd->type);
+        return EXP_VOID_INTERPRET;
+        assert(istate && istate->fd && istate->fd->type);
 #if DMDV2
     /* If the function returns a ref AND it's been called from an assignment,
      * we need to return an lvalue. Otherwise, just do an (rvalue) interpret.
@@ -579,9 +579,9 @@ Expression *BreakStatement::interpret(InterState *istate)
 #endif
     START()
     if (ident)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
     else
-	return EXP_BREAK_INTERPRET;
+        return EXP_BREAK_INTERPRET;
 }
 
 Expression *ContinueStatement::interpret(InterState *istate)
@@ -591,9 +591,9 @@ Expression *ContinueStatement::interpret(InterState *istate)
 #endif
     START()
     if (ident)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
     else
-	return EXP_CONTINUE_INTERPRET;
+        return EXP_CONTINUE_INTERPRET;
 }
 
 Expression *WhileStatement::interpret(InterState *istate)
@@ -601,7 +601,7 @@ Expression *WhileStatement::interpret(InterState *istate)
 #if LOG
     printf("WhileStatement::interpret()\n");
 #endif
-    assert(0);			// rewritten to ForStatement
+    assert(0);                  // rewritten to ForStatement
     return NULL;
 }
 
@@ -611,53 +611,53 @@ Expression *DoStatement::interpret(InterState *istate)
     printf("DoStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     Expression *e;
 
     if (istate->start)
     {
-	e = body ? body->interpret(istate) : NULL;
-	if (istate->start)
-	    return NULL;
-	if (e == EXP_CANT_INTERPRET)
-	    return e;
-	if (e == EXP_BREAK_INTERPRET)
-	    return NULL;
-	if (e == EXP_CONTINUE_INTERPRET)
-	    goto Lcontinue;
-	if (e)
-	    return e;
+        e = body ? body->interpret(istate) : NULL;
+        if (istate->start)
+            return NULL;
+        if (e == EXP_CANT_INTERPRET)
+            return e;
+        if (e == EXP_BREAK_INTERPRET)
+            return NULL;
+        if (e == EXP_CONTINUE_INTERPRET)
+            goto Lcontinue;
+        if (e)
+            return e;
     }
 
     while (1)
     {
-	e = body ? body->interpret(istate) : NULL;
-	if (e == EXP_CANT_INTERPRET)
-	    break;
-	if (e == EXP_BREAK_INTERPRET)
-	{   e = NULL;
-	    break;
-	}
-	if (e && e != EXP_CONTINUE_INTERPRET)
-	    break;
+        e = body ? body->interpret(istate) : NULL;
+        if (e == EXP_CANT_INTERPRET)
+            break;
+        if (e == EXP_BREAK_INTERPRET)
+        {   e = NULL;
+            break;
+        }
+        if (e && e != EXP_CONTINUE_INTERPRET)
+            break;
 
     Lcontinue:
-	e = condition->interpret(istate);
-	if (e == EXP_CANT_INTERPRET)
-	    break;
-	if (!e->isConst())
-	{   e = EXP_CANT_INTERPRET;
-	    break;
-	}
-	if (e->isBool(TRUE))
-	{
-	}
-	else if (e->isBool(FALSE))
-	{   e = NULL;
-	    break;
-	}
-	else
-	    assert(0);
+        e = condition->interpret(istate);
+        if (e == EXP_CANT_INTERPRET)
+            break;
+        if (!e->isConst())
+        {   e = EXP_CANT_INTERPRET;
+            break;
+        }
+        if (e->isBool(TRUE))
+        {
+        }
+        else if (e->isBool(FALSE))
+        {   e = NULL;
+            break;
+        }
+        else
+            assert(0);
     }
     return e;
 }
@@ -668,69 +668,69 @@ Expression *ForStatement::interpret(InterState *istate)
     printf("ForStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     Expression *e;
 
     if (init)
     {
-	e = init->interpret(istate);
-	if (e == EXP_CANT_INTERPRET)
-	    return e;
-	assert(!e);
+        e = init->interpret(istate);
+        if (e == EXP_CANT_INTERPRET)
+            return e;
+        assert(!e);
     }
 
     if (istate->start)
     {
-	e = body ? body->interpret(istate) : NULL;
-	if (istate->start)
-	    return NULL;
-	if (e == EXP_CANT_INTERPRET)
-	    return e;
-	if (e == EXP_BREAK_INTERPRET)
-	    return NULL;
-	if (e == EXP_CONTINUE_INTERPRET)
-	    goto Lcontinue;
-	if (e)
-	    return e;
+        e = body ? body->interpret(istate) : NULL;
+        if (istate->start)
+            return NULL;
+        if (e == EXP_CANT_INTERPRET)
+            return e;
+        if (e == EXP_BREAK_INTERPRET)
+            return NULL;
+        if (e == EXP_CONTINUE_INTERPRET)
+            goto Lcontinue;
+        if (e)
+            return e;
     }
 
     while (1)
     {
-	if (!condition)
-	    goto Lhead;
-	e = condition->interpret(istate);
-	if (e == EXP_CANT_INTERPRET)
-	    break;
-	if (!e->isConst())
-	{   e = EXP_CANT_INTERPRET;
-	    break;
-	}
-	if (e->isBool(TRUE))
-	{
-	Lhead:
-	    e = body ? body->interpret(istate) : NULL;
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e == EXP_BREAK_INTERPRET)
-	    {   e = NULL;
-		break;
-	    }
-	    if (e && e != EXP_CONTINUE_INTERPRET)
-		break;
-	Lcontinue:
-	    if (increment)
-	    {
-		e = increment->interpret(istate);
-		if (e == EXP_CANT_INTERPRET)
-		    break;
-	    }
-	}
-	else if (e->isBool(FALSE))
-	{   e = NULL;
-	    break;
-	}
-	else
-	    assert(0);
+        if (!condition)
+            goto Lhead;
+        e = condition->interpret(istate);
+        if (e == EXP_CANT_INTERPRET)
+            break;
+        if (!e->isConst())
+        {   e = EXP_CANT_INTERPRET;
+            break;
+        }
+        if (e->isBool(TRUE))
+        {
+        Lhead:
+            e = body ? body->interpret(istate) : NULL;
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e == EXP_BREAK_INTERPRET)
+            {   e = NULL;
+                break;
+            }
+            if (e && e != EXP_CONTINUE_INTERPRET)
+                break;
+        Lcontinue:
+            if (increment)
+            {
+                e = increment->interpret(istate);
+                if (e == EXP_CANT_INTERPRET)
+                    break;
+            }
+        }
+        else if (e->isBool(FALSE))
+        {   e = NULL;
+            break;
+        }
+        else
+            assert(0);
     }
     return e;
 }
@@ -741,23 +741,23 @@ Expression *ForeachStatement::interpret(InterState *istate)
     printf("ForeachStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (istate->start)
-	return NULL;
+        return NULL;
 
     Expression *e = NULL;
     Expression *eaggr;
 
     if (value->isOut() || value->isRef())
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
 
     eaggr = aggr->interpret(istate);
     if (eaggr == EXP_CANT_INTERPRET)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
 
     Expression *dim = ArrayLength(Type::tsize_t, eaggr);
     if (dim == EXP_CANT_INTERPRET)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
 
     Expression *keysave = key ? key->value : NULL;
     Expression *valuesave = value->value;
@@ -767,57 +767,57 @@ Expression *ForeachStatement::interpret(InterState *istate)
 
     if (op == TOKforeach)
     {
-	for (index = 0; index < d; index++)
-	{
-	    Expression *ekey = new IntegerExp(loc, index, Type::tsize_t);
-	    if (key)
-		key->value = ekey;
-	    e = Index(value->type, eaggr, ekey);
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    value->value = e;
+        for (index = 0; index < d; index++)
+        {
+            Expression *ekey = new IntegerExp(loc, index, Type::tsize_t);
+            if (key)
+                key->value = ekey;
+            e = Index(value->type, eaggr, ekey);
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            value->value = e;
 
-	    e = body ? body->interpret(istate) : NULL;
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e == EXP_BREAK_INTERPRET)
-	    {   e = NULL;
-		break;
-	    }
-	    if (e == EXP_CONTINUE_INTERPRET)
-		e = NULL;
-	    else if (e)
-		break;
-	}
+            e = body ? body->interpret(istate) : NULL;
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e == EXP_BREAK_INTERPRET)
+            {   e = NULL;
+                break;
+            }
+            if (e == EXP_CONTINUE_INTERPRET)
+                e = NULL;
+            else if (e)
+                break;
+        }
     }
     else // TOKforeach_reverse
     {
-	for (index = d; index-- != 0;)
-	{
-	    Expression *ekey = new IntegerExp(loc, index, Type::tsize_t);
-	    if (key)
-		key->value = ekey;
-	    e = Index(value->type, eaggr, ekey);
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    value->value = e;
+        for (index = d; index-- != 0;)
+        {
+            Expression *ekey = new IntegerExp(loc, index, Type::tsize_t);
+            if (key)
+                key->value = ekey;
+            e = Index(value->type, eaggr, ekey);
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            value->value = e;
 
-	    e = body ? body->interpret(istate) : NULL;
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e == EXP_BREAK_INTERPRET)
-	    {   e = NULL;
-		break;
-	    }
-	    if (e == EXP_CONTINUE_INTERPRET)
-		e = NULL;
-	    else if (e)
-		break;
-	}
+            e = body ? body->interpret(istate) : NULL;
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e == EXP_BREAK_INTERPRET)
+            {   e = NULL;
+                break;
+            }
+            if (e == EXP_CONTINUE_INTERPRET)
+                e = NULL;
+            else if (e)
+                break;
+        }
     }
     value->value = valuesave;
     if (key)
-	key->value = keysave;
+        key->value = keysave;
     return e;
 }
 
@@ -828,79 +828,79 @@ Expression *ForeachRangeStatement::interpret(InterState *istate)
     printf("ForeachRangeStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (istate->start)
-	return NULL;
+        return NULL;
 
     Expression *e = NULL;
     Expression *elwr = lwr->interpret(istate);
     if (elwr == EXP_CANT_INTERPRET)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
 
     Expression *eupr = upr->interpret(istate);
     if (eupr == EXP_CANT_INTERPRET)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
 
     Expression *keysave = key->value;
 
     if (op == TOKforeach)
     {
-	key->value = elwr;
+        key->value = elwr;
 
-	while (1)
-	{
-	    e = Cmp(TOKlt, key->value->type, key->value, eupr);
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e->isBool(TRUE) == FALSE)
-	    {	e = NULL;
-		break;
-	    }
+        while (1)
+        {
+            e = Cmp(TOKlt, key->value->type, key->value, eupr);
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e->isBool(TRUE) == FALSE)
+            {   e = NULL;
+                break;
+            }
 
-	    e = body ? body->interpret(istate) : NULL;
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e == EXP_BREAK_INTERPRET)
-	    {   e = NULL;
-		break;
-	    }
-	    if (e == NULL || e == EXP_CONTINUE_INTERPRET)
-	    {	e = Add(key->value->type, key->value, new IntegerExp(loc, 1, key->value->type));
-		if (e == EXP_CANT_INTERPRET)
-		    break;
-		key->value = e;
-	    }
-	    else
-		break;
-	}
+            e = body ? body->interpret(istate) : NULL;
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e == EXP_BREAK_INTERPRET)
+            {   e = NULL;
+                break;
+            }
+            if (e == NULL || e == EXP_CONTINUE_INTERPRET)
+            {   e = Add(key->value->type, key->value, new IntegerExp(loc, 1, key->value->type));
+                if (e == EXP_CANT_INTERPRET)
+                    break;
+                key->value = e;
+            }
+            else
+                break;
+        }
     }
     else // TOKforeach_reverse
     {
-	key->value = eupr;
+        key->value = eupr;
 
-	do
-	{
-	    e = Cmp(TOKgt, key->value->type, key->value, elwr);
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e->isBool(TRUE) == FALSE)
-	    {	e = NULL;
-		break;
-	    }
+        do
+        {
+            e = Cmp(TOKgt, key->value->type, key->value, elwr);
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e->isBool(TRUE) == FALSE)
+            {   e = NULL;
+                break;
+            }
 
-	    e = Min(key->value->type, key->value, new IntegerExp(loc, 1, key->value->type));
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    key->value = e;
+            e = Min(key->value->type, key->value, new IntegerExp(loc, 1, key->value->type));
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            key->value = e;
 
-	    e = body ? body->interpret(istate) : NULL;
-	    if (e == EXP_CANT_INTERPRET)
-		break;
-	    if (e == EXP_BREAK_INTERPRET)
-	    {   e = NULL;
-		break;
-	    }
-	} while (e == NULL || e == EXP_CONTINUE_INTERPRET);
+            e = body ? body->interpret(istate) : NULL;
+            if (e == EXP_CANT_INTERPRET)
+                break;
+            if (e == EXP_BREAK_INTERPRET)
+            {   e = NULL;
+                break;
+            }
+        } while (e == NULL || e == EXP_CONTINUE_INTERPRET);
     }
     key->value = keysave;
     return e;
@@ -913,45 +913,45 @@ Expression *SwitchStatement::interpret(InterState *istate)
     printf("SwitchStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     Expression *e = NULL;
 
     if (istate->start)
     {
-	e = body ? body->interpret(istate) : NULL;
-	if (istate->start)
-	    return NULL;
-	if (e == EXP_CANT_INTERPRET)
-	    return e;
-	if (e == EXP_BREAK_INTERPRET)
-	    return NULL;
-	return e;
+        e = body ? body->interpret(istate) : NULL;
+        if (istate->start)
+            return NULL;
+        if (e == EXP_CANT_INTERPRET)
+            return e;
+        if (e == EXP_BREAK_INTERPRET)
+            return NULL;
+        return e;
     }
 
 
     Expression *econdition = condition->interpret(istate);
     if (econdition == EXP_CANT_INTERPRET)
-	return EXP_CANT_INTERPRET;
+        return EXP_CANT_INTERPRET;
 
     Statement *s = NULL;
     if (cases)
     {
-	for (size_t i = 0; i < cases->dim; i++)
-	{
-	    CaseStatement *cs = (CaseStatement *)cases->data[i];
-	    e = Equal(TOKequal, Type::tint32, econdition, cs->exp);
-	    if (e == EXP_CANT_INTERPRET)
-		return EXP_CANT_INTERPRET;
-	    if (e->isBool(TRUE))
-	    {	s = cs;
-		break;
-	    }
-	}
+        for (size_t i = 0; i < cases->dim; i++)
+        {
+            CaseStatement *cs = (CaseStatement *)cases->data[i];
+            e = Equal(TOKequal, Type::tint32, econdition, cs->exp);
+            if (e == EXP_CANT_INTERPRET)
+                return EXP_CANT_INTERPRET;
+            if (e->isBool(TRUE))
+            {   s = cs;
+                break;
+            }
+        }
     }
     if (!s)
-    {	if (hasNoDefault)
-	    error("no default or case for %s in switch statement", econdition->toChars());
-	s = sdefault;
+    {   if (hasNoDefault)
+            error("no default or case for %s in switch statement", econdition->toChars());
+        s = sdefault;
     }
 
     assert(s);
@@ -959,7 +959,7 @@ Expression *SwitchStatement::interpret(InterState *istate)
     e = body ? body->interpret(istate) : NULL;
     assert(!istate->start);
     if (e == EXP_BREAK_INTERPRET)
-	return NULL;
+        return NULL;
     return e;
 }
 
@@ -969,11 +969,11 @@ Expression *CaseStatement::interpret(InterState *istate)
     printf("CaseStatement::interpret(%s) this = %p\n", exp->toChars(), this);
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (statement)
-	return statement->interpret(istate);
+        return statement->interpret(istate);
     else
-	return NULL;
+        return NULL;
 }
 
 Expression *DefaultStatement::interpret(InterState *istate)
@@ -982,11 +982,11 @@ Expression *DefaultStatement::interpret(InterState *istate)
     printf("DefaultStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     if (statement)
-	return statement->interpret(istate);
+        return statement->interpret(istate);
     else
-	return NULL;
+        return NULL;
 }
 
 Expression *GotoStatement::interpret(InterState *istate)
@@ -1028,7 +1028,7 @@ Expression *LabelStatement::interpret(InterState *istate)
     printf("LabelStatement::interpret()\n");
 #endif
     if (istate->start == this)
-	istate->start = NULL;
+        istate->start = NULL;
     return statement ? statement->interpret(istate) : NULL;
 }
 
@@ -1101,7 +1101,7 @@ Expression *SymOffExp::interpret(InterState *istate)
 #endif
     if (var->isFuncDeclaration() && offset == 0)
     {
-	return this;
+        return this;
     }
     error("Cannot interpret %s at compile time", toChars());
     return EXP_CANT_INTERPRET;
@@ -1175,53 +1175,53 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d)
     if (v)
     {
 #if DMDV2
-	/* Magic variable __ctfe always returns true when interpreting
-	 */
-	if (v->ident == Id::ctfe)
-	    return new IntegerExp(loc, 1, Type::tbool);
+        /* Magic variable __ctfe always returns true when interpreting
+         */
+        if (v->ident == Id::ctfe)
+            return new IntegerExp(loc, 1, Type::tbool);
 
-	if ((v->isConst() || v->isImmutable() || v->storage_class & STCmanifest) && v->init && !v->value)
+        if ((v->isConst() || v->isImmutable() || v->storage_class & STCmanifest) && v->init && !v->value)
 #else
-	if (v->isConst() && v->init)
+        if (v->isConst() && v->init)
 #endif
-	{   e = v->init->toExpression();
-	    if (e && !e->type)
-		e->type = v->type;
-	}
-	else if (v->isCTFE() && !v->value)
-	{
-	    if (v->init)
-	    {
-		if (v->init->isVoidInitializer())
-		{
-				error(loc, "variable %s is used before initialization", v->toChars());
-				return EXP_CANT_INTERPRET;
-		}
-		e = v->init->toExpression();
-		e = e->interpret(istate);
-	    }
-	    else // This should never happen
-		e = v->type->defaultInitLiteral();
-	}
-	else
-	{   e = v->value;
-	    if (!v->isCTFE())
-	    {	error(loc, "static variable %s cannot be read at compile time", v->toChars());
-		e = EXP_CANT_INTERPRET;
-	    }
-	    else if (!e)
-		error(loc, "variable %s is used before initialization", v->toChars());
-	    else if (e != EXP_CANT_INTERPRET)
-		e = e->interpret(istate);
-	}
-	if (!e)
-	    e = EXP_CANT_INTERPRET;
+        {   e = v->init->toExpression();
+            if (e && !e->type)
+                e->type = v->type;
+        }
+        else if (v->isCTFE() && !v->value)
+        {
+            if (v->init)
+            {
+                if (v->init->isVoidInitializer())
+                {
+                                error(loc, "variable %s is used before initialization", v->toChars());
+                                return EXP_CANT_INTERPRET;
+                }
+                e = v->init->toExpression();
+                e = e->interpret(istate);
+            }
+            else // This should never happen
+                e = v->type->defaultInitLiteral();
+        }
+        else
+        {   e = v->value;
+            if (!v->isCTFE())
+            {   error(loc, "static variable %s cannot be read at compile time", v->toChars());
+                e = EXP_CANT_INTERPRET;
+            }
+            else if (!e)
+                error(loc, "variable %s is used before initialization", v->toChars());
+            else if (e != EXP_CANT_INTERPRET)
+                e = e->interpret(istate);
+        }
+        if (!e)
+            e = EXP_CANT_INTERPRET;
     }
     else if (s)
     {
-	Expressions *exps = new Expressions();
-	e = new StructLiteralExp(0, s->dsym, exps);
-	e = e->semantic(NULL);
+        Expressions *exps = new Expressions();
+        e = new StructLiteralExp(0, s->dsym, exps);
+        e = e->semantic(NULL);
     }
     return e;
 }
@@ -1243,38 +1243,38 @@ Expression *DeclarationExp::interpret(InterState *istate)
     VarDeclaration *v = declaration->isVarDeclaration();
     if (v)
     {
-	Dsymbol *s = v->toAlias();
-	if (s == v && !v->isStatic() && v->init)
-	{
-	    ExpInitializer *ie = v->init->isExpInitializer();
-	    if (ie)
-		e = ie->exp->interpret(istate);
-	    else if (v->init->isVoidInitializer())
-		e = NULL;
-	}
+        Dsymbol *s = v->toAlias();
+        if (s == v && !v->isStatic() && v->init)
+        {
+            ExpInitializer *ie = v->init->isExpInitializer();
+            if (ie)
+                e = ie->exp->interpret(istate);
+            else if (v->init->isVoidInitializer())
+                e = NULL;
+        }
 #if DMDV2
-	else if (s == v && (v->isConst() || v->isImmutable()) && v->init)
+        else if (s == v && (v->isConst() || v->isImmutable()) && v->init)
 #else
-	else if (s == v && v->isConst() && v->init)
+        else if (s == v && v->isConst() && v->init)
 #endif
-	{   e = v->init->toExpression();
-	    if (!e)
-		e = EXP_CANT_INTERPRET;
-	    else if (!e->type)
-		e->type = v->type;
-	}
+        {   e = v->init->toExpression();
+            if (!e)
+                e = EXP_CANT_INTERPRET;
+            else if (!e->type)
+                e->type = v->type;
+        }
     }
     else if (declaration->isAttribDeclaration() ||
-	     declaration->isTemplateMixin() ||
-	     declaration->isTupleDeclaration())
-    {	// These can be made to work, too lazy now
+             declaration->isTemplateMixin() ||
+             declaration->isTupleDeclaration())
+    {   // These can be made to work, too lazy now
     error("Declaration %s is not yet implemented in CTFE", toChars());
 
-	e = EXP_CANT_INTERPRET;
+        e = EXP_CANT_INTERPRET;
     }
     else
-    {	// Others should not contain executable code, so are trivial to evaluate
-	e = NULL;
+    {   // Others should not contain executable code, so are trivial to evaluate
+        e = NULL;
     }
 #if LOG
     printf("-DeclarationExp::interpret(%s): %p\n", toChars(), e);
@@ -1291,34 +1291,34 @@ Expression *TupleExp::interpret(InterState *istate)
 
     for (size_t i = 0; i < exps->dim; i++)
     {   Expression *e = (Expression *)exps->data[i];
-	Expression *ex;
+        Expression *ex;
 
-	ex = e->interpret(istate);
-	if (ex == EXP_CANT_INTERPRET)
-	{   delete expsx;
-	    return ex;
-	}
+        ex = e->interpret(istate);
+        if (ex == EXP_CANT_INTERPRET)
+        {   delete expsx;
+            return ex;
+        }
 
-	/* If any changes, do Copy On Write
-	 */
-	if (ex != e)
-	{
-	    if (!expsx)
-	    {	expsx = new Expressions();
-		expsx->setDim(exps->dim);
-		for (size_t j = 0; j < i; j++)
-		{
-		    expsx->data[j] = exps->data[j];
-		}
-	    }
-	    expsx->data[i] = (void *)ex;
-	}
+        /* If any changes, do Copy On Write
+         */
+        if (ex != e)
+        {
+            if (!expsx)
+            {   expsx = new Expressions();
+                expsx->setDim(exps->dim);
+                for (size_t j = 0; j < i; j++)
+                {
+                    expsx->data[j] = exps->data[j];
+                }
+            }
+            expsx->data[i] = (void *)ex;
+        }
     }
     if (expsx)
-    {	TupleExp *te = new TupleExp(loc, expsx);
-	expandTuples(te->exps);
-	te->type = new TypeTuple(te->exps);
-	return te;
+    {   TupleExp *te = new TupleExp(loc, expsx);
+        expandTuples(te->exps);
+        te->type = new TypeTuple(te->exps);
+        return te;
     }
     return this;
 }
@@ -1331,44 +1331,44 @@ Expression *ArrayLiteralExp::interpret(InterState *istate)
 #endif
     if (elements)
     {
-	for (size_t i = 0; i < elements->dim; i++)
-	{   Expression *e = (Expression *)elements->data[i];
-	    Expression *ex;
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *e = (Expression *)elements->data[i];
+            Expression *ex;
 
-	    ex = e->interpret(istate);
-	    if (ex == EXP_CANT_INTERPRET)
-		goto Lerror;
+            ex = e->interpret(istate);
+            if (ex == EXP_CANT_INTERPRET)
+                goto Lerror;
 
-	    /* If any changes, do Copy On Write
-	     */
-	    if (ex != e)
-	    {
-		if (!expsx)
-		{   expsx = new Expressions();
-		    expsx->setDim(elements->dim);
-		    for (size_t j = 0; j < elements->dim; j++)
-		    {
-			expsx->data[j] = elements->data[j];
-		    }
-		}
-		expsx->data[i] = (void *)ex;
-	    }
-	}
+            /* If any changes, do Copy On Write
+             */
+            if (ex != e)
+            {
+                if (!expsx)
+                {   expsx = new Expressions();
+                    expsx->setDim(elements->dim);
+                    for (size_t j = 0; j < elements->dim; j++)
+                    {
+                        expsx->data[j] = elements->data[j];
+                    }
+                }
+                expsx->data[i] = (void *)ex;
+            }
+        }
     }
     if (elements && expsx)
     {
-	expandTuples(expsx);
-	if (expsx->dim != elements->dim)
-	    goto Lerror;
-	ArrayLiteralExp *ae = new ArrayLiteralExp(loc, expsx);
-	ae->type = type;
-	return ae;
+        expandTuples(expsx);
+        if (expsx->dim != elements->dim)
+            goto Lerror;
+        ArrayLiteralExp *ae = new ArrayLiteralExp(loc, expsx);
+        ae->type = type;
+        return ae;
     }
     return this;
 
 Lerror:
     if (expsx)
-	delete expsx;
+        delete expsx;
     error("cannot interpret array literal");
     return EXP_CANT_INTERPRET;
 }
@@ -1382,81 +1382,81 @@ Expression *AssocArrayLiteralExp::interpret(InterState *istate)
 #endif
     for (size_t i = 0; i < keys->dim; i++)
     {   Expression *ekey = (Expression *)keys->data[i];
-	Expression *evalue = (Expression *)values->data[i];
-	Expression *ex;
+        Expression *evalue = (Expression *)values->data[i];
+        Expression *ex;
 
-	ex = ekey->interpret(istate);
-	if (ex == EXP_CANT_INTERPRET)
-	    goto Lerr;
+        ex = ekey->interpret(istate);
+        if (ex == EXP_CANT_INTERPRET)
+            goto Lerr;
 
-	/* If any changes, do Copy On Write
-	 */
-	if (ex != ekey)
-	{
-	    if (keysx == keys)
-		keysx = (Expressions *)keys->copy();
-	    keysx->data[i] = (void *)ex;
-	}
+        /* If any changes, do Copy On Write
+         */
+        if (ex != ekey)
+        {
+            if (keysx == keys)
+                keysx = (Expressions *)keys->copy();
+            keysx->data[i] = (void *)ex;
+        }
 
-	ex = evalue->interpret(istate);
-	if (ex == EXP_CANT_INTERPRET)
-	    goto Lerr;
+        ex = evalue->interpret(istate);
+        if (ex == EXP_CANT_INTERPRET)
+            goto Lerr;
 
-	/* If any changes, do Copy On Write
-	 */
-	if (ex != evalue)
-	{
-	    if (valuesx == values)
-		valuesx = (Expressions *)values->copy();
-	    valuesx->data[i] = (void *)ex;
-	}
+        /* If any changes, do Copy On Write
+         */
+        if (ex != evalue)
+        {
+            if (valuesx == values)
+                valuesx = (Expressions *)values->copy();
+            valuesx->data[i] = (void *)ex;
+        }
     }
     if (keysx != keys)
-	expandTuples(keysx);
+        expandTuples(keysx);
     if (valuesx != values)
-	expandTuples(valuesx);
+        expandTuples(valuesx);
     if (keysx->dim != valuesx->dim)
-	goto Lerr;
+        goto Lerr;
 
     /* Remove duplicate keys
      */
     for (size_t i = 1; i < keysx->dim; i++)
     {   Expression *ekey = (Expression *)keysx->data[i - 1];
 
-	for (size_t j = i; j < keysx->dim; j++)
-	{   Expression *ekey2 = (Expression *)keysx->data[j];
-	    Expression *ex = Equal(TOKequal, Type::tbool, ekey, ekey2);
-	    if (ex == EXP_CANT_INTERPRET)
-		goto Lerr;
-	    if (ex->isBool(TRUE))	// if a match
-	    {
-		// Remove ekey
-		if (keysx == keys)
-		    keysx = (Expressions *)keys->copy();
-		if (valuesx == values)
-		    valuesx = (Expressions *)values->copy();
-		keysx->remove(i - 1);
-		valuesx->remove(i - 1);
-		i -= 1;		// redo the i'th iteration
-		break;
-	    }
-	}
+        for (size_t j = i; j < keysx->dim; j++)
+        {   Expression *ekey2 = (Expression *)keysx->data[j];
+            Expression *ex = Equal(TOKequal, Type::tbool, ekey, ekey2);
+            if (ex == EXP_CANT_INTERPRET)
+                goto Lerr;
+            if (ex->isBool(TRUE))       // if a match
+            {
+                // Remove ekey
+                if (keysx == keys)
+                    keysx = (Expressions *)keys->copy();
+                if (valuesx == values)
+                    valuesx = (Expressions *)values->copy();
+                keysx->remove(i - 1);
+                valuesx->remove(i - 1);
+                i -= 1;         // redo the i'th iteration
+                break;
+            }
+        }
     }
 
     if (keysx != keys || valuesx != values)
     {
-	AssocArrayLiteralExp *ae;
-	ae = new AssocArrayLiteralExp(loc, keysx, valuesx);
-	ae->type = type;
-	return ae;
+        AssocArrayLiteralExp *ae;
+        ae = new AssocArrayLiteralExp(loc, keysx, valuesx);
+        ae->type = type;
+        return ae;
     }
     return this;
 
 Lerr:
     if (keysx != keys)
-	delete keysx;
+        delete keysx;
     if (valuesx != values)
-	delete values;
+        delete values;
     return EXP_CANT_INTERPRET;
 }
 
@@ -1469,49 +1469,49 @@ Expression *StructLiteralExp::interpret(InterState *istate)
     /* We don't know how to deal with overlapping fields
      */
     if (sd->hasUnions)
-	{   error("Unions with overlapping fields are not yet supported in CTFE");
-		return EXP_CANT_INTERPRET;
+        {   error("Unions with overlapping fields are not yet supported in CTFE");
+                return EXP_CANT_INTERPRET;
     }
 
     if (elements)
     {
-	for (size_t i = 0; i < elements->dim; i++)
-	{   Expression *e = (Expression *)elements->data[i];
-	    if (!e)
-		continue;
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *e = (Expression *)elements->data[i];
+            if (!e)
+                continue;
 
-	    Expression *ex = e->interpret(istate);
-	    if (ex == EXP_CANT_INTERPRET)
-	    {   delete expsx;
-		return EXP_CANT_INTERPRET;
-	    }
+            Expression *ex = e->interpret(istate);
+            if (ex == EXP_CANT_INTERPRET)
+            {   delete expsx;
+                return EXP_CANT_INTERPRET;
+            }
 
-	    /* If any changes, do Copy On Write
-	     */
-	    if (ex != e)
-	    {
-		if (!expsx)
-		{   expsx = new Expressions();
-		    expsx->setDim(elements->dim);
-		    for (size_t j = 0; j < elements->dim; j++)
-		    {
-			expsx->data[j] = elements->data[j];
-		    }
-		}
-		expsx->data[i] = (void *)ex;
-	    }
-	}
+            /* If any changes, do Copy On Write
+             */
+            if (ex != e)
+            {
+                if (!expsx)
+                {   expsx = new Expressions();
+                    expsx->setDim(elements->dim);
+                    for (size_t j = 0; j < elements->dim; j++)
+                    {
+                        expsx->data[j] = elements->data[j];
+                    }
+                }
+                expsx->data[i] = (void *)ex;
+            }
+        }
     }
     if (elements && expsx)
     {
-	expandTuples(expsx);
-	if (expsx->dim != elements->dim)
-	{   delete expsx;
-	    return EXP_CANT_INTERPRET;
-	}
-	StructLiteralExp *se = new StructLiteralExp(loc, sd, expsx);
-	se->type = type;
-	return se;
+        expandTuples(expsx);
+        if (expsx->dim != elements->dim)
+        {   delete expsx;
+            return EXP_CANT_INTERPRET;
+        }
+        StructLiteralExp *se = new StructLiteralExp(loc, sd, expsx);
+        se->type = type;
+        return se;
     }
     return this;
 }
@@ -1525,9 +1525,9 @@ Expression *UnaExp::interpretCommon(InterState *istate, Expression *(*fp)(Type *
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e1->isConst() != 1)
-	goto Lcant;
+        goto Lcant;
 
     e = (*fp)(type, e1);
     return e;
@@ -1537,9 +1537,9 @@ Lcant:
 }
 
 #define UNA_INTERPRET(op) \
-Expression *op##Exp::interpret(InterState *istate)	\
-{							\
-    return interpretCommon(istate, &op);		\
+Expression *op##Exp::interpret(InterState *istate)      \
+{                                                       \
+    return interpretCommon(istate, &op);                \
 }
 
 UNA_INTERPRET(Neg)
@@ -1560,15 +1560,15 @@ Expression *BinExp::interpretCommon(InterState *istate, fp_t fp)
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e1->isConst() != 1)
-	goto Lcant;
+        goto Lcant;
 
     e2 = this->e2->interpret(istate);
     if (e2 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e2->isConst() != 1)
-	goto Lcant;
+        goto Lcant;
 
     e = (*fp)(type, e1, e2);
     return e;
@@ -1578,9 +1578,9 @@ Lcant:
 }
 
 #define BIN_INTERPRET(op) \
-Expression *op##Exp::interpret(InterState *istate)	\
-{							\
-    return interpretCommon(istate, &op);		\
+Expression *op##Exp::interpret(InterState *istate)      \
+{                                                       \
+    return interpretCommon(istate, &op);                \
 }
 
 BIN_INTERPRET(Add)
@@ -1608,23 +1608,23 @@ Expression *BinExp::interpretCommon2(InterState *istate, fp2_t fp)
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e1->isConst() != 1 &&
-	e1->op != TOKnull &&
-	e1->op != TOKstring &&
-	e1->op != TOKarrayliteral &&
-	e1->op != TOKstructliteral)
-	goto Lcant;
+        e1->op != TOKnull &&
+        e1->op != TOKstring &&
+        e1->op != TOKarrayliteral &&
+        e1->op != TOKstructliteral)
+        goto Lcant;
 
     e2 = this->e2->interpret(istate);
     if (e2 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e2->isConst() != 1 &&
-	e2->op != TOKnull &&
-	e2->op != TOKstring &&
-	e2->op != TOKarrayliteral &&
-	e2->op != TOKstructliteral)
-	goto Lcant;
+        e2->op != TOKnull &&
+        e2->op != TOKstring &&
+        e2->op != TOKarrayliteral &&
+        e2->op != TOKstructliteral)
+        goto Lcant;
 
     e = (*fp)(op, type, e1, e2);
     return e;
@@ -1634,9 +1634,9 @@ Lcant:
 }
 
 #define BIN_INTERPRET2(op) \
-Expression *op##Exp::interpret(InterState *istate)	\
-{							\
-    return interpretCommon2(istate, &op);		\
+Expression *op##Exp::interpret(InterState *istate)      \
+{                                                       \
+    return interpretCommon2(istate, &op);               \
 }
 
 BIN_INTERPRET2(Equal)
@@ -1655,10 +1655,10 @@ Expressions *changeOneElement(Expressions *oldelems, size_t indexToChange, void 
     expsx->setDim(oldelems->dim);
     for (size_t j = 0; j < expsx->dim; j++)
     {
-	if (j == indexToChange)
-	    expsx->data[j] = newelem;
-	else
-	    expsx->data[j] = oldelems->data[j];
+        if (j == indexToChange)
+            expsx->data[j] = newelem;
+        else
+            expsx->data[j] = oldelems->data[j];
     }
     return expsx;
 }
@@ -1667,16 +1667,16 @@ Expressions *changeOneElement(Expressions *oldelems, size_t indexToChange, void 
  * Returns oldelems[0..insertpoint] ~ newelems ~ oldelems[insertpoint+newelems.length..$]
  */
 Expressions *spliceElements(Expressions *oldelems,
-	Expressions *newelems, size_t insertpoint)
+        Expressions *newelems, size_t insertpoint)
 {
     Expressions *expsx = new Expressions();
     expsx->setDim(oldelems->dim);
     for (size_t j = 0; j < expsx->dim; j++)
     {
-	if (j >= insertpoint && j < insertpoint + newelems->dim)
-	    expsx->data[j] = newelems->data[j - insertpoint];
-	else
-	    expsx->data[j] = oldelems->data[j];
+        if (j >= insertpoint && j < insertpoint + newelems->dim)
+            expsx->data[j] = newelems->data[j - insertpoint];
+        else
+            expsx->data[j] = oldelems->data[j];
     }
     return expsx;
 }
@@ -1705,12 +1705,12 @@ StringExp *spliceStringExp(StringExp *oldstr, StringExp *newstr, size_t insertpo
  * Create an array literal consisting of 'elem' duplicated 'dim' times.
  */
 ArrayLiteralExp *createBlockDuplicatedArrayLiteral(Type *type,
-	Expression *elem, size_t dim)
+        Expression *elem, size_t dim)
 {
     Expressions *elements = new Expressions();
     elements->setDim(dim);
     for (size_t i = 0; i < dim; i++)
-	 elements->data[i] = elem;	
+         elements->data[i] = elem;
     ArrayLiteralExp *ae = new ArrayLiteralExp(0, elements);
     ae->type = type;
     return ae;
@@ -1720,19 +1720,19 @@ ArrayLiteralExp *createBlockDuplicatedArrayLiteral(Type *type,
  * Create a string literal consisting of 'value' duplicated 'dim' times.
  */
 StringExp *createBlockDuplicatedStringLiteral(Type *type,
-	unsigned value, size_t dim, int sz)
+        unsigned value, size_t dim, int sz)
 {
     unsigned char *s;
     s = (unsigned char *)mem.calloc(dim + 1, sz);
     for (int elemi=0; elemi<dim; ++elemi)
     {
-    	switch (sz)
-	{
-	    case 1:	s[elemi] = value; break;
-	    case 2:	((unsigned short *)s)[elemi] = value; break;
-	    case 4:	((unsigned *)s)[elemi] = value; break;
-	    default:    assert(0);
-	}
+        switch (sz)
+        {
+            case 1:     s[elemi] = value; break;
+            case 2:     ((unsigned short *)s)[elemi] = value; break;
+            case 4:     ((unsigned *)s)[elemi] = value; break;
+            default:    assert(0);
+        }
     }
     StringExp *se = new StringExp(0, s, dim);
     se->type = type;
@@ -1746,16 +1746,16 @@ void addVarToInterstate(InterState *istate, VarDeclaration *v)
 {
     if (!v->isParameter())
     {
-	for (size_t i = 0; 1; i++)
-	{
-	    if (i == istate->vars.dim)
-	    {   istate->vars.push(v);
-		//printf("\tadding %s to istate\n", v->toChars());
-		break;
-	    }
-	    if (v == (VarDeclaration *)istate->vars.data[i])
-		break;
-	}
+        for (size_t i = 0; 1; i++)
+        {
+            if (i == istate->vars.dim)
+            {   istate->vars.push(v);
+                //printf("\tadding %s to istate\n", v->toChars());
+                break;
+            }
+            if (v == (VarDeclaration *)istate->vars.data[i])
+                break;
+        }
     }
 }
 
@@ -2423,9 +2423,9 @@ Expression *AssignExp::interpret(InterState *istate)
 }
 
 #define BIN_ASSIGN_INTERPRET(op) \
-Expression *op##AssignExp::interpret(InterState *istate)	\
-{								\
-    return interpretAssignCommon(istate, &op);			\
+Expression *op##AssignExp::interpret(InterState *istate)        \
+{                                                               \
+    return interpretAssignCommon(istate, &op);                  \
 }
 
 BIN_ASSIGN_INTERPRET(Add)
@@ -2448,12 +2448,12 @@ Expression *PostExp::interpret(InterState *istate)
 #endif
     Expression *e;
     if (op == TOKplusplus)
-	e = interpretAssignCommon(istate, &Add, 1);
+        e = interpretAssignCommon(istate, &Add, 1);
     else
-	e = interpretAssignCommon(istate, &Min, 1);
+        e = interpretAssignCommon(istate, &Min, 1);
 #if LOG
     if (e == EXP_CANT_INTERPRET)
-	printf("PostExp::interpret() CANT\n");
+        printf("PostExp::interpret() CANT\n");
 #endif
     return e;
 }
@@ -2466,23 +2466,23 @@ Expression *AndAndExp::interpret(InterState *istate)
     Expression *e = e1->interpret(istate);
     if (e != EXP_CANT_INTERPRET)
     {
-	if (e->isBool(FALSE))
-	    e = new IntegerExp(e1->loc, 0, type);
-	else if (e->isBool(TRUE))
-	{
-	    e = e2->interpret(istate);
-	    if (e != EXP_CANT_INTERPRET)
-	    {
-		if (e->isBool(FALSE))
-		    e = new IntegerExp(e1->loc, 0, type);
-		else if (e->isBool(TRUE))
-		    e = new IntegerExp(e1->loc, 1, type);
-		else
-		    e = EXP_CANT_INTERPRET;
-	    }
-	}
-	else
-	    e = EXP_CANT_INTERPRET;
+        if (e->isBool(FALSE))
+            e = new IntegerExp(e1->loc, 0, type);
+        else if (e->isBool(TRUE))
+        {
+            e = e2->interpret(istate);
+            if (e != EXP_CANT_INTERPRET)
+            {
+                if (e->isBool(FALSE))
+                    e = new IntegerExp(e1->loc, 0, type);
+                else if (e->isBool(TRUE))
+                    e = new IntegerExp(e1->loc, 1, type);
+                else
+                    e = EXP_CANT_INTERPRET;
+            }
+        }
+        else
+            e = EXP_CANT_INTERPRET;
     }
     return e;
 }
@@ -2495,23 +2495,23 @@ Expression *OrOrExp::interpret(InterState *istate)
     Expression *e = e1->interpret(istate);
     if (e != EXP_CANT_INTERPRET)
     {
-	if (e->isBool(TRUE))
-	    e = new IntegerExp(e1->loc, 1, type);
-	else if (e->isBool(FALSE))
-	{
-	    e = e2->interpret(istate);
-	    if (e != EXP_CANT_INTERPRET)
-	    {
-		if (e->isBool(FALSE))
-		    e = new IntegerExp(e1->loc, 0, type);
-		else if (e->isBool(TRUE))
-		    e = new IntegerExp(e1->loc, 1, type);
-		else
-		    e = EXP_CANT_INTERPRET;
-	    }
-	}
-	else
-	    e = EXP_CANT_INTERPRET;
+        if (e->isBool(TRUE))
+            e = new IntegerExp(e1->loc, 1, type);
+        else if (e->isBool(FALSE))
+        {
+            e = e2->interpret(istate);
+            if (e != EXP_CANT_INTERPRET)
+            {
+                if (e->isBool(FALSE))
+                    e = new IntegerExp(e1->loc, 0, type);
+                else if (e->isBool(TRUE))
+                    e = new IntegerExp(e1->loc, 1, type);
+                else
+                    e = EXP_CANT_INTERPRET;
+            }
+        }
+        else
+            e = EXP_CANT_INTERPRET;
     }
     return e;
 }
@@ -2524,7 +2524,7 @@ Expression *CallExp::interpret(InterState *istate)
     printf("CallExp::interpret() %s\n", toChars());
 #endif
 
-    Expression * pthis = NULL; 
+    Expression * pthis = NULL;
     FuncDeclaration *fd = NULL;
     Expression *ecall = e1;
     if (ecall->op == TOKcall)
@@ -2553,82 +2553,82 @@ Expression *CallExp::interpret(InterState *istate)
         ecall = e1->interpret(istate);
     if (ecall->op == TOKdotvar && !((DotVarExp*)ecall)->var->isFuncDeclaration())
         ecall = e1->interpret(istate);
-   
+
     if (ecall->op == TOKdotvar)
-    {   // Calling a member function    
+    {   // Calling a member function
         pthis = ((DotVarExp*)e1)->e1;
-	fd = ((DotVarExp*)e1)->var->isFuncDeclaration();
+        fd = ((DotVarExp*)e1)->var->isFuncDeclaration();
     }
     else if (ecall->op == TOKvar)
     {
         VarDeclaration *vd = ((VarExp *)ecall)->var->isVarDeclaration();
-	if (vd && vd->value) 
-	    ecall = vd->value;
-	else // Calling a function
-	    fd = ((VarExp *)e1)->var->isFuncDeclaration();
-    }    
+        if (vd && vd->value)
+            ecall = vd->value;
+        else // Calling a function
+            fd = ((VarExp *)e1)->var->isFuncDeclaration();
+    }
     if (ecall->op == TOKdelegate)
     {   // Calling a delegate
-	fd = ((DelegateExp *)ecall)->func;
-	pthis = ((DelegateExp *)ecall)->e1;
+        fd = ((DelegateExp *)ecall)->func;
+        pthis = ((DelegateExp *)ecall)->e1;
     }
     else if (ecall->op == TOKfunction)
-    {	// Calling a delegate literal
+    {   // Calling a delegate literal
         fd = ((FuncExp*)ecall)->fd;
     }
     else if (ecall->op == TOKstar && ((PtrExp*)ecall)->e1->op==TOKfunction)
     {   // Calling a function literal
         fd = ((FuncExp*)((PtrExp*)ecall)->e1)->fd;
     }
-    
+
     TypeFunction *tf = fd ? (TypeFunction *)(fd->type) : NULL;
     if (!tf)
     {   // DAC: I'm not sure if this ever happens
-	//printf("ecall=%s %d %d\n", ecall->toChars(), ecall->op, TOKcall);
-	error("cannot evaluate %s at compile time", toChars());
-	return EXP_CANT_INTERPRET;
+        //printf("ecall=%s %d %d\n", ecall->toChars(), ecall->op, TOKcall);
+        error("cannot evaluate %s at compile time", toChars());
+        return EXP_CANT_INTERPRET;
     }
     if (pthis && fd)
     {   // Member function call
-	if (pthis->op == TOKthis)
-		pthis = istate ? istate->localThis : NULL;
-	else if (pthis->op == TOKcomma)
-		pthis = pthis->interpret(istate);
-	if (!fd->fbody)
-	{
-		error("%s cannot be interpreted at compile time,"
-			" because it has no available source code", fd->toChars());
-		return EXP_CANT_INTERPRET;
-	}
-	Expression *eresult = fd->interpret(istate, arguments, pthis);
-	if (eresult)
-	    e = eresult;
-	else if (fd->type->toBasetype()->nextOf()->ty == Tvoid && !global.errors)
-	    e = EXP_VOID_INTERPRET;
-	else
-	    error("cannot evaluate %s at compile time", toChars());
-	return e;
+        if (pthis->op == TOKthis)
+                pthis = istate ? istate->localThis : NULL;
+        else if (pthis->op == TOKcomma)
+                pthis = pthis->interpret(istate);
+        if (!fd->fbody)
+        {
+                error("%s cannot be interpreted at compile time,"
+                        " because it has no available source code", fd->toChars());
+                return EXP_CANT_INTERPRET;
+        }
+        Expression *eresult = fd->interpret(istate, arguments, pthis);
+        if (eresult)
+            e = eresult;
+        else if (fd->type->toBasetype()->nextOf()->ty == Tvoid && !global.errors)
+            e = EXP_VOID_INTERPRET;
+        else
+            error("cannot evaluate %s at compile time", toChars());
+        return e;
     }
     else if (fd)
     {    // function call
 #if DMDV2
-	enum BUILTIN b = fd->isBuiltin();
-	if (b)
-	{   Expressions args;
-	    args.setDim(arguments->dim);
-	    for (size_t i = 0; i < args.dim; i++)
-	    {
-		Expression *earg = (Expression *)arguments->data[i];
-		earg = earg->interpret(istate);
-		if (earg == EXP_CANT_INTERPRET)
-		    return earg;
-		args.data[i] = (void *)earg;
-	    }
-	    e = eval_builtin(b, &args);
-	    if (!e)
-		e = EXP_CANT_INTERPRET;
-	}
-	else
+        enum BUILTIN b = fd->isBuiltin();
+        if (b)
+        {   Expressions args;
+            args.setDim(arguments->dim);
+            for (size_t i = 0; i < args.dim; i++)
+            {
+                Expression *earg = (Expression *)arguments->data[i];
+                earg = earg->interpret(istate);
+                if (earg == EXP_CANT_INTERPRET)
+                    return earg;
+                args.data[i] = (void *)earg;
+            }
+            e = eval_builtin(b, &args);
+            if (!e)
+                e = EXP_CANT_INTERPRET;
+        }
+        else
 #endif
 
 #if DMDV1
@@ -2640,39 +2640,39 @@ Expression *CallExp::interpret(InterState *istate)
             return interpret_aaValues(istate, arguments);
 #endif
 
-	// Inline .dup
-	if (fd->ident == Id::adDup && arguments && arguments->dim == 2)
-	{
-	    e = (Expression *)arguments->data[1];
-	    e = e->interpret(istate);
-	    if (e != EXP_CANT_INTERPRET)
-	    {
-		e = expType(type, e);
-	    }
-	}
-	else
-	{
-		if (!fd->fbody)
-		{
-			error("%s cannot be interpreted at compile time,"
-				" because it has no available source code", fd->toChars());
-			return EXP_CANT_INTERPRET;
-		}
-	    Expression *eresult = fd->interpret(istate, arguments);
-	    if (eresult)
-		e = eresult;
-	    else if (fd->type->toBasetype()->nextOf()->ty == Tvoid && !global.errors)
-		e = EXP_VOID_INTERPRET;
-	    else
-		error("cannot evaluate %s at compile time", toChars());
-	}
+        // Inline .dup
+        if (fd->ident == Id::adDup && arguments && arguments->dim == 2)
+        {
+            e = (Expression *)arguments->data[1];
+            e = e->interpret(istate);
+            if (e != EXP_CANT_INTERPRET)
+            {
+                e = expType(type, e);
+            }
+        }
+        else
+        {
+                if (!fd->fbody)
+                {
+                        error("%s cannot be interpreted at compile time,"
+                                " because it has no available source code", fd->toChars());
+                        return EXP_CANT_INTERPRET;
+                }
+            Expression *eresult = fd->interpret(istate, arguments);
+            if (eresult)
+                e = eresult;
+            else if (fd->type->toBasetype()->nextOf()->ty == Tvoid && !global.errors)
+                e = EXP_VOID_INTERPRET;
+            else
+                error("cannot evaluate %s at compile time", toChars());
+        }
     }
     else
     {
-	error("cannot evaluate %s at compile time", toChars());
+        error("cannot evaluate %s at compile time", toChars());
         return EXP_CANT_INTERPRET;
     }
-    return e; 
+    return e;
 }
 
 Expression *CommaExp::interpret(InterState *istate)
@@ -2720,12 +2720,12 @@ Expression *CondExp::interpret(InterState *istate)
     Expression *e = econd->interpret(istate);
     if (e != EXP_CANT_INTERPRET)
     {
-	if (e->isBool(TRUE))
-	    e = e1->interpret(istate);
-	else if (e->isBool(FALSE))
-	    e = e2->interpret(istate);
-	else
-	    e = EXP_CANT_INTERPRET;
+        if (e->isBool(TRUE))
+            e = e1->interpret(istate);
+        else if (e->isBool(FALSE))
+            e = e2->interpret(istate);
+        else
+            e = EXP_CANT_INTERPRET;
     }
     return e;
 }
@@ -2739,17 +2739,17 @@ Expression *ArrayLengthExp::interpret(InterState *istate)
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e1->op == TOKstring || e1->op == TOKarrayliteral || e1->op == TOKassocarrayliteral)
     {
-	e = ArrayLength(type, e1);
+        e = ArrayLength(type, e1);
     }
     else if (e1->op == TOKnull)
     {
-	e = new IntegerExp(loc, 0, type);
+        e = new IntegerExp(loc, 0, type);
     }
     else
-	goto Lcant;
+        goto Lcant;
     return e;
 
 Lcant:
@@ -2766,22 +2766,22 @@ Expression *IndexExp::interpret(InterState *istate)
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
 
     if (e1->op == TOKstring || e1->op == TOKarrayliteral)
     {
-	/* Set the $ variable
-	 */
-	e = ArrayLength(Type::tsize_t, e1);
-	if (e == EXP_CANT_INTERPRET)
-	    goto Lcant;
-	if (lengthVar)
-	    lengthVar->value = e;
+        /* Set the $ variable
+         */
+        e = ArrayLength(Type::tsize_t, e1);
+        if (e == EXP_CANT_INTERPRET)
+            goto Lcant;
+        if (lengthVar)
+            lengthVar->value = e;
     }
 
     e2 = this->e2->interpret(istate);
     if (e2 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     return Index(type, e1, e2);
 
 Lcant:
@@ -2800,29 +2800,29 @@ Expression *SliceExp::interpret(InterState *istate)
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (!this->lwr)
     {
-	e = e1->castTo(NULL, type);
-	return e->interpret(istate);
+        e = e1->castTo(NULL, type);
+        return e->interpret(istate);
     }
 
     /* Set the $ variable
      */
     e = ArrayLength(Type::tsize_t, e1);
     if (e == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (lengthVar)
-	lengthVar->value = e;
+        lengthVar->value = e;
 
     /* Evaluate lower and upper bounds of slice
      */
     lwr = this->lwr->interpret(istate);
     if (lwr == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     upr = this->upr->interpret(istate);
     if (upr == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
 
     return Slice(type, e1, lwr, upr);
 
@@ -2842,11 +2842,11 @@ Expression *CatExp::interpret(InterState *istate)
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
     {
-	goto Lcant;
+        goto Lcant;
     }
     e2 = this->e2->interpret(istate);
     if (e2 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     return Cat(type, e1, e2);
 
 Lcant:
@@ -2866,7 +2866,7 @@ Expression *CastExp::interpret(InterState *istate)
 #endif
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     return Cast(type, to, e1);
 
 Lcant:
@@ -2885,41 +2885,41 @@ Expression *AssertExp::interpret(InterState *istate)
     printf("AssertExp::interpret() %s\n", toChars());
 #endif
     if( this->e1->op == TOKaddress)
-    {   // Special case: deal with compiler-inserted assert(&this, "null this") 
-	AddrExp *ade = (AddrExp *)this->e1;
-	if (ade->e1->op == TOKthis && istate->localThis)
-	    if (ade->e1->op == TOKdotvar
-	        && ((DotVarExp *)(istate->localThis))->e1->op == TOKthis)
-	        return getVarExp(loc, istate, ((DotVarExp*)(istate->localThis))->var);
-	    else
-	        return istate->localThis->interpret(istate);
+    {   // Special case: deal with compiler-inserted assert(&this, "null this")
+        AddrExp *ade = (AddrExp *)this->e1;
+        if (ade->e1->op == TOKthis && istate->localThis)
+            if (ade->e1->op == TOKdotvar
+                && ((DotVarExp *)(istate->localThis))->e1->op == TOKthis)
+                return getVarExp(loc, istate, ((DotVarExp*)(istate->localThis))->var);
+            else
+                return istate->localThis->interpret(istate);
     }
     if (this->e1->op == TOKthis)
     {
-	if (istate->localThis)
-	    return istate->localThis->interpret(istate);
+        if (istate->localThis)
+            return istate->localThis->interpret(istate);
     }
     e1 = this->e1->interpret(istate);
     if (e1 == EXP_CANT_INTERPRET)
-	goto Lcant;
+        goto Lcant;
     if (e1->isBool(TRUE))
     {
     }
     else if (e1->isBool(FALSE))
     {
-	if (msg)
-	{
-	    e = msg->interpret(istate);
-	    if (e == EXP_CANT_INTERPRET)
-		goto Lcant;
-	    error("%s", e->toChars());
-	}
-	else
-	    error("%s failed", toChars());
-	goto Lcant;
+        if (msg)
+        {
+            e = msg->interpret(istate);
+            if (e == EXP_CANT_INTERPRET)
+                goto Lcant;
+            error("%s", e->toChars());
+        }
+        else
+            error("%s failed", toChars());
+        goto Lcant;
     }
     else
-	goto Lcant;
+        goto Lcant;
     return e1;
 
 Lcant:
@@ -2935,51 +2935,51 @@ Expression *PtrExp::interpret(InterState *istate)
 
     // Constant fold *(&structliteral + offset)
     if (e1->op == TOKadd)
-    {	AddExp *ae = (AddExp *)e1;
-	if (ae->e1->op == TOKaddress && ae->e2->op == TOKint64)
-	{   AddrExp *ade = (AddrExp *)ae->e1;
-	    Expression *ex = ade->e1;
-	    ex = ex->interpret(istate);
-	    if (ex != EXP_CANT_INTERPRET)
-	    {
-		if (ex->op == TOKstructliteral)
-		{   StructLiteralExp *se = (StructLiteralExp *)ex;
-		    unsigned offset = ae->e2->toInteger();
-		    e = se->getField(type, offset);
-		    if (!e)
-			e = EXP_CANT_INTERPRET;
-		    return e;
-		}
-	    }
-	}
-	e = Ptr(type, e1);
+    {   AddExp *ae = (AddExp *)e1;
+        if (ae->e1->op == TOKaddress && ae->e2->op == TOKint64)
+        {   AddrExp *ade = (AddrExp *)ae->e1;
+            Expression *ex = ade->e1;
+            ex = ex->interpret(istate);
+            if (ex != EXP_CANT_INTERPRET)
+            {
+                if (ex->op == TOKstructliteral)
+                {   StructLiteralExp *se = (StructLiteralExp *)ex;
+                    unsigned offset = ae->e2->toInteger();
+                    e = se->getField(type, offset);
+                    if (!e)
+                        e = EXP_CANT_INTERPRET;
+                    return e;
+                }
+            }
+        }
+        e = Ptr(type, e1);
     }
     else if (e1->op == TOKsymoff)
-    {	SymOffExp *soe = (SymOffExp *)e1;
-	VarDeclaration *v = soe->var->isVarDeclaration();
-	if (v)
-	{   Expression *ev = getVarExp(loc, istate, v);
-	    if (ev != EXP_CANT_INTERPRET && ev->op == TOKstructliteral)
-	    {	StructLiteralExp *se = (StructLiteralExp *)ev;
-		e = se->getField(type, soe->offset);
-		if (!e)
-		    e = EXP_CANT_INTERPRET;
-	    }
-	}
+    {   SymOffExp *soe = (SymOffExp *)e1;
+        VarDeclaration *v = soe->var->isVarDeclaration();
+        if (v)
+        {   Expression *ev = getVarExp(loc, istate, v);
+            if (ev != EXP_CANT_INTERPRET && ev->op == TOKstructliteral)
+            {   StructLiteralExp *se = (StructLiteralExp *)ev;
+                e = se->getField(type, soe->offset);
+                if (!e)
+                    e = EXP_CANT_INTERPRET;
+            }
+        }
     }
 #if DMDV2
-#else // this is required for D1, where structs return *this instead of 'this'.    
+#else // this is required for D1, where structs return *this instead of 'this'.
     else if (e1->op == TOKthis)
     {
-    	if(istate->localThis)   	
-	    return istate->localThis->interpret(istate);
+        if(istate->localThis)
+            return istate->localThis->interpret(istate);
     }
-#endif    
+#endif
     else
         error("Cannot interpret %s at compile time", toChars());
 #if LOG
     if (e == EXP_CANT_INTERPRET)
-	printf("PtrExp::interpret() %s = EXP_CANT_INTERPRET\n", toChars());
+        printf("PtrExp::interpret() %s = EXP_CANT_INTERPRET\n", toChars());
 #endif
     return e;
 }
@@ -2994,26 +2994,26 @@ Expression *DotVarExp::interpret(InterState *istate)
     Expression *ex = e1->interpret(istate);
     if (ex != EXP_CANT_INTERPRET)
     {
-	if (ex->op == TOKstructliteral)
-	{   StructLiteralExp *se = (StructLiteralExp *)ex;
-	    VarDeclaration *v = var->isVarDeclaration();
-	    if (v)
-	    {	e = se->getField(type, v->offset);
-		if (!e)
-		{
-		    error("couldn't find field %s in %s", v->toChars(), type->toChars());
-		    e = EXP_CANT_INTERPRET;
-		}
-		return e;
-	    }
-	}
-	else
-	    error("%s.%s is not yet implemented at compile time", ex->toChars(), var->toChars());
+        if (ex->op == TOKstructliteral)
+        {   StructLiteralExp *se = (StructLiteralExp *)ex;
+            VarDeclaration *v = var->isVarDeclaration();
+            if (v)
+            {   e = se->getField(type, v->offset);
+                if (!e)
+                {
+                    error("couldn't find field %s in %s", v->toChars(), type->toChars());
+                    e = EXP_CANT_INTERPRET;
+                }
+                return e;
+            }
+        }
+        else
+            error("%s.%s is not yet implemented at compile time", ex->toChars(), var->toChars());
     }
 
 #if LOG
     if (e == EXP_CANT_INTERPRET)
-	printf("DotVarExp::interpret() %s = EXP_CANT_INTERPRET\n", toChars());
+        printf("DotVarExp::interpret() %s = EXP_CANT_INTERPRET\n", toChars());
 #endif
     return e;
 }
@@ -3025,13 +3025,13 @@ Expression *DotVarExp::interpret(InterState *istate)
 Expression *interpret_aaLen(InterState *istate, Expressions *arguments)
 {
     if (!arguments || arguments->dim != 1)
-	return NULL;
+        return NULL;
     Expression *earg = (Expression *)arguments->data[0];
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
-	return NULL;
+        return NULL;
     if (earg->op != TOKassocarrayliteral)
-	return NULL;
+        return NULL;
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new IntegerExp(aae->loc, aae->keys->dim, Type::tsize_t);
     return e;
@@ -3043,13 +3043,13 @@ Expression *interpret_aaKeys(InterState *istate, Expressions *arguments)
     printf("interpret_aaKeys()\n");
 #endif
     if (!arguments || arguments->dim != 2)
-	return NULL;
+        return NULL;
     Expression *earg = (Expression *)arguments->data[0];
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
-	return NULL;
+        return NULL;
     if (earg->op != TOKassocarrayliteral)
-	return NULL;
+        return NULL;
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new ArrayLiteralExp(aae->loc, aae->keys);
     Type *elemType = ((TypeAArray *)aae->type)->index;
@@ -3061,13 +3061,13 @@ Expression *interpret_aaValues(InterState *istate, Expressions *arguments)
 {
     //printf("interpret_aaValues()\n");
     if (!arguments || arguments->dim != 3)
-	return NULL;
+        return NULL;
     Expression *earg = (Expression *)arguments->data[0];
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
-	return NULL;
+        return NULL;
     if (earg->op != TOKassocarrayliteral)
-	return NULL;
+        return NULL;
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new ArrayLiteralExp(aae->loc, aae->values);
     Type *elemType = ((TypeAArray *)aae->type)->next;
@@ -3085,9 +3085,9 @@ Expression *interpret_length(InterState *istate, Expression *earg)
     //printf("interpret_length()\n");
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
-	return NULL;
+        return NULL;
     if (earg->op != TOKassocarrayliteral)
-	return NULL;
+        return NULL;
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new IntegerExp(aae->loc, aae->keys->dim, Type::tsize_t);
     return e;
@@ -3100,9 +3100,9 @@ Expression *interpret_keys(InterState *istate, Expression *earg, FuncDeclaration
 #endif
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
-	return NULL;
+        return NULL;
     if (earg->op != TOKassocarrayliteral)
-	return NULL;
+        return NULL;
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new ArrayLiteralExp(aae->loc, aae->keys);
     assert(fd->type->ty == Tfunction);
@@ -3117,9 +3117,9 @@ Expression *interpret_values(InterState *istate, Expression *earg, FuncDeclarati
     //printf("interpret_values()\n");
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
-	return NULL;
+        return NULL;
     if (earg->op != TOKassocarrayliteral)
-	return NULL;
+        return NULL;
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new ArrayLiteralExp(aae->loc, aae->values);
     assert(fd->type->ty == Tfunction);

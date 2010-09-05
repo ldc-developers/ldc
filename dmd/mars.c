@@ -82,11 +82,11 @@ char *Loc::toChars() const
 
     if (filename)
     {
-	buf.printf("%s", filename);
+        buf.printf("%s", filename);
     }
 
     if (linnum)
-	buf.printf("(%d)", linnum);
+        buf.printf("(%d)", linnum);
     buf.writeByte(0);
     return (char *)buf.extractData();
 }
@@ -126,16 +126,16 @@ void verror(Loc loc, const char *format, va_list ap)
 {
     if (!global.gag)
     {
-	char *p = loc.toChars();
+        char *p = loc.toChars();
 
-	if (*p)
-	    fprintf(stdmsg, "%s: ", p);
-	mem.free(p);
+        if (*p)
+            fprintf(stdmsg, "%s: ", p);
+        mem.free(p);
 
-	fprintf(stdmsg, "Error: ");
-	vfprintf(stdmsg, format, ap);
-	fprintf(stdmsg, "\n");
-	fflush(stdmsg);
+        fprintf(stdmsg, "Error: ");
+        vfprintf(stdmsg, format, ap);
+        fprintf(stdmsg, "\n");
+        fflush(stdmsg);
     }
     global.errors++;
 }
@@ -144,26 +144,26 @@ void vwarning(Loc loc, const char *format, va_list ap)
 {
     if (global.params.warnings && !global.gag)
     {
-	char *p = loc.toChars();
+        char *p = loc.toChars();
 
-	if (*p)
-	    fprintf(stdmsg, "%s: ", p);
-	mem.free(p);
+        if (*p)
+            fprintf(stdmsg, "%s: ", p);
+        mem.free(p);
 
-	fprintf(stdmsg, "Warning: ");
+        fprintf(stdmsg, "Warning: ");
 #if _MSC_VER
-	// MS doesn't recognize %zu format
-	OutBuffer tmp;
-	tmp.vprintf(format, ap);
-	fprintf(stdmsg, "%s", tmp.toChars());
+        // MS doesn't recognize %zu format
+        OutBuffer tmp;
+        tmp.vprintf(format, ap);
+        fprintf(stdmsg, "%s", tmp.toChars());
 #else
-	vfprintf(stdmsg, format, ap);
+        vfprintf(stdmsg, format, ap);
 #endif
-	fprintf(stdmsg, "\n");
-	fflush(stdmsg);
+        fprintf(stdmsg, "\n");
+        fflush(stdmsg);
 //halt();
-	if (global.params.warnings == 1)
-	    global.warnings++;	// warnings don't count if gagged
+        if (global.params.warnings == 1)
+            global.warnings++;  // warnings don't count if gagged
     }
 }
 
@@ -208,9 +208,9 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
 
     char *env = getenv(envvar);
     if (!env)
-	return;
+        return;
 
-    env = mem.strdup(env);	// create our own writable copy
+    env = mem.strdup(env);      // create our own writable copy
 
     int argc = *pargc;
     Array *argv = new Array();
@@ -235,76 +235,76 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     argv->push((char*)"");
     argc++;
 
-    int j = 1;			// leave argv[0] alone
+    int j = 1;                  // leave argv[0] alone
     while (1)
     {
-	int wildcard = 1;	// do wildcard expansion
-	switch (*env)
-	{
-	    case ' ':
-	    case '\t':
-		env++;
-		break;
+        int wildcard = 1;       // do wildcard expansion
+        switch (*env)
+        {
+            case ' ':
+            case '\t':
+                env++;
+                break;
 
-	    case 0:
-		goto Ldone;
+            case 0:
+                goto Ldone;
 
-	    case '"':
-		wildcard = 0;
-	    default:
-		argv->push(env);		// append
-		//argv->insert(j, env);		// insert at position j
-		j++;
-		argc++;
-		p = env;
-		slash = 0;
-		instring = 0;
-		c = 0;
+            case '"':
+                wildcard = 0;
+            default:
+                argv->push(env);                // append
+                //argv->insert(j, env);         // insert at position j
+                j++;
+                argc++;
+                p = env;
+                slash = 0;
+                instring = 0;
+                c = 0;
 
-		while (1)
-		{
-		    c = *env++;
-		    switch (c)
-		    {
-			case '"':
-			    p -= (slash >> 1);
-			    if (slash & 1)
-			    {	p--;
-				goto Laddc;
-			    }
-			    instring ^= 1;
-			    slash = 0;
-			    continue;
+                while (1)
+                {
+                    c = *env++;
+                    switch (c)
+                    {
+                        case '"':
+                            p -= (slash >> 1);
+                            if (slash & 1)
+                            {   p--;
+                                goto Laddc;
+                            }
+                            instring ^= 1;
+                            slash = 0;
+                            continue;
 
-			case ' ':
-			case '\t':
-			    if (instring)
-				goto Laddc;
-			    *p = 0;
-			    //if (wildcard)
-				//wildcardexpand();	// not implemented
-			    break;
+                        case ' ':
+                        case '\t':
+                            if (instring)
+                                goto Laddc;
+                            *p = 0;
+                            //if (wildcard)
+                                //wildcardexpand();     // not implemented
+                            break;
 
-			case '\\':
-			    slash++;
-			    *p++ = c;
-			    continue;
+                        case '\\':
+                            slash++;
+                            *p++ = c;
+                            continue;
 
-			case 0:
-			    *p = 0;
-			    //if (wildcard)
-				//wildcardexpand();	// not implemented
-			    goto Ldone;
+                        case 0:
+                            *p = 0;
+                            //if (wildcard)
+                                //wildcardexpand();     // not implemented
+                            goto Ldone;
 
-			default:
-			Laddc:
-			    slash = 0;
-			    *p++ = c;
-			    continue;
-		    }
-		    break;
-		}
-	}
+                        default:
+                        Laddc:
+                            slash = 0;
+                            *p++ = c;
+                            continue;
+                    }
+                    break;
+                }
+        }
     }
 
 Ldone:

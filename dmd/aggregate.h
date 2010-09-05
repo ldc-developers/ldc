@@ -56,36 +56,36 @@ struct AggregateDeclaration : ScopeDsymbol
     Type *type;
     StorageClass storage_class;
     enum PROT protection;
-    Type *handle;		// 'this' type
-    unsigned structsize;	// size of struct
-    unsigned alignsize;		// size of struct for alignment purposes
-    unsigned structalign;	// struct member alignment in effect
-    int hasUnions;		// set if aggregate has overlapping fields
-    Array fields;		// VarDeclaration fields
-    unsigned sizeok;		// set when structsize contains valid data
-				// 0: no size
-				// 1: size is correct
-				// 2: cannot determine size; fwd referenced
-    int isdeprecated;		// !=0 if deprecated
+    Type *handle;               // 'this' type
+    unsigned structsize;        // size of struct
+    unsigned alignsize;         // size of struct for alignment purposes
+    unsigned structalign;       // struct member alignment in effect
+    int hasUnions;              // set if aggregate has overlapping fields
+    Array fields;               // VarDeclaration fields
+    unsigned sizeok;            // set when structsize contains valid data
+                                // 0: no size
+                                // 1: size is correct
+                                // 2: cannot determine size; fwd referenced
+    int isdeprecated;           // !=0 if deprecated
 
 #if DMDV2
-    int isnested;		// !=0 if is nested
-    VarDeclaration *vthis;	// 'this' parameter if this aggregate is nested
+    int isnested;               // !=0 if is nested
+    VarDeclaration *vthis;      // 'this' parameter if this aggregate is nested
 #endif
     // Special member functions
-    InvariantDeclaration *inv;		// invariant
-    NewDeclaration *aggNew;		// allocator
-    DeleteDeclaration *aggDelete;	// deallocator
+    InvariantDeclaration *inv;          // invariant
+    NewDeclaration *aggNew;             // allocator
+    DeleteDeclaration *aggDelete;       // deallocator
 
 #if DMDV2
     //CtorDeclaration *ctor;
-    Dsymbol *ctor;			// CtorDeclaration or TemplateDeclaration
-    CtorDeclaration *defaultCtor;	// default constructor
-    Dsymbol *aliasthis;			// forward unresolved lookups to aliasthis
+    Dsymbol *ctor;                      // CtorDeclaration or TemplateDeclaration
+    CtorDeclaration *defaultCtor;       // default constructor
+    Dsymbol *aliasthis;                 // forward unresolved lookups to aliasthis
 #endif
 
-    FuncDeclarations dtors;	// Array of destructors
-    FuncDeclaration *dtor;	// aggregate destructor
+    FuncDeclarations dtors;     // Array of destructors
+    FuncDeclaration *dtor;      // aggregate destructor
 
 #ifdef IN_GCC
     Array methods;              // flat list of all methods for debug information
@@ -99,7 +99,7 @@ struct AggregateDeclaration : ScopeDsymbol
     static void alignmember(unsigned salign, unsigned size, unsigned *poffset);
     Type *getType();
     void addField(Scope *sc, VarDeclaration *v);
-    int isDeprecated();		// is aggregate deprecated?
+    int isDeprecated();         // is aggregate deprecated?
     FuncDeclaration *buildDtor(Scope *sc);
     int isNested();
 
@@ -108,16 +108,16 @@ struct AggregateDeclaration : ScopeDsymbol
     void toDocBuffer(OutBuffer *buf);
 
     // For access checking
-    virtual PROT getAccess(Dsymbol *smember);	// determine access to smember
+    virtual PROT getAccess(Dsymbol *smember);   // determine access to smember
     int isFriendOf(AggregateDeclaration *cd);
-    int hasPrivateAccess(Dsymbol *smember);	// does smember have private access to members of this class?
+    int hasPrivateAccess(Dsymbol *smember);     // does smember have private access to members of this class?
     void accessCheck(Loc loc, Scope *sc, Dsymbol *smember);
 
     enum PROT prot();
 
 #if IN_DMD
     // Back end
-    Symbol *stag;		// tag symbol for debug data
+    Symbol *stag;               // tag symbol for debug data
     Symbol *sinit;
     Symbol *toInitializer();
 #endif
@@ -133,7 +133,7 @@ struct AggregateDeclaration : ScopeDsymbol
 struct AnonymousAggregateDeclaration : AggregateDeclaration
 {
     AnonymousAggregateDeclaration()
-	: AggregateDeclaration(0, NULL)
+        : AggregateDeclaration(0, NULL)
     {
     }
 
@@ -142,13 +142,13 @@ struct AnonymousAggregateDeclaration : AggregateDeclaration
 
 struct StructDeclaration : AggregateDeclaration
 {
-    int zeroInit;		// !=0 if initialize with 0 fill
+    int zeroInit;               // !=0 if initialize with 0 fill
 #if DMDV2
-    int hasIdentityAssign;	// !=0 if has identity opAssign
-    FuncDeclaration *cpctor;	// generated copy-constructor, if any
+    int hasIdentityAssign;      // !=0 if has identity opAssign
+    FuncDeclaration *cpctor;    // generated copy-constructor, if any
 
-    FuncDeclarations postblits;	// Array of postblit functions
-    FuncDeclaration *postblit;	// aggregate postblit
+    FuncDeclarations postblits; // Array of postblit functions
+    FuncDeclaration *postblit;  // aggregate postblit
 #endif
 
     StructDeclaration(Loc loc, Identifier *id);
@@ -169,12 +169,12 @@ struct StructDeclaration : AggregateDeclaration
 #endif
     void toDocBuffer(OutBuffer *buf);
 
-    PROT getAccess(Dsymbol *smember);	// determine access to smember
+    PROT getAccess(Dsymbol *smember);   // determine access to smember
 
 #if IN_DMD
-    void toObjFile(int multiobj);			// compile to .obj file
+    void toObjFile(int multiobj);                       // compile to .obj file
     void toDt(dt_t **pdt);
-    void toDebug();			// to symbolic debug info
+    void toDebug();                     // to symbolic debug info
 #endif
 
     StructDeclaration *isStructDeclaration() { return this; }
@@ -197,17 +197,17 @@ struct UnionDeclaration : StructDeclaration
 //   BaseClass instance.
 struct BaseClass
 {
-    Type *type;				// (before semantic processing)
-    enum PROT protection;		// protection for the base interface
+    Type *type;                         // (before semantic processing)
+    enum PROT protection;               // protection for the base interface
 
     ClassDeclaration *base;
-    int offset;				// 'this' pointer offset
-    Array vtbl;				// for interfaces: Array of FuncDeclaration's
-					// making up the vtbl[]
+    int offset;                         // 'this' pointer offset
+    Array vtbl;                         // for interfaces: Array of FuncDeclaration's
+                                        // making up the vtbl[]
 
     int baseInterfaces_dim;
-    BaseClass *baseInterfaces;		// if BaseClass is an interface, these
-					// are a copy of the InterfaceDeclaration::interfaces
+    BaseClass *baseInterfaces;          // if BaseClass is an interface, these
+                                        // are a copy of the InterfaceDeclaration::interfaces
 
     BaseClass();
     BaseClass(Type *type, enum PROT protection);
@@ -217,9 +217,9 @@ struct BaseClass
 };
 
 #if DMDV2
-#define CLASSINFO_SIZE 	(0x3C+16+4)	// value of ClassInfo.size
+#define CLASSINFO_SIZE  (0x3C+16+4)     // value of ClassInfo.size
 #else
-#define CLASSINFO_SIZE 	(0x3C+12+4)	// value of ClassInfo.size
+#define CLASSINFO_SIZE  (0x3C+12+4)     // value of ClassInfo.size
 #endif
 
 struct ClassDeclaration : AggregateDeclaration
@@ -227,36 +227,36 @@ struct ClassDeclaration : AggregateDeclaration
     static ClassDeclaration *object;
     static ClassDeclaration *classinfo;
 
-    ClassDeclaration *baseClass;	// NULL only if this is Object
+    ClassDeclaration *baseClass;        // NULL only if this is Object
 #if DMDV1
     CtorDeclaration *ctor;
-    CtorDeclaration *defaultCtor;	// default constructor
+    CtorDeclaration *defaultCtor;       // default constructor
 #endif
     FuncDeclaration *staticCtor;
     FuncDeclaration *staticDtor;
-    Array vtbl;				// Array of FuncDeclaration's making up the vtbl[]
-    Array vtblFinal;			// More FuncDeclaration's that aren't in vtbl[]
+    Array vtbl;                         // Array of FuncDeclaration's making up the vtbl[]
+    Array vtblFinal;                    // More FuncDeclaration's that aren't in vtbl[]
 
-    BaseClasses baseclasses;		// Array of BaseClass's; first is super,
-					// rest are Interface's
+    BaseClasses baseclasses;            // Array of BaseClass's; first is super,
+                                        // rest are Interface's
 
     int interfaces_dim;
-    BaseClass **interfaces;		// interfaces[interfaces_dim] for this class
-					// (does not include baseClass)
+    BaseClass **interfaces;             // interfaces[interfaces_dim] for this class
+                                        // (does not include baseClass)
 
-    BaseClasses *vtblInterfaces;	// array of base interfaces that have
-					// their own vtbl[]
+    BaseClasses *vtblInterfaces;        // array of base interfaces that have
+                                        // their own vtbl[]
 
-    ClassInfoDeclaration *vclassinfo;	// the ClassInfo object for this ClassDeclaration
-    int com;				// !=0 if this is a COM class (meaning
-					// it derives from IUnknown)
-    int isscope;			// !=0 if this is a scope class
-    int isabstract;			// !=0 if abstract class
+    ClassInfoDeclaration *vclassinfo;   // the ClassInfo object for this ClassDeclaration
+    int com;                            // !=0 if this is a COM class (meaning
+                                        // it derives from IUnknown)
+    int isscope;                        // !=0 if this is a scope class
+    int isabstract;                     // !=0 if abstract class
 #if DMDV1
-    int isnested;			// !=0 if is nested
-    VarDeclaration *vthis;		// 'this' parameter if this class is nested
+    int isnested;                       // !=0 if is nested
+    VarDeclaration *vthis;              // 'this' parameter if this class is nested
 #endif
-    int inuse;				// to prevent recursive attempts
+    int inuse;                          // to prevent recursive attempts
 
     ClassDeclaration(Loc loc, Identifier *id, BaseClasses *baseclasses);
     Dsymbol *syntaxCopy(Dsymbol *s);
@@ -287,13 +287,13 @@ struct ClassDeclaration : AggregateDeclaration
     char *mangle();
     void toDocBuffer(OutBuffer *buf);
 
-    PROT getAccess(Dsymbol *smember);	// determine access to smember
+    PROT getAccess(Dsymbol *smember);   // determine access to smember
 
     void addLocalClass(ClassDeclarations *);
 
 #if IN_DMD
     // Back end
-    void toObjFile(int multiobj);			// compile to .obj file
+    void toObjFile(int multiobj);                       // compile to .obj file
     void toDebug();
     unsigned baseVtblOffset(BaseClass *bc);
     Symbol *toSymbol();
@@ -314,7 +314,7 @@ struct ClassDeclaration : AggregateDeclaration
 struct InterfaceDeclaration : ClassDeclaration
 {
 #if DMDV2
-    int cpp;				// !=0 if this is a C++ interface
+    int cpp;                            // !=0 if this is a C++ interface
 #endif
     InterfaceDeclaration(Loc loc, Identifier *id, BaseClasses *baseclasses);
     Dsymbol *syntaxCopy(Dsymbol *s);
@@ -329,7 +329,7 @@ struct InterfaceDeclaration : ClassDeclaration
     virtual int isCOMinterface();
 
 #if IN_DMD
-    void toObjFile(int multiobj);			// compile to .obj file
+    void toObjFile(int multiobj);                       // compile to .obj file
     Symbol *toSymbol();
 #endif
 

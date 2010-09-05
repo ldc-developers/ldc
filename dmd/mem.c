@@ -1,6 +1,6 @@
 
-/* Copyright (c) 2000 Digital Mars	*/
-/* All Rights Reserved 			*/
+/* Copyright (c) 2000 Digital Mars      */
+/* All Rights Reserved                  */
 
 #include <cstdio>
 #include <cstdlib>
@@ -35,10 +35,10 @@ char *Mem::strdup(const char *s)
 
     if (s)
     {
-	p = GC_strdup(s);
-	if (p)
-	    return p;
-	error();
+        p = GC_strdup(s);
+        if (p)
+            return p;
+        error();
     }
     return NULL;
 }
@@ -47,12 +47,12 @@ void *Mem::malloc(size_t size)
 {   void *p;
 
     if (!size)
-	p = NULL;
+        p = NULL;
     else
     {
-	p = GC_malloc(size);
-	if (!p)
-	    error();
+        p = GC_malloc(size);
+        if (!p)
+            error();
     }
     return p;
 }
@@ -61,12 +61,12 @@ void *Mem::calloc(size_t size, size_t n)
 {   void *p;
 
     if (!size || !n)
-	p = NULL;
+        p = NULL;
     else
     {
-	p = GC_malloc(size * n);
-	if (!p)
-	    error();
+        p = GC_malloc(size * n);
+        if (!p)
+            error();
         memset(p, 0, size * n);
     }
     return p;
@@ -75,22 +75,22 @@ void *Mem::calloc(size_t size, size_t n)
 void *Mem::realloc(void *p, size_t size)
 {
     if (!size)
-    {	if (p)
-	{   GC_free(p);
-	    p = NULL;
-	}
+    {   if (p)
+        {   GC_free(p);
+            p = NULL;
+        }
     }
     else if (!p)
     {
-	p = GC_malloc(size);
-	if (!p)
-	    error();
+        p = GC_malloc(size);
+        if (!p)
+            error();
     }
     else
     {
-	p = GC_realloc(p, size);
-	if (!p)
-	    error();
+        p = GC_realloc(p, size);
+        if (!p)
+            error();
     }
     return p;
 }
@@ -98,21 +98,21 @@ void *Mem::realloc(void *p, size_t size)
 void Mem::free(void *p)
 {
     if (p)
-	GC_free(p);
+        GC_free(p);
 }
 
 void *Mem::mallocdup(void *o, size_t size)
 {   void *p;
 
     if (!size)
-	p = NULL;
+        p = NULL;
     else
     {
-	p = GC_malloc(size);
-	if (!p)
-	    error();
-	else
-	    memcpy(p,o,size);
+        p = GC_malloc(size);
+        if (!p)
+            error();
+        else
+            memcpy(p,o,size);
     }
     return p;
 }
@@ -130,7 +130,7 @@ void Mem::fullcollect()
 
 void Mem::mark(void *pointer)
 {
-    (void) pointer;		// necessary for VC /W4
+    (void) pointer;             // necessary for VC /W4
 }
 
 /* =================================================== */
@@ -143,7 +143,7 @@ void * operator new(size_t m_size)
     }
     void *p = GC_malloc(m_size);
     if (p)
-	return p;
+        return p;
     printf("Error: out of memory\n");
     exit(EXIT_FAILURE);
     return p;

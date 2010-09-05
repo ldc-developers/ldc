@@ -31,17 +31,17 @@ struct HdrGenState;
 
 struct AttribDeclaration : Dsymbol
 {
-    Array *decl;	// array of Dsymbol's
+    Array *decl;        // array of Dsymbol's
 
     AttribDeclaration(Array *decl);
     virtual Array *include(Scope *sc, ScopeDsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void setScopeNewSc(Scope *sc,
-	StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
-	unsigned structalign);
+        StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
+        unsigned structalign);
     void semanticNewSc(Scope *sc,
-	StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
-	unsigned structalign);
+        StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
+        unsigned structalign);
     void semantic(Scope *sc);
     void semantic2(Scope *sc);
     void semantic3(Scope *sc);
@@ -58,7 +58,7 @@ struct AttribDeclaration : Dsymbol
     AttribDeclaration *isAttribDeclaration() { return this; }
 
 #if IN_DMD
-    virtual void toObjFile(int multiobj);			// compile to .obj file
+    virtual void toObjFile(int multiobj);                       // compile to .obj file
     int cvMember(unsigned char *p);
 #endif
 
@@ -121,7 +121,7 @@ struct AlignDeclaration : AttribDeclaration
 struct AnonDeclaration : AttribDeclaration
 {
     int isunion;
-    int sem;			// 1 if successful semantic()
+    int sem;                    // 1 if successful semantic()
 
     AnonDeclaration(Loc loc, int isunion, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
@@ -132,7 +132,7 @@ struct AnonDeclaration : AttribDeclaration
 
 struct PragmaDeclaration : AttribDeclaration
 {
-    Expressions *args;		// array of Expression's
+    Expressions *args;          // array of Expression's
 
     PragmaDeclaration(Loc loc, Identifier *ident, Expressions *args, Array *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
@@ -143,7 +143,7 @@ struct PragmaDeclaration : AttribDeclaration
     const char *kind();
 
 #if IN_DMD
-    void toObjFile(int multiobj);			// compile to .obj file
+    void toObjFile(int multiobj);                       // compile to .obj file
 #endif
 
 #if IN_LLVM
@@ -154,7 +154,7 @@ struct PragmaDeclaration : AttribDeclaration
 struct ConditionalDeclaration : AttribDeclaration
 {
     Condition *condition;
-    Array *elsedecl;	// array of Dsymbol's for else block
+    Array *elsedecl;    // array of Dsymbol's for else block
 
     ConditionalDeclaration(Condition *condition, Array *decl, Array *elsedecl);
     Dsymbol *syntaxCopy(Dsymbol *s);
