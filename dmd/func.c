@@ -673,7 +673,9 @@ void FuncDeclaration::semantic(Scope *sc)
 
 Ldone:
     Module::dprogress++;
-    semanticRun = PASSsemanticdone;
+    //LDC relies on semanticRun variable not being reset here
+    if(semanticRun < PASSsemanticdone)
+	    semanticRun = PASSsemanticdone;
 
     /* Save scope for possible later use (if we need the
      * function internals)
