@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -97,7 +97,10 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
     if (sc->incontract && isParameter())
         error(loc, "cannot modify parameter '%s' in contract", toChars());
 
-    if (isCtorinit())
+    if (sc->incontract && isResult())
+        error(loc, "cannot modify result '%s' in contract", toChars());
+
+    if (isCtorinit() && !t->isMutable())
     {   // It's only modifiable if inside the right constructor
         Dsymbol *s = sc->func;
         while (1)
@@ -479,11 +482,11 @@ void AliasDeclaration::semantic(Scope *sc)
 
 #if DMDV2
     type = type->addStorageClass(storage_class);
-    if (storage_class & (STCref | STCnothrow | STCpure))
+    if (storage_class & (STCref | STCnothrow | STCpure | STCdisable))
     {   // For 'ref' to be attached to function types, and picked
         // up by Type::resolve(), it has to go into sc.
         sc = sc->push();
-        sc->stc |= storage_class & (STCref | STCnothrow | STCpure | STCshared);
+        sc->stc |= storage_class & (STCref | STCnothrow | STCpure | STCshared | STCdisable);
         type->resolve(loc, sc, &e, &t, &s);
         sc = sc->pop();
     }
@@ -552,8 +555,8 @@ void AliasDeclaration::semantic(Scope *sc)
             s = NULL;
         }
     }
-    if (!aliassym)
-        aliassym = s;
+    //printf("setting aliassym %s to %s %s\n", toChars(), s->kind(), s->toChars());
+    aliassym = s;
     this->inSemantic = 0;
 }
 
@@ -673,7 +676,10 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
 #endif
     this->loc = loc;
     offset = 0;
-    noscope = 0;
+    noauto = 0;
+#if DMDV2
+    isargptr = FALSE;
+#endif
 #if DMDV1
     nestedref = 0;
 #endif
@@ -951,11 +957,11 @@ void VarDeclaration::semantic(Scope *sc)
     }
 #endif
 
-    if (type->isscope() && !noscope)
+    if (type->isscope() && !noauto)
     {
         if (storage_class & (STCfield | STCout | STCref | STCstatic) || !fd)
         {
-            error("globals, statics, fields, ref and out parameters cannot be scope");
+            error("globals, statics, fields, ref and out parameters cannot be auto");
         }
 
         if (!(storage_class & STCscope))
@@ -1394,7 +1400,7 @@ int VarDeclaration::isCTFE()
 {
     //printf("VarDeclaration::isCTFE(%p, '%s')\n", this, toChars());
     //printf("%llx\n", storage_class);
-    return (storage_class & STCctfe) || !isDataseg();
+    return (storage_class & STCctfe) != 0; // || !isDataseg();
 }
 
 int VarDeclaration::hasPointers()
@@ -1420,7 +1426,7 @@ Expression *VarDeclaration::callScopeDtor(Scope *sc)
 {   Expression *e = NULL;
 
     //printf("VarDeclaration::callScopeDtor() %s\n", toChars());
-    if (storage_class & STCscope && !noscope)
+    if (storage_class & STCscope && !noauto)
     {
         for (ClassDeclaration *cd = type->isClassHandle();
              cd;
@@ -1630,7 +1636,7 @@ TypeInfoTupleDeclaration::TypeInfoTupleDeclaration(Type *tinfo)
 ThisDeclaration::ThisDeclaration(Loc loc, Type *t)
    : VarDeclaration(loc, t, Id::This, NULL)
 {
-    noscope = 1;
+    noauto = 1;
 }
 
 Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *s)

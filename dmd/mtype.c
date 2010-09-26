@@ -231,6 +231,7 @@ void Type::init()
     mangleChar[Twchar] = 'u';
     mangleChar[Tdchar] = 'w';
 
+    // '@' shouldn't appear anywhere in the deco'd names
     mangleChar[Tbit] = '@';
     mangleChar[Tinstance] = '@';
     mangleChar[Terror] = '@';
@@ -256,7 +257,7 @@ void Type::init()
 
     for (i = 0; i < sizeof(basetab) / sizeof(basetab[0]); i++)
         basic[basetab[i]] = new TypeBasic(basetab[i]);
-    basic[Terror] = basic[Tint32];
+    basic[Terror] = new TypeError();
 
     tvoidptr = tvoid->pointerTo();
 
@@ -881,6 +882,24 @@ int Type::hasPointers()
     return FALSE;
 }
 
+/* ============================= TypeError =========================== */
+
+TypeError::TypeError()
+        : Type(Terror, NULL)
+{
+}
+
+void TypeError::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs)
+{
+    buf->writestring("_error_");
+}
+
+d_uns64 TypeError::size(Loc loc) { return 1; }
+Expression *TypeError::getProperty(Loc loc, Identifier *ident) { return new ErrorExp(); }
+Expression *TypeError::dotExp(Scope *sc, Expression *e, Identifier *ident) { return new ErrorExp(); }
+Expression *TypeError::defaultInit(Loc loc) { return new ErrorExp(); }
+Expression *TypeError::defaultInitLiteral(Loc loc) { return new ErrorExp(); }
+
 /* ============================= TypeBasic =========================== */
 
 TypeBasic::TypeBasic(TY ty)
@@ -1436,9 +1455,6 @@ Expression *TypeBasic::defaultInit(Loc loc)
 #endif
     switch (ty)
     {
-        case Tvoid:
-            return new IntegerExp(loc, value, Type::tbool);
-
         case Tchar:
             value = 0xFF;
             break;
@@ -1458,6 +1474,10 @@ Expression *TypeBasic::defaultInit(Loc loc)
         case Tcomplex64:
         case Tcomplex80:
             return getProperty(loc, Id::nan);
+
+        case Tvoid:
+            error(loc, "void does not have a default initializer");
+            return new ErrorExp();
     }
     return new IntegerExp(loc, value, this);
 }
@@ -1530,6 +1550,13 @@ MATCH TypeBasic::implicitConvTo(Type *to)
     if (this == to)
         return MATCHexact;
 
+#if DMDV2
+    if (ty == to->ty)
+    {
+        return (mod == to->mod) ? MATCHexact : MATCHconst;
+    }
+#endif
+
     if (ty == Tvoid || to->ty == Tvoid)
         return MATCHnomatch;
     if (to->ty == Tbool)
@@ -1545,16 +1572,18 @@ MATCH TypeBasic::implicitConvTo(Type *to)
             return MATCHnomatch;
 
 #if DMDV2
-        // If converting to integral
-        if (0 && global.params.Dversion > 1 && tob->flags & TFLAGSintegral)
+        // If converting from integral to integral
+        if (1 && tob->flags & TFLAGSintegral)
         {   d_uns64 sz = size(0);
             d_uns64 tosz = tob->size(0);
 
-            /* Can't convert to smaller size or, if same size, change sign
+            /* Can't convert to smaller size
              */
             if (sz > tosz)
                 return MATCHnomatch;
 
+            /* Can't change sign if same size
+             */
             /*if (sz == tosz && (flags ^ tob->flags) & TFLAGSunsigned)
                 return MATCHnomatch;*/
         }
@@ -2822,7 +2851,7 @@ int Type::covariant(Type *t)
 
     // If t1n is forward referenced:
     ClassDeclaration *cd = ((TypeClass *)t1n)->sym;
-    if (!cd->baseClass && cd->baseclasses.dim && !cd->isInterfaceDeclaration())
+    if (!cd->baseClass && cd->baseclasses->dim && !cd->isInterfaceDeclaration())
     {
         return 3;
     }
@@ -3973,6 +4002,11 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     {
         sc->intypeof++;
         exp = exp->semantic(sc);
+#if DMDV2
+        if (exp->type && exp->type->ty == Tfunction &&
+            ((TypeFunction *)exp->type)->isproperty)
+            exp = resolveProperties(sc, exp);
+#endif
         sc->intypeof--;
         if (exp->op == TOKtype)
         {
@@ -4141,7 +4175,7 @@ Expression *TypeEnum::dotExp(Scope *sc, Expression *e, Identifier *ident)
         if (ident == Id::max ||
             ident == Id::min ||
             ident == Id::init ||
-            ident == Id::stringof ||
+            ident == Id::mangleof ||
             !sym->memtype
            )
         {
@@ -4185,6 +4219,10 @@ Expression *TypeEnum::getProperty(Loc loc, Identifier *ident)
         e = new StringExp(loc, s, strlen(s), 'c');
         Scope sc;
         e = e->semantic(&sc);
+    }
+    else if (ident == Id::mangleof)
+    {
+        e = Type::getProperty(loc, ident);
     }
     else
     {
@@ -5448,7 +5486,8 @@ Type *TypeSlice::semantic(Loc loc, Scope *sc)
         args->push(arg);
     }
 
-    return new TypeTuple(args);
+    Type *t = (new TypeTuple(args))->semantic(loc, sc);
+    return t;
 }
 
 void TypeSlice::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps)

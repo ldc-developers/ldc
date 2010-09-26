@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -118,6 +118,7 @@ struct Statement : Object
     virtual ScopeStatement *isScopeStatement() { return NULL; }
     virtual Statement *semantic(Scope *sc);
     Statement *semanticScope(Scope *sc, Statement *sbreak, Statement *scontinue);
+    Statement *semanticNoScope(Scope *sc);
     virtual int hasBreak();
     virtual int hasContinue();
     virtual int usesEH();
@@ -210,6 +211,7 @@ struct CompoundStatement : Statement
     Statements *statements;
 
     CompoundStatement(Loc loc, Statements *s);
+    CompoundStatement(Loc loc, Statement *s1);
     CompoundStatement(Loc loc, Statement *s1, Statement *s2);
     virtual Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -367,8 +369,8 @@ struct ForeachStatement : Statement
 
     FuncDeclaration *func;      // function we're lexically in
 
-    Array cases;        // put breaks, continues, gotos and returns here
-    Array gotos;        // forward referenced goto's go here
+    Array *cases;        // put breaks, continues, gotos and returns here
+    Array *gotos;        // forward referenced goto's go here
 
     ForeachStatement(Loc loc, enum TOK op, Parameters *arguments, Expression *aggr, Statement *body);
     Statement *syntaxCopy();

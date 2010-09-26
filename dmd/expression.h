@@ -606,6 +606,7 @@ struct NewExp : Expression
         Type *newtype, Expressions *arguments);
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
+    Expression *interpret(InterState *istate);
     Expression *optimize(int result);
 #if IN_DMD
     elem *toElem(IRState *irs);
@@ -1397,6 +1398,11 @@ struct AssignExp : BinExp
 #endif
 
     AssignExp* isAssignExp() { return this; }
+};
+
+struct ConstructExp : AssignExp
+{
+    ConstructExp(Loc loc, Expression *e1, Expression *e2);
 };
 
 #if IN_DMD

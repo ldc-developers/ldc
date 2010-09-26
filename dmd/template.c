@@ -75,6 +75,36 @@ Tuple *isTuple(Object *o)
     return (Tuple *)o;
 }
 
+/**************************************
+ * Is this Object an error?
+ */
+int isError(Object *o)
+{
+    Type *t = isType(o);
+    if (t)
+        return (t->ty == Terror);
+    Expression *e = isExpression(o);
+    if (e)
+        return (e->op == TOKerror);
+    Tuple *v = isTuple(o);
+    if (v)
+        return arrayObjectIsError(&v->objects);
+    return 0;
+}
+
+/**************************************
+ * Are any of the Objects an error?
+ */
+int arrayObjectIsError(Objects *args)
+{
+    for (size_t i = 0; i < args->dim; i++)
+    {
+        Object *o = (Object *)args->data[i];
+        if (isError(o))
+            return 1;
+    }
+    return 0;
+}
 
 /***********************
  * Try to get arg as a type.
@@ -1366,8 +1396,10 @@ FuncDeclaration *TemplateDeclaration::deduceFunctionTemplate(Scope *sc, Loc loc,
     }
     if (td_ambig)
     {
-        error(loc, "matches more than one function template declaration:\n  %s\nand:\n  %s",
-                td_best->toChars(), td_ambig->toChars());
+        error(loc, "%s matches more than one template declaration, %s(%d):%s and %s(%d):%s",
+                toChars(),
+                td_best->loc.filename,  td_best->loc.linnum,  td_best->toChars(),
+                td_ambig->loc.filename, td_ambig->loc.linnum, td_ambig->toChars());
     }
 
     /* The best match is td_best with arguments tdargs.
@@ -3892,8 +3924,10 @@ TemplateDeclaration *TemplateInstance::findBestMatch(Scope *sc)
     }
     if (td_ambig)
     {
-        error("%s matches more than one template declaration, %s and %s",
-                toChars(), td_best->toChars(), td_ambig->toChars());
+        error("%s matches more than one template declaration, %s(%d):%s and %s(%d):%s",
+                toChars(),
+                td_best->loc.filename,  td_best->loc.linnum,  td_best->toChars(),
+                td_ambig->loc.filename, td_ambig->loc.linnum, td_ambig->toChars());
     }
 
     /* The best match is td_best

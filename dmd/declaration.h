@@ -265,7 +265,7 @@ struct VarDeclaration : Declaration
 {
     Initializer *init;
     unsigned offset;
-    int noscope;                // no scope semantics
+    int noauto;                // no scope semantics
 #if DMDV2
     FuncDeclarations nestedrefs; // referenced by these lexically nested functions
     bool isargptr;              // if parameter that _argptr points to

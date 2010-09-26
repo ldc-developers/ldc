@@ -184,6 +184,8 @@ void FuncDeclaration::semantic(Scope *sc)
 
     foverrides.setDim(0);       // reset in case semantic() is being retried for this function
 
+    if (!originalType)
+        originalType = type;
     if (!type->deco)
     {
         type = type->semantic(loc, sc);
@@ -1019,7 +1021,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                     loc = fensure->loc;
 
                 v = new VarDeclaration(loc, type->nextOf(), outId, NULL);
-                v->noscope = 1;
+                v->noauto = 1;
 #if DMDV2
                 if (!isVirtual())
                     v->storage_class |= STCconst;
@@ -1264,6 +1266,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                         assert(v->init);
                         ExpInitializer *ie = v->init->isExpInitializer();
                         assert(ie);
+                        ie->exp->op = TOKassign; // construction occurred in parameter processing
                         a->push(new ExpStatement(0, ie->exp));
                     }
                 }
@@ -1294,6 +1297,8 @@ void FuncDeclaration::semantic3(Scope *sc)
                     offset = p->type->size();
                 offset = (offset + 3) & ~3;     // assume stack aligns on 4
                 Expression *e = new SymOffExp(0, p, offset);
+                e->type = Type::tvoidptr;
+                //e = e->semantic(sc);
                 e = new AssignExp(0, e1, e);
                 e->type = t;
                 a->push(new ExpStatement(0, e));

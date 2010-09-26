@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -468,7 +468,27 @@ void StorageClassDeclaration::stcToCBuffer(OutBuffer *buf, StorageClass stc)
     {
         if (stc & table[i].stc)
         {
-            buf->writestring(Token::toChars(table[i].tok));
+            enum TOK tok = table[i].tok;
+#if DMDV2
+            if (tok == TOKat)
+            {   Identifier *id;
+
+                if (stc & STCproperty)
+                    id = Id::property;
+                else if (stc & STCsafe)
+                    id = Id::safe;
+                else if (stc & STCtrusted)
+                    id = Id::trusted;
+                else if (stc & STCdisable)
+                    id = Id::disable;
+                else
+                    assert(0);
+                buf->writeByte('@');
+                buf->writestring(id->toChars());
+            }
+            else
+#endif
+                buf->writestring(Token::toChars(tok));
             buf->writeByte(' ');
         }
     }
@@ -963,7 +983,7 @@ void PragmaDeclaration::semantic(Scope *sc)
                     fprintf(stdmsg, "%.*s", (int)se->len, (char *)se->string);
                 }
                 else
-                    fprintf(stdmsg, e->toChars());
+                    fprintf(stdmsg, "%s", e->toChars());
             }
             fprintf(stdmsg, "\n");
         }
