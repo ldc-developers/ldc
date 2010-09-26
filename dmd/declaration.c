@@ -620,6 +620,8 @@ Dsymbol *AliasDeclaration::toAlias()
     {   error("recursive alias declaration");
         aliassym = new TypedefDeclaration(loc, ident, Type::terror, NULL);
     }
+    else if (!aliassym && scope)
+        semantic(scope);
     Dsymbol *s = aliassym ? aliassym->toAlias() : this;
     return s;
 }
@@ -1356,6 +1358,9 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 #endif
 #endif
             //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
+            // __dollar creates problems because it isn't a real variable Bugzilla 3326
+            if (ident == Id::dollar)
+                ::error(loc, "cannnot use $ inside a function literal");
         }
     }
 }

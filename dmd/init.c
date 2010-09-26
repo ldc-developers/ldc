@@ -341,7 +341,7 @@ void ArrayInitializer::addInit(Expression *index, Initializer *value)
 Initializer *ArrayInitializer::semantic(Scope *sc, Type *t)
 {   unsigned i;
     unsigned length;
-    const unsigned long amax = 0x80000000;
+    const unsigned amax = 0x80000000;
 
     //printf("ArrayInitializer::semantic(%s)\n", t->toChars());
     if (sem)                            // if semantic() already run
