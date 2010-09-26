@@ -3544,7 +3544,11 @@ void TemplateInstance::semantic(Scope *sc)
         }
         errors = 1;
         if (global.gag)
+        {   // Try to reset things so we can try again later to instantiate it
             tempdecl->instances.remove(tempdecl_instance_idx);
+            semanticRun = 0;
+            inst = NULL;
+        }
     }
 
 #if LOG

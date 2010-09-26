@@ -442,6 +442,8 @@ void err_nomem();
 void inifile(char *argv0, const char *inifile);
 void halt();
 
+const char *importHint(const char *s);
+
 /*** Where to send error messages ***/
 #if IN_GCC || IN_LLVM
 #define stdmsg stderr
