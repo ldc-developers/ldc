@@ -770,7 +770,7 @@ LDC_TARGETS
             goto Linvalid;
         }
 
-        id = new Identifier(name, 0);
+        id = Lexer::idPool(name);
         m = new Module((char *) files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
     }
