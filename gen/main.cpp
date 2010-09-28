@@ -825,6 +825,8 @@ LDC_TARGETS
         fatal();
 #endif
 
+// TODO: hack for old d2 frontends
+#if DMDV1
     // load all unconditional imports for better symbol resolving
     for (int i = 0; i < modules.dim; i++)
     {
@@ -835,6 +837,7 @@ LDC_TARGETS
     }
     if (global.errors)
        fatal();
+#endif
 
     // Do semantic analysis
     for (int i = 0; i < modules.dim; i++)

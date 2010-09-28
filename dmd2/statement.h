@@ -117,6 +117,9 @@ struct Statement : Object
     virtual GotoStatement *isGotoStatement() { return NULL; }
     virtual AsmStatement *isAsmStatement() { return NULL; }
     virtual AsmBlockStatement *isAsmBlockStatement() { return NULL; }
+#if IN_LLVM
+    virtual LabelStatement *isLabelStatement() { return NULL; }
+#endif
 #ifdef _DH
     int incontract;
 #endif
@@ -883,6 +886,7 @@ struct LabelStatement : Statement
 #if IN_LLVM
     bool asmLabel;       // for labels inside inline assembler
     void toNakedIR(IRState *irs);
+    virtual LabelStatement *isLabelStatement() { return this; }
 #endif
 };
 

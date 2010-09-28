@@ -46,6 +46,9 @@ struct InterState;
 struct Symbol;		// back end symbol
 #endif
 struct OverloadSet;
+#if IN_LLVM
+struct AssignExp;
+#endif
 
 enum TOK;
 
@@ -183,6 +186,8 @@ struct Expression : Object
     virtual void cacheLvalue(IRState* irs);
 
     llvm::Value* cachedLvalue;
+
+    virtual AssignExp* isAssignExp() { return NULL; }
 #endif
 };
 
@@ -1427,6 +1432,7 @@ struct AssignExp : BinExp
 
 #if IN_LLVM
     DValue* toElem(IRState* irs);
+    virtual AssignExp* isAssignExp() { return this; }
 #endif
 };
 

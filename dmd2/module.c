@@ -46,6 +46,7 @@
 
 #if IN_LLVM
 #include "llvm/Support/CommandLine.h"
+#include <map>
 
 static llvm::cl::opt<bool> preservePaths("op",
     llvm::cl::desc("Do not strip paths from source file"),
@@ -305,38 +306,76 @@ void Module::setHdrfile()
 #endif
 
 #if IN_LLVM
-void Module::buildTargetFiles()
+
+// LDC
+static void check_and_add_output_file(Module* NewMod, const std::string& str)
 {
-    if(objfile && 
-       (!doDocComment || docfile) && 
-       (!doHdrGen || hdrfile))
-	return;
+	typedef std::map<std::string, Module*> map_t;
+	static map_t files;
 
-    if(!objfile)
-	objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.obj_ext);
-    if(doDocComment && !docfile)
-	docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
-    if(doHdrGen && !hdrfile)
-	hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
-
-    // safety check: never allow obj, doc or hdr file to have the source file's name
-    if(stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
-    {
-	error("Output object files with the same name as the source file are forbidden");
-	fatal();
-    }
-    if(docfile && stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
-    {
-	error("Output doc files with the same name as the source file are forbidden");
-	fatal();
-    }
-    if(hdrfile && stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
-    {
-	error("Output header files with the same name as the source file are forbidden");
-	fatal();
-    }
+	map_t::iterator i = files.find(str);
+	if (i != files.end())
+	{
+		Module* ThisMod = i->second;
+		error("Output file '%s' for module '%s' collides with previous module '%s'. See the -oq option",
+			str.c_str(), NewMod->toPrettyChars(), ThisMod->toPrettyChars());
+		fatal();
+	}
+	files.insert(std::make_pair(str, NewMod));
 }
+
+void Module::buildTargetFiles(bool singleObj)
+{
+	if(objfile &&
+	   (!doDocComment || docfile) &&
+	   (!doHdrGen || hdrfile))
+		return;
+
+	if(!objfile)
+	{
+		if (global.params.output_bc)
+			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
+		else if (global.params.output_ll)
+			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.ll_ext);
+		else if (global.params.output_s)
+			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
+		else
+			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.obj_ext);
+	}
+	if(doDocComment && !docfile)
+		docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
+	if(doHdrGen && !hdrfile)
+		hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
+
+	// safety check: never allow obj, doc or hdr file to have the source file's name
+	if(stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
+	{
+		error("Output object files with the same name as the source file are forbidden");
+		fatal();
+	}
+	if(docfile && stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
+	{
+		error("Output doc files with the same name as the source file are forbidden");
+		fatal();
+	}
+	if(hdrfile && stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
+	{
+		error("Output header files with the same name as the source file are forbidden");
+		fatal();
+	}
+
+	// LDC
+	// another safety check to make sure we don't overwrite previous output files
+	if (!singleObj)
+		check_and_add_output_file(this, objfile->name->str);
+	if (docfile)
+		check_and_add_output_file(this, docfile->name->str);
+	if (hdrfile)
+		check_and_add_output_file(this, hdrfile->name->str);
+}
+
 #endif
+
 void Module::deleteObjFile()
 {
     if (global.params.obj)

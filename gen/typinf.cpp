@@ -46,6 +46,12 @@
 #include "ir/irvar.h"
 #include "ir/irtype.h"
 
+// TODO: hack for old d2 frontends
+#if DMDV2
+typedef Argument Parameter;
+typedef Arguments Parameters;
+#endif
+
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal
  * runtime library routines. Canonicalized in that static arrays are
