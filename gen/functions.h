@@ -13,12 +13,6 @@ namespace llvm
     class Value;
 }
 
-// TODO: hack for old d2 frontends
-#if DMDV2
-typedef Argument Parameter;
-typedef Arguments Parameters;
-#endif
-
 const llvm::FunctionType* DtoFunctionType(Type* t, Type* thistype, Type* nesttype, bool ismain = false);
 const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 

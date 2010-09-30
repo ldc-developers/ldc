@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -63,7 +63,7 @@ Module *Module::rootModule;
 DsymbolTable *Module::modules;
 Array Module::amodules;
 
-Array Module::deferred;	// deferred Dsymbol's needing semantic() run on them
+Array Module::deferred; // deferred Dsymbol's needing semantic() run on them
 unsigned Module::dprogress;
 
 void Module::init()
@@ -72,7 +72,7 @@ void Module::init()
 }
 
 Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen)
-	: Package(ident)
+        : Package(ident)
 {
     FileName *srcfilename;
 #if IN_DMD
@@ -105,10 +105,13 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     vmoduleinfo = NULL;
 #if IN_DMD
     massert = NULL;
+    munittest = NULL;
     marray = NULL;
     sictor = NULL;
     sctor = NULL;
     sdtor = NULL;
+    ssharedctor = NULL;
+    sshareddtor = NULL;
     stest = NULL;
     sfilename = NULL;
 #endif
@@ -135,40 +138,57 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     covb = NULL;
 #endif
 
+    nameoffset = 0;
+    namelen = 0;
+
     srcfilename = FileName::defaultExt(filename, global.mars_ext);
     if (!srcfilename->equalsExt(global.mars_ext) &&
         !srcfilename->equalsExt(global.hdr_ext) &&
         !srcfilename->equalsExt("dd"))
     {
-	if (srcfilename->equalsExt("html") ||
-	    srcfilename->equalsExt("htm")  ||
-	    srcfilename->equalsExt("xhtml"))
-	{   if (!global.params.useDeprecated)
-		error("html source files is deprecated %s", srcfilename->toChars());
-	    isHtml = 1;
-	}
-	else
-	{   error("source file name '%s' must have .%s extension", srcfilename->toChars(), global.mars_ext);
-	    fatal();
-	}
+        if (srcfilename->equalsExt("html") ||
+            srcfilename->equalsExt("htm")  ||
+            srcfilename->equalsExt("xhtml"))
+        {   if (!global.params.useDeprecated)
+                error("html source files is deprecated %s", srcfilename->toChars());
+            isHtml = 1;
+        }
+        else
+        {   error("source file name '%s' must have .%s extension", srcfilename->toChars(), global.mars_ext);
+            fatal();
+        }
     }
 #if !IN_LLVM
     char *argobj;
     if (global.params.objname)
-	argobj = global.params.objname;
+        argobj = global.params.objname;
+#if 0
     else if (global.params.preservePaths)
-	argobj = filename;
+        argobj = filename;
     else
-	argobj = FileName::name(filename);
+        argobj = FileName::name(filename);
     if (!FileName::absolute(argobj))
     {
-	argobj = FileName::combine(global.params.objdir, argobj);
+        argobj = FileName::combine(global.params.objdir, argobj);
     }
+#else // Bugzilla 3547
+    else
+    {
+        if (global.params.preservePaths)
+            argobj = filename;
+        else
+            argobj = FileName::name(filename);
+        if (!FileName::absolute(argobj))
+        {
+            argobj = FileName::combine(global.params.objdir, argobj);
+        }
+    }
+#endif
 
     if (global.params.objname)
-	objfilename = new FileName(argobj, 0);
+        objfilename = new FileName(argobj, 0);
     else
-	objfilename = FileName::forceExt(argobj, global.obj_ext);
+        objfilename = FileName::forceExt(argobj, global.obj_ext);
 
     symfilename = FileName::forceExt(filename, global.sym_ext);
 #endif
@@ -177,12 +197,12 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 #if IN_DMD
     if (doDocComment)
     {
-	setDocfile();
+        setDocfile();
     }
 
     if (doHdrGen)
     {
-	setHdrfile();
+        setHdrfile();
     }
 
     objfile = new File(objfilename);
@@ -254,23 +274,23 @@ void Module::setDocfile()
     char *argdoc;
 
     if (global.params.docname)
-	argdoc = global.params.docname;
+        argdoc = global.params.docname;
     else if (global.params.preservePaths)
-	argdoc = (char *)arg;
+        argdoc = (char *)arg;
     else
-	argdoc = FileName::name((char *)arg);
+        argdoc = FileName::name((char *)arg);
     if (!FileName::absolute(argdoc))
-    {	//FileName::ensurePathExists(global.params.docdir);
-	argdoc = FileName::combine(global.params.docdir, argdoc);
+    {   //FileName::ensurePathExists(global.params.docdir);
+        argdoc = FileName::combine(global.params.docdir, argdoc);
     }
     if (global.params.docname)
-	docfilename = new FileName(argdoc, 0);
+        docfilename = new FileName(argdoc, 0);
     else
-	docfilename = FileName::forceExt(argdoc, global.doc_ext);
+        docfilename = FileName::forceExt(argdoc, global.doc_ext);
 
     if (docfilename->equals(srcfile->name))
     {   error("Source file and documentation file have same name '%s'", srcfile->name->str);
-	fatal();
+        fatal();
     }
 
     docfile = new File(docfilename);
@@ -282,23 +302,23 @@ void Module::setHdrfile()
     char *arghdr;
 
     if (global.params.hdrname)
-	arghdr = global.params.hdrname;
+        arghdr = global.params.hdrname;
     else if (global.params.preservePaths)
-	arghdr = (char *)arg;
+        arghdr = (char *)arg;
     else
-	arghdr = FileName::name((char *)arg);
+        arghdr = FileName::name((char *)arg);
     if (!FileName::absolute(arghdr))
-    {	//FileName::ensurePathExists(global.params.hdrdir);
-	arghdr = FileName::combine(global.params.hdrdir, arghdr);
+    {   //FileName::ensurePathExists(global.params.hdrdir);
+        arghdr = FileName::combine(global.params.hdrdir, arghdr);
     }
     if (global.params.hdrname)
-	hdrfilename = new FileName(arghdr, 0);
+        hdrfilename = new FileName(arghdr, 0);
     else
-	hdrfilename = FileName::forceExt(arghdr, global.hdr_ext);
+        hdrfilename = FileName::forceExt(arghdr, global.hdr_ext);
 
     if (hdrfilename->equals(srcfile->name))
     {   error("Source file and 'header' file have same name '%s'", srcfile->name->str);
-	fatal();
+        fatal();
     }
 
     hdrfile = new File(hdrfilename);
@@ -379,11 +399,11 @@ void Module::buildTargetFiles(bool singleObj)
 void Module::deleteObjFile()
 {
     if (global.params.obj)
-	objfile->remove();
+        objfile->remove();
     //if (global.params.llvmBC)
     //bcfile->remove();
     if (doDocComment && docfile)
-	docfile->remove();
+        docfile->remove();
 }
 
 Module::~Module()
@@ -402,28 +422,28 @@ Module *Module::load(Loc loc, Array *packages, Identifier *ident)
     //printf("Module::load(ident = '%s')\n", ident->toChars());
 
     // Build module filename by turning:
-    //	foo.bar.baz
+    //  foo.bar.baz
     // into:
-    //	foo\bar\baz
+    //  foo\bar\baz
     filename = ident->toChars();
     if (packages && packages->dim)
     {
-	OutBuffer buf;
-	int i;
+        OutBuffer buf;
+        int i;
 
-	for (i = 0; i < packages->dim; i++)
-	{   Identifier *pid = (Identifier *)packages->data[i];
+        for (i = 0; i < packages->dim; i++)
+        {   Identifier *pid = (Identifier *)packages->data[i];
 
-	    buf.writestring(pid->toChars());
+            buf.writestring(pid->toChars());
 #if _WIN32
-	    buf.writeByte('\\');
+            buf.writeByte('\\');
 #else
-	    buf.writeByte('/');
+            buf.writeByte('/');
 #endif
-	}
-	buf.writestring(filename);
-	buf.writeByte(0);
-	filename = (char *)buf.extractData();
+        }
+        buf.writestring(filename);
+        buf.writeByte(0);
+        filename = (char *)buf.extractData();
     }
 
     m = new Module(filename, ident, 0, 0);
@@ -438,46 +458,46 @@ Module *Module::load(Loc loc, Array *packages, Identifier *ident)
     char *sd  = fd->toChars();
 
     if (FileName::exists(sdi))
-	result = sdi;
+        result = sdi;
     else if (FileName::exists(sd))
-	result = sd;
+        result = sd;
     else if (FileName::absolute(filename))
-	;
+        ;
     else if (!global.path)
-	;
+        ;
     else
     {
-	for (size_t i = 0; i < global.path->dim; i++)
-	{
-	    char *p = (char *)global.path->data[i];
-	    char *n = FileName::combine(p, sdi);
-	    if (FileName::exists(n))
-	    {	result = n;
-		break;
-	    }
-	    mem.free(n);
-	    n = FileName::combine(p, sd);
-	    if (FileName::exists(n))
-	    {	result = n;
-		break;
-	    }
-	    mem.free(n);
-	}
+        for (size_t i = 0; i < global.path->dim; i++)
+        {
+            char *p = (char *)global.path->data[i];
+            char *n = FileName::combine(p, sdi);
+            if (FileName::exists(n))
+            {   result = n;
+                break;
+            }
+            mem.free(n);
+            n = FileName::combine(p, sd);
+            if (FileName::exists(n))
+            {   result = n;
+                break;
+            }
+            mem.free(n);
+        }
     }
     if (result)
-	m->srcfile = new File(result);
+        m->srcfile = new File(result);
 
     if (global.params.verbose)
     {
-	printf("import    ");
-	if (packages)
-	{
-	    for (size_t i = 0; i < packages->dim; i++)
-	    {   Identifier *pid = (Identifier *)packages->data[i];
-		printf("%s.", pid->toChars());
-	    }
-	}
-	printf("%s\t(%s)\n", ident->toChars(), m->srcfile->toChars());
+        printf("import    ");
+        if (packages)
+        {
+            for (size_t i = 0; i < packages->dim; i++)
+            {   Identifier *pid = (Identifier *)packages->data[i];
+                printf("%s.", pid->toChars());
+            }
+        }
+        printf("%s\t(%s)\n", ident->toChars(), m->srcfile->toChars());
     }
 
     m->read(loc);
@@ -494,8 +514,22 @@ void Module::read(Loc loc)
 {
     //printf("Module::read('%s') file '%s'\n", toChars(), srcfile->toChars());
     if (srcfile->read())
-    {	error(loc, "cannot read file '%s'", srcfile->toChars());
-	fatal();
+    {   error(loc, "is in file '%s' which cannot be read", srcfile->toChars());
+        if (!global.gag)
+        {   /* Print path
+             */
+            if (global.path)
+            {
+                for (int i = 0; i < global.path->dim; i++)
+                {
+                    char *p = (char *)global.path->data[i];
+                    fprintf(stdmsg, "import path[%d] = %s\n", i, p);
+                }
+            }
+            else
+                fprintf(stdmsg, "Specify path to file '%s' with -I switch\n", srcfile->toChars());
+        }
+        fatal();
     }
 }
 
@@ -519,18 +553,18 @@ inline unsigned readlongLE(unsigned *p)
     return *p;
 #else
     return ((unsigned char *)p)[0] |
-	(((unsigned char *)p)[1] << 8) |
-	(((unsigned char *)p)[2] << 16) |
-	(((unsigned char *)p)[3] << 24);
+        (((unsigned char *)p)[1] << 8) |
+        (((unsigned char *)p)[2] << 16) |
+        (((unsigned char *)p)[3] << 24);
 #endif
 }
 
 inline unsigned readlongBE(unsigned *p)
 {
     return ((unsigned char *)p)[3] |
-	(((unsigned char *)p)[2] << 8) |
-	(((unsigned char *)p)[1] << 16) |
-	(((unsigned char *)p)[0] << 24);
+        (((unsigned char *)p)[2] << 8) |
+        (((unsigned char *)p)[1] << 16) |
+        (((unsigned char *)p)[0] << 24);
 }
 
 #if IN_GCC
@@ -554,169 +588,169 @@ void Module::parse()
 
     if (buflen >= 2)
     {
-	/* Convert all non-UTF-8 formats to UTF-8.
-	 * BOM : http://www.unicode.org/faq/utf_bom.html
-	 * 00 00 FE FF	UTF-32BE, big-endian
-	 * FF FE 00 00	UTF-32LE, little-endian
-	 * FE FF	UTF-16BE, big-endian
-	 * FF FE	UTF-16LE, little-endian
-	 * EF BB BF	UTF-8
-	 */
+        /* Convert all non-UTF-8 formats to UTF-8.
+         * BOM : http://www.unicode.org/faq/utf_bom.html
+         * 00 00 FE FF  UTF-32BE, big-endian
+         * FF FE 00 00  UTF-32LE, little-endian
+         * FE FF        UTF-16BE, big-endian
+         * FF FE        UTF-16LE, little-endian
+         * EF BB BF     UTF-8
+         */
 
-	bom = 1;		// assume there's a BOM
-	if (buf[0] == 0xFF && buf[1] == 0xFE)
-	{
-	    if (buflen >= 4 && buf[2] == 0 && buf[3] == 0)
-	    {	// UTF-32LE
-		le = 1;
+        bom = 1;                // assume there's a BOM
+        if (buf[0] == 0xFF && buf[1] == 0xFE)
+        {
+            if (buflen >= 4 && buf[2] == 0 && buf[3] == 0)
+            {   // UTF-32LE
+                le = 1;
 
-	    Lutf32:
-		OutBuffer dbuf;
-		unsigned *pu = (unsigned *)(buf);
-		unsigned *pumax = &pu[buflen / 4];
+            Lutf32:
+                OutBuffer dbuf;
+                unsigned *pu = (unsigned *)(buf);
+                unsigned *pumax = &pu[buflen / 4];
 
-		if (buflen & 3)
-		{   error("odd length of UTF-32 char source %u", buflen);
-		    fatal();
-		}
+                if (buflen & 3)
+                {   error("odd length of UTF-32 char source %u", buflen);
+                    fatal();
+                }
 
-		dbuf.reserve(buflen / 4);
-		for (pu += bom; pu < pumax; pu++)
-		{   unsigned u;
+                dbuf.reserve(buflen / 4);
+                for (pu += bom; pu < pumax; pu++)
+                {   unsigned u;
 
-		    u = le ? readlongLE(pu) : readlongBE(pu);
-		    if (u & ~0x7F)
-		    {
-			if (u > 0x10FFFF)
-			{   error("UTF-32 value %08x greater than 0x10FFFF", u);
-			    fatal();
-			}
-			dbuf.writeUTF8(u);
-		    }
-		    else
-			dbuf.writeByte(u);
-		}
-		dbuf.writeByte(0);		// add 0 as sentinel for scanner
-		buflen = dbuf.offset - 1;	// don't include sentinel in count
-		buf = (unsigned char *) dbuf.extractData();
-	    }
-	    else
-	    {   // UTF-16LE (X86)
-		// Convert it to UTF-8
-		le = 1;
+                    u = le ? readlongLE(pu) : readlongBE(pu);
+                    if (u & ~0x7F)
+                    {
+                        if (u > 0x10FFFF)
+                        {   error("UTF-32 value %08x greater than 0x10FFFF", u);
+                            fatal();
+                        }
+                        dbuf.writeUTF8(u);
+                    }
+                    else
+                        dbuf.writeByte(u);
+                }
+                dbuf.writeByte(0);              // add 0 as sentinel for scanner
+                buflen = dbuf.offset - 1;       // don't include sentinel in count
+                buf = (unsigned char *) dbuf.extractData();
+            }
+            else
+            {   // UTF-16LE (X86)
+                // Convert it to UTF-8
+                le = 1;
 
-	    Lutf16:
-		OutBuffer dbuf;
-		unsigned short *pu = (unsigned short *)(buf);
-		unsigned short *pumax = &pu[buflen / 2];
+            Lutf16:
+                OutBuffer dbuf;
+                unsigned short *pu = (unsigned short *)(buf);
+                unsigned short *pumax = &pu[buflen / 2];
 
-		if (buflen & 1)
-		{   error("odd length of UTF-16 char source %u", buflen);
-		    fatal();
-		}
+                if (buflen & 1)
+                {   error("odd length of UTF-16 char source %u", buflen);
+                    fatal();
+                }
 
-		dbuf.reserve(buflen / 2);
-		for (pu += bom; pu < pumax; pu++)
-		{   unsigned u;
+                dbuf.reserve(buflen / 2);
+                for (pu += bom; pu < pumax; pu++)
+                {   unsigned u;
 
-		    u = le ? readwordLE(pu) : readwordBE(pu);
-		    if (u & ~0x7F)
-		    {	if (u >= 0xD800 && u <= 0xDBFF)
-			{   unsigned u2;
+                    u = le ? readwordLE(pu) : readwordBE(pu);
+                    if (u & ~0x7F)
+                    {   if (u >= 0xD800 && u <= 0xDBFF)
+                        {   unsigned u2;
 
-			    if (++pu > pumax)
-			    {   error("surrogate UTF-16 high value %04x at EOF", u);
-				fatal();
-			    }
-			    u2 = le ? readwordLE(pu) : readwordBE(pu);
-			    if (u2 < 0xDC00 || u2 > 0xDFFF)
-			    {   error("surrogate UTF-16 low value %04x out of range", u2);
-				fatal();
-			    }
-			    u = (u - 0xD7C0) << 10;
-			    u |= (u2 - 0xDC00);
-			}
-			else if (u >= 0xDC00 && u <= 0xDFFF)
-			{   error("unpaired surrogate UTF-16 value %04x", u);
-			    fatal();
-			}
-			else if (u == 0xFFFE || u == 0xFFFF)
-			{   error("illegal UTF-16 value %04x", u);
-			    fatal();
-			}
-			dbuf.writeUTF8(u);
-		    }
-		    else
-			dbuf.writeByte(u);
-		}
-		dbuf.writeByte(0);		// add 0 as sentinel for scanner
-		buflen = dbuf.offset - 1;	// don't include sentinel in count
-		buf = (unsigned char *) dbuf.extractData();
-	    }
-	}
-	else if (buf[0] == 0xFE && buf[1] == 0xFF)
-	{   // UTF-16BE
-	    le = 0;
-	    goto Lutf16;
-	}
-	else if (buflen >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)
-	{   // UTF-32BE
-	    le = 0;
-	    goto Lutf32;
-	}
-	else if (buflen >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF)
-	{   // UTF-8
+                            if (++pu > pumax)
+                            {   error("surrogate UTF-16 high value %04x at EOF", u);
+                                fatal();
+                            }
+                            u2 = le ? readwordLE(pu) : readwordBE(pu);
+                            if (u2 < 0xDC00 || u2 > 0xDFFF)
+                            {   error("surrogate UTF-16 low value %04x out of range", u2);
+                                fatal();
+                            }
+                            u = (u - 0xD7C0) << 10;
+                            u |= (u2 - 0xDC00);
+                        }
+                        else if (u >= 0xDC00 && u <= 0xDFFF)
+                        {   error("unpaired surrogate UTF-16 value %04x", u);
+                            fatal();
+                        }
+                        else if (u == 0xFFFE || u == 0xFFFF)
+                        {   error("illegal UTF-16 value %04x", u);
+                            fatal();
+                        }
+                        dbuf.writeUTF8(u);
+                    }
+                    else
+                        dbuf.writeByte(u);
+                }
+                dbuf.writeByte(0);              // add 0 as sentinel for scanner
+                buflen = dbuf.offset - 1;       // don't include sentinel in count
+                buf = (unsigned char *) dbuf.extractData();
+            }
+        }
+        else if (buf[0] == 0xFE && buf[1] == 0xFF)
+        {   // UTF-16BE
+            le = 0;
+            goto Lutf16;
+        }
+        else if (buflen >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)
+        {   // UTF-32BE
+            le = 0;
+            goto Lutf32;
+        }
+        else if (buflen >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF)
+        {   // UTF-8
 
-	    buf += 3;
-	    buflen -= 3;
-	}
-	else
-	{
-	    /* There is no BOM. Make use of Arcane Jill's insight that
-	     * the first char of D source must be ASCII to
-	     * figure out the encoding.
-	     */
+            buf += 3;
+            buflen -= 3;
+        }
+        else
+        {
+            /* There is no BOM. Make use of Arcane Jill's insight that
+             * the first char of D source must be ASCII to
+             * figure out the encoding.
+             */
 
-	    bom = 0;
-	    if (buflen >= 4)
-	    {   if (buf[1] == 0 && buf[2] == 0 && buf[3] == 0)
-		{   // UTF-32LE
-		    le = 1;
-		    goto Lutf32;
-		}
-		else if (buf[0] == 0 && buf[1] == 0 && buf[2] == 0)
-		{   // UTF-32BE
-		    le = 0;
-		    goto Lutf32;
-		}
-	    }
-	    if (buflen >= 2)
-	    {
-		if (buf[1] == 0)
-		{   // UTF-16LE
-		    le = 1;
-		    goto Lutf16;
-		}
-		else if (buf[0] == 0)
-		{   // UTF-16BE
-		    le = 0;
-		    goto Lutf16;
-		}
-	    }
+            bom = 0;
+            if (buflen >= 4)
+            {   if (buf[1] == 0 && buf[2] == 0 && buf[3] == 0)
+                {   // UTF-32LE
+                    le = 1;
+                    goto Lutf32;
+                }
+                else if (buf[0] == 0 && buf[1] == 0 && buf[2] == 0)
+                {   // UTF-32BE
+                    le = 0;
+                    goto Lutf32;
+                }
+            }
+            if (buflen >= 2)
+            {
+                if (buf[1] == 0)
+                {   // UTF-16LE
+                    le = 1;
+                    goto Lutf16;
+                }
+                else if (buf[0] == 0)
+                {   // UTF-16BE
+                    le = 0;
+                    goto Lutf16;
+                }
+            }
 
-	    // It's UTF-8
-	    if (buf[0] >= 0x80)
-	    {	error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
-		fatal();
-	    }
-	}
+            // It's UTF-8
+            if (buf[0] >= 0x80)
+            {   error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
+                fatal();
+            }
+        }
     }
 
 #ifdef IN_GCC
-    // dump utf-8 encoded source 
+    // dump utf-8 encoded source
     if (dump_source)
-    {	// %% srcname could contain a path ...
-	d_gcc_dump_source(srcname, "utf-8", buf, buflen);
+    {   // %% srcname could contain a path ...
+        d_gcc_dump_source(srcname, "utf-8", buf, buflen);
     }
 #endif
 
@@ -725,25 +759,25 @@ void Module::parse()
      */
     if (buflen >= 4 && memcmp(buf, "Ddoc", 4) == 0)
     {
-	comment = buf + 4;
-	isDocFile = 1;
+        comment = buf + 4;
+        isDocFile = 1;
 #if IN_DMD
-	if (!docfile)
-	    setDocfile();
+        if (!docfile)
+            setDocfile();
 #endif
-	return;
+        return;
     }
     if (isHtml)
     {
-	OutBuffer *dbuf = new OutBuffer();
-	Html h(srcname, buf, buflen);
-	h.extractCode(dbuf);
-	buf = dbuf->data;
-	buflen = dbuf->offset;
+        OutBuffer *dbuf = new OutBuffer();
+        Html h(srcname, buf, buflen);
+        h.extractCode(dbuf);
+        buf = dbuf->data;
+        buflen = dbuf->offset;
 #ifdef IN_GCC
-	// dump extracted source
-	if (dump_source)
-	    d_gcc_dump_source(srcname, "d.utf-8", buf, buflen);
+        // dump extracted source
+        if (dump_source)
+            d_gcc_dump_source(srcname, "d.utf-8", buf, buflen);
 #endif
     }
     Parser p(this, buf, buflen, docfile != NULL);
@@ -755,39 +789,104 @@ void Module::parse()
     DsymbolTable *dst;
 
     if (md)
-    {	this->ident = md->id;
-	this->safe = md->safe;
-	dst = Package::resolve(md->packages, &this->parent, NULL);
+    {   this->ident = md->id;
+        this->safe = md->safe;
+        dst = Package::resolve(md->packages, &this->parent, NULL);
     }
     else
     {
-	dst = modules;
+        dst = modules;
 
-	/* Check to see if module name is a valid identifier
-	 */
-	if (!Lexer::isValidIdentifier(this->ident->toChars()))
-	    error("has non-identifier characters in filename, use module declaration instead");
+        /* Check to see if module name is a valid identifier
+         */
+        if (!Lexer::isValidIdentifier(this->ident->toChars()))
+            error("has non-identifier characters in filename, use module declaration instead");
     }
 
     // Update global list of modules
     if (!dst->insert(this))
     {
-	if (md)
-	    error(loc, "is in multiple packages %s", md->toChars());
-	else
-	    error(loc, "is in multiple defined");
+        Dsymbol *prev = dst->lookup(ident);
+        assert(prev);
+        Module *mprev = prev->isModule();
+        if (mprev)
+            error(loc, "from file %s conflicts with another module %s from file %s",
+                srcname, mprev->toChars(), mprev->srcfile->toChars());
+        else
+        {
+            Package *pkg = prev->isPackage();
+            assert(pkg);
+            error(loc, "from file %s conflicts with package name %s",
+                srcname, pkg->toChars());
+        }
     }
     else
     {
-	amodules.push(this);
+        amodules.push(this);
     }
 }
 
-void Module::semantic(Scope* unused_sc)
-{   int i;
+void Module::importAll(Scope *prevsc)
+{
+    //printf("+Module::importAll(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
 
+    if (scope)
+        return;                 // already done
+
+    /* Note that modules get their own scope, from scratch.
+     * This is so regardless of where in the syntax a module
+     * gets imported, it is unaffected by context.
+     * Ignore prevsc.
+     */
+    Scope *sc = Scope::createGlobal(this);      // create root scope
+
+    // Add import of "object" if this module isn't "object"
+    if (ident != Id::object)
+    {
+        if (members->dim == 0 || ((Dsymbol *)members->data[0])->ident != Id::object)
+        {
+            Import *im = new Import(0, NULL, Id::object, NULL, 0);
+            members->shift(im);
+        }
+    }
+
+    if (!symtab)
+    {
+        // Add all symbols into module's symbol table
+        symtab = new DsymbolTable();
+        for (int i = 0; i < members->dim; i++)
+        {
+            Dsymbol *s = (Dsymbol *)members->data[i];
+            s->addMember(NULL, sc->scopesym, 1);
+        }
+    }
+    // anything else should be run after addMember, so version/debug symbols are defined
+
+    /* Set scope for the symbols so that if we forward reference
+     * a symbol, it can possibly be resolved on the spot.
+     * If this works out well, it can be extended to all modules
+     * before any semantic() on any of them.
+     */
+    setScope(sc);               // remember module scope for semantic
+    for (int i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
+        s->setScope(sc);
+    }
+
+    for (int i = 0; i < members->dim; i++)
+    {
+        Dsymbol *s = (Dsymbol *)members->data[i];
+        s->importAll(sc);
+    }
+
+    sc = sc->pop();
+    sc->pop();          // 2 pops because Scope::createGlobal() created 2
+}
+
+void Module::semantic(Scope* unused_sc)
+{
     if (semanticstarted)
-	return;
+        return;
 
     //printf("+Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
     semanticstarted = 1;
@@ -795,22 +894,27 @@ void Module::semantic(Scope* unused_sc)
     // Note that modules get their own scope, from scratch.
     // This is so regardless of where in the syntax a module
     // gets imported, it is unaffected by context.
-    Scope *sc = Scope::createGlobal(this);	// create root scope
+    Scope *sc = scope;                  // see if already got one from importAll()
+    if (!sc)
+    {   printf("test2\n");
+        Scope::createGlobal(this);      // create root scope
+    }
 
     //printf("Module = %p, linkage = %d\n", sc->scopesym, sc->linkage);
 
+#if 0
     // Add import of "object" if this module isn't "object"
     if (ident != Id::object)
     {
-	Import *im = new Import(0, NULL, Id::object, NULL, 0);
-	members->shift(im);
+        Import *im = new Import(0, NULL, Id::object, NULL, 0);
+        members->shift(im);
     }
 
     // Add all symbols into module's symbol table
     symtab = new DsymbolTable();
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s = (Dsymbol *)members->data[i];
-	s->addMember(NULL, sc->scopesym, 1);
+    for (int i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
+        s->addMember(NULL, sc->scopesym, 1);
     }
 
     /* Set scope for the symbols so that if we forward reference
@@ -818,22 +922,33 @@ void Module::semantic(Scope* unused_sc)
      * If this works out well, it can be extended to all modules
      * before any semantic() on any of them.
      */
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s = (Dsymbol *)members->data[i];
-	s->setScope(sc);
+    for (int i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
+        s->setScope(sc);
+    }
+#endif
+
+    // Do semantic() on members that don't depend on others
+    for (int i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
+
+        //printf("\tModule('%s'): '%s'.semantic0()\n", toChars(), s->toChars());
+        s->semantic0(sc);
     }
 
     // Pass 1 semantic routines: do public side of the definition
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s = (Dsymbol *)members->data[i];
+    for (int i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
 
-	//printf("\tModule('%s'): '%s'.semantic()\n", toChars(), s->toChars());
-	s->semantic(sc);
-	runDeferredSemantic();
+        //printf("\tModule('%s'): '%s'.semantic()\n", toChars(), s->toChars());
+        s->semantic(sc);
+        runDeferredSemantic();
     }
 
-    sc = sc->pop();
-    sc->pop();		// 2 pops because Scope::createGlobal() created 2
+    if (!scope)
+    {   sc = sc->pop();
+        sc->pop();              // 2 pops because Scope::createGlobal() created 2
+    }
     semanticRun = semanticstarted;
     //printf("-Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
 }
@@ -843,32 +958,32 @@ void Module::semantic2(Scope* unused_sc)
 
     if (deferred.dim)
     {
-	for (int i = 0; i < deferred.dim; i++)
-	{
-	    Dsymbol *sd = (Dsymbol *)deferred.data[i];
+        for (int i = 0; i < deferred.dim; i++)
+        {
+            Dsymbol *sd = (Dsymbol *)deferred.data[i];
 
-	    sd->error("unable to resolve forward reference in definition");
-	}
-	return;
+            sd->error("unable to resolve forward reference in definition");
+        }
+        return;
     }
     //printf("Module::semantic2('%s'): parent = %p\n", toChars(), parent);
     if (semanticstarted >= 2)
-	return;
+        return;
     assert(semanticstarted == 1);
     semanticstarted = 2;
 
     // Note that modules get their own scope, from scratch.
     // This is so regardless of where in the syntax a module
     // gets imported, it is unaffected by context.
-    Scope *sc = Scope::createGlobal(this);	// create root scope
+    Scope *sc = Scope::createGlobal(this);      // create root scope
     //printf("Module = %p\n", sc.scopesym);
 
     // Pass 2 semantic routines: do initializers and function bodies
     for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s;
+    {   Dsymbol *s;
 
-	s = (Dsymbol *)members->data[i];
-	s->semantic2(sc);
+        s = (Dsymbol *)members->data[i];
+        s->semantic2(sc);
     }
 
     sc = sc->pop();
@@ -882,23 +997,23 @@ void Module::semantic3(Scope* unused_sc)
 
     //printf("Module::semantic3('%s'): parent = %p\n", toChars(), parent);
     if (semanticstarted >= 3)
-	return;
+        return;
     assert(semanticstarted == 2);
     semanticstarted = 3;
 
     // Note that modules get their own scope, from scratch.
     // This is so regardless of where in the syntax a module
     // gets imported, it is unaffected by context.
-    Scope *sc = Scope::createGlobal(this);	// create root scope
+    Scope *sc = Scope::createGlobal(this);      // create root scope
     //printf("Module = %p\n", sc.scopesym);
 
     // Pass 3 semantic routines: do initializers and function bodies
     for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s;
+    {   Dsymbol *s;
 
-	s = (Dsymbol *)members->data[i];
-	//printf("Module %s: %s.semantic3()\n", toChars(), s->toChars());
-	s->semantic3(sc);
+        s = (Dsymbol *)members->data[i];
+        //printf("Module %s: %s.semantic3()\n", toChars(), s->toChars());
+        s->semantic3(sc);
     }
 
     sc = sc->pop();
@@ -907,10 +1022,9 @@ void Module::semantic3(Scope* unused_sc)
 }
 
 void Module::inlineScan()
-{   int i;
-
+{
     if (semanticstarted >= 4)
-	return;
+        return;
     assert(semanticstarted == 3);
     semanticstarted = 4;
 
@@ -919,14 +1033,12 @@ void Module::inlineScan()
     // gets imported, it is unaffected by context.
     //printf("Module = %p\n", sc.scopesym);
 
-    for (i = 0; i < members->dim; i++)
-    {	Dsymbol *s;
+    for (int i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
+        //if (global.params.verbose)
+            //printf("inline scan symbol %s\n", s->toChars());
 
-	s = (Dsymbol *)members->data[i];
-	//if (global.params.verbose)
-	    //printf("inline scan symbol %s\n", s->toChars());
-
-	s->inlineScan();
+        s->inlineScan();
     }
     semanticRun = semanticstarted;
 }
@@ -947,9 +1059,9 @@ void Module::gensymfile()
     buf.writenl();
 
     for (int i = 0; i < members->dim; i++)
-    {	Dsymbol *s = (Dsymbol *)members->data[i];
+    {   Dsymbol *s = (Dsymbol *)members->data[i];
 
-	s->toCBuffer(&buf, &hgs);
+        s->toCBuffer(&buf, &hgs);
     }
 
     // Transfer image to file
@@ -966,6 +1078,7 @@ void Module::gensymfile()
 
 int Module::needModuleInfo()
 {
+    //printf("needModuleInfo() %s, %d, %d\n", toChars(), needmoduleinfo, global.params.cov);
     return needmoduleinfo;
 }
 
@@ -973,25 +1086,43 @@ Dsymbol *Module::search(Loc loc, Identifier *ident, int flags)
 {
     /* Since modules can be circularly referenced,
      * need to stop infinite recursive searches.
+     * This is done with the cache.
      */
 
     //printf("%s Module::search('%s', flags = %d) insearch = %d\n", toChars(), ident->toChars(), flags, insearch);
     Dsymbol *s;
     if (insearch)
-	s = NULL;
+        s = NULL;
     else if (searchCacheIdent == ident && searchCacheFlags == flags)
-	s = searchCacheSymbol;
+    {
+        s = searchCacheSymbol;
+        //printf("%s Module::search('%s', flags = %d) insearch = %d searchCacheSymbol = %s\n", toChars(), ident->toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol->toChars() : "null");
+    }
     else
     {
-	insearch = 1;
-	s = ScopeDsymbol::search(loc, ident, flags);
-	insearch = 0;
+        insearch = 1;
+        s = ScopeDsymbol::search(loc, ident, flags);
+        insearch = 0;
 
-	searchCacheIdent = ident;
-	searchCacheSymbol = s;
-	searchCacheFlags = flags;
+        searchCacheIdent = ident;
+        searchCacheSymbol = s;
+        searchCacheFlags = flags;
     }
     return s;
+}
+
+Dsymbol *Module::symtabInsert(Dsymbol *s)
+{
+    searchCacheIdent = 0;       // symbol is inserted, so invalidate cache
+    return Package::symtabInsert(s);
+}
+
+void Module::clearCache()
+{
+    for (int i = 0; i < amodules.dim; i++)
+    {   Module *m = (Module *)amodules.data[i];
+        m->searchCacheIdent = NULL;
+    }
 }
 
 /*******************************************
@@ -1003,10 +1134,10 @@ void Module::addDeferredSemantic(Dsymbol *s)
     // Don't add it if it is already there
     for (int i = 0; i < deferred.dim; i++)
     {
-	Dsymbol *sd = (Dsymbol *)deferred.data[i];
+        Dsymbol *sd = (Dsymbol *)deferred.data[i];
 
-	if (sd == s)
-	    return;
+        if (sd == s)
+            return;
     }
 
     //printf("Module::addDeferredSemantic('%s')\n", s->toChars());
@@ -1020,44 +1151,46 @@ void Module::addDeferredSemantic(Dsymbol *s)
 
 void Module::runDeferredSemantic()
 {
-    size_t len;
+    if (dprogress == 0)
+        return;
 
     static int nested;
     if (nested)
-	return;
+        return;
     //if (deferred.dim) printf("+Module::runDeferredSemantic('%s'), len = %d\n", toChars(), deferred.dim);
     nested++;
 
+    size_t len;
     do
     {
-	dprogress = 0;
-	len = deferred.dim;
-	if (!len)
-	    break;
+        dprogress = 0;
+        len = deferred.dim;
+        if (!len)
+            break;
 
-	Dsymbol **todo;
-	Dsymbol *tmp;
-	if (len == 1)
-	{
-	    todo = &tmp;
-	}
-	else
-	{
-	    todo = (Dsymbol **)alloca(len * sizeof(Dsymbol *));
-	    assert(todo);
-	}
-	memcpy(todo, deferred.data, len * sizeof(Dsymbol *));
-	deferred.setDim(0);
+        Dsymbol **todo;
+        Dsymbol *tmp;
+        if (len == 1)
+        {
+            todo = &tmp;
+        }
+        else
+        {
+            todo = (Dsymbol **)alloca(len * sizeof(Dsymbol *));
+            assert(todo);
+        }
+        memcpy(todo, deferred.data, len * sizeof(Dsymbol *));
+        deferred.setDim(0);
 
-	for (int i = 0; i < len; i++)
-	{
-	    Dsymbol *s = todo[i];
+        for (int i = 0; i < len; i++)
+        {
+            Dsymbol *s = todo[i];
 
-	    s->semantic(NULL);
-	    //printf("deferred: %s, parent = %s\n", s->toChars(), s->parent->toChars());
-	}
-	//printf("\tdeferred.dim = %d, len = %d, dprogress = %d\n", deferred.dim, len, dprogress);
-    } while (deferred.dim < len || dprogress);	// while making progress
+            s->semantic(NULL);
+            //printf("deferred: %s, parent = %s\n", s->toChars(), s->parent->toChars());
+        }
+        //printf("\tdeferred.dim = %d, len = %d, dprogress = %d\n", deferred.dim, len, dprogress);
+    } while (deferred.dim < len || dprogress);  // while making progress
     nested--;
     //printf("-Module::runDeferredSemantic('%s'), len = %d\n", toChars(), deferred.dim);
 }
@@ -1074,21 +1207,21 @@ int Module::imports(Module *m)
     int aimports_dim = aimports.dim;
 #if 0
     for (int i = 0; i < aimports.dim; i++)
-    {	Module *mi = (Module *)aimports.data[i];
-	printf("\t[%d] %s\n", i, mi->toChars());
+    {   Module *mi = (Module *)aimports.data[i];
+        printf("\t[%d] %s\n", i, mi->toChars());
     }
 #endif
     for (int i = 0; i < aimports.dim; i++)
-    {	Module *mi = (Module *)aimports.data[i];
-	if (mi == m)
-	    return TRUE;
-	if (!mi->insearch)
-	{
-	    mi->insearch = 1;
-	    int r = mi->imports(m);
-	    if (r)
-		return r;
-	}
+    {   Module *mi = (Module *)aimports.data[i];
+        if (mi == m)
+            return TRUE;
+        if (!mi->insearch)
+        {
+            mi->insearch = 1;
+            int r = mi->imports(m);
+            if (r)
+                return r;
+        }
     }
     return FALSE;
 }
@@ -1102,19 +1235,19 @@ int Module::selfImports()
     //printf("Module::selfImports() %s\n", toChars());
     if (!selfimports)
     {
-	for (int i = 0; i < amodules.dim; i++)
-	{   Module *mi = (Module *)amodules.data[i];
-	    //printf("\t[%d] %s\n", i, mi->toChars());
-	    mi->insearch = 0;
-	}
+        for (int i = 0; i < amodules.dim; i++)
+        {   Module *mi = (Module *)amodules.data[i];
+            //printf("\t[%d] %s\n", i, mi->toChars());
+            mi->insearch = 0;
+        }
 
-	selfimports = imports(this) + 1;
+        selfimports = imports(this) + 1;
 
-	for (int i = 0; i < amodules.dim; i++)
-	{   Module *mi = (Module *)amodules.data[i];
-	    //printf("\t[%d] %s\n", i, mi->toChars());
-	    mi->insearch = 0;
-	}
+        for (int i = 0; i < amodules.dim; i++)
+        {   Module *mi = (Module *)amodules.data[i];
+            //printf("\t[%d] %s\n", i, mi->toChars());
+            mi->insearch = 0;
+        }
     }
     return selfimports - 1;
 }
@@ -1136,12 +1269,12 @@ char *ModuleDeclaration::toChars()
 
     if (packages && packages->dim)
     {
-	for (i = 0; i < packages->dim; i++)
-	{   Identifier *pid = (Identifier *)packages->data[i];
+        for (i = 0; i < packages->dim; i++)
+        {   Identifier *pid = (Identifier *)packages->data[i];
 
-	    buf.writestring(pid->toChars());
-	    buf.writeByte('.');
-	}
+            buf.writestring(pid->toChars());
+            buf.writeByte('.');
+        }
     }
     buf.writestring(id->toChars());
     buf.writeByte(0);
@@ -1151,7 +1284,7 @@ char *ModuleDeclaration::toChars()
 /* =========================== Package ===================== */
 
 Package::Package(Identifier *ident)
-	: ScopeDsymbol(ident)
+        : ScopeDsymbol(ident)
 {
 }
 
@@ -1169,44 +1302,44 @@ DsymbolTable *Package::resolve(Array *packages, Dsymbol **pparent, Package **ppk
 
     //printf("Package::resolve()\n");
     if (ppkg)
-	*ppkg = NULL;
+        *ppkg = NULL;
 
     if (packages)
     {   int i;
 
-	for (i = 0; i < packages->dim; i++)
-	{   Identifier *pid = (Identifier *)packages->data[i];
-	    Dsymbol *p;
+        for (i = 0; i < packages->dim; i++)
+        {   Identifier *pid = (Identifier *)packages->data[i];
+            Dsymbol *p;
 
-	    p = dst->lookup(pid);
-	    if (!p)
-	    {
-		p = new Package(pid);
-		dst->insert(p);
-		p->parent = parent;
-		((ScopeDsymbol *)p)->symtab = new DsymbolTable();
-	    }
-	    else
-	    {
-		assert(p->isPackage());
+            p = dst->lookup(pid);
+            if (!p)
+            {
+                p = new Package(pid);
+                dst->insert(p);
+                p->parent = parent;
+                ((ScopeDsymbol *)p)->symtab = new DsymbolTable();
+            }
+            else
+            {
+                assert(p->isPackage());
 #if TARGET_NET  //dot net needs modules and packages with same name
 #else
-		if (p->isModule())
-		{   p->error("module and package have the same name");
-		    fatal();
-		    break;
-		}
+                if (p->isModule())
+                {   p->error("module and package have the same name");
+                    fatal();
+                    break;
+                }
 #endif
-	    }
-	    parent = p;
-	    dst = ((Package *)p)->symtab;
-	    if (ppkg && !*ppkg)
-		*ppkg = (Package *)p;
-	}
-	if (pparent)
-	{
-	    *pparent = parent;
-	}
+            }
+            parent = p;
+            dst = ((Package *)p)->symtab;
+            if (ppkg && !*ppkg)
+                *ppkg = (Package *)p;
+        }
+        if (pparent)
+        {
+            *pparent = parent;
+        }
     }
     return dst;
 }

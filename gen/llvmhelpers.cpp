@@ -1520,7 +1520,7 @@ Type * stripModifiers( Type * type )
 			case MODshared:
 				t = type->sto;
 				break;
-			case MODinvariant:
+			case MODimmutable:
 				t = type->ito;
 				break;
 			case MODshared | MODconst:
@@ -1554,7 +1554,7 @@ Type * stripModifiers( Type * type )
 				t->cto = type;
 				break;
 
-			    case MODinvariant:
+				case MODimmutable:
 				t->ito = type;
 				break;
 

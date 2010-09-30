@@ -1,8 +1,8 @@
 
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
-// www.digitalmars.com
+// http://www.digitalmars.com
 // License for redistribution is by either the Artistic License
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
@@ -13,7 +13,7 @@
 #include <string.h>
 #include <assert.h>
 
-#if (defined (__SVR4) && defined (__sun)) 
+#if (defined (__SVR4) && defined (__sun))
 #include <alloca.h>
 #endif
 
@@ -48,14 +48,15 @@
 
 Array::Array()
 {
-    data = NULL;
+    data = SMALLARRAYCAP ? &smallarray[0] : NULL;
     dim = 0;
-    allocdim = 0;
+    allocdim = SMALLARRAYCAP;
 }
 
 Array::~Array()
 {
-    mem.free(data);
+    if (data != &smallarray[0])
+        mem.free(data);
 }
 
 void Array::mark()
@@ -63,16 +64,35 @@ void Array::mark()
 
     mem.mark(data);
     for (u = 0; u < dim; u++)
-	mem.mark(data[u]);	// BUG: what if arrays of Object's?
+        mem.mark(data[u]);      // BUG: what if arrays of Object's?
 }
 
 void Array::reserve(unsigned nentries)
 {
-    //printf("Array::reserve: size = %d, offset = %d, nbytes = %d\n", size, offset, nbytes);
+    //printf("Array::reserve: dim = %d, allocdim = %d, nentries = %d\n", dim, allocdim, nentries);
     if (allocdim - dim < nentries)
     {
-	allocdim = dim + nentries;
-	data = (void **)mem.realloc(data, allocdim * sizeof(*data));
+        if (allocdim == 0)
+        {   // Not properly initialized, someone memset it to zero
+            if (nentries <= SMALLARRAYCAP)
+            {   allocdim = SMALLARRAYCAP;
+                data = SMALLARRAYCAP ? &smallarray[0] : NULL;
+            }
+            else
+            {   allocdim = nentries;
+                data = (void **)mem.malloc(allocdim * sizeof(*data));
+            }
+        }
+        else if (allocdim == SMALLARRAYCAP)
+        {
+            allocdim = dim + nentries;
+            data = (void **)mem.malloc(allocdim * sizeof(*data));
+            memcpy(data, &smallarray[0], dim * sizeof(*data));
+        }
+        else
+        {   allocdim = dim + nentries;
+            data = (void **)mem.realloc(data, allocdim * sizeof(*data));
+        }
     }
 }
 
@@ -80,7 +100,7 @@ void Array::setDim(unsigned newdim)
 {
     if (dim < newdim)
     {
-	reserve(newdim - dim);
+        reserve(newdim - dim);
     }
     dim = newdim;
 }
@@ -88,8 +108,18 @@ void Array::setDim(unsigned newdim)
 void Array::fixDim()
 {
     if (dim != allocdim)
-    {	data = (void **)mem.realloc(data, dim * sizeof(*data));
-	allocdim = dim;
+    {
+        if (allocdim >= SMALLARRAYCAP)
+        {
+            if (dim <= SMALLARRAYCAP)
+            {
+                memcpy(&smallarray[0], data, dim * sizeof(*data));
+                mem.free(data);
+            }
+            else
+                data = (void **)mem.realloc(data, dim * sizeof(*data));
+        }
+        allocdim = dim;
     }
 }
 
@@ -124,14 +154,14 @@ void Array::insert(unsigned index, void *ptr)
 void Array::insert(unsigned index, Array *a)
 {
     if (a)
-    {	unsigned d;
+    {   unsigned d;
 
-	d = a->dim;
-	reserve(d);
-	if (dim != index)
-	    memmove(data + index + d, data + index, (dim - index) * sizeof(*data));
-	memcpy(data + index, a->data, d * sizeof(*data));
-	dim += d;
+        d = a->dim;
+        reserve(d);
+        if (dim != index)
+            memmove(data + index + d, data + index, (dim - index) * sizeof(*data));
+        memcpy(data + index, a->data, d * sizeof(*data));
+        dim += d;
     }
 }
 
@@ -163,8 +193,8 @@ char *Array::toChars()
     len = 2;
     for (u = 0; u < dim; u++)
     {
-	buf[u] = ((Object *)data[u])->toChars();
-	len += strlen(buf[u]) + 1;
+        buf[u] = ((Object *)data[u])->toChars();
+        len += strlen(buf[u]) + 1;
     }
     str = (char *)mem.malloc(len);
 
@@ -172,11 +202,11 @@ char *Array::toChars()
     p = str + 1;
     for (u = 0; u < dim; u++)
     {
-	if (u)
-	    *p++ = ',';
-	len = strlen(buf[u]);
-	memcpy(p,buf[u],len);
-	p += len;
+        if (u)
+            *p++ = ',';
+        len = strlen(buf[u]);
+        memcpy(p,buf[u],len);
+        p += len;
     }
     *p++ = ']';
     *p = 0;
@@ -197,7 +227,7 @@ int
 #if _WIN32
   __cdecl
 #endif
-	Array_sort_compare(const void *x, const void *y)
+        Array_sort_compare(const void *x, const void *y)
 {
     Object *ox = *(Object **)x;
     Object *oy = *(Object **)y;
@@ -209,7 +239,7 @@ void Array::sort()
 {
     if (dim)
     {
-	qsort(data, dim, sizeof(Object *), Array_sort_compare);
+        qsort(data, dim, sizeof(Object *), Array_sort_compare);
     }
 }
 

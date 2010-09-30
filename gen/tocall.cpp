@@ -13,12 +13,6 @@
 
 #include "gen/logger.h"
 
-// TODO: hack for old d2 frontends
-#if DMDV2
-typedef Argument Parameter;
-typedef Arguments Parameters;
-#endif
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 TypeFunction* DtoTypeFunction(DValue* fnval)

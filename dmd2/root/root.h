@@ -1,9 +1,9 @@
 
 
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
-// www.digitalmars.com
+// http://www.digitalmars.com
 // License for redistribution is by either the Artistic License
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
@@ -98,14 +98,14 @@ struct Object
     /**
      * Marks pointers for garbage collector by calling mem.mark() for all pointers into heap.
      */
-    /*virtual*/		// not used, disable for now
-	void mark();
+    /*virtual*/         // not used, disable for now
+        void mark();
 };
 
 struct String : Object
 {
-    int ref;			// != 0 if this is a reference to someone else's string
-    char *str;			// the string itself
+    int ref;                    // != 0 if this is a reference to someone else's string
+    char *str;                  // the string itself
 
     String(char *str, int ref = 1);
 
@@ -148,18 +148,20 @@ struct FileName : String
 
     void CopyTo(FileName *to);
     static char *searchPath(Array *path, const char *name, int cwd);
+    static char *safeSearchPath(Array *path, const char *name);
     static int exists(const char *name);
     static void ensurePathExists(const char *path);
+    static char *canonicalName(const char *name);
 };
 
 struct File : Object
 {
-    int ref;			// != 0 if this is a reference to someone else's buffer
-    unsigned char *buffer;	// data for our file
-    unsigned len;		// amount of data in buffer[]
-    void *touchtime;		// system time to use for file
+    int ref;                    // != 0 if this is a reference to someone else's buffer
+    unsigned char *buffer;      // data for our file
+    unsigned len;               // amount of data in buffer[]
+    void *touchtime;            // system time to use for file
 
-    FileName *name;		// name of our file
+    FileName *name;             // name of our file
 
     File(char *);
     File(FileName *);
@@ -203,9 +205,9 @@ struct File : Object
     void writev();
 
     /* Return !=0 if file exists.
-     *	0:	file doesn't exist
-     *	1:	normal file
-     *	2:	directory
+     *  0:      file doesn't exist
+     *  1:      normal file
+     *  2:      directory
      */
 
     /* Append to file, return !=0 if error
@@ -220,9 +222,9 @@ struct File : Object
     void appendv();
 
     /* Return !=0 if file exists.
-     *	0:	file doesn't exist
-     *	1:	normal file
-     *	2:	directory
+     *  0:      file doesn't exist
+     *  1:      normal file
+     *  2:      directory
      */
 
     int exists();
@@ -235,9 +237,9 @@ struct File : Object
     static Array *match(FileName *);
 
     // Compare file times.
-    // Return	<0	this < f
-    //		=0	this == f
-    //		>0	this > f
+    // Return   <0      this < f
+    //          =0      this == f
+    //          >0      this > f
     int compareTime(File *f);
 
     // Read system file statistics
@@ -248,13 +250,13 @@ struct File : Object
 
     void setbuffer(void *buffer, unsigned len)
     {
-	this->buffer = (unsigned char *)buffer;
-	this->len = len;
+        this->buffer = (unsigned char *)buffer;
+        this->len = len;
     }
 
     void checkoffset(size_t offset, size_t nbytes);
 
-    void remove();		// delete file
+    void remove();              // delete file
 };
 
 struct OutBuffer : Object
@@ -277,7 +279,7 @@ struct OutBuffer : Object
     void writedstring(const char *string);
     void writedstring(const wchar_t *string);
     void prependstring(const char *string);
-    void writenl();			// write newline
+    void writenl();                     // write newline
     void writeByte(unsigned b);
     void writebyte(unsigned b) { writeByte(b); }
     void writeUTF8(unsigned b);
@@ -308,11 +310,17 @@ struct OutBuffer : Object
 struct Array : Object
 {
     unsigned dim;
-    unsigned allocdim;
     void **data;
 
+  private:
+    unsigned allocdim;
+    #define SMALLARRAYCAP       1
+    void *smallarray[SMALLARRAYCAP];    // inline storage for small arrays
+
+  public:
     Array();
     ~Array();
+    //Array(const Array&);
     void mark();
     char *toChars();
 

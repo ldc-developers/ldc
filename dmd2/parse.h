@@ -32,6 +32,8 @@ struct PostBlitDeclaration;
 struct DtorDeclaration;
 struct StaticCtorDeclaration;
 struct StaticDtorDeclaration;
+struct SharedStaticCtorDeclaration;
+struct SharedStaticDtorDeclaration;
 struct ConditionalDeclaration;
 struct InvariantDeclaration;
 struct UnitTestDeclaration;
@@ -50,10 +52,10 @@ struct StaticAssert;
 
 enum ParseStatementFlags
 {
-    PSsemi = 1,		// empty ';' statements are allowed
-    PSscope = 2,	// start a new scope
-    PScurly = 4,	// { } statement is required
-    PScurlyscope = 8,	// { } starts a new scope
+    PSsemi = 1,         // empty ';' statements are allowed
+    PSscope = 2,        // start a new scope
+    PScurly = 4,        // { } statement is required
+    PScurlyscope = 8,   // { } starts a new scope
 };
 
 
@@ -61,18 +63,20 @@ struct Parser : Lexer
 {
     ModuleDeclaration *md;
     enum LINK linkage;
-    Loc endloc;			// set to location of last right curly
-    int inBrackets;		// inside [] of array index or slice
+    Loc endloc;                 // set to location of last right curly
+    int inBrackets;             // inside [] of array index or slice
 
     Parser(Module *module, unsigned char *base, unsigned length, int doDocComment);
 
-    Array *parseModule();
-    Array *parseDeclDefs(int once);
-    Array *parseAutoDeclarations(unsigned storageClass, unsigned char *comment);
-    Array *parseBlock();
-    void composeStorageClass(unsigned stc);
+    Dsymbols *parseModule();
+    Dsymbols *parseDeclDefs(int once);
+    Dsymbols *parseAutoDeclarations(StorageClass storageClass, unsigned char *comment);
+    Dsymbols *parseBlock();
+    void composeStorageClass(StorageClass stc);
+    StorageClass parseAttribute();
+    StorageClass parsePostfix();
     Expression *parseConstraint();
-    TemplateDeclaration *parseTemplateDeclaration();
+    TemplateDeclaration *parseTemplateDeclaration(int ismixin);
     TemplateParameters *parseTemplateParameterList(int flag = 0);
     Dsymbol *parseMixin();
     Objects *parseTemplateArgumentList();
@@ -89,20 +93,22 @@ struct Parser : Lexer
     DtorDeclaration *parseDtor();
     StaticCtorDeclaration *parseStaticCtor();
     StaticDtorDeclaration *parseStaticDtor();
+    SharedStaticCtorDeclaration *parseSharedStaticCtor();
+    SharedStaticDtorDeclaration *parseSharedStaticDtor();
     InvariantDeclaration *parseInvariant();
     UnitTestDeclaration *parseUnitTest();
     NewDeclaration *parseNew();
     DeleteDeclaration *parseDelete();
-    Arguments *parseParameters(int *pvarargs);
+    Parameters *parseParameters(int *pvarargs);
     EnumDeclaration *parseEnum();
     Dsymbol *parseAggregate();
     BaseClasses *parseBaseClasses();
-    Import *parseImport(Array *decldefs, int isstatic);
+    Import *parseImport(Dsymbols *decldefs, int isstatic);
     Type *parseType(Identifier **pident = NULL, TemplateParameters **tpl = NULL);
     Type *parseBasicType();
     Type *parseBasicType2(Type *t);
     Type *parseDeclarator(Type *t, Identifier **pident, TemplateParameters **tpl = NULL);
-    Array *parseDeclarations(unsigned storage_class);
+    Dsymbols *parseDeclarations(StorageClass storage_class);
     void parseContracts(FuncDeclaration *f);
     Statement *parseStatement(int flags);
     Initializer *parseInitializer();
@@ -110,6 +116,7 @@ struct Parser : Lexer
     void check(Loc loc, enum TOK value);
     void check(enum TOK value);
     void check(enum TOK value, const char *string);
+    void checkParens(enum TOK value, Expression *e);
     int isDeclaration(Token *t, int needId, enum TOK endtok, Token **pt);
     int isBasicType(Token **pt);
     int isDeclarator(Token **pt, int *haveId, enum TOK endtok);
@@ -125,8 +132,10 @@ struct Parser : Lexer
     Expression *parseMulExp();
     Expression *parseAddExp();
     Expression *parseShiftExp();
+#if DMDV1
     Expression *parseRelExp();
     Expression *parseEqualExp();
+#endif
     Expression *parseCmpExp();
     Expression *parseAndExp();
     Expression *parseXorExp();
@@ -142,5 +151,32 @@ struct Parser : Lexer
 
     void addComment(Dsymbol *s, unsigned char *blockComment);
 };
+
+// Operator precedence - greater values are higher precedence
+
+enum PREC
+{
+    PREC_zero,
+    PREC_expr,
+    PREC_assign,
+    PREC_cond,
+    PREC_oror,
+    PREC_andand,
+    PREC_or,
+    PREC_xor,
+    PREC_and,
+    PREC_equal,
+    PREC_rel,
+    PREC_shift,
+    PREC_add,
+    PREC_mul,
+    PREC_pow,
+    PREC_unary,
+    PREC_primary,
+};
+
+extern enum PREC precedence[TOKMAX];
+
+void initPrecedence();
 
 #endif /* DMD_PARSE_H */

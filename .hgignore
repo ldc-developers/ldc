@@ -10,11 +10,14 @@ syntax: glob
 *.so
 *.swp
 *.rej
+*~
 Makefile
 CMakeFiles
 CMakeCache.txt
 cmake_install.cmake
 .DS_Store
+CMakeLists.txt.user
+.directory
 
 syntax: regexp
 ^obj/

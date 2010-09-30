@@ -58,9 +58,9 @@ elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_DC druntime-rt-ldc)
 	set(RUNTIME_AIO druntime-ldc)
 	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/compiler/ldc)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc/basic)
-	file(GLOB CORE_D ${RUNTIME_DIR}/src/common/core/*.d)
-	file(GLOB CORE_C ${RUNTIME_DIR}/src/common/core/stdc/*.c)
+	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
+	file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
+	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 endif(D_VERSION EQUAL 1)
 
 # should only be necessary if run independently from ldc cmake project

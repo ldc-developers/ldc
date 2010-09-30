@@ -46,12 +46,6 @@
 #include "ir/irvar.h"
 #include "ir/irtype.h"
 
-// TODO: hack for old d2 frontends
-#if DMDV2
-typedef Argument Parameter;
-typedef Arguments Parameters;
-#endif
-
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal
  * runtime library routines. Canonicalized in that static arrays are
@@ -128,7 +122,7 @@ Expression *Type::getTypeInfo(Scope *sc)
 #if DMDV2
     if (t->isConst())
         t->vtinfo = new TypeInfoConstDeclaration(t);
-    else if (t->isInvariant())
+    else if (t->isImmutable())
         t->vtinfo = new TypeInfoInvariantDeclaration(t);
     else
 #endif

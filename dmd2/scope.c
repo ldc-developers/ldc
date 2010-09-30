@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2005 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -11,6 +11,7 @@
 #include <assert.h>
 
 #include "root.h"
+#include "speller.h"
 
 #include "mars.h"
 #include "init.h"
@@ -22,6 +23,7 @@
 #include "aggregate.h"
 #include "module.h"
 #include "id.h"
+#include "lexer.h"
 
 Scope *Scope::freelist = NULL;
 
@@ -29,12 +31,12 @@ void *Scope::operator new(size_t size)
 {
     if (freelist)
     {
-	Scope *s = freelist;
-	freelist = s->enclosing;
-	//printf("freelist %p\n", s);
-	assert(s->flags & SCOPEfree);
-	s->flags &= ~SCOPEfree;
-	return s;
+        Scope *s = freelist;
+        freelist = s->enclosing;
+        //printf("freelist %p\n", s);
+        assert(s->flags & SCOPEfree);
+        s->flags &= ~SCOPEfree;
+        return s;
     }
 
     void *p = ::operator new(size);
@@ -102,10 +104,10 @@ Scope::Scope(Scope *enclosing)
     this->enclosing = enclosing;
 #ifdef DEBUG
     if (enclosing->enclosing)
-	assert(!(enclosing->enclosing->flags & SCOPEfree));
+        assert(!(enclosing->enclosing->flags & SCOPEfree));
     if (this == enclosing->enclosing)
     {
-	printf("this = %p, enclosing = %p, enclosing->enclosing = %p\n", this, enclosing, enclosing->enclosing);
+        printf("this = %p, enclosing = %p, enclosing->enclosing = %p\n", this, enclosing, enclosing->enclosing);
     }
     assert(this != enclosing->enclosing);
 #endif
@@ -144,9 +146,9 @@ Scope *Scope::createGlobal(Module *module)
     // Add top level package as member of this global scope
     Dsymbol *m = module;
     while (m->parent)
-	m = m->parent;
+        m = m->parent;
     m->addMember(NULL, sc->scopesym, 1);
-    m->parent = NULL;			// got changed by addMember()
+    m->parent = NULL;                   // got changed by addMember()
 
     // Create the module scope underneath the global scope
     sc = sc->push(module);
@@ -176,12 +178,12 @@ Scope *Scope::pop()
     Scope *enc = enclosing;
 
     if (enclosing)
-	enclosing->callSuper |= callSuper;
+        enclosing->callSuper |= callSuper;
 
     if (!nofree)
-    {	enclosing = freelist;
-	freelist = this;
-	flags |= SCOPEfree;
+    {   enclosing = freelist;
+        freelist = this;
+        flags |= SCOPEfree;
     }
 
     return enc;
@@ -195,25 +197,25 @@ void Scope::mergeCallSuper(Loc loc, unsigned cs)
     // The two paths are callSuper and cs; the result is merged into callSuper.
 
     if (cs != callSuper)
-    {	int a;
-	int b;
+    {   int a;
+        int b;
 
-	callSuper |= cs & (CSXany_ctor | CSXlabel);
-	if (cs & CSXreturn)
-	{
-	}
-	else if (callSuper & CSXreturn)
-	{
-	    callSuper = cs | (callSuper & (CSXany_ctor | CSXlabel));
-	}
-	else
-	{
-	    a = (cs        & (CSXthis_ctor | CSXsuper_ctor)) != 0;
-	    b = (callSuper & (CSXthis_ctor | CSXsuper_ctor)) != 0;
-	    if (a != b)
-		error(loc, "one path skips constructor");
-	    callSuper |= cs;
-	}
+        callSuper |= cs & (CSXany_ctor | CSXlabel);
+        if (cs & CSXreturn)
+        {
+        }
+        else if (callSuper & CSXreturn)
+        {
+            callSuper = cs | (callSuper & (CSXany_ctor | CSXlabel));
+        }
+        else
+        {
+            a = (cs        & (CSXthis_ctor | CSXsuper_ctor)) != 0;
+            b = (callSuper & (CSXthis_ctor | CSXsuper_ctor)) != 0;
+            if (a != b)
+                error(loc, "one path skips constructor");
+            callSuper |= cs;
+        }
     }
 }
 
@@ -224,50 +226,50 @@ Dsymbol *Scope::search(Loc loc, Identifier *ident, Dsymbol **pscopesym)
     //printf("Scope::search(%p, '%s')\n", this, ident->toChars());
     if (ident == Id::empty)
     {
-	// Look for module scope
-	for (sc = this; sc; sc = sc->enclosing)
-	{
-	    assert(sc != sc->enclosing);
-	    if (sc->scopesym)
-	    {
-		s = sc->scopesym->isModule();
-		if (s)
-		{
-		    //printf("\tfound %s.%s\n", s->parent ? s->parent->toChars() : "", s->toChars());
-		    if (pscopesym)
-			*pscopesym = sc->scopesym;
-		    return s;
-		}
-	    }
-	}
-	return NULL;
+        // Look for module scope
+        for (sc = this; sc; sc = sc->enclosing)
+        {
+            assert(sc != sc->enclosing);
+            if (sc->scopesym)
+            {
+                s = sc->scopesym->isModule();
+                if (s)
+                {
+                    //printf("\tfound %s.%s\n", s->parent ? s->parent->toChars() : "", s->toChars());
+                    if (pscopesym)
+                        *pscopesym = sc->scopesym;
+                    return s;
+                }
+            }
+        }
+        return NULL;
     }
 
     for (sc = this; sc; sc = sc->enclosing)
     {
-	assert(sc != sc->enclosing);
-	if (sc->scopesym)
-	{
-	    //printf("\tlooking in scopesym '%s', kind = '%s'\n", sc->scopesym->toChars(), sc->scopesym->kind());
-	    s = sc->scopesym->search(loc, ident, 0);
-	    if (s)
-	    {
-		if ((global.params.warnings ||
-		    global.params.Dversion > 1) &&
-		    ident == Id::length &&
-		    sc->scopesym->isArrayScopeSymbol() &&
-		    sc->enclosing &&
-		    sc->enclosing->search(loc, ident, NULL))
-		{
-		    warning(s->loc, "array 'length' hides other 'length' name in outer scope");
-		}
+        assert(sc != sc->enclosing);
+        if (sc->scopesym)
+        {
+            //printf("\tlooking in scopesym '%s', kind = '%s'\n", sc->scopesym->toChars(), sc->scopesym->kind());
+            s = sc->scopesym->search(loc, ident, 0);
+            if (s)
+            {
+                if ((global.params.warnings ||
+                    global.params.Dversion > 1) &&
+                    ident == Id::length &&
+                    sc->scopesym->isArrayScopeSymbol() &&
+                    sc->enclosing &&
+                    sc->enclosing->search(loc, ident, NULL))
+                {
+                    warning(s->loc, "array 'length' hides other 'length' name in outer scope");
+                }
 
-		//printf("\tfound %s.%s, kind = '%s'\n", s->parent ? s->parent->toChars() : "", s->toChars(), s->kind());
-		if (pscopesym)
-		    *pscopesym = sc->scopesym;
-		return s;
-	    }
-	}
+                //printf("\tfound %s.%s, kind = '%s'\n", s->parent ? s->parent->toChars() : "", s->toChars(), s->kind());
+                if (pscopesym)
+                    *pscopesym = sc->scopesym;
+                return s;
+            }
+        }
     }
 
     return NULL;
@@ -278,14 +280,14 @@ Dsymbol *Scope::insert(Dsymbol *s)
 
     for (sc = this; sc; sc = sc->enclosing)
     {
-	//printf("\tsc = %p\n", sc);
-	if (sc->scopesym)
-	{
-	    //printf("\t\tsc->scopesym = %p\n", sc->scopesym);
-	    if (!sc->scopesym->symtab)
-		sc->scopesym->symtab = new DsymbolTable();
-	    return sc->scopesym->symtab->insert(s);
-	}
+        //printf("\tsc = %p\n", sc);
+        if (sc->scopesym)
+        {
+            //printf("\t\tsc->scopesym = %p\n", sc->scopesym);
+            if (!sc->scopesym->symtab)
+                sc->scopesym->symtab = new DsymbolTable();
+            return sc->scopesym->symtabInsert(s);
+        }
     }
     assert(0);
     return NULL;
@@ -300,14 +302,14 @@ ClassDeclaration *Scope::getClassScope()
 
     for (sc = this; sc; sc = sc->enclosing)
     {
-	ClassDeclaration *cd;
-	
-	if (sc->scopesym)
-	{
-	    cd = sc->scopesym->isClassDeclaration();
-	    if (cd)
-		return cd;
-	}
+        ClassDeclaration *cd;
+
+        if (sc->scopesym)
+        {
+            cd = sc->scopesym->isClassDeclaration();
+            if (cd)
+                return cd;
+        }
     }
     return NULL;
 }
@@ -321,19 +323,19 @@ AggregateDeclaration *Scope::getStructClassScope()
 
     for (sc = this; sc; sc = sc->enclosing)
     {
-	AggregateDeclaration *ad;
-	
-	if (sc->scopesym)
-	{
-	    ad = sc->scopesym->isClassDeclaration();
-	    if (ad)
-		return ad;
-	    else
-	    {	ad = sc->scopesym->isStructDeclaration();
-		if (ad)
-		    return ad;
-	    }
-	}
+        AggregateDeclaration *ad;
+
+        if (sc->scopesym)
+        {
+            ad = sc->scopesym->isClassDeclaration();
+            if (ad)
+                return ad;
+            else
+            {   ad = sc->scopesym->isStructDeclaration();
+                if (ad)
+                    return ad;
+            }
+        }
     }
     return NULL;
 }
@@ -351,13 +353,49 @@ void Scope::setNoFree()
     //printf("Scope::setNoFree(this = %p)\n", this);
     for (sc = this; sc; sc = sc->enclosing)
     {
-	//printf("\tsc = %p\n", sc);
-	sc->nofree = 1;
+        //printf("\tsc = %p\n", sc);
+        sc->nofree = 1;
 
-	assert(!(flags & SCOPEfree));
-	//assert(sc != sc->enclosing);
-	//assert(!sc->enclosing || sc != sc->enclosing->enclosing);
-	//if (++i == 10)
-	    //assert(0);
+        assert(!(flags & SCOPEfree));
+        //assert(sc != sc->enclosing);
+        //assert(!sc->enclosing || sc != sc->enclosing->enclosing);
+        //if (++i == 10)
+            //assert(0);
     }
+}
+
+
+/************************************************
+ * Given the failed search attempt, try to find
+ * one with a close spelling.
+ */
+
+void *scope_search_fp(void *arg, const char *seed)
+{
+    //printf("scope_search_fp('%s')\n", seed);
+
+    /* If not in the lexer's string table, it certainly isn't in the symbol table.
+     * Doing this first is a lot faster.
+     */
+    size_t len = strlen(seed);
+    if (!len)
+        return NULL;
+    StringValue *sv = Lexer::stringtable.lookup(seed, len);
+    if (!sv)
+        return NULL;
+    Identifier *id = (Identifier *)sv->ptrvalue;
+    assert(id);
+
+    Scope *sc = (Scope *)arg;
+    Module::clearCache();
+    Dsymbol *s = sc->search(0, id, NULL);
+    return s;
+}
+
+Dsymbol *Scope::search_correct(Identifier *ident)
+{
+    if (global.gag)
+        return NULL;            // don't do it for speculative compiles; too time consuming
+
+    return (Dsymbol *)speller(ident->toChars(), &scope_search_fp, this, idchars);
 }

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2010 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -38,7 +38,7 @@ struct InlineDoState;
 struct InlineScanState;
 struct ReturnStatement;
 struct CompoundStatement;
-struct Argument;
+struct Parameter;
 struct StaticAssert;
 struct AsmStatement;
 #if IN_LLVM
@@ -89,13 +89,13 @@ struct code;
  */
 enum BE
 {
-    BEnone =	 0,
+    BEnone =     0,
     BEfallthru = 1,
     BEthrow =    2,
     BEreturn =   4,
     BEgoto =     8,
-    BEhalt =	 0x10,
-    BEbreak =	 0x20,
+    BEhalt =     0x10,
+    BEbreak =    0x20,
     BEcontinue = 0x40,
     BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt),
 };
@@ -126,6 +126,7 @@ struct Statement : Object
     virtual ScopeStatement *isScopeStatement() { return NULL; }
     virtual Statement *semantic(Scope *sc);
     Statement *semanticScope(Scope *sc, Statement *sbreak, Statement *scontinue);
+    Statement *semanticNoScope(Scope *sc);
     virtual int hasBreak();
     virtual int hasContinue();
     virtual int usesEH();
@@ -174,6 +175,7 @@ struct ExpStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit();
+    int isEmpty();
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -216,6 +218,7 @@ struct CompoundStatement : Statement
     Statements *statements;
 
     CompoundStatement(Loc loc, Statements *s);
+    CompoundStatement(Loc loc, Statement *s1);
     CompoundStatement(Loc loc, Statement *s1, Statement *s2);
     virtual Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -364,20 +367,20 @@ struct ForStatement : Statement
 
 struct ForeachStatement : Statement
 {
-    enum TOK op;		// TOKforeach or TOKforeach_reverse
-    Arguments *arguments;	// array of Argument*'s
+    enum TOK op;                // TOKforeach or TOKforeach_reverse
+    Parameters *arguments;      // array of Parameter*'s
     Expression *aggr;
     Statement *body;
 
     VarDeclaration *key;
     VarDeclaration *value;
 
-    FuncDeclaration *func;	// function we're lexically in
+    FuncDeclaration *func;      // function we're lexically in
 
-    Array cases;	// put breaks, continues, gotos and returns here
-    Array gotos;	// forward referenced goto's go here
+    Array *cases;        // put breaks, continues, gotos and returns here
+    Array *gotos;        // forward referenced goto's go here
 
-    ForeachStatement(Loc loc, enum TOK op, Arguments *arguments, Expression *aggr, Statement *body);
+    ForeachStatement(Loc loc, enum TOK op, Parameters *arguments, Expression *aggr, Statement *body);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     bool checkForArgTypes();
@@ -397,16 +400,16 @@ struct ForeachStatement : Statement
 #if DMDV2
 struct ForeachRangeStatement : Statement
 {
-    enum TOK op;		// TOKforeach or TOKforeach_reverse
-    Argument *arg;		// loop index variable
+    enum TOK op;                // TOKforeach or TOKforeach_reverse
+    Parameter *arg;             // loop index variable
     Expression *lwr;
     Expression *upr;
     Statement *body;
 
     VarDeclaration *key;
 
-    ForeachRangeStatement(Loc loc, enum TOK op, Argument *arg,
-	Expression *lwr, Expression *upr, Statement *body);
+    ForeachRangeStatement(Loc loc, enum TOK op, Parameter *arg,
+        Expression *lwr, Expression *upr, Statement *body);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int hasBreak();
@@ -425,14 +428,14 @@ struct ForeachRangeStatement : Statement
 
 struct IfStatement : Statement
 {
-    Argument *arg;
+    Parameter *arg;
     Expression *condition;
     Statement *ifbody;
     Statement *elsebody;
 
-    VarDeclaration *match;	// for MatchExpression results
+    VarDeclaration *match;      // for MatchExpression results
 
-    IfStatement(Loc loc, Argument *arg, Expression *condition, Statement *ifbody, Statement *elsebody);
+    IfStatement(Loc loc, Parameter *arg, Expression *condition, Statement *ifbody, Statement *elsebody);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
@@ -467,7 +470,7 @@ struct ConditionalStatement : Statement
 struct PragmaStatement : Statement
 {
     Identifier *ident;
-    Expressions *args;		// array of Expression's
+    Expressions *args;          // array of Expression's
     Statement *body;
 
     PragmaStatement(Loc loc, Identifier *ident, Expressions *args, Statement *body);
@@ -488,6 +491,7 @@ struct StaticAssertStatement : Statement
     StaticAssertStatement(StaticAssert *sa);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
+    int blockExit();
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
@@ -500,10 +504,10 @@ struct SwitchStatement : Statement
 
     DefaultStatement *sdefault;
 
-    Array gotoCases;		// array of unresolved GotoCaseStatement's
-    Array *cases;		// array of CaseStatement's
-    int hasNoDefault;		// !=0 if no default statement
-    int hasVars;		// !=0 if has variable case values
+    Array gotoCases;            // array of unresolved GotoCaseStatement's
+    Array *cases;               // array of CaseStatement's
+    int hasNoDefault;           // !=0 if no default statement
+    int hasVars;                // !=0 if has variable case values
 
 #if IN_LLVM
     Statement *enclosingScopeExit;
@@ -528,8 +532,8 @@ struct CaseStatement : Statement
     Expression *exp;
     Statement *statement;
 
-    int index;		// which case it is (since we sort this)
-    block *cblock;	// back end: label for the block
+    int index;          // which case it is (since we sort this)
+    block *cblock;      // back end: label for the block
 
 #if IN_LLVM
     Statement *enclosingScopeExit;
@@ -577,7 +581,7 @@ struct DefaultStatement : Statement
 {
     Statement *statement;
 #if IN_GCC
-    block *cblock;	// back end: label for the block
+    block *cblock;      // back end: label for the block
 #endif
 
 #if IN_LLVM
@@ -618,8 +622,8 @@ struct GotoDefaultStatement : Statement
 
 struct GotoCaseStatement : Statement
 {
-    Expression *exp;		// NULL, or which case to goto
-    CaseStatement *cs;		// case statement it resolves to
+    Expression *exp;            // NULL, or which case to goto
+    CaseStatement *cs;          // case statement it resolves to
     SwitchStatement *sw;
 
     GotoCaseStatement(Loc loc, Expression *exp);
@@ -736,6 +740,7 @@ struct WithStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int usesEH();
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -753,6 +758,7 @@ struct TryCatchStatement : Statement
     int hasBreak();
     int usesEH();
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -789,6 +795,7 @@ struct TryFinallyStatement : Statement
     int hasContinue();
     int usesEH();
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -807,6 +814,7 @@ struct OnScopeStatement : Statement
     Statement *semantic(Scope *sc);
     int usesEH();
     void scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
+    Expression *interpret(InterState *istate);
 
     void toIR(IRState *irs);
 };
@@ -820,6 +828,7 @@ struct ThrowStatement : Statement
     Statement *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int blockExit();
+    Expression *interpret(InterState *istate);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -866,8 +875,9 @@ struct LabelStatement : Statement
     Statement *statement;
     TryFinallyStatement *enclosingFinally;
     Statement* enclosingScopeExit;
-    block *lblock;		// back end
-    int isReturnLabel;
+    block *lblock;              // back end
+
+    Array *fwdrefs;             // forward references to this LabelStatement
 
     LabelStatement(Loc loc, Identifier *ident, Statement *statement);
     Statement *syntaxCopy();
@@ -905,16 +915,17 @@ struct AsmStatement : Statement
 {
     Token *tokens;
     code *asmcode;
-    unsigned asmalign;		// alignment of this statement
-    unsigned refparam;		// !=0 if function parameter is referenced
-    unsigned naked;		// !=0 if function is to be naked
-    unsigned regs;		// mask of registers modified
+    unsigned asmalign;          // alignment of this statement
+    unsigned refparam;          // !=0 if function parameter is referenced
+    unsigned naked;             // !=0 if function is to be naked
+    unsigned regs;              // mask of registers modified
 
     AsmStatement(Loc loc, Token *tokens);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int blockExit();
     int comeFrom();
+    Expression *interpret(InterState *istate);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual AsmStatement *isAsmStatement() { return this; }

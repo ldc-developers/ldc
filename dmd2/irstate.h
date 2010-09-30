@@ -27,15 +27,15 @@ struct IRState
 {
     IRState *prev;
     Statement *statement;
-    Module *m;			// module
+    Module *m;                  // module
     Dsymbol *symbol;
     Identifier *ident;
-    Symbol *shidden;		// hidden parameter to function
-    Symbol *sthis;		// 'this' parameter to function (member and nested)
-    Symbol *sclosure;		// pointer to closure instance
+    Symbol *shidden;            // hidden parameter to function
+    Symbol *sthis;              // 'this' parameter to function (member and nested)
+    Symbol *sclosure;           // pointer to closure instance
     Blockx *blx;
-    Array *deferToObj;		// array of Dsymbol's to run toObjFile(int multiobj) on later
-    elem *ehidden;		// transmit hidden pointer to CallExp::toElem()
+    Array *deferToObj;          // array of Dsymbol's to run toObjFile(int multiobj) on later
+    elem *ehidden;              // transmit hidden pointer to CallExp::toElem()
     Symbol *startaddress;
 
     block *breakBlock;
@@ -52,6 +52,7 @@ struct IRState
     block *getSwitchBlock();
     block *getDefaultBlock();
     FuncDeclaration *getFunc();
+    int arrayBoundsCheck();
 };
 
 #endif /* DMD_CONTEXT_H */
