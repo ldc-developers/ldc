@@ -589,6 +589,13 @@ LDC_TARGETS
         VersionCondition::addPredefinedGlobalIdent("linux");
         VersionCondition::addPredefinedGlobalIdent("Posix");
     }
+    // haiku
+    else if (triple.find("haiku") != npos)
+    {
+        global.params.os = OSHaiku;
+        VersionCondition::addPredefinedGlobalIdent("Haiku");
+        VersionCondition::addPredefinedGlobalIdent("Posix");
+    }
     // darwin
     else if (triple.find("-darwin") != npos)
     {

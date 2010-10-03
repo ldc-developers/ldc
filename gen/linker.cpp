@@ -172,7 +172,9 @@ int linkExecutable(const char* argv0)
         args.push_back("-lpthread");
         args.push_back("-lm");
         break;
-
+    case OSHaiku:
+        args.push_back("-lroot");
+        break;
     case OSWindows:
         // FIXME: I'd assume kernel32 etc
         break;

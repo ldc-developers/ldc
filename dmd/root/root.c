@@ -34,6 +34,10 @@
 #include <errno.h>
 #endif
 
+#ifdef __HAIKU__
+#include <iostream> 
+#endif
+
 #if POSIX
 #include <sys/types.h>
 #include <sys/stat.h>

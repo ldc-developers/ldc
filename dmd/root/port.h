@@ -40,7 +40,7 @@ struct Port
     static double dbl_min;
     static long double ldbl_max;
 
-#if __GNUC__
+#if __GNUC__ && !defined __HAIKU__
     // These conflict with macros in math.h, should rename them
     #undef isnan
     #undef isfinite
