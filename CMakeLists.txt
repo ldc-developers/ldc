@@ -168,6 +168,7 @@ set_source_files_properties(
 
 file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
 file(GLOB FE_SRC_ROOT ${DMDFE_PATH}/root/*.c)
+file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB IR_SRC ir/*.cpp)
 # exclude idgen and impcnvgen and generated sources, just in case
@@ -182,6 +183,7 @@ set(LDC_SOURCE_FILES
 	${FE_SRC}
 	${FE_SRC_ROOT}
 	${GEN_SRC}
+	${GEN_HDR}
 	${IR_SRC}
 )
 set_source_files_properties(

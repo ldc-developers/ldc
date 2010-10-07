@@ -896,7 +896,11 @@ const LLStructType* DtoModuleReferenceType()
     // add members
     std::vector<const LLType*> types;
     types.push_back(getPtrToType(opaque));
+#if DMDV1
     types.push_back(DtoType(Module::moduleinfo->type));
+#else
+    types.push_back(DtoType(Module::moduleinfo->type->pointerTo()));
+#endif
 
     // resolve type
     const LLStructType* st = LLStructType::get(gIR->context(), types);

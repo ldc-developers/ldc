@@ -57,7 +57,7 @@ static llvm::cl::opt<bool> fqnNames("oq",
     llvm::cl::ZeroOrMore);
 #endif
 
-ClassDeclaration *Module::moduleinfo;
+AggregateDeclaration *Module::moduleinfo;
 
 Module *Module::rootModule;
 DsymbolTable *Module::modules;

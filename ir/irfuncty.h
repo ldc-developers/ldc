@@ -78,6 +78,9 @@ struct IrFuncTy : IrBase
     // range of normal parameters to reverse
     bool reverseParams;
 
+    // arg_this is reference
+    bool is_arg_this_ref;
+
     IrFuncTy()
     :   ret(NULL),
         arg_sret(NULL),
@@ -86,7 +89,8 @@ struct IrFuncTy : IrBase
         arg_arguments(NULL),
         arg_argptr(NULL),
         c_vararg(false),
-        reverseParams(false)
+        reverseParams(false),
+        is_arg_this_ref(false)
     {}
     
     void reset() {

@@ -635,8 +635,11 @@ void Module::genmoduleinfo()
 //         void* xgetMembers;
 //         void function() ictor;
 //
-//         version(D_Version2)
-//             void*[4] reserved; // useless to us
+//         version(D_Version2) {
+//             void *sharedctor;
+//             void *shareddtor;
+//             uint index;
+//             void*[1] reserved;
 //         }
 
     // resolve ModuleInfo
@@ -646,14 +649,18 @@ void Module::genmoduleinfo()
         fatal();
     }
     // check for patch
-#if DMDV2
-    else if (moduleinfo->fields.dim != 10)
-#else
-    else if (moduleinfo->fields.dim != 9)
-#endif
+    else
     {
-        error("object.d ModuleInfo class is incorrect");
-        fatal();
+#if DMDV2
+        unsigned sizeof_ModuleInfo = 16 * PTRSIZE;
+#else
+        unsigned sizeof_ModuleInfo = 14 * PTRSIZE;
+#endif
+        if (sizeof_ModuleInfo != moduleinfo->structsize)
+        {
+            error("object.d ModuleInfo class is incorrect");
+            fatal();
+        }
     }
 
     // use the RTTIBuilder

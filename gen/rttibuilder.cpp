@@ -12,7 +12,7 @@
 
 #include "ir/irstruct.h"
 
-RTTIBuilder::RTTIBuilder(ClassDeclaration* base_class)
+RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
 {
     // make sure the base typeinfo class has been processed
     base_class->codegen(Type::sir);
@@ -23,10 +23,12 @@ RTTIBuilder::RTTIBuilder(ClassDeclaration* base_class)
     baseir = base->ir.irStruct;
     assert(baseir && "no IrStruct for TypeInfo base class");
 
-    // just start with adding the vtbl
-    inits.push_back(baseir->getVtblSymbol());
-    // and monitor
-    push_null_vp();
+    if (base->isClassDeclaration()) {
+        // just start with adding the vtbl
+        inits.push_back(baseir->getVtblSymbol());
+        // and monitor
+        push_null_vp();
+    }
 }
 
 void RTTIBuilder::push(llvm::Constant* C)

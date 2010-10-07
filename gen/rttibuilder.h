@@ -5,6 +5,7 @@
 #include "llvm/ADT/SmallVector.h"
 
 struct ClassDeclaration;
+struct AggregateDeclaration;
 struct TypeClass;
 struct Type;
 
@@ -12,7 +13,7 @@ struct IrStruct;
 
 struct RTTIBuilder
 {
-    ClassDeclaration* base;
+    AggregateDeclaration* base;
     TypeClass* basetype;
     IrStruct* baseir;
 
@@ -20,7 +21,7 @@ struct RTTIBuilder
     // 14 is enough for any D1 ClassInfo
     llvm::SmallVector<llvm::Constant*, 14> inits;
 
-    RTTIBuilder(ClassDeclaration* base_class);
+    RTTIBuilder(AggregateDeclaration* base_class);
 
     void push(llvm::Constant* C);
     void push_null(Type* T);

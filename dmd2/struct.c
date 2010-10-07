@@ -32,6 +32,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     protection = PROTpublic;
     type = NULL;
     handle = NULL;
+    scope = 0;
     structsize = 0;             // size of struct
     alignsize = 0;              // size of struct for alignment purposes
     structalign = 0;            // struct member alignment in effect
@@ -263,6 +264,15 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
 
     // For forward references
     type = new TypeStruct(this);
+
+#if MODULEINFO_IS_STRUCT
+    if (id == Id::ModuleInfo)
+    {
+        if (Module::moduleinfo)
+            Module::moduleinfo->error("only object.d can define this reserved class name");
+        Module::moduleinfo = this;
+    }
+#endif
 }
 
 Dsymbol *StructDeclaration::syntaxCopy(Dsymbol *s)

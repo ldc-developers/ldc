@@ -17,12 +17,12 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
 void DtoArrayInit(Loc& loc, DValue* array, DValue* value);
 void DtoArrayAssign(LLValue* l, LLValue* r);
-void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr);
+void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);
 
 DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit=true);
 DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit=true);
-DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim);
+DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, llvm::Value* newdim);
 
 void DtoCatAssignElement(Loc& loc, Type* type, DValue* arr, Expression* exp);
 DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);

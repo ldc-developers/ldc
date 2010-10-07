@@ -286,6 +286,8 @@ Expression *AddrExp::optimize(int result)
 {   Expression *e;
 
     //printf("AddrExp::optimize(result = %d) %s\n", result, toChars());
+    // LDC never try to interpret: it could change the semantics by turning
+    // const p = &s; into an something like const p = &(Struct());
 
     /* Rewrite &(a,b) as (a,&b)
      */
@@ -295,13 +297,13 @@ Expression *AddrExp::optimize(int result)
         ae->type = type;
         e = new CommaExp(ce->loc, ce->e1, ae);
         e->type = type;
-        return e->optimize(result);
+        return e->optimize(result & ~WANTinterpret);
     }
 
     if (e1->op == TOKvar)
     {   VarExp *ve = (VarExp *)e1;
         if (ve->var->storage_class & STCmanifest)
-            e1 = e1->optimize(result);
+            e1 = e1->optimize(result & ~WANTinterpret);
     }
     else
         e1 = e1->optimize(result);
@@ -523,6 +525,10 @@ Expression *CallExp::optimize(int result)
 
 Expression *CastExp::optimize(int result)
 {
+#if IN_LLVM
+    if (disableOptimization)
+        return this;
+#endif
     //printf("CastExp::optimize(result = %d) %s\n", result, toChars());
     //printf("from %s to %s\n", type->toChars(), to->toChars());
     //printf("from %s\n", type->toChars());
@@ -551,6 +557,9 @@ Expression *CastExp::optimize(int result)
         e1->type->nextOf()->size() == type->nextOf()->size()
        )
     {
+        // LDC make a copy before adjusting type to avoid
+        // messing up the type of an existing initializer
+        e1 = e1->syntaxCopy();
         Expression *e = e1->castTo(NULL, type);
         if (X) printf(" returning1 %s\n", e->toChars());
         return e;

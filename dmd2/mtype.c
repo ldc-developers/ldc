@@ -1538,7 +1538,7 @@ Type *Type::merge()
 
         //if (next)
             //next = next->merge();
-	toDecoBuffer(&buf, false);
+        toDecoBuffer(&buf, false);
         sv = stringtable.update((char *)buf.data, buf.offset);
         if (sv->ptrvalue)
         {   t = (Type *) sv->ptrvalue;
@@ -1556,19 +1556,19 @@ Type *Type::merge()
             // we still need deco strings to be unique
             // or Type::equals fails, which breaks a bunch of stuff,
             // like covariant member function overloads.
-	    OutBuffer mangle;
-	    toDecoBuffer(&mangle, true);
-	    StringValue* sv2 = deco_stringtable.update((char *)mangle.data, mangle.offset);
-	    if (sv2->ptrvalue)
-	    {  Type* t2 = (Type *) sv2->ptrvalue;
-	       assert(t2->deco);
-	       deco = t2->deco;
-	    }
-	    else
-	    {
-	       sv2->ptrvalue = this;
-	       deco = (char *)sv2->lstring.string;
-	    }
+            OutBuffer mangle;
+            toDecoBuffer(&mangle, true);
+            StringValue* sv2 = deco_stringtable.update((char *)mangle.data, mangle.offset);
+            if (sv2->ptrvalue)
+            {  Type* t2 = (Type *) sv2->ptrvalue;
+                assert(t2->deco);
+                deco = t2->deco;
+            }
+            else
+            {
+                sv2->ptrvalue = this;
+                deco = (char *)sv2->lstring.string;
+            }
             //printf("new value, deco = '%s' %p\n", t->deco, t->deco);
         }
     }
@@ -1753,7 +1753,11 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
     {
         if (ty == Tvoid)
             error(loc, "void does not have an initializer");
+#if IN_LLVM
+        e = defaultInit(loc);
+#else
         e = defaultInitLiteral(loc);
+#endif
     }
     else if (ident == Id::mangleof)
     {   const char *s;
@@ -3123,26 +3127,26 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         Expression *ec;
         Expressions *arguments;
 
-	//LDC: Build arguments.
-	static FuncDeclaration *adReverseChar_fd = NULL;
-	if(!adReverseChar_fd) {
-		Parameters* args = new Parameters;
-	    Type* arrty = Type::tchar->arrayOf();
-		args->push(new Parameter(STCin, arrty, NULL, NULL));
-	    adReverseChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseChar");
-	}
-	static FuncDeclaration *adReverseWchar_fd = NULL;
-	if(!adReverseWchar_fd) {
-		Parameters* args = new Parameters;
-	    Type* arrty = Type::twchar->arrayOf();
-		args->push(new Parameter(STCin, arrty, NULL, NULL));
-	    adReverseWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseWchar");
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *adReverseChar_fd = NULL;
+        if(!adReverseChar_fd) {
+            Parameters* args = new Parameters;
+            Type* arrty = Type::tchar->arrayOf();
+            args->push(new Parameter(STCin, arrty, NULL, NULL));
+            adReverseChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseChar");
+        }
+        static FuncDeclaration *adReverseWchar_fd = NULL;
+        if(!adReverseWchar_fd) {
+            Parameters* args = new Parameters;
+            Type* arrty = Type::twchar->arrayOf();
+            args->push(new Parameter(STCin, arrty, NULL, NULL));
+            adReverseWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseWchar");
+        }
 
-	if(n->ty == Twchar)
-	    ec = new VarExp(0, adReverseWchar_fd);
-	else
-	    ec = new VarExp(0, adReverseChar_fd);
+        if(n->ty == Twchar)
+            ec = new VarExp(0, adReverseWchar_fd);
+        else
+            ec = new VarExp(0, adReverseChar_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         arguments->push(e);
@@ -3154,26 +3158,26 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         Expression *ec;
         Expressions *arguments;
 
-	//LDC: Build arguments.
-	static FuncDeclaration *adSortChar_fd = NULL;
-	if(!adSortChar_fd) {
-		Parameters* args = new Parameters;
-	    Type* arrty = Type::tchar->arrayOf();
-		args->push(new Parameter(STCin, arrty, NULL, NULL));
-	    adSortChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortChar");
-	}
-	static FuncDeclaration *adSortWchar_fd = NULL;
-	if(!adSortWchar_fd) {
-		Parameters* args = new Parameters;
-	    Type* arrty = Type::twchar->arrayOf();
-		args->push(new Parameter(STCin, arrty, NULL, NULL));
-	    adSortWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortWchar");
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *adSortChar_fd = NULL;
+        if(!adSortChar_fd) {
+                Parameters* args = new Parameters;
+                Type* arrty = Type::tchar->arrayOf();
+                args->push(new Parameter(STCin, arrty, NULL, NULL));
+                adSortChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortChar");
+        }
+        static FuncDeclaration *adSortWchar_fd = NULL;
+        if(!adSortWchar_fd) {
+                Parameters* args = new Parameters;
+                Type* arrty = Type::twchar->arrayOf();
+                args->push(new Parameter(STCin, arrty, NULL, NULL));
+                adSortWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortWchar");
+        }
 
-	if(n->ty == Twchar)
-	    ec = new VarExp(0, adSortWchar_fd);
-	else
-	    ec = new VarExp(0, adSortChar_fd);
+        if(n->ty == Twchar)
+                ec = new VarExp(0, adSortWchar_fd);
+        else
+                ec = new VarExp(0, adSortChar_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         arguments->push(e);
@@ -3189,37 +3193,39 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
         assert(size);
         dup = (ident == Id::dup || ident == Id::idup);
-	//LDC: Build arguments.
-	static FuncDeclaration *adDup_fd = NULL;
-	if(!adDup_fd) {
-		Parameters* args = new Parameters;
-		args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-		args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-	    adDup_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adDup);
-	}
-	static FuncDeclaration *adReverse_fd = NULL;
-	if(!adReverse_fd) {
-		Parameters* args = new Parameters;
-		args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-		args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
-	    adReverse_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adReverse);
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *adDup_fd = NULL;
+        if(!adDup_fd) {
+            Parameters* args = new Parameters;
+            args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
+            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+            adDup_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adDup);
+        }
+        static FuncDeclaration *adReverse_fd = NULL;
+        if(!adReverse_fd) {
+            Parameters* args = new Parameters;
+            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
+            adReverse_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adReverse);
+        }
 
-	if(dup)
-	    ec = new VarExp(0, adDup_fd);
-	else
-	    ec = new VarExp(0, adReverse_fd);
+        if(dup)
+            ec = new VarExp(0, adDup_fd);
+        else
+            ec = new VarExp(0, adReverse_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         if (dup)
             arguments->push(getTypeInfo(sc));
 
-    // LDC repaint array type to void[]
-    if (n->ty != Tvoid) {
-        e = new CastExp(e->loc, e, e->type);
-        e->type = Type::tvoid->arrayOf();
-    }
-    arguments->push(e);
+        // LDC repaint array type to void[]
+        if (n->ty != Tvoid) {
+            CastExp *exp = new CastExp(e->loc, e, e->type);
+            exp->type = Type::tvoid->arrayOf();
+            exp->disableOptimization = true;
+            e = exp;
+        }
+        arguments->push(e);
 
         if (!dup)
             arguments->push(new IntegerExp(0, size, Type::tsize_t));
@@ -3237,41 +3243,46 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     {
         Expression *ec;
         Expressions *arguments;
-	bool isBit = (n->ty == Tbit);
+        bool isBit = (n->ty == Tbit);
 
-	//LDC: Build arguments.
-	static FuncDeclaration *adSort_fd = NULL;
-	if(!adSort_fd) {
-		Parameters* args = new Parameters;
-		args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-		args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-	    adSort_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
-	}
-	static FuncDeclaration *adSortBit_fd = NULL;
-	if(!adSortBit_fd) {
-		Parameters* args = new Parameters;
-		args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-		args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-	    adSortBit_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSortBit");
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *adSort_fd = NULL;
+        if(!adSort_fd) {
+            Parameters* args = new Parameters;
+            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
+            adSort_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
+        }
+        static FuncDeclaration *adSortBit_fd = NULL;
+        if(!adSortBit_fd) {
+            Parameters* args = new Parameters;
+            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
+            adSortBit_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSortBit");
+        }
 
-	if(isBit)
-	    ec = new VarExp(0, adSortBit_fd);
-	else
-	    ec = new VarExp(0, adSort_fd);
+        if(isBit)
+            ec = new VarExp(0, adSortBit_fd);
+        else
+            ec = new VarExp(0, adSort_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
 
-    // LDC repaint array type to void[]
-    if (n->ty != Tvoid) {
-        e = new CastExp(e->loc, e, e->type);
-        e->type = Type::tvoid->arrayOf();
-    }
+        // LDC repaint array type to void[]
+        if (n->ty != Tvoid) {
+            CastExp *exp = new CastExp(e->loc, e, e->type);
+            exp->type = Type::tvoid->arrayOf();
+            exp->disableOptimization = true;
+            e = exp;
+        }
         arguments->push(e);
 
-    if (next->ty != Tbit)
-        arguments->push(n->getTypeInfo(sc));   // LDC, we don't support the getInternalTypeInfo
-                                               // optimization arbitrarily, not yet at least...
+        if (next->ty != Tbit) {
+            // LDC, we don't support the getInternalTypeInfo
+            // optimization arbitrarily, not yet at least...
+            arguments->push(n->getTypeInfo(sc));
+        }
+
         e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }
@@ -7499,9 +7510,17 @@ L1:
         {   /* The handle to the monitor (call it a void*)
              * *(cast(void**)e + 1)
              */
+#if IN_LLVM
+            e = e->castTo(sc, tint8->pointerTo()->pointerTo());
+            e = new AddExp(e->loc, e, new IntegerExp(1));
+            e->type = tint8->pointerTo();
+            e = e->castTo(sc, tvoidptr->pointerTo());
+            e = new PtrExp(e->loc, e);
+#else
             e = e->castTo(sc, tvoidptr->pointerTo());
             e = new AddExp(e->loc, e, new IntegerExp(1));
             e = new PtrExp(e->loc, e);
+#endif
             e = e->semantic(sc);
             return e;
         }

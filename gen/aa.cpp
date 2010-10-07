@@ -129,8 +129,12 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
+#if DMDV1
     LLValue* pkey = makeLValue(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
+#else
+    LLValue* pkey = getNullValue(getVoidPtrType());
+#endif
 
     // call runtime
     LLValue* ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.in").getInstruction();

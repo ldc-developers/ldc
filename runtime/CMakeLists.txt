@@ -50,6 +50,7 @@ if(D_VERSION EQUAL 1)
 	# set paths to source files, or fill lists directly
 	set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
 	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
+	set(RUNTIME_INCLUDE ${RUNTIME_DC_DIR})
 	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
 	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
 elseif(D_VERSION EQUAL 2)
@@ -57,9 +58,22 @@ elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_GC druntime-gc-basic)
 	set(RUNTIME_DC druntime-rt-ldc)
 	set(RUNTIME_AIO druntime-ldc)
-	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/compiler/ldc)
+	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
 	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
+	set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
 	file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
+	file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
+	if(UNIX)
+		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+	elseif(WIN32)
+		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+	elseif(APPLE)
+		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+	endif(UNIX)
+	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${RUNTIME_DIR}/src/object_.d
+		${RUNTIME_DIR}/src/std/intrinsic.d
+		${RUNTIME_DIR}/src/core/stdc/stdarg.d
+	)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 endif(D_VERSION EQUAL 1)
 
@@ -107,20 +121,23 @@ file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
 file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 
-# compile d file into outdir, include incdir, and append names of generated .o and .bc to outlist_o and _bc
-macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR MOREFLAGS)
-	get_filename_component(BASENAME ${INPUT_D} NAME_WE)
-	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${OUTDIR}/${BASENAME}.o)
-	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${OUTDIR}/${BASENAME}.bc)
+macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
+	if ("${PATH}" STREQUAL "")
+		file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
+	else ("${PATH}" STREQUAL "")
+		file(RELATIVE_PATH output ${PATH} ${INPUT_D})
+	endif ("${PATH}" STREQUAL "")
+	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
+	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
 	list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
-	
+
 	# Compile
 	add_custom_command(
 		OUTPUT
 			${OUTPUT_O}
-			${OUTPUT_BC}
-		COMMAND ${LDC_LOC} -c -I${INCDIR} -I${RUNTIME_GC_DIR} -output-bc ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
+                        #${OUTPUT_BC}
+                COMMAND ${LDC_LOC} -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
 		DEPENDS ${LDC_LOC}
 			${INPUT_D}
 			${LDC_IMPORTS}
@@ -128,17 +145,20 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC OUTDIR INCDIR MOREFLAGS)
 	)
 endmacro(dc)
 
-# dc_dir include for core and gc only necessary with druntime
 foreach(f ${CORE_D})
-	dc(${f} CORE_O CORE_BC core ${RUNTIME_DC_DIR} "")
+	dc(${f} CORE_O CORE_BC ${RUNTIME_INCLUDE} "" "")
 endforeach(f)
 
 foreach(f ${GC_D})
-	dc(${f} GC_O GC_BC gc "${RUNTIME_GC_DIR} ${RUNTIME_DC_DIR}" "-disable-invariants")
+	dc(${f} GC_O GC_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
 endforeach(f)
 
 foreach(f ${DCRT_D})
-	dc(${f} DCRT_O DCRT_BC dcrt ${RUNTIME_DC_DIR} "")
+	if(D_VERSION EQUAL 1)
+		dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" ${RUNTIME_DC_DIR})
+	else(D_VERSION EQUAL 1)
+		dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" "")
+	endif(D_VERSION EQUAL 1)
 endforeach(f)
 
 if(BUILD_SINGLE_LIB)

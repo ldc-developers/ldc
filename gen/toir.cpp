@@ -121,6 +121,13 @@ DValue* VarExp::toElem(IRState* p)
             LLValue* tmp = DtoArrayLen(p->arrays.back());
             return new DImValue(type, tmp);
         }
+        // classinfo
+        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
+        {
+            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
+            cid->cd->codegen(Type::sir);;
+            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
+        }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
         {
@@ -132,13 +139,6 @@ DValue* VarExp::toElem(IRState* p)
             if (m->getType() != getPtrToType(vartype))
                 m = p->ir->CreateBitCast(m, vartype, "tmp");
             return new DImValue(type, m);
-        }
-        // classinfo
-        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
-        {
-            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            cid->cd->codegen(Type::sir);;
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
         }
         // nested variable
     #if DMDV2
@@ -552,7 +552,7 @@ DValue* AssignExp::toElem(IRState* p)
         DValue* arr = ale->e1->toElem(p);
         DVarValue arrval(ale->e1->type, arr->getLVal());
         DValue* newlen = e2->toElem(p);
-        DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, newlen);
+        DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, newlen->getRVal());
         DtoAssign(loc, &arrval, slice);
         return newlen;
     }
@@ -648,22 +648,16 @@ DValue* AddExp::toElem(IRState* p)
 
     errorOnIllegalArrayOp(this, e1, e2);
 
-    if (e1type != e2type) {
-        if (e1type->ty == Tpointer) {
-            Logger::println("add to pointer");
-            if (DConstValue* cv = r->isConst()) {
-                if (cv->c->isNullValue()) {
-                    Logger::println("is zero");
-                    return new DImValue(type, l->getRVal());
-                }
+    if (e1type != e2type && e1type->ty == Tpointer) {
+        Logger::println("add to pointer");
+        if (DConstValue* cv = r->isConst()) {
+            if (cv->c->isNullValue()) {
+                Logger::println("is zero");
+                return new DImValue(type, l->getRVal());
             }
-            LLValue* v = llvm::GetElementPtrInst::Create(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
-            return new DImValue(type, v);
         }
-        else if (t->iscomplex()) {
-            return DtoComplexAdd(loc, type, l, r);
-        }
-        assert(0);
+        LLValue* v = llvm::GetElementPtrInst::Create(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
+        return new DImValue(type, v);
     }
     else if (t->iscomplex()) {
         return DtoComplexAdd(loc, type, l, r);
@@ -1785,6 +1779,7 @@ DValue* AssertExp::toElem(IRState* p)
         (invdecl = ((TypeStruct*)condty->nextOf())->sym->inv) != NULL)
     {
         Logger::print("calling struct invariant");
+        ((TypeStruct*)condty->nextOf())->sym->codegen(Type::sir);
         DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
         DtoCallFunction(loc, NULL, &invfunc, NULL);
     }

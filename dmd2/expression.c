@@ -834,12 +834,14 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 
 void expToCBuffer(OutBuffer *buf, HdrGenState *hgs, Expression *e, enum PREC pr)
 {
+#if !IN_LLVM
 #ifdef DEBUG
     if (precedence[e->op] == PREC_zero)
         printf("precedence not defined for token '%s'\n",Token::tochars[e->op]);
 #endif
     assert(precedence[e->op] != PREC_zero);
     assert(pr != PREC_zero);
+#endif
 
     //if (precedence[e->op] == 0) e->dump(0);
     if (precedence[e->op] < pr ||
@@ -2489,7 +2491,7 @@ Expression *ThisExp::semantic(Scope *sc)
 #if LOGSEMANTIC
     printf("ThisExp::semantic()\n");
 #endif
-    if (type)
+    if (type && var)
     {   //assert(global.errors || var);
         return this;
     }
@@ -2534,7 +2536,8 @@ Expression *ThisExp::semantic(Scope *sc)
     assert(fd->vthis);
     var = fd->vthis;
     assert(var->parent);
-    type = var->type;
+    if (!type)
+        type = var->type;
     var->isVarDeclaration()->checkNestedReference(sc, loc);
     if (!sc->intypeof)
         sc->callSuper |= CSXthis;
@@ -7402,6 +7405,14 @@ Expression *AddrExp::semantic(Scope *sc)
 
             if (f)
             {
+#if !IN_LLVM
+                if (f->isIntrinsic())
+                {
+                    error("cannot take the address of intrinsic function %s", e1->toChars());
+                    return this;
+                }
+#endif
+
                 if (!ve->hasOverloads ||
                     /* Because nested functions cannot be overloaded,
                      * mark here that we took its address because castTo()
@@ -7789,6 +7800,9 @@ CastExp::CastExp(Loc loc, Expression *e, Type *t)
 {
     to = t;
     this->mod = ~0;
+#if IN_LLVM
+    disableOptimization = false;
+#endif
 }
 
 #if DMDV2
@@ -7799,6 +7813,9 @@ CastExp::CastExp(Loc loc, Expression *e, unsigned mod)
 {
     to = NULL;
     this->mod = mod;
+#if IN_LLVM
+    disableOptimization = false;
+#endif
 }
 #endif
 
@@ -7986,7 +8003,6 @@ void CastExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writeByte(')');
     expToCBuffer(buf, hgs, e1, precedence[op]);
 }
-
 
 /************************************************************/
 

@@ -339,7 +339,7 @@ static void LLVM_D_BuildRuntimeModule()
 
     // Object _d_allocclass(ClassInfo ci)
     {
-        llvm::StringRef fname("_d_allocclass");
+        llvm::StringRef fname(_d_allocclass);
         std::vector<const LLType*> types;
         types.push_back(classInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
@@ -608,7 +608,7 @@ static void LLVM_D_BuildRuntimeModule()
     // int _adEq(void[] a1, void[] a2, TypeInfo ti)
     // int _adCmp(void[] a1, void[] a2, TypeInfo ti)
     {
-        llvm::StringRef fname("_adEq");
+        llvm::StringRef fname(_adEq);
         llvm::StringRef fname2("_adCmp");
         std::vector<const LLType*> types;
         types.push_back(rt_array(byteTy));

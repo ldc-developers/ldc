@@ -76,6 +76,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     if (thistype)
     {
         bool toref = (thistype->toBasetype()->ty == Tstruct);
+#if STRUCTTHISREF
+        fty.is_arg_this_ref = toref;
+#endif
         fty.arg_this = new IrFuncTyArg(thistype, toref);
         lidx++;
     }
@@ -475,8 +478,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
 
-    fdecl->ir.irFunc->func = func;
-
     // parameter attributes
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
@@ -607,7 +608,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     Type* t = fd->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
-    assert(f->irtype);
+    // assert(f->irtype);
 
     llvm::Function* func = fd->ir.irFunc->func;
     const llvm::FunctionType* functype = func->getFunctionType();
@@ -665,7 +666,10 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
         LLValue* thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
         DtoStore(thisvar, thismem);
-        irfunction->thisArg = thismem;
+        if (f->fty.is_arg_this_ref)
+            irfunction->thisArg = DtoLoad(thismem, "thisRef");
+        else
+            irfunction->thisArg = thismem;
 
         assert(!fd->vthis->ir.irLocal);
         fd->vthis->ir.irLocal = new IrLocal(fd->vthis);

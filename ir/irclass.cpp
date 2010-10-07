@@ -55,6 +55,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
     // create the initZ symbol
     std::string initname("_D");
     initname.append(aggrdecl->mangle());
+
     if (aggrdecl->isInterfaceDeclaration())
         initname.append("11__InterfaceZ");
     else
@@ -69,7 +70,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 
     // classinfos cannot be constants since they're used a locks for synchronized
     classInfo = new llvm::GlobalVariable(
-        *gIR->module, tc->getPA().get(), false, _linkage, NULL, initname);
+            *gIR->module, tc->getPA().get(), false, _linkage, NULL, initname);
 
 #if USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.

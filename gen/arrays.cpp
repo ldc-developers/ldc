@@ -209,12 +209,20 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoSetArray(LLValue* arr, LLValue* dim, LLValue* ptr)
+void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr)
 {
     Logger::println("SetArray");
+    LLValue *arr = array->getLVal();
     assert(isaStruct(arr->getType()->getContainedType(0)));
+#if 1
     DtoStore(dim, DtoGEPi(arr,0,0));
     DtoStore(ptr, DtoGEPi(arr,0,1));
+#else
+    DSliceValue *slice = DtoResizeDynArray(array->type, array, dim);
+    DtoMemCpy(DtoArrayPtr(array), ptr, dim);
+    DtoStore(dim, DtoGEPi(arr,0,0));
+    DtoStore(slice->ptr, DtoGEPi(arr,0,1));
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -498,7 +506,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
+DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
 {
     Logger::println("DtoResizeDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
@@ -516,7 +524,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
 
     LLSmallVector<LLValue*,4> args;
     args.push_back(DtoTypeInfoOf(arrayType));
-    args.push_back(newdim->getRVal());
+    args.push_back(newdim);
     args.push_back(DtoArrayLen(array));
 
     LLValue* arrPtr = DtoArrayPtr(array);
@@ -528,7 +536,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, DValue* newdim)
     if (newptr->getType() != arrPtr->getType())
         newptr = DtoBitCast(newptr, arrPtr->getType(), ".gc_mem");
 
-    return new DSliceValue(arrayType, newdim->getRVal(), newptr);
+    return new DSliceValue(arrayType, newdim, newptr);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -544,7 +552,7 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcT");
     LLSmallVector<LLValue*,3> args;
     args.push_back(DtoTypeInfoOf(arrayType));
-    args.push_back(DtoBitCast(array->getLVal(), getVoidPtrType()));
+    args.push_back(DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(1)));
     args.push_back(DtoBitCast(valueToAppend, getVoidPtrType()));
 
     gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray");
@@ -565,7 +573,7 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
     res = gIR->ir->CreateAdd(len1,len2,"tmp");
 
     DValue* newdim = new DImValue(Type::tsize_t, res);
-    DSliceValue* slice = DtoResizeDynArray(arr->getType(), arr, newdim);
+    DSliceValue* slice = DtoResizeDynArray(arr->getType(), arr, newdim->getRVal());
 
     src1 = slice->ptr;
     src2 = DtoArrayPtr(e);
@@ -734,7 +742,7 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 {
-    LLValue* res = DtoArrayEqCmp_impl(loc, "_adEq", l, r, true);
+    LLValue* res = DtoArrayEqCmp_impl(loc, _adEq, l, r, true);
     res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");
@@ -1006,6 +1014,12 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         LLValue* ptr = DtoArrayPtr(u);
         LLConstant* nul = getNullPtr(ptr->getType());
         rval = gIR->ir->CreateICmpNE(ptr, nul, "tmp");
+    }
+    else if (fromtype->nextOf()->ty == Tvoid) {
+        // TODO:
+        rval = DtoArrayPtr(u);
+        rval = DtoBitCast(rval, getPtrToType(tolltype));
+        rval = DtoLoad(rval);
     }
     else {
         assert(0);

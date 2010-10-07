@@ -378,8 +378,8 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         }
         // rhs is slice
         else if (DSliceValue* s = rhs->isSlice()) {
-            assert(s->getType()->toBasetype() == lhs->getType()->toBasetype());
-            DtoSetArray(lhs->getLVal(),DtoArrayLen(s),DtoArrayPtr(s));
+            //assert(s->getType()->toBasetype() == lhs->getType()->toBasetype());
+            DtoSetArray(lhs,DtoArrayLen(s),DtoArrayPtr(s));
         }
         // null
         else if (rhs->isNull()) {
@@ -391,7 +391,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         }
         // some implicitly converting ref assignment
         else {
-            DtoSetArray(lhs->getLVal(), DtoArrayLen(rhs), DtoArrayPtr(rhs));
+            DtoSetArray(lhs, DtoArrayLen(rhs), DtoArrayPtr(rhs));
         }
     }
     else if (t->ty == Tsarray) {
@@ -1271,12 +1271,7 @@ void DtoAnnotation(const char* str)
 
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
-#if DMDV2
-    // FIXME: this is probably wrong, but it makes druntime's genobj.d compile!
-    type = type->mutableOf()->merge(); // needed.. getTypeInfo does the same
-#else
-    type = type->merge(); // needed.. getTypeInfo does the same
-#endif
+    type = type->merge2(); // needed.. getTypeInfo does the same
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
@@ -1351,7 +1346,7 @@ bool mustDefineSymbol(Dsymbol* s)
         if (fd->semanticRun < 4)
             return false;
 
-	if (fd->isArrayOp)
+        if (fd->isArrayOp)
             return true;
 
         if (global.params.useAvailableExternally && fd->availableExternally) {

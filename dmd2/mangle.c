@@ -202,7 +202,9 @@ char *ClassDeclaration::mangle()
         ident == Id::TypeInfo_Tuple ||
         this == object     ||
         this == classinfo  ||
+#if !MODULEINFO_IS_STRUCT
         this == Module::moduleinfo ||
+#endif
         memcmp(ident->toChars(), "TypeInfo_", 9) == 0
        )
         parent = NULL;

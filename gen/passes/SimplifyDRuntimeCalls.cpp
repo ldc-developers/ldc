@@ -30,6 +30,8 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "gen/runtime.h"
+
 using namespace llvm;
 
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
@@ -332,7 +334,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
     Optimizations["_d_newarraymT"] = &Allocation;
     Optimizations["_d_newarraymiT"] = &Allocation;
     Optimizations["_d_newarraymvT"] = &Allocation;
-    Optimizations["_d_allocclass"] = &Allocation;
+    Optimizations[_d_allocclass] = &Allocation;
 }
 
 

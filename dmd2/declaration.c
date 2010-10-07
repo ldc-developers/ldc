@@ -614,7 +614,7 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (haliassym)
         {
-	    buf->writestring(haliassym->toChars());
+            buf->writestring(haliassym->toChars());
             buf->writeByte(' ');
             buf->writestring(ident->toChars());
         }
@@ -626,7 +626,11 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (aliassym)
         {
+#if !IN_LLVM
             aliassym->toCBuffer(buf, hgs);
+#else
+            buf->writestring(aliassym->toChars());
+#endif
             buf->writeByte(' ');
             buf->writestring(ident->toChars());
         }
@@ -876,7 +880,7 @@ void VarDeclaration::semantic(Scope *sc)
             //printf("declaring field %s of type %s\n", v->toChars(), v->type->toChars());
             v->semantic(sc);
             
-/*
+#if !IN_LLVM
 // removed for LDC since TupleDeclaration::toObj already creates the fields;
 // adding them to the scope again leads to duplicates
             if (sc->scopesym)
@@ -884,7 +888,7 @@ void VarDeclaration::semantic(Scope *sc)
                 if (sc->scopesym->members)
                     sc->scopesym->members->push(v);
             }
-*/
+#endif
             Expression *e = new DsymbolExp(loc, v);
             exps->data[i] = e;
         }

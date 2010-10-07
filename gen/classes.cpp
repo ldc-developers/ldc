@@ -145,7 +145,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // default allocator
     else
     {
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocclass");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, _d_allocclass);
         LLConstant* ci = DtoBitCast(tc->sym->ir.irStruct->getClassInfoSymbol(), DtoType(ClassDeclaration::classinfo->type));
         mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
@@ -686,7 +686,8 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //         void *defaultConstructor;
 //         version(D_Version2)
 //              const(MemberInfo[]) function(string) xgetMembers;
-//         TypeInfo typeinfo; // since dmd 1.045
+//         else
+//              TypeInfo typeinfo; // since dmd 1.045
 //        }
 
     Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
@@ -700,11 +701,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
 
-#if DMDV2
-    if (cinfo->fields.dim != 13)
-#else
     if (cinfo->fields.dim != 12)
-#endif
     {
         error("object.d ClassInfo class is incorrect");
         fatal();
@@ -798,7 +795,8 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 #endif // GENERATE_OFFTI
 
     // default constructor
-    b.push_funcptr(cd->defaultCtor, Type::tvoid->pointerTo());
+    VarDeclaration* defConstructorVar = (VarDeclaration*)cinfo->fields.data[10];
+    b.push_funcptr(cd->defaultCtor, defConstructorVar->type);
 
 #if DMDV2
 
@@ -808,10 +806,12 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     // FIXME: fill it out!
     b.push_null(xgetVar->type);
 
-#endif
+#else
 
     // typeinfo - since 1.045
     b.push_typeinfo(cd->type);
+
+#endif
 
     /*size_t n = inits.size();
     for (size_t i=0; i<n; ++i)

@@ -38,6 +38,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 
 STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
@@ -296,7 +297,7 @@ GarbageCollect2Stack::GarbageCollect2Stack()
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
-    KnownFunctions["_d_allocclass"] = &AllocClass;
+    KnownFunctions[_d_allocclass] = &AllocClass;
 }
 
 static void RemoveCall(CallSite CS, const Analysis& A) {

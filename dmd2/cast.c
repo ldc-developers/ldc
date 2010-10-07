@@ -1171,7 +1171,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
             {   Dsymbol *s = (Dsymbol *)eo->vars->a.data[i];
                 FuncDeclaration *f2 = s->isFuncDeclaration();
                 assert(f2);
-		if (f2->overloadExactMatch(t->nextOf(), m))
+                if (f2->overloadExactMatch(t->nextOf(), m))
                 {   if (f)
                         /* Error if match in more than one overload set,
                          * even if one is a 'better' match than the other.
@@ -1190,7 +1190,6 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
             }
         }
 
-
         if (type->ty == Tpointer && type->nextOf()->ty == Tfunction &&
             tb->ty == Tpointer && tb->nextOf()->ty == Tfunction &&
             e1->op == TOKvar)
@@ -1199,8 +1198,10 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
             FuncDeclaration *f = ve->var->isFuncDeclaration();
             if (f)
             {
+#if !IN_LLVM
                 assert(0);      // should be SymOffExp instead
-		f = f->overloadExactMatch(tb->nextOf(), m);
+#endif
+                f = f->overloadExactMatch(tb->nextOf(), m);
                 if (f)
                 {
                     e = new VarExp(loc, f);
@@ -1211,6 +1212,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
                 }
             }
         }
+
         e = Expression::castTo(sc, t);
     }
     e->type = t;
@@ -1474,7 +1476,10 @@ Expression *BinExp::scaleFactor(Scope *sc)
         stride = t1b->nextOf()->size(loc);
         if (!t->equals(t2b))
             e2 = e2->castTo(sc, t);
+// LDC: llvm uses typesafe pointer arithmetic
+#if !IN_LLVM
         e2 = new MulExp(loc, e2, new IntegerExp(0, stride, t));
+#endif
         e2->type = t;
         type = e1->type;
     }
@@ -1489,7 +1494,9 @@ Expression *BinExp::scaleFactor(Scope *sc)
             e = e1->castTo(sc, t);
         else
             e = e1;
+#if !IN_LLVM
         e = new MulExp(loc, e, new IntegerExp(0, stride, t));
+#endif
         e->type = t;
         type = e2->type;
         e1 = e2;

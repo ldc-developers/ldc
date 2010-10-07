@@ -775,7 +775,9 @@ void FuncDeclaration::semantic(Scope *sc)
 
 Ldone:
     Module::dprogress++;
-    semanticRun = PASSsemanticdone;
+    //LDC relies on semanticRun variable not being reset here
+    if(semanticRun < PASSsemanticdone)
+        semanticRun = PASSsemanticdone;
 
     /* Save scope for possible later use (if we need the
      * function internals)
@@ -1235,7 +1237,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                 else
                 {   // Call invariant virtually
                     ThisExp *tv = new ThisExp(0);
-		    tv->type = vthis->type;
+                    tv->type = vthis->type;
                     tv->var = vthis;
                     Expression* v = tv;
 
@@ -2771,7 +2773,7 @@ FuncDeclaration *FuncDeclaration::genCfunc(Parameters *args, Type *treturn, Iden
     }
     else
     {
-        tf = new TypeFunction(NULL, treturn, 0, LINKc);
+        tf = new TypeFunction(args, treturn, 0, LINKc);
         fd = new FuncDeclaration(0, 0, id, STCstatic, tf);
         fd->protection = PROTpublic;
         fd->linkage = LINKc;
@@ -3011,7 +3013,7 @@ void CtorDeclaration::semantic(Scope *sc)
     // to the function body
     if (fbody && semanticRun < PASSsemantic)
     {
-        Expression *e = new ThisExp(loc);
+        ThisExp *e = new ThisExp(loc);
         if (parent->isClassDeclaration())
             e->type = tret;
         Statement *s = new ReturnStatement(loc, e);

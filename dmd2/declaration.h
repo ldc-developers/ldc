@@ -450,6 +450,7 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
+    void codegen(Ir*);
     void llvmDefine();
 #endif
 };
@@ -618,6 +619,10 @@ struct TypeInfoSharedDeclaration : TypeInfoDeclaration
 #if IN_DMD
     void toDt(dt_t **pdt);
 #endif
+
+#if IN_LLVM
+    void llvmDefine();
+#endif
 };
 
 struct TypeInfoWildDeclaration : TypeInfoDeclaration
@@ -626,6 +631,10 @@ struct TypeInfoWildDeclaration : TypeInfoDeclaration
 
 #if IN_DMD
     void toDt(dt_t **pdt);
+#endif
+
+#if IN_LLVM
+    void llvmDefine();
 #endif
 };
 #endif
