@@ -153,6 +153,7 @@ enum OS
 {
     OSinvalid,
     OSLinux,
+    OSHaiku,
     OSWindows,
     OSMacOSX,
     OSFreeBSD,

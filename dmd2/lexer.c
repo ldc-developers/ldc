@@ -12,6 +12,8 @@
 #include <cmath>
 #endif
 
+#include <sstream>
+
 /* Lexical Analyzer */
 
 #include <stdio.h>
