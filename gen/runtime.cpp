@@ -175,7 +175,9 @@ static void LLVM_D_BuildRuntimeModule()
 
     Logger::println("building aggr types");
     const LLType* voidPtrTy = rt_ptr(byteTy);
-    const LLType* stringTy = rt_array(byteTy);
+    const LLType* voidArrayTy = rt_array(byteTy);
+    const LLType* voidArrayPtrTy = getPtrToType(voidArrayTy);
+    const LLType* stringTy = voidArrayTy;
     const LLType* wstringTy = rt_array(shortTy);
     const LLType* dstringTy = rt_array(intTy);
 
@@ -271,7 +273,7 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_NoAlias);
     }
-
+#if DMDV1
     // void* _d_newarrayT(TypeInfo ti, size_t length)
     // void* _d_newarrayiT(TypeInfo ti, size_t length)
     // void* _d_newarrayvT(TypeInfo ti, size_t length)
@@ -290,6 +292,20 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)
             ->setAttributes(Attr_NoAlias);
     }
+#else
+    // void[] _d_newarrayT(TypeInfo ti, size_t length)
+    // void[] _d_newarrayiT(TypeInfo ti, size_t length)
+    {
+        llvm::StringRef fname("_d_newarrayT");
+        llvm::StringRef fname2("_d_newarrayiT");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(sizeTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+    }
+#endif
 
     // void* _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
     // void* _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
@@ -311,31 +327,70 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_NoAlias_3_NoCapture);
     }
 
+    // D1:
     // void* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
     // void* _d_arraysetlengthiT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
+    // D2:
+    // void[] _d_arraysetlengthT(TypeInfo ti, size_t newlength, void[] *array)
+    // void[] _d_arraysetlengthiT(TypeInfo ti, size_t newlength, void[] *array)
     {
         llvm::StringRef fname("_d_arraysetlengthT");
         llvm::StringRef fname2("_d_arraysetlengthiT");
         std::vector<const LLType*> types;
         types.push_back(typeInfoTy);
         types.push_back(sizeTy);
+#if DMDV2
+        types.push_back(voidArrayPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+#else
         types.push_back(sizeTy);
         types.push_back(voidPtrTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+#endif
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
-
-    // void* _d_arrayappendcT(TypeInfo ti, void* array, void* element)
+    // D1:
+    // byte[] _d_arrayappendcT(TypeInfo ti, void* array, void* element)
+    // D2:
+    // byte[] _d_arrayappendcT(TypeInfo ti, byte[]* array, byte* element)
     {
         llvm::StringRef fname("_d_arrayappendcT");
         std::vector<const LLType*> types;
         types.push_back(typeInfoTy);
+#if DMDV2
+        types.push_back(voidArrayPtrTy);
+#else
         types.push_back(voidPtrTy);
+#endif
         types.push_back(voidPtrTy);
-        const llvm::FunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+
+#if DMDV2
+    // void[] _d_arrayappendT(TypeInfo ti, byte[]* px, byte[] y)
+    {
+        llvm::StringRef fname("_d_arrayappendT");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(voidArrayPtrTy);
+        types.push_back(voidArrayTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // byte[] _d_arraycatT(TypeInfo ti, byte[] x, byte[] y)
+    {
+        llvm::StringRef fname("_d_arraycatT");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(voidArrayTy);
+        types.push_back(voidArrayTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+#endif
 
     // Object _d_allocclass(ClassInfo ci)
     {

@@ -1,6 +1,6 @@
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/import/ldc/cstdarg.di ldc/druntime/import/ldc/cstdarg.di
---- v2.049/src/druntime/import/ldc/cstdarg.di	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/import/ldc/cstdarg.di	2010-09-30 22:10:37.000000000 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/import/ldc/cstdarg.di druntime/import/ldc/cstdarg.di
+--- druntime-old/import/ldc/cstdarg.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/cstdarg.di	2010-09-30 22:10:37.000000000 +0400
 @@ -0,0 +1,29 @@
 +/*
 + * vararg support for extern(C) functions
@@ -31,9 +31,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +
 +pragma(va_copy)
 +    void va_copy(va_list dst, va_list src);
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/import/ldc/intrinsics.di ldc/druntime/import/ldc/intrinsics.di
---- v2.049/src/druntime/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/import/ldc/intrinsics.di	2010-10-02 14:01:02.975890001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/import/ldc/intrinsics.di druntime/import/ldc/intrinsics.di
+--- druntime-old/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/intrinsics.di	2010-10-02 14:01:02.975890001 +0400
 @@ -0,0 +1,413 @@
 +/*
 + * This module holds declarations to LLVM intrinsics.
@@ -448,9 +448,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +
 +pragma(intrinsic, "llvm.trap")
 +    void llvm_trap();
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/import/ldc/llvmasm.di ldc/druntime/import/ldc/llvmasm.di
---- v2.049/src/druntime/import/ldc/llvmasm.di	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/import/ldc/llvmasm.di	2010-09-30 22:10:37.000000000 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/import/ldc/llvmasm.di druntime/import/ldc/llvmasm.di
+--- druntime-old/import/ldc/llvmasm.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/llvmasm.di	2010-09-30 22:10:37.000000000 +0400
 @@ -0,0 +1,17 @@
 +module ldc.llvmasm;
 +
@@ -469,9 +469,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +        __asmtuple_t!(T) __asmtuple(char[] asmcode, char[] constraints, ...);
 +    }
 +}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/import/ldc/vararg.d ldc/druntime/import/ldc/vararg.d
---- v2.049/src/druntime/import/ldc/vararg.d	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/import/ldc/vararg.d	2010-09-30 22:10:37.000000000 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/import/ldc/vararg.d druntime/import/ldc/vararg.d
+--- druntime-old/import/ldc/vararg.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/vararg.d	2010-09-30 22:10:37.000000000 +0400
 @@ -0,0 +1,43 @@
 +/*
 + * This module holds the implementation of special vararg templates for D style var args.
@@ -516,9 +516,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    // seems pretty useless !
 +    dst = src;
 +}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/import/object.di ldc/druntime/import/object.di
---- v2.049/src/druntime/import/object.di	2010-09-03 12:28:52.000000000 +0400
-+++ ldc/druntime/import/object.di	2010-10-05 12:47:24.873150000 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/import/object.di druntime/import/object.di
+--- druntime-old/import/object.di	2010-09-03 12:28:52.000000000 +0400
++++ druntime/import/object.di	2010-10-05 12:47:24.873150000 +0400
 @@ -130,7 +130,7 @@
      Interface[] interfaces;
      TypeInfo_Class   base;
@@ -554,9 +554,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      }
  
      string      msg;
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/import/std/intrinsic.di ldc/druntime/import/std/intrinsic.di
---- v2.049/src/druntime/import/std/intrinsic.di	2010-08-05 05:39:08.000000000 +0400
-+++ ldc/druntime/import/std/intrinsic.di	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/import/std/intrinsic.di druntime/import/std/intrinsic.di
+--- druntime-old/import/std/intrinsic.di	2010-08-05 05:39:08.000000000 +0400
++++ druntime/import/std/intrinsic.di	1970-01-01 03:00:00.000000000 +0300
 @@ -1,176 +0,0 @@
 -/**
 - * These functions are built-in intrinsics to the compiler.
@@ -734,9 +734,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 - * ditto
 - */
 -nothrow uint outpl( uint port_address, uint value );
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/core/atomic.d ldc/druntime/src/core/atomic.d
---- v2.049/src/druntime/src/core/atomic.d	2010-09-03 12:28:52.000000000 +0400
-+++ ldc/druntime/src/core/atomic.d	2010-10-05 15:55:10.893150001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/core/atomic.d druntime/src/core/atomic.d
+--- druntime-old/src/core/atomic.d	2010-09-03 12:28:52.000000000 +0400
++++ druntime/src/core/atomic.d	2010-10-05 15:55:10.893150001 +0400
 @@ -89,6 +89,117 @@
           return false;
       }
@@ -868,9 +868,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  else version( AsmX86_64 )
  {
      T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/gc/gc.d ldc/druntime/src/gc/gc.d
---- v2.049/src/druntime/src/gc/gc.d	2010-08-05 05:39:08.000000000 +0400
-+++ ldc/druntime/src/gc/gc.d	2010-10-04 16:54:06.837685001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/gc/gc.d druntime/src/gc/gc.d
+--- druntime-old/src/gc/gc.d	2010-08-05 05:39:08.000000000 +0400
++++ druntime/src/gc/gc.d	2010-10-04 16:54:06.837685001 +0400
 @@ -100,7 +100,7 @@
      version (GCCLASS)
      {   void* p;
@@ -880,9 +880,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          p = malloc(ci.init.length);
          (cast(byte*)p)[0 .. ci.init.length] = ci.init[];
          _gc = cast(GC)p;
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/gc/gcbits.d ldc/druntime/src/gc/gcbits.d
---- v2.049/src/druntime/src/gc/gcbits.d	2010-08-08 04:10:24.000000000 +0400
-+++ ldc/druntime/src/gc/gcbits.d	2010-10-01 20:49:51.268892001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/gc/gcbits.d druntime/src/gc/gcbits.d
+--- druntime-old/src/gc/gcbits.d	2010-08-08 04:10:24.000000000 +0400
++++ druntime/src/gc/gcbits.d	2010-10-01 20:49:51.268892001 +0400
 @@ -26,6 +26,10 @@
  {
      version = bitops;
@@ -894,9 +894,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  else version (GNU)
  {
      // use the unoptimized version
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/gc/gcx.d ldc/druntime/src/gc/gcx.d
---- v2.049/src/druntime/src/gc/gcx.d	2010-08-27 01:23:26.000000000 +0400
-+++ ldc/druntime/src/gc/gcx.d	2010-10-07 22:27:41.879253001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/gc/gcx.d druntime/src/gc/gcx.d
+--- druntime-old/src/gc/gcx.d	2010-08-27 01:23:26.000000000 +0400
++++ druntime/src/gc/gcx.d	2010-10-07 22:27:41.879253001 +0400
 @@ -1464,7 +1464,8 @@
  
  
@@ -1123,9 +1123,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
          thread_suspendAll();
  
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/object_.d ldc/druntime/src/object_.d
---- v2.049/src/druntime/src/object_.d	2010-09-03 12:28:52.000000000 +0400
-+++ ldc/druntime/src/object_.d	2010-10-05 14:50:34.733150002 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/object_.d druntime/src/object_.d
+--- druntime-old/src/object_.d	2010-09-03 12:28:52.000000000 +0400
++++ druntime/src/object_.d	2010-10-05 14:50:34.733150002 +0400
 @@ -1073,7 +1073,7 @@
  
  abstract class MemberInfo
@@ -1172,9 +1172,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      void _aaDel(void* p, TypeInfo keyti, ...);
      void[] _aaValues(void* p, size_t keysize, size_t valuesize);
      void[] _aaKeys(void* p, size_t keysize, size_t valuesize);
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/adi.d ldc/druntime/src/rt/adi.d
---- v2.049/src/druntime/src/rt/adi.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/adi.d	2010-10-07 14:32:52.911253001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/adi.d druntime/src/rt/adi.d
+--- druntime-old/src/rt/adi.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/adi.d	2010-10-07 14:32:52.911253001 +0400
 @@ -35,6 +35,14 @@
      extern (C) void  gc_free( void* p );
  }
@@ -1356,9 +1356,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
    {
      int len;
      int c;
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arrayInit.d ldc/druntime/src/rt/arrayInit.d
---- v2.049/src/druntime/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/src/rt/arrayInit.d	2010-10-03 20:41:52.223624001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arrayInit.d druntime/src/rt/arrayInit.d
+--- druntime-old/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/rt/arrayInit.d	2010-10-03 20:41:52.223624001 +0400
 @@ -0,0 +1,155 @@
 +private import ldc.intrinsics;
 +
@@ -1515,9 +1515,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    else
 +        throw new Exception("overlapping array copy");
 +}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arrayassign.d ldc/druntime/src/rt/arrayassign.d
---- v2.049/src/druntime/src/rt/arrayassign.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arrayassign.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arrayassign.d druntime/src/rt/arrayassign.d
+--- druntime-old/src/rt/arrayassign.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arrayassign.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,186 +0,0 @@
 -/**
 - * Implementation of array assignment support routines.
@@ -1705,9 +1705,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -    }
 -    return pstart;
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arraybyte.d ldc/druntime/src/rt/arraybyte.d
---- v2.049/src/druntime/src/rt/arraybyte.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arraybyte.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arraybyte.d druntime/src/rt/arraybyte.d
+--- druntime-old/src/rt/arraybyte.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arraybyte.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,1893 +0,0 @@
 -/**
 - * Contains SSE2 and MMX versions of certain operations for char, byte, and
@@ -3602,9 +3602,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arraycast.d ldc/druntime/src/rt/arraycast.d
---- v2.049/src/druntime/src/rt/arraycast.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arraycast.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arraycast.d druntime/src/rt/arraycast.d
+--- druntime-old/src/rt/arraycast.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arraycast.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,94 +0,0 @@
 -/**
 - * Implementation of array cast support routines.
@@ -3700,9 +3700,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -}
 -
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arraycat.d ldc/druntime/src/rt/arraycat.d
---- v2.049/src/druntime/src/rt/arraycat.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arraycat.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arraycat.d druntime/src/rt/arraycat.d
+--- druntime-old/src/rt/arraycat.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arraycat.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,42 +0,0 @@
 -/**
 - * Implementation of array copy support routines.
@@ -3746,9 +3746,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -    }
 -    return to;
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arraydouble.d ldc/druntime/src/rt/arraydouble.d
---- v2.049/src/druntime/src/rt/arraydouble.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arraydouble.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arraydouble.d druntime/src/rt/arraydouble.d
+--- druntime-old/src/rt/arraydouble.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arraydouble.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,1720 +0,0 @@
 -/**
 - * Contains SSE2 and MMX versions of certain operations for double.
@@ -5470,9 +5470,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arrayfloat.d ldc/druntime/src/rt/arrayfloat.d
---- v2.049/src/druntime/src/rt/arrayfloat.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arrayfloat.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arrayfloat.d druntime/src/rt/arrayfloat.d
+--- druntime-old/src/rt/arrayfloat.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arrayfloat.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,1435 +0,0 @@
 -/**
 - * Contains SSE2 and MMX versions of certain operations for float.
@@ -6909,9 +6909,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arrayint.d ldc/druntime/src/rt/arrayint.d
---- v2.049/src/druntime/src/rt/arrayint.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arrayint.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arrayint.d druntime/src/rt/arrayint.d
+--- druntime-old/src/rt/arrayint.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arrayint.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,2430 +0,0 @@
 -/**
 - * Contains MMX versions of certain operations for dchar, int, and uint ('w',
@@ -9343,9 +9343,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arrayreal.d ldc/druntime/src/rt/arrayreal.d
---- v2.049/src/druntime/src/rt/arrayreal.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arrayreal.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arrayreal.d druntime/src/rt/arrayreal.d
+--- druntime-old/src/rt/arrayreal.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arrayreal.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,241 +0,0 @@
 -/**
 - * Contains SSE2 and MMX versions of certain operations for real.
@@ -9588,9 +9588,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/arrayshort.d ldc/druntime/src/rt/arrayshort.d
---- v2.049/src/druntime/src/rt/arrayshort.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/arrayshort.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/arrayshort.d druntime/src/rt/arrayshort.d
+--- druntime-old/src/rt/arrayshort.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/arrayshort.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,2303 +0,0 @@
 -/**
 - * Contains SSE2 and MMX versions of certain operations for wchar, short,
@@ -11895,9 +11895,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/deh.c ldc/druntime/src/rt/deh.c
---- v2.049/src/druntime/src/rt/deh.c	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/deh.c	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/deh.c druntime/src/rt/deh.c
+--- druntime-old/src/rt/deh.c	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/deh.c	1970-01-01 03:00:00.000000000 +0300
 @@ -1,734 +0,0 @@
 -/**
 - * Implementation of exception handling support routines for Windows.
@@ -12633,9 +12633,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -
 -
 -#endif
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/deh2.d ldc/druntime/src/rt/deh2.d
---- v2.049/src/druntime/src/rt/deh2.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/deh2.d	1970-01-01 03:00:00.000000000 +0300
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/deh2.d druntime/src/rt/deh2.d
+--- druntime-old/src/rt/deh2.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/deh2.d	1970-01-01 03:00:00.000000000 +0300
 @@ -1,322 +0,0 @@
 -/**
 - * Implementation of exception handling support routines for Posix.
@@ -12959,9 +12959,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -        }
 -    }
 -}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/eh.d ldc/druntime/src/rt/eh.d
---- v2.049/src/druntime/src/rt/eh.d	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/src/rt/eh.d	2010-10-03 18:29:58.099624002 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/eh.d druntime/src/rt/eh.d
+--- druntime-old/src/rt/eh.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/rt/eh.d	2010-10-03 18:29:58.099624002 +0400
 @@ -0,0 +1,428 @@
 +/**
 + * This module contains functions and structures required for
@@ -13391,9 +13391,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +{
 +  _Unwind_Resume(&exception_struct.unwind_info);
 +}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/lifetime.d ldc/druntime/src/rt/lifetime.d
---- v2.049/src/druntime/src/rt/lifetime.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/lifetime.d	2010-10-07 22:03:51.471253002 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/lifetime.d druntime/src/rt/lifetime.d
+--- druntime-old/src/rt/lifetime.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/lifetime.d	2010-10-08 14:55:56.581547002 +0400
 @@ -81,6 +81,28 @@
             MAXSMALLSIZE = 256-SMALLPAD,
             MAXMEDSIZE = (PAGESIZE / 2) - MEDPAD
@@ -13437,576 +13437,205 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  /**
   *
-@@ -665,6 +694,249 @@
-     onOutOfMemoryError();
- }
- 
-+version (LDC)
-+{
-+
-+/**
-+ * Allocate a new array of length elements.
-+ * ti is the type of the resulting array, or pointer to element.
-+ * The resulting array is initialized to 0
-+ */
-+extern (C) void* _d_newarrayT(TypeInfo ti, size_t length)
-+{
-+    void* p;
-+    auto size = ti.next.tsize();                // array element size
-+
-+    debug(PRINTF) printf("_d_newarrayT(length = %u, size = %d)\n", length, size);
-+    if (length == 0 || size == 0)
-+        return null;
-+
-+    size = length_adjust(size, length);
-+
-+    p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-+    debug(PRINTF) printf(" p = %p\n", p);
-+    memset(p, 0, size);
-+
-+    return p;
-+}
-+
-+/**
-+ * As _d_newarrayT, but 
-+ * for when the array has a non-zero initializer.
-+ */
-+extern (C) void* _d_newarrayiT(TypeInfo ti, size_t length)
-+{
-+    void* result;
-+    auto size = ti.next.tsize();                // array element size
-+
-+    debug(PRINTF) printf("_d_newarrayiT(length = %d, size = %d)\n", length, size);
-+
-+    if (length == 0 || size == 0)
-+        result = null;
-+    else
-+    {
-+        auto initializer = ti.next.init();
-+        auto isize = initializer.length;
-+        auto q = initializer.ptr;
-+
-+        size = length_adjust(size, length);
-+
-+        auto p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-+        debug(PRINTF) printf(" p = %p\n", p);
-+        if (isize == 1)
-+            memset(p, *cast(ubyte*)q, size);
-+        else if (isize == int.sizeof)
-+        {
-+            int init = *cast(int*)q;
-+            size /= int.sizeof;
-+            for (size_t u = 0; u < size; u++)
-+            {
-+                (cast(int*)p)[u] = init;
-+            }
-+        }
-+        else
-+        {
-+            for (size_t u = 0; u < size; u += isize)
-+            {
-+                memcpy(p + u, q, isize);
-+            }
-+        }
-+        result = p;
-+    }
-+    return result;
-+}
-+
-+/**
-+ * As _d_newarrayT, but without initialization
-+ */
-+extern (C) void* _d_newarrayvT(TypeInfo ti, size_t length)
-+{
-+    void* p;
-+    auto size = ti.next.tsize();                // array element size
-+
-+    debug(PRINTF) printf("_d_newarrayvT(length = %u, size = %d)\n", length, size);
-+    if (length == 0 || size == 0)
-+        return null;
-+
-+    size = length_adjust(size, length);
-+
-+    p = gc_malloc(size + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-+    debug(PRINTF) printf(" p = %p\n", p);
-+    return p;
-+}
-+
-+/**
-+ * Allocate a new array of arrays of arrays of arrays ...
-+ * ti is the type of the resulting array.
-+ * ndims is the number of nested arrays.
-+ * dims it the array of dimensions, its size is ndims.
-+ * The resulting array is initialized to 0
-+ */
-+extern (C) void* _d_newarraymT(TypeInfo ti, int ndims, size_t* dims)
-+{
-+    void* result;
-+
-+    debug(PRINTF) printf("_d_newarraymT(ndims = %d)\n", ndims);
-+    if (ndims == 0)
-+        result = null;
-+    else
-+    {
-+        static void[] foo(TypeInfo ti, size_t* pdim, int ndims)
-+        {
-+            size_t dim = *pdim;
-+            void[] p;
-+
-+            debug(PRINTF) printf("foo(ti = %p, ti.next = %p, dim = %d, ndims = %d\n", ti, ti.next, dim, ndims);
-+            if (ndims == 1)
-+            {
-+                auto r = _d_newarrayT(ti, dim);
-+                return r[0 .. dim];
-+            }
-+            else
-+            {
-+                p = gc_malloc(dim * (void[]).sizeof + 1)[0 .. dim];
-+                for (int i = 0; i < dim; i++)
-+                {
-+                    (cast(void[]*)p.ptr)[i] = foo(ti.next, pdim + 1, ndims - 1);
-+                }
-+            }
-+            return p;
-+        }
-+
-+        result = foo(ti, dims, ndims).ptr;
-+        debug(PRINTF) printf("result = %p\n", result);
-+
-+        version (none)
-+        {
-+            for (int i = 0; i < ndims; i++)
-+            {
-+                printf("index %d: %d\n", i, *dims++);
-+            }
-+        }
-+    }
-+    return result;
-+}
-+
-+
-+/**
-+ * As _d_newarraymT, but 
-+ * for when the array has a non-zero initializer.
-+ */
-+extern (C) void* _d_newarraymiT(TypeInfo ti, int ndims, size_t* dims)
-+{
-+    void* result;
-+
-+    debug(PRINTF) printf("_d_newarraymiT(ndims = %d)\n", ndims);
-+    if (ndims == 0)
-+        result = null;
-+    else
-+    {
-+        static void[] foo(TypeInfo ti, size_t* pdim, int ndims)
-+        {
-+            size_t dim = *pdim;
-+            void[] p;
-+
-+            if (ndims == 1)
-+            {
-+                auto r = _d_newarrayiT(ti, dim);
-+                p = r[0 .. dim];
-+            }
-+            else
-+            {
-+                p = gc_malloc(dim * (void[]).sizeof + 1)[0 .. dim];
-+                for (int i = 0; i < dim; i++)
-+                {
-+                    (cast(void[]*)p.ptr)[i] = foo(ti.next, pdim + 1, ndims - 1);
-+                }
-+            }
-+            return p;
-+        }
-+
-+        result = foo(ti, dims, ndims).ptr;
-+        debug(PRINTF) printf("result = %p\n", result);
-+
-+        version (none)
-+        {
-+            for (int i = 0; i < ndims; i++)
-+            {
-+                printf("index %d: %d\n", i, *dims++);
-+                printf("init = %d\n", *dims++);
-+            }
-+        }
-+    }
-+    return result;
-+}
-+
-+/**
-+ * As _d_newarraymT, but without initialization
-+ */
-+extern (C) void* _d_newarraymvT(TypeInfo ti, int ndims, size_t* dims)
-+{
-+    void* result;
-+
-+    debug(PRINTF) printf("_d_newarraymvT(ndims = %d)\n", ndims);
-+    if (ndims == 0)
-+        result = null;
-+    else
-+    {
-+        static void[] foo(TypeInfo ti, size_t* pdim, int ndims)
-+        {
-+            size_t dim = *pdim;
-+            void[] p;
-+
-+            debug(PRINTF) printf("foo(ti = %p, ti.next = %p, dim = %d, ndims = %d\n", ti, ti.next, dim, ndims);
-+            if (ndims == 1)
-+            {
-+                auto r = _d_newarrayvT(ti, dim);
-+                return r[0 .. dim];
-+            }
-+            else
-+            {
-+                p = gc_malloc(dim * (void[]).sizeof + 1)[0 .. dim];
-+                for (int i = 0; i < dim; i++)
-+                {
-+                    (cast(void[]*)p.ptr)[i] = foo(ti.next, pdim + 1, ndims - 1);
-+                }
-+            }
-+            return p;
-+        }
-+
-+        result = foo(ti, dims, ndims).ptr;
-+        debug(PRINTF) printf("result = %p\n", result);
-+
-+        version (none)
-+        {
-+            for (int i = 0; i < ndims; i++)
-+            {
-+                printf("index %d: %d\n", i, *dims++);
-+            }
-+        }
-+    }
-+    return result;
-+}
-+
-+} else {
-+
- /**
-  * Allocate a new array of length elements.
+@@ -670,7 +699,7 @@
   * ti is the type of the resulting array, or pointer to element.
-@@ -884,6 +1156,7 @@
-     return result;
+  * (For when the array is initialized to 0)
+  */
+-extern (C) ulong _d_newarrayT(TypeInfo ti, size_t length)
++extern (C) void[] _d_newarrayT(TypeInfo ti, size_t length)
+ {
+     ulong result;
+     auto size = ti.next.tsize();                // array element size
+@@ -702,7 +731,7 @@
+         __setArrayAllocLength(info, size, isshared);
+         result = cast(ulong)length + (cast(ulong)cast(size_t)arrstart << 32);
+     }
+-    return result;
++    return *cast(void[]*)&result;
+ 
+ Loverflow:
+     onOutOfMemoryError();
+@@ -711,7 +740,7 @@
+ /**
+  * For when the array has a non-zero initializer.
+  */
+-extern (C) ulong _d_newarrayiT(TypeInfo ti, size_t length)
++extern (C) void[] _d_newarrayiT(TypeInfo ti, size_t length)
+ {
+     ulong result;
+     auto size = ti.next.tsize();                // array element size
+@@ -764,7 +793,7 @@
+         __setArrayAllocLength(info, size, isshared);
+         result = cast(ulong)length + (cast(ulong)cast(uint)arrstart << 32);
+     }
+-    return result;
++    return *cast(void[]*)&result;
+ 
+ Loverflow:
+     onOutOfMemoryError();
+@@ -773,7 +802,7 @@
+ /**
+  *
+  */
+-extern (C) ulong _d_newarraymT(TypeInfo ti, int ndims, ...)
++extern (C) void[] _d_newarraymT(TypeInfo ti, int ndims, ...)
+ {
+     ulong result;
+ 
+@@ -823,14 +852,14 @@
+         }
+         va_end(q);
+     }
+-    return result;
++    return *cast(void[]*)&result;
  }
  
-+}
  
  /**
   *
-@@ -1042,6 +1315,175 @@
+  */
+-extern (C) ulong _d_newarraymiT(TypeInfo ti, int ndims, ...)
++extern (C) void[] _d_newarraymiT(TypeInfo ti, int ndims, ...)
+ {
+     ulong result;
+ 
+@@ -881,10 +910,9 @@
+         }
+         va_end(q);
      }
+-    return result;
++    return *cast(void[]*)&result;
  }
  
-+version (LDC)
-+{
-+/**
-+ * Resize dynamic arrays with 0 initializers.
-+ */
-+extern (C) byte* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, byte* pdata)
-+in
-+{
-+    assert(ti);
-+// This assert on array consistency may fail with casts or in unions.
-+// This function still does something sensible even if plength && !pdata. 
-+//    assert(!plength || pdata);
-+}
-+body
-+{
-+    byte* newdata;
-+    size_t sizeelem = ti.next.tsize();
-+
-+    debug(PRINTF)
-+    {
-+        printf("_d_arraysetlengthT(sizeelem = %d, newlength = %d)\n", sizeelem, newlength);
-+        printf("\tp.data = %p, p.length = %d\n", pdata, plength);
-+    }
-+
-+    if (newlength)
-+    {
-+        size_t newsize = length_adjust(sizeelem, newlength);
-+
-+        debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
-+
-+        if (pdata)
-+        {
-+            newdata = pdata;
-+            if (newlength > plength)
-+            {
-+                size_t size = plength * sizeelem;
-+                auto   info = gc_query(pdata);
-+
-+                if (info.size <= newsize || info.base != pdata)
-+                {
-+                    if (info.size >= PAGESIZE && info.base == pdata)
-+                    {   // Try to extend in-place
-+                        auto u = gc_extend(pdata, (newsize + 1) - info.size, (newsize + 1) - info.size);
-+                        if (u)
-+                        {
-+                            goto L1;
-+                        }
-+                    }
-+                    newdata = cast(byte *)gc_malloc(newsize + 1, info.attr);
-+                    newdata[0 .. size] = pdata[0 .. size];
-+                }
-+             L1:
-+                newdata[size .. newsize] = 0;
-+            }
-+        }
-+        else
-+        {
-+            newdata = cast(byte *)gc_calloc(newsize + 1, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-+        }
-+    }
-+    else
-+    {
-+        newdata = pdata;
-+    }
-+
-+    return newdata;
-+}
-+
-+/**
-+ * Resize arrays for non-zero initializers.
-+ *      p               pointer to array lvalue to be updated
-+ *      newlength       new .length property of array
-+ *      sizeelem        size of each element of array
-+ *      initsize        size of initializer
-+ *      ...             initializer
-+ */
-+extern (C) byte* _d_arraysetlengthiT(TypeInfo ti, size_t newlength, size_t plength, byte* pdata)
-+in
-+{
-+// This assert on array consistency may fail with casts or in unions.
-+// This function still does something sensible even if plength && !pdata. 
-+//    assert(!plength || pdata);
-+}
-+body
-+{
-+    byte* newdata;
-+    TypeInfo tinext = ti.next;
-+    size_t sizeelem = tinext.tsize();
-+    void[] initializer = tinext.init();
-+    size_t initsize = initializer.length;
-+
-+    assert(sizeelem);
-+    assert(initsize);
-+    assert(initsize <= sizeelem);
-+    assert((sizeelem / initsize) * initsize == sizeelem);
-+
-+    debug(PRINTF)
-+    {
-+        printf("_d_arraysetlengthiT(sizeelem = %d, newlength = %d, initsize = %d)\n", sizeelem, newlength, initsize);
-+        printf("\tp.data = %p, p.length = %d\n", pdata, plength);
-+    }
-+
-+    if (newlength)
-+    {
-+        size_t newsize = length_adjust(sizeelem, newlength);
-+        debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
-+
-+        size_t size = plength * sizeelem;
-+
-+        if (pdata)
-+        {
-+            newdata = pdata;
-+            if (newlength > plength)
-+            {
-+                auto info = gc_query(pdata);
-+
-+                if (info.size <= newsize || info.base != pdata)
-+                {
-+                    if (info.size >= PAGESIZE && info.base == pdata)
-+                    {   // Try to extend in-place
-+                        auto u = gc_extend(pdata, (newsize + 1) - info.size, (newsize + 1) - info.size);
-+                        if (u)
-+                        {
-+                            goto L1;
-+                        }
-+                    }
-+                    newdata = cast(byte *)gc_malloc(newsize + 1, info.attr);
-+                    newdata[0 .. size] = pdata[0 .. size];
-+                L1: ;
-+                }
-+            }
-+        }
-+        else
-+        {
-+            newdata = cast(byte *)gc_malloc(newsize + 1, !(tinext.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-+        }
-+
-+        auto q = initializer.ptr; // pointer to initializer
-+
-+        if (newsize > size)
-+        {
-+            if (initsize == 1)
-+            {
-+                debug(PRINTF) printf("newdata = %p, size = %d, newsize = %d, *q = %d\n", newdata, size, newsize, *cast(byte*)q);
-+                newdata[size .. newsize] = *(cast(byte*)q);
-+            }
-+            else
-+            {
-+                for (size_t u = size; u < newsize; u += initsize)
-+                {
-+                    memcpy(newdata + u, q, initsize);
-+                }
-+            }
-+        }
-+    }
-+    else
-+    {
-+        newdata = pdata;
-+    }
-+
-+    return newdata;
-+
-+Loverflow:
-+    onOutOfMemoryError();
-+    return null;
-+}
-+
-+} else { // version (LDC)
-+
- 
+-
+ /**
+  *
+  */
+@@ -1046,7 +1074,7 @@
  /**
   * Resize dynamic arrays with 0 initializers.
-@@ -1376,6 +1818,58 @@
+  */
+-extern (C) byte[] _d_arraysetlengthT(TypeInfo ti, size_t newlength, Array *p)
++extern (C) void[] _d_arraysetlengthT(TypeInfo ti, size_t newlength, Array *p)
+ in
+ {
+     assert(ti);
+@@ -1206,7 +1234,7 @@
+  *      initsize        size of initializer
+  *      ...             initializer
+  */
+-extern (C) byte[] _d_arraysetlengthiT(TypeInfo ti, size_t newlength, Array *p)
++extern (C) void[] _d_arraysetlengthiT(TypeInfo ti, size_t newlength, Array *p)
+ in
+ {
+     assert(!p.length || p.data);
+@@ -1376,12 +1404,11 @@
      onOutOfMemoryError();
  }
  
-+}
-+
+-
+ /**
+  * Append y[] to array pointed to by px
+  * size is size of each array element.
+  */
+-extern (C) long _d_arrayappendT(TypeInfo ti, Array *px, byte[] y)
++extern (C) void[] _d_arrayappendT(TypeInfo ti, Array *px, byte[] y)
+ {
+     // only optimize array append where ti is not a shared type
+     auto sizeelem = ti.next.tsize();            // array element size
+@@ -1468,10 +1495,9 @@
+   L1:
+     px.length = newlength;
+     memcpy(px.data + length * sizeelem, y.ptr, y.length * sizeelem);
+-    return *cast(long*)px;
++    return *cast(void[]*)px;
+ }
+ 
+-
+ /**
+  *
+  */
+@@ -1552,21 +1578,36 @@
+     return newcap;
+ }
+ 
 +version (LDC)
 +{
 +
 +/**
 + * Appends a single element to an array.
 + */
-+extern (C) byte[] _d_arrayappendcT(TypeInfo ti, void* array, void* element)
++extern (C) void[] _d_arrayappendcT(TypeInfo ti, byte[] *x, byte *argp)
 +{
-+    auto x = cast(byte[]*)array;
-+    auto sizeelem = ti.next.tsize();            // array element size
-+    auto info = gc_query(x.ptr);
-+    auto length = x.length;
-+    auto newlength = length + 1;
-+    auto newsize = newlength * sizeelem;
-+
-+    assert(info.size == 0 || length * sizeelem <= info.size);
-+
-+    debug(PRINTF) printf("_d_arrayappendcT(sizeelem = %d, ptr = %p, length = %d, cap = %d)\n", sizeelem, x.ptr, x.length, info.size);
-+
-+    if (info.size <= newsize || info.base != x.ptr)
-+    {   byte* newdata;
-+
-+        if (info.size >= PAGESIZE && info.base == x.ptr)
-+        {   // Try to extend in-place
-+            auto u = gc_extend(x.ptr, (newsize + 1) - info.size, (newsize + 1) - info.size);
-+            if (u)
-+            {
-+                goto L1;
-+            }
-+        }
-+        debug(PRINTF) printf("_d_arrayappendcT(length = %d, newlength = %d, cap = %d)\n", length, newlength, info.size);
-+        auto newcap = newCapacity(newlength, sizeelem);
-+        assert(newcap >= newlength * sizeelem);
-+        newdata = cast(byte *)gc_malloc(newcap + 1, info.attr);
-+        memcpy(newdata, x.ptr, length * sizeelem);
-+        (cast(void**)x)[1] = newdata;
-+    }
-+  L1:
-+    byte *argp = cast(byte *)element;
-+
-+    *cast(size_t *)x = newlength;
-+    x.ptr[length * sizeelem .. newsize] = argp[0 .. sizeelem];
-+    assert((cast(size_t)x.ptr & 15) == 0);
-+    assert(gc_sizeOf(x.ptr) > x.length * sizeelem);
-+    return *x;
++    return _d_arrayappendT(ti, cast(Array*)x, argp[0..1]);
 +}
 +
-+} // version (LDC)
-+else 
-+{
- 
- /**
-  * Append y[] to array pointed to by px
-@@ -1471,6 +1965,7 @@
-     return *cast(long*)px;
- }
- 
-+}
- 
- /**
-  *
-@@ -1552,6 +2047,11 @@
-     return newcap;
- }
- 
-+version (LDC)
-+{
 +}
 +else
 +{
  
  /**
   *
-@@ -1641,6 +2141,8 @@
+  */
+-extern (C) long _d_arrayappendcT(TypeInfo ti, Array *x, ...)
++extern (C) void[] _d_arrayappendcT(TypeInfo ti, Array *x, ...)
+ {
+     byte *argp = cast(byte*)(&ti + 2);
+     return _d_arrayappendT(ti, x, argp[0..1]);
+ }
+ 
++}
+ 
+ /**
+  * Append dchar to char[]
+  */
+-extern (C) long _d_arrayappendcd(ref char[] x, dchar c)
++extern (C) void[] _d_arrayappendcd(ref char[] x, dchar c)
+ {
+     // c could encode into from 1 to 4 characters
+     char[4] buf = void;
+@@ -1612,7 +1653,7 @@
+ /**
+  * Append dchar to wchar[]
+  */
+-extern (C) long _d_arrayappendwd(ref wchar[] x, dchar c)
++extern (C) void[] _d_arrayappendwd(ref wchar[] x, dchar c)
+ {
+     // c could encode into from 1 to 2 w characters
+     wchar[2] buf = void;
+@@ -1641,7 +1682,6 @@
      return _d_arrayappendT(typeid(shared wchar[]), cast(Array *)&x, appendthis);
  }
  
-+}
-+
- 
+-
  /**
   *
-@@ -1794,6 +2296,35 @@
+  */
+@@ -1794,11 +1834,10 @@
      void*  ptr;
  }
  
-+version (LDC)
-+{
-+
-+/**
-+ *
-+ */
-+extern (C) void[] _adDupT(TypeInfo ti, void[] a)
-+out (result)
-+{
-+    auto sizeelem = ti.next.tsize();            // array element size
-+    assert(memcmp(result.ptr, a.ptr, a.length * sizeelem) == 0);
-+}
-+body
-+{
-+    void* ptr;
-+
-+    if (a.length)
-+    {
-+        auto sizeelem = ti.next.tsize();                // array element size
-+        auto size = a.length * sizeelem;
-+        ptr = gc_malloc(size, !(ti.next.flags() & 1) ? BlkAttr.NO_SCAN : 0);
-+        memcpy(ptr, a.ptr, size);
-+    }
-+    return ptr[0 .. a.length];
-+}
-+
-+} 
-+else 
-+{
- 
+-
  /**
   *
-@@ -1822,6 +2353,8 @@
-     return *cast(long*)(&r);
+  */
+-extern (C) long _adDupT(TypeInfo ti, Array2 a)
++extern (C) void[] _adDupT(TypeInfo ti, void[] a)
+ out (result)
+ {
+     auto sizeelem = ti.next.tsize();            // array element size
+@@ -1819,7 +1858,7 @@
+         r.length = a.length;
+         memcpy(r.ptr, a.ptr, size);
+     }
+-    return *cast(long*)(&r);
++    return *cast(void[]*)(&r);
  }
  
-+}
-+
  
- unittest
- {
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/qsort.d ldc/druntime/src/rt/qsort.d
---- v2.049/src/druntime/src/rt/qsort.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/qsort.d	2010-10-07 13:59:06.815253002 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/qsort.d druntime/src/rt/qsort.d
+--- druntime-old/src/rt/qsort.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/qsort.d	2010-10-07 13:59:06.815253002 +0400
 @@ -44,7 +44,7 @@
  structures.  The default value is optimized for a high cost for compares. */
  
@@ -14025,9 +13654,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
    }
    assert(0);
  }
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/qsort2.d ldc/druntime/src/rt/qsort2.d
---- v2.049/src/druntime/src/rt/qsort2.d	2010-08-05 05:39:06.000000000 +0400
-+++ ldc/druntime/src/rt/qsort2.d	2010-10-07 14:01:41.359253001 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/qsort2.d druntime/src/rt/qsort2.d
+--- druntime-old/src/rt/qsort2.d	2010-08-05 05:39:06.000000000 +0400
++++ druntime/src/rt/qsort2.d	2010-10-07 14:01:41.359253001 +0400
 @@ -31,14 +31,14 @@
      return tiglobal.compare(p1, p2);
  }
@@ -14045,9 +13674,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
  
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/rt/trace.d ldc/druntime/src/rt/trace.d
---- v2.049/src/druntime/src/rt/trace.d	2010-08-07 09:46:06.000000000 +0400
-+++ ldc/druntime/src/rt/trace.d	2010-10-01 21:01:58.444892002 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/rt/trace.d druntime/src/rt/trace.d
+--- druntime-old/src/rt/trace.d	2010-08-07 09:46:06.000000000 +0400
++++ druntime/src/rt/trace.d	2010-10-01 21:01:58.444892002 +0400
 @@ -855,7 +855,7 @@
    version (OSX)
    { // 16 byte align stack
@@ -14066,9 +13695,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          pushad  ;
      }
      trace_epi();
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- v2.049/src/druntime/src/std/intrinsic.d ldc/druntime/src/std/intrinsic.d
---- v2.049/src/druntime/src/std/intrinsic.d	1970-01-01 03:00:00.000000000 +0300
-+++ ldc/druntime/src/std/intrinsic.d	2010-10-03 20:07:21.183624002 +0400
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-old/src/std/intrinsic.d druntime/src/std/intrinsic.d
+--- druntime-old/src/std/intrinsic.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/std/intrinsic.d	2010-10-03 20:07:21.183624002 +0400
 @@ -0,0 +1,212 @@
 +/*
 + * D phobos intrinsics for LDC
