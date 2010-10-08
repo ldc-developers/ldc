@@ -470,7 +470,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // call allocator
-    LLValue* array = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
+    LLValue* newptr = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
 
     // cast to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
@@ -504,7 +504,12 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     bool zeroInit = vtype->isZeroInit();
     if (defaultInit && !isInitialized(vtype))
         defaultInit = false;
+
+#if DMDV2
+    const char* fnname = zeroInit ? "_d_newarraymT" : "_d_newarraymiT";
+#else
     const char* fnname = defaultInit ? (zeroInit ? "_d_newarraymT" : "_d_newarraymiT") : "_d_newarraymvT";
+#endif
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // build dims
@@ -520,6 +525,9 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     // call allocator
     LLValue* newptr = gIR->CreateCallOrInvoke3(fn, arrayTypeInfo, DtoConstSize_t(ndims), dimsArg, ".gc_mem").getInstruction();
 
+#if DMDV2
+    return getSlice(arrayType, newptr);
+#else
     // cast to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
     if (newptr->getType() != dstType)
@@ -530,6 +538,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 
     assert(firstDim);
     return new DSliceValue(arrayType, firstDim, newptr);
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -564,6 +573,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
 
     LLValue* arrPtr = DtoArrayPtr(array);
     args.push_back(DtoArrayLen(array));
+    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".gc_mem").getInstruction();
 
     if (Logger::enabled())
         Logger::cout() << "arrPtr = " << *arrPtr << '\n';
