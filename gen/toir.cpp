@@ -1571,10 +1571,10 @@ DValue* PostExp::toElem(IRState* p)
         assert(e2type->isfloating());
         LLValue* one = DtoConstFP(e1type, 1.0);
         if (op == TOKplusplus) {
-            post = llvm::BinaryOperator::CreateAdd(val,one,"tmp",p->scopebb());
+            post = llvm::BinaryOperator::CreateFAdd(val,one,"tmp",p->scopebb());
         }
         else if (op == TOKminusminus) {
-            post = llvm::BinaryOperator::CreateSub(val,one,"tmp",p->scopebb());
+            post = llvm::BinaryOperator::CreateFSub(val,one,"tmp",p->scopebb());
         }
     }
     else
@@ -2192,7 +2192,11 @@ DValue* NegExp::toElem(IRState* p)
 
     LLValue* val = l->getRVal();
 
-    val = gIR->ir->CreateNeg(val,"negval");
+    if (type->isintegral())
+        val = gIR->ir->CreateNeg(val,"negval");
+    else
+        val = gIR->ir->CreateFNeg(val,"negval");
+    
     return new DImValue(type, val);
 }
 

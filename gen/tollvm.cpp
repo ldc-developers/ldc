@@ -444,10 +444,12 @@ void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes)
     dst = DtoBitCast(dst,getVoidPtrType());
 
     const LLType* intTy = DtoSize_t();
+    const LLType *VoidPtrTy = getVoidPtrType();
+    const LLType *Tys[2] ={VoidPtrTy, intTy};
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-        llvm::Intrinsic::memset, &intTy, 1);
-
-    gIR->ir->CreateCall4(fn, dst, val, nbytes, DtoConstUint(0), "");
+        llvm::Intrinsic::memset, Tys, 2);
+    
+    gIR->ir->CreateCall5(fn, dst, val, nbytes, DtoConstUint(1), DtoConstBool(false), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -465,10 +467,12 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
     src = DtoBitCast(src,getVoidPtrType());
 
     const LLType* intTy = DtoSize_t();
+    const LLType *VoidPtrTy = getVoidPtrType();
+    const LLType *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-        llvm::Intrinsic::memcpy, &intTy, 1);
-
-    gIR->ir->CreateCall4(fn, dst, src, nbytes, DtoConstUint(align), "");
+        llvm::Intrinsic::memcpy, Tys, 3);
+    
+    gIR->ir->CreateCall5(fn, dst, src, nbytes, DtoConstUint(align), DtoConstBool(false), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

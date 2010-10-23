@@ -31,9 +31,9 @@ STATISTIC(NumFunctions, "Number of function bodies removed");
 STATISTIC(NumVariables, "Number of global initializers removed");
 
 namespace {
-  struct VISIBILITY_HIDDEN StripExternals : public ModulePass {
+  struct LLVM_LIBRARY_VISIBILITY StripExternals : public ModulePass {
     static char ID; // Pass identification, replacement for typeid
-    StripExternals() : ModulePass(&ID) {}
+    StripExternals() : ModulePass(ID) {}
 
     // run - Do the StripExternals pass on the specified module.
     //

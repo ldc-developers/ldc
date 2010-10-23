@@ -65,12 +65,13 @@ void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
     Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
     
     Module *M = B.GetInsertBlock()->getParent()->getParent();
-    const Type* Tys[1];
-    Tys[0] = Len->getType();
-    Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 1);
+    const Type* intTy = Len->getType();
+    const Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+    const Type *Tys[2] ={VoidPtrTy, intTy};
+    Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 2);
     Value *Align = ConstantInt::get(B.getInt32Ty(), 1);
     
-    CallSite CS = B.CreateCall4(MemSet, Dst, Val, Len, Align);
+    CallSite CS = B.CreateCall5(MemSet, Dst, Val, Len, Align, B.getFalse());
     if (A.CGNode)
         A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(MemSet));
 }
@@ -247,7 +248,7 @@ namespace {
 namespace {
     /// This pass replaces GC calls with alloca's
     ///
-    class VISIBILITY_HIDDEN GarbageCollect2Stack : public FunctionPass {
+    class LLVM_LIBRARY_VISIBILITY GarbageCollect2Stack : public FunctionPass {
         StringMap<FunctionInfo*> KnownFunctions;
         Module* M;
         

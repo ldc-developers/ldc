@@ -131,7 +131,7 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes);
  * @param nbytes Number of bytes to copy.
  * @param align The minimum alignment of the source and destination memory.
  */
-void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align = 0);
+void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align = 1);
 
 /**
  * Generates a call to C memcmp.

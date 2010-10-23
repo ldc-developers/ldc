@@ -42,7 +42,7 @@ STATISTIC(NumDeleted, "Number of runtime calls deleted");
 /// This class is the abstract base class for the set of optimizations that
 /// corresponds to one library call.
 namespace {
-    class VISIBILITY_HIDDEN LibCallOptimization {
+    class LLVM_LIBRARY_VISIBILITY LibCallOptimization {
     protected:
         Function *Caller;
         bool* Changed;
@@ -91,12 +91,13 @@ Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
   Module *M = Caller->getParent();
-  Intrinsic::ID IID = Intrinsic::memcpy;
-  const Type *Tys[1];
-  Tys[0] = Len->getType();
-  Value *MemCpy = Intrinsic::getDeclaration(M, IID, Tys, 1);
-  return B.CreateCall4(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
-                       ConstantInt::get(B.getInt32Ty(), Align));
+  const Type* intTy = Len->getType();
+  const Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+  const Type *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
+  Value *MemCpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, Tys, 3);
+  
+  return B.CreateCall5(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
+                       ConstantInt::get(B.getInt32Ty(), Align), B.getFalse());
 }
 
 //===----------------------------------------------------------------------===//
@@ -108,7 +109,7 @@ namespace {
 // '_d_arraysetlengthT'/'_d_arraysetlengthiT' Optimizations
 
 /// ArraySetLengthOpt - remove libcall for arr.length = N if N <= arr.length
-struct VISIBILITY_HIDDEN ArraySetLengthOpt : public LibCallOptimization {
+struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
     virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
         // Verify we have a reasonable prototype for _d_arraysetlength[i]T
         const FunctionType *FT = Callee->getFunctionType();
@@ -150,7 +151,7 @@ struct VISIBILITY_HIDDEN ArraySetLengthOpt : public LibCallOptimization {
 };
 
 /// ArrayCastLenOpt - remove libcall for cast(T[]) arr if it's safe to do so.
-struct VISIBILITY_HIDDEN ArrayCastLenOpt : public LibCallOptimization {
+struct LLVM_LIBRARY_VISIBILITY ArrayCastLenOpt : public LibCallOptimization {
     virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
         // Verify we have a reasonable prototype for _d_array_cast_len
         const FunctionType *FT = Callee->getFunctionType();
@@ -189,7 +190,7 @@ struct VISIBILITY_HIDDEN ArrayCastLenOpt : public LibCallOptimization {
 };
 
 /// AllocationOpt - Common optimizations for various GC allocations.
-struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
+struct LLVM_LIBRARY_VISIBILITY AllocationOpt : public LibCallOptimization {
     virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
         // Allocations are never equal to constants, so remove any equality
         // comparisons to constants. (Most importantly comparisons to null at
@@ -225,7 +226,7 @@ struct VISIBILITY_HIDDEN AllocationOpt : public LibCallOptimization {
 };
 
 /// ArraySliceCopyOpt - Turn slice copies into llvm.memcpy when safe
-struct VISIBILITY_HIDDEN ArraySliceCopyOpt : public LibCallOptimization {
+struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
     virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B) {
         // Verify we have a reasonable prototype for _d_array_slice_copy
         const FunctionType *FT = Callee->getFunctionType();
@@ -255,7 +256,7 @@ struct VISIBILITY_HIDDEN ArraySliceCopyOpt : public LibCallOptimization {
 
         // Equal length and the pointers definitely don't alias, so it's safe to
         // replace the call with memcpy
-        return EmitMemCpy(CI->getOperand(1), CI->getOperand(3), Size, 0, B);
+        return EmitMemCpy(CI->getOperand(1), CI->getOperand(3), Size, 1, B);
     }
 };
 
@@ -270,7 +271,7 @@ struct VISIBILITY_HIDDEN ArraySliceCopyOpt : public LibCallOptimization {
 namespace {
     /// This pass optimizes library functions from the D runtime as used by LDC.
     ///
-    class VISIBILITY_HIDDEN SimplifyDRuntimeCalls : public FunctionPass {
+    class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls : public FunctionPass {
         StringMap<LibCallOptimization*> Optimizations;
 
         // Array operations
@@ -283,7 +284,7 @@ namespace {
 
         public:
         static char ID; // Pass identification
-        SimplifyDRuntimeCalls() : FunctionPass(&ID) {}
+        SimplifyDRuntimeCalls() : FunctionPass(ID) {}
 
         void InitOptimizations();
         bool runOnFunction(Function &F);

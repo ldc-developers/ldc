@@ -12,24 +12,56 @@
 
 DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
 {
-    LLValue* v = gIR->ir->CreateAdd(lhs->getRVal(), rhs->getRVal(), "tmp");
-    return new DImValue( lhs->getType(), v );
+    Type* t = lhs->getType();
+    LLValue *l, *r;
+    l = lhs->getRVal();
+    r = rhs->getRVal();
+    assert(l->isintegral == r->isintegral);
+    
+    LLValue* res;
+    if (t->isfloating())
+        res = gIR->ir->CreateFAdd(l, r, "tmp");
+    else
+        res = gIR->ir->CreateAdd(l, r, "tmp");
+    
+    return new DImValue( t, res );
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoBinSub(DValue* lhs, DValue* rhs)
 {
-    LLValue* v = gIR->ir->CreateSub(lhs->getRVal(), rhs->getRVal(), "tmp");
-    return new DImValue( lhs->getType(), v );
+    Type* t = lhs->getType();
+    LLValue *l, *r;
+    l = lhs->getRVal();
+    r = rhs->getRVal();
+    assert(l->isintegral == r->isintegral);
+    
+    LLValue* res;
+    if (t->isfloating())
+        res = gIR->ir->CreateFSub(l, r, "tmp");
+    else
+        res = gIR->ir->CreateSub(l, r, "tmp");
+    
+    return new DImValue( t, res );
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoBinMul(Type* targettype, DValue* lhs, DValue* rhs)
 {
-    LLValue* v = gIR->ir->CreateMul(lhs->getRVal(), rhs->getRVal(), "tmp");
-    return new DImValue( targettype, v );
+    Type* t = lhs->getType();
+    LLValue *l, *r;
+    l = lhs->getRVal();
+    r = rhs->getRVal();
+    assert(l->isintegral == r->isintegral);
+    
+    LLValue* res;
+    if (t->isfloating())
+        res = gIR->ir->CreateFMul(l, r, "tmp");
+    else
+        res = gIR->ir->CreateMul(l, r, "tmp");
+    return new DImValue( targettype, res );
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -40,6 +72,7 @@ DValue* DtoBinDiv(Type* targettype, DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
+    
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFDiv(l, r, "tmp");
