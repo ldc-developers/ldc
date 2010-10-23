@@ -227,22 +227,6 @@ endif(CMAKE_MINOR_VERSION LESS 6)
 
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 
-# generate revision info
-configure_file(
-        ${PROJECT_SOURCE_DIR}/revisions.pl.in
-        ${PROJECT_BINARY_DIR}/revisions.pl
-        @ONLY
-)
-add_custom_target(
-	gen_revs_h
-	COMMAND ${PERL_EXECUTABLE} ${PROJECT_BINARY_DIR}/revisions.pl
-	DEPENDS ${PROJECT_BINARY_DIR}/revisions.pl
-	COMMENT "Generating revisions.h and llvm-version.h"
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/gen
-)
-add_dependencies(${LDC_EXE} gen_revs_h)
-#
-
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 
 set_target_properties(

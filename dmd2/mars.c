@@ -35,9 +35,6 @@
 #include "cond.h"
 #include "expression.h"
 #include "lexer.h"
-#if IN_LLVM
-#include "gen/revisions.h"
-#else
 #include "lib.h"
 
 #if WINDOWS_SEH
@@ -100,8 +97,8 @@ Global::Global()
     ;
     version = "v2.032";
 #if IN_LLVM
-    ldc_version = LDC_REV;
-    llvm_version = LLVM_REV_STR;
+    ldc_version = "LDC trunk";
+    llvm_version = "LLVM 2.8";
 #endif
     global.structalign = 8;
 

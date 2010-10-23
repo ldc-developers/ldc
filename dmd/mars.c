@@ -36,10 +36,6 @@
 #include "lexer.h"
 #include "json.h"
 
-#if IN_LLVM
-#include "gen/revisions.h"
-#endif
-
 Global global;
 
 Global::Global()
@@ -64,8 +60,8 @@ Global::Global()
     copyright = "Copyright (c) 1999-2010 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     version = "v1.063";
-    ldc_version = LDC_REV;
-    llvm_version = LLVM_REV_STR;
+    ldc_version = "LDC trunk";
+    llvm_version = "LLVM 2.8";
     global.structalign = 8;
 
     // This should only be used as a global, so the other fields are
