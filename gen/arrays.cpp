@@ -805,6 +805,29 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+DSliceValue* DtoAppendDChar(DValue* arr, Expression* exp)
+{
+    Logger::println("DtoCatAssignArray");
+    LOG_SCOPE;
+    Type *arrayType = arr->getType();
+    DValue* valueToAppend = exp->toElem(gIR);
+
+    // Prepare arguments
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcd");
+    LLSmallVector<LLValue*,2> args;
+    // ref char[] x
+    args.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
+    // dchar c
+    args.push_back(DtoBitCast(valueToAppend->getRVal(), fn->getFunctionType()->getParamType(1)));
+
+    // Call _d_arrayappendcd
+    LLValue* newArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
+
+    return getSlice(arrayType, newArray);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
 // helper for eq and cmp
 static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue* r, bool useti)
 {
@@ -1127,14 +1150,11 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         LLConstant* nul = getNullPtr(ptr->getType());
         rval = gIR->ir->CreateICmpNE(ptr, nul, "tmp");
     }
-    else if (fromtype->nextOf()->ty == Tvoid) {
-        // TODO:
+    else {
         rval = DtoArrayPtr(u);
         rval = DtoBitCast(rval, getPtrToType(tolltype));
-        rval = DtoLoad(rval);
-    }
-    else {
-        assert(0);
+        if (totype->ty != Tstruct)
+            rval = DtoLoad(rval);
     }
 
     if (isslice) {

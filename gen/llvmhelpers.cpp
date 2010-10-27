@@ -767,7 +767,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
     }
     else
     {
-        assert(!val->isLVal());
+        // assert(!val->isLVal()); TODO: what is it needed for?
         assert(DtoType(to) == DtoType(to));
         return new DImValue(to, val->getRVal());
     }
@@ -912,7 +912,17 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 assert(ex->exp);
                 AssignExp* as = ex->exp->isAssignExp();
                 assert(as && "ref vars must be initialized by an assign exp");
-                vd->ir.irLocal->value = as->e2->toElem(gIR)->getLVal();
+                DValue *val = as->e2->toElem(gIR);
+                if (val->isLVal())
+                {
+                    vd->ir.irLocal->value = val->getLVal();
+                }
+                else
+                {
+                    LLValue *newVal = DtoAlloca(val->type);
+                    DtoStore(val->getRVal(), newVal);
+                    vd->ir.irLocal->value = newVal;
+                }
             }
 
             // referenced by nested delegate?
@@ -1032,6 +1042,12 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             DsymbolExp* exp = (DsymbolExp*)tupled->objects->data[i];
             DtoDeclarationExp(exp->s);
         }
+    }
+    // template
+    else if (TemplateDeclaration* t = declaration->isTemplateDeclaration())
+    {
+        Logger::println("TemplateDeclaration");
+        // do nothing
     }
     // unsupported declaration
     else
@@ -1223,8 +1239,13 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 
 LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
 {
+#if DMDV2
+    Type* expbase = exp->type->toBasetype()->mutableOf()->merge();
+    Type* base = type->toBasetype()->mutableOf()->merge();
+#else
     Type* expbase = exp->type->toBasetype();
     Type* base = type->toBasetype();
+#endif
 
     // if not the same basetypes, we won't get the same llvm types either
     if (!expbase->equals(base))
@@ -1240,7 +1261,7 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
         }
         else
         {
-            error("cannot yet convert default initializer %s to type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
+            error("cannot yet convert default initializer %s of type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
             fatal();
         }
         assert(0);
@@ -1504,6 +1525,8 @@ size_t realignOffset(size_t offset, Type* type)
 Type * stripModifiers( Type * type )
 {
 #if DMDV2
+        if (type->ty == Tfunction)
+            return type;
 	Type *t = type;
 	while (t->mod)
 	{

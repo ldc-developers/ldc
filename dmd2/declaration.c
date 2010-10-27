@@ -525,7 +525,7 @@ void AliasDeclaration::semantic(Scope *sc)
             {
                 FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
 #if IN_LLVM
-		fa->importprot = importprot;
+                fa->importprot = importprot;
 #endif
                 if (!fa->overloadInsert(overnext))
                     ScopeDsymbol::multiplyDefined(0, f, overnext);

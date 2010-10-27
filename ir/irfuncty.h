@@ -101,7 +101,7 @@ struct IrFuncTy : IrBase
         reverseParams = false;
     }
 
-    llvm::Value* putRet(Type* dty, DValue* dval);
+    llvm::Value* putRet(Type* dty, DValue* dval, bool isref = false);
     llvm::Value* getRet(Type* dty, DValue* dval);
 
     llvm::Value* putParam(Type* dty, int idx, DValue* dval);

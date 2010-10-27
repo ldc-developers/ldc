@@ -880,8 +880,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 #if !IN_LLVM
         sc2->tf = NULL;
 #else
-	sc2->enclosingFinally = NULL;
-	sc2->enclosingScopeExit = NULL;
+        sc2->enclosingFinally = NULL;
+        sc2->enclosingScopeExit = NULL;
 #endif
         sc2->noctor = 0;
 
@@ -1012,7 +1012,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (f->parameters)
         {
             for (size_t i = 0; i < Parameter::dim(f->parameters); i++)
-        {	Parameter *arg = (Parameter *)Parameter::getNth(f->parameters, i);
+            {	Parameter *arg = (Parameter *)Parameter::getNth(f->parameters, i);
                 Type* nw = arg->type->semantic(0, sc);
                 if (arg->type != nw) {
                     arg->type = nw;

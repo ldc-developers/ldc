@@ -114,7 +114,7 @@ char *Declaration::mangle()
                     break;
 
 #if IN_LLVM
-        case LINKintrinsic:
+                case LINKintrinsic:
 #endif
                 case LINKc:
                 case LINKwindows:

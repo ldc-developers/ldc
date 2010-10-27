@@ -1538,7 +1538,7 @@ Type *Type::merge()
 
         //if (next)
             //next = next->merge();
-        toDecoBuffer(&buf, false);
+        toDecoBuffer(&buf, 0, false);
         sv = stringtable.update((char *)buf.data, buf.offset);
         if (sv->ptrvalue)
         {   t = (Type *) sv->ptrvalue;
@@ -1557,7 +1557,7 @@ Type *Type::merge()
             // or Type::equals fails, which breaks a bunch of stuff,
             // like covariant member function overloads.
             OutBuffer mangle;
-            toDecoBuffer(&mangle, true);
+            toDecoBuffer(&mangle, 0, true);
             StringValue* sv2 = deco_stringtable.update((char *)mangle.data, mangle.offset);
             if (sv2->ptrvalue)
             {  Type* t2 = (Type *) sv2->ptrvalue;
@@ -1986,7 +1986,7 @@ Identifier *Type::getTypeInfoIdent(int internal)
             buf.writeByte(mangleChar[((TypeArray *)this)->next->ty]);
     }
     else
-	toDecoBuffer(&buf, true);
+       toDecoBuffer(&buf, 0, true);
     len = buf.offset;
     name = (char *)alloca(19 + sizeof(len) * 3 + len + 1);
     buf.writeByte(0);

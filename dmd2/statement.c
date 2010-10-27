@@ -1849,39 +1849,39 @@ Lagain:
                 /* Call:
                  *      _aaApply(aggr, keysize, flde)
                  */
-		//LDC: Build arguments.
-		static FuncDeclaration *aaApply2_fd = NULL;
-		static TypeDelegate* aaApply2_dg;
-		if(!aaApply2_fd) {
-			Parameters* args = new Parameters;
-			args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
-			args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
-			Parameters* dgargs = new Parameters;
-			dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-			dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-		    aaApply2_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
-			args->push(new Parameter(STCin, aaApply2_dg, NULL, NULL));
-		    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply2");
-		}
-		static FuncDeclaration *aaApply_fd = NULL;
-        static TypeDelegate* aaApply_dg;
-		if(!aaApply_fd) {
-			Parameters* args = new Parameters;
-			args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
-			args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
-			Parameters* dgargs = new Parameters;
-			dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-		    aaApply_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
-			args->push(new Parameter(STCin, aaApply_dg, NULL, NULL));
-		    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply");
-		}
-		if (dim == 2) {
-		    fdapply = aaApply2_fd;
-            fldeTy = aaApply2_dg;
-		} else {
-		    fdapply = aaApply_fd;
-            fldeTy = aaApply_dg;
-		}
+                //LDC: Build arguments.
+                static FuncDeclaration *aaApply2_fd = NULL;
+                static TypeDelegate* aaApply2_dg;
+                if(!aaApply2_fd) {
+                    Parameters* args = new Parameters;
+                    args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+                    args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
+                    Parameters* dgargs = new Parameters;
+                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+                    aaApply2_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+                    args->push(new Parameter(STCin, aaApply2_dg, NULL, NULL));
+                    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply2");
+                }
+                static FuncDeclaration *aaApply_fd = NULL;
+                        static TypeDelegate* aaApply_dg;
+                if(!aaApply_fd) {
+                    Parameters* args = new Parameters;
+                    args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+                    args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
+                    Parameters* dgargs = new Parameters;
+                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+                    aaApply_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+                    args->push(new Parameter(STCin, aaApply_dg, NULL, NULL));
+                    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply");
+                }
+                if (dim == 2) {
+                    fdapply = aaApply2_fd;
+                    fldeTy = aaApply2_dg;
+                } else {
+                    fdapply = aaApply_fd;
+                    fldeTy = aaApply_dg;
+                }
                 ec = new VarExp(0, fdapply);
                 Expressions *exps = new Expressions();
                 exps->push(aggr);
@@ -1890,12 +1890,12 @@ Lagain:
                 exps->push(new IntegerExp(0, keysize, Type::tsize_t));
 
 #if IN_LLVM
-        // LDC paint delegate argument to the type runtime expects
-        if (!fldeTy->equals(flde->type))
-        {
-            flde = new CastExp(loc, flde, flde->type);
-            flde->type = fldeTy;
-        }
+                // LDC paint delegate argument to the type runtime expects
+                if (!fldeTy->equals(flde->type))
+                {
+                    flde = new CastExp(loc, flde, flde->type);
+                    flde->type = fldeTy;
+                }
 #endif
                 exps->push(flde);
                 e = new CallExp(loc, ec, exps);

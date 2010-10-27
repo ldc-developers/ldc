@@ -97,17 +97,29 @@ void ReturnStatement::toIR(IRState* p)
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
             else
                 // do abi specific transformations on the return value
+#if DMDV2
+                v = p->func()->type->fty.putRet(exp->type, exp->toElem(p), p->func()->type->isref);
+#else
                 v = p->func()->type->fty.putRet(exp->type, exp->toElem(p));
+#endif
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
 
             IrFunction* f = p->func();
-            // Hack around LDC assuming structs are in memory:
-            // If the function returns a struct, and the return value is a
-            // pointer to a struct, load from it before returning.
-            if (f->type->next->ty == Tstruct && isaPointer(v->getType())) {
-                Logger::println("Loading struct type for return");
+            // Hack around LDC assuming structs and static arrays are in memory:
+            // If the function returns a struct or a static array, and the return
+            // value is a pointer to a struct or a static array, load from it
+            // before returning.
+            int ty = f->type->next->ty;
+            if (v->getType() != p->topfunc()->getReturnType() &&
+                (ty == Tstruct
+#if DMDV2
+                 || ty == Tsarray
+#endif
+                 ) && isaPointer(v->getType()))
+            {
+                Logger::println("Loading value for return");
                 v = DtoLoad(v);
             }
 

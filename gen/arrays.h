@@ -28,6 +28,7 @@ void DtoCatAssignElement(Loc& loc, Type* type, DValue* arr, Expression* exp);
 DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);
 DSliceValue* DtoCatArrays(Type* type, Expression* e1, Expression* e2);
 DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2);
+DSliceValue* DtoAppendDChar(DValue* arr, Expression* exp);
 
 void DtoStaticArrayCopy(LLValue* dst, LLValue* src);
 

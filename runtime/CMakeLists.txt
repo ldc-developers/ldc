@@ -75,6 +75,29 @@ elseif(D_VERSION EQUAL 2)
 		${RUNTIME_DIR}/src/core/stdc/stdarg.d
 	)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
+
+    if(PHOBOS2_DIR)
+        file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
+        file(GLOB PHOBOS2_D_MATH ${PHOBOS2_DIR}/std/internal/math/*.d)
+        file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
+        if(UNIX)
+            file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/linux/*.d)
+        elseif(WIN32)
+            file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/windows/*.d)
+        elseif(APPLE)
+            file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/osx/*.d)
+        endif(UNIX)
+        file(GLOB ZLIB_C ${PHOBOS2_DIR}/etc/c/zlib/*.c)
+        list(REMOVE_ITEM ZLIB_C
+            ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c
+            ${PHOBOS2_DIR}/etc/c/zlib/example.c
+        )
+        if(WIN32)
+            file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
+        endif(WIN32)
+        list(APPEND PHOBOS2_D ${PHOBOS2_D_MATH} ${PHOBOS2_D_WIN}
+            ${PHOBOS2_D_C} ${PHOBOS2_D_C_SYS})
+    endif(PHOBOS2_DIR)
 endif(D_VERSION EQUAL 1)
 
 # should only be necessary if run independently from ldc cmake project
@@ -212,3 +235,12 @@ set_target_properties(
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
 add_custom_target(runtime DEPENDS ${LIBS} ${BCLIBS})
+
+if(PHOBOS2_DIR)
+    foreach(f ${PHOBOS2_D})
+         dc(${f} PHOBOS2_O PHOBOS2_BC ${RUNTIME_DIR}/src/ "-I${PHOBOS2_DIR}" ${PHOBOS2_DIR})
+    endforeach(f)
+
+    add_library(phobos2 ${ZLIB_C} ${PHOBOS2_O})
+    add_dependencies(phobos2 runtime)
+endif(PHOBOS2_DIR)

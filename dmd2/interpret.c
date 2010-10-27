@@ -1252,12 +1252,10 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d)
     if (v)
     {
 #if DMDV2
-#if !IN_LLVM  // TODO:
         /* Magic variable __ctfe always returns true when interpreting
          */
         if (v->ident == Id::ctfe)
             return new IntegerExp(loc, 1, Type::tbool);
-#endif
         if ((v->isConst() || v->isImmutable() || v->storage_class & STCmanifest) && v->init && !v->value)
 #else
         if (v->isConst() && v->init)

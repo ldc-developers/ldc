@@ -551,10 +551,17 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         retllval = tf->fty.getRet(tf->next, &dretval);
     }
 
-    // Hack around LDC assuming structs are in memory:
-    // If the function returns a struct, and the return value is not a
-    // pointer to a struct, store it to a stack slot before continuing.
-    if (tf->next->ty == Tstruct && !isaPointer(retllval)) {
+    // Hack around LDC assuming structs and static arrays are in memory:
+    // If the function returns a struct or a static array, and the return
+    // value is not a pointer to a struct or a static array, store it to
+    // a stack slot before continuing.
+    int ty = tf->next->ty;
+    if ((ty == Tstruct && !isaPointer(retllval))
+#if DMDV2
+        || (ty == Tsarray && isaArray(retllval))
+#endif
+        )
+    {
         Logger::println("Storing return value to stack slot");
         LLValue* mem = DtoRawAlloca(retllval->getType(), 0);
         DtoStore(retllval, mem);
@@ -608,8 +615,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     call.setAttributes(attrlist);
 
     // if we are returning through a pointer arg
+    // or if we are returning a reference
     // make sure we provide a lvalue back!
-    if (retinptr)
+    if (retinptr
+#if DMDV2
+        || tf->isref
+#endif
+        )
         return new DVarValue(resulttype, retllval);
 
     return new DImValue(resulttype, retllval);

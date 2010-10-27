@@ -92,6 +92,14 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
 
+#if DMDV2
+        /* The magic variable __ctfe is always false at runtime
+         */
+        if (vd->ident == Id::ctfe) {
+            return new DConstValue(type, DtoConstBool(false));
+        }
+#endif
+
         // this is an error! must be accessed with DotVarExp
         if (var->needThis())
         {
@@ -763,6 +771,15 @@ DValue* ModExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+void CallExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = toElem(p)->getLVal();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s @ %s\n", toChars(), type->toChars());
@@ -823,7 +840,6 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
         }
     }
-
     return DtoCallFunction(loc, type, fnval, arguments);
 }
 
@@ -1439,6 +1455,10 @@ DValue* CmpExp::toElem(IRState* p)
         Logger::println("static or dynamic array");
         eval = DtoArrayCompare(loc,op,l,r);
     }
+    else if (t->ty == Taarray)
+    {
+        eval = LLConstantInt::getFalse(gIR->context());
+    }
     else
     {
         assert(0 && "Unsupported CmpExp type");
@@ -1804,8 +1824,10 @@ DValue* AssertExp::toElem(IRState* p)
         p->scope() = IRScope(endbb,oldend);
     }
 
-    // no meaningful return value
-    return NULL;
+    // DMD allows syntax like this:
+    // f() == 0 || assert(false)
+    // TODO: or should we return true?
+    return new DImValue(type, DtoConstBool(false));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2239,8 +2261,15 @@ DValue* CatAssignExp::toElem(IRState* p)
         DSliceValue* slice = DtoCatAssignArray(l,e2);
         DtoAssign(loc, l, slice);
     }
-    else
+    else if (elemtype->ty == Tchar) {
+        if (e2type->ty == Tdchar)
+            DtoAppendDChar(l, e2);
+        else
+            assert(0 && "cannot append the element to a string");
+    }
+    else {
         assert(0 && "only one element at a time right now");
+    }
 
     return l;
 }
@@ -2632,10 +2661,31 @@ DValue* TypeExp::toElem(IRState *p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* TupleExp::toElem(IRState *p)
+{
+    Logger::print("TupleExp::toElem() %s\n", toChars());
+    std::vector<const LLType*> types(exps->dim, NULL);
+    for (size_t i = 0; i < exps->dim; i++)
+    {
+        Expression *el = (Expression *)exps->data[i];
+        DValue* ep = el->toElem(p);
+        types[i] = ep->getRVal()->getType();
+    }
+    LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
+    for (size_t i = 0; i < exps->dim; i++)
+    {
+        Expression *el = (Expression *)exps->data[i];
+        DValue* ep = el->toElem(p);
+        DtoStore(ep->getRVal(), DtoGEPi(val,0,i));
+    }
+    return new DImValue(type, val);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
 STUB(ScopeExp);
-STUB(TupleExp);
 
 #if DMDV2
 STUB(SymbolExp);

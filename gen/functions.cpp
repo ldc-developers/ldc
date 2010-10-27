@@ -64,11 +64,21 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             lidx++;
         }
         // sext/zext return
-        else if (unsigned se = DtoShouldExtend(rt))
+        else
         {
-            a = se;
+            Type *t = rt;
+#if DMDV2
+            if (f->isref)
+                t = t->pointerTo();
+#endif
+            if (unsigned se = DtoShouldExtend(t))
+                a = se;
         }
+#if DMDV2
+        fty.ret = new IrFuncTyArg(rt, f->isref, a);
+#else
         fty.ret = new IrFuncTyArg(rt, false, a);
+#endif
     }
     lidx++;
 
@@ -146,6 +156,9 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
             TypeDelegate *ltd = new TypeDelegate(ltf);
             argtype = ltd;
+#if DMDV2
+            byref = byref && arg->type->toBasetype()->ty != Tsarray;
+#endif
         }
         // byval
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))

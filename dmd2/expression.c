@@ -6454,8 +6454,12 @@ Expression *DelegateExp::semantic(Scope *sc)
     {
 	m = sc->module;
         e1 = e1->semantic(sc);
-    // LDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
-	type = new TypeDelegate(func->type->syntaxCopy());
+#if IN_LLVM
+        // LDC we need a copy as we store the LLVM type in TypeFunction, and delegate/members have different types for 'this'
+        type = new TypeDelegate(func->type->syntaxCopy());
+#else
+        type = new TypeDelegate(func->type);
+#endif
         type = type->semantic(loc, sc);
         AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
         if (func->needThis())
@@ -7416,7 +7420,7 @@ Expression *AddrExp::semantic(Scope *sc)
 
             if (f)
             {
-#if !IN_LLVM
+#if IN_LLVM
                 if (f->isIntrinsic())
                 {
                     error("cannot take the address of intrinsic function %s", e1->toChars());

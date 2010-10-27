@@ -557,9 +557,6 @@ Expression *CastExp::optimize(int result)
         e1->type->nextOf()->size() == type->nextOf()->size()
        )
     {
-        // LDC make a copy before adjusting type to avoid
-        // messing up the type of an existing initializer
-        e1 = e1->syntaxCopy();
         Expression *e = e1->castTo(NULL, type);
         if (X) printf(" returning1 %s\n", e->toChars());
         return e;
