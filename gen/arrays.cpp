@@ -806,25 +806,41 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue* DtoAppendDChar(DValue* arr, Expression* exp)
+DSliceValue* DtoAppendDChar(DValue* arr, Expression* exp, const char *func)
 {
-    Logger::println("DtoCatAssignArray");
-    LOG_SCOPE;
     Type *arrayType = arr->getType();
     DValue* valueToAppend = exp->toElem(gIR);
 
     // Prepare arguments
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcd");
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
     LLSmallVector<LLValue*,2> args;
-    // ref char[] x
+    // ref string x
     args.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
     // dchar c
     args.push_back(DtoBitCast(valueToAppend->getRVal(), fn->getFunctionType()->getParamType(1)));
 
-    // Call _d_arrayappendcd
+    // Call function
     LLValue* newArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
 
     return getSlice(arrayType, newArray);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DSliceValue* DtoAppendDCharToString(DValue* arr, Expression* exp)
+{
+    Logger::println("DtoAppendDCharToString");
+    LOG_SCOPE;
+    return DtoAppendDChar(arr, exp, "_d_arrayappendcd");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DSliceValue* DtoAppendDCharToUnicodeString(DValue* arr, Expression* exp)
+{
+    Logger::println("DtoAppendDCharToUnicodeString");
+    LOG_SCOPE;
+    return DtoAppendDChar(arr, exp, "_d_arrayappendwd");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

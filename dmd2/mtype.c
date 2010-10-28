@@ -1753,11 +1753,7 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
     {
         if (ty == Tvoid)
             error(loc, "void does not have an initializer");
-#if IN_LLVM
-        e = defaultInit(loc);
-#else
         e = defaultInitLiteral(loc);
-#endif
     }
     else if (ident == Id::mangleof)
     {   const char *s;
@@ -4303,7 +4299,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 void TypeAArray::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 {
     Type::toDecoBuffer(buf, flag, mangle);
-    index->toDecoBuffer(buf, mangle);
+    index->toDecoBuffer(buf, 0, mangle);
     next->toDecoBuffer(buf, (flag & 0x100) ? 0 : mod, mangle);
 }
 
@@ -4597,6 +4593,8 @@ TypeFunction::TypeFunction(Parameters *parameters, Type *treturn, int varargs, e
 #if IN_LLVM
     this->funcdecl = NULL;
 #endif
+    if (stc & STCpure)
+        this->ispure = true;
     if (stc & STCnothrow)
         this->isnothrow = true;
     if (stc & STCproperty)
@@ -4797,8 +4795,8 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
         case LINKpascal:        mc = 'V';       break;
         case LINKcpp:           mc = 'R';       break;
 
-    // LDC
-    case LINKintrinsic: mc = 'Q';   break;
+        // LDC
+        case LINKintrinsic: mc = 'Q';   break;
 
         default:
             assert(0);
@@ -4833,7 +4831,7 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
         {
             AggregateDeclaration* ad = funcdecl->isMember2();
             buf->writeByte('M');
-            ad->type->toDecoBuffer(buf, false);
+            ad->type->toDecoBuffer(buf, 0, false);
         }
         /* BUG This causes problems with delegate types
            On the other hand, the llvm type for nested functions *is* different
@@ -4845,7 +4843,7 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
             if (funcdecl->toParent2() && funcdecl->toParent2()->isFuncDeclaration())
             {
                 FuncDeclaration* fd = funcdecl->toParent2()->isFuncDeclaration();
-                fd->type->toDecoBuffer(buf, false);
+                fd->type->toDecoBuffer(buf, 0, false);
             }
         }*/
     }
@@ -4855,7 +4853,7 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
     //if (buf->data[buf->offset - 1] == '@') halt();
     buf->writeByte('Z' - varargs);      // mark end of arg list
     assert(next);
-    next->toDecoBuffer(buf, mangle);
+    next->toDecoBuffer(buf, 0, mangle);
     inuse--;
 }
 
@@ -7152,6 +7150,9 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
 #if LOGDEFAULTINIT
     printf("TypeStruct::defaultInitLiteral() '%s'\n", toChars());
 #endif
+#if IN_LLVM
+    return defaultInit(loc);
+#else
     if (sym->isNested())
         return defaultInit(loc);
     Expressions *structelems = new Expressions();
@@ -7171,6 +7172,7 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
     // sym->type != NULL ?
     structinit->type = sym->type;
     return structinit;
+#endif
 }
 
 
@@ -8237,7 +8239,7 @@ void Parameter::argsToDecoBuffer(OutBuffer *buf, Parameters *arguments, bool man
         for (size_t i = 0; i < dim; i++)
         {
             Parameter *arg = Parameter::getNth(arguments, i);
-	    arg->toDecoBuffer(buf, mangle);
+           arg->toDecoBuffer(buf, mangle);
         }
     }
 }

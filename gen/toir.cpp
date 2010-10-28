@@ -2263,9 +2263,15 @@ DValue* CatAssignExp::toElem(IRState* p)
     }
     else if (elemtype->ty == Tchar) {
         if (e2type->ty == Tdchar)
-            DtoAppendDChar(l, e2);
+            DtoAppendDCharToString(l, e2);
         else
             assert(0 && "cannot append the element to a string");
+    }
+    else if (elemtype->ty == Twchar) {
+        if (e2type->ty == Tdchar)
+            DtoAppendDCharToUnicodeString(l, e2);
+        else
+            assert(0 && "cannot append the element to an unicode string");
     }
     else {
         assert(0 && "only one element at a time right now");

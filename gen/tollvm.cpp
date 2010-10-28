@@ -272,6 +272,13 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         // extern(C) functions are always external
         else if (ft->linkage == LINKc)
             return llvm::GlobalValue::ExternalLinkage;
+        // If a function without a body is nested in another
+        // function, we cannot use internal linkage for that
+        // function (see below about nested functions)
+        // FIXME: maybe there is a better way without emission
+        // of needless symbols?
+        if (!fdecl->fbody)
+            return llvm::GlobalValue::ExternalLinkage;
     }
     // class
     else if (ClassDeclaration* cd = sym->isClassDeclaration())

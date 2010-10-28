@@ -92,8 +92,15 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
     LLValue* ctx = 0;
     if (irfunc->decl->isMember2())
     {
+    #if DMDV2
+        AggregateDeclaration* cd = irfunc->decl->isMember2();
+        LLValue* val = irfunc->thisArg;
+        if (cd->isClassDeclaration())
+            val = DtoLoad(val);
+    #else
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
         LLValue* val = DtoLoad(irfunc->thisArg);
+    #endif
         ctx = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
     else if (irfunc->nestedVar)
@@ -267,7 +274,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
                 Logger::cout() << "Context depth: " << ctxDepth << '\n';
                 
                 if (neededDepth >= ctxDepth) {
-                    assert(neededDepth <= ctxDepth + 1 && "How are we going more than one nesting level up?");
+                    // assert(neededDepth <= ctxDepth + 1 && "How are we going more than one nesting level up?");
                     // fd needs the same context as we do, so all is well
                     Logger::println("Calling sibling function or directly nested function");
                 } else {

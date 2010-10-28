@@ -444,7 +444,12 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
             r = DtoCast(loc, rhs, lhs->getType())->getRVal();
             if (Logger::enabled())
                 Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
-            assert(r->getType() == l->getType()->getContainedType(0));
+#if 1
+            if(r->getType() != lit) // It's wierd but it happens. TODO: try to remove this hack
+                r = DtoBitCast(r, lit);
+#else
+            assert(r->getType() == lit);
+#endif
         }
         gIR->ir->CreateStore(r, l);
     }
@@ -1525,8 +1530,8 @@ size_t realignOffset(size_t offset, Type* type)
 Type * stripModifiers( Type * type )
 {
 #if DMDV2
-        if (type->ty == Tfunction)
-            return type;
+	if (type->ty == Tfunction)
+		return type;
 	Type *t = type;
 	while (t->mod)
 	{

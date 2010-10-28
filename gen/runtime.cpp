@@ -292,6 +292,25 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)
             ->setAttributes(Attr_NoAlias);
     }
+    // void* _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
+    // void* _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
+    // void* _d_newarraymvT(TypeInfo ti, size_t length, size_t* dims)
+    {
+        llvm::StringRef fname("_d_newarraymT");
+        llvm::StringRef fname2("_d_newarraymiT");
+        llvm::StringRef fname3("_d_newarraymvT");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(sizeTy);
+        types.push_back(rt_ptr(sizeTy));
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_NoAlias_3_NoCapture);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
+            ->setAttributes(Attr_NoAlias_3_NoCapture);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)
+            ->setAttributes(Attr_NoAlias_3_NoCapture);
+    }
 #else
     // void[] _d_newarrayT(TypeInfo ti, size_t length)
     // void[] _d_newarrayiT(TypeInfo ti, size_t length)
@@ -305,11 +324,8 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
-#endif
-
-    // void* _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
-    // void* _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
-    // D1: void* _d_newarraymvT(TypeInfo ti, size_t length, size_t* dims)
+    // void[] _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
+    // void[] _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
     {
         llvm::StringRef fname("_d_newarraymT");
         llvm::StringRef fname2("_d_newarraymiT");
@@ -317,17 +333,11 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(typeInfoTy);
         types.push_back(sizeTy);
         types.push_back(rt_ptr(sizeTy));
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_NoAlias_3_NoCapture);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
-            ->setAttributes(Attr_NoAlias_3_NoCapture);
-#if DMDV1
-        llvm::StringRef fname3("_d_newarraymvT");
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)
-            ->setAttributes(Attr_NoAlias_3_NoCapture);
-#endif
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
+#endif
 
     // D1:
     // void* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
@@ -386,6 +396,15 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::StringRef fname("_d_arrayappendcd");
         std::vector<const LLType*> types;
         types.push_back(getPtrToType(stringTy));
+        types.push_back(intTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+    // void[] _d_arrayappendwd(ref wchar[] x, dchar c)
+    {
+        llvm::StringRef fname("_d_arrayappendwd");
+        std::vector<const LLType*> types;
+        types.push_back(getPtrToType(wstringTy));
         types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);

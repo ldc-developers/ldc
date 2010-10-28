@@ -583,12 +583,22 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             switch(rbase->ty)
             {
             case Tarray:
+            #if DMDV2
+                if (tf->isref)
+                    retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+                else
+            #endif
                 retllval = DtoAggrPaint(retllval, DtoType(rbase));
                 break;
 
             case Tclass:
             case Taarray:
             case Tpointer:
+            #if DMDV2
+                if (tf->isref)
+                    retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+                else
+            #endif
                 retllval = DtoBitCast(retllval, DtoType(rbase));
                 break;
 
