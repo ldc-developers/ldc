@@ -1,0 +1,243 @@
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/conv.d phobos/std/conv.d
+--- phobos-orig/std/conv.d	2010-09-17 00:27:48.000000000 +0400
++++ phobos/std/conv.d	2010-10-29 12:06:21.221035000 +0400
+@@ -1395,7 +1395,7 @@
+     else // not hex
+     {
+         if (toupper(p.front) == 'N')
+-        {
++        {   
+             // nan
+             enforce((p.popFront(), !p.empty && toupper(p.front) == 'A')
+                     && (p.popFront(), !p.empty && toupper(p.front) == 'N'),
+@@ -3191,6 +3191,11 @@
+ T toImpl(T, S)(S d) if (is(Unqual!S == double) && isSomeString!(T))
+ {
+     //alias Unqual!(ElementType!T) Char;
++    version(LDC) // FIXME: workarond for case when this function returns "-nan" 
++    {
++        if (isnan(d))
++            return "nan";
++    }
+     char[20] buffer;
+     int len = sprintf(buffer.ptr, "%g", d);
+     return to!T(buffer[0 .. len].dup);
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/functional.d phobos/std/functional.d
+--- phobos-orig/std/functional.d	2010-09-17 00:27:48.000000000 +0400
++++ phobos/std/functional.d	2010-10-29 12:01:35.285035001 +0400
+@@ -713,6 +713,13 @@
+         assert(dg_pure_nothrow() == 7);
+         //assert(dg_pure_nothrow_safe() == 8);
+     }
++    version (LDC) 
++    {
++        // FIXME: 
++    } 
++    else 
++    {
++
+     /* test for linkage */
+     {
+         struct S
+@@ -724,4 +731,6 @@
+         auto dg_xtrnD = toDelegate(&S.xtrnD);
+         static assert(! is(typeof(dg_xtrnC) == typeof(dg_xtrnD)));
+     }
++
++    }
+ }
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/internal/math/biguintx86.d phobos/std/internal/math/biguintx86.d
+--- phobos-orig/std/internal/math/biguintx86.d	2010-09-17 00:27:48.000000000 +0400
++++ phobos/std/internal/math/biguintx86.d	2010-10-26 14:08:51.480925001 +0400
+@@ -733,7 +733,10 @@
+     // EDI = dest
+     // ESI = src
+ 
+-    enum string OP = (op=='+')? "add" : "sub";
++    version(LDC) { 
++    } else {
++        enum string OP = (op=='+')? "add" : "sub";
++    }
+     version(D_PIC) {
+         enum { zero = 0 }
+     } else {
+@@ -767,7 +770,10 @@
+         jnz L_enter_odd;
+ }
+                 // Main loop, with entry point for even length
+-mixin(asmMulAdd_innerloop(OP, "ESP+LASTPARAM"));
++version(LDC)
++    mixin(asmMulAdd_innerloop((op=='+')? "add" : "sub", "ESP+LASTPARAM"));
++else
++    mixin(asmMulAdd_innerloop(OP, "ESP+LASTPARAM"));
+ asm {
+         mov EAX, EBP; // get final carry
+         pop EBP;
+@@ -777,6 +783,9 @@
+         ret 5*4;
+ }
+ L_enter_odd:
++version(LDC)
++    mixin(asmMulAdd_enter_odd((op=='+')? "add" : "sub", "ESP+LASTPARAM"));
++else
+     mixin(asmMulAdd_enter_odd(OP, "ESP+LASTPARAM"));
+ }
+ 
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
+--- phobos-orig/std/math.d	2010-09-17 00:27:48.000000000 +0400
++++ phobos/std/math.d	2010-10-29 12:08:18.925035001 +0400
+@@ -318,7 +318,10 @@
+  *      Results are undefined if |x| >= $(POWER 2,64).
+  */
+ 
+-@safe pure nothrow real cos(real x);       /* intrinsic */
++version(LDC)
++    @safe pure nothrow real cos(real x) { return llvm_cos(x); }
++else
++    @safe pure nothrow real cos(real x);       /* intrinsic */
+ 
+ /***********************************
+  * Returns sine of x. x is in radians.
+@@ -333,7 +336,10 @@
+  *      Results are undefined if |x| >= $(POWER 2,64).
+  */
+ 
+-@safe pure nothrow real sin(real x);       /* intrinsic */
++version(LDC)
++    @safe pure nothrow real sin(real x) { return llvm_sin(x); }
++else
++    @safe pure nothrow real sin(real x);       /* intrinsic */
+ 
+ 
+ /***********************************
+@@ -831,6 +837,20 @@
+  *      )
+  */
+ 
++version(LDC) 
++{
++
++@safe pure nothrow
++{
++    float sqrt(float x) { return llvm_sqrt(x); }
++    double sqrt(double x)  { return llvm_sqrt(x); }
++    real sqrt(real x) { return llvm_sqrt(x); }
++}
++
++}
++else
++{
++
+ @safe pure nothrow
+ {
+     float sqrt(float x);    /* intrinsic */
+@@ -838,6 +858,8 @@
+     real sqrt(real x);      /* intrinsic */ /// ditto
+ }
+ 
++}
++
+ @trusted pure nothrow {  // Should be @safe.  See bugs 4628, 4630.
+     // Create explicit overloads for integer sqrts.  No ddoc for these because
+     // hopefully a more elegant solution will eventually be found, so we don't
+@@ -1413,9 +1435,22 @@
+  * Compute n * 2$(SUP exp)
+  * References: frexp
+  */
++version(LDC)
++{
++
++pure nothrow real ldexp(real n, int exp)
++{
++    return core.stdc.math.ldexpl(n, exp);
++}
++
++}
++else
++{
+ 
+ @safe pure nothrow real ldexp(real n, int exp);    /* intrinsic */
+ 
++}
++
+ unittest {
+     assert(ldexp(1, -16384) == 0x1p-16384L);
+     assert(ldexp(1, -16382) == 0x1p-16382L);
+@@ -1608,7 +1643,31 @@
+  *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
+  *      )
+  */
+-@safe pure nothrow real fabs(real x);      /* intrinsic */
++version(LDC) {
++    version( FreeBSD )
++        version (all) // < 8-CURRENT
++            private extern(C) real fabsl(real x) { return fabs(x); }
++        else
++            private extern(C) real fabsl(real x);
++    else
++        private extern(C) real fabsl(real x);
++    pure nothrow real fabs(real x) 
++    {
++        version(D_InlineAsm_X86)
++        {
++            asm {
++                fld x;
++                fabs;
++            }
++        }
++        else
++        {
++            return fabsl(x);
++        }
++    }
++} else {
++    @safe pure nothrow real fabs(real x);      /* intrinsic */
++}
+ 
+ 
+ /***********************************************************************
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/openrj.d phobos/std/openrj.d
+--- phobos-orig/std/openrj.d	2009-09-03 12:01:40.000000000 +0400
++++ phobos/std/openrj.d	2010-10-26 13:17:37.480925001 +0400
+@@ -620,11 +620,11 @@
+     /**
+      *
+      */
+-    int opApply(int delegate(inout Field field) dg)
++    int opApply(int delegate(ref Field field) dg)
+     {
+         int result  =   0;
+ 
+-        foreach (inout field; m_fields)
++        foreach (ref Field field; m_fields)
+         {
+             result = dg(field);
+ 
+@@ -1000,11 +1000,11 @@
+     /**
+      *
+      */
+-    int opApply(int delegate(inout Record record) dg)
++    int opApply(int delegate(ref Record record) dg)
+     {
+         int result  =   0;
+ 
+-        foreach(inout Record record; m_records)
++        foreach(ref Record record; m_records)
+         {
+             result = dg(record);
+ 
+@@ -1020,11 +1020,11 @@
+     /**
+      *
+      */
+-    int opApply(int delegate(inout Field field) dg)
++    int opApply(int delegate(ref Field field) dg)
+     {
+         int result  =   0;
+ 
+-        foreach(inout Field field; m_fields)
++        foreach(ref Field field; m_fields)
+         {
+             result = dg(field);
+ 

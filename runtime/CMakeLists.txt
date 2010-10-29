@@ -53,6 +53,9 @@ if(D_VERSION EQUAL 1)
 	set(RUNTIME_INCLUDE ${RUNTIME_DC_DIR})
 	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
 	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
+	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
+	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_CC druntime-core)
 	set(RUNTIME_GC druntime-gc-basic)
@@ -63,6 +66,21 @@ elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
 	file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
 	file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
+	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
+	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+	list(REMOVE_ITEM DCRT_D
+		${RUNTIME_DC_DIR}/arrayassign.d
+		${RUNTIME_DC_DIR}/arraybyte.d
+		${RUNTIME_DC_DIR}/arraycast.d
+		${RUNTIME_DC_DIR}/arraycat.d
+		${RUNTIME_DC_DIR}/arraydouble.d
+		${RUNTIME_DC_DIR}/arrayfloat.d
+		${RUNTIME_DC_DIR}/arrayreal.d
+		${RUNTIME_DC_DIR}/arrayshort.d
+		${RUNTIME_DC_DIR}/deh2.d
+	)
+	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
+	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c)
 	if(UNIX)
 		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 	elseif(WIN32)
@@ -139,10 +157,6 @@ if(D_VERSION EQUAL 2)
 		add_custom_target(patch DEPENDS patch-runtime recache ${LDC_IMPORTS})
 	endif(NOT PATCH_EXE)
 endif(D_VERSION EQUAL 2)
-
-file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 
 macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	if ("${PATH}" STREQUAL "")
