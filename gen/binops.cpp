@@ -16,7 +16,6 @@ DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    assert(l->isintegral == r->isintegral);
     
     LLValue* res;
     if (t->isfloating())
@@ -35,7 +34,6 @@ DValue* DtoBinSub(DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    assert(l->isintegral == r->isintegral);
     
     LLValue* res;
     if (t->isfloating())
@@ -54,7 +52,6 @@ DValue* DtoBinMul(Type* targettype, DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    assert(l->isintegral == r->isintegral);
     
     LLValue* res;
     if (t->isfloating())
