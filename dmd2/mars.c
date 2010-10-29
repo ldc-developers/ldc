@@ -35,6 +35,7 @@
 #include "cond.h"
 #include "expression.h"
 #include "lexer.h"
+#if !IN_LLVM
 #include "lib.h"
 #include "json.h"
 

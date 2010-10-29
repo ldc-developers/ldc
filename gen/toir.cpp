@@ -771,15 +771,6 @@ DValue* ModExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void CallExp::cacheLvalue(IRState* p)
-{
-    Logger::println("Caching l-value of %s", toChars());
-    LOG_SCOPE;
-    cachedLvalue = toElem(p)->getLVal();
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s @ %s\n", toChars(), type->toChars());
