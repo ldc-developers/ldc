@@ -21,60 +21,6 @@ using namespace llvm::dwarf;
 
 #ifndef DISABLE_DEBUG_INFO
 
-#define DBG_NULL    ( LLConstant::getNullValue(DBG_TYPE) )
-#define DBG_TYPE    ( getPtrToType(llvm::StructType::get(gIR->context(),NULL,NULL)) )
-#define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
-
-#define DBG_TAG(X)  ( llvm::ConstantExpr::getAdd( DtoConstUint( X ), DtoConstUint( llvm::LLVMDebugVersion ) ) )
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Emits a global variable, LLVM Dwarf style, only declares.
- * @param type Type of variable.
- * @param name Name.
- * @return The global variable.
- */
-static LLGlobalVariable* emitDwarfGlobalDecl(const LLStructType* type, const char* name, bool linkonce=false)
-{
-    LLGlobalValue::LinkageTypes linkage = linkonce
-        ? DEBUGINFO_LINKONCE_LINKAGE_TYPE
-        : LLGlobalValue::InternalLinkage;
-    LLGlobalVariable* gv = new LLGlobalVariable(*gIR->module, type, true, linkage, NULL, name);
-    gv->setSection("llvm.metadata");
-    return gv;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-static const llvm::StructType* getDwarfCompileUnitType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.compile_unit.type"));
-}
-
-static const llvm::StructType* getDwarfSubProgramType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.subprogram.type"));
-}
-
-static const llvm::StructType* getDwarfVariableType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.variable.type"));
-}
-
-static const llvm::StructType* getDwarfDerivedTypeType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.derivedtype.type"));
-}
-
-static const llvm::StructType* getDwarfBasicTypeType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.basictype.type"));
-}
-
-static const llvm::StructType* getDwarfCompositeTypeType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.compositetype.type"));
-}
-
-static const llvm::StructType* getDwarfGlobalVariableType() {
-    return isaStruct(gIR->module->getTypeByName("llvm.dbg.global_variable.type"));
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current module
@@ -99,6 +45,21 @@ static Module* getDefinedModule(Dsymbol* s)
 
 static llvm::DIType dwarfTypeDescription_impl(Type* type, llvm::DICompileUnit cu, const char* c_name);
 static llvm::DIType dwarfTypeDescription(Type* type, llvm::DICompileUnit cu, const char* c_name);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::DIFile DtoDwarfFile(Loc loc, llvm::DICompileUnit compileUnit)
+{
+    llvm::StringRef path;
+    llvm::StringRef name;
+    llvm::StringRef dir;
+    if (loc.filename) {
+        path = llvm::StringRef(loc.filename);
+        name = llvm::StringRef(basename(loc.filename));
+        dir = path.substr(0, path.size() - name.size());
+    }
+    return gIR->difactory.CreateFile(name, dir, compileUnit);
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -128,7 +89,7 @@ static llvm::DIBasicType dwarfBasicType(Type* type, llvm::DICompileUnit compileU
     return gIR->difactory.CreateBasicType(
         compileUnit, // context
         type->toChars(), // name
-        llvm::DICompileUnit(NULL), // compile unit
+        DtoDwarfFile(Loc(gIR->dmodule, 0), DtoDwarfCompileUnit(gIR->dmodule)), // file
         0, // line number
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
@@ -159,7 +120,7 @@ static llvm::DIDerivedType dwarfDerivedType(Type* type, llvm::DICompileUnit comp
         DW_TAG_pointer_type, // tag
         compileUnit, // context
         "", // name
-        llvm::DICompileUnit(NULL), // compile unit
+        DtoDwarfFile(Loc(gIR->dmodule, 0), DtoDwarfCompileUnit(gIR->dmodule)), // file
         0, // line number
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
@@ -172,7 +133,7 @@ static llvm::DIDerivedType dwarfDerivedType(Type* type, llvm::DICompileUnit comp
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::DIDerivedType dwarfMemberType(unsigned linnum, Type* type, llvm::DICompileUnit compileUnit, llvm::DICompileUnit definedCU, const char* c_name, unsigned offset)
+static llvm::DIDerivedType dwarfMemberType(unsigned linnum, Type* type, llvm::DICompileUnit compileUnit, llvm::DIFile file, const char* c_name, unsigned offset)
 {
     const LLType* T = DtoType(type);
     Type* t = type->toBasetype();
@@ -187,7 +148,7 @@ static llvm::DIDerivedType dwarfMemberType(unsigned linnum, Type* type, llvm::DI
         DW_TAG_member, // tag
         compileUnit, // context
         c_name, // name
-        definedCU, // compile unit
+        file, // file
         linnum, // line number
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
@@ -203,12 +164,12 @@ static llvm::DIDerivedType dwarfMemberType(unsigned linnum, Type* type, llvm::DI
 static void add_base_fields(
     ClassDeclaration* sd,
     llvm::DICompileUnit compileUnit,
-    llvm::DICompileUnit definedCU,
-    std::vector<LLConstant*>& elems)
+    llvm::DIFile file,
+    std::vector<llvm::DIDescriptor>& elems)
 {
     if (sd->baseClass)
     {
-        add_base_fields(sd->baseClass, compileUnit, definedCU, elems);
+        add_base_fields(sd->baseClass, compileUnit, file, elems);
     }
 
     ArrayIter<VarDeclaration> it(sd->fields);
@@ -217,10 +178,11 @@ static void add_base_fields(
     for (; !it.done(); it.next())
     {
         VarDeclaration* vd = it.get();
-        LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset).getGV();
-        elems.push_back(DBG_CAST(ptr));
+        elems.push_back(dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, file, vd->toChars(), vd->offset));
     }
 }
+
+
 
 //FIXME: This does not use llvm's DIFactory as it can't
 //   handle recursive types properly.
@@ -230,38 +192,28 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
     Type* t = type->toBasetype();
 
     // defaults
-    LLConstant* name = getNullPtr(getVoidPtrType());
-    LLGlobalVariable* members = NULL;
+    llvm::StringRef name;
     unsigned linnum = 0;
-    llvm::DICompileUnit definedCU;
+    llvm::DIFile file;
 
     // prepare tag and members
     unsigned tag;
 
-    // declare final global variable
-    LLGlobalVariable* gv = NULL;
+    // elements
+    std::vector<llvm::DIDescriptor> elems;
+
+    // pointer to ir->diCompositeType
+    llvm::DICompositeType *diCompositeType = 0;
+
+    llvm::DICompositeType derivedFrom;
 
     // dynamic array
     if (t->ty == Tarray)
     {
         tag = DW_TAG_structure_type;
-
-        LLGlobalVariable* len = dwarfMemberType(0, Type::tsize_t, compileUnit, llvm::DICompileUnit(NULL), "length", 0).getGV();
-        assert(len);
-        LLGlobalVariable* ptr = dwarfMemberType(0, t->nextOf()->pointerTo(), compileUnit, llvm::DICompileUnit(NULL), "ptr", global.params.is64bit?8:4).getGV();
-        assert(ptr);
-
-        const LLArrayType* at = LLArrayType::get(DBG_TYPE, 2);
-
-        std::vector<LLConstant*> elems(2);
-        elems[0] = DBG_CAST(len);
-        elems[1] = DBG_CAST(ptr);
-
-        LLConstant* ca = LLConstantArray::get(at, elems);
-        members = new LLGlobalVariable(*gIR->module, ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array");
-        members->setSection("llvm.metadata");
-
-        name = DtoConstStringPtr(t->toChars(), "llvm.metadata");
+        elems.push_back(dwarfMemberType(0, Type::tsize_t, compileUnit, file, "length", 0));
+        elems.push_back(dwarfMemberType(0, t->nextOf()->pointerTo(), compileUnit, file, "ptr", global.params.is64bit?8:4));
+        file = DtoDwarfFile(Loc(gIR->dmodule, 0), DtoDwarfCompileUnit(gIR->dmodule));
     }
 
     // struct/class
@@ -272,11 +224,13 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         {
             TypeStruct* ts = (TypeStruct*)t;
             sd = ts->sym;
+            tag = DW_TAG_structure_type;
         }
         else
         {
             TypeClass* tc = (TypeClass*)t;
             sd = tc->sym;
+            tag = DW_TAG_class_type;
         }
         assert(sd);
 
@@ -290,26 +244,28 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
 
         IrStruct* ir = sd->ir.irStruct;
         assert(ir);
-        if (!ir->diCompositeType.isNull())
+        if ((llvm::MDNode*)ir->diCompositeType != 0)
             return ir->diCompositeType;
 
-        // set to handle recursive types properly
-        gv = emitDwarfGlobalDecl(getDwarfCompositeTypeType(), "llvm.dbg.compositetype");
-        // set bogus initializer to satisfy asserts in DICompositeType constructor
-        std::vector<LLConstant*> initvals(11);
-        initvals[0] = DBG_TAG(DW_TAG_structure_type);
-        for (int i = 1; i < initvals.size(); ++i)
-            initvals[i] = LLConstant::getNullValue(getDwarfCompositeTypeType()->getContainedType(i));
-        gv->setInitializer(LLConstantStruct::get(getDwarfCompositeTypeType(), initvals));
-        ir->diCompositeType = llvm::DICompositeType(gv);
-
-        tag = DW_TAG_structure_type;
-
-        name = DtoConstStringPtr(sd->toChars(), "llvm.metadata");
+        diCompositeType = &ir->diCompositeType;
+        name = sd->toChars();
         linnum = sd->loc.linnum;
-        definedCU = DtoDwarfCompileUnit(getDefinedModule(sd));
+        file = DtoDwarfFile(sd->loc, DtoDwarfCompileUnit(getDefinedModule(sd)));
+        // set diCompositeType to handle recursive types properly
+        ir->diCompositeType = gIR->difactory.CreateCompositeTypeEx(
+                                   tag, // tag
+                                   compileUnit, // context
+                                   name, // name
+                                   file, // compile unit where defined
+                                   linnum, // line number where defined
+                                   LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getTypeBitSize(T), false), // size in bits
+                                   LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getABITypeAlign(T)*8, false), // alignment in bits
+                                   LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 0, false), // offset in bits,
+                                   0, // flags
+                                   derivedFrom, // DerivedFrom
+                                   llvm::DIArray(0)
+                                   );
 
-        std::vector<LLConstant*> elems;
         if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
         {
             if (t->ty == Tstruct)
@@ -320,20 +276,18 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
                 for (; !it.done(); it.next())
                 {
                     VarDeclaration* vd = it.get();
-                    LLGlobalVariable* ptr = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, definedCU, vd->toChars(), vd->offset).getGV();
-                    elems.push_back(DBG_CAST(ptr));
+                    llvm::DIDerivedType dt = dwarfMemberType(vd->loc.linnum, vd->type, compileUnit, file, vd->toChars(), vd->offset);
+                    elems.push_back(dt);
                 }
             }
             else
             {
-                add_base_fields(ir->aggrdecl->isClassDeclaration(), compileUnit, definedCU, elems);
+                ClassDeclaration *classDecl = ir->aggrdecl->isClassDeclaration();
+                add_base_fields(classDecl, compileUnit, file, elems);
+                if (classDecl->baseClass)
+                    derivedFrom = dwarfCompositeType(classDecl->baseClass->getType(), compileUnit);
             }
         }
-
-        const LLArrayType* at = LLArrayType::get(DBG_TYPE, elems.size());
-        LLConstant* ca = LLConstantArray::get(at, elems);
-        members = new LLGlobalVariable(*gIR->module, ca->getType(), true, LLGlobalValue::InternalLinkage, ca, ".array");
-        members->setSection("llvm.metadata");
     }
 
     // unsupported composite type
@@ -342,54 +296,24 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
         assert(0 && "unsupported compositetype for debug info");
     }
 
-    std::vector<LLConstant*> vals(11);
+    llvm::DIArray elemsArray =
+        gIR->difactory.GetOrCreateArray(elems.data(), elems.size());
 
-    // tag
-    vals[0] = DBG_TAG(tag);
-
-    // context
-    vals[1] = DBG_CAST(compileUnit.getGV());
-
-    // name
-    vals[2] = name;
-
-    // compile unit where defined
-    if (definedCU.getGV())
-        vals[3] = DBG_CAST(definedCU.getGV());
-    else
-        vals[3] = DBG_NULL;
-
-    // line number where defined
-    vals[4] = DtoConstInt(linnum);
-
-    // size in bits
-    vals[5] = LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getTypeBitSize(T), false);
-
-    // alignment in bits
-    vals[6] = LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getABITypeAlign(T)*8, false);
-
-    // offset in bits
-    vals[7] = LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 0, false);
-
-    // FIXME: dont know what this is
-    vals[8] = DtoConstUint(0);
-
-    // FIXME: ditto
-    vals[9] = DBG_NULL;
-
-    // members array
-    if (members)
-        vals[10] = DBG_CAST(members);
-    else
-        vals[10] = DBG_NULL;
-
-    // set initializer
-    if (!gv)
-        gv = emitDwarfGlobalDecl(getDwarfCompositeTypeType(), "llvm.dbg.compositetype");
-    LLConstant* initia = LLConstantStruct::get(getDwarfCompositeTypeType(), vals);
-    gv->setInitializer(initia);
-
-    return llvm::DICompositeType(gv);
+    llvm::DICompositeType ret = gIR->difactory.CreateCompositeTypeEx(
+                                    tag, // tag
+                                    compileUnit, // context
+                                    name, // name
+                                    file, // compile unit where defined
+                                    linnum, // line number where defined
+                                    LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getTypeBitSize(T), false), // size in bits
+                                    LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getABITypeAlign(T)*8, false), // alignment in bits
+                                    LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 0, false), // offset in bits,
+                                    0, // flags
+                                    derivedFrom, // DerivedFrom
+                                    elemsArray);
+    if (diCompositeType)
+        *diCompositeType = ret;
+    return ret;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -408,7 +332,7 @@ static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDecla
         vd->mangle(), // name
         vd->toPrettyChars(), // displayname
         vd->toChars(), // linkage name
-        DtoDwarfCompileUnit(getDefinedModule(vd)), // compile unit
+        DtoDwarfFile(vd->loc, DtoDwarfCompileUnit(getDefinedModule(vd))), // file
         vd->loc.linnum, // line num
         dwarfTypeDescription_impl(vd->type, compileUnit, NULL), // type
         vd->protection == PROTprivate, // is local to unit
@@ -433,7 +357,7 @@ static llvm::DIVariable dwarfVariable(VarDeclaration* vd, llvm::DIType type)
         tag, // tag
         gIR->func()->diSubprogram, // context
         vd->toChars(), // name
-        DtoDwarfCompileUnit(getDefinedModule(vd)), // compile unit
+        DtoDwarfFile(vd->loc, DtoDwarfCompileUnit(getDefinedModule(vd))), // file
         vd->loc.linnum, // line num
         type // type
     );
@@ -485,7 +409,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
 
     // get type description
     llvm::DIType TD = dwarfTypeDescription(vd->type, thisCU, NULL);
-    if (TD.isNull())
+    if ((llvm::MDNode*)TD == 0)
         return; // unsupported
 
     // get variable description
@@ -505,10 +429,10 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
     // we might be generating for an import
     IrModule* irmod = getIrModule(m);
 
-    if (!irmod->diCompileUnit.isNull())
+    if ((llvm::MDNode*)irmod->diCompileUnit != 0)
     {
-        assert (irmod->diCompileUnit.getGV()->getParent() == gIR->module
-            && "debug info compile unit belongs to incorrect llvm module!");
+        //assert (irmod->diCompileUnit.getGV()->getParent() == gIR->module
+        //   && "debug info compile unit belongs to incorrect llvm module!");
         return irmod->diCompileUnit;
     }
 
@@ -517,7 +441,7 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
     if (!FileName::absolute(srcpath.c_str())) {
         llvm::sys::Path tmp = llvm::sys::Path::GetCurrentDirectory();
         tmp.appendComponent(srcpath);
-        srcpath = tmp.toString();
+        srcpath = tmp.str();
         if (!srcpath.empty() && *srcpath.rbegin() != '/' && *srcpath.rbegin() != '\\')
             srcpath = srcpath + '/';
     }
@@ -533,12 +457,6 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
         false // isOptimized
     );
 
-    // if the linkage stays internal, we can't llvm-link the generated modules together:
-    // llvm's DwarfWriter uses path and filename to determine the symbol name and we'd
-    // end up with duplicate symbols
-    irmod->diCompileUnit.getGV()->setLinkage(DEBUGINFO_LINKONCE_LINKAGE_TYPE);
-    irmod->diCompileUnit.getGV()->setName(std::string("llvm.dbg.compile_unit_") + srcpath + m->srcfile->name->toChars());
-
     return irmod->diCompileUnit;
 }
 
@@ -550,7 +468,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     LOG_SCOPE;
 
     llvm::DICompileUnit context = DtoDwarfCompileUnit(gIR->dmodule);
-    llvm::DICompileUnit definition = DtoDwarfCompileUnit(getDefinedModule(fd));
+    llvm::DIFile file = DtoDwarfFile(fd->loc, DtoDwarfCompileUnit(getDefinedModule(fd)));
 
     // FIXME: duplicates ?
     return gIR->difactory.CreateSubprogram(
@@ -558,12 +476,12 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
         fd->toPrettyChars(), // name
         fd->toPrettyChars(), // display name
         fd->mangle(), // linkage name
-        definition, // compile unit
+        file, // file
         fd->loc.linnum, // line no
 //FIXME: what's this type for?
         llvm::DIType(NULL), // type
         fd->protection == PROTprivate, // is local to unit
-        context.getGV() == definition.getGV() // isdefinition
+        gIR->dmodule == getDefinedModule(fd) // isdefinition
     );
 }
 
@@ -582,7 +500,7 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         prettyname, // name
         prettyname, // display name
         mangledname, // linkage name
-        context, // compile unit
+        DtoDwarfFile(Loc(gIR->dmodule, 0), context), // compile unit
         0, // line no
 //FIXME: what's this type for?
         llvm::DIType(NULL), // type
@@ -609,8 +527,9 @@ void DtoDwarfFuncStart(FuncDeclaration* fd)
     Logger::println("D to dwarf funcstart");
     LOG_SCOPE;
 
-    assert(!fd->ir.irFunc->diSubprogram.isNull());
-    gIR->difactory.InsertSubprogramStart(fd->ir.irFunc->diSubprogram, gIR->scopebb());
+    assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
+    //TODO:
+    //gIR->difactory.InsertSubprogramStart(fd->ir.irFunc->diSubprogram, gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -620,8 +539,9 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
     Logger::println("D to dwarf funcend");
     LOG_SCOPE;
 
-    assert(!fd->ir.irFunc->diSubprogram.isNull());
-    gIR->difactory.InsertRegionEnd(fd->ir.irFunc->diSubprogram, gIR->scopebb());
+    assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
+    //TODO:
+    //gIR->difactory.InsertRegionEnd(fd->ir.irFunc->diSubprogram, gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -630,13 +550,9 @@ void DtoDwarfStopPoint(unsigned ln)
 {
     Logger::println("D to dwarf stoppoint at line %u", ln);
     LOG_SCOPE;
-
-    gIR->difactory.InsertStopPoint(
-        DtoDwarfCompileUnit(getDefinedModule(gIR->func()->decl)), // compile unit
-        ln, // line no
-        0, // col no
-        gIR->scopebb()
-    );
+    // TODO: possibly it is wrong.
+    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, DtoDwarfCompileUnit(gIR->dmodule));
+    gIR->ir->SetCurrentDebugLocation(loc);
 }
 
 #endif

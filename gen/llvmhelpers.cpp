@@ -864,11 +864,7 @@ void DtoConstInitGlobal(VarDeclaration* vd)
         #ifndef DISABLE_DEBUG_INFO
         // do debug info
         if (global.params.symdebug)
-        {
-            LLGlobalVariable* gv = DtoDwarfGlobalVariable(gvar, vd).getGV();
-            // keep a reference so GDCE doesn't delete it !
-            gIR->usedArray.push_back(llvm::ConstantExpr::getBitCast(gv, getVoidPtrType()));
-        }
+            DtoDwarfGlobalVariable(gvar, vd);
         #endif
     }
 }

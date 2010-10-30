@@ -116,10 +116,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
 
     #ifndef DISABLE_DEBUG_INFO
     // debug info
-    if (global.params.symdebug) {
-        RegisterDwarfSymbols(ir.module);
+    if (global.params.symdebug)
         DtoDwarfCompileUnit(this);
-    }
     #endif
 
     // handle invalid 'objectø module
@@ -161,15 +159,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
 
     // generate ModuleInfo
     genmoduleinfo();
-
-    // emit usedArray
-    if (!ir.usedArray.empty())
-    {
-        const LLArrayType* usedTy = LLArrayType::get(getVoidPtrType(), ir.usedArray.size());
-        LLConstant* usedInit = LLConstantArray::get(usedTy, ir.usedArray);
-        LLGlobalVariable* usedArray = new LLGlobalVariable(*ir.module, usedTy, true, LLGlobalValue::AppendingLinkage, usedInit, "llvm.used");
-        usedArray->setSection("llvm.metadata");
-    }
 
     // verify the llvm
     if (!noVerify) {
@@ -429,11 +418,8 @@ llvm::Function* build_module_ctor()
 
     // debug info
     #ifndef DISABLE_DEBUG_INFO
-    LLGlobalVariable* subprog;
-    if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
-    }
+    if(global.params.symdebug)
+        DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
     #endif
 
     for (size_t i=0; i<n; i++) {
@@ -441,12 +427,6 @@ llvm::Function* build_module_ctor()
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }
-
-    // debug info end
-    #ifndef DISABLE_DEBUG_INFO
-    if(global.params.symdebug)
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
-    #endif
 
     builder.CreateRetVoid();
     return fn;
@@ -478,11 +458,8 @@ static llvm::Function* build_module_dtor()
 
     #ifndef DISABLE_DEBUG_INFO
     // debug info
-    LLGlobalVariable* subprog;
-    if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
-    }
+    if(global.params.symdebug)
+       DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
     #endif
 
     for (size_t i=0; i<n; i++) {
@@ -490,12 +467,6 @@ static llvm::Function* build_module_dtor()
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }
-
-    #ifndef DISABLE_DEBUG_INFO
-    // debug info end
-    if(global.params.symdebug)
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
-    #endif
 
     builder.CreateRetVoid();
     return fn;
@@ -527,11 +498,9 @@ static llvm::Function* build_module_unittest()
 
     #ifndef DISABLE_DEBUG_INFO
     // debug info
-    LLGlobalVariable* subprog;
-    if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str()).getGV();
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
-    }
+    llvm::DISubprogram subprog;
+    if(global.params.symdebug)
+        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
     #endif
 
     for (size_t i=0; i<n; i++) {
@@ -539,12 +508,6 @@ static llvm::Function* build_module_unittest()
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }
-
-    #ifndef DISABLE_DEBUG_INFO
-    // debug info end
-    if(global.params.symdebug)
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
-    #endif
 
     builder.CreateRetVoid();
     return fn;
@@ -588,11 +551,9 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // debug info
     #ifndef DISABLE_DEBUG_INFO
-    LLGlobalVariable* subprog;
-    if(global.params.symdebug) {
-        subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str()).getGV();
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.func.start"), DBG_CAST(subprog));
-    }
+    llvm::DISubprogram subprog;
+    if(global.params.symdebug)
+        subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
     #endif
 
     // get current beginning
@@ -604,12 +565,6 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // replace beginning
     builder.CreateStore(thismref, mref);
-
-    #ifndef DISABLE_DEBUG_INFO
-    // debug info end
-    if(global.params.symdebug)
-        builder.CreateCall(gIR->module->getFunction("llvm.dbg.region.end"), DBG_CAST(subprog));
-    #endif
 
     // return
     builder.CreateRetVoid();
