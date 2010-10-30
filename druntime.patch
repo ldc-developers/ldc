@@ -1,3 +1,467 @@
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/cstdarg.di druntime/import/ldc/cstdarg.di
+--- druntime-orig/import/ldc/cstdarg.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/cstdarg.di	2010-09-30 22:10:37.000000000 +0400
+@@ -0,0 +1,29 @@
++/*
++ * vararg support for extern(C) functions
++ */
++
++module ldc.cstdarg;
++
++// Check for the right compiler
++version(LDC)
++{
++    // OK
++}
++else
++{
++    static assert(false, "This module is only valid for LDC");
++}
++
++alias void* va_list;
++
++pragma(va_start)
++    void va_start(T)(va_list ap, ref T);
++
++pragma(va_arg)
++    T va_arg(T)(va_list ap);
++
++pragma(va_end)
++    void va_end(va_list args);
++
++pragma(va_copy)
++    void va_copy(va_list dst, va_list src);
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/intrinsics.di druntime/import/ldc/intrinsics.di
+--- druntime-orig/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/intrinsics.di	2010-10-30 19:17:52.538555000 +0400
+@@ -0,0 +1,359 @@
++/*
++ * This module holds declarations to LLVM intrinsics.
++ *
++ * See the LLVM language reference for more information:
++ *
++ * - http://llvm.org/docs/LangRef.html#intrinsics
++ *
++ */
++
++module ldc.intrinsics;
++
++// Check for the right compiler
++version(LDC)
++{
++    // OK
++}
++else
++{
++    static assert(false, "This module is only valid for LDC");
++}
++
++//
++// CODE GENERATOR INTRINSICS
++//
++
++
++// The 'llvm.returnaddress' intrinsic attempts to compute a target-specific
++// value indicating the return address of the current function or one of its
++// callers.
++
++pragma(intrinsic, "llvm.returnaddress")
++    void* llvm_returnaddress(uint level);
++
++
++// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
++// frame pointer value for the specified stack frame.
++
++pragma(intrinsic, "llvm.frameaddress")
++    void* llvm_frameaddress(uint level);
++
++
++// The 'llvm.stacksave' intrinsic is used to remember the current state of the
++// function stack, for use with llvm.stackrestore. This is useful for
++// implementing language features like scoped automatic variable sized arrays
++// in C99.
++
++pragma(intrinsic, "llvm.stacksave")
++    void* llvm_stacksave();
++
++
++// The 'llvm.stackrestore' intrinsic is used to restore the state of the
++// function stack to the state it was in when the corresponding llvm.stacksave
++// intrinsic executed. This is useful for implementing language features like
++// scoped automatic variable sized arrays in C99.
++
++pragma(intrinsic, "llvm.stackrestore")
++    void llvm_stackrestore(void* ptr);
++
++
++// The 'llvm.prefetch' intrinsic is a hint to the code generator to insert a
++// prefetch instruction if supported; otherwise, it is a noop. Prefetches have
++// no effect on the behavior of the program but can change its performance
++// characteristics.
++
++pragma(intrinsic, "llvm.prefetch")
++    void llvm_prefetch(void* ptr, uint rw, uint locality);
++
++
++// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
++// in a region of code to simulators and other tools. The method is target
++// specific, but it is expected that the marker will use exported symbols to
++// transmit the PC of the marker. The marker makes no guarantees that it will
++// remain with any specific instruction after optimizations. It is possible
++// that the presence of a marker will inhibit optimizations. The intended use
++// is to be inserted after optimizations to allow correlations of simulation
++// runs.
++
++pragma(intrinsic, "llvm.pcmarker")
++    void llvm_pcmarker(uint id);
++
++
++// The 'llvm.readcyclecounter' intrinsic provides access to the cycle counter
++// register (or similar low latency, high accuracy clocks) on those targets that
++// support it. On X86, it should map to RDTSC. On Alpha, it should map to RPCC.
++// As the backing counters overflow quickly (on the order of 9 seconds on
++// alpha), this should only be used for small timings.
++
++pragma(intrinsic, "llvm.readcyclecounter")
++    ulong readcyclecounter();
++
++
++
++
++//
++// STANDARD C LIBRARY INTRINSICS
++//
++
++
++// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
++// location to the destination location.
++// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
++// not return a value, and takes an extra alignment argument.
++
++version(LDC_LLVMPre28)
++{
++    pragma(intrinsic, "llvm.memcpy.i#")
++        void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment);
++}
++else
++{
++    pragma(intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
++        void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
++}
++
++
++// The 'llvm.memmove.*' intrinsics move a block of memory from the source
++// location to the destination location. It is similar to the 'llvm.memcpy'
++// intrinsic but allows the two memory locations to overlap.
++// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
++// do not return a value, and takes an extra alignment argument.
++
++
++version(LDC_LLVMPre28)
++{
++    pragma(intrinsic, "llvm.memmove.i#")
++        void llvm_memmove(T)(void* dst, void* src, T len, uint alignment);
++}
++else
++{
++    pragma(intrinsic, "llvm.memmove.p0i8.p0i8.i#")
++        void llvm_memmove(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
++}
++
++
++// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
++// value.
++// Note that, unlike the standard libc function, the llvm.memset intrinsic does
++// not return a value, and takes an extra alignment argument.
++
++version(LDC_LLVMPre28)
++{
++    pragma(intrinsic, "llvm.memset.i#")
++        void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment);
++}
++else
++{
++    pragma(intrinsic, "llvm.memset.p0i8.i#")
++        void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false);
++}
++
++
++// The 'llvm.sqrt' intrinsics return the sqrt of the specified operand,
++// returning the same value as the libm 'sqrt' functions would. Unlike sqrt in
++// libm, however, llvm.sqrt has undefined behavior for negative numbers other
++// than -0.0 (which allows for better optimization, because there is no need to
++// worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like
++// IEEE sqrt.
++
++@safe nothrow pure pragma(intrinsic, "llvm.sqrt.f#")
++     T llvm_sqrt(T)(T val);
++
++
++// The 'llvm.sin.*' intrinsics return the sine of the operand.
++
++@safe nothrow pure pragma(intrinsic, "llvm.sin.f#")
++    T llvm_sin(T)(T val);
++
++
++// The 'llvm.cos.*' intrinsics return the cosine of the operand.
++
++@safe nothrow pure pragma(intrinsic, "llvm.cos.f#")
++    T llvm_cos(T)(T val);
++
++
++// The 'llvm.powi.*' intrinsics return the first operand raised to the specified
++// (positive or negative) power. The order of evaluation of multiplications is
++// not defined. When a vector of floating point type is used, the second
++// argument remains a scalar integer value.
++
++pragma(intrinsic, "llvm.powi.f#")
++    T llvm_powi(T)(T val, int power);
++
++
++// The 'llvm.pow.*' intrinsics return the first operand raised to the specified
++// (positive or negative) power.
++
++pragma(intrinsic, "llvm.pow.f#")
++    T llvm_pow(T)(T val, T power);
++
++
++//
++// BIT MANIPULATION INTRINSICS
++//
++
++// The 'llvm.bswap' family of intrinsics is used to byte swap integer values
++// with an even number of bytes (positive multiple of 16 bits). These are
++// useful for performing operations on data that is not in the target's native
++// byte order.
++
++pragma(intrinsic, "llvm.bswap.i#.i#")
++    T llvm_bswap(T)(T val);
++
++
++// The 'llvm.ctpop' family of intrinsics counts the number of bits set in a
++// value.
++
++pragma(intrinsic, "llvm.ctpop.i#")
++    T llvm_ctpop(T)(T src);
++
++
++// The 'llvm.ctlz' family of intrinsic functions counts the number of leading
++// zeros in a variable.
++
++pragma(intrinsic, "llvm.ctlz.i#")
++    T llvm_ctlz(T)(T src);
++
++
++// The 'llvm.cttz' family of intrinsic functions counts the number of trailing
++// zeros.
++
++pragma(intrinsic, "llvm.cttz.i#")
++    T llvm_cttz(T)(T src);
++
++
++// The 'llvm.part.select' family of intrinsic functions selects a range of bits
++// from an integer value and returns them in the same bit width as the original
++// value.
++
++pragma(intrinsic, "llvm.part.select.i#")
++    T llvm_part_select(T)(T val, uint loBit, uint hiBit);
++
++
++// The 'llvm.part.set' family of intrinsic functions replaces a range of bits
++// in an integer value with another integer value. It returns the integer with
++// the replaced bits.
++
++// TODO
++// declare i17 @llvm.part.set.i17.i9 (i17 %val, i9 %repl, i32 %lo, i32 %hi)
++// declare i29 @llvm.part.set.i29.i9 (i29 %val, i9 %repl, i32 %lo, i32 %hi)
++
++
++
++
++//
++// ATOMIC OPERATIONS AND SYNCHRONIZATION INTRINSICS
++//
++
++// The llvm.memory.barrier intrinsic guarantees ordering between specific
++// pairs of memory access types.
++
++pragma(intrinsic, "llvm.memory.barrier")
++    void llvm_memory_barrier(bool ll, bool ls, bool sl, bool ss, bool device);
++
++// This loads a value in memory and compares it to a given value. If they are
++// equal, it stores a new value into the memory.
++
++pragma(intrinsic, "llvm.atomic.cmp.swap.i#.p0i#")
++    T llvm_atomic_cmp_swap(T)(shared T* ptr, T cmp, T val);
++
++// This intrinsic loads the value stored in memory at ptr and yields the value
++// from memory. It then stores the value in val in the memory at ptr.
++
++pragma(intrinsic, "llvm.atomic.swap.i#.p0i#")
++    T llvm_atomic_swap(T)(T* ptr, T val);
++
++// This intrinsic adds delta to the value stored in memory at ptr. It yields
++// the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.add.i#.p0i#")
++    T llvm_atomic_load_add(T)(shared const T* ptr, T val);
++
++// This intrinsic subtracts delta to the value stored in memory at ptr. It
++// yields the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.sub.i#.p0i#")
++    T llvm_atomic_load_sub(T)(T* ptr, T val);
++
++// These intrinsics bitwise the operation (and, nand, or, xor) delta to the
++// value stored in memory at ptr. It yields the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.and.i#.p0i#")
++    T llvm_atomic_load_and(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.nand.i#.p0i#")
++    T llvm_atomic_load_nand(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.or.i#.p0i#")
++    T llvm_atomic_load_or(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.xor.i#.p0i#")
++    T llvm_atomic_load_xor(T)(T* ptr, T val);
++
++// These intrinsics takes the signed or unsigned minimum or maximum of delta
++// and the value stored in memory at ptr. It yields the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.max.i#.p0i#")
++    T llvm_atomic_load_max(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.min.i#.p0i#")
++    T llvm_atomic_load_min(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.umax.i#.p0i#")
++    T llvm_atomic_load_umax(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.umin.i#.p0i#")
++    T llvm_atomic_load_umin(T)(T* ptr, T val);
++
++
++//
++// ARITHMETIC-WITH-OVERFLOW INTRINSICS
++//
++
++struct OverflowRet(T) {
++    static assert(is(T : int), T.stringof ~ " is not an integer type!");
++    T result;
++    bool overflow;
++}
++
++// Signed and unsigned addition
++pragma(intrinsic, "llvm.sadd.with.overflow.i#")
++    OverflowRet!(T) llvm_sadd_with_overflow(T)(T lhs, T rhs);
++
++pragma(intrinsic, "llvm.uadd.with.overflow.i#")
++    OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs);
++
++
++// Signed and unsigned subtraction
++pragma(intrinsic, "llvm.ssub.with.overflow.i#")
++    OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs);
++
++pragma(intrinsic, "llvm.usub.with.overflow.i#")
++    OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs);
++
++
++// Signed and unsigned multiplication
++pragma(intrinsic, "llvm.smul.with.overflow.i#")
++    OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs);
++
++/* Note: LLVM documentations says:
++ *  Warning: 'llvm.umul.with.overflow' is badly broken.
++ *  It is actively being fixed, but it should not currently be used!
++ *
++ * See: http://llvm.org/docs/LangRef.html#int_umul_overflow
++ */
++//pragma(intrinsic, "llvm.umul.with.overflow.i#")
++//    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
++
++
++//
++// GENERAL INTRINSICS
++//
++
++
++// This intrinsics is lowered to the target dependent trap instruction. If the
++// target does not have a trap instruction, this intrinsic will be lowered to
++// the call of the abort() function.
++
++pragma(intrinsic, "llvm.trap")
++    void llvm_trap();
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/llvmasm.di druntime/import/ldc/llvmasm.di
+--- druntime-orig/import/ldc/llvmasm.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/llvmasm.di	2010-09-30 22:10:37.000000000 +0400
+@@ -0,0 +1,17 @@
++module ldc.llvmasm;
++
++struct __asmtuple_t(T...)
++{
++    T v;
++}
++
++pragma(llvm_inline_asm)
++{
++    void __asm( )(char[] asmcode, char[] constraints, ...);
++    T    __asm(T)(char[] asmcode, char[] constraints, ...);
++
++    template __asmtuple(T...)
++    {
++        __asmtuple_t!(T) __asmtuple(char[] asmcode, char[] constraints, ...);
++    }
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/vararg.d druntime/import/ldc/vararg.d
+--- druntime-orig/import/ldc/vararg.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/vararg.d	2010-09-30 22:10:37.000000000 +0400
+@@ -0,0 +1,43 @@
++/*
++ * This module holds the implementation of special vararg templates for D style var args.
++ *
++ * Provides the functions tango.core.Vararg expects to be present!
++ */
++
++module ldc.Vararg;
++
++// Check for the right compiler
++version(LDC)
++{
++    // OK
++}
++else
++{
++    static assert(false, "This module is only valid for LDC");
++}
++
++alias void* va_list;
++
++void va_start(T) ( out va_list ap, inout T parmn )
++{
++    // not needed !
++}
++
++T va_arg(T)(ref va_list vp)
++{
++    T* arg = cast(T*) vp;
++    // ldc always aligns to size_t.sizeof in vararg lists
++    vp = cast(va_list) ( cast(void*) vp + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
++    return *arg;
++}
++
++void va_end( va_list ap )
++{
++    // not needed !
++}
++
++void va_copy( out va_list dst, va_list src )
++{
++    // seems pretty useless !
++    dst = src;
++}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
 --- druntime-orig/import/object.di	2010-09-03 12:28:52.000000000 +0400
 +++ druntime/import/object.di	2010-10-27 00:22:27.444925001 +0400
@@ -442,7 +906,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          thread_suspendAll();
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
---- druntime-orig/src/object_.d	2010-10-26 18:47:41.840925001 +0400
+--- druntime-orig/src/object_.d	2010-09-03 12:28:52.000000000 +0400
 +++ druntime/src/object_.d	2010-10-26 19:27:09.224925000 +0400
 @@ -1073,7 +1073,7 @@
  
@@ -734,6 +1198,592 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
 +
 +}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/arrayInit.d druntime/src/rt/arrayInit.d
+--- druntime-orig/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/rt/arrayInit.d	2010-10-30 19:18:05.322555000 +0400
+@@ -0,0 +1,150 @@
++private import ldc.intrinsics;
++
++extern(C):
++
++int memcmp(void*,void*,size_t);
++size_t strlen(char*);
++
++// per-element array init routines
++
++void _d_array_init_i16(ushort* a, size_t n, ushort v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_i32(uint* a, size_t n, uint v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_i64(ulong* a, size_t n, ulong v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_float(float* a, size_t n, float v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_double(double* a, size_t n, double v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_real(real* a, size_t n, real v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_cfloat(cfloat* a, size_t n, cfloat v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_cdouble(cdouble* a, size_t n, cdouble v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_creal(creal* a, size_t n, creal v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_pointer(void** a, size_t n, void* v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_mem(void* a, size_t na, void* v, size_t nv)
++{
++    auto p = a;
++    auto end = a + na*nv;
++    while (p !is end) {
++        llvm_memcpy(p,v,nv,0);
++        p += nv;
++    }
++}
++
++/*
++void _d_array_init(TypeInfo ti, void* a)
++{
++    auto initializer = ti.next.init();
++    auto isize = initializer.length;
++    auto q = initializer.ptr;
++
++    if (isize == 1)
++        memset(p, *cast(ubyte*)q, size);
++    else if (isize == int.sizeof)
++    {
++        int init = *cast(int*)q;
++        size /= int.sizeof;
++        for (size_t u = 0; u < size; u++)
++        {
++            (cast(int*)p)[u] = init;
++        }
++    }
++    else
++    {
++        for (size_t u = 0; u < size; u += isize)
++        {
++            memcpy(p + u, q, isize);
++        }
++    }
++}*/
++
++// for array cast
++size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
++{
++    if (newelemsz == 1) {
++        return len*elemsz;
++    }
++    else if ((len*elemsz) % newelemsz) {
++        throw new Exception("Bad array cast");
++    }
++    return (len*elemsz)/newelemsz;
++}
++
++// slice copy when assertions are enabled
++void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
++{
++    assert(dst);
++    assert(src);
++    if (dstlen != srclen)
++        throw new Exception("lengths don't match for array copy");
++    else if (dst+dstlen <= src || src+srclen <= dst)
++        llvm_memcpy!size_t(dst, src, dstlen, 0);
++    else
++        throw new Exception("overlapping array copy");
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/ldc_eh.d druntime/src/rt/ldc_eh.d
+--- druntime-orig/src/rt/ldc_eh.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/rt/ldc_eh.d	2010-10-29 10:43:18.469035000 +0400
+@@ -0,0 +1,428 @@
++/**
++ * This module contains functions and structures required for
++ * exception handling.
++ */
++module ldc_eh;
++
++private import core.stdc.stdio;
++private import core.stdc.stdlib;
++private import rt.util.console;
++private import ldc.cstdarg;
++
++// debug = EH_personality;
++// debug = EH_personality_verbose;
++
++// current EH implementation works on x86
++// if it has a working unwind runtime
++version(X86) {
++    version(linux) version=X86_UNWIND;
++    version(darwin) version=X86_UNWIND;
++    version(solaris) version=X86_UNWIND;
++}
++version(X86_64) {
++    version(linux) version=X86_UNWIND;
++    version(darwin) version=X86_UNWIND;
++    version(solaris) version=X86_UNWIND;
++}
++
++//version = HP_LIBUNWIND;
++
++// D runtime functions
++extern(C) {
++    int _d_isbaseof(ClassInfo oc, ClassInfo c);
++}
++
++// libunwind headers
++extern(C)
++{
++    enum _Unwind_Reason_Code : int
++    {
++        NO_REASON = 0,
++        FOREIGN_EXCEPTION_CAUGHT = 1,
++        FATAL_PHASE2_ERROR = 2,
++        FATAL_PHASE1_ERROR = 3,
++        NORMAL_STOP = 4,
++        END_OF_STACK = 5,
++        HANDLER_FOUND = 6,
++        INSTALL_CONTEXT = 7,
++        CONTINUE_UNWIND = 8
++    }
++
++    enum _Unwind_Action : int
++    {
++        SEARCH_PHASE = 1,
++        CLEANUP_PHASE = 2,
++        HANDLER_FRAME = 4,
++        FORCE_UNWIND = 8
++    }
++
++    alias void* _Unwind_Context_Ptr;
++
++    alias void function(_Unwind_Reason_Code, _Unwind_Exception*) _Unwind_Exception_Cleanup_Fn;
++
++    struct _Unwind_Exception
++    {
++        ulong exception_class;
++        _Unwind_Exception_Cleanup_Fn exception_cleanup;
++        ptrdiff_t private_1;
++        ptrdiff_t private_2;
++    }
++
++// interface to HP's libunwind from http://www.nongnu.org/libunwind/
++version(HP_LIBUNWIND)
++{
++    void __libunwind_Unwind_Resume(_Unwind_Exception *);
++    _Unwind_Reason_Code __libunwind_Unwind_RaiseException(_Unwind_Exception *);
++    ptrdiff_t __libunwind_Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr
++            context);
++    ptrdiff_t __libunwind_Unwind_GetIP(_Unwind_Context_Ptr context);
++    ptrdiff_t __libunwind_Unwind_SetIP(_Unwind_Context_Ptr context,
++            ptrdiff_t new_value);
++    ptrdiff_t __libunwind_Unwind_SetGR(_Unwind_Context_Ptr context, int index,
++            ptrdiff_t new_value);
++    ptrdiff_t __libunwind_Unwind_GetRegionStart(_Unwind_Context_Ptr context);
++
++    alias __libunwind_Unwind_Resume _Unwind_Resume;
++    alias __libunwind_Unwind_RaiseException _Unwind_RaiseException;
++    alias __libunwind_Unwind_GetLanguageSpecificData
++        _Unwind_GetLanguageSpecificData;
++    alias __libunwind_Unwind_GetIP _Unwind_GetIP;
++    alias __libunwind_Unwind_SetIP _Unwind_SetIP;
++    alias __libunwind_Unwind_SetGR _Unwind_SetGR;
++    alias __libunwind_Unwind_GetRegionStart _Unwind_GetRegionStart;
++}
++else version(X86_UNWIND) 
++{
++    void _Unwind_Resume(_Unwind_Exception*);
++    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
++    ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
++    ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
++    ptrdiff_t _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
++    ptrdiff_t _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
++            ptrdiff_t new_value);
++    ptrdiff_t _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
++}
++else
++{
++    // runtime calls these directly
++    void _Unwind_Resume(_Unwind_Exception*)
++    {
++        console("_Unwind_Resume is not implemented on this platform.\n");
++    }
++    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*)
++    {
++        console("_Unwind_RaiseException is not implemented on this platform.\n");
++        return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++    }
++}
++
++}
++
++// error and exit
++extern(C) private void fatalerror(in char* format, ...)
++{
++  va_list args;
++  va_start(args, format);
++  printf("Fatal error in EH code: ");
++  vprintf(format, args);
++  printf("\n");
++  abort();
++}
++
++
++// helpers for reading certain DWARF data
++private ubyte* get_uleb128(ubyte* addr, ref size_t res)
++{
++  res = 0;
++  size_t bitsize = 0;
++
++  // read as long as high bit is set
++  while(*addr & 0x80) {
++    res |= (*addr & 0x7f) << bitsize;
++    bitsize += 7;
++    addr += 1;
++    if(bitsize >= size_t.sizeof*8)
++       fatalerror("tried to read uleb128 that exceeded size of size_t");
++  }
++  // read last
++  if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
++    fatalerror("Fatal error in EH code: tried to read uleb128 that exceeded size of size_t");
++  res |= (*addr) << bitsize;
++
++  return addr + 1;
++}
++
++private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
++{
++  res = 0;
++  size_t bitsize = 0;
++
++  // read as long as high bit is set
++  while(*addr & 0x80) {
++    res |= (*addr & 0x7f) << bitsize;
++    bitsize += 7;
++    addr += 1;
++    if(bitsize >= size_t.sizeof*8)
++       fatalerror("tried to read sleb128 that exceeded size of size_t");
++  }
++  // read last
++  if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
++    fatalerror("tried to read sleb128 that exceeded size of size_t");
++  res |= (*addr) << bitsize;
++
++  // take care of sign
++  if(bitsize < size_t.sizeof*8 && ((*addr) & 0x40))
++    res |= cast(ptrdiff_t)(-1) ^ ((1 << (bitsize+7)) - 1);
++
++  return addr + 1;
++}
++
++
++// exception struct used by the runtime.
++// _d_throw allocates a new instance and passes the address of its
++// _Unwind_Exception member to the unwind call. The personality
++// routine is then able to get the whole struct by looking at the data
++// surrounding the unwind info.
++struct _d_exception
++{
++  Object exception_object;
++  _Unwind_Exception unwind_info;
++}
++
++// the 8-byte string identifying the type of exception
++// the first 4 are for vendor, the second 4 for language
++//TODO: This may be the wrong way around
++char[8] _d_exception_class = "LLDCD1\0\0";
++
++
++//
++// x86 unwind specific implementation of personality function
++// and helpers
++//
++version(X86_UNWIND)
++{
++
++// the personality routine gets called by the unwind handler and is responsible for
++// reading the EH tables and deciding what to do
++extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions, ulong exception_class, _Unwind_Exception* exception_info, _Unwind_Context_Ptr context)
++{
++  debug(EH_personality_verbose) printf("entering personality function. context: %p\n", context);
++  // check ver: the C++ Itanium ABI only allows ver == 1
++  if(ver != 1)
++    return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++
++  // check exceptionClass
++  //TODO: Treat foreign exceptions with more respect
++  if((cast(char*)&exception_class)[0..8] != _d_exception_class)
++    return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++
++  // find call site table, action table and classinfo table
++  // Note: callsite and action tables do not contain static-length
++  // data and will be parsed as needed
++  // Note: classinfo_table points past the end of the table
++  ubyte* callsite_table;
++  ubyte* action_table;
++  ClassInfo* classinfo_table;
++  _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table);
++  if (callsite_table is null)
++    return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++  /*
++    find landing pad and action table index belonging to ip by walking
++    the callsite_table
++  */
++  ubyte* callsite_walker = callsite_table;
++
++  // get the instruction pointer
++  // will be used to find the right entry in the callsite_table
++  // -1 because it will point past the last instruction
++  ptrdiff_t ip = _Unwind_GetIP(context) - 1;
++
++  // address block_start is relative to
++  ptrdiff_t region_start = _Unwind_GetRegionStart(context);
++
++  // table entries
++  uint block_start_offset, block_size;
++  ptrdiff_t landing_pad;
++  size_t action_offset;
++
++  while(true) {
++    // if we've gone through the list and found nothing...
++    if(callsite_walker >= action_table)
++      return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++    block_start_offset = *cast(uint*)callsite_walker;
++    block_size = *(cast(uint*)callsite_walker + 1);
++    landing_pad = *(cast(uint*)callsite_walker + 2);
++    if(landing_pad)
++      landing_pad += region_start;
++    callsite_walker = get_uleb128(callsite_walker + 3*uint.sizeof, action_offset);
++
++    debug(EH_personality_verbose) printf("ip=%llx %d %d %llx\n", ip, block_start_offset, block_size, landing_pad);
++
++    // since the list is sorted, as soon as we're past the ip
++    // there's no handler to be found
++    if(ip < region_start + block_start_offset)
++      return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++    // if we've found our block, exit
++    if(ip < region_start + block_start_offset + block_size)
++      break;
++  }
++
++  debug(EH_personality) printf("Found correct landing pad and actionOffset %d\n", action_offset);
++
++  // now we need the exception's classinfo to find a handler
++  // the exception_info is actually a member of a larger _d_exception struct
++  // the runtime allocated. get that now
++  _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
++
++  // if there's no action offset and no landing pad, continue unwinding
++  if(!action_offset && !landing_pad)
++    return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++  // if there's no action offset but a landing pad, this is a cleanup handler
++  else if(!action_offset && landing_pad)
++    return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
++
++  /*
++   walk action table chain, comparing classinfos using _d_isbaseof
++  */
++  ubyte* action_walker = action_table + action_offset - 1;
++
++  ptrdiff_t ti_offset, next_action_offset;
++  while(true) {
++    action_walker = get_sleb128(action_walker, ti_offset);
++    // it is intentional that we not modify action_walker here
++    // next_action_offset is from current action_walker position
++    get_sleb128(action_walker, next_action_offset);
++
++    // negative are 'filters' which we don't use
++    if(!(ti_offset >= 0))
++      fatalerror("Filter actions are unsupported");
++
++    // zero means cleanup, which we require to be the last action
++    if(ti_offset == 0) {
++      if(!(next_action_offset == 0))
++        fatalerror("Cleanup action must be last in chain");
++      return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
++    }
++
++    // get classinfo for action and check if the one in the
++    // exception structure is a base
++    ClassInfo catch_ci = *(classinfo_table - ti_offset);
++    debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
++    if(_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
++      return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
++
++    // we've walked through all actions and found nothing...
++    if(next_action_offset == 0)
++      return _Unwind_Reason_Code.CONTINUE_UNWIND;
++    else
++      action_walker += next_action_offset;
++  }
++
++  fatalerror("reached unreachable");
++  return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++}
++
++// These are the register numbers for SetGR that
++// llvm's eh.exception and eh.selector intrinsics
++// will pick up.
++// Hints for these can be found by looking at the
++// EH_RETURN_DATA_REGNO macro in GCC, careful testing
++// is required though.
++version (X86_64)
++{
++  private int eh_exception_regno = 0;
++  private int eh_selector_regno = 1;
++} else {
++  private int eh_exception_regno = 0;
++  private int eh_selector_regno = 2;
++}
++
++private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
++{
++  debug(EH_personality) printf("Found catch clause!\n");
++
++  if(actions & _Unwind_Action.SEARCH_PHASE)
++    return _Unwind_Reason_Code.HANDLER_FOUND;
++
++  else if(actions & _Unwind_Action.CLEANUP_PHASE)
++  {
++    debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
++    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct.exception_object));
++    _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
++    _Unwind_SetIP(context, landing_pad);
++    return _Unwind_Reason_Code.INSTALL_CONTEXT;
++  }
++
++  fatalerror("reached unreachable");
++  return _Unwind_Reason_Code.FATAL_PHASE2_ERROR;
++}
++
++private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
++{
++  // if we're merely in search phase, continue
++  if(actions & _Unwind_Action.SEARCH_PHASE)
++    return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++  debug(EH_personality) printf("Calling cleanup routine...\n");
++
++  _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
++  _Unwind_SetGR(context, eh_selector_regno, 0);
++  _Unwind_SetIP(context, landing_pad);
++  return _Unwind_Reason_Code.INSTALL_CONTEXT;
++}
++
++private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ClassInfo* ci)
++{
++  ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
++  if (data is null)
++  {
++    //printf("language specific data was null\n");
++    callsite = null;
++    action = null;
++    ci = null;
++    return;
++  }
++
++  //TODO: Do proper DWARF reading here
++  if(*data++ != 0xff)
++    fatalerror("DWARF header has unexpected format 1");
++
++  if(*data++ != 0x00)
++    fatalerror("DWARF header has unexpected format 2");
++  size_t cioffset;
++  data = get_uleb128(data, cioffset);
++  ci = cast(ClassInfo*)(data + cioffset);
++
++  if(*data++ != 0x03)
++    fatalerror("DWARF header has unexpected format 3");
++  size_t callsitelength;
++  data = get_uleb128(data, callsitelength);
++  action = data + callsitelength;
++
++  callsite = data;
++}
++
++} // end of x86 Linux specific implementation
++
++
++extern(C) void _d_throw_exception(Object e)
++{
++    if (e !is null)
++    {
++        _d_exception* exc_struct = new _d_exception;
++        exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
++        exc_struct.exception_object = e;
++        _Unwind_Reason_Code ret = _Unwind_RaiseException(&exc_struct.unwind_info);
++        console("_Unwind_RaiseException failed with reason code: ")(ret)("\n");
++    }
++    abort();
++}
++
++extern(C) void _d_eh_resume_unwind(_d_exception* exception_struct)
++{
++  _Unwind_Resume(&exception_struct.unwind_info);
++}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/lifetime.d druntime/src/rt/lifetime.d
 --- druntime-orig/src/rt/lifetime.d	2010-08-05 05:39:06.000000000 +0400
 +++ druntime/src/rt/lifetime.d	2010-10-29 10:40:39.533035001 +0400
@@ -973,3 +2023,219 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          pushad  ;
      }
      trace_epi();
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/std/intrinsic.d druntime/src/std/intrinsic.d
+--- druntime-orig/src/std/intrinsic.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/std/intrinsic.d	2010-10-26 20:18:29.668925001 +0400
+@@ -0,0 +1,212 @@
++/*
++ * D phobos intrinsics for LDC
++ *
++ * From GDC ... public domain!
++ */
++module std.intrinsic;
++
++// Check for the right compiler
++version(LDC)
++{
++    // OK
++}
++else
++{
++    static assert(false, "This module is only valid for LDC");
++}
++
++/**
++ * Scans the bits in v starting with bit 0, looking
++ * for the first set bit.
++ * Returns:
++ *      The bit number of the first bit set.
++ *      The return value is undefined if v is zero.
++ */
++pure nothrow int bsf(uint v)
++{
++    uint m = 1;
++    uint i;
++    for (i = 0; i < 32; i++,m<<=1) {
++        if (v&m)
++        return i;
++    }
++    return i; // supposed to be undefined
++}
++
++/**
++ * Scans the bits in v from the most significant bit
++ * to the least significant bit, looking
++ * for the first set bit.
++ * Returns:
++ *      The bit number of the first bit set.
++ *      The return value is undefined if v is zero.
++ * Example:
++ * ---
++ * import std.intrinsic;
++ *
++ * int main()
++ * {
++ *     uint v;
++ *     int x;
++ *
++ *     v = 0x21;
++ *     x = bsf(v);
++ *     printf("bsf(x%x) = %d\n", v, x);
++ *     x = bsr(v);
++ *     printf("bsr(x%x) = %d\n", v, x);
++ *     return 0;
++ * }
++ * ---
++ * Output:
++ *  bsf(x21) = 0<br>
++ *  bsr(x21) = 5
++ */
++pure nothrow int bsr(uint v)
++{
++    uint m = 0x80000000;
++    uint i;
++    for (i = 32; i ; i--,m>>>=1) {
++    if (v&m)
++        return i-1;
++    }
++    return i; // supposed to be undefined
++}
++
++
++/**
++ * Tests the bit.
++ */
++pure nothrow int bt(const uint *p, uint bitnum)
++{
++    return (p[bitnum / (uint.sizeof*8)] & (1<<(bitnum & ((uint.sizeof*8)-1)))) ? -1 : 0 ;
++}
++
++
++/**
++ * Tests and complements the bit.
++ */
++nothrow int btc(uint *p, uint bitnum)
++{
++    uint * q = p + (bitnum / (uint.sizeof*8));
++    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
++    int result = *q & mask;
++    *q ^= mask;
++    return result ? -1 : 0;
++}
++
++
++/**
++ * Tests and resets (sets to 0) the bit.
++ */
++nothrow int btr(uint *p, uint bitnum)
++{
++    uint * q = p + (bitnum / (uint.sizeof*8));
++    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
++    int result = *q & mask;
++    *q &= ~mask;
++    return result ? -1 : 0;
++}
++
++
++/**
++ * Tests and sets the bit.
++ * Params:
++ * p = a non-NULL pointer to an array of uints.
++ * index = a bit number, starting with bit 0 of p[0],
++ * and progressing. It addresses bits like the expression:
++---
++p[index / (uint.sizeof*8)] & (1 << (index & ((uint.sizeof*8) - 1)))
++---
++ * Returns:
++ *      A non-zero value if the bit was set, and a zero
++ *      if it was clear.
++ *
++ * Example:
++ * ---
++import std.intrinsic;
++
++int main()
++{
++    uint array[2];
++
++    array[0] = 2;
++    array[1] = 0x100;
++
++    printf("btc(array, 35) = %d\n", <b>btc</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("btc(array, 35) = %d\n", <b>btc</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("bts(array, 35) = %d\n", <b>bts</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("btr(array, 35) = %d\n", <b>btr</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("bt(array, 1) = %d\n", <b>bt</b>(array, 1));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    return 0;
++}
++ * ---
++ * Output:
++<pre>
++btc(array, 35) = 0
++array = [0]:x2, [1]:x108
++btc(array, 35) = -1
++array = [0]:x2, [1]:x100
++bts(array, 35) = 0
++array = [0]:x2, [1]:x108
++btr(array, 35) = -1
++array = [0]:x2, [1]:x100
++bt(array, 1) = -1
++array = [0]:x2, [1]:x100
++</pre>
++ */
++nothrow int bts(uint *p, uint bitnum)
++{
++    uint * q = p + (bitnum / (uint.sizeof*8));
++    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
++    int result = *q & mask;
++    *q |= mask;
++    return result ? -1 : 0;
++}
++
++/**
++ * Swaps bytes in a 4 byte uint end-to-end, i.e. byte 0 becomes
++ * byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
++ * becomes byte 0.
++ */
++pure nothrow pragma(intrinsic, "llvm.bswap.i32")
++    uint bswap(uint val);
++
++/**
++ * Reads I/O port at port_address.
++ */
++ubyte inp(uint p) { throw new Exception("inp intrinsic not yet implemented"); }
++
++/**
++ * ditto
++ */
++ushort inpw(uint p) { throw new Exception("inpw intrinsic not yet implemented"); }
++
++/**
++ * ditto
++ */
++uint inpl(uint p) { throw new Exception("inpl intrinsic not yet implemented"); }
++
++/**
++ * ditto
++ */
++ubyte outp(uint p, ubyte v) { throw new Exception("outp intrinsic not yet implemented"); }
++
++/**
++ * ditto
++ */
++ushort outpw(uint p, ushort v) { throw new Exception("outpw intrinsic not yet implemented"); }
++
++/**
++ * ditto
++ */
++uint outpl(uint p, uint v) { throw new Exception("outpl intrinsic not yet implemented"); }
