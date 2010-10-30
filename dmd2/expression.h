@@ -1124,6 +1124,9 @@ struct CallExp : UnaExp
 
 #if IN_LLVM
     DValue* toElem(IRState* irs);
+#if DMDV2
+    void cacheLvalue(IRState* p);
+#endif
 #endif
 };
 
