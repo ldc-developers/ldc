@@ -164,6 +164,9 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	else ("${PATH}" STREQUAL "")
 		file(RELATIVE_PATH output ${PATH} ${INPUT_D})
 	endif ("${PATH}" STREQUAL "")
+	get_filename_component(name ${output} NAME_WE)
+	get_filename_component(path ${output} PATH)
+	set(output ${path}/${name})
 	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
 	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
@@ -173,8 +176,8 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	add_custom_command(
 		OUTPUT
 			${OUTPUT_O}
-			#${OUTPUT_BC}
-				COMMAND ${LDC_LOC} -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
+			${OUTPUT_BC}
+				COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
 		DEPENDS ${LDC_LOC}
 			${INPUT_D}
 			${LDC_IMPORTS}

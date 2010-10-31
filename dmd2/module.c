@@ -353,14 +353,14 @@ void Module::buildTargetFiles(bool singleObj)
 
 	if(!objfile)
 	{
-		if (global.params.output_bc)
+		if (global.params.output_o)
+			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.obj_ext);
+		else if (global.params.output_bc)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
 		else if (global.params.output_ll)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.ll_ext);
 		else if (global.params.output_s)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
-		else
-			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.obj_ext);
 	}
 	if(doDocComment && !docfile)
 		docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
