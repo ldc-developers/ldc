@@ -82,11 +82,11 @@ elseif(D_VERSION EQUAL 2)
 	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c)
 	if(UNIX)
-		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 	elseif(WIN32)
-		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 	elseif(APPLE)
-		file(GLOB CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 	endif(UNIX)
 	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${RUNTIME_DIR}/src/object_.d
 		${RUNTIME_DIR}/src/std/intrinsic.d
@@ -173,8 +173,8 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	add_custom_command(
 		OUTPUT
 			${OUTPUT_O}
-                        #${OUTPUT_BC}
-                COMMAND ${LDC_LOC} -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
+			#${OUTPUT_BC}
+				COMMAND ${LDC_LOC} -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
 		DEPENDS ${LDC_LOC}
 			${INPUT_D}
 			${LDC_IMPORTS}
@@ -183,7 +183,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 endmacro(dc)
 
 foreach(f ${CORE_D})
-	dc(${f} CORE_O CORE_BC ${RUNTIME_INCLUDE} "" "")
+	dc(${f} CORE_O CORE_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
 endforeach(f)
 
 foreach(f ${GC_D})
