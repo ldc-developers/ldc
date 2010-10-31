@@ -571,14 +571,14 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
 
 #else
 
-    LLValue* arrPtr = DtoArrayPtr(array);
     args.push_back(DtoArrayLen(array));
-    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".gc_mem").getInstruction();
 
+    LLValue* arrPtr = DtoArrayPtr(array);
     if (Logger::enabled())
         Logger::cout() << "arrPtr = " << *arrPtr << '\n';
     args.push_back(DtoBitCast(arrPtr, fn->getFunctionType()->getParamType(3), "tmp"));
 
+    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".gc_mem").getInstruction();
     if (newptr->getType() != arrPtr->getType())
         newptr = DtoBitCast(newptr, arrPtr->getType(), ".gc_mem");
 
