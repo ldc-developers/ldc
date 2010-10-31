@@ -216,7 +216,7 @@ struct Type : Object
 
     static Type *basic[TMAX];
     static unsigned char mangleChar[TMAX];
-    static unsigned char sizeTy[TMAX];
+    static unsigned short sizeTy[TMAX];
     static StringTable stringtable;
 #if IN_LLVM
     static StringTable deco_stringtable;

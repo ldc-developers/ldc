@@ -126,7 +126,7 @@ Type *Type::tvoidptr;
 Type *Type::tstring;
 Type *Type::basic[TMAX];
 unsigned char Type::mangleChar[TMAX];
-unsigned char Type::sizeTy[TMAX];
+unsigned short Type::sizeTy[TMAX];
 StringTable Type::stringtable;
 
 #if IN_LLVM
