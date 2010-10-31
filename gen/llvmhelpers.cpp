@@ -60,6 +60,12 @@ void DtoDeleteClass(LLValue* inst)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delclass");
     // build args
     LLSmallVector<LLValue*,1> arg;
+#if DMDV2
+    // druntime wants a pointer to object
+    LLValue *ptr = DtoRawAlloca(inst->getType(), 0, "objectPtr");
+    DtoStore(inst, ptr);
+    inst = ptr;
+#endif
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
     gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());

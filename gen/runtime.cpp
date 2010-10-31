@@ -456,11 +456,16 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
 
-    // void _d_delclass(Object p)
+    // D1: void _d_delclass(Object p)
+    // D2: void _d_delclass(Object* p)
     {
         llvm::StringRef fname("_d_delclass");
         std::vector<const LLType*> types;
+#if DMDV2
+        types.push_back(rt_ptr(objectTy));
+#else
         types.push_back(objectTy);
+#endif
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
