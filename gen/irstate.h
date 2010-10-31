@@ -178,11 +178,6 @@ struct IRState
 
     // 'used' array solely for keeping a reference to globals
     std::vector<LLConstant*> usedArray;
-
-    // dwarf dbg stuff
-    LLGlobalVariable* dwarfCUs;
-    LLGlobalVariable* dwarfSPs;
-    LLGlobalVariable* dwarfGVs;
 };
 
 template <typename InputIterator>

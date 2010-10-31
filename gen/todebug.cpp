@@ -50,15 +50,10 @@ static llvm::DIType dwarfTypeDescription(Type* type, llvm::DICompileUnit cu, con
 
 llvm::DIFile DtoDwarfFile(Loc loc, llvm::DICompileUnit compileUnit)
 {
-    llvm::StringRef path;
-    llvm::StringRef name;
-    llvm::StringRef dir;
-    if (loc.filename) {
-        path = llvm::StringRef(loc.filename);
-        name = llvm::StringRef(basename(loc.filename));
-        dir = path.substr(0, path.size() - name.size());
-    }
-    return gIR->difactory.CreateFile(name, dir, compileUnit);
+    typedef llvm::sys::Path LLPath;
+    LLPath path = loc.filename ? LLPath(loc.filename) : LLPath();
+    path.makeAbsolute();
+    return gIR->difactory.CreateFile(path.getLast(), path.getDirname(), compileUnit);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -261,7 +256,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
                                    LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getTypeBitSize(T), false), // size in bits
                                    LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getABITypeAlign(T)*8, false), // alignment in bits
                                    LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 0, false), // offset in bits,
-                                   0, // flags
+                                   llvm::DIType::FlagFwdDecl, // flags
                                    derivedFrom, // DerivedFrom
                                    llvm::DIArray(0)
                                    );
@@ -308,7 +303,7 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
                                     LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getTypeBitSize(T), false), // size in bits
                                     LLConstantInt::get(LLType::getInt64Ty(gIR->context()), getABITypeAlign(T)*8, false), // alignment in bits
                                     LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 0, false), // offset in bits,
-                                    0, // flags
+                                    llvm::DIType::FlagFwdDecl, // flags
                                     derivedFrom, // DerivedFrom
                                     elemsArray);
     if (diCompositeType)
@@ -336,7 +331,7 @@ static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDecla
         vd->loc.linnum, // line num
         dwarfTypeDescription_impl(vd->type, compileUnit, NULL), // type
         vd->protection == PROTprivate, // is local to unit
-        getDefinedModule(vd) == gIR->dmodule, // is definition
+        true, // is definition
         ll // value
     );
 }
@@ -453,7 +448,7 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
         srcpath,
         "LDC (http://www.dsource.org/projects/ldc)",
 //FIXME: What do these two mean?
-        false, // isMain,
+        gIR->dmodule == m, // isMain,
         false // isOptimized
     );
 
@@ -550,8 +545,7 @@ void DtoDwarfStopPoint(unsigned ln)
 {
     Logger::println("D to dwarf stoppoint at line %u", ln);
     LOG_SCOPE;
-    // TODO: possibly it is wrong.
-    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, DtoDwarfCompileUnit(gIR->dmodule));
+    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, gIR->func()->diSubprogram);
     gIR->ir->SetCurrentDebugLocation(loc);
 }
 
