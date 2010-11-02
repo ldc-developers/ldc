@@ -86,10 +86,15 @@ void DtoDeleteArray(DValue* arr)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray");
+
     // build args
     LLSmallVector<LLValue*,2> arg;
+#if DMDV2
+    arg.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
+#else
     arg.push_back(DtoArrayLen(arr));
     arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
+#endif
     // call
     gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }

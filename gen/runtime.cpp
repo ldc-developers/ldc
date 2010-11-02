@@ -431,12 +431,17 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_NoAlias);
     }
 
-    // void _d_delarray(size_t plength, void* pdata)
+    // D1: void _d_delarray(size_t plength, void* pdata)
+    // D2: void _d_delarray(void[]* array)
     {
         llvm::StringRef fname("_d_delarray");
         std::vector<const LLType*> types;
+#if DMDV2
+        types.push_back(voidArrayPtrTy);
+#else
         types.push_back(sizeTy);
         types.push_back(voidPtrTy);
+#endif
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
