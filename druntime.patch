@@ -1200,7 +1200,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/arrayInit.d druntime/src/rt/arrayInit.d
 --- druntime-orig/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/rt/arrayInit.d	2010-10-30 19:18:05.322555000 +0400
++++ druntime/src/rt/arrayInit.d	2010-11-02 14:39:21.353360001 +0300
 @@ -0,0 +1,150 @@
 +private import ldc.intrinsics;
 +
@@ -1343,8 +1343,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +// slice copy when assertions are enabled
 +void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
 +{
-+    assert(dst);
-+    assert(src);
++    if (dstlen != 0) assert(dst);
++    if (dstlen != 0) assert(src);
 +    if (dstlen != srclen)
 +        throw new Exception("lengths don't match for array copy");
 +    else if (dst+dstlen <= src || src+srclen <= dst)
@@ -1786,7 +1786,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/lifetime.d druntime/src/rt/lifetime.d
 --- druntime-orig/src/rt/lifetime.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/lifetime.d	2010-10-29 10:40:39.533035001 +0400
++++ druntime/src/rt/lifetime.d	2010-11-02 14:51:10.000000000 +0300
 @@ -92,6 +92,18 @@
      return gc_malloc(sz);
  }
