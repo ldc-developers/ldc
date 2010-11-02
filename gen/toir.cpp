@@ -2351,10 +2351,30 @@ DValue* FuncExp::toElem(IRState* p)
 
         LLValue* cval;
         IrFunction* irfn = p->func();
-        if (irfn->nestedVar)
+        if (irfn->nestedVar
+#if DMDV2
+            // We cannot use a frame allocated in one function
+            // for a delegate created in another function
+            // (that happens with anonymous functions)
+            && fd->toParent2() == irfn->decl
+#endif
+            )
             cval = irfn->nestedVar;
         else if (irfn->nestArg)
             cval = irfn->nestArg;
+#if DMDV2
+        // TODO: should we enable that for D1 as well?
+        else if (irfn->thisArg)
+        {
+            AggregateDeclaration* ad = irfn->decl->isMember2();
+            if (!ad || !ad->vthis) {
+                cval = getNullPtr(getVoidPtrType());
+            } else {
+                cval = ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
+                cval = DtoLoad(DtoGEPi(cval, 0,ad->vthis->ir.irField->index, ".vthis"));
+            }
+        }
+#endif
         else
             cval = getNullPtr(getVoidPtrType());
         cval = DtoBitCast(cval, dgty->getContainedType(0));
