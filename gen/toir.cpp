@@ -1697,6 +1697,16 @@ DValue* NewExp::toElem(IRState* p)
 #if DMDV2
         if (ts->sym->isNested() && ts->sym->vthis)
             DtoResolveNestedContext(loc, ts->sym, mem);
+
+        // call constructor
+        if (member)
+        {
+            Logger::println("Calling constructor");
+            assert(arguments != NULL);
+            member->codegen(Type::sir);
+            DFuncValue dfn(member, member->ir.irFunc->func, mem);
+            return DtoCallFunction(loc, ts, &dfn, arguments);
+        }
 #endif
         return new DImValue(type, mem);
     }
