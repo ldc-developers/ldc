@@ -839,6 +839,19 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_NoCapture);
     }
 
+#if DMDV2
+    // int _aaEqual(TypeInfo_AssociativeArray ti, AA e1, AA e2)
+    {
+        llvm::StringRef fname("_aaEqual");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(aaTy);
+        types.push_back(aaTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_1_2_NoCapture);
+    }
+#else
     // int _aaEq(AA aa, AA ab, TypeInfo_AssociativeArray ti)
     {
         llvm::StringRef fname("_aaEq");
@@ -850,6 +863,7 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_1_2_NoCapture);
     }
+#endif
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
