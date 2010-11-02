@@ -213,6 +213,24 @@ void DtoNestedInit(VarDeclaration* vd)
     }
 }
 
+#if DMDV2
+LLValue* DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value)
+#else
+LLValue* DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value)
+#endif
+{
+    Logger::println("Resolving nested context");
+    LOG_SCOPE;
+
+    // get context
+    LLValue* nest = DtoNestedContext(loc, decl);
+
+    // store into right location
+    size_t idx = decl->vthis->ir.irField->index;
+    LLValue* gep = DtoGEPi(value,0,idx,"tmp");
+    DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
+}
+
 LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 {
     Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
@@ -234,11 +252,16 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     // or just have a this argument
     else if (irfunc->thisArg)
     {
-        ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
-        if (!cd || !cd->vthis)
-            return llvm::UndefValue::get(getVoidPtrType());
+#if DMDV2
+        AggregateDeclaration* ad = irfunc->decl->isMember2();
+        val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
+#else
+        ClassDeclaration* ad = irfunc->decl->isMember2()->isClassDeclaration();
         val = DtoLoad(irfunc->thisArg);
-        val = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
+#endif
+        if (!ad || !ad->vthis)
+            return llvm::UndefValue::get(getVoidPtrType());
+        val = DtoLoad(DtoGEPi(val, 0,ad->vthis->ir.irField->index, ".vthis"));
     }
     else
     {
@@ -477,10 +500,19 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     assert(irfunction->thisArg);
                     assert(fd->isMember2());
                     LLValue* thisval = DtoLoad(irfunction->thisArg);
+#if DMDV2
+                    AggregateDeclaration* cd = fd->isMember2();
+#else
                     ClassDeclaration* cd = fd->isMember2()->isClassDeclaration();
+#endif
                     assert(cd);
                     assert(cd->vthis);
                     Logger::println("Indexing to 'this'");
+#if DMDV2
+                    if (cd->isStructDeclaration())
+                        src = DtoExtractValue(thisval, cd->vthis->ir.irField->index, ".vthis");
+                    else
+#endif
                     src = DtoLoad(DtoGEPi(thisval, 0, cd->vthis->ir.irField->index, ".vthis"));
                 }
                 if (depth > 1) {

@@ -1694,6 +1694,10 @@ DValue* NewExp::toElem(IRState* p)
             ts->sym->codegen(Type::sir);
             DtoAggrCopy(mem, ts->sym->ir.irStruct->getInitSymbol());
         }
+#if DMDV2
+        if (ts->sym->isNested() && ts->sym->vthis)
+            DtoResolveNestedContext(loc, ts->sym, mem);
+#endif
         return new DImValue(type, mem);
     }
     // new basic type

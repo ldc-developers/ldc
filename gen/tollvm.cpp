@@ -657,14 +657,14 @@ LLConstant* DtoBitCast(LLConstant* v, const LLType* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx)
+LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateInsertValue(aggr, v, idx);
+    return gIR->ir->CreateInsertValue(aggr, v, idx, name);
 }
 
-LLValue* DtoExtractValue(LLValue* aggr, unsigned idx)
+LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateExtractValue(aggr, idx);
+    return gIR->ir->CreateExtractValue(aggr, idx, name);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

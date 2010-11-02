@@ -170,16 +170,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // set the context for nested classes
     else if (tc->sym->isNested() && tc->sym->vthis)
     {
-        Logger::println("Resolving nested context");
-        LOG_SCOPE;
-
-        // get context
-        LLValue* nest = DtoNestedContext(loc, tc->sym);
-
-        // store into right location
-        size_t idx = tc->sym->vthis->ir.irField->index;
-        LLValue* gep = DtoGEPi(mem,0,idx,"tmp");
-        DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
+        DtoResolveNestedContext(loc, tc->sym, mem);
     }
 
     // call constructor

@@ -364,10 +364,16 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         if (!t->equals(t2)) {
             // FIXME: use 'rhs' for something !?!
             DtoAggrZeroInit(lhs->getLVal());
+#if DMDV2
+            TypeStruct *ts = (TypeStruct*) lhs->getType();
+            if (ts->sym->isNested() && ts->sym->vthis)
+                DtoResolveNestedContext(loc, ts->sym, lhs->getLVal());
+#endif
         }
         else {
             DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
         }
+
     }
     else if (t->ty == Tarray) {
         // lhs is slice
