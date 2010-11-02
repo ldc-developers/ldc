@@ -442,7 +442,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     LOG_SCOPE;
 
     // typeinfo arg
-    LLValue* arrayTypeInfo = DtoTypeInfoOf(arrayType);
+    LLValue* arrayTypeInfo = DtoTypeInfoOf(arrayType->mutableOf()->merge2());
 
     // dim arg
     assert(DtoType(dim->getType()) == DtoSize_t());
@@ -493,7 +493,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     LOG_SCOPE;
 
     // typeinfo arg
-    LLValue* arrayTypeInfo = DtoTypeInfoOf(arrayType);
+    LLValue* arrayTypeInfo = DtoTypeInfoOf(arrayType->mutableOf()->merge2());
 
     // get value type
     Type* vtype = arrayType->toBasetype();
