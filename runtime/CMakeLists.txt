@@ -113,8 +113,14 @@ elseif(D_VERSION EQUAL 2)
         if(WIN32)
             file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
         endif(WIN32)
-        list(APPEND PHOBOS2_D ${PHOBOS2_D_MATH} ${PHOBOS2_D_WIN}
-            ${PHOBOS2_D_C} ${PHOBOS2_D_C_SYS})
+        list(APPEND PHOBOS2_D
+                ${PHOBOS2_D_MATH}
+                ${PHOBOS2_D_WIN}
+                ${PHOBOS2_D_C}
+                ${PHOBOS2_D_C_SYS}
+                ${PHOBOS2_DIR}/etc/c/zlib.d
+                ${PHOBOS2_DIR}/crc32.d
+        )
     endif(PHOBOS2_DIR)
 endif(D_VERSION EQUAL 1)
 
@@ -166,7 +172,11 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	endif ("${PATH}" STREQUAL "")
 	get_filename_component(name ${output} NAME_WE)
 	get_filename_component(path ${output} PATH)
-	set(output ${path}/${name})
+	if ("${path}" STREQUAL "")
+		set(output ${name})
+	else ("${path}" STREQUAL "")
+		set(output ${path}/${name})
+	endif ("${path}" STREQUAL "")
 	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
 	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
