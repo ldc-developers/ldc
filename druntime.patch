@@ -907,8 +907,23 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
 --- druntime-orig/src/object_.d	2010-09-03 12:28:52.000000000 +0400
-+++ druntime/src/object_.d	2010-10-26 19:27:09.224925000 +0400
-@@ -1073,7 +1073,7 @@
++++ druntime/src/object_.d	2010-11-02 16:35:18.353360002 +0300
+@@ -1040,7 +1040,13 @@
+     override size_t tsize() { return base.tsize(); }
+     override void swap(void *p1, void *p2) { return base.swap(p1, p2); }
+ 
+-    override TypeInfo next() { return base.next(); }
++    override TypeInfo next() 
++    {
++        version(LDC)
++            return base;
++        else
++            return base.next();
++    }
+     override uint flags() { return base.flags(); }
+     override void[] init() { return base.init(); }
+ 
+@@ -1073,7 +1079,7 @@
  
  abstract class MemberInfo
  {
@@ -917,7 +932,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
  class MemberInfo_field : MemberInfo
-@@ -1663,7 +1663,6 @@
+@@ -1663,7 +1669,6 @@
      {
          int len = 0;
          ModuleReference *mr;
@@ -925,7 +940,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          for (mr = _Dmodule_ref; mr; mr = mr.next)
              len++;
          _moduleinfo_array = new ModuleInfo*[len];
-@@ -2025,7 +2024,6 @@
+@@ -2025,7 +2030,6 @@
          _d_monitor_create(h);
          m = getMonitor(h);
      }
@@ -933,7 +948,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      IMonitor i = m.impl;
  
      if (i is null)
-@@ -2124,7 +2122,7 @@
+@@ -2124,7 +2128,7 @@
      size_t _aaLen(void* p);
      void* _aaGet(void** pp, TypeInfo keyti, size_t valuesize, ...);
      void* _aaGetRvalue(void* p, TypeInfo keyti, size_t valuesize, ...);
@@ -942,7 +957,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      void _aaDel(void* p, TypeInfo keyti, ...);
      void[] _aaValues(void* p, size_t keysize, size_t valuesize);
      void[] _aaKeys(void* p, size_t keysize, size_t valuesize);
-@@ -2169,7 +2167,7 @@
+@@ -2169,7 +2173,7 @@
          return *cast(Key[]*) &a;
      }
  
