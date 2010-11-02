@@ -907,7 +907,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
 --- druntime-orig/src/object_.d	2010-09-03 12:28:52.000000000 +0400
-+++ druntime/src/object_.d	2010-11-02 16:35:18.353360002 +0300
++++ druntime/src/object_.d	2010-11-02 19:34:56.773360001 +0300
 @@ -1040,7 +1040,13 @@
      override size_t tsize() { return base.tsize(); }
      override void swap(void *p1, void *p2) { return base.swap(p1, p2); }
@@ -923,15 +923,6 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      override uint flags() { return base.flags(); }
      override void[] init() { return base.init(); }
  
-@@ -1073,7 +1079,7 @@
- 
- abstract class MemberInfo
- {
--    string name();
-+    string name() { return ""; }; // LDC: FIXME:
- }
- 
- class MemberInfo_field : MemberInfo
 @@ -1663,7 +1669,6 @@
      {
          int len = 0;
