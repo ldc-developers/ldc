@@ -2695,6 +2695,25 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         DtoAssign(loc, mem, val);
     }
 
+#if DMDV2
+    // Rehash array
+    if (keys->dim) {
+        // first get the runtime function
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_aaRehash");
+        const llvm::FunctionType* funcTy = fn->getFunctionType();
+
+        // aa param
+        LLValue* aaval = DtoBitCast(tmp, funcTy->getParamType(0));
+
+        // keyti param
+        LLValue* keyti = DtoTypeInfoOf(((TypeAArray*)aatype)->index, false);
+        keyti = DtoBitCast(keyti, funcTy->getParamType(1));
+
+        // Call function
+        gIR->CreateCallOrInvoke2(fn, aaval, keyti, ".gc_mem").getInstruction();
+    }
+#endif
+
     return aa;
 }
 
