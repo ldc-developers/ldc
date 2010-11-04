@@ -422,10 +422,8 @@ static bool isInitialized(Type* et) {
 static DSliceValue *getSlice(Type *arrayType, LLValue *array)
 {
     // Get ptr and length of the array
-    LLValue* newArrayLVal = DtoRawAlloca(array->getType(), 0, "newArray");
-    DtoStore(array, newArrayLVal);
-    LLValue* arrayLen = DtoLoad(DtoGEPi(newArrayLVal,0,0));
-    LLValue* newptr = DtoLoad(DtoGEPi(newArrayLVal,0,1));
+    LLValue* arrayLen = DtoExtractValue(array, 0, ".ptr");
+    LLValue* newptr = DtoExtractValue(array, 1, ".len");
 
     // cast pointer to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
@@ -684,13 +682,13 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(arrayType));
     // byte[] x
-    LLValue *val = makeLValue(exp1->loc, exp1->toElem(gIR));
-    val = DtoBitCast(val, getPtrToType(fn->getFunctionType()->getParamType(1)));
-    args.push_back(DtoLoad(val));
+    LLValue *val = exp1->toElem(gIR)->getRVal();
+    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
+    args.push_back(val);
     // byte[] y
-    val = makeLValue(exp2->loc, exp2->toElem(gIR));
-    val = DtoBitCast(val, getPtrToType(fn->getFunctionType()->getParamType(2)));
-    args.push_back(DtoLoad(val));
+    val = exp2->toElem(gIR)->getRVal();
+    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
+    args.push_back(val);
 
     // Call _d_arraycatT
     LLValue* newArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
