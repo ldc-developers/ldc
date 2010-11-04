@@ -2592,6 +2592,24 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
         // store the initializer there
         DtoAssign(loc, &field, val);
+
+#if DMDV2
+        Type *tb = vd->type->toBasetype();
+        if (tb->ty == Tstruct)
+        {
+            // Call postBlit()
+            StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+            if (sd->postblit)
+            {
+                FuncDeclaration *fd = sd->postblit;
+                fd->codegen(Type::sir);
+                Expressions args;
+                DFuncValue dfn(fd, fd->ir.irFunc->func, val->getLVal());
+                DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+            }
+        }
+#endif
+
     }
     // initialize trailing padding
     if (sd->structsize != offset)
