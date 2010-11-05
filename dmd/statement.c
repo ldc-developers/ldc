@@ -4155,7 +4155,12 @@ Statement *TryFinallyStatement::syntaxCopy()
 Statement *TryFinallyStatement::semantic(Scope *sc)
 {
     //printf("TryFinallyStatement::semantic()\n");
+    // This code is different in LDC because LDC needs to know the 
+    // enclosingScopeExit for its labels
+    Statement* oldScopeExit = sc->enclosingScopeExit;
+    sc->enclosingScopeExit = this;
     body = body->semantic(sc);
+    sc->enclosingScopeExit = oldScopeExit;
     sc = sc->push();
     sc->enclosingFinally = this;
     sc->sbreak = NULL;
