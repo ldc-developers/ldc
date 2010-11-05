@@ -313,3 +313,24 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          {
              result = dg(field);
  
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/outbuffer.d phobos/std/outbuffer.d
+--- phobos-orig/std/outbuffer.d	2010-09-17 00:27:48.000000000 +0400
++++ phobos/std/outbuffer.d	2010-11-05 13:59:42.227267001 +0300
+@@ -308,8 +308,15 @@
+     void printf(string format, ...)
+     {
+         va_list ap;
+-        ap = cast(va_list)&format;
+-        ap += format.sizeof;
++        version(LDC) 
++        {
++            ap = _argptr;
++        }
++        else
++        {
++            ap = cast(va_list)&format;
++            ap += format.sizeof;
++        }
+         vprintf(format, ap);
+     }
+ 
