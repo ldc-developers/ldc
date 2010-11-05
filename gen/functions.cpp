@@ -513,6 +513,18 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             gIR->dtors.push_back(fdecl);
         }
     }
+    // shared static ctor
+    else if (fdecl->isSharedStaticCtorDeclaration()) {
+        if (mustDefineSymbol(fdecl)) {
+            gIR->sharedCtors.push_back(fdecl);
+        }
+    }
+    // static dtor
+    else if (fdecl->isSharedStaticDtorDeclaration()) {
+        if (mustDefineSymbol(fdecl)) {
+            gIR->sharedDtors.push_back(fdecl);
+        }
+    }
 
     // we never reference parameters of function prototypes
     std::string str;

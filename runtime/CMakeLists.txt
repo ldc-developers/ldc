@@ -187,7 +187,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 		OUTPUT
 			${OUTPUT_O}
 			${OUTPUT_BC}
-				COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
+				COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS} --unittest
 		DEPENDS ${LDC_LOC}
 			${INPUT_D}
 			${LDC_IMPORTS}

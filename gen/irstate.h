@@ -163,6 +163,10 @@ struct IRState
     typedef std::vector<FuncDeclaration*> FuncDeclVector;
     FuncDeclVector ctors;
     FuncDeclVector dtors;
+#if DMDV2
+    FuncDeclVector sharedCtors;
+    FuncDeclVector sharedDtors;
+#endif
     FuncDeclVector unitTests;
     
     // all template instances that had members emitted
