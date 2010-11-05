@@ -513,6 +513,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             gIR->dtors.push_back(fdecl);
         }
     }
+#if DMDV2
     // shared static ctor
     else if (fdecl->isSharedStaticCtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
@@ -525,7 +526,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             gIR->sharedDtors.push_back(fdecl);
         }
     }
-
+#endif
     // we never reference parameters of function prototypes
     std::string str;
     if (!declareOnly)
