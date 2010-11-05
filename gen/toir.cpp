@@ -40,6 +40,7 @@
 #include "gen/nested.h"
 #include "gen/utils.h"
 #include "gen/warnings.h"
+#include "gen/optimizer.h"
 
 #include "llvm/Support/ManagedStatic.h"
 
@@ -1257,8 +1258,39 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
-        if(global.params.useArrayBounds)
+        if(global.params.useArrayBounds) {
+#if 1
+            /*
+                Workaround for a bug in llvm 2.8 which appears only when
+                all optimizations are off.
+                Example:
+                    int a[] = new int[5];
+
+                    a[0] = 100;
+                    a[1] = 1;
+                    a[2] = 2;
+                    a[3] = 3;
+                    a[4] = 4;
+
+                    for (int i = 0; i < a.length-1; i++)
+                        printf("%d\n", a[i+1]); // Error would be around here
+                Output:
+                    100
+                    100
+                    100
+                    100
+                As you can see from the example, the index always is 0.
+                To avoid the issue we store the index before array bounds
+                checking.
+             */
+            if (optLevel() == 0 && !r->isLVal()) {
+                LLValue *tmp = DtoAlloca(r->getType());
+                DtoStore(r->getRVal(), tmp);
+                r = new DVarValue(r->getType(), tmp);
+            }
+#endif
             DtoArrayBoundsCheck(loc, l, r, false);
+        }
         arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());
     }
