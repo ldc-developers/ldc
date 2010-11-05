@@ -272,4 +272,12 @@ if(PHOBOS2_DIR)
 
     add_library(phobos2 ${ZLIB_C} ${PHOBOS2_O})
     add_dependencies(phobos2 runtime)
+    set_target_properties(
+        phobos2 PROPERTIES
+        LINKER_LANGUAGE C
+        ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        COMPILE_FLAGS "-m32"
+        LINK_FLAGS "-m32"
+    )
 endif(PHOBOS2_DIR)
