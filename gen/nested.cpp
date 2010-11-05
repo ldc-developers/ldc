@@ -68,7 +68,7 @@ static FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
     return (parent ? parent->isFuncDeclaration() : NULL);
 }
 
-DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
+DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
 {
     Logger::println("DtoNestedVariable for %s @ %s", vd->toChars(), loc.toChars());
     LOG_SCOPE;
@@ -150,7 +150,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd)
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
         Logger::cout() << "Addr: " << *val << '\n';
         Logger::cout() << "of type: " << *val->getType() << '\n';
-        if (vd->ir.irLocal->byref) {
+        if (vd->ir.irLocal->byref || byref) {
             val = DtoAlignedLoad(val);
             Logger::cout() << "Was byref, now: " << *val << '\n';
             Logger::cout() << "of type: " << *val->getType() << '\n';

@@ -28,6 +28,6 @@ LLValue* DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value
 llvm::Value* DtoNestedContext(Loc loc, Dsymbol* sym);
 
 /// Gets the DValue of a nested variable with arbitrary nesting.
-DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd);
+DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref = false);
 
 #endif
