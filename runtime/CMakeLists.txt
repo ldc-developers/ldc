@@ -80,7 +80,7 @@ elseif(D_VERSION EQUAL 2)
 		${RUNTIME_DC_DIR}/deh2.d
 	)
 	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c)
+	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c)
 	if(UNIX)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 	elseif(WIN32)
