@@ -1,7 +1,7 @@
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/concurrency.d phobos/std/concurrency.d
---- phobos-orig/std/concurrency.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/concurrency.d	2010-11-02 21:33:03.417359999 +0300
-@@ -342,9 +342,10 @@
+--- phobos-orig/std/concurrency.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/concurrency.d	2010-11-07 19:26:52.000000000 +0300
+@@ -359,9 +359,10 @@
          owner = ownerTid;
          fn( args );
      }
@@ -14,18 +14,18 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      return spawnTid;
  }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/conv.d phobos/std/conv.d
---- phobos-orig/std/conv.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/conv.d	2010-11-04 13:24:59.758325002 +0300
-@@ -1395,7 +1395,7 @@
+--- phobos-orig/std/conv.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/conv.d	2010-11-08 15:54:33.109464001 +0300
+@@ -1405,7 +1405,7 @@
      else // not hex
      {
-         if (toupper(p.front) == 'N')
+         if (toupper(p.front) == 'N' && !startsWithZero)
 -        {
 +        {   
              // nan
              enforce((p.popFront(), !p.empty && toupper(p.front) == 'A')
                      && (p.popFront(), !p.empty && toupper(p.front) == 'N'),
-@@ -3191,6 +3191,11 @@
+@@ -3243,6 +3243,11 @@
  T toImpl(T, S)(S d) if (is(Unqual!S == double) && isSomeString!(T))
  {
      //alias Unqual!(ElementType!T) Char;
@@ -38,9 +38,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      int len = sprintf(buffer.ptr, "%g", d);
      return to!T(buffer[0 .. len].dup);
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/format.d phobos/std/format.d
---- phobos-orig/std/format.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/format.d	2010-11-04 18:17:53.483219002 +0300
-@@ -2531,20 +2531,42 @@
+--- phobos-orig/std/format.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/format.d	2010-11-07 19:26:52.000000000 +0300
+@@ -2582,20 +2582,42 @@
          FLprecision = 0x80,
      }
  
@@ -95,8 +95,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
      void formatArg(char fc)
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/functional.d phobos/std/functional.d
---- phobos-orig/std/functional.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/functional.d	2010-10-29 12:01:35.285035001 +0400
+--- phobos-orig/std/functional.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/functional.d	2010-11-07 19:26:52.000000000 +0300
 @@ -713,6 +713,13 @@
          assert(dg_pure_nothrow() == 7);
          //assert(dg_pure_nothrow_safe() == 8);
@@ -119,9 +119,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    }
  }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/internal/math/biguintx86.d phobos/std/internal/math/biguintx86.d
---- phobos-orig/std/internal/math/biguintx86.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/internal/math/biguintx86.d	2010-10-26 14:08:51.480925001 +0400
-@@ -733,7 +733,10 @@
+--- phobos-orig/std/internal/math/biguintx86.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/internal/math/biguintx86.d	2010-11-07 19:26:52.000000000 +0300
+@@ -734,7 +734,10 @@
      // EDI = dest
      // ESI = src
  
@@ -133,7 +133,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      version(D_PIC) {
          enum { zero = 0 }
      } else {
-@@ -767,7 +770,10 @@
+@@ -768,7 +771,10 @@
          jnz L_enter_odd;
  }
                  // Main loop, with entry point for even length
@@ -145,7 +145,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  asm {
          mov EAX, EBP; // get final carry
          pop EBP;
-@@ -777,6 +783,9 @@
+@@ -778,6 +784,9 @@
          ret 5*4;
  }
  L_enter_odd:
@@ -156,8 +156,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
---- phobos-orig/std/math.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/math.d	2010-11-07 17:42:39.390374001 +0300
+--- phobos-orig/std/math.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/math.d	2010-11-07 19:26:52.000000000 +0300
 @@ -276,7 +276,7 @@
      assert(abs(71.6Li) == 71.6L);
      assert(abs(-56) == 56);
@@ -308,7 +308,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  /** Compute the value of an integer x, raised to the power of a positive
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/openrj.d phobos/std/openrj.d
 --- phobos-orig/std/openrj.d	2009-09-03 12:01:40.000000000 +0400
-+++ phobos/std/openrj.d	2010-10-26 13:17:37.480925001 +0400
++++ phobos/std/openrj.d	2010-10-26 13:17:37.000000000 +0400
 @@ -620,11 +620,11 @@
      /**
       *
@@ -352,8 +352,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
              result = dg(field);
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/outbuffer.d phobos/std/outbuffer.d
---- phobos-orig/std/outbuffer.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/outbuffer.d	2010-11-05 13:59:42.227267001 +0300
+--- phobos-orig/std/outbuffer.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/outbuffer.d	2010-11-05 13:59:42.000000000 +0300
 @@ -308,8 +308,15 @@
      void printf(string format, ...)
      {

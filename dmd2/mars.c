@@ -4,6 +4,7 @@
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
+// http://www.dsource.org/projects/dmd/browser/trunk/src/mars.c
 // License for redistribution is by either the Artistic License
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
@@ -99,7 +100,7 @@ Global::Global()
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.049";
+    version = "v2.050";
 #if IN_LLVM
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 2.8";
@@ -237,6 +238,8 @@ void halt()
 #endif
 }
 
+
+extern signed char tyalignsize[];
 /***********************************
  * Parse and append contents of environment variable envvar
  * to argc and argv[].

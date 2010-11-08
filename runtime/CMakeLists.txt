@@ -109,6 +109,7 @@ elseif(D_VERSION EQUAL 2)
         list(REMOVE_ITEM ZLIB_C
             ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c
             ${PHOBOS2_DIR}/etc/c/zlib/example.c
+            ${PHOBOS2_DIR}/etc/c/zlib/gzio.c
         )
         if(WIN32)
             file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)

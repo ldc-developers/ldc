@@ -564,13 +564,13 @@ Expression *ReturnStatement::interpret(InterState *istate)
     }
 #endif
 
-#if LOG
     Expression *e = exp->interpret(istate);
-    printf("e = %p\n", e);
+    if (e == EXP_CANT_INTERPRET)
+        return e;
+    // Convert lvalues into rvalues (See Bugzilla 4825 for rationale)
+    if (e->op == TOKvar)
+        e = e->interpret(istate);
     return e;
-#else
-    return exp->interpret(istate);
-#endif
 }
 
 Expression *BreakStatement::interpret(InterState *istate)
@@ -2710,21 +2710,32 @@ Expression *CallExp::interpret(InterState *istate)
         Expression * pe = ((PtrExp*)ecall)->e1;
         if (pe->op == TOKvar) {
             VarDeclaration *vd = ((VarExp *)((PtrExp*)ecall)->e1)->var->isVarDeclaration();
-            if (vd && vd->value && vd->value->op==TOKsymoff)
+            if (vd && vd->value && vd->value->op == TOKsymoff)
                 fd = ((SymOffExp *)vd->value)->var->isFuncDeclaration();
             else {
                 ecall = vd->value->interpret(istate);
-                if (ecall->op==TOKsymoff)
+                if (ecall->op == TOKsymoff)
                         fd = ((SymOffExp *)ecall)->var->isFuncDeclaration();
                 }
         }
         else
             ecall = ((PtrExp*)ecall)->e1->interpret(istate);
+
     }
+    if (ecall == EXP_CANT_INTERPRET)
+        return ecall;
+
     if (ecall->op == TOKindex)
-        ecall = e1->interpret(istate);
+    {   ecall = e1->interpret(istate);
+        if (ecall == EXP_CANT_INTERPRET)
+            return ecall;
+    }
+
     if (ecall->op == TOKdotvar && !((DotVarExp*)ecall)->var->isFuncDeclaration())
-        ecall = e1->interpret(istate);
+    {   ecall = e1->interpret(istate);
+        if (ecall == EXP_CANT_INTERPRET)
+            return ecall;
+    }
 
     if (ecall->op == TOKdotvar)
     {   // Calling a member function

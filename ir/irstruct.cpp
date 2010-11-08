@@ -149,7 +149,8 @@ LLConstant * IrStruct::createStructDefaultInitializer()
 
     assert(type->ty == Tstruct && "cannot build struct default initializer for non struct type");
 
-    IrTypeStruct* ts = type->irtype->isStruct();
+    DtoType(type);
+    IrTypeStruct* ts = stripModifiers(type)->irtype->isStruct();
     assert(ts);
 
     // start at offset zero

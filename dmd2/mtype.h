@@ -589,6 +589,15 @@ enum TRUST
     TRUSTsafe = 3,      // @safe
 };
 
+enum PURE
+{
+    PUREimpure = 0,     // not pure at all
+    PUREweak = 1,       // no mutable globals are read or written
+    PUREconst = 2,      // parameters are values or const
+    PUREstrong = 3,     // parameters are values or immutable
+    PUREfwdref = 4,     // it's pure, but not known which level yet
+};
+
 struct TypeFunction : TypeNext
 {
     // .next is the return type
@@ -597,11 +606,11 @@ struct TypeFunction : TypeNext
     int varargs;        // 1: T t, ...) style for variable number of arguments
                         // 2: T t ...) style for variable number of arguments
     bool isnothrow;     // true: nothrow
-    bool ispure;        // true: pure
     bool isproperty;    // can be called without parentheses
     bool isref;         // true: returns a reference
     enum LINK linkage;  // calling convention
     enum TRUST trust;   // level of trust
+    enum PURE purity;   // PURExxxx
     Expressions *fargs; // function arguments
 
     int inuse;
@@ -609,6 +618,7 @@ struct TypeFunction : TypeNext
     TypeFunction(Parameters *parameters, Type *treturn, int varargs, enum LINK linkage, StorageClass stc = 0);
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
+    void purityLevel();
     void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);

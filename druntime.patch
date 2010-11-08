@@ -1,6 +1,6 @@
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/cstdarg.di druntime/import/ldc/cstdarg.di
 --- druntime-orig/import/ldc/cstdarg.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/cstdarg.di	2010-11-05 13:57:24.315267000 +0300
++++ druntime/import/ldc/cstdarg.di	2010-11-05 13:57:24.000000000 +0300
 @@ -0,0 +1,29 @@
 +/*
 + * vararg support for extern(C) functions
@@ -417,7 +417,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/vararg.d druntime/import/ldc/vararg.d
 --- druntime-orig/import/ldc/vararg.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/vararg.d	2010-11-05 13:57:12.991267001 +0300
++++ druntime/import/ldc/vararg.d	2010-11-05 13:57:12.000000000 +0300
 @@ -0,0 +1,43 @@
 +/*
 + * This module holds the implementation of special vararg templates for D style var args.
@@ -463,18 +463,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    dst = src;
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
---- druntime-orig/import/object.di	2010-09-03 12:28:52.000000000 +0400
-+++ druntime/import/object.di	2010-11-04 17:49:07.000000000 +0300
-@@ -130,7 +130,7 @@
-     Interface[] interfaces;
-     TypeInfo_Class   base;
-     void*       destructor;
--    void(*classInvariant)(Object);
-+    void function(Object) classInvariant;
-     uint        m_flags;
-     //  1:      // is IUnknown or is derived from IUnknown
-     //  2:      // has no possible pointers into GC memory
-@@ -140,7 +140,7 @@
+--- druntime-orig/import/object.di	2010-10-13 10:37:58.000000000 +0400
++++ druntime/import/object.di	2010-11-07 19:11:32.000000000 +0300
+@@ -142,7 +142,7 @@
      // 32:      // has typeinfo member
      void*       deallocator;
      OffsetTypeInfo[] m_offTi;
@@ -483,7 +474,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      const(MemberInfo[]) function(string) xgetMembers;
  
      static TypeInfo_Class find(in char[] classname);
-@@ -179,7 +179,7 @@
+@@ -189,7 +189,7 @@
  
  class TypeInfo_Const : TypeInfo
  {
@@ -492,7 +483,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
  class TypeInfo_Invariant : TypeInfo_Const
-@@ -288,7 +288,6 @@
+@@ -298,7 +298,6 @@
      interface TraceInfo
      {
          int opApply(scope int delegate(ref char[]));
@@ -501,8 +492,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
      string      msg;
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/atomic.d druntime/src/core/atomic.d
---- druntime-orig/src/core/atomic.d	2010-09-03 12:28:52.000000000 +0400
-+++ druntime/src/core/atomic.d	2010-11-04 17:49:07.000000000 +0300
+--- druntime-orig/src/core/atomic.d	2010-10-11 00:37:54.000000000 +0400
++++ druntime/src/core/atomic.d	2010-11-07 19:11:32.000000000 +0300
 @@ -89,6 +89,117 @@
           return false;
       }
@@ -677,8 +668,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      // use the unoptimized version
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/gc/gcx.d druntime/src/gc/gcx.d
---- druntime-orig/src/gc/gcx.d	2010-08-27 01:23:26.000000000 +0400
-+++ druntime/src/gc/gcx.d	2010-11-06 18:16:41.638720001 +0300
+--- druntime-orig/src/gc/gcx.d	2010-10-03 10:52:12.000000000 +0400
++++ druntime/src/gc/gcx.d	2010-11-07 19:11:32.000000000 +0300
 @@ -1464,7 +1464,8 @@
  
  
@@ -906,9 +897,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          thread_suspendAll();
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
---- druntime-orig/src/object_.d	2010-09-03 12:28:52.000000000 +0400
-+++ druntime/src/object_.d	2010-11-06 19:28:37.000000000 +0300
-@@ -1663,7 +1663,6 @@
+--- druntime-orig/src/object_.d	2010-10-13 10:37:58.000000000 +0400
++++ druntime/src/object_.d	2010-11-07 19:11:32.000000000 +0300
+@@ -1754,7 +1754,6 @@
      {
          int len = 0;
          ModuleReference *mr;
@@ -916,7 +907,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          for (mr = _Dmodule_ref; mr; mr = mr.next)
              len++;
          _moduleinfo_array = new ModuleInfo*[len];
-@@ -2025,7 +2024,6 @@
+@@ -2116,7 +2115,6 @@
          _d_monitor_create(h);
          m = getMonitor(h);
      }
@@ -924,7 +915,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      IMonitor i = m.impl;
  
      if (i is null)
-@@ -2124,7 +2122,7 @@
+@@ -2215,7 +2213,7 @@
      size_t _aaLen(void* p);
      void* _aaGet(void** pp, TypeInfo keyti, size_t valuesize, ...);
      void* _aaGetRvalue(void* p, TypeInfo keyti, size_t valuesize, ...);
@@ -933,7 +924,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      void _aaDel(void* p, TypeInfo keyti, ...);
      void[] _aaValues(void* p, size_t keysize, size_t valuesize);
      void[] _aaKeys(void* p, size_t keysize, size_t valuesize);
-@@ -2169,7 +2167,7 @@
+@@ -2260,7 +2258,7 @@
          return *cast(Key[]*) &a;
      }
  
@@ -944,7 +935,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/aaA.d druntime/src/rt/aaA.d
 --- druntime-orig/src/rt/aaA.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/aaA.d	2010-11-05 11:43:19.831267002 +0300
++++ druntime/src/rt/aaA.d	2010-11-05 11:43:19.000000000 +0300
 @@ -204,7 +204,7 @@
   * Add entry for key if it is not already there.
   */
@@ -1776,8 +1767,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +  _Unwind_Resume(&exception_struct.unwind_info);
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/lifetime.d druntime/src/rt/lifetime.d
---- druntime-orig/src/rt/lifetime.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/lifetime.d	2010-11-05 11:43:02.207267001 +0300
+--- druntime-orig/src/rt/lifetime.d	2010-10-12 07:07:36.000000000 +0400
++++ druntime/src/rt/lifetime.d	2010-11-07 19:12:13.000000000 +0300
 @@ -92,6 +92,18 @@
      return gc_malloc(sz);
  }
@@ -1797,52 +1788,25 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  /**
   *
-@@ -670,7 +682,7 @@
-  * ti is the type of the resulting array, or pointer to element.
-  * (For when the array is initialized to 0)
-  */
--extern (C) ulong _d_newarrayT(TypeInfo ti, size_t length)
-+extern (C) void[] _d_newarrayT(TypeInfo ti, size_t length)
- {
-     ulong result;
-     auto size = ti.next.tsize();                // array element size
 @@ -702,7 +714,7 @@
          __setArrayAllocLength(info, size, isshared);
-         result = cast(ulong)length + (cast(ulong)cast(size_t)arrstart << 32);
+ 	result = arrstart[0..length];
      }
 -    return result;
 +    return *cast(void[]*)&result;
  
  Loverflow:
      onOutOfMemoryError();
-@@ -711,7 +723,7 @@
- /**
-  * For when the array has a non-zero initializer.
-  */
--extern (C) ulong _d_newarrayiT(TypeInfo ti, size_t length)
-+extern (C) void[] _d_newarrayiT(TypeInfo ti, size_t length)
- {
-     ulong result;
-     auto size = ti.next.tsize();                // array element size
 @@ -764,7 +776,7 @@
          __setArrayAllocLength(info, size, isshared);
-         result = cast(ulong)length + (cast(ulong)cast(uint)arrstart << 32);
+ 	result = arrstart[0..length];
      }
 -    return result;
 +    return *cast(void[]*)&result;
  
  Loverflow:
      onOutOfMemoryError();
-@@ -773,7 +785,7 @@
- /**
-  *
-  */
--extern (C) ulong _d_newarraymT(TypeInfo ti, int ndims, ...)
-+extern (C) void[] _d_newarraymT(TypeInfo ti, int ndims, ...)
- {
-     ulong result;
- 
-@@ -823,14 +835,14 @@
+@@ -823,7 +835,7 @@
          }
          va_end(q);
      }
@@ -1850,14 +1814,6 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    return *cast(void[]*)&result;
  }
  
- 
- /**
-  *
-  */
--extern (C) ulong _d_newarraymiT(TypeInfo ti, int ndims, ...)
-+extern (C) void[] _d_newarraymiT(TypeInfo ti, int ndims, ...)
- {
-     ulong result;
  
 @@ -881,7 +893,7 @@
          }
@@ -1953,8 +1909,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/memory.d druntime/src/rt/memory.d
---- druntime-orig/src/rt/memory.d	2010-08-05 09:55:22.000000000 +0400
-+++ druntime/src/rt/memory.d	2010-11-06 19:35:02.518720000 +0300
+--- druntime-orig/src/rt/memory.d	2010-10-11 00:37:52.000000000 +0400
++++ druntime/src/rt/memory.d	2010-11-07 19:11:32.000000000 +0300
 @@ -12,6 +12,8 @@
   */
  module rt.memory;
@@ -1964,7 +1920,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  private
  {
-@@ -213,3 +215,616 @@
+@@ -230,3 +232,616 @@
          static assert( false, "Operating system not supported." );
      }
  }
@@ -2581,7 +2537,6 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +{
 +    static assert( false, "Compiler not supported." );
 +}
-\ No newline at end of file
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/qsort.d druntime/src/rt/qsort.d
 --- druntime-orig/src/rt/qsort.d	2010-08-05 05:39:06.000000000 +0400
 +++ druntime/src/rt/qsort.d	2010-11-04 17:49:07.000000000 +0300

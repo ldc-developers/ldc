@@ -2786,15 +2786,20 @@ DValue* TupleExp::toElem(IRState *p)
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = (Expression *)exps->data[i];
-        DValue* ep = el->toElem(p);
-        types[i] = ep->getRVal()->getType();
+        types[i] = DtoTypeNotVoid(el->type);
     }
     LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = (Expression *)exps->data[i];
         DValue* ep = el->toElem(p);
-        DtoStore(ep->getRVal(), DtoGEPi(val,0,i));
+        LLValue *gep = DtoGEPi(val,0,i);
+        if (el->type->ty == Tstruct)
+            DtoStore(DtoLoad(ep->getRVal()), gep);
+        else if (el->type->ty != Tvoid)
+            DtoStore(ep->getRVal(), gep);
+        else
+            DtoStore(LLConstantInt::get(LLType::getInt8Ty(gIR->context()), 0, false), gep);
     }
     return new DImValue(type, val);
 }
