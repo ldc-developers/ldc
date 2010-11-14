@@ -12,6 +12,12 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#if linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4
+#include <pthread.h> // Needs pthread_mutex_t for os_critsecsize
+#elif _WIN32
+#include <windows.h>
+#endif
+
 #include "rmem.h"
 
 #include "statement.h"
@@ -29,7 +35,22 @@
 #include "template.h"
 #include "attrib.h"
 
-extern int os_critsecsize();
+/***********************************
+ * Return size of OS critical section.
+ */
+#if _WIN32
+int os_critsecsize()
+{
+    return sizeof(CRITICAL_SECTION);
+}
+#endif
+
+#if linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4
+int os_critsecsize()
+{
+    return sizeof(pthread_mutex_t);
+}
+#endif
 
 /******************************** Statement ***************************/
 
@@ -3752,7 +3773,6 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
             exp = exp->semantic(sc);
         }
 
-#if 0
         /* Rewrite as:
          *  auto tmp = exp;
          *  _d_monitorenter(tmp);
@@ -3765,12 +3785,16 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         Statements *cs = new Statements();
         cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
 
-        FuncDeclaration *fdenter = FuncDeclaration::genCfunc(Type::tvoid, Id::monitorenter);
+        Parameters* enterargs = new Parameters;
+        enterargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+        FuncDeclaration *fdenter = FuncDeclaration::genCfunc(enterargs, Type::tvoid, Id::monitorenter);
         Expression *e = new CallExp(loc, new VarExp(loc, fdenter), new VarExp(loc, tmp));
         e->type = Type::tvoid;                  // do not run semantic on e
         cs->push(new ExpStatement(loc, e));
 
-        FuncDeclaration *fdexit = FuncDeclaration::genCfunc(Type::tvoid, Id::monitorexit);
+        Parameters* exitargs = new Parameters;
+        exitargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+        FuncDeclaration *fdexit = FuncDeclaration::genCfunc(exitargs, Type::tvoid, Id::monitorexit);
         e = new CallExp(loc, new VarExp(loc, fdexit), new VarExp(loc, tmp));
         e->type = Type::tvoid;                  // do not run semantic on e
         Statement *s = new ExpStatement(loc, e);
@@ -3779,9 +3803,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 
         s = new CompoundStatement(loc, cs);
         return s->semantic(sc);
-#endif
     }
-#if 0
     else
     {   /* Generate our own critical section, then rewrite as:
          *  __gshared byte[CriticalSection.sizeof] critsec;
@@ -3796,14 +3818,18 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         Statements *cs = new Statements();
         cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
 
-        FuncDeclaration *fdenter = FuncDeclaration::genCfunc(Type::tvoid, Id::criticalenter);
+        Parameters* enterargs = new Parameters;
+        enterargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+        FuncDeclaration *fdenter = FuncDeclaration::genCfunc(enterargs, Type::tvoid, Id::criticalenter);
         Expression *e = new DotIdExp(loc, new VarExp(loc, tmp), Id::ptr);
         e = e->semantic(sc);
         e = new CallExp(loc, new VarExp(loc, fdenter), e);
         e->type = Type::tvoid;                  // do not run semantic on e
         cs->push(new ExpStatement(loc, e));
 
-        FuncDeclaration *fdexit = FuncDeclaration::genCfunc(Type::tvoid, Id::criticalexit);
+        Parameters* exitargs = new Parameters;
+        exitargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+        FuncDeclaration *fdexit = FuncDeclaration::genCfunc(exitargs, Type::tvoid, Id::criticalexit);
         e = new DotIdExp(loc, new VarExp(loc, tmp), Id::ptr);
         e = e->semantic(sc);
         e = new CallExp(loc, new VarExp(loc, fdexit), e);
@@ -3815,15 +3841,6 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         s = new CompoundStatement(loc, cs);
         return s->semantic(sc);
     }
-#endif
-    if (body)
-    {
-        Statement* oldScopeExit = sc->enclosingScopeExit;
-        sc->enclosingScopeExit = this;
-        body = body->semantic(sc);
-        sc->enclosingScopeExit = oldScopeExit;
-    }
-    return this;
 }
 
 int SynchronizedStatement::hasBreak()

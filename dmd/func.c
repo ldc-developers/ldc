@@ -1495,19 +1495,17 @@ void FuncDeclaration::semantic3(Scope *sc)
                 // we do not want to rerun semantics on the whole function, so we
                 // manually adjust all labels in the function that currently don't
                 // have an enclosingScopeExit to use the new SynchronizedStatement
-                SynchronizedStatement* s = new SynchronizedStatement(loc, sync, NULL);
-                s->semantic(sc2);
-                s->body = fbody;
+                Statement* nbody = new PeelStatement(fbody);
+                nbody = new SynchronizedStatement(loc, sync, nbody);
+                nbody = nbody->semantic(sc2);
 
                 // LDC
                 LabelMap::iterator it, end = labmap.end();
                 for (it = labmap.begin(); it != end; ++it)
                     if (it->second->enclosingScopeExit == NULL)
-                        it->second->enclosingScopeExit = s;
+                        it->second->enclosingScopeExit = nbody;
 
-                a = new Statements;
-                a->push(s);
-                fbody = new CompoundStatement(0, a);
+                fbody = nbody;
             }
         }
 
