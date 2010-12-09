@@ -1100,6 +1100,7 @@ namespace AsmParserx8664
         { "pminsw",   Op_DstSrcMMX },
         { "pminub",   Op_DstSrcMMX },
         { "pmovmskb", Op_DstSrcMMX },
+        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow! 
         { "pmulhrsw",  Op_DstSrcMMX },
         { "pmulhuw",  Op_DstSrcMMX },
         { "pmulhw",   Op_DstSrcMMX },
