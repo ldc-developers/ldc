@@ -1058,6 +1058,7 @@ namespace AsmParserx8664
         { "pandn",    Op_DstSrcMMX },
         { "pause",    Op_DstSrcMMX },
         { "pavgb",    Op_DstSrcMMX },
+        { "pavgusb",  Op_DstSrcMMX }, // AMD 3dNow! 
         { "pavgw",    Op_DstSrcMMX },
         { "pcmpeqb",  Op_DstSrcMMX },
         { "pcmpeqd",  Op_DstSrcMMX },
@@ -1066,6 +1067,25 @@ namespace AsmParserx8664
         { "pcmpgtd",  Op_DstSrcMMX },
         { "pcmpgtw",  Op_DstSrcMMX },
         { "pextrw",   Op_DstSrcImmM }, // gpr32 dest
+        { "pf2id",    Op_DstSrcMMX }, // %% AMD 3dNow! opcodes
+        { "pfacc",    Op_DstSrcMMX },
+        { "pfadd",    Op_DstSrcMMX },
+        { "pfcmpeq",  Op_DstSrcMMX },
+        { "pfcmpge",  Op_DstSrcMMX },
+        { "pfcmpgt",  Op_DstSrcMMX },
+        { "pfmax",    Op_DstSrcMMX },
+        { "pfmin",    Op_DstSrcMMX },
+        { "pfmul",    Op_DstSrcMMX },
+        { "pfnacc",   Op_DstSrcMMX }, // 3dNow values are returned in MM0 register,
+        { "pfpnacc",  Op_DstSrcMMX }, // so should be correct to use Op_DstSrcMMX.
+        { "pfrcp",    Op_DstSrcMMX },
+        { "pfrcpit1", Op_DstSrcMMX },
+        { "pfrcpit2", Op_DstSrcMMX },
+        { "pfrsqit1", Op_DstSrcMMX },
+        { "pfrsqrt",  Op_DstSrcMMX },
+        { "pfsub",    Op_DstSrcMMX },
+        { "pfsubr",   Op_DstSrcMMX },
+        { "pi2fd",    Op_DstSrcMMX }, // %%
         { "phaddd",     Op_DstSrcSSE },
         { "phaddsw",     Op_DstSrcSSE },
         { "phaddw",     Op_DstSrcSSE },
@@ -1120,6 +1140,7 @@ namespace AsmParserx8664
         { "psubusb",  Op_DstSrcMMX },
         { "psubusw",  Op_DstSrcMMX },
         { "psubw",    Op_DstSrcMMX },
+        { "pswapd",   Op_DstSrcMMX }, // AMD 3dNow! 
         { "punpckhbw", Op_DstSrcMMX },
         { "punpckhdq", Op_DstSrcMMX },
         { "punpckhqdq",Op_DstSrcMMX },
