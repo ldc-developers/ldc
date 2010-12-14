@@ -424,13 +424,29 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
         LLSmallVector<unsigned, 10> attrptr(n, 0);
 
+        std::vector<DValue*> argvals;
+        if (dfnval && dfnval->func->isArrayOp) {
+            // slightly different approach for array operators
+            for (int i=n-1; i>=0; --i) {
+                Parameter* fnarg = Parameter::getNth(tf->parameters, i);
+                assert(fnarg);
+                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                argvals.insert(argvals.begin(), argval);
+            }
+        } else {
+            for (int i=0; i<n; ++i) {
+                Parameter* fnarg = Parameter::getNth(tf->parameters, i);
+                assert(fnarg);
+                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                argvals.push_back(argval);
+            }
+        }
+
         // do formal params
         int beg = argiter-argbegin;
         for (int i=0; i<n; i++)
         {
-            Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-            assert(fnarg);
-            DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+            DValue* argval = argvals.at(i);
 
 #if 0
             if (Logger::enabled()) {

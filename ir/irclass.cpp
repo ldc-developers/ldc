@@ -159,7 +159,7 @@ LLConstant * IrStruct::getVtblInit()
         FuncDeclaration* fd = dsym->isFuncDeclaration();
         assert(fd && "vtbl entry not a function");
 
-        if (fd->isAbstract() && !fd->fbody)
+        if (cd->isAbstract() || (fd->isAbstract() && !fd->fbody))
         {
             c = getNullValue(DtoType(fd->type->pointerTo()));
         }

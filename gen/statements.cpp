@@ -77,6 +77,23 @@ void ReturnStatement::toIR(IRState* p)
             // store return value
             DtoAssign(loc, rvar, e);
 
+#if DMDV2
+            // Call postBlit()
+            Type *tb = exp->type->toBasetype();
+            if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar) &&
+                tb->ty == Tstruct)
+            {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+                if (sd->postblit)
+                {
+                    FuncDeclaration *fd = sd->postblit;
+                    fd->codegen(Type::sir);
+                    Expressions args;
+                    DFuncValue dfn(fd, fd->ir.irFunc->func, e->getLVal());
+                    DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+                }
+            }
+#endif
+
             // emit scopes
             DtoEnclosingHandlers(loc, NULL);
 

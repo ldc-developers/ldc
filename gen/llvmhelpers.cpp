@@ -86,10 +86,15 @@ void DtoDeleteArray(DValue* arr)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray");
+
     // build args
     LLSmallVector<LLValue*,2> arg;
+#if DMDV2
+    arg.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
+#else
     arg.push_back(DtoArrayLen(arr));
     arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
+#endif
     // call
     gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
@@ -364,10 +369,16 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         if (!t->equals(t2)) {
             // FIXME: use 'rhs' for something !?!
             DtoAggrZeroInit(lhs->getLVal());
+#if DMDV2
+            TypeStruct *ts = (TypeStruct*) lhs->getType();
+            if (ts->sym->isNested() && ts->sym->vthis)
+                DtoResolveNestedContext(loc, ts->sym, lhs->getLVal());
+#endif
         }
         else {
             DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
         }
+
     }
     else if (t->ty == Tarray) {
         // lhs is slice
@@ -459,6 +470,13 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs)
         }
         gIR->ir->CreateStore(r, l);
     }
+
+    #ifndef DISABLE_DEBUG_INFO
+    DVarValue *var = lhs->isVar();
+    VarDeclaration *varDecl = var ? var->var : 0;
+    if (global.params.symdebug && varDecl && varDecl->debugVariable)
+        DtoDwarfValue(rhs->getRVal(), lhs->isVar()->var);
+    #endif
 }
 
 /****************************************************************************************/
@@ -940,7 +958,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         #endif
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
-
                 DtoNestedInit(vd);
             }
             // normal stack variable, allocate storage on the stack if it has not already been done

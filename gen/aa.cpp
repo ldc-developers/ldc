@@ -129,12 +129,8 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
-#if DMDV1
     LLValue* pkey = makeLValue(loc, key);
-    pkey = DtoBitCast(pkey, funcTy->getParamType(2));
-#else
-    LLValue* pkey = getNullValue(getVoidPtrType());
-#endif
+    pkey = DtoBitCast(pkey, getVoidPtrType());
 
     // call runtime
     LLValue* ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.in").getInstruction();
@@ -194,7 +190,15 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 {
     Type* t = l->getType()->toBasetype();
     assert(t == r->getType()->toBasetype() && "aa equality is only defined for aas of same type");
+#if DMDV2
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEqual");
+    const llvm::FunctionType* funcTy = func->getFunctionType();
 
+    LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(1));
+    LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(2));
+    LLValue* aaTypeInfo = DtoTypeInfoOf(t);
+    LLValue* res = gIR->CreateCallOrInvoke3(func, aaTypeInfo, aaval, abval, "aaEqRes").getInstruction();
+#else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEq");
     const llvm::FunctionType* funcTy = func->getFunctionType();
     
@@ -202,7 +206,7 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
     LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(1));
     LLValue* aaTypeInfo = DtoTypeInfoOf(t);
     LLValue* res = gIR->CreateCallOrInvoke3(func, aaval, abval, aaTypeInfo, "aaEqRes").getInstruction();
-    
+#endif
     res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res, "tmp");

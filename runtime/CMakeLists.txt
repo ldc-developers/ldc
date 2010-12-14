@@ -80,7 +80,7 @@ elseif(D_VERSION EQUAL 2)
 		${RUNTIME_DC_DIR}/deh2.d
 	)
 	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c)
+	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c)
 	if(UNIX)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 	elseif(WIN32)
@@ -109,12 +109,19 @@ elseif(D_VERSION EQUAL 2)
         list(REMOVE_ITEM ZLIB_C
             ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c
             ${PHOBOS2_DIR}/etc/c/zlib/example.c
+            ${PHOBOS2_DIR}/etc/c/zlib/gzio.c
         )
         if(WIN32)
             file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
         endif(WIN32)
-        list(APPEND PHOBOS2_D ${PHOBOS2_D_MATH} ${PHOBOS2_D_WIN}
-            ${PHOBOS2_D_C} ${PHOBOS2_D_C_SYS})
+        list(APPEND PHOBOS2_D
+                ${PHOBOS2_D_MATH}
+                ${PHOBOS2_D_WIN}
+                ${PHOBOS2_D_C}
+                ${PHOBOS2_D_C_SYS}
+                ${PHOBOS2_DIR}/etc/c/zlib.d
+                ${PHOBOS2_DIR}/crc32.d
+        )
     endif(PHOBOS2_DIR)
 endif(D_VERSION EQUAL 1)
 
@@ -166,7 +173,11 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	endif ("${PATH}" STREQUAL "")
 	get_filename_component(name ${output} NAME_WE)
 	get_filename_component(path ${output} PATH)
-	set(output ${path}/${name})
+	if ("${path}" STREQUAL "")
+		set(output ${name})
+	else ("${path}" STREQUAL "")
+		set(output ${path}/${name})
+	endif ("${path}" STREQUAL "")
 	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
 	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
@@ -244,10 +255,12 @@ if(BUILD_BC_LIBS)
 endif(BUILD_BC_LIBS)
 
 set_target_properties(
-	${LIBS} PROPERTIES
-	LINKER_LANGUAGE C
-	ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-	LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+    ${LIBS} PROPERTIES
+    LINKER_LANGUAGE C
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+    COMPILE_FLAGS "-m32"
+    LINK_FLAGS "-m32"
 )
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
@@ -260,4 +273,12 @@ if(PHOBOS2_DIR)
 
     add_library(phobos2 ${ZLIB_C} ${PHOBOS2_O})
     add_dependencies(phobos2 runtime)
+    set_target_properties(
+        phobos2 PROPERTIES
+        LINKER_LANGUAGE C
+        ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        COMPILE_FLAGS "-m32"
+        LINK_FLAGS "-m32"
+    )
 endif(PHOBOS2_DIR)

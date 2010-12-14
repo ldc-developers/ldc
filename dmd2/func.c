@@ -55,6 +55,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
 #if IN_GCC
     v_argptr = NULL;
 #endif
+    v_argsave = NULL;
     parameters = NULL;
     labtab = NULL;
     overnext = NULL;
@@ -805,6 +806,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 {   TypeFunction *f;
     VarDeclaration *argptr = NULL;
     VarDeclaration *_arguments = NULL;
+    int nerrors = global.errors;
 
     if (!parent)
     {
@@ -903,8 +905,8 @@ void FuncDeclaration::semantic3(Scope *sc)
 #if STRUCTTHISREF
                 thandle = thandle->addMod(type->mod);
                 thandle = thandle->addStorageClass(storage_class);
-                if (isPure())
-                    thandle = thandle->addMod(MODconst);
+                //if (isPure())
+                    //thandle = thandle->addMod(MODconst);
 #else
                 if (storage_class & STCconst || type->isConst())
                 {
@@ -1005,6 +1007,20 @@ void FuncDeclaration::semantic3(Scope *sc)
             }
 #endif
         }
+        if (global.params.is64bit && f->varargs && f->linkage == LINKc)
+        {   // Declare save area for varargs registers
+            Type *t = new TypeIdentifier(loc, Id::va_argsave_t);
+            t = t->semantic(loc, sc);
+            if (t == Type::terror)
+                error("must import std.c.stdarg to use variadic functions");
+            else
+            {
+                v_argsave = new VarDeclaration(loc, t, Id::va_argsave, NULL);
+                v_argsave->semantic(sc2);
+                sc2->insert(v_argsave);
+                v_argsave->parent = this;
+            }
+        }
 
 #if IN_LLVM
         // LDC make sure argument type is semanticed.
@@ -1072,8 +1088,8 @@ void FuncDeclaration::semantic3(Scope *sc)
                     arg->ident = id = Identifier::generateId("_param_", i);
                 }
                 Type *vtype = arg->type;
-                if (isPure())
-                    vtype = vtype->addMod(MODconst);
+                //if (isPure())
+                    //vtype = vtype->addMod(MODconst);
                 VarDeclaration *v = new VarDeclaration(loc, vtype, id, NULL);
                 //printf("declaring parameter %s of type %s\n", v->toChars(), v->type->toChars());
                 v->storage_class |= STCparameter;
@@ -1716,7 +1732,11 @@ void FuncDeclaration::semantic3(Scope *sc)
         sc2->callSuper = 0;
         sc2->pop();
     }
-    semanticRun = PASSsemantic3done;
+
+    if (global.gag && global.errors != nerrors)
+        semanticRun = PASSsemanticdone; // Ensure errors get reported again
+    else
+        semanticRun = PASSsemantic3done;
 }
 
 void FuncDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -1798,6 +1818,16 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
     for (int i = 0; i < foverrides.dim; i++)
     {
         FuncDeclaration *fdv = (FuncDeclaration *)foverrides.data[i];
+
+        /* The semantic pass on the contracts of the overridden functions must
+         * be completed before code generation occurs (bug 3602).
+         */
+        if (fdv->fdrequire && fdv->fdrequire->semanticRun != PASSsemantic3done)
+        {
+            assert(fdv->scope);
+            fdv->semantic3(fdv->scope);
+        }
+
         sf = fdv->mergeFrequire(sf);
         if (fdv->fdrequire)
         {
@@ -2674,11 +2704,24 @@ int FuncDeclaration::isOverloadable()
     return 1;                   // functions can be overloaded
 }
 
-int FuncDeclaration::isPure()
+enum PURE FuncDeclaration::isPure()
 {
     //printf("FuncDeclaration::isPure() '%s'\n", toChars());
     assert(type->ty == Tfunction);
-    return ((TypeFunction *)this->type)->ispure;
+    TypeFunction *tf = (TypeFunction *)type;
+    enum PURE purity = tf->purity;
+    if (purity == PUREfwdref)
+        tf->purityLevel();
+    if (purity > PUREweak && needThis())
+    {   // The attribute of the 'this' reference affects purity strength
+        if (type->mod & (MODimmutable | MODwild))
+            ;
+        else if (type->mod & MODconst && purity >= PUREconst)
+            purity = PUREconst;
+        else
+            purity = PUREweak;
+    }
+    return purity;
 }
 
 int FuncDeclaration::isSafe()

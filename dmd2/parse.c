@@ -2413,12 +2413,6 @@ Type *Parser::parseBasicType2(Type *t)
                     t = new TypeDArray(t);                      // []
                     nextToken();
                 }
-                else if (token.value == TOKnew && peekNext() == TOKrbracket)
-                {
-                    t = new TypeNewArray(t);                    // [new]
-                    nextToken();
-                    nextToken();
-                }
                 else if (isDeclaration(&token, 0, TOKrbracket, NULL))
                 {   // It's an associative array declaration
 
@@ -2498,14 +2492,39 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
             break;
 
         case TOKlparen:
-            /* Parse things with parentheses around the identifier, like:
-             *  int (*ident[3])[]
-             * although the D style would be:
-             *  int[]*[3] ident
+            if (peekNext() == TOKmul ||                 // like: T (*fp)();
+                peekNext() == TOKlparen                 // like: T ((*fp))();
+                /* || peekNext() == TOKlbracket*/)      // like: T ([] a)
+            {
+                /* Parse things with parentheses around the identifier, like:
+                 *  int (*ident[3])[]
+                 * although the D style would be:
+                 *  int[]*[3] ident
+                 */
+                if (!global.params.useDeprecated)
+                {
+                    error("C-style function pointer and pointer to array syntax is deprecated. Use 'function' to declare function pointers");
+                }
+                nextToken();
+                ts = parseDeclarator(t, pident);
+                check(TOKrparen);
+                break;
+            }
+            ts = t;
+        {
+            Token *peekt = &token;
+            /* Completely disallow C-style things like:
+             *   T (a);
+             * Improve error messages for the common bug of a missing return type
+             * by looking to see if (a) looks like a parameter list.
              */
-            nextToken();
-            ts = parseDeclarator(t, pident);
-            check(TOKrparen);
+            if (isParameters(&peekt)) {
+                error("function declaration without return type. "
+                "(Note that constructors are always named 'this')");
+            }
+            else
+                error("unexpected ( in declarator");
+        }
             break;
 
         default:
@@ -2531,12 +2550,6 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
                 if (token.value == TOKrbracket)
                 {   // It's a dynamic array
                     ta = new TypeDArray(t);             // []
-                    nextToken();
-                }
-                else if (token.value == TOKnew && peekNext() == TOKrbracket)
-                {
-                    t = new TypeNewArray(t);            // [new]
-                    nextToken();
                     nextToken();
                 }
                 else if (isDeclaration(&token, 0, TOKrbracket, NULL))
@@ -4457,11 +4470,6 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
                 {
                     t = peek(t);
                 }
-                else if (t->value == TOKnew && peek(t)->value == TOKrbracket)
-                {
-                    t = peek(t);
-                    t = peek(t);
-                }
                 else if (isDeclaration(t, 0, TOKrbracket, &t))
                 {   // It's an associative array declaration
                     t = peek(t);
@@ -6273,37 +6281,53 @@ void initPrecedence()
     precedence[TOKsuper] = PREC_primary;
     precedence[TOKint64] = PREC_primary;
     precedence[TOKfloat64] = PREC_primary;
+    precedence[TOKcomplex80] = PREC_primary;
     precedence[TOKnull] = PREC_primary;
     precedence[TOKstring] = PREC_primary;
     precedence[TOKarrayliteral] = PREC_primary;
+    precedence[TOKassocarrayliteral] = PREC_primary;
+#if DMDV2
+    precedence[TOKfile] = PREC_primary;
+    precedence[TOKline] = PREC_primary;
+#endif
     precedence[TOKtypeid] = PREC_primary;
     precedence[TOKis] = PREC_primary;
     precedence[TOKassert] = PREC_primary;
+    precedence[TOKhalt] = PREC_primary;
+    precedence[TOKtemplate] = PREC_primary;
+    precedence[TOKdsymbol] = PREC_primary;
     precedence[TOKfunction] = PREC_primary;
     precedence[TOKvar] = PREC_primary;
     precedence[TOKsymoff] = PREC_primary;
     precedence[TOKstructliteral] = PREC_primary;
     precedence[TOKarraylength] = PREC_primary;
+    precedence[TOKremove] = PREC_primary;
     precedence[TOKtuple] = PREC_primary;
 #if DMDV2
     precedence[TOKtraits] = PREC_primary;
     precedence[TOKdefault] = PREC_primary;
+    precedence[TOKoverloadset] = PREC_primary;
 #endif
 
     // post
     precedence[TOKdotti] = PREC_primary;
     precedence[TOKdot] = PREC_primary;
     precedence[TOKdottd] = PREC_primary;
+    precedence[TOKdotexp] = PREC_primary;
+    precedence[TOKdottype] = PREC_primary;
 //  precedence[TOKarrow] = PREC_primary;
     precedence[TOKplusplus] = PREC_primary;
     precedence[TOKminusminus] = PREC_primary;
+#if DMDV2
     precedence[TOKpreplusplus] = PREC_primary;
     precedence[TOKpreminusminus] = PREC_primary;
+#endif
     precedence[TOKcall] = PREC_primary;
     precedence[TOKslice] = PREC_primary;
     precedence[TOKarray] = PREC_primary;
     precedence[TOKindex] = PREC_primary;
 
+    precedence[TOKdelegate] = PREC_unary;
     precedence[TOKaddress] = PREC_unary;
     precedence[TOKstar] = PREC_unary;
     precedence[TOKneg] = PREC_unary;
@@ -6313,14 +6337,16 @@ void initPrecedence()
     precedence[TOKtilde] = PREC_unary;
     precedence[TOKdelete] = PREC_unary;
     precedence[TOKnew] = PREC_unary;
+    precedence[TOKnewanonclass] = PREC_unary;
     precedence[TOKcast] = PREC_unary;
 
+#if DMDV2
     precedence[TOKpow] = PREC_pow;
+#endif
 
     precedence[TOKmul] = PREC_mul;
     precedence[TOKdiv] = PREC_mul;
     precedence[TOKmod] = PREC_mul;
-    precedence[TOKpow] = PREC_mul;
 
     precedence[TOKadd] = PREC_add;
     precedence[TOKmin] = PREC_add;
@@ -6380,7 +6406,9 @@ void initPrecedence()
     precedence[TOKmulass] = PREC_assign;
     precedence[TOKdivass] = PREC_assign;
     precedence[TOKmodass] = PREC_assign;
+#if DMDV2
     precedence[TOKpowass] = PREC_assign;
+#endif
     precedence[TOKshlass] = PREC_assign;
     precedence[TOKshrass] = PREC_assign;
     precedence[TOKushrass] = PREC_assign;

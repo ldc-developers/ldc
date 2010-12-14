@@ -19,6 +19,7 @@
 #include <set>
 #include <map>
 #include <string>
+#include <llvm/Analysis/DebugInfo.h>
 #endif
 
 #include "dsymbol.h"
@@ -49,6 +50,7 @@ enum PROT;
 enum LINK;
 enum TOK;
 enum MATCH;
+enum PURE;
 
 #define STCundefined    0LL
 #define STCstatic       1LL
@@ -346,6 +348,9 @@ struct VarDeclaration : Declaration
 
     /// This var is used by a naked function.
     bool nakedUse;
+
+    // debug description
+    llvm::DIVariable debugVariable;
 #endif
 };
 
@@ -697,6 +702,7 @@ struct FuncDeclaration : Declaration
 #if IN_GCC
     VarDeclaration *v_argptr;           // '_argptr' variable
 #endif
+    VarDeclaration *v_argsave;          // save area for args passed in registers for variadic functions
     Dsymbols *parameters;               // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
     Declaration *overnext;              // next in overload list
@@ -776,7 +782,7 @@ struct FuncDeclaration : Declaration
     int isAbstract();
     int isCodeseg();
     int isOverloadable();
-    int isPure();
+    enum PURE isPure();
     int isSafe();
     int isTrusted();
     virtual int isNested();

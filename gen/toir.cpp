@@ -1202,7 +1202,11 @@ DValue* ThisExp::toElem(IRState* p)
         LLValue* v;
         if (vd->toParent2() != p->func()->decl) {
             Logger::println("nested this exp");
+#if STRUCTTHISREF
+            return DtoNestedVariable(loc, type, vd, type->ty == Tstruct);
+#else
             return DtoNestedVariable(loc, type, vd);
+#endif
         }
         else {
             Logger::println("normal this exp");
@@ -1694,6 +1698,20 @@ DValue* NewExp::toElem(IRState* p)
             ts->sym->codegen(Type::sir);
             DtoAggrCopy(mem, ts->sym->ir.irStruct->getInitSymbol());
         }
+#if DMDV2
+        if (ts->sym->isNested() && ts->sym->vthis)
+            DtoResolveNestedContext(loc, ts->sym, mem);
+
+        // call constructor
+        if (member)
+        {
+            Logger::println("Calling constructor");
+            assert(arguments != NULL);
+            member->codegen(Type::sir);
+            DFuncValue dfn(member, member->ir.irFunc->func, mem);
+            return DtoCallFunction(loc, ts, &dfn, arguments);
+        }
+#endif
         return new DImValue(type, mem);
     }
     // new basic type
@@ -2337,10 +2355,30 @@ DValue* FuncExp::toElem(IRState* p)
 
         LLValue* cval;
         IrFunction* irfn = p->func();
-        if (irfn->nestedVar)
+        if (irfn->nestedVar
+#if DMDV2
+            // We cannot use a frame allocated in one function
+            // for a delegate created in another function
+            // (that happens with anonymous functions)
+            && fd->toParent2() == irfn->decl
+#endif
+            )
             cval = irfn->nestedVar;
         else if (irfn->nestArg)
             cval = irfn->nestArg;
+#if DMDV2
+        // TODO: should we enable that for D1 as well?
+        else if (irfn->thisArg)
+        {
+            AggregateDeclaration* ad = irfn->decl->isMember2();
+            if (!ad || !ad->vthis) {
+                cval = getNullPtr(getVoidPtrType());
+            } else {
+                cval = ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
+                cval = DtoLoad(DtoGEPi(cval, 0,ad->vthis->ir.irField->index, ".vthis"));
+            }
+        }
+#endif
         else
             cval = getNullPtr(getVoidPtrType());
         cval = DtoBitCast(cval, dgty->getContainedType(0));
@@ -2558,6 +2596,24 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
         // store the initializer there
         DtoAssign(loc, &field, val);
+
+#if DMDV2
+        Type *tb = vd->type->toBasetype();
+        if (tb->ty == Tstruct)
+        {
+            // Call postBlit()
+            StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+            if (sd->postblit)
+            {
+                FuncDeclaration *fd = sd->postblit;
+                fd->codegen(Type::sir);
+                Expressions args;
+                DFuncValue dfn(fd, fd->ir.irFunc->func, val->getLVal());
+                DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+            }
+        }
+#endif
+
     }
     // initialize trailing padding
     if (sd->structsize != offset)
@@ -2661,6 +2717,25 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         DtoAssign(loc, mem, val);
     }
 
+#if DMDV2
+    // Rehash array
+    if (keys->dim) {
+        // first get the runtime function
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_aaRehash");
+        const llvm::FunctionType* funcTy = fn->getFunctionType();
+
+        // aa param
+        LLValue* aaval = DtoBitCast(tmp, funcTy->getParamType(0));
+
+        // keyti param
+        LLValue* keyti = DtoTypeInfoOf(((TypeAArray*)aatype)->index, false);
+        keyti = DtoBitCast(keyti, funcTy->getParamType(1));
+
+        // Call function
+        gIR->CreateCallOrInvoke2(fn, aaval, keyti, ".gc_mem").getInstruction();
+    }
+#endif
+
     return aa;
 }
 
@@ -2711,15 +2786,20 @@ DValue* TupleExp::toElem(IRState *p)
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = (Expression *)exps->data[i];
-        DValue* ep = el->toElem(p);
-        types[i] = ep->getRVal()->getType();
+        types[i] = DtoTypeNotVoid(el->type);
     }
     LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = (Expression *)exps->data[i];
         DValue* ep = el->toElem(p);
-        DtoStore(ep->getRVal(), DtoGEPi(val,0,i));
+        LLValue *gep = DtoGEPi(val,0,i);
+        if (el->type->ty == Tstruct)
+            DtoStore(DtoLoad(ep->getRVal()), gep);
+        else if (el->type->ty != Tvoid)
+            DtoStore(ep->getRVal(), gep);
+        else
+            DtoStore(LLConstantInt::get(LLType::getInt8Ty(gIR->context()), 0, false), gep);
     }
     return new DImValue(type, val);
 }

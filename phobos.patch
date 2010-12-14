@@ -1,16 +1,31 @@
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/concurrency.d phobos/std/concurrency.d
+--- phobos-orig/std/concurrency.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/concurrency.d	2010-11-07 19:26:52.000000000 +0300
+@@ -359,9 +359,10 @@
+         owner = ownerTid;
+         fn( args );
+     }
+-
++    
+     // TODO: MessageList and &exec should be shared.
+     auto t = new Thread( &exec ); t.start();
++    version(LDC) Thread.sleep(5_000);
+     links[spawnTid] = linked;
+     return spawnTid;
+ }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/conv.d phobos/std/conv.d
---- phobos-orig/std/conv.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/conv.d	2010-10-29 12:06:21.221035000 +0400
-@@ -1395,7 +1395,7 @@
+--- phobos-orig/std/conv.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/conv.d	2010-11-08 15:54:33.109464001 +0300
+@@ -1405,7 +1405,7 @@
      else // not hex
      {
-         if (toupper(p.front) == 'N')
+         if (toupper(p.front) == 'N' && !startsWithZero)
 -        {
 +        {   
              // nan
              enforce((p.popFront(), !p.empty && toupper(p.front) == 'A')
                      && (p.popFront(), !p.empty && toupper(p.front) == 'N'),
-@@ -3191,6 +3191,11 @@
+@@ -3243,6 +3243,11 @@
  T toImpl(T, S)(S d) if (is(Unqual!S == double) && isSomeString!(T))
  {
      //alias Unqual!(ElementType!T) Char;
@@ -22,9 +37,66 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      char[20] buffer;
      int len = sprintf(buffer.ptr, "%g", d);
      return to!T(buffer[0 .. len].dup);
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/format.d phobos/std/format.d
+--- phobos-orig/std/format.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/format.d	2010-11-07 19:26:52.000000000 +0300
+@@ -2582,20 +2582,42 @@
+         FLprecision = 0x80,
+     }
+ 
+-    static TypeInfo skipCI(TypeInfo valti)
++    version(LDC)
+     {
+-        for (;;)
++        static TypeInfo skipCI(TypeInfo valti)
+         {
+-            if (valti.classinfo.name.length == 18 &&
+-                    valti.classinfo.name[9..18] == "Invariant")
+-                valti =        (cast(TypeInfo_Invariant)valti).next;
+-            else if (valti.classinfo.name.length == 14 &&
+-                    valti.classinfo.name[9..14] == "Const")
+-                valti =        (cast(TypeInfo_Const)valti).next;
+-            else
+-                break;
++            for (;;)
++            {
++                if (valti.classinfo.name.length == 18 &&
++                        valti.classinfo.name[9..18] == "Invariant")
++                    valti =        (cast(TypeInfo_Invariant)valti).base;
++                else if (valti.classinfo.name.length == 14 &&
++                        valti.classinfo.name[9..14] == "Const")
++                    valti =        (cast(TypeInfo_Const)valti).base;
++                else
++                    break;
++            }
++            return valti;
++        }
++
++    } 
++    else
++    {
++        static TypeInfo skipCI(TypeInfo valti)
++        {
++            for (;;)
++            {
++                if (valti.classinfo.name.length == 18 &&
++                        valti.classinfo.name[9..18] == "Invariant")
++                    valti =        (cast(TypeInfo_Invariant)valti).next;
++                else if (valti.classinfo.name.length == 14 &&
++                        valti.classinfo.name[9..14] == "Const")
++                    valti =        (cast(TypeInfo_Const)valti).next;
++                else
++                    break;
++            }
++            return valti;
+         }
+-        return valti;
+     }
+ 
+     void formatArg(char fc)
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/functional.d phobos/std/functional.d
---- phobos-orig/std/functional.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/functional.d	2010-10-29 12:01:35.285035001 +0400
+--- phobos-orig/std/functional.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/functional.d	2010-11-07 19:26:52.000000000 +0300
 @@ -713,6 +713,13 @@
          assert(dg_pure_nothrow() == 7);
          //assert(dg_pure_nothrow_safe() == 8);
@@ -47,9 +119,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    }
  }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/internal/math/biguintx86.d phobos/std/internal/math/biguintx86.d
---- phobos-orig/std/internal/math/biguintx86.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/internal/math/biguintx86.d	2010-10-26 14:08:51.480925001 +0400
-@@ -733,7 +733,10 @@
+--- phobos-orig/std/internal/math/biguintx86.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/internal/math/biguintx86.d	2010-11-07 19:26:52.000000000 +0300
+@@ -734,7 +734,10 @@
      // EDI = dest
      // ESI = src
  
@@ -61,7 +133,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      version(D_PIC) {
          enum { zero = 0 }
      } else {
-@@ -767,7 +770,10 @@
+@@ -768,7 +771,10 @@
          jnz L_enter_odd;
  }
                  // Main loop, with entry point for even length
@@ -73,7 +145,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  asm {
          mov EAX, EBP; // get final carry
          pop EBP;
-@@ -777,6 +783,9 @@
+@@ -778,6 +784,9 @@
          ret 5*4;
  }
  L_enter_odd:
@@ -84,8 +156,17 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
---- phobos-orig/std/math.d	2010-09-17 00:27:48.000000000 +0400
-+++ phobos/std/math.d	2010-10-29 12:08:18.925035001 +0400
+--- phobos-orig/std/math.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/math.d	2010-11-07 19:26:52.000000000 +0300
+@@ -276,7 +276,7 @@
+     assert(abs(71.6Li) == 71.6L);
+     assert(abs(-56) == 56);
+     assert(abs(2321312L)  == 2321312L);
+-    assert(abs(-1+1i) == sqrt(2.0));
++    assert(abs(-1+1i) == sqrt(2.0L));
+ }
+ 
+ /***********************************
 @@ -318,7 +318,10 @@
   *      Results are undefined if |x| >= $(POWER 2,64).
   */
@@ -110,7 +191,18 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  
  /***********************************
-@@ -831,6 +837,20 @@
+@@ -400,7 +406,9 @@
+ 
+ @trusted pure nothrow real tan(real x)
+ {
+-    version(Naked_D_InlineAsm_X86) {
++    version(LDC) {
++        return core.stdc.math.tanl(x);
++    } else version(Naked_D_InlineAsm_X86) {
+     asm
+     {
+         fld     x[EBP]                  ; // load theta
+@@ -831,6 +839,20 @@
   *      )
   */
  
@@ -131,7 +223,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  @safe pure nothrow
  {
      float sqrt(float x);    /* intrinsic */
-@@ -838,6 +858,8 @@
+@@ -838,6 +860,8 @@
      real sqrt(real x);      /* intrinsic */ /// ditto
  }
  
@@ -140,7 +232,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  @trusted pure nothrow {  // Should be @safe.  See bugs 4628, 4630.
      // Create explicit overloads for integer sqrts.  No ddoc for these because
      // hopefully a more elegant solution will eventually be found, so we don't
-@@ -1413,9 +1435,22 @@
+@@ -1413,9 +1437,22 @@
   * Compute n * 2$(SUP exp)
   * References: frexp
   */
@@ -163,7 +255,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  unittest {
      assert(ldexp(1, -16384) == 0x1p-16384L);
      assert(ldexp(1, -16382) == 0x1p-16382L);
-@@ -1608,7 +1643,31 @@
+@@ -1608,7 +1645,31 @@
   *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
   *      )
   */
@@ -196,9 +288,27 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  
  /***********************************************************************
+@@ -2993,9 +3054,15 @@
+     assert(pow(x,eight) == (x * x) * (x * x) * (x * x) * (x * x));
+ 
+     assert(pow(x, neg1) == 1 / x);
+-    assert(pow(xd, neg2) == 1 / (x * x));
++    version(LDC) // FIXME:
++        assert(pow(xd, neg2) == 1 / (xd * xd));
++    else
++        assert(pow(xd, neg2) == 1 / (x * x));
+     assert(pow(x, neg3) == 1 / (x * x * x));
+-    assert(pow(xf, neg8) == 1 / ((x * x) * (x * x) * (x * x) * (x * x)));
++    version(LDC)
++        assert(pow(xf, neg8) == 1 / ((xf * xf) * (xf * xf) * (xf * xf) * (xf * xf)));
++    else
++        assert(pow(xf, neg8) == 1 / ((x * x) * (x * x) * (x * x) * (x * x)));
+ }
+ 
+ /** Compute the value of an integer x, raised to the power of a positive
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/openrj.d phobos/std/openrj.d
 --- phobos-orig/std/openrj.d	2009-09-03 12:01:40.000000000 +0400
-+++ phobos/std/openrj.d	2010-10-26 13:17:37.480925001 +0400
++++ phobos/std/openrj.d	2010-10-26 13:17:37.000000000 +0400
 @@ -620,11 +620,11 @@
      /**
       *
@@ -240,4 +350,25 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +        foreach(ref Field field; m_fields)
          {
              result = dg(field);
+ 
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/outbuffer.d phobos/std/outbuffer.d
+--- phobos-orig/std/outbuffer.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/outbuffer.d	2010-11-05 13:59:42.000000000 +0300
+@@ -308,8 +308,15 @@
+     void printf(string format, ...)
+     {
+         va_list ap;
+-        ap = cast(va_list)&format;
+-        ap += format.sizeof;
++        version(LDC) 
++        {
++            ap = _argptr;
++        }
++        else
++        {
++            ap = cast(va_list)&format;
++            ap += format.sizeof;
++        }
+         vprintf(format, ap);
+     }
  

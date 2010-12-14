@@ -387,25 +387,14 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 
 /* ================================================================== */
 
-// the following code generates functions and needs to output
-// debug info. these macros are useful for that
-#define DBG_TYPE    ( getPtrToType(llvm::StructType::get(gIR->context(),NULL,NULL)) )
-#define DBG_CAST(X) ( llvm::ConstantExpr::getBitCast(X, DBG_TYPE) )
-
-// build module ctor
-
-llvm::Function* build_module_ctor()
+static llvm::Function* build_module_function(const std::string &name, const std::vector<FuncDeclaration*> &funcs)
 {
-    if (gIR->ctors.empty())
+    if (funcs.empty())
         return NULL;
 
-    size_t n = gIR->ctors.size();
+    size_t n = funcs.size();
     if (n == 1)
-        return gIR->ctors[0]->ir.irFunc->func;
-
-    std::string name("_D");
-    name.append(gIR->dmodule->mangle());
-    name.append("6__ctorZ");
+        return funcs[0]->ir.irFunc->func;
 
     std::vector<const LLType*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
@@ -423,95 +412,68 @@ llvm::Function* build_module_ctor()
     #endif
 
     for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->ctors[i]->ir.irFunc->func;
+        llvm::Function* f = funcs[i]->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }
 
     builder.CreateRetVoid();
     return fn;
+}
+
+// build module ctor
+
+llvm::Function* build_module_ctor()
+{
+    std::string name("_D");
+    name.append(gIR->dmodule->mangle());
+    name.append("6__ctorZ");
+    return build_module_function(name, gIR->ctors);
 }
 
 // build module dtor
 
 static llvm::Function* build_module_dtor()
 {
-    if (gIR->dtors.empty())
-        return NULL;
-
-    size_t n = gIR->dtors.size();
-    if (n == 1)
-        return gIR->dtors[0]->ir.irFunc->func;
-
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
     name.append("6__dtorZ");
-
-    std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
-    assert(gIR->module->getFunction(name) == NULL);
-    llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(0, LINKd));
-
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
-    IRBuilder<> builder(bb);
-
-    #ifndef DISABLE_DEBUG_INFO
-    // debug info
-    if(global.params.symdebug)
-       DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
-    #endif
-
-    for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->dtors[i]->ir.irFunc->func;
-        llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(0, LINKd));
-    }
-
-    builder.CreateRetVoid();
-    return fn;
+    return build_module_function(name, gIR->dtors);
 }
 
 // build module unittest
 
 static llvm::Function* build_module_unittest()
 {
-    if (gIR->unitTests.empty())
-        return NULL;
-
-    size_t n = gIR->unitTests.size();
-    if (n == 1)
-        return gIR->unitTests[0]->ir.irFunc->func;
-
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
     name.append("10__unittestZ");
-
-    std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
-    assert(gIR->module->getFunction(name) == NULL);
-    llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(0, LINKd));
-
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
-    IRBuilder<> builder(bb);
-
-    #ifndef DISABLE_DEBUG_INFO
-    // debug info
-    llvm::DISubprogram subprog;
-    if(global.params.symdebug)
-        subprog = DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
-    #endif
-
-    for (size_t i=0; i<n; i++) {
-        llvm::Function* f = gIR->unitTests[i]->ir.irFunc->func;
-        llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(0, LINKd));
-    }
-
-    builder.CreateRetVoid();
-    return fn;
+    return build_module_function(name, gIR->unitTests);
 }
+
+#if DMDV2
+
+// build module shared ctor
+
+llvm::Function* build_module_shared_ctor()
+{
+    std::string name("_D");
+    name.append(gIR->dmodule->mangle());
+    name.append("13__shared_ctorZ");
+    return build_module_function(name, gIR->sharedCtors);
+}
+
+// build module shared dtor
+
+static llvm::Function* build_module_shared_dtor()
+{
+    std::string name("_D");
+    name.append(gIR->dmodule->mangle());
+    name.append("13__shared_dtorZ");
+    return build_module_function(name, gIR->sharedDtors);
+}
+
+#endif
 
 // build ModuleReference and register function, to register the module info in the global linked list
 static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
@@ -722,12 +684,20 @@ void Module::genmoduleinfo()
     const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false));
 
     // ctor
+#if DMDV2
+    llvm::Function* fctor = build_module_shared_ctor();
+#else
     llvm::Function* fctor = build_module_ctor();
+#endif
     c = fctor ? fctor : getNullValue(fnptrTy);
     b.push(c);
 
     // dtor
+#if DMDV2
+    llvm::Function* fdtor = build_module_shared_dtor();
+#else
     llvm::Function* fdtor = build_module_dtor();
+#endif
     c = fdtor ? fdtor : getNullValue(fnptrTy);
     b.push(c);
 
@@ -746,8 +716,18 @@ void Module::genmoduleinfo()
 
 #if DMDV2
 
-    // void*[4] reserved :/
-    const LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 4);
+    // tls ctor
+    fctor = build_module_ctor();
+    c = fctor ? fctor : getNullValue(fnptrTy);
+    b.push(c);
+
+    // tls dtor
+    fdtor = build_module_dtor();
+    c = fdtor ? fdtor : getNullValue(fnptrTy);
+    b.push(c);
+
+    // index + reserved void*[1]
+    const LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
     c = getNullValue(AT);
     b.push(c);
 

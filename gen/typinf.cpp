@@ -661,7 +661,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     ClassDeclaration* tscd = Type::typeinfostruct;
 
-    assert(tscd->fields.dim == 10);
+    assert(tscd->fields.dim == 11);
 
     // const(MemberInfo[]) function(in char[]) xgetMembers;
     VarDeclaration* xgetMembers = (VarDeclaration*)tscd->fields.data[7];
@@ -674,6 +674,9 @@ void TypeInfoStructDeclaration::llvmDefine()
     //void function(void*)                    xpostblit;
     VarDeclaration* xpostblit = (VarDeclaration*)tscd->fields.data[9];
     b.push_null(xpostblit->type);
+
+    //uint m_align;
+    b.push_uint(0);
 #endif
 
     // finish

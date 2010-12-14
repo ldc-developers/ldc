@@ -117,6 +117,10 @@ const LLType* DtoType(Type* t)
     // aggregates
     case Tstruct:    {
         TypeStruct* ts = (TypeStruct*)t;
+#if 1
+        if (t != ts->sym->type) // TODO: interesting... why does it happen?
+            ts->sym->type->irtype = NULL; // set irtype to NULL, so IrTypeStruct constructor would not assert...
+#endif
         t->irtype = new IrTypeStruct(ts->sym);
         return t->irtype->buildType();
     }
@@ -299,8 +303,9 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
 
     // The following breaks for nested naked functions and other declarations, so check for that.
     bool skipNestedCheck = !mustDefineSymbol(sym);
-    if (FuncDeclaration* fd = sym->isFuncDeclaration())
-        skipNestedCheck = (fd->naked != 0);
+    if (!skipNestedCheck)
+        if (FuncDeclaration* fd = sym->isFuncDeclaration())
+            skipNestedCheck = (fd->naked != 0);
 
     // Any symbol nested in a function can't be referenced directly from
     // outside that function, so we can give such symbols internal linkage.
@@ -349,10 +354,10 @@ llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
 
 llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
 {
-    if (isAvailableExternally(sym) && mustDefineSymbol(sym))
-        return llvm::GlobalValue::AvailableExternallyLinkage;
     if (needsTemplateLinkage(sym))
         return templateLinkage;
+    else if (isAvailableExternally(sym) && mustDefineSymbol(sym))
+        return llvm::GlobalValue::AvailableExternallyLinkage;
     else
         return llvm::GlobalValue::ExternalLinkage;
 }
@@ -657,14 +662,14 @@ LLConstant* DtoBitCast(LLConstant* v, const LLType* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx)
+LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateInsertValue(aggr, v, idx);
+    return gIR->ir->CreateInsertValue(aggr, v, idx, name);
 }
 
-LLValue* DtoExtractValue(LLValue* aggr, unsigned idx)
+LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateExtractValue(aggr, idx);
+    return gIR->ir->CreateExtractValue(aggr, idx, name);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
