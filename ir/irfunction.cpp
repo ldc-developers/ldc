@@ -144,6 +144,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     nestedVar = NULL;
     frameType = NULL;
     depth = -1;
+    nestedContextCreated = false;
     
     _arguments = NULL;
     _argptr = NULL;

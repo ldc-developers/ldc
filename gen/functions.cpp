@@ -529,7 +529,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 #endif
     // we never reference parameters of function prototypes
     std::string str;
-    if (!declareOnly)
+   // if (!declareOnly)
     {
         // name parameters
         llvm::Function::arg_iterator iarg = func->arg_begin();
@@ -769,16 +769,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (fd->vresult && fd->vresult->nestedref) {
         Logger::println("nested vresult value: %s", fd->vresult->toChars());
         fd->nestedVars.insert(fd->vresult);
-    }
-#endif
-
-#if DMDV2
-    // fill nestedVars
-    size_t nnest = fd->closureVars.dim;
-    for (size_t i = 0; i < nnest; ++i)
-    {
-        VarDeclaration* vd = (VarDeclaration*)fd->closureVars.data[i];
-        fd->nestedVars.insert(vd);
     }
 #endif
 

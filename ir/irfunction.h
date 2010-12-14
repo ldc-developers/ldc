@@ -93,6 +93,7 @@ struct IrFunction : IrBase
     // number of enclosing functions with variables accessed by nested functions
     // (-1 if neither this function nor any enclosing ones access variables from enclosing functions)
     int depth;
+    bool nestedContextCreated; // holds whether nested context is created
     
     llvm::Value* _arguments;
     llvm::Value* _argptr;

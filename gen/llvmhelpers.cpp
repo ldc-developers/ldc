@@ -958,7 +958,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         #endif
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
-
                 DtoNestedInit(vd);
             }
             // normal stack variable, allocate storage on the stack if it has not already been done
