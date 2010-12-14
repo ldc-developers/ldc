@@ -353,10 +353,10 @@ Expression *BinExp::arrayOp(Scope *sc)
             fd = new FuncDeclaration(0, 0, Lexer::idPool(name), STCundefined, ftype);
             fd->fbody = fbody;
             fd->protection = PROTpublic;
-	    fd->linkage = LINKd;
+            fd->linkage = LINKd;
 
-	    // special attention for array ops
-	    fd->isArrayOp = true;
+            // special attention for array ops
+            fd->isArrayOp = true;
 
             sc->module->importedFrom->members->push(fd);
 
