@@ -32,6 +32,8 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd);
 
 void DtoDwarfStopPoint(unsigned ln);
 
+void DtoDwarfValue(LLValue* var, VarDeclaration* vd);
+
 /**
  * Emits all things necessary for making debug info for a local variable vd.
  * @param ll LLVM Value of the variable.
@@ -46,6 +48,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
  * @return
  */
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
+
 
 #endif // DISABLE_DEBUG_INFO
 

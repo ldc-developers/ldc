@@ -19,6 +19,7 @@
 #include <set>
 #include <map>
 #include <string>
+#include <llvm/Analysis/DebugInfo.h>
 #endif
 
 #include "dsymbol.h"
@@ -347,6 +348,9 @@ struct VarDeclaration : Declaration
 
     /// This var is used by a naked function.
     bool nakedUse;
+
+    // debug description
+    llvm::DIVariable debugVariable;
 #endif
 };
 

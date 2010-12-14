@@ -114,7 +114,7 @@ static llvm::DIDerivedType dwarfDerivedType(Type* type, llvm::DICompileUnit comp
     return gIR->difactory.CreateDerivedType(
         DW_TAG_pointer_type, // tag
         compileUnit, // context
-        "", // name
+        type->toChars(), // name
         DtoDwarfFile(Loc(gIR->dmodule, 0), DtoDwarfCompileUnit(gIR->dmodule)), // file
         0, // line number
         getTypeBitSize(T), // size (bits)
@@ -350,11 +350,12 @@ static llvm::DIVariable dwarfVariable(VarDeclaration* vd, llvm::DIType type)
 
     return gIR->difactory.CreateVariable(
         tag, // tag
-        gIR->func()->diSubprogram, // context
+        gIR->func()->diLexicalBlock, // context
         vd->toChars(), // name
         DtoDwarfFile(vd->loc, DtoDwarfCompileUnit(getDefinedModule(vd))), // file
         vd->loc.linnum, // line num
-        type // type
+        type, // type
+        true // preserve
     );
 }
 
@@ -408,10 +409,10 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
         return; // unsupported
 
     // get variable description
-    llvm::DIVariable VD = dwarfVariable(vd, TD);
+    vd->debugVariable = dwarfVariable(vd, TD);
 
     // declare
-    dwarfDeclare(ll, VD);
+    dwarfDeclare(ll, vd->debugVariable);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -447,7 +448,6 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
         m->srcfile->name->toChars(),
         srcpath,
         "LDC (http://www.dsource.org/projects/ldc)",
-//FIXME: What do these two mean?
         gIR->dmodule == m, // isMain,
         false // isOptimized
     );
@@ -464,6 +464,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
 
     llvm::DICompileUnit context = DtoDwarfCompileUnit(gIR->dmodule);
     llvm::DIFile file = DtoDwarfFile(fd->loc, DtoDwarfCompileUnit(getDefinedModule(fd)));
+    Type *retType = ((TypeFunction*)fd->type)->next;
 
     // FIXME: duplicates ?
     return gIR->difactory.CreateSubprogram(
@@ -473,10 +474,14 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
         fd->mangle(), // linkage name
         file, // file
         fd->loc.linnum, // line no
-//FIXME: what's this type for?
-        llvm::DIType(NULL), // type
+        dwarfTypeDescription(retType, context, NULL), // type
         fd->protection == PROTprivate, // is local to unit
-        gIR->dmodule == getDefinedModule(fd) // isdefinition
+        gIR->dmodule == getDefinedModule(fd), // isdefinition
+        0, 0, // VK, Index
+        llvm::DIType(),
+        false, // isArtificial
+        false, // isOptimized
+        fd->ir.irFunc->func
     );
 }
 
@@ -497,8 +502,7 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         mangledname, // linkage name
         DtoDwarfFile(Loc(gIR->dmodule, 0), context), // compile unit
         0, // line no
-//FIXME: what's this type for?
-        llvm::DIType(NULL), // type
+        llvm::DIType(NULL), // return type. TODO: fill it up
         true, // is local to unit
         true // isdefinition
     );
@@ -523,8 +527,11 @@ void DtoDwarfFuncStart(FuncDeclaration* fd)
     LOG_SCOPE;
 
     assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
-    //TODO:
-    //gIR->difactory.InsertSubprogramStart(fd->ir.irFunc->diSubprogram, gIR->scopebb());
+    fd->ir.irFunc->diLexicalBlock = gIR->difactory.CreateLexicalBlock(
+            fd->ir.irFunc->diSubprogram, // context
+            DtoDwarfFile(fd->loc, DtoDwarfCompileUnit(getDefinedModule(fd))), // file
+            fd->loc.linnum
+            );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -535,8 +542,6 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
     LOG_SCOPE;
 
     assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
-    //TODO:
-    //gIR->difactory.InsertRegionEnd(fd->ir.irFunc->diSubprogram, gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -547,6 +552,13 @@ void DtoDwarfStopPoint(unsigned ln)
     LOG_SCOPE;
     llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, gIR->func()->diSubprogram);
     gIR->ir->SetCurrentDebugLocation(loc);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDwarfValue(LLValue* var, VarDeclaration* vd)
+{
+    gIR->difactory.InsertDbgValueIntrinsic(var, 0, vd->debugVariable, gIR->scopebb());
 }
 
 #endif

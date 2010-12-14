@@ -98,6 +98,7 @@ struct IrFunction : IrBase
     llvm::Value* _argptr;
     
     llvm::DISubprogram diSubprogram;
+    llvm::DILexicalBlock diLexicalBlock;
 };
 
 #endif
