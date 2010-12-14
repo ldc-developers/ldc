@@ -422,6 +422,8 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
     Logger::println("D to dwarf compile_unit");
     LOG_SCOPE;
 
+    static bool mainUnitCreated = false;
+
     // we might be generating for an import
     IrModule* irmod = getIrModule(m);
 
@@ -442,15 +444,18 @@ llvm::DICompileUnit DtoDwarfCompileUnit(Module* m)
             srcpath = srcpath + '/';
     }
 
+    bool isMain = !mainUnitCreated && gIR->dmodule == m;
     // make compile unit
     irmod->diCompileUnit = gIR->difactory.CreateCompileUnit(
         global.params.symdebug == 2 ? DW_LANG_C : DW_LANG_D,
         m->srcfile->name->toChars(),
         srcpath,
         "LDC (http://www.dsource.org/projects/ldc)",
-        gIR->dmodule == m, // isMain,
+        isMain, // isMain,
         false // isOptimized
     );
+    if (isMain)
+        mainUnitCreated = true;
 
     return irmod->diCompileUnit;
 }
