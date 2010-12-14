@@ -303,8 +303,9 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
 
     // The following breaks for nested naked functions and other declarations, so check for that.
     bool skipNestedCheck = !mustDefineSymbol(sym);
-    if (FuncDeclaration* fd = sym->isFuncDeclaration())
-        skipNestedCheck = (fd->naked != 0);
+    if (!skipNestedCheck)
+        if (FuncDeclaration* fd = sym->isFuncDeclaration())
+            skipNestedCheck = (fd->naked != 0);
 
     // Any symbol nested in a function can't be referenced directly from
     // outside that function, so we can give such symbols internal linkage.
@@ -353,10 +354,10 @@ llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
 
 llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
 {
-    if (isAvailableExternally(sym) && mustDefineSymbol(sym))
-        return llvm::GlobalValue::AvailableExternallyLinkage;
     if (needsTemplateLinkage(sym))
         return templateLinkage;
+    else if (isAvailableExternally(sym) && mustDefineSymbol(sym))
+        return llvm::GlobalValue::AvailableExternallyLinkage;
     else
         return llvm::GlobalValue::ExternalLinkage;
 }
