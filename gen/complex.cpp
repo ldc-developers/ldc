@@ -359,6 +359,28 @@ DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+DValue* DtoComplexRem(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
+{
+    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im, *divisor;
+
+    // lhs values
+    DtoGetComplexParts(loc, type, lhs, lhs_re, lhs_im);
+    // rhs values
+    DtoGetComplexParts(loc, type, rhs, rhs_re, rhs_im);
+
+    // Divisor can be real or imaginary but not complex
+    assert((rhs_re != 0) ^ (rhs_im != 0));
+
+    divisor = rhs_re ? rhs_re : rhs_im;
+    res_re = lhs_re ? gIR->ir->CreateFRem(lhs_re, divisor, "tmp") : lhs_re;
+    res_im = lhs_re ? gIR->ir->CreateFRem(lhs_im, divisor, "tmp") : lhs_im;
+
+    LLValue* res = DtoAggrPair(DtoType(type), res_re, res_im);
+    return new DImValue(type, res);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val)
 {
     llvm::Value *a, *b, *re, *im;

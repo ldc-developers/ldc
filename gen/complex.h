@@ -20,6 +20,7 @@ DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexMul(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
+DValue* DtoComplexRem(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val);
 
 LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs);

@@ -767,6 +767,10 @@ DValue* ModExp::toElem(IRState* p)
 
     errorOnIllegalArrayOp(this, e1, e2);
 
+    if (type->iscomplex()) {
+        return DtoComplexRem(loc, type, l, r);
+    }
+
     return DtoBinRem(type, l, r);
 }
 
