@@ -772,6 +772,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 #endif
 
+    FuncGen fg;
+    irfunction->gen = &fg;
+
     DtoCreateNestedContext(fd);
 
 #if DMDV2
@@ -801,12 +804,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // output function body
-    {
-        FuncGen fg;
-        irfunction->gen = &fg;
-        fd->fbody->toIR(gIR);
-        irfunction->gen = 0;
-    }
+    fd->fbody->toIR(gIR);
+    irfunction->gen = 0;
 
     // TODO: clean up this mess
 

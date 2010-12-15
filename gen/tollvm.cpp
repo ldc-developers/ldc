@@ -778,6 +778,11 @@ size_t getTypePaddedSize(const LLType* t)
     return sz;
 }
 
+size_t getTypeAllocSize(const LLType* t)
+{
+    return gTargetData->getTypeAllocSize(t);
+}
+
 unsigned char getABITypeAlign(const LLType* t)
 {
     return gTargetData->getABITypeAlignment(t);

@@ -264,6 +264,17 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
+
+    // void* _d_allocmemory(size_t sz)
+    {
+        llvm::StringRef fname("_d_allocmemory");
+        std::vector<const LLType*> types;
+        types.push_back(sizeTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+                ->setAttributes(Attr_NoAlias);
+    }
+
     // void* _d_allocmemoryT(TypeInfo ti)
     {
         llvm::StringRef fname("_d_allocmemoryT");

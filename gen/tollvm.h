@@ -95,6 +95,7 @@ LLConstant* getNullValue(const LLType* t);
 size_t getTypeBitSize(const LLType* t);
 size_t getTypeStoreSize(const LLType* t);
 size_t getTypePaddedSize(const LLType* t);
+size_t getTypeAllocSize(const LLType* t);
 
 // type alignments
 unsigned char getABITypeAlign(const LLType* t);

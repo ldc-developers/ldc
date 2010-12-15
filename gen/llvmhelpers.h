@@ -45,6 +45,7 @@ void DtoDeleteArray(DValue* arr);
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name = "");
 llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name = "");
 llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const char* name = "");
+LLValue* DtoGcMalloc(const llvm::Type* lltype, const char* name = "");
 
 // assertion generator
 void DtoAssert(Module* M, Loc loc, DValue* msg);

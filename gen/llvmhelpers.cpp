@@ -130,6 +130,17 @@ llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const
     return ai;
 }
 
+LLValue* DtoGcMalloc(const llvm::Type* lltype, const char* name)
+{
+	// get runtime function
+	llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemory");
+	// parameters
+	LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
+	// call runtime allocator
+	LLValue* mem = gIR->CreateCallOrInvoke(fn, size, name).getInstruction();
+	// cast
+	return DtoBitCast(mem, getPtrToType(lltype), name);
+}
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////

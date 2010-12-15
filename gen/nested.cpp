@@ -68,6 +68,24 @@ static FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
     return (parent ? parent->isFuncDeclaration() : NULL);
 }
 
+static void storeVariable(VarDeclaration *vd, LLValue *dst)
+{
+    LLValue *value = vd->ir.irLocal->value;
+#if DMDV2
+    int ty = vd->type->ty;
+    FuncDeclaration *fd = getParentFunc(vd, true);
+    assert(fd && "No parent function for nested variable?");
+    if (fd->needsClosure() && !vd->isRef() && (ty == Tstruct || ty == Tsarray) && isaPointer(value->getType())) {
+        // Copy structs and static arrays
+        LLValue *mem = DtoGcMalloc(DtoType(vd->type), ".gc_mem");
+        DtoAggrCopy(mem, value);
+        DtoAlignedStore(mem, dst);
+    } else
+#endif
+    // Store the address into the frame
+    DtoAlignedStore(value, dst);
+}
+
 static void DtoCreateNestedContextType(FuncDeclaration* fd);
 
 DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
@@ -206,7 +224,7 @@ void DtoNestedInit(VarDeclaration* vd)
                 val = DtoAlignedLoad(val, (std::string(".frame.") + parentfunc->toChars()).c_str());
             }
             val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
-            DtoAlignedStore(vd->ir.irLocal->value, val);
+            storeVariable(vd, val);
         } else {
             // Already initialized in DtoCreateNestedContext
         }
@@ -534,11 +552,15 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             unsigned depth = irfunction->depth;
             const llvm::StructType *frameType = irfunction->frameType;
             // Create frame for current function and append to frames list
-            // FIXME: For D2, this should be a gc_malloc (or similar) call, not alloca
-            //        (Note that it'd also require more aggressive copying of
-            //        by-value parameters instead of just alloca'd ones)
             // FIXME: alignment ?
-            LLValue* frame = DtoRawAlloca(frameType, 0, ".frame");
+            LLValue* frame = 0;
+#if DMDV2
+            if (fd->needsClosure())
+                frame = DtoGcMalloc(frameType, ".frame");
+            else
+#endif
+            frame = DtoRawAlloca(frameType, 0, ".frame");
+
             
             // copy parent frames into beginning
             if (depth != 0) {
@@ -602,7 +624,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                         // passed-in pointer (for 'ref' or 'out' parameters) or
                         // a pointer arg with byval attribute.
                         // Store the address into the frame and set the byref flag.
-                        DtoAlignedStore(vd->ir.irLocal->value, gep);
+                        storeVariable(vd, gep);
                         vd->ir.irLocal->byref = true;
                     }
                 } else if (vd->isRef() || vd->isOut()) {
