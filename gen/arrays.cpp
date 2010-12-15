@@ -671,6 +671,21 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
 
 #if DMDV2
 
+static LLValue *getParamForArrayCat(Expression* exp)
+{
+    DValue *dval = exp->toElem(gIR);
+    LLValue *val = dval->getRVal();
+    if (dval->isVar() && dval->isVar()->type->ty == Tsarray) {
+        // Convert static array to slice
+        const LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
+        LLValue *array = DtoRawAlloca(type, 0, ".array");
+        DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
+        DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1, ".ptr"));
+        val = DtoLoad(array);
+    }
+    return val;
+}
+
 DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
 {
     Logger::println("DtoCatAssignArray");
@@ -682,12 +697,12 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(arrayType));
     // byte[] x
-    LLValue *val = exp1->toElem(gIR)->getRVal();
-    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
+    LLValue *val = getParamForArrayCat(exp1);
+    DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
     args.push_back(val);
     // byte[] y
-    val = exp2->toElem(gIR)->getRVal();
-    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
+    val = getParamForArrayCat(exp2);
+    DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
     args.push_back(val);
 
     // Call _d_arraycatT
