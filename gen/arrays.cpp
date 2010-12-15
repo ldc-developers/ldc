@@ -698,11 +698,11 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
     args.push_back(DtoTypeInfoOf(arrayType));
     // byte[] x
     LLValue *val = getParamForArrayCat(exp1);
-    DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
+    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
     args.push_back(val);
     // byte[] y
     val = getParamForArrayCat(exp2);
-    DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
+    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
     args.push_back(val);
 
     // Call _d_arraycatT
