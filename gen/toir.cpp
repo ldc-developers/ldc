@@ -1147,9 +1147,8 @@ DValue* DotVarExp::toElem(IRState* p)
         LLValue* vthis2 = 0;
         if (e1type->ty == Tclass) {
             TypeClass* tc = (TypeClass*)e1type;
-            if (tc->sym->isInterfaceDeclaration()) {
+            if (tc->sym->isInterfaceDeclaration() && !fdecl->isFinal())
                 vthis2 = DtoCastInterfaceToObject(l, NULL)->getRVal();
-            }
         }
         LLValue* vthis = l->getRVal();
         if (!vthis2) vthis2 = vthis;
@@ -1157,7 +1156,7 @@ DValue* DotVarExp::toElem(IRState* p)
         //
         // decide whether this function needs to be looked up in the vtable
         //
-        bool vtbllookup = fdecl->isAbstract() || (!fdecl->isFinal() && fdecl->isVirtual());
+        bool vtbllookup = !fdecl->isFinal() && (fdecl->isAbstract() || fdecl->isVirtual());
 
         // even virtual functions are looked up directly if super or DotTypeExp
         // are used, thus we need to walk through the this expression and check
