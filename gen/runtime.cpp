@@ -457,9 +457,14 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
+    // D1:
     // void _d_delmemory(void* p)
     // void _d_delinterface(void* p)
     // void _d_callfinalizer(void* p)
+    // D2:
+    // void _d_delmemory(void **p)
+    // void _d_delinterface(void **p)
+    // void _d_callfinalizer(void *p)
     {
         llvm::StringRef fname("_d_delmemory");
         llvm::StringRef fname2("_d_delinterface");

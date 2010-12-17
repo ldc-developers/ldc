@@ -1749,11 +1749,15 @@ DValue* DeleteExp::toElem(IRState* p)
 
     // simple pointer
     if (et->ty == Tpointer)
-    {
+    { 
+#if DMDV2
+        DtoDeleteMemory(dval->isLVal() ? dval->getLVal() : makeLValue(loc, dval));
+#else
         LLValue* rval = dval->getRVal();
         DtoDeleteMemory(rval);
         if (dval->isVar())
             DtoStore(LLConstant::getNullValue(rval->getType()), dval->getLVal());
+#endif
     }
     // class
     else if (et->ty == Tclass)
@@ -1762,7 +1766,12 @@ DValue* DeleteExp::toElem(IRState* p)
         TypeClass* tc = (TypeClass*)et;
         if (tc->sym->isInterfaceDeclaration())
         {
-            DtoDeleteInterface(dval->getRVal());
+#if DMDV2
+            LLValue *val = dval->getLVal();
+#else
+            LLValue *val = dval->getRVal();
+#endif
+            DtoDeleteInterface(val);
             onstack = true;
         }
         else if (DVarValue* vv = dval->isVar()) {
