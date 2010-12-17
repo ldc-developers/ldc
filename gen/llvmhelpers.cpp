@@ -1217,6 +1217,10 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
         assert(ex->exp);
         return ex->exp->toElem(gIR);
     }
+    else if (ArrayInitializer* ex = init->isArrayInitializer())
+    {
+        // TODO: do nothing ?
+    }
     else if (init->isVoidInitializer())
     {
         // do nothing
