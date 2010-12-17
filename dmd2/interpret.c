@@ -1193,6 +1193,25 @@ Expression *DelegateExp::interpret(InterState *istate)
     return this;
 }
 
+#if IN_LLVM
+
+Expression *AddrExp::interpret(InterState *istate)
+{
+#if LOG
+    printf("AddrExpExp::interpret() %s\n", toChars());
+#endif
+    if (e1->op == TOKvar)
+    {   VarExp *ve = (VarExp *)e1;
+        if (ve->var->isFuncDeclaration())
+            return this;
+
+    }
+    error("Cannot interpret %s at compile time", toChars());
+    return EXP_CANT_INTERPRET;
+}
+
+#endif
+
 
 // -------------------------------------------------------------
 //         Remove out, ref, and this
@@ -2714,9 +2733,17 @@ Expression *CallExp::interpret(InterState *istate)
                 fd = ((SymOffExp *)vd->value)->var->isFuncDeclaration();
             else {
                 ecall = vd->value->interpret(istate);
+#if IN_LLVM
+                if (ecall->op == TOKaddress) {
+                    AddrExp *e = (AddrExp*)ecall;
+                    if (e->e1->op == TOKvar)
+                        fd = ((VarExp *)e->e1)->var->isFuncDeclaration();
+                }
+#else
                 if (ecall->op == TOKsymoff)
                         fd = ((SymOffExp *)ecall)->var->isFuncDeclaration();
-                }
+#endif
+            }
         }
         else
             ecall = ((PtrExp*)ecall)->e1->interpret(istate);

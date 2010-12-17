@@ -1145,6 +1145,7 @@ struct AddrExp : UnaExp
 #if IN_LLVM
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
+    Expression *interpret(InterState *istate);
 #endif
 };
 
