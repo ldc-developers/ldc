@@ -49,7 +49,7 @@ llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
             return llvm::CallingConv::Fast;
     }
     // on the other hand, here, it's exactly what we want!!! TODO: right?
-    else if (l == LINKwindows)
+    else if (l == LINKwindows || l == LINKpascal)
         return llvm::CallingConv::X86_StdCall;
     else
     {
