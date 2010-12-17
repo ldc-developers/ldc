@@ -7229,9 +7229,6 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
 #if LOGDEFAULTINIT
     printf("TypeStruct::defaultInitLiteral() '%s'\n", toChars());
 #endif
-#if IN_LLVM
-    return defaultInit(loc);
-#else
     if (sym->isNested())
         return defaultInit(loc);
     Expressions *structelems = new Expressions();
@@ -7251,7 +7248,6 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
     // sym->type != NULL ?
     structinit->type = sym->type;
     return structinit;
-#endif
 }
 
 

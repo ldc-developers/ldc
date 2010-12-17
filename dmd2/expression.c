@@ -3487,13 +3487,10 @@ int StructLiteralExp::isLvalue()
 }
 #endif
 
-/*
-Removed in LDC. See declaration.
 Expression *StructLiteralExp::toLvalue(Scope *sc, Expression *e)
 {
     return this;
 }
-*/
 
 
 int StructLiteralExp::checkSideEffect(int flag)
