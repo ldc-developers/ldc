@@ -13,11 +13,15 @@
 
 DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue)
 : DValue(t), var(vd), val(llvmValue)
-{}
+{
+    assert(isaPointer(llvmValue));
+}
 
 DVarValue::DVarValue(Type* t, LLValue* llvmValue)
 : DValue(t), var(0), val(llvmValue)
-{}
+{
+    assert(isaPointer(llvmValue));
+}
 
 LLValue* DVarValue::getLVal()
 {

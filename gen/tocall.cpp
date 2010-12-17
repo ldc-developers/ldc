@@ -356,10 +356,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // ... or a nested function context arg
         else if (nestedcall)
         {
-            LLValue* contextptr = DtoNestedContext(loc, dfnval->func);
-            contextptr = DtoBitCast(contextptr, getVoidPtrType());
+            if (dfnval) {
+                LLValue* contextptr = DtoNestedContext(loc, dfnval->func);
+                contextptr = DtoBitCast(contextptr, getVoidPtrType());
+                args.push_back(contextptr);
+            } else {
+                args.push_back(llvm::UndefValue::get(getVoidPtrType()));
+            }
             ++argiter;
-            args.push_back(contextptr);
         }
         else
         {

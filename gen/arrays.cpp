@@ -75,7 +75,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     LLValue* val;
 
     // give slices and complex values storage (and thus an address to pass)
-    if (value->isSlice())
+    if (value->isSlice() || value->type->ty == Tdelegate)
     {
         val = DtoAlloca(value->getType(), ".tmpparam");
         DVarValue lval(value->getType(), val);
