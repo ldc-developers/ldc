@@ -793,9 +793,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     // xgetMembers
     VarDeclaration* xgetVar = (VarDeclaration*)cinfo->fields.data[11];
-
-    // FIXME: fill it out!
-    b.push_null(xgetVar->type);
+    b.push_funcptr(cd->findGetMembers(), xgetVar->type);
 
 #else
 

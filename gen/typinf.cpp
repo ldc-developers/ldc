@@ -664,16 +664,13 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert(tscd->fields.dim == 11);
 
     // const(MemberInfo[]) function(in char[]) xgetMembers;
-    VarDeclaration* xgetMembers = (VarDeclaration*)tscd->fields.data[7];
-    b.push_null(xgetMembers->type);
+    b.push_funcptr(sd->findGetMembers());
 
     //void function(void*)                    xdtor;
-    VarDeclaration* xdtor = (VarDeclaration*)tscd->fields.data[8];
-    b.push_null(xdtor->type);
+    b.push_funcptr(sd->dtor);
 
     //void function(void*)                    xpostblit;
-    VarDeclaration* xpostblit = (VarDeclaration*)tscd->fields.data[9];
-    b.push_null(xpostblit->type);
+    b.push_funcptr(sd->postblit);
 
     //uint m_align;
     b.push_uint(0);
