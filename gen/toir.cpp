@@ -2597,6 +2597,12 @@ DValue* StructLiteralExp::toElem(IRState* p)
             IF_LOG Logger::println("expr %zu = %s", it.index, expr->toChars());
             val = expr->toElem(gIR);
         }
+#if DMDV2
+        else if (vd == sd->vthis) {
+            IF_LOG Logger::println("initializing vthis");
+            val = new DImValue(sd->type, DtoNestedContext(loc, sd));
+        }
+#endif
         else
         {
             IF_LOG Logger::println("using default initializer");
