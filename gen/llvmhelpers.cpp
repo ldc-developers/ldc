@@ -82,6 +82,24 @@ void DtoDeleteInterface(LLValue* inst)
     gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
 
+#if DMDV2
+
+void DtoDeleteArray(DValue* arr)
+{
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray_t");
+
+    // build args
+    LLSmallVector<LLValue*,2> arg;
+    arg.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
+    arg.push_back(DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fn->getFunctionType()->getParamType(1)));
+
+    // call
+    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
+}
+
+#else
+
 void DtoDeleteArray(DValue* arr)
 {
     // get runtime function
@@ -89,15 +107,14 @@ void DtoDeleteArray(DValue* arr)
 
     // build args
     LLSmallVector<LLValue*,2> arg;
-#if DMDV2
-    arg.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
-#else
     arg.push_back(DtoArrayLen(arr));
     arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
-#endif
+
     // call
     gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
 }
+
+#endif
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////

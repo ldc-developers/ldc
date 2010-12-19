@@ -442,20 +442,31 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_NoAlias);
     }
 
-    // D1: void _d_delarray(size_t plength, void* pdata)
-    // D2: void _d_delarray(void[]* array)
-    {
-        llvm::StringRef fname("_d_delarray");
-        std::vector<const LLType*> types;
 #if DMDV2
+
+    // void _d_delarray_t(Array *p, TypeInfo ti)
+    {
+        llvm::StringRef fname("_d_delarray_t");
+        std::vector<const LLType*> types;
         types.push_back(voidArrayPtrTy);
-#else
-        types.push_back(sizeTy);
-        types.push_back(voidPtrTy);
-#endif
+        types.push_back(typeInfoTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+
+#else
+
+    // void _d_delarray(size_t plength, void* pdata)
+    {
+        llvm::StringRef fname("_d_delarray");
+        std::vector<const LLType*> types;
+        types.push_back(sizeTy);
+        types.push_back(voidPtrTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+#endif
 
     // D1:
     // void _d_delmemory(void* p)
