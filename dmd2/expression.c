@@ -129,8 +129,11 @@ Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
                         //printf("rewriting e1 to %s's this\n", f->toChars());
                         n++;
 
-            // LDC seems dmd misses it sometimes here :/
-            //f->vthis->nestedrefs = 1;
+                        // LDC seems dmd misses it sometimes here :/
+                        if (f->isMember2()) {
+                            f->vthis->nestedrefs.push(sc->parent->isFuncDeclaration());
+                            f->closureVars.push(f->vthis);
+                        }
 
                         e1 = new VarExp(loc, f->vthis);
                     }
