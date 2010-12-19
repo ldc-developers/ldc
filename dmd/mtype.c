@@ -3034,7 +3034,9 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
         }
     }
 
-    tf->linkage = sc->linkage;
+    if(tf->linkage == LINKd)
+        tf->linkage = sc->linkage;
+
     if (tf->next)
     {
         tf->next = tf->next->semantic(loc,sc);
