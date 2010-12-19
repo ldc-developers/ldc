@@ -1690,7 +1690,21 @@ DValue* NewExp::toElem(IRState* p)
     {
         Logger::println("new struct on heap: %s\n", newtype->toChars());
         // allocate
-        LLValue* mem = DtoNew(newtype);
+        LLValue* mem = 0;
+#if DMDV2
+        if (allocator)
+        {
+            // custom allocator
+            allocator->codegen(Type::sir);
+            DFuncValue dfn(allocator, allocator->ir.irFunc->func);
+            DValue* res = DtoCallFunction(loc, NULL, &dfn, newargs);
+            mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()), ".newstruct_custom");
+        } else
+#endif
+        {
+            // default allocator
+            mem = DtoNew(newtype);
+        }
         // init
         TypeStruct* ts = (TypeStruct*)ntype;
         if (ts->isZeroInit(ts->sym->loc)) {
