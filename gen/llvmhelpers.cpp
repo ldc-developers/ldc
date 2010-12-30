@@ -411,12 +411,14 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     else if (t->ty == Tarray) {
         // lhs is slice
         if (DSliceValue* s = lhs->isSlice()) {
-            Type *elemType = t->nextOf()->toBasetype();
-            if (elemType->equals(t2)) {
-                DtoArrayInit(loc, s, rhs, op);
+            if (t->nextOf()->toBasetype()->equals(t2)) {
+                DtoArrayInit(loc, lhs, rhs, op);
             }
 #if DMDV2
-            else if (op != -1 && op != TOKblit && arrayNeedsPostblit(elemType)) {
+            else if (DtoArrayElementType(t)->equals(t2)) {
+                DtoArrayInit(loc, s, rhs, op);
+            }
+            else if (op != -1 && op != TOKblit && arrayNeedsPostblit(t)) {
                 DtoArrayAssign(s, rhs, op);
             }
 #endif
@@ -446,13 +448,15 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
         }
     }
     else if (t->ty == Tsarray) {
-        Type *elemType = t->nextOf()->toBasetype();
         // T[n] = T
-        if (elemType->equals(t2)) {
+        if (t->nextOf()->toBasetype()->equals(t2)) {
             DtoArrayInit(loc, lhs, rhs, op);
         }
 #if DMDV2
-        else if (op != -1 && op != TOKblit && arrayNeedsPostblit(elemType)) {
+        else if (DtoArrayElementType(t)->equals(t2)) {
+            DtoArrayInit(loc, lhs, rhs, op);
+        }
+        else if (op != -1 && op != TOKblit && arrayNeedsPostblit(t)) {
             DtoArrayAssign(lhs, rhs, op);
         }
 #endif

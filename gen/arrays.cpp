@@ -87,16 +87,36 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
     LOG_SCOPE;
 
 #if DMDV2
-    Type *elemType = array->type->toBasetype()->nextOf()->toBasetype();
-    if (op != -1 && op != TOKblit && arrayNeedsPostblit(elemType))
+
+    if (op != -1 && op != TOKblit && arrayNeedsPostblit(array->type))
     {
         DtoArraySetAssign(loc, array, value, op);
         return;
     }
-#endif
+
+    LLValue* ptr = DtoArrayPtr(array);
+    LLValue* dim;
+    if (array->type->ty == Tsarray) {
+        // Calculate length of the static array
+        LLValue* rv = array->getRVal();
+        const LLArrayType* t = isaArray(rv->getType()->getContainedType(0));
+        uint64_t c = t->getNumElements();
+        while (t = isaArray(t->getContainedType(0)))
+            c *= t->getNumElements();
+        assert(c > 0);
+        dim = DtoConstSize_t(c);
+        ptr = DtoBitCast(ptr, DtoType(DtoArrayElementType(array->type)->pointerTo()));
+    } else {
+        dim = DtoArrayLen(array);
+    }
+
+#else // DMDV1
 
     LLValue* dim = DtoArrayLen(array);
     LLValue* ptr = DtoArrayPtr(array);
+
+#endif
+
     LLValue* val;
 
     // give slices and complex values storage (and thus an address to pass)
@@ -134,7 +154,7 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
     }
 
     // if not a zero initializer, call the appropriate runtime function!
-    switch (arrayelemty->ty)
+    switch (valuety->ty)
     {
     case Tbool:
         val = gIR->ir->CreateZExt(val, LLType::getInt8Ty(gIR->context()), ".bool");
@@ -236,12 +256,19 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
 
 #if DMDV2
 
+Type *DtoArrayElementType(Type *arrayType)
+{
+    assert(arrayType->toBasetype()->nextOf());
+    Type *t = arrayType->toBasetype()->nextOf()->toBasetype();
+    while (t->ty == Tsarray)
+        t = t->nextOf()->toBasetype();
+    return t;
+}
+
 // Determine whether t is an array of structs that need a postblit.
 bool arrayNeedsPostblit(Type *t)
 {
-    t = t->toBasetype();
-    while (t->ty == Tsarray)
-        t = t->nextOf()->toBasetype();
+    t = DtoArrayElementType(t);
     if (t->ty == Tstruct)
         return ((TypeStruct *)t)->sym->postblit != 0;
     return false;

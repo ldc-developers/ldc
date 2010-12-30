@@ -17,6 +17,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
 void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op);
 #if DMDV2
+Type *DtoArrayElementType(Type *arrayType);
 bool arrayNeedsPostblit(Type *t);
 void DtoArrayAssign(DValue *from, DValue *to, int op);
 void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op);
