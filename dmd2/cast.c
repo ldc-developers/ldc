@@ -784,6 +784,7 @@ Expression *Expression::castTo(Scope *sc, Type *t)
     Type *typeb = type->toBasetype();
     if (tb != typeb)
     {
+#if !IN_LLVM
         // Do (type *) cast of (type [dim])
         if (tb->ty == Tpointer &&
             typeb->ty == Tsarray
@@ -796,15 +797,17 @@ Expression *Expression::castTo(Scope *sc, Type *t)
             else
                 e = new AddrExp(loc, e);
         }
+        else
+#endif
 #if 0
-        else if (tb->ty == Tdelegate && type->ty != Tdelegate)
+        if (tb->ty == Tdelegate && type->ty != Tdelegate)
         {
             TypeDelegate *td = (TypeDelegate *)tb;
             TypeFunction *tf = (TypeFunction *)td->nextOf();
             return toDelegate(sc, tf->nextOf());
         }
-#endif
         else
+#endif
         {
             if (typeb->ty == Tstruct)
             {   TypeStruct *ts = (TypeStruct *)typeb;
