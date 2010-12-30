@@ -616,21 +616,39 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         Scope sc;
         tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
+#if DMDV2
+        tftohash ->mod = MODconst;
+#endif
         tftohash = (TypeFunction *)tftohash->semantic(0, &sc);
-        tftostring = new TypeFunction(NULL, Type::tchar->arrayOf(), 0, LINKd);
+
+#if DMDV2
+        Type *retType = Type::tchar->invariantOf()->arrayOf();
+#else
+        Type *retType = Type::tchar->arrayOf();
+#endif
+        tftostring = new TypeFunction(NULL, retType, 0, LINKd);
         tftostring = (TypeFunction *)tftostring->semantic(0, &sc);
     }
 
     // this one takes a parameter, so we need to build a new one each time
     // to get the right type. can we avoid this?
-    TypeFunction *tfeqptr;
+    TypeFunction *tfcmpptr;
     {
         Scope sc;
         Parameters *arguments = new Parameters;
+#if STRUCTTHISREF
+        // arg type is ref const T
+        Parameter *arg = new Parameter(STCref, tc->constOf(), NULL, NULL);
+#else
+        // arg type is const T*
         Parameter *arg = new Parameter(STCin, tc->pointerTo(), NULL, NULL);
+#endif
         arguments->push(arg);
-        tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-        tfeqptr = (TypeFunction *)tfeqptr->semantic(0, &sc);
+        tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
+#if DMDV2
+        tfcmpptr->mod = MODconst;
+#endif
+        tfcmpptr = (TypeFunction *)tfcmpptr->semantic(0, &sc);
     }
 
     // well use this module for all overload lookups
@@ -641,11 +659,15 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(fd);
 
     // opEquals
-    fd = find_method_overload(sd, Id::eq, tfeqptr, gm);
+#if DMDV2
+    fd = sd->eq;
+#else
+    fd = find_method_overload(sd, Id::eq, tfcmpptr, gm);
+#endif
     b.push_funcptr(fd);
 
     // opCmp
-    fd = find_method_overload(sd, Id::cmp, tfeqptr, gm);
+    fd = find_method_overload(sd, Id::cmp, tfcmpptr, gm);
     b.push_funcptr(fd);
 
     // toString
@@ -657,7 +679,6 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_uint(hasptrs);
 
 #if DMDV2
-    // FIXME: just emit nulls for now
 
     ClassDeclaration* tscd = Type::typeinfostruct;
 
@@ -673,7 +694,8 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(sd->postblit);
 
     //uint m_align;
-    b.push_uint(0);
+    b.push_uint(0); // FIXME
+
 #endif
 
     // finish
