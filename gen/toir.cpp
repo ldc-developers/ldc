@@ -570,7 +570,7 @@ DValue* AssignExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
-    DtoAssign(loc, l, r);
+    DtoAssign(loc, l, r, op);
 
     if (l->isSlice())
         return l;
@@ -2628,7 +2628,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         DVarValue field(vd->type, vd, DtoIndexStruct(mem, sd, vd));
 
         // store the initializer there
-        DtoAssign(loc, &field, val);
+        DtoAssign(loc, &field, val, TOKconstruct);
 
 #if DMDV2
         Type *tb = vd->type->toBasetype();

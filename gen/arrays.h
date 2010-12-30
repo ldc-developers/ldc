@@ -15,8 +15,12 @@ LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr);
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
-void DtoArrayInit(Loc& loc, DValue* array, DValue* value);
-void DtoArrayAssign(LLValue* l, LLValue* r);
+void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op);
+#if DMDV2
+bool arrayNeedsPostblit(Type *t);
+void DtoArrayAssign(DValue *from, DValue *to, int op);
+void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op);
+#endif
 void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);
 

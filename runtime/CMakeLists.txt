@@ -69,7 +69,6 @@ elseif(D_VERSION EQUAL 2)
 	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
 	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 	list(REMOVE_ITEM DCRT_D
-		${RUNTIME_DC_DIR}/arrayassign.d
 		${RUNTIME_DC_DIR}/arraybyte.d
 		${RUNTIME_DC_DIR}/arraycast.d
 		${RUNTIME_DC_DIR}/arraycat.d

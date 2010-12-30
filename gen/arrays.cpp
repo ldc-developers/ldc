@@ -20,6 +20,22 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static LLValue *DtoSlice(DValue *dval)
+{
+    LLValue *val = dval->getRVal();
+    if (dval->isVar() && dval->isVar()->type->ty == Tsarray) {
+        // Convert static array to slice
+        const LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
+        LLValue *array = DtoRawAlloca(type, 0, ".array");
+        DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
+        DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1, ".ptr"));
+        val = DtoLoad(array);
+    }
+    return val;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 const LLStructType* DtoArrayType(Type* arrayTy)
 {
     assert(arrayTy->nextOf());
@@ -65,10 +81,19 @@ void DtoSetArrayToNull(LLValue* v)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
+void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
 {
     Logger::println("DtoArrayInit");
     LOG_SCOPE;
+
+#if DMDV2
+    Type *elemType = array->type->toBasetype()->nextOf()->toBasetype();
+    if (op != -1 && op != TOKblit && arrayNeedsPostblit(elemType))
+    {
+        DtoArraySetAssign(loc, array, value, op);
+        return;
+    }
+#endif
 
     LLValue* dim = DtoArrayLen(array);
     LLValue* ptr = DtoArrayPtr(array);
@@ -206,6 +231,69 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value)
     LLCallSite call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
     call.setCallingConv(llvm::CallingConv::C);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#if DMDV2
+
+// Determine whether t is an array of structs that need a postblit.
+bool arrayNeedsPostblit(Type *t)
+{
+    t = t->toBasetype();
+    while (t->ty == Tsarray)
+        t = t->nextOf()->toBasetype();
+    if (t->ty == Tstruct)
+        return ((TypeStruct *)t)->sym->postblit != 0;
+    return false;
+}
+
+// Does array assignment (or initialization) from another array of the same element type.
+void DtoArrayAssign(DValue *array, DValue *value, int op)
+{
+    Logger::println("DtoArrayAssign");
+    LOG_SCOPE;
+
+    assert(value && array);
+    assert(op != TOKblit);
+    Type *t = value->type->toBasetype();
+    assert(t->nextOf());
+    Type *elemType = t->nextOf()->toBasetype();
+
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, op == TOKconstruct ? "_d_arrayctor" : "_d_arrayassign");
+    LLSmallVector<LLValue*,3> args;
+    args.push_back(DtoTypeInfoOf(elemType));
+    args.push_back(DtoAggrPaint(DtoSlice(value), fn->getFunctionType()->getParamType(1)));
+    args.push_back(DtoAggrPaint(DtoSlice(array), fn->getFunctionType()->getParamType(2)));
+
+    LLCallSite call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".array");
+    call.setCallingConv(llvm::CallingConv::C);
+}
+
+// If op is TOKconstruct, does construction of an array;
+// otherwise, does assignment to an array.
+void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op)
+{
+    Logger::println("DtoArraySetAssign");
+    LOG_SCOPE;
+
+    assert(array && value);
+    assert(op != TOKblit);
+
+    LLValue *ptr = DtoArrayPtr(array);
+    LLValue *len = DtoArrayLen(array);
+
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, op == TOKconstruct ? "_d_arraysetctor" : "_d_arraysetassign");
+    LLSmallVector<LLValue*,4> args;
+    args.push_back(DtoBitCast(ptr, getVoidPtrType()));
+    args.push_back(DtoBitCast(makeLValue(loc, value), getVoidPtrType()));
+    args.push_back(len);
+    args.push_back(DtoTypeInfoOf(array->type->toBasetype()->nextOf()->toBasetype()));
+
+    LLCallSite call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".newptr");
+    call.setCallingConv(llvm::CallingConv::C);
+}
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -671,21 +759,6 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
 
 #if DMDV2
 
-static LLValue *getParamForArrayCat(Expression* exp)
-{
-    DValue *dval = exp->toElem(gIR);
-    LLValue *val = dval->getRVal();
-    if (dval->isVar() && dval->isVar()->type->ty == Tsarray) {
-        // Convert static array to slice
-        const LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
-        LLValue *array = DtoRawAlloca(type, 0, ".array");
-        DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
-        DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1, ".ptr"));
-        val = DtoLoad(array);
-    }
-    return val;
-}
-
 DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
 {
     Logger::println("DtoCatAssignArray");
@@ -697,11 +770,11 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(arrayType));
     // byte[] x
-    LLValue *val = getParamForArrayCat(exp1);
+    LLValue *val = DtoSlice(exp1->toElem(gIR));
     val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
     args.push_back(val);
     // byte[] y
-    val = getParamForArrayCat(exp2);
+    val = DtoSlice(exp2->toElem(gIR));
     val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
     args.push_back(val);
 

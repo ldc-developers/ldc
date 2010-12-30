@@ -642,6 +642,45 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
+#if DMDV2
+
+    // void[] _d_arrayassign(TypeInfo ti, void[] from, void[] to)
+    // void[] _d_arrayctor(TypeInfo ti, void[] from, void[] to)
+    {
+        llvm::StringRef fname("_d_arrayassign");
+        llvm::StringRef fname2("_d_arrayctor");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(voidArrayTy);
+        types.push_back(voidArrayTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+    }
+
+    // void* _d_arraysetassign(void* p, void* value, size_t count, TypeInfo ti)
+    // void* _d_arraysetctor(void* p, void* value, size_t count, TypeInfo ti)
+    {
+        llvm::StringRef fname("_d_arraysetassign");
+        llvm::StringRef fname2("_d_arraysetctor");
+        std::vector<const LLType*> types;
+        types.push_back(voidPtrTy);
+        types.push_back(voidPtrTy);
+        types.push_back(sizeTy);
+        types.push_back(typeInfoTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_NoAlias);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
+            ->setAttributes(Attr_NoAlias);
+    }
+
+#endif
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
+
     // cast to object
     // Object _d_toObject(void* p)
     {
