@@ -387,14 +387,14 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 
 /* ================================================================== */
 
-static llvm::Function* build_module_function(const std::string &name, const std::vector<FuncDeclaration*> &funcs)
+static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs)
 {
     if (funcs.empty())
         return NULL;
 
     size_t n = funcs.size();
     if (n == 1)
-        return funcs[0]->ir.irFunc->func;
+        return funcs.front()->ir.irFunc->func;
 
     std::vector<const LLType*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
@@ -411,8 +411,9 @@ static llvm::Function* build_module_function(const std::string &name, const std:
         DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
     #endif
 
-    for (size_t i=0; i<n; i++) {
-        llvm::Function* f = funcs[i]->ir.irFunc->func;
+    typedef std::list<FuncDeclaration*>::const_iterator Iterator;
+    for (Iterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
+        llvm::Function* f = (*itr)->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(DtoCallingConv(0, LINKd));
     }

@@ -511,7 +511,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // shared static dtor
     else if (fdecl->isSharedStaticDtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
-            gIR->sharedDtors.push_back(fdecl);
+            gIR->sharedDtors.push_front(fdecl);
         }
     } else
 #endif
@@ -524,7 +524,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // static dtor
     else if (fdecl->isStaticDtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
-            gIR->dtors.push_back(fdecl);
+            gIR->dtors.insert(gIR->dtors.begin(), fdecl);
         }
     }
 

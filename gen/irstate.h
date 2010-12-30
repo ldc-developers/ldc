@@ -160,14 +160,14 @@ struct IRState
     llvm::DIFactory difactory;
 
     // static ctors/dtors/unittests
-    typedef std::vector<FuncDeclaration*> FuncDeclVector;
-    FuncDeclVector ctors;
-    FuncDeclVector dtors;
+    typedef std::list<FuncDeclaration*> FuncDeclList;
+    FuncDeclList ctors;
+    FuncDeclList dtors;
 #if DMDV2
-    FuncDeclVector sharedCtors;
-    FuncDeclVector sharedDtors;
+    FuncDeclList sharedCtors;
+    FuncDeclList sharedDtors;
 #endif
-    FuncDeclVector unitTests;
+    FuncDeclList unitTests;
     
     // all template instances that had members emitted
     // currently only filled for singleobj
