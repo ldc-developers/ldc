@@ -617,11 +617,13 @@ MATCH AddrExp::implicitConvTo(Type *t)
             t->ty == Tpointer && t->nextOf()->ty == Tfunction &&
             e1->op == TOKvar)
         {
+#if !IN_LLVM
             /* I don't think this can ever happen -
              * it should have been
              * converted to a SymOffExp.
              */
             assert(0);
+#endif
             VarExp *ve = (VarExp *)e1;
             FuncDeclaration *f = ve->var->isFuncDeclaration();
 	    if (f && f->overloadExactMatch(t->nextOf(), m))
