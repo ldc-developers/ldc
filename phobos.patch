@@ -96,7 +96,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      void formatArg(char fc)
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/functional.d phobos/std/functional.d
 --- phobos-orig/std/functional.d	2010-10-29 05:54:44.000000000 +0400
-+++ phobos/std/functional.d	2010-11-07 19:26:52.000000000 +0300
++++ phobos/std/functional.d	2010-12-30 13:56:03.206104002 +0300
 @@ -713,6 +713,13 @@
          assert(dg_pure_nothrow() == 7);
          //assert(dg_pure_nothrow_safe() == 8);
@@ -155,9 +155,55 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      mixin(asmMulAdd_enter_odd(OP, "ESP+LASTPARAM"));
  }
  
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/intrinsic.d phobos/std/intrinsic.d
+--- phobos-orig/std/intrinsic.d	2010-10-29 05:54:44.000000000 +0400
++++ phobos/std/intrinsic.d	2010-12-16 14:56:59.311832002 +0300
+@@ -22,7 +22,7 @@
+ 
+ module std.intrinsic;
+ 
+-nothrow:
++//nothrow:
+ 
+ /**
+  * Scans the bits in v starting with bit 0, looking
+@@ -72,12 +72,12 @@
+ /**
+  * Tests and complements the bit.
+  */
+-int btc(uint *p, uint bitnum);
++nothrow int btc(uint *p, uint bitnum);
+ 
+ /**
+  * Tests and resets (sets to 0) the bit.
+  */
+-int btr(uint *p, size_t bitnum);
++nothrow int btr(uint *p, size_t bitnum);
+ 
+ /**
+  * Tests and sets the bit.
+@@ -136,7 +136,7 @@
+ array = [0]:x2, [1]:x100
+ </pre>
+  */
+-int bts(uint *p, size_t bitnum);
++nothrow int bts(uint *p, size_t bitnum);
+ 
+ 
+ /**
+@@ -144,7 +144,8 @@
+         byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
+         becomes byte 0.
+  */
+-pure uint bswap(uint v);
++pure nothrow pragma(intrinsic, "llvm.bswap.i32")
++    uint bswap(uint val);
+ 
+ 
+ /**
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
 --- phobos-orig/std/math.d	2010-10-29 05:54:44.000000000 +0400
-+++ phobos/std/math.d	2010-11-07 19:26:52.000000000 +0300
++++ phobos/std/math.d	2010-12-28 21:51:24.775335002 +0300
 @@ -276,7 +276,7 @@
      assert(abs(71.6Li) == 71.6L);
      assert(abs(-56) == 56);
@@ -202,7 +248,20 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      asm
      {
          fld     x[EBP]                  ; // load theta
-@@ -831,6 +839,20 @@
+@@ -809,6 +817,12 @@
+  * greater than long.max, the result is
+  * indeterminate.
+  */
++version(LDC)
++pure nothrow long rndtol(real x)
++{
++	return core.stdc.math.llroundl(x);
++}
++else
+ @safe pure nothrow long rndtol(real x);    /* intrinsic */
+ 
+ 
+@@ -831,6 +845,20 @@
   *      )
   */
  
@@ -223,7 +282,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  @safe pure nothrow
  {
      float sqrt(float x);    /* intrinsic */
-@@ -838,6 +860,8 @@
+@@ -838,6 +866,8 @@
      real sqrt(real x);      /* intrinsic */ /// ditto
  }
  
@@ -232,7 +291,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  @trusted pure nothrow {  // Should be @safe.  See bugs 4628, 4630.
      // Create explicit overloads for integer sqrts.  No ddoc for these because
      // hopefully a more elegant solution will eventually be found, so we don't
-@@ -1413,9 +1437,22 @@
+@@ -1413,9 +1443,22 @@
   * Compute n * 2$(SUP exp)
   * References: frexp
   */
@@ -255,7 +314,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  unittest {
      assert(ldexp(1, -16384) == 0x1p-16384L);
      assert(ldexp(1, -16382) == 0x1p-16382L);
-@@ -1608,7 +1645,31 @@
+@@ -1608,7 +1651,31 @@
   *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
   *      )
   */
@@ -288,7 +347,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  
  /***********************************************************************
-@@ -2993,9 +3054,15 @@
+@@ -2993,9 +3060,15 @@
      assert(pow(x,eight) == (x * x) * (x * x) * (x * x) * (x * x));
  
      assert(pow(x, neg1) == 1 / x);
