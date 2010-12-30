@@ -457,7 +457,15 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         // FIXME: this loads both values, even when we only need one
         LLValue* v = val->getRVal();
         LLValue* impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
-        DImValue* im = new DImValue(to, impart);
+        Type *extractty;
+        if (vty->ty == Tcomplex32) {
+            extractty = Type::timaginary32;
+        } else if (vty->ty == Tcomplex64) {
+            extractty = Type::timaginary64;
+        } else if (vty->ty == Tcomplex80) {
+            extractty = Type::timaginary80;
+        }
+        DImValue* im = new DImValue(extractty, impart);
         return DtoCastFloat(loc, im, to);
     }
     else if (to->ty == Tbool) {
