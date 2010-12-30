@@ -66,6 +66,7 @@ elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
 	file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
 	file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
+	file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
 	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
 	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 	list(REMOVE_ITEM DCRT_D
@@ -87,9 +88,9 @@ elseif(D_VERSION EQUAL 2)
 	elseif(APPLE)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 	endif(UNIX)
-	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${RUNTIME_DIR}/src/object_.d
+	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC}
+		${RUNTIME_DIR}/src/object_.d
 		${RUNTIME_DIR}/src/std/intrinsic.d
-		${RUNTIME_DIR}/src/core/stdc/stdarg.d
 	)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
