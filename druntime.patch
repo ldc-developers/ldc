@@ -1,6 +1,6 @@
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/cstdarg.di druntime/import/ldc/cstdarg.di
 --- druntime-orig/import/ldc/cstdarg.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/cstdarg.di	2010-11-05 13:57:24.000000000 +0300
++++ druntime/import/ldc/cstdarg.di	2010-12-30 13:40:26.000000000 +0300
 @@ -0,0 +1,29 @@
 +/*
 + * vararg support for extern(C) functions
@@ -33,7 +33,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    void va_copy(va_list dst, va_list src);
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/intrinsics.di druntime/import/ldc/intrinsics.di
 --- druntime-orig/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/intrinsics.di	2010-11-04 17:49:07.000000000 +0300
++++ druntime/import/ldc/intrinsics.di	2010-12-30 13:40:26.000000000 +0300
 @@ -0,0 +1,359 @@
 +/*
 + * This module holds declarations to LLVM intrinsics.
@@ -396,7 +396,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    void llvm_trap();
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/llvmasm.di druntime/import/ldc/llvmasm.di
 --- druntime-orig/import/ldc/llvmasm.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/llvmasm.di	2010-11-04 17:49:07.000000000 +0300
++++ druntime/import/ldc/llvmasm.di	2010-12-30 13:40:26.000000000 +0300
 @@ -0,0 +1,17 @@
 +module ldc.llvmasm;
 +
@@ -417,7 +417,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/vararg.d druntime/import/ldc/vararg.d
 --- druntime-orig/import/ldc/vararg.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/vararg.d	2010-11-05 13:57:12.000000000 +0300
++++ druntime/import/ldc/vararg.d	2010-12-30 13:40:26.000000000 +0300
 @@ -0,0 +1,43 @@
 +/*
 + * This module holds the implementation of special vararg templates for D style var args.
@@ -464,7 +464,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
 --- druntime-orig/import/object.di	2010-10-13 10:37:58.000000000 +0400
-+++ druntime/import/object.di	2010-11-07 19:11:32.000000000 +0300
++++ druntime/import/object.di	2010-12-30 13:40:26.000000000 +0300
 @@ -142,7 +142,7 @@
      // 32:      // has typeinfo member
      void*       deallocator;
@@ -897,8 +897,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          thread_suspendAll();
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
---- druntime-orig/src/object_.d	2010-10-13 10:37:58.000000000 +0400
-+++ druntime/src/object_.d	2010-11-07 19:11:32.000000000 +0300
+--- druntime-orig/src/object_.d	2010-12-27 21:21:19.176120002 +0300
++++ druntime/src/object_.d	2010-12-28 13:30:49.239335001 +0300
 @@ -1754,7 +1754,6 @@
      {
          int len = 0;
@@ -1182,7 +1182,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/arrayInit.d druntime/src/rt/arrayInit.d
 --- druntime-orig/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/rt/arrayInit.d	2010-11-04 17:49:07.000000000 +0300
++++ druntime/src/rt/arrayInit.d	2010-12-28 13:20:38.239335002 +0300
 @@ -0,0 +1,150 @@
 +private import ldc.intrinsics;
 +
@@ -1334,9 +1334,21 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    else
 +        throw new Exception("overlapping array copy");
 +}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/dmain2.d druntime/src/rt/dmain2.d
+--- druntime-orig/src/rt/dmain2.d	2010-10-13 08:41:12.000000000 +0400
++++ druntime/src/rt/dmain2.d	2010-12-30 13:43:46.730104001 +0300
+@@ -38,6 +38,8 @@
+     pragma(lib, "shell32.lib"); // needed for CommandLineToArgvW
+ }
+ 
++extern (C) Throwable.TraceInfo _d_traceContext(void* ptr = null); // LDC
++
+ version (all)
+ {
+     Throwable _d_unhandled = null;
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/ldc_eh.d druntime/src/rt/ldc_eh.d
 --- druntime-orig/src/rt/ldc_eh.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/rt/ldc_eh.d	2010-11-04 17:49:07.000000000 +0300
++++ druntime/src/rt/ldc_eh.d	2010-11-09 12:15:38.675790002 +0300
 @@ -0,0 +1,428 @@
 +/**
 + * This module contains functions and structures required for
@@ -1768,7 +1780,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/lifetime.d druntime/src/rt/lifetime.d
 --- druntime-orig/src/rt/lifetime.d	2010-10-12 07:07:36.000000000 +0400
-+++ druntime/src/rt/lifetime.d	2010-11-07 19:12:13.000000000 +0300
++++ druntime/src/rt/lifetime.d	2010-12-30 13:11:36.226104002 +0300
 @@ -92,6 +92,18 @@
      return gc_malloc(sz);
  }
@@ -1806,25 +1818,83 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  Loverflow:
      onOutOfMemoryError();
-@@ -823,7 +835,7 @@
+@@ -773,7 +785,7 @@
+ /**
+  *
+  */
+-extern (C) void[] _d_newarraymT(TypeInfo ti, size_t ndims, ...)
++extern (C) void[] _d_newarraymT(TypeInfo ti, size_t ndims, size_t *pdim)
+ {
+     void[] result;
+ 
+@@ -781,9 +793,7 @@
+     if (ndims == 0)
+         result = null;
+     else
+-    {   va_list q;
+-        va_start!(size_t)(q, ndims);
+-
++    {
+         void[] foo(TypeInfo ti, size_t* pdim, size_t ndims)
+         {
+             auto dim = *pdim;
+@@ -810,7 +820,6 @@
+             return p;
          }
-         va_end(q);
+ 
+-        auto pdim = cast(size_t *)q;
+         result = foo(ti, pdim, ndims);
+         debug(PRINTF) printf("result = %llx\n", result);
+ 
+@@ -821,16 +830,15 @@
+                 printf("index %d: %d\n", i, va_arg!(int)(q));
+             }
+         }
+-        va_end(q);
      }
 -    return result;
 +    return *cast(void[]*)&result;
  }
  
  
-@@ -881,7 +893,7 @@
+ /**
+  *
+  */
+-extern (C) void[] _d_newarraymiT(TypeInfo ti, size_t ndims, ...)
++extern (C) void[] _d_newarraymiT(TypeInfo ti, size_t ndims, size_t *pdim)
+ {
+     void[] result;
+ 
+@@ -839,9 +847,6 @@
+         result = null;
+     else
+     {
+-        va_list q;
+-        va_start!(size_t)(q, ndims);
+-
+         void[] foo(TypeInfo ti, size_t* pdim, size_t ndims)
+         {
+             size_t dim = *pdim;
+@@ -867,7 +872,6 @@
+             return p;
          }
-         va_end(q);
+ 
+-        size_t* pdim = cast(size_t *)q;
+         result = foo(ti, pdim, ndims);
+         debug(PRINTF) printf("result = %llx\n", result);
+ 
+@@ -879,9 +883,8 @@
+                 printf("init = %d\n", va_arg!(int)(q));
+             }
+         }
+-        va_end(q);
      }
 -    return result;
 +    return *cast(void[]*)&result;
  }
  
  
-@@ -1381,7 +1393,7 @@
+@@ -1381,7 +1384,7 @@
   * Append y[] to array pointed to by px
   * size is size of each array element.
   */
@@ -1833,7 +1903,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      // only optimize array append where ti is not a shared type
      auto sizeelem = ti.next.tsize();            // array element size
-@@ -1468,7 +1480,7 @@
+@@ -1468,7 +1471,7 @@
    L1:
      px.length = newlength;
      memcpy(px.data + length * sizeelem, y.ptr, y.length * sizeelem);
@@ -1842,7 +1912,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
  
-@@ -1552,21 +1564,36 @@
+@@ -1552,21 +1555,36 @@
      return newcap;
  }
  
@@ -1881,7 +1951,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      // c could encode into from 1 to 4 characters
      char[4] buf = void;
-@@ -1612,7 +1639,7 @@
+@@ -1612,7 +1630,7 @@
  /**
   * Append dchar to wchar[]
   */
@@ -1890,7 +1960,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      // c could encode into from 1 to 2 w characters
      wchar[2] buf = void;
-@@ -1798,7 +1825,7 @@
+@@ -1798,7 +1816,7 @@
  /**
   *
   */
@@ -1899,7 +1969,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  out (result)
  {
      auto sizeelem = ti.next.tsize();            // array element size
-@@ -1819,7 +1846,7 @@
+@@ -1819,7 +1837,7 @@
          r.length = a.length;
          memcpy(r.ptr, a.ptr, size);
      }
@@ -2601,7 +2671,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      trace_epi();
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/std/intrinsic.d druntime/src/std/intrinsic.d
 --- druntime-orig/src/std/intrinsic.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/std/intrinsic.d	2010-11-04 17:49:07.000000000 +0300
++++ druntime/src/std/intrinsic.d	2010-12-16 14:51:15.179832001 +0300
 @@ -0,0 +1,212 @@
 +/*
 + * D phobos intrinsics for LDC
