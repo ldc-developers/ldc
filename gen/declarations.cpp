@@ -36,21 +36,24 @@ void Declaration::codegen(Ir*)
 void InterfaceDeclaration::codegen(Ir*)
 {
     //Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
-    DtoResolveDsymbol(this);
+    if (members && symtab)
+        DtoResolveDsymbol(this);
 }
 
 /* ================================================================== */
 
 void StructDeclaration::codegen(Ir*)
 {
-    DtoResolveDsymbol(this);
+    if (members && symtab)
+        DtoResolveDsymbol(this);
 }
 
 /* ================================================================== */
 
 void ClassDeclaration::codegen(Ir*)
 {
-    DtoResolveDsymbol(this);
+    if (members && symtab)
+        DtoResolveDsymbol(this);
 }
 
 /* ================================================================== */
