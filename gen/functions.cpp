@@ -846,7 +846,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
 //     std::cout << *func << std::endl;
 
     // erase alloca point
-    allocaPoint->eraseFromParent();
+    if (allocaPoint->getParent())
+        allocaPoint->eraseFromParent();
     allocaPoint = 0;
     gIR->func()->allocapoint = 0;
 
