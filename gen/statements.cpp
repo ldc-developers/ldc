@@ -1442,7 +1442,6 @@ void WithStatement::toIR(IRState* p)
     #endif
 
     assert(exp);
-    assert(body);
 
     // with(..) can either be used with expressions or with symbols
     // wthis == null indicates the symbol form
@@ -1452,7 +1451,8 @@ void WithStatement::toIR(IRState* p)
         DtoStore(e->getRVal(), mem);
     }
 
-    body->toIR(p);
+    if (body)
+        body->toIR(p);
 }
 
 //////////////////////////////////////////////////////////////////////////////
