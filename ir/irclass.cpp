@@ -12,6 +12,7 @@
 #include "gen/utils.h"
 #include "gen/arrays.h"
 #include "gen/metadata.h"
+#include "gen/runtime.h"
 
 #include "ir/irstruct.h"
 #include "ir/irtypeclass.h"
@@ -168,6 +169,34 @@ LLConstant * IrStruct::getVtblInit()
             fd->codegen(Type::sir);
             assert(fd->ir.irFunc && "invalid vtbl function");
             c = fd->ir.irFunc->func;
+#if DMDV2
+            if (cd->isFuncHidden(fd))
+            {   /* fd is hidden from the view of this class.
+                 * If fd overlaps with any function in the vtbl[], then
+                 * issue 'hidden' error.
+                 */
+                for (size_t j = 1; j < n; j++)
+                {   if (j == i)
+                        continue;
+                    FuncDeclaration *fd2 = ((Dsymbol *)cd->vtbl.data[j])->isFuncDeclaration();
+                    if (!fd2->ident->equals(fd->ident))
+                        continue;
+                    if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd))
+                    {
+                        if (global.params.warnings)
+                        {
+                            TypeFunction *tf = (TypeFunction *)fd->type;
+                            if (tf->ty == Tfunction)
+                                error("%s%s is hidden by %s\n", fd->toPrettyChars(), Parameter::argsTypesToChars(tf->parameters, tf->varargs), toChars());
+                            else
+                                error("%s is hidden by %s\n", fd->toPrettyChars(), toChars());
+                        }
+                        c = DtoBitCast(LLVM_D_GetRuntimeFunction(gIR->module, "_d_hidden_func"), c->getType());
+                        break;
+                    }
+                }
+            }
+#endif
         }
         constants.push_back(c);
     }

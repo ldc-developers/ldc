@@ -1069,4 +1069,13 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+
+#if DMDV2
+    // void _d_hidden_func()
+    {
+        llvm::StringRef fname("_d_hidden_func");
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+#endif
 }
