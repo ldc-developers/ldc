@@ -68,7 +68,6 @@ struct AggregateDeclaration : ScopeDsymbol
                                 // 1: size is correct
                                 // 2: cannot determine size; fwd referenced
     int isdeprecated;           // !=0 if deprecated
-    Scope *scope;		// !=NULL means context to use
 
 #if DMDV2
     int isnested;               // !=0 if is nested
