@@ -88,14 +88,7 @@ DValue* VarExp::toElem(IRState* p)
         cachedLvalue = NULL;
         return new DVarValue(type, V);
     }
-    
-    // this is an error! must be accessed with DotVarExp
-    if (var->needThis())
-    {
-        error("need 'this' to access member %s", toChars());
-        fatal();
-    }
-    
+
     if (VarDeclaration* vd = var->isVarDeclaration())
     {
         Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
@@ -107,6 +100,14 @@ DValue* VarExp::toElem(IRState* p)
             return new DConstValue(type, DtoConstBool(false));
         }
 #endif
+
+        // this is an error! must be accessed with DotVarExp
+        if (var->needThis())
+        {
+            error("need 'this' to access member %s", toChars());
+            fatal();
+        }
+
         // _arguments
         if (vd->ident == Id::_arguments && p->func()->_arguments)
         {
