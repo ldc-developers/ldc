@@ -782,6 +782,13 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
 
 void expToCBuffer(OutBuffer *buf, HdrGenState *hgs, Expression *e, enum PREC pr)
 {
+#ifdef DEBUG
+    if (precedence[e->op] == PREC_zero)
+        printf("precedence not defined for token '%s'\n",Token::tochars[e->op]);
+#endif
+    assert(precedence[e->op] != PREC_zero);
+    assert(pr != PREC_zero);
+
     //if (precedence[e->op] == 0) e->dump(0);
     if (precedence[e->op] < pr ||
         /* Despite precedence, we don't allow a<b<c expressions.
@@ -3991,7 +3998,7 @@ Expression *VarExp::semantic(Scope *sc)
         if (v->isSameAsInitializer() && type->toBasetype()->ty != Tsarray && v->init)
         {
             ExpInitializer *ei = v->init->isExpInitializer();
-            if (ei)
+            if (ei && ei->exp->type)
             {
                 //ei->exp->implicitCastTo(sc, type)->print();
                 return ei->exp->implicitCastTo(sc, type);
@@ -4036,7 +4043,7 @@ void VarExp::checkEscape()
         // if reference type
         if (tb->ty == Tarray || tb->ty == Tsarray || tb->ty == Tclass)
         {
-            if (v->isScope() && !v->noauto)
+            if (v->isScope() && !v->noscope)
                 error("escaping reference to auto local %s", v->toChars());
             else if (v->storage_class & STCvariadic)
                 error("escaping reference to variadic parameter %s", v->toChars());
@@ -6843,9 +6850,16 @@ Expression *CallExp::modifiableLvalue(Scope *sc, Expression *e)
 }
 
 void CallExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{   int i;
-
-    expToCBuffer(buf, hgs, e1, precedence[op]);
+{
+    if (e1->op == TOKtype)
+        /* Avoid parens around type to prevent forbidden cast syntax:
+         *   (sometype)(arg1)
+         * This is ok since types in constructor calls
+         * can never depend on parens anyway
+         */
+        e1->toCBuffer(buf, hgs);
+    else
+        expToCBuffer(buf, hgs, e1, precedence[op]);
     buf->writeByte('(');
     argsToCBuffer(buf, arguments, hgs);
     buf->writeByte(')');
@@ -7784,6 +7798,12 @@ Expression *DotExp::semantic(Scope *sc)
     return this;
 }
 
+void DotExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
+{
+    expToCBuffer(buf, hgs, e1, PREC_primary);
+    buf->writeByte('.');
+    expToCBuffer(buf, hgs, e2, PREC_primary);
+}
 
 /************************* CommaExp ***********************************/
 
