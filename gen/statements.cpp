@@ -1555,9 +1555,16 @@ void SwitchErrorStatement::toIR(IRState* p)
 
     std::vector<LLValue*> args;
 
+#if DMDV2
+    // module param
+    LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
+    const LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
+    args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
+#else
     // file param
     IrModule* irmod = getIrModule(NULL);
     args.push_back(DtoLoad(irmod->fileName));
+#endif
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);

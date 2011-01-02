@@ -1327,9 +1327,15 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
 
     std::vector<LLValue*> args;
 
+    Module* funcmodule = gIR->func()->decl->getModule();
+#if DMDV2
+    // module param
+    LLValue *moduleInfoSymbol = funcmodule->moduleInfoSymbol();
+    const LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
+    args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
+#else
     // file param
     // we might be generating for an imported template function
-    Module* funcmodule = gIR->func()->decl->getModule();
     const char* cur_file = funcmodule->srcfile->name->toChars();
     if (loc.filename && strcmp(loc.filename, cur_file) != 0)
     {
@@ -1340,6 +1346,7 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
         IrModule* irmod = getIrModule(funcmodule);
         args.push_back(DtoLoad(irmod->fileName));
     }
+#endif
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);

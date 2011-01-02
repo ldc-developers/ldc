@@ -11,11 +11,13 @@
 #include "dsymbol.h"
 #include "mtype.h"
 #include "aggregate.h"
+#include "module.h"
 
 #include "gen/runtime.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/irstate.h"
+#include "ir/irtype.h"
 
 using namespace llvm::Attribute;
 
@@ -234,19 +236,34 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
 
     // void _d_assert( char[] file, uint line )
-    // void _d_array_bounds( char[] file, uint line )
-    // void _d_switch_error( char[] file, uint line )
     {
         llvm::StringRef fname("_d_assert");
-        llvm::StringRef fname2("_d_array_bounds");
-        llvm::StringRef fname3("_d_switch_error");
         std::vector<const LLType*> types;
         types.push_back(stringTy);
         types.push_back(intTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // D1:
+    // void _d_array_bounds( char[] file, uint line )
+    // void _d_switch_error( char[] file, uint line )
+    // D2:
+    // void _d_array_bounds(ModuleInfo* m, uint line)
+    // void _d_switch_error(ModuleInfo* m, uint line)
+    {
+        llvm::StringRef fname("_d_array_bounds");
+        llvm::StringRef fname2("_d_switch_error");
+        std::vector<const LLType*> types;
+#if DMDV2
+        types.push_back(getPtrToType(DtoType(Module::moduleinfo->type)));
+#else
+        types.push_back(stringTy);
+#endif
+        types.push_back(intTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
 
     // void _d_assert_msg( char[] msg, char[] file, uint line )

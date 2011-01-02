@@ -45,6 +45,9 @@
 #endif
 
 #if IN_LLVM
+#include "llvm/Type.h"
+#include "llvm/LLVMContext.h"
+#include "llvm/DerivedTypes.h"
 #include "llvm/Support/CommandLine.h"
 #include <map>
 
@@ -211,6 +214,8 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 #if IN_LLVM
     // LDC
     llvmForceLogging = false;
+    moduleInfoVar = NULL;
+    moduleInfoType = new llvm::PATypeHolder(llvm::OpaqueType::get(llvm::getGlobalContext()));
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
 #endif
@@ -408,6 +413,9 @@ void Module::deleteObjFile()
 
 Module::~Module()
 {
+#if IN_LLVM
+    delete moduleInfoType;
+#endif
 }
 
 const char *Module::kind()

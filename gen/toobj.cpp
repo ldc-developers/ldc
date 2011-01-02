@@ -22,6 +22,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/CodeGen/MachineCodeEmitter.h"
+#include "llvm/LLVMContext.h"
 
 #include "mars.h"
 #include "module.h"
@@ -535,6 +536,31 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     return ctor;
 }
 
+llvm::GlobalVariable* Module::moduleInfoSymbol()
+{
+    // create name
+    std::string MIname("_D");
+    MIname.append(mangle());
+    MIname.append("8__ModuleZ");
+
+    if (gIR->dmodule != this) {
+        const LLType* moduleinfoTy = DtoType(moduleinfo->type);
+        LLGlobalVariable *var = gIR->module->getGlobalVariable(MIname);
+        if (!var)
+            var = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+        return var;
+    }
+
+    if (moduleInfoVar)
+        return moduleInfoVar;
+
+    // declare global
+    // flags will be modified at runtime so can't make it constant
+    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType->get(), false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+
+    return moduleInfoVar;
+}
+
 // Put out instance of ModuleInfo for this Module
 
 void Module::genmoduleinfo()
@@ -592,7 +618,6 @@ void Module::genmoduleinfo()
     b.push_string(toPrettyChars());
 
     // importedModules[]
-    int aimports_dim = aimports.dim;
     std::vector<LLConstant*> importInits;
     LLConstant* c = 0;
     for (size_t i = 0; i < aimports.dim; i++)
@@ -742,23 +767,13 @@ void Module::genmoduleinfo()
             assert(0);
     }*/
 
-    // create initializer
+    // create and set initializer
     LLConstant* constMI = b.get_constant();
-
-    // create name
-    std::string MIname("_D");
-    MIname.append(mangle());
-    MIname.append("8__ModuleZ");
-
-    // declare global
-    // flags will be modified at runtime so can't make it constant
-
-    // it makes no sense that the our own module info already exists!
-    assert(!gIR->module->getGlobalVariable(MIname));
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, constMI->getType(), false, llvm::GlobalValue::ExternalLinkage, constMI, MIname);
+    llvm::cast<llvm::OpaqueType>(moduleInfoType->get())->refineAbstractTypeTo(constMI->getType());
+    moduleInfoSymbol()->setInitializer(constMI);
 
     // build the modulereference and ctor for registering it
-    LLFunction* mictor = build_module_reference_and_ctor(gvar);
+    LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSymbol());
 
     // register this ctor in the magic llvm.global_ctors appending array
     const LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);

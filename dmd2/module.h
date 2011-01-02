@@ -34,6 +34,8 @@ typedef DValue elem;
 namespace llvm {
     class LLVMContext;
     class Module;
+    class GlobalVariable;
+    class PATypeHolder;
 }
 #else
 
@@ -202,8 +204,11 @@ struct Module : Package
     void buildTargetFiles(bool singleObj);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
     Module *isModule() { return this; }
+    llvm::GlobalVariable* moduleInfoSymbol();
 
     bool llvmForceLogging;
+    llvm::GlobalVariable* moduleInfoVar;
+    llvm::PATypeHolder* moduleInfoType;
 
     // array ops emitted in this module already
     StringTable arrayfuncs;
