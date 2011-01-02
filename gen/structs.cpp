@@ -280,6 +280,13 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
 
         // update offsets
         lastoffset = os;
+#if DMDV2
+        // sometimes size of the initializer is less than size of the variable,
+        // so make sure that lastsize is correct
+        if (inits[i]->getType()->isSized())
+            lastsize = ceil(gTargetData->getTypeSizeInBits(inits[i]->getType()) / 8.0);
+        else
+#endif
         lastsize = sz;
 
         // go to next explicit init
