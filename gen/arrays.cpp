@@ -435,10 +435,17 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     if (arrty->ty == Tsarray)
         return constarr;
 
-    // for dynamic array we need to make a global with the data, so we have a pointer for the dynamic array
+    // we need to make a global with the data, so we have a pointer to the array
     // Important: don't make the gvar constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
     LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray");
+
+#if DMDV2
+    if (arrty->ty == Tpointer)
+        // we need to return pointer to the static array.
+        return gvar;
+#endif
+
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
