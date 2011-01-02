@@ -250,6 +250,9 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         // template
         if (needsTemplateLinkage(sym))
             return templateLinkage;
+        // never use InternalLinkage for variables marked as "extern"
+        if (vd->storage_class & STCextern)
+            return llvm::GlobalValue::ExternalLinkage;
     }
     // function
     else if (FuncDeclaration* fdecl = sym->isFuncDeclaration())
