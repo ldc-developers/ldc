@@ -388,14 +388,16 @@ void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
 
 /* ================================================================== */
 
-static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs)
+static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs,
+                                             const std::list<VarDeclaration*> &gates = std::list<VarDeclaration*>())
 {
-    if (funcs.empty())
-        return NULL;
+    if (gates.empty()) {
+        if (funcs.empty())
+            return NULL;
 
-    size_t n = funcs.size();
-    if (n == 1)
-        return funcs.front()->ir.irFunc->func;
+        if (funcs.size() == 1)
+            return funcs.front()->ir.irFunc->func;
+    }
 
     std::vector<const LLType*> argsTy;
     const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
@@ -412,11 +414,22 @@ static llvm::Function* build_module_function(const std::string &name, const std:
         DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
     #endif
 
-    typedef std::list<FuncDeclaration*>::const_iterator Iterator;
-    for (Iterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
+    // Call ctor's
+    typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
+    for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
         llvm::Function* f = (*itr)->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(DtoCallingConv(0, LINKd));
+    }
+
+    // Increment vgate's
+    typedef std::list<VarDeclaration*>::const_iterator GatesIterator;
+    for (GatesIterator itr = gates.begin(), end = gates.end(); itr != end; ++itr) {
+        assert((*itr)->ir.irGlobal);
+        llvm::Value* val = (*itr)->ir.irGlobal->value;
+        llvm::Value* rval = builder.CreateLoad(val, "vgate");
+        llvm::Value* res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
+        builder.CreateStore(res, val);
     }
 
     builder.CreateRetVoid();
@@ -430,7 +443,11 @@ llvm::Function* build_module_ctor()
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
     name.append("6__ctorZ");
+#if DMDV2
+    return build_module_function(name, gIR->ctors, gIR->gates);
+#else
     return build_module_function(name, gIR->ctors);
+#endif
 }
 
 // build module dtor
@@ -462,7 +479,7 @@ llvm::Function* build_module_shared_ctor()
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
     name.append("13__shared_ctorZ");
-    return build_module_function(name, gIR->sharedCtors);
+    return build_module_function(name, gIR->sharedCtors, gIR->sharedGates);
 }
 
 // build module shared dtor

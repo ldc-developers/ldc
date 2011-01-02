@@ -509,9 +509,11 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         }
     }
     // shared static dtor
-    else if (fdecl->isSharedStaticDtorDeclaration()) {
+    else if (StaticDtorDeclaration *dtorDecl = fdecl->isSharedStaticDtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
             gIR->sharedDtors.push_front(fdecl);
+            if (dtorDecl->vgate)
+                gIR->sharedGates.push_front(dtorDecl->vgate);
         }
     } else
 #endif
@@ -522,9 +524,13 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         }
     }
     // static dtor
-    else if (fdecl->isStaticDtorDeclaration()) {
+    else if (StaticDtorDeclaration *dtorDecl = fdecl->isStaticDtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
-            gIR->dtors.insert(gIR->dtors.begin(), fdecl);
+            gIR->dtors.push_front(fdecl);
+#if DMDV2
+            if (dtorDecl->vgate)
+                gIR->gates.push_front(dtorDecl->vgate);
+#endif
         }
     }
 

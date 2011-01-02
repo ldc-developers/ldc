@@ -161,11 +161,14 @@ struct IRState
 
     // static ctors/dtors/unittests
     typedef std::list<FuncDeclaration*> FuncDeclList;
+    typedef std::list<VarDeclaration*> GatesList;
     FuncDeclList ctors;
     FuncDeclList dtors;
 #if DMDV2
     FuncDeclList sharedCtors;
     FuncDeclList sharedDtors;
+    GatesList gates;
+    GatesList sharedGates;
 #endif
     FuncDeclList unitTests;
     
