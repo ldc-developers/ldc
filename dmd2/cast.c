@@ -1186,6 +1186,48 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
                         f = f2;
                 }
             }
+#if IN_LLVM
+            if (f)
+            {
+                f = f->overloadExactMatch(tb->nextOf(), m);
+                if (f)
+                {
+                    if (tb->ty == Tdelegate)
+                    {
+                        if (f->needThis() && hasThis(sc))
+                        {
+                            e = new DelegateExp(loc, new ThisExp(loc), f);
+                            e = e->semantic(sc);
+                        }
+                        else if (f->isNested())
+                        {
+                            e = new DelegateExp(loc, new IntegerExp(0), f);
+                            e = e->semantic(sc);
+                        }
+                        else if (f->needThis())
+                        {   error("no 'this' to create delegate for %s", f->toChars());
+                            return new ErrorExp();
+                        }
+                        else
+                        {   error("cannot cast from function pointer to delegate");
+                            return new ErrorExp();
+                        }
+                    }
+                    else
+                    {
+                        e = new VarExp(loc, f);
+                        e->type = f->type;
+                        e = new AddrExp(loc, e);
+                        e->type = t;
+                        return e;
+                    }
+#if DMDV2
+                    f->tookAddressOf++;
+#endif
+                    return e;
+                }
+            }
+#else
             if (f)
             {   f->tookAddressOf++;
                 SymOffExp *se = new SymOffExp(loc, f, 0, 0);
@@ -1193,6 +1235,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
                 // Let SymOffExp::castTo() do the heavy lifting
                 return se->castTo(sc, t);
             }
+#endif
         }
 
         if (type->ty == Tpointer && type->nextOf()->ty == Tfunction &&
