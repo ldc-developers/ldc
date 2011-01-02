@@ -85,7 +85,6 @@ DValue* VarExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
-        cachedLvalue = NULL;
         return new DVarValue(type, V);
     }
 
@@ -604,6 +603,9 @@ DValue* X##AssignExp::toElem(IRState* p) \
     e3.type = e1->type; \
     DValue* dst = findLvalue(p, e1)->toElem(p); \
     DValue* res = e3.toElem(p); \
+    while(e1->op == TOKcast) \
+        e1 = ((CastExp*)e1)->e1; \
+    e1->cachedLvalue = NULL; \
     DValue* stval = DtoCast(loc, res, dst->getType()); \
     DtoAssign(loc, dst, stval); \
     return DtoCast(loc, res, type); \
@@ -1074,7 +1076,6 @@ DValue* PtrExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         V = cachedLvalue;
-        cachedLvalue = NULL;
     }
     else
     {
@@ -1101,7 +1102,6 @@ DValue* DotVarExp::toElem(IRState* p)
     {
         Logger::println("using cached lvalue");
         LLValue *V = cachedLvalue;
-        cachedLvalue = NULL;
         VarDeclaration* vd = var->isVarDeclaration();
         assert(vd);
         return new DVarValue(type, vd, V);
@@ -1240,7 +1240,6 @@ DValue* IndexExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
-        cachedLvalue = NULL;
         return new DVarValue(type, V);
     }
 
