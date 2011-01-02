@@ -1,36 +1,4067 @@
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/cstdarg.di druntime/import/ldc/cstdarg.di
---- druntime-orig/import/ldc/cstdarg.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/cstdarg.di	2010-12-30 13:40:26.000000000 +0300
-@@ -0,0 +1,29 @@
-+/*
-+ * vararg support for extern(C) functions
-+ */
-+
-+module ldc.cstdarg;
-+
-+// Check for the right compiler
-+version(LDC)
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/atomic.di druntime/import/core/atomic.di
+--- druntime-orig/import/core/atomic.di	2010-10-29 04:54:24.000000000 +0400
++++ druntime/import/core/atomic.di	2010-12-31 12:58:56.716952002 +0300
+@@ -1,567 +1,664 @@
+-// D import file generated from 'src\core\atomic.d'
+-module core.atomic;
+-version (D_InlineAsm_X86)
+-{
+-    version = AsmX86;
+-    version = AsmX86_32;
+-    enum has64BitCAS = true;
+-}
+-version (D_InlineAsm_X86_64)
+-{
+-    version = AsmX86;
+-    version = AsmX86_64;
+-    enum has64BitCAS = true;
+-}
+-private 
+-{
+-    template NakedType(T : shared(T))
+-{
+-alias T NakedType;
+-}
+-    template NakedType(T : shared(T*))
+-{
+-alias T* NakedType;
+-}
+-    template NakedType(T : const(T))
+-{
+-alias T NakedType;
+-}
+-    template NakedType(T : const(T*))
+-{
+-alias T* NakedType;
+-}
+-    template NamedType(T : T*)
+-{
+-alias T NakedType;
+-}
+-    template NakedType(T)
+-{
+-alias T NakedType;
+-}
+-}
+-version (AsmX86)
+-{
+-    private template atomicValueIsProperlyAligned(T)
+-{
+-bool atomicValueIsProperlyAligned(size_t addr)
+-{
+-return addr % T.sizeof == 0;
+-}
+-}
+-
+-}
+-version (ddoc)
+-{
+-    template atomicOp(string op,T,V1)
+-{
+-T atomicOp(ref shared T val, V1 mod)
+-{
+-return val;
+-}
+-}
+-    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
+-{
+-bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
+-{
+-return false;
+-}
+-}
+-}
+-else
+-{
+-    version (AsmX86_32)
+-{
+-    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
+-{
+-T atomicOp(ref shared T val, V1 mod)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
+-}
+-
+-}
+-body
+-{
+-static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
+-{
+-T get = val;
+-mixin("return get " ~ op ~ " mod;");
+-}
+-else
+-{
+-static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
+-{
+-T get,set;
+-do
+-{
+-get = (set = atomicLoad!(msync.raw)(val));
+-mixin("set " ~ op ~ " mod;");
+-}
+-while (!cas(&val,get,set));
+-return set;
+-}
+-else
+-{
+-static assert(false,"Operation not supported.");
+-}
+-
+-}
+-
+-}
+-}
+-    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
+-{
+-bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
+-}
+-
+-}
+-body
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-asm { mov DL,writeThis; }
+-asm { mov AL,ifThis; }
+-asm { mov ECX,here; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DL; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-asm { mov DX,writeThis; }
+-asm { mov AX,ifThis; }
+-asm { mov ECX,here; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-asm { mov EDX,writeThis; }
+-asm { mov EAX,ifThis; }
+-asm { mov ECX,here; }
+-asm { lock; }
+-asm { cmpxchg[ECX],EDX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof && has64BitCAS)
+-{
+-asm { push EDI; }
+-asm { push EBX; }
+-asm { lea EDI,writeThis; }
+-asm { mov EBX,[EDI]; }
+-asm { mov ECX,4[EDI]; }
+-asm { lea EDI,ifThis; }
+-asm { mov EAX,[EDI]; }
+-asm { mov EDX,4[EDI]; }
+-asm { mov EDI,here; }
+-asm { lock; }
+-asm { cmpxch8b[EDI]; }
+-asm { setz AL; }
+-asm { pop EBX; }
+-asm { pop EDI; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-    private 
+-{
+-    template isHoistOp(msync ms)
+-{
+-enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
+-}
+-    template isSinkOp(msync ms)
+-{
+-enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
+-}
+-    template needsLoadBarrier(msync ms)
+-{
+-const bool needsLoadBarrier = ms != msync.raw;
+-
+-}
+-    enum msync 
+-{
+-raw,
+-acq,
+-rel,
+-seq,
+-}
+-    template atomicLoad(msync ms = msync.seq,T)
+-{
+-T atomicLoad(ref const shared T val)
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DL,0; }
+-asm { mov AL,0; }
+-asm { mov ECX,val; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DL; }
+-}
+-else
+-{
+-asm { mov EAX,val; }
+-asm { mov AL,[EAX]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DX,0; }
+-asm { mov AX,0; }
+-asm { mov ECX,val; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DX; }
+-}
+-else
+-{
+-asm { mov EAX,val; }
+-asm { mov AX,[EAX]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov EDX,0; }
+-asm { mov EAX,0; }
+-asm { mov ECX,val; }
+-asm { lock; }
+-asm { cmpxchg[ECX],EDX; }
+-}
+-else
+-{
+-asm { mov EAX,val; }
+-asm { mov EAX,[EAX]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof && has64BitCAS)
+-{
+-asm { push EDI; }
+-asm { push EBX; }
+-asm { mov EBX,0; }
+-asm { mov ECX,0; }
+-asm { mov EAX,0; }
+-asm { mov EDX,0; }
+-asm { mov EDI,val; }
+-asm { lock; }
+-asm { cmpxch8b[EDI]; }
+-asm { pop EBX; }
+-asm { pop EDI; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-}
+-}
+-else
+-{
+-    version (AsmX86_64)
+-{
+-    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
+-{
+-T atomicOp(ref shared T val, V1 mod)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
+-}
+-
+-}
+-body
+-{
+-static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
+-{
+-T get = val;
+-mixin("return get " ~ op ~ " mod;");
+-}
+-else
+-{
+-static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
+-{
+-T get,set;
+-do
+-{
+-get = (set = atomicLoad!(msync.raw)(val));
+-mixin("set " ~ op ~ " mod;");
+-}
+-while (!cas(&val,get,set));
+-return set;
+-}
+-else
+-{
+-static assert(false,"Operation not supported.");
+-}
+-
+-}
+-
+-}
+-}
+-    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
+-{
+-bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
+-}
+-
+-}
+-body
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-asm { mov DL,writeThis; }
+-asm { mov AL,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DL; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-asm { mov DX,writeThis; }
+-asm { mov AX,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-asm { mov EDX,writeThis; }
+-asm { mov EAX,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],EDX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof)
+-{
+-asm { mov RDX,writeThis; }
+-asm { mov RAX,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],RDX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-    private 
+-{
+-    template isHoistOp(msync ms)
+-{
+-enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
+-}
+-    template isSinkOp(msync ms)
+-{
+-enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
+-}
+-    template needsLoadBarrier(msync ms)
+-{
+-const bool needsLoadBarrier = ms != msync.raw;
+-
+-}
+-    enum msync 
+-{
+-raw,
+-acq,
+-rel,
+-seq,
+-}
+-    template atomicLoad(msync ms = msync.seq,T)
+-{
+-T atomicLoad(ref const shared T val)
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DL,0; }
+-asm { mov AL,0; }
+-asm { mov RCX,val; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DL; }
+-}
+-else
+-{
+-asm { mov AL,[val]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DX,0; }
+-asm { mov AX,0; }
+-asm { mov RCX,val; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DX; }
+-}
+-else
+-{
+-asm { mov AX,[val]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov EDX,0; }
+-asm { mov EAX,0; }
+-asm { mov RCX,val; }
+-asm { lock; }
+-asm { cmpxchg[RCX],EDX; }
+-}
+-else
+-{
+-asm { mov EAX,[val]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof && has64BitCAS)
+-{
+-asm { push EDI; }
+-asm { push EBX; }
+-asm { mov EBX,0; }
+-asm { mov ECX,0; }
+-asm { mov EAX,0; }
+-asm { mov EDX,0; }
+-asm { mov RDI,val; }
+-asm { lock; }
+-asm { cmpxch8b[RDI]; }
+-asm { pop EBX; }
+-asm { pop EDI; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-}
+-}
+-}
+-}
+-version (unittest)
+-{
+-    template testCAS(msyT)
+-{
+-template testCAS(T)
+-{
+-void testCAS(T val = T.init + 1)
+-{
+-T base;
+-shared(T) atom;
+-assert(base != val);
+-assert(atom == base);
+-assert(cas(&atom,base,val));
+-assert(atom == val);
+-assert(!cas(&atom,base,base));
+-assert(atom == val);
+-}
+-}
+-}
+-    template testType(T)
+-{
+-void testType(T val = T.init + 1)
+-{
+-testCAS!(T)(val);
+-}
+-}
+-    }
++// D import file generated from 'druntime/src/core/atomic.d'
++module core.atomic;
++version (D_InlineAsm_X86)
 +{
-+    // OK
++    version = AsmX86;
++    version = AsmX86_32;
++    enum has64BitCAS = true;
++}
++version (D_InlineAsm_X86_64)
++{
++    version = AsmX86;
++    version = AsmX86_64;
++    enum has64BitCAS = true;
++}
++private 
++{
++    template NakedType(T : shared(T))
++{
++alias T NakedType;
++}
++    template NakedType(T : shared(T*))
++{
++alias T* NakedType;
++}
++    template NakedType(T : const(T))
++{
++alias T NakedType;
++}
++    template NakedType(T : const(T*))
++{
++alias T* NakedType;
++}
++    template NamedType(T : T*)
++{
++alias T NakedType;
++}
++    template NakedType(T)
++{
++alias T NakedType;
++}
++}
++version (AsmX86)
++{
++    private template atomicValueIsProperlyAligned(T)
++{
++bool atomicValueIsProperlyAligned(size_t addr)
++{
++return addr % T.sizeof == 0;
++}
++}
++
++}
++version (ddoc)
++{
++    template atomicOp(string op,T,V1)
++{
++T atomicOp(ref shared T val, V1 mod)
++{
++return val;
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++{
++return false;
++}
++}
 +}
 +else
 +{
-+    static assert(false, "This module is only valid for LDC");
++    version (LDC)
++{
++    import ldc.intrinsics;
++    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
++{
++T atomicOp(ref shared T val, V1 mod)
++{
++static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
++{
++T get = val;
++mixin("return get " ~ op ~ " mod;");
++}
++else
++{
++static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
++{
++T get,set;
++do
++{
++get = (set = atomicLoad!(msync.raw)(val));
++mixin("set " ~ op ~ " mod;");
++}
++while (!cas(&val,get,set));
++return set;
++}
++else
++{
++static assert(false,"Operation not supported.");
 +}
 +
++}
++
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++{
++T oldval = void;
++static if(is(T P == U*,U))
++{
++oldval = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared(size_t*))&writeThis,cast(size_t)ifThis,cast(size_t)here);
++}
++else
++{
++static if(is(T == bool))
++{
++oldval = llvm_atomic_cmp_swap!(ubyte)(cast(shared(ubyte*))&writeThis,ifThis ? 1 : 0,here ? 1 : 0) ? 0 : 1;
++}
++else
++{
++oldval = llvm_atomic_cmp_swap!(T)(here,ifThis,writeThis);
++}
++
++}
++
++return oldval == ifThis;
++}
++}
++    private 
++{
++    enum msync 
++{
++raw,
++acq,
++rel,
++seq,
++}
++    template atomicLoad(msync ms = msync.seq,T)
++{
++T atomicLoad(ref const shared T val)
++{
++llvm_memory_barrier(ms == msync.acq || ms == msync.seq,ms == msync.acq || ms == msync.seq,ms == msync.rel || ms == msync.seq,ms == msync.rel || ms == msync.seq,false);
++static if(is(T P == U*,U))
++{
++return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val,0);
++}
++else
++{
++static if(is(T == bool))
++{
++return llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val,cast(ubyte)0) ? 1 : 0;
++}
++else
++{
++return llvm_atomic_load_add!(T)(&val,cast(T)0);
++}
++
++}
++
++}
++}
++}
++}
++else
++{
++    version (AsmX86_32)
++{
++    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
++{
++T atomicOp(ref shared T val, V1 mod)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
++}
++
++}
++body
++{
++static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
++{
++T get = val;
++mixin("return get " ~ op ~ " mod;");
++}
++else
++{
++static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
++{
++T get,set;
++do
++{
++get = (set = atomicLoad!(msync.raw)(val));
++mixin("set " ~ op ~ " mod;");
++}
++while (!cas(&val,get,set));
++return set;
++}
++else
++{
++static assert(false,"Operation not supported.");
++}
++
++}
++
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
++}
++
++}
++body
++{
++static if(T.sizeof == (byte).sizeof)
++{
++asm { mov DL,writeThis; }
++asm { mov AL,ifThis; }
++asm { mov ECX,here; }
++asm { lock; }
++asm { cmpxchg[ECX],DL; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++asm { mov DX,writeThis; }
++asm { mov AX,ifThis; }
++asm { mov ECX,here; }
++asm { lock; }
++asm { cmpxchg[ECX],DX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++asm { mov EDX,writeThis; }
++asm { mov EAX,ifThis; }
++asm { mov ECX,here; }
++asm { lock; }
++asm { cmpxchg[ECX],EDX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (long).sizeof && has64BitCAS)
++{
++asm { push EDI; }
++asm { push EBX; }
++asm { lea EDI,writeThis; }
++asm { mov EBX,[EDI]; }
++asm { mov ECX,4[EDI]; }
++asm { lea EDI,ifThis; }
++asm { mov EAX,[EDI]; }
++asm { mov EDX,4[EDI]; }
++asm { mov EDI,here; }
++asm { lock; }
++asm { cmpxch8b[EDI]; }
++asm { setz AL; }
++asm { pop EBX; }
++asm { pop EDI; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++    private 
++{
++    template isHoistOp(msync ms)
++{
++enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
++}
++    template isSinkOp(msync ms)
++{
++enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
++}
++    template needsLoadBarrier(msync ms)
++{
++const bool needsLoadBarrier = ms != msync.raw;
++
++}
++    enum msync 
++{
++raw,
++acq,
++rel,
++seq,
++}
++    template atomicLoad(msync ms = msync.seq,T)
++{
++T atomicLoad(ref const shared T val)
++{
++static if(T.sizeof == (byte).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DL,0; }
++asm { mov AL,0; }
++asm { mov ECX,val; }
++asm { lock; }
++asm { cmpxchg[ECX],DL; }
++}
++else
++{
++asm { mov EAX,val; }
++asm { mov AL,[EAX]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DX,0; }
++asm { mov AX,0; }
++asm { mov ECX,val; }
++asm { lock; }
++asm { cmpxchg[ECX],DX; }
++}
++else
++{
++asm { mov EAX,val; }
++asm { mov AX,[EAX]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov EDX,0; }
++asm { mov EAX,0; }
++asm { mov ECX,val; }
++asm { lock; }
++asm { cmpxchg[ECX],EDX; }
++}
++else
++{
++asm { mov EAX,val; }
++asm { mov EAX,[EAX]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (long).sizeof && has64BitCAS)
++{
++asm { push EDI; }
++asm { push EBX; }
++asm { mov EBX,0; }
++asm { mov ECX,0; }
++asm { mov EAX,0; }
++asm { mov EDX,0; }
++asm { mov EDI,val; }
++asm { lock; }
++asm { cmpxch8b[EDI]; }
++asm { pop EBX; }
++asm { pop EDI; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++}
++}
++else
++{
++    version (AsmX86_64)
++{
++    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
++{
++T atomicOp(ref shared T val, V1 mod)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
++}
++
++}
++body
++{
++static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
++{
++T get = val;
++mixin("return get " ~ op ~ " mod;");
++}
++else
++{
++static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
++{
++T get,set;
++do
++{
++get = (set = atomicLoad!(msync.raw)(val));
++mixin("set " ~ op ~ " mod;");
++}
++while (!cas(&val,get,set));
++return set;
++}
++else
++{
++static assert(false,"Operation not supported.");
++}
++
++}
++
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
++}
++
++}
++body
++{
++static if(T.sizeof == (byte).sizeof)
++{
++asm { mov DL,writeThis; }
++asm { mov AL,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],DL; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++asm { mov DX,writeThis; }
++asm { mov AX,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],DX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++asm { mov EDX,writeThis; }
++asm { mov EAX,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],EDX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (long).sizeof)
++{
++asm { mov RDX,writeThis; }
++asm { mov RAX,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],RDX; }
++asm { setz AL; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++    private 
++{
++    template isHoistOp(msync ms)
++{
++enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
++}
++    template isSinkOp(msync ms)
++{
++enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
++}
++    template needsLoadBarrier(msync ms)
++{
++const bool needsLoadBarrier = ms != msync.raw;
++
++}
++    enum msync 
++{
++raw,
++acq,
++rel,
++seq,
++}
++    template atomicLoad(msync ms = msync.seq,T)
++{
++T atomicLoad(ref const shared T val)
++{
++static if(T.sizeof == (byte).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DL,0; }
++asm { mov AL,0; }
++asm { mov RCX,val; }
++asm { lock; }
++asm { cmpxchg[RCX],DL; }
++}
++else
++{
++asm { mov AL,[val]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DX,0; }
++asm { mov AX,0; }
++asm { mov RCX,val; }
++asm { lock; }
++asm { cmpxchg[RCX],DX; }
++}
++else
++{
++asm { mov AX,[val]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov EDX,0; }
++asm { mov EAX,0; }
++asm { mov RCX,val; }
++asm { lock; }
++asm { cmpxchg[RCX],EDX; }
++}
++else
++{
++asm { mov EAX,[val]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (long).sizeof && has64BitCAS)
++{
++asm { push EDI; }
++asm { push EBX; }
++asm { mov EBX,0; }
++asm { mov ECX,0; }
++asm { mov EAX,0; }
++asm { mov EDX,0; }
++asm { mov RDI,val; }
++asm { lock; }
++asm { cmpxch8b[RDI]; }
++asm { pop EBX; }
++asm { pop EDI; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++}
++}
++}
++}
++}
++version (unittest)
++{
++    template testCAS(msyT)
++{
++template testCAS(T)
++{
++void testCAS(T val = T.init + 1)
++{
++T base;
++shared(T) atom;
++assert(base != val);
++assert(atom == base);
++assert(cas(&atom,base,val));
++assert(atom == val);
++assert(!cas(&atom,base,base));
++assert(atom == val);
++}
++}
++}
++    template testType(T)
++{
++void testType(T val = T.init + 1)
++{
++testCAS!(T)(val);
++}
++}
++    }
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/math.d druntime/import/core/stdc/math.d
+--- druntime-orig/import/core/stdc/math.d	2009-11-30 10:04:54.000000000 +0300
++++ druntime/import/core/stdc/math.d	2010-11-04 17:49:07.000000000 +0300
+@@ -17,6 +17,7 @@
+ 
+ extern (C):
+ nothrow:
++pure: // LDC
+ 
+ alias float  float_t;
+ alias double double_t;
+@@ -367,7 +368,7 @@
+     }
+   }
+ }
+-else version( freebsd )
++else version( FreeBSD )
+ {
+     enum
+     {
+@@ -468,37 +469,123 @@
+     int isunordered(real x, real y)        { return (x !<>= y); }
+ }
+ 
+-// NOTE: freebsd < 8-CURRENT doesn't appear to support *l, but we can
+-//       approximate.
+-version( freebsd )
++/* NOTE: freebsd < 8-CURRENT doesn't appear to support *l, but we can
++ *       approximate.
++ * A lot of them were added in 8.0-RELEASE, and so a lot of these workarounds
++ * should then be removed.
++ */
++// NOTE: FreeBSD 8.0-RELEASE doesn't support log2* nor these *l functions:
++//         acoshl, asinhl, atanhl, coshl, sinhl, tanhl, cbrtl, powl, expl,
++//         expm1l, logl, log1pl, log10l, erfcl, erfl, lgammal, tgammal;
++//       but we can approximate.
++version( FreeBSD )
+ {
++  version (all) // < 8-CURRENT
++  {
++    real    acosl(real x) { return acos(x); }
++    real    asinl(real x) { return asin(x); }
++    real    atanl(real x) { return atan(x); }
++    real    atan2l(real y, real x) { return atan2(y, x); }
++    real    cosl(real x) { return cos(x); }
++    real    sinl(real x) { return sin(x); }
++    real    tanl(real x) { return tan(x); }
++    real    exp2l(real x) { return exp2(x); }
++    real    frexpl(real value, int* exp) { return frexp(value, exp); }
++    int     ilogbl(real x) { return ilogb(x); }
++    real    ldexpl(real x, int exp) { return ldexp(x, exp); }
++    real    logbl(real x) { return logb(x); }
++    //real    modfl(real value, real *iptr); // nontrivial conversion
++    real    scalbnl(real x, int n) { return scalbn(x, n); }
++    real    scalblnl(real x, c_long n) { return scalbln(x, n); }
++    real    fabsl(real x) { return fabs(x); }
++    real    hypotl(real x, real y) { return hypot(x, y); }
++    real    sqrtl(real x) { return sqrt(x); }
++    real    ceill(real x) { return ceil(x); }
++    real    floorl(real x) { return floor(x); }
++    real    nearbyintl(real x) { return nearbyint(x); }
++    real    rintl(real x) { return rint(x); }
++    c_long  lrintl(real x) { return lrint(x); }
++    real    roundl(real x) { return round(x); }
++    c_long  lroundl(real x) { return lround(x); }
++    long    llroundl(real x) { return llround(x); }
++    real    truncl(real x) { return trunc(x); }
++    real    fmodl(real x, real y) { return fmod(x, y); }
++    real    remainderl(real x, real y) { return remainder(x, y); }
++    real    remquol(real x, real y, int* quo) { return remquo(x, y, quo); }
++    real    copysignl(real x, real y) { return copysign(x, y); }
++//  double  nan(char* tagp);
++//  float   nanf(char* tagp);
++//  real    nanl(char* tagp);
++    real    nextafterl(real x, real y) { return nextafter(x, y); }
++    real    nexttowardl(real x, real y) { return nexttoward(x, y); }
++    real    fdiml(real x, real y) { return fdim(x, y); }
++    real    fmaxl(real x, real y) { return fmax(x, y); }
++    real    fminl(real x, real y) { return fmin(x, y); }
++    real    fmal(real x, real y, real z) { return fma(x, y, z); }
++  }
++  else
++  {
++    real    acosl(real x);
++    real    asinl(real x);
++    real    atanl(real x);
++    real    atan2l(real y, real x);
++    real    cosl(real x);
++    real    sinl(real x);
++    real    tanl(real x);
++    real    exp2l(real x);
++    real    frexpl(real value, int* exp);
++    int     ilogbl(real x);
++    real    ldexpl(real x, int exp);
++    real    logbl(real x);
++    real    modfl(real value, real *iptr);
++    real    scalbnl(real x, int n);
++    real    scalblnl(real x, c_long n);
++    real    fabsl(real x);
++    real    hypotl(real x, real y);
++    real    sqrtl(real x);
++    real    ceill(real x);
++    real    floorl(real x);
++    real    nearbyintl(real x);
++    real    rintl(real x);
++    c_long  lrintl(real x);
++    real    roundl(real x);
++    c_long  lroundl(real x);
++    long    llroundl(real x);
++    real    truncl(real x);
++    real    fmodl(real x, real y);
++    real    remainderl(real x, real y);
++    real    remquol(real x, real y, int* quo);
++    real    copysignl(real x, real y);
++    double  nan(char* tagp);
++    float   nanf(char* tagp);
++    real    nanl(char* tagp);
++    real    nextafterl(real x, real y);
++    real    nexttowardl(real x, real y);
++    real    fdiml(real x, real y);
++    real    fmaxl(real x, real y);
++    real    fminl(real x, real y);
++    real    fmal(real x, real y, real z);
++  }
+     double  acos(double x);
+     float   acosf(float x);
+-    real    acosl(real x) { return acos(x); }
+ 
+     double  asin(double x);
+     float   asinf(float x);
+-    real    asinl(real x) { return asin(x); }
+ 
+     double  atan(double x);
+     float   atanf(float x);
+-    real    atanl(real x) { return atan(x); }
+ 
+     double  atan2(double y, double x);
+     float   atan2f(float y, float x);
+-    real    atan2l(real y, real x) { return atan2(y, x); }
+ 
+     double  cos(double x);
+     float   cosf(float x);
+-    real    cosl(real x) { return cos(x); }
+ 
+     double  sin(double x);
+     float   sinf(float x);
+-    real    sinl(real x) { return sin(x); }
+ 
+     double  tan(double x);
+     float   tanf(float x);
+-    real    tanl(real x) { return tan(x); }
+ 
+     double  acosh(double x);
+     float   acoshf(float x);
+@@ -530,7 +617,6 @@
+ 
+     double  exp2(double x);
+     float   exp2f(float x);
+-    real    exp2l(real x) { return exp2(x); }
+ 
+     double  expm1(double x);
+     float   expm1f(float x);
+@@ -538,15 +624,12 @@
+ 
+     double  frexp(double value, int* exp);
+     float   frexpf(float value, int* exp);
+-    real    frexpl(real value, int* exp) { return frexp(value, exp); }
+ 
+     int     ilogb(double x);
+     int     ilogbf(float x);
+-    int     ilogbl(real x) { return ilogb(x); }
+ 
+     double  ldexp(double x, int exp);
+     float   ldexpf(float x, int exp);
+-    real    ldexpl(real x, int exp) { return ldexp(x, exp); }
+ 
+     double  log(double x);
+     float   logf(float x);
+@@ -567,20 +650,15 @@
+ 
+     double  logb(double x);
+     float   logbf(float x);
+-    real    logbl(real x) { return logb(x); }
+ 
+     double  modf(double value, double* iptr);
+     float   modff(float value, float* iptr);
+-    //real    modfl(real value, real *iptr); // nontrivial conversion
+ 
+     double  scalbn(double x, int n);
+     float   scalbnf(float x, int n);
+-    real    scalbnl(real x, int n) { return scalbn(x, n); }
+ 
+     double  scalbln(double x, c_long n);
+     float   scalblnf(float x, c_long n);
+-    real    scalblnl(real x, c_long n) { return scalbln(x, n); }
+-
+ 
+     double  cbrt(double x);
+     float   cbrtf(float x);
+@@ -588,11 +666,9 @@
+ 
+     double  fabs(double x);
+     float   fabsf(float x);
+-    real    fabsl(real x) { return fabs(x); }
+ 
+     double  hypot(double x, double y);
+     float   hypotf(float x, float y);
+-    real    hypotl(real x, real y) { return hypot(x, y); }
+ 
+     double  pow(double x, double y);
+     float   powf(float x, float y);
+@@ -600,7 +676,6 @@
+ 
+     double  sqrt(double x);
+     float   sqrtf(float x);
+-    real    sqrtl(real x) { return sqrt(x); }
+ 
+     double  erf(double x);
+     float   erff(float x);
+@@ -620,23 +695,18 @@
+ 
+     double  ceil(double x);
+     float   ceilf(float x);
+-    real    ceill(real x) { return ceil(x); }
+ 
+     double  floor(double x);
+     float   floorf(float x);
+-    real    floorl(real x) { return floor(x); }
+ 
+     double  nearbyint(double x);
+     float   nearbyintf(float x);
+-    real    nearbyintl(real x) { return nearbyint(x); }
+ 
+     double  rint(double x);
+     float   rintf(float x);
+-    real    rintl(real x) { return rint(x); }
+ 
+     c_long  lrint(double x);
+     c_long  lrintf(float x);
+-    c_long  lrintl(real x) { return lrint(x); }
+ 
+     long    llrint(double x);
+     long    llrintf(float x);
+@@ -644,63 +714,45 @@
+ 
+     double  round(double x);
+     float   roundf(float x);
+-    real    roundl(real x) { return round(x); }
+ 
+     c_long  lround(double x);
+     c_long  lroundf(float x);
+-    c_long  lroundl(real x) { return lround(x); }
+ 
+     long    llround(double x);
+     long    llroundf(float x);
+-    long    llroundl(real x) { return llround(x); }
+ 
+     double  trunc(double x);
+     float   truncf(float x);
+-    real    truncl(real x) { return trunc(x); }
+ 
+     double  fmod(double x, double y);
+     float   fmodf(float x, float y);
+-    real    fmodl(real x, real y) { return fmod(x, y); }
+ 
+     double  remainder(double x, double y);
+     float   remainderf(float x, float y);
+-    real    remainderl(real x, real y) { return remainder(x, y); }
+ 
+     double  remquo(double x, double y, int* quo);
+     float   remquof(float x, float y, int* quo);
+-    real    remquol(real x, real y, int* quo) { return remquo(x, y, quo); }
+ 
+     double  copysign(double x, double y);
+     float   copysignf(float x, float y);
+-    real    copysignl(real x, real y) { return copysign(x, y); }
+-
+-//  double  nan(char* tagp);
+-//  float   nanf(char* tagp);
+-//  real    nanl(char* tagp);
+ 
+     double  nextafter(double x, double y);
+     float   nextafterf(float x, float y);
+-    real    nextafterl(real x, real y) { return nextafter(x, y); }
+ 
+     double  nexttoward(double x, real y);
+     float   nexttowardf(float x, real y);
+-    real    nexttowardl(real x, real y) { return nexttoward(x, y); }
+ 
+     double  fdim(double x, double y);
+     float   fdimf(float x, float y);
+-    real    fdiml(real x, real y) { return fdim(x, y); }
+ 
+     double  fmax(double x, double y);
+     float   fmaxf(float x, float y);
+-    real    fmaxl(real x, real y) { return fmax(x, y); }
+ 
+     double  fmin(double x, double y);
+     float   fminf(float x, float y);
+-    real    fminl(real x, real y) { return fmin(x, y); }
+ 
+     double  fma(double x, double y, double z);
+     float   fmaf(float x, float y, float z);
+-    real    fmal(real x, real y, real z) { return fma(x, y, z); }
+ }
+ else
+ {
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/math.di druntime/import/core/stdc/math.di
+--- druntime-orig/import/core/stdc/math.di	2010-10-29 04:54:24.000000000 +0400
++++ druntime/import/core/stdc/math.di	2010-12-30 15:26:21.142104001 +0300
+@@ -1,1134 +1,1135 @@
+-// D import file generated from 'src\core\stdc\math.d'
+-module core.stdc.math;
+-private import core.stdc.config;
+-
+-extern (C) nothrow 
+-{
+-    alias float float_t;
+-    alias double double_t;
+-    enum double HUGE_VAL = (double).infinity;
+-    enum double HUGE_VALF = (float).infinity;
+-    enum double HUGE_VALL = (real).infinity;
+-    enum float INFINITY = (float).infinity;
+-    enum float NAN = (float).nan;
+-    enum int FP_ILOGB0 = (int).min;
+-    enum int FP_ILOGBNAN = (int).min;
+-    enum int MATH_ERRNO = 1;
+-    enum int MATH_ERREXCEPT = 2;
+-    enum int math_errhandling = MATH_ERRNO | MATH_ERREXCEPT;
+-    version (none)
+-{
+-    int fpclassify(float x);
+-    int fpclassify(double x);
+-    int fpclassify(real x);
+-    int isfinite(float x);
+-    int isfinite(double x);
+-    int isfinite(real x);
+-    int isinf(float x);
+-    int isinf(double x);
+-    int isinf(real x);
+-    int isnan(float x);
+-    int isnan(double x);
+-    int isnan(real x);
+-    int isnormal(float x);
+-    int isnormal(double x);
+-    int isnormal(real x);
+-    int signbit(float x);
+-    int signbit(double x);
+-    int signbit(real x);
+-    int isgreater(float x, float y);
+-    int isgreater(double x, double y);
+-    int isgreater(real x, real y);
+-    int isgreaterequal(float x, float y);
+-    int isgreaterequal(double x, double y);
+-    int isgreaterequal(real x, real y);
+-    int isless(float x, float y);
+-    int isless(double x, double y);
+-    int isless(real x, real y);
+-    int islessequal(float x, float y);
+-    int islessequal(double x, double y);
+-    int islessequal(real x, real y);
+-    int islessgreater(float x, float y);
+-    int islessgreater(double x, double y);
+-    int islessgreater(real x, real y);
+-    int isunordered(float x, float y);
+-    int isunordered(double x, double y);
+-    int isunordered(real x, real y);
+-}
+-    version (DigitalMars)
+-{
+-    version (Windows)
+-{
+-    version = DigitalMarsWin32;
+-}
+-}
+-    version (DigitalMarsWin32)
+-{
+-    enum 
+-{
+-FP_NANS = 0,
+-FP_NANQ = 1,
+-FP_INFINITE = 2,
+-FP_NORMAL = 3,
+-FP_SUBNORMAL = 4,
+-FP_ZERO = 5,
+-FP_NAN = FP_NANQ,
+-FP_EMPTY = 6,
+-FP_UNSUPPORTED = 7,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    uint __fpclassify_f(float x);
+-    uint __fpclassify_d(double x);
+-    uint __fpclassify_ld(real x);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassify_f(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassify_d(x);
+-}
+-    int fpclassify(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __fpclassify_d(x) : __fpclassify_ld(x);
+-}
+-    int isfinite(float x)
+-{
+-return fpclassify(x) >= FP_NORMAL;
+-}
+-    int isfinite(double x)
+-{
+-return fpclassify(x) >= FP_NORMAL;
+-}
+-    int isfinite(real x)
+-{
+-return fpclassify(x) >= FP_NORMAL;
+-}
+-    int isinf(float x)
+-{
+-return fpclassify(x) == FP_INFINITE;
+-}
+-    int isinf(double x)
+-{
+-return fpclassify(x) == FP_INFINITE;
+-}
+-    int isinf(real x)
+-{
+-return fpclassify(x) == FP_INFINITE;
+-}
+-    int isnan(float x)
+-{
+-return fpclassify(x) <= FP_NANQ;
+-}
+-    int isnan(double x)
+-{
+-return fpclassify(x) <= FP_NANQ;
+-}
+-    int isnan(real x)
+-{
+-return fpclassify(x) <= FP_NANQ;
+-}
+-    int isnormal(float x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(double x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(real x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int signbit(float x)
+-{
+-return (cast(short*)&x)[1] & 32768;
+-}
+-    int signbit(double x)
+-{
+-return (cast(short*)&x)[3] & 32768;
+-}
+-    int signbit(real x)
+-{
+-return (real).sizeof == (double).sizeof ? (cast(short*)&x)[3] & 32768 : (cast(short*)&x)[4] & 32768;
+-}
+-}
+-}
+-else
+-{
+-    version (linux)
+-{
+-    enum 
+-{
+-FP_NAN,
+-FP_INFINITE,
+-FP_ZERO,
+-FP_SUBNORMAL,
+-FP_NORMAL,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    int __fpclassifyf(float x);
+-    int __fpclassify(double x);
+-    int __fpclassifyl(real x);
+-    int __finitef(float x);
+-    int __finite(double x);
+-    int __finitel(real x);
+-    int __isinff(float x);
+-    int __isinf(double x);
+-    int __isinfl(real x);
+-    int __isnanf(float x);
+-    int __isnan(double x);
+-    int __isnanl(real x);
+-    int __signbitf(float x);
+-    int __signbit(double x);
+-    int __signbitl(real x);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassifyf(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassify(x);
+-}
+-    int fpclassify(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __fpclassify(x) : __fpclassifyl(x);
+-}
+-    int isfinite(float x)
+-{
+-return __finitef(x);
+-}
+-    int isfinite(double x)
+-{
+-return __finite(x);
+-}
+-    int isfinite(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __finite(x) : __finitel(x);
+-}
+-    int isinf(float x)
+-{
+-return __isinff(x);
+-}
+-    int isinf(double x)
+-{
+-return __isinf(x);
+-}
+-    int isinf(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isinf(x) : __isinfl(x);
+-}
+-    int isnan(float x)
+-{
+-return __isnanf(x);
+-}
+-    int isnan(double x)
+-{
+-return __isnan(x);
+-}
+-    int isnan(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isnan(x) : __isnanl(x);
+-}
+-    int isnormal(float x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(double x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(real x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int signbit(float x)
+-{
+-return __signbitf(x);
+-}
+-    int signbit(double x)
+-{
+-return __signbit(x);
+-}
+-    int signbit(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __signbit(x) : __signbitl(x);
+-}
+-}
+-}
+-else
+-{
+-    version (OSX)
+-{
+-    enum 
+-{
+-FP_NAN = 1,
+-FP_INFINITE = 2,
+-FP_ZERO = 3,
+-FP_NORMAL = 4,
+-FP_SUBNORMAL = 5,
+-FP_SUPERNORMAL = 6,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    int __fpclassifyf(float x);
+-    int __fpclassifyd(double x);
+-    int __fpclassify(real x);
+-    int __isfinitef(float x);
+-    int __isfinited(double x);
+-    int __isfinite(real x);
+-    int __isinff(float x);
+-    int __isinfd(double x);
+-    int __isinf(real x);
+-    int __isnanf(float x);
+-    int __isnand(double x);
+-    int __isnan(real x);
+-    int __signbitf(float x);
+-    int __signbitd(double x);
+-    int __signbitl(real x);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassifyf(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassifyd(x);
+-}
+-    int fpclassify(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __fpclassifyd(x) : __fpclassify(x);
+-}
+-    int isfinite(float x)
+-{
+-return __isfinitef(x);
+-}
+-    int isfinite(double x)
+-{
+-return __isfinited(x);
+-}
+-    int isfinite(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isfinited(x) : __isfinite(x);
+-}
+-    int isinf(float x)
+-{
+-return __isinff(x);
+-}
+-    int isinf(double x)
+-{
+-return __isinfd(x);
+-}
+-    int isinf(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isinfd(x) : __isinf(x);
+-}
+-    int isnan(float x)
+-{
+-return __isnanf(x);
+-}
+-    int isnan(double x)
+-{
+-return __isnand(x);
+-}
+-    int isnan(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isnand(x) : __isnan(x);
+-}
+-    int isnormal(float x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(double x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(real x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int signbit(float x)
+-{
+-return __signbitf(x);
+-}
+-    int signbit(double x)
+-{
+-return __signbitd(x);
+-}
+-    int signbit(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __signbitd(x) : __signbitl(x);
+-}
+-}
+-}
+-else
+-{
+-    version (FreeBSD)
+-{
+-    enum 
+-{
+-FP_INFINITE = 1,
+-FP_NAN = 2,
+-FP_NORMAL = 4,
+-FP_SUBNORMAL = 8,
+-FP_ZERO = 16,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    int __fpclassifyd(double);
+-    int __fpclassifyf(float);
+-    int __fpclassifyl(real);
+-    int __isfinitef(float);
+-    int __isfinite(double);
+-    int __isfinitel(real);
+-    int __isinff(float);
+-    int __isinfl(real);
+-    int __isnanl(real);
+-    int __isnormalf(float);
+-    int __isnormal(double);
+-    int __isnormall(real);
+-    int __signbit(double);
+-    int __signbitf(float);
+-    int __signbitl(real);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassifyf(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassifyd(x);
+-}
+-    int fpclassify(real x)
+-{
+-return __fpclassifyl(x);
+-}
+-    int isfinite(float x)
+-{
+-return __isfinitef(x);
+-}
+-    int isfinite(double x)
+-{
+-return __isfinite(x);
+-}
+-    int isfinite(real x)
+-{
+-return __isfinitel(x);
+-}
+-    int isinf(float x)
+-{
+-return __isinff(x);
+-}
+-    int isinf(double x)
+-{
+-return __isinfl(x);
+-}
+-    int isinf(real x)
+-{
+-return __isinfl(x);
+-}
+-    int isnan(float x)
+-{
+-return __isnanl(x);
+-}
+-    int isnan(double x)
+-{
+-return __isnanl(x);
+-}
+-    int isnan(real x)
+-{
+-return __isnanl(x);
+-}
+-    int isnormal(float x)
+-{
+-return __isnormalf(x);
+-}
+-    int isnormal(double x)
+-{
+-return __isnormal(x);
+-}
+-    int isnormal(real x)
+-{
+-return __isnormall(x);
+-}
+-    int signbit(float x)
+-{
+-return __signbitf(x);
+-}
+-    int signbit(double x)
+-{
+-return __signbit(x);
+-}
+-    int signbit(real x)
+-{
+-return __signbit(x);
+-}
+-}
+-}
+-}
+-}
+-}
+-    extern (D) 
+-{
+-    int isgreater(float x, float y)
+-{
+-return !(x !> y);
+-}
+-    int isgreater(double x, double y)
+-{
+-return !(x !> y);
+-}
+-    int isgreater(real x, real y)
+-{
+-return !(x !> y);
+-}
+-    int isgreaterequal(float x, float y)
+-{
+-return !(x !>= y);
+-}
+-    int isgreaterequal(double x, double y)
+-{
+-return !(x !>= y);
+-}
+-    int isgreaterequal(real x, real y)
+-{
+-return !(x !>= y);
+-}
+-    int isless(float x, float y)
+-{
+-return !(x !< y);
+-}
+-    int isless(double x, double y)
+-{
+-return !(x !< y);
+-}
+-    int isless(real x, real y)
+-{
+-return !(x !< y);
+-}
+-    int islessequal(float x, float y)
+-{
+-return !(x !<= y);
+-}
+-    int islessequal(double x, double y)
+-{
+-return !(x !<= y);
+-}
+-    int islessequal(real x, real y)
+-{
+-return !(x !<= y);
+-}
+-    int islessgreater(float x, float y)
+-{
+-return !(x !<> y);
+-}
+-    int islessgreater(double x, double y)
+-{
+-return !(x !<> y);
+-}
+-    int islessgreater(real x, real y)
+-{
+-return !(x !<> y);
+-}
+-    int isunordered(float x, float y)
+-{
+-return x !<>= y;
+-}
+-    int isunordered(double x, double y)
+-{
+-return x !<>= y;
+-}
+-    int isunordered(real x, real y)
+-{
+-return x !<>= y;
+-}
+-}
+-    version (FreeBSD)
+-{
+-    version (all)
+-{
+-    real acosl(real x)
+-{
+-return acos(x);
+-}
+-    real asinl(real x)
+-{
+-return asin(x);
+-}
+-    real atanl(real x)
+-{
+-return atan(x);
+-}
+-    real atan2l(real y, real x)
+-{
+-return atan2(y,x);
+-}
+-    real cosl(real x)
+-{
+-return cos(x);
+-}
+-    real sinl(real x)
+-{
+-return sin(x);
+-}
+-    real tanl(real x)
+-{
+-return tan(x);
+-}
+-    real exp2l(real x)
+-{
+-return exp2(x);
+-}
+-    real frexpl(real value, int* exp)
+-{
+-return frexp(value,exp);
+-}
+-    int ilogbl(real x)
+-{
+-return ilogb(x);
+-}
+-    real ldexpl(real x, int exp)
+-{
+-return ldexp(x,exp);
+-}
+-    real logbl(real x)
+-{
+-return logb(x);
+-}
+-    real scalbnl(real x, int n)
+-{
+-return scalbn(x,n);
+-}
+-    real scalblnl(real x, c_long n)
+-{
+-return scalbln(x,n);
+-}
+-    real fabsl(real x)
+-{
+-return fabs(x);
+-}
+-    real hypotl(real x, real y)
+-{
+-return hypot(x,y);
+-}
+-    real sqrtl(real x)
+-{
+-return sqrt(x);
+-}
+-    real ceill(real x)
+-{
+-return ceil(x);
+-}
+-    real floorl(real x)
+-{
+-return floor(x);
+-}
+-    real nearbyintl(real x)
+-{
+-return nearbyint(x);
+-}
+-    real rintl(real x)
+-{
+-return rint(x);
+-}
+-    c_long lrintl(real x)
+-{
+-return lrint(x);
+-}
+-    real roundl(real x)
+-{
+-return round(x);
+-}
+-    c_long lroundl(real x)
+-{
+-return lround(x);
+-}
+-    long llroundl(real x)
+-{
+-return llround(x);
+-}
+-    real truncl(real x)
+-{
+-return trunc(x);
+-}
+-    real fmodl(real x, real y)
+-{
+-return fmod(x,y);
+-}
+-    real remainderl(real x, real y)
+-{
+-return remainder(x,y);
+-}
+-    real remquol(real x, real y, int* quo)
+-{
+-return remquo(x,y,quo);
+-}
+-    real copysignl(real x, real y)
+-{
+-return copysign(x,y);
+-}
+-    real nextafterl(real x, real y)
+-{
+-return nextafter(x,y);
+-}
+-    real nexttowardl(real x, real y)
+-{
+-return nexttoward(x,y);
+-}
+-    real fdiml(real x, real y)
+-{
+-return fdim(x,y);
+-}
+-    real fmaxl(real x, real y)
+-{
+-return fmax(x,y);
+-}
+-    real fminl(real x, real y)
+-{
+-return fmin(x,y);
+-}
+-    real fmal(real x, real y, real z)
+-{
+-return fma(x,y,z);
+-}
+-}
+-else
+-{
+-    real acosl(real x);
+-    real asinl(real x);
+-    real atanl(real x);
+-    real atan2l(real y, real x);
+-    real cosl(real x);
+-    real sinl(real x);
+-    real tanl(real x);
+-    real exp2l(real x);
+-    real frexpl(real value, int* exp);
+-    int ilogbl(real x);
+-    real ldexpl(real x, int exp);
+-    real logbl(real x);
+-    real modfl(real value, real* iptr);
+-    real scalbnl(real x, int n);
+-    real scalblnl(real x, c_long n);
+-    real fabsl(real x);
+-    real hypotl(real x, real y);
+-    real sqrtl(real x);
+-    real ceill(real x);
+-    real floorl(real x);
+-    real nearbyintl(real x);
+-    real rintl(real x);
+-    c_long lrintl(real x);
+-    real roundl(real x);
+-    c_long lroundl(real x);
+-    long llroundl(real x);
+-    real truncl(real x);
+-    real fmodl(real x, real y);
+-    real remainderl(real x, real y);
+-    real remquol(real x, real y, int* quo);
+-    real copysignl(real x, real y);
+-    double nan(char* tagp);
+-    float nanf(char* tagp);
+-    real nanl(char* tagp);
+-    real nextafterl(real x, real y);
+-    real nexttowardl(real x, real y);
+-    real fdiml(real x, real y);
+-    real fmaxl(real x, real y);
+-    real fminl(real x, real y);
+-    real fmal(real x, real y, real z);
+-}
+-    double acos(double x);
+-    float acosf(float x);
+-    double asin(double x);
+-    float asinf(float x);
+-    double atan(double x);
+-    float atanf(float x);
+-    double atan2(double y, double x);
+-    float atan2f(float y, float x);
+-    double cos(double x);
+-    float cosf(float x);
+-    double sin(double x);
+-    float sinf(float x);
+-    double tan(double x);
+-    float tanf(float x);
+-    double acosh(double x);
+-    float acoshf(float x);
+-    real acoshl(real x)
+-{
+-return acosh(x);
+-}
+-    double asinh(double x);
+-    float asinhf(float x);
+-    real asinhl(real x)
+-{
+-return asinh(x);
+-}
+-    double atanh(double x);
+-    float atanhf(float x);
+-    real atanhl(real x)
+-{
+-return atanh(x);
+-}
+-    double cosh(double x);
+-    float coshf(float x);
+-    real coshl(real x)
+-{
+-return cosh(x);
+-}
+-    double sinh(double x);
+-    float sinhf(float x);
+-    real sinhl(real x)
+-{
+-return sinh(x);
+-}
+-    double tanh(double x);
+-    float tanhf(float x);
+-    real tanhl(real x)
+-{
+-return tanh(x);
+-}
+-    double exp(double x);
+-    float expf(float x);
+-    real expl(real x)
+-{
+-return exp(x);
+-}
+-    double exp2(double x);
+-    float exp2f(float x);
+-    double expm1(double x);
+-    float expm1f(float x);
+-    real expm1l(real x)
+-{
+-return expm1(x);
+-}
+-    double frexp(double value, int* exp);
+-    float frexpf(float value, int* exp);
+-    int ilogb(double x);
+-    int ilogbf(float x);
+-    double ldexp(double x, int exp);
+-    float ldexpf(float x, int exp);
+-    double log(double x);
+-    float logf(float x);
+-    real logl(real x)
+-{
+-return log(x);
+-}
+-    double log10(double x);
+-    float log10f(float x);
+-    real log10l(real x)
+-{
+-return log10(x);
+-}
+-    double log1p(double x);
+-    float log1pf(float x);
+-    real log1pl(real x)
+-{
+-return log1p(x);
+-}
+-    private enum real ONE_LN2 = 1 / 0x1.62e42fefa39ef358p-1L;
+-
+-    double log2(double x)
+-{
+-return log(x) * ONE_LN2;
+-}
+-    float log2f(float x)
+-{
+-return logf(x) * ONE_LN2;
+-}
+-    real log2l(real x)
+-{
+-return logl(x) * ONE_LN2;
+-}
+-    double logb(double x);
+-    float logbf(float x);
+-    double modf(double value, double* iptr);
+-    float modff(float value, float* iptr);
+-    double scalbn(double x, int n);
+-    float scalbnf(float x, int n);
+-    double scalbln(double x, c_long n);
+-    float scalblnf(float x, c_long n);
+-    double cbrt(double x);
+-    float cbrtf(float x);
+-    real cbrtl(real x)
+-{
+-return cbrt(x);
+-}
+-    double fabs(double x);
+-    float fabsf(float x);
+-    double hypot(double x, double y);
+-    float hypotf(float x, float y);
+-    double pow(double x, double y);
+-    float powf(float x, float y);
+-    real powl(real x, real y)
+-{
+-return pow(x,y);
+-}
+-    double sqrt(double x);
+-    float sqrtf(float x);
+-    double erf(double x);
+-    float erff(float x);
+-    real erfl(real x)
+-{
+-return erf(x);
+-}
+-    double erfc(double x);
+-    float erfcf(float x);
+-    real erfcl(real x)
+-{
+-return erfc(x);
+-}
+-    double lgamma(double x);
+-    float lgammaf(float x);
+-    real lgammal(real x)
+-{
+-return lgamma(x);
+-}
+-    double tgamma(double x);
+-    float tgammaf(float x);
+-    real tgammal(real x)
+-{
+-return tgamma(x);
+-}
+-    double ceil(double x);
+-    float ceilf(float x);
+-    double floor(double x);
+-    float floorf(float x);
+-    double nearbyint(double x);
+-    float nearbyintf(float x);
+-    double rint(double x);
+-    float rintf(float x);
+-    c_long lrint(double x);
+-    c_long lrintf(float x);
+-    long llrint(double x);
+-    long llrintf(float x);
+-    long llrintl(real x)
+-{
+-return llrint(x);
+-}
+-    double round(double x);
+-    float roundf(float x);
+-    c_long lround(double x);
+-    c_long lroundf(float x);
+-    long llround(double x);
+-    long llroundf(float x);
+-    double trunc(double x);
+-    float truncf(float x);
+-    double fmod(double x, double y);
+-    float fmodf(float x, float y);
+-    double remainder(double x, double y);
+-    float remainderf(float x, float y);
+-    double remquo(double x, double y, int* quo);
+-    float remquof(float x, float y, int* quo);
+-    double copysign(double x, double y);
+-    float copysignf(float x, float y);
+-    double nextafter(double x, double y);
+-    float nextafterf(float x, float y);
+-    double nexttoward(double x, real y);
+-    float nexttowardf(float x, real y);
+-    double fdim(double x, double y);
+-    float fdimf(float x, float y);
+-    double fmax(double x, double y);
+-    float fmaxf(float x, float y);
+-    double fmin(double x, double y);
+-    float fminf(float x, float y);
+-    double fma(double x, double y, double z);
+-    float fmaf(float x, float y, float z);
+-}
+-else
+-{
+-    double acos(double x);
+-    float acosf(float x);
+-    real acosl(real x);
+-    double asin(double x);
+-    float asinf(float x);
+-    real asinl(real x);
+-    double atan(double x);
+-    float atanf(float x);
+-    real atanl(real x);
+-    double atan2(double y, double x);
+-    float atan2f(float y, float x);
+-    real atan2l(real y, real x);
+-    double cos(double x);
+-    float cosf(float x);
+-    real cosl(real x);
+-    double sin(double x);
+-    float sinf(float x);
+-    real sinl(real x);
+-    double tan(double x);
+-    float tanf(float x);
+-    real tanl(real x);
+-    double acosh(double x);
+-    float acoshf(float x);
+-    real acoshl(real x);
+-    double asinh(double x);
+-    float asinhf(float x);
+-    real asinhl(real x);
+-    double atanh(double x);
+-    float atanhf(float x);
+-    real atanhl(real x);
+-    double cosh(double x);
+-    float coshf(float x);
+-    real coshl(real x);
+-    double sinh(double x);
+-    float sinhf(float x);
+-    real sinhl(real x);
+-    double tanh(double x);
+-    float tanhf(float x);
+-    real tanhl(real x);
+-    double exp(double x);
+-    float expf(float x);
+-    real expl(real x);
+-    double exp2(double x);
+-    float exp2f(float x);
+-    real exp2l(real x);
+-    double expm1(double x);
+-    float expm1f(float x);
+-    real expm1l(real x);
+-    double frexp(double value, int* exp);
+-    float frexpf(float value, int* exp);
+-    real frexpl(real value, int* exp);
+-    int ilogb(double x);
+-    int ilogbf(float x);
+-    int ilogbl(real x);
+-    double ldexp(double x, int exp);
+-    float ldexpf(float x, int exp);
+-    real ldexpl(real x, int exp);
+-    double log(double x);
+-    float logf(float x);
+-    real logl(real x);
+-    double log10(double x);
+-    float log10f(float x);
+-    real log10l(real x);
+-    double log1p(double x);
+-    float log1pf(float x);
+-    real log1pl(real x);
+-    double log2(double x);
+-    float log2f(float x);
+-    real log2l(real x);
+-    double logb(double x);
+-    float logbf(float x);
+-    real logbl(real x);
+-    double modf(double value, double* iptr);
+-    float modff(float value, float* iptr);
+-    real modfl(real value, real* iptr);
+-    double scalbn(double x, int n);
+-    float scalbnf(float x, int n);
+-    real scalbnl(real x, int n);
+-    double scalbln(double x, c_long n);
+-    float scalblnf(float x, c_long n);
+-    real scalblnl(real x, c_long n);
+-    double cbrt(double x);
+-    float cbrtf(float x);
+-    real cbrtl(real x);
+-    double fabs(double x);
+-    float fabsf(float x);
+-    real fabsl(real x);
+-    double hypot(double x, double y);
+-    float hypotf(float x, float y);
+-    real hypotl(real x, real y);
+-    double pow(double x, double y);
+-    float powf(float x, float y);
+-    real powl(real x, real y);
+-    double sqrt(double x);
+-    float sqrtf(float x);
+-    real sqrtl(real x);
+-    double erf(double x);
+-    float erff(float x);
+-    real erfl(real x);
+-    double erfc(double x);
+-    float erfcf(float x);
+-    real erfcl(real x);
+-    double lgamma(double x);
+-    float lgammaf(float x);
+-    real lgammal(real x);
+-    double tgamma(double x);
+-    float tgammaf(float x);
+-    real tgammal(real x);
+-    double ceil(double x);
+-    float ceilf(float x);
+-    real ceill(real x);
+-    double floor(double x);
+-    float floorf(float x);
+-    real floorl(real x);
+-    double nearbyint(double x);
+-    float nearbyintf(float x);
+-    real nearbyintl(real x);
+-    double rint(double x);
+-    float rintf(float x);
+-    real rintl(real x);
+-    c_long lrint(double x);
+-    c_long lrintf(float x);
+-    c_long lrintl(real x);
+-    long llrint(double x);
+-    long llrintf(float x);
+-    long llrintl(real x);
+-    double round(double x);
+-    float roundf(float x);
+-    real roundl(real x);
+-    c_long lround(double x);
+-    c_long lroundf(float x);
+-    c_long lroundl(real x);
+-    long llround(double x);
+-    long llroundf(float x);
+-    long llroundl(real x);
+-    double trunc(double x);
+-    float truncf(float x);
+-    real truncl(real x);
+-    double fmod(double x, double y);
+-    float fmodf(float x, float y);
+-    real fmodl(real x, real y);
+-    double remainder(double x, double y);
+-    float remainderf(float x, float y);
+-    real remainderl(real x, real y);
+-    double remquo(double x, double y, int* quo);
+-    float remquof(float x, float y, int* quo);
+-    real remquol(real x, real y, int* quo);
+-    double copysign(double x, double y);
+-    float copysignf(float x, float y);
+-    real copysignl(real x, real y);
+-    double nan(char* tagp);
+-    float nanf(char* tagp);
+-    real nanl(char* tagp);
+-    double nextafter(double x, double y);
+-    float nextafterf(float x, float y);
+-    real nextafterl(real x, real y);
+-    double nexttoward(double x, real y);
+-    float nexttowardf(float x, real y);
+-    real nexttowardl(real x, real y);
+-    double fdim(double x, double y);
+-    float fdimf(float x, float y);
+-    real fdiml(real x, real y);
+-    double fmax(double x, double y);
+-    float fmaxf(float x, float y);
+-    real fmaxl(real x, real y);
+-    double fmin(double x, double y);
+-    float fminf(float x, float y);
+-    real fminl(real x, real y);
+-    double fma(double x, double y, double z);
+-    float fmaf(float x, float y, float z);
+-    real fmal(real x, real y, real z);
+-}
+-}
+-
++// D import file generated from 'src/core/stdc/math.d'
++module core.stdc.math;
++private import core.stdc.config;
++
++extern (C) nothrow pure 
++{
++    alias float float_t;
++    alias double double_t;
++    enum double HUGE_VAL = (double).infinity;
++    enum double HUGE_VALF = (float).infinity;
++    enum double HUGE_VALL = (real).infinity;
++    enum float INFINITY = (float).infinity;
++    enum float NAN = (float).nan;
++    enum int FP_ILOGB0 = (int).min;
++    enum int FP_ILOGBNAN = (int).min;
++    enum int MATH_ERRNO = 1;
++    enum int MATH_ERREXCEPT = 2;
++    enum int math_errhandling = MATH_ERRNO | MATH_ERREXCEPT;
++    version (none)
++{
++    int fpclassify(float x);
++    int fpclassify(double x);
++    int fpclassify(real x);
++    int isfinite(float x);
++    int isfinite(double x);
++    int isfinite(real x);
++    int isinf(float x);
++    int isinf(double x);
++    int isinf(real x);
++    int isnan(float x);
++    int isnan(double x);
++    int isnan(real x);
++    int isnormal(float x);
++    int isnormal(double x);
++    int isnormal(real x);
++    int signbit(float x);
++    int signbit(double x);
++    int signbit(real x);
++    int isgreater(float x, float y);
++    int isgreater(double x, double y);
++    int isgreater(real x, real y);
++    int isgreaterequal(float x, float y);
++    int isgreaterequal(double x, double y);
++    int isgreaterequal(real x, real y);
++    int isless(float x, float y);
++    int isless(double x, double y);
++    int isless(real x, real y);
++    int islessequal(float x, float y);
++    int islessequal(double x, double y);
++    int islessequal(real x, real y);
++    int islessgreater(float x, float y);
++    int islessgreater(double x, double y);
++    int islessgreater(real x, real y);
++    int isunordered(float x, float y);
++    int isunordered(double x, double y);
++    int isunordered(real x, real y);
++}
++    version (DigitalMars)
++{
++    version (Windows)
++{
++    version = DigitalMarsWin32;
++}
++}
++    version (DigitalMarsWin32)
++{
++    enum 
++{
++FP_NANS = 0,
++FP_NANQ = 1,
++FP_INFINITE = 2,
++FP_NORMAL = 3,
++FP_SUBNORMAL = 4,
++FP_ZERO = 5,
++FP_NAN = FP_NANQ,
++FP_EMPTY = 6,
++FP_UNSUPPORTED = 7,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    uint __fpclassify_f(float x);
++    uint __fpclassify_d(double x);
++    uint __fpclassify_ld(real x);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassify_f(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassify_d(x);
++}
++    int fpclassify(real x)
++{
++return (real).sizeof == (double).sizeof ? __fpclassify_d(x) : __fpclassify_ld(x);
++}
++    int isfinite(float x)
++{
++return fpclassify(x) >= FP_NORMAL;
++}
++    int isfinite(double x)
++{
++return fpclassify(x) >= FP_NORMAL;
++}
++    int isfinite(real x)
++{
++return fpclassify(x) >= FP_NORMAL;
++}
++    int isinf(float x)
++{
++return fpclassify(x) == FP_INFINITE;
++}
++    int isinf(double x)
++{
++return fpclassify(x) == FP_INFINITE;
++}
++    int isinf(real x)
++{
++return fpclassify(x) == FP_INFINITE;
++}
++    int isnan(float x)
++{
++return fpclassify(x) <= FP_NANQ;
++}
++    int isnan(double x)
++{
++return fpclassify(x) <= FP_NANQ;
++}
++    int isnan(real x)
++{
++return fpclassify(x) <= FP_NANQ;
++}
++    int isnormal(float x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(double x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(real x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int signbit(float x)
++{
++return (cast(short*)&x)[1] & 32768;
++}
++    int signbit(double x)
++{
++return (cast(short*)&x)[3] & 32768;
++}
++    int signbit(real x)
++{
++return (real).sizeof == (double).sizeof ? (cast(short*)&x)[3] & 32768 : (cast(short*)&x)[4] & 32768;
++}
++}
++}
++else
++{
++    version (linux)
++{
++    enum 
++{
++FP_NAN,
++FP_INFINITE,
++FP_ZERO,
++FP_SUBNORMAL,
++FP_NORMAL,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    int __fpclassifyf(float x);
++    int __fpclassify(double x);
++    int __fpclassifyl(real x);
++    int __finitef(float x);
++    int __finite(double x);
++    int __finitel(real x);
++    int __isinff(float x);
++    int __isinf(double x);
++    int __isinfl(real x);
++    int __isnanf(float x);
++    int __isnan(double x);
++    int __isnanl(real x);
++    int __signbitf(float x);
++    int __signbit(double x);
++    int __signbitl(real x);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassifyf(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassify(x);
++}
++    int fpclassify(real x)
++{
++return (real).sizeof == (double).sizeof ? __fpclassify(x) : __fpclassifyl(x);
++}
++    int isfinite(float x)
++{
++return __finitef(x);
++}
++    int isfinite(double x)
++{
++return __finite(x);
++}
++    int isfinite(real x)
++{
++return (real).sizeof == (double).sizeof ? __finite(x) : __finitel(x);
++}
++    int isinf(float x)
++{
++return __isinff(x);
++}
++    int isinf(double x)
++{
++return __isinf(x);
++}
++    int isinf(real x)
++{
++return (real).sizeof == (double).sizeof ? __isinf(x) : __isinfl(x);
++}
++    int isnan(float x)
++{
++return __isnanf(x);
++}
++    int isnan(double x)
++{
++return __isnan(x);
++}
++    int isnan(real x)
++{
++return (real).sizeof == (double).sizeof ? __isnan(x) : __isnanl(x);
++}
++    int isnormal(float x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(double x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(real x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int signbit(float x)
++{
++return __signbitf(x);
++}
++    int signbit(double x)
++{
++return __signbit(x);
++}
++    int signbit(real x)
++{
++return (real).sizeof == (double).sizeof ? __signbit(x) : __signbitl(x);
++}
++}
++}
++else
++{
++    version (OSX)
++{
++    enum 
++{
++FP_NAN = 1,
++FP_INFINITE = 2,
++FP_ZERO = 3,
++FP_NORMAL = 4,
++FP_SUBNORMAL = 5,
++FP_SUPERNORMAL = 6,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    int __fpclassifyf(float x);
++    int __fpclassifyd(double x);
++    int __fpclassify(real x);
++    int __isfinitef(float x);
++    int __isfinited(double x);
++    int __isfinite(real x);
++    int __isinff(float x);
++    int __isinfd(double x);
++    int __isinf(real x);
++    int __isnanf(float x);
++    int __isnand(double x);
++    int __isnan(real x);
++    int __signbitf(float x);
++    int __signbitd(double x);
++    int __signbitl(real x);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassifyf(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassifyd(x);
++}
++    int fpclassify(real x)
++{
++return (real).sizeof == (double).sizeof ? __fpclassifyd(x) : __fpclassify(x);
++}
++    int isfinite(float x)
++{
++return __isfinitef(x);
++}
++    int isfinite(double x)
++{
++return __isfinited(x);
++}
++    int isfinite(real x)
++{
++return (real).sizeof == (double).sizeof ? __isfinited(x) : __isfinite(x);
++}
++    int isinf(float x)
++{
++return __isinff(x);
++}
++    int isinf(double x)
++{
++return __isinfd(x);
++}
++    int isinf(real x)
++{
++return (real).sizeof == (double).sizeof ? __isinfd(x) : __isinf(x);
++}
++    int isnan(float x)
++{
++return __isnanf(x);
++}
++    int isnan(double x)
++{
++return __isnand(x);
++}
++    int isnan(real x)
++{
++return (real).sizeof == (double).sizeof ? __isnand(x) : __isnan(x);
++}
++    int isnormal(float x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(double x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(real x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int signbit(float x)
++{
++return __signbitf(x);
++}
++    int signbit(double x)
++{
++return __signbitd(x);
++}
++    int signbit(real x)
++{
++return (real).sizeof == (double).sizeof ? __signbitd(x) : __signbitl(x);
++}
++}
++}
++else
++{
++    version (FreeBSD)
++{
++    enum 
++{
++FP_INFINITE = 1,
++FP_NAN = 2,
++FP_NORMAL = 4,
++FP_SUBNORMAL = 8,
++FP_ZERO = 16,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    int __fpclassifyd(double);
++    int __fpclassifyf(float);
++    int __fpclassifyl(real);
++    int __isfinitef(float);
++    int __isfinite(double);
++    int __isfinitel(real);
++    int __isinff(float);
++    int __isinfl(real);
++    int __isnanl(real);
++    int __isnormalf(float);
++    int __isnormal(double);
++    int __isnormall(real);
++    int __signbit(double);
++    int __signbitf(float);
++    int __signbitl(real);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassifyf(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassifyd(x);
++}
++    int fpclassify(real x)
++{
++return __fpclassifyl(x);
++}
++    int isfinite(float x)
++{
++return __isfinitef(x);
++}
++    int isfinite(double x)
++{
++return __isfinite(x);
++}
++    int isfinite(real x)
++{
++return __isfinitel(x);
++}
++    int isinf(float x)
++{
++return __isinff(x);
++}
++    int isinf(double x)
++{
++return __isinfl(x);
++}
++    int isinf(real x)
++{
++return __isinfl(x);
++}
++    int isnan(float x)
++{
++return __isnanl(x);
++}
++    int isnan(double x)
++{
++return __isnanl(x);
++}
++    int isnan(real x)
++{
++return __isnanl(x);
++}
++    int isnormal(float x)
++{
++return __isnormalf(x);
++}
++    int isnormal(double x)
++{
++return __isnormal(x);
++}
++    int isnormal(real x)
++{
++return __isnormall(x);
++}
++    int signbit(float x)
++{
++return __signbitf(x);
++}
++    int signbit(double x)
++{
++return __signbit(x);
++}
++    int signbit(real x)
++{
++return __signbit(x);
++}
++}
++}
++}
++}
++}
++    extern (D) 
++{
++    int isgreater(float x, float y)
++{
++return !(x !> y);
++}
++    int isgreater(double x, double y)
++{
++return !(x !> y);
++}
++    int isgreater(real x, real y)
++{
++return !(x !> y);
++}
++    int isgreaterequal(float x, float y)
++{
++return !(x !>= y);
++}
++    int isgreaterequal(double x, double y)
++{
++return !(x !>= y);
++}
++    int isgreaterequal(real x, real y)
++{
++return !(x !>= y);
++}
++    int isless(float x, float y)
++{
++return !(x !< y);
++}
++    int isless(double x, double y)
++{
++return !(x !< y);
++}
++    int isless(real x, real y)
++{
++return !(x !< y);
++}
++    int islessequal(float x, float y)
++{
++return !(x !<= y);
++}
++    int islessequal(double x, double y)
++{
++return !(x !<= y);
++}
++    int islessequal(real x, real y)
++{
++return !(x !<= y);
++}
++    int islessgreater(float x, float y)
++{
++return !(x !<> y);
++}
++    int islessgreater(double x, double y)
++{
++return !(x !<> y);
++}
++    int islessgreater(real x, real y)
++{
++return !(x !<> y);
++}
++    int isunordered(float x, float y)
++{
++return x !<>= y;
++}
++    int isunordered(double x, double y)
++{
++return x !<>= y;
++}
++    int isunordered(real x, real y)
++{
++return x !<>= y;
++}
++}
++    version (FreeBSD)
++{
++    version (all)
++{
++    real acosl(real x)
++{
++return acos(x);
++}
++    real asinl(real x)
++{
++return asin(x);
++}
++    real atanl(real x)
++{
++return atan(x);
++}
++    real atan2l(real y, real x)
++{
++return atan2(y,x);
++}
++    real cosl(real x)
++{
++return cos(x);
++}
++    real sinl(real x)
++{
++return sin(x);
++}
++    real tanl(real x)
++{
++return tan(x);
++}
++    real exp2l(real x)
++{
++return exp2(x);
++}
++    real frexpl(real value, int* exp)
++{
++return frexp(value,exp);
++}
++    int ilogbl(real x)
++{
++return ilogb(x);
++}
++    real ldexpl(real x, int exp)
++{
++return ldexp(x,exp);
++}
++    real logbl(real x)
++{
++return logb(x);
++}
++    real scalbnl(real x, int n)
++{
++return scalbn(x,n);
++}
++    real scalblnl(real x, c_long n)
++{
++return scalbln(x,n);
++}
++    real fabsl(real x)
++{
++return fabs(x);
++}
++    real hypotl(real x, real y)
++{
++return hypot(x,y);
++}
++    real sqrtl(real x)
++{
++return sqrt(x);
++}
++    real ceill(real x)
++{
++return ceil(x);
++}
++    real floorl(real x)
++{
++return floor(x);
++}
++    real nearbyintl(real x)
++{
++return nearbyint(x);
++}
++    real rintl(real x)
++{
++return rint(x);
++}
++    c_long lrintl(real x)
++{
++return lrint(x);
++}
++    real roundl(real x)
++{
++return round(x);
++}
++    c_long lroundl(real x)
++{
++return lround(x);
++}
++    long llroundl(real x)
++{
++return llround(x);
++}
++    real truncl(real x)
++{
++return trunc(x);
++}
++    real fmodl(real x, real y)
++{
++return fmod(x,y);
++}
++    real remainderl(real x, real y)
++{
++return remainder(x,y);
++}
++    real remquol(real x, real y, int* quo)
++{
++return remquo(x,y,quo);
++}
++    real copysignl(real x, real y)
++{
++return copysign(x,y);
++}
++    real nextafterl(real x, real y)
++{
++return nextafter(x,y);
++}
++    real nexttowardl(real x, real y)
++{
++return nexttoward(x,y);
++}
++    real fdiml(real x, real y)
++{
++return fdim(x,y);
++}
++    real fmaxl(real x, real y)
++{
++return fmax(x,y);
++}
++    real fminl(real x, real y)
++{
++return fmin(x,y);
++}
++    real fmal(real x, real y, real z)
++{
++return fma(x,y,z);
++}
++}
++else
++{
++    real acosl(real x);
++    real asinl(real x);
++    real atanl(real x);
++    real atan2l(real y, real x);
++    real cosl(real x);
++    real sinl(real x);
++    real tanl(real x);
++    real exp2l(real x);
++    real frexpl(real value, int* exp);
++    int ilogbl(real x);
++    real ldexpl(real x, int exp);
++    real logbl(real x);
++    real modfl(real value, real* iptr);
++    real scalbnl(real x, int n);
++    real scalblnl(real x, c_long n);
++    real fabsl(real x);
++    real hypotl(real x, real y);
++    real sqrtl(real x);
++    real ceill(real x);
++    real floorl(real x);
++    real nearbyintl(real x);
++    real rintl(real x);
++    c_long lrintl(real x);
++    real roundl(real x);
++    c_long lroundl(real x);
++    long llroundl(real x);
++    real truncl(real x);
++    real fmodl(real x, real y);
++    real remainderl(real x, real y);
++    real remquol(real x, real y, int* quo);
++    real copysignl(real x, real y);
++    double nan(char* tagp);
++    float nanf(char* tagp);
++    real nanl(char* tagp);
++    real nextafterl(real x, real y);
++    real nexttowardl(real x, real y);
++    real fdiml(real x, real y);
++    real fmaxl(real x, real y);
++    real fminl(real x, real y);
++    real fmal(real x, real y, real z);
++}
++    double acos(double x);
++    float acosf(float x);
++    double asin(double x);
++    float asinf(float x);
++    double atan(double x);
++    float atanf(float x);
++    double atan2(double y, double x);
++    float atan2f(float y, float x);
++    double cos(double x);
++    float cosf(float x);
++    double sin(double x);
++    float sinf(float x);
++    double tan(double x);
++    float tanf(float x);
++    double acosh(double x);
++    float acoshf(float x);
++    real acoshl(real x)
++{
++return acosh(x);
++}
++    double asinh(double x);
++    float asinhf(float x);
++    real asinhl(real x)
++{
++return asinh(x);
++}
++    double atanh(double x);
++    float atanhf(float x);
++    real atanhl(real x)
++{
++return atanh(x);
++}
++    double cosh(double x);
++    float coshf(float x);
++    real coshl(real x)
++{
++return cosh(x);
++}
++    double sinh(double x);
++    float sinhf(float x);
++    real sinhl(real x)
++{
++return sinh(x);
++}
++    double tanh(double x);
++    float tanhf(float x);
++    real tanhl(real x)
++{
++return tanh(x);
++}
++    double exp(double x);
++    float expf(float x);
++    real expl(real x)
++{
++return exp(x);
++}
++    double exp2(double x);
++    float exp2f(float x);
++    double expm1(double x);
++    float expm1f(float x);
++    real expm1l(real x)
++{
++return expm1(x);
++}
++    double frexp(double value, int* exp);
++    float frexpf(float value, int* exp);
++    int ilogb(double x);
++    int ilogbf(float x);
++    double ldexp(double x, int exp);
++    float ldexpf(float x, int exp);
++    double log(double x);
++    float logf(float x);
++    real logl(real x)
++{
++return log(x);
++}
++    double log10(double x);
++    float log10f(float x);
++    real log10l(real x)
++{
++return log10(x);
++}
++    double log1p(double x);
++    float log1pf(float x);
++    real log1pl(real x)
++{
++return log1p(x);
++}
++    private enum real ONE_LN2 = 1 / 0xb.17217f7d1cf79acp-4L;
++
++    double log2(double x)
++{
++return log(x) * ONE_LN2;
++}
++    float log2f(float x)
++{
++return logf(x) * ONE_LN2;
++}
++    real log2l(real x)
++{
++return logl(x) * ONE_LN2;
++}
++    double logb(double x);
++    float logbf(float x);
++    double modf(double value, double* iptr);
++    float modff(float value, float* iptr);
++    double scalbn(double x, int n);
++    float scalbnf(float x, int n);
++    double scalbln(double x, c_long n);
++    float scalblnf(float x, c_long n);
++    double cbrt(double x);
++    float cbrtf(float x);
++    real cbrtl(real x)
++{
++return cbrt(x);
++}
++    double fabs(double x);
++    float fabsf(float x);
++    double hypot(double x, double y);
++    float hypotf(float x, float y);
++    double pow(double x, double y);
++    float powf(float x, float y);
++    real powl(real x, real y)
++{
++return pow(x,y);
++}
++    double sqrt(double x);
++    float sqrtf(float x);
++    double erf(double x);
++    float erff(float x);
++    real erfl(real x)
++{
++return erf(x);
++}
++    double erfc(double x);
++    float erfcf(float x);
++    real erfcl(real x)
++{
++return erfc(x);
++}
++    double lgamma(double x);
++    float lgammaf(float x);
++    real lgammal(real x)
++{
++return lgamma(x);
++}
++    double tgamma(double x);
++    float tgammaf(float x);
++    real tgammal(real x)
++{
++return tgamma(x);
++}
++    double ceil(double x);
++    float ceilf(float x);
++    double floor(double x);
++    float floorf(float x);
++    double nearbyint(double x);
++    float nearbyintf(float x);
++    double rint(double x);
++    float rintf(float x);
++    c_long lrint(double x);
++    c_long lrintf(float x);
++    long llrint(double x);
++    long llrintf(float x);
++    long llrintl(real x)
++{
++return llrint(x);
++}
++    double round(double x);
++    float roundf(float x);
++    c_long lround(double x);
++    c_long lroundf(float x);
++    long llround(double x);
++    long llroundf(float x);
++    double trunc(double x);
++    float truncf(float x);
++    double fmod(double x, double y);
++    float fmodf(float x, float y);
++    double remainder(double x, double y);
++    float remainderf(float x, float y);
++    double remquo(double x, double y, int* quo);
++    float remquof(float x, float y, int* quo);
++    double copysign(double x, double y);
++    float copysignf(float x, float y);
++    double nextafter(double x, double y);
++    float nextafterf(float x, float y);
++    double nexttoward(double x, real y);
++    float nexttowardf(float x, real y);
++    double fdim(double x, double y);
++    float fdimf(float x, float y);
++    double fmax(double x, double y);
++    float fmaxf(float x, float y);
++    double fmin(double x, double y);
++    float fminf(float x, float y);
++    double fma(double x, double y, double z);
++    float fmaf(float x, float y, float z);
++}
++else
++{
++    double acos(double x);
++    float acosf(float x);
++    real acosl(real x);
++    double asin(double x);
++    float asinf(float x);
++    real asinl(real x);
++    double atan(double x);
++    float atanf(float x);
++    real atanl(real x);
++    double atan2(double y, double x);
++    float atan2f(float y, float x);
++    real atan2l(real y, real x);
++    double cos(double x);
++    float cosf(float x);
++    real cosl(real x);
++    double sin(double x);
++    float sinf(float x);
++    real sinl(real x);
++    double tan(double x);
++    float tanf(float x);
++    real tanl(real x);
++    double acosh(double x);
++    float acoshf(float x);
++    real acoshl(real x);
++    double asinh(double x);
++    float asinhf(float x);
++    real asinhl(real x);
++    double atanh(double x);
++    float atanhf(float x);
++    real atanhl(real x);
++    double cosh(double x);
++    float coshf(float x);
++    real coshl(real x);
++    double sinh(double x);
++    float sinhf(float x);
++    real sinhl(real x);
++    double tanh(double x);
++    float tanhf(float x);
++    real tanhl(real x);
++    double exp(double x);
++    float expf(float x);
++    real expl(real x);
++    double exp2(double x);
++    float exp2f(float x);
++    real exp2l(real x);
++    double expm1(double x);
++    float expm1f(float x);
++    real expm1l(real x);
++    double frexp(double value, int* exp);
++    float frexpf(float value, int* exp);
++    real frexpl(real value, int* exp);
++    int ilogb(double x);
++    int ilogbf(float x);
++    int ilogbl(real x);
++    double ldexp(double x, int exp);
++    float ldexpf(float x, int exp);
++    real ldexpl(real x, int exp);
++    double log(double x);
++    float logf(float x);
++    real logl(real x);
++    double log10(double x);
++    float log10f(float x);
++    real log10l(real x);
++    double log1p(double x);
++    float log1pf(float x);
++    real log1pl(real x);
++    double log2(double x);
++    float log2f(float x);
++    real log2l(real x);
++    double logb(double x);
++    float logbf(float x);
++    real logbl(real x);
++    double modf(double value, double* iptr);
++    float modff(float value, float* iptr);
++    real modfl(real value, real* iptr);
++    double scalbn(double x, int n);
++    float scalbnf(float x, int n);
++    real scalbnl(real x, int n);
++    double scalbln(double x, c_long n);
++    float scalblnf(float x, c_long n);
++    real scalblnl(real x, c_long n);
++    double cbrt(double x);
++    float cbrtf(float x);
++    real cbrtl(real x);
++    double fabs(double x);
++    float fabsf(float x);
++    real fabsl(real x);
++    double hypot(double x, double y);
++    float hypotf(float x, float y);
++    real hypotl(real x, real y);
++    double pow(double x, double y);
++    float powf(float x, float y);
++    real powl(real x, real y);
++    double sqrt(double x);
++    float sqrtf(float x);
++    real sqrtl(real x);
++    double erf(double x);
++    float erff(float x);
++    real erfl(real x);
++    double erfc(double x);
++    float erfcf(float x);
++    real erfcl(real x);
++    double lgamma(double x);
++    float lgammaf(float x);
++    real lgammal(real x);
++    double tgamma(double x);
++    float tgammaf(float x);
++    real tgammal(real x);
++    double ceil(double x);
++    float ceilf(float x);
++    real ceill(real x);
++    double floor(double x);
++    float floorf(float x);
++    real floorl(real x);
++    double nearbyint(double x);
++    float nearbyintf(float x);
++    real nearbyintl(real x);
++    double rint(double x);
++    float rintf(float x);
++    real rintl(real x);
++    c_long lrint(double x);
++    c_long lrintf(float x);
++    c_long lrintl(real x);
++    long llrint(double x);
++    long llrintf(float x);
++    long llrintl(real x);
++    double round(double x);
++    float roundf(float x);
++    real roundl(real x);
++    c_long lround(double x);
++    c_long lroundf(float x);
++    c_long lroundl(real x);
++    long llround(double x);
++    long llroundf(float x);
++    long llroundl(real x);
++    double trunc(double x);
++    float truncf(float x);
++    real truncl(real x);
++    double fmod(double x, double y);
++    float fmodf(float x, float y);
++    real fmodl(real x, real y);
++    double remainder(double x, double y);
++    float remainderf(float x, float y);
++    real remainderl(real x, real y);
++    double remquo(double x, double y, int* quo);
++    float remquof(float x, float y, int* quo);
++    real remquol(real x, real y, int* quo);
++    double copysign(double x, double y);
++    float copysignf(float x, float y);
++    real copysignl(real x, real y);
++    double nan(char* tagp);
++    float nanf(char* tagp);
++    real nanl(char* tagp);
++    double nextafter(double x, double y);
++    float nextafterf(float x, float y);
++    real nextafterl(real x, real y);
++    double nexttoward(double x, real y);
++    float nexttowardf(float x, real y);
++    real nexttowardl(real x, real y);
++    double fdim(double x, double y);
++    float fdimf(float x, float y);
++    real fdiml(real x, real y);
++    double fmax(double x, double y);
++    float fmaxf(float x, float y);
++    real fmaxl(real x, real y);
++    double fmin(double x, double y);
++    float fminf(float x, float y);
++    real fminl(real x, real y);
++    double fma(double x, double y, double z);
++    float fmaf(float x, float y, float z);
++    real fmal(real x, real y, real z);
++}
++}
++
++
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/stdlib.d druntime/import/core/stdc/stdlib.d
+--- druntime-orig/import/core/stdc/stdlib.d	2009-11-30 10:02:20.000000000 +0300
++++ druntime/import/core/stdc/stdlib.d	2010-11-04 17:49:07.000000000 +0300
+@@ -92,3 +92,13 @@
+ {
+     void* alloca(size_t size); // non-standard
+ }
++else version( LDC )
++{
++    pragma(alloca)
++        void* alloca(size_t size);
++}
++else version( GNU )
++{
++    private import gcc.builtins;
++    alias gcc.builtins.__builtin_alloca alloca;
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/stdlib.di druntime/import/core/stdc/stdlib.di
+--- druntime-orig/import/core/stdc/stdlib.di	2010-10-29 04:54:24.000000000 +0400
++++ druntime/import/core/stdc/stdlib.di	2010-12-30 15:26:39.786104000 +0300
+@@ -1,72 +1,89 @@
+-// D import file generated from 'src\core\stdc\stdlib.d'
+-module core.stdc.stdlib;
+-private import core.stdc.config;
+-
+-public import core.stdc.stddef;
+-
+-extern (C) nothrow 
+-{
+-    struct div_t
+-{
+-    int quot;
+-    int rem;
+-}
+-    struct ldiv_t
+-{
+-    int quot;
+-    int rem;
+-}
+-    struct lldiv_t
+-{
+-    long quot;
+-    long rem;
+-}
+-    enum EXIT_SUCCESS = 0;
+-    enum EXIT_FAILURE = 1;
+-    enum RAND_MAX = 32767;
+-    enum MB_CUR_MAX = 1;
+-    double atof(in char* nptr);
+-    int atoi(in char* nptr);
+-    c_long atol(in char* nptr);
+-    long atoll(in char* nptr);
+-    double strtod(in char* nptr, char** endptr);
+-    float strtof(in char* nptr, char** endptr);
+-    real strtold(in char* nptr, char** endptr);
+-    c_long strtol(in char* nptr, char** endptr, int base);
+-    long strtoll(in char* nptr, char** endptr, int base);
+-    c_ulong strtoul(in char* nptr, char** endptr, int base);
+-    ulong strtoull(in char* nptr, char** endptr, int base);
+-    int rand();
+-    void srand(uint seed);
+-    void* malloc(size_t size);
+-    void* calloc(size_t nmemb, size_t size);
+-    void* realloc(void* ptr, size_t size);
+-    void free(void* ptr);
+-    void abort();
+-    void exit(int status);
+-    int atexit(void function() func);
+-    void _Exit(int status);
+-    char* getenv(in char* name);
+-    int system(in char* string);
+-    void* bsearch(in void* key, in void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
+-    void qsort(void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
+-    pure int abs(int j);
+-
+-    pure c_long labs(c_long j);
+-
+-    pure long llabs(long j);
+-
+-    div_t div(int numer, int denom);
+-    ldiv_t ldiv(c_long numer, c_long denom);
+-    lldiv_t lldiv(long numer, long denom);
+-    int mblen(in char* s, size_t n);
+-    int mbtowc(wchar_t* pwc, in char* s, size_t n);
+-    int wctomb(char* s, wchar_t wc);
+-    size_t mbstowcs(wchar_t* pwcs, in char* s, size_t n);
+-    size_t wcstombs(char* s, in wchar_t* pwcs, size_t n);
+-    version (DigitalMars)
+-{
+-    void* alloca(size_t size);
+-}
+-}
+-
++// D import file generated from 'src/core/stdc/stdlib.d'
++module core.stdc.stdlib;
++private import core.stdc.config;
++
++public import core.stdc.stddef;
++
++extern (C) nothrow 
++{
++    struct div_t
++{
++    int quot;
++    int rem;
++}
++    struct ldiv_t
++{
++    int quot;
++    int rem;
++}
++    struct lldiv_t
++{
++    long quot;
++    long rem;
++}
++    enum EXIT_SUCCESS = 0;
++    enum EXIT_FAILURE = 1;
++    enum RAND_MAX = 32767;
++    enum MB_CUR_MAX = 1;
++    double atof(in char* nptr);
++    int atoi(in char* nptr);
++    c_long atol(in char* nptr);
++    long atoll(in char* nptr);
++    double strtod(in char* nptr, char** endptr);
++    float strtof(in char* nptr, char** endptr);
++    real strtold(in char* nptr, char** endptr);
++    c_long strtol(in char* nptr, char** endptr, int base);
++    long strtoll(in char* nptr, char** endptr, int base);
++    c_ulong strtoul(in char* nptr, char** endptr, int base);
++    ulong strtoull(in char* nptr, char** endptr, int base);
++    int rand();
++    void srand(uint seed);
++    void* malloc(size_t size);
++    void* calloc(size_t nmemb, size_t size);
++    void* realloc(void* ptr, size_t size);
++    void free(void* ptr);
++    void abort();
++    void exit(int status);
++    int atexit(void function() func);
++    void _Exit(int status);
++    char* getenv(in char* name);
++    int system(in char* string);
++    void* bsearch(in void* key, in void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
++    void qsort(void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
++    pure int abs(int j);
++
++    pure c_long labs(c_long j);
++
++    pure long llabs(long j);
++
++    div_t div(int numer, int denom);
++    ldiv_t ldiv(c_long numer, c_long denom);
++    lldiv_t lldiv(long numer, long denom);
++    int mblen(in char* s, size_t n);
++    int mbtowc(wchar_t* pwc, in char* s, size_t n);
++    int wctomb(char* s, wchar_t wc);
++    size_t mbstowcs(wchar_t* pwcs, in char* s, size_t n);
++    size_t wcstombs(char* s, in wchar_t* pwcs, size_t n);
++    version (DigitalMars)
++{
++    void* alloca(size_t size);
++}
++else
++{
++    version (LDC)
++{
++    pragma (alloca)void* alloca(size_t size);
++
++}
++else
++{
++    version (GNU)
++{
++    private import gcc.builtins;
++
++    alias gcc.builtins.__builtin_alloca alloca;
++}
++}
++}
++}
++
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/vararg.di druntime/import/core/vararg.di
+--- druntime-orig/import/core/vararg.di	2010-10-29 04:54:24.000000000 +0400
++++ druntime/import/core/vararg.di	2011-01-02 18:55:32.561075001 +0300
+@@ -1,26 +1,37 @@
+-// D import file generated from 'src\core\vararg.d'
+-module core.vararg;
+-alias void* va_list;
+-template va_start(T)
+-{
+-void va_start(out va_list ap, ref T parmn)
+-{
+-ap = cast(va_list)(cast(void*)&parmn + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
+-}
+-}
+-template va_arg(T)
+-{
+-T va_arg(ref va_list ap)
+-{
+-T arg = *cast(T*)ap;
+-ap = cast(va_list)(cast(void*)ap + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
+-return arg;
+-}
+-}
+-void va_end(va_list ap)
+-{
+-}
+-void va_copy(out va_list dst, va_list src)
+-{
+-dst = src;
+-}
++// D import file generated from 'src/core/vararg.d'
++module core.vararg;
 +alias void* va_list;
++version (LDC)
++{
++    pragma (va_start)template va_start(T)
++{
++void va_start(va_list ap, ref T);
++}
 +
-+pragma(va_start)
-+    void va_start(T)(va_list ap, ref T);
-+
-+pragma(va_arg)
-+    T va_arg(T)(va_list ap);
-+
-+pragma(va_end)
-+    void va_end(va_list args);
-+
-+pragma(va_copy)
-+    void va_copy(va_list dst, va_list src);
++}
++else
++{
++    template va_start(T)
++{
++void va_start(out va_list ap, ref T parmn)
++{
++ap = cast(va_list)(cast(void*)&parmn + (T.sizeof + size_t.sizeof - 1 & ~(size_t.sizeof - 1)));
++}
++}
++}
++template va_arg(T)
++{
++T va_arg(ref va_list ap)
++{
++T arg = *cast(T*)ap;
++ap = cast(va_list)(cast(void*)ap + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
++return arg;
++}
++}
++void va_end(va_list ap)
++{
++}
++void va_copy(out va_list dst, va_list src)
++{
++dst = src;
++}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/intrinsics.di druntime/import/ldc/intrinsics.di
 --- druntime-orig/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
 +++ druntime/import/ldc/intrinsics.di	2010-12-30 13:40:26.000000000 +0300
@@ -415,53 +4446,6 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +        __asmtuple_t!(T) __asmtuple(char[] asmcode, char[] constraints, ...);
 +    }
 +}
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/vararg.d druntime/import/ldc/vararg.d
---- druntime-orig/import/ldc/vararg.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/vararg.d	2010-12-30 13:40:26.000000000 +0300
-@@ -0,0 +1,43 @@
-+/*
-+ * This module holds the implementation of special vararg templates for D style var args.
-+ *
-+ * Provides the functions tango.core.Vararg expects to be present!
-+ */
-+
-+module ldc.Vararg;
-+
-+// Check for the right compiler
-+version(LDC)
-+{
-+    // OK
-+}
-+else
-+{
-+    static assert(false, "This module is only valid for LDC");
-+}
-+
-+alias void* va_list;
-+
-+void va_start(T) ( out va_list ap, inout T parmn )
-+{
-+    // not needed !
-+}
-+
-+T va_arg(T)(ref va_list vp)
-+{
-+    T* arg = cast(T*) vp;
-+    // ldc always aligns to size_t.sizeof in vararg lists
-+    vp = cast(va_list) ( cast(void*) vp + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
-+    return *arg;
-+}
-+
-+void va_end( va_list ap )
-+{
-+    // not needed !
-+}
-+
-+void va_copy( out va_list dst, va_list src )
-+{
-+    // seems pretty useless !
-+    dst = src;
-+}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
 --- druntime-orig/import/object.di	2010-10-13 10:37:58.000000000 +0400
 +++ druntime/import/object.di	2010-12-30 13:40:26.000000000 +0300
@@ -653,6 +4637,32 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    private import gcc.builtins;
 +    alias gcc.builtins.__builtin_alloca alloca;
 +}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/vararg.d druntime/src/core/vararg.d
+--- druntime-orig/src/core/vararg.d	2010-08-05 05:39:08.000000000 +0400
++++ druntime/src/core/vararg.d	2011-01-02 18:52:38.045075000 +0300
+@@ -30,9 +30,21 @@
+  *  paramn  = The identifier of the rightmost parameter in the function
+  *            parameter list.
+  */
++version(LDC)
++{
++
++pragma(va_start)
++    void va_start(T)(va_list ap, ref T);
++
++}
++else
++{
++
+ void va_start(T) ( out va_list ap, ref T parmn )
+ {
+-    ap = cast(va_list) ( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
++    ap = cast(va_list) ( cast(void*) &parmn + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
++}
++
+ }
+ 
+ /**
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/gc/gcbits.d druntime/src/gc/gcbits.d
 --- druntime-orig/src/gc/gcbits.d	2010-08-08 04:10:24.000000000 +0400
 +++ druntime/src/gc/gcbits.d	2010-11-04 17:49:07.000000000 +0300
@@ -1348,7 +5358,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      Throwable _d_unhandled = null;
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/ldc_eh.d druntime/src/rt/ldc_eh.d
 --- druntime-orig/src/rt/ldc_eh.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/rt/ldc_eh.d	2010-11-09 12:15:38.675790002 +0300
++++ druntime/src/rt/ldc_eh.d	2011-01-02 19:03:34.733075000 +0300
 @@ -0,0 +1,428 @@
 +/**
 + * This module contains functions and structures required for
@@ -1359,7 +5369,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +private import core.stdc.stdio;
 +private import core.stdc.stdlib;
 +private import rt.util.console;
-+private import ldc.cstdarg;
++private import core.vararg;
 +
 +// debug = EH_personality;
 +// debug = EH_personality_verbose;
