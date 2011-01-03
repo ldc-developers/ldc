@@ -2532,7 +2532,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     const LLArrayType* arrtype = LLArrayType::get(DtoTypeNotVoid(elemt), elements->dim);
 
     // dynamic arrays can occur here as well ...
-    bool dyn = (bt->ty == Tarray);
+    bool dyn = (bt->ty != Tsarray);
 
     // build the initializer
     std::vector<LLConstant*> vals(elements->dim, NULL);
@@ -2549,10 +2549,18 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     if (!dyn)
         return initval;
 
-    // for dynamic arrays we need to put the initializer in a global, and build a constant dynamic array reference with the .ptr field pointing into this global
+    // we need to put the initializer in a global, and so we have a pointer to the array
     // Important: don't make the global constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
     LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
+
+#if DMDV2
+    if (bt->ty == Tpointer)
+        // we need to return pointer to the static array.
+        return globalstore;
+#endif
+
+    // build a constant dynamic array reference with the .ptr field pointing into globalstore
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
 
