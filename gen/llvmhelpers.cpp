@@ -1616,6 +1616,12 @@ Type * stripModifiers( Type * type )
 			case MODshared | MODconst:
 				t = type->scto;
 				break;
+			case MODwild:
+				t = type->wto;
+				break;
+			case MODshared | MODwild:
+				t = type->swto;
+				break;
 			default:
 				assert(0 && "Unhandled type modifier");
 		}
@@ -1634,6 +1640,8 @@ Type * stripModifiers( Type * type )
 			t->ito = NULL;
 			t->sto = NULL;
 			t->scto = NULL;
+			t->wto = NULL;
+			t->swto = NULL;
 			t->vtinfo = NULL;
 			t = t->merge();
 
@@ -1654,6 +1662,14 @@ Type * stripModifiers( Type * type )
 
 			    case MODshared | MODconst:
 				t->scto = type;
+				break;
+
+				case MODwild:
+				t->wto = type;
+				break;
+
+				case MODshared | MODwild:
+				t->swto = type;
 				break;
 
 			    default:
