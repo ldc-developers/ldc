@@ -844,6 +844,7 @@ void SwitchStatement::toIR(IRState* p)
         DtoDwarfStopPoint(loc.linnum);
     #endif
 
+    llvm::BasicBlock* oldbb = gIR->scopebb();
     llvm::BasicBlock* oldend = gIR->scopeend();
 
     // clear data from previous passes... :/
@@ -854,53 +855,24 @@ void SwitchStatement::toIR(IRState* p)
         cs->llvmIdx = NULL;
     }
 
-    // string switch?
-    llvm::Value* switchTable = 0;
-    Array caseArray;
-    if (!condition->type->isintegral())
+    // If one of the case expressions is non-constant, we can't use
+    // 'switch' instruction (that can happen because D2 allows to
+    // initialize a global variable in a static constructor).
+    bool useSwitchInst = true;
+    for (int i=0; i<cases->dim; ++i)
     {
-        Logger::println("is string switch");
-        // build array of the stringexpS
-        caseArray.reserve(cases->dim);
-        for (int i=0; i<cases->dim; ++i)
-        {
-            CaseStatement* cs = (CaseStatement*)cases->data[i];
-
-            assert(cs->exp->op == TOKstring);
-            caseArray.push(new Case((StringExp*)cs->exp, i));
+        CaseStatement* cs = (CaseStatement*)cases->data[i];
+        VarDeclaration* vd = 0;
+        if (cs->exp->op == TOKvar)
+            vd = ((VarExp*)cs->exp)->var->isVarDeclaration();
+        if (vd && !vd->init) {
+            cs->llvmIdx = cs->exp->toElem(p)->getRVal();
+            useSwitchInst = false;
         }
-        // first sort it
-        caseArray.sort();
-        // iterate and add indices to cases
-        std::vector<LLConstant*> inits(caseArray.dim);
-        for (size_t i=0; i<caseArray.dim; ++i)
-        {
-            Case* c = (Case*)caseArray.data[i];
-            CaseStatement* cs = (CaseStatement*)cases->data[c->index];
-            cs->llvmIdx = DtoConstUint(i);
-            inits[i] = c->str->toConstElem(p);
-        }
-        // build static array for ptr or final array
-        const LLType* elemTy = DtoType(condition->type);
-        const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
-        LLConstant* arrInit = LLConstantArray::get(arrTy, inits);
-        llvm::GlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
-
-        const LLType* elemPtrTy = getPtrToType(elemTy);
-        LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
-
-        // build the static table
-        std::vector<const LLType*> types;
-        types.push_back(DtoSize_t());
-        types.push_back(elemPtrTy);
-        const llvm::StructType* sTy = llvm::StructType::get(gIR->context(), types);
-        std::vector<LLConstant*> sinits;
-        sinits.push_back(DtoConstSize_t(inits.size()));
-        sinits.push_back(arrPtr);
-        switchTable = llvm::ConstantStruct::get(sTy, sinits);
     }
 
-    // body block
+    // body block.
+    // FIXME: that block is never used
     llvm::BasicBlock* bodybb = llvm::BasicBlock::Create(gIR->context(), "switchbody", p->topfunc(), oldend);
 
     // default
@@ -914,35 +886,109 @@ void SwitchStatement::toIR(IRState* p)
     // end (break point)
     llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "switchend", p->topfunc(), oldend);
 
-    // condition var
-    LLValue* condVal;
-    // integral switch
-    if (condition->type->isintegral()) {
-        DValue* cond = condition->toElem(p);
-        condVal = cond->getRVal();
-    }
-    // string switch
-    else {
-        condVal = call_string_switch_runtime(switchTable, condition);
-    }
-    llvm::SwitchInst* si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, cases->dim, p->scopebb());
-
     // do switch body
     assert(body);
-
     p->scope() = IRScope(bodybb, endbb);
     p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,NULL,endbb));
     body->toIR(p);
     p->func()->gen->targetScopes.pop_back();
-
     if (!p->scopereturned())
         llvm::BranchInst::Create(endbb, p->scopebb());
 
-    // add the cases
-    for (int i=0; i<cases->dim; ++i)
+    gIR->scope() = IRScope(oldbb,oldend);
+    if (useSwitchInst)
     {
-        CaseStatement* cs = (CaseStatement*)cases->data[i];
-        si->addCase(cs->llvmIdx, cs->bodyBB);
+        // string switch?
+        llvm::Value* switchTable = 0;
+        Array caseArray;
+        if (!condition->type->isintegral())
+        {
+            Logger::println("is string switch");
+            // build array of the stringexpS
+            caseArray.reserve(cases->dim);
+            for (int i=0; i<cases->dim; ++i)
+            {
+                CaseStatement* cs = (CaseStatement*)cases->data[i];
+
+                assert(cs->exp->op == TOKstring);
+                caseArray.push(new Case((StringExp*)cs->exp, i));
+            }
+            // first sort it
+            caseArray.sort();
+            // iterate and add indices to cases
+            std::vector<LLConstant*> inits(caseArray.dim);
+            for (size_t i=0; i<caseArray.dim; ++i)
+            {
+                Case* c = (Case*)caseArray.data[i];
+                CaseStatement* cs = (CaseStatement*)cases->data[c->index];
+                cs->llvmIdx = DtoConstUint(i);
+                inits[i] = c->str->toConstElem(p);
+            }
+            // build static array for ptr or final array
+            const LLType* elemTy = DtoType(condition->type);
+            const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
+            LLConstant* arrInit = LLConstantArray::get(arrTy, inits);
+            llvm::GlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
+
+            const LLType* elemPtrTy = getPtrToType(elemTy);
+            LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
+
+            // build the static table
+            std::vector<const LLType*> types;
+            types.push_back(DtoSize_t());
+            types.push_back(elemPtrTy);
+            const llvm::StructType* sTy = llvm::StructType::get(gIR->context(), types);
+            std::vector<LLConstant*> sinits;
+            sinits.push_back(DtoConstSize_t(inits.size()));
+            sinits.push_back(arrPtr);
+            switchTable = llvm::ConstantStruct::get(sTy, sinits);
+        }
+
+        // condition var
+        LLValue* condVal;
+        // integral switch
+        if (condition->type->isintegral()) {
+            DValue* cond = condition->toElem(p);
+            condVal = cond->getRVal();
+        }
+        // string switch
+        else {
+            condVal = call_string_switch_runtime(switchTable, condition);
+        }
+
+        // create switch and add the cases
+        llvm::SwitchInst* si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, cases->dim, p->scopebb());
+        for (int i=0; i<cases->dim; ++i)
+        {
+            CaseStatement* cs = (CaseStatement*)cases->data[i];
+            si->addCase(isaConstantInt(cs->llvmIdx), cs->bodyBB);
+        }
+    }
+    else
+    { // we can't use switch, so we will use a bunch of br instructions instead
+        DValue* cond = condition->toElem(p);
+        LLValue *condVal = cond->getRVal();
+
+        llvm::BasicBlock* nextbb = llvm::BasicBlock::Create(gIR->context(), "checkcase", p->topfunc(), oldend);
+        llvm::BranchInst::Create(nextbb, p->scopebb());
+
+        p->scope() = IRScope(nextbb, endbb);
+        for (int i=0; i<cases->dim; ++i)
+        {
+            CaseStatement* cs = (CaseStatement*)cases->data[i];
+
+            LLValue* cmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, cs->llvmIdx, condVal, "checkcase");
+            nextbb = llvm::BasicBlock::Create(gIR->context(), "checkcase", p->topfunc(), oldend);
+            llvm::BranchInst::Create(cs->bodyBB, nextbb, cmp, p->scopebb());
+            p->scope() = IRScope(nextbb, endbb);
+        }
+
+        if (sdefault) {
+            llvm::BranchInst::Create(sdefault->bodyBB, p->scopebb());
+        } else {
+            llvm::BranchInst::Create(endbb, p->scopebb());
+        }
+        endbb->moveAfter(nextbb);
     }
 
     gIR->scope() = IRScope(endbb,oldend);

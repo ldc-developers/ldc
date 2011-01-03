@@ -557,7 +557,7 @@ struct CaseStatement : Statement
 
 #if IN_LLVM
     llvm::BasicBlock* bodyBB;
-    llvm::ConstantInt* llvmIdx;
+    llvm::Value* llvmIdx;
 #endif
 };
 
