@@ -1274,7 +1274,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         else {
             size_t i = (tosize * totype->nextOf()->size() - 1) / fromtype->nextOf()->size();
             DConstValue index(Type::tsize_t, DtoConstSize_t(i));
-            DtoArrayBoundsCheck(loc, u, &index, false);
+            DtoArrayBoundsCheck(loc, u, &index);
 
             rval = DtoArrayPtr(u);
             rval = DtoBitCast(rval, getPtrToType(tolltype));
@@ -1302,24 +1302,49 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, bool isslice)
+void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBound)
 {
     Type* arrty = arr->getType()->toBasetype();
+#if DMDV2
+    assert((arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
+        "Can only array bounds check for static or dynamic arrays");
+#else
     assert((arrty->ty == Tsarray || arrty->ty == Tarray) &&
         "Can only array bounds check for static or dynamic arrays");
+#endif
 
     // static arrays could get static checks for static indices
     // but shouldn't since it might be generic code that's never executed
 
     // runtime check
 
+    bool lengthUnknown = arrty->ty == Tpointer;
+
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundscheckfail", gIR->topfunc(), oldend);
     llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundsok", gIR->topfunc(), oldend);
+    LLValue* cond = 0;
 
-    llvm::ICmpInst::Predicate cmpop = isslice ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_ULT;
-    LLValue* cond = gIR->ir->CreateICmp(cmpop, index->getRVal(), DtoArrayLen(arr), "boundscheck");
-    gIR->ir->CreateCondBr(cond, okbb, failbb);
+    if (!lengthUnknown) {
+        // if lowerBound is not NULL, we're checking slice
+        llvm::ICmpInst::Predicate cmpop = lowerBound ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_ULT;
+        // check for upper bound
+        cond = gIR->ir->CreateICmp(cmpop, index->getRVal(), DtoArrayLen(arr), "boundscheck");
+    }
+
+    if (!lowerBound) {
+        assert(cond);
+        gIR->ir->CreateCondBr(cond, okbb, failbb);
+    } else {
+        if (!lengthUnknown) {
+            llvm::BasicBlock* locheckbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundschecklowerbound", gIR->topfunc(), oldend);
+            gIR->ir->CreateCondBr(cond, locheckbb, failbb);
+            gIR->scope() = IRScope(locheckbb, failbb);
+        }
+        // check for lower bound
+        cond = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, lowerBound->getRVal(), index->getRVal(), "boundscheck");
+        gIR->ir->CreateCondBr(cond, okbb, failbb);
+    }
 
     // set up failbb to call the array bounds error runtime function
 

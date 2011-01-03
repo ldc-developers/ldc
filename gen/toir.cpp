@@ -1268,7 +1268,7 @@ DValue* IndexExp::toElem(IRState* p)
     }
     else if (e1type->ty == Tsarray) {
         if(global.params.useArrayBounds)
-            DtoArrayBoundsCheck(loc, l, r, false);
+            DtoArrayBoundsCheck(loc, l, r);
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
@@ -1303,7 +1303,7 @@ DValue* IndexExp::toElem(IRState* p)
                 r = new DVarValue(r->getType(), tmp);
             }
 #endif
-            DtoArrayBoundsCheck(loc, l, r, false);
+            DtoArrayBoundsCheck(loc, l, r);
         }
         arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());
@@ -1361,8 +1361,12 @@ DValue* SliceExp::toElem(IRState* p)
         LLValue* vlo = lo->getRVal();
         LLValue* vup = up->getRVal();
 
+#if DMDV2
+        if(global.params.useArrayBounds)
+#else
         if(global.params.useArrayBounds && (etype->ty == Tsarray || etype->ty == Tarray))
-            DtoArrayBoundsCheck(loc, e, up, true);
+#endif
+            DtoArrayBoundsCheck(loc, e, up, lo);
 
         // offset by lower
         eptr = DtoGEP1(eptr, vlo);
