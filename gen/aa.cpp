@@ -14,6 +14,16 @@
 #include "gen/dvalue.h"
 #include "ir/irmodule.h"
 
+#if DMDV2
+// returns the keytype typeinfo
+static LLValue* to_keyti(DValue* aa)
+{
+    // keyti param
+    assert(aa->type->toBasetype()->ty == Taarray);
+    TypeAArray * aatype = (TypeAArray*)aa->type->toBasetype();
+    return DtoTypeInfoOf(aatype->index, false);
+}
+#else
 // returns the keytype typeinfo
 static LLValue* to_keyti(DValue* key)
 {
@@ -21,6 +31,7 @@ static LLValue* to_keyti(DValue* key)
     Type* keytype = key->getType();
     return DtoTypeInfoOf(keytype, false);
 }
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////////
 
@@ -40,7 +51,11 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
     // keyti param
+#if DMDV2
+    LLValue* keyti = to_keyti(aa);
+#else
     LLValue* keyti = to_keyti(key);
+#endif
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
@@ -132,7 +147,11 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
     // keyti param
+#if DMDV2
+    LLValue* keyti = to_keyti(aa);
+#else
     LLValue* keyti = to_keyti(key);
+#endif
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
@@ -174,7 +193,11 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
     // keyti param
+#if DMDV2
+    LLValue* keyti = to_keyti(aa);
+#else
     LLValue* keyti = to_keyti(key);
+#endif
     keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
