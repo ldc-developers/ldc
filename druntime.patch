@@ -4448,7 +4448,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
 --- druntime-orig/import/object.di	2010-10-13 10:37:58.000000000 +0400
-+++ druntime/import/object.di	2010-12-30 13:40:26.000000000 +0300
++++ druntime/import/object.di	2011-01-03 16:21:43.223688001 +0300
 @@ -142,7 +142,7 @@
      // 32:      // has typeinfo member
      void*       deallocator;
@@ -4458,15 +4458,6 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      const(MemberInfo[]) function(string) xgetMembers;
  
      static TypeInfo_Class find(in char[] classname);
-@@ -189,7 +189,7 @@
- 
- class TypeInfo_Const : TypeInfo
- {
--    TypeInfo next;
-+    TypeInfo base;
- }
- 
- class TypeInfo_Invariant : TypeInfo_Const
 @@ -298,7 +298,6 @@
      interface TraceInfo
      {
@@ -4945,7 +4936,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/aaA.d druntime/src/rt/aaA.d
 --- druntime-orig/src/rt/aaA.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/aaA.d	2010-11-05 11:43:19.000000000 +0300
++++ druntime/src/rt/aaA.d	2011-01-02 20:06:15.617075000 +0300
 @@ -204,7 +204,7 @@
   * Add entry for key if it is not already there.
   */
