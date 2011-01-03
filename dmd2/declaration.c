@@ -244,6 +244,26 @@ int TupleDeclaration::needThis()
     return 0;
 }
 
+#if IN_LLVM
+
+void TupleDeclaration::semantic3(Scope *sc)
+{
+    //printf("TupleDeclaration::semantic3((%s)\n", toChars());
+    for (size_t i = 0; i < objects->dim; i++)
+    {   Object *o = (Object *)objects->data[i];
+        if (o->dyncast() == DYNCAST_EXPRESSION)
+        {   Expression *e = (Expression *)o;
+            if (e->op == TOKdsymbol)
+            {   DsymbolExp *ve = (DsymbolExp *)e;
+                Declaration *d = ve->s->isDeclaration();
+                d->semantic3(sc);
+            }
+        }
+    }
+}
+
+#endif
+
 /********************************* TypedefDeclaration ****************************/
 
 TypedefDeclaration::TypedefDeclaration(Loc loc, Identifier *id, Type *basetype, Initializer *init)
@@ -1380,6 +1400,9 @@ void VarDeclaration::semantic3(Scope *sc)
     // LDC
     if (!global.params.useAvailableExternally)
         availableExternally = false;
+
+    if (aliassym)
+        aliassym->semantic3(sc);
 
     // Preserve call chain
     Declaration::semantic3(sc);

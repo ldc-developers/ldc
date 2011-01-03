@@ -193,6 +193,7 @@ struct TupleDeclaration : Declaration
     TupleDeclaration *isTupleDeclaration() { return this; }
 
 #if IN_LLVM
+    void semantic3(Scope *sc);
     /// Codegen traversal
     void codegen(Ir* ir);
 #endif
