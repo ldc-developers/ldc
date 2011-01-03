@@ -394,7 +394,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     Type* t2 = rhs->getType()->toBasetype();
 
     if (t->ty == Tstruct) {
-        if (!t->equals(t2)) {
+        if (!stripModifiers(t)->equals(stripModifiers(t2))) {
             // FIXME: use 'rhs' for something !?!
             DtoAggrZeroInit(lhs->getLVal());
 #if DMDV2
