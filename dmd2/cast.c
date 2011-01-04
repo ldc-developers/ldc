@@ -1263,6 +1263,14 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 
         e = Expression::castTo(sc, t);
     }
+#if IN_LLVM
+    else if (e1->op == TOKvar)
+    {
+        VarExp *ve = (VarExp*)e1->copy();
+        ve->hasOverloads = 0;
+        e1 = ve;
+    }
+#endif
     e->type = t;
     return e;
 }

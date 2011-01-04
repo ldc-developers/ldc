@@ -780,6 +780,23 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 #endif
 
             // Give error for overloaded function addresses
+#if IN_LLVM
+            if (arg->op == TOKaddress)
+            {   AddrExp *ae = (AddrExp *)arg;
+                if (ae->e1->op == TOKvar) {
+                    VarExp *ve = (VarExp*)ae->e1;
+                    FuncDeclaration *fd = ve->var->isFuncDeclaration();
+                    if (fd &&
+#if DMDV2
+                    ve->hasOverloads &&
+#endif
+                    !fd->isUnique())
+                    {
+                        arg->error("function %s is overloaded", arg->toChars());
+                    }
+                }
+            }
+#else
             if (arg->op == TOKsymoff)
             {   SymOffExp *se = (SymOffExp *)arg;
                 if (
@@ -789,6 +806,7 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
                     !se->var->isFuncDeclaration()->isUnique())
                     arg->error("function %s is overloaded", arg->toChars());
             }
+#endif
             arg->rvalue();
         }
         arg = arg->optimize(WANTvalue);
