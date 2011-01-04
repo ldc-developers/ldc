@@ -141,6 +141,11 @@ bool d_have_inline_asm() { return true; }
 
 Statement *AsmStatement::semantic(Scope *sc)
 {
+#if DMDV2
+    if (sc->func && sc->func->isSafe())
+        error("inline assembler not allowed in @safe function %s", sc->func->toChars());
+#endif
+
     bool err = false;
     if ((global.params.cpu != ARCHx86) && (global.params.cpu != ARCHx86_64))
     {
