@@ -400,7 +400,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     // void[] init
     // emit null array if we should use the basetype, or if the basetype
     // uses default initialization.
-    if (!sd->init || tinfo->isZeroInit(0))
+    if (tinfo->isZeroInit(0) || !sd->init)
     {
         b.push_null_void_array();
     }
