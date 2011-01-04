@@ -8014,6 +8014,21 @@ int CastExp::checkSideEffect(int flag)
 
 void CastExp::checkEscape()
 {   Type *tb = type->toBasetype();
+
+#if IN_LLVM
+    if (e1->op == TOKvar &&
+        tb->ty == Tpointer &&
+        e1->type->toBasetype()->ty == Tsarray)
+    {
+        VarDeclaration *v = ((VarExp*)e1)->var->isVarDeclaration();
+        if (v)
+        {
+            if (!v->isDataseg() && !(v->storage_class & (STCref | STCout)))
+                error("escaping reference to local variable %s", v->toChars());
+        }
+    }
+#endif
+
     if (tb->ty == Tarray && e1->op == TOKvar &&
         e1->type->toBasetype()->ty == Tsarray)
     {   VarExp *ve = (VarExp *)e1;
