@@ -100,6 +100,17 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     assert(vdparent);
     
     IrFunction* irfunc = gIR->func();
+
+    // Check whether we can access the needed frame
+    FuncDeclaration *fd = irfunc->decl;
+    while (fd != vdparent) {
+        if (fd->isStatic()) {
+            error(loc, "function %s cannot access frame of function %s", irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
+            return new DVarValue(astype, vd, llvm::UndefValue::get(getPtrToType(DtoType(astype))));
+        }
+        fd = getParentFunc(fd, false);
+        assert(fd);
+    }
     
     // is the nested variable in this scope?
     if (vdparent == irfunc->decl)
