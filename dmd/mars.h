@@ -203,7 +203,7 @@ struct Param
     char *hdrdir;               // write 'header' file to docdir directory
     char *hdrname;              // write 'header' file to docname
 
-    char doXGeneration;         // write JSON file
+    bool doXGeneration;         // write JSON file
     char *xfilename;            // write JSON file to xfilename
 
     unsigned debuglevel;        // debug level

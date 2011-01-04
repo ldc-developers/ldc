@@ -541,9 +541,10 @@ struct CaseStatement : Statement
 
     CaseStatement* isCaseStatement() { return this; }
 
-    // LDC
+#if IN_LLVM
     llvm::BasicBlock* bodyBB;
-    llvm::ConstantInt* llvmIdx;
+    llvm::Value* llvmIdx;
+#endif
 };
 
 #if DMDV2
