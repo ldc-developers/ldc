@@ -28,6 +28,7 @@ namespace opts {
     extern cl::opt<cl::boolOrDefault> output_o;
     extern cl::opt<std::string> ddocDir;
     extern cl::opt<std::string> ddocFile;
+    extern cl::opt<std::string> jsonFile;
 #ifdef _DH
     extern cl::opt<std::string> hdrDir;
     extern cl::opt<std::string> hdrFile;

@@ -116,6 +116,15 @@ cl::opt<std::string> ddocFile("Df",
     cl::value_desc("filename"),
     cl::Prefix);
 
+// Json options
+static cl::opt<bool, true> doJson("X",
+    cl::desc("generate JSON file"),
+    cl::location(global.params.doXGeneration));
+
+cl::opt<std::string> jsonFile("Xf",
+    cl::desc("write JSON file to <filename>"),
+    cl::value_desc("filename"),
+    cl::Prefix);
 
 // Header generation options
 #ifdef _DH

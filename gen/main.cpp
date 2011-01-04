@@ -33,6 +33,7 @@
 #include "mtype.h"
 #include "id.h"
 #include "cond.h"
+#include "json.h"
 
 #include "gen/logger.h"
 #include "gen/linkage.h"
@@ -227,6 +228,10 @@ int main(int argc, char** argv)
     initFromString(global.params.docname, ddocFile);
     global.params.doDocComments |=
         global.params.docdir || global.params.docname;
+
+    initFromString(global.params.xfilename, jsonFile);
+    if (global.params.xfilename)
+        global.params.doXGeneration = true;
 
 #ifdef _DH
     initFromString(global.params.hdrdir, hdrDir);
@@ -724,6 +729,13 @@ LDC_TARGETS
                 continue;
             }
 
+            if (FileName::equals(ext, global.json_ext))
+            {
+                global.params.doXGeneration = 1;
+                global.params.xfilename = (char *)files.data[i];
+                continue;
+            }
+
 #if !POSIX
             if (stricmp(ext, "res") == 0)
             {
@@ -790,9 +802,9 @@ LDC_TARGETS
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
+        m->buildTargetFiles(singleObj);
         m->read(0);
         m->parse();
-        m->buildTargetFiles(singleObj);
         m->deleteObjFile();
         if (m->isDocFile)
         {
@@ -977,6 +989,10 @@ LDC_TARGETS
         writeModule(linker.getModule(), filename);
         global.params.objfiles->push(filename);
     }
+
+    // output json file
+    if (global.params.doXGeneration)
+        json_generate(&modules);
 
     backend_term();
     if (global.errors)
