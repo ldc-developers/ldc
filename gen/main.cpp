@@ -859,6 +859,9 @@ LDC_TARGETS
     if (global.errors)
         fatal();
 
+    Module::dprogress = 1;
+    Module::runDeferredSemantic();
+
     // Do pass 2 semantic analysis
     for (int i = 0; i < modules.dim; i++)
     {
