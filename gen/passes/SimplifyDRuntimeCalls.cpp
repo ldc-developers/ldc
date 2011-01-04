@@ -126,9 +126,9 @@ struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
         if (CI->use_empty())
             return CI;
 
-        Value* NewLen = CI->getOperand(2);
+        Value* NewLen = CI->getOperand(1);
         if (Constant* NewCst = dyn_cast<Constant>(NewLen)) {
-            Value* Data = CI->getOperand(4);
+            Value* Data = CI->getOperand(3);
 
             // For now, we just catch the simplest of cases.
             //
@@ -142,7 +142,7 @@ struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
                 return Data;
 
             // If both lengths are constant integers, see if NewLen <= OldLen
-            Value* OldLen = CI->getOperand(3);
+            Value* OldLen = CI->getOperand(2);
             if (ConstantInt* OldInt = dyn_cast<ConstantInt>(OldLen))
                 if (ConstantInt* NewInt = dyn_cast<ConstantInt>(NewCst))
                     if (NewInt->getValue().ule(OldInt->getValue()))

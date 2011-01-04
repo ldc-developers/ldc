@@ -740,6 +740,10 @@ Expression *ForStatement::interpret(InterState *istate)
 
 Expression *ForeachStatement::interpret(InterState *istate)
 {
+#if 1
+    assert(0);                  // rewritten to ForStatement
+    return NULL;
+#else
 #if LOG
     printf("ForeachStatement::interpret()\n");
 #endif
@@ -822,11 +826,16 @@ Expression *ForeachStatement::interpret(InterState *istate)
     if (key)
         key->value = keysave;
     return e;
+#endif
 }
 
 #if DMDV2
 Expression *ForeachRangeStatement::interpret(InterState *istate)
 {
+#if 1
+    assert(0);                  // rewritten to ForStatement
+    return NULL;
+#else
 #if LOG
     printf("ForeachRangeStatement::interpret()\n");
 #endif
@@ -907,6 +916,7 @@ Expression *ForeachRangeStatement::interpret(InterState *istate)
     }
     key->value = keysave;
     return e;
+#endif
 }
 #endif
 

@@ -678,7 +678,7 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
 #endif
     this->loc = loc;
     offset = 0;
-    noauto = 0;
+    noscope = 0;
 #if DMDV2
     isargptr = FALSE;
 #endif
@@ -821,7 +821,7 @@ void VarDeclaration::semantic(Scope *sc)
         }
     }
     if ((storage_class & STCauto) && !inferred)
-        error("both auto and explicit type given");
+       error("storage class 'auto' has no effect if type is not inferred, did you mean 'scope'?");
 
     if (tb->ty == Ttuple)
     {   /* Instead, declare variables for each of the tuple elements
@@ -959,7 +959,7 @@ void VarDeclaration::semantic(Scope *sc)
     }
 #endif
 
-    if (type->isscope() && !noauto)
+    if (type->isscope() && !noscope)
     {
         if (storage_class & (STCfield | STCout | STCref | STCstatic) || !fd)
         {
@@ -1431,7 +1431,7 @@ Expression *VarDeclaration::callScopeDtor(Scope *sc)
 {   Expression *e = NULL;
 
     //printf("VarDeclaration::callScopeDtor() %s\n", toChars());
-    if (storage_class & STCscope && !noauto)
+    if (storage_class & STCscope && !noscope)
     {
         for (ClassDeclaration *cd = type->isClassHandle();
              cd;
@@ -1641,7 +1641,7 @@ TypeInfoTupleDeclaration::TypeInfoTupleDeclaration(Type *tinfo)
 ThisDeclaration::ThisDeclaration(Loc loc, Type *t)
    : VarDeclaration(loc, t, Id::This, NULL)
 {
-    noauto = 1;
+    noscope = 1;
 }
 
 Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *s)

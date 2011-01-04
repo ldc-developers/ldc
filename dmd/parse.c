@@ -5469,6 +5469,15 @@ enum PREC precedence[TOKMAX];
 
 void initPrecedence()
 {
+    for (int i = 0; i < TOKMAX; i++)
+        precedence[i] = PREC_zero;
+
+    precedence[TOKtype] = PREC_expr;
+    precedence[TOKerror] = PREC_expr;
+
+    precedence[TOKtypeof] = PREC_primary;
+    precedence[TOKmixin] = PREC_primary;
+
     precedence[TOKdotvar] = PREC_primary;
     precedence[TOKimport] = PREC_primary;
     precedence[TOKidentifier] = PREC_primary;
@@ -5484,19 +5493,26 @@ void initPrecedence()
     precedence[TOKassert] = PREC_primary;
     precedence[TOKfunction] = PREC_primary;
     precedence[TOKvar] = PREC_primary;
+    precedence[TOKsymoff] = PREC_primary;
+    precedence[TOKstructliteral] = PREC_primary;
+    precedence[TOKarraylength] = PREC_primary;
+    precedence[TOKtuple] = PREC_primary;
 #if DMDV2
+    precedence[TOKtraits] = PREC_primary;
     precedence[TOKdefault] = PREC_primary;
 #endif
 
     // post
     precedence[TOKdotti] = PREC_primary;
     precedence[TOKdot] = PREC_primary;
+    precedence[TOKdottd] = PREC_primary;
 //  precedence[TOKarrow] = PREC_primary;
     precedence[TOKplusplus] = PREC_primary;
     precedence[TOKminusminus] = PREC_primary;
     precedence[TOKcall] = PREC_primary;
     precedence[TOKslice] = PREC_primary;
     precedence[TOKarray] = PREC_primary;
+    precedence[TOKindex] = PREC_primary;
 
     precedence[TOKaddress] = PREC_unary;
     precedence[TOKstar] = PREC_unary;
@@ -5579,6 +5595,7 @@ void initPrecedence()
     precedence[TOKxorass] = PREC_assign;
 
     precedence[TOKcomma] = PREC_expr;
+    precedence[TOKdeclaration] = PREC_expr;
 }
 
 
