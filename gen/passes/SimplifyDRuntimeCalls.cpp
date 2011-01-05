@@ -159,12 +159,13 @@ struct LLVM_LIBRARY_VISIBILITY ArrayCastLenOpt : public LibCallOptimization {
         const FunctionType *FT = Callee->getFunctionType();
         const Type* RetTy = FT->getReturnType();
         if (Callee->arg_size() != 3 || !isa<IntegerType>(RetTy) ||
-            FT->getParamType(1) != RetTy || FT->getParamType(2) != RetTy)
+            FT->getParamType(0) != RetTy || FT->getParamType(1) != RetTy ||
+            FT->getParamType(2) != RetTy)
           return 0;
 
-        Value* OldLen = CI->getOperand(1);
-        Value* OldSize = CI->getOperand(2);
-        Value* NewSize = CI->getOperand(3);
+        Value* OldLen = CI->getOperand(0);
+        Value* OldSize = CI->getOperand(1);
+        Value* NewSize = CI->getOperand(2);
 
         // If the old length was zero, always return zero.
         if (Constant* LenCst = dyn_cast<Constant>(OldLen))
@@ -240,10 +241,10 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
             FT->getParamType(3) != FT->getParamType(1))
           return 0;
 
-        Value* Size = CI->getOperand(2);
+        Value* Size = CI->getOperand(1);
 
         // Check the lengths match
-        if (CI->getOperand(4) != Size)
+        if (CI->getOperand(3) != Size)
             return 0;
 
         // Assume unknown size unless we have constant size (that fits in an uint)
@@ -253,12 +254,12 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
                 Sz = Int->getValue().getZExtValue();
 
         // Check if the pointers may alias
-        if (AA->alias(CI->getOperand(1), Sz, CI->getOperand(3), Sz))
+        if (AA->alias(CI->getOperand(0), Sz, CI->getOperand(2), Sz))
             return 0;
 
         // Equal length and the pointers definitely don't alias, so it's safe to
         // replace the call with memcpy
-        return EmitMemCpy(CI->getOperand(1), CI->getOperand(3), Size, 1, B);
+        return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), Size, 1, B);
     }
 };
 
