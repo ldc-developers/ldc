@@ -915,10 +915,8 @@ DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
     // ref/out arg
     if (fnarg && (fnarg->storageClass & (STCref | STCout)))
     {
-        if (arg->isVar())
-            arg = new DImValue(argexp->type, arg->getLVal());
-        else
-            arg = new DImValue(argexp->type, arg->getRVal());
+        Loc loc;
+        arg = new DImValue(argexp->type, makeLValue(loc, arg));
     }
     // lazy arg
     else if (fnarg && (fnarg->storageClass & STClazy))

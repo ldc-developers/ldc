@@ -1223,10 +1223,10 @@ Type *Type::addStorageClass(StorageClass stc)
     else
     {   if (stc & (STCconst | STCin))
             mod = MODconst;
+        else if (stc & STCwild)         // const takes precedence over wild
+            mod |= MODwild;
         if (stc & STCshared)
             mod |= MODshared;
-        if (stc & STCwild)
-            mod |= MODwild;
     }
     return addMod(mod);
 }
@@ -2198,7 +2198,7 @@ Type *TypeNext::makeConst()
     }
     TypeNext *t = (TypeNext *)Type::makeConst();
     if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
+        //(next->deco || next->ty == Tfunction) &&
         !next->isImmutable() && !next->isConst())
     {   if (next->isShared())
             t->next = next->sharedConstOf();
@@ -2222,7 +2222,7 @@ Type *TypeNext::makeInvariant()
     }
     TypeNext *t = (TypeNext *)Type::makeInvariant();
     if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
+        //(next->deco || next->ty == Tfunction) &&
         !next->isImmutable())
     {   t->next = next->invariantOf();
     }
@@ -2242,7 +2242,7 @@ Type *TypeNext::makeShared()
     }
     TypeNext *t = (TypeNext *)Type::makeShared();
     if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
+        //(next->deco || next->ty == Tfunction) &&
         !next->isImmutable() && !next->isShared())
     {
         if (next->isConst() || next->isWild())
@@ -2267,7 +2267,7 @@ Type *TypeNext::makeSharedConst()
     }
     TypeNext *t = (TypeNext *)Type::makeSharedConst();
     if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
+        //(next->deco || next->ty == Tfunction) &&
         !next->isImmutable() && !next->isSharedConst())
     {
         t->next = next->sharedConstOf();
@@ -2289,7 +2289,7 @@ Type *TypeNext::makeWild()
     }
     TypeNext *t = (TypeNext *)Type::makeWild();
     if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
+        //(next->deco || next->ty == Tfunction) &&
         !next->isImmutable() && !next->isConst() && !next->isWild())
     {
         if (next->isShared())
@@ -2314,7 +2314,7 @@ Type *TypeNext::makeSharedWild()
     }
     TypeNext *t = (TypeNext *)Type::makeSharedWild();
     if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
+        //(next->deco || next->ty == Tfunction) &&
         !next->isImmutable() && !next->isSharedConst())
     {
         t->next = next->sharedWildOf();
@@ -2331,9 +2331,9 @@ Type *TypeNext::makeMutable()
 {
     //printf("TypeNext::makeMutable() %p, %s\n", this, toChars());
     TypeNext *t = (TypeNext *)Type::makeMutable();
-    if (ty != Tfunction && ty != Tdelegate &&
-        (next->deco || next->ty == Tfunction) &&
-        next->isWild())
+    if ((ty != Tfunction && ty != Tdelegate &&
+        //(next->deco || next->ty == Tfunction) &&
+        next->isWild()) || ty == Tsarray)
     {
         t->next = next->mutableOf();
     }
@@ -3509,7 +3509,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
             {
               Loverflow:
                 error(loc, "index %jd overflow for static array", d1);
-                dim = new IntegerExp(0, 1, tsize_t);
+                goto Lerror;
             }
         }
     }
@@ -3523,7 +3523,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 
             if (d >= tt->arguments->dim)
             {   error(loc, "tuple index %ju exceeds %u", d, tt->arguments->dim);
-                return Type::terror;
+                goto Lerror;
             }
             Parameter *arg = (Parameter *)tt->arguments->data[(size_t)d];
             return arg->type;
@@ -3531,18 +3531,30 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
         case Tstruct:
         {   TypeStruct *ts = (TypeStruct *)tbn;
             if (ts->sym->isnested)
-                error(loc, "cannot have array of inner structs %s", ts->toChars());
+            {   error(loc, "cannot have array of inner structs %s", ts->toChars());
+                goto Lerror;
+            }
             break;
         }
         case Tfunction:
         case Tnone:
             error(loc, "can't have array of %s", tbn->toChars());
-            tbn = next = tint32;
-            break;
+            goto Lerror;
     }
     if (tbn->isscope())
-        error(loc, "cannot have array of scope %s", tbn->toChars());
-    return merge();
+    {   error(loc, "cannot have array of scope %s", tbn->toChars());
+        goto Lerror;
+    }
+
+    /* Ensure things like const(immutable(T)[3]) become immutable(T[3])
+     * and const(T)[3] become const(T[3])
+     */
+    t = addMod(next->mod);
+
+    return t->merge();
+
+Lerror:
+    return Type::terror;
 }
 
 void TypeSArray::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
@@ -4096,6 +4108,7 @@ printf("index->ito->ito = x%x\n", index->ito->ito);
     switch (next->toBasetype()->ty)
     {
         case Tfunction:
+        case Tvoid:
         case Tnone:
             error(loc, "can't have associative array of %s", next->toChars());
             return Type::terror;
@@ -5882,7 +5895,19 @@ L1:
     }
     if (!s)
     {
-        error(loc, "identifier '%s' is not defined", toChars());
+        const char *p = toChars();
+        const char *n = importHint(p);
+        if (n)
+            error(loc, "'%s' is not defined, perhaps you need to import %s; ?", p, n);
+        else
+        {
+            Identifier *id = new Identifier(p, TOKidentifier);
+            s = sc->search_correct(id);
+            if (s)
+                error(loc, "undefined identifier %s, did you mean %s %s?", p, s->kind(), s->toChars());
+            else
+                error(loc, "undefined identifier %s", p);
+        }
     }
 }
 
@@ -6197,7 +6222,7 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
 {   Expression *e;
     Type *t;
 
-    //printf("TypeTypeof::semantic() %p\n", this);
+    //printf("TypeTypeof::semantic() %s\n", toChars());
 
     //static int nest; if (++nest == 50) *(char*)0=0;
 
@@ -6248,14 +6273,15 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     else
 #endif
     {
-        sc->intypeof++;
-        exp = exp->semantic(sc);
+        Scope *sc2 = sc->push();
+        sc2->intypeof++;
+        exp = exp->semantic(sc2);
 #if DMDV2
         if (exp->type && exp->type->ty == Tfunction &&
             ((TypeFunction *)exp->type)->isproperty)
-            exp = resolveProperties(sc, exp);
+            exp = resolveProperties(sc2, exp);
 #endif
-        sc->intypeof--;
+        sc2->pop();
         if (exp->op == TOKtype)
         {
             error(loc, "argument %s to typeof is not an expression", exp->toChars());
@@ -6304,7 +6330,7 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     return t;
 
 Lerr:
-    return tvoid;
+    return terror;
 }
 
 d_uns64 TypeTypeof::size(Loc loc)
@@ -7290,6 +7316,30 @@ int TypeStruct::hasPointers()
     return FALSE;
 }
 
+static MATCH aliasthisConvTo(AggregateDeclaration *ad, Type *from, Type *to)
+{
+    assert(ad->aliasthis);
+    Declaration *d = ad->aliasthis->isDeclaration();
+    if (d)
+    {   assert(d->type);
+        Type *t = d->type;
+        if (d->isVarDeclaration() && d->needThis())
+        {
+            t = t->addMod(from->mod);
+        }
+        else if (d->isFuncDeclaration())
+        {
+            FuncDeclaration *fd = (FuncDeclaration *)d;
+            Expression *ethis = from->defaultInit(0);
+            fd = fd->overloadResolve(0, ethis, NULL);
+            if (fd)
+                t = ((TypeFunction *)fd->type)->next;
+        }
+        return t->implicitConvTo(to);
+    }
+    return MATCHnomatch;
+}
+
 MATCH TypeStruct::implicitConvTo(Type *to)
 {   MATCH m;
 
@@ -7304,7 +7354,8 @@ MATCH TypeStruct::implicitConvTo(Type *to)
         to = ((TypeAArray*)to)->getImpl()->type;
         --global.gag;
         if (errs != global.errors)
-        {   global.errors = errs;
+        {
+            global.errors = errs;
             return MATCHnomatch;
         }
     }
@@ -7339,15 +7390,7 @@ MATCH TypeStruct::implicitConvTo(Type *to)
         }
     }
     else if (sym->aliasthis)
-    {
-        m = MATCHnomatch;
-        Declaration *d = sym->aliasthis->isDeclaration();
-        if (d)
-        {   assert(d->type);
-            Type *t = d->type->addMod(mod);
-            m = t->implicitConvTo(to);
-        }
-    }
+        m = aliasthisConvTo(sym, this, to);
     else
         m = MATCHnomatch;       // no match
     return m;
@@ -7812,14 +7855,7 @@ MATCH TypeClass::implicitConvTo(Type *to)
 
     m = MATCHnomatch;
     if (sym->aliasthis)
-    {
-        Declaration *d = sym->aliasthis->isDeclaration();
-        if (d)
-        {   assert(d->type);
-            Type *t = d->type->addMod(mod);
-            m = t->implicitConvTo(to);
-        }
-    }
+        m = aliasthisConvTo(sym, this, to);
 
     return m;
 }
@@ -7904,6 +7940,30 @@ TypeTuple::TypeTuple(Expressions *exps)
     }
     this->arguments = arguments;
     //printf("TypeTuple() %p, %s\n", this, toChars());
+}
+
+/*******************************************
+ * Type tuple with 0, 1 or 2 types in it.
+ */
+TypeTuple::TypeTuple()
+    : Type(Ttuple)
+{
+    arguments = new Parameters();
+}
+
+TypeTuple::TypeTuple(Type *t1)
+    : Type(Ttuple)
+{
+    arguments = new Parameters();
+    arguments->push(new Parameter(0, t1, NULL, NULL));
+}
+
+TypeTuple::TypeTuple(Type *t1, Type *t2)
+    : Type(Ttuple)
+{
+    arguments = new Parameters();
+    arguments->push(new Parameter(0, t1, NULL, NULL));
+    arguments->push(new Parameter(0, t2, NULL, NULL));
 }
 
 Type *TypeTuple::syntaxCopy()

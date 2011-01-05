@@ -86,7 +86,7 @@ void argsToCBuffer(OutBuffer *buf, Expressions *arguments, HdrGenState *hgs);
 void expandTuples(Expressions *exps);
 FuncDeclaration *hasThis(Scope *sc);
 Expression *fromConstInitializer(int result, Expression *e);
-int arrayExpressionCanThrow(Expressions *exps);
+int arrayExpressionCanThrow(Expressions *exps, bool mustNotThrow);
 
 struct IntRange
 {   uinteger_t imin;
@@ -163,7 +163,7 @@ struct Expression : Object
     virtual int isBool(int result);
     virtual int isBit();
     virtual int checkSideEffect(int flag);
-    virtual int canThrow();
+    virtual int canThrow(bool mustNotThrow);
 
     virtual int inlineCost(InlineCostState *ics);
     virtual Expression *doInline(InlineDoState *ids);
@@ -448,7 +448,7 @@ struct TupleExp : Expression
 #if IN_DMD
     elem *toElem(IRState *irs);
 #endif
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -477,7 +477,7 @@ struct ArrayLiteralExp : Expression
     Expression *interpret(InterState *istate);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -513,7 +513,7 @@ struct AssocArrayLiteralExp : Expression
     Expression *interpret(InterState *istate);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -552,7 +552,7 @@ struct StructLiteralExp : Expression
     Expression *interpret(InterState *istate);
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
     MATCH implicitConvTo(Type *t);
 
     int inlineCost(InlineCostState *ics);
@@ -644,7 +644,7 @@ struct NewExp : Expression
     int checkSideEffect(int flag);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void scanForNestedRef(Scope *sc);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     //int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -670,7 +670,7 @@ struct NewAnonClassExp : Expression
     Expression *semantic(Scope *sc);
     int checkSideEffect(int flag);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 };
 
 #if DMDV2
@@ -808,7 +808,7 @@ struct DeclarationExp : Expression
     elem *toElem(IRState *irs);
 #endif
     void scanForNestedRef(Scope *sc);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -891,7 +891,7 @@ struct UnaExp : Expression
     void dump(int indent);
     void scanForNestedRef(Scope *sc);
     Expression *interpretCommon(InterState *istate, Expression *(*fp)(Type *, Expression *));
-    int canThrow();
+    int canThrow(bool mustNotThrow);
     Expression *resolveLoc(Loc loc, Scope *sc);
 
     int inlineCost(InlineCostState *ics);
@@ -924,7 +924,7 @@ struct BinExp : Expression
     Expression *interpretCommon(InterState *istate, Expression *(*fp)(Type *, Expression *, Expression *));
     Expression *interpretCommon2(InterState *istate, Expression *(*fp)(TOK, Type *, Expression *, Expression *));
     Expression *interpretAssignCommon(InterState *istate, Expression *(*fp)(Type *, Expression *, Expression *), int post = 0);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
     Expression *arrayOp(Scope *sc);
 
     int inlineCost(InlineCostState *ics);
@@ -981,7 +981,7 @@ struct AssertExp : UnaExp
     Expression *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int checkSideEffect(int flag);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     int inlineCost(InlineCostState *ics);
@@ -1114,7 +1114,7 @@ struct CallExp : UnaExp
     void scanForNestedRef(Scope *sc);
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -1985,7 +1985,7 @@ struct CondExp : BinExp
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
     void scanForNestedRef(Scope *sc);
-    int canThrow();
+    int canThrow(bool mustNotThrow);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);

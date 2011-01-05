@@ -1,6 +1,6 @@
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/atomic.di druntime/import/core/atomic.di
---- druntime-orig/import/core/atomic.di	2010-10-29 04:54:24.000000000 +0400
-+++ druntime/import/core/atomic.di	2010-12-31 12:58:56.716952002 +0300
+--- druntime-orig/import/core/atomic.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/atomic.di	2011-01-05 14:41:38.000000000 +0300
 @@ -1,567 +1,664 @@
 -// D import file generated from 'src\core\atomic.d'
 -module core.atomic;
@@ -54,7 +54,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -}
 -
 -}
--version (ddoc)
+-version (D_Ddoc)
 -{
 -    template atomicOp(string op,T,V1)
 -{
@@ -621,7 +621,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 +
 +}
-+version (ddoc)
++version (D_Ddoc)
 +{
 +    template atomicOp(string op,T,V1)
 +{
@@ -1233,316 +1233,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 +}
 +    }
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/math.d druntime/import/core/stdc/math.d
---- druntime-orig/import/core/stdc/math.d	2009-11-30 10:04:54.000000000 +0300
-+++ druntime/import/core/stdc/math.d	2010-11-04 17:49:07.000000000 +0300
-@@ -17,6 +17,7 @@
- 
- extern (C):
- nothrow:
-+pure: // LDC
- 
- alias float  float_t;
- alias double double_t;
-@@ -367,7 +368,7 @@
-     }
-   }
- }
--else version( freebsd )
-+else version( FreeBSD )
- {
-     enum
-     {
-@@ -468,37 +469,123 @@
-     int isunordered(real x, real y)        { return (x !<>= y); }
- }
- 
--// NOTE: freebsd < 8-CURRENT doesn't appear to support *l, but we can
--//       approximate.
--version( freebsd )
-+/* NOTE: freebsd < 8-CURRENT doesn't appear to support *l, but we can
-+ *       approximate.
-+ * A lot of them were added in 8.0-RELEASE, and so a lot of these workarounds
-+ * should then be removed.
-+ */
-+// NOTE: FreeBSD 8.0-RELEASE doesn't support log2* nor these *l functions:
-+//         acoshl, asinhl, atanhl, coshl, sinhl, tanhl, cbrtl, powl, expl,
-+//         expm1l, logl, log1pl, log10l, erfcl, erfl, lgammal, tgammal;
-+//       but we can approximate.
-+version( FreeBSD )
- {
-+  version (all) // < 8-CURRENT
-+  {
-+    real    acosl(real x) { return acos(x); }
-+    real    asinl(real x) { return asin(x); }
-+    real    atanl(real x) { return atan(x); }
-+    real    atan2l(real y, real x) { return atan2(y, x); }
-+    real    cosl(real x) { return cos(x); }
-+    real    sinl(real x) { return sin(x); }
-+    real    tanl(real x) { return tan(x); }
-+    real    exp2l(real x) { return exp2(x); }
-+    real    frexpl(real value, int* exp) { return frexp(value, exp); }
-+    int     ilogbl(real x) { return ilogb(x); }
-+    real    ldexpl(real x, int exp) { return ldexp(x, exp); }
-+    real    logbl(real x) { return logb(x); }
-+    //real    modfl(real value, real *iptr); // nontrivial conversion
-+    real    scalbnl(real x, int n) { return scalbn(x, n); }
-+    real    scalblnl(real x, c_long n) { return scalbln(x, n); }
-+    real    fabsl(real x) { return fabs(x); }
-+    real    hypotl(real x, real y) { return hypot(x, y); }
-+    real    sqrtl(real x) { return sqrt(x); }
-+    real    ceill(real x) { return ceil(x); }
-+    real    floorl(real x) { return floor(x); }
-+    real    nearbyintl(real x) { return nearbyint(x); }
-+    real    rintl(real x) { return rint(x); }
-+    c_long  lrintl(real x) { return lrint(x); }
-+    real    roundl(real x) { return round(x); }
-+    c_long  lroundl(real x) { return lround(x); }
-+    long    llroundl(real x) { return llround(x); }
-+    real    truncl(real x) { return trunc(x); }
-+    real    fmodl(real x, real y) { return fmod(x, y); }
-+    real    remainderl(real x, real y) { return remainder(x, y); }
-+    real    remquol(real x, real y, int* quo) { return remquo(x, y, quo); }
-+    real    copysignl(real x, real y) { return copysign(x, y); }
-+//  double  nan(char* tagp);
-+//  float   nanf(char* tagp);
-+//  real    nanl(char* tagp);
-+    real    nextafterl(real x, real y) { return nextafter(x, y); }
-+    real    nexttowardl(real x, real y) { return nexttoward(x, y); }
-+    real    fdiml(real x, real y) { return fdim(x, y); }
-+    real    fmaxl(real x, real y) { return fmax(x, y); }
-+    real    fminl(real x, real y) { return fmin(x, y); }
-+    real    fmal(real x, real y, real z) { return fma(x, y, z); }
-+  }
-+  else
-+  {
-+    real    acosl(real x);
-+    real    asinl(real x);
-+    real    atanl(real x);
-+    real    atan2l(real y, real x);
-+    real    cosl(real x);
-+    real    sinl(real x);
-+    real    tanl(real x);
-+    real    exp2l(real x);
-+    real    frexpl(real value, int* exp);
-+    int     ilogbl(real x);
-+    real    ldexpl(real x, int exp);
-+    real    logbl(real x);
-+    real    modfl(real value, real *iptr);
-+    real    scalbnl(real x, int n);
-+    real    scalblnl(real x, c_long n);
-+    real    fabsl(real x);
-+    real    hypotl(real x, real y);
-+    real    sqrtl(real x);
-+    real    ceill(real x);
-+    real    floorl(real x);
-+    real    nearbyintl(real x);
-+    real    rintl(real x);
-+    c_long  lrintl(real x);
-+    real    roundl(real x);
-+    c_long  lroundl(real x);
-+    long    llroundl(real x);
-+    real    truncl(real x);
-+    real    fmodl(real x, real y);
-+    real    remainderl(real x, real y);
-+    real    remquol(real x, real y, int* quo);
-+    real    copysignl(real x, real y);
-+    double  nan(char* tagp);
-+    float   nanf(char* tagp);
-+    real    nanl(char* tagp);
-+    real    nextafterl(real x, real y);
-+    real    nexttowardl(real x, real y);
-+    real    fdiml(real x, real y);
-+    real    fmaxl(real x, real y);
-+    real    fminl(real x, real y);
-+    real    fmal(real x, real y, real z);
-+  }
-     double  acos(double x);
-     float   acosf(float x);
--    real    acosl(real x) { return acos(x); }
- 
-     double  asin(double x);
-     float   asinf(float x);
--    real    asinl(real x) { return asin(x); }
- 
-     double  atan(double x);
-     float   atanf(float x);
--    real    atanl(real x) { return atan(x); }
- 
-     double  atan2(double y, double x);
-     float   atan2f(float y, float x);
--    real    atan2l(real y, real x) { return atan2(y, x); }
- 
-     double  cos(double x);
-     float   cosf(float x);
--    real    cosl(real x) { return cos(x); }
- 
-     double  sin(double x);
-     float   sinf(float x);
--    real    sinl(real x) { return sin(x); }
- 
-     double  tan(double x);
-     float   tanf(float x);
--    real    tanl(real x) { return tan(x); }
- 
-     double  acosh(double x);
-     float   acoshf(float x);
-@@ -530,7 +617,6 @@
- 
-     double  exp2(double x);
-     float   exp2f(float x);
--    real    exp2l(real x) { return exp2(x); }
- 
-     double  expm1(double x);
-     float   expm1f(float x);
-@@ -538,15 +624,12 @@
- 
-     double  frexp(double value, int* exp);
-     float   frexpf(float value, int* exp);
--    real    frexpl(real value, int* exp) { return frexp(value, exp); }
- 
-     int     ilogb(double x);
-     int     ilogbf(float x);
--    int     ilogbl(real x) { return ilogb(x); }
- 
-     double  ldexp(double x, int exp);
-     float   ldexpf(float x, int exp);
--    real    ldexpl(real x, int exp) { return ldexp(x, exp); }
- 
-     double  log(double x);
-     float   logf(float x);
-@@ -567,20 +650,15 @@
- 
-     double  logb(double x);
-     float   logbf(float x);
--    real    logbl(real x) { return logb(x); }
- 
-     double  modf(double value, double* iptr);
-     float   modff(float value, float* iptr);
--    //real    modfl(real value, real *iptr); // nontrivial conversion
- 
-     double  scalbn(double x, int n);
-     float   scalbnf(float x, int n);
--    real    scalbnl(real x, int n) { return scalbn(x, n); }
- 
-     double  scalbln(double x, c_long n);
-     float   scalblnf(float x, c_long n);
--    real    scalblnl(real x, c_long n) { return scalbln(x, n); }
--
- 
-     double  cbrt(double x);
-     float   cbrtf(float x);
-@@ -588,11 +666,9 @@
- 
-     double  fabs(double x);
-     float   fabsf(float x);
--    real    fabsl(real x) { return fabs(x); }
- 
-     double  hypot(double x, double y);
-     float   hypotf(float x, float y);
--    real    hypotl(real x, real y) { return hypot(x, y); }
- 
-     double  pow(double x, double y);
-     float   powf(float x, float y);
-@@ -600,7 +676,6 @@
- 
-     double  sqrt(double x);
-     float   sqrtf(float x);
--    real    sqrtl(real x) { return sqrt(x); }
- 
-     double  erf(double x);
-     float   erff(float x);
-@@ -620,23 +695,18 @@
- 
-     double  ceil(double x);
-     float   ceilf(float x);
--    real    ceill(real x) { return ceil(x); }
- 
-     double  floor(double x);
-     float   floorf(float x);
--    real    floorl(real x) { return floor(x); }
- 
-     double  nearbyint(double x);
-     float   nearbyintf(float x);
--    real    nearbyintl(real x) { return nearbyint(x); }
- 
-     double  rint(double x);
-     float   rintf(float x);
--    real    rintl(real x) { return rint(x); }
- 
-     c_long  lrint(double x);
-     c_long  lrintf(float x);
--    c_long  lrintl(real x) { return lrint(x); }
- 
-     long    llrint(double x);
-     long    llrintf(float x);
-@@ -644,63 +714,45 @@
- 
-     double  round(double x);
-     float   roundf(float x);
--    real    roundl(real x) { return round(x); }
- 
-     c_long  lround(double x);
-     c_long  lroundf(float x);
--    c_long  lroundl(real x) { return lround(x); }
- 
-     long    llround(double x);
-     long    llroundf(float x);
--    long    llroundl(real x) { return llround(x); }
- 
-     double  trunc(double x);
-     float   truncf(float x);
--    real    truncl(real x) { return trunc(x); }
- 
-     double  fmod(double x, double y);
-     float   fmodf(float x, float y);
--    real    fmodl(real x, real y) { return fmod(x, y); }
- 
-     double  remainder(double x, double y);
-     float   remainderf(float x, float y);
--    real    remainderl(real x, real y) { return remainder(x, y); }
- 
-     double  remquo(double x, double y, int* quo);
-     float   remquof(float x, float y, int* quo);
--    real    remquol(real x, real y, int* quo) { return remquo(x, y, quo); }
- 
-     double  copysign(double x, double y);
-     float   copysignf(float x, float y);
--    real    copysignl(real x, real y) { return copysign(x, y); }
--
--//  double  nan(char* tagp);
--//  float   nanf(char* tagp);
--//  real    nanl(char* tagp);
- 
-     double  nextafter(double x, double y);
-     float   nextafterf(float x, float y);
--    real    nextafterl(real x, real y) { return nextafter(x, y); }
- 
-     double  nexttoward(double x, real y);
-     float   nexttowardf(float x, real y);
--    real    nexttowardl(real x, real y) { return nexttoward(x, y); }
- 
-     double  fdim(double x, double y);
-     float   fdimf(float x, float y);
--    real    fdiml(real x, real y) { return fdim(x, y); }
- 
-     double  fmax(double x, double y);
-     float   fmaxf(float x, float y);
--    real    fmaxl(real x, real y) { return fmax(x, y); }
- 
-     double  fmin(double x, double y);
-     float   fminf(float x, float y);
--    real    fminl(real x, real y) { return fmin(x, y); }
- 
-     double  fma(double x, double y, double z);
-     float   fmaf(float x, float y, float z);
--    real    fmal(real x, real y, real z) { return fma(x, y, z); }
- }
- else
- {
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/math.di druntime/import/core/stdc/math.di
---- druntime-orig/import/core/stdc/math.di	2010-10-29 04:54:24.000000000 +0400
-+++ druntime/import/core/stdc/math.di	2010-12-30 15:26:21.142104001 +0300
+--- druntime-orig/import/core/stdc/math.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/stdc/math.di	2011-01-05 14:40:22.000000000 +0300
 @@ -1,1134 +1,1135 @@
 -// D import file generated from 'src\core\stdc\math.d'
 -module core.stdc.math;
@@ -3813,26 +3506,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 +
 +
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/stdlib.d druntime/import/core/stdc/stdlib.d
---- druntime-orig/import/core/stdc/stdlib.d	2009-11-30 10:02:20.000000000 +0300
-+++ druntime/import/core/stdc/stdlib.d	2010-11-04 17:49:07.000000000 +0300
-@@ -92,3 +92,13 @@
- {
-     void* alloca(size_t size); // non-standard
- }
-+else version( LDC )
-+{
-+    pragma(alloca)
-+        void* alloca(size_t size);
-+}
-+else version( GNU )
-+{
-+    private import gcc.builtins;
-+    alias gcc.builtins.__builtin_alloca alloca;
-+}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/stdlib.di druntime/import/core/stdc/stdlib.di
---- druntime-orig/import/core/stdc/stdlib.di	2010-10-29 04:54:24.000000000 +0400
-+++ druntime/import/core/stdc/stdlib.di	2010-12-30 15:26:39.786104000 +0300
+--- druntime-orig/import/core/stdc/stdlib.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/stdc/stdlib.di	2011-01-05 14:40:22.000000000 +0300
 @@ -1,72 +1,89 @@
 -// D import file generated from 'src\core\stdc\stdlib.d'
 -module core.stdc.stdlib;
@@ -3996,20 +3672,22 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 +
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/vararg.di druntime/import/core/vararg.di
---- druntime-orig/import/core/vararg.di	2010-10-29 04:54:24.000000000 +0400
-+++ druntime/import/core/vararg.di	2011-01-02 18:55:32.561075001 +0300
-@@ -1,26 +1,37 @@
+--- druntime-orig/import/core/vararg.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/vararg.di	2011-01-05 14:41:51.000000000 +0300
+@@ -1,34 +1,45 @@
 -// D import file generated from 'src\core\vararg.d'
 -module core.vararg;
--alias void* va_list;
--template va_start(T)
+-version (X86)
+-{
+-    alias void* va_list;
+-    template va_start(T)
 -{
 -void va_start(out va_list ap, ref T parmn)
 -{
 -ap = cast(va_list)(cast(void*)&parmn + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
 -}
 -}
--template va_arg(T)
+-    template va_arg(T)
 -{
 -T va_arg(ref va_list ap)
 -{
@@ -4018,16 +3696,24 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -return arg;
 -}
 -}
--void va_end(va_list ap)
+-    void va_end(va_list ap)
 -{
 -}
--void va_copy(out va_list dst, va_list src)
+-    void va_copy(out va_list dst, va_list src)
 -{
 -dst = src;
 -}
+-}
+-else
+-{
+-    public import core.stdc.stdarg;
+-
+-}
 +// D import file generated from 'src/core/vararg.d'
 +module core.vararg;
-+alias void* va_list;
++version (X86)
++{
++    alias void* va_list;
 +version (LDC)
 +{
 +    pragma (va_start)template va_start(T)
@@ -4046,7 +3732,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +}
 +}
 +}
-+template va_arg(T)
++    template va_arg(T)
 +{
 +T va_arg(ref va_list ap)
 +{
@@ -4055,16 +3741,22 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +return arg;
 +}
 +}
-+void va_end(va_list ap)
++    void va_end(va_list ap)
 +{
 +}
-+void va_copy(out va_list dst, va_list src)
++    void va_copy(out va_list dst, va_list src)
 +{
 +dst = src;
 +}
++}
++else
++{
++    public import core.stdc.stdarg;
++
++}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/intrinsics.di druntime/import/ldc/intrinsics.di
 --- druntime-orig/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/intrinsics.di	2010-12-30 13:40:26.000000000 +0300
++++ druntime/import/ldc/intrinsics.di	2011-01-05 14:40:22.000000000 +0300
 @@ -0,0 +1,359 @@
 +/*
 + * This module holds declarations to LLVM intrinsics.
@@ -4427,7 +4119,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    void llvm_trap();
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/llvmasm.di druntime/import/ldc/llvmasm.di
 --- druntime-orig/import/ldc/llvmasm.di	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/import/ldc/llvmasm.di	2010-12-30 13:40:26.000000000 +0300
++++ druntime/import/ldc/llvmasm.di	2011-01-05 14:40:22.000000000 +0300
 @@ -0,0 +1,17 @@
 +module ldc.llvmasm;
 +
@@ -4447,8 +4139,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    }
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
---- druntime-orig/import/object.di	2010-10-13 10:37:58.000000000 +0400
-+++ druntime/import/object.di	2011-01-03 16:21:43.223688001 +0300
+--- druntime-orig/import/object.di	2010-12-16 01:43:28.000000000 +0300
++++ druntime/import/object.di	2011-01-05 14:40:22.000000000 +0300
 @@ -142,7 +142,7 @@
      // 32:      // has typeinfo member
      void*       deallocator;
@@ -4466,10 +4158,257 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      }
  
      string      msg;
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/std/intrinsic.di druntime/import/std/intrinsic.di
+--- druntime-orig/import/std/intrinsic.di	2010-12-15 10:30:54.000000000 +0300
++++ druntime/import/std/intrinsic.di	2011-01-05 18:03:08.459062852 +0300
+@@ -1,171 +1,72 @@
+-/**
+- * These functions are built-in intrinsics to the compiler.
+- *
+- * Intrinsic functions are functions built in to the compiler, usually to take
+- * advantage of specific CPU features that are inefficient to handle via
+- * external functions.  The compiler's optimizer and code generator are fully
+- * integrated in with intrinsic functions, bringing to bear their full power on
+- * them. This can result in some surprising speedups.
+- *
+- * Copyright: Public Domain
+- * License:   Public Domain
+- * Authors:   Walter Bright
+- */
+-module std.intrinsic;
+-
+-nothrow:
+-
+-/**
+- * Scans the bits in v starting with bit 0, looking
+- * for the first set bit.
+- * Returns:
+- *      The bit number of the first bit set.
+- *      The return value is undefined if v is zero.
+- */
+-pure int bsf(size_t v);
+-
+-/**
+- * Scans the bits in v from the most significant bit
+- * to the least significant bit, looking
+- * for the first set bit.
+- * Returns:
+- *      The bit number of the first bit set.
+- *      The return value is undefined if v is zero.
+- * Example:
+- * ---
+- * import std.stdio;
+- * import std.intrinsic;
+- *
+- * int main()
+- * {
+- *     uint v;
+- *     int x;
+- *
+- *     v = 0x21;
+- *     x = bsf(v);
+- *     writefln("bsf(x%x) = %d", v, x);
+- *     x = bsr(v);
+- *     writefln("bsr(x%x) = %d", v, x);
+- *     return 0;
+- * }
+- * ---
+- * Output:
+- *  bsf(x21) = 0<br>
+- *  bsr(x21) = 5
+- */
+-pure int bsr(size_t v);
+-
+-/**
+- * Tests the bit.
+- */
+-pure int bt(in size_t* p, size_t bitnum);
+-
+-/**
+- * Tests and complements the bit.
+- */
+-int btc(size_t* p, size_t bitnum);
+-
+-/**
+- * Tests and resets (sets to 0) the bit.
+- */
+-int btr(size_t* p, size_t bitnum);
+-
+-/**
+- * Tests and sets the bit.
+- * Params:
+- * p = a non-NULL pointer to an array of size_ts.
+- * index = a bit number, starting with bit 0 of p[0],
+- * and progressing. It addresses bits like the expression:
+----
+-p[index / (size_t.sizeof*8)] & (1 << (index & ((size_t.sizeof*8) - 1)))
+----
+- * Returns:
+- *      A non-zero value if the bit was set, and a zero
+- *      if it was clear.
+- *
+- * Example:
+- * ---
+-import std.stdio;
+-import std.intrinsic;
+-
+-int main()
+-{
+-    size_t array[2];
+-
+-    array[0] = 2;
+-    array[1] = 0x100;
+-
+-    writefln("btc(array, 35) = %d", <b>btc</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("btc(array, 35) = %d", <b>btc</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("bts(array, 35) = %d", <b>bts</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("btr(array, 35) = %d", <b>btr</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("bt(array, 1) = %d", <b>bt</b>(array, 1));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    return 0;
+-}
+- * ---
+- * Output:
+-<pre>
+-btc(array, 35) = 0
+-array = [0]:x2, [1]:x108
+-btc(array, 35) = -1
+-array = [0]:x2, [1]:x100
+-bts(array, 35) = 0
+-array = [0]:x2, [1]:x108
+-btr(array, 35) = -1
+-array = [0]:x2, [1]:x100
+-bt(array, 1) = -1
+-array = [0]:x2, [1]:x100
+-</pre>
+- */
+-int bts(size_t* p, size_t bitnum);
+-
+-/**
+- * Swaps bytes in a 4 byte uint end-to-end, i.e. byte 0 becomes
+- * byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
+- * becomes byte 0.
+- */
+-pure uint bswap(uint v);
+-
+-
+-/**
+- * Reads I/O port at port_address.
+- */
+-ubyte inp(uint port_address);
+-
+-/**
+- * ditto
+- */
+-ushort inpw(uint port_address);
+-
+-/**
+- * ditto
+- */
+-uint inpl(uint port_address);
+-
+-
+-/**
+- * Writes and returns value to I/O port at port_address.
+- */
+-ubyte outp(uint port_address, ubyte value);
+-
+-/**
+- * ditto
+- */
+-ushort outpw(uint port_address, ushort value);
+-
+-/**
+- * ditto
+- */
+-uint outpl(uint port_address, uint value);
+-
+-
++// D import file generated from 'src/std/intrinsic.d'
++module std.intrinsic;
++version (LDC)
++{
++}
++else
++{
++    static assert(false,"This module is only valid for LDC");
++}
++nothrow 
++{
++    pure int bsf(size_t v);
++
++    pure int bsr(size_t v);
++
++    pure int bt(in size_t* p, size_t bitnum)
++{
++return p[bitnum / ((uint).sizeof * 8)] & 1 << (bitnum & (uint).sizeof * 8 - 1) ? -1 : 0;
++}
++
++    int btc(size_t* p, size_t bitnum)
++{
++uint* q = p + bitnum / ((uint).sizeof * 8);
++uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
++int result = *q & mask;
++*q ^= mask;
++return result ? -1 : 0;
++}
++    int btr(size_t* p, size_t bitnum)
++{
++uint* q = p + bitnum / ((uint).sizeof * 8);
++uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
++int result = *q & mask;
++*q &= ~mask;
++return result ? -1 : 0;
++}
++    int bts(size_t* p, size_t bitnum)
++{
++uint* q = p + bitnum / ((uint).sizeof * 8);
++uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
++int result = *q & mask;
++*q |= mask;
++return result ? -1 : 0;
++}
++    pure pragma (intrinsic, "llvm.bswap.i32")uint bswap(uint val);
++
++
++    ubyte inp(uint port_address)
++{
++assert(false && "inp intrinsic not yet implemented");
++}
++    ushort inpw(uint port_address)
++{
++assert(false && "inpw intrinsic not yet implemented");
++}
++    uint inpl(uint port_address)
++{
++assert(false && "inpl intrinsic not yet implemented");
++}
++    ubyte outp(uint port_address, ubyte value)
++{
++assert(false && "outp intrinsic not yet implemented");
++}
++    ushort outpw(uint port_address, ushort value)
++{
++assert(false && "outpw intrinsic not yet implemented");
++}
++    uint outpl(uint port_address, uint value)
++{
++assert(false && "outpl intrinsic not yet implemented");
++}
++}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/atomic.d druntime/src/core/atomic.d
---- druntime-orig/src/core/atomic.d	2010-10-11 00:37:54.000000000 +0400
-+++ druntime/src/core/atomic.d	2010-11-07 19:11:32.000000000 +0300
-@@ -89,6 +89,117 @@
+--- druntime-orig/src/core/atomic.d	2010-12-15 22:30:58.000000000 +0300
++++ druntime/src/core/atomic.d	2011-01-05 14:40:22.000000000 +0300
+@@ -91,6 +91,117 @@
           return false;
       }
  }
@@ -4587,7 +4526,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  else version( AsmX86_32 )
  {
      T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
-@@ -396,6 +507,12 @@
+@@ -398,6 +509,12 @@
          }
      }
  }
@@ -4601,9 +4540,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/stdc/math.d druntime/src/core/stdc/math.d
---- druntime-orig/src/core/stdc/math.d	2010-09-03 12:28:52.000000000 +0400
-+++ druntime/src/core/stdc/math.d	2010-11-04 17:49:07.000000000 +0300
-@@ -17,6 +17,7 @@
+--- druntime-orig/src/core/stdc/math.d	2010-12-15 10:30:50.000000000 +0300
++++ druntime/src/core/stdc/math.d	2011-01-05 14:40:22.000000000 +0300
+@@ -18,6 +18,7 @@
  
  extern (C):
  nothrow:
@@ -4611,10 +4550,84 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  alias float  float_t;
  alias double double_t;
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/stdc/stdarg.d druntime/src/core/stdc/stdarg.d
+--- druntime-orig/src/core/stdc/stdarg.d	2010-12-15 10:30:50.000000000 +0300
++++ druntime/src/core/stdc/stdarg.d	2011-01-05 16:38:59.387062854 +0300
+@@ -16,7 +16,69 @@
+ 
+ @system:
+ 
+-version( X86 )
++version( LDC )
++{
++    /*********************
++     * The argument pointer type.
++     */
++    alias void* va_list;
++
++    /**********
++     * Initialize ap.
++     * Parmn should be the last named parameter.
++     */
++    pragma(va_start)
++        void va_start(T)(va_list ap, ref T);
++
++    /************
++     * Retrieve and return the next value that is type T.
++     * Should use the other va_arg instead, as this won't work for 64 bit code.
++     */
++    T va_arg(T)(ref va_list ap)
++    {
++        T arg = *cast(T*) ap;
++        ap = cast(va_list)( cast(void*) ap + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
++        return arg;
++    }
++
++    /************
++     * Retrieve and return the next value that is type T.
++     * This is the preferred version.
++     */
++    void va_arg(T)(ref va_list ap, ref T parmn)
++    {
++        parmn = *cast(T*)ap;
++        ap = cast(va_list)(cast(void*)ap + ((T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
++    }
++
++    /*************
++     * Retrieve and store through parmn the next value that is of TypeInfo ti.
++     * Used when the static type is not known.
++     */
++    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
++    {
++        // Wait until everyone updates to get TypeInfo.talign()
++        //auto talign = ti.talign();
++        //auto p = cast(void*)(cast(size_t)ap + talign - 1) & ~(talign - 1);
++        auto p = ap;
++        auto tsize = ti.tsize();
++        ap = cast(void*)(cast(size_t)p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
++        parmn[0..tsize] = p[0..tsize];
++    }
++
++    /***********************
++     * End use of ap.
++     */
++    void va_end(va_list ap)
++    {
++    }
++
++    void va_copy(out va_list dest, va_list src)
++    {
++        dest = src;
++    }
++}
++else version( X86 )
+ {
+     /*********************
+      * The argument pointer type.
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/stdc/stdlib.d druntime/src/core/stdc/stdlib.d
---- druntime-orig/src/core/stdc/stdlib.d	2010-08-05 05:39:08.000000000 +0400
-+++ druntime/src/core/stdc/stdlib.d	2010-11-04 17:49:07.000000000 +0300
-@@ -92,3 +92,13 @@
+--- druntime-orig/src/core/stdc/stdlib.d	2010-12-15 10:30:50.000000000 +0300
++++ druntime/src/core/stdc/stdlib.d	2011-01-05 14:40:22.000000000 +0300
+@@ -93,3 +93,13 @@
  {
      void* alloca(size_t size); // non-standard
  }
@@ -4629,12 +4642,12 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    alias gcc.builtins.__builtin_alloca alloca;
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/vararg.d druntime/src/core/vararg.d
---- druntime-orig/src/core/vararg.d	2010-08-05 05:39:08.000000000 +0400
-+++ druntime/src/core/vararg.d	2011-01-02 18:52:38.045075000 +0300
-@@ -30,9 +30,21 @@
-  *  paramn  = The identifier of the rightmost parameter in the function
-  *            parameter list.
-  */
+--- druntime-orig/src/core/vararg.d	2010-12-15 10:30:52.000000000 +0300
++++ druntime/src/core/vararg.d	2011-01-05 14:42:18.000000000 +0300
+@@ -32,10 +32,22 @@
+      *  paramn  = The identifier of the rightmost parameter in the function
+      *            parameter list.
+      */
 +version(LDC)
 +{
 +
@@ -4645,19 +4658,19 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +else
 +{
 +
- void va_start(T) ( out va_list ap, ref T parmn )
- {
--    ap = cast(va_list) ( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
-+    ap = cast(va_list) ( cast(void*) &parmn + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
+     void va_start(T)( out va_list ap, ref T parmn )
+     {
+         ap = cast(va_list)( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
+     }
++    
 +}
-+
- }
  
- /**
+     /**
+      * This function returns the next argument in the sequence referenced by
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/gc/gcbits.d druntime/src/gc/gcbits.d
---- druntime-orig/src/gc/gcbits.d	2010-08-08 04:10:24.000000000 +0400
-+++ druntime/src/gc/gcbits.d	2010-11-04 17:49:07.000000000 +0300
-@@ -26,6 +26,10 @@
+--- druntime-orig/src/gc/gcbits.d	2010-12-15 10:30:52.000000000 +0300
++++ druntime/src/gc/gcbits.d	2011-01-05 14:40:22.000000000 +0300
+@@ -27,6 +27,10 @@
  {
      version = bitops;
  }
@@ -4669,9 +4682,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      // use the unoptimized version
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/gc/gcx.d druntime/src/gc/gcx.d
---- druntime-orig/src/gc/gcx.d	2010-10-03 10:52:12.000000000 +0400
-+++ druntime/src/gc/gcx.d	2010-11-07 19:11:32.000000000 +0300
-@@ -1464,7 +1464,8 @@
+--- druntime-orig/src/gc/gcx.d	2010-12-15 10:30:52.000000000 +0300
++++ druntime/src/gc/gcx.d	2011-01-05 14:40:22.000000000 +0300
+@@ -1465,7 +1465,8 @@
  
  
      void initialize()
@@ -4681,7 +4694,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
          (cast(byte*)&this)[0 .. Gcx.sizeof] = 0;
          stackBottom = cast(char*)&dummy;
-@@ -2200,7 +2201,7 @@
+@@ -2201,7 +2202,7 @@
                  if ((cast(size_t)p & ~(PAGESIZE-1)) == pcache)
                      continue;
  
@@ -4690,7 +4703,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
                  if (pool)
                  {
                      size_t offset = cast(size_t)(p - pool.baseAddr);
-@@ -2270,80 +2271,129 @@
+@@ -2271,80 +2272,129 @@
              __builtin_unwind_init();
              sp = & sp;
          }
@@ -4888,7 +4901,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          return result;
      }
  
-@@ -2357,7 +2407,7 @@
+@@ -2358,7 +2408,7 @@
          Pool*  pool;
  
          debug(COLLECT_PRINTF) printf("Gcx.fullcollect()\n");
@@ -4898,9 +4911,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          thread_suspendAll();
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
---- druntime-orig/src/object_.d	2010-12-27 21:21:19.176120002 +0300
-+++ druntime/src/object_.d	2010-12-28 13:30:49.239335001 +0300
-@@ -1754,7 +1754,6 @@
+--- druntime-orig/src/object_.d	2010-12-16 01:43:28.000000000 +0300
++++ druntime/src/object_.d	2011-01-05 14:40:22.000000000 +0300
+@@ -1763,7 +1763,6 @@
      {
          int len = 0;
          ModuleReference *mr;
@@ -4908,7 +4921,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          for (mr = _Dmodule_ref; mr; mr = mr.next)
              len++;
          _moduleinfo_array = new ModuleInfo*[len];
-@@ -2116,7 +2115,6 @@
+@@ -2278,7 +2277,6 @@
          _d_monitor_create(h);
          m = getMonitor(h);
      }
@@ -4916,7 +4929,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      IMonitor i = m.impl;
  
      if (i is null)
-@@ -2215,7 +2213,7 @@
+@@ -2377,7 +2375,7 @@
      size_t _aaLen(void* p);
      void* _aaGet(void** pp, TypeInfo keyti, size_t valuesize, ...);
      void* _aaGetRvalue(void* p, TypeInfo keyti, size_t valuesize, ...);
@@ -4925,7 +4938,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      void _aaDel(void* p, TypeInfo keyti, ...);
      void[] _aaValues(void* p, size_t keysize, size_t valuesize);
      void[] _aaKeys(void* p, size_t keysize, size_t valuesize);
-@@ -2260,7 +2258,7 @@
+@@ -2422,7 +2420,7 @@
          return *cast(Key[]*) &a;
      }
  
@@ -4934,74 +4947,10 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      {
          return _aaApply2(p, aligntsize(Key.sizeof), cast(_dg2_t)dg);
      }
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/aaA.d druntime/src/rt/aaA.d
---- druntime-orig/src/rt/aaA.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/aaA.d	2011-01-02 20:06:15.617075000 +0300
-@@ -204,7 +204,7 @@
-  * Add entry for key if it is not already there.
-  */
- 
--void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, ...)
-+void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void *pkey)
- in
- {
-     assert(aa);
-@@ -218,7 +218,6 @@
- }
- body
- {
--    auto pkey = cast(void *)(&valuesize + 1);
-     size_t i;
-     aaA *e;
-     //printf("keyti = %p\n", keyti);
-@@ -274,13 +273,12 @@
-  * Returns null if it is not already there.
-  */
- 
--void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, ...)
-+void* _aaGetRvalue(AA aa, TypeInfo keyti, size_t valuesize, void *pkey)
- {
-     //printf("_aaGetRvalue(valuesize = %u)\n", valuesize);
-     if (!aa.a)
-         return null;
- 
--    auto pkey = cast(void *)(&valuesize + 1);
-     auto keysize = aligntsize(keyti.tsize());
-     auto len = aa.a.b.length;
- 
-@@ -312,7 +310,7 @@
-  *      !=null  in aa, return pointer to value
-  */
- 
--void* _aaIn(AA aa, TypeInfo keyti, ...)
-+void* _aaIn(AA aa, TypeInfo keyti, void *pkey)
- in
- {
- }
-@@ -324,8 +322,6 @@
- {
-     if (aa.a)
-     {
--        auto pkey = cast(void *)(&keyti + 1);
--
-         //printf("_aaIn(), .length = %d, .ptr = %x\n", aa.a.length, cast(uint)aa.a.ptr);
-         auto len = aa.a.b.length;
- 
-@@ -357,9 +353,8 @@
-  * If key is not in aa[], do nothing.
-  */
- 
--void _aaDel(AA aa, TypeInfo keyti, ...)
-+void _aaDel(AA aa, TypeInfo keyti, void *pkey)
- {
--    auto pkey = cast(void *)(&keyti + 1);
-     aaA *e;
- 
-     if (aa.a && aa.a.b.length)
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/adi.d druntime/src/rt/adi.d
---- druntime-orig/src/rt/adi.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/adi.d	2010-11-04 17:49:07.000000000 +0300
-@@ -35,6 +35,8 @@
+--- druntime-orig/src/rt/adi.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/adi.d	2011-01-05 15:13:25.247062853 +0300
+@@ -36,6 +36,8 @@
      extern (C) void  gc_free( void* p );
  }
  
@@ -5010,7 +4959,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  struct Array
  {
-@@ -48,7 +50,7 @@
+@@ -49,7 +51,7 @@
   * reversed.
   */
  
@@ -5019,90 +4968,24 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      if (a.length > 1)
      {
-@@ -108,7 +110,7 @@
+@@ -109,7 +111,7 @@
              hi = hi - 1 + (stridehi - stridelo);
          }
      }
 -    return *cast(long*)(&a);
-+    return a;
++    return *cast(char[]*)&a;
  }
  
  unittest
-@@ -143,7 +145,7 @@
-  * reversed.
-  */
- 
--extern (C) long _adReverseWchar(wchar[] a)
-+extern (C) wchar[] _adReverseWchar(wchar[] a)
- {
-     if (a.length > 1)
-     {
-@@ -201,7 +203,7 @@
-             hi = hi - 1 + (stridehi - stridelo);
-         }
-     }
--    return *cast(long*)(&a);
-+    return a;
- }
- 
- unittest
-@@ -225,10 +227,10 @@
+@@ -226,7 +228,7 @@
   * Support for array.reverse property.
   */
  
--extern (C) long _adReverse(Array a, size_t szelem)
+-extern (C) void[] _adReverse(Array a, size_t szelem)
 +extern (C) void[] _adReverse(void[] a, size_t szelem)
  out (result)
  {
--    assert(result is *cast(long*)(&a));
-+    assert(result.ptr is a.ptr);
- }
- body
- {
-@@ -267,7 +269,7 @@
-                 //gc_free(tmp);
-         }
-     }
--    return *cast(long*)(&a);
-+    return a;
- }
- 
- unittest
-@@ -311,7 +313,7 @@
-  * Sort array of chars.
-  */
- 
--extern (C) long _adSortChar(char[] a)
-+extern (C) char[] _adSortChar(char[] a)
- {
-     if (a.length > 1)
-     {
-@@ -326,14 +328,14 @@
-         }
-         delete da;
-     }
--    return *cast(long*)(&a);
-+    return a;
- }
- 
- /**********************************************
-  * Sort array of wchars.
-  */
- 
--extern (C) long _adSortWchar(wchar[] a)
-+extern (C) wchar[] _adSortWchar(wchar[] a)
- {
-     if (a.length > 1)
-     {
-@@ -348,7 +350,7 @@
-         }
-         delete da;
-     }
--    return *cast(long*)(&a);
-+    return a;
- }
- 
- /***************************************
+     assert(result is *cast(void[]*)(&a));
 @@ -358,7 +360,7 @@
   *      0       not equal
   */
@@ -5151,39 +5034,33 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
    {
      asm
      {   naked                   ;
-@@ -569,8 +571,8 @@
- 
-         ret                     ;
-     }
--  }
--  else
-+  } 
-+  else 
-   {
-     int len;
-     int c;
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/alloca.d druntime/src/rt/alloca.d
---- druntime-orig/src/rt/alloca.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/alloca.d	2010-11-04 17:49:07.000000000 +0300
-@@ -12,6 +12,9 @@
-  */
- module rt.alloca;
- 
-+version (DMD)
-+{
-+
- /+
- #if DOS386
- extern size_t _x386_break;
-@@ -133,3 +136,5 @@
-         ret                     ;
+--- druntime-orig/src/rt/alloca.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/alloca.d	2011-01-05 14:54:45.903062853 +0300
+@@ -52,16 +52,16 @@
+     {
+     asm
+     {
+-	add	EAX,15		;
+-	and	EAX,0xFFFFFFF0	; // round up to 16 byte boundary
++    add EAX,15      ;
++    and EAX,0xFFFFFFF0  ; // round up to 16 byte boundary
      }
- }
-+
-+}
+     }
+     else
+     {
+     asm
+     {
+-	add	EAX,3		;
+-	and	EAX,0xFFFFFFFC	; // round up to dword
++    add EAX,3       ;
++    and EAX,0xFFFFFFFC  ; // round up to dword
+     }
+     }
+ 
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/arrayInit.d druntime/src/rt/arrayInit.d
 --- druntime-orig/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/rt/arrayInit.d	2010-12-28 13:20:38.239335002 +0300
++++ druntime/src/rt/arrayInit.d	2011-01-05 14:40:22.000000000 +0300
 @@ -0,0 +1,150 @@
 +private import ldc.intrinsics;
 +
@@ -5336,9 +5213,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +        throw new Exception("overlapping array copy");
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/dmain2.d druntime/src/rt/dmain2.d
---- druntime-orig/src/rt/dmain2.d	2010-10-13 08:41:12.000000000 +0400
-+++ druntime/src/rt/dmain2.d	2010-12-30 13:43:46.730104001 +0300
-@@ -38,6 +38,8 @@
+--- druntime-orig/src/rt/dmain2.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/dmain2.d	2011-01-05 14:40:22.000000000 +0300
+@@ -39,6 +39,8 @@
      pragma(lib, "shell32.lib"); // needed for CommandLineToArgvW
  }
  
@@ -5349,7 +5226,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      Throwable _d_unhandled = null;
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/ldc_eh.d druntime/src/rt/ldc_eh.d
 --- druntime-orig/src/rt/ldc_eh.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/rt/ldc_eh.d	2011-01-02 19:03:34.733075000 +0300
++++ druntime/src/rt/ldc_eh.d	2011-01-05 14:40:22.000000000 +0300
 @@ -0,0 +1,428 @@
 +/**
 + * This module contains functions and structures required for
@@ -5780,9 +5657,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +  _Unwind_Resume(&exception_struct.unwind_info);
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/lifetime.d druntime/src/rt/lifetime.d
---- druntime-orig/src/rt/lifetime.d	2010-10-12 07:07:36.000000000 +0400
-+++ druntime/src/rt/lifetime.d	2010-12-30 13:11:36.226104002 +0300
-@@ -92,6 +92,18 @@
+--- druntime-orig/src/rt/lifetime.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/lifetime.d	2011-01-05 17:33:37.155062853 +0300
+@@ -89,6 +89,18 @@
      return gc_malloc(sz);
  }
  
@@ -5801,119 +5678,52 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  /**
   *
-@@ -702,7 +714,7 @@
-         __setArrayAllocLength(info, size, isshared);
- 	result = arrstart[0..length];
-     }
--    return result;
-+    return *cast(void[]*)&result;
+@@ -820,14 +832,22 @@
+                 __setArrayAllocLength(info, allocsize, isshared);
+                 auto p = __arrayStart(info)[0 .. dim];
  
- Loverflow:
-     onOutOfMemoryError();
-@@ -764,7 +776,7 @@
-         __setArrayAllocLength(info, size, isshared);
- 	result = arrstart[0..length];
-     }
--    return result;
-+    return *cast(void[]*)&result;
- 
- Loverflow:
-     onOutOfMemoryError();
-@@ -773,7 +785,7 @@
- /**
-  *
-  */
--extern (C) void[] _d_newarraymT(TypeInfo ti, size_t ndims, ...)
-+extern (C) void[] _d_newarraymT(TypeInfo ti, size_t ndims, size_t *pdim)
- {
-     void[] result;
- 
-@@ -781,9 +793,7 @@
-     if (ndims == 0)
-         result = null;
-     else
--    {   va_list q;
--        va_start!(size_t)(q, ndims);
--
-+    {
-         void[] foo(TypeInfo ti, size_t* pdim, size_t ndims)
-         {
-             auto dim = *pdim;
-@@ -810,7 +820,6 @@
-             return p;
-         }
- 
--        auto pdim = cast(size_t *)q;
-         result = foo(ti, pdim, ndims);
-         debug(PRINTF) printf("result = %llx\n", result);
- 
-@@ -821,16 +830,15 @@
-                 printf("index %d: %d\n", i, va_arg!(int)(q));
-             }
-         }
--        va_end(q);
-     }
--    return result;
-+    return *cast(void[]*)&result;
- }
- 
- 
- /**
-  *
-  */
--extern (C) void[] _d_newarraymiT(TypeInfo ti, size_t ndims, ...)
-+extern (C) void[] _d_newarraymiT(TypeInfo ti, size_t ndims, size_t *pdim)
- {
-     void[] result;
- 
-@@ -839,9 +847,6 @@
-         result = null;
+-                version(X86)
++                version(LDC)
++                {
++                    va_list ap2;
++                    va_copy(ap2, ap);
++                }
++                else version(X86)
+                 {
+                     va_list ap2;
+                     va_copy(ap2, ap);
+                 }
+                 for (size_t i = 0; i < dim; i++)
+                 {
+-                    version(X86_64)
++                    version(LDC)
++                    {
++                    }
++                    else version(X86_64)
+                     {
+                         __va_list argsave = *cast(__va_list*)ap;
+                         va_list ap2 = &argsave;
+@@ -870,7 +890,9 @@
      else
      {
--        va_list q;
--        va_start!(size_t)(q, ndims);
--
-         void[] foo(TypeInfo ti, size_t* pdim, size_t ndims)
-         {
-             size_t dim = *pdim;
-@@ -867,7 +872,6 @@
-             return p;
-         }
- 
--        size_t* pdim = cast(size_t *)q;
-         result = foo(ti, pdim, ndims);
-         debug(PRINTF) printf("result = %llx\n", result);
- 
-@@ -879,9 +883,8 @@
-                 printf("init = %d\n", va_arg!(int)(q));
-             }
-         }
--        va_end(q);
-     }
--    return result;
-+    return *cast(void[]*)&result;
- }
- 
- 
-@@ -1381,7 +1384,7 @@
-  * Append y[] to array pointed to by px
-  * size is size of each array element.
-  */
--extern (C) long _d_arrayappendT(TypeInfo ti, Array *px, byte[] y)
-+extern (C) void[] _d_arrayappendT(TypeInfo ti, Array *px, byte[] y)
- {
-     // only optimize array append where ti is not a shared type
-     auto sizeelem = ti.next.tsize();            // array element size
-@@ -1468,7 +1471,7 @@
-   L1:
-     px.length = newlength;
-     memcpy(px.data + length * sizeelem, y.ptr, y.length * sizeelem);
--    return *cast(long*)px;
-+    return *cast(void[]*)px;
- }
- 
- 
-@@ -1552,21 +1555,36 @@
+         va_list q;
+-        version(X86)
++        version(LDC)
++            va_start(q, ndims);
++        else version(X86)
+             va_start(q, ndims);
+         else version(X86_64)
+             va_start(q, __va_argsave);
+@@ -893,6 +915,8 @@
+     else
+     {
+         va_list q;
++        version(LDC)
++            va_start(q, ndims);
+         version(X86)
+             va_start(q, ndims);
+         else version(X86_64)
+@@ -1597,6 +1621,20 @@
      return newcap;
  }
  
@@ -5934,55 +5744,27 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  /**
   *
-  */
--extern (C) long _d_arrayappendcT(TypeInfo ti, Array *x, ...)
-+extern (C) void[] _d_arrayappendcT(TypeInfo ti, Array *x, ...)
- {
-     byte *argp = cast(byte*)(&ti + 2);
-     return _d_arrayappendT(ti, x, argp[0..1]);
+@@ -1622,6 +1660,7 @@
+     }
  }
  
 +}
  
  /**
   * Append dchar to char[]
-  */
--extern (C) long _d_arrayappendcd(ref char[] x, dchar c)
-+extern (C) void[] _d_arrayappendcd(ref char[] x, dchar c)
- {
-     // c could encode into from 1 to 4 characters
-     char[4] buf = void;
-@@ -1612,7 +1630,7 @@
- /**
-  * Append dchar to wchar[]
-  */
--extern (C) long _d_arrayappendwd(ref wchar[] x, dchar c)
-+extern (C) void[] _d_arrayappendwd(ref wchar[] x, dchar c)
- {
-     // c could encode into from 1 to 2 w characters
-     wchar[2] buf = void;
-@@ -1798,7 +1816,7 @@
+@@ -1904,7 +1943,7 @@
  /**
   *
   */
--extern (C) long _adDupT(TypeInfo ti, Array2 a)
+-extern (C) void[] _adDupT(TypeInfo ti, Array2 a)
 +extern (C) void[] _adDupT(TypeInfo ti, void[] a)
  out (result)
  {
      auto sizeelem = ti.next.tsize();            // array element size
-@@ -1819,7 +1837,7 @@
-         r.length = a.length;
-         memcpy(r.ptr, a.ptr, size);
-     }
--    return *cast(long*)(&r);
-+    return *cast(void[]*)(&r);
- }
- 
- 
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/memory.d druntime/src/rt/memory.d
---- druntime-orig/src/rt/memory.d	2010-10-11 00:37:52.000000000 +0400
-+++ druntime/src/rt/memory.d	2010-11-07 19:11:32.000000000 +0300
-@@ -12,6 +12,8 @@
+--- druntime-orig/src/rt/memory.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/memory.d	2011-01-05 14:40:22.000000000 +0300
+@@ -13,6 +13,8 @@
   */
  module rt.memory;
  
@@ -5991,7 +5773,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  private
  {
-@@ -230,3 +232,616 @@
+@@ -240,3 +242,616 @@
          static assert( false, "Operating system not supported." );
      }
  }
@@ -6609,8 +6391,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    static assert( false, "Compiler not supported." );
 +}
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/qsort.d druntime/src/rt/qsort.d
---- druntime-orig/src/rt/qsort.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/qsort.d	2010-11-04 17:49:07.000000000 +0300
+--- druntime-orig/src/rt/qsort.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/qsort.d	2011-01-05 14:40:22.000000000 +0300
 @@ -44,7 +44,7 @@
  structures.  The default value is optimized for a high cost for compares. */
  
@@ -6618,9 +6400,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 -extern (C) long _adSort(Array a, TypeInfo ti)
 +extern (C) void[] _adSort(void[] a, TypeInfo ti)
  {
-   byte* base;
    byte*[40] stack;              // stack
-@@ -124,7 +124,7 @@
+   byte* i, j;            // scan and limit pointers
+@@ -121,7 +121,7 @@
        limit = sp[1];
      }
      else                                // else stack empty, all done
@@ -6630,9 +6412,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
    assert(0);
  }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/qsort2.d druntime/src/rt/qsort2.d
---- druntime-orig/src/rt/qsort2.d	2010-08-05 05:39:06.000000000 +0400
-+++ druntime/src/rt/qsort2.d	2010-11-04 17:49:07.000000000 +0300
-@@ -31,14 +31,14 @@
+--- druntime-orig/src/rt/qsort2.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/qsort2.d	2011-01-05 14:40:22.000000000 +0300
+@@ -32,14 +32,14 @@
      return tiglobal.compare(p1, p2);
  }
  
@@ -6650,9 +6432,9 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/trace.d druntime/src/rt/trace.d
---- druntime-orig/src/rt/trace.d	2010-08-07 09:46:06.000000000 +0400
-+++ druntime/src/rt/trace.d	2010-11-04 17:49:07.000000000 +0300
-@@ -855,7 +855,7 @@
+--- druntime-orig/src/rt/trace.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/trace.d	2011-01-05 14:40:22.000000000 +0300
+@@ -829,7 +829,7 @@
    version (OSX)
    { // 16 byte align stack
      asm
@@ -6661,7 +6443,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
          pushad  ;
          sub     ESP,12  ;
      }
-@@ -870,7 +870,7 @@
+@@ -844,7 +844,7 @@
    else
    {
      asm
@@ -6672,8 +6454,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      trace_epi();
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/std/intrinsic.d druntime/src/std/intrinsic.d
 --- druntime-orig/src/std/intrinsic.d	1970-01-01 03:00:00.000000000 +0300
-+++ druntime/src/std/intrinsic.d	2010-12-16 14:51:15.179832001 +0300
-@@ -0,0 +1,212 @@
++++ druntime/src/std/intrinsic.d	2011-01-05 18:02:19.255062853 +0300
+@@ -0,0 +1,215 @@
 +/*
 + * D phobos intrinsics for LDC
 + *
@@ -6691,6 +6473,8 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    static assert(false, "This module is only valid for LDC");
 +}
 +
++nothrow:
++
 +/**
 + * Scans the bits in v starting with bit 0, looking
 + * for the first set bit.
@@ -6698,7 +6482,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 + *      The bit number of the first bit set.
 + *      The return value is undefined if v is zero.
 + */
-+pure nothrow int bsf(uint v)
++pure int bsf(size_t v)
 +{
 +    uint m = 1;
 +    uint i;
@@ -6737,7 +6521,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 + *  bsf(x21) = 0<br>
 + *  bsr(x21) = 5
 + */
-+pure nothrow int bsr(uint v)
++pure int bsr(size_t v)
 +{
 +    uint m = 0x80000000;
 +    uint i;
@@ -6752,7 +6536,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +/**
 + * Tests the bit.
 + */
-+pure nothrow int bt(const uint *p, uint bitnum)
++pure int bt(in size_t* p, size_t bitnum)
 +{
 +    return (p[bitnum / (uint.sizeof*8)] & (1<<(bitnum & ((uint.sizeof*8)-1)))) ? -1 : 0 ;
 +}
@@ -6761,7 +6545,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +/**
 + * Tests and complements the bit.
 + */
-+nothrow int btc(uint *p, uint bitnum)
++int btc(size_t* p, size_t bitnum)
 +{
 +    uint * q = p + (bitnum / (uint.sizeof*8));
 +    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
@@ -6774,7 +6558,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +/**
 + * Tests and resets (sets to 0) the bit.
 + */
-+nothrow int btr(uint *p, uint bitnum)
++int btr(size_t* p, size_t bitnum)
 +{
 +    uint * q = p + (bitnum / (uint.sizeof*8));
 +    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
@@ -6840,7 +6624,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +array = [0]:x2, [1]:x100
 +</pre>
 + */
-+nothrow int bts(uint *p, uint bitnum)
++int bts(size_t* p, size_t bitnum)
 +{
 +    uint * q = p + (bitnum / (uint.sizeof*8));
 +    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
@@ -6854,35 +6638,36 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 + * byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
 + * becomes byte 0.
 + */
-+pure nothrow pragma(intrinsic, "llvm.bswap.i32")
++pure pragma(intrinsic, "llvm.bswap.i32")
 +    uint bswap(uint val);
 +
 +/**
 + * Reads I/O port at port_address.
 + */
-+ubyte inp(uint p) { throw new Exception("inp intrinsic not yet implemented"); }
++ubyte inp(uint port_address) { assert(false && "inp intrinsic not yet implemented"); };
 +
 +/**
 + * ditto
 + */
-+ushort inpw(uint p) { throw new Exception("inpw intrinsic not yet implemented"); }
++ushort inpw(uint port_address) { assert(false && "inpw intrinsic not yet implemented"); };
 +
 +/**
 + * ditto
 + */
-+uint inpl(uint p) { throw new Exception("inpl intrinsic not yet implemented"); }
++uint inpl(uint port_address) { assert(false && "inpl intrinsic not yet implemented"); };
++
++
++/**
++ * Writes and returns value to I/O port at port_address.
++ */
++ubyte outp(uint port_address, ubyte value) { assert(false && "outp intrinsic not yet implemented"); };
 +
 +/**
 + * ditto
 + */
-+ubyte outp(uint p, ubyte v) { throw new Exception("outp intrinsic not yet implemented"); }
++ushort outpw(uint port_address, ushort value) { assert(false && "outpw intrinsic not yet implemented"); };
 +
 +/**
 + * ditto
 + */
-+ushort outpw(uint p, ushort v) { throw new Exception("outpw intrinsic not yet implemented"); }
-+
-+/**
-+ * ditto
-+ */
-+uint outpl(uint p, uint v) { throw new Exception("outpl intrinsic not yet implemented"); }
++uint outpl(uint port_address, uint value) { assert(false && "outpl intrinsic not yet implemented"); };

@@ -212,9 +212,19 @@ int match(Object *o1, Object *o2, TemplateDeclaration *tempdecl, Scope *sc)
     }
     else if (s1)
     {
-        //printf("%p %s, %p %s\n", s1, s1->toChars(), s2, s2->toChars());
         if (!s2 || !s1->equals(s2) || s1->parent != s2->parent)
         {
+            if (s2)
+            {
+                VarDeclaration *v1 = s1->isVarDeclaration();
+                VarDeclaration *v2 = s2->isVarDeclaration();
+                if (v1 && v2 && v1->storage_class & v2->storage_class & STCmanifest)
+                {   ExpInitializer *ei1 = v1->init->isExpInitializer();
+                    ExpInitializer *ei2 = v2->init->isExpInitializer();
+                    if (ei1 && ei2 && ei1->exp->equals(ei2->exp))
+                        goto Lmatch;
+                }
+            }
             goto Lnomatch;
         }
 #if DMDV2
@@ -242,6 +252,7 @@ int match(Object *o1, Object *o2, TemplateDeclaration *tempdecl, Scope *sc)
                 goto Lnomatch;
         }
     }
+Lmatch:
     //printf("match\n");
     return 1;   // match
 Lnomatch:
@@ -716,8 +727,10 @@ MATCH TemplateDeclaration::matchWithInstance(TemplateInstance *ti,
          */
         makeParamNamesVisibleInConstraint(paramscope);
         Expression *e = constraint->syntaxCopy();
-        paramscope->flags |= SCOPEstaticif;
-        e = e->semantic(paramscope);
+        Scope *sc = paramscope->push();
+        sc->flags |= SCOPEstaticif;
+        e = e->semantic(sc);
+        sc->pop();
         e = e->optimize(WANTvalue | WANTinterpret);
         if (e->isBool(TRUE))
             ;
@@ -1304,17 +1317,31 @@ Lmatch:
         paramscope->flags |= SCOPEstaticif;
 
         /* Detect recursive attempts to instantiate this template declaration,
+         * Bugzilla 4072
          *  void foo(T)(T x) if (is(typeof(foo(x)))) { }
-         *  static assert(!is(typeof(bug4072(7))));
+         *  static assert(!is(typeof(foo(7))));
          * Recursive attempts are regarded as a constraint failure.
          */
+        int nmatches = 0;
         for (Previous *p = previous; p; p = p->prev)
         {
             if (arrayObjectMatch(p->dedargs, dedargs, this, sc))
-                goto Lnomatch;
+            {
+                //printf("recursive, no match %p %s\n", this, this->toChars());
+                nmatches++;
+            }
             /* BUG: should also check for ref param differences
              */
         }
+        /* Look for 2 matches at least, because sometimes semantic3() gets run causing what appears to
+         * be recursion but isn't.
+         * Template A's constraint instantiates B, B's semantic3() run includes something that has A in its constraint.
+         * Perhaps a better solution is to always defer semantic3() rather than doing it eagerly. The risk
+         * with that is what if semantic3() fails, but our constraint "succeeded"?
+         */
+        if (nmatches >= 2)
+            goto Lnomatch;
+
         Previous pr;
         pr.prev = previous;
         pr.dedargs = dedargs;
@@ -3523,7 +3550,11 @@ MATCH TemplateTupleParameter::matchArg(Scope *sc,
      */
     assert(i + 1 == dedtypes->dim);     // must be the last one
     Tuple *ovar;
-    if (i + 1 == tiargs->dim && isTuple((Object *)tiargs->data[i]))
+
+    if (dedtypes->data[i] && isTuple((Object *)dedtypes->data[i]))
+        // It was already been deduced
+        ovar = isTuple((Object *)dedtypes->data[i]);
+    else if (i + 1 == tiargs->dim && isTuple((Object *)tiargs->data[i]))
         ovar = isTuple((Object *)tiargs->data[i]);
     else
     {
@@ -3865,7 +3896,8 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
     /* So, we need to implement 'this' instance.
      */
 #if LOG
-    printf("\timplement template instance '%s'\n", toChars());
+    printf("\timplement template instance %s '%s'\n", tempdecl->parent->toChars(), toChars());
+    printf("\ttempdecl %s\n", tempdecl->toChars());
 #endif
     unsigned errorsave = global.errors;
     inst = this;
@@ -3874,7 +3906,7 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
     parent = tempdecl->parent;
     //printf("parent = '%s'\n", parent->kind());
 
-    ident = genIdent();         // need an identifier for name mangling purposes.
+    ident = genIdent(tiargs);         // need an identifier for name mangling purposes.
 
 #if 1
     if (isnested)
@@ -3917,7 +3949,9 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
             //printf("\t2: adding to module %s instead of module %s\n", m->toChars(), sc->module->toChars());
             a = m->members;
             if (m->semanticRun >= 3)
+            {
                 dosemantic3 = 1;
+            }
         }
         for (int i = 0; 1; i++)
         {
@@ -4122,13 +4156,14 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
     // Give additional context info if error occurred during instantiation
     if (global.errors != errorsave)
     {
-        error("error instantiating");
+        error(loc, "error instantiating");
         if (tinst)
         {   tinst->printInstantiationTrace();
         }
         errors = 1;
         if (global.gag)
         {   // Try to reset things so we can try again later to instantiate it
+            //printf("remove %s\n", toChars());
             tempdecl->instances.remove(tempdecl_instance_idx);
             if (!(sc->flags & SCOPEstaticif))
             {   // Bugzilla 4302 for discussion
@@ -4345,11 +4380,7 @@ TemplateDeclaration *TemplateInstance::findTemplateDeclaration(Scope *sc)
         if (s->parent &&
             (ti = s->parent->isTemplateInstance()) != NULL)
         {
-            if (
-                (ti->name == id ||
-                 ti->toAlias()->ident == id)
-                &&
-                ti->tempdecl)
+            if (ti->tempdecl && ti->tempdecl->ident == id)
             {
                 /* This is so that one can refer to the enclosing
                  * template, even if it has the same name as a member
@@ -4637,13 +4668,12 @@ int TemplateInstance::hasNestedArgs(Objects *args)
  * the type signature for it.
  */
 
-Identifier *TemplateInstance::genIdent()
+Identifier *TemplateInstance::genIdent(Objects *args)
 {   OutBuffer buf;
 
     //printf("TemplateInstance::genIdent('%s')\n", tempdecl->ident->toChars());
     char *id = tempdecl->ident->toChars();
     buf.printf("__T%zu%s", strlen(id), id);
-    Objects *args = tiargs;
     for (int i = 0; i < args->dim; i++)
     {   Object *o = (Object *)args->data[i];
         Type *ta = isType(o);
@@ -4723,6 +4753,14 @@ Identifier *TemplateInstance::genIdent()
             }
 #endif
             const char *p = sa->mangle();
+
+            /* Bugzilla 3043: if the first character of p is a digit this
+             * causes ambiguity issues because the digits of the two numbers are adjacent.
+             * Current demanglers resolve this by trying various places to separate the
+             * numbers until one gets a successful demangle.
+             * Unfortunately, fixing this ambiguity will break existing binary
+             * compatibility and the demanglers, so we'll leave it as is.
+             */
             buf.printf("%zu%s", strlen(p), p);
         }
         else if (va)
@@ -4736,9 +4774,9 @@ Identifier *TemplateInstance::genIdent()
     }
     buf.writeByte('Z');
     id = buf.toChars();
-    buf.data = NULL;
+    //buf.data = NULL;                          // we can free the string after call to idPool()
     //printf("\tgenIdent = %s\n", id);
-    return new Identifier(id, TOKidentifier);
+    return Lexer::idPool(id);
 }
 
 
@@ -5269,7 +5307,7 @@ void TemplateMixin::semantic(Scope *sc)
     }
 
     if (!ident)
-        ident = genIdent();
+        ident = genIdent(tiargs);
 
     inst = this;
     parent = sc->parent;

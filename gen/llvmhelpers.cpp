@@ -1279,7 +1279,7 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 
     LLConstant* val = exp->toConstElem(gIR);
 
-    Type* expbase = exp->type->toBasetype();
+    Type* expbase = stripModifiers(exp->type->toBasetype());
     Logger::println("expbase: %s", expbase->toChars());
     Type* t = base->toBasetype();
 

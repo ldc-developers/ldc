@@ -52,6 +52,14 @@ llvm::cl::opt<bool> checkPrintf("check-printf-calls",
 
 void Expression::cacheLvalue(IRState* irs)
 {
+#if DMDV2
+    if (isLvalue()) {
+        Logger::println("Caching l-value of %s", toChars());
+        LOG_SCOPE;
+        cachedLvalue = toElem(irs)->getLVal();
+        return;
+    }
+#endif
     error("expression %s does not mask any l-value", toChars());
     fatal();
 }

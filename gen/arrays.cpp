@@ -627,9 +627,27 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 
 #if DMDV2
     const char* fnname = zeroInit ? "_d_newarraymT" : "_d_newarraymiT";
+
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
+
+    std::vector<LLValue*> args;
+    args.push_back(arrayTypeInfo);
+    args.push_back(DtoConstSize_t(ndims));
+
+    // build dims
+    for (size_t i=0; i<ndims; ++i)
+        args.push_back(dims[i]->getRVal());
+
+    // call allocator
+    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".gc_mem").getInstruction();
+
+    if (Logger::enabled())
+        Logger::cout() << "final ptr = " << *newptr << '\n';
+
+    return getSlice(arrayType, newptr);
 #else
+
     const char* fnname = defaultInit ? (zeroInit ? "_d_newarraymT" : "_d_newarraymiT") : "_d_newarraymvT";
-#endif
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // build dims
@@ -645,9 +663,6 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     // call allocator
     LLValue* newptr = gIR->CreateCallOrInvoke3(fn, arrayTypeInfo, DtoConstSize_t(ndims), dimsArg, ".gc_mem").getInstruction();
 
-#if DMDV2
-    return getSlice(arrayType, newptr);
-#else
     // cast to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);
     if (newptr->getType() != dstType)

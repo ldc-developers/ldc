@@ -182,9 +182,17 @@ Statement *AsmStatement::semantic(Scope *sc)
     return this;
 }
 
+#if DMDV2
+int AsmStatement::blockExit(bool mustNotThrow)
+#else
 int AsmStatement::blockExit()
+#endif
 {
     //printf("AsmStatement::blockExit(%p)\n", this);
+#if DMDV2
+    if (mustNotThrow)
+        error("asm statements are assumed to throw", toChars());
+#endif
     return BEfallthru | BEreturn | BEgoto | BEhalt;
 }
 
