@@ -544,8 +544,8 @@ static bool isInitialized(Type* et) {
 static DSliceValue *getSlice(Type *arrayType, LLValue *array)
 {
     // Get ptr and length of the array
-    LLValue* arrayLen = DtoExtractValue(array, 0, ".ptr");
-    LLValue* newptr = DtoExtractValue(array, 1, ".len");
+    LLValue* arrayLen = DtoExtractValue(array, 0, ".len");
+    LLValue* newptr = DtoExtractValue(array, 1, ".ptr");
 
     // cast pointer to wanted type
     const LLType* dstType = DtoType(arrayType)->getContainedType(1);

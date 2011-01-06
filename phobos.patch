@@ -1,3 +1,14 @@
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/base64.d phobos/std/base64.d
+--- phobos-orig/std/base64.d	2010-12-20 23:02:36.000000000 +0300
++++ phobos/std/base64.d	2011-01-06 12:56:56.420864296 +0300
+@@ -1577,6 +1577,7 @@
+         }
+     }
+ 
++    version (LDC) {} // FIXME:
+     { // Encoder and Decoder for single character encoding and decoding
+         alias Base64Impl!('+', '/', Base64.NoPadding) Base64NoPadding;
+ 
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/concurrency.d phobos/std/concurrency.d
 --- phobos-orig/std/concurrency.d	2010-12-20 23:02:36.000000000 +0300
 +++ phobos/std/concurrency.d	2011-01-05 15:15:31.000000000 +0300
@@ -100,7 +111,16 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
 --- phobos-orig/std/math.d	2011-01-05 16:04:59.087062853 +0300
-+++ phobos/std/math.d	2011-01-05 18:17:40.283062853 +0300
++++ phobos/std/math.d	2011-01-06 10:31:06.744864295 +0300
+@@ -64,7 +64,7 @@
+ 
+ version(LDC) {
+     import ldc.intrinsics;
+-    version = INLINE_YL2X; 
++    //version = INLINE_YL2X; 
+ }
+ 
+ version(DigitalMars){
 @@ -266,7 +266,7 @@
      assert(abs(71.6Li) == 71.6L);
      assert(abs(-56) == 56);
@@ -213,6 +233,42 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  unittest {
      assert(ldexp(1, -16384) == 0x1p-16384L);
      assert(ldexp(1, -16382) == 0x1p-16382L);
+@@ -1446,7 +1489,7 @@
+  *    )
+  */
+ 
+-real log(real x) @safe pure nothrow 
++real log(real x) @trusted pure nothrow 
+ {
+     version (INLINE_YL2X)
+         return yl2x(x, LN2);
+@@ -1470,7 +1513,7 @@
+  *      )
+  */
+ 
+-real log10(real x) @safe pure nothrow
++real log10(real x) @trusted pure nothrow
+ {
+     version (INLINE_YL2X)
+         return yl2x(x, LOG2);
+@@ -1499,7 +1542,7 @@
+  *  )
+  */
+ 
+-real log1p(real x) @safe pure nothrow
++real log1p(real x) @trusted pure nothrow
+ {
+     version(INLINE_YL2X)
+     {
+@@ -1524,7 +1567,7 @@
+  *  $(TR $(TD +$(INFIN))    $(TD +$(INFIN)) $(TD no)           $(TD no) )
+  *  )
+  */
+-real log2(real x) @safe pure nothrow
++real log2(real x) @trusted pure nothrow
+ {
+     version (INLINE_YL2X)
+         return yl2x(x, 1);
 @@ -1617,7 +1660,24 @@
   *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
   *      )
