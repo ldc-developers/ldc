@@ -1615,9 +1615,17 @@ void FuncDeclaration::semantic3(Scope *sc)
 
                 if (type->nextOf()->ty != Tvoid)
                 {
+#if IN_LLVM
+                    Expression *e = 0;
+                    if (isCtorDeclaration())
+                        e = new VarExp(0, vthis);
+                    else
+                        e = new VarExp(0, vresult);
+#else
                     // Create: return vresult;
                     assert(vresult);
                     Expression *e = new VarExp(0, vresult);
+#endif
                     if (tintro)
                     {   e = e->implicitCastTo(sc, tintro->nextOf());
                         e = e->semantic(sc);

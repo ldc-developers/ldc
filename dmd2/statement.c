@@ -3645,7 +3645,11 @@ Statement *ReturnStatement::semantic(Scope *sc)
 
     if (exp)
     {
+#if IN_LLVM
+        if (!fd->isCtorDeclaration() && fd->returnLabel && tbret->ty != Tvoid)
+#else
         if (fd->returnLabel && tbret->ty != Tvoid)
+#endif
         {
             assert(fd->vresult);
             VarExp *v = new VarExp(0, fd->vresult);
