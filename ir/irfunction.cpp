@@ -86,7 +86,12 @@ void IrFuncTy::getParam(Type* dty, int idx, DValue* val, llvm::Value* lval)
         return;
     }
 
-    DtoStore(val->getRVal(), lval);
+    LLValue *rval = val->getRVal();
+#if DMDV2
+    if (DtoIsPassedByRef(val->type))
+        rval = DtoLoad(rval);
+#endif
+    DtoStore(rval, lval);
 }
 
 //////////////////////////////////////////////////////////////////////////////
