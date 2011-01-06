@@ -752,11 +752,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
-#if DMDV2
-            if (!refout)
-#else
             if (!refout && (!f->fty.args[i]->byref || lazy))
-#endif
             {
                 // alloca a stack slot for this first class value arg
                 const LLType* argt;
