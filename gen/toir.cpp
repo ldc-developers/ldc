@@ -52,14 +52,6 @@ llvm::cl::opt<bool> checkPrintf("check-printf-calls",
 
 void Expression::cacheLvalue(IRState* irs)
 {
-#if DMDV2
-    if (isLvalue()) {
-        Logger::println("Caching l-value of %s", toChars());
-        LOG_SCOPE;
-        cachedLvalue = toElem(irs)->getLVal();
-        return;
-    }
-#endif
     error("expression %s does not mask any l-value", toChars());
     fatal();
 }
@@ -786,8 +778,6 @@ DValue* ModExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
 void CallExp::cacheLvalue(IRState* p)
 {
 
@@ -796,14 +786,18 @@ void CallExp::cacheLvalue(IRState* p)
     cachedLvalue = toElem(p)->getLVal();
 }
 
-#endif
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (cachedLvalue)
+    {
+        LLValue* V = cachedLvalue;
+        return new DVarValue(type, V);
+    }
 
     // handle magic inline asm
     if (e1->op == TOKvar)
@@ -2229,10 +2223,23 @@ DValue* CommaExp::toElem(IRState* p)
     Logger::print("CommaExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    if (cachedLvalue)
+    {
+        LLValue* V = cachedLvalue;
+        return new DVarValue(type, V);
+    }
+
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
     assert(e2->type == type);
     return v;
+}
+
+void CommaExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = toElem(p)->getLVal();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

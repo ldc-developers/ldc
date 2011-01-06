@@ -1,14 +1,3 @@
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/base64.d phobos/std/base64.d
---- phobos-orig/std/base64.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/base64.d	2011-01-06 12:56:56.420864296 +0300
-@@ -1577,6 +1577,7 @@
-         }
-     }
- 
-+    version (LDC) {} // FIXME:
-     { // Encoder and Decoder for single character encoding and decoding
-         alias Base64Impl!('+', '/', Base64.NoPadding) Base64NoPadding;
- 
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/concurrency.d phobos/std/concurrency.d
 --- phobos-orig/std/concurrency.d	2010-12-20 23:02:36.000000000 +0300
 +++ phobos/std/concurrency.d	2011-01-05 15:15:31.000000000 +0300
@@ -50,7 +39,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      return to!T(buffer[0 .. len].dup);
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/functional.d phobos/std/functional.d
 --- phobos-orig/std/functional.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/functional.d	2011-01-05 15:15:31.000000000 +0300
++++ phobos/std/functional.d	2011-01-06 19:41:23.740864295 +0300
 @@ -714,6 +714,13 @@
          assert(dg_pure_nothrow() == 7);
          //assert(dg_pure_nothrow_safe() == 8);
