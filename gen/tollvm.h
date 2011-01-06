@@ -43,11 +43,11 @@ const LLStructType* DtoMutexType();
 const LLStructType* DtoModuleReferenceType();
 
 // getelementptr helpers
-LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var="", llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var="", llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var=0, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var=0, llvm::BasicBlock* bb=NULL);
 
-LLValue* DtoGEPi1(LLValue* ptr, unsigned i0, const char* var="", llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var="", llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi1(LLValue* ptr, unsigned i0, const char* var=0, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var=0, llvm::BasicBlock* bb=NULL);
 LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1);
 
 // to constant helpers
@@ -62,14 +62,14 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
 LLConstant* DtoConstBool(bool);
 
 // llvm wrappers
-LLValue* DtoLoad(LLValue* src, const char* name="");
-LLValue* DtoAlignedLoad(LLValue* src, const char* name="");
+LLValue* DtoLoad(LLValue* src, const char* name=0);
+LLValue* DtoAlignedLoad(LLValue* src, const char* name=0);
 void DtoStore(LLValue* src, LLValue* dst);
 void DtoAlignedStore(LLValue* src, LLValue* dst);
-LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name="");
+LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
 LLConstant* DtoBitCast(LLConstant* v, const LLType* t);
-LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name="");
-LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name="");
+LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name=0);
+LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name=0);
 
 // llvm::dyn_cast wrappers
 const LLPointerType* isaPointer(LLValue* v);
@@ -105,7 +105,7 @@ unsigned char getPrefTypeAlign(const LLType* t);
 const LLType* getBiggestType(const LLType** begin, size_t n);
 
 // pair type helpers
-LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = "");
+LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name = 0);
 LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as);
 LLValue* DtoAggrPairSwap(LLValue* aggr);
