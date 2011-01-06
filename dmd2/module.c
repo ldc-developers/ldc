@@ -575,7 +575,9 @@ inline unsigned readlongBE(unsigned *p)
         (((unsigned char *)p)[0] << 24);
 }
 
-#if IN_GCC
+#if IN_LLVM
+void Module::parse(bool gen_docs)
+#elif IN_GCC
 void Module::parse(bool dump_source)
 #else
 void Module::parse()
@@ -788,7 +790,11 @@ void Module::parse()
             d_gcc_dump_source(srcname, "d.utf-8", buf, buflen);
 #endif
     }
+#if IN_LLVM
+    Parser p(this, buf, buflen, gen_docs);
+#else
     Parser p(this, buf, buflen, docfile != NULL);
+#endif
     p.nextToken();
     members = p.parseModule();
     md = p.md;

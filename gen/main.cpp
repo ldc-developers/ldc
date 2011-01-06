@@ -802,9 +802,13 @@ LDC_TARGETS
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
-        m->buildTargetFiles(singleObj);
         m->read(0);
+#ifdef _DH
+        m->parse(global.params.doDocComments);
+#else
         m->parse();
+#endif
+        m->buildTargetFiles(singleObj);
         m->deleteObjFile();
         if (m->isDocFile)
         {
