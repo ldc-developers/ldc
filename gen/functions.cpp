@@ -752,7 +752,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
+#if DMDV2
+            bool isStaticArray = vd->type->toBasetype()->ty == Tsarray;
+            if (!refout && (!f->fty.args[i]->byref || lazy || isStaticArray))
+#else
             if (!refout && (!f->fty.args[i]->byref || lazy))
+#endif
             {
                 // alloca a stack slot for this first class value arg
                 const LLType* argt;
@@ -762,6 +767,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
                     argt = DtoType(vd->type);
                 LLValue* mem = DtoRawAlloca(argt, 0, vd->ident->toChars());
 
+#if DMDV2
+                // if it is a static array, load from it, because static arrays
+                // are always passed by reference
+                if (isStaticArray && !lazy)
+                    irloc->value = DtoLoad(irloc->value);
+#endif
                 // let the abi transform the argument back first
                 DImValue arg_dval(vd->type, irloc->value);
                 f->fty.getParam(vd->type, i, &arg_dval, mem);
