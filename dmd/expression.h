@@ -1065,6 +1065,7 @@ struct CallExp : UnaExp
     Expression *inlineScan(InlineScanState *iss);
 
 #if IN_LLVM
+    void cacheLvalue(IRState* p);
     DValue* toElem(IRState* irs);
 #endif
 };
@@ -1333,6 +1334,7 @@ struct CommaExp : BinExp
 #endif
 
 #if IN_LLVM
+    void cacheLvalue(IRState* p);
     DValue* toElem(IRState* irs);
 #endif
 };
@@ -1468,6 +1470,7 @@ struct AddExp : BinExp
 #endif
 
 #if IN_LLVM
+    llvm::Constant* toConstElem(IRState* p);
     DValue* toElem(IRState* irs);
 #endif
 };
@@ -1490,6 +1493,7 @@ struct MinExp : BinExp
 #endif
 
 #if IN_LLVM
+    llvm::Constant* toConstElem(IRState* p);
     DValue* toElem(IRState* irs);
 #endif
 };

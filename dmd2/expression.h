@@ -1567,6 +1567,7 @@ struct AddExp : BinExp
 #endif
 
 #if IN_LLVM
+    llvm::Constant *toConstElem(IRState* p);
     DValue* toElem(IRState* irs);
 #endif
 };
@@ -1589,6 +1590,7 @@ struct MinExp : BinExp
 #endif
 
 #if IN_LLVM
+    llvm::Constant *toConstElem(IRState* p);
     DValue* toElem(IRState* irs);
 #endif
 };
