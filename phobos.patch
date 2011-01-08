@@ -1,30 +1,6 @@
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/concurrency.d phobos/std/concurrency.d
---- phobos-orig/std/concurrency.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/concurrency.d	2011-01-05 15:15:31.000000000 +0300
-@@ -359,9 +359,10 @@
-         owner = ownerTid;
-         fn( args );
-     }
--
-+    
-     // TODO: MessageList and &exec should be shared.
-     auto t = new Thread( &exec ); t.start();
-+    version(LDC) Thread.sleep(5_000);
-     links[spawnTid] = linked;
-     return spawnTid;
- }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/conv.d phobos/std/conv.d
 --- phobos-orig/std/conv.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/conv.d	2011-01-05 15:15:31.000000000 +0300
-@@ -1425,7 +1425,7 @@
-     else // not hex
-     {
-         if (toupper(p.front) == 'N' && !startsWithZero)
--        {
-+        {   
-             // nan
-             enforce((p.popFront(), !p.empty && toupper(p.front) == 'A')
-                     && (p.popFront(), !p.empty && toupper(p.front) == 'N'),
++++ phobos/std/conv.d	2011-01-08 12:48:19.925953001 +0300
 @@ -3263,6 +3263,11 @@
  T toImpl(T, S)(S d) if (is(Unqual!S == double) && isSomeString!(T))
  {
@@ -37,30 +13,6 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      char[20] buffer;
      int len = sprintf(buffer.ptr, "%g", d);
      return to!T(buffer[0 .. len].dup);
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/functional.d phobos/std/functional.d
---- phobos-orig/std/functional.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/functional.d	2011-01-06 19:41:23.740864295 +0300
-@@ -714,6 +714,13 @@
-         assert(dg_pure_nothrow() == 7);
-         //assert(dg_pure_nothrow_safe() == 8);
-     }
-+    version (LDC) 
-+    {
-+        // FIXME: 
-+    } 
-+    else 
-+    {
-+
-     /* test for linkage */
-     {
-         struct S
-@@ -725,4 +732,6 @@
-         auto dg_xtrnD = toDelegate(&S.xtrnD);
-         static assert(! is(typeof(dg_xtrnC) == typeof(dg_xtrnD)));
-     }
-+
-+    }
- }
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/internal/math/biguintx86.d phobos/std/internal/math/biguintx86.d
 --- phobos-orig/std/internal/math/biguintx86.d	2010-12-20 23:02:36.000000000 +0300
 +++ phobos/std/internal/math/biguintx86.d	2011-01-05 15:15:30.000000000 +0300
@@ -100,7 +52,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
 --- phobos-orig/std/math.d	2011-01-05 16:04:59.087062853 +0300
-+++ phobos/std/math.d	2011-01-06 10:31:06.744864295 +0300
++++ phobos/std/math.d	2011-01-08 12:53:21.049953002 +0300
 @@ -64,7 +64,7 @@
  
  version(LDC) {
@@ -119,31 +71,53 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  }
  
  /***********************************
-@@ -308,7 +308,10 @@
+@@ -308,8 +308,22 @@
   *      Results are undefined if |x| >= $(POWER 2,64).
   */
  
--real cos(real x) @safe pure nothrow;       /* intrinsic */
 +version(LDC)
-+    @safe pure nothrow real cos(real x) { return llvm_cos(x); }
++{
++
++@safe pure nothrow real cos(real x)
++{ 
++    return llvm_cos(x); 
++}
++
++{
 +else
-+    real cos(real x) @safe pure nothrow;       /* intrinsic */
++{
++
+ real cos(real x) @safe pure nothrow;       /* intrinsic */
  
++}
++
  /***********************************
   * Returns sine of x. x is in radians.
-@@ -323,7 +326,10 @@
+  *
+@@ -322,9 +336,22 @@
+  * Bugs:
   *      Results are undefined if |x| >= $(POWER 2,64).
   */
- 
--real sin(real x) @safe pure nothrow;       /* intrinsic */
 +version(LDC)
-+    @safe pure nothrow real sin(real x) { return llvm_sin(x); }
++{
++
++@safe pure nothrow real sin(real x)
++{ 
++    return llvm_sin(x); 
++}
++
++{
 +else
-+    real sin(real x) @safe pure nothrow;       /* intrinsic */
++{
  
+ real sin(real x) @safe pure nothrow;       /* intrinsic */
+ 
++}
++
  
  /***********************************
-@@ -390,7 +396,9 @@
+  *  sine, complex and imaginary
+@@ -390,7 +417,9 @@
  
  real tan(real x) @trusted pure nothrow 
  {
@@ -154,22 +128,30 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
      asm
      {
          fld     x[EBP]                  ; // load theta
-@@ -806,7 +814,13 @@
+@@ -806,8 +835,22 @@
   * greater than long.max, the result is
   * indeterminate.
   */
--long rndtol(real x) @safe pure nothrow;    /* intrinsic */
 +version(LDC)
-+pure nothrow long rndtol(real x)
++{
++
++@trusted pure nothrow long rndtol(real x)
 +{
 +	return core.stdc.math.llroundl(x);
 +}
++
++}
 +else
-+    long rndtol(real x) @safe pure nothrow;    /* intrinsic */
++{
++
+ long rndtol(real x) @safe pure nothrow;    /* intrinsic */
  
++}
++
  
  /*****************************************
-@@ -828,6 +842,20 @@
+  * Returns x rounded to a long value using the FE_TONEAREST rounding mode.
+@@ -828,6 +871,20 @@
   *      )
   */
  
@@ -190,7 +172,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  @safe pure nothrow
  {
      float sqrt(float x);    /* intrinsic */
-@@ -835,6 +863,8 @@
+@@ -835,6 +892,8 @@
      real sqrt(real x);      /* intrinsic */ /// ditto
  }
  
@@ -199,7 +181,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  @trusted pure nothrow {  // Should be @safe.  See bugs 4628, 4630.
      // Create explicit overloads for integer sqrts.  No ddoc for these because
      // hopefully a more elegant solution will eventually be found, so we don't
-@@ -1421,9 +1451,22 @@
+@@ -1421,9 +1480,22 @@
   * Compute n * 2$(SUP exp)
   * References: frexp
   */
@@ -222,7 +204,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  unittest {
      assert(ldexp(1, -16384) == 0x1p-16384L);
      assert(ldexp(1, -16382) == 0x1p-16382L);
-@@ -1446,7 +1489,7 @@
+@@ -1446,7 +1518,7 @@
   *    )
   */
  
@@ -231,7 +213,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      version (INLINE_YL2X)
          return yl2x(x, LN2);
-@@ -1470,7 +1513,7 @@
+@@ -1470,7 +1542,7 @@
   *      )
   */
  
@@ -240,7 +222,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      version (INLINE_YL2X)
          return yl2x(x, LOG2);
-@@ -1499,7 +1542,7 @@
+@@ -1499,7 +1571,7 @@
   *  )
   */
  
@@ -249,7 +231,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      version(INLINE_YL2X)
      {
-@@ -1524,7 +1567,7 @@
+@@ -1524,7 +1596,7 @@
   *  $(TR $(TD +$(INFIN))    $(TD +$(INFIN)) $(TD no)           $(TD no) )
   *  )
   */
@@ -258,7 +240,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  {
      version (INLINE_YL2X)
          return yl2x(x, 1);
-@@ -1617,7 +1660,24 @@
+@@ -1617,7 +1689,24 @@
   *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
   *      )
   */
@@ -284,7 +266,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
  
  /***********************************************************************
-@@ -3017,9 +3077,15 @@
+@@ -3017,9 +3106,15 @@
      assert(pow(x,eight) == (x * x) * (x * x) * (x * x) * (x * x));
  
      assert(pow(x, neg1) == 1 / x);
