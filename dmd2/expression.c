@@ -6509,11 +6509,14 @@ Expression *DelegateExp::semantic(Scope *sc)
 #endif
     if (!type)
     {
-	m = sc->module;
+        m = sc->module;
         e1 = e1->semantic(sc);
 #if IN_LLVM
-        // LDC we need a copy as we store the LLVM type in TypeFunction, and delegate/members have different types for 'this'
-        type = new TypeDelegate(func->type->syntaxCopy());
+        // LDC we need a copy as we store the LLVM type in TypeFunction,
+        // and delegate/members have different types for 'this'
+        Type *funcType = func->type->syntaxCopy();
+        funcType->deco = func->type->deco;
+        type = new TypeDelegate(funcType);
 #else
         type = new TypeDelegate(func->type);
 #endif
