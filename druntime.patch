@@ -1,352 +1,6673 @@
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/conv.d phobos/std/conv.d
---- phobos-orig/std/conv.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/conv.d	2011-01-08 12:48:19.925953001 +0300
-@@ -3263,6 +3263,11 @@
- T toImpl(T, S)(S d) if (is(Unqual!S == double) && isSomeString!(T))
- {
-     //alias Unqual!(ElementType!T) Char;
-+    version(LDC) // FIXME: workarond for case when this function returns "-nan" 
-+    {
-+        if (isnan(d))
-+            return "nan";
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/atomic.di druntime/import/core/atomic.di
+--- druntime-orig/import/core/atomic.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/atomic.di	2011-01-05 14:41:38.000000000 +0300
+@@ -1,567 +1,664 @@
+-// D import file generated from 'src\core\atomic.d'
+-module core.atomic;
+-version (D_InlineAsm_X86)
+-{
+-    version = AsmX86;
+-    version = AsmX86_32;
+-    enum has64BitCAS = true;
+-}
+-version (D_InlineAsm_X86_64)
+-{
+-    version = AsmX86;
+-    version = AsmX86_64;
+-    enum has64BitCAS = true;
+-}
+-private 
+-{
+-    template NakedType(T : shared(T))
+-{
+-alias T NakedType;
+-}
+-    template NakedType(T : shared(T*))
+-{
+-alias T* NakedType;
+-}
+-    template NakedType(T : const(T))
+-{
+-alias T NakedType;
+-}
+-    template NakedType(T : const(T*))
+-{
+-alias T* NakedType;
+-}
+-    template NamedType(T : T*)
+-{
+-alias T NakedType;
+-}
+-    template NakedType(T)
+-{
+-alias T NakedType;
+-}
+-}
+-version (AsmX86)
+-{
+-    private template atomicValueIsProperlyAligned(T)
+-{
+-bool atomicValueIsProperlyAligned(size_t addr)
+-{
+-return addr % T.sizeof == 0;
+-}
+-}
+-
+-}
+-version (D_Ddoc)
+-{
+-    template atomicOp(string op,T,V1)
+-{
+-T atomicOp(ref shared T val, V1 mod)
+-{
+-return val;
+-}
+-}
+-    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
+-{
+-bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
+-{
+-return false;
+-}
+-}
+-}
+-else
+-{
+-    version (AsmX86_32)
+-{
+-    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
+-{
+-T atomicOp(ref shared T val, V1 mod)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
+-}
+-
+-}
+-body
+-{
+-static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
+-{
+-T get = val;
+-mixin("return get " ~ op ~ " mod;");
+-}
+-else
+-{
+-static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
+-{
+-T get,set;
+-do
+-{
+-get = (set = atomicLoad!(msync.raw)(val));
+-mixin("set " ~ op ~ " mod;");
+-}
+-while (!cas(&val,get,set));
+-return set;
+-}
+-else
+-{
+-static assert(false,"Operation not supported.");
+-}
+-
+-}
+-
+-}
+-}
+-    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
+-{
+-bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
+-}
+-
+-}
+-body
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-asm { mov DL,writeThis; }
+-asm { mov AL,ifThis; }
+-asm { mov ECX,here; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DL; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-asm { mov DX,writeThis; }
+-asm { mov AX,ifThis; }
+-asm { mov ECX,here; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-asm { mov EDX,writeThis; }
+-asm { mov EAX,ifThis; }
+-asm { mov ECX,here; }
+-asm { lock; }
+-asm { cmpxchg[ECX],EDX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof && has64BitCAS)
+-{
+-asm { push EDI; }
+-asm { push EBX; }
+-asm { lea EDI,writeThis; }
+-asm { mov EBX,[EDI]; }
+-asm { mov ECX,4[EDI]; }
+-asm { lea EDI,ifThis; }
+-asm { mov EAX,[EDI]; }
+-asm { mov EDX,4[EDI]; }
+-asm { mov EDI,here; }
+-asm { lock; }
+-asm { cmpxch8b[EDI]; }
+-asm { setz AL; }
+-asm { pop EBX; }
+-asm { pop EDI; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-    private 
+-{
+-    template isHoistOp(msync ms)
+-{
+-enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
+-}
+-    template isSinkOp(msync ms)
+-{
+-enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
+-}
+-    template needsLoadBarrier(msync ms)
+-{
+-const bool needsLoadBarrier = ms != msync.raw;
+-
+-}
+-    enum msync 
+-{
+-raw,
+-acq,
+-rel,
+-seq,
+-}
+-    template atomicLoad(msync ms = msync.seq,T)
+-{
+-T atomicLoad(ref const shared T val)
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DL,0; }
+-asm { mov AL,0; }
+-asm { mov ECX,val; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DL; }
+-}
+-else
+-{
+-asm { mov EAX,val; }
+-asm { mov AL,[EAX]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DX,0; }
+-asm { mov AX,0; }
+-asm { mov ECX,val; }
+-asm { lock; }
+-asm { cmpxchg[ECX],DX; }
+-}
+-else
+-{
+-asm { mov EAX,val; }
+-asm { mov AX,[EAX]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov EDX,0; }
+-asm { mov EAX,0; }
+-asm { mov ECX,val; }
+-asm { lock; }
+-asm { cmpxchg[ECX],EDX; }
+-}
+-else
+-{
+-asm { mov EAX,val; }
+-asm { mov EAX,[EAX]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof && has64BitCAS)
+-{
+-asm { push EDI; }
+-asm { push EBX; }
+-asm { mov EBX,0; }
+-asm { mov ECX,0; }
+-asm { mov EAX,0; }
+-asm { mov EDX,0; }
+-asm { mov EDI,val; }
+-asm { lock; }
+-asm { cmpxch8b[EDI]; }
+-asm { pop EBX; }
+-asm { pop EDI; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-}
+-}
+-else
+-{
+-    version (AsmX86_64)
+-{
+-    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
+-{
+-T atomicOp(ref shared T val, V1 mod)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
+-}
+-
+-}
+-body
+-{
+-static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
+-{
+-T get = val;
+-mixin("return get " ~ op ~ " mod;");
+-}
+-else
+-{
+-static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
+-{
+-T get,set;
+-do
+-{
+-get = (set = atomicLoad!(msync.raw)(val));
+-mixin("set " ~ op ~ " mod;");
+-}
+-while (!cas(&val,get,set));
+-return set;
+-}
+-else
+-{
+-static assert(false,"Operation not supported.");
+-}
+-
+-}
+-
+-}
+-}
+-    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
+-{
+-bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
+-in
+-{
+-static if(T.sizeof > size_t.sizeof)
+-{
+-assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
+-}
+-else
+-{
+-assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
+-}
+-
+-}
+-body
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-asm { mov DL,writeThis; }
+-asm { mov AL,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DL; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-asm { mov DX,writeThis; }
+-asm { mov AX,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-asm { mov EDX,writeThis; }
+-asm { mov EAX,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],EDX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof)
+-{
+-asm { mov RDX,writeThis; }
+-asm { mov RAX,ifThis; }
+-asm { mov RCX,here; }
+-asm { lock; }
+-asm { cmpxchg[RCX],RDX; }
+-asm { setz AL; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-    private 
+-{
+-    template isHoistOp(msync ms)
+-{
+-enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
+-}
+-    template isSinkOp(msync ms)
+-{
+-enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
+-}
+-    template needsLoadBarrier(msync ms)
+-{
+-const bool needsLoadBarrier = ms != msync.raw;
+-
+-}
+-    enum msync 
+-{
+-raw,
+-acq,
+-rel,
+-seq,
+-}
+-    template atomicLoad(msync ms = msync.seq,T)
+-{
+-T atomicLoad(ref const shared T val)
+-{
+-static if(T.sizeof == (byte).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DL,0; }
+-asm { mov AL,0; }
+-asm { mov RCX,val; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DL; }
+-}
+-else
+-{
+-asm { mov AL,[val]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (short).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov DX,0; }
+-asm { mov AX,0; }
+-asm { mov RCX,val; }
+-asm { lock; }
+-asm { cmpxchg[RCX],DX; }
+-}
+-else
+-{
+-asm { mov AX,[val]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (int).sizeof)
+-{
+-static if(needsLoadBarrier!(ms))
+-{
+-asm { mov EDX,0; }
+-asm { mov EAX,0; }
+-asm { mov RCX,val; }
+-asm { lock; }
+-asm { cmpxchg[RCX],EDX; }
+-}
+-else
+-{
+-asm { mov EAX,[val]; }
+-}
+-
+-}
+-else
+-{
+-static if(T.sizeof == (long).sizeof && has64BitCAS)
+-{
+-asm { push EDI; }
+-asm { push EBX; }
+-asm { mov EBX,0; }
+-asm { mov ECX,0; }
+-asm { mov EAX,0; }
+-asm { mov EDX,0; }
+-asm { mov RDI,val; }
+-asm { lock; }
+-asm { cmpxch8b[RDI]; }
+-asm { pop EBX; }
+-asm { pop EDI; }
+-}
+-else
+-{
+-static assert(false,"Invalid template type specified.");
+-}
+-
+-}
+-
+-}
+-
+-}
+-
+-}
+-}
+-}
+-}
+-}
+-}
+-version (unittest)
+-{
+-    template testCAS(msyT)
+-{
+-template testCAS(T)
+-{
+-void testCAS(T val = T.init + 1)
+-{
+-T base;
+-shared(T) atom;
+-assert(base != val);
+-assert(atom == base);
+-assert(cas(&atom,base,val));
+-assert(atom == val);
+-assert(!cas(&atom,base,base));
+-assert(atom == val);
+-}
+-}
+-}
+-    template testType(T)
+-{
+-void testType(T val = T.init + 1)
+-{
+-testCAS!(T)(val);
+-}
+-}
+-    }
++// D import file generated from 'druntime/src/core/atomic.d'
++module core.atomic;
++version (D_InlineAsm_X86)
++{
++    version = AsmX86;
++    version = AsmX86_32;
++    enum has64BitCAS = true;
++}
++version (D_InlineAsm_X86_64)
++{
++    version = AsmX86;
++    version = AsmX86_64;
++    enum has64BitCAS = true;
++}
++private 
++{
++    template NakedType(T : shared(T))
++{
++alias T NakedType;
++}
++    template NakedType(T : shared(T*))
++{
++alias T* NakedType;
++}
++    template NakedType(T : const(T))
++{
++alias T NakedType;
++}
++    template NakedType(T : const(T*))
++{
++alias T* NakedType;
++}
++    template NamedType(T : T*)
++{
++alias T NakedType;
++}
++    template NakedType(T)
++{
++alias T NakedType;
++}
++}
++version (AsmX86)
++{
++    private template atomicValueIsProperlyAligned(T)
++{
++bool atomicValueIsProperlyAligned(size_t addr)
++{
++return addr % T.sizeof == 0;
++}
++}
++
++}
++version (D_Ddoc)
++{
++    template atomicOp(string op,T,V1)
++{
++T atomicOp(ref shared T val, V1 mod)
++{
++return val;
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++{
++return false;
++}
++}
++}
++else
++{
++    version (LDC)
++{
++    import ldc.intrinsics;
++    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
++{
++T atomicOp(ref shared T val, V1 mod)
++{
++static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
++{
++T get = val;
++mixin("return get " ~ op ~ " mod;");
++}
++else
++{
++static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
++{
++T get,set;
++do
++{
++get = (set = atomicLoad!(msync.raw)(val));
++mixin("set " ~ op ~ " mod;");
++}
++while (!cas(&val,get,set));
++return set;
++}
++else
++{
++static assert(false,"Operation not supported.");
++}
++
++}
++
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++{
++T oldval = void;
++static if(is(T P == U*,U))
++{
++oldval = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared(size_t*))&writeThis,cast(size_t)ifThis,cast(size_t)here);
++}
++else
++{
++static if(is(T == bool))
++{
++oldval = llvm_atomic_cmp_swap!(ubyte)(cast(shared(ubyte*))&writeThis,ifThis ? 1 : 0,here ? 1 : 0) ? 0 : 1;
++}
++else
++{
++oldval = llvm_atomic_cmp_swap!(T)(here,ifThis,writeThis);
++}
++
++}
++
++return oldval == ifThis;
++}
++}
++    private 
++{
++    enum msync 
++{
++raw,
++acq,
++rel,
++seq,
++}
++    template atomicLoad(msync ms = msync.seq,T)
++{
++T atomicLoad(ref const shared T val)
++{
++llvm_memory_barrier(ms == msync.acq || ms == msync.seq,ms == msync.acq || ms == msync.seq,ms == msync.rel || ms == msync.seq,ms == msync.rel || ms == msync.seq,false);
++static if(is(T P == U*,U))
++{
++return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val,0);
++}
++else
++{
++static if(is(T == bool))
++{
++return llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val,cast(ubyte)0) ? 1 : 0;
++}
++else
++{
++return llvm_atomic_load_add!(T)(&val,cast(T)0);
++}
++
++}
++
++}
++}
++}
++}
++else
++{
++    version (AsmX86_32)
++{
++    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
++{
++T atomicOp(ref shared T val, V1 mod)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
++}
++
++}
++body
++{
++static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
++{
++T get = val;
++mixin("return get " ~ op ~ " mod;");
++}
++else
++{
++static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
++{
++T get,set;
++do
++{
++get = (set = atomicLoad!(msync.raw)(val));
++mixin("set " ~ op ~ " mod;");
++}
++while (!cas(&val,get,set));
++return set;
++}
++else
++{
++static assert(false,"Operation not supported.");
++}
++
++}
++
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
++}
++
++}
++body
++{
++static if(T.sizeof == (byte).sizeof)
++{
++asm { mov DL,writeThis; }
++asm { mov AL,ifThis; }
++asm { mov ECX,here; }
++asm { lock; }
++asm { cmpxchg[ECX],DL; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++asm { mov DX,writeThis; }
++asm { mov AX,ifThis; }
++asm { mov ECX,here; }
++asm { lock; }
++asm { cmpxchg[ECX],DX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++asm { mov EDX,writeThis; }
++asm { mov EAX,ifThis; }
++asm { mov ECX,here; }
++asm { lock; }
++asm { cmpxchg[ECX],EDX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (long).sizeof && has64BitCAS)
++{
++asm { push EDI; }
++asm { push EBX; }
++asm { lea EDI,writeThis; }
++asm { mov EBX,[EDI]; }
++asm { mov ECX,4[EDI]; }
++asm { lea EDI,ifThis; }
++asm { mov EAX,[EDI]; }
++asm { mov EDX,4[EDI]; }
++asm { mov EDI,here; }
++asm { lock; }
++asm { cmpxch8b[EDI]; }
++asm { setz AL; }
++asm { pop EBX; }
++asm { pop EDI; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++    private 
++{
++    template isHoistOp(msync ms)
++{
++enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
++}
++    template isSinkOp(msync ms)
++{
++enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
++}
++    template needsLoadBarrier(msync ms)
++{
++const bool needsLoadBarrier = ms != msync.raw;
++
++}
++    enum msync 
++{
++raw,
++acq,
++rel,
++seq,
++}
++    template atomicLoad(msync ms = msync.seq,T)
++{
++T atomicLoad(ref const shared T val)
++{
++static if(T.sizeof == (byte).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DL,0; }
++asm { mov AL,0; }
++asm { mov ECX,val; }
++asm { lock; }
++asm { cmpxchg[ECX],DL; }
++}
++else
++{
++asm { mov EAX,val; }
++asm { mov AL,[EAX]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DX,0; }
++asm { mov AX,0; }
++asm { mov ECX,val; }
++asm { lock; }
++asm { cmpxchg[ECX],DX; }
++}
++else
++{
++asm { mov EAX,val; }
++asm { mov AX,[EAX]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov EDX,0; }
++asm { mov EAX,0; }
++asm { mov ECX,val; }
++asm { lock; }
++asm { cmpxchg[ECX],EDX; }
++}
++else
++{
++asm { mov EAX,val; }
++asm { mov EAX,[EAX]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (long).sizeof && has64BitCAS)
++{
++asm { push EDI; }
++asm { push EBX; }
++asm { mov EBX,0; }
++asm { mov ECX,0; }
++asm { mov EAX,0; }
++asm { mov EDX,0; }
++asm { mov EDI,val; }
++asm { lock; }
++asm { cmpxch8b[EDI]; }
++asm { pop EBX; }
++asm { pop EDI; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++}
++}
++else
++{
++    version (AsmX86_64)
++{
++    template atomicOp(string op,T,V1) if (is(NakedType!(V1) == NakedType!(T)))
++{
++T atomicOp(ref shared T val, V1 mod)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)&val));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)&val));
++}
++
++}
++body
++{
++static if(op == "+" || op == "-" || op == "*" || op == "/" || op == "%" || op == "^^" || op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>" || op == ">>>" || op == "~" || op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
++{
++T get = val;
++mixin("return get " ~ op ~ " mod;");
++}
++else
++{
++static if(op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "%=" || op == "^^=" || op == "&=" || op == "|=" || op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=")
++{
++T get,set;
++do
++{
++get = (set = atomicLoad!(msync.raw)(val));
++mixin("set " ~ op ~ " mod;");
++}
++while (!cas(&val,get,set));
++return set;
++}
++else
++{
++static assert(false,"Operation not supported.");
++}
++
++}
++
++}
++}
++    template cas(T,V1,V2) if (is(NakedType!(V1) == NakedType!(T)) && is(NakedType!(V2) == NakedType!(T)))
++{
++bool cas(shared(T)* here, const V1 ifThis, const V2 writeThis)
++in
++{
++static if(T.sizeof > size_t.sizeof)
++{
++assert(atomicValueIsProperlyAligned!(size_t)(cast(size_t)here));
++}
++else
++{
++assert(atomicValueIsProperlyAligned!(T)(cast(size_t)here));
++}
++
++}
++body
++{
++static if(T.sizeof == (byte).sizeof)
++{
++asm { mov DL,writeThis; }
++asm { mov AL,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],DL; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++asm { mov DX,writeThis; }
++asm { mov AX,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],DX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++asm { mov EDX,writeThis; }
++asm { mov EAX,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],EDX; }
++asm { setz AL; }
++}
++else
++{
++static if(T.sizeof == (long).sizeof)
++{
++asm { mov RDX,writeThis; }
++asm { mov RAX,ifThis; }
++asm { mov RCX,here; }
++asm { lock; }
++asm { cmpxchg[RCX],RDX; }
++asm { setz AL; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++    private 
++{
++    template isHoistOp(msync ms)
++{
++enum bool isHoistOp = ms == msync.acq || ms == msync.seq;
++}
++    template isSinkOp(msync ms)
++{
++enum bool isSinkOp = ms == msync.rel || ms == msync.seq;
++}
++    template needsLoadBarrier(msync ms)
++{
++const bool needsLoadBarrier = ms != msync.raw;
++
++}
++    enum msync 
++{
++raw,
++acq,
++rel,
++seq,
++}
++    template atomicLoad(msync ms = msync.seq,T)
++{
++T atomicLoad(ref const shared T val)
++{
++static if(T.sizeof == (byte).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DL,0; }
++asm { mov AL,0; }
++asm { mov RCX,val; }
++asm { lock; }
++asm { cmpxchg[RCX],DL; }
++}
++else
++{
++asm { mov AL,[val]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (short).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov DX,0; }
++asm { mov AX,0; }
++asm { mov RCX,val; }
++asm { lock; }
++asm { cmpxchg[RCX],DX; }
++}
++else
++{
++asm { mov AX,[val]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (int).sizeof)
++{
++static if(needsLoadBarrier!(ms))
++{
++asm { mov EDX,0; }
++asm { mov EAX,0; }
++asm { mov RCX,val; }
++asm { lock; }
++asm { cmpxchg[RCX],EDX; }
++}
++else
++{
++asm { mov EAX,[val]; }
++}
++
++}
++else
++{
++static if(T.sizeof == (long).sizeof && has64BitCAS)
++{
++asm { push EDI; }
++asm { push EBX; }
++asm { mov EBX,0; }
++asm { mov ECX,0; }
++asm { mov EAX,0; }
++asm { mov EDX,0; }
++asm { mov RDI,val; }
++asm { lock; }
++asm { cmpxch8b[RDI]; }
++asm { pop EBX; }
++asm { pop EDI; }
++}
++else
++{
++static assert(false,"Invalid template type specified.");
++}
++
++}
++
++}
++
++}
++
++}
++}
++}
++}
++}
++}
++}
++version (unittest)
++{
++    template testCAS(msyT)
++{
++template testCAS(T)
++{
++void testCAS(T val = T.init + 1)
++{
++T base;
++shared(T) atom;
++assert(base != val);
++assert(atom == base);
++assert(cas(&atom,base,val));
++assert(atom == val);
++assert(!cas(&atom,base,base));
++assert(atom == val);
++}
++}
++}
++    template testType(T)
++{
++void testType(T val = T.init + 1)
++{
++testCAS!(T)(val);
++}
++}
 +    }
-     char[20] buffer;
-     int len = sprintf(buffer.ptr, "%g", d);
-     return to!T(buffer[0 .. len].dup);
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/internal/math/biguintx86.d phobos/std/internal/math/biguintx86.d
---- phobos-orig/std/internal/math/biguintx86.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/internal/math/biguintx86.d	2011-01-05 15:15:30.000000000 +0300
-@@ -734,7 +734,10 @@
-     // EDI = dest
-     // ESI = src
- 
--    enum string OP = (op=='+')? "add" : "sub";
-+    version(LDC) { 
-+    } else {
-+        enum string OP = (op=='+')? "add" : "sub";
-+    }
-     version(D_PIC) {
-         enum { zero = 0 }
-     } else {
-@@ -768,7 +771,10 @@
-         jnz L_enter_odd;
- }
-                 // Main loop, with entry point for even length
--mixin(asmMulAdd_innerloop(OP, "ESP+LASTPARAM"));
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/math.di druntime/import/core/stdc/math.di
+--- druntime-orig/import/core/stdc/math.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/stdc/math.di	2011-01-05 14:40:22.000000000 +0300
+@@ -1,1134 +1,1135 @@
+-// D import file generated from 'src\core\stdc\math.d'
+-module core.stdc.math;
+-private import core.stdc.config;
+-
+-extern (C) nothrow 
+-{
+-    alias float float_t;
+-    alias double double_t;
+-    enum double HUGE_VAL = (double).infinity;
+-    enum double HUGE_VALF = (float).infinity;
+-    enum double HUGE_VALL = (real).infinity;
+-    enum float INFINITY = (float).infinity;
+-    enum float NAN = (float).nan;
+-    enum int FP_ILOGB0 = (int).min;
+-    enum int FP_ILOGBNAN = (int).min;
+-    enum int MATH_ERRNO = 1;
+-    enum int MATH_ERREXCEPT = 2;
+-    enum int math_errhandling = MATH_ERRNO | MATH_ERREXCEPT;
+-    version (none)
+-{
+-    int fpclassify(float x);
+-    int fpclassify(double x);
+-    int fpclassify(real x);
+-    int isfinite(float x);
+-    int isfinite(double x);
+-    int isfinite(real x);
+-    int isinf(float x);
+-    int isinf(double x);
+-    int isinf(real x);
+-    int isnan(float x);
+-    int isnan(double x);
+-    int isnan(real x);
+-    int isnormal(float x);
+-    int isnormal(double x);
+-    int isnormal(real x);
+-    int signbit(float x);
+-    int signbit(double x);
+-    int signbit(real x);
+-    int isgreater(float x, float y);
+-    int isgreater(double x, double y);
+-    int isgreater(real x, real y);
+-    int isgreaterequal(float x, float y);
+-    int isgreaterequal(double x, double y);
+-    int isgreaterequal(real x, real y);
+-    int isless(float x, float y);
+-    int isless(double x, double y);
+-    int isless(real x, real y);
+-    int islessequal(float x, float y);
+-    int islessequal(double x, double y);
+-    int islessequal(real x, real y);
+-    int islessgreater(float x, float y);
+-    int islessgreater(double x, double y);
+-    int islessgreater(real x, real y);
+-    int isunordered(float x, float y);
+-    int isunordered(double x, double y);
+-    int isunordered(real x, real y);
+-}
+-    version (DigitalMars)
+-{
+-    version (Windows)
+-{
+-    version = DigitalMarsWin32;
+-}
+-}
+-    version (DigitalMarsWin32)
+-{
+-    enum 
+-{
+-FP_NANS = 0,
+-FP_NANQ = 1,
+-FP_INFINITE = 2,
+-FP_NORMAL = 3,
+-FP_SUBNORMAL = 4,
+-FP_ZERO = 5,
+-FP_NAN = FP_NANQ,
+-FP_EMPTY = 6,
+-FP_UNSUPPORTED = 7,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    uint __fpclassify_f(float x);
+-    uint __fpclassify_d(double x);
+-    uint __fpclassify_ld(real x);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassify_f(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassify_d(x);
+-}
+-    int fpclassify(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __fpclassify_d(x) : __fpclassify_ld(x);
+-}
+-    int isfinite(float x)
+-{
+-return fpclassify(x) >= FP_NORMAL;
+-}
+-    int isfinite(double x)
+-{
+-return fpclassify(x) >= FP_NORMAL;
+-}
+-    int isfinite(real x)
+-{
+-return fpclassify(x) >= FP_NORMAL;
+-}
+-    int isinf(float x)
+-{
+-return fpclassify(x) == FP_INFINITE;
+-}
+-    int isinf(double x)
+-{
+-return fpclassify(x) == FP_INFINITE;
+-}
+-    int isinf(real x)
+-{
+-return fpclassify(x) == FP_INFINITE;
+-}
+-    int isnan(float x)
+-{
+-return fpclassify(x) <= FP_NANQ;
+-}
+-    int isnan(double x)
+-{
+-return fpclassify(x) <= FP_NANQ;
+-}
+-    int isnan(real x)
+-{
+-return fpclassify(x) <= FP_NANQ;
+-}
+-    int isnormal(float x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(double x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(real x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int signbit(float x)
+-{
+-return (cast(short*)&x)[1] & 32768;
+-}
+-    int signbit(double x)
+-{
+-return (cast(short*)&x)[3] & 32768;
+-}
+-    int signbit(real x)
+-{
+-return (real).sizeof == (double).sizeof ? (cast(short*)&x)[3] & 32768 : (cast(short*)&x)[4] & 32768;
+-}
+-}
+-}
+-else
+-{
+-    version (linux)
+-{
+-    enum 
+-{
+-FP_NAN,
+-FP_INFINITE,
+-FP_ZERO,
+-FP_SUBNORMAL,
+-FP_NORMAL,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    int __fpclassifyf(float x);
+-    int __fpclassify(double x);
+-    int __fpclassifyl(real x);
+-    int __finitef(float x);
+-    int __finite(double x);
+-    int __finitel(real x);
+-    int __isinff(float x);
+-    int __isinf(double x);
+-    int __isinfl(real x);
+-    int __isnanf(float x);
+-    int __isnan(double x);
+-    int __isnanl(real x);
+-    int __signbitf(float x);
+-    int __signbit(double x);
+-    int __signbitl(real x);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassifyf(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassify(x);
+-}
+-    int fpclassify(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __fpclassify(x) : __fpclassifyl(x);
+-}
+-    int isfinite(float x)
+-{
+-return __finitef(x);
+-}
+-    int isfinite(double x)
+-{
+-return __finite(x);
+-}
+-    int isfinite(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __finite(x) : __finitel(x);
+-}
+-    int isinf(float x)
+-{
+-return __isinff(x);
+-}
+-    int isinf(double x)
+-{
+-return __isinf(x);
+-}
+-    int isinf(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isinf(x) : __isinfl(x);
+-}
+-    int isnan(float x)
+-{
+-return __isnanf(x);
+-}
+-    int isnan(double x)
+-{
+-return __isnan(x);
+-}
+-    int isnan(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isnan(x) : __isnanl(x);
+-}
+-    int isnormal(float x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(double x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(real x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int signbit(float x)
+-{
+-return __signbitf(x);
+-}
+-    int signbit(double x)
+-{
+-return __signbit(x);
+-}
+-    int signbit(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __signbit(x) : __signbitl(x);
+-}
+-}
+-}
+-else
+-{
+-    version (OSX)
+-{
+-    enum 
+-{
+-FP_NAN = 1,
+-FP_INFINITE = 2,
+-FP_ZERO = 3,
+-FP_NORMAL = 4,
+-FP_SUBNORMAL = 5,
+-FP_SUPERNORMAL = 6,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    int __fpclassifyf(float x);
+-    int __fpclassifyd(double x);
+-    int __fpclassify(real x);
+-    int __isfinitef(float x);
+-    int __isfinited(double x);
+-    int __isfinite(real x);
+-    int __isinff(float x);
+-    int __isinfd(double x);
+-    int __isinf(real x);
+-    int __isnanf(float x);
+-    int __isnand(double x);
+-    int __isnan(real x);
+-    int __signbitf(float x);
+-    int __signbitd(double x);
+-    int __signbitl(real x);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassifyf(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassifyd(x);
+-}
+-    int fpclassify(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __fpclassifyd(x) : __fpclassify(x);
+-}
+-    int isfinite(float x)
+-{
+-return __isfinitef(x);
+-}
+-    int isfinite(double x)
+-{
+-return __isfinited(x);
+-}
+-    int isfinite(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isfinited(x) : __isfinite(x);
+-}
+-    int isinf(float x)
+-{
+-return __isinff(x);
+-}
+-    int isinf(double x)
+-{
+-return __isinfd(x);
+-}
+-    int isinf(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isinfd(x) : __isinf(x);
+-}
+-    int isnan(float x)
+-{
+-return __isnanf(x);
+-}
+-    int isnan(double x)
+-{
+-return __isnand(x);
+-}
+-    int isnan(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __isnand(x) : __isnan(x);
+-}
+-    int isnormal(float x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(double x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int isnormal(real x)
+-{
+-return fpclassify(x) == FP_NORMAL;
+-}
+-    int signbit(float x)
+-{
+-return __signbitf(x);
+-}
+-    int signbit(double x)
+-{
+-return __signbitd(x);
+-}
+-    int signbit(real x)
+-{
+-return (real).sizeof == (double).sizeof ? __signbitd(x) : __signbitl(x);
+-}
+-}
+-}
+-else
+-{
+-    version (FreeBSD)
+-{
+-    enum 
+-{
+-FP_INFINITE = 1,
+-FP_NAN = 2,
+-FP_NORMAL = 4,
+-FP_SUBNORMAL = 8,
+-FP_ZERO = 16,
+-}
+-    enum 
+-{
+-FP_FAST_FMA = 0,
+-FP_FAST_FMAF = 0,
+-FP_FAST_FMAL = 0,
+-}
+-    int __fpclassifyd(double);
+-    int __fpclassifyf(float);
+-    int __fpclassifyl(real);
+-    int __isfinitef(float);
+-    int __isfinite(double);
+-    int __isfinitel(real);
+-    int __isinff(float);
+-    int __isinfl(real);
+-    int __isnanl(real);
+-    int __isnormalf(float);
+-    int __isnormal(double);
+-    int __isnormall(real);
+-    int __signbit(double);
+-    int __signbitf(float);
+-    int __signbitl(real);
+-    extern (D) 
+-{
+-    int fpclassify(float x)
+-{
+-return __fpclassifyf(x);
+-}
+-    int fpclassify(double x)
+-{
+-return __fpclassifyd(x);
+-}
+-    int fpclassify(real x)
+-{
+-return __fpclassifyl(x);
+-}
+-    int isfinite(float x)
+-{
+-return __isfinitef(x);
+-}
+-    int isfinite(double x)
+-{
+-return __isfinite(x);
+-}
+-    int isfinite(real x)
+-{
+-return __isfinitel(x);
+-}
+-    int isinf(float x)
+-{
+-return __isinff(x);
+-}
+-    int isinf(double x)
+-{
+-return __isinfl(x);
+-}
+-    int isinf(real x)
+-{
+-return __isinfl(x);
+-}
+-    int isnan(float x)
+-{
+-return __isnanl(x);
+-}
+-    int isnan(double x)
+-{
+-return __isnanl(x);
+-}
+-    int isnan(real x)
+-{
+-return __isnanl(x);
+-}
+-    int isnormal(float x)
+-{
+-return __isnormalf(x);
+-}
+-    int isnormal(double x)
+-{
+-return __isnormal(x);
+-}
+-    int isnormal(real x)
+-{
+-return __isnormall(x);
+-}
+-    int signbit(float x)
+-{
+-return __signbitf(x);
+-}
+-    int signbit(double x)
+-{
+-return __signbit(x);
+-}
+-    int signbit(real x)
+-{
+-return __signbit(x);
+-}
+-}
+-}
+-}
+-}
+-}
+-    extern (D) 
+-{
+-    int isgreater(float x, float y)
+-{
+-return !(x !> y);
+-}
+-    int isgreater(double x, double y)
+-{
+-return !(x !> y);
+-}
+-    int isgreater(real x, real y)
+-{
+-return !(x !> y);
+-}
+-    int isgreaterequal(float x, float y)
+-{
+-return !(x !>= y);
+-}
+-    int isgreaterequal(double x, double y)
+-{
+-return !(x !>= y);
+-}
+-    int isgreaterequal(real x, real y)
+-{
+-return !(x !>= y);
+-}
+-    int isless(float x, float y)
+-{
+-return !(x !< y);
+-}
+-    int isless(double x, double y)
+-{
+-return !(x !< y);
+-}
+-    int isless(real x, real y)
+-{
+-return !(x !< y);
+-}
+-    int islessequal(float x, float y)
+-{
+-return !(x !<= y);
+-}
+-    int islessequal(double x, double y)
+-{
+-return !(x !<= y);
+-}
+-    int islessequal(real x, real y)
+-{
+-return !(x !<= y);
+-}
+-    int islessgreater(float x, float y)
+-{
+-return !(x !<> y);
+-}
+-    int islessgreater(double x, double y)
+-{
+-return !(x !<> y);
+-}
+-    int islessgreater(real x, real y)
+-{
+-return !(x !<> y);
+-}
+-    int isunordered(float x, float y)
+-{
+-return x !<>= y;
+-}
+-    int isunordered(double x, double y)
+-{
+-return x !<>= y;
+-}
+-    int isunordered(real x, real y)
+-{
+-return x !<>= y;
+-}
+-}
+-    version (FreeBSD)
+-{
+-    version (all)
+-{
+-    real acosl(real x)
+-{
+-return acos(x);
+-}
+-    real asinl(real x)
+-{
+-return asin(x);
+-}
+-    real atanl(real x)
+-{
+-return atan(x);
+-}
+-    real atan2l(real y, real x)
+-{
+-return atan2(y,x);
+-}
+-    real cosl(real x)
+-{
+-return cos(x);
+-}
+-    real sinl(real x)
+-{
+-return sin(x);
+-}
+-    real tanl(real x)
+-{
+-return tan(x);
+-}
+-    real exp2l(real x)
+-{
+-return exp2(x);
+-}
+-    real frexpl(real value, int* exp)
+-{
+-return frexp(value,exp);
+-}
+-    int ilogbl(real x)
+-{
+-return ilogb(x);
+-}
+-    real ldexpl(real x, int exp)
+-{
+-return ldexp(x,exp);
+-}
+-    real logbl(real x)
+-{
+-return logb(x);
+-}
+-    real scalbnl(real x, int n)
+-{
+-return scalbn(x,n);
+-}
+-    real scalblnl(real x, c_long n)
+-{
+-return scalbln(x,n);
+-}
+-    real fabsl(real x)
+-{
+-return fabs(x);
+-}
+-    real hypotl(real x, real y)
+-{
+-return hypot(x,y);
+-}
+-    real sqrtl(real x)
+-{
+-return sqrt(x);
+-}
+-    real ceill(real x)
+-{
+-return ceil(x);
+-}
+-    real floorl(real x)
+-{
+-return floor(x);
+-}
+-    real nearbyintl(real x)
+-{
+-return nearbyint(x);
+-}
+-    real rintl(real x)
+-{
+-return rint(x);
+-}
+-    c_long lrintl(real x)
+-{
+-return lrint(x);
+-}
+-    real roundl(real x)
+-{
+-return round(x);
+-}
+-    c_long lroundl(real x)
+-{
+-return lround(x);
+-}
+-    long llroundl(real x)
+-{
+-return llround(x);
+-}
+-    real truncl(real x)
+-{
+-return trunc(x);
+-}
+-    real fmodl(real x, real y)
+-{
+-return fmod(x,y);
+-}
+-    real remainderl(real x, real y)
+-{
+-return remainder(x,y);
+-}
+-    real remquol(real x, real y, int* quo)
+-{
+-return remquo(x,y,quo);
+-}
+-    real copysignl(real x, real y)
+-{
+-return copysign(x,y);
+-}
+-    real nextafterl(real x, real y)
+-{
+-return nextafter(x,y);
+-}
+-    real nexttowardl(real x, real y)
+-{
+-return nexttoward(x,y);
+-}
+-    real fdiml(real x, real y)
+-{
+-return fdim(x,y);
+-}
+-    real fmaxl(real x, real y)
+-{
+-return fmax(x,y);
+-}
+-    real fminl(real x, real y)
+-{
+-return fmin(x,y);
+-}
+-    real fmal(real x, real y, real z)
+-{
+-return fma(x,y,z);
+-}
+-}
+-else
+-{
+-    real acosl(real x);
+-    real asinl(real x);
+-    real atanl(real x);
+-    real atan2l(real y, real x);
+-    real cosl(real x);
+-    real sinl(real x);
+-    real tanl(real x);
+-    real exp2l(real x);
+-    real frexpl(real value, int* exp);
+-    int ilogbl(real x);
+-    real ldexpl(real x, int exp);
+-    real logbl(real x);
+-    real modfl(real value, real* iptr);
+-    real scalbnl(real x, int n);
+-    real scalblnl(real x, c_long n);
+-    real fabsl(real x);
+-    real hypotl(real x, real y);
+-    real sqrtl(real x);
+-    real ceill(real x);
+-    real floorl(real x);
+-    real nearbyintl(real x);
+-    real rintl(real x);
+-    c_long lrintl(real x);
+-    real roundl(real x);
+-    c_long lroundl(real x);
+-    long llroundl(real x);
+-    real truncl(real x);
+-    real fmodl(real x, real y);
+-    real remainderl(real x, real y);
+-    real remquol(real x, real y, int* quo);
+-    real copysignl(real x, real y);
+-    double nan(char* tagp);
+-    float nanf(char* tagp);
+-    real nanl(char* tagp);
+-    real nextafterl(real x, real y);
+-    real nexttowardl(real x, real y);
+-    real fdiml(real x, real y);
+-    real fmaxl(real x, real y);
+-    real fminl(real x, real y);
+-    real fmal(real x, real y, real z);
+-}
+-    double acos(double x);
+-    float acosf(float x);
+-    double asin(double x);
+-    float asinf(float x);
+-    double atan(double x);
+-    float atanf(float x);
+-    double atan2(double y, double x);
+-    float atan2f(float y, float x);
+-    double cos(double x);
+-    float cosf(float x);
+-    double sin(double x);
+-    float sinf(float x);
+-    double tan(double x);
+-    float tanf(float x);
+-    double acosh(double x);
+-    float acoshf(float x);
+-    real acoshl(real x)
+-{
+-return acosh(x);
+-}
+-    double asinh(double x);
+-    float asinhf(float x);
+-    real asinhl(real x)
+-{
+-return asinh(x);
+-}
+-    double atanh(double x);
+-    float atanhf(float x);
+-    real atanhl(real x)
+-{
+-return atanh(x);
+-}
+-    double cosh(double x);
+-    float coshf(float x);
+-    real coshl(real x)
+-{
+-return cosh(x);
+-}
+-    double sinh(double x);
+-    float sinhf(float x);
+-    real sinhl(real x)
+-{
+-return sinh(x);
+-}
+-    double tanh(double x);
+-    float tanhf(float x);
+-    real tanhl(real x)
+-{
+-return tanh(x);
+-}
+-    double exp(double x);
+-    float expf(float x);
+-    real expl(real x)
+-{
+-return exp(x);
+-}
+-    double exp2(double x);
+-    float exp2f(float x);
+-    double expm1(double x);
+-    float expm1f(float x);
+-    real expm1l(real x)
+-{
+-return expm1(x);
+-}
+-    double frexp(double value, int* exp);
+-    float frexpf(float value, int* exp);
+-    int ilogb(double x);
+-    int ilogbf(float x);
+-    double ldexp(double x, int exp);
+-    float ldexpf(float x, int exp);
+-    double log(double x);
+-    float logf(float x);
+-    real logl(real x)
+-{
+-return log(x);
+-}
+-    double log10(double x);
+-    float log10f(float x);
+-    real log10l(real x)
+-{
+-return log10(x);
+-}
+-    double log1p(double x);
+-    float log1pf(float x);
+-    real log1pl(real x)
+-{
+-return log1p(x);
+-}
+-    private enum real ONE_LN2 = 1 / 0x1.62e42fefa39ef358p-1L;
+-
+-    double log2(double x)
+-{
+-return log(x) * ONE_LN2;
+-}
+-    float log2f(float x)
+-{
+-return logf(x) * ONE_LN2;
+-}
+-    real log2l(real x)
+-{
+-return logl(x) * ONE_LN2;
+-}
+-    double logb(double x);
+-    float logbf(float x);
+-    double modf(double value, double* iptr);
+-    float modff(float value, float* iptr);
+-    double scalbn(double x, int n);
+-    float scalbnf(float x, int n);
+-    double scalbln(double x, c_long n);
+-    float scalblnf(float x, c_long n);
+-    double cbrt(double x);
+-    float cbrtf(float x);
+-    real cbrtl(real x)
+-{
+-return cbrt(x);
+-}
+-    double fabs(double x);
+-    float fabsf(float x);
+-    double hypot(double x, double y);
+-    float hypotf(float x, float y);
+-    double pow(double x, double y);
+-    float powf(float x, float y);
+-    real powl(real x, real y)
+-{
+-return pow(x,y);
+-}
+-    double sqrt(double x);
+-    float sqrtf(float x);
+-    double erf(double x);
+-    float erff(float x);
+-    real erfl(real x)
+-{
+-return erf(x);
+-}
+-    double erfc(double x);
+-    float erfcf(float x);
+-    real erfcl(real x)
+-{
+-return erfc(x);
+-}
+-    double lgamma(double x);
+-    float lgammaf(float x);
+-    real lgammal(real x)
+-{
+-return lgamma(x);
+-}
+-    double tgamma(double x);
+-    float tgammaf(float x);
+-    real tgammal(real x)
+-{
+-return tgamma(x);
+-}
+-    double ceil(double x);
+-    float ceilf(float x);
+-    double floor(double x);
+-    float floorf(float x);
+-    double nearbyint(double x);
+-    float nearbyintf(float x);
+-    double rint(double x);
+-    float rintf(float x);
+-    c_long lrint(double x);
+-    c_long lrintf(float x);
+-    long llrint(double x);
+-    long llrintf(float x);
+-    long llrintl(real x)
+-{
+-return llrint(x);
+-}
+-    double round(double x);
+-    float roundf(float x);
+-    c_long lround(double x);
+-    c_long lroundf(float x);
+-    long llround(double x);
+-    long llroundf(float x);
+-    double trunc(double x);
+-    float truncf(float x);
+-    double fmod(double x, double y);
+-    float fmodf(float x, float y);
+-    double remainder(double x, double y);
+-    float remainderf(float x, float y);
+-    double remquo(double x, double y, int* quo);
+-    float remquof(float x, float y, int* quo);
+-    double copysign(double x, double y);
+-    float copysignf(float x, float y);
+-    double nextafter(double x, double y);
+-    float nextafterf(float x, float y);
+-    double nexttoward(double x, real y);
+-    float nexttowardf(float x, real y);
+-    double fdim(double x, double y);
+-    float fdimf(float x, float y);
+-    double fmax(double x, double y);
+-    float fmaxf(float x, float y);
+-    double fmin(double x, double y);
+-    float fminf(float x, float y);
+-    double fma(double x, double y, double z);
+-    float fmaf(float x, float y, float z);
+-}
+-else
+-{
+-    double acos(double x);
+-    float acosf(float x);
+-    real acosl(real x);
+-    double asin(double x);
+-    float asinf(float x);
+-    real asinl(real x);
+-    double atan(double x);
+-    float atanf(float x);
+-    real atanl(real x);
+-    double atan2(double y, double x);
+-    float atan2f(float y, float x);
+-    real atan2l(real y, real x);
+-    double cos(double x);
+-    float cosf(float x);
+-    real cosl(real x);
+-    double sin(double x);
+-    float sinf(float x);
+-    real sinl(real x);
+-    double tan(double x);
+-    float tanf(float x);
+-    real tanl(real x);
+-    double acosh(double x);
+-    float acoshf(float x);
+-    real acoshl(real x);
+-    double asinh(double x);
+-    float asinhf(float x);
+-    real asinhl(real x);
+-    double atanh(double x);
+-    float atanhf(float x);
+-    real atanhl(real x);
+-    double cosh(double x);
+-    float coshf(float x);
+-    real coshl(real x);
+-    double sinh(double x);
+-    float sinhf(float x);
+-    real sinhl(real x);
+-    double tanh(double x);
+-    float tanhf(float x);
+-    real tanhl(real x);
+-    double exp(double x);
+-    float expf(float x);
+-    real expl(real x);
+-    double exp2(double x);
+-    float exp2f(float x);
+-    real exp2l(real x);
+-    double expm1(double x);
+-    float expm1f(float x);
+-    real expm1l(real x);
+-    double frexp(double value, int* exp);
+-    float frexpf(float value, int* exp);
+-    real frexpl(real value, int* exp);
+-    int ilogb(double x);
+-    int ilogbf(float x);
+-    int ilogbl(real x);
+-    double ldexp(double x, int exp);
+-    float ldexpf(float x, int exp);
+-    real ldexpl(real x, int exp);
+-    double log(double x);
+-    float logf(float x);
+-    real logl(real x);
+-    double log10(double x);
+-    float log10f(float x);
+-    real log10l(real x);
+-    double log1p(double x);
+-    float log1pf(float x);
+-    real log1pl(real x);
+-    double log2(double x);
+-    float log2f(float x);
+-    real log2l(real x);
+-    double logb(double x);
+-    float logbf(float x);
+-    real logbl(real x);
+-    double modf(double value, double* iptr);
+-    float modff(float value, float* iptr);
+-    real modfl(real value, real* iptr);
+-    double scalbn(double x, int n);
+-    float scalbnf(float x, int n);
+-    real scalbnl(real x, int n);
+-    double scalbln(double x, c_long n);
+-    float scalblnf(float x, c_long n);
+-    real scalblnl(real x, c_long n);
+-    double cbrt(double x);
+-    float cbrtf(float x);
+-    real cbrtl(real x);
+-    double fabs(double x);
+-    float fabsf(float x);
+-    real fabsl(real x);
+-    double hypot(double x, double y);
+-    float hypotf(float x, float y);
+-    real hypotl(real x, real y);
+-    double pow(double x, double y);
+-    float powf(float x, float y);
+-    real powl(real x, real y);
+-    double sqrt(double x);
+-    float sqrtf(float x);
+-    real sqrtl(real x);
+-    double erf(double x);
+-    float erff(float x);
+-    real erfl(real x);
+-    double erfc(double x);
+-    float erfcf(float x);
+-    real erfcl(real x);
+-    double lgamma(double x);
+-    float lgammaf(float x);
+-    real lgammal(real x);
+-    double tgamma(double x);
+-    float tgammaf(float x);
+-    real tgammal(real x);
+-    double ceil(double x);
+-    float ceilf(float x);
+-    real ceill(real x);
+-    double floor(double x);
+-    float floorf(float x);
+-    real floorl(real x);
+-    double nearbyint(double x);
+-    float nearbyintf(float x);
+-    real nearbyintl(real x);
+-    double rint(double x);
+-    float rintf(float x);
+-    real rintl(real x);
+-    c_long lrint(double x);
+-    c_long lrintf(float x);
+-    c_long lrintl(real x);
+-    long llrint(double x);
+-    long llrintf(float x);
+-    long llrintl(real x);
+-    double round(double x);
+-    float roundf(float x);
+-    real roundl(real x);
+-    c_long lround(double x);
+-    c_long lroundf(float x);
+-    c_long lroundl(real x);
+-    long llround(double x);
+-    long llroundf(float x);
+-    long llroundl(real x);
+-    double trunc(double x);
+-    float truncf(float x);
+-    real truncl(real x);
+-    double fmod(double x, double y);
+-    float fmodf(float x, float y);
+-    real fmodl(real x, real y);
+-    double remainder(double x, double y);
+-    float remainderf(float x, float y);
+-    real remainderl(real x, real y);
+-    double remquo(double x, double y, int* quo);
+-    float remquof(float x, float y, int* quo);
+-    real remquol(real x, real y, int* quo);
+-    double copysign(double x, double y);
+-    float copysignf(float x, float y);
+-    real copysignl(real x, real y);
+-    double nan(char* tagp);
+-    float nanf(char* tagp);
+-    real nanl(char* tagp);
+-    double nextafter(double x, double y);
+-    float nextafterf(float x, float y);
+-    real nextafterl(real x, real y);
+-    double nexttoward(double x, real y);
+-    float nexttowardf(float x, real y);
+-    real nexttowardl(real x, real y);
+-    double fdim(double x, double y);
+-    float fdimf(float x, float y);
+-    real fdiml(real x, real y);
+-    double fmax(double x, double y);
+-    float fmaxf(float x, float y);
+-    real fmaxl(real x, real y);
+-    double fmin(double x, double y);
+-    float fminf(float x, float y);
+-    real fminl(real x, real y);
+-    double fma(double x, double y, double z);
+-    float fmaf(float x, float y, float z);
+-    real fmal(real x, real y, real z);
+-}
+-}
+-
++// D import file generated from 'src/core/stdc/math.d'
++module core.stdc.math;
++private import core.stdc.config;
++
++extern (C) nothrow pure 
++{
++    alias float float_t;
++    alias double double_t;
++    enum double HUGE_VAL = (double).infinity;
++    enum double HUGE_VALF = (float).infinity;
++    enum double HUGE_VALL = (real).infinity;
++    enum float INFINITY = (float).infinity;
++    enum float NAN = (float).nan;
++    enum int FP_ILOGB0 = (int).min;
++    enum int FP_ILOGBNAN = (int).min;
++    enum int MATH_ERRNO = 1;
++    enum int MATH_ERREXCEPT = 2;
++    enum int math_errhandling = MATH_ERRNO | MATH_ERREXCEPT;
++    version (none)
++{
++    int fpclassify(float x);
++    int fpclassify(double x);
++    int fpclassify(real x);
++    int isfinite(float x);
++    int isfinite(double x);
++    int isfinite(real x);
++    int isinf(float x);
++    int isinf(double x);
++    int isinf(real x);
++    int isnan(float x);
++    int isnan(double x);
++    int isnan(real x);
++    int isnormal(float x);
++    int isnormal(double x);
++    int isnormal(real x);
++    int signbit(float x);
++    int signbit(double x);
++    int signbit(real x);
++    int isgreater(float x, float y);
++    int isgreater(double x, double y);
++    int isgreater(real x, real y);
++    int isgreaterequal(float x, float y);
++    int isgreaterequal(double x, double y);
++    int isgreaterequal(real x, real y);
++    int isless(float x, float y);
++    int isless(double x, double y);
++    int isless(real x, real y);
++    int islessequal(float x, float y);
++    int islessequal(double x, double y);
++    int islessequal(real x, real y);
++    int islessgreater(float x, float y);
++    int islessgreater(double x, double y);
++    int islessgreater(real x, real y);
++    int isunordered(float x, float y);
++    int isunordered(double x, double y);
++    int isunordered(real x, real y);
++}
++    version (DigitalMars)
++{
++    version (Windows)
++{
++    version = DigitalMarsWin32;
++}
++}
++    version (DigitalMarsWin32)
++{
++    enum 
++{
++FP_NANS = 0,
++FP_NANQ = 1,
++FP_INFINITE = 2,
++FP_NORMAL = 3,
++FP_SUBNORMAL = 4,
++FP_ZERO = 5,
++FP_NAN = FP_NANQ,
++FP_EMPTY = 6,
++FP_UNSUPPORTED = 7,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    uint __fpclassify_f(float x);
++    uint __fpclassify_d(double x);
++    uint __fpclassify_ld(real x);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassify_f(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassify_d(x);
++}
++    int fpclassify(real x)
++{
++return (real).sizeof == (double).sizeof ? __fpclassify_d(x) : __fpclassify_ld(x);
++}
++    int isfinite(float x)
++{
++return fpclassify(x) >= FP_NORMAL;
++}
++    int isfinite(double x)
++{
++return fpclassify(x) >= FP_NORMAL;
++}
++    int isfinite(real x)
++{
++return fpclassify(x) >= FP_NORMAL;
++}
++    int isinf(float x)
++{
++return fpclassify(x) == FP_INFINITE;
++}
++    int isinf(double x)
++{
++return fpclassify(x) == FP_INFINITE;
++}
++    int isinf(real x)
++{
++return fpclassify(x) == FP_INFINITE;
++}
++    int isnan(float x)
++{
++return fpclassify(x) <= FP_NANQ;
++}
++    int isnan(double x)
++{
++return fpclassify(x) <= FP_NANQ;
++}
++    int isnan(real x)
++{
++return fpclassify(x) <= FP_NANQ;
++}
++    int isnormal(float x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(double x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(real x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int signbit(float x)
++{
++return (cast(short*)&x)[1] & 32768;
++}
++    int signbit(double x)
++{
++return (cast(short*)&x)[3] & 32768;
++}
++    int signbit(real x)
++{
++return (real).sizeof == (double).sizeof ? (cast(short*)&x)[3] & 32768 : (cast(short*)&x)[4] & 32768;
++}
++}
++}
++else
++{
++    version (linux)
++{
++    enum 
++{
++FP_NAN,
++FP_INFINITE,
++FP_ZERO,
++FP_SUBNORMAL,
++FP_NORMAL,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    int __fpclassifyf(float x);
++    int __fpclassify(double x);
++    int __fpclassifyl(real x);
++    int __finitef(float x);
++    int __finite(double x);
++    int __finitel(real x);
++    int __isinff(float x);
++    int __isinf(double x);
++    int __isinfl(real x);
++    int __isnanf(float x);
++    int __isnan(double x);
++    int __isnanl(real x);
++    int __signbitf(float x);
++    int __signbit(double x);
++    int __signbitl(real x);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassifyf(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassify(x);
++}
++    int fpclassify(real x)
++{
++return (real).sizeof == (double).sizeof ? __fpclassify(x) : __fpclassifyl(x);
++}
++    int isfinite(float x)
++{
++return __finitef(x);
++}
++    int isfinite(double x)
++{
++return __finite(x);
++}
++    int isfinite(real x)
++{
++return (real).sizeof == (double).sizeof ? __finite(x) : __finitel(x);
++}
++    int isinf(float x)
++{
++return __isinff(x);
++}
++    int isinf(double x)
++{
++return __isinf(x);
++}
++    int isinf(real x)
++{
++return (real).sizeof == (double).sizeof ? __isinf(x) : __isinfl(x);
++}
++    int isnan(float x)
++{
++return __isnanf(x);
++}
++    int isnan(double x)
++{
++return __isnan(x);
++}
++    int isnan(real x)
++{
++return (real).sizeof == (double).sizeof ? __isnan(x) : __isnanl(x);
++}
++    int isnormal(float x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(double x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(real x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int signbit(float x)
++{
++return __signbitf(x);
++}
++    int signbit(double x)
++{
++return __signbit(x);
++}
++    int signbit(real x)
++{
++return (real).sizeof == (double).sizeof ? __signbit(x) : __signbitl(x);
++}
++}
++}
++else
++{
++    version (OSX)
++{
++    enum 
++{
++FP_NAN = 1,
++FP_INFINITE = 2,
++FP_ZERO = 3,
++FP_NORMAL = 4,
++FP_SUBNORMAL = 5,
++FP_SUPERNORMAL = 6,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    int __fpclassifyf(float x);
++    int __fpclassifyd(double x);
++    int __fpclassify(real x);
++    int __isfinitef(float x);
++    int __isfinited(double x);
++    int __isfinite(real x);
++    int __isinff(float x);
++    int __isinfd(double x);
++    int __isinf(real x);
++    int __isnanf(float x);
++    int __isnand(double x);
++    int __isnan(real x);
++    int __signbitf(float x);
++    int __signbitd(double x);
++    int __signbitl(real x);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassifyf(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassifyd(x);
++}
++    int fpclassify(real x)
++{
++return (real).sizeof == (double).sizeof ? __fpclassifyd(x) : __fpclassify(x);
++}
++    int isfinite(float x)
++{
++return __isfinitef(x);
++}
++    int isfinite(double x)
++{
++return __isfinited(x);
++}
++    int isfinite(real x)
++{
++return (real).sizeof == (double).sizeof ? __isfinited(x) : __isfinite(x);
++}
++    int isinf(float x)
++{
++return __isinff(x);
++}
++    int isinf(double x)
++{
++return __isinfd(x);
++}
++    int isinf(real x)
++{
++return (real).sizeof == (double).sizeof ? __isinfd(x) : __isinf(x);
++}
++    int isnan(float x)
++{
++return __isnanf(x);
++}
++    int isnan(double x)
++{
++return __isnand(x);
++}
++    int isnan(real x)
++{
++return (real).sizeof == (double).sizeof ? __isnand(x) : __isnan(x);
++}
++    int isnormal(float x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(double x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int isnormal(real x)
++{
++return fpclassify(x) == FP_NORMAL;
++}
++    int signbit(float x)
++{
++return __signbitf(x);
++}
++    int signbit(double x)
++{
++return __signbitd(x);
++}
++    int signbit(real x)
++{
++return (real).sizeof == (double).sizeof ? __signbitd(x) : __signbitl(x);
++}
++}
++}
++else
++{
++    version (FreeBSD)
++{
++    enum 
++{
++FP_INFINITE = 1,
++FP_NAN = 2,
++FP_NORMAL = 4,
++FP_SUBNORMAL = 8,
++FP_ZERO = 16,
++}
++    enum 
++{
++FP_FAST_FMA = 0,
++FP_FAST_FMAF = 0,
++FP_FAST_FMAL = 0,
++}
++    int __fpclassifyd(double);
++    int __fpclassifyf(float);
++    int __fpclassifyl(real);
++    int __isfinitef(float);
++    int __isfinite(double);
++    int __isfinitel(real);
++    int __isinff(float);
++    int __isinfl(real);
++    int __isnanl(real);
++    int __isnormalf(float);
++    int __isnormal(double);
++    int __isnormall(real);
++    int __signbit(double);
++    int __signbitf(float);
++    int __signbitl(real);
++    extern (D) 
++{
++    int fpclassify(float x)
++{
++return __fpclassifyf(x);
++}
++    int fpclassify(double x)
++{
++return __fpclassifyd(x);
++}
++    int fpclassify(real x)
++{
++return __fpclassifyl(x);
++}
++    int isfinite(float x)
++{
++return __isfinitef(x);
++}
++    int isfinite(double x)
++{
++return __isfinite(x);
++}
++    int isfinite(real x)
++{
++return __isfinitel(x);
++}
++    int isinf(float x)
++{
++return __isinff(x);
++}
++    int isinf(double x)
++{
++return __isinfl(x);
++}
++    int isinf(real x)
++{
++return __isinfl(x);
++}
++    int isnan(float x)
++{
++return __isnanl(x);
++}
++    int isnan(double x)
++{
++return __isnanl(x);
++}
++    int isnan(real x)
++{
++return __isnanl(x);
++}
++    int isnormal(float x)
++{
++return __isnormalf(x);
++}
++    int isnormal(double x)
++{
++return __isnormal(x);
++}
++    int isnormal(real x)
++{
++return __isnormall(x);
++}
++    int signbit(float x)
++{
++return __signbitf(x);
++}
++    int signbit(double x)
++{
++return __signbit(x);
++}
++    int signbit(real x)
++{
++return __signbit(x);
++}
++}
++}
++}
++}
++}
++    extern (D) 
++{
++    int isgreater(float x, float y)
++{
++return !(x !> y);
++}
++    int isgreater(double x, double y)
++{
++return !(x !> y);
++}
++    int isgreater(real x, real y)
++{
++return !(x !> y);
++}
++    int isgreaterequal(float x, float y)
++{
++return !(x !>= y);
++}
++    int isgreaterequal(double x, double y)
++{
++return !(x !>= y);
++}
++    int isgreaterequal(real x, real y)
++{
++return !(x !>= y);
++}
++    int isless(float x, float y)
++{
++return !(x !< y);
++}
++    int isless(double x, double y)
++{
++return !(x !< y);
++}
++    int isless(real x, real y)
++{
++return !(x !< y);
++}
++    int islessequal(float x, float y)
++{
++return !(x !<= y);
++}
++    int islessequal(double x, double y)
++{
++return !(x !<= y);
++}
++    int islessequal(real x, real y)
++{
++return !(x !<= y);
++}
++    int islessgreater(float x, float y)
++{
++return !(x !<> y);
++}
++    int islessgreater(double x, double y)
++{
++return !(x !<> y);
++}
++    int islessgreater(real x, real y)
++{
++return !(x !<> y);
++}
++    int isunordered(float x, float y)
++{
++return x !<>= y;
++}
++    int isunordered(double x, double y)
++{
++return x !<>= y;
++}
++    int isunordered(real x, real y)
++{
++return x !<>= y;
++}
++}
++    version (FreeBSD)
++{
++    version (all)
++{
++    real acosl(real x)
++{
++return acos(x);
++}
++    real asinl(real x)
++{
++return asin(x);
++}
++    real atanl(real x)
++{
++return atan(x);
++}
++    real atan2l(real y, real x)
++{
++return atan2(y,x);
++}
++    real cosl(real x)
++{
++return cos(x);
++}
++    real sinl(real x)
++{
++return sin(x);
++}
++    real tanl(real x)
++{
++return tan(x);
++}
++    real exp2l(real x)
++{
++return exp2(x);
++}
++    real frexpl(real value, int* exp)
++{
++return frexp(value,exp);
++}
++    int ilogbl(real x)
++{
++return ilogb(x);
++}
++    real ldexpl(real x, int exp)
++{
++return ldexp(x,exp);
++}
++    real logbl(real x)
++{
++return logb(x);
++}
++    real scalbnl(real x, int n)
++{
++return scalbn(x,n);
++}
++    real scalblnl(real x, c_long n)
++{
++return scalbln(x,n);
++}
++    real fabsl(real x)
++{
++return fabs(x);
++}
++    real hypotl(real x, real y)
++{
++return hypot(x,y);
++}
++    real sqrtl(real x)
++{
++return sqrt(x);
++}
++    real ceill(real x)
++{
++return ceil(x);
++}
++    real floorl(real x)
++{
++return floor(x);
++}
++    real nearbyintl(real x)
++{
++return nearbyint(x);
++}
++    real rintl(real x)
++{
++return rint(x);
++}
++    c_long lrintl(real x)
++{
++return lrint(x);
++}
++    real roundl(real x)
++{
++return round(x);
++}
++    c_long lroundl(real x)
++{
++return lround(x);
++}
++    long llroundl(real x)
++{
++return llround(x);
++}
++    real truncl(real x)
++{
++return trunc(x);
++}
++    real fmodl(real x, real y)
++{
++return fmod(x,y);
++}
++    real remainderl(real x, real y)
++{
++return remainder(x,y);
++}
++    real remquol(real x, real y, int* quo)
++{
++return remquo(x,y,quo);
++}
++    real copysignl(real x, real y)
++{
++return copysign(x,y);
++}
++    real nextafterl(real x, real y)
++{
++return nextafter(x,y);
++}
++    real nexttowardl(real x, real y)
++{
++return nexttoward(x,y);
++}
++    real fdiml(real x, real y)
++{
++return fdim(x,y);
++}
++    real fmaxl(real x, real y)
++{
++return fmax(x,y);
++}
++    real fminl(real x, real y)
++{
++return fmin(x,y);
++}
++    real fmal(real x, real y, real z)
++{
++return fma(x,y,z);
++}
++}
++else
++{
++    real acosl(real x);
++    real asinl(real x);
++    real atanl(real x);
++    real atan2l(real y, real x);
++    real cosl(real x);
++    real sinl(real x);
++    real tanl(real x);
++    real exp2l(real x);
++    real frexpl(real value, int* exp);
++    int ilogbl(real x);
++    real ldexpl(real x, int exp);
++    real logbl(real x);
++    real modfl(real value, real* iptr);
++    real scalbnl(real x, int n);
++    real scalblnl(real x, c_long n);
++    real fabsl(real x);
++    real hypotl(real x, real y);
++    real sqrtl(real x);
++    real ceill(real x);
++    real floorl(real x);
++    real nearbyintl(real x);
++    real rintl(real x);
++    c_long lrintl(real x);
++    real roundl(real x);
++    c_long lroundl(real x);
++    long llroundl(real x);
++    real truncl(real x);
++    real fmodl(real x, real y);
++    real remainderl(real x, real y);
++    real remquol(real x, real y, int* quo);
++    real copysignl(real x, real y);
++    double nan(char* tagp);
++    float nanf(char* tagp);
++    real nanl(char* tagp);
++    real nextafterl(real x, real y);
++    real nexttowardl(real x, real y);
++    real fdiml(real x, real y);
++    real fmaxl(real x, real y);
++    real fminl(real x, real y);
++    real fmal(real x, real y, real z);
++}
++    double acos(double x);
++    float acosf(float x);
++    double asin(double x);
++    float asinf(float x);
++    double atan(double x);
++    float atanf(float x);
++    double atan2(double y, double x);
++    float atan2f(float y, float x);
++    double cos(double x);
++    float cosf(float x);
++    double sin(double x);
++    float sinf(float x);
++    double tan(double x);
++    float tanf(float x);
++    double acosh(double x);
++    float acoshf(float x);
++    real acoshl(real x)
++{
++return acosh(x);
++}
++    double asinh(double x);
++    float asinhf(float x);
++    real asinhl(real x)
++{
++return asinh(x);
++}
++    double atanh(double x);
++    float atanhf(float x);
++    real atanhl(real x)
++{
++return atanh(x);
++}
++    double cosh(double x);
++    float coshf(float x);
++    real coshl(real x)
++{
++return cosh(x);
++}
++    double sinh(double x);
++    float sinhf(float x);
++    real sinhl(real x)
++{
++return sinh(x);
++}
++    double tanh(double x);
++    float tanhf(float x);
++    real tanhl(real x)
++{
++return tanh(x);
++}
++    double exp(double x);
++    float expf(float x);
++    real expl(real x)
++{
++return exp(x);
++}
++    double exp2(double x);
++    float exp2f(float x);
++    double expm1(double x);
++    float expm1f(float x);
++    real expm1l(real x)
++{
++return expm1(x);
++}
++    double frexp(double value, int* exp);
++    float frexpf(float value, int* exp);
++    int ilogb(double x);
++    int ilogbf(float x);
++    double ldexp(double x, int exp);
++    float ldexpf(float x, int exp);
++    double log(double x);
++    float logf(float x);
++    real logl(real x)
++{
++return log(x);
++}
++    double log10(double x);
++    float log10f(float x);
++    real log10l(real x)
++{
++return log10(x);
++}
++    double log1p(double x);
++    float log1pf(float x);
++    real log1pl(real x)
++{
++return log1p(x);
++}
++    private enum real ONE_LN2 = 1 / 0xb.17217f7d1cf79acp-4L;
++
++    double log2(double x)
++{
++return log(x) * ONE_LN2;
++}
++    float log2f(float x)
++{
++return logf(x) * ONE_LN2;
++}
++    real log2l(real x)
++{
++return logl(x) * ONE_LN2;
++}
++    double logb(double x);
++    float logbf(float x);
++    double modf(double value, double* iptr);
++    float modff(float value, float* iptr);
++    double scalbn(double x, int n);
++    float scalbnf(float x, int n);
++    double scalbln(double x, c_long n);
++    float scalblnf(float x, c_long n);
++    double cbrt(double x);
++    float cbrtf(float x);
++    real cbrtl(real x)
++{
++return cbrt(x);
++}
++    double fabs(double x);
++    float fabsf(float x);
++    double hypot(double x, double y);
++    float hypotf(float x, float y);
++    double pow(double x, double y);
++    float powf(float x, float y);
++    real powl(real x, real y)
++{
++return pow(x,y);
++}
++    double sqrt(double x);
++    float sqrtf(float x);
++    double erf(double x);
++    float erff(float x);
++    real erfl(real x)
++{
++return erf(x);
++}
++    double erfc(double x);
++    float erfcf(float x);
++    real erfcl(real x)
++{
++return erfc(x);
++}
++    double lgamma(double x);
++    float lgammaf(float x);
++    real lgammal(real x)
++{
++return lgamma(x);
++}
++    double tgamma(double x);
++    float tgammaf(float x);
++    real tgammal(real x)
++{
++return tgamma(x);
++}
++    double ceil(double x);
++    float ceilf(float x);
++    double floor(double x);
++    float floorf(float x);
++    double nearbyint(double x);
++    float nearbyintf(float x);
++    double rint(double x);
++    float rintf(float x);
++    c_long lrint(double x);
++    c_long lrintf(float x);
++    long llrint(double x);
++    long llrintf(float x);
++    long llrintl(real x)
++{
++return llrint(x);
++}
++    double round(double x);
++    float roundf(float x);
++    c_long lround(double x);
++    c_long lroundf(float x);
++    long llround(double x);
++    long llroundf(float x);
++    double trunc(double x);
++    float truncf(float x);
++    double fmod(double x, double y);
++    float fmodf(float x, float y);
++    double remainder(double x, double y);
++    float remainderf(float x, float y);
++    double remquo(double x, double y, int* quo);
++    float remquof(float x, float y, int* quo);
++    double copysign(double x, double y);
++    float copysignf(float x, float y);
++    double nextafter(double x, double y);
++    float nextafterf(float x, float y);
++    double nexttoward(double x, real y);
++    float nexttowardf(float x, real y);
++    double fdim(double x, double y);
++    float fdimf(float x, float y);
++    double fmax(double x, double y);
++    float fmaxf(float x, float y);
++    double fmin(double x, double y);
++    float fminf(float x, float y);
++    double fma(double x, double y, double z);
++    float fmaf(float x, float y, float z);
++}
++else
++{
++    double acos(double x);
++    float acosf(float x);
++    real acosl(real x);
++    double asin(double x);
++    float asinf(float x);
++    real asinl(real x);
++    double atan(double x);
++    float atanf(float x);
++    real atanl(real x);
++    double atan2(double y, double x);
++    float atan2f(float y, float x);
++    real atan2l(real y, real x);
++    double cos(double x);
++    float cosf(float x);
++    real cosl(real x);
++    double sin(double x);
++    float sinf(float x);
++    real sinl(real x);
++    double tan(double x);
++    float tanf(float x);
++    real tanl(real x);
++    double acosh(double x);
++    float acoshf(float x);
++    real acoshl(real x);
++    double asinh(double x);
++    float asinhf(float x);
++    real asinhl(real x);
++    double atanh(double x);
++    float atanhf(float x);
++    real atanhl(real x);
++    double cosh(double x);
++    float coshf(float x);
++    real coshl(real x);
++    double sinh(double x);
++    float sinhf(float x);
++    real sinhl(real x);
++    double tanh(double x);
++    float tanhf(float x);
++    real tanhl(real x);
++    double exp(double x);
++    float expf(float x);
++    real expl(real x);
++    double exp2(double x);
++    float exp2f(float x);
++    real exp2l(real x);
++    double expm1(double x);
++    float expm1f(float x);
++    real expm1l(real x);
++    double frexp(double value, int* exp);
++    float frexpf(float value, int* exp);
++    real frexpl(real value, int* exp);
++    int ilogb(double x);
++    int ilogbf(float x);
++    int ilogbl(real x);
++    double ldexp(double x, int exp);
++    float ldexpf(float x, int exp);
++    real ldexpl(real x, int exp);
++    double log(double x);
++    float logf(float x);
++    real logl(real x);
++    double log10(double x);
++    float log10f(float x);
++    real log10l(real x);
++    double log1p(double x);
++    float log1pf(float x);
++    real log1pl(real x);
++    double log2(double x);
++    float log2f(float x);
++    real log2l(real x);
++    double logb(double x);
++    float logbf(float x);
++    real logbl(real x);
++    double modf(double value, double* iptr);
++    float modff(float value, float* iptr);
++    real modfl(real value, real* iptr);
++    double scalbn(double x, int n);
++    float scalbnf(float x, int n);
++    real scalbnl(real x, int n);
++    double scalbln(double x, c_long n);
++    float scalblnf(float x, c_long n);
++    real scalblnl(real x, c_long n);
++    double cbrt(double x);
++    float cbrtf(float x);
++    real cbrtl(real x);
++    double fabs(double x);
++    float fabsf(float x);
++    real fabsl(real x);
++    double hypot(double x, double y);
++    float hypotf(float x, float y);
++    real hypotl(real x, real y);
++    double pow(double x, double y);
++    float powf(float x, float y);
++    real powl(real x, real y);
++    double sqrt(double x);
++    float sqrtf(float x);
++    real sqrtl(real x);
++    double erf(double x);
++    float erff(float x);
++    real erfl(real x);
++    double erfc(double x);
++    float erfcf(float x);
++    real erfcl(real x);
++    double lgamma(double x);
++    float lgammaf(float x);
++    real lgammal(real x);
++    double tgamma(double x);
++    float tgammaf(float x);
++    real tgammal(real x);
++    double ceil(double x);
++    float ceilf(float x);
++    real ceill(real x);
++    double floor(double x);
++    float floorf(float x);
++    real floorl(real x);
++    double nearbyint(double x);
++    float nearbyintf(float x);
++    real nearbyintl(real x);
++    double rint(double x);
++    float rintf(float x);
++    real rintl(real x);
++    c_long lrint(double x);
++    c_long lrintf(float x);
++    c_long lrintl(real x);
++    long llrint(double x);
++    long llrintf(float x);
++    long llrintl(real x);
++    double round(double x);
++    float roundf(float x);
++    real roundl(real x);
++    c_long lround(double x);
++    c_long lroundf(float x);
++    c_long lroundl(real x);
++    long llround(double x);
++    long llroundf(float x);
++    long llroundl(real x);
++    double trunc(double x);
++    float truncf(float x);
++    real truncl(real x);
++    double fmod(double x, double y);
++    float fmodf(float x, float y);
++    real fmodl(real x, real y);
++    double remainder(double x, double y);
++    float remainderf(float x, float y);
++    real remainderl(real x, real y);
++    double remquo(double x, double y, int* quo);
++    float remquof(float x, float y, int* quo);
++    real remquol(real x, real y, int* quo);
++    double copysign(double x, double y);
++    float copysignf(float x, float y);
++    real copysignl(real x, real y);
++    double nan(char* tagp);
++    float nanf(char* tagp);
++    real nanl(char* tagp);
++    double nextafter(double x, double y);
++    float nextafterf(float x, float y);
++    real nextafterl(real x, real y);
++    double nexttoward(double x, real y);
++    float nexttowardf(float x, real y);
++    real nexttowardl(real x, real y);
++    double fdim(double x, double y);
++    float fdimf(float x, float y);
++    real fdiml(real x, real y);
++    double fmax(double x, double y);
++    float fmaxf(float x, float y);
++    real fmaxl(real x, real y);
++    double fmin(double x, double y);
++    float fminf(float x, float y);
++    real fminl(real x, real y);
++    double fma(double x, double y, double z);
++    float fmaf(float x, float y, float z);
++    real fmal(real x, real y, real z);
++}
++}
++
++
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/stdc/stdlib.di druntime/import/core/stdc/stdlib.di
+--- druntime-orig/import/core/stdc/stdlib.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/stdc/stdlib.di	2011-01-05 14:40:22.000000000 +0300
+@@ -1,72 +1,89 @@
+-// D import file generated from 'src\core\stdc\stdlib.d'
+-module core.stdc.stdlib;
+-private import core.stdc.config;
+-
+-public import core.stdc.stddef;
+-
+-extern (C) nothrow 
+-{
+-    struct div_t
+-{
+-    int quot;
+-    int rem;
+-}
+-    struct ldiv_t
+-{
+-    int quot;
+-    int rem;
+-}
+-    struct lldiv_t
+-{
+-    long quot;
+-    long rem;
+-}
+-    enum EXIT_SUCCESS = 0;
+-    enum EXIT_FAILURE = 1;
+-    enum RAND_MAX = 32767;
+-    enum MB_CUR_MAX = 1;
+-    double atof(in char* nptr);
+-    int atoi(in char* nptr);
+-    c_long atol(in char* nptr);
+-    long atoll(in char* nptr);
+-    double strtod(in char* nptr, char** endptr);
+-    float strtof(in char* nptr, char** endptr);
+-    real strtold(in char* nptr, char** endptr);
+-    c_long strtol(in char* nptr, char** endptr, int base);
+-    long strtoll(in char* nptr, char** endptr, int base);
+-    c_ulong strtoul(in char* nptr, char** endptr, int base);
+-    ulong strtoull(in char* nptr, char** endptr, int base);
+-    int rand();
+-    void srand(uint seed);
+-    void* malloc(size_t size);
+-    void* calloc(size_t nmemb, size_t size);
+-    void* realloc(void* ptr, size_t size);
+-    void free(void* ptr);
+-    void abort();
+-    void exit(int status);
+-    int atexit(void function() func);
+-    void _Exit(int status);
+-    char* getenv(in char* name);
+-    int system(in char* string);
+-    void* bsearch(in void* key, in void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
+-    void qsort(void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
+-    pure int abs(int j);
+-
+-    pure c_long labs(c_long j);
+-
+-    pure long llabs(long j);
+-
+-    div_t div(int numer, int denom);
+-    ldiv_t ldiv(c_long numer, c_long denom);
+-    lldiv_t lldiv(long numer, long denom);
+-    int mblen(in char* s, size_t n);
+-    int mbtowc(wchar_t* pwc, in char* s, size_t n);
+-    int wctomb(char* s, wchar_t wc);
+-    size_t mbstowcs(wchar_t* pwcs, in char* s, size_t n);
+-    size_t wcstombs(char* s, in wchar_t* pwcs, size_t n);
+-    version (DigitalMars)
+-{
+-    void* alloca(size_t size);
+-}
+-}
+-
++// D import file generated from 'src/core/stdc/stdlib.d'
++module core.stdc.stdlib;
++private import core.stdc.config;
++
++public import core.stdc.stddef;
++
++extern (C) nothrow 
++{
++    struct div_t
++{
++    int quot;
++    int rem;
++}
++    struct ldiv_t
++{
++    int quot;
++    int rem;
++}
++    struct lldiv_t
++{
++    long quot;
++    long rem;
++}
++    enum EXIT_SUCCESS = 0;
++    enum EXIT_FAILURE = 1;
++    enum RAND_MAX = 32767;
++    enum MB_CUR_MAX = 1;
++    double atof(in char* nptr);
++    int atoi(in char* nptr);
++    c_long atol(in char* nptr);
++    long atoll(in char* nptr);
++    double strtod(in char* nptr, char** endptr);
++    float strtof(in char* nptr, char** endptr);
++    real strtold(in char* nptr, char** endptr);
++    c_long strtol(in char* nptr, char** endptr, int base);
++    long strtoll(in char* nptr, char** endptr, int base);
++    c_ulong strtoul(in char* nptr, char** endptr, int base);
++    ulong strtoull(in char* nptr, char** endptr, int base);
++    int rand();
++    void srand(uint seed);
++    void* malloc(size_t size);
++    void* calloc(size_t nmemb, size_t size);
++    void* realloc(void* ptr, size_t size);
++    void free(void* ptr);
++    void abort();
++    void exit(int status);
++    int atexit(void function() func);
++    void _Exit(int status);
++    char* getenv(in char* name);
++    int system(in char* string);
++    void* bsearch(in void* key, in void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
++    void qsort(void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
++    pure int abs(int j);
++
++    pure c_long labs(c_long j);
++
++    pure long llabs(long j);
++
++    div_t div(int numer, int denom);
++    ldiv_t ldiv(c_long numer, c_long denom);
++    lldiv_t lldiv(long numer, long denom);
++    int mblen(in char* s, size_t n);
++    int mbtowc(wchar_t* pwc, in char* s, size_t n);
++    int wctomb(char* s, wchar_t wc);
++    size_t mbstowcs(wchar_t* pwcs, in char* s, size_t n);
++    size_t wcstombs(char* s, in wchar_t* pwcs, size_t n);
++    version (DigitalMars)
++{
++    void* alloca(size_t size);
++}
++else
++{
++    version (LDC)
++{
++    pragma (alloca)void* alloca(size_t size);
++
++}
++else
++{
++    version (GNU)
++{
++    private import gcc.builtins;
++
++    alias gcc.builtins.__builtin_alloca alloca;
++}
++}
++}
++}
++
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/core/vararg.di druntime/import/core/vararg.di
+--- druntime-orig/import/core/vararg.di	2010-12-20 10:27:04.000000000 +0300
++++ druntime/import/core/vararg.di	2011-01-05 14:41:51.000000000 +0300
+@@ -1,34 +1,45 @@
+-// D import file generated from 'src\core\vararg.d'
+-module core.vararg;
+-version (X86)
+-{
+-    alias void* va_list;
+-    template va_start(T)
+-{
+-void va_start(out va_list ap, ref T parmn)
+-{
+-ap = cast(va_list)(cast(void*)&parmn + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
+-}
+-}
+-    template va_arg(T)
+-{
+-T va_arg(ref va_list ap)
+-{
+-T arg = *cast(T*)ap;
+-ap = cast(va_list)(cast(void*)ap + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
+-return arg;
+-}
+-}
+-    void va_end(va_list ap)
+-{
+-}
+-    void va_copy(out va_list dst, va_list src)
+-{
+-dst = src;
+-}
+-}
+-else
+-{
+-    public import core.stdc.stdarg;
+-
+-}
++// D import file generated from 'src/core/vararg.d'
++module core.vararg;
++version (X86)
++{
++    alias void* va_list;
++version (LDC)
++{
++    pragma (va_start)template va_start(T)
++{
++void va_start(va_list ap, ref T);
++}
++
++}
++else
++{
++    template va_start(T)
++{
++void va_start(out va_list ap, ref T parmn)
++{
++ap = cast(va_list)(cast(void*)&parmn + (T.sizeof + size_t.sizeof - 1 & ~(size_t.sizeof - 1)));
++}
++}
++}
++    template va_arg(T)
++{
++T va_arg(ref va_list ap)
++{
++T arg = *cast(T*)ap;
++ap = cast(va_list)(cast(void*)ap + (T.sizeof + (int).sizeof - 1 & ~((int).sizeof - 1)));
++return arg;
++}
++}
++    void va_end(va_list ap)
++{
++}
++    void va_copy(out va_list dst, va_list src)
++{
++dst = src;
++}
++}
++else
++{
++    public import core.stdc.stdarg;
++
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/intrinsics.di druntime/import/ldc/intrinsics.di
+--- druntime-orig/import/ldc/intrinsics.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/intrinsics.di	2011-01-05 14:40:22.000000000 +0300
+@@ -0,0 +1,359 @@
++/*
++ * This module holds declarations to LLVM intrinsics.
++ *
++ * See the LLVM language reference for more information:
++ *
++ * - http://llvm.org/docs/LangRef.html#intrinsics
++ *
++ */
++
++module ldc.intrinsics;
++
++// Check for the right compiler
 +version(LDC)
-+    mixin(asmMulAdd_innerloop((op=='+')? "add" : "sub", "ESP+LASTPARAM"));
-+else
-+    mixin(asmMulAdd_innerloop(OP, "ESP+LASTPARAM"));
- asm {
-         mov EAX, EBP; // get final carry
-         pop EBP;
-@@ -778,6 +784,9 @@
-         ret 5*4;
- }
- L_enter_odd:
-+version(LDC)
-+    mixin(asmMulAdd_enter_odd((op=='+')? "add" : "sub", "ESP+LASTPARAM"));
-+else
-     mixin(asmMulAdd_enter_odd(OP, "ESP+LASTPARAM"));
- }
- 
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
---- phobos-orig/std/math.d	2011-01-05 16:04:59.087062853 +0300
-+++ phobos/std/math.d	2011-01-08 12:55:17.897953000 +0300
-@@ -64,7 +64,7 @@
- 
- version(LDC) {
-     import ldc.intrinsics;
--    version = INLINE_YL2X; 
-+    //version = INLINE_YL2X; 
- }
- 
- version(DigitalMars){
-@@ -266,7 +266,7 @@
-     assert(abs(71.6Li) == 71.6L);
-     assert(abs(-56) == 56);
-     assert(abs(2321312L)  == 2321312L);
--    assert(abs(-1+1i) == sqrt(2.0));
-+    assert(abs(-1+1i) == sqrt(2.0L));
- }
- 
- /***********************************
-@@ -308,8 +308,22 @@
-  *      Results are undefined if |x| >= $(POWER 2,64).
-  */
- 
-+version(LDC)
 +{
-+
-+@safe pure nothrow real cos(real x)
-+{ 
-+    return llvm_cos(x); 
-+}
-+
++    // OK
 +}
 +else
 +{
-+
- real cos(real x) @safe pure nothrow;       /* intrinsic */
- 
++    static assert(false, "This module is only valid for LDC");
 +}
 +
- /***********************************
-  * Returns sine of x. x is in radians.
-  *
-@@ -322,9 +336,22 @@
-  * Bugs:
-  *      Results are undefined if |x| >= $(POWER 2,64).
-  */
-+version(LDC)
++//
++// CODE GENERATOR INTRINSICS
++//
++
++
++// The 'llvm.returnaddress' intrinsic attempts to compute a target-specific
++// value indicating the return address of the current function or one of its
++// callers.
++
++pragma(intrinsic, "llvm.returnaddress")
++    void* llvm_returnaddress(uint level);
++
++
++// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
++// frame pointer value for the specified stack frame.
++
++pragma(intrinsic, "llvm.frameaddress")
++    void* llvm_frameaddress(uint level);
++
++
++// The 'llvm.stacksave' intrinsic is used to remember the current state of the
++// function stack, for use with llvm.stackrestore. This is useful for
++// implementing language features like scoped automatic variable sized arrays
++// in C99.
++
++pragma(intrinsic, "llvm.stacksave")
++    void* llvm_stacksave();
++
++
++// The 'llvm.stackrestore' intrinsic is used to restore the state of the
++// function stack to the state it was in when the corresponding llvm.stacksave
++// intrinsic executed. This is useful for implementing language features like
++// scoped automatic variable sized arrays in C99.
++
++pragma(intrinsic, "llvm.stackrestore")
++    void llvm_stackrestore(void* ptr);
++
++
++// The 'llvm.prefetch' intrinsic is a hint to the code generator to insert a
++// prefetch instruction if supported; otherwise, it is a noop. Prefetches have
++// no effect on the behavior of the program but can change its performance
++// characteristics.
++
++pragma(intrinsic, "llvm.prefetch")
++    void llvm_prefetch(void* ptr, uint rw, uint locality);
++
++
++// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
++// in a region of code to simulators and other tools. The method is target
++// specific, but it is expected that the marker will use exported symbols to
++// transmit the PC of the marker. The marker makes no guarantees that it will
++// remain with any specific instruction after optimizations. It is possible
++// that the presence of a marker will inhibit optimizations. The intended use
++// is to be inserted after optimizations to allow correlations of simulation
++// runs.
++
++pragma(intrinsic, "llvm.pcmarker")
++    void llvm_pcmarker(uint id);
++
++
++// The 'llvm.readcyclecounter' intrinsic provides access to the cycle counter
++// register (or similar low latency, high accuracy clocks) on those targets that
++// support it. On X86, it should map to RDTSC. On Alpha, it should map to RPCC.
++// As the backing counters overflow quickly (on the order of 9 seconds on
++// alpha), this should only be used for small timings.
++
++pragma(intrinsic, "llvm.readcyclecounter")
++    ulong readcyclecounter();
++
++
++
++
++//
++// STANDARD C LIBRARY INTRINSICS
++//
++
++
++// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
++// location to the destination location.
++// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
++// not return a value, and takes an extra alignment argument.
++
++version(LDC_LLVMPre28)
 +{
-+
-+@safe pure nothrow real sin(real x)
-+{ 
-+    return llvm_sin(x); 
-+}
-+
++    pragma(intrinsic, "llvm.memcpy.i#")
++        void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment);
 +}
 +else
 +{
- 
- real sin(real x) @safe pure nothrow;       /* intrinsic */
- 
++    pragma(intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
++        void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
 +}
 +
- 
- /***********************************
-  *  sine, complex and imaginary
-@@ -390,7 +417,9 @@
- 
- real tan(real x) @trusted pure nothrow 
- {
--    version(D_InlineAsm_X86) {
-+    version(LDC) {
-+        return core.stdc.math.tanl(x);
-+    } else version(D_InlineAsm_X86) {
-     asm
-     {
-         fld     x[EBP]                  ; // load theta
-@@ -806,8 +835,22 @@
-  * greater than long.max, the result is
-  * indeterminate.
-  */
-+version(LDC)
-+{
 +
-+@trusted pure nothrow long rndtol(real x)
-+{
-+	return core.stdc.math.llroundl(x);
-+}
++// The 'llvm.memmove.*' intrinsics move a block of memory from the source
++// location to the destination location. It is similar to the 'llvm.memcpy'
++// intrinsic but allows the two memory locations to overlap.
++// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
++// do not return a value, and takes an extra alignment argument.
 +
++
++version(LDC_LLVMPre28)
++{
++    pragma(intrinsic, "llvm.memmove.i#")
++        void llvm_memmove(T)(void* dst, void* src, T len, uint alignment);
 +}
 +else
 +{
-+
- long rndtol(real x) @safe pure nothrow;    /* intrinsic */
- 
++    pragma(intrinsic, "llvm.memmove.p0i8.p0i8.i#")
++        void llvm_memmove(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
 +}
 +
- 
- /*****************************************
-  * Returns x rounded to a long value using the FE_TONEAREST rounding mode.
-@@ -828,6 +871,20 @@
-  *      )
-  */
- 
-+version(LDC) 
-+{
 +
-+@safe pure nothrow
-+{
-+    float sqrt(float x) { return llvm_sqrt(x); }
-+    double sqrt(double x)  { return llvm_sqrt(x); }
-+    real sqrt(real x) { return llvm_sqrt(x); }
-+}
++// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
++// value.
++// Note that, unlike the standard libc function, the llvm.memset intrinsic does
++// not return a value, and takes an extra alignment argument.
 +
++version(LDC_LLVMPre28)
++{
++    pragma(intrinsic, "llvm.memset.i#")
++        void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment);
 +}
 +else
 +{
-+
- @safe pure nothrow
- {
-     float sqrt(float x);    /* intrinsic */
-@@ -835,6 +892,8 @@
-     real sqrt(real x);      /* intrinsic */ /// ditto
- }
- 
++    pragma(intrinsic, "llvm.memset.p0i8.i#")
++        void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false);
 +}
 +
- @trusted pure nothrow {  // Should be @safe.  See bugs 4628, 4630.
-     // Create explicit overloads for integer sqrts.  No ddoc for these because
-     // hopefully a more elegant solution will eventually be found, so we don't
-@@ -1421,9 +1480,22 @@
-  * Compute n * 2$(SUP exp)
-  * References: frexp
-  */
-+version(LDC)
++
++// The 'llvm.sqrt' intrinsics return the sqrt of the specified operand,
++// returning the same value as the libm 'sqrt' functions would. Unlike sqrt in
++// libm, however, llvm.sqrt has undefined behavior for negative numbers other
++// than -0.0 (which allows for better optimization, because there is no need to
++// worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like
++// IEEE sqrt.
++
++@safe nothrow pure pragma(intrinsic, "llvm.sqrt.f#")
++     T llvm_sqrt(T)(T val);
++
++
++// The 'llvm.sin.*' intrinsics return the sine of the operand.
++
++@safe nothrow pure pragma(intrinsic, "llvm.sin.f#")
++    T llvm_sin(T)(T val);
++
++
++// The 'llvm.cos.*' intrinsics return the cosine of the operand.
++
++@safe nothrow pure pragma(intrinsic, "llvm.cos.f#")
++    T llvm_cos(T)(T val);
++
++
++// The 'llvm.powi.*' intrinsics return the first operand raised to the specified
++// (positive or negative) power. The order of evaluation of multiplications is
++// not defined. When a vector of floating point type is used, the second
++// argument remains a scalar integer value.
++
++pragma(intrinsic, "llvm.powi.f#")
++    T llvm_powi(T)(T val, int power);
++
++
++// The 'llvm.pow.*' intrinsics return the first operand raised to the specified
++// (positive or negative) power.
++
++pragma(intrinsic, "llvm.pow.f#")
++    T llvm_pow(T)(T val, T power);
++
++
++//
++// BIT MANIPULATION INTRINSICS
++//
++
++// The 'llvm.bswap' family of intrinsics is used to byte swap integer values
++// with an even number of bytes (positive multiple of 16 bits). These are
++// useful for performing operations on data that is not in the target's native
++// byte order.
++
++pragma(intrinsic, "llvm.bswap.i#.i#")
++    T llvm_bswap(T)(T val);
++
++
++// The 'llvm.ctpop' family of intrinsics counts the number of bits set in a
++// value.
++
++pragma(intrinsic, "llvm.ctpop.i#")
++    T llvm_ctpop(T)(T src);
++
++
++// The 'llvm.ctlz' family of intrinsic functions counts the number of leading
++// zeros in a variable.
++
++pragma(intrinsic, "llvm.ctlz.i#")
++    T llvm_ctlz(T)(T src);
++
++
++// The 'llvm.cttz' family of intrinsic functions counts the number of trailing
++// zeros.
++
++pragma(intrinsic, "llvm.cttz.i#")
++    T llvm_cttz(T)(T src);
++
++
++// The 'llvm.part.select' family of intrinsic functions selects a range of bits
++// from an integer value and returns them in the same bit width as the original
++// value.
++
++pragma(intrinsic, "llvm.part.select.i#")
++    T llvm_part_select(T)(T val, uint loBit, uint hiBit);
++
++
++// The 'llvm.part.set' family of intrinsic functions replaces a range of bits
++// in an integer value with another integer value. It returns the integer with
++// the replaced bits.
++
++// TODO
++// declare i17 @llvm.part.set.i17.i9 (i17 %val, i9 %repl, i32 %lo, i32 %hi)
++// declare i29 @llvm.part.set.i29.i9 (i29 %val, i9 %repl, i32 %lo, i32 %hi)
++
++
++
++
++//
++// ATOMIC OPERATIONS AND SYNCHRONIZATION INTRINSICS
++//
++
++// The llvm.memory.barrier intrinsic guarantees ordering between specific
++// pairs of memory access types.
++
++pragma(intrinsic, "llvm.memory.barrier")
++    void llvm_memory_barrier(bool ll, bool ls, bool sl, bool ss, bool device);
++
++// This loads a value in memory and compares it to a given value. If they are
++// equal, it stores a new value into the memory.
++
++pragma(intrinsic, "llvm.atomic.cmp.swap.i#.p0i#")
++    T llvm_atomic_cmp_swap(T)(shared T* ptr, T cmp, T val);
++
++// This intrinsic loads the value stored in memory at ptr and yields the value
++// from memory. It then stores the value in val in the memory at ptr.
++
++pragma(intrinsic, "llvm.atomic.swap.i#.p0i#")
++    T llvm_atomic_swap(T)(T* ptr, T val);
++
++// This intrinsic adds delta to the value stored in memory at ptr. It yields
++// the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.add.i#.p0i#")
++    T llvm_atomic_load_add(T)(shared const T* ptr, T val);
++
++// This intrinsic subtracts delta to the value stored in memory at ptr. It
++// yields the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.sub.i#.p0i#")
++    T llvm_atomic_load_sub(T)(T* ptr, T val);
++
++// These intrinsics bitwise the operation (and, nand, or, xor) delta to the
++// value stored in memory at ptr. It yields the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.and.i#.p0i#")
++    T llvm_atomic_load_and(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.nand.i#.p0i#")
++    T llvm_atomic_load_nand(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.or.i#.p0i#")
++    T llvm_atomic_load_or(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.xor.i#.p0i#")
++    T llvm_atomic_load_xor(T)(T* ptr, T val);
++
++// These intrinsics takes the signed or unsigned minimum or maximum of delta
++// and the value stored in memory at ptr. It yields the original value at ptr.
++
++pragma(intrinsic, "llvm.atomic.load.max.i#.p0i#")
++    T llvm_atomic_load_max(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.min.i#.p0i#")
++    T llvm_atomic_load_min(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.umax.i#.p0i#")
++    T llvm_atomic_load_umax(T)(T* ptr, T val);
++
++pragma(intrinsic, "llvm.atomic.load.umin.i#.p0i#")
++    T llvm_atomic_load_umin(T)(T* ptr, T val);
++
++
++//
++// ARITHMETIC-WITH-OVERFLOW INTRINSICS
++//
++
++struct OverflowRet(T) {
++    static assert(is(T : int), T.stringof ~ " is not an integer type!");
++    T result;
++    bool overflow;
++}
++
++// Signed and unsigned addition
++pragma(intrinsic, "llvm.sadd.with.overflow.i#")
++    OverflowRet!(T) llvm_sadd_with_overflow(T)(T lhs, T rhs);
++
++pragma(intrinsic, "llvm.uadd.with.overflow.i#")
++    OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs);
++
++
++// Signed and unsigned subtraction
++pragma(intrinsic, "llvm.ssub.with.overflow.i#")
++    OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs);
++
++pragma(intrinsic, "llvm.usub.with.overflow.i#")
++    OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs);
++
++
++// Signed and unsigned multiplication
++pragma(intrinsic, "llvm.smul.with.overflow.i#")
++    OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs);
++
++/* Note: LLVM documentations says:
++ *  Warning: 'llvm.umul.with.overflow' is badly broken.
++ *  It is actively being fixed, but it should not currently be used!
++ *
++ * See: http://llvm.org/docs/LangRef.html#int_umul_overflow
++ */
++//pragma(intrinsic, "llvm.umul.with.overflow.i#")
++//    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
++
++
++//
++// GENERAL INTRINSICS
++//
++
++
++// This intrinsics is lowered to the target dependent trap instruction. If the
++// target does not have a trap instruction, this intrinsic will be lowered to
++// the call of the abort() function.
++
++pragma(intrinsic, "llvm.trap")
++    void llvm_trap();
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/ldc/llvmasm.di druntime/import/ldc/llvmasm.di
+--- druntime-orig/import/ldc/llvmasm.di	1970-01-01 03:00:00.000000000 +0300
++++ druntime/import/ldc/llvmasm.di	2011-01-05 14:40:22.000000000 +0300
+@@ -0,0 +1,17 @@
++module ldc.llvmasm;
++
++struct __asmtuple_t(T...)
 +{
++    T v;
++}
 +
-+pure nothrow real ldexp(real n, int exp)
++pragma(llvm_inline_asm)
 +{
-+    return core.stdc.math.ldexpl(n, exp);
-+}
++    void __asm( )(char[] asmcode, char[] constraints, ...);
++    T    __asm(T)(char[] asmcode, char[] constraints, ...);
 +
-+}
-+else
-+{
- 
- real ldexp(real n, int exp) @safe pure nothrow;    /* intrinsic */
- 
-+}
-+
- unittest {
-     assert(ldexp(1, -16384) == 0x1p-16384L);
-     assert(ldexp(1, -16382) == 0x1p-16382L);
-@@ -1446,7 +1518,7 @@
-  *    )
-  */
- 
--real log(real x) @safe pure nothrow 
-+real log(real x) @trusted pure nothrow 
- {
-     version (INLINE_YL2X)
-         return yl2x(x, LN2);
-@@ -1470,7 +1542,7 @@
-  *      )
-  */
- 
--real log10(real x) @safe pure nothrow
-+real log10(real x) @trusted pure nothrow
- {
-     version (INLINE_YL2X)
-         return yl2x(x, LOG2);
-@@ -1499,7 +1571,7 @@
-  *  )
-  */
- 
--real log1p(real x) @safe pure nothrow
-+real log1p(real x) @trusted pure nothrow
- {
-     version(INLINE_YL2X)
-     {
-@@ -1524,7 +1596,7 @@
-  *  $(TR $(TD +$(INFIN))    $(TD +$(INFIN)) $(TD no)           $(TD no) )
-  *  )
-  */
--real log2(real x) @safe pure nothrow
-+real log2(real x) @trusted pure nothrow
- {
-     version (INLINE_YL2X)
-         return yl2x(x, 1);
-@@ -1617,7 +1689,24 @@
-  *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
-  *      )
-  */
--real fabs(real x) @safe pure nothrow;      /* intrinsic */
-+version(LDC) {
-+    @trusted pure nothrow real fabs(real x) 
++    template __asmtuple(T...)
 +    {
-+        version(D_InlineAsm_X86)
++        __asmtuple_t!(T) __asmtuple(char[] asmcode, char[] constraints, ...);
++    }
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/object.di druntime/import/object.di
+--- druntime-orig/import/object.di	2010-12-16 01:43:28.000000000 +0300
++++ druntime/import/object.di	2011-01-05 14:40:22.000000000 +0300
+@@ -142,7 +142,7 @@
+     // 32:      // has typeinfo member
+     void*       deallocator;
+     OffsetTypeInfo[] m_offTi;
+-    void*       defaultConstructor;
++    void function(Object) defaultConstructor;   // default Constructor
+     const(MemberInfo[]) function(string) xgetMembers;
+ 
+     static TypeInfo_Class find(in char[] classname);
+@@ -298,7 +298,6 @@
+     interface TraceInfo
+     {
+         int opApply(scope int delegate(ref char[]));
+-        string toString();
+     }
+ 
+     string      msg;
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/import/std/intrinsic.di druntime/import/std/intrinsic.di
+--- druntime-orig/import/std/intrinsic.di	2010-12-15 10:30:54.000000000 +0300
++++ druntime/import/std/intrinsic.di	2011-01-05 18:03:08.459062852 +0300
+@@ -1,171 +1,72 @@
+-/**
+- * These functions are built-in intrinsics to the compiler.
+- *
+- * Intrinsic functions are functions built in to the compiler, usually to take
+- * advantage of specific CPU features that are inefficient to handle via
+- * external functions.  The compiler's optimizer and code generator are fully
+- * integrated in with intrinsic functions, bringing to bear their full power on
+- * them. This can result in some surprising speedups.
+- *
+- * Copyright: Public Domain
+- * License:   Public Domain
+- * Authors:   Walter Bright
+- */
+-module std.intrinsic;
+-
+-nothrow:
+-
+-/**
+- * Scans the bits in v starting with bit 0, looking
+- * for the first set bit.
+- * Returns:
+- *      The bit number of the first bit set.
+- *      The return value is undefined if v is zero.
+- */
+-pure int bsf(size_t v);
+-
+-/**
+- * Scans the bits in v from the most significant bit
+- * to the least significant bit, looking
+- * for the first set bit.
+- * Returns:
+- *      The bit number of the first bit set.
+- *      The return value is undefined if v is zero.
+- * Example:
+- * ---
+- * import std.stdio;
+- * import std.intrinsic;
+- *
+- * int main()
+- * {
+- *     uint v;
+- *     int x;
+- *
+- *     v = 0x21;
+- *     x = bsf(v);
+- *     writefln("bsf(x%x) = %d", v, x);
+- *     x = bsr(v);
+- *     writefln("bsr(x%x) = %d", v, x);
+- *     return 0;
+- * }
+- * ---
+- * Output:
+- *  bsf(x21) = 0<br>
+- *  bsr(x21) = 5
+- */
+-pure int bsr(size_t v);
+-
+-/**
+- * Tests the bit.
+- */
+-pure int bt(in size_t* p, size_t bitnum);
+-
+-/**
+- * Tests and complements the bit.
+- */
+-int btc(size_t* p, size_t bitnum);
+-
+-/**
+- * Tests and resets (sets to 0) the bit.
+- */
+-int btr(size_t* p, size_t bitnum);
+-
+-/**
+- * Tests and sets the bit.
+- * Params:
+- * p = a non-NULL pointer to an array of size_ts.
+- * index = a bit number, starting with bit 0 of p[0],
+- * and progressing. It addresses bits like the expression:
+----
+-p[index / (size_t.sizeof*8)] & (1 << (index & ((size_t.sizeof*8) - 1)))
+----
+- * Returns:
+- *      A non-zero value if the bit was set, and a zero
+- *      if it was clear.
+- *
+- * Example:
+- * ---
+-import std.stdio;
+-import std.intrinsic;
+-
+-int main()
+-{
+-    size_t array[2];
+-
+-    array[0] = 2;
+-    array[1] = 0x100;
+-
+-    writefln("btc(array, 35) = %d", <b>btc</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("btc(array, 35) = %d", <b>btc</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("bts(array, 35) = %d", <b>bts</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("btr(array, 35) = %d", <b>btr</b>(array, 35));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    writefln("bt(array, 1) = %d", <b>bt</b>(array, 1));
+-    writefln("array = [0]:x%x, [1]:x%x", array[0], array[1]);
+-
+-    return 0;
+-}
+- * ---
+- * Output:
+-<pre>
+-btc(array, 35) = 0
+-array = [0]:x2, [1]:x108
+-btc(array, 35) = -1
+-array = [0]:x2, [1]:x100
+-bts(array, 35) = 0
+-array = [0]:x2, [1]:x108
+-btr(array, 35) = -1
+-array = [0]:x2, [1]:x100
+-bt(array, 1) = -1
+-array = [0]:x2, [1]:x100
+-</pre>
+- */
+-int bts(size_t* p, size_t bitnum);
+-
+-/**
+- * Swaps bytes in a 4 byte uint end-to-end, i.e. byte 0 becomes
+- * byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
+- * becomes byte 0.
+- */
+-pure uint bswap(uint v);
+-
+-
+-/**
+- * Reads I/O port at port_address.
+- */
+-ubyte inp(uint port_address);
+-
+-/**
+- * ditto
+- */
+-ushort inpw(uint port_address);
+-
+-/**
+- * ditto
+- */
+-uint inpl(uint port_address);
+-
+-
+-/**
+- * Writes and returns value to I/O port at port_address.
+- */
+-ubyte outp(uint port_address, ubyte value);
+-
+-/**
+- * ditto
+- */
+-ushort outpw(uint port_address, ushort value);
+-
+-/**
+- * ditto
+- */
+-uint outpl(uint port_address, uint value);
+-
+-
++// D import file generated from 'src/std/intrinsic.d'
++module std.intrinsic;
++version (LDC)
++{
++}
++else
++{
++    static assert(false,"This module is only valid for LDC");
++}
++nothrow 
++{
++    pure int bsf(size_t v);
++
++    pure int bsr(size_t v);
++
++    pure int bt(in size_t* p, size_t bitnum)
++{
++return p[bitnum / ((uint).sizeof * 8)] & 1 << (bitnum & (uint).sizeof * 8 - 1) ? -1 : 0;
++}
++
++    int btc(size_t* p, size_t bitnum)
++{
++uint* q = p + bitnum / ((uint).sizeof * 8);
++uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
++int result = *q & mask;
++*q ^= mask;
++return result ? -1 : 0;
++}
++    int btr(size_t* p, size_t bitnum)
++{
++uint* q = p + bitnum / ((uint).sizeof * 8);
++uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
++int result = *q & mask;
++*q &= ~mask;
++return result ? -1 : 0;
++}
++    int bts(size_t* p, size_t bitnum)
++{
++uint* q = p + bitnum / ((uint).sizeof * 8);
++uint mask = 1 << (bitnum & (uint).sizeof * 8 - 1);
++int result = *q & mask;
++*q |= mask;
++return result ? -1 : 0;
++}
++    pure pragma (intrinsic, "llvm.bswap.i32")uint bswap(uint val);
++
++
++    ubyte inp(uint port_address)
++{
++assert(false && "inp intrinsic not yet implemented");
++}
++    ushort inpw(uint port_address)
++{
++assert(false && "inpw intrinsic not yet implemented");
++}
++    uint inpl(uint port_address)
++{
++assert(false && "inpl intrinsic not yet implemented");
++}
++    ubyte outp(uint port_address, ubyte value)
++{
++assert(false && "outp intrinsic not yet implemented");
++}
++    ushort outpw(uint port_address, ushort value)
++{
++assert(false && "outpw intrinsic not yet implemented");
++}
++    uint outpl(uint port_address, uint value)
++{
++assert(false && "outpl intrinsic not yet implemented");
++}
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/atomic.d druntime/src/core/atomic.d
+--- druntime-orig/src/core/atomic.d	2010-12-15 22:30:58.000000000 +0300
++++ druntime/src/core/atomic.d	2011-01-05 14:40:22.000000000 +0300
+@@ -91,6 +91,117 @@
+          return false;
+      }
+ }
++
++////////////////////////////////////////////////////////////////////////////////
++// LDC Atomics Implementation
++////////////////////////////////////////////////////////////////////////////////
++
++else version( LDC )
++{
++    import ldc.intrinsics;
++
++    T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
++        if( is( NakedType!(V1) == NakedType!(T) ) )
++    {
++        // binary operators
++        //
++        // +    -   *   /   %   ^^  &
++        // |    ^   <<  >>  >>> ~   in
++        // ==   !=  <   <=  >   >=
++        static if( op == "+"  || op == "-"  || op == "*"  || op == "/"   ||
++                   op == "%"  || op == "^^" || op == "&"  || op == "|"   ||
++                   op == "^"  || op == "<<" || op == ">>" || op == ">>>" ||
++                   op == "~"  || // skip "in"
++                   op == "==" || op == "!=" || op == "<"  || op == "<="  ||
++                   op == ">"  || op == ">=" )
 +        {
-+            asm {
-+                fld x;
-+                fabs;
++            T get = val; // compiler can do atomic load
++            mixin( "return get " ~ op ~ " mod;" );
++        }
++        else
++        // assignment operators
++        //
++        // +=   -=  *=  /=  %=  ^^= &=
++        // |=   ^=  <<= >>= >>>=    ~=
++        static if( op == "+=" || op == "-="  || op == "*="  || op == "/=" ||
++                   op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
++                   op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
++        {
++            T get, set;
++            
++            do
++            {
++                get = set = atomicLoad!(msync.raw)( val );
++                mixin( "set " ~ op ~ " mod;" );
++            } while( !cas( &val, get, set ) );
++            return set;
++        }
++        else
++        {
++            static assert( false, "Operation not supported." );
++        }
++    }  
++
++    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
++        if( is( NakedType!(V1) == NakedType!(T) ) &&
++            is( NakedType!(V2) == NakedType!(T) ) )
++
++    {
++        T oldval = void;
++        static if (is(T P == U*, U))
++        {
++            oldval = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)&writeThis, cast(size_t)ifThis, cast(size_t)here);
++        }
++        else static if (is(T == bool))
++        {
++            oldval = llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)&writeThis, ifThis?1:0, here?1:0)?0:1;
++        }
++        else
++        {
++            oldval = llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
++        }
++        return oldval == ifThis;
++    }
++
++
++    private
++    {
++        enum msync
++        {
++            raw,    /// not sequenced
++            acq,    /// hoist-load + hoist-store barrier
++            rel,    /// sink-load + sink-store barrier
++            seq,    /// fully sequenced (acq + rel)
++        }
++
++        T atomicLoad(msync ms = msync.seq, T)( const ref shared T val )
++        {
++            llvm_memory_barrier(
++                ms == msync.acq || ms == msync.seq,
++                ms == msync.acq || ms == msync.seq,
++                ms == msync.rel || ms == msync.seq,
++                ms == msync.rel || ms == msync.seq,
++                false);
++            static if (is(T P == U*, U)) // pointer
++            {
++                return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
++            }
++            else static if (is(T == bool))
++            {
++                return llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0) ? 1 : 0;
++            }
++            else
++            {
++                return llvm_atomic_load_add!(T)(&val, cast(T)0);
++            }
++        }
++    }
++}
++
++////////////////////////////////////////////////////////////////////////////////
++// x86_32 Atomic Function Implementation
++////////////////////////////////////////////////////////////////////////////////
++
+ else version( AsmX86_32 )
+ {
+     T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
+@@ -398,6 +509,12 @@
+         }
+     }
+ }
++
++
++////////////////////////////////////////////////////////////////////////////////
++// x86_64 Atomic Function Implementation
++////////////////////////////////////////////////////////////////////////////////
++
+ else version( AsmX86_64 )
+ {
+     T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/stdc/math.d druntime/src/core/stdc/math.d
+--- druntime-orig/src/core/stdc/math.d	2010-12-15 10:30:50.000000000 +0300
++++ druntime/src/core/stdc/math.d	2011-01-05 14:40:22.000000000 +0300
+@@ -18,6 +18,7 @@
+ 
+ extern (C):
+ nothrow:
++pure: // LDC
+ 
+ alias float  float_t;
+ alias double double_t;
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/stdc/stdarg.d druntime/src/core/stdc/stdarg.d
+--- druntime-orig/src/core/stdc/stdarg.d	2010-12-15 10:30:50.000000000 +0300
++++ druntime/src/core/stdc/stdarg.d	2011-01-05 16:38:59.387062854 +0300
+@@ -16,7 +16,69 @@
+ 
+ @system:
+ 
+-version( X86 )
++version( LDC )
++{
++    /*********************
++     * The argument pointer type.
++     */
++    alias void* va_list;
++
++    /**********
++     * Initialize ap.
++     * Parmn should be the last named parameter.
++     */
++    pragma(va_start)
++        void va_start(T)(va_list ap, ref T);
++
++    /************
++     * Retrieve and return the next value that is type T.
++     * Should use the other va_arg instead, as this won't work for 64 bit code.
++     */
++    T va_arg(T)(ref va_list ap)
++    {
++        T arg = *cast(T*) ap;
++        ap = cast(va_list)( cast(void*) ap + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
++        return arg;
++    }
++
++    /************
++     * Retrieve and return the next value that is type T.
++     * This is the preferred version.
++     */
++    void va_arg(T)(ref va_list ap, ref T parmn)
++    {
++        parmn = *cast(T*)ap;
++        ap = cast(va_list)(cast(void*)ap + ((T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
++    }
++
++    /*************
++     * Retrieve and store through parmn the next value that is of TypeInfo ti.
++     * Used when the static type is not known.
++     */
++    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
++    {
++        // Wait until everyone updates to get TypeInfo.talign()
++        //auto talign = ti.talign();
++        //auto p = cast(void*)(cast(size_t)ap + talign - 1) & ~(talign - 1);
++        auto p = ap;
++        auto tsize = ti.tsize();
++        ap = cast(void*)(cast(size_t)p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
++        parmn[0..tsize] = p[0..tsize];
++    }
++
++    /***********************
++     * End use of ap.
++     */
++    void va_end(va_list ap)
++    {
++    }
++
++    void va_copy(out va_list dest, va_list src)
++    {
++        dest = src;
++    }
++}
++else version( X86 )
+ {
+     /*********************
+      * The argument pointer type.
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/stdc/stdlib.d druntime/src/core/stdc/stdlib.d
+--- druntime-orig/src/core/stdc/stdlib.d	2010-12-15 10:30:50.000000000 +0300
++++ druntime/src/core/stdc/stdlib.d	2011-01-05 14:40:22.000000000 +0300
+@@ -93,3 +93,13 @@
+ {
+     void* alloca(size_t size); // non-standard
+ }
++else version( LDC )
++{
++    pragma(alloca)
++        void* alloca(size_t size);
++}
++else version( GNU )
++{
++    private import gcc.builtins;
++    alias gcc.builtins.__builtin_alloca alloca;
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/core/vararg.d druntime/src/core/vararg.d
+--- druntime-orig/src/core/vararg.d	2010-12-15 10:30:52.000000000 +0300
++++ druntime/src/core/vararg.d	2011-01-05 14:42:18.000000000 +0300
+@@ -32,10 +32,22 @@
+      *  paramn  = The identifier of the rightmost parameter in the function
+      *            parameter list.
+      */
++version(LDC)
++{
++
++pragma(va_start)
++    void va_start(T)(va_list ap, ref T);
++
++}
++else
++{
++
+     void va_start(T)( out va_list ap, ref T parmn )
+     {
+         ap = cast(va_list)( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
+     }
++    
++}
+ 
+     /**
+      * This function returns the next argument in the sequence referenced by
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/gc/gcbits.d druntime/src/gc/gcbits.d
+--- druntime-orig/src/gc/gcbits.d	2010-12-15 10:30:52.000000000 +0300
++++ druntime/src/gc/gcbits.d	2011-01-05 14:40:22.000000000 +0300
+@@ -27,6 +27,10 @@
+ {
+     version = bitops;
+ }
++else version (LDC)
++{
++	version = bitops;
++}
+ else version (GNU)
+ {
+     // use the unoptimized version
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/gc/gcx.d druntime/src/gc/gcx.d
+--- druntime-orig/src/gc/gcx.d	2010-12-15 10:30:52.000000000 +0300
++++ druntime/src/gc/gcx.d	2011-01-05 14:40:22.000000000 +0300
+@@ -1465,7 +1465,8 @@
+ 
+ 
+     void initialize()
+-    {   int dummy;
++    {
++        int dummy;
+ 
+         (cast(byte*)&this)[0 .. Gcx.sizeof] = 0;
+         stackBottom = cast(char*)&dummy;
+@@ -2201,7 +2202,7 @@
+                 if ((cast(size_t)p & ~(PAGESIZE-1)) == pcache)
+                     continue;
+ 
+-		auto pool = findPool(p);
++                auto pool = findPool(p);
+                 if (pool)
+                 {
+                     size_t offset = cast(size_t)(p - pool.baseAddr);
+@@ -2271,80 +2272,129 @@
+             __builtin_unwind_init();
+             sp = & sp;
+         }
++        else version(LDC)
++        {
++            version(X86)
++            {
++                uint eax,ecx,edx,ebx,ebp,esi,edi;
++                asm
++                {
++                    mov eax[EBP], EAX      ;
++                    mov ecx[EBP], ECX      ;
++                    mov edx[EBP], EDX      ;
++                    mov ebx[EBP], EBX      ;
++                    mov ebp[EBP], EBP      ;
++                    mov esi[EBP], ESI      ;
++                    mov edi[EBP], EDI      ;
++                    mov  sp[EBP], ESP      ;
++                }
++            }
++            else version (X86_64)
++            {
++                ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15;
++                asm
++                {
++                    movq rax[RBP], RAX      ;
++                    movq rbx[RBP], RBX      ;
++                    movq rcx[RBP], RCX      ;
++                    movq rdx[RBP], RDX      ;
++                    movq rbp[RBP], RBP      ;
++                    movq rsi[RBP], RSI      ;
++                    movq rdi[RBP], RDI      ;
++                    movq r8 [RBP], R8       ; 
++                    movq r9 [RBP], R9       ; 
++                    movq r10[RBP], R10      ;
++                    movq r11[RBP], R11      ;
++                    movq r12[RBP], R12      ;
++                    movq r13[RBP], R13      ;
++                    movq r14[RBP], R14      ;
++                    movq r15[RBP], R15      ;
++                    movq  sp[RBP], RSP      ;
++                }
++            }
++            else
++            {
++                static assert( false, "Architecture not supported." );
++            }
++        }
+         else version( D_InlineAsm_X86 )
+         {
+-	    asm
+-	    {
+-		pushad              ;
+-		mov sp[EBP],ESP     ;
+-	    }
++            asm
++            {
++            pushad              ;
++            mov sp[EBP],ESP     ;
++            }
++        }
++        else version ( D_InlineAsm_X86_64 )
++        {
++            asm
++            {
++            push RAX ;
++            push RBX ;
++            push RCX ;
++            push RDX ;
++            push RSI ;
++            push RDI ;
++            push RBP ;
++            push R8  ;
++            push R9  ;
++            push R10  ;
++            push R11  ;
++            push R12  ;
++            push R13  ;
++            push R14  ;
++            push R15  ;
++            push EAX ;   // 16 byte align the stack
 +            }
 +        }
 +        else
 +        {
-+            return fabsl(x);
-+        }
-+    }
-+} else {
-+    real fabs(real x) @safe pure nothrow;      /* intrinsic */
-+}
++            static assert( false, "Architecture not supported." );
+         }
+-	else version ( D_InlineAsm_X86_64 )
+-	{
+-	    asm
+-	    {
+-		push RAX ;
+-		push RBX ;
+-		push RCX ;
+-		push RDX ;
+-		push RSI ;
+-		push RDI ;
+-		push RBP ;
+-		push R8  ;
+-		push R9  ;
+-		push R10  ;
+-		push R11  ;
+-		push R12  ;
+-		push R13  ;
+-		push R14  ;
+-		push R15  ;
+-		push EAX ;   // 16 byte align the stack
+-	    }
+-	}
+-	else
+-	{
+-	    static assert( false, "Architecture not supported." );
+-	}
  
+         result = fullcollect(sp);
  
- /***********************************************************************
-@@ -3017,9 +3106,15 @@
-     assert(pow(x,eight) == (x * x) * (x * x) * (x * x) * (x * x));
- 
-     assert(pow(x, neg1) == 1 / x);
--    assert(pow(xd, neg2) == 1 / (x * x));
-+    version(LDC) // FIXME:
-+        assert(pow(xd, neg2) == 1 / (xd * xd));
-+    else
-+        assert(pow(xd, neg2) == 1 / (x * x));
-     assert(pow(x, neg3) == 1 / (x * x * x));
--    assert(pow(xf, neg8) == 1 / ((x * x) * (x * x) * (x * x) * (x * x)));
-+    version(LDC)
-+        assert(pow(xf, neg8) == 1 / ((xf * xf) * (xf * xf) * (xf * xf) * (xf * xf)));
-+    else
-+        assert(pow(xf, neg8) == 1 / ((x * x) * (x * x) * (x * x) * (x * x)));
- }
- 
- /** Compute the value of an integer x, raised to the power of a positive
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/openrj.d phobos/std/openrj.d
---- phobos-orig/std/openrj.d	2009-09-03 12:01:40.000000000 +0400
-+++ phobos/std/openrj.d	2011-01-05 15:15:30.000000000 +0300
-@@ -620,11 +620,11 @@
-     /**
-      *
-      */
--    int opApply(int delegate(inout Field field) dg)
-+    int opApply(int delegate(ref Field field) dg)
-     {
-         int result  =   0;
- 
--        foreach (inout field; m_fields)
-+        foreach (ref Field field; m_fields)
-         {
-             result = dg(field);
- 
-@@ -1000,11 +1000,11 @@
-     /**
-      *
-      */
--    int opApply(int delegate(inout Record record) dg)
-+    int opApply(int delegate(ref Record record) dg)
-     {
-         int result  =   0;
- 
--        foreach(inout Record record; m_records)
-+        foreach(ref Record record; m_records)
-         {
-             result = dg(record);
- 
-@@ -1020,11 +1020,11 @@
-     /**
-      *
-      */
--    int opApply(int delegate(inout Field field) dg)
-+    int opApply(int delegate(ref Field field) dg)
-     {
-         int result  =   0;
- 
--        foreach(inout Field field; m_fields)
-+        foreach(ref Field field; m_fields)
-         {
-             result = dg(field);
- 
-diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/outbuffer.d phobos/std/outbuffer.d
---- phobos-orig/std/outbuffer.d	2010-12-20 23:02:36.000000000 +0300
-+++ phobos/std/outbuffer.d	2011-01-05 15:15:31.000000000 +0300
-@@ -308,8 +308,15 @@
-     void printf(string format, ...)
-     {
-         va_list ap;
--        ap = cast(va_list)&format;
--        ap += format.sizeof;
-+        version(LDC) 
+-	version( GNU )
+-	{
+-	    // registers will be popped automatically
+-	}
+-	else version( D_InlineAsm_X86 )
+-	{
+-	    asm
+-	    {
+-		popad;
+-	    }
+-	}
+-	else version ( D_InlineAsm_X86_64 )
+-	{
+-	    asm
+-	    {
+-		pop EAX ;   // 16 byte align the stack
+-		pop R15  ;
+-		pop R14  ;
+-		pop R13  ;
+-		pop R12  ;
+-		pop R11  ;
+-		pop R10  ;
+-		pop R9  ;
+-		pop R8  ;
+-		pop RBP ;
+-		pop RDI ;
+-		pop RSI ;
+-		pop RDX ;
+-		pop RCX ;
+-		pop RBX ;
+-		pop RAX ;
+-	    }
+-	}
+-	else
+-	{
+-	    static assert( false, "Architecture not supported." );
+-	}
++        version( GNU )
 +        {
-+            ap = _argptr;
++            // registers will be popped automatically
++        }
++        else version(LDC)
++        {
++            // nothing to do
++        }
++        else version( D_InlineAsm_X86 )
++        {
++            asm
++            {
++            popad;
++            }
++        }
++        else version ( D_InlineAsm_X86_64 )
++        {
++            asm
++            {
++            pop EAX ;   // 16 byte align the stack
++            pop R15  ;
++            pop R14  ;
++            pop R13  ;
++            pop R12  ;
++            pop R11  ;
++            pop R10  ;
++            pop R9  ;
++            pop R8  ;
++            pop RBP ;
++            pop RDI ;
++            pop RSI ;
++            pop RDX ;
++            pop RCX ;
++            pop RBX ;
++            pop RAX ;
++            }
 +        }
 +        else
 +        {
-+            ap = cast(va_list)&format;
-+            ap += format.sizeof;
++            static assert( false, "Architecture not supported." );
 +        }
-         vprintf(format, ap);
+         return result;
      }
  
+@@ -2358,7 +2408,7 @@
+         Pool*  pool;
+ 
+         debug(COLLECT_PRINTF) printf("Gcx.fullcollect()\n");
+-	//printf("\tpool address range = %p .. %p\n", minAddr, maxAddr);
++        //printf("\tpool address range = %p .. %p\n", minAddr, maxAddr);
+ 
+         thread_suspendAll();
+ 
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/object_.d druntime/src/object_.d
+--- druntime-orig/src/object_.d	2010-12-16 01:43:28.000000000 +0300
++++ druntime/src/object_.d	2011-01-05 14:40:22.000000000 +0300
+@@ -1763,7 +1763,6 @@
+     {
+         int len = 0;
+         ModuleReference *mr;
+-
+         for (mr = _Dmodule_ref; mr; mr = mr.next)
+             len++;
+         _moduleinfo_array = new ModuleInfo*[len];
+@@ -2278,7 +2277,6 @@
+         _d_monitor_create(h);
+         m = getMonitor(h);
+     }
+-
+     IMonitor i = m.impl;
+ 
+     if (i is null)
+@@ -2377,7 +2375,7 @@
+     size_t _aaLen(void* p);
+     void* _aaGet(void** pp, TypeInfo keyti, size_t valuesize, ...);
+     void* _aaGetRvalue(void* p, TypeInfo keyti, size_t valuesize, ...);
+-    void* _aaIn(void* p, TypeInfo keyti);
++    void* _aaIn(void* p, TypeInfo keyti, ...);
+     void _aaDel(void* p, TypeInfo keyti, ...);
+     void[] _aaValues(void* p, size_t keysize, size_t valuesize);
+     void[] _aaKeys(void* p, size_t keysize, size_t valuesize);
+@@ -2422,7 +2420,7 @@
+         return *cast(Key[]*) &a;
+     }
+ 
+-    int opApply(scope int delegate(ref Key, ref Value) dg)
++    int opApply(scope int delegate(ref Key, ref const Value) dg)
+     {
+         return _aaApply2(p, aligntsize(Key.sizeof), cast(_dg2_t)dg);
+     }
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/adi.d druntime/src/rt/adi.d
+--- druntime-orig/src/rt/adi.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/adi.d	2011-01-05 15:13:25.247062853 +0300
+@@ -36,6 +36,8 @@
+     extern (C) void  gc_free( void* p );
+ }
+ 
++version (DMD) version (X86)
++    version = DMD_X86;
+ 
+ struct Array
+ {
+@@ -49,7 +51,7 @@
+  * reversed.
+  */
+ 
+-extern (C) long _adReverseChar(char[] a)
++extern (C) char[] _adReverseChar(char[] a)
+ {
+     if (a.length > 1)
+     {
+@@ -109,7 +111,7 @@
+             hi = hi - 1 + (stridehi - stridelo);
+         }
+     }
+-    return *cast(long*)(&a);
++    return *cast(char[]*)&a;
+ }
+ 
+ unittest
+@@ -226,7 +228,7 @@
+  * Support for array.reverse property.
+  */
+ 
+-extern (C) void[] _adReverse(Array a, size_t szelem)
++extern (C) void[] _adReverse(void[] a, size_t szelem)
+ out (result)
+ {
+     assert(result is *cast(void[]*)(&a));
+@@ -358,7 +360,7 @@
+  *      0       not equal
+  */
+ 
+-extern (C) int _adEq(Array a1, Array a2, TypeInfo ti)
++extern (C) int _adEq(void[] a1, void[] a2, TypeInfo ti)
+ {
+     debug(adi) printf("_adEq(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
+     if (a1.length != a2.length)
+@@ -379,7 +381,7 @@
+     return 1; // equal
+ }
+ 
+-extern (C) int _adEq2(Array a1, Array a2, TypeInfo ti)
++extern (C) int _adEq2(void[] a1, void[] a2, TypeInfo ti)
+ {
+     debug(adi) printf("_adEq2(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
+     if (a1.length != a2.length)
+@@ -405,7 +407,7 @@
+  * Support for array compare test.
+  */
+ 
+-extern (C) int _adCmp(Array a1, Array a2, TypeInfo ti)
++extern (C) int _adCmp(void[] a1, void[] a2, TypeInfo ti)
+ {
+     debug(adi) printf("adCmp()\n");
+     auto len = a1.length;
+@@ -435,7 +437,7 @@
+     return (a1.length > a2.length) ? 1 : -1;
+ }
+ 
+-extern (C) int _adCmp2(Array a1, Array a2, TypeInfo ti)
++extern (C) int _adCmp2(void[] a1, void[] a2, TypeInfo ti)
+ {
+     debug(adi) printf("_adCmp2(a1.length = %d, a2.length = %d)\n", a1.length, a2.length);
+     return ti.compare(&a1, &a2);
+@@ -461,9 +463,9 @@
+  * Support for array compare test.
+  */
+ 
+-extern (C) int _adCmpChar(Array a1, Array a2)
++extern (C) int _adCmpChar(void[] a1, void[] a2)
+ {
+-  version (X86)
++  version (DMD_X86)
+   {
+     asm
+     {   naked                   ;
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/alloca.d druntime/src/rt/alloca.d
+--- druntime-orig/src/rt/alloca.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/alloca.d	2011-01-05 14:54:45.903062853 +0300
+@@ -52,16 +52,16 @@
+     {
+     asm
+     {
+-	add	EAX,15		;
+-	and	EAX,0xFFFFFFF0	; // round up to 16 byte boundary
++    add EAX,15      ;
++    and EAX,0xFFFFFFF0  ; // round up to 16 byte boundary
+     }
+     }
+     else
+     {
+     asm
+     {
+-	add	EAX,3		;
+-	and	EAX,0xFFFFFFFC	; // round up to dword
++    add EAX,3       ;
++    and EAX,0xFFFFFFFC  ; // round up to dword
+     }
+     }
+ 
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/arrayInit.d druntime/src/rt/arrayInit.d
+--- druntime-orig/src/rt/arrayInit.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/rt/arrayInit.d	2011-01-05 14:40:22.000000000 +0300
+@@ -0,0 +1,150 @@
++private import ldc.intrinsics;
++
++extern(C):
++
++int memcmp(void*,void*,size_t);
++size_t strlen(char*);
++
++// per-element array init routines
++
++void _d_array_init_i16(ushort* a, size_t n, ushort v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_i32(uint* a, size_t n, uint v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_i64(ulong* a, size_t n, ulong v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_float(float* a, size_t n, float v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_double(double* a, size_t n, double v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_real(real* a, size_t n, real v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_cfloat(cfloat* a, size_t n, cfloat v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_cdouble(cdouble* a, size_t n, cdouble v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_creal(creal* a, size_t n, creal v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_pointer(void** a, size_t n, void* v)
++{
++    auto p = a;
++    auto end = a+n;
++    while (p !is end)
++        *p++ = v;
++}
++
++void _d_array_init_mem(void* a, size_t na, void* v, size_t nv)
++{
++    auto p = a;
++    auto end = a + na*nv;
++    while (p !is end) {
++        llvm_memcpy(p,v,nv,0);
++        p += nv;
++    }
++}
++
++/*
++void _d_array_init(TypeInfo ti, void* a)
++{
++    auto initializer = ti.next.init();
++    auto isize = initializer.length;
++    auto q = initializer.ptr;
++
++    if (isize == 1)
++        memset(p, *cast(ubyte*)q, size);
++    else if (isize == int.sizeof)
++    {
++        int init = *cast(int*)q;
++        size /= int.sizeof;
++        for (size_t u = 0; u < size; u++)
++        {
++            (cast(int*)p)[u] = init;
++        }
++    }
++    else
++    {
++        for (size_t u = 0; u < size; u += isize)
++        {
++            memcpy(p + u, q, isize);
++        }
++    }
++}*/
++
++// for array cast
++size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
++{
++    if (newelemsz == 1) {
++        return len*elemsz;
++    }
++    else if ((len*elemsz) % newelemsz) {
++        throw new Exception("Bad array cast");
++    }
++    return (len*elemsz)/newelemsz;
++}
++
++// slice copy when assertions are enabled
++void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
++{
++    if (dstlen != 0) assert(dst);
++    if (dstlen != 0) assert(src);
++    if (dstlen != srclen)
++        throw new Exception("lengths don't match for array copy");
++    else if (dst+dstlen <= src || src+srclen <= dst)
++        llvm_memcpy!size_t(dst, src, dstlen, 0);
++    else
++        throw new Exception("overlapping array copy");
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/dmain2.d druntime/src/rt/dmain2.d
+--- druntime-orig/src/rt/dmain2.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/dmain2.d	2011-01-05 14:40:22.000000000 +0300
+@@ -39,6 +39,8 @@
+     pragma(lib, "shell32.lib"); // needed for CommandLineToArgvW
+ }
+ 
++extern (C) Throwable.TraceInfo _d_traceContext(void* ptr = null); // LDC
++
+ version (all)
+ {
+     Throwable _d_unhandled = null;
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/ldc_eh.d druntime/src/rt/ldc_eh.d
+--- druntime-orig/src/rt/ldc_eh.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/rt/ldc_eh.d	2011-01-05 14:40:22.000000000 +0300
+@@ -0,0 +1,428 @@
++/**
++ * This module contains functions and structures required for
++ * exception handling.
++ */
++module ldc_eh;
++
++private import core.stdc.stdio;
++private import core.stdc.stdlib;
++private import rt.util.console;
++private import core.vararg;
++
++// debug = EH_personality;
++// debug = EH_personality_verbose;
++
++// current EH implementation works on x86
++// if it has a working unwind runtime
++version(X86) {
++    version(linux) version=X86_UNWIND;
++    version(darwin) version=X86_UNWIND;
++    version(solaris) version=X86_UNWIND;
++}
++version(X86_64) {
++    version(linux) version=X86_UNWIND;
++    version(darwin) version=X86_UNWIND;
++    version(solaris) version=X86_UNWIND;
++}
++
++//version = HP_LIBUNWIND;
++
++// D runtime functions
++extern(C) {
++    int _d_isbaseof(ClassInfo oc, ClassInfo c);
++}
++
++// libunwind headers
++extern(C)
++{
++    enum _Unwind_Reason_Code : int
++    {
++        NO_REASON = 0,
++        FOREIGN_EXCEPTION_CAUGHT = 1,
++        FATAL_PHASE2_ERROR = 2,
++        FATAL_PHASE1_ERROR = 3,
++        NORMAL_STOP = 4,
++        END_OF_STACK = 5,
++        HANDLER_FOUND = 6,
++        INSTALL_CONTEXT = 7,
++        CONTINUE_UNWIND = 8
++    }
++
++    enum _Unwind_Action : int
++    {
++        SEARCH_PHASE = 1,
++        CLEANUP_PHASE = 2,
++        HANDLER_FRAME = 4,
++        FORCE_UNWIND = 8
++    }
++
++    alias void* _Unwind_Context_Ptr;
++
++    alias void function(_Unwind_Reason_Code, _Unwind_Exception*) _Unwind_Exception_Cleanup_Fn;
++
++    struct _Unwind_Exception
++    {
++        ulong exception_class;
++        _Unwind_Exception_Cleanup_Fn exception_cleanup;
++        ptrdiff_t private_1;
++        ptrdiff_t private_2;
++    }
++
++// interface to HP's libunwind from http://www.nongnu.org/libunwind/
++version(HP_LIBUNWIND)
++{
++    void __libunwind_Unwind_Resume(_Unwind_Exception *);
++    _Unwind_Reason_Code __libunwind_Unwind_RaiseException(_Unwind_Exception *);
++    ptrdiff_t __libunwind_Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr
++            context);
++    ptrdiff_t __libunwind_Unwind_GetIP(_Unwind_Context_Ptr context);
++    ptrdiff_t __libunwind_Unwind_SetIP(_Unwind_Context_Ptr context,
++            ptrdiff_t new_value);
++    ptrdiff_t __libunwind_Unwind_SetGR(_Unwind_Context_Ptr context, int index,
++            ptrdiff_t new_value);
++    ptrdiff_t __libunwind_Unwind_GetRegionStart(_Unwind_Context_Ptr context);
++
++    alias __libunwind_Unwind_Resume _Unwind_Resume;
++    alias __libunwind_Unwind_RaiseException _Unwind_RaiseException;
++    alias __libunwind_Unwind_GetLanguageSpecificData
++        _Unwind_GetLanguageSpecificData;
++    alias __libunwind_Unwind_GetIP _Unwind_GetIP;
++    alias __libunwind_Unwind_SetIP _Unwind_SetIP;
++    alias __libunwind_Unwind_SetGR _Unwind_SetGR;
++    alias __libunwind_Unwind_GetRegionStart _Unwind_GetRegionStart;
++}
++else version(X86_UNWIND) 
++{
++    void _Unwind_Resume(_Unwind_Exception*);
++    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
++    ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
++    ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
++    ptrdiff_t _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
++    ptrdiff_t _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
++            ptrdiff_t new_value);
++    ptrdiff_t _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
++}
++else
++{
++    // runtime calls these directly
++    void _Unwind_Resume(_Unwind_Exception*)
++    {
++        console("_Unwind_Resume is not implemented on this platform.\n");
++    }
++    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*)
++    {
++        console("_Unwind_RaiseException is not implemented on this platform.\n");
++        return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++    }
++}
++
++}
++
++// error and exit
++extern(C) private void fatalerror(in char* format, ...)
++{
++  va_list args;
++  va_start(args, format);
++  printf("Fatal error in EH code: ");
++  vprintf(format, args);
++  printf("\n");
++  abort();
++}
++
++
++// helpers for reading certain DWARF data
++private ubyte* get_uleb128(ubyte* addr, ref size_t res)
++{
++  res = 0;
++  size_t bitsize = 0;
++
++  // read as long as high bit is set
++  while(*addr & 0x80) {
++    res |= (*addr & 0x7f) << bitsize;
++    bitsize += 7;
++    addr += 1;
++    if(bitsize >= size_t.sizeof*8)
++       fatalerror("tried to read uleb128 that exceeded size of size_t");
++  }
++  // read last
++  if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
++    fatalerror("Fatal error in EH code: tried to read uleb128 that exceeded size of size_t");
++  res |= (*addr) << bitsize;
++
++  return addr + 1;
++}
++
++private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
++{
++  res = 0;
++  size_t bitsize = 0;
++
++  // read as long as high bit is set
++  while(*addr & 0x80) {
++    res |= (*addr & 0x7f) << bitsize;
++    bitsize += 7;
++    addr += 1;
++    if(bitsize >= size_t.sizeof*8)
++       fatalerror("tried to read sleb128 that exceeded size of size_t");
++  }
++  // read last
++  if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
++    fatalerror("tried to read sleb128 that exceeded size of size_t");
++  res |= (*addr) << bitsize;
++
++  // take care of sign
++  if(bitsize < size_t.sizeof*8 && ((*addr) & 0x40))
++    res |= cast(ptrdiff_t)(-1) ^ ((1 << (bitsize+7)) - 1);
++
++  return addr + 1;
++}
++
++
++// exception struct used by the runtime.
++// _d_throw allocates a new instance and passes the address of its
++// _Unwind_Exception member to the unwind call. The personality
++// routine is then able to get the whole struct by looking at the data
++// surrounding the unwind info.
++struct _d_exception
++{
++  Object exception_object;
++  _Unwind_Exception unwind_info;
++}
++
++// the 8-byte string identifying the type of exception
++// the first 4 are for vendor, the second 4 for language
++//TODO: This may be the wrong way around
++char[8] _d_exception_class = "LLDCD1\0\0";
++
++
++//
++// x86 unwind specific implementation of personality function
++// and helpers
++//
++version(X86_UNWIND)
++{
++
++// the personality routine gets called by the unwind handler and is responsible for
++// reading the EH tables and deciding what to do
++extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions, ulong exception_class, _Unwind_Exception* exception_info, _Unwind_Context_Ptr context)
++{
++  debug(EH_personality_verbose) printf("entering personality function. context: %p\n", context);
++  // check ver: the C++ Itanium ABI only allows ver == 1
++  if(ver != 1)
++    return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++
++  // check exceptionClass
++  //TODO: Treat foreign exceptions with more respect
++  if((cast(char*)&exception_class)[0..8] != _d_exception_class)
++    return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++
++  // find call site table, action table and classinfo table
++  // Note: callsite and action tables do not contain static-length
++  // data and will be parsed as needed
++  // Note: classinfo_table points past the end of the table
++  ubyte* callsite_table;
++  ubyte* action_table;
++  ClassInfo* classinfo_table;
++  _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table);
++  if (callsite_table is null)
++    return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++  /*
++    find landing pad and action table index belonging to ip by walking
++    the callsite_table
++  */
++  ubyte* callsite_walker = callsite_table;
++
++  // get the instruction pointer
++  // will be used to find the right entry in the callsite_table
++  // -1 because it will point past the last instruction
++  ptrdiff_t ip = _Unwind_GetIP(context) - 1;
++
++  // address block_start is relative to
++  ptrdiff_t region_start = _Unwind_GetRegionStart(context);
++
++  // table entries
++  uint block_start_offset, block_size;
++  ptrdiff_t landing_pad;
++  size_t action_offset;
++
++  while(true) {
++    // if we've gone through the list and found nothing...
++    if(callsite_walker >= action_table)
++      return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++    block_start_offset = *cast(uint*)callsite_walker;
++    block_size = *(cast(uint*)callsite_walker + 1);
++    landing_pad = *(cast(uint*)callsite_walker + 2);
++    if(landing_pad)
++      landing_pad += region_start;
++    callsite_walker = get_uleb128(callsite_walker + 3*uint.sizeof, action_offset);
++
++    debug(EH_personality_verbose) printf("ip=%llx %d %d %llx\n", ip, block_start_offset, block_size, landing_pad);
++
++    // since the list is sorted, as soon as we're past the ip
++    // there's no handler to be found
++    if(ip < region_start + block_start_offset)
++      return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++    // if we've found our block, exit
++    if(ip < region_start + block_start_offset + block_size)
++      break;
++  }
++
++  debug(EH_personality) printf("Found correct landing pad and actionOffset %d\n", action_offset);
++
++  // now we need the exception's classinfo to find a handler
++  // the exception_info is actually a member of a larger _d_exception struct
++  // the runtime allocated. get that now
++  _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
++
++  // if there's no action offset and no landing pad, continue unwinding
++  if(!action_offset && !landing_pad)
++    return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++  // if there's no action offset but a landing pad, this is a cleanup handler
++  else if(!action_offset && landing_pad)
++    return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
++
++  /*
++   walk action table chain, comparing classinfos using _d_isbaseof
++  */
++  ubyte* action_walker = action_table + action_offset - 1;
++
++  ptrdiff_t ti_offset, next_action_offset;
++  while(true) {
++    action_walker = get_sleb128(action_walker, ti_offset);
++    // it is intentional that we not modify action_walker here
++    // next_action_offset is from current action_walker position
++    get_sleb128(action_walker, next_action_offset);
++
++    // negative are 'filters' which we don't use
++    if(!(ti_offset >= 0))
++      fatalerror("Filter actions are unsupported");
++
++    // zero means cleanup, which we require to be the last action
++    if(ti_offset == 0) {
++      if(!(next_action_offset == 0))
++        fatalerror("Cleanup action must be last in chain");
++      return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
++    }
++
++    // get classinfo for action and check if the one in the
++    // exception structure is a base
++    ClassInfo catch_ci = *(classinfo_table - ti_offset);
++    debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
++    if(_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
++      return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
++
++    // we've walked through all actions and found nothing...
++    if(next_action_offset == 0)
++      return _Unwind_Reason_Code.CONTINUE_UNWIND;
++    else
++      action_walker += next_action_offset;
++  }
++
++  fatalerror("reached unreachable");
++  return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
++}
++
++// These are the register numbers for SetGR that
++// llvm's eh.exception and eh.selector intrinsics
++// will pick up.
++// Hints for these can be found by looking at the
++// EH_RETURN_DATA_REGNO macro in GCC, careful testing
++// is required though.
++version (X86_64)
++{
++  private int eh_exception_regno = 0;
++  private int eh_selector_regno = 1;
++} else {
++  private int eh_exception_regno = 0;
++  private int eh_selector_regno = 2;
++}
++
++private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
++{
++  debug(EH_personality) printf("Found catch clause!\n");
++
++  if(actions & _Unwind_Action.SEARCH_PHASE)
++    return _Unwind_Reason_Code.HANDLER_FOUND;
++
++  else if(actions & _Unwind_Action.CLEANUP_PHASE)
++  {
++    debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
++    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct.exception_object));
++    _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
++    _Unwind_SetIP(context, landing_pad);
++    return _Unwind_Reason_Code.INSTALL_CONTEXT;
++  }
++
++  fatalerror("reached unreachable");
++  return _Unwind_Reason_Code.FATAL_PHASE2_ERROR;
++}
++
++private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
++{
++  // if we're merely in search phase, continue
++  if(actions & _Unwind_Action.SEARCH_PHASE)
++    return _Unwind_Reason_Code.CONTINUE_UNWIND;
++
++  debug(EH_personality) printf("Calling cleanup routine...\n");
++
++  _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
++  _Unwind_SetGR(context, eh_selector_regno, 0);
++  _Unwind_SetIP(context, landing_pad);
++  return _Unwind_Reason_Code.INSTALL_CONTEXT;
++}
++
++private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ClassInfo* ci)
++{
++  ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
++  if (data is null)
++  {
++    //printf("language specific data was null\n");
++    callsite = null;
++    action = null;
++    ci = null;
++    return;
++  }
++
++  //TODO: Do proper DWARF reading here
++  if(*data++ != 0xff)
++    fatalerror("DWARF header has unexpected format 1");
++
++  if(*data++ != 0x00)
++    fatalerror("DWARF header has unexpected format 2");
++  size_t cioffset;
++  data = get_uleb128(data, cioffset);
++  ci = cast(ClassInfo*)(data + cioffset);
++
++  if(*data++ != 0x03)
++    fatalerror("DWARF header has unexpected format 3");
++  size_t callsitelength;
++  data = get_uleb128(data, callsitelength);
++  action = data + callsitelength;
++
++  callsite = data;
++}
++
++} // end of x86 Linux specific implementation
++
++
++extern(C) void _d_throw_exception(Object e)
++{
++    if (e !is null)
++    {
++        _d_exception* exc_struct = new _d_exception;
++        exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
++        exc_struct.exception_object = e;
++        _Unwind_Reason_Code ret = _Unwind_RaiseException(&exc_struct.unwind_info);
++        console("_Unwind_RaiseException failed with reason code: ")(ret)("\n");
++    }
++    abort();
++}
++
++extern(C) void _d_eh_resume_unwind(_d_exception* exception_struct)
++{
++  _Unwind_Resume(&exception_struct.unwind_info);
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/lifetime.d druntime/src/rt/lifetime.d
+--- druntime-orig/src/rt/lifetime.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/lifetime.d	2011-01-05 17:33:37.155062853 +0300
+@@ -89,6 +89,18 @@
+     return gc_malloc(sz);
+ }
+ 
++version (LDC)
++{
++
++/**
++ * for allocating a single POD value
++ */
++extern (C) void* _d_allocmemoryT(TypeInfo ti)
++{
++    return gc_malloc(ti.tsize(), !(ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
++}
++
++} // version (LDC)
+ 
+ /**
+  *
+@@ -820,14 +832,22 @@
+                 __setArrayAllocLength(info, allocsize, isshared);
+                 auto p = __arrayStart(info)[0 .. dim];
+ 
+-                version(X86)
++                version(LDC)
++                {
++                    va_list ap2;
++                    va_copy(ap2, ap);
++                }
++                else version(X86)
+                 {
+                     va_list ap2;
+                     va_copy(ap2, ap);
+                 }
+                 for (size_t i = 0; i < dim; i++)
+                 {
+-                    version(X86_64)
++                    version(LDC)
++                    {
++                    }
++                    else version(X86_64)
+                     {
+                         __va_list argsave = *cast(__va_list*)ap;
+                         va_list ap2 = &argsave;
+@@ -870,7 +890,9 @@
+     else
+     {
+         va_list q;
+-        version(X86)
++        version(LDC)
++            va_start(q, ndims);
++        else version(X86)
+             va_start(q, ndims);
+         else version(X86_64)
+             va_start(q, __va_argsave);
+@@ -893,6 +915,8 @@
+     else
+     {
+         va_list q;
++        version(LDC)
++            va_start(q, ndims);
+         version(X86)
+             va_start(q, ndims);
+         else version(X86_64)
+@@ -1597,6 +1621,20 @@
+     return newcap;
+ }
+ 
++version (LDC)
++{
++
++/**
++ * Appends a single element to an array.
++ */
++extern (C) void[] _d_arrayappendcT(TypeInfo ti, byte[] *x, byte *argp)
++{
++    return _d_arrayappendT(ti, cast(Array*)x, argp[0..1]);
++}
++
++}
++else
++{
+ 
+ /**
+  *
+@@ -1622,6 +1660,7 @@
+     }
+ }
+ 
++}
+ 
+ /**
+  * Append dchar to char[]
+@@ -1904,7 +1943,7 @@
+ /**
+  *
+  */
+-extern (C) void[] _adDupT(TypeInfo ti, Array2 a)
++extern (C) void[] _adDupT(TypeInfo ti, void[] a)
+ out (result)
+ {
+     auto sizeelem = ti.next.tsize();            // array element size
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/memory.d druntime/src/rt/memory.d
+--- druntime-orig/src/rt/memory.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/memory.d	2011-01-05 14:40:22.000000000 +0300
+@@ -13,6 +13,8 @@
+  */
+ module rt.memory;
+ 
++version(DMD)
++{
+ 
+ private
+ {
+@@ -240,3 +242,616 @@
+         static assert( false, "Operating system not supported." );
+     }
+ }
++
++}
++else version(LDC)
++{
++
++version = GC_Use_Dynamic_Ranges;
++
++version(darwin)
++{
++    version = GC_Use_Data_Dyld;
++    version = GC_Use_Dynamic_Ranges;
++    import core.stdc.config : c_ulong;
++}
++else version(Posix)
++{
++    version = GC_Use_Data_Proc_Maps;
++}
++else version(solaris)
++{
++    version = GC_Use_Data_Proc_Maps;
++}
++else version(freebsd)
++{
++    version = GC_Use_Data_Proc_Maps;
++}
++
++
++version(GC_Use_Data_Proc_Maps)
++{
++    version(Posix) {} else {
++        static assert(false, "Proc Maps only supported on Posix systems");
++    }
++    import core.stdc.string : memmove;
++    import core.sys.posix.fcntl : open, O_RDONLY;
++    import core.sys.posix.unistd : close, read;
++
++    version = GC_Use_Dynamic_Ranges;
++}
++
++private
++{
++    version( linux )
++    {
++        //version = SimpleLibcStackEnd;
++
++        version( SimpleLibcStackEnd )
++        {
++            extern (C) extern void* __libc_stack_end;
++        }
++        else
++        {
++            import core.sys.posix.dlfcn;
++        }
++    }
++    else version(freebsd)
++    {
++        //version = SimpleLibcStackEnd;
++ 
++        version( SimpleLibcStackEnd )
++        {
++            extern (C) extern void* __libc_stack_end;
++        }
++        else
++        {
++            import core.sys.posix.dlfcn;
++        }
++    }
++    pragma(intrinsic, "llvm.frameaddress")
++    {
++            void* llvm_frameaddress(uint level=0);
++    }
++    extern (C) void gc_addRange( void* p, size_t sz );
++    extern (C) void gc_removeRange( void* p );
++}
++
++
++/**
++ *
++ */
++
++version( solaris ) {    
++    version(X86_64) {
++        extern (C) void* _userlimit;
++    }
++}
++
++extern (C) void* rt_stackBottom()
++{
++    version( Win32 )
++    {
++        void* bottom;
++        asm
++        {
++            mov EAX, FS:4;
++            mov bottom, EAX;
++        }
++        return bottom;
++    }
++    else version( linux )
++    {
++        version( SimpleLibcStackEnd )
++        {
++            return __libc_stack_end;
++        }
++        else
++        {
++            // See discussion: http://autopackage.org/forums/viewtopic.php?t=22
++                static void** libc_stack_end;
++
++                if( libc_stack_end == libc_stack_end.init )
++                {
++                    void* handle = dlopen( null, RTLD_NOW );
++                    libc_stack_end = cast(void**) dlsym( handle, "__libc_stack_end" );
++                    dlclose( handle );
++                }
++                return *libc_stack_end;
++        }
++    }
++    else version( freebsd ) 
++    { 
++        version( SimpleLibcStackEnd ) 
++        { 
++            return __libc_stack_end; 
++        } 
++        else 
++        { 
++            // See discussion: http://autopackage.org/forums/viewtopic.php?t=22 
++            static void** libc_stack_end; 
++ 
++            if( libc_stack_end == libc_stack_end.init ) 
++            { 
++                void* handle = dlopen( null, RTLD_NOW ); 
++                libc_stack_end = cast(void**) dlsym( handle, "__libc_stack_end" ); 
++                dlclose( handle ); 
++            } 
++           return *libc_stack_end; 
++        } 
++    }
++    else version( darwin )
++    {
++        // darwin has a fixed stack bottom
++        version( D_LP64 )
++            return cast(void*) 0x7fff5fc00000;
++        else
++            return cast(void*) 0xc0000000;
++    }
++    else version( solaris )
++    {
++        version(X86_64) {
++            return _userlimit;
++        }
++        else {
++            // <sys/vmparam.h>
++            return cast(void*) 0x8048000;
++        }
++    }
++    else
++    {
++        static assert( false, "Operating system not supported." );
++    }
++}
++
++
++/**
++ *
++ */
++extern (C) void* rt_stackTop()
++{
++    version( D_InlineAsm_X86 )
++    {
++        asm
++        {
++            naked;
++            mov EAX, ESP;
++            ret;
++        }
++    }
++    else
++    {
++        return llvm_frameaddress();
++    }
++}
++
++
++private
++{
++    version( Win32 )
++    {
++        extern (C)
++        {
++            extern __gshared int _data_start__;
++            extern __gshared int _bss_end__;
++        }
++
++        alias _data_start__ Data_Start;
++        alias _bss_end__    Data_End;
++    }
++    else version( linux )
++    {
++        extern (C)
++        {
++            extern __gshared int _data;
++            extern __gshared int __data_start;
++            extern __gshared int _end;
++            extern __gshared int _data_start__;
++            extern __gshared int _data_end__;
++            extern __gshared int _bss_start__;
++            extern __gshared int _bss_end__;
++            extern __gshared int __fini_array_end;
++        }
++
++        alias __data_start  Data_Start;
++        alias _end          Data_End;
++    }
++    else version( freebsd ) 
++    { 
++        extern (C) 
++        { 
++            extern __gshared char etext; 
++            extern __gshared int _end; 
++        }
++         
++        alias etext Data_Start; 
++        alias _end Data_End; 
++    }
++    else version( solaris )
++    {
++        extern(C)
++        {
++            extern __gshared int _environ;
++            extern __gshared int _end;
++        }
++
++        alias _environ      Data_Start;
++        alias _end          Data_End;
++    }
++
++    version( GC_Use_Dynamic_Ranges )
++    {
++        private import core.stdc.stdlib;
++    }
++
++    void* dataStart,  dataEnd;
++}
++
++
++void initStaticDataGC()
++{
++    
++    static const int S = (void*).sizeof;
++
++    // Can't assume the input addresses are word-aligned
++    static void* adjust_up( void* p )
++    {
++        return p + ((S - (cast(size_t)p & (S-1))) & (S-1)); // cast ok even if 64-bit
++    }
++
++    static void * adjust_down( void* p )
++    {
++        return p - (cast(size_t) p & (S-1));
++    }
++
++    version( Win32 )
++    {
++        dataStart = adjust_up( &Data_Start );
++        dataEnd   = adjust_down( &Data_End );
++    }
++    else version(linux)
++    {
++        dataStart = adjust_up( &Data_Start );
++        dataEnd   = adjust_down( &Data_End );
++    }
++    else version( freebsd ) 
++    { 
++        dataStart = adjust_up( &Data_Start ); 
++        dataEnd   = adjust_down( &Data_End ); 
++    }
++    else version(solaris)
++    {
++        dataStart = adjust_up( &Data_Start );
++        dataEnd   = adjust_down( &Data_End );
++    }
++    else version(GC_Use_Data_Dyld)
++    {
++        _d_dyld_start();
++    }
++    else
++    {
++        static assert( false, "Operating system not supported." );
++    }
++
++    version( GC_Use_Data_Proc_Maps )
++    {
++        parseDataProcMaps();
++    }
++    gc_addRange(dataStart, dataEnd - dataStart);
++}
++
++version( GC_Use_Data_Proc_Maps )
++{
++version(solaris)
++{
++    typedef long offset_t;
++    enum : uint { PRMAPSZ = 64, MA_WRITE = 0x02 }
++    extern(C)
++    {
++        struct prmap {
++            uintptr_t pr_vaddr;         /* virtual address of mapping */
++            size_t pr_size;             /* size of mapping in bytes */
++            char[PRMAPSZ]  pr_mapname;  /* name in /proc/<pid>/object */
++            private offset_t pr_offset; /* offset into mapped object, if any */
++            int pr_mflags;              /* protection and attribute flags (see below) */
++            int pr_pagesize;            /* pagesize (bytes) for this mapping */
++            int pr_shmid;               /* SysV shmid, -1 if not SysV shared memory */
++
++            private int[1] pr_filler;
++        }
++    }
++
++    debug (ProcMaps) extern (C) int printf(char*, ...);
++
++    void parseDataProcMaps()
++    {
++        debug (ProcMaps) printf("initStaticDataPtrs()\n");
++        // http://docs.sun.com/app/docs/doc/816-5174/proc-4
++        prmap pr;
++
++        int   fd = open("/proc/self/map", O_RDONLY);
++        scope (exit) close(fd);
++
++        while (prmap.sizeof == read(fd, &pr, prmap.sizeof))
++        if (pr.pr_mflags & MA_WRITE)
++        {
++            void* start = cast(void*) pr.pr_vaddr;
++            void* end   = cast(void*)(pr.pr_vaddr + pr.pr_size);
++            debug (ProcMaps) printf("  vmem at %p - %p with size %d bytes\n", start, end, pr.pr_size);
++
++            // Exclude stack  and  dataStart..dataEnd
++            if ( ( !dataEnd ||
++                !( dataStart >= start && dataEnd <= end ) ) &&
++                !( &pr >= start && &pr < end ) )
++            {
++                // we already have static data from this region.  anything else
++                // is heap (%% check)
++                debug (ProcMaps) printf("  Adding map range %p - %p\n", start, end);
++                gc_addRange(start, end - start);
++            }
++        }
++    }
++}
++else
++{
++    const int S = (void*).sizeof;
++
++    // TODO: This could use cleanup!
++    void parseDataProcMaps()
++    {
++        // TODO: Exclude zero-mapped regions
++
++        int   fd = open("/proc/self/maps", O_RDONLY);
++        ptrdiff_t   count; // %% need to configure ret for read..
++        char  buf[2024];
++        char* p;
++        char* e;
++        char* s;
++        void* start;
++        void* end;
++
++        p = buf.ptr;
++        if (fd != -1)
++        {
++            while ( (count = read(fd, p, buf.sizeof - (p - buf.ptr))) > 0 )
++            {
++                e = p + count;
++                p = buf.ptr;
++                while (true)
++                {
++                    s = p;
++                    while (p < e && *p != '\n')
++                        p++;
++                    if (p < e)
++                    {
++                        // parse the entry in [s, p)
++                        static if( S == 4 )
++                        {
++                            enum Ofs
++                            {
++                                Write_Prot = 19,
++                                Start_Addr = 0,
++                                End_Addr   = 9,
++                                Addr_Len   = 8,
++                            }
++                        }
++                        else static if( S == 8 )
++                        {
++                            //X86-64 only has 12 bytes address space(in PAE mode) - not 16
++                            //We also need the 32 bit offsets for 32 bit apps
++                            version(X86_64) {
++                                enum Ofs
++                                {
++                                    Write_Prot = 27,
++                                    Start_Addr = 0,
++                                    End_Addr   = 13,
++                                    Addr_Len   = 12,
++                                    Write_Prot_32 = 19,
++                                    Start_Addr_32 = 0,
++                                    End_Addr_32   = 9,
++                                    Addr_Len_32   = 8,
++                                }
++                            }
++                            else
++                            {
++                                enum Ofs
++                                {
++                                    Write_Prot = 35,
++                                    Start_Addr = 0,
++                                    End_Addr   = 9,
++                                    Addr_Len   = 17,
++                                }
++                            }
++                        }
++                        else
++                        {
++                            static assert( false );
++                        }
++
++                        // %% this is wrong for 64-bit:
++                        // long strtoul(const char*,char**,int);
++                        // but seems to work on x86-64:
++                        // probably because C's long is 64 bit there
++
++                        if( s[Ofs.Write_Prot] == 'w' )
++                        {
++                            s[Ofs.Start_Addr + Ofs.Addr_Len] = '\0';
++                            s[Ofs.End_Addr + Ofs.Addr_Len] = '\0';
++                            start = cast(void*) strtoul(s + Ofs.Start_Addr, null, 16);
++                            end   = cast(void*) strtoul(s + Ofs.End_Addr, null, 16);
++
++                            // 1. Exclude anything overlapping [dataStart, dataEnd)
++                            // 2. Exclude stack
++                            if ( ( !dataEnd ||
++                                !( dataStart >= start && dataEnd <= end ) ) &&
++                                !( &buf[0] >= start && &buf[0] < end ) )
++                            {
++                                // we already have static data from this region.  anything else
++                                // is heap (%% check)
++                                debug (ProcMaps) printf("Adding map range %p 0%p\n", start, end);
++                                gc_addRange(start, end - start);
++                            }
++                        }
++                        version(X86_64)
++                        {
++                            //We need to check here for 32 bit apps like ldc produces
++                            //and add them to the gc scan range
++                            if( s[Ofs.Write_Prot_32] == 'w' )
++                            {
++                                s[Ofs.Start_Addr_32 + Ofs.Addr_Len_32] = '\0';
++                                s[Ofs.End_Addr_32 + Ofs.Addr_Len_32] = '\0';
++                                start = cast(void*) strtoul(s + Ofs.Start_Addr_32, null, 16);
++                                end   = cast(void*) strtoul(s + Ofs.End_Addr_32, null, 16);
++                                if ( ( !dataEnd ||
++                                    !( dataStart >= start && dataEnd <= end ) ) &&
++                                    !( &buf[0] >= start && &buf[0] < end ) )
++                                {
++                                    gc_addRange(start, end - start);
++                                }
++                            }
++                        }
++
++                        p++;
++                    }
++                    else
++                    {
++                        count = p - s;
++                        memmove(buf.ptr, s, cast(size_t)count);
++                        p = buf.ptr + count;
++                        break;
++                    }
++                }
++            }
++            close(fd);
++        }
++    }
++}
++}
++
++/*
++ * GDC dyld memory module: 
++ * http://www.dsource.org/projects/tango/browser/trunk/lib/compiler/gdc/memory_dyld.c
++ * Port to the D programming language: Jacob Carlborg
++ */
++version (GC_Use_Data_Dyld)
++{
++    private
++    {
++        const char* SEG_DATA = "__DATA".ptr;
++        const char* SECT_DATA = "__data".ptr;
++        const char* SECT_BSS = "__bss".ptr;
++        const char* SECT_COMMON = "__common".ptr;
++
++        struct SegmentSection
++        {
++            const char* segment;
++            const char* section;
++        }
++
++        struct mach_header
++        {
++            uint magic;
++            int cputype;
++            int cpusubtype;
++            uint filetype;
++            uint ncmds;
++            uint sizeofcmds;
++            uint flags;
++            version (D_LP64)
++                uint reserved;
++        }
++
++        struct section
++        {
++            char[16] sectname;
++            char[16] segname;
++            c_ulong addr;
++            c_ulong size;
++            uint offset;
++            uint align_;
++            uint reloff;
++            uint nreloc;
++            uint flags;
++            uint reserved1;
++            uint reserved2;
++            version (D_LP64)
++                uint reserved3;
++        }
++
++        alias extern (C) void function (mach_header* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
++
++        version (D_LP64)
++            extern (C) /*const*/ section* getsectbynamefromheader_64(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
++        else
++            extern (C) /*const*/ section* getsectbynamefromheader(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
++        extern (C) void _dyld_register_func_for_add_image(DyldFuncPointer func);
++        extern (C) void _dyld_register_func_for_remove_image(DyldFuncPointer func);
++
++        const SegmentSection[3] GC_dyld_sections = [SegmentSection(SEG_DATA, SECT_DATA), SegmentSection(SEG_DATA, SECT_BSS), SegmentSection(SEG_DATA, SECT_COMMON)];    
++
++        extern (C) void on_dyld_add_image (/*const*/ mach_header* hdr, ptrdiff_t slide)
++        {
++            void* start;
++            void* end;
++            /*const*/ section* sec;
++
++            foreach (s ; GC_dyld_sections)
++            {
++                version (D_LP64)
++                    sec = getsectbynamefromheader_64(hdr, s.segment, s.section);
++                else
++                    sec = getsectbynamefromheader(hdr, s.segment, s.section);
++
++                if (sec == null || sec.size == 0)
++                    continue;
++
++                start = cast(void*) (sec.addr + slide);
++                end = cast(void*) (start + sec.size);
++
++                gc_addRange(start, end - start);
++            }
++        }
++
++        extern (C) void on_dyld_remove_image (/*const*/ mach_header* hdr, ptrdiff_t slide)
++        {
++            void* start;
++            void* end;
++            /*const*/ section* sec;
++
++            foreach (s ; GC_dyld_sections)
++            {
++                version (D_LP64)
++                    sec = getsectbynamefromheader_64(hdr, s.segment, s.section);
++                else
++                    sec = getsectbynamefromheader(hdr, s.segment, s.section);
++
++                if (sec == null || sec.size == 0)
++                    continue;
++
++                start = cast(void*) (sec.addr + slide);
++                end = cast(void*) (start + sec.size);
++
++                gc_removeRange(start);
++            }
++        }
++
++        void _d_dyld_start ()
++        {
++            static bool started;
++
++            if (!started)
++            {
++                started = true;
++
++                _dyld_register_func_for_add_image(&on_dyld_add_image);
++                _dyld_register_func_for_remove_image(&on_dyld_remove_image);
++            }
++        }
++    }
++}
++
++}
++else
++{
++    static assert( false, "Compiler not supported." );
++}
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/qsort.d druntime/src/rt/qsort.d
+--- druntime-orig/src/rt/qsort.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/qsort.d	2011-01-05 14:40:22.000000000 +0300
+@@ -44,7 +44,7 @@
+ structures.  The default value is optimized for a high cost for compares. */
+ 
+ 
+-extern (C) long _adSort(Array a, TypeInfo ti)
++extern (C) void[] _adSort(void[] a, TypeInfo ti)
+ {
+   byte*[40] stack;              // stack
+   byte* i, j;            // scan and limit pointers
+@@ -121,7 +121,7 @@
+       limit = sp[1];
+     }
+     else                                // else stack empty, all done
+-      return *cast(long*)(&a);
++      return a;
+   }
+   assert(0);
+ }
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/qsort2.d druntime/src/rt/qsort2.d
+--- druntime-orig/src/rt/qsort2.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/qsort2.d	2011-01-05 14:40:22.000000000 +0300
+@@ -32,14 +32,14 @@
+     return tiglobal.compare(p1, p2);
+ }
+ 
+-extern (C) long _adSort(Array a, TypeInfo ti)
++extern (C) void[] _adSort(void[] a, TypeInfo ti)
+ {
+     synchronized
+     {
+         tiglobal = ti;
+         qsort(a.ptr, a.length, cast(size_t)ti.tsize(), &cmp);
+     }
+-    return *cast(long*)(&a);
++    return a;
+ }
+ 
+ 
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/rt/trace.d druntime/src/rt/trace.d
+--- druntime-orig/src/rt/trace.d	2010-12-15 10:30:48.000000000 +0300
++++ druntime/src/rt/trace.d	2011-01-05 14:40:22.000000000 +0300
+@@ -829,7 +829,7 @@
+   version (OSX)
+   { // 16 byte align stack
+     asm
+-    {   naked   ;
++    {
+         pushad  ;
+         sub     ESP,12  ;
+     }
+@@ -844,7 +844,7 @@
+   else
+   {
+     asm
+-    {   naked   ;
++    {
+         pushad  ;
+     }
+     trace_epi();
+diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- druntime-orig/src/std/intrinsic.d druntime/src/std/intrinsic.d
+--- druntime-orig/src/std/intrinsic.d	1970-01-01 03:00:00.000000000 +0300
++++ druntime/src/std/intrinsic.d	2011-01-05 18:02:19.255062853 +0300
+@@ -0,0 +1,215 @@
++/*
++ * D phobos intrinsics for LDC
++ *
++ * From GDC ... public domain!
++ */
++module std.intrinsic;
++
++// Check for the right compiler
++version(LDC)
++{
++    // OK
++}
++else
++{
++    static assert(false, "This module is only valid for LDC");
++}
++
++nothrow:
++
++/**
++ * Scans the bits in v starting with bit 0, looking
++ * for the first set bit.
++ * Returns:
++ *      The bit number of the first bit set.
++ *      The return value is undefined if v is zero.
++ */
++pure int bsf(size_t v)
++{
++    uint m = 1;
++    uint i;
++    for (i = 0; i < 32; i++,m<<=1) {
++        if (v&m)
++        return i;
++    }
++    return i; // supposed to be undefined
++}
++
++/**
++ * Scans the bits in v from the most significant bit
++ * to the least significant bit, looking
++ * for the first set bit.
++ * Returns:
++ *      The bit number of the first bit set.
++ *      The return value is undefined if v is zero.
++ * Example:
++ * ---
++ * import std.intrinsic;
++ *
++ * int main()
++ * {
++ *     uint v;
++ *     int x;
++ *
++ *     v = 0x21;
++ *     x = bsf(v);
++ *     printf("bsf(x%x) = %d\n", v, x);
++ *     x = bsr(v);
++ *     printf("bsr(x%x) = %d\n", v, x);
++ *     return 0;
++ * }
++ * ---
++ * Output:
++ *  bsf(x21) = 0<br>
++ *  bsr(x21) = 5
++ */
++pure int bsr(size_t v)
++{
++    uint m = 0x80000000;
++    uint i;
++    for (i = 32; i ; i--,m>>>=1) {
++    if (v&m)
++        return i-1;
++    }
++    return i; // supposed to be undefined
++}
++
++
++/**
++ * Tests the bit.
++ */
++pure int bt(in size_t* p, size_t bitnum)
++{
++    return (p[bitnum / (uint.sizeof*8)] & (1<<(bitnum & ((uint.sizeof*8)-1)))) ? -1 : 0 ;
++}
++
++
++/**
++ * Tests and complements the bit.
++ */
++int btc(size_t* p, size_t bitnum)
++{
++    uint * q = p + (bitnum / (uint.sizeof*8));
++    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
++    int result = *q & mask;
++    *q ^= mask;
++    return result ? -1 : 0;
++}
++
++
++/**
++ * Tests and resets (sets to 0) the bit.
++ */
++int btr(size_t* p, size_t bitnum)
++{
++    uint * q = p + (bitnum / (uint.sizeof*8));
++    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
++    int result = *q & mask;
++    *q &= ~mask;
++    return result ? -1 : 0;
++}
++
++
++/**
++ * Tests and sets the bit.
++ * Params:
++ * p = a non-NULL pointer to an array of uints.
++ * index = a bit number, starting with bit 0 of p[0],
++ * and progressing. It addresses bits like the expression:
++---
++p[index / (uint.sizeof*8)] & (1 << (index & ((uint.sizeof*8) - 1)))
++---
++ * Returns:
++ *      A non-zero value if the bit was set, and a zero
++ *      if it was clear.
++ *
++ * Example:
++ * ---
++import std.intrinsic;
++
++int main()
++{
++    uint array[2];
++
++    array[0] = 2;
++    array[1] = 0x100;
++
++    printf("btc(array, 35) = %d\n", <b>btc</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("btc(array, 35) = %d\n", <b>btc</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("bts(array, 35) = %d\n", <b>bts</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("btr(array, 35) = %d\n", <b>btr</b>(array, 35));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    printf("bt(array, 1) = %d\n", <b>bt</b>(array, 1));
++    printf("array = [0]:x%x, [1]:x%x\n", array[0], array[1]);
++
++    return 0;
++}
++ * ---
++ * Output:
++<pre>
++btc(array, 35) = 0
++array = [0]:x2, [1]:x108
++btc(array, 35) = -1
++array = [0]:x2, [1]:x100
++bts(array, 35) = 0
++array = [0]:x2, [1]:x108
++btr(array, 35) = -1
++array = [0]:x2, [1]:x100
++bt(array, 1) = -1
++array = [0]:x2, [1]:x100
++</pre>
++ */
++int bts(size_t* p, size_t bitnum)
++{
++    uint * q = p + (bitnum / (uint.sizeof*8));
++    uint mask = 1 << (bitnum & ((uint.sizeof*8) - 1));
++    int result = *q & mask;
++    *q |= mask;
++    return result ? -1 : 0;
++}
++
++/**
++ * Swaps bytes in a 4 byte uint end-to-end, i.e. byte 0 becomes
++ * byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
++ * becomes byte 0.
++ */
++pure pragma(intrinsic, "llvm.bswap.i32")
++    uint bswap(uint val);
++
++/**
++ * Reads I/O port at port_address.
++ */
++ubyte inp(uint port_address) { assert(false && "inp intrinsic not yet implemented"); };
++
++/**
++ * ditto
++ */
++ushort inpw(uint port_address) { assert(false && "inpw intrinsic not yet implemented"); };
++
++/**
++ * ditto
++ */
++uint inpl(uint port_address) { assert(false && "inpl intrinsic not yet implemented"); };
++
++
++/**
++ * Writes and returns value to I/O port at port_address.
++ */
++ubyte outp(uint port_address, ubyte value) { assert(false && "outp intrinsic not yet implemented"); };
++
++/**
++ * ditto
++ */
++ushort outpw(uint port_address, ushort value) { assert(false && "outpw intrinsic not yet implemented"); };
++
++/**
++ * ditto
++ */
++uint outpl(uint port_address, uint value) { assert(false && "outpl intrinsic not yet implemented"); };

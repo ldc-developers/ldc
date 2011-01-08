@@ -52,7 +52,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
  
 diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.h' -x Makefile -x '*.rej' -x '*~' -x '*.log' -x .svn -x '*pro.user' -x .directory -x cmake_install -x CMakeFiles -x .preprocessed.tmp -x 'Makefile.*' -x '*.orig' -- phobos-orig/std/math.d phobos/std/math.d
 --- phobos-orig/std/math.d	2011-01-05 16:04:59.087062853 +0300
-+++ phobos/std/math.d	2011-01-08 12:53:21.049953002 +0300
++++ phobos/std/math.d	2011-01-08 12:55:17.897953000 +0300
 @@ -64,7 +64,7 @@
  
  version(LDC) {
@@ -83,7 +83,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    return llvm_cos(x); 
 +}
 +
-+{
++}
 +else
 +{
 +
@@ -106,7 +106,7 @@ diff -U 3 -H -d -r -N -x '*.mak' -x tk -x backend -x debug -x release -x '*_pch.
 +    return llvm_sin(x); 
 +}
 +
-+{
++}
 +else
 +{
  
