@@ -139,7 +139,9 @@ struct Module : Package
     void setDocfile();  // set docfile member
 #endif
     void read(Loc loc); // read file
-#if IN_GCC
+#if IN_LLVM
+    void parse(bool gen_docs = false);       // syntactic parse
+#elif IN_GCC
     void parse(bool dump_source = false);       // syntactic parse
 #else
     void parse();       // syntactic parse

@@ -37,13 +37,25 @@ static LLValue* to_keyti(DValue* key)
 
 DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 {
+    // D1:
     // call:
     // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
     // or
     // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
 
+    // D2:
+    // call:
+    // extern(C) void* _aaGetX(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
+    // or
+    // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
+
     // first get the runtime function
+#if DMDV2
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGetX":"_aaInX");
+#else
+
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGet":"_aaIn");
+#endif
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
     // aa param
@@ -127,11 +139,20 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 
 DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
 {
+    // D1:
     // call:
     // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
 
+    // D2:
+    // call:
+    // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
+
     // first get the runtime function
+#if DMDV2
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaInX");
+#else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaIn");
+#endif
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
     if (Logger::enabled())
@@ -173,11 +194,20 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
 
 void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
 {
+    // D1:
     // call:
     // extern(C) void _aaDel(AA aa, TypeInfo keyti, void* pkey)
 
+    // D2:
+    // call:
+    // extern(C) void _aaDelX(AA aa, TypeInfo keyti, void* pkey)
+
     // first get the runtime function
+#if DMDV2
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaDelX");
+#else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaDel");
+#endif
     const llvm::FunctionType* funcTy = func->getFunctionType();
 
     if (Logger::enabled())

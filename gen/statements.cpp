@@ -1568,12 +1568,16 @@ void VolatileStatement::toIR(IRState* p)
         DtoMemoryBarrier(false, true, false, false);
 
         // do statement
-	p->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingVolatile(this),NULL,NULL));
+        p->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingVolatile(this),NULL,NULL));
         statement->toIR(p);
-	p->func()->gen->targetScopes.pop_back();
+        p->func()->gen->targetScopes.pop_back();
 
         // no point in a unreachable barrier, terminating statements must insert this themselves.
+#if DMDV2
+        if (statement->blockExit(false) & BEfallthru)
+#else
         if (statement->blockExit() & BEfallthru)
+#endif
         {
             // store-load
             DtoMemoryBarrier(false, false, true, false);

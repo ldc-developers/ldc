@@ -360,8 +360,7 @@ static void LLVM_D_BuildRuntimeModule()
         std::vector<const LLType*> types;
         types.push_back(typeInfoTy);
         types.push_back(sizeTy);
-        types.push_back(rt_ptr(sizeTy));
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, true);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
@@ -833,9 +832,16 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_ReadOnly_NoUnwind_1_NoCapture);
     }
 
+    // D1:
     // void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
+    // D2:
+    // void* _aaGetX(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
     {
+#if DMDV2
+        llvm::StringRef fname("_aaGetX");
+#else
         llvm::StringRef fname("_aaGet");
+#endif
         std::vector<const LLType*> types;
         types.push_back(aaTy);
         types.push_back(typeInfoTy);
@@ -846,9 +852,16 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_4_NoCapture);
     }
 
+    // D1:
     // void* _aaIn(AA aa, TypeInfo keyti, void* pkey)
+    // D2:
+    // void* _aaInX(AA aa, TypeInfo keyti, void* pkey)
     {
+#if DMDV2
+        llvm::StringRef fname("_aaInX");
+#else
         llvm::StringRef fname("_aaIn");
+#endif
         std::vector<const LLType*> types;
         types.push_back(aaTy);
         types.push_back(typeInfoTy);
@@ -858,9 +871,16 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_ReadOnly_1_3_NoCapture);
     }
 
+    // D1:
     // void _aaDel(AA aa, TypeInfo keyti, void* pkey)
+    // D2:
+    // void _aaDelX(AA aa, TypeInfo keyti, void* pkey)
     {
+#if DMDV2
+        llvm::StringRef fname("_aaDelX");
+#else
         llvm::StringRef fname("_aaDel");
+#endif
         std::vector<const LLType*> types;
         types.push_back(aaTy);
         types.push_back(typeInfoTy);

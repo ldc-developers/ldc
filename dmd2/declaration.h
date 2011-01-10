@@ -304,6 +304,7 @@ struct VarDeclaration : Declaration
     Type *htype;
     Initializer *hinit;
 #endif
+    AggregateDeclaration *isThis();
     int needThis();
     int isImportedSymbol();
     int isDataseg();
@@ -757,6 +758,7 @@ struct FuncDeclaration : Declaration
     void semantic3(Scope *sc);
     // called from semantic3
     void varArgs(Scope *sc, TypeFunction*, VarDeclaration *&, VarDeclaration *&);
+    int equals(Object *o);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -899,7 +901,6 @@ struct CtorDeclaration : FuncDeclaration
     int isVirtual();
     int addPreInvariant();
     int addPostInvariant();
-    void toDocBuffer(OutBuffer *buf);
 
     CtorDeclaration *isCtorDeclaration() { return this; }
 };

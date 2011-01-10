@@ -644,6 +644,23 @@ static void errorOnIllegalArrayOp(Expression* base, Expression* e1, Expression* 
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+LLConstant* AddExp::toConstElem(IRState* p)
+{
+    // add to pointer
+    if (e1->type->ty == Tpointer && e2->type->isintegral()) {
+        LLConstant *ptr = e1->toConstElem(p);
+        LLConstant *index = e2->toConstElem(p);
+        ptr = llvm::ConstantExpr::getGetElementPtr(ptr, &index, 1);
+        return ptr;
+    }
+
+    error("expression '%s' is not a constant", toChars());
+    fatal();
+    return NULL;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 DValue* AddExp::toElem(IRState* p)
 {
     Logger::print("AddExp::toElem: %s @ %s\n", toChars(), type->toChars());
@@ -676,6 +693,23 @@ DValue* AddExp::toElem(IRState* p)
     else {
         return DtoBinAdd(l,r);
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLConstant* MinExp::toConstElem(IRState* p)
+{
+    if (e1->type->ty == Tpointer && e2->type->isintegral()) {
+        LLConstant *ptr = e1->toConstElem(p);
+        LLConstant *index = e2->toConstElem(p);
+        index = llvm::ConstantExpr::getNeg(index);
+        ptr = llvm::ConstantExpr::getGetElementPtr(ptr, &index, 1);
+        return ptr;
+    }
+
+    error("expression '%s' is not a constant", toChars());
+    fatal();
+    return NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -778,8 +812,6 @@ DValue* ModExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
 void CallExp::cacheLvalue(IRState* p)
 {
 
@@ -788,14 +820,18 @@ void CallExp::cacheLvalue(IRState* p)
     cachedLvalue = toElem(p)->getLVal();
 }
 
-#endif
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* CallExp::toElem(IRState* p)
 {
     Logger::print("CallExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (cachedLvalue)
+    {
+        LLValue* V = cachedLvalue;
+        return new DVarValue(type, V);
+    }
 
     // handle magic inline asm
     if (e1->op == TOKvar)
@@ -915,12 +951,30 @@ LLConstant* CastExp::toConstElem(IRState* p)
     else if (tb->ty == Tpointer && e1->type->toBasetype()->ty == Tpointer) {
         res = llvm::ConstantExpr::getBitCast(e1->toConstElem(p), lltype);
     }
+    // global variable to pointer
+    else if (tb->ty == Tpointer && e1->op == TOKvar) {
+        VarDeclaration *vd = ((VarExp*)e1)->var->isVarDeclaration();
+        assert(vd);
+        vd->codegen(Type::sir);
+        LLConstant *value = vd->ir.irGlobal ? isaConstant(vd->ir.irGlobal->value) : 0;
+        if (!value)
+           goto Lerr;
+        Type *type = vd->type->toBasetype();
+        if (type->ty == Tarray || type->ty == Tdelegate) {
+            LLConstant* idxs[2] = { DtoConstSize_t(0), DtoConstSize_t(1) };
+            value = llvm::ConstantExpr::getGetElementPtr(value, idxs, 2);
+        }
+        return DtoBitCast(value, DtoType(tb));
+    }
     else {
-        error("can not cast %s to %s at compile time", e1->type->toChars(), type->toChars());
-        return e1->toConstElem(p);
+        goto Lerr;
     }
 
     return res;
+
+Lerr:
+    error("can not cast %s to %s at compile time", e1->type->toChars(), type->toChars());
+    return e1->toConstElem(p);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1036,7 +1090,9 @@ LLConstant* AddrExp::toConstElem(IRState* p)
 
         // gep
         LLConstant* idxs[2] = { DtoConstSize_t(0), index };
-        LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(isaConstant(vd->ir.irGlobal->value), idxs, 2);
+        LLConstant *val = isaConstant(vd->ir.irGlobal->value);
+        val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
+        LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(val, idxs, 2);
 
         // bitcast to requested type
         assert(type->toBasetype()->ty == Tpointer);
@@ -2221,10 +2277,23 @@ DValue* CommaExp::toElem(IRState* p)
     Logger::print("CommaExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    if (cachedLvalue)
+    {
+        LLValue* V = cachedLvalue;
+        return new DVarValue(type, V);
+    }
+
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
     assert(e2->type == type);
     return v;
+}
+
+void CommaExp::cacheLvalue(IRState* p)
+{
+    Logger::println("Caching l-value of %s", toChars());
+    LOG_SCOPE;
+    cachedLvalue = toElem(p)->getLVal();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
