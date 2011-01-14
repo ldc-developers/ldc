@@ -205,10 +205,10 @@ static llvm::DICompositeType dwarfCompositeType(Type* type, llvm::DICompileUnit 
     // dynamic array
     if (t->ty == Tarray)
     {
+        file = DtoDwarfFile(Loc(gIR->dmodule, 0), DtoDwarfCompileUnit(gIR->dmodule));
         tag = DW_TAG_structure_type;
         elems.push_back(dwarfMemberType(0, Type::tsize_t, compileUnit, file, "length", 0));
         elems.push_back(dwarfMemberType(0, t->nextOf()->pointerTo(), compileUnit, file, "ptr", global.params.is64bit?8:4));
-        file = DtoDwarfFile(Loc(gIR->dmodule, 0), DtoDwarfCompileUnit(gIR->dmodule));
     }
 
     // struct/class
@@ -350,7 +350,7 @@ static llvm::DIVariable dwarfVariable(VarDeclaration* vd, llvm::DIType type)
 
     return gIR->difactory.CreateVariable(
         tag, // tag
-        gIR->func()->diLexicalBlock, // context
+        gIR->func()->diSubprogram, // context
         vd->toChars(), // name
         DtoDwarfFile(vd->loc, DtoDwarfCompileUnit(getDefinedModule(vd))), // file
         vd->loc.linnum, // line num
@@ -363,7 +363,8 @@ static llvm::DIVariable dwarfVariable(VarDeclaration* vd, llvm::DIType type)
 
 static void dwarfDeclare(LLValue* var, llvm::DIVariable divar)
 {
-    gIR->difactory.InsertDeclare(var, divar, gIR->scopebb());
+    llvm::Instruction *instr = gIR->difactory.InsertDeclare(var, divar, gIR->scopebb());
+    instr->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -532,11 +533,12 @@ void DtoDwarfFuncStart(FuncDeclaration* fd)
     LOG_SCOPE;
 
     assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
-    fd->ir.irFunc->diLexicalBlock = gIR->difactory.CreateLexicalBlock(
+    DtoDwarfStopPoint(fd->loc.linnum);
+   /* fd->ir.irFunc->diLexicalBlock = gIR->difactory.CreateLexicalBlock(
             fd->ir.irFunc->diSubprogram, // context
             DtoDwarfFile(fd->loc, DtoDwarfCompileUnit(getDefinedModule(fd))), // file
             fd->loc.linnum
-            );
+            );*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -563,7 +565,11 @@ void DtoDwarfStopPoint(unsigned ln)
 
 void DtoDwarfValue(LLValue* var, VarDeclaration* vd)
 {
-    gIR->difactory.InsertDbgValueIntrinsic(var, 0, vd->debugVariable, gIR->scopebb());
+    if (llvm::isa<llvm::AllocaInst>(vd->ir.irLocal->value) == 0)
+        return;
+    
+    llvm::Instruction *instr = gIR->difactory.InsertDbgValueIntrinsic(vd->ir.irLocal->value, 0, vd->debugVariable, gIR->scopebb());
+    instr->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 }
 
 #endif
