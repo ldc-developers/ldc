@@ -200,7 +200,7 @@ add_definitions(
 
 if(UNIX)
 	add_definitions(-DPOSIX)
-	set(CONF_INST_DIR bin)
+	set(CONF_INST_DIR /etc)
 endif(UNIX)
 
 if(USE_BOEHM_GC)
@@ -242,7 +242,7 @@ set_target_properties(
 target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
 	target_link_libraries(${LDC_EXE} imagehlp psapi)
-	set(CONF_INST_DIR bin)
+	set(CONF_INST_DIR /etc)
 endif(WIN32)
 
 if(USE_BOEHM_GC)
