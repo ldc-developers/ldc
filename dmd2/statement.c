@@ -29,6 +29,7 @@
 #include "template.h"
 #include "attrib.h"
 
+#include <pthread.h>
 #if IN_LLVM
 // sizes based on those from tollvm.cpp:DtoMutexType()
 int os_critsecsize()

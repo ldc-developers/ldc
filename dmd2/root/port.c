@@ -415,7 +415,9 @@ int Port::isFinite(double r)
     return ::finite(r);
 }
 
+#if !defined __HAIKU__
 #undef isinf
+#endif
 int Port::isInfinity(double r)
 {
 #if __APPLE__
