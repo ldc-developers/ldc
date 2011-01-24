@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4
+#if linux || __APPLE__ || __FreeBSD__ || __HAIKU__ || __sun&&__SVR4
 #include <pthread.h> // Needs pthread_mutex_t for os_critsecsize
 #elif _WIN32
 #include <windows.h>
@@ -45,7 +45,7 @@ int os_critsecsize()
 }
 #endif
 
-#if linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4
+#if linux || __APPLE__ || __FreeBSD__ || __HAIKU__  || __sun&&__SVR4
 int os_critsecsize()
 {
     return sizeof(pthread_mutex_t);
