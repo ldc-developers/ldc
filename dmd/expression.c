@@ -782,12 +782,14 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
 
 void expToCBuffer(OutBuffer *buf, HdrGenState *hgs, Expression *e, enum PREC pr)
 {
+#if !IN_LLVM
 #ifdef DEBUG
     if (precedence[e->op] == PREC_zero)
         printf("precedence not defined for token '%s'\n",Token::tochars[e->op]);
 #endif
     assert(precedence[e->op] != PREC_zero);
     assert(pr != PREC_zero);
+#endif
 
     //if (precedence[e->op] == 0) e->dump(0);
     if (precedence[e->op] < pr ||
