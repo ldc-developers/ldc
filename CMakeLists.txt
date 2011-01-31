@@ -59,6 +59,7 @@ execute_process(
 )
 
 set(D_VERSION 1 CACHE STRING "D language version")
+set(CONF_INST_DIR "${CMAKE_INSTALL_PREFIX}/etc" CACHE STRING "set ldc.conf directory for installation")
 set(PROGRAM_PREFIX CACHE STRING "prepended to ldc binary name")
 set(PROGRAM_SUFFIX CACHE STRING "appended to ldc binary name")
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
@@ -200,7 +201,6 @@ add_definitions(
 
 if(UNIX)
 	add_definitions(-DPOSIX)
-	set(CONF_INST_DIR /etc)
 endif(UNIX)
 
 if(USE_BOEHM_GC)
@@ -242,7 +242,6 @@ set_target_properties(
 target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
 	target_link_libraries(${LDC_EXE} imagehlp psapi)
-	set(CONF_INST_DIR /etc)
 endif(WIN32)
 
 if(USE_BOEHM_GC)
