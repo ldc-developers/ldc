@@ -53,7 +53,6 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 #if DMDV2
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGetX":"_aaInX");
 #else
-
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGet":"_aaIn");
 #endif
     const llvm::FunctionType* funcTy = func->getFunctionType();
@@ -272,3 +271,5 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
         res = gIR->ir->CreateNot(res, "tmp");
     return res;
 }
+
+

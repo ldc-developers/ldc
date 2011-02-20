@@ -69,6 +69,7 @@ elseif(D_VERSION EQUAL 2)
 	file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
 	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
 	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+	file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 	list(REMOVE_ITEM DCRT_D
 		${RUNTIME_DC_DIR}/arraybyte.d
 		${RUNTIME_DC_DIR}/arraycast.d
@@ -77,7 +78,9 @@ elseif(D_VERSION EQUAL 2)
 		${RUNTIME_DC_DIR}/arrayfloat.d
 		${RUNTIME_DC_DIR}/arrayreal.d
 		${RUNTIME_DC_DIR}/arrayshort.d
+		${RUNTIME_DC_DIR}/deh.d
 		${RUNTIME_DC_DIR}/deh2.d
+		${RUNTIME_DC_DIR}/trace.d
 	)
 	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c)
@@ -88,9 +91,8 @@ elseif(D_VERSION EQUAL 2)
 	elseif(APPLE)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 	endif(UNIX)
-	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC}
+	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} ${LDC_D}
 		${RUNTIME_DIR}/src/object_.d
-		${RUNTIME_DIR}/src/std/intrinsic.d
 	)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 

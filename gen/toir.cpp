@@ -85,7 +85,9 @@ DValue* VarExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
+#if DMDV1
         cachedLvalue = NULL;
+#endif
         return new DVarValue(type, V);
     }
 
@@ -595,6 +597,15 @@ static Expression* findLvalue(IRState* irs, Expression* exp)
     return e;
 }
 
+#if DMDV2
+#define CLEAR_CACHED_LVALUE \
+    while(e1->op == TOKcast) \
+        e1 = ((CastExp*)e1)->e1; \
+    e1->cachedLvalue = NULL;
+#else
+#define CLEAR_CACHED_LVALUE
+#endif
+
 #define BIN_ASSIGN(X) \
 DValue* X##AssignExp::toElem(IRState* p) \
 { \
@@ -604,6 +615,7 @@ DValue* X##AssignExp::toElem(IRState* p) \
     e3.type = e1->type; \
     DValue* dst = findLvalue(p, e1)->toElem(p); \
     DValue* res = e3.toElem(p); \
+    CLEAR_CACHED_LVALUE \
     DValue* stval = DtoCast(loc, res, dst->getType()); \
     DtoAssign(loc, dst, stval); \
     return DtoCast(loc, res, type); \
@@ -1138,7 +1150,9 @@ DValue* PtrExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         V = cachedLvalue;
+#if DMDV1
         cachedLvalue = NULL;
+#endif
     }
     else
     {
@@ -1165,7 +1179,9 @@ DValue* DotVarExp::toElem(IRState* p)
     {
         Logger::println("using cached lvalue");
         LLValue *V = cachedLvalue;
+#if DMDV1
         cachedLvalue = NULL;
+#endif
         VarDeclaration* vd = var->isVarDeclaration();
         assert(vd);
         return new DVarValue(type, vd, V);
@@ -1304,7 +1320,9 @@ DValue* IndexExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
+#if DMDV1
         cachedLvalue = NULL;
+#endif
         return new DVarValue(type, V);
     }
 
@@ -2281,6 +2299,9 @@ DValue* CommaExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
+#if DMDV1
+        cachedLvalue = NULL;
+#endif
         return new DVarValue(type, V);
     }
 
@@ -2817,6 +2838,45 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     Type* aatype = type->toBasetype();
     Type* vtype = aatype->nextOf();
 
+#if DMDV2
+
+    Type* indexType = ((TypeAArray*)aatype)->index;
+
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
+    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLValue* aaTypeInfo = DtoTypeInfoOf(stripModifiers(aatype));
+
+    std::vector<LLConstant*> keysInits, valuesInits;
+    for (size_t i = 0, n = keys->dim; i < n; ++i)
+    {
+        Expression* ekey = (Expression*)keys->data[i];
+        Expression* eval = (Expression*)values->data[i];
+        Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+        keysInits.push_back(ekey->toConstElem(p));
+        valuesInits.push_back(eval->toConstElem(p));
+    }
+
+    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+
+    const LLArrayType* arrtype = LLArrayType::get(DtoType(indexType), keys->dim);
+    LLConstant* initval = LLConstantArray::get(arrtype, keysInits);
+    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
+    LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+    slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
+    LLValue* keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
+
+    arrtype = LLArrayType::get(DtoType(vtype), values->dim);
+    initval = LLConstantArray::get(arrtype, valuesInits);
+    globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
+    slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+    slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
+    LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
+
+    LLValue* aa = gIR->CreateCallOrInvoke3(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
+    return new DImValue(type, aa);
+
+#else
+
     // it should be possible to avoid the temporary in some cases
     LLValue* tmp = DtoAlloca(type,"aaliteral");
     DValue* aa = new DVarValue(type, tmp);
@@ -2839,26 +2899,10 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         DtoAssign(loc, mem, val);
     }
 
-#if DMDV2
-    // Rehash array
-    if (keys->dim) {
-        // first get the runtime function
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_aaRehash");
-        const llvm::FunctionType* funcTy = fn->getFunctionType();
+    return aa;
 
-        // aa param
-        LLValue* aaval = DtoBitCast(tmp, funcTy->getParamType(0));
-
-        // keyti param
-        LLValue* keyti = DtoTypeInfoOf(((TypeAArray*)aatype)->index, false);
-        keyti = DtoBitCast(keyti, funcTy->getParamType(1));
-
-        // Call function
-        gIR->CreateCallOrInvoke2(fn, aaval, keyti, ".gc_mem").getInstruction();
-    }
 #endif
 
-    return aa;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

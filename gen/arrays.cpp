@@ -723,6 +723,34 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
+#if DMDV2
+
+void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* exp)
+{
+    Logger::println("DtoCatAssignElement");
+    LOG_SCOPE;
+
+    assert(array);
+
+    LLValue *oldLength = DtoArrayLen(array);
+
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcTX");
+    LLSmallVector<LLValue*,3> args;
+    args.push_back(DtoTypeInfoOf(arrayType));
+    args.push_back(DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(1)));
+    args.push_back(DtoConstSize_t(1));
+
+    LLValue* appendedArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
+    appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
+
+    LLValue* val = DtoExtractValue(appendedArray, 1, ".ptr");
+    val = DtoGEP1(val, oldLength, "lastElem");
+    val = DtoBitCast(val, DtoType(arrayType->nextOf()->pointerTo()));
+    DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), exp->toElem(gIR));
+}
+
+#else
+
 void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* exp)
 {
     Logger::println("DtoCatAssignElement");
@@ -740,6 +768,8 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
 
     gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray");
 }
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
