@@ -2443,7 +2443,7 @@ extern (C)
     size_t _aaLen(void* p);
     void* _aaGet(void** pp, TypeInfo keyti, size_t valuesize, ...);
     void* _aaGetRvalue(void* p, TypeInfo keyti, size_t valuesize, ...);
-    void* _aaIn(void* p, TypeInfo keyti);
+    void* _aaIn(void* p, TypeInfo keyti, ...);
     void _aaDel(void* p, TypeInfo keyti, ...);
     void[] _aaValues(void* p, size_t keysize, size_t valuesize);
     void[] _aaKeys(void* p, size_t keysize);
@@ -2531,6 +2531,7 @@ struct AssociativeArray(Key, Value)
         }
 }
 
+version (LDC) {} else
 unittest
 {
     auto a = [ 1:"one", 2:"two", 3:"three" ];

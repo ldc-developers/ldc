@@ -99,3 +99,8 @@ version( DigitalMars )
 {
     void* alloca(size_t size); // non-standard
 }
+else version( LDC )
+{
+    pragma(alloca)
+        void* alloca(size_t size);
+}

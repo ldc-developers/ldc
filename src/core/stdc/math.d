@@ -19,6 +19,9 @@ private import core.stdc.config;
 extern (C):
 nothrow:
 
+version (LDC)
+    pure:
+
 alias float  float_t;
 alias double double_t;
 

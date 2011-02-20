@@ -13,6 +13,12 @@
  */
 module rt.memory;
 
+version (LDC)
+{
+    public import ldc.memory;
+}
+else
+{
 
 private
 {
@@ -247,4 +253,6 @@ void initStaticDataGC()
     {
         static assert( false, "Operating system not supported." );
     }
+}
+
 }

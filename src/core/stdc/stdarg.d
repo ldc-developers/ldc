@@ -28,9 +28,17 @@ version( X86 )
      * For 32 bit code, parmn should be the last named parameter.
      * For 64 bit code, parmn should be __va_argsave.
      */
-    void va_start(T)(out va_list ap, ref T parmn)
+    version(LDC)
     {
-        ap = cast(va_list)( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
+        pragma(va_start)
+            void va_start(T)(va_list ap, ref T);
+    }
+    else
+    {
+        void va_start(T)(out va_list ap, ref T parmn)
+        {
+            ap = cast(va_list)( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
+        }
     }
 
     /************

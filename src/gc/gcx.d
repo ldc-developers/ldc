@@ -2286,6 +2286,51 @@ struct Gcx
             __builtin_unwind_init();
             sp = & sp;
         }
+        else version(LDC)
+        {
+            version(X86)
+            {
+                uint eax,ecx,edx,ebx,ebp,esi,edi;
+                asm
+                {
+                    mov eax[EBP], EAX      ;
+                    mov ecx[EBP], ECX      ;
+                    mov edx[EBP], EDX      ;
+                    mov ebx[EBP], EBX      ;
+                    mov ebp[EBP], EBP      ;
+                    mov esi[EBP], ESI      ;
+                    mov edi[EBP], EDI      ;
+                    mov  sp[EBP], ESP      ;
+                }
+            }
+            else version (X86_64)
+            {
+                ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15;
+                asm
+                {
+                    movq rax[RBP], RAX      ;
+                    movq rbx[RBP], RBX      ;
+                    movq rcx[RBP], RCX      ;
+                    movq rdx[RBP], RDX      ;
+                    movq rbp[RBP], RBP      ;
+                    movq rsi[RBP], RSI      ;
+                    movq rdi[RBP], RDI      ;
+                    movq r8 [RBP], R8       ; 
+                    movq r9 [RBP], R9       ; 
+                    movq r10[RBP], R10      ;
+                    movq r11[RBP], R11      ;
+                    movq r12[RBP], R12      ;
+                    movq r13[RBP], R13      ;
+                    movq r14[RBP], R14      ;
+                    movq r15[RBP], R15      ;
+                    movq  sp[RBP], RSP      ;
+                }
+            }
+            else
+            {
+                static assert( false, "Architecture not supported." );
+            }
+        }
         else version( D_InlineAsm_X86 )
         {
             asm
@@ -2327,6 +2372,10 @@ struct Gcx
         version( GNU )
         {
             // registers will be popped automatically
+        }
+        else version( LDC )
+        {
+            // nothing to do
         }
         else version( D_InlineAsm_X86 )
         {

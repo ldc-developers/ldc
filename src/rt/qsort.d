@@ -28,13 +28,6 @@ module rt.qsort;
 //debug=qsort;          // uncomment to turn on debugging printf's
 
 
-struct Array
-{
-    size_t length;
-    void*  ptr;
-}
-
-
 private const int _maxspan = 7; // subarrays of _maxspan or fewer elements
                                 // will be sorted by a simple insertion sort
 
@@ -44,7 +37,7 @@ an array of large structures to be sorted, rather than an array of pointers to
 structures.  The default value is optimized for a high cost for compares. */
 
 
-extern (C) void[] _adSort(Array a, TypeInfo ti)
+extern (C) void[] _adSort(void[] a, TypeInfo ti)
 {
   byte*[40] stack;              // stack
   byte* i, j;            // scan and limit pointers
@@ -121,7 +114,7 @@ extern (C) void[] _adSort(Array a, TypeInfo ti)
       limit = sp[1];
     }
     else                                // else stack empty, all done
-      return *cast(void[]*)(&a);
+      return a;
   }
   assert(0);
 }

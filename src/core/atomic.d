@@ -90,6 +90,107 @@ version( D_Ddoc )
          return false;
      }
 }
+else version( LDC )
+{
+    import ldc.intrinsics;
+
+    T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
+        if( is( NakedType!(V1) == NakedType!(T) ) )
+    {
+        // binary operators
+        //
+        // +    -   *   /   %   ^^  &
+        // |    ^   <<  >>  >>> ~   in
+        // ==   !=  <   <=  >   >=
+        static if( op == "+"  || op == "-"  || op == "*"  || op == "/"   ||
+                   op == "%"  || op == "^^" || op == "&"  || op == "|"   ||
+                   op == "^"  || op == "<<" || op == ">>" || op == ">>>" ||
+                   op == "~"  || // skip "in"
+                   op == "==" || op == "!=" || op == "<"  || op == "<="  ||
+                   op == ">"  || op == ">=" )
+        {
+            T get = val; // compiler can do atomic load
+            mixin( "return get " ~ op ~ " mod;" );
+        }
+        else
+        // assignment operators
+        //
+        // +=   -=  *=  /=  %=  ^^= &=
+        // |=   ^=  <<= >>= >>>=    ~=
+        static if( op == "+=" || op == "-="  || op == "*="  || op == "/=" ||
+                   op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
+                   op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
+        {
+            T get, set;
+            
+            do
+            {
+                get = set = atomicLoad!(msync.raw)( val );
+                mixin( "set " ~ op ~ " mod;" );
+            } while( !cas( &val, get, set ) );
+            return set;
+        }
+        else
+        {
+            static assert( false, "Operation not supported." );
+        }
+    }  
+
+    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
+        if( is( NakedType!(V1) == NakedType!(T) ) &&
+            is( NakedType!(V2) == NakedType!(T) ) )
+
+    {
+        T oldval = void;
+        static if (is(T P == U*, U))
+        {
+            oldval = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)&writeThis, cast(size_t)ifThis, cast(size_t)here);
+        }
+        else static if (is(T == bool))
+        {
+            oldval = llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)&writeThis, ifThis?1:0, here?1:0)?0:1;
+        }
+        else
+        {
+            oldval = llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
+        }
+        return oldval == ifThis;
+    }
+
+
+    private
+    {
+        enum msync
+        {
+            raw,    /// not sequenced
+            acq,    /// hoist-load + hoist-store barrier
+            rel,    /// sink-load + sink-store barrier
+            seq,    /// fully sequenced (acq + rel)
+        }
+
+        T atomicLoad(msync ms = msync.seq, T)( const ref shared T val )
+        {
+            llvm_memory_barrier(
+                ms == msync.acq || ms == msync.seq,
+                ms == msync.acq || ms == msync.seq,
+                ms == msync.rel || ms == msync.seq,
+                ms == msync.rel || ms == msync.seq,
+                false);
+            static if (is(T P == U*, U)) // pointer
+            {
+                return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
+            }
+            else static if (is(T == bool))
+            {
+                return llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0) ? 1 : 0;
+            }
+            else
+            {
+                return llvm_atomic_load_add!(T)(&val, cast(T)0);
+            }
+        }
+    }
+}
 else version( AsmX86_32 )
 {
     T atomicOp(string op, T, V1)( ref shared T val, V1 mod )

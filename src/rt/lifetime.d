@@ -92,6 +92,20 @@ extern (C) void* _d_allocmemory(size_t sz)
 }
 
 
+version (LDC)
+{
+
+/**
+ * for allocating a single POD value
+ */
+extern (C) void* _d_allocmemoryT(TypeInfo ti)
+{
+    return gc_malloc(ti.tsize(), !(ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
+}
+
+} // version (LDC)
+
+
 /**
  *
  */
@@ -2028,7 +2042,7 @@ struct Array2
 /**
  *
  */
-extern (C) void[] _adDupT(TypeInfo ti, Array2 a)
+extern (C) void[] _adDupT(TypeInfo ti, void[] a)
 out (result)
 {
     auto sizeelem = ti.next.tsize();            // array element size
