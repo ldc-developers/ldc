@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -94,13 +94,13 @@ Global::Global()
 #endif
 #endif
 
-    copyright = "Copyright (c) 1999-2010 by Digital Mars";
+    copyright = "Copyright (c) 1999-2011 by Digital Mars";
     written = "written by Walter Bright"
 #if TARGET_NET
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.051";
+    version = "v2.052";
 #if IN_LLVM
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 2.8";

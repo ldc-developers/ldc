@@ -426,12 +426,7 @@ MATCH StructLiteralExp::implicitConvTo(Type *t)
         for (int i = 0; i < elements->dim; i++)
         {   Expression *e = (Expression *)elements->data[i];
             Type *te = e->type;
-            if (t->mod == 0)
-                te = te->mutableOf();
-            else
-            {   assert(t->mod == MODimmutable);
-                te = te->invariantOf();
-            }
+            te = te->castMod(t->mod);
             MATCH m2 = e->implicitConvTo(te);
             //printf("\t%s => %s, match = %d\n", e->toChars(), te->toChars(), m2);
             if (m2 < m)
@@ -827,9 +822,17 @@ Expression *Expression::castTo(Scope *sc, Type *t)
             }
             else if (typeb->ty == Tclass)
             {   TypeClass *ts = (TypeClass *)typeb;
-                if (tb->ty != Tclass &&
-                    ts->sym->aliasthis)
-                {   /* Forward the cast to our alias this member, rewrite to:
+                if (ts->sym->aliasthis)
+                {
+                    if (tb->ty == Tclass)
+                    {
+                        ClassDeclaration *cdfrom = typeb->isClassHandle();
+                        ClassDeclaration *cdto   = tb->isClassHandle();
+                        int offset;
+                        if (cdto->isBaseOf(cdfrom, &offset))
+                             goto L1;
+                    }
+                    /* Forward the cast to our alias this member, rewrite to:
                      *   cast(to)e1.aliasthis
                      */
                     Expression *e1 = new DotIdExp(loc, this, ts->sym->aliasthis->ident);
@@ -837,6 +840,7 @@ Expression *Expression::castTo(Scope *sc, Type *t)
                     e = e->semantic(sc);
                     return e;
                 }
+             L1: ;
             }
             e = new CastExp(loc, e, tb);
         }
@@ -2151,6 +2155,11 @@ IntRange AndExp::getIntRange()
 
     return ir;
 }
+
+/*
+ * Adam D. Ruppe's algo for bitwise OR:
+ * http://www.digitalmars.com/d/archives/digitalmars/D/value_range_propagation_for_logical_OR_108765.html#N108793
+ */
 
 IntRange OrExp::getIntRange()
 {

@@ -52,6 +52,7 @@
 #include "import.h"
 #include "aggregate.h"
 #include "hdrgen.h"
+#include "doc.h"
 
 #if IN_LLVM
 //#include "gen/tollvm.h"
@@ -1781,10 +1782,13 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
             s = toDsymbol(NULL);
         if (s)
             s = s->search_correct(ident);
-        if (s)
-            error(loc, "no property '%s' for type '%s', did you mean '%s'?", ident->toChars(), toChars(), s->toChars());
-        else
-            error(loc, "no property '%s' for type '%s'", ident->toChars(), toChars());
+        if (this != Type::terror)
+        {
+            if (s)
+                error(loc, "no property '%s' for type '%s', did you mean '%s'?", ident->toChars(), toChars(), s->toChars());
+            else
+                error(loc, "no property '%s' for type '%s'", ident->toChars(), toChars());
+        }
         e = new ErrorExp();
     }
     return e;
@@ -2551,11 +2555,20 @@ unsigned TypeBasic::alignsize()
 #if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
         case Tint64:
         case Tuns64:
+            sz = global.params.isX86_64 ? 8 : 4;
+            break;
+
         case Tfloat64:
         case Timaginary64:
+            sz = global.params.isX86_64 ? 8 : 4;
+            break;
+
         case Tcomplex32:
-        case Tcomplex64:
             sz = 4;
+            break;
+
+        case Tcomplex64:
+            sz = global.params.isX86_64 ? 8 : 4;
             break;
 #endif
 #if IN_DMD
@@ -6183,6 +6196,7 @@ TypeTypeof::TypeTypeof(Loc loc, Expression *exp)
         : TypeQualified(Ttypeof, loc)
 {
     this->exp = exp;
+    inuse = 0;
 }
 
 Type *TypeTypeof::syntaxCopy()
@@ -6225,6 +6239,13 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     //printf("TypeTypeof::semantic() %s\n", toChars());
 
     //static int nest; if (++nest == 50) *(char*)0=0;
+    if (inuse)
+    {
+        inuse = 2;
+        error(loc, "circular typeof definition");
+        return Type::terror;
+    }
+    inuse++;
 
 #if 0
     /* Special case for typeof(this) and typeof(super) since both
@@ -6327,9 +6348,11 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
             goto Lerr;
         }
     }
+    inuse--;
     return t;
 
 Lerr:
+    inuse--;
     return terror;
 }
 
@@ -7333,9 +7356,12 @@ static MATCH aliasthisConvTo(AggregateDeclaration *ad, Type *from, Type *to)
             Expression *ethis = from->defaultInit(0);
             fd = fd->overloadResolve(0, ethis, NULL);
             if (fd)
+            {
                 t = ((TypeFunction *)fd->type)->next;
+            }
         }
-        return t->implicitConvTo(to);
+        MATCH m = t->implicitConvTo(to);
+        return m;
     }
     return MATCHnomatch;
 }
@@ -8348,7 +8374,12 @@ void Parameter::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *argu
             if (arg->defaultArg)
             {
                 argbuf.writestring(" = ");
+                unsigned o = argbuf.offset;
                 arg->defaultArg->toCBuffer(&argbuf, hgs);
+                if (hgs->ddoc)
+                {
+                    escapeDdocString(&argbuf, o);
+                }
             }
             buf->write(&argbuf);
         }

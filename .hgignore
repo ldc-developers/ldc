@@ -18,6 +18,8 @@ cmake_install.cmake
 .DS_Store
 CMakeLists.txt.user*
 .directory
+druntime
+phobos
 druntime-orig
 phobos-orig
 

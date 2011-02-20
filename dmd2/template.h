@@ -70,6 +70,7 @@ struct TemplateDeclaration : ScopeDsymbol
 
     struct Previous
     {   Previous *prev;
+        Scope *sc;
         Objects *dedargs;
     };
     Previous *previous;         // threaded list of previous instantiation attempts on stack
