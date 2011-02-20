@@ -742,6 +742,14 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
     Type* fromtype = val->getType()->toBasetype();
     Type* totype = to->toBasetype();
+
+#if DMDV2
+    if (fromtype->ty == Taarray)
+        fromtype = ((TypeAArray*)fromtype)->getImpl()->type;
+    if (totype->ty == Taarray)
+        totype = ((TypeAArray*)totype)->getImpl()->type;
+#endif
+
     if (fromtype->equals(totype))
         return val;
 
