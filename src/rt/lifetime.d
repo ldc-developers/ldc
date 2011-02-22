@@ -756,6 +756,10 @@ extern (C) void[] _d_newarrayT(TypeInfo ti, size_t length)
                 jc      Loverflow       ;
             }
         }
+        else version(LDC)
+        {
+            size *= length;
+        }
         else version(D_InlineAsm_X86_64)
         {
             asm
@@ -812,6 +816,10 @@ extern (C) void[] _d_newarrayiT(TypeInfo ti, size_t length)
                 mov     size,EAX        ;
                 jc      Loverflow       ;
             }
+        }
+        else version(LDC)
+        {
+            size *= length;
         }
         else version (D_InlineAsm_X86_64)
         {
@@ -888,14 +896,22 @@ void[] _d_newarrayOpT(alias op)(TypeInfo ti, size_t ndims, va_list q)
                 __setArrayAllocLength(info, allocsize, isshared);
                 auto p = __arrayStart(info)[0 .. dim];
 
-                version(X86)
+                version(LDC)
+                {
+                    va_list ap2;
+                    va_copy(ap2, ap);
+                }
+                else version(X86)
                 {
                     va_list ap2;
                     va_copy(ap2, ap);
                 }
                 for (size_t i = 0; i < dim; i++)
                 {
-                    version(X86_64)
+                    version(LDC) 
+                    {
+                    }
+                    else version(X86_64)
                     {
                         __va_list argsave = *cast(__va_list*)ap;
                         va_list ap2 = &argsave;
@@ -938,7 +954,9 @@ extern (C) void[] _d_newarraymT(TypeInfo ti, size_t ndims, ...)
     else
     {
         va_list q;
-        version(X86)
+        version(LDC)
+            va_start(q, ndims);
+        else version(X86)
             va_start(q, ndims);
         else version(X86_64)
             va_start(q, __va_argsave);
@@ -961,7 +979,9 @@ extern (C) void[] _d_newarraymiT(TypeInfo ti, size_t ndims, ...)
     else
     {
         va_list q;
-        version(X86)
+        version(LDC)
+            va_start(q, ndims);
+        else version(X86)
             va_start(q, ndims);
         else version(X86_64)
             va_start(q, __va_argsave);
@@ -1189,6 +1209,13 @@ body
                 jc  Loverflow;
             }
         }
+        else version(LDC)
+        {
+            size_t newsize = sizeelem * newlength;
+
+            if (newsize / newlength != sizeelem)
+                goto Loverflow;
+        }
         else version (D_InlineAsm_X86_64)
         {
             size_t newsize = void;
@@ -1362,6 +1389,13 @@ body
                 mov     newsize,EAX     ;
                 jc      Loverflow       ;
             }
+        }
+        else version(LDC)
+        {
+            size_t newsize = sizeelem * newlength;
+
+            if (newsize / newlength != sizeelem)
+                goto Loverflow;
         }
         else version (D_InlineAsm_X86_64)
         {
@@ -1606,6 +1640,7 @@ size_t newCapacity(size_t newlength, size_t size)
 /**
  * Obsolete, replaced with _d_arrayappendcTX()
  */
+version(LDC) {} else
 extern (C) void[] _d_arrayappendcT(TypeInfo ti, ref byte[] x, ...)
 {
     version(X86)
@@ -1874,6 +1909,7 @@ body
 /**
  *
  */
+version(LDC) {} else
 extern (C) byte[] _d_arraycatnT(TypeInfo ti, uint n, ...)
 {
     size_t length;
@@ -2017,7 +2053,10 @@ extern (C) void* _d_arrayliteralT(TypeInfo ti, size_t length, ...)
         else
         {
             va_list q;
-            va_start(q, __va_argsave);
+            version(LDC)
+                va_start(q, length);
+            else
+                va_start(q, __va_argsave);
             for (size_t i = 0; i < length; i++)
             {
                 va_arg(q, ti.next, result + i * sizeelem);

@@ -16,7 +16,71 @@
  */
 module core.vararg;
 
-version( X86 )
+version( LDC )
+{
+    /**
+     * The base vararg list type.
+     */
+    alias void* va_list;
+
+    /**
+     * This function initializes the supplied argument pointer for subsequent
+     * use by va_arg and va_end.
+     *
+     * Params:
+     *  ap      = The argument pointer to initialize.
+     *  paramn  = The identifier of the rightmost parameter in the function
+     *            parameter list.
+     */
+    pragma(va_start)
+        void va_start(T)(va_list ap, ref T);
+
+    /**
+     * This function returns the next argument in the sequence referenced by
+     * the supplied argument pointer.  The argument pointer will be adjusted
+     * to point to the next arggument in the sequence.
+     *
+     * Params:
+     *  ap  = The argument pointer.
+     *
+     * Returns:
+     *  The next argument in the sequence.  The result is undefined if ap
+     *  does not point to a valid argument.
+     */
+    T va_arg(T)( ref va_list ap )
+    {
+        T arg = *cast(T*) ap;
+        ap = cast(va_list)( cast(void*) ap + ( ( T.sizeof + size_t.sizeof - 1 ) & ~( size_t.sizeof - 1 ) ) );
+        return arg;
+    }
+
+    /**
+     * This function cleans up any resources allocated by va_start.  It is
+     * currently a no-op and exists mostly for syntax compatibility with
+     * the variadric argument functions for C.
+     *
+     * Params:
+     *  ap  = The argument pointer.
+     */
+    void va_end( va_list ap )
+    {
+    }
+
+    /**
+     * This function copied the argument pointer src to dst.
+     *
+     * Params:
+     *  src = The source pointer.
+     *  dst = The destination pointer.
+     */
+    void va_copy( out va_list dst, va_list src )
+    {
+        dst = src;
+    }
+
+}
+
+else version( X86 )
 {
     /**
      * The base vararg list type.

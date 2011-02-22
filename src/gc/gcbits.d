@@ -29,9 +29,9 @@ version (DigitalMars)
 }
 version (LDC)
 {
-    version = bitops;
+    // use the unoptimized version
 }
-version (GNU)
+else version (GNU)
 {
     // use the unoptimized version
 }

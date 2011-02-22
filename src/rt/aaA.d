@@ -638,6 +638,13 @@ int _aaApply2(AA aa, size_t keysize, dg2_t dg)
  * length pairs of key/value pairs.
  */
 
+version(LDC)
+{
+
+}
+else
+{
+
 extern (C)
 BB* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...)
 {
@@ -655,7 +662,10 @@ BB* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...)
     else
     {
         va_list q;
-        version(X86_64) va_start(q, __va_argsave); else va_start(q, length);
+        version(X86_64) 
+            va_start(q, __va_argsave); 
+        else 
+            va_start(q, length);
 
         result = new BB();
         result.keyti = keyti;
@@ -713,6 +723,8 @@ BB* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...)
         va_end(q);
     }
     return result;
+}
+
 }
 
 extern (C)

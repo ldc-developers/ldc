@@ -7,7 +7,7 @@ module ldc.eh;
 private import core.stdc.stdio;
 private import core.stdc.stdlib;
 private import rt.util.console;
-private import core.vararg;
+private import core.stdc.stdarg;
 
 // debug = EH_personality;
 // debug = EH_personality_verbose;
