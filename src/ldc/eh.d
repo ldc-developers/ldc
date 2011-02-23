@@ -56,6 +56,27 @@ extern(C)
         FORCE_UNWIND = 8
     }
 
+    enum _DW_EH_Format : int
+    {
+        DW_EH_PE_absptr  = 0x00,  // The Value is a literal pointer whose size is determined by the architecture.
+        DW_EH_PE_uleb128 = 0x01,  // Unsigned value is encoded using the Little Endian Base 128 (LEB128)
+        DW_EH_PE_udata2  = 0x02,  // A 2 bytes unsigned value.
+        DW_EH_PE_udata4  = 0x03,  // A 4 bytes unsigned value.
+        DW_EH_PE_udata8  = 0x04,  // An 8 bytes unsigned value.
+        DW_EH_PE_sleb128 = 0x09,  // Signed value is encoded using the Little Endian Base 128 (LEB128)
+        DW_EH_PE_sdata2  = 0x0A,  // A 2 bytes signed value.
+        DW_EH_PE_sdata4  = 0x0B,  // A 4 bytes signed value.
+        DW_EH_PE_sdata8  = 0x0C,  // An 8 bytes signed value.
+
+        DW_EH_PE_pcrel   = 0x10,  // Value is relative to the current program counter.
+        DW_EH_PE_textrel = 0x20,  // Value is relative to the beginning of the .text section.
+        DW_EH_PE_datarel = 0x30,  // Value is relative to the beginning of the .got or .eh_frame_hdr section.
+        DW_EH_PE_funcrel = 0x40,  // Value is relative to the beginning of the function.
+        DW_EH_PE_aligned = 0x50,  // Value is aligned to an address unit sized boundary.
+
+        DW_EH_PE_omit    = 0xff   // Indicates that no value is present.
+    }
+
     alias void* _Unwind_Context_Ptr;
 
     alias void function(_Unwind_Reason_Code, _Unwind_Exception*) _Unwind_Exception_Cleanup_Fn;
@@ -177,6 +198,78 @@ private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
   return addr + 1;
 }
 
+private size_t size_of_encoded_value(ubyte encoding)
+{
+  if (encoding == _DW_EH_Format.DW_EH_PE_omit)
+    return 0;
+
+  switch (encoding & 0x07)
+  {
+    case _DW_EH_Format.DW_EH_PE_absptr:
+      return size_t.sizeof;
+    case _DW_EH_Format.DW_EH_PE_udata2:
+      return 2;
+    case _DW_EH_Format.DW_EH_PE_udata4:
+      return 4;
+    case _DW_EH_Format.DW_EH_PE_udata8:
+      return 8;
+    default:
+      fatalerror("Unsupported DWARF Exception Header value format");
+  }
+  assert(0);
+}
+
+private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding)
+{
+  switch (encoding /* & 0x0f*/)
+  {
+    case _DW_EH_Format.DW_EH_PE_absptr:
+      res = cast(size_t)*cast(byte**)addr;
+      addr += size_t.sizeof;
+      break;
+
+    case _DW_EH_Format.DW_EH_PE_uleb128:
+      addr = get_uleb128(addr, res);
+      break;
+
+    case _DW_EH_Format.DW_EH_PE_sleb128:
+      ptrdiff_t r;
+      addr = get_sleb128(addr, r);
+      r = cast(size_t)res;
+      break;
+
+    case _DW_EH_Format.DW_EH_PE_udata2:
+      res = *cast(ushort*)addr;
+      addr += 2;
+      break;
+    case _DW_EH_Format.DW_EH_PE_udata4:
+      res = *cast(uint*)addr;
+      addr += 4;
+      break;
+    case _DW_EH_Format.DW_EH_PE_udata8:
+      res = cast(size_t)*cast(ulong*)addr;
+      addr += 8;
+      break;
+
+    case _DW_EH_Format.DW_EH_PE_sdata2:
+      res = *cast(short*)addr;
+      addr += 2;
+      break;
+    case _DW_EH_Format.DW_EH_PE_sdata4:
+      res = *cast(int*)addr;
+      addr += 4;
+      break;
+    case _DW_EH_Format.DW_EH_PE_sdata8:
+      res = cast(size_t)*cast(long*)addr;
+      addr += 8;
+      break;
+
+    default:
+      fatalerror("Unsupported DWARF Exception Header value format");
+    }
+    return addr;
+}
+
 
 // exception struct used by the runtime.
 // _d_throw allocates a new instance and passes the address of its
@@ -222,8 +315,9 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   // Note: classinfo_table points past the end of the table
   ubyte* callsite_table;
   ubyte* action_table;
-  ClassInfo* classinfo_table;
-  _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table);
+  ubyte* classinfo_table;
+  ubyte classinfo_table_encoding;
+  _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table, classinfo_table_encoding);
   if (callsite_table is null)
     return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
@@ -289,6 +383,8 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
    walk action table chain, comparing classinfos using _d_isbaseof
   */
   ubyte* action_walker = action_table + action_offset - 1;
+  
+  size_t ci_size = size_of_encoded_value(classinfo_table_encoding);
 
   ptrdiff_t ti_offset, next_action_offset;
   while(true) {
@@ -310,7 +406,9 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 
     // get classinfo for action and check if the one in the
     // exception structure is a base
-    ClassInfo catch_ci = *(classinfo_table - ti_offset);
+    size_t catch_ci_ptr;
+    get_encoded_value(classinfo_table - ti_offset * ci_size, catch_ci_ptr, classinfo_table_encoding);
+    ClassInfo catch_ci = cast(ClassInfo)cast(void*)catch_ci_ptr;
     debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
     if(_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
       return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
@@ -375,7 +473,7 @@ private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions
   return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
-private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ClassInfo* ci)
+private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ubyte* ci, ref ubyte ciEncoding)
 {
   ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
   if (data is null)
@@ -388,17 +486,19 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
   }
 
   //TODO: Do proper DWARF reading here
-  if(*data++ != 0xff)
+  if(*data++ != _DW_EH_Format.DW_EH_PE_omit)
     fatalerror("DWARF header has unexpected format 1");
 
-  if(*data++ != 0x00)
-    fatalerror("DWARF header has unexpected format 2");
+  ciEncoding = *data++;
+  if (ciEncoding == _DW_EH_Format.DW_EH_PE_omit)
+    fatalerror("Language Specific Data does not contain Types Table");
+  
   size_t cioffset;
   data = get_uleb128(data, cioffset);
-  ci = cast(ClassInfo*)(data + cioffset);
+  ci = data + cioffset;
 
-  if(*data++ != 0x03)
-    fatalerror("DWARF header has unexpected format 3");
+  if(*data++ != _DW_EH_Format.DW_EH_PE_udata4)
+    fatalerror("DWARF header has unexpected format 2");
   size_t callsitelength;
   data = get_uleb128(data, callsitelength);
   action = data + callsitelength;
