@@ -56,6 +56,7 @@ if(D_VERSION EQUAL 1)
 	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
 	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
+	set(CONFIG_NAME ${LDC_EXE})
 elseif(D_VERSION EQUAL 2)
 	set(RUNTIME_CC druntime-core)
 	set(RUNTIME_GC druntime-gc-basic)
@@ -97,6 +98,10 @@ elseif(D_VERSION EQUAL 2)
 	)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
+	set(IGNORE_DI
+		${RUNTIME_DIR}/src/object_.d
+	)
+
     if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
         file(GLOB PHOBOS2_D_MATH ${PHOBOS2_DIR}/std/internal/math/*.d)
@@ -125,6 +130,9 @@ elseif(D_VERSION EQUAL 2)
                 ${PHOBOS2_DIR}/etc/c/zlib.d
                 ${PHOBOS2_DIR}/crc32.d
         )
+        set(CONFIG_NAME ${LDC_EXE}_phobos)
+    else(PHOBOS2_DIR)
+        set(CONFIG_NAME ${LDC_EXE})
     endif(PHOBOS2_DIR)
 endif(D_VERSION EQUAL 1)
 
@@ -145,7 +153,7 @@ if(NOT LDC_LOC)
 	set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.rebuild.conf)
 
 # patch runtime source, uses LDC_EXE for ldc2
@@ -186,12 +194,20 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
 	list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
+	list(FIND IGNORE_DI "${INPUT_D}" INDEX)
+	if (INDEX EQUAL -1)
+		string(REGEX REPLACE "^src/" "druntime/" di_output ${output})
+		set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+	else (INDEX EQUAL -1)
+		list(REMOVE_AT IGNORE_DI ${INDEX})
+	endif (INDEX EQUAL -1)
+
 	# Compile
 	add_custom_command(
 		OUTPUT
 			${OUTPUT_O}
 			${OUTPUT_BC}
-				COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
+				COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
 		DEPENDS ${LDC_LOC}
 			${INPUT_D}
 			${LDC_IMPORTS}
@@ -272,7 +288,7 @@ if(PHOBOS2_DIR)
          dc(${f} PHOBOS2_O PHOBOS2_BC ${RUNTIME_DIR}/src/ "-I${PHOBOS2_DIR}" ${PHOBOS2_DIR})
     endforeach(f)
 
-    add_library(phobos2 ${ZLIB_C} ${PHOBOS2_O})
+    add_library(phobos2 ${ZLIB_C} ${PHOBOS2_O} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
     add_dependencies(phobos2 runtime)
     set_target_properties(
         phobos2 PROPERTIES

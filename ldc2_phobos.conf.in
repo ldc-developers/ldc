@@ -1,0 +1,17 @@
+// This configuration file uses libconfig.
+// See http://www.hyperrealm.com/libconfig/ for syntax details.
+
+// The default group is required
+default:
+{
+    // 'switches' holds array of string that are appends to the command line
+    // arguments before they are parsed.
+    switches = [
+        "-I@RUNTIME_DIR@/import",
+        "-I@RUNTIME_DIR@/src",
+        "-I@PHOBOS2_DIR@/",
+        "-L-L@PROJECT_BINARY_DIR@/../lib",
+        "-defaultlib=phobos2",
+        "-debuglib=phobos2"
+    ];
+};
