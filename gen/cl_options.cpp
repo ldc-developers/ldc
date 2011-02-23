@@ -100,6 +100,10 @@ cl::opt<bool> output_s("output-s",
 cl::opt<cl::boolOrDefault> output_o("output-o",
     cl::desc("Write native object"));
 
+// Disabling Red Zone
+cl::opt<bool> disableRedZone("disable-red-zone",
+  cl::desc("Do not emit code that uses the red zone."),
+  cl::init(false));
 
 // DDoc options
 static cl::opt<bool, true> doDdoc("D",
