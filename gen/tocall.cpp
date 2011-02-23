@@ -491,7 +491,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                     Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
                 }
             #endif
-                arg = DtoBitCast(arg, callableTy->getParamType(j));
+                if (isaStruct(arg))
+                    arg = DtoAggrPaint(arg, callableTy->getParamType(j));
+                else
+                    arg = DtoBitCast(arg, callableTy->getParamType(j));
             }
 
             // param attrs

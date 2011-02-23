@@ -16,7 +16,7 @@
 IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, unsigned a)
 {
     type = t;
-    ltype = bref ? DtoType(t->pointerTo()) : DtoType(t);
+    ltype = t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t);
     attrs = a;
     byref = bref;
     rewrite = NULL;

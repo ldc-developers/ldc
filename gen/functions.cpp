@@ -117,12 +117,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
                 lidx++;
             }
         }
-#if DMDV2
-        else
-        {
-            fty.c_vararg = true;
-        }
-#else
         else if (f->linkage == LINKc)
         {
             fty.c_vararg = true;
@@ -132,7 +126,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             type->error(0, "invalid linkage for variadic function");
             fatal();
         }
-#endif
     }
 
     // if this _Dmain() doesn't have an argument, we force it to have one

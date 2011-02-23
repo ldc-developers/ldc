@@ -353,7 +353,7 @@ LLType* DtoUnpaddedStructType(Type* dty) {
     CacheT::iterator it = cache->find(dty);
     if (it != cache->end())
         return it->second;
-    
+
     TypeStruct* sty = (TypeStruct*) dty;
     Array& fields = sty->sym->fields;
 

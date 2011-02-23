@@ -360,6 +360,10 @@ namespace x86_64_D_cc {
             return false;
         
         Array* fields = &t->sym->fields;
+
+        if (fields->dim == 0)
+            return false;
+
         d_uns64 nextbyte = 0;
         for (d_uns64 i = 0; i < fields->dim; i++) {
             VarDeclaration* field = (VarDeclaration*) fields->data[i];
@@ -549,9 +553,8 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
     Type* rt = tf->next->toBasetype();
     
     if (tf->linkage == LINKd) {
-        assert(rt->ty != Tsarray && "Update calling convention for static array returns");
-        
         // All non-structs can be returned in registers.
+        // FIXME: Update calling convention for static array returns
         if (rt->ty != Tstruct)
             return false;
         
@@ -678,12 +681,14 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             }
         }
         
+#if 0
         if (fty.arg_this) {
             fty.arg_this->attrs |= llvm::Attribute::Nest;
         }
         if (fty.arg_nest) {
             fty.arg_nest->attrs |= llvm::Attribute::Nest;
         }
+#endif
         
         Logger::println("x86-64 D ABI: Transforming arguments");
         LOG_SCOPE;

@@ -71,6 +71,7 @@ elseif(D_VERSION EQUAL 2)
 	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 	file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 	list(REMOVE_ITEM DCRT_D
+		${RUNTIME_DC_DIR}/alloca.d
 		${RUNTIME_DC_DIR}/arraybyte.d
 		${RUNTIME_DC_DIR}/arraycast.d
 		${RUNTIME_DC_DIR}/arraycat.d
@@ -261,8 +262,6 @@ set_target_properties(
     LINKER_LANGUAGE C
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-    COMPILE_FLAGS "-m32"
-    LINK_FLAGS "-m32"
 )
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
@@ -280,7 +279,5 @@ if(PHOBOS2_DIR)
         LINKER_LANGUAGE C
         ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-        COMPILE_FLAGS "-m32"
-        LINK_FLAGS "-m32"
     )
 endif(PHOBOS2_DIR)

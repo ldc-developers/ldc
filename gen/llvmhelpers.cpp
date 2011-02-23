@@ -1592,9 +1592,9 @@ size_t realignOffset(size_t offset, Type* type)
     // if it differs we need to insert manual padding as well
     if (alignsize != alignsize2)
     {
-        assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
-            "type alignments differ, but LLVM's is bigger! This will break "
-            "aggregate type mapping");
+        //assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
+        //    "type alignments differ, but LLVM's is bigger! This will break "
+        //    "aggregate type mapping");
         // don't try and align the offset, and let the mappers pad 100% manually
         return offset;
     }

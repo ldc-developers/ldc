@@ -549,8 +549,8 @@ namespace AsmParserx8664
         /* Op_FCmp1     */  {   rfp, 0,    0,    0,        0,      Next_Form, Op_0 },
         /* Op_FCmpP     */  {   mfp, 0,    0,    FP_Types, 0,      Next_Form, Op_FCmpP1 }, // pops
         /* Op_FCmpP1    */  {   rfp, 0,    0,    0,        0,      Next_Form, Op_F0_P }, // pops
-        /* Op_FCmpFlg   */  {   rfp, rfp,  0,    0,        Clb_Flags },
-        /* Op_FCmpFlgP  */  {   rfp, rfp,  0,    0,        Clb_Flags }, // pops
+        /* Op_FCmpFlg   */  {   rfp, 0,    0,    0,        Clb_Flags },
+        /* Op_FCmpFlgP  */  {   rfp, 0,    0,    0,        Clb_Flags }, // pops
         /* Op_fld       */  {   mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_fldR },
         /* Op_fldR      */  {   rfp, 0,    0,    0,        Clb_ST },
         /* Op_fxch      */  { D|rfp,D|rfp, 0,    0,        Clb_ST, Next_Form, Op_fxch1 }, // not in intel manual?, but DMD allows it (gas won't), second arg must be ST
@@ -1106,6 +1106,7 @@ namespace AsmParserx8664
         { "pmulhw",   Op_DstSrcMMX },
         { "pmullw",   Op_DstSrcMMX },
         { "pmuludq",  Op_DstSrcMMX }, // also sse
+        { "pop",      Op_DstW },
         { "popf",     Op_SizedStack },  // rewrite the insn with a special case
         { "popfq",    Op_SizedStack },
         { "popq",    Op_push },
@@ -1150,6 +1151,7 @@ namespace AsmParserx8664
         { "punpckldq", Op_DstSrcMMX },
         { "punpcklqdq",Op_DstSrcMMX },
         { "punpcklwd", Op_DstSrcMMX },
+        { "push",   Op_push },
         { "pushf",  Op_SizedStack },
         { "pushfq", Op_SizedStack },
         { "pushq", Op_push },

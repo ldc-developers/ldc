@@ -682,7 +682,8 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     ClassDeclaration* tscd = Type::typeinfostruct;
 
-    assert(tscd->fields.dim == 11);
+    assert((!global.params.is64bit && tscd->fields.dim == 11) ||
+           (global.params.is64bit && tscd->fields.dim == 13));
 
     // const(MemberInfo[]) function(in char[]) xgetMembers;
     b.push_funcptr(sd->findGetMembers());
@@ -694,7 +695,24 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(sd->postblit);
 
     //uint m_align;
-    b.push_uint(0); // FIXME
+    b.push_uint(tc->alignsize());
+
+    if (global.params.is64bit)
+    {
+        TypeTuple *tup = tc->toArgTypes();
+        assert(tup->arguments->dim <= 2);
+        for (int i = 0; i < 2; i++)
+        {
+            if (i < tup->arguments->dim)
+            {
+                Type *targ = ((Parameter *)tup->arguments->data[i])->type;
+                targ = targ->merge();
+                b.push_typeinfo(targ);
+            }
+            else
+                b.push_null(Type::typeinfo->type);
+        }
+    }
 
 #endif
 
