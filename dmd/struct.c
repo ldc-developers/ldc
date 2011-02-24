@@ -151,7 +151,7 @@ void AggregateDeclaration::alignmember(
         unsigned size,          // alignment requirement of field
         unsigned *poffset)
 {
-    //printf("salign = %d, size = %d, offset = %d\n",salign,size,offset);
+    //printf("salign = %d, size = %d, offset = %d\n",salign,size, *poffset);
     if (salign > 1)
     {
         assert(size != 3);
@@ -160,7 +160,7 @@ void AggregateDeclaration::alignmember(
             sa = salign;
         *poffset = (*poffset + sa - 1) & ~(sa - 1);
     }
-    //printf("result = %d\n",offset);
+    //printf("result = %d\n", *poffset);
 }
 
 
