@@ -786,7 +786,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             }
 
             #ifndef DISABLE_DEBUG_INFO
-            if (global.params.symdebug && !(isaArgument(irloc->value) && !isaArgument(irloc->value)->hasByValAttr()) && !refout)
+            if (global.params.symdebug && !(isaArgument(irloc->value) && isaArgument(irloc->value)->hasByValAttr()) && !refout)
                 DtoDwarfLocalVariable(irloc->value, vd);
             #endif
         }

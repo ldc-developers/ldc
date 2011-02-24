@@ -42,7 +42,10 @@ int os_critsecsize()
 		return sizeof(pthread_mutex_t);
 }
 #elif IN_DMD
-extern int os_critsecsize();
+
+extern int os_critsecsize32();
+extern int os_critsecsize64();
+
 #endif
 
 /******************************** Statement ***************************/
@@ -2402,12 +2405,6 @@ Statement *IfStatement::semantic(Scope *sc)
 {
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
-    condition = condition->checkToBoolean(sc);
-
-    // If we can short-circuit evaluate the if statement, don't do the
-    // semantic analysis of the skipped code.
-    // This feature allows a limited form of conditional compilation.
-    condition = condition->optimize(WANTflags);
 
     // Evaluate at runtime
     unsigned cs0 = sc->callSuper;
@@ -2431,15 +2428,25 @@ Statement *IfStatement::semantic(Scope *sc)
         match->parent = sc->func;
 
         /* Generate:
-         *  (arg = condition)
+         *  ((arg = condition), arg)
          */
         VarExp *v = new VarExp(0, match);
         condition = new AssignExp(loc, v, condition);
+        condition = new CommaExp(loc, condition, v);
         condition = condition->semantic(scd);
     }
     else
         scd = sc->push();
 
+    // Convert to boolean after declaring arg so this works:
+    //  if (S arg = S()) {}
+    // where S is a struct that defines opCast!bool.
+    condition = condition->checkToBoolean(sc);
+
+    // If we can short-circuit evaluate the if statement, don't do the
+    // semantic analysis of the skipped code.
+    // This feature allows a limited form of conditional compilation.
+    condition = condition->optimize(WANTflags);
     ifbody = ifbody->semanticNoScope(scd);
     scd->pop();
 
@@ -4041,11 +4048,11 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
 
 #if IN_LLVM
-		// LDC: Build args
-		Parameters* args = new Parameters;
-		args->push(new Parameter(STCin, t->pointerTo(), NULL, NULL));
+        // LDC: Build args
+        Parameters* args = new Parameters;
+        args->push(new Parameter(STCin, t->pointerTo(), NULL, NULL));
 
-		FuncDeclaration *fdenter = FuncDeclaration::genCfunc(args, Type::tvoid, Id::criticalenter);
+        FuncDeclaration *fdenter = FuncDeclaration::genCfunc(args, Type::tvoid, Id::criticalenter);
 #else
         FuncDeclaration *fdenter = FuncDeclaration::genCfunc(Type::tvoid, Id::criticalenter);
 #endif
@@ -4373,12 +4380,13 @@ void Catch::semantic(Scope *sc)
     sc = sc->push(sym);
 
     if (!type)
-        type = new TypeIdentifier(0, Id::Object);
+        type = new TypeIdentifier(0, Id::Throwable);
     type = type->semantic(loc, sc);
-    if (!type->toBasetype()->isClassHandle())
+    ClassDeclaration *cd = type->toBasetype()->isClassHandle();
+    if (!cd || ((cd != ClassDeclaration::throwable) && !ClassDeclaration::throwable->isBaseOf(cd, NULL)))
     {
         if (type != Type::terror)
-        {   error(loc, "can only catch class objects, not '%s'", type->toChars());
+        {   error(loc, "can only catch class objects derived from Throwable, not '%s'", type->toChars());
             type = Type::terror;
         }
     }
@@ -4603,8 +4611,10 @@ Statement *ThrowStatement::semantic(Scope *sc)
 #endif
     exp = exp->semantic(sc);
     exp = resolveProperties(sc, exp);
-    if (!exp->type->toBasetype()->isClassHandle())
-        error("can only throw class objects, not type %s", exp->type->toChars());
+    ClassDeclaration *cd = exp->type->toBasetype()->isClassHandle();
+    if (!cd || ((cd != ClassDeclaration::throwable) && !ClassDeclaration::throwable->isBaseOf(cd, NULL)))
+        error("can only throw class objects derived from Throwable, not type %s", exp->type->toChars());
+
     return this;
 }
 

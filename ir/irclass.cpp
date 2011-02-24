@@ -38,7 +38,7 @@ LLGlobalVariable * IrStruct::getVtblSymbol()
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
-    const LLType* vtblTy = type->irtype->isClass()->getVtbl();
+    const LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
 
     vtbl = new llvm::GlobalVariable(
         *gIR->module, vtblTy, true, _linkage, NULL, initname);
@@ -66,7 +66,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
     DtoType(cinfo->type);
-    IrTypeClass* tc = cinfo->type->irtype->isClass();
+    IrTypeClass* tc = stripModifiers(cinfo->type)->irtype->isClass();
     assert(tc && "invalid ClassInfo type");
 
     // classinfos cannot be constants since they're used a locks for synchronized
@@ -107,7 +107,7 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
 
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
 
-    size_t n = type->irtype->isClass()->getNumInterfaceVtbls();
+    size_t n = stripModifiers(type)->irtype->isClass()->getNumInterfaceVtbls();
     assert(n > 0 && "getting ClassInfo.interfaces storage symbol, but we "
                     "don't implement any interfaces");
 
@@ -206,13 +206,13 @@ LLConstant * IrStruct::getVtblInit()
 
 #if 0
    IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
-   IF_LOG Logger::cout() << "vtbl type: " << *type->irtype->isClass()->getVtbl() << std::endl;
+   IF_LOG Logger::cout() << "vtbl type: " << *stripModifiers(type)->irtype->isClass()->getVtbl() << std::endl;
 #endif
 
 #if 1
 
     size_t nc = constants.size();
-    const LLType* vtblTy = type->irtype->isClass()->getVtbl();
+    const LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
     for (size_t i = 0; i < nc; ++i)
     {
         if (constVtbl->getOperand(i)->getType() != vtblTy->getContainedType(i))
@@ -226,7 +226,7 @@ LLConstant * IrStruct::getVtblInit()
 
 #endif
 
-    assert(constVtbl->getType() == type->irtype->isClass()->getVtbl() &&
+    assert(constVtbl->getType() == stripModifiers(type)->irtype->isClass()->getVtbl() &&
         "vtbl initializer type mismatch");
 
     return constVtbl;
@@ -255,7 +255,7 @@ void IrStruct::addBaseClassInits(
         addBaseClassInits(constants, base->baseClass, offset, field_index);
     }
 
-    IrTypeClass* tc = base->type->irtype->isClass();
+    IrTypeClass* tc = stripModifiers(base->type)->irtype->isClass();
     assert(tc);
 
     // go through fields
@@ -451,7 +451,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     assert(cd);
 
     size_t n = interfacesWithVtbls.size();
-    assert(type->irtype->isClass()->getNumInterfaceVtbls() == n &&
+    assert(stripModifiers(type)->irtype->isClass()->getNumInterfaceVtbls() == n &&
         "inconsistent number of interface vtables in this class");
 
     VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
@@ -475,7 +475,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     const LLType* voidptrptr_type = DtoType(
         Type::tvoid->pointerTo()->pointerTo());
 
-    const LLType* our_type = type->irtype->isClass()->getPA().get();
+    const LLType* our_type = stripModifiers(type)->irtype->isClass()->getPA().get();
 
     for (size_t i = 0; i < n; ++i)
     {
@@ -485,7 +485,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         IrStruct* irinter = it->base->ir.irStruct;
         assert(irinter && "interface has null IrStruct");
-        IrTypeClass* itc = irinter->type->irtype->isClass();
+        IrTypeClass* itc = stripModifiers(irinter->type)->irtype->isClass();
         assert(itc && "null interface IrTypeClass");
 
         // classinfo

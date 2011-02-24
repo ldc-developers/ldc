@@ -295,6 +295,8 @@ int linkObjToExecutable(const char* argv0)
     // default libs
     switch(global.params.os) {
     case OSLinux:
+        args.push_back("-lrt");
+        // fallthrough
     case OSMacOSX:
         args.push_back("-ldl");
         // fallthrough

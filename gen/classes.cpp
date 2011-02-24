@@ -713,7 +713,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else
     {
-        const LLType* cd_type = cdty->irtype->getPA();
+        const LLType* cd_type = stripModifiers(cdty)->irtype->getPA();
         size_t initsz = getTypePaddedSize(cd_type);
         b.push_void_array(initsz, ir->getInitSymbol());
     }

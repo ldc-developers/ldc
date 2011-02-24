@@ -389,25 +389,18 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
-    // D1:
-    // byte[] _d_arrayappendcT(TypeInfo ti, void* array, void* element)
-    // D2:
-    // byte[] _d_arrayappendcT(TypeInfo ti, byte[]* array, byte* element)
+
+#if DMDV2
+    // byte[] _d_arrayappendcTX(TypeInfo ti, ref byte[] px, size_t n)
     {
-        llvm::StringRef fname("_d_arrayappendcT");
+        llvm::StringRef fname("_d_arrayappendcTX");
         std::vector<const LLType*> types;
         types.push_back(typeInfoTy);
-#if DMDV2
         types.push_back(voidArrayPtrTy);
-#else
-        types.push_back(voidPtrTy);
-#endif
-        types.push_back(voidPtrTy);
+        types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
-
-#if DMDV2
     // void[] _d_arrayappendT(TypeInfo ti, byte[]* px, byte[] y)
     {
         llvm::StringRef fname("_d_arrayappendT");
@@ -443,6 +436,17 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(typeInfoTy);
         types.push_back(voidArrayTy);
         types.push_back(voidArrayTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+#else // DMDV1
+    // byte[] _d_arrayappendcT(TypeInfo ti, void* array, void* element)
+    {
+        llvm::StringRef fname("_d_arrayappendcT");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(voidPtrTy);
+        types.push_back(voidPtrTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
@@ -958,6 +962,16 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_1_2_NoCapture);
+    }
+    // BB* _d_assocarrayliteralTX(TypeInfo_AssociativeArray ti, void[] keys, void[] values)
+    {
+        llvm::StringRef fname("_d_assocarrayliteralTX");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        types.push_back(voidArrayTy);
+        types.push_back(voidArrayTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 #else
     // int _aaEq(AA aa, AA ab, TypeInfo_AssociativeArray ti)

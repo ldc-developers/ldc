@@ -715,6 +715,7 @@ struct FuncDeclaration : Declaration
     ILS inlineStatus;
     int inlineNest;                     // !=0 if nested inline
     int cantInterpret;                  // !=0 if cannot interpret function
+    int isArrayOp;                      // !=0 if array operation
     enum PASS semanticRun;
                                         // this function's frame ptr
     ForeachStatement *fes;              // if foreach body, this is the foreach
@@ -839,9 +840,6 @@ struct FuncDeclaration : Declaration
     // don't always carry their corresponding statement along ...
     typedef std::map<const char*, LabelStatement*> LabelMap;
     LabelMap labmap;
-
-    // if this is an array operation it gets a little special attention
-    bool isArrayOp;
 
     // Functions that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
     bool availableExternally;

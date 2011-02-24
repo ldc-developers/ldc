@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -433,19 +433,27 @@ void TemplateDeclaration::semantic(Scope *sc)
     {
         // Generate this function as it may be used
         // when template is instantiated in other modules
-
-	// FIXME: LDC
-	//sc->module->toModuleArray();
+        // FIXME: LDC
+        //sc->module->toModuleArray();
     }
 
     if (/*global.params.useAssert &&*/ sc->module)
     {
         // Generate this function as it may be used
         // when template is instantiated in other modules
-
-	// FIXME: LDC
-	//sc->module->toModuleAssert();
+        // FIXME: LDC
+        //sc->module->toModuleAssert();
     }
+
+#if DMDV2
+    if (/*global.params.useUnitTests &&*/ sc->module)
+    {
+        // Generate this function as it may be used
+        // when template is instantiated in other modules
+        // FIXME: LDC
+        // sc->module->toModuleUnittest();
+    }
+#endif
 
     /* Remember Scope for later instantiations, but make
      * a copy since attributes can change.
@@ -1085,6 +1093,14 @@ L2:
             Type *tthis = ethis->type;
             unsigned mod = fd->type->mod;
             StorageClass stc = scope->stc;
+            // Propagate parent storage class (see bug 5504)
+            Dsymbol *p = parent;
+            while (p->isTemplateDeclaration() || p->isTemplateInstance())
+                p = p->parent;
+            AggregateDeclaration *ad = p->isAggregateDeclaration();
+            if (ad)
+                stc |= ad->storage_class;
+
             if (stc & (STCshared | STCsynchronized))
                 mod |= MODshared;
             if (stc & STCimmutable)
@@ -1327,23 +1343,23 @@ Lmatch:
         {
             if (arrayObjectMatch(p->dedargs, dedargs, this, sc))
             {
-                //printf("recursive, no match %p %s\n", this, this->toChars());
-                nmatches++;
+                //printf("recursive, no match p->sc=%p %p %s\n", p->sc, this, this->toChars());
+                /* It must be a subscope of p->sc, other scope chains are not recursive
+                 * instantiations.
+                 */
+                for (Scope *scx = sc; scx; scx = scx->enclosing)
+                {
+                    if (scx == p->sc)
+                        goto Lnomatch;
+                }
             }
             /* BUG: should also check for ref param differences
              */
         }
-        /* Look for 2 matches at least, because sometimes semantic3() gets run causing what appears to
-         * be recursion but isn't.
-         * Template A's constraint instantiates B, B's semantic3() run includes something that has A in its constraint.
-         * Perhaps a better solution is to always defer semantic3() rather than doing it eagerly. The risk
-         * with that is what if semantic3() fails, but our constraint "succeeded"?
-         */
-        if (nmatches >= 2)
-            goto Lnomatch;
 
         Previous pr;
         pr.prev = previous;
+        pr.sc = paramscope;
         pr.dedargs = dedargs;
         previous = &pr;                 // add this to threaded list
 
@@ -2540,7 +2556,7 @@ void deduceBaseClassParameters(BaseClass *b,
     Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes,
     Objects *best, int &numBaseClassMatches)
 {
-    TemplateInstance *parti = b->base->parent->isTemplateInstance();
+    TemplateInstance *parti = b->base ? b->base->parent->isTemplateInstance() : NULL;
     if (parti)
     {
         // Make a temporary copy of dedtypes so we don't destroy it
@@ -3286,7 +3302,10 @@ void TemplateValueParameter::semantic(Scope *sc)
     valType = valType->semantic(loc, sc);
     if (!(valType->isintegral() || valType->isfloating() || valType->isString()) &&
         valType->ty != Tident)
-        error(loc, "arithmetic/string type expected for value-parameter, not %s", valType->toChars());
+    {
+        if (valType != Type::terror)
+            error(loc, "arithmetic/string type expected for value-parameter, not %s", valType->toChars());
+    }
 
     if (specValue)
     {   Expression *e = specValue;
@@ -3736,7 +3755,7 @@ void TemplateInstance::semantic(Scope *sc)
 
 void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
 {
-    //printf("TemplateInstance::semantic('%s', this=%p, gag = %d)\n", toChars(), this, global.gag);
+    //printf("TemplateInstance::semantic('%s', this=%p, gag = %d, sc = %p)\n", toChars(), this, global.gag, sc);
     if (global.errors && name != Id::AssociativeArray)
     {
         //printf("not instantiating %s due to %d errors\n", toChars(), global.errors);

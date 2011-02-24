@@ -231,6 +231,7 @@ struct ClassDeclaration : AggregateDeclaration
 {
     static ClassDeclaration *object;
     static ClassDeclaration *classinfo;
+    static ClassDeclaration *throwable;
 
     ClassDeclaration *baseClass;        // NULL only if this is Object
 #if DMDV1
