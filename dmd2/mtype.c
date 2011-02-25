@@ -322,24 +322,24 @@ void Type::init()
 #endif
         Tsize_t = Tuns32;
         Tptrdiff_t = Tint32;
-	PTRSIZE = 4;
+    PTRSIZE = 4;
     }
 
     // set real size and padding
     if (global.params.cpu == ARCHx86)
     {
-	REALSIZE = 12;
-	REALPAD = 2;
+    REALSIZE = 12;
+    REALPAD = 2;
     }
     else if (global.params.cpu == ARCHx86_64)
     {
-	REALSIZE = 16;
-	REALPAD = 6;
+    REALSIZE = 16;
+    REALPAD = 6;
     }
     else
     {
-	REALSIZE = 8;
-	REALPAD = 0;
+    REALSIZE = 8;
+    REALPAD = 0;
     }
 }
 
