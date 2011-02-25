@@ -120,7 +120,60 @@ const LLFunctionType* DtoExtractFunctionType(const LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::AttributeWithIndex>& attrs, TypeFunction* tf, Expressions* arguments, size_t argidx)
+static LLValue *fixArgument(DValue *argval, TypeFunction* tf, const LLType *callableArgType, int argIndex)
+{
+#if 0
+    if (Logger::enabled()) {
+        Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
+        Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
+    }
+#endif
+
+    // give the ABI a say
+    LLValue* arg = tf->fty.putParam(argval->getType(), argIndex, argval);
+
+#if 0
+    if (Logger::enabled()) {
+        Logger::cout() << "Argument after ABI: " << *arg << '\n';
+        Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
+    }
+#endif
+
+    // Hack around LDC assuming structs are in memory:
+    // If the function wants a struct, and the argument value is a
+    // pointer to a struct, load from it before passing it in.
+    if (argval->getType()->ty == Tstruct
+            && isaPointer(arg) && !isaPointer(callableArgType)) {
+        Logger::println("Loading struct type for function argument");
+        arg = DtoLoad(arg);
+    }
+
+    // parameter type mismatch, this is hard to get rid of
+    if (arg->getType() != callableArgType)
+    {
+    #if 1
+        if (Logger::enabled())
+        {
+            Logger::cout() << "arg:     " << *arg << '\n';
+            Logger::cout() << "of type: " << *arg->getType() << '\n';
+            Logger::cout() << "expects: " << *callableArgType << '\n';
+        }
+    #endif
+        if (isaStruct(arg))
+            arg = DtoAggrPaint(arg, callableArgType);
+        else
+            arg = DtoBitCast(arg, callableArgType);
+    }
+    return arg;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoBuildDVarArgList(std::vector<LLValue*>& args,
+                         std::vector<llvm::AttributeWithIndex>& attrs,
+                         TypeFunction* tf, Expressions* arguments,
+                         size_t argidx,
+                         const LLFunctionType* callableTy)
 {
     Logger::println("doing d-style variadic arguments");
     LOG_SCOPE
@@ -227,14 +280,13 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
         Attr.Attrs = atts;
         attrs.push_back(Attr);
     }
-    ++argidx;
 
     // pass non variadic args
     for (int i=0; i<begin; i++)
     {
         Parameter* fnarg = Parameter::getNth(tf->parameters, i);
         DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
-        args.push_back(argval->getRVal());
+        args.push_back(fixArgument(argval, tf, callableTy->getParamType(argidx++), i));
 
         if (tf->fty.args[i]->attrs)
         {
@@ -243,10 +295,10 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::Attribut
             Attr.Attrs = tf->fty.args[i]->attrs;
             attrs.push_back(Attr);
         }
-
-        ++argidx;
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
 
 // FIXME: this function is a mess !
 
@@ -405,7 +457,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // d style varargs needs a few more hidden arguments as well as special passing
     else if (dvarargs)
     {
-        DtoBuildDVarArgList(args, attrs, tf, arguments, argiter-argbegin+1);
+        DtoBuildDVarArgList(args, attrs, tf, arguments, argiter-argbegin+1, callableTy);
     }
 
     // otherwise we're looking at a normal function call
@@ -452,56 +504,12 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         {
             DValue* argval = argvals.at(i);
 
-#if 0
-            if (Logger::enabled()) {
-                Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
-                Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
-            }
-#endif
-
-            // give the ABI a say
-            LLValue* arg = tf->fty.putParam(argval->getType(), i, argval);
-
-#if 0
-            if (Logger::enabled()) {
-                Logger::cout() << "Argument after ABI: " << *arg << '\n';
-                Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
-            }
-#endif
-
             int j = tf->fty.reverseParams ? beg + n - i - 1 : beg + i;
-
-            // Hack around LDC assuming structs are in memory:
-            // If the function wants a struct, and the argument value is a
-            // pointer to a struct, load from it before passing it in.
-            if (argval->getType()->ty == Tstruct
-                    && isaPointer(arg) && !isaPointer(callableTy->getParamType(j))) {
-                Logger::println("Loading struct type for function argument");
-                arg = DtoLoad(arg);
-            }
-
-            // parameter type mismatch, this is hard to get rid of
-            if (arg->getType() != callableTy->getParamType(j))
-            {
-            #if 1
-                if (Logger::enabled())
-                {
-                    Logger::cout() << "arg:     " << *arg << '\n';
-                    Logger::cout() << "of type: " << *arg->getType() << '\n';
-                    Logger::cout() << "expects: " << *callableTy->getParamType(j) << '\n';
-                }
-            #endif
-                if (isaStruct(arg))
-                    arg = DtoAggrPaint(arg, callableTy->getParamType(j));
-                else
-                    arg = DtoBitCast(arg, callableTy->getParamType(j));
-            }
-
-            // param attrs
-            attrptr[i] = tf->fty.args[i]->attrs;
-
-            ++argiter;
+            LLValue *arg = fixArgument(argval, tf, callableTy->getParamType(j), i);
             args.push_back(arg);
+
+            attrptr[i] = tf->fty.args[i]->attrs;
+            ++argiter;
         }
 
         // reverse the relevant params as well as the param attrs
