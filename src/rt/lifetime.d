@@ -756,10 +756,6 @@ extern (C) void[] _d_newarrayT(TypeInfo ti, size_t length)
                 jc      Loverflow       ;
             }
         }
-        else version(LDC)
-        {
-            size *= length;
-        }
         else version(D_InlineAsm_X86_64)
         {
             asm
@@ -816,10 +812,6 @@ extern (C) void[] _d_newarrayiT(TypeInfo ti, size_t length)
                 mov     size,EAX        ;
                 jc      Loverflow       ;
             }
-        }
-        else version(LDC)
-        {
-            size *= length;
         }
         else version (D_InlineAsm_X86_64)
         {
@@ -1209,13 +1201,6 @@ body
                 jc  Loverflow;
             }
         }
-        else version(LDC)
-        {
-            size_t newsize = sizeelem * newlength;
-
-            if (newsize / newlength != sizeelem)
-                goto Loverflow;
-        }
         else version (D_InlineAsm_X86_64)
         {
             size_t newsize = void;
@@ -1389,13 +1374,6 @@ body
                 mov     newsize,EAX     ;
                 jc      Loverflow       ;
             }
-        }
-        else version(LDC)
-        {
-            size_t newsize = sizeelem * newlength;
-
-            if (newsize / newlength != sizeelem)
-                goto Loverflow;
         }
         else version (D_InlineAsm_X86_64)
         {
