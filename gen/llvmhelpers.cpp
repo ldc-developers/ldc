@@ -1592,6 +1592,7 @@ size_t realignOffset(size_t offset, Type* type)
     // if it differs we need to insert manual padding as well
     if (alignsize != alignsize2)
     {
+        // FIXME: this assert fails on std.typecons
         //assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
         //    "type alignments differ, but LLVM's is bigger! This will break "
         //    "aggregate type mapping");

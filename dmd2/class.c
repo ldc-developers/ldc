@@ -737,6 +737,9 @@ void ClassDeclaration::semantic(Scope *sc)
             alignsize = thissize;
     }
     structsize = sc->offset;
+#if IN_LLVM
+    structsize = (structsize + structalign - 1) & ~(structalign - 1);
+#endif
     sizeok = 1;
     Module::dprogress++;
 
