@@ -738,7 +738,8 @@ void ClassDeclaration::semantic(Scope *sc)
     }
     structsize = sc->offset;
 #if IN_LLVM
-    structsize = (structsize + structalign - 1) & ~(structalign - 1);
+    if (global.params.is64bit)
+        structsize = (structsize + structalign - 1) & ~(structalign - 1);
 #endif
     sizeok = 1;
     Module::dprogress++;
