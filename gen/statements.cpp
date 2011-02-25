@@ -45,8 +45,26 @@ void CompoundStatement::toIR(IRState* p)
     }
 }
 
-
 //////////////////////////////////////////////////////////////////////////////
+
+static void callPostblitHelper(Loc &loc, Expression *exp, LLValue *val)
+{
+#if DMDV2
+    Type *tb = exp->type->toBasetype();
+    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar) &&
+        tb->ty == Tstruct)
+    {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+        if (sd->postblit)
+        {
+            FuncDeclaration *fd = sd->postblit;
+            fd->codegen(Type::sir);
+            Expressions args;
+            DFuncValue dfn(fd, fd->ir.irFunc->func, val);
+            DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+        }
+    }
+#endif
+}
 
 void ReturnStatement::toIR(IRState* p)
 {
@@ -77,22 +95,9 @@ void ReturnStatement::toIR(IRState* p)
             // store return value
             DtoAssign(loc, rvar, e);
 
-#if DMDV2
-            // Call postBlit()
-            Type *tb = exp->type->toBasetype();
-            if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar) &&
-                tb->ty == Tstruct)
-            {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
-                if (sd->postblit)
-                {
-                    FuncDeclaration *fd = sd->postblit;
-                    fd->codegen(Type::sir);
-                    Expressions args;
-                    DFuncValue dfn(fd, fd->ir.irFunc->func, e->getLVal());
-                    DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
-                }
-            }
-#endif
+            // call postblit if necessary
+            if (e->isLVal())
+                callPostblitHelper(loc, exp, e->getLVal());
 
             // emit scopes
             DtoEnclosingHandlers(loc, NULL);
@@ -122,6 +127,9 @@ void ReturnStatement::toIR(IRState* p)
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
+
+            // call postblit if necessary
+            callPostblitHelper(loc, exp, v);
 
             IrFunction* f = p->func();
             // Hack around LDC assuming structs and static arrays are in memory:
@@ -157,6 +165,7 @@ void ReturnStatement::toIR(IRState* p)
                     Logger::cout() << "return value after cast: " << *v << '\n';
             }
 
+            // emit scopes
             DtoEnclosingHandlers(loc, NULL);
 
             #ifndef DISABLE_DEBUG_INFO
