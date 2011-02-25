@@ -61,6 +61,8 @@ alias immutable(char)[]  string;
 alias immutable(wchar)[] wstring;
 alias immutable(dchar)[] dstring;
 
+version (LDC) version (X86_64) version = LDC_X86_64;
+
 /**
  * All D class objects inherit from Object.
  */
@@ -940,9 +942,13 @@ class TypeInfo_Struct : TypeInfo
             return true;
         else if (!p1 || !p2)
             return false;
-        else if (xopEquals)
-            return (*xopEquals)(p1, p2);
-        else
+        else if (xopEquals) {
+            version(LDC_X86_64)
+                // BUG: LDC and DMD use different calling conventions on X86_64
+                return (*xopEquals)(p2, p1);
+            else
+                return (*xopEquals)(p1, p2);
+        } else
             // BUG: relies on the GC not moving objects
             return memcmp(p1, p2, init.length) == 0;
     }
@@ -956,9 +962,13 @@ class TypeInfo_Struct : TypeInfo
             {
                 if (!p2)
                     return true;
-                else if (xopCmp)
-                    return (*xopCmp)(p2, p1);
-                else
+                else if (xopCmp) {
+                    version(LDC_X86_64)
+                        // BUG: LDC and DMD use different calling conventions on X86_64
+                        return (*xopCmp)(p1, p2);
+                    else
+                        return (*xopCmp)(p2, p1);
+                } else
                     // BUG: relies on the GC not moving objects
                     return memcmp(p1, p2, init.length);
             }
