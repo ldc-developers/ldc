@@ -15,24 +15,24 @@ struct RemoveStructPadding : ABIRewrite {
         // TODO: Only do this if there's padding, and/or only initialize padding.
         DtoMemSetZero(lval, DtoConstSize_t(getTypePaddedSize(DtoType(dty))));
         
-        DtoPaddedStruct(dty, v->getRVal(), lval);
+        DtoPaddedStruct(dty->toBasetype(), v->getRVal(), lval);
         return lval;
     }
 
     /// get a rewritten value back to its original form and store result in provided lvalue
     /// this one is optional and defaults to calling the one above
     virtual void getL(Type* dty, DValue* v, llvm::Value* lval) {
-        DtoPaddedStruct(dty, v->getRVal(), lval);
+        DtoPaddedStruct(dty->toBasetype(), v->getRVal(), lval);
     }
 
     /// put out rewritten value
     virtual LLValue* put(Type* dty, DValue* v) {
-        return DtoUnpaddedStruct(dty, v->getRVal());
+        return DtoUnpaddedStruct(dty->toBasetype(), v->getRVal());
     }
 
     /// return the transformed type for this rewrite
     virtual const LLType* type(Type* dty, const LLType* t) {
-        return DtoUnpaddedStructType(dty);
+        return DtoUnpaddedStructType(dty->toBasetype());
     }
 };
 
