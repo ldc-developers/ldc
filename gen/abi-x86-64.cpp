@@ -553,11 +553,16 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
     Type* rt = tf->next->toBasetype();
     
     if (tf->linkage == LINKd) {
+#if DMDV2
+        if (tf->isref)
+            return false;
+#endif
+
         // All non-structs can be returned in registers.
         // FIXME: Update calling convention for static array returns
         if (rt->ty != Tstruct)
             return false;
-        
+
         // Try to figure out whether the struct fits in return registers
         // and whether it's a good idea to put it there.
         return !x86_64_D_cc::retStructInRegs((TypeStruct*) rt);
@@ -671,17 +676,17 @@ void X86_64TargetABI::fixup(IrFuncTyArg& arg) {
 
 void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
     IrFuncTy& fty = tf->fty;
-    
+
     if (tf->linkage == LINKd) {
         if (!fty.arg_sret) {
             Type* rt = fty.ret->type->toBasetype();
-            if (rt->ty == Tstruct)  {
+            if (rt->ty == Tstruct && !fty.ret->byref)  {
                 Logger::println("x86-64 D ABI: Transforming return type");
                 fixup_D(*fty.ret);
             }
         }
         
-#if 0
+#if DMDV1
         if (fty.arg_this) {
             fty.arg_this->attrs |= llvm::Attribute::Nest;
         }
@@ -689,7 +694,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             fty.arg_nest->attrs |= llvm::Attribute::Nest;
         }
 #endif
-        
+
         Logger::println("x86-64 D ABI: Transforming arguments");
         LOG_SCOPE;
         
@@ -702,7 +707,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             // Arguments that are in memory are of no interest to us.
             if (arg.byref)
                 continue;
-            
+
             Type* ty = arg.type->toBasetype();
             if (ty->ty == Tstruct)
                 fixup_D(arg);
@@ -710,7 +715,6 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             if (Logger::enabled())
                 Logger::cout() << "New arg type: " << *arg.ltype << '\n';
         }
-        
     } else {
         // TODO: See if this is correct for more than just extern(C).
         
