@@ -29,25 +29,6 @@ void ABIRewrite::getL(Type* dty, DValue* v, llvm::Value* lval)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-// simply swap of real/imag parts for proper x87 complex abi
-struct X87_complex_swap : ABIRewrite
-{
-    LLValue* get(Type*, DValue* v)
-    {
-        return DtoAggrPairSwap(v->getRVal());
-    }
-    LLValue* put(Type*, DValue* v)
-    {
-        return DtoAggrPairSwap(v->getRVal());
-    }
-    const LLType* type(Type*, const LLType* t)
-    {
-        return t;
-    }
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
 struct X86_cfloat_rewrite : ABIRewrite
 {
     // i64 -> {float,float}

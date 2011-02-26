@@ -497,6 +497,7 @@ struct RegCount {
 
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
+    X87_complex_swap swapComplex;
     RemoveStructPadding remove_padding;
     
     void newFunctionType(TypeFunction* tf) {
@@ -676,14 +677,21 @@ void X86_64TargetABI::fixup(IrFuncTyArg& arg) {
 
 void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
     IrFuncTy& fty = tf->fty;
+    Type* rt = fty.ret->type->toBasetype();
 
     if (tf->linkage == LINKd) {
         if (!fty.arg_sret) {
-            Type* rt = fty.ret->type->toBasetype();
             if (rt->ty == Tstruct && !fty.ret->byref)  {
                 Logger::println("x86-64 D ABI: Transforming return type");
                 fixup_D(*fty.ret);
             }
+        }
+
+        // complex {re,im} -> {im,re}
+        if (rt->iscomplex())
+        {
+            Logger::println("Rewriting complex return value");
+            fty.ret->rewrite = &swapComplex;
         }
         
 #if DMDV1
