@@ -115,21 +115,23 @@ void ReturnStatement::toIR(IRState* p)
         else
         {
             LLValue* v;
+            DValue* dval = exp->toElem(p);
+
+            // call postblit if necessary
+            callPostblitHelper(loc, exp, dval->getRVal());
+
             if (!exp && (p->topfunc() == p->mainFunc))
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
             else
                 // do abi specific transformations on the return value
 #if DMDV2
-                v = p->func()->type->fty.putRet(exp->type, exp->toElem(p), p->func()->type->isref);
+                v = p->func()->type->fty.putRet(exp->type, dval, p->func()->type->isref);
 #else
-                v = p->func()->type->fty.putRet(exp->type, exp->toElem(p));
+                v = p->func()->type->fty.putRet(exp->type, dval);
 #endif
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
-
-            // call postblit if necessary
-            callPostblitHelper(loc, exp, v);
 
             IrFunction* f = p->func();
             // Hack around LDC assuming structs and static arrays are in memory:

@@ -258,9 +258,11 @@ LLValue* DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value
     LLValue* nest = DtoNestedContext(loc, decl);
 
     // store into right location
-    size_t idx = decl->vthis->ir.irField->index;
-    LLValue* gep = DtoGEPi(value,0,idx,"tmp");
-    DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
+    if (!llvm::dyn_cast<llvm::UndefValue>(nest)) {
+        size_t idx = decl->vthis->ir.irField->index;
+        LLValue* gep = DtoGEPi(value,0,idx,".vthis");
+        DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
+    }
 }
 
 LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)

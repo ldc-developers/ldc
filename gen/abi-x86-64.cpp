@@ -653,10 +653,12 @@ bool X86_64TargetABI::passByVal(Type* t) {
 // Structs passed or returned in registers are passed here
 // to get their padding removed (if necessary).
 void X86_64TargetABI::fixup_D(IrFuncTyArg& arg) {
-    assert(arg.type->toBasetype()->ty == Tstruct);
-    LLType* abiTy = DtoUnpaddedStructType(arg.type->toBasetype());
-    
-    if (abiTy && abiTy != arg.ltype) {
+    TypeStruct *type = (TypeStruct*)arg.type->toBasetype();
+    assert(type->ty == Tstruct);
+    if (type->alignsize() != 1) {
+        // TODO: don't do this transformation if there's no padding
+        LLType* abiTy = DtoUnpaddedStructType(type);
+        assert(abiTy);
         arg.ltype = abiTy;
         arg.rewrite = &remove_padding;
     }
