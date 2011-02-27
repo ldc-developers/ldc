@@ -47,9 +47,10 @@ void CompoundStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+#if DMDV2
 static void callPostblitHelper(Loc &loc, Expression *exp, LLValue *val)
 {
-#if DMDV2
+
     Type *tb = exp->type->toBasetype();
     if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar) &&
         tb->ty == Tstruct)
@@ -63,8 +64,8 @@ static void callPostblitHelper(Loc &loc, Expression *exp, LLValue *val)
             DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
         }
     }
-#endif
 }
+#endif
 
 void ReturnStatement::toIR(IRState* p)
 {
@@ -95,9 +96,11 @@ void ReturnStatement::toIR(IRState* p)
             // store return value
             DtoAssign(loc, rvar, e);
 
+#if DMDV2
             // call postblit if necessary
             if (e->isLVal() && !p->func()->type->isref)
                 callPostblitHelper(loc, exp, e->getLVal());
+#endif
 
             // emit scopes
             DtoEnclosingHandlers(loc, NULL);
@@ -117,9 +120,11 @@ void ReturnStatement::toIR(IRState* p)
             LLValue* v;
             DValue* dval = exp->toElem(p);
 
+#if DMDV2
             // call postblit if necessary
             if (!p->func()->type->isref)
                 callPostblitHelper(loc, exp, dval->getRVal());
+#endif
 
             if (!exp && (p->topfunc() == p->mainFunc))
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
