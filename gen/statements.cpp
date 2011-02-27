@@ -96,7 +96,7 @@ void ReturnStatement::toIR(IRState* p)
             DtoAssign(loc, rvar, e);
 
             // call postblit if necessary
-            if (e->isLVal())
+            if (e->isLVal() && !p->func()->type->isref)
                 callPostblitHelper(loc, exp, e->getLVal());
 
             // emit scopes
@@ -118,7 +118,8 @@ void ReturnStatement::toIR(IRState* p)
             DValue* dval = exp->toElem(p);
 
             // call postblit if necessary
-            callPostblitHelper(loc, exp, dval->getRVal());
+            if (!p->func()->type->isref)
+                callPostblitHelper(loc, exp, dval->getRVal());
 
             if (!exp && (p->topfunc() == p->mainFunc))
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
