@@ -26,7 +26,7 @@ nothrow:
  */
 pure int bsf(size_t v)
 {
-    uint m = 1;
+    size_t m = 1;
     uint i;
     for (i = 0; i < 32; i++,m<<=1) {
         if (v&m)
@@ -65,7 +65,7 @@ pure int bsf(size_t v)
  */
 pure int bsr(size_t v)
 {
-    uint m = 0x80000000;
+    size_t m = 0x80000000;
     uint i;
     for (i = 32; i ; i--,m>>>=1) {
     if (v&m)
@@ -80,7 +80,9 @@ pure int bsr(size_t v)
  */
 pure int bt(in size_t* p, size_t bitnum)
 {
-    return (p[bitnum / (uint.sizeof*8)] & (1<<(bitnum & ((uint.sizeof*8)-1)))) ? -1 : 0 ;
+    auto q = cast(ubyte*)p + (bitnum >> 3);
+    auto mask = 1 << (bitnum & 7);
+    return *q & mask;
 }
 
 
@@ -89,9 +91,9 @@ pure int bt(in size_t* p, size_t bitnum)
  */
 int btc(size_t* p, size_t bitnum)
 {
-    size_t * q = p + (bitnum / (size_t.sizeof*8));
-    size_t mask = 1 << (bitnum & ((size_t.sizeof*8) - 1));
-    sizediff_t result = *q & mask;
+    auto q = cast(ubyte*)p + (bitnum >> 3);
+    auto mask = 1 << (bitnum & 7);
+    auto result = *q & mask;
     *q ^= mask;
     return result ? -1 : 0;
 }
@@ -102,9 +104,9 @@ int btc(size_t* p, size_t bitnum)
  */
 int btr(size_t* p, size_t bitnum)
 {
-    size_t * q = p + (bitnum / (size_t.sizeof*8));
-    size_t mask = 1 << (bitnum & ((size_t.sizeof*8) - 1));
-    sizediff_t result = *q & mask;
+    auto q = cast(ubyte*)p + (bitnum >> 3);
+    auto mask = 1 << (bitnum & 7);
+    auto result = *q & mask;
     *q &= ~mask;
     return result ? -1 : 0;
 }
@@ -168,9 +170,9 @@ array = [0]:x2, [1]:x100
  */
 int bts(size_t* p, size_t bitnum)
 {
-    size_t * q = p + (bitnum / (size_t.sizeof*8));
-    size_t mask = 1 << (bitnum & ((size_t.sizeof*8) - 1));
-    sizediff_t result = *q & mask;
+    auto q = cast(ubyte*)p + (bitnum >> 3);
+    auto mask = 1 << (bitnum & 7);
+    auto result = *q & mask;
     *q |= mask;
     return result ? -1 : 0;
 }
