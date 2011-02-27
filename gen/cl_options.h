@@ -26,6 +26,7 @@ namespace opts {
     extern cl::opt<bool> output_ll;
     extern cl::opt<bool> output_s;
     extern cl::opt<cl::boolOrDefault> output_o;
+    extern cl::opt<bool> disableRedZone;
     extern cl::opt<std::string> ddocDir;
     extern cl::opt<std::string> ddocFile;
     extern cl::opt<std::string> jsonFile;

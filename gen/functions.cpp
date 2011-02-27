@@ -22,6 +22,7 @@
 #include "gen/dvalue.h"
 #include "gen/abi.h"
 #include "gen/nested.h"
+#include "gen/cl_options.h"
 
 using namespace llvm::Attribute;
 
@@ -494,6 +495,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // parameter attributes
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
+        if (opts::disableRedZone) {
+            func->addFnAttr(NoRedZone);
+        }
     }
 
     // main
