@@ -13,23 +13,18 @@ FOR D1:
 
 FOR D2:
 =======
-Highly experimental!!!
+1) Check http://bitbucket.org/prokhin_alexy/ldc2/wiki/Home for up to date instructions
 
-1) Do a checkout of druntime trunk into the ldc root dir (along dmd, gen, runtime etc).
+2) At the time of writing, this works:
 
-    *   $ ls
-    *   dmd dmd2 gen ir ...
-    *   $ svn co http://svn.dsource.org/projects/druntime/trunk druntime
+    *   $ git clone https://github.com/AlexeyProkhin/druntime
+    *   $ git clone https://github.com/AlexeyProkhin/phobos
 
-2) Patch druntime
+3) Using cmake, set the D version to 2, then set the correct paths for druntime and phobos
 
-    *   cd runtime
-    *   sh patch-druntime.sh
+4) Compile ldc2, druntime, and phobos
 
-3) Compile druntime
-
-    *   cd ../druntime/src
-    *   sh build-ldc.sh
+    *   $ make phobos2
 
 =======
 Enjoy!
