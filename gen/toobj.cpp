@@ -522,9 +522,11 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     LLGlobalVariable* thismref = new LLGlobalVariable(*gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname);
 
     // make sure _Dmodule_ref is declared
-    LLGlobalVariable* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
+    LLConstant* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
+    const LLType *modulerefPtrTy = getPtrToType(modulerefTy);
     if (!mref)
-        mref = new LLGlobalVariable(*gIR->module, getPtrToType(modulerefTy), false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref");
+        mref = new LLGlobalVariable(*gIR->module, modulerefPtrTy, false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref");
+    mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
     // make the function insert this moduleinfo as the beginning of the _Dmodule_ref linked list
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "moduleinfoCtorEntry", ctor);
