@@ -7,6 +7,7 @@ default:
     // 'switches' holds array of string that are appends to the command line
     // arguments before they are parsed.
     switches = [
+		"-I@PROJECT_BINARY_DIR@/../import",
         "-I@RUNTIME_DIR@/import",
         "-I@RUNTIME_DIR@/src",
         "-I@PHOBOS2_DIR@/",
