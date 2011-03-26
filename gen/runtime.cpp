@@ -789,7 +789,7 @@ static void LLVM_D_BuildRuntimeModule()
     // int _adCmp(void[] a1, void[] a2, TypeInfo ti)
     {
         llvm::StringRef fname(_adEq);
-        llvm::StringRef fname2("_adCmp");
+        llvm::StringRef fname2(_adCmp);
         std::vector<const LLType*> types;
         types.push_back(rt_array(byteTy));
         types.push_back(rt_array(byteTy));

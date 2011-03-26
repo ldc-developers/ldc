@@ -1117,7 +1117,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
         if (t->ty == Tchar)
             res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
         else
-            res = DtoArrayEqCmp_impl(loc, "_adCmp", l, r, true);
+            res = DtoArrayEqCmp_impl(loc, _adCmp, l, r, true);
         res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0), "tmp");
     }
 
