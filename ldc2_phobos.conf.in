@@ -12,7 +12,7 @@ default:
         "-I@RUNTIME_DIR@/src",
         "-I@PHOBOS2_DIR@/",
         "-L-L@PROJECT_BINARY_DIR@/../lib",
-        "-defaultlib=phobos2",
-        "-debuglib=phobos2"
+        "-defaultlib=lphobos2",
+        "-debuglib=lphobos2"
     ];
 };

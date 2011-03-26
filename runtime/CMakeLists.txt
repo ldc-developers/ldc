@@ -296,7 +296,7 @@ if(PHOBOS2_DIR)
          dc(${f} PHOBOS2_O PHOBOS2_BC ${RUNTIME_DIR}/src/ "-I${PHOBOS2_DIR}" ${PHOBOS2_DIR})
     endforeach(f)
 
-	add_library(phobos2 ${D_LIBRARY_TYPE}
+	add_library(lphobos2 ${D_LIBRARY_TYPE}
 		${ZLIB_C}
 		${PHOBOS2_O}
 		${CORE_O}
