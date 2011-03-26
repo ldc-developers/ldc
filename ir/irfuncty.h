@@ -70,6 +70,7 @@ struct IrFuncTy : IrBase
 //    typedef llvm::SmallVector<IrFuncTyArg*, 4> ArgList;
     typedef std::vector<IrFuncTyArg*> ArgList;
     typedef ArgList::iterator ArgIter;
+    typedef ArgList::reverse_iterator ArgRIter;
     ArgList args;
 
     // C varargs

@@ -1,12 +1,6 @@
 /* TargetABI implementation for x86-64.
  * Written for LDC by Frits van Bommel in 2009.
  * 
- * extern(D) follows no particular external ABI, but tries to be smart about
- * passing structs and returning them. It should probably be reviewed if the
- * way LLVM implements fastcc on this platform ever changes.
- * (Specifically, the number of return registers of various types is hardcoded)
- * 
- * 
  * extern(C) implements the C calling convention for x86-64, as found in
  * http://www.x86-64.org/documentation/abi-0.99.pdf
  * 
@@ -286,150 +280,6 @@ namespace {
     }
 }
 
-
-// Implementation details for extern(D)
-namespace x86_64_D_cc {
-    struct DRegCount {
-        unsigned ints;
-        unsigned sse;
-        unsigned x87;
-        
-        DRegCount(unsigned ints_, unsigned sse_, unsigned x87_)
-        : ints(ints_), sse(sse_), x87(x87_) {}
-    };
-    
-    // Count the number of registers needed for a simple type.
-    // (Not a struct or static array)
-    DRegCount regsNeededForSimpleType(Type* t) {
-        DRegCount r(0, 0, 0);
-        switch(t->ty) {
-            case Tstruct:
-            case Tsarray:
-                assert(0 && "Not a simple type!");
-                // Return huge numbers if assertions are disabled, so it'll always get
-                // bumped to memory.
-                r.ints = r.sse = r.x87 = (unsigned)-1;
-                break;
-            
-            // Floats, doubles and such are passed in SSE registers
-            case Tfloat32:
-            case Tfloat64:
-            case Timaginary32:
-            case Timaginary64:
-                r.sse = 1;
-                break;
-            
-            case Tcomplex32:
-            case Tcomplex64:
-                r.sse = 2;
-                break;
-            
-            // Reals, ireals and creals are passed in x87 registers
-            case Tfloat80:
-            case Timaginary80:
-                r.x87 = 1;
-                break;
-            
-            case Tcomplex80:
-                r.x87 = 2;
-                break;
-            
-            // Anything else is passed in one or two integer registers,
-            // depending on its size.
-            default: {
-                int needed = (t->size() + 7) / 8;
-                assert(needed <= 2);
-                r.ints = needed;
-                break;
-            }
-        }
-        return r;
-    }
-    
-    // Returns true if it's possible (and a good idea) to pass the struct in the
-    // specified number of registers.
-    // (May return false if it's a bad idea to pass the type in registers for
-    // reasons other than it not fitting)
-    // Note that if true is returned, 'left' is also modified to contain the
-    // number of registers left. This property is used in the recursive case.
-    // If false is returned, 'left' is garbage.
-    bool shouldPassStructInRegs(TypeStruct* t, DRegCount& left) {
-        // If it has unaligned fields, there's probably a reason for it,
-        // so keep it in memory.
-        if (hasUnalignedFields(t))
-            return false;
-        
-        Array* fields = &t->sym->fields;
-
-        if (fields->dim == 0)
-            return false;
-
-        d_uns64 nextbyte = 0;
-        for (d_uns64 i = 0; i < fields->dim; i++) {
-            VarDeclaration* field = (VarDeclaration*) fields->data[i];
-            
-            // This depends on ascending order of field offsets in structs
-            // without overlapping fields.
-            if (field->offset < nextbyte) {
-                // Don't return unions (or structs containing them) in registers.
-                return false;
-            }
-            nextbyte = field->offset + field->type->size();
-            
-            switch (field->type->ty) {
-                case Tstruct:
-                    if (!shouldPassStructInRegs((TypeStruct*) field->type, left))
-                        return false;
-                    break;
-                
-                case Tsarray:
-                    // Don't return static arrays in registers
-                    // (indexing registers doesn't work well)
-                    return false;
-                
-                default: {
-                    DRegCount needed = regsNeededForSimpleType(field->type);
-                    if (needed.ints > left.ints || needed.sse > left.sse || needed.x87 > left.x87)
-                        return false;
-                    left.ints -= needed.ints;
-                    left.sse -= needed.sse;
-                    left.x87 -= needed.x87;
-                    break;
-                }
-            }
-        }
-        return true;
-    }
-    
-    // Returns true if the struct fits in return registers in the x86-64 fastcc
-    // calling convention.
-    bool retStructInRegs(TypeStruct* st) {
-        // 'fastcc' allows returns in up to two registers of each kind:
-        DRegCount state(2, 2, 2);
-        return shouldPassStructInRegs(st, state);
-    }
-    
-    // Heuristic for determining whether to pass a struct type directly or
-    // bump it to memory.
-    bool passStructTypeDirectly(TypeStruct* st) {
-        // If the type fits in a reasonable number of registers,
-        // pass it directly.
-        // This does not necessarily mean it will actually be passed in
-        // registers. For example, x87 registers are never actually used for
-        // parameters.
-        DRegCount state(2, 2, 2);
-        return shouldPassStructInRegs(st, state);
-        
-        // This doesn't work well: Since the register count can differ depending
-        // on backend options, there's no way to be exact anyway.
-        /*
-        // Regular fastcc:      6 int, 8 sse, 0 x87
-        // fastcc + tailcall:   5 int, 8 sse, 0 x87
-        RegCount state(5, 8, 0);
-        */
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -498,7 +348,7 @@ struct RegCount {
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
     X87_complex_swap swapComplex;
-    RemoveStructPadding remove_padding;
+    X86_struct_to_register structToReg;
     
     void newFunctionType(TypeFunction* tf) {
         funcTypeStack.push_back(FuncTypeData(tf->linkage));
@@ -538,7 +388,6 @@ private:
         return funcTypeStack.back().state;
     }
     
-    void fixup_D(IrFuncTyArg& arg);
     void fixup(IrFuncTyArg& arg);
 };
 
@@ -558,15 +407,8 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
         if (tf->isref)
             return false;
 #endif
-
         // All non-structs can be returned in registers.
-        // FIXME: Update calling convention for static array returns
-        if (rt->ty != Tstruct)
-            return false;
-
-        // Try to figure out whether the struct fits in return registers
-        // and whether it's a good idea to put it there.
-        return !x86_64_D_cc::retStructInRegs((TypeStruct*) rt);
+        return (rt->ty == Tstruct);
     } else {
         if (rt == Type::tvoid || keepUnchanged(rt))
             return false;
@@ -586,11 +428,7 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
 bool X86_64TargetABI::passByVal(Type* t) {
     t = t->toBasetype();
     if (linkage() == LINKd) {
-        if (t->ty != Tstruct)
-            return false;
-        
-        // Try to be smart about which structs are passed in memory.
-        return !x86_64_D_cc::passStructTypeDirectly((TypeStruct*) t);
+        return t->toBasetype()->ty == Tstruct;
     } else {
         // This implements the C calling convention for x86-64.
         // It might not be correct for other calling conventions.
@@ -649,20 +487,6 @@ bool X86_64TargetABI::passByVal(Type* t) {
     }
 }
 
-// Helper function for rewriteFunctionType.
-// Structs passed or returned in registers are passed here
-// to get their padding removed (if necessary).
-void X86_64TargetABI::fixup_D(IrFuncTyArg& arg) {
-    TypeStruct *type = (TypeStruct*)arg.type->toBasetype();
-    assert(type->ty == Tstruct);
-    if (type->alignsize() != 1) {
-        // TODO: don't do this transformation if there's no padding
-        LLType* abiTy = DtoUnpaddedStructType(type);
-        assert(abiTy);
-        arg.ltype = abiTy;
-        arg.rewrite = &remove_padding;
-    }
-}
 
 // Helper function for rewriteFunctionType.
 // Return type and parameters are passed here (unless they're already in memory)
@@ -682,12 +506,8 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
     Type* rt = fty.ret->type->toBasetype();
 
     if (tf->linkage == LINKd) {
-        if (!fty.arg_sret) {
-            if (rt->ty == Tstruct && !fty.ret->byref)  {
-                Logger::println("x86-64 D ABI: Transforming return type");
-                fixup_D(*fty.ret);
-            }
-        }
+
+        // RETURN VALUE
 
         // complex {re,im} -> {im,re}
         if (rt->iscomplex())
@@ -695,35 +515,102 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             Logger::println("Rewriting complex return value");
             fty.ret->rewrite = &swapComplex;
         }
-        
-#if DMDV1
-        if (fty.arg_this) {
-            fty.arg_this->attrs |= llvm::Attribute::Nest;
+                
+        // IMPLICIT PARAMETERS
+
+        int regcount = 6; // RDI,RSI,RDX,RCX,R8,R9
+        int xmmcount = 8; // XMM0..XMM7
+
+        // mark this/nested params inreg
+        if (fty.arg_this)
+        {
+            Logger::println("Putting 'this' in register");
+            fty.arg_this->attrs = llvm::Attribute::InReg;
+            --regcount;
         }
-        if (fty.arg_nest) {
-            fty.arg_nest->attrs |= llvm::Attribute::Nest;
+        else if (fty.arg_nest)
+        {
+            Logger::println("Putting context ptr in register");
+            fty.arg_nest->attrs = llvm::Attribute::InReg;
+            --regcount;
         }
-#endif
+        else if (IrFuncTyArg* sret = fty.arg_sret)
+        {
+            Logger::println("Putting sret ptr in register");
+            // sret and inreg are incompatible, but the ABI requires the
+            // sret parameter to be in RDI in this situation...
+            sret->attrs = (sret->attrs | llvm::Attribute::InReg)
+                            & ~llvm::Attribute::StructRet;
+            --regcount;
+        }
 
         Logger::println("x86-64 D ABI: Transforming arguments");
         LOG_SCOPE;
         
-        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
+        for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I) {
             IrFuncTyArg& arg = **I;
-            
-            if (Logger::enabled())
-                Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
-            
-            // Arguments that are in memory are of no interest to us.
-            if (arg.byref)
-                continue;
 
             Type* ty = arg.type->toBasetype();
-            if (ty->ty == Tstruct)
-                fixup_D(arg);
-            
-            if (Logger::enabled())
-                Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+            unsigned sz = ty->size();
+
+            if (ty->isfloating() && sz <= 8)
+            {
+               if (xmmcount > 0) {
+                   Logger::println("Putting float parameter in register");
+                   arg.attrs |= llvm::Attribute::InReg;
+                   --xmmcount;
+               }
+            }
+            else if (regcount == 0)
+            {
+                continue;
+            }
+            else if (arg.byref && !arg.isByVal())
+            {
+                Logger::println("Putting byref parameter in register");
+                arg.attrs |= llvm::Attribute::InReg;
+                --regcount;
+            }
+            else if (ty->ty == Tpointer)
+            {
+                Logger::println("Putting pointer parameter in register");
+                arg.attrs |= llvm::Attribute::InReg;
+                --regcount;
+            }
+            else if (ty->isintegral() && sz <= 8)
+            {
+                Logger::println("Putting integral parameter in register");
+                arg.attrs |= llvm::Attribute::InReg;
+                --regcount;
+            }
+            else if ((ty->ty == Tstruct || ty->ty == Tsarray) &&
+                     (sz == 1 || sz == 2 || sz == 4 || sz == 8))
+            {
+                if (ty->ty == Tstruct)
+                {
+                    Logger::println("Putting struct in register");
+                    arg.rewrite = &structToReg;
+                    arg.ltype = structToReg.type(arg.type, arg.ltype);
+                    arg.byref = false;
+                    // erase previous attributes
+                    arg.attrs = 0;
+                }
+                else
+                {
+                    Logger::println("Putting static array in register");
+                }
+                arg.attrs |= llvm::Attribute::InReg;
+                --regcount;
+            }
+        }
+
+        // EXPLICIT PARAMETERS
+
+        // reverse parameter order
+        // for non variadics
+        if (!fty.args.empty() && tf->varargs != 1)
+        {
+            fty.reverseParams = true;
         }
     } else {
         // TODO: See if this is correct for more than just extern(C).
