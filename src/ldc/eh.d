@@ -74,6 +74,8 @@ extern(C)
         DW_EH_PE_funcrel = 0x40,  // Value is relative to the beginning of the function.
         DW_EH_PE_aligned = 0x50,  // Value is aligned to an address unit sized boundary.
 
+        DW_EH_PE_indirect = 0x80,
+
         DW_EH_PE_omit    = 0xff   // Indicates that no value is present.
     }
 
@@ -102,6 +104,8 @@ version(HP_LIBUNWIND)
     ptrdiff_t __libunwind_Unwind_SetGR(_Unwind_Context_Ptr context, int index,
             ptrdiff_t new_value);
     ptrdiff_t __libunwind_Unwind_GetRegionStart(_Unwind_Context_Ptr context);
+    ptrdiff_t __libunwind_Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
+    ptrdiff_t __libunwind_Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
 
     alias __libunwind_Unwind_Resume _Unwind_Resume;
     alias __libunwind_Unwind_RaiseException _Unwind_RaiseException;
@@ -111,6 +115,8 @@ version(HP_LIBUNWIND)
     alias __libunwind_Unwind_SetIP _Unwind_SetIP;
     alias __libunwind_Unwind_SetGR _Unwind_SetGR;
     alias __libunwind_Unwind_GetRegionStart _Unwind_GetRegionStart;
+    alias __libunwind_Unwind_GetTextRelBase _Unwind_GetTextRelBase;
+    alias __libunwind_Unwind_GetDataRelBase _Unwind_GetDataRelBase;
 }
 else version(X86_UNWIND) 
 {
@@ -122,6 +128,8 @@ else version(X86_UNWIND)
     ptrdiff_t _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
             ptrdiff_t new_value);
     ptrdiff_t _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
+    ptrdiff_t _Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
+    ptrdiff_t _Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
 }
 else
 {
@@ -198,7 +206,7 @@ private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
   return addr + 1;
 }
 
-private size_t size_of_encoded_value(ubyte encoding)
+private size_t get_size_of_encoded_value(ubyte encoding)
 {
   if (encoding == _DW_EH_Format.DW_EH_PE_omit)
     return 0;
@@ -214,17 +222,21 @@ private size_t size_of_encoded_value(ubyte encoding)
     case _DW_EH_Format.DW_EH_PE_udata8:
       return 8;
     default:
-      fatalerror("Unsupported DWARF Exception Header value format");
+      fatalerror("Unsupported DWARF Exception Header value format: unknown encoding");
   }
   assert(0);
 }
 
-private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding)
+private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, _Unwind_Context_Ptr context)
 {
-  switch (encoding /* & 0x0f*/)
+  if (encoding == _DW_EH_Format.DW_EH_PE_aligned)
+    goto Lerr;
+
+  ubyte *old_addr = addr;
+  switch (encoding & 0x0f)
   {
     case _DW_EH_Format.DW_EH_PE_absptr:
-      res = cast(size_t)*cast(byte**)addr;
+      res = cast(size_t)*cast(ubyte**)addr;
       addr += size_t.sizeof;
       break;
 
@@ -265,9 +277,37 @@ private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding)
       break;
 
     default:
-      fatalerror("Unsupported DWARF Exception Header value format");
-    }
-    return addr;
+      goto Lerr;
+  }
+
+  switch (encoding & 0x70)
+  {    
+    case _DW_EH_Format.DW_EH_PE_absptr:
+      break;
+    case _DW_EH_Format.DW_EH_PE_pcrel:
+      res += cast(size_t)old_addr;
+      break;
+    case _DW_EH_Format.DW_EH_PE_funcrel:
+      res += cast(size_t)_Unwind_GetRegionStart(context);
+      break;
+    case _DW_EH_Format.DW_EH_PE_textrel:
+      res += cast(size_t)_Unwind_GetTextRelBase(context);
+      break;
+    case _DW_EH_Format.DW_EH_PE_datarel:
+      res += cast(size_t)_Unwind_GetDataRelBase(context);
+      break;
+    default:
+      goto Lerr;
+  }
+
+  if (encoding & _DW_EH_Format.DW_EH_PE_indirect)
+    res = cast(size_t)*cast(void**)res;
+
+  return addr;
+
+Lerr:
+  fatalerror("Unsupported DWARF Exception Header value format");
+  return addr;
 }
 
 
@@ -285,7 +325,7 @@ struct _d_exception
 // the 8-byte string identifying the type of exception
 // the first 4 are for vendor, the second 4 for language
 //TODO: This may be the wrong way around
-char[8] _d_exception_class = "LLDCD1\0\0";
+char[8] _d_exception_class = "LLDCD2\0\0";
 
 
 //
@@ -384,7 +424,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   */
   ubyte* action_walker = action_table + action_offset - 1;
   
-  size_t ci_size = size_of_encoded_value(classinfo_table_encoding);
+  size_t ci_size = get_size_of_encoded_value(classinfo_table_encoding);
 
   ptrdiff_t ti_offset, next_action_offset;
   while(true) {
@@ -407,7 +447,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     // get classinfo for action and check if the one in the
     // exception structure is a base
     size_t catch_ci_ptr;
-    get_encoded_value(classinfo_table - ti_offset * ci_size, catch_ci_ptr, classinfo_table_encoding);
+    get_encoded_value(classinfo_table - ti_offset * ci_size, catch_ci_ptr, classinfo_table_encoding, context);
     ClassInfo catch_ci = cast(ClassInfo)cast(void*)catch_ci_ptr;
     debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
     if(_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
