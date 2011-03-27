@@ -305,11 +305,12 @@ if(PHOBOS2_DIR)
 		${DCRT_O}
 		${DCRT_C}
 	)
-    add_dependencies(phobos2 runtime)
+    add_dependencies(lphobos2 runtime)
     set_target_properties(
-        phobos2 PROPERTIES
+        lphobos2 PROPERTIES
         LINKER_LANGUAGE C
         ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
     )
+    add_custom_target(phobos2 DEPENDS lphobos2)
 endif(PHOBOS2_DIR)
