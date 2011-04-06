@@ -53,4 +53,45 @@ struct X87_complex_swap : ABIRewrite
     }
 };
 
+//////////////////////////////////////////////////////////////////////////////
+
+// FIXME: try into eliminating the alloca or if at least check
+// if it gets optimized away
+
+// convert byval struct
+// when
+struct X86_struct_to_register : ABIRewrite
+{
+    // int -> struct
+    LLValue* get(Type* dty, DValue* dv)
+    {
+        Logger::println("rewriting int -> struct");
+        LLValue* mem = DtoAlloca(dty, ".int_to_struct");
+        LLValue* v = dv->getRVal();
+        DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
+        return DtoLoad(mem);
+    }
+    // int -> struct (with dst lvalue given)
+    void getL(Type* dty, DValue* dv, llvm::Value* lval)
+    {
+        Logger::println("rewriting int -> struct");
+        LLValue* v = dv->getRVal();
+        DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));
+    }
+    // struct -> int
+    LLValue* put(Type* dty, DValue* dv)
+    {
+        Logger::println("rewriting struct -> int");
+        assert(dv->isLVal());
+        LLValue* mem = dv->getLVal();
+        const LLType* t = LLIntegerType::get(gIR->context(), dty->size()*8);
+        return DtoLoad(DtoBitCast(mem, getPtrToType(t)));
+    }
+    const LLType* type(Type* t, const LLType*)
+    {
+        size_t sz = t->size()*8;
+        return LLIntegerType::get(gIR->context(), sz);
+    }
+};
+
 #endif

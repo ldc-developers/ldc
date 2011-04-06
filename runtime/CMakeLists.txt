@@ -9,6 +9,10 @@ set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
 	list(APPEND D_FLAGS -relocation-model=pic)
+	set(D_LIBRARY_TYPE SHARED)
+else(BUILD_SHARED_LIBS)
+	set(D_LIBRARY_TYPE STATIC)
+	set(CXX_COMPILE_FLAGS " ")
 endif(BUILD_SHARED_LIBS)
 
 # build tango for D1, druntime for D2
@@ -81,12 +85,15 @@ elseif(D_VERSION EQUAL 2)
 		${RUNTIME_DC_DIR}/arrayfloat.d
 		${RUNTIME_DC_DIR}/arrayreal.d
 		${RUNTIME_DC_DIR}/arrayshort.d
+		${RUNTIME_DC_DIR}/critical_.d
 		${RUNTIME_DC_DIR}/deh.d
 		${RUNTIME_DC_DIR}/deh2.d
+		${RUNTIME_DC_DIR}/llmath.d
+		${RUNTIME_DC_DIR}/qsort2.d
 		${RUNTIME_DC_DIR}/trace.d
 	)
 	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c)
+	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
 	if(UNIX)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 	elseif(WIN32)
@@ -94,14 +101,10 @@ elseif(D_VERSION EQUAL 2)
 	elseif(APPLE)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 	endif(UNIX)
-	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} ${LDC_D}
-		${RUNTIME_DIR}/src/object_.d
-	)
+	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
+	set(GENERATE_DI ${CORE_D})
+	list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
-
-	set(IGNORE_DI
-		${RUNTIME_DIR}/src/object_.d
-	)
 
     if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
@@ -131,6 +134,9 @@ elseif(D_VERSION EQUAL 2)
                 ${PHOBOS2_DIR}/etc/c/zlib.d
                 ${PHOBOS2_DIR}/crc32.d
         )
+		list(REMOVE_ITEM PHOBOS2_D
+				${PHOBOS2_DIR}/std/intrinsic.d
+		)
         set(CONFIG_NAME ${LDC_EXE}_phobos)
     else(PHOBOS2_DIR)
         set(CONFIG_NAME ${LDC_EXE})
@@ -195,12 +201,13 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
 	list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
-	list(FIND IGNORE_DI "${INPUT_D}" INDEX)
+	list(FIND GENERATE_DI "${INPUT_D}" INDEX)
 	if (INDEX EQUAL -1)
-		string(REGEX REPLACE "^src/" "druntime/" di_output ${output})
-		set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+		set(DI_CMD "")
 	else (INDEX EQUAL -1)
-		list(REMOVE_AT IGNORE_DI ${INDEX})
+		string(REGEX REPLACE "^src/" "" di_output ${output})
+		set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+		list(REMOVE_AT GENERATE_DI ${INDEX})
 	endif (INDEX EQUAL -1)
 
 	# Compile
@@ -233,12 +240,12 @@ foreach(f ${DCRT_D})
 endforeach(f)
 
 if(BUILD_SINGLE_LIB)
-	add_library(${RUNTIME_AIO} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
+	add_library(${RUNTIME_AIO} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
 	set(LIBS ${RUNTIME_AIO})
 else(BUILD_SINGLE_LIB)
-	add_library(${RUNTIME_CC} ${CORE_O} ${CORE_C})
-	add_library(${RUNTIME_GC} ${GC_O})
-	add_library(${RUNTIME_DC} ${DCRT_O} ${DCRT_C})
+	add_library(${RUNTIME_CC} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
+	add_library(${RUNTIME_GC} ${D_LIBRARY_TYPE} ${GC_O})
+	add_library(${RUNTIME_DC} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
 	set(LIBS
 		${RUNTIME_CC}
 		${RUNTIME_GC}
@@ -289,12 +296,21 @@ if(PHOBOS2_DIR)
          dc(${f} PHOBOS2_O PHOBOS2_BC ${RUNTIME_DIR}/src/ "-I${PHOBOS2_DIR}" ${PHOBOS2_DIR})
     endforeach(f)
 
-    add_library(phobos2 ${ZLIB_C} ${PHOBOS2_O} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
-    add_dependencies(phobos2 runtime)
+	add_library(lphobos2 ${D_LIBRARY_TYPE}
+		${ZLIB_C}
+		${PHOBOS2_O}
+		${CORE_O}
+		${CORE_C}
+		${GC_O}
+		${DCRT_O}
+		${DCRT_C}
+	)
+    add_dependencies(lphobos2 runtime)
     set_target_properties(
-        phobos2 PROPERTIES
+        lphobos2 PROPERTIES
         LINKER_LANGUAGE C
         ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
     )
+    add_custom_target(phobos2 DEPENDS lphobos2)
 endif(PHOBOS2_DIR)
