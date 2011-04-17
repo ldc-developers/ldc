@@ -23,14 +23,14 @@ BASEPATH=`pwd`
 cd dstress
 
 # remove excessive tests
-sed -e 's/torture-//g' -i Makefile
+sed -e 's/torture-//g' -i '' Makefile
 
 # make sure only .d files in 'run' tests are run
-sed -e 's/find run -type f |/find run -type f -name "*\\\\.d" |/' -i Makefile
-sed -e 's/find norun -type f |/find norun -type f -name "*\\\\.d" |/' -i Makefile
+sed -e 's/find run -type f |/find run -type f -name "*\\\\.d" |/' -i '' Makefile
+sed -e 's/find norun -type f |/find norun -type f -name "*\\\\.d" |/' -i '' Makefile
 
 # impose more conservative constraints (10s and 256 MB)
-sed -e 's/crashRun 30 1000/crashRun 10 256/' -i dstress.c
+sed -e 's/crashRun 30 1000/crashRun 10 256/' -i '' dstress.c
 
 echo
 echo "Running new test and storing result in $TARGETFILE ..."

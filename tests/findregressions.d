@@ -76,9 +76,9 @@ private{
 		extern(Windows) BOOL GetFileTime(HANDLE hFile, LPFILETIME lpCreationTime, LPFILETIME lpLastAccessTime, LPFILETIME lpLastWriteTime);
 	}else version(linux){
 		import std.c.linux.linux;
-		version = Unix;
-	}else version(Unix){
-		import std.c.unix.unix;
+		version = Posix;
+	}else version(Posix){
+		import std.c.posix.posix;
 	}else{
 		static assert(0);
 	}
@@ -116,7 +116,7 @@ private{
 err:
 			CloseHandle(h);
 			throw new Exception("failed to query file modification : "~fileName);
-		}else version(Unix){
+		}else version(Posix){
 			char* namez = toStringz(fileName);
 			struct_stat statbuf;
 		
@@ -124,7 +124,11 @@ err:
 				throw new FileException(fileName, getErrno());
 			}
 
-			return statbuf.st_mtime;
+			version(linux){
+				return statbuf.st_mtime;
+			}else version(OSX){
+				return statbuf.st_mtimespec.tv_sec;
+			}
 		}else{
 			static assert(0);
 		}
