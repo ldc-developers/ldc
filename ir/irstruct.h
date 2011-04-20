@@ -32,7 +32,7 @@ struct IrStruct : IrBase
     bool packed;
 
     /// Composite type debug description.
-    llvm::DICompositeType diCompositeType;
+    llvm::DIType diCompositeType;
 
     //////////////////////////////////////////////////////////////////////////
 

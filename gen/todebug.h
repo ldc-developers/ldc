@@ -8,9 +8,8 @@ void RegisterDwarfSymbols(llvm::Module* mod);
 /**
  * Emit the Dwarf compile_unit global for a Module m.
  * @param m
- * @return the Dwarf compile_unit.
  */
-llvm::DICompileUnit DtoDwarfCompileUnit(Module* m);
+void DtoDwarfCompileUnit(Module* m);
 
 /**
  * Emit the Dwarf subprogram global for a function declaration fd.

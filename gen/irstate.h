@@ -13,6 +13,7 @@
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
 
+#include "llvm/Analysis/DIBuilder.h"
 #include "llvm/Support/CallSite.h"
 
 namespace llvm {
@@ -157,7 +158,7 @@ struct IRState
     IRBuilderHelper ir;
 
     // debug info helper
-    llvm::DIFactory difactory;
+    llvm::DIBuilder dibuilder;
 
     // static ctors/dtors/unittests
     typedef std::list<FuncDeclaration*> FuncDeclList;

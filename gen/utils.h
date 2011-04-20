@@ -19,14 +19,14 @@ struct ArrayIter
 
     ArrayIter<C>& operator=(const Array& arr)
     {
-        array = &arr;
+        array = const_cast<Array*>(&arr);
         index = 0;
         return *this;
     }
     ArrayIter<C>& operator=(const Array* arr)
     {
         assert(arr && "null array");
-        array = arr;
+        array = const_cast<Array*>(arr);
         index = 0;
         return *this;
     }
