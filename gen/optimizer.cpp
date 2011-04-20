@@ -124,7 +124,11 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createPruneEHPass());
-        addPass(pm, createFunctionAttrsPass());
+        
+        // FIXME: Adding this pass crashes LLVM 2.9 in
+        // PMTopLevelManager::schedulePass(), commented out for a quick fix.
+        // addPass(pm, createFunctionAttrsPass());
+
         addPass(pm, createTailCallEliminationPass());
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createGVNPass());
