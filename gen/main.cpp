@@ -7,6 +7,7 @@
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
+#include "llvm/System/Signals.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -157,6 +158,15 @@ int main(int argc, char** argv)
     VersionCondition::addPredefinedGlobalIdent("all");
 #if DMDV2
     VersionCondition::addPredefinedGlobalIdent("D_Version2");
+#endif
+
+    // merge DFLAGS environment variable into argc/argv
+    getenv_setargv("DFLAGS", &argc, &argv);
+#if 0
+    for (int i = 0; i < argc; i++)
+    {
+    printf("argv[%d] = '%s'\n", i, argv[i]);
+    }
 #endif
 
     // build complete fixed up list of command line arguments

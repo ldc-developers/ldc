@@ -57,7 +57,7 @@ IRTargetScope::IRTargetScope(Statement* s, EnclosingHandler* enclosinghandler, l
 
 //////////////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(llvm::Module* m)
-    : module(m), dibuilder(*m)
+    : module(m), difactory(*m)
 {
     interfaceInfoType = NULL;
     mutexType = NULL;

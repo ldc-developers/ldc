@@ -1,7 +1,7 @@
 #include "gen/programs.h"
 
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Program.h"
+#include "llvm/System/Program.h"
 
 #include "root.h"       // error(char*)
 #include "mars.h"       // fatal()

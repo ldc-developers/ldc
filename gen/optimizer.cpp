@@ -183,6 +183,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createLoopRotatePass());
         addPass(pm, createLICMPass());
         addPass(pm, createLoopUnswitchPass());
+        addPass(pm, createLoopIndexSplitPass());
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createIndVarSimplifyPass());
         addPass(pm, createLoopDeletionPass());

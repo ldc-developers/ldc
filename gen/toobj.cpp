@@ -16,7 +16,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
-#include "llvm/Support/Program.h"
+#include "llvm/System/Program.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
@@ -200,7 +200,7 @@ void writeModule(llvm::Module* m, std::string filename)
         LOG_SCOPE;
         if (llvm::verifyModule(*m,llvm::ReturnStatusAction,&verifyErr))
         {
-            error("%s", verifyErr.c_str());
+            //error("%s", verifyErr.c_str());
             fatal();
         }
         else {

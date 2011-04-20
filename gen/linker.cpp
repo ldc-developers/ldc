@@ -1,7 +1,7 @@
 #include "gen/linker.h"
 #include "gen/llvm.h"
 #include "llvm/Linker.h"
-#include "llvm/Support/Program.h"
+#include "llvm/System/Program.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #endif
