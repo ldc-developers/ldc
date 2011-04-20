@@ -7,6 +7,7 @@
 #include "gen/tollvm.h"
 #include "gen/functions.h"
 
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
 namespace cl = llvm::cl;
 
@@ -437,7 +438,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                     assert(vd->ir.irLocal->value);
                     LLValue* value = vd->ir.irLocal->value;
                     const LLType* type = value->getType();
-                    if (llvm::isa<llvm::AllocaInst>(value->getUnderlyingObject()))
+                    if (llvm::isa<llvm::AllocaInst>(llvm::GetUnderlyingObject(value)))
                         // This will be copied to the nesting frame.
                         type = type->getContainedType(0);
                     types.push_back(type);
@@ -631,7 +632,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     Logger::println("nested param: %s", vd->toChars());
                     LOG_SCOPE
                     LLValue* value = vd->ir.irLocal->value;
-                    if (llvm::isa<llvm::AllocaInst>(value->getUnderlyingObject())) {
+                    if (llvm::isa<llvm::AllocaInst>(llvm::GetUnderlyingObject(value))) {
                         Logger::println("Copying to nested frame");
                         // The parameter value is an alloca'd stack slot.
                         // Copy to the nesting frame and leave the alloca for

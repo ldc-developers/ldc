@@ -3,7 +3,7 @@
 #include <cassert>
 #include <cstring>
 
-#include "llvm/System/Path.h"
+#include "llvm/Support/Path.h"
 
 #include "libconfig.h++"
 

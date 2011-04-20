@@ -13,7 +13,6 @@ struct IrModule : IrBase
     Module* M;
 
     LLGlobalVariable* fileName;
-    llvm::DICompileUnit diCompileUnit;
 };
 
 #endif
