@@ -51,7 +51,7 @@ static llvm::DIType dwarfTypeDescription(Type* type, const char* c_name);
 
 llvm::DIFile DtoDwarfFile(Loc loc)
 {
-    llvm::SmallString<128> path(loc.filename);
+    llvm::SmallString<128> path(loc.filename ? loc.filename : "");
     llvm::sys::fs::make_absolute(path);
 
     return gIR->dibuilder.createFile(
