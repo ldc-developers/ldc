@@ -1925,6 +1925,7 @@ struct LineInitExp : DefaultInitExp
 
 // this stuff is strictly LDC
 
+// Special expression to represent a LLVM GetElementPtr instruction.
 struct GEPExp : UnaExp
 {
     unsigned index;

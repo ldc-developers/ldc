@@ -5625,6 +5625,11 @@ void initPrecedence()
 
     precedence[TOKcomma] = PREC_expr;
     precedence[TOKdeclaration] = PREC_expr;
+    
+#if IN_LLVM
+    // Need to set precedence for TOKgep as well, as expToCBuffer expects it.
+    precedence[TOKgep] = PREC_primary;
+#endif
 }
 
 
