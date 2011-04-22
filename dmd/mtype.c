@@ -2413,6 +2413,7 @@ Type *TypeAArray::semantic(Loc loc, Scope *sc)
     switch (next->toBasetype()->ty)
     {
         case Tfunction:
+        case Tvoid:
         case Tnone:
             error(loc, "can't have associative array of %s", next->toChars());
             break;
