@@ -1571,6 +1571,7 @@ void IntegerExp::toMangleBuffer(OutBuffer *buf)
 ErrorExp::ErrorExp()
     : IntegerExp(0, 0, Type::terror)
 {
+    op = TOKerror;
 }
 
 void ErrorExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -4948,14 +4949,16 @@ Expression *BinExp::semantic(Scope *sc)
         !(op == TOKassign && e1->op == TOKdottd))       // a.template = e2
     {
         error("%s has no value", e1->toChars());
-        e1->type = Type::terror;
+        e1 = new ErrorExp();
     }
     e2 = e2->semantic(sc);
     if (!e2->type)
     {
         error("%s has no value", e2->toChars());
-        e2->type = Type::terror;
+        e2 = new ErrorExp();
     }
+    if (e1->op == TOKerror || e2->op == TOKerror)
+        return new ErrorExp();
     return this;
 }
 
@@ -7902,6 +7905,8 @@ Expression *IndexExp::semantic(Scope *sc)
     if (!e1->type)
         e1 = e1->semantic(sc);
     assert(e1->type);           // semantic() should already be run on it
+    if (e1->op == TOKerror)
+        goto Lerr;
     e = this;
 
     // Note that unlike C we do not implement the int[ptr]
@@ -8007,6 +8012,8 @@ Expression *IndexExp::semantic(Scope *sc)
         }
 
         default:
+            if (e1->op == TOKerror)
+                goto Lerr;
             error("%s must be an array or pointer type, not %s",
                 e1->toChars(), e1->type->toChars());
         case Terror:
@@ -8212,7 +8219,9 @@ Expression *AssignExp::semantic(Scope *sc)
         }
     }
 
-    BinExp::semantic(sc);
+    Expression *e = BinExp::semantic(sc);
+    if (e->op == TOKerror)
+        return e;
 
     if (e1->op == TOKdottd)
     {   // Rewrite a.b=e2, when b is a template, as a.b(e2)

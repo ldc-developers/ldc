@@ -253,7 +253,7 @@ void Type::init()
           Tfloat32, Tfloat64, Tfloat80,
           Timaginary32, Timaginary64, Timaginary80,
           Tcomplex32, Tcomplex64, Tcomplex80,
-          Tbit, Tbool,
+          Tbool,
           Tascii, Twchar, Tdchar };
 
     for (i = 0; i < sizeof(basetab) / sizeof(basetab[0]); i++)
@@ -690,10 +690,13 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
             s = toDsymbol(NULL);
         if (s)
             s = s->search_correct(ident);
-        if (s)
-            error(loc, "no property '%s' for type '%s', did you mean '%s'?", ident->toChars(), toChars(), s->toChars());
-        else
-            error(loc, "no property '%s' for type '%s'", ident->toChars(), toChars());
+        if (this != Type::terror)
+        {
+            if (s)
+                error(loc, "no property '%s' for type '%s', did you mean '%s'?", ident->toChars(), toChars(), s->toChars());
+            else
+                error(loc, "no property '%s' for type '%s'", ident->toChars(), toChars());
+        }
         e = new ErrorExp();
     }
     return e;
@@ -1012,6 +1015,7 @@ TypeBasic::TypeBasic(TY ty)
         case Tbit:      d = Token::toChars(TOKbit);
                         c = "bit";
                         flags |= TFLAGSintegral | TFLAGSunsigned;
+assert(0);
                         break;
 
         case Tbool:     d = "bool";
