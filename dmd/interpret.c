@@ -1334,6 +1334,11 @@ Expression *DeclarationExp::interpret(InterState *istate)
                 e = ie->exp->interpret(istate);
             else if (v->init->isVoidInitializer())
                 e = NULL;
+            else
+            {
+                error("Declaration %s is not yet implemented in CTFE", toChars());
+                e = EXP_CANT_INTERPRET;
+            }
         }
 #if DMDV2
         else if (s == v && (v->isConst() || v->isImmutable()) && v->init)
@@ -1346,13 +1351,19 @@ Expression *DeclarationExp::interpret(InterState *istate)
             else if (!e->type)
                 e->type = v->type;
         }
+        else if (s->isTupleDeclaration() && !v->init)
+            e = NULL;
+        else
+	    {
+	        error("Declaration %s is not yet implemented in CTFE", toChars());
+	        e = EXP_CANT_INTERPRET;
+	    }
     }
     else if (declaration->isAttribDeclaration() ||
              declaration->isTemplateMixin() ||
              declaration->isTupleDeclaration())
     {   // These can be made to work, too lazy now
-    error("Declaration %s is not yet implemented in CTFE", toChars());
-
+        error("Declaration %s is not yet implemented in CTFE", toChars());
         e = EXP_CANT_INTERPRET;
     }
     else
