@@ -52,6 +52,7 @@
 #include "import.h"
 #include "aggregate.h"
 #include "hdrgen.h"
+#include "doc.h"
 
 #if IN_LLVM
 //#include "gen/tollvm.h"
@@ -5714,7 +5715,12 @@ void Parameter::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *argu
             if (arg->defaultArg)
             {
                 argbuf.writestring(" = ");
+                unsigned o = argbuf.offset;
                 arg->defaultArg->toCBuffer(&argbuf, hgs);
+                if(hgs->ddoc)
+                {
+                    escapeDdocString(&argbuf, o);
+                }
             }
             buf->write(&argbuf);
         }
