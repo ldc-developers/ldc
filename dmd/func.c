@@ -1482,7 +1482,8 @@ void FuncDeclaration::semantic3(Scope *sc)
             // wrap body of synchronized functions in a synchronized statement
             if (isSynchronized())
             {
-                ClassDeclaration *cd = parent->isClassDeclaration();
+                AggregateDeclaration *ad = isThis();
+                ClassDeclaration *cd = ad ? ad->isClassDeclaration() : NULL;
                 if (!cd)
                     error("synchronized function %s must be a member of a class", toChars());
 
