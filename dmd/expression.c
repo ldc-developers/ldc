@@ -8609,14 +8609,6 @@ Expression *CatAssignExp::semantic(Scope *sc)
         e2 = e2->castTo(sc, e1->type);
         type = e1->type;
         e = this;
-    }
-    else if ((tb1->ty == Tarray) &&
-        e2->implicitConvTo(tb1next)
-       )
-    {   // Append element
-        e2 = e2->castTo(sc, tb1next);
-        type = e1->type;
-        e = this;
 // Reenable when _d_arrayappendwd and cd are in the runtime.
 /*    }
 
@@ -8632,6 +8624,14 @@ Expression *CatAssignExp::semantic(Scope *sc)
         /* Do not allow appending wchar to char[] because if wchar happens
          * to be a surrogate pair, nothing good can result.
          */
+    }
+    else if ((tb1->ty == Tarray) &&
+        e2->implicitConvTo(tb1next)
+       )
+    {   // Append element
+        e2 = e2->castTo(sc, tb1next);
+        type = e1->type;
+        e = this;
     }
     else
     {
