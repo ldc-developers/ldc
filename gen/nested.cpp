@@ -247,9 +247,9 @@ void DtoNestedInit(VarDeclaration* vd)
 }
 
 #if DMDV2
-LLValue* DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value)
+void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value)
 #else
-LLValue* DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value)
+void DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value)
 #endif
 {
     Logger::println("Resolving nested context");
