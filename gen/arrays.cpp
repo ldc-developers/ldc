@@ -1306,9 +1306,9 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
 
             assert(isaPointer(uval->getType()));
-            const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
-
-            /*if(arrty->getNumElements()*fromtype->nextOf()->size() != tosize*totype->nextOf()->size())
+            
+            /*const LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
+            if(arrty->getNumElements()*fromtype->nextOf()->size() != tosize*totype->nextOf()->size())
             {
                 error(loc, "invalid cast from '%s' to '%s', the sizes are not the same", fromtype->toChars(), totype->toChars());
                 fatal();

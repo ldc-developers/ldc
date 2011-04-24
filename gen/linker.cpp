@@ -117,7 +117,6 @@ int linkExecutable(const char* argv0)
         args.push_back("-disable-opt");
     else
     {
-        const char* s = 0;
         switch(optLevel())
         {
         case 0:

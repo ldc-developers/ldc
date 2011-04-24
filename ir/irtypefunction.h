@@ -3,7 +3,7 @@
 
 #include "ir/irtype.h"
 
-class IrFuncTy;
+struct IrFuncTy;
 
 ///
 class IrTypeFunction : public IrType

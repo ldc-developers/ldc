@@ -303,7 +303,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         return llvm::UndefValue::get(getVoidPtrType());
     }
     if (nestedCtx == NCHybrid) {
-        class FuncDeclaration* fd = 0;
+        struct FuncDeclaration* fd = 0;
     #if DMDV2
         if (AggregateDeclaration *ad = sym->isAggregateDeclaration())
             // If sym is a nested struct or a nested class, pass the frame
@@ -499,7 +499,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                         if (parfd->isStatic())
                             break;
                     }
-                    else if (ClassDeclaration* parcd = par->isClassDeclaration())
+                    else if (par->isClassDeclaration())
                     {
                         // nothing needed
                     }

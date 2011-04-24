@@ -279,8 +279,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
 static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 {
-    TypeFunction* f = (TypeFunction*)fdecl->type->toBasetype();
-    const llvm::FunctionType* fty = DtoVaFunctionType(fdecl);
+    DtoVaFunctionType(fdecl);
     llvm::Function* func = 0;
 
     if (fdecl->llvmInternal == LLVMva_start)
@@ -370,8 +369,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    int funcNumArgs = func->getArgumentList().size();
-
     LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
     llvm::AttributeWithIndex PAWI;
 
@@ -648,7 +645,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // assert(f->irtype);
 
     llvm::Function* func = fd->ir.irFunc->func;
-    const llvm::FunctionType* functype = func->getFunctionType();
 
     // sanity check
     assert(mustDefineSymbol(fd));

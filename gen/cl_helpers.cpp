@@ -10,13 +10,6 @@
 
 namespace opts {
 
-// Helper function
-static char toLower(char c) {
-    if (isupper(c))
-        return tolower(c);
-    return c;
-}
-
 bool FlagParser::parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, bool &Val) {
     // Make a std::string out of it to make comparisons easier
     // (and avoid repeated conversion)
@@ -55,7 +48,7 @@ MultiSetter::MultiSetter(bool invert, bool* p, ...) {
         locations.push_back(p);
         va_list va;
         va_start(va, p);
-        while (p = va_arg(va, bool*)) {
+        while ((p = va_arg(va, bool*))) {
             locations.push_back(p);
         }
     }

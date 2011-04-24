@@ -293,7 +293,6 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             // get the from class
             ClassDeclaration* cd = fc->sym->isClassDeclaration();
             DtoResolveClass(cd); // add this
-            IrStruct* irstruct = cd->ir.irStruct;
             IrTypeClass* typeclass = fc->irtype->isClass();
 
             // find interface impl
@@ -332,7 +331,6 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     // x -> class
     else {
         Logger::println("to class");
-        int poffset;
         // interface -> class
         if (fc->sym->isInterfaceDeclaration()) {
             Logger::println("interface cast");

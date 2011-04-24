@@ -906,8 +906,6 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->loc.toChars());
     LOG_SCOPE;
 
-    Dsymbol* par = vd->toParent();
-
     // build the initializer
     LLConstant* initVal = DtoConstInitializer(vd->loc, vd->type, vd->init);
 
@@ -922,8 +920,6 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     glob->constInit = initVal;
 
     // assign the initializer
-    llvm::GlobalVariable* globalvar = llvm::cast<llvm::GlobalVariable>(glob->value);
-
     if (!(vd->storage_class & STCextern) && mustDefineSymbol(vd))
     {
         if (Logger::enabled())
@@ -1040,7 +1036,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             if (Logger::enabled())
                 Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
             if (!vd->isRef())
-                DValue* ie = DtoInitializer(vd->ir.irLocal->value, vd->init);
+                DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
         }
 
         return new DVarValue(vd->type, vd, vd->ir.getIrValue());
@@ -1058,13 +1054,13 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         f->codegen(Type::sir);
     }
     // alias declaration
-    else if (AliasDeclaration* a = declaration->isAliasDeclaration())
+    else if (declaration->isAliasDeclaration())
     {
         Logger::println("AliasDeclaration - no work");
         // do nothing
     }
     // enum
-    else if (EnumDeclaration* e = declaration->isEnumDeclaration())
+    else if (declaration->isEnumDeclaration())
     {
         Logger::println("EnumDeclaration - no work");
         // do nothing
@@ -1144,7 +1140,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     assert(!var->aliassym);
 
     // alloca if necessary
-    LLValue* allocaval = NULL;
     if (!addr && (!var->ir.irLocal || !var->ir.irLocal->value))
     {
         addr = DtoAlloca(var->type, var->toChars());
@@ -1459,7 +1454,6 @@ bool mustDefineSymbol(Dsymbol* s)
             // so they shouldn't end up in object code.
 
             assert(fd->type->ty == Tfunction);
-            TypeFunction* tf = (TypeFunction*) fd->type;
             // * If we define extra static constructors, static destructors
             //   and unittests they'll get registered to run, and we won't
             //   be calling them directly anyway.
@@ -1706,7 +1700,7 @@ LLValue* makeLValue(Loc& loc, DValue* value)
         valuePointer = value->getRVal();
         needsMemory = !DtoIsPassedByRef(valueType);
     }
-    else if (DVarValue* var = value->isVar()) {
+    else if (value->isVar()) {
         valuePointer = value->getLVal();
         needsMemory = false;
     }

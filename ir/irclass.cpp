@@ -374,7 +374,6 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
 
     // start with the interface info
     VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
-    Type* first = interfaces_idx->type->nextOf()->pointerTo();
 
     // index into the interfaces array
     llvm::Constant* idxs[2] = {
@@ -474,8 +473,6 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     const LLType* classinfo_type = DtoType(ClassDeclaration::classinfo->type);
     const LLType* voidptrptr_type = DtoType(
         Type::tvoid->pointerTo()->pointerTo());
-
-    const LLType* our_type = stripModifiers(type)->irtype->isClass()->getPA().get();
 
     for (size_t i = 0; i < n; ++i)
     {

@@ -635,9 +635,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             // Arguments that are in memory are of no interest to us.
             if (arg.byref)
                 continue;
-            
-            Type* ty = arg.type->toBasetype();
-            
+ 
             fixup(arg);
             if (Logger::enabled())
                 Logger::cout() << "New arg type: " << *arg.ltype << '\n';

@@ -22,7 +22,6 @@ const llvm::StructType* DtoComplexType(Type* type)
 const LLType* DtoComplexBaseType(Type* t)
 {
     TY ty = t->toBasetype()->ty;
-    const LLType* base;
     if (ty == Tcomplex32) {
         return LLType::getFloatTy(gIR->context());
     }
@@ -46,11 +45,7 @@ LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
 {
     TY ty = _ty->toBasetype()->ty;
 
-    llvm::ConstantFP* fre;
-    llvm::ConstantFP* fim;
-
     Type* base = 0;
-
     if (ty == Tcomplex32) {
         base = Type::tfloat32;
     }
@@ -132,8 +127,6 @@ void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im)
 
 void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, LLValue*& re, LLValue*& im)
 {
-    const LLType* base = DtoComplexBaseType(to);
-
     Type* baserety;
     Type* baseimty;
     TY ty = to->toBasetype()->ty;
@@ -403,7 +396,7 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
 {
     Type* type = lhs->getType();
 
-    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
+    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im;
 
     // lhs values
     DtoGetComplexParts(loc, type, lhs, lhs_re, lhs_im);

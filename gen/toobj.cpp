@@ -812,5 +812,5 @@ void Module::genmoduleinfo()
     std::vector<LLConstant*> appendInits(1, magicinit);
     LLConstant* appendInit = LLConstantArray::get(appendArrTy, appendInits);
     std::string appendName("llvm.global_ctors");
-    llvm::GlobalVariable* appendVar = new llvm::GlobalVariable(*gIR->module, appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName);
+    new llvm::GlobalVariable(*gIR->module, appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName);
 }

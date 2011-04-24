@@ -91,8 +91,8 @@ struct IRAsmBlock
     LLValue* (*retfixup)(IRBuilderHelper b, LLValue* orig); // Modifies retval
 
     IRAsmBlock(AsmBlockStatement* b)
-        : asmBlock(b), retty(NULL), retn(0), retemu(false), retfixup(NULL),
-          outputcount(0)
+        : outputcount(0), asmBlock(b), retty(NULL), retn(0), retemu(false),
+        retfixup(NULL)
     {}
 };
 

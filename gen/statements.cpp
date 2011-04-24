@@ -260,7 +260,7 @@ void IfStatement::toIR(IRState* p)
             Logger::cout() << "if conditional: " << *cond_val << '\n';
         cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
     }
-    LLValue* ifgoback = llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
+    llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
 
     // replace current scope
     gIR->scope() = IRScope(ifbb,elsebb);
@@ -352,7 +352,7 @@ void WhileStatement::toIR(IRState* p)
     delete cond_e;
 
     // conditional branch
-    LLValue* ifbreak = llvm::BranchInst::Create(whilebodybb, endbb, cond_val, p->scopebb());
+    llvm::BranchInst::Create(whilebodybb, endbb, cond_val, p->scopebb());
 
     // rewrite scope
     gIR->scope() = IRScope(whilebodybb,endbb);
@@ -412,7 +412,7 @@ void DoStatement::toIR(IRState* p)
     delete cond_e;
 
     // conditional branch
-    LLValue* ifbreak = llvm::BranchInst::Create(dowhilebb, endbb, cond_val, gIR->scopebb());
+    llvm::BranchInst::Create(dowhilebb, endbb, cond_val, gIR->scopebb());
 
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
@@ -520,7 +520,7 @@ void BreakStatement::toIR(IRState* p)
         // get the loop statement the label refers to
         Statement* targetLoopStatement = target->statement;
         ScopeStatement* tmp;
-        while(tmp = targetLoopStatement->isScopeStatement())
+        while((tmp = targetLoopStatement->isScopeStatement()))
             targetLoopStatement = tmp->statement;
 
         // find the right break block and jump there
@@ -577,7 +577,7 @@ void ContinueStatement::toIR(IRState* p)
         // get the loop statement the label refers to
         Statement* targetLoopStatement = target->statement;
         ScopeStatement* tmp;
-        while(tmp = targetLoopStatement->isScopeStatement())
+        while((tmp = targetLoopStatement->isScopeStatement()))
             targetLoopStatement = tmp->statement;
 
         // find the right continue block and jump there
@@ -1178,7 +1178,6 @@ void ForeachStatement::toIR(IRState* p)
 
     // what to iterate
     DValue* aggrval = aggr->toElem(p);
-    Type* aggrtype = aggr->type->toBasetype();
 
     // get length and pointer
     LLValue* niters = DtoArrayLen(aggrval);
@@ -1196,7 +1195,6 @@ void ForeachStatement::toIR(IRState* p)
             niters = gIR->ir->CreateBitCast(niters, keytype, "foreachtrunckey");
     }
 
-    LLConstant* delta = 0;
     if (op == TOKforeach) {
         new llvm::StoreInst(zerokey, keyvar, p->scopebb());
     }
@@ -1231,7 +1229,6 @@ void ForeachStatement::toIR(IRState* p)
     p->scope() = IRScope(bodybb,nextbb);
 
     // get value for this iteration
-    LLConstant* zero = LLConstantInt::get(keytype,0,false);
     LLValue* loadedKey = p->ir->CreateLoad(keyvar,"tmp");
     LLValue* gep = DtoGEP1(val,loadedKey);
 

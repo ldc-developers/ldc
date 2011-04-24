@@ -681,7 +681,6 @@ DValue* AddExp::toElem(IRState* p)
 
     Type* t = type->toBasetype();
     Type* e1type = e1->type->toBasetype();
-    Type* e1next = e1type->nextOf() ? e1type->nextOf()->toBasetype() : NULL;
     Type* e2type = e2->type->toBasetype();
 
     errorOnIllegalArrayOp(this, e1, e2);
@@ -863,7 +862,6 @@ DValue* CallExp::toElem(IRState* p)
     DFuncValue* dfnval = fnval->isFunc();
 
     // handle magic intrinsics (mapping to instructions)
-    bool va_intrinsic = false;
     if (dfnval && dfnval->func)
     {
         FuncDeclaration* fndecl = dfnval->func;
@@ -1017,7 +1015,7 @@ DValue* AddrExp::toElem(IRState* p)
         fd->codegen(Type::sir);
         return new DFuncValue(fd, fd->ir.irFunc->func);
     }
-    else if (DImValue* im = v->isIm()) {
+    else if (v->isIm()) {
         Logger::println("is immediate");
         return v;
     }
@@ -1189,7 +1187,6 @@ DValue* DotVarExp::toElem(IRState* p)
 
     DValue* l = e1->toElem(p);
 
-    Type* t = type->toBasetype();
     Type* e1type = e1->type->toBasetype();
 
     //Logger::println("e1type=%s", e1type->toChars());
@@ -1335,7 +1332,6 @@ DValue* IndexExp::toElem(IRState* p)
     p->arrays.pop_back();
 
     LLValue* zero = DtoConstUint(0);
-    LLValue* one = DtoConstUint(1);
 
     LLValue* arrptr = 0;
     if (e1type->ty == Tpointer) {
@@ -1485,7 +1481,6 @@ DValue* CmpExp::toElem(IRState* p)
     DValue* r = e2->toElem(p);
 
     Type* t = e1->type->toBasetype();
-    Type* e2t = e2->type->toBasetype();
 
     LLValue* eval = 0;
 
@@ -1610,8 +1605,6 @@ DValue* EqualExp::toElem(IRState* p)
     LLValue* rv = r->getRVal();
 
     Type* t = e1->type->toBasetype();
-    Type* e2t = e2->type->toBasetype();
-    //assert(t == e2t);
 
     LLValue* eval = 0;
 
@@ -1683,7 +1676,7 @@ DValue* PostExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
+    e2->toElem(p);
 
     LLValue* val = l->getRVal();
     LLValue* post = 0;
@@ -2305,7 +2298,7 @@ DValue* CommaExp::toElem(IRState* p)
         return new DVarValue(type, V);
     }
 
-    DValue* u = e1->toElem(p);
+    e1->toElem(p);
     DValue* v = e2->toElem(p);
     assert(e2->type == type);
     return v;
@@ -2407,8 +2400,6 @@ DValue* CatExp::toElem(IRState* p)
 {
     Logger::print("CatExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
-
-    Type* t = type->toBasetype();
 
     bool arrNarr = e1->type->toBasetype() == e2->type->toBasetype();
 
