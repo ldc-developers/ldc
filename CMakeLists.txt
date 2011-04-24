@@ -166,12 +166,11 @@ set_source_files_properties(
     COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
 )
 
-
-file(GLOB FE_SRC ${DMDFE_PATH}/*.c)
-file(GLOB FE_SRC_ROOT ${DMDFE_PATH}/root/*.c)
-file(GLOB_RECURSE GEN_HDR gen/*.h)
-file(GLOB_RECURSE GEN_SRC gen/*.cpp)
-file(GLOB IR_SRC ir/*.cpp)
+# Also add the header files to the build so that they are available in IDE
+# project files generated via CMake.
+file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c ${DMDFE_PATH}/*.h)
+file(GLOB_RECURSE GEN_SRC gen/*.cpp gen/*.h)
+file(GLOB IR_SRC ir/*.cpp ir/*.h)
 # exclude idgen and impcnvgen and generated sources, just in case
 list(REMOVE_ITEM FE_SRC
 	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
@@ -182,9 +181,7 @@ list(REMOVE_ITEM FE_SRC
 set(LDC_SOURCE_FILES
 	${LDC_GENERATED}
 	${FE_SRC}
-	${FE_SRC_ROOT}
 	${GEN_SRC}
-	${GEN_HDR}
 	${IR_SRC}
 )
 set_source_files_properties(
