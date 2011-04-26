@@ -50,7 +50,7 @@ if(D_VERSION EQUAL 1)
 	set(RUNTIME_CC tango-cc-tango)
 	set(RUNTIME_GC tango-gc-basic)
 	set(RUNTIME_DC ldc-runtime)
-	set(RUNTIME_AIO tango-user-ldc)
+	set(RUNTIME_AIO tango)
 	# set paths to source files, or fill lists directly
 	set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
 	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
