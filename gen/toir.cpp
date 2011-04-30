@@ -2095,7 +2095,7 @@ DValue* OrOrExp::toElem(IRState* p)
     DValue* v = e2->toElem(p);
 
     LLValue* vbool = 0;
-    if (!v->isFunc() && v->getType() != Type::tvoid)
+    if (v && !v->isFunc() && v->getType() != Type::tvoid)
     {
         vbool = DtoCast(loc, v, Type::tbool)->getRVal();
     }
