@@ -139,11 +139,17 @@ static LLValue *fixArgument(DValue *argval, TypeFunction* tf, const LLType *call
     }
 #endif
 
-    // Hack around LDC assuming structs are in memory:
+    // Hack around LDC assuming structs and static arrays are in memory:
     // If the function wants a struct, and the argument value is a
     // pointer to a struct, load from it before passing it in.
-    if (argval->getType()->ty == Tstruct
-            && isaPointer(arg) && !isaPointer(callableArgType)) {
+    int ty = argval->getType()->toBasetype()->ty;
+    if (isaPointer(arg) && !isaPointer(callableArgType) &&
+#if DMDV2
+        (ty == Tstruct || ty == Tsarray))
+#else
+        ty == Tstruct)
+#endif
+    {
         Logger::println("Loading struct type for function argument");
         arg = DtoLoad(arg);
     }
@@ -586,7 +592,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // If the function returns a struct or a static array, and the return
     // value is not a pointer to a struct or a static array, store it to
     // a stack slot before continuing.
-    int ty = tf->next->ty;
+    int ty = tf->next->toBasetype()->ty;
     if ((ty == Tstruct && !isaPointer(retllval))
 #if DMDV2
         || (ty == Tsarray && isaArray(retllval))

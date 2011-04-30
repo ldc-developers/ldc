@@ -144,8 +144,11 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         // get argument
         Parameter* arg = Parameter::getNth(f->parameters, i);
 
-        // reference semantics? ref, out and static arrays are
-        bool byref = (arg->storageClass & (STCref|STCout)) || (arg->type->toBasetype()->ty == Tsarray);
+        // reference semantics? ref, out and d1 static arrays are
+        bool byref = arg->storageClass & (STCref|STCout);
+#if !SARRAYVALUE
+        byref = byref || (arg->type->toBasetype()->ty == Tsarray);
+#endif
 
         Type* argtype = arg->type;
         unsigned a = 0;
@@ -157,9 +160,6 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
             TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
             TypeDelegate *ltd = new TypeDelegate(ltf);
             argtype = ltd;
-#if DMDV2
-            byref = byref && arg->type->toBasetype()->ty != Tsarray;
-#endif
         }
         // byval
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
@@ -745,12 +745,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
-#if DMDV2
-            bool isStaticArray = vd->type->toBasetype()->ty == Tsarray;
-            if (!refout && (!f->fty.args[i]->byref || lazy || isStaticArray))
-#else
             if (!refout && (!f->fty.args[i]->byref || lazy))
-#endif
             {
                 // alloca a stack slot for this first class value arg
                 const LLType* argt;
@@ -760,12 +755,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
                     argt = DtoType(vd->type);
                 LLValue* mem = DtoRawAlloca(argt, 0, vd->ident->toChars());
 
-#if DMDV2
-                // if it is a static array, load from it, because static arrays
-                // are always passed by reference
-                if (isStaticArray && !lazy)
-                    irloc->value = DtoLoad(irloc->value);
-#endif
                 // let the abi transform the argument back first
                 DImValue arg_dval(vd->type, irloc->value);
                 f->fty.getParam(vd->type, i, &arg_dval, mem);

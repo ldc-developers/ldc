@@ -1193,10 +1193,9 @@ LLValue* DtoArrayLen(DValue* v)
     else if (t->ty == Tsarray) {
         assert(!v->isSlice());
         assert(!v->isNull());
-        LLValue* rv = v->getRVal();
-        const LLArrayType* t = isaArray(rv->getType()->getContainedType(0));
-        assert(t);
-        return DtoConstSize_t(t->getNumElements());
+        assert(v->type->toBasetype()->ty == Tsarray);
+        TypeSArray *sarray = (TypeSArray*)v->type->toBasetype();
+        return DtoConstSize_t(sarray->dim->toUInteger());
     }
     assert(0 && "unsupported array for len");
     return 0;
@@ -1278,7 +1277,8 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 fatal();
             }
 
-            rval2 = LLConstantInt::get(DtoSize_t(), arrty->getNumElements(), false);
+            uinteger_t len = ((TypeSArray*)fromtype)->dim->toUInteger();
+            rval2 = LLConstantInt::get(DtoSize_t(), len, false);
             if (fromtype->nextOf()->size() != totype->nextOf()->size())
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
             rval = DtoBitCast(uval, ptrty);

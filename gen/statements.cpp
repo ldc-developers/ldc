@@ -144,7 +144,7 @@ void ReturnStatement::toIR(IRState* p)
             // If the function returns a struct or a static array, and the return
             // value is a pointer to a struct or a static array, load from it
             // before returning.
-            int ty = f->type->next->ty;
+            int ty = f->type->next->toBasetype()->ty;
             if (v->getType() != p->topfunc()->getReturnType() &&
                 (ty == Tstruct
 #if DMDV2
