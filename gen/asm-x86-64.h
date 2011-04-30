@@ -1897,6 +1897,20 @@ namespace AsmParserx8664
                 else
                     stmt->error("instruction allows only ST as second argument");
             }
+            
+            if ( op == Op_FCmpFlgP )
+            {
+                // Explicitly add %st as second argument to fucomip – it should
+                // be implicit, but the GNU as shipping with Mac OS X (Apple Inc
+                // version cctools-800~26, GNU assembler version 1.38) chokes on
+                // it otherwise.
+                assert ( nOperands == 1 );
+                nOperands = 2;
+                operands[1] = operands[0];
+                memset ( operands, 0, sizeof( Operand ) );
+                operands[0].cls = Opr_Reg;
+                operands[0].reg = Reg_ST;
+            }
 
             if ( opInfo->needsType )
             {
