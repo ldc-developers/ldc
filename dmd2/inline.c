@@ -1362,13 +1362,13 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan)
 #endif
         isSynchronized() ||
         isImportedSymbol() ||
-#if !IN_LLVM
+//#if !IN_LLVM
 #if DMDV2
         closureVars.dim ||      // no nested references to this frame
 #else
         nestedFrameRef ||       // no nested references to this frame
 #endif
-#endif // !IN_LLVM
+//#endif // !IN_LLVM
         (isVirtual() && !isFinal())
        ))
     {
