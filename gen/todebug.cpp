@@ -428,18 +428,21 @@ void DtoDwarfCompileUnit(Module* m)
     LOG_SCOPE;
 
     // prepare srcpath
-    std::string srcpath(FileName::path(m->srcfile->name->toChars()));
+    const char *srcname = m->srcfile->name->toChars();
+    std::string srcpath(FileName::path(srcname));
     if (!FileName::absolute(srcpath.c_str())) {
         llvm::sys::Path tmp = llvm::sys::Path::GetCurrentDirectory();
         tmp.appendComponent(srcpath);
         srcpath = tmp.str();
         if (!srcpath.empty() && *srcpath.rbegin() != '/' && *srcpath.rbegin() != '\\')
             srcpath = srcpath + '/';
+    } else {
+        srcname = FileName::name(srcname);
     }
 
     gIR->dibuilder.createCompileUnit(
         global.params.symdebug == 2 ? DW_LANG_C : DW_LANG_D,
-        m->srcfile->name->toChars(),
+        srcname,
         srcpath,
         "LDC (http://www.dsource.org/projects/ldc)",
         false, // isOptimized TODO
