@@ -14,9 +14,9 @@ module rt.image;
 
 version (OSX):
 
-import src.core.sys.osx.mach.dyld;
-import src.core.sys.osx.mach.loader;
-import src.core.sys.osx.mach.getsect;
+import core.sys.osx.mach.dyld;
+import core.sys.osx.mach.loader;
+import core.sys.osx.mach.getsect;
 
 struct Image
 {
@@ -38,7 +38,7 @@ struct Image
         {
                 int result;
 
-                for (size_t i = 0; i < numberOfImages; i++)
+                for (uint i = 0; i < numberOfImages; i++)
                 {
                         result = dg(Image(i));
 
