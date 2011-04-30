@@ -884,6 +884,11 @@ DValue* CallExp::toElem(IRState* p)
             if (LLValue *argptr = gIR->func()->_argptr) {
                 DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                 return new DImValue(type, arg);
+            } else if (global.params.cpu == ARCHx86_64) {
+                LLValue *va_list = DtoAlloca(exp->type->nextOf());
+                DtoStore(va_list, arg);
+                va_list = DtoBitCast(va_list, getVoidPtrType());
+                return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
             } else
 #endif
             {
@@ -891,6 +896,20 @@ DValue* CallExp::toElem(IRState* p)
                 return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
             }
         }
+#if DMDV2
+        else if (fndecl->llvmInternal == LLVMva_copy && global.params.cpu == ARCHx86_64) {
+            Expression* exp1 = (Expression*)arguments->data[0];
+            Expression* exp2 = (Expression*)arguments->data[1];
+            LLValue* arg1 = exp1->toElem(p)->getLVal();
+            LLValue* arg2 = exp2->toElem(p)->getLVal();
+
+            LLValue *va_list = DtoAlloca(exp1->type->nextOf());
+            DtoStore(va_list, arg1);
+
+            DtoStore(DtoLoad(DtoLoad(arg2)), DtoLoad(arg1));
+            return new DVarValue(type, arg1);
+        }
+#endif
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {
             return DtoVaArg(loc, type, (Expression*)arguments->data[0]);
