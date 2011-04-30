@@ -80,9 +80,6 @@ private:
     // the target for invokes
     std::stack<llvm::BasicBlock*> padBBs;
 
-    // associate increasing ints with each unique classdecl encountered
-    std::map<ClassDeclaration*, int> catchToInt;
-
     // storage for the catch variable
     llvm::Value* catch_var;
 };

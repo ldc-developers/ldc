@@ -114,6 +114,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
 
     // put in classinfos in the right order
     bool hasFinally = false;
+    bool hasCatch = false;
     std::deque<IRLandingPadInfo>::iterator it = infos.begin(), end = infos.end();
     for(; it != end; ++it)
     {
@@ -121,11 +122,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             hasFinally = true;
         else
         {
-            if(catchToInt.find(it->catchType) == catchToInt.end())
-            {
-                int newval = 1 + catchToInt.size();
-                catchToInt[it->catchType] = newval;
-            }
+            hasCatch = true;
             assert(it->catchType);
             assert(it->catchType->ir.irStruct);
             selectorargs.insert(selectorargs.begin(), it->catchType->ir.irStruct->getClassInfoSymbol());
@@ -144,7 +141,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     selectorargs.insert(selectorargs.begin(), eh_ptr);
 
     // if there is a catch and some catch allocated storage, store exception object
-    if(catchToInt.size() && catch_var)
+    if(hasCatch && catch_var)
     {
         const LLType* objectTy = DtoType(ClassDeclaration::object->type);
         gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
@@ -154,38 +151,25 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     llvm::Function* eh_selector_fn = GET_INTRINSIC_DECL(eh_selector);
     LLValue* eh_sel = gIR->ir->CreateCall(eh_selector_fn, selectorargs.begin(), selectorargs.end());
 
-    // emit finallys and switches that branch to catches until there are no more catches
-    // then simply branch to the finally chain
-    llvm::SwitchInst* switchinst = NULL;
+    // emit finallys and 'if' chain to catch the exception
+    llvm::Function* eh_typeid_for_fn = GET_INTRINSIC_DECL(eh_typeid_for);
     std::deque<IRLandingPadInfo>::reverse_iterator rit, rend = infos.rend();
     for(rit = infos.rbegin(); rit != rend; ++rit)
     {
         // if it's a finally, emit its code
         if(rit->finallyBody)
         {
-            if(switchinst)
-                switchinst = NULL;
-
-            // since this may be emitted multiple times
-            // give the labels a new scope
-            gIR->func()->gen->pushUniqueLabelScope("finally");
             rit->finallyBody->toIR(gIR);
-            gIR->func()->gen->popLabelScope();
         }
-        // otherwise it's a catch and we'll add a switch case
+        // otherwise it's a catch and we'll add a if-statement
         else
         {
-            if(!switchinst)
-            {
-                switchinst = gIR->ir->CreateSwitch(eh_sel, llvm::BasicBlock::Create(gIR->context(), "switchdefault", gIR->topfunc(), gIR->scopeend()), infos.size());
-                gIR->scope() = IRScope(switchinst->getDefaultDest(), gIR->scopeend());
-            }
-            // dubious comment
-            // catches matched first get the largest switchval, so do size - unique int
-            llvm::ConstantInt* switchval = DtoConstUint(catchToInt[rit->catchType]);
-            // and make sure we don't add the same switchval twice, may happen with nested trys
-            if(!switchinst->findCaseValue(switchval))
-                switchinst->addCase(switchval, rit->target);
+            llvm::BasicBlock *next = llvm::BasicBlock::Create(gIR->context(), "eh.next", gIR->topfunc(), gIR->scopeend());
+            LLValue *classInfo = DtoBitCast(rit->catchType->ir.irStruct->getClassInfoSymbol(),
+                                            getPtrToType(DtoType(Type::tint8)));
+            LLValue *eh_id = gIR->ir->CreateCall(eh_typeid_for_fn, classInfo);
+            gIR->ir->CreateCondBr(gIR->ir->CreateICmpEQ(eh_sel, eh_id), rit->target, next);
+            gIR->scope() = IRScope(next, gIR->scopeend());
         }
     }
 
