@@ -214,6 +214,8 @@ struct Module : Package
 
     // array ops emitted in this module already
     StringTable arrayfuncs;
+
+    bool isRoot;
 #endif
 };
 

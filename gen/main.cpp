@@ -780,6 +780,7 @@ LDC_TARGETS
 
         id = Lexer::idPool(name);
         m = new Module((char *) files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
+        m->isRoot = true;
         modules.push(m);
     }
 

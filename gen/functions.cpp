@@ -298,7 +298,7 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 
 void DtoResolveFunction(FuncDeclaration* fdecl)
 {
-    if (!global.params.useUnitTests && fdecl->isUnitTestDeclaration()) {
+    if ((!global.params.useUnitTests || !fdecl->type) && fdecl->isUnitTestDeclaration()) {
         Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
         return; // ignore declaration completely
     }

@@ -156,6 +156,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     moduleInfoType = new llvm::PATypeHolder(llvm::OpaqueType::get(llvm::getGlobalContext()));
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
+    this->isRoot = false;
 #endif
 }
 
