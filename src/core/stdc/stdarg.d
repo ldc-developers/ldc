@@ -311,31 +311,24 @@ version( X86 )
 }
 else version ( LDC_X86_64 )
 {
-    alias __va_list[1] va_list;
+    alias __va_list *va_list;
 
     pragma(va_start)
         void va_start(T)(va_list ap, ref T);
 
-    T va_arg(T)(ref va_list ap)
+    T va_arg(T)(va_list ap)
     {   T a;
         va_arg(ap, a);
         return a;
     }
 
-    T va_arg(T)(void *apx)
-    {   T a;
-        __va_list* ap = cast(__va_list*)apx;
-        va_arg_x86_64(ap, a);
-        return a;
-    }
-
-    void va_arg(T)(ref va_list apx, ref T parmn)
+    void va_arg(T)(va_list apx, ref T parmn)
     {
         __va_list* ap = cast(__va_list*)apx;
         va_arg_x86_64(ap, parmn);
     }
 
-    void va_arg()(ref va_list apx, TypeInfo ti, void* parmn)
+    void va_arg()(va_list apx, TypeInfo ti, void* parmn)
     {
         __va_list* ap = cast(__va_list*)apx;
         va_arg_x86_64(ap, ti, parmn);

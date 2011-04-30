@@ -888,25 +888,25 @@ void[] _d_newarrayOpT(alias op)(TypeInfo ti, size_t ndims, va_list q)
                 __setArrayAllocLength(info, allocsize, isshared);
                 auto p = __arrayStart(info)[0 .. dim];
 
-                version(LDC)
-                {
-                    va_list ap2;
-                    va_copy(ap2, ap);
-                }
-                else version(X86)
+                version(X86)
                 {
                     va_list ap2;
                     va_copy(ap2, ap);
                 }
                 for (size_t i = 0; i < dim; i++)
                 {
-                    version(LDC) 
+                    version(X86_64)
                     {
-                    }
-                    else version(X86_64)
-                    {
-                        __va_list argsave = *cast(__va_list*)ap;
-                        va_list ap2 = &argsave;
+                        version(LDC)
+                        {
+                            va_list ap2;
+                            va_copy(ap2, ap);
+                        }
+                        else
+                        {
+                            __va_list argsave = *cast(__va_list*)ap;
+                            va_list ap2 = &argsave;
+                        }
                     }
                     (cast(void[]*)p.ptr)[i] = foo(ti.next, ap2, ndims - 1);
                 }
