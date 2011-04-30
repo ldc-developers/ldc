@@ -310,10 +310,10 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         if (FuncDeclaration* fd = sym->isFuncDeclaration())
             skipNestedCheck = (fd->naked != 0);
 
-    // Any symbol nested in a function can't be referenced directly from
-    // outside that function, so we can give such symbols internal linkage.
-    // This holds even if nested indirectly, such as member functions of
-    // aggregates nested in functions.
+    // Any symbol nested in a function that cannot be inlined can't be
+    // referenced directly from outside that function, so we can give
+    // such symbols internal linkage. This holds even if nested indirectly,
+    // such as member functions of aggregates nested in functions.
     //
     // Note: This must be checked after things like template member-ness or
     // symbols nested in templates would get duplicated for each module,
@@ -323,11 +323,13 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     // ---
     // if instances get emitted in multiple object files because they'd use
     // different instances of 'i'.
-    if (!skipNestedCheck)
+    if (!skipNestedCheck) {
         for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent) {
-            if (parent->isFuncDeclaration())
+            FuncDeclaration *fd = parent->isFuncDeclaration();
+            if (fd && !fd->canInline(fd->needThis()))
                 return llvm::GlobalValue::InternalLinkage;
         }
+    }
 
     // default to external linkage
     return llvm::GlobalValue::ExternalLinkage;
