@@ -400,6 +400,9 @@ struct TypeBasic : Type
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
     unsigned alignsize();
+#if IN_LLVM
+    unsigned memalign(unsigned salign);
+#endif
     Expression *getProperty(Loc loc, Identifier *ident);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     char *toChars();

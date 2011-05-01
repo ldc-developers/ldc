@@ -2580,6 +2580,14 @@ unsigned TypeBasic::alignsize()
 #endif
 }
 
+#if IN_LLVM
+unsigned TypeBasic::memalign(unsigned salign)
+{
+    if (global.params.cpu == ARCHx86_64 && (ty == Tfloat80 || ty == Timaginary80))
+        return 16;
+    return Type::memalign(salign);
+}
+#endif
 
 Expression *TypeBasic::getProperty(Loc loc, Identifier *ident)
 {
