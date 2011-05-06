@@ -218,7 +218,8 @@ namespace AsmParserx8664
         Clb_SizeAX   = 0x01,
         Clb_SizeDXAX = 0x02,
         Clb_EAX      = 0x03,
-        Clb_DXAX_Mask = 0x03,
+        Clb_DXAX_Mask = 0x103,
+        Clb_SizeRDXRAX = 0x100,
 
         Clb_Flags    = 0x04,
         Clb_DI       = 0x08,
@@ -314,8 +315,9 @@ namespace AsmParserx8664
         Op_cmps,
         Op_cmpsd,
         Op_cmpsX,
-        Op_cmpxchg8b,
         Op_cmpxchg,
+        Op_cmpxchg16b,
+        Op_cmpxchg8b,
         Op_cpuid,
         Op_enter,
         Op_fdisi,
@@ -438,6 +440,7 @@ namespace AsmParserx8664
         Mn_iretq,
         Mn_lret,
         Mn_cmpxchg8b,
+        Mn_cmpxchg16b,
         N_AltMn
     } Alternate_Mnemonics;
 
@@ -449,9 +452,10 @@ namespace AsmParserx8664
         "iretw",
         "iret",
         "iretq",
-        "lret",
-        "cmpxchg8b"
-    };
+        "lret", 
+        "cmpxchg8b",
+        "cmpxchg16b"
+   };
 
 #define mri  OprC_MRI
 #define mr   OprC_MR
@@ -562,8 +566,9 @@ namespace AsmParserx8664
         /* Op_cmps      */  {   mem, mem, 0,     1, Clb_DI|Clb_SI|Clb_Flags },
         /* Op_cmpsd     */  {   0,   0,   0,     0, Clb_DI|Clb_SI|Clb_Flags, Next_Form, Op_DstSrcImmS },
         /* Op_cmpsX     */  {   0,   0,   0,     0, Clb_DI|Clb_SI|Clb_Flags },
-        /* Op_cmpxchg8b */  { D|mem/*64*/,0,0,   0, Clb_SizeDXAX/*32*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg8b },
         /* Op_cmpxchg   */  { D|mr,  reg, 0,     1, Clb_SizeAX|Clb_Flags },
+        /* Op_cmpxchg16b */ { D|mem/*128*/,0,0,   0, Clb_SizeRDXRAX/*64*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg16b },
+        /* Op_cmpxchg8b */  { D|mem/*64*/,0,0,   0, Clb_SizeDXAX/*32*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg8b },
         /* Op_cpuid     */  {   0,0,0 },    // Clobbers eax, ebx, ecx, and edx. Handled specially below.
         /* Op_enter     */  {   imm, imm }, // operands *not* reversed for gas, %% inform gcc of EBP clobber?,
         /* Op_fdisi     */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_fdisi },
@@ -717,7 +722,6 @@ namespace AsmParserx8664
         /*
         { "cdqe",  Op_0_DXAX },
         { "cmpsq",  Op_cmpsX },
-        { "cmpxch16b", Op_cmpxchg16b },
         { "cqo",    Op_0_DXAX },
         { "lodsq", Op_lodsX },
         { "movsq", Op_movsX },
@@ -736,9 +740,9 @@ namespace AsmParserx8664
         { "stgi",    Op_Flags },
         */
 
-        { "cmpxch16b", Op_cmpxchg8b },
-        { "cmpxch8b", Op_cmpxchg8b }, // %% DMD opcode typo?
         { "cmpxchg",  Op_cmpxchg },
+        { "cmpxchg16b", Op_cmpxchg16b },
+        { "cmpxchg8b", Op_cmpxchg8b },
         { "comisd", Op_SrcSrcSSEF },
         { "comiss", Op_SrcSrcSSEF },
         { "cpuid",  Op_cpuid },
@@ -2068,6 +2072,10 @@ namespace AsmParserx8664
                     if ( type_char != 'b' )
                         asmcode->regs[Reg_EDX] = true;
                     break;
+	        case Clb_SizeRDXRAX:
+		    asmcode->regs[Reg_RAX] = true;
+		    asmcode->regs[Reg_RDX] = true;
+		    break;
                 default:
                     // nothing
                     break;
