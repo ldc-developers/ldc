@@ -38,7 +38,7 @@ extern (Windows)
 
     alias LPSTR LPTCH, PTCH;
     alias LPSTR PTSTR, LPTSTR;
-    alias LPCSTR LPCTSTR;
+    alias LPCSTR PCTSTR, LPCTSTR;
 
     alias WCHAR* LPWSTR;
 
@@ -2915,8 +2915,11 @@ export UINT IsDlgButtonChecked(HWND hDlg, int nIDButton);
 
 export HWND SetFocus(HWND hWnd);
 
-export int wsprintfA(LPSTR, LPCSTR, ...);
-export int wsprintfW(LPWSTR, LPCWSTR, ...);
+extern (C)
+{
+    export int wsprintfA(LPSTR, LPCSTR, ...);
+    export int wsprintfW(LPWSTR, LPCWSTR, ...);
+}
 
 enum : uint
 {

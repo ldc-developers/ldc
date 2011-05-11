@@ -156,7 +156,7 @@ version( X86_64 )
                 auto tsize = arg1.tsize();
                 void* p;
                 auto s = arg1.toString();
-                if (s == "double" || s == "float")
+                if (s == "double" || s == "float" || s == "idouble" || s == "ifloat")
                 {   // Passed in XMM register
                     if (ap.offset_fpregs < (6 * 8 + 16 * 8))
                     {
@@ -189,7 +189,7 @@ version( X86_64 )
                     parmn += 8;
                     tsize = arg2.tsize();
                     s = arg2.toString();
-                    if (s == "double" || s == "float")
+		    if (s == "double" || s == "float" || s == "idouble" || s == "ifloat")
                     {   // Passed in XMM register
                         if (ap.offset_fpregs < (6 * 8 + 16 * 8))
                         {

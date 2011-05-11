@@ -33,6 +33,7 @@ private
     extern (C) Object _d_newclass(TypeInfo_Class ci);
     extern (C) void _d_arrayshrinkfit(TypeInfo ti, void[] arr);
     extern (C) size_t _d_arraysetcapacity(TypeInfo ti, size_t newcapacity, void *arrptr);
+    extern (C) void rt_finalize(void *data, bool det=true);
 }
 
 // NOTE: For some reason, this declaration method doesn't work
@@ -282,7 +283,8 @@ class TypeInfo
     /// null if none.
     TypeInfo next() { return null; }
 
-    /// Return default initializer, null if default initialize to 0
+    /// Return default initializer.  If the type should be initialized to all zeros,
+    /// an array with a null ptr and a length equal to the type size will be returned.
     void[] init() { return null; }
 
     /// Get flags for type: 1 means GC should scan for pointers
@@ -652,7 +654,7 @@ class TypeInfo_Function : TypeInfo
         TypeInfo_Function c;
         return this is o ||
                 ((c = cast(TypeInfo_Function)o) !is null &&
-                 this.next == c.next);
+		 this.deco == c.deco);
     }
 
     // BUG: need to add the rest of the functions
@@ -663,6 +665,7 @@ class TypeInfo_Function : TypeInfo
     }
 
     TypeInfo next;
+    string deco;
 }
 
 class TypeInfo_Delegate : TypeInfo
@@ -677,7 +680,7 @@ class TypeInfo_Delegate : TypeInfo
         TypeInfo_Delegate c;
         return this is o ||
                 ((c = cast(TypeInfo_Delegate)o) !is null &&
-                 this.next == c.next);
+		 this.deco == c.deco);
     }
 
     // BUG: need to add the rest of the functions
@@ -691,6 +694,7 @@ class TypeInfo_Delegate : TypeInfo
     override uint flags() { return 1; }
 
     TypeInfo next;
+    string deco;
 
     override size_t talign()
     {   alias int delegate() dg;
@@ -2540,27 +2544,7 @@ unittest
 
 void clear(T)(T obj) if (is(T == class))
 {
-    if (!obj) return;
-    auto ci = obj.classinfo;
-    auto defaultCtor =
-        cast(void function(Object)) ci.defaultConstructor;
-    version(none) // enforce isn't available in druntime
-        _enforce(defaultCtor || (ci.flags & 8) == 0);
-    immutable size = ci.init.length;
-
-    auto ci2 = ci;
-    do
-    {
-        auto dtor = cast(void function(Object))ci2.destructor;
-        if (dtor)
-            dtor(obj);
-        ci2 = ci2.base;
-    } while (ci2)
-
-    auto buf = (cast(void*) obj)[0 .. size];
-    buf[] = ci.init;
-    if (defaultCtor)
-        defaultCtor(obj);
+    rt_finalize(cast(void*)obj);
 }
 
 version(unittest) unittest
@@ -2589,6 +2573,8 @@ version(unittest) unittest
        assert(destroyed);
        assert(a.s == "B");
    }
+   // this test is invalid now that the default ctor is not run after clearing
+   version(none)
    {
        class C
        {
