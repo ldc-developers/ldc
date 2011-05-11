@@ -139,8 +139,18 @@ else version( LDC )
 {
     import ldc.intrinsics;
 
-    T atomicOp(string op, T, V1)( ref shared T val, V1 mod )
-        if( is( NakedType!(V1) == NakedType!(T) ) )
+    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod )
+        if( __traits( compiles, mixin( "val" ~ op ~ "mod" ) ) )
+    in
+    {
+        // NOTE: 32 bit x86 systems support 8 byte CAS, which only requires
+        //       4 byte alignment, so use size_t as the align type here.
+        static if( T.sizeof > size_t.sizeof )
+            assert( atomicValueIsProperlyAligned!(size_t)( cast(size_t) &val ) );
+        else
+            assert( atomicValueIsProperlyAligned!(T)( cast(size_t) &val ) );
+    }
+    body
     {
         // binary operators
         //
@@ -154,7 +164,7 @@ else version( LDC )
                    op == "==" || op == "!=" || op == "<"  || op == "<="  ||
                    op == ">"  || op == ">=" )
         {
-            T get = val; // compiler can do atomic load
+            HeadUnshared!(T) get = atomicLoad!(msync.raw)( val );
             mixin( "return get " ~ op ~ " mod;" );
         }
         else
@@ -166,8 +176,8 @@ else version( LDC )
                    op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
                    op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
         {
-            T get, set;
-            
+            HeadUnshared!(T) get, set;
+
             do
             {
                 get = set = atomicLoad!(msync.raw)( val );
@@ -179,12 +189,10 @@ else version( LDC )
         {
             static assert( false, "Operation not supported." );
         }
-    }  
+    }
 
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
-        if( is( NakedType!(V1) == NakedType!(T) ) &&
-            is( NakedType!(V2) == NakedType!(T) ) )
-
+        if( __traits( compiles, mixin( "*here = writeThis" ) ) )
     {
         T oldval = void;
         static if (is(T P == U*, U))
@@ -203,37 +211,46 @@ else version( LDC )
     }
 
 
-    private
+    enum msync
     {
-        enum msync
-        {
-            raw,    /// not sequenced
-            acq,    /// hoist-load + hoist-store barrier
-            rel,    /// sink-load + sink-store barrier
-            seq,    /// fully sequenced (acq + rel)
-        }
+        raw,    /// not sequenced
+        acq,    /// hoist-load + hoist-store barrier
+        rel,    /// sink-load + sink-store barrier
+        seq,    /// fully sequenced (acq + rel)
+    }
 
-        T atomicLoad(msync ms = msync.seq, T)( const ref shared T val )
+    HeadUnshared!(T) atomicLoad(msync ms = msync.seq, T)( ref const shared T val )
+    {
+        llvm_memory_barrier(
+            ms == msync.acq || ms == msync.seq,
+            ms == msync.acq || ms == msync.seq,
+            ms == msync.rel || ms == msync.seq,
+            ms == msync.rel || ms == msync.seq,
+            false);
+        static if (is(T P == U*, U)) // pointer
         {
-            llvm_memory_barrier(
-                ms == msync.acq || ms == msync.seq,
-                ms == msync.acq || ms == msync.seq,
-                ms == msync.rel || ms == msync.seq,
-                ms == msync.rel || ms == msync.seq,
-                false);
-            static if (is(T P == U*, U)) // pointer
-            {
-                return cast(T)llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
-            }
-            else static if (is(T == bool))
-            {
-                return llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0) ? 1 : 0;
-            }
-            else
-            {
-                return llvm_atomic_load_add!(T)(&val, cast(T)0);
-            }
+            return cast(HeadUnshared!(T))llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
         }
+        else static if (is(T == bool))
+        {
+            return cast(HeadUnshared!(T))llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0) ? 1 : 0;
+        }
+        else
+        {
+            return llvm_atomic_load_add!(HeadUnshared!(T))(&val, cast(T)0);
+        }
+    }
+
+    void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
+        if( __traits( compiles, mixin( "val = newval" ) ) )
+    {
+        llvm_memory_barrier(
+            ms == msync.acq || ms == msync.seq,
+            ms == msync.acq || ms == msync.seq,
+            ms == msync.rel || ms == msync.seq,
+            ms == msync.rel || ms == msync.seq,
+            false);
+        val = newval;
     }
 }
 else version( AsmX86_32 )
