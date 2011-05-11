@@ -780,7 +780,6 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
     Logger::println("DtoCatAssignArray");
     LOG_SCOPE;
     Type *arrayType = arr->getType();
-    DValue* valueToAppend = exp->toElem(gIR);
 
     // Prepare arguments
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendT");
@@ -790,9 +789,9 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
     // byte[] *px
     args.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(1)));
     // byte[] y
-    LLValue *y = makeLValue(exp->loc, valueToAppend);
-    y = DtoBitCast(y, getPtrToType(fn->getFunctionType()->getParamType(2)));
-    args.push_back(DtoLoad(y));
+    LLValue *y = DtoSlice(exp->toElem(gIR));
+    y = DtoAggrPaint(y, fn->getFunctionType()->getParamType(2));
+    args.push_back(y);
 
     // Call _d_arrayappendT
     LLValue* newArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
