@@ -147,6 +147,18 @@ else
 
 }
 
+private
+{
+    struct InFlight
+    {
+        InFlight*   next;
+        ptrdiff_t   addr;
+        Throwable   t;
+    }
+
+    InFlight* __inflight = null;
+}
+
 // error and exit
 extern(C) private void fatalerror(in char* format, ...)
 {
@@ -411,6 +423,35 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
   // the runtime allocated. get that now
   _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
 
+  // collision check
+  if (actions & _Unwind_Action.SEARCH_PHASE) {
+    Throwable h = cast(Throwable)exception_struct.exception_object;
+    if (__inflight !is null && __inflight.addr == _Unwind_GetLanguageSpecificData(context))
+    {
+        auto e = cast(Error)h;
+        if (e !is null && (cast(Error) __inflight.t) is null)
+        {
+            debug(EH_personality) printf("new error %p bypassing inflight %p\n", h, __inflight.t);
+            e.bypassedException = __inflight.t;
+            //h = cast(Object*) t;
+        }
+        else if (__inflight.t != h)
+        {
+            debug(EH_personality) printf("replacing thrown %p with inflight %p\n", h, __inflight.t);
+
+            auto t = __inflight.t;
+            auto n = __inflight.t;
+
+            while (n.next)
+              n = n.next;
+            n.next = h;
+            exception_struct.exception_object = t;
+        }
+
+        __inflight = __inflight.next;
+    }
+  }
+
   // if there's no action offset and no landing pad, continue unwinding
   if(!action_offset && !landing_pad)
     return _Unwind_Reason_Code.CONTINUE_UNWIND;
@@ -505,6 +546,13 @@ private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions
   if(actions & _Unwind_Action.SEARCH_PHASE)
     return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
+  auto inflight = new InFlight;
+  inflight.addr = _Unwind_GetLanguageSpecificData(context);
+  inflight.next = __inflight;
+  inflight.t    = cast(Throwable)exception_struct.exception_object;
+  __inflight    = inflight;
+
+
   debug(EH_personality) printf("Calling cleanup routine...\n");
 
   _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
@@ -564,5 +612,7 @@ extern(C) void _d_throw_exception(Object e)
 
 extern(C) void _d_eh_resume_unwind(_d_exception* exception_struct)
 {
+  if (__inflight !is null)
+    __inflight = __inflight.next;
   _Unwind_Resume(&exception_struct.unwind_info);
 }
