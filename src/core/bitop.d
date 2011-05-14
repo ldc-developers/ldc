@@ -184,7 +184,15 @@ unittest
  * byte 3, byte 1 becomes byte 2, byte 2 becomes byte 1, byte 3
  * becomes byte 0.
  */
-pure uint bswap(uint v);
+version (LDC)
+{
+    pure pragma(intrinsic, "llvm.bswap.i32")
+        uint bswap(uint val);
+}
+else
+{
+    pure uint bswap(uint v);
+}
 
 
 /**

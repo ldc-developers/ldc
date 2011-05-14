@@ -3,7 +3,7 @@
  *
  * From GDC ... public domain!
  */
-module std.intrinsic;
+module core.bitop;
 
 // Check for the right compiler
 version(LDC)

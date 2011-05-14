@@ -194,20 +194,20 @@ else version( LDC )
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
         if( __traits( compiles, mixin( "*here = writeThis" ) ) )
     {
-        T oldval = void;
+        bool r = *here == ifThis;
         static if (is(T P == U*, U))
         {
-            oldval = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)&writeThis, cast(size_t)ifThis, cast(size_t)here);
+            llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
         }
-        else static if (is(T == bool))
+        else static if (T.sizeof == bool.sizeof)
         {
-            oldval = llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)&writeThis, ifThis?1:0, here?1:0)?0:1;
+            llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)here, ifThis?1:0, writeThis?1:0);
         }
         else
         {
-            oldval = llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
+            llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
         }
-        return oldval == ifThis;
+        return r;
     }
 
 
@@ -231,13 +231,13 @@ else version( LDC )
         {
             return cast(HeadUnshared!(T))llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
         }
-        else static if (is(T == bool))
+        else static if (T.sizeof == bool.sizeof)
         {
             return cast(HeadUnshared!(T))llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0) ? 1 : 0;
         }
         else
         {
-            return llvm_atomic_load_add!(HeadUnshared!(T))(&val, cast(T)0);
+            return cast(HeadUnshared!(T))llvm_atomic_load_add!(T)(cast(T*)&val, cast(T)0);
         }
     }
 
@@ -250,7 +250,18 @@ else version( LDC )
             ms == msync.rel || ms == msync.seq,
             ms == msync.rel || ms == msync.seq,
             false);
-        val = newval;
+        static if (is(T P == U*, U)) // pointer
+        {
+            llvm_atomic_swap!(size_t)(cast(size_t*)&val, cast(size_t)newval);
+        }
+        else static if (T.sizeof == bool.sizeof)
+        {
+            llvm_atomic_swap!(ubyte)(cast(ubyte*)&val, newval);
+        }
+        else
+        {
+            llvm_atomic_swap!(T)(cast(T*)&val, cast(T)newval);
+        }
     }
 }
 else version( AsmX86_32 )
