@@ -306,6 +306,11 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     if (fdecl->ir.resolved) return;
     fdecl->ir.resolved = true;
 
+    // If errors occurred compiling it, such as bugzilla 6118
+    Type *type = fdecl->type;
+    if (type && type->ty == Tfunction && ((TypeFunction *)type)->next->ty == Terror)
+        return;
+
     //printf("resolve function: %s\n", fdecl->toPrettyChars());
 
     if (fdecl->parent)
