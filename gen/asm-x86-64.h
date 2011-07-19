@@ -789,6 +789,7 @@ namespace AsmParserx8664
         { "dw",    Op_ds },
         { "emms",  Op_0 }, // clobber all mmx/fp?
         { "enter", Op_enter },
+        { "even", Op_Even },
         { "f2xm1",  Op_F0_ST }, // %% most of these are update...
         { "fabs",   Op_F0_ST },
         { "fadd",   Op_FMath },
