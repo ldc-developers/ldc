@@ -698,7 +698,10 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(sd->dtor);
 
     //void function(void*)                    xpostblit;
-    b.push_funcptr(sd->postblit);
+    FuncDeclaration *xpostblit = sd->postblit;
+    if (xpostblit && sd->postblit->storage_class & STCdisable)
+        xpostblit = 0;
+    b.push_funcptr(xpostblit);
 
     //uint m_align;
     b.push_uint(tc->alignsize());
