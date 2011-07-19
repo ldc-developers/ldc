@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -48,6 +48,9 @@ struct GotoStatement;
 struct ScopeStatement;
 struct TryCatchStatement;
 struct TryFinallyStatement;
+struct CaseStatement;
+struct DefaultStatement;
+struct LabelStatement;
 struct HdrGenState;
 struct InterState;
 #if IN_LLVM
@@ -114,12 +117,7 @@ struct Statement : Object
     void warning(const char *format, ...) IS_PRINTF(2);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual AsmBlockStatement *isAsmBlockStatement() { return NULL; }
-#if IN_LLVM
-    virtual LabelStatement *isLabelStatement() { return NULL; }
-#endif
-#ifdef _DH
     int incontract;
-#endif
     virtual ScopeStatement *isScopeStatement() { return NULL; }
     virtual Statement *semantic(Scope *sc);
     Statement *semanticScope(Scope *sc, Statement *sbreak, Statement *scontinue);
@@ -133,6 +131,7 @@ struct Statement : Object
     virtual Statement *scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     virtual Statements *flatten(Scope *sc);
     virtual Expression *interpret(InterState *istate);
+    virtual Statement *last();
 
     virtual int inlineCost(InlineCostState *ics);
     virtual Expression *doInline(InlineDoState *ids);
@@ -146,7 +145,9 @@ struct Statement : Object
     virtual CompoundStatement *isCompoundStatement() { return NULL; }
     virtual ReturnStatement *isReturnStatement() { return NULL; }
     virtual IfStatement *isIfStatement() { return NULL; }
-    virtual CaseStatement* isCaseStatement() { return NULL; }
+    virtual CaseStatement *isCaseStatement() { return NULL; }
+    virtual DefaultStatement *isDefaultStatement() { return NULL; }
+    virtual LabelStatement *isLabelStatement() { return NULL; }
 
 #if IN_LLVM
     virtual void toNakedIR(IRState *irs);
@@ -216,6 +217,7 @@ struct CompoundStatement : Statement
     virtual Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
     Expression *interpret(InterState *istate);
+    Statement *last();
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -534,12 +536,11 @@ struct CaseStatement : Statement
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    CaseStatement *isCaseStatement() { return this; }
 
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
-
-    CaseStatement* isCaseStatement() { return this; }
 
 #if IN_LLVM
     llvm::BasicBlock* bodyBB;
@@ -582,6 +583,7 @@ struct DefaultStatement : Statement
     int comeFrom();
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    DefaultStatement *isDefaultStatement() { return this; }
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -885,13 +887,13 @@ struct LabelStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
+    LabelStatement *isLabelStatement() { return this; }
 
     void toIR(IRState *irs);
 
 #if IN_LLVM
     bool asmLabel;       // for labels inside inline assembler
     void toNakedIR(IRState *irs);
-    virtual LabelStatement *isLabelStatement() { return this; }
 #endif
 };
 
@@ -925,13 +927,32 @@ struct AsmStatement : Statement
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     void toIR(IRState *irs);
-
-#if IN_LLVM
+    
+ #if IN_LLVM
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;
 
     void toNakedIR(IRState *irs);
 #endif
+};
+
+struct ImportStatement : Statement
+{
+    Dsymbols *imports;          // Array of Import's
+
+    ImportStatement(Loc loc, Dsymbols *imports);
+    Statement *syntaxCopy();
+    Statement *semantic(Scope *sc);
+    int blockExit(bool mustNotThrow);
+    int isEmpty();
+    Expression *interpret(InterState *istate);
+
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+
+    int inlineCost(InlineCostState *ics);
+    Expression *doInline(InlineDoState *ids);
+
+    //void toIR(IRState *irs);
 };
 
 struct AsmBlockStatement : CompoundStatement

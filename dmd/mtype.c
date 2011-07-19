@@ -1743,12 +1743,12 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         if (dup)
             arguments->push(getTypeInfo(sc));
 
-    // LDC repaint array type to void[]
-    if (n->ty != Tvoid) {
-        e = new CastExp(e->loc, e, e->type);
-        e->type = Type::tvoid->arrayOf();
-    }
-    arguments->push(e);
+        // LDC repaint array type to void[]
+        if (n->ty != Tvoid) {
+            e = new CastExp(e->loc, e, e->type);
+            e->type = Type::tvoid->arrayOf();
+        }
+        arguments->push(e);
 
         if (!dup)
             arguments->push(new IntegerExp(0, size, Type::tsize_t));
@@ -1759,7 +1759,6 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     {
         Expression *ec;
         Expressions *arguments;
-        bool isBit = (n->ty == Tbit);
 
         //LDC: Build arguments.
         static FuncDeclaration *adSort_fd = NULL;
@@ -1769,31 +1768,20 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
             args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
             adSort_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
         }
-        static FuncDeclaration *adSortBit_fd = NULL;
-        if(!adSortBit_fd) {
-            Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-            args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-            adSortBit_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSortBit");
-        }
 
-        if(isBit)
-            ec = new VarExp(0, adSortBit_fd);
-        else
-            ec = new VarExp(0, adSort_fd);
+        ec = new VarExp(0, adSort_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
 
-    // LDC repaint array type to void[]
-    if (n->ty != Tvoid) {
-        e = new CastExp(e->loc, e, e->type);
-        e->type = Type::tvoid->arrayOf();
-    }
-    arguments->push(e);
-
-    if (next->ty != Tbit)
-        arguments->push(n->getTypeInfo(sc));   // LDC, we don't support the getInternalTypeInfo
-                                               // optimization arbitrarily, not yet at least...
+        // LDC repaint array type to void[]
+        if (n->ty != Tvoid) {
+            e = new CastExp(e->loc, e, e->type);
+            e->type = Type::tvoid->arrayOf();
+        }
+        arguments->push(e);
+        // LDC, we don't support the getInternalTypeInfo
+        // optimization arbitrarily, not yet at least...
+        arguments->push(n->getTypeInfo(sc));   
         e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }

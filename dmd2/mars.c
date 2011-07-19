@@ -77,7 +77,7 @@ Global::Global()
 #else
 #if TARGET_WINDOS
     obj_ext  = "obj";
-#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
+#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
     obj_ext  = "o";
 #elif TARGET_NET
 #else
@@ -86,7 +86,7 @@ Global::Global()
 
 #if TARGET_WINDOS
     lib_ext  = "lib";
-#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
+#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
     lib_ext  = "a";
 #elif TARGET_NET
 #else
@@ -100,7 +100,7 @@ Global::Global()
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.053";
+    version = "v2.054";
 #if IN_LLVM
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 2.9";
@@ -182,7 +182,7 @@ void verror(Loc loc, const char *format, va_list ap)
 #endif
         fprintf(stdmsg, "\n");
         fflush(stdmsg);
-halt();
+//halt();
     }
     global.errors++;
 }
@@ -238,8 +238,8 @@ void halt()
 #endif
 }
 
-
 extern signed char tyalignsize[];
+
 /***********************************
  * Parse and append contents of environment variable envvar
  * to argc and argv[].

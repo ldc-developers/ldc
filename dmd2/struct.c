@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -38,6 +38,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     structalign = 0;            // struct member alignment in effect
     hasUnions = 0;
     sizeok = 0;                 // size not determined yet
+    deferred = NULL;
     isdeprecated = 0;
     inv = NULL;
     aggNew = NULL;
@@ -348,7 +349,7 @@ void StructDeclaration::semantic(Scope *sc)
 {
     Scope *sc2;
 
-    //printf("+StructDeclaration::semantic(this=%p, '%s', sizeok = %d)\n", this, toChars(), sizeok);
+    //printf("+StructDeclaration::semantic(this=%p, %s '%s', sizeok = %d)\n", this, parent->toChars(), toChars(), sizeok);
 
     //static int count; if (++count == 20) halt();
 
@@ -675,6 +676,11 @@ void StructDeclaration::semantic(Scope *sc)
         semantic2(sc);
         semantic3(sc);
     }
+    if (deferred)
+    {
+        deferred->semantic2(sc);
+        deferred->semantic3(sc);
+    }
 }
 
 Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
@@ -730,6 +736,7 @@ const char *StructDeclaration::kind()
 UnionDeclaration::UnionDeclaration(Loc loc, Identifier *id)
     : StructDeclaration(loc, id)
 {
+    hasUnions = 1;
 }
 
 Dsymbol *UnionDeclaration::syntaxCopy(Dsymbol *s)

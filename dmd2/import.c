@@ -35,9 +35,6 @@ Import::Import(Loc loc, Array *packages, Identifier *id, Identifier *aliasId,
     this->id = id;
     this->aliasId = aliasId;
     this->isstatic = isstatic;
-#if IN_LLVM
-    protection = PROTundefined;
-#endif
     pkg = NULL;
     mod = NULL;
 
@@ -65,12 +62,6 @@ const char *Import::kind()
     return isstatic ? (char *)"static import" : (char *)"import";
 }
 
-#if IN_LLVM
-enum PROT Import::prot()
-{
-    return protection;
-}
-#endif
 
 Dsymbol *Import::syntaxCopy(Dsymbol *s)
 {
@@ -207,14 +198,13 @@ void Import::semantic(Scope *sc)
 
         sc = sc->push(mod);
         for (size_t i = 0; i < aliasdecls.dim; i++)
-	{   AliasDeclaration *ad = (AliasDeclaration *)aliasdecls.data[i];
+        {   Dsymbol *s = (Dsymbol *)aliasdecls.data[i];
 
             //printf("\tImport alias semantic('%s')\n", s->toChars());
             if (!mod->search(loc, (Identifier *)names.data[i], 0))
                 error("%s not found", ((Identifier *)names.data[i])->toChars());
 
-	    ad->importprot = protection;
-	    ad->semantic(sc);
+            s->semantic(sc);
         }
         sc = sc->pop();
     }
@@ -288,7 +278,7 @@ void Import::semantic(Scope *sc)
         ob->writenl();
     }
 
-   //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
+    //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
 }
 
 void Import::semantic2(Scope *sc)

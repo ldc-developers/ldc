@@ -327,7 +327,7 @@ Expression *UnaExp::op_overload(Scope *sc)
                 else
                 {
                     // Rewrite +e1 as e1.add()
-                    return build_overload(loc, sc, e1, NULL, fd->ident);
+                    return build_overload(loc, sc, e1, NULL, fd);
                 }
             }
         }
@@ -418,7 +418,7 @@ Expression *CastExp::op_overload(Scope *sc)
 #if 1 // Backwards compatibility with D1 if opCast is a function, not a template
             if (fd->isFuncDeclaration())
             {   // Rewrite as:  e1.opCast()
-                return build_overload(loc, sc, e1, NULL, fd->ident);
+                return build_overload(loc, sc, e1, NULL, fd);
             }
 #endif
             Objects *targsi = new Objects();
@@ -475,8 +475,10 @@ Expression *BinExp::op_overload(Scope *sc)
 
     Objects *targsi = NULL;
 #if DMDV2
-    if (!s && !s_r && op != TOKequal && op != TOKnotequal && op != TOKassign)
-    {   /* Try the new D2 scheme, opBinary and opBinaryRight
+    if (!s && !s_r && op != TOKequal && op != TOKnotequal && op != TOKassign &&
+        op != TOKplusplus && op != TOKminusminus)
+    {
+        /* Try the new D2 scheme, opBinary and opBinaryRight
          */
         if (ad1)
             s = search_function(ad1, Id::opBinary);
@@ -520,7 +522,7 @@ Expression *BinExp::op_overload(Scope *sc)
             }
             else
             {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                templateResolve(&m, td, sc, loc, targsi, NULL, &args2);
+                templateResolve(&m, td, sc, loc, targsi, e1, &args2);
             }
         }
 
@@ -535,7 +537,7 @@ Expression *BinExp::op_overload(Scope *sc)
             }
             else
             {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
-                templateResolve(&m, td, sc, loc, targsi, NULL, &args1);
+                templateResolve(&m, td, sc, loc, targsi, e2, &args1);
             }
         }
 
@@ -560,13 +562,13 @@ Expression *BinExp::op_overload(Scope *sc)
             // as unary, but it's implemented as a binary.
             // Rewrite (e1 ++ e2) as e1.postinc()
             // Rewrite (e1 -- e2) as e1.postdec()
-            e = build_overload(loc, sc, e1, NULL, id);
-        else if (lastf && m.lastf == lastf || m.last == MATCHnomatch)
+            e = build_overload(loc, sc, e1, NULL, m.lastf ? m.lastf : s);
+        else if (lastf && m.lastf == lastf || !s_r && m.last == MATCHnomatch)
             // Rewrite (e1 op e2) as e1.opfunc(e2)
-            e = build_overload(loc, sc, e1, e2, id, targsi);
+            e = build_overload(loc, sc, e1, e2, m.lastf ? m.lastf : s);
         else
             // Rewrite (e1 op e2) as e2.opfunc_r(e1)
-            e = build_overload(loc, sc, e2, e1, id_r, targsi);
+            e = build_overload(loc, sc, e2, e1, m.lastf ? m.lastf : s_r);
         return e;
     }
 
@@ -613,7 +615,7 @@ L1:
                 }
                 else
                 {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
-                    templateResolve(&m, td, sc, loc, targsi, NULL, &args2);
+                    templateResolve(&m, td, sc, loc, targsi, e1, &args2);
                 }
             }
             FuncDeclaration *lastf = m.lastf;
@@ -627,7 +629,7 @@ L1:
                 }
                 else
                 {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                    templateResolve(&m, td, sc, loc, targsi, NULL, &args1);
+                    templateResolve(&m, td, sc, loc, targsi, e2, &args1);
                 }
             }
 
@@ -645,13 +647,12 @@ L1:
             }
 
             Expression *e;
-            if (lastf && m.lastf == lastf ||
-                id_r && m.last == MATCHnomatch)
+            if (lastf && m.lastf == lastf || !s && m.last == MATCHnomatch)
                 // Rewrite (e1 op e2) as e1.opfunc_r(e2)
-                e = build_overload(loc, sc, e1, e2, id_r, targsi);
+                e = build_overload(loc, sc, e1, e2, m.lastf ? m.lastf : s_r);
             else
                 // Rewrite (e1 op e2) as e2.opfunc(e1)
-                e = build_overload(loc, sc, e2, e1, id, targsi);
+                e = build_overload(loc, sc, e2, e1, m.lastf ? m.lastf : s);
 
             // When reversing operands of comparison operators,
             // need to reverse the sense of the op
@@ -825,12 +826,12 @@ Expression *BinExp::compare_overload(Scope *sc, Identifier *id)
         }
 
         Expression *e;
-        if (lastf && m.lastf == lastf || m.last == MATCHnomatch)
+        if (lastf && m.lastf == lastf || !s_r && m.last == MATCHnomatch)
             // Rewrite (e1 op e2) as e1.opfunc(e2)
-            e = build_overload(loc, sc, e1, e2, id, targsi);
+            e = build_overload(loc, sc, e1, e2, m.lastf ? m.lastf : s);
         else
         {   // Rewrite (e1 op e2) as e2.opfunc_r(e1)
-            e = build_overload(loc, sc, e2, e1, id, targsi);
+            e = build_overload(loc, sc, e2, e1, m.lastf ? m.lastf : s_r);
 
             // When reversing operands of comparison operators,
             // need to reverse the sense of the op
@@ -1011,6 +1012,7 @@ Expression *BinAssignExp::op_overload(Scope *sc)
 #endif
 
     BinExp::semantic(sc);
+    e1 = resolveProperties(sc, e1);
     e2 = resolveProperties(sc, e2);
 
     Identifier *id = opId();
@@ -1067,7 +1069,7 @@ Expression *BinAssignExp::op_overload(Scope *sc)
             }
             else
             {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                templateResolve(&m, td, sc, loc, targsi, NULL, &args2);
+                templateResolve(&m, td, sc, loc, targsi, e1, &args2);
             }
         }
 
@@ -1086,10 +1088,8 @@ Expression *BinAssignExp::op_overload(Scope *sc)
                 goto L1;
         }
 
-        Expression *e;
         // Rewrite (e1 op e2) as e1.opOpAssign(e2)
-        e = build_overload(loc, sc, e1, e2, id, targsi);
-        return e;
+        return build_overload(loc, sc, e1, e2, m.lastf ? m.lastf : s);
     }
 
 L1:
@@ -1130,22 +1130,20 @@ L1:
  */
 
 Expression *build_overload(Loc loc, Scope *sc, Expression *ethis, Expression *earg,
-        Identifier *id, Objects *targsi)
+        Dsymbol *d)
 {
+    assert(d);
     Expression *e;
 
     //printf("build_overload(id = '%s')\n", id->toChars());
     //earg->print();
     //earg->type->print();
-    if (targsi)
-        e = new DotTemplateInstanceExp(loc, ethis, id, targsi);
+    Declaration *decl = d->isDeclaration();
+    if (decl)
+        e = new DotVarExp(loc, ethis, decl, 0);
     else
-        e = new DotIdExp(loc, ethis, id);
-
-    if (earg)
-        e = new CallExp(loc, e, earg);
-    else
-        e = new CallExp(loc, e);
+        e = new DotIdExp(loc, ethis, d->ident);
+    e = new CallExp(loc, e, earg);
 
     e = e->semantic(sc);
     return e;

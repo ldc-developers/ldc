@@ -154,9 +154,7 @@ struct Module : Package
 #if !IN_LLVM
     void setHdrfile();  // set hdrfile member
 #endif
-#ifdef _DH
     void genhdrfile();  // generate D import file
-#endif
 //    void gensymfile();
     void gendocfile();
     int needModuleInfo();

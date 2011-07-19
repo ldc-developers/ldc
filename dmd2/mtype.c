@@ -52,7 +52,6 @@
 #include "import.h"
 #include "aggregate.h"
 #include "hdrgen.h"
-#include "doc.h"
 
 #if IN_LLVM
 //#include "gen/tollvm.h"
@@ -83,7 +82,7 @@ int PTRSIZE = 4;
 int REALSIZE = 16;
 int REALPAD = 6;
 int REALALIGNSIZE = 16;
-#elif TARGET_LINUX || TARGET_FREEBSD || TARGET_SOLARIS
+#elif TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
 int REALSIZE = 12;
 int REALPAD = 2;
 int REALALIGNSIZE = 4;
@@ -264,7 +263,6 @@ void Type::init()
     mangleChar[Tdchar] = 'w';
 
     // '@' shouldn't appear anywhere in the deco'd names
-    mangleChar[Tbit] = '@';
     mangleChar[Tinstance] = '@';
     mangleChar[Terror] = '@';
     mangleChar[Ttypeof] = '@';
@@ -313,7 +311,7 @@ void Type::init()
 #if TARGET_OSX
         REALSIZE = 16;
         REALPAD = 6;
-#elif TARGET_LINUX || TARGET_FREEBSD || TARGET_SOLARIS
+#elif TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
         REALSIZE = 12;
         REALPAD = 2;
 #else
@@ -1244,6 +1242,8 @@ Type *Type::toHeadMutable()
 
 Type *Type::pointerTo()
 {
+    if (ty == Terror)
+        return this;
     if (!pto)
     {   Type *t;
 
@@ -1255,6 +1255,8 @@ Type *Type::pointerTo()
 
 Type *Type::referenceTo()
 {
+    if (ty == Terror)
+        return this;
     if (!rto)
     {   Type *t;
 
@@ -1266,6 +1268,8 @@ Type *Type::referenceTo()
 
 Type *Type::arrayOf()
 {
+    if (ty == Terror)
+        return this;
     if (!arrayof)
     {   Type *t;
 
@@ -1764,6 +1768,8 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
     {
         if (ty == Tvoid)
             error(loc, "void does not have an initializer");
+        if (ty == Tfunction)
+            error(loc, "function does not have an initializer");
         e = defaultInitLiteral(loc);
     }
     else if (ident == Id::mangleof)
@@ -1928,7 +1934,7 @@ Expression *Type::noMember(Scope *sc, Expression *e, Identifier *ident)
         {   /* Rewrite e.ident as:
              *  e.opDot().ident
              */
-            e = build_overload(e->loc, sc, e, NULL, fd->ident);
+            e = build_overload(e->loc, sc, e, NULL, fd);
             e = new DotIdExp(e->loc, e, ident);
             return e->semantic(sc);
         }
@@ -2562,7 +2568,7 @@ unsigned TypeBasic::alignsize()
     if (ty == Tvoid)
         return 1;
     return GetTypeAlignment(sir, this);
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
         case Tint64:
         case Tuns64:
             sz = global.params.isX86_64 ? 8 : 4;
@@ -3271,7 +3277,6 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
     {
         Expression *ec;
         Expressions *arguments;
-        bool isBit = (n->ty == Tbit);
 
         //LDC: Build arguments.
         static FuncDeclaration *adSort_fd = NULL;
@@ -3281,18 +3286,8 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
             args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
             adSort_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
         }
-        static FuncDeclaration *adSortBit_fd = NULL;
-        if(!adSortBit_fd) {
-            Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-            args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-            adSortBit_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSortBit");
-        }
 
-        if(isBit)
-            ec = new VarExp(0, adSortBit_fd);
-        else
-            ec = new VarExp(0, adSort_fd);
+        ec = new VarExp(0, adSort_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
 
@@ -3304,13 +3299,9 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
             e = exp;
         }
         arguments->push(e);
-
-        if (next->ty != Tbit) {
-            // LDC, we don't support the getInternalTypeInfo
-            // optimization arbitrarily, not yet at least...
-            arguments->push(n->getTypeInfo(sc));
-        }
-
+        // LDC, we don't support the getInternalTypeInfo
+        // optimization arbitrarily, not yet at least...
+        arguments->push(n->getTypeInfo(sc));
         e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }
@@ -3516,6 +3507,9 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
         dim = dim->implicitCastTo(sc, tsize_t);
         dim = dim->optimize(WANTvalue);
         dinteger_t d2 = dim->toInteger();
+
+        if (dim->op == TOKerror)
+            goto Lerror;
 
         if (d1 != d2)
             goto Loverflow;
@@ -4142,7 +4136,6 @@ printf("index->ito->ito = x%x\n", index->ito->ito);
 
     switch (index->toBasetype()->ty)
     {
-        case Tbool:
         case Tfunction:
         case Tvoid:
         case Tnone:
@@ -4921,6 +4914,11 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 
 void TypeFunction::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs)
 {
+    toCBufferWithAttributes(buf, ident, hgs, this, NULL);
+}
+
+void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TypeFunction *attrs, TemplateDeclaration *td)
+{
     //printf("TypeFunction::toCBuffer() this = %p\n", this);
     const char *p = NULL;
 
@@ -4932,22 +4930,22 @@ void TypeFunction::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs
 
     /* Use 'storage class' style for attributes
      */
-    if (mod)
+    if (attrs->mod)
     {
-        MODtoBuffer(buf, mod);
+        MODtoBuffer(buf, attrs->mod);
         buf->writeByte(' ');
     }
 
-    if (purity)
+    if (attrs->purity)
         buf->writestring("pure ");
-    if (isnothrow)
+    if (attrs->isnothrow)
         buf->writestring("nothrow ");
-    if (isproperty)
+    if (attrs->isproperty)
         buf->writestring("@property ");
-    if (isref)
+    if (attrs->isref)
         buf->writestring("ref ");
 
-    switch (trust)
+    switch (attrs->trust)
     {
         case TRUSTsystem:
             buf->writestring("@system ");
@@ -4964,9 +4962,11 @@ void TypeFunction::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs
 
     if (next && (!ident || ident->toHChars2() == ident->toChars()))
         next->toCBuffer2(buf, hgs, 0);
+    else if (hgs->ddoc && !next)
+        buf->writestring("auto");
     if (hgs->ddoc != 1)
     {
-        switch (linkage)
+        switch (attrs->linkage)
         {
             case LINKd:         p = NULL;       break;
             case LINKc:         p = "C ";       break;
@@ -4987,6 +4987,17 @@ void TypeFunction::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs
     if (ident)
     {   buf->writeByte(' ');
         buf->writestring(ident->toHChars2());
+    }
+    if (td)
+    {   buf->writeByte('(');
+        for (int i = 0; i < td->origParameters->dim; i++)
+        {
+            TemplateParameter *tp = (TemplateParameter *)td->origParameters->data[i];
+            if (i)
+                buf->writestring(", ");
+            tp->toCBuffer(buf, hgs);
+        }
+        buf->writeByte(')');
     }
     Parameter::argsToCBuffer(buf, hgs, parameters, varargs);
     inuse--;
@@ -5210,8 +5221,9 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
                     size_t tdim = tt->arguments->dim;
                     for (size_t j = 0; j < tdim; j++)
                     {   Parameter *narg = (Parameter *)tt->arguments->data[j];
-                        narg->storageClass = fparam->storageClass;
+                        narg->storageClass |= fparam->storageClass;
                     }
+                    fparam->storageClass = 0;
                 }
 
                 /* Reset number of parameters, and back up one to do this fparam again,
@@ -5548,6 +5560,20 @@ Type *TypeFunction::reliesOnTident()
     return next ? next->reliesOnTident() : NULL;
 }
 
+/********************************************
+ * Return TRUE if there are lazy parameters.
+ */
+bool TypeFunction::hasLazyParameters()
+{
+    size_t dim = Parameter::dim(parameters);
+    for (size_t i = 0; i < dim; i++)
+    {   Parameter *fparam = Parameter::getNth(parameters, i);
+        if (fparam->storageClass & STClazy)
+            return TRUE;
+    }
+    return FALSE;
+}
+
 /***************************
  * Examine function signature for parameter p and see if
  * p can 'escape' the scope of the function.
@@ -5581,6 +5607,12 @@ bool TypeFunction::parameterEscapes(Parameter *p)
     /* Assume it escapes in the absence of better information.
      */
     return TRUE;
+}
+
+Expression *TypeFunction::defaultInit(Loc loc)
+{
+    error(loc, "function does not have a default initializer");
+    return new ErrorExp();
 }
 
 /***************************** TypeDelegate *****************************/
@@ -5644,7 +5676,7 @@ MATCH TypeDelegate::implicitConvTo(Type *to)
     //printf("to  : %s\n", to->toChars());
     if (this == to)
         return MATCHexact;
-#if 0 // not allowing covariant conversions because it interferes with overriding
+#if 1 // not allowing covariant conversions because it interferes with overriding
     if (to->ty == Tdelegate && this->nextOf()->covariant(to->nextOf()) == 1)
         return MATCHconvert;
 #endif
@@ -6201,9 +6233,6 @@ Type *TypeInstance::semantic(Loc loc, Scope *sc)
 
     if (!t)
     {
-#ifdef DEBUG
-        printf("2: ");
-#endif
         error(loc, "%s is used as a type", toChars());
         t = terror;
     }
@@ -7380,15 +7409,37 @@ int TypeStruct::needsDestruction()
 
 int TypeStruct::isAssignable()
 {
+    int assignable = TRUE;
+    unsigned offset;
+
     /* If any of the fields are const or invariant,
      * then one cannot assign this struct.
      */
     for (size_t i = 0; i < sym->fields.dim; i++)
     {   VarDeclaration *v = (VarDeclaration *)sym->fields.data[i];
-        if (v->isConst() || v->isImmutable())
-            return FALSE;
+        //printf("%s [%d] v = (%s) %s, v->offset = %d, v->parent = %s", sym->toChars(), i, v->kind(), v->toChars(), v->offset, v->parent->kind());
+        if (i == 0)
+            ;
+        else if (v->offset == offset)
+        {
+            /* If any fields of anonymous union are assignable,
+             * then regard union as assignable.
+             * This is to support unsafe things like Rebindable templates.
+             */
+            if (assignable)
+                continue;
+        }
+        else
+        {
+            if (!assignable)
+                return FALSE;
+        }
+        assignable = v->type->isMutable() && v->type->isAssignable();
+        offset = v->offset;
+        //printf(" -> assignable = %d\n", assignable);
     }
-    return TRUE;
+
+    return assignable;
 }
 
 int TypeStruct::hasPointers()
@@ -8442,12 +8493,7 @@ void Parameter::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *argu
             if (arg->defaultArg)
             {
                 argbuf.writestring(" = ");
-                unsigned o = argbuf.offset;
                 arg->defaultArg->toCBuffer(&argbuf, hgs);
-                if (hgs->ddoc)
-                {
-                    escapeDdocString(&argbuf, o);
-                }
             }
             buf->write(&argbuf);
         }

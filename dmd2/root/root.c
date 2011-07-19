@@ -8,7 +8,7 @@
 // See the included readme.txt for details.
 
 #ifndef POSIX
-#define POSIX (linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4)
+#define POSIX (linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun&&__SVR4)
 #endif
 
 #include <stdio.h>

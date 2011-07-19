@@ -273,10 +273,8 @@ TypedefDeclaration::TypedefDeclaration(Loc loc, Identifier *id, Type *basetype, 
     this->type = new TypeTypedef(this);
     this->basetype = basetype->toBasetype();
     this->init = init;
-#ifdef _DH
     this->htype = NULL;
     this->hbasetype = NULL;
-#endif
     this->loc = loc;
 #if IN_DMD
     this->sinit = NULL;
@@ -294,7 +292,7 @@ Dsymbol *TypedefDeclaration::syntaxCopy(Dsymbol *s)
     assert(!s);
     TypedefDeclaration *st;
     st = new TypedefDeclaration(loc, ident, basetype, init);
-#ifdef _DH
+
     // Syntax copy for header file
     if (!htype)      // Don't overwrite original
     {   if (type)    // Make copy for both old and new instances
@@ -312,7 +310,7 @@ Dsymbol *TypedefDeclaration::syntaxCopy(Dsymbol *s)
     }
     else
         st->hbasetype = hbasetype->syntaxCopy();
-#endif
+
     return st;
 }
 
@@ -389,10 +387,8 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
     this->loc = loc;
     this->type = type;
     this->aliassym = NULL;
-#ifdef _DH
     this->htype = NULL;
     this->haliassym = NULL;
-#endif
     this->overnext = NULL;
     this->inSemantic = 0;
     this->importprot = PROTundefined;
@@ -407,10 +403,8 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Dsymbol *s)
     this->loc = loc;
     this->type = NULL;
     this->aliassym = s;
-#ifdef _DH
     this->htype = NULL;
     this->haliassym = NULL;
-#endif
     this->overnext = NULL;
     this->inSemantic = 0;
     assert(s);
@@ -425,7 +419,7 @@ Dsymbol *AliasDeclaration::syntaxCopy(Dsymbol *s)
         sa = new AliasDeclaration(loc, ident, type->syntaxCopy());
     else
         sa = new AliasDeclaration(loc, ident, aliassym->syntaxCopy(NULL));
-#ifdef _DH
+
     // Syntax copy for header file
     if (!htype)     // Don't overwrite original
     {   if (type)       // Make copy for both old and new instances
@@ -443,7 +437,7 @@ Dsymbol *AliasDeclaration::syntaxCopy(Dsymbol *s)
     }
     else
         sa->haliassym = haliassym->syntaxCopy(s);
-#endif
+
     return sa;
 }
 
@@ -631,7 +625,7 @@ Dsymbol *AliasDeclaration::toAlias()
 void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     buf->writestring("alias ");
-#if 0 && _DH
+#if 0
     if (hgs->hdrgen)
     {
         if (haliassym)
@@ -678,10 +672,8 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     assert(type || init);
     this->type = type;
     this->init = init;
-#ifdef _DH
     this->htype = NULL;
     this->hinit = NULL;
-#endif
     this->loc = loc;
     offset = 0;
     noscope = 0;
@@ -733,7 +725,7 @@ Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
         sv = new VarDeclaration(loc, type ? type->syntaxCopy() : NULL, ident, init);
         sv->storage_class = storage_class;
     }
-#ifdef _DH
+
     // Syntax copy for header file
     if (!htype)      // Don't overwrite original
     {   if (type)    // Make copy for both old and new instances
@@ -751,7 +743,7 @@ Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
     }
     else
         sv->hinit = hinit->syntaxCopy();
-#endif
+
     return sv;
 }
 
@@ -844,17 +836,33 @@ void VarDeclaration::semantic(Scope *sc)
     //printf("storage_class = x%x\n", storage_class);
 
 #if DMDV2
-#if 1
-    if (storage_class & STCgshared && sc->func && sc->func->isSafe())
+    // Safety checks
+    if (sc->func && !sc->intypeof)
     {
-        error("__gshared not allowed in safe functions; use shared");
+        if (storage_class & STCgshared)
+        {
+            if (sc->func->setUnsafe())
+                error("__gshared not allowed in safe functions; use shared");
+        }
+        if (init && init->isVoidInitializer() && type->hasPointers())
+        {
+            if (sc->func->setUnsafe())
+                error("void initializers for pointers not allowed in safe functions");
+        }
+        if (type->hasPointers() && type->toDsymbol(sc))
+        {
+            Dsymbol *s = type->toDsymbol(sc);
+            if (s)
+            {
+                AggregateDeclaration *ad = s->isAggregateDeclaration();
+                if (ad && ad->hasUnions)
+                {
+                    if (sc->func->setUnsafe())
+                        error("unions containing pointers are not allowed in @safe functions");
+                }
+            }
+        }
     }
-#else
-    if (storage_class & STCgshared && global.params.safe && !sc->module->safe)
-    {
-        error("__gshared not allowed in safe mode; use shared");
-    }
-#endif
 #endif
 
     Dsymbol *parent = toParent();
@@ -1184,18 +1192,24 @@ Lagain:
                     ei->exp = resolveProperties(sc, ei->exp);
                     StructDeclaration *sd = ((TypeStruct *)t)->sym;
 #if DMDV2
+                    Expression** pinit = &ei->exp;
+                    while ((*pinit)->op == TOKcomma)
+                    {
+                        pinit = &((CommaExp *)*pinit)->e2;
+                    }
+
                     /* Look to see if initializer is a call to the constructor
                      */
                     if (sd->ctor &&             // there are constructors
-                        ei->exp->type->ty == Tstruct && // rvalue is the same struct
-                        ((TypeStruct *)ei->exp->type)->sym == sd &&
-                        ei->exp->op == TOKcall)
+                        (*pinit)->type->ty == Tstruct && // rvalue is the same struct
+                        ((TypeStruct *)(*pinit)->type)->sym == sd &&
+                        (*pinit)->op == TOKcall)
                     {
                         /* Look for form of constructor call which is:
                          *    *__ctmp.ctor(arguments...)
                          */
                         if (1)
-                        {   CallExp *ce = (CallExp *)ei->exp;
+                        {   CallExp *ce = (CallExp *)(*pinit);
                             if (ce->e1->op == TOKdotvar)
                             {   DotVarExp *dve = (DotVarExp *)ce->e1;
                                 if (dve->var->isCtorDeclaration())
@@ -1216,12 +1230,12 @@ Lagain:
                                         e->op = TOKblit;
                                     }
                                     e->type = t;
-                                    ei->exp = new CommaExp(loc, e, ei->exp);
+                                    (*pinit) = new CommaExp(loc, e, (*pinit));
 
                                     /* Replace __ctmp being constructed with e1
                                      */
                                     dve->e1 = e1;
-                                    ei->exp = ei->exp->semantic(sc);
+                                    (*pinit) = (*pinit)->semantic(sc);
                                     goto Ldtor;
                                 }
                             }
@@ -1649,6 +1663,7 @@ int VarDeclaration::canTakeAddressOf()
 #endif
     return 1;
 }
+
 
 /*******************************
  * Does symbol go into data segment?

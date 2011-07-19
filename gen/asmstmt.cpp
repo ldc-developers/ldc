@@ -162,7 +162,7 @@ Statement *AsmStatement::semantic(Scope *sc)
 
     //puts(toChars());
 
-    sc->func->inlineAsm = 1;
+    sc->func->inlineAsm = true;
     sc->func->inlineStatus = ILSno; // %% not sure
     // %% need to set DECL_UNINLINABLE too?
     sc->func->hasReturnExp = 1; // %% DMD does this, apparently...
