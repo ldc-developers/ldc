@@ -1001,7 +1001,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
 
 Lerr:
     error("can not cast %s to %s at compile time", e1->type->toChars(), type->toChars());
-    return e1->toConstElem(p);
+    return NULL;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2647,8 +2647,11 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
         vals[i] = expr->toConstElem(p);
     }
 
-    // build the constant array initializer
-    LLConstant* initval = LLConstantArray::get(arrtype, vals);
+    // build the constant array initialize
+    const LLArrayType *t = elements->dim == 0 ?
+                           arrtype :
+                           LLArrayType::get(vals.front()->getType(), elements->dim);
+    LLConstant* initval = LLConstantArray::get(t, vals);
 
     // if static array, we're done
     if (!dyn)
@@ -2657,7 +2660,8 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // we need to put the initializer in a global, and so we have a pointer to the array
     // Important: don't make the global constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
+    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, t, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
+    globalstore = DtoBitCast(globalstore, getPtrToType(arrtype));
 
 #if DMDV2
     if (bt->ty == Tpointer)
@@ -2851,43 +2855,56 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     Type* vtype = aatype->nextOf();
 
 #if DMDV2
-
-    Type* indexType = ((TypeAArray*)aatype)->index;
-
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
-    const llvm::FunctionType* funcTy = func->getFunctionType();
-    LLValue* aaTypeInfo = DtoTypeInfoOf(stripModifiers(aatype));
-
     std::vector<LLConstant*> keysInits, valuesInits;
+    ++global.gag;
+    unsigned errors_save = global.errors;
     for (size_t i = 0, n = keys->dim; i < n; ++i)
     {
         Expression* ekey = (Expression*)keys->data[i];
         Expression* eval = (Expression*)values->data[i];
         Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
-        keysInits.push_back(ekey->toConstElem(p));
-        valuesInits.push_back(eval->toConstElem(p));
+        LLConstant *ekeyConst = ekey->toConstElem(p);
+        LLConstant *evalConst = eval->toConstElem(p);
+        if (!ekeyConst || !evalConst) {
+            --global.gag;
+            global.errors = errors_save;
+            goto LruntimeInit;
+        }
+        keysInits.push_back(ekeyConst);
+        valuesInits.push_back(evalConst);
+    }
+    --global.gag;
+    global.errors = errors_save;
+
+    {
+        Type* indexType = ((TypeAArray*)aatype)->index;
+
+        llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
+        const llvm::FunctionType* funcTy = func->getFunctionType();
+        LLValue* aaTypeInfo = DtoTypeInfoOf(stripModifiers(aatype));
+
+        LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+
+        const LLArrayType* arrtype = LLArrayType::get(DtoType(indexType), keys->dim);
+        LLConstant* initval = LLConstantArray::get(arrtype, keysInits);
+        LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
+        LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+        slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
+        LLValue* keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
+
+        arrtype = LLArrayType::get(DtoType(vtype), values->dim);
+        initval = LLConstantArray::get(arrtype, valuesInits);
+        globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
+        slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+        slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
+        LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
+
+        LLValue* aa = gIR->CreateCallOrInvoke3(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
+        return new DImValue(type, aa);
     }
 
-    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
-
-    const LLArrayType* arrtype = LLArrayType::get(DtoType(indexType), keys->dim);
-    LLConstant* initval = LLConstantArray::get(arrtype, keysInits);
-    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-    LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
-    slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
-    LLValue* keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
-
-    arrtype = LLArrayType::get(DtoType(vtype), values->dim);
-    initval = LLConstantArray::get(arrtype, valuesInits);
-    globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
-    slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
-    slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
-    LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
-
-    LLValue* aa = gIR->CreateCallOrInvoke3(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
-    return new DImValue(type, aa);
-
-#else
+LruntimeInit:
+#endif
 
     // it should be possible to avoid the temporary in some cases
     LLValue* tmp = DtoAlloca(type,"aaliteral");
@@ -2912,9 +2929,6 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     }
 
     return aa;
-
-#endif
-
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

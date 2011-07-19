@@ -117,10 +117,6 @@ const LLType* DtoType(Type* t)
     // aggregates
     case Tstruct:    {
         TypeStruct* ts = (TypeStruct*)t;
-#if 1
-        if (t != ts->sym->type) // TODO: interesting... why does it happen?
-            ts->sym->type->irtype = NULL; // set irtype to NULL, so IrTypeStruct constructor would not assert...
-#endif
         t->irtype = new IrTypeStruct(ts->sym);
         return t->irtype->buildType();
     }
