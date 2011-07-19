@@ -3327,16 +3327,12 @@ Statement *DefaultStatement::semantic(Scope *sc)
         sc->sw->sdefault = this;
 
 #if IN_LLVM
-	enclosingScopeExit = sc->enclosingScopeExit;
-	if (enclosingScopeExit != sc->sw->enclosingScopeExit)
-	{
-	    error("default must be inside the same try, synchronized or volatile level as switch");
-	}
+        enclosingScopeExit = sc->sw->enclosingScopeExit;
 
-    if (sc->sw->isFinal)
-    {
-        error("default statement not allowed in final switch statement");
-    }
+        if (sc->sw->isFinal)
+        {
+            error("default statement not allowed in final switch statement");
+        }
 #endif
     }
     else
