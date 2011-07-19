@@ -92,7 +92,7 @@ void ReturnStatement::toIR(IRState* p)
 
             // get return pointer
             DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
-            DValue* e = exp->toElem(p);
+            DValue* e = exp->toElemDtor(p);
             // store return value
             DtoAssign(loc, rvar, e);
 
@@ -118,7 +118,7 @@ void ReturnStatement::toIR(IRState* p)
         else
         {
             LLValue* v;
-            DValue* dval = exp->toElem(p);
+            DValue* dval = exp->toElemDtor(p);
 
 #if DMDV2
             // call postblit if necessary
@@ -219,10 +219,10 @@ void ExpStatement::toIR(IRState* p)
         // a cast(void) around the expression is allowed, but doesn't require any code
         if(exp->op == TOKcast && exp->type == Type::tvoid) {
             CastExp* cexp = (CastExp*)exp;
-            e = cexp->e1->toElem(p);
+            e = cexp->e1->toElemDtor(p);
         }
         else
-            e = exp->toElem(p);
+            e = exp->toElemDtor(p);
         delete e;
     }
     /*elem* e = exp->toElem(p);
@@ -246,7 +246,7 @@ void IfStatement::toIR(IRState* p)
     if (match)
         DtoRawVarDeclaration(match);
 
-    DValue* cond_e = condition->toElem(p);
+    DValue* cond_e = condition->toElemDtor(p);
     LLValue* cond_val = cond_e->getRVal();
 
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -347,7 +347,7 @@ void WhileStatement::toIR(IRState* p)
     gIR->scope() = IRScope(whilebb,endbb);
 
     // create the condition
-    DValue* cond_e = condition->toElem(p);
+    DValue* cond_e = condition->toElemDtor(p);
     LLValue* cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
     delete cond_e;
 
@@ -407,7 +407,7 @@ void DoStatement::toIR(IRState* p)
     gIR->scope() = IRScope(condbb,endbb);
 
     // create the condition
-    DValue* cond_e = condition->toElem(p);
+    DValue* cond_e = condition->toElemDtor(p);
     LLValue* cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
     delete cond_e;
 
@@ -454,7 +454,7 @@ void ForStatement::toIR(IRState* p)
     LLValue* cond_val;
     if (condition)
     {
-        DValue* cond_e = condition->toElem(p);
+        DValue* cond_e = condition->toElemDtor(p);
         cond_val = DtoCast(loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
     }
@@ -481,7 +481,7 @@ void ForStatement::toIR(IRState* p)
 
     // increment
     if (increment) {
-        DValue* inc = increment->toElem(p);
+        DValue* inc = increment->toElemDtor(p);
         delete inc;
     }
 
@@ -776,7 +776,7 @@ void ThrowStatement::toIR(IRState* p)
     #endif
 
     assert(exp);
-    DValue* e = exp->toElem(p);
+    DValue* e = exp->toElemDtor(p);
 
     #ifndef DISABLE_DEBUG_INFO
     if (global.params.symdebug) DtoDwarfFuncEnd(gIR->func()->decl);
@@ -842,7 +842,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
     }
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
 
-    DValue* val = e->toElem(gIR);
+    DValue* val = e->toElemDtor(gIR);
     LLValue* llval = val->getRVal();
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
@@ -883,7 +883,7 @@ void SwitchStatement::toIR(IRState* p)
         if (cs->exp->op == TOKvar)
             vd = ((VarExp*)cs->exp)->var->isVarDeclaration();
         if (vd && !vd->init) {
-            cs->llvmIdx = cs->exp->toElem(p)->getRVal();
+            cs->llvmIdx = cs->exp->toElemDtor(p)->getRVal();
             useSwitchInst = false;
         }
     }
@@ -965,7 +965,7 @@ void SwitchStatement::toIR(IRState* p)
         LLValue* condVal;
         // integral switch
         if (condition->type->isintegral()) {
-            DValue* cond = condition->toElem(p);
+            DValue* cond = condition->toElemDtor(p);
             condVal = cond->getRVal();
         }
         // string switch
@@ -983,7 +983,7 @@ void SwitchStatement::toIR(IRState* p)
     }
     else
     { // we can't use switch, so we will use a bunch of br instructions instead
-        DValue* cond = condition->toElem(p);
+        DValue* cond = condition->toElemDtor(p);
         LLValue *condVal = cond->getRVal();
 
         llvm::BasicBlock* nextbb = llvm::BasicBlock::Create(gIR->context(), "checkcase", p->topfunc(), oldend);
@@ -1177,7 +1177,7 @@ void ForeachStatement::toIR(IRState* p)
     }
 
     // what to iterate
-    DValue* aggrval = aggr->toElem(p);
+    DValue* aggrval = aggr->toElemDtor(p);
 
     // get length and pointer
     LLValue* niters = DtoArrayLen(aggrval);
@@ -1281,9 +1281,9 @@ void ForeachRangeStatement::toIR(IRState* p)
 
     // evaluate lwr/upr
     assert(lwr->type->isintegral());
-    LLValue* lower = lwr->toElem(p)->getRVal();
+    LLValue* lower = lwr->toElemDtor(p)->getRVal();
     assert(upr->type->isintegral());
-    LLValue* upper = upr->toElem(p)->getRVal();
+    LLValue* upper = upr->toElemDtor(p)->getRVal();
 
     // handle key
     assert(key->type->isintegral());
@@ -1506,7 +1506,7 @@ void WithStatement::toIR(IRState* p)
     // with(..) can either be used with expressions or with symbols
     // wthis == null indicates the symbol form
     if (wthis) {
-        DValue* e = exp->toElem(p);
+        DValue* e = exp->toElemDtor(p);
         LLValue* mem = DtoRawVarDeclaration(wthis);
         DtoStore(e->getRVal(), mem);
     }

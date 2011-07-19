@@ -56,6 +56,31 @@ void Expression::cacheLvalue(IRState* irs)
     fatal();
 }
 
+/*******************************************
+ * Evaluate Expression, then call destructors on any temporaries in it.
+ */
+
+DValue *Expression::toElemDtor(IRState *irs)
+{
+#if DMDV2
+    Logger::println("Expression::toElemDtor(): %s", toChars());
+    size_t starti = irs->varsInScope().size();
+    DValue *val = toElem(irs);
+    size_t endi = irs->varsInScope().size();
+
+    // Add destructors
+    while (endi-- > starti)
+    {
+        VarDeclaration *vd = gIR->varsInScope().back();
+        gIR->varsInScope().pop_back();
+        vd->edtor->toElem(gIR);
+    }
+    return val;
+#else
+    return toElem(irs);
+#endif
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DeclarationExp::toElem(IRState* p)
@@ -2045,7 +2070,7 @@ DValue* AndAndExp::toElem(IRState* p)
     llvm::BranchInst::Create(andand,andandend,ubool,p->scopebb());
 
     p->scope() = IRScope(andand, andandend);
-    DValue* v = e2->toElem(p);
+    DValue* v = e2->toElemDtor(p);
 
     LLValue* vbool = 0;
     if (!v->isFunc() && v->getType() != Type::tvoid)
@@ -2092,7 +2117,7 @@ DValue* OrOrExp::toElem(IRState* p)
     llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
     p->scope() = IRScope(oror, ororend);
-    DValue* v = e2->toElem(p);
+    DValue* v = e2->toElemDtor(p);
 
     LLValue* vbool = 0;
     if (v && !v->isFunc() && v->getType() != Type::tvoid)
@@ -2359,13 +2384,13 @@ DValue* CondExp::toElem(IRState* p)
     llvm::BranchInst::Create(condtrue,condfalse,cond_val,p->scopebb());
 
     p->scope() = IRScope(condtrue, condfalse);
-    DValue* u = e1->toElem(p);
+    DValue* u = e1->toElemDtor(p);
     if (dtype->ty != Tvoid)
         DtoAssign(loc, dvv, u);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condfalse, condend);
-    DValue* v = e2->toElem(p);
+    DValue* v = e2->toElemDtor(p);
     if (dtype->ty != Tvoid)
         DtoAssign(loc, dvv, v);
     llvm::BranchInst::Create(condend,p->scopebb());

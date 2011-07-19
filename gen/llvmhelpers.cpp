@@ -1037,6 +1037,16 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
             if (!vd->isRef())
                 DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
+
+#if DMDV2
+            /* Mark the point of construction of a variable that needs to be destructed.
+             */
+            if (vd->edtor && !vd->noscope)
+            {
+                // Put vd on list of things needing destruction
+                gIR->varsInScope().push_back(vd);
+            }
+#endif
         }
 
         return new DVarValue(vd->type, vd, vd->ir.getIrValue());

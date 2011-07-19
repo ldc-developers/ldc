@@ -203,6 +203,7 @@ struct Expression : Object
 
 #if IN_LLVM
     virtual DValue* toElem(IRState* irs);
+    DValue *toElemDtor(IRState *irs);
     virtual llvm::Constant *toConstElem(IRState *irs);
     virtual void cacheLvalue(IRState* irs);
 

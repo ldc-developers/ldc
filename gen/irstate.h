@@ -52,6 +52,11 @@ struct IRScope
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
     
     const IRScope& operator=(const IRScope& rhs);
+
+#if DMDV2
+    // list of variables needing destruction
+    std::vector<VarDeclaration*> varsInScope;
+#endif
 };
 
 struct IRBuilderHelper
@@ -134,6 +139,7 @@ struct IRState
     // basic block scopes
     std::vector<IRScope> scopes;
     IRScope& scope();
+    std::vector<VarDeclaration*> &varsInScope() { return scope().varsInScope; }
     llvm::BasicBlock* scopebb();
     llvm::BasicBlock* scopeend();
     bool scopereturned();
