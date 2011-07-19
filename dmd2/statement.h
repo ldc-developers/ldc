@@ -952,7 +952,7 @@ struct ImportStatement : Statement
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
 
-    //void toIR(IRState *irs);
+    void toIR(IRState *irs);
 };
 
 struct AsmBlockStatement : CompoundStatement
