@@ -334,6 +334,7 @@ struct Type : Object
     virtual TypeTuple *toArgTypes();
     virtual Type *nextOf();
     uinteger_t sizemask();
+    virtual int needsDestruction();
 
 
     static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
@@ -463,6 +464,7 @@ struct TypeSArray : TypeArray
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *toExpression();
     int hasPointers();
+    int needsDestruction();
     TypeTuple *toArgTypes();
 #if CPP_MANGLE
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
@@ -772,6 +774,7 @@ struct TypeStruct : Type
     int isZeroInit(Loc loc);
     int isAssignable();
     int checkBoolean();
+    int needsDestruction();
 #if IN_DMD
     dt_t **toDt(dt_t **pdt);
 #endif
@@ -820,6 +823,7 @@ struct TypeEnum : Type
     int isunsigned();
     int checkBoolean();
     int isAssignable();
+    int needsDestruction();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     Type *toBasetype();
@@ -863,6 +867,7 @@ struct TypeTypedef : Type
     int isunsigned();
     int checkBoolean();
     int isAssignable();
+    int needsDestruction();
     Type *toBasetype();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);

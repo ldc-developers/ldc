@@ -4215,7 +4215,7 @@ void TemplateInstance::semanticTiargs(Scope *sc)
 void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int flags)
 {
     // Run semantic on each argument, place results in tiargs[]
-    //printf("+TemplateInstance::semanticTiargs() %s\n", toChars());
+    //printf("+TemplateInstance::semanticTiargs()\n");
     if (!tiargs)
         return;
     for (size_t j = 0; j < tiargs->dim; j++)
@@ -4239,7 +4239,9 @@ void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int f
                  * match with an 'alias' parameter. Instead, do the
                  * const substitution in TemplateValueParameter::matchArg().
                  */
-                if (ea->op != TOKvar || flags & 1)
+                if (flags & 1) // only used by __traits, must not interpret the args
+                    ea = ea->optimize(WANTvalue);
+                else if (ea->op != TOKvar)
                     ea = ea->optimize(WANTvalue | WANTinterpret);
                 tiargs->data[j] = ea;
             }
@@ -4288,7 +4290,9 @@ void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int f
             }
             assert(ea);
             ea = ea->semantic(sc);
-            if (ea->op != TOKvar || flags & 1)
+            if (flags & 1) // only used by __traits, must not interpret the args
+                ea = ea->optimize(WANTvalue);
+            else if (ea->op != TOKvar)
                 ea = ea->optimize(WANTvalue | WANTinterpret);
             tiargs->data[j] = ea;
             if (ea->op == TOKtype)
@@ -4321,7 +4325,7 @@ void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int f
         //printf("1: tiargs->data[%d] = %p\n", j, tiargs->data[j]);
     }
 #if 0
-    printf("-TemplateInstance::semanticTiargs('%s', this=%p)\n", toChars(), this);
+    printf("-TemplateInstance::semanticTiargs()\n");
     for (size_t j = 0; j < tiargs->dim; j++)
     {
         Object *o = (Object *)tiargs->data[j];
@@ -4718,8 +4722,8 @@ Identifier *TemplateInstance::genIdent(Objects *args)
           Lea:
             sinteger_t v;
             real_t r;
-
-            ea = ea->optimize(WANTvalue | WANTinterpret);
+            // Don't interpret it yet, it might actually be an alias
+            ea = ea->optimize(WANTvalue);
             if (ea->op == TOKvar)
             {
                 sa = ((VarExp *)ea)->var;
@@ -4737,6 +4741,8 @@ Identifier *TemplateInstance::genIdent(Objects *args)
             {   ea->error("tuple is not a valid template value argument");
                 continue;
             }
+            // Now that we know it is not an alias, we MUST obtain a value
+            ea = ea->optimize(WANTvalue | WANTinterpret);
 #if 1
             /* Use deco that matches what it would be for a function parameter
              */

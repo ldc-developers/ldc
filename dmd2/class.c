@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -839,15 +839,17 @@ int ClassDeclaration::isBaseOf(ClassDeclaration *cd, int *poffset)
         *poffset = 0;
     while (cd)
     {
-        if (this == cd->baseClass)
-            return 1;
-
         /* cd->baseClass might not be set if cd is forward referenced.
          */
         if (!cd->baseClass && cd->baseclasses->dim && !cd->isInterfaceDeclaration())
         {
-            cd->error("base class is forward referenced by %s", toChars());
+            cd->semantic(NULL);
+            if (!cd->baseClass)
+                cd->error("base class is forward referenced by %s", toChars());
         }
+
+        if (this == cd->baseClass)
+            return 1;
 
         cd = cd->baseClass;
     }
@@ -876,14 +878,14 @@ Dsymbol *ClassDeclaration::search(Loc loc, Identifier *ident, int flags)
     Dsymbol *s;
     //printf("%s.ClassDeclaration::search('%s')\n", toChars(), ident->toChars());
 
-    if (scope)
+    if (scope && !symtab)
     {   Scope *sc = scope;
         sc->mustsemantic++;
         semantic(sc);
         sc->mustsemantic--;
     }
 
-    if (!members || !symtab || scope)
+    if (!members || !symtab)
     {
         error("is forward referenced when looking for '%s'", ident->toChars());
         //*(char*)0=0;

@@ -1111,8 +1111,8 @@ namespace AsmParserx8664
         { "pmullw",   Op_DstSrcMMX },
         { "pmuludq",  Op_DstSrcMMX }, // also sse
         { "pop",      Op_DstW },
-        { "popf",     Op_SizedStack },  // rewrite the insn with a special case
-        { "popfq",    Op_SizedStack },
+        { "popf",     Op_0 },  // rewrite the insn with a special case
+        { "popfq",    Op_0 },
         { "popq",    Op_push },
         { "por",      Op_DstSrcMMX },
         { "prefetchnta", Op_SrcMemNT },
@@ -1156,8 +1156,8 @@ namespace AsmParserx8664
         { "punpcklqdq",Op_DstSrcMMX },
         { "punpcklwd", Op_DstSrcMMX },
         { "push",   Op_push },
-        { "pushf",  Op_SizedStack },
-        { "pushfq", Op_SizedStack },
+        { "pushf",  Op_0 },
+        { "pushfq", Op_0 },
         { "pushq", Op_push },
         { "pxor",   Op_DstSrcMMX },
         { "rcl",    Op_Shift }, // limited src operands -- change to shift

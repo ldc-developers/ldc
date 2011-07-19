@@ -991,8 +991,8 @@ namespace AsmParserx8632
         { "pop",      Op_DstW },
         { "popa",     Op_SizedStack },  // For intel this is always 16-bit
         { "popad",    Op_SizedStack },  // GAS doesn't accept 'popad' -- these clobber everything, but supposedly it would be used to preserve clobbered regs
-        { "popf",     Op_SizedStack },  // rewrite the insn with a special case
-        { "popfd",    Op_SizedStack },
+        { "popf",     Op_0 },  // rewrite the insn with a special case
+        { "popfd",    Op_0 },
         { "por",      Op_DstSrcMMX },
         { "prefetchnta", Op_SrcMemNT },
         { "prefetcht0",  Op_SrcMemNT },
@@ -1033,8 +1033,8 @@ namespace AsmParserx8632
         { "push",   Op_push },
         { "pusha",  Op_SizedStack },
         { "pushad", Op_SizedStack },
-        { "pushf",  Op_SizedStack },
-        { "pushfd", Op_SizedStack },
+        { "pushf",  Op_0 },
+        { "pushfd", Op_0 },
         { "pxor",   Op_DstSrcMMX },
         { "rcl",    Op_Shift }, // limited src operands -- change to shift
         { "rcpps",  Op_DstSrcSSE },

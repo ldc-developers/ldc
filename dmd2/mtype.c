@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -1666,6 +1666,15 @@ int Type::checkBoolean()
     return isscalar();
 }
 
+/********************************
+ * TRUE if when type goes out of scope, it needs a destructor applied.
+ * Only applies to value types, not ref types.
+ */
+int Type::needsDestruction()
+{
+    return FALSE;
+}
+
 /*********************************
  * Check type to see if it is based on a deprecated symbol.
  */
@@ -2067,6 +2076,7 @@ Expression *Type::toExpression()
 
 int Type::hasPointers()
 {
+    //printf("Type::hasPointers() %s, %d\n", toChars(), ty);
     return FALSE;
 }
 
@@ -3416,7 +3426,7 @@ void TypeSArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
             sc = sc->pop();
 
             if (d >= td->objects->dim)
-            {   error(loc, "tuple index %ju exceeds %u", d, td->objects->dim);
+            {   error(loc, "tuple index %ju exceeds length %u", d, td->objects->dim);
                 goto Ldefault;
             }
             Object *o = (Object *)td->objects->data[(size_t)d];
@@ -3492,7 +3502,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
 
         dim = semanticLength(sc, tbn, dim);
 
-        dim = dim->optimize(WANTvalue | WANTinterpret);
+        dim = dim->optimize(WANTvalue);
         if (sc && sc->parameterSpecialization && dim->op == TOKvar &&
             ((VarExp *)dim)->var->storage_class & STCtemplateparameter)
         {
@@ -3501,6 +3511,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
              */
             return this;
         }
+        dim = dim->optimize(WANTvalue | WANTinterpret);
         dinteger_t d1 = dim->toInteger();
         dim = dim->implicitCastTo(sc, tsize_t);
         dim = dim->optimize(WANTvalue);
@@ -3551,8 +3562,8 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
         }
         case Tstruct:
         {   TypeStruct *ts = (TypeStruct *)tbn;
-            if (ts->sym->isnested)
-            {   error(loc, "cannot have array of inner structs %s", ts->toChars());
+            if (0 && ts->sym->isnested)
+            {   error(loc, "cannot have static array of inner struct %s", ts->toChars());
                 goto Lerror;
             }
             break;
@@ -3717,6 +3728,11 @@ int TypeSArray::isZeroInit(Loc loc)
     return next->isZeroInit(loc);
 }
 
+int TypeSArray::needsDestruction()
+{
+    return next->needsDestruction();
+}
+
 Expression *TypeSArray::defaultInitLiteral(Loc loc)
 {
 #if LOGDEFAULTINIT
@@ -3746,7 +3762,18 @@ Expression *TypeSArray::toExpression()
 
 int TypeSArray::hasPointers()
 {
-    return next->hasPointers();
+    /* Don't want to do this, because:
+     *    struct S { T* array[0]; }
+     * may be a variable length struct.
+     */
+    //if (dim->toInteger() == 0)
+        //return FALSE;
+
+    if (next->ty == Tvoid)
+        // Arrays of void contain arbitrary data, which may include pointers
+        return TRUE;
+    else
+        return next->hasPointers();
 }
 
 /***************************** TypeDArray *****************************/
@@ -3797,8 +3824,8 @@ Type *TypeDArray::semantic(Loc loc, Scope *sc)
             break;
         case Tstruct:
         {   TypeStruct *ts = (TypeStruct *)tbn;
-            if (ts->sym->isnested)
-                error(loc, "cannot have array of inner structs %s", ts->toChars());
+            if (0 && ts->sym->isnested)
+                error(loc, "cannot have dynamic array of inner struct %s", ts->toChars());
             break;
         }
     }
@@ -4000,7 +4027,7 @@ Type *TypeNewArray::semantic(Loc loc, Scope *sc)
             break;
         case Tstruct:
         {   TypeStruct *ts = (TypeStruct *)tbn;
-            if (ts->sym->isnested)
+            if (0 && ts->sym->isnested)
                 error(loc, "cannot have array of inner structs %s", ts->toChars());
             break;
         }
@@ -5584,6 +5611,16 @@ Type *TypeDelegate::semantic(Loc loc, Scope *sc)
         return this;
     }
     next = next->semantic(loc,sc);
+    /* In order to deal with Bugzilla 4028, perhaps default arguments should
+     * be removed from next before the merge.
+     */
+
+    /* Don't return merge(), because arg identifiers and default args
+     * can be different
+     * even though the types match
+     */
+    //deco = merge()->deco;
+    //return this;
     return merge();
 }
 
@@ -5829,8 +5866,11 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
                     *pe = e;
                 }
                 else
+                {
                   Lerror:
                     error(loc, "identifier '%s' of '%s' is not defined", id->toChars(), toChars());
+                    *pe = new ErrorExp();
+                }
                 return;
             }
         L2:
@@ -5929,6 +5969,7 @@ L1:
             else
                 error(loc, "undefined identifier %s", p);
         }
+        *pt = Type::terror;
     }
 }
 
@@ -6657,6 +6698,11 @@ int TypeEnum::checkBoolean()
     return sym->memtype->checkBoolean();
 }
 
+int TypeEnum::needsDestruction()
+{
+    return sym->memtype->needsDestruction();
+}
+
 MATCH TypeEnum::implicitConvTo(Type *to)
 {   MATCH m;
 
@@ -6858,6 +6904,11 @@ int TypeTypedef::isAssignable()
 int TypeTypedef::checkBoolean()
 {
     return sym->basetype->checkBoolean();
+}
+
+int TypeTypedef::needsDestruction()
+{
+    return sym->basetype->needsDestruction();
 }
 
 Type *TypeTypedef::toBasetype()
@@ -7295,7 +7346,11 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
         VarDeclaration *vd = (VarDeclaration *)(sym->fields.data[j]);
         Expression *e;
         if (vd->init)
-            e = vd->init->toExpression();
+        {   if (vd->init->isVoidInitializer())
+                e = NULL;
+            else
+                e = vd->init->toExpression();
+        }
         else
             e = vd->type->defaultInitLiteral();
         structelems->data[j] = e;
@@ -7316,6 +7371,11 @@ int TypeStruct::isZeroInit(Loc loc)
 int TypeStruct::checkBoolean()
 {
     return FALSE;
+}
+
+int TypeStruct::needsDestruction()
+{
+    return sym->dtor != NULL;
 }
 
 int TypeStruct::isAssignable()
