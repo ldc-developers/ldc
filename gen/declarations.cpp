@@ -205,7 +205,16 @@ void TemplateInstance::codegen(Ir* p)
 
 void TemplateMixin::codegen(Ir* p)
 {
-    TemplateInstance::codegen(p);
+    if (!errors && members)
+    {
+        for (int i = 0; i < members->dim; i++)
+        {
+            Dsymbol *s = (Dsymbol *)members->data[i];
+            if (s->isVarDeclaration())
+                continue;
+            s->codegen(p);
+        }
+    }
 }
 
 /* ================================================================== */
