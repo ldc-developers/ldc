@@ -1324,7 +1324,8 @@ DValue* ThisExp::toElem(IRState* p)
     // regular this expr
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
-        if (vd->toParent2() != p->func()->decl) {
+        Dsymbol* vdparent = vd->toParent2();
+        if (vdparent != p->func()->decl) {
             Logger::println("nested this exp");
 #if STRUCTTHISREF
             return DtoNestedVariable(loc, type, vd, type->ty == Tstruct);

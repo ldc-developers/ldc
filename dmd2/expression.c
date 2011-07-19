@@ -2795,6 +2795,9 @@ Expression *ThisExp::semantic(Scope *sc)
 #endif
     if (type && var)
     {   //assert(global.errors || var);
+#if IN_LLVM
+        var->isVarDeclaration()->checkNestedReference(sc, loc);
+#endif
         return this;
     }
 

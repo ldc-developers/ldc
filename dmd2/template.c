@@ -4245,6 +4245,7 @@ void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int f
         return;
     for (size_t j = 0; j < tiargs->dim; j++)
     {
+
         Object *o = (Object *)tiargs->data[j];
         Type *ta = isType(o);
         Expression *ea = isExpression(o);
