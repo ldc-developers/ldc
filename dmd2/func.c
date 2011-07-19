@@ -93,7 +93,6 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     isArrayOp = false;
     allowInlining = false;
     availableExternally = true; // assume this unless proven otherwise
-    inlineAsm = true;
 
     // function types in ldc don't merge if the context parameter differs
     // so we actually don't care about the function declaration, but only

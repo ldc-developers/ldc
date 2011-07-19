@@ -689,7 +689,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     // this hack makes sure the frame pointer elimination optimization is disabled.
     // this this eliminates a bunch of inline asm related issues.
-    if (fd->inlineAsm)
+    if (fd->hasReturnExp & 8) // has inline asm
     {
         // emit a call to llvm_eh_unwind_init
         LLFunction* hack = GET_INTRINSIC_DECL(eh_unwind_init);

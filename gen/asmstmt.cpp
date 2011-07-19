@@ -162,10 +162,8 @@ Statement *AsmStatement::semantic(Scope *sc)
 
     //puts(toChars());
 
-    sc->func->inlineAsm = true;
+    sc->func->hasReturnExp |= 8;
     sc->func->inlineStatus = ILSno; // %% not sure
-    // %% need to set DECL_UNINLINABLE too?
-    sc->func->hasReturnExp = 1; // %% DMD does this, apparently...
 
     // empty statement -- still do the above things because they might be expected?
     if (! tokens)
@@ -193,7 +191,8 @@ int AsmStatement::blockExit()
     if (mustNotThrow)
         error("asm statements are assumed to throw", toChars());
 #endif
-    return BEfallthru | BEreturn | BEgoto | BEhalt;
+    // Assume the worst
+    return BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;
 }
 
 void
@@ -203,7 +202,7 @@ AsmStatement::toIR(IRState * irs)
     LOG_SCOPE;
 
     // sanity check
-    assert(irs->func()->decl->inlineAsm);
+    assert(irs->func()->decl->hasReturnExp & 8);
 
     // get asm block
     IRAsmBlock* asmblock = irs->asmBlock;
