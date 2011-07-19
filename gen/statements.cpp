@@ -52,12 +52,14 @@ static void callPostblitHelper(Loc &loc, Expression *exp, LLValue *val)
 {
 
     Type *tb = exp->type->toBasetype();
-    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar) &&
+    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis) &&
         tb->ty == Tstruct)
     {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
         if (sd->postblit)
         {
             FuncDeclaration *fd = sd->postblit;
+            if (fd->storage_class & STCdisable)
+                fd->toParent()->error(loc, "is not copyable because it is annotated with @disable");
             fd->codegen(Type::sir);
             Expressions args;
             DFuncValue dfn(fd, fd->ir.irFunc->func, val);
@@ -98,8 +100,8 @@ void ReturnStatement::toIR(IRState* p)
 
 #if DMDV2
             // call postblit if necessary
-            if (e->isLVal() && !p->func()->type->isref)
-                callPostblitHelper(loc, exp, e->getLVal());
+            if (!p->func()->type->isref)
+                callPostblitHelper(loc, exp, rvar->getLVal());
 #endif
 
             // emit scopes
