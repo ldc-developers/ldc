@@ -541,6 +541,8 @@ void TypeInfoFunctionDeclaration::llvmDefine()
     RTTIBuilder b(Type::typeinfofunction);
     // TypeInfo base
     b.push_typeinfo(tinfo->nextOf());
+    // string deco
+    b.push_string(tinfo->deco);
     // finish
     b.finalize(ir.irGlobal);
 }
@@ -558,6 +560,8 @@ void TypeInfoDelegateDeclaration::llvmDefine()
     RTTIBuilder b(Type::typeinfodelegate);
     // TypeInfo base
     b.push_typeinfo(ret_type);
+    // string deco
+    b.push_string(tinfo->deco);
     // finish
     b.finalize(ir.irGlobal);
 }
