@@ -2739,6 +2739,8 @@ DValue* StructLiteralExp::toElem(IRState* p)
 #endif
         else
         {
+            if (vd->init->isVoidInitializer())
+                continue;
             IF_LOG Logger::println("using default initializer");
             cv.c = get_default_initializer(vd, NULL);
             val = &cv;

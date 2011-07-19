@@ -336,6 +336,28 @@ Expression *AddrExp::optimize(int result)
         return e->optimize(result & ~WANTinterpret);
     }
 
+#if IN_LLVM
+    if (e1->op == TOKindex)
+    {
+        IndexExp *ae = (IndexExp *)e1;
+
+        if (ae->e2->op == TOKint64 && ae->e1->op == TOKvar)
+        {
+            dinteger_t index = ae->e2->toInteger();
+            VarExp *ve = (VarExp *)ae->e1;
+            if (ve->type->ty == Tsarray
+                && !ve->var->isImportedSymbol())
+            {
+                TypeSArray *ts = (TypeSArray *)ve->type;
+                dinteger_t dim = ts->dim->toInteger();
+                if (index < 0 || index >= dim)
+                    error("array index %jd is out of bounds [0..%jd]", index, dim);
+                return this;
+            }
+        }
+    }
+#endif
+
     if (e1->op == TOKvar)
     {   VarExp *ve = (VarExp *)e1;
         if (ve->var->storage_class & STCmanifest)
@@ -578,6 +600,13 @@ Expression *CastExp::optimize(int result)
     enum TOK op1 = e1->op;
 #define X 0
 
+#if IN_LLVM
+    if (type->toBasetype()->ty == Tpointer &&
+        e1->type->toBasetype()->ty == Tsarray)
+    {
+        return this;
+    }
+#endif
     Expression *e1old = e1;
     e1 = e1->optimize(result);
     e1 = fromConstInitializer(result, e1);

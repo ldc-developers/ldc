@@ -7612,7 +7612,7 @@ Expression *AddrExp::semantic(Scope *sc)
     if (!type)
     {
 #if IN_LLVM
-	m = sc->module;
+        m = sc->module;
 #endif
         UnaExp::semantic(sc);
         e1 = e1->toLvalue(sc, NULL);

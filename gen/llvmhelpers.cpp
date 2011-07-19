@@ -415,7 +415,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
                 DtoArrayInit(loc, lhs, rhs, op);
             }
 #if DMDV2
-            else if (stripModifiers(DtoArrayElementType(t))->equals(stripModifiers(t2))) {
+            else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
                 DtoArrayInit(loc, s, rhs, op);
             }
             else if (op != -1 && op != TOKblit && arrayNeedsPostblit(t)) {
@@ -453,7 +453,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
             DtoArrayInit(loc, lhs, rhs, op);
         }
 #if DMDV2
-        else if (DtoArrayElementType(t)->equals(t2)) {
+        else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
             DtoArrayInit(loc, lhs, rhs, op);
         }
         else if (op != -1 && op != TOKblit && arrayNeedsPostblit(t)) {
