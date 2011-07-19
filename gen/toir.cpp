@@ -2226,7 +2226,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     LLValue* castfptr;
 
-    if (e1->op != TOKsuper && func->isVirtual() && !func->isFinal())
+    if (e1->op != TOKsuper && e1->op != TOKdottype && func->isVirtual() && !func->isFinal())
         castfptr = DtoVirtualFunctionPointer(u, func, toChars());
     else if (func->isAbstract())
         assert(0 && "TODO delegate to abstract method");
