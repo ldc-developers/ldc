@@ -734,6 +734,10 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
 
     LLValue *oldLength = DtoArrayLen(array);
 
+    // Do not move exp->toElem call after creating _d_arrayappendcTX,
+    // otherwise a ~= a[$-i] won't work correctly
+    DValue *expVal = exp->toElem(gIR);
+
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcTX");
     LLSmallVector<LLValue*,3> args;
     args.push_back(DtoTypeInfoOf(arrayType));
@@ -746,7 +750,7 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     LLValue* val = DtoExtractValue(appendedArray, 1, ".ptr");
     val = DtoGEP1(val, oldLength, "lastElem");
     val = DtoBitCast(val, DtoType(arrayType->nextOf()->pointerTo()));
-    DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), exp->toElem(gIR));
+    DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal);
 }
 
 #else
