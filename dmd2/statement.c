@@ -3686,7 +3686,11 @@ Statement *ReturnStatement::semantic(Scope *sc)
         else
         {
             // Construct: return vresult;
+#if IN_LLVM
+            if (!fd->vresult && !fd->isCtorDeclaration())
+#else
             if (!fd->vresult)
+#endif
             {   // Declare vresult
                 VarDeclaration *v = new VarDeclaration(loc, tret, Id::result, NULL);
                 v->noscope = 1;
@@ -3698,7 +3702,11 @@ Statement *ReturnStatement::semantic(Scope *sc)
                 fd->vresult = v;
             }
 
+#if IN_LLVM
+            s = new ReturnStatement(0, new VarExp(0, fd->isCtorDeclaration() ? fd->vthis : fd->vresult));
+#else
             s = new ReturnStatement(0, new VarExp(0, fd->vresult));
+#endif
             sc->fes->cases->push(s);
 
             // Construct: { vresult = exp; return cases->dim + 1; }

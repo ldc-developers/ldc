@@ -1670,10 +1670,14 @@ void FuncDeclaration::semantic3(Scope *sc)
                 {
 #if IN_LLVM
                     Expression *e = 0;
-                    if (isCtorDeclaration())
-                        e = new VarExp(0, vthis);
-                    else
+                    if (isCtorDeclaration()) {
+                        ThisExp *te = new ThisExp(0);
+                        te->type = vthis->type;
+                        te->var = vthis;
+                        e = te;
+                    } else {
                         e = new VarExp(0, vresult);
+                    }
 #else
                     // Create: return vresult;
                     assert(vresult);
