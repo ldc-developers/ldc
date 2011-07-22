@@ -153,12 +153,17 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
 
     // emit finallys and 'if' chain to catch the exception
     llvm::Function* eh_typeid_for_fn = GET_INTRINSIC_DECL(eh_typeid_for);
+    std::deque<IRLandingPadInfo> infos = this->infos;
+    std::stack<size_t> nInfos = this->nInfos;
     std::deque<IRLandingPadInfo>::reverse_iterator rit, rend = infos.rend();
     for(rit = infos.rbegin(); rit != rend; ++rit)
     {
         // if it's a finally, emit its code
         if(rit->finallyBody)
         {
+            size_t n = this->nInfos.top();
+            this->infos.resize(n);
+            this->nInfos.pop();
             rit->finallyBody->toIR(gIR);
         }
         // otherwise it's a catch and we'll add a if-statement
@@ -172,6 +177,10 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             gIR->scope() = IRScope(next, gIR->scopeend());
         }
     }
+
+    // restore landing pad infos
+    this->infos = infos;
+    this->nInfos = nInfos;
 
     // no catch matched and all finallys executed - resume unwind
     llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_resume_unwind");
