@@ -1704,6 +1704,10 @@ Lagain:
 
         if (t1n == t2n)
             ;
+#if IN_LLVM
+        else if (t1n->equals(t2n))
+            ;
+#endif
         else if (t1n->ty == Tvoid)      // pointers to void are always compatible
             t = t2;
         else if (t2n->ty == Tvoid)
