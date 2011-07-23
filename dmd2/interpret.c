@@ -1481,12 +1481,59 @@ Expression *AddrExp::interpret(InterState *istate, CtfeGoal goal)
 #if LOG
     printf("AddrExp::interpret() %s\n", toChars());
 #endif
-#if 0 || IN_LLVM
+#if IN_LLVM
 	if (e1->op == TOKvar)
     {   VarExp *ve = (VarExp *)e1;
         if (ve->var->isFuncDeclaration())
             return this;
+        if (type->ty != Tpointer)
+        {   // Probably impossible
+            error("Cannot interpret %s at compile time", toChars());
+            return EXP_CANT_INTERPRET;
+        }
+        Type *pointee = ((TypePointer *)type)->next;
+        if (pointee == ve->type)
+        {
+            if (goal == ctfeNeedLvalue || goal == ctfeNeedLvalueRef) {
+                ve = (VarExp*)ve->syntaxCopy();
+                ve->type = type;
+                return ve;
+            } else {
+                Expression *e = getVarExp(loc, istate, ve->var, goal);
+                e = new AddrExp(loc, e);
+                e->type = type;
+                return e;
+            }
+        }
+    }
+    else if (e1->op == TOKindex)
+    {
+        IndexExp *ae = (IndexExp *)e1;
+        if (ae->e2->op == TOKint64 && ae->e1->op == TOKvar) {
+            dinteger_t indx = ae->e2->toInteger();
+            VarExp *ve = (VarExp *)ae->e1;
+            if (/*ve->type->ty == Tarray || */ve->type->ty == Tsarray)
+            {
+                Expression *val = getVarExp(loc, istate, ve->var, goal);
 
+                Expression *aggregate = NULL;
+                if (val->op == TOKarrayliteral || val->op == TOKstring)
+                    aggregate = val;
+                else if (val->op == TOKslice)
+                {
+                    aggregate = ((SliceExp *)val)->e1;
+                    Expression *lwr = ((SliceExp *)val)->lwr->interpret(istate);
+                    indx += lwr->toInteger();
+                }
+                if (aggregate)
+                {
+                    IntegerExp *ofs = new IntegerExp(loc, indx, Type::tsize_t);
+                    IndexExp *ie = new IndexExp(loc, aggregate, ofs);
+                    ie->type = type;
+                    return ie;
+                }
+            }
+        }
     }
 #endif
 	
@@ -2204,10 +2251,17 @@ Expression *pointerArithmetic(Loc loc, enum TOK op, Type *type,
     Expression *val = agg1;
     TypeArray *tar = (TypeArray *)val->type;
     dinteger_t indx = ofs1;
+#if IN_LLVM // LDC: llvm uses typesafe pointer arithmetic
+    if (op == TOKadd || op == TOKaddass)
+        indx += ofs2;
+    else if (op == TOKmin || op == TOKminass)
+        indx -= ofs2;
+#else
     if (op == TOKadd || op == TOKaddass)
         indx = indx + ofs2/sz;
     else if (op == TOKmin || op == TOKminass)
         indx -= ofs2/sz;
+#endif
     else
         error(loc, "CTFE Internal compiler error: bad pointer operation");
     if (val->op != TOKarrayliteral && val->op != TOKstring)
