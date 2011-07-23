@@ -229,16 +229,17 @@ else version( LDC )
             false);
         static if (is(T P == U*, U)) // pointer
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
+            llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
         }
         else static if (T.sizeof == bool.sizeof)
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0) ? 1 : 0;
+            llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0);
         }
         else
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load_add!(T)(cast(T*)&val, cast(T)0);
+            llvm_atomic_load_add!(T)(cast(T*)&val, cast(T)0);
         }
+        return cast(HeadUnshared!(T))val;
     }
 
     void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
