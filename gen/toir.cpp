@@ -1026,6 +1026,8 @@ LLConstant* CastExp::toConstElem(IRState* p)
 
 Lerr:
     error("can not cast %s to %s at compile time", e1->type->toChars(), type->toChars());
+    if (!global.gag)
+        fatal();
     return NULL;
 }
 
