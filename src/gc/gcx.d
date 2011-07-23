@@ -72,7 +72,7 @@ private
     extern (C) void* rt_stackBottom();
     extern (C) void* rt_stackTop();
 
-    extern (C) void rt_finalize( void* p, bool det = true );
+    extern (C) void rt_finalize(void* p, bool det = true);
 
     version (MULTI_THREADED)
     {
@@ -81,8 +81,8 @@ private
         extern (C) void thread_resumeAll();
         extern (C) void thread_processGCMarks();
 
-        alias void delegate( void*, void* ) scanFn;
-        extern (C) void thread_scanAll( scanFn fn, void* curStackTop = null );
+        alias void delegate(void*, void*) scanFn;
+        extern (C) void thread_scanAll(scanFn fn, void* curStackTop = null);
     }
 
     extern (C) void onOutOfMemoryError();
@@ -432,6 +432,9 @@ class GC
         assert(gcx);
         //debug(PRINTF) printf("gcx.self = %x, pthread_self() = %x\n", gcx.self, pthread_self());
 
+        if (gcx.running)
+            onOutOfMemoryError();
+
         size += SENTINEL_EXTRA;
 
         // Compute size bin
@@ -490,7 +493,7 @@ class GC
 
             // Return next item from free list
             gcx.bucket[bin] = (cast(List*)p).next;
-            if( !(bits & BlkAttr.NO_SCAN) )
+            if (!(bits & BlkAttr.NO_SCAN))
                 memset(p + size, 0, binsize[bin] - size);
             //debug(PRINTF) printf("\tmalloc => %p\n", p);
             debug (MEMSTOMP) memset(p, 0xF0, size);
@@ -573,6 +576,9 @@ class GC
     //
     private void *reallocNoSync(void *p, size_t size, uint bits = 0, size_t *alloc_size = null)
     {
+        if (gcx.running)
+            onOutOfMemoryError();
+
         if (!size)
         {   if (p)
             {   freeNoSync(p);
@@ -742,10 +748,13 @@ class GC
     private size_t extendNoSync(void* p, size_t minsize, size_t maxsize)
     in
     {
-        assert( minsize <= maxsize );
+        assert(minsize <= maxsize);
     }
     body
     {
+        if (gcx.running)
+            onOutOfMemoryError();
+
         //debug(PRINTF) printf("GC::extend(p = %p, minsize = %zu, maxsize = %zu)\n", p, minsize, maxsize);
         version (SENTINEL)
         {
@@ -832,6 +841,9 @@ class GC
         assert(size != 0);
         assert(gcx);
 
+        if (gcx.running)
+            onOutOfMemoryError();
+
         return gcx.reserve(size);
     }
 
@@ -863,6 +875,9 @@ class GC
     private void freeNoSync(void *p)
     {
         assert (p);
+
+        if (gcx.running)
+            onOutOfMemoryError();
 
         Pool*  pool;
         size_t pagenum;
@@ -1468,6 +1483,7 @@ struct Gcx
     uint anychanges;
     void *stackBottom;
     uint inited;
+    uint running;
     int disabled;       // turn off collections if >0
 
     byte *minAddr;      // min(baseAddr)
@@ -1622,7 +1638,7 @@ struct Gcx
     int rootIter(int delegate(ref void*) dg)
     {
         int result = 0;
-        for( size_t i = 0; i < nroots; ++i )
+        for (size_t i = 0; i < nroots; ++i)
         {
             result = dg(roots[i]);
             if (result)
@@ -1691,7 +1707,7 @@ struct Gcx
     int rangeIter(int delegate(ref Range) dg)
     {
         int result = 0;
-        for( size_t i = 0; i < nranges; ++i )
+        for (size_t i = 0; i < nranges; ++i)
         {
             result = dg(ranges[i]);
             if (result)
@@ -2331,7 +2347,7 @@ struct Gcx
                 static assert( false, "Architecture not supported." );
             }
         }
-        else version( D_InlineAsm_X86 )
+        else version (D_InlineAsm_X86)
         {
             asm
             {
@@ -2339,7 +2355,7 @@ struct Gcx
                 mov sp[EBP],ESP     ;
             }
         }
-        else version ( D_InlineAsm_X86_64 )
+        else version (D_InlineAsm_X86_64)
         {
             asm
             {
@@ -2358,18 +2374,18 @@ struct Gcx
                 push R13  ;
                 push R14  ;
                 push R15  ;
-                push EAX ;   // 16 byte align the stack
+                push RAX ;   // 16 byte align the stack
                 mov sp[RBP],RSP     ;
             }
         }
         else
         {
-            static assert( false, "Architecture not supported." );
+            static assert(false, "Architecture not supported.");
         }
 
         result = fullcollect(sp);
 
-        version( GNU )
+        version (GNU)
         {
             // registers will be popped automatically
         }
@@ -2377,18 +2393,18 @@ struct Gcx
         {
             // nothing to do
         }
-        else version( D_InlineAsm_X86 )
+        else version (D_InlineAsm_X86)
         {
             asm
             {
                 popad;
             }
         }
-        else version ( D_InlineAsm_X86_64 )
+        else version (D_InlineAsm_X86_64)
         {
             asm
             {
-                pop EAX ;   // 16 byte align the stack
+                pop RAX ;   // 16 byte align the stack
                 pop R15  ;
                 pop R14  ;
                 pop R13  ;
@@ -2408,7 +2424,7 @@ struct Gcx
         }
         else
         {
-            static assert( false, "Architecture not supported." );
+            static assert(false, "Architecture not supported.");
         }
         return result;
     }
@@ -2424,6 +2440,10 @@ struct Gcx
 
         debug(COLLECT_PRINTF) printf("Gcx.fullcollect()\n");
         //printf("\tpool address range = %p .. %p\n", minAddr, maxAddr);
+
+        if (running)
+            onOutOfMemoryError();
+        running = 1;
 
         thread_suspendAll();
 
@@ -2463,7 +2483,7 @@ struct Gcx
             if (!noStack)
             {
                 // Scan stacks and registers for each paused thread
-                thread_scanAll( &mark, stackTop );
+                thread_scanAll(&mark, stackTop);
             }
         }
         else
@@ -2714,6 +2734,8 @@ struct Gcx
         debug(COLLECT_PRINTF) printf("\trecovered pages = %d\n", recoveredpages);
         debug(COLLECT_PRINTF) printf("\tfree'd %u bytes, %u pages from %u pools\n", freed, freedpages, npools);
 
+        running = 0; // only clear on success
+
         return freedpages + recoveredpages;
     }
 
@@ -2751,7 +2773,7 @@ struct Gcx
     uint getBits(Pool* pool, size_t biti)
     in
     {
-        assert( pool );
+        assert(pool);
     }
     body
     {
@@ -2777,7 +2799,7 @@ struct Gcx
     void setBits(Pool* pool, size_t biti, uint mask)
     in
     {
-        assert( pool );
+        assert(pool);
     }
     body
     {
@@ -2810,7 +2832,7 @@ struct Gcx
     void clrBits(Pool* pool, size_t biti, uint mask)
     in
     {
-        assert( pool );
+        assert(pool);
     }
     body
     {
@@ -3043,7 +3065,7 @@ struct Pool
     }
 
 
-    void Invariant() { }
+    void Invariant() {}
 
 
     invariant()
@@ -3064,8 +3086,8 @@ struct Pool
         }
 
         for (size_t i = 0; i < npages; i++)
-        {   Bins bin = cast(Bins)pagetable[i];
-
+        {
+            Bins bin = cast(Bins)pagetable[i];
             assert(bin < B_MAX);
         }
     }

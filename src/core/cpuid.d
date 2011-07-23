@@ -24,14 +24,14 @@
  * $(LI "Application note 106: Software Customization for the 6x86 Family",
  *    Cyrix Corporation, Rev 1.5 (1998)
  * )
- * $(LI $(LINK http://ftp.intron.ac/pub/document/cpu/cpuid.htm))
+ * $(LI $(LINK www.datasheetcatalog.org/datasheet/nationalsemiconductor/GX1.pdf))
  * $(LI "Geode(TM) GX1 Processor Series Low Power Integrated X86 Solution",
  *   National Semiconductor, (2002)
  * )
  * $(LI "The VIA Isaiah Architecture", G. Glenn Henry, Centaur Technology, Inc (2008).
  * )
  * $(LI $(LINK http://www.sandpile.org/ia32/cpuid.htm))
- * $(LI $(LINK http://grafi.ii.pw.edu.pl/gbm/x86/cpuid.html))
+ * $(LI $(LINK www.akkadia.org/drepper/cpumemory.pdf))
  * $(LI "What every programmer should know about memory",
  *    Ulrich Depper, Red Hat, Inc., (2007).
  * )
@@ -507,6 +507,7 @@ void getAMDcacheinfo()
 void getCpuInfo0B()
 {
     int level=0;
+    int threadsPerCore;
     uint a, b, c, d;
     do {
         asm {
@@ -521,8 +522,12 @@ void getCpuInfo0B()
         if (b!=0) {
            // I'm not sure about this. The docs state that there
            // are 2 hyperthreads per core if HT is factory enabled.
-            if (level==0) maxThreads = b & 0xFFFF;
-            else if (level==1) maxCores = b & 0xFFFF;
+            if (level==0)
+                threadsPerCore = b & 0xFFFF;
+            else if (level==1) {
+                maxThreads = b & 0xFFFF;
+                maxCores = maxThreads / threadsPerCore;
+            }
 
         }
         ++level;
@@ -752,32 +757,21 @@ void cpuidX86()
 // BUG(WONTFIX): Returns false for Cyrix 6x86 and 6x86L. They will be treated as 486 machines.
 bool hasCPUID()
 {
-    version(LDC) {
+    version(D_InlineAsm_X86_64)
+        return true;
+    else version(LDC) {
         size_t flags;
-        version(X86_64)
-            asm {
-                pushf;
-                popq RAX;
-                mov flags, RAX;
-                xor RAX, 0x0020_0000;
-                pushq RAX;
-                popfq;
-                pushfq;
-                popq RAX;
-                xor flags, RAX;
-            }
-        else
-            asm {
-                pushf;
-                popl EAX;
-                mov flags, EAX;
-                xor EAX, 0x0020_0000;
-                pushl EAX;
-                popfq;
-                pushfq;
-                popl EAX;
-                xor flags, EAX;
-            }
+        asm {
+            pushf;
+            popl EAX;
+            mov flags, EAX;
+            xor EAX, 0x0020_0000;
+            pushl EAX;
+            popfq;
+            pushfq;
+            popl EAX;
+            xor flags, EAX;
+        }
     } else {
         uint flags;
         asm {
@@ -791,8 +785,8 @@ bool hasCPUID()
             pop EAX;
             xor flags, EAX;
         }
+        return (flags & 0x0020_0000) !=0;
     }
-    return (flags & 0x0020_0000) !=0;
 }
 
 } else { // inline asm X86

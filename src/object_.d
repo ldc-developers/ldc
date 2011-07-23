@@ -1279,7 +1279,7 @@ class Throwable : Object
 }
 
 
-alias Throwable.TraceInfo function(void* ptr = null) TraceHandler;
+alias Throwable.TraceInfo function(void* ptr) TraceHandler;
 private __gshared TraceHandler traceHandler = null;
 
 
@@ -2540,6 +2540,13 @@ unittest
     auto a = [ 1:"one", 2:"two", 3:"three" ];
     auto b = a.dup;
     assert(b == [ 1:"one", 2:"two", 3:"three" ]);
+}
+unittest
+{
+    // test for bug 5925
+    const a = [4:0];
+    const b = [4:0];
+    assert(a == b);
 }
 
 void clear(T)(T obj) if (is(T == class))
