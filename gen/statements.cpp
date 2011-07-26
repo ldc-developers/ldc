@@ -119,24 +119,21 @@ void ReturnStatement::toIR(IRState* p)
         // the return type is not void, so this is a normal "register" return
         else
         {
-            LLValue* v;
-            DValue* dval = exp->toElemDtor(p);
-
-#if DMDV2
-            // call postblit if necessary
-            if (!p->func()->type->isref)
-                callPostblitHelper(loc, exp, dval->getRVal());
-#endif
-
-            if (!exp && (p->topfunc() == p->mainFunc))
+            LLValue* v = 0;
+            if (!exp && (p->topfunc() == p->mainFunc)) {
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
-            else
-                // do abi specific transformations on the return value
+            } else {
+                DValue* dval = exp->toElemDtor(p);
 #if DMDV2
+                // call postblit if necessary
+                if (!p->func()->type->isref)
+                    callPostblitHelper(loc, exp, dval->getRVal());
+                // do abi specific transformations on the return value
                 v = p->func()->type->fty.putRet(exp->type, dval, p->func()->type->isref);
 #else
                 v = p->func()->type->fty.putRet(exp->type, dval);
 #endif
+            }
 
             if (Logger::enabled())
                 Logger::cout() << "return value is '" <<*v << "'\n";
