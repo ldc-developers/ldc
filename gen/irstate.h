@@ -139,7 +139,9 @@ struct IRState
     // basic block scopes
     std::vector<IRScope> scopes;
     IRScope& scope();
+#if DMDV2
     std::vector<VarDeclaration*> &varsInScope() { return scope().varsInScope; }
+#endif
     llvm::BasicBlock* scopebb();
     llvm::BasicBlock* scopeend();
     bool scopereturned();

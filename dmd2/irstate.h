@@ -37,7 +37,9 @@ struct IRState
     Array *deferToObj;          // array of Dsymbol's to run toObjFile(int multiobj) on later
     elem *ehidden;              // transmit hidden pointer to CallExp::toElem()
     Symbol *startaddress;
+#if DMDV2
     Array *varsInScope;         // variables that are in scope that will need destruction later
+#endif
 
     block *breakBlock;
     block *contBlock;

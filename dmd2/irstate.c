@@ -32,7 +32,9 @@ IRState::IRState(IRState *irs, Statement *s)
         sthis = irs->sthis;
         blx = irs->blx;
         deferToObj = irs->deferToObj;
+#if DMDV2
         varsInScope = irs->varsInScope;
+#endif
     }
     else
     {
@@ -42,7 +44,9 @@ IRState::IRState(IRState *irs, Statement *s)
         sthis = NULL;
         blx = NULL;
         deferToObj = NULL;
+#if DMDV2
         varsInScope = NULL;
+#endif
     }
 }
 
