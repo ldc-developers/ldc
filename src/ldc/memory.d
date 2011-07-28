@@ -62,7 +62,7 @@ private
     else version(freebsd)
     {
         //version = SimpleLibcStackEnd;
- 
+
         version( SimpleLibcStackEnd )
         {
             extern (C) extern void* __libc_stack_end;
@@ -84,7 +84,7 @@ private
  *
  */
 
-version( solaris ) {    
+version( solaris ) {
     version(X86_64) {
         extern (C) void* _userlimit;
     }
@@ -122,25 +122,25 @@ extern (C) void* rt_stackBottom()
                 return *libc_stack_end;
         }
     }
-    else version( freebsd ) 
-    { 
-        version( SimpleLibcStackEnd ) 
-        { 
-            return __libc_stack_end; 
-        } 
-        else 
-        { 
-            // See discussion: http://autopackage.org/forums/viewtopic.php?t=22 
-            static void** libc_stack_end; 
- 
-            if( libc_stack_end == libc_stack_end.init ) 
-            { 
-                void* handle = dlopen( null, RTLD_NOW ); 
-                libc_stack_end = cast(void**) dlsym( handle, "__libc_stack_end" ); 
-                dlclose( handle ); 
-            } 
-           return *libc_stack_end; 
-        } 
+    else version( freebsd )
+    {
+        version( SimpleLibcStackEnd )
+        {
+            return __libc_stack_end;
+        }
+        else
+        {
+            // See discussion: http://autopackage.org/forums/viewtopic.php?t=22
+            static void** libc_stack_end;
+
+            if( libc_stack_end == libc_stack_end.init )
+            {
+                void* handle = dlopen( null, RTLD_NOW );
+                libc_stack_end = cast(void**) dlsym( handle, "__libc_stack_end" );
+                dlclose( handle );
+            }
+           return *libc_stack_end;
+        }
     }
     else version( darwin )
     {
@@ -218,16 +218,16 @@ private
         alias __data_start  Data_Start;
         alias _end          Data_End;
     }
-    else version( freebsd ) 
-    { 
-        extern (C) 
-        { 
-            extern __gshared char etext; 
-            extern __gshared int _end; 
+    else version( freebsd )
+    {
+        extern (C)
+        {
+            extern __gshared char etext;
+            extern __gshared int _end;
         }
-         
-        alias etext Data_Start; 
-        alias _end Data_End; 
+
+        alias etext Data_Start;
+        alias _end Data_End;
     }
     else version( solaris )
     {
@@ -252,7 +252,7 @@ private
 
 void initStaticDataGC()
 {
-    
+
     static const int S = (void*).sizeof;
 
     // Can't assume the input addresses are word-aligned
@@ -276,10 +276,10 @@ void initStaticDataGC()
         dataStart = adjust_up( &Data_Start );
         dataEnd   = adjust_down( &Data_End );
     }
-    else version( freebsd ) 
-    { 
-        dataStart = adjust_up( &Data_Start ); 
-        dataEnd   = adjust_down( &Data_End ); 
+    else version( freebsd )
+    {
+        dataStart = adjust_up( &Data_Start );
+        dataEnd   = adjust_down( &Data_End );
     }
     else version(solaris)
     {
@@ -491,7 +491,7 @@ else
 }
 
 /*
- * GDC dyld memory module: 
+ * GDC dyld memory module:
  * http://www.dsource.org/projects/tango/browser/trunk/lib/compiler/gdc/memory_dyld.c
  * Port to the D programming language: Jacob Carlborg
  */
@@ -542,20 +542,24 @@ version (GC_Use_Data_Dyld)
 
         alias extern (C) void function (mach_header* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
 
-        version (D_LP64)
-            extern (C) /*const*/ section* getsectbynamefromheader_64(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
-        else
-            extern (C) /*const*/ section* getsectbynamefromheader(/*const*/ mach_header* mhp, /*const*/ char* segname, /*const*/ char* sectname);
+        import core.sys.osx.mach.getsect;
+        import core.sys.osx.mach.loader;
+
+        version (D_LP64) {
+          alias mach_header_64 mach_header_t;
+          alias section_64 section_t;
+        }
+
         extern (C) void _dyld_register_func_for_add_image(DyldFuncPointer func);
         extern (C) void _dyld_register_func_for_remove_image(DyldFuncPointer func);
 
-        const SegmentSection[3] GC_dyld_sections = [SegmentSection(SEG_DATA, SECT_DATA), SegmentSection(SEG_DATA, SECT_BSS), SegmentSection(SEG_DATA, SECT_COMMON)];    
+        const SegmentSection[3] GC_dyld_sections = [SegmentSection(SEG_DATA, SECT_DATA), SegmentSection(SEG_DATA, SECT_BSS), SegmentSection(SEG_DATA, SECT_COMMON)];
 
-        extern (C) void on_dyld_add_image (/*const*/ mach_header* hdr, ptrdiff_t slide)
+        extern (C) void on_dyld_add_image (mach_header_t* hdr, ptrdiff_t slide)
         {
             void* start;
             void* end;
-            /*const*/ section* sec;
+            /*const*/ section_t* sec;
 
             foreach (s ; GC_dyld_sections)
             {
@@ -574,11 +578,11 @@ version (GC_Use_Data_Dyld)
             }
         }
 
-        extern (C) void on_dyld_remove_image (/*const*/ mach_header* hdr, ptrdiff_t slide)
+        extern (C) void on_dyld_remove_image (/*const*/ mach_header_t* hdr, ptrdiff_t slide)
         {
             void* start;
             void* end;
-            /*const*/ section* sec;
+            /*const*/ section_t* sec;
 
             foreach (s ; GC_dyld_sections)
             {
