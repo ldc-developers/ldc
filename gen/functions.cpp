@@ -479,8 +479,11 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // construct function
     const llvm::FunctionType* functype = DtoFunctionType(fdecl);
     llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
-    if (!func)
+    if (!func) {
         func = llvm::Function::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+    } else if (func->getFunctionType() != functype) {
+        error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
+    }
 
     if (Logger::enabled())
         Logger::cout() << "func = " << *func << std::endl;

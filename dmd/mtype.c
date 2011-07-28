@@ -2464,7 +2464,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         static FuncDeclaration *aaLen_fd = NULL;
         if(!aaLen_fd) {
             Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL)); // FIXME: Real parameter type is AA.
             aaLen_fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
         }
 
@@ -2485,7 +2485,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         static FuncDeclaration *aaKeys_fd = NULL;
         if(!aaKeys_fd) {
             Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL)); // FIXME: Real parameter type is AA.
             args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
             aaKeys_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaKeys);
         }
@@ -2506,7 +2506,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         static FuncDeclaration *aaValues_fd = NULL;
         if(!aaValues_fd) {
             Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL)); // FIXME: Real parameter type is AA.
             args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
             args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
             aaValues_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaValues);
@@ -2531,7 +2531,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         static FuncDeclaration *aaRehash_fd = NULL;
         if(!aaRehash_fd) {
             Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL)); // FIXME: Real parameter type is AA*.
             args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
             aaRehash_fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
         }

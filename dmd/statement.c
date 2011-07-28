@@ -1801,21 +1801,21 @@ Statement *ForeachStatement::semantic(Scope *sc)
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    aaApply2_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+                    aaApply2_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
                     args->push(new Parameter(STCin, aaApply2_dg, NULL, NULL));
-                    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply2");
+                    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tint32, "_aaApply2");
                 }
                 static FuncDeclaration *aaApply_fd = NULL;
         static TypeDelegate* aaApply_dg;
                 if(!aaApply_fd) {
                     Parameters* args = new Parameters;
-                    args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+                    args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL)); // FIXME: Real parameter type is AA.
                     args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    aaApply_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+                    aaApply_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
                     args->push(new Parameter(STCin, aaApply_dg, NULL, NULL));
-                    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tindex, "_aaApply");
+                    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tint32, "_aaApply");
                 }
                 FuncDeclaration *fdapply;
                 if (dim == 2) {
@@ -1840,7 +1840,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
         }
                 exps->push(flde);
                 e = new CallExp(loc, ec, exps);
-                e->type = Type::tindex; // don't run semantic() on e
+                e->type = Type::tint32; // don't run semantic() on e
             }
             else if (tab->ty == Tarray || tab->ty == Tsarray)
             {
@@ -1884,15 +1884,15 @@ Statement *ForeachStatement::semantic(Scope *sc)
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+                    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
                     args->push(new Parameter(STCin, dgty, NULL, NULL));
-                    fdapply = FuncDeclaration::genCfunc(args, Type::tindex, fdname);
+                    fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
                 } else {
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tindex, 0, LINKd));
+                    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
                     args->push(new Parameter(STCin, dgty, NULL, NULL));
-                    fdapply = FuncDeclaration::genCfunc(args, Type::tindex, fdname);
+                    fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
                 }
 
                 ec = new VarExp(0, fdapply);
@@ -1909,7 +1909,7 @@ Statement *ForeachStatement::semantic(Scope *sc)
         }
                 exps->push(flde);
                 e = new CallExp(loc, ec, exps);
-                e->type = Type::tindex; // don't run semantic() on e
+                e->type = Type::tint32; // don't run semantic() on e
             }
             else if (tab->ty == Tdelegate)
             {
@@ -3787,14 +3787,14 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         cs->push(new DeclarationStatement(loc, new DeclarationExp(loc, tmp)));
 
         Parameters* enterargs = new Parameters;
-        enterargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+        enterargs->push(new Parameter(STCin, ClassDeclaration::object->type, NULL, NULL));
         FuncDeclaration *fdenter = FuncDeclaration::genCfunc(enterargs, Type::tvoid, Id::monitorenter);
         Expression *e = new CallExp(loc, new VarExp(loc, fdenter), new VarExp(loc, tmp));
         e->type = Type::tvoid;                  // do not run semantic on e
         cs->push(new ExpStatement(loc, e));
 
         Parameters* exitargs = new Parameters;
-        exitargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+        exitargs->push(new Parameter(STCin, ClassDeclaration::object->type, NULL, NULL));
         FuncDeclaration *fdexit = FuncDeclaration::genCfunc(exitargs, Type::tvoid, Id::monitorexit);
         e = new CallExp(loc, new VarExp(loc, fdexit), new VarExp(loc, tmp));
         e->type = Type::tvoid;                  // do not run semantic on e
