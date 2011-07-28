@@ -110,9 +110,6 @@ DValue* VarExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
-#if DMDV1
-        cachedLvalue = NULL;
-#endif
         return new DVarValue(type, V);
     }
 
@@ -622,15 +619,6 @@ static Expression* findLvalue(IRState* irs, Expression* exp)
     return e;
 }
 
-#if DMDV2
-#define CLEAR_CACHED_LVALUE \
-    while(e1->op == TOKcast) \
-        e1 = ((CastExp*)e1)->e1; \
-    e1->cachedLvalue = NULL;
-#else
-#define CLEAR_CACHED_LVALUE
-#endif
-
 #define BIN_ASSIGN(X) \
 DValue* X##AssignExp::toElem(IRState* p) \
 { \
@@ -640,7 +628,12 @@ DValue* X##AssignExp::toElem(IRState* p) \
     e3.type = e1->type; \
     DValue* dst = findLvalue(p, e1)->toElem(p); \
     DValue* res = e3.toElem(p); \
-    CLEAR_CACHED_LVALUE \
+    /* Now that we are done with the expression, clear the cached lvalue. */ \
+    Expression* e = e1; \
+    while(e->op == TOKcast) \
+        e = ((CastExp*)e)->e1; \
+    e->cachedLvalue = NULL; \
+    /* Assign the (casted) value and return it. */ \
     DValue* stval = DtoCast(loc, res, dst->getType()); \
     DtoAssign(loc, dst, stval); \
     return DtoCast(loc, res, type); \
@@ -848,7 +841,6 @@ DValue* ModExp::toElem(IRState* p)
 
 void CallExp::cacheLvalue(IRState* p)
 {
-
     Logger::println("Caching l-value of %s", toChars());
     LOG_SCOPE;
     cachedLvalue = toElem(p)->getLVal();
@@ -1194,9 +1186,6 @@ DValue* PtrExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         V = cachedLvalue;
-#if DMDV1
-        cachedLvalue = NULL;
-#endif
     }
     else
     {
@@ -1223,9 +1212,6 @@ DValue* DotVarExp::toElem(IRState* p)
     {
         Logger::println("using cached lvalue");
         LLValue *V = cachedLvalue;
-#if DMDV1
-        cachedLvalue = NULL;
-#endif
         VarDeclaration* vd = var->isVarDeclaration();
         assert(vd);
         return new DVarValue(type, vd, V);
@@ -1364,9 +1350,6 @@ DValue* IndexExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
-#if DMDV1
-        cachedLvalue = NULL;
-#endif
         return new DVarValue(type, V);
     }
 
@@ -1889,7 +1872,7 @@ DValue* DeleteExp::toElem(IRState* p)
 
     // simple pointer
     if (et->ty == Tpointer)
-    { 
+    {
 #if DMDV2
         DtoDeleteMemory(dval->isLVal() ? dval->getLVal() : makeLValue(loc, dval));
 #else
@@ -2339,9 +2322,6 @@ DValue* CommaExp::toElem(IRState* p)
     if (cachedLvalue)
     {
         LLValue* V = cachedLvalue;
-#if DMDV1
-        cachedLvalue = NULL;
-#endif
         return new DVarValue(type, V);
     }
 
@@ -2437,7 +2417,7 @@ DValue* NegExp::toElem(IRState* p)
         val = gIR->ir->CreateNeg(val,"negval");
     else
         val = gIR->ir->CreateFNeg(val,"negval");
-    
+
     return new DImValue(type, val);
 }
 
