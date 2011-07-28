@@ -1766,32 +1766,26 @@ extern (C) __gshared ModuleInfo*[] _moduleinfo_array;
 
 version (linux)
 {
-    // This linked list is created by a compiler generated function inserted
-    // into the .ctor list by the compiler.
-    struct ModuleReference
-    {
-        ModuleReference* next;
-        ModuleInfo*      mod;
-    }
-
-    extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
+    enum useModuleRef = true;
 }
-
-version (FreeBSD)
+else version (FreeBSD)
 {
-    // This linked list is created by a compiler generated function inserted
-    // into the .ctor list by the compiler.
-    struct ModuleReference
-    {
-        ModuleReference* next;
-        ModuleInfo*      mod;
-    }
-
-    extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
+    enum useModuleRef = true;
 }
-
-version (Solaris)
+else version (Solaris)
 {
+    enum useModuleRef = true;
+}
+else version (LDC)
+{
+    enum useModuleRef = true;
+}
+else
+{
+    enum useModuleRef = false;
+}
+
+static if (useModuleRef) {
     // This linked list is created by a compiler generated function inserted
     // into the .ctor list by the compiler.
     struct ModuleReference
@@ -1802,15 +1796,14 @@ version (Solaris)
 
     extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
 }
-
-version (OSX)
+else version (OSX)
 {
     extern (C)
     {
         extern __gshared void* _minfo_beg;
         extern __gshared void* _minfo_end;
     }
-}
+} else static assert(false);
 
 __gshared ModuleInfo*[] _moduleinfo_dtors;
 __gshared size_t        _moduleinfo_dtors_i;
@@ -1828,7 +1821,7 @@ extern (C) int _fatexit(void*);
 extern (C) void _moduleCtor()
 {
     debug(PRINTF) printf("_moduleCtor()\n");
-    version (linux)
+    static if (useModuleRef)
     {
         int len = 0;
         ModuleReference *mr;
@@ -1842,38 +1835,7 @@ extern (C) void _moduleCtor()
             len++;
         }
     }
-
-    version (FreeBSD)
-    {
-        int len = 0;
-        ModuleReference *mr;
-
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-            len++;
-        _moduleinfo_array = new ModuleInfo*[len];
-        len = 0;
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-        {   _moduleinfo_array[len] = mr.mod;
-            len++;
-        }
-    }
-
-    version (Solaris)
-    {
-        int len = 0;
-        ModuleReference *mr;
-
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-            len++;
-        _moduleinfo_array = new ModuleInfo*[len];
-        len = 0;
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-        {   _moduleinfo_array[len] = mr.mod;
-            len++;
-        }
-    }
-
-    version (OSX)
+    else version (OSX)
     {
         /* The ModuleInfo references are stored in the special segment
          * __minfodata, which is bracketed by the segments __minfo_beg
