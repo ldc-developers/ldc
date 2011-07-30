@@ -1908,10 +1908,10 @@ out (result)
     auto sizeelem = ti.next.tsize();            // array element size
     debug(PRINTF) printf("_d_arraycatT(%d,%p ~ %d,%p sizeelem = %d => %d,%p)\n", x.length, x.ptr, y.length, y.ptr, sizeelem, result.length, result.ptr);
     assert(result.length == x.length + y.length);
-    for (size_t i = 0; i < x.length * sizeelem; i++)
-        assert((cast(byte*)result)[i] == (cast(byte*)x)[i]);
-    for (size_t i = 0; i < y.length * sizeelem; i++)
-        assert((cast(byte*)result)[x.length * sizeelem + i] == (cast(byte*)y)[i]);
+    //for (size_t i = 0; i < x.length * sizeelem; i++)
+    //    assert((cast(byte*)result)[i] == (cast(byte*)x)[i]);
+    //for (size_t i = 0; i < y.length * sizeelem; i++)
+    //    assert((cast(byte*)result)[x.length * sizeelem + i] == (cast(byte*)y)[i]);
 
     size_t cap = gc_sizeOf(result.ptr);
     assert(!cap || cap > result.length * sizeelem);
@@ -1959,13 +1959,24 @@ body
 /**
  *
  */
-version(LDC) {} else
 extern (C) byte[] _d_arraycatnT(TypeInfo ti, uint n, ...)
 {
     size_t length;
     auto size = ti.next.tsize(); // array element size
 
-    version(X86)
+    version(LDC)
+    {
+        va_list ap;
+        va_start(ap, n);
+        for (auto i = 0; i < n; i++)
+        {
+            byte[] *b;
+            va_arg(ap, b);
+            length += b.length;
+        }
+        va_end(ap);
+    }
+    else version(X86)
     {
         byte[]* p = cast(byte[]*)(&n + 1);
 
@@ -1997,7 +2008,24 @@ extern (C) byte[] _d_arraycatnT(TypeInfo ti, uint n, ...)
     __setArrayAllocLength(info, allocsize, isshared);
     void *a = __arrayStart (info);
 
-    version(X86)
+    version(LDC)
+    {
+        va_list ap2;
+		va_start(ap2, n);
+        size_t j = 0;
+        for (auto i = 0; i < n; i++)
+        {
+            byte[] *b;
+            va_arg(ap2, b);
+            if (b.length)
+            {
+                memcpy(a + j, b.ptr, b.length * size);
+                j += b.length * size;
+            }
+        }
+        va_end(ap2);
+    }
+    else version(X86)
     {
         p = cast(byte[]*)(&n + 1);
 
