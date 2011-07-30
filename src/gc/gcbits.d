@@ -88,7 +88,7 @@ struct GCBits
     {
         version (none)
         {
-            return std.intrinsic.bt(data + 1, i);   // this is actually slower! don't use
+            return core.bitop.bt(data + 1, i);   // this is actually slower! don't use
         }
         else
         {
@@ -123,7 +123,7 @@ struct GCBits
     {
         version (bitops)
         {
-            return std.intrinsic.btr(data + 1, i);   // this is faster!
+            return core.bitop.btr(data + 1, i);   // this is faster!
         }
         else version (Asm86)
         {
@@ -154,7 +154,7 @@ struct GCBits
     {
         version (bitops)
         {
-            return std.intrinsic.bts(data + 1, i);   // this is faster!
+            return core.bitop.bts(data + 1, i);   // this is faster!
         }
         else version (Asm86)
         {
