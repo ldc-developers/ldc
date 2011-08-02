@@ -763,13 +763,13 @@ bool hasCPUID()
         size_t flags;
         asm {
             pushf;
-            popl EAX;
+            pop EAX;
             mov flags, EAX;
             xor EAX, 0x0020_0000;
-            pushl EAX;
-            popfq;
-            pushfq;
-            popl EAX;
+            push EAX;
+            popf;
+            pushf;
+            pop EAX;
             xor flags, EAX;
         }
     } else {
