@@ -1,9 +1,0 @@
-#!/bin/sh
-export PATH=$PATH:/opt/llvm/bin
-export FILE=$1; shift
-export LDC_PATH=~/ldc
-PARAM=$(for p_file in $($LDC_PATH/bin/ldc $FILE -I~/ldc/lphobos -c -v -of/dev/null |grep import \
-        |sed -e "s/import *//" -e "s/\t.*//" \
-        |sed -e "s/\./\//g" -e "s/$/\.d/"); do if [ -f $p_file ]; then echo $p_file; fi; done)
-echo ldc $FILE $@ $PARAM
-$LDC_PATH/bin/ldc $FILE $@ $PARAM
