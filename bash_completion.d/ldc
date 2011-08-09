@@ -1,0 +1,36 @@
+# bash completion for ldc
+# install to: /etc/bash_completion.d/
+# source: . /etc/bash_completion.d/ldc
+
+_ldc()
+{
+    local cur prev opts opts_with_path
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts_with_path="-Dd= -Df= -Hd= -Hf= -I= -Xf= od= -of= -profile-info-file= "
+    opts="  -D -Dd= -Df= -H -Hd= -Hf= -I= -J= -L= -O -O0 -O1 -O2 -O3 -O4 -O5 -X -Xf= -annotate -asm-verbose -c \
+            -check-printf-calls -code-model =medium -d -d-debug= -d-version -debuglib -defaultlib \
+            -deps -enable-asserts -enable-boundscheck -disable-d-passes -disable-excess-fp-precision -disable-fp-elim \
+            -disable-gc2stack -disable-non-leaf-fp-elim -enable-preconditions -disable-red-zone \
+            -disable-simplify-drtcalls -disable-spill-fusing -enable-contracts -enable-correct-eh-support \
+            -enable-fp-mad -enable-inlining -enable-invariants -enable-load-pre -enable-no-infs-fp-math \
+            -enable-no-nans-fp-math -enable-postconditions -ena -enable-unsafe-fp-math -fdata-sections \
+            -ffunction-sections -float-abi -g -gc -help -ignore \
+            -internalize-public-api-file= -internalize-public-api-list= -jit-emit-debug -jit-enable-eh \
+            -join-liveintervals -limit-float-precis -linkonce-templates -m32 -m64 -march= -mattr= -mcpu= -mtriple= \
+            -nested-ctx -noasm -noruntime -nozero-initialized-in-bss -o- -od= -of= -op -oq -output-bc -output-o \
+            -output-s -pre-RA-sched  -print-after -print-after-all -print-before -print-before-all -print-machineinstrs \
+            -profile-estimator-loop-weight= -profile-info-file= -profile-verifier-noassert \
+            -regalloc -rel -rewriter -run= -shrink-wrap -singleobj -soft-float -spiller -st \
+            -stack-protector-buffer-size= -stats -tailcallopt -time-passes -unittest -unwind-tables -v \
+            "
+    if [[ ${opts_with_path} =~ ${prev} ]] ; then
+        COMPREPLY=( $(compgen -f ${cur}) )
+        return 0
+    elif [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+}
+complete -o nospace -F _ldc ldc2
