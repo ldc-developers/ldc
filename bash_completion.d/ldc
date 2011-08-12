@@ -25,11 +25,14 @@ _ldc()
             -regalloc -rel -rewriter -run= -shrink-wrap -singleobj -soft-float -spiller -st \
             -stack-protector-buffer-size= -stats -tailcallopt -time-passes -unittest -unwind-tables -v \
             "
-    if [[ ${opts_with_path} =~ ${prev} ]] ; then
-        COMPREPLY=( $(compgen -f ${cur}) )
+    if [[ "${opts_with_path}" = *"${prev}${cur}"* ]]; then
+        COMPREPLY=( $(compgen -f ./ ) )
         return 0
-    elif [[ ${cur} == -* ]] ; then
-        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+    elif [[ "${opts_with_path}" = *"${prev}"* ]]; then
+        COMPREPLY=( $(compgen -f "${cur}") )
+        return 0
+    elif [[ "${cur}" == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
         return 0
     fi
 }
