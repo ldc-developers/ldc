@@ -2428,8 +2428,11 @@ DValue* CatExp::toElem(IRState* p)
     Logger::print("CatExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    bool arrNarr = e1->type->toBasetype() == e2->type->toBasetype();
+#if DMDV2
+    return DtoCatArrays(type, e1, e2);
+#else
 
+    bool arrNarr = e1->type->toBasetype() == e2->type->toBasetype();
     // array ~ array
     if (arrNarr)
     {
@@ -2441,6 +2444,7 @@ DValue* CatExp::toElem(IRState* p)
     {
         return DtoCatArrayElement(type, e1, e2);
     }
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -32,7 +32,9 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, llvm::Value* newd
 void DtoCatAssignElement(Loc& loc, Type* type, DValue* arr, Expression* exp);
 DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);
 DSliceValue* DtoCatArrays(Type* type, Expression* e1, Expression* e2);
+#if DMDV1
 DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2);
+#endif
 DSliceValue* DtoAppendDCharToString(DValue* arr, Expression* exp);
 DSliceValue* DtoAppendDCharToUnicodeString(DValue* arr, Expression* exp);
 

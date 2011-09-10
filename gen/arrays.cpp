@@ -896,11 +896,11 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
         // TypeInfo ti
         args.push_back(DtoTypeInfoOf(arrayType));
         // byte[] x
-        LLValue *val = DtoSlice(exp1->toElem(gIR));
+        LLValue *val = DtoLoad(DtoSlicePtr(exp1->toElem(gIR)));
         val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
         args.push_back(val);
         // byte[] y
-        val = DtoSlice(exp2->toElem(gIR));
+        val = DtoLoad(DtoSlicePtr(exp2->toElem(gIR)));
         val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
         args.push_back(val);
     }
@@ -954,6 +954,9 @@ DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
 #endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
+
+#if DMDV1
+
 DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
 {
     Logger::println("DtoCatArrayElement");
@@ -1014,6 +1017,8 @@ DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
         return slice;
     }
 }
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
