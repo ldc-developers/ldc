@@ -162,6 +162,9 @@ Statement *AsmStatement::semantic(Scope *sc)
 
     //puts(toChars());
 
+#if DMDV1
+    sc->func->inlineAsm = true;
+#endif
     sc->func->hasReturnExp |= 8;
     sc->func->inlineStatus = ILSno; // %% not sure
 
