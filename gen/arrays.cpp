@@ -23,7 +23,7 @@
 static LLValue *DtoSlice(DValue *dval)
 {
     LLValue *val = dval->getRVal();
-    if (dval->isVar() && dval->isVar()->type->ty == Tsarray) {
+    if (dval->getType()->toBasetype()->ty == Tsarray) {
         // Convert static array to slice
         const LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
         LLValue *array = DtoRawAlloca(type, 0, ".array");
@@ -32,6 +32,25 @@ static LLValue *DtoSlice(DValue *dval)
         val = DtoLoad(array);
     }
     return val;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static LLValue *DtoSlicePtr(DValue *dval)
+{
+    Loc loc;
+    const LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
+    Type *vt = dval->getType()->toBasetype();
+    if (vt->ty == Tarray)
+        return makeLValue(loc, dval);
+
+    bool isStaticArray = vt->ty == Tsarray;
+    LLValue *val = isStaticArray ? dval->getRVal() : makeLValue(loc, dval);
+    LLValue *array = DtoRawAlloca(type, 0, ".array");
+    LLValue *len = isStaticArray ? DtoArrayLen(dval) : DtoConstSize_t(1);
+    DtoStore(len, DtoGEPi(array, 0, 0, ".len"));
+    DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1, ".ptr"));
+    return array;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -751,6 +770,7 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     val = DtoGEP1(val, oldLength, "lastElem");
     val = DtoBitCast(val, DtoType(arrayType->nextOf()->pointerTo()));
     DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal);
+    callPostblit(loc, exp, val);
 }
 
 #else
@@ -846,23 +866,46 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
     Logger::println("DtoCatAssignArray");
     LOG_SCOPE;
 
-    // Prepare arguments
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arraycatT");
-    LLSmallVector<LLValue*,3> args;
-    // TypeInfo ti
-    args.push_back(DtoTypeInfoOf(arrayType));
-    // byte[] x
-    LLValue *val = DtoSlice(exp1->toElem(gIR));
-    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
-    args.push_back(val);
-    // byte[] y
-    val = DtoSlice(exp2->toElem(gIR));
-    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
-    args.push_back(val);
+    std::vector<LLValue*> args;
+    LLFunction* fn = 0;
 
-    // Call _d_arraycatT
-    LLValue* newArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
+    if (exp1->op == TOKcat)
+    { // handle multiple concat
+        fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arraycatnT");
 
+        args.push_back(DtoSlicePtr(exp2->toElem(gIR)));
+        CatExp *ce = (CatExp*)exp1;
+        do
+        {
+            args.push_back(DtoSlicePtr(ce->e2->toElem(gIR)));
+            ce = (CatExp *)ce->e1;
+
+        } while (ce->op == TOKcat);
+        args.push_back(DtoSlicePtr(ce->toElem(gIR)));
+        // uint n
+        args.push_back(DtoConstUint(args.size()));
+        // TypeInfo ti
+        args.push_back(DtoTypeInfoOf(arrayType));
+
+        std::reverse(args.begin(), args.end());
+    }
+    else
+    {
+        fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arraycatT");
+
+        // TypeInfo ti
+        args.push_back(DtoTypeInfoOf(arrayType));
+        // byte[] x
+        LLValue *val = DtoSlice(exp1->toElem(gIR));
+        val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
+        args.push_back(val);
+        // byte[] y
+        val = DtoSlice(exp2->toElem(gIR));
+        val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
+        args.push_back(val);
+    }
+
+    LLValue *newArray = gIR->CreateCallOrInvoke(fn, args.begin(), args.end(), ".appendedArray").getInstruction();
     return getSlice(arrayType, newArray);
 }
 

@@ -47,28 +47,6 @@ void CompoundStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-static void callPostblitHelper(Loc &loc, Expression *exp, LLValue *val)
-{
-
-    Type *tb = exp->type->toBasetype();
-    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis) &&
-        tb->ty == Tstruct)
-    {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
-        if (sd->postblit)
-        {
-            FuncDeclaration *fd = sd->postblit;
-            if (fd->storage_class & STCdisable)
-                fd->toParent()->error(loc, "is not copyable because it is annotated with @disable");
-            fd->codegen(Type::sir);
-            Expressions args;
-            DFuncValue dfn(fd, fd->ir.irFunc->func, val);
-            DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
-        }
-    }
-}
-#endif
-
 void ReturnStatement::toIR(IRState* p)
 {
     Logger::println("ReturnStatement::toIR(): %s", loc.toChars());
@@ -101,7 +79,7 @@ void ReturnStatement::toIR(IRState* p)
 #if DMDV2
             // call postblit if necessary
             if (!p->func()->type->isref)
-                callPostblitHelper(loc, exp, rvar->getLVal());
+                callPostblit(loc, exp, rvar->getLVal());
 #endif
 
             // emit scopes
@@ -127,7 +105,7 @@ void ReturnStatement::toIR(IRState* p)
 #if DMDV2
                 // call postblit if necessary
                 if (!p->func()->type->isref)
-                    callPostblitHelper(loc, exp, dval->getRVal());
+                    callPostblit(loc, exp, dval->getRVal());
                 // do abi specific transformations on the return value
                 v = p->func()->type->fty.putRet(exp->type, dval, p->func()->type->isref);
 #else

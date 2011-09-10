@@ -152,6 +152,10 @@ size_t realignOffset(size_t offset, Type* type);
 /// functions without problems.
 LLValue* makeLValue(Loc& loc, DValue* value);
 
+#if DMDV2
+void callPostblit(Loc &loc, Expression *exp, LLValue *val);
+#endif
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////

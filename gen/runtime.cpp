@@ -439,6 +439,14 @@ static void LLVM_D_BuildRuntimeModule()
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+    // byte[] _d_arraycatnT(TypeInfo ti, uint n, ...)
+    {
+        llvm::StringRef fname("_d_arraycatnT");
+        std::vector<const LLType*> types;
+        types.push_back(typeInfoTy);
+        const llvm::FunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, true);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
 #else // DMDV1
     // byte[] _d_arrayappendcT(TypeInfo ti, void* array, void* element)
     {

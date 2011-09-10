@@ -1733,3 +1733,28 @@ LLValue* makeLValue(Loc& loc, DValue* value)
 
     return valuePointer;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#if DMDV2
+void callPostblit(Loc &loc, Expression *exp, LLValue *val)
+{
+
+    Type *tb = exp->type->toBasetype();
+    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis) &&
+        tb->ty == Tstruct)
+    {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+        if (sd->postblit)
+        {
+            FuncDeclaration *fd = sd->postblit;
+            if (fd->storage_class & STCdisable)
+                fd->toParent()->error(loc, "is not copyable because it is annotated with @disable");
+            fd->codegen(Type::sir);
+            Expressions args;
+            DFuncValue dfn(fd, fd->ir.irFunc->func, val);
+            DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+        }
+    }
+}
+#endif
+
