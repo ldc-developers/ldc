@@ -619,18 +619,18 @@ void __doPostblit(void *ptr, size_t len, TypeInfo ti)
  * of 0 to get the current capacity.  Returns the number of elements that can
  * actually be stored once the resizing is done.
  */
-extern(C) size_t _d_arraysetcapacity(TypeInfo ti, size_t newcapacity, Array *p)
+extern(C) size_t _d_arraysetcapacity(TypeInfo ti, size_t newcapacity, void[] *p)
 in
 {
     assert(ti);
-    assert(!p.length || p.data);
+    assert(!p.length || p.ptr);
 }
 body
 {
     // step 1, get the block
     auto isshared = ti.classinfo is TypeInfo_Shared.classinfo;
-    auto bic = !isshared ? __getBlkInfo(p.data) : null;
-    auto info = bic ? *bic : gc_query(p.data);
+    auto bic = !isshared ? __getBlkInfo(p.ptr) : null;
+    auto info = bic ? *bic : gc_query(p.ptr);
     auto size = ti.next.tsize();
     version (D_InlineAsm_X86)
     {
@@ -679,7 +679,7 @@ body
         }
 
 
-        offset = p.data - __arrayStart(info);
+        offset = p.ptr - __arrayStart(info);
         if(offset + p.length * size != curallocsize)
         {
             curcapacity = 0;
@@ -707,7 +707,7 @@ body
     if(info.size >= PAGESIZE && curcapacity != 0)
     {
         auto extendsize = reqsize + offset + LARGEPAD - info.size;
-        auto u = gc_extend(p.data, extendsize, extendsize);
+        auto u = gc_extend(p.ptr, extendsize, extendsize);
         if(u)
         {
             // extend worked, save the new current allocated size
@@ -727,7 +727,7 @@ body
     // copy the data over.
     // note that malloc will have initialized the data we did not request to 0.
     auto tgt = __arrayStart(info);
-    memcpy(tgt, p.data, datasize);
+    memcpy(tgt, p.ptr, datasize);
 
     // handle postblit
     __doPostblit(tgt, datasize, ti.next);
@@ -749,7 +749,7 @@ body
     if(!isshared)
         __insertBlkInfoCache(info, bic);
 
-    p.data = cast(byte *)tgt;
+    (cast(Array*)p).data = cast(byte *)tgt;
 
     // determine the padding.  This has to be done manually because __arrayPad
     // assumes you are not counting the pad size, and info.size does include

@@ -32,7 +32,7 @@ private
     extern (C) void onOutOfMemoryError();
     extern (C) Object _d_newclass(TypeInfo_Class ci);
     extern (C) void _d_arrayshrinkfit(TypeInfo ti, void[] arr);
-    extern (C) size_t _d_arraysetcapacity(TypeInfo ti, size_t newcapacity, void *arrptr);
+    extern (C) size_t _d_arraysetcapacity(TypeInfo ti, size_t newcapacity, void[] *arrptr);
     extern (C) void rt_finalize(void *data, bool det=true);
 }
 
@@ -2660,7 +2660,7 @@ version (unittest)
  */
 @property size_t capacity(T)(T[] arr)
 {
-    return _d_arraysetcapacity(typeid(T[]), 0, cast(void *)&arr);
+    return _d_arraysetcapacity(typeid(T[]), 0, cast(void[]*)&arr);
 }
 
 /**
@@ -2673,7 +2673,7 @@ version (unittest)
  */
 size_t reserve(T)(ref T[] arr, size_t newcapacity)
 {
-    return _d_arraysetcapacity(typeid(T[]), newcapacity, cast(void *)&arr);
+    return _d_arraysetcapacity(typeid(T[]), newcapacity, cast(void[]*)&arr);
 }
 
 /**
