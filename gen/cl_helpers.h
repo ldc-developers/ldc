@@ -6,7 +6,13 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 
+#if DMDV1
 struct Array;
+typedef Array Strings;
+#else
+template <typename TYPE> struct ArrayBase;
+typedef ArrayBase<char> Strings;
+#endif
 
 namespace opts {
     namespace cl = llvm::cl;
@@ -40,13 +46,13 @@ namespace opts {
         void operator=(bool val);
     };
 
-    /// Helper class to fill Array with char* when given strings
+    /// Helper class to fill Strings with char* when given strings
     /// (Errors on empty strings)
-    class ArrayAdapter {
+    class StringsAdapter {
         const char* name;
-        Array** arrp;
+        Strings** arrp;
     public:
-        ArrayAdapter(const char* name_, Array*& arr) {
+        StringsAdapter(const char* name_, Strings*& arr) {
             name = name_;
             arrp = &arr;
             assert(name);

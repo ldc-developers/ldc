@@ -100,7 +100,7 @@ Global::Global()
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.054";
+    version = "v2.055";
 #if IN_LLVM
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 2.9";
@@ -238,8 +238,6 @@ void halt()
 #endif
 }
 
-extern signed char tyalignsize[];
-
 /***********************************
  * Parse and append contents of environment variable envvar
  * to argc and argv[].
@@ -261,7 +259,7 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     env = mem.strdup(env);      // create our own writable copy
 
     int argc = *pargc;
-    Array *argv = new Array();
+    Strings *argv = new Strings();
     argv->setDim(argc);
 
     int argc_left = 0;
@@ -276,14 +274,13 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
             argv->setDim(i);
             break;
         } else {
-        argv->data[i] = (void *)(*pargv)[i];
         }
     }
     // HACK to stop required values from command line being drawn from DFLAGS
     argv->push((char*)"");
     argc++;
 
-    int j = 1;                  // leave argv[0] alone
+    size_t j = 1;               // leave argv[0] alone
     while (1)
     {
         int wildcard = 1;       // do wildcard expansion
@@ -362,5 +359,5 @@ Ldone:
         argv->data[argc++] = (void *)(*pargv)[i];
 
     *pargc = argc;
-    *pargv = (char **)argv->data;
+    *pargv = argv->tdata();
 }

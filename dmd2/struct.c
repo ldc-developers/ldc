@@ -55,6 +55,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     ctor = NULL;
     defaultCtor = NULL;
     aliasthis = NULL;
+    noDefaultCtor = FALSE;
 #endif
     dtor = NULL;
 
@@ -80,7 +81,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
         sc = sc->push(this);
         for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = members->tdata()[i];
             s->semantic2(sc);
         }
         sc->pop();
@@ -88,8 +89,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
 }
 
 void AggregateDeclaration::semantic3(Scope *sc)
-{   int i;
-
+{
 #if IN_LLVM
     if (!global.params.useAvailableExternally)
         availableExternally = false;
@@ -99,9 +99,9 @@ void AggregateDeclaration::semantic3(Scope *sc)
     if (members)
     {
         sc = sc->push(this);
-        for (i = 0; i < members->dim; i++)
+        for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = members->tdata()[i];
             s->semantic3(sc);
         }
         sc->pop();
@@ -109,14 +109,13 @@ void AggregateDeclaration::semantic3(Scope *sc)
 }
 
 void AggregateDeclaration::inlineScan()
-{   int i;
-
+{
     //printf("AggregateDeclaration::inlineScan(%s)\n", toChars());
     if (members)
     {
-        for (i = 0; i < members->dim; i++)
+        for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = members->tdata()[i];
             //printf("inline scan aggregate symbol '%s'\n", s->toChars());
             s->inlineScan();
         }
@@ -161,7 +160,7 @@ void AggregateDeclaration::alignmember(
     if (salign > 1)
     {
         assert(size != 3);
-        int sa = size;
+        unsigned sa = size;
         if (sa == 0 || salign < sa)
             sa = salign;
         *poffset = (*poffset + sa - 1) & ~(sa - 1);
@@ -263,13 +262,13 @@ int AggregateDeclaration::firstFieldInUnion(int indx)
 {
     if (isUnionDeclaration())
         return 0;
-    VarDeclaration * vd = (VarDeclaration *)fields.data[indx];
+    VarDeclaration * vd = fields.tdata()[indx];
     int firstNonZero = indx; // first index in the union with non-zero size
     for (; ;)
     {
         if (indx == 0)
             return firstNonZero;
-        VarDeclaration * v = (VarDeclaration *)fields.data[indx - 1];
+        VarDeclaration * v = fields.tdata()[indx - 1];
         if (v->offset != vd->offset)
             return firstNonZero;
         --indx;
@@ -288,7 +287,7 @@ int AggregateDeclaration::firstFieldInUnion(int indx)
  */
 int AggregateDeclaration::numFieldsInUnion(int firstIndex)
 {
-    VarDeclaration * vd = (VarDeclaration *)fields.data[firstIndex];
+    VarDeclaration * vd = fields.tdata()[firstIndex];
     /* If it is a zero-length field, AND we can't find an earlier non-zero
      * sized field with the same offset, we assume it's not part of a union.
      */
@@ -296,9 +295,9 @@ int AggregateDeclaration::numFieldsInUnion(int firstIndex)
         firstFieldInUnion(firstIndex) == firstIndex)
         return 1;
     int count = 1;
-    for (int i = firstIndex+1; i < fields.dim; ++i)
+    for (size_t i = firstIndex+1; i < fields.dim; ++i)
     {
-        VarDeclaration * v = (VarDeclaration *)fields.data[i];
+        VarDeclaration * v = fields.tdata()[i];
         // If offsets are different, they are not in the same union
         if (v->offset != vd->offset)
             break;
@@ -403,9 +402,9 @@ void StructDeclaration::semantic(Scope *sc)
     if (sizeok == 0)            // if not already done the addMember step
     {
         int hasfunctions = 0;
-        for (int i = 0; i < members->dim; i++)
+        for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = members->tdata()[i];
             //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
             s->addMember(sc, this, 1);
             if (s->isFuncDeclaration())
@@ -455,13 +454,13 @@ void StructDeclaration::semantic(Scope *sc)
     sc2->protection = PROTpublic;
     sc2->explicitProtection = 0;
 
-    int members_dim = members->dim;
+    size_t members_dim = members->dim;
 
     /* Set scope so if there are forward references, we still might be able to
      * resolve individual members like enums.
      */
-    for (int i = 0; i < members_dim; i++)
-    {   Dsymbol *s = (Dsymbol *)members->data[i];
+    for (size_t i = 0; i < members_dim; i++)
+    {   Dsymbol *s = members->tdata()[i];
         /* There are problems doing this in the general case because
          * Scope keeps track of things like 'offset'
          */
@@ -472,9 +471,9 @@ void StructDeclaration::semantic(Scope *sc)
         }
     }
 
-    for (int i = 0; i < members_dim; i++)
+    for (size_t i = 0; i < members_dim; i++)
     {
-        Dsymbol *s = (Dsymbol *)members->data[i];
+        Dsymbol *s = members->tdata()[i];
         s->semantic(sc2);
 #if 0
         if (sizeok == 2)
@@ -639,9 +638,9 @@ void StructDeclaration::semantic(Scope *sc)
 
     // Determine if struct is all zeros or not
     zeroInit = 1;
-    for (int i = 0; i < fields.dim; i++)
+    for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = (Dsymbol *)fields.data[i];
+        Dsymbol *s = fields.tdata()[i];
         VarDeclaration *vd = s->isVarDeclaration();
         if (vd && !vd->isDataseg())
         {
@@ -700,8 +699,7 @@ Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
 }
 
 void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{   int i;
-
+{
     buf->printf("%s ", kind());
     if (!isAnonymous())
         buf->writestring(toChars());
@@ -714,9 +712,9 @@ void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
     buf->writeByte('{');
     buf->writenl();
-    for (i = 0; i < members->dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {
-        Dsymbol *s = (Dsymbol *)members->data[i];
+        Dsymbol *s = members->tdata()[i];
 
         buf->writestring("    ");
         s->toCBuffer(buf, hgs);

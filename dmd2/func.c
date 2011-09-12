@@ -306,6 +306,9 @@ void FuncDeclaration::semantic(Scope *sc)
     if (isAbstract() && !isVirtual())
         error("non-virtual functions cannot be abstract");
 
+    if (isOverride() && !isVirtual())
+        error("cannot override a non-virtual function");
+
     if ((f->isConst() || f->isImmutable()) && !isThis())
         error("without 'this' cannot be const/immutable");
 
@@ -458,7 +461,7 @@ void FuncDeclaration::semantic(Scope *sc)
         /* Find index of existing function in base class's vtbl[] to override
          * (the index will be the same as in cd's current vtbl[])
          */
-        vi = cd->baseClass ? findVtblIndex(&cd->baseClass->vtbl, cd->baseClass->vtbl.dim)
+        vi = cd->baseClass ? findVtblIndex((Dsymbols*)&cd->baseClass->vtbl, cd->baseClass->vtbl.dim)
                            : -1;
 
         switch (vi)
@@ -504,7 +507,7 @@ void FuncDeclaration::semantic(Scope *sc)
                 return;
 
             default:
-            {   FuncDeclaration *fdv = (FuncDeclaration *)cd->baseClass->vtbl.data[vi];
+            {   FuncDeclaration *fdv = (FuncDeclaration *)cd->baseClass->vtbl.tdata()[vi];
                 // This function is covariant with fdv
                 if (fdv->isFinal())
                     error("cannot override final function %s", fdv->toPrettyChars());
@@ -531,7 +534,7 @@ void FuncDeclaration::semantic(Scope *sc)
                         )
                         error("multiple overrides of same function");
                 }
-                cd->vtbl.data[vi] = (void *)this;
+                cd->vtbl.tdata()[vi] = this;
                 vtblIndex = vi;
 
                 /* Remember which functions this overrides
@@ -570,7 +573,7 @@ void FuncDeclaration::semantic(Scope *sc)
         for (int i = 0; i < cd->interfaces_dim; i++)
         {
             BaseClass *b = cd->interfaces[i];
-            vi = findVtblIndex(&b->base->vtbl, b->base->vtbl.dim);
+            vi = findVtblIndex((Dsymbols *)&b->base->vtbl, b->base->vtbl.dim);
             switch (vi)
             {
                 case -1:
@@ -582,7 +585,7 @@ void FuncDeclaration::semantic(Scope *sc)
                     return;
 
                 default:
-                {   FuncDeclaration *fdv = (FuncDeclaration *)b->base->vtbl.data[vi];
+                {   FuncDeclaration *fdv = (FuncDeclaration *)b->base->vtbl.tdata()[vi];
                     Type *ti = NULL;
 
                     /* Remember which functions this overrides
@@ -867,7 +870,7 @@ void FuncDeclaration::semantic3(Scope *sc)
     {
         for (int i = 0; i < fthrows->dim; i++)
         {
-            Type *t = (Type *)fthrows->data[i];
+            Type *t = fthrows->tdata()[i];
 
             t = t->semantic(loc, sc);
             if (!t->isClassHandle())
@@ -880,7 +883,7 @@ void FuncDeclaration::semantic3(Scope *sc)
     {
         for (int i = 0; i < foverrides.dim; i++)
         {
-            FuncDeclaration *fdv = (FuncDeclaration *)foverrides.data[i];
+            FuncDeclaration *fdv = foverrides.tdata()[i];
 
             if (fdv->fbody && !fdv->frequire)
             {
@@ -1094,7 +1097,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (f->parameters)
         {
             for (size_t i = 0; i < f->parameters->dim; i++)
-            {   Parameter *arg = (Parameter *)f->parameters->data[i];
+            {   Parameter *arg = f->parameters->tdata()[i];
 
                 //printf("[%d] arg->type->ty = %d %s\n", i, arg->type->ty, arg->type->toChars());
                 if (arg->type->ty == Ttuple)
@@ -1117,7 +1120,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         {   /* parameters[] has all the tuples removed, as the back end
              * doesn't know about tuples
              */
-            parameters = new Dsymbols();
+            parameters = new VarDeclarations();
             parameters->reserve(nparams);
             for (size_t i = 0; i < nparams; i++)
             {
@@ -1154,7 +1157,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (f->parameters)
         {
             for (size_t i = 0; i < f->parameters->dim; i++)
-            {   Parameter *arg = (Parameter *)f->parameters->data[i];
+            {   Parameter *arg = f->parameters->tdata()[i];
 
                 if (!arg->ident)
                     continue;                   // never used, so ignore
@@ -1169,7 +1172,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                         VarDeclaration *v = sc2->search(0, narg->ident, NULL)->isVarDeclaration();
                         assert(v);
                         Expression *e = new VarExp(v->loc, v);
-                        exps->data[j] = (void *)e;
+                        exps->tdata()[j] = e;
                     }
                     assert(arg->ident);
                     TupleDeclaration *v = new TupleDeclaration(loc, arg->ident, exps);
@@ -1327,14 +1330,14 @@ void FuncDeclaration::semantic3(Scope *sc)
         sc2->incontract--;
 
         if (fbody)
-        {   ClassDeclaration *cd = isClassMember();
+        {   AggregateDeclaration *ad = isAggregateMember();
 
             /* If this is a class constructor
              */
-            if (isCtorDeclaration() && cd)
+            if (ad && isCtorDeclaration())
             {
-                for (int i = 0; i < cd->fields.dim; i++)
-                {   VarDeclaration *v = (VarDeclaration *)cd->fields.data[i];
+                for (size_t i = 0; i < ad->fields.dim; i++)
+                {   VarDeclaration *v = ad->fields[i];
 
                     v->ctorinit = 0;
                 }
@@ -1363,37 +1366,51 @@ void FuncDeclaration::semantic3(Scope *sc)
                  */
 
                 Dsymbol *p = toParent();
-                ScopeDsymbol *ad = p->isScopeDsymbol();
-                if (!ad)
+                ScopeDsymbol *pd = p->isScopeDsymbol();
+                if (!pd)
                 {
                     error("static constructor can only be member of struct/class/module, not %s %s", p->kind(), p->toChars());
                 }
                 else
                 {
-                    for (int i = 0; i < ad->members->dim; i++)
-                    {   Dsymbol *s = (Dsymbol *)ad->members->data[i];
+                    for (size_t i = 0; i < pd->members->dim; i++)
+                    {   Dsymbol *s = pd->members->tdata()[i];
 
                         s->checkCtorConstInit();
                     }
                 }
             }
 
-            if (isCtorDeclaration() && cd)
+            if (isCtorDeclaration() && ad)
             {
                 //printf("callSuper = x%x\n", sc2->callSuper);
+
+                ClassDeclaration *cd = ad->isClassDeclaration();
 
                 // Verify that all the ctorinit fields got initialized
                 if (!(sc2->callSuper & CSXthis_ctor))
                 {
-                    for (int i = 0; i < cd->fields.dim; i++)
-                    {   VarDeclaration *v = (VarDeclaration *)cd->fields.data[i];
+                    for (size_t i = 0; i < ad->fields.dim; i++)
+                    {   VarDeclaration *v = ad->fields[i];
 
-                        if (v->ctorinit == 0 && v->isCtorinit() && !v->type->isMutable())
-                            error("missing initializer for final field %s", v->toChars());
+                        if (v->ctorinit == 0)
+                        {
+                            /* Current bugs in the flow analysis:
+                             * 1. union members should not produce error messages even if
+                             *    not assigned to
+                             * 2. structs should recognize delegating opAssign calls as well
+                             *    as delegating calls to other constructors
+                             */
+                            if (v->isCtorinit() && !v->type->isMutable() && cd)
+                                error("missing initializer for final field %s", v->toChars());
+                            else if (v->storage_class & STCnodefaultctor)
+                                error("field %s must be initialized in constructor", v->toChars());
+                        }
                     }
                 }
 
-                if (!(sc2->callSuper & CSXany_ctor) &&
+                if (cd &&
+                    !(sc2->callSuper & CSXany_ctor) &&
                     cd->baseClass && cd->baseClass->ctor)
                 {
                     sc2->callSuper = 0;
@@ -1488,7 +1505,7 @@ void FuncDeclaration::semantic3(Scope *sc)
             if (parameters)
             {   for (size_t i = 0; i < parameters->dim; i++)
                 {
-                    VarDeclaration *v = (VarDeclaration *)parameters->data[i];
+                    VarDeclaration *v = parameters->tdata()[i];
                     if (v->storage_class & STCout)
                     {
                         assert(v->init);
@@ -1511,7 +1528,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                 v_argptr->init = new VoidInitializer(loc);
 #else
                 Type *t = argptr->type;
-                if (global.params.isX86_64)
+                if (global.params.is64bit)
                 {   // Initialize _argptr to point to v_argsave
                     Expression *e1 = new VarExp(0, argptr);
                     Expression *e = new SymOffExp(0, v_argsave, 6*8 + 8*16);
@@ -1530,7 +1547,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                     if (parameters && parameters->dim)
                     {
                         int lastNonref = parameters->dim -1;
-                        p = (VarDeclaration *)parameters->data[lastNonref];
+                        p = parameters->tdata()[lastNonref];
                         /* The trouble with out and ref parameters is that taking
                          * the address of it doesn't work, because later processing
                          * adds in an extra level of indirection. So we skip over them.
@@ -1544,7 +1561,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                                 p = v_arguments;
                                 break;
                             }
-                            p = (VarDeclaration *)parameters->data[lastNonref];
+                            p = parameters->tdata()[lastNonref];
                         }
                     }
                     else
@@ -1738,7 +1755,7 @@ void FuncDeclaration::semantic3(Scope *sc)
             if (parameters)
             {   for (size_t i = 0; i < parameters->dim; i++)
                 {
-                    VarDeclaration *v = (VarDeclaration *)parameters->data[i];
+                    VarDeclaration *v = parameters->tdata()[i];
 
                     if (v->storage_class & (STCref | STCout))
                         continue;
@@ -1929,7 +1946,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
      */
     for (int i = 0; i < foverrides.dim; i++)
     {
-        FuncDeclaration *fdv = (FuncDeclaration *)foverrides.data[i];
+        FuncDeclaration *fdv = foverrides.tdata()[i];
 
         /* The semantic pass on the contracts of the overridden functions must
          * be completed before code generation occurs (bug 3602).
@@ -1956,7 +1973,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
             Statement *s2 = new ExpStatement(loc, e);
 
             Catch *c = new Catch(loc, NULL, NULL, sf);
-            Array *catches = new Array();
+            Catches *catches = new Catches();
             catches->push(c);
             sf = new TryCatchStatement(loc, s2, catches);
         }
@@ -1984,7 +2001,7 @@ Statement *FuncDeclaration::mergeFensure(Statement *sf)
      */
     for (int i = 0; i < foverrides.dim; i++)
     {
-        FuncDeclaration *fdv = (FuncDeclaration *)foverrides.data[i];
+        FuncDeclaration *fdv = foverrides.tdata()[i];
 
         /* The semantic pass on the contracts of the overridden functions must
          * be completed before code generation occurs (bug 3602 and 5230).
@@ -2051,13 +2068,13 @@ int FuncDeclaration::overrides(FuncDeclaration *fd)
  *      -2      can't determine because of forward references
  */
 
-int FuncDeclaration::findVtblIndex(Array *vtbl, int dim)
+int FuncDeclaration::findVtblIndex(Dsymbols *vtbl, int dim)
 {
     FuncDeclaration *mismatch = NULL;
     int bestvi = -1;
     for (int vi = 0; vi < dim; vi++)
     {
-        FuncDeclaration *fdv = ((Dsymbol *)vtbl->data[vi])->isFuncDeclaration();
+        FuncDeclaration *fdv = vtbl->tdata()[vi]->isFuncDeclaration();
         if (fdv && fdv->ident == ident)
         {
             if (type->equals(fdv->type))        // if exact match
@@ -2406,7 +2423,7 @@ if (arguments)
     for (i = 0; i < arguments->dim; i++)
     {   Expression *arg;
 
-        arg = (Expression *)arguments->data[i];
+        arg = arguments->tdata()[i];
         assert(arg->type);
         printf("\t%s: ", arg->toChars());
         arg->type->print();
@@ -2449,7 +2466,7 @@ if (arguments)
             OutBuffer buf2;
             tf->modToBuffer(&buf2);
 
-            //printf("tf = %s, args = %s\n", tf->deco, ((Expression *)arguments->data[0])->type->deco);
+            //printf("tf = %s, args = %s\n", tf->deco, arguments->tdata()[0]->type->deco);
             error(loc, "%s%s is not callable using argument types %s",
                 Parameter::argsTypesToChars(tf->parameters, tf->varargs),
                 buf2.toChars(),
@@ -2535,7 +2552,7 @@ MATCH FuncDeclaration::leastAsSpecialized(FuncDeclaration *g)
         }
         else
             e = p->type->defaultInit();
-        args.data[u] = e;
+        args.tdata()[u] = e;
     }
 
     MATCH m = (MATCH) tg->callMatch(NULL, &args, 1);
@@ -2855,6 +2872,14 @@ enum PURE FuncDeclaration::isPure()
     return purity;
 }
 
+enum PURE FuncDeclaration::isPureBypassingInference()
+{
+    if (flags & FUNCFLAGpurityInprocess)
+        return PUREfwdref;
+    else
+        return isPure();
+}
+
 /**************************************
  * The function is doing something impure,
  * so mark it as impure.
@@ -3026,12 +3051,12 @@ int FuncDeclaration::needsClosure()
 
     //printf("FuncDeclaration::needsClosure() %s\n", toChars());
     for (int i = 0; i < closureVars.dim; i++)
-    {   VarDeclaration *v = (VarDeclaration *)closureVars.data[i];
+    {   VarDeclaration *v = closureVars.tdata()[i];
         assert(v->isVarDeclaration());
         //printf("\tv = %s\n", v->toChars());
 
         for (int j = 0; j < v->nestedrefs.dim; j++)
-        {   FuncDeclaration *f = (FuncDeclaration *)v->nestedrefs.data[j];
+        {   FuncDeclaration *f = v->nestedrefs.tdata()[j];
             assert(f != this);
 
             //printf("\t\tf = %s, %d, %p, %d\n", f->toChars(), f->isVirtual(), f->isThis(), f->tookAddressOf);
@@ -3258,8 +3283,17 @@ void CtorDeclaration::semantic(Scope *sc)
 
     // See if it's the default constructor
     if (ad && tf->varargs == 0 && Parameter::dim(tf->parameters) == 0)
-    {   if (ad->isStructDeclaration())
-            error("default constructor not allowed for structs");
+    {
+        StructDeclaration *sd = ad->isStructDeclaration();
+        if (sd)
+        {
+            if (fbody || !(storage_class & STCdisable))
+            {   error("default constructor for structs only allowed with @disable and no body");
+                storage_class |= STCdisable;
+                fbody = NULL;
+            }
+            sd->noDefaultCtor = TRUE;
+        }
         else
             ad->defaultCtor = this;
     }

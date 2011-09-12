@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -29,6 +29,7 @@ Macros defined by the compiler, not the code:
         __DMC__         Digital Mars compiler
         _MSC_VER        Microsoft compiler
         __GNUC__        Gnu compiler
+        __clang__       Clang compiler
 
     Host operating system:
         _WIN32          Microsoft NT, Windows 95, Windows 98, Win32s,
@@ -113,8 +114,12 @@ void unittests();
  */
 
 #if _WIN32
+#ifndef TARGET_WINDOS
 #define TARGET_WINDOS 1         // Windows dmd generates Windows targets
-#define OMFOBJ 1
+#endif
+#ifndef OMFOBJ
+#define OMFOBJ TARGET_WINDOS
+#endif
 #endif
 
 #if TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
@@ -130,8 +135,12 @@ void unittests();
 #endif
 
 
-struct Array;
 struct OutBuffer;
+
+// Can't include arraytypes.h here, need to declare these directly.
+template <typename TYPE> struct ArrayBase;
+typedef ArrayBase<struct Identifier> Identifiers;
+typedef ArrayBase<char> Strings;
 
 #if IN_LLVM
 enum ARCH
@@ -180,9 +189,9 @@ struct Param
 #endif
     ARCH cpu;		// target CPU
     OS   os;
-    bool is64bit;	// generate X86_64 bit code
     char map;           // generate linker .map file
     bool isLE;      // generate little endian code
+    bool is64bit;       // generate 64 bit code
     bool useDeprecated;	// allow use of deprecated features
     bool useAssert;	// generate runtime code for assert()'s
     bool useInvariants;	// generate class invariant checks
@@ -197,15 +206,15 @@ struct Param
     char enforcePropertySyntax;
 
     char *argv0;        // program name
-    Array *imppath;     // array of char*'s of where to look for import modules
-    Array *fileImppath; // array of char*'s of where to look for file import modules
+    Strings *imppath;     // array of char*'s of where to look for import modules
+    Strings *fileImppath; // array of char*'s of where to look for file import modules
     char *objdir;	// .obj file output directory
     char *objname;      // .obj file output name
 
     bool doDocComments; // process embedded documentation comments
     char *docdir;       // write documentation file to docdir directory
     char *docname;      // write documentation file to docname
-    Array *ddocfiles;   // macro include files for Ddoc
+    Strings *ddocfiles;   // macro include files for Ddoc
 
     bool doHdrGeneration;       // process embedded documentation comments
     char *hdrdir;               // write 'header' file to docdir directory
@@ -215,15 +224,15 @@ struct Param
     char *xfilename;            // write JSON file to xfilename
 
     unsigned debuglevel;        // debug level
-    Array *debugids;            // debug identifiers
+    Strings *debugids;     // debug identifiers
 
     unsigned versionlevel;      // version level
-    Array *versionids;          // version identifiers
+    Strings *versionids;   // version identifiers
 
     bool dump_source;
 
-    Array *defaultlibnames;	// default libraries for non-debug builds
-    Array *debuglibnames;	// default libraries for debug builds
+    Strings *defaultlibnames;	// default libraries for non-debug builds
+    Strings *debuglibnames;	// default libraries for debug builds
 
     char *moduleDepsFile;       // filename for deps output
     OutBuffer *moduleDeps;      // contents to be written to deps file
@@ -241,9 +250,9 @@ struct Param
     bool run;           // run resulting executable
 
     // Linker stuff
-    Array *objfiles;
-    Array *linkswitches;
-    Array *libfiles;
+    Strings *objfiles;
+    Strings *linkswitches;
+    Strings *libfiles;
     char *deffile;
     char *resfile;
     char *exefile;
@@ -288,8 +297,8 @@ struct Global
     const char *map_ext;        // for .map files
     const char *copyright;
     const char *written;
-    Array *path;        // Array of char*'s which form the import lookup path
-    Array *filePath;    // Array of char*'s which form the file import lookup path
+    Strings *path;        // Array of char*'s which form the import lookup path
+    Strings *filePath;    // Array of char*'s which form the file import lookup path
     int structalign;
     const char *version;
 #if IN_LLVM

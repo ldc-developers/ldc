@@ -154,8 +154,8 @@ static cl::opt<bool, true> unittest("unittest",
     cl::location(global.params.useUnitTests));
 
 
-static ArrayAdapter strImpPathStore("J", global.params.fileImppath);
-static cl::list<std::string, ArrayAdapter> stringImportPaths("J",
+static StringsAdapter strImpPathStore("J", global.params.fileImppath);
+static cl::list<std::string, StringsAdapter> stringImportPaths("J",
     cl::desc("Where to look for string imports"),
     cl::value_desc("path"),
     cl::location(strImpPathStore),
@@ -205,8 +205,8 @@ cl::list<std::string> versions("d-version",
     cl::CommaSeparated);
 
 
-static ArrayAdapter linkSwitchStore("L", global.params.linkswitches);
-static cl::list<std::string, ArrayAdapter> linkerSwitches("L",
+static StringsAdapter linkSwitchStore("L", global.params.linkswitches);
+static cl::list<std::string, StringsAdapter> linkerSwitches("L",
     cl::desc("Pass <linkerflag> to the linker"),
     cl::value_desc("linkerflag"),
     cl::location(linkSwitchStore),

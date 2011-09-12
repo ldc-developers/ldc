@@ -62,12 +62,12 @@ void MultiSetter::operator=(bool val) {
 }
 
 
-void ArrayAdapter::push_back(const char* cstr) {
+void StringsAdapter::push_back(const char* cstr) {
     if (!cstr || !*cstr)
         error("Expected argument to '-%s'", name);
 
     if (!*arrp)
-        *arrp = new Array;
+        *arrp = new Strings;
     (*arrp)->push(mem.strdup(cstr));
 }
 

@@ -728,7 +728,6 @@ void Lexer::scan(Token *t)
                         t->ustring = (unsigned char *)timestamp;
                      Lstr:
                         t->value = TOKstring;
-                     Llen:
                         t->postfix = 0;
                         t->len = strlen((char *)t->ustring);
                     }
@@ -739,7 +738,7 @@ void Lexer::scan(Token *t)
                         for (const char *p = global.version + 1; 1; p++)
                         {
                             char c = *p;
-                            if (isdigit(c))
+                            if (isdigit((unsigned char)c))
                                 minor = minor * 10 + c - '0';
                             else if (c == '.')
                             {   major = minor;
@@ -1981,7 +1980,6 @@ TOK Lexer::number(Token *t)
     };
     enum FLAGS flags = FLAGS_decimal;
 
-    int i;
     int base;
     unsigned c;
     unsigned char *start;
@@ -2226,7 +2224,7 @@ done:
                 p += 2, r = 16;
             else if (p[1] == 'b' || p[1] == 'B')
                 p += 2, r = 2;
-            else if (isdigit(p[1]))
+            else if (isdigit((unsigned char)p[1]))
                 p += 1, r = 8;
         }
 
@@ -2572,7 +2570,10 @@ void Lexer::pragma()
 
     scan(&tok);
     if (tok.value == TOKint32v || tok.value == TOKint64v)
-        linnum = tok.uns64value - 1;
+    {   linnum = tok.uns64value - 1;
+        if (linnum != tok.uns64value - 1)
+            error("line number out of range");
+    }
     else
         goto Lerr;
 

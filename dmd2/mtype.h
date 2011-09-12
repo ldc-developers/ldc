@@ -63,7 +63,6 @@ enum ENUMTY
 {
     Tarray,             // slice array, aka T[]
     Tsarray,            // static array, aka T[dimension]
-    Tnarray,            // resizable array, aka T[new]
     Taarray,            // associative array, aka T[type]
     Tpointer,
     Treference,
@@ -549,6 +548,7 @@ struct TypePointer : TypeNext
     d_uns64 size(Loc loc);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH implicitConvTo(Type *to);
+    MATCH constConv(Type *to);
     int isscalar();
     // LDC: pointers are unsigned
     int isunsigned() { return TRUE; };
@@ -690,7 +690,7 @@ struct TypeDelegate : TypeNext
 struct TypeQualified : Type
 {
     Loc loc;
-    Array idents;       // array of Identifier's representing ident.ident.ident etc.
+    Identifiers idents;       // array of Identifier's representing ident.ident.ident etc.
 
     TypeQualified(TY ty, Loc loc);
     void syntaxCopyHelper(TypeQualified *t);
@@ -963,12 +963,6 @@ struct TypeSlice : TypeNext
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-};
-
-struct TypeNewArray : TypeNext
-{
-    TypeNewArray(Type *next);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
 };
 

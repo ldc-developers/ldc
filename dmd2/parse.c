@@ -62,6 +62,7 @@ Parser::Parser(Module *module, unsigned char *base, unsigned length, int doDocCo
     linkage = LINKd;
     endloc = 0;
     inBrackets = 0;
+    lookingForElse = 0;
     //nextToken();              // start up the scanner
 }
 
@@ -101,14 +102,14 @@ Dsymbols *Parser::parseModule()
         }
         else
         {
-            Array *a = NULL;
+            Identifiers *a = NULL;
             Identifier *id;
 
             id = token.ident;
             while (nextToken() == TOKdot)
             {
                 if (!a)
-                    a = new Array();
+                    a = new Identifiers();
                 a->push(id);
                 nextToken();
                 if (token.value != TOKidentifier)
@@ -227,6 +228,7 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKalias:
             case TOKtypedef:
             case TOKidentifier:
+            case TOKsuper:
             case TOKtypeof:
             case TOKdot:
             Ldeclaration:
@@ -235,7 +237,10 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 continue;
 
             case TOKthis:
-                s = parseCtor();
+                if (peekNext() == TOKdot)
+                    goto Ldeclaration;
+                else
+                    s = parseCtor();
                 break;
 
 #if 0 // dead end, use this(this){} instead
@@ -293,11 +298,17 @@ Dsymbols *Parser::parseDeclDefs(int once)
                     s = parseStaticAssert();
                 else if (token.value == TOKif)
                 {   condition = parseStaticIfCondition();
+                    Loc lookingForElseSave = lookingForElse;
+                    lookingForElse = loc;
                     a = parseBlock();
+                    lookingForElse = lookingForElseSave;
                     aelse = NULL;
                     if (token.value == TOKelse)
-                    {   nextToken();
+                    {
+                        Loc elseloc = this->loc;
+                        nextToken();
                         aelse = parseBlock();
+                        checkDanglingElse(elseloc);
                     }
                     s = new StaticIfDeclaration(condition, a, aelse);
                     break;
@@ -575,11 +586,19 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 goto Lcondition;
 
             Lcondition:
-                a = parseBlock();
+                {
+                    Loc lookingForElseSave = lookingForElse;
+                    lookingForElse = loc;
+                    a = parseBlock();
+                    lookingForElse = lookingForElseSave;
+                }
                 aelse = NULL;
                 if (token.value == TOKelse)
-                {   nextToken();
+                {
+                    Loc elseloc = this->loc;
+                    nextToken();
                     aelse = parseBlock();
+                    checkDanglingElse(elseloc);
                 }
                 s = new ConditionalDeclaration(condition, a, aelse);
                 break;
@@ -695,7 +714,6 @@ StorageClass Parser::parsePostfix()
 Dsymbols *Parser::parseBlock()
 {
     Dsymbols *a = NULL;
-    Dsymbol *s;
 
     //printf("parseBlock()\n");
     switch (token.value)
@@ -710,6 +728,10 @@ Dsymbols *Parser::parseBlock()
             break;
 
         case TOKlcurly:
+        {
+            Loc lookingForElseSave = lookingForElse;
+            lookingForElse = 0;
+
             nextToken();
             a = parseDeclDefs(0);
             if (token.value != TOKrcurly)
@@ -718,7 +740,9 @@ Dsymbols *Parser::parseBlock()
             }
             else
                 nextToken();
+            lookingForElse = lookingForElseSave;
             break;
+        }
 
         case TOKcolon:
             nextToken();
@@ -914,8 +938,6 @@ Condition *Parser::parseVersionCondition()
 Condition *Parser::parseStaticIfCondition()
 {   Expression *exp;
     Condition *condition;
-    Array *aif;
-    Array *aelse;
     Loc loc = this->loc;
 
     nextToken();
@@ -1217,7 +1239,7 @@ Parameters *Parser::parseParameters(int *pvarargs)
 
     check(TOKlparen);
     while (1)
-    {   Type *tb;
+    {
         Identifier *ai = NULL;
         Type *at;
         Parameter *a;
@@ -1346,7 +1368,7 @@ Parameters *Parser::parseParameters(int *pvarargs)
                         nextToken();
                         break;
                     }
-                L3:
+                            L3:
                     a = new Parameter(storageClass, at, ai, ae);
                     arguments->push(a);
                     if (token.value == TOKcomma)
@@ -1864,7 +1886,7 @@ Dsymbol *Parser::parseMixin()
     Identifier *id;
     Type *tqual;
     Objects *tiargs;
-    Array *idents;
+    Identifiers *idents;
 
     //printf("parseMixin()\n");
     nextToken();
@@ -1890,7 +1912,7 @@ Dsymbol *Parser::parseMixin()
         nextToken();
     }
 
-    idents = new Array();
+    idents = new Identifiers();
     while (1)
     {
         tiargs = NULL;
@@ -1990,8 +2012,8 @@ Objects *Parser::parseTemplateArgumentList2()
                          * a deduced type.
                          */
                         TemplateParameters *tpl = NULL;
-                        for (int i = 0; i < tf->parameters->dim; i++)
-                        {   Parameter *param = (Parameter *)tf->parameters->data[i];
+                        for (size_t i = 0; i < tf->parameters->dim; i++)
+                        {   Parameter *param = tf->parameters->tdata()[i];
                             if (param->ident == NULL &&
                                 param->type &&
                                 param->type->ty == Tident &&
@@ -2098,7 +2120,7 @@ Import *Parser::parseImport(Dsymbols *decldefs, int isstatic)
 {   Import *s;
     Identifier *id;
     Identifier *aliasid = NULL;
-    Array *a;
+    Identifiers *a;
     Loc loc;
 
     //printf("Parser::parseImport()\n");
@@ -2123,7 +2145,7 @@ Import *Parser::parseImport(Dsymbols *decldefs, int isstatic)
         while (token.value == TOKdot)
         {
             if (!a)
-                a = new Array();
+                a = new Identifiers();
             a->push(id);
             nextToken();
             if (token.value != TOKidentifier)
@@ -2272,6 +2294,8 @@ Type *Parser::parseBasicType()
             nextToken();
             break;
 
+        case TOKthis:
+        case TOKsuper:
         case TOKidentifier:
             id = token.ident;
             nextToken();
@@ -3052,7 +3076,7 @@ L1:
 #if 0 // Dumped feature
         case TOKthrow:
             if (!f->fthrows)
-                f->fthrows = new Array();
+                f->fthrows = new Types();
             nextToken();
             check(TOKlparen);
             while (1)
@@ -3156,7 +3180,7 @@ Initializer *Parser::parseInitializer()
 
             is = new StructInitializer(loc);
             nextToken();
-            comma = 0;
+            comma = 2;
             while (1)
             {
                 switch (token.value)
@@ -3180,6 +3204,8 @@ Initializer *Parser::parseInitializer()
                         continue;
 
                     case TOKcomma:
+                        if (comma == 2)
+                            error("expression expected, not ','");
                         nextToken();
                         comma = 2;
                         continue;
@@ -3243,7 +3269,7 @@ Initializer *Parser::parseInitializer()
 
             ia = new ArrayInitializer(loc);
             nextToken();
-            comma = 0;
+            comma = 2;
             while (1)
             {
                 switch (token.value)
@@ -3280,6 +3306,8 @@ Initializer *Parser::parseInitializer()
                         continue;
 
                     case TOKcomma:
+                        if (comma == 2)
+                            error("expression expected, not ','");
                         nextToken();
                         comma = 2;
                         continue;
@@ -3341,6 +3369,20 @@ Expression *Parser::parseDefaultInitExp()
     return e;
 }
 #endif
+
+/*****************************************
+ */
+
+void Parser::checkDanglingElse(Loc elseloc)
+{
+    if (token.value != TOKelse &&
+        token.value != TOKcatch &&
+        token.value != TOKfinally &&
+        lookingForElse.linnum != 0)
+    {
+        warning(elseloc, "else is dangling, add { } after condition at %s", lookingForElse.toChars());
+    }
+}
 
 /*****************************************
  * Input:
@@ -3501,16 +3543,16 @@ Statement *Parser::parseStatement(int flags)
 #endif
 //      case TOKtypeof:
         Ldeclaration:
-        {   Array *a;
+        {   Dsymbols *a;
 
             a = parseDeclarations(STCundefined, NULL);
             if (a->dim > 1)
             {
                 Statements *as = new Statements();
                 as->reserve(a->dim);
-                for (int i = 0; i < a->dim; i++)
+                for (size_t i = 0; i < a->dim; i++)
                 {
-                    Dsymbol *d = (Dsymbol *)a->data[i];
+                    Dsymbol *d = a->tdata()[i];
                     s = new ExpStatement(loc, d);
                     as->push(s);
                 }
@@ -3518,7 +3560,7 @@ Statement *Parser::parseStatement(int flags)
             }
             else if (a->dim == 1)
             {
-                Dsymbol *d = (Dsymbol *)a->data[0];
+                Dsymbol *d = a->tdata()[0];
                 s = new ExpStatement(loc, d);
             }
             else
@@ -3586,6 +3628,9 @@ Statement *Parser::parseStatement(int flags)
 
         case TOKlcurly:
         {
+            Loc lookingForElseSave = lookingForElse;
+            lookingForElse = 0;
+
             nextToken();
             //if (token.value == TOKsemicolon)
                 //error("use '{ }' for an empty statement, not a ';'");
@@ -3599,6 +3644,7 @@ Statement *Parser::parseStatement(int flags)
             if (flags & (PSscope | PScurlyscope))
                 s = new ScopeStatement(loc, s);
             check(TOKrcurly, "compound statement");
+            lookingForElse = lookingForElseSave;
             break;
         }
 
@@ -3627,7 +3673,10 @@ Statement *Parser::parseStatement(int flags)
             Expression *condition;
 
             nextToken();
+            Loc lookingForElseSave = lookingForElse;
+            lookingForElse = 0;
             body = parseStatement(PSscope);
+            lookingForElse = lookingForElseSave;
             check(TOKwhile);
             check(TOKlparen);
             condition = parseExpression();
@@ -3650,7 +3699,11 @@ Statement *Parser::parseStatement(int flags)
                 nextToken();
             }
             else
-            {   init = parseStatement(0);
+            {
+                Loc lookingForElseSave = lookingForElse;
+                lookingForElse = 0;
+                init = parseStatement(0);
+                lookingForElse = lookingForElseSave;
             }
             if (token.value == TOKsemicolon)
             {
@@ -3728,7 +3781,7 @@ Statement *Parser::parseStatement(int flags)
             Expression *aggr = parseExpression();
             if (token.value == TOKslice && arguments->dim == 1)
             {
-                Parameter *a = (Parameter *)arguments->data[0];
+                Parameter *a = arguments->tdata()[0];
                 delete arguments;
                 nextToken();
                 Expression *upr = parseExpression();
@@ -3802,11 +3855,18 @@ Statement *Parser::parseStatement(int flags)
 
             condition = parseExpression();
             check(TOKrparen);
-            ifbody = parseStatement(PSscope);
+            {
+                Loc lookingForElseSave = lookingForElse;
+                lookingForElse = loc;
+                ifbody = parseStatement(PSscope);
+                lookingForElse = lookingForElseSave;
+            }
             if (token.value == TOKelse)
             {
+                Loc elseloc = this->loc;
                 nextToken();
                 elsebody = parseStatement(PSscope);
+                checkDanglingElse(elseloc);
             }
             else
                 elsebody = NULL;
@@ -3856,12 +3916,19 @@ Statement *Parser::parseStatement(int flags)
             goto Lcondition;
 
         Lcondition:
-            ifbody = parseStatement(0 /*PSsemi*/);
+            {
+                Loc lookingForElseSave = lookingForElse;
+                lookingForElse = loc;
+                ifbody = parseStatement(0 /*PSsemi*/);
+                lookingForElse = lookingForElseSave;
+            }
             elsebody = NULL;
             if (token.value == TOKelse)
             {
+                Loc elseloc = this->loc;
                 nextToken();
                 elsebody = parseStatement(0 /*PSsemi*/);
+                checkDanglingElse(elseloc);
             }
             s = new ConditionalStatement(loc, condition, ifbody, elsebody);
             break;
@@ -3911,7 +3978,7 @@ Statement *Parser::parseStatement(int flags)
         case TOKcase:
         {   Expression *exp;
             Statements *statements;
-            Array cases;        // array of Expression's
+            Expressions cases;        // array of Expression's
             Expression *last = NULL;
 
             while (1)
@@ -3958,9 +4025,9 @@ Statement *Parser::parseStatement(int flags)
 #endif
             {
                 // Keep cases in order by building the case statements backwards
-                for (int i = cases.dim; i; i--)
+                for (size_t i = cases.dim; i; i--)
                 {
-                    exp = (Expression *)cases.data[i - 1];
+                    exp = cases.tdata()[i - 1];
                     s = new CaseStatement(loc, exp, s);
                 }
             }
@@ -4098,11 +4165,14 @@ Statement *Parser::parseStatement(int flags)
 
         case TOKtry:
         {   Statement *body;
-            Array *catches = NULL;
+            Catches *catches = NULL;
             Statement *finalbody = NULL;
 
             nextToken();
+            Loc lookingForElseSave = lookingForElse;
+            lookingForElse = 0;
             body = parseStatement(PSscope);
+            lookingForElse = lookingForElseSave;
             while (token.value == TOKcatch)
             {
                 Statement *handler;
@@ -4127,7 +4197,7 @@ Statement *Parser::parseStatement(int flags)
                 handler = parseStatement(0);
                 c = new Catch(loc, t, id, handler);
                 if (!catches)
-                    catches = new Array();
+                    catches = new Catches();
                 catches->push(c);
             }
 
@@ -4362,8 +4432,6 @@ int Parser::isBasicType(Token **pt)
 {
     // This code parallels parseBasicType()
     Token *t = *pt;
-    Token *t2;
-    int parens;
     int haveId = 0;
 
     switch (t->value)
@@ -4731,7 +4799,6 @@ int Parser::isParameters(Token **pt)
                     break;
                 }
             }
-            L3:
                 if (t->value == TOKcomma)
                 {
                     continue;
@@ -5178,7 +5245,6 @@ Expression *Parser::parsePrimaryExp()
 
         case BASIC_TYPES_X(t):
             nextToken();
-        L1:
             check(TOKdot, t->toChars());
             if (token.value != TOKidentifier)
             {   error("found '%s' when expecting identifier following '%s.'", token.toChars(), t->toChars());
@@ -5469,7 +5535,7 @@ Expression *Parser::parsePostExp(Expression *e)
                 {   Identifier *id = token.ident;
 
                     nextToken();
-                    if (token.value == TOKnot && peekNext() != TOKis)
+                    if (token.value == TOKnot && peekNext() != TOKis && peekNext() != TOKin)
                     {   // identifier!(template-argument-list)
                         TemplateInstance *tempinst = new TemplateInstance(loc, id);
                         Objects *tiargs;
@@ -6356,7 +6422,7 @@ enum PREC precedence[TOKMAX];
 
 void initPrecedence()
 {
-    for (int i = 0; i < TOKMAX; i++)
+    for (size_t i = 0; i < TOKMAX; i++)
         precedence[i] = PREC_zero;
 
     precedence[TOKtype] = PREC_expr;

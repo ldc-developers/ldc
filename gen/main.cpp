@@ -49,6 +49,10 @@ using namespace opts;
 
 #include "gen/configfile.h"
 
+#if DMDV1
+typedef Array Modules;
+#endif
+
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
 extern void backend_term();
@@ -57,22 +61,22 @@ static cl::opt<bool> noDefaultLib("nodefaultlib",
     cl::desc("Don't add a default library for linking implicitly"),
     cl::ZeroOrMore);
 
-static ArrayAdapter impPathsStore("I", global.params.imppath);
-static cl::list<std::string, ArrayAdapter> importPaths("I",
+static StringsAdapter impPathsStore("I", global.params.imppath);
+static cl::list<std::string, StringsAdapter> importPaths("I",
     cl::desc("Where to look for imports"),
     cl::value_desc("path"),
     cl::location(impPathsStore),
     cl::Prefix);
 
-static ArrayAdapter defaultLibStore("defaultlib", global.params.defaultlibnames);
-static cl::list<std::string, ArrayAdapter> defaultlibs("defaultlib",
+static StringsAdapter defaultLibStore("defaultlib", global.params.defaultlibnames);
+static cl::list<std::string, StringsAdapter> defaultlibs("defaultlib",
     cl::desc("Set default libraries for non-debug build"),
     cl::value_desc("lib,..."),
     cl::location(defaultLibStore),
     cl::CommaSeparated);
 
-static ArrayAdapter debugLibStore("debuglib", global.params.debuglibnames);
-static cl::list<std::string, ArrayAdapter> debuglibs("debuglib",
+static StringsAdapter debugLibStore("debuglib", global.params.debuglibnames);
+static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
     cl::desc("Set default libraries for debug build"),
     cl::value_desc("lib,..."),
     cl::location(debugLibStore),
@@ -128,7 +132,7 @@ int main(int argc, char** argv)
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
 
-    Array files;
+    Strings files;
     char *p, *ext;
     Module *m;
     int status = EXIT_SUCCESS;
@@ -143,10 +147,10 @@ int main(int argc, char** argv)
 #endif
     global.params.useSwitchError = 1;
 
-    global.params.linkswitches = new Array();
-    global.params.libfiles = new Array();
-    global.params.objfiles = new Array();
-    global.params.ddocfiles = new Array();
+    global.params.linkswitches = new Strings();
+    global.params.libfiles = new Strings();
+    global.params.objfiles = new Strings();
+    global.params.ddocfiles = new Strings();
 
     global.params.moduleDeps = NULL;
     global.params.moduleDepsFile = NULL;
@@ -647,12 +651,12 @@ LDC_TARGETS
         for (int i = 0; i < global.params.imppath->dim; i++)
         {
             char *path = (char *)global.params.imppath->data[i];
-            Array *a = FileName::splitPath(path);
+            Strings *a = FileName::splitPath(path);
 
             if (a)
             {
                 if (!global.path)
-                    global.path = new Array();
+                    global.path = new Strings();
                 global.path->append(a);
             }
         }
@@ -664,19 +668,19 @@ LDC_TARGETS
         for (int i = 0; i < global.params.fileImppath->dim; i++)
         {
             char *path = (char *)global.params.fileImppath->data[i];
-            Array *a = FileName::splitPath(path);
+            Strings *a = FileName::splitPath(path);
 
             if (a)
             {
                 if (!global.filePath)
-                    global.filePath = new Array();
+                    global.filePath = new Strings();
                 global.filePath->append(a);
             }
         }
     }
 
     // Create Modules
-    Array modules;
+    Modules modules;
     modules.reserve(files.dim);
     for (int i = 0; i < files.dim; i++)
     {   Identifier *id;
@@ -697,7 +701,7 @@ LDC_TARGETS
             stricmp(ext, global.bc_ext) == 0)
 #endif
             {
-                global.params.objfiles->push(files.data[i]);
+                global.params.objfiles->push((char *)files.data[i]);
                 continue;
             }
 
@@ -709,13 +713,13 @@ LDC_TARGETS
             if (stricmp(ext, "lib") == 0)
 #endif
             {
-                global.params.libfiles->push(files.data[i]);
+                global.params.libfiles->push((char *)files.data[i]);
                 continue;
             }
 
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
-                global.params.ddocfiles->push(files.data[i]);
+                global.params.ddocfiles->push((char *)files.data[i]);
                 continue;
             }
 

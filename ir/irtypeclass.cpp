@@ -181,7 +181,7 @@ void IrTypeClass::addBaseClassData(
             BaseClass* b = it2.get();
             IF_LOG Logger::println("Adding interface vtbl for %s", b->base->toPrettyChars());
 
-            Array arr;
+            FuncDeclarations arr;
             b->fillVtbl(cd, &arr, new_instances);
 
             const llvm::Type* ivtbl_type = buildVtblType(first, &arr);

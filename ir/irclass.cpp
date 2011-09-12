@@ -366,7 +366,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
     assert(cd && "not a class aggregate");
 
-    Array vtbl_array;
+    FuncDeclarations vtbl_array;
     b->fillVtbl(cd, &vtbl_array, new_instance);
 
     std::vector<llvm::Constant*> constants;

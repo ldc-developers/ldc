@@ -210,6 +210,29 @@ void ExpStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
+#if DMDV2
+
+void DtorExpStatement::toIR(IRState *irs)
+{
+    assert(irs->func());
+    FuncDeclaration *fd = irs->func()->decl;
+    assert(fd);
+    if (fd->nrvo_can && fd->nrvo_var == var)
+        /* Do not call destructor, because var is returned as the nrvo variable.
+         * This is done at this stage because nrvo can be turned off at a
+         * very late stage in semantic analysis.
+         */
+        ;
+    else
+    {
+        ExpStatement::toIR(irs);
+    }
+}
+
+#endif
+
+//////////////////////////////////////////////////////////////////////////////
+
 void IfStatement::toIR(IRState* p)
 {
     Logger::println("IfStatement::toIR(): %s", loc.toChars());
