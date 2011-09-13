@@ -75,10 +75,9 @@ void ReturnStatement::toIR(IRState* p)
             DValue* e = exp->toElemDtor(p);
             // store return value
             DtoAssign(loc, rvar, e);
-
 #if DMDV2
             // call postblit if necessary
-            if (!p->func()->type->isref)
+            if (!p->func()->type->isref && !(f->decl->nrvo_can && f->decl->nrvo_var))
                 callPostblit(loc, exp, rvar->getLVal());
 #endif
 
@@ -101,14 +100,20 @@ void ReturnStatement::toIR(IRState* p)
             if (!exp && (p->topfunc() == p->mainFunc)) {
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
             } else {
-                DValue* dval = exp->toElemDtor(p);
 #if DMDV2
+                DValue* dval = 0;
                 // call postblit if necessary
-                if (!p->func()->type->isref)
+                if (!p->func()->type->isref) {
+                    dval = exp->toElemDtor(p);
                     callPostblit(loc, exp, dval->getRVal());
+                } else {
+                    Expression *ae = exp->addressOf(NULL);
+                    dval = ae->toElemDtor(p);
+                }
                 // do abi specific transformations on the return value
-                v = p->func()->type->fty.putRet(exp->type, dval, p->func()->type->isref);
+                v = p->func()->type->fty.putRet(exp->type, dval);
 #else
+                DValue* dval = exp->toElemDtor(p);
                 v = p->func()->type->fty.putRet(exp->type, dval);
 #endif
             }

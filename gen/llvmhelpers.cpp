@@ -1007,10 +1007,48 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 Logger::println("has nestedref set");
                 assert(vd->ir.irLocal);
                 DtoNestedInit(vd);
+            // is it already allocated?
+            } else if(vd->ir.irLocal) {
+                // nothing to do...
             }
-            // normal stack variable, allocate storage on the stack if it has not already been done
-            else if(!vd->ir.irLocal && !vd->isRef()) {
+#if DMDV2
+            /* Named Return Value Optimization (NRVO):
+                T f(){
+                    T ret;        // &ret == hidden pointer
+                    ret = ...
+                    return ret;    // NRVO.
+                }
+            */
+            else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can && gIR->func()->decl->nrvo_var == vd) {
                 vd->ir.irLocal = new IrLocal(vd);
+                vd->ir.irLocal->value = gIR->func()->retArg;
+            }
+#endif
+            // normal stack variable, allocate storage on the stack if it has not already been done
+            else if(!vd->isRef()) {
+                vd->ir.irLocal = new IrLocal(vd);
+
+#if DMDV2
+                /* NRVO again:
+                    T t = f();    // t's memory address is taken hidden pointer
+                */
+                ExpInitializer *ei = 0;
+                if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
+                    !!(ei = vd->init->isExpInitializer()))
+                {
+                    if (ei->exp->op == TOKconstruct) {
+                        AssignExp *ae = (AssignExp*)ei->exp;
+                        if (ae->e2->op == TOKcall) {
+                            CallExp *ce = (CallExp *)ae->e2;
+                            TypeFunction *tf = (TypeFunction *)ce->e1->type->toBasetype();
+                            if (tf->ty == Tfunction && tf->retStyle() == RETstack) {
+                                vd->ir.irLocal->value = ce->toElem(gIR)->getLVal();
+                                goto Lexit;
+                            }
+                        }
+                    }
+                }
+#endif
 
                 const LLType* lltype = DtoType(vd->type);
 
@@ -1039,6 +1077,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
 
 #if DMDV2
+        Lexit:
             /* Mark the point of construction of a variable that needs to be destructed.
              */
             if (vd->edtor && !vd->noscope)

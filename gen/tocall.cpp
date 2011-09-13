@@ -373,7 +373,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // return in hidden ptr is first
     if (retinptr)
     {
-        LLValue* retvar = DtoRawAlloca(argiter->get()->getContainedType(0), 0, ".rettmp");
+        LLValue* retvar = DtoRawAlloca(argiter->get()->getContainedType(0), resulttype->alignsize(), ".rettmp");
         ++argiter;
         args.push_back(retvar);
 

@@ -30,7 +30,7 @@ bool IrFuncTyArg::isByVal() const { return (attrs & llvm::Attribute::ByVal) != 0
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Value* IrFuncTy::putRet(Type* dty, DValue* val, bool isref)
+llvm::Value* IrFuncTy::putRet(Type* dty, DValue* val)
 {
     assert(!arg_sret);
     if (ret->rewrite) {
@@ -38,7 +38,7 @@ llvm::Value* IrFuncTy::putRet(Type* dty, DValue* val, bool isref)
         LOG_SCOPE
         return ret->rewrite->put(dty, val);
     }
-    return isref ? val->getLVal() : val->getRVal();
+    return val->getRVal();
 }
 
 llvm::Value* IrFuncTy::getRet(Type* dty, DValue* val)
