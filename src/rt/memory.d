@@ -48,6 +48,10 @@ private
             extern (C) extern __gshared void* __libc_stack_end;
         }
     }
+    version( OSX )
+    {
+        import core.sys.osx.pthread;
+    }
     extern (C) void gc_addRange( void* p, size_t sz );
     extern (C) void gc_removeRange( void* p );
 }
@@ -106,7 +110,7 @@ extern (C) void* rt_stackBottom()
     }
     else version( OSX )
     {
-        return cast(void*) 0xc0000000;
+        return pthread_get_stackaddr_np(pthread_self());
     }
     else version( FreeBSD )
     {

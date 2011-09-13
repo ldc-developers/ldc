@@ -1122,9 +1122,6 @@ class Thread
 
 
     /**
-     * $(RED Scheduled for deprecation in January 2012. Please use the version
-     *       which takes a $(D Duration) instead.)
-     *
      * Suspends the calling thread for at least the supplied period.  This may
      * result in multiple OS calls if period is greater than the maximum sleep
      * duration supported by the operating system.
@@ -1197,6 +1194,9 @@ class Thread
 
 
     /**
+     * $(RED Scheduled for deprecation in January 2012. Please use the version
+     *       which takes a $(D Duration) instead.)
+     *
      * Suspends the calling thread for at least the supplied period.  This may
      * result in multiple OS calls if period is greater than the maximum sleep
      * duration supported by the operating system.
@@ -1653,7 +1653,7 @@ private:
     //
     // All use of the global lists should synchronize on this lock.
     //
-    static Mutex slock()
+    @property static Mutex slock()
     {
         __gshared Mutex m = null;
 
