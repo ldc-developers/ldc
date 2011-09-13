@@ -2750,7 +2750,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 #if DMDV2
         else if (vd == sd->vthis) {
             IF_LOG Logger::println("initializing vthis");
-            val = new DImValue(sd->type, DtoNestedContext(loc, sd));
+            val = new DImValue(Type::tvoidptr, DtoBitCast(DtoNestedContext(loc, sd), getVoidPtrType()));
         }
 #endif
         else
