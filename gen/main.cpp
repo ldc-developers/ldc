@@ -924,7 +924,7 @@ LDC_TARGETS
         }
 #endif
     }
-    if (global.errors)
+    if (global.errors || global.warnings)
         fatal();
 
     // write module dependencies to file if requested
