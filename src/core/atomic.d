@@ -195,7 +195,15 @@ else version( LDC )
         if( __traits( compiles, mixin( "*here = writeThis" ) ) )
     {
         bool r = *here == ifThis;
-        static if (is(T P == U*, U))
+        static if(is(T : float))
+        {
+            llvm_atomic_cmp_swap!(int)(cast(shared int*)here, *cast(int*)&ifThis, *cast(int*)&writeThis);
+        }
+        else static if(is(T : double))
+        {
+            llvm_atomic_cmp_swap!(double)(cast(shared long*)here, *cast(long*)&ifThis, *cast(long*)&writeThis);
+        }
+        else static if (is(T P == U*, U))
         {
             llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
         }
@@ -220,6 +228,7 @@ else version( LDC )
     }
 
     HeadUnshared!(T) atomicLoad(msync ms = msync.seq, T)( ref const shared T val )
+        if(!__traits(isFloating, T))
     {
         llvm_memory_barrier(
             ms == msync.acq || ms == msync.seq,
@@ -243,7 +252,7 @@ else version( LDC )
     }
 
     void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
-        if( __traits( compiles, mixin( "val = newval" ) ) )
+        if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
     {
         llvm_memory_barrier(
             ms == msync.acq || ms == msync.seq,
@@ -262,6 +271,29 @@ else version( LDC )
         else
         {
             llvm_atomic_swap!(T)(cast(T*)&val, cast(T)newval);
+        }
+    }
+
+    void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
+        if(__traits(isFloating, T))
+    {
+        static if(T.sizeof == int.sizeof)
+        {
+            static assert(is(T : float));
+            auto ptrVal = cast(shared int*)&val;
+            auto ptrNewval = cast(int*)&newval;
+            atomicStore!(ms)(*ptrVal, *ptrNewval);
+        }
+        else static if(T.sizeof == long.sizeof)
+        {
+            static assert(is(T : double));
+            auto ptrVal = cast(shared long*)&val;
+            auto ptrNewval = cast(long*)&newval;
+            atomicStore!(ms)(*ptrVal, *ptrNewval);
+        }
+        else
+        {
+            static assert(0, "Cannot atomically store 80-bit reals.");
         }
     }
 }
