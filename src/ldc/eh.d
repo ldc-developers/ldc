@@ -500,9 +500,6 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     else
       action_walker += next_action_offset;
   }
-
-  fatalerror("reached unreachable");
-  return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
 }
 
 // These are the register numbers for SetGR that
