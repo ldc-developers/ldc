@@ -108,7 +108,7 @@ struct Match
 
 void overloadResolveX(Match *m, FuncDeclaration *f,
 	Expression *ethis, Expressions *arguments, Module* from);
-int overloadApply(Module* from, FuncDeclaration *fstart,
+int overloadApply(FuncDeclaration *fstart,
         int (*fp)(void *, FuncDeclaration *),
         void *param);
 

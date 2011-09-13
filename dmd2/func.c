@@ -2183,7 +2183,7 @@ int FuncDeclaration::overloadInsert(Dsymbol *s)
  *      1       done
  */
 
-int overloadApply(Module* from, FuncDeclaration *fstart,
+int overloadApply(FuncDeclaration *fstart,
         int (*fp)(void *, FuncDeclaration *),
         void *param)
 {
@@ -2196,9 +2196,8 @@ int overloadApply(Module* from, FuncDeclaration *fstart,
 
         if (fa)
         {
-	    if (fa->getModule() == from || fa->importprot != PROTprivate)
-		if (overloadApply(from, fa->funcalias, fp, param))
-		    return 1;
+            if (overloadApply(fa->funcalias, fp, param))
+                return 1;
             next = fa->overnext;
         }
         else
@@ -2213,11 +2212,6 @@ int overloadApply(Module* from, FuncDeclaration *fstart,
                     break;
                 if (next == fstart)
                     break;
-#if IN_LLVM
-		if (a->importprot == PROTprivate && a->getModule() != from)
-		    if (FuncDeclaration* fd = next->isFuncDeclaration())
-			next = fd->overnext;
-#endif
             }
             else
             {
@@ -2257,7 +2251,7 @@ static int fpunique(void *param, FuncDeclaration *f)
 FuncDeclaration *FuncDeclaration::isUnique()
 {   FuncDeclaration *result = NULL;
 
-    overloadApply(getModule(), this, &fpunique, &result);
+    overloadApply(this, &fpunique, &result);
     return result;
 }
 
@@ -2303,7 +2297,7 @@ FuncDeclaration *FuncDeclaration::overloadExactMatch(Type *t, Module* from)
     Param1 p;
     p.t = t;
     p.f = NULL;
-    overloadApply(from, this, &fp1, &p);
+    overloadApply(this, &fp1, &p);
     return p.f;
 }
 
@@ -2406,7 +2400,7 @@ void overloadResolveX(Match *m, FuncDeclaration *fstart,
     p.ethis = ethis;
     p.property = 0;
     p.arguments = arguments;
-    overloadApply(from, fstart, &fp2, &p);
+    overloadApply(fstart, &fp2, &p);
 }
 
 

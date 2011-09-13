@@ -961,7 +961,7 @@ int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
         for (size_t i = 0; i < os->a.dim; i++)
         {   Dsymbol *s2 = os->a.tdata()[i];
             FuncDeclaration *f2 = s2->isFuncDeclaration();
-	    if (f2 && overloadApply(getModule(), f2, &isf, fd))
+            if (f2 && overloadApply(f2, &isf, fd))
                 return 0;
         }
         return 1;
@@ -970,7 +970,7 @@ int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
     {
         FuncDeclaration *fdstart = s->isFuncDeclaration();
         //printf("%s fdstart = %p\n", s->kind(), fdstart);
-	return !overloadApply(getModule(), fdstart, &isf, fd);
+        return !overloadApply(fdstart, &isf, fd);
     }
 }
 #endif

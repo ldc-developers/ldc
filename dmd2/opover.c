@@ -1342,7 +1342,7 @@ int fp3(void *param, FuncDeclaration *f)
 
 static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Parameters *arguments)
 {
-    overloadApply(from, fstart, &fp3, arguments);
+    overloadApply(fstart, &fp3, arguments);
 }
 
 /******************************
