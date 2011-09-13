@@ -39,5 +39,6 @@ for arg; do
     esac
     ARGS[IDX++]="$arg"
 done
+ARGS[IDX++]="--singleobj"
 
 exec "$LDC" "${ARGS[@]}"
