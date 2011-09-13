@@ -705,12 +705,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
         LLValue* thisvar = irfunction->thisArg;
         assert(thisvar);
 
-        LLValue* thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
-        DtoStore(thisvar, thismem);
-        if (f->fty.is_arg_this_ref)
-            irfunction->thisArg = DtoLoad(thismem, "thisRef");
-        else
+        LLValue* thismem = thisvar;
+        if (!f->fty.is_arg_this_ref) {
+            thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
+            DtoStore(thisvar, thismem);
             irfunction->thisArg = thismem;
+        }
 
         assert(!fd->vthis->ir.irLocal);
         fd->vthis->ir.irLocal = new IrLocal(fd->vthis);
