@@ -1,0 +1,6 @@
+[submodule "druntime"]
+	path = druntime
+	url = git://github.com/ldc-developers/druntime.git
+[submodule "phobos"]
+	path = phobos
+	url = git://github.com/ldc-developers/phobos.git
