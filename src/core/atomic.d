@@ -194,28 +194,37 @@ else version( LDC )
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
         if( __traits( compiles, mixin( "*here = writeThis" ) ) )
     {
-        bool r = *here == ifThis;
-        static if(is(T : float))
+        T res = void;
+        static if (__traits(isFloating, T))
         {
-            llvm_atomic_cmp_swap!(int)(cast(shared int*)here, *cast(int*)&ifThis, *cast(int*)&writeThis);
-        }
-        else static if(is(T : double))
-        {
-            llvm_atomic_cmp_swap!(double)(cast(shared long*)here, *cast(long*)&ifThis, *cast(long*)&writeThis);
+            static if(T.sizeof == int.sizeof)
+            {
+                static assert(is(T : float));
+                res = cast(T)llvm_atomic_cmp_swap!(int)(cast(shared int*)here, *cast(int*)&ifThis, *cast(int*)&writeThis);
+            }
+            else static if(T.sizeof == long.sizeof)
+            {
+                static assert(is(T : double));
+                res = cast(T)llvm_atomic_cmp_swap!(long)(cast(shared long*)here, *cast(long*)&ifThis, *cast(long*)&writeThis);
+            }
+            else
+            {
+                static assert(0, "Cannot atomically store 80-bit reals.");
+            }
         }
         else static if (is(T P == U*, U))
         {
-            llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
+            res = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
         }
         else static if (T.sizeof == bool.sizeof)
         {
-            llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)here, ifThis?1:0, writeThis?1:0);
+            res = llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)here, ifThis ? 1 : 0, writeThis ? 1 : 0) ? 1 : 0;
         }
         else
         {
-            llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
+            res = llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
         }
-        return r;
+        return res == ifThis;
     }
 
 
