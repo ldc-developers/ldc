@@ -7,6 +7,7 @@
 #include "gen/dvalue.h"
 #include "gen/logger.h"
 #include "gen/complex.h"
+#include "gen/llvmhelpers.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -108,10 +109,7 @@ LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
     assert(t->isfloating());
     Logger::println("numeric equality");
 
-    LLValue* lv = lhs->getRVal();
-    LLValue* rv = rhs->getRVal();
     LLValue* res = 0;
-
     if (t->iscomplex())
     {
         Logger::println("complex");
@@ -120,11 +118,42 @@ LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
     else if (t->isfloating())
     {
         Logger::println("floating");
-        res = (op == TOKidentity || op == TOKequal)
-        ?   gIR->ir->CreateFCmpOEQ(lv,rv,"tmp")
-        :   gIR->ir->CreateFCmpUNE(lv,rv,"tmp");
+        res = DtoBinFloatsEquals(loc, lhs, rhs, op);
     }
     
+    assert(res);
+    return res;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoBinFloatsEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
+{
+    LLValue* res = 0;
+#if DMDV2
+    if (op == TOKequal) {
+        res = gIR->ir->CreateFCmpOEQ(lhs->getRVal(), rhs->getRVal(), "tmp");
+    } else if (op == TOKnotequal) {
+        res = gIR->ir->CreateFCmpUNE(lhs->getRVal(), rhs->getRVal(), "tmp");
+    } else {
+        llvm::ICmpInst::Predicate cmpop;
+        if (op == TOKidentity)
+            cmpop = llvm::ICmpInst::ICMP_EQ;
+        else
+            cmpop = llvm::ICmpInst::ICMP_NE;
+
+        LLValue* sz = DtoConstSize_t(getTypeStoreSize(DtoType(lhs->getType())));
+        LLValue* val = DtoMemCmp(makeLValue(loc, lhs), makeLValue(loc, rhs), sz);
+        res = gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false), "tmp");
+    }
+#else
+    LLValue* lv = lhs->getRVal();
+    LLValue* rv = rhs->getRVal();
+    res = (op == TOKidentity || op == TOKequal) ?
+                gIR->ir->CreateFCmpOEQ(lv, rv, "tmp") :
+                gIR->ir->CreateFCmpUNE(lv, rv, "tmp");
+
+#endif
     assert(res);
     return res;
 }

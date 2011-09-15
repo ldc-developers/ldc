@@ -125,7 +125,7 @@ void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, LLValue*& re, LLValue*& im)
+void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, DValue*& re, DValue*& im)
 {
     Type* baserety;
     Type* baseimty;
@@ -149,26 +149,45 @@ void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, LLValue*& re, LLValue*&
     if (t->iscomplex()) {
         DValue* v = DtoCastComplex(loc, val, to);
         if (to->iscomplex()) {
-            re = gIR->ir->CreateExtractValue(v->getRVal(), 0, ".re_part");
-            im = gIR->ir->CreateExtractValue(v->getRVal(), 1, ".im_part");
+            if (v->isLVal()) {
+                LLValue *reVal = DtoGEP(v->getLVal(), DtoConstInt(0), DtoConstInt(0), ".re_part");
+                LLValue *imVal = DtoGEP(v->getLVal(), DtoConstInt(0), DtoConstInt(1), ".im_part");
+                re = new DVarValue(baserety, reVal);
+                im = new DVarValue(baseimty, imVal);
+            } else {
+                LLValue *reVal = gIR->ir->CreateExtractValue(v->getRVal(), 0, ".re_part");
+                LLValue *imVal = gIR->ir->CreateExtractValue(v->getRVal(), 1, ".im_part");
+                re = new DImValue(baserety, reVal);
+                im = new DImValue(baseimty, imVal);
+            }
         } else
             DtoGetComplexParts(loc, to, v, re, im);
     }
     else if (t->isimaginary()) {
         re = NULL;
-        im = DtoCastFloat(loc, val, baseimty)->getRVal();
+        im = DtoCastFloat(loc, val, baseimty);
     }
     else if (t->isfloating()) {
-        re = DtoCastFloat(loc, val, baserety)->getRVal();
+        re = DtoCastFloat(loc, val, baserety);
         im = NULL;
     }
     else if (t->isintegral()) {
-        re = DtoCastInt(loc, val, baserety)->getRVal();
+        re = DtoCastInt(loc, val, baserety);
         im = NULL;
     }
     else {
         assert(0);
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, LLValue*& re, LLValue*& im)
+{
+    DValue *dre, *dim;
+    DtoGetComplexParts(loc, to, val, dre, dim);
+    re = dre ? dre->getRVal() : 0;
+    im = dim ? dim->getRVal() : 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -396,23 +415,16 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
 {
     Type* type = lhs->getType();
 
-    llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im;
+    DValue *lhs_re, *lhs_im, *rhs_re, *rhs_im;
 
     // lhs values
     DtoGetComplexParts(loc, type, lhs, lhs_re, lhs_im);
     // rhs values
     DtoGetComplexParts(loc, type, rhs, rhs_re, rhs_im);
 
-    // select predicate
-    llvm::FCmpInst::Predicate cmpop;
-    if (op == TOKequal || op == TOKidentity)
-        cmpop = llvm::FCmpInst::FCMP_OEQ;
-    else
-        cmpop = llvm::FCmpInst::FCMP_UNE;
-
     // (l.re==r.re && l.im==r.im) or (l.re!=r.re || l.im!=r.im)
-    LLValue* b1 = gIR->ir->CreateFCmp(cmpop, lhs_re, rhs_re, "tmp");
-    LLValue* b2 = gIR->ir->CreateFCmp(cmpop, lhs_im, rhs_im, "tmp");
+    LLValue* b1 = DtoBinFloatsEquals(loc, lhs_re, rhs_re, op);
+    LLValue* b2 = DtoBinFloatsEquals(loc, lhs_im, rhs_im, op);
 
     if (op == TOKequal)
         return gIR->ir->CreateAnd(b1,b2,"tmp");
