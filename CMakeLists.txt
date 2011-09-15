@@ -38,11 +38,6 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 execute_process(
-    COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${HOST_TARGET}
-    OUTPUT_VARIABLE HOST_ALT_TARGET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
 	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --cxxflags
 	OUTPUT_VARIABLE LLVM_CXXFLAGS
 	OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -129,9 +124,6 @@ set(LDC_GENERATED
 )
 # idgen and impcnvgen done
 
-set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
-set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
-
 include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INCLUDEDIR})
 
 set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
@@ -148,6 +140,13 @@ find_path(LLVM_CONFIG_FILE_PATH config.h PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${
 if(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
         message("Couldn't find your llvm Config.h file in ${LLVM_INCLUDEDIR}, no native target will be initialized.")
 else(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
+        if(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
+            file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_HOSTTRIPLE REGEX "^#define LLVM_HOSTTRIPLE")
+            if(LLVM_HOSTTRIPLE)
+                string(REGEX REPLACE "^#define LLVM_HOSTTRIPLE \"(.*)\"$" "\\1" HOST_TARGET ${LLVM_HOSTTRIPLE})
+            endif(LLVM_HOSTTRIPLE)
+        endif(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
+
         file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
         if(LLVM_NATIVE_ARCH)
                 string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)(Target|)$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
@@ -165,6 +164,15 @@ set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
     COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
 )
+
+execute_process(
+    COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${HOST_TARGET}
+    OUTPUT_VARIABLE HOST_ALT_TARGET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
+set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
@@ -213,13 +221,13 @@ if(USE_METADATA)
 endif(USE_METADATA)
 
 if(CMAKE_MINOR_VERSION LESS 6)
-	set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
-	set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib CACHE PATH "output dir for built libraries")
-	add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
+    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
+    set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib CACHE PATH "output dir for built libraries")
+    add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
     add_definitions(-DLDC_INSTALL_PREFIX=\\"${CMAKE_INSTALL_PREFIX}\\")
 else(CMAKE_MINOR_VERSION LESS 6)
-	add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
+    add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
     add_definitions(-DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 endif(CMAKE_MINOR_VERSION LESS 6)
