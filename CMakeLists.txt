@@ -58,9 +58,8 @@ set(D_VERSION               1                                       CACHE STRING
 set(CONF_INST_DIR           "${CMAKE_INSTALL_PREFIX}/etc"           CACHE STRING "set ldc.conf directory for installation")
 set(CMAKE_INSTALL_LIBDIR    "lib"                                   CACHE STRING "directory where lib will be installed")
 set(LIB_SUFFIX              ""                                      CACHE STRING "take empty string or 64. Directory where lib will be installed: lib or lib64")
-set(LIBRARY_OUTPUT_PATH     ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}  CACHE PATH "output dir for built libraries")
+set(LIBRARY_OUTPUT_PATH     ${PROJECT_SOURCE_DIR}/lib${LIB_SUFFIX}  CACHE PATH "output dir for built libraries")
 set(INCLUDE_INSTALL_DIR     /usr/include/d                          CACHE PATH "Directory where will be put header files")
-set(PROJECT_BINARY_DIR      ${PROJECT_SOURCE_DIR}/bin               CACHE PATH "Directory where will be put binary files")
 set(PROGRAM_PREFIX                                                  CACHE STRING "prepended to ldc binary name")
 set(PROGRAM_SUFFIX                                                  CACHE STRING "appended to ldc binary name")
 option(USE_BOEHM_GC     "use the Boehm garbage collector internally")
@@ -82,7 +81,7 @@ else(D_VERSION EQUAL 1)
 endif(D_VERSION EQUAL 1)
 
 file(MAKE_DIRECTORY
-	${PROJECT_BINARY_DIR}
+	${PROJECT_SOURCE_DIR}
 	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
 	${PROJECT_SOURCE_DIR}/gen
 )
@@ -227,7 +226,7 @@ if(USE_METADATA)
 endif(USE_METADATA)
 
 if(CMAKE_MINOR_VERSION LESS 6)
-    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR} CACHE PATH "output dir for built executables")
+    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin CACHE PATH "output dir for built executables")
     add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
     add_definitions(-DLDC_INSTALL_PREFIX=\\"${CMAKE_INSTALL_PREFIX}\\")
@@ -263,12 +262,12 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 # TODO: testrun
 
 install(TARGETS     ${LDC_EXE}                                          DESTINATION bin)
-install(PROGRAMS    ${PROJECT_BINARY_DIR}/${LDMD_EXE}                   DESTINATION bin)
-install(FILES       ${PROJECT_SOURCE_DIR}/${LDC_EXE}_install.conf       DESTINATION ${CONF_INST_DIR}/${LDC_EXE}.conf)
-install(FILES       ${PROJECT_BINARY_DIR}/${LDC_EXE}.rebuild.conf       DESTINATION ${CONF_INST_DIR})
+install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}               DESTINATION bin)
+install(FILES       ${PROJECT_SOURCE_DIR}/${LDC_EXE}_install.conf       DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
+install(FILES       ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}.rebuild.conf   DESTINATION ${CONF_INST_DIR})
 install(DIRECTORY   ${LIBRARY_OUTPUT_PATH}                              DESTINATION .               USE_SOURCE_PERMISSIONS)
 install(DIRECTORY   ${PROJECT_SOURCE_DIR}/import/core                   DESTINATION ${INCLUDE_INSTALL_DIR}/)
-install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                        DESTINATION ${INCLUDE_INSTALL_DIR}/)
+install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                        DESTINATION ${INCLUDE_INSTALL_DIR}/ PATTERN ".git" EXCLUDE )
 install(DIRECTORY   ${PROJECT_SOURCE_DIR}/druntime/import/ldc           DESTINATION ${INCLUDE_INSTALL_DIR}/)
 install(FILES       ${PROJECT_SOURCE_DIR}/druntime/import/object.di     DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 
