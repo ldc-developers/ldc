@@ -2,10 +2,10 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.6)
 
-option(BUILD_SHARED_LIBS "build the runtime as shared libraries (linux only)")
-option(BUILD_BC_LIBS "build the runtime as bytecode libraries")
-option(BUILD_SINGLE_LIB "build single runtime library" ON)
-set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
+option(BUILD_SHARED_LIBS                    "build the runtime as shared libraries (linux only)")
+option(BUILD_BC_LIBS                        "build the runtime as bytecode libraries")
+option(BUILD_SINGLE_LIB                     "build single runtime library" ON)
+set(D_FLAGS -g -w -d        CACHE STRING    "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
 	list(APPEND D_FLAGS -relocation-model=pic)
@@ -31,7 +31,7 @@ if(D_VERSION EQUAL 1)
 	set(LDC_IMPORTS)
 	macro(imports_file SRCARG)
 		get_filename_component(DEST ${SRCARG} NAME)
-		set(SRC  ${PROJECT_SOURCE_DIR}/${SRCARG})
+		set(SRC  ${PROJECT_PARENT_DIR}/${SRCARG})
 		set(DEST ${RUNTIME_DIR}/ldc/${DEST})
 		
 		list(APPEND LDC_IMPORTS ${DEST})
@@ -52,30 +52,33 @@ if(D_VERSION EQUAL 1)
 	set(RUNTIME_DC ldc-runtime)
 	set(RUNTIME_AIO tango)
 	# set paths to source files, or fill lists directly
-	set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
-	set(RUNTIME_INCLUDE ${RUNTIME_DC_DIR})
-	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
-	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
-	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-	set(CONFIG_NAME ${LDC_EXE})
+	set(RUNTIME_DC_DIR          ${RUNTIME_DIR}/internal)
+	set(RUNTIME_GC_DIR          ${RUNTIME_DIR}/lib/gc/basic)
+	set(RUNTIME_INCLUDE         ${RUNTIME_DC_DIR})
+	set(CONFIG_NAME             ${LDC_EXE})
+	file(GLOB CORE_D            ${RUNTIME_DIR}/lib/common/tango/core/*.d)
+	file(GLOB CORE_C            ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
+	file(GLOB_RECURSE GC_D      ${RUNTIME_GC_DIR}/*.d)
+	file(GLOB_RECURSE DCRT_D    ${RUNTIME_DC_DIR}/*.d)
+	file(GLOB DCRT_C            ${RUNTIME_DC_DIR}/*.c)
 elseif(D_VERSION EQUAL 2)
-	set(PHOBOS2_DIR ${PROJECT_PARENT_DIR}/phobos CACHE PATH "phobos2 source dir")
-	set(RUNTIME_CC druntime-core)
-	set(RUNTIME_GC druntime-gc-basic)
-	set(RUNTIME_DC druntime-rt-ldc)
-	set(RUNTIME_AIO druntime-ldc)
-	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
-	set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
-	file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
-	file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
-	file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
-	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-	file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
+	set(PHOBOS2_DIR     ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "phobos2 source dir")
+	set(RUNTIME_CC              druntime-core)
+	set(RUNTIME_GC              druntime-gc-basic)
+	set(RUNTIME_DC              druntime-rt-ldc)
+	set(RUNTIME_AIO             druntime-ldc)
+	set(RUNTIME_DC_DIR          ${RUNTIME_DIR}/src/rt)
+	set(RUNTIME_GC_DIR          ${RUNTIME_DIR}/src/gc)
+	set(RUNTIME_INCLUDE         ${RUNTIME_DIR}/src)
+	file(GLOB CORE_D            ${RUNTIME_DIR}/src/core/*.d )
+	file(GLOB CORE_D_SYNC       ${RUNTIME_DIR}/src/core/sync/*.d )
+	file(GLOB CORE_D_STDC       ${RUNTIME_DIR}/src/core/stdc/*.d )
+	file(GLOB_RECURSE GC_D      ${RUNTIME_GC_DIR}/*.d)
+	file(GLOB_RECURSE DCRT_D    ${RUNTIME_DC_DIR}/*.d)
+	file(GLOB_RECURSE LDC_D     ${RUNTIME_DIR}/src/ldc/*.d)
+    list(REMOVE_ITEM CORE_D
+		${RUNTIME_DIR}/src/core/bitop.d
+	)
 	list(REMOVE_ITEM DCRT_D
 		${RUNTIME_DC_DIR}/alloca.d
 		${RUNTIME_DC_DIR}/arraybyte.d
@@ -102,7 +105,7 @@ elseif(D_VERSION EQUAL 2)
 		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 	endif(UNIX)
 	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
-	set(GENERATE_DI ${CORE_D})
+	list(APPEND GENERATE_DI ${CORE_D} ${LDC_D})
 	list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
@@ -160,8 +163,9 @@ if(NOT LDC_LOC)
 	set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
-configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.rebuild.conf)
+configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in     ${PROJECT_PARENT_DIR}/bin/${LDC_EXE}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_PARENT_DIR}/bin/${LDC_EXE}.rebuild.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in         ${PROJECT_PARENT_DIR}/${LDC_EXE}.conf)
 
 # patch runtime source, uses LDC_EXE for ldc2
 if(D_VERSION EQUAL 2)
@@ -196,17 +200,18 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 	else ("${path}" STREQUAL "")
 		set(output ${path}/${name})
 	endif ("${path}" STREQUAL "")
-	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
-	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
-	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
-	list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
+	set(OUTPUT_O    ${PROJECT_BINARY_DIR}/${output}.o)
+	set(OUTPUT_BC   ${PROJECT_BINARY_DIR}/${output}.bc)
+	list(APPEND ${OUTLIST_O}    ${OUTPUT_O})
+	list(APPEND ${OUTLIST_BC}   ${OUTPUT_BC})
 
 	list(FIND GENERATE_DI "${INPUT_D}" INDEX)
 	if (INDEX EQUAL -1)
 		set(DI_CMD "")
 	else (INDEX EQUAL -1)
+        string(REGEX REPLACE "src/ldc" "src/core" output ${output})
 		string(REGEX REPLACE "^src/" "" di_output ${output})
-		set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+		set(DI_CMD -Hf=${PROJECT_PARENT_DIR}/import/${di_output}.di)
 		list(REMOVE_AT GENERATE_DI ${INDEX})
 	endif (INDEX EQUAL -1)
 
@@ -219,7 +224,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
 		DEPENDS ${LDC_LOC}
 			${INPUT_D}
 			${LDC_IMPORTS}
-			${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
+			${PROJECT_PARENT_DIR}/bin/${LDC_EXE}.conf
 	)
 endmacro(dc)
 
@@ -271,7 +276,7 @@ if(BUILD_BC_LIBS)
 		COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
 		# cannot parse genobj.bc if built with -g
 		# COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-		WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+		WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH}
 		DEPENDS
 			${CORE_BC}
 			${GC_BC}
@@ -282,10 +287,10 @@ if(BUILD_BC_LIBS)
 endif(BUILD_BC_LIBS)
 
 set_target_properties(
-    ${LIBS} PROPERTIES
-    LINKER_LANGUAGE C
-    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+    ${LIBS}                     PROPERTIES
+    LINKER_LANGUAGE             C
+    ARCHIVE_OUTPUT_DIRECTORY    ${LIBRARY_OUTPUT_PATH}
+    LIBRARY_OUTPUT_DIRECTORY    ${LIBRARY_OUTPUT_PATH}
 )
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
@@ -307,10 +312,10 @@ if(PHOBOS2_DIR)
 	)
     add_dependencies(lphobos2 runtime)
     set_target_properties(
-        lphobos2 PROPERTIES
-        LINKER_LANGUAGE C
-        ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-        LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        lphobos2                    PROPERTIES
+        LINKER_LANGUAGE             C
+        ARCHIVE_OUTPUT_DIRECTORY    ${LIBRARY_OUTPUT_PATH}
+        LIBRARY_OUTPUT_DIRECTORY    ${LIBRARY_OUTPUT_PATH}
     )
     add_custom_target(phobos2 DEPENDS lphobos2)
 endif(PHOBOS2_DIR)
