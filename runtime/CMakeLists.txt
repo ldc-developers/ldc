@@ -8,103 +8,103 @@ option(BUILD_SINGLE_LIB "build single runtime library" ON)
 set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
-	list(APPEND D_FLAGS -relocation-model=pic)
-	set(D_LIBRARY_TYPE SHARED)
+    list(APPEND D_FLAGS -relocation-model=pic)
+    set(D_LIBRARY_TYPE SHARED)
 else(BUILD_SHARED_LIBS)
-	set(D_LIBRARY_TYPE STATIC)
-	set(CXX_COMPILE_FLAGS " ")
+    set(D_LIBRARY_TYPE STATIC)
+    set(CXX_COMPILE_FLAGS " ")
 endif(BUILD_SHARED_LIBS)
 
 # build tango for D1, druntime for D2
 if(D_VERSION EQUAL 1)
-	set(RUNTIME tango)
+    set(RUNTIME tango)
 elseif(D_VERSION EQUAL 2)
-	set(RUNTIME druntime)
+    set(RUNTIME druntime)
 else(D_VERSION EQUAL 1)
-	message(FATAL_ERROR "set d version to 1 or 2")
+    message(FATAL_ERROR "set d version to 1 or 2")
 endif(D_VERSION EQUAL 1)
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir")
 
 if(D_VERSION EQUAL 1)
-	# copy imports to runtime dir
-	set(LDC_IMPORTS)
-	macro(imports_file SRCARG)
-		get_filename_component(DEST ${SRCARG} NAME)
-		set(SRC  ${PROJECT_SOURCE_DIR}/${SRCARG})
-		set(DEST ${RUNTIME_DIR}/ldc/${DEST})
-		
-		list(APPEND LDC_IMPORTS ${DEST})
-		add_custom_command(
-			OUTPUT  ${DEST}
-			DEPENDS ${SRC}
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC} ${DEST}
-		)
-	endmacro(imports_file)
-	imports_file(import/ldc/cstdarg.di)
-	imports_file(import/ldc/intrinsics.di)
-	imports_file(import/ldc/llvmasm.di)
-	imports_file(internal/ldc/bitmanip.d)
-	imports_file(internal/ldc/vararg.d)
-	# library names
-	set(RUNTIME_CC tango-cc-tango)
-	set(RUNTIME_GC tango-gc-basic)
-	set(RUNTIME_DC ldc-runtime)
-	set(RUNTIME_AIO tango)
-	# set paths to source files, or fill lists directly
-	set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
-	set(RUNTIME_INCLUDE ${RUNTIME_DC_DIR})
-	file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
-	file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
-	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-	set(CONFIG_NAME ${LDC_EXE})
+    # copy imports to runtime dir
+    set(LDC_IMPORTS)
+    macro(imports_file SRCARG)
+        get_filename_component(DEST ${SRCARG} NAME)
+        set(SRC  ${PROJECT_SOURCE_DIR}/${SRCARG})
+        set(DEST ${RUNTIME_DIR}/ldc/${DEST})
+        
+        list(APPEND LDC_IMPORTS ${DEST})
+        add_custom_command(
+            OUTPUT  ${DEST}
+            DEPENDS ${SRC}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC} ${DEST}
+        )
+    endmacro(imports_file)
+    imports_file(import/ldc/cstdarg.di)
+    imports_file(import/ldc/intrinsics.di)
+    imports_file(import/ldc/llvmasm.di)
+    imports_file(internal/ldc/bitmanip.d)
+    imports_file(internal/ldc/vararg.d)
+    # library names
+    set(RUNTIME_CC tango-cc-tango)
+    set(RUNTIME_GC tango-gc-basic)
+    set(RUNTIME_DC ldc-runtime)
+    set(RUNTIME_AIO tango)
+    # set paths to source files, or fill lists directly
+    set(RUNTIME_DC_DIR ${PROJECT_SOURCE_DIR}/internal)
+    set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
+    set(RUNTIME_INCLUDE ${RUNTIME_DC_DIR})
+    file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
+    file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
+    file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
+    file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+    file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
+    set(CONFIG_NAME ${LDC_EXE})
 elseif(D_VERSION EQUAL 2)
-	set(PHOBOS2_DIR ${PROJECT_PARENT_DIR}/phobos CACHE PATH "phobos2 source dir")
-	set(RUNTIME_CC druntime-core)
-	set(RUNTIME_GC druntime-gc-basic)
-	set(RUNTIME_DC druntime-rt-ldc)
-	set(RUNTIME_AIO druntime-ldc)
-	set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
-	set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
-	set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
-	file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
-	file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
-	file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
-	file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-	file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-	file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
-	list(REMOVE_ITEM DCRT_D
-		${RUNTIME_DC_DIR}/alloca.d
-		${RUNTIME_DC_DIR}/arraybyte.d
-		${RUNTIME_DC_DIR}/arraycast.d
-		${RUNTIME_DC_DIR}/arraycat.d
-		${RUNTIME_DC_DIR}/arraydouble.d
-		${RUNTIME_DC_DIR}/arrayfloat.d
-		${RUNTIME_DC_DIR}/arrayreal.d
-		${RUNTIME_DC_DIR}/arrayshort.d
-		${RUNTIME_DC_DIR}/critical_.d
-		${RUNTIME_DC_DIR}/deh.d
-		${RUNTIME_DC_DIR}/deh2.d
-		${RUNTIME_DC_DIR}/llmath.d
-		${RUNTIME_DC_DIR}/qsort2.d
-		${RUNTIME_DC_DIR}/trace.d
-	)
-	file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-	list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
-	if(UNIX)
-		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
-	elseif(WIN32)
-		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
-	elseif(APPLE)
-		file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
-	endif(UNIX)
-	list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
-	set(GENERATE_DI ${CORE_D})
-	list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
-	file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
+    set(PHOBOS2_DIR ${PROJECT_PARENT_DIR}/phobos CACHE PATH "phobos2 source dir")
+    set(RUNTIME_CC druntime-core)
+    set(RUNTIME_GC druntime-gc-basic)
+    set(RUNTIME_DC druntime-rt-ldc)
+    set(RUNTIME_AIO druntime-ldc)
+    set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
+    set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
+    set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
+    file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
+    file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
+    file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
+    file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
+    file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+    file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
+    list(REMOVE_ITEM DCRT_D
+        ${RUNTIME_DC_DIR}/alloca.d
+        ${RUNTIME_DC_DIR}/arraybyte.d
+        ${RUNTIME_DC_DIR}/arraycast.d
+        ${RUNTIME_DC_DIR}/arraycat.d
+        ${RUNTIME_DC_DIR}/arraydouble.d
+        ${RUNTIME_DC_DIR}/arrayfloat.d
+        ${RUNTIME_DC_DIR}/arrayreal.d
+        ${RUNTIME_DC_DIR}/arrayshort.d
+        ${RUNTIME_DC_DIR}/critical_.d
+        ${RUNTIME_DC_DIR}/deh.d
+        ${RUNTIME_DC_DIR}/deh2.d
+        ${RUNTIME_DC_DIR}/llmath.d
+        ${RUNTIME_DC_DIR}/qsort2.d
+        ${RUNTIME_DC_DIR}/trace.d
+    )
+    file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
+    list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
+    if(UNIX)
+        file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+    elseif(WIN32)
+        file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+    elseif(APPLE)
+        file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+    endif(UNIX)
+    list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
+    set(GENERATE_DI ${CORE_D})
+    list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
+    file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
     if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
@@ -134,9 +134,9 @@ elseif(D_VERSION EQUAL 2)
                 ${PHOBOS2_DIR}/etc/c/zlib.d
                 ${PHOBOS2_DIR}/crc32.d
         )
-		list(REMOVE_ITEM PHOBOS2_D
-				${PHOBOS2_DIR}/std/intrinsic.d
-		)
+        list(REMOVE_ITEM PHOBOS2_D
+                ${PHOBOS2_DIR}/std/intrinsic.d
+        )
         set(CONFIG_NAME ${LDC_EXE}_phobos)
     else(PHOBOS2_DIR)
         set(CONFIG_NAME ${LDC_EXE})
@@ -145,19 +145,19 @@ endif(D_VERSION EQUAL 1)
 
 # should only be necessary if run independently from ldc cmake project
 if(NOT LDC_LOC)
-	if(NOT LDC_EXE)
-		if(D_VERSION EQUAL 1)
-			set(LDC_EXE ldc)
-		elseif(D_VERSION EQUAL 2)
-			set(LDC_EXE ldc2)
-		endif(D_VERSION EQUAL 1)
-	endif(NOT LDC_EXE)
+    if(NOT LDC_EXE)
+        if(D_VERSION EQUAL 1)
+            set(LDC_EXE ldc)
+        elseif(D_VERSION EQUAL 2)
+            set(LDC_EXE ldc2)
+        endif(D_VERSION EQUAL 1)
+    endif(NOT LDC_EXE)
 
-	find_program(LDC_LOC ${LDC_EXE} ../bin DOC "path to ldc binary")
-	if(NOT LDC_LOC)
-		message(SEND_ERROR "ldc not found")
-	endif(NOT LDC_LOC)
-	set(LDC_EXE_NAME ${LDC_EXE})
+    find_program(LDC_LOC ${LDC_EXE} ../bin DOC "path to ldc binary")
+    if(NOT LDC_LOC)
+        message(SEND_ERROR "ldc not found")
+    endif(NOT LDC_LOC)
+    set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -165,120 +165,120 @@ configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY
 
 # patch runtime source, uses LDC_EXE for ldc2
 if(D_VERSION EQUAL 2)
-	find_program(PATCH_EXE patch DOC "path to patch tool")
-	if(NOT PATCH_EXE)
-		message(STATUS "patch tool not found, can't automatically patch runtime sources for ldc")
-	else(NOT PATCH_EXE)
-		add_custom_command(
-			OUTPUT patch-runtime
-			COMMAND ${PATCH_EXE} -t -N -p0 -i ${PROJECT_SOURCE_DIR}/${LDC_EXE}.diff
-			WORKING_DIRECTORY ${RUNTIME_DIR}
-		)
-		# rebuild cache to include sources added by patch
-		add_custom_command(
-			OUTPUT recache
-			COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_BINARY_DIR}/..
-		)
-		add_custom_target(patch DEPENDS patch-runtime recache ${LDC_IMPORTS})
-	endif(NOT PATCH_EXE)
+    find_program(PATCH_EXE patch DOC "path to patch tool")
+    if(NOT PATCH_EXE)
+        message(STATUS "patch tool not found, can't automatically patch runtime sources for ldc")
+    else(NOT PATCH_EXE)
+        add_custom_command(
+            OUTPUT patch-runtime
+            COMMAND ${PATCH_EXE} -t -N -p0 -i ${PROJECT_SOURCE_DIR}/${LDC_EXE}.diff
+            WORKING_DIRECTORY ${RUNTIME_DIR}
+        )
+        # rebuild cache to include sources added by patch
+        add_custom_command(
+            OUTPUT recache
+            COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_BINARY_DIR}/..
+        )
+        add_custom_target(patch DEPENDS patch-runtime recache ${LDC_IMPORTS})
+    endif(NOT PATCH_EXE)
 endif(D_VERSION EQUAL 2)
 
 macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
-	if ("${PATH}" STREQUAL "")
-		file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
-	else ("${PATH}" STREQUAL "")
-		file(RELATIVE_PATH output ${PATH} ${INPUT_D})
-	endif ("${PATH}" STREQUAL "")
-	get_filename_component(name ${output} NAME_WE)
-	get_filename_component(path ${output} PATH)
-	if ("${path}" STREQUAL "")
-		set(output ${name})
-	else ("${path}" STREQUAL "")
-		set(output ${path}/${name})
-	endif ("${path}" STREQUAL "")
-	set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
-	set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
-	list(APPEND ${OUTLIST_O} ${OUTPUT_O})
-	list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
+    if ("${PATH}" STREQUAL "")
+        file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
+    else ("${PATH}" STREQUAL "")
+        file(RELATIVE_PATH output ${PATH} ${INPUT_D})
+    endif ("${PATH}" STREQUAL "")
+    get_filename_component(name ${output} NAME_WE)
+    get_filename_component(path ${output} PATH)
+    if ("${path}" STREQUAL "")
+        set(output ${name})
+    else ("${path}" STREQUAL "")
+        set(output ${path}/${name})
+    endif ("${path}" STREQUAL "")
+    set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
+    set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
+    list(APPEND ${OUTLIST_O} ${OUTPUT_O})
+    list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
-	list(FIND GENERATE_DI "${INPUT_D}" INDEX)
-	if (INDEX EQUAL -1)
-		set(DI_CMD "")
-	else (INDEX EQUAL -1)
-		string(REGEX REPLACE "^src/" "" di_output ${output})
-		set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
-		list(REMOVE_AT GENERATE_DI ${INDEX})
-	endif (INDEX EQUAL -1)
+    list(FIND GENERATE_DI "${INPUT_D}" INDEX)
+    if (INDEX EQUAL -1)
+        set(DI_CMD "")
+    else (INDEX EQUAL -1)
+        string(REGEX REPLACE "^src/" "" di_output ${output})
+        set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+        list(REMOVE_AT GENERATE_DI ${INDEX})
+    endif (INDEX EQUAL -1)
 
-	# Compile
-	add_custom_command(
-		OUTPUT
-			${OUTPUT_O}
-			${OUTPUT_BC}
-				COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
-		DEPENDS ${LDC_LOC}
-			${INPUT_D}
-			${LDC_IMPORTS}
-			${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
-	)
+    # Compile
+    add_custom_command(
+        OUTPUT
+            ${OUTPUT_O}
+            ${OUTPUT_BC}
+                COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
+        DEPENDS ${LDC_LOC}
+            ${INPUT_D}
+            ${LDC_IMPORTS}
+            ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
+    )
 endmacro(dc)
 
 foreach(f ${CORE_D})
-	dc(${f} CORE_O CORE_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
+    dc(${f} CORE_O CORE_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
 endforeach(f)
 
 foreach(f ${GC_D})
-	dc(${f} GC_O GC_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
+    dc(${f} GC_O GC_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
 endforeach(f)
 
 foreach(f ${DCRT_D})
-	if(D_VERSION EQUAL 1)
-		dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" ${RUNTIME_DC_DIR})
-	else(D_VERSION EQUAL 1)
-		dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" "")
-	endif(D_VERSION EQUAL 1)
+    if(D_VERSION EQUAL 1)
+        dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" ${RUNTIME_DC_DIR})
+    else(D_VERSION EQUAL 1)
+        dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" "")
+    endif(D_VERSION EQUAL 1)
 endforeach(f)
 
 if(BUILD_SINGLE_LIB)
-	add_library(${RUNTIME_AIO} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
-	set(LIBS ${RUNTIME_AIO})
+    add_library(${RUNTIME_AIO} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
+    set(LIBS ${RUNTIME_AIO})
 else(BUILD_SINGLE_LIB)
-	add_library(${RUNTIME_CC} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
-	add_library(${RUNTIME_GC} ${D_LIBRARY_TYPE} ${GC_O})
-	add_library(${RUNTIME_DC} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
-	set(LIBS
-		${RUNTIME_CC}
-		${RUNTIME_GC}
-		${RUNTIME_DC}
-	)
+    add_library(${RUNTIME_CC} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
+    add_library(${RUNTIME_GC} ${D_LIBRARY_TYPE} ${GC_O})
+    add_library(${RUNTIME_DC} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
+    set(LIBS
+        ${RUNTIME_CC}
+        ${RUNTIME_GC}
+        ${RUNTIME_DC}
+    )
 endif(BUILD_SINGLE_LIB)
 
 if(BUILD_BC_LIBS)
-	find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
-	if(NOT LLVM_AR_EXE)
-		message(SEND_ERROR "llvm-ar not found")
-	endif(NOT LLVM_AR_EXE)
+    find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
+    if(NOT LLVM_AR_EXE)
+        message(SEND_ERROR "llvm-ar not found")
+    endif(NOT LLVM_AR_EXE)
 
-	add_library(${RUNTIME_CC}-c ${CORE_C})
-	add_library(${RUNTIME_DC}-c ${DCRT_C})
-	list(APPEND LIBS
-		${RUNTIME_CC}-c
-		${RUNTIME_DC}-c
-	)
-	add_custom_command(
-		OUTPUT bclibs
-		COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
-		COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
-		# cannot parse genobj.bc if built with -g
-		# COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-		WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-		DEPENDS
-			${CORE_BC}
-			${GC_BC}
-			${DCRT_BC}
-			${LDC_IMPORTS}
-	)
-	set(BCLIBS bclibs)
+    add_library(${RUNTIME_CC}-c ${CORE_C})
+    add_library(${RUNTIME_DC}-c ${DCRT_C})
+    list(APPEND LIBS
+        ${RUNTIME_CC}-c
+        ${RUNTIME_DC}-c
+    )
+    add_custom_command(
+        OUTPUT bclibs
+        COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
+        COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
+        # cannot parse genobj.bc if built with -g
+        # COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        DEPENDS
+            ${CORE_BC}
+            ${GC_BC}
+            ${DCRT_BC}
+            ${LDC_IMPORTS}
+    )
+    set(BCLIBS bclibs)
 endif(BUILD_BC_LIBS)
 
 set_target_properties(
@@ -296,15 +296,15 @@ if(PHOBOS2_DIR)
          dc(${f} PHOBOS2_O PHOBOS2_BC ${RUNTIME_DIR}/src/ "-I${PHOBOS2_DIR}" ${PHOBOS2_DIR})
     endforeach(f)
 
-	add_library(lphobos2 ${D_LIBRARY_TYPE}
-		${ZLIB_C}
-		${PHOBOS2_O}
-		${CORE_O}
-		${CORE_C}
-		${GC_O}
-		${DCRT_O}
-		${DCRT_C}
-	)
+    add_library(lphobos2 ${D_LIBRARY_TYPE}
+        ${ZLIB_C}
+        ${PHOBOS2_O}
+        ${CORE_O}
+        ${CORE_C}
+        ${GC_O}
+        ${DCRT_O}
+        ${DCRT_C}
+    )
     add_dependencies(lphobos2 runtime)
     set_target_properties(
         lphobos2 PROPERTIES

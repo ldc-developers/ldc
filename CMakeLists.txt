@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 2.6)
 
 include(FindPerl)
 if(NOT PERL)
-	message(FATAL_ERROR "perl not found")
+    message(FATAL_ERROR "perl not found")
 endif(NOT PERL)
 
 include(FindPkgConfig)
@@ -29,28 +29,28 @@ string(REPLACE "/bin/llvm-config" "" LLVM_DIR ${LLVM_CONFIG})
 
 set(LLVM_INSTDIR ${LLVM_DIR} CACHE PATH "LLVM installation directory" FORCE)
 if(NOT LLVM_INSTDIR)
-	message(FATAL_ERROR "llvm not found")
+    message(FATAL_ERROR "llvm not found")
 endif(NOT LLVM_INSTDIR)
 
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --host-target
-	OUTPUT_VARIABLE HOST_TARGET
-	OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --host-target
+    OUTPUT_VARIABLE HOST_TARGET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --cxxflags
-	OUTPUT_VARIABLE LLVM_CXXFLAGS
-	OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --cxxflags
+    OUTPUT_VARIABLE LLVM_CXXFLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --ldflags
-	OUTPUT_VARIABLE LLVM_LDFLAGS
-	OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --ldflags
+    OUTPUT_VARIABLE LLVM_LDFLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 execute_process(
-	COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --includedir
-	OUTPUT_VARIABLE LLVM_INCLUDEDIR
-	OUTPUT_STRIP_TRAILING_WHITESPACE
+    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --includedir
+    OUTPUT_VARIABLE LLVM_INCLUDEDIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
 set(D_VERSION 1 CACHE STRING "D language version")
@@ -62,65 +62,65 @@ option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 option(USE_METADATA "use metadata and related custom optimization passes")
 
 if(D_VERSION EQUAL 1)
-	set(DMDFE_PATH dmd)
-	set(LDC_EXE ldc)
-	set(LDMD_EXE ldmd)
-	add_definitions(-DDMDV1)
+    set(DMDFE_PATH dmd)
+    set(LDC_EXE ldc)
+    set(LDMD_EXE ldmd)
+    add_definitions(-DDMDV1)
 elseif(D_VERSION EQUAL 2)
-	set(DMDFE_PATH dmd2)
-	set(LDC_EXE ldc2)
-	set(LDMD_EXE ldmd2)
-	add_definitions(-DDMDV2)
+    set(DMDFE_PATH dmd2)
+    set(LDC_EXE ldc2)
+    set(LDMD_EXE ldmd2)
+    add_definitions(-DDMDV2)
 else(D_VERSION EQUAL 1)
-	message(FATAL_ERROR "unsupported D version")
+    message(FATAL_ERROR "unsupported D version")
 endif(D_VERSION EQUAL 1)
 
 file(MAKE_DIRECTORY
-	${PROJECT_BINARY_DIR}/bin
-	${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-	${PROJECT_BINARY_DIR}/gen
+    ${PROJECT_BINARY_DIR}/bin
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    ${PROJECT_BINARY_DIR}/gen
 )
 
 # idgen and impcnvgen
 set_source_files_properties(
-	${DMDFE_PATH}/idgen.c
-	${DMDFE_PATH}/impcnvgen.c
-	PROPERTIES LANGUAGE CXX
+    ${DMDFE_PATH}/idgen.c
+    ${DMDFE_PATH}/impcnvgen.c
+    PROPERTIES LANGUAGE CXX
 )
 add_executable(idgen ${DMDFE_PATH}/idgen.c)
 add_executable(impcnvgen ${DMDFE_PATH}/impcnvgen.c)
 # cmake 2.4
 set_target_properties(
-	idgen impcnvgen PROPERTIES
-	LINKER_LANGUAGE CXX
-	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-	COMPILE_FLAGS ${LLVM_CXXFLAGS}
+    idgen impcnvgen PROPERTIES
+    LINKER_LANGUAGE CXX
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    COMPILE_FLAGS ${LLVM_CXXFLAGS}
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
 #
 add_custom_command(
-	OUTPUT
-		${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
-		${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
-	# 2.4
-	COMMAND ${IDGEN_LOC}
-	#COMMAND idgen
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-	DEPENDS idgen
+    OUTPUT
+        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
+        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
+    # 2.4
+    COMMAND ${IDGEN_LOC}
+    #COMMAND idgen
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    DEPENDS idgen
 )
 add_custom_command(
-	OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
-	# 2.4
-	COMMAND ${IMPCNVGEN_LOC}
-	#COMMAND impcnvgen
-	WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-	DEPENDS impcnvgen
+    OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
+    # 2.4
+    COMMAND ${IMPCNVGEN_LOC}
+    #COMMAND impcnvgen
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    DEPENDS impcnvgen
 )
 set(LDC_GENERATED
-	${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
-	${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
-	${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
 # idgen and impcnvgen done
 
@@ -181,39 +181,39 @@ file(GLOB_RECURSE GEN_SRC gen/*.cpp gen/*.h)
 file(GLOB IR_SRC ir/*.cpp ir/*.h)
 # exclude idgen and impcnvgen and generated sources, just in case
 list(REMOVE_ITEM FE_SRC
-	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
-	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvgen.c
-	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
-	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvgen.c
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
 set(LDC_SOURCE_FILES
-	${LDC_GENERATED}
-	${FE_SRC}
-	${GEN_SRC}
-	${IR_SRC}
+    ${LDC_GENERATED}
+    ${FE_SRC}
+    ${GEN_SRC}
+    ${IR_SRC}
 )
 set_source_files_properties(
-	${LDC_SOURCE_FILES}	PROPERTIES
-	LANGUAGE CXX
+    ${LDC_SOURCE_FILES}    PROPERTIES
+    LANGUAGE CXX
 )
 
 add_definitions(
-	-DIN_LLVM
-	-D_DH
-	-DOPAQUE_VTBLS
-	#-DDISABLE_DEBUG_INFO
+    -DIN_LLVM
+    -D_DH
+    -DOPAQUE_VTBLS
+    #-DDISABLE_DEBUG_INFO
 )
 
 if(UNIX)
-	add_definitions(-DPOSIX)
+    add_definitions(-DPOSIX)
 endif(UNIX)
 
 if(USE_BOEHM_GC)
-	add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
+    add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
 endif(USE_BOEHM_GC)
 
 if(GENERATE_OFFTI)
-	add_definitions(-DGENERATE_OFFTI)
+    add_definitions(-DGENERATE_OFFTI)
 endif(GENERATE_OFFTI)
 
 if(USE_METADATA)
@@ -237,20 +237,20 @@ add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 
 set_target_properties(
-	${LDC_EXE} PROPERTIES
-	OUTPUT_NAME ${LDC_EXE_NAME}
-	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-	COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
+    ${LDC_EXE} PROPERTIES
+    OUTPUT_NAME ${LDC_EXE_NAME}
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
 target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
-	target_link_libraries(${LDC_EXE} imagehlp psapi)
+    target_link_libraries(${LDC_EXE} imagehlp psapi)
 endif(WIN32)
 
 if(USE_BOEHM_GC)
-	target_link_libraries(${LDC_EXE} ${PROJECT_SOURCE_DIR}/libgc.a)
+    target_link_libraries(${LDC_EXE} ${PROJECT_SOURCE_DIR}/libgc.a)
 endif(USE_BOEHM_GC)
 
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
