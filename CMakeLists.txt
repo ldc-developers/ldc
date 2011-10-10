@@ -31,7 +31,8 @@ find_program(LLVM_CONFIG llvm-config ${LLVM_INSTDIR}/bin DOC "path to llvm-confi
 # get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
 string(REPLACE "/bin/llvm-config" "" LLVM_DIR ${LLVM_CONFIG})
 
-set(LLVM_INSTDIR ${LLVM_DIR} CACHE PATH "LLVM installation directory" FORCE)
+set(LLVM_INSTDIR        ${LLVM_DIR} CACHE PATH      "LLVM installation directory" FORCE)
+set(LLVM_CONFIG_HEADER  "config.h"  CACHE STRING    "Filename of llvm config header fequently see: config.h, config-32.h, config-64.h")
 if(NOT LLVM_INSTDIR)
     message(FATAL_ERROR "llvm not found")
 endif(NOT LLVM_INSTDIR)
@@ -147,24 +148,24 @@ execute_process(
 ##########
 # build a define that contains all LLVM targets required and is usable for
 # preprocessor code generation. start with the native target.
-find_path(LLVM_CONFIG_FILE_PATH config.h PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
+find_path(LLVM_CONFIG_FILE_PATH ${LLVM_CONFIG_HEADER} PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
 if(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
-        message("Couldn't find your llvm Config.h file in ${LLVM_INCLUDEDIR}, no native target will be initialized.")
+        message("Couldn't find your llvm ${LLVM_CONFIG_HEADER} file in ${LLVM_INCLUDEDIR}, no native target will be initialized.")
 else(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
         if(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
-            file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_HOSTTRIPLE REGEX "^#define LLVM_HOSTTRIPLE")
+            file(STRINGS ${LLVM_CONFIG_FILE_PATH}/${LLVM_CONFIG_HEADER} LLVM_HOSTTRIPLE REGEX "^#define LLVM_HOSTTRIPLE")
             if(LLVM_HOSTTRIPLE)
                 string(REGEX REPLACE "^#define LLVM_HOSTTRIPLE \"(.*)\"$" "\\1" HOST_TARGET ${LLVM_HOSTTRIPLE})
             endif(LLVM_HOSTTRIPLE)
         endif(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
 
-        file(STRINGS ${LLVM_CONFIG_FILE_PATH}/config.h LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+        file(STRINGS ${LLVM_CONFIG_FILE_PATH}/${LLVM_CONFIG_HEADER} LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
         if(LLVM_NATIVE_ARCH)
                 string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)(Target|)$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
                 message(STATUS "Found native target ${LLVM_NATIVE_ARCH}")
                 set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
         else(LLVM_NATIVE_ARCH)
-                message("Couldn't find the LLVM_NATIVE_ARCH define in ${LLVM_CONFIG_FILE_PATH}/config.h. Probably you have an older LLVM and can ignore this warning.")
+                message("Couldn't find the LLVM_NATIVE_ARCH define in ${LLVM_CONFIG_FILE_PATH}/${LLVM_CONFIG_HEADER}. Probably you have an older LLVM and can ignore this warning.")
         endif(LLVM_NATIVE_ARCH)
 endif(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
 # chain the extra target list to the define
