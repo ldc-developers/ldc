@@ -76,9 +76,9 @@ else(D_VERSION EQUAL 1)
 endif(D_VERSION EQUAL 1)
 
 file(MAKE_DIRECTORY
-    ${PROJECT_BINARY_DIR}/bin
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-    ${PROJECT_BINARY_DIR}/gen
+    ${PROJECT_SOURCE_DIR}/bin
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
+    ${PROJECT_SOURCE_DIR}/gen
 )
 
 # idgen and impcnvgen
@@ -93,7 +93,7 @@ add_executable(impcnvgen ${DMDFE_PATH}/impcnvgen.c)
 set_target_properties(
     idgen impcnvgen PROPERTIES
     LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
     COMPILE_FLAGS ${LLVM_CXXFLAGS}
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
@@ -101,30 +101,30 @@ get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
 #
 add_custom_command(
     OUTPUT
-        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
-        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
+        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
+        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.h
     # 2.4
     COMMAND ${IDGEN_LOC}
     #COMMAND idgen
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
     DEPENDS idgen
 )
 add_custom_command(
-    OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
+    OUTPUT ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
     # 2.4
     COMMAND ${IMPCNVGEN_LOC}
     #COMMAND impcnvgen
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
     DEPENDS impcnvgen
 )
 set(LDC_GENERATED
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.h
+    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
 # idgen and impcnvgen done
 
-include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_BINARY_DIR} ${LLVM_INCLUDEDIR})
+include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_SOURCE_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDEDIR})
 
 set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
 separate_arguments(EXTRA_LLVM_MODULES)
@@ -221,8 +221,8 @@ if(USE_METADATA)
 endif(USE_METADATA)
 
 if(CMAKE_MINOR_VERSION LESS 6)
-    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
-    set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib CACHE PATH "output dir for built libraries")
+    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin CACHE PATH "output dir for built executables")
+    set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib CACHE PATH "output dir for built libraries")
     add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
     add_definitions(-DLDC_INSTALL_PREFIX=\\"${CMAKE_INSTALL_PREFIX}\\")
@@ -239,7 +239,7 @@ set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
 
@@ -259,8 +259,8 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 install(TARGETS ${LDC_EXE} DESTINATION bin)
 install(PROGRAMS ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE} DESTINATION bin)
-install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf DESTINATION ${CONF_INST_DIR})
-install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.rebuild.conf DESTINATION ${CONF_INST_DIR})
-install(DIRECTORY ${PROJECT_BINARY_DIR}/lib DESTINATION . USE_SOURCE_PERMISSIONS)
+install(FILES ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}.conf DESTINATION ${CONF_INST_DIR})
+install(FILES ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}.rebuild.conf DESTINATION ${CONF_INST_DIR})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/lib DESTINATION . USE_SOURCE_PERMISSIONS)
 
 add_subdirectory(runtime EXCLUDE_FROM_ALL)

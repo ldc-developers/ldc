@@ -160,8 +160,8 @@ if(NOT LDC_LOC)
     set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
-configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.rebuild.conf)
+configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_SOURCE_DIR}/../bin/${LDC_EXE}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_SOURCE_DIR}/../bin/${LDC_EXE}.rebuild.conf)
 
 # patch runtime source, uses LDC_EXE for ldc2
 if(D_VERSION EQUAL 2)
@@ -177,7 +177,7 @@ if(D_VERSION EQUAL 2)
         # rebuild cache to include sources added by patch
         add_custom_command(
             OUTPUT recache
-            COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_BINARY_DIR}/..
+            COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_SOURCE_DIR}/..
         )
         add_custom_target(patch DEPENDS patch-runtime recache ${LDC_IMPORTS})
     endif(NOT PATCH_EXE)
@@ -196,8 +196,8 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
     else ("${path}" STREQUAL "")
         set(output ${path}/${name})
     endif ("${path}" STREQUAL "")
-    set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
-    set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
+    set(OUTPUT_O ${PROJECT_SOURCE_DIR}/${output}.o)
+    set(OUTPUT_BC ${PROJECT_SOURCE_DIR}/${output}.bc)
     list(APPEND ${OUTLIST_O} ${OUTPUT_O})
     list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
@@ -219,7 +219,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
         DEPENDS ${LDC_LOC}
             ${INPUT_D}
             ${LDC_IMPORTS}
-            ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
+            ${PROJECT_SOURCE_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro(dc)
 
@@ -271,7 +271,7 @@ if(BUILD_BC_LIBS)
         COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
         # cannot parse genobj.bc if built with -g
         # COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/../lib
         DEPENDS
             ${CORE_BC}
             ${GC_BC}
@@ -284,8 +284,8 @@ endif(BUILD_BC_LIBS)
 set_target_properties(
     ${LIBS} PROPERTIES
     LINKER_LANGUAGE C
-    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../lib
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../lib
 )
 
 # BCLIBS is empty if BUILD_BC_LIBS is not selected
@@ -309,8 +309,8 @@ if(PHOBOS2_DIR)
     set_target_properties(
         lphobos2 PROPERTIES
         LINKER_LANGUAGE C
-        ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
-        LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../lib
+        ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../lib
+        LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../lib
     )
     add_custom_target(phobos2 DEPENDS lphobos2)
 endif(PHOBOS2_DIR)
