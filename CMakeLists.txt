@@ -4,11 +4,15 @@ cmake_minimum_required(VERSION 2.6)
 # actually, 2.4 will work, with a warning
 # if we required 2.4, 2.6+ would switch to a compatibility mode and cause problems on 2.6+ specifics
 
+# LLVM-CONFIG is written in perl, for this reason we need to know here is perl
 include(FindPerl)
 if(NOT PERL)
     message(FATAL_ERROR "perl not found")
 endif(NOT PERL)
 
+####################
+#     LLVM
+####################
 include(FindPkgConfig)
 if(NOT PKG_CONFIG_FOUND)
     message(FATAL_ERROR "pkg-config not found")
@@ -53,6 +57,9 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+####################
+#      LDC
+####################
 set(D_VERSION 1 CACHE STRING "D language version")
 set(CONF_INST_DIR "${CMAKE_INSTALL_PREFIX}/etc" CACHE STRING "set ldc.conf directory for installation")
 set(PROGRAM_PREFIX CACHE STRING "prepended to ldc binary name")
@@ -81,7 +88,7 @@ file(MAKE_DIRECTORY
     ${PROJECT_SOURCE_DIR}/gen
 )
 
-# idgen and impcnvgen
+########## idgen and impcnvgen
 set_source_files_properties(
     ${DMDFE_PATH}/idgen.c
     ${DMDFE_PATH}/impcnvgen.c
@@ -122,7 +129,7 @@ set(LDC_GENERATED
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.h
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
-# idgen and impcnvgen done
+########## idgen and impcnvgen done
 
 include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_SOURCE_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDEDIR})
 
@@ -134,6 +141,7 @@ execute_process(
         OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+##########
 # build a define that contains all LLVM targets required and is usable for
 # preprocessor code generation. start with the native target.
 find_path(LLVM_CONFIG_FILE_PATH config.h PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
@@ -164,13 +172,18 @@ set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
     COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
 )
+##########
 
+##########
+# HOST TARGET
 execute_process(
     COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${HOST_TARGET}
     OUTPUT_VARIABLE HOST_ALT_TARGET
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+##########
 
+##########
 set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 
@@ -196,7 +209,10 @@ set_source_files_properties(
     ${LDC_SOURCE_FILES}    PROPERTIES
     LANGUAGE CXX
 )
+##########
 
+##########
+# Add some definitions
 add_definitions(
     -DIN_LLVM
     -D_DH
@@ -231,11 +247,14 @@ else(CMAKE_MINOR_VERSION LESS 6)
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
     add_definitions(-DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 endif(CMAKE_MINOR_VERSION LESS 6)
+##########
 
+##########
+# Path where ldc executable will be put
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
-
+# Name of ldc executable
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
-
+# Build ldc
 set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
