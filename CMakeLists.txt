@@ -61,11 +61,11 @@ execute_process(
 ####################
 #      LDC
 ####################
-set(D_VERSION               1                                                                           CACHE STRING    "D language version")
-set(PROGRAM_PREFIX                                                                                      CACHE STRING    "prepended to ldc binary name")
-set(PROGRAM_SUFFIX                                                                                      CACHE STRING    "appended to ldc binary name")
+set(D_VERSION               "1"                                                                         CACHE STRING    "D language version")
+set(PROGRAM_PREFIX          ""                                                                          CACHE STRING    "prepended to ldc binary name")
+set(PROGRAM_SUFFIX          ""                                                                          CACHE STRING    "appended to ldc binary name")
 set(LIB_SUFFIX              ""                                                                          CACHE STRING    "Suffix to add add for lib directory e.g: 64 => lib64")
-set(SYSCONF_INSTALL_DIR     /etc                                                                        CACHE STRING    "Default path where configuration file go for install")1
+set(SYSCONF_INSTALL_DIR     "/etc"                                                                      CACHE STRING    "Default path where configuration file go for install")
 set(CMAKE_INSTALL_LIBDIR    "lib${LIB_SUFFIX}"                                                          CACHE STRING    "Directory where lib will be installed")
 set(CONF_INST_DIR           "${CMAKE_INSTALL_PREFIX}/${SYSCONF_INSTALL_DIR}"                            CACHE STRING    "Set ldc.conf directory for installation")
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
