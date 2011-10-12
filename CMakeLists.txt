@@ -284,7 +284,7 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 FILE(GLOB library   "${PROJECT_SOURCE_DIR}/lib/*.a" "${PROJECT_SOURCE_DIR}/lib/*.so" "${PROJECT_SOURCE_DIR}/lib/*.dll")
 install(TARGETS     ${LDC_EXE}                                          DESTINATION bin)
 install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}               DESTINATION bin)
-install(FILES       ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}.conf           DESTINATION ${CONF_INST_DIR})
+install(FILES       ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}_install.conf   DESTINATION ${CONF_INST_DIR}/${LDC_EXE}conf)
 install(FILES       ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}.rebuild.conf   DESTINATION ${CONF_INST_DIR})
 install(FILES       ${library}                                          DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
