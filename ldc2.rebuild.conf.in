@@ -1,2 +1,2 @@
 [Environment]
-DFLAGS=-I@RUNTIME_DIR@/import -L-L%@P%/../lib -defaultlib=@RUNTIME_AIO@ -debuglib=@RUNTIME_AIO@
+DFLAGS=-I@INCLUDE_INSTALL_DIR@  -L-L@CMAKE_INSTALL_LIBDIR@ -defaultlib=@RUNTIME_AIO@ -debuglib=@RUNTIME_AIO@
