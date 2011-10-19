@@ -264,7 +264,7 @@ set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set_target_properties(
     ${LDC_EXE}                  PROPERTIES
     OUTPUT_NAME                 ${LDC_EXE_NAME}
-    RUNTIME_OUTPUT_DIRECTORY    ${PROJECT_SOURCE_DIR}
+    RUNTIME_OUTPUT_DIRECTORY    ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS               "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
 
@@ -282,14 +282,14 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 # TODO: testrun
 
-install(TARGETS     ${LDC_EXE}                                          DESTINATION bin)
-install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}               DESTINATION bin)
-install(FILES       ${PROJECT_BINARY_DIR}/${LDC_EXE}_install.conf       DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
-install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.rebuild.conf   DESTINATION ${CONF_INST_DIR})
-install(DIRECTORY   ${LIBRARY_OUTPUT_PATH}                              DESTINATION .               USE_SOURCE_PERMISSIONS)
-install(DIRECTORY   ${PROJECT_SOURCE_DIR}/import/core                   DESTINATION ${INCLUDE_INSTALL_DIR}/)
-install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                        DESTINATION ${INCLUDE_INSTALL_DIR}/ PATTERN ".git" EXCLUDE )
-install(DIRECTORY   ${PROJECT_SOURCE_DIR}/druntime/import/ldc           DESTINATION ${INCLUDE_INSTALL_DIR}/)
-install(FILES       ${PROJECT_SOURCE_DIR}/druntime/import/object.di     DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+install(TARGETS     ${LDC_EXE}                                              DESTINATION bin)
+install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                   DESTINATION bin)
+install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf               DESTINATION ${CONF_INST_DIR})
+install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.rebuild.conf       DESTINATION ${CONF_INST_DIR})
+install(DIRECTORY   ${LIBRARY_OUTPUT_PATH}                                  DESTINATION .               USE_SOURCE_PERMISSIONS)
+install(DIRECTORY   ${PROJECT_SOURCE_DIR}/import/core                       DESTINATION ${INCLUDE_INSTALL_DIR}/)
+install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                            DESTINATION ${INCLUDE_INSTALL_DIR}/ PATTERN ".git" EXCLUDE )
+install(DIRECTORY   ${PROJECT_SOURCE_DIR}/druntime/import/ldc               DESTINATION ${INCLUDE_INSTALL_DIR}/)
+install(FILES       ${PROJECT_SOURCE_DIR}/druntime/import/object.di         DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 
 add_subdirectory(runtime EXCLUDE_FROM_ALL)

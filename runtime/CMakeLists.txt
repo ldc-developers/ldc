@@ -166,7 +166,8 @@ endif(NOT LDC_LOC)
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in     ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf)
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.rebuild.conf)
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in         ${PROJECT_BINARY_DIR}/${LDC_EXE}.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/${LDC_EXE}_install.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.rebuild.conf)
 
 # patch runtime source, uses LDC_EXE for ldc2
 if(D_VERSION EQUAL 2)
