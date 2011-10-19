@@ -247,19 +247,21 @@ foreach(f ${DCRT_D})
     endif(D_VERSION EQUAL 1)
 endforeach(f)
 
-if(BUILD_SINGLE_LIB)
-    add_library(${RUNTIME_AIO} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
-    set(LIBS ${RUNTIME_AIO})
-else(BUILD_SINGLE_LIB)
-    add_library(${RUNTIME_CC} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
-    add_library(${RUNTIME_GC} ${D_LIBRARY_TYPE} ${GC_O})
-    add_library(${RUNTIME_DC} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
-    set(LIBS
-        ${RUNTIME_CC}
-        ${RUNTIME_GC}
-        ${RUNTIME_DC}
-    )
-endif(BUILD_SINGLE_LIB)
+if(${PROJECT_PARENT_DIR}/${RUNTIME})
+    if(BUILD_SINGLE_LIB)
+        add_library(${RUNTIME_AIO} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
+        set(LIBS ${RUNTIME_AIO})
+    else(BUILD_SINGLE_LIB)
+        add_library(${RUNTIME_CC} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
+        add_library(${RUNTIME_GC} ${D_LIBRARY_TYPE} ${GC_O})
+        add_library(${RUNTIME_DC} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
+        set(LIBS
+            ${RUNTIME_CC}
+            ${RUNTIME_GC}
+            ${RUNTIME_DC}
+        )
+    endif(BUILD_SINGLE_LIB)
+endif(${PROJECT_PARENT_DIR}/${RUNTIME})
 
 if(BUILD_BC_LIBS)
     find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
