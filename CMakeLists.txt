@@ -70,7 +70,7 @@ set(SYSCONF_INSTALL_DIR     "/etc"                                              
 set(CMAKE_INSTALL_LIBDIR    "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}"          CACHE PATH   "Directory where lib will be installed")
 set(CONF_INST_DIR           "${CMAKE_INSTALL_PREFIX}/${SYSCONF_INSTALL_DIR}"    CACHE PATH   "Set ldc.conf directory for installation")
 set(LIBRARY_OUTPUT_PATH     ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}              CACHE PATH   "output dir for built libraries")
-set(INCLUDE_INSTALL_DIR     "${CMAKE_INSTALL_PREFIX}include/d"                  CACHE PATH   "Directory where will be put header files")
+set(INCLUDE_INSTALL_DIR     "${CMAKE_INSTALL_PREFIX}/include/d"                 CACHE PATH   "Directory where will be put header files")
 option(USE_BOEHM_GC     "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI   "generate complete ClassInfo.offTi arrays")
 option(USE_METADATA     "use metadata and related custom optimization passes")
