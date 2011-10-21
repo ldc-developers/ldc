@@ -163,11 +163,11 @@ if(NOT LDC_LOC)
     set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
-configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in     ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.rebuild.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.conf.in         ${PROJECT_BINARY_DIR}/${LDC_EXE}.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in     ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.rebuild.conf)
+# put in bin dir conf file to install
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.rebuild.conf)
 
 # patch runtime source, uses LDC_EXE for ldc2
 if(D_VERSION EQUAL 2)
@@ -227,7 +227,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
         DEPENDS ${LDC_LOC}
             ${INPUT_D}
             ${LDC_IMPORTS}
-            ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf
+            ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro(dc)
 
