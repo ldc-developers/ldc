@@ -645,8 +645,8 @@ void AsmBlockStatement::toIR(IRState* p)
     // build asm block
     std::vector<LLValue*> outargs;
     std::vector<LLValue*> inargs;
-    std::vector<const LLType*> outtypes;
-    std::vector<const LLType*> intypes;
+    std::vector<LLType*> outtypes;
+    std::vector<LLType*> intypes;
     std::string out_c;
     std::string in_c;
     std::string clobbers;
@@ -714,14 +714,14 @@ void AsmBlockStatement::toIR(IRState* p)
     Logger::println("constraints = \"%s\"", out_c.c_str());
 
     // build return types
-    const LLType* retty;
+    LLType* retty;
     if (asmblock->retn)
         retty = asmblock->retty;
     else
         retty = llvm::Type::getVoidTy(gIR->context());
 
     // build argument types
-    std::vector<const LLType*> types;
+    std::vector<LLType*> types;
     types.insert(types.end(), outtypes.begin(), outtypes.end());
     types.insert(types.end(), intypes.begin(), intypes.end());
     llvm::FunctionType* fty = llvm::FunctionType::get(retty, types, false);
@@ -746,7 +746,7 @@ void AsmBlockStatement::toIR(IRState* p)
 
     llvm::InlineAsm* ia = llvm::InlineAsm::get(fty, code, out_c, true);
 
-    llvm::CallInst* call = p->ir->CreateCall(ia, args.begin(), args.end(),
+    llvm::CallInst* call = p->ir->CreateCall(ia, args,
         retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
 
     if (Logger::enabled())

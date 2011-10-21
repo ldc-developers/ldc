@@ -20,7 +20,7 @@ ConfigFile::ConfigFile()
 
 ConfigFile::~ConfigFile()
 {
-    delete cfg;
+   // delete cfg;
 }
 
 

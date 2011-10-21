@@ -76,7 +76,7 @@ struct X86_cfloat_rewrite : ABIRewrite
     }
 
     // {float,float} -> i64
-    const LLType* type(Type*, const LLType* t)
+    LLType* type(Type*, LLType* t)
     {
         return LLType::getInt64Ty(gIR->context());
     }

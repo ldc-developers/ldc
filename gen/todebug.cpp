@@ -65,7 +65,7 @@ llvm::DIFile DtoDwarfFile(Loc loc)
 static llvm::DIType dwarfBasicType(Type* type)
 {
     Type* t = type->toBasetype();
-    const LLType* T = DtoType(type);
+    LLType* T = DtoType(type);
 
     // find encoding
     unsigned id;
@@ -97,7 +97,7 @@ static llvm::DIType dwarfBasicType(Type* type)
 
 static llvm::DIType dwarfPointerType(Type* type)
 {
-    const LLType* T = DtoType(type);
+    LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
     assert(t->ty == Tpointer && "only pointers allowed for debug info in dwarfPointerType");
@@ -121,7 +121,7 @@ static llvm::DIType dwarfPointerType(Type* type)
 
 static llvm::DIType dwarfMemberType(unsigned linnum, Type* type, llvm::DIFile file, const char* c_name, unsigned offset)
 {
-    const LLType* T = DtoType(type);
+    LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
     // find base type
@@ -131,6 +131,7 @@ static llvm::DIType dwarfMemberType(unsigned linnum, Type* type, llvm::DIFile fi
         basetype = llvm::DIType(NULL);
 
     return gIR->dibuilder.createMemberType(
+        llvm::DIDescriptor(file),
         c_name, // name
         file, // file
         linnum, // line number
@@ -168,7 +169,7 @@ static void add_base_fields(
 
 static llvm::DIType dwarfCompositeType(Type* type)
 {
-    const LLType* T = DtoType(type);
+    LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
     // defaults
@@ -266,8 +267,7 @@ static llvm::DIType dwarfCompositeType(Type* type)
         }
     }
 
-    llvm::DIArray elemsArray =
-        gIR->dibuilder.getOrCreateArray(elems.data(), elems.size());
+    llvm::DIArray elemsArray = gIR->dibuilder.getOrCreateArray(elems);
 
     llvm::DIType ret;
     if (t->ty == Tclass) {
@@ -334,7 +334,7 @@ static void dwarfDeclare(LLValue* var, llvm::DIVariable divar)
 
 
 llvm::DIType dwarfArrayType(Type* type) {
-    const LLType* T = DtoType(type);
+    LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
     llvm::DIFile file = DtoDwarfFile(Loc(gIR->dmodule, 0));
@@ -352,7 +352,7 @@ llvm::DIType dwarfArrayType(Type* type) {
         getTypeBitSize(T), // size in bits
         getABITypeAlign(T)*8, // alignment in bits
         0, // What here?
-        gIR->dibuilder.getOrCreateArray(elems.data(), elems.size())
+        gIR->dibuilder.getOrCreateArray(elems)
     );
 
 }

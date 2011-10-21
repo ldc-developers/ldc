@@ -10,10 +10,10 @@
 #include "gen/structs.h"
 
 // D->LLVM type handling stuff
-const LLType* DtoType(Type* t);
+LLType* DtoType(Type* t);
 
 // same as DtoType except it converts 'void' to 'i8'
-const LLType* DtoTypeNotVoid(Type* t);
+LLType* DtoTypeNotVoid(Type* t);
 
 // returns true is the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
@@ -23,7 +23,7 @@ unsigned DtoShouldExtend(Type* type);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them
-//const LLType* DtoStructTypeFromArguments(Arguments* arguments);
+//LLType* DtoStructTypeFromArguments(Arguments* arguments);
 
 // delegate helpers
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
@@ -37,10 +37,10 @@ LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
 
 // some types
-const LLIntegerType* DtoSize_t();
-const LLStructType* DtoInterfaceInfoType();
-const LLStructType* DtoMutexType();
-const LLStructType* DtoModuleReferenceType();
+LLIntegerType* DtoSize_t();
+LLStructType* DtoInterfaceInfoType();
+LLStructType* DtoMutexType();
+LLStructType* DtoModuleReferenceType();
 
 // getelementptr helpers
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var=0, llvm::BasicBlock* bb=NULL);
@@ -66,48 +66,48 @@ LLValue* DtoLoad(LLValue* src, const char* name=0);
 LLValue* DtoAlignedLoad(LLValue* src, const char* name=0);
 void DtoStore(LLValue* src, LLValue* dst);
 void DtoAlignedStore(LLValue* src, LLValue* dst);
-LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name=0);
-LLConstant* DtoBitCast(LLConstant* v, const LLType* t);
+LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name=0);
+LLConstant* DtoBitCast(LLConstant* v, LLType* t);
 LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name=0);
 LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name=0);
 
 // llvm::dyn_cast wrappers
-const LLPointerType* isaPointer(LLValue* v);
-const LLPointerType* isaPointer(const LLType* t);
-const LLArrayType* isaArray(LLValue* v);
-const LLArrayType* isaArray(const LLType* t);
-const LLStructType* isaStruct(LLValue* v);
-const LLStructType* isaStruct(const LLType* t);
-const LLFunctionType* isaFunction(LLValue* v);
-const LLFunctionType* isaFunction(const LLType* t);
+LLPointerType* isaPointer(LLValue* v);
+LLPointerType* isaPointer(LLType* t);
+LLArrayType* isaArray(LLValue* v);
+LLArrayType* isaArray(LLType* t);
+LLStructType* isaStruct(LLValue* v);
+LLStructType* isaStruct(LLType* t);
+LLFunctionType* isaFunction(LLValue* v);
+LLFunctionType* isaFunction(LLType* t);
 LLConstant* isaConstant(LLValue* v);
 LLConstantInt* isaConstantInt(LLValue* v);
 llvm::Argument* isaArgument(LLValue* v);
 LLGlobalVariable* isaGlobalVar(LLValue* v);
 
 // llvm::T::get(...) wrappers
-const LLPointerType* getPtrToType(const LLType* t);
-const LLPointerType* getVoidPtrType();
-llvm::ConstantPointerNull* getNullPtr(const LLType* t);
-LLConstant* getNullValue(const LLType* t);
+LLPointerType* getPtrToType(LLType* t);
+LLPointerType* getVoidPtrType();
+llvm::ConstantPointerNull* getNullPtr(LLType* t);
+LLConstant* getNullValue(LLType* t);
 
 // type sizes
-size_t getTypeBitSize(const LLType* t);
-size_t getTypeStoreSize(const LLType* t);
-size_t getTypePaddedSize(const LLType* t);
-size_t getTypeAllocSize(const LLType* t);
+size_t getTypeBitSize(LLType* t);
+size_t getTypeStoreSize(LLType* t);
+size_t getTypePaddedSize(LLType* t);
+size_t getTypeAllocSize(LLType* t);
 
 // type alignments
-unsigned char getABITypeAlign(const LLType* t);
-unsigned char getPrefTypeAlign(const LLType* t);
+unsigned char getABITypeAlign(LLType* t);
+unsigned char getPrefTypeAlign(LLType* t);
 
 // get biggest type, for unions ...
-const LLType* getBiggestType(const LLType** begin, size_t n);
+LLType* getBiggestType(LLType** begin, size_t n);
 
 // pair type helpers
-LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
+LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name = 0);
-LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as);
+LLValue* DtoAggrPaint(LLValue* aggr, LLType* as);
 LLValue* DtoAggrPairSwap(LLValue* aggr);
 
 /**

@@ -65,19 +65,19 @@ struct IrStruct : IrBase
     //////////////////////////////////////////////////////////////////////////
 protected:
     /// Static default initializer global.
-    llvm::GlobalVariable* init;
+    LLGlobalVariable* init;
     /// Static default initializer constant.
     LLConstant* constInit;
-    /// Static default initialier type holder.
-    llvm::PATypeHolder init_pa;
+    /// Static default initialier type.
+    LLStructType* init_type;
 
     /// Vtbl global.
-    llvm::GlobalVariable* vtbl;
+    LLGlobalVariable* vtbl;
     /// Vtbl initializer constant.
     LLConstant* constVtbl;
 
     /// ClassInfo global.
-    llvm::GlobalVariable* classInfo;
+    LLGlobalVariable* classInfo;
     /// ClassInfo initializer constant.
     LLConstant* constClassInfo;
 
@@ -102,10 +102,10 @@ protected:
     //////////////////////////////////////////////////////////////////////////
 
     /// Create static default initializer for struct.
-    LLConstant* createStructDefaultInitializer();
+    std::vector<llvm::Constant*> createStructDefaultInitializer();
 
     /// Create static default initializer for class.
-    LLConstant* createClassDefaultInitializer();
+    std::vector<llvm::Constant*> createClassDefaultInitializer();
 
     /// Returns vtbl for interface implementation, creates it if not already built.
     llvm::GlobalVariable* getInterfaceVtbl(

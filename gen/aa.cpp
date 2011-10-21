@@ -55,7 +55,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 #else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGet":"_aaIn");
 #endif
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     // aa param
     LLValue* aaval = lvalue ? aa->getLVal() : aa->getRVal();
@@ -85,7 +85,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     }
 
     // cast return value
-    const LLType* targettype = getPtrToType(DtoType(type));
+    LLType* targettype = getPtrToType(DtoType(type));
     if (ret->getType() != targettype)
         ret = DtoBitCast(ret, targettype);
 
@@ -109,7 +109,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 #if DMDV2
         // module param
         LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
-        const LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
+        LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
         args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
 #else
         // file param
@@ -123,7 +123,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 
         // call
         llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_bounds");
-        gIR->CreateCallOrInvoke(errorfn, args.begin(), args.end());
+        gIR->CreateCallOrInvoke(errorfn, args);
 
         // the function does not return
         gIR->ir->CreateUnreachable();
@@ -152,7 +152,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
 #else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaIn");
 #endif
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     if (Logger::enabled())
         Logger::cout() << "_aaIn = " << *func << '\n';
@@ -182,7 +182,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     LLValue* ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.in").getInstruction();
 
     // cast return value
-    const LLType* targettype = DtoType(type);
+    LLType* targettype = DtoType(type);
     if (ret->getType() != targettype)
         ret = DtoBitCast(ret, targettype);
 
@@ -207,7 +207,7 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
 #else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaDel");
 #endif
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     if (Logger::enabled())
         Logger::cout() << "_aaDel = " << *func << '\n';
@@ -240,7 +240,7 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     args.push_back(pkey);
 
     // call runtime
-    gIR->CreateCallOrInvoke(func, args.begin(), args.end());
+    gIR->CreateCallOrInvoke(func, args);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -251,7 +251,7 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
     assert(t == r->getType()->toBasetype() && "aa equality is only defined for aas of same type");
 #if DMDV2
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEqual");
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(1));
     LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(2));
@@ -259,7 +259,7 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
     LLValue* res = gIR->CreateCallOrInvoke3(func, aaTypeInfo, aaval, abval, "aaEqRes").getInstruction();
 #else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEq");
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
     
     LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(0));
     LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(1));

@@ -11,6 +11,7 @@
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/todebug.h"
 
 #include "ir/ir.h"
 #include "ir/irvar.h"
@@ -129,14 +130,19 @@ void VarDeclaration::codegen(Ir* p)
         bool _isconst = isConst();
     #endif
 
-
         Logger::println("Creating global variable");
 
-        const LLType* _type = this->ir.irGlobal->type.get();
-        llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
+        assert(!ir.initialized);
+        ir.initialized = gIR->dmodule;
         std::string _name(mangle());
 
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_type,_isconst,_linkage,NULL,_name,0,isThreadlocal());
+        // build the initializer
+        LLConstant* initVal = DtoConstInitializer(loc, type, init);
+        ir.irGlobal->type = initVal->getType();
+
+        // create the global variable
+        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, initVal->getType(), _isconst,
+                                                      DtoLinkage(this), NULL, _name, 0, isThreadlocal());
         this->ir.irGlobal->value = gvar;
 
         // set the alignment
@@ -150,8 +156,30 @@ void VarDeclaration::codegen(Ir* p)
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        // initialize
-        DtoConstInitGlobal(this);
+        // set the initializer if appropriate
+        assert(!ir.irGlobal->constInit);
+        ir.irGlobal->constInit = initVal;
+
+        // assign the initializer
+        if (!(storage_class & STCextern) && mustDefineSymbol(this))
+        {
+            if (Logger::enabled())
+            {
+                Logger::println("setting initializer");
+                Logger::cout() << "global: " << *gvar << '\n';
+    #if 0
+                Logger::cout() << "init:   " << *initVal << '\n';
+    #endif
+            }
+
+            gvar->setInitializer(initVal);
+
+            #ifndef DISABLE_DEBUG_INFO
+            // do debug info
+            if (global.params.symdebug)
+                DtoDwarfGlobalVariable(gvar, this);
+            #endif
+        }
     }
 }
 

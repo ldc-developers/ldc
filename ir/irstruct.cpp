@@ -20,7 +20,7 @@
 
 IrStruct::IrStruct(AggregateDeclaration* aggr)
 :   diCompositeType(NULL),
-    init_pa(llvm::OpaqueType::get(gIR->context()))
+    init_type(LLStructType::create(gIR->context(), std::string(aggr->toChars()) + "_init"))
 {
     aggrdecl = aggr;
 
@@ -58,7 +58,7 @@ LLGlobalVariable * IrStruct::getInitSymbol()
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
     init = new llvm::GlobalVariable(
-        *gIR->module, init_pa.get(), true, _linkage, NULL, initname);
+        *gIR->module, init_type, true, _linkage, NULL, initname);
 
     // set alignment
     init->setAlignment(type->alignsize());
@@ -73,17 +73,20 @@ llvm::Constant * IrStruct::getDefaultInit()
     if (constInit)
         return constInit;
 
-    if (type->ty == Tstruct)
-    {
-        constInit = createStructDefaultInitializer();
-    }
-    else
-    {
-        constInit = createClassDefaultInitializer();
-    }
+    std::vector<LLConstant*> constants = type->ty == Tstruct ?
+                createStructDefaultInitializer() :
+                createClassDefaultInitializer();
 
-    llvm::OpaqueType* o = llvm::cast<llvm::OpaqueType>(init_pa.get());
-    o->refineAbstractTypeTo(constInit->getType());
+    // set initializer type body
+    std::vector<LLType*> types;
+    std::vector<LLConstant*>::iterator itr = constants.begin(), end = constants.end();
+    for (; itr != end; ++itr)
+        types.push_back((*itr)->getType());
+    init_type->setBody(types, packed);
+
+    // build constant struct
+    constInit = LLConstantStruct::get(init_type, constants);
+    IF_LOG Logger::cout() << "final default initializer: " << *constInit << std::endl;
 
     return constInit;
 }
@@ -142,7 +145,7 @@ size_t add_zeros(std::vector<llvm::Constant*>& constants, size_t diff)
 // Matches the way the type is built in IrTypeStruct
 // maybe look at unifying the interface.
 
-LLConstant * IrStruct::createStructDefaultInitializer()
+std::vector<llvm::Constant*> IrStruct::createStructDefaultInitializer()
 {
     IF_LOG Logger::println("Building default initializer for %s", aggrdecl->toPrettyChars());
     LOG_SCOPE;
@@ -195,13 +198,7 @@ LLConstant * IrStruct::createStructDefaultInitializer()
         add_zeros(constants, aggrdecl->structsize - offset);
     }
 
-    // build constant struct
-    llvm::Constant* definit = LLConstantStruct::get(gIR->context(), constants, packed);
-#if 0
-    IF_LOG Logger::cout() << "final default initializer: " << *definit << std::endl;
-#endif
-
-    return definit;
+    return constants;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -385,7 +382,7 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
 
     // build constant
     assert(!constants.empty());
-    llvm::Constant* c = LLConstantStruct::get(gIR->context(), &constants[0], constants.size(), packed);
+    llvm::Constant* c = LLConstantStruct::getAnon(gIR->context(), constants, packed);
     IF_LOG Logger::cout() << "final struct initializer: " << *c << std::endl;
     return c;
 }

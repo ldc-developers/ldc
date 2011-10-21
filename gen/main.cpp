@@ -7,11 +7,11 @@
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
 #include "llvm/LLVMContext.h"
-#include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetSelect.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/SubtargetFeature.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -435,10 +435,11 @@ int main(int argc, char** argv)
     // Allocate target machine.
 
     // first initialize llvm
-#define LLVM_TARGET(A) LLVMInitialize##A##TargetInfo(); LLVMInitialize##A##Target(); LLVMInitialize##A##AsmPrinter();
-// this is defined to be LLVM_TARGET(target name 1) LLVM_TARGET(target name 2) ...
-LDC_TARGETS
-#undef LLVM_TARGET
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllTargetMCs();
+
 
     const llvm::Target *theTarget = NULL;
     // Check whether the user has explicitly specified an architecture to compile for.
@@ -476,9 +477,8 @@ LDC_TARGETS
     if (mCPU.size() || mAttrs.size())
     {
         llvm::SubtargetFeatures Features;
-        Features.setCPU(mCPU);
         for (unsigned i = 0; i != mAttrs.size(); ++i)
-        Features.AddFeature(mAttrs[i]);
+            Features.AddFeature(mAttrs[i]);
         FeaturesStr = Features.getString();
     }
 
@@ -487,7 +487,7 @@ LDC_TARGETS
     //assert(target.get() && "Could not allocate target machine!");
     //gTargetMachine = target.get();
 
-    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, FeaturesStr);
+    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, mCPU, FeaturesStr);
     gTargetMachine = target;
 
     gTargetData = target->getTargetData();

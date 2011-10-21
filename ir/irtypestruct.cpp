@@ -17,7 +17,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
-:   IrType(ad->type, llvm::OpaqueType::get(gIR->context())),
+:   IrType(ad->type, LLStructType::create(gIR->context(), ad->toPrettyChars())),
     aggr(ad)
 {
 }
@@ -35,7 +35,7 @@ IrTypeStruct::IrTypeStruct(StructDeclaration * sd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-size_t add_zeros(std::vector<const llvm::Type*>& defaultTypes, size_t diff)
+size_t add_zeros(std::vector<llvm::Type*>& defaultTypes, size_t diff)
 {
     size_t n = defaultTypes.size();
     while (diff)
@@ -75,7 +75,7 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 // this is pretty much the exact same thing we need to do for fields in each
 // base class of a class
 
-const llvm::Type* IrTypeStruct::buildType()
+llvm::Type* IrTypeStruct::buildType()
 {
     IF_LOG Logger::println("Building struct type %s @ %s",
         sd->toPrettyChars(), sd->loc.toChars());
@@ -83,7 +83,7 @@ const llvm::Type* IrTypeStruct::buildType()
 
     // if it's a forward declaration, all bets are off, stick with the opaque
     if (sd->sizeok != 1)
-        return pa.get();
+        return type;
 
     // mirror the sd->fields array but only fill in contributors
     size_t n = sd->fields.dim;
@@ -166,7 +166,7 @@ const llvm::Type* IrTypeStruct::buildType()
     }
 
     // ok. now we can build a list of llvm types. and make sure zeros are inserted if necessary.
-    std::vector<const llvm::Type*> defaultTypes;
+    std::vector<LLType*> defaultTypes;
     defaultTypes.reserve(16);
 
     size_t offset = 0;
@@ -219,18 +219,12 @@ const llvm::Type* IrTypeStruct::buildType()
         add_zeros(defaultTypes, sd->structsize - offset);
     }
 
-    // build the llvm type
-    const llvm::Type* st = llvm::StructType::get(gIR->context(), defaultTypes, packed);
+    // set struct body
+    isaStruct(type)->setBody(defaultTypes, packed);
 
-    // refine type
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(st);
+    IF_LOG Logger::cout() << "final struct type: " << type << std::endl;
 
-    // name types
-    Type::sir->getState()->module->addTypeName(sd->toPrettyChars(), pa.get());
-
-    IF_LOG Logger::cout() << "final struct type: " << *pa.get() << std::endl;
-
-    return pa.get();
+    return type;
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -53,7 +53,7 @@ public:
     IrTypeStruct* isStruct()    { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
 protected:
     /// StructDeclaration this type represents.

@@ -26,7 +26,7 @@
 
 using namespace llvm::Attribute;
 
-const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
+llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
     if (Logger::enabled())
         Logger::println("DtoFunctionType(%s)", type->toChars());
@@ -187,7 +187,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
     abi->doneWithFunctionType();
 
     // build the function type
-    std::vector<const LLType*> argtypes;
+    std::vector<LLType*> argtypes;
     argtypes.reserve(lidx);
 
     if (f->fty.arg_sret) argtypes.push_back(f->fty.arg_sret->ltype);
@@ -209,7 +209,7 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
         std::reverse(argtypes.begin() + beg, argtypes.end());
     }
 
-    llvm::FunctionType* functype = llvm::FunctionType::get(f->fty.ret->ltype, argtypes, f->fty.c_vararg);
+    LLFunctionType* functype = LLFunctionType::get(f->fty.ret->ltype, argtypes, f->fty.c_vararg);
 
     Logger::cout() << "Final function type: " << *functype << "\n";
 
@@ -218,10 +218,10 @@ const llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nest
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
+static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
     TypeFunction* f = (TypeFunction*)fdecl->type;
-    const llvm::FunctionType* fty = 0;
+    LLFunctionType* fty = 0;
 
     // create new ir funcTy
     f->fty.reset();
@@ -244,7 +244,7 @@ static const llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
+llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
     // handle for C vararg intrinsics
     if (fdecl->isVaIntrinsic())
@@ -256,7 +256,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
             Logger::println("isMember = this is: %s", ad->type->toChars());
             dthis = ad->type;
-            const LLType* thisty = DtoType(dthis);
+            LLType* thisty = DtoType(dthis);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
             if (ad->isStructDeclaration())
                 thisty = getPtrToType(thisty);
@@ -270,7 +270,7 @@ const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         dnest = Type::tvoid->pointerTo();
     }
 
-    const llvm::FunctionType* functype = DtoFunctionType(fdecl->type, dthis, dnest, fdecl->isMain());
+    LLFunctionType* functype = DtoFunctionType(fdecl->type, dthis, dnest, fdecl->isMain());
 
     return functype;
 }
@@ -472,15 +472,15 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     else
         mangled_name = fdecl->mangle();
 
-    llvm::Function* vafunc = 0;
+    LLFunction* vafunc = 0;
     if (fdecl->isVaIntrinsic())
         vafunc = DtoDeclareVaFunction(fdecl);
 
     // construct function
-    const llvm::FunctionType* functype = DtoFunctionType(fdecl);
-    llvm::Function* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
+    LLFunctionType* functype = DtoFunctionType(fdecl);
+    LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func) {
-        func = llvm::Function::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+        func = LLFunction::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
     }
@@ -756,7 +756,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             if (!refout && (!f->fty.args[i]->byref || lazy))
             {
                 // alloca a stack slot for this first class value arg
-                const LLType* argt;
+                LLType* argt;
                 if (lazy)
                     argt = irloc->value->getType();
                 else
@@ -877,7 +877,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
+llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
 {
     Dsymbol* parent = fdecl->toParent();
     ClassDeclaration* cd = parent->isClassDeclaration();

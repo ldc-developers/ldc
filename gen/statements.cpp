@@ -947,19 +947,19 @@ void SwitchStatement::toIR(IRState* p)
                 inits[i] = c->str->toConstElem(p);
             }
             // build static array for ptr or final array
-            const LLType* elemTy = DtoType(condition->type);
-            const llvm::ArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
+            LLType* elemTy = DtoType(condition->type);
+            LLArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
             LLConstant* arrInit = LLConstantArray::get(arrTy, inits);
-            llvm::GlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
+            LLGlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
 
-            const LLType* elemPtrTy = getPtrToType(elemTy);
+            LLType* elemPtrTy = getPtrToType(elemTy);
             LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
 
             // build the static table
-            std::vector<const LLType*> types;
+            std::vector<LLType*> types;
             types.push_back(DtoSize_t());
             types.push_back(elemPtrTy);
-            const llvm::StructType* sTy = llvm::StructType::get(gIR->context(), types);
+            LLStructType* sTy = llvm::StructType::get(gIR->context(), types);
             std::vector<LLConstant*> sinits;
             sinits.push_back(DtoConstSize_t(inits.size()));
             sinits.push_back(arrPtr);
@@ -1164,7 +1164,7 @@ void ForeachStatement::toIR(IRState* p)
     Logger::println("aggr = %s", aggr->toChars());
 
     // key
-    const LLType* keytype = key ? DtoType(key->type) : DtoSize_t();
+    LLType* keytype = key ? DtoType(key->type) : DtoSize_t();
     LLValue* keyvar;
     if (key)
         keyvar = DtoRawVarDeclaration(key);
@@ -1524,7 +1524,7 @@ void WithStatement::toIR(IRState* p)
 
 static LLConstant* generate_unique_critical_section()
 {
-    const LLType* Mty = DtoMutexType();
+    LLType* Mty = DtoMutexType();
     return new llvm::GlobalVariable(*gIR->module, Mty, false, llvm::GlobalValue::InternalLinkage, LLConstant::getNullValue(Mty), ".uniqueCS");
 }
 
@@ -1627,7 +1627,7 @@ void SwitchErrorStatement::toIR(IRState* p)
 #if DMDV2
     // module param
     LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
-    const LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
+    LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
     args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
 #else
     // file param
@@ -1640,7 +1640,7 @@ void SwitchErrorStatement::toIR(IRState* p)
     args.push_back(c);
 
     // call
-    gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
+    gIR->CreateCallOrInvoke(fn, args);
 
     gIR->ir->CreateUnreachable();
 }

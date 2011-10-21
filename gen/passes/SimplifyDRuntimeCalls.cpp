@@ -93,10 +93,10 @@ Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
   Module *M = Caller->getParent();
-  const Type* intTy = Len->getType();
-  const Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
-  const Type *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
-  Value *MemCpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, Tys, 3);
+  Type* intTy = Len->getType();
+  Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+  Type *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
+  Value *MemCpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, llvm::makeArrayRef(Tys, 3));
   
   return B.CreateCall5(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
                        ConstantInt::get(B.getInt32Ty(), Align), B.getFalse());

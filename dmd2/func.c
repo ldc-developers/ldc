@@ -1641,28 +1641,12 @@ void FuncDeclaration::semantic3(Scope *sc)
                     if (ad->isStructDeclaration())
                         v = v->addressOf(sc);
 #endif
-#if IN_LLVM
-                    //e = new AssertExp(loc, v, NULL);
-
-                    // LDC: check for null this
-                    //v = new ThisExp(0);
-                    //v->type = vthis->type;
-                    //v->var = vthis; // Error: Expression has no property var... in D1 typeof(v) == ThisExp
-
-                    //NullExp *nv = new NullExp(0);
-                    //nv->type = v->type;
-
-                    //IdentityExp *ie = new IdentityExp(TOKnotidentity, 0, v, nv);
-                    //ie->type = Type::tbool;
-#endif
                     Expression *se = new StringExp(0, (char *)"null this");
                     se = se->semantic(sc);
+#if !IN_LLVM
                     se->type = Type::tchar->arrayOf();
-//#if IN_LLVM
-//		    ee = new AssertExp(loc, ie, se);
-//#else
+#endif
                     e = new AssertExp(loc, v, se);
-//#endif
 		}
                 if (ee)
                 {

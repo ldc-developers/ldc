@@ -399,8 +399,8 @@ static llvm::Function* build_module_function(const std::string &name, const std:
             return funcs.front()->ir.irFunc->func;
     }
 
-    std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
+    std::vector<LLType*> argsTy;
+    LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(DtoCallingConv(0, LINKd));
@@ -498,7 +498,7 @@ static llvm::Function* build_module_shared_dtor()
 static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 {
     // build ctor type
-    const LLFunctionType* fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);
+    LLFunctionType* fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
 
     // build ctor name
     std::string fname = "_D";
@@ -509,7 +509,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     LLFunction* ctor = LLFunction::Create(fty, LLGlobalValue::InternalLinkage, fname, gIR->module);
 
     // provide the default initializer
-    const LLStructType* modulerefTy = DtoModuleReferenceType();
+    LLStructType* modulerefTy = DtoModuleReferenceType();
     std::vector<LLConstant*> mrefvalues;
     mrefvalues.push_back(LLConstant::getNullValue(modulerefTy->getContainedType(0)));
     mrefvalues.push_back(llvm::ConstantExpr::getBitCast(moduleinfo, modulerefTy->getContainedType(1)));
@@ -523,7 +523,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // make sure _Dmodule_ref is declared
     LLConstant* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
-    const LLType *modulerefPtrTy = getPtrToType(modulerefTy);
+    LLType *modulerefPtrTy = getPtrToType(modulerefTy);
     if (!mref)
         mref = new LLGlobalVariable(*gIR->module, modulerefPtrTy, false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref");
     mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
@@ -563,7 +563,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
     MIname.append("8__ModuleZ");
 
     if (gIR->dmodule != this) {
-        const LLType* moduleinfoTy = DtoType(moduleinfo->type);
+        LLType* moduleinfoTy = DtoType(moduleinfo->type);
         LLGlobalVariable *var = gIR->module->getGlobalVariable(MIname);
         if (!var)
             var = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
@@ -575,7 +575,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 
     // declare global
     // flags will be modified at runtime so can't make it constant
-    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType->get(), false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
 
     return moduleInfoVar;
 }
@@ -630,8 +630,8 @@ void Module::genmoduleinfo()
     RTTIBuilder b(moduleinfo);
 
     // some types
-    const LLType* moduleinfoTy = moduleinfo->type->irtype->getPA();
-    const LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getPA();
+    LLType* moduleinfoTy = moduleinfo->type->irtype->getType();
+    LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getType();
 
     // name
     b.push_string(toPrettyChars());
@@ -656,7 +656,7 @@ void Module::genmoduleinfo()
     // has import array?
     if (!importInits.empty())
     {
-        const llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
+        llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
         c = LLConstantArray::get(importArrTy, importInits);
         std::string m_name("_D");
         m_name.append(mangle());
@@ -707,7 +707,7 @@ void Module::genmoduleinfo()
     // has class array?
     if (!classInits.empty())
     {
-        const llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
+        llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
         c = LLConstantArray::get(classArrTy, classInits);
         std::string m_name("_D");
         m_name.append(mangle());
@@ -726,7 +726,7 @@ void Module::genmoduleinfo()
     b.push_uint(mi_flags);
 
     // function pointer type for next three fields
-    const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false));
+    LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false));
 
     // ctor
 #if DMDV2
@@ -772,7 +772,7 @@ void Module::genmoduleinfo()
     b.push(c);
 
     // index + reserved void*[1]
-    const LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
+    LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
     c = getNullValue(AT);
     b.push(c);
 
@@ -787,19 +787,17 @@ void Module::genmoduleinfo()
     }*/
 
     // create and set initializer
-    LLConstant* constMI = b.get_constant();
-    llvm::cast<llvm::OpaqueType>(moduleInfoType->get())->refineAbstractTypeTo(constMI->getType());
-    moduleInfoSymbol()->setInitializer(constMI);
+    b.finalize(moduleInfoType, moduleInfoSymbol());
 
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSymbol());
 
     // register this ctor in the magic llvm.global_ctors appending array
-    const LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);
-    std::vector<const LLType*> magictypes;
+    LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
+    std::vector<LLType*> magictypes;
     magictypes.push_back(LLType::getInt32Ty(gIR->context()));
     magictypes.push_back(getPtrToType(magicfty));
-    const LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
+    LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
 
     // make the constant element
     std::vector<LLConstant*> magicconstants;
@@ -808,7 +806,7 @@ void Module::genmoduleinfo()
     LLConstant* magicinit = LLConstantStruct::get(magicsty, magicconstants);
 
     // declare the appending array
-    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
+    llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
     std::vector<LLConstant*> appendInits(1, magicinit);
     LLConstant* appendInit = LLConstantArray::get(appendArrTy, appendInits);
     std::string appendName("llvm.global_ctors");

@@ -143,13 +143,13 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     // if there is a catch and some catch allocated storage, store exception object
     if(hasCatch && catch_var)
     {
-        const LLType* objectTy = DtoType(ClassDeclaration::object->type);
+        LLType* objectTy = DtoType(ClassDeclaration::object->type);
         gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
     }
 
     // eh_sel = llvm.eh.selector(eh_ptr, cast(byte*)&_d_eh_personality, <selectorargs>);
     llvm::Function* eh_selector_fn = GET_INTRINSIC_DECL(eh_selector);
-    LLValue* eh_sel = gIR->ir->CreateCall(eh_selector_fn, selectorargs.begin(), selectorargs.end());
+    LLValue* eh_sel = gIR->ir->CreateCall(eh_selector_fn, selectorargs);
 
     // emit finallys and 'if' chain to catch the exception
     llvm::Function* eh_typeid_for_fn = GET_INTRINSIC_DECL(eh_typeid_for);

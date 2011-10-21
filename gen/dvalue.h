@@ -9,6 +9,7 @@ handling is necessary, they hold enough information to do-the-right-thing (TM)
 
 #include <cassert>
 #include "root.h"
+#include "mem.h"
 
 struct Type;
 struct Dsymbol;
@@ -50,7 +51,6 @@ struct DValue : Object
     virtual DFieldValue* isField() { return NULL; }
     virtual DSliceValue* isSlice() { return NULL; }
     virtual DFuncValue* isFunc() { return NULL; }
-
 protected:
     DValue() {}
     DValue(const DValue&) { }

@@ -38,7 +38,7 @@ LLGlobalVariable * IrStruct::getVtblSymbol()
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
-    const LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
+    LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
 
     vtbl = new llvm::GlobalVariable(
         *gIR->module, vtblTy, true, _linkage, NULL, initname);
@@ -71,15 +71,15 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 
     // classinfos cannot be constants since they're used a locks for synchronized
     classInfo = new llvm::GlobalVariable(
-            *gIR->module, tc->getPA().get(), false, _linkage, NULL, initname);
+                *gIR->module, tc->getType(), false, _linkage, NULL, initname);
 
 #if USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.
     ClassDeclaration* classdecl = aggrdecl->isClassDeclaration();
     if (classdecl && !aggrdecl->isInterfaceDeclaration()) {
         // Gather information
-        const LLType* type = DtoType(aggrdecl->type);
-        const LLType* bodyType = llvm::cast<LLPointerType>(type)->getElementType();
+        LLType* type = DtoType(aggrdecl->type);
+        LLType* bodyType = llvm::cast<LLPointerType>(type)->getElementType();
         bool hasDestructor = (classdecl->dtor != NULL);
         bool hasCustomDelete = (classdecl->aggDelete != NULL);
         // Construct the fields
@@ -112,10 +112,10 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
                     "don't implement any interfaces");
 
     VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
-    const llvm::Type* InterfaceTy = DtoType(idx->type->nextOf());
+    LLType* InterfaceTy = DtoType(idx->type->nextOf());
 
     // create Interface[N]
-    const llvm::ArrayType* array_type = llvm::ArrayType::get(InterfaceTy,n);
+    LLArrayType* array_type = llvm::ArrayType::get(InterfaceTy,n);
 
     // put it in a global
     std::string name("_D");
@@ -202,17 +202,18 @@ LLConstant * IrStruct::getVtblInit()
     }
 
     // build the constant struct
-    constVtbl = LLConstantStruct::get(gIR->context(), constants, false);
+    LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
+    constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
 
 #if 0
    IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
    IF_LOG Logger::cout() << "vtbl type: " << *stripModifiers(type)->irtype->isClass()->getVtbl() << std::endl;
 #endif
 
-#if 1
+#if 0
 
     size_t nc = constants.size();
-    const LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
+
     for (size_t i = 0; i < nc; ++i)
     {
         if (constVtbl->getOperand(i)->getType() != vtblTy->getContainedType(i))
@@ -220,7 +221,7 @@ LLConstant * IrStruct::getVtblInit()
             Logger::cout() << "type mismatch for entry # " << i << " in vtbl initializer" << std::endl;
 
             constVtbl->getOperand(i)->dump();
-            vtblTy->getContainedType(i)->dump(gIR->module);
+            vtblTy->getContainedType(i)->dump();
         }
     }
 
@@ -318,7 +319,7 @@ void IrStruct::addBaseClassInits(
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::createClassDefaultInitializer()
+std::vector<llvm::Constant*> IrStruct::createClassDefaultInitializer()
 {
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
     assert(cd && "invalid class aggregate");
@@ -345,10 +346,7 @@ LLConstant * IrStruct::createClassDefaultInitializer()
     // add data members recursively
     addBaseClassInits(constants, cd, offset, field_index);
 
-    // build the constant
-    llvm::Constant* definit = LLConstantStruct::get(gIR->context(), constants, false);
-
-    return definit;
+    return constants;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -413,7 +411,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     }
 
     // build the vtbl constant
-    llvm::Constant* vtbl_constant = LLConstantStruct::get(gIR->context(), constants, false);
+    llvm::Constant* vtbl_constant = LLConstantStruct::getAnon(gIR->context(), constants, false);
 
     // create the global variable to hold it
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
@@ -470,8 +468,8 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     LLSmallVector<LLConstant*, 6> constants;
     constants.reserve(cd->vtblInterfaces->dim);
 
-    const LLType* classinfo_type = DtoType(ClassDeclaration::classinfo->type);
-    const LLType* voidptrptr_type = DtoType(
+    LLType* classinfo_type = DtoType(ClassDeclaration::classinfo->type);
+    LLType* voidptrptr_type = DtoType(
         Type::tvoid->pointerTo()->pointerTo());
 
     for (size_t i = 0; i < n; ++i)
@@ -510,19 +508,16 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         // create Interface struct
         LLConstant* inits[3] = { ci, vtb, off };
-        LLConstant* entry = LLConstantStruct::get(gIR->context(), inits, 3, false);
+        LLConstant* entry = LLConstantStruct::getAnon(gIR->context(), llvm::makeArrayRef(inits, 3), false);
         constants.push_back(entry);
     }
 
     // create Interface[N]
-    const llvm::ArrayType* array_type = llvm::ArrayType::get(
+    LLArrayType* array_type = llvm::ArrayType::get(
         constants[0]->getType(),
         n);
 
-    LLConstant* arr = LLConstantArray::get(
-        array_type,
-        &constants[0],
-        n);
+    LLConstant* arr = LLConstantArray::get(array_type, constants);
 
     // apply the initializer
     classInterfacesArray->setInitializer(arr);

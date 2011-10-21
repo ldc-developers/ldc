@@ -106,6 +106,7 @@ enum BE
 struct Statement : Object
 {
     Loc loc;
+    virtual ~Statement() {}
 
     Statement(Loc loc);
     virtual Statement *syntaxCopy();

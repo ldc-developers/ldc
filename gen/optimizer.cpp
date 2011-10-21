@@ -10,6 +10,7 @@
 #include "llvm/Target/TargetData.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PassNameParser.h"
+#include "llvm/Transforms/IPO.h"
 
 #include "root.h"       // error()
 #include <cstring>      // strcmp();
@@ -174,7 +175,6 @@ static void addPassesForOptLevel(PassManager& pm) {
     if (optimizeLevel >= 3)
     {
         addPass(pm, createArgumentPromotionPass());
-        addPass(pm, createTailDuplicationPass());
         addPass(pm, createSimplifyLibCallsPass());
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createJumpThreadingPass());
@@ -202,7 +202,6 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createDeadStoreEliminationPass());
         addPass(pm, createAggressiveDCEPass());
         addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createDeadTypeEliminationPass());
         addPass(pm, createConstantMergePass());
     }
 
