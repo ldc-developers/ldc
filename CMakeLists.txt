@@ -297,4 +297,8 @@ install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                                
 install(DIRECTORY   ${PROJECT_SOURCE_DIR}/druntime/import/ldc                   DESTINATION ${CHROOT_INSTALL_DIR}/${INCLUDE_INSTALL_DIR}/)
 install(FILES       ${PROJECT_SOURCE_DIR}/druntime/import/object.di             DESTINATION ${CHROOT_INSTALL_DIR}/${INCLUDE_INSTALL_DIR}/ldc)
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    install(DIRECTORY bash_completion.d DESTINATION ${CHROOT_INSTALL_DIR}/${CONF_INST_DIR})
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
 add_subdirectory(runtime EXCLUDE_FROM_ALL)
