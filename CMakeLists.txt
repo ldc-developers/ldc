@@ -290,7 +290,7 @@ install(DIRECTORY   ${LIBRARY_OUTPUT_PATH}                                      
 install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf           DESTINATION ${CHROOT_INSTALL_DIR}/${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf   DESTINATION ${CHROOT_INSTALL_DIR}/${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
 if(D_VERSION EQUAL 2)
-    install(DIRECTORY   ${PROJECT_SOURCE_DIR}/runtime/import/core  DESTINATION ${CHROOT_INSTALL_DIR}/${INCLUDE_INSTALL_DIR}/)
+    install(DIRECTORY   ${PROJECT_BINARY_DIR}/runtime/import/core  DESTINATION ${CHROOT_INSTALL_DIR}/${INCLUDE_INSTALL_DIR}/)
 endif(D_VERSION EQUAL 2)
 install(DIRECTORY   ${PROJECT_SOURCE_DIR}/runtime/import/ldc                    DESTINATION ${CHROOT_INSTALL_DIR}/${INCLUDE_INSTALL_DIR}/)
 install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                                DESTINATION ${CHROOT_INSTALL_DIR}/${INCLUDE_INSTALL_DIR}/ PATTERN ".git" EXCLUDE )
