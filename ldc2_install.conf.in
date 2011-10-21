@@ -11,7 +11,7 @@ default:
         "-I@INCLUDE_INSTALL_DIR@/phobos",
         "-I@INCLUDE_INSTALL_DIR@/ldc",
         "-L-L@CMAKE_INSTALL_LIBDIR@",
-        "-defaultlib=@RUNTIME_AIO@",
-        "-debuglib=@RUNTIME_AIO@"
+        "-defaultlib=lphobos2",
+        "-debuglib=lphobos2"
     ];
 };
