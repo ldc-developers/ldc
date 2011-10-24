@@ -7,10 +7,10 @@ default:
     // 'switches' holds array of string that are appends to the command line
     // arguments before they are parsed.
     switches = [
-        "-I@CHROOT_INSTALL_DIR@@INCLUDE_INSTALL_DIR@",
-        "-I@CHROOT_INSTALL_DIR@@INCLUDE_INSTALL_DIR@/phobos",
-        "-I@CHROOT_INSTALL_DIR@@INCLUDE_INSTALL_DIR@/ldc",
-        "-L-L@CHROOT_INSTALL_DIR@@CMAKE_INSTALL_LIBDIR@",
+        "-I@INCLUDE_INSTALL_DIR@",
+        "-I@INCLUDE_INSTALL_DIR@/phobos",
+        "-I@INCLUDE_INSTALL_DIR@/ldc",
+        "-L-L@CMAKE_INSTALL_LIBDIR@",
         "-defaultlib=lphobos2",
         "-debuglib=lphobos2"
     ];
