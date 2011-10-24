@@ -471,6 +471,9 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     LLType* classinfo_type = DtoType(ClassDeclaration::classinfo->type);
     LLType* voidptrptr_type = DtoType(
         Type::tvoid->pointerTo()->pointerTo());
+    VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
+    LLStructType* interface_type = isaStruct(DtoType(idx->type->nextOf()));
+    assert(interface_type);
 
     for (size_t i = 0; i < n; ++i)
     {
@@ -508,18 +511,15 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         // create Interface struct
         LLConstant* inits[3] = { ci, vtb, off };
-        LLConstant* entry = LLConstantStruct::getAnon(gIR->context(), llvm::makeArrayRef(inits, 3), false);
+        LLConstant* entry = LLConstantStruct::get(interface_type, llvm::makeArrayRef(inits, 3));
         constants.push_back(entry);
     }
 
     // create Interface[N]
-    LLArrayType* array_type = llvm::ArrayType::get(
-        constants[0]->getType(),
-        n);
+    LLArrayType* array_type = llvm::ArrayType::get(interface_type, n);
 
+    // create and apply initializer
     LLConstant* arr = LLConstantArray::get(array_type, constants);
-
-    // apply the initializer
     classInterfacesArray->setInitializer(arr);
 
     // return null, only baseclass provide interfaces
