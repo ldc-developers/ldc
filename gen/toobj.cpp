@@ -67,8 +67,8 @@ static llvm::cl::opt<bool> noVerify("noverify",
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // fwd decl
-void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out);
-void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath);
+void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out,
+               llvm::TargetMachine::CodeGenFileType fileType);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -158,6 +158,12 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         }
     }
 
+    // finilize debugging
+    #ifndef DISABLE_DEBUG_INFO
+    if (global.params.symdebug)
+        DtoDwarfModuleEnd();
+    #endif
+
     // generate ModuleInfo
     genmoduleinfo();
 
@@ -244,20 +250,17 @@ void writeModule(llvm::Module* m, std::string filename)
     }
 
     // write native assembly
-    if (global.params.output_s || global.params.output_o) {
+    if (global.params.output_s) {
         LLPath spath = LLPath(filename);
         spath.eraseSuffix();
         spath.appendSuffix(std::string(global.s_ext));
-        if (!global.params.output_s) {
-            spath.createTemporaryFileOnDisk();
-        }
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), err);
             if (err.empty())
             {
-                write_asm_to_file(*gTargetMachine, *m, out);
+                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
             }
             else
             {
@@ -265,15 +268,23 @@ void writeModule(llvm::Module* m, std::string filename)
                 fatal();
             }
         }
+    }
 
-        // call gcc to convert assembly to object file
-        if (global.params.output_o) {
-            LLPath objpath = LLPath(filename);
-            assemble(spath, objpath);
-        }
-
-        if (!global.params.output_s) {
-            spath.eraseFromDisk();
+    if (global.params.output_o) {
+        LLPath objpath = LLPath(filename);
+        Logger::println("Writing object file to: %s\n", objpath.c_str());
+        std::string err;
+        {
+            llvm::raw_fd_ostream out(objpath.c_str(), err);
+            if (err.empty())
+            {
+                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
+            }
+            else
+            {
+                error("cannot write object file: %s", err.c_str());
+                fatal();
+            }
         }
     }
 }
@@ -281,7 +292,8 @@ void writeModule(llvm::Module* m, std::string filename)
 /* ================================================================== */
 
 // based on llc code, University of Illinois Open Source License
-void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out)
+void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out,
+               llvm::TargetMachine::CodeGenFileType fileType)
 {
     using namespace llvm;
 
@@ -302,7 +314,7 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
         LastArg = CodeGenOpt::Aggressive;
 
     llvm::formatted_raw_ostream fout(out);
-    if (Target.addPassesToEmitFile(Passes, fout, TargetMachine::CGFT_AssemblyFile, LastArg))
+    if (Target.addPassesToEmitFile(Passes, fout, fileType, LastArg))
         assert(0 && "no support for asm output");
 
     Passes.doInitialization();
@@ -319,72 +331,6 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
     //llvm::Module* rmod = Provider.releaseModule(&Err);
     //assert(rmod);
 }
-
-/* ================================================================== */
-
-// uses gcc to make an obj out of an assembly file
-// based on llvm-ld code, University of Illinois Open Source License
-void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
-{
-    using namespace llvm;
-
-    sys::Path gcc = getGcc();
-
-    // Run GCC to assemble and link the program into native code.
-    //
-    // Note:
-    //  We can't just assemble and link the file with the system assembler
-    //  and linker because we don't know where to put the _start symbol.
-    //  GCC mysteriously knows how to do it.
-    std::vector<std::string> args;
-    args.push_back(gcc.str());
-    args.push_back("-fno-strict-aliasing");
-    args.push_back("-O3");
-    args.push_back("-c");
-    args.push_back("-xassembler");
-    args.push_back(asmpath.str());
-    args.push_back("-o");
-    args.push_back(objpath.str());
-
-    //FIXME: only use this if needed?
-    args.push_back("-fpic");
-
-    //FIXME: enforce 64 bit
-    if (global.params.is64bit)
-        args.push_back("-m64");
-    else
-        // Assume 32-bit?
-        args.push_back("-m32");
-
-    // Now that "args" owns all the std::strings for the arguments, call the c_str
-    // method to get the underlying string array.  We do this game so that the
-    // std::string array is guaranteed to outlive the const char* array.
-    std::vector<const char *> Args;
-    for (unsigned i = 0, e = args.size(); i != e; ++i)
-        Args.push_back(args[i].c_str());
-    Args.push_back(0);
-
-    if (Logger::enabled()) {
-        Logger::println("Assembling with: ");
-        std::vector<const char*>::const_iterator I = Args.begin(), E = Args.end();
-        Stream logstr = Logger::cout();
-        for (; I != E; ++I)
-            if (*I)
-                logstr << "'" << *I << "'" << " ";
-        logstr << "\n" << std::flush;
-    }
-
-    // Run the compiler to assembly the program.
-    std::string ErrMsg;
-    int R = sys::Program::ExecuteAndWait(
-        gcc, &Args[0], 0, 0, 0, 0, &ErrMsg);
-    if (R)
-    {
-        error("Failed to invoke gcc. %s", ErrMsg.c_str());
-        fatal();
-    }
-}
-
 
 /* ================================================================== */
 

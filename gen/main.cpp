@@ -438,8 +438,8 @@ int main(int argc, char** argv)
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();
     llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllAsmParsers();
     llvm::InitializeAllTargetMCs();
-
 
     const llvm::Target *theTarget = NULL;
     // Check whether the user has explicitly specified an architecture to compile for.

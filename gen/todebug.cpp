@@ -557,4 +557,11 @@ void DtoDwarfValue(LLValue* var, VarDeclaration* vd)
     instr->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDwarfModuleEnd()
+{
+    gIR->dibuilder.finalize();
+}
+
 #endif
