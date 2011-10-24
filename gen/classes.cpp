@@ -165,7 +165,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
         LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
         if (Logger::enabled())
             Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
-        DtoStore(src, dst);
+        DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
     }
     // set the context for nested classes
     else if (tc->sym->isNested() && tc->sym->vthis)
