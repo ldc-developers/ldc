@@ -487,7 +487,8 @@ int main(int argc, char** argv)
     //assert(target.get() && "Could not allocate target machine!");
     //gTargetMachine = target.get();
 
-    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, mCPU, FeaturesStr);
+    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, mCPU, FeaturesStr,
+                                                                 mRelocModel, mCodeModel);
     gTargetMachine = target;
 
     gTargetData = target->getTargetData();
