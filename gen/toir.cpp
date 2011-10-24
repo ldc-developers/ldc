@@ -2248,7 +2248,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     castfptr = DtoBitCast(castfptr, dgty->getContainedType(1));
 
-    return new DImValue(type, DtoAggrPair(castcontext, castfptr, ".dg"));
+    return new DImValue(type, DtoAggrPair(DtoType(type), castcontext, castfptr, ".dg"));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
