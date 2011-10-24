@@ -20,7 +20,7 @@
 
 IrStruct::IrStruct(AggregateDeclaration* aggr)
 :   diCompositeType(NULL),
-    init_type(LLStructType::create(gIR->context(), std::string(aggr->toChars()) + "_init"))
+    init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
 {
     aggrdecl = aggr;
 
@@ -380,9 +380,22 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
         add_zeros(constants, diff);
     }
 
+    // get initializer type
+    LLStructType* &ltype = si->ltype;
+    if (!ltype || ltype->isOpaque()) {
+        std::vector<LLConstant*>::iterator itr, end = constants.end();
+        std::vector<LLType*> types;
+        for (itr = constants.begin(); itr != end; ++itr)
+            types.push_back((*itr)->getType());
+        if (!ltype)
+            ltype = LLStructType::get(gIR->context(), types);
+        else
+            ltype->setBody(types);
+    }
+
     // build constant
     assert(!constants.empty());
-    llvm::Constant* c = LLConstantStruct::getAnon(gIR->context(), constants, packed);
+    llvm::Constant* c = LLConstantStruct::get(ltype, constants);
     IF_LOG Logger::cout() << "final struct initializer: " << *c << std::endl;
     return c;
 }

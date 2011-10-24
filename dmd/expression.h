@@ -66,6 +66,7 @@ struct DValue;
 namespace llvm {
     class Constant;
     class ConstantInt;
+    class StructType;
 }
 #endif
 
@@ -537,6 +538,7 @@ struct StructLiteralExp : Expression
 #elif IN_LLVM
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
+    llvm::StructType *constType;
 #endif
 };
 

@@ -308,13 +308,6 @@ void IrStruct::addBaseClassInits(
             inter_idx++;
         }
     }
-
-    // tail padding?
-    if (offset < base->structsize)
-    {
-        add_zeros(constants, base->structsize - offset);
-        offset = base->structsize;
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -345,6 +338,10 @@ std::vector<llvm::Constant*> IrStruct::createClassDefaultInitializer()
 
     // add data members recursively
     addBaseClassInits(constants, cd, offset, field_index);
+
+    // tail padding?
+    if (offset < cd->structsize)
+        add_zeros(constants, cd->structsize - offset);
 
     return constants;
 }

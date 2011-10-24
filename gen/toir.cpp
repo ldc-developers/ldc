@@ -1168,7 +1168,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
             vd->codegen(Type::sir);
             LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
             assert(llc);
-            return llc;
+            return DtoBitCast(llc, DtoType(type));
         }
         // static function
         else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
@@ -2883,15 +2883,22 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
             inits[i] = exprs[i]->toConstElem(p);
 
     // vector of values to build aggregate from
-    std::vector<LLValue*> values = DtoStructLiteralValues(sd, inits);
+    std::vector<LLValue*> values = DtoStructLiteralValues(sd, inits, true);
 
     // we know those values are constants.. cast them
     std::vector<LLConstant*> constvals(values.size(), NULL);
-    for (size_t i = 0; i < values.size(); ++i)
+    std::vector<LLType*> types(values.size(), NULL);
+    for (size_t i = 0; i < values.size(); ++i) {
         constvals[i] = llvm::cast<LLConstant>(values[i]);
+        types[i] = values[i]->getType();
+    }
 
     // return constant struct
-    return LLConstantStruct::getAnon(gIR->context(), llvm::makeArrayRef(constvals), sd->ir.irStruct->packed);
+    if (!constType)
+        constType = LLStructType::get(gIR->context(), types);
+    else
+        constType->setBody(types);
+    return LLConstantStruct::get(constType, llvm::makeArrayRef(constvals));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

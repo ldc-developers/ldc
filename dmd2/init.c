@@ -114,6 +114,9 @@ StructInitializer::StructInitializer(Loc loc)
     : Initializer(loc)
 {
     ad = NULL;
+#if IN_LLVM
+    ltype = NULL;
+#endif
 }
 
 Initializer *StructInitializer::syntaxCopy()

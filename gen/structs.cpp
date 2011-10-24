@@ -184,7 +184,9 @@ size_t add_zeros(std::vector<llvm::Value*>& values, size_t diff)
     return values.size() - n;
 }
 
-std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, const std::vector<llvm::Value*>& inits)
+std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
+                                                 const std::vector<llvm::Value*>& inits,
+                                                 bool isConst)
 {
     // get arrays 
     size_t nvars = sd->fields.dim;
@@ -268,7 +270,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
         assert(nextVar == var);
 
         // add any 0 padding needed before this field
-        if (os > lastoffset + lastsize)
+        if (!isConst && os > lastoffset + lastsize)
         {
             //printf("added %lu zeros\n", os - lastoffset - lastsize);
             add_zeros(values, os - lastoffset - lastsize);

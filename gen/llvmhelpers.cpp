@@ -1255,6 +1255,60 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 //      INITIALIZER HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
+LLType* DtoConstInitializerType(Type* type, Initializer* init)
+{
+    if (type->ty == Ttypedef) {
+        TypeTypedef *td = (TypeTypedef*)type;
+        if (td->sym->init)
+            return DtoConstInitializerType(td->sym->basetype, td->sym->init);
+    }
+
+    type = type->toBasetype();
+    if (type->ty == Tsarray)
+    {
+        if (!init)
+        {
+            TypeSArray *tsa = (TypeSArray*)type;
+            LLType *llnext = DtoConstInitializerType(type->nextOf(), init);
+            return LLArrayType::get(llnext, tsa->dim->toUInteger());
+        }
+        else if (ArrayInitializer* ai = init->isArrayInitializer())
+        {
+            return DtoConstArrayInitializerType(ai);
+        }
+    }
+    else if (type->ty == Tstruct)
+    {
+        if (!init)
+        {
+        LdefaultInit:
+            TypeStruct *ts = (TypeStruct*)type;
+            DtoResolveStruct(ts->sym);
+            return ts->sym->ir.irStruct->getDefaultInit()->getType();
+        }
+        else if (ExpInitializer* ex = init->isExpInitializer())
+        {
+            if (ex->exp->op == TOKstructliteral) {
+                StructLiteralExp* le = (StructLiteralExp*)ex->exp;
+                if (!le->constType)
+                    le->constType = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
+                return le->constType;
+            } else if (ex->exp->op == TOKvar) {
+                if (((VarExp*)ex->exp)->var->isStaticStructInitDeclaration())
+                    goto LdefaultInit;
+            }
+        }
+        else if (StructInitializer* si = init->isStructInitializer())
+        {
+            if (!si->ltype)
+                si->ltype = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
+            return si->ltype;
+        }
+    }
+
+    return DtoTypeNotVoid(type);
+}
+
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 {
     LLConstant* _init = 0; // may return zero
@@ -1266,7 +1320,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("const expression initializer");
-        _init = DtoConstExpInit(loc, type, ex->exp);;
+        _init = DtoConstExpInit(loc, type, ex->exp);
     }
     else if (StructInitializer* si = init->isStructInitializer())
     {
@@ -1282,7 +1336,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (init->isVoidInitializer())
     {
         Logger::println("const void initializer");
-        LLType* ty = DtoType(type);
+        LLType* ty = DtoTypeNotVoid(type);
         _init = LLConstant::getNullValue(ty);
     }
     else {
@@ -1797,4 +1851,3 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
     }
 }
 #endif
-

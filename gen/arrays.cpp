@@ -15,6 +15,7 @@
 #include "gen/logger.h"
 #include "gen/dvalue.h"
 #include "ir/irmodule.h"
+#include "ir/irtypestruct.h"
 
 #include "gen/cl_options.h"
 
@@ -361,6 +362,85 @@ void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+// The function is almost identical copy of DtoConstArrayInitializer but it returns
+// initializer type not the initializer itself.
+// FIXME: is there any way to merge this next two functions?
+LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit)
+{
+    Type* arrty = arrinit->type->toBasetype();
+    if (arrty->ty != Tsarray)
+        return DtoType(arrinit->type);
+
+    TypeSArray* tsa = (TypeSArray*)arrty;
+    size_t arrlen = (size_t)tsa->dim->toInteger();
+
+    // get elem type
+    Type* elemty = arrty->nextOf();
+    LLType* llelemty = DtoTypeNotVoid(elemty);
+
+    // make sure the number of initializers is sane
+    if (arrinit->index.dim > arrlen || arrinit->dim > arrlen)
+    {
+        error(arrinit->loc, "too many initializers, %u, for array[%zu]", arrinit->index.dim, arrlen);
+        fatal();
+    }
+
+    // true if array elements differ in type, can happen with array of unions
+    bool mismatch = false;
+
+    // allocate room for types
+    std::vector<LLType*> types(arrlen, NULL);
+
+    // go through each initializer, they're not sorted by index by the frontend
+    size_t j = 0;
+    for (size_t i = 0; i < arrinit->index.dim; i++)
+    {
+        // get index
+        Expression* idx = (Expression*)arrinit->index.data[i];
+
+        // idx can be null, then it's just the next element
+        if (idx)
+            j = idx->toInteger();
+        assert(j < arrlen);
+
+        // get value
+        Initializer* val = (Initializer*)arrinit->value.data[i];
+        assert(val);
+
+        LLType* c = DtoConstInitializerType(elemty, val);
+        assert(c);
+        if (c != llelemty)
+            mismatch = true;
+
+        types[j] = c;
+        j++;
+    }
+
+    // fill out any null entries still left with default type
+
+    // element default types
+    LLType* deftype = DtoConstInitializerType(elemty, 0);
+    bool mismatch2 =  (deftype != llelemty);
+
+    for (size_t i = 0; i < arrlen; i++)
+    {
+        if (types[i] != NULL)
+            continue;
+
+        types[i] = deftype;
+
+        if (mismatch2)
+            mismatch = true;
+    }
+
+    if (mismatch)
+        return LLStructType::get(gIR->context(), types); // FIXME should this pack?
+    else
+        return LLArrayType::get(deftype, arrlen);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 {
     Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
@@ -469,7 +549,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 #if DMDV2
     if (arrty->ty == Tpointer)
         // we need to return pointer to the static array.
-        return gvar;
+        return DtoBitCast(gvar, DtoType(arrty));
 #endif
 
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
@@ -477,7 +557,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
     gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
-    return DtoConstSlice(DtoConstSize_t(arrlen),gep);
+    return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

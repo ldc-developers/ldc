@@ -6,6 +6,7 @@
 #include "id.h"
 #include "mem.h"
 #include "template.h"
+#include "init.h"
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
@@ -136,12 +137,10 @@ void VarDeclaration::codegen(Ir* p)
         ir.initialized = gIR->dmodule;
         std::string _name(mangle());
 
-        // build the initializer
-        LLConstant* initVal = DtoConstInitializer(loc, type, init);
-        ir.irGlobal->type = initVal->getType();
+        LLType *_type = DtoConstInitializerType(type, init);
 
         // create the global variable
-        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, initVal->getType(), _isconst,
+        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
                                                       DtoLinkage(this), NULL, _name, 0, isThreadlocal());
         this->ir.irGlobal->value = gvar;
 
@@ -156,10 +155,6 @@ void VarDeclaration::codegen(Ir* p)
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        // set the initializer if appropriate
-        assert(!ir.irGlobal->constInit);
-        ir.irGlobal->constInit = initVal;
-
         // assign the initializer
         if (!(storage_class & STCextern) && mustDefineSymbol(this))
         {
@@ -171,7 +166,12 @@ void VarDeclaration::codegen(Ir* p)
                 Logger::cout() << "init:   " << *initVal << '\n';
     #endif
             }
+            // build the initializer
+            LLConstant *initVal = DtoConstInitializer(loc, type, init);
 
+            // set the initializer
+            assert(!ir.irGlobal->constInit);
+            ir.irGlobal->constInit = initVal;
             gvar->setInitializer(initVal);
 
             #ifndef DISABLE_DEBUG_INFO

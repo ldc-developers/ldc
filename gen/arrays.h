@@ -9,6 +9,7 @@ llvm::StructType* DtoArrayType(Type* arrayTy);
 llvm::StructType* DtoArrayType(LLType* elemTy);
 llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 
+LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit);
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr, Type *type = 0);
 
