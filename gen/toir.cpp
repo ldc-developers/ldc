@@ -935,6 +935,77 @@ DValue* CallExp::toElem(IRState* p)
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
             return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
+        // fence instruction
+        } else if (fndecl->llvmInternal == LLVMfence) {
+            gIR->ir->CreateFence(llvm::AtomicOrdering(((Expression*)arguments->data[0])->toInteger()));
+            return NULL;
+        // atomic store instruction
+        } else if (fndecl->llvmInternal == LLVMatomic_store) {
+            Expression* exp1 = (Expression*)arguments->data[0];
+            Expression* exp2 = (Expression*)arguments->data[1];
+            int atomicOrdering = ((Expression*)arguments->data[2])->toInteger();
+            LLValue* val = exp1->toElem(p)->getRVal();
+            LLValue* ptr = exp2->toElem(p)->getRVal();
+            llvm::StoreInst* ret = gIR->ir->CreateStore(val, ptr, "tmp");
+            ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
+            ret->setAlignment(exp1->type->alignsize());
+            return NULL;
+        // atomic load instruction
+        } else if (fndecl->llvmInternal == LLVMatomic_load) {
+            Expression* exp = (Expression*)arguments->data[0];
+            int atomicOrdering = ((Expression*)arguments->data[1])->toInteger();
+            LLValue* ptr = exp->toElem(p)->getRVal();
+            Type* retType = exp->type->nextOf();
+            llvm::LoadInst* val = gIR->ir->CreateLoad(ptr, "tmp");
+            val->setAlignment(retType->alignsize());
+            val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
+            return new DImValue(retType, val);
+        // cmpxchg instruction
+        } else if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
+            Expression* exp1 = (Expression*)arguments->data[0];
+            Expression* exp2 = (Expression*)arguments->data[1];
+            Expression* exp3 = (Expression*)arguments->data[2];
+            int atomicOrdering = ((Expression*)arguments->data[3])->toInteger();
+            LLValue* ptr = exp1->toElem(p)->getRVal();
+            LLValue* cmp = exp2->toElem(p)->getRVal();
+            LLValue* val = exp3->toElem(p)->getRVal();
+            LLValue* ret = gIR->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering));
+            return new DImValue(exp3->type, ret);
+        // atomicrmw instruction
+        } else if (fndecl->llvmInternal == LLVMatomic_rmw) {
+            static char *ops[] = {
+                "xchg",
+                "add",
+                "sub",
+                "and",
+                "nand",
+                "or",
+                "xor",
+                "max",
+                "min",
+                "umax",
+                "umin",
+                0
+            };
+
+            int op = 0;
+            for (; ; ++op) {
+                if (ops[op] == 0) {
+                    error("unknown atomic_rmw operation %s", fndecl->intrinsicName.c_str());
+                    return NULL;
+                }
+                if (fndecl->intrinsicName == ops[op])
+                    break;
+            }
+
+            Expression* exp1 = (Expression*)arguments->data[0];
+            Expression* exp2 = (Expression*)arguments->data[1];
+            int atomicOrdering = ((Expression*)arguments->data[2])->toInteger();
+            LLValue* ptr = exp1->toElem(p)->getRVal();
+            LLValue* val = exp2->toElem(p)->getRVal();
+            LLValue* ret = gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
+                                                    llvm::AtomicOrdering(atomicOrdering));
+            return new DImValue(exp2->type, ret);
         }
     }
     return DtoCallFunction(loc, type, fnval, arguments);
