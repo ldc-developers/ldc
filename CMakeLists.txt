@@ -292,12 +292,6 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 # TODO: testrun
 
-if(NOT "" STREQUAL "")
-    if(NOT "" MATCHES "*/$")
-        set(CHROOT_INSTALL_DIR /)
-    endif(NOT "" MATCHES "*/$")
-endif(NOT "" STREQUAL "")
-
 install(TARGETS     ${LDC_EXE}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(DIRECTORY   ${LIBRARY_OUTPUT_PATH}                                      DESTINATION ${CMAKE_INSTALL_PREFIX} USE_SOURCE_PERMISSIONS)
