@@ -534,39 +534,10 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    #define ARRAY_INIT(TY,suffix) \
-    { \
-        std::string fname = (llvm::StringRef("_d_array_init_") + llvm::StringRef(suffix)).str(); \
-        std::vector<const LLType*> types; \
-        types.push_back(rt_ptr(TY)); \
-        types.push_back(sizeTy); \
-        types.push_back(TY); \
-        const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false); \
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M) \
-            ->setAttributes(Attr_1_NoCapture); \
-    }
-
-    ARRAY_INIT(shortTy,"i16")
-    ARRAY_INIT(intTy,"i32")
-    ARRAY_INIT(longTy,"i64")
-    ARRAY_INIT(floatTy,"float")
-    ARRAY_INIT(doubleTy,"double")
-    ARRAY_INIT(realTy,"real")
-    ARRAY_INIT(cfloatTy,"cfloat")
-    ARRAY_INIT(cdoubleTy,"cdouble")
-    ARRAY_INIT(crealTy,"creal")
-    ARRAY_INIT(voidPtrTy,"pointer")
-
-    #undef ARRAY_INIT
-
-    // array init mem
-    // void _d_array_init_mem(void* a, size_t na, void* v, size_t nv)
-    // +
     // array slice copy when assertions are on!
     // void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
     {
-        llvm::StringRef fname("_d_array_init_mem");
-        llvm::StringRef fname2("_d_array_slice_copy");
+        llvm::StringRef fname("_d_array_slice_copy");
         std::vector<const LLType*> types;
         types.push_back(voidPtrTy);
         types.push_back(sizeTy);
@@ -574,8 +545,6 @@ static void LLVM_D_BuildRuntimeModule()
         types.push_back(sizeTy);
         const llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_1_3_NoCapture);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
             ->setAttributes(Attr_1_3_NoCapture);
     }
 
