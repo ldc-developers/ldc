@@ -36,6 +36,8 @@ private
     extern (C) void* rt_loadLibrary( in char[] name );
     extern (C) bool  rt_unloadLibrary( void* ptr );
 
+    extern (C) void* thread_stackBottom();
+
     extern (C) string[] rt_args();
 
     version( linux )
@@ -334,8 +336,9 @@ extern (C) bool runModuleUnitTests()
         {
             version( Windows )
             {
-                uint count = void;
-                WriteFile( GetStdHandle( 0xfffffff5 ), val.ptr, val.length, &count, null );
+                DWORD count = void;
+                assert(val.length <= uint.max, "val must be less than or equal to uint.max");
+                WriteFile( GetStdHandle( 0xfffffff5 ), val.ptr, cast(uint)val.length, &count, null );
             }
             else version( Posix )
             {
@@ -394,8 +397,37 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
             {
                 static enum MAXFRAMES = 128;
                 void*[MAXFRAMES]  callstack;
+                numframes = 0; //backtrace( callstack, MAXFRAMES );
+                if (numframes < 2) // backtrace() failed, do it ourselves
+                {
+                    static void** getBasePtr()
+                    {
+                        version( D_InlineAsm_X86 )
+                            asm { naked; mov EAX, EBP; ret; }
+                        else
+                        version( D_InlineAsm_X86_64 )
+                            asm { naked; mov RAX, RBP; ret; }
+                        else
+                            return null;
+                    }
 
-                numframes = backtrace( callstack, MAXFRAMES );
+                    auto  stackTop    = getBasePtr();
+                    auto  stackBottom = cast(void**) thread_stackBottom();
+                    void* dummy;
+
+                    if( stackTop && &dummy < stackTop && stackTop < stackBottom )
+                    {
+                        auto stackPtr = stackTop;
+
+                        for( numframes = 0; stackTop <= stackPtr &&
+                                            stackPtr < stackBottom && 
+                                            numframes < MAXFRAMES; )
+                        {
+                            callstack[numframes++] = *(stackPtr + 1);
+                            stackPtr = cast(void**) *stackPtr;
+                        }
+                    }
+                }
                 framelist = backtrace_symbols( callstack, numframes );
             }
 
@@ -489,10 +521,14 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                 }
                 else version( linux )
                 {
-                    // format is:
-                    // module(_D6module4funcAFZv) [0x00000000]
+                    // format is:  module(_D6module4funcAFZv) [0x00000000]
+                    // or:         module(_D6module4funcAFZv+0x78) [0x00000000]
                     auto bptr = cast(char*) memchr( buf.ptr, '(', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, ')', buf.length );
+                    auto pptr = cast(char*) memchr( buf.ptr, '+', buf.length );
+
+                    if (pptr && pptr < eptr)
+                        eptr = pptr;
 
                     if( bptr++ && eptr )
                     {
