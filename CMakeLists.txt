@@ -19,11 +19,11 @@ if(NOT PKG_CONFIG_FOUND)
 else(NOT PKG_CONFIG_FOUND)
     pkg_search_module(LIBCONFIGPP libconfig++)
     if(NOT LIBCONFIGPP_FOUND)
-        set(LIBCONFIG_CXXFLAGS "" CACHE STRING "libconfig++ compiler flags")
-        set(LIBCONFIG_LDFLAGS "" CACHE STRING "libconfig++ linker flags")
+        set(LIBCONFIG_CXXFLAGS  "" CACHE STRING "libconfig++ compiler flags")
+        set(LIBCONFIG_LDFLAGS   "" CACHE STRING "libconfig++ linker flags")
     else(NOT LIBCONFIGPP_FOUND)
-        set(LIBCONFIG_CXXFLAGS ${LIBCONFIGPP_CFLAGS} CACHE STRING "libconfig++ compiler flags")
-        set(LIBCONFIG_LDFLAGS ${LIBCONFIGPP_LDFLAGS} CACHE STRING "libconfig++ linker flags")
+        set(LIBCONFIG_CXXFLAGS  ${LIBCONFIGPP_CFLAGS}   CACHE STRING "libconfig++ compiler flags")
+        set(LIBCONFIG_LDFLAGS   ${LIBCONFIGPP_LDFLAGS}  CACHE STRING "libconfig++ linker flags")
     endif(NOT LIBCONFIGPP_FOUND)
 endif(NOT PKG_CONFIG_FOUND)
 
@@ -61,37 +61,50 @@ execute_process(
 ####################
 #      LDC
 ####################
-set(D_VERSION               "1"                                                                         CACHE STRING    "D language version")
-set(PROGRAM_PREFIX          ""                                                                          CACHE STRING    "prepended to ldc binary name")
-set(PROGRAM_SUFFIX          ""                                                                          CACHE STRING    "appended to ldc binary name")
-set(LIB_SUFFIX              ""                                                                          CACHE STRING    "Suffix to add add for lib directory e.g: 64 => lib64")
-set(SYSCONF_INSTALL_DIR     "/etc"                                                                      CACHE STRING    "Default path where configuration file go for install")
-set(CMAKE_INSTALL_PREFIX    "/usr"                                                                      CACHE PATH      "Set prefix for installation")
-set(CMAKE_INSTALL_LIBDIR    "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}"                                  CACHE PATH      "Directory where lib will be installed")
-set(CONF_INST_DIR           "${CMAKE_INSTALL_PREFIX}/${SYSCONF_INSTALL_DIR}"                            CACHE PATH      "Set ldc.conf directory for installation")
-set(BUILD_SHARED_LIBS       ON                                                                          CACHE BOOL      "Build dynamic Lib for druntime and phobos/tango")
-option(USE_BOEHM_GC "use the Boehm garbage collector internally")
-option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
-option(USE_METADATA "use metadata and related custom optimization passes")
+
+# Default path where configuration file go for install
+if (NOT DEFINED SYSCONF_INSTALL_DIR)
+    if(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+        set(SYSCONF_INSTALL_DIR "/etc")
+    else(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+        set(SYSCONF_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/etc")
+    endif(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+endif (NOT DEFINED SYSCONF_INSTALL_DIR)
+
+set(D_VERSION               2                                           CACHE STRING "D language version")
+set(PROGRAM_PREFIX          ""                                          CACHE STRING "prepended to ldc binary name")
+set(PROGRAM_SUFFIX          ""                                          CACHE STRING "appended to ldc binary name")
+set(LIB_SUFFIX              ""                                          CACHE STRING "take empty string or 64. Directory where lib will be installed: lib or lib64")
+set(CHROOT_INSTALL_DIR      ""                                          CACHE PATH   "This var is usefull if you want change root install by example in you home dir")
+set(CMAKE_INSTALL_LIBDIR    ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}    CACHE PATH   "Directory where lib will be installed")
+set(CONF_INST_DIR           ${SYSCONF_INSTALL_DIR}                      CACHE PATH   "Set ldc.conf directory for installation")
+set(LIBRARY_OUTPUT_PATH     ${PROJECT_BINARY_DIR}/lib${LIB_SUFFIX}      CACHE PATH   "output dir for built libraries")
+set(INCLUDE_INSTALL_DIR     ${CMAKE_INSTALL_PREFIX}/include/d           CACHE PATH   "Directory where will be put header files")
+set(BUILD_SHARED_LIBS       OFF                                          CACHE BOOL   "Build as shared library or as static library")
+option(USE_BOEHM_GC     "use the Boehm garbage collector internally")
+option(GENERATE_OFFTI   "generate complete ClassInfo.offTi arrays")
+option(USE_METADATA     "use metadata and related custom optimization passes")
 
 if(D_VERSION EQUAL 1)
-    set(DMDFE_PATH dmd)
-    set(LDC_EXE ldc)
-    set(LDMD_EXE ldmd)
+    set(DMDFE_PATH  dmd)
+    set(LDC_EXE     ldc)
+    set(LDMD_EXE    ldmd)
+    set(RUNTIME     runtime)
     add_definitions(-DDMDV1)
 elseif(D_VERSION EQUAL 2)
-    set(DMDFE_PATH dmd2)
-    set(LDC_EXE ldc2)
-    set(LDMD_EXE ldmd2)
+    set(DMDFE_PATH  dmd2)
+    set(LDC_EXE     ldc2)
+    set(LDMD_EXE    ldmd2)
+    set(RUNTIME     druntime)
     add_definitions(-DDMDV2)
 else(D_VERSION EQUAL 1)
     message(FATAL_ERROR "unsupported D version")
 endif(D_VERSION EQUAL 1)
 
 file(MAKE_DIRECTORY
-    ${PROJECT_SOURCE_DIR}/bin
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
-    ${PROJECT_SOURCE_DIR}/gen
+    ${PROJECT_BINARY_DIR}
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    ${PROJECT_BINARY_DIR}/gen
 )
 
 ########## idgen and impcnvgen
@@ -100,13 +113,13 @@ set_source_files_properties(
     ${DMDFE_PATH}/impcnvgen.c
     PROPERTIES LANGUAGE CXX
 )
-add_executable(idgen ${DMDFE_PATH}/idgen.c)
-add_executable(impcnvgen ${DMDFE_PATH}/impcnvgen.c)
+add_executable(idgen        ${DMDFE_PATH}/idgen.c)
+add_executable(impcnvgen    ${DMDFE_PATH}/impcnvgen.c)
 # cmake 2.4
 set_target_properties(
     idgen impcnvgen PROPERTIES
     LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     COMPILE_FLAGS ${LLVM_CXXFLAGS}
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
@@ -114,30 +127,30 @@ get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
 #
 add_custom_command(
     OUTPUT
-        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
-        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.h
+        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
+        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
     # 2.4
     COMMAND ${IDGEN_LOC}
     #COMMAND idgen
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     DEPENDS idgen
 )
 add_custom_command(
-    OUTPUT ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
+    OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
     # 2.4
     COMMAND ${IMPCNVGEN_LOC}
     #COMMAND impcnvgen
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     DEPENDS impcnvgen
 )
 set(LDC_GENERATED
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.h
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
 ########## idgen and impcnvgen done
 
-include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_SOURCE_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDEDIR})
+include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDEDIR})
 
 set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
 separate_arguments(EXTRA_LLVM_MODULES)
@@ -212,8 +225,8 @@ set(LDC_SOURCE_FILES
     ${IR_SRC}
 )
 set_source_files_properties(
-    ${LDC_SOURCE_FILES}    PROPERTIES
-    LANGUAGE CXX
+    ${LDC_SOURCE_FILES}     PROPERTIES
+    LANGUAGE                CXX
 )
 ##########
 
@@ -243,8 +256,7 @@ if(USE_METADATA)
 endif(USE_METADATA)
 
 if(CMAKE_MINOR_VERSION LESS 6)
-    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin CACHE PATH "output dir for built executables")
-    set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib CACHE PATH "output dir for built libraries")
+    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
     add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
     add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
     add_definitions(-DLDC_INSTALL_PREFIX=\\"${CMAKE_INSTALL_PREFIX}\\")
@@ -262,16 +274,18 @@ add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 # Build ldc
 set_target_properties(
-    ${LDC_EXE} PROPERTIES
-    OUTPUT_NAME ${LDC_EXE_NAME}
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
+    ${LDC_EXE}                  PROPERTIES
+    OUTPUT_NAME                 ${LDC_EXE_NAME}
+    RUNTIME_OUTPUT_DIRECTORY    ${PROJECT_BINARY_DIR}/bin
+    COMPILE_FLAGS               "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
+    target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
     target_link_libraries(${LDC_EXE} imagehlp psapi)
+elseif(UNIX)
+    target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++ dl)
 endif(WIN32)
 
 if(USE_BOEHM_GC)
@@ -281,11 +295,22 @@ endif(USE_BOEHM_GC)
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 # TODO: testrun
-FILE(GLOB library   "${PROJECT_SOURCE_DIR}/lib/*.a" "${PROJECT_SOURCE_DIR}/lib/*.so" "${PROJECT_SOURCE_DIR}/lib/*.dll")
-install(TARGETS     ${LDC_EXE}                                          DESTINATION bin)
-install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}               DESTINATION bin)
-install(FILES       ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}_install.conf   DESTINATION ${CONF_INST_DIR}/${LDC_EXE}conf)
-install(FILES       ${PROJECT_SOURCE_DIR}/bin/${LDC_EXE}.rebuild.conf   DESTINATION ${CONF_INST_DIR})
-install(FILES       ${library}                                          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS     ${LDC_EXE}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf           DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
+install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf   DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
+if(D_VERSION EQUAL 2)
+    install(DIRECTORY   ${PROJECT_BINARY_DIR}/runtime/import/core                   DESTINATION ${INCLUDE_INSTALL_DIR}/)
+    install(DIRECTORY   ${PROJECT_SOURCE_DIR}/phobos                                DESTINATION ${INCLUDE_INSTALL_DIR}/ PATTERN ".git" EXCLUDE )
+    install(DIRECTORY   ${LIBRARY_OUTPUT_PATH}                                      DESTINATION ${CMAKE_INSTALL_PREFIX} USE_SOURCE_PERMISSIONS)
+    install(FILES       ${PROJECT_SOURCE_DIR}/${RUNTIME}/import/object.di           DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+    install(DIRECTORY   ${PROJECT_SOURCE_DIR}/${RUNTIME}/import/ldc                 DESTINATION ${INCLUDE_INSTALL_DIR}/)
+else(D_VERSION EQUAL 2)
+    install(DIRECTORY   ${PROJECT_SOURCE_DIR}/${RUNTIME}/internal/ldc/              DESTINATION ${INCLUDE_INSTALL_DIR}/ldc/)
+endif(D_VERSION EQUAL 2)
+install(DIRECTORY   ${PROJECT_SOURCE_DIR}/runtime/import/ldc                    DESTINATION ${INCLUDE_INSTALL_DIR}/)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    install(DIRECTORY bash_completion.d DESTINATION ${CONF_INST_DIR})
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 add_subdirectory(runtime EXCLUDE_FROM_ALL)

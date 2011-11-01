@@ -1,0 +1,17 @@
+// This configuration file uses libconfig.
+// See http://www.hyperrealm.com/libconfig/ for syntax details.
+
+// The default group is required
+default:
+{
+    // 'switches' holds array of string that are appends to the command line
+    // arguments before they are parsed.
+    switches = [
+        "-I@INCLUDE_INSTALL_DIR@",
+        "-I@INCLUDE_INSTALL_DIR@/phobos",
+        "-I@INCLUDE_INSTALL_DIR@/ldc",
+        "-L-L@CMAKE_INSTALL_LIBDIR@",
+        "-defaultlib=lphobos2",
+        "-debuglib=lphobos2"
+    ];
+};
