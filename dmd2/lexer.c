@@ -102,7 +102,7 @@ void Token::print()
 
 const char *Token::toChars()
 {   const char *p;
-    static char buffer[3 + 3 * sizeof(value) + 1];
+    static char buffer[3 + 3 * sizeof(float80value) + 1];
 
     p = buffer;
     switch (value)
@@ -298,28 +298,21 @@ Lexer::Lexer(Module *mod,
 
 void Lexer::error(const char *format, ...)
 {
-    if (mod && !global.gag)
-    {
-        char *p = loc.toChars();
-        if (*p)
-            fprintf(stdmsg, "%s: ", p);
-        mem.free(p);
-
-        va_list ap;
-        va_start(ap, format);
-        vfprintf(stdmsg, format, ap);
-        va_end(ap);
-
-        fprintf(stdmsg, "\n");
-        fflush(stdmsg);
-
-        if (global.errors >= 20)        // moderate blizzard of cascading messages
-            fatal();
-    }
-    global.errors++;
+    va_list ap;
+    va_start(ap, format);
+    verror(loc, format, ap);
+    va_end(ap);
 }
 
 void Lexer::error(Loc loc, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    verror(loc, format, ap);
+    va_end(ap);
+}
+
+void Lexer::verror(Loc loc, const char *format, va_list ap)
 {
     if (mod && !global.gag)
     {
@@ -328,16 +321,17 @@ void Lexer::error(Loc loc, const char *format, ...)
             fprintf(stdmsg, "%s: ", p);
         mem.free(p);
 
-        va_list ap;
-        va_start(ap, format);
         vfprintf(stdmsg, format, ap);
-        va_end(ap);
 
         fprintf(stdmsg, "\n");
         fflush(stdmsg);
 
         if (global.errors >= 20)        // moderate blizzard of cascading messages
             fatal();
+    }
+    else
+    {
+        global.gaggedErrors++;
     }
     global.errors++;
 }
@@ -2286,9 +2280,11 @@ done:
         break;
     }
 
+#if DMDV2
     if (state == STATE_octal && n >= 8 && !global.params.useDeprecated)
         error("octal literals 0%llo%.*s are deprecated, use std.conv.octal!%llo%.*s instead",
                 n, p - psuffix, psuffix, n, p - psuffix, psuffix);
+#endif
 
     switch (flags)
     {
@@ -3040,6 +3036,8 @@ void Lexer::initKeywords()
     unsigned u;
     enum TOK v;
     unsigned nkeywords = sizeof(keywords) / sizeof(keywords[0]);
+
+    stringtable.init();
 
     if (global.params.Dversion == 1)
         nkeywords -= 2;

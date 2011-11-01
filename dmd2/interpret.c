@@ -25,8 +25,15 @@
 #include "id.h"
 #include "utf.h"
 
+#include "template.h"
+TemplateInstance *isSpeculativeFunction(FuncDeclaration *fd);
+
+
 #define LOG     0
 #define LOGASSIGN 0
+
+// Maximum allowable recursive function calls in CTFE
+#define CTFE_RECURSION_LIMIT 1000
 
 struct InterState
 {
@@ -49,6 +56,18 @@ InterState::InterState()
     memset(this, 0, sizeof(InterState));
 }
 
+// Global status of the CTFE engine
+struct CtfeStatus
+{
+    static int callDepth; // current number of recursive calls
+    static int stackTraceCallsToSuppress; /* When printing a stack trace,
+                                           * suppress this number of calls
+                                           */
+};
+
+int CtfeStatus::callDepth = 0;
+int CtfeStatus::stackTraceCallsToSuppress = 0;
+
 Expression * resolveReferences(Expression *e, Expression *thisval, bool *isReference = NULL);
 Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal);
 VarDeclaration *findParentVar(Expression *e, Expression *thisval);
@@ -56,7 +75,8 @@ void addVarToInterstate(InterState *istate, VarDeclaration *v);
 bool needToCopyLiteral(Expression *expr);
 Expression *copyLiteral(Expression *e);
 Expression *paintTypeOntoLiteral(Type *type, Expression *lit);
-bool evaluateIfBuiltin(Expression **result, InterState *istate,
+Expression *findKeyInAA(AssocArrayLiteralExp *ae, Expression *e2);
+Expression *evaluateIfBuiltin(InterState *istate, Loc loc,
     FuncDeclaration *fd, Expressions *arguments, Expression *pthis);
 
 
@@ -150,9 +170,23 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
 
     if (semanticRun < PASSsemantic3 && scope)
     {
+        /* Forward reference - we need to run semantic3 on this function.
+         * If errors are gagged, and it's not part of a speculative
+         * template instance, we need to temporarily ungag errors.
+         */
         int olderrors = global.errors;
+        int oldgag = global.gag;
+        TemplateInstance *spec = isSpeculativeFunction(this);
+        if (global.gag && !spec)
+            global.gag = 0;
         semantic3(scope);
-        if (olderrors != global.errors)      // if errors compiling this function
+        global.gag = oldgag;    // regag errors
+
+        // If it is a speculatively-instantiated template, and errors occur,
+        // we need to mark the template as having errors.
+        if (spec && global.errors != olderrors)
+            spec->errors = global.errors - olderrors;
+        if (olderrors != global.errors) // if errors compiling this function
             return NULL;
     }
     if (semanticRun < PASSsemantic3done)
@@ -310,9 +344,19 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
         }
     }
 
+    // Enter the function
+    ++CtfeStatus::callDepth;
+
     Expression *e = NULL;
     while (1)
     {
+        if (CtfeStatus::callDepth > CTFE_RECURSION_LIMIT)
+        {   // This is a compiler error. It must not be suppressed.
+            global.gag = 0;
+            error("CTFE recursion limit exceeded");
+            e = NULL;
+            break;
+        }
         e = fbody->interpret(&istatex);
         if (e == EXP_CANT_INTERPRET)
         {
@@ -337,6 +381,9 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
             break;
     }
     assert(e != EXP_CONTINUE_INTERPRET && e != EXP_BREAK_INTERPRET);
+
+    // Leave the function
+    --CtfeStatus::callDepth;
 
     /* Restore the parameter values
      */
@@ -1448,12 +1495,22 @@ Expression *SymOffExp::interpret(InterState *istate, CtfeGoal goal)
     {
         // Check for unsupported type painting operations
         Type *elemtype = ((TypeArray *)(val->type))->next;
+
+        // It's OK to cast from fixed length to dynamic array, eg &int[3] to int[]*
+        if (val->type->ty == Tsarray && pointee->ty == Tarray
+            && elemtype->size() == pointee->nextOf()->size())
+        {
+            Expression *e = new AddrExp(loc, val);
+            e->type = type;
+            return e;
+        }
         if (
 #if DMDV2
         elemtype->castMod(0) != pointee->castMod(0)
 #else
         elemtype != pointee
 #endif
+        // It's OK to cast from int[] to uint*
         && !(elemtype->isintegral() && pointee->isintegral()
             && elemtype->size() == pointee->size()))
         {
@@ -1676,6 +1733,8 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal
                 v->inuse++;
                 e = e->interpret(istate, ctfeNeedAnyValue);
                 v->inuse--;
+                if (e == EXP_CANT_INTERPRET && !global.gag && !CtfeStatus::stackTraceCallsToSuppress)
+                    fprintf(stdmsg, "%s:        while evaluating %s.init\n", loc.toChars(), v->toChars());
                 if (e == EXP_CANT_INTERPRET)
                     return e;
                 e->type = v->type;
@@ -1686,6 +1745,8 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal
                     e->type = v->type;
                 if (e)
                     e = e->interpret(istate, ctfeNeedAnyValue);
+                if (e == EXP_CANT_INTERPRET && !global.gag && !CtfeStatus::stackTraceCallsToSuppress)
+                    fprintf(stdmsg, "%s:        while evaluating %s.init\n", loc.toChars(), v->toChars());
             }
             if (e && e != EXP_CANT_INTERPRET)
                 v->setValueWithoutChecking(e);
@@ -2433,6 +2494,9 @@ BIN_INTERPRET(Ushr)
 BIN_INTERPRET(And)
 BIN_INTERPRET(Or)
 BIN_INTERPRET(Xor)
+#if DMDV2
+BIN_INTERPRET(Pow)
+#endif
 
 
 typedef Expression *(*fp2_t)(enum TOK, Type *, Expression *, Expression *);
@@ -2809,7 +2873,7 @@ Expression *copyLiteral(Expression *e)
                 uinteger_t length = tsa->dim->toInteger();
                 m = createBlockDuplicatedArrayLiteral(v->type, m, (size_t)length);
             }
-            else if (v->type->ty != Tarray) // NOTE: do not copy array references
+            else if (v->type->ty != Tarray && v->type->ty!=Taarray) // NOTE: do not copy array references
                 m = copyLiteral(m);
             newelems->tdata()[i] = m;
         }
@@ -3130,6 +3194,13 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
         if ((e1->op==TOKslice) && ((SliceExp *)e1)->e1->type->ty == Tsarray)
             wantRef = false;
 #endif
+        // If it is assignment from a ref parameter, it's not a ref assignment
+        if (this->e2->op == TOKvar)
+        {
+            VarDeclaration *v = ((VarExp *)this->e2)->var->isVarDeclaration();
+            if (v && (v->storage_class & (STCref | STCout)))
+                wantRef = false;
+        }
     }
     if (isBlockAssignment && (e2->type->toBasetype()->ty == Tarray || e2->type->toBasetype()->ty == Tsarray))
     {
@@ -3238,7 +3309,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             // ~= can create new values (see bug 6052)
             if (op == TOKcatass)
             {
-                if (needToCopyLiteral(this->e2))
+                if (needToCopyLiteral(newval))
                     newval = copyLiteral(newval);
                 if (newval->op == TOKslice)
                     newval = resolveSlice(newval);
@@ -3351,6 +3422,11 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
         if (type->toBasetype()->ty == Tstruct && newval->op == TOKint64)
         {
             newval = type->defaultInitLiteral(loc);
+            if (newval->op != TOKstructliteral)
+            {
+                error("nested structs with constructors are not yet supported in CTFE (Bug 6419)");
+                return EXP_CANT_INTERPRET;
+            }
         }
         newval = Cast(type, type, newval);
         if (newval == EXP_CANT_INTERPRET)
@@ -3423,6 +3499,103 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
                 newval = copyLiteral(newval);
         }
         returnValue = newval;
+    }
+
+    // ---------------------------------------
+    //      Deal with AA index assignment
+    // ---------------------------------------
+    /* This needs special treatment if the AA doesn't exist yet.
+     * There are two special cases:
+     * (1) If the AA is itself an index of another AA, we may need to create
+     * multiple nested AA literals before we can insert the new value.
+     * (2) If the ultimate AA is null, no insertion happens at all. Instead, we
+     * create nested AA literals, and change it into a assignment.
+     */
+    if (e1->op == TOKindex && ((IndexExp *)e1)->e1->type->toBasetype()->ty == Taarray)
+    {
+        IndexExp *ie = (IndexExp *)e1;
+        int depth = 0; // how many nested AA indices are there?
+        while (ie->e1->op == TOKindex && ((IndexExp *)ie->e1)->e1->type->toBasetype()->ty == Taarray)
+        {
+            ie = (IndexExp *)ie->e1;
+            ++depth;
+        }
+        Expression *aggregate = resolveReferences(ie->e1, istate->localThis);
+        Expression *oldagg = aggregate;
+        // Get the AA to be modified. (We do an LvalueRef interpret, unless it
+        // is a simple ref parameter -- in which case, we just want the value)
+        aggregate = aggregate->interpret(istate, ctfeNeedLvalue);
+        if (aggregate == EXP_CANT_INTERPRET)
+            return EXP_CANT_INTERPRET;
+        if (aggregate->op == TOKassocarrayliteral)
+        {   // Normal case, ultimate parent AA already exists
+            // We need to walk from the deepest index up, checking that an AA literal
+            // already exists on each level.
+            Expression *index = ((IndexExp *)e1)->e2->interpret(istate);
+            if (index == EXP_CANT_INTERPRET)
+                return EXP_CANT_INTERPRET;
+            if (index->op == TOKslice)  // only happens with AA assignment
+                index = resolveSlice(index);
+            AssocArrayLiteralExp *existingAA = (AssocArrayLiteralExp *)aggregate;
+            while (depth > 0)
+            {   // Walk the syntax tree to find the indexExp at this depth
+                IndexExp *xe = (IndexExp *)e1;
+                for (int d= 0; d < depth; ++d)
+                    xe = (IndexExp *)xe->e1;
+
+                Expression *indx = xe->e2->interpret(istate);
+                if (indx == EXP_CANT_INTERPRET)
+                    return EXP_CANT_INTERPRET;
+                if (indx->op == TOKslice)  // only happens with AA assignment
+                    indx = resolveSlice(indx);
+
+                // Look up this index in it up in the existing AA, to get the next level of AA.
+                AssocArrayLiteralExp *newAA = (AssocArrayLiteralExp *)findKeyInAA(existingAA, indx);
+                if (newAA == EXP_CANT_INTERPRET)
+                    return newAA;
+                if (!newAA)
+                {   // Doesn't exist yet, create an empty AA...
+                    Expressions *valuesx = new Expressions();
+                    Expressions *keysx = new Expressions();
+                    newAA = new AssocArrayLiteralExp(loc, keysx, valuesx);
+                    newAA->type = xe->type;
+                    //... and insert it into the existing AA.
+                    existingAA->keys->push(indx);
+                    existingAA->values->push(newAA);
+                }
+                existingAA = newAA;
+                --depth;
+            }
+            if (assignAssocArrayElement(loc, existingAA, index, newval) == EXP_CANT_INTERPRET)
+                return EXP_CANT_INTERPRET;
+            return returnValue;
+        }
+        else
+        {   /* The AA is currently null. 'aggregate' is actually a reference to
+             * whatever contains it. It could be anything: var, dotvarexp, ...
+             * We rewrite the assignment from: aggregate[i][j] = newval;
+             *                           into: aggregate = [i:[j: newval]];
+             */
+            while (e1->op == TOKindex && ((IndexExp *)e1)->e1->type->toBasetype()->ty == Taarray)
+            {
+                Expression *index = ((IndexExp *)e1)->e2->interpret(istate);
+                if (index == EXP_CANT_INTERPRET)
+                    return EXP_CANT_INTERPRET;
+                if (index->op == TOKslice)  // only happens with AA assignment
+                    index = resolveSlice(index);
+                Expressions *valuesx = new Expressions();
+                Expressions *keysx = new Expressions();
+                valuesx->push(newval);
+                keysx->push(index);
+                newval = new AssocArrayLiteralExp(loc, keysx, valuesx);
+                newval->type = e1->type;
+                e1 = ((IndexExp *)e1)->e1;
+            }
+            // We must return to the original aggregate, in case it was a reference
+            wantRef = true;
+            e1 = oldagg;
+            // fall through -- let the normal assignment logic take care of it
+        }
     }
 
     // ---------------------------------------
@@ -3537,12 +3710,14 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
     {
         /* Assignment to array element of the form:
          *   aggregate[i] = newval
+         *   aggregate is not AA (AAs were dealt with already).
          */
         IndexExp *ie = (IndexExp *)e1;
-        uinteger_t destarraylen = 0; // not for AAs
+        assert(ie->e1->type->toBasetype()->ty != Taarray);
+        uinteger_t destarraylen = 0;
 
         // Set the $ variable, and find the array literal to modify
-        if (ie->e1->type->toBasetype()->ty != Taarray && ie->e1->type->toBasetype()->ty != Tpointer)
+        if (ie->e1->type->toBasetype()->ty != Tpointer)
         {
             Expression *oldval = ie->e1->interpret(istate);
             if (oldval->op == TOKnull)
@@ -3570,56 +3745,51 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
         if (index == EXP_CANT_INTERPRET)
             return EXP_CANT_INTERPRET;
 
-        if (index->op == TOKslice)  // only happens with AA assignment
-            index = resolveSlice(index);
+        assert (index->op != TOKslice);  // only happens with AA assignment
 
         ArrayLiteralExp *existingAE = NULL;
         StringExp *existingSE = NULL;
-        AssocArrayLiteralExp *existingAA = NULL;
 
         Expression *aggregate = resolveReferences(ie->e1, istate->localThis);
 
-        // Set the index to modify (for non-AAs), and check that it is in range
-        dinteger_t indexToModify = 0;
-        if (ie->e1->type->toBasetype()->ty != Taarray)
+        // Set the index to modify, and check that it is in range
+        dinteger_t indexToModify = index->toInteger();
+        if (ie->e1->type->toBasetype()->ty == Tpointer)
         {
-            indexToModify = index->toInteger();
-            if (ie->e1->type->toBasetype()->ty == Tpointer)
+            dinteger_t ofs;
+            aggregate = aggregate->interpret(istate, ctfeNeedLvalue);
+            if (aggregate == EXP_CANT_INTERPRET)
+                return EXP_CANT_INTERPRET;
+            if (aggregate->op == TOKnull)
             {
-                dinteger_t ofs;
-                aggregate = aggregate->interpret(istate, ctfeNeedLvalue);
-                if (aggregate == EXP_CANT_INTERPRET)
-                    return EXP_CANT_INTERPRET;
-                if (aggregate->op == TOKnull)
-                {
-                    error("cannot index through null pointer %s", ie->e1->toChars());
-                    return EXP_CANT_INTERPRET;
-                }
-                if (aggregate->op == TOKint64)
-                {
-                    error("cannot index through invalid pointer %s of value %s",
-                        ie->e1->toChars(), aggregate->toChars());
-                    return EXP_CANT_INTERPRET;
-                }
-                aggregate = getAggregateFromPointer(aggregate, &ofs);
-                indexToModify += ofs;
-                destarraylen = resolveArrayLength(aggregate);
-            }
-            if (indexToModify >= destarraylen)
-            {
-                error("array index %d is out of bounds [0..%d]", indexToModify,
-                    destarraylen);
+                error("cannot index through null pointer %s", ie->e1->toChars());
                 return EXP_CANT_INTERPRET;
             }
+            if (aggregate->op == TOKint64)
+            {
+                error("cannot index through invalid pointer %s of value %s",
+                    ie->e1->toChars(), aggregate->toChars());
+                return EXP_CANT_INTERPRET;
+            }
+            aggregate = getAggregateFromPointer(aggregate, &ofs);
+            indexToModify += ofs;
+            destarraylen = resolveArrayLength(aggregate);
+        }
+        if (indexToModify >= destarraylen)
+        {
+            error("array index %d is out of bounds [0..%d]", indexToModify,
+                destarraylen);
+            return EXP_CANT_INTERPRET;
         }
 
-        /* The only possible indexable LValue aggregates are array literals,
-         * slices of array literals, and AA literals.
+        /* The only possible indexable LValue aggregates are array literals, and
+         * slices of array literals.
          */
         if (aggregate->op == TOKindex || aggregate->op == TOKdotvar ||
             aggregate->op == TOKslice || aggregate->op == TOKcall ||
             aggregate->op == TOKstar)
         {
+            Expression *origagg = aggregate;
             aggregate = aggregate->interpret(istate, ctfeNeedLvalue);
             if (aggregate == EXP_CANT_INTERPRET)
                 return EXP_CANT_INTERPRET;
@@ -3637,21 +3807,6 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             aggregate = v->getValue();
             if (aggregate->op == TOKnull)
             {
-                if (v->type->ty == Taarray)
-                {   // Assign to empty associative array
-                    Expressions *valuesx = new Expressions();
-                    Expressions *keysx = new Expressions();
-                    Expression *indx = ie->e2->interpret(istate);
-                    if (indx == EXP_CANT_INTERPRET)
-                        return EXP_CANT_INTERPRET;
-                    valuesx->push(newval);
-                    keysx->push(indx);
-                    Expression *aae2 = new AssocArrayLiteralExp(loc, keysx, valuesx);
-                    aae2->type = v->type;
-                    newval = aae2;
-                    v->setRefValue(newval);
-                    return returnValue;
-                }
                 // This would be a runtime segfault
                 error("cannot index null array %s", v->toChars());
                 return EXP_CANT_INTERPRET;
@@ -3668,8 +3823,6 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             existingAE = (ArrayLiteralExp *)aggregate;
         else if (aggregate->op == TOKstring)
             existingSE = (StringExp *)aggregate;
-        else if (aggregate->op == TOKassocarrayliteral)
-            existingAA = (AssocArrayLiteralExp *)aggregate;
         else
         {
             error("CTFE internal compiler error %s", aggregate->toChars());
@@ -3683,6 +3836,11 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
                 error("Compiler error: CTFE index assign %s", toChars());
                 assert(0);
             }
+        }
+        if (wantRef && newval->op == TOKindex
+            && ((IndexExp *)newval)->e1 == aggregate)
+        {   // It's a circular reference, resolve it now
+                newval = newval->interpret(istate);
         }
 
         if (existingAE)
@@ -3706,12 +3864,6 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
                     assert(0);
                     break;
             }
-            return returnValue;
-        }
-        else if (existingAA)
-        {
-            if (assignAssocArrayElement(loc, existingAA, index, newval) == EXP_CANT_INTERPRET)
-                return EXP_CANT_INTERPRET;
             return returnValue;
         }
         else
@@ -3849,6 +4001,11 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
                 assert(0);
             }
         }
+        if (wantRef && newval->op == TOKindex
+            && ((IndexExp *)newval)->e1 == aggregate)
+        {   // It's a circular reference, resolve it now
+                newval = newval->interpret(istate);
+        }
 
         // For slice assignment, we check that the lengths match.
         size_t srclen = 0;
@@ -3877,7 +4034,8 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             sliceAssignStringFromString((StringExp *)existingSE, (StringExp *)newval, firstIndex);
             return newval;
         }
-        else if (newval->op == TOKstring && existingAE)
+        else if (newval->op == TOKstring && existingAE
+                && existingAE->type->isString())
         {   /* Mixed slice: it was initialized as an array literal of chars.
              * Now a slice of it is being set with a string.
              */
@@ -3991,6 +4149,9 @@ BIN_ASSIGN_INTERPRET(Ushr)
 BIN_ASSIGN_INTERPRET(And)
 BIN_ASSIGN_INTERPRET(Or)
 BIN_ASSIGN_INTERPRET(Xor)
+#if DMDV2
+BIN_ASSIGN_INTERPRET(Pow)
+#endif
 
 Expression *PostExp::interpret(InterState *istate, CtfeGoal goal)
 {
@@ -4065,6 +4226,54 @@ Expression *OrOrExp::interpret(InterState *istate, CtfeGoal goal)
             e = EXP_CANT_INTERPRET;
     }
     return e;
+}
+
+// Print a stack trace, starting from callingExp which called fd.
+// To shorten the stack trace, try to detect recursion.
+void showCtfeBackTrace(InterState *istate, CallExp * callingExp, FuncDeclaration *fd)
+{
+    if (CtfeStatus::stackTraceCallsToSuppress > 0)
+    {
+        --CtfeStatus::stackTraceCallsToSuppress;
+        return;
+    }
+    fprintf(stdmsg, "%s:        called from here: %s\n", callingExp->loc.toChars(), callingExp->toChars());
+    // Quit if it's not worth trying to compress the stack trace
+    if (CtfeStatus::callDepth < 6 || global.params.verbose)
+        return;
+    // Recursion happens if the current function already exists in the call stack.
+    int numToSuppress = 0;
+    int recurseCount = 0;
+    int depthSoFar = 0;
+    InterState *lastRecurse = istate;
+    for (InterState * cur = istate; cur; cur = cur->caller)
+    {
+        if (cur->fd == fd)
+        {   ++recurseCount;
+            numToSuppress = depthSoFar;
+            lastRecurse = cur;
+        }
+        ++depthSoFar;
+    }
+    // We need at least three calls to the same function, to make compression worthwhile
+    if (recurseCount < 2)
+        return;
+    // We found a useful recursion.  Print all the calls involved in the recursion
+    fprintf(stdmsg, "%s:        %d recursive calls to function %s\n", fd->loc.toChars(), recurseCount, fd->toChars());
+    for (InterState *cur = istate; cur->fd != fd; cur = cur->caller)
+    {
+        fprintf(stdmsg, "%s:          recursively called from function %s\n", cur->fd->loc.toChars(), cur->fd->toChars());
+    }
+    // We probably didn't enter the recursion in this function.
+    // Go deeper to find the real beginning.
+    InterState * cur = istate;
+    while (lastRecurse->caller && cur->fd ==  lastRecurse->caller->fd)
+    {
+        cur = cur->caller;
+        lastRecurse = lastRecurse->caller;
+        ++numToSuppress;
+    }
+    CtfeStatus::stackTraceCallsToSuppress = numToSuppress;
 }
 
 Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
@@ -4156,9 +4365,12 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
 
     TypeFunction *tf = fd ? (TypeFunction *)(fd->type) : NULL;
     if (!tf)
-    {   // DAC: I'm not sure if this ever happens
+    {   // DAC: This should never happen, it's an internal compiler error.
         //printf("ecall=%s %d %d\n", ecall->toChars(), ecall->op, TOKcall);
-        error("cannot evaluate %s at compile time", toChars());
+        if (ecall->op == TOKidentifier)
+            error("cannot evaluate %s at compile time. Circular reference?", toChars());
+        else
+            error("CTFE internal error: cannot evaluate %s at compile time", toChars());
         return EXP_CANT_INTERPRET;
     }
     if (!fd)
@@ -4184,8 +4396,8 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
         }
     }
     // Check for built-in functions
-    Expression *eresult;
-    if (evaluateIfBuiltin(&eresult, istate, fd, arguments, pthis))
+    Expression *eresult = evaluateIfBuiltin(istate, loc, fd, arguments, pthis);
+    if (eresult)
         return eresult;
 
     // Inline .dup. Special case because it needs the return type.
@@ -4214,7 +4426,10 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
     else if (fd->type->toBasetype()->nextOf()->ty == Tvoid && !global.errors)
         e = EXP_VOID_INTERPRET;
     else
-        error("cannot evaluate %s at compile time", toChars());
+    {   // Print a stack trace.
+        if (!global.gag)
+            showCtfeBackTrace(istate, this, fd);
+    }
     return e;
 }
 
@@ -4397,6 +4612,8 @@ Expression *IndexExp::interpret(InterState *istate, CtfeGoal goal)
 
     if (e1->op == TOKnull)
     {
+        if (goal == ctfeNeedLvalue && e1->type->ty == Taarray)
+            return paintTypeOntoLiteral(type, e1);
         error("cannot index null array %s", this->e1->toChars());
         return EXP_CANT_INTERPRET;
     }
@@ -4691,6 +4908,35 @@ Lcant:
     return EXP_CANT_INTERPRET;
 }
 
+#if DMDV2
+// Return true if t is an AA, or AssociativeArray!(key, value)
+bool isAssocArray(Type *t)
+{
+    t = t->toBasetype();
+    if (t->ty == Taarray)
+        return true;
+    if (t->ty != Tstruct)
+        return false;
+    StructDeclaration *sym = ((TypeStruct *)t)->sym;
+    if (sym->ident == Id::AssociativeArray)
+        return true;
+    return false;
+}
+
+// Given a template AA type, extract the corresponding built-in AA type
+TypeAArray *toBuiltinAAType(Type *t)
+{
+    t = t->toBasetype();
+    if (t->ty == Taarray)
+        return (TypeAArray *)t;
+    assert(t->ty == Tstruct);
+    StructDeclaration *sym = ((TypeStruct *)t)->sym;
+    assert(sym->ident == Id::AssociativeArray);
+    TemplateInstance *tinst = sym->parent->isTemplateInstance();
+    assert(tinst);
+    return new TypeAArray((Type *)(tinst->tiargs->tdata()[1]), (Type *)(tinst->tiargs->tdata()[0]));
+}
+#endif
 
 Expression *CastExp::interpret(InterState *istate, CtfeGoal goal)
 {   Expression *e;
@@ -4704,11 +4950,11 @@ Expression *CastExp::interpret(InterState *istate, CtfeGoal goal)
         goto Lcant;
     if (to->ty == Tpointer && e1->op != TOKnull)
     {   // Deal with casts from char[] to char *
+        Type *pointee = ((TypePointer *)type)->next;
         if (e1->type->ty == Tarray || e1->type->ty == Tsarray)
         {
             // Check for unsupported type painting operations
             Type *elemtype = ((TypeArray *)(e1->type))->next;
-            Type *pointee = ((TypePointer *)type)->next;
             if (
 #if DMDV2
                 e1->type->nextOf()->castMod(0) != to->nextOf()->castMod(0)
@@ -4734,15 +4980,11 @@ Expression *CastExp::interpret(InterState *istate, CtfeGoal goal)
             e->type = type;
             return e;
         }
-        if (e1->op == TOKarrayliteral)
+        if (e1->op == TOKarrayliteral || e1->op == TOKstring)
         {
             e = new IndexExp(loc, e1, new IntegerExp(loc, 0, Type::tsize_t));
             e->type = type;
             return e;
-        }
-        if (e1->op == TOKstring)
-        {
-            return e1;
         }
         if (e1->op == TOKindex && ((IndexExp *)e1)->e1->type != e1->type)
         {   // type painting operation
@@ -4755,6 +4997,13 @@ Expression *CastExp::interpret(InterState *istate, CtfeGoal goal)
         {   // Happens with Windows HANDLEs, for example.
             return paintTypeOntoLiteral(to, e1);
         }
+#if DMDV2
+        if (pointee->ty == Taarray && e1->op == TOKaddress
+            && isAssocArray(((AddrExp*)e1)->e1->type))
+        {   // cast from template AA pointer to true AA pointer is OK.
+            return paintTypeOntoLiteral(to, e1);
+        }
+#endif
         error("pointer cast from %s to %s is not supported at compile time",
                 e1->type->toChars(), to->toChars());
         return EXP_CANT_INTERPRET;
@@ -4970,6 +5219,13 @@ Expression *DotVarExp::interpret(InterState *istate, CtfeGoal goal)
     Expression *ex = e1->interpret(istate);
     if (ex != EXP_CANT_INTERPRET)
     {
+        #if DMDV2
+        // Special case for template AAs: AA.var returns the AA itself.
+        //  ie AA.p  ----> AA. This is a hack, to get around the
+        // corresponding hack in the AA druntime implementation.
+        if (isAssocArray(ex->type))
+            return ex;
+        #endif
         if (ex->op == TOKaddress)
             ex = ((AddrExp *)ex)->e1;
         if (ex->op == TOKstructliteral)
@@ -5036,73 +5292,43 @@ Expression *DotVarExp::interpret(InterState *istate, CtfeGoal goal)
     return e;
 }
 
+Expression *RemoveExp::interpret(InterState *istate, CtfeGoal goal)
+{
+#if LOG
+    printf("RemoveExp::interpret() %s\n", toChars());
+#endif
+    Expression *agg = e1->interpret(istate);
+    if (agg == EXP_CANT_INTERPRET)
+        return agg;
+    Expression *index = e2->interpret(istate);
+    if (index == EXP_CANT_INTERPRET)
+        return index;
+    if (agg->op == TOKnull)
+        return EXP_VOID_INTERPRET;
+    assert(agg->op == TOKassocarrayliteral);
+    AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)agg;
+    Expressions *keysx = aae->keys;
+    Expressions *valuesx = aae->values;
+    size_t removed = 0;
+    for (size_t j = 0; j < valuesx->dim; ++j)
+    {   Expression *ekey = keysx->tdata()[j];
+        Expression *ex = ctfeEqual(TOKequal, Type::tbool, ekey, index);
+        if (ex == EXP_CANT_INTERPRET)
+            return EXP_CANT_INTERPRET;
+        if (ex->isBool(TRUE))
+            ++removed;
+        else if (removed != 0)
+        {   keysx->tdata()[j - removed] = ekey;
+            valuesx->tdata()[j - removed] = valuesx->tdata()[j];
+        }
+    }
+    valuesx->dim = valuesx->dim - removed;
+    keysx->dim = keysx->dim - removed;
+    return EXP_VOID_INTERPRET;
+}
+
+
 /******************************* Special Functions ***************************/
-
-#if DMDV1
-
-Expression *interpret_aaLen(InterState *istate, Expressions *arguments)
-{
-    if (!arguments || arguments->dim != 1)
-        return NULL;
-    Expression *earg = arguments->tdata()[0];
-    earg = earg->interpret(istate);
-    if (earg == EXP_CANT_INTERPRET)
-        return NULL;
-    if (earg->op != TOKassocarrayliteral)
-        return NULL;
-    AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
-    Expression *e = new IntegerExp(aae->loc, aae->keys->dim, Type::tsize_t);
-    return e;
-}
-
-Expression *interpret_aaKeys(InterState *istate, Expressions *arguments)
-{
-#if LOG
-    printf("interpret_aaKeys()\n");
-#endif
-    if (!arguments || arguments->dim != 2)
-        return NULL;
-    Expression *earg = arguments->tdata()[0];
-    earg = earg->interpret(istate);
-    if (earg == EXP_CANT_INTERPRET)
-        return NULL;
-    if (earg->op == TOKnull)
-        return new NullExp(earg->loc);
-    if (earg->op != TOKassocarrayliteral && earg->type->toBasetype()->ty != Taarray)
-        return NULL;
-    AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
-    Expression *e = new ArrayLiteralExp(aae->loc, aae->keys);
-    Type *elemType = ((TypeAArray *)aae->type)->index;
-    e->type = new TypeSArray(elemType, new IntegerExp(arguments ? arguments->dim : 0));
-    return copyLiteral(e);
-}
-
-Expression *interpret_aaValues(InterState *istate, Expressions *arguments)
-{
-#if LOG
-    printf("interpret_aaValues()\n");
-#endif
-    if (!arguments || arguments->dim != 3)
-        return NULL;
-    Expression *earg = arguments->tdata()[0];
-    earg = earg->interpret(istate);
-    if (earg == EXP_CANT_INTERPRET)
-        return NULL;
-    if (earg->op == TOKnull)
-        return new NullExp(earg->loc);
-    if (earg->op != TOKassocarrayliteral && earg->type->toBasetype()->ty != Taarray)
-        return NULL;
-    AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
-    Expression *e = new ArrayLiteralExp(aae->loc, aae->values);
-    Type *elemType = ((TypeAArray *)aae->type)->next;
-    e->type = new TypeSArray(elemType, new IntegerExp(arguments ? arguments->dim : 0));
-    //printf("result is %s\n", e->toChars());
-    return copyLiteral(e);
-}
-
-#endif
-
-#if DMDV2
 
 Expression *interpret_length(InterState *istate, Expression *earg)
 {
@@ -5110,14 +5336,15 @@ Expression *interpret_length(InterState *istate, Expression *earg)
     earg = earg->interpret(istate);
     if (earg == EXP_CANT_INTERPRET)
         return NULL;
-    if (earg->op != TOKassocarrayliteral)
-        return NULL;
-    AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
-    Expression *e = new IntegerExp(aae->loc, aae->keys->dim, Type::tsize_t);
+    dinteger_t len = 0;
+    if (earg->op == TOKassocarrayliteral)
+        len = ((AssocArrayLiteralExp *)earg)->keys->dim;
+    else assert(earg->op == TOKnull);
+    Expression *e = new IntegerExp(earg->loc, len, Type::tsize_t);
     return e;
 }
 
-Expression *interpret_keys(InterState *istate, Expression *earg, FuncDeclaration *fd)
+Expression *interpret_keys(InterState *istate, Expression *earg, Type *elemType)
 {
 #if LOG
     printf("interpret_keys()\n");
@@ -5132,14 +5359,11 @@ Expression *interpret_keys(InterState *istate, Expression *earg, FuncDeclaration
     assert(earg->op == TOKassocarrayliteral);
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new ArrayLiteralExp(aae->loc, aae->keys);
-    assert(fd->type->ty == Tfunction);
-    assert(fd->type->nextOf()->ty == Tarray);
-    Type *elemType = ((TypeFunction *)fd->type)->nextOf()->nextOf();
     e->type = new TypeSArray(elemType, new IntegerExp(aae->keys->dim));
     return copyLiteral(e);
 }
 
-Expression *interpret_values(InterState *istate, Expression *earg, FuncDeclaration *fd)
+Expression *interpret_values(InterState *istate, Expression *earg, Type *elemType)
 {
 #if LOG
     printf("interpret_values()\n");
@@ -5154,31 +5378,71 @@ Expression *interpret_values(InterState *istate, Expression *earg, FuncDeclarati
     assert(earg->op == TOKassocarrayliteral);
     AssocArrayLiteralExp *aae = (AssocArrayLiteralExp *)earg;
     Expression *e = new ArrayLiteralExp(aae->loc, aae->values);
-    assert(fd->type->ty == Tfunction);
-    assert(fd->type->nextOf()->ty == Tarray);
-    Type *elemType = ((TypeFunction *)fd->type)->nextOf()->nextOf();
     e->type = new TypeSArray(elemType, new IntegerExp(aae->values->dim));
     //printf("result is %s\n", e->toChars());
     return copyLiteral(e);
 }
 
-#endif
+// signature is int delegate(ref Value) OR int delegate(ref Key, ref Value)
+Expression *interpret_aaApply(InterState *istate, Expression *aa, Expression *deleg)
+{   aa = aa->interpret(istate);
+    if (aa == EXP_CANT_INTERPRET)
+        return aa;
+    if (aa->op != TOKassocarrayliteral)
+        return new IntegerExp(deleg->loc, 0, Type::tsize_t);
 
-#if DMDV2
-// Return true if t is an AA, or AssociativeArray!(key, value)
-bool isAssocArray(Type *t)
-{
-    t = t->toBasetype();
-    if (t->ty == Taarray)
-        return true;
-    if (t->ty != Tstruct)
-        return false;
-    StructDeclaration *sym = ((TypeStruct *)t)->sym;
-    if (sym->ident == Id::AssociativeArray)
-        return true;
-    return false;
+    FuncDeclaration *fd = NULL;
+    Expression *pthis = NULL;
+    if (deleg->op == TOKdelegate)
+    {
+        fd = ((DelegateExp *)deleg)->func;
+        pthis = ((DelegateExp *)deleg)->e1;
+    }
+    else if (deleg->op == TOKfunction)
+        fd = ((FuncExp*)deleg)->fd;
+
+    assert(fd && fd->fbody);
+    assert(fd->parameters);
+    int numParams = fd->parameters->dim;
+    assert(numParams == 1 || numParams==2);
+
+    Type *valueType = fd->parameters->tdata()[numParams-1]->type;
+    Type *keyType = numParams == 2 ? fd->parameters->tdata()[0]->type
+                                   : Type::tsize_t;
+    Expressions args;
+    args.setDim(numParams);
+
+    AssocArrayLiteralExp *ae = (AssocArrayLiteralExp *)aa;
+    if (!ae->keys || ae->keys->dim == 0)
+        return new IntegerExp(deleg->loc, 0, Type::tsize_t);
+    Expression *eresult;
+
+    for (size_t i = 0; i < ae->keys->dim; ++i)
+    {
+        Expression *ekey = ae->keys->tdata()[i];
+        Expression *evalue = ae->values->tdata()[i];
+        args.tdata()[numParams - 1] = evalue;
+        if (numParams == 2) args.tdata()[0] = ekey;
+
+        eresult = fd->interpret(istate, &args, pthis);
+        if (eresult == EXP_CANT_INTERPRET)
+            return EXP_CANT_INTERPRET;
+
+        assert(eresult->op == TOKint64);
+        if (((IntegerExp *)eresult)->value != 0)
+            return eresult;
+    }
+    return eresult;
 }
-#endif
+
+// Helper function: given a function of type A[] f(...),
+// return A.
+Type *returnedArrayElementType(FuncDeclaration *fd)
+{
+    assert(fd->type->ty == Tfunction);
+    assert(fd->type->nextOf()->ty == Tarray);
+    return ((TypeFunction *)fd->type)->nextOf()->nextOf();
+}
 
 /* Decoding UTF strings for foreach loops. Duplicates the functionality of
  * the twelve _aApplyXXn functions in aApply.d in the runtime.
@@ -5426,26 +5690,25 @@ Expression *foreachApplyUtf(InterState *istate, Expression *str, Expression *del
     return eresult;
 }
 
-/* If this is a built-in function, set 'result' to the interpreted result,
- * and return true.
- * Otherwise, return false
+/* If this is a built-in function, return the interpreted result,
+ * Otherwise, return NULL.
  */
-bool evaluateIfBuiltin(Expression **result, InterState *istate,
+Expression *evaluateIfBuiltin(InterState *istate, Loc loc,
     FuncDeclaration *fd, Expressions *arguments, Expression *pthis)
 {
     Expression *e = NULL;
     int nargs = arguments ? arguments->dim : 0;
 #if DMDV2
-    if (pthis && isAssocArray(pthis->type) && nargs==0)
+    if (pthis && isAssocArray(pthis->type))
     {
-        if (fd->ident == Id::length)
-            e = interpret_length(istate, pthis);
-        else if (fd->ident == Id::keys)
-            e = interpret_keys(istate, pthis, fd);
-        else if (fd->ident == Id::values)
-            e = interpret_values(istate, pthis, fd);
-        else if (fd->ident == Id::rehash)
-            e = pthis;  // rehash is a no-op
+        if (fd->ident == Id::length &&  nargs==0)
+            return interpret_length(istate, pthis);
+        else if (fd->ident == Id::keys && nargs==0)
+            return interpret_keys(istate, pthis, returnedArrayElementType(fd));
+        else if (fd->ident == Id::values && nargs==0)
+            return interpret_values(istate, pthis, returnedArrayElementType(fd));
+        else if (fd->ident == Id::rehash && nargs==0)
+            return pthis->interpret(istate, ctfeNeedLvalue);  // rehash is a no-op
     }
     if (!pthis)
     {
@@ -5458,31 +5721,67 @@ bool evaluateIfBuiltin(Expression **result, InterState *istate,
                 Expression *earg = arguments->tdata()[i];
                 earg = earg->interpret(istate);
                 if (earg == EXP_CANT_INTERPRET)
-                {
-                    *result = EXP_CANT_INTERPRET;
-                    return true;
-                }
+                    return earg;
                 args.tdata()[i] = earg;
             }
-            e = eval_builtin(b, &args);
+            e = eval_builtin(loc, b, &args);
             if (!e)
                 e = EXP_CANT_INTERPRET;
+        }
+    }
+    /* Horrid hack to retrieve the builtin AA functions after they've been
+     * mashed by the inliner.
+     */
+    if (!pthis)
+    {
+        Expression *firstarg =  nargs > 0 ? (Expression *)(arguments->data[0]) : NULL;
+        // Check for the first parameter being a templatized AA. Hack: we assume that
+        // template AA.var is always the AA data itself.
+        Expression *firstdotvar = (firstarg && firstarg->op == TOKdotvar)
+                ?  ((DotVarExp *)firstarg)->e1 : NULL;
+        if (nargs==3 && isAssocArray(firstarg->type) && !strcmp(fd->ident->string, "_aaApply"))
+            return interpret_aaApply(istate, firstarg, (Expression *)(arguments->data[2]));
+        if (nargs==3 && isAssocArray(firstarg->type) &&!strcmp(fd->ident->string, "_aaApply2"))
+            return interpret_aaApply(istate, firstarg, (Expression *)(arguments->data[2]));
+        if (firstdotvar && isAssocArray(firstdotvar->type))
+        {   if (fd->ident == Id::aaLen && nargs == 1)
+                return interpret_length(istate, firstdotvar->interpret(istate));
+            else if (fd->ident == Id::aaKeys && nargs == 2)
+            {
+                Expression *trueAA = firstdotvar->interpret(istate);
+                return interpret_keys(istate, trueAA, toBuiltinAAType(trueAA->type)->index);
+            }
+            else if (fd->ident == Id::aaValues && nargs == 3)
+            {
+                Expression *trueAA = firstdotvar->interpret(istate);
+                return interpret_values(istate, trueAA, toBuiltinAAType(trueAA->type)->nextOf());
+            }
+            else if (fd->ident == Id::aaRehash && nargs == 2)
+            {
+                return firstdotvar->interpret(istate, ctfeNeedLvalue);
+            }
         }
     }
 #endif
 #if DMDV1
     if (!pthis)
     {
-        if (fd->ident == Id::aaLen)
-            e = interpret_aaLen(istate, arguments);
-        else if (fd->ident == Id::aaKeys)
-            e = interpret_aaKeys(istate, arguments);
-        else if (fd->ident == Id::aaValues)
-            e = interpret_aaValues(istate, arguments);
-        else if (fd->ident == Id::aaRehash && nargs == 2)
-        {   // rehash is a no-op
-            Expression *earg = (Expression *)(arguments->data[0]);
-            return earg->interpret(istate, ctfeNeedLvalue);
+        Expression *firstarg =  nargs > 0 ? (Expression *)(arguments->data[0]) : NULL;
+        if (firstarg && firstarg->type->toBasetype()->ty == Taarray)
+        {
+            TypeAArray *firstAAtype = (TypeAArray *)firstarg->type;
+            if (fd->ident == Id::aaLen && nargs == 1)
+                return interpret_length(istate, firstarg);
+            else if (fd->ident == Id::aaKeys)
+                return interpret_keys(istate, firstarg, firstAAtype->index);
+            else if (fd->ident == Id::aaValues)
+                return interpret_values(istate, firstarg, firstAAtype->nextOf());
+            else if (nargs==2 && fd->ident == Id::aaRehash)
+                return firstarg->interpret(istate, ctfeNeedLvalue); //no-op
+            else if (nargs==3 && !strcmp(fd->ident->string, "_aaApply"))
+                return interpret_aaApply(istate, firstarg, (Expression *)(arguments->data[2]));
+            else if (nargs==3 && !strcmp(fd->ident->string, "_aaApply2"))
+                return interpret_aaApply(istate, firstarg, (Expression *)(arguments->data[2]));
         }
     }
 #endif
@@ -5503,19 +5802,12 @@ bool evaluateIfBuiltin(Expression **result, InterState *istate,
             {   Expression *str = arguments->tdata()[0];
                 str = str->interpret(istate);
                 if (str == EXP_CANT_INTERPRET)
-                {
-                    *result = EXP_CANT_INTERPRET;
-                    return true;
-                }
-                *result = foreachApplyUtf(istate, str, arguments->tdata()[1], rvs);
-                return true;
+                    return str;
+                return foreachApplyUtf(istate, str, arguments->tdata()[1], rvs);
             }
         }
     }
-    if (!e)
-        return false;
-    *result = e;
-    return true;
+    return e;
 }
 
 /*************************** CTFE Sanity Checks ***************************/

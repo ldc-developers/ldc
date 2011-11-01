@@ -4,7 +4,7 @@
 #include "declaration.h"
 #include "enum.h"
 #include "id.h"
-#include "mem.h"
+#include "rmem.h"
 #include "template.h"
 
 #include "gen/irstate.h"

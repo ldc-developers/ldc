@@ -186,6 +186,12 @@ list(REMOVE_ITEM FE_SRC
 	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
 	${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
+# exclude root/win32.c on non-windows systems
+if(NOT WIN32)
+    list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/win32.c)
+endif(NOT WIN32)
+# disable dmd gc
+list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)
 set(LDC_SOURCE_FILES
 	${LDC_GENERATED}
 	${FE_SRC}

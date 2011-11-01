@@ -3016,6 +3016,8 @@ STUB(ScopeExp);
 
 #if DMDV2
 STUB(SymbolExp);
+STUB(PowExp);
+STUB(PowAssignExp);
 #endif
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
