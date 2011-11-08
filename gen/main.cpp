@@ -573,6 +573,7 @@ LDC_TARGETS
         VersionCondition::addPredefinedGlobalIdent("Windows");
         VersionCondition::addPredefinedGlobalIdent("Win32");
         VersionCondition::addPredefinedGlobalIdent("mingw32");
+        VersionCondition::addPredefinedGlobalIdent("MinGW");
     }
     // FIXME: cygwin
     else if (triple.find("cygwin") != npos)
