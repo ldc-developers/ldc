@@ -540,8 +540,6 @@ version (GC_Use_Data_Dyld)
                 uint reserved3;
         }
 
-        alias extern (C) void function (mach_header* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
-
         import core.sys.osx.mach.getsect;
         import core.sys.osx.mach.loader;
 
@@ -550,6 +548,7 @@ version (GC_Use_Data_Dyld)
           alias section_64 section_t;
         }
 
+        alias extern (C) void function (mach_header_t* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
         extern (C) void _dyld_register_func_for_add_image(DyldFuncPointer func);
         extern (C) void _dyld_register_func_for_remove_image(DyldFuncPointer func);
 
