@@ -11,6 +11,7 @@ default:
         "-I@INCLUDE_INSTALL_DIR@/@RUNTIME_AIO@",
         "-I@INCLUDE_INSTALL_DIR@/ldc",
         "-L-L@CMAKE_INSTALL_LIBDIR@",
+        "-d-version=Tango",
         "-defaultlib=@RUNTIME_AIO@",
         "-debuglib=@RUNTIME_AIO@"
     ];
