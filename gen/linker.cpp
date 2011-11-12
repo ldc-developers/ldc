@@ -1,6 +1,7 @@
 #include "gen/linker.h"
 #include "gen/llvm.h"
 #include "llvm/Linker.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
@@ -96,9 +97,9 @@ int linkExecutable(const char* argv0)
     assert(gExePath.isValid());
 
     // create path to exe
-    llvm::sys::Path exedir(gExePath);
-    exedir.set(gExePath.getDirname());
-    if (!exedir.exists())
+    llvm::sys::Path exedir(llvm::sys::path::parent_path(gExePath.str()));
+    bool exists;
+    if (!(!llvm::sys::fs::exists(exedir.str(), exists) && exists))
     {
         exedir.createDirectoryOnDisk(true, &errstr);
         if (!errstr.empty())
@@ -265,9 +266,9 @@ int linkObjToExecutable(const char* argv0)
     assert(gExePath.isValid());
 
     // create path to exe
-    llvm::sys::Path exedir(gExePath);
-    exedir.set(gExePath.getDirname());
-    if (!exedir.exists())
+    llvm::sys::Path exedir(llvm::sys::path::parent_path(gExePath.str()));
+    bool exists;
+    if (!(!llvm::sys::fs::exists(exedir.str(), exists) && exists))
     {
         exedir.createDirectoryOnDisk(true, &errstr);
         if (!errstr.empty())
@@ -363,7 +364,8 @@ void deleteExecutable()
     if (!gExePath.isEmpty())
     {
         assert(gExePath.isValid());
-        assert(!gExePath.isDirectory());
+        bool is_directory;
+        assert(!(!llvm::sys::fs::is_directory(gExePath.str(), is_directory) && is_directory));
         gExePath.eraseFromDisk(false);
     }
 }
@@ -392,7 +394,11 @@ int runExecutable()
     int status = llvm::sys::Program::ExecuteAndWait(gExePath, &args[0], NULL, NULL, 0,0, &errstr);
     if (status < 0)
     {
+#if defined(_MSC_VER)
+        error("program received signal %d", -status);
+#else
         error("program received signal %d (%s)", -status, strsignal(-status));
+#endif
         return -status;
     }
 
