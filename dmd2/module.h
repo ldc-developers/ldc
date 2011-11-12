@@ -211,7 +211,7 @@ struct Module : Package
     llvm::PATypeHolder* moduleInfoType;
 
     // array ops emitted in this module already
-    StringTable arrayfuncs;
+    AA *arrayfuncs;
 
     bool isRoot;
 #endif

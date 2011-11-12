@@ -107,6 +107,8 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
                 p = "const";
             else if (isImmutable())
                 p = "immutable";
+            else if (isWild())
+                p = "inout";
             else if (storage_class & STCmanifest)
                 p = "enum";
             else if (!t->isAssignable())
@@ -291,14 +293,31 @@ void TypedefDeclaration::semantic(Scope *sc)
     //printf("TypedefDeclaration::semantic(%s) sem = %d\n", toChars(), sem);
     if (sem == SemanticStart)
     {   sem = SemanticIn;
+        parent = sc->parent;
+        int errors = global.errors;
+        Type *savedbasetype = basetype;
         basetype = basetype->semantic(loc, sc);
+        if (errors != global.errors)
+        {
+            basetype = savedbasetype;
+            sem = SemanticStart;
+            return;
+        }
         sem = SemanticDone;
 #if DMDV2
         type = type->addStorageClass(storage_class);
 #endif
+        Type *savedtype = type;
         type = type->semantic(loc, sc);
         if (sc->parent->isFuncDeclaration() && init)
             semantic2(sc);
+        if (errors != global.errors)
+        {
+            basetype = savedbasetype;
+            type = savedtype;
+            sem = SemanticStart;
+            return;
+        }
         storage_class |= sc->stc & STCdeprecated;
     }
     else if (sem == SemanticIn)
@@ -314,7 +333,14 @@ void TypedefDeclaration::semantic2(Scope *sc)
     {   sem = Semantic2Done;
         if (init)
         {
+            Initializer *savedinit = init;
+            int errors = global.errors;
             init = init->semantic(sc, basetype, WANTinterpret);
+            if (errors != global.errors)
+            {
+                init = savedinit;
+                return;
+            }
 
             ExpInitializer *ie = init->isExpInitializer();
             if (ie)
@@ -440,6 +466,9 @@ void AliasDeclaration::semantic(Scope *sc)
     // type. If it is a symbol, then aliassym is set and type is NULL -
     // toAlias() will return aliasssym.
 
+    int errors = global.errors;
+    Type *savedtype = type;
+
     Dsymbol *s;
     Type *t;
     Expression *e;
@@ -486,12 +515,15 @@ void AliasDeclaration::semantic(Scope *sc)
     }
     else if (t)
     {
-        type = t;
+        type = t->semantic(loc, sc);
         //printf("\talias resolved to type %s\n", type->toChars());
     }
     if (overnext)
         ScopeDsymbol::multiplyDefined(0, this, overnext);
     this->inSemantic = 0;
+
+    if (errors != global.errors)
+        type = savedtype;
     return;
 
   L2:
@@ -505,6 +537,7 @@ void AliasDeclaration::semantic(Scope *sc)
     }
     else
     {
+        Dsymbol *savedovernext = overnext;
         FuncDeclaration *f = s->toAlias()->isFuncDeclaration();
         if (f)
         {
@@ -527,6 +560,14 @@ void AliasDeclaration::semantic(Scope *sc)
         {
             assert(global.errors);
             s = NULL;
+        }
+        if (errors != global.errors)
+        {
+            type = savedtype;
+            overnext = savedovernext;
+            aliassym = NULL;
+            inSemantic = 0;
+            return;
         }
     }
     //printf("setting aliassym %s to %s %s\n", toChars(), s->kind(), s->toChars());
@@ -585,7 +626,7 @@ Dsymbol *AliasDeclaration::toAlias()
     //static int count; if (++count == 10) *(char*)0=0;
     if (inSemantic)
     {   error("recursive alias declaration");
-        aliassym = new TypedefDeclaration(loc, ident, Type::terror, NULL);
+        aliassym = new AliasDeclaration(loc, ident, Type::terror);
         type = Type::terror;
     }
     else if (!aliassym && scope)
@@ -988,6 +1029,8 @@ Lnomatch:
             }
 
             VarDeclaration *v = new VarDeclaration(loc, arg->type, id, ti);
+            if (arg->storageClass & STCparameter)
+                v->storage_class |= arg->storageClass;
             //printf("declaring field %s of type %s\n", v->toChars(), v->type->toChars());
             v->semantic(sc);
             
@@ -1110,11 +1153,19 @@ Lnomatch:
         error("only parameters or foreach declarations can be ref");
     }
 
-    if ((storage_class & (STCstatic | STCextern | STCtls | STCgshared | STCmanifest) ||
-        isDataseg()) &&
-        type->hasWild())
+    if (type->hasWild() &&
+        !(type->ty == Tpointer && type->nextOf()->ty == Tfunction || type->ty == Tdelegate))
     {
-        error("only fields, parameters or stack based variables can be inout");
+        if (storage_class & (STCstatic | STCextern | STCtls | STCgshared | STCmanifest | STCfield) ||
+            isDataseg()
+            )
+        {
+            error("only parameters or stack based variables can be inout");
+        }
+        if (sc->func && !sc->func->type->hasWild())
+        {
+            error("inout variables can only be declared inside inout functions");
+        }
     }
 
     if (!(storage_class & (STCctfe | STCref)) && tb->ty == Tstruct &&
@@ -1401,9 +1452,7 @@ Lnomatch:
 
             if (!global.errors && !inferred)
             {
-                unsigned errors = global.errors;
-                global.gag++;
-                //printf("+gag\n");
+                unsigned errors = global.startGagging();
                 Expression *e;
                 Initializer *i2 = init;
                 inuse++;
@@ -1462,12 +1511,8 @@ Lnomatch:
                     i2 = i2->semantic(sc, type, WANTinterpret);
                 }
                 inuse--;
-                global.gag--;
-                //printf("-gag\n");
-                if (errors != global.errors)    // if errors happened
+                if (global.endGagging(errors))    // if errors happened
                 {
-                    if (global.gag == 0)
-                        global.errors = errors; // act as if nothing happened
 #if DMDV2
                     /* Save scope for later use, to try again
                      */

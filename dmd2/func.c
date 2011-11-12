@@ -38,6 +38,8 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     //printf("storage_class = x%x\n", storage_class);
     this->storage_class = storage_class;
     this->type = type;
+    if (type)
+        this->storage_class &= ~(STC_TYPECTOR | STC_FUNCATTR);
     this->loc = loc;
     this->endloc = endloc;
     fthrows = NULL;
@@ -77,6 +79,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
      * NULL for the return type.
      */
     inferRetType = (type && type->nextOf() == NULL);
+    storage_class2 = 0;
     hasReturnExp = 0;
     nrvo_can = 1;
     nrvo_var = NULL;
@@ -199,8 +202,15 @@ void FuncDeclaration::semantic(Scope *sc)
     if (!type->deco)
     {
         sc = sc->push();
-        sc->stc |= storage_class & (STCref | STCnothrow | STCpure | STCdisable
-            | STCsafe | STCtrusted | STCsystem | STCproperty);      // forward to function type
+        sc->stc |= storage_class & STCdisable;  // forward to function type
+        TypeFunction *tf = (TypeFunction *)type;
+        if (tf->isref)      sc->stc |= STCref;
+        if (tf->isnothrow)  sc->stc |= STCnothrow;
+        if (tf->isproperty) sc->stc |= STCproperty;
+        if (tf->purity == PUREfwdref)   sc->stc |= STCpure;
+        if (tf->trust == TRUSTsafe)     sc->stc |= STCsafe;
+        if (tf->trust == TRUSTsystem)   sc->stc |= STCsystem;
+        if (tf->trust == TRUSTtrusted)  sc->stc |= STCtrusted;
 
         if (isCtorDeclaration())
             sc->flags |= SCOPEctor;
@@ -287,12 +297,9 @@ void FuncDeclaration::semantic(Scope *sc)
     if (fbody &&
         (isFuncLiteralDeclaration() || parent->isTemplateInstance()))
     {
-        if (f->purity == PUREimpure &&      // purity not specified
-            !f->hasLazyParameters()
-           )
-        {
+        if (f->purity == PUREimpure)        // purity not specified
             flags |= FUNCFLAGpurityInprocess;
-        }
+
         if (f->trust == TRUSTdefault)
             flags |= FUNCFLAGsafetyInprocess;
 
@@ -517,12 +524,13 @@ void FuncDeclaration::semantic(Scope *sc)
                     warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
 #endif
 
-                if (fdv->toParent() == parent)
+                FuncDeclaration *fdc = ((Dsymbol *)cd->vtbl.data[vi])->isFuncDeclaration();
+                if (fdc->toParent() == parent)
                 {
                     // If both are mixins, then error.
                     // If either is not, the one that is not overrides
                     // the other.
-                    if (fdv->parent->isClassDeclaration())
+                    if (fdc->parent->isClassDeclaration())
                         break;
                     if (!this->parent->isClassDeclaration()
 #if !BREAKABI
@@ -2951,7 +2959,7 @@ int FuncDeclaration::addPreInvariant()
     return (ad &&
             //ad->isClassDeclaration() &&
             global.params.useInvariants &&
-            (protection == PROTpublic || protection == PROTexport) &&
+            (protection == PROTprotected || protection == PROTpublic || protection == PROTexport) &&
             !naked &&
             ident != Id::cpctor);
 }
@@ -2963,7 +2971,7 @@ int FuncDeclaration::addPostInvariant()
             ad->inv &&
             //ad->isClassDeclaration() &&
             global.params.useInvariants &&
-            (protection == PROTpublic || protection == PROTexport) &&
+            (protection == PROTprotected || protection == PROTpublic || protection == PROTexport) &&
             !naked &&
             ident != Id::cpctor);
 }
@@ -3224,10 +3232,10 @@ void CtorDeclaration::semantic(Scope *sc)
     //printf("CtorDeclaration::semantic() %s\n", toChars());
     TypeFunction *tf = (TypeFunction *)type;
     assert(tf && tf->ty == Tfunction);
-    Expressions *fargs = ((TypeFunction *)type)->fargs;         // for auto ref
 
     sc = sc->push();
     sc->stc &= ~STCstatic;              // not a static constructor
+    sc->flags |= SCOPEctor;
 
     parent = sc->parent;
     Dsymbol *parent = toParent2();
@@ -3243,17 +3251,16 @@ void CtorDeclaration::semantic(Scope *sc)
     {   tret = ad->handle;
         assert(tret);
         tret = tret->addStorageClass(storage_class | sc->stc);
+        tret = tret->addMod(type->mod);
     }
-    tf = new TypeFunction(tf->parameters, tret, tf->varargs, LINKd, storage_class | sc->stc);
-    tf->fargs = fargs;
-    type = tf;
+    tf->next = tret;
+    type = type->semantic(loc, sc);
 
 #if STRUCTTHISREF
     if (ad && ad->isStructDeclaration())
-    {   ((TypeFunction *)type)->isref = 1;
-        if (!originalType)
-            // Leave off the "ref"
-            originalType = new TypeFunction(tf->parameters, tret, tf->varargs, LINKd, storage_class | sc->stc);
+    {   if (!originalType)
+            originalType = type->syntaxCopy();
+        ((TypeFunction *)type)->isref = 1;
     }
 #endif
     if (!originalType)
@@ -3318,18 +3325,6 @@ int CtorDeclaration::addPostInvariant()
     return (isThis() && vthis && global.params.useInvariants);
 }
 
-
-void CtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    TypeFunction *tf = (TypeFunction *)type;
-    assert(tf && tf->ty == Tfunction);
-
-    if (originalType && originalType->ty == Tfunction)
-        ((TypeFunction *)originalType)->attributesToCBuffer(buf, 0);
-    buf->writestring("this");
-    Parameter::argsToCBuffer(buf, hgs, tf->parameters, tf->varargs);
-    bodyToCBuffer(buf, hgs);
-}
 
 /********************************* PostBlitDeclaration ****************************/
 

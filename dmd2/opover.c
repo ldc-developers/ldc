@@ -1275,7 +1275,10 @@ void inferApplyArgTypes(enum TOK op, Parameters *arguments, Expression *aggr, Mo
                             break;
                         goto Lapply;
                     }
+                    // Resolve inout qualifier of front type
                     arg->type = fd->type->nextOf();
+                    if (arg->type)
+                        arg->type = arg->type->substWildTo(tab->mod);
                 }
                 break;
             }

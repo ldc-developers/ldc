@@ -666,7 +666,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     // opEquals
 #if DMDV2
-    fd = sd->eq;
+    fd = sd->xeq;
 #else
     fd = find_method_overload(sd, Id::eq, tfcmpptr, gm);
 #endif

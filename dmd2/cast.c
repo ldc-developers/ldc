@@ -143,6 +143,8 @@ MATCH Expression::implicitConvTo(Type *t)
         toChars(), type->toChars(), t->toChars());
 #endif
     //static int nest; if (++nest == 10) halt();
+    if (t == Type::terror)
+        return MATCHnomatch;
     if (!type)
     {   error("%s is not an expression", toChars());
         type = Type::terror;
@@ -543,6 +545,10 @@ MATCH ArrayLiteralExp::implicitConvTo(Type *t)
             if (result == MATCHnomatch)
                 break;                          // no need to check for worse
         }
+
+        if (!result)
+            result = type->implicitConvTo(t);
+
         return result;
     }
     else
@@ -590,7 +596,7 @@ MATCH CallExp::implicitConvTo(Type *t)
     /* Allow the result of strongly pure functions to
      * convert to immutable
      */
-    if (f && f->isPure() == PUREstrong)
+    if (f && f->isPure() == PUREstrong && !f->type->hasWild())
         return type->invariantOf()->implicitConvTo(t);
 
     return MATCHnomatch;
@@ -1720,7 +1726,8 @@ Lagain:
     if (t1 == t2)
     {
     }
-    else if (t1->ty == Tpointer && t2->ty == Tpointer)
+    else if ((t1->ty == Tpointer && t2->ty == Tpointer) ||
+             (t1->ty == Tdelegate && t2->ty == Tdelegate))
     {
         // Bring pointers to compatible type
         Type *t1n = t1->nextOf();
@@ -1760,7 +1767,14 @@ Lagain:
             else
                 d->trust = TRUSTtrusted;
 
-            Type *tx = d->pointerTo();
+            Type *tx = NULL;
+            if (t1->ty == Tdelegate)
+            {
+                tx = new TypeDelegate(d);
+                tx = tx->merge();
+            }
+            else
+                tx = d->pointerTo();
 
             if (t1->implicitConvTo(tx) && t2->implicitConvTo(tx))
             {

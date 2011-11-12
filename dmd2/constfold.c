@@ -558,6 +558,83 @@ Expression *Mod(Type *type, Expression *e1, Expression *e2)
     return e;
 }
 
+Expression *Pow(Type *type, Expression *e1, Expression *e2)
+{   Expression *e;
+    Loc loc = e1->loc;
+
+    // Handle integer power operations.
+    if (e2->type->isintegral())
+    {
+        Expression * r;
+        Expression * v;
+        dinteger_t n = e2->toInteger();
+        bool neg;
+
+        if (!e2->type->isunsigned() && (sinteger_t)n < 0)
+        {
+            if (e1->type->isintegral())
+                return EXP_CANT_INTERPRET;
+
+            // Don't worry about overflow, from now on n is unsigned.
+            neg = true;
+            n = -n;
+        }
+        else
+            neg = false;
+
+        if (e1->type->isfloating())
+        {
+            r = new RealExp(loc, e1->toReal(), e1->type);
+            v = new RealExp(loc, 1.0, e1->type);
+        }
+        else
+        {
+            r = new RealExp(loc, e1->toReal(), Type::tfloat64);
+            v = new RealExp(loc, 1.0, Type::tfloat64);
+        }
+
+        while (n != 0)
+        {
+            if (n & 1)
+                v = Mul(v->type, v, r);
+            n >>= 1;
+            r = Mul(r->type, r, r);
+        }
+
+        if (neg)
+            v = Div(v->type, new RealExp(loc, 1.0, v->type), v);
+
+        if (type->isintegral())
+            e = new IntegerExp(loc, v->toInteger(), type);
+        else
+            e = new RealExp(loc, v->toReal(), type);
+    }
+    else if (e2->type->isfloating())
+    {
+        // x ^^ y for x < 0 and y not an integer is not defined
+        if (e1->toReal() < 0.0)
+        {
+            e = new RealExp(loc, Port::nan, type);
+        }
+        else if (e2->toReal() == 0.5)
+        {
+            // Special case: call sqrt directly.
+            Expressions args;
+            args.setDim(1);
+            args.tdata()[0] = e1;
+            e = eval_builtin(loc, BUILTINsqrt, &args);
+            if (!e)
+                e = EXP_CANT_INTERPRET;
+        }
+        else
+            e = EXP_CANT_INTERPRET;
+    }
+    else
+        e = EXP_CANT_INTERPRET;
+
+    return e;
+}
+
 Expression *Shl(Type *type, Expression *e1, Expression *e2)
 {   Expression *e;
     Loc loc = e1->loc;
@@ -581,6 +658,7 @@ Expression *Shr(Type *type, Expression *e1, Expression *e2)
                 break;
 
         case Tuns8:
+        case Tchar:
                 value = (d_uns8)(value) >> count;
                 break;
 
@@ -589,6 +667,7 @@ Expression *Shr(Type *type, Expression *e1, Expression *e2)
                 break;
 
         case Tuns16:
+        case Twchar:
                 value = (d_uns16)(value) >> count;
                 break;
 
@@ -597,6 +676,7 @@ Expression *Shr(Type *type, Expression *e1, Expression *e2)
                 break;
 
         case Tuns32:
+        case Tdchar:
                 value = (d_uns32)(value) >> count;
                 break;
 
@@ -630,18 +710,21 @@ Expression *Ushr(Type *type, Expression *e1, Expression *e2)
     {
         case Tint8:
         case Tuns8:
+        case Tchar:
                 // Possible only with >>>=. >>> always gets promoted to int.
                 value = (value & 0xFF) >> count;
                 break;
 
         case Tint16:
         case Tuns16:
+        case Twchar:
                 // Possible only with >>>=. >>> always gets promoted to int.
                 value = (value & 0xFFFF) >> count;
                 break;
 
         case Tint32:
         case Tuns32:
+        case Tdchar:
                 value = (value & 0xFFFFFFFF) >> count;
                 break;
 
@@ -1270,7 +1353,10 @@ Expression *Index(Type *type, Expression *e1, Expression *e2)
         uinteger_t i = e2->toInteger();
 
         if (i >= es1->len)
+        {
             e1->error("string index %ju is out of bounds [0 .. %zu]", i, es1->len);
+            e = new ErrorExp();
+        }
         else
         {
             e = new IntegerExp(loc, es1->charAt(i), type);
@@ -1282,7 +1368,9 @@ Expression *Index(Type *type, Expression *e1, Expression *e2)
         uinteger_t i = e2->toInteger();
 
         if (i >= length)
-        {   e1->error("array index %ju is out of bounds %s[0 .. %ju]", i, e1->toChars(), length);
+        {
+            e1->error("array index %ju is out of bounds %s[0 .. %ju]", i, e1->toChars(), length);
+            e = new ErrorExp();
         }
         else if (e1->op == TOKarrayliteral)
         {   ArrayLiteralExp *ale = (ArrayLiteralExp *)e1;
@@ -1299,7 +1387,9 @@ Expression *Index(Type *type, Expression *e1, Expression *e2)
         if (e1->op == TOKarrayliteral)
         {   ArrayLiteralExp *ale = (ArrayLiteralExp *)e1;
             if (i >= ale->elements->dim)
-            {   e1->error("array index %ju is out of bounds %s[0 .. %u]", i, e1->toChars(), ale->elements->dim);
+            {
+                e1->error("array index %ju is out of bounds %s[0 .. %u]", i, e1->toChars(), ale->elements->dim);
+                e = new ErrorExp();
             }
             else
             {   e = ale->elements->tdata()[i];
@@ -1353,7 +1443,10 @@ Expression *Slice(Type *type, Expression *e1, Expression *lwr, Expression *upr)
         uinteger_t iupr = upr->toInteger();
 
         if (iupr > es1->len || ilwr > iupr)
+        {
             e1->error("string slice [%ju .. %ju] is out of bounds", ilwr, iupr);
+            e = new ErrorExp();
+        }
         else
         {
             void *s;
@@ -1380,7 +1473,10 @@ Expression *Slice(Type *type, Expression *e1, Expression *lwr, Expression *upr)
         uinteger_t iupr = upr->toInteger();
 
         if (iupr > es1->elements->dim || ilwr > iupr)
+        {
             e1->error("array slice [%ju .. %ju] is out of bounds", ilwr, iupr);
+            e = new ErrorExp();
+        }
         else
         {
             Expressions *elements = new Expressions();

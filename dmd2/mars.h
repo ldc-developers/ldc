@@ -189,6 +189,7 @@ struct Param
 #endif
     ARCH cpu;		// target CPU
     OS   os;
+    bool alwaysframe;   // always emit standard stack frame
     char map;           // generate linker .map file
     bool isLE;      // generate little endian code
     bool is64bit;       // generate 64 bit code
@@ -307,9 +308,18 @@ struct Global
 #endif
 
     Param params;
-    unsigned errors;    // number of errors reported so far
-    unsigned warnings;  // number of warnings reported so far
-    unsigned gag;       // !=0 means gag reporting of errors & warnings
+    unsigned errors;       // number of errors reported so far
+    unsigned warnings;     // number of warnings reported so far
+    unsigned gag;          // !=0 means gag reporting of errors & warnings
+    unsigned gaggedErrors; // number of errors reported while gagged
+
+    // Start gagging. Return the current number of gagged errors
+    unsigned startGagging();
+
+    /* End gagging, restoring the old gagged state.
+     * Return true if errors occured while gagged.
+     */
+    bool endGagging(unsigned oldGagged);
 
     Global();
 };

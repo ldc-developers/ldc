@@ -87,6 +87,7 @@ enum PURE;
                                         // but not typed as "shared"
 #define STCwild         0x80000000LL    // for "wild" type constructor
 #define STC_TYPECTOR    (STCconst | STCimmutable | STCshared | STCwild)
+#define STC_FUNCATTR    (STCref | STCnothrow | STCpure | STCproperty | STCsafe | STCtrusted | STCsystem)
 
 #define STCproperty     0x100000000LL
 #define STCsafe         0x200000000LL
@@ -154,6 +155,7 @@ struct Declaration : Dsymbol
     int isAbstract()     { return storage_class & STCabstract; }
     int isConst()        { return storage_class & STCconst; }
     int isImmutable()    { return storage_class & STCimmutable; }
+    int isWild()         { return storage_class & STCwild; }
     int isAuto()         { return storage_class & STCauto; }
     int isScope()        { return storage_class & STCscope; }
     int isSynchronized() { return storage_class & STCsynchronized; }
@@ -680,9 +682,18 @@ enum BUILTIN
     BUILTINtan,                 // std.math.tan
     BUILTINsqrt,                // std.math.sqrt
     BUILTINfabs,                // std.math.fabs
+    BUILTINatan2,               // std.math.atan2
+    BUILTINrndtol,              // std.math.rndtol
+    BUILTINexpm1,               // std.math.expm1
+    BUILTINexp2,                // std.math.exp2
+    BUILTINyl2x,                // std.math.yl2x
+    BUILTINyl2xp1,              // std.math.yl2xp1
+    BUILTINbsr,                 // core.bitop.bsr
+    BUILTINbsf,                 // core.bitop.bsf
+    BUILTINbswap,               // core.bitop.bswap
 };
 
-Expression *eval_builtin(enum BUILTIN builtin, Expressions *arguments);
+Expression *eval_builtin(Loc loc, enum BUILTIN builtin, Expressions *arguments);
 
 #else
 enum BUILTIN { };
@@ -729,6 +740,7 @@ struct FuncDeclaration : Declaration
                                         // of the 'introducing' function
                                         // this one is overriding
     int inferRetType;                   // !=0 if return type is to be inferred
+    StorageClass storage_class2;        // storage class for template onemember's
 
     // Things that should really go into Scope
     int hasReturnExp;                   // 1 if there's a return exp; statement
@@ -907,7 +919,6 @@ struct CtorDeclaration : FuncDeclaration
     CtorDeclaration(Loc loc, Loc endloc, StorageClass stc, Type *type);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
     char *toChars();
     int isVirtual();

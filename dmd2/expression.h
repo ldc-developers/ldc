@@ -1562,6 +1562,9 @@ ASSIGNEXP(Mod)
 ASSIGNEXP(And)
 ASSIGNEXP(Or)
 ASSIGNEXP(Xor)
+#if DMDV2
+ASSIGNEXP(Pow)
+#endif
 #undef X
 
 #define X(a)
@@ -1574,18 +1577,6 @@ ASSIGNEXP(Cat)
 #undef X
 #undef ASSIGNEXP
 #undef ASSIGNEXP_TOELEM
-
-// Only a reduced subset of operations for now.
-struct PowAssignExp : BinAssignExp
-{
-    PowAssignExp(Loc loc, Expression *e1, Expression *e2);
-    Expression *semantic(Scope *sc);
-    void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
-    Expression *buildArrayLoop(Parameters *fparams);
-
-    // For operator overloading
-    Identifier *opId();
-};
 
 struct AddExp : BinExp
 {
@@ -1731,12 +1722,22 @@ struct PowExp : BinExp
 {
     PowExp(Loc loc, Expression *e1, Expression *e2);
     Expression *semantic(Scope *sc);
+    Expression *optimize(int result);
+    Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
     Expression *buildArrayLoop(Parameters *fparams);
 
     // For operator overloading
     Identifier *opId();
     Identifier *opId_r();
+
+#if IN_DMD
+    elem *toElem(IRState *irs);
+#endif
+
+#if IN_LLVM
+    DValue* toElem(IRState* irs);
+#endif
 };
 #endif
 
@@ -1958,6 +1959,7 @@ struct InExp : BinExp
 struct RemoveExp : BinExp
 {
     RemoveExp(Loc loc, Expression *e1, Expression *e2);
+    Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 #if IN_DMD
     elem *toElem(IRState *irs);
@@ -2119,6 +2121,7 @@ Expression *Min(Type *type, Expression *e1, Expression *e2);
 Expression *Mul(Type *type, Expression *e1, Expression *e2);
 Expression *Div(Type *type, Expression *e1, Expression *e2);
 Expression *Mod(Type *type, Expression *e1, Expression *e2);
+Expression *Pow(Type *type, Expression *e1, Expression *e2);
 Expression *Shl(Type *type, Expression *e1, Expression *e2);
 Expression *Shr(Type *type, Expression *e1, Expression *e2);
 Expression *Ushr(Type *type, Expression *e1, Expression *e2);

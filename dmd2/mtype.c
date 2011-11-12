@@ -198,6 +198,10 @@ void Type::init(Ir* _sir)
 void Type::init()
 #endif
 {
+    stringtable.init();
+#if IN_LLVM
+    deco_stringtable.init();
+#endif
     Lexer::initKeywords();
 
     for (size_t i = 0; i < TMAX; i++)
@@ -362,13 +366,10 @@ Type *Type::semantic(Loc loc, Scope *sc)
 Type *Type::trySemantic(Loc loc, Scope *sc)
 {
     //printf("+trySemantic(%s) %d\n", toChars(), global.errors);
-    unsigned errors = global.errors;
-    global.gag++;                       // suppress printing of error messages
+    unsigned errors = global.startGagging();
     Type *t = semantic(loc, sc);
-    global.gag--;
-    if (errors != global.errors)        // if any errors happened
+    if (global.endGagging(errors))        // if any errors happened
     {
-        global.errors = errors;
         t = NULL;
     }
     //printf("-trySemantic(%s) %d\n", toChars(), global.errors);
@@ -1098,6 +1099,37 @@ Type *Type::makeMutable()
     return t;
 }
 
+/*************************************
+ * Apply STCxxxx bits to existing type.
+ * Use *before* semantic analysis is run.
+ */
+
+Type *Type::addSTC(StorageClass stc)
+{   Type *t = this;
+
+    if (stc & STCconst)
+    {   if (t->isShared())
+            t = t->makeSharedConst();
+        else
+            t = t->makeConst();
+    }
+    if (stc & STCimmutable)
+        t = t->makeInvariant();
+    if (stc & STCshared)
+    {   if (t->isConst())
+            t = t->makeSharedConst();
+        else
+            t = t->makeShared();
+    }
+    if (stc & STCwild)
+    {   if (t->isShared())
+            t = t->makeSharedWild();
+        else
+            t = t->makeWild();
+    }
+    return t;
+}
+
 /************************************
  * Apply MODxxxx bits to existing type.
  */
@@ -1531,6 +1563,7 @@ void Type::modToBuffer(OutBuffer *buf)
 Type *Type::merge()
 {   Type *t;
 
+    if (ty == Terror) return this;
     //printf("merge(%s)\n", toChars());
     t = this;
     assert(t);
@@ -2056,9 +2089,94 @@ int Type::hasWild()
  * Return MOD bits matching argument type (targ) to wild parameter type (this).
  */
 
+unsigned getWildModConv(Type *twild, Type *targ)
+{
+    assert(twild);
+    assert(targ);
+
+    unsigned mod = 0;
+
+    if (twild->nextOf())
+        mod = getWildModConv(twild->nextOf(), targ->nextOf());
+
+    if (!mod)
+    {
+        if (twild->isWild())
+        {
+            if (targ->isWild())
+                mod = MODwild;
+            else if (targ->isConst())
+                mod = MODconst;
+            else if (targ->isImmutable())
+                mod = MODimmutable;
+            else if (targ->isMutable())
+                mod = MODmutable;
+            else
+                assert(0);
+        }
+    }
+
+    return mod;
+}
+
 unsigned Type::wildMatch(Type *targ)
 {
+    //printf("Type::wildMatch this = '%s', targ = '%s'\n", toChars(), targ->toChars());
+    assert(hasWild());
+
+    Type *tc = substWildTo(MODconst);
+    if (targ->implicitConvTo(tc))
+        return getWildModConv(this, targ);
+
     return 0;
+}
+
+Type *Type::substWildTo(unsigned mod)
+{
+    //printf("+Type::substWildTo this = %s, mod = x%x\n", toChars(), mod);
+    Type *t;
+
+    if (nextOf())
+    {
+        t = nextOf()->substWildTo(mod);
+        if (t == nextOf())
+            t = this;
+        else
+        {
+            if (ty == Tpointer)
+                t = t->pointerTo();
+            else if (ty == Tarray)
+                t = t->arrayOf();
+            else if (ty == Tsarray)
+                t = new TypeSArray(t, ((TypeSArray *)this)->dim->syntaxCopy());
+            else if (ty == Taarray)
+            {
+                t = new TypeAArray(t, ((TypeAArray *)this)->index->syntaxCopy());
+                t = t->merge();
+            }
+            else
+                assert(0);
+
+            t = t->addMod(this->mod);
+        }
+    }
+    else
+        t = this;
+
+    if (isWild())
+    {
+        if (mod & MODconst)
+            t = t->constOf();
+        else if (mod & MODimmutable)
+            t = t->invariantOf();
+        else if (mod & MODwild)
+            t = t->wildOf();
+        else
+            t = t->mutableOf();
+    }
+
+    //printf("-Type::substWildTo t = %s\n", t->toChars());
+    return t;
 }
 
 /********************************
@@ -2168,30 +2286,7 @@ Type *TypeNext::reliesOnTident()
 
 int TypeNext::hasWild()
 {
-    return mod == MODwild || next->hasWild();
-}
-
-/***************************************
- * Return MOD bits matching argument type (targ) to wild parameter type (this).
- */
-
-unsigned TypeNext::wildMatch(Type *targ)
-{   unsigned mod;
-
-    Type *tb = targ->nextOf();
-    if (!tb)
-        return 0;
-    tb = tb->toBasetype();
-    if (tb->isMutable())
-        mod = MODmutable;
-    else if (tb->isConst() || tb->isWild())
-        return MODconst;
-    else if (tb->isImmutable())
-        mod = MODimmutable;
-    else
-        assert(0);
-    mod |= next->wildMatch(tb);
-    return mod;
+    return mod & MODwild || (next && next->hasWild());
 }
 
 
@@ -3152,6 +3247,11 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 #if LOGDOTEXP
     printf("TypeArray::dotExp(e = '%s', ident = '%s')\n", e->toChars(), ident->toChars());
 #endif
+
+    if (!n->isMutable())
+        if (ident == Id::sort || ident == Id::reverse)
+            error(e->loc, "can only %s a mutable array\n", ident->toChars());
+
     if (ident == Id::reverse && (n->ty == Tchar || n->ty == Twchar))
     {
         Expression *ec;
@@ -3221,6 +3321,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         int size = next->size(e->loc);
         int dup;
 
+        Expression *olde = e;
         assert(size);
         dup = (ident == Id::dup || ident == Id::idup);
         //LDC: Build arguments.
@@ -3263,8 +3364,17 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         if (ident == Id::idup)
         {   Type *einv = next->invariantOf();
             if (next->implicitConvTo(einv) < MATCHconst)
-                error(e->loc, "cannot implicitly convert element type %s to immutable", next->toChars());
+                error(e->loc, "cannot implicitly convert element type %s to immutable in %s.idup",
+                    next->toChars(), olde->toChars());
             e->type = einv->arrayOf();
+        }
+        else if (ident == Id::dup)
+        {
+            Type *emut = next->mutableOf();
+            if (next->implicitConvTo(emut) < MATCHconst)
+                error(e->loc, "cannot implicitly convert element type %s to mutable in %s.dup",
+                    next->toChars(), olde->toChars());
+            e->type = emut->arrayOf();
         }
         else
             e->type = next->mutableOf()->arrayOf();
@@ -3479,10 +3589,11 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
         return t;
     }
 
-    next = next->semantic(loc,sc);
-    transitive();
+    Type *tn = next->semantic(loc,sc);
+    if (tn->ty == Terror)
+        return terror;
 
-    Type *tbn = next->toBasetype();
+    Type *tbn = tn->toBasetype();
 
     if (dim)
     {   dinteger_t n, n2;
@@ -3571,7 +3682,9 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
     /* Ensure things like const(immutable(T)[3]) become immutable(T[3])
      * and const(T)[3] become const(T[3])
      */
-    t = addMod(next->mod);
+    next = tn;
+    transitive();
+    t = addMod(tn->mod);
 
     return t->merge();
 
@@ -3860,6 +3973,8 @@ Expression *TypeDArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
 
             return new IntegerExp(se->loc, se->len, Type::tindex);
         }
+        if (e->op == TOKnull)
+            return new IntegerExp(e->loc, 0, Type::tindex);
         e = new ArrayLengthExp(e->loc, e);
         e->type = Type::tsize_t;
         return e;
@@ -4002,6 +4117,9 @@ d_uns64 TypeAArray::size(Loc loc)
 Type *TypeAArray::semantic(Loc loc, Scope *sc)
 {
     //printf("TypeAArray::semantic() %s index->ty = %d\n", toChars(), index->ty);
+    if (deco)
+        return this;
+
     this->loc = loc;
     this->sc = sc;
     if (sc)
@@ -4614,6 +4732,9 @@ TypeFunction::TypeFunction(Parameters *parameters, Type *treturn, int varargs, e
     if (stc & STCproperty)
         this->isproperty = true;
 
+    if (stc & STCref)
+        this->isref = true;
+
     this->trust = TRUSTdefault;
     if (stc & STCsafe)
         this->trust = TRUSTsafe;
@@ -4703,7 +4824,12 @@ int Type::covariant(Type *t)
         }
     }
     else if (t1->parameters != t2->parameters)
-        goto Ldistinct;
+    {
+        size_t dim1 = !t1->parameters ? 0 : t1->parameters->dim;
+        size_t dim2 = !t2->parameters ? 0 : t2->parameters->dim;
+        if (dim1 || dim2)
+            goto Ldistinct;
+    }
 
     // The argument lists match
     if (inoutmismatch)
@@ -4879,8 +5005,6 @@ void TypeFunction::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs
 void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TypeFunction *attrs, TemplateDeclaration *td)
 {
     //printf("TypeFunction::toCBuffer() this = %p\n", this);
-    const char *p = NULL;
-
     if (inuse)
     {   inuse = 2;              // flag error to caller
         return;
@@ -4919,19 +5043,16 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
             break;
     }
 
-    if (next && (!ident || ident->toHChars2() == ident->toChars()))
-        next->toCBuffer2(buf, hgs, 0);
-    else if (hgs->ddoc && !next)
-        buf->writestring("auto");
     if (hgs->ddoc != 1)
     {
+        const char *p = NULL;
         switch (attrs->linkage)
         {
             case LINKd:         p = NULL;       break;
-            case LINKc:         p = "C ";       break;
-            case LINKwindows:   p = "Windows "; break;
-            case LINKpascal:    p = "Pascal ";  break;
-            case LINKcpp:       p = "C++ ";     break;
+            case LINKc:         p = "C";        break;
+            case LINKwindows:   p = "Windows";  break;
+            case LINKpascal:    p = "Pascal";   break;
+            case LINKcpp:       p = "C++";      break;
 
         // LDC
         case LINKintrinsic: p = "Intrinsic"; break;
@@ -4939,14 +5060,28 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
             default:
                 assert(0);
         }
+        if (!hgs->hdrgen && p)
+        {
+            buf->writestring("extern (");
+            buf->writestring(p);
+            buf->writestring(") ");
+        }
     }
 
-    if (!hgs->hdrgen && p)
-        buf->writestring(p);
+    if (!ident || ident->toHChars2() == ident->toChars())
+    {   if (next)
+            next->toCBuffer2(buf, hgs, 0);
+        else if (hgs->ddoc)
+            buf->writestring("auto");
+    }
+
     if (ident)
-    {   buf->writeByte(' ');
+    {
+        if (next || hgs->ddoc)
+            buf->writeByte(' ');
         buf->writestring(ident->toHChars2());
     }
+
     if (td)
     {   buf->writeByte('(');
         for (size_t i = 0; i < td->origParameters->dim; i++)
@@ -4965,24 +5100,21 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
 void TypeFunction::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 {
     //printf("TypeFunction::toCBuffer2() this = %p, ref = %d\n", this, isref);
-    const char *p = NULL;
-
     if (inuse)
     {   inuse = 2;              // flag error to caller
         return;
     }
     inuse++;
-    if (next)
-        next->toCBuffer2(buf, hgs, 0);
     if (hgs->ddoc != 1)
     {
+        const char *p = NULL;
         switch (linkage)
         {
             case LINKd:         p = NULL;       break;
-            case LINKc:         p = " C";       break;
-            case LINKwindows:   p = " Windows"; break;
-            case LINKpascal:    p = " Pascal";  break;
-            case LINKcpp:       p = " C++";     break;
+            case LINKc:         p = "C";        break;
+            case LINKwindows:   p = "Windows";  break;
+            case LINKpascal:    p = "Pascal";   break;
+            case LINKcpp:       p = "C++";      break;
 
         // LDC
         case LINKintrinsic: p = "Intrinsic"; break;
@@ -4990,11 +5122,19 @@ void TypeFunction::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
             default:
                 assert(0);
         }
+        if (!hgs->hdrgen && p)
+        {
+            buf->writestring("extern (");
+            buf->writestring(p);
+            buf->writestring(") ");
+        }
     }
-
-    if (!hgs->hdrgen && p)
-        buf->writestring(p);
-    buf->writestring(" function");
+    if (next)
+    {
+        next->toCBuffer2(buf, hgs, 0);
+        buf->writeByte(' ');
+    }
+    buf->writestring("function");
     Parameter::argsToCBuffer(buf, hgs, parameters, varargs);
     attributesToCBuffer(buf, mod);
     inuse--;
@@ -5091,7 +5231,10 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
     bool wildreturn = FALSE;
     if (tf->next)
     {
+        sc = sc->push();
+        sc->stc &= ~(STC_TYPECTOR | STC_FUNCATTR);
         tf->next = tf->next->semantic(loc,sc);
+        sc = sc->pop();
 #if !SARRAYVALUE
         if (tf->next->toBasetype()->ty == Tsarray)
         {   error(loc, "functions cannot return static array %s", tf->next->toChars());
@@ -5110,7 +5253,8 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
             error(loc, "functions cannot return scope %s", tf->next->toChars());
         if (tf->next->toBasetype()->ty == Tvoid)
             tf->isref = FALSE;                  // rewrite "ref void" as just "void"
-        if (tf->next->isWild())
+        if (tf->next->hasWild() &&
+            !(tf->next->ty == Tpointer && tf->next->nextOf()->ty == Tfunction || tf->next->ty == Tdelegate))
             wildreturn = TRUE;
     }
 
@@ -5152,7 +5296,8 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
             if (!(fparam->storageClass & STClazy) && t->ty == Tvoid)
                 error(loc, "cannot have parameter of type %s", fparam->type->toChars());
 
-            if (t->isWild())
+            if (t->hasWild() &&
+                !(t->ty == Tpointer && t->nextOf()->ty == Tfunction || t->ty == Tdelegate))
             {
                 wildparams = TRUE;
                 if (tf->next && !wildreturn)
@@ -5211,6 +5356,9 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
         }
         argsc->pop();
     }
+    if (tf->isWild())
+        wildparams = TRUE;
+
     if (wildreturn && !wildparams)
         error(loc, "inout on return means inout must be on a parameter as well for %s", toChars());
     if (wildsubparams && wildparams)
@@ -5338,6 +5486,11 @@ int TypeFunction::callMatch(Expression *ethis, Expressions *args, int flag)
         {
             if (MODimplicitConv(t->mod, mod))
                 match = MATCHconst;
+            else if ((mod & MODwild)
+                && MODimplicitConv(t->mod, (mod & ~MODwild) | MODconst))
+            {
+                match = MATCHconst;
+            }
             else
                 return MATCHnomatch;
         }
@@ -5406,15 +5559,15 @@ int TypeFunction::callMatch(Expression *ethis, Expressions *args, int flag)
             else
                 m = arg->implicitConvTo(p->type);
             //printf("match %d\n", m);
-            if (p->type->isWild())
+            if (p->type->hasWild())
             {
                 if (m == MATCHnomatch)
                 {
-                    m = arg->implicitConvTo(p->type->constOf());
-                    if (m == MATCHnomatch)
-                        m = arg->implicitConvTo(p->type->sharedConstOf());
-                    if (m != MATCHnomatch)
+                    if (p->type->wildMatch(arg->type))
+                    {
                         wildmatch = TRUE;       // mod matched to wild
+                        m = MATCHconst;
+                    }
                 }
                 else
                     exactwildmatch = TRUE;      // wild matched to wild
@@ -5422,10 +5575,16 @@ int TypeFunction::callMatch(Expression *ethis, Expressions *args, int flag)
                 /* If both are allowed, then there could be more than one
                  * binding of mod to wild, leaving a gaping type hole.
                  */
-                if (wildmatch && exactwildmatch)
-                    m = MATCHnomatch;
+                //if (wildmatch && exactwildmatch)
+                //    m = MATCHnomatch;
             }
         }
+
+        /* prefer matching the element type rather than the array
+         * type when more arguments are present with T[]...
+         */
+        if (varargs == 2 && u + 1 == nparams && nargs > nparams)
+            goto L1;
 
         //printf("\tm = %d\n", m);
         if (m == MATCHnomatch)                  // if no match
@@ -5823,7 +5982,14 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
 
                 t = s->getType();
                 if (!t && s->isDeclaration())
-                    t = s->isDeclaration()->type;
+                {   t = s->isDeclaration()->type;
+                    if (!t && s->isTupleDeclaration())
+                    {
+                        e = new TupleExp(loc, s->isTupleDeclaration());
+                        e = e->semantic(sc);
+                        t = e->type;
+                    }
+                }
                 if (t)
                 {
                     sm = t->toDsymbol(sc);
@@ -6192,15 +6358,12 @@ Type *TypeInstance::semantic(Loc loc, Scope *sc)
 
     if (sc->parameterSpecialization)
     {
-        unsigned errors = global.errors;
-        global.gag++;
+        unsigned errors = global.startGagging();
 
         resolve(loc, sc, &e, &t, &s);
 
-        global.gag--;
-        if (errors != global.errors)
-        {   if (global.gag == 0)
-                global.errors = errors;
+        if (global.endGagging(errors))
+        {
             return this;
         }
     }
@@ -6225,17 +6388,12 @@ Dsymbol *TypeInstance::toDsymbol(Scope *sc)
 
     if (sc->parameterSpecialization)
     {
-        unsigned errors = global.errors;
-        global.gag++;
+        unsigned errors = global.startGagging();
 
         resolve(loc, sc, &e, &t, &s);
 
-        global.gag--;
-        if (errors != global.errors)
-        {   if (global.gag == 0)
-                global.errors = errors;
+        if (global.endGagging(errors))
             return NULL;
-        }
     }
     else
         resolve(loc, sc, &e, &t, &s);
@@ -6790,7 +6948,10 @@ char *TypeTypedef::toChars()
 Type *TypeTypedef::semantic(Loc loc, Scope *sc)
 {
     //printf("TypeTypedef::semantic(%s), sem = %d\n", toChars(), sym->sem);
+    int errors = global.errors;
     sym->semantic(sc);
+    if (errors != global.errors)
+        return terror;
     return merge();
 }
 
@@ -7024,6 +7185,7 @@ int TypeTypedef::hasPointers()
 
 int TypeTypedef::hasWild()
 {
+    assert(toBasetype());
     return mod & MODwild || toBasetype()->hasWild();
 }
 
@@ -7459,13 +7621,10 @@ MATCH TypeStruct::implicitConvTo(Type *to)
         /* If there is an error instantiating AssociativeArray!(), it shouldn't
          * be reported -- it just means implicit conversion is impossible.
          */
-        ++global.gag;
-        int errs = global.errors;
+        int errs = global.startGagging();
         to = ((TypeAArray*)to)->getImpl()->type;
-        --global.gag;
-        if (errs != global.errors)
+        if (global.endGagging(errs))
         {
-            global.errors = errs;
             return MATCHnomatch;
         }
     }

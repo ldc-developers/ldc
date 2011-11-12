@@ -106,64 +106,20 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
     LOG_SCOPE;
 
 #if DMDV2
-
     if (op != -1 && op != TOKblit && arrayNeedsPostblit(array->type))
     {
         DtoArraySetAssign(loc, array, value, op);
         return;
     }
-
-    LLValue* ptr = DtoArrayPtr(array);
-    LLValue* dim;
-    if (array->type->ty == Tsarray) {
-        // Calculate length of the static array
-        LLValue* rv = array->getRVal();
-        const LLArrayType* t = isaArray(rv->getType()->getContainedType(0));
-        uint64_t c = t->getNumElements();
-        while (t = isaArray(t->getContainedType(0)))
-            c *= t->getNumElements();
-        assert(c > 0);
-        dim = DtoConstSize_t(c);
-        ptr = DtoBitCast(ptr, DtoType(DtoArrayElementType(array->type)->pointerTo()));
-    } else {
-        dim = DtoArrayLen(array);
-    }
-
-#else // DMDV1
+#endif
 
     LLValue* dim = DtoArrayLen(array);
     LLValue* ptr = DtoArrayPtr(array);
-
-#endif
-
-    LLValue* val;
-
-    // give slices and complex values storage (and thus an address to pass)
-    if (value->isSlice() || value->type->ty == Tdelegate)
-    {
-        val = DtoAlloca(value->getType(), ".tmpparam");
-        DVarValue lval(value->getType(), val);
-        DtoAssign(loc, &lval, value);
-    }
-    else
-    {
-        val = value->getRVal();
-    }
-    assert(val);
-
-    // prepare runtime call
-    LLSmallVector<LLValue*, 4> args;
-    args.push_back(ptr);
-    args.push_back(dim);
-    args.push_back(val);
-
-    // determine the right runtime function to call
-    const char* funcname = NULL;
     Type* arrayelemty = array->getType()->nextOf()->toBasetype();
-    Type* valuety = value->getType()->toBasetype();
 
     // lets first optimize all zero initializations down to a memset.
     // this simplifies codegen later on as llvm null's have no address!
+    LLValue *val = value->getRVal();
     if (isaConstant(val) && isaConstant(val)->isNullValue())
     {
         size_t X = getTypePaddedSize(val->getType());
@@ -172,103 +128,48 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
         return;
     }
 
-    // if not a zero initializer, call the appropriate runtime function!
-    switch (valuety->ty)
-    {
-    case Tbool:
-        val = gIR->ir->CreateZExt(val, LLType::getInt8Ty(gIR->context()), ".bool");
-        // fall through
+    // create blocks
+    llvm::BasicBlock* oldend = gIR->scopeend();
+    llvm::BasicBlock* condbb = llvm::BasicBlock::Create(gIR->context(), "arrayinit.cond",
+                                                        gIR->topfunc(), oldend);
+    llvm::BasicBlock* bodybb = llvm::BasicBlock::Create(gIR->context(), "arrayinit.body",
+                                                        gIR->topfunc(), oldend);
+    llvm::BasicBlock* endbb  = llvm::BasicBlock::Create(gIR->context(), "arrayinit.end",
+                                                        gIR->topfunc(), oldend);
 
-    case Tvoid:
-    case Tchar:
-    case Tint8:
-    case Tuns8:
-        Logger::println("Using memset for array init");
-        DtoMemSet(ptr, val, dim);
-        return;
+    // initialize iterator
+    LLValue *itr = DtoAlloca(Type::tsize_t, "arrayinit.itr");
+    DtoStore(DtoConstSize_t(0), itr);
 
-    case Twchar:
-    case Tint16:
-    case Tuns16:
-        funcname = "_d_array_init_i16";
-        break;
+    // move into the for condition block, ie. start the loop
+    assert(!gIR->scopereturned());
+    llvm::BranchInst::Create(condbb, gIR->scopebb());
 
-    case Tdchar:
-    case Tint32:
-    case Tuns32:
-        funcname = "_d_array_init_i32";
-        break;
+    // replace current scope
+    gIR->scope() = IRScope(condbb,bodybb);
 
-    case Tint64:
-    case Tuns64:
-        funcname = "_d_array_init_i64";
-        break;
+    // create the condition
+    LLValue* cond_val = gIR->ir->CreateICmpNE(DtoLoad(itr), dim, "arrayinit.condition");
 
-    case Tfloat32:
-    case Timaginary32:
-        funcname = "_d_array_init_float";
-        break;
+    // conditional branch
+    assert(!gIR->scopereturned());
+    llvm::BranchInst::Create(bodybb, endbb, cond_val, gIR->scopebb());
 
-    case Tfloat64:
-    case Timaginary64:
-        funcname = "_d_array_init_double";
-        break;
+    // rewrite scope
+    gIR->scope() = IRScope(bodybb, endbb);
 
-    case Tfloat80:
-    case Timaginary80:
-        funcname = "_d_array_init_real";
-        break;
+    // assign array element value
+    DValue *arrayelem = new DVarValue(arrayelemty, DtoGEP1(ptr, DtoLoad(itr), "arrayinit.arrayelem"));
+    DtoAssign(loc, arrayelem, value, op);
 
-    case Tcomplex32:
-        funcname = "_d_array_init_cfloat";
-        break;
+    // increment iterator
+    DtoStore(gIR->ir->CreateAdd(DtoLoad(itr), DtoConstSize_t(1), "arrayinit.new_itr"), itr);
 
-    case Tcomplex64:
-        funcname = "_d_array_init_cdouble";
-        break;
+    // loop
+    llvm::BranchInst::Create(condbb, gIR->scopebb());
 
-    case Tcomplex80:
-        funcname = "_d_array_init_creal";
-        break;
-
-    case Tpointer:
-    case Tclass:
-        funcname = "_d_array_init_pointer";
-        args[0] = DtoBitCast(args[0], getPtrToType(getVoidPtrType()));
-        args[2] = DtoBitCast(args[2], getVoidPtrType());
-        break;
-
-    // this currently acts as a kind of fallback for all the bastards...
-    // FIXME: this is probably too slow.
-    case Tstruct:
-    case Tdelegate:
-    case Tarray:
-    case Tsarray:
-        funcname = "_d_array_init_mem";
-        assert(arrayelemty == valuety && "ArrayInit doesn't work on elem-initialized static arrays");
-        args[0] = DtoBitCast(args[0], getVoidPtrType());
-        args[2] = DtoBitCast(args[2], getVoidPtrType());
-        args.push_back(DtoConstSize_t(getTypePaddedSize(DtoTypeNotVoid(arrayelemty))));
-        break;
-
-    default:
-        error("unhandled array init: %s = %s", array->getType()->toChars(), value->getType()->toChars());
-        assert(0 && "unhandled array init");
-    }
-
-    if (Logger::enabled())
-    {
-        Logger::cout() << "ptr = " << *args[0] << std::endl;
-        Logger::cout() << "dim = " << *args[1] << std::endl;
-        Logger::cout() << "val = " << *args[2] << std::endl;
-    }
-
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, funcname);
-    assert(fn);
-    if (Logger::enabled())
-        Logger::cout() << "calling array init function: " << *fn <<'\n';
-    LLCallSite call = gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
-    call.setCallingConv(llvm::CallingConv::C);
+    // rewrite the scope
+    gIR->scope() = IRScope(endbb, oldend);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

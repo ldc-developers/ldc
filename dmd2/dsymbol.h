@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -151,6 +151,7 @@ struct Dsymbol : Object
     int isAnonymous();
     void error(Loc loc, const char *format, ...) IS_PRINTF(3);
     void error(const char *format, ...) IS_PRINTF(2);
+    void verror(Loc loc, const char *format, va_list ap);
     void checkDeprecated(Loc loc, Scope *sc);
     Module *getModule();        // module where declared
     Module *getCompilationModule(); // possibly different for templates
@@ -360,11 +361,7 @@ struct OverloadSet : Dsymbol
 
 struct DsymbolTable : Object
 {
-#if STRINGTABLE
-    StringTable *tab;
-#else
     AA *tab;
-#endif
 
     DsymbolTable();
     ~DsymbolTable();
