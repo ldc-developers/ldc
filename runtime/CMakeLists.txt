@@ -326,13 +326,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         set(BCLIBS bclibs)
     endif(BUILD_BC_LIBS)
 
-    if(D_VERSION EQUAL 2)
-        if(NOT PROJECT_BINARY_DIR STREQUAL "${PROJECT_SOURCE_DIR}")
-            file(COPY ${PROJECT_PARENT_DIR}/${RUNTIME} DESTINATION ${PROJECT_BINARY_DIR}/../)
-            file(COPY ${PROJECT_PARENT_DIR}/phobos DESTINATION ${PROJECT_BINARY_DIR}/../)
-        endif(NOT PROJECT_BINARY_DIR STREQUAL "${PROJECT_SOURCE_DIR}")
-    endif(D_VERSION EQUAL 2)
-
     set_target_properties(
         ${LIBS} PROPERTIES
         LINKER_LANGUAGE C
