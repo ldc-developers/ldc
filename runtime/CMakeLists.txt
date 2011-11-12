@@ -168,26 +168,6 @@ configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.rebuild.conf)
 
-# patch runtime source, uses LDC_EXE for ldc2
-if(D_VERSION EQUAL 2)
-    find_program(PATCH_EXE patch DOC "path to patch tool")
-    if(NOT PATCH_EXE)
-        message(STATUS "patch tool not found, can't automatically patch runtime sources for ldc")
-    else(NOT PATCH_EXE)
-        add_custom_command(
-            OUTPUT patch-runtime
-            COMMAND ${PATCH_EXE} -t -N -p0 -i ${PROJECT_SOURCE_DIR}/${LDC_EXE}.diff
-            WORKING_DIRECTORY ${RUNTIME_DIR}
-        )
-        # rebuild cache to include sources added by patch
-        add_custom_command(
-            OUTPUT recache
-            COMMAND ${CMAKE_COMMAND} -H${PROJECT_PARENT_DIR} -B${PROJECT_BINARY_DIR}/..
-        )
-        add_custom_target(patch DEPENDS patch-runtime recache ${LDC_IMPORTS})
-    endif(NOT PATCH_EXE)
-endif(D_VERSION EQUAL 2)
-
 macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
     if ("${PATH}" STREQUAL "")
         file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
