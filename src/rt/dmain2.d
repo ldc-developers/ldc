@@ -28,6 +28,7 @@ version (Windows)
 {
     private import core.stdc.wchar_;
 
+    extern (Windows) uint       GetVersion();
     extern (Windows) alias int function() FARPROC;
     extern (Windows) FARPROC    GetProcAddress(void*, in char*);
     extern (Windows) void*      LoadLibraryA(in char*);
@@ -37,6 +38,16 @@ version (Windows)
     extern (Windows) wchar_t**  CommandLineToArgvW(wchar_t*, int*);
     extern (Windows) export int WideCharToMultiByte(uint, uint, wchar_t*, int, char*, int, char*, int);
     pragma(lib, "shell32.lib"); // needed for CommandLineToArgvW
+
+    wchar_t** doCommandLineToArgvW(wchar_t* cmdLine, int* numArgs)
+    {
+        if (GetVersion() < 0x80000000)
+        {
+            return CommandLineToArgvW(cmdLine, numArgs);
+        }
+        // TODO: Handle this manually for Win98 and earlier.
+        return CommandLineToArgvW(cmdLine, numArgs);
+    }
 }
 
 version (all)
@@ -356,24 +367,28 @@ extern (C) int main(int argc, char** argv)
     version (Windows)
     {
         wchar_t*  wcbuf = GetCommandLineW();
-        size_t    wclen = wcslen(wcbuf);
+        size_t 	  wclen = wcslen(wcbuf);
         int       wargc = 0;
         wchar_t** wargs = CommandLineToArgvW(wcbuf, &wargc);
         assert(wargc == argc);
 
+        // This is required because WideCharToMultiByte requires int as input.
+        assert(wclen <= int.max, "wclen must not exceed int.max");
+
         char*     cargp = null;
-        size_t    cargl = WideCharToMultiByte(65001, 0, wcbuf, wclen, null, 0, null, 0);
+        size_t    cargl = WideCharToMultiByte(65001, 0, wcbuf, cast(int)wclen, null, 0, null, 0);
 
         cargp = cast(char*) alloca(cargl);
         args  = ((cast(char[]*) alloca(wargc * (char[]).sizeof)))[0 .. wargc];
 
         for (size_t i = 0, p = 0; i < wargc; i++)
         {
-            int wlen = wcslen(wargs[i]);
-            int clen = WideCharToMultiByte(65001, 0, &wargs[i][0], wlen, null, 0, null, 0);
+            size_t wlen = wcslen(wargs[i]);
+            assert(wlen <= int.max, "wlen cannot exceed int.max");
+            int clen = WideCharToMultiByte(65001, 0, &wargs[i][0], cast(int)wlen, null, 0, null, 0);
             args[i]  = cargp[p .. p+clen];
             p += clen; assert(p <= cargl);
-            WideCharToMultiByte(65001, 0, &wargs[i][0], wlen, &args[i][0], clen, null, 0);
+            WideCharToMultiByte(65001, 0, &wargs[i][0], cast(int)wlen, &args[i][0], clen, null, 0);
         }
         LocalFree(wargs);
         wargs = null;
