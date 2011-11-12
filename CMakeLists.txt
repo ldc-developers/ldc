@@ -3,8 +3,16 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
+#
+# Locate LLVM.
+#
+
+# This would actually better be named named EXTRA_LLVM_TARGETS, as it allows
+# additional targets (beside the native one) to be specified. It affects the
+# LLVM libraries linked and is converted to a preprocessor define used in
+# gen/main.cpp.
 set(EXTRA_LLVM_MODULES "" CACHE STRING
-    "Extra LLVM components to link in (see llvm-config --components)")
+    "Extra LLVM targets to link in (see llvm-config --targets-built)")
 separate_arguments(EXTRA_LLVM_MODULES)
 
 # We need to find exactly the right LLVM version, our code usually does not
@@ -12,26 +20,31 @@ separate_arguments(EXTRA_LLVM_MODULES)
 find_package(LLVM 2.9 EXACT REQUIRED
     bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
 
-set(LLVM_CONFIG_HEADER "config.h"  CACHE STRING    "Filename of llvm config header fequently see: config.h, config-32.h, config-64.h")
+#
+# Locate libconfig++.
+#
 
 include(FindPkgConfig)
-if(NOT PKG_CONFIG_FOUND)
-    message(FATAL_ERROR "pkg-config not found")
-else(NOT PKG_CONFIG_FOUND)
+if(PKG_CONFIG_FOUND)
     pkg_search_module(LIBCONFIGPP libconfig++)
     if(NOT LIBCONFIGPP_FOUND)
         set(LIBCONFIG_CXXFLAGS "" CACHE STRING "libconfig++ compiler flags")
         set(LIBCONFIG_LDFLAGS "" CACHE STRING "libconfig++ linker flags")
-        message(WARNING "libconfig++ not found. If compilation fails but the library is installed, consider manually setting the LIBCONFIG_CXXFLAGS and LIBCONFIG_LDFLAGS CMake variables.")
     else(NOT LIBCONFIGPP_FOUND)
         set(LIBCONFIG_CXXFLAGS ${LIBCONFIGPP_CFLAGS} CACHE STRING "libconfig++ compiler flags")
         set(LIBCONFIG_LDFLAGS ${LIBCONFIGPP_LDFLAGS} CACHE STRING "libconfig++ linker flags")
     endif(NOT LIBCONFIGPP_FOUND)
-endif(NOT PKG_CONFIG_FOUND)
+endif()
 
-####################
-#      LDC
-####################
+# libconfig++ is actually a required dependency, but has never been defined as
+# one – maybe there was a problem with the auto detection once.
+if (NOT LIBCONFIGPP_FOUND)
+  message(WARNING "libconfig++ not found. If compilation fails but the library is installed, consider manually setting the LIBCONFIG_CXXFLAGS and LIBCONFIG_LDFLAGS CMake variables.")
+endif()
+
+#
+# Main configuration.
+#
 
 # Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when
 # it is /usr, put the config files into /etc to meet common practice.
@@ -78,7 +91,9 @@ file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}/gen
 )
 
-########## idgen and impcnvgen
+#
+# Run idgen and impcnvgen.
+#
 set_source_files_properties(
     ${DMDFE_PATH}/idgen.c
     ${DMDFE_PATH}/impcnvgen.c
@@ -119,34 +134,24 @@ set(LDC_GENERATED
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
-########## idgen and impcnvgen done
 
-include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDE_DIRS})
+#
+# Set up target defines.
+#
 
-##########
-# build a define that contains all LLVM targets required and is usable for
-# preprocessor code generation. start with the native target.
-find_file(LLVM_CONFIG_FILE_PATH ${LLVM_CONFIG_HEADER} PATHS ${LLVM_ROOT_DIR}/include/llvm/Config ${LLVM_INCLUDE_DIRS} NO_DEFAULT_PATH)
-if(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
-        message("Couldn't find your llvm ${LLVM_CONFIG_HEADER} file in ${LLVM_ROOT_DIR}, no native target will be initialized.")
-else(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
-        if(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
-            file(STRINGS ${LLVM_CONFIG_FILE_PATH} LLVM_HOSTTRIPLE REGEX "^#define LLVM_HOSTTRIPLE")
-            if(LLVM_HOSTTRIPLE)
-                string(REGEX REPLACE "^#define LLVM_HOSTTRIPLE \"(.*)\"$" "\\1" HOST_TARGET ${LLVM_HOSTTRIPLE})
-            endif(LLVM_HOSTTRIPLE)
-        endif(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
+set(DEFAULT_TARGET ${LLVM_HOST_TARGET} CACHE STRING "default target")
+add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
 
-        file(STRINGS ${LLVM_CONFIG_FILE_PATH} LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
-        if(LLVM_NATIVE_ARCH)
-                string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)(Target|)$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
-                message(STATUS "Found native target ${LLVM_NATIVE_ARCH}")
-                set(LLVM_MODULES_DEFINE "LLVM_TARGET(${LLVM_NATIVE_ARCH})")
-        else(LLVM_NATIVE_ARCH)
-                message("Couldn't find the LLVM_NATIVE_ARCH define in ${LLVM_CONFIG_FILE_PATH}/${LLVM_CONFIG_HEADER}. Probably you have an older LLVM and can ignore this warning.")
-        endif(LLVM_NATIVE_ARCH)
-endif(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
-# chain the extra target list to the define
+# Generate the alternate target triple (x86 on x86_64 and vice versa.)
+execute_process(
+    COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${LLVM_HOST_TARGET}
+    OUTPUT_VARIABLE HOST_ALT_TARGET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
+add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
+
+# Pass the list of extra LLVM targets as preprocessor constants.
 foreach(EXTRA_TARGET ${EXTRA_LLVM_MODULES})
     set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${EXTRA_TARGET})")
 endforeach(EXTRA_TARGET)
@@ -154,20 +159,10 @@ set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
     COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
 )
-##########
 
-##########
-# HOST TARGET
-execute_process(
-    COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${HOST_TARGET}
-    OUTPUT_VARIABLE HOST_ALT_TARGET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-##########
-
-##########
-set(DEFAULT_TARGET ${HOST_TARGET} CACHE STRING "default target")
-set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
+#
+# Gather source files.
+#
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
@@ -191,15 +186,26 @@ set_source_files_properties(
     ${LDC_SOURCE_FILES}    PROPERTIES
     LANGUAGE CXX
 )
-##########
 
-##########
-# Add some definitions
+#
+# Includes, defines.
+#
+
+include_directories(
+    .
+    ${DMDFE_PATH}
+    ${DMDFE_PATH}/root
+    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    ${PROJECT_SOURCE_DIR}
+    ${LLVM_INCLUDE_DIRS}
+)
+
 add_definitions(
     -DIN_LLVM
     -D_DH
     -DOPAQUE_VTBLS
     #-DDISABLE_DEBUG_INFO
+    -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
 )
 
 if(UNIX)
@@ -218,19 +224,10 @@ if(USE_METADATA)
     add_definitions(-DUSE_METADATA)
 endif(USE_METADATA)
 
-if(CMAKE_MINOR_VERSION LESS 6)
-    set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin CACHE PATH "output dir for built executables")
-    add_definitions(-DDEFAULT_TARGET_TRIPLE=\\"${DEFAULT_TARGET}\\")
-    add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE=\\"${DEFAULT_ALT_TARGET}\\")
-    add_definitions(-DLDC_INSTALL_PREFIX=\\"${CMAKE_INSTALL_PREFIX}\\")
-else(CMAKE_MINOR_VERSION LESS 6)
-    add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
-    add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
-    add_definitions(-DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
-endif(CMAKE_MINOR_VERSION LESS 6)
-##########
+#
+# Set up the main ldc/ldc2 target.
+#
 
-##########
 # Path where ldc executable will be put
 add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
 # Name of ldc executable
@@ -257,7 +254,10 @@ endif(USE_BOEHM_GC)
 
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
-# TODO: testrun
+#
+# Install target.
+#
+
 install(TARGETS     ${LDC_EXE}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf           DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)

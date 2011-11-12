@@ -434,7 +434,9 @@ int main(int argc, char** argv)
 
     // Allocate target machine.
 
-    // first initialize llvm
+    // First initialize the native target and any additionally specified ones.
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
 #define LLVM_TARGET(A) LLVMInitialize##A##TargetInfo(); LLVMInitialize##A##Target(); LLVMInitialize##A##AsmPrinter();
 // this is defined to be LLVM_TARGET(target name 1) LLVM_TARGET(target name 2) ...
 LDC_TARGETS
