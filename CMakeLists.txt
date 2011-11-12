@@ -17,7 +17,7 @@ separate_arguments(EXTRA_LLVM_MODULES)
 
 # We need to find exactly the right LLVM version, our code usually does not
 # work across LLVM »minor« releases.
-find_package(LLVM 2.9 EXACT REQUIRED
+find_package(LLVM 3.0 EXACT REQUIRED
     bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
 
 #
