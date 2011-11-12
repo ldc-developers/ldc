@@ -34,6 +34,13 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     if (p.exists())
         return true;
 
+    // try next to the executable
+    p = sys::Path::GetMainExecutable(argv0, mainAddr);
+    p.eraseComponent();
+    p.appendComponent(filename);
+    if (p.exists())
+        return true;
+
     // user configuration
 
     // try ~/.ldc
@@ -87,13 +94,6 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     if (p.exists())
         return true;
 #endif
-
-    // try next to the executable
-    p = sys::Path::GetMainExecutable(argv0, mainAddr);
-    p.eraseComponent();
-    p.appendComponent(filename);
-    if (p.exists())
-        return true;
 
     return false;
 }
