@@ -1,18 +1,19 @@
 project(ldc)
-
 cmake_minimum_required(VERSION 2.6)
-# actually, 2.4 will work, with a warning
-# if we required 2.4, 2.6+ would switch to a compatibility mode and cause problems on 2.6+ specifics
 
-# LLVM-CONFIG is written in perl, for this reason we need to know here is perl
-include(FindPerl)
-if(NOT PERL)
-    message(FATAL_ERROR "perl not found")
-endif(NOT PERL)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-####################
-#     LLVM
-####################
+set(EXTRA_LLVM_MODULES "" CACHE STRING
+    "Extra LLVM components to link in (see llvm-config --components)")
+separate_arguments(EXTRA_LLVM_MODULES)
+
+# We need to find exactly the right LLVM version, our code usually does not
+# work across LLVM »minor« releases.
+find_package(LLVM 2.9 EXACT REQUIRED
+    bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
+
+set(LLVM_CONFIG_HEADER "config.h"  CACHE STRING    "Filename of llvm config header fequently see: config.h, config-32.h, config-64.h")
+
 include(FindPkgConfig)
 if(NOT PKG_CONFIG_FOUND)
     message(FATAL_ERROR "pkg-config not found")
@@ -27,37 +28,6 @@ else(NOT PKG_CONFIG_FOUND)
         set(LIBCONFIG_LDFLAGS ${LIBCONFIGPP_LDFLAGS} CACHE STRING "libconfig++ linker flags")
     endif(NOT LIBCONFIGPP_FOUND)
 endif(NOT PKG_CONFIG_FOUND)
-
-find_program(LLVM_CONFIG llvm-config ${LLVM_INSTDIR}/bin DOC "path to llvm-config tool")
-# get llvm's install dir. a little hackish, we could do something like llvm-config --prefix, but this does as well
-string(REPLACE "/bin/llvm-config" "" LLVM_DIR ${LLVM_CONFIG})
-
-set(LLVM_INSTDIR        ${LLVM_DIR} CACHE PATH      "LLVM installation directory" FORCE)
-set(LLVM_CONFIG_HEADER  "config.h"  CACHE STRING    "Filename of llvm config header fequently see: config.h, config-32.h, config-64.h")
-if(NOT LLVM_INSTDIR)
-    message(FATAL_ERROR "llvm not found")
-endif(NOT LLVM_INSTDIR)
-
-execute_process(
-    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --host-target
-    OUTPUT_VARIABLE HOST_TARGET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
-    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --cxxflags
-    OUTPUT_VARIABLE LLVM_CXXFLAGS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
-    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --ldflags
-    OUTPUT_VARIABLE LLVM_LDFLAGS
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-execute_process(
-    COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --includedir
-    OUTPUT_VARIABLE LLVM_INCLUDEDIR
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
 
 ####################
 #      LDC
@@ -151,31 +121,23 @@ set(LDC_GENERATED
 )
 ########## idgen and impcnvgen done
 
-include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDEDIR})
-
-set(EXTRA_LLVM_MODULES "" CACHE STRING "extra llvm components to link in (see llvm-config --components)")
-separate_arguments(EXTRA_LLVM_MODULES)
-execute_process(
-        COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --libfiles bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES}
-        OUTPUT_VARIABLE LLVM_LIBS
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+include_directories(. ${DMDFE_PATH} ${DMDFE_PATH}/root ${PROJECT_BINARY_DIR}/${DMDFE_PATH} ${PROJECT_SOURCE_DIR} ${LLVM_INCLUDE_DIRS})
 
 ##########
 # build a define that contains all LLVM targets required and is usable for
 # preprocessor code generation. start with the native target.
-find_path(LLVM_CONFIG_FILE_PATH ${LLVM_CONFIG_HEADER} PATHS ${LLVM_INCLUDEDIR}/llvm/Config ${LLVM_INCLUDEDIR}/Config NO_DEFAULT_PATH)
+find_file(LLVM_CONFIG_FILE_PATH ${LLVM_CONFIG_HEADER} PATHS ${LLVM_ROOT_DIR}/include/llvm/Config ${LLVM_INCLUDE_DIRS} NO_DEFAULT_PATH)
 if(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
-        message("Couldn't find your llvm ${LLVM_CONFIG_HEADER} file in ${LLVM_INCLUDEDIR}, no native target will be initialized.")
+        message("Couldn't find your llvm ${LLVM_CONFIG_HEADER} file in ${LLVM_ROOT_DIR}, no native target will be initialized.")
 else(LLVM_CONFIG_FILE_PATH STREQUAL "LLVM_CONFIG_FILE_PATH-NOTFOUND")
         if(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
-            file(STRINGS ${LLVM_CONFIG_FILE_PATH}/${LLVM_CONFIG_HEADER} LLVM_HOSTTRIPLE REGEX "^#define LLVM_HOSTTRIPLE")
+            file(STRINGS ${LLVM_CONFIG_FILE_PATH} LLVM_HOSTTRIPLE REGEX "^#define LLVM_HOSTTRIPLE")
             if(LLVM_HOSTTRIPLE)
                 string(REGEX REPLACE "^#define LLVM_HOSTTRIPLE \"(.*)\"$" "\\1" HOST_TARGET ${LLVM_HOSTTRIPLE})
             endif(LLVM_HOSTTRIPLE)
         endif(NOT HOST_TARGET AND NOT DEFAULT_TARGET)
 
-        file(STRINGS ${LLVM_CONFIG_FILE_PATH}/${LLVM_CONFIG_HEADER} LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
+        file(STRINGS ${LLVM_CONFIG_FILE_PATH} LLVM_NATIVE_ARCH REGEX "^#define LLVM_NATIVE_ARCH")
         if(LLVM_NATIVE_ARCH)
                 string(REGEX REPLACE "^#define LLVM_NATIVE_ARCH (.*)(Target|)$" "\\1" LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH})
                 message(STATUS "Found native target ${LLVM_NATIVE_ARCH}")
@@ -282,7 +244,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
+target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
     target_link_libraries(${LDC_EXE} imagehlp psapi)
 elseif(UNIX)
