@@ -56,9 +56,10 @@ struct RTTIBuilder
 
     /// Creates the initializer constant and assigns it to the global.
     void finalize(IrGlobal* tid);
+    void finalize(LLType* type, LLValue* value);
 
     /// Creates the initializer constant and assigns it to the global.
-    llvm::Constant* get_constant();
+    llvm::Constant* get_constant(LLStructType *initType);
 };
 
 #endif

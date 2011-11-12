@@ -16,11 +16,12 @@ public:
     IrTypeFunction* isFunction()  { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
     IrFuncTy* fty() { return irfty; }
 
 protected:
+    llvm::Type* func2llvm(Type* dt);
     ///
     IrFuncTy* irfty;
 };
@@ -36,7 +37,9 @@ public:
     IrTypeDelegate* isDelegate()    { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
+protected:
+    llvm::Type* delegate2llvm(Type* dt);
 };
 
 #endif

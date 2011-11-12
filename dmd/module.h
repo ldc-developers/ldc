@@ -35,7 +35,7 @@ namespace llvm {
     class LLVMContext;
     class Module;
     class GlobalVariable;
-    class PATypeHolder;
+    class StructType;
 }
 #else
 
@@ -202,7 +202,7 @@ struct Module : Package
 
     bool llvmForceLogging;
     llvm::GlobalVariable* moduleInfoVar;
-    llvm::PATypeHolder* moduleInfoType;
+    llvm::StructType* moduleInfoType;
 
     // array ops emitted in this module already
     StringTable arrayfuncs;

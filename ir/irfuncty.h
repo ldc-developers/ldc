@@ -23,7 +23,7 @@ struct IrFuncTyArg : IrBase
     Type* type;
 
     /// This is the final LLVM Type used for the parameter/return value type
-    const llvm::Type* ltype;
+    llvm::Type* ltype;
 
     /** These are the final LLVM attributes used for the function.
      *  Must be valid for the LLVM Type and byref setting */

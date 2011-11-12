@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/CodeGen.h"
 
 namespace opts {
     namespace cl = llvm::cl;
@@ -43,6 +44,8 @@ namespace opts {
     extern cl::opt<std::string> mCPU;
     extern cl::list<std::string> mAttrs;
     extern cl::opt<std::string> mTargetTriple;
+    extern cl::opt<llvm::Reloc::Model> mRelocModel;
+    extern cl::opt<llvm::CodeModel::Model> mCodeModel;
     extern cl::opt<bool> singleObj;
     extern cl::opt<bool> linkonceTemplates;
 

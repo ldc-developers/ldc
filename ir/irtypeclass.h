@@ -2,6 +2,7 @@
 #define __LDC_IR_IRTYPECLASS_H__
 
 #include "ir/irtypestruct.h"
+#include <llvm/DerivedTypes.h>
 
 ///
 class IrTypeClass : public IrTypeAggr
@@ -14,13 +15,13 @@ public:
     virtual IrTypeClass* isClass()      { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
     ///
-    const llvm::Type* get();
+    llvm::Type* get();
 
     /// Returns the vtable type for this class.
-    const llvm::Type* getVtbl()         { return vtbl_pa.get(); }
+    llvm::Type* getVtbl()         { return vtbl_type; }
 
     /// Get index to interface implementation.
     /// Returns the index of a specific interface implementation in this
@@ -40,8 +41,8 @@ protected:
     ///
     TypeClass* tc;
 
-    /// Type holder for the vtable type.
-    llvm::PATypeHolder vtbl_pa;
+    /// Vtable type.
+    llvm::StructType *vtbl_type;
 
     /// Number of pointers in vtable.
     unsigned vtbl_size;
@@ -60,11 +61,11 @@ protected:
 
     /// Builds a vtable type given the type of the first entry and an array
     /// of all entries.
-    const llvm::Type* buildVtblType(Type* first, Array* vtbl_array);
+   std::vector<llvm::Type*> buildVtblType(Type* first, Array* vtbl_array);
 
     ///
     void addBaseClassData(
-        std::vector<const llvm::Type*>& defaultTypes,
+        std::vector<llvm::Type*>& defaultTypes,
         ClassDeclaration* base,
         size_t& offset,
         size_t& field_index);

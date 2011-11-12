@@ -51,7 +51,7 @@ void DtoDeleteMemory(LLValue* ptr)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(ptr, getVoidPtrType(), ".tmp"));
     // call
-    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
+    gIR->CreateCallOrInvoke(fn, arg);
 }
 
 void DtoDeleteClass(LLValue* inst)
@@ -68,7 +68,7 @@ void DtoDeleteClass(LLValue* inst)
 #endif
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
-    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
+    gIR->CreateCallOrInvoke(fn, arg);
 }
 
 void DtoDeleteInterface(LLValue* inst)
@@ -79,7 +79,7 @@ void DtoDeleteInterface(LLValue* inst)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
-    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
+    gIR->CreateCallOrInvoke(fn, arg);
 }
 
 #if DMDV2
@@ -95,7 +95,7 @@ void DtoDeleteArray(DValue* arr)
     arg.push_back(DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fn->getFunctionType()->getParamType(1)));
 
     // call
-    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
+    gIR->CreateCallOrInvoke(fn, arg);
 }
 
 #else
@@ -111,7 +111,7 @@ void DtoDeleteArray(DValue* arr)
     arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
 
     // call
-    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end());
+    gIR->CreateCallOrInvoke(fn, arg);
 }
 
 #endif
@@ -124,7 +124,7 @@ void DtoDeleteArray(DValue* arr)
 
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 {
-    const llvm::Type* lltype = DtoType(type);
+    LLType* lltype = DtoType(type);
     llvm::AllocaInst* ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
     ai->setAlignment(type->alignsize());
     return ai;
@@ -132,14 +132,14 @@ llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 
 llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name)
 {
-    const llvm::Type* lltype = DtoType(type);
+    LLType* lltype = DtoType(type);
     llvm::AllocaInst* ai = new llvm::AllocaInst(
         lltype, DtoConstUint(arraysize), name, gIR->topallocapoint());
     ai->setAlignment(type->alignsize());
     return ai;
 }
 
-llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const char* name)
+llvm::AllocaInst* DtoRawAlloca(LLType* lltype, size_t alignment, const char* name)
 {
     llvm::AllocaInst* ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
     if (alignment)
@@ -147,16 +147,16 @@ llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const
     return ai;
 }
 
-LLValue* DtoGcMalloc(const llvm::Type* lltype, const char* name)
+LLValue* DtoGcMalloc(LLType* lltype, const char* name)
 {
-	// get runtime function
-	llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemory");
-	// parameters
-	LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
-	// call runtime allocator
-	LLValue* mem = gIR->CreateCallOrInvoke(fn, size, name).getInstruction();
-	// cast
-	return DtoBitCast(mem, getPtrToType(lltype), name);
+    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemory");
+    // parameters
+    LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
+    // call runtime allocator
+    LLValue* mem = gIR->CreateCallOrInvoke(fn, size, name).getInstruction();
+    // cast
+    return DtoBitCast(mem, getPtrToType(lltype), name);
 }
 
 /****************************************************************************************/
@@ -197,7 +197,7 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     args.push_back(c);
 
     // call
-    gIR->CreateCallOrInvoke(fn, args.begin(), args.end());
+    gIR->CreateCallOrInvoke(fn, args);
 
     #ifndef DISABLE_DEBUG_INFO
     // end debug info
@@ -500,7 +500,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
         LLValue* r = rhs->getRVal();
         if (Logger::enabled())
             Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
-        const LLType* lit = l->getType()->getContainedType(0);
+        LLType* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
             r = DtoCast(loc, rhs, lhs->getType())->getRVal();
             if (Logger::enabled())
@@ -532,12 +532,12 @@ DValue* DtoNullValue(Type* type)
 {
     Type* basetype = type->toBasetype();
     TY basety = basetype->ty;
-    const LLType* lltype = DtoType(basetype);
+    LLType* lltype = DtoType(basetype);
 
     // complex, needs to be first since complex are also floating
     if (basetype->iscomplex())
     {
-        const LLType* basefp = DtoComplexBaseType(basetype);
+        LLType* basefp = DtoComplexBaseType(basetype);
         LLValue* res = DtoAggrPair(DtoType(type), LLConstant::getNullValue(basefp), LLConstant::getNullValue(basefp));
         return new DImValue(type, res);
     }
@@ -574,7 +574,7 @@ DValue* DtoNullValue(Type* type)
 
 DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
 {
-    const LLType* tolltype = DtoType(_to);
+    LLType* tolltype = DtoType(_to);
 
     Type* to = _to->toBasetype();
     Type* from = val->getType()->toBasetype();
@@ -635,7 +635,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
 
 DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
 {
-    const LLType* tolltype = DtoType(to);
+    LLType* tolltype = DtoType(to);
 
     Type* totype = to->toBasetype();
     Type* fromtype = val->getType()->toBasetype();
@@ -670,7 +670,7 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
     if (val->getType() == to)
         return val;
 
-    const LLType* tolltype = DtoType(to);
+    LLType* tolltype = DtoType(to);
 
     Type* totype = to->toBasetype();
     Type* fromtype = val->getType()->toBasetype();
@@ -913,8 +913,9 @@ void DtoConstInitGlobal(VarDeclaration* vd)
     IrGlobal* glob = vd->ir.irGlobal;
     llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(glob->value);
 
-    // refine the global's opaque type to the type of the initializer
-    llvm::cast<LLOpaqueType>(glob->type.get())->refineAbstractTypeTo(initVal->getType());
+    //if (LLStructType *st = isaStruct(glob->type)) {
+    //    st->setBody(initVal);
+    //}
 
     assert(!glob->constInit);
     glob->constInit = initVal;
@@ -1050,7 +1051,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 }
 #endif
 
-                const LLType* lltype = DtoType(vd->type);
+                LLType* lltype = DtoType(vd->type);
 
                 llvm::Value* allocainst;
                 if(gTargetData->getTypeSizeInBits(lltype) == 0)
@@ -1254,6 +1255,60 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 //      INITIALIZER HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
+LLType* DtoConstInitializerType(Type* type, Initializer* init)
+{
+    if (type->ty == Ttypedef) {
+        TypeTypedef *td = (TypeTypedef*)type;
+        if (td->sym->init)
+            return DtoConstInitializerType(td->sym->basetype, td->sym->init);
+    }
+
+    type = type->toBasetype();
+    if (type->ty == Tsarray)
+    {
+        if (!init)
+        {
+            TypeSArray *tsa = (TypeSArray*)type;
+            LLType *llnext = DtoConstInitializerType(type->nextOf(), init);
+            return LLArrayType::get(llnext, tsa->dim->toUInteger());
+        }
+        else if (ArrayInitializer* ai = init->isArrayInitializer())
+        {
+            return DtoConstArrayInitializerType(ai);
+        }
+    }
+    else if (type->ty == Tstruct)
+    {
+        if (!init)
+        {
+        LdefaultInit:
+            TypeStruct *ts = (TypeStruct*)type;
+            DtoResolveStruct(ts->sym);
+            return ts->sym->ir.irStruct->getDefaultInit()->getType();
+        }
+        else if (ExpInitializer* ex = init->isExpInitializer())
+        {
+            if (ex->exp->op == TOKstructliteral) {
+                StructLiteralExp* le = (StructLiteralExp*)ex->exp;
+                if (!le->constType)
+                    le->constType = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
+                return le->constType;
+            } else if (ex->exp->op == TOKvar) {
+                if (((VarExp*)ex->exp)->var->isStaticStructInitDeclaration())
+                    goto LdefaultInit;
+            }
+        }
+        else if (StructInitializer* si = init->isStructInitializer())
+        {
+            if (!si->ltype)
+                si->ltype = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
+            return si->ltype;
+        }
+    }
+
+    return DtoTypeNotVoid(type);
+}
+
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 {
     LLConstant* _init = 0; // may return zero
@@ -1265,7 +1320,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("const expression initializer");
-        _init = DtoConstExpInit(loc, type, ex->exp);;
+        _init = DtoConstExpInit(loc, type, ex->exp);
     }
     else if (StructInitializer* si = init->isStructInitializer())
     {
@@ -1281,7 +1336,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (init->isVoidInitializer())
     {
         Logger::println("const void initializer");
-        const LLType* ty = DtoType(type);
+        LLType* ty = DtoTypeNotVoid(type);
         _init = LLConstant::getNullValue(ty);
     }
     else {
@@ -1325,7 +1380,7 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
 static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 {
     Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
-    const LLType* dstTy = DtoType(base);
+    LLType* dstTy = DtoType(base);
     if (Logger::enabled())
         Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
 
@@ -1355,7 +1410,7 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
     std::vector<LLConstant*> inits;
     while (i--)
     {
-        const LLArrayType* arrty = LLArrayType::get(val->getType(), dims[i]);
+        LLArrayType* arrty = LLArrayType::get(val->getType(), dims[i]);
         inits.clear();
         inits.insert(inits.end(), dims[i], val);
         val = LLConstantArray::get(arrty, inits);
@@ -1623,7 +1678,7 @@ size_t realignOffset(size_t offset, Type* type)
     // we cannot get the llvm alignment if the type is still opaque, this can happen in some
     // forward reference situations, so when this happens we fall back to manual padding.
     // also handle arbitrary "by-value" opaques nested inside aggregates.
-    const llvm::Type* T = DtoType(type);
+    LLType* T = DtoType(type);
     if (!T->isSized())
     {
         return offset;
@@ -1652,89 +1707,89 @@ size_t realignOffset(size_t offset, Type* type)
 Type * stripModifiers( Type * type )
 {
 #if DMDV2
-	if (type->ty == Tfunction)
-		return type;
-	Type *t = type;
-	while (t->mod)
-	{
-		switch (t->mod)
-		{
-			case MODconst:
-				t = type->cto;
-				break;
-			case MODshared:
-				t = type->sto;
-				break;
-			case MODimmutable:
-				t = type->ito;
-				break;
-			case MODshared | MODconst:
-				t = type->scto;
-				break;
-			case MODwild:
-				t = type->wto;
-				break;
-			case MODshared | MODwild:
-				t = type->swto;
-				break;
-			default:
-				assert(0 && "Unhandled type modifier");
-		}
+    if (type->ty == Tfunction)
+        return type;
+    Type *t = type;
+    while (t->mod)
+    {
+        switch (t->mod)
+        {
+            case MODconst:
+                t = type->cto;
+                break;
+            case MODshared:
+                t = type->sto;
+                break;
+            case MODimmutable:
+                t = type->ito;
+                break;
+            case MODshared | MODconst:
+                t = type->scto;
+                break;
+            case MODwild:
+                t = type->wto;
+                break;
+            case MODshared | MODwild:
+                t = type->swto;
+                break;
+            default:
+                assert(0 && "Unhandled type modifier");
+        }
 
-		if (!t)
-		{
-			unsigned sz = type->sizeTy[type->ty];
-			t = (Type *)malloc(sz);
-			memcpy(t, type, sz);
-			t->mod = 0;
-			t->deco = NULL;
-			t->arrayof = NULL;
-			t->pto = NULL;
-			t->rto = NULL;
-			t->cto = NULL;
-			t->ito = NULL;
-			t->sto = NULL;
-			t->scto = NULL;
-			t->wto = NULL;
-			t->swto = NULL;
-			t->vtinfo = NULL;
-			t = t->merge();
+        if (!t)
+        {
+            unsigned sz = type->sizeTy[type->ty];
+            t = (Type *)malloc(sz);
+            memcpy(t, type, sz);
+            t->mod = 0;
+            t->deco = NULL;
+            t->arrayof = NULL;
+            t->pto = NULL;
+            t->rto = NULL;
+            t->cto = NULL;
+            t->ito = NULL;
+            t->sto = NULL;
+            t->scto = NULL;
+            t->wto = NULL;
+            t->swto = NULL;
+            t->vtinfo = NULL;
+            t = t->merge();
 
-			t->fixTo(type);
-			switch (type->mod)
-			{
-			    case MODconst:
-				t->cto = type;
-				break;
+            t->fixTo(type);
+            switch (type->mod)
+            {
+                case MODconst:
+                    t->cto = type;
+                    break;
 
-				case MODimmutable:
-				t->ito = type;
-				break;
+                case MODimmutable:
+                    t->ito = type;
+                    break;
 
-			    case MODshared:
-				t->sto = type;
-				break;
+                case MODshared:
+                    t->sto = type;
+                    break;
 
-			    case MODshared | MODconst:
-				t->scto = type;
-				break;
+                case MODshared | MODconst:
+                    t->scto = type;
+                    break;
 
-				case MODwild:
-				t->wto = type;
-				break;
+                case MODwild:
+                    t->wto = type;
+                    break;
 
-				case MODshared | MODwild:
-				t->swto = type;
-				break;
+                case MODshared | MODwild:
+                    t->swto = type;
+                    break;
 
-			    default:
-				assert(0);
-			}
-		}
-	}
-	return t;
+                default:
+                    assert(0);
+            }
+        }
+    }
+    return t;
 #else
-	return type;
+    return type;
 #endif
 }
 
@@ -1796,4 +1851,3 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
     }
 }
 #endif
-

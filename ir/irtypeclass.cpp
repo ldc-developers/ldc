@@ -14,7 +14,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-extern size_t add_zeros(std::vector<const llvm::Type*>& defaultTypes, size_t diff);
+extern size_t add_zeros(std::vector<llvm::Type*>& defaultTypes, size_t diff);
 extern bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -22,9 +22,11 @@ extern bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v
 IrTypeClass::IrTypeClass(ClassDeclaration* cd)
 :   IrTypeAggr(cd),
     cd(cd),
-    tc((TypeClass*)cd->type),
-    vtbl_pa(llvm::OpaqueType::get(gIR->context()))
+    tc((TypeClass*)cd->type)
 {
+    std::string vtbl_name(cd->toPrettyChars());
+    vtbl_name.append(".__vtbl");
+    vtbl_type = LLStructType::create(gIR->context(), vtbl_name);
     vtbl_size = cd->vtbl.dim;
     num_interface_vtbls = 0;
 }
@@ -32,7 +34,7 @@ IrTypeClass::IrTypeClass(ClassDeclaration* cd)
 //////////////////////////////////////////////////////////////////////////////
 
 void IrTypeClass::addBaseClassData(
-    std::vector< const llvm::Type * > & defaultTypes,
+    std::vector<llvm::Type *> & defaultTypes,
     ClassDeclaration * base,
     size_t & offset,
     size_t & field_index)
@@ -184,7 +186,7 @@ void IrTypeClass::addBaseClassData(
             FuncDeclarations arr;
             b->fillVtbl(cd, &arr, new_instances);
 
-            const llvm::Type* ivtbl_type = buildVtblType(first, &arr);
+            llvm::Type* ivtbl_type = llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
             defaultTypes.push_back(llvm::PointerType::get(ivtbl_type, 0));
 
             offset += PTRSIZE;
@@ -210,7 +212,7 @@ void IrTypeClass::addBaseClassData(
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* IrTypeClass::buildType()
+llvm::Type* IrTypeClass::buildType()
 {
     IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
@@ -219,11 +221,11 @@ const llvm::Type* IrTypeClass::buildType()
     // find the fields that contribute to the default initializer.
     // these will define the default type.
 
-    std::vector<const llvm::Type*> defaultTypes;
+    std::vector<llvm::Type*> defaultTypes;
     defaultTypes.reserve(32);
 
     // add vtbl
-    defaultTypes.push_back(llvm::PointerType::get(vtbl_pa.get(), 0));
+    defaultTypes.push_back(llvm::PointerType::get(vtbl_type, 0));
 
     // interfaces are just a vtable
     if (cd->isInterfaceDeclaration())
@@ -257,43 +259,27 @@ const llvm::Type* IrTypeClass::buildType()
     if (global.errors)
         fatal();
 
-    // build the llvm type
-    const llvm::Type* st = llvm::StructType::get(gIR->context(), defaultTypes, false);
-
-    // refine type
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(st);
-
-    // name type
-    Type::sir->getState()->module->addTypeName(cd->toPrettyChars(), pa.get());
+    // set struct body
+    isaStruct(type)->setBody(defaultTypes, false);
 
     // VTBL
 
-    // build vtbl type
-    const llvm::Type* vtblty = buildVtblType(
-        ClassDeclaration::classinfo->type,
-        &cd->vtbl);
+    // set vtbl type body
+    vtbl_type->setBody(buildVtblType(ClassDeclaration::classinfo->type, &cd->vtbl));
 
-    // refine vtbl pa
-    llvm::cast<llvm::OpaqueType>(vtbl_pa.get())->refineAbstractTypeTo(vtblty);
-
-    // name vtbl type
-    std::string name(cd->toPrettyChars());
-    name.append(".__vtbl");
-    Type::sir->getState()->module->addTypeName(name, vtbl_pa.get());
-
-    IF_LOG Logger::cout() << "class type: " << *pa.get() << std::endl;
+    IF_LOG Logger::cout() << "class type: " << *type << std::endl;
 
     return get();
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type* IrTypeClass::buildVtblType(Type* first, Array* vtbl_array)
+std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_array)
 {
     IF_LOG Logger::println("Building vtbl type for class %s", cd->toPrettyChars());
     LOG_SCOPE;
 
-    std::vector<const llvm::Type*> types;
+    std::vector<llvm::Type*> types;
     types.reserve(vtbl_array->dim);
 
     // first comes the classinfo
@@ -323,15 +309,14 @@ const llvm::Type* IrTypeClass::buildVtblType(Type* first, Array* vtbl_array)
         types.push_back(DtoType(fd->type->pointerTo()));
     }
 
-    // build the vtbl llvm type
-    return llvm::StructType::get(gIR->context(), types, false);
+    return types;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypeClass::get()
+llvm::Type * IrTypeClass::get()
 {
-    return llvm::PointerType::get(pa.get(), 0);
+    return llvm::PointerType::get(type, 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -127,14 +127,14 @@ bool IRState::scopereturned()
 LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, const char* Name)
 {
     LLSmallVector<LLValue*, 1> args;
-    return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
+    return CreateCallOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name)
 {
     LLSmallVector<LLValue*, 1> args;
     args.push_back(Arg1);
-    return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
+    return CreateCallOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name)
@@ -142,7 +142,7 @@ LLCallSite IRState::CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue*
     LLSmallVector<LLValue*, 2> args;
     args.push_back(Arg1);
     args.push_back(Arg2);
-    return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
+    return CreateCallOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name)
@@ -151,7 +151,7 @@ LLCallSite IRState::CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue*
     args.push_back(Arg1);
     args.push_back(Arg2);
     args.push_back(Arg3);
-    return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
+    return CreateCallOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name)
@@ -161,7 +161,7 @@ LLCallSite IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue*
     args.push_back(Arg2);
     args.push_back(Arg3);
     args.push_back(Arg4);
-    return CreateCallOrInvoke(Callee, args.begin(), args.end(), Name);
+    return CreateCallOrInvoke(Callee, args, Name);
 }
 
 

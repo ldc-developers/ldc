@@ -47,8 +47,6 @@ using llvm::IRBuilder;
 #define LLConstantInt llvm::ConstantInt
 #define LLConstantFP llvm::ConstantFP
 
-#define LLPATypeHolder llvm::PATypeHolder
-
 #define LLCallSite llvm::CallSite
 
 #define LLSmallVector llvm::SmallVector

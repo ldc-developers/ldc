@@ -242,6 +242,31 @@ cl::list<std::string> mAttrs("mattr",
 cl::opt<std::string> mTargetTriple("mtriple",
     cl::desc("Override target triple"));
 
+cl::opt<llvm::Reloc::Model> mRelocModel("relocation-model",
+    cl::desc("Relocation model"),
+    cl::init(llvm::Reloc::Default),
+    cl::values(
+        clEnumValN(llvm::Reloc::Default, "default",
+                   "Target default relocation model"),
+        clEnumValN(llvm::Reloc::Static, "static",
+                   "Non-relocatable code"),
+        clEnumValN(llvm::Reloc::PIC_, "pic",
+                   "Fully relocatable, position independent code"),
+        clEnumValN(llvm::Reloc::DynamicNoPIC, "dynamic-no-pic",
+                   "Relocatable external references, non-relocatable code"),
+        clEnumValEnd));
+
+cl::opt<llvm::CodeModel::Model> mCodeModel("code-model",
+    cl::desc("Code model"),
+    cl::init(llvm::CodeModel::Default),
+    cl::values(
+        clEnumValN(llvm::CodeModel::Default, "default", "Target default code model"),
+        clEnumValN(llvm::CodeModel::Small, "small", "Small code model"),
+        clEnumValN(llvm::CodeModel::Kernel, "kernel", "Kernel code model"),
+        clEnumValN(llvm::CodeModel::Medium, "medium", "Medium code model"),
+        clEnumValN(llvm::CodeModel::Large, "large", "Large code model"),
+        clEnumValEnd));
+
 
 // "Hidden debug switches"
 // Are these ever used?

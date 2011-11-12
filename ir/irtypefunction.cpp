@@ -7,41 +7,47 @@
 
 #include "ir/irtypefunction.h"
 
-IrTypeFunction::IrTypeFunction(Type * dt)
-:   IrType(dt, llvm::OpaqueType::get(gIR->context()))
+IrTypeFunction::IrTypeFunction(Type* dt)
+:   IrType(dt, func2llvm(dt))
 {
     irfty = NULL;
 }
 
-const llvm::Type * IrTypeFunction::buildType()
+llvm::Type * IrTypeFunction::buildType()
 {
-    const llvm::Type* T;
-    TypeFunction* tf = (TypeFunction*)dtype;
+    return type;
+}
+
+llvm::Type* IrTypeFunction::func2llvm(Type* dt)
+{
+    llvm::Type* T;
+    TypeFunction* tf = (TypeFunction*)dt;
     if (tf->funcdecl)
         T = DtoFunctionType(tf->funcdecl);
     else
         T = DtoFunctionType(tf,NULL,NULL);
-
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(T);
-    return pa.get();
+    return T;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeDelegate::IrTypeDelegate(Type * dt)
-:   IrType(dt, llvm::OpaqueType::get(gIR->context()))
+:   IrType(dt, delegate2llvm(dt))
 {
 }
 
-const llvm::Type * IrTypeDelegate::buildType()
+llvm::Type* IrTypeDelegate::buildType()
 {
-    assert(dtype->ty == Tdelegate);
-    const LLType* i8ptr = getVoidPtrType();
-    const LLType* func = DtoFunctionType(dtype->nextOf(), NULL, Type::tvoid->pointerTo());
-    const LLType* funcptr = getPtrToType(func);
-    const LLStructType* dgtype = LLStructType::get(gIR->context(), i8ptr, funcptr, NULL);
-    gIR->module->addTypeName(dtype->toChars(), dgtype);
+    return type;
+}
 
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(dgtype);
-    return pa.get();
+llvm::Type* IrTypeDelegate::delegate2llvm(Type* dt)
+{
+    assert(dt->ty == Tdelegate);
+    LLType* func = DtoFunctionType(dt->nextOf(), NULL, Type::tvoid->pointerTo());
+    llvm::SmallVector<LLType*, 2> types;
+    types.push_back(getVoidPtrType());
+    types.push_back(getPtrToType(func));
+    LLStructType* dgtype = LLStructType::get(gIR->context(), types);
+    return dgtype;
 }

@@ -218,7 +218,7 @@ namespace {
         
         // Okay, we may need to transform. Figure out a canonical type:
         
-        std::vector<const LLType*> parts;
+        std::vector<LLType*> parts;
         
         unsigned size = ty->size();
         
@@ -301,14 +301,14 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
             DtoStore(rval, lval);
         }
         
-        const LLType* pTy = getPtrToType(DtoType(dty));
+        LLType* pTy = getPtrToType(DtoType(dty));
         return DtoLoad(DtoBitCast(lval, pTy), "get-result");
     }
     
     // Get struct from ABI-mangled representation, and store in the provided location.
     void getL(Type* dty, DValue* v, llvm::Value* lval) {
         LLValue* rval = v->getRVal();
-        const LLType* pTy = getPtrToType(rval->getType());
+        LLType* pTy = getPtrToType(rval->getType());
         DtoStore(rval, DtoBitCast(lval, pTy));
     }
     
@@ -328,12 +328,12 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
         LLType* abiTy = getAbiType(dty);
         assert(abiTy && "Why are we rewriting a non-rewritten type?");
         
-        const LLType* pTy = getPtrToType(abiTy);
+        LLType* pTy = getPtrToType(abiTy);
         return DtoLoad(DtoBitCast(lval, pTy), "put-result");
     }
     
     /// should return the transformed type for this rewrite
-    const LLType* type(Type* dty, const LLType* t)
+    LLType* type(Type* dty, LLType* t)
     {
         return getAbiType(dty);
     }

@@ -44,8 +44,8 @@ void DtoDeleteArray(DValue* arr);
 // emit an alloca
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name = "");
 llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name = "");
-llvm::AllocaInst* DtoRawAlloca(const llvm::Type* lltype, size_t alignment, const char* name = "");
-LLValue* DtoGcMalloc(const llvm::Type* lltype, const char* name = "");
+llvm::AllocaInst* DtoRawAlloca(LLType* lltype, size_t alignment, const char* name = "");
+LLValue* DtoGcMalloc(LLType* lltype, const char* name = "");
 
 // assertion generator
 void DtoAssert(Module* M, Loc loc, DValue* msg);
@@ -102,6 +102,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration);
 LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr = 0);
 
 // initializer helpers
+LLType* DtoConstInitializerType(Type* type, Initializer* init);
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
 LLConstant* DtoConstExpInit(Loc loc, Type* t, Expression* exp);
 DValue* DtoInitializer(LLValue* target, Initializer* init);
@@ -174,7 +175,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg);
 LLValue* DtoCallableValue(DValue* fn);
 
 ///
-const LLFunctionType* DtoExtractFunctionType(const LLType* type);
+LLFunctionType* DtoExtractFunctionType(LLType* type);
 
 ///
 void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);

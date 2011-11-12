@@ -13,10 +13,10 @@ namespace llvm
     class Value;
 }
 
-const llvm::FunctionType* DtoFunctionType(Type* t, Type* thistype, Type* nesttype, bool ismain = false);
-const llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
+llvm::FunctionType* DtoFunctionType(Type* t, Type* thistype, Type* nesttype, bool ismain = false);
+llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 
-const llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
+llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
 
 void DtoResolveFunction(FuncDeclaration* fdecl);
 void DtoDeclareFunction(FuncDeclaration* fdecl);

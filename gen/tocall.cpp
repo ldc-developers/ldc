@@ -63,7 +63,7 @@ llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
 DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
 {
     DValue* expelem = valistArg->toElem(gIR);
-    const LLType* llt = DtoType(type);
+    LLType* llt = DtoType(type);
     if (DtoIsPassedByRef(type))
         llt = getPtrToType(llt);
     // issue a warning for broken va_arg instruction.
@@ -106,13 +106,13 @@ LLValue* DtoCallableValue(DValue* fn)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLFunctionType* DtoExtractFunctionType(const LLType* type)
+LLFunctionType* DtoExtractFunctionType(LLType* type)
 {
-    if (const LLFunctionType* fty = isaFunction(type))
+    if (LLFunctionType* fty = isaFunction(type))
         return fty;
-    else if (const LLPointerType* pty = isaPointer(type))
+    else if (LLPointerType* pty = isaPointer(type))
     {
-        if (const LLFunctionType* fty = isaFunction(pty->getElementType()))
+        if (LLFunctionType* fty = isaFunction(pty->getElementType()))
             return fty;
     }
     return NULL;
@@ -120,7 +120,7 @@ const LLFunctionType* DtoExtractFunctionType(const LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *fixArgument(DValue *argval, TypeFunction* tf, const LLType *callableArgType, int argIndex)
+static LLValue *fixArgument(DValue *argval, TypeFunction* tf, LLType *callableArgType, int argIndex)
 {
 #if 0
     if (Logger::enabled()) {
@@ -179,12 +179,12 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
                          std::vector<llvm::AttributeWithIndex>& attrs,
                          TypeFunction* tf, Expressions* arguments,
                          size_t argidx,
-                         const LLFunctionType* callableTy)
+                         LLFunctionType* callableTy)
 {
     Logger::println("doing d-style variadic arguments");
     LOG_SCOPE
 
-    std::vector<const LLType*> vtypes;
+    std::vector<LLType*> vtypes;
 
     // number of non variadic args
     int begin = Parameter::dim(tf->parameters);
@@ -211,7 +211,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
             {
                 // ok then... so we build some type that is big enough
                 // and aligned to PTRSIZE
-                std::vector<const LLType*> gah;
+                std::vector<LLType*> gah;
                 gah.reserve(asz/PTRSIZE);
                 size_t gah_sz = 0;
                 while (gah_sz < asz)
@@ -223,7 +223,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
             }
         }
     }
-    const LLStructType* vtype = LLStructType::get(gIR->context(), vtypes);
+    LLStructType* vtype = LLStructType::get(gIR->context(), vtypes);
 
     if (Logger::enabled())
         Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
@@ -242,8 +242,8 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     }
 
     // build type info array
-    const LLType* typeinfotype = DtoType(Type::typeinfo->type);
-    const LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
+    LLType* typeinfotype = DtoType(Type::typeinfo->type);
+    LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
 
     llvm::GlobalVariable* typeinfomem =
         new llvm::GlobalVariable(*gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage");
@@ -265,8 +265,8 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     std::vector<LLConstant*> pinits;
     pinits.push_back(DtoConstSize_t(vtype->getNumElements()));
     pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
-    const LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
-    tiinits = LLConstantStruct::get(gIR->context(), pinits, false);
+    LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
+    tiinits = LLConstantStruct::get(isaStruct(tiarrty), pinits);
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
@@ -341,7 +341,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // get callee llvm value
     LLValue* callable = DtoCallableValue(fnval);
-    const LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
+    LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
 
 //     if (Logger::enabled())
@@ -373,7 +373,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // return in hidden ptr is first
     if (retinptr)
     {
-        LLValue* retvar = DtoRawAlloca(argiter->get()->getContainedType(0), resulttype->alignsize(), ".rettmp");
+        LLValue* retvar = DtoRawAlloca((*argiter)->getContainedType(0), resulttype->alignsize(), ".rettmp");
         ++argiter;
         args.push_back(retvar);
 
@@ -391,7 +391,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // ... which can be a 'this' argument
         if (thiscall && dfnval && dfnval->vthis)
         {
-            LLValue* thisarg = DtoBitCast(dfnval->vthis, argiter->get());
+            LLValue* thisarg = DtoBitCast(dfnval->vthis, *argiter);
             ++argiter;
             args.push_back(thisarg);
         }
@@ -407,7 +407,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             {
                 ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
             }
-            ctxarg = DtoBitCast(ctxarg, argiter->get());
+            ctxarg = DtoBitCast(ctxarg, *argiter);
             ++argiter;
             args.push_back(ctxarg);
         }
@@ -575,7 +575,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 #endif
 
     // call the function
-    LLCallSite call = gIR->CreateCallOrInvoke(callable, args.begin(), args.end(), varname);
+    LLCallSite call = gIR->CreateCallOrInvoke(callable, args, varname);
 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();

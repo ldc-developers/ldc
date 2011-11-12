@@ -12,14 +12,17 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const llvm::StructType* DtoComplexType(Type* type)
+llvm::StructType* DtoComplexType(Type* type)
 {
     Type* t = type->toBasetype();
-    const LLType* base = DtoComplexBaseType(t);
-    return llvm::StructType::get(gIR->context(), base, base, NULL);
+    LLType* base = DtoComplexBaseType(t);
+    llvm::SmallVector<LLType*, 2> types;
+    types.push_back(base);
+    types.push_back(base);
+    return llvm::StructType::get(gIR->context(), types);
 }
 
-const LLType* DtoComplexBaseType(Type* t)
+LLType* DtoComplexBaseType(Type* t)
 {
     TY ty = t->toBasetype()->ty;
     if (ty == Tcomplex32) {
@@ -83,7 +86,7 @@ LLValue* DtoImagPart(DValue* val)
 
 DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 {
-    const LLType* complexTy = DtoType(to);
+    LLType* complexTy = DtoType(to);
 
     Type* baserety;
     Type* baseimty;
@@ -444,7 +447,7 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
 
         llvm::Value *re, *im;
         DtoGetComplexParts(loc, val->getType(), val, re, im);
-        const LLType* toty = DtoComplexBaseType(to);
+        LLType* toty = DtoComplexBaseType(to);
 
         if (to->size() < vty->size()) {
             re = gIR->ir->CreateFPTrunc(re, toty, "tmp");

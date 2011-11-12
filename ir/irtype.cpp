@@ -11,14 +11,14 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-extern const llvm::Type* DtoType(Type* dt);
-extern const llvm::Type* DtoSize_t();
+extern LLType* DtoType(Type* dt);
+extern LLType* DtoSize_t();
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrType::IrType(Type* dt, const llvm::Type* lt)
+IrType::IrType(Type* dt, LLType* lt)
 :   dtype(dt),
-    pa(lt)
+    type(lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
@@ -39,16 +39,26 @@ IrTypeBasic::IrTypeBasic(Type * dt)
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypeBasic::buildType()
+llvm::Type * IrTypeBasic::buildType()
 {
-    return pa.get();
+    return type;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
+LLType* IrTypeBasic::getComplexType(llvm::LLVMContext& ctx, LLType* type)
 {
-    const llvm::Type* t2;
+    llvm::SmallVector<LLType*, 2> types;
+    types.push_back(type);
+    types.push_back(type);
+    return llvm::StructType::get(ctx, types);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type * IrTypeBasic::basic2llvm(Type* t)
+{
+    LLType* t2;
 
     llvm::LLVMContext& ctx = llvm::getGlobalContext();
 
@@ -99,19 +109,20 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
         else
             return llvm::Type::getDoubleTy(ctx);
 
-    case Tcomplex32:
+    case Tcomplex32: {
         t2 = llvm::Type::getFloatTy(ctx);
-        return llvm::StructType::get(ctx, t2, t2, NULL);
+        return getComplexType(ctx, t2);
+    }
 
     case Tcomplex64:
         t2 = llvm::Type::getDoubleTy(ctx);
-        return llvm::StructType::get(ctx, t2, t2, NULL);
+        return getComplexType(ctx, t2);
 
     case Tcomplex80:
         t2 = (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
             ? llvm::Type::getX86_FP80Ty(ctx)
             : llvm::Type::getDoubleTy(ctx);
-        return llvm::StructType::get(ctx, t2, t2, NULL);
+        return getComplexType(ctx, t2);
 
     case Tbool:
         return llvm::Type::getInt1Ty(ctx);
@@ -126,26 +137,24 @@ const llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypePointer::IrTypePointer(Type * dt)
-: IrType(dt, llvm::OpaqueType::get(llvm::getGlobalContext()))
+: IrType(dt, pointer2llvm(dt))
 {
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypePointer::buildType()
+llvm::Type * IrTypePointer::buildType()
 {
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(
-        pointer2llvm(dtype));
-    return pa.get();
+    return type;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
+llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
 {
     assert(dt->ty == Tpointer && "not pointer type");
 
-    const llvm::Type* elemType = DtoType(dt->nextOf());
+    LLType* elemType = DtoType(dt->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     return llvm::PointerType::get(elemType, 0);
@@ -156,27 +165,25 @@ const llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeSArray::IrTypeSArray(Type * dt)
-: IrType(dt, llvm::OpaqueType::get(llvm::getGlobalContext()))
+: IrType(dt, sarray2llvm(dt))
 {
-    assert(dt->ty == Tsarray && "not static array type");
-    TypeSArray* tsa = (TypeSArray*)dt;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type * IrTypeSArray::buildType()
+{
+    return type;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
+{
+    assert(t->ty == Tsarray && "not static array type");
+    TypeSArray* tsa = (TypeSArray*)t;
     dim = (uint64_t)tsa->dim->toUInteger();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-const llvm::Type * IrTypeSArray::buildType()
-{
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(
-        sarray2llvm(dtype));
-    return pa.get();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-const llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
-{
-    const llvm::Type* elemType = DtoType(t->nextOf());
+    LLType* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     return llvm::ArrayType::get(elemType, dim == 0 ? 1 : dim);
@@ -187,36 +194,34 @@ const llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeArray::IrTypeArray(Type * dt)
-: IrType(dt, llvm::OpaqueType::get(llvm::getGlobalContext()))
+: IrType(dt, array2llvm(dt))
 {
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypeArray::buildType()
+llvm::Type * IrTypeArray::buildType()
 {
-    llvm::cast<llvm::OpaqueType>(pa.get())->refineAbstractTypeTo(
-        array2llvm(dtype));
-    return pa.get();
+    return type;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-const llvm::Type * IrTypeArray::array2llvm(Type * t)
+llvm::Type * IrTypeArray::array2llvm(Type * t)
 {
     assert(t->ty == Tarray && "not dynamic array type");
 
     // get .ptr type
-    const llvm::Type* elemType = DtoType(t->nextOf());
+    LLType* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     elemType = llvm::PointerType::get(elemType, 0);
 
     // create struct type
-    const llvm::Type* at = llvm::StructType::get(llvm::getGlobalContext(), DtoSize_t(), elemType, NULL);
-
-    // name dynamic array types
-    Type::sir->getState()->module->addTypeName(t->toChars(), at);
+    llvm::SmallVector<LLType*, 2> types;
+    types.push_back(DtoSize_t());
+    types.push_back(elemType);
+    LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types/*, t->toChars()*/);
 
     return at;
 }

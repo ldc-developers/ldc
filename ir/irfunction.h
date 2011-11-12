@@ -89,7 +89,7 @@ struct IrFunction : IrBase
     llvm::Value* nestArg; // nested function 'this' arg
     
     llvm::Value* nestedVar; // nested var alloca
-    const llvm::StructType* frameType; // type of nested context (not for -nested-ctx=array)
+    llvm::StructType* frameType; // type of nested context (not for -nested-ctx=array)
     // number of enclosing functions with variables accessed by nested functions
     // (-1 if neither this function nor any enclosing ones access variables from enclosing functions)
     int depth;

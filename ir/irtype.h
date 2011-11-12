@@ -26,7 +26,7 @@ class IrType
 {
 public:
     ///
-    IrType(Type* dt, const llvm::Type* lt);
+    IrType(Type* dt, llvm::Type* lt);
 
     ///
     virtual IrTypeAggr* isAggr()        { return NULL; }
@@ -50,19 +50,19 @@ public:
     ///
     Type* getD()                        { return dtype; }
     ///
-    virtual const llvm::Type* get()     { return pa.get(); }
+    virtual llvm::Type* get()           { return type; }
     ///
-    llvm::PATypeHolder& getPA()         { return pa; }
+    llvm::Type* getType()               { return type; }
 
     ///
-    virtual const llvm::Type* buildType() = 0;
+    virtual llvm::Type* buildType() = 0;
 
 protected:
     ///
     Type* dtype;
 
-    /// LLVM type holder.
-    llvm::PATypeHolder pa;
+    /// LLVM type.
+    llvm::Type* type;
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -78,11 +78,13 @@ public:
     IrTypeBasic* isBasic()          { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
 protected:
     ///
-    const llvm::Type* basic2llvm(Type* t);
+    LLType* getComplexType(llvm::LLVMContext& ctx, LLType* type);
+    ///
+    llvm::Type* basic2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -98,11 +100,11 @@ public:
     IrTypePointer* isPointer()      { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
 protected:
     ///
-    const llvm::Type* pointer2llvm(Type* t);
+    llvm::Type* pointer2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -118,11 +120,11 @@ public:
     IrTypeSArray* isSArray()  { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
 protected:
     ///
-    const llvm::Type* sarray2llvm(Type* t);
+    llvm::Type* sarray2llvm(Type* t);
 
     /// Dimension.
     uint64_t dim;
@@ -141,11 +143,11 @@ public:
     IrTypeArray* isArray()  { return this; }
 
     ///
-    const llvm::Type* buildType();
+    llvm::Type* buildType();
 
 protected:
     ///
-    const llvm::Type* array2llvm(Type* t);
+    llvm::Type* array2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
