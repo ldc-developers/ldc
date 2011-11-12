@@ -557,7 +557,7 @@ static void LLVM_D_BuildRuntimeModule()
     // void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
     {
         llvm::StringRef fname("_d_array_slice_copy");
-        std::vector<const LLType*> types;
+        std::vector<LLType*> types;
         types.push_back(voidPtrTy);
         types.push_back(sizeTy);
         types.push_back(voidPtrTy);
