@@ -236,50 +236,35 @@ else version( LDC )
         seq,    /// fully sequenced (acq + rel)
     }
 
+    private AtomicOrdering getOrdering(msync ms) pure
+    {
+        if (ms == msync.acq)
+            return AtomicOrdering.Acquire;
+        else if (ms == msync.rel)
+            return AtomicOrdering.Release;
+        else if (ms == msync.seq)
+            return AtomicOrdering.SequentiallyConsistent;
+        else if (ms == msync.raw)
+            return AtomicOrdering.NotAtomic;
+        else
+            assert(0);
+    }
+
     HeadUnshared!(T) atomicLoad(msync ms = msync.seq, T)( ref const shared T val )
         if(!__traits(isFloating, T))
     {
-        llvm_memory_barrier(
-            ms == msync.acq || ms == msync.seq,
-            ms == msync.acq || ms == msync.seq,
-            ms == msync.rel || ms == msync.seq,
-            ms == msync.rel || ms == msync.seq,
-            false);
+        enum ordering = getOrdering(ms == msync.acq ? msync.seq : ms);
         static if (is(T P == U*, U)) // pointer
         {
-            llvm_atomic_load_add!(size_t)(cast(size_t*)&val, 0);
+            return cast(HeadUnshared!(T))llvm_atomic_load!(size_t)(cast(size_t*)&val, ordering);
         }
         else static if (T.sizeof == bool.sizeof)
         {
-            llvm_atomic_load_add!(ubyte)(cast(ubyte*)&val, cast(ubyte)0);
+            return cast(HeadUnshared!(T))llvm_atomic_load!(ubyte)(cast(ubyte*)&val, ordering);
         }
         else
         {
-            llvm_atomic_load_add!(T)(cast(T*)&val, cast(T)0);
-        }
-        return cast(HeadUnshared!(T))val;
-    }
-
-    void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
-        if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
-    {
-        llvm_memory_barrier(
-            ms == msync.acq || ms == msync.seq,
-            ms == msync.acq || ms == msync.seq,
-            ms == msync.rel || ms == msync.seq,
-            ms == msync.rel || ms == msync.seq,
-            false);
-        static if (is(T P == U*, U)) // pointer
-        {
-            llvm_atomic_swap!(size_t)(cast(size_t*)&val, cast(size_t)newval);
-        }
-        else static if (T.sizeof == bool.sizeof)
-        {
-            llvm_atomic_swap!(ubyte)(cast(ubyte*)&val, newval);
-        }
-        else
-        {
-            llvm_atomic_swap!(T)(cast(T*)&val, cast(T)newval);
+            return cast(HeadUnshared!(T))llvm_atomic_load!(T)(cast(T*)&val, ordering);
         }
     }
 
@@ -303,6 +288,24 @@ else version( LDC )
         else
         {
             static assert(0, "Cannot atomically store 80-bit reals.");
+        }
+    }
+
+    void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
+        if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
+    {
+        enum ordering = getOrdering(ms == msync.rel ? msync.seq : ms);
+        static if (is(T P == U*, U)) // pointer
+        {
+            llvm_atomic_store!(size_t)(cast(size_t)newval, cast(size_t*)&val, ordering);
+        }
+        else static if (T.sizeof == bool.sizeof)
+        {
+            llvm_atomic_store!(ubyte)(newval, cast(ubyte*)&val, ordering);
+        }
+        else
+        {
+            llvm_atomic_store!(T)(cast(T)newval, cast(T*)&val, ordering);
         }
     }
 }
