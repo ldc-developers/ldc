@@ -5,6 +5,8 @@
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Authors:   Don Clugston, Sean Kelly, Walter Bright
  * Source:    $(DRUNTIMESRC core/_bitop.d)
+ *
+ * Some of the LDC-specific parts came »From GDC ... public domain!«
  */
 
 /*          Copyright Don Clugston 2005 - 2009.
@@ -15,7 +17,6 @@
 module core.bitop;
 
 nothrow:
-
 
 /**
  * Scans the bits in v starting with bit 0, looking
@@ -34,7 +35,19 @@ nothrow:
  * }
  * ---
  */
-pure int bsf(size_t v);
+version (LDC)
+{
+    // KLUDGE: Need to adapt the return type.
+    private pure pragma(intrinsic, "llvm.cttz.i#") T cttz(T)(T v);
+    pure int bsf(size_t v)
+    {
+        return cast(int)cttz(v);
+    }
+}
+else
+{
+    pure int bsf(size_t v);
+}
 
 unittest
 {
@@ -59,7 +72,18 @@ unittest
  * }
  * ---
  */
-pure int bsr(size_t v);
+version (LDC)
+{
+    private pure pragma(intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v);
+    pure int bsr(size_t v)
+    {
+        return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v));
+    }
+}
+else
+{
+    pure int bsr(size_t v);
+}
 
 unittest
 {
@@ -69,19 +93,59 @@ unittest
 /**
  * Tests the bit.
  */
-pure int bt(in size_t* p, size_t bitnum);
+version (LDC)
+{
+   pure int bt(in size_t* p, size_t bitnum)
+   {
+       auto q = cast(ubyte*)p + (bitnum >> 3);
+       auto mask = 1 << (bitnum & 7);
+       return *q & mask;
+   }
+}
+else
+{
+  pure int bt(in size_t* p, size_t bitnum);
+}
 
 
 /**
  * Tests and complements the bit.
  */
-int btc(size_t* p, size_t bitnum);
+version (LDC)
+{
+    int btc(size_t* p, size_t bitnum)
+    {
+        auto q = cast(ubyte*)p + (bitnum >> 3);
+        auto mask = 1 << (bitnum & 7);
+        auto result = *q & mask;
+        *q ^= mask;
+        return result ? -1 : 0;
+    }
+}
+else
+{
+    int btc(size_t* p, size_t bitnum);
+}
 
 
 /**
  * Tests and resets (sets to 0) the bit.
  */
-int btr(size_t* p, size_t bitnum);
+version (LDC)
+{
+    int btr(size_t* p, size_t bitnum)
+    {
+        auto q = cast(ubyte*)p + (bitnum >> 3);
+        auto mask = 1 << (bitnum & 7);
+        auto result = *q & mask;
+        *q &= ~mask;
+        return result ? -1 : 0;
+    }
+}
+else
+{
+    int btr(size_t* p, size_t bitnum);
+}
 
 
 /**
@@ -133,7 +197,21 @@ int main()
 }
  * ---
  */
-int bts(size_t* p, size_t bitnum);
+version (LDC)
+{
+    int bts(size_t* p, size_t bitnum)
+    {
+        auto q = cast(ubyte*)p + (bitnum >> 3);
+        auto mask = 1 << (bitnum & 7);
+        auto result = *q & mask;
+        *q |= mask;
+        return result ? -1 : 0;
+    }
+}
+else
+{
+    int bts(size_t* p, size_t bitnum);
+}
 
 unittest
 {
@@ -187,7 +265,7 @@ unittest
 version (LDC)
 {
     pure pragma(intrinsic, "llvm.bswap.i32")
-        uint bswap(uint val);
+        uint bswap(uint v);
 }
 else
 {
@@ -198,71 +276,138 @@ else
 /**
  * Reads I/O port at port_address.
  */
-ubyte inp(uint port_address);
+version (LDC)
+{
+    uint inp(uint port_address)
+    {
+        assert(false, "inp not yet implemented for LDC.");
+    }
+}
+else
+{
+    ubyte inp(uint port_address);
+}
 
 
 /**
  * ditto
  */
-ushort inpw(uint port_address);
+version (LDC)
+{
+    uint inpw(uint port_address)
+    {
+        assert(false, "inpw not yet implemented for LDC.");
+    }
+}
+else
+{
+    ushort inpw(uint port_address);
+}
 
 
 /**
  * ditto
  */
-uint inpl(uint port_address);
+version (LDC)
+{
+    uint inpl(uint port_address)
+    {
+        assert(false, "inpl not yet implemented for LDC.");
+    }
+}
+else
+{
+    uint inpl(uint port_address);
+}
 
 
 /**
  * Writes and returns value to I/O port at port_address.
  */
-ubyte outp(uint port_address, ubyte value);
+version (LDC)
+{
+    ubyte outp(uint port_address, uint value)
+    {
+        assert(false, "outp not yet implemented for LDC.");
+    }
+}
+else
+{
+    ubyte outp(uint port_address, ubyte value);
+}
 
 
 /**
  * ditto
  */
-ushort outpw(uint port_address, ushort value);
+version (LDC)
+{
+    ushort outpw(uint port_address, uint value)
+    {
+        assert(false, "outpw not yet implemented for LDC.");
+    }
+}
+else
+{
+    ushort outpw(uint port_address, ushort value);
+}
 
 
 /**
  * ditto
  */
-uint outpl(uint port_address, uint value);
+version (LDC)
+{
+    uint outpl(uint port_address, uint value)
+    {
+        assert(false, "outpl not yet implemented for LDC.");
+    }
+}
+else
+{
+    uint outpl(uint port_address, uint value);
+}
 
 
 /**
  *  Calculates the number of set bits in a 32-bit integer.
  */
-int popcnt( uint x )
+version (LDC)
 {
-    // Avoid branches, and the potential for cache misses which
-    // could be incurred with a table lookup.
+        int popcnt(uint x);
+}
+else
+{
+    int popcnt( uint x )
+    {
+        // Avoid branches, and the potential for cache misses which
+        // could be incurred with a table lookup.
 
-    // We need to mask alternate bits to prevent the
-    // sum from overflowing.
-    // add neighbouring bits. Each bit is 0 or 1.
-    x = x - ((x>>1) & 0x5555_5555);
-    // now each two bits of x is a number 00,01 or 10.
-    // now add neighbouring pairs
-    x = ((x&0xCCCC_CCCC)>>2) + (x&0x3333_3333);
-    // now each nibble holds 0000-0100. Adding them won't
-    // overflow any more, so we don't need to mask any more
+        // We need to mask alternate bits to prevent the
+        // sum from overflowing.
+        // add neighbouring bits. Each bit is 0 or 1.
+        x = x - ((x>>1) & 0x5555_5555);
+        // now each two bits of x is a number 00,01 or 10.
+        // now add neighbouring pairs
+        x = ((x&0xCCCC_CCCC)>>2) + (x&0x3333_3333);
+        // now each nibble holds 0000-0100. Adding them won't
+        // overflow any more, so we don't need to mask any more
 
-    // Now add the nibbles, then the bytes, then the words
-    // We still need to mask to prevent double-counting.
-    // Note that if we used a rotate instead of a shift, we
-    // wouldn't need the masks, and could just divide the sum
-    // by 8 to account for the double-counting.
-    // On some CPUs, it may be faster to perform a multiply.
+        // Now add the nibbles, then the bytes, then the words
+        // We still need to mask to prevent double-counting.
+        // Note that if we used a rotate instead of a shift, we
+        // wouldn't need the masks, and could just divide the sum
+        // by 8 to account for the double-counting.
+        // On some CPUs, it may be faster to perform a multiply.
 
-    x += (x>>4);
-    x &= 0x0F0F_0F0F;
-    x += (x>>8);
-    x &= 0x00FF_00FF;
-    x += (x>>16);
-    x &= 0xFFFF;
-    return x;
+        x += (x>>4);
+        x &= 0x0F0F_0F0F;
+        x += (x>>8);
+        x &= 0x00FF_00FF;
+        x += (x>>16);
+        x &= 0xFFFF;
+        return x;
+    }
 }
 
 
