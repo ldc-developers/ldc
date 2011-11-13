@@ -17,6 +17,8 @@ version(darwin)
     version = GC_Use_Data_Dyld;
     version = GC_Use_Dynamic_Ranges;
     import core.stdc.config : c_ulong;
+    import core.sys.posix.pthread;
+    extern(C) void* pthread_get_stackaddr_np(pthread_t thread);
 }
 else version(Posix)
 {
@@ -144,11 +146,7 @@ extern (C) void* rt_stackBottom()
     }
     else version( darwin )
     {
-        // darwin has a fixed stack bottom
-        version( D_LP64 )
-            return cast(void*) 0x7fff5fc00000;
-        else
-            return cast(void*) 0xc0000000;
+        return pthread_get_stackaddr_np(pthread_self());
     }
     else version( solaris )
     {
