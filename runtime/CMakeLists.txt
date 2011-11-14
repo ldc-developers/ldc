@@ -76,9 +76,6 @@ elseif(D_VERSION EQUAL 2)
     file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
     file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
     file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
-    list(REMOVE_ITEM CORE_D
-        ${RUNTIME_DIR}/src/core/bitop.d
-    )
     list(REMOVE_ITEM DCRT_D
         ${RUNTIME_DC_DIR}/alloca.d
         ${RUNTIME_DC_DIR}/arraybyte.d
