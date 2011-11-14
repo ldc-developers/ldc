@@ -156,7 +156,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         }
         asmstr << "\t." << section << std::endl;
         asmstr << "\t.align\t16" << std::endl;
-        
+
         if (global.params.os == OSWindows)
         {
             std::string def = "def";
@@ -171,9 +171,9 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
             asmstr << "\t." << linkage << "\t" << mangle << std::endl;
             asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
         }
-        
+
         asmstr << mangle << ":" << std::endl;
-            
+
     }
 
     // emit body

@@ -452,7 +452,7 @@ namespace AsmParserx8664
         "iretw",
         "iret",
         "iretq",
-        "lret", 
+        "lret",
         "cmpxchg8b",
         "cmpxchg16b"
    };
@@ -1063,7 +1063,7 @@ namespace AsmParserx8664
         { "pandn",    Op_DstSrcMMX },
         { "pause",    Op_DstSrcMMX },
         { "pavgb",    Op_DstSrcMMX },
-        { "pavgusb",  Op_DstSrcMMX }, // AMD 3dNow! 
+        { "pavgusb",  Op_DstSrcMMX }, // AMD 3dNow!
         { "pavgw",    Op_DstSrcMMX },
         { "pcmpeqb",  Op_DstSrcMMX },
         { "pcmpeqd",  Op_DstSrcMMX },
@@ -1105,7 +1105,7 @@ namespace AsmParserx8664
         { "pminsw",   Op_DstSrcMMX },
         { "pminub",   Op_DstSrcMMX },
         { "pmovmskb", Op_DstSrcMMX },
-        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow! 
+        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow!
         { "pmulhrsw",  Op_DstSrcMMX },
         { "pmulhuw",  Op_DstSrcMMX },
         { "pmulhw",   Op_DstSrcMMX },
@@ -1147,7 +1147,7 @@ namespace AsmParserx8664
         { "psubusb",  Op_DstSrcMMX },
         { "psubusw",  Op_DstSrcMMX },
         { "psubw",    Op_DstSrcMMX },
-        { "pswapd",   Op_DstSrcMMX }, // AMD 3dNow! 
+        { "pswapd",   Op_DstSrcMMX }, // AMD 3dNow!
         { "punpckhbw", Op_DstSrcMMX },
         { "punpckhdq", Op_DstSrcMMX },
         { "punpckhqdq",Op_DstSrcMMX },
@@ -1546,7 +1546,7 @@ namespace AsmParserx8664
                     if ( matchOperands ( operand_i ) )
                     {
                         AsmCode * asmcode = new AsmCode ( N_Regs );
-                        
+
                         if ( formatInstruction ( operand_i, asmcode ) )
                             stmt->asmcode = ( code * ) asmcode;
                     }
@@ -1778,7 +1778,7 @@ namespace AsmParserx8664
 
                 return Opr_Mem;
             }
-            
+
             if ( operand->reg != Reg_Invalid && ! operand->hasNumber )
                 return Opr_Reg;
 
@@ -1888,7 +1888,7 @@ namespace AsmParserx8664
                 mnemonic = alternateMnemonics[opInfo->link];
             else
                 mnemonic = opIdent->string;
-            
+
             // handle two-operand form where second arg is ignored.
             // must be done before type_char detection
             if ( op == Op_FidR_P || op == Op_fxch || op == Op_FfdRR_P )
@@ -1898,7 +1898,7 @@ namespace AsmParserx8664
                 else
                     stmt->error("instruction allows only ST as second argument");
             }
-            
+
             if ( op == Op_FCmpFlgP )
             {
                 // Explicitly add %st as second argument to fucomip – it should
@@ -2044,11 +2044,11 @@ namespace AsmParserx8664
                     insnTemplate.write(mnemonic, mlen-1) << tc_1 << type_char;
                 }
                 break;
-                
+
                 default:
                 // special case fdiv, fsub: see dmd 840, ldc 256
                 if ((strncmp(mnemonic, "fsub", 4) == 0 ||
-                     strncmp(mnemonic, "fdiv", 4) == 0) && 
+                     strncmp(mnemonic, "fdiv", 4) == 0) &&
                     operands[0].reg != Reg_ST && op != Op_FMath)
                 {
                     // replace:
@@ -2282,7 +2282,7 @@ namespace AsmParserx8664
 
                                 /* GCC doesn't give the front end access to stack offsets
                                    when optimization is turned on (3.x) or at all (4.x).
-                                   
+
                                    Try to convert var[EBP] (or var[ESP] for naked funcs) to
                                    a memory expression that does not require us to know
                                    the stack offset.
