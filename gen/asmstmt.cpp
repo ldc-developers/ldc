@@ -49,9 +49,9 @@ struct AsmArg {
     AsmArgType   type;
     AsmArgMode   mode;
     AsmArg(AsmArgType type, Expression * expr, AsmArgMode mode) {
-	this->type = type;
-	this->expr = expr;
-	this->mode = mode;
+        this->type = type;
+        this->expr = expr;
+        this->mode = mode;
     }
 };
 
@@ -62,9 +62,9 @@ struct AsmCode {
     unsigned dollarLabel;
     int      clobbersMemory;
     AsmCode(int n_regs) {
-	regs.resize(n_regs, false);
-	dollarLabel = 0;
-	clobbersMemory = 0;
+        regs.resize(n_regs, false);
+        dollarLabel = 0;
+        clobbersMemory = 0;
     }
 };
 
@@ -96,27 +96,27 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writestring("asm { ");
 
     for (Token * t = tokens; t; t = t->next) {
-	switch (t->value) {
-	case TOKlparen:
-	case TOKrparen:
-	case TOKlbracket:
-	case TOKrbracket:
-	case TOKcolon:
-	case TOKsemicolon:
-	case TOKcomma:
-	case TOKstring:
-	case TOKcharv:
-	case TOKwcharv:
-	case TOKdcharv:
-	    nsep = 0;
-	    break;
-	default:
-	    nsep = 1;
-	}
-	if (sep + nsep == 2)
-    		buf->writeByte(' ');
-	sep = nsep;
-	buf->writestring(t->toChars());
+        switch (t->value) {
+        case TOKlparen:
+        case TOKrparen:
+        case TOKlbracket:
+        case TOKrbracket:
+        case TOKcolon:
+        case TOKsemicolon:
+        case TOKcomma:
+        case TOKstring:
+        case TOKcharv:
+        case TOKwcharv:
+        case TOKdcharv:
+            nsep = 0;
+            break;
+        default:
+            nsep = 1;
+        }
+        if (sep + nsep == 2)
+                buf->writeByte(' ');
+        sep = nsep;
+        buf->writestring(t->toChars());
     }
     buf->writestring("; }");
     buf->writenl();
@@ -170,7 +170,7 @@ Statement *AsmStatement::semantic(Scope *sc)
 
     // empty statement -- still do the above things because they might be expected?
     if (! tokens)
-	return this;
+        return this;
 
     if (!asmparser)
         if (global.params.cpu == ARCHx86)
@@ -246,70 +246,70 @@ AsmStatement::toIR(IRState * irs)
 
     std::vector<AsmArg>::iterator arg = code->args.begin();
     for (unsigned i = 0; i < code->args.size(); i++, ++arg) {
-	bool is_input = true;
-	LLValue* arg_val = 0;
-	std::string cns;
+        bool is_input = true;
+        LLValue* arg_val = 0;
+        std::string cns;
 
-	switch (arg->type) {
-	case Arg_Integer:
-	    arg_val = arg->expr->toElem(irs)->getRVal();
-	do_integer:
-	    cns = i_cns;
-	    break;
-	case Arg_Pointer:
+        switch (arg->type) {
+        case Arg_Integer:
+            arg_val = arg->expr->toElem(irs)->getRVal();
+        do_integer:
+            cns = i_cns;
+            break;
+        case Arg_Pointer:
         assert(arg->expr->op == TOKvar);
         arg_val = arg->expr->toElem(irs)->getRVal();
         cns = p_cns;
 
-	    break;
-	case Arg_Memory:
+            break;
+        case Arg_Memory:
         arg_val = arg->expr->toElem(irs)->getRVal();
 
-	    switch (arg->mode) {
-	    case Mode_Input:  cns = m_cns; break;
-	    case Mode_Output: cns = mw_cns;  is_input = false; break;
-	    case Mode_Update: cns = mrw_cns; is_input = false; break;
-	    default: assert(0); break;
-	    }
-	    break;
-	case Arg_FrameRelative:
+            switch (arg->mode) {
+            case Mode_Input:  cns = m_cns; break;
+            case Mode_Output: cns = mw_cns;  is_input = false; break;
+            case Mode_Update: cns = mrw_cns; is_input = false; break;
+            default: assert(0); break;
+            }
+            break;
+        case Arg_FrameRelative:
 // FIXME
 assert(0 && "asm fixme Arg_FrameRelative");
-/*	    if (arg->expr->op == TOKvar)
-		arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
-	    else
-		assert(0);
-	    if ( getFrameRelativeValue(arg_val, & var_frame_offset) ) {
-//		arg_val = irs->integerConstant(var_frame_offset);
-		cns = i_cns;
-	    } else {
-		this->error("%s", "argument not frame relative");
-		return;
-	    }
-	    if (arg->mode != Mode_Input)
-		clobbers_mem = true;
-	    break;*/
-	case Arg_LocalSize:
+/*          if (arg->expr->op == TOKvar)
+                arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
+            else
+                assert(0);
+            if ( getFrameRelativeValue(arg_val, & var_frame_offset) ) {
+//              arg_val = irs->integerConstant(var_frame_offset);
+                cns = i_cns;
+            } else {
+                this->error("%s", "argument not frame relative");
+                return;
+            }
+            if (arg->mode != Mode_Input)
+                clobbers_mem = true;
+            break;*/
+        case Arg_LocalSize:
 // FIXME
 assert(0 && "asm fixme Arg_LocalSize");
-/*	    var_frame_offset = cfun->x_frame_offset;
-	    if (var_frame_offset < 0)
-		var_frame_offset = - var_frame_offset;
-	    arg_val = irs->integerConstant( var_frame_offset );*/
-	    goto do_integer;
-	default:
-	    assert(0);
-	}
+/*          var_frame_offset = cfun->x_frame_offset;
+            if (var_frame_offset < 0)
+                var_frame_offset = - var_frame_offset;
+            arg_val = irs->integerConstant( var_frame_offset );*/
+            goto do_integer;
+        default:
+            assert(0);
+        }
 
-	if (is_input) {
-	    arg_map[i] = --input_idx;
-	    input_values.push_back(arg_val);
-	    input_constraints.push_back(cns);
-	} else {
-	    arg_map[i] = n_outputs++;
-	    output_values.push_back(arg_val);
-	    output_constraints.push_back(cns);
-	}
+        if (is_input) {
+            arg_map[i] = --input_idx;
+            input_values.push_back(arg_val);
+            input_constraints.push_back(cns);
+        } else {
+            arg_map[i] = n_outputs++;
+            output_values.push_back(arg_val);
+            output_constraints.push_back(cns);
+        }
     }
 
     // Telling GCC that callee-saved registers are clobbered makes it preserve
@@ -319,19 +319,19 @@ assert(0 && "asm fixme Arg_LocalSize");
 // FIXME
 //    if (! irs->func->naked) {
         assert(asmparser);
-	for (int i = 0; i < code->regs.size(); i++) {
-	    if (code->regs[i]) {
-		clobbers.push_back(asmparser->getRegName(i));
-	    }
-	}
-	if (clobbers_mem)
-	    clobbers.push_back(memory_name);
+        for (int i = 0; i < code->regs.size(); i++) {
+            if (code->regs[i]) {
+                clobbers.push_back(asmparser->getRegName(i));
+            }
+        }
+        if (clobbers_mem)
+            clobbers.push_back(memory_name);
 //    }
 
     // Remap argument numbers
     for (unsigned i = 0; i < code->args.size(); i++) {
-	if (arg_map[i] < 0)
-	    arg_map[i] = -arg_map[i] - 1 + n_outputs;
+        if (arg_map[i] < 0)
+            arg_map[i] = -arg_map[i] - 1 + n_outputs;
     }
 
     bool pct = false;
@@ -340,18 +340,18 @@ assert(0 && "asm fixme Arg_LocalSize");
         q = code->insnTemplate.end();
     //printf("start: %.*s\n", code->insnTemplateLen, code->insnTemplate);
     while (p < q) {
-	if (pct) {
-	    if (*p >= '0' && *p <= '9') {
-		// %% doesn't check against nargs
-		*p = '0' + arg_map[*p - '0'];
-		pct = false;
-	    } else if (*p == '$') {
-		pct = false;
-	    }
-	    //assert(*p == '%');// could be 'a', etc. so forget it..
-	} else if (*p == '$')
-	    pct = true;
-	++p;
+        if (pct) {
+            if (*p >= '0' && *p <= '9') {
+                // %% doesn't check against nargs
+                *p = '0' + arg_map[*p - '0'];
+                pct = false;
+            } else if (*p == '$') {
+                pct = false;
+            }
+            //assert(*p == '%');// could be 'a', etc. so forget it..
+        } else if (*p == '$')
+            pct = true;
+        ++p;
     }
 
     typedef std::vector<std::string>::iterator It;
