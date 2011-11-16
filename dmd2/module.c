@@ -264,7 +264,7 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
 //    else
     // allow for .o and .obj on windows
 #if _WIN32
-    if (ext == global.params.objdir && FileName::ext(argobj) 
+    if (ext == global.params.objdir && FileName::ext(argobj)
 	    && stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
 	return new File((char*)argobj);
 #endif
@@ -529,7 +529,11 @@ void Module::read(Loc loc)
                 for (size_t i = 0; i < global.path->dim; i++)
                 {
                     char *p = global.path->tdata()[i];
+#if defined(_MSC_VER)
+                    fprintf(stdmsg, "import path[%Id] = %s\n", i, p);
+#else
                     fprintf(stdmsg, "import path[%zd] = %s\n", i, p);
+#endif
                 }
             }
             else

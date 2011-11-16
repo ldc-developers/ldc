@@ -455,6 +455,9 @@ void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 void error(Loc loc, const char *format, ...) IS_PRINTF(2);
 void verror(Loc loc, const char *format, va_list);
 void vwarning(Loc loc, const char *format, va_list);
+#if defined(_MSC_VER)
+__declspec(noreturn)
+#endif
 void fatal();
 void err_nomem();
 #if IN_LLVM

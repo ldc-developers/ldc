@@ -18,12 +18,6 @@
 #include <assert.h>
 #include <limits.h>
 
-#if POSIX
-#include <errno.h>
-#elif _WIN32
-#include <windows.h>
-#endif
-
 #include "rmem.h"
 #include "root.h"
 
@@ -48,6 +42,12 @@
 using namespace opts;
 
 #include "gen/configfile.h"
+
+#if POSIX
+#include <errno.h>
+#elif _WIN32
+#include <windows.h>
+#endif
 
 #if DMDV1
 typedef Array Modules;

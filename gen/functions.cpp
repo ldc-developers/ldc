@@ -179,6 +179,10 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 
     // Now we can modify f->fty safely.
     f->fty = fty;
+#if defined(_MSC_VER)
+	// TODO: Is a operator= needed?
+	f->fty.args = IrFuncTy::ArgList(fty.args);
+#endif
 
     // let the abi rewrite the types as necesary
     abi->rewriteFunctionType(f);

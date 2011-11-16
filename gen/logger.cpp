@@ -62,12 +62,35 @@ namespace Logger
         else
             return 0;
     }
+
+#if defined(_MSC_VER)
+	static inline void
+	search_and_replace(std::string& str, const std::string& what, const std::string& replacement)
+	{
+		assert(!what.empty());
+		size_t pos = str.find(what);
+		while (pos != std::string::npos)
+		{
+			str.replace(pos, what.size(), replacement);
+			pos = str.find(what, pos + replacement.size());
+		}
+	}
+
+#define WORKAROUND_C99_SPECIFIERS_BUG(f) \
+    std::string tmp = f;                                 \
+    search_and_replace(tmp, std::string("%z"), std::string("%I")); \
+    f = tmp.c_str();
+#else
+#define WORKAROUND_C99_SPECIFIERS_BUG(f)
+#endif
+
     void println(const char* fmt,...)
     {
         if (_enabled) {
             printf("%s", indent_str.c_str());
             va_list va;
             va_start(va,fmt);
+			WORKAROUND_C99_SPECIFIERS_BUG(fmt);
             vprintf(fmt,va);
             va_end(va);
             printf("\n");
@@ -79,6 +102,7 @@ namespace Logger
             printf("%s", indent_str.c_str());
             va_list va;
             va_start(va,fmt);
+			WORKAROUND_C99_SPECIFIERS_BUG(fmt);
             vprintf(fmt,va);
             va_end(va);
         }

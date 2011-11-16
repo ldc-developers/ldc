@@ -17,12 +17,6 @@
 #include <string>
 #include <cstdarg>
 
-#if POSIX
-#include <errno.h>
-#elif _WIN32
-#include <windows.h>
-#endif
-
 #include "rmem.h"
 #include "root.h"
 #if !IN_LLVM
@@ -52,6 +46,12 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
 void obj_start(char *srcfile);
 void obj_end(Library *library, File *objfile);
+#endif
+
+#if POSIX
+#include <errno.h>
+#elif _WIN32
+#include <windows.h>
 #endif
 
 Global global;
@@ -103,7 +103,7 @@ Global::Global()
     version = "v2.055";
 #if IN_LLVM
     ldc_version = "LDC trunk";
-    llvm_version = "LLVM 2.9";
+    llvm_version = "LLVM 3.0";
 #endif
     global.structalign = 8;
 
@@ -218,7 +218,9 @@ void vwarning(Loc loc, const char *format, va_list ap)
  * Call this after printing out fatal error messages to clean up and exit
  * the compiler.
  */
-
+#if defined(_MSC_VER)
+__declspec(noreturn)
+#endif
 void fatal()
 {
 #if 0

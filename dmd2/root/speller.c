@@ -7,6 +7,9 @@
 #if __sun&&__SVR4
 #include <alloca.h>
 #endif
+#if _MSC_VER
+#include <malloc.h>
+#endif
 
 #include "speller.h"
 

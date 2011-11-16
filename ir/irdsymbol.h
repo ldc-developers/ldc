@@ -13,7 +13,7 @@ struct IrVar;
 struct Dsymbol;
 
 namespace llvm {
-    struct Value;
+    class Value;
 }
 
 struct IrDsymbol
