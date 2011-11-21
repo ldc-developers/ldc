@@ -32,7 +32,7 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     // try the current working dir
     p = sys::Path::GetCurrentDirectory();
     p.appendComponent(filename);
-	if (sys::fs::exists(p.str()))
+    if (sys::fs::exists(p.str()))
         return true;
 
     // user configuration

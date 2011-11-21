@@ -362,8 +362,8 @@ void deleteExecutable()
     if (!gExePath.isEmpty())
     {
         assert(gExePath.isValid());
-		bool is_directory;
-		assert(!(!llvm::sys::fs::is_directory(gExePath.str(), is_directory) && is_directory));
+        bool is_directory;
+        assert(!(!llvm::sys::fs::is_directory(gExePath.str(), is_directory) && is_directory));
         gExePath.eraseFromDisk(false);
     }
 }
