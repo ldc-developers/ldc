@@ -134,7 +134,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     LLVM_D_InitRuntime();
 
     // process module members
-    for (int k=0; k < members->dim; k++) {
+    for (unsigned k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);
         assert(dsym);
         dsym->codegen(sir);

@@ -711,7 +711,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         TypeTuple *tup = tc->toArgTypes();
         assert(tup->arguments->dim <= 2);
-        for (int i = 0; i < 2; i++)
+        for (unsigned i = 0; i < 2; i++)
         {
             if (i < tup->arguments->dim)
             {

@@ -554,7 +554,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
-    LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+    LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
     gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
     return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
