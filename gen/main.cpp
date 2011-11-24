@@ -308,7 +308,7 @@ int main(int argc, char** argv)
     {
         if (libs)
         {
-            for (int i = 0; i < libs->dim; i++)
+            for (unsigned i = 0; i < libs->dim; i++)
             {
                 char* lib = (char *)libs->data[i];
                 char *arg = (char *)mem.malloc(strlen(lib) + 3);
@@ -649,7 +649,7 @@ int main(int argc, char** argv)
     // Build import search path
     if (global.params.imppath)
     {
-        for (int i = 0; i < global.params.imppath->dim; i++)
+        for (unsigned i = 0; i < global.params.imppath->dim; i++)
         {
             char *path = (char *)global.params.imppath->data[i];
             Strings *a = FileName::splitPath(path);
@@ -666,7 +666,7 @@ int main(int argc, char** argv)
     // Build string import search path
     if (global.params.fileImppath)
     {
-        for (int i = 0; i < global.params.fileImppath->dim; i++)
+        for (unsigned i = 0; i < global.params.fileImppath->dim; i++)
         {
             char *path = (char *)global.params.fileImppath->data[i];
             Strings *a = FileName::splitPath(path);
@@ -683,7 +683,7 @@ int main(int argc, char** argv)
     // Create Modules
     Modules modules;
     modules.reserve(files.dim);
-    for (int i = 0; i < files.dim; i++)
+    for (unsigned i = 0; i < files.dim; i++)
     {   Identifier *id;
         char *ext;
         char *name;
@@ -790,7 +790,7 @@ int main(int argc, char** argv)
     }
 
     // Read files, parse them
-    for (int i = 0; i < modules.dim; i++)
+    for (unsigned i = 0; i < modules.dim; i++)
     {
         m = (Module *)modules.data[i];
         if (global.params.verbose)
@@ -825,7 +825,7 @@ int main(int argc, char** argv)
          * line switches and what else is imported, they are generated
          * before any semantic analysis.
          */
-        for (int i = 0; i < modules.dim; i++)
+        for (unsigned i = 0; i < modules.dim; i++)
         {
             m = (Module *)modules.data[i];
             if (global.params.verbose)
@@ -838,7 +838,7 @@ int main(int argc, char** argv)
 #endif
 
     // load all unconditional imports for better symbol resolving
-    for (int i = 0; i < modules.dim; i++)
+    for (unsigned i = 0; i < modules.dim; i++)
     {
        m = (Module *)modules.data[i];
        if (global.params.verbose)
@@ -849,7 +849,7 @@ int main(int argc, char** argv)
        fatal();
 
     // Do semantic analysis
-    for (int i = 0; i < modules.dim; i++)
+    for (unsigned i = 0; i < modules.dim; i++)
     {
         m = (Module *)modules.data[i];
         if (global.params.verbose)
@@ -863,7 +863,7 @@ int main(int argc, char** argv)
     Module::runDeferredSemantic();
 
     // Do pass 2 semantic analysis
-    for (int i = 0; i < modules.dim; i++)
+    for (unsigned i = 0; i < modules.dim; i++)
     {
         m = (Module *)modules.data[i];
         if (global.params.verbose)
@@ -874,7 +874,7 @@ int main(int argc, char** argv)
         fatal();
 
     // Do pass 3 semantic analysis
-    for (int i = 0; i < modules.dim; i++)
+    for (unsigned i = 0; i < modules.dim; i++)
     {
         m = (Module *)modules.data[i];
         if (global.params.verbose)
@@ -904,7 +904,7 @@ int main(int argc, char** argv)
         {
             // Do pass 3 semantic analysis on all imported modules,
             // since otherwise functions in them cannot be inlined
-            for (int i = 0; i < Module::amodules.dim; i++)
+            for (unsigned i = 0; i < Module::amodules.dim; i++)
             {
                 m = (Module *)Module::amodules.data[i];
                 if (global.params.verbose)
@@ -944,7 +944,7 @@ int main(int argc, char** argv)
     llvm::LLVMContext& context = llvm::getGlobalContext();
 
     // Generate output files
-    for (int i = 0; i < modules.dim; i++)
+    for (unsigned i = 0; i < modules.dim; i++)
     {
         m = (Module *)modules.data[i];
         if (global.params.verbose)
@@ -1019,7 +1019,7 @@ int main(int argc, char** argv)
 
                 /* Delete .obj files and .exe file
                  */
-                for (int i = 0; i < modules.dim; i++)
+                for (unsigned i = 0; i < modules.dim; i++)
                 {
                     m = (Module *)modules.data[i];
                     m->deleteObjFile();
