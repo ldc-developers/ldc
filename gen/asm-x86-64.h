@@ -2243,7 +2243,7 @@ namespace AsmParserx8664
                             Logger::cout() << "baseReg: " << operand->baseReg << '\n';
                             Logger::cout() << "segmentPrefix: " << operand->segmentPrefix << '\n';
                             Logger::cout() << "constDisplacement: " << operand->constDisplacement << '\n';
-                            for (int i = 0; i < operand->symbolDisplacement.dim; i++) {
+                            for (unsigned i = 0; i < operand->symbolDisplacement.dim; i++) {
                                 Expression* expr = (Expression*) operand->symbolDisplacement.data[i];
                                 Logger::cout() << "symbolDisplacement[" << i << "] = " << expr->toChars() << '\n';
                             }

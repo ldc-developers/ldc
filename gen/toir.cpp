@@ -478,7 +478,7 @@ DValue* StringExp::toElem(IRState* p)
 
     llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant* idxs[2] = { zero, zero };
-    LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+    LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 
     if (dtype->ty == Tarray) {
         LLConstant* clen = LLConstantInt::get(DtoSize_t(),len,false);
@@ -554,7 +554,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
 
     llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant* idxs[2] = { zero, zero };
-    LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+    LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 
     if (t->ty == Tpointer) {
         return arrptr;
@@ -1074,7 +1074,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
         Type *type = vd->type->toBasetype();
         if (type->ty == Tarray || type->ty == Tdelegate) {
             LLConstant* idxs[2] = { DtoConstSize_t(0), DtoConstSize_t(1) };
-            value = llvm::ConstantExpr::getGetElementPtr(value, idxs, 2);
+            value = llvm::ConstantExpr::getGetElementPtr(value, idxs, true);
         }
         return DtoBitCast(value, DtoType(tb));
     }
@@ -1206,7 +1206,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         LLConstant* idxs[2] = { DtoConstSize_t(0), index };
         LLConstant *val = isaConstant(vd->ir.irGlobal->value);
         val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
-        LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(val, idxs, 2);
+        LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(val, idxs, true);
 
         // bitcast to requested type
         assert(type->toBasetype()->ty == Tpointer);
@@ -2751,7 +2751,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
 
     // build a constant dynamic array reference with the .ptr field pointing into globalstore
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
-    LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+    LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
 
     return DtoConstSlice(DtoConstSize_t(elements->dim), globalstorePtr);
 }
@@ -2975,14 +2975,14 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         LLArrayType* arrtype = LLArrayType::get(DtoType(indexType), keys->dim);
         LLConstant* initval = LLConstantArray::get(arrtype, keysInits);
         LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-        LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+        LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
         slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
         LLValue* keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
         arrtype = LLArrayType::get(DtoType(vtype), values->dim);
         initval = LLConstantArray::get(arrtype, valuesInits);
         globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
-        slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, 2);
+        slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
         slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
         LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 

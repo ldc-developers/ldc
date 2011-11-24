@@ -534,7 +534,7 @@ void AsmBlockStatement::toIR(IRState* p)
     p->asmBlock = asmblock;
 
     // do asm statements
-    for (int i=0; i<statements->dim; i++)
+    for (unsigned i=0; i<statements->dim; i++)
     {
         Statement* s = (Statement*)statements->data[i];
         if (s) {
