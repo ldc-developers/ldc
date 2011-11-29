@@ -29,17 +29,25 @@
 #include "template.h"
 #include "attrib.h"
 
+#if !defined(_MSC_VER)
 #include <pthread.h>
+#endif
+
 #if IN_LLVM
 // sizes based on those from tollvm.cpp:DtoMutexType()
 int os_critsecsize()
 {
+#if defined(_MSC_VER)
+	// TODO Check size
+	return 68;
+#else
 	if (global.params.os == OSWindows)
 		return 68;
 	else if (global.params.os == OSFreeBSD)
 		return sizeof(size_t);
 	else
 		return sizeof(pthread_mutex_t);
+#endif
 }
 #elif IN_DMD
 
@@ -2075,8 +2083,10 @@ Lagain:
                     default:            assert(0);
                 }
                 const char *r = (op == TOKforeach_reverse) ? "R" : "";
-#ifdef __MINGW32__
+#if defined(__MINGW32__)
 		int j = sprintf(fdname, "_aApply%s%.*s%lu", r, 2, fntab[flag], dim);
+#elif defined(_MSC_VER)
+		int j = sprintf_s(fdname, _countof(fdname), "_aApply%s%.*s%Iu", r, 2, fntab[flag], dim);
 #else
 		int j = sprintf(fdname, "_aApply%s%.*s%zu", r, 2, fntab[flag], dim);
 #endif
@@ -3986,7 +3996,7 @@ Statement *BreakStatement::semantic(Scope *sc)
                     error("label '%s' has no break", ident->toChars());
 		if (ls->enclosingFinally != sc->enclosingFinally)
                     error("cannot break out of finally block");
-		
+
 		this->target = ls;
                 return this;
             }
@@ -4089,7 +4099,7 @@ Statement *ContinueStatement::semantic(Scope *sc)
                     error("label '%s' has no continue", ident->toChars());
 		if (ls->enclosingFinally != sc->enclosingFinally)
                     error("cannot continue out of finally block");
-		
+
 		this->target = ls;
                 return this;
             }

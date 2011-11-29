@@ -2,6 +2,9 @@
 // Released under the Artistic License found in dmd/artistic.txt
 
 #include "id.h"
+#if defined(_MSC_VER)
+#include <ctype.h>
+#endif
 
 namespace AsmParserx8664
 {
@@ -1015,9 +1018,9 @@ namespace AsmParserx8664
         { "movs",  Op_movs },
         { "movsb", Op_movsX },
         { "movsd", Op_movsd },
-        { "movsq", Op_movsd },
         { "movshdup", Op_DstSrcSSE },
         { "movsldup", Op_DstSrcSSE },
+        { "movsq", Op_movsd },
         { "movss", Op_DstSrcSSE },
         { "movsw", Op_movsX },
         { "movsx", Op_movsx }, // word-only, reg dest
@@ -1386,7 +1389,11 @@ namespace AsmParserx8664
                 {
                     strncpy ( buf, regInfo[i].name, sizeof ( buf ) - 1 );
                     for ( p = buf; *p; p++ )
+#if defined(_MSC_VER)
+                        *p = tolower ( *p );
+#else
                         *p = std::tolower ( *p );
+#endif
                     regInfo[i].gccName = std::string ( buf, p - buf );
                     if ( ( i <= Reg_ST || i > Reg_ST7 ) && i != Reg_EFLAGS )
                         regInfo[i].ident = Lexer::idPool ( regInfo[i].name );

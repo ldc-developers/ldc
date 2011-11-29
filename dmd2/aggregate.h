@@ -41,7 +41,7 @@ struct VarDeclaration;
 struct dt_t;
 
 #if IN_LLVM
-class ClassInfoDeclaration;
+struct ClassInfoDeclaration;
 namespace llvm
 {
     class Type;

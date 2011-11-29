@@ -18,6 +18,8 @@
 #if _WIN32
 #include <tchar.h>
 #include <io.h>
+#include <sys/stat.h>
+#define stat _stat
 #endif
 
 #if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun&&__SVR4

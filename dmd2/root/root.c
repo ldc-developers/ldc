@@ -1820,8 +1820,8 @@ search_and_replace(S& str, const S& what, const S& replacement)
 }
 #define WORKAROUND_C99_SPECIFIERS_BUG(S,tmp,f) \
     S tmp = f;                                 \
-    search_and_replace(fmt, S("%z"), S("%l")); \
-    search_and_replace(fmt, S("%j"), S("%i")); \
+    search_and_replace(tmp, S("%z"), S("%I")); \
+    search_and_replace(tmp, S("%j"), S("%i")); \
     f = tmp.c_str();
 #else
 #define WORKAROUND_C99_SPECIFIERS_BUG(S,tmp,f)

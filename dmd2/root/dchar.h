@@ -16,8 +16,11 @@
 #endif
 
 #if _MSC_VER
+	#pragma warning (push)
     // Disable useless warnings about unreferenced functions
     #pragma warning (disable : 4514)
+    // Disable useless warnings about deprecated functions
+    #pragma warning (disable : 4996)
 #endif
 
 //#include "root.h"
@@ -190,5 +193,10 @@ struct Dchar
 };
 
 #endif
+
+#if _MSC_VER
+	#pragma warning (pop)
+#endif
+
 #endif
 

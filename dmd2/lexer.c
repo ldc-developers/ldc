@@ -2496,9 +2496,11 @@ done:
 #else
 	    strtofres = strtof((char *)stringbuffer.data, NULL);
 	    // LDC change: don't error on gradual underflow
+#if !defined(_MSC_VER)
 	    if (errno == ERANGE && 
 		    strtofres != 0 && strtofres != HUGE_VALF && strtofres != -HUGE_VALF)
 		errno = 0;
+#endif
 #endif
             result = TOKfloat32v;
             p++;
