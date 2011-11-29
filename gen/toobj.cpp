@@ -275,7 +275,7 @@ void writeModule(llvm::Module* m, std::string filename)
         Logger::println("Writing object file to: %s\n", objpath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(objpath.c_str(), err);
+            llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::raw_fd_ostream::F_Binary);
             if (err.empty())
             {
                 emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
