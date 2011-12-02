@@ -223,7 +223,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     else (INDEX EQUAL -1)
         string(REGEX REPLACE "src/ldc" "src/core" output ${output})
         string(REGEX REPLACE "^src/" "" di_output ${output})
-        set(DI_CMD -Hf=${PROJECT_BINARY_DIR}/import/${di_output}.di)
+        set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
         list(REMOVE_AT GENERATE_DI ${INDEX})
     endif (INDEX EQUAL -1)
 
@@ -400,7 +400,7 @@ endif(MULTILIB)
 #
 
 if(D_VERSION EQUAL 2)
-    install(DIRECTORY     ${PROJECT_BINARY_DIR}/import/core                DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+    install(DIRECTORY     ${CMAKE_BINARY_DIR}/import/core                  DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
     if(PHOBOS2_DIR)
         install(DIRECTORY ${PHOBOS2_DIR}/std                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
         install(DIRECTORY ${PHOBOS2_DIR}/etc                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
