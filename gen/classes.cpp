@@ -293,7 +293,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             // get the from class
             ClassDeclaration* cd = fc->sym->isClassDeclaration();
             DtoResolveClass(cd); // add this
-            IrTypeClass* typeclass = fc->irtype->isClass();
+            IrTypeClass* typeclass = stripModifiers(fc)->irtype->isClass();
 
             // find interface impl
             
@@ -626,23 +626,25 @@ static unsigned build_classinfo_flags(ClassDeclaration* cd)
 {
     // adapted from original dmd code
     unsigned flags = 0;
-    //flags |= isCOMclass(); // IUnknown
+    flags |= cd->isCOMclass(); // IUnknown
     bool hasOffTi = false;
-    if (cd->ctor) flags |= 8;
+    if (cd->ctor)
+        flags |= 8;
+    if (cd->isabstract)
+        flags |= 64;
     for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
     {
-    if (cd2->members)
-    {
+        if (!cd2->members)
+            continue;
         for (size_t i = 0; i < cd2->members->dim; i++)
         {
-        Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
-        if (sm->isVarDeclaration() && !sm->isVarDeclaration()->isDataseg()) // is this enough?
-            hasOffTi = true;
-        //printf("sm = %s %s\n", sm->kind(), sm->toChars());
-        if (sm->hasPointers())
-            goto L2;
+            Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
+            if (sm->isVarDeclaration() && !sm->isVarDeclaration()->isDataseg()) // is this enough?
+                hasOffTi = true;
+            //printf("sm = %s %s\n", sm->kind(), sm->toChars());
+            if (sm->hasPointers())
+                goto L2;
         }
-    }
     }
     flags |= 2;         // no pointers
 L2:
@@ -760,7 +762,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     // uint flags
     if (cd->isInterfaceDeclaration())
-        b.push_uint(0);
+        b.push_uint(4 | cd->isCOMinterface() | 32);
     else
         b.push_uint(build_classinfo_flags(cd));
 

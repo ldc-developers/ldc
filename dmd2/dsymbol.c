@@ -553,35 +553,28 @@ int Dsymbol::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 void Dsymbol::error(const char *format, ...)
 {
     //printf("Dsymbol::error()\n");
-    if (!global.gag)
+    if (!loc.filename)  // avoid bug 5861.
     {
-        char *p = locToChars();
+        Module *m = getModule();
 
-        if (*p)
-            fprintf(stdmsg, "%s: ", p);
-        mem.free(p);
-
-        fprintf(stdmsg, "Error: ");
-        if (isAnonymous())
-            fprintf(stdmsg, "%s ", kind());
-        else
-            fprintf(stdmsg, "%s %s ", kind(), toPrettyChars());
-
-        va_list ap;
-        va_start(ap, format);
-        vfprintf(stdmsg, format, ap);
-        va_end(ap);
-
-        fprintf(stdmsg, "\n");
-        fflush(stdmsg);
-//halt();
+        if (m && m->srcfile)
+            loc.filename = m->srcfile->toChars();
     }
-    global.errors++;
-
-    //fatal();
+    va_list ap;
+    va_start(ap, format);
+    verror(loc, format, ap);
+    va_end(ap);
 }
 
 void Dsymbol::error(Loc loc, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    verror(loc, format, ap);
+    va_end(ap);
+}
+
+void Dsymbol::verror(Loc loc, const char *format, va_list ap)
 {
     if (!global.gag)
     {
@@ -596,14 +589,15 @@ void Dsymbol::error(Loc loc, const char *format, ...)
         fprintf(stdmsg, "Error: ");
         fprintf(stdmsg, "%s %s ", kind(), toPrettyChars());
 
-        va_list ap;
-        va_start(ap, format);
         vfprintf(stdmsg, format, ap);
-        va_end(ap);
 
         fprintf(stdmsg, "\n");
         fflush(stdmsg);
 halt();
+    }
+    else
+    {
+        global.gaggedErrors++;
     }
 
     global.errors++;
@@ -721,7 +715,7 @@ Dsymbols *Dsymbol::arraySyntaxCopy(Dsymbols *a)
     Dsymbols *b = NULL;
     if (a)
     {
-        b = (Dsymbols *)a->copy();
+        b = a->copy();
         for (size_t i = 0; i < b->dim; i++)
         {
             Dsymbol *s = (*b)[i];
@@ -1032,11 +1026,19 @@ size_t ScopeDsymbol::dim(Dsymbols *members)
         for (size_t i = 0; i < members->dim; i++)
         {   Dsymbol *s = (*members)[i];
             AttribDeclaration *a = s->isAttribDeclaration();
+            TemplateMixin *tm = s->isTemplateMixin();
+            TemplateInstance *ti = s->isTemplateInstance();
 
             if (a)
             {
                 n += dim(a->decl);
             }
+            else if (tm)
+            {
+                n += dim(tm->members);
+            }
+            else if (ti)
+                ;
             else
                 n++;
         }
@@ -1262,7 +1264,9 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
                  * or a variable (in which case an expression is created in
                  * toir.c).
                  */
-                v->init = new VoidInitializer(0);
+                VoidInitializer *e = new VoidInitializer(0);
+                e->type = Type::tsize_t;
+                v->init = e;
             }
             *pvar = v;
         }
@@ -1279,6 +1283,7 @@ DsymbolTable::DsymbolTable()
 {
 #if STRINGTABLE
     tab = new StringTable;
+    tab->init();
 #else
     tab = NULL;
 #endif

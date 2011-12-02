@@ -3091,11 +3091,14 @@ STUB(ScopeExp);
 
 #if DMDV2
 STUB(SymbolExp);
+STUB(PowExp);
+STUB(PowAssignExp);
 #endif
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
     error("expression '%s' is not a constant", toChars()); \
-    fatal(); \
+    if (!global.gag) \
+        fatal(); \
     return NULL; \
 }
 CONSTSTUB(Expression);

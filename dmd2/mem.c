@@ -133,6 +133,10 @@ void Mem::mark(void *pointer)
     (void) pointer;		// necessary for VC /W4
 }
 
+void Mem::setStackBottom(void */*bottom*/)
+{
+}
+
 /* =================================================== */
 
 void * operator new(size_t m_size)
@@ -259,6 +263,10 @@ void Mem::fullcollect()
 }
 
 void Mem::mark(void *pointer)
+{
+}
+
+void Mem::setStackBottom(void */*stackbottom*/)
 {
 }
 
