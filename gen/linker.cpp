@@ -266,7 +266,7 @@ int linkObjToExecutable(const char* argv0)
 
     // create path to exe
     llvm::sys::Path exedir(llvm::sys::path::parent_path(gExePath.str()));
-    if (!llvm::sys::fs::exists(exedir.str()))
+    if (!exedir.empty() && !llvm::sys::fs::exists(exedir.str()))
     {
         exedir.createDirectoryOnDisk(true, &errstr);
         if (!errstr.empty())
