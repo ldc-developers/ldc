@@ -1176,7 +1176,64 @@ void PragmaDeclaration::semantic(Scope *sc)
         }
         llvm_internal = LLVMva_arg;
     }
-    
+
+    // pragma(fence) { templdecl(s) }
+    else if (ident == Id::fence)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMfence;
+    }
+
+    // pragma(atomic_load) { templdecl(s) }
+    else if (ident == Id::atomic_load)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMatomic_load;
+    }
+
+    // pragma(atomic_store) { templdecl(s) }
+    else if (ident == Id::atomic_store)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMatomic_store;
+    }
+
+    // pragma(atomic_cmp_xchg) { templdecl(s) }
+    else if (ident == Id::atomic_cmp_xchg)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        llvm_internal = LLVMatomic_cmp_xchg;
+    }
+
+    // pragma(atomic_rmw, "string") { templdecl(s) }
+    else if (ident == Id::atomic_rmw)
+    {
+        Expression* expr = (Expression *)args->data[0];
+        expr = expr->semantic(sc);
+        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
+        {
+             error("requires exactly 1 string literal parameter");
+             fatal();
+        }
+        llvm_internal = LLVMatomic_rmw;
+    }
+
     // pragma(ldc, "string") { templdecl(s) }
     else if (ident == Id::ldc)
     {
@@ -1288,8 +1345,24 @@ void PragmaDeclaration::semantic(Scope *sc)
             }
             break;
 
+        case LLVMatomic_rmw:
+            if (TemplateDeclaration* td = s->isTemplateDeclaration())
+            {
+                td->llvmInternal = llvm_internal;
+                td->intrinsicName = arg1str;
+            }
+            else
+            {
+                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+                fatal();
+            }
+            break;
+
         case LLVMva_start:
         case LLVMva_arg:
+        case LLVMatomic_load:
+        case LLVMatomic_store:
+        case LLVMatomic_cmp_xchg:
             if (TemplateDeclaration* td = s->isTemplateDeclaration())
             {
                 if (td->parameters->dim != 1)
@@ -1318,6 +1391,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 
         case LLVMva_copy:
         case LLVMva_end:
+        case LLVMfence:
             if (FuncDeclaration* fd = s->isFuncDeclaration())
             {
                 fd->llvmInternal = llvm_internal;

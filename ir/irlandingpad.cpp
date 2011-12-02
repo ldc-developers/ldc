@@ -105,57 +105,20 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     IRScope savedscope = gIR->scope();
     gIR->scope() = IRScope(inBB,savedscope.end);
 
-    // eh_ptr = llvm.eh.exception();
-    llvm::Function* eh_exception_fn = GET_INTRINSIC_DECL(eh_exception);
-    LLValue* eh_ptr = gIR->ir->CreateCall(eh_exception_fn);
-
-    // build selector arguments
-    LLSmallVector<LLValue*, 6> selectorargs;
-
-    // put in classinfos in the right order
-    bool hasFinally = false;
-    bool hasCatch = false;
-    std::deque<IRLandingPadInfo>::iterator it = infos.begin(), end = infos.end();
-    for(; it != end; ++it)
-    {
-        if(it->finallyBody)
-            hasFinally = true;
-        else
-        {
-            hasCatch = true;
-            assert(it->catchType);
-            assert(it->catchType->ir.irStruct);
-            selectorargs.insert(selectorargs.begin(), it->catchType->ir.irStruct->getClassInfoSymbol());
-        }
-    }
-    // if there's a finally, the eh table has to have a 0 action
-    if(hasFinally)
-        selectorargs.push_back(DtoConstUint(0));
-
     // personality fn
     llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
-    LLValue* personality_fn_arg = gIR->ir->CreateBitCast(personality_fn, getPtrToType(LLType::getInt8Ty(gIR->context())));
-    selectorargs.insert(selectorargs.begin(), personality_fn_arg);
+    // create landingpad
+    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()), LLType::getInt32Ty(gIR->context()), NULL);
+    llvm::LandingPadInst *landingPad = gIR->ir->CreateLandingPad(retType, personality_fn, 0);
+    LLValue* eh_ptr = DtoExtractValue(landingPad, 0);
+    LLValue* eh_sel = DtoExtractValue(landingPad, 1);
 
-    // eh storage target
-    selectorargs.insert(selectorargs.begin(), eh_ptr);
-
-    // if there is a catch and some catch allocated storage, store exception object
-    if(hasCatch && catch_var)
-    {
-        const LLType* objectTy = DtoType(ClassDeclaration::object->type);
-        gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
-    }
-
-    // eh_sel = llvm.eh.selector(eh_ptr, cast(byte*)&_d_eh_personality, <selectorargs>);
-    llvm::Function* eh_selector_fn = GET_INTRINSIC_DECL(eh_selector);
-    LLValue* eh_sel = gIR->ir->CreateCall(eh_selector_fn, selectorargs.begin(), selectorargs.end());
-
-    // emit finallys and 'if' chain to catch the exception
+    // add landingpad clauses, emit finallys and 'if' chain to catch the exception
     llvm::Function* eh_typeid_for_fn = GET_INTRINSIC_DECL(eh_typeid_for);
     std::deque<IRLandingPadInfo> infos = this->infos;
     std::stack<size_t> nInfos = this->nInfos;
     std::deque<IRLandingPadInfo>::reverse_iterator rit, rend = infos.rend();
+    bool isFirstCatch = true;
     for(rit = infos.rbegin(); rit != rend; ++rit)
     {
         // if it's a finally, emit its code
@@ -165,14 +128,28 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             this->infos.resize(n);
             this->nInfos.pop();
             rit->finallyBody->toIR(gIR);
+            landingPad->setCleanup(true);
         }
         // otherwise it's a catch and we'll add a if-statement
         else
         {
+            // if it is a first catch and some catch allocated storage, store exception object
+            if(isFirstCatch && catch_var)
+            {
+                LLType* objectTy = DtoType(ClassDeclaration::object->type);
+                gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
+                isFirstCatch = false;
+            }
+            // create next block
             llvm::BasicBlock *next = llvm::BasicBlock::Create(gIR->context(), "eh.next", gIR->topfunc(), gIR->scopeend());
-            LLValue *classInfo = DtoBitCast(rit->catchType->ir.irStruct->getClassInfoSymbol(),
-                                            getPtrToType(DtoType(Type::tint8)));
+            // get class info symbol
+            LLValue *classInfo = rit->catchType->ir.irStruct->getClassInfoSymbol();
+            // add that symbol as landing pad clause
+            landingPad->addClause(classInfo);
+            // call llvm.eh.typeid.for to get class info index in the exception table
+            classInfo = DtoBitCast(classInfo, getPtrToType(DtoType(Type::tint8)));
             LLValue *eh_id = gIR->ir->CreateCall(eh_typeid_for_fn, classInfo);
+            // check exception selector (eh_sel) against the class info index
             gIR->ir->CreateCondBr(gIR->ir->CreateICmpEQ(eh_sel, eh_id), rit->target, next);
             gIR->scope() = IRScope(next, gIR->scopeend());
         }
@@ -187,6 +164,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     gIR->ir->CreateCall(unwind_resume_fn, eh_ptr);
     gIR->ir->CreateUnreachable();
 
+    // restore scope
     gIR->scope() = savedscope;
 }
 

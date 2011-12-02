@@ -303,12 +303,16 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     LOG_SCOPE;
 
     IrGlobal* irg = new IrGlobal(tid);
+    if (tid->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
+        irg->type = Type::typeinfo->type->irtype->getType();
+    else
+        irg->type = LLStructType::create(gIR->context(), tid->toPrettyChars());
 
     std::string mangle(tid->mangle());
 
     irg->value = gIR->module->getGlobalVariable(mangle);
     if (!irg->value)
-        irg->value = new llvm::GlobalVariable(*gIR->module, irg->type.get(), true,
+        irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
         TYPEINFO_LINKAGE_TYPE, NULL, mangle);
 
     tid->ir.irGlobal = irg;
@@ -360,9 +364,6 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
 
     // this is a declaration of a builtin __initZ var
     if (tid->tinfo->builtinTypeInfo()) {
-        // fixup the global
-        const llvm::Type* rty = Type::typeinfo->type->irtype->getPA();
-        llvm::cast<llvm::OpaqueType>(irg->type.get())->refineAbstractTypeTo(rty);
         LLGlobalVariable* g = isaGlobalVar(irg->value);
         g->setLinkage(llvm::GlobalValue::ExternalLinkage);
         return;
@@ -446,7 +447,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     // otherwise emit a void[] with the default initializer
     else
     {
-        const LLType* memty = DtoType(sd->memtype);
+        LLType* memty = DtoType(sd->memtype);
 #if DMDV2
         LLConstant* C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !sd->memtype->isunsigned());
 #else
@@ -611,7 +612,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // void[] init
     // never emit a null array, even for zero initialized typeinfo
     // the size() method uses this array!
-    size_t init_size = getTypeStoreSize(tc->irtype->getPA());
+    size_t init_size = getTypeStoreSize(tc->irtype->getType());
     b.push_void_array(init_size, irstruct->getInitSymbol());
 
     // toX functions ground work
@@ -710,7 +711,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         TypeTuple *tup = tc->toArgTypes();
         assert(tup->arguments->dim <= 2);
-        for (int i = 0; i < 2; i++)
+        for (unsigned i = 0; i < 2; i++)
         {
             if (i < tup->arguments->dim)
             {
@@ -802,7 +803,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     std::vector<LLConstant*> arrInits;
     arrInits.reserve(dim);
 
-    const LLType* tiTy = DtoType(Type::typeinfo->type);
+    LLType* tiTy = DtoType(Type::typeinfo->type);
 
     for (size_t i = 0; i < dim; i++)
     {
@@ -811,7 +812,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     }
 
     // build array
-    const LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
+    LLArrayType* arrTy = LLArrayType::get(tiTy, dim);
     LLConstant* arrC = LLConstantArray::get(arrTy, arrInits);
 
     RTTIBuilder b(Type::typeinfotypelist);

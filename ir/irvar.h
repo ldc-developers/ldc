@@ -17,7 +17,7 @@ struct IrGlobal : IrVar
 {
     IrGlobal(VarDeclaration* v);
 
-    llvm::PATypeHolder type;
+    llvm::Type *type;
     llvm::Constant* constInit;
 };
 

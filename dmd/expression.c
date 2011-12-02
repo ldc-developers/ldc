@@ -3117,6 +3117,9 @@ StructLiteralExp::StructLiteralExp(Loc loc, StructDeclaration *sd, Expressions *
 #endif
     this->soffset = 0;
     this->fillHoles = 1;
+#if IN_LLVM
+    constType = NULL;
+#endif
 }
 
 Expression *StructLiteralExp::syntaxCopy()

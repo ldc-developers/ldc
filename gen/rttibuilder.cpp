@@ -63,7 +63,7 @@ void RTTIBuilder::push_string(const char* str)
 
 void RTTIBuilder::push_null_void_array()
 {
-    const llvm::Type* T = DtoType(Type::tvoid->arrayOf());
+    LLType* T = DtoType(Type::tvoid->arrayOf());
     inits.push_back(getNullValue(T));
 }
 
@@ -143,18 +143,30 @@ void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
 
 void RTTIBuilder::finalize(IrGlobal* tid)
 {
-    // create the inititalizer
-    LLConstant* tiInit = LLConstantStruct::get(gIR->context(), &inits[0], inits.size(), false);
-
-    // refine global type
-    llvm::cast<llvm::OpaqueType>(tid->type.get())->refineAbstractTypeTo(tiInit->getType());
-
-    // set the initializer
-    isaGlobalVar(tid->value)->setInitializer(tiInit);
+    finalize(tid->type, tid->value);
 }
 
-LLConstant* RTTIBuilder::get_constant()
+void RTTIBuilder::finalize(LLType* type, LLValue* value)
+{
+    llvm::ArrayRef<LLConstant*> inits = llvm::makeArrayRef(this->inits);
+    LLStructType *st = isaStruct(type);
+    assert(st);
+
+    // set struct body
+    std::vector<LLType*> types;
+    for (int i = 0, n = inits.size(); i < n; ++i)
+        types.push_back(inits[i]->getType());
+    st->setBody(types);
+
+    // create the inititalizer
+    LLConstant* tiInit = LLConstantStruct::get(st, inits);
+
+    // set the initializer
+    isaGlobalVar(value)->setInitializer(tiInit);
+}
+
+LLConstant* RTTIBuilder::get_constant(LLStructType *initType)
 {
     // just return the inititalizer
-    return LLConstantStruct::get(gIR->context(), &inits[0], inits.size(), false);
+    return LLConstantStruct::get(initType, inits);
 }

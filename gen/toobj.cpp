@@ -67,8 +67,8 @@ static llvm::cl::opt<bool> noVerify("noverify",
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // fwd decl
-void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out);
-void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath);
+void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out,
+               llvm::TargetMachine::CodeGenFileType fileType);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -134,7 +134,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     LLVM_D_InitRuntime();
 
     // process module members
-    for (int k=0; k < members->dim; k++) {
+    for (unsigned k=0; k < members->dim; k++) {
         Dsymbol* dsym = (Dsymbol*)(members->data[k]);
         assert(dsym);
         dsym->codegen(sir);
@@ -157,6 +157,12 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
             sir->emitFunctionBodies();
         }
     }
+
+    // finilize debugging
+    #ifndef DISABLE_DEBUG_INFO
+    if (global.params.symdebug)
+        DtoDwarfModuleEnd();
+    #endif
 
     // generate ModuleInfo
     genmoduleinfo();
@@ -244,20 +250,17 @@ void writeModule(llvm::Module* m, std::string filename)
     }
 
     // write native assembly
-    if (global.params.output_s || global.params.output_o) {
+    if (global.params.output_s) {
         LLPath spath = LLPath(filename);
         spath.eraseSuffix();
         spath.appendSuffix(std::string(global.s_ext));
-        if (!global.params.output_s) {
-            spath.createTemporaryFileOnDisk();
-        }
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), err);
             if (err.empty())
             {
-                write_asm_to_file(*gTargetMachine, *m, out);
+                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
             }
             else
             {
@@ -265,15 +268,23 @@ void writeModule(llvm::Module* m, std::string filename)
                 fatal();
             }
         }
+    }
 
-        // call gcc to convert assembly to object file
-        if (global.params.output_o) {
-            LLPath objpath = LLPath(filename);
-            assemble(spath, objpath);
-        }
-
-        if (!global.params.output_s) {
-            spath.eraseFromDisk();
+    if (global.params.output_o) {
+        LLPath objpath = LLPath(filename);
+        Logger::println("Writing object file to: %s\n", objpath.c_str());
+        std::string err;
+        {
+            llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::raw_fd_ostream::F_Binary);
+            if (err.empty())
+            {
+                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
+            }
+            else
+            {
+                error("cannot write object file: %s", err.c_str());
+                fatal();
+            }
         }
     }
 }
@@ -281,7 +292,8 @@ void writeModule(llvm::Module* m, std::string filename)
 /* ================================================================== */
 
 // based on llc code, University of Illinois Open Source License
-void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out)
+void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out,
+               llvm::TargetMachine::CodeGenFileType fileType)
 {
     using namespace llvm;
 
@@ -302,7 +314,7 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
         LastArg = CodeGenOpt::Aggressive;
 
     llvm::formatted_raw_ostream fout(out);
-    if (Target.addPassesToEmitFile(Passes, fout, TargetMachine::CGFT_AssemblyFile, LastArg))
+    if (Target.addPassesToEmitFile(Passes, fout, fileType, LastArg))
         assert(0 && "no support for asm output");
 
     Passes.doInitialization();
@@ -322,72 +334,6 @@ void write_asm_to_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_f
 
 /* ================================================================== */
 
-// uses gcc to make an obj out of an assembly file
-// based on llvm-ld code, University of Illinois Open Source License
-void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
-{
-    using namespace llvm;
-
-    sys::Path gcc = getGcc();
-
-    // Run GCC to assemble and link the program into native code.
-    //
-    // Note:
-    //  We can't just assemble and link the file with the system assembler
-    //  and linker because we don't know where to put the _start symbol.
-    //  GCC mysteriously knows how to do it.
-    std::vector<std::string> args;
-    args.push_back(gcc.str());
-    args.push_back("-fno-strict-aliasing");
-    args.push_back("-O3");
-    args.push_back("-c");
-    args.push_back("-xassembler");
-    args.push_back(asmpath.str());
-    args.push_back("-o");
-    args.push_back(objpath.str());
-
-    //FIXME: only use this if needed?
-    args.push_back("-fpic");
-
-    //FIXME: enforce 64 bit
-    if (global.params.is64bit)
-        args.push_back("-m64");
-    else
-        // Assume 32-bit?
-        args.push_back("-m32");
-
-    // Now that "args" owns all the std::strings for the arguments, call the c_str
-    // method to get the underlying string array.  We do this game so that the
-    // std::string array is guaranteed to outlive the const char* array.
-    std::vector<const char *> Args;
-    for (unsigned i = 0, e = args.size(); i != e; ++i)
-        Args.push_back(args[i].c_str());
-    Args.push_back(0);
-
-    if (Logger::enabled()) {
-        Logger::println("Assembling with: ");
-        std::vector<const char*>::const_iterator I = Args.begin(), E = Args.end();
-        Stream logstr = Logger::cout();
-        for (; I != E; ++I)
-            if (*I)
-                logstr << "'" << *I << "'" << " ";
-        logstr << "\n" << std::flush;
-    }
-
-    // Run the compiler to assembly the program.
-    std::string ErrMsg;
-    int R = sys::Program::ExecuteAndWait(
-        gcc, &Args[0], 0, 0, 0, 0, &ErrMsg);
-    if (R)
-    {
-        error("Failed to invoke gcc. %s", ErrMsg.c_str());
-        fatal();
-    }
-}
-
-
-/* ================================================================== */
-
 static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs,
                                              const std::list<VarDeclaration*> &gates = std::list<VarDeclaration*>())
 {
@@ -399,8 +345,8 @@ static llvm::Function* build_module_function(const std::string &name, const std:
             return funcs.front()->ir.irFunc->func;
     }
 
-    std::vector<const LLType*> argsTy;
-    const llvm::FunctionType* fnTy = llvm::FunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
+    std::vector<LLType*> argsTy;
+    LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
     fn->setCallingConv(DtoCallingConv(0, LINKd));
@@ -498,7 +444,7 @@ static llvm::Function* build_module_shared_dtor()
 static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 {
     // build ctor type
-    const LLFunctionType* fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);
+    LLFunctionType* fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
 
     // build ctor name
     std::string fname = "_D";
@@ -509,7 +455,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     LLFunction* ctor = LLFunction::Create(fty, LLGlobalValue::InternalLinkage, fname, gIR->module);
 
     // provide the default initializer
-    const LLStructType* modulerefTy = DtoModuleReferenceType();
+    LLStructType* modulerefTy = DtoModuleReferenceType();
     std::vector<LLConstant*> mrefvalues;
     mrefvalues.push_back(LLConstant::getNullValue(modulerefTy->getContainedType(0)));
     mrefvalues.push_back(llvm::ConstantExpr::getBitCast(moduleinfo, modulerefTy->getContainedType(1)));
@@ -523,7 +469,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // make sure _Dmodule_ref is declared
     LLConstant* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
-    const LLType *modulerefPtrTy = getPtrToType(modulerefTy);
+    LLType *modulerefPtrTy = getPtrToType(modulerefTy);
     if (!mref)
         mref = new LLGlobalVariable(*gIR->module, modulerefPtrTy, false, LLGlobalValue::ExternalLinkage, NULL, "_Dmodule_ref");
     mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
@@ -563,7 +509,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
     MIname.append("8__ModuleZ");
 
     if (gIR->dmodule != this) {
-        const LLType* moduleinfoTy = DtoType(moduleinfo->type);
+        LLType* moduleinfoTy = DtoType(moduleinfo->type);
         LLGlobalVariable *var = gIR->module->getGlobalVariable(MIname);
         if (!var)
             var = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
@@ -575,7 +521,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 
     // declare global
     // flags will be modified at runtime so can't make it constant
-    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType->get(), false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
 
     return moduleInfoVar;
 }
@@ -630,8 +576,8 @@ void Module::genmoduleinfo()
     RTTIBuilder b(moduleinfo);
 
     // some types
-    const LLType* moduleinfoTy = moduleinfo->type->irtype->getPA();
-    const LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getPA();
+    LLType* moduleinfoTy = moduleinfo->type->irtype->getType();
+    LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getType();
 
     // name
     b.push_string(toPrettyChars());
@@ -656,7 +602,7 @@ void Module::genmoduleinfo()
     // has import array?
     if (!importInits.empty())
     {
-        const llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
+        llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
         c = LLConstantArray::get(importArrTy, importInits);
         std::string m_name("_D");
         m_name.append(mangle());
@@ -707,7 +653,7 @@ void Module::genmoduleinfo()
     // has class array?
     if (!classInits.empty())
     {
-        const llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
+        llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
         c = LLConstantArray::get(classArrTy, classInits);
         std::string m_name("_D");
         m_name.append(mangle());
@@ -726,7 +672,7 @@ void Module::genmoduleinfo()
     b.push_uint(mi_flags);
 
     // function pointer type for next three fields
-    const LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false));
+    LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false));
 
     // ctor
 #if DMDV2
@@ -772,7 +718,7 @@ void Module::genmoduleinfo()
     b.push(c);
 
     // index + reserved void*[1]
-    const LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
+    LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
     c = getNullValue(AT);
     b.push(c);
 
@@ -787,19 +733,17 @@ void Module::genmoduleinfo()
     }*/
 
     // create and set initializer
-    LLConstant* constMI = b.get_constant();
-    llvm::cast<llvm::OpaqueType>(moduleInfoType->get())->refineAbstractTypeTo(constMI->getType());
-    moduleInfoSymbol()->setInitializer(constMI);
+    b.finalize(moduleInfoType, moduleInfoSymbol());
 
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSymbol());
 
     // register this ctor in the magic llvm.global_ctors appending array
-    const LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<const LLType*>(), false);
-    std::vector<const LLType*> magictypes;
+    LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
+    std::vector<LLType*> magictypes;
     magictypes.push_back(LLType::getInt32Ty(gIR->context()));
     magictypes.push_back(getPtrToType(magicfty));
-    const LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
+    LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
 
     // make the constant element
     std::vector<LLConstant*> magicconstants;
@@ -808,7 +752,7 @@ void Module::genmoduleinfo()
     LLConstant* magicinit = LLConstantStruct::get(magicsty, magicconstants);
 
     // declare the appending array
-    const llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
+    llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
     std::vector<LLConstant*> appendInits(1, magicinit);
     LLConstant* appendInit = LLConstantArray::get(appendArrTy, appendInits);
     std::string appendName("llvm.global_ctors");

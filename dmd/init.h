@@ -30,6 +30,12 @@ struct ExpInitializer;
 struct HdrGenState;
 #endif
 
+#if IN_LLVM
+namespace llvm {
+    class StructType;
+}
+#endif
+
 struct Initializer : Object
 {
     Loc loc;
@@ -91,6 +97,9 @@ struct StructInitializer : Initializer
 #endif
 
     StructInitializer *isStructInitializer() { return this; }
+#if IN_LLVM
+    llvm::StructType *ltype;
+#endif
 };
 
 struct ArrayInitializer : Initializer

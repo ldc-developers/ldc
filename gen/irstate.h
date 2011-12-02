@@ -90,7 +90,7 @@ struct IRAsmBlock
     std::vector<Identifier*> internalLabels;
 
     AsmBlockStatement* asmBlock;
-    const LLType* retty;
+    LLType* retty;
     unsigned retn;
     bool retemu; // emulate abi ret with a temporary
     LLValue* (*retfixup)(IRBuilderHelper b, LLValue* orig); // Modifies retval
@@ -111,9 +111,9 @@ struct IRState
     llvm::Module* module;
 
     // interface info type, used in DtoInterfaceInfoType
-    const LLStructType* interfaceInfoType;
-    const LLStructType* mutexType;
-    const LLStructType* moduleRefType;
+    LLStructType* interfaceInfoType;
+    LLStructType* mutexType;
+    LLStructType* moduleRefType;
 
     // helper to get the LLVMContext of the module
     llvm::LLVMContext& context() const { return module->getContext(); }
@@ -148,8 +148,8 @@ struct IRState
 
     // create a call or invoke, depending on the landing pad info
     // the template function is defined further down in this file
-    template <typename InputIterator>
-    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name="");
+    template <typename T>
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, const T& args, const char* Name="");
     llvm::CallSite CreateCallOrInvoke(LLValue* Callee, const char* Name="");
     llvm::CallSite CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name="");
     llvm::CallSite CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name="");
@@ -196,8 +196,8 @@ struct IRState
     std::vector<LLConstant*> usedArray;
 };
 
-template <typename InputIterator>
-llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBegin, InputIterator ArgEnd, const char* Name)
+template <typename T>
+llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const char* Name)
 {
     llvm::BasicBlock* pad = func()->gen->landingPad;
     if(pad)
@@ -206,13 +206,13 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBeg
         LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
         if (funcval && (funcval->isIntrinsic() || funcval->doesNotThrow()))
         {
-            llvm::CallInst* call = ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
+            llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
             call->setAttributes(funcval->getAttributes());
             return call;
         }
 
         llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(gIR->context(), "postinvoke", topfunc(), scopeend());
-        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, ArgBegin, ArgEnd, Name);
+        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, args, Name);
         if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
             invoke->setAttributes(fn->getAttributes());
         scope() = IRScope(postinvoke, scopeend());
@@ -220,7 +220,7 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, InputIterator ArgBeg
     }
     else
     {
-        llvm::CallInst* call = ir->CreateCall(Callee, ArgBegin, ArgEnd, Name);
+        llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
         if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
             call->setAttributes(fn->getAttributes());
         return call;

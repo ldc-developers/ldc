@@ -28,6 +28,12 @@ struct ArrayInitializer;
 struct ExpInitializer;
 struct HdrGenState;
 
+#if IN_LLVM
+namespace llvm {
+    class StructType;
+}
+#endif
+
 
 struct Initializer : Object
 {
@@ -91,6 +97,9 @@ struct StructInitializer : Initializer
 #endif
 
     StructInitializer *isStructInitializer() { return this; }
+#if IN_LLVM
+    llvm::StructType *ltype;
+#endif
 };
 
 struct ArrayInitializer : Initializer

@@ -5,12 +5,13 @@ struct ArrayInitializer;
 
 struct DSliceValue;
 
-const llvm::StructType* DtoArrayType(Type* arrayTy);
-const llvm::StructType* DtoArrayType(const LLType* elemTy);
-const llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
+llvm::StructType* DtoArrayType(Type* arrayTy);
+llvm::StructType* DtoArrayType(LLType* elemTy);
+llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 
+LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit);
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
-LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr);
+LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr, Type *type = 0);
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
@@ -45,7 +46,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r);
 
 LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r);
 
-LLValue* DtoArrayCastLength(LLValue* len, const LLType* elemty, const LLType* newelemty);
+LLValue* DtoArrayCastLength(LLValue* len, LLType* elemty, LLType* newelemty);
 
 LLValue* DtoArrayLen(DValue* v);
 LLValue* DtoArrayPtr(DValue* v);

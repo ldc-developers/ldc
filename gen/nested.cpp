@@ -392,7 +392,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             Logger::println("has nested frame");
             // start with adding all enclosing parent frames until a static parent is reached
 
-            const LLStructType* innerFrameType = NULL;
+            LLStructType* innerFrameType = NULL;
             unsigned depth = -1;
             if (!fd->isStatic()) {
                 if (FuncDeclaration* parfd = getParentFunc(fd, true)) {
@@ -408,7 +408,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
 
             Logger::cout() << "Function " << fd->toChars() << " has depth " << depth << '\n';
 
-            typedef std::vector<const LLType*> TypeVec;
+            typedef std::vector<LLType*> TypeVec;
             TypeVec types;
             if (depth != 0) {
                 assert(innerFrameType);
@@ -444,7 +444,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                     // so handle those cases specially by storing a pointer instead of a value.
                     assert(vd->ir.irLocal->value);
                     LLValue* value = vd->ir.irLocal->value;
-                    const LLType* type = value->getType();
+                    LLType* type = value->getType();
                     if (llvm::isa<llvm::AllocaInst>(llvm::GetUnderlyingObject(value)))
                         // This will be copied to the nesting frame.
                         type = type->getContainedType(0);
@@ -461,8 +461,8 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                 }
             }
 
-            const LLStructType* frameType = LLStructType::get(gIR->context(), types);
-            gIR->module->addTypeName(std::string("nest.") + fd->toChars(), frameType);
+            LLStructType* frameType = LLStructType::create(gIR->context(), types,
+                                                           std::string("nest.") + fd->toChars());
 
             Logger::cout() << "frameType = " << *frameType << '\n';
 
@@ -521,7 +521,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             int nelems = fd->nestedVars.size() + nparelems;
 
             // make array type for nested vars
-            const LLType* nestedVarsTy = LLArrayType::get(getVoidPtrType(), nelems);
+            LLType* nestedVarsTy = LLArrayType::get(getVoidPtrType(), nelems);
 
             // alloca it
             // FIXME align ?
@@ -580,7 +580,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         {
             IrFunction* irfunction = fd->ir.irFunc;
             unsigned depth = irfunction->depth;
-            const llvm::StructType *frameType = irfunction->frameType;
+            LLStructType *frameType = irfunction->frameType;
             // Create frame for current function and append to frames list
             // FIXME: alignment ?
             LLValue* frame = 0;

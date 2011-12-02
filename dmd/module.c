@@ -153,7 +153,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     // LDC
     llvmForceLogging = false;
     moduleInfoVar = NULL;
-    moduleInfoType = new llvm::PATypeHolder(llvm::OpaqueType::get(llvm::getGlobalContext()));
+    moduleInfoType = llvm::StructType::create(llvm::getGlobalContext());
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
     this->isRoot = false;

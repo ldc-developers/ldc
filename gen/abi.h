@@ -27,7 +27,7 @@ struct ABIRewrite
     virtual LLValue* put(Type* dty, DValue* v) = 0;
 
     /// should return the transformed type for this rewrite
-    virtual const LLType* type(Type* dty, const LLType* t) = 0;
+    virtual LLType* type(Type* dty, LLType* t) = 0;
 };
 
 // interface called by codegen

@@ -48,6 +48,8 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
  */
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
 
+void DtoDwarfModuleEnd();
+
 
 #endif // DISABLE_DEBUG_INFO
 

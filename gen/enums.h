@@ -9,5 +9,10 @@ enum
     LLVMva_copy,
     LLVMva_end,
     LLVMva_arg,
-    LLVMinline_asm
+    LLVMinline_asm,
+    LLVMfence,
+    LLVMatomic_store,
+    LLVMatomic_load,
+    LLVMatomic_cmp_xchg,
+    LLVMatomic_rmw
 };

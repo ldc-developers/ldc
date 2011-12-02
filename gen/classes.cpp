@@ -165,7 +165,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
         LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
         if (Logger::enabled())
             Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
-        DtoStore(src, dst);
+        DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
     }
     // set the context for nested classes
     else if (tc->sym->isNested() && tc->sym->vthis)
@@ -230,7 +230,7 @@ void DtoFinalizeClass(LLValue* inst)
     LLSmallVector<LLValue*,1> arg;
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
-    gIR->CreateCallOrInvoke(fn, arg.begin(), arg.end(), "");
+    gIR->CreateCallOrInvoke(fn, arg, "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -245,7 +245,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
     // class -> pointer
     if (to->ty == Tpointer) {
         IF_LOG Logger::println("to pointer");
-        const LLType* tolltype = DtoType(_to);
+        LLType* tolltype = DtoType(_to);
         LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(_to, rval);
     }
@@ -304,7 +304,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             LLValue* v = val->getRVal();
             LLValue* orig = v;
             v = DtoGEPi(v, 0, i_index);
-            const LLType* ifType = DtoType(_to);
+            LLType* ifType = DtoType(_to);
             if (Logger::enabled())
             {
                 Logger::cout() << "V = " << *v << std::endl;
@@ -339,7 +339,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
         // class -> class - static down cast
         else if (tc->sym->isBaseOf(fc->sym,NULL)) {
             Logger::println("static down cast");
-            const LLType* tolltype = DtoType(_to);
+            LLType* tolltype = DtoType(_to);
             LLValue* rval = DtoBitCast(val->getRVal(), tolltype);
             return new DImValue(_to, rval);
         }
@@ -362,7 +362,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     ClassDeclaration::classinfo->codegen(Type::sir);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     std::vector<LLValue*> args;
 
@@ -398,7 +398,7 @@ DValue* DtoCastInterfaceToObject(DValue* val, Type* to)
     // Object _d_toObject(void* p)
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_toObject");
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     // void* p
     LLValue* tmp = val->getRVal();
@@ -427,7 +427,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     ClassDeclaration::classinfo->codegen(Type::sir);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
-    const llvm::FunctionType* funcTy = func->getFunctionType();
+    LLFunctionType* funcTy = func->getFunctionType();
 
     std::vector<LLValue*> args;
 
@@ -470,7 +470,7 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
     assert(field);
 
     // get the start pointer
-    const LLType* st = DtoType(cd->type);
+    LLType* st = DtoType(cd->type);
     // cast to the struct type
     src = DtoBitCast(src, st);
 
@@ -575,7 +575,7 @@ static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
     return llvm::ConstantStruct::get(inits);
 }
 
-static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
+static LLConstant* build_offti_array(ClassDeclaration* cd, LLType* arrayT)
 {
     IrStruct* irstruct = cd->ir.irStruct;
 
@@ -594,7 +594,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, const LLType* arrayT)
         return LLConstant::getNullValue( arrayT );
 
     // array type
-    const llvm::ArrayType* arrTy = llvm::ArrayType::get(arrayInits[0]->getType(), nvars);
+    LLArrayType* arrTy = llvm::ArrayType::get(arrayInits[0]->getType(), nvars);
     LLConstant* arrInit = LLConstantArray::get(arrTy, arrayInits);
 
     // mangle
@@ -701,8 +701,8 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     LLConstant* c;
 
-    const LLType* voidPtr = getVoidPtrType();
-    const LLType* voidPtrPtr = getPtrToType(voidPtr);
+    LLType* voidPtr = getVoidPtrType();
+    LLType* voidPtrPtr = getPtrToType(voidPtr);
 
     // byte[] init
     if (cd->isInterfaceDeclaration())
@@ -711,7 +711,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else
     {
-        const LLType* cd_type = stripModifiers(cdty)->irtype->getPA();
+        LLType* cd_type = stripModifiers(cdty)->irtype->getType();
         size_t initsz = getTypePaddedSize(cd_type);
         b.push_void_array(initsz, ir->getInitSymbol());
     }
@@ -807,13 +807,14 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }*/
 
     // build the initializer
-    LLConstant* finalinit = b.get_constant();
+    LLType *initType = ir->classInfo->getType()->getContainedType(0);
+    LLConstant* finalinit = b.get_constant(isaStruct(initType));
 
     //Logger::cout() << "built the classinfo initializer:\n" << *finalinit <<'\n';
     ir->constClassInfo = finalinit;
 
     // sanity check
-    assert(finalinit->getType() == ir->classInfo->getType()->getContainedType(0) &&
+    assert(finalinit->getType() == initType &&
         "__ClassZ initializer does not match the ClassInfo type");
 
     // return initializer

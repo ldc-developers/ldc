@@ -6,11 +6,13 @@
 #include "id.h"
 #include "mem.h"
 #include "template.h"
+#include "init.h"
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/todebug.h"
 
 #include "ir/ir.h"
 #include "ir/irvar.h"
@@ -129,14 +131,17 @@ void VarDeclaration::codegen(Ir* p)
         bool _isconst = isConst();
     #endif
 
-
         Logger::println("Creating global variable");
 
-        const LLType* _type = this->ir.irGlobal->type.get();
-        llvm::GlobalValue::LinkageTypes _linkage = DtoLinkage(this);
+        assert(!ir.initialized);
+        ir.initialized = gIR->dmodule;
         std::string _name(mangle());
 
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_type,_isconst,_linkage,NULL,_name,0,isThreadlocal());
+        LLType *_type = DtoConstInitializerType(type, init);
+
+        // create the global variable
+        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
+                                                      DtoLinkage(this), NULL, _name, 0, isThreadlocal());
         this->ir.irGlobal->value = gvar;
 
         // set the alignment
@@ -150,8 +155,31 @@ void VarDeclaration::codegen(Ir* p)
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        // initialize
-        DtoConstInitGlobal(this);
+        // assign the initializer
+        if (!(storage_class & STCextern) && mustDefineSymbol(this))
+        {
+            if (Logger::enabled())
+            {
+                Logger::println("setting initializer");
+                Logger::cout() << "global: " << *gvar << '\n';
+    #if 0
+                Logger::cout() << "init:   " << *initVal << '\n';
+    #endif
+            }
+            // build the initializer
+            LLConstant *initVal = DtoConstInitializer(loc, type, init);
+
+            // set the initializer
+            assert(!ir.irGlobal->constInit);
+            ir.irGlobal->constInit = initVal;
+            gvar->setInitializer(initVal);
+
+            #ifndef DISABLE_DEBUG_INFO
+            // do debug info
+            if (global.params.symdebug)
+                DtoDwarfGlobalVariable(gvar, this);
+            #endif
+        }
     }
 }
 
@@ -193,7 +221,7 @@ void TemplateInstance::codegen(Ir* p)
 #endif
     if (!errors && members)
     {
-        for (int i = 0; i < members->dim; i++)
+        for (unsigned i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             s->codegen(p);
@@ -207,7 +235,7 @@ void TemplateMixin::codegen(Ir* p)
 {
     if (!errors && members)
     {
-        for (int i = 0; i < members->dim; i++)
+        for (unsigned i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             if (s->isVarDeclaration())

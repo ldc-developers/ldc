@@ -1,8 +1,8 @@
 #ifndef LDC_GEN_COMPLEX_H
 #define LDC_GEN_COMPLEX_H
 
-const llvm::StructType* DtoComplexType(Type* t);
-const LLType* DtoComplexBaseType(Type* t);
+llvm::StructType* DtoComplexType(Type* t);
+LLType* DtoComplexBaseType(Type* t);
 
 LLConstant* DtoConstComplex(Type* t, long double re, long double im);
 

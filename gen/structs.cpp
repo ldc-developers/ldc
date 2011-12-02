@@ -1,7 +1,6 @@
 #include <algorithm>
 
 #include "gen/llvm.h"
-#include "llvm/AbstractTypeUser.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
 
@@ -126,7 +125,7 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     assert(field);
 
     // get the start pointer
-    const LLType* st = getPtrToType(DtoType(sd->type));
+    LLType* st = getPtrToType(DtoType(sd->type));
 
     // cast to the formal struct type
     src = DtoBitCast(src, st);
@@ -185,7 +184,9 @@ size_t add_zeros(std::vector<llvm::Value*>& values, size_t diff)
     return values.size() - n;
 }
 
-std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, const std::vector<llvm::Value*>& inits)
+std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
+                                                 const std::vector<llvm::Value*>& inits,
+                                                 bool isConst)
 {
     // get arrays 
     size_t nvars = sd->fields.dim;
@@ -269,7 +270,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
         assert(nextVar == var);
 
         // add any 0 padding needed before this field
-        if (os > lastoffset + lastsize)
+        if (!isConst && os > lastoffset + lastsize)
         {
             //printf("added %lu zeros\n", os - lastoffset - lastsize);
             add_zeros(values, os - lastoffset - lastsize);
@@ -296,7 +297,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
     }
 
     // fill out rest with default initializers
-    const LLType* structtype = DtoType(sd->type);
+    LLType* structtype = DtoType(sd->type);
     size_t structsize = getTypePaddedSize(structtype);
 
     // FIXME: this could probably share some code with the above
@@ -348,7 +349,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd, co
 LLType* DtoUnpaddedStructType(Type* dty) {
     assert(dty->ty == Tstruct);
     
-    typedef llvm::DenseMap<Type*, llvm::PATypeHolder> CacheT;
+    typedef llvm::DenseMap<Type*, llvm::StructType*> CacheT;
     static llvm::ManagedStatic<CacheT> cache;
     CacheT::iterator it = cache->find(dty);
     if (it != cache->end())
@@ -357,11 +358,11 @@ LLType* DtoUnpaddedStructType(Type* dty) {
     TypeStruct* sty = (TypeStruct*) dty;
     Array& fields = sty->sym->fields;
 
-    std::vector<const LLType*> types;
+    std::vector<LLType*> types;
 
     for (unsigned i = 0; i < fields.dim; i++) {
         VarDeclaration* vd = (VarDeclaration*) fields.data[i];
-        const LLType* fty;
+        LLType* fty;
         if (vd->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
             fty = DtoUnpaddedStructType(vd->type);
@@ -370,7 +371,7 @@ LLType* DtoUnpaddedStructType(Type* dty) {
         }
         types.push_back(fty);
     }
-    LLType* Ty = LLStructType::get(gIR->context(), types);
+    LLStructType* Ty = LLStructType::get(gIR->context(), types);
     cache->insert(std::make_pair(dty, Ty));
     return Ty;
 }

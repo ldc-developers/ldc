@@ -20,7 +20,7 @@
 
 void Stream::writeType(std::ostream& OS, const llvm::Type& Ty) {
     llvm::raw_os_ostream raw(OS);
-    llvm::WriteTypeSymbolic(raw, &Ty, gIR->module);
+    Ty.print(raw);
 }
 
 void Stream::writeValue(std::ostream& OS, const llvm::Value& V) {

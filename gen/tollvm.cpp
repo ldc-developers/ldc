@@ -51,7 +51,7 @@ unsigned DtoShouldExtend(Type* type)
     return llvm::Attribute::None;
 }
 
-const LLType* DtoType(Type* t)
+LLType* DtoType(Type* t)
 {
     t = stripModifiers( t );
 
@@ -177,12 +177,12 @@ const LLType* DtoType(Type* t)
 //////////////////////////////////////////////////////////////////////////////////////////
 
 /*
-const LLType* DtoStructTypeFromArguments(Arguments* arguments)
+LLType* DtoStructTypeFromArguments(Arguments* arguments)
 {
     if (!arguments)
         return LLType::getVoidTy(gIR->context());
 
-    std::vector<const LLType*> types;
+    std::vector<LLType*> types;
     for (size_t i = 0; i < arguments->dim; i++)
     {
         Argument *arg = (Argument *)arguments->data[i];
@@ -196,9 +196,9 @@ const LLType* DtoStructTypeFromArguments(Arguments* arguments)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLType* DtoTypeNotVoid(Type* t)
+LLType* DtoTypeNotVoid(Type* t)
 {
-    const LLType* lt = DtoType(t);
+    LLType* lt = DtoType(t);
     if (lt == LLType::getVoidTy(gIR->context()))
         return LLType::getInt8Ty(gIR->context());
     return lt;
@@ -367,8 +367,8 @@ llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
 
 LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
 {
-    const LLType* ptrTy = ptr->getType()->getContainedType(0);
-    const LLType* valTy = val->getType();
+    LLType* ptrTy = ptr->getType()->getContainedType(0);
+    LLType* valTy = val->getType();
     // ptr points to val's type
     if (ptrTy == valTy)
     {
@@ -379,8 +379,8 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
     {
         // val is integer
         assert(valTy->isIntegerTy());
-        const LLIntegerType* pt = llvm::cast<const LLIntegerType>(ptrTy);
-        const LLIntegerType* vt = llvm::cast<const LLIntegerType>(valTy);
+        LLIntegerType* pt = llvm::cast<LLIntegerType>(ptrTy);
+        LLIntegerType* vt = llvm::cast<LLIntegerType>(valTy);
         if (pt->getBitWidth() < vt->getBitWidth()) {
             return new llvm::TruncInst(val, pt, "tmp", gIR->scopebb());
         }
@@ -399,10 +399,10 @@ LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLIntegerType* DtoSize_t()
+LLIntegerType* DtoSize_t()
 {
     // the type of size_t does not change once set
-    static const LLIntegerType* t = NULL;
+    static LLIntegerType* t = NULL;
     if (t == NULL)
         t = (global.params.is64bit) ? LLType::getInt64Ty(gIR->context()) : LLType::getInt32Ty(gIR->context());
     return t;
@@ -422,7 +422,7 @@ LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::B
     LLSmallVector<LLValue*,2> v(2);
     v[0] = i0;
     v[1] = i1;
-    return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -439,7 +439,7 @@ LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::
     LLSmallVector<LLValue*,2> v(2);
     v[0] = DtoConstUint(i0);
     v[1] = DtoConstUint(i1);
-    return llvm::GetElementPtrInst::Create(ptr, v.begin(), v.end(), var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -447,7 +447,7 @@ LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::
 LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
 {
     LLValue* v[2] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::ConstantExpr::getGetElementPtr(ptr, v, 2);
+    return llvm::ConstantExpr::getGetElementPtr(ptr, v, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -456,11 +456,11 @@ void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes)
 {
     dst = DtoBitCast(dst,getVoidPtrType());
 
-    const LLType* intTy = DtoSize_t();
-    const LLType *VoidPtrTy = getVoidPtrType();
-    const LLType *Tys[2] ={VoidPtrTy, intTy};
+    LLType* intTy = DtoSize_t();
+    LLType *VoidPtrTy = getVoidPtrType();
+    LLType *Tys[2] ={VoidPtrTy, intTy};
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-        llvm::Intrinsic::memset, Tys, 2);
+                llvm::Intrinsic::memset, llvm::makeArrayRef(Tys, 2));
     
     gIR->ir->CreateCall5(fn, dst, val, nbytes, DtoConstUint(1), DtoConstBool(false), "");
 }
@@ -479,11 +479,11 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
     dst = DtoBitCast(dst,getVoidPtrType());
     src = DtoBitCast(src,getVoidPtrType());
 
-    const LLType* intTy = DtoSize_t();
-    const LLType *VoidPtrTy = getVoidPtrType();
-    const LLType *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
+    LLType* intTy = DtoSize_t();
+    LLType *VoidPtrTy = getVoidPtrType();
+    LLType *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-        llvm::Intrinsic::memcpy, Tys, 3);
+        llvm::Intrinsic::memcpy, llvm::makeArrayRef(Tys, 3));
     
     gIR->ir->CreateCall5(fn, dst, src, nbytes, DtoConstUint(align), DtoConstBool(false), "");
 }
@@ -497,11 +497,11 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
     LLFunction* fn = gIR->module->getFunction("memcmp");
     if (!fn)
     {
-        std::vector<const LLType*> params(3);
+        std::vector<LLType*> params(3);
         params[0] = getVoidPtrType();
         params[1] = getVoidPtrType();
         params[2] = DtoSize_t();
-        const LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()), params, false);
+        LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()), params, false);
         fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", gIR->module);
     }
 
@@ -531,7 +531,8 @@ void DtoAggrCopy(LLValue* dst, LLValue* src)
 
 void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
 {
-    llvm::Function* fn = GET_INTRINSIC_DECL(memory_barrier);
+    // FIXME: implement me
+    /*llvm::Function* fn = GET_INTRINSIC_DECL(memory_barrier);
     assert(fn != NULL);
 
     LLSmallVector<LLValue*, 5> llargs;
@@ -541,7 +542,7 @@ void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
     llargs.push_back(DtoConstBool(ss));
     llargs.push_back(DtoConstBool(device));
 
-    llvm::CallInst::Create(fn, llargs.begin(), llargs.end(), "", gIR->scopebb());
+    llvm::CallInst::Create(fn, llargs, "", gIR->scopebb());*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -569,7 +570,7 @@ llvm::ConstantInt* DtoConstUbyte(unsigned char i)
 
 LLConstant* DtoConstFP(Type* t, long double value)
 {
-    const LLType* llty = DtoType(t);
+    LLType* llty = DtoType(t);
     assert(llty->isFloatingPointTy());
 
     if(llty == LLType::getFloatTy(gIR->context()) || llty == LLType::getDoubleTy(gIR->context()))
@@ -595,7 +596,8 @@ LLConstant* DtoConstString(const char* str)
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
-        llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2)
+        llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true),
+        Type::tchar->arrayOf()
     );
 }
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
@@ -606,7 +608,7 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section)
         *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
-    return llvm::ConstantExpr::getGetElementPtr(gvar,idxs,2);
+    return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -646,7 +648,7 @@ void DtoAlignedStore(LLValue* src, LLValue* dst)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
+LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name)
 {
     if (v->getType() == t)
         return v;
@@ -654,7 +656,7 @@ LLValue* DtoBitCast(LLValue* v, const LLType* t, const char* name)
     return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
 }
 
-LLConstant* DtoBitCast(LLConstant* v, const LLType* t)
+LLConstant* DtoBitCast(LLConstant* v, LLType* t)
 {
     if (v->getType() == t)
         return v;
@@ -675,42 +677,42 @@ LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLPointerType* isaPointer(LLValue* v)
+LLPointerType* isaPointer(LLValue* v)
 {
     return llvm::dyn_cast<LLPointerType>(v->getType());
 }
 
-const LLPointerType* isaPointer(const LLType* t)
+LLPointerType* isaPointer(LLType* t)
 {
     return llvm::dyn_cast<LLPointerType>(t);
 }
 
-const LLArrayType* isaArray(LLValue* v)
+LLArrayType* isaArray(LLValue* v)
 {
     return llvm::dyn_cast<LLArrayType>(v->getType());
 }
 
-const LLArrayType* isaArray(const LLType* t)
+LLArrayType* isaArray(LLType* t)
 {
     return llvm::dyn_cast<LLArrayType>(t);
 }
 
-const LLStructType* isaStruct(LLValue* v)
+LLStructType* isaStruct(LLValue* v)
 {
     return llvm::dyn_cast<LLStructType>(v->getType());
 }
 
-const LLStructType* isaStruct(const LLType* t)
+LLStructType* isaStruct(LLType* t)
 {
     return llvm::dyn_cast<LLStructType>(t);
 }
 
-const LLFunctionType* isaFunction(LLValue* v)
+LLFunctionType* isaFunction(LLValue* v)
 {
     return llvm::dyn_cast<LLFunctionType>(v->getType());
 }
 
-const LLFunctionType* isaFunction(const LLType* t)
+LLFunctionType* isaFunction(LLType* t)
 {
     return llvm::dyn_cast<LLFunctionType>(t);
 }
@@ -737,73 +739,73 @@ llvm::GlobalVariable* isaGlobalVar(LLValue* v)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLPointerType* getPtrToType(const LLType* t)
+LLPointerType* getPtrToType(LLType* t)
 {
     if (t == LLType::getVoidTy(gIR->context()))
         t = LLType::getInt8Ty(gIR->context());
     return LLPointerType::get(t, 0);
 }
 
-const LLPointerType* getVoidPtrType()
+LLPointerType* getVoidPtrType()
 {
     return getPtrToType(LLType::getInt8Ty(gIR->context()));
 }
 
-llvm::ConstantPointerNull* getNullPtr(const LLType* t)
+llvm::ConstantPointerNull* getNullPtr(LLType* t)
 {
-    const LLPointerType* pt = llvm::cast<LLPointerType>(t);
+    LLPointerType* pt = llvm::cast<LLPointerType>(t);
     return llvm::ConstantPointerNull::get(pt);
 }
 
-LLConstant* getNullValue(const LLType* t)
+LLConstant* getNullValue(LLType* t)
 {
     return LLConstant::getNullValue(t);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-size_t getTypeBitSize(const LLType* t)
+size_t getTypeBitSize(LLType* t)
 {
     return gTargetData->getTypeSizeInBits(t);
 }
 
-size_t getTypeStoreSize(const LLType* t)
+size_t getTypeStoreSize(LLType* t)
 {
     return gTargetData->getTypeStoreSize(t);
 }
 
-size_t getTypePaddedSize(const LLType* t)
+size_t getTypePaddedSize(LLType* t)
 {
     size_t sz = gTargetData->getTypeAllocSize(t);
     //Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
     return sz;
 }
 
-size_t getTypeAllocSize(const LLType* t)
+size_t getTypeAllocSize(LLType* t)
 {
     return gTargetData->getTypeAllocSize(t);
 }
 
-unsigned char getABITypeAlign(const LLType* t)
+unsigned char getABITypeAlign(LLType* t)
 {
     return gTargetData->getABITypeAlignment(t);
 }
 
-unsigned char getPrefTypeAlign(const LLType* t)
+unsigned char getPrefTypeAlign(LLType* t)
 {
     return gTargetData->getPrefTypeAlignment(t);
 }
 
-const LLType* getBiggestType(const LLType** begin, size_t n)
+LLType* getBiggestType(LLType** begin, size_t n)
 {
-    const LLType* bigTy = 0;
+    LLType* bigTy = 0;
     size_t bigSize = 0;
     size_t bigAlign = 0;
 
-    const LLType** end = begin+n;
+    LLType** end = begin+n;
     while (begin != end)
     {
-        const LLType* T = *begin;
+        LLType* T = *begin;
 
         size_t sz = getTypePaddedSize(T);
         size_t ali = getABITypeAlign(T);
@@ -823,21 +825,21 @@ const LLType* getBiggestType(const LLType** begin, size_t n)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLStructType* DtoInterfaceInfoType()
+LLStructType* DtoInterfaceInfoType()
 {
     if (gIR->interfaceInfoType)
         return gIR->interfaceInfoType;
 
     // build interface info type
-    std::vector<const LLType*> types;
+    std::vector<LLType*> types;
     // ClassInfo classinfo
     ClassDeclaration* cd2 = ClassDeclaration::classinfo;
     DtoResolveClass(cd2);
     types.push_back(DtoType(cd2->type));
     // void*[] vtbl
-    std::vector<const LLType*> vtbltypes;
+    std::vector<LLType*> vtbltypes;
     vtbltypes.push_back(DtoSize_t());
-    const LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::getInt8Ty(gIR->context())));
+    LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::getInt8Ty(gIR->context())));
     vtbltypes.push_back(byteptrptrty);
     types.push_back(LLStructType::get(gIR->context(), vtbltypes));
     // int offset
@@ -850,7 +852,7 @@ const LLStructType* DtoInterfaceInfoType()
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLStructType* DtoMutexType()
+LLStructType* DtoMutexType()
 {
     if (gIR->mutexType)
         return gIR->mutexType;
@@ -859,7 +861,7 @@ const LLStructType* DtoMutexType()
     if (global.params.os == OSWindows)
     {
         // CRITICAL_SECTION.sizeof == 68
-        std::vector<const LLType*> types(17, LLType::getInt32Ty(gIR->context()));
+        std::vector<LLType*> types(17, LLType::getInt32Ty(gIR->context()));
         return LLStructType::get(gIR->context(), types);
     }
 
@@ -870,50 +872,44 @@ const LLStructType* DtoMutexType()
     }
 
     // pthread_fastlock
-    std::vector<const LLType*> types2;
+    std::vector<LLType*> types2;
     types2.push_back(DtoSize_t());
     types2.push_back(LLType::getInt32Ty(gIR->context()));
-    const LLStructType* fastlock = LLStructType::get(gIR->context(), types2);
+    LLStructType* fastlock = LLStructType::get(gIR->context(), types2);
 
     // pthread_mutex
-    std::vector<const LLType*> types1;
+    std::vector<LLType*> types1;
     types1.push_back(LLType::getInt32Ty(gIR->context()));
     types1.push_back(LLType::getInt32Ty(gIR->context()));
     types1.push_back(getVoidPtrType());
     types1.push_back(LLType::getInt32Ty(gIR->context()));
     types1.push_back(fastlock);
-    const LLStructType* pmutex = LLStructType::get(gIR->context(), types1);
+    LLStructType* pmutex = LLStructType::get(gIR->context(), types1);
 
     // D_CRITICAL_SECTION
-    LLOpaqueType* opaque = LLOpaqueType::get(gIR->context());
-    std::vector<const LLType*> types;
-    types.push_back(getPtrToType(opaque));
+    LLStructType* mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
+    std::vector<LLType*> types;
+    types.push_back(getPtrToType(mutex));
     types.push_back(pmutex);
+    mutex->setBody(types);
+    gIR->mutexType = mutex;
 
-    // resolve type
-    pmutex = LLStructType::get(gIR->context(), types);
-    LLPATypeHolder pa(pmutex);
-    opaque->refineAbstractTypeTo(pa.get());
-    pmutex = isaStruct(pa.get());
-
-    gIR->mutexType = pmutex;
-    gIR->module->addTypeName("D_CRITICAL_SECTION", pmutex);
     return pmutex;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-const LLStructType* DtoModuleReferenceType()
+LLStructType* DtoModuleReferenceType()
 {
     if (gIR->moduleRefType)
         return gIR->moduleRefType;
 
-    // this is a recursive type so start out with the opaque
-    LLOpaqueType* opaque = LLOpaqueType::get(gIR->context());
+    // this is a recursive type so start out with a struct without body
+    LLStructType* st = LLStructType::create(gIR->context(), "ModuleReference");
 
     // add members
-    std::vector<const LLType*> types;
-    types.push_back(getPtrToType(opaque));
+    std::vector<LLType*> types;
+    types.push_back(getPtrToType(st));
 #if DMDV1
     types.push_back(DtoType(Module::moduleinfo->type));
 #else
@@ -921,20 +917,16 @@ const LLStructType* DtoModuleReferenceType()
 #endif
 
     // resolve type
-    const LLStructType* st = LLStructType::get(gIR->context(), types);
-    LLPATypeHolder pa(st);
-    opaque->refineAbstractTypeTo(pa.get());
-    st = isaStruct(pa.get());
+    st->setBody(types);
 
     // done
     gIR->moduleRefType = st;
-    gIR->module->addTypeName("ModuleReference", st);
     return st;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* name)
+LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name)
 {
     LLValue* res = llvm::UndefValue::get(type);
     res = gIR->ir->CreateInsertValue(res, V1, 0, "tmp");
@@ -943,11 +935,14 @@ LLValue* DtoAggrPair(const LLType* type, LLValue* V1, LLValue* V2, const char* n
 
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
 {
-    const LLType* t = LLStructType::get(gIR->context(), V1->getType(), V2->getType(), NULL);
+    llvm::SmallVector<LLType*, 2> types;
+    types.push_back(V1->getType());
+    types.push_back(V2->getType());
+    LLType* t = LLStructType::get(gIR->context(), types);
     return DtoAggrPair(t, V1, V2, name);
 }
 
-LLValue* DtoAggrPaint(LLValue* aggr, const LLType* as)
+LLValue* DtoAggrPaint(LLValue* aggr, LLType* as)
 {
     if (aggr->getType() == as)
         return aggr;

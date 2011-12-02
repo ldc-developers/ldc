@@ -201,7 +201,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 
     IRAsmStmt* as = new IRAsmStmt;
 
-    const LLType* llretTy = DtoType(fdecl->type->nextOf());
+    LLType* llretTy = DtoType(fdecl->type->nextOf());
     asmblock->retty = llretTy;
     asmblock->retn = 1;
 
@@ -388,7 +388,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     LLSmallVector<llvm::Value*, 8> args;
     args.reserve(n-2);
-    std::vector<const llvm::Type*> argtypes;
+    std::vector<LLType*> argtypes;
     argtypes.reserve(n-2);
 
     for (size_t i = 2; i < n; i++)
@@ -400,14 +400,14 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     // build asm function type
     Type* type = fd->type->nextOf()->toBasetype();
-    const llvm::Type* ret_type = DtoType(type);
+    LLType* ret_type = DtoType(type);
     llvm::FunctionType* FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
     // build asm call
     bool sideeffect = true;
     llvm::InlineAsm* ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-    llvm::Value* rv = gIR->ir->CreateCall(ia, args.begin(), args.end(), "");
+    llvm::Value* rv = gIR->ir->CreateCall(ia, args, "");
 
     // work around missing tuple support for users of the return value
     if (type->ty == Tstruct)

@@ -29,7 +29,7 @@ struct RemoveStructPadding : ABIRewrite {
     }
 
     /// return the transformed type for this rewrite
-    virtual const LLType* type(Type* dty, const LLType* t) {
+    virtual LLType* type(Type* dty, LLType* t) {
         return DtoUnpaddedStructType(dty->toBasetype());
     }
 };
@@ -47,7 +47,7 @@ struct X87_complex_swap : ABIRewrite
     {
         return DtoAggrPairSwap(v->getRVal());
     }
-    const LLType* type(Type*, const LLType* t)
+    LLType* type(Type*, LLType* t)
     {
         return t;
     }
@@ -84,10 +84,10 @@ struct X86_struct_to_register : ABIRewrite
         Logger::println("rewriting struct -> int");
         assert(dv->isLVal());
         LLValue* mem = dv->getLVal();
-        const LLType* t = LLIntegerType::get(gIR->context(), dty->size()*8);
+        LLType* t = LLIntegerType::get(gIR->context(), dty->size()*8);
         return DtoLoad(DtoBitCast(mem, getPtrToType(t)));
     }
-    const LLType* type(Type* t, const LLType*)
+    LLType* type(Type* t, LLType*)
     {
         size_t sz = t->size()*8;
         return LLIntegerType::get(gIR->context(), sz);
