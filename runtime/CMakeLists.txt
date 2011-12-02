@@ -2,9 +2,23 @@ project(runtime)
 
 cmake_minimum_required(VERSION 2.6)
 
-option(BUILD_SHARED_LIBS "build the runtime as shared libraries (linux only)")
-option(BUILD_BC_LIBS "build the runtime as bytecode libraries")
-option(BUILD_SINGLE_LIB "build single runtime library" ON)
+#
+# Main configuration.
+#
+
+include(CheckTypeSize)
+check_type_size(void*  ptr_size)
+
+if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
+    set(MULTILIB          OFF                                       CACHE BOOL    "Build both 64-bit and 32-bit libraries")
+ENDIF(${ptr_size} MATCHES "^8$")
+
+set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as bytecode libraries")
+set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library")
+set(LIB_SUFFIX            ""                                        CACHE STRING  "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
+set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Directory where will be put header files")
+set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Build as shared library or as static library")
+set(CMAKE_INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}  CACHE PATH    "Directory where lib will be installed")
 set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
@@ -25,6 +39,10 @@ else(D_VERSION EQUAL 1)
 endif(D_VERSION EQUAL 1)
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir")
+
+#
+# Gather source files.
+#
 
 if(D_VERSION EQUAL 1)
     # copy imports to runtime dir
@@ -66,7 +84,7 @@ elseif(D_VERSION EQUAL 2)
     set(RUNTIME_CC druntime-core)
     set(RUNTIME_GC druntime-gc-basic)
     set(RUNTIME_DC druntime-rt-ldc)
-    set(RUNTIME_AIO druntime-ldc)
+    set(RUNTIME_AIO ldruntime)
     set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
     set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
     set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
@@ -163,12 +181,25 @@ if(NOT LDC_LOC)
     set(LDC_EXE_NAME ${LDC_EXE})
 endif(NOT LDC_LOC)
 
+#
+# Create configuration files.
+#
+
+if(MULTILIB)
+    set(MUTILIB_ADDITIONAL_PATH  "\n        \"-L-L${CMAKE_BINARY_DIR}/lib32\",")
+    set(MUTILIB_ADDITIONAL_INSTALL_PATH  "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib32\",")
+endif(MULTILIB)
+
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files for installation in bin.
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.rebuild.conf)
 
-macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
+#
+# Macros.
+#
+
+macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     if ("${PATH}" STREQUAL "")
         file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
     else ("${PATH}" STREQUAL "")
@@ -181,8 +212,8 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
     else ("${path}" STREQUAL "")
         set(output ${path}/${name})
     endif ("${path}" STREQUAL "")
-    set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}.o)
-    set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}.bc)
+    set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}${SUFFIX}.o)
+    set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}${SUFFIX}.bc)
     list(APPEND ${OUTLIST_O} ${OUTPUT_O})
     list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
@@ -201,7 +232,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
         OUTPUT
             ${OUTPUT_O}
             ${OUTPUT_BC}
-        COMMAND ${LDC_LOC} --output-o --output-bc -c -I${INCDIR} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
+        COMMAND ${LDC_LOC} --output-o --output-bc -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${INPUT_D}
@@ -210,103 +241,175 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC INCDIR MOREFLAGS PATH)
     )
 endmacro(dc)
 
-foreach(f ${CORE_D})
-    dc(${f} CORE_O CORE_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
-endforeach(f)
+macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
+    set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
-foreach(f ${GC_D})
-    dc(${f} GC_O GC_BC ${RUNTIME_INCLUDE} "-disable-invariants" "")
-endforeach(f)
+    set(target_suffix "")
+    if(NOT "${lib_suffix}" STREQUAL "")
+        set(target_suffix "_${lib_suffix}")
+    endif(NOT "${lib_suffix}" STREQUAL "")
+    if(NOT "${path_suffix}" STREQUAL "")
+        set(target_suffix "${target_suffix}_${path_suffix}")
+    endif(NOT "${path_suffix}" STREQUAL "")
 
-foreach(f ${DCRT_D})
-    if(D_VERSION EQUAL 1)
-        dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" ${RUNTIME_DC_DIR})
-    else(D_VERSION EQUAL 1)
-        dc(${f} DCRT_O DCRT_BC ${RUNTIME_INCLUDE} "" "")
-    endif(D_VERSION EQUAL 1)
-endforeach(f)
-
-if(EXISTS ${PROJECT_PARENT_DIR}/${RUNTIME})
-    if(BUILD_SINGLE_LIB)
-        add_library(${RUNTIME_AIO} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GC_O} ${DCRT_O} ${DCRT_C})
-        set(LIBS ${RUNTIME_AIO})
-    else(BUILD_SINGLE_LIB)
-        add_library(${RUNTIME_CC} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
-        add_library(${RUNTIME_GC} ${D_LIBRARY_TYPE} ${GC_O})
-        add_library(${RUNTIME_DC} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
-        set(LIBS
-            ${RUNTIME_CC}
-            ${RUNTIME_GC}
-            ${RUNTIME_DC}
-        )
-    endif(BUILD_SINGLE_LIB)
-endif(EXISTS ${PROJECT_PARENT_DIR}/${RUNTIME})
-
-if(BUILD_BC_LIBS)
-    find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
-    if(NOT LLVM_AR_EXE)
-        message(SEND_ERROR "llvm-ar not found")
-    endif(NOT LLVM_AR_EXE)
-
-    add_library(${RUNTIME_CC}-c ${CORE_C})
-    add_library(${RUNTIME_DC}-c ${DCRT_C})
-    list(APPEND LIBS
-        ${RUNTIME_CC}-c
-        ${RUNTIME_DC}-c
-    )
-    add_custom_command(
-        OUTPUT bclibs
-        COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
-        COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
-        # cannot parse genobj.bc if built with -g
-        # COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-        WORKING_DIRECTORY ${LIBRARY_OUTPUT_PATH}
-        DEPENDS
-            ${CORE_BC}
-            ${GC_BC}
-            ${DCRT_BC}
-            ${LDC_IMPORTS}
-    )
-    set(BCLIBS bclibs)
-endif(BUILD_BC_LIBS)
-
-if(D_VERSION EQUAL 2)
-    if(NOT PROJECT_BINARY_DIR STREQUAL "${PROJECT_SOURCE_DIR}")
-        file(COPY ${PROJECT_PARENT_DIR}/${RUNTIME} DESTINATION ${PROJECT_BINARY_DIR}/../)
-        file(COPY ${PROJECT_PARENT_DIR}/phobos DESTINATION ${PROJECT_BINARY_DIR}/../)
-    endif(NOT PROJECT_BINARY_DIR STREQUAL "${PROJECT_SOURCE_DIR}")
-endif(D_VERSION EQUAL 2)
-
-set_target_properties(
-    ${LIBS} PROPERTIES
-    LINKER_LANGUAGE C
-    ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
-    LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
-)
-
-# BCLIBS is empty if BUILD_BC_LIBS is not selected
-add_custom_target(runtime DEPENDS ${LIBS} ${BCLIBS})
-
-if(PHOBOS2_DIR)
-    foreach(f ${PHOBOS2_D})
-         dc(${f} PHOBOS2_O PHOBOS2_BC ${RUNTIME_DIR}/src/ "-I${PHOBOS2_DIR}" ${PHOBOS2_DIR})
+    set(CORE_O "")
+    set(CORE_BC "")
+    foreach(f ${CORE_D})
+        dc(${f} CORE_O CORE_BC "${d_flags};-disable-invariants" "" "${target_suffix}")
     endforeach(f)
 
-    add_library(lphobos2 ${D_LIBRARY_TYPE}
-        ${ZLIB_C}
-        ${PHOBOS2_O}
-        ${CORE_O}
-        ${CORE_C}
-        ${GC_O}
-        ${DCRT_O}
-        ${DCRT_C}
-    )
-    add_dependencies(lphobos2 runtime)
+    set(GC_O "")
+    set(GC_BC "")
+    foreach(f ${GC_D})
+        dc(${f} GC_O GC_BC "${d_flags};-disable-invariants" "" "${target_suffix}")
+    endforeach(f)
+
+    set(DCRT_O "")
+    set(DCRT_BC "")
+    foreach(f ${DCRT_D})
+        if(D_VERSION EQUAL 1)
+            dc(${f} DCRT_O DCRT_BC "${d_flags}" ${RUNTIME_DC_DIR} "${target_suffix}")
+        else(D_VERSION EQUAL 1)
+            dc(${f} DCRT_O DCRT_BC "${d_flags}" "" "${target_suffix}")
+        endif(D_VERSION EQUAL 1)
+    endforeach(f)
+
+    if(EXISTS ${PROJECT_PARENT_DIR}/${RUNTIME})
+        if(BUILD_SINGLE_LIB)
+            add_library(${RUNTIME_AIO}${target_suffix}
+                        ${D_LIBRARY_TYPE}
+                        ${CORE_O}
+                        ${CORE_C}
+                        ${GC_O}
+                        ${DCRT_O}
+                        ${DCRT_C}
+            )
+            set(LIBS ${RUNTIME_AIO})
+            set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
+        else(BUILD_SINGLE_LIB)
+            add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
+            add_library(${RUNTIME_GC}${target_suffix} ${D_LIBRARY_TYPE} ${GC_O})
+            add_library(${RUNTIME_DC}${target_suffix} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
+            set_target_properties(${RUNTIME_CC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_CC}${lib_suffix})
+            set_target_properties(${RUNTIME_GC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_GC}${lib_suffix})
+            set_target_properties(${RUNTIME_DC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_DC}${lib_suffix})
+            set(LIBS
+                ${RUNTIME_CC}${lib_suffix}
+                ${RUNTIME_GC}${lib_suffix}
+                ${RUNTIME_DC}${lib_suffix}
+            )
+        endif(BUILD_SINGLE_LIB)
+    endif(EXISTS ${PROJECT_PARENT_DIR}/${RUNTIME})
+
+    if(BUILD_BC_LIBS)
+        find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
+        if(NOT LLVM_AR_EXE)
+            message(SEND_ERROR "llvm-ar not found")
+        endif(NOT LLVM_AR_EXE)
+
+        add_library(${RUNTIME_CC}-c ${CORE_C})
+        add_library(${RUNTIME_DC}-c ${DCRT_C})
+        list(APPEND LIBS
+            ${RUNTIME_CC}-c
+            ${RUNTIME_DC}-c
+        )
+        add_custom_command(
+            OUTPUT bclibs
+            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
+            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
+            # cannot parse genobj.bc if built with -g
+            # COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
+            WORKING_DIRECTORY ${output_path}
+            DEPENDS
+                ${CORE_BC}
+                ${GC_BC}
+                ${DCRT_BC}
+                ${LDC_IMPORTS}
+        )
+        set(BCLIBS bclibs)
+    endif(BUILD_BC_LIBS)
+
+    if(D_VERSION EQUAL 2)
+        if(NOT PROJECT_BINARY_DIR STREQUAL "${PROJECT_SOURCE_DIR}")
+            file(COPY ${PROJECT_PARENT_DIR}/${RUNTIME} DESTINATION ${PROJECT_BINARY_DIR}/../)
+            file(COPY ${PROJECT_PARENT_DIR}/phobos DESTINATION ${PROJECT_BINARY_DIR}/../)
+        endif(NOT PROJECT_BINARY_DIR STREQUAL "${PROJECT_SOURCE_DIR}")
+    endif(D_VERSION EQUAL 2)
+
     set_target_properties(
-        lphobos2 PROPERTIES
+        ${LIBS} PROPERTIES
         LINKER_LANGUAGE C
-        ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
-        LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
+        ARCHIVE_OUTPUT_DIRECTORY ${output_path}
+        LIBRARY_OUTPUT_DIRECTORY ${output_path}
+        RUNTIME_OUTPUT_DIRECTORY ${output_path}
+        COMPILE_FLAGS "${c_flags}"
+        LINK_FLAGS "${ld_flags}"
     )
-    add_custom_target(phobos2 DEPENDS lphobos2)
+    install(TARGETS ${LIBS} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
+
+    # BCLIBS is empty if BUILD_BC_LIBS is not selected
+    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
+
+    if(PHOBOS2_DIR)
+        set(PHOBOS2_O "")
+        set(PHOBOS2_BC "")
+        foreach(f ${PHOBOS2_D})
+             dc(${f} PHOBOS2_O PHOBOS2_BC "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}")
+        endforeach(f)
+
+        add_library(lphobos2${target_suffix} ${D_LIBRARY_TYPE}
+            ${ZLIB_C}
+            ${PHOBOS2_O}
+            ${CORE_O}
+            ${CORE_C}
+            ${GC_O}
+            ${DCRT_O}
+            ${DCRT_C}
+        )
+        add_dependencies(lphobos2${target_suffix} runtime)
+        set_target_properties(
+            lphobos2${target_suffix} PROPERTIES
+            OUTPUT_NAME lphobos2${lib_suffix}
+            LINKER_LANGUAGE C
+            ARCHIVE_OUTPUT_DIRECTORY ${output_path}
+            LIBRARY_OUTPUT_DIRECTORY ${output_path}
+            RUNTIME_OUTPUT_DIRECTORY ${output_path}
+            COMPILE_FLAGS "${c_flags}"
+            LINK_FLAGS "${ld_flags}"
+        )
+        install(TARGETS lphobos2${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
+        add_dependencies(phobos2 DEPENDS lphobos2${target_suffix})
+    endif(PHOBOS2_DIR)
+endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
+
+#
+# Set up build targets.
+#
+
+if(PHOBOS2_DIR)
+    add_custom_target(phobos2)
 endif(PHOBOS2_DIR)
+build_runtime("" "" "" "" "${LIB_SUFFIX}")
+set(GENERATE_DI "")
+if(MULTILIB)
+    build_runtime("-m32" "-m32" "-m32" "" "32")
+endif(MULTILIB)
+
+#
+# Install target.
+#
+
+if(D_VERSION EQUAL 2)
+    install(DIRECTORY     ${PROJECT_BINARY_DIR}/import/core                DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+    if(PHOBOS2_DIR)
+        install(DIRECTORY ${PHOBOS2_DIR}/std                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+        install(DIRECTORY ${PHOBOS2_DIR}/etc                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+        install(FILES     ${PHOBOS2_DIR}/crc32.d                           DESTINATION ${INCLUDE_INSTALL_DIR})
+    endif(PHOBOS2_DIR)
+    install(FILES         ${RUNTIME_DIR}/import/object.di                  DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+    install(FILES         ${RUNTIME_DIR}/src/ldc/bitop.d                   DESTINATION ${INCLUDE_INSTALL_DIR}/core)
+    install(DIRECTORY     ${RUNTIME_DIR}/import/ldc                        DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+else(D_VERSION EQUAL 2)
+    install(DIRECTORY     ${PROJECT_SOURCE_DIR}/${RUNTIME}/internal/ldc/   DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+    install(DIRECTORY     ${PROJECT_SOURCE_DIR}/runtime/import/ldc         DESTINATION ${INCLUDE_INSTALL_DIR})
+endif(D_VERSION EQUAL 2)
