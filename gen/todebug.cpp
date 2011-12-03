@@ -180,9 +180,6 @@ static llvm::DIType dwarfCompositeType(Type* type)
     // elements
     std::vector<llvm::Value*> elems;
 
-    // pointer to ir->diCompositeType
-    llvm::DIType *diCompositeType = 0;
-
     llvm::DIType derivedFrom;
 
     assert((t->ty == Tstruct || t->ty == Tclass) &&
@@ -213,36 +210,12 @@ static llvm::DIType dwarfCompositeType(Type* type)
     if ((llvm::MDNode*)ir->diCompositeType != 0)
         return ir->diCompositeType;
 
-    diCompositeType = &ir->diCompositeType;
     name = sd->toChars();
     linnum = sd->loc.linnum;
     file = DtoDwarfFile(sd->loc);
     // set diCompositeType to handle recursive types properly
-    if (t->ty == Tclass) {
-        ir->diCompositeType = gIR->dibuilder.createClassType(
-           llvm::DIDescriptor(file),
-           name, // name
-           file, // compile unit where defined
-           linnum, // line number where defined
-           getTypeBitSize(T), // size in bits
-           getABITypeAlign(T)*8, // alignment in bits
-           0, // offset in bits,
-           llvm::DIType::FlagFwdDecl, // flags
-           derivedFrom, // DerivedFrom
-           llvm::DIArray(0)
-        );
-    } else {
-        ir->diCompositeType = gIR->dibuilder.createStructType(
-           llvm::DIDescriptor(file),
-           name, // name
-           file, // compile unit where defined
-           linnum, // line number where defined
-           getTypeBitSize(T), // size in bits
-           getABITypeAlign(T)*8, // alignment in bits
-           llvm::DIType::FlagFwdDecl, // flags
-           llvm::DIArray(0)
-        );
-    }
+    if (!ir->diCompositeType)
+        ir->diCompositeType = gIR->dibuilder.createTemporaryType();
 
     if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
     {
@@ -296,8 +269,9 @@ static llvm::DIType dwarfCompositeType(Type* type)
         );
     }
 
-    if (diCompositeType)
-        *diCompositeType = ret;
+    ir->diCompositeType.replaceAllUsesWith(ret);
+    ir->diCompositeType = ret;
+
     return ret;
 }
 
