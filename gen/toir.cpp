@@ -2553,7 +2553,7 @@ DValue* FuncExp::toElem(IRState* p)
             )
             cval = irfn->nestedVar;
         else if (irfn->nestArg)
-            cval = irfn->nestArg;
+            cval = DtoLoad(irfn->nestArg);
 #if DMDV2
         // TODO: should we enable that for D1 as well?
         else if (irfn->thisArg)

@@ -361,6 +361,7 @@ struct VarDeclaration : Declaration
 
     // debug description
     llvm::DIVariable debugVariable;
+    llvm::DISubprogram debugFunc;
 #endif
 };
 

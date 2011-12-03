@@ -729,6 +729,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
     #endif
     }
 
+    // give the 'nestArg' storage
+    if (f->fty.arg_nest)
+    {
+        LLValue *nestArg = irfunction->nestArg;
+        LLValue *val = DtoRawAlloca(nestArg->getType(), 0, "nestedFrame");
+        DtoStore(nestArg, val);
+        irfunction->nestArg = val;
+    }
+
     // give arguments storage
     // and debug info
     if (fd->parameters)

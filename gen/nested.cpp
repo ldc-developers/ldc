@@ -6,6 +6,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/functions.h"
+#include "gen/todebug.h"
 
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
@@ -120,6 +121,10 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
         return new DVarValue(astype, vd, val);
     }
 
+    LLValue *dwarfValue = 0;
+    std::vector<LLValue*> dwarfAddr;
+    LLType *int64Ty = LLType::getInt64Ty(gIR->context());
+
     // get the nested context
     LLValue* ctx = 0;
     if (irfunc->decl->isMember2())
@@ -135,10 +140,15 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     #endif
         ctx = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
-    else if (irfunc->nestedVar)
+    else if (irfunc->nestedVar) {
         ctx = irfunc->nestedVar;
-    else
-        ctx = irfunc->nestArg;
+        dwarfValue = ctx;
+    } else {
+        ctx = DtoLoad(irfunc->nestArg);
+        dwarfValue = irfunc->nestArg;
+        if (global.params.symdebug)
+            dwarfOpDeref(dwarfAddr);
+    }
     assert(ctx);
 
     DtoCreateNestedContextType(vdparent->isFuncDeclaration());
@@ -174,20 +184,31 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
             Logger::println("Same depth");
         } else {
             // Load frame pointer and index that...
+            if (dwarfValue && global.params.symdebug) {
+                dwarfOpOffset(dwarfAddr, val, vd->ir.irLocal->nestedDepth);
+                dwarfOpDeref(dwarfAddr);
+            }
             Logger::println("Lower depth");
             val = DtoGEPi(val, 0, vd->ir.irLocal->nestedDepth);
             Logger::cout() << "Frame index: " << *val << '\n';
             val = DtoAlignedLoad(val, (std::string(".frame.") + vdparent->toChars()).c_str());
             Logger::cout() << "Frame: " << *val << '\n';
         }
+
+        if (dwarfValue && global.params.symdebug)
+            dwarfOpOffset(dwarfAddr, val, vd->ir.irLocal->nestedIndex);
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
         Logger::cout() << "Addr: " << *val << '\n';
         Logger::cout() << "of type: " << *val->getType() << '\n';
         if (vd->ir.irLocal->byref || byref) {
             val = DtoAlignedLoad(val);
+            //dwarfOpDeref(dwarfAddr);
             Logger::cout() << "Was byref, now: " << *val << '\n';
             Logger::cout() << "of type: " << *val->getType() << '\n';
         }
+
+        if (dwarfValue && global.params.symdebug)
+            DtoDwarfLocalVariable(dwarfValue, vd, dwarfAddr);
 
         return new DVarValue(astype, vd, val);
     }
@@ -283,7 +304,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     }
     // otherwise, it may have gotten a context from the caller
     else if (irfunc->nestArg)
-        val = irfunc->nestArg;
+        val = DtoLoad(irfunc->nestArg);
     // or just have a this argument
     else if (irfunc->thisArg)
     {
@@ -532,7 +553,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             // copy parent frame into beginning
             if (nparelems)
             {
-                LLValue* src = irfunction->nestArg;
+                LLValue* src = DtoLoad(irfunction->nestArg);
                 if (!src)
                 {
                     assert(irfunction->thisArg);
@@ -594,7 +615,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
 
             // copy parent frames into beginning
             if (depth != 0) {
-                LLValue* src = irfunction->nestArg;
+                LLValue* src = DtoLoad(irfunction->nestArg);
                 if (!src) {
                     assert(irfunction->thisArg);
                     assert(fd->isMember2());
@@ -668,6 +689,12 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     assert(!vd->ir.irLocal->value);
                     vd->ir.irLocal->value = gep;
                     vd->ir.irLocal->byref = false;
+                }
+
+                if (global.params.symdebug) {
+                    LLSmallVector<LLValue*, 2> addr;
+                    dwarfOpOffset(addr, frameType, vd->ir.irLocal->nestedIndex);
+                    DtoDwarfLocalVariable(frame, vd, addr);
                 }
             }
         } else if (FuncDeclaration* parFunc = getParentFunc(fd, true)) {

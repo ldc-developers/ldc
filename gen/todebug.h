@@ -3,6 +3,9 @@
 
 #ifndef DISABLE_DEBUG_INFO
 
+#include "gen/tollvm.h"
+#include "gen/irstate.h"
+
 void RegisterDwarfSymbols(llvm::Module* mod);
 
 /**
@@ -31,14 +34,15 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd);
 
 void DtoDwarfStopPoint(unsigned ln);
 
-void DtoDwarfValue(LLValue* var, VarDeclaration* vd);
+void DtoDwarfValue(LLValue *val, VarDeclaration* vd);
 
 /**
  * Emits all things necessary for making debug info for a local variable vd.
  * @param ll LLVM Value of the variable.
  * @param vd Variable declaration to emit debug info for.
  */
-void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
+void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd,
+                           llvm::ArrayRef<LLValue*> addr = llvm::ArrayRef<LLValue*>());
 
 /**
  * Emits all things necessary for making debug info for a global variable vd.
@@ -49,6 +53,30 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
 
 void DtoDwarfModuleEnd();
+
+template<typename T>
+void dwarfOpOffset(T &addr, LLStructType *type, int index)
+{
+    uint64_t offset = gTargetData->getStructLayout(type)->getElementOffset(index);
+    LLType *int64Ty = LLType::getInt64Ty(gIR->context());
+    addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpPlus));
+    addr.push_back(LLConstantInt::get(int64Ty, offset));
+}
+
+template<typename T>
+void dwarfOpOffset(T &addr, LLValue *val, int index)
+{
+   LLStructType *type = isaStruct(val->getType()->getContainedType(0));
+   assert(type);
+   dwarfOpOffset(addr, type, index);
+}
+
+template<typename T>
+void dwarfOpDeref(T &addr)
+{
+    LLType *int64Ty = LLType::getInt64Ty(gIR->context());
+    addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpDeref));
+}
 
 
 #endif // DISABLE_DEBUG_INFO

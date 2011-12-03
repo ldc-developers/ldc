@@ -519,7 +519,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     DVarValue *var = lhs->isVar();
     VarDeclaration *varDecl = var ? var->var : 0;
     if (global.params.symdebug && varDecl && varDecl->debugVariable)
-        DtoDwarfValue(rhs->getRVal(), lhs->isVar()->var);
+        DtoDwarfValue(lhs->getRVal(), varDecl);
     #endif
 }
 

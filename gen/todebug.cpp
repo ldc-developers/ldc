@@ -361,10 +361,13 @@ static llvm::DIType dwarfTypeDescription(Type* type, const char* c_name)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
+void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLValue*> addr)
 {
     Logger::println("D to dwarf local variable");
     LOG_SCOPE;
+
+    if (gIR->func()->diSubprogram == vd->debugFunc) // ensure that the debug variable is created only once
+        return;
 
     // get type description
     llvm::DIType TD = dwarfTypeDescription(vd->type, NULL);
@@ -380,15 +383,28 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
     else
         tag = DW_TAG_auto_variable;
 
-    vd->debugVariable = gIR->dibuilder.createLocalVariable(
-        tag, // tag
-        gIR->func()->diSubprogram, // context
-        vd->toChars(), // name
-        DtoDwarfFile(vd->loc), // file
-        vd->loc.linnum, // line num
-        TD, // type
-        true // preserve
-    );
+    if (addr.empty()) {
+        vd->debugVariable = gIR->dibuilder.createLocalVariable(
+            tag, // tag
+            gIR->func()->diSubprogram, // context
+            vd->toChars(), // name
+            DtoDwarfFile(vd->loc), // file
+            vd->loc.linnum, // line num
+            TD, // type
+            true // preserve
+        );
+    } else {
+        vd->debugVariable = gIR->dibuilder.createComplexVariable(
+            tag, // tag
+            gIR->func()->diSubprogram, // context
+            vd->toChars(), // name
+            DtoDwarfFile(vd->loc), // file
+            vd->loc.linnum, // line num
+            TD, // type
+            addr
+        );
+    }
+    vd->debugFunc = gIR->func()->diSubprogram;
 
     // declare
     dwarfDeclare(ll, vd->debugVariable);
@@ -522,12 +538,9 @@ void DtoDwarfStopPoint(unsigned ln)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDwarfValue(LLValue* var, VarDeclaration* vd)
+void DtoDwarfValue(LLValue *val, VarDeclaration* vd)
 {
-    if (llvm::isa<llvm::AllocaInst>(vd->ir.irLocal->value) == 0)
-        return;
-    
-    llvm::Instruction *instr = gIR->dibuilder.insertDbgValueIntrinsic(vd->ir.irLocal->value, 0, vd->debugVariable, gIR->scopebb());
+    llvm::Instruction *instr = gIR->dibuilder.insertDbgValueIntrinsic(val, 0, vd->debugVariable, gIR->scopebb());
     instr->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 }
 
