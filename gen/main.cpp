@@ -85,8 +85,8 @@ static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
 void printVersion() {
     printf("LLVM D Compiler %s\nbased on DMD %s and %s\n%s\n%s\n",
     global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
-    printf("D Language Documentation: http://www.digitalmars.com/d/1.0/index.html\n"
-           "LDC Homepage: http://www.dsource.org/projects/ldc\n");
+    printf("D Language Documentation: http://d-programming-language.org/index.html\n"
+           "LDC Homepage: https://github.com/ldc-developers/ldc\n");
 }
 
 // Helper function to handle -d-debug=* and -d-version=*
