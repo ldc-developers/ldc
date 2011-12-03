@@ -285,7 +285,7 @@ set_target_properties(
 target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBS}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
     target_link_libraries(${LDC_EXE} imagehlp psapi)
-elseif(UNIX)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_EXE} dl)
 endif(WIN32)
 
