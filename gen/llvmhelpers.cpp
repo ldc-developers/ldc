@@ -8,6 +8,9 @@
 #include "template.h"
 #include "module.h"
 
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/Target/TargetMachine.h"
+
 #include "gen/tollvm.h"
 #include "gen/irstate.h"
 #include "gen/runtime.h"
@@ -1851,3 +1854,11 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
     }
 }
 #endif
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void printLabelName(std::ostream& target, const char* func_mangle, const char* label_name)
+{
+    target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix() <<
+        func_mangle << "_" << label_name;
+}

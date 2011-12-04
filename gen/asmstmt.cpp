@@ -561,7 +561,8 @@ void AsmBlockStatement::toIR(IRState* p)
         // we use a simple static counter to make sure the new end labels are unique
         static size_t uniqueLabelsId = 0;
         std::ostringstream asmGotoEndLabel;
-        asmGotoEndLabel << "." << fdmangle << "__llvm_asm_end" << uniqueLabelsId++;
+        printLabelName(asmGotoEndLabel, fdmangle, "_llvm_asm_end");
+        asmGotoEndLabel << uniqueLabelsId++;
 
         // initialize the setter statement we're going to build
         IRAsmStmt* outSetterStmt = new IRAsmStmt;
@@ -599,7 +600,8 @@ void AsmBlockStatement::toIR(IRState* p)
 
             // provide an in-asm target for the branch and set value
             Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
-            code << fdmangle << '_' << a->isBranchToLabel->string << ":\n\t";
+            printLabelName(code, fdmangle, a->isBranchToLabel->string);
+            code << ":\n\t";
             code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
             //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
             outSetterStmt->in.push_back(DtoConstUint(n_goto));

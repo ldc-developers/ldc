@@ -185,4 +185,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
 Type* stripModifiers(Type* type);
 
+void printLabelName(std::ostream& target, const char* func_mangle, const char* label_name);
+
 #endif

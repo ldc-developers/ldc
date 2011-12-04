@@ -1388,10 +1388,10 @@ void LabelStatement::toIR(IRState* p)
     if (p->asmBlock)
     {
         IRAsmStmt* a = new IRAsmStmt;
-        a->code += p->func()->decl->mangle();
-        a->code += "_";
-        a->code += ident->toChars();
-        a->code += ":";
+        std::stringstream label;
+        printLabelName(label, p->func()->decl->mangle(), ident->toChars());
+        label << ":";
+        a->code = label.str();
         p->asmBlock->s.push_back(a);
         p->asmBlock->internalLabels.push_back(ident);
 

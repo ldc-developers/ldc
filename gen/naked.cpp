@@ -85,7 +85,8 @@ void LabelStatement::toNakedIR(IRState *p)
     Logger::println("LabelStatement::toNakedIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    p->nakedAsm << p->func()->decl->mangle() << "_" << ident->toChars() << ":";
+    printLabelName(p->nakedAsm, p->func()->decl->mangle(), ident->toChars());
+    p->nakedAsm << ":";
 
     if (statement)
         statement->toNakedIR(p);

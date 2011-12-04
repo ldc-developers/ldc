@@ -1592,7 +1592,7 @@ namespace AsmParserx8632
 
         void addLabel ( char* id )
         {
-            insnTemplate << sc->func->mangle() <<  "_" << id;
+            printLabelName(insnTemplate, sc->func->mangle(), id);
         }
 
         /* Determines whether the operand is a register, memory reference
