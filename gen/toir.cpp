@@ -948,7 +948,7 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ptr = exp2->toElem(p)->getRVal();
             llvm::StoreInst* ret = gIR->ir->CreateStore(val, ptr, "tmp");
             ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
-            ret->setAlignment(exp1->type->alignsize());
+            ret->setAlignment(getTypeAllocSize(val->getType()));
             return NULL;
         // atomic load instruction
         } else if (fndecl->llvmInternal == LLVMatomic_load) {
@@ -957,7 +957,7 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ptr = exp->toElem(p)->getRVal();
             Type* retType = exp->type->nextOf();
             llvm::LoadInst* val = gIR->ir->CreateLoad(ptr, "tmp");
-            val->setAlignment(retType->alignsize());
+            val->setAlignment(getTypeAllocSize(val->getType()));
             val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
             return new DImValue(retType, val);
         // cmpxchg instruction
