@@ -221,7 +221,7 @@ void TemplateInstance::codegen(Ir* p)
 #endif
     if (!errors && members)
     {
-        for (int i = 0; i < members->dim; i++)
+        for (unsigned i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             s->codegen(p);
@@ -235,7 +235,7 @@ void TemplateMixin::codegen(Ir* p)
 {
     if (!errors && members)
     {
-        for (int i = 0; i < members->dim; i++)
+        for (unsigned i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             if (s->isVarDeclaration())

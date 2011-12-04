@@ -36,7 +36,7 @@ void CompoundStatement::toIR(IRState* p)
     Logger::println("CompoundStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    for (int i=0; i<statements->dim; i++)
+    for (unsigned i=0; i<statements->dim; i++)
     {
         Statement* s = (Statement*)statements->data[i];
         if (s) {
@@ -741,7 +741,7 @@ void TryCatchStatement::toIR(IRState* p)
     gIR->scope() = IRScope(landingpadbb, endbb);
 
     IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
-    for (int i = 0; i < catches->dim; i++)
+    for (unsigned i = 0; i < catches->dim; i++)
     {
         Catch *c = (Catch *)catches->data[i];
         pad.addCatch(c, endbb);
@@ -870,7 +870,7 @@ void SwitchStatement::toIR(IRState* p)
     llvm::BasicBlock* oldend = gIR->scopeend();
 
     // clear data from previous passes... :/
-    for (int i=0; i<cases->dim; ++i)
+    for (unsigned i=0; i<cases->dim; ++i)
     {
         CaseStatement* cs = (CaseStatement*)cases->data[i];
         cs->bodyBB = NULL;
@@ -881,7 +881,7 @@ void SwitchStatement::toIR(IRState* p)
     // 'switch' instruction (that can happen because D2 allows to
     // initialize a global variable in a static constructor).
     bool useSwitchInst = true;
-    for (int i=0; i<cases->dim; ++i)
+    for (unsigned i=0; i<cases->dim; ++i)
     {
         CaseStatement* cs = (CaseStatement*)cases->data[i];
         VarDeclaration* vd = 0;
@@ -928,7 +928,7 @@ void SwitchStatement::toIR(IRState* p)
             Logger::println("is string switch");
             // build array of the stringexpS
             caseArray.reserve(cases->dim);
-            for (int i=0; i<cases->dim; ++i)
+            for (unsigned i=0; i<cases->dim; ++i)
             {
                 CaseStatement* cs = (CaseStatement*)cases->data[i];
 
@@ -980,7 +980,7 @@ void SwitchStatement::toIR(IRState* p)
 
         // create switch and add the cases
         llvm::SwitchInst* si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, cases->dim, p->scopebb());
-        for (int i=0; i<cases->dim; ++i)
+        for (unsigned i=0; i<cases->dim; ++i)
         {
             CaseStatement* cs = (CaseStatement*)cases->data[i];
             si->addCase(isaConstantInt(cs->llvmIdx), cs->bodyBB);
@@ -995,7 +995,7 @@ void SwitchStatement::toIR(IRState* p)
         llvm::BranchInst::Create(nextbb, p->scopebb());
 
         p->scope() = IRScope(nextbb, endbb);
-        for (int i=0; i<cases->dim; ++i)
+        for (unsigned i=0; i<cases->dim; ++i)
         {
             CaseStatement* cs = (CaseStatement*)cases->data[i];
 

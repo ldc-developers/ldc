@@ -377,7 +377,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     };
 
     llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
-        getInterfaceArraySymbol(), idxs, 2);
+        getInterfaceArraySymbol(), idxs, true);
 
     constants.push_back(c);
 
@@ -533,7 +533,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
     };
 
     LLConstant* ptr = llvm::ConstantExpr::getGetElementPtr(
-        classInterfacesArray, idxs, 2);
+        classInterfacesArray, idxs, true);
 
     // return as a slice
     return DtoConstSlice( DtoConstSize_t(cd->vtblInterfaces->dim), ptr );

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring>
 
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
 #include "libconfig.h++"
@@ -31,14 +32,14 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     // try the current working dir
     p = sys::Path::GetCurrentDirectory();
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 
     // try next to the executable
     p = sys::Path::GetMainExecutable(argv0, mainAddr);
     p.eraseComponent();
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 
     // user configuration
@@ -47,14 +48,14 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     p = sys::Path::GetUserHomeDirectory();
     p.appendComponent(".ldc");
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 
 #if _WIN32
     // try home dir
     p = sys::Path::GetUserHomeDirectory();
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 #endif
 
@@ -64,14 +65,14 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     // try the install-prefix
     p = sys::Path(LDC_INSTALL_PREFIX);
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 #else
     // try the install-prefix/etc
     p = sys::Path(LDC_INSTALL_PREFIX);
     p.appendComponent("etc");
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 
     // try the install-prefix/etc/ldc
@@ -79,19 +80,19 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     p.appendComponent("etc");
     p.appendComponent("ldc");
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 
     // try /etc (absolute path)
     p = sys::Path("/etc");
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 
     // try /etc/ldc (absolute path)
     p = sys::Path("/etc/ldc");
     p.appendComponent(filename);
-    if (p.exists())
+    if (sys::fs::exists(p.str()))
         return true;
 #endif
 
@@ -134,7 +135,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         {
             std::string binpathkey = "%%ldcbinarypath%%";
 
-            std::string binpath = sys::Path::GetMainExecutable(argv0, mainAddr).getDirname();
+            std::string binpath = sys::path::parent_path(sys::Path::GetMainExecutable(argv0, mainAddr).str());
 
             libconfig::Setting& arr = cfg->lookup("default.switches");
             int len = arr.getLength();

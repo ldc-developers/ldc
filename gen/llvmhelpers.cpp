@@ -1137,7 +1137,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         // choose the right set in case this is a conditional declaration
         Array *d = a->include(NULL, NULL);
         if (d)
-            for (int i=0; i < d->dim; ++i)
+            for (unsigned i=0; i < d->dim; ++i)
             {
                 DtoDeclarationExp((Dsymbol*)d->data[i]);
             }
@@ -1146,7 +1146,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (TemplateMixin* m = declaration->isTemplateMixin())
     {
         Logger::println("TemplateMixin");
-        for (int i=0; i < m->members->dim; ++i)
+        for (unsigned i=0; i < m->members->dim; ++i)
         {
             Dsymbol* mdsym = (Dsymbol*)m->members->data[i];
             DtoDeclarationExp(mdsym);
@@ -1162,7 +1162,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         }
 
         assert(tupled->objects);
-        for (int i=0; i < tupled->objects->dim; ++i)
+        for (unsigned i=0; i < tupled->objects->dim; ++i)
         {
             DsymbolExp* exp = (DsymbolExp*)tupled->objects->data[i];
             DtoDeclarationExp(exp->s);
@@ -1640,7 +1640,7 @@ bool hasUnalignedFields(Type* t)
 
     // go through all the fields and try to find something unaligned
     ts->unaligned = 2;
-    for (int i = 0; i < sym->fields.dim; i++)
+    for (unsigned i = 0; i < sym->fields.dim; i++)
     {
         VarDeclaration* f = (VarDeclaration*)sym->fields.data[i];
         unsigned a = f->type->alignsize() - 1;
