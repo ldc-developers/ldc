@@ -948,7 +948,7 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ptr = exp2->toElem(p)->getRVal();
             llvm::StoreInst* ret = gIR->ir->CreateStore(val, ptr, "tmp");
             ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
-            ret->setAlignment(exp1->type->alignsize());
+            ret->setAlignment(getTypeAllocSize(val->getType()));
             return NULL;
         // atomic load instruction
         } else if (fndecl->llvmInternal == LLVMatomic_load) {
@@ -957,7 +957,7 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ptr = exp->toElem(p)->getRVal();
             Type* retType = exp->type->nextOf();
             llvm::LoadInst* val = gIR->ir->CreateLoad(ptr, "tmp");
-            val->setAlignment(retType->alignsize());
+            val->setAlignment(getTypeAllocSize(val->getType()));
             val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
             return new DImValue(retType, val);
         // cmpxchg instruction
@@ -1441,39 +1441,8 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
-        if(global.params.useArrayBounds) {
-#if 1
-            /*
-                Workaround for a bug in llvm 2.8 which appears only when
-                all optimizations are off.
-                Example:
-                    int a[] = new int[5];
-
-                    a[0] = 100;
-                    a[1] = 1;
-                    a[2] = 2;
-                    a[3] = 3;
-                    a[4] = 4;
-
-                    for (int i = 0; i < a.length-1; i++)
-                        printf("%d\n", a[i+1]); // Error would be around here
-                Output:
-                    100
-                    100
-                    100
-                    100
-                As you can see from the example, the index always is 0.
-                To avoid the issue we store the index before array bounds
-                checking.
-             */
-            if (optLevel() == 0 && !r->isLVal()) {
-                LLValue *tmp = DtoAlloca(r->getType());
-                DtoStore(r->getRVal(), tmp);
-                r = new DVarValue(r->getType(), tmp);
-            }
-#endif
+        if(global.params.useArrayBounds)
             DtoArrayBoundsCheck(loc, l, r);
-        }
         arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());
     }
@@ -2584,7 +2553,7 @@ DValue* FuncExp::toElem(IRState* p)
             )
             cval = irfn->nestedVar;
         else if (irfn->nestArg)
-            cval = irfn->nestArg;
+            cval = DtoLoad(irfn->nestArg);
 #if DMDV2
         // TODO: should we enable that for D1 as well?
         else if (irfn->thisArg)

@@ -293,7 +293,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             // get the from class
             ClassDeclaration* cd = fc->sym->isClassDeclaration();
             DtoResolveClass(cd); // add this
-            IrTypeClass* typeclass = fc->irtype->isClass();
+            IrTypeClass* typeclass = stripModifiers(fc)->irtype->isClass();
 
             // find interface impl
             

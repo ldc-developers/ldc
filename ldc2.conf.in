@@ -10,7 +10,7 @@ default:
         "-I@PROJECT_BINARY_DIR@/../import",
         "-I@RUNTIME_DIR@/import",
         "-I@RUNTIME_DIR@/src",
-        "-L-L@PROJECT_BINARY_DIR@/../lib",
+        "-L-L@PROJECT_BINARY_DIR@/../lib", @MUTILIB_ADDITIONAL_PATH@
         "-defaultlib=@RUNTIME_AIO@",
         "-debuglib=@RUNTIME_AIO@"
     ];

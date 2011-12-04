@@ -202,11 +202,8 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     // call
     gIR->CreateCallOrInvoke(fn, args);
 
-    #ifndef DISABLE_DEBUG_INFO
     // end debug info
-    if (global.params.symdebug)
-        DtoDwarfFuncEnd(gIR->func()->decl);
-    #endif
+    DtoDwarfFuncEnd(gIR->func()->decl);
 
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();
@@ -518,12 +515,10 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
         gIR->ir->CreateStore(r, l);
     }
 
-    #ifndef DISABLE_DEBUG_INFO
     DVarValue *var = lhs->isVar();
-    VarDeclaration *varDecl = var ? var->var : 0;
-    if (global.params.symdebug && varDecl && varDecl->debugVariable)
-        DtoDwarfValue(rhs->getRVal(), lhs->isVar()->var);
-    #endif
+    VarDeclaration *vd = var ? var->var : 0;
+    if (vd)
+        DtoDwarfValue(DtoLoad(var->getLVal()), vd);
 }
 
 /****************************************************************************************/
@@ -937,11 +932,8 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 
         gvar->setInitializer(initVal);
 
-        #ifndef DISABLE_DEBUG_INFO
         // do debug info
-        if (global.params.symdebug)
-            DtoDwarfGlobalVariable(gvar, vd);
-        #endif
+        DtoDwarfGlobalVariable(gvar, vd);
     }
 }
 
@@ -1065,10 +1057,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                 //allocainst->setAlignment(vd->type->alignsize()); // TODO
                 vd->ir.irLocal->value = allocainst;
 
-                #ifndef DISABLE_DEBUG_INFO
-                if (global.params.symdebug)
-                    DtoDwarfLocalVariable(allocainst, vd);
-                #endif
+                DtoDwarfLocalVariable(allocainst, vd);
             }
             else
             {
@@ -1196,12 +1185,8 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     if (!addr && (!var->ir.irLocal || !var->ir.irLocal->value))
     {
         addr = DtoAlloca(var->type, var->toChars());
-
-        #ifndef DISABLE_DEBUG_INFO
         // add debug info
-        if (global.params.symdebug)
-            DtoDwarfLocalVariable(addr, var);
-        #endif
+        DtoDwarfLocalVariable(addr, var);
     }
 
     // referenced by nested function?

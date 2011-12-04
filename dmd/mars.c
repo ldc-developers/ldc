@@ -61,7 +61,7 @@ Global::Global()
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     version = "v1.067";
     ldc_version = "LDC trunk";
-    llvm_version = "LLVM 2.9";
+    llvm_version = "LLVM 3.0";
     global.structalign = 8;
 
     // This should only be used as a global, so the other fields are

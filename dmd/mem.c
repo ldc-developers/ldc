@@ -262,4 +262,8 @@ void Mem::mark(void *pointer)
 {
 }
 
+void Mem::setStackBottom(void */*stackbottom*/)
+{
+}
+
 #endif // USE_BOEHM_GC

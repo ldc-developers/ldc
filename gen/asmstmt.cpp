@@ -211,14 +211,11 @@ AsmStatement::toIR(IRState * irs)
     IRAsmBlock* asmblock = irs->asmBlock;
     assert(asmblock);
 
-    #ifndef DISABLE_DEBUG_INFO
     // debug info
-    if (global.params.symdebug)
-        DtoDwarfStopPoint(loc.linnum);
-    #endif
+    DtoDwarfStopPoint(loc.linnum);
 
-    if (! asmcode)
-    return;
+    if (!asmcode)
+        return;
 
     static std::string i_cns = "i";
     static std::string p_cns = "i";

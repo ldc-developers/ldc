@@ -1,7 +1,8 @@
 #ifndef LDC_GEN_TODEBUG_H
 #define LDC_GEN_TODEBUG_H
 
-#ifndef DISABLE_DEBUG_INFO
+#include "gen/tollvm.h"
+#include "gen/irstate.h"
 
 void RegisterDwarfSymbols(llvm::Module* mod);
 
@@ -28,17 +29,20 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
 void DtoDwarfFuncStart(FuncDeclaration* fd);
 void DtoDwarfFuncEnd(FuncDeclaration* fd);
+void DtoDwarfBlockStart(Loc loc);
+void DtoDwarfBlockEnd();
 
 void DtoDwarfStopPoint(unsigned ln);
 
-void DtoDwarfValue(LLValue* var, VarDeclaration* vd);
+void DtoDwarfValue(LLValue *val, VarDeclaration* vd);
 
 /**
  * Emits all things necessary for making debug info for a local variable vd.
  * @param ll LLVM Value of the variable.
  * @param vd Variable declaration to emit debug info for.
  */
-void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd);
+void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd,
+                           llvm::ArrayRef<LLValue*> addr = llvm::ArrayRef<LLValue*>());
 
 /**
  * Emits all things necessary for making debug info for a global variable vd.
@@ -50,7 +54,37 @@ llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclarati
 
 void DtoDwarfModuleEnd();
 
+template<typename T>
+void dwarfOpOffset(T &addr, LLStructType *type, int index)
+{
+    if (!global.params.symdebug)
+        return;
 
-#endif // DISABLE_DEBUG_INFO
+    uint64_t offset = gTargetData->getStructLayout(type)->getElementOffset(index);
+    LLType *int64Ty = LLType::getInt64Ty(gIR->context());
+    addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpPlus));
+    addr.push_back(LLConstantInt::get(int64Ty, offset));
+}
+
+template<typename T>
+void dwarfOpOffset(T &addr, LLValue *val, int index)
+{
+    if (!global.params.symdebug)
+        return;
+
+    LLStructType *type = isaStruct(val->getType()->getContainedType(0));
+    assert(type);
+    dwarfOpOffset(addr, type, index);
+}
+
+template<typename T>
+void dwarfOpDeref(T &addr)
+{
+    if (!global.params.symdebug)
+        return;
+
+    LLType *int64Ty = LLType::getInt64Ty(gIR->context());
+    addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpDeref));
+}
 
 #endif // LDC_GEN_TODEBUG_H

@@ -758,9 +758,8 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     LLValue* appendedArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
     appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
 
-    LLValue* val = DtoExtractValue(appendedArray, 1, ".ptr");
+    LLValue* val = DtoArrayPtr(array);
     val = DtoGEP1(val, oldLength, "lastElem");
-    val = DtoBitCast(val, DtoType(arrayType->nextOf()->pointerTo()));
     DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal);
     callPostblit(loc, exp, val);
 }

@@ -642,11 +642,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    #ifndef DISABLE_DEBUG_INFO
     // debug info
-    if (global.params.symdebug)
-        fd->ir.irFunc->diSubprogram = DtoDwarfSubProgram(fd);
-    #endif
+    fd->ir.irFunc->diSubprogram = DtoDwarfSubProgram(fd);
 
     Type* t = fd->type->toBasetype();
     TypeFunction* f = (TypeFunction*)t;
@@ -685,10 +682,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
     llvm::Instruction* allocaPoint = new llvm::AllocaInst(LLType::getInt32Ty(gIR->context()), "alloca point", beginbb);
     irfunction->allocapoint = allocaPoint;
 
-    #ifndef DISABLE_DEBUG_INFO
     // debug info - after all allocas, but before any llvm.dbg.declare etc
-    if (global.params.symdebug) DtoDwarfFuncStart(fd);
-    #endif
+    DtoDwarfFuncStart(fd);
 
     // this hack makes sure the frame pointer elimination optimization is disabled.
     // this this eliminates a bunch of inline asm related issues.
@@ -716,10 +711,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         fd->vthis->ir.irLocal = new IrLocal(fd->vthis);
         fd->vthis->ir.irLocal->value = thismem;
 
-        #ifndef DISABLE_DEBUG_INFO
-        if (global.params.symdebug)
-            DtoDwarfLocalVariable(thismem, fd->vthis);
-        #endif
+        DtoDwarfLocalVariable(thismem, fd->vthis);
 
     #if DMDV1
         if (fd->vthis->nestedref)
@@ -727,6 +719,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
             fd->nestedVars.insert(fd->vthis);
         }
     #endif
+    }
+
+    // give the 'nestArg' storage
+    if (f->fty.arg_nest)
+    {
+        LLValue *nestArg = irfunction->nestArg;
+        LLValue *val = DtoRawAlloca(nestArg->getType(), 0, "nestedFrame");
+        DtoStore(nestArg, val);
+        irfunction->nestArg = val;
     }
 
     // give arguments storage
@@ -771,10 +772,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
                 irloc->value = mem;
             }
 
-            #ifndef DISABLE_DEBUG_INFO
             if (global.params.symdebug && !(isaArgument(irloc->value) && isaArgument(irloc->value)->hasByValAttr()) && !refout)
                 DtoDwarfLocalVariable(irloc->value, vd);
-            #endif
         }
     }
 
@@ -836,9 +835,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         // in automatically, so we do it here.
 
         // pass the previous block into this block
-        #ifndef DISABLE_DEBUG_INFO
-        if (global.params.symdebug) DtoDwarfFuncEnd(fd);
-        #endif
+        DtoDwarfFuncEnd(fd);
         if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
             llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
         }

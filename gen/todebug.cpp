@@ -20,8 +20,6 @@
 
 using namespace llvm::dwarf;
 
-#ifndef DISABLE_DEBUG_INFO
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current module
@@ -44,12 +42,24 @@ static Module* getDefinedModule(Dsymbol* s)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static llvm::DIDescriptor getCurrentScope()
+{
+    IrFunction *fn = gIR->func();
+    if (fn->diLexicalBlocks.empty()) {
+        assert((llvm::MDNode*)fn->diSubprogram != 0);
+        return fn->diSubprogram;
+    }
+    return fn->diLexicalBlocks.top();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name);
 static llvm::DIType dwarfTypeDescription(Type* type, const char* c_name);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::DIFile DtoDwarfFile(Loc loc)
+static llvm::DIFile DtoDwarfFile(Loc loc)
 {
     llvm::SmallString<128> path(loc.filename ? loc.filename : "");
     llvm::sys::fs::make_absolute(path);
@@ -180,9 +190,6 @@ static llvm::DIType dwarfCompositeType(Type* type)
     // elements
     std::vector<llvm::Value*> elems;
 
-    // pointer to ir->diCompositeType
-    llvm::DIType *diCompositeType = 0;
-
     llvm::DIType derivedFrom;
 
     assert((t->ty == Tstruct || t->ty == Tclass) &&
@@ -213,36 +220,12 @@ static llvm::DIType dwarfCompositeType(Type* type)
     if ((llvm::MDNode*)ir->diCompositeType != 0)
         return ir->diCompositeType;
 
-    diCompositeType = &ir->diCompositeType;
     name = sd->toChars();
     linnum = sd->loc.linnum;
     file = DtoDwarfFile(sd->loc);
     // set diCompositeType to handle recursive types properly
-    if (t->ty == Tclass) {
-        ir->diCompositeType = gIR->dibuilder.createClassType(
-           llvm::DIDescriptor(file),
-           name, // name
-           file, // compile unit where defined
-           linnum, // line number where defined
-           getTypeBitSize(T), // size in bits
-           getABITypeAlign(T)*8, // alignment in bits
-           0, // offset in bits,
-           llvm::DIType::FlagFwdDecl, // flags
-           derivedFrom, // DerivedFrom
-           llvm::DIArray(0)
-        );
-    } else {
-        ir->diCompositeType = gIR->dibuilder.createStructType(
-           llvm::DIDescriptor(file),
-           name, // name
-           file, // compile unit where defined
-           linnum, // line number where defined
-           getTypeBitSize(T), // size in bits
-           getABITypeAlign(T)*8, // alignment in bits
-           llvm::DIType::FlagFwdDecl, // flags
-           llvm::DIArray(0)
-        );
-    }
+    if (!ir->diCompositeType)
+        ir->diCompositeType = gIR->dibuilder.createTemporaryType();
 
     if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
     {
@@ -296,8 +279,9 @@ static llvm::DIType dwarfCompositeType(Type* type)
         );
     }
 
-    if (diCompositeType)
-        *diCompositeType = ret;
+    ir->diCompositeType.replaceAllUsesWith(ret);
+    ir->diCompositeType = ret;
+
     return ret;
 }
 
@@ -333,7 +317,7 @@ static void dwarfDeclare(LLValue* var, llvm::DIVariable divar)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-llvm::DIType dwarfArrayType(Type* type) {
+static llvm::DIType dwarfArrayType(Type* type) {
     LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
@@ -387,10 +371,16 @@ static llvm::DIType dwarfTypeDescription(Type* type, const char* c_name)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
+void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLValue*> addr)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf local variable");
     LOG_SCOPE;
+
+    if (gIR->func()->diSubprogram == vd->debugFunc) // ensure that the debug variable is created only once
+        return;
 
     // get type description
     llvm::DIType TD = dwarfTypeDescription(vd->type, NULL);
@@ -406,15 +396,28 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
     else
         tag = DW_TAG_auto_variable;
 
-    vd->debugVariable = gIR->dibuilder.createLocalVariable(
-        tag, // tag
-        gIR->func()->diSubprogram, // context
-        vd->toChars(), // name
-        DtoDwarfFile(vd->loc), // file
-        vd->loc.linnum, // line num
-        TD, // type
-        true // preserve
-    );
+    if (addr.empty()) {
+        vd->debugVariable = gIR->dibuilder.createLocalVariable(
+            tag, // tag
+            getCurrentScope(), // scope
+            vd->toChars(), // name
+            DtoDwarfFile(vd->loc), // file
+            vd->loc.linnum, // line num
+            TD, // type
+            true // preserve
+        );
+    } else {
+        vd->debugVariable = gIR->dibuilder.createComplexVariable(
+            tag, // tag
+            getCurrentScope(), // scope
+            vd->toChars(), // name
+            DtoDwarfFile(vd->loc), // file
+            vd->loc.linnum, // line num
+            TD, // type
+            addr
+        );
+    }
+    vd->debugFunc = gIR->func()->diSubprogram;
 
     // declare
     dwarfDeclare(ll, vd->debugVariable);
@@ -424,6 +427,9 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd)
 
 void DtoDwarfCompileUnit(Module* m)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf compile_unit");
     LOG_SCOPE;
 
@@ -444,7 +450,7 @@ void DtoDwarfCompileUnit(Module* m)
         global.params.symdebug == 2 ? DW_LANG_C : DW_LANG_D,
         srcname,
         srcpath,
-        "LDC (http://www.dsource.org/projects/ldc)",
+        "LDC (https://github.com/ldc-developers/ldc)",
         false, // isOptimized TODO
         llvm::StringRef(), // Flags TODO
         1 // Runtime Version TODO
@@ -455,6 +461,9 @@ void DtoDwarfCompileUnit(Module* m)
 
 llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
 {
+    if (!global.params.symdebug)
+        return llvm::DISubprogram();
+
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
@@ -481,6 +490,9 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
 
 llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname)
 {
+    if (!global.params.symdebug)
+        return llvm::DISubprogram();
+
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
@@ -503,6 +515,9 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd)
 {
+    if (!global.params.symdebug)
+        return llvm::DIGlobalVariable();
+
     Logger::println("D to dwarf global_variable");
     LOG_SCOPE;
 
@@ -514,22 +529,23 @@ llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclarati
 
 void DtoDwarfFuncStart(FuncDeclaration* fd)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf funcstart");
     LOG_SCOPE;
 
     assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
     DtoDwarfStopPoint(fd->loc.linnum);
-   /* fd->ir.irFunc->diLexicalBlock = gIR->difactory.CreateLexicalBlock(
-            fd->ir.irFunc->diSubprogram, // context
-            DtoDwarfFile(fd->loc, DtoDwarfCompileUnit(getDefinedModule(fd))), // file
-            fd->loc.linnum
-            );*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoDwarfFuncEnd(FuncDeclaration* fd)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf funcend");
     LOG_SCOPE;
 
@@ -538,22 +554,60 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+void DtoDwarfBlockStart(Loc loc)
+{
+    if (!global.params.symdebug)
+        return;
+
+    Logger::println("D to dwarf block start");
+    LOG_SCOPE;
+
+    llvm::DILexicalBlock block = gIR->dibuilder.createLexicalBlock(
+            getCurrentScope(), // scope
+            DtoDwarfFile(loc), // file
+            loc.linnum, // line
+            0 // column
+            );
+    gIR->func()->diLexicalBlocks.push(block);
+    DtoDwarfStopPoint(loc.linnum);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDwarfBlockEnd()
+{
+    if (!global.params.symdebug)
+        return;
+
+    Logger::println("D to dwarf block end");
+    LOG_SCOPE;
+
+    IrFunction *fn = gIR->func();
+    assert(!fn->diLexicalBlocks.empty());
+    fn->diLexicalBlocks.pop();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoDwarfStopPoint(unsigned ln)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf stoppoint at line %u", ln);
     LOG_SCOPE;
-    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, gIR->func()->diSubprogram);
+    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, getCurrentScope());
     gIR->ir->SetCurrentDebugLocation(loc);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoDwarfValue(LLValue* var, VarDeclaration* vd)
+void DtoDwarfValue(LLValue *val, VarDeclaration* vd)
 {
-    if (llvm::isa<llvm::AllocaInst>(vd->ir.irLocal->value) == 0)
+    if (!global.params.symdebug || !vd->debugVariable)
         return;
-    
-    llvm::Instruction *instr = gIR->dibuilder.insertDbgValueIntrinsic(vd->ir.irLocal->value, 0, vd->debugVariable, gIR->scopebb());
+
+    llvm::Instruction *instr = gIR->dibuilder.insertDbgValueIntrinsic(val, 0, vd->debugVariable, gIR->scopebb());
     instr->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 }
 
@@ -561,7 +615,8 @@ void DtoDwarfValue(LLValue* var, VarDeclaration* vd)
 
 void DtoDwarfModuleEnd()
 {
+    if (!global.params.symdebug)
+        return;
+
     gIR->dibuilder.finalize();
 }
-
-#endif
