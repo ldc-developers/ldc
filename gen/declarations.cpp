@@ -174,11 +174,8 @@ void VarDeclaration::codegen(Ir* p)
             ir.irGlobal->constInit = initVal;
             gvar->setInitializer(initVal);
 
-            #ifndef DISABLE_DEBUG_INFO
             // do debug info
-            if (global.params.symdebug)
-                DtoDwarfGlobalVariable(gvar, this);
-            #endif
+            DtoDwarfGlobalVariable(gvar, this);
         }
     }
 }

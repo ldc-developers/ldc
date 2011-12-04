@@ -99,7 +99,7 @@ struct IrFunction : IrBase
     llvm::Value* _argptr;
     
     llvm::DISubprogram diSubprogram;
-    llvm::DILexicalBlock diLexicalBlock;
+    std::stack<llvm::DILexicalBlock> diLexicalBlocks;
 };
 
 #endif

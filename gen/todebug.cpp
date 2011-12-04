@@ -20,8 +20,6 @@
 
 using namespace llvm::dwarf;
 
-#ifndef DISABLE_DEBUG_INFO
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // get the module the symbol is in, or - for template instances - the current module
@@ -44,12 +42,24 @@ static Module* getDefinedModule(Dsymbol* s)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static llvm::DIDescriptor getCurrentScope()
+{
+    IrFunction *fn = gIR->func();
+    if (fn->diLexicalBlocks.empty()) {
+        assert((llvm::MDNode*)fn->diSubprogram != 0);
+        return fn->diSubprogram;
+    }
+    return fn->diLexicalBlocks.top();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name);
 static llvm::DIType dwarfTypeDescription(Type* type, const char* c_name);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::DIFile DtoDwarfFile(Loc loc)
+static llvm::DIFile DtoDwarfFile(Loc loc)
 {
     llvm::SmallString<128> path(loc.filename ? loc.filename : "");
     llvm::sys::fs::make_absolute(path);
@@ -307,7 +317,7 @@ static void dwarfDeclare(LLValue* var, llvm::DIVariable divar)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-llvm::DIType dwarfArrayType(Type* type) {
+static llvm::DIType dwarfArrayType(Type* type) {
     LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
@@ -363,6 +373,9 @@ static llvm::DIType dwarfTypeDescription(Type* type, const char* c_name)
 
 void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLValue*> addr)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf local variable");
     LOG_SCOPE;
 
@@ -386,7 +399,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLVal
     if (addr.empty()) {
         vd->debugVariable = gIR->dibuilder.createLocalVariable(
             tag, // tag
-            gIR->func()->diSubprogram, // context
+            getCurrentScope(), // scope
             vd->toChars(), // name
             DtoDwarfFile(vd->loc), // file
             vd->loc.linnum, // line num
@@ -396,7 +409,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLVal
     } else {
         vd->debugVariable = gIR->dibuilder.createComplexVariable(
             tag, // tag
-            gIR->func()->diSubprogram, // context
+            getCurrentScope(), // scope
             vd->toChars(), // name
             DtoDwarfFile(vd->loc), // file
             vd->loc.linnum, // line num
@@ -414,6 +427,9 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLVal
 
 void DtoDwarfCompileUnit(Module* m)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf compile_unit");
     LOG_SCOPE;
 
@@ -445,6 +461,9 @@ void DtoDwarfCompileUnit(Module* m)
 
 llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
 {
+    if (!global.params.symdebug)
+        return llvm::DISubprogram();
+
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
@@ -471,6 +490,9 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
 
 llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname)
 {
+    if (!global.params.symdebug)
+        return llvm::DISubprogram();
+
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
@@ -493,6 +515,9 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd)
 {
+    if (!global.params.symdebug)
+        return llvm::DIGlobalVariable();
+
     Logger::println("D to dwarf global_variable");
     LOG_SCOPE;
 
@@ -504,22 +529,23 @@ llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclarati
 
 void DtoDwarfFuncStart(FuncDeclaration* fd)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf funcstart");
     LOG_SCOPE;
 
     assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
     DtoDwarfStopPoint(fd->loc.linnum);
-   /* fd->ir.irFunc->diLexicalBlock = gIR->difactory.CreateLexicalBlock(
-            fd->ir.irFunc->diSubprogram, // context
-            DtoDwarfFile(fd->loc, DtoDwarfCompileUnit(getDefinedModule(fd))), // file
-            fd->loc.linnum
-            );*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoDwarfFuncEnd(FuncDeclaration* fd)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf funcend");
     LOG_SCOPE;
 
@@ -528,11 +554,49 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+void DtoDwarfBlockStart(Loc loc)
+{
+    if (!global.params.symdebug)
+        return;
+
+    Logger::println("D to dwarf block start");
+    LOG_SCOPE;
+
+    llvm::DILexicalBlock block = gIR->dibuilder.createLexicalBlock(
+            getCurrentScope(), // scope
+            DtoDwarfFile(loc), // file
+            loc.linnum, // line
+            0 // column
+            );
+    gIR->func()->diLexicalBlocks.push(block);
+    DtoDwarfStopPoint(loc.linnum);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+void DtoDwarfBlockEnd()
+{
+    if (!global.params.symdebug)
+        return;
+
+    Logger::println("D to dwarf block end");
+    LOG_SCOPE;
+
+    IrFunction *fn = gIR->func();
+    assert(!fn->diLexicalBlocks.empty());
+    fn->diLexicalBlocks.pop();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoDwarfStopPoint(unsigned ln)
 {
+    if (!global.params.symdebug)
+        return;
+
     Logger::println("D to dwarf stoppoint at line %u", ln);
     LOG_SCOPE;
-    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, gIR->func()->diSubprogram);
+    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, getCurrentScope());
     gIR->ir->SetCurrentDebugLocation(loc);
 }
 
@@ -540,6 +604,9 @@ void DtoDwarfStopPoint(unsigned ln)
 
 void DtoDwarfValue(LLValue *val, VarDeclaration* vd)
 {
+    if (!global.params.symdebug || !vd->debugVariable)
+        return;
+
     llvm::Instruction *instr = gIR->dibuilder.insertDbgValueIntrinsic(val, 0, vd->debugVariable, gIR->scopebb());
     instr->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 }
@@ -548,7 +615,8 @@ void DtoDwarfValue(LLValue *val, VarDeclaration* vd)
 
 void DtoDwarfModuleEnd()
 {
+    if (!global.params.symdebug)
+        return;
+
     gIR->dibuilder.finalize();
 }
-
-#endif

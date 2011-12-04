@@ -115,11 +115,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     // allocate the target abi
     gABI = TargetABI::getTarget();
 
-    #ifndef DISABLE_DEBUG_INFO
     // debug info
-    if (global.params.symdebug)
-        DtoDwarfCompileUnit(this);
-    #endif
+    DtoDwarfCompileUnit(this);
 
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
@@ -158,11 +155,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         }
     }
 
-    // finilize debugging
-    #ifndef DISABLE_DEBUG_INFO
-    if (global.params.symdebug)
-        DtoDwarfModuleEnd();
-    #endif
+    // finilize debug info
+    DtoDwarfModuleEnd();
 
     // generate ModuleInfo
     genmoduleinfo();
@@ -355,10 +349,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     IRBuilder<> builder(bb);
 
     // debug info
-    #ifndef DISABLE_DEBUG_INFO
-    if(global.params.symdebug)
-        DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
-    #endif
+    DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
 
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
@@ -479,11 +470,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     IRBuilder<> builder(bb);
 
     // debug info
-    #ifndef DISABLE_DEBUG_INFO
-    llvm::DISubprogram subprog;
-    if(global.params.symdebug)
-        subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
-    #endif
+    llvm::DISubprogram subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");

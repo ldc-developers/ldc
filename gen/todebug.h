@@ -1,8 +1,6 @@
 #ifndef LDC_GEN_TODEBUG_H
 #define LDC_GEN_TODEBUG_H
 
-#ifndef DISABLE_DEBUG_INFO
-
 #include "gen/tollvm.h"
 #include "gen/irstate.h"
 
@@ -31,6 +29,8 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
 void DtoDwarfFuncStart(FuncDeclaration* fd);
 void DtoDwarfFuncEnd(FuncDeclaration* fd);
+void DtoDwarfBlockStart(Loc loc);
+void DtoDwarfBlockEnd();
 
 void DtoDwarfStopPoint(unsigned ln);
 
@@ -57,6 +57,9 @@ void DtoDwarfModuleEnd();
 template<typename T>
 void dwarfOpOffset(T &addr, LLStructType *type, int index)
 {
+    if (!global.params.symdebug)
+        return;
+
     uint64_t offset = gTargetData->getStructLayout(type)->getElementOffset(index);
     LLType *int64Ty = LLType::getInt64Ty(gIR->context());
     addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpPlus));
@@ -66,19 +69,22 @@ void dwarfOpOffset(T &addr, LLStructType *type, int index)
 template<typename T>
 void dwarfOpOffset(T &addr, LLValue *val, int index)
 {
-   LLStructType *type = isaStruct(val->getType()->getContainedType(0));
-   assert(type);
-   dwarfOpOffset(addr, type, index);
+    if (!global.params.symdebug)
+        return;
+
+    LLStructType *type = isaStruct(val->getType()->getContainedType(0));
+    assert(type);
+    dwarfOpOffset(addr, type, index);
 }
 
 template<typename T>
 void dwarfOpDeref(T &addr)
 {
+    if (!global.params.symdebug)
+        return;
+
     LLType *int64Ty = LLType::getInt64Ty(gIR->context());
     addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpDeref));
 }
-
-
-#endif // DISABLE_DEBUG_INFO
 
 #endif // LDC_GEN_TODEBUG_H

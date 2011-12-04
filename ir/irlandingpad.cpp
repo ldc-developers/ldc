@@ -5,6 +5,7 @@
 #include "gen/logger.h"
 #include "gen/classes.h"
 #include "gen/llvmhelpers.h"
+#include "gen/todebug.h"
 #include "ir/irlandingpad.h"
 
 IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
@@ -12,6 +13,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
 {
     target = llvm::BasicBlock::Create(gIR->context(), "catch", gIR->topfunc(), end);
     gIR->scope() = IRScope(target,end);
+    DtoDwarfBlockStart(catchstmt->loc);
 
     // assign storage to catch var
     if(catchstmt->var) {
@@ -50,6 +52,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
     catchType = catchstmt->type->toBasetype()->isClassHandle();
     assert(catchType);
     catchType->codegen(Type::sir);
+    DtoDwarfBlockEnd();
 }
 
 IRLandingPadInfo::IRLandingPadInfo(Statement* finallystmt)

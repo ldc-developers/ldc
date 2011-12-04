@@ -238,7 +238,6 @@ add_definitions(
     -DIN_LLVM
     -D_DH
     -DOPAQUE_VTBLS
-    #-DDISABLE_DEBUG_INFO
 )
 
 if(UNIX)

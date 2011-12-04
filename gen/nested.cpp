@@ -553,7 +553,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             // copy parent frame into beginning
             if (nparelems)
             {
-                LLValue* src = DtoLoad(irfunction->nestArg);
+                LLValue* src = irfunction->nestArg;
                 if (!src)
                 {
                     assert(irfunction->thisArg);
@@ -563,6 +563,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     assert(cd);
                     assert(cd->vthis);
                     src = DtoLoad(DtoGEPi(thisval, 0,cd->vthis->ir.irField->index, ".vthis"));
+                } else {
+                    src = DtoLoad(src);
                 }
                 DtoMemCpy(nestedVars, src, DtoConstSize_t(nparelems*PTRSIZE),
                     getABITypeAlign(getVoidPtrType()));
@@ -615,7 +617,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
 
             // copy parent frames into beginning
             if (depth != 0) {
-                LLValue* src = DtoLoad(irfunction->nestArg);
+                LLValue* src = irfunction->nestArg;
                 if (!src) {
                     assert(irfunction->thisArg);
                     assert(fd->isMember2());
@@ -634,6 +636,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     else
 #endif
                     src = DtoLoad(DtoGEPi(thisval, 0, cd->vthis->ir.irField->index, ".vthis"));
+                } else {
+                    src = DtoLoad(src);
                 }
                 if (depth > 1) {
                     src = DtoBitCast(src, getVoidPtrType());
