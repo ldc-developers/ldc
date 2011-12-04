@@ -515,7 +515,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     DVarValue *var = lhs->isVar();
     VarDeclaration *vd = var ? var->var : 0;
     if (vd)
-        DtoDwarfValue(lhs->getRVal(), vd);
+        DtoDwarfValue(DtoLoad(var->getLVal()), vd);
 }
 
 /****************************************************************************************/
