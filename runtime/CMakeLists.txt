@@ -34,13 +34,13 @@ else(BUILD_SHARED_LIBS)
 endif(BUILD_SHARED_LIBS)
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
-set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/druntime CACHE PATH "runtime source dir")
+set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "runtime source dir")
 
 #
 # Gather source files.
 #
 
-set(PHOBOS2_DIR ${PROJECT_PARENT_DIR}/phobos CACHE PATH "phobos2 source dir")
+set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "phobos2 source dir")
 set(RUNTIME_CC druntime-core)
 set(RUNTIME_GC druntime-gc-basic)
 set(RUNTIME_DC druntime-rt-ldc)
