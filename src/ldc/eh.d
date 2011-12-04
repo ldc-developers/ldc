@@ -18,11 +18,13 @@ version(X86) {
     version(linux) version=X86_UNWIND;
     version(darwin) version=X86_UNWIND;
     version(solaris) version=X86_UNWIND;
+    version(freebsd) version=X86_UNWIND;
 }
 version(X86_64) {
     version(linux) version=X86_UNWIND;
     version(darwin) version=X86_UNWIND;
     version(solaris) version=X86_UNWIND;
+    version(freebsd) version=X86_UNWIND;
 }
 
 //version = HP_LIBUNWIND;

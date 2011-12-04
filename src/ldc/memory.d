@@ -61,18 +61,9 @@ private
             import core.sys.posix.dlfcn;
         }
     }
-    else version(freebsd)
+    version( FreeBSD )
     {
-        //version = SimpleLibcStackEnd;
-
-        version( SimpleLibcStackEnd )
-        {
-            extern (C) extern void* __libc_stack_end;
-        }
-        else
-        {
-            import core.sys.posix.dlfcn;
-        }
+        extern (C) int sysctlbyname( const(char)*, void*, size_t*, void*, size_t );
     }
     pragma(intrinsic, "llvm.frameaddress")
         void* llvm_frameaddress(uint level=0);
@@ -126,23 +117,14 @@ extern (C) void* rt_stackBottom()
     }
     else version( freebsd )
     {
-        version( SimpleLibcStackEnd )
-        {
-            return __libc_stack_end;
-        }
-        else
-        {
-            // See discussion: http://autopackage.org/forums/viewtopic.php?t=22
-            static void** libc_stack_end;
+        static void* kern_usrstack;
 
-            if( libc_stack_end == libc_stack_end.init )
-            {
-                void* handle = dlopen( null, RTLD_NOW );
-                libc_stack_end = cast(void**) dlsym( handle, "__libc_stack_end" );
-                dlclose( handle );
-            }
-           return *libc_stack_end;
+        if( kern_usrstack == kern_usrstack.init )
+        {
+            size_t len = kern_usrstack.sizeof;
+            sysctlbyname( "kern.usrstack", &kern_usrstack, &len, null, 0 );
         }
+        return kern_usrstack;
     }
     else version( darwin )
     {
