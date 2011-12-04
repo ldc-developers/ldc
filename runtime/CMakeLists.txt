@@ -44,7 +44,7 @@ set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "phobos2 source dir")
 set(RUNTIME_CC druntime-core)
 set(RUNTIME_GC druntime-gc-basic)
 set(RUNTIME_DC druntime-rt-ldc)
-set(RUNTIME_AIO ldruntime)
+set(RUNTIME_AIO druntime-ldc)
 set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
 set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
 set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
@@ -298,7 +298,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
              dc(${f} PHOBOS2_O PHOBOS2_BC "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}")
         endforeach(f)
 
-        add_library(lphobos2${target_suffix} ${D_LIBRARY_TYPE}
+        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE}
             ${ZLIB_C}
             ${PHOBOS2_O}
             ${CORE_O}
@@ -307,10 +307,10 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             ${DCRT_O}
             ${DCRT_C}
         )
-        add_dependencies(lphobos2${target_suffix} runtime)
+        add_dependencies(phobos2-ldc${target_suffix} runtime)
         set_target_properties(
-            lphobos2${target_suffix} PROPERTIES
-            OUTPUT_NAME lphobos2${lib_suffix}
+            phobos2-ldc${target_suffix} PROPERTIES
+            OUTPUT_NAME phobos2-ldc${lib_suffix}
             LINKER_LANGUAGE C
             ARCHIVE_OUTPUT_DIRECTORY ${output_path}
             LIBRARY_OUTPUT_DIRECTORY ${output_path}
@@ -318,8 +318,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             COMPILE_FLAGS "${c_flags}"
             LINK_FLAGS "${ld_flags}"
         )
-        install(TARGETS lphobos2${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
-        add_dependencies(phobos2 DEPENDS lphobos2${target_suffix})
+        install(TARGETS phobos2-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
+        add_dependencies(phobos2 DEPENDS phobos2-ldc${target_suffix})
     endif(PHOBOS2_DIR)
 endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
