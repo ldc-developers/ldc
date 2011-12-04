@@ -464,7 +464,7 @@ namespace AsmParserx8632
         /* Op_FdST      */  { D|rfp, 0,    0  },
         /* Op_FMath     */  { mfp,   0,    0,    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
         /* Op_FMath0    */  { 0,     0,    0,    0,  Clb_ST, Next_Form, Op_FMath2  },
-        /* Op_FMath2    */  { D|rfp, rfp,  0,    0,  Clb_ST, Next_Form, Op_FdST0ST1  }, 
+        /* Op_FMath2    */  { D|rfp, rfp,  0,    0,  Clb_ST, Next_Form, Op_FdST0ST1  },
         /* Op_FdSTiSTi  */  { D|rfp, rfp,  0, },
         /* Op_FdST0ST1  */  { 0, 0,  0, },
         /* Op_FPMath    */  { D|rfp, rfp,  0,    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
@@ -948,7 +948,7 @@ namespace AsmParserx8632
         { "pand",     Op_DstSrcMMX },
         { "pandn",    Op_DstSrcMMX },
         { "pavgb",    Op_DstSrcMMX },
-        { "pavgusb",  Op_DstSrcMMX }, // AMD 3dNow! 
+        { "pavgusb",  Op_DstSrcMMX }, // AMD 3dNow!
         { "pavgw",    Op_DstSrcMMX },
         { "pcmpeqb",  Op_DstSrcMMX },
         { "pcmpeqd",  Op_DstSrcMMX },
@@ -983,7 +983,7 @@ namespace AsmParserx8632
         { "pminsw",   Op_DstSrcMMX },
         { "pminub",   Op_DstSrcMMX },
         { "pmovmskb", Op_DstSrcMMX },
-        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow! 
+        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow!
         { "pmulhuw",  Op_DstSrcMMX },
         { "pmulhw",   Op_DstSrcMMX },
         { "pmullw",   Op_DstSrcMMX },
@@ -1021,7 +1021,7 @@ namespace AsmParserx8632
         { "psubusb",  Op_DstSrcMMX },
         { "psubusw",  Op_DstSrcMMX },
         { "psubw",    Op_DstSrcMMX },
-        { "pswapd",   Op_DstSrcMMX }, // AMD 3dNow! 
+        { "pswapd",   Op_DstSrcMMX }, // AMD 3dNow!
         { "punpckhbw", Op_DstSrcMMX },
         { "punpckhdq", Op_DstSrcMMX },
         { "punpckhqdq",Op_DstSrcMMX },
@@ -1409,15 +1409,15 @@ namespace AsmParserx8632
                     operand->hasNumber = 0;
                     operand->constDisplacement = 0;
                     parseOperand();
-                    
+
                     if ( matchOperands ( operand_i ) )
                     {
                         AsmCode * asmcode = new AsmCode ( N_Regs );
-                        
+
                         if ( formatInstruction ( operand_i, asmcode ) )
                             stmt->asmcode = ( code * ) asmcode;
                     }
-                    
+
                 }
                 return;
             }
@@ -1893,11 +1893,11 @@ namespace AsmParserx8632
                     insnTemplate.write(mnemonic, mlen-1) << tc_1 << type_char;
                 }
                 break;
-                
+
                 default:
                 // special case fdiv, fsub: see dmd 840, ldc 256
                 if ((strncmp(mnemonic, "fsub", 4) == 0 ||
-                     strncmp(mnemonic, "fdiv", 4) == 0) && 
+                     strncmp(mnemonic, "fdiv", 4) == 0) &&
                     operands[0].reg != Reg_ST && op != Op_FMath)
                 {
                     // replace:
@@ -2127,7 +2127,7 @@ namespace AsmParserx8632
 
                                 /* GCC doesn't give the front end access to stack offsets
                                    when optimization is turned on (3.x) or at all (4.x).
-                                   
+
                                    Try to convert var[EBP] (or var[ESP] for naked funcs) to
                                    a memory expression that does not require us to know
                                    the stack offset.
