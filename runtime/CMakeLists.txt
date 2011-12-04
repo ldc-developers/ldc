@@ -6,6 +6,10 @@ cmake_minimum_required(VERSION 2.6)
 # Main configuration.
 #
 
+if(D_VERSION EQUAL 1)
+    message(FATAL_ERROR "Please use bob to build Tango for D1.")
+endif()
+
 include(CheckTypeSize)
 check_type_size(void*  ptr_size)
 
@@ -29,146 +33,97 @@ else(BUILD_SHARED_LIBS)
     set(CXX_COMPILE_FLAGS " ")
 endif(BUILD_SHARED_LIBS)
 
-# build tango for D1, druntime for D2
-if(D_VERSION EQUAL 1)
-    set(RUNTIME tango)
-elseif(D_VERSION EQUAL 2)
-    set(RUNTIME druntime)
-else(D_VERSION EQUAL 1)
-    message(FATAL_ERROR "The runtime must be built as part of the main CMake project.")
-endif(D_VERSION EQUAL 1)
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
-set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/${RUNTIME} CACHE PATH "runtime source dir")
+set(RUNTIME_DIR ${PROJECT_PARENT_DIR}/druntime CACHE PATH "runtime source dir")
 
 #
 # Gather source files.
 #
 
-if(D_VERSION EQUAL 1)
-    # copy imports to runtime dir
-    set(LDC_IMPORTS)
-    macro(imports_file SRCARG)
-        get_filename_component(DEST ${SRCARG} NAME)
-        set(SRC  ${PROJECT_PARENT_DIR}/${SRCARG})
-        set(DEST ${RUNTIME_DIR}/ldc/${DEST})
+set(PHOBOS2_DIR ${PROJECT_PARENT_DIR}/phobos CACHE PATH "phobos2 source dir")
+set(RUNTIME_CC druntime-core)
+set(RUNTIME_GC druntime-gc-basic)
+set(RUNTIME_DC druntime-rt-ldc)
+set(RUNTIME_AIO ldruntime)
+set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
+set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
+set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
+file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
+file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
+file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
+file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
+file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
+list(REMOVE_ITEM DCRT_D
+    ${RUNTIME_DC_DIR}/alloca.d
+    ${RUNTIME_DC_DIR}/arraybyte.d
+    ${RUNTIME_DC_DIR}/arraycast.d
+    ${RUNTIME_DC_DIR}/arraycat.d
+    ${RUNTIME_DC_DIR}/arraydouble.d
+    ${RUNTIME_DC_DIR}/arrayfloat.d
+    ${RUNTIME_DC_DIR}/arrayreal.d
+    ${RUNTIME_DC_DIR}/arrayshort.d
+    ${RUNTIME_DC_DIR}/critical_.d
+    ${RUNTIME_DC_DIR}/deh.d
+    ${RUNTIME_DC_DIR}/deh2.d
+    ${RUNTIME_DC_DIR}/llmath.d
+    ${RUNTIME_DC_DIR}/qsort2.d
+    ${RUNTIME_DC_DIR}/trace.d
+)
+file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
+list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
+if(UNIX)
+    file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+elseif(WIN32)
+    file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+elseif(APPLE)
+    file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+endif(UNIX)
+list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
+list(APPEND GENERATE_DI ${CORE_D})
+list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
+file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
-        list(APPEND LDC_IMPORTS ${DEST})
-        add_custom_command(
-            OUTPUT  ${DEST}
-            DEPENDS ${SRC}
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SRC} ${DEST}
-        )
-    endmacro(imports_file)
-    imports_file(import/ldc/cstdarg.di)
-    imports_file(import/ldc/intrinsics.di)
-    imports_file(import/ldc/llvmasm.di)
-    imports_file(internal/ldc/bitmanip.d)
-    imports_file(internal/ldc/vararg.d)
-    # library names
-    set(RUNTIME_CC tango-cc-tango)
-    set(RUNTIME_GC tango-gc-basic)
-    set(RUNTIME_DC ldc-runtime)
-    set(RUNTIME_AIO tango)
-    # set paths to source files, or fill lists directly
-    set(RUNTIME_DC_DIR ${RUNTIME_DIR}/internal)
-    set(RUNTIME_GC_DIR ${RUNTIME_DIR}/lib/gc/basic)
-    set(RUNTIME_INCLUDE ${RUNTIME_DC_DIR})
-    file(GLOB CORE_D ${RUNTIME_DIR}/lib/common/tango/core/*.d)
-    file(GLOB CORE_C ${RUNTIME_DIR}/lib/common/tango/stdc/*.c)
-    file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-    file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-    file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-    set(CONFIG_NAME ${LDC_EXE})
-elseif(D_VERSION EQUAL 2)
-    set(PHOBOS2_DIR ${PROJECT_PARENT_DIR}/phobos CACHE PATH "phobos2 source dir")
-    set(RUNTIME_CC druntime-core)
-    set(RUNTIME_GC druntime-gc-basic)
-    set(RUNTIME_DC druntime-rt-ldc)
-    set(RUNTIME_AIO ldruntime)
-    set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
-    set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
-    set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
-    file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
-    file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
-    file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
-    file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-    file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
-    file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
-    list(REMOVE_ITEM DCRT_D
-        ${RUNTIME_DC_DIR}/alloca.d
-        ${RUNTIME_DC_DIR}/arraybyte.d
-        ${RUNTIME_DC_DIR}/arraycast.d
-        ${RUNTIME_DC_DIR}/arraycat.d
-        ${RUNTIME_DC_DIR}/arraydouble.d
-        ${RUNTIME_DC_DIR}/arrayfloat.d
-        ${RUNTIME_DC_DIR}/arrayreal.d
-        ${RUNTIME_DC_DIR}/arrayshort.d
-        ${RUNTIME_DC_DIR}/critical_.d
-        ${RUNTIME_DC_DIR}/deh.d
-        ${RUNTIME_DC_DIR}/deh2.d
-        ${RUNTIME_DC_DIR}/llmath.d
-        ${RUNTIME_DC_DIR}/qsort2.d
-        ${RUNTIME_DC_DIR}/trace.d
-    )
-    file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
+if(PHOBOS2_DIR)
+    file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
+    file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
     if(UNIX)
-        file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/linux/*.d)
     elseif(WIN32)
-        file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/windows/*.d)
     elseif(APPLE)
-        file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+        file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/osx/*.d)
     endif(UNIX)
-    list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
-    list(APPEND GENERATE_DI ${CORE_D})
-    list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
-    file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
-
-    if(PHOBOS2_DIR)
-        file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
-        file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
-        file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
-        if(UNIX)
-            file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/linux/*.d)
-        elseif(WIN32)
-            file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/windows/*.d)
-        elseif(APPLE)
-            file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/osx/*.d)
-        endif(UNIX)
-        file(GLOB ZLIB_C ${PHOBOS2_DIR}/etc/c/zlib/*.c)
-        list(REMOVE_ITEM ZLIB_C
-            ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c
-            ${PHOBOS2_DIR}/etc/c/zlib/example.c
-            ${PHOBOS2_DIR}/etc/c/zlib/gzio.c
-        )
-        if(WIN32)
-            file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
-        endif(WIN32)
-        list(APPEND PHOBOS2_D
-                ${PHOBOS2_D_INTERNAL}
-                ${PHOBOS2_D_WIN}
-                ${PHOBOS2_D_C}
-                ${PHOBOS2_D_C_SYS}
-                ${PHOBOS2_DIR}/etc/c/zlib.d
-                ${PHOBOS2_DIR}/crc32.d
-        )
-        list(REMOVE_ITEM PHOBOS2_D
-                ${PHOBOS2_DIR}/std/intrinsic.d
-        )
-        set(CONFIG_NAME ${LDC_EXE}_phobos)
-    else(PHOBOS2_DIR)
-        set(CONFIG_NAME ${LDC_EXE})
-    endif(PHOBOS2_DIR)
-endif(D_VERSION EQUAL 1)
+    file(GLOB ZLIB_C ${PHOBOS2_DIR}/etc/c/zlib/*.c)
+    list(REMOVE_ITEM ZLIB_C
+        ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c
+        ${PHOBOS2_DIR}/etc/c/zlib/example.c
+        ${PHOBOS2_DIR}/etc/c/zlib/gzio.c
+    )
+    if(WIN32)
+        file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
+    endif(WIN32)
+    list(APPEND PHOBOS2_D
+            ${PHOBOS2_D_INTERNAL}
+            ${PHOBOS2_D_WIN}
+            ${PHOBOS2_D_C}
+            ${PHOBOS2_D_C_SYS}
+            ${PHOBOS2_DIR}/etc/c/zlib.d
+            ${PHOBOS2_DIR}/crc32.d
+    )
+    list(REMOVE_ITEM PHOBOS2_D
+            ${PHOBOS2_DIR}/std/intrinsic.d
+    )
+    set(CONFIG_NAME ${LDC_EXE}_phobos)
+else(PHOBOS2_DIR)
+    set(CONFIG_NAME ${LDC_EXE})
+endif(PHOBOS2_DIR)
 
 # should only be necessary if run independently from ldc cmake project
 if(NOT LDC_LOC)
     if(NOT LDC_EXE)
-        if(D_VERSION EQUAL 1)
-            set(LDC_EXE ldc)
-        elseif(D_VERSION EQUAL 2)
-            set(LDC_EXE ldc2)
-        endif(D_VERSION EQUAL 1)
+        set(LDC_EXE ldc2)
     endif(NOT LDC_EXE)
 
     find_program(LDC_LOC ${LDC_EXE} ${PROJECT_BINARY_DIR}/../bin DOC "path to ldc binary")
@@ -264,14 +219,10 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(DCRT_O "")
     set(DCRT_BC "")
     foreach(f ${DCRT_D})
-        if(D_VERSION EQUAL 1)
-            dc(${f} DCRT_O DCRT_BC "${d_flags}" ${RUNTIME_DC_DIR} "${target_suffix}")
-        else(D_VERSION EQUAL 1)
-            dc(${f} DCRT_O DCRT_BC "${d_flags}" "" "${target_suffix}")
-        endif(D_VERSION EQUAL 1)
+        dc(${f} DCRT_O DCRT_BC "${d_flags}" "" "${target_suffix}")
     endforeach(f)
 
-    if(EXISTS ${PROJECT_PARENT_DIR}/${RUNTIME})
+    if(EXISTS ${RUNTIME_DIR})
         if(BUILD_SINGLE_LIB)
             add_library(${RUNTIME_AIO}${target_suffix}
                         ${D_LIBRARY_TYPE}
@@ -296,7 +247,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                 ${RUNTIME_DC}${lib_suffix}
             )
         endif(BUILD_SINGLE_LIB)
-    endif(EXISTS ${PROJECT_PARENT_DIR}/${RUNTIME})
+    endif()
 
     if(BUILD_BC_LIBS)
         find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
@@ -389,17 +340,12 @@ endif(MULTILIB)
 # Install target.
 #
 
-if(D_VERSION EQUAL 2)
-    install(DIRECTORY     ${CMAKE_BINARY_DIR}/import/core                  DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
-    if(PHOBOS2_DIR)
-        install(DIRECTORY ${PHOBOS2_DIR}/std                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
-        install(DIRECTORY ${PHOBOS2_DIR}/etc                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
-        install(FILES     ${PHOBOS2_DIR}/crc32.d                           DESTINATION ${INCLUDE_INSTALL_DIR})
-    endif(PHOBOS2_DIR)
-    install(FILES         ${RUNTIME_DIR}/import/object.di                  DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
-    install(FILES         ${RUNTIME_DIR}/src/ldc/bitop.d                   DESTINATION ${INCLUDE_INSTALL_DIR}/core)
-    install(DIRECTORY     ${RUNTIME_DIR}/import/ldc                        DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
-else(D_VERSION EQUAL 2)
-    install(DIRECTORY     ${PROJECT_SOURCE_DIR}/${RUNTIME}/internal/ldc/   DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
-    install(DIRECTORY     ${PROJECT_SOURCE_DIR}/runtime/import/ldc         DESTINATION ${INCLUDE_INSTALL_DIR})
-endif(D_VERSION EQUAL 2)
+install(DIRECTORY     ${CMAKE_BINARY_DIR}/import/core                  DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+if(PHOBOS2_DIR)
+    install(DIRECTORY ${PHOBOS2_DIR}/std                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+    install(DIRECTORY ${PHOBOS2_DIR}/etc                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+    install(FILES     ${PHOBOS2_DIR}/crc32.d                           DESTINATION ${INCLUDE_INSTALL_DIR})
+endif(PHOBOS2_DIR)
+install(FILES         ${RUNTIME_DIR}/import/object.di                  DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+install(FILES         ${RUNTIME_DIR}/src/ldc/bitop.d                   DESTINATION ${INCLUDE_INSTALL_DIR}/core)
+install(DIRECTORY     ${RUNTIME_DIR}/import/ldc                        DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")

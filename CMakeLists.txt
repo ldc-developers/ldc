@@ -267,4 +267,6 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(DIRECTORY bash_completion.d DESTINATION ${CONF_INST_DIR})
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
-add_subdirectory(runtime)
+if(D_VERSION EQUAL 2)
+    add_subdirectory(runtime)
+endif()

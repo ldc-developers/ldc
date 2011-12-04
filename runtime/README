@@ -1,30 +1,24 @@
-This should help get the runtime built.
-FOR D1:
-=======
-1) Do a checkout of tango trunk into the ldc root dir (along dmd, gen, runtime etc).
+Building druntime/Phobos for D2
+---
 
-    *   $ ls
-    *   dmd dmd2 gen ir ...
-    *   $ svn co http://svn.dsource.org/projects/tango/trunk tango
+LDC currently needs custom forks of druntime and Phobos. They are integrated
+with the main repository using Git submodules. To build them, make sure you
+have up-to-date copies of the submodules in your local repository:
 
-2) Compile the runtime
+$ git submodule update -i
 
-    *   sh build.sh
+The libraries should then be built and installed automatically along with the
+compiler itself. If, for some reason, you want to build them separately, the
+targets are:
 
-FOR D2:
-=======
-1) Check http://bitbucket.org/prokhin_alexy/ldc2/wiki/Home for up to date instructions
+$ make runtime
+$ make phobos2
 
-2) At the time of writing, this works:
 
-    *   $ git clone https://github.com/AlexeyProkhin/druntime
-    *   $ git clone https://github.com/AlexeyProkhin/phobos
+Building Tango for D1
+---
 
-3) Using cmake, set the D version to 2, then set the correct paths for druntime and phobos
-
-4) Compile ldc2, druntime, and phobos
-
-    *   $ make phobos2
-
-=======
-Enjoy!
+This directory used to contain scripts for building Tango for LDC/D1, which
+became obsolete after LDC support was added to its build system, and were
+consequently removed. Please use the official Tango build system (bob) from
+now on.
