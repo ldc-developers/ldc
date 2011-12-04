@@ -1015,9 +1015,9 @@ namespace AsmParserx8664
         { "movs",  Op_movs },
         { "movsb", Op_movsX },
         { "movsd", Op_movsd },
-        { "movsq", Op_movsd },
         { "movshdup", Op_DstSrcSSE },
         { "movsldup", Op_DstSrcSSE },
+        { "movsq", Op_movsd },
         { "movss", Op_DstSrcSSE },
         { "movsw", Op_movsX },
         { "movsx", Op_movsx }, // word-only, reg dest
