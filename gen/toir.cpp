@@ -2865,7 +2865,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     // return constant struct
     if (!constType)
         constType = LLStructType::get(gIR->context(), types);
-    else
+    else if (constType->isOpaque())
         constType->setBody(types);
     return LLConstantStruct::get(constType, llvm::makeArrayRef(constvals));
 }
