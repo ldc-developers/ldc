@@ -1037,7 +1037,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                         if (ae->e2->op == TOKcall) {
                             CallExp *ce = (CallExp *)ae->e2;
                             TypeFunction *tf = (TypeFunction *)ce->e1->type->toBasetype();
-                            if (tf->ty == Tfunction && tf->retStyle() == RETstack) {
+                            if (tf->ty == Tfunction && tf->fty.arg_sret) {
                                 vd->ir.irLocal->value = ce->toElem(gIR)->getLVal();
                                 goto Lexit;
                             }
