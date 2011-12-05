@@ -449,11 +449,19 @@ int main(int argc, char** argv)
     // Allocate target machine.
 
     // first initialize llvm
-    llvm::InitializeAllTargetInfos();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllAsmPrinters();
-    llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllTargetMCs();
+#if 0
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmParser();
+    llvm::InitializeNativeTargetAsmPrinter();
+#endif
+#define LLVM_TARGET(A) \
+    LLVMInitialize##A##TargetInfo(); \
+    LLVMInitialize##A##Target(); \
+    LLVMInitialize##A##AsmPrinter(); \
+    LLVMInitialize##A##AsmParser(); \
+    LLVMInitialize##A##TargetMC();
+LDC_TARGETS
+#undef LLVM_TARGET
 
     const llvm::Target *theTarget = NULL;
     // Check whether the user has explicitly specified an architecture to compile for.

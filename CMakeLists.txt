@@ -146,10 +146,47 @@ execute_process(
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
 
-# Pass the list of extra LLVM targets as preprocessor constants.
-foreach(EXTRA_TARGET ${EXTRA_LLVM_MODULES})
-    set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${EXTRA_TARGET})")
-endforeach(EXTRA_TARGET)
+#
+# Detect host architecture.
+# The code borrowed from llvm's config-x.cmake.
+#
+# This is only needed to initialize the llvm native target which is
+# exactly the purpose of llvm::InitializeNativeTarget* functions.
+# Unfortunately, there is a bug in llvm's cmake script that prevents
+# the asm parser from being initialized when the functions are used.
+# So we have to do the dirty work ourselves.
+string(REGEX MATCH "^[^-]*" HOST_ARCH ${LLVM_HOST_TARGET})
+if(HOST_ARCH MATCHES "i[2-6]86")
+  set(HOST_ARCH X86)
+elseif(HOST_ARCH STREQUAL "x86")
+  set(HOST_ARCH X86)
+elseif(HOST_ARCH STREQUAL "amd64")
+  set(HOST_ARCH X86)
+elseif(HOST_ARCH STREQUAL "x86_64")
+  set(HOST_ARCH X86)
+elseif(HOST_ARCH MATCHES "sparc")
+  set(HOST_ARCH Sparc)
+elseif(HOST_ARCH MATCHES "powerpc")
+  set(HOST_ARCH PowerPC)
+elseif(HOST_ARCH MATCHES "alpha")
+  set(HOST_ARCH Alpha)
+elseif(HOST_ARCH MATCHES "arm")
+  set(HOST_ARCH ARM)
+elseif(HOST_ARCH MATCHES "mips")
+  set(HOST_ARCH Mips)
+elseif(HOST_ARCH MATCHES "xcore")
+  set(HOST_ARCH XCore)
+elseif(HOST_ARCH MATCHES "msp430")
+  set(HOST_ARCH MSP430)
+else(HOST_ARCH MATCHES "i[2-6]86")
+  message(FATAL_ERROR "Unknown architecture ${HOST_ARCH}")
+endif(HOST_ARCH MATCHES "i[2-6]86")
+
+# Pass the list of LLVM targets as preprocessor constants.
+foreach(TARGET ${HOST_ARCH} ${EXTRA_LLVM_MODULES})
+    set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${TARGET})")
+endforeach(TARGET)
+
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
     COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
