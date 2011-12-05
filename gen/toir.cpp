@@ -1764,7 +1764,7 @@ DValue* PostExp::toElem(IRState* p)
     }
     else if (e1type->ty == Tpointer)
     {
-        assert(e2type->isintegral());
+        assert(e2->op == TOKint64);
         LLConstant* minusone = LLConstantInt::get(DtoSize_t(),(uint64_t)-1,true);
         LLConstant* plusone = LLConstantInt::get(DtoSize_t(),(uint64_t)1,false);
         LLConstant* whichone = (op == TOKplusplus) ? plusone : minusone;
