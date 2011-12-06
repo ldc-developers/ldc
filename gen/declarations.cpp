@@ -139,9 +139,6 @@ void VarDeclaration::codegen(Ir* p)
 
         LLType *_type = DtoConstInitializerType(type, init);
 
-        if (_name == "_D13TypeInfo_yAAa6__initZ")
-            printf("!!!\n");
-
         // create the global variable
         LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
                                                       DtoLinkage(this), NULL, _name, 0, isThreadlocal());
