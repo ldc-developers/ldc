@@ -33,6 +33,11 @@ int linkExecutable(const char* argv0);
 int linkObjToExecutable(const char* argv0);
 
 /**
+ * Create a static library from object files.
+*/
+void createStaticLibrary();
+
+/**
  * Delete the executable that was previously linked with linkExecutable.
  */
 void deleteExecutable();

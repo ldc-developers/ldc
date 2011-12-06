@@ -388,7 +388,7 @@ int main(int argc, char** argv)
     }
 
     // only link if possible
-    if (!global.params.obj || !global.params.output_o)
+    if (!global.params.obj || !global.params.output_o || createStaticLib)
         global.params.link = 0;
 
     if (global.params.link)
@@ -1028,11 +1028,15 @@ LDC_TARGETS
     {
         if (global.params.link)
             error("no object files to link");
+        else if (createStaticLib)
+            error("no object files");
     }
     else
     {
         if (global.params.link)
             status = linkObjToExecutable(global.params.argv0);
+        else if (createStaticLib)
+            createStaticLibrary();
 
         if (global.params.run)
         {

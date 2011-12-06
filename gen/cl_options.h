@@ -19,6 +19,7 @@ namespace opts {
     extern cl::list<std::string> fileList;
     extern cl::list<std::string> runargs;
     extern cl::opt<bool> compileOnly;
+    extern cl::opt<bool> createStaticLib;
     extern cl::opt<bool> noAsm;
     extern cl::opt<bool> dontWriteObj;
     extern cl::opt<std::string> objectFile;

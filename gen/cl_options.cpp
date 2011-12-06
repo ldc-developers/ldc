@@ -39,6 +39,10 @@ cl::opt<bool> compileOnly("c",
     cl::desc("Do not link"),
     cl::ZeroOrMore);
 
+cl::opt<bool> createStaticLib("lib",
+    cl::desc("Create static library"),
+    cl::ZeroOrMore);
+
 static cl::opt<bool, true> verbose("v",
     cl::desc("Verbose"),
     cl::ZeroOrMore,

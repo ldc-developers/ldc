@@ -357,6 +357,92 @@ int linkObjToExecutable(const char* argv0)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void createStaticLibrary()
+{
+    Logger::println("*** Creating static library ***");
+
+    // error string
+    std::string errstr;
+
+    // find archiver
+    llvm::sys::Path ar = getArchiver();
+
+    // build arguments
+    std::vector<const char*> args;
+
+    // first the program name ??
+    args.push_back(ar.c_str());
+
+    // ask ar to create a new library
+    args.push_back("rcs");
+
+    // output filename
+    std::string libName;
+    if (global.params.objname)
+    {   // explicit
+        libName = global.params.objname;
+    }
+    else
+    {   // inferred
+        // try root module name
+        if (Module::rootModule)
+            libName = Module::rootModule->toChars();
+        else if (global.params.objfiles->dim)
+            libName = FileName::removeExt((char*)global.params.objfiles->data[0]);
+        else
+            libName = "a";
+    }
+    std::string libExt = std::string(".") + global.lib_ext;
+    if (libExt.length() > libName.length() ||
+        !std::equal(libExt.rbegin(), libExt.rend(), libName.rbegin()))
+    {
+        libName.append(libExt);
+    }
+    args.push_back(libName.c_str());
+
+    // object files
+    for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    {
+        char *p = (char *)global.params.objfiles->data[i];
+        args.push_back(p);
+    }
+
+    // create path to the library
+    llvm::sys::Path libdir(llvm::sys::path::parent_path(libName.c_str()));
+    if (!libdir.empty() && !llvm::sys::fs::exists(libdir.str()))
+    {
+        libdir.createDirectoryOnDisk(true, &errstr);
+        if (!errstr.empty())
+        {
+            error("failed to create path to linking output: %s\n%s", libdir.c_str(), errstr.c_str());
+            fatal();
+        }
+    }
+
+    // print the command?
+    if (!quiet || global.params.verbose)
+    {
+        // Print it
+        for (int i = 0; i < args.size(); i++)
+            printf("%s ", args[i]);
+        printf("\n");
+        fflush(stdout);
+    }
+
+    // terminate args list
+    args.push_back(NULL);
+
+    // try to call archiver
+    if (int status = llvm::sys::Program::ExecuteAndWait(ar, &args[0], NULL, NULL, 0,0, &errstr))
+    {
+        error("archiver failed:\nstatus: %d", status);
+        if (!errstr.empty())
+            error("message: %s", errstr.c_str());
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void deleteExecutable()
 {
     if (!gExePath.isEmpty())

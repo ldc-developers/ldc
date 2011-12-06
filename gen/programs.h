@@ -4,5 +4,6 @@
 #include "llvm/Support/Path.h"
 
 llvm::sys::Path getGcc();
+llvm::sys::Path getArchiver();
 
 #endif
