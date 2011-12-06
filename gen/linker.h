@@ -30,7 +30,7 @@ int linkExecutable(const char* argv0);
  * @param argv0 the argv[0] value as passed to main
  * @return 0 on success.
  */
-int linkObjToExecutable(const char* argv0);
+int linkObjToBinary(bool sharedLib);
 
 /**
  * Create a static library from object files.

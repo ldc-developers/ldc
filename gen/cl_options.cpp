@@ -43,6 +43,10 @@ cl::opt<bool> createStaticLib("lib",
     cl::desc("Create static library"),
     cl::ZeroOrMore);
 
+cl::opt<bool> createSharedLib("shared",
+    cl::desc("Create sharedlibrary"),
+    cl::ZeroOrMore);
+
 static cl::opt<bool, true> verbose("v",
     cl::desc("Verbose"),
     cl::ZeroOrMore,

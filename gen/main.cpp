@@ -391,7 +391,13 @@ int main(int argc, char** argv)
     if (!global.params.obj || !global.params.output_o || createStaticLib)
         global.params.link = 0;
 
-    if (global.params.link)
+    if (createStaticLib && createSharedLib)
+        error("-lib and -shared switches cannot be used together");
+
+    if (createSharedLib && mRelocModel == llvm::Reloc::Default)
+        mRelocModel = llvm::Reloc::PIC_;
+
+    if (global.params.link && !createSharedLib)
     {
         global.params.exefile = global.params.objname;
         if (files.dim > 1)
@@ -647,6 +653,14 @@ LDC_TARGETS
     {
         error("target '%s' is not yet supported", global.params.targetTriple);
         fatal();
+    }
+
+    if (global.params.os == OSWindows) {
+        global.dll_ext = "dll";
+        global.lib_ext = "lib";
+    } else {
+        global.dll_ext = "so";
+        global.lib_ext = "a";
     }
 
     // added in 1.039
@@ -1034,7 +1048,7 @@ LDC_TARGETS
     else
     {
         if (global.params.link)
-            status = linkObjToExecutable(global.params.argv0);
+            status = linkObjToBinary(createSharedLib);
         else if (createStaticLib)
             createStaticLibrary();
 

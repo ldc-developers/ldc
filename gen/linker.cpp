@@ -28,6 +28,11 @@ llvm::cl::opt<bool> quiet("quiet",
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool endsWith(const std::string &str, const std::string &end)
+{
+    return (str.length() >= end.length() && std::equal(end.rbegin(), end.rend(), str.rbegin()));
+}
+
 typedef std::vector<llvm::Module*> Module_vector;
 
 void linkModules(llvm::Module* dst, const Module_vector& MV)
@@ -213,7 +218,7 @@ int linkExecutable(const char* argv0)
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToExecutable(const char* argv0)
+int linkObjToBinary(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
@@ -239,29 +244,45 @@ int linkObjToExecutable(const char* argv0)
     }
 
     // output filename
-    std::string exestr;
-    if (global.params.exefile)
+    std::string output;
+    if (!sharedLib && global.params.exefile)
     {   // explicit
-        exestr = global.params.exefile;
+        output = global.params.exefile;
+    }
+    else if (sharedLib && global.params.objname)
+    {   // explicit
+        output = global.params.objname;
     }
     else
     {   // inferred
         // try root module name
         if (Module::rootModule)
-            exestr = Module::rootModule->toChars();
+            output = Module::rootModule->toChars();
         else if (global.params.objfiles->dim)
-            exestr = FileName::removeExt((char*)global.params.objfiles->data[0]);
+            output = FileName::removeExt((char*)global.params.objfiles->data[0]);
         else
-            exestr = "a.out";
+            output = "a.out";
     }
-    if (global.params.os == OSWindows && !(exestr.rfind(".exe") == exestr.length()-4))
-        exestr.append(".exe");
+
+    if (sharedLib) {
+        std::string libExt = std::string(".") + global.dll_ext;
+        if (!endsWith(output, libExt))
+        {
+            if (global.params.os != OSWindows)
+                output = "lib" + output + libExt;
+            else
+                output.append(libExt);
+        }
+        args.push_back("-shared");
+    } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
+        output.append(".exe");
+    }
 
     args.push_back("-o");
-    args.push_back(exestr.c_str());
+    args.push_back(output.c_str());
 
     // set the global gExePath
-    gExePath.set(exestr);
+    gExePath.set(output);
     assert(gExePath.isValid());
 
     // create path to exe
@@ -390,13 +411,15 @@ void createStaticLibrary()
         else if (global.params.objfiles->dim)
             libName = FileName::removeExt((char*)global.params.objfiles->data[0]);
         else
-            libName = "a";
+            libName = "a.out";
     }
     std::string libExt = std::string(".") + global.lib_ext;
-    if (libExt.length() > libName.length() ||
-        !std::equal(libExt.rbegin(), libExt.rend(), libName.rbegin()))
+    if (!endsWith(libName, libExt))
     {
-        libName.append(libExt);
+        if (global.params.os != OSWindows)
+            libName = "lib" + libName + libExt;
+        else
+            libName.append(libExt);
     }
     args.push_back(libName.c_str());
 

@@ -271,6 +271,7 @@ struct Global
     char *bc_ext;
     char *s_ext;
     const char *lib_ext;
+    const char *dll_ext;
     const char *doc_ext;        // for Ddoc generated files
     const char *ddoc_ext;       // for Ddoc macro include files
     const char *hdr_ext;        // for D 'header' import files
