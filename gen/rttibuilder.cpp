@@ -153,10 +153,12 @@ void RTTIBuilder::finalize(LLType* type, LLValue* value)
     assert(st);
 
     // set struct body
-    std::vector<LLType*> types;
-    for (int i = 0, n = inits.size(); i < n; ++i)
-        types.push_back(inits[i]->getType());
-    st->setBody(types);
+    if (st->isOpaque()) {
+        std::vector<LLType*> types;
+        for (int i = 0, n = inits.size(); i < n; ++i)
+            types.push_back(inits[i]->getType());
+        st->setBody(types);
+    }
 
     // create the inititalizer
     LLConstant* tiInit = LLConstantStruct::get(st, inits);

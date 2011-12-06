@@ -302,18 +302,21 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     Logger::println("DtoResolveTypeInfo(%s)", tid->toChars());
     LOG_SCOPE;
 
-    IrGlobal* irg = new IrGlobal(tid);
-    if (tid->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
-        irg->type = Type::typeinfo->type->irtype->getType();
-    else
-        irg->type = LLStructType::create(gIR->context(), tid->toPrettyChars());
-
     std::string mangle(tid->mangle());
 
+    IrGlobal* irg = new IrGlobal(tid);
     irg->value = gIR->module->getGlobalVariable(mangle);
-    if (!irg->value)
+
+    if (!irg->value) {
+        if (tid->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
+            irg->type = Type::typeinfo->type->irtype->getType();
+        else
+            irg->type = LLStructType::create(gIR->context(), tid->toPrettyChars());
         irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
-        TYPEINFO_LINKAGE_TYPE, NULL, mangle);
+                                              TYPEINFO_LINKAGE_TYPE, NULL, mangle);
+    } else {
+        irg->type = irg->value->getType()->getContainedType(0);
+    }
 
     tid->ir.irGlobal = irg;
 
