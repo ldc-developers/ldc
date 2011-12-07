@@ -232,7 +232,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                         ${DCRT_O}
                         ${DCRT_C}
             )
-            set(LIBS ${RUNTIME_AIO})
+            set(LIBS ${RUNTIME_AIO}${target_suffix})
             set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
         else(BUILD_SINGLE_LIB)
             add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
