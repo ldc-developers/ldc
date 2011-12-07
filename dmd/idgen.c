@@ -219,6 +219,7 @@ Msgtable msgtable[] =
     { "lib" },
     { "msg" },
 
+#if IN_LLVM
     // LDC pragma's
     { "intrinsic" },
     { "va_intrinsic" },
@@ -232,6 +233,12 @@ Msgtable msgtable[] =
     { "ldc" },
     { "allow_inline" },
     { "llvm_inline_asm" },
+    { "fence" },
+    { "atomic_load" },
+    { "atomic_store" },
+    { "atomic_cmp_xchg" },
+    { "atomic_rmw" },
+#endif
 
     // For special functions
     { "tohash", "toHash" },
