@@ -35,7 +35,18 @@ else()
             set(_quiet_arg ERROR_QUIET)
         endif()
         execute_process(
-            COMMAND ${LLVM_CONFIG} --${flag} # ${LLVM_FIND_COMPONENTS}
+            COMMAND ${LLVM_CONFIG} --${flag}
+            OUTPUT_VARIABLE LLVM_${var}
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+	    ${_quiet_arg}
+        )
+    endmacro()
+    macro(llvm_set_libs var flag)
+   	if(LLVM_FIND_QUIETLY)
+            set(_quiet_arg ERROR_QUIET)
+        endif()
+        execute_process(
+            COMMAND ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
             OUTPUT_VARIABLE LLVM_${var}
             OUTPUT_STRIP_TRAILING_WHITESPACE
 	    ${_quiet_arg}
@@ -46,7 +57,7 @@ else()
     llvm_set(HOST_TARGET host-target)
     llvm_set(INCLUDE_DIRS includedir)
     llvm_set(LDFLAGS ldflags)
-    llvm_set(LIBRARIES libfiles)
+    llvm_set_libs(LIBRARIES libfiles)
     llvm_set(LIBRARY_DIRS libdir)
     llvm_set(ROOT_DIR prefix)
     llvm_set(VERSION_STRING version)
