@@ -775,7 +775,9 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     else if (fromtype->ty == Tdelegate) {
         return DtoCastDelegate(loc, val, to);
     }
-    else {
+    else if (fromtype->ty == totype->ty) {
+        return val;
+    } else {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
         fatal();
     }
