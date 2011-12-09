@@ -301,6 +301,7 @@ int linkObjToBinary(bool sharedLib)
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
         char *p = (char *)global.params.linkswitches->data[i];
+        args.push_back("-Xlinker");
         args.push_back(p);
     }
 
