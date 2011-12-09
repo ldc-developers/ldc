@@ -30,41 +30,30 @@ if (NOT LLVM_CONFIG)
         message(WARNING "Could not find llvm-config. Consider manually setting LLVM_ROOT_DIR.")
     endif()
 else()
-    # llvm-config is written in Perl, thus we need to locate it first.
-    if(LLVM_FIND_QUIETLY)
-      set(_quiet_arg QUIET)
-    endif()
-    find_package(Perl ${_quiet_arg})
-
-    if(NOT PERL_FOUND)
-        if (NOT FIND_LLVM_QUIETLY)
-            message(WARNING "Need Perl to execute llvm-config.")
+    macro(llvm_set var flag)
+   	if(LLVM_FIND_QUIETLY)
+            set(_quiet_arg ERROR_QUIET)
         endif()
-    else()
-        macro(llvm_set var flag)
-            if(LLVM_FIND_QUIETLY)
-              set(_quiet_arg ERROR_QUIET)
-            endif()
-            execute_process(
-                COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
-                OUTPUT_VARIABLE LLVM_${var}
-                OUTPUT_STRIP_TRAILING_WHITESPACE ${_quiet_arg}
-            )
-        endmacro()
+        execute_process(
+            COMMAND ${LLVM_CONFIG} --${flag} # ${LLVM_FIND_COMPONENTS}
+            OUTPUT_VARIABLE LLVM_${var}
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+	    ${_quiet_arg}
+        )
+    endmacro()
 
-        llvm_set(CXXFLAGS cxxflags)
-        llvm_set(HOST_TARGET host-target)
-        llvm_set(INCLUDE_DIRS includedir)
-        llvm_set(LDFLAGS ldflags)
-        llvm_set(LIBRARIES libfiles)
-        llvm_set(LIBRARY_DIRS libdir)
-        llvm_set(ROOT_DIR prefix)
-        llvm_set(VERSION_STRING version)
-    endif()
+    llvm_set(CXXFLAGS cxxflags)
+    llvm_set(HOST_TARGET host-target)
+    llvm_set(INCLUDE_DIRS includedir)
+    llvm_set(LDFLAGS ldflags)
+    llvm_set(LIBRARIES libfiles)
+    llvm_set(LIBRARY_DIRS libdir)
+    llvm_set(ROOT_DIR prefix)
+    llvm_set(VERSION_STRING version)
 endif()
 
 string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
-string(REGEX REPLACE "[0-9]+\\.([0-9]+).*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
+string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
 
 # Use the default CMake facilities for handling QUIET/REQUIRED.
 include(FindPackageHandleStandardArgs)
