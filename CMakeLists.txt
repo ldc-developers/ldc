@@ -18,7 +18,7 @@ separate_arguments(EXTRA_LLVM_MODULES)
 # We need to find exactly the right LLVM version, our code usually does not
 # work across LLVM »minor« releases.
 find_package(LLVM 3.1 EXACT REQUIRED 
-    bitwriter linker ipo instrumentation cbackend cppbackend ${EXTRA_LLVM_MODULES})
+    bitwriter linker ipo instrumentation cbackend cppbackend x86 ${EXTRA_LLVM_MODULES})
 
 #
 # Locate libconfig++.
@@ -278,7 +278,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_EXE} ${LLVM_LDFLAGS} ${LLVM_LIBRARIES} ${LIBCONFIG_LDFLAGS} config++)
+target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}" ${LIBCONFIG_LDFLAGS} config++)
 if(WIN32)
     target_link_libraries(${LDC_EXE} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
