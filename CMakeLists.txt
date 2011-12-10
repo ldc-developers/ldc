@@ -17,8 +17,8 @@ separate_arguments(EXTRA_LLVM_MODULES)
 
 # We need to find exactly the right LLVM version, our code usually does not
 # work across LLVM »minor« releases.
-find_package(LLVM 3.1 EXACT REQUIRED 
-    bitwriter linker ipo instrumentation cbackend cppbackend x86 ${EXTRA_LLVM_MODULES})
+find_package(LLVM 3.1 EXACT REQUIRED
+    bitwriter linker ipo instrumentation native ${EXTRA_LLVM_MODULES})
 
 #
 # Locate libconfig++.
