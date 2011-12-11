@@ -309,11 +309,15 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
+    llvm::TargetOptions targetOptions;
+    // FIXME: Options here are { None, Less, Default, Aggressive } as defined http://llvm.org/docs/doxygen/html/namespacellvm_1_1CodeGenOpt.html
+    llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::None; // I am setting this to None for the moment as I dont know how this changes generation
+
     Array* libs;
     if (global.params.symdebug)
     {
         libs = global.params.debuglibnames;
-        llvm::NoFramePointerElim = true;
+        targetOptions.NoFramePointerElim = true;
     }
     else
         libs = global.params.defaultlibnames;
@@ -514,9 +518,17 @@ LDC_TARGETS
     //std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(triple, FeaturesStr));
     //assert(target.get() && "Could not allocate target machine!");
     //gTargetMachine = target.get();
+    
+    llvm::TargetMachine * target = theTarget->createTargetMachine(
+        llvm::StringRef(triple),
+        llvm::StringRef(mCPU),
+        llvm::StringRef(FeaturesStr),
+        targetOptions,
+        mRelocModel,
+        mCodeModel,
+        codeGenOptLevel
+    );
 
-    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, mCPU, FeaturesStr,
-                                                                 mRelocModel, mCodeModel);
     gTargetMachine = target;
 
     gTargetData = target->getTargetData();
