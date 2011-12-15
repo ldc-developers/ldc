@@ -713,6 +713,9 @@ struct FuncDeclaration : Declaration
     FuncDeclaration *fdrequire;         // function that does the in contract
     FuncDeclaration *fdensure;          // function that does the out contract
 
+    Expressions *fdrequireParams;
+    Expressions *fdensureParams;
+
     Identifier *outId;                  // identifier for out statement
     VarDeclaration *vresult;            // variable corresponding to outId
     LabelDsymbol *returnLabel;          // where the return goes
@@ -832,8 +835,8 @@ struct FuncDeclaration : Declaration
     void toDocBuffer(OutBuffer *buf);
     FuncDeclaration *isUnique();
     int needsClosure();
-    Statement *mergeFrequire(Statement *);
-    Statement *mergeFensure(Statement *);
+    Statement *mergeFrequire(Statement *, Expressions *params = 0);
+    Statement *mergeFensure(Statement *, Expressions *params = 0);
     Parameters *getParameters(int *pvarargs);
 
 // LDC: give argument types to runtime functions

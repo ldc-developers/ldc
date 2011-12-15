@@ -1708,7 +1708,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
         // The current function
         FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
 
-        if (fdv && fdthis && fdv != fdthis/* && fdthis->ident != Id::ensure*/)
+        if (fdv && fdthis && fdv != fdthis && fdthis->ident != Id::ensure && fdthis->ident != Id::require)
         {
             /* __ensure is always called directly,
              * so it never becomes closure.

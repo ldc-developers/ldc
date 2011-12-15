@@ -9,6 +9,7 @@
 #include "template.h"
 #include "module.h"
 #include "statement.h"
+#include "id.h"
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
@@ -252,6 +253,15 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
     Type *dthis=0, *dnest=0;
 
+#if DMDV2
+    if (fdecl->ident == Id::ensure || fdecl->ident == Id::require) {
+        FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
+        assert(p);
+        AggregateDeclaration *ad = p->isMember2();
+        assert(ad);
+        dnest = Type::tvoid->pointerTo();
+    } else
+#endif
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
             Logger::println("isMember = this is: %s", ad->type->toChars());

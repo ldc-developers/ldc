@@ -46,6 +46,8 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     frequire = NULL;
     fdrequire = NULL;
     fdensure = NULL;
+    fdrequireParams = NULL;
+    fdensureParams = NULL;
     outId = NULL;
     vresult = NULL;
     returnLabel = NULL;
@@ -758,6 +760,9 @@ void FuncDeclaration::semantic(Scope *sc)
 
     if (isVirtual() && semanticRun != PASSsemanticdone)
     {
+        Parameters *arguments = ((TypeFunction*)type)->parameters;
+        fdrequireParams = new Expressions();
+
         /* Rewrite contracts as nested functions, then call them.
          * Doing it as nested functions means that overriding functions
          * can call them.
@@ -769,12 +774,12 @@ void FuncDeclaration::semantic(Scope *sc)
              *   __require();
              */
             Loc loc = frequire->loc;
-            TypeFunction *tf = new TypeFunction(NULL, Type::tvoid, 0, LINKd);
+            TypeFunction *tf = new TypeFunction(arguments->copy(), Type::tvoid, 0, LINKd);
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::require, STCundefined, tf);
             fd->fbody = frequire;
             Statement *s1 = new ExpStatement(loc, fd);
-            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), (Expressions *)NULL);
+            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdrequireParams);
             Statement *s2 = new ExpStatement(loc, e);
             frequire = new CompoundStatement(loc, s1, s2);
             fdrequire = fd;
@@ -783,6 +788,13 @@ void FuncDeclaration::semantic(Scope *sc)
         if (!outId && f->nextOf() && f->nextOf()->toBasetype()->ty != Tvoid)
             outId = Id::result; // provide a default
 
+        fdensureParams = new Expressions();
+        Expression *eresult = NULL;
+        if (outId) {
+            eresult = new IdentifierExp(loc, outId);
+            fdensureParams->push(eresult);
+        }
+
         if (fensure)
         {   /*   out (result) { ... }
              * becomes:
@@ -790,21 +802,18 @@ void FuncDeclaration::semantic(Scope *sc)
              *   __ensure(result);
              */
             Loc loc = fensure->loc;
-            Parameters *arguments = new Parameters();
             Parameter *a = NULL;
+            arguments = arguments->copy();
             if (outId)
             {   a = new Parameter(STCref | STCconst, f->nextOf(), outId, NULL);
-                arguments->push(a);
+                arguments->insert(0, a);
             }
             TypeFunction *tf = new TypeFunction(arguments, Type::tvoid, 0, LINKd);
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::ensure, STCundefined, tf);
             fd->fbody = fensure;
             Statement *s1 = new ExpStatement(loc, fd);
-            Expression *eresult = NULL;
-            if (outId)
-                eresult = new IdentifierExp(loc, outId);
-            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), eresult);
+            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdensureParams);
             Statement *s2 = new ExpStatement(loc, e);
             fensure = new CompoundStatement(loc, s1, s2);
             fdensure = fd;
@@ -1098,6 +1107,10 @@ void FuncDeclaration::semantic3(Scope *sc)
                     parameters->push(v);
                 localsymtab->insert(v);
                 v->parent = this;
+                if (fdrequireParams)
+                    fdrequireParams->push(new VarExp(loc, v));
+                if (fdensureParams)
+                    fdensureParams->push(new VarExp(loc, v));
             }
         }
 
@@ -1935,8 +1948,11 @@ void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
  * 'in's are OR'd together, i.e. only one of them needs to pass.
  */
 
-Statement *FuncDeclaration::mergeFrequire(Statement *sf)
+Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
 {
+    if (!params)
+        params = fdrequireParams;
+
     /* Implementing this is done by having the overriding function call
      * nested functions (the fdrequire functions) nested inside the overridden
      * function. This requires that the stack layout of the calling function's
@@ -1969,7 +1985,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
             sc->pop();
         }
 
-        sf = fdv->mergeFrequire(sf);
+        sf = fdv->mergeFrequire(sf, params);
         if (sf && fdv->fdrequire)
         {
             //printf("fdv->frequire: %s\n", fdv->frequire->toChars());
@@ -1977,8 +1993,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
              *   try { __require(); }
              *   catch { frequire; }
              */
-            Expression *eresult = NULL;
-            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire, 0), eresult);
+            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire, 0), params);
             Statement *s2 = new ExpStatement(loc, e);
 
             Catch *c = new Catch(loc, NULL, NULL, sf);
@@ -1997,8 +2012,11 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
  * 'out's are AND'd together, i.e. all of them need to pass.
  */
 
-Statement *FuncDeclaration::mergeFensure(Statement *sf)
+Statement *FuncDeclaration::mergeFensure(Statement *sf, Expressions *params)
 {
+    if (!params)
+        params = fdensureParams;
+
     /* Same comments as for mergeFrequire(), except that we take care
      * of generating a consistent reference to the 'result' local by
      * explicitly passing 'result' to the nested function as a reference
@@ -2024,15 +2042,12 @@ Statement *FuncDeclaration::mergeFensure(Statement *sf)
             sc->pop();
         }
 
-        sf = fdv->mergeFensure(sf);
+        sf = fdv->mergeFensure(sf, params);
         if (fdv->fdensure)
         {
             //printf("fdv->fensure: %s\n", fdv->fensure->toChars());
             // Make the call: __ensure(result)
-            Expression *eresult = NULL;
-            if (outId)
-                eresult = new IdentifierExp(loc, outId);
-            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdensure, 0), eresult);
+            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdensure, 0), params);
             Statement *s2 = new ExpStatement(loc, e);
 
             if (sf)
