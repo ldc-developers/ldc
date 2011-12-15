@@ -54,6 +54,8 @@ void obj_start(char *srcfile);
 void obj_end(Library *library, File *objfile);
 #endif
 
+void printCtfePerformanceStats();
+
 Global global;
 
 Global::Global()
@@ -100,7 +102,7 @@ Global::Global()
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.056";
+    version = "v2.057";
 #if IN_LLVM
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 3.0";
@@ -1317,6 +1319,8 @@ int main(int argc, char *argv[])
     // Do not attempt to generate output files if errors or warnings occurred
     if (global.errors || global.warnings)
         fatal();
+
+    printCtfePerformanceStats();
 
     Library *library = NULL;
     if (global.params.lib)

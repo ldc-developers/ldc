@@ -449,6 +449,12 @@ Statement *CompileStatement::semantic(Scope *sc)
     return s->semantic(sc);
 }
 
+int CompileStatement::blockExit(bool mustNotThrow)
+{
+    assert(global.errors);
+    return BEfallthru;
+}
+
 
 /******************************** CompoundStatement ***************************/
 
@@ -1493,6 +1499,7 @@ Lretry:
             {   // Declare key
                 if (arg->storageClass & (STCout | STCref | STClazy))
                     error("no storage class for key %s", arg->ident->toChars());
+                arg->type = arg->type->semantic(loc, sc);
                 TY keyty = arg->type->ty;
                 if (keyty != Tint32 && keyty != Tuns32)
                 {
@@ -3707,9 +3714,26 @@ Statement *ReturnStatement::semantic(Scope *sc)
             Type *tfret = tf->nextOf();
             if (tfret)
             {
-                if (tfret != Type::terror && !exp->type->equals(tfret))
-                    error("mismatched function return type inference of %s and %s",
-                        exp->type->toChars(), tfret->toChars());
+                if (tfret != Type::terror)
+                {
+                    if (!exp->type->equals(tfret))
+                    {
+                        int m1 = exp->type->implicitConvTo(tfret);
+                        int m2 = tfret->implicitConvTo(exp->type);
+                        //printf("exp->type = %s m2<-->m1 tret %s\n", exp->type->toChars(), tfret->toChars());
+                        //printf("m1 = %d, m2 = %d\n", m1, m2);
+
+                        if (m1 && m2)
+                            ;
+                        else if (!m1 && m2)
+                            tf->next = exp->type;
+                        else if (m1 && !m2)
+                            ;
+                        else
+                            error("mismatched function return type inference of %s and %s",
+                                exp->type->toChars(), tfret->toChars());
+                    }
+                }
 
                 /* The "refness" is determined by the first return statement,
                  * not all of them. This means:
@@ -3739,7 +3763,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
                         tf->isref = FALSE;      // return by value
                 }
                 tf->next = exp->type;
-                fd->type = tf->semantic(loc, sc);
+                //fd->type = tf->semantic(loc, sc);     // Removed with 6902
                 if (!fd->tintro)
                 {   tret = fd->type->nextOf();
                     tbret = tret->toBasetype();
@@ -3755,6 +3779,8 @@ Statement *ReturnStatement::semantic(Scope *sc)
                 exp = exp->castTo(sc, exp->type->invariantOf());
             }
 
+            if (fd->tintro)
+                exp = exp->implicitCastTo(sc, fd->type->nextOf());
             exp = exp->implicitCastTo(sc, tret);
             if (!((TypeFunction *)fd->type)->isref)
                 exp = exp->optimize(WANTvalue);

@@ -167,6 +167,12 @@ int Dsymbol::hasPointers()
     return 0;
 }
 
+bool Dsymbol::hasStaticCtorOrDtor()
+{
+    //printf("Dsymbol::hasStaticCtorOrDtor() %s\n", toChars());
+    return FALSE;
+}
+
 char *Dsymbol::toChars()
 {
     return ident ? ident->toChars() : (char *)"__anonymous";
@@ -1013,36 +1019,41 @@ Dsymbol *ScopeDsymbol::symtabInsert(Dsymbol *s)
     return symtab->insert(s);
 }
 
+/****************************************
+ * Return true if any of the members are static ctors or static dtors, or if
+ * any members have members that are.
+ */
+
+bool ScopeDsymbol::hasStaticCtorOrDtor()
+{
+    if (members)
+    {
+        for (size_t i = 0; i < members->dim; i++)
+        {   Dsymbol *member = (*members)[i];
+
+            if (member->hasStaticCtorOrDtor())
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 /***************************************
  * Determine number of Dsymbols, folding in AttribDeclaration members.
  */
 
 #if DMDV2
+static int dimDg(void *ctx, size_t n, Dsymbol *)
+{
+    ++*(size_t *)ctx;
+    return 0;
+}
+
 size_t ScopeDsymbol::dim(Dsymbols *members)
 {
     size_t n = 0;
     if (members)
-    {
-        for (size_t i = 0; i < members->dim; i++)
-        {   Dsymbol *s = (*members)[i];
-            AttribDeclaration *a = s->isAttribDeclaration();
-            TemplateMixin *tm = s->isTemplateMixin();
-            TemplateInstance *ti = s->isTemplateInstance();
-
-            if (a)
-            {
-                n += dim(a->decl);
-            }
-            else if (tm)
-            {
-                n += dim(tm->members);
-            }
-            else if (ti)
-                ;
-            else
-                n++;
-        }
-    }
+        foreach(members, &dimDg, &n);
     return n;
 }
 #endif
@@ -1056,41 +1067,65 @@ size_t ScopeDsymbol::dim(Dsymbols *members)
  */
 
 #if DMDV2
+struct GetNthSymbolCtx
+{
+    size_t nth;
+    Dsymbol *sym;
+};
+
+static int getNthSymbolDg(void *ctx, size_t n, Dsymbol *sym)
+{
+    GetNthSymbolCtx *p = (GetNthSymbolCtx *)ctx;
+    if (n == p->nth)
+    {   p->sym = sym;
+        return 1;
+    }
+    return 0;
+}
+
 Dsymbol *ScopeDsymbol::getNth(Dsymbols *members, size_t nth, size_t *pn)
 {
-    if (!members)
-        return NULL;
+    GetNthSymbolCtx ctx = { nth, NULL };
+    int res = foreach(members, &getNthSymbolDg, &ctx);
+    return res ? ctx.sym : NULL;
+}
+#endif
 
-    size_t n = 0;
+/***************************************
+ * Expands attribute declarations in members in depth first
+ * order. Calls dg(void *ctx, size_t symidx, Dsymbol *sym) for each
+ * member.
+ * If dg returns !=0, stops and returns that value else returns 0.
+ * Use this function to avoid the O(N + N^2/2) complexity of
+ * calculating dim and calling N times getNth.
+ */
+
+#if DMDV2
+int ScopeDsymbol::foreach(Dsymbols *members, ScopeDsymbol::ForeachDg dg, void *ctx, size_t *pn)
+{
+    assert(members);
+
+    size_t n = pn ? *pn : 0; // take over index
+    int result = 0;
     for (size_t i = 0; i < members->dim; i++)
     {   Dsymbol *s = (*members)[i];
-        AttribDeclaration *a = s->isAttribDeclaration();
-        TemplateMixin *tm = s->isTemplateMixin();
-        TemplateInstance *ti = s->isTemplateInstance();
 
-        if (a)
-        {
-            s = getNth(a->decl, nth - n, &n);
-            if (s)
-                return s;
-        }
-        else if (tm)
-        {
-            s = getNth(tm->members, nth - n, &n);
-            if (s)
-                return s;
-        }
-        else if (ti)
+        if (AttribDeclaration *a = s->isAttribDeclaration())
+            result = foreach(a->decl, dg, ctx, &n);
+        else if (TemplateMixin *tm = s->isTemplateMixin())
+            result = foreach(tm->members, dg, ctx, &n);
+        else if (s->isTemplateInstance())
             ;
-        else if (n == nth)
-            return s;
         else
-            n++;
+            result = dg(ctx, n++, s);
+
+        if (result)
+            break;
     }
 
     if (pn)
-        *pn += n;
-    return NULL;
+        *pn = n; // update index
+    return result;
 }
 #endif
 
@@ -1150,7 +1185,7 @@ Dsymbol *WithScopeSymbol::search(Loc loc, Identifier *ident, int flags)
 ArrayScopeSymbol::ArrayScopeSymbol(Scope *sc, Expression *e)
     : ScopeDsymbol()
 {
-    assert(e->op == TOKindex || e->op == TOKslice);
+    assert(e->op == TOKindex || e->op == TOKslice || e->op == TOKarray);
     exp = e;
     type = NULL;
     td = NULL;
@@ -1224,6 +1259,68 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
 
             pvar = &se->lengthVar;
             ce = se->e1;
+        }
+        else if (exp->op == TOKarray)
+        {   /* array[e0, e1, e2, e3] where e0, e1, e2 are some function of $
+             * $ is a opDollar!(dim)() where dim is the dimension(0,1,2,...)
+             */
+            ArrayExp *ae = (ArrayExp *)exp;
+            AggregateDeclaration *ad = NULL;
+
+            Type *t = ae->e1->type->toBasetype();
+            if (t->ty == Tclass)
+            {
+                ad = ((TypeClass *)t)->sym;
+            }
+            else if (t->ty == Tstruct)
+            {
+                ad = ((TypeStruct *)t)->sym;
+            }
+            assert(ad);
+
+            Dsymbol *dsym = search_function(ad, Id::opDollar);
+            if (!dsym)  // no dollar exists -- search in higher scope
+                return NULL;
+            VarDeclaration *v = ae->lengthVar;
+            if (!v)
+            {   // $ is lazily initialized. Create it now.
+                TemplateDeclaration *td = dsym->isTemplateDeclaration();
+                if (td)
+                {   // Instantiate opDollar!(dim) with the index as a template argument
+                    Objects *tdargs = new Objects();
+                    tdargs->setDim(1);
+
+                    Expression *x = new IntegerExp(0, ae->currentDimension, Type::tsize_t);
+                    x = x->semantic(sc);
+                    tdargs->data[0] = x;
+
+                    //TemplateInstance *ti = new TemplateInstance(loc, td, tdargs);
+                    //ti->semantic(sc);
+
+                    DotTemplateInstanceExp *dte = new DotTemplateInstanceExp(loc, ae->e1, td->ident, tdargs);
+
+                    v = new VarDeclaration(loc, NULL, Id::dollar, new ExpInitializer(0, dte));
+                }
+                else
+                {   /* opDollar exists, but it's a function, not a template.
+                     * This is acceptable ONLY for single-dimension indexing.
+                     * Note that it's impossible to have both template & function opDollar,
+                     * because both take no arguments.
+                     */
+                    if (ae->arguments->dim != 1) {
+                        ae->error("%s only defines opDollar for one dimension", ad->toChars());
+                        return NULL;
+                    }
+                    FuncDeclaration *fd = dsym->isFuncDeclaration();
+                    assert(fd);
+                    Expression * x = new DotVarExp(loc, ae->e1, fd);
+
+                    v = new VarDeclaration(loc, NULL, Id::dollar, new ExpInitializer(0, x));
+                }
+                v->semantic(sc);
+                ae->lengthVar = v;
+            }
+            return v;
         }
         else
             /* Didn't find $, look in enclosing scope(s).
