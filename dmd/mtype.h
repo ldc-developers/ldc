@@ -106,6 +106,7 @@ enum TY
     Ttuple,
     Tslice,
     Treturn,
+    Tnull,
     TMAX
 };
 

@@ -96,6 +96,8 @@ void ReturnStatement::toIR(IRState* p)
             if (!exp && (p->topfunc() == p->mainFunc)) {
                 v = LLConstant::getNullValue(p->mainFunc->getReturnType());
             } else {
+                if (exp->op == TOKnull)
+                    exp->type = p->func()->type->next;
 #if DMDV2
                 DValue* dval = 0;
                 // call postblit if necessary

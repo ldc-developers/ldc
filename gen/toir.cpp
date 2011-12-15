@@ -1551,7 +1551,7 @@ DValue* CmpExp::toElem(IRState* p)
 
     LLValue* eval = 0;
 
-    if (t->isintegral() || t->ty == Tpointer)
+    if (t->isintegral() || t->ty == Tpointer || t->ty == Tnull)
     {
         llvm::ICmpInst::Predicate cmpop;
         bool skip = false;
@@ -1677,7 +1677,7 @@ DValue* EqualExp::toElem(IRState* p)
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
-    if (t->isintegral() || t->ty == Tpointer || t->ty == Tclass)
+    if (t->isintegral() || t->ty == Tpointer || t->ty == Tclass || t->ty == Tnull)
     {
         Logger::println("integral or pointer or interface");
         llvm::ICmpInst::Predicate cmpop;
