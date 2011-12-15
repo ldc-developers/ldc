@@ -407,7 +407,7 @@ EXCEPTION_DISPOSITION _d_framehandler(
     else
     {
         // Jump to catch block if matching one is found
-        int ndx,prev_ndx,i;
+        int ndx,prev_ndx;
         DHandlerInfo *phi;
         DCatchInfo *pci;
         DCatchBlock *pcb;
@@ -429,7 +429,7 @@ EXCEPTION_DISPOSITION _d_framehandler(
         // with an index smaller than the current table_index
         for (ndx = frame.table_index; ndx != -1; ndx = prev_ndx)
         {
-            phi = &handlerTable.handler_info[ndx];
+            phi = &handlerTable.handler_info.ptr[ndx];
             prev_ndx = phi.prev_index;
             if (phi.cioffset)
             {
@@ -437,9 +437,9 @@ EXCEPTION_DISPOSITION _d_framehandler(
                 pci = cast(DCatchInfo *)(cast(ubyte *)handlerTable + phi.cioffset);
                 ncatches = pci.ncatches;
 
-                for (i = 0; i < ncatches; i++)
+                foreach (i; 0..ncatches)
                 {
-                    pcb = &pci.catch_block[i];
+                    pcb = &pci.catch_block.ptr[i];
                     int match = 0;
                     EXCEPTION_RECORD * er = exceptionRecord;
                     // We need to check all the collateral exceptions.
@@ -796,7 +796,7 @@ void _d_local_unwind(DHandlerTable *handler_table,
     }
     for (i = frame.table_index; i != -1 && i != stop_index; i = phi.prev_index)
     {
-        phi = &handler_table.handler_info[i];
+        phi = &handler_table.handler_info.ptr[i];
         if (phi.finally_code)
         {
             // Note that it is unnecessary to adjust the ESP, as the finally block
