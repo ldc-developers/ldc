@@ -538,7 +538,7 @@ version (GC_Use_Data_Dyld)
         {
             void* start;
             void* end;
-            /*const*/ section_t* sec;
+            const(section_t)* sec;
 
             foreach (s ; GC_dyld_sections)
             {
@@ -561,7 +561,7 @@ version (GC_Use_Data_Dyld)
         {
             void* start;
             void* end;
-            /*const*/ section_t* sec;
+            const(section_t)* sec;
 
             foreach (s ; GC_dyld_sections)
             {
