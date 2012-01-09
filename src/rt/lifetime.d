@@ -1739,10 +1739,10 @@ byte[] _d_arrayappendcTX(TypeInfo ti, ref byte[] px, size_t n)
     auto newsize = newlength * sizeelem;
     auto size = length * sizeelem;
 
-    // calculate the extent of the array given the base.
-    size_t offset = px.ptr - __arrayStart(info);
-    if(info.attr & BlkAttr.APPENDABLE)
+    if(info.base && (info.attr & BlkAttr.APPENDABLE))
     {
+        // calculate the extent of the array given the base.
+        size_t offset = px.ptr - __arrayStart(info);
         if(info.size >= PAGESIZE)
         {
             // size of array is at the front of the block
