@@ -597,17 +597,15 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         {
             if (fdecl->parameters && fdecl->parameters->dim > k)
             {
-                Dsymbol* argsym;
-                if (f->fty.reverseParams)
-                    argsym = (Dsymbol*)fdecl->parameters->data[fdecl->parameters->dim-k-1];
-                else
-                    argsym = (Dsymbol*)fdecl->parameters->data[k];
+                int paramIndex = f->fty.reverseParams ? fdecl->parameters->dim-k-1 : k;
+                Dsymbol* argsym = (Dsymbol*)fdecl->parameters->data[paramIndex];
 
                 VarDeclaration* argvd = argsym->isVarDeclaration();
                 assert(argvd);
                 assert(!argvd->ir.irLocal);
-                argvd->ir.irLocal = new IrLocal(argvd);
-                argvd->ir.irLocal->value = iarg;
+                argvd->ir.irParam = new IrParameter(argvd);
+                argvd->ir.irParam->value = iarg;
+                argvd->ir.irParam->arg = f->fty.args[paramIndex];
 
                 str = argvd->ident->toChars();
                 str.append("_arg");
@@ -720,9 +718,10 @@ void DtoDefineFunction(FuncDeclaration* fd)
             irfunction->thisArg = thismem;
         }
 
-        assert(!fd->vthis->ir.irLocal);
-        fd->vthis->ir.irLocal = new IrLocal(fd->vthis);
-        fd->vthis->ir.irLocal->value = thismem;
+        assert(!fd->vthis->ir.irParam);
+        fd->vthis->ir.irParam = new IrParameter(fd->vthis);
+        fd->vthis->ir.irParam->value = thismem;
+        fd->vthis->ir.irParam->arg = f->fty.arg_this;
 
         DtoDwarfLocalVariable(thismem, fd->vthis);
 
@@ -755,8 +754,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
-            IrLocal* irloc = vd->ir.irLocal;
-            assert(irloc);
+            IrParameter* irparam = vd->ir.irParam;
+            assert(irparam);
 
         #if DMDV1
             if (vd->nestedref)
@@ -767,26 +766,26 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
-            if (!refout && (!f->fty.args[i]->byref || lazy))
+            if (!refout && (!irparam->arg->byref || lazy))
             {
                 // alloca a stack slot for this first class value arg
                 LLType* argt;
                 if (lazy)
-                    argt = irloc->value->getType();
+                    argt = irparam->value->getType();
                 else
                     argt = DtoType(vd->type);
                 LLValue* mem = DtoRawAlloca(argt, 0, vd->ident->toChars());
 
                 // let the abi transform the argument back first
-                DImValue arg_dval(vd->type, irloc->value);
+                DImValue arg_dval(vd->type, irparam->value);
                 f->fty.getParam(vd->type, i, &arg_dval, mem);
 
                 // set the arg var value to the alloca
-                irloc->value = mem;
+                irparam->value = mem;
             }
 
-            if (global.params.symdebug && !(isaArgument(irloc->value) && isaArgument(irloc->value)->hasByValAttr()) && !refout)
-                DtoDwarfLocalVariable(irloc->value, vd);
+            if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()) && !refout)
+                DtoDwarfLocalVariable(irparam->value, vd);
         }
     }
 
