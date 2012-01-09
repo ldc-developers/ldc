@@ -193,7 +193,7 @@ llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
     LLType* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
-    return llvm::ArrayType::get(elemType, dim == 0 ? 1 : dim);
+    return llvm::ArrayType::get(elemType, dim);
 }
 
 //////////////////////////////////////////////////////////////////////////////
