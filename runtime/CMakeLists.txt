@@ -67,11 +67,12 @@ list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/deh.d
     ${RUNTIME_DC_DIR}/deh2.d
     ${RUNTIME_DC_DIR}/llmath.d
+    ${RUNTIME_DC_DIR}/memory_osx.d
     ${RUNTIME_DC_DIR}/qsort2.d
     ${RUNTIME_DC_DIR}/trace.d
 )
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/memory_osx.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
+list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
 if(UNIX)
     file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 elseif(WIN32)

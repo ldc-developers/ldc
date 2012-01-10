@@ -639,13 +639,14 @@ namespace AsmParserx8664
         AsmOp   asmOp;
     } AsmOpEnt;
 
-    /* Some opcodes which have data size restrictions, but we don't check
+    /* Some opcodes have data size restrictions, which we don't check
 
        cmov, l<segreg> ?, lea, lsl, shld
 
        todo: push <immediate> is always the 32-bit form, even tho push <mem> is 16-bit
     */
 
+    // WARNING: This table is expected to be SORTED ALPHABETICALLY.
     static AsmOpEnt opData[] =
     {
         { "adc",    Op_UpdSrcF },
@@ -716,36 +717,16 @@ namespace AsmParserx8664
         { "cmps",   Op_cmps  },
         { "cmpsb",  Op_cmpsX },
         { "cmpsd",  Op_cmpsd }, // string cmp, and SSE cmp
+        { "cmpsq",  Op_cmpsX },
         { "cmpss",  Op_DstSrcImmS },
         { "cmpsw",  Op_cmpsX },
-        { "cmpsq",  Op_cmpsX },
-        /*
-        { "cdqe",  Op_0_DXAX },
-        { "cmpsq",  Op_cmpsX },
-        { "cqo",    Op_0_DXAX },
-        { "lodsq", Op_lodsX },
-        { "movsq", Op_movsX },
-        { "popfq", Op_SizedStack },
-        { "pushfq", Op_SizedStack },
-        { "scasq",  Op_scasX },
-        { "stosq",  Op_stosX },
-        { "iretq", Op_iretd },
-        { "swapgs", Op_0 },
-        { "extrq",  Op_Extrq },
-        { "movsxq", Op_movsxq },
-
-        { "clgi",    Op_Flags },
-        { "invlpga", Op_SrcMemNT },
-        { "rdtscp",  Op_0_DXAX },
-        { "stgi",    Op_Flags },
-        */
-
         { "cmpxchg",  Op_cmpxchg },
         { "cmpxchg16b", Op_cmpxchg16b },
         { "cmpxchg8b", Op_cmpxchg8b },
         { "comisd", Op_SrcSrcSSEF },
         { "comiss", Op_SrcSrcSSEF },
         { "cpuid",  Op_cpuid },
+        { "cqo",    Op_0_DXAX },
         { "cvtdq2pd", Op_DstSrcSSE },
         { "cvtdq2ps", Op_DstSrcSSE },
         { "cvtpd2dq", Op_DstSrcSSE },
@@ -965,8 +946,8 @@ namespace AsmParserx8664
         { "lods",  Op_lods },
         { "lodsb", Op_lodsX },
         { "lodsd", Op_lodsX },
-        { "lodsw", Op_lodsX },
         { "lodsq", Op_lodsX },
+        { "lodsw", Op_lodsX },
         { "loop",  Op_Loop },
         { "loope", Op_Loop },
         { "loopne",Op_Loop },
@@ -1045,8 +1026,8 @@ namespace AsmParserx8664
         { "outsd", Op_outsX },
         { "outsw", Op_outsX },
         { "pabsb",    Op_DstSrcSSE },
-        { "pabsw",    Op_DstSrcSSE },
         { "pabsq",    Op_DstSrcSSE },
+        { "pabsw",    Op_DstSrcSSE },
         { "packssdw", Op_DstSrcMMX }, // %% also SSE
         { "packsswb", Op_DstSrcMMX },
         { "packuswb", Op_DstSrcMMX },
@@ -1090,13 +1071,13 @@ namespace AsmParserx8664
         { "pfrsqrt",  Op_DstSrcMMX },
         { "pfsub",    Op_DstSrcMMX },
         { "pfsubr",   Op_DstSrcMMX },
-        { "pi2fd",    Op_DstSrcMMX }, // %%
         { "phaddd",     Op_DstSrcSSE },
         { "phaddsw",     Op_DstSrcSSE },
         { "phaddw",     Op_DstSrcSSE },
         { "phsubd",     Op_DstSrcSSE },
         { "phsubsw",     Op_DstSrcSSE },
         { "phsubw",     Op_DstSrcSSE },
+        { "pi2fd",    Op_DstSrcMMX }, // %%
         { "pinsrw",   Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
         { "pmaddubsw",  Op_DstSrcSSE },
         { "pmaddwd",  Op_DstSrcMMX },
@@ -1105,15 +1086,15 @@ namespace AsmParserx8664
         { "pminsw",   Op_DstSrcMMX },
         { "pminub",   Op_DstSrcMMX },
         { "pmovmskb", Op_DstSrcMMX },
-        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow!
         { "pmulhrsw",  Op_DstSrcMMX },
+        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow!
         { "pmulhuw",  Op_DstSrcMMX },
         { "pmulhw",   Op_DstSrcMMX },
         { "pmullw",   Op_DstSrcMMX },
         { "pmuludq",  Op_DstSrcMMX }, // also sse
         { "pop",      Op_DstW },
         { "popf",     Op_0 },  // rewrite the insn with a special case
-        { "popfq",    Op_0 },
+        { "popfq",    Op_0 }, // Op_SizedStack?
         { "popq",    Op_push },
         { "por",      Op_DstSrcMMX },
         { "prefetchnta", Op_SrcMemNT },
@@ -1158,7 +1139,7 @@ namespace AsmParserx8664
         { "punpcklwd", Op_DstSrcMMX },
         { "push",   Op_push },
         { "pushf",  Op_0 },
-        { "pushfq", Op_0 },
+        { "pushfq", Op_0 }, // Op_SizedStack?
         { "pushq", Op_push },
         { "pxor",   Op_DstSrcMMX },
         { "rcl",    Op_Shift }, // limited src operands -- change to shift
@@ -1189,8 +1170,8 @@ namespace AsmParserx8664
         { "scas",   Op_scas },
         { "scasb",  Op_scasX },
         { "scasd",  Op_scasX },
-        { "scasw",  Op_scasX },
         { "scasq",  Op_scasX },
+        { "scasw",  Op_scasX },
         { "seta",   Op_DstRMBNT }, // also gpr8
         { "setae",  Op_DstRMBNT },
         { "setb",   Op_DstRMBNT },
@@ -1243,8 +1224,8 @@ namespace AsmParserx8664
         { "stos",   Op_stos },
         { "stosb",  Op_stosX },
         { "stosd",  Op_stosX },
-        { "stosw",  Op_stosX },
         { "stosq",  Op_stosX },
+        { "stosw",  Op_stosX },
         { "str",    Op_DstMemNT }, // also r16
         { "sub",    Op_UpdSrcF },
         { "subpd",  Op_DstSrcSSE },
