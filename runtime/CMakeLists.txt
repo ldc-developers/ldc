@@ -12,11 +12,11 @@ endif()
 
 include(CheckTypeSize)
 check_type_size(void*  ptr_size)
-
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
-    set(MULTILIB          OFF                                       CACHE BOOL    "Build both 64-bit and 32-bit libraries")
-ENDIF(${ptr_size} MATCHES "^8$")
+    set(IS_64BIT_OS 1)
+endif(${ptr_size} MATCHES "^8$")
 
+set(MULTILIB              OFF                                       CACHE BOOL    "Build both 64-bit and 32-bit libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as bytecode libraries")
 set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library")
 set(LIB_SUFFIX            ""                                        CACHE STRING  "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
@@ -333,7 +333,11 @@ endif(PHOBOS2_DIR)
 build_runtime("" "" "" "" "${LIB_SUFFIX}")
 set(GENERATE_DI "")
 if(MULTILIB)
-    build_runtime("-m32" "-m32" "-m32" "" "32")
+    if(IS_64BIT_OS)
+        build_runtime("-m32" "-m32" "-m32" "" "32")
+    else(IS_64BIT_OS)
+        build_runtime("-m64" "-m64" "-m64" "" "64")
+    endif(IS_64BIT_OS)
 endif(MULTILIB)
 
 #
