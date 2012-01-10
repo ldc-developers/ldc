@@ -946,6 +946,7 @@ LDC_TARGETS
                 m = (Module *)Module::amodules.data[i];
                 if (global.params.verbose)
                     printf("semantic3 %s\n", m->toChars());
+                m->semantic2();
                 m->semantic3();
             }
             if (global.errors)
