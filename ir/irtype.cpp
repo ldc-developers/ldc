@@ -22,7 +22,7 @@ IrType::IrType(Type* dt, LLType* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
-#if !DMDV2
+#if 0
     // FIXME: For some reason the assert fails
     assert(dt->irtype == NULL && "already has IrType");
 #endif

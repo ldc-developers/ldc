@@ -157,7 +157,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
     this->isRoot = false;
-    this->arrayfuncs = 0;
+    //this->arrayfuncs = 0;
 #endif
 }
 

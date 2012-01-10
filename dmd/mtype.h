@@ -106,8 +106,8 @@ enum TY
     Ttuple,
     Tslice,
     Treturn,
-    Tnull,
-    TMAX
+    TMAX,
+    Tnull
 };
 
 #define Tascii Tchar
