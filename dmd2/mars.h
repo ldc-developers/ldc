@@ -202,7 +202,7 @@ struct Param
     bool useSwitchError; // check for switches without a default
     bool useUnitTests;	// generate unittest code
     bool useInline;	// inline expand functions
-    bool warnings;	// enable warnings
+    ubyte warnings;	// enable warnings
     ubyte Dversion;	// D version number
     char enforcePropertySyntax;
 
