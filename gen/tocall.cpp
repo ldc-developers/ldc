@@ -50,7 +50,10 @@ llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
             return llvm::CallingConv::Fast;
     }
     // on the other hand, here, it's exactly what we want!!! TODO: right?
-    else if (l == LINKwindows || l == LINKpascal)
+    // On Windows 64bit, there is only one calling convention!
+    else if (l == LINKwindows)
+        return global.params.cpu == ARCHx86_64 ? llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+    else if (l == LINKpascal)
         return llvm::CallingConv::X86_StdCall;
     else
     {
@@ -617,8 +620,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // repaint the type if necessary
     if (resulttype)
     {
-		Type* rbase = stripModifiers(resulttype->toBasetype());
-		Type* nextbase = stripModifiers(tf->nextOf()->toBasetype());
+        Type* rbase = stripModifiers(resulttype->toBasetype());
+        Type* nextbase = stripModifiers(tf->nextOf()->toBasetype());
         if (!rbase->equals(nextbase))
         {
             Logger::println("repainting return value from '%s' to '%s'", tf->nextOf()->toChars(), rbase->toChars());
