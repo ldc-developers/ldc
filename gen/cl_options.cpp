@@ -44,7 +44,7 @@ cl::opt<bool> createStaticLib("lib",
     cl::ZeroOrMore);
 
 cl::opt<bool> createSharedLib("shared",
-    cl::desc("Create sharedlibrary"),
+    cl::desc("Create shared library"),
     cl::ZeroOrMore);
 
 static cl::opt<bool, true> verbose("v",
@@ -57,10 +57,15 @@ static cl::opt<bool, true> verbose_cg("v-cg",
     cl::ZeroOrMore,
     cl::location(global.params.verbose_cg));
 
-static cl::opt<bool, true> warnings("w",
-    cl::desc("Enable warnings"),
+static cl::opt<ubyte, true> warnings(
+    cl::desc("Warnings:"),
     cl::ZeroOrMore,
-    cl::location(global.params.warnings));
+    cl::values(
+        clEnumValN(1, "w",  "Enable warnings"),
+        clEnumValN(2, "wi", "Enable informational warnings"),
+        clEnumValEnd),
+    cl::location(global.params.warnings),
+    cl::init(0));
 
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"),

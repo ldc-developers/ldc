@@ -46,6 +46,8 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     frequire = NULL;
     fdrequire = NULL;
     fdensure = NULL;
+    fdrequireParams = NULL;
+    fdensureParams = NULL;
     outId = NULL;
     vresult = NULL;
     returnLabel = NULL;
@@ -423,7 +425,7 @@ void FuncDeclaration::semantic(Scope *sc)
 //          ctor = (CtorDeclaration *)this;
 //          if (!cd->ctor)
 //              cd->ctor = ctor;
-            return;
+            goto Ldone;
         }
 
 #if 0
@@ -758,6 +760,9 @@ void FuncDeclaration::semantic(Scope *sc)
 
     if (isVirtual() && semanticRun != PASSsemanticdone)
     {
+        Parameters *arguments = ((TypeFunction*)type)->parameters;
+        fdrequireParams = new Expressions();
+
         /* Rewrite contracts as nested functions, then call them.
          * Doing it as nested functions means that overriding functions
          * can call them.
@@ -769,12 +774,12 @@ void FuncDeclaration::semantic(Scope *sc)
              *   __require();
              */
             Loc loc = frequire->loc;
-            TypeFunction *tf = new TypeFunction(NULL, Type::tvoid, 0, LINKd);
+            TypeFunction *tf = new TypeFunction(arguments->copy(), Type::tvoid, 0, LINKd);
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::require, STCundefined, tf);
             fd->fbody = frequire;
             Statement *s1 = new ExpStatement(loc, fd);
-            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), (Expressions *)NULL);
+            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdrequireParams);
             Statement *s2 = new ExpStatement(loc, e);
             frequire = new CompoundStatement(loc, s1, s2);
             fdrequire = fd;
@@ -783,6 +788,13 @@ void FuncDeclaration::semantic(Scope *sc)
         if (!outId && f->nextOf() && f->nextOf()->toBasetype()->ty != Tvoid)
             outId = Id::result; // provide a default
 
+        fdensureParams = new Expressions();
+        Expression *eresult = NULL;
+        if (outId) {
+            eresult = new IdentifierExp(loc, outId);
+            fdensureParams->push(eresult);
+        }
+
         if (fensure)
         {   /*   out (result) { ... }
              * becomes:
@@ -790,21 +802,18 @@ void FuncDeclaration::semantic(Scope *sc)
              *   __ensure(result);
              */
             Loc loc = fensure->loc;
-            Parameters *arguments = new Parameters();
             Parameter *a = NULL;
+            arguments = arguments->copy();
             if (outId)
             {   a = new Parameter(STCref | STCconst, f->nextOf(), outId, NULL);
-                arguments->push(a);
+                arguments->insert(0, a);
             }
             TypeFunction *tf = new TypeFunction(arguments, Type::tvoid, 0, LINKd);
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::ensure, STCundefined, tf);
             fd->fbody = fensure;
             Statement *s1 = new ExpStatement(loc, fd);
-            Expression *eresult = NULL;
-            if (outId)
-                eresult = new IdentifierExp(loc, outId);
-            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), eresult);
+            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdensureParams);
             Statement *s2 = new ExpStatement(loc, e);
             fensure = new CompoundStatement(loc, s1, s2);
             fdensure = fd;
@@ -923,7 +932,8 @@ void FuncDeclaration::semantic3(Scope *sc)
         sc2->sw = NULL;
         sc2->fes = fes;
         sc2->linkage = LINKd;
-        sc2->stc &= ~(STCauto | STCscope | STCstatic | STCabstract | STCdeprecated |
+        sc2->stc &= ~(STCauto | STCscope | STCstatic | STCabstract |
+                        STCdeprecated | STCoverride |
                         STC_TYPECTOR | STCfinal | STCtls | STCgshared | STCref |
                         STCproperty | STCsafe | STCtrusted | STCsystem);
         sc2->protection = PROTpublic;
@@ -941,76 +951,16 @@ void FuncDeclaration::semantic3(Scope *sc)
         // Declare 'this'
         AggregateDeclaration *ad = isThis();
         if (ad)
-        {   VarDeclaration *v;
-
+        {
             if (isFuncLiteralDeclaration() && isNested() && !sc->intypeof)
             {
                 error("function literals cannot be class members");
                 return;
             }
             else
-            {
                 assert(!isNested() || sc->intypeof);    // can't be both member and nested
-                assert(ad->handle);
-                Type *thandle = ad->handle;
-#if STRUCTTHISREF
-                thandle = thandle->addMod(type->mod);
-                thandle = thandle->addStorageClass(storage_class);
-                //if (isPure())
-                    //thandle = thandle->addMod(MODconst);
-#else
-                if (storage_class & STCconst || type->isConst())
-                {
-                    assert(0); // BUG: shared not handled
-                    if (thandle->ty == Tclass)
-                        thandle = thandle->constOf();
-                    else
-                    {   assert(thandle->ty == Tpointer);
-                        thandle = thandle->nextOf()->constOf()->pointerTo();
-                    }
-                }
-                else if (storage_class & STCimmutable || type->isImmutable())
-                {
-                    if (thandle->ty == Tclass)
-                        thandle = thandle->invariantOf();
-                    else
-                    {   assert(thandle->ty == Tpointer);
-                        thandle = thandle->nextOf()->invariantOf()->pointerTo();
-                    }
-                }
-                else if (storage_class & STCshared || type->isShared())
-                {
-                    assert(0);  // not implemented
-                }
-#endif
-                v = new ThisDeclaration(loc, thandle);
-                //v = new ThisDeclaration(loc, isCtorDeclaration() ? ad->handle : thandle);
-                v->storage_class |= STCparameter;
-#if STRUCTTHISREF
-                if (thandle->ty == Tstruct)
-                    v->storage_class |= STCref;
-#endif
-                v->semantic(sc2);
-                if (!sc2->insert(v))
-                    assert(0);
-                v->parent = this;
-                vthis = v;
-            }
         }
-        else if (isNested())
-        {
-            /* The 'this' for a nested function is the link to the
-             * enclosing function's stack frame.
-             * Note that nested functions and member functions are disjoint.
-             */
-            VarDeclaration *v = new ThisDeclaration(loc, Type::tvoid->pointerTo());
-            v->storage_class |= STCparameter;
-            v->semantic(sc2);
-            if (!sc2->insert(v))
-                assert(0);
-            v->parent = this;
-            vthis = v;
-        }
+        vthis = declareThis(sc2, ad);
 
         // Declare hidden variable _arguments[] and _argptr
         if (f->varargs == 1)
@@ -1157,6 +1107,10 @@ void FuncDeclaration::semantic3(Scope *sc)
                     parameters->push(v);
                 localsymtab->insert(v);
                 v->parent = this;
+                if (fdrequireParams)
+                    fdrequireParams->push(new VarExp(loc, v));
+                if (fdensureParams)
+                    fdensureParams->push(new VarExp(loc, v));
             }
         }
 
@@ -1363,7 +1317,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                 if (!type->nextOf())
                 {
                     ((TypeFunction *)type)->next = Type::tvoid;
-                    type = type->semantic(loc, sc);
+                    //type = type->semantic(loc, sc);   // Removed with 6902
                 }
                 f = (TypeFunction *)type;
             }
@@ -1835,6 +1789,12 @@ void FuncDeclaration::semantic3(Scope *sc)
         f->trust = TRUSTsafe;
     }
 
+    // Do semantic type AFTER pure/nothrow inference.
+    if (inferRetType)
+    {
+        type = type->semantic(loc, sc);
+    }
+
     if (global.gag && global.errors != nerrors)
         semanticRun = PASSsemanticdone; // Ensure errors get reported again
     else
@@ -1850,6 +1810,76 @@ void FuncDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     StorageClassDeclaration::stcToCBuffer(buf, storage_class);
     type->toCBuffer(buf, ident, hgs);
     bodyToCBuffer(buf, hgs);
+}
+
+VarDeclaration *FuncDeclaration::declareThis(Scope *sc, AggregateDeclaration *ad)
+{
+    if (ad)
+    {   VarDeclaration *v;
+
+        {
+            assert(ad->handle);
+            Type *thandle = ad->handle;
+#if STRUCTTHISREF
+            thandle = thandle->addMod(type->mod);
+            thandle = thandle->addStorageClass(storage_class);
+            //if (isPure())
+                //thandle = thandle->addMod(MODconst);
+#else
+            if (storage_class & STCconst || type->isConst())
+            {
+                assert(0); // BUG: shared not handled
+                if (thandle->ty == Tclass)
+                    thandle = thandle->constOf();
+                else
+                {   assert(thandle->ty == Tpointer);
+                    thandle = thandle->nextOf()->constOf()->pointerTo();
+                }
+            }
+            else if (storage_class & STCimmutable || type->isImmutable())
+            {
+                if (thandle->ty == Tclass)
+                    thandle = thandle->invariantOf();
+                else
+                {   assert(thandle->ty == Tpointer);
+                    thandle = thandle->nextOf()->invariantOf()->pointerTo();
+                }
+            }
+            else if (storage_class & STCshared || type->isShared())
+            {
+                assert(0);  // not implemented
+            }
+#endif
+            v = new ThisDeclaration(loc, thandle);
+            //v = new ThisDeclaration(loc, isCtorDeclaration() ? ad->handle : thandle);
+            v->storage_class |= STCparameter;
+#if STRUCTTHISREF
+            if (thandle->ty == Tstruct)
+                v->storage_class |= STCref;
+#endif
+            v->semantic(sc);
+            if (!sc->insert(v))
+                assert(0);
+            v->parent = this;
+            return v;
+        }
+    }
+    else if (isNested())
+    {
+        /* The 'this' for a nested function is the link to the
+         * enclosing function's stack frame.
+         * Note that nested functions and member functions are disjoint.
+         */
+        VarDeclaration *v = new ThisDeclaration(loc, Type::tvoid->pointerTo());
+        v->storage_class |= STCparameter;
+        v->semantic(sc);
+        if (!sc->insert(v))
+            assert(0);
+        v->parent = this;
+        return v;
+    }
+
+    return NULL;
 }
 
 int FuncDeclaration::equals(Object *o)
@@ -1918,8 +1948,11 @@ void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
  * 'in's are OR'd together, i.e. only one of them needs to pass.
  */
 
-Statement *FuncDeclaration::mergeFrequire(Statement *sf)
+Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
 {
+    if (!params)
+        params = fdrequireParams;
+
     /* Implementing this is done by having the overriding function call
      * nested functions (the fdrequire functions) nested inside the overridden
      * function. This requires that the stack layout of the calling function's
@@ -1952,7 +1985,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
             sc->pop();
         }
 
-        sf = fdv->mergeFrequire(sf);
+        sf = fdv->mergeFrequire(sf, params);
         if (sf && fdv->fdrequire)
         {
             //printf("fdv->frequire: %s\n", fdv->frequire->toChars());
@@ -1960,8 +1993,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
              *   try { __require(); }
              *   catch { frequire; }
              */
-            Expression *eresult = NULL;
-            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire, 0), eresult);
+            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire, 0), params);
             Statement *s2 = new ExpStatement(loc, e);
 
             Catch *c = new Catch(loc, NULL, NULL, sf);
@@ -1980,8 +2012,11 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
  * 'out's are AND'd together, i.e. all of them need to pass.
  */
 
-Statement *FuncDeclaration::mergeFensure(Statement *sf)
+Statement *FuncDeclaration::mergeFensure(Statement *sf, Expressions *params)
 {
+    if (!params)
+        params = fdensureParams;
+
     /* Same comments as for mergeFrequire(), except that we take care
      * of generating a consistent reference to the 'result' local by
      * explicitly passing 'result' to the nested function as a reference
@@ -2007,15 +2042,12 @@ Statement *FuncDeclaration::mergeFensure(Statement *sf)
             sc->pop();
         }
 
-        sf = fdv->mergeFensure(sf);
+        sf = fdv->mergeFensure(sf, params);
         if (fdv->fdensure)
         {
             //printf("fdv->fensure: %s\n", fdv->fensure->toChars());
             // Make the call: __ensure(result)
-            Expression *eresult = NULL;
-            if (outId)
-                eresult = new IdentifierExp(loc, outId);
-            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdensure, 0), eresult);
+            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdensure, 0), params);
             Statement *s2 = new ExpStatement(loc, e);
 
             if (sf)
@@ -3313,8 +3345,8 @@ int CtorDeclaration::addPostInvariant()
 /********************************* PostBlitDeclaration ****************************/
 
 #if DMDV2
-PostBlitDeclaration::PostBlitDeclaration(Loc loc, Loc endloc)
-    : FuncDeclaration(loc, endloc, Id::_postblit, STCundefined, NULL)
+PostBlitDeclaration::PostBlitDeclaration(Loc loc, Loc endloc, StorageClass stc)
+    : FuncDeclaration(loc, endloc, Id::_postblit, stc, NULL)
 {
 }
 
@@ -3347,7 +3379,7 @@ void PostBlitDeclaration::semantic(Scope *sc)
         ad->postblits.push(this);
 
     if (!type)
-        type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);
+        type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd, storage_class);
 
     sc = sc->push();
     sc->stc &= ~STCstatic;              // not static
@@ -3557,6 +3589,11 @@ int StaticCtorDeclaration::isVirtual()
     return FALSE;
 }
 
+bool StaticCtorDeclaration::hasStaticCtorOrDtor()
+{
+    return TRUE;
+}
+
 int StaticCtorDeclaration::addPreInvariant()
 {
     return FALSE;
@@ -3682,6 +3719,11 @@ AggregateDeclaration *StaticDtorDeclaration::isThis()
 int StaticDtorDeclaration::isVirtual()
 {
     return FALSE;
+}
+
+bool StaticDtorDeclaration::hasStaticCtorOrDtor()
+{
+    return TRUE;
 }
 
 int StaticDtorDeclaration::addPreInvariant()

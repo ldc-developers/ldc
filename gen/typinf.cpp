@@ -380,7 +380,11 @@ void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
 
 void TypeInfoDeclaration::llvmDefine()
 {
-    assert(0 && "cannot generate generic typeinfo");
+    Logger::println("TypeInfoDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    RTTIBuilder b(Type::typeinfo);
+    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */

@@ -1381,6 +1381,14 @@ DValue* ThisExp::toElem(IRState* p)
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
         Dsymbol* vdparent = vd->toParent2();
+#if DMDV2
+        Identifier *ident = p->func()->decl->ident;
+        if (ident == Id::ensure || ident == Id::require) {
+            Logger::println("contract this exp");
+            v = p->func()->nestArg;
+            v = DtoBitCast(v, DtoType(type)->getPointerTo());
+        } else
+#endif
         if (vdparent != p->func()->decl) {
             Logger::println("nested this exp");
 #if STRUCTTHISREF
@@ -1551,7 +1559,7 @@ DValue* CmpExp::toElem(IRState* p)
 
     LLValue* eval = 0;
 
-    if (t->isintegral() || t->ty == Tpointer)
+    if (t->isintegral() || t->ty == Tpointer || t->ty == Tnull)
     {
         llvm::ICmpInst::Predicate cmpop;
         bool skip = false;
@@ -1677,7 +1685,7 @@ DValue* EqualExp::toElem(IRState* p)
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
-    if (t->isintegral() || t->ty == Tpointer || t->ty == Tclass)
+    if (t->isintegral() || t->ty == Tpointer || t->ty == Tclass || t->ty == Tnull)
     {
         Logger::println("integral or pointer or interface");
         llvm::ICmpInst::Predicate cmpop;

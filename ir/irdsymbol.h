@@ -8,6 +8,7 @@ struct IrFunction;
 struct IrStruct;
 struct IrGlobal;
 struct IrLocal;
+struct IrParameter;
 struct IrField;
 struct IrVar;
 struct Dsymbol;
@@ -43,7 +44,10 @@ struct IrDsymbol
     IrFunction* irFunc;
 
     IrGlobal* irGlobal;
-    IrLocal* irLocal;
+    union {
+        IrLocal* irLocal;
+        IrParameter *irParam;
+    };
     IrField* irField;
     IrVar* getIrVar();
     llvm::Value*& getIrValue();

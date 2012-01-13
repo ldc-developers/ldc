@@ -2,6 +2,7 @@
 
 #include "mtype.h"
 #include "declaration.h"
+#include "id.h"
 
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
@@ -388,6 +389,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // then comes a context argument...
     if(thiscall || delegatecall || nestedcall)
     {
+#if DMDV2
+        if (dfnval && (dfnval->func->ident == Id::ensure || dfnval->func->ident == Id::require)) {
+            LLValue* thisarg = DtoBitCast(DtoLoad(gIR->func()->thisArg), getVoidPtrType());
+            ++argiter;
+            args.push_back(thisarg);
+        }
+        else
+#endif
         // ... which can be a 'this' argument
         if (thiscall && dfnval && dfnval->vthis)
         {
