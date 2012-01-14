@@ -21,6 +21,7 @@
 #include "module.h"
 #include "id.h"
 #include "expression.h"
+#include "statement.h"
 #include "hdrgen.h"
 
 /********************************* Declaration ****************************/
@@ -700,7 +701,7 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     aliassym = NULL;
     onstack = 0;
     canassign = 0;
-    setValueNull();
+    ctfeAdrOnStack = (size_t)(-1);
 #if DMDV2
     rundtor = NULL;
     edtor = NULL;
@@ -1162,9 +1163,15 @@ Lnomatch:
         {
             error("only parameters or stack based variables can be inout");
         }
-        if (sc->func && !sc->func->type->hasWild())
+        FuncDeclaration *func = sc->func;
+        if (func)
         {
-            error("inout variables can only be declared inside inout functions");
+            if (func->fes)
+                func = func->fes->func;
+            if (!func->type->hasWild())
+            {
+                error("inout variables can only be declared inside inout functions");
+            }
         }
     }
 
@@ -1701,8 +1708,12 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
         // The current function
         FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
 
-        if (fdv && fdthis && fdv != fdthis)
+        if (fdv && fdthis && fdv != fdthis && fdthis->ident != Id::ensure && fdthis->ident != Id::require)
         {
+            /* __ensure is always called directly,
+             * so it never becomes closure.
+             */
+
             if (loc.filename)
                 fdthis->getLevel(loc, fdv);
 
@@ -1720,7 +1731,6 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
                 if (s == this)
                     goto L2;
             }
-
             fdv->closureVars.push(this);
           L2: ;
 

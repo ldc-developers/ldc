@@ -21,7 +21,7 @@
 static uinteger_t copySign(uinteger_t x, bool sign)
 {
     // return sign ? -x : x;
-    return (x - sign) ^ -sign;
+    return (x - (uinteger_t)sign) ^ -(uinteger_t)sign;
 }
 
 #ifndef UINT64_MAX

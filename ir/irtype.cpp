@@ -12,7 +12,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 extern LLType* DtoType(Type* dt);
-extern LLType* DtoSize_t();
+extern LLIntegerType* DtoSize_t();
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -22,7 +22,7 @@ IrType::IrType(Type* dt, LLType* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
-#if !DMDV2
+#if 0
     // FIXME: For some reason the assert fails
     assert(dt->irtype == NULL && "already has IrType");
 #endif
@@ -137,7 +137,7 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypePointer::IrTypePointer(Type * dt)
-: IrType(dt, pointer2llvm(dt))
+: IrType(dt, dt->ty == Tnull ? null2llvm(dt) : pointer2llvm(dt))
 {
 }
 
@@ -157,6 +157,13 @@ llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
     LLType* elemType = DtoType(dt->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
+    return llvm::PointerType::get(elemType, 0);
+}
+
+llvm::Type* IrTypePointer::null2llvm(Type* dt)
+{
+    assert(dt->ty == Tnull && "not null type");
+    LLType* elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     return llvm::PointerType::get(elemType, 0);
 }
 
@@ -186,7 +193,7 @@ llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
     LLType* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
-    return llvm::ArrayType::get(elemType, dim == 0 ? 1 : dim);
+    return llvm::ArrayType::get(elemType, dim);
 }
 
 //////////////////////////////////////////////////////////////////////////////

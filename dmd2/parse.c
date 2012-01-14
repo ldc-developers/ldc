@@ -266,6 +266,8 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 }
                 else
                 {
+                    if (!global.params.useDeprecated)
+                        error("use of 'invariant' rather than 'immutable' is deprecated");
                     stc = STCimmutable;
                     goto Lstc;
                 }
@@ -407,7 +409,11 @@ Dsymbols *Parser::parseDeclDefs(int once)
                         else if (token.value == TOKwild)
                             stc = STCwild;
                         else
+                        {
+                            if (token.value == TOKinvariant && !global.params.useDeprecated)
+                                error("use of 'invariant' rather than 'immutable' is deprecated");
                             stc = STCimmutable;
+                        }
                         goto Lstc;
                     case TOKfinal:        stc = STCfinal;        goto Lstc;
                     case TOKauto:         stc = STCauto;         goto Lstc;
@@ -981,7 +987,8 @@ Dsymbol *Parser::parseCtor()
         nextToken();
         nextToken();
         check(TOKrparen);
-        PostBlitDeclaration *f = new PostBlitDeclaration(loc, 0);
+        StorageClass stc = parsePostfix();
+        PostBlitDeclaration *f = new PostBlitDeclaration(loc, 0, stc);
         parseContracts(f);
         return f;
     }
@@ -1278,6 +1285,8 @@ Parameters *Parser::parseParameters(int *pvarargs)
                 case TOKimmutable:
                     if (peek(&token)->value == TOKlparen)
                         goto Ldefault;
+                    if (token.value == TOKinvariant && !global.params.useDeprecated)
+                        error("use of 'invariant' rather than 'immutable' is deprecated");
                     stc = STCimmutable;
                     goto L2;
 
@@ -2366,7 +2375,9 @@ Type *Parser::parseBasicType()
             check(TOKlparen);
             t = parseType();
             check(TOKrparen);
-            if (t->isShared())
+            if (t->isImmutable())
+                ;
+            else if (t->isShared())
                 t = t->makeSharedConst();
             else
                 t = t->makeConst();
@@ -2390,7 +2401,9 @@ Type *Parser::parseBasicType()
             check(TOKlparen);
             t = parseType();
             check(TOKrparen);
-            if (t->isConst())
+            if (t->isImmutable())
+                ;
+            else if (t->isConst())
                 t = t->makeSharedConst();
             else if (t->isWild())
                 t = t->makeSharedWild();
@@ -2404,7 +2417,9 @@ Type *Parser::parseBasicType()
             check(TOKlparen);
             t = parseType();
             check(TOKrparen);
-            if (t->isShared())
+            if (t->isImmutable()/* || t->isConst()*/)
+                ;
+            else if (t->isShared())
                 t = t->makeSharedWild();
             else
                 t = t->makeWild();
@@ -2511,7 +2526,7 @@ Type *Parser::parseBasicType2(Type *t)
     return NULL;
 }
 
-Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters **tpl, StorageClass storage_class)
+Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters **tpl, StorageClass storage_class, int* pdisable)
 {   Type *ts;
 
     //printf("parseDeclarator(tpl = %p)\n", tpl);
@@ -2643,6 +2658,8 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
                 stc |= storage_class;   // merge prefix storage classes
                 Type *tf = new TypeFunction(arguments, t, varargs, linkage, stc);
                 tf = tf->addSTC(stc);
+                if (pdisable)
+                    *pdisable = stc & STCdisable ? 1 : 0;
 
                 /* Insert tf into
                  *   ts -> ... -> t
@@ -2673,6 +2690,7 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
 Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *comment)
 {
     StorageClass stc;
+    int disable;
     Type *ts;
     Type *t;
     Type *tfirst;
@@ -2711,6 +2729,8 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
             }
             break;
         case TOKtypedef:
+            if (!global.params.useDeprecated)
+                error("use of typedef is deprecated; use alias instead");
             tok = token.value;
             nextToken();
             break;
@@ -2731,6 +2751,8 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
             case TOKimmutable:
                 if (peek(&token)->value == TOKlparen)
                     break;
+                if (token.value == TOKinvariant && !global.params.useDeprecated)
+                    error("use of 'invariant' rather than 'immutable' is deprecated");
                 stc = STCimmutable;
                 goto L1;
 
@@ -2814,7 +2836,11 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
         token.value == TOKidentifier &&
         (tk = peek(&token))->value == TOKlparen &&
         skipParens(tk, &tk) &&
-        peek(tk)->value == TOKlparen)
+        ((tk = peek(tk)), 1) &&
+        skipAttributes(tk, &tk) &&
+        (tk->value == TOKlparen ||
+         tk->value == TOKlcurly)
+       )
     {
         ts = NULL;
     }
@@ -2835,7 +2861,7 @@ L2:
         TemplateParameters *tpl = NULL;
 
         ident = NULL;
-        t = parseDeclarator(ts, &ident, &tpl, storage_class);
+        t = parseDeclarator(ts, &ident, &tpl, storage_class, &disable);
         assert(t);
         if (!tfirst)
             tfirst = t;
@@ -2855,7 +2881,10 @@ L2:
                 init = parseInitializer();
             }
             if (tok == TOKtypedef)
-                v = new TypedefDeclaration(loc, ident, t, init);
+            {   v = new TypedefDeclaration(loc, ident, t, init);
+                if (!global.params.useDeprecated)
+                    error("use of typedef is deprecated; use alias instead");
+            }
             else
             {   if (init)
                     error("alias cannot have initializer");
@@ -2902,7 +2931,7 @@ L2:
             //printf("%s funcdecl t = %s, storage_class = x%lx\n", loc.toChars(), t->toChars(), storage_class);
 
             FuncDeclaration *f =
-                new FuncDeclaration(loc, 0, ident, storage_class, t);
+                new FuncDeclaration(loc, 0, ident, storage_class | (disable ? STCdisable : 0), t);
             addComment(f, comment);
             if (tpl)
                 constraint = parseConstraint();
@@ -5031,7 +5060,8 @@ int Parser::skipAttributes(Token *t, Token **pt)
             //case TOKmanifest:
                 break;
             case TOKat:
-                if (parseAttribute() == STCundefined)
+                t = peek(t);
+                if (t->value == TOKidentifier)
                     break;
                 goto Lerror;
             default:
@@ -5335,6 +5365,8 @@ Expression *Parser::parsePrimaryExp()
                          token.value == TOKdelegate ||
                          token.value == TOKreturn))
                     {
+                        if (token.value == TOKinvariant && !global.params.useDeprecated)
+                            error("use of 'invariant' rather than 'immutable' is deprecated");
                         tok2 = token.value;
                         nextToken();
                     }
@@ -5708,6 +5740,8 @@ Expression *Parser::parseUnaryExp()
             }
             else if ((token.value == TOKimmutable || token.value == TOKinvariant) && peekNext() == TOKrparen)
             {
+                if (token.value == TOKinvariant && !global.params.useDeprecated)
+                    error("use of 'invariant' rather than 'immutable' is deprecated");
                 m = MODimmutable;
                 goto Lmod2;
             }

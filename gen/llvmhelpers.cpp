@@ -736,6 +736,26 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
     }
 }
 
+
+DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
+{
+    Type* totype = to->toBasetype();
+    LLType* tolltype = DtoType(to);
+
+    if (totype->ty == Tpointer)
+    {
+        if (Logger::enabled())
+            Logger::cout() << "cast null to pointer: " << *tolltype << '\n';
+        LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
+        return new DImValue(to, rval);
+    }
+    else
+    {
+        error(loc, "invalid cast from null to '%s'", to->toChars());
+        fatal();
+    }
+}
+
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
     Type* fromtype = val->getType()->toBasetype();
@@ -774,6 +794,9 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     }
     else if (fromtype->ty == Tdelegate) {
         return DtoCastDelegate(loc, val, to);
+    }
+    else if (fromtype->ty == Tnull) {
+        return DtoCastNull(loc, val, to);
     }
     else if (fromtype->ty == totype->ty) {
         return val;

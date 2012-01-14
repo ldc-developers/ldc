@@ -461,20 +461,31 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                 vd->ir.irLocal->nestedIndex = types.size();
                 vd->ir.irLocal->nestedDepth = depth;
                 if (vd->isParameter()) {
-                    // Parameters already have storage associated with them (to handle byref etc.),
+                    // Parameters will have storage associated with them (to handle byref etc.),
                     // so handle those cases specially by storing a pointer instead of a value.
-                    assert(vd->ir.irLocal->value);
-                    LLValue* value = vd->ir.irLocal->value;
+                    assert(vd->ir.irParam->value);
+                    LLValue* value = vd->ir.irParam->value;
                     LLType* type = value->getType();
-                    if (llvm::isa<llvm::AllocaInst>(llvm::GetUnderlyingObject(value)))
+                    bool refout = vd->storage_class & (STCref | STCout);
+                    bool lazy = vd->storage_class & STClazy;
+                    if (!refout && (!vd->ir.irParam->arg->byref || lazy)) {
                         // This will be copied to the nesting frame.
-                        type = type->getContainedType(0);
+                        if (lazy)
+                            type = type->getContainedType(0);
+                        else
+                            type = DtoType(vd->type);
+                        vd->ir.irParam->byref = false;
+                    } else {
+                        vd->ir.irParam->byref = true;
+                    }
                     types.push_back(type);
                 } else if (vd->isRef() || vd->isOut()) {
                     // Foreach variables can also be by reference, for instance.
                     types.push_back(DtoType(vd->type->pointerTo()));
+                    vd->ir.irLocal->byref = true;
                 } else {
                     types.push_back(DtoType(vd->type));
+                    vd->ir.irLocal->byref = false;
                 }
                 if (Logger::enabled()) {
                     Logger::println("Nested var: %s", vd->toChars());
@@ -669,30 +680,30 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                         // The parameter value is an alloca'd stack slot.
                         // Copy to the nesting frame and leave the alloca for
                         // the optimizers to clean up.
+                        assert(!vd->ir.irLocal->byref);
                         DtoStore(DtoLoad(value), gep);
                         gep->takeName(value);
                         vd->ir.irLocal->value = gep;
-                        vd->ir.irLocal->byref = false;
                     } else {
                         Logger::println("Adding pointer to nested frame");
                         // The parameter value is something else, such as a
                         // passed-in pointer (for 'ref' or 'out' parameters) or
                         // a pointer arg with byval attribute.
-                        // Store the address into the frame and set the byref flag.
+                        // Store the address into the frame.
+                        assert(vd->ir.irLocal->byref);
                         storeVariable(vd, gep);
-                        vd->ir.irLocal->byref = true;
                     }
                 } else if (vd->isRef() || vd->isOut()) {
                     // This slot is initialized in DtoNestedInit, to handle things like byref foreach variables
                     // which move around in memory.
-                    vd->ir.irLocal->byref = true;
+                    assert(vd->ir.irLocal->byref);
                 } else {
                     Logger::println("nested var:   %s", vd->toChars());
                     if (vd->ir.irLocal->value)
                         Logger::cout() << "Pre-existing value: " << *vd->ir.irLocal->value << '\n';
                     assert(!vd->ir.irLocal->value);
                     vd->ir.irLocal->value = gep;
-                    vd->ir.irLocal->byref = false;
+                    assert(!vd->ir.irLocal->byref);
                 }
 
                 if (global.params.symdebug) {

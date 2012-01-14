@@ -105,6 +105,8 @@ public:
 protected:
     ///
     llvm::Type* pointer2llvm(Type* t);
+    ///
+    llvm::Type* null2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////

@@ -766,7 +766,25 @@ MATCH TemplateDeclaration::matchWithInstance(TemplateInstance *ti,
         Expression *e = constraint->syntaxCopy();
         Scope *sc = paramscope->push();
         sc->flags |= SCOPEstaticif;
+
+        FuncDeclaration *fd = onemember && onemember->toAlias() ?
+            onemember->toAlias()->isFuncDeclaration() : NULL;
+        Dsymbol *s = parent;
+        while (s->isTemplateInstance() || s->isTemplateMixin())
+            s = s->parent;
+        AggregateDeclaration *ad = s->isAggregateDeclaration();
+        VarDeclaration *vthissave;
+        if (fd && ad)
+        {
+            vthissave = fd->vthis;
+            fd->vthis = fd->declareThis(paramscope, ad);
+        }
+
         e = e->semantic(sc);
+
+        if (fd && fd->vthis)
+            fd->vthis = vthissave;
+
         sc->pop();
         e = e->optimize(WANTvalue | WANTinterpret);
         if (e->isBool(TRUE))
@@ -924,7 +942,7 @@ MATCH TemplateDeclaration::deduceFunctionTemplateMatch(Scope *sc, Loc loc, Objec
 
 #if 0
     printf("\nTemplateDeclaration::deduceFunctionTemplateMatch() %s\n", toChars());
-    for (i = 0; i < fargs->dim; i++)
+    for (size_t i = 0; i < fargs->dim; i++)
     {   Expression *e = fargs->tdata()[i];
         printf("\tfarg[%d] is %s, type is %s\n", i, e->toChars(), e->type->toChars());
     }
@@ -1188,7 +1206,9 @@ L2:
             }
         }
         else
-        {   Expression *farg = fargs->tdata()[i];
+        {
+            Expression *farg = fargs->tdata()[i];
+Lretry:
 #if 0
             printf("\tfarg->type   = %s\n", farg->type->toChars());
             printf("\tfparam->type = %s\n", fparam->type->toChars());
@@ -1208,6 +1228,14 @@ L2:
                     argtype = argtype->invariantOf();
                 }
             }
+
+            /* Remove top const for dynamic array types and pointer types
+             */
+            if ((argtype->ty == Tarray || argtype->ty == Tpointer) &&
+                !argtype->isMutable())
+            {
+                argtype = argtype->mutableOf();
+            }
 #endif
 
             MATCH m;
@@ -1219,18 +1247,41 @@ L2:
 
             /* If no match, see if there's a conversion to a delegate
              */
-            if (!m && fparam->type->toBasetype()->ty == Tdelegate)
-            {
-                TypeDelegate *td = (TypeDelegate *)fparam->type->toBasetype();
-                TypeFunction *tf = (TypeFunction *)td->next;
-
-                if (!tf->varargs && Parameter::dim(tf->parameters) == 0)
+            if (!m)
+            {   Type *tbp = fparam->type->toBasetype();
+                Type *tba = farg->type->toBasetype();
+                AggregateDeclaration *ad;
+                if (tbp->ty == Tdelegate)
                 {
-                    m = farg->type->deduceType(paramscope, tf->next, parameters, &dedtypes);
-                    if (!m && tf->next->toBasetype()->ty == Tvoid)
-                        m = MATCHconvert;
+                    TypeDelegate *td = (TypeDelegate *)fparam->type->toBasetype();
+                    TypeFunction *tf = (TypeFunction *)td->next;
+
+                    if (!tf->varargs && Parameter::dim(tf->parameters) == 0)
+                    {
+                        m = farg->type->deduceType(paramscope, tf->next, parameters, &dedtypes);
+                        if (!m && tf->next->toBasetype()->ty == Tvoid)
+                            m = MATCHconvert;
+                    }
+                    //printf("\tm2 = %d\n", m);
                 }
-                //printf("\tm2 = %d\n", m);
+                else if (tba->ty == Tclass)
+                {
+                    ad = ((TypeClass *)tba)->sym;
+                    goto Lad;
+                }
+                else if (tba->ty == Tstruct)
+                {
+                    ad = ((TypeStruct *)tba)->sym;
+            Lad:
+                    if (ad->aliasthis)
+                    {
+                        Expression *e = new DotIdExp(farg->loc, farg, ad->aliasthis->ident);
+                        e = e->semantic(sc);
+                        e = resolveProperties(sc, e);
+                        farg = e;
+                        goto Lretry;
+                    }
+                }
             }
 
             if (m)
@@ -1399,7 +1450,23 @@ Lmatch:
 
         int nerrors = global.errors;
 
+        FuncDeclaration *fd = onemember && onemember->toAlias() ?
+            onemember->toAlias()->isFuncDeclaration() : NULL;
+        Dsymbol *s = parent;
+        while (s->isTemplateInstance() || s->isTemplateMixin())
+            s = s->parent;
+        AggregateDeclaration *ad = s->isAggregateDeclaration();
+        VarDeclaration *vthissave;
+        if (fd && ad)
+        {
+            vthissave = fd->vthis;
+            fd->vthis = fd->declareThis(paramscope, ad);
+        }
+
         e = e->semantic(paramscope);
+
+        if (fd && fd->vthis)
+            fd->vthis = vthissave;
 
         previous = pr.prev;             // unlink from threaded list
 
@@ -1680,6 +1747,11 @@ FuncDeclaration *TemplateDeclaration::deduceFunctionTemplate(Scope *sc, Loc loc,
                 bufa.toChars(), buf.toChars());
     }
     return NULL;
+}
+
+bool TemplateDeclaration::hasStaticCtorOrDtor()
+{
+    return FALSE;               // don't scan uninstantiated templates
 }
 
 void TemplateDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -2107,33 +2179,23 @@ MATCH TypeSArray::deduceType(Scope *sc, Type *tparam, TemplateParameters *parame
     // Extra check that array dimensions must match
     if (tparam)
     {
+        if (tparam->ty == Tarray)
+        {   MATCH m;
+
+            m = next->deduceType(sc, tparam->nextOf(), parameters, dedtypes, wildmatch);
+            if (m == MATCHexact)
+                m = MATCHconvert;
+            return m;
+        }
+
+        Identifier *id = NULL;
         if (tparam->ty == Tsarray)
         {
             TypeSArray *tp = (TypeSArray *)tparam;
-
             if (tp->dim->op == TOKvar &&
                 ((VarExp *)tp->dim)->var->storage_class & STCtemplateparameter)
-            {   int i = templateIdentifierLookup(((VarExp *)tp->dim)->var->ident, parameters);
-                // This code matches code in TypeInstance::deduceType()
-                if (i == -1)
-                    goto Lnomatch;
-                TemplateParameter *tp = parameters->tdata()[i];
-                TemplateValueParameter *tvp = tp->isTemplateValueParameter();
-                if (!tvp)
-                    goto Lnomatch;
-                Expression *e = (Expression *)dedtypes->tdata()[i];
-                if (e)
-                {
-                    if (!dim->equals(e))
-                        goto Lnomatch;
-                }
-                else
-                {   Type *vt = tvp->valType->semantic(0, sc);
-                    MATCH m = (MATCH)dim->implicitConvTo(vt);
-                    if (!m)
-                        goto Lnomatch;
-                    dedtypes->tdata()[i] = dim;
-                }
+            {
+                id = ((VarExp *)tp->dim)->var->ident;
             }
             else if (dim->toInteger() != tp->dim->toInteger())
                 return MATCHnomatch;
@@ -2141,43 +2203,37 @@ MATCH TypeSArray::deduceType(Scope *sc, Type *tparam, TemplateParameters *parame
         else if (tparam->ty == Taarray)
         {
             TypeAArray *tp = (TypeAArray *)tparam;
-            if (tp->index->ty == Tident)
-            {   TypeIdentifier *tident = (TypeIdentifier *)tp->index;
-
-                if (tident->idents.dim == 0)
-                {   Identifier *id = tident->ident;
-
-                    for (size_t i = 0; i < parameters->dim; i++)
-                    {
-                        TemplateParameter *tp = parameters->tdata()[i];
-
-                        if (tp->ident->equals(id))
-                        {   // Found the corresponding template parameter
-                            TemplateValueParameter *tvp = tp->isTemplateValueParameter();
-                            if (!tvp || !tvp->valType->isintegral())
-                                goto Lnomatch;
-
-                            if (dedtypes->tdata()[i])
-                            {
-                                if (!dim->equals(dedtypes->tdata()[i]))
-                                    goto Lnomatch;
-                            }
-                            else
-                            {   dedtypes->tdata()[i] = dim;
-                            }
-                            return next->deduceType(sc, tparam->nextOf(), parameters, dedtypes, wildmatch);
-                        }
-                    }
-                }
+            if (tp->index->ty == Tident &&
+                ((TypeIdentifier *)tp->index)->idents.dim == 0)
+            {
+                id = ((TypeIdentifier *)tp->index)->ident;
             }
         }
-        else if (tparam->ty == Tarray)
-        {   MATCH m;
-
-            m = next->deduceType(sc, tparam->nextOf(), parameters, dedtypes, wildmatch);
-            if (m == MATCHexact)
-                m = MATCHconvert;
-            return m;
+        if (id)
+        {
+            // This code matches code in TypeInstance::deduceType()
+            int i = templateIdentifierLookup(id, parameters);
+            if (i == -1)
+                goto Lnomatch;
+            TemplateParameter *tprm = parameters->tdata()[i];
+            TemplateValueParameter *tvp = tprm->isTemplateValueParameter();
+            if (!tvp)
+                goto Lnomatch;
+            Expression *e = (Expression *)dedtypes->tdata()[i];
+            if (e)
+            {
+                if (!dim->equals(e))
+                    goto Lnomatch;
+            }
+            else
+            {
+                Type *vt = tvp->valType->semantic(0, sc);
+                MATCH m = (MATCH)dim->implicitConvTo(vt);
+                if (!m)
+                    goto Lnomatch;
+                dedtypes->tdata()[i] = dim;
+            }
+            return next->deduceType(sc, tparam->nextOf(), parameters, dedtypes, wildmatch);
         }
     }
     return Type::deduceType(sc, tparam, parameters, dedtypes, wildmatch);
@@ -2228,6 +2284,7 @@ MATCH TypeFunction::deduceType(Scope *sc, Type *tparam, TemplateParameters *para
         {
             Parameter *fparam = Parameter::getNth(tp->parameters, i);
             fparam->type = fparam->type->addStorageClass(fparam->storageClass);
+            fparam->storageClass &= ~(STC_TYPECTOR | STCin);
         }
         //printf("\t-> this   = %d, ", ty); print();
         //printf("\t-> tparam = %d, ", tparam->ty); tparam->print();
@@ -3490,6 +3547,19 @@ MATCH TemplateValueParameter::matchArg(Scope *sc,
         ei = ei->optimize(WANTvalue | WANTinterpret);
     }
 
+    //printf("\tvalType: %s, ty = %d\n", valType->toChars(), valType->ty);
+    vt = valType->semantic(0, sc);
+    //printf("ei: %s, ei->type: %s\n", ei->toChars(), ei->type->toChars());
+    //printf("vt = %s\n", vt->toChars());
+
+    if (ei->type)
+    {
+        m = (MATCH)ei->implicitConvTo(vt);
+        //printf("m: %d\n", m);
+        if (!m)
+            goto Lnomatch;
+    }
+
     if (specValue)
     {
         if (!ei || ei == edummy)
@@ -3504,6 +3574,7 @@ MATCH TemplateValueParameter::matchArg(Scope *sc,
 
         ei = ei->syntaxCopy();
         ei = ei->semantic(sc);
+        ei = ei->implicitCastTo(sc, vt);
         ei = ei->optimize(WANTvalue | WANTinterpret);
         //ei->type = ei->type->toHeadMutable();
         //printf("\tei: %s, %s\n", ei->toChars(), ei->type->toChars());
@@ -3511,24 +3582,20 @@ MATCH TemplateValueParameter::matchArg(Scope *sc,
         if (!ei->equals(e))
             goto Lnomatch;
     }
-    else if (dedtypes->tdata()[i])
-    {   // Must match already deduced value
-        Expression *e = (Expression *)dedtypes->tdata()[i];
-
-        if (!ei || !ei->equals(e))
-            goto Lnomatch;
-    }
-
-    //printf("\tvalType: %s, ty = %d\n", valType->toChars(), valType->ty);
-    vt = valType->semantic(0, sc);
-    //printf("ei: %s, ei->type: %s\n", ei->toChars(), ei->type->toChars());
-    //printf("vt = %s\n", vt->toChars());
-    if (ei->type)
+    else
     {
-        m = (MATCH)ei->implicitConvTo(vt);
-        //printf("m: %d\n", m);
-        if (!m)
-            goto Lnomatch;
+        if (dedtypes->tdata()[i])
+        {   // Must match already deduced value
+            Expression *e = (Expression *)dedtypes->tdata()[i];
+
+            if (!ei || !ei->equals(e))
+                goto Lnomatch;
+        }
+        else if (m != MATCHexact)
+        {
+            ei = ei->implicitCastTo(sc, vt);
+            ei = ei->optimize(WANTvalue | WANTinterpret);
+        }
     }
     dedtypes->tdata()[i] = ei;
 

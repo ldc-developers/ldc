@@ -395,23 +395,13 @@ MATCH NullExp::implicitConvTo(Type *t)
     if (this->type->equals(t))
         return MATCHexact;
 
-    /* Allow implicit conversions from invariant to mutable|const,
-     * and mutable to invariant. It works because, after all, a null
+    /* Allow implicit conversions from immutable to mutable|const,
+     * and mutable to immutable. It works because, after all, a null
      * doesn't actually point to anything.
      */
     if (t->invariantOf()->equals(type->invariantOf()))
         return MATCHconst;
 
-    // NULL implicitly converts to any pointer type or dynamic array
-    if (type->ty == Tpointer && type->nextOf()->ty == Tvoid)
-    {
-        if (t->ty == Ttypedef)
-            t = ((TypeTypedef *)t)->sym->basetype;
-        if (t->ty == Tpointer || t->ty == Tarray ||
-            t->ty == Taarray  || t->ty == Tclass ||
-            t->ty == Tdelegate)
-            return committed ? MATCHconvert : MATCHexact;
-    }
     return Expression::implicitConvTo(t);
 }
 
@@ -923,18 +913,18 @@ Expression *ComplexExp::castTo(Scope *sc, Type *t)
 
 
 Expression *NullExp::castTo(Scope *sc, Type *t)
-{   NullExp *e;
-    Type *tb;
-
+{
     //printf("NullExp::castTo(t = %p)\n", t);
     if (type == t)
     {
         committed = 1;
         return this;
     }
-    e = (NullExp *)copy();
+
+    NullExp *e = (NullExp *)copy();
     e->committed = 1;
-    tb = t->toBasetype();
+    Type *tb = t->toBasetype();
+#if 0
     e->type = type->toBasetype();
     if (tb != e->type)
     {
@@ -943,7 +933,6 @@ Expression *NullExp::castTo(Scope *sc, Type *t)
             (tb->ty == Tpointer || tb->ty == Tarray || tb->ty == Taarray ||
              tb->ty == Tdelegate))
         {
-#if 0
             if (tb->ty == Tdelegate)
             {   TypeDelegate *td = (TypeDelegate *)tb;
                 TypeFunction *tf = (TypeFunction *)td->nextOf();
@@ -955,13 +944,19 @@ Expression *NullExp::castTo(Scope *sc, Type *t)
                     return Expression::castTo(sc, t);
                 }
             }
-#endif
         }
         else
         {
-            return e->Expression::castTo(sc, t);
+            //return e->Expression::castTo(sc, t);
         }
     }
+#else
+    if (tb->ty == Tvoid)
+    {
+        e->type = type->toBasetype();
+        return e->Expression::castTo(sc, t);
+    }
+#endif
     e->type = t;
     return e;
 }
@@ -1946,6 +1941,15 @@ Lagain:
     }
     else if (t1->ty == Tstruct && t2->ty == Tstruct)
     {
+        if (t1->mod != t2->mod)
+        {
+            unsigned char mod = MODmerge(t1->mod, t2->mod);
+            t1 = t1->castMod(mod);
+            t2 = t2->castMod(mod);
+            t = t1;
+            goto Lagain;
+        }
+
         TypeStruct *ts1 = (TypeStruct *)t1;
         TypeStruct *ts2 = (TypeStruct *)t2;
         if (ts1->sym != ts2->sym)
@@ -1972,7 +1976,8 @@ Lagain:
                 e1b = resolveProperties(sc, e1b);
                 i2 = e1b->implicitConvTo(t2);
             }
-            assert(!(i1 && i2));
+            if (i1 && i2)
+                goto Lincompatible;
 
             if (i1)
                 goto Lt1;
@@ -1987,8 +1992,40 @@ Lagain:
             {   e2 = e2b;
                 t2 = e2b->type->toBasetype();
             }
+            t = t1;
             goto Lagain;
         }
+    }
+    else if (t1->ty == Tstruct || t2->ty == Tstruct)
+    {
+        if (t1->mod != t2->mod)
+        {
+            unsigned char mod = MODmerge(t1->mod, t2->mod);
+            t1 = t1->castMod(mod);
+            t2 = t2->castMod(mod);
+            t = t1;
+            goto Lagain;
+        }
+
+        if (t1->ty == Tstruct && ((TypeStruct *)t1)->sym->aliasthis)
+        {
+            e1 = new DotIdExp(e1->loc, e1, ((TypeStruct *)t1)->sym->aliasthis->ident);
+            e1 = e1->semantic(sc);
+            e1 = resolveProperties(sc, e1);
+            t1 = e1->type;
+            t = t1;
+            goto Lagain;
+        }
+        if (t2->ty == Tstruct && ((TypeStruct *)t2)->sym->aliasthis)
+        {
+            e2 = new DotIdExp(e2->loc, e2, ((TypeStruct *)t2)->sym->aliasthis->ident);
+            e2 = e2->semantic(sc);
+            e2 = resolveProperties(sc, e2);
+            t2 = e2->type;
+            t = t2;
+            goto Lagain;
+        }
+        goto Lincompatible;
     }
     else if ((e1->op == TOKstring || e1->op == TOKnull) && e1->implicitConvTo(t2))
     {
@@ -2091,18 +2128,11 @@ Expression *BinExp::typeCombine(Scope *sc)
 
     if (op == TOKmin || op == TOKadd)
     {
-        // struct+struct, where the structs are the same type, and class+class are errors
-        if (t1->ty == Tstruct)
-        {
-            if (t2->ty == Tstruct &&
-                ((TypeStruct *)t1)->sym == ((TypeStruct *)t2)->sym)
-                goto Lerror;
-        }
-        else if (t1->ty == Tclass)
-        {
-            if (t2->ty == Tclass)
-                goto Lerror;
-        }
+        // struct+struct, and class+class are errors
+        if (t1->ty == Tstruct && t2->ty == Tstruct)
+            goto Lerror;
+        else if (t1->ty == Tclass && t2->ty == Tclass)
+            goto Lerror;
     }
 
     if (!typeMerge(sc, this, &type, &e1, &e2))

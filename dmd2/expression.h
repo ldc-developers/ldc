@@ -1135,6 +1135,7 @@ struct CallExp : UnaExp
     CallExp(Loc loc, Expression *e, Expression *earg1, Expression *earg2);
 
     Expression *syntaxCopy();
+    Expression *resolveUFCS(Scope *sc);
     Expression *semantic(Scope *sc);
     Expression *optimize(int result);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
@@ -1402,6 +1403,8 @@ struct ArrayLengthExp : UnaExp
 struct ArrayExp : UnaExp
 {
     Expressions *arguments;             // Array of Expression's
+    size_t currentDimension;            // for opDollar
+    VarDeclaration *lengthVar;
 
     ArrayExp(Loc loc, Expression *e1, Expressions *arguments);
     Expression *syntaxCopy();
