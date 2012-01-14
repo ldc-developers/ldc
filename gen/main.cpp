@@ -18,12 +18,6 @@
 #include <assert.h>
 #include <limits.h>
 
-#if POSIX
-#include <errno.h>
-#elif _WIN32
-#include <windows.h>
-#endif
-
 #include "rmem.h"
 #include "root.h"
 
@@ -48,6 +42,12 @@
 using namespace opts;
 
 #include "gen/configfile.h"
+
+#if POSIX
+#include <errno.h>
+#elif _WIN32
+#include <windows.h>
+#endif
 
 #if DMDV1
 typedef Array Modules;
@@ -127,7 +127,7 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
     }
 }
 
-#if _WIN32
+#if _WIN32 && __DMC__
 extern "C"
 {
     extern int _xi_a;
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 {
     mem.init();                         // initialize storage allocator
     mem.setStackBottom(&argv);
-#if _WIN32
+#if _WIN32 && __DMC__
     mem.addroots((char *)&_xi_a, (char *)&_end);
 #endif
 
