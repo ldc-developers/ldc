@@ -125,7 +125,7 @@ have ldc2 &&{
             '-Dd='*|'-Hd='*|'-I='*|'-J='*|'-od='*)                                                                                                              # add an =<dir>
                 prev="${cur%%=*}="
                 cur=${cur#*=}
-                COMPREPLY=( ${prev}$(compgen -d "${cur}") )
+                COMPREPLY=( ${prev}$(compgen -S '/' -d "${cur}") )
                 return 0
                 ;;
             -'Df='*|'-Hf='*|'-deps='*|'-internalize-public-api-file='*|'-of='*|'-Xf='*)                                                                         # add an =<file>
