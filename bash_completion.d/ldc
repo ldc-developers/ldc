@@ -1,39 +1,171 @@
-# bash completion for ldc
-# install to: /etc/bash_completion.d/
-# source: . /etc/bash_completion.d/ldc
+# bash completion for ldc2
 
-_ldc()
-{
-    local cur prev opts opts_with_path
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts_with_path="-Dd= -Df= -Hd= -Hf= -I= -Xf= od= -of= -profile-info-file= "
-    opts="  -D -Dd= -Df= -H -Hd= -Hf= -I= -J= -L= -O -O0 -O1 -O2 -O3 -O4 -O5 -X -Xf= -annotate -asm-verbose -c \
-            -check-printf-calls -code-model =medium -d -d-debug= -d-version -debuglib -defaultlib \
-            -deps -enable-asserts -enable-boundscheck -disable-d-passes -disable-excess-fp-precision -disable-fp-elim \
-            -disable-gc2stack -disable-non-leaf-fp-elim -enable-preconditions -disable-red-zone \
-            -disable-simplify-drtcalls -disable-spill-fusing -enable-contracts -enable-correct-eh-support \
-            -enable-fp-mad -enable-inlining -enable-invariants -enable-load-pre -enable-no-infs-fp-math \
-            -enable-no-nans-fp-math -enable-postconditions -ena -enable-unsafe-fp-math -fdata-sections \
-            -ffunction-sections -float-abi -g -gc -help -ignore \
-            -internalize-public-api-file= -internalize-public-api-list= -jit-emit-debug -jit-enable-eh \
-            -join-liveintervals -limit-float-precis -linkonce-templates -m32 -m64 -march= -mattr= -mcpu= -mtriple= \
-            -nested-ctx -noasm -noruntime -nozero-initialized-in-bss -o- -od= -of= -op -oq -output-bc -output-o \
-            -output-s -pre-RA-sched  -print-after -print-after-all -print-before -print-before-all -print-machineinstrs \
-            -profile-estimator-loop-weight= -profile-info-file= -profile-verifier-noassert \
-            -regalloc -rel -rewriter -run= -shrink-wrap -singleobj -soft-float -spiller -st \
-            -stack-protector-buffer-size= -stats -tailcallopt -time-passes -unittest -unwind-tables -v \
-            "
-    if [[ "${opts_with_path}" = *"${prev}${cur}"* ]]; then
-        COMPREPLY=( $(compgen -f ./ ) )
-        return 0
-    elif [[ "${opts_with_path}" = *"${prev}"* ]]; then
-        COMPREPLY=( $(compgen -f "${cur}") )
-        return 0
-    elif [[ "${cur}" == -* ]] ; then
-        COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-        return 0
-    fi
+have ldc2 &&{
+    function elementExists(){
+        local i isRunning result
+        i=0
+        isRunning=1
+        result=0
+        #~ for i in ${opts_with_equal[@]}; do
+        while [ "$isRunning" -eq 1 ]; do
+            if [ "$i" -ge "${#opts_with_equal[@]}" ]; then
+                isRunning=0
+            elif [ "${opts_with_equal[$i]}" == "$1" ]; then
+                result=1
+                isRunning=0
+            fi
+            ((i++))
+        done
+        echo $result
+    }
+    function _ldc(){
+        local prev cur opts opts_with_equal isEqualOptions
+
+        opts="\
+            -D                                                              -Df                                 -H                              \
+            -Hd                             -Hf                             -I                                  -J                              \
+            -L                              -X                              -Xf                                 -annotate                       \
+            -asm-verbose                    -c                              -check-printf-calls                 -code-model                     \
+            -d                              -d-debug                        -d-version                          -debuglib                       \
+            -defaultlib                     -deps                           -enable-asserts                     -enable-boundscheck             \
+            -disable-d-passes               -disable-excess-fp-precision    -disable-fp-elim                    -disable-gc                     \
+            -disable-non-leaf-fp-elim       -enable-preconditions           -disable-red-zone                   -disable-simplify-drtcalls      \
+            -disable-spill-fusing           -enable-contracts               -enable-correct-eh-support          -enable-fp-mad                  \
+            -enable-inlining                -enable-invariants              -enable-load-pre                    -enable-no-infs-fp-math         \
+            -enable-no-nans-fp-math         -enable-objc-arc-opts           -enable-postconditions              -enable-tbaa                    \
+            -enable-unsafe-fp-math          -fatal-assembler-warnings       -fdata-sections                     -ffunction-sections             \
+            -float-abi                      -help                           -ignore                             -internalize-public-api-file    \
+            -internalize-public-api-list    -jit-emit-debug                 -jit-enable-eh                      -join-liveintervals             \
+            -lib                            -limit-float-precision          -linkonce-templates                 -m32                            \
+            -m64                            -march                          -mattr                              -mc-x86-disable-arith-relaxation\
+            -mcpu                           -mtriple                        -nested-ctx                         -noasm                          \
+            -nodefaultlib                   -noruntime                      -noverify                           -nozero-initialized-in-bss      \
+            -O                              -O0                             -O1                                 -O2                             \
+            -O3                             -O4                             -O5                                 -o-                             \
+            -od                             -of                             -op                                 -oq                             \
+            -output-bc                      -output-ll                      -output-o                           -output-s                       \
+            -pre-RA-sched                   -print-after-all                -print-before-all                   -print-machineinstrs            \
+            -profile-estimator-loop-weight  -profile-info-file              -profile-verifier-noassert          -realign-stack                  \
+            -regalloc                       -release                        -relocation-model                   -rewriter                       \
+            -run                            -schedule-spills                -segmented-stacks                   -shared                         \
+            -shrink-wrap                    -singleobj                      -soft-float                         -spiller                        \
+            -stack-alignment                -stack-protector-buffer-size    -stats                              -tailcallopt                    \
+            -time-passes                    -unittest                       -v                                  -v-cg                           \
+            -verify-dom-info                -verify-loop-info               -verify-regalloc                    -verify-region-info             \
+            -version                        -vv                             -w                                  -x86-asm-syntax                 \
+            -x86-use-vzeroupper
+        "
+        opts_with_equal=(-Df  Hd  -Hf  -I  -J  -Xf  -code-model  -d-version  -debuglib  -defaultlib  -deps           \
+                         -internalize-public-api-file  -float-abi  -limit-float-precision  -march  -mtriple  -mattr  \
+                         -mcpu  -mtriple  -nested-ctx  -od  -pre-RA-sched  -regalloc  relocation-model  -rewriter    \
+                         -run  -spiller  -spiller )
+
+        COMPREPLY=()
+        _get_comp_words_by_ref -n : cur prev
+
+        case ${cur} in
+            #~ -*=*[0-9])
+                #~ prev="${cur%%=*}="
+                #~ cur=${cur#*=}                                                                                                                                         # add an =<uint>
+                #~ COMPREPLY=( ${prev}$(compgen -W "0 1 2 3 4 5 6 7 8 9" -- "${cur}") )
+                #~ return 0
+                #~ ;;
+            '-code-model='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "default small kernel medium large" -- "${cur}") )
+                return 0
+                ;;
+            '-float-abi='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "default smolt hard" -- "${cur}") )
+                return 0
+                ;;
+            '-nested-ctx='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "array hybrid" -- "${cur}") )
+                return 0
+                ;;
+            '-pre-RA-sched='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "default list-td list-burr list-tdrr source list-hybrid list-ilp" -- "${cur}") )
+                return 0
+                ;;
+            '-regalloc='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=(${prev} $(compgen -W "default fast greedy linearscan basic" -- "${cur}") )
+                return 0
+                ;;
+            '-relocation-model='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "default static pic dynamic-no-pic" -- "${cur}") )
+                return 0
+                ;;
+            '-rewriter'*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "local trivial" -- "${cur}") )
+                return 0
+                ;;
+            '-spiller='*)
+                COMPREPLY=( ${prev}$(compgen -W "trivial standard inline" -- "${cur}") )
+                return 0
+                ;;
+            '-x86-asm-syntax='*)
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "att intel" -- "${cur}") )
+                return 0
+                ;;
+            '-Dd='*|'-Hd='*|'-I='*|'-J='*|'-od='*)                                                                                                              # add an =<dir>
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -S '/' -d "${cur}") )
+                return 0
+                ;;
+            -'Df='*|'-Hf='*|'-deps='*|'-internalize-public-api-file='*|'-of='*|'-Xf='*)                                                                         # add an =<file>
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -f "${cur}") )
+                return 0
+                ;;
+            -'internalize-public-api-list'*|'-mattr'*|'-d-debug'*|'-d-version'*|'-debuglib'*|-'defaultlib'*|'-march'*|'-mattr'*|'-mcpu'*|'-mtriple'*|'-run'*)   # add an =
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen "${cur}") )
+                return 0
+                ;;
+            '-limit-float-precision='*|'-stack-alignment='*|'-stack-protector-buffer-size='*)                                                                   # add an =<uint>
+                prev="${cur%%=*}="
+                cur=${cur#*=}
+                COMPREPLY=( ${prev}$(compgen -W "0 1 2 3 4 5 6 7 8 9" -- "${cur}") )
+                return 0
+                ;;
+        esac
+        if [[ "${cur}" != -* ]]; then
+            _filedir '@(d|di|o)'
+        else
+            isEqualOptions=$(elementExists "${cur}")
+            if [ "${isEqualOptions:-0}" -eq 1 ]; then
+                COMPREPLY=( $(compgen -W "${opts}" -S '=' -- "${cur}") )
+            else
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            fi
+
+        fi
+    }
+    complete -o nospace -F _ldc ldc2
 }
-complete -o nospace -F _ldc ldc2
+
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:
+# ex: ts=4 sw=4 et filetype=sh
