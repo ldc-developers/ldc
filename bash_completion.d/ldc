@@ -64,6 +64,12 @@ have ldc2 &&{
         _get_comp_words_by_ref -n : cur prev
 
         case ${cur} in
+            #~ -*=*[0-9])
+                #~ prev="${cur%%=*}="
+                #~ cur=${cur#*=}                                                                                                                                         # add an =<uint>
+                #~ COMPREPLY=( ${prev}$(compgen -W "0 1 2 3 4 5 6 7 8 9" -- "${cur}") )
+                #~ return 0
+                #~ ;;
             '-code-model='*)
                 prev="${cur%%=*}="
                 cur=${cur#*=}
@@ -137,11 +143,7 @@ have ldc2 &&{
             '-limit-float-precision='*|'-stack-alignment='*|'-stack-protector-buffer-size='*)                                                                   # add an =<uint>
                 prev="${cur%%=*}="
                 cur=${cur#*=}
-                COMPREPLY=( ${prev}$(compgen "0 1 2 3 4 5 6 7 8 9" -- "${cur}") )
-                return 0
-                ;;
-            [0-9])                                                                                                                                              # add an =<uint>
-                COMPREPLY=( $(compgen "0 1 2 3 4 5 6 7 8 9" -- "${cur}") )
+                COMPREPLY=( ${prev}$(compgen -W "0 1 2 3 4 5 6 7 8 9" -- "${cur}") )
                 return 0
                 ;;
         esac
