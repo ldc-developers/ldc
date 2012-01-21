@@ -4,6 +4,8 @@
 #include "ir/ir.h"
 #include "llvm/Type.h"
 
+struct IrFuncTyArg;
+
 struct IrVar : IrBase
 {
     IrVar(VarDeclaration* var);
@@ -29,6 +31,13 @@ struct IrLocal : IrVar
     bool byref;         // Not used for -nested-ctx=array
     int nestedDepth;    // ditto
     int nestedIndex;
+};
+
+// represents a function parameter
+struct IrParameter : IrLocal
+{
+    IrParameter(VarDeclaration* v);
+    IrFuncTyArg *arg;
 };
 
 // represents an aggregate field variable

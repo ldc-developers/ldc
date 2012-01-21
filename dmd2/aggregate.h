@@ -41,7 +41,7 @@ struct VarDeclaration;
 struct dt_t;
 
 #if IN_LLVM
-class ClassInfoDeclaration;
+struct ClassInfoDeclaration;
 namespace llvm
 {
     class Type;
@@ -241,6 +241,7 @@ struct ClassDeclaration : AggregateDeclaration
     static ClassDeclaration *classinfo;
     static ClassDeclaration *throwable;
     static ClassDeclaration *exception;
+    static ClassDeclaration *errorException;
 
     ClassDeclaration *baseClass;        // NULL only if this is Object
 #if DMDV1

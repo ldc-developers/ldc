@@ -95,6 +95,7 @@ LLType* DtoType(Type* t)
     }
 
     // pointers
+    case Tnull:
     case Tpointer:
     {
         t->irtype = new IrTypePointer(t);

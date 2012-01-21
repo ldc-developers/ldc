@@ -2,7 +2,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/PathV2.h"
+#include "llvm/Support/Path.h"
 
 #include "declaration.h"
 #include "module.h"
