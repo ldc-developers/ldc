@@ -66,7 +66,9 @@ the target object file format:
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
 #include <inttypes.h>
 #include <stdarg.h>
 

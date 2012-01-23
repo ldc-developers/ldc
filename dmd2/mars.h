@@ -69,7 +69,9 @@ the target object file format:
 #include <stdint.h>
 #include <stdarg.h>
 #include <stddef.h>
+#ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS 1
+#endif
 #include <inttypes.h>
 #include <stdarg.h>
 
@@ -237,7 +239,7 @@ struct Param
 
     char *moduleDepsFile;       // filename for deps output
     OutBuffer *moduleDeps;      // contents to be written to deps file
-  
+
     // Hidden debug switches
     bool debuga;
     bool debugb;
