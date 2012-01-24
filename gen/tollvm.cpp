@@ -32,7 +32,7 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
-unsigned DtoShouldExtend(Type* type)
+llvm::Attributes DtoShouldExtend(Type* type)
 {
     type = type->toBasetype();
     if (type->isintegral())

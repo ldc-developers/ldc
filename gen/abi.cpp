@@ -175,7 +175,7 @@ struct X86TargetABI : TargetABI
                         last->ltype = structToReg.type(last->type, last->ltype);
                         last->byref = false;
                         // erase previous attributes
-                        last->attrs = 0;
+                        last->attrs = llvm::Attribute::None;
                     }
                     last->attrs |= llvm::Attribute::InReg;
                 }

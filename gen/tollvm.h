@@ -19,7 +19,7 @@ LLType* DtoTypeNotVoid(Type* t);
 bool DtoIsPassedByRef(Type* type);
 
 // should argument be zero or sign extended
-unsigned DtoShouldExtend(Type* type);
+llvm::Attributes DtoShouldExtend(Type* type);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them

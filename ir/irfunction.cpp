@@ -13,7 +13,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, unsigned a)
+IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, llvm::Attributes a)
 {
     type = t;
     ltype = t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t);

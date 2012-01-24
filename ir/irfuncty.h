@@ -3,6 +3,7 @@
 
 #include "ir/ir.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Attributes.h"
 
 #include <vector>
 
@@ -27,7 +28,7 @@ struct IrFuncTyArg : IrBase
 
     /** These are the final LLVM attributes used for the function.
      *  Must be valid for the LLVM Type and byref setting */
-    unsigned attrs;
+    llvm::Attributes attrs;
 
     /** 'true' if the final LLVM argument is a LLVM reference type.
      *  Must be true when the D Type is a value type, but the final
@@ -50,7 +51,7 @@ struct IrFuncTyArg : IrBase
      *  @param byref Initial value for the 'byref' field. If true the initial
      *               LLVM Type will be of DtoType(type->pointerTo()), instead
      *               of just DtoType(type) */
-    IrFuncTyArg(Type* t, bool byref, unsigned a = 0);
+    IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attribute::None);
 };
 
 // represents a function type
