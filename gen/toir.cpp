@@ -2602,6 +2602,7 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     {
         assert(fd->tok == TOKdelegate);
         error("delegate literals as constant expressions are not yet allowed");
+        return 0;
     }
 
     fd->codegen(Type::sir);
@@ -2920,25 +2921,20 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
 #if DMDV2
     std::vector<LLConstant*> keysInits, valuesInits;
-    ++global.gag;
-    unsigned errors_save = global.errors;
     for (size_t i = 0, n = keys->dim; i < n; ++i)
     {
         Expression* ekey = (Expression*)keys->data[i];
         Expression* eval = (Expression*)values->data[i];
         Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+        unsigned errors = global.startGagging();
         LLConstant *ekeyConst = ekey->toConstElem(p);
         LLConstant *evalConst = eval->toConstElem(p);
-        if (!ekeyConst || !evalConst) {
-            --global.gag;
-            global.errors = errors_save;
+        if (global.endGagging(errors))
             goto LruntimeInit;
-        }
+        assert(ekeyConst && evalConst);
         keysInits.push_back(ekeyConst);
         valuesInits.push_back(evalConst);
     }
-    --global.gag;
-    global.errors = errors_save;
 
     {
         Type* indexType = ((TypeAArray*)aatype)->index;
