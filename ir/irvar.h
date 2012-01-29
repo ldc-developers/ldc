@@ -38,6 +38,7 @@ struct IrParameter : IrLocal
 {
     IrParameter(VarDeclaration* v);
     IrFuncTyArg *arg;
+    bool isVthis; // true, if it is the 'this' parameter
 };
 
 // represents an aggregate field variable
