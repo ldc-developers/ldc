@@ -223,6 +223,11 @@ int main(int argc, char** argv)
             printf("config    %s\n", path.c_str());
     }
 
+    // enforcePropertySyntax handled separately because it is a char
+#if DMDV2
+    global.params.enforcePropertySyntax = enforcePropertySyntax ? 1 : 0;
+#endif
+
     // Negated options
     global.params.link = !compileOnly;
     global.params.obj = !dontWriteObj;
