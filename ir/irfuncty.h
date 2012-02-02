@@ -80,9 +80,6 @@ struct IrFuncTy : IrBase
     // range of normal parameters to reverse
     bool reverseParams;
 
-    // arg_this is reference
-    bool is_arg_this_ref;
-
     IrFuncTy()
     :   ret(NULL),
 	    args(),
@@ -92,8 +89,7 @@ struct IrFuncTy : IrBase
         arg_arguments(NULL),
         arg_argptr(NULL),
         c_vararg(false),
-        reverseParams(false),
-        is_arg_this_ref(false)
+        reverseParams(false)
     {}
 
 #if defined(_MSC_VER)
@@ -108,8 +104,7 @@ struct IrFuncTy : IrBase
         arg_arguments(rhs.arg_arguments),
         arg_argptr(rhs.arg_argptr),
         c_vararg(rhs.c_vararg),
-        reverseParams(rhs.reverseParams),
-        is_arg_this_ref(rhs.is_arg_this_ref)
+        reverseParams(rhs.reverseParams)
     {}
 
     IrFuncTy& operator=(const IrFuncTy& rhs)
@@ -123,7 +118,6 @@ struct IrFuncTy : IrBase
         arg_argptr = rhs.arg_argptr;
         c_vararg = rhs.c_vararg;
         reverseParams = rhs.reverseParams;
-        is_arg_this_ref = rhs.is_arg_this_ref;
         return *this;
     }
 #endif

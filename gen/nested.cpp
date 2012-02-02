@@ -463,12 +463,19 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                 if (vd->isParameter()) {
                     // Parameters will have storage associated with them (to handle byref etc.),
                     // so handle those cases specially by storing a pointer instead of a value.
-                    assert(vd->ir.irParam->value);
-                    LLValue* value = vd->ir.irParam->value;
+                    IrParameter * irparam = vd->ir.irParam;
+                    LLValue* value = irparam->value;
+                    assert(value);
                     LLType* type = value->getType();
                     bool refout = vd->storage_class & (STCref | STCout);
                     bool lazy = vd->storage_class & STClazy;
-                    if (!refout && (!vd->ir.irParam->arg->byref || lazy)) {
+                    bool byref = irparam->arg->byref;
+                #if STRUCTTHISREF
+                    bool isVthisPtr = irparam->isVthis && !byref;
+                #else
+                    bool isVthisPtr = irparam->isVthis;
+                #endif
+                    if ((!refout && (!byref || lazy)) || isVthisPtr) {
                         // This will be copied to the nesting frame.
                         if (lazy)
                             type = type->getContainedType(0);

@@ -87,11 +87,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
     // member functions
     if (thistype)
     {
-        bool toref = (thistype->toBasetype()->ty == Tstruct);
-#if STRUCTTHISREF
-        fty.is_arg_this_ref = toref;
-#endif
-        fty.arg_this = new IrFuncTyArg(thistype, toref);
+        fty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct);
         lidx++;
     }
 
@@ -712,7 +708,10 @@ void DtoDefineFunction(FuncDeclaration* fd)
         assert(thisvar);
 
         LLValue* thismem = thisvar;
-        if (!f->fty.is_arg_this_ref) {
+    #if STRUCTTHISREF
+        if (!f->fty.arg_this->byref)
+    #endif
+        {
             thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
             DtoStore(thisvar, thismem);
             irfunction->thisArg = thismem;
@@ -722,6 +721,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         fd->vthis->ir.irParam = new IrParameter(fd->vthis);
         fd->vthis->ir.irParam->value = thismem;
         fd->vthis->ir.irParam->arg = f->fty.arg_this;
+        fd->vthis->ir.irParam->isVthis = true;
 
         DtoDwarfLocalVariable(thismem, fd->vthis);
 
