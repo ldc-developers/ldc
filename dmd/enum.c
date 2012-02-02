@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -68,7 +68,7 @@ void EnumDeclaration::semantic0(Scope *sc)
         return;
     if (!isAnonymous() || memtype)
         return;
-    for (int i = 0; i < members->dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {
         EnumMember *em = ((Dsymbol *)members->data[i])->isEnumMember();
         if (em && em->value)
@@ -80,7 +80,7 @@ void EnumDeclaration::semantic0(Scope *sc)
 }
 
 void EnumDeclaration::semantic(Scope *sc)
-{   int i;
+{
     uinteger_t number;
     Type *t;
     Scope *sce;
@@ -140,7 +140,7 @@ void EnumDeclaration::semantic(Scope *sc)
     if (members->dim == 0)
         error("enum %s must have at least one member", toChars());
     int first = 1;
-    for (i = 0; i < members->dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {
         EnumMember *em = ((Dsymbol *)members->data[i])->isEnumMember();
         Expression *e;
@@ -228,13 +228,13 @@ void EnumDeclaration::semantic(Scope *sc)
         if (isAnonymous())
         {
             //sce->enclosing->insert(em);
-            for (Scope *scx = sce->enclosing; scx; scx = scx->enclosing)
+            for (Scope *sct = sce->enclosing; sct; sct = sct->enclosing)
             {
-                if (scx->scopesym)
+                if (sct->scopesym)
                 {
-                    if (!scx->scopesym->symtab)
-                        scx->scopesym->symtab = new DsymbolTable();
-                    em->addMember(sce, scx->scopesym, 1);
+                    if (!sct->scopesym->symtab)
+                        sct->scopesym->symtab = new DsymbolTable();
+                    em->addMember(sce, sct->scopesym, 1);
                     break;
                 }
             }
@@ -279,8 +279,7 @@ int EnumDeclaration::oneMember(Dsymbol **ps)
 }
 
 void EnumDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{   int i;
-
+{
     buf->writestring("enum ");
     if (ident)
     {   buf->writestring(ident->toChars());
@@ -300,7 +299,7 @@ void EnumDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
     buf->writeByte('{');
     buf->writenl();
-    for (i = 0; i < members->dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {
         EnumMember *em = ((Dsymbol *)members->data[i])->isEnumMember();
         if (!em)

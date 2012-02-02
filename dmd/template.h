@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -55,7 +55,7 @@ struct TemplateDeclaration : ScopeDsymbol
 
     TemplateParameters *origParameters; // originals for Ddoc
     Expression *constraint;
-    Array instances;                    // array of TemplateInstance's
+    TemplateInstances instances;        // array of TemplateInstance's
 
     TemplateDeclaration *overnext;      // next overloaded TemplateDeclaration
     TemplateDeclaration *overroot;      // first in overnext list
@@ -65,11 +65,12 @@ struct TemplateDeclaration : ScopeDsymbol
     Dsymbol *onemember;         // if !=NULL then one member of this template
 
     TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
-        Expression *constraint, Array *decldefs);
+        Expression *constraint, Dsymbols *decldefs);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     int overloadInsert(Dsymbol *s);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    bool hasStaticCtorOrDtor();
     const char *kind();
     char *toChars();
 
@@ -140,7 +141,7 @@ struct TemplateParameter
 
     /* Match actual argument against parameter.
      */
-    virtual MATCH matchArg(Scope *sc, Objects *tiargs, int i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags = 0) = 0;
+    virtual MATCH matchArg(Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags = 0) = 0;
 
     /* Create dummy argument based on parameter.
      */
@@ -166,7 +167,7 @@ struct TemplateTypeParameter : TemplateParameter
     Object *specialization();
     Object *defaultArg(Loc loc, Scope *sc);
     int overloadMatch(TemplateParameter *);
-    MATCH matchArg(Scope *sc, Objects *tiargs, int i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
+    MATCH matchArg(Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
     void *dummyArg();
 };
 
@@ -210,7 +211,7 @@ struct TemplateValueParameter : TemplateParameter
     Object *specialization();
     Object *defaultArg(Loc loc, Scope *sc);
     int overloadMatch(TemplateParameter *);
-    MATCH matchArg(Scope *sc, Objects *tiargs, int i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
+    MATCH matchArg(Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
     void *dummyArg();
 };
 
@@ -238,7 +239,7 @@ struct TemplateAliasParameter : TemplateParameter
     Object *specialization();
     Object *defaultArg(Loc loc, Scope *sc);
     int overloadMatch(TemplateParameter *);
-    MATCH matchArg(Scope *sc, Objects *tiargs, int i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
+    MATCH matchArg(Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
     void *dummyArg();
 };
 
@@ -259,7 +260,7 @@ struct TemplateTupleParameter : TemplateParameter
     Object *specialization();
     Object *defaultArg(Loc loc, Scope *sc);
     int overloadMatch(TemplateParameter *);
-    MATCH matchArg(Scope *sc, Objects *tiargs, int i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
+    MATCH matchArg(Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam, int flags);
     void *dummyArg();
 };
 
@@ -271,7 +272,7 @@ struct TemplateInstance : ScopeDsymbol
      *      tiargs = args
      */
     Identifier *name;
-    //Array idents;
+    //Identifiers idents;
     Objects *tiargs;            // Array of Types/Expressions of template
                                 // instance arguments [int*, char, 10*10]
 
@@ -292,6 +293,7 @@ struct TemplateInstance : ScopeDsymbol
     int havetempdecl;   // 1 if used second constructor
     Dsymbol *isnested;  // if referencing local symbols, this is the context
     int errors;         // 1 if compiled with errors
+    int speculative;    // 1 if only instantiated with errors gagged
 #ifdef IN_GCC
     /* On some targets, it is necessary to know whether a symbol
        will be emitted in the output or not before the symbol
@@ -343,10 +345,10 @@ struct TemplateInstance : ScopeDsymbol
 
 struct TemplateMixin : TemplateInstance
 {
-    Array *idents;
+    Identifiers *idents;
     Type *tqual;
 
-    TemplateMixin(Loc loc, Identifier *ident, Type *tqual, Array *idents, Objects *tiargs);
+    TemplateMixin(Loc loc, Identifier *ident, Type *tqual, Identifiers *idents, Objects *tiargs);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void semantic2(Scope *sc);

@@ -26,26 +26,40 @@ struct FuncDeclaration;
 struct Identifier;
 struct Initializer;
 
-struct TemplateParameters : Array { };
+typedef ArrayBase<struct TemplateParameter> TemplateParameters;
 
-struct Expressions : Array { };
+typedef ArrayBase<struct Expression> Expressions;
 
-struct Statements : Array { };
+typedef ArrayBase<struct Statement> Statements;
 
-struct BaseClasses : Array { };
+typedef ArrayBase<struct BaseClass> BaseClasses;
 
-struct ClassDeclarations : Array { };
+typedef ArrayBase<struct ClassDeclaration> ClassDeclarations;
 
-struct Dsymbols : Array { };
+typedef ArrayBase<struct Dsymbol> Dsymbols;
 
-struct Objects : Array { };
+typedef ArrayBase<struct Object> Objects;
 
-struct FuncDeclarations : Array { };
+typedef ArrayBase<struct FuncDeclaration> FuncDeclarations;
 
-struct Parameters : Array { };
+typedef ArrayBase<struct Parameter> Parameters;
 
-struct Identifiers : Array { };
+typedef ArrayBase<struct Identifier> Identifiers;
 
-struct Initializers : Array { };
+typedef ArrayBase<struct Initializer> Initializers;
+
+typedef ArrayBase<struct VarDeclaration> VarDeclarations;
+
+typedef ArrayBase<struct Type> Types;
+
+typedef ArrayBase<struct ScopeDsymbol> ScopeDsymbols;
+typedef ArrayBase<struct StaticDtorDeclaration> StaticDtorDeclarations;
+
+typedef ArrayBase<struct SharedStaticDtorDeclaration> SharedStaticDtorDeclarations;
+typedef ArrayBase<struct Module> Modules;
+typedef ArrayBase<struct CaseStatement> CaseStatements;
+typedef ArrayBase<struct TemplateInstance> TemplateInstances;
+
+typedef ArrayBase<struct Symbol> Symbols;
 
 #endif

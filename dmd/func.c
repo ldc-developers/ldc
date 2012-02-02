@@ -218,6 +218,10 @@ void FuncDeclaration::semantic(Scope *sc)
     if (isAbstract() && !isVirtual())
         error("non-virtual functions cannot be abstract");
 
+    // https://github.com/donc/dmd/commit/9f7b2f8cfe5d7482f2de7f9678c176d54abe237f#commitcomment-321724
+    //if (isOverride() && !isVirtual())
+        //error("cannot override a non-virtual function");
+
     if (isAbstract() && isFinal())
         error("cannot be both final and abstract");
 #if 0
@@ -313,7 +317,7 @@ void FuncDeclaration::semantic(Scope *sc)
 //          ctor = (CtorDeclaration *)this;
 //          if (!cd->ctor)
 //              cd->ctor = ctor;
-            return;
+            goto Ldone;
         }
 
 #if 0
@@ -414,12 +418,13 @@ void FuncDeclaration::semantic(Scope *sc)
                     warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
 #endif
 
-                if (fdv->toParent() == parent)
+                FuncDeclaration *fdc = ((Dsymbol *)cd->vtbl.data[vi])->isFuncDeclaration();
+                if (fdc->toParent() == parent)
                 {
                     // If both are mixins, then error.
                     // If either is not, the one that is not overrides
                     // the other.
-                    if (fdv->parent->isClassDeclaration())
+                    if (fdc->parent->isClassDeclaration())
                         break;
                     if (!this->parent->isClassDeclaration()
 #if !BREAKABI
@@ -431,7 +436,7 @@ void FuncDeclaration::semantic(Scope *sc)
                         )
                         error("multiple overrides of same function");
                 }
-                cd->vtbl.data[vi] = (void *)this;
+                cd->vtbl[vi] = this;
                 vtblIndex = vi;
 
                 /* Remember which functions this overrides
@@ -496,15 +501,12 @@ void FuncDeclaration::semantic(Scope *sc)
                         /* Only need to have a tintro if the vptr
                          * offsets differ
                          */
-                        unsigned errors = global.errors;
-                        global.gag++;            // suppress printing of error messages
+                        unsigned errors = global.startGagging();             // suppress printing of error messages
                         int offset;
                         int baseOf = fdv->type->nextOf()->isBaseOf(type->nextOf(), &offset);
-                        global.gag--;            // suppress printing of error messages
-                        if (errors != global.errors)
+                        if (global.endGagging(errors))
                         {
                             // any error in isBaseOf() is a forward reference error, so we bail out
-                            global.errors = errors;
                             cd->sizeok = 2;    // can't finish due to forward reference
                             Module::dprogress = dprogress_save;
                             return;
@@ -640,7 +642,7 @@ void FuncDeclaration::semantic(Scope *sc)
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::require, STCundefined, tf);
             fd->fbody = frequire;
-            Statement *s1 = new DeclarationStatement(loc, fd);
+            Statement *s1 = new ExpStatement(loc, fd);
             Expression *e = new CallExp(loc, new VarExp(loc, fd), (Expressions *)NULL);
             Statement *s2 = new ExpStatement(loc, e);
             frequire = new CompoundStatement(loc, s1, s2);
@@ -667,7 +669,7 @@ void FuncDeclaration::semantic(Scope *sc)
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::ensure, STCundefined, tf);
             fd->fbody = fensure;
-            Statement *s1 = new DeclarationStatement(loc, fd);
+            Statement *s1 = new ExpStatement(loc, fd);
             Expression *eresult = NULL;
             if (outId)
                 eresult = new IdentifierExp(loc, outId);
@@ -746,6 +748,20 @@ void FuncDeclaration::semantic3(Scope *sc)
         }
     }
 
+    if (frequire)
+    {
+        for (int i = 0; i < foverrides.dim; i++)
+        {
+            FuncDeclaration *fdv = (FuncDeclaration *)foverrides.data[i];
+
+            if (fdv->fbody && !fdv->frequire)
+            {
+                error("cannot have an in contract when overriden function %s does not have an in contract", fdv->toPrettyChars());
+                break;
+            }
+        }
+    }
+
     frequire = mergeFrequire(frequire);
     fensure = mergeFensure(fensure);
 
@@ -768,7 +784,10 @@ void FuncDeclaration::semantic3(Scope *sc)
         sc2->sw = NULL;
         sc2->fes = fes;
         sc2->linkage = LINKd;
-        sc2->stc &= ~(STCauto | STCscope | STCstatic | STCabstract | STCdeprecated | STCfinal);
+        sc2->stc &= ~(STCauto | STCscope | STCstatic | STCabstract |
+                        STCdeprecated | STCoverride |
+                        STC_TYPECTOR | STCfinal | STCtls | STCgshared | STCref |
+                        STCproperty | STCsafe | STCtrusted | STCsystem);
         sc2->protection = PROTpublic;
         sc2->explicitProtection = 0;
         sc2->structalign = 8;
@@ -823,6 +842,21 @@ void FuncDeclaration::semantic3(Scope *sc)
 #else
         Type *t;
 
+            if (global.params.is64bit)
+            {   // Declare save area for varargs registers
+                Type *t = new TypeIdentifier(loc, Id::va_argsave_t);
+                t = t->semantic(loc, sc);
+                if (t == Type::terror)
+                    error("must import std.c.stdarg to use variadic functions");
+                else
+                {
+                    v_argsave = new VarDeclaration(loc, t, Id::va_argsave, NULL);
+                    v_argsave->semantic(sc2);
+                    sc2->insert(v_argsave);
+                    v_argsave->parent = this;
+                }
+            }
+
             if (f->linkage == LINKd)
             {   // Declare _arguments[]
 #if BREAKABI
@@ -846,7 +880,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                 v_arguments->parent = this;
 #endif
             }
-            if (f->linkage == LINKd || (parameters && parameters->dim))
+            if (f->linkage == LINKd || (f->parameters && Parameter::dim(f->parameters)))
             {   // Declare _argptr
 #if IN_GCC
                 t = d_gcc_builtin_va_list_d_type;
@@ -911,7 +945,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         {   /* parameters[] has all the tuples removed, as the back end
              * doesn't know about tuples
              */
-            parameters = new Dsymbols();
+            parameters = new VarDeclarations();
             parameters->reserve(nparams);
             for (size_t i = 0; i < nparams; i++)
             {
@@ -1143,7 +1177,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                 f = (TypeFunction *)type;
             }
 
-            int offend = fbody ? fbody->blockExit() & BEfallthru : TRUE;
+            int offend = fbody ? fbody->blockExit(FALSE) & BEfallthru : TRUE;
 
             if (isStaticCtorDeclaration())
             {   /* It's a static constructor. Ensure that all
@@ -1190,16 +1224,15 @@ void FuncDeclaration::semantic3(Scope *sc)
                     Expression *e1 = new SuperExp(0);
                     Expression *e = new CallExp(0, e1);
 
-                    unsigned errors = global.errors;
-                    global.gag++;
-                    e = e->semantic(sc2);
-                    global.gag--;
-                    if (errors != global.errors)
+                    e = e->trySemantic(sc2);
+                    if (!e)
                         error("no match for implicit super() call in constructor");
-
+                    else
+                    {
                     Statement *s = new ExpStatement(0, e);
                     fbody = new CompoundStatement(0, s, fbody);
                 }
+            }
             }
             else if (fes)
             {   // For foreach(){} body, append a return 0;
@@ -1287,6 +1320,17 @@ void FuncDeclaration::semantic3(Scope *sc)
                 v_argptr->init = new VoidInitializer(loc);
 #else
                 Type *t = argptr->type;
+                if (global.params.is64bit)
+                {   // Initialize _argptr to point to v_argsave
+                    Expression *e1 = new VarExp(0, argptr);
+                    Expression *e = new SymOffExp(0, v_argsave, 6*8 + 8*16);
+                    e->type = argptr->type;
+                    e = new AssignExp(0, e1, e);
+                    e = e->semantic(sc);
+                    a->push(new ExpStatement(0, e));
+                }
+                else
+                {   // Initialize _argptr to point past non-variadic arg
                 VarDeclaration *p;
                 unsigned offset = 0;
 
@@ -1347,15 +1391,10 @@ void FuncDeclaration::semantic3(Scope *sc)
 
             // Merge contracts together with body into one compound statement
 
-#ifdef _DH
             if (frequire && global.params.useIn)
             {   frequire->incontract = 1;
                 a->push(frequire);
             }
-#else
-            if (frequire && global.params.useIn)
-                a->push(frequire);
-#endif
 
             // Precondition invariant
             if (addPreInvariant())
@@ -1483,9 +1522,7 @@ void FuncDeclaration::semantic3(Scope *sc)
             if (isSynchronized())
             {
                 AggregateDeclaration *ad = isThis();
-                ClassDeclaration *cd = ad ? ad->isClassDeclaration() : NULL;
-                if (!cd)
-                    error("synchronized function %s must be a member of a class", toChars());
+                ClassDeclaration *cd = ad ? ad->isClassDeclaration() : parent->isClassDeclaration();
 
                 Expression *sync;
                 if (isStatic())
@@ -1618,7 +1655,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
         }
 
         sf = fdv->mergeFrequire(sf);
-        if (fdv->fdrequire)
+        if (sf && fdv->fdrequire)
         {
             //printf("fdv->frequire: %s\n", fdv->frequire->toChars());
             /* Make the call:
@@ -1629,15 +1666,13 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
             Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire), eresult);
             Statement *s2 = new ExpStatement(loc, e);
 
-            if (sf)
-            {   Catch *c = new Catch(loc, NULL, NULL, sf);
+            Catch *c = new Catch(loc, NULL, NULL, sf);
                 Array *catches = new Array();
                 catches->push(c);
                 sf = new TryCatchStatement(loc, s2, catches);
             }
             else
-                sf = s2;
-        }
+            return NULL;
     }
     return sf;
 }
@@ -3011,7 +3046,7 @@ void StaticCtorDeclaration::semantic(Scope *sc)
         VarDeclaration *v = new VarDeclaration(0, Type::tint32, id, NULL);
         v->storage_class = STCstatic;
         Statements *sa = new Statements();
-        Statement *s = new DeclarationStatement(0, v);
+        Statement *s = new ExpStatement(0, v);
         sa->push(s);
         Expression *e = new IdentifierExp(0, id);
         e = new AddAssignExp(0, e, new IntegerExp(1));
@@ -3051,6 +3086,11 @@ int StaticCtorDeclaration::isStaticConstructor()
 int StaticCtorDeclaration::isVirtual()
 {
     return FALSE;
+}
+
+bool StaticCtorDeclaration::hasStaticCtorOrDtor()
+{
+    return TRUE;
 }
 
 int StaticCtorDeclaration::addPreInvariant()
@@ -3117,7 +3157,7 @@ void StaticDtorDeclaration::semantic(Scope *sc)
         VarDeclaration *v = new VarDeclaration(0, Type::tint32, id, NULL);
         v->storage_class = STCstatic;
         Statements *sa = new Statements();
-        Statement *s = new DeclarationStatement(0, v);
+        Statement *s = new ExpStatement(0, v);
         sa->push(s);
         Expression *e = new IdentifierExp(0, id);
         e = new AddAssignExp(0, e, new IntegerExp((uint64_t)-1));
@@ -3158,6 +3198,11 @@ int StaticDtorDeclaration::isStaticDestructor()
 int StaticDtorDeclaration::isVirtual()
 {
     return FALSE;
+}
+
+bool StaticDtorDeclaration::hasStaticCtorOrDtor()
+{
+    return TRUE;
 }
 
 int StaticDtorDeclaration::addPreInvariant()

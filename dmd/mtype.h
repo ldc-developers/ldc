@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -170,6 +170,7 @@ struct Type : Object
     #define tboolean    tbool           // result of boolean expression
     #define tindex      tsize_t         // array/ptr index
     static Type *tvoidptr;              // void*
+    static Type *tstring;               // immutable(char)[]
     #define terror      basic[Terror]   // for error recovery
 
     #define tsize_t     basic[Tsize_t]          // matches size_t alias
@@ -222,6 +223,7 @@ struct Type : Object
     virtual d_uns64 size(Loc loc);
     virtual unsigned alignsize();
     virtual Type *semantic(Loc loc, Scope *sc);
+    Type *trySemantic(Loc loc, Scope *sc);
     // append the mangleof or a string uniquely identifying this type to buf
     virtual void toDecoBuffer(OutBuffer *buf, bool mangle);
     Type *merge();
@@ -508,6 +510,7 @@ struct TypeFunction : Type
     Type *semantic(Loc loc, Scope *sc);
     void toDecoBuffer(OutBuffer *buf, bool mangle);
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
+    void toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TypeFunction *attrs, TemplateDeclaration *td);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
@@ -528,6 +531,8 @@ struct TypeFunction : Type
 
     FuncDeclaration* funcdecl;
 #endif
+
+    Expression *defaultInit(Loc loc);
 };
 
 struct TypeDelegate : Type
@@ -553,7 +558,7 @@ struct TypeDelegate : Type
 struct TypeQualified : Type
 {
     Loc loc;
-    Array idents;       // array of Identifier's representing ident.ident.ident etc.
+    Identifiers idents;       // array of Identifier's representing ident.ident.ident etc.
 
     TypeQualified(TY ty, Loc loc);
     void syntaxCopyHelper(TypeQualified *t);
@@ -815,6 +820,9 @@ struct Parameter : Object
     static int isTPL(Parameters *arguments);
     static size_t dim(Parameters *arguments);
     static Parameter *getNth(Parameters *arguments, size_t nth, size_t *pn = NULL);
+
+    typedef int (*ForeachDg)(void *ctx, size_t paramidx, Parameter *param, int flags);
+    static int foreach(Parameters *args, ForeachDg dg, void *ctx, size_t *pn=NULL, int flags = 0);
 };
 
 extern int PTRSIZE;

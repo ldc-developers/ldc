@@ -24,13 +24,11 @@ struct OutBuffer;
 struct Module;
 struct Package;
 struct AliasDeclaration;
-#ifdef _DH
 struct HdrGenState;
-#endif
 
 struct Import : Dsymbol
 {
-    Array *packages;            // array of Identifier's representing packages
+    Identifiers *packages;            // array of Identifier's representing packages
     Identifier *id;             // module Identifier
     Identifier *aliasId;
     int isstatic;               // !=0 if static import
@@ -45,7 +43,7 @@ struct Import : Dsymbol
     Module *mod;
     Package *pkg;               // leftmost package/module
 
-    Import(Loc loc, Array *packages, Identifier *id, Identifier *aliasId,
+    Import(Loc loc, Identifiers *packages, Identifier *id, Identifier *aliasId,
         int isstatic);
     void addAlias(Identifier *name, Identifier *alias);
 

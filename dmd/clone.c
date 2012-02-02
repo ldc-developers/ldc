@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -39,7 +39,7 @@ Expression *StructDeclaration::cloneMembers()
         VarDeclaration *v = s->isVarDeclaration();
         assert(v && v->storage_class & STCfield);
         Type *tv = v->type->toBasetype();
-        size_t dim = 1;
+        dinteger_t dim = (tv->ty == Tsarray ? 1 : 0);
         while (tv->ty == Tsarray)
         {   TypeSArray *ta = (TypeSArray *)tv;
             dim *= ((TypeSArray *)tv)->dim->toInteger();
@@ -49,10 +49,10 @@ Expression *StructDeclaration::cloneMembers()
         {   TypeStruct *ts = (TypeStruct *)tv;
             StructDeclaration *sd = ts->sym;
             if (sd->opclone)
-            {   Expression *ex;
+            {
 
                 // this.v
-                ex = new ThisExp(0);
+                Expression *ex = new ThisExp(0);
                 ex = new DotVarExp(0, ex, v, 0);
 
                 if (dim == 1)
@@ -96,7 +96,7 @@ FuncDeclaration *AggregateDeclaration::buildDtor(Scope *sc)
         VarDeclaration *v = s->isVarDeclaration();
         assert(v && v->storage_class & STCfield);
         Type *tv = v->type->toBasetype();
-        size_t dim = 1;
+        dinteger_t dim = (tv->ty == Tsarray ? 1 : 0);
         while (tv->ty == Tsarray)
         {   TypeSArray *ta = (TypeSArray *)tv;
             dim *= ((TypeSArray *)tv)->dim->toInteger();
@@ -139,7 +139,7 @@ FuncDeclaration *AggregateDeclaration::buildDtor(Scope *sc)
      */
     if (e)
     {   //printf("Building __fieldDtor()\n");
-        DtorDeclaration *dd = new DtorDeclaration(0, 0, Lexer::idPool("__fieldDtor"));
+        DtorDeclaration *dd = new DtorDeclaration(loc, 0, Lexer::idPool("__fieldDtor"));
         dd->fbody = new ExpStatement(0, e);
         dtors.shift(dd);
         members->push(dd);
@@ -164,7 +164,7 @@ FuncDeclaration *AggregateDeclaration::buildDtor(Scope *sc)
                 ex = new CallExp(0, ex);
                 e = Expression::combine(ex, e);
             }
-            DtorDeclaration *dd = new DtorDeclaration(0, 0, Lexer::idPool("__aggrDtor"));
+            DtorDeclaration *dd = new DtorDeclaration(loc, 0, Lexer::idPool("__aggrDtor"));
             dd->fbody = new ExpStatement(0, e);
             members->push(dd);
             dd->semantic(sc);

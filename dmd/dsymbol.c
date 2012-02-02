@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -119,15 +119,15 @@ int Dsymbol::oneMember(Dsymbol **ps)
  * Same as Dsymbol::oneMember(), but look at an array of Dsymbols.
  */
 
-int Dsymbol::oneMembers(Array *members, Dsymbol **ps)
+int Dsymbol::oneMembers(Dsymbols *members, Dsymbol **ps)
 {
     //printf("Dsymbol::oneMembers() %d\n", members ? members->dim : 0);
     Dsymbol *s = NULL;
 
     if (members)
     {
-        for (int i = 0; i < members->dim; i++)
-        {   Dsymbol *sx = (Dsymbol *)members->data[i];
+        for (size_t i = 0; i < members->dim; i++)
+        {   Dsymbol *sx = (*members)[i];
 
             int x = sx->oneMember(ps);
             //printf("\t[%d] kind %s = %d, s = %p\n", i, sx->kind(), x, *ps);
@@ -161,6 +161,12 @@ int Dsymbol::hasPointers()
 {
     //printf("Dsymbol::hasPointers() %s\n", toChars());
     return 0;
+}
+
+bool Dsymbol::hasStaticCtorOrDtor()
+{
+    //printf("Dsymbol::hasStaticCtorOrDtor() %s\n", toChars());
+    return FALSE;
 }
 
 char *Dsymbol::toChars()
@@ -212,12 +218,14 @@ const char *Dsymbol::toPrettyChars()
 char *Dsymbol::locToChars()
 {
     OutBuffer buf;
-    char *p;
 
+    if (!loc.filename)  // avoid bug 5861.
+    {
     Module *m = getModule();
 
     if (m && m->srcfile)
         loc.filename = m->srcfile->toChars();
+    }
     return loc.toChars();
 }
 
@@ -541,34 +549,28 @@ int Dsymbol::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 void Dsymbol::error(const char *format, ...)
 {
     //printf("Dsymbol::error()\n");
-    if (!global.gag)
+    if (!loc.filename)  // avoid bug 5861.
     {
-        char *p = locToChars();
+        Module *m = getModule();
 
-        if (*p)
-            fprintf(stdmsg, "%s: ", p);
-        mem.free(p);
-
-        fprintf(stdmsg, "Error: ");
-        if (isAnonymous())
-            fprintf(stdmsg, "%s ", kind());
-        else
-            fprintf(stdmsg, "%s %s ", kind(), toPrettyChars());
-
+        if (m && m->srcfile)
+            loc.filename = m->srcfile->toChars();
+    }
         va_list ap;
         va_start(ap, format);
-        vfprintf(stdmsg, format, ap);
+    verror(loc, format, ap);
         va_end(ap);
-
-        fprintf(stdmsg, "\n");
-        fflush(stdmsg);
-    }
-    global.errors++;
-
-    //fatal();
 }
 
 void Dsymbol::error(Loc loc, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    verror(loc, format, ap);
+    va_end(ap);
+}
+
+void Dsymbol::verror(Loc loc, const char *format, va_list ap)
 {
     if (!global.gag)
     {
@@ -583,13 +585,15 @@ void Dsymbol::error(Loc loc, const char *format, ...)
         fprintf(stdmsg, "Error: ");
         fprintf(stdmsg, "%s %s ", kind(), toPrettyChars());
 
-        va_list ap;
-        va_start(ap, format);
         vfprintf(stdmsg, format, ap);
-        va_end(ap);
 
         fprintf(stdmsg, "\n");
         fflush(stdmsg);
+//halt();
+    }
+    else
+    {
+        global.gaggedErrors++;
     }
 
     global.errors++;
@@ -604,21 +608,24 @@ void Dsymbol::checkDeprecated(Loc loc, Scope *sc)
         // Don't complain if we're inside a deprecated symbol's scope
         for (Dsymbol *sp = sc->parent; sp; sp = sp->parent)
         {   if (sp->isDeprecated())
-                return;
+                goto L1;
         }
 
-        for (; sc; sc = sc->enclosing)
+        for (Scope *sc2 = sc; sc2; sc2 = sc2->enclosing)
         {
-            if (sc->scopesym && sc->scopesym->isDeprecated())
-                return;
+            if (sc2->scopesym && sc2->scopesym->isDeprecated())
+                goto L1;
 
             // If inside a StorageClassDeclaration that is deprecated
-            if (sc->stc & STCdeprecated)
-                return;
+            if (sc2->stc & STCdeprecated)
+                goto L1;
         }
 
         error(loc, "is deprecated");
     }
+
+  L1:
+    ;
 }
 
 /**********************************
@@ -631,6 +638,10 @@ Module *Dsymbol::getModule()
     Dsymbol *s;
 
     //printf("Dsymbol::getModule()\n");
+    TemplateDeclaration *td = getFuncTemplateDecl(this);
+    if (td)
+        return td->getModule();
+
     s = this;
     while (s)
     {
@@ -684,19 +695,19 @@ enum PROT Dsymbol::prot()
  */
 
 
-Array *Dsymbol::arraySyntaxCopy(Array *a)
+Dsymbols *Dsymbol::arraySyntaxCopy(Dsymbols *a)
 {
 
-    Array *b = NULL;
+    Dsymbols *b = NULL;
     if (a)
     {
         b = a->copy();
-        for (int i = 0; i < b->dim; i++)
+        for (size_t i = 0; i < b->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)b->data[i];
+            Dsymbol *s = (*b)[i];
 
             s = s->syntaxCopy(NULL);
-            b->data[i] = (void *)s;
+            (*b)[i] = s;
         }
     }
     return b;
@@ -799,8 +810,8 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
     else if (imports)
     {
         // Look in imported modules
-        for (int i = 0; i < imports->dim; i++)
-        {   ScopeDsymbol *ss = (ScopeDsymbol *)imports->data[i];
+        for (size_t i = 0; i < imports->dim; i++)
+        {   ScopeDsymbol *ss = (*imports)[i];
             Dsymbol *s2;
 
             // If private import, don't search it
@@ -863,13 +874,11 @@ void ScopeDsymbol::importScope(ScopeDsymbol *s, enum PROT protection)
     if (s != this)
     {
         if (!imports)
-            imports = new Array();
+            imports = new ScopeDsymbols();
         else
         {
-            for (int i = 0; i < imports->dim; i++)
-            {   ScopeDsymbol *ss;
-
-                ss = (ScopeDsymbol *) imports->data[i];
+            for (size_t i = 0; i < imports->dim; i++)
+            {   ScopeDsymbol *ss = (*imports)[i];
                 if (ss == s)                    // if already imported
                 {
                     if (protection > prots[i])
@@ -953,28 +962,41 @@ Dsymbol *ScopeDsymbol::symtabInsert(Dsymbol *s)
     return symtab->insert(s);
 }
 
+/****************************************
+ * Return true if any of the members are static ctors or static dtors, or if
+ * any members have members that are.
+ */
+
+bool ScopeDsymbol::hasStaticCtorOrDtor()
+{
+    if (members)
+    {
+        for (size_t i = 0; i < members->dim; i++)
+        {   Dsymbol *member = (*members)[i];
+
+            if (member->hasStaticCtorOrDtor())
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 /***************************************
  * Determine number of Dsymbols, folding in AttribDeclaration members.
  */
 
 #if DMDV2
-size_t ScopeDsymbol::dim(Array *members)
+static int dimDg(void *ctx, size_t n, Dsymbol *)
+{
+    ++*(size_t *)ctx;
+    return 0;
+}
+
+size_t ScopeDsymbol::dim(Dsymbols *members)
 {
     size_t n = 0;
     if (members)
-    {
-        for (size_t i = 0; i < members->dim; i++)
-        {   Dsymbol *s = (Dsymbol *)members->data[i];
-            AttribDeclaration *a = s->isAttribDeclaration();
-
-            if (a)
-            {
-                n += dim(a->decl);
-            }
-            else
-                n++;
-        }
-    }
+        foreach(members, &dimDg, &n);
     return n;
 }
 #endif
@@ -988,31 +1010,65 @@ size_t ScopeDsymbol::dim(Array *members)
  */
 
 #if DMDV2
-Dsymbol *ScopeDsymbol::getNth(Array *members, size_t nth, size_t *pn)
+struct GetNthSymbolCtx
 {
-    if (!members)
-        return NULL;
+    size_t nth;
+    Dsymbol *sym;
+};
 
-    size_t n = 0;
-    for (size_t i = 0; i < members->dim; i++)
-    {   Dsymbol *s = (Dsymbol *)members->data[i];
-        AttribDeclaration *a = s->isAttribDeclaration();
-
-        if (a)
-        {
-            s = getNth(a->decl, nth - n, &n);
-            if (s)
-                return s;
+static int getNthSymbolDg(void *ctx, size_t n, Dsymbol *sym)
+{
+    GetNthSymbolCtx *p = (GetNthSymbolCtx *)ctx;
+    if (n == p->nth)
+    {   p->sym = sym;
+        return 1;
         }
-        else if (n == nth)
-            return s;
+    return 0;
+}
+
+Dsymbol *ScopeDsymbol::getNth(Dsymbols *members, size_t nth, size_t *pn)
+{
+    GetNthSymbolCtx ctx = { nth, NULL };
+    int res = foreach(members, &getNthSymbolDg, &ctx);
+    return res ? ctx.sym : NULL;
+}
+#endif
+
+/***************************************
+ * Expands attribute declarations in members in depth first
+ * order. Calls dg(void *ctx, size_t symidx, Dsymbol *sym) for each
+ * member.
+ * If dg returns !=0, stops and returns that value else returns 0.
+ * Use this function to avoid the O(N + N^2/2) complexity of
+ * calculating dim and calling N times getNth.
+ */
+
+#if DMDV2
+int ScopeDsymbol::foreach(Dsymbols *members, ScopeDsymbol::ForeachDg dg, void *ctx, size_t *pn)
+{
+    assert(members);
+
+    size_t n = pn ? *pn : 0; // take over index
+    int result = 0;
+    for (size_t i = 0; i < members->dim; i++)
+    {   Dsymbol *s = (*members)[i];
+
+        if (AttribDeclaration *a = s->isAttribDeclaration())
+            result = foreach(a->decl, dg, ctx, &n);
+        else if (TemplateMixin *tm = s->isTemplateMixin())
+            result = foreach(tm->members, dg, ctx, &n);
+        else if (s->isTemplateInstance())
+            ;
         else
-            n++;
+            result = dg(ctx, n++, s);
+
+        if (result)
+            break;
     }
 
     if (pn)
-        *pn += n;
-    return NULL;
+        *pn = n; // update index
+    return result;
 }
 #endif
 
@@ -1161,34 +1217,26 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
          * multiple times, it gets set only once.
          */
         if (!*pvar)             // if not already initialized
-        {   /* Create variable v and set it to the value of $,
-             * which will be a constant.
+        {   /* Create variable v and set it to the value of $
              */
             VarDeclaration *v = new VarDeclaration(loc, Type::tsize_t, Id::dollar, NULL);
-
-            if (ce->op == TOKstring)
-            {   /* It is for a string literal, so the
-                 * length will be a const.
-                 */
-                Expression *e = new IntegerExp(0, ((StringExp *)ce)->len, Type::tsize_t);
-                v->init = new ExpInitializer(0, e);
-                v->storage_class |= STCconst;
-            }
-            else if (ce->op == TOKarrayliteral)
-            {   /* It is for an array literal, so the
-                 * length will be a const.
-                 */
-                Expression *e = new IntegerExp(0, ((ArrayLiteralExp *)ce)->elements->dim, Type::tsize_t);
-                v->init = new ExpInitializer(0, e);
-                v->storage_class |= STCconst;
-            }
-            else if (ce->op == TOKtuple)
+            if (ce->op == TOKtuple)
             {   /* It is for an expression tuple, so the
-                 * length will be a const.
+                 * length will be a compile-time constant.
                  */
                 Expression *e = new IntegerExp(0, ((TupleExp *)ce)->exps->dim, Type::tsize_t);
                 v->init = new ExpInitializer(0, e);
                 v->storage_class |= STCconst;
+            }
+            else
+            {   /* For arrays, $ will either be a compile-time constant
+                 * (in which case its value in set during constant-folding),
+                 * or a variable (in which case an expression is created in
+                 * toir.c).
+                 */
+                VoidInitializer *e = new VoidInitializer(0);
+                e->type = Type::tsize_t;
+                v->init = e;
             }
             *pvar = v;
         }
@@ -1202,89 +1250,46 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
 
 DsymbolTable::DsymbolTable()
 {
-#if STRINGTABLE
-    tab = new StringTable;
-#else
     tab = NULL;
-#endif
 }
 
 DsymbolTable::~DsymbolTable()
 {
-#if STRINGTABLE
-    delete tab;
-#endif
 }
 
 Dsymbol *DsymbolTable::lookup(Identifier *ident)
 {
-#if STRINGTABLE
-#ifdef DEBUG
-    assert(ident);
-    assert(tab);
-#endif
-    //printf("DsymbolTable::lookup(%s)\n", (char*)ident->string);
-    StringValue *sv = tab->lookup((char*)ident->string, ident->len);
-    return (Dsymbol *)(sv ? sv->ptrvalue : NULL);
-#else
     //printf("DsymbolTable::lookup(%s)\n", (char*)ident->string);
     return (Dsymbol *)_aaGetRvalue(tab, ident);
-#endif
 }
 
 Dsymbol *DsymbolTable::insert(Dsymbol *s)
 {
     //printf("DsymbolTable::insert(this = %p, '%s')\n", this, s->ident->toChars());
     Identifier *ident = s->ident;
-#if STRINGTABLE
-#ifdef DEBUG
-    assert(ident);
-    assert(tab);
-#endif
-    StringValue *sv = tab->insert(ident->toChars(), ident->len);
-    if (!sv)
-        return NULL;            // already in table
-    sv->ptrvalue = s;
-    return s;
-#else
     Dsymbol **ps = (Dsymbol **)_aaGet(&tab, ident);
     if (*ps)
         return NULL;            // already in table
     *ps = s;
     return s;
-#endif
 }
 
 Dsymbol *DsymbolTable::insert(Identifier *ident, Dsymbol *s)
 {
     //printf("DsymbolTable::insert()\n");
-#if STRINGTABLE
-    StringValue *sv = tab->insert(ident->toChars(), ident->len);
-    if (!sv)
-        return NULL;            // already in table
-    sv->ptrvalue = s;
-    return s;
-#else
     Dsymbol **ps = (Dsymbol **)_aaGet(&tab, ident);
     if (*ps)
         return NULL;            // already in table
     *ps = s;
     return s;
-#endif
 }
 
 Dsymbol *DsymbolTable::update(Dsymbol *s)
 {
     Identifier *ident = s->ident;
-#if STRINGTABLE
-    StringValue *sv = tab->update(ident->toChars(), ident->len);
-    sv->ptrvalue = s;
-    return s;
-#else
     Dsymbol **ps = (Dsymbol **)_aaGet(&tab, ident);
     *ps = s;
     return s;
-#endif
 }
 
 
