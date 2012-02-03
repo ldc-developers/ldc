@@ -49,10 +49,6 @@ using namespace opts;
 #include <windows.h>
 #endif
 
-#if DMDV1
-typedef Array Modules;
-#endif
-
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
 extern void backend_term();

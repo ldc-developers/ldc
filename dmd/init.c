@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -34,7 +34,7 @@ Initializer *Initializer::syntaxCopy()
     return this;
 }
 
-Initializer *Initializer::semantic(Scope *sc, Type *t)
+Initializer *Initializer::semantic(Scope *sc, Type *t, int needInterpret)
 {
     return this;
 }
@@ -52,7 +52,7 @@ Initializers *Initializer::arraySyntaxCopy(Initializers *ai)
     {
         a = new Initializers();
         a->setDim(ai->dim);
-        for (int i = 0; i < a->dim; i++)
+        for (size_t i = 0; i < a->dim; i++)
         {   Initializer *e = (Initializer *)ai->data[i];
 
             e = e->syntaxCopy();
@@ -87,7 +87,7 @@ Initializer *VoidInitializer::syntaxCopy()
 }
 
 
-Initializer *VoidInitializer::semantic(Scope *sc, Type *t)
+Initializer *VoidInitializer::semantic(Scope *sc, Type *t, int needInterpret)
 {
     //printf("VoidInitializer::semantic(t = %p)\n", t);
     type = t;
@@ -126,7 +126,7 @@ Initializer *StructInitializer::syntaxCopy()
     assert(field.dim == value.dim);
     ai->field.setDim(field.dim);
     ai->value.setDim(value.dim);
-    for (int i = 0; i < field.dim; i++)
+    for (size_t i = 0; i < field.dim; i++)
     {
         ai->field.data[i] = field.data[i];
 
@@ -144,21 +144,25 @@ void StructInitializer::addInit(Identifier *field, Initializer *value)
     this->value.push(value);
 }
 
-Initializer *StructInitializer::semantic(Scope *sc, Type *t)
+Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
 {
-    TypeStruct *ts;
     int errors = 0;
 
     //printf("StructInitializer::semantic(t = %s) %s\n", t->toChars(), toChars());
     vars.setDim(field.dim);
     t = t->toBasetype();
     if (t->ty == Tstruct)
-    {   unsigned i;
+    {
         unsigned fieldi = 0;
 
-        ts = (TypeStruct *)t;
+        TypeStruct *ts = (TypeStruct *)t;
         ad = ts->sym;
-        for (i = 0; i < field.dim; i++)
+        size_t nfields = ad->fields.dim;
+#if DMDV2
+        if (((StructDeclaration *)ad)->isnested)
+            nfields--;          // don't count pointer to outer
+#endif
+        for (size_t i = 0; i < field.dim; i++)
         {
             Identifier *id = (Identifier *)field.data[i];
             Initializer *val = (Initializer *)value.data[i];
@@ -167,8 +171,9 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t)
 
             if (id == NULL)
             {
-                if (fieldi >= ad->fields.dim)
+                if (fieldi >= nfields)
                 {   error(loc, "too many initializers for %s", ad->toChars());
+                    errors = 1;
                     field.remove(i);
                     i--;
                     continue;
@@ -185,15 +190,18 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t)
                 if (!s)
                 {
                     error(loc, "'%s' is not a member of '%s'", id->toChars(), t->toChars());
+                    errors = 1;
                     continue;
                 }
 
                 // Find out which field index it is
                 for (fieldi = 0; 1; fieldi++)
                 {
-                    if (fieldi >= ad->fields.dim)
+                    if (fieldi >= nfields)
                     {
-                        s->error("is not a per-instance initializable field");
+                        error(loc, "%s.%s is not a per-instance initializable field",
+                            t->toChars(), s->toChars());
+                        errors = 1;
                         break;
                     }
                     if (s == (Dsymbol *)ad->fields.data[fieldi])
@@ -202,7 +210,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t)
             }
             if (s && (v = s->isVarDeclaration()) != NULL)
             {
-                val = val->semantic(sc, v->type);
+                val = val->semantic(sc, v->type, needInterpret);
                 value.data[i] = (void *)val;
                 vars.data[i] = (void *)v;
             }
@@ -223,7 +231,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t)
         fd->endloc = loc;
         Expression *e = new FuncExp(loc, fd);
         ExpInitializer *ie = new ExpInitializer(loc, e);
-        return ie->semantic(sc, t);
+        return ie->semantic(sc, t, needInterpret);
     }
     else
     {
@@ -238,7 +246,6 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t)
     }
     return this;
 }
-
 
 /***************************************
  * This works by transforming a struct initializer into
@@ -257,17 +264,96 @@ Expression *StructInitializer::toExpression()
     if (!sd)
         return NULL;
     Expressions *elements = new Expressions();
+    size_t nfields = ad->fields.dim;
+#if DMDV2
+    if (sd->isnested)
+       nfields--;
+#endif
+    elements->setDim(nfields);
+    for (size_t i = 0; i < elements->dim; i++)
+    {
+        elements->data[i] = NULL;
+    }
+    unsigned fieldi = 0;
     for (size_t i = 0; i < value.dim; i++)
     {
-        if (field.data[i])
+        Identifier *id = (Identifier *)field.data[i];
+        if (id)
+        {
+            Dsymbol * s = ad->search(loc, id, 0);
+            if (!s)
+            {
+                error(loc, "'%s' is not a member of '%s'", id->toChars(), sd->toChars());
+                goto Lno;
+            }
+
+            // Find out which field index it is
+            for (fieldi = 0; 1; fieldi++)
+            {
+                if (fieldi >= nfields)
+                {
+                    s->error("is not a per-instance initializable field");
+                    goto Lno;
+                }
+                if (s == (Dsymbol *)ad->fields.data[fieldi])
+                    break;
+            }
+        }
+        else if (fieldi >= nfields)
+        {   error(loc, "too many initializers for '%s'", ad->toChars());
             goto Lno;
+        }
         Initializer *iz = (Initializer *)value.data[i];
         if (!iz)
             goto Lno;
         Expression *ex = iz->toExpression();
         if (!ex)
             goto Lno;
-        elements->push(ex);
+        if (elements->data[fieldi])
+        {   error(loc, "duplicate initializer for field '%s'",
+                ((Dsymbol *)ad->fields.data[fieldi])->toChars());
+            goto Lno;
+        }
+        elements->data[fieldi] = ex;
+        ++fieldi;
+    }
+    // Now, fill in any missing elements with default initializers.
+    // We also need to validate any anonymous unions
+    for (size_t i = 0; i < elements->dim; )
+    {
+        VarDeclaration * vd = ((Dsymbol *)ad->fields.data[i])->isVarDeclaration();
+        int unionSize = ad->numFieldsInUnion(i);
+        if (unionSize == 1)
+        {   // Not a union -- default initialize if missing
+            if (!elements->data[i])
+                elements->data[i] = vd->type->defaultInit();
+        }
+        else
+        {   // anonymous union -- check for errors
+            int found = -1; // index of the first field with an initializer
+            for (int j = i; j < i + unionSize; ++j)
+            {
+                if (!elements->data[j])
+                    continue;
+                if (found >= 0)
+                {
+                    VarDeclaration * v1 = ((Dsymbol *)ad->fields.data[found])->isVarDeclaration();
+                    VarDeclaration * v = ((Dsymbol *)ad->fields.data[j])->isVarDeclaration();
+                    error(loc, "%s cannot have initializers for fields %s and %s in same union",
+                        ad->toChars(),
+                        v1->toChars(), v->toChars());
+                    goto Lno;
+                }
+                found = j;
+            }
+            if (found == -1)
+            {
+                error(loc, "no initializer for union that contains field %s",
+                    vd->toChars());
+                goto Lno;
+            }
+        }
+        i += unionSize;
     }
     e = new StructLiteralExp(loc, sd, elements);
     e->type = sd->type;
@@ -275,7 +361,6 @@ Expression *StructInitializer::toExpression()
 
 Lno:
     delete elements;
-    //error(loc, "struct initializers as expressions are not allowed");
     return NULL;
 }
 
@@ -284,7 +369,7 @@ void StructInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     //printf("StructInitializer::toCBuffer()\n");
     buf->writebyte('{');
-    for (int i = 0; i < field.dim; i++)
+    for (size_t i = 0; i < field.dim; i++)
     {
         if (i > 0)
             buf->writebyte(',');
@@ -320,7 +405,7 @@ Initializer *ArrayInitializer::syntaxCopy()
     assert(index.dim == value.dim);
     ai->index.setDim(index.dim);
     ai->value.setDim(value.dim);
-    for (int i = 0; i < ai->value.dim; i++)
+    for (size_t i = 0; i < ai->value.dim; i++)
     {   Expression *e = (Expression *)index.data[i];
         if (e)
             e = e->syntaxCopy();
@@ -341,7 +426,7 @@ void ArrayInitializer::addInit(Expression *index, Initializer *value)
     type = NULL;
 }
 
-Initializer *ArrayInitializer::semantic(Scope *sc, Type *t)
+Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, int needInterpret)
 {   unsigned i;
     unsigned length;
     const unsigned amax = 0x80000000;
@@ -367,17 +452,17 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t)
     length = 0;
     for (i = 0; i < index.dim; i++)
     {
-        Expression *idx = (Expression *)index.data[i];
+        Expression *idx = index[i];
         if (idx)
         {   idx = idx->semantic(sc);
             idx = idx->optimize(WANTvalue | WANTinterpret);
-            index.data[i] = (void *)idx;
+            index[i] = idx;
             length = idx->toInteger();
         }
 
-        Initializer *val = (Initializer *)value.data[i];
-        val = val->semantic(sc, t->nextOf());
-        value.data[i] = (void *)val;
+        Initializer *val = value[i];
+        val = val->semantic(sc, t->nextOf(), needInterpret);
+        value[i] = val;
         length++;
         if (length == 0)
         {   error(loc, "array dimension overflow");
@@ -412,7 +497,6 @@ Lerr:
 
 Expression *ArrayInitializer::toExpression()
 {   Expressions *elements;
-    Expression *e;
 
     //printf("ArrayInitializer::toExpression(), dim = %d\n", dim);
     //static int i; if (++i == 2) halt();
@@ -445,8 +529,8 @@ Expression *ArrayInitializer::toExpression()
         edim = value.dim;
         for (size_t i = 0, j = 0; i < value.dim; i++, j++)
         {
-            if (index.data[i])
-                j = ((Expression *)index.data[i])->toInteger();
+            if (index[i])
+                j = (index[i])->toInteger();
             if (j >= edim)
                 edim = j + 1;
         }
@@ -456,10 +540,10 @@ Expression *ArrayInitializer::toExpression()
     elements->setDim(edim);
     for (size_t i = 0, j = 0; i < value.dim; i++, j++)
     {
-        if (index.data[i])
-            j = ((Expression *)index.data[i])->toInteger();
+        if (index[i])
+            j = (index[i])->toInteger();
         assert(j < edim);
-        Initializer *iz = (Initializer *)value.data[i];
+        Initializer *iz = value[i];
         if (!iz)
             goto Lno;
         Expression *ex = iz->toExpression();
@@ -467,7 +551,7 @@ Expression *ArrayInitializer::toExpression()
         {
             goto Lno;
         }
-        elements->data[j] = ex;
+        (*elements)[j] = ex;
     }
 
     /* Fill in any missing elements with the default initializer
@@ -476,13 +560,13 @@ Expression *ArrayInitializer::toExpression()
     Expression *init = NULL;
     for (size_t i = 0; i < edim; i++)
     {
-        if (!elements->data[i])
+        if (!(*elements)[i])
         {
             if (!type)
                 goto Lno;
             if (!init)
                 init = t->next->defaultInit();
-            elements->data[i] = init;
+            (*elements)[i] = init;
         }
     }
 
@@ -502,31 +586,30 @@ Lno:
  */
 
 Initializer *ArrayInitializer::toAssocArrayInitializer()
-{   Expressions *keys;
-    Expressions *values;
+{
     Expression *e;
 
     //printf("ArrayInitializer::toAssocArrayInitializer()\n");
     //static int i; if (++i == 2) halt();
-    keys = new Expressions();
+    Expressions *keys = new Expressions();
     keys->setDim(value.dim);
-    values = new Expressions();
+    Expressions *values = new Expressions();
     values->setDim(value.dim);
 
     for (size_t i = 0; i < value.dim; i++)
     {
-        e = (Expression *)index.data[i];
+        e = index.tdata()[i];
         if (!e)
             goto Lno;
-        keys->data[i] = (void *)e;
+        keys->tdata()[i] = e;
 
-        Initializer *iz = (Initializer *)value.data[i];
+        Initializer *iz = value.tdata()[i];
         if (!iz)
             goto Lno;
         e = iz->toExpression();
         if (!e)
             goto Lno;
-        values->data[i] = (void *)e;
+        values->tdata()[i] = e;
     }
     e = new AssocArrayLiteralExp(loc, keys, values);
     return new ExpInitializer(loc, e);
@@ -578,17 +661,17 @@ Laa:
 void ArrayInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     buf->writebyte('[');
-    for (int i = 0; i < index.dim; i++)
+    for (size_t i = 0; i < index.dim; i++)
     {
         if (i > 0)
             buf->writebyte(',');
-        Expression *ex = (Expression *)index.data[i];
+        Expression *ex = index.tdata()[i];
         if (ex)
         {
             ex->toCBuffer(buf, hgs);
             buf->writebyte(':');
         }
-        Initializer *iz = (Initializer *)value.data[i];
+        Initializer *iz = value.tdata()[i];
         if (iz)
             iz->toCBuffer(buf, hgs);
     }
@@ -609,10 +692,19 @@ Initializer *ExpInitializer::syntaxCopy()
     return new ExpInitializer(loc, exp->syntaxCopy());
 }
 
-Initializer *ExpInitializer::semantic(Scope *sc, Type *t)
+Initializer *ExpInitializer::semantic(Scope *sc, Type *t, int needInterpret)
 {
     //printf("ExpInitializer::semantic(%s), type = %s\n", exp->toChars(), t->toChars());
     exp = exp->semantic(sc);
+    int wantOptimize = needInterpret ? WANTinterpret|WANTvalue : WANTvalue;
+
+    int olderrors = global.errors;
+    exp = exp->optimize(wantOptimize);
+    if (!global.gag && olderrors != global.errors)
+        return this; // Failed, suppress duplicate error messages
+
+    if (exp->op == TOKtype)
+        error("initializer must be an expression, not '%s'", exp->toChars());
     Type *tb = t->toBasetype();
 
     /* Look for case of initializing a static array with a too-short
@@ -645,7 +737,7 @@ Initializer *ExpInitializer::semantic(Scope *sc, Type *t)
 
     exp = exp->implicitCastTo(sc, t);
 L1:
-    exp = exp->optimize(WANTvalue | WANTinterpret);
+    exp = exp->optimize(wantOptimize);
     //printf("-ExpInitializer::semantic(): "); exp->print();
     return this;
 }

@@ -837,7 +837,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
         fname = "_d_switch_dstring";
     }
     else {
-        assert(0 && "not char/wchar/dchar");
+        llvm_unreachable("not char/wchar/dchar");
     }
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
@@ -1587,11 +1587,7 @@ void VolatileStatement::toIR(IRState* p)
         p->func()->gen->targetScopes.pop_back();
 
         // no point in a unreachable barrier, terminating statements must insert this themselves.
-#if DMDV2
         if (statement->blockExit(false) & BEfallthru)
-#else
-        if (statement->blockExit() & BEfallthru)
-#endif
         {
             // store-load
             DtoMemoryBarrier(false, false, true, false);
