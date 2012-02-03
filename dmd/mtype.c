@@ -191,6 +191,7 @@ void Type::init()
 #endif
 {
     stringtable.init();
+    deco_stringtable.init();
     Lexer::initKeywords();
 
     mangleChar[Tarray] = 'A';
