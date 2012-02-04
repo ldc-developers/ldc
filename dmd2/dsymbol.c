@@ -31,9 +31,8 @@
 #include "import.h"
 #include "template.h"
 #include "attrib.h"
-
 #if IN_LLVM
-#include "../gen/enums.h"
+#include "../gen/pragma.h"
 #endif
 
 /****************************** Dsymbol ******************************/

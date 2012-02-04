@@ -73,6 +73,11 @@ static cl::opt<ubyte, true> warnings(
     cl::location(global.params.warnings),
     cl::init(0));
 
+static cl::opt<bool, true> ignoreUnsupportedPragmas("ignore",
+    cl::desc("Ignore unsupported pragmas"),
+    cl::ZeroOrMore,
+    cl::location(global.params.ignoreUnsupportedPragmas));
+
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"),
     cl::ZeroOrMore,

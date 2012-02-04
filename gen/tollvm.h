@@ -162,6 +162,4 @@ void DtoAggrCopy(LLValue* dst, LLValue* src);
  */
 void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
 
-#include "enums.h"
-
 #endif // LDC_GEN_TOLLVM_H

@@ -41,6 +41,7 @@
 #include "gen/utils.h"
 #include "gen/warnings.h"
 #include "gen/optimizer.h"
+#include "gen/pragma.h"
 
 #include "llvm/Support/ManagedStatic.h"
 

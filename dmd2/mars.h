@@ -206,6 +206,7 @@ struct Param
     bool useInline;	// inline expand functions
     ubyte warnings;	// enable warnings
     ubyte Dversion;	// D version number
+    bool ignoreUnsupportedPragmas;      // rather than error on them
     char enforcePropertySyntax;
 
     char *argv0;        // program name
