@@ -36,10 +36,8 @@ namespace opts {
     extern cl::opt<std::string> ddocDir;
     extern cl::opt<std::string> ddocFile;
     extern cl::opt<std::string> jsonFile;
-#ifdef _DH
     extern cl::opt<std::string> hdrDir;
     extern cl::opt<std::string> hdrFile;
-#endif
     extern cl::list<std::string> versions;
     extern cl::opt<std::string> moduleDepsFile;
 

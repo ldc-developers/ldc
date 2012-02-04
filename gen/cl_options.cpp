@@ -150,7 +150,6 @@ cl::opt<std::string> jsonFile("Xf",
     cl::Prefix);
 
 // Header generation options
-#ifdef _DH
 static cl::opt<bool, true> doHdrGen("H",
     cl::desc("Generate 'header' file"),
     cl::location(global.params.doHdrGeneration));
@@ -164,8 +163,6 @@ cl::opt<std::string> hdrFile("Hf",
     cl::desc("Write 'header' file to <filename>"),
     cl::value_desc("filename"),
     cl::Prefix);
-#endif
-
 
 
 static cl::opt<bool, true> unittest("unittest",

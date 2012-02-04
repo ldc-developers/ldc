@@ -240,7 +240,6 @@ include_directories(
 
 add_definitions(
     -DIN_LLVM
-    -D_DH
     -DOPAQUE_VTBLS
     -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
 )

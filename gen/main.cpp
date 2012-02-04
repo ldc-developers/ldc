@@ -242,12 +242,10 @@ int main(int argc, char** argv)
     if (global.params.xfilename)
         global.params.doXGeneration = true;
 
-#ifdef _DH
     initFromString(global.params.hdrdir, hdrDir);
     initFromString(global.params.hdrname, hdrFile);
     global.params.doHdrGeneration |=
         global.params.hdrdir || global.params.hdrname;
-#endif
 
     initFromString(global.params.moduleDepsFile, moduleDepsFile);
     if (global.params.moduleDepsFile != NULL)
@@ -837,11 +835,7 @@ LDC_TARGETS
             Module::rootModule = m;
         m->importedFrom = m;
         m->read(0);
-#ifdef _DH
         m->parse(global.params.doDocComments);
-#else
-        m->parse();
-#endif
         m->buildTargetFiles(singleObj);
         m->deleteObjFile();
         if (m->isDocFile)
@@ -855,7 +849,7 @@ LDC_TARGETS
     }
     if (global.errors)
         fatal();
-#ifdef _DH
+
     if (global.params.doHdrGeneration)
     {
         /* Generate 'header' import files.
@@ -873,7 +867,6 @@ LDC_TARGETS
     }
     if (global.errors)
         fatal();
-#endif
 
     // load all unconditional imports for better symbol resolving
     for (unsigned i = 0; i < modules.dim; i++)
