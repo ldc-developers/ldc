@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -145,6 +145,7 @@ struct Dsymbol : Object
     int isAnonymous();
     void error(Loc loc, const char *format, ...) IS_PRINTF(3);
     void error(const char *format, ...) IS_PRINTF(2);
+    void verror(Loc loc, const char *format, va_list ap);
     void checkDeprecated(Loc loc, Scope *sc);
     Module *getModule();        // module where declared
     Module *getCompilationModule(); // possibly different for templates
@@ -155,7 +156,7 @@ struct Dsymbol : Object
 
     int dyncast() { return DYNCAST_DSYMBOL; }   // kludge for template.isSymbol()
 
-    static Array *arraySyntaxCopy(Array *a);
+    static Dsymbols *arraySyntaxCopy(Dsymbols *a);
 
     virtual const char *toPrettyChars();
     virtual const char *kind();
@@ -172,10 +173,8 @@ struct Dsymbol : Object
     Dsymbol *search_correct(Identifier *id);
     Dsymbol *searchX(Loc loc, Scope *sc, Identifier *id);
     virtual int overloadInsert(Dsymbol *s);
-#ifdef _DH
     char *toHChars();
     virtual void toHBuffer(OutBuffer *buf, HdrGenState *hgs);
-#endif
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual void toDocBuffer(OutBuffer *buf);
     virtual void toJsonBuffer(OutBuffer *buf);
@@ -198,8 +197,9 @@ struct Dsymbol : Object
     virtual enum PROT prot();
     virtual Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
     virtual int oneMember(Dsymbol **ps);
-    static int oneMembers(Array *members, Dsymbol **ps);
+    static int oneMembers(Dsymbols *members, Dsymbol **ps);
     virtual int hasPointers();
+    virtual bool hasStaticCtorOrDtor();
     virtual void addLocalClass(ClassDeclarations *) { }
     virtual void checkCtorConstInit() { }
 
@@ -254,9 +254,8 @@ struct Dsymbol : Object
     virtual ArrayScopeSymbol *isArrayScopeSymbol() { return NULL; }
     virtual Import *isImport() { return NULL; }
     virtual EnumDeclaration *isEnumDeclaration() { return NULL; }
-#ifdef _DH
     virtual DeleteDeclaration *isDeleteDeclaration() { return NULL; }
-#endif
+    //virtual SymbolDeclaration *isSymbolDeclaration() { return NULL; }
     virtual StaticStructInitDeclaration *isStaticStructInitDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
@@ -283,10 +282,10 @@ struct Dsymbol : Object
 
 struct ScopeDsymbol : Dsymbol
 {
-    Array *members;             // all Dsymbol's in this scope
+    Dsymbols *members;          // all Dsymbol's in this scope
     DsymbolTable *symtab;       // members[] sorted into table
 
-    Array *imports;             // imported ScopeDsymbol's
+    ScopeDsymbols *imports;     // imported ScopeDsymbol's
     unsigned char *prots;       // array of PROT, one for each import
 
     ScopeDsymbol();
@@ -301,11 +300,15 @@ struct ScopeDsymbol : Dsymbol
     const char *kind();
     FuncDeclaration *findGetMembers();
     virtual Dsymbol *symtabInsert(Dsymbol *s);
+    bool hasStaticCtorOrDtor();
 
     void emitMemberComments(Scope *sc);
 
-    static size_t dim(Array *members);
-    static Dsymbol *getNth(Array *members, size_t nth, size_t *pn = NULL);
+    static size_t dim(Dsymbols *members);
+    static Dsymbol *getNth(Dsymbols *members, size_t nth, size_t *pn = NULL);
+
+    typedef int (*ForeachDg)(void *ctx, size_t idx, Dsymbol *s);
+    static int foreach(Dsymbols *members, ForeachDg dg, void *ctx, size_t *pn=NULL);
 
     ScopeDsymbol *isScopeDsymbol() { return this; }
 };
@@ -357,11 +360,7 @@ struct OverloadSet : Dsymbol
 
 struct DsymbolTable : Object
 {
-#if STRINGTABLE
-    StringTable *tab;
-#else
     AA *tab;
-#endif
 
     DsymbolTable();
     ~DsymbolTable();

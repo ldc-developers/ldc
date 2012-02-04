@@ -19,6 +19,9 @@ namespace opts {
     extern cl::list<std::string> fileList;
     extern cl::list<std::string> runargs;
     extern cl::opt<bool> compileOnly;
+#if DMDV2
+    extern cl::opt<bool> enforcePropertySyntax;
+#endif
     extern cl::opt<bool> createStaticLib;
     extern cl::opt<bool> createSharedLib;
     extern cl::opt<bool> noAsm;
@@ -33,10 +36,8 @@ namespace opts {
     extern cl::opt<std::string> ddocDir;
     extern cl::opt<std::string> ddocFile;
     extern cl::opt<std::string> jsonFile;
-#ifdef _DH
     extern cl::opt<std::string> hdrDir;
     extern cl::opt<std::string> hdrFile;
-#endif
     extern cl::list<std::string> versions;
     extern cl::opt<std::string> moduleDepsFile;
 

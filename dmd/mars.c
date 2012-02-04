@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -36,6 +36,21 @@
 #include "lexer.h"
 #include "json.h"
 
+#if WINDOWS_SEH
+#include <windows.h>
+long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
+#endif
+
+
+int response_expand(int *pargc, char ***pargv);
+void browse(const char *url);
+void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
+
+void obj_start(char *srcfile);
+void obj_end(Library *library, File *objfile);
+
+void printCtfePerformanceStats();
+
 Global global;
 
 Global::Global()
@@ -57,9 +72,9 @@ Global::Global()
     obj_ext_alt = "obj";
 #endif
 
-    copyright = "Copyright (c) 1999-2010 by Digital Mars and Tomas Lindquist Olsen";
+    copyright = "Copyright (c) 1999-2011 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.067";
+    version = "v1.072";
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 3.0";
     global.structalign = 8;
@@ -71,6 +86,24 @@ Global::Global()
     // fields to non-zero defaults, and do so from constructors that
     // may run before this one.
 }
+
+unsigned Global::startGagging()
+{
+    ++gag;
+    return gaggedErrors;
+}
+
+bool Global::endGagging(unsigned oldGagged)
+{
+    bool anyErrs = (gaggedErrors != oldGagged);
+    --gag;
+    // Restore the original state of gagged errors; set total errors
+    // to be original errors + new ungagged errors.
+    errors -= (gaggedErrors - oldGagged);
+    gaggedErrors = oldGagged;
+    return anyErrs;
+}
+
 
 char *Loc::toChars() const
 {
@@ -132,6 +165,11 @@ void verror(Loc loc, const char *format, va_list ap)
         vfprintf(stdmsg, format, ap);
         fprintf(stdmsg, "\n");
         fflush(stdmsg);
+//halt();
+    }
+    else
+    {
+        global.gaggedErrors++;
     }
     global.errors++;
 }
@@ -187,7 +225,6 @@ void halt()
 #endif
 }
 
-
 /***********************************
  * Parse and append contents of environment variable envvar
  * to argc and argv[].
@@ -209,11 +246,11 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     env = mem.strdup(env);      // create our own writable copy
 
     int argc = *pargc;
-    Array *argv = new Array();
+    Strings *argv = new Strings();
     argv->setDim(argc);
 
-    int argc_left = 0;
-    for (int i = 0; i < argc; i++) {
+    size_t argc_left = 0;
+    for (size_t i = 0; i < argc; i++) {
         if (!strcmp((*pargv)[i], "-run") || !strcmp((*pargv)[i], "--run")) {
             // HACK: set flag to indicate we saw '-run' here
             global.params.run = true;
@@ -231,7 +268,7 @@ void getenv_setargv(const char *envvar, int *pargc, char** *pargv)
     argv->push((char*)"");
     argc++;
 
-    int j = 1;                  // leave argv[0] alone
+    size_t j = 1;               // leave argv[0] alone
     while (1)
     {
         int wildcard = 1;       // do wildcard expansion
@@ -310,5 +347,5 @@ Ldone:
         argv->data[argc++] = (void *)(*pargv)[i];
 
     *pargc = argc;
-    *pargv = (char **)argv->data;
+    *pargv = argv->tdata();
 }

@@ -49,10 +49,6 @@ using namespace opts;
 #include <windows.h>
 #endif
 
-#if DMDV1
-typedef Array Modules;
-#endif
-
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
 extern void backend_term();
@@ -223,6 +219,11 @@ int main(int argc, char** argv)
             printf("config    %s\n", path.c_str());
     }
 
+    // enforcePropertySyntax handled separately because it is a char
+#if DMDV2
+    global.params.enforcePropertySyntax = enforcePropertySyntax ? 1 : 0;
+#endif
+
     // Negated options
     global.params.link = !compileOnly;
     global.params.obj = !dontWriteObj;
@@ -241,12 +242,10 @@ int main(int argc, char** argv)
     if (global.params.xfilename)
         global.params.doXGeneration = true;
 
-#ifdef _DH
     initFromString(global.params.hdrdir, hdrDir);
     initFromString(global.params.hdrname, hdrFile);
     global.params.doHdrGeneration |=
         global.params.hdrdir || global.params.hdrname;
-#endif
 
     initFromString(global.params.moduleDepsFile, moduleDepsFile);
     if (global.params.moduleDepsFile != NULL)
@@ -848,11 +847,7 @@ LDC_TARGETS
             Module::rootModule = m;
         m->importedFrom = m;
         m->read(0);
-#ifdef _DH
         m->parse(global.params.doDocComments);
-#else
-        m->parse();
-#endif
         m->buildTargetFiles(singleObj);
         m->deleteObjFile();
         if (m->isDocFile)
@@ -866,7 +861,7 @@ LDC_TARGETS
     }
     if (global.errors)
         fatal();
-#ifdef _DH
+
     if (global.params.doHdrGeneration)
     {
         /* Generate 'header' import files.
@@ -884,7 +879,6 @@ LDC_TARGETS
     }
     if (global.errors)
         fatal();
-#endif
 
     // load all unconditional imports for better symbol resolving
     for (unsigned i = 0; i < modules.dim; i++)

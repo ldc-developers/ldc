@@ -25,6 +25,12 @@ static cl::opt<bool, true> useDeprecated("d",
     cl::ZeroOrMore,
     cl::location(global.params.useDeprecated));
 
+#if DMDV2
+cl::opt<bool> enforcePropertySyntax("property",
+    cl::desc("Enforce property syntax"),
+    cl::ZeroOrMore);
+#endif
+
 static cl::opt<ubyte, true> useDv1(
     cl::desc("Force language version:"),
     cl::ZeroOrMore,
@@ -144,7 +150,6 @@ cl::opt<std::string> jsonFile("Xf",
     cl::Prefix);
 
 // Header generation options
-#ifdef _DH
 static cl::opt<bool, true> doHdrGen("H",
     cl::desc("Generate 'header' file"),
     cl::location(global.params.doHdrGeneration));
@@ -158,8 +163,6 @@ cl::opt<std::string> hdrFile("Hf",
     cl::desc("Write 'header' file to <filename>"),
     cl::value_desc("filename"),
     cl::Prefix);
-#endif
-
 
 
 static cl::opt<bool, true> unittest("unittest",

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2007 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -26,9 +26,8 @@ struct VoidInitializer;
 struct StructInitializer;
 struct ArrayInitializer;
 struct ExpInitializer;
-#ifdef _DH
 struct HdrGenState;
-#endif
+
 
 #if IN_LLVM
 namespace llvm {
@@ -42,7 +41,8 @@ struct Initializer : Object
 
     Initializer(Loc loc);
     virtual Initializer *syntaxCopy();
-    virtual Initializer *semantic(Scope *sc, Type *t);
+    // needInterpret is WANTinterpret if must be a manifest constant, 0 if not.
+    virtual Initializer *semantic(Scope *sc, Type *t, int needInterpret);
     virtual Type *inferType(Scope *sc);
     virtual Expression *toExpression() = 0;
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs) = 0;
@@ -66,7 +66,7 @@ struct VoidInitializer : Initializer
 
     VoidInitializer(Loc loc);
     Initializer *syntaxCopy();
-    Initializer *semantic(Scope *sc, Type *t);
+    Initializer *semantic(Scope *sc, Type *t, int needInterpret);
     Expression *toExpression();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -82,13 +82,13 @@ struct StructInitializer : Initializer
     Identifiers field;  // of Identifier *'s
     Initializers value; // parallel array of Initializer *'s
 
-    Array vars;         // parallel array of VarDeclaration *'s
+    VarDeclarations vars;       // parallel array of VarDeclaration *'s
     AggregateDeclaration *ad;   // which aggregate this is for
 
     StructInitializer(Loc loc);
     Initializer *syntaxCopy();
     void addInit(Identifier *field, Initializer *value);
-    Initializer *semantic(Scope *sc, Type *t);
+    Initializer *semantic(Scope *sc, Type *t, int needInterpret);
     Expression *toExpression();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -113,7 +113,7 @@ struct ArrayInitializer : Initializer
     ArrayInitializer(Loc loc);
     Initializer *syntaxCopy();
     void addInit(Expression *index, Initializer *value);
-    Initializer *semantic(Scope *sc, Type *t);
+    Initializer *semantic(Scope *sc, Type *t, int needInterpret);
     Type *inferType(Scope *sc);
     Expression *toExpression();
     Initializer *toAssocArrayInitializer();
@@ -133,7 +133,7 @@ struct ExpInitializer : Initializer
 
     ExpInitializer(Loc loc, Expression *exp);
     Initializer *syntaxCopy();
-    Initializer *semantic(Scope *sc, Type *t);
+    Initializer *semantic(Scope *sc, Type *t, int needInterpret);
     Type *inferType(Scope *sc);
     Expression *toExpression();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

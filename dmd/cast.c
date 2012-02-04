@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -123,6 +123,8 @@ MATCH Expression::implicitConvTo(Type *t)
         toChars(), type->toChars(), t->toChars());
 #endif
     //static int nest; if (++nest == 10) halt();
+    if (t == Type::terror)
+        return MATCHnomatch;
     if (!type)
     {   error("%s is not an expression", toChars());
         type = Type::terror;
@@ -377,8 +379,8 @@ MATCH StructLiteralExp::implicitConvTo(Type *t)
         ((TypeStruct *)type)->sym == ((TypeStruct *)t)->sym)
     {
         m = MATCHconst;
-        for (int i = 0; i < elements->dim; i++)
-        {   Expression *e = (Expression *)elements->data[i];
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *e = (*elements)[i];
             Type *te = e->type;
             if (t->mod == 0)
                 te = te->mutableOf();
@@ -397,8 +399,7 @@ MATCH StructLiteralExp::implicitConvTo(Type *t)
 #endif
 
 MATCH StringExp::implicitConvTo(Type *t)
-{   MATCH m;
-
+{
 #if 0
     printf("StringExp::implicitConvTo(this=%s, committed=%d, type=%s, t=%s)\n",
         toChars(), committed, type->toChars(), t->toChars());
@@ -466,14 +467,18 @@ MATCH ArrayLiteralExp::implicitConvTo(Type *t)
                 result = MATCHnomatch;
         }
 
-        for (int i = 0; i < elements->dim; i++)
-        {   Expression *e = (Expression *)elements->data[i];
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *e = (*elements)[i];
             MATCH m = (MATCH)e->implicitConvTo(tb->nextOf());
             if (m < result)
                 result = m;                     // remember worst match
             if (result == MATCHnomatch)
                 break;                          // no need to check for worse
         }
+
+        if (!result)
+            result = type->implicitConvTo(t);
+
         return result;
     }
     else
@@ -581,7 +586,6 @@ MATCH DelegateExp::implicitConvTo(Type *t)
     if (result == 0)
     {
         // Look for pointers to functions where the functions are overloaded.
-        FuncDeclaration *f;
 
         t = t->toBasetype();
         if (type->ty == Tdelegate && type->nextOf()->ty == Tfunction &&
@@ -660,6 +664,12 @@ Expression *Expression::castTo(Scope *sc, Type *t)
     e->type = t;
     //printf("Returning: %s\n", e->toChars());
     return e;
+}
+
+
+Expression *ErrorExp::castTo(Scope *sc, Type *t)
+{
+    return this;
 }
 
 
@@ -745,8 +755,6 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
      * will result in a copy.
      * The this->string member is considered immutable.
      */
-    StringExp *se;
-    Type *tb;
     int copied = 0;
 
     //printf("StringExp::castTo(t = %s), '%s' committed = %d\n", t->toChars(), toChars(), committed);
@@ -757,7 +765,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         return new ErrorExp();
     }
 
-    se = this;
+    StringExp *se = this;
     if (!committed)
     {   se = (StringExp *)copy();
         se->committed = 1;
@@ -769,7 +777,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         return se;
     }
 
-    tb = t->toBasetype();
+    Type *tb = t->toBasetype();
     //printf("\ttype = %s\n", type->toChars());
     if (tb->ty == Tdelegate && type->toBasetype()->ty != Tdelegate)
         return Expression::castTo(sc, t);
@@ -913,7 +921,11 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
             }
             se->string = buffer.extractData();
             se->len = newlen;
-            se->sz = tb->nextOf()->size();
+            {
+                d_uns64 szx = tb->nextOf()->size();
+                assert(szx <= 255);
+                se->sz = (unsigned char)szx;
+            }
             break;
 
         default:
@@ -928,9 +940,9 @@ L2:
     // See if need to truncate or extend the literal
     if (tb->ty == Tsarray)
     {
-        int dim2 = ((TypeSArray *)tb)->dim->toInteger();
+        dinteger_t dim2 = ((TypeSArray *)tb)->dim->toInteger();
 
-        //printf("dim from = %d, to = %d\n", se->len, dim2);
+        //printf("dim from = %d, to = %d\n", (int)se->len, (int)dim2);
 
         // Changing dimensions
         if (dim2 != se->len)
@@ -1038,10 +1050,10 @@ Expression *ArrayLiteralExp::castTo(Scope *sc, Type *t)
 
         e = (ArrayLiteralExp *)copy();
         e->elements = (Expressions *)elements->copy();
-        for (int i = 0; i < elements->dim; i++)
-        {   Expression *ex = (Expression *)elements->data[i];
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *ex = (*elements)[i];
             ex = ex->castTo(sc, tb->nextOf());
-            e->elements->data[i] = (void *)ex;
+            (*e->elements)[i] = ex;
         }
         e->type = t;
         return e;
@@ -1081,7 +1093,6 @@ Expression *AssocArrayLiteralExp::castTo(Scope *sc, Type *t)
         e->type = t;
         return e;
     }
-L1:
     return e->Expression::castTo(sc, t);
 }
 

@@ -183,11 +183,7 @@ Statement *AsmStatement::semantic(Scope *sc)
     return this;
 }
 
-#if DMDV2
 int AsmStatement::blockExit(bool mustNotThrow)
-#else
-int AsmStatement::blockExit()
-#endif
 {
     //printf("AsmStatement::blockExit(%p)\n", this);
 #if DMDV2
