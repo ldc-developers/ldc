@@ -23,7 +23,11 @@ enum Pragma
     LLVMatomic_store,
     LLVMatomic_load,
     LLVMatomic_cmp_xchg,
-    LLVMatomic_rmw
+    LLVMatomic_rmw,
+    LLVMbitop_bt,
+    LLVMbitop_btc,
+    LLVMbitop_btr,
+    LLVMbitop_bts
 };
 
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str);

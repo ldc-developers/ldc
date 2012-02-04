@@ -1007,6 +1007,58 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ret = gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
                                                     llvm::AtomicOrdering(atomicOrdering));
             return new DImValue(exp2->type, ret);
+        // bitop
+        } else if (fndecl->llvmInternal == LLVMbitop_bt ||
+                   fndecl->llvmInternal == LLVMbitop_btr ||
+                   fndecl->llvmInternal == LLVMbitop_btc ||
+                   fndecl->llvmInternal == LLVMbitop_bts)
+        {
+            if (arguments->dim != 2) {
+                error("bitop intrinsic %s expects 2 arguments");
+                return NULL;
+            }
+
+            Expression* exp1 = (Expression*)arguments->data[0];
+            Expression* exp2 = (Expression*)arguments->data[1];
+            LLValue* ptr = exp1->toElem(p)->getRVal();
+            LLValue* bitnum = exp2->toElem(p)->getRVal();
+
+            // auto q = cast(ubyte*)ptr + (bitnum >> 3);
+            LLValue* q = DtoBitCast(ptr, DtoType(Type::tuns8->pointerTo()));
+            q = DtoGEP1(q, p->ir->CreateLShr(bitnum, 3), "bitop.q");
+
+            // auto mask = 1 << (bitnum & 7);
+            LLValue* mask = p->ir->CreateAnd(bitnum, DtoConstSize_t(7), "bitop.tmp");
+            mask = p->ir->CreateShl(DtoConstSize_t(1), mask, "bitop.mask");
+
+            // auto result = (*q & mask) ? -1 : 0;
+            LLValue* val = p->ir->CreateZExt(DtoLoad(q, "bitop.tmp"), DtoSize_t(), "bitop.val");
+            LLValue* result = p->ir->CreateAnd(val, mask, "bitop.tmp");
+            result = p->ir->CreateICmpNE(result, DtoConstSize_t(0), "bitop.tmp");
+            result = p->ir->CreateSelect(result, DtoConstInt(-1), DtoConstInt(0), "bitop.result");
+
+            if (fndecl->llvmInternal != LLVMbitop_bt) {
+                llvm::Instruction::BinaryOps op;
+                if (fndecl->llvmInternal == LLVMbitop_btc) {
+                    // *q ^= mask;
+                    op = llvm::Instruction::Xor;
+                } else if (fndecl->llvmInternal == LLVMbitop_btr) {
+                    // *q &= ~mask;
+                    mask = p->ir->CreateNot(mask);
+                    op = llvm::Instruction::And;
+                } else if (fndecl->llvmInternal == LLVMbitop_bts) {
+                    // *q |= mask;
+                    op = llvm::Instruction::Or;
+                } else {
+                    assert(false);
+                }
+
+                LLValue *newVal = p->ir->CreateBinOp(op, val, mask, "bitop.new_val");
+                newVal = p->ir->CreateTrunc(newVal, DtoType(Type::tuns8), "bitop.tmp");
+                DtoStore(newVal, q);
+            }
+
+            return new DImValue(type, result);
         }
     }
     return DtoCallFunction(loc, type, fnval, arguments);

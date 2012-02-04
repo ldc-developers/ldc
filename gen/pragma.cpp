@@ -30,6 +30,18 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(intrinsic, "string") { funcdecl(s) }
     if (ident == Id::intrinsic)
     {
+        struct LdcIntrinsic
+        {
+            std::string name;
+            Pragma pragma;
+        };
+        static LdcIntrinsic ldcIntrinsic[] = {
+            { "bitop.bt",  LLVMbitop_bt },
+            { "bitop.btc", LLVMbitop_btc },
+            { "bitop.btr", LLVMbitop_btr },
+            { "bitop.bts", LLVMbitop_bts },
+        };
+
         Expression* expr = (Expression *)args->data[0];
         expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
@@ -37,6 +49,27 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
              error("requires exactly 1 string literal parameter");
              fatal();
         }
+
+        std::string prefix = "ldc.";
+        if (arg1str.length() > prefix.length() &&
+            std::equal(prefix.begin(), prefix.end(), arg1str.begin()))
+        {
+            std::string name(arg1str.begin() + prefix.length(), arg1str.end());
+            int i = 0, j = sizeof(ldcIntrinsic) / sizeof(ldcIntrinsic[0]), k, l;
+            do
+            {
+                k = (i + j) / 2;
+                l = name.compare(ldcIntrinsic[k].name);
+                if (!l)
+                    return ldcIntrinsic[k].pragma;
+                else if (l < 0)
+                    j = k;
+                else
+                    i = k + 1;
+            }
+            while (i != j);
+        }
+
         return LLVMintrinsic;
     }
 
@@ -292,6 +325,10 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     case LLVMva_copy:
     case LLVMva_end:
     case LLVMfence:
+    case LLVMbitop_bt:
+    case LLVMbitop_btc:
+    case LLVMbitop_btr:
+    case LLVMbitop_bts:
         if (FuncDeclaration* fd = s->isFuncDeclaration())
         {
             fd->llvmInternal = llvm_internal;
