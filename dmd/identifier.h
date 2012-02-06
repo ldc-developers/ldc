@@ -35,9 +35,7 @@ struct Identifier : Object
     int compare(Object *o);
     void print();
     char *toChars();
-#ifdef _DH
     char *toHChars();
-#endif
     const char *toHChars2();
     int dyncast();
 

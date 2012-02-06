@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -214,10 +214,8 @@ struct TypedefDeclaration : Declaration
     const char *kind();
     Type *getType();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#ifdef _DH
     Type *htype;
     Type *hbasetype;
-#endif
 
     void toDocBuffer(OutBuffer *buf);
 
@@ -258,10 +256,8 @@ struct AliasDeclaration : Declaration
     Type *getType();
     Dsymbol *toAlias();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#ifdef _DH
     Type *htype;
     Dsymbol *haliassym;
-#endif
 
     void toDocBuffer(OutBuffer *buf);
 
@@ -286,12 +282,25 @@ struct VarDeclaration : Declaration
                                 // 2: on stack, run destructor anyway
     int canassign;              // it can be assigned to
     Dsymbol *aliassym;          // if redone as alias to another symbol
-    Expression *value;          // when interpreting, this is the value
-                                // (NULL if value not determinable)
+
+    // When interpreting, these point to the value (NULL if value not determinable)
+    // The index of this variable on the CTFE stack, -1 if not allocated
+    size_t ctfeAdrOnStack;
+    // The various functions are used only to detect compiler CTFE bugs
+    Expression *getValue();
+    bool hasValue();
+    void setValueNull();
+    void setValueWithoutChecking(Expression *newval);
+    void createRefValue(Expression *newval);
+    void setRefValue(Expression *newval);
+    void setStackValue(Expression *newval);
+    void createStackValue(Expression *newval);
+
 #if DMDV2
     VarDeclaration *rundtor;    // if !NULL, rundtor is tested at runtime to see
                                 // if the destructor should be run. Used to prevent
                                 // dtor calls on postblitted vars
+    Expression *edtor;          // if !=NULL, does the destruction of the variable
 #endif
 
     VarDeclaration(Loc loc, Type *t, Identifier *id, Initializer *init);
@@ -300,10 +309,8 @@ struct VarDeclaration : Declaration
     void semantic2(Scope *sc);
     const char *kind();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#ifdef _DH
     Type *htype;
     Initializer *hinit;
-#endif
     AggregateDeclaration *isThis();
     int needThis();
     int isImportedSymbol();
@@ -663,9 +670,18 @@ enum BUILTIN
     BUILTINtan,                 // std.math.tan
     BUILTINsqrt,                // std.math.sqrt
     BUILTINfabs,                // std.math.fabs
+    BUILTINatan2,               // std.math.atan2
+    BUILTINrndtol,              // std.math.rndtol
+    BUILTINexpm1,               // std.math.expm1
+    BUILTINexp2,                // std.math.exp2
+    BUILTINyl2x,                // std.math.yl2x
+    BUILTINyl2xp1,              // std.math.yl2xp1
+    BUILTINbsr,                 // core.bitop.bsr
+    BUILTINbsf,                 // core.bitop.bsf
+    BUILTINbswap,               // core.bitop.bswap
 };
 
-Expression *eval_builtin(enum BUILTIN builtin, Expressions *arguments);
+Expression *eval_builtin(Loc loc, enum BUILTIN builtin, Expressions *arguments);
 
 #else
 enum BUILTIN { };
@@ -673,7 +689,7 @@ enum BUILTIN { };
 
 struct FuncDeclaration : Declaration
 {
-    Array *fthrows;                     // Array of Type's of exceptions (not used)
+    Types *fthrows;                     // Array of Type's of exceptions (not used)
     Statement *frequire;
     Statement *fensure;
     Statement *fbody;
@@ -693,7 +709,8 @@ struct FuncDeclaration : Declaration
 #if IN_GCC
     VarDeclaration *v_argptr;           // '_argptr' variable
 #endif
-    Dsymbols *parameters;               // Array of VarDeclaration's for parameters
+    VarDeclaration *v_argsave;          // save area for args passed in registers for variadic functions
+    VarDeclarations *parameters;        // Array of VarDeclaration's for parameters
     DsymbolTable *labtab;               // statement label symbol table
     Declaration *overnext;              // next in overload list
     Loc endloc;                         // location of closing curly bracket
@@ -736,9 +753,14 @@ struct FuncDeclaration : Declaration
 
     int tookAddressOf;                  // set if someone took the address of
                                         // this function
-    Dsymbols closureVars;               // local variables in this function
+    VarDeclarations closureVars;        // local variables in this function
                                         // which are referenced by nested
                                         // functions
+
+    unsigned flags;
+    #define FUNCFLAGpurityInprocess 1   // working on determining purity
+    #define FUNCFLAGsafetyInprocess 2   // working on determining safety
+    #define FUNCFLAGnothrowInprocess 4  // working on determining nothrow
 #else
     int nestedFrameRef;                 // !=0 if nested variables referenced
 #endif
@@ -946,6 +968,7 @@ struct StaticCtorDeclaration : FuncDeclaration
     int isVirtual();
     int addPreInvariant();
     int addPostInvariant();
+    bool hasStaticCtorOrDtor();
     void emitComment(Scope *sc);
     void toJsonBuffer(OutBuffer *buf);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -973,6 +996,7 @@ struct StaticDtorDeclaration : FuncDeclaration
     AggregateDeclaration *isThis();
     int isStaticDestructor();
     int isVirtual();
+    bool hasStaticCtorOrDtor();
     int addPreInvariant();
     int addPostInvariant();
     void emitComment(Scope *sc);
@@ -1052,9 +1076,7 @@ struct DeleteDeclaration : FuncDeclaration
     int isVirtual();
     int addPreInvariant();
     int addPostInvariant();
-#ifdef _DH
     DeleteDeclaration *isDeleteDeclaration() { return this; }
-#endif
 };
 
 #endif /* DMD_DECLARATION_H */

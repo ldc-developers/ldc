@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -8,7 +8,7 @@
 // See the included readme.txt for details.
 
 #ifndef POSIX
-#define POSIX (linux || __APPLE__ || __FreeBSD__ || __sun&&__SVR4)
+#define POSIX (linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun&&__SVR4)
 #endif
 
 #include <stdio.h>
@@ -364,21 +364,21 @@ FileName::FileName(char *path, char *name)
 }
 
 // Split a path into an Array of paths
-Array *FileName::splitPath(const char *path)
+Strings *FileName::splitPath(const char *path)
 {
     char c = 0;                         // unnecessary initializer is for VC /W4
     const char *p;
     OutBuffer buf;
-    Array *array;
+    Strings *array;
 
-    array = new Array();
+    array = new Strings();
     if (path)
     {
         p = path;
         do
         {   char instring = 0;
 
-            while (isspace(*p))         // skip leading whitespace
+            while (isspace((unsigned char)*p))         // skip leading whitespace
                 p++;
             buf.reserve(strlen(p) + 1); // guess size of path
             // LDC remember first character
@@ -799,7 +799,7 @@ void FileName::CopyTo(FileName *to)
  *      cwd     if !=0, search current directory before searching path
  */
 
-char *FileName::searchPath(Array *path, const char *name, int cwd)
+char *FileName::searchPath(Strings *path, const char *name, int cwd)
 {
     if (absolute(name))
     {
@@ -815,7 +815,7 @@ char *FileName::searchPath(Array *path, const char *name, int cwd)
 
         for (i = 0; i < path->dim; i++)
         {
-            char *p = (char *)path->data[i];
+            char *p = path->tdata()[i];
             char *n = combine(p, name);
 
             if (exists(n))
@@ -839,7 +839,7 @@ char *FileName::searchPath(Array *path, const char *name, int cwd)
  *      !=NULL  mem.malloc'd file name
  */
 
-char *FileName::safeSearchPath(Array *path, const char *name)
+char *FileName::safeSearchPath(Strings *path, const char *name)
 {
 #if _WIN32
     /* Disallow % / \ : and .. in name characters
@@ -876,7 +876,7 @@ char *FileName::safeSearchPath(Array *path, const char *name)
         for (i = 0; i < path->dim; i++)
         {
             char *cname = NULL;
-            char *cpath = canonicalName((char *)path->data[i]);
+            char *cpath = canonicalName(path->tdata()[i]);
             //printf("FileName::safeSearchPath(): name=%s; path=%s; cpath=%s\n",
             //      name, (char *)path->data[i], cpath);
             if (cpath == NULL)
@@ -966,7 +966,7 @@ void FileName::ensurePathExists(const char *path)
             {
                 //printf("mkdir(%s)\n", path);
 #if _WIN32
-                if (mkdir(path))
+                if (_mkdir(path))
 #endif
 #if POSIX
                 if (mkdir(path, 0777))
@@ -1088,13 +1088,13 @@ int File::read()
     //printf("File::read('%s')\n",name);
     fd = open(name, O_RDONLY);
     if (fd == -1)
-    {   result = errno;
+    {
         //printf("\topen error, errno = %d\n",errno);
         goto err1;
     }
 
     if (!ref)
-        mem.free(buffer);
+        ::free(buffer);
     ref = 0;       // we own the buffer now
 
     //printf("\tfile opened\n");
@@ -1104,7 +1104,7 @@ int File::read()
         goto err2;
     }
     size = buf.st_size;
-    buffer = (unsigned char *) mem.malloc(size + 2);
+    buffer = (unsigned char *) ::malloc(size + 2);
     if (!buffer)
     {
         printf("\tmalloc error, errno = %d\n",errno);
@@ -1137,7 +1137,7 @@ int File::read()
 err2:
     close(fd);
 err:
-    mem.free(buffer);
+    ::free(buffer);
     buffer = NULL;
     len = 0;
 
@@ -1158,11 +1158,11 @@ err1:
         goto err1;
 
     if (!ref)
-        mem.free(buffer);
+        ::free(buffer);
     ref = 0;
 
     size = GetFileSize(h,NULL);
-    buffer = (unsigned char *) mem.malloc(size + 2);
+    buffer = (unsigned char *) ::malloc(size + 2);
     if (!buffer)
         goto err2;
 
@@ -1191,7 +1191,7 @@ err1:
 err2:
     CloseHandle(h);
 err:
-    mem.free(buffer);
+    ::free(buffer);
     buffer = NULL;
     len = 0;
 
@@ -1454,23 +1454,23 @@ void File::remove()
 #endif
 }
 
-Array *File::match(char *n)
+Files *File::match(char *n)
 {
     return match(new FileName(n, 0));
 }
 
-Array *File::match(FileName *n)
+Files *File::match(FileName *n)
 {
 #if POSIX
     return NULL;
 #elif _WIN32
     HANDLE h;
     WIN32_FIND_DATAA fileinfo;
-    Array *a;
+    Files *a;
     char *c;
     char *name;
 
-    a = new Array();
+    a = new Files();
     c = n->toChars();
     name = n->name();
     h = FindFirstFileA(c,&fileinfo);
@@ -1563,11 +1563,11 @@ OutBuffer::~OutBuffer()
     mem.free(data);
 }
 
-void *OutBuffer::extractData()
+char *OutBuffer::extractData()
 {
-    void *p;
+    char *p;
 
-    p = (void *)data;
+    p = (char *)data;
     data = NULL;
     offset = 0;
     size = 0;

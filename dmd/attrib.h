@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -23,18 +23,16 @@ struct LabelDsymbol;
 struct Initializer;
 struct Module;
 struct Condition;
-#ifdef _DH
 struct HdrGenState;
-#endif
 
 /**************************************************************/
 
 struct AttribDeclaration : Dsymbol
 {
-    Array *decl;        // array of Dsymbol's
+    Dsymbols *decl;     // array of Dsymbol's
 
-    AttribDeclaration(Array *decl);
-    virtual Array *include(Scope *sc, ScopeDsymbol *s);
+    AttribDeclaration(Dsymbols *decl);
+    virtual Dsymbols *include(Scope *sc, ScopeDsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void setScopeNewSc(Scope *sc,
         StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
@@ -51,6 +49,7 @@ struct AttribDeclaration : Dsymbol
     const char *kind();
     int oneMember(Dsymbol **ps);
     int hasPointers();
+    bool hasStaticCtorOrDtor();
     void checkCtorConstInit();
     void addLocalClass(ClassDeclarations *);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -71,7 +70,7 @@ struct StorageClassDeclaration: AttribDeclaration
 {
     StorageClass stc;
 
-    StorageClassDeclaration(StorageClass stc, Array *decl);
+    StorageClassDeclaration(StorageClass stc, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
@@ -84,7 +83,7 @@ struct LinkDeclaration : AttribDeclaration
 {
     enum LINK linkage;
 
-    LinkDeclaration(enum LINK p, Array *decl);
+    LinkDeclaration(enum LINK p, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
@@ -97,7 +96,7 @@ struct ProtDeclaration : AttribDeclaration
 {
     enum PROT protection;
 
-    ProtDeclaration(enum PROT p, Array *decl);
+    ProtDeclaration(enum PROT p, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void importAll(Scope *sc);
     void setScope(Scope *sc);
@@ -111,7 +110,7 @@ struct AlignDeclaration : AttribDeclaration
 {
     unsigned salign;
 
-    AlignDeclaration(Loc loc, unsigned sa, Array *decl);
+    AlignDeclaration(Loc loc, unsigned sa, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
@@ -123,7 +122,7 @@ struct AnonDeclaration : AttribDeclaration
     int isunion;
     int sem;                    // 1 if successful semantic()
 
-    AnonDeclaration(Loc loc, int isunion, Array *decl);
+    AnonDeclaration(Loc loc, int isunion, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -134,7 +133,7 @@ struct PragmaDeclaration : AttribDeclaration
 {
     Expressions *args;          // array of Expression's
 
-    PragmaDeclaration(Loc loc, Identifier *ident, Expressions *args, Array *decl);
+    PragmaDeclaration(Loc loc, Identifier *ident, Expressions *args, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void setScope(Scope *sc);
@@ -154,13 +153,13 @@ struct PragmaDeclaration : AttribDeclaration
 struct ConditionalDeclaration : AttribDeclaration
 {
     Condition *condition;
-    Array *elsedecl;    // array of Dsymbol's for else block
+    Dsymbols *elsedecl; // array of Dsymbol's for else block
 
-    ConditionalDeclaration(Condition *condition, Array *decl, Array *elsedecl);
+    ConditionalDeclaration(Condition *condition, Dsymbols *decl, Dsymbols *elsedecl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     int oneMember(Dsymbol **ps);
     void emitComment(Scope *sc);
-    Array *include(Scope *sc, ScopeDsymbol *s);
+    Dsymbols *include(Scope *sc, ScopeDsymbol *s);
     void addComment(unsigned char *comment);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toJsonBuffer(OutBuffer *buf);
@@ -173,7 +172,7 @@ struct StaticIfDeclaration : ConditionalDeclaration
     ScopeDsymbol *sd;
     int addisdone;
 
-    StaticIfDeclaration(Condition *condition, Array *decl, Array *elsedecl);
+    StaticIfDeclaration(Condition *condition, Dsymbols *decl, Dsymbols *elsedecl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void semantic(Scope *sc);

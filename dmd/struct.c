@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -51,6 +51,8 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
 
     ctor = NULL;
     defaultCtor = NULL;
+    aliasthis = NULL;
+    noDefaultCtor = FALSE;
 #endif
 
 #if IN_LLVM
@@ -83,8 +85,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
 }
 
 void AggregateDeclaration::semantic3(Scope *sc)
-{   int i;
-
+{
     // LDC
     if (!global.params.useAvailableExternally)
         availableExternally = false;
@@ -93,7 +94,7 @@ void AggregateDeclaration::semantic3(Scope *sc)
     if (members)
     {
         sc = sc->push(this);
-        for (i = 0; i < members->dim; i++)
+        for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             s->semantic3(sc);
@@ -103,12 +104,11 @@ void AggregateDeclaration::semantic3(Scope *sc)
 }
 
 void AggregateDeclaration::inlineScan()
-{   int i;
-
+{
     //printf("AggregateDeclaration::inlineScan(%s)\n", toChars());
     if (members)
     {
-        for (i = 0; i < members->dim; i++)
+        for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             //printf("inline scan aggregate symbol '%s'\n", s->toChars());
@@ -155,7 +155,7 @@ void AggregateDeclaration::alignmember(
     if (salign > 1)
     {
         assert(size != 3);
-        int sa = size;
+        unsigned sa = size;
         if (sa == 0 || salign < sa)
             sa = salign;
         *poffset = (*poffset + sa - 1) & ~(sa - 1);
@@ -216,7 +216,10 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
     if (!isUnionDeclaration())
         sc->offset = ofs;
 #endif
-    if (sc->structalign < memalignsize)
+    if (global.params.is64bit && sc->structalign == 8 && memalignsize == 16)
+        /* Not sure how to handle this */
+        ;
+    else if (sc->structalign < memalignsize)
         memalignsize = sc->structalign;
     if (alignsize < memalignsize)
         alignsize = memalignsize;
@@ -227,6 +230,57 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
     fields.push(v);
 }
 
+/****************************************
+ * If field[indx] is not part of a union, return indx.
+ * Otherwise, return the lowest field index of the union.
+ */
+int AggregateDeclaration::firstFieldInUnion(int indx)
+{
+    if (isUnionDeclaration())
+        return 0;
+    VarDeclaration * vd = (VarDeclaration *)fields.data[indx];
+    int firstNonZero = indx; // first index in the union with non-zero size
+    for (; ;)
+    {
+        if (indx == 0)
+            return firstNonZero;
+        VarDeclaration * v = (VarDeclaration *)fields.data[indx - 1];
+        if (v->offset != vd->offset)
+            return firstNonZero;
+        --indx;
+        /* If it is a zero-length field, it's ambiguous: we don't know if it is
+         * in the union unless we find an earlier non-zero sized field with the
+         * same offset.
+         */
+        if (v->size(loc) != 0)
+            firstNonZero = indx;
+    }
+}
+
+/****************************************
+ * Count the number of fields starting at firstIndex which are part of the
+ * same union as field[firstIndex]. If not a union, return 1.
+ */
+int AggregateDeclaration::numFieldsInUnion(int firstIndex)
+{
+    VarDeclaration * vd = (VarDeclaration *)fields.data[firstIndex];
+    /* If it is a zero-length field, AND we can't find an earlier non-zero
+     * sized field with the same offset, we assume it's not part of a union.
+     */
+    if (vd->size(loc) == 0 && !isUnionDeclaration() &&
+        firstFieldInUnion(firstIndex) == firstIndex)
+        return 1;
+    int count = 1;
+    for (size_t i = firstIndex+1; i < fields.dim; ++i)
+    {
+        VarDeclaration * v = (VarDeclaration *)fields.data[i];
+        // If offsets are different, they are not in the same union
+        if (v->offset != vd->offset)
+            break;
+        ++count;
+    }
+    return count;
+}
 
 /********************************* StructDeclaration ****************************/
 
@@ -257,7 +311,7 @@ Dsymbol *StructDeclaration::syntaxCopy(Dsymbol *s)
 }
 
 void StructDeclaration::semantic(Scope *sc)
-{   int i;
+{
     Scope *sc2;
 
     //printf("+StructDeclaration::semantic(this=%p, '%s')\n", this, toChars());
@@ -310,7 +364,7 @@ void StructDeclaration::semantic(Scope *sc)
 
     if (sizeok == 0)            // if not already done the addMember step
     {
-        for (i = 0; i < members->dim; i++)
+        for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (Dsymbol *)members->data[i];
             //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
@@ -327,12 +381,12 @@ void StructDeclaration::semantic(Scope *sc)
     sc2->protection = PROTpublic;
     sc2->explicitProtection = 0;
 
-    int members_dim = members->dim;
+    size_t members_dim = members->dim;
 
     /* Set scope so if there are forward references, we still might be able to
      * resolve individual members like enums.
      */
-    for (int i = 0; i < members_dim; i++)
+    for (size_t i = 0; i < members_dim; i++)
     {   Dsymbol *s = (Dsymbol *)members->data[i];
         /* There are problems doing this in the general case because
          * Scope keeps track of things like 'offset'
@@ -344,7 +398,7 @@ void StructDeclaration::semantic(Scope *sc)
         }
     }
 
-    for (i = 0; i < members_dim; i++)
+    for (size_t i = 0; i < members_dim; i++)
     {
         Dsymbol *s = (Dsymbol *)members->data[i];
         s->semantic(sc2);
@@ -356,6 +410,10 @@ void StructDeclaration::semantic(Scope *sc)
 #endif
     }
 
+#if DMDV1
+    /* This doesn't work for DMDV2 because (ref S) and (S) parameter
+     * lists will overload the same.
+     */
     /* The TypeInfo_Struct is expecting an opEquals and opCmp with
      * a parameter that is a pointer to the struct. But if there
      * isn't one, but is an opEquals or opCmp with a value, write
@@ -413,6 +471,7 @@ void StructDeclaration::semantic(Scope *sc)
 
         id = Id::cmp;
     }
+#endif
 #if DMDV2
     dtor = buildDtor(sc2);
     postblit = buildPostBlit(sc2);
@@ -458,7 +517,7 @@ void StructDeclaration::semantic(Scope *sc)
 
     // Determine if struct is all zeros or not
     zeroInit = 1;
-    for (i = 0; i < fields.dim; i++)
+    for (size_t i = 0; i < fields.dim; i++)
     {
         Dsymbol *s = (Dsymbol *)fields.data[i];
         VarDeclaration *vd = s->isVarDeclaration();
@@ -501,7 +560,7 @@ Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
 {
     //printf("%s.StructDeclaration::search('%s')\n", toChars(), ident->toChars());
 
-    if (scope)
+    if (scope && !symtab)
         semantic(scope);
 
     if (!members || !symtab)
@@ -514,8 +573,7 @@ Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
 }
 
 void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{   int i;
-
+{
     buf->printf("%s ", kind());
     if (!isAnonymous())
         buf->writestring(toChars());
@@ -528,7 +586,7 @@ void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
     buf->writeByte('{');
     buf->writenl();
-    for (i = 0; i < members->dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {
         Dsymbol *s = (Dsymbol *)members->data[i];
 

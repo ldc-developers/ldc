@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -29,6 +29,7 @@ Macros defined by the compiler, not the code:
         __DMC__         Digital Mars compiler
         _MSC_VER        Microsoft compiler
         __GNUC__        Gnu compiler
+        __clang__       Clang compiler
 
     Host operating system:
         _WIN32          Microsoft NT, Windows 95, Windows 98, Win32s,
@@ -37,6 +38,7 @@ Macros defined by the compiler, not the code:
         linux           Linux
         __APPLE__       Mac OSX
         __FreeBSD__     FreeBSD
+        __OpenBSD__     OpenBSD
         __sun&&__SVR4   Solaris, OpenSolaris (yes, both macros are necessary)
 
 For the target systems, there are the target operating system and
@@ -47,6 +49,7 @@ the target object file format:
         TARGET_LINUX    Covers 32 and 64 bit linux
         TARGET_OSX      Covers 32 and 64 bit Mac OSX
         TARGET_FREEBSD  Covers 32 and 64 bit FreeBSD
+        TARGET_OPENBSD  Covers 32 and 64 bit OpenBSD
         TARGET_SOLARIS  Covers 32 and 64 bit Solaris
         TARGET_NET      Covers .Net
 
@@ -55,7 +58,7 @@ the target object file format:
 
     Target object module format:
         OMFOBJ          Intel Object Module Format, used on Windows
-        ELFOBJ          Elf Object Module Format, used on linux, FreeBSD and Solaris
+        ELFOBJ          Elf Object Module Format, used on linux, FreeBSD, OpenBSD and Solaris
         MACHOBJ         Mach-O Object Module Format, used on Mac OSX
 
     There are currently no macros for byte endianness order.
@@ -81,9 +84,17 @@ the target object file format:
 
 #ifndef IS_PRINTF
 # ifdef __GNUC__
-#  define IS_PRINTF(FMTARG) __attribute((__format__ (__printf__, (FMTARG), (FMTARG)+1) ))
+#  define IS_PRINTF(FMTARG) __attribute__((__format__ (__printf__, (FMTARG), (FMTARG)+1) ))
 # else
 #  define IS_PRINTF(FMTARG)
+# endif
+#endif
+
+#ifndef IS_VPRINTF
+# ifdef __GNUC__
+#  define IS_VPRINTF(FMTARG) __attribute__((__format__ (__printf__, (FMTARG), 0) ))
+# else
+#  define IS_VPRINTF(FMTARG)
 # endif
 #endif
 
@@ -99,19 +110,23 @@ the target object file format:
 #define MODULEINFO_IS_STRUCT DMDV2   // if ModuleInfo is a struct rather than a class
 
 // Set if C++ mangling is done by the front end
-#define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_SOLARIS))
+#define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS))
 
-/* Other targets are TARGET_LINUX, TARGET_OSX, TARGET_FREEBSD and
+/* Other targets are TARGET_LINUX, TARGET_OSX, TARGET_FREEBSD, TARGET_OPENBSD and
  * TARGET_SOLARIS, which are
  * set on the command line via the compiler makefile.
  */
 
 #if _WIN32
+#ifndef TARGET_WINDOS
 #define TARGET_WINDOS 1         // Windows dmd generates Windows targets
-#define OMFOBJ 1
+#endif
+#ifndef OMFOBJ
+#define OMFOBJ TARGET_WINDOS
+#endif
 #endif
 
-#if TARGET_LINUX || TARGET_FREEBSD || TARGET_SOLARIS
+#if TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
 #ifndef ELFOBJ
 #define ELFOBJ 1
 #endif
@@ -124,7 +139,6 @@ the target object file format:
 #endif
 
 
-struct Array;
 struct OutBuffer;
 
 // LDC
@@ -158,6 +172,11 @@ enum OS
 
 typedef unsigned char ubyte;
 
+// Can't include arraytypes.h here, need to declare these directly.
+template <typename TYPE> struct ArrayBase;
+//typedef ArrayBase<struct Identifier> Identifiers;
+typedef ArrayBase<char> Strings;
+
 // Put command line switches in here
 struct Param
 {
@@ -171,6 +190,7 @@ struct Param
     char optimizeLevel; // optimization level
 #endif
     char vtls;          // identify thread local variables
+// KN Start merge conflict
     ARCH cpu;           // target CPU
     OS   os;            // target OS
     bool is64bit;       // generate 64 bit code
@@ -186,20 +206,51 @@ struct Param
     bool useInline;     // inline expand functions
     ubyte warnings;     // enable warnings
     ubyte Dversion;     // D version number
+// KN End merge conflict
+#if 0
+    char symdebug;      // insert debug symbolic information
+    char alwaysframe;   // always emit standard stack frame
+    char optimize;      // run optimizer
+    char map;           // generate linker .map file
+    char cpu;           // target CPU
+    char is64bit;       // generate 64 bit code
+    char isLinux;       // generate code for linux
+    char isOSX;         // generate code for Mac OSX
+    char isWindows;     // generate code for Windows
+    char isFreeBSD;     // generate code for FreeBSD
+    char isOPenBSD;     // generate code for OpenBSD
+    char isSolaris;     // generate code for Solaris
+    char scheduler;     // which scheduler to use
+    char useDeprecated; // allow use of deprecated features
+    char useAssert;     // generate runtime code for assert()'s
+    char useInvariants; // generate class invariant checks
+    char useIn;         // generate precondition checks
+    char useOut;        // generate postcondition checks
+    char useArrayBounds; // 0: no array bounds checks
+                         // 1: array bounds checks for safe functions only
+                         // 2: array bounds checks for all functions
+    char noboundscheck; // no array bounds checking at all
+    char useSwitchError; // check for switches without a default
+    char useUnitTests;  // generate unittest code
+    char useInline;     // inline expand functions
+    char release;       // build release version
+    char preservePaths; // !=0 means don't strip path from source file
+    char warnings;      // 0: enable warnings
+#endif
                         // 1: warnings as errors
                         // 2: informational warnings (no errors)
     char safe;          // enforce safe memory model
 
     char *argv0;        // program name
-    Array *imppath;     // array of char*'s of where to look for import modules
-    Array *fileImppath; // array of char*'s of where to look for file import modules
-    char *objdir;       // .obj file output directory
+    Strings *imppath;     // array of char*'s of where to look for import modules
+    Strings *fileImppath; // array of char*'s of where to look for file import modules
+    char *objdir;       // .obj/.lib file output directory
     char *objname;      // .obj file output name
 
     bool doDocComments; // process embedded documentation comments
     char *docdir;       // write documentation file to docdir directory
     char *docname;      // write documentation file to docname
-    Array *ddocfiles;   // macro include files for Ddoc
+    Strings *ddocfiles;   // macro include files for Ddoc
 
     bool doHdrGeneration;       // process embedded documentation comments
     char *hdrdir;               // write 'header' file to docdir directory
@@ -209,15 +260,15 @@ struct Param
     char *xfilename;            // write JSON file to xfilename
 
     unsigned debuglevel;        // debug level
-    Array *debugids;            // debug identifiers
+    Strings *debugids;     // debug identifiers
 
     unsigned versionlevel;      // version level
-    Array *versionids;          // version identifiers
+    Strings *versionids;   // version identifiers
 
     bool dump_source;
 
-    Array *defaultlibnames;     // default libraries for non-debug builds
-    Array *debuglibnames;       // default libraries for debug builds
+    Strings *defaultlibnames;     // default libraries for non-debug builds
+    Strings *debuglibnames;       // default libraries for debug builds
 
     char *moduleDepsFile;       // filename for deps output
     OutBuffer *moduleDeps;      // contents to be written to deps file
@@ -235,9 +286,9 @@ struct Param
     bool run;           // run resulting executable
 
     // Linker stuff
-    Array *objfiles;
-    Array *linkswitches;
-    Array *libfiles;
+    Strings *objfiles;
+    Strings *linkswitches;
+    Strings *libfiles;
     char *deffile;
     char *resfile;
     char *exefile;
@@ -281,8 +332,8 @@ struct Global
     const char *map_ext;        // for .map files
     const char *copyright;
     const char *written;
-    Array *path;        // Array of char*'s which form the import lookup path
-    Array *filePath;    // Array of char*'s which form the file import lookup path
+    Strings *path;        // Array of char*'s which form the import lookup path
+    Strings *filePath;    // Array of char*'s which form the file import lookup path
     int structalign;
     const char *version;
     char *ldc_version;
@@ -292,6 +343,15 @@ struct Global
     unsigned errors;    // number of errors reported so far
     unsigned warnings;  // number of warnings reported so far
     unsigned gag;       // !=0 means gag reporting of errors & warnings
+    unsigned gaggedErrors; // number of errors reported while gagged
+
+    // Start gagging. Return the current number of gagged errors
+    unsigned startGagging();
+
+    /* End gagging, restoring the old gagged state.
+     * Return true if errors occured while gagged.
+     */
+    bool endGagging(unsigned oldGagged);
 
     Global();
 };

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2008 by Digital Mars
+// Copyright (c) 1999-2011 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -20,18 +20,17 @@
 #include "module.h"
 #include "template.h"
 #include "lexer.h"
-#ifdef _DH
 #include "mtype.h"
 #include "scope.h"
-#endif
+#include "arraytypes.h"
 
-int findCondition(Array *ids, Identifier *ident)
+int findCondition(Strings *ids, Identifier *ident)
 {
     if (ids)
     {
-        for (int i = 0; i < ids->dim; i++)
+        for (size_t i = 0; i < ids->dim; i++)
         {
-            const char *id = (const char *)ids->data[i];
+            const char *id = (*ids)[i];
 
             if (strcmp(id, ident->toChars()) == 0)
                 return TRUE;
@@ -74,8 +73,8 @@ void DebugCondition::setGlobalLevel(unsigned level)
 void DebugCondition::addGlobalIdent(const char *ident)
 {
     if (!global.params.debugids)
-        global.params.debugids = new Array();
-    global.params.debugids->push((void *)ident);
+        global.params.debugids = new Strings();
+    global.params.debugids->push((char *)ident);
 }
 
 
@@ -98,7 +97,7 @@ int DebugCondition::include(Scope *sc, ScopeDsymbol *s)
                 inc = 1;
             else
             {   if (!mod->debugidsNot)
-                    mod->debugidsNot = new Array();
+                    mod->debugidsNot = new Strings();
                 mod->debugidsNot->push(ident->toChars());
             }
         }
@@ -135,8 +134,10 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
          * redefinition breaks makefiles and older builds.
          */
         "Posix",
+        "D_NET",
 #endif
         "OSX", "FreeBSD",
+        "OpenBSD",
         "Solaris",
         "LittleEndian", "BigEndian",
         "all",
@@ -173,8 +174,8 @@ void VersionCondition::addGlobalIdent(const char *ident)
 void VersionCondition::addPredefinedGlobalIdent(const char *ident)
 {
     if (!global.params.versionids)
-        global.params.versionids = new Array();
-    global.params.versionids->push((void *)ident);
+        global.params.versionids = new Strings();
+    global.params.versionids->push((char *)ident);
 }
 
 
@@ -199,7 +200,7 @@ int VersionCondition::include(Scope *sc, ScopeDsymbol *s)
             else
             {
                 if (!mod->versionidsNot)
-                    mod->versionidsNot = new Array();
+                    mod->versionidsNot = new Strings();
                 mod->versionidsNot->push(ident->toChars());
             }
         }
@@ -307,13 +308,14 @@ int IftypeCondition::include(Scope *sc, ScopeDsymbol *sd)
             inc = 2;
             return 0;
         }
-        unsigned errors = global.errors;
-        global.gag++;                   // suppress printing of error messages
-        targ = targ->semantic(loc, sc);
-        global.gag--;
-        if (errors != global.errors)    // if any errors happened
-        {   inc = 2;                    // then condition is false
-            global.errors = errors;
+        Type *t = targ->trySemantic(loc, sc);
+        if (t)
+            targ = t;
+        else
+            inc = 2;                    // condition is false
+
+        if (!t)
+        {
         }
         else if (id && tspec)
         {
@@ -326,19 +328,19 @@ int IftypeCondition::include(Scope *sc, ScopeDsymbol *sd)
 
             TemplateParameters parameters;
             parameters.setDim(1);
-            parameters.data[0] = (void *)&tp;
+            parameters[0] = &tp;
 
             Objects dedtypes;
             dedtypes.setDim(1);
 
-            m = targ->deduceType(NULL, tspec, &parameters, &dedtypes);
+            m = targ->deduceType(sc, tspec, &parameters, &dedtypes);
             if (m == MATCHnomatch ||
                 (m != MATCHexact && tok == TOKequal))
                 inc = 2;
             else
             {
                 inc = 1;
-                Type *tded = (Type *)dedtypes.data[0];
+                Type *tded = (Type *)dedtypes[0];
                 if (!tded)
                     tded = targ;
                 Dsymbol *s = new AliasDeclaration(loc, id, tded);
