@@ -25,6 +25,12 @@ static cl::opt<bool, true> useDeprecated("d",
     cl::ZeroOrMore,
     cl::location(global.params.useDeprecated));
 
+#if DMDV2
+cl::opt<bool> enforcePropertySyntax("property",
+    cl::desc("Enforce property syntax"),
+    cl::ZeroOrMore);
+#endif
+
 static cl::opt<ubyte, true> useDv1(
     cl::desc("Force language version:"),
     cl::ZeroOrMore,
