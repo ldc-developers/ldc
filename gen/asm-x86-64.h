@@ -1813,7 +1813,7 @@ namespace AsmParserx8664
             }
         }
 
-        bool getTypeChar ( TypeNeeded needed, PtrType ptrtype, char & type_char )
+        bool getTypeSuffix ( TypeNeeded needed, PtrType ptrtype, std::string & type_suffix )
         {
             switch ( needed )
             {
@@ -1826,10 +1826,10 @@ namespace AsmParserx8664
                 case Int_Types:
                     switch ( ptrtype )
                     {
-                        case Byte_Ptr:  type_char = 'b'; break;
-                        case Short_Ptr: type_char = 'w'; break;
-                        case Int_Ptr:   type_char = 'l'; break;
-                        case QWord_Ptr: type_char = 'q'; break;
+                        case Byte_Ptr:  type_suffix = 'b'; break;
+                        case Short_Ptr: type_suffix = 'w'; break;
+                        case Int_Ptr:   type_suffix = 'l'; break;
+                        case QWord_Ptr: type_suffix = 'q'; break;
                         default:
                             // %% these may be too strict
                             return false;
@@ -1838,9 +1838,9 @@ namespace AsmParserx8664
                 case FPInt_Types:
                     switch ( ptrtype )
                     {
-                        case Short_Ptr: type_char = 0;   break;
-                        case Int_Ptr:   type_char = 'l'; break;
-                        case QWord_Ptr: type_char = 'q'; break;
+                        case Short_Ptr: type_suffix = "";   break;
+                        case Int_Ptr:   type_suffix = 'l'; break;
+                        case QWord_Ptr: type_suffix = "ll"; break;
                         default:
                             return false;
                     }
@@ -1848,9 +1848,9 @@ namespace AsmParserx8664
                 case FP_Types:
                     switch ( ptrtype )
                     {
-                        case Float_Ptr:    type_char = 's'; break;
-                        case Double_Ptr:   type_char = 'l'; break;
-                        case Extended_Ptr: type_char = 't'; break;
+                        case Float_Ptr:    type_suffix = 's'; break;
+                        case Double_Ptr:   type_suffix = 'l'; break;
+                        case Extended_Ptr: type_suffix = 't'; break;
                         default:
                             return false;
                     }
@@ -1866,7 +1866,7 @@ namespace AsmParserx8664
         {
             const char *fmt;
             const char *mnemonic;
-            char type_char = 0;
+            std::string type_suffix;
             bool use_star;
             AsmArgMode mode;
 
@@ -1878,7 +1878,7 @@ namespace AsmParserx8664
                 mnemonic = opIdent->string;
 
             // handle two-operand form where second arg is ignored.
-            // must be done before type_char detection
+            // must be done before type_suffix detection
             if ( op == Op_FidR_P || op == Op_fxch || op == Op_FfdRR_P )
             {
                 if (operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST )
@@ -1947,12 +1947,12 @@ namespace AsmParserx8664
                 bool type_ok;
                 if ( exact_type == Default_Ptr )
                 {
-                    type_ok = getTypeChar ( ( TypeNeeded ) opInfo->needsType, hint_type, type_char );
+                    type_ok = getTypeSuffix ( ( TypeNeeded ) opInfo->needsType, hint_type, type_suffix );
                     if ( ! type_ok )
-                        type_ok = getTypeChar ( ( TypeNeeded ) opInfo->needsType, min_type, type_char );
+                        type_ok = getTypeSuffix ( ( TypeNeeded ) opInfo->needsType, min_type, type_suffix );
                 }
                 else
-                    type_ok = getTypeChar ( ( TypeNeeded ) opInfo->needsType, exact_type, type_char );
+                    type_ok = getTypeSuffix ( ( TypeNeeded ) opInfo->needsType, exact_type, type_suffix );
 
                 if ( ! type_ok )
                 {
@@ -2028,8 +2028,8 @@ namespace AsmParserx8664
                             stmt->error ( "invalid operand size/type" );
                             return false;
                     }
-                    assert ( type_char != 0 );
-                    insnTemplate.write(mnemonic, mlen-1) << tc_1 << type_char;
+                    assert ( !type_suffix.empty() );
+                    insnTemplate.write(mnemonic, mlen-1) << tc_1 << type_suffix;
                 }
                 break;
 
@@ -2059,8 +2059,7 @@ namespace AsmParserx8664
                 // the no-operand versions of floating point ops always pop
                 if (op == Op_FMath0)
                     insnTemplate << "p";
-                if ( type_char )
-                    insnTemplate << type_char;
+                insnTemplate << type_suffix;
                 break;
             }
 
@@ -2072,7 +2071,7 @@ namespace AsmParserx8664
                     break;
                 case Clb_SizeDXAX:
                     asmcode->regs[Reg_EAX] = true;
-                    if ( type_char != 'b' )
+                    if ( type_suffix != "b" )
                         asmcode->regs[Reg_EDX] = true;
                     break;
 	        case Clb_SizeRDXRAX:
