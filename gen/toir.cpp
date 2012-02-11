@@ -892,6 +892,10 @@ DValue* CallExp::toElem(IRState* p)
 
         // va_start instruction
         if (fndecl->llvmInternal == LLVMva_start) {
+            if (arguments->dim != 2) {
+                error("va_start instruction expects 2 arguments");
+                return NULL;
+            }
             // llvm doesn't need the second param hence the override
             Expression* exp = (Expression*)arguments->data[0];
             LLValue* arg = exp->toElem(p)->getLVal();
@@ -913,6 +917,10 @@ DValue* CallExp::toElem(IRState* p)
         }
 #if DMDV2
         else if (fndecl->llvmInternal == LLVMva_copy && global.params.cpu == ARCHx86_64) {
+            if (arguments->dim != 2) {
+                error("va_copy instruction expects 2 arguments");
+                return NULL;
+            }
             Expression* exp1 = (Expression*)arguments->data[0];
             Expression* exp2 = (Expression*)arguments->data[1];
             LLValue* arg1 = exp1->toElem(p)->getLVal();
@@ -927,10 +935,18 @@ DValue* CallExp::toElem(IRState* p)
 #endif
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {
+            if (arguments->dim != 1) {
+                error("va_arg instruction expects 1 arguments");
+                return NULL;
+            }
             return DtoVaArg(loc, type, (Expression*)arguments->data[0]);
         }
         // C alloca
         else if (fndecl->llvmInternal == LLVMalloca) {
+            if (arguments->dim != 1) {
+                error("alloca expects 1 arguments");
+                return NULL;
+            }
             Expression* exp = (Expression*)arguments->data[0];
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
@@ -938,10 +954,18 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
         // fence instruction
         } else if (fndecl->llvmInternal == LLVMfence) {
+            if (arguments->dim != 1) {
+                error("fence instruction expects 1 arguments");
+                return NULL;
+            }
             gIR->ir->CreateFence(llvm::AtomicOrdering(((Expression*)arguments->data[0])->toInteger()));
             return NULL;
         // atomic store instruction
         } else if (fndecl->llvmInternal == LLVMatomic_store) {
+            if (arguments->dim != 3) {
+                error("atomic store instruction expects 3 arguments");
+                return NULL;
+            }
             Expression* exp1 = (Expression*)arguments->data[0];
             Expression* exp2 = (Expression*)arguments->data[1];
             int atomicOrdering = ((Expression*)arguments->data[2])->toInteger();
@@ -953,6 +977,10 @@ DValue* CallExp::toElem(IRState* p)
             return NULL;
         // atomic load instruction
         } else if (fndecl->llvmInternal == LLVMatomic_load) {
+            if (arguments->dim != 2) {
+                error("atomic load instruction expects 2 arguments");
+                return NULL;
+            }
             Expression* exp = (Expression*)arguments->data[0];
             int atomicOrdering = ((Expression*)arguments->data[1])->toInteger();
             LLValue* ptr = exp->toElem(p)->getRVal();
@@ -963,6 +991,10 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(retType, val);
         // cmpxchg instruction
         } else if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
+            if (arguments->dim != 4) {
+                error("cmpxchg instruction expects 4 arguments");
+                return NULL;
+            }
             Expression* exp1 = (Expression*)arguments->data[0];
             Expression* exp2 = (Expression*)arguments->data[1];
             Expression* exp3 = (Expression*)arguments->data[2];
@@ -974,6 +1006,11 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(exp3->type, ret);
         // atomicrmw instruction
         } else if (fndecl->llvmInternal == LLVMatomic_rmw) {
+            if (arguments->dim != 3) {
+                error("atomic_rmw instruction expects 3 arguments");
+                return NULL;
+            }
+
             static char *ops[] = {
                 "xchg",
                 "add",
