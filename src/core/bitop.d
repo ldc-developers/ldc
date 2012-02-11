@@ -95,16 +95,12 @@ unittest
  */
 version (LDC)
 {
-   pure int bt(in size_t* p, size_t bitnum)
-   {
-       auto q = cast(ubyte*)p + (bitnum >> 3);
-       auto mask = 1 << (bitnum & 7);
-       return *q & mask;
-   }
+    pure pragma(intrinsic, "ldc.bitop.bt")
+        int bt(in size_t* p, size_t bitnum);
 }
 else
 {
-  pure int bt(in size_t* p, size_t bitnum);
+    pure int bt(in size_t* p, size_t bitnum);
 }
 
 
@@ -113,14 +109,8 @@ else
  */
 version (LDC)
 {
-    int btc(size_t* p, size_t bitnum)
-    {
-        auto q = cast(ubyte*)p + (bitnum >> 3);
-        auto mask = 1 << (bitnum & 7);
-        auto result = *q & mask;
-        *q ^= mask;
-        return result ? -1 : 0;
-    }
+    pure pragma(intrinsic, "ldc.bitop.btc")
+        int btc(size_t* p, size_t bitnum);
 }
 else
 {
@@ -133,14 +123,8 @@ else
  */
 version (LDC)
 {
-    int btr(size_t* p, size_t bitnum)
-    {
-        auto q = cast(ubyte*)p + (bitnum >> 3);
-        auto mask = 1 << (bitnum & 7);
-        auto result = *q & mask;
-        *q &= ~mask;
-        return result ? -1 : 0;
-    }
+    pure pragma(intrinsic, "ldc.bitop.btr")
+        int btr(size_t* p, size_t bitnum);
 }
 else
 {
@@ -199,14 +183,8 @@ int main()
  */
 version (LDC)
 {
-    int bts(size_t* p, size_t bitnum)
-    {
-        auto q = cast(ubyte*)p + (bitnum >> 3);
-        auto mask = 1 << (bitnum & 7);
-        auto result = *q & mask;
-        *q |= mask;
-        return result ? -1 : 0;
-    }
+    pure pragma(intrinsic, "ldc.bitop.bts")
+        int bts(size_t* p, size_t bitnum);
 }
 else
 {
