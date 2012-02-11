@@ -267,7 +267,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         if (fdecl->availableExternally && mustDefineSymbol(sym))
             return llvm::GlobalValue::AvailableExternallyLinkage;
         // array operations are always template linkage
-        if (fdecl->isArrayOp)
+        if (fdecl->isArrayOp == 1)
             return templateLinkage;
         // template instances should have weak linkage
         // but only if there's a body, and it's not naked

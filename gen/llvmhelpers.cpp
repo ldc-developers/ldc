@@ -1562,7 +1562,7 @@ bool mustDefineSymbol(Dsymbol* s)
         if (fd->semanticRun < 4)
             return false;
 
-        if (fd->isArrayOp)
+        if (fd->isArrayOp == 1)
             return true;
 
         if (global.params.useAvailableExternally && fd->availableExternally) {

@@ -56,13 +56,6 @@ file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/alloca.d
-    ${RUNTIME_DC_DIR}/arraybyte.d
-    ${RUNTIME_DC_DIR}/arraycast.d
-    ${RUNTIME_DC_DIR}/arraycat.d
-    ${RUNTIME_DC_DIR}/arraydouble.d
-    ${RUNTIME_DC_DIR}/arrayfloat.d
-    ${RUNTIME_DC_DIR}/arrayreal.d
-    ${RUNTIME_DC_DIR}/arrayshort.d
     ${RUNTIME_DC_DIR}/critical_.d
     ${RUNTIME_DC_DIR}/deh.d
     ${RUNTIME_DC_DIR}/deh2.d
