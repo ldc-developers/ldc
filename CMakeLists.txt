@@ -305,4 +305,6 @@ endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 if(D_VERSION EQUAL 2)
     add_subdirectory(runtime)
+else()
+    add_subdirectory(tango)
 endif()
