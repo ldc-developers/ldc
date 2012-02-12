@@ -25,6 +25,7 @@ module gc.gcx;
 //debug = SENTINEL;             // add underrun/overrrun protection
 //debug = PTRCHECK;             // more pointer checking
 //debug = PTRCHECK2;            // thorough but slow pointer checking
+//debug = PROFILING;            // measure performance of various steps.
 
 /*************** Configuration *********************/
 
@@ -74,6 +75,11 @@ private
 {
     enum USE_CACHE = true;
 
+    // The maximum number of recursions of mark() before transitioning to
+    // multiple heap traversals to avoid consuming O(D) stack space where
+    // D is the depth of the heap graph.
+    enum MAX_MARK_RECURSIONS = 64;
+
     enum BlkAttr : uint
     {
         FINALIZE    = 0b0000_0001,
@@ -95,7 +101,7 @@ private
     extern (C) void* rt_stackBottom();
     extern (C) void* rt_stackTop();
 
-    extern (C) void rt_finalize(void* p, bool det = true);
+    extern (C) void rt_finalize_gc(void* p);
 
     version (MULTI_THREADED)
     {
@@ -105,7 +111,7 @@ private
         extern (C) void thread_processGCMarks();
 
         alias void delegate(void*, void*) scanFn;
-        extern (C) void thread_scanAll(scanFn fn, void* curStackTop = null);
+        extern (C) void thread_scanAll(scope scanFn fn, void* curStackTop = null);
     }
 
     extern (C) void onOutOfMemoryError();
@@ -1472,7 +1478,7 @@ struct Gcx
     debug (THREADINVARIANT)
     {
         pthread_t self;
-        void thread_Invariant()
+        void thread_Invariant() const
         {
             if (self != pthread_self())
                 printf("thread_Invariant(): gcx = %p, self = %x, pthread_self() = %x\n", &this, self, pthread_self());
@@ -1481,7 +1487,7 @@ struct Gcx
     }
     else
     {
-        void thread_Invariant() { }
+        void thread_Invariant() const { }
     }
 
     void *cached_size_key;
@@ -1564,7 +1570,7 @@ struct Gcx
     }
 
 
-    void Invariant() { }
+    void Invariant() const { }
 
 
     invariant()
@@ -1572,13 +1578,12 @@ struct Gcx
         if (inited)
         {
             //printf("Gcx.invariant(): this = %p\n", &this);
-            size_t i;
 
             // Assure we're called on the right thread
             debug (THREADINVARIANT) assert(self == pthread_self());
 
-            for (i = 0; i < npools; i++)
-            {   Pool *pool = pooltable[i];
+            for (size_t i = 0; i < npools; i++)
+            {   auto pool = pooltable[i];
 
                 pool.Invariant();
                 if (i == 0)
@@ -1606,7 +1611,7 @@ struct Gcx
                 assert(rangedim != 0);
                 assert(nranges <= rangedim);
 
-                for (i = 0; i < nranges; i++)
+                for (size_t i = 0; i < nranges; i++)
                 {
                     assert(ranges[i].pbot);
                     assert(ranges[i].ptop);
@@ -1614,9 +1619,9 @@ struct Gcx
                 }
             }
 
-            for (i = 0; i < B_PAGE; i++)
+            for (size_t i = 0; i < B_PAGE; i++)
             {
-                for (List *list = bucket[i]; list; list = list.next)
+                for (auto list = cast(List*)bucket[i]; list; list = list.next)
                 {
                 }
             }
@@ -2014,27 +2019,180 @@ struct Gcx
     void minimize()
     {
         debug(PRINTF) printf("Minimizing.\n");
-        size_t n;
-        size_t pn;
-        Pool*  pool;
-        size_t ncommitted;
 
-        Outer:
-        for (n = 0; n < npools; n++)
+        static bool isUsed(Pool *pool)
         {
-            pool = pooltable[n];
-            debug(PRINTF) printFreeInfo(pool);
-            if(pool.freepages < pool.npages) continue;
-            pool.Dtor();
-            cstdlib.free(pool);
-            memmove(pooltable + n,
-                    pooltable + n + 1,
-                    (--npools - n) * (Pool*).sizeof);
-            n--;
+            return pool.freepages < pool.npages;
         }
-        minAddr = pooltable[0].baseAddr;
-        maxAddr = pooltable[npools - 1].topAddr;
+
+        // semi-stable partition
+        for (size_t i = 0; i < npools; ++i)
+        {
+            auto pool = pooltable[i];
+            // find first unused pool
+            if (isUsed(pool)) continue;
+
+            // move used pools before unused ones
+            size_t j = i + 1;
+            for (; j < npools; ++j)
+            {
+                pool = pooltable[j];
+                if (!isUsed(pool)) continue;
+                // swap
+                pooltable[j] = pooltable[i];
+                pooltable[i] = pool;
+                ++i;
+            }
+            // npooltable[0 .. i]      => used
+            // npooltable[i .. npools] => free
+
+            // free unused pools
+            for (j = i; j < npools; ++j)
+            {
+                pool = pooltable[j];
+                debug(PRINTF) printFreeInfo(pool);
+                pool.Dtor();
+                cstdlib.free(pool);
+            }
+            npools = i;
+        }
+
+        if (npools)
+        {
+            minAddr = pooltable[0].baseAddr;
+            maxAddr = pooltable[npools - 1].topAddr;
+        }
+        else
+        {
+            minAddr = maxAddr = null;
+        }
+
         debug(PRINTF) printf("Done minimizing.\n");
+    }
+
+    unittest
+    {
+        enum NPOOLS = 6;
+        enum NPAGES = 10;
+        Gcx gcx;
+
+        void reset()
+        {
+            foreach(i, ref pool; gcx.pooltable[0 .. gcx.npools])
+                pool.freepages = pool.npages;
+            gcx.minimize();
+            assert(gcx.npools == 0);
+
+            if (gcx.pooltable is null)
+                gcx.pooltable = cast(Pool**)cstdlib.malloc(NPOOLS * (Pool*).sizeof);
+            foreach(i; 0 .. NPOOLS)
+            {
+                auto pool = cast(Pool*)cstdlib.malloc(Pool.sizeof);
+                *pool = Pool.init;
+                gcx.pooltable[i] = pool;
+            }
+            gcx.npools = NPOOLS;
+        }
+
+        void usePools()
+        {
+            foreach(pool; gcx.pooltable[0 .. NPOOLS])
+            {
+                pool.pagetable = cast(ubyte*)cstdlib.malloc(NPAGES);
+                memset(pool.pagetable, B_UNCOMMITTED, NPAGES);
+                pool.npages = NPAGES;
+                pool.freepages = NPAGES / 2;
+            }
+        }
+
+        // all pools are free
+        reset();
+        assert(gcx.npools == NPOOLS);
+        gcx.minimize();
+        assert(gcx.npools == 0);
+
+        // all pools used
+        reset();
+        usePools();
+        assert(gcx.npools == NPOOLS);
+        gcx.minimize();
+        assert(gcx.npools == NPOOLS);
+
+        // preserves order of used pools
+        reset();
+        usePools();
+
+        {
+            version (Bug7068_FIXED)
+                Pool*[NPOOLS] opools = gcx.pooltable[0 .. NPOOLS];
+            else
+            {
+                Pool*[NPOOLS] opools = void;
+                memcpy(opools.ptr, gcx.pooltable, (Pool*).sizeof * NPOOLS);
+            }
+            gcx.pooltable[2].freepages = NPAGES;
+
+            gcx.minimize();
+            assert(gcx.npools == NPOOLS - 1);
+            assert(gcx.pooltable[0] == opools[0]);
+            assert(gcx.pooltable[1] == opools[1]);
+            assert(gcx.pooltable[2] == opools[3]);
+        }
+
+        // gcx reduces address span
+        reset();
+        usePools();
+
+        byte* base, top;
+
+        {
+            byte*[NPOOLS] mem = void;
+            foreach(i; 0 .. NPOOLS)
+                mem[i] = cast(byte*)os_mem_map(NPAGES * PAGESIZE);
+
+            extern(C) static int compare(in void* p1, in void *p2)
+            {
+                return p1 < p2 ? -1 : cast(int)(p2 > p1);
+            }
+            cstdlib.qsort(mem.ptr, mem.length, (byte*).sizeof, &compare);
+
+            foreach(i, pool; gcx.pooltable[0 .. NPOOLS])
+            {
+                pool.baseAddr = mem[i];
+                pool.topAddr = pool.baseAddr + NPAGES * PAGESIZE;
+            }
+
+            base = gcx.pooltable[0].baseAddr;
+            top = gcx.pooltable[NPOOLS - 1].topAddr;
+        }
+
+        gcx.minimize();
+        assert(gcx.npools == NPOOLS);
+        assert(gcx.minAddr == base);
+        assert(gcx.maxAddr == top);
+
+        gcx.pooltable[NPOOLS - 1].freepages = NPAGES;
+        gcx.pooltable[NPOOLS - 2].freepages = NPAGES;
+
+        gcx.minimize();
+        assert(gcx.npools == NPOOLS - 2);
+        assert(gcx.minAddr == base);
+        assert(gcx.maxAddr == gcx.pooltable[NPOOLS - 3].topAddr);
+
+        gcx.pooltable[0].freepages = NPAGES;
+
+        gcx.minimize();
+        assert(gcx.npools == NPOOLS - 3);
+        assert(gcx.minAddr != base);
+        assert(gcx.minAddr == gcx.pooltable[0].baseAddr);
+        assert(gcx.maxAddr == gcx.pooltable[NPOOLS - 4].topAddr);
+
+        // free all
+        foreach(pool; gcx.pooltable[0 .. NPOOLS - 2])
+            pool.freepages = NPAGES;
+        gcx.minimize();
+        assert(gcx.npools == 0);
+        cstdlib.free(gcx.pooltable);
     }
 
 
@@ -2263,12 +2421,19 @@ struct Gcx
         return 1;
     }
 
+    /**
+     * Mark overload for initial mark() call.
+     */
+    void mark(void *pbot, void *ptop) {
+        mark(pbot, ptop, MAX_MARK_RECURSIONS);
+    }
 
     /**
      * Search a range of memory values and mark any pointers into the GC pool.
      */
-    void mark(void *pbot, void *ptop)
+    void mark(void *pbot, void *ptop, int nRecurse)
     {
+        //import core.stdc.stdio;printf("nRecurse = %d\n", nRecurse);
         void **p1 = cast(void **)pbot;
         void **p2 = cast(void **)ptop;
         size_t pcache = 0;
@@ -2292,7 +2457,8 @@ struct Gcx
                     size_t biti = void;
                     size_t pn = offset / PAGESIZE;
                     Bins   bin = cast(Bins)pool.pagetable[pn];
-                    
+                    void* base = void;
+
                     // For the NO_INTERIOR attribute.  This tracks whether
                     // the pointer is an interior pointer or points to the
                     // base address of a block.
@@ -2305,15 +2471,17 @@ struct Gcx
                     {
                         // We don't care abou setting pointsToBase correctly
                         // because it's ignored for small object pools anyhow.
-                        auto base = offset & notbinsize[bin];
-                        biti = base >> pool.shiftBy;
+                        auto offsetBase = offset & notbinsize[bin];
+                        biti = offsetBase >> pool.shiftBy;
+                        base = pool.baseAddr + offsetBase;
                         //debug(PRINTF) printf("\t\tbiti = x%x\n", biti);
                     }
                     else if (bin == B_PAGE)
                     {
-                        auto base = offset & notbinsize[bin];
-                        pointsToBase = offset == base;
-                        biti = base >> pool.shiftBy;
+                        auto offsetBase = offset & notbinsize[bin];
+                        base = pool.baseAddr + offsetBase;
+                        pointsToBase = offsetBase == offset;
+                        biti = offsetBase >> pool.shiftBy;
                         //debug(PRINTF) printf("\t\tbiti = x%x\n", biti);
 
                         pcache = cast(size_t)p & ~cast(size_t)(PAGESIZE-1);
@@ -2321,8 +2489,8 @@ struct Gcx
                     else if (bin == B_PAGEPLUS)
                     {
                         pn -= pool.bPageOffsets[pn];
+                        base = pool.baseAddr + (pn * PAGESIZE);
                         biti = pn * (PAGESIZE >> pool.shiftBy);
-
                         pcache = cast(size_t)p & ~cast(size_t)(PAGESIZE-1);
                     }
                     else
@@ -2330,8 +2498,8 @@ struct Gcx
                         // Don't mark bits in B_FREE or B_UNCOMMITTED pages
                         continue;
                     }
-                    
-                    if(pool.isLargeObject && !pointsToBase && pool.nointerior.test(biti))
+
+                    if(pool.nointerior.nbits && !pointsToBase && pool.nointerior.test(biti))
                     {
                         continue;
                     }
@@ -2341,11 +2509,31 @@ struct Gcx
                     {
                         //if (log) debug(PRINTF) printf("\t\tmarking %p\n", p);
                         if (!pool.noscan.test(biti))
-                        {                            
-                            pool.scan.set(biti);
-                            changes = 1;
-                            pool.newChanges = true;
+                        {
+                            if(nRecurse == 0) {
+                                // Then we've got a really deep heap graph.
+                                // Start marking stuff to be scanned when we
+                                // traverse the heap again next time, to save
+                                // stack space.
+                                pool.scan.set(biti);
+                                changes = 1;
+                                pool.newChanges = true;
+                            } else {
+                                // Directly recurse mark() to prevent having
+                                // to traverse the heap O(D) times where D
+                                // is the max depth of the heap graph.
+                                if (bin < B_PAGE)
+                                {
+                                    mark(base, base + binsize[bin], nRecurse - 1);
+                                }
+                                else
+                                {
+                                    auto u = pool.bPageOffsets[pn];
+                                    mark(base, base + u * PAGESIZE, nRecurse - 1);
+                                }
+                            }
                         }
+
                         debug (LOGGING) log_parent(sentinel_add(pool.baseAddr + (biti << pool.shiftBy)), sentinel_add(pbot));
                     }
                 }
@@ -2559,6 +2747,13 @@ struct Gcx
             }
         }
 
+        debug(PROFILING)
+        {
+            stop = clock();
+            prepTime += (stop - start);
+            start = stop;
+        }
+
         version (MULTI_THREADED)
         {
             if (!noStack)
@@ -2581,13 +2776,6 @@ struct Gcx
             }
         }
 
-        debug(PROFILING)
-        {
-            stop = clock();
-            prepTime += (stop - start);
-            start = stop;
-        }
-
         // Scan roots[]
         debug(COLLECT_PRINTF) printf("\tscan roots[]\n");
         mark(roots, roots + nroots);
@@ -2603,8 +2791,10 @@ struct Gcx
         //log--;
 
         debug(COLLECT_PRINTF) printf("\tscan heap\n");
+        int nTraversals;
         while (anychanges)
         {
+            //import core.stdc.stdio;  printf("nTraversals = %d\n", ++nTraversals);
             for (n = 0; n < npools; n++)
             {
                 pool = pooltable[n];
@@ -2694,8 +2884,8 @@ struct Gcx
 
                         sentinel_Invariant(sentinel_add(p));
                         if (pool.finals.nbits && pool.finals.testClear(biti))
-                            rt_finalize(sentinel_add(p), false/*noStack > 0*/);
-                        clrBits(pool, biti, BlkAttr.ALL_BITS);
+                            rt_finalize_gc(sentinel_add(p));
+                        clrBits(pool, biti, BlkAttr.ALL_BITS ^ BlkAttr.FINALIZE);
 
                         debug(COLLECT_PRINTF) printf("\tcollecting big %p\n", p);
                         log_free(sentinel_add(p));
@@ -2742,42 +2932,32 @@ struct Gcx
                         size_t biti = pn * (PAGESIZE/16);
                         size_t bitstride = size / 16;
 
-        version(none) // BUG: doesn't work because freebits() must also be cleared
-        {
-                        // If free'd entire page
-                        if (bbase[0] == 0 && bbase[1] == 0 && bbase[2] == 0 && bbase[3] == 0 &&
-                            bbase[4] == 0 && bbase[5] == 0 && bbase[6] == 0 && bbase[7] == 0)
+                        GCBits.wordtype toClear;
+                        size_t clearStart = (biti >> GCBits.BITS_SHIFT) + 1;
+                        size_t clearIndex;
+
+                        for (; p < ptop; p += size, biti += bitstride, clearIndex += bitstride)
                         {
-                            for (; p < ptop; p += size, biti += bitstride)
+                            if(clearIndex > GCBits.BITS_PER_WORD - 1)
                             {
-                                if (pool.finals.nbits && pool.finals.testClear(biti))
-                                    rt_finalize(cast(List *)sentinel_add(p), false/*noStack > 0*/);
-                                gcx.clrBits(pool, biti, BlkAttr.ALL_BITS);
+                                if(toClear)
+                                {
+                                    Gcx.clrBitsSmallSweep(pool, clearStart, toClear);
+                                    toClear = 0;
+                                }
 
-                                List *list = cast(List *)p;
-                                //debug(PRINTF) printf("\tcollecting %p\n", list);
-                                log_free(sentinel_add(list));
-
-                                debug (MEMSTOMP) memset(p, 0xF3, size);
+                                clearStart = (biti >> GCBits.BITS_SHIFT) + 1;
+                                clearIndex = biti & GCBits.BITS_MASK;
                             }
-                            pool.pagetable[pn] = B_FREE;
-                            if(pn < pool.searchStart) pool.searchStart = pn;
-                            freed += PAGESIZE;
-                            pool.freepages++;
-                            //debug(PRINTF) printf("freeing entire page %d\n", pn);
-                            continue;
-                        }
-        }
-                        for (; p < ptop; p += size, biti += bitstride)
-                        {
+
                             if (!pool.mark.test(biti))
                             {
                                 sentinel_Invariant(sentinel_add(p));
 
                                 pool.freebits.set(biti);
-                                if (pool.finals.nbits && pool.finals.testClear(biti))
-                                    rt_finalize(cast(List *)sentinel_add(p), false/*noStack > 0*/);
-                                clrBits(pool, biti, BlkAttr.ALL_BITS);
+                                if (pool.finals.nbits && pool.finals.test(biti))
+                                    rt_finalize_gc(sentinel_add(p));
+                                toClear |= GCBits.BITS_1 << clearIndex;
 
                                 List *list = cast(List *)p;
                                 debug(PRINTF) printf("\tcollecting %p\n", list);
@@ -2787,6 +2967,11 @@ struct Gcx
 
                                 freed += size;
                             }
+                        }
+
+                        if(toClear)
+                        {
+                            Gcx.clrBitsSmallSweep(pool, clearStart, toClear);
                         }
                     }
                 }
@@ -2915,7 +3100,7 @@ struct Gcx
             bits |= BlkAttr.FINALIZE;
         if (pool.noscan.test(biti))
             bits |= BlkAttr.NO_SCAN;
-        if (pool.isLargeObject && pool.nointerior.test(biti))
+        if (pool.nointerior.nbits && pool.nointerior.test(biti))
             bits |= BlkAttr.NO_INTERIOR;
 //        if (pool.nomove.nbits &&
 //            pool.nomove.test(biti))
@@ -2936,30 +3121,38 @@ struct Gcx
     }
     body
     {
+        // Calculate the mask and bit offset once and then use it to
+        // set all of the bits we need to set.
+        immutable dataIndex = 1 + (biti >> GCBits.BITS_SHIFT);
+        immutable bitOffset = biti & GCBits.BITS_MASK;
+        immutable orWith = GCBits.BITS_1 << bitOffset;
+
         if (mask & BlkAttr.FINALIZE)
         {
             if (!pool.finals.nbits)
                 pool.finals.alloc(pool.mark.nbits);
-            pool.finals.set(biti);
+            pool.finals.data[dataIndex] |= orWith;
         }
         if (mask & BlkAttr.NO_SCAN)
         {
-            pool.noscan.set(biti);
+            pool.noscan.data[dataIndex] |= orWith;
         }
 //        if (mask & BlkAttr.NO_MOVE)
 //        {
 //            if (!pool.nomove.nbits)
 //                pool.nomove.alloc(pool.mark.nbits);
-//            pool.nomove.set(biti);
+//            pool.nomove.data[dataIndex] |= orWith;
 //        }
         if (mask & BlkAttr.APPENDABLE)
         {
-            pool.appendable.set(biti);
+            pool.appendable.data[dataIndex] |= orWith;
         }
-        
+
         if (pool.isLargeObject && (mask & BlkAttr.NO_INTERIOR))
         {
-            pool.nointerior.set(biti);
+            if(!pool.nointerior.nbits)
+                pool.nointerior.alloc(pool.mark.nbits);
+            pool.nointerior.data[dataIndex] |= orWith;
         }
     }
 
@@ -2974,18 +3167,43 @@ struct Gcx
     }
     body
     {
+        immutable dataIndex =  1 + (biti >> GCBits.BITS_SHIFT);
+        immutable bitOffset = biti & GCBits.BITS_MASK;
+        immutable keep = ~(GCBits.BITS_1 << bitOffset);
+
         if (mask & BlkAttr.FINALIZE && pool.finals.nbits)
-            pool.finals.clear(biti);
+            pool.finals.data[dataIndex] &= keep;
         if (mask & BlkAttr.NO_SCAN)
-            pool.noscan.clear(biti);
+            pool.noscan.data[dataIndex] &= keep;
 //        if (mask & BlkAttr.NO_MOVE && pool.nomove.nbits)
-//            pool.nomove.clear(biti);
+//            pool.nomove.data[dataIndex] &= keep;
         if (mask & BlkAttr.APPENDABLE)
-            pool.appendable.clear(biti);
-        if (pool.isLargeObject && (mask & BlkAttr.NO_INTERIOR))
-            pool.nointerior.clear(biti);
+            pool.appendable.data[dataIndex] &= keep;
+        if (pool.nointerior.nbits && (mask & BlkAttr.NO_INTERIOR))
+            pool.nointerior.data[dataIndex] &= keep;
     }
 
+    void clrBitsSmallSweep(Pool* pool, size_t dataIndex, GCBits.wordtype toClear)
+    in
+    {
+        assert(pool);
+    }
+    body
+    {
+        immutable toKeep = ~toClear;
+        if (pool.finals.nbits)
+            pool.finals.data[dataIndex] &= toKeep;
+
+        pool.noscan.data[dataIndex] &= toKeep;
+
+//        if (pool.nomove.nbits)
+//            pool.nomove.data[dataIndex] &= toKeep;
+
+        pool.appendable.data[dataIndex] &= toKeep;
+
+        if (pool.nointerior.nbits)
+            pool.nointerior.data[dataIndex] &= toKeep;
+    }
 
     /***** Leak Detector ******/
 
@@ -3175,13 +3393,8 @@ struct Pool
         scan.alloc(nbits);
 
         // pagetable already keeps track of what's free for the large object
-        // pool.  nointerior is only worth the overhead for the large object
         // pool.
-        if(isLargeObject) 
-        {
-            nointerior.alloc(nbits);
-        }
-        else
+        if(!isLargeObject)
         {
             freebits.alloc(nbits);
         }
@@ -3253,7 +3466,7 @@ struct Pool
     }
 
 
-    void Invariant() {}
+    void Invariant() const {}
 
 
     invariant()
@@ -3442,12 +3655,12 @@ struct Pool
     /**
      * Used for sorting pooltable[]
      */
-    int opCmp(Pool *p2)
+    int opCmp(const Pool *p2) const
     {
         if (baseAddr < p2.baseAddr)
             return -1;
         else
-        return cast(int)(baseAddr > p2.baseAddr);
+            return cast(int)(baseAddr > p2.baseAddr);
     }
 }
 
@@ -3475,7 +3688,7 @@ version (SENTINEL)
     }
 
 
-    void sentinel_Invariant(void *p)
+    void sentinel_Invariant(const void *p)
     {
         assert(*sentinel_pre(p) == SENTINEL_PRE);
         assert(*sentinel_post(p) == SENTINEL_POST);
@@ -3503,7 +3716,7 @@ else
     }
 
 
-    void sentinel_Invariant(void *p)
+    void sentinel_Invariant(const void *p)
     {
     }
 

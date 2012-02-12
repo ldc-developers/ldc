@@ -27,6 +27,7 @@ private
     import rt.util.hash;
     import rt.util.string;
     import rt.util.console;
+    import rt.minfo;
     debug(PRINTF) import core.stdc.stdio;
 
     extern (C) void onOutOfMemoryError();
@@ -149,6 +150,12 @@ class Object
 /************************
  * Returns true if lhs and rhs are equal.
  */
+bool opEquals(const Object lhs, const Object rhs)
+{
+    // A hack for the moment.
+    return opEquals(cast()lhs, cast()rhs);
+}
+
 bool opEquals(Object lhs, Object rhs)
 {
     // If aliased to the same object or both null => equal
@@ -309,6 +316,37 @@ class TypeInfo
     {   arg1 = this;
         return 0;
     }
+}
+
+class TypeInfo_Vector : TypeInfo
+{
+    override string toString() { return "__vector(" ~ base.toString() ~ ")"; }
+
+    override equals_t opEquals(Object o)
+    {
+        TypeInfo_Vector c;
+        return this is o ||
+               ((c = cast(TypeInfo_Vector)o) !is null &&
+                this.base == c.base);
+    }
+
+    override hash_t getHash(in void* p) { return base.getHash(p); }
+    override equals_t equals(in void* p1, in void* p2) { return base.equals(p1, p2); }
+    override int compare(in void* p1, in void* p2) { return base.compare(p1, p2); }
+    @property override size_t tsize() nothrow pure { return base.tsize; }
+    override void swap(void* p1, void* p2) { return base.swap(p1, p2); }
+
+    @property override TypeInfo next() nothrow pure { return base.next; }
+    @property override uint flags() nothrow pure { return base.flags; }
+    override void[] init() nothrow pure { return base.init(); }
+
+    @property override size_t talign() nothrow pure { return 16; }
+
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    {   return base.argTypes(arg1, arg2);
+    }
+
+    TypeInfo base;
 }
 
 class TypeInfo_Typedef : TypeInfo
@@ -655,7 +693,7 @@ class TypeInfo_Function : TypeInfo
         TypeInfo_Function c;
         return this is o ||
                 ((c = cast(TypeInfo_Function)o) !is null &&
-		 this.deco == c.deco);
+                 this.deco == c.deco);
     }
 
     // BUG: need to add the rest of the functions
@@ -681,7 +719,7 @@ class TypeInfo_Delegate : TypeInfo
         TypeInfo_Delegate c;
         return this is o ||
                 ((c = cast(TypeInfo_Delegate)o) !is null &&
-		 this.deco == c.deco);
+                 this.deco == c.deco);
     }
 
     // BUG: need to add the rest of the functions
@@ -1756,466 +1794,14 @@ struct ModuleInfo
         return o.name;
     }
 
+    alias int delegate(ref ModuleInfo*) ApplyDg;
 
-    static int opApply(scope int delegate(ref ModuleInfo*) dg)
+    static int opApply(scope ApplyDg dg)
     {
-        int ret = 0;
-
-        foreach (m; _moduleinfo_array)
-        {
-            // TODO: Should null ModuleInfo be allowed?
-            if (m !is null)
-            {
-                ret = dg(m);
-                if (ret)
-                    break;
-            }
-        }
-        return ret;
+        return rt.minfo.moduleinfos_apply(dg);
     }
 }
 
-
-// Windows: this gets initialized by minit.asm
-// Posix: this gets initialized in _moduleCtor()
-extern (C) __gshared ModuleInfo*[] _moduleinfo_array;
-
-version (LDC)
-{
-    enum useModuleRef = true;
-}
-else version (OSX)
-{
-    enum useModuleRef = false;
-}
-else version (Posix)
-{
-    enum useModuleRef = true;
-}
-else
-{
-    enum useModuleRef = false;
-}
-
-static if (useModuleRef) {
-    // This linked list is created by a compiler generated function inserted
-    // into the .ctor list by the compiler.
-    struct ModuleReference
-    {
-        ModuleReference* next;
-        ModuleInfo*      mod;
-    }
-
-    extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
-}
-else version (OSX)
-{
-    extern (C)
-    {
-        extern __gshared void* _minfo_beg;
-        extern __gshared void* _minfo_end;
-    }
-} else static assert(false);
-
-__gshared ModuleInfo*[] _moduleinfo_dtors;
-__gshared size_t        _moduleinfo_dtors_i;
-
-__gshared ModuleInfo*[] _moduleinfo_tlsdtors;
-__gshared size_t        _moduleinfo_tlsdtors_i;
-
-// Register termination function pointers
-extern (C) int _fatexit(void*);
-
-/**
- * Initialize the modules.
- */
-
-extern (C) void _moduleCtor()
-{
-    debug(PRINTF) printf("_moduleCtor()\n");
-
-    static if (useModuleRef)
-    {
-        int len = 0;
-        ModuleReference *mr;
-
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-            len++;
-        _moduleinfo_array = new ModuleInfo*[len];
-        len = 0;
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-        {   _moduleinfo_array[len] = mr.mod;
-            len++;
-        }
-    }
-    else version (OSX)
-    {
-        /* The ModuleInfo references are stored in the special segment
-         * __minfodata, which is bracketed by the segments __minfo_beg
-         * and __minfo_end. The variables _minfo_beg and _minfo_end
-         * are of zero size and are in the two bracketing segments,
-         * respectively.
-         */
-         size_t length = cast(ModuleInfo**)&_minfo_end - cast(ModuleInfo**)&_minfo_beg;
-         _moduleinfo_array = (cast(ModuleInfo**)&_minfo_beg)[0 .. length];
-         debug printf("moduleinfo: ptr = %p, length = %d\n", _moduleinfo_array.ptr, _moduleinfo_array.length);
-
-         debug foreach (m; _moduleinfo_array)
-         {
-             // TODO: Should null ModuleInfo be allowed?
-             if (m !is null)
-                //printf("\t%p\n", m);
-                printf("\t%.*s\n", m.name);
-         }
-    }
-    else version (Windows)
-    {
-        // Ensure module destructors also get called on program termination
-        //_fatexit(&_STD_moduleDtor);
-    }
-
-    //_moduleinfo_dtors = new ModuleInfo*[_moduleinfo_array.length];
-    //debug(PRINTF) printf("_moduleinfo_dtors = x%x\n", cast(void*)_moduleinfo_dtors);
-    // this will determine the constructor/destructor order, and check for
-    // cycles for both shared and TLS ctors
-    _checkModCtors();
-
-    _moduleIndependentCtors();
-    // now, call the module constructors in the designated order
-    foreach(i; 0.._moduleinfo_dtors_i)
-    {
-        ModuleInfo *mi = _moduleinfo_dtors[i];
-        if(mi.ctor)
-            (*mi.ctor)();
-    }
-
-    //_moduleCtor2(_moduleinfo_array, 0);
-    // NOTE: _moduleTlsCtor is now called manually by dmain2
-    //_moduleTlsCtor();
-}
-
-extern (C) void _moduleIndependentCtors()
-{
-    debug(PRINTF) printf("_moduleIndependentCtors()\n");
-    foreach (m; _moduleinfo_array)
-    {
-        // TODO: Should null ModuleInfo be allowed?
-        if (m && m.ictor)
-        {
-            (*m.ictor)();
-        }
-    }
-}
-
-/********************************************
- * Check for cycles on module constructors, and establish an order for module
- * constructors.
- */
-extern(C) void _checkModCtors()
-{
-    // Create an array of modules that will determine the order of construction
-    // (and destruction in reverse).
-    auto dtors = _moduleinfo_dtors = new ModuleInfo*[_moduleinfo_array.length];
-    size_t dtoridx = 0;
-
-    // this pointer will identify the module where the cycle was detected.
-    ModuleInfo *cycleModule;
-
-    // allocate some stack arrays that will be used throughout the process.
-    ubyte* p = cast(ubyte *)alloca(_moduleinfo_array.length * ubyte.sizeof);
-    auto reachable = p[0.._moduleinfo_array.length];
-
-    p = cast(ubyte *)alloca(_moduleinfo_array.length * ubyte.sizeof);
-    auto flags = p[0.._moduleinfo_array.length];
-
-
-    // find all the non-trivial dependencies (that is, dependencies that have a
-    // ctor or dtor) of a given module.  Doing this, we can 'skip over' the
-    // trivial modules to get at the non-trivial ones.
-    size_t _findDependencies(ModuleInfo *current, bool orig = true)
-    {
-        auto idx = current.index;
-        if(reachable[idx])
-            return 0;
-        size_t result = 0;
-        reachable[idx] = 1;
-        if(!orig && (flags[idx] & (MIctor | MIdtor)) && !(flags[idx] & MIstandalone))
-            // non-trivial, stop here
-            return result + 1;
-        foreach(ModuleInfo *m; current.importedModules)
-        {
-            result += _findDependencies(m, false);
-        }
-        return result;
-    }
-
-    void println(string msg[]...)
-    {
-        version(Windows)
-            immutable ret = "\r\n";
-        else
-            immutable ret = "\n";
-        foreach(m; msg)
-        {
-            // write message to stderr
-            console(m);
-        }
-        console(ret);
-    }
-
-    bool printCycle(ModuleInfo *current, ModuleInfo *target, bool orig = true)
-    {
-        if(reachable[current.index])
-            // already visited
-            return false;
-        if(current is target)
-            // found path
-            return true;
-        reachable[current.index] = 1;
-        if(!orig && (flags[current.index] & (MIctor | MIdtor)) && !(flags[current.index] & MIstandalone))
-            // don't go through modules with ctors/dtors that aren't
-            // standalone.
-            return false;
-        // search connections from current to see if we can get to target
-        foreach(m; current.importedModules)
-        {
-            if(printCycle(m, target, false))
-            {
-                // found the path, print this module
-                if(orig)
-                    println("imported from ", current.name, " containing module ctor/dtor");
-                else
-                    println("   imported from (", current.name, ")");
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // This function will determine the order of construction/destruction and
-    // check for cycles.
-    bool _checkModCtors2(ModuleInfo *current)
-    {
-        // we only get called if current has a dtor or a ctor, so no need to
-        // check that.  First, determine what non-trivial elements are
-        // reachable.
-        reachable[] = 0;
-        auto nmodules = _findDependencies(current);
-
-        // allocate the dependencies on the stack
-        ModuleInfo **p = cast(ModuleInfo **)alloca(nmodules * (ModuleInfo*).sizeof);
-        auto dependencies = p[0..nmodules];
-        uint depidx = 0;
-        // fill in the dependencies
-        foreach(i, r; reachable)
-        {
-            if(r)
-            {
-                ModuleInfo *m = _moduleinfo_array[i];
-                if(m !is current && (flags[i] & (MIctor | MIdtor)) && !(flags[i] & MIstandalone))
-                {
-                    dependencies[depidx++] = m;
-                }
-            }
-        }
-        assert(depidx == nmodules);
-
-        // ok, now perform cycle detection
-        auto curidx = current.index;
-        flags[curidx] |= MIctorstart;
-        bool valid = true;
-        foreach(m; dependencies)
-        {
-            auto mflags = flags[m.index];
-            if(mflags & MIctorstart)
-            {
-                // found a cycle, but we don't care if the MIstandalone flag is
-                // set, this is a guarantee that there are no cycles in this
-                // module (not sure what triggers it)
-                println("Cyclic dependency in module ", m.name);
-                cycleModule = m;
-                valid = false;
-
-                // use the currently allocated dtor path to record the loop
-                // that contains module ctors/dtors only.
-                dtoridx = dtors.length;
-            }
-            else if(!(mflags & MIctordone))
-            {
-                valid = _checkModCtors2(m);
-            }
-
-
-            if(!valid)
-            {
-                // cycle detected, now, we must print in reverse order the
-                // module include cycle.  For this, we need to traverse the
-                // graph of trivial modules again, this time printing them.
-                reachable[] = 0;
-                printCycle(current, m);
-
-                // record this as a module that was used in the loop.
-                dtors[--dtoridx] = current;
-                if(current is cycleModule)
-                {
-                    // print the cycle
-                    println("Cycle detected between modules with ctors/dtors:");
-                    foreach(cm; dtors[dtoridx..$])
-                    {
-                        console(cm.name)(" -> ");
-                    }
-                    println(cycleModule.name);
-                    throw new Exception("Aborting!");
-                }
-                return false;
-            }
-        }
-        flags[curidx] = (flags[curidx] & ~MIctorstart) | MIctordone;
-        // add this module to the construction order list
-        dtors[dtoridx++] = current;
-        return true;
-    }
-
-    void _checkModCtors3()
-    {
-        foreach(m; _moduleinfo_array)
-        {
-            // TODO: Should null ModuleInfo be allowed?
-            if (m is null) continue;
-            auto flag = flags[m.index];
-            if((flag & (MIctor | MIdtor)) && !(flag & MIctordone))
-            {
-                if(flag & MIstandalone)
-                {
-                    // no need to run a check on this one, but we do need to call its ctor/dtor
-                    dtors[dtoridx++] = m;
-                }
-                else
-                    _checkModCtors2(m);
-            }
-        }
-    }
-
-    // ok, now we need to assign indexes, and also initialize the flags
-    foreach(uint i, m; _moduleinfo_array)
-    {
-        // TODO: Should null ModuleInfo be allowed?
-        if (m is null) continue;
-        m.index = i;
-        ubyte flag = m.flags & MIstandalone;
-        if(m.dtor)
-            flag |= MIdtor;
-        if(m.ctor)
-            flag |= MIctor;
-        flags[i] = flag;
-    }
-
-    // everything's all set up for shared ctors
-    _checkModCtors3();
-
-    // store the number of dtors/ctors
-    _moduleinfo_dtors_i = dtoridx;
-
-    // set up everything for tls ctors
-    dtors = _moduleinfo_tlsdtors = new ModuleInfo*[_moduleinfo_array.length];
-    dtoridx = 0;
-    foreach(i, m; _moduleinfo_array)
-    {
-        // TODO: Should null ModuleInfo be allowed?
-        if (m is null) continue;
-        ubyte flag = m.flags & MIstandalone;
-        if(m.tlsdtor)
-            flag |= MIdtor;
-        if(m.tlsctor)
-            flag |= MIctor;
-        flags[i] = flag;
-    }
-
-    // ok, run it
-    _checkModCtors3();
-
-    // store the number of dtors/ctors
-    _moduleinfo_tlsdtors_i = dtoridx;
-}
-
-/********************************************
- * Run static constructors for thread local global data.
- */
-
-extern (C) void _moduleTlsCtor()
-{
-    // call the module constructors in the correct order as determined by the
-    // check routine.
-    foreach(i; 0.._moduleinfo_tlsdtors_i)
-    {
-        ModuleInfo *mi = _moduleinfo_tlsdtors[i];
-        if(mi.tlsctor)
-            (*mi.tlsctor)();
-    }
-}
-
-
-/**
- * Destruct the modules.
- */
-
-// Starting the name with "_STD" means under Posix a pointer to the
-// function gets put in the .dtors segment.
-
-extern (C) void _moduleDtor()
-{
-    debug(PRINTF) printf("_moduleDtor(): %d modules\n", _moduleinfo_dtors_i);
-
-    // NOTE: _moduleTlsDtor is now called manually by dmain2
-    //_moduleTlsDtor();
-    for (auto i = _moduleinfo_dtors_i; i-- != 0;)
-    {
-        ModuleInfo* m = _moduleinfo_dtors[i];
-
-        debug(PRINTF) printf("\tmodule[%d] = '%.*s', x%x\n", i, m.name.length, m.name.ptr, m);
-        if (m.dtor)
-        {
-            (*m.dtor)();
-        }
-    }
-    debug(PRINTF) printf("_moduleDtor() done\n");
-}
-
-extern (C) void _moduleTlsDtor()
-{
-    debug(PRINTF) printf("_moduleTlsDtor(): %d modules\n", _moduleinfo_tlsdtors_i);
-    version(none)
-    {
-        printf("_moduleinfo_tlsdtors = %d,%p\n", _moduleinfo_tlsdtors);
-        foreach (i,m; _moduleinfo_tlsdtors[0..11])
-            printf("[%d] = %p\n", i, m);
-    }
-
-    for (auto i = _moduleinfo_tlsdtors_i; i-- != 0;)
-    {
-        ModuleInfo* m = _moduleinfo_tlsdtors[i];
-
-        debug(PRINTF) printf("\tmodule[%d] = '%.*s', x%x\n", i, m.name.length, m.name.ptr, m);
-        if (m.tlsdtor)
-        {
-            (*m.tlsdtor)();
-        }
-    }
-    debug(PRINTF) printf("_moduleTlsDtor() done\n");
-}
-
-// Alias the TLS ctor and dtor using "rt_" prefixes, since these routines
-// must be called by core.thread.
-
-extern (C) void rt_moduleTlsCtor()
-{
-    _moduleTlsCtor();
-}
-
-extern (C) void rt_moduleTlsDtor()
-{
-    _moduleTlsDtor();
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Monitor
@@ -2437,7 +2023,76 @@ extern (C)
 
 struct AssociativeArray(Key, Value)
 {
-    void* p;
+private:
+    // Duplicates of the stuff found in druntime/src/rt/aaA.d
+    struct Slot
+    {
+        Slot *next;
+        hash_t hash;
+        Key key;
+        Value value;
+    }
+
+    struct Hashtable
+    {
+        Slot*[] b;
+        size_t nodes;
+        TypeInfo keyti;
+        Slot*[4] binit;
+    }
+
+    void* p; // really Hashtable*
+
+    struct Range
+    {
+        // State
+        Slot*[] slots;
+        Slot* current;
+
+        this(void * aa)
+        {
+            if (!aa) return;
+            auto pImpl = cast(Hashtable*) aa;
+            slots = pImpl.b;
+            nextSlot();
+        }
+
+        void nextSlot()
+        {
+            foreach (i, slot; slots)
+            {
+                if (!slot) continue;
+                current = slot;
+                slots = slots.ptr[i .. slots.length];
+                break;
+            }
+        }
+
+    public:
+        @property bool empty() const
+        {
+            return current is null;
+        }
+
+        @property ref inout(Slot) front() inout
+        {
+            assert(current);
+            return *current;
+        }
+
+        void popFront()
+        {
+            assert(current);
+            current = current.next;
+            if (!current)
+            {
+                slots = slots[1 .. $];
+                nextSlot();
+            }
+        }
+    }
+
+public:
 
     @property size_t length() { return _aaLen(p); }
 
@@ -2469,27 +2124,6 @@ struct AssociativeArray(Key, Value)
         return _aaApply(p, Key.sizeof, cast(_dg_t)dg);
     }
 
-    int delegate(int delegate(ref Key) dg) byKey()
-    {
-        // Discard the Value part and just do the Key
-        int foo(int delegate(ref Key) dg)
-        {
-            int byKeydg(ref Key key, ref Value value)
-            {
-                return dg(key);
-            }
-
-        return _aaApply2(p, Key.sizeof, cast(_dg2_t)&byKeydg);
-        }
-
-        return &foo;
-    }
-
-    int delegate(int delegate(ref Value) dg) byValue()
-    {
-        return &opApply;
-    }
-
     Value get(Key key, lazy Value defaultValue)
     {
         auto p = key in *cast(Value[Key]*)(&p);
@@ -2506,6 +2140,63 @@ struct AssociativeArray(Key, Value)
             }
             return result;
         }
+
+    @property auto byKey()
+    {
+        static struct Result
+        {
+            Range state;
+
+            this(void* p)
+            {
+                state = Range(p);
+            }
+
+            @property ref Key front()
+            {
+                return state.front.key;
+            }
+
+            alias state this;
+        }
+
+        return Result(p);
+    }
+
+    @property auto byValue()
+    {
+        static struct Result
+        {
+            Range state;
+
+            this(void* p)
+            {
+                state = Range(p);
+            }
+
+            @property ref Value front()
+            {
+                return state.front.value;
+            }
+
+            alias state this;
+        }
+
+        return Result(p);
+    }
+}
+
+unittest
+{
+    int[int] a;
+    foreach (i; a.byKey)
+    {
+        assert(false);
+    }
+    foreach (i; a.byValue)
+    {
+        assert(false);
+    }
 }
 
 version (LDC) {} else
@@ -2514,6 +2205,18 @@ unittest
     auto a = [ 1:"one", 2:"two", 3:"three" ];
     auto b = a.dup;
     assert(b == [ 1:"one", 2:"two", 3:"three" ]);
+
+    int[] c;
+    foreach (k; a.byKey)
+    {
+        c ~= k;
+    }
+
+    assert(c.length == 3);
+    c.sort;
+    assert(c[0] == 1);
+    assert(c[1] == 2);
+    assert(c[2] == 3);
 }
 unittest
 {

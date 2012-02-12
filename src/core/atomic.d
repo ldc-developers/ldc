@@ -28,7 +28,6 @@ version( D_InlineAsm_X86_64 )
     enum has64BitCAS = true;
 }
 
-
 private
 {
     template HeadUnshared(T)
@@ -86,11 +85,11 @@ version( D_Ddoc )
      *  true if the store occurred, false if not.
      */
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
-        if( __traits( compiles, mixin( "*here = writeThis" ) ) )
-    {
-        return false;
-    }
+        if( !is(T == class) && !is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) );
 
+    /// Ditto
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis )
+        if( is(T == class) || is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) );
 
     /**
      * Loads 'val' from memory and returns it.  The memory barrier specified
@@ -363,9 +362,19 @@ else version( AsmX86_32 )
         }
     }
 
-
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
-        if( __traits( compiles, mixin( "*here = writeThis" ) ) )
+        if( !is(T == class) && !is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
+
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis )
+        if( is(T == class) || is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
+
+    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
     in
     {
         // NOTE: 32 bit x86 systems support 8 byte CAS, which only requires
@@ -785,7 +794,18 @@ else version( AsmX86_64 )
 
 
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
-        if( __traits( compiles, mixin( "*here = writeThis" ) ) )
+        if( !is(T == class) && !is(T U : U*) &&  __traits( compiles, mixin( "*here = writeThis" ) ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
+
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis )
+        if( is(T == class) || is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
+
+    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
     in
     {
         // NOTE: 32 bit x86 systems support 8 byte CAS, which only requires
@@ -1159,14 +1179,14 @@ if(__traits(isFloating, T))
     static if(T.sizeof == int.sizeof)
     {
         static assert(is(T : float));
-        auto ptr = cast(int*) &val;
+        auto ptr = cast(const shared int*) &val;
         auto asInt = atomicLoad!(ms)(*ptr);
         return *(cast(typeof(return)*) &asInt);
     }
     else static if(T.sizeof == long.sizeof)
     {
         static assert(is(T : double));
-        auto ptr = cast(long*) &val;
+        auto ptr = cast(const shared long*) &val;
         auto asLong = atomicLoad!(ms)(*ptr);
         return *(cast(typeof(return)*) &asLong);
     }
@@ -1183,18 +1203,23 @@ if(__traits(isFloating, T))
 
 version( unittest )
 {
-    void testCAS(T)( T val = T.init + 1 )
+    void testCAS(T)( T val )
+    in
     {
-        T         base = cast(T) 0;
-        shared(T) atom = cast(T) 0;
+        assert(val !is T.init);
+    }
+    body
+    {
+        T         base;
+        shared(T) atom;
 
-        assert( base != val, T.stringof );
-        assert( atom == base, T.stringof );
-        
+        assert( base !is val, T.stringof );
+        assert( atom is base, T.stringof );
+
         assert( cas( &atom, base, val ), T.stringof );
-        assert( atom == val, T.stringof );
+        assert( atom is val, T.stringof );
         assert( !cas( &atom, base, base ), T.stringof );
-        assert( atom == val, T.stringof );
+        assert( atom is val, T.stringof );
     }
 
     void testLoadStore(msync ms = msync.seq, T)( T val = T.init + 1 )
@@ -1202,20 +1227,19 @@ version( unittest )
         T         base = cast(T) 0;
         shared(T) atom = cast(T) 0;
 
-        assert( base != val );
-        assert( atom == base );
+        assert( base !is val );
+        assert( atom is base );
         atomicStore!(ms)( atom, val );
         base = atomicLoad!(ms)( atom );
-        
-        assert( base == val, T.stringof );
-        assert( atom == val );
+
+        assert( base is val, T.stringof );
+        assert( atom is val );
     }
 
 
     void testType(T)( T val = T.init + 1 )
     {
-        static if( !is( T U : U* ) )
-            testCAS!(T)( val );
+        testCAS!(T)( val );
         testLoadStore!(msync.seq, T)( val );
         testLoadStore!(msync.raw, T)( val );
     }
@@ -1235,7 +1259,10 @@ version( unittest )
         testType!(uint)();
 
         testType!(shared int*)();
-        
+
+        static class Klass {}
+        testCAS!(shared Klass)( new shared(Klass) );
+
         testType!(float)(1.0f);
         testType!(double)(1.0);
 
@@ -1252,12 +1279,12 @@ version( unittest )
 
         atomicOp!"-="( i, cast(size_t) 1 );
         assert( i == 0 );
-        
-        float f = 0;
+
+        shared float f = 0;
         atomicOp!"+="( f, 1 );
         assert( f == 1 );
-        
-        double d = 0;
+
+        shared double d = 0;
         atomicOp!"+="( d, 1 );
         assert( d == 1 );
     }

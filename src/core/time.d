@@ -12,7 +12,7 @@
     are a few functions that also allow "nsecs", but very little actually
     has precision greater than hnsecs.
 
-    Copyright: Copyright 2010 - 2011
+    Copyright: Copyright 2010 - 2012
     License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
     Authors:   Jonathan M Davis and Kato Shoichi
     Source:    $(DRUNTIMESRC core/_time.d)
@@ -202,7 +202,6 @@ public:
 
             foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
-
                 assertApprox((cast(D)Duration(5)) + cast(T)TickDuration.from!"usecs"(7), Duration(70), Duration(80));
                 assertApprox((cast(D)Duration(5)) - cast(T)TickDuration.from!"usecs"(7), Duration(-70), Duration(-60));
                 assertApprox((cast(D)Duration(7)) + cast(T)TickDuration.from!"usecs"(5), Duration(52), Duration(62));
@@ -254,7 +253,6 @@ public:
         {
             foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
-
                 assertApprox((cast(T)TickDuration.from!"usecs"(7)) + cast(D)Duration(5), Duration(70), Duration(80));
                 assertApprox((cast(T)TickDuration.from!"usecs"(7)) - cast(D)Duration(5), Duration(60), Duration(70));
                 assertApprox((cast(T)TickDuration.from!"usecs"(5)) + cast(D)Duration(7), Duration(52), Duration(62));
@@ -1371,7 +1369,15 @@ struct TickDuration
                 if(clock_getres(CLOCK_MONOTONIC, &ts) != 0)
                     ticksPerSec = 0;
                 else
-                    ticksPerSec = 1_000_000_000 / ts.tv_nsec;
+                {
+                    //For some reason, on some systems, clock_getres returns
+                    //a resolution which is clearly wrong (it's a millisecond
+                    //or worse, but the time is updated much more frequently
+                    //than that). In such cases, we'll just use nanosecond
+                    //resolution.
+                    ticksPerSec = ts.tv_nsec >= 1000 ? 1_000_000_000
+                                                     : 1_000_000_000 / ts.tv_nsec;
+                }
             }
             else
                 ticksPerSec = 1_000_000;
@@ -1419,10 +1425,7 @@ struct TickDuration
         {
             enum unitsPerSec = convert!("seconds", units)(1);
 
-            if(ticksPerSec >= unitsPerSec)
-                return cast(T)(length / (ticksPerSec / cast(real)unitsPerSec));
-            else
-                return cast(T)(length * (unitsPerSec / cast(real)ticksPerSec));
+            return cast(T)(length / (ticksPerSec / cast(real)unitsPerSec));
         }
         else static if(__traits(isFloating, T))
         {
@@ -1461,6 +1464,7 @@ struct TickDuration
             assert((cast(T)TickDuration(-ticksPerSec)).seconds == -1);
         }
     }
+
 
     /++
         Returns the total number of milliseconds in this $(D TickDuration).
@@ -1515,10 +1519,7 @@ struct TickDuration
     {
         enum unitsPerSec = convert!("seconds", units)(1);
 
-        if(ticksPerSec >= unitsPerSec)
-            return TickDuration(cast(long)(length * (ticksPerSec / cast(real)unitsPerSec)));
-        else
-            return TickDuration(cast(long)(length / (unitsPerSec / cast(real)ticksPerSec)));
+        return TickDuration(cast(long)(length * (ticksPerSec / cast(real)unitsPerSec)));
     }
 
     unittest
@@ -1753,7 +1754,8 @@ struct TickDuration
 
         t1 = curr;
         t1 *= 2.0;
-        assert(t1 == t2);
+        immutable tol = TickDuration(cast(long)(_abs(t1.length) * double.epsilon * 2.0));
+        assertApprox(t1, t2 - tol, t2 + tol);
 
         t1 = curr;
         t1 *= 2.1;
@@ -1803,7 +1805,8 @@ struct TickDuration
 
         t2 = curr + curr;
         t2 /= 2.0;
-        assert(t1 == t2);
+        immutable tol = TickDuration(cast(long)(_abs(t2.length) * double.epsilon / 2.0));
+        assertApprox(t1, t2 - tol, t2 + tol);
 
         t2 = curr + curr;
         t2 /= 2.1;
@@ -1846,7 +1849,8 @@ struct TickDuration
             T t1 = TickDuration.currSystemTick;
             T t2 = t1 + t1;
             assert(t1 * 2 == t2);
-            assert(t1 * 2.0 == t2);
+            immutable tol = TickDuration(cast(long)(_abs(t1.length) * double.epsilon * 2.0));
+            assertApprox(t1 * 2.0, t2 - tol, t2 + tol);
             assert(t1 * 2.1 > t2);
         }
     }
@@ -1884,7 +1888,8 @@ struct TickDuration
             T t1 = TickDuration.currSystemTick;
             T t2 = t1 + t1;
             assert(t2 / 2 == t1);
-            assert(t2 / 2.0 == t1);
+            immutable tol = TickDuration(cast(long)(_abs(t2.length) * double.epsilon / 2.0));
+            assertApprox(t2 / 2.0, t1 - tol, t1 + tol);
             assert(t2 / 2.1 < t1);
 
             _assertThrown!TimeException(t2 / 0);
@@ -2770,6 +2775,31 @@ class TimeException : Exception
 }
 
 
+
+/++
+    Returns the absolute value of a duration.
+  +/
+Duration abs(Duration duration)
+{
+    return Duration(_abs(duration._hnsecs));
+}
+
+/++ Ditto +/
+TickDuration abs(TickDuration duration)
+{
+    return TickDuration(_abs(duration.length));
+}
+
+unittest
+{
+    assert(abs(dur!"msecs"(5)) == dur!"msecs"(5));
+    assert(abs(dur!"msecs"(-5)) == dur!"msecs"(5));
+
+    assert(abs(TickDuration(17)) == TickDuration(17));
+    assert(abs(TickDuration(-17)) == TickDuration(17));
+}
+
+
 //==============================================================================
 // Private Section.
 //
@@ -3040,6 +3070,15 @@ unittest
 
 
 /++
+    Local version of abs, since std.math.abs is in Phobos, not druntime.
+  +/
+long _abs(long val)
+{
+    return val >= 0 ? val : -val;
+}
+
+
+/++
     Unfortunately, $(D snprintf) is not pure, so here's a way to convert
     a number to a string which is.
   +/
@@ -3211,16 +3250,32 @@ unittest
 }
 
 
-version(unittest) void assertApprox(D)(D actual,
-                                       Duration lower,
-                                       Duration upper,
-                                       string msg = "unittest failure",
-                                       size_t line = __LINE__)
+version(unittest) void assertApprox(D, E)(D actual,
+                                          E lower,
+                                          E upper,
+                                          string msg = "unittest failure",
+                                          size_t line = __LINE__)
+    if(is(D : const Duration) && is(E : const Duration))
 {
     if(actual < lower)
         throw new AssertError(msg ~ ": lower: " ~ actual.toString(), __FILE__, line);
     if(actual > upper)
         throw new AssertError(msg ~ ": upper: " ~ actual.toString(), __FILE__, line);
+}
+
+version(unittest) void assertApprox(D, E)(D actual,
+                                          E lower,
+                                          E upper,
+                                          string msg = "unittest failure",
+                                          size_t line = __LINE__)
+    if(is(D : const TickDuration) && is(E : const TickDuration))
+{
+    if(actual.length < lower.length || actual.length > upper.length)
+    {
+        throw new AssertError(msg ~ ": [" ~ numToString(lower.length) ~ "] [" ~
+                              numToString(actual.length) ~ "] [" ~
+                              numToString(upper.length) ~ "]", __FILE__, line);
+    }
 }
 
 version(unittest) void assertApprox()(long actual,

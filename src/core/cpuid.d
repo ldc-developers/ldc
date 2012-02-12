@@ -25,14 +25,14 @@
  * $(LI "Application note 106: Software Customization for the 6x86 Family",
  *    Cyrix Corporation, Rev 1.5 (1998)
  * )
- * $(LI $(LINK www.datasheetcatalog.org/datasheet/nationalsemiconductor/GX1.pdf))
+ * $(LI $(LINK http://www.datasheetcatalog.org/datasheet/nationalsemiconductor/GX1.pdf))
  * $(LI "Geode(TM) GX1 Processor Series Low Power Integrated X86 Solution",
  *   National Semiconductor, (2002)
  * )
  * $(LI "The VIA Isaiah Architecture", G. Glenn Henry, Centaur Technology, Inc (2008).
  * )
  * $(LI $(LINK http://www.sandpile.org/ia32/cpuid.htm))
- * $(LI $(LINK www.akkadia.org/drepper/cpumemory.pdf))
+ * $(LI $(LINK http://www.akkadia.org/drepper/cpumemory.pdf))
  * $(LI "What every programmer should know about memory",
  *    Ulrich Depper, Red Hat, Inc., (2007).
  * )
@@ -808,7 +808,7 @@ bool hasCPUID()
 void cpuidPPC()
 {
     enum :int  { PPC601, PPC603, PPC603E, PPC604,
-                 PPC604E, PPC620, PPCG3, PPCG4, PPCG5 };
+                 PPC604E, PPC620, PPCG3, PPCG4, PPCG5 }
 
     // TODO:
     // asm { mfpvr; } returns the CPU version but unfortunately it can

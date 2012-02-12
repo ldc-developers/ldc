@@ -28,7 +28,6 @@ version (Windows)
 {
     private import core.stdc.wchar_;
 
-    extern (Windows) uint       GetVersion();
     extern (Windows) alias int function() FARPROC;
     extern (Windows) FARPROC    GetProcAddress(void*, in char*);
     extern (Windows) void*      LoadLibraryA(in char*);
@@ -38,16 +37,6 @@ version (Windows)
     extern (Windows) wchar_t**  CommandLineToArgvW(wchar_t*, int*);
     extern (Windows) export int WideCharToMultiByte(uint, uint, wchar_t*, int, char*, int, char*, int);
     pragma(lib, "shell32.lib"); // needed for CommandLineToArgvW
-
-    wchar_t** doCommandLineToArgvW(wchar_t* cmdLine, int* numArgs)
-    {
-        if (GetVersion() < 0x80000000)
-        {
-            return CommandLineToArgvW(cmdLine, numArgs);
-        }
-        // TODO: Handle this manually for Win98 and earlier.
-        return CommandLineToArgvW(cmdLine, numArgs);
-    }
 }
 
 version (all)
@@ -77,11 +66,33 @@ extern (C) void _STI_critical_init();
 extern (C) void _STD_critical_term();
 extern (C) void gc_init();
 extern (C) void gc_term();
-extern (C) void _minit();
-extern (C) void _moduleCtor();
-extern (C) void _moduleDtor();
+extern (C) void rt_moduleCtor();
+extern (C) void rt_moduleTlsCtor();
+extern (C) void rt_moduleDtor();
+extern (C) void rt_moduleTlsDtor();
 extern (C) void thread_joinAll();
 extern (C) void rt_lifetimeInit();
+
+// NOTE: This is to preserve compatibility with old Windows DLLs.
+extern (C) void _moduleCtor()
+{
+    rt_moduleCtor();
+}
+
+extern (C) void _moduleDtor()
+{
+    rt_moduleDtor();
+}
+
+extern (C) void _moduleTlsCtor()
+{
+    rt_moduleTlsCtor();
+}
+
+extern (C) void _moduleTlsDtor()
+{
+    rt_moduleTlsDtor();
+}
 
 version (OSX)
 {
@@ -207,7 +218,6 @@ extern (C)
     {
         onSwitchError(m.name, line);
     }
-
 }
 
 extern (C) void _d_hidden_func()
@@ -266,11 +276,9 @@ extern (C) bool rt_init(ExceptionHandler dg = null)
     {
         gc_init();
         initStaticDataGC();
-        version (Windows)
-            _minit();
         rt_lifetimeInit();
-        _moduleCtor();
-        _moduleTlsCtor();
+        rt_moduleCtor();
+        rt_moduleTlsCtor();
         runModuleUnitTests();
         return true;
     }
@@ -298,10 +306,10 @@ extern (C) bool rt_term(ExceptionHandler dg = null)
 {
     try
     {
-        _moduleTlsDtor();
+        rt_moduleTlsDtor();
         thread_joinAll();
         _d_isHalting = true;
-        _moduleDtor();
+        rt_moduleDtor();
         gc_term();
         return true;
     }
@@ -517,19 +525,17 @@ extern (C) int main(int argc, char** argv)
     {
         gc_init();
         initStaticDataGC();
-        version (Windows)
-            _minit();
         rt_lifetimeInit();
-        _moduleCtor();
-        _moduleTlsCtor();
+        rt_moduleCtor();
+        rt_moduleTlsCtor();
         if (runModuleUnitTests())
             tryExec(&runMain);
         else
             result = EXIT_FAILURE;
-        _moduleTlsDtor();
+        rt_moduleTlsDtor();
         thread_joinAll();
         _d_isHalting = true;
-        _moduleDtor();
+        rt_moduleDtor();
         gc_term();
     }
 

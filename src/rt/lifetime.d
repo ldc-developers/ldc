@@ -453,6 +453,15 @@ extern(C) void rt_processGCMarks(void[] tls)
 /**
   Get the cached block info of an interior pointer.  Returns null if the
   interior pointer's block is not cached.
+  
+  NOTE: The base ptr in this struct can be cleared asynchronously by the GC,
+        so any use of the returned BlkInfo should copy it and then check the
+        base ptr of the copy before actually using it.
+        
+  TODO: Change this function so the caller doesn't have to be aware of this
+        issue.  Either return by value and expect the caller to always check
+        the base ptr as an indication of whether the struct is valid, or set
+        the BlkInfo as a side-effect and return a bool to indicate success.
   */
 BlkInfo *__getBlkInfo(void *interior)
 {
@@ -660,7 +669,7 @@ body
     size_t curcapacity = void;
     size_t offset = void;
     size_t arraypad = void;
-    if(info.base !is null && (info.attr & BlkAttr.APPENDABLE))
+    if(info.base && (info.attr & BlkAttr.APPENDABLE))
     {
         if(info.size <= 256)
         {
@@ -1171,7 +1180,7 @@ extern (C) void rt_finalize(void* p, bool det = true)
 {
     debug(PRINTF) printf("rt_finalize(p = %p)\n", p);
 
-    if (p) // not necessary if called from gc
+    if (p) 
     {
         ClassInfo** pc = cast(ClassInfo**)p;
 
@@ -1206,6 +1215,45 @@ extern (C) void rt_finalize(void* p, bool det = true)
             {
                 *pc = null; // zero vptr
             }
+        }
+    }
+}
+
+/**
+ * An optimized version of rt_finalize that assumes it's being called from
+ * the garbage collector and avoids wasting time on things that are
+ * irrelevant in this case.
+ */
+extern (C) void rt_finalize_gc(void* p)
+{
+    debug(PRINTF) printf("rt_finalize_gc(p = %p)\n", p);
+
+    ClassInfo** pc = cast(ClassInfo**)p;
+    
+    if (*pc) 
+    {
+        ClassInfo c = **pc;
+
+        try
+        {
+            if (collectHandler is null || collectHandler(cast(Object)p))
+            {
+                do
+                {
+                    if (c.destructor)
+                    {
+                        fp_t fp = cast(fp_t)c.destructor;
+                        (*fp)(cast(Object)p); // call destructor
+                    }
+                    c = c.base;
+                } while (c);
+            }
+            if ((cast(void**)p)[1]) // if monitor is not null
+                _d_monitordelete(cast(Object)p, false);
+        }
+        catch (Throwable e)
+        {
+            onFinalizeError(**pc, e);
         }
     }
 }
@@ -1739,10 +1787,10 @@ byte[] _d_arrayappendcTX(TypeInfo ti, ref byte[] px, size_t n)
     auto newsize = newlength * sizeelem;
     auto size = length * sizeelem;
 
+    // calculate the extent of the array given the base.
+    size_t offset = px.ptr - __arrayStart(info);
     if(info.base && (info.attr & BlkAttr.APPENDABLE))
     {
-        // calculate the extent of the array given the base.
-        size_t offset = px.ptr - __arrayStart(info);
         if(info.size >= PAGESIZE)
         {
             // size of array is at the front of the block
