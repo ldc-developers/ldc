@@ -58,6 +58,10 @@
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
 
+#if DMDV2
+#define NEW_MODULEINFO_LAYOUT 1
+#endif
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<bool> noVerify("noverify",
@@ -517,27 +521,6 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 
 void Module::genmoduleinfo()
 {
-//     The layout is:
-//         {
-//         char[]          name;
-//         ModuleInfo[]    importedModules;
-//         ClassInfo[]     localClasses;
-//         uint            flags;
-//
-//         void function() ctor;
-//         void function() dtor;
-//         void function() unitTest;
-//
-//         void* xgetMembers;
-//         void function() ictor;
-//
-//         version(D_Version2) {
-//             void *sharedctor;
-//             void *shareddtor;
-//             uint index;
-//             void*[1] reserved;
-//         }
-
     // resolve ModuleInfo
     if (!moduleinfo)
     {
@@ -566,12 +549,10 @@ void Module::genmoduleinfo()
     LLType* moduleinfoTy = moduleinfo->type->irtype->getType();
     LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getType();
 
-    // name
-    b.push_string(toPrettyChars());
-
     // importedModules[]
     std::vector<LLConstant*> importInits;
-    LLConstant* c = 0;
+    LLConstant* importedModules = 0;
+    llvm::ArrayType* importedModulesTy = 0;
     for (size_t i = 0; i < aimports.dim; i++)
     {
         Module *m = (Module *)aimports.data[i];
@@ -589,23 +570,13 @@ void Module::genmoduleinfo()
     // has import array?
     if (!importInits.empty())
     {
-        llvm::ArrayType* importArrTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
-        c = LLConstantArray::get(importArrTy, importInits);
-        std::string m_name("_D");
-        m_name.append(mangle());
-        m_name.append("9__importsZ");
-        llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
-        if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, importArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name);
-        c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(importArrTy->getElementType()));
-        c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
+        importedModulesTy = llvm::ArrayType::get(getPtrToType(moduleinfoTy), importInits.size());
+        importedModules = LLConstantArray::get(importedModulesTy, importInits);
     }
-    else
-    {
-        c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(moduleinfoTy)) );
-    }
-    b.push(c);
 
     // localClasses[]
+    LLConstant* localClasses = 0;
+    llvm::ArrayType* localClassesTy = 0;
     ClassDeclarations aclasses;
     //printf("members->dim = %d\n", members->dim);
     for (size_t i = 0; i < members->dim; i++)
@@ -634,24 +605,151 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), getPtrToType(classinfoTy));
+        LLConstant *c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), getPtrToType(classinfoTy));
         classInits.push_back(c);
     }
     // has class array?
     if (!classInits.empty())
     {
-        llvm::ArrayType* classArrTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
-        c = LLConstantArray::get(classArrTy, classInits);
+        localClassesTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
+        localClasses = LLConstantArray::get(localClassesTy, classInits);
+    }
+
+#if NEW_MODULEINFO_LAYOUT
+
+    // These must match the values in druntime/src/object_.d
+    #define MIstandalone      4
+    #define MItlsctor         8
+    #define MItlsdtor         0x10
+    #define MIctor            0x20
+    #define MIdtor            0x40
+    #define MIxgetMembers     0x80
+    #define MIictor           0x100
+    #define MIunitTest        0x200
+    #define MIimportedModules 0x400
+    #define MIlocalClasses    0x800
+    #define MInew             0x80000000   // it's the "new" layout
+
+    llvm::Function* fsharedctor = build_module_shared_ctor();
+    llvm::Function* fshareddtor = build_module_shared_dtor();
+    llvm::Function* funittest = build_module_unittest();
+    llvm::Function* fctor = build_module_ctor();
+    llvm::Function* fdtor = build_module_dtor();
+
+    unsigned flags = MInew;
+    if (fctor)
+        flags |= MItlsctor;
+    if (fdtor)
+        flags |= MItlsdtor;
+    if (fsharedctor)
+        flags |= MIctor;
+    if (fshareddtor)
+        flags |= MIdtor;
+#if 0
+    if (fgetmembers)
+        flags |= MIxgetMembers;
+    if (fictor)
+        flags |= MIictor;
+#endif
+    if (funittest)
+        flags |= MIunitTest;
+    if (importedModules)
+        flags |= MIimportedModules;
+    if (localClasses)
+        flags |= MIlocalClasses;
+
+    if (!needmoduleinfo)
+        flags |= MIstandalone;
+
+    b.push_uint(flags); // flags
+    b.push_uint(0);     // index
+
+    if (fctor)
+        b.push(fctor);
+    if (fdtor)
+        b.push(fdtor);
+    if (fsharedctor)
+        b.push(fsharedctor);
+    if (fshareddtor)
+        b.push(fshareddtor);
+#if 0
+    if (fgetmembers)
+        b.push(fgetmembers);
+    if (fictor)
+        b.push(fictor);
+#endif
+    if (funittest)
+        b.push(funittest);
+    if (importedModules) {
+        b.push_size(importInits.size());
+        b.push(importedModules);
+    }
+    if (localClasses) {
+        b.push_size(classInits.size());
+        b.push(localClasses);
+    }
+
+    // Put out module name as a 0-terminated string, to save bytes
+    b.push(DtoConstStringPtr(toPrettyChars()));
+
+#else
+    //     The layout is:
+    //         char[]          name;
+    //         ModuleInfo[]    importedModules;
+    //         ClassInfo[]     localClasses;
+    //         uint            flags;
+    //
+    //         void function() ctor;
+    //         void function() dtor;
+    //         void function() unitTest;
+    //
+    //         void* xgetMembers;
+    //         void function() ictor;
+    //
+    //         version(D_Version2) {
+    //             void *sharedctor;
+    //             void *shareddtor;
+    //             uint index;
+    //             void*[1] reserved;
+    //         }
+
+    LLConstant *c = 0;
+
+    // name
+    b.push_string(toPrettyChars());
+
+    // importedModules
+    if (importedModules)
+    {
+        std::string m_name("_D");
+        m_name.append(mangle());
+        m_name.append("9__importsZ");
+        llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
+        if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, importedModulesTy, true, llvm::GlobalValue::InternalLinkage, importedModules, m_name);
+        c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(importedModulesTy->getElementType()));
+        c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
+    }
+    else
+    {
+        c = DtoConstSlice(DtoConstSize_t(0), getNullValue(getPtrToType(moduleinfoTy)));
+    }
+    b.push(c);
+
+    // localClasses
+    if (localClasses)
+    {
         std::string m_name("_D");
         m_name.append(mangle());
         m_name.append("9__classesZ");
         assert(gIR->module->getGlobalVariable(m_name) == NULL);
-        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(*gIR->module, classArrTy, true, llvm::GlobalValue::InternalLinkage, c, m_name);
+        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(*gIR->module, localClassesTy, true, llvm::GlobalValue::InternalLinkage, localClasses, m_name);
         c = DtoGEPi(m_gvar, 0, 0);
         c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
     }
     else
+    {
         c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(getPtrToType(classinfoTy))) );
+    }
     b.push(c);
 
     // flags (4 means MIstandalone)
@@ -708,6 +806,8 @@ void Module::genmoduleinfo()
     LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
     c = getNullValue(AT);
     b.push(c);
+
+#endif
 
 #endif
 
