@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 2.6)
 # 
 
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Directory where you have Tango header files installed")
+set(CMAKE_INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}  CACHE PATH    "Directory where you want LDC to look for libraries")
 set(RUNTIME_AIO tango)
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 
