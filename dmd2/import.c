@@ -27,7 +27,7 @@
 
 Import::Import(Loc loc, Identifiers *packages, Identifier *id, Identifier *aliasId,
         int isstatic)
-    : Dsymbol(id)
+    : Dsymbol()
 {
     assert(id);
     this->loc = loc;
@@ -37,21 +37,12 @@ Import::Import(Loc loc, Identifiers *packages, Identifier *id, Identifier *alias
     this->isstatic = isstatic;
     pkg = NULL;
     mod = NULL;
-
-    if (aliasId)
-        this->ident = aliasId;
-    // Kludge to change Import identifier to first package
-    else if (packages && packages->dim)
-        this->ident = packages->tdata()[0];
 }
 
 void Import::addAlias(Identifier *name, Identifier *alias)
 {
     if (isstatic)
         error("cannot have an import bind list");
-
-    if (!aliasId)
-        this->ident = NULL;     // make it an anonymous import
 
     names.push(name);
     aliases.push(alias);
@@ -67,13 +58,11 @@ Dsymbol *Import::syntaxCopy(Dsymbol *s)
 {
     assert(!s);
 
-    Import *si;
-
-    si = new Import(loc, packages, id, aliasId, isstatic);
+    Import *si = new Import(loc, packages, id, aliasId, isstatic);
 
     for (size_t i = 0; i < names.dim; i++)
     {
-        si->addAlias(names.tdata()[i], aliases.tdata()[i]);
+        si->addAlias(names[i], aliases[i]);
     }
 
     return si;
@@ -141,15 +130,12 @@ void Import::importAll(Scope *sc)
        load(sc);
        mod->importAll(0);
 
-       if (!isstatic && !aliasId && !names.dim)
-       {
-           /* Default to private importing
-            */
-           enum PROT prot = sc->protection;
-           if (!sc->explicitProtection)
-               prot = PROTprivate;
-           sc->scopesym->importScope(mod, prot);
-       }
+       /* Default to private importing
+        */
+       enum PROT prot = sc->protection;
+       if (!sc->explicitProtection)
+           prot = PROTprivate;
+       sc->scopesym->importScope(this, prot);
     }
 }
 
@@ -179,20 +165,17 @@ void Import::semantic(Scope *sc)
         //printf("%s imports %s\n", sc->module->toChars(), mod->toChars());
         sc->module->aimports.push(mod);
 
-        if (!isstatic && !aliasId && !names.dim)
+        /* Default to private importing
+         */
+        enum PROT prot = sc->protection;
+        if (!sc->explicitProtection)
+            prot = PROTprivate;
+        for (Scope *scd = sc; scd; scd = scd->enclosing)
         {
-            /* Default to private importing
-             */
-            enum PROT prot = sc->protection;
-            if (!sc->explicitProtection)
-                prot = PROTprivate;
-            for (Scope *scd = sc; scd; scd = scd->enclosing)
+            if (scd->scopesym)
             {
-                if (scd->scopesym)
-                {
-                    scd->scopesym->importScope(mod, prot);
-                    break;
-                }
+                scd->scopesym->importScope(this, prot);
+                break;
             }
         }
 
@@ -203,17 +186,12 @@ void Import::semantic(Scope *sc)
             sc->module->needmoduleinfo = 1;
         }
 
-        sc = sc->push(mod);
-        for (size_t i = 0; i < aliasdecls.dim; i++)
-        {   Dsymbol *s = aliasdecls.tdata()[i];
-
-            //printf("\tImport alias semantic('%s')\n", s->toChars());
-            if (!mod->search(loc, names.tdata()[i], 0))
-                error("%s not found", (names.tdata()[i])->toChars());
-
-            s->semantic(sc);
+        if (aliasId)
+        {
+            AliasDeclaration *ad = new AliasDeclaration(loc, aliasId, mod);
+            sc->insert(ad);
+            ad->semantic(sc);
         }
-        sc = sc->pop();
     }
 
     if (global.params.moduleDeps != NULL)
@@ -247,7 +225,7 @@ void Import::semantic(Scope *sc)
         {
             for (size_t i = 0; i < packages->dim; i++)
             {
-                Identifier *pid = packages->tdata()[i];
+                Identifier *pid = (*packages)[i];
                 ob->printf("%s.", pid->toChars());
             }
         }
@@ -267,8 +245,8 @@ void Import::semantic(Scope *sc)
             else
                 ob->writebyte(',');
 
-            Identifier *name = names.tdata()[i];
-            Identifier *alias = aliases.tdata()[i];
+            Identifier *name = names[i];
+            Identifier *alias = aliases[i];
 
             if (!alias)
             {
@@ -280,7 +258,7 @@ void Import::semantic(Scope *sc)
         }
 
         if (aliasId)
-                ob->printf(" -> %s", aliasId->toChars());
+            ob->printf(" -> %s", aliasId->toChars());
 
         ob->writenl();
     }
@@ -298,48 +276,6 @@ void Import::semantic2(Scope *sc)
     }
 }
 
-Dsymbol *Import::toAlias()
-{
-    if (aliasId)
-        return mod;
-    return this;
-}
-
-/*****************************
- * Add import to sd's symbol table.
- */
-
-int Import::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
-{
-    int result = 0;
-
-    if (names.dim == 0)
-        return Dsymbol::addMember(sc, sd, memnum);
-
-    if (aliasId)
-        result = Dsymbol::addMember(sc, sd, memnum);
-
-    /* Instead of adding the import to sd's symbol table,
-     * add each of the alias=name pairs
-     */
-    for (size_t i = 0; i < names.dim; i++)
-    {
-        Identifier *name = names.tdata()[i];
-        Identifier *alias = aliases.tdata()[i];
-
-        if (!alias)
-            alias = name;
-
-        TypeIdentifier *tname = new TypeIdentifier(loc, name);
-        AliasDeclaration *ad = new AliasDeclaration(loc, alias, tname);
-        result |= ad->addMember(sc, sd, memnum);
-
-        aliasdecls.push(ad);
-    }
-
-    return result;
-}
-
 Dsymbol *Import::search(Loc loc, Identifier *ident, int flags)
 {
     //printf("%s.Import::search(ident = '%s', flags = x%x)\n", toChars(), ident->toChars(), flags);
@@ -349,14 +285,50 @@ Dsymbol *Import::search(Loc loc, Identifier *ident, int flags)
         mod->semantic();
     }
 
-    // Forward it to the package/module
-    return pkg->search(loc, ident, flags);
-}
+    if (names.dim) // selective import
+    {
+        for (size_t i = 0; i < names.dim; i++)
+        {
+            Identifier *name = (Identifier *)names[i];
+            Identifier *alias = (Identifier *)aliases[i];
 
-int Import::overloadInsert(Dsymbol *s)
-{
-    // Allow multiple imports of the same name
-    return s->isImport() != NULL;
+            if (!alias)
+                alias = name;
+
+            if (alias->equals(ident))
+                return mod->search(loc, name, flags);
+        }
+
+        // What should happen when renamed and selective imports are mixed?
+        // This makes the whole module available with the renamed id.
+        if (aliasId && aliasId->equals(ident))
+            return mod;
+    }
+    else // non-selective import
+    {
+        // For renamed imports, only the alias name is visible.
+        if (aliasId)
+        {
+            if (aliasId->equals(ident))
+                return mod;
+            return 0;
+        }
+
+        // For non-static imports, prefer symbols in the module over the module name.
+        if (!isstatic)
+        {
+            Dsymbol *s = mod->search(loc, ident, flags);
+            if (s)
+                return s;
+        }
+
+        // Make the start of the package name available.
+        if (pkg->ident->equals(ident))
+        {
+            return pkg;
+        }
+    }
+    return 0;
 }
 
 void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -374,7 +346,7 @@ void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     if (packages && packages->dim)
     {
         for (size_t i = 0; i < packages->dim; i++)
-        {   Identifier *pid = packages->tdata()[i];
+        {   Identifier *pid = (*packages)[i];
 
             buf->printf("%s.", pid->toChars());
         }
@@ -383,3 +355,7 @@ void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
 }
 
+char *Import::toChars()
+{
+    return id->toChars();
+}

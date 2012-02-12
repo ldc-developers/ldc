@@ -166,7 +166,6 @@ Statement *AsmStatement::semantic(Scope *sc)
     sc->func->inlineAsm = true;
 #endif
     sc->func->hasReturnExp |= 8;
-    sc->func->inlineStatus = ILSno; // %% not sure
 
     // empty statement -- still do the above things because they might be expected?
     if (! tokens)

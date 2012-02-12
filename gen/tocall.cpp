@@ -458,7 +458,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // handle the rest of the arguments based on param passing style
 
-    // variadic instrinsics need some custom casts
+    // variadic intrinsics need some custom casts
     if (va_intrinsic)
     {
         for (int i=0; i<n_arguments; i++)

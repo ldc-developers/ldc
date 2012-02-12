@@ -294,10 +294,7 @@ struct VarDeclaration : Declaration
     bool hasValue();
     void setValueNull();
     void setValueWithoutChecking(Expression *newval);
-    void createRefValue(Expression *newval);
-    void setRefValue(Expression *newval);
-    void setStackValue(Expression *newval);
-    void createStackValue(Expression *newval);
+    void setValue(Expression *newval);
 
 #if DMDV2
     VarDeclaration *rundtor;    // if !NULL, rundtor is tested at runtime to see
@@ -655,6 +652,15 @@ struct TypeInfoWildDeclaration : TypeInfoDeclaration
     void llvmDefine();
 #endif
 };
+
+struct TypeInfoVectorDeclaration : TypeInfoDeclaration
+{
+    TypeInfoVectorDeclaration(Type *tinfo);
+
+#if IN_DMD
+    void toDt(dt_t **pdt);
+#endif
+};
 #endif
 
 /**************************************************************/
@@ -734,11 +740,12 @@ struct FuncDeclaration : Declaration
     Loc endloc;                         // location of closing curly bracket
     int vtblIndex;                      // for member functions, index into vtbl[]
     int naked;                          // !=0 if naked
-    ILS inlineStatus;
+    ILS inlineStatusStmt;
+    ILS inlineStatusExp;
     int inlineNest;                     // !=0 if nested inline
-    int cantInterpret;                  // !=0 if cannot interpret function
     int isArrayOp;                      // !=0 if array operation
     enum PASS semanticRun;
+    int semantic3Errors;                // !=0 if errors in semantic3
                                         // this function's frame ptr
     ForeachStatement *fes;              // if foreach body, this is the foreach
     int introducing;                    // !=0 if 'introducing' function
@@ -801,7 +808,7 @@ struct FuncDeclaration : Declaration
     LabelDsymbol *searchLabel(Identifier *ident);
     AggregateDeclaration *isThis();
     AggregateDeclaration *isMember2();
-    int getLevel(Loc loc, FuncDeclaration *fd); // lexical nesting level difference
+    int getLevel(Loc loc, Scope *sc, FuncDeclaration *fd); // lexical nesting level difference
     void appendExp(Expression *e);
     void appendState(Statement *s);
     char *mangle();
@@ -823,18 +830,21 @@ struct FuncDeclaration : Declaration
     bool setUnsafe();
     virtual int isNested();
     int needThis();
+    int isVirtualMethod();
     virtual int isVirtual();
     virtual int isFinal();
     virtual int addPreInvariant();
     virtual int addPostInvariant();
     Expression *interpret(InterState *istate, Expressions *arguments, Expression *thisexp = NULL);
     void inlineScan();
-    int canInline(int hasthis, int hdrscan = 0);
-    Expression *doInline(InlineScanState *iss, Expression *ethis, Expressions *arguments);
+    int canInline(int hasthis, int hdrscan = false, int statementsToo = true);
+    Expression *expandInline(InlineScanState *iss, Expression *ethis, Expressions *arguments, Statement **ps);
     const char *kind();
     void toDocBuffer(OutBuffer *buf);
     FuncDeclaration *isUnique();
+    void checkNestedReference(Scope *sc, Loc loc);
     int needsClosure();
+    int hasNestedFrameRefs();
     Statement *mergeFrequire(Statement *, Expressions *params = 0);
     Statement *mergeFensure(Statement *, Expressions *params = 0);
     Parameters *getParameters(int *pvarargs);

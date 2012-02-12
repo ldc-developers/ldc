@@ -154,7 +154,7 @@ struct Dsymbol : Object
     void verror(Loc loc, const char *format, va_list ap);
     void checkDeprecated(Loc loc, Scope *sc);
     Module *getModule();        // module where declared
-    Module *getCompilationModule(); // possibly different for templates
+    Module *getAccessModule();
     Dsymbol *pastMixin();
     Dsymbol *toParent();
     Dsymbol *toParent2();
@@ -203,8 +203,8 @@ struct Dsymbol : Object
     virtual int needThis();                     // need a 'this' pointer?
     virtual enum PROT prot();
     virtual Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
-    virtual int oneMember(Dsymbol **ps);
-    static int oneMembers(Dsymbols *members, Dsymbol **ps);
+    virtual int oneMember(Dsymbol **ps, Identifier *ident);
+    static int oneMembers(Dsymbols *members, Dsymbol **ps, Identifier *ident = NULL);
     virtual int hasPointers();
     virtual bool hasStaticCtorOrDtor();
     virtual void addLocalClass(ClassDeclarations *) { }
@@ -291,14 +291,14 @@ struct ScopeDsymbol : Dsymbol
     Dsymbols *members;          // all Dsymbol's in this scope
     DsymbolTable *symtab;       // members[] sorted into table
 
-    ScopeDsymbols *imports;     // imported ScopeDsymbol's
+    Dsymbols *imports;          // imported Dsymbol's
     unsigned char *prots;       // array of PROT, one for each import
 
     ScopeDsymbol();
     ScopeDsymbol(Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
     Dsymbol *search(Loc loc, Identifier *ident, int flags);
-    void importScope(ScopeDsymbol *s, enum PROT protection);
+    void importScope(Dsymbol *s, enum PROT protection);
     int isforwardRef();
     void defineRef(Dsymbol *s);
     static void multiplyDefined(Loc loc, Dsymbol *s1, Dsymbol *s2);

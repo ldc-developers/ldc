@@ -1,10 +1,10 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
-// http://www.dsource.org/projects/dmd/browser/trunk/src/mars.c
+// https://github.com/D-Programming-Language/dmd/blob/master/src/mars.c
 // License for redistribution is by either the Artistic License
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
@@ -96,13 +96,13 @@ Global::Global()
 #endif
 #endif
 
-    copyright = "Copyright (c) 1999-2011 by Digital Mars";
+    copyright = "Copyright (c) 1999-2012 by Digital Mars";
     written = "written by Walter Bright"
 #if TARGET_NET
     "\nMSIL back-end (alpha release) by Cristian L. Vlasceanu and associates.";
 #endif
     ;
-    version = "v2.057";
+    version = "v2.058";
 #if IN_LLVM
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 3.0";
@@ -162,7 +162,7 @@ bool Loc::equals(const Loc& loc)
 }
 
 /**************************************
- * Print error message and exit.
+ * Print error message
  */
 
 void error(Loc loc, const char *format, ...)
@@ -178,6 +178,18 @@ void warning(Loc loc, const char *format, ...)
     va_list ap;
     va_start(ap, format);
     vwarning(loc, format, ap);
+    va_end( ap );
+}
+
+/**************************************
+ * Print supplementary message about the last error
+ * Used for backtraces, etc
+ */
+void errorSupplemental(Loc loc, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    verrorSupplemental(loc, format, ap);
     va_end( ap );
 }
 
@@ -209,6 +221,25 @@ void verror(Loc loc, const char *format, va_list ap)
         global.gaggedErrors++;
     }
     global.errors++;
+}
+
+// Doesn't increase error count, doesn't print "Error:".
+void verrorSupplemental(Loc loc, const char *format, va_list ap)
+{
+    if (!global.gag)
+    {
+        fprintf(stdmsg, "%s:        ", loc.toChars());
+#if _MSC_VER
+        // MS doesn't recognize %zu format
+        OutBuffer tmp;
+        tmp.vprintf(format, ap);
+        fprintf(stdmsg, "%s", tmp.toChars());
+#else
+        vfprintf(stdmsg, format, ap);
+#endif
+        fprintf(stdmsg, "\n");
+        fflush(stdmsg);
+    }
 }
 
 void vwarning(Loc loc, const char *format, va_list ap)
@@ -258,7 +289,7 @@ void fatal()
 void halt()
 {
 #ifdef DEBUG
-    *(char*)0=0;
+    *(volatile char*)0=0;
 #endif
 }
 
@@ -280,7 +311,7 @@ void usage()
         sizeof(size_t) == 4 ? "32" : "64",
         global.version, global.copyright, global.written);
     printf("\
-Documentation: http://www.digitalmars.com/d/2.0/index.html\n\
+Documentation: http://www.dlang.org/index.html\n\
 Usage:\n\
   dmd files.d ... { -switch }\n\
 \n\
@@ -298,9 +329,6 @@ Usage:\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
   -deps=filename write module dependencies to filename\n%s"
-#if TARGET_OSX
-"  -dylib         generate dylib\n"
-#endif
 "  -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
   -gs            always emit stack frame\n\
@@ -313,8 +341,12 @@ Usage:\n\
   -inline        do function inlining\n\
   -Jpath         where to look for string imports\n\
   -Llinkerflag   pass linkerflag to link\n\
-  -lib           generate library rather than object files\n\
-  -man           open web browser on manual page\n\
+  -lib           generate library rather than object files\n"
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+"  -m32           generate 32 bit code\n\
+  -m64           generate 64 bit code\n"
+#endif
+"  -man           open web browser on manual page\n\
   -map           generate linker .map file\n\
   -noboundscheck turns off array bounds checking for all functions\n\
   -nofloat       do not emit reference to floating point\n\
@@ -327,8 +359,11 @@ Usage:\n\
   -property      enforce property syntax\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
-  -run srcfile args...   run resulting program, passing args\n\
-  -unittest      compile in unit tests\n\
+  -run srcfile args...   run resulting program, passing args\n"
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+"  -shared        generate shared library\n"
+#endif
+"  -unittest      compile in unit tests\n\
   -v             verbose\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
@@ -495,12 +530,15 @@ int main(int argc, char *argv[])
             else if (strcmp(p + 1, "cov") == 0)
                 global.params.cov = 1;
 #if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+            else if (strcmp(p + 1, "shared") == 0
+#if TARGET_OSX
+                // backwards compatibility with old switch
+                || strcmp(p + 1, "dylib") == 0
+#endif
+                )
+                global.params.dll = 1;
             else if (strcmp(p + 1, "fPIC") == 0)
                 global.params.pic = 1;
-#endif
-#if TARGET_OSX
-            else if (strcmp(p + 1, "dylib") == 0)
-                global.params.dll = 1;
 #endif
             else if (strcmp(p + 1, "map") == 0)
                 global.params.map = 1;
@@ -764,35 +802,35 @@ int main(int argc, char *argv[])
 #if DMDV1
                 browse("http://www.digitalmars.com/d/1.0/dmd-windows.html");
 #else
-                browse("http://www.digitalmars.com/d/2.0/dmd-windows.html");
+                browse("http://www.dlang.org/dmd-windows.html");
 #endif
 #endif
 #if linux
 #if DMDV1
                 browse("http://www.digitalmars.com/d/1.0/dmd-linux.html");
 #else
-                browse("http://www.digitalmars.com/d/2.0/dmd-linux.html");
+                browse("http://www.dlang.org/dmd-linux.html");
 #endif
 #endif
 #if __APPLE__
 #if DMDV1
                 browse("http://www.digitalmars.com/d/1.0/dmd-osx.html");
 #else
-                browse("http://www.digitalmars.com/d/2.0/dmd-osx.html");
+                browse("http://www.dlang.org/dmd-osx.html");
 #endif
 #endif
 #if __FreeBSD__
 #if DMDV1
                 browse("http://www.digitalmars.com/d/1.0/dmd-freebsd.html");
 #else
-                browse("http://www.digitalmars.com/d/2.0/dmd-freebsd.html");
+                browse("http://www.dlang.org/dmd-freebsd.html");
 #endif
 #endif
 #if __OpenBSD__
 #if DMDV1
                 browse("http://www.digitalmars.com/d/1.0/dmd-openbsd.html");
 #else
-                browse("http://www.digitalmars.com/d/2.0/dmd-openbsd.html");
+                browse("http://www.dlang.org/dmd-openbsd.html");
 #endif
 #endif
                 exit(EXIT_SUCCESS);
@@ -850,6 +888,11 @@ int main(int argc, char *argv[])
 
 #if TARGET_OSX
     global.params.pic = 1;
+#endif
+
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+    if (global.params.lib && global.params.dll)
+        error("cannot mix -lib and -shared\n");
 #endif
 
     if (global.params.release)
@@ -928,6 +971,7 @@ int main(int argc, char *argv[])
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         VersionCondition::addPredefinedGlobalIdent("X86_64");
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
+        VersionCondition::addPredefinedGlobalIdent("D_SIMD");
 #if TARGET_WINDOS
         VersionCondition::addPredefinedGlobalIdent("Win64");
 #endif
@@ -937,6 +981,9 @@ int main(int argc, char *argv[])
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
         VersionCondition::addPredefinedGlobalIdent("X86");
+#if TARGET_OSX
+        VersionCondition::addPredefinedGlobalIdent("D_SIMD");
+#endif
 #if TARGET_WINDOS
         VersionCondition::addPredefinedGlobalIdent("Win32");
 #endif

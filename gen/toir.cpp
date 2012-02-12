@@ -2636,7 +2636,10 @@ DValue* FuncExp::toElem(IRState* p)
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
-    if(fd->tok == TOKdelegate) {
+    if (fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis)
+        fd->tok = TOKfunction;
+
+    if(fd->isNested()) {
         LLType* dgty = DtoType(type);
 
         LLValue* cval;
@@ -2673,11 +2676,9 @@ DValue* FuncExp::toElem(IRState* p)
 
         return new DImValue(type, DtoAggrPair(cval, castfptr, ".func"));
 
-    } else if(fd->tok == TOKfunction) {
+    } else {
         return new DImValue(type, fd->ir.irFunc->func);
     }
-
-    assert(0 && "fd->tok must be TOKfunction or TOKdelegate");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

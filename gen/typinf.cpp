@@ -208,10 +208,17 @@ TypeInfoDeclaration *TypeStruct::getTypeInfoDeclaration()
 TypeInfoDeclaration *TypeClass::getTypeInfoDeclaration()
 {
     if (sym->isInterfaceDeclaration())
-    return new TypeInfoInterfaceDeclaration(this);
+        return new TypeInfoInterfaceDeclaration(this);
     else
-    return new TypeInfoClassDeclaration(this);
+        return new TypeInfoClassDeclaration(this);
 }
+
+#if DMDV2
+TypeInfoDeclaration *TypeVector::getTypeInfoDeclaration()
+{
+    return new TypeInfoVectorDeclaration(this);
+}
+#endif
 
 TypeInfoDeclaration *TypeEnum::getTypeInfoDeclaration()
 {
@@ -232,7 +239,6 @@ TypeInfoDeclaration *TypeTuple::getTypeInfoDeclaration()
 {
     return new TypeInfoTupleDeclaration(this);
 }
-
 
 /* ========================================================================= */
 

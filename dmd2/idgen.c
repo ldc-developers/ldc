@@ -53,6 +53,7 @@ Msgtable msgtable[] =
     { "length" },
     { "remove" },
     { "ptr" },
+    { "array" },
     { "funcptr" },
     { "dollar", "__dollar" },
     { "ctfe", "__ctfe" },
@@ -86,6 +87,7 @@ Msgtable msgtable[] =
     { "TypeInfo_Enum" },
     { "TypeInfo_Typedef" },
     { "TypeInfo_Pointer" },
+    { "TypeInfo_Vector" },
     { "TypeInfo_Array" },
     { "TypeInfo_StaticArray" },
     { "TypeInfo_AssociativeArray" },
@@ -236,19 +238,12 @@ Msgtable msgtable[] =
     { "apply", "opApply" },
     { "applyReverse", "opApplyReverse" },
 
-#if 1
+    // Ranges
     { "Fempty", "empty" },
-    { "Fhead", "front" },
-    { "Ftoe", "back" },
-    { "Fnext", "popFront" },
-    { "Fretreat", "popBack" },
-#else
-    { "Fempty", "empty" },
-    { "Fhead", "head" },
-    { "Ftoe", "toe" },
-    { "Fnext", "next" },
-    { "Fretreat", "retreat" },
-#endif
+    { "Ffront", "front" },
+    { "Fback", "back" },
+    { "FpopFront", "popFront" },
+    { "FpopBack", "popBack" },
 
     { "adDup", "_adDupT" },
     { "adReverse", "_adReverse" },
@@ -341,6 +336,7 @@ Msgtable msgtable[] =
     { "isStaticArray" },
     { "isUnsigned" },
     { "isVirtualFunction" },
+    { "isVirtualMethod" },
     { "isAbstractFunction" },
     { "isFinalFunction" },
     { "isStaticFunction" },
@@ -353,6 +349,7 @@ Msgtable msgtable[] =
     { "getMember" },
     { "getOverloads" },
     { "getVirtualFunctions" },
+    { "getVirtualMethods" },
     { "classInstanceSize" },
     { "allMembers" },
     { "derivedMembers" },

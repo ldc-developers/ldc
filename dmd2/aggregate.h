@@ -68,7 +68,7 @@ struct AggregateDeclaration : ScopeDsymbol
                                 // 1: size is correct
                                 // 2: cannot determine size; fwd referenced
     Dsymbol *deferred;          // any deferred semantic2() or semantic3() symbol
-    int isdeprecated;           // !=0 if deprecated
+    bool isdeprecated;          // !=0 if deprecated
 
 #if DMDV2
     int isnested;               // !=0 if is nested
@@ -107,6 +107,7 @@ struct AggregateDeclaration : ScopeDsymbol
     int isDeprecated();         // is aggregate deprecated?
     FuncDeclaration *buildDtor(Scope *sc);
     int isNested();
+    int isExport();
 
     void emitComment(Scope *sc);
     void toJsonBuffer(OutBuffer *buf);
@@ -166,6 +167,7 @@ struct StructDeclaration : AggregateDeclaration
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     char *mangle();
     const char *kind();
+    void finalizeSize();
 #if DMDV1
     Expression *cloneMembers();
 #endif
@@ -284,6 +286,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     virtual int isBaseInfoComplete();
     Dsymbol *search(Loc, Identifier *ident, int flags);
+    Dsymbol *searchBase(Loc, Identifier *ident);
 #if DMDV2
     int isFuncHidden(FuncDeclaration *fd);
 #endif

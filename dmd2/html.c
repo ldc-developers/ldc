@@ -4,7 +4,7 @@
 // written by Walter Bright
 // http://www.digitalmars.com
 // License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
+// in artistic.txt, or the GNU General Public License in gpl.txt.
 // See the included readme.txt for details.
 
 
@@ -18,11 +18,49 @@
 #include <errno.h>
 #include <wchar.h>
 
-#include "mars.h"
+#define MARS 1
 #include "html.h"
 
+#if MARS
 #include <assert.h>
 #include "root.h"
+//#include "../mars/mars.h"
+#else
+#include "outbuf.h"
+#include "msgs2.h"
+
+extern void html_err(const char *, unsigned, unsigned, ...);
+
+static char __file__[] = __FILE__;      /* for tassert.h                */
+#include        "tassert.h"
+#endif
+
+#if __GNUC__
+int memicmp(const char *s1, const char *s2, int n);
+#if 0
+{
+    int result = 0;
+
+    for (int i = 0; i < n; i++)
+    {   char c1 = s1[i];
+        char c2 = s2[i];
+
+        result = c1 - c2;
+        if (result)
+        {
+            if ('A' <= c1 && c1 <= 'Z')
+                c1 += 'a' - 'A';
+            if ('A' <= c2 && c2 <= 'Z')
+                c2 += 'a' - 'A';
+            result = c1 - c2;
+            if (result)
+                break;
+        }
+    }
+    return result;
+}
+#endif
+#endif
 
 extern int HtmlNamedEntity(unsigned char *p, int length);
 
@@ -64,20 +102,21 @@ Html::Html(const char *sourcename, unsigned char *base, unsigned length)
 
 void Html::error(const char *format, ...)
 {
-    if (!global.gag)
-    {
-	printf("%s(%d) : HTML Error: ", sourcename, linnum);
+    printf("%s(%d) : HTML Error: ", sourcename, linnum);
 
-	va_list ap;
-	va_start(ap, format);
-	vprintf(format, ap);
-	va_end(ap);
+    va_list ap;
+    va_start(ap, format);
+    vprintf(format, ap);
+    va_end(ap);
 
-	printf("\n");
-	fflush(stdout);
-    }
+    printf("\n");
+    fflush(stdout);
 
-    global.errors++;
+//#if MARS
+//    global.errors++;
+//#else
+    exit(EXIT_FAILURE);
+//#endif
 }
 
 /**********************************************
@@ -85,7 +124,11 @@ void Html::error(const char *format, ...)
  * concatenate it all together, and store in buf.
  */
 
+#if MARS
 void Html::extractCode(OutBuffer *buf)
+#else
+void Html::extractCode(Outbuffer *buf)
+#endif
 {
     //printf("Html::extractCode()\n");
     dbuf = buf;                 // save for other routines
@@ -129,7 +172,11 @@ void Html::extractCode(OutBuffer *buf)
                     int c;
 
                     c = charEntity();
+#if MARS
                     buf->writeUTF8(c);
+#else
+                    buf->writeByte(c);
+#endif
                 }
                 else
                     p++;
@@ -156,7 +203,12 @@ void Html::extractCode(OutBuffer *buf)
         break;
     }
     buf->writeByte(0);                          // ending sentinel
+#if SCPP
+    //printf("Code is: '%s'\n", buf->toString() + 3);
+#endif
+#if MARS
     //printf("D code is: '%s'\n", (char *)buf->data);
+#endif
 }
 
 /***********************************************
@@ -530,7 +582,7 @@ void Html::scanCDATA()
              * right.
              */
             linnum++;
-	    dbuf->writeUTF8('\n');
+            dbuf->writeByte('\n');
             p += lineSepLength;
             continue;
         }

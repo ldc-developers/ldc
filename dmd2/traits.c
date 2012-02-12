@@ -57,6 +57,9 @@ static int fptraits(void *param, FuncDeclaration *f)
     if (p->ident == Id::getVirtualFunctions && !f->isVirtual())
         return 0;
 
+    if (p->ident == Id::getVirtualMethods && !f->isVirtualMethod())
+        return 0;
+
     Expression *e;
 
     if (p->e1->op == TOKdotvar)
@@ -156,6 +159,11 @@ Expression *TraitsExp::semantic(Scope *sc)
         FuncDeclaration *f;
         ISDSYMBOL((f = s->isFuncDeclaration()) != NULL && f->isVirtual())
     }
+    else if (ident == Id::isVirtualMethod)
+    {
+        FuncDeclaration *f;
+        ISDSYMBOL((f = s->isFuncDeclaration()) != NULL && f->isVirtualMethod())
+    }
     else if (ident == Id::isFinalFunction)
     {
         FuncDeclaration *f;
@@ -218,6 +226,7 @@ Expression *TraitsExp::semantic(Scope *sc)
     else if (ident == Id::hasMember ||
              ident == Id::getMember ||
              ident == Id::getOverloads ||
+             ident == Id::getVirtualMethods ||
              ident == Id::getVirtualFunctions)
     {
         if (dim != 2)
@@ -262,9 +271,12 @@ Expression *TraitsExp::semantic(Scope *sc)
             if (t)
             {
                 Dsymbol *sym = t->toDsymbol(sc);
-                Dsymbol *sm = sym->search(loc, id, 0);
-                if (sm)
-                    goto Ltrue;
+                if (sym)
+                {
+                    Dsymbol *sm = sym->search(loc, id, 0);
+                    if (sm)
+                        goto Ltrue;
+                }
             }
 
             /* Take any errors as meaning it wasn't found
@@ -274,13 +286,7 @@ Expression *TraitsExp::semantic(Scope *sc)
             e = e->trySemantic(sc2);
             sc2->pop();
             if (!e)
-            {   if (global.gag)
-                {
-                    global.errors++;
-                    global.gaggedErrors++;
-                }
                 goto Lfalse;
-            }
             else
                 goto Ltrue;
         }
@@ -290,6 +296,7 @@ Expression *TraitsExp::semantic(Scope *sc)
             return e;
         }
         else if (ident == Id::getVirtualFunctions ||
+                 ident == Id::getVirtualMethods ||
                  ident == Id::getOverloads)
         {
             unsigned errors = global.errors;
@@ -392,9 +399,21 @@ Expression *TraitsExp::semantic(Scope *sc)
         ScopeDsymbol::foreach(sd->members, &PushIdentsDg::dg, idents);
 
         ClassDeclaration *cd = sd->isClassDeclaration();
-        if (cd && cd->baseClass && ident == Id::allMembers)
-        {   sd = cd->baseClass; // do again with base class
-            ScopeDsymbol::foreach(sd->members, &PushIdentsDg::dg, idents);
+        if (cd && ident == Id::allMembers)
+        {
+            struct PushBaseMembers
+            {
+                static void dg(ClassDeclaration *cd, Identifiers *idents)
+                {
+                    for (size_t i = 0; i < cd->baseclasses->dim; i++)
+                    {   ClassDeclaration *cb = (*cd->baseclasses)[i]->base;
+                        ScopeDsymbol::foreach(cb->members, &PushIdentsDg::dg, idents);
+                        if (cb->baseclasses->dim)
+                            dg(cb, idents);
+                    }
+                }
+            };
+            PushBaseMembers::dg(cd, idents);
         }
 
         // Turn Identifiers into StringExps reusing the allocated array

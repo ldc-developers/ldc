@@ -34,7 +34,7 @@ struct Module;
         =       !       ~       @
         ^^      ^^=
         ++      --
-        .       ->      :       ,
+        .       ->      :       ,       =>
         ?       &&      ||
  */
 
@@ -168,6 +168,8 @@ enum TOK
         TOKat,
         TOKpow,
         TOKpowass,
+        TOKgoesto,
+        TOKvector,
 #endif
 
 // LDC specific
