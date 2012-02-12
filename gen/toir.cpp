@@ -2636,10 +2636,7 @@ DValue* FuncExp::toElem(IRState* p)
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
-    if (fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis)
-        fd->tok = TOKfunction;
-
-    if(fd->isNested()) {
+    if(fd->isNested() && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis)) {
         LLType* dgty = DtoType(type);
 
         LLValue* cval;
@@ -2689,9 +2686,9 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     assert(fd);
-    if (fd->tok != TOKfunction)
+    if (fd->tok != TOKfunction && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis))
     {
-        assert(fd->tok == TOKdelegate);
+        assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
         error("delegate literals as constant expressions are not yet allowed");
         return 0;
     }

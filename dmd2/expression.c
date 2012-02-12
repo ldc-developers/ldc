@@ -5197,6 +5197,11 @@ Expression *FuncExp::inferType(Scope *sc, Type *to)
         sc = scope;
     }
 
+#if IN_LLVM
+    if (fd->tok == TOKreserved && to->ty == Tpointer && to->nextOf()->ty == Tfunction)
+        fd->tok = TOKfunction;
+#endif
+
     Expression *e = NULL;
     if (td)
     {   /// Parameter types inference from
