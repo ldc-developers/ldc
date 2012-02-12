@@ -17,6 +17,22 @@ import core.stdc.stdlib;  // alloca
 import core.stdc.string;  // memcpy
 import rt.util.console;   // console
 
+version (LDC)
+{
+    version = useModuleRef;
+}
+else version (OSX)
+{
+}
+// all other Posix variants (FreeBSD, Solaris, Linux)
+else version (Posix)
+{
+    version = useModuleRef;
+}
+else
+{
+}
+
 enum
 {
     MIctorstart  = 1,   // we've started constructing it
@@ -130,15 +146,7 @@ extern (C) void rt_moduleDtor()
  * Access compiler generated list of modules.
  */
 
-version (OSX)
-{
-    extern (C)
-    {
-        extern __gshared void* _minfo_beg;
-        extern __gshared void* _minfo_end;
-    }
-}
-else version (Posix)
+version (useModuleRef)
 {
     // This linked list is created by a compiler generated function inserted
     // into the .ctor list by the compiler.
@@ -149,6 +157,14 @@ else version (Posix)
     }
 
     extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
+}
+else version (OSX)
+{
+    extern (C)
+    {
+        extern __gshared void* _minfo_beg;
+        extern __gshared void* _minfo_end;
+    }
 }
 
 ModuleInfo*[] getModuleInfos()
@@ -161,7 +177,21 @@ body
 {
     typeof(return) result = void;
 
-    version (OSX)
+    version (useModuleRef)
+    {
+        size_t len;
+        ModuleReference *mr;
+
+        for (mr = _Dmodule_ref; mr; mr = mr.next)
+            len++;
+        result = (cast(ModuleInfo**).malloc(len * size_t.sizeof))[0 .. len];
+        len = 0;
+        for (mr = _Dmodule_ref; mr; mr = mr.next)
+        {   result[len] = mr.mod;
+            len++;
+        }
+    }
+    else version (OSX)
     {
         /* The ModuleInfo references are stored in the special segment
          * __minfodata, which is bracketed by the segments __minfo_beg
@@ -184,21 +214,6 @@ body
         cnt = 0;
         for (; p < pend; ++p)
             if (*p !is null) result[cnt++] = *p;
-    }
-    // all other Posix variants (FreeBSD, Solaris, Linux)
-    else version (Posix)
-    {
-        size_t len;
-        ModuleReference *mr;
-
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-            len++;
-        result = (cast(ModuleInfo**).malloc(len * size_t.sizeof))[0 .. len];
-        len = 0;
-        for (mr = _Dmodule_ref; mr; mr = mr.next)
-        {   result[len] = mr.mod;
-            len++;
-        }
     }
     else version (Windows)
     {
