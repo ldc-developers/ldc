@@ -2104,8 +2104,26 @@ DValue* AssertExp::toElem(IRState* p)
         condty = e1->type->toBasetype();
     }
 
-    InvariantDeclaration* invdecl;
+    // create basic blocks
+    llvm::BasicBlock* oldend = p->scopeend();
+    llvm::BasicBlock* assertbb = llvm::BasicBlock::Create(gIR->context(), "assert", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "noassert", p->topfunc(), oldend);
 
+    // test condition
+    LLValue* condval = DtoCast(loc, cond, Type::tbool)->getRVal();
+
+    // branch
+    llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
+
+    // call assert runtime functions
+    p->scope() = IRScope(assertbb,endbb);
+    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
+
+    // rewrite the scope
+    p->scope() = IRScope(endbb,oldend);
+
+
+    InvariantDeclaration* invdecl;
     // class invariants
     if(
         global.params.useInvariants &&
@@ -2128,30 +2146,9 @@ DValue* AssertExp::toElem(IRState* p)
         DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
         DtoCallFunction(loc, NULL, &invfunc, NULL);
     }
-    else
-    {
-        // create basic blocks
-        llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* assertbb = llvm::BasicBlock::Create(gIR->context(), "assert", p->topfunc(), oldend);
-        llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "noassert", p->topfunc(), oldend);
-
-        // test condition
-        LLValue* condval = DtoCast(loc, cond, Type::tbool)->getRVal();
-
-        // branch
-        llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
-
-        // call assert runtime functions
-        p->scope() = IRScope(assertbb,endbb);
-        DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
-
-        // rewrite the scope
-        p->scope() = IRScope(endbb,oldend);
-    }
 
     // DMD allows syntax like this:
     // f() == 0 || assert(false)
-    // TODO: or should we return true?
     return new DImValue(type, DtoConstBool(false));
 }
 
