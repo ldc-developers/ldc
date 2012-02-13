@@ -1806,17 +1806,21 @@ Expression *AddrExp::interpret(InterState *istate, CtfeGoal goal)
     {   VarExp *ve = (VarExp *)e1;
         if (ve->var->isFuncDeclaration())
             return this;
-        if (type->ty != Tpointer)
-        {   // Probably impossible
-            error("Cannot interpret %s at compile time", toChars());
-            return EXP_CANT_INTERPRET;
-        }
-        Type *pointee = ((TypePointer *)type)->next;
-        if (isSafePointerCast(ve->var->type, pointee))
+        if (!ve->var->isOut() && !ve->var->isRef() &&
+            !ve->var->isImportedSymbol())
         {
-            ve = new VarExp(loc, ve->var);
-            ve->type = type;
-            return ve;
+            if (type->ty != Tpointer)
+            {   // Probably impossible
+                error("Cannot interpret %s at compile time", toChars());
+                return EXP_CANT_INTERPRET;
+            }
+            Type *pointee = ((TypePointer *)type)->next;
+            if (isSafePointerCast(ve->var->type, pointee))
+            {
+                ve = new VarExp(loc, ve->var);
+                ve->type = type;
+                return ve;
+            }
         }
     }
     else if (e1->op == TOKindex)
