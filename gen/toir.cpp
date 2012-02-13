@@ -2988,9 +2988,7 @@ DValue* RemoveExp::toElem(IRState* p)
     DValue* aa = e1->toElem(p);
     DValue* key = e2->toElem(p);
 
-    DtoAARemove(loc, aa, key);
-
-    return NULL; // does not produce anything useful
+    return DtoAARemove(loc, aa, key);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

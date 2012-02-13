@@ -191,7 +191,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
 
 /////////////////////////////////////////////////////////////////////////////////////
 
-void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
+DValue *DtoAARemove(Loc& loc, DValue* aa, DValue* key)
 {
     // D1:
     // call:
@@ -199,7 +199,7 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
 
     // D2:
     // call:
-    // extern(C) void _aaDelX(AA aa, TypeInfo keyti, void* pkey)
+    // extern(C) bool _aaDelX(AA aa, TypeInfo keyti, void* pkey)
 
     // first get the runtime function
 #if DMDV2
@@ -240,7 +240,13 @@ void DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     args.push_back(pkey);
 
     // call runtime
-    gIR->CreateCallOrInvoke(func, args);
+    LLCallSite call = gIR->CreateCallOrInvoke(func, args);
+
+#if DMDV2
+    return new DImValue(Type::tbool, call.getInstruction());
+#else
+    return NULL;
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
