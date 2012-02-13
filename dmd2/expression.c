@@ -7495,12 +7495,29 @@ Lagain:
             e1 = new DsymbolExp(loc, se->sds);
             e1 = e1->semantic(sc);
         }
+#if IN_LLVM
+        else if (e1->op == TOKaddress)
+        {
+            AddrExp *ae = (AddrExp *)e1;
+            if (ae->e1->op == TOKvar) {
+                VarExp *ve = (VarExp*)ae->e1;
+                if (!ve->var->isOut() && !ve->var->isRef() &&
+                    !ve->var->isImportedSymbol() && ve->hasOverloads)
+                {
+                    e1 = ve;
+                }
+            }
+
+
+        }
+#else
         else if (e1->op == TOKsymoff && ((SymOffExp *)e1)->hasOverloads)
         {
             SymOffExp *se = (SymOffExp *)e1;
             e1 = new VarExp(se->loc, se->var, 1);
             e1 = e1->semantic(sc);
         }
+#endif
 #if 1   // patch for #540 by Oskar Linde
         else if (e1->op == TOKdotexp)
         {
