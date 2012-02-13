@@ -1847,6 +1847,10 @@ MATCH Type::implicitConvTo(Type *to)
     //printf("to  : %s\n", to->toChars());
     if (this == to)
         return MATCHexact;
+#if IN_LLVM
+    if (deco == to->deco)
+        return MATCHexact;
+#endif
     return MATCHnomatch;
 }
 
