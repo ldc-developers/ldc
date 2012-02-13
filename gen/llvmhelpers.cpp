@@ -912,8 +912,8 @@ void DtoResolveDsymbol(Dsymbol* dsym)
         DtoResolveTypeInfo(fd);
     }
     else {
-    error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
-    assert(0 && "unsupported dsymbol for DtoResolveDsymbol");
+        error(dsym->loc, "unsupported dsymbol: %s", dsym->toChars());
+        assert(0 && "unsupported dsymbol for DtoResolveDsymbol");
     }
 }
 
