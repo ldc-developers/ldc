@@ -887,7 +887,7 @@ void SwitchStatement::toIR(IRState* p)
         VarDeclaration* vd = 0;
         if (cs->exp->op == TOKvar)
             vd = ((VarExp*)cs->exp)->var->isVarDeclaration();
-        if (vd && !vd->init) {
+        if (vd && (!vd->init || !vd->isConst())) {
             cs->llvmIdx = cs->exp->toElemDtor(p)->getRVal();
             useSwitchInst = false;
         }
