@@ -1631,9 +1631,12 @@ void SwitchErrorStatement::toIR(IRState* p)
     args.push_back(c);
 
     // call
-    gIR->CreateCallOrInvoke(fn, args);
+    LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
+    call.setDoesNotReturn();
 
+#if DMDV1
     gIR->ir->CreateUnreachable();
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
