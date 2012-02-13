@@ -191,7 +191,19 @@ else version( LDC )
     }
 
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
-        if( __traits( compiles, mixin( "*here = writeThis" ) ) )
+        if( !is(T == class) && !is(T U : U*) &&  __traits( compiles, mixin( "*here = writeThis" ) ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
+
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis )
+        if( is(T == class) || is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
+
+
+    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
     {
         T res = void;
         static if (__traits(isFloating, T))
@@ -221,7 +233,7 @@ else version( LDC )
         }
         else
         {
-            res = llvm_atomic_cmp_swap!(T)(here, ifThis, writeThis);
+            res = llvm_atomic_cmp_swap!(T)(here, cast(T)ifThis, cast(T)writeThis);
         }
         return res == ifThis;
     }
