@@ -85,6 +85,7 @@ if(PHOBOS2_DIR)
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
     file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
     file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
+    file(GLOB PHOBOS2_ETC ${PHOBOS2_DIR}/etc/c/*.d)
     if(UNIX)
         file(GLOB PHOBOS2_D_C_SYS ${PHOBOS2_DIR}/std/c/linux/*.d)
     elseif(WIN32)
@@ -106,7 +107,7 @@ if(PHOBOS2_DIR)
             ${PHOBOS2_D_WIN}
             ${PHOBOS2_D_C}
             ${PHOBOS2_D_C_SYS}
-            ${PHOBOS2_DIR}/etc/c/zlib.d
+            ${PHOBOS2_ETC}
             ${PHOBOS2_DIR}/crc32.d
     )
     list(REMOVE_ITEM PHOBOS2_D

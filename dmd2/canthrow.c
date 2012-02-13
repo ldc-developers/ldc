@@ -42,7 +42,6 @@ struct CanThrow
 
 int Expression::canThrow(bool mustNotThrow)
 {
-    //printf("Expression::canThrow(%d) %s\n", mustNotThrow, toChars());
     CanThrow ct;
     ct.can = FALSE;
     ct.mustnot = mustNotThrow;
