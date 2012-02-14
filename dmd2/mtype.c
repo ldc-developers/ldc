@@ -6920,6 +6920,7 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     {
         Scope *sc2 = sc->push();
         sc2->intypeof++;
+        sc2->ignoreTemplates++;
         sc2->flags |= sc->flags & SCOPEstaticif;
         exp = exp->semantic(sc2);
 #if DMDV2

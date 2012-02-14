@@ -306,6 +306,7 @@ struct TemplateInstance : ScopeDsymbol
     Dsymbol *isnested;  // if referencing local symbols, this is the context
     int errors;         // 1 if compiled with errors
     int speculative;    // 1 if only instantiated with errors gagged
+    bool ignore;        // true if the instance must be ignored when codegen'ing
 #ifdef IN_GCC
     /* On some targets, it is necessary to know whether a symbol
        will be emitted in the output or not before the symbol
@@ -348,7 +349,6 @@ struct TemplateInstance : ScopeDsymbol
     AliasDeclaration *isAliasDeclaration();
 
 #if IN_LLVM
-    // LDC
     Module* tmodule; // module from outermost enclosing template instantiation
     Module* emittedInModule; // which module this template instance has been emitted in
 

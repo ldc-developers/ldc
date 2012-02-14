@@ -56,6 +56,7 @@ void StaticAssert::semantic2(Scope *sc)
     ScopeDsymbol *sd = new ScopeDsymbol();
     sc = sc->push(sd);
     sc->flags |= SCOPEstaticassert;
+    ++sc->ignoreTemplates;
     Expression *e = exp->semantic(sc);
     sc = sc->pop();
     if (e->type == Type::terror)

@@ -245,6 +245,11 @@ void TemplateInstance::codegen(Ir* p)
 #if LOG
     printf("TemplateInstance::toObjFile('%s', this = %p)\n", toChars(), this);
 #endif
+#if DMDV2
+    if (ignore)
+        return;
+#endif
+
     if (!errors && members)
     {
         for (unsigned i = 0; i < members->dim; i++)

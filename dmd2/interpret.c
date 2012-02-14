@@ -478,7 +478,9 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
         TemplateInstance *spec = isSpeculativeFunction(this);
         if (global.gag && !spec)
             global.gag = 0;
+        ++scope->ignoreTemplates;
         semantic3(scope);
+        --scope->ignoreTemplates;
         global.gag = oldgag;    // regag errors
 
         // If it is a speculatively-instantiated template, and errors occur,
