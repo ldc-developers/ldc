@@ -262,21 +262,23 @@ int linkObjToBinary(bool sharedLib)
             output = FileName::removeExt((char*)global.params.objfiles->data[0]);
         else
             output = "a.out";
+
+        if (sharedLib) {
+            std::string libExt = std::string(".") + global.dll_ext;
+            if (!endsWith(output, libExt))
+            {
+                if (global.params.os != OSWindows)
+                    output = "lib" + output + libExt;
+                else
+                    output.append(libExt);
+            }
+            args.push_back("-shared");
+        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
+            output.append(".exe");
+        }
     }
 
-    if (sharedLib) {
-        std::string libExt = std::string(".") + global.dll_ext;
-        if (!endsWith(output, libExt))
-        {
-            if (global.params.os != OSWindows)
-                output = "lib" + output + libExt;
-            else
-                output.append(libExt);
-        }
-        args.push_back("-shared");
-    } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
-        output.append(".exe");
-    }
+
 
     args.push_back("-o");
     args.push_back(output.c_str());

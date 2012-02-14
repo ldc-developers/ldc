@@ -407,9 +407,12 @@ int main(int argc, char** argv)
         error("flags conflict with -run");
         fatal();
     }
-    else
-    {
-        if (global.params.objname && files.dim > 1 && !singleObj)
+    else if (global.params.objname && files.dim > 1) {
+        if (createStaticLib || createSharedLib)
+        {
+            singleObj = true;
+        }
+        if (!singleObj)
         {
             error("multiple source files, but only one .obj name");
             fatal();
