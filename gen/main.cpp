@@ -419,6 +419,11 @@ int main(int argc, char** argv)
         }
     }
 
+    if (soname.getNumOccurrences() > 0 && !createSharedLib) {
+        error("-soname can be used only when building a shared library");
+        fatal();
+    }
+
     // create a proper target
     Ir ir;
 

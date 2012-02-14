@@ -110,6 +110,12 @@ cl::opt<std::string> objectDir("od",
     cl::Prefix,
     cl::desc("Write object files to directory <objdir>"));
 
+cl::opt<std::string> soname("soname",
+    cl::value_desc("soname"),
+    cl::Hidden,
+    cl::Prefix,
+    cl::desc("Use <soname> as output shared library soname"));
+
 
 // Output format options
 cl::opt<bool> output_bc("output-bc",

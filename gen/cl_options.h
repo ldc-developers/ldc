@@ -28,6 +28,7 @@ namespace opts {
     extern cl::opt<bool> dontWriteObj;
     extern cl::opt<std::string> objectFile;
     extern cl::opt<std::string> objectDir;
+    extern cl::opt<std::string> soname;
     extern cl::opt<bool> output_bc;
     extern cl::opt<bool> output_ll;
     extern cl::opt<bool> output_s;
