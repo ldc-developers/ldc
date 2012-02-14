@@ -207,7 +207,7 @@ struct Param
     ubyte warnings;	// enable warnings
     ubyte Dversion;	// D version number
     bool ignoreUnsupportedPragmas;      // rather than error on them
-    char enforcePropertySyntax;
+    bool enforcePropertySyntax;
 
     char *argv0;        // program name
     Strings *imppath;     // array of char*'s of where to look for import modules

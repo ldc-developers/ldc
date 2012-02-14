@@ -26,9 +26,10 @@ static cl::opt<bool, true> useDeprecated("d",
     cl::location(global.params.useDeprecated));
 
 #if DMDV2
-cl::opt<bool> enforcePropertySyntax("property",
+cl::opt<bool, true> enforcePropertySyntax("property",
     cl::desc("Enforce property syntax"),
-    cl::ZeroOrMore);
+    cl::ZeroOrMore,
+    cl::location(global.params.enforcePropertySyntax));
 #endif
 
 static cl::opt<ubyte, true> useDv1(

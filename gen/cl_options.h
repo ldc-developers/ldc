@@ -20,7 +20,7 @@ namespace opts {
     extern cl::list<std::string> runargs;
     extern cl::opt<bool> compileOnly;
 #if DMDV2
-    extern cl::opt<bool> enforcePropertySyntax;
+    extern cl::opt<bool, true> enforcePropertySyntax;
 #endif
     extern cl::opt<bool> createStaticLib;
     extern cl::opt<bool> createSharedLib;
