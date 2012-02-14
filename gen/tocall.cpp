@@ -636,6 +636,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                 retllval = DtoAggrPaint(retllval, DtoType(rbase));
                 break;
 
+            case Tsarray:
+                // nothing ?
+                break;
+
             case Tclass:
             case Taarray:
             case Tpointer:
