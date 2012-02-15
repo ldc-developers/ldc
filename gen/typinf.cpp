@@ -895,4 +895,25 @@ void TypeInfoWildDeclaration::llvmDefine()
     b.finalize(ir.irGlobal);
 }
 
+/* ========================================================================= */
+
+#if DMDV2
+
+void TypeInfoVectorDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tvector);
+    TypeVector *tv = (TypeVector *)tinfo;
+
+    RTTIBuilder b(Type::typeinfovector);
+    // TypeInfo base
+    b.push_typeinfo(tv->basetype);
+    // finish
+    b.finalize(ir.irGlobal);
+}
+
+#endif
+
 #endif

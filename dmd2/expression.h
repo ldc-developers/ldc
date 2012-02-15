@@ -1337,6 +1337,9 @@ struct VectorExp : UnaExp
 #if IN_DMD
     elem *toElem(IRState *irs);
 #endif
+#if IN_LLVM
+    DValue* toElem(IRState* irs);
+#endif
 };
 
 struct SliceExp : UnaExp

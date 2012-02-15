@@ -736,7 +736,6 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
     }
 }
 
-
 DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
 {
     Type* totype = to->toBasetype();
@@ -752,6 +751,38 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
     else
     {
         error(loc, "invalid cast from null to '%s'", to->toChars());
+        fatal();
+    }
+}
+
+DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
+{
+    assert(val->getType()->toBasetype()->ty == Tvector);
+    Type* totype = to->toBasetype();
+    LLType* tolltype = DtoType(to);
+    LLValue *vector = val->getRVal();
+    TypeVector *type = (TypeVector *)val->getType()->toBasetype();
+
+    if (totype->ty == Tsarray)
+    {
+        if (Logger::enabled())
+            Logger::cout() << "src: " << *vector << "to type: " << *tolltype << '\n';
+        LLValue *array = DtoAlloca(to);
+
+        TypeSArray *st = (TypeSArray*)totype;
+
+        for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
+            LLValue *lelem = DtoExtractElement(vector, i);
+            DImValue elem(type->elementType(), lelem);
+            lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
+            DtoStore(lelem, DtoGEPi(array, 0, i));
+        }
+
+        return new DImValue(to, array);
+    }
+    else
+    {
+        error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
         fatal();
     }
 }
@@ -774,7 +805,10 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     LOG_SCOPE;
 
-    if (fromtype->isintegral()) {
+    if (fromtype->ty == Tvector) {
+        return DtoCastVector(loc, val, to);
+    }
+    else if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);
     }
     else if (fromtype->iscomplex()) {

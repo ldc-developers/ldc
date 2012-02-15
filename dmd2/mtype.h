@@ -447,7 +447,7 @@ struct TypeVector : Type
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     char *toChars();
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
 #if CPP_MANGLE
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif

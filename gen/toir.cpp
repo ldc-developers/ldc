@@ -1051,7 +1051,7 @@ DValue* CallExp::toElem(IRState* p)
                    fndecl->llvmInternal == LLVMbitop_bts)
         {
             if (arguments->dim != 2) {
-                error("bitop intrinsic %s expects 2 arguments");
+                error("bitop intrinsic expects 2 arguments");
                 return NULL;
             }
 
@@ -3138,6 +3138,33 @@ DValue* TupleExp::toElem(IRState *p)
     }
     return new DImValue(type, val);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#if DMDV2
+
+DValue* VectorExp::toElem(IRState* p)
+{
+    Logger::print("VectorExp::toElem() %s\n", toChars());
+
+    TypeVector *type = (TypeVector*)to->toBasetype();
+    assert(type->ty == Tvector);
+
+    DValue  *val = e1->toElem(p);
+    val = DtoCast(loc, val, type->elementType());
+    LLValue *rval = val->getRVal();
+    LLValue *vector = DtoAlloca(to);
+
+    for (int i = 0; i < dim; ++i) {
+        LLValue *elem = DtoGEPi(vector, 0, i);
+        DtoStore(rval, elem);
+    }
+
+    return new DVarValue(to, vector);
+}
+
+#endif
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

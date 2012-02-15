@@ -158,6 +158,14 @@ LLType* DtoType(Type* t)
     case Taarray:
         return getVoidPtrType();
 
+#if DMDV2
+    case Tvector:
+    {
+        t->irtype = new IrTypeVector(t);
+        return t->irtype->buildType();
+    }
+#endif
+
 /*
     Not needed atm as VarDecls for tuples are rewritten as a string of
     VarDecls for the fields (u -> _u_field_0, ...)
@@ -675,6 +683,28 @@ LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* nam
 LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name)
 {
     return gIR->ir->CreateExtractValue(aggr, idx, name ? name : "tmp");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* DtoInsertElement(LLValue* vec, LLValue* v, LLValue *idx, const char* name)
+{
+    return gIR->ir->CreateInsertElement(vec, v, idx, name ? name : "tmp");
+}
+
+LLValue* DtoExtractElement(LLValue* vec, LLValue *idx, const char* name)
+{
+    return gIR->ir->CreateExtractElement(vec, idx, name ? name : "tmp");
+}
+
+LLValue* DtoInsertElement(LLValue* vec, LLValue* v, unsigned idx, const char* name)
+{
+    return DtoInsertElement(vec, v, DtoConstUint(idx), name);
+}
+
+LLValue* DtoExtractElement(LLValue* vec, unsigned idx, const char* name)
+{
+    return DtoExtractElement(vec, DtoConstUint(idx), name);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

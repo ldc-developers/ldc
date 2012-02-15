@@ -660,6 +660,10 @@ struct TypeInfoVectorDeclaration : TypeInfoDeclaration
 #if IN_DMD
     void toDt(dt_t **pdt);
 #endif
+
+#if IN_LLVM
+    void llvmDefine();
+#endif
 };
 #endif
 

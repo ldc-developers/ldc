@@ -64,9 +64,6 @@ list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/qsort2.d
     ${RUNTIME_DC_DIR}/trace.d
 )
-list(REMOVE_ITEM CORE_D
-    ${RUNTIME_DIR}/src/core/simd.d
-)
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
 if(UNIX)

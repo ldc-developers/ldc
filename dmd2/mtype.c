@@ -3455,14 +3455,14 @@ void TypeVector::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
     buf->writestring(")");
 }
 
-void TypeVector::toDecoBuffer(OutBuffer *buf, int flag)
+void TypeVector::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 {
     if (flag != mod && flag != 0x100)
     {
         MODtoDecoBuffer(buf, mod);
     }
     buf->writestring("Nh");
-    basetype->toDecoBuffer(buf, (flag & 0x100) ? 0 : mod);
+    basetype->toDecoBuffer(buf, (flag & 0x100) ? 0 : mod, mangle);
 }
 
 d_uns64 TypeVector::size(Loc loc)
