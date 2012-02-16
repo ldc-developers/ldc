@@ -16,13 +16,16 @@ if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
     set(IS_64BIT_OS 1)
 endif(${ptr_size} MATCHES "^8$")
 
-set(MULTILIB              OFF                                       CACHE BOOL    "Build both 64-bit and 32-bit libraries")
-set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as bytecode libraries")
-set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library")
-set(LIB_SUFFIX            ""                                        CACHE STRING  "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
-set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Directory where will be put header files")
-set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Build as shared library or as static library")
-set(CMAKE_INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}  CACHE PATH    "Directory where lib will be installed")
+set(DMDFE_MINOR_VERSION   0                                                             CACHE INT     "Minor version of dmd frontend")
+set(DMDFE_PATCH_VERSION   57                                                            CACHE INT     "Patch version of dmd frontend")
+set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION}    CACHE INT     "Version of dmd frontend")
+set(MULTILIB              OFF                                                           CACHE BOOL    "Build both 64-bit and 32-bit libraries")
+set(BUILD_BC_LIBS         OFF                                                           CACHE BOOL    "Build the runtime as bytecode libraries")
+set(BUILD_SINGLE_LIB      ON                                                            CACHE BOOL    "Build single runtime library")
+set(LIB_SUFFIX            ""                                                            CACHE STRING  "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
+set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d                             CACHE PATH    "Directory where will be put header files")
+set(BUILD_SHARED_LIBS     OFF                                                           CACHE BOOL    "Build as shared library or as static library")
+set(CMAKE_INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}                      CACHE PATH    "Directory where lib will be installed")
 set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
@@ -133,8 +136,8 @@ endif(NOT LDC_LOC)
 #
 
 if(MULTILIB)
-    set(MUTILIB_ADDITIONAL_PATH  "\n        \"-L-L${CMAKE_BINARY_DIR}/lib32\",")
-    set(MUTILIB_ADDITIONAL_INSTALL_PATH  "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib32\",")
+    set(MUTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib32\",")
+    set(MUTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib32\",")
 endif(MULTILIB)
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -274,12 +277,14 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
     set_target_properties(
         ${LIBS} PROPERTIES
-        LINKER_LANGUAGE C
-        ARCHIVE_OUTPUT_DIRECTORY ${output_path}
-        LIBRARY_OUTPUT_DIRECTORY ${output_path}
-        RUNTIME_OUTPUT_DIRECTORY ${output_path}
-        COMPILE_FLAGS "${c_flags}"
-        LINK_FLAGS "${ld_flags}"
+        VERSION                     ${DMDFE_VERSION}
+        SOVERSION                   ${DMDFE_PATCH_VERSION}
+        LINKER_LANGUAGE             C
+        ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+        LIBRARY_OUTPUT_DIRECTORY    ${output_path}
+        RUNTIME_OUTPUT_DIRECTORY    ${output_path}
+        COMPILE_FLAGS               "${c_flags}"
+        LINK_FLAGS                  "${ld_flags}"
     )
     install(TARGETS ${LIBS} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
 
@@ -293,7 +298,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
              dc(${f} PHOBOS2_O PHOBOS2_BC "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}")
         endforeach(f)
 
-        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE}
+        add_library(phobos-ldc${target_suffix} ${D_LIBRARY_TYPE}
             ${ZLIB_C}
             ${PHOBOS2_O}
             ${CORE_O}
@@ -302,19 +307,21 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             ${DCRT_O}
             ${DCRT_C}
         )
-        add_dependencies(phobos2-ldc${target_suffix} runtime)
+        add_dependencies(phobos-ldc${target_suffix} runtime)
         set_target_properties(
-            phobos2-ldc${target_suffix} PROPERTIES
-            OUTPUT_NAME phobos2-ldc${lib_suffix}
-            LINKER_LANGUAGE C
-            ARCHIVE_OUTPUT_DIRECTORY ${output_path}
-            LIBRARY_OUTPUT_DIRECTORY ${output_path}
-            RUNTIME_OUTPUT_DIRECTORY ${output_path}
-            COMPILE_FLAGS "${c_flags}"
-            LINK_FLAGS "${ld_flags}"
+            phobos-ldc${target_suffix} PROPERTIES
+            VERSION                     ${DMDFE_VERSION}
+            SOVERSION                   ${DMDFE_PATCH_VERSION}
+            OUTPUT_NAME                 phobos-ldc${lib_suffix}
+            LINKER_LANGUAGE             C
+            ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+            LIBRARY_OUTPUT_DIRECTORY    ${output_path}
+            RUNTIME_OUTPUT_DIRECTORY    ${output_path}
+            COMPILE_FLAGS               "${c_flags}"
+            LINK_FLAGS                  "${ld_flags}"
         )
-        install(TARGETS phobos2-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
-        add_dependencies(phobos2 DEPENDS phobos2-ldc${target_suffix})
+        install(TARGETS phobos-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
+        add_dependencies(phobos2 DEPENDS phobos-ldc${target_suffix})
     endif(PHOBOS2_DIR)
 endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
