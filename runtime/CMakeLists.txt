@@ -17,7 +17,7 @@ if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
 endif(${ptr_size} MATCHES "^8$")
 
 set(DMDFE_MINOR_VERSION   0                                                             CACHE INT     "Minor version of dmd frontend")
-set(DMDFE_PATCH_VERSION   57                                                            CACHE INT     "Patch version of dmd frontend")
+set(DMDFE_PATCH_VERSION   58                                                            CACHE INT     "Patch version of dmd frontend")
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION}    CACHE INT     "Version of dmd frontend")
 set(MULTILIB              OFF                                                           CACHE BOOL    "Build both 64-bit and 32-bit libraries")
 set(BUILD_BC_LIBS         OFF                                                           CACHE BOOL    "Build the runtime as bytecode libraries")
