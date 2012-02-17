@@ -66,11 +66,12 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     vtblIndex = -1;
     hasReturnExp = 0;
     naked = 0;
-    inlineStatus = ILSuninitialized;
+    inlineStatusExp = ILSuninitialized;
+    inlineStatusStmt = ILSuninitialized;
     inlineNest = 0;
-    cantInterpret = 0;
     isArrayOp = 0;
     semanticRun = PASSinit;
+    semantic3Errors = 0;
 #if DMDV1
     nestedFrameRef = 0;
 #endif
@@ -152,6 +153,7 @@ void FuncDeclaration::semantic(Scope *sc)
     ClassDeclaration *cd;
     InterfaceDeclaration *id;
     Dsymbol *pd;
+    bool doesoverride;
 
 #if 0
     printf("FuncDeclaration::semantic(sc = %p, this = %p, '%s', linkage = %d)\n", sc, this, toPrettyChars(), sc->linkage);
@@ -473,6 +475,7 @@ void FuncDeclaration::semantic(Scope *sc)
         vi = cd->baseClass ? findVtblIndex((Dsymbols*)&cd->baseClass->vtbl, cd->baseClass->vtbl.dim)
                            : -1;
 
+        doesoverride = FALSE;
         switch (vi)
         {
             case -1:
@@ -495,8 +498,9 @@ void FuncDeclaration::semantic(Scope *sc)
 
                 if (isFinal())
                 {
-                    if (isOverride())
-                        error("is marked as override, but does not override any function");
+                    // Don't check here, as it may override an interface function
+                    //if (isOverride())
+                        //error("is marked as override, but does not override any function");
                     cd->vtblFinal.push(this);
                 }
                 else
@@ -516,11 +520,12 @@ void FuncDeclaration::semantic(Scope *sc)
                 return;
 
             default:
-            {   FuncDeclaration *fdv = (FuncDeclaration *)cd->baseClass->vtbl.tdata()[vi];
+            {   FuncDeclaration *fdv = (FuncDeclaration *)cd->baseClass->vtbl[vi];
                 // This function is covariant with fdv
                 if (fdv->isFinal())
                     error("cannot override final function %s", fdv->toPrettyChars());
 
+                doesoverride = TRUE;
 #if DMDV2
                 if (!isOverride())
                     warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
@@ -530,11 +535,16 @@ void FuncDeclaration::semantic(Scope *sc)
                 if (fdc->toParent() == parent)
                 {
                     // If both are mixins, then error.
-                    // If either is not, the one that is not overrides
-                    // the other.
-                    if (fdc->parent->isClassDeclaration())
+                    // If either is not, the one that is not overrides the other.
+
+                    if (this->parent->isClassDeclaration() && fdc->parent->isClassDeclaration())
+                        error("multiple overrides of same function");
+
+                    // if (this is mixin) && (fdc is not mixin) then fdc overrides
+                    else if (!this->parent->isClassDeclaration() && fdc->parent->isClassDeclaration())
                         break;
-                    if (!this->parent->isClassDeclaration()
+
+                    else if (!this->parent->isClassDeclaration() // if both are mixins then error
 #if !BREAKABI
                         && !isDtorDeclaration()
 #endif
@@ -544,7 +554,7 @@ void FuncDeclaration::semantic(Scope *sc)
                         )
                         error("multiple overrides of same function");
                 }
-                cd->vtbl.tdata()[vi] = this;
+                cd->vtbl[vi] = this;
                 vtblIndex = vi;
 
                 /* Remember which functions this overrides
@@ -602,6 +612,14 @@ void FuncDeclaration::semantic(Scope *sc)
                      */
                     foverrides.push(fdv);
 
+#if DMDV2
+                    /* Should we really require 'override' when implementing
+                     * an interface function?
+                     */
+                    //if (!isOverride())
+                        //warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
+#endif
+
                     if (fdv->tintro)
                         ti = fdv->tintro;
                     else if (!type->equals(fdv->type))
@@ -640,7 +658,7 @@ void FuncDeclaration::semantic(Scope *sc)
             }
         }
 
-        if (introducing && isOverride())
+        if (!doesoverride && isOverride())
         {
             error("does not override any function");
         }
@@ -871,6 +889,7 @@ void FuncDeclaration::semantic3(Scope *sc)
     if (semanticRun >= PASSsemantic3)
         return;
     semanticRun = PASSsemantic3;
+    semantic3Errors = 0;
 
     // LDC
     if (!global.params.useAvailableExternally)
@@ -976,7 +995,10 @@ void FuncDeclaration::semantic3(Scope *sc)
                 Type *t = new TypeIdentifier(loc, Id::va_argsave_t);
                 t = t->semantic(loc, sc);
                 if (t == Type::terror)
+                {
                     error("must import core.vararg to use variadic functions");
+                    return;
+                }
                 else
                 {
                     v_argsave = new VarDeclaration(loc, t, Id::va_argsave, NULL);
@@ -1798,7 +1820,10 @@ void FuncDeclaration::semantic3(Scope *sc)
     if (global.gag && global.errors != nerrors)
         semanticRun = PASSsemanticdone; // Ensure errors get reported again
     else
+    {
         semanticRun = PASSsemantic3done;
+        semantic3Errors = global.errors - nerrors;
+    }
     //printf("-FuncDeclaration::semantic3('%s.%s', sc = %p, loc = %s)\n", parent->toChars(), toChars(), sc, loc.toChars());
     //fflush(stdout);
 }
@@ -1903,7 +1928,7 @@ int FuncDeclaration::equals(Object *o)
 void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     if (fbody &&
-        (!hgs->hdrgen || hgs->tpltMember || canInline(1,1))
+        (!hgs->hdrgen || hgs->tpltMember || canInline(1,1,1))
        )
     {   buf->writenl();
 
@@ -1953,6 +1978,22 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
     if (!params)
         params = fdrequireParams;
 
+    /* If a base function and its override both have an IN contract, then
+     * only one of them needs to succeed. This is done by generating:
+     *
+     * void derived.in() {
+     *  try {
+     *    base.in();
+     *  }
+     *  catch () {
+     *    ... body of derived.in() ...
+     *  }
+     * }
+     *
+     * So if base.in() doesn't throw, derived.in() need not be executed, and the contract is valid.
+     * If base.in() throws, then derived.in()'s body is executed.
+     */
+
     /* Implementing this is done by having the overriding function call
      * nested functions (the fdrequire functions) nested inside the overridden
      * function. This requires that the stack layout of the calling function's
@@ -1997,6 +2038,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
             Statement *s2 = new ExpStatement(loc, e);
 
             Catch *c = new Catch(loc, NULL, NULL, sf);
+            c->internalCatch = true;
             Catches *catches = new Catches();
             catches->push(c);
             sf = new TryCatchStatement(loc, s2, catches);
@@ -2548,7 +2590,7 @@ MATCH FuncDeclaration::leastAsSpecialized(FuncDeclaration *g)
     {
         if (tf->mod != tg->mod)
         {
-            if (tg->mod == MODconst)
+            if (MODimplicitConv(tf->mod, tg->mod))
                 match = MATCHconst;
             else
                 return MATCHnomatch;
@@ -2695,7 +2737,7 @@ AggregateDeclaration *FuncDeclaration::isMember2()
  *      >0      decrease nesting by number
  */
 
-int FuncDeclaration::getLevel(Loc loc, FuncDeclaration *fd)
+int FuncDeclaration::getLevel(Loc loc, Scope *sc, FuncDeclaration *fd)
 {   int level;
     Dsymbol *s;
     Dsymbol *fdparent;
@@ -2732,7 +2774,9 @@ int FuncDeclaration::getLevel(Loc loc, FuncDeclaration *fd)
     return level;
 
 Lerr:
-    error(loc, "cannot access frame of function %s", fd->toPrettyChars());
+    // Don't give error if in template constraint
+    if (!((sc->flags & SCOPEstaticif) && parent->isTemplateDeclaration()))
+        error(loc, "cannot access frame of function %s", fd->toPrettyChars());
     return 1;
 }
 
@@ -2812,19 +2856,35 @@ int FuncDeclaration::isImportedSymbol()
 
 int FuncDeclaration::isVirtual()
 {
+    Dsymbol *p = toParent();
 #if 0
     printf("FuncDeclaration::isVirtual(%s)\n", toChars());
     printf("isMember:%p isStatic:%d private:%d ctor:%d !Dlinkage:%d\n", isMember(), isStatic(), protection == PROTprivate, isCtorDeclaration(), linkage != LINKd);
     printf("result is %d\n",
         isMember() &&
         !(isStatic() || protection == PROTprivate || protection == PROTpackage) &&
-        toParent()->isClassDeclaration());
+        p->isClassDeclaration() &&
+        !(p->isInterfaceDeclaration() && isFinal()));
 #endif
-    Dsymbol *p = toParent();
     return isMember() &&
         !(isStatic() || protection == PROTprivate || protection == PROTpackage) &&
         p->isClassDeclaration() &&
         !(p->isInterfaceDeclaration() && isFinal());
+}
+
+// Determine if a function is pedantically virtual
+
+int FuncDeclaration::isVirtualMethod()
+{
+    //printf("FuncDeclaration::isVirtualMethod() %s\n", toChars());
+    if (!isVirtual())
+        return 0;
+    // If it's a final method, and does not override anything, then it is not virtual
+    if (isFinal() && foverrides.dim == 0)
+    {
+        return 0;
+    }
+    return 1;
 }
 
 int FuncDeclaration::isFinal()
@@ -3042,6 +3102,38 @@ const char *FuncDeclaration::kind()
     return "function";
 }
 
+void FuncDeclaration::checkNestedReference(Scope *sc, Loc loc)
+{
+    //printf("FuncDeclaration::checkNestedReference() %s\n", toChars());
+    if (parent && parent != sc->parent && this->isNested() &&
+        this->ident != Id::require && this->ident != Id::ensure)
+    {
+        // The function that this function is in
+        FuncDeclaration *fdv = toParent()->isFuncDeclaration();
+        // The current function
+        FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
+
+        //printf("this = %s in [%s]\n", this->toChars(), this->loc.toChars());
+        //printf("fdv  = %s in [%s]\n", fdv->toChars(), fdv->loc.toChars());
+        //printf("fdthis = %s in [%s]\n", fdthis->toChars(), fdthis->loc.toChars());
+
+        if (fdv && fdthis && fdv != fdthis)
+        {
+            int lv = fdthis->getLevel(loc, sc, fdv);
+            if (lv == -1)
+                return; // OK
+            if (lv == 0)
+                return; // OK
+
+            // BUG: may need to walk up outer scopes like Declaration::checkNestedReference() does
+
+            // function literal has reference to enclosing scope is delegate
+            if (FuncLiteralDeclaration *fld = fdthis->isFuncLiteralDeclaration())
+                fld->tok = TOKdelegate;
+        }
+    }
+}
+
 /*******************************
  * Look at all the variables in this function that are referenced
  * by nested functions, and determine if a closure needs to be
@@ -3117,6 +3209,43 @@ Lyes:
 }
 #endif
 
+/***********************************************
+ * Determine if function's variables are referenced by a function
+ * nested within it.
+ */
+
+int FuncDeclaration::hasNestedFrameRefs()
+{
+#if DMDV2
+    if (closureVars.dim)
+#else
+    if (nestedFrameRef)
+#endif
+        return 1;
+
+    /* If a virtual method has contracts, assume its variables are referenced
+     * by those contracts, even if they aren't. Because they might be referenced
+     * by the overridden or overriding function's contracts.
+     * This can happen because frequire and fensure are implemented as nested functions,
+     * and they can be called directly by an overriding function and the overriding function's
+     * context had better match, or Bugzilla 7337 will bite.
+     */
+    if ((fdrequire || fdensure) && isVirtualMethod())
+        return 1;
+
+    if (foverrides.dim && isVirtualMethod())
+    {
+        for (size_t i = 0; i < foverrides.dim; i++)
+        {
+            FuncDeclaration *fdv = foverrides.tdata()[i];
+            if (fdv->hasNestedFrameRefs())
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
 /*********************************************
  * Return the function's parameter list, and whether
  * it is variadic or not.
@@ -3170,6 +3299,8 @@ FuncLiteralDeclaration::FuncLiteralDeclaration(Loc loc, Loc endloc, Type *type,
 
     if (fes)
         id = "__foreachbody";
+    else if (tok == TOKreserved)
+        id = "__lambda";
     else if (tok == TOKdelegate)
         id = "__dgliteral";
     else
@@ -3198,7 +3329,7 @@ Dsymbol *FuncLiteralDeclaration::syntaxCopy(Dsymbol *s)
 int FuncLiteralDeclaration::isNested()
 {
     //printf("FuncLiteralDeclaration::isNested() '%s'\n", toChars());
-    return (tok == TOKdelegate);
+    return (tok != TOKfunction);
 }
 
 int FuncLiteralDeclaration::isVirtual()
@@ -3209,7 +3340,7 @@ int FuncLiteralDeclaration::isVirtual()
 const char *FuncLiteralDeclaration::kind()
 {
     // GCC requires the (char*) casts
-    return (tok == TOKdelegate) ? (char*)"delegate" : (char*)"function";
+    return (tok != TOKfunction) ? (char*)"delegate" : (char*)"function";
 }
 
 void FuncLiteralDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -3806,6 +3937,7 @@ void InvariantDeclaration::semantic(Scope *sc)
 
     sc = sc->push();
     sc->stc &= ~STCstatic;              // not a static invariant
+    sc->stc |= STCconst;                // invariant() is always const
     sc->incontract++;
     sc->linkage = LINKd;
 

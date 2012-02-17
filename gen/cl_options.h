@@ -20,7 +20,7 @@ namespace opts {
     extern cl::list<std::string> runargs;
     extern cl::opt<bool> compileOnly;
 #if DMDV2
-    extern cl::opt<bool> enforcePropertySyntax;
+    extern cl::opt<bool, true> enforcePropertySyntax;
 #endif
     extern cl::opt<bool> createStaticLib;
     extern cl::opt<bool> createSharedLib;
@@ -28,6 +28,7 @@ namespace opts {
     extern cl::opt<bool> dontWriteObj;
     extern cl::opt<std::string> objectFile;
     extern cl::opt<std::string> objectDir;
+    extern cl::opt<std::string> soname;
     extern cl::opt<bool> output_bc;
     extern cl::opt<bool> output_ll;
     extern cl::opt<bool> output_s;

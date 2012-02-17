@@ -234,4 +234,38 @@ llvm::Type * IrTypeArray::array2llvm(Type * t)
 }
 
 //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
+#if DMDV2
+
+IrTypeVector::IrTypeVector(Type* dt)
+: IrType(dt, vector2llvm(dt))
+{
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type* IrTypeVector::buildType()
+{
+    return type;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type* IrTypeVector::vector2llvm(Type* dt)
+{
+    assert(dt->ty == Tvector && "not vector type");
+    TypeVector* tv = (TypeVector*)dt;
+    assert(tv->basetype->ty == Tsarray);
+    TypeSArray* tsa = (TypeSArray*)tv->basetype;
+    dim = (uint64_t)tsa->dim->toUInteger();
+    LLType* elemType = DtoType(tsa->next);
+    if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
+        elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
+    return llvm::VectorType::get(elemType, dim);
+}
+
+#endif
+
+//////////////////////////////////////////////////////////////////////////////

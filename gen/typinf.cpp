@@ -208,10 +208,17 @@ TypeInfoDeclaration *TypeStruct::getTypeInfoDeclaration()
 TypeInfoDeclaration *TypeClass::getTypeInfoDeclaration()
 {
     if (sym->isInterfaceDeclaration())
-    return new TypeInfoInterfaceDeclaration(this);
+        return new TypeInfoInterfaceDeclaration(this);
     else
-    return new TypeInfoClassDeclaration(this);
+        return new TypeInfoClassDeclaration(this);
 }
+
+#if DMDV2
+TypeInfoDeclaration *TypeVector::getTypeInfoDeclaration()
+{
+    return new TypeInfoVectorDeclaration(this);
+}
+#endif
 
 TypeInfoDeclaration *TypeEnum::getTypeInfoDeclaration()
 {
@@ -232,7 +239,6 @@ TypeInfoDeclaration *TypeTuple::getTypeInfoDeclaration()
 {
     return new TypeInfoTupleDeclaration(this);
 }
-
 
 /* ========================================================================= */
 
@@ -888,5 +894,26 @@ void TypeInfoWildDeclaration::llvmDefine()
     // finish
     b.finalize(ir.irGlobal);
 }
+
+/* ========================================================================= */
+
+#if DMDV2
+
+void TypeInfoVectorDeclaration::llvmDefine()
+{
+    Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s", toChars());
+    LOG_SCOPE;
+
+    assert(tinfo->ty == Tvector);
+    TypeVector *tv = (TypeVector *)tinfo;
+
+    RTTIBuilder b(Type::typeinfovector);
+    // TypeInfo base
+    b.push_typeinfo(tv->basetype);
+    // finish
+    b.finalize(ir.irGlobal);
+}
+
+#endif
 
 #endif

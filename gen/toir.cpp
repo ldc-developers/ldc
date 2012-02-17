@@ -41,6 +41,7 @@
 #include "gen/utils.h"
 #include "gen/warnings.h"
 #include "gen/optimizer.h"
+#include "gen/pragma.h"
 
 #include "llvm/Support/ManagedStatic.h"
 
@@ -891,6 +892,10 @@ DValue* CallExp::toElem(IRState* p)
 
         // va_start instruction
         if (fndecl->llvmInternal == LLVMva_start) {
+            if (arguments->dim != 2) {
+                error("va_start instruction expects 2 arguments");
+                return NULL;
+            }
             // llvm doesn't need the second param hence the override
             Expression* exp = (Expression*)arguments->data[0];
             LLValue* arg = exp->toElem(p)->getLVal();
@@ -912,6 +917,10 @@ DValue* CallExp::toElem(IRState* p)
         }
 #if DMDV2
         else if (fndecl->llvmInternal == LLVMva_copy && global.params.cpu == ARCHx86_64) {
+            if (arguments->dim != 2) {
+                error("va_copy instruction expects 2 arguments");
+                return NULL;
+            }
             Expression* exp1 = (Expression*)arguments->data[0];
             Expression* exp2 = (Expression*)arguments->data[1];
             LLValue* arg1 = exp1->toElem(p)->getLVal();
@@ -926,10 +935,18 @@ DValue* CallExp::toElem(IRState* p)
 #endif
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {
+            if (arguments->dim != 1) {
+                error("va_arg instruction expects 1 arguments");
+                return NULL;
+            }
             return DtoVaArg(loc, type, (Expression*)arguments->data[0]);
         }
         // C alloca
         else if (fndecl->llvmInternal == LLVMalloca) {
+            if (arguments->dim != 1) {
+                error("alloca expects 1 arguments");
+                return NULL;
+            }
             Expression* exp = (Expression*)arguments->data[0];
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
@@ -937,10 +954,18 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
         // fence instruction
         } else if (fndecl->llvmInternal == LLVMfence) {
+            if (arguments->dim != 1) {
+                error("fence instruction expects 1 arguments");
+                return NULL;
+            }
             gIR->ir->CreateFence(llvm::AtomicOrdering(((Expression*)arguments->data[0])->toInteger()));
             return NULL;
         // atomic store instruction
         } else if (fndecl->llvmInternal == LLVMatomic_store) {
+            if (arguments->dim != 3) {
+                error("atomic store instruction expects 3 arguments");
+                return NULL;
+            }
             Expression* exp1 = (Expression*)arguments->data[0];
             Expression* exp2 = (Expression*)arguments->data[1];
             int atomicOrdering = ((Expression*)arguments->data[2])->toInteger();
@@ -952,6 +977,10 @@ DValue* CallExp::toElem(IRState* p)
             return NULL;
         // atomic load instruction
         } else if (fndecl->llvmInternal == LLVMatomic_load) {
+            if (arguments->dim != 2) {
+                error("atomic load instruction expects 2 arguments");
+                return NULL;
+            }
             Expression* exp = (Expression*)arguments->data[0];
             int atomicOrdering = ((Expression*)arguments->data[1])->toInteger();
             LLValue* ptr = exp->toElem(p)->getRVal();
@@ -962,6 +991,10 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(retType, val);
         // cmpxchg instruction
         } else if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
+            if (arguments->dim != 4) {
+                error("cmpxchg instruction expects 4 arguments");
+                return NULL;
+            }
             Expression* exp1 = (Expression*)arguments->data[0];
             Expression* exp2 = (Expression*)arguments->data[1];
             Expression* exp3 = (Expression*)arguments->data[2];
@@ -973,6 +1006,11 @@ DValue* CallExp::toElem(IRState* p)
             return new DImValue(exp3->type, ret);
         // atomicrmw instruction
         } else if (fndecl->llvmInternal == LLVMatomic_rmw) {
+            if (arguments->dim != 3) {
+                error("atomic_rmw instruction expects 3 arguments");
+                return NULL;
+            }
+
             static char *ops[] = {
                 "xchg",
                 "add",
@@ -1006,6 +1044,58 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ret = gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
                                                     llvm::AtomicOrdering(atomicOrdering));
             return new DImValue(exp2->type, ret);
+        // bitop
+        } else if (fndecl->llvmInternal == LLVMbitop_bt ||
+                   fndecl->llvmInternal == LLVMbitop_btr ||
+                   fndecl->llvmInternal == LLVMbitop_btc ||
+                   fndecl->llvmInternal == LLVMbitop_bts)
+        {
+            if (arguments->dim != 2) {
+                error("bitop intrinsic expects 2 arguments");
+                return NULL;
+            }
+
+            Expression* exp1 = (Expression*)arguments->data[0];
+            Expression* exp2 = (Expression*)arguments->data[1];
+            LLValue* ptr = exp1->toElem(p)->getRVal();
+            LLValue* bitnum = exp2->toElem(p)->getRVal();
+
+            // auto q = cast(ubyte*)ptr + (bitnum >> 3);
+            LLValue* q = DtoBitCast(ptr, DtoType(Type::tuns8->pointerTo()));
+            q = DtoGEP1(q, p->ir->CreateLShr(bitnum, 3), "bitop.q");
+
+            // auto mask = 1 << (bitnum & 7);
+            LLValue* mask = p->ir->CreateAnd(bitnum, DtoConstSize_t(7), "bitop.tmp");
+            mask = p->ir->CreateShl(DtoConstSize_t(1), mask, "bitop.mask");
+
+            // auto result = (*q & mask) ? -1 : 0;
+            LLValue* val = p->ir->CreateZExt(DtoLoad(q, "bitop.tmp"), DtoSize_t(), "bitop.val");
+            LLValue* result = p->ir->CreateAnd(val, mask, "bitop.tmp");
+            result = p->ir->CreateICmpNE(result, DtoConstSize_t(0), "bitop.tmp");
+            result = p->ir->CreateSelect(result, DtoConstInt(-1), DtoConstInt(0), "bitop.result");
+
+            if (fndecl->llvmInternal != LLVMbitop_bt) {
+                llvm::Instruction::BinaryOps op;
+                if (fndecl->llvmInternal == LLVMbitop_btc) {
+                    // *q ^= mask;
+                    op = llvm::Instruction::Xor;
+                } else if (fndecl->llvmInternal == LLVMbitop_btr) {
+                    // *q &= ~mask;
+                    mask = p->ir->CreateNot(mask);
+                    op = llvm::Instruction::And;
+                } else if (fndecl->llvmInternal == LLVMbitop_bts) {
+                    // *q |= mask;
+                    op = llvm::Instruction::Or;
+                } else {
+                    assert(false);
+                }
+
+                LLValue *newVal = p->ir->CreateBinOp(op, val, mask, "bitop.new_val");
+                newVal = p->ir->CreateTrunc(newVal, DtoType(Type::tuns8), "bitop.tmp");
+                DtoStore(newVal, q);
+            }
+
+            return new DImValue(type, result);
         }
     }
     return DtoCallFunction(loc, type, fnval, arguments);
@@ -2014,8 +2104,26 @@ DValue* AssertExp::toElem(IRState* p)
         condty = e1->type->toBasetype();
     }
 
-    InvariantDeclaration* invdecl;
+    // create basic blocks
+    llvm::BasicBlock* oldend = p->scopeend();
+    llvm::BasicBlock* assertbb = llvm::BasicBlock::Create(gIR->context(), "assert", p->topfunc(), oldend);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "noassert", p->topfunc(), oldend);
 
+    // test condition
+    LLValue* condval = DtoCast(loc, cond, Type::tbool)->getRVal();
+
+    // branch
+    llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
+
+    // call assert runtime functions
+    p->scope() = IRScope(assertbb,endbb);
+    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
+
+    // rewrite the scope
+    p->scope() = IRScope(endbb,oldend);
+
+
+    InvariantDeclaration* invdecl;
     // class invariants
     if(
         global.params.useInvariants &&
@@ -2038,30 +2146,9 @@ DValue* AssertExp::toElem(IRState* p)
         DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
         DtoCallFunction(loc, NULL, &invfunc, NULL);
     }
-    else
-    {
-        // create basic blocks
-        llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* assertbb = llvm::BasicBlock::Create(gIR->context(), "assert", p->topfunc(), oldend);
-        llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "noassert", p->topfunc(), oldend);
-
-        // test condition
-        LLValue* condval = DtoCast(loc, cond, Type::tbool)->getRVal();
-
-        // branch
-        llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
-
-        // call assert runtime functions
-        p->scope() = IRScope(assertbb,endbb);
-        DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
-
-        // rewrite the scope
-        p->scope() = IRScope(endbb,oldend);
-    }
 
     // DMD allows syntax like this:
     // f() == 0 || assert(false)
-    // TODO: or should we return true?
     return new DImValue(type, DtoConstBool(false));
 }
 
@@ -2546,7 +2633,7 @@ DValue* FuncExp::toElem(IRState* p)
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
-    if(fd->tok == TOKdelegate) {
+    if(fd->isNested() && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis)) {
         LLType* dgty = DtoType(type);
 
         LLValue* cval;
@@ -2583,11 +2670,9 @@ DValue* FuncExp::toElem(IRState* p)
 
         return new DImValue(type, DtoAggrPair(cval, castfptr, ".func"));
 
-    } else if(fd->tok == TOKfunction) {
+    } else {
         return new DImValue(type, fd->ir.irFunc->func);
     }
-
-    assert(0 && "fd->tok must be TOKfunction or TOKdelegate");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2598,9 +2683,9 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     assert(fd);
-    if (fd->tok != TOKfunction)
+    if (fd->tok != TOKfunction && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis))
     {
-        assert(fd->tok == TOKdelegate);
+        assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
         error("delegate literals as constant expressions are not yet allowed");
         return 0;
     }
@@ -2900,9 +2985,7 @@ DValue* RemoveExp::toElem(IRState* p)
     DValue* aa = e1->toElem(p);
     DValue* key = e2->toElem(p);
 
-    DtoAARemove(loc, aa, key);
-
-    return NULL; // does not produce anything useful
+    return DtoAARemove(loc, aa, key);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -3055,6 +3138,33 @@ DValue* TupleExp::toElem(IRState *p)
     }
     return new DImValue(type, val);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#if DMDV2
+
+DValue* VectorExp::toElem(IRState* p)
+{
+    Logger::print("VectorExp::toElem() %s\n", toChars());
+
+    TypeVector *type = (TypeVector*)to->toBasetype();
+    assert(type->ty == Tvector);
+
+    DValue  *val = e1->toElem(p);
+    val = DtoCast(loc, val, type->elementType());
+    LLValue *rval = val->getRVal();
+    LLValue *vector = DtoAlloca(to);
+
+    for (int i = 0; i < dim; ++i) {
+        LLValue *elem = DtoGEPi(vector, 0, i);
+        DtoStore(rval, elem);
+    }
+
+    return new DVarValue(to, vector);
+}
+
+#endif
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

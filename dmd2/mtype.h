@@ -107,6 +107,7 @@ enum ENUMTY
 
     Treturn,
     Tnull,
+    Tvector,
     TMAX
 };
 typedef unsigned char TY;       // ENUMTY
@@ -203,6 +204,7 @@ struct Type : Object
     static ClassDeclaration *typeinfoarray;
     static ClassDeclaration *typeinfostaticarray;
     static ClassDeclaration *typeinfoassociativearray;
+    static ClassDeclaration *typeinfovector;
     static ClassDeclaration *typeinfoenum;
     static ClassDeclaration *typeinfofunction;
     static ClassDeclaration *typeinfodelegate;
@@ -430,6 +432,36 @@ struct TypeBasic : Type
 
     // For eliminating dynamic_cast
     TypeBasic *isTypeBasic();
+};
+
+struct TypeVector : Type
+{
+    Type *basetype;
+
+    TypeVector(Loc loc, Type *basetype);
+    Type *syntaxCopy();
+    Type *semantic(Loc loc, Scope *sc);
+    d_uns64 size(Loc loc);
+    unsigned alignsize();
+    Expression *getProperty(Loc loc, Identifier *ident);
+    Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
+    char *toChars();
+    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+#if CPP_MANGLE
+    void toCppMangle(OutBuffer *buf, CppMangleState *cms);
+#endif
+    int isintegral();
+    int isfloating();
+    int isscalar();
+    int isunsigned();
+    int checkBoolean();
+    MATCH implicitConvTo(Type *to);
+    Expression *defaultInit(Loc loc);
+    TypeBasic *elementType();
+    int isZeroInit(Loc loc);
+    TypeInfoDeclaration *getTypeInfoDeclaration();
+    TypeTuple *toArgTypes();
 };
 
 struct TypeArray : TypeNext
@@ -1029,6 +1061,7 @@ int arrayTypeCompatible(Loc loc, Type *t1, Type *t2);
 int arrayTypeCompatibleWithoutCasting(Loc loc, Type *t1, Type *t2);
 void MODtoBuffer(OutBuffer *buf, unsigned char mod);
 int MODimplicitConv(unsigned char modfrom, unsigned char modto);
+int MODmethodConv(unsigned char modfrom, unsigned char modto);
 int MODmerge(unsigned char mod1, unsigned char mod2);
 
 #endif /* DMD_MTYPE_H */

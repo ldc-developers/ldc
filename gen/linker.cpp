@@ -262,20 +262,20 @@ int linkObjToBinary(bool sharedLib)
             output = FileName::removeExt((char*)global.params.objfiles->data[0]);
         else
             output = "a.out";
-    }
 
-    if (sharedLib) {
-        std::string libExt = std::string(".") + global.dll_ext;
-        if (!endsWith(output, libExt))
-        {
-            if (global.params.os != OSWindows)
-                output = "lib" + output + libExt;
-            else
-                output.append(libExt);
+        if (sharedLib) {
+            std::string libExt = std::string(".") + global.dll_ext;
+            if (!endsWith(output, libExt))
+            {
+                if (global.params.os != OSWindows)
+                    output = "lib" + output + libExt;
+                else
+                    output.append(libExt);
+            }
+            args.push_back("-shared");
+        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
+            output.append(".exe");
         }
-        args.push_back("-shared");
-    } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
-        output.append(".exe");
     }
 
     args.push_back("-o");
@@ -313,14 +313,17 @@ int linkObjToBinary(bool sharedLib)
     }
 
     // default libs
+    bool addSoname = false;
     switch(global.params.os) {
     case OSLinux:
+        addSoname = true;
         args.push_back("-lrt");
         // fallthrough
     case OSMacOSX:
         args.push_back("-ldl");
         // fallthrough
     case OSFreeBSD:
+        addSoname = true;
         args.push_back("-lpthread");
         args.push_back("-lm");
         break;
@@ -342,6 +345,16 @@ int linkObjToBinary(bool sharedLib)
     else
         // Assume 32-bit?
         args.push_back("-m32");
+
+    OutBuffer buf;
+    if (opts::createSharedLib && addSoname) {
+        std::string soname = opts::soname.getNumOccurrences() == 0 ? output : opts::soname;
+        if (!soname.empty()) {
+            buf.writestring("-Wl,-soname,");
+            buf.writestring(soname.c_str());
+            args.push_back(buf.toChars());
+        }
+    }
 
     // print link command?
     if (!quiet || global.params.verbose)

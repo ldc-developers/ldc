@@ -887,7 +887,7 @@ void SwitchStatement::toIR(IRState* p)
         VarDeclaration* vd = 0;
         if (cs->exp->op == TOKvar)
             vd = ((VarExp*)cs->exp)->var->isVarDeclaration();
-        if (vd && !vd->init) {
+        if (vd && (!vd->init || !vd->isConst())) {
             cs->llvmIdx = cs->exp->toElemDtor(p)->getRVal();
             useSwitchInst = false;
         }
@@ -1631,9 +1631,12 @@ void SwitchErrorStatement::toIR(IRState* p)
     args.push_back(c);
 
     // call
-    gIR->CreateCallOrInvoke(fn, args);
+    LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
+    call.setDoesNotReturn();
 
+#if DMDV1
     gIR->ir->CreateUnreachable();
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

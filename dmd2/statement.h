@@ -136,6 +136,7 @@ struct Statement : Object
 
     virtual int inlineCost(InlineCostState *ics);
     virtual Expression *doInline(InlineDoState *ids);
+    virtual Statement *doInlineStatement(InlineDoState *ids);
     virtual Statement *inlineScan(InlineScanState *iss);
 
     // Back end
@@ -180,6 +181,7 @@ struct ExpStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -235,6 +237,7 @@ struct CompoundStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     virtual void toIR(IRState *irs);
@@ -274,6 +277,7 @@ struct UnrolledLoopStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -296,6 +300,9 @@ struct ScopeStatement : Statement
     int isEmpty();
     Expression *interpret(InterState *istate);
 
+    int inlineCost(InlineCostState *ics);
+    Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -362,7 +369,9 @@ struct ForStatement : Statement
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+    int inlineCost(InlineCostState *ics);
     Statement *inlineScan(InlineScanState *iss);
+    Statement *doInlineStatement(InlineDoState *ids);
 
     void toIR(IRState *irs);
 };
@@ -386,6 +395,8 @@ struct ForeachStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     bool checkForArgTypes();
+    int inferAggregate(Scope *sc, Dsymbol *&sapply);
+    int inferApplyArgTypes(Scope *sc, Dsymbol *&sapply);
     int hasBreak();
     int hasContinue();
     int usesEH();
@@ -448,6 +459,7 @@ struct IfStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -660,6 +672,7 @@ struct ReturnStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -775,6 +788,7 @@ struct Catch : Object
     Identifier *ident;
     VarDeclaration *var;
     Statement *handler;
+    bool internalCatch;
 
     Catch(Loc loc, Type *t, Identifier *id, Statement *handler);
     Catch *syntaxCopy();
@@ -927,9 +941,9 @@ struct AsmStatement : Statement
     Token *tokens;
     code *asmcode;
     unsigned asmalign;          // alignment of this statement
-    unsigned refparam;          // !=0 if function parameter is referenced
-    unsigned naked;             // !=0 if function is to be naked
-    unsigned regs;              // mask of registers modified
+    unsigned regs;              // mask of registers modified (must match regm_t in back end)
+    unsigned char refparam;     // !=0 if function parameter is referenced
+    unsigned char naked;        // !=0 if function is to be naked
 
     AsmStatement(Loc loc, Token *tokens);
     Statement *syntaxCopy();
@@ -939,6 +953,10 @@ struct AsmStatement : Statement
     Expression *interpret(InterState *istate);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+
+    //int inlineCost(InlineCostState *ics);
+    //Expression *doInline(InlineDoState *ids);
+    //Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
     
@@ -965,6 +983,7 @@ struct ImportStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
 
     void toIR(IRState *irs);
 };

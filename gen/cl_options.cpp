@@ -26,9 +26,10 @@ static cl::opt<bool, true> useDeprecated("d",
     cl::location(global.params.useDeprecated));
 
 #if DMDV2
-cl::opt<bool> enforcePropertySyntax("property",
+cl::opt<bool, true> enforcePropertySyntax("property",
     cl::desc("Enforce property syntax"),
-    cl::ZeroOrMore);
+    cl::ZeroOrMore,
+    cl::location(global.params.enforcePropertySyntax));
 #endif
 
 static cl::opt<ubyte, true> useDv1(
@@ -73,6 +74,11 @@ static cl::opt<ubyte, true> warnings(
     cl::location(global.params.warnings),
     cl::init(0));
 
+static cl::opt<bool, true> ignoreUnsupportedPragmas("ignore",
+    cl::desc("Ignore unsupported pragmas"),
+    cl::ZeroOrMore,
+    cl::location(global.params.ignoreUnsupportedPragmas));
+
 static cl::opt<ubyte, true> debugInfo(
     cl::desc("Generating debug information:"),
     cl::ZeroOrMore,
@@ -104,6 +110,12 @@ cl::opt<std::string> objectDir("od",
     cl::value_desc("objdir"),
     cl::Prefix,
     cl::desc("Write object files to directory <objdir>"));
+
+cl::opt<std::string> soname("soname",
+    cl::value_desc("soname"),
+    cl::Hidden,
+    cl::Prefix,
+    cl::desc("Use <soname> as output shared library soname"));
 
 
 // Output format options

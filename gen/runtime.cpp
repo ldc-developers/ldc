@@ -874,18 +874,20 @@ static void LLVM_D_BuildRuntimeModule()
     // D1:
     // void _aaDel(AA aa, TypeInfo keyti, void* pkey)
     // D2:
-    // void _aaDelX(AA aa, TypeInfo keyti, void* pkey)
+    // bool _aaDelX(AA aa, TypeInfo keyti, void* pkey)
     {
 #if DMDV2
         llvm::StringRef fname("_aaDelX");
+        LLType *retType = boolTy;
 #else
         llvm::StringRef fname("_aaDel");
+        LLType *retType = voidTy;
 #endif
         std::vector<LLType*> types;
         types.push_back(aaTy);
         types.push_back(typeInfoTy);
         types.push_back(voidPtrTy);
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        LLFunctionType* fty = llvm::FunctionType::get(retType, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_1_3_NoCapture);
     }

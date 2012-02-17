@@ -1,16 +1,18 @@
 
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
-// www.digitalmars.com
+// http://www.digitalmars.com
 // License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
+// in artistic.txt, or the GNU General Public License in gpl.txt.
 // See the included readme.txt for details.
 
-#ifndef DMD_HTML_H
-#define DMD_HTML_H 1
 
+#if MARS
 struct OutBuffer;
+#else
+struct Outbuffer;
+#endif
 
 struct Html
 {
@@ -20,14 +22,22 @@ struct Html
     unsigned char *end;         // past end of buffer
     unsigned char *p;           // current character
     unsigned linnum;            // current line number
+#if MARS
     OutBuffer *dbuf;            // code source buffer
+#else
+    Outbuffer *dbuf;            // code source buffer
+#endif
     int inCode;                 // !=0 if in code
 
 
     Html(const char *sourcename, unsigned char *base, unsigned length);
 
-    void error(const char *format, ...) IS_PRINTF(2);
+    void error(const char *format, ...);
+#if MARS
     void extractCode(OutBuffer *buf);
+#else
+    void extractCode(Outbuffer *buf);
+#endif
     void skipTag();
     void skipString();
     unsigned char *skipWhite(unsigned char *q);
@@ -38,5 +48,3 @@ struct Html
     int charEntity();
     static int namedEntity(unsigned char *p, int length);
 };
-
-#endif

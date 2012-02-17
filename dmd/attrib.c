@@ -29,16 +29,8 @@
 #if TARGET_NET
  #include "frontend.net/pragma.h"
 #endif
-
 #if IN_LLVM
-#include "../gen/enums.h"
-
-#include "llvm/Support/CommandLine.h"
-
-static llvm::cl::opt<bool> ignoreUnsupportedPragmas("ignore",
-    llvm::cl::desc("Ignore unsupported pragmas"),
-    llvm::cl::ZeroOrMore);
-
+#include "../gen/pragma.h"
 #endif
 
 
@@ -993,9 +985,8 @@ void PragmaDeclaration::semantic(Scope *sc)
 {   // Should be merged with PragmaStatement
 
 #if IN_LLVM
-    int llvm_internal = 0;
+    Pragma llvm_internal = LLVMnone;
     std::string arg1str;
-
 #endif
 
     //printf("\tPragmaDeclaration::semantic '%s'\n",toChars());
@@ -1108,193 +1099,13 @@ void PragmaDeclaration::semantic(Scope *sc)
     {
     }
 #endif // TARGET_NET
-
-// LDC
 #if IN_LLVM
-
-    // pragma(intrinsic, "string") { funcdecl(s) }
-    else if (ident == Id::intrinsic)
+    else if ((llvm_internal = DtoGetPragma(sc, this, arg1str)) != LLVMnone)
     {
-        Expression* expr = (Expression *)args->data[0];
-        expr = expr->semantic(sc);
-        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
-        {
-             error("requires exactly 1 string literal parameter");
-             fatal();
-        }
-        llvm_internal = LLVMintrinsic;
+        // nothing to do anymore
     }
-
-    // pragma(notypeinfo) { typedecl(s) }
-    else if (ident == Id::no_typeinfo)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMno_typeinfo;
-    }
-
-    // pragma(nomoduleinfo) ;
-    else if (ident == Id::no_moduleinfo)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMno_moduleinfo;
-    }
-
-    // pragma(alloca) { funcdecl(s) }
-    else if (ident == Id::Alloca)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMalloca;
-    }
-
-    // pragma(va_start) { templdecl(s) }
-    else if (ident == Id::vastart)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMva_start;
-    }
-
-    // pragma(va_copy) { funcdecl(s) }
-    else if (ident == Id::vacopy)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMva_copy;
-    }
-
-    // pragma(va_end) { funcdecl(s) }
-    else if (ident == Id::vaend)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMva_end;
-    }
-
-    // pragma(va_arg) { templdecl(s) }
-    else if (ident == Id::vaarg)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMva_arg;
-    }
-
-    // pragma(fence) { templdecl(s) }
-    else if (ident == Id::fence)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMfence;
-    }
-
-    // pragma(atomic_load) { templdecl(s) }
-    else if (ident == Id::atomic_load)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMatomic_load;
-    }
-
-    // pragma(atomic_store) { templdecl(s) }
-    else if (ident == Id::atomic_store)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMatomic_store;
-    }
-
-    // pragma(atomic_cmp_xchg) { templdecl(s) }
-    else if (ident == Id::atomic_cmp_xchg)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMatomic_cmp_xchg;
-    }
-
-    // pragma(atomic_rmw, "string") { templdecl(s) }
-    else if (ident == Id::atomic_rmw)
-    {
-        Expression* expr = (Expression *)args->data[0];
-        expr = expr->semantic(sc);
-        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
-        {
-             error("requires exactly 1 string literal parameter");
-             fatal();
-        }
-        llvm_internal = LLVMatomic_rmw;
-    }
-
-    // pragma(ldc, "string") { templdecl(s) }
-    else if (ident == Id::ldc)
-    {
-        Expression* expr = (Expression *)args->data[0];
-        expr = expr->semantic(sc);
-        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
-        {
-             error("requires exactly 1 string literal parameter");
-             fatal();
-        }
-        else if (arg1str == "verbose")
-        {
-            sc->module->llvmForceLogging = true;
-        }
-        else
-        {
-            error("command '%s' invalid", expr->toChars());
-            fatal();
-        }
-    }
-
-    // pragma(llvm_inline_asm) { templdecl(s) }
-    else if (ident == Id::llvm_inline_asm)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        llvm_internal = LLVMinline_asm;
-    }
-
-#endif // LDC
-
-
-    else if (ignoreUnsupportedPragmas)
+#endif
+    else if (global.params.ignoreUnsupportedPragmas)
     {
         if (global.params.verbose)
         {
@@ -1339,142 +1150,10 @@ void PragmaDeclaration::semantic(Scope *sc)
 
             s->semantic(sc);
 
-// LDC
 #if IN_LLVM
-
-        if (llvm_internal)
-        {
-        if (s->llvmInternal)
-        {
-            error("multiple LDC specific pragmas not allowed not affect the same declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
-            fatal();
+            DtoCheckPragma(this, s, llvm_internal, arg1str);
+#endif
         }
-        switch(llvm_internal)
-        {
-        case LLVMintrinsic:
-            if (FuncDeclaration* fd = s->isFuncDeclaration())
-            {
-                fd->llvmInternal = llvm_internal;
-                fd->intrinsicName = arg1str;
-                fd->linkage = LINKintrinsic;
-                ((TypeFunction*)fd->type)->linkage = LINKintrinsic;
-            }
-            else if (TemplateDeclaration* td = s->isTemplateDeclaration())
-            {
-                td->llvmInternal = llvm_internal;
-                td->intrinsicName = arg1str;
-            }
-            else
-            {
-                error("only allowed on function declarations");
-                fatal();
-            }
-            break;
-
-        case LLVMatomic_rmw:
-            if (TemplateDeclaration* td = s->isTemplateDeclaration())
-            {
-                td->llvmInternal = llvm_internal;
-                td->intrinsicName = arg1str;
-            }
-            else
-            {
-                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
-                fatal();
-            }
-            break;
-
-        case LLVMva_start:
-        case LLVMva_arg:
-        case LLVMatomic_load:
-        case LLVMatomic_store:
-        case LLVMatomic_cmp_xchg:
-            if (TemplateDeclaration* td = s->isTemplateDeclaration())
-            {
-                if (td->parameters->dim != 1)
-                {
-                    error("the '%s' pragma template must have exactly one template parameter", ident->toChars());
-                    fatal();
-                }
-                else if (!td->onemember)
-                {
-                    error("the '%s' pragma template must have exactly one member", ident->toChars());
-                    fatal();
-                }
-                else if (td->overnext || td->overroot)
-                {
-                    error("the '%s' pragma template must not be overloaded", ident->toChars());
-                    fatal();
-                }
-                td->llvmInternal = llvm_internal;
-            }
-            else
-            {
-                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
-                fatal();
-            }
-            break;
-
-        case LLVMva_copy:
-        case LLVMva_end:
-        case LLVMfence:
-            if (FuncDeclaration* fd = s->isFuncDeclaration())
-            {
-                fd->llvmInternal = llvm_internal;
-            }
-            else
-            {
-                error("the '%s' pragma is only allowed on function declarations", ident->toChars());
-                fatal();
-            }
-            break;
-
-        case LLVMno_typeinfo:
-            s->llvmInternal = llvm_internal;
-            break;
-
-        case LLVMalloca:
-            if (FuncDeclaration* fd = s->isFuncDeclaration())
-            {
-                fd->llvmInternal = llvm_internal;
-            }
-            else
-            {
-                error("the '%s' pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
-                fatal();
-            }
-            break;
-
-        case LLVMinline_asm:
-            if (TemplateDeclaration* td = s->isTemplateDeclaration())
-            {
-                if (td->parameters->dim > 1)
-                {
-                    error("the '%s' pragma template must have exactly zero or one template parameters", ident->toChars());
-                    fatal();
-                }
-                else if (!td->onemember)
-                {
-                    error("the '%s' pragma template must have exactly one member", ident->toChars());
-                    fatal();
-                }
-                td->llvmInternal = llvm_internal;
-            }
-            else
-            {
-                error("the '%s' pragma is only allowed on template declarations", ident->toChars());
-                fatal();
-            }
-            break;
-
-        default:
-            warning("the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
-        }
-        }
-
-#endif // LDC
-
-    }
     }
     return;
 

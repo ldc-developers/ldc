@@ -37,7 +37,11 @@ void Declaration::codegen(Ir*)
 
 void InterfaceDeclaration::codegen(Ir*)
 {
-    //Logger::println("Ignoring InterfaceDeclaration::toObjFile for %s", toChars());
+    if (type->ty == Terror)
+    {   error("had semantic errors when compiling");
+        return;
+    }
+
     if (members && symtab)
         DtoResolveDsymbol(this);
 }
@@ -46,6 +50,11 @@ void InterfaceDeclaration::codegen(Ir*)
 
 void StructDeclaration::codegen(Ir*)
 {
+    if (type->ty == Terror)
+    {   error("had semantic errors when compiling");
+        return;
+    }
+
     if (members && symtab)
         DtoResolveDsymbol(this);
 }
@@ -54,6 +63,11 @@ void StructDeclaration::codegen(Ir*)
 
 void ClassDeclaration::codegen(Ir*)
 {
+    if (type->ty == Terror)
+    {   error("had semantic errors when compiling");
+        return;
+    }
+
     if (members && symtab)
         DtoResolveDsymbol(this);
 }
@@ -85,6 +99,11 @@ void VarDeclaration::codegen(Ir* p)
 {
     Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (type->ty == Terror)
+    {   error("had semantic errors when compiling");
+        return;
+    }
 
     // just forward aliases
     if (aliassym)
@@ -187,6 +206,11 @@ void TypedefDeclaration::codegen(Ir*)
     Logger::print("TypedefDeclaration::toObjFile: %s\n", toChars());
     LOG_SCOPE;
 
+    if (type->ty == Terror)
+    {   error("had semantic errors when compiling");
+        return;
+    }
+
     // generate typeinfo
     DtoTypeInfoOf(type, false);
 }
@@ -196,6 +220,11 @@ void TypedefDeclaration::codegen(Ir*)
 void EnumDeclaration::codegen(Ir*)
 {
     Logger::println("Ignoring EnumDeclaration::toObjFile for %s", toChars());
+
+    if (type->ty == Terror)
+    {   error("had semantic errors when compiling");
+        return;
+    }
 }
 
 /* ================================================================== */
@@ -216,6 +245,11 @@ void TemplateInstance::codegen(Ir* p)
 #if LOG
     printf("TemplateInstance::toObjFile('%s', this = %p)\n", toChars(), this);
 #endif
+#if DMDV2
+    if (ignore)
+        return;
+#endif
+
     if (!errors && members)
     {
         for (unsigned i = 0; i < members->dim; i++)

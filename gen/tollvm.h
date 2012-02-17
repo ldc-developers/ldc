@@ -70,6 +70,10 @@ LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name=0);
 LLConstant* DtoBitCast(LLConstant* v, LLType* t);
 LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name=0);
 LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name=0);
+LLValue* DtoInsertElement(LLValue* vec, LLValue* v, LLValue *idx, const char* name=0);
+LLValue* DtoExtractElement(LLValue* vec, LLValue *idx, const char* name=0);
+LLValue* DtoInsertElement(LLValue* vec, LLValue* v, unsigned idx, const char* name=0);
+LLValue* DtoExtractElement(LLValue* vec, unsigned idx, const char* name=0);
 
 // llvm::dyn_cast wrappers
 LLPointerType* isaPointer(LLValue* v);
@@ -161,7 +165,5 @@ void DtoAggrCopy(LLValue* dst, LLValue* src);
  * @param device special device flag
  */
 void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
-
-#include "enums.h"
 
 #endif // LDC_GEN_TOLLVM_H

@@ -205,7 +205,6 @@ struct Param
     bool useUnitTests;  // generate unittest code
     bool useInline;     // inline expand functions
     ubyte warnings;     // enable warnings
-    ubyte Dversion;     // D version number
 // KN End merge conflict
 #if 0
     char symdebug;      // insert debug symbolic information
@@ -239,6 +238,8 @@ struct Param
 #endif
                         // 1: warnings as errors
                         // 2: informational warnings (no errors)
+    ubyte Dversion;     // D version number
+    bool ignoreUnsupportedPragmas;      // rather than error on them
     char safe;          // enforce safe memory model
 
     char *argv0;        // program name

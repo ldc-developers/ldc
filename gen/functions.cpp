@@ -24,6 +24,7 @@
 #include "gen/abi.h"
 #include "gen/nested.h"
 #include "gen/cl_options.h"
+#include "gen/pragma.h"
 
 using namespace llvm::Attribute;
 

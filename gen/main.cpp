@@ -219,11 +219,6 @@ int main(int argc, char** argv)
             printf("config    %s\n", path.c_str());
     }
 
-    // enforcePropertySyntax handled separately because it is a char
-#if DMDV2
-    global.params.enforcePropertySyntax = enforcePropertySyntax ? 1 : 0;
-#endif
-
     // Negated options
     global.params.link = !compileOnly;
     global.params.obj = !dontWriteObj;
@@ -411,13 +406,21 @@ int main(int argc, char** argv)
         error("flags conflict with -run");
         fatal();
     }
-    else
-    {
-        if (global.params.objname && files.dim > 1 && !singleObj)
+    else if (global.params.objname && files.dim > 1) {
+        if (createStaticLib || createSharedLib)
+        {
+            singleObj = true;
+        }
+        if (!singleObj)
         {
             error("multiple source files, but only one .obj name");
             fatal();
         }
+    }
+
+    if (soname.getNumOccurrences() > 0 && !createSharedLib) {
+        error("-soname can be used only when building a shared library");
+        fatal();
     }
 
     // create a proper target

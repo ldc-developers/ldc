@@ -32,6 +32,24 @@ extern int binary(const char *p , const char **tab, int high);
  */
 
 AA *arrayfuncs;
+#else
+int binary(const char *p , const char **tab, int high)
+{
+    int i = 0, j = high, k, l;
+    do
+    {
+        k = (i + j) / 2;
+        l = strcmp(p, tab[k]);
+        if (!l)
+            return k;
+        else if (l < 0)
+            j = k;
+        else
+            i = k + 1;
+    }
+    while (i != j);
+    return -1;
+}
 #endif
 
 /**********************************************
@@ -139,7 +157,6 @@ Expression *BinExp::arrayOp(Scope *sc)
     FuncDeclaration *fd = (FuncDeclaration *)*pfd;
     if (!fd)
     {
-#if IN_DMD
         /* Some of the array op functions are written as library functions,
          * presumably to optimize them with special CPU vector instructions.
          * List those library functions here, in alpha order.
@@ -317,7 +334,6 @@ Expression *BinExp::arrayOp(Scope *sc)
                     assert(0);
             }
 #endif
-#endif
             /* Not in library, so generate it.
              * Construct the function body:
              *  foreach (i; 0 .. p.length)    for (size_t i = 0; i < p.length; i++)
@@ -369,8 +385,17 @@ Expression *BinExp::arrayOp(Scope *sc)
             fd->semantic2(sc);
             fd->semantic3(sc);
             sc->pop();
-#if IN_DMD
         }
+#if IN_LLVM
+        else
+        {   /* In library, refer to it.
+             */
+            Parameters *fparams = new Parameters();
+            buildArrayLoop(fparams);
+            fd = FuncDeclaration::genCfunc(fparams, type, ident);
+            fd->isArrayOp = 2;
+        }
+#else
         else
         {   /* In library, refer to it.
              */
@@ -553,7 +578,7 @@ Expression *Str##AssignExp::buildArrayLoop(Parameters *fparams) \
     Expression *ex1 = e1->buildArrayLoop(fparams);              \
     Parameter *param = (*fparams)[0];                           \
     param->storageClass = 0;                                    \
-    Expression *e = new Str##AssignExp(0, ex1, ex2);            \
+    Expression *e = new Str##AssignExp(loc, ex1, ex2);          \
     return e;                                                   \
 }
 

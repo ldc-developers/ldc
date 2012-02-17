@@ -41,7 +41,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     hasUnions = 0;
     sizeok = 0;                 // size not determined yet
     deferred = NULL;
-    isdeprecated = 0;
+    isdeprecated = false;
     inv = NULL;
     aggNew = NULL;
     aggDelete = NULL;
@@ -126,7 +126,7 @@ void AggregateDeclaration::inlineScan()
 
 unsigned AggregateDeclaration::size(Loc loc)
 {
-    //printf("AggregateDeclaration::size() = %d\n", structsize);
+    //printf("AggregateDeclaration::size() %s, scope = %p\n", toChars(), scope);
     if (!members)
         error(loc, "unknown size");
     if (sizeok != 1 && scope)
@@ -146,6 +146,11 @@ Type *AggregateDeclaration::getType()
 int AggregateDeclaration::isDeprecated()
 {
     return isdeprecated;
+}
+
+int AggregateDeclaration::isExport()
+{
+    return protection == PROTexport;
 }
 
 /****************************
@@ -377,6 +382,8 @@ void StructDeclaration::semantic(Scope *sc)
         scope = NULL;
     }
 
+    int errors = global.gaggedErrors;
+
     unsigned dprogress_save = Module::dprogress;
 
     parent = sc->parent;
@@ -390,7 +397,7 @@ void StructDeclaration::semantic(Scope *sc)
     protection = sc->protection;
     storage_class |= sc->stc;
     if (sc->stc & STCdeprecated)
-        isdeprecated = 1;
+        isdeprecated = true;
     assert(!isAnonymous());
     if (sc->stc & STCabstract)
         error("structs, unions cannot be abstract");
@@ -464,7 +471,7 @@ void StructDeclaration::semantic(Scope *sc)
      * resolve individual members like enums.
      */
     for (size_t i = 0; i < members_dim; i++)
-    {   Dsymbol *s = members->tdata()[i];
+    {   Dsymbol *s = (*members)[i];
         /* There are problems doing this in the general case because
          * Scope keeps track of things like 'offset'
          */
@@ -477,28 +484,19 @@ void StructDeclaration::semantic(Scope *sc)
 
     for (size_t i = 0; i < members_dim; i++)
     {
-        Dsymbol *s = members->tdata()[i];
-        s->semantic(sc2);
-#if 0
-        if (sizeok == 2)
-        {   //printf("forward reference\n");
-            break;
-        }
-#endif
+        Dsymbol *s = (*members)[i];
 
-#if 0   /* Decided to allow this because if the field is initialized by copying it from
-         * a correctly initialized struct, it will work.
+        /* If this is the last member, see if we can finish setting the size.
+         * This could be much better - finish setting the size after the last
+         * field was processed. The problem is the chicken-and-egg determination
+         * of when that is. See Bugzilla 7426 for more info.
          */
-        Type *t;
-        if (s->isDeclaration() &&
-            (t = s->isDeclaration()->type) != NULL &&
-            t->toBasetype()->ty == Tstruct)
-        {   StructDeclaration *sd = (StructDeclaration *)t->toDsymbol(sc);
-            if (sd->isnested)
-                error("inner struct %s cannot be the type for field %s as it must embed a reference to its enclosing %s",
-                     sd->toChars(), s->toChars(), sd->toParent2()->toPrettyChars());
+        if (i + 1 == members_dim)
+        {
+            if (sizeok == 0 && s->isAliasDeclaration())
+                finalizeSize();
         }
-#endif
+        s->semantic(sc2);
     }
 
     if (sizeok == 2)
@@ -518,19 +516,7 @@ void StructDeclaration::semantic(Scope *sc)
         return;
     }
 
-    // 0 sized struct's are set to 1 byte
-    if (structsize == 0)
-    {
-        structsize = 1;
-        alignsize = 1;
-    }
-
-    // Round struct size up to next alignsize boundary.
-    // This will ensure that arrays of structs will get their internals
-    // aligned properly.
-    structsize = (structsize + alignsize - 1) & ~(alignsize - 1);
-
-    sizeok = 1;
+    finalizeSize();
     Module::dprogress++;
 
     //printf("-StructDeclaration::semantic(this=%p, '%s')\n", this, toChars());
@@ -649,7 +635,13 @@ void StructDeclaration::semantic(Scope *sc)
         semantic2(sc);
         semantic3(sc);
     }
-    if (deferred)
+
+    if (global.gag && global.gaggedErrors != errors)
+    {   // The type is no good, yet the error messages were gagged.
+        type = Type::terror;
+    }
+
+    if (deferred && !global.gag)
     {
         deferred->semantic2(sc);
         deferred->semantic3(sc);
@@ -670,6 +662,23 @@ Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
     }
 
     return ScopeDsymbol::search(loc, ident, flags);
+}
+
+void StructDeclaration::finalizeSize()
+{
+    // 0 sized struct's are set to 1 byte
+    if (structsize == 0)
+    {
+        structsize = 1;
+        alignsize = 1;
+    }
+
+    // Round struct size up to next alignsize boundary.
+    // This will ensure that arrays of structs will get their internals
+    // aligned properly.
+    structsize = (structsize + alignsize - 1) & ~(alignsize - 1);
+
+    sizeok = 1;
 }
 
 void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)

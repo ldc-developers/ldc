@@ -71,6 +71,7 @@ struct Scope
     int parameterSpecialization; // if in template parameter specialization
     int noaccesscheck;          // don't do access checks
     int mustsemantic;           // cannot defer semantic()
+    int ignoreTemplates;        // set if newly instantiated templates should be ignored when codegen'ing
 
     unsigned callSuper;         // primitive flow analysis for constructors
 #define CSXthis_ctor    1       // called this()

@@ -28,6 +28,7 @@
 #include "mtype.h"
 #include "init.h"
 #include "expression.h"
+#include "statement.h"
 #include "scope.h"
 #include "id.h"
 #include "declaration.h"
@@ -35,9 +36,9 @@
 #include "template.h"
 #include "scope.h"
 
-static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Parameters *arguments);
+static Dsymbol *inferApplyArgTypesX(Expression *ethis, FuncDeclaration *fstart, Parameters *arguments);
 static void inferApplyArgTypesZ(TemplateDeclaration *tstart, Parameters *arguments);
-static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments);
+static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments, int flags = 0);
 static void templateResolve(Match *m, TemplateDeclaration *td, Scope *sc, Loc loc, Objects *targsi, Expression *ethis, Expressions *arguments);
 
 /******************************** Expression **************************/
@@ -385,6 +386,7 @@ Expression *ArrayExp::op_overload(Scope *sc)
                 currentDimension = i;   // Dimension for $, if required
 
                 x = x->semantic(sc);
+                x = resolveProperties(sc, x);
                 if (!x->type)
                     error("%s has no value", x->toChars());
                 if (lengthVar)
@@ -922,21 +924,26 @@ Expression *EqualExp::op_overload(Scope *sc)
     Type *t1 = e1->type->toBasetype();
     Type *t2 = e2->type->toBasetype();
     if (t1->ty == Tclass && t2->ty == Tclass)
-    {
-        /* Rewrite as:
-         *      .object.opEquals(cast(Object)e1, cast(Object)e2)
-         * The explicit cast is necessary for interfaces,
-         * see http://d.puremagic.com/issues/show_bug.cgi?id=4088
-         */
-        Expression *e1x = e1; //new CastExp(loc, e1, ClassDeclaration::object->getType());
-        Expression *e2x = e2; //new CastExp(loc, e2, ClassDeclaration::object->getType());
+    {   ClassDeclaration *cd1 = t1->isClassHandle();
+        ClassDeclaration *cd2 = t2->isClassHandle();
 
-        Expression *e = new IdentifierExp(loc, Id::empty);
-        e = new DotIdExp(loc, e, Id::object);
-        e = new DotIdExp(loc, e, Id::eq);
-        e = new CallExp(loc, e, e1x, e2x);
-        e = e->semantic(sc);
-        return e;
+        if (!(cd1->isCPPinterface() || cd2->isCPPinterface()))
+        {
+            /* Rewrite as:
+             *      .object.opEquals(cast(Object)e1, cast(Object)e2)
+             * The explicit cast is necessary for interfaces,
+             * see http://d.puremagic.com/issues/show_bug.cgi?id=4088
+             */
+            Expression *e1x = new CastExp(loc, e1, ClassDeclaration::object->getType());
+            Expression *e2x = new CastExp(loc, e2, ClassDeclaration::object->getType());
+
+            Expression *e = new IdentifierExp(loc, Id::empty);
+            e = new DotIdExp(loc, e, Id::object);
+            e = new DotIdExp(loc, e, Id::eq);
+            e = new CallExp(loc, e, e1x, e2x);
+            e = e->semantic(sc);
+            return e;
+        }
     }
 
     return compare_overload(sc, Id::eq);
@@ -1212,34 +1219,161 @@ Dsymbol *search_function(ScopeDsymbol *ad, Identifier *funcid)
 }
 
 
+int ForeachStatement::inferAggregate(Scope *sc, Dsymbol *&sapply)
+{
+    Identifier *idapply = (op == TOKforeach) ? Id::apply : Id::applyReverse;
+#if DMDV2
+    Identifier *idhead = (op == TOKforeach) ? Id::Ffront : Id::Fback;
+    int sliced = 0;
+#endif
+    Type *tab;
+    AggregateDeclaration *ad;
+
+    while (1)
+    {
+        aggr = aggr->semantic(sc);
+        aggr = resolveProperties(sc, aggr);
+        aggr = aggr->optimize(WANTvalue);
+        if (!aggr->type)
+            goto Lerr;
+
+        tab = aggr->type->toBasetype();
+        switch (tab->ty)
+        {
+            case Tarray:
+            case Tsarray:
+            case Ttuple:
+            case Taarray:
+                break;
+
+            case Tclass:
+                ad = ((TypeClass *)tab)->sym;
+                goto Laggr;
+
+            case Tstruct:
+                ad = ((TypeStruct *)tab)->sym;
+                goto Laggr;
+
+            Laggr:
+#if DMDV2
+                if (!sliced)
+                {
+                    sapply = search_function(ad, idapply);
+                    if (sapply)
+                    {   // opApply aggregate
+                        break;
+                    }
+
+                    Dsymbol *s = search_function(ad, Id::slice);
+                    if (s)
+                    {   Expression *rinit = new SliceExp(aggr->loc, aggr, NULL, NULL);
+                        rinit = rinit->trySemantic(sc);
+                        if (rinit)                  // if application of [] succeeded
+                        {   aggr = rinit;
+                            sliced = 1;
+                            continue;
+                        }
+                    }
+                }
+
+                if (Dsymbol *shead = search_function(ad, idhead))
+                {   // range aggregate
+                    break;
+                }
+
+                if (ad->aliasthis)
+                {
+                    aggr = new DotIdExp(aggr->loc, aggr, ad->aliasthis->ident);
+                    continue;
+                }
+#else
+                sapply = search_function(ad, idapply);
+                if (sapply)
+                {   // opApply aggregate
+                    break;
+                }
+#endif
+                goto Lerr;
+
+            case Tdelegate:
+                if (aggr->op == TOKdelegate)
+                {   DelegateExp *de = (DelegateExp *)aggr;
+                    sapply = de->func->isFuncDeclaration();
+                }
+                break;
+
+            case Terror:
+                break;
+
+            default:
+                goto Lerr;
+        }
+        break;
+    }
+    return 1;
+
+Lerr:
+    return 0;
+}
+
 /*****************************************
  * Given array of arguments and an aggregate type,
  * if any of the argument types are missing, attempt to infer
  * them from the aggregate type.
  */
 
-void inferApplyArgTypes(enum TOK op, Parameters *arguments, Expression *aggr, Module* from)
+int ForeachStatement::inferApplyArgTypes(Scope *sc, Dsymbol *&sapply)
 {
     if (!arguments || !arguments->dim)
-        return;
+        return 0;
+
+    if (sapply)     // prefer opApply
+    {
+        for (size_t u = 0; u < arguments->dim; u++)
+        {   Parameter *arg = arguments->tdata()[u];
+            if (arg->type)
+                arg->type = arg->type->semantic(loc, sc);
+        }
+
+        Expression *ethis;
+        Type *tab = aggr->type->toBasetype();
+        if (tab->ty == Tclass || tab->ty == Tstruct)
+            ethis = aggr;
+        else
+        {   assert(tab->ty == Tdelegate && aggr->op == TOKdelegate);
+            ethis = ((DelegateExp *)aggr)->e1;
+        }
+
+        /* Look for like an
+         *  int opApply(int delegate(ref Type [, ...]) dg);
+         * overload
+         */
+        FuncDeclaration *fd = sapply->isFuncDeclaration();
+        if (fd)
+        {   sapply = inferApplyArgTypesX(ethis, fd, arguments);
+        }
+#if 0
+        TemplateDeclaration *td = sapply->isTemplateDeclaration();
+        if (td)
+        {   inferApplyArgTypesZ(td, arguments);
+        }
+#endif
+        return sapply ? 1 : 0;
+    }
 
     /* Return if no arguments need types.
      */
-    for (size_t u = 0; 1; u++)
-    {   if (u == arguments->dim)
-            return;
-        Parameter *arg = arguments->tdata()[u];
+    for (size_t u = 0; u < arguments->dim; u++)
+    {   Parameter *arg = arguments->tdata()[u];
         if (!arg->type)
             break;
     }
 
-    Dsymbol *s;
     AggregateDeclaration *ad;
 
     Parameter *arg = arguments->tdata()[0];
     Type *taggr = aggr->type;
-    if (!taggr)
-        return;
+    assert(taggr);
     Type *tab = taggr->toBasetype();
     switch (tab->ty)
     {
@@ -1279,25 +1413,19 @@ void inferApplyArgTypes(enum TOK op, Parameters *arguments, Expression *aggr, Mo
             goto Laggr;
 
         Laggr:
-            s = search_function(ad,
-                        (op == TOKforeach_reverse) ? Id::applyReverse
-                                                   : Id::apply);
-            if (s)
-                goto Lapply;                    // prefer opApply
-
             if (arguments->dim == 1)
             {
                 if (!arg->type)
                 {
                     /* Look for a head() or rear() overload
                      */
-                    Identifier *id = (op == TOKforeach) ? Id::Fhead : Id::Ftoe;
+                    Identifier *id = (op == TOKforeach) ? Id::Ffront : Id::Fback;
                     Dsymbol *s = search_function(ad, id);
                     FuncDeclaration *fd = s ? s->isFuncDeclaration() : NULL;
                     if (!fd)
                     {   if (s && s->isTemplateDeclaration())
                             break;
-                        goto Lapply;
+                        break;
                     }
                     // Resolve inout qualifier of front type
                     arg->type = fd->type->nextOf();
@@ -1306,80 +1434,86 @@ void inferApplyArgTypes(enum TOK op, Parameters *arguments, Expression *aggr, Mo
                 }
                 break;
             }
-
-        Lapply:
-        {   /* Look for an
-             *  int opApply(int delegate(ref Type [, ...]) dg);
-             * overload
-             */
-            if (s)
-            {
-                FuncDeclaration *fd = s->isFuncDeclaration();
-                if (fd)
-		{   inferApplyArgTypesX(from, fd, arguments);
-                    break;
-                }
-#if 0
-                TemplateDeclaration *td = s->isTemplateDeclaration();
-                if (td)
-                {   inferApplyArgTypesZ(td, arguments);
-                    break;
-                }
-#endif
-            }
             break;
-        }
 
         case Tdelegate:
         {
-            if (0 && aggr->op == TOKdelegate)
-            {   DelegateExp *de = (DelegateExp *)aggr;
-
-                FuncDeclaration *fd = de->func->isFuncDeclaration();
-                if (fd)
-		    inferApplyArgTypesX(from, fd, arguments);
-            }
-            else
-            {
-                inferApplyArgTypesY((TypeFunction *)tab->nextOf(), arguments);
-            }
+            if (!inferApplyArgTypesY((TypeFunction *)tab->nextOf(), arguments))
+                return 0;
             break;
         }
 
         default:
             break;              // ignore error, caught later
     }
+    return 1;
 }
 
-/********************************
- * Recursive helper function,
- * analogous to func.overloadResolveX().
- */
-
-int fp3(void *param, FuncDeclaration *f)
+static Dsymbol *inferApplyArgTypesX(Expression *ethis, FuncDeclaration *fstart, Parameters *arguments)
 {
-    Parameters *arguments = (Parameters *)param;
-    TypeFunction *tf = (TypeFunction *)f->type;
-    if (inferApplyArgTypesY(tf, arguments) == 1)
-        return 0;
-    if (arguments->dim == 0)
-        return 1;
-    return 0;
-}
+    struct Param3
+    {
+        Parameters *arguments;
+        int mod;
+        MATCH match;
+        FuncDeclaration *fd_best;
+        FuncDeclaration *fd_ambig;
 
-static void inferApplyArgTypesX(Module* from, FuncDeclaration *fstart, Parameters *arguments)
-{
-    overloadApply(fstart, &fp3, arguments);
+        static int fp(void *param, FuncDeclaration *f)
+        {
+            Param3 *p = (Param3 *)param;
+            TypeFunction *tf = (TypeFunction *)f->type;
+            MATCH m = MATCHexact;
+
+            if (f->isThis())
+            {   if (!MODimplicitConv(p->mod, tf->mod))
+                    m = MATCHnomatch;
+                else if (p->mod != tf->mod)
+                    m = MATCHconst;
+            }
+            if (!inferApplyArgTypesY(tf, p->arguments, 1))
+                m = MATCHnomatch;
+
+            if (m > p->match)
+            {   p->fd_best = f;
+                p->fd_ambig = NULL;
+                p->match = m;
+            }
+            else if (m == p->match)
+                p->fd_ambig = f;
+            return 0;
+        }
+    };
+
+    Param3 p;
+    p.arguments = arguments;
+    p.mod = ethis->type->mod;
+    p.match = MATCHnomatch;
+    p.fd_best = NULL;
+    p.fd_ambig = NULL;
+    overloadApply(fstart, &Param3::fp, &p);
+    if (p.fd_best)
+    {
+        inferApplyArgTypesY((TypeFunction *)p.fd_best->type, arguments);
+        if (p.fd_ambig)
+        {   ::error(ethis->loc, "%s.%s matches more than one declaration:\n\t%s(%d):%s\nand:\n\t%s(%d):%s",
+                    ethis->toChars(), fstart->ident->toChars(),
+                    p.fd_best ->loc.filename, p.fd_best ->loc.linnum, p.fd_best ->type->toChars(),
+                    p.fd_ambig->loc.filename, p.fd_ambig->loc.linnum, p.fd_ambig->type->toChars());
+            p.fd_best = NULL;
+        }
+    }
+    return p.fd_best;
 }
 
 /******************************
  * Infer arguments from type of function.
  * Returns:
- *      0 match for this function
- *      1 no match for this function
+ *      1 match for this function
+ *      0 no match for this function
  */
 
-static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments)
+static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments, int flags)
 {   size_t nparams;
     Parameter *p;
 
@@ -1406,22 +1540,16 @@ static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments)
         Parameter *param = Parameter::getNth(tf->parameters, u);
         if (arg->type)
         {   if (!arg->type->equals(param->type))
-            {
-                /* Cannot resolve argument types. Indicate an
-                 * error by setting the number of arguments to 0.
-                 */
-                arguments->dim = 0;
-                goto Lmatch;
-            }
-            continue;
+                goto Lnomatch;
         }
-        arg->type = param->type;
+        else if (!flags)
+            arg->type = param->type;
     }
   Lmatch:
-    return 0;
+    return 1;
 
   Lnomatch:
-    return 1;
+    return 0;
 }
 
 /*******************************************

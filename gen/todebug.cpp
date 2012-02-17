@@ -33,7 +33,7 @@ static Module* getDefinedModule(Dsymbol* s)
     // array operations as well
     else if (FuncDeclaration* fd = s->isFuncDeclaration())
     {
-        if (fd->isArrayOp)
+        if (fd->isArrayOp == 1)
             return gIR->dmodule;
     }
     // otherwise use the symbol's module

@@ -76,6 +76,7 @@ Scope::Scope()
     this->mustsemantic = 0;
     this->intypeof = 0;
     this->parameterSpecialization = 0;
+    this->ignoreTemplates = 0;
     this->callSuper = 0;
     this->flags = 0;
     this->anonAgg = NULL;
@@ -125,6 +126,7 @@ Scope::Scope(Scope *enclosing)
     this->mustsemantic = enclosing->mustsemantic;
     this->intypeof = enclosing->intypeof;
     this->parameterSpecialization = enclosing->parameterSpecialization;
+    this->ignoreTemplates = enclosing->ignoreTemplates;
     this->callSuper = enclosing->callSuper;
     this->flags = 0;
     this->anonAgg = NULL;

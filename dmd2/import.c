@@ -27,7 +27,7 @@
 
 Import::Import(Loc loc, Identifiers *packages, Identifier *id, Identifier *aliasId,
         int isstatic)
-    : Dsymbol(id)
+    : Dsymbol(NULL)
 {
     assert(id);
     this->loc = loc;
@@ -35,14 +35,20 @@ Import::Import(Loc loc, Identifiers *packages, Identifier *id, Identifier *alias
     this->id = id;
     this->aliasId = aliasId;
     this->isstatic = isstatic;
-    pkg = NULL;
-    mod = NULL;
+    this->protection = PROTprivate; // default to private
+    this->pkg = NULL;
+    this->mod = NULL;
 
+    // Set symbol name (bracketed)
+    // import [cstdio] = std.stdio;
     if (aliasId)
         this->ident = aliasId;
-    // Kludge to change Import identifier to first package
+    // import [std].stdio;
     else if (packages && packages->dim)
         this->ident = packages->tdata()[0];
+    // import [foo];
+    else
+        this->ident = id;
 }
 
 void Import::addAlias(Identifier *name, Identifier *alias)
@@ -62,6 +68,10 @@ const char *Import::kind()
     return isstatic ? (char *)"static import" : (char *)"import";
 }
 
+enum PROT Import::prot()
+{
+    return protection;
+}
 
 Dsymbol *Import::syntaxCopy(Dsymbol *s)
 {
@@ -143,12 +153,9 @@ void Import::importAll(Scope *sc)
 
        if (!isstatic && !aliasId && !names.dim)
        {
-           /* Default to private importing
-            */
-           enum PROT prot = sc->protection;
-           if (!sc->explicitProtection)
-               prot = PROTprivate;
-           sc->scopesym->importScope(mod, prot);
+           if (sc->explicitProtection)
+               protection = sc->protection;
+           sc->scopesym->importScope(mod, protection);
        }
     }
 }
@@ -181,16 +188,13 @@ void Import::semantic(Scope *sc)
 
         if (!isstatic && !aliasId && !names.dim)
         {
-            /* Default to private importing
-             */
-            enum PROT prot = sc->protection;
-            if (!sc->explicitProtection)
-                prot = PROTprivate;
+            if (sc->explicitProtection)
+                protection = sc->protection;
             for (Scope *scd = sc; scd; scd = scd->enclosing)
             {
                 if (scd->scopesym)
                 {
-                    scd->scopesym->importScope(mod, prot);
+                    scd->scopesym->importScope(mod, protection);
                     break;
                 }
             }
@@ -204,6 +208,14 @@ void Import::semantic(Scope *sc)
         }
 
         sc = sc->push(mod);
+        /* BUG: Protection checks can't be enabled yet. The issue is
+         * that Dsymbol::search errors before overload resolution.
+         */
+#if 0
+        sc->protection = protection;
+#else
+        sc->protection = PROTpublic;
+#endif
         for (size_t i = 0; i < aliasdecls.dim; i++)
         {   Dsymbol *s = aliasdecls.tdata()[i];
 

@@ -206,7 +206,8 @@ struct Param
     bool useInline;	// inline expand functions
     ubyte warnings;	// enable warnings
     ubyte Dversion;	// D version number
-    char enforcePropertySyntax;
+    bool ignoreUnsupportedPragmas;      // rather than error on them
+    bool enforcePropertySyntax;
 
     char *argv0;        // program name
     Strings *imppath;     // array of char*'s of where to look for import modules
@@ -465,8 +466,10 @@ typedef uint64_t StorageClass;
 
 void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 void error(Loc loc, const char *format, ...) IS_PRINTF(2);
+void errorSupplemental(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void vwarning(Loc loc, const char *format, va_list);
+void verrorSupplemental(Loc loc, const char *format, va_list);
 void fatal();
 void err_nomem();
 #if IN_LLVM
