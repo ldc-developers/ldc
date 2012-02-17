@@ -597,12 +597,20 @@ LLConstant* DtoConstFP(Type* t, long double value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static inline LLConstant* toConstString(llvm::LLVMContext& ctx, const llvm::StringRef& str)
+{
+    LLSmallVector<uint8_t, 64> vals;
+    vals.append(str.begin(), str.end());
+    vals.push_back(0);
+    return llvm::ConstantDataArray::get(ctx, vals);
+}
+
 LLConstant* DtoConstString(const char* str)
 {
-    llvm::StringRef s(str?str:"");
-    LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
+    llvm::StringRef s(str ? str : "");
+    LLConstant* init = toConstString(gIR->context(), s);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
+        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
@@ -613,9 +621,9 @@ LLConstant* DtoConstString(const char* str)
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
     llvm::StringRef s(str);
-    LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
+    LLConstant* init = toConstString(gIR->context(), s);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
+        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
