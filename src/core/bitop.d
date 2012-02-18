@@ -352,7 +352,11 @@ else
  */
 version (LDC)
 {
-        int popcnt(uint x);
+    private pure pragma(intrinsic, "llvm.ctpop.i#") T ctpop(T)(T v);
+    pure int popcnt(uint x)
+    {
+        return cast(int) ctpop(x);
+    }
 }
 else
 {
