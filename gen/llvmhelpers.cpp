@@ -755,6 +755,7 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
     }
 }
 
+#if DMDV2
 DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
 {
     assert(val->getType()->toBasetype()->ty == Tvector);
@@ -786,6 +787,7 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
         fatal();
     }
 }
+#endif
 
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
@@ -805,10 +807,13 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     LOG_SCOPE;
 
+#if DMDV2
     if (fromtype->ty == Tvector) {
         return DtoCastVector(loc, val, to);
     }
-    else if (fromtype->isintegral()) {
+    else 
+#endif
+    if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);
     }
     else if (fromtype->iscomplex()) {
