@@ -1301,36 +1301,49 @@ Dsymbol *Parser::parseAggregate()
 
 BaseClasses *Parser::parseBaseClasses()
 {
-    enum PROT protection = PROTpublic;
     BaseClasses *baseclasses = new BaseClasses();
 
     for (; 1; nextToken())
     {
+        bool prot = false;
+        enum PROT protection = PROTpublic;
         switch (token.value)
         {
-            case TOKidentifier:
-                break;
             case TOKprivate:
+                prot = true;
                 protection = PROTprivate;
-                continue;
+                nextToken();
+                break;
             case TOKpackage:
+                prot = true;
                 protection = PROTpackage;
-                continue;
+                nextToken();
+                break;
             case TOKprotected:
+                prot = true;
                 protection = PROTprotected;
-                continue;
+                nextToken();
+                break;
             case TOKpublic:
+                prot = true;
                 protection = PROTpublic;
-                continue;
-            default:
-                error("base classes expected instead of %s", token.toChars());
-                return NULL;
+                nextToken();
+                break;
         }
-        BaseClass *b = new BaseClass(parseBasicType(), protection);
-        baseclasses->push(b);
-        if (token.value != TOKcomma)
-            break;
-        protection = PROTpublic;
+        //if (prot && !global.params.useDeprecated)
+            //error("use of base class protection is deprecated");
+        if (token.value == TOKidentifier)
+        {
+            BaseClass *b = new BaseClass(parseBasicType(), protection);
+            baseclasses->push(b);
+            if (token.value != TOKcomma)
+                break;
+        }
+        else
+        {
+            error("base classes expected instead of %s", token.toChars());
+            return NULL;
+        }
     }
     return baseclasses;
 }
@@ -3493,7 +3506,7 @@ Statement *Parser::parseStatement(int flags)
 
         case TOKtry:
         {   Statement *body;
-            Array *catches = NULL;
+            Catches *catches = NULL;
             Statement *finalbody = NULL;
 
             nextToken();
@@ -3523,7 +3536,7 @@ Statement *Parser::parseStatement(int flags)
                 handler = parseStatement(0);
                 c = new Catch(loc, t, id, handler);
                 if (!catches)
-                    catches = new Array();
+                    catches = new Catches();
                 catches->push(c);
             }
 
@@ -3962,9 +3975,12 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
             case TOKrbracket:
             case TOKassign:
             case TOKcomma:
+            case TOKdotdotdot:
             case TOKsemicolon:
             case TOKlcurly:
             case TOKin:
+            case TOKout:
+            case TOKbody:
                 // The !parens is to disallow unnecessary parentheses
                 if (!parens && (endtok == TOKreserved || endtok == t->value))
                 {   *pt = t;
@@ -4731,9 +4747,8 @@ Expression *Parser::parsePostExp(Expression *e)
                         {
                             nextToken();
                             while (1)
-                            {   Expression *arg;
-
-                                arg = parseAssignExp();
+                            {
+                                Expression *arg = parseAssignExp();
                                 arguments->push(arg);
                                 if (token.value == TOKrbracket)
                                     break;
@@ -5369,7 +5384,7 @@ Expressions *Parser::parseArguments()
         nextToken();
         if (token.value != endtok)
         {
-            while (1)
+            while (token.value != TOKeof)
             {
                 arg = parseAssignExp();
                 arguments->push(arg);

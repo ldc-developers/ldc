@@ -1142,6 +1142,7 @@ void PragmaDeclaration::semantic(Scope *sc)
     else
         error("unrecognized pragma(%s)", ident->toChars());
 
+Ldecl:
     if (decl)
     {
         for (unsigned i = 0; i < decl->dim; i++)
@@ -1159,7 +1160,10 @@ void PragmaDeclaration::semantic(Scope *sc)
 
 Lnodecl:
     if (decl)
+    {
         error("pragma is missing closing ';'");
+        goto Ldecl; // do them anyway, to avoid segfaults.
+    }
 }
 
 int PragmaDeclaration::oneMember(Dsymbol **ps)

@@ -132,6 +132,7 @@ struct Statement : Object
 
     virtual int inlineCost(InlineCostState *ics);
     virtual Expression *doInline(InlineDoState *ids);
+    virtual Statement *doInlineStatement(InlineDoState *ids);
     virtual Statement *inlineScan(InlineScanState *iss);
 
     // Back end
@@ -176,6 +177,7 @@ struct ExpStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -218,6 +220,7 @@ struct CompoundStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     virtual void toIR(IRState *irs);
@@ -256,6 +259,7 @@ struct UnrolledLoopStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -278,6 +282,9 @@ struct ScopeStatement : Statement
     int isEmpty();
     Expression *interpret(InterState *istate);
 
+    int inlineCost(InlineCostState *ics);
+    Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -344,7 +351,9 @@ struct ForStatement : Statement
     Expression *interpret(InterState *istate);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
+    int inlineCost(InlineCostState *ics);
     Statement *inlineScan(InlineScanState *iss);
+    Statement *doInlineStatement(InlineDoState *ids);
 
     void toIR(IRState *irs);
 };
@@ -362,7 +371,7 @@ struct ForeachStatement : Statement
     FuncDeclaration *func;      // function we're lexically in
 
     Statements *cases;          // put breaks, continues, gotos and returns here
-    Array *gotos;        // forward referenced goto's go here
+    CompoundStatements *gotos;  // forward referenced goto's go here
 
     ForeachStatement(Loc loc, enum TOK op, Parameters *arguments, Expression *aggr, Statement *body);
     Statement *syntaxCopy();
@@ -430,6 +439,7 @@ struct IfStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -485,8 +495,8 @@ struct SwitchStatement : Statement
 
     DefaultStatement *sdefault;
 
-    Array gotoCases;            // array of unresolved GotoCaseStatement's
-    CaseStatements *cases;      // array of CaseStatement's
+    GotoCaseStatements gotoCases;  // array of unresolved GotoCaseStatement's
+    CaseStatements *cases;         // array of CaseStatement's
     int hasNoDefault;           // !=0 if no default statement
 
     // LDC
@@ -634,6 +644,7 @@ struct ReturnStatement : Statement
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
+    Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
@@ -720,9 +731,9 @@ struct WithStatement : Statement
 struct TryCatchStatement : Statement
 {
     Statement *body;
-    Array *catches;
+    Catches *catches;
 
-    TryCatchStatement(Loc loc, Statement *body, Array *catches);
+    TryCatchStatement(Loc loc, Statement *body, Catches *catches);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int hasBreak();
@@ -847,7 +858,7 @@ struct LabelStatement : Statement
     Statement* enclosingScopeExit;
     block *lblock;              // back end
 
-    Array *fwdrefs;             // forward references to this LabelStatement
+    Blocks *fwdrefs;            // forward references to this LabelStatement
 
     LabelStatement(Loc loc, Identifier *ident, Statement *statement);
     Statement *syntaxCopy();
@@ -882,8 +893,9 @@ struct AsmStatement : Statement
     Token *tokens;
     code *asmcode;
     unsigned asmalign;          // alignment of this statement
-    unsigned refparam;          // !=0 if function parameter is referenced
-    unsigned naked;             // !=0 if function is to be naked
+    unsigned regs;              // mask of registers modified (must match regm_t in back end)
+    unsigned char refparam;     // !=0 if function parameter is referenced
+    unsigned char naked;        // !=0 if function is to be naked
 
     AsmStatement(Loc loc, Token *tokens);
     Statement *syntaxCopy();

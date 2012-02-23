@@ -291,10 +291,7 @@ struct VarDeclaration : Declaration
     bool hasValue();
     void setValueNull();
     void setValueWithoutChecking(Expression *newval);
-    void createRefValue(Expression *newval);
-    void setRefValue(Expression *newval);
-    void setStackValue(Expression *newval);
-    void createStackValue(Expression *newval);
+    void setValue(Expression *newval);
 
 #if DMDV2
     VarDeclaration *rundtor;    // if !NULL, rundtor is tested at runtime to see
@@ -717,15 +714,17 @@ struct FuncDeclaration : Declaration
     int vtblIndex;                      // for member functions, index into vtbl[]
     int naked;                          // !=0 if naked
     int inlineAsm;                      // !=0 if has inline assembler
-    ILS inlineStatus;
+    ILS inlineStatusStmt;
+    ILS inlineStatusExp;
     int inlineNest;                     // !=0 if nested inline
-    int cantInterpret;                  // !=0 if cannot interpret function
+    int isArrayOp;                      // !=0 if array operation
     int semanticRun;                    // 1 semantic() run
                                         // 2 semantic2() run
                                         // 3 semantic3() started
                                         // 4 semantic3() done
                                         // 5 toObjFile() run
                                         // this function's frame ptr
+    int semantic3Errors;                // !=0 if errors in semantic3
     ForeachStatement *fes;              // if foreach body, this is the foreach
     int introducing;                    // !=0 if 'introducing' function
     Type *tintro;                       // if !=NULL, then this is the type
@@ -803,18 +802,20 @@ struct FuncDeclaration : Declaration
     int isTrusted();
     virtual int isNested();
     int needThis();
+    int isVirtualMethod();
     virtual int isVirtual();
     virtual int isFinal();
     virtual int addPreInvariant();
     virtual int addPostInvariant();
     Expression *interpret(InterState *istate, Expressions *arguments, Expression *thisexp = NULL);
     void inlineScan();
-    int canInline(int hasthis, int hdrscan = 0);
-    Expression *doInline(InlineScanState *iss, Expression *ethis, Array *arguments);
+    int canInline(int hasthis, int hdrscan = false, int statementsToo = true);
+    Expression *expandInline(InlineScanState *iss, Expression *ethis, Expressions *arguments, Statement **ps);
     const char *kind();
     void toDocBuffer(OutBuffer *buf);
     FuncDeclaration *isUnique();
     int needsClosure();
+    int hasNestedFrameRefs();
     Statement *mergeFrequire(Statement *);
     Statement *mergeFensure(Statement *);
     Parameters *getParameters(int *pvarargs);
@@ -853,9 +854,6 @@ struct FuncDeclaration : Declaration
     // don't always carry their corresponding statement along ...
     typedef std::map<const char*, LabelStatement*> LabelMap;
     LabelMap labmap;
-
-    // if this is an array operation it gets a little special attention
-    bool isArrayOp;
 
     // Functions that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
     bool availableExternally;

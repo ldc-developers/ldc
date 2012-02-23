@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -72,9 +72,9 @@ Global::Global()
     obj_ext_alt = "obj";
 #endif
 
-    copyright = "Copyright (c) 1999-2011 by Digital Mars and Tomas Lindquist Olsen";
+    copyright = "Copyright (c) 1999-2012 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.072";
+    version = "v1.073";
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 3.0";
     global.structalign = 8;
@@ -132,7 +132,7 @@ bool Loc::equals(const Loc& loc)
 }
 
 /**************************************
- * Print error message and exit.
+ * Print error message
  */
 
 void error(Loc loc, const char *format, ...)
@@ -148,6 +148,18 @@ void warning(Loc loc, const char *format, ...)
     va_list ap;
     va_start(ap, format);
     vwarning(loc, format, ap);
+    va_end( ap );
+}
+
+/**************************************
+ * Print supplementary message about the last error
+ * Used for backtraces, etc
+ */
+void errorSupplemental(Loc loc, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    verrorSupplemental(loc, format, ap);
     va_end( ap );
 }
 
@@ -172,6 +184,25 @@ void verror(Loc loc, const char *format, va_list ap)
         global.gaggedErrors++;
     }
     global.errors++;
+}
+
+// Doesn't increase error count, doesn't print "Error:".
+void verrorSupplemental(Loc loc, const char *format, va_list ap)
+{
+    if (!global.gag)
+    {
+        fprintf(stdmsg, "%s:        ", loc.toChars());
+#if _MSC_VER
+        // MS doesn't recognize %zu format
+        OutBuffer tmp;
+        tmp.vprintf(format, ap);
+        fprintf(stdmsg, "%s", tmp.toChars());
+#else
+        vfprintf(stdmsg, format, ap);
+#endif
+        fprintf(stdmsg, "\n");
+        fflush(stdmsg);
+    }
 }
 
 void vwarning(Loc loc, const char *format, va_list ap)
@@ -221,7 +252,7 @@ void fatal()
 void halt()
 {
 #ifdef DEBUG
-    *(char*)0=0;
+    *(volatile char*)0=0;
 #endif
 }
 

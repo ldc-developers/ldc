@@ -190,7 +190,7 @@ void Type::init(Ir* _sir)
 void Type::init()
 #endif
 {
-    stringtable.init();
+    stringtable.init(1543);
     deco_stringtable.init();
     Lexer::initKeywords();
 
@@ -1950,6 +1950,12 @@ void TypeSArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
                 *pe = (Expression *)o;
                 return;
             }
+            if (o->dyncast() == DYNCAST_TYPE)
+            {
+                *ps = NULL;
+                *pt = (Type *)o;
+                return;
+            }
 
             /* Create a new TupleDeclaration which
              * is a slice [d..d+1] out of the old one.
@@ -1992,7 +1998,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
         {   error(loc, "tuple index %ju exceeds %u", d, sd->objects->dim);
             return Type::terror;
         }
-        Object *o = (Object *)sd->objects->data[(size_t)d];
+        Object *o = (*sd->objects)[(size_t)d];
         if (o->dyncast() != DYNCAST_TYPE)
         {   error(loc, "%s is not a type", toChars());
             return Type::terror;
@@ -3154,6 +3160,7 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
         Scope *argsc = sc->push();
         argsc->stc = 0;                 // don't inherit storage class
         argsc->protection = PROTpublic;
+        argsc->func = NULL;
 
         size_t dim = Parameter::dim(tf->parameters);
         for (size_t i = 0; i < dim; i++)
@@ -4744,7 +4751,7 @@ Expression *TypeStruct::dotExp(Scope *sc, Expression *e, Identifier *ident)
     if (!sym->members)
     {
         error(e->loc, "struct %s is forward referenced", sym->toChars());
-        return new IntegerExp(e->loc, 0, Type::tint32);
+        return new ErrorExp();
     }
 
     /* If e.tupleof
@@ -4755,10 +4762,11 @@ Expression *TypeStruct::dotExp(Scope *sc, Expression *e, Identifier *ident)
          * (e.field0, e.field1, e.field2, ...)
          */
         e = e->semantic(sc);    // do this before turning on noaccesscheck
+        e->type->size();        // do semantic of type
         Expressions *exps = new Expressions;
         exps->reserve(sym->fields.dim);
         for (size_t i = 0; i < sym->fields.dim; i++)
-        {   VarDeclaration *v = (VarDeclaration *)sym->fields.data[i];
+        {   VarDeclaration *v = sym->fields[i];
             Expression *fe = new DotVarExp(e->loc, e, v);
             exps->push(fe);
         }
@@ -4820,9 +4828,8 @@ L1:
 
     TemplateMixin *tm = s->isTemplateMixin();
     if (tm)
-    {   Expression *de;
-
-        de = new DotExp(e->loc, e, new ScopeExp(e->loc, tm));
+    {
+        Expression *de = new DotExp(e->loc, e, new ScopeExp(e->loc, tm));
         de->type = e->type;
         return de;
     }
@@ -4851,8 +4858,7 @@ L1:
         return de;
     }
 
-    Import *timp = s->isImport();
-    if (timp)
+    if (s->isImport() || s->isModule() || s->isPackage())
     {
         e = new DsymbolExp(e->loc, s);
         e = e->semantic(sc);
@@ -4949,7 +4955,7 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
     structelems->setDim(sym->fields.dim);
     for (size_t j = 0; j < structelems->dim; j++)
     {
-        VarDeclaration *vd = (VarDeclaration *)(sym->fields.data[j]);
+        VarDeclaration *vd = sym->fields[j];
         Expression *e;
         if (vd->init)
         {   if (vd->init->isVoidInitializer())
@@ -4959,7 +4965,7 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
         }
         else
             e = vd->type->defaultInitLiteral();
-        structelems->data[j] = e;
+        structelems->tdata()[j] = e;
     }
     StructLiteralExp *structinit = new StructLiteralExp(loc, (StructDeclaration *)sym, structelems);
     // Why doesn't the StructLiteralExp constructor do this, when
@@ -5020,6 +5026,7 @@ Type *TypeClass::semantic(Loc loc, Scope *sc)
     //printf("TypeClass::semantic(%s)\n", sym->toChars());
     if (deco)
         return this;
+    //printf("\t%s\n", merge()->deco);
     return merge();
 }
 
@@ -5060,7 +5067,6 @@ Expression *TypeClass::dotExp(Scope *sc, Expression *e, Identifier *ident)
     VarDeclaration *v;
     Dsymbol *s;
     DotVarExp *de;
-    Declaration *d;
 
 #if LOGDOTEXP
     printf("TypeClass::dotExp(e='%s', ident='%s')\n", e->toChars(), ident->toChars());
@@ -5084,10 +5090,11 @@ Expression *TypeClass::dotExp(Scope *sc, Expression *e, Identifier *ident)
         /* Create a TupleExp
          */
         e = e->semantic(sc);    // do this before turning on noaccesscheck
+        e->type->size();        // do semantic of type
         Expressions *exps = new Expressions;
         exps->reserve(sym->fields.dim);
         for (size_t i = 0; i < sym->fields.dim; i++)
-        {   VarDeclaration *v = (VarDeclaration *)sym->fields.data[i];
+        {   VarDeclaration *v = sym->fields[i];
             // Don't include hidden 'this' pointer
             if (v->isThisDeclaration())
                 continue;
@@ -5107,22 +5114,16 @@ L1:
     if (!s)
     {
         // See if it's a base class
-        ClassDeclaration *cbase;
-        for (cbase = sym->baseClass; cbase; cbase = cbase->baseClass)
+        if (Dsymbol *cbase = sym->searchBase(e->loc, ident))
         {
-            if (cbase->ident->equals(ident))
-            {
-                e = new DotTypeExp(0, e, cbase);
-                return e;
-            }
+            e = new DotTypeExp(0, e, cbase);
+            return e;
         }
 
         if (ident == Id::classinfo)
         {
-            Type *t;
-
             assert(ClassDeclaration::classinfo);
-            t = ClassDeclaration::classinfo->type;
+            Type *t = ClassDeclaration::classinfo->type;
             if (e->op == TOKtype || e->op == TOKdottype)
             {
                 /* For type.classinfo, we know the classinfo
@@ -5271,9 +5272,8 @@ L1:
 
     TemplateMixin *tm = s->isTemplateMixin();
     if (tm)
-    {   Expression *de;
-
-        de = new DotExp(e->loc, e, new ScopeExp(e->loc, tm));
+    {
+        Expression *de = new DotExp(e->loc, e, new ScopeExp(e->loc, tm));
         de->type = e->type;
         return de;
     }
@@ -5302,11 +5302,20 @@ L1:
         return de;
     }
 
-    d = s->isDeclaration();
+#if 0 // shouldn't this be here?
+    if (s->isImport() || s->isModule() || s->isPackage())
+    {
+        e = new DsymbolExp(e->loc, s, 0);
+        e = e->semantic(sc);
+        return e;
+    }
+#endif
+
+    Declaration *d = s->isDeclaration();
     if (!d)
     {
         e->error("%s.%s is not a declaration", e->toChars(), ident->toChars());
-        return new IntegerExp(e->loc, 1, Type::tint32);
+        return new ErrorExp();
     }
 
     if (e->op == TOKtype)
@@ -5335,7 +5344,7 @@ L1:
                     {
                         e = new ThisExp(e->loc);
                         e = new DotTypeExp(e->loc, e, cd);
-                        de = new DotVarExp(e->loc, e, d);
+                        DotVarExp *de = new DotVarExp(e->loc, e, d);
                         e = de->semantic(sc);
                         return e;
                     }
@@ -5345,7 +5354,10 @@ L1:
                 }
             }
 
-            de = new DotVarExp(e->loc, new ThisExp(e->loc), d);
+            /* Rewrite as:
+             *  this.d
+             */
+            DotVarExp *de = new DotVarExp(e->loc, new ThisExp(e->loc), d);
             e = de->semantic(sc);
             return e;
         }
@@ -5371,9 +5383,7 @@ L1:
     if (d->parent && d->toParent()->isModule())
     {
         // (e, d)
-        VarExp *ve;
-
-        ve = new VarExp(e->loc, d);
+        VarExp *ve = new VarExp(e->loc, d);
         e = new CommaExp(e->loc, e, ve);
         e->type = d->type;
         return e;
@@ -5413,7 +5423,7 @@ MATCH TypeClass::implicitConvTo(Type *to)
 
     ClassDeclaration *cdto = to->isClassHandle();
     if (cdto && cdto->isBaseOf(sym, NULL))
-    {   //printf("is base\n");
+    {   //printf("'to' is base\n");
         return MATCHconvert;
     }
 
@@ -5745,19 +5755,18 @@ Parameters *Parameter::arraySyntaxCopy(Parameters *args)
         a = new Parameters();
         a->setDim(args->dim);
         for (size_t i = 0; i < a->dim; i++)
-        {   Parameter *arg = (Parameter *)args->data[i];
+        {   Parameter *arg = (*args)[i];
 
             arg = arg->syntaxCopy();
-            a->data[i] = (void *)arg;
+            (*a)[i] = arg;
         }
     }
     return a;
 }
 
 char *Parameter::argsTypesToChars(Parameters *args, int varargs)
-{   OutBuffer *buf;
-
-    buf = new OutBuffer();
+{
+    OutBuffer *buf = new OutBuffer();
 
     buf->writeByte('(');
     if (args)
@@ -5767,7 +5776,7 @@ char *Parameter::argsTypesToChars(Parameters *args, int varargs)
         for (size_t i = 0; i < args->dim; i++)
         {   if (i)
                 buf->writeByte(',');
-            Parameter *arg = (Parameter *)args->data[i];
+            Parameter *arg = args->tdata()[i];
             argbuf.reset();
             arg->type->toCBuffer2(&argbuf, &hgs, 0);
             buf->write(&argbuf);
@@ -5834,8 +5843,7 @@ void Parameter::argsToDecoBuffer(OutBuffer *buf, Parameters *arguments, bool man
 {
     //printf("Parameter::argsToDecoBuffer()\n");
     // Write argument types
-    if (arguments)
-        foreach(arguments, &argsToDecoBufferDg, buf, 0, mangle ? mangleFlag : 0);
+    foreach(arguments, &argsToDecoBufferDg, buf);
 }
 
 /****************************************
@@ -5853,9 +5861,7 @@ static int isTPLDg(void *ctx, size_t n, Parameter *arg, int)
 int Parameter::isTPL(Parameters *arguments)
 {
     //printf("Parameter::isTPL()\n");
-    if (arguments)
-        return foreach(arguments, &isTPLDg, NULL);
-    return 0;
+    return foreach(arguments, &isTPLDg, NULL);
 }
 
 /****************************************************
@@ -5904,6 +5910,7 @@ void Parameter::toDecoBuffer(OutBuffer *buf, bool mangle)
             break;
         default:
 #ifdef DEBUG
+            printf("storageClass = x%llx\n", storageClass & (STCin | STCout | STCref | STClazy));
             halt();
 #endif
             assert(0);
@@ -5924,8 +5931,7 @@ static int dimDg(void *ctx, size_t n, Parameter *, int)
 size_t Parameter::dim(Parameters *args)
 {
     size_t n = 0;
-    if (args)
-        foreach(args, &dimDg, &n);
+    foreach(args, &dimDg, &n);
     return n;
 }
 
@@ -5970,7 +5976,9 @@ Parameter *Parameter::getNth(Parameters *args, size_t nth, size_t *pn)
 
 int Parameter::foreach(Parameters *args, Parameter::ForeachDg dg, void *ctx, size_t *pn, int flags)
 {
-    assert(args && dg);
+    assert(dg);
+    if (!args)
+        return 0;
 
     size_t n = pn ? *pn : 0; // take over index
     int result = 0;

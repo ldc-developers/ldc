@@ -61,11 +61,13 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     vtblIndex = -1;
     hasReturnExp = 0;
     naked = 0;
-    inlineStatus = ILSuninitialized;
+    inlineStatusExp = ILSuninitialized;
+    inlineStatusStmt = ILSuninitialized;
     inlineNest = 0;
     inlineAsm = 0;
-    cantInterpret = 0;
+    isArrayOp = 0;
     semanticRun = PASSinit;
+    semantic3Errors = 0;
 #if DMDV1
     nestedFrameRef = 0;
 #endif
@@ -86,6 +88,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
 #if DMDV2
     builtin = BUILTINunknown;
     tookAddressOf = 0;
+    flags = 0;
 #endif
 
 #if IN_LLVM
@@ -408,7 +411,7 @@ void FuncDeclaration::semantic(Scope *sc)
                 return;
 
             default:
-            {   FuncDeclaration *fdv = (FuncDeclaration *)cd->baseClass->vtbl.data[vi];
+            {   FuncDeclaration *fdv = (FuncDeclaration *)cd->baseClass->vtbl[vi];
                 // This function is covariant with fdv
                 if (fdv->isFinal())
                     error("cannot override final function %s", fdv->toPrettyChars());
@@ -422,11 +425,13 @@ void FuncDeclaration::semantic(Scope *sc)
                 if (fdc->toParent() == parent)
                 {
                     // If both are mixins, then error.
-                    // If either is not, the one that is not overrides
-                    // the other.
-                    if (fdc->parent->isClassDeclaration())
+                    // If either is not, the one that is not overrides the other.
+
+                    // if (this is mixin) && (fdc is not mixin) then fdc overrides
+                    if (!this->parent->isClassDeclaration() && fdc->parent->isClassDeclaration())
                         break;
-                    if (!this->parent->isClassDeclaration()
+
+                    if (!this->parent->isClassDeclaration() // if both are mixins then error
 #if !BREAKABI
                         && !isDtorDeclaration()
 #endif
@@ -726,6 +731,7 @@ void FuncDeclaration::semantic3(Scope *sc)
     if (semanticRun >= PASSsemantic3)
         return;
     semanticRun = PASSsemantic3;
+    semantic3Errors = 0;
 
 #if IN_LLVM
     if (!global.params.useAvailableExternally)
@@ -847,7 +853,10 @@ void FuncDeclaration::semantic3(Scope *sc)
                 Type *t = new TypeIdentifier(loc, Id::va_argsave_t);
                 t = t->semantic(loc, sc);
                 if (t == Type::terror)
+                {
                     error("must import std.c.stdarg to use variadic functions");
+                    return;
+                }
                 else
                 {
                     v_argsave = new VarDeclaration(loc, t, Id::va_argsave, NULL);
@@ -1560,7 +1569,12 @@ void FuncDeclaration::semantic3(Scope *sc)
     if (global.gag && global.errors != nerrors)
         semanticRun = PASSsemanticdone; // Ensure errors get reported again
     else
+    {
         semanticRun = PASSsemantic3done;
+        semantic3Errors = global.errors - nerrors;
+    }
+    //printf("-FuncDeclaration::semantic3('%s.%s', sc = %p, loc = %s)\n", parent->toChars(), toChars(), sc, loc.toChars());
+    //fflush(stdout);
 }
 
 void FuncDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -1575,7 +1589,7 @@ void FuncDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     if (fbody &&
-        (!hgs->hdrgen || hgs->tpltMember || canInline(1,1))
+        (!hgs->hdrgen || hgs->tpltMember || canInline(1,1,1))
        )
     {   buf->writenl();
 
@@ -1667,11 +1681,11 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf)
             Statement *s2 = new ExpStatement(loc, e);
 
             Catch *c = new Catch(loc, NULL, NULL, sf);
-                Array *catches = new Array();
-                catches->push(c);
-                sf = new TryCatchStatement(loc, s2, catches);
-            }
-            else
+            Catches *catches = new Catches();
+            catches->push(c);
+            sf = new TryCatchStatement(loc, s2, catches);
+        }
+        else
             return NULL;
     }
     return sf;
@@ -2448,6 +2462,21 @@ int FuncDeclaration::isVirtual()
         toParent()->isClassDeclaration();
 }
 
+// Determine if a function is pedantically virtual
+
+int FuncDeclaration::isVirtualMethod()
+{
+    //printf("FuncDeclaration::isVirtualMethod() %s\n", toChars());
+    if (!isVirtual())
+        return 0;
+    // If it's a final method, and does not override anything, then it is not virtual
+    if (isFinal() && foverrides.dim == 0)
+    {
+        return 0;
+    }
+    return 1;
+}
+
 int FuncDeclaration::isFinal()
 {
     ClassDeclaration *cd;
@@ -2621,6 +2650,43 @@ Lyes:
     return 1;
 }
 #endif
+
+/***********************************************
+ * Determine if function's variables are referenced by a function
+ * nested within it.
+ */
+
+int FuncDeclaration::hasNestedFrameRefs()
+{
+#if DMDV2
+    if (closureVars.dim)
+#else
+    if (nestedFrameRef)
+#endif
+        return 1;
+
+    /* If a virtual method has contracts, assume its variables are referenced
+     * by those contracts, even if they aren't. Because they might be referenced
+     * by the overridden or overriding function's contracts.
+     * This can happen because frequire and fensure are implemented as nested functions,
+     * and they can be called directly by an overriding function and the overriding function's
+     * context had better match, or Bugzilla 7337 will bite.
+     */
+    if ((fdrequire || fdensure) && isVirtualMethod())
+        return 1;
+
+    if (foverrides.dim && isVirtualMethod())
+    {
+        for (size_t i = 0; i < foverrides.dim; i++)
+        {
+            FuncDeclaration *fdv = foverrides.tdata()[i];
+            if (fdv->hasNestedFrameRefs())
+                return 1;
+        }
+    }
+
+    return 0;
+}
 
 /*********************************************
  * Return the function's parameter list, and whether
