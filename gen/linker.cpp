@@ -272,11 +272,13 @@ int linkObjToBinary(bool sharedLib)
                 else
                     output.append(libExt);
             }
-            args.push_back("-shared");
         } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
             output.append(".exe");
         }
     }
+
+    if (sharedLib)
+        args.push_back("-shared");
 
     args.push_back("-o");
     args.push_back(output.c_str());
