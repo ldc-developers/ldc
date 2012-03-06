@@ -233,13 +233,10 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
     if (!isUnionDeclaration())
         sc->offset = ofs;
 #endif
-#if !IN_LLVM
-    if (global.params.is64bit && sc->structalign == 8 && memalignsize == 16)
+    if (global.params.is64bit && sc->structalign == 8 && memalignsize == 16 && isUnionDeclaration())
         /* Not sure how to handle this */
         ;
-    else
-#endif
-    if (sc->structalign < memalignsize)
+    else if (sc->structalign < memalignsize)
         memalignsize = sc->structalign;
     if (alignsize < memalignsize)
         alignsize = memalignsize;
