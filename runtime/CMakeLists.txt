@@ -18,9 +18,10 @@ else()
     set(MULTILIB_SUFFIX 64)
 endif()
 
-set(DMDFE_MINOR_VERSION   0                                                             CACHE INT     "Minor version of dmd frontend")
-set(DMDFE_PATCH_VERSION   58                                                            CACHE INT     "Patch version of dmd frontend")
-set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION}    CACHE INT     "Version of dmd frontend")
+set(DMDFE_MINOR_VERSION   0)
+set(DMDFE_PATCH_VERSION   58)
+set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
+
 set(MULTILIB              OFF                                                           CACHE BOOL    "Build both 64-bit and 32-bit libraries")
 set(BUILD_BC_LIBS         OFF                                                           CACHE BOOL    "Build the runtime as bytecode libraries")
 set(BUILD_SINGLE_LIB      ON                                                            CACHE BOOL    "Build single runtime library")
