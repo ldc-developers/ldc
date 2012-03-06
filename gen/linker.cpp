@@ -272,11 +272,13 @@ int linkObjToBinary(bool sharedLib)
                 else
                     output.append(libExt);
             }
-            args.push_back("-shared");
         } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
             output.append(".exe");
         }
     }
+
+    if (sharedLib)
+        args.push_back("-shared");
 
     args.push_back("-o");
     args.push_back(output.c_str());
@@ -348,7 +350,7 @@ int linkObjToBinary(bool sharedLib)
 
     OutBuffer buf;
     if (opts::createSharedLib && addSoname) {
-        std::string soname = opts::soname.getNumOccurrences() == 0 ? output : opts::soname;
+        std::string soname = opts::soname;
         if (!soname.empty()) {
             buf.writestring("-Wl,-soname,");
             buf.writestring(soname.c_str());
