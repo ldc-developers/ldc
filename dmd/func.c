@@ -844,10 +844,11 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (f->varargs == 1)
         {
 #if TARGET_NET
-        varArgs(sc2, f, argptr, _arguments);
+            varArgs(sc2, f, argptr, _arguments);
 #else
-        Type *t;
+            Type *t;
 
+#if !IN_LLVM
             if (global.params.is64bit)
             {   // Declare save area for varargs registers
                 Type *t = new TypeIdentifier(loc, Id::va_argsave_t);
@@ -865,6 +866,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                     v_argsave->parent = this;
                 }
             }
+#endif
 
             if (f->linkage == LINKd)
             {   // Declare _arguments[]
