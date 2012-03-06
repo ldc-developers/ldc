@@ -13,8 +13,10 @@ endif()
 include(CheckTypeSize)
 check_type_size(void*  ptr_size)
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
-    set(IS_64BIT_OS 1)
-endif(${ptr_size} MATCHES "^8$")
+    set(MULTILIB_SUFFIX 32)
+else()
+    set(MULTILIB_SUFFIX 64)
+endif()
 
 set(DMDFE_MINOR_VERSION   0                                                             CACHE INT     "Minor version of dmd frontend")
 set(DMDFE_PATCH_VERSION   58                                                            CACHE INT     "Patch version of dmd frontend")
@@ -136,8 +138,8 @@ endif(NOT LDC_LOC)
 #
 
 if(MULTILIB)
-    set(MUTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib32\",")
-    set(MUTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib32\",")
+    set(MUTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+    set(MUTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
 endif(MULTILIB)
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -335,11 +337,7 @@ endif(PHOBOS2_DIR)
 build_runtime("" "" "" "" "${LIB_SUFFIX}")
 set(GENERATE_DI "")
 if(MULTILIB)
-    if(IS_64BIT_OS)
-        build_runtime("-m32" "-m32" "-m32" "" "32")
-    else(IS_64BIT_OS)
-        build_runtime("-m64" "-m64" "-m64" "" "64")
-    endif(IS_64BIT_OS)
+    build_runtime("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX}" "" "${MULTILIB_SUFFIX}")
 endif(MULTILIB)
 
 #
