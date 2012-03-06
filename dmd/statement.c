@@ -46,11 +46,11 @@ int os_critsecsize()
     // TODO Check size
     return 68;
 #else
-	if (global.params.os == OSWindows)
-		return 68;
-	else if (global.params.os == OSFreeBSD)
-		return sizeof(size_t);
-	else
+    if (global.params.os == OSWindows)
+        return 68;
+    else if (global.params.os == OSFreeBSD)
+        return sizeof(size_t);
+    else
     return sizeof(pthread_mutex_t);
 #endif
 }
@@ -4225,7 +4225,7 @@ Statement *TryFinallyStatement::syntaxCopy()
 Statement *TryFinallyStatement::semantic(Scope *sc)
 {
     //printf("TryFinallyStatement::semantic()\n");
-    // This code is different in LDC because LDC needs to know the 
+    // This code is different in LDC because LDC needs to know the
     // enclosingScopeExit for its labels
     Statement* oldScopeExit = sc->enclosingScopeExit;
     sc->enclosingScopeExit = this;

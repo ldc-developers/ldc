@@ -1821,7 +1821,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         arguments->push(e);
         // LDC, we don't support the getInternalTypeInfo
         // optimization arbitrarily, not yet at least...
-        arguments->push(n->getTypeInfo(sc));   
+        arguments->push(n->getTypeInfo(sc));
         e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }

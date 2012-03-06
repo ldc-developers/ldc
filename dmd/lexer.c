@@ -16,7 +16,7 @@
 #include <cmath>
 #endif
 
-#include <sstream> 
+#include <sstream>
 
 /* Lexical Analyzer */
 

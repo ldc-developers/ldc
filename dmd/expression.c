@@ -1812,16 +1812,16 @@ void floatToBuffer(OutBuffer *buf, Type *type, real_t value)
         buf->writestring(buffer);
     else
     {
-    	#ifdef __HAIKU__	// broken printf workaround
-    		char buffer2[25];
-    		char *ptr = (char *)&value;
-    		for(int i = 0; i < sizeof(value); i++)
-				snprintf(buffer2, sizeof(char), "%x", ptr[i]);
-			
-			buf->writestring(buffer2);
-		#else
-			buf->printf("%La", value);	// ensure exact duplication
-		#endif
+        #ifdef __HAIKU__    // broken printf workaround
+            char buffer2[25];
+            char *ptr = (char *)&value;
+            for(int i = 0; i < sizeof(value); i++)
+                snprintf(buffer2, sizeof(char), "%x", ptr[i]);
+
+            buf->writestring(buffer2);
+        #else
+            buf->printf("%La", value);    // ensure exact duplication
+        #endif
     }
 
     if (type)
