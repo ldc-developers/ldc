@@ -350,7 +350,7 @@ int linkObjToBinary(bool sharedLib)
 
     OutBuffer buf;
     if (opts::createSharedLib && addSoname) {
-        std::string soname = opts::soname.getNumOccurrences() == 0 ? output : opts::soname;
+        std::string soname = opts::soname;
         if (!soname.empty()) {
             buf.writestring("-Wl,-soname,");
             buf.writestring(soname.c_str());
