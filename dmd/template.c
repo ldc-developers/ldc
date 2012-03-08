@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -16,6 +16,7 @@
 #if !IN_LLVM
 #endif
 #include "root.h"
+#include "aav.h"
 #include "rmem.h"
 #include "stringtable.h"
 #include "mars.h"
@@ -280,6 +281,8 @@ int arrayObjectMatch(Objects *oa1, Objects *oa2, TemplateDeclaration *tempdecl, 
 }
 
 /****************************************
+ * This makes a 'pretty' version of the template arguments.
+ * It's analogous to genIdent() which makes a mangled version.
  */
 
 void ObjectToCBuffer(OutBuffer *buf, HdrGenState *hgs, Object *oarg)
@@ -289,12 +292,21 @@ void ObjectToCBuffer(OutBuffer *buf, HdrGenState *hgs, Object *oarg)
     Expression *e = isExpression(oarg);
     Dsymbol *s = isDsymbol(oarg);
     Tuple *v = isTuple(oarg);
+    /* The logic of this should match what genIdent() does. The _dynamic_cast()
+     * function relies on all the pretty strings to be unique for different classes
+     * (see Bugzilla 7375).
+     * Perhaps it would be better to demangle what genIdent() does.
+     */
     if (t)
     {   //printf("\tt: %s ty = %d\n", t->toChars(), t->ty);
         t->toCBuffer(buf, NULL, hgs);
     }
     else if (e)
+    {
+        if (e->op == TOKvar)
+            e = e->optimize(WANTvalue);         // added to fix Bugzilla 7375
         e->toCBuffer(buf, hgs);
+    }
     else if (s)
     {
         char *p = s->ident ? s->ident->toChars() : s->toChars();
@@ -307,7 +319,7 @@ void ObjectToCBuffer(OutBuffer *buf, HdrGenState *hgs, Object *oarg)
         {
             if (i)
                 buf->writeByte(',');
-            Object *o = (Object *)args->data[i];
+            Object *o = (*args)[i];
             ObjectToCBuffer(buf, hgs, o);
         }
     }
@@ -1721,6 +1733,19 @@ MATCH Type::deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters,
         else
             goto Lnomatch;
     }
+    else if (tparam->ty == Ttypeof)
+    {
+        /* Need a loc to go with the semantic routine.
+         */
+        Loc loc;
+        if (parameters->dim)
+        {
+            TemplateParameter *tp = parameters->tdata()[0];
+            loc = tp->loc;
+        }
+
+        tparam = tparam->semantic(loc, sc);
+    }
 
     if (ty != tparam->ty)
     {
@@ -1728,8 +1753,18 @@ MATCH Type::deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters,
         // Can't instantiate AssociativeArray!() without a scope
         if (tparam->ty == Taarray && !((TypeAArray*)tparam)->sc)
             ((TypeAArray*)tparam)->sc = sc;
+
+        MATCH m = implicitConvTo(tparam);
+        if (m == MATCHnomatch)
+        {
+            Type *at = aliasthisOf();
+            if (at)
+                m = at->deduceType(sc, tparam, parameters, dedtypes, wildmatch);
+        }
+        return m;
+#else
+        return implicitConvTo(tparam);
 #endif
-       return implicitConvTo(tparam);
     }
 
     if (nextOf())
@@ -1749,14 +1784,14 @@ Lconst:
 
 #if DMDV2
 MATCH TypeDArray::deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters,
-        Objects *dedtypes)
+        Objects *dedtypes, unsigned *wildmatch)
 {
 #if 0
     printf("TypeDArray::deduceType()\n");
     printf("\tthis   = %d, ", ty); print();
     printf("\ttparam = %d, ", tparam->ty); tparam->print();
 #endif
-    return Type::deduceType(sc, tparam, parameters, dedtypes);
+    return Type::deduceType(sc, tparam, parameters, dedtypes, wildmatch);
 }
 #endif
 
@@ -2911,7 +2946,7 @@ Object *TemplateAliasParameter::defaultArg(Loc loc, Scope *sc)
 
 // value-parameter
 
-Expression *TemplateValueParameter::edummy = NULL;
+AA *TemplateValueParameter::edummies = NULL;
 
 TemplateValueParameter::TemplateValueParameter(Loc loc, Identifier *ident, Type *valType,
         Expression *specValue, Expression *defaultValue)
@@ -3022,14 +3057,14 @@ MATCH TemplateValueParameter::matchArg(Scope *sc,
     Object *oarg;
 
     if (i < tiargs->dim)
-        oarg = (Object *)tiargs->data[i];
+        oarg = tiargs->tdata()[i];
     else
     {   // Get default argument instead
         oarg = defaultArg(loc, sc);
         if (!oarg)
         {   assert(i < dedtypes->dim);
             // It might have already been deduced
-            oarg = (Object *)dedtypes->data[i];
+            oarg = dedtypes->tdata()[i];
             if (!oarg)
                 goto Lnomatch;
         }
@@ -3043,7 +3078,7 @@ MATCH TemplateValueParameter::matchArg(Scope *sc,
 
     if (specValue)
     {
-        if (!ei || ei == edummy)
+        if (!ei || _aaGetRvalue(edummies, ei->type) == ei)
             goto Lnomatch;
 
         Expression *e = specValue;
@@ -3128,9 +3163,10 @@ void *TemplateValueParameter::dummyArg()
     if (!e)
     {
         // Create a dummy value
-        if (!edummy)
-            edummy = valType->defaultInit();
-        e = edummy;
+        Expression **pe = (Expression **)_aaGet(&edummies, valType);
+        if (!*pe)
+            *pe = valType->defaultInit();
+        e = *pe;
     }
     return (void *)e;
 }
@@ -3469,6 +3505,11 @@ void TemplateInstance::semantic(Scope *sc)
          * (if we havetempdecl, then tiargs is already evaluated)
          */
         semanticTiargs(sc);
+        if (arrayObjectIsError(tiargs))
+        {   inst = this;
+            //printf("error return %p, %d\n", tempdecl, global.errors);
+            return;             // error recovery
+        }
 
         tempdecl = findTemplateDeclaration(sc);
         if (tempdecl)
@@ -4367,6 +4408,8 @@ Identifier *TemplateInstance::genIdent()
             {   ea->error("tuple is not a valid template value argument");
                 continue;
             }
+            if (ea->op == TOKerror)
+                continue;
 #if 1
             /* Use deco that matches what it would be for a function parameter
              */
@@ -4572,7 +4615,7 @@ void TemplateInstance::printInstantiationTrace()
         return;
 
     const unsigned max_shown = 6;
-    const char format[] = "%s:        instantiated from here: %s\n";
+    const char format[] = "instantiated from here: %s";
 
     // determine instantiation depth and number of recursive instantiations
     int n_instantiations = 1;
@@ -4595,7 +4638,7 @@ void TemplateInstance::printInstantiationTrace()
     {
         for (TemplateInstance *cur = this; cur; cur = cur->tinst)
         {
-            fprintf(stdmsg, format, cur->loc.toChars(), cur->toChars());
+            errorSupplemental(cur->loc, format, cur->toChars());
         }
     }
     else if (n_instantiations - n_totalrecursions <= max_shown)
@@ -4613,9 +4656,9 @@ void TemplateInstance::printInstantiationTrace()
             else
             {
                 if (recursionDepth)
-                    fprintf(stdmsg, "%s:        %d recursive instantiations from here: %s\n", cur->loc.toChars(), recursionDepth+2, cur->toChars());
+                    errorSupplemental(cur->loc, "%d recursive instantiations from here: %s", recursionDepth+2, cur->toChars());
                 else
-                    fprintf(stdmsg,format, cur->loc.toChars(), cur->toChars());
+                    errorSupplemental(cur->loc, format, cur->toChars());
                 recursionDepth = 0;
             }
         }
@@ -4628,11 +4671,11 @@ void TemplateInstance::printInstantiationTrace()
         for (TemplateInstance *cur = this; cur; cur = cur->tinst)
         {
             if (i == max_shown / 2)
-                fprintf(stdmsg,"    ... (%d instantiations, -v to show) ...\n", n_instantiations - max_shown);
+                errorSupplemental(cur->loc, "... (%d instantiations, -v to show) ...", n_instantiations - max_shown);
 
             if (i < max_shown / 2 ||
                 i >= n_instantiations - max_shown + max_shown / 2)
-                fprintf(stdmsg, format, cur->loc.toChars(), cur->toChars());
+                errorSupplemental(cur->loc, format, cur->toChars());
             ++i;
         }
     }
@@ -4653,7 +4696,7 @@ void TemplateInstance::toObjFile(int multiobj)
         {
             for (size_t i = 0; i < members->dim; i++)
             {
-                Dsymbol *s = (Dsymbol *)members->data[i];
+                Dsymbol *s = (*members)[i];
                 s->toObjFile(multiobj);
             }
         }
@@ -4671,7 +4714,7 @@ void TemplateInstance::inlineScan()
     {
         for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = (*members)[i];
             s->inlineScan();
         }
     }
@@ -4694,7 +4737,7 @@ void TemplateInstance::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         {
             if (i)
                 buf->writeByte(',');
-            Object *oarg = (Object *)args->data[i];
+            Object *oarg = (*args)[i];
             ObjectToCBuffer(buf, hgs, oarg);
         }
         nest--;
@@ -4798,7 +4841,7 @@ void TemplateInstance::printInstantiationTrace()
 
 TemplateMixin::TemplateMixin(Loc loc, Identifier *ident, Type *tqual,
         Identifiers *idents, Objects *tiargs)
-        : TemplateInstance(loc, (Identifier *)idents->data[idents->dim - 1])
+        : TemplateInstance(loc, idents->tdata()[idents->dim - 1])
 {
     //printf("TemplateMixin(ident = '%s')\n", ident ? ident->toChars() : "");
     this->ident = ident;
@@ -4814,7 +4857,7 @@ Dsymbol *TemplateMixin::syntaxCopy(Dsymbol *s)
     ids->setDim(idents->dim);
     for (size_t i = 0; i < idents->dim; i++)
     {   // Matches TypeQualified::syntaxCopyHelper()
-        Identifier *id = (Identifier *)idents->data[i];
+        Identifier *id = idents->tdata()[i];
         if (id->dyncast() == DYNCAST_DSYMBOL)
         {
             TemplateInstance *ti = (TemplateInstance *)id;
@@ -4883,7 +4926,7 @@ void TemplateMixin::semantic(Scope *sc)
         else
         {
             i = 1;
-            id = (Identifier *)idents->data[0];
+            id = idents->tdata()[0];
             switch (id->dyncast())
             {
                 case DYNCAST_IDENTIFIER:
@@ -4906,7 +4949,7 @@ void TemplateMixin::semantic(Scope *sc)
         {
             if (!s)
                 break;
-            id = (Identifier *)idents->data[i];
+            id = idents->tdata()[i];
             s = s->searchX(loc, sc, id);
         }
         if (!s)
@@ -4954,7 +4997,7 @@ void TemplateMixin::semantic(Scope *sc)
 
     // Run semantic on each argument, place results in tiargs[]
     semanticTiargs(sc);
-    if (errors)
+    if (errors || arrayObjectIsError(tiargs))
         return;
 
     tempdecl = findBestMatch(sc);
@@ -5190,9 +5233,11 @@ int TemplateMixin::oneMember(Dsymbol **ps)
 int TemplateMixin::hasPointers()
 {
     //printf("TemplateMixin::hasPointers() %s\n", toChars());
+
+    if (members)
     for (size_t i = 0; i < members->dim; i++)
     {
-        Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = (*members)[i];
         //printf(" s = %s %s\n", s->kind(), s->toChars());
         if (s->hasPointers())
         {

@@ -164,8 +164,8 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
 #endif
         for (size_t i = 0; i < field.dim; i++)
         {
-            Identifier *id = (Identifier *)field.data[i];
-            Initializer *val = (Initializer *)value.data[i];
+            Identifier *id = field[i];
+            Initializer *val = value[i];
             Dsymbol *s;
             VarDeclaration *v;
 
@@ -180,7 +180,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
                 }
                 else
                 {
-                    s = (Dsymbol *)ad->fields.data[fieldi];
+                    s = ad->fields[fieldi];
                 }
             }
             else
@@ -193,6 +193,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
                     errors = 1;
                     continue;
                 }
+                s = s->toAlias();
 
                 // Find out which field index it is
                 for (fieldi = 0; 1; fieldi++)
@@ -204,7 +205,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
                         errors = 1;
                         break;
                     }
-                    if (s == (Dsymbol *)ad->fields.data[fieldi])
+                    if (s == ad->fields[fieldi])
                         break;
                 }
             }
@@ -277,7 +278,7 @@ Expression *StructInitializer::toExpression()
     unsigned fieldi = 0;
     for (size_t i = 0; i < value.dim; i++)
     {
-        Identifier *id = (Identifier *)field.data[i];
+        Identifier *id = field[i];
         if (id)
         {
             Dsymbol * s = ad->search(loc, id, 0);
@@ -286,6 +287,7 @@ Expression *StructInitializer::toExpression()
                 error(loc, "'%s' is not a member of '%s'", id->toChars(), sd->toChars());
                 goto Lno;
             }
+            s = s->toAlias();
 
             // Find out which field index it is
             for (fieldi = 0; 1; fieldi++)
@@ -295,7 +297,7 @@ Expression *StructInitializer::toExpression()
                     s->error("is not a per-instance initializable field");
                     goto Lno;
                 }
-                if (s == (Dsymbol *)ad->fields.data[fieldi])
+                if (s == ad->fields[fieldi])
                     break;
             }
         }

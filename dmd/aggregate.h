@@ -105,6 +105,7 @@ struct AggregateDeclaration : ScopeDsymbol
     int isDeprecated();         // is aggregate deprecated?
     FuncDeclaration *buildDtor(Scope *sc);
     int isNested();
+    int isExport();
 
     void emitComment(Scope *sc);
     void toJsonBuffer(OutBuffer *buf);
@@ -275,6 +276,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     virtual int isBaseInfoComplete();
     Dsymbol *search(Loc, Identifier *ident, int flags);
+    Dsymbol *searchBase(Loc, Identifier *ident);
 #if DMDV2
     int isFuncHidden(FuncDeclaration *fd);
 #endif

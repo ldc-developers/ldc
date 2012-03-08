@@ -496,8 +496,10 @@ typedef uint64_t StorageClass;
 
 void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 void error(Loc loc, const char *format, ...) IS_PRINTF(2);
+void errorSupplemental(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list);
 void vwarning(Loc loc, const char *format, va_list);
+void verrorSupplemental(Loc loc, const char *format, va_list);
 #ifdef __GNUC__
 __attribute__((noreturn))
 #endif

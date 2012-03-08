@@ -746,11 +746,15 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
              */
             if (!tf->parameterEscapes(p))
             {
+                Expression *a = arg;
+                if (a->op == TOKcast)
+                    a = ((CastExp *)a)->e1;
+
                 /* Function literals can only appear once, so if this
                  * appearance was scoped, there cannot be any others.
                  */
-                if (arg->op == TOKfunction)
-                {   FuncExp *fe = (FuncExp *)arg;
+                if (a->op == TOKfunction)
+                {   FuncExp *fe = (FuncExp *)a;
                     fe->fd->tookAddressOf = 0;
                 }
 
@@ -758,8 +762,8 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
                  * this doesn't count as taking the address of it.
                  * We only worry about 'escaping' references to the function.
                  */
-                else if (arg->op == TOKdelegate)
-                {   DelegateExp *de = (DelegateExp *)arg;
+                else if (a->op == TOKdelegate)
+                {   DelegateExp *de = (DelegateExp *)a;
                     if (de->e1->op == TOKvar)
                     {   VarExp *ve = (VarExp *)de->e1;
                         FuncDeclaration *f = ve->var->isFuncDeclaration();
@@ -1029,7 +1033,7 @@ void Expression::warning(const char *format, ...)
     }
 }
 
-void Expression::rvalue()
+int Expression::rvalue()
 {
     if (type && type->toBasetype()->ty == Tvoid)
     {   error("expression %s is void and has no value", toChars());
@@ -1037,8 +1041,11 @@ void Expression::rvalue()
         dump(0);
         halt();
 #endif
-        type = Type::terror;
+        if (!global.gag)
+            type = Type::terror;
+        return 0;
     }
+    return 1;
 }
 
 Expression *Expression::combine(Expression *e1, Expression *e2)
@@ -1183,7 +1190,8 @@ Expression *Expression::checkIntegral()
 Expression *Expression::checkArithmetic()
 {
     if (!type->isintegral() && !type->isfloating())
-    {   error("'%s' is not of arithmetic type, it is a %s", toChars(), type->toChars());
+    {   if (type->toBasetype() != Type::terror)
+            error("'%s' is not of arithmetic type, it is a %s", toChars(), type->toChars());
         return new ErrorExp();
     }
     return this;
@@ -1804,16 +1812,16 @@ void floatToBuffer(OutBuffer *buf, Type *type, real_t value)
         buf->writestring(buffer);
     else
     {
-    	#ifdef __HAIKU__	// broken printf workaround
-    		char buffer2[25];
-    		char *ptr = (char *)&value;
-    		for(int i = 0; i < sizeof(value); i++)
-				snprintf(buffer2, sizeof(char), "%x", ptr[i]);
-			
-			buf->writestring(buffer2);
-		#else
-			buf->printf("%La", value);	// ensure exact duplication
-		#endif
+        #ifdef __HAIKU__    // broken printf workaround
+            char buffer2[25];
+            char *ptr = (char *)&value;
+            for(int i = 0; i < sizeof(value); i++)
+                snprintf(buffer2, sizeof(char), "%x", ptr[i]);
+
+            buf->writestring(buffer2);
+        #else
+            buf->printf("%La", value);    // ensure exact duplication
+        #endif
     }
 
     if (type)
@@ -2644,6 +2652,7 @@ StringExp::StringExp(Loc loc, char *string)
     this->sz = 1;
     this->committed = 0;
     this->postfix = 0;
+    this->ownedByCtfe = false;
 }
 
 StringExp::StringExp(Loc loc, void *string, size_t len)
@@ -2654,6 +2663,7 @@ StringExp::StringExp(Loc loc, void *string, size_t len)
     this->sz = 1;
     this->committed = 0;
     this->postfix = 0;
+    this->ownedByCtfe = false;
 }
 
 StringExp::StringExp(Loc loc, void *string, size_t len, unsigned char postfix)
@@ -2664,6 +2674,7 @@ StringExp::StringExp(Loc loc, void *string, size_t len, unsigned char postfix)
     this->sz = 1;
     this->committed = 0;
     this->postfix = postfix;
+    this->ownedByCtfe = false;
 }
 
 #if 0
@@ -2676,7 +2687,7 @@ Expression *StringExp::syntaxCopy()
 
 int StringExp::equals(Object *o)
 {
-    //printf("StringExp::equals('%s')\n", o->toChars());
+    //printf("StringExp::equals('%s') %s\n", o->toChars(), toChars());
     if (o && o->dyncast() == DYNCAST_EXPRESSION)
     {   Expression *e = (Expression *)o;
 
@@ -2722,7 +2733,7 @@ Expression *StringExp::semantic(Scope *sc)
                     p = utf_decodeChar((unsigned char *)string, len, &u, &c);
                     if (p)
                     {   error("%s", p);
-                        break;
+                        return new ErrorExp();
                     }
                     else
                     {   buffer.write4(c);
@@ -2743,7 +2754,7 @@ Expression *StringExp::semantic(Scope *sc)
                     p = utf_decodeChar((unsigned char *)string, len, &u, &c);
                     if (p)
                     {   error("%s", p);
-                        break;
+                        return new ErrorExp();
                     }
                     else
                     {   buffer.writeUTF16(c);
@@ -3038,6 +3049,7 @@ ArrayLiteralExp::ArrayLiteralExp(Loc loc, Expressions *elements)
     : Expression(loc, TOKarrayliteral, sizeof(ArrayLiteralExp))
 {
     this->elements = elements;
+    this->ownedByCtfe = false;
 }
 
 ArrayLiteralExp::ArrayLiteralExp(Loc loc, Expression *e)
@@ -3116,9 +3128,9 @@ int ArrayLiteralExp::checkSideEffect(int flag)
 {   int f = 0;
 
     for (size_t i = 0; i < elements->dim; i++)
-    {   Expression *e = (Expression *)elements->data[i];
+    {   Expression *e = elements->tdata()[i];
 
-        f |= e->checkSideEffect(2);
+        f |= e->hasSideEffect();
     }
     if (flag == 0 && f == 0)
         Expression::checkSideEffect(0);
@@ -3179,7 +3191,7 @@ void ArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
     size_t dim = elements ? elements->dim : 0;
     buf->printf("A%zu", dim);
     for (size_t i = 0; i < dim; i++)
-    {   Expression *e = (Expression *)elements->data[i];
+    {   Expression *e = elements->tdata()[i];
         e->toMangleBuffer(buf);
     }
 }
@@ -3195,6 +3207,7 @@ AssocArrayLiteralExp::AssocArrayLiteralExp(Loc loc,
     assert(keys->dim == values->dim);
     this->keys = keys;
     this->values = values;
+    this->ownedByCtfe = false;
 }
 
 Expression *AssocArrayLiteralExp::syntaxCopy()
@@ -3238,8 +3251,8 @@ int AssocArrayLiteralExp::checkSideEffect(int flag)
     {   Expression *key = (Expression *)keys->data[i];
         Expression *value = (Expression *)values->data[i];
 
-        f |= key->checkSideEffect(2);
-        f |= value->checkSideEffect(2);
+        f |= key->hasSideEffect();
+        f |= value->hasSideEffect();
     }
     if (flag == 0 && f == 0)
         Expression::checkSideEffect(0);
@@ -3507,7 +3520,7 @@ int StructLiteralExp::checkSideEffect(int flag)
         if (!e)
             continue;
 
-        f |= e->checkSideEffect(2);
+        f |= e->hasSideEffect();
     }
     if (flag == 0 && f == 0)
         Expression::checkSideEffect(0);
@@ -3701,9 +3714,10 @@ void TemplateExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writestring(td->toChars());
 }
 
-void TemplateExp::rvalue()
+int TemplateExp::rvalue()
 {
     error("template %s has no value", toChars());
+    return 0;
 }
 
 /********************** NewExp **************************************/
@@ -3759,7 +3773,7 @@ Lagain:
         else
         {
             error("'this' for nested class must be a class type, not %s", thisexp->type->toChars());
-            type = newtype->semantic(loc, sc);
+            goto Lerr;
         }
     }
     else
@@ -3774,7 +3788,9 @@ Lagain:
     preFunctionParameters(loc, sc, arguments);
 
     if (thisexp && tb->ty != Tclass)
-        error("e.new is only for allocating nested classes, not %s", tb->toChars());
+    {   error("e.new is only for allocating nested classes, not %s", tb->toChars());
+        goto Lerr;
+    }
 
     if (tb->ty == Tclass)
     {   TypeFunction *tf;
@@ -3782,14 +3798,17 @@ Lagain:
         TypeClass *tc = (TypeClass *)(tb);
         ClassDeclaration *cd = tc->sym->isClassDeclaration();
         if (cd->isInterfaceDeclaration())
-            error("cannot create instance of interface %s", cd->toChars());
+        {   error("cannot create instance of interface %s", cd->toChars());
+            goto Lerr;
+        }
         else if (cd->isAbstract())
         {   error("cannot create instance of abstract class %s", cd->toChars());
             for (size_t i = 0; i < cd->vtbl.dim; i++)
-            {   FuncDeclaration *fd = ((Dsymbol *)cd->vtbl.data[i])->isFuncDeclaration();
+            {   FuncDeclaration *fd = cd->vtbl.tdata()[i]->isFuncDeclaration();
                 if (fd && fd->isAbstract())
                     error("function %s is abstract", fd->toChars());
             }
+            goto Lerr;
         }
         checkDeprecated(sc, cd);
         if (cd->isNested())
@@ -3811,7 +3830,7 @@ Lagain:
                     {   if (!sp)
                         {
                             error("outer class %s 'this' needed to 'new' nested class %s", cdn->toChars(), cd->toChars());
-                            break;
+                            goto Lerr;
                         }
                         ClassDeclaration *cdp = sp->isClassDeclaration();
                         if (!cdp)
@@ -3828,7 +3847,9 @@ Lagain:
                 {
                     //printf("cdthis = %s\n", cdthis->toChars());
                     if (cdthis != cdn && !cdn->isBaseOf(cdthis, NULL))
-                        error("'this' for nested class must be of type %s, not %s", cdn->toChars(), thisexp->type->toChars());
+                    {   error("'this' for nested class must be of type %s, not %s", cdn->toChars(), thisexp->type->toChars());
+                        goto Lerr;
+                    }
                 }
 #if 0
                 else
@@ -3838,7 +3859,7 @@ Lagain:
                         if (!sf)
                         {
                             error("outer class %s 'this' needed to 'new' nested class %s", cdn->toChars(), cd->toChars());
-                            break;
+                            goto Lerr;
                         }
                         printf("sf = %s\n", sf->toChars());
                         AggregateDeclaration *ad = sf->isThis();
@@ -3849,7 +3870,9 @@ Lagain:
 #endif
             }
             else if (thisexp)
-                error("e.new is only for allocating nested classes");
+            {   error("e.new is only for allocating nested classes");
+                goto Lerr;
+            }
             else if (fdn)
             {
                 // make sure the parent context fdn of cd is reachable from sc
@@ -3861,13 +3884,15 @@ Lagain:
                     if (!sp || (fsp && fsp->isStatic()))
                     {
                         error("outer function context of %s is needed to 'new' nested class %s", fdn->toPrettyChars(), cd->toPrettyChars());
-                        break;
+                        goto Lerr;
                     }
                 }
             }
         }
         else if (thisexp)
-            error("e.new is only for allocating nested classes");
+        {   error("e.new is only for allocating nested classes");
+            goto Lerr;
+        }
 
         FuncDeclaration *f = cd->ctor;
         if (f)
@@ -3885,12 +3910,18 @@ Lagain:
 
             if (!arguments)
                 arguments = new Expressions();
+            unsigned olderrors = global.errors;
             functionParameters(loc, sc, tf, arguments);
+            if (olderrors != global.errors)
+                return new ErrorExp();
+
         }
         else
         {
             if (arguments && arguments->dim)
-                error("no constructor for %s", cd->toChars());
+            {   error("no constructor for %s", cd->toChars());
+                goto Lerr;
+            }
         }
 
         if (cd->aggNew)
@@ -3906,12 +3937,18 @@ Lagain:
             assert(allocator);
 
             tf = (TypeFunction *)f->type;
+            unsigned olderrors = global.errors;
             functionParameters(loc, sc, tf, newargs);
+            if (olderrors != global.errors)
+                return new ErrorExp();
+
         }
         else
         {
             if (newargs && newargs->dim)
-                error("no allocator for %s", cd->toChars());
+            {   error("no allocator for %s", cd->toChars());
+                goto Lerr;
+            }
         }
     }
     else if (tb->ty == Tstruct)
@@ -3939,7 +3976,10 @@ Lagain:
             assert(allocator);
 
             tf = (TypeFunction *)f->type;
+            unsigned olderrors = global.errors;
             functionParameters(loc, sc, tf, newargs);
+            if (olderrors != global.errors)
+                return new ErrorExp();
 
             e = new VarExp(loc, f);
             e = new CallExp(loc, e, newargs);
@@ -3956,36 +3996,42 @@ Lagain:
         {
             if (tb->ty != Tarray)
             {   error("too many arguments for array");
-                arguments->dim = i;
-                break;
+                goto Lerr;
             }
 
-            Expression *arg = (Expression *)arguments->data[i];
+            Expression *arg = arguments->tdata()[i];
             arg = resolveProperties(sc, arg);
             arg = arg->implicitCastTo(sc, Type::tsize_t);
             if (arg->op == TOKint64 && (long long)arg->toInteger() < 0)
-                error("negative array index %s", arg->toChars());
-            arguments->data[i] = (void *) arg;
+            {   error("negative array index %s", arg->toChars());
+                goto Lerr;
+            }
+            arguments->tdata()[i] =  arg;
             tb = ((TypeDArray *)tb)->next->toBasetype();
         }
     }
     else if (tb->isscalar())
     {
         if (arguments && arguments->dim)
-            error("no constructor for %s", type->toChars());
+        {   error("no constructor for %s", type->toChars());
+            goto Lerr;
+        }
 
         type = type->pointerTo();
     }
     else
     {
         error("new can only create structs, dynamic arrays or class objects, not %s's", type->toChars());
-        type = type->pointerTo();
+        goto Lerr;
     }
 
 //printf("NewExp: '%s'\n", toChars());
 //printf("NewExp:type '%s'\n", type->toChars());
 
     return this;
+
+Lerr:
+    return new ErrorExp();
 }
 
 int NewExp::checkSideEffect(int flag)
@@ -3994,9 +4040,24 @@ int NewExp::checkSideEffect(int flag)
 }
 
 #if DMDV2
-int NewExp::canThrow()
+int NewExp::canThrow(bool mustNotThrow)
 {
-    return 1;
+    if (arrayExpressionCanThrow(newargs, mustNotThrow) ||
+        arrayExpressionCanThrow(arguments, mustNotThrow))
+        return 1;
+    if (member)
+    {
+        // See if constructor call can throw
+        Type *t = member->type->toBasetype();
+        if (t->ty == Tfunction && !((TypeFunction *)t)->isnothrow)
+        {
+            if (mustNotThrow)
+                error("constructor %s is not nothrow", member->toChars());
+            return 1;
+        }
+    }
+    // regard storage allocation failures as not recoverable
+    return 0;
 }
 #endif
 
@@ -4499,7 +4560,7 @@ int TupleExp::checkSideEffect(int flag)
     for (size_t i = 0; i < exps->dim; i++)
     {   Expression *e = (*exps)[i];
 
-        f |= e->checkSideEffect(2);
+        f |= e->hasSideEffect();
     }
     if (flag == 0 && f == 0)
         Expression::checkSideEffect(0);
@@ -5027,17 +5088,13 @@ Expression *IsExp::semantic(Scope *sc)
             /* Declare trailing parameters
              */
             for (size_t i = 1; i < parameters->dim; i++)
-            {   TemplateParameter *tp = (TemplateParameter *)parameters->data[i];
+            {   TemplateParameter *tp = (*parameters)[i];
                 Declaration *s = NULL;
 
                 m = tp->matchArg(sc, &tiargs, i, parameters, &dedtypes, &s);
                 if (m == MATCHnomatch)
                     goto Lno;
                 s->semantic(sc);
-#if 0
-                Object *o = (Object *)dedtypes.data[i];
-                Dsymbol *s = TemplateDeclaration::declareParameter(loc, sc, tp, o);
-#endif
                 if (sc->sd)
                     s->addMember(sc, sc->sd, 1);
                 else if (!sc->insert(s))
@@ -5080,9 +5137,18 @@ Expression *IsExp::semantic(Scope *sc)
 Lyes:
     if (id)
     {
-        Dsymbol *s = new AliasDeclaration(loc, id, tded);
+        Dsymbol *s;
+        Tuple *tup = isTuple(tded);
+        if (tup)
+            s = new TupleDeclaration(loc, id, &(tup->objects));
+        else
+            s = new AliasDeclaration(loc, id, tded);
         s->semantic(sc);
-        sc->insert(s);
+        /* The reason for the !tup is unclear. It fails Phobos unittests if it is not there.
+         * More investigation is needed.
+         */
+        if (!tup && !sc->insert(s))
+            error("declaration %s is already defined", s->toChars());
         if (sc->sd)
             s->addMember(sc, sc->sd, 1);
     }
@@ -5732,6 +5798,12 @@ Expression *DotIdExp::semantic(Scope *sc)
             (ie->sds->isModule() && ie->sds != sc->module) ? 1 : 0);
         if (s)
         {
+            /* Check for access before resolving aliases because public
+             * aliases to private symbols are public.
+             */
+            if (Declaration *d = s->isDeclaration())
+                accessCheck(loc, sc, 0, d);
+
             s = s->toAlias();
             checkDeprecated(sc, s);
 
@@ -6606,7 +6678,15 @@ Lagain:
     }
     else
     {
+            static int nest;
+            if (++nest > 500)
+            {
+                error("recursive evaluation of %s", toChars());
+                --nest;
+                return new ErrorExp();
+            }
         UnaExp::semantic(sc);
+        --nest;
 
         /* Look for e1 being a lazy parameter
          */
@@ -6627,6 +6707,14 @@ Lagain:
             e1 = new DsymbolExp(loc, se->sds);
             e1 = e1->semantic(sc);
         }
+#if DMDV2
+        else if (e1->op == TOKsymoff && ((SymOffExp *)e1)->hasOverloads)
+        {
+            SymOffExp *se = (SymOffExp *)e1;
+            e1 = new VarExp(se->loc, se->var, 1);
+            e1 = e1->semantic(sc);
+        }
+#endif
 #if 1   // patch for #540 by Oskar Linde
         else if (e1->op == TOKdotexp)
         {
@@ -6754,9 +6842,7 @@ Lagain:
                 arguments = new Expressions();
             f = td->deduceFunctionTemplate(sc, loc, targsi, NULL, arguments);
             if (!f)
-            {   type = Type::terror;
-                return this;
-            }
+                return new ErrorExp();
             ad = td->toParent()->isAggregateDeclaration();
         }
         if (f->needThis())
@@ -6785,7 +6871,10 @@ Lagain:
         if (!f->needThis())
         {
             VarExp *ve = new VarExp(loc, f);
-            e1 = new CommaExp(loc, ue->e1, ve);
+            if ((ue->e1)->op == TOKtype) // just a FQN
+                e1 = ve;
+            else // things like (new Foo).bar()
+                e1 = new CommaExp(loc, ue->e1, ve);
             e1->type = f->type;
         }
         else
@@ -6823,16 +6912,14 @@ Lagain:
         if (!cd || !cd->baseClass || !sc->func->isCtorDeclaration())
         {
             error("super class constructor call must be in a constructor");
-            type = Type::terror;
-            return this;
+            return new ErrorExp();
         }
         else
         {
             f = cd->baseClass->ctor;
             if (!f)
             {   error("no super class constructor for %s", cd->baseClass->toChars());
-                type = Type::terror;
-                return this;
+                return new ErrorExp();
             }
             else
             {
@@ -6854,6 +6941,7 @@ Lagain:
                 checkDeprecated(sc, f);
 #if DMDV2
                 checkPurity(sc, f);
+                checkSafety(sc, f);
 #endif
                 e1 = new DotVarExp(e1->loc, e1, f);
                 e1 = e1->semantic(sc);
@@ -6871,8 +6959,7 @@ Lagain:
         if (!cd || !sc->func->isCtorDeclaration())
         {
             error("class constructor call must be in a constructor");
-            type = Type::terror;
-            return this;
+            return new ErrorExp();
         }
         else
         {
@@ -6894,6 +6981,7 @@ Lagain:
             checkDeprecated(sc, f);
 #if DMDV2
             checkPurity(sc, f);
+            checkSafety(sc, f);
 #endif
             e1 = new DotVarExp(e1->loc, e1, f);
             e1 = e1->semantic(sc);
@@ -6902,14 +6990,15 @@ Lagain:
             // BUG: this should really be done by checking the static
             // call graph
             if (f == sc->func)
-                error("cyclic constructor call");
+            {   error("cyclic constructor call");
+                return new ErrorExp();
+            }
         }
     }
     else if (!t1)
     {
         error("function expected before (), not '%s'", e1->toChars());
-        type = Type::terror;
-        return this;
+        return new ErrorExp();
     }
     else if (t1->ty != Tfunction)
     {
@@ -6920,9 +7009,8 @@ Lagain:
             goto Lcheckargs;
         }
         else if (t1->ty == Tpointer && ((TypePointer *)t1)->next->ty == Tfunction)
-        {   Expression *e;
-
-            e = new PtrExp(loc, e1);
+        {
+            Expression *e = new PtrExp(loc, e1);
             t1 = ((TypePointer *)t1)->next;
             e->type = t1;
             e1 = e;
@@ -6932,8 +7020,8 @@ Lagain:
             TemplateExp *te = (TemplateExp *)e1;
             f = te->td->deduceFunctionTemplate(sc, loc, targsi, NULL, arguments);
             if (!f)
-            {   type = Type::terror;
-                return this;
+            {
+                return new ErrorExp();
             }
             if (f->needThis() && hasThis(sc))
             {
@@ -6949,8 +7037,7 @@ Lagain:
         }
         else
         {   error("function expected before (), not %s of type %s", e1->toChars(), e1->type->toChars());
-            type = Type::terror;
-            return this;
+            return new ErrorExp();
         }
     }
     else if (e1->op == TOKvar)
@@ -6988,6 +7075,7 @@ Lagain:
         checkDeprecated(sc, f);
 #if DMDV2
         checkPurity(sc, f);
+        checkSafety(sc, f);
 #endif
 
         if (f->needThis() && hasThis(sc))
@@ -7014,9 +7102,16 @@ Lcheckargs:
 
     if (!arguments)
         arguments = new Expressions();
+    int olderrors = global.errors;
     functionParameters(loc, sc, tf, arguments);
+    if (olderrors != global.errors)
+        return new ErrorExp();
 
-    assert(type);
+    if (!type)
+    {
+        error("forward reference to inferred return type of function call %s", toChars());
+        return new ErrorExp();
+    }
 
     if (f && f->tintro)
     {
@@ -7037,31 +7132,43 @@ Lcheckargs:
 int CallExp::checkSideEffect(int flag)
 {
 #if DMDV2
-    if (flag != 2)
-        return 1;
+    int result = 1;
 
-    if (e1->checkSideEffect(2))
-        return 1;
+    /* Calling a function or delegate that is pure nothrow
+     * has no side effects.
+     */
+    if (e1->type)
+    {
+        Type *t = e1->type->toBasetype();
+        if ((t->ty == Tfunction && ((TypeFunction *)t)->purity > PUREweak &&
+                                   ((TypeFunction *)t)->isnothrow)
+            ||
+            (t->ty == Tdelegate && ((TypeFunction *)((TypeDelegate *)t)->next)->purity > PUREweak &&
+                                   ((TypeFunction *)((TypeDelegate *)t)->next)->isnothrow)
+           )
+        {
+            result = 0;
+            //if (flag == 0)
+                //warning("pure nothrow function %s has no effect", e1->toChars());
+        }
+        else
+            result = 1;
+    }
+
+    result |= e1->checkSideEffect(1);
 
     /* If any of the arguments have side effects, this expression does
      */
     for (size_t i = 0; i < arguments->dim; i++)
-    {   Expression *e = (Expression *)arguments->data[i];
+    {   Expression *e = arguments->tdata()[i];
 
-        if (e->checkSideEffect(2))
-            return 1;
+        result |= e->checkSideEffect(1);
     }
 
-    /* If calling a function or delegate that is typed as pure,
-     * then this expression has no side effects.
-     */
-    Type *t = e1->type->toBasetype();
-    if (t->ty == Tfunction && ((TypeFunction *)t)->ispure)
-        return 0;
-    if (t->ty == Tdelegate && ((TypeFunction *)((TypeDelegate *)t)->next)->ispure)
-        return 0;
-#endif
+    return result;
+#else
     return 1;
+#endif
 }
 
 #if DMDV2
@@ -7284,7 +7391,8 @@ Expression *PtrExp::semantic(Scope *sc)
             case Terror:
                 return new ErrorExp();
         }
-        rvalue();
+        if (!rvalue())
+            return new ErrorExp();
     }
     return this;
 }
@@ -8166,7 +8274,7 @@ int CommaExp::isBool(int result)
 int CommaExp::checkSideEffect(int flag)
 {
     if (flag == 2)
-        return e1->checkSideEffect(2) || e2->checkSideEffect(2);
+        return e1->hasSideEffect() || e2->hasSideEffect();
     else
     {
         // Don't check e1 until we cast(void) the a,b code generation
@@ -8585,7 +8693,8 @@ Expression *AssignExp::semantic(Scope *sc)
         }
     }
 
-    e2->rvalue();
+    if (!e2->rvalue())
+        return new ErrorExp();
 
     if (e1->op == TOKarraylength)
     {
@@ -8628,10 +8737,20 @@ Expression *AssignExp::semantic(Scope *sc)
          e2->op == TOKmul || e2->op == TOKdiv ||
          e2->op == TOKmod || e2->op == TOKxor ||
          e2->op == TOKand || e2->op == TOKor  ||
+#if DMDV2
+         e2->op == TOKpow ||
+#endif
          e2->op == TOKtilde || e2->op == TOKneg))
     {
         type = e1->type;
         return arrayOp(sc);
+    }
+
+    if (e1->op == TOKvar &&
+        (((VarExp *)e1)->var->storage_class & STCscope) &&
+        op == TOKassign)
+    {
+        error("cannot rebind scope variables");
     }
 
     type = e1->type;
@@ -8646,7 +8765,7 @@ Expression *AssignExp::checkToBoolean()
     // are usually mistakes.
 
     error("assignment cannot be used as a condition, perhaps == was meant?");
-    return this;
+    return new ErrorExp();
 }
 
 /************************************************************/
@@ -8853,7 +8972,8 @@ Expression *CatAssignExp::semantic(Scope *sc)
     Type *tb1 = e1->type->toBasetype();
     Type *tb2 = e2->type->toBasetype();
 
-    e2->rvalue();
+    if (!e2->rvalue())
+        return new ErrorExp();
 
     Type *tb1next = tb1->nextOf();
 
@@ -9889,7 +10009,7 @@ int OrOrExp::checkSideEffect(int flag)
 {
     if (flag == 2)
     {
-        return e1->checkSideEffect(2) || e2->checkSideEffect(2);
+        return e1->hasSideEffect() || e2->hasSideEffect();
     }
     else
     {   e1->checkSideEffect(1);
@@ -9964,7 +10084,7 @@ int AndAndExp::checkSideEffect(int flag)
 {
     if (flag == 2)
     {
-        return e1->checkSideEffect(2) || e2->checkSideEffect(2);
+        return e1->hasSideEffect() || e2->hasSideEffect();
     }
     else
     {
@@ -10422,9 +10542,9 @@ int CondExp::checkSideEffect(int flag)
 {
     if (flag == 2)
     {
-        return econd->checkSideEffect(2) ||
-                e1->checkSideEffect(2) ||
-                e2->checkSideEffect(2);
+        return econd->hasSideEffect() ||
+                e1->hasSideEffect() ||
+                e2->hasSideEffect();
     }
     else
     {
