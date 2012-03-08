@@ -105,7 +105,7 @@ Global::Global()
     version = "v2.058";
 #if IN_LLVM
     ldc_version = "LDC trunk";
-    llvm_version = "LLVM 3.0";
+    llvm_version = "LLVM 3.1svn";
 #endif
     global.structalign = 8;
 
