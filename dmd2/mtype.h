@@ -1010,7 +1010,7 @@ struct TypeNull : Type
     TypeNull();
 
     Type *syntaxCopy();
-    void toDecoBuffer(OutBuffer *buf, int flag);
+    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     MATCH implicitConvTo(Type *to);
 
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);

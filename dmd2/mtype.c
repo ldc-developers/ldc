@@ -8995,10 +8995,10 @@ MATCH TypeNull::implicitConvTo(Type *to)
     return MATCHnomatch;
 }
 
-void TypeNull::toDecoBuffer(OutBuffer *buf, int flag)
+void TypeNull::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 {
     //tvoidptr->toDecoBuffer(buf, flag);
-    Type::toDecoBuffer(buf, flag);
+    Type::toDecoBuffer(buf, flag, mangle);
 }
 
 void TypeNull::toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs)
