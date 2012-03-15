@@ -2507,10 +2507,15 @@ done:
             real_t::parse((char *)stringbuffer.data, real_t::Float);
 #else
             strtofres = strtof((char *)stringbuffer.data, NULL);
+#ifdef IN_LLVM
+#ifdef _MSC_VER
+#define HUGE_VALF HUGE_VAL
+#endif
             // LDC change: don't error on gradual underflow
             if (errno == ERANGE &&
                     strtofres != 0 && strtofres != HUGE_VALF && strtofres != -HUGE_VALF)
                 errno = 0;
+#endif
 #endif
             result = TOKfloat32v;
             p++;
@@ -2521,10 +2526,12 @@ done:
             real_t::parse((char *)stringbuffer.data, real_t::Double);
 #else
             strtodres = strtod((char *)stringbuffer.data, NULL);
+#if IN_LLVM
             // LDC change: don't error on gradual underflow
             if (errno == ERANGE &&
                     strtodres != 0 && strtodres != HUGE_VAL && strtodres != -HUGE_VAL)
                 errno = 0;
+#endif
 #endif
             result = TOKfloat64v;
             break;
