@@ -22,6 +22,10 @@
 #include "arraytypes.h"
 
 #if IN_LLVM
+#if defined(_MSC_VER)
+#undef min
+#undef max
+#endif
 #include "../ir/irdsymbol.h"
 #endif
 
