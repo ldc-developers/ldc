@@ -388,9 +388,9 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
         for (itr = constants.begin(); itr != end; ++itr)
             types.push_back((*itr)->getType());
         if (!ltype)
-            ltype = LLStructType::get(gIR->context(), types);
+            ltype = LLStructType::get(gIR->context(), types, packed);
         else
-            ltype->setBody(types);
+            ltype->setBody(types, packed);
     }
 
     // build constant
