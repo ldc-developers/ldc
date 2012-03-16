@@ -490,93 +490,33 @@ version (GC_Use_Data_Dyld)
             const char* section;
         }
 
-        struct mach_header
-        {
-            uint magic;
-            int cputype;
-            int cpusubtype;
-            uint filetype;
-            uint ncmds;
-            uint sizeofcmds;
-            uint flags;
-            version (D_LP64)
-                uint reserved;
-        }
-
-        struct section
-        {
-            char[16] sectname;
-            char[16] segname;
-            c_ulong addr;
-            c_ulong size;
-            uint offset;
-            uint align_;
-            uint reloff;
-            uint nreloc;
-            uint flags;
-            uint reserved1;
-            uint reserved2;
-            version (D_LP64)
-                uint reserved3;
-        }
-
+        import core.sys.osx.mach.dyld;
         import core.sys.osx.mach.getsect;
         import core.sys.osx.mach.loader;
 
-        version (D_LP64) {
-          alias mach_header_64 mach_header_t;
-          alias section_64 section_t;
-        }
-
-        alias extern (C) void function (mach_header_t* mh, ptrdiff_t vmaddr_slide) DyldFuncPointer;
-        extern (C) void _dyld_register_func_for_add_image(DyldFuncPointer func);
-        extern (C) void _dyld_register_func_for_remove_image(DyldFuncPointer func);
-
         const SegmentSection[3] GC_dyld_sections = [SegmentSection(SEG_DATA, SECT_DATA), SegmentSection(SEG_DATA, SECT_BSS), SegmentSection(SEG_DATA, SECT_COMMON)];
 
-        extern (C) void on_dyld_add_image (mach_header_t* hdr, ptrdiff_t slide)
+        extern(C) void foreachSection(alias fun)(in mach_header* hdr, ptrdiff_t slide)
         {
-            void* start;
-            void* end;
-            const(section_t)* sec;
-
             foreach (s ; GC_dyld_sections)
             {
+                // Should probably be decided at runtime by actual image bitness
+                // (mach_header.magic) rather than at build-time?
                 version (D_LP64)
-                    sec = getsectbynamefromheader_64(hdr, s.segment, s.section);
+                    auto sec = getsectbynamefromheader_64(
+                        cast(mach_header_64*)hdr, s.segment, s.section);
                 else
-                    sec = getsectbynamefromheader(hdr, s.segment, s.section);
+                    auto sec = getsectbynamefromheader(hdr, s.segment, s.section);
 
                 if (sec == null || sec.size == 0)
                     continue;
 
-                start = cast(void*) (sec.addr + slide);
-                end = cast(void*) (start + sec.size);
-
-                gc_addRange(start, end - start);
-            }
-        }
-
-        extern (C) void on_dyld_remove_image (/*const*/ mach_header_t* hdr, ptrdiff_t slide)
-        {
-            void* start;
-            void* end;
-            const(section_t)* sec;
-
-            foreach (s ; GC_dyld_sections)
-            {
-                version (D_LP64)
-                    sec = getsectbynamefromheader_64(hdr, s.segment, s.section);
+                auto start = cast(void*) (sec.addr + slide);
+                auto end = cast(void*) (start + sec.size);
+                static if (is(typeof(fun(start, end - start))))
+                    fun(start, end - start);
                 else
-                    sec = getsectbynamefromheader(hdr, s.segment, s.section);
-
-                if (sec == null || sec.size == 0)
-                    continue;
-
-                start = cast(void*) (sec.addr + slide);
-                end = cast(void*) (start + sec.size);
-
-                gc_removeRange(start);
+                    fun(start);
             }
         }
 
@@ -588,8 +528,8 @@ version (GC_Use_Data_Dyld)
             {
                 started = true;
 
-                _dyld_register_func_for_add_image(&on_dyld_add_image);
-                _dyld_register_func_for_remove_image(&on_dyld_remove_image);
+                _dyld_register_func_for_add_image(&foreachSection!gc_addRange);
+                _dyld_register_func_for_remove_image(&foreachSection!gc_removeRange);
             }
         }
     }
