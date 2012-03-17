@@ -297,6 +297,8 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 # Install target.
 #
 
+add_subdirectory(runtime)
+
 install(TARGETS     ${LDC_EXE}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf           DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
@@ -306,6 +308,3 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(DIRECTORY bash_completion.d DESTINATION ${CONF_INST_DIR})
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
-if(D_VERSION EQUAL 2)
-    add_subdirectory(runtime)
-endif()

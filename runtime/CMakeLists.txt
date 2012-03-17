@@ -6,10 +6,6 @@ cmake_minimum_required(VERSION 2.6)
 # Main configuration.
 #
 
-if(D_VERSION EQUAL 1)
-    message(FATAL_ERROR "Please use bob to build Tango for D1.")
-endif()
-
 include(CheckTypeSize)
 check_type_size(void*  ptr_size)
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
@@ -41,6 +37,15 @@ endif(BUILD_SHARED_LIBS)
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "runtime source dir")
+
+if(D_VERSION EQUAL 1)
+    set(RUNTIME_AIO tango)
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.rebuild.conf)
+
+    message(STATUS "Note: Tango is no longer included in D1 builds, please compile and install it separately using its own build infrastructure (bob).")
+    return()
+endif()
 
 #
 # Gather source files.
