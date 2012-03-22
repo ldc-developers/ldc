@@ -34,12 +34,17 @@
 // sizes based on those from tollvm.cpp:DtoMutexType()
 int os_critsecsize()
 {
-	if (global.params.os == OSWindows)
-		return 68;
-	else if (global.params.os == OSFreeBSD)
-		return sizeof(size_t);
-	else
-		return sizeof(pthread_mutex_t);
+#if defined(_MSC_VER)
+    // TODO Check size
+    return 68;
+#else
+    if (global.params.os == OSWindows)
+        return 68;
+    else if (global.params.os == OSFreeBSD)
+        return sizeof(size_t);
+    else
+        return sizeof(pthread_mutex_t);
+#endif
 }
 #elif IN_DMD
 
