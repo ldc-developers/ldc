@@ -19,8 +19,6 @@
 
 #if POSIX
 #include <errno.h>
-#elif _WIN32
-#include <windows.h>
 #endif
 
 #include "rmem.h"
