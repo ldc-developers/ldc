@@ -12,12 +12,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if linux || __APPLE__ || __FreeBSD__ || __HAIKU__ || __sun&&__SVR4
-#include <pthread.h> // Needs pthread_mutex_t for os_critsecsize
-#elif _WIN32
-#include <windows.h>
-#endif
-
 #include "rmem.h"
 
 #include "statement.h"
@@ -39,6 +33,13 @@
  * Return size of OS critical section.
  */
 #if IN_LLVM
+
+#if linux || __APPLE__ || __FreeBSD__ || __HAIKU__ || __sun&&__SVR4
+#include <pthread.h> // Needs pthread_mutex_t for os_critsecsize
+#elif _WIN32
+#include <windows.h>
+#endif
+
 // sizes based on those from tollvm.cpp:DtoMutexType()
 int os_critsecsize()
 {
