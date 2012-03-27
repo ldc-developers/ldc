@@ -735,7 +735,6 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
 
     // LDC
     anonDecl = NULL;
-    offset2 = 0;
 
     nakedUse = false;
 
