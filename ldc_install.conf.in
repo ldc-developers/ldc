@@ -8,7 +8,7 @@ default:
     // arguments before they are parsed.
     switches = [
         "-I@INCLUDE_INSTALL_DIR@/@RUNTIME_AIO@",
-        "-I@INCLUDE_INSTALL_DIR@/@RUNTIME_AIO@/core/vendor/ldc",
+        "-I@INCLUDE_INSTALL_DIR@/@RUNTIME_AIO@/core/vendor",
         "-I@INCLUDE_INSTALL_DIR@",
         "-L-L@CMAKE_INSTALL_LIBDIR@",
         "-d-version=Tango",
