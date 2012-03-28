@@ -350,10 +350,6 @@ struct VarDeclaration : Declaration
     /// Override added to set above flag.
     void semantic3(Scope *sc);
 
-    // FIXME: we're not using these anymore!
-    AnonDeclaration* anonDecl;
-    unsigned offset2;
-
     /// This var is used by a naked function.
     bool nakedUse;
 
