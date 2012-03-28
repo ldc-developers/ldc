@@ -882,11 +882,6 @@ void AnonDeclaration::semantic(Scope *sc)
             VarDeclaration *v = aad.fields.tdata()[i];
 
             v->offset += sc->offset;
-
-#if IN_LLVM
-        if (!v->anonDecl)
-            v->anonDecl = this;
-#endif
             ad->fields.push(v);
         }
 
