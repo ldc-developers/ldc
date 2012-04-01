@@ -33,7 +33,6 @@
 #include "gen/linker.h"
 #include "gen/irstate.h"
 #include "gen/optimizer.h"
-#include "gen/toobj.h"
 #include "gen/metadata.h"
 #include "gen/passes/Passes.h"
 
@@ -42,6 +41,8 @@
 using namespace opts;
 
 #include "gen/configfile.h"
+
+#include "driver/toobj.h"
 
 #if POSIX
 #include <errno.h>
