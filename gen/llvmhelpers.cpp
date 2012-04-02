@@ -22,7 +22,6 @@
 #include "gen/functions.h"
 #include "gen/typeinf.h"
 #include "gen/todebug.h"
-#include "gen/cl_options.h"
 #include "gen/nested.h"
 #include "ir/irmodule.h"
 
@@ -1649,7 +1648,7 @@ bool mustDefineSymbol(Dsymbol* s)
     TemplateInstance* tinst = DtoIsTemplateInstance(s);
     if (tinst)
     {
-        if (!opts::singleObj)
+        if (!global.params.singleObj)
             return true;
 
         if (!tinst->emittedInModule)

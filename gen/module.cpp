@@ -20,7 +20,6 @@
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
-#include "gen/cl_options.h"
 #include "gen/functions.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
@@ -39,13 +38,6 @@
 #define NEW_MODULEINFO_LAYOUT 1
 #endif
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-llvm::cl::opt<bool> noVerify("noverify",
-    llvm::cl::desc("Do not run the validation pass before writing bitcode"),
-    llvm::cl::ZeroOrMore);
-
-//////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs,
                                              const std::list<VarDeclaration*> &gates = std::list<VarDeclaration*>())
@@ -276,7 +268,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     sir->emitFunctionBodies();
 
     // for singleobj-compilation, fully emit all seen template instances
-    if (opts::singleObj)
+    if (global.params.singleObj)
     {
         while (!ir.seenTemplateInstances.empty())
         {
@@ -297,7 +289,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     genmoduleinfo();
 
     // verify the llvm
-    if (!noVerify) {
+    if (!global.params.noVerify) {
         std::string verifyErr;
         Logger::println("Verifying module...");
         LOG_SCOPE;

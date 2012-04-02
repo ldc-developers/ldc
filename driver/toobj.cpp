@@ -24,12 +24,6 @@
 #include "gen/optimizer.h"
 
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-extern llvm::cl::opt<bool> noVerify;
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 // fwd decl
 void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out,
                llvm::TargetMachine::CodeGenFileType fileType);
@@ -42,7 +36,7 @@ void writeModule(llvm::Module* m, std::string filename)
     bool reverify = ldc_optimize_module(m);
 
     // verify the llvm
-    if (!noVerify && reverify) {
+    if (!global.params.noVerify && reverify) {
         std::string verifyErr;
         Logger::println("Verifying module... again...");
         LOG_SCOPE;
