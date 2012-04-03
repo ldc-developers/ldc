@@ -40,8 +40,7 @@
 #include "gen/cl_helpers.h"
 using namespace opts;
 
-#include "gen/configfile.h"
-
+#include "driver/configfile.h"
 #include "driver/toobj.h"
 
 #if POSIX

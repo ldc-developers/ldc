@@ -268,8 +268,6 @@ endif(USE_METADATA)
 # Set up the main ldc/ldc2 target.
 #
 set(LDC_LIB LDCShared)
-
-# Path where ldc executable will be put
 add_library(${LDC_LIB} SHARED ${LDC_SOURCE_FILES})
 # Build ldc
 set_target_properties(
@@ -280,7 +278,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}" ${LIBCONFIG_LDFLAGS} config++)
+target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}")
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -291,6 +289,7 @@ if(USE_BOEHM_GC)
     target_link_libraries(${LDC_LIB} ${PROJECT_SOURCE_DIR}/libgc.a)
 endif(USE_BOEHM_GC)
 
+# Path where ldc executable will be put
 add_executable(${LDC_EXE} ${DRV_SRC})
 # Name of ldc executable
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
@@ -301,7 +300,7 @@ set_target_properties(
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LDFLAGS} config++)
 
 
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
