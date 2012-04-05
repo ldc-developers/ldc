@@ -18,6 +18,10 @@ module core.bitop;
 
 nothrow:
 
+version( D_InlineAsm_X86_64 )
+    version = AsmX86;
+else version( D_InlineAsm_X86 )
+    version = AsmX86;
 /**
  * Scans the bits in v starting with bit 0, looking
  * for the first set bit.
@@ -198,7 +202,7 @@ unittest
     array[0] = 2;
     array[1] = 0x100;
 
-    assert(btc(array, 35) == 0);
+    assert(btc(array.ptr, 35) == 0);
     if (size_t.sizeof == 8)
     {
         assert(array[0] == 0x8_0000_0002);
@@ -210,11 +214,11 @@ unittest
         assert(array[1] == 0x108);
     }
 
-    assert(btc(array, 35) == -1);
+    assert(btc(array.ptr, 35) == -1);
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 
-    assert(bts(array, 35) == 0);
+    assert(bts(array.ptr, 35) == 0);
     if (size_t.sizeof == 8)
     {
         assert(array[0] == 0x8_0000_0002);
@@ -226,11 +230,11 @@ unittest
         assert(array[1] == 0x108);
     }
 
-    assert(btr(array, 35) == -1);
+    assert(btr(array.ptr, 35) == -1);
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 
-    assert(bt(array, 1) == -1);
+    assert(bt(array.ptr, 1) == -1);
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 }
@@ -360,7 +364,7 @@ version (LDC)
 }
 else
 {
-    int popcnt( uint x )
+    pure int popcnt( uint x )
     {
         // Avoid branches, and the potential for cache misses which
         // could be incurred with a table lookup.
@@ -393,32 +397,32 @@ else
 }
 
 
-debug( UnitTest )
+unittest
 {
-    unittest
-    {
-      assert( popcnt( 0 ) == 0 );
-      assert( popcnt( 7 ) == 3 );
-      assert( popcnt( 0xAA )== 4 );
-      assert( popcnt( 0x8421_1248 ) == 8 );
-      assert( popcnt( 0xFFFF_FFFF ) == 32 );
-      assert( popcnt( 0xCCCC_CCCC ) == 16 );
-      assert( popcnt( 0x7777_7777 ) == 24 );
-    }
+    assert( popcnt( 0 ) == 0 );
+    assert( popcnt( 7 ) == 3 );
+    assert( popcnt( 0xAA )== 4 );
+    assert( popcnt( 0x8421_1248 ) == 8 );
+    assert( popcnt( 0xFFFF_FFFF ) == 32 );
+    assert( popcnt( 0xCCCC_CCCC ) == 16 );
+    assert( popcnt( 0x7777_7777 ) == 24 );
 }
 
 
 /**
  * Reverses the order of bits in a 32-bit integer.
  */
-uint bitswap( uint x )
+pure uint bitswap( uint x )
 {
-
-    version( D_InlineAsm_X86 )
+    version (AsmX86)
     {
+        version (D_InlineAsm_X86_64)
+        asm { naked; mov EAX, EDI; }
+
         asm
         {
             // Author: Tiago Gasiba.
+            naked;
             mov EDX, EAX;
             shr EAX, 1;
             and EDX, 0x5555_5555;
@@ -438,6 +442,7 @@ uint bitswap( uint x )
             shl EDX, 4;
             or  EAX, EDX;
             bswap EAX;
+            ret;
         }
     }
     else
@@ -458,10 +463,9 @@ uint bitswap( uint x )
 }
 
 
-debug( UnitTest )
+unittest
 {
-    unittest
-    {
-        assert( bitswap( 0x8000_0100 ) == 0x0080_0001 );
-    }
+    assert( bitswap( 0x8000_0100 ) == 0x0080_0001 );
+    foreach(i; 0 .. 32)
+        assert(bitswap(1 << i) == 1 << 32 - i - 1);
 }

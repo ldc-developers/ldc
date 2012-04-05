@@ -71,7 +71,6 @@ extern (C) void rt_moduleTlsCtor();
 extern (C) void rt_moduleDtor();
 extern (C) void rt_moduleTlsDtor();
 extern (C) void thread_joinAll();
-extern (C) void rt_lifetimeInit();
 
 // NOTE: This is to preserve compatibility with old Windows DLLs.
 extern (C) void _moduleCtor()
@@ -98,6 +97,8 @@ version (OSX)
 {
     // The bottom of the stack
     extern (C) __gshared void* __osx_stack_end = cast(void*)0xC0000000;
+
+    extern (C) extern (C) void _d_osx_image_init2();
 }
 
 /***********************************
@@ -276,7 +277,6 @@ extern (C) bool rt_init(ExceptionHandler dg = null)
     {
         gc_init();
         initStaticDataGC();
-        rt_lifetimeInit();
         rt_moduleCtor();
         rt_moduleTlsCtor();
         runModuleUnitTests();
@@ -348,6 +348,8 @@ extern (C) int main(int argc, char** argv)
          * of the main thread's stack, so save the address of that.
          */
         __osx_stack_end = cast(void*)&argv;
+
+        _d_osx_image_init2();
     }
 
     version (FreeBSD) version (D_InlineAsm_X86)
@@ -375,7 +377,7 @@ extern (C) int main(int argc, char** argv)
     version (Windows)
     {
         wchar_t*  wcbuf = GetCommandLineW();
-        size_t 	  wclen = wcslen(wcbuf);
+        size_t    wclen = wcslen(wcbuf);
         int       wargc = 0;
         wchar_t** wargs = CommandLineToArgvW(wcbuf, &wargc);
         assert(wargc == argc);
@@ -395,6 +397,7 @@ extern (C) int main(int argc, char** argv)
             assert(wlen <= int.max, "wlen cannot exceed int.max");
             int clen = WideCharToMultiByte(65001, 0, &wargs[i][0], cast(int)wlen, null, 0, null, 0);
             args[i]  = cargp[p .. p+clen];
+            if (clen==0) continue;
             p += clen; assert(p <= cargl);
             WideCharToMultiByte(65001, 0, &wargs[i][0], cast(int)wlen, &args[i][0], clen, null, 0);
         }
@@ -525,7 +528,6 @@ extern (C) int main(int argc, char** argv)
     {
         gc_init();
         initStaticDataGC();
-        rt_lifetimeInit();
         rt_moduleCtor();
         rt_moduleTlsCtor();
         if (runModuleUnitTests())

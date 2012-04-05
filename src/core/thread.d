@@ -17,7 +17,7 @@ module core.thread;
 
 
 public import core.time; // for Duration
-
+static import rt.tlsgc;
 
 // this should be true for most architectures
 version = StackGrowsDown;
@@ -103,7 +103,6 @@ private
     extern (C) void* rt_stackTop();
     extern (C) void  rt_moduleTlsCtor();
     extern (C) void  rt_moduleTlsDtor();
-    extern (C) void  rt_processGCMarks(void[]);
 
 
     void* getStackBottom()
@@ -191,6 +190,7 @@ version( Windows )
                 Thread.remove( obj );
             }
             Thread.add( &obj.m_main );
+            obj.m_tlsgcdata = rt.tlsgc.init();
 
             // NOTE: No GC allocations may occur until the stack pointers have
             //       been set and Thread.getThis returns a valid reference to
@@ -290,6 +290,13 @@ else version( Posix )
             {
                 extern (C)
                 {
+                    __gshared void[][2] _tls_data_array;
+                }
+            }
+            else version(none)
+            {
+                extern (C)
+                {
                     extern __gshared
                     {
                         void* _tls_beg;
@@ -366,6 +373,20 @@ else version( Posix )
             static if( osxManualTls )
             {
                 // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
+                //       data output by the compiler is bracketed by _tls_data_array[2],
+                //       so make a copy of it for each thread.
+                const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
+                const sz2 = sz0 + _tls_data_array[1].length;
+                auto p = malloc( sz2 );
+                assert( p );
+                obj.m_tls = p[0 .. sz2];
+                memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
+                memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
+                scope (exit) { free( p ); obj.m_tls = null; }
+            }
+            else version (none)
+            {
+                // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
                 //       data output by the compiler is bracketed by _tls_beg and
                 //       _tls_end, so make a copy of it for each thread.
                 const sz = cast(void*) &_tls_end - cast(void*) &_tls_beg;
@@ -394,6 +415,7 @@ else version( Posix )
                 obj.m_isRunning = false;
             }
             Thread.add( &obj.m_main );
+            obj.m_tlsgcdata = rt.tlsgc.init();
 
             static extern (C) void thread_cleanupHandler( void* arg )
             {
@@ -812,6 +834,8 @@ class Thread
         {
             m_tmach = m_tmach.init;
         }
+        rt.tlsgc.destroy( m_tlsgcdata );
+        m_tlsgcdata = null;
     }
 
 
@@ -1412,6 +1436,22 @@ private:
 
         static if( osxManualTls )
         {
+            //printf("test2 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
+            //printf("test2 %p %p\n", &_tls_beg, &_tls_end);
+            // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
+            //       data output by the compiler is bracketed by _tls_data_array2],
+            //       so make a copy of it for each thread.
+            const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
+            const sz2 = sz0 + _tls_data_array[1].length;
+            auto p = malloc( sz2 );
+            assert( p );
+            m_tls = p[0 .. sz2];
+            memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
+            memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
+            // The free must happen at program end, if anywhere.
+        }
+        else version (none)
+        {
             // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
             //       data output by the compiler is bracketed by _tls_beg and
             //       _tls_end, so make a copy of it for each thread.
@@ -1596,6 +1636,7 @@ private:
     Context*            m_curr;
     bool                m_lock;
     void[]              m_tls;  // spans implicit thread local storage
+    rt.tlsgc.Data*      m_tlsgcdata;
 
     version( Windows )
     {
@@ -1879,6 +1920,31 @@ private:
     }
 }
 
+// These must be kept in sync with core/thread.di
+version (D_LP64)
+{
+    version (Windows)
+        static assert(__traits(classInstanceSize, Thread) == 312);
+    else version (OSX)
+        static assert(__traits(classInstanceSize, Thread) == 320);
+    else version (Posix)
+        static assert(__traits(classInstanceSize, Thread) == 184);
+    else
+            static assert(0, "Platform not supported.");
+}
+else
+{
+    static assert((void*).sizeof == 4); // 32-bit
+
+    version (Windows)
+        static assert(__traits(classInstanceSize, Thread) == 128);
+    else version (OSX)
+        static assert(__traits(classInstanceSize, Thread) == 128);
+    else version (Posix)
+        static assert(__traits(classInstanceSize, Thread) ==  92);
+    else
+        static assert(0, "Platform not supported.");
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // GC Support Routines
@@ -2007,6 +2073,22 @@ extern (C) Thread thread_attachThis()
 
     static if( osxManualTls )
     {
+        //printf("test3 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
+        //printf("test3 %p %p\n", &_tls_beg, &_tls_end);
+        // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
+        //       data output by the compiler is bracketed by _tls_data_array[2],
+        //       so make a copy of it for each thread.
+        const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
+        const sz2 = sz0 + _tls_data_array[1].length;
+        auto p = gc_malloc( sz2 );
+        assert( p );
+        thisThread.m_tls = p[0 .. sz2];
+        memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
+        memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
+        // used gc_malloc so no need to free
+    }
+    else version (none)
+    {
         // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
         //       data output by the compiler is bracketed by _tls_beg and
         //       _tls_end, so make a copy of it for each thread.
@@ -2027,6 +2109,7 @@ extern (C) Thread thread_attachThis()
     Thread.add( thisContext );
     if( Thread.sm_main !is null )
         multiThreadedFlag = true;
+    thisThread.m_tlsgcdata = rt.tlsgc.init();
     return thisThread;
 }
 
@@ -2090,7 +2173,24 @@ version( Windows )
             assert( thisThread.m_tmach != thisThread.m_tmach.init );
         }
 
-        version( OSX )
+        version (OSX)
+        {
+            // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
+            //       data output by the compiler is bracketed by _tls_data_array[2],
+            //       so make a copy of it for each thread.
+            const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
+            const sz2 = sz0 + _tls_data_array[1].length;
+            auto p = gc_malloc( sz2 );
+            assert( p );
+            obj.m_tls = p[0 .. sz2];
+            memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
+            memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
+            // used gc_malloc so no need to free
+
+            if( t.m_addr == pthread_self() )
+                Thread.setThis( thisThread );
+        }
+        else version (none)
         {
             // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
             //       data output by the compiler is bracketed by _tls_beg and
@@ -2138,6 +2238,7 @@ version( Windows )
         Thread.add( thisContext );
         if( Thread.sm_main !is null )
             multiThreadedFlag = true;
+        thisThread.m_tlsgcdata = rt.tlsgc.init();
         return thisThread;
     }
 
@@ -2669,6 +2770,9 @@ body
             // would make portability annoying because it only makes sense on Windows.
             scan( ScanType.stack, t.m_reg.ptr, t.m_reg.ptr + t.m_reg.length );
         }
+
+        scope dg = (void* p1, void* p2) => scan(ScanType.tls, p1, p2);
+        rt.tlsgc.scan(t.m_tlsgcdata, dg);
     }
 }
 
@@ -2704,37 +2808,21 @@ body
  * referenced by non-scanned pointers but is about to be freed.  That currently
  * means the array append cache.
  *
+ * Params:
+ *  hasMarks = The probe function. It should return true for pointers into marked memory blocks.
+ *
  * In:
  *  This routine must be called just prior to resuming all threads.
  */
-extern(C) void thread_processGCMarks()
+extern(C) void thread_processGCMarks(scope rt.tlsgc.IsMarkedDg dg)
 {
     for( Thread t = Thread.sm_tbeg; t; t = t.next )
     {
-        rt_processGCMarks(t.m_tls);
-    }
-}
-
-
-/**
- *
- */
-void[] thread_getTLSBlock()
-{
-    version(OSX)
-    {
-        // TLS lives in the thread object.
-        auto t = Thread.getThis();
-        return t.m_tls;
-    }
-    else version(FreeBSD)
-    {
-        return (cast(void*)&_tlsstart)[0..(&_tlsend)-(&_tlsstart)];
-    }
-    else
-    {
-
-        return (cast(void*)&_tlsstart)[0..(&_tlsend)-(&_tlsstart)];
+        /* Can be null if collection was triggered between adding a
+         * thread and calling rt.tlsgc.init.
+         */
+        if (t.m_tlsgcdata !is null)
+            rt.tlsgc.processGCMarks(t.m_tlsgcdata, dg);
     }
 }
 
@@ -2901,6 +2989,17 @@ class ThreadGroup
 
 private:
     Thread[Thread]  m_all;
+}
+
+// These must be kept in sync with core/thread.di
+version (D_LP64)
+{
+    static assert(__traits(classInstanceSize, ThreadGroup) == 24);
+}
+else
+{
+    static assert((void*).sizeof == 4); // 32-bit
+    static assert(__traits(classInstanceSize, ThreadGroup) == 12);
 }
 
 
@@ -3804,22 +3903,71 @@ private:
 
         version( AsmX86_Windows )
         {
+            version( StackGrowsDown ) {} else static assert( false );
+
+            // On Windows Server 2008 and 2008 R2, an exploit mitigation
+            // technique known as SEHOP is activated by default. To avoid
+            // hijacking of the exception handler chain, the presence of a
+            // Windows-internal handler (ntdll.dll!FinalExceptionHandler) at
+            // its end is tested by RaiseException. If it is not present, all
+            // handlers are disregarded, and the program is thus aborted
+            // (see http://blogs.technet.com/b/srd/archive/2009/02/02/
+            // preventing-the-exploitation-of-seh-overwrites-with-sehop.aspx).
+            // For new threads, this handler is installed by Windows immediately
+            // after creation. To make exception handling work in fibers, we
+            // have to insert it for our new stacks manually as well.
+            //
+            // To do this, we first determine the handler by traversing the SEH
+            // chain of the current thread until its end, and then construct a
+            // registration block for the last handler on the newly created
+            // thread. We then continue to push all the initial register values
+            // for the first context switch as for the other implementations.
+            //
+            // Note that this handler is never actually invoked, as we install
+            // our own one on top of it in the fiber entry point function.
+            // Thus, it should not have any effects on OSes not implementing
+            // exception chain verification.
+
+            alias void function() fp_t; // Actual signature not relevant.
+            static struct EXCEPTION_REGISTRATION
+            {
+                EXCEPTION_REGISTRATION* next; // sehChainEnd if last one.
+                fp_t handler;
+            }
+            enum sehChainEnd = cast(EXCEPTION_REGISTRATION*) 0xFFFFFFFF;
+
+            __gshared static fp_t finalHandler = null;
+            if ( finalHandler is null )
+            {
+                static EXCEPTION_REGISTRATION* fs0()
+                {
+                    asm
+                    {
+                        naked;
+                        mov EAX, FS:[0];
+                        ret;
+                    }
+                }
+                auto reg = fs0();
+                while ( reg.next != sehChainEnd ) reg = reg.next;
+
+                // Benign races are okay here, just to avoid re-lookup on every
+                // fiber creation.
+                finalHandler = reg.handler;
+            }
+
+            pstack -= EXCEPTION_REGISTRATION.sizeof;
+            *(cast(EXCEPTION_REGISTRATION*)pstack) =
+                EXCEPTION_REGISTRATION( sehChainEnd, finalHandler );
+
             push( cast(size_t) &fiber_entryPoint );                 // EIP
-            push( cast(size_t) m_ctxt.bstack );                     // EBP
+            push( cast(size_t) m_ctxt.bstack - EXCEPTION_REGISTRATION.sizeof ); // EBP
             push( 0x00000000 );                                     // EDI
             push( 0x00000000 );                                     // ESI
             push( 0x00000000 );                                     // EBX
-            push( 0xFFFFFFFF );                                     // FS:[0]
-            version( StackGrowsDown )
-            {
-                push( cast(size_t) m_ctxt.bstack );                 // FS:[4]
-                push( cast(size_t) m_ctxt.bstack - m_size );        // FS:[8]
-            }
-            else
-            {
-                push( cast(size_t) m_ctxt.bstack );                 // FS:[4]
-                push( cast(size_t) m_ctxt.bstack + m_size );        // FS:[8]
-            }
+            push( cast(size_t) m_ctxt.bstack - EXCEPTION_REGISTRATION.sizeof ); // FS:[0]
+            push( cast(size_t) m_ctxt.bstack );                     // FS:[4]
+            push( cast(size_t) m_ctxt.bstack - m_size );            // FS:[8]
             push( 0x00000000 );                                     // EAX
         }
         else version( AsmX86_64_Windows )
@@ -4012,6 +4160,33 @@ private:
     }
 }
 
+// These must be kept in sync with core/thread.di
+version (D_LP64)
+{
+    version (Windows)
+        static assert(__traits(classInstanceSize, Fiber) == 88);
+    else version (OSX)
+        static assert(__traits(classInstanceSize, Fiber) == 88);
+    else version (Posix)
+        static assert(__traits(classInstanceSize, Fiber) == 88);
+    else
+        static assert(0, "Platform not supported.");
+}
+else
+{
+    static assert((void*).sizeof == 4); // 32-bit
+
+    version (Windows)
+        static assert(__traits(classInstanceSize, Fiber) == 44);
+    else version (OSX)
+        static assert(__traits(classInstanceSize, Fiber) == 44);
+    else version (Posix)
+        static assert(__traits(classInstanceSize, Fiber) == 44);
+    else
+        static assert(0, "Platform not supported.");
+}
+
+
 version( unittest )
 {
     import core.atomic;
@@ -4126,6 +4301,24 @@ unittest
     }
 }
 
+// Test exception handling inside fibers.
+unittest
+{
+    enum MSG = "Test message.";
+    string caughtMsg;
+    (new Fiber({
+        try
+        {
+            throw new Exception(MSG);
+        }
+        catch (Exception e)
+        {
+            caughtMsg = e.msg;
+        }
+    })).call();
+    assert(caughtMsg == MSG);
+}
+
 version( AsmX86_64_Posix )
 {
     unittest
@@ -4158,8 +4351,21 @@ static if( osxManualTls )
     {
         // NOTE: p is an address in the TLS static data emitted by the
         //       compiler.  If it isn't, something is disastrously wrong.
-        assert( p >= cast(void*) &_tls_beg && p < cast(void*) &_tls_end );
         auto obj = Thread.getThis();
-        return obj.m_tls.ptr + (p - cast(void*) &_tls_beg);
+
+        if (p >= _tls_data_array[0].ptr && p < &_tls_data_array[0][length])
+        {
+            return obj.m_tls.ptr + (p - _tls_data_array[0].ptr);
+        }
+        else if (p >= _tls_data_array[1].ptr && p < &_tls_data_array[1][length])
+        {
+            size_t sz = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
+            return obj.m_tls.ptr + sz + (p - _tls_data_array[1].ptr);
+        }
+        else
+            assert(0);
+
+        //assert( p >= cast(void*) &_tls_beg && p < cast(void*) &_tls_end );
+        //return obj.m_tls.ptr + (p - cast(void*) &_tls_beg);
     }
 }

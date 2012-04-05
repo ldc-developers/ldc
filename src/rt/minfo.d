@@ -1,18 +1,18 @@
 /**
+ * Written in the D programming language.
  * Module initialization routines.
  *
- * Copyright: Copyright Digital Mars 2000 - 2011.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Copyright: Copyright Digital Mars 2000 - 2012.
+ * License: Distributed under the
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
+ *    (See accompanying file LICENSE_1_0.txt)
  * Authors:   Walter Bright, Sean Kelly
+ * Source: $(DRUNTIMESRC src/rt/_minfo.d)
  */
 
-/*          Copyright Digital Mars 2000 - 2011.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
- */
 module rt.minfo;
 
+import core.stdc.stdio;   // printf
 import core.stdc.stdlib;  // alloca
 import core.stdc.string;  // memcpy
 import rt.util.console;   // console
@@ -146,7 +146,15 @@ extern (C) void rt_moduleDtor()
  * Access compiler generated list of modules.
  */
 
-version (useModuleRef)
+version (none)
+{
+    extern (C)
+    {
+        extern __gshared void* _minfo_beg;
+        extern __gshared void* _minfo_end;
+    }
+}
+else version (useModuleRef)
 {
     // This linked list is created by a compiler generated function inserted
     // into the .ctor list by the compiler.
@@ -157,14 +165,6 @@ version (useModuleRef)
     }
 
     extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
-}
-else version (OSX)
-{
-    extern (C)
-    {
-        extern __gshared void* _minfo_beg;
-        extern __gshared void* _minfo_end;
-    }
 }
 
 ModuleInfo*[] getModuleInfos()
@@ -193,6 +193,28 @@ body
     }
     else version (OSX)
     {
+        // set by src.rt.memory_osx.onAddImage()
+        result = _moduleinfo_array;
+
+        // But we need to throw out any null pointers
+        auto p = _moduleinfo_array.ptr;
+        auto pend = _moduleinfo_array.ptr + _moduleinfo_array.length;
+
+        // count non-null pointers
+        size_t cnt;
+        for (; p < pend; ++p)
+            if (*p !is null) ++cnt;
+
+        result = (cast(ModuleInfo**).malloc(cnt * size_t.sizeof))[0 .. cnt];
+
+        p = _moduleinfo_array.ptr;
+        cnt = 0;
+        for (; p < pend; ++p)
+            if (*p !is null) result[cnt++] = *p;
+    }
+    else version (none)
+    {
+        //printf("getModuleInfos()\n");
         /* The ModuleInfo references are stored in the special segment
          * __minfodata, which is bracketed by the segments __minfo_beg
          * and __minfo_end. The variables _minfo_beg and _minfo_end

@@ -20,8 +20,8 @@ private
     import core.stdc.string;
     import core.stdc.stdarg;
     import core.bitop;
-    import core.thread : thread_getTLSBlock;
     debug(PRINTF) import core.stdc.stdio;
+    static import rt.tlsgc;
 }
 
 private
@@ -405,13 +405,6 @@ else
     return __blkcache_storage;
 }
 
-static __gshared size_t __blkcache_offset;
-extern(C) void rt_lifetimeInit()
-{
-    void[] tls = thread_getTLSBlock();
-    __blkcache_offset = (cast(void *)&__blkcache_storage) - tls.ptr;
-}
-
 // called when thread is exiting.
 static ~this()
 {
@@ -425,13 +418,12 @@ static ~this()
 
 
 // we expect this to be called with the lock in place
-extern(C) void rt_processGCMarks(void[] tls)
+void processGCMarks(BlkInfo* cache, scope rt.tlsgc.IsMarkedDg isMarked)
 {
     // called after the mark routine to eliminate block cache data when it
     // might be ready to sweep
 
     debug(PRINTF) printf("processing GC Marks, %x\n", tls.ptr);
-    auto cache = *cast(BlkInfo **)(tls.ptr + __blkcache_offset);
     if(cache)
     {
         debug(PRINTF) foreach(i; 0 .. N_CACHE_BLOCKS)
@@ -441,7 +433,7 @@ extern(C) void rt_processGCMarks(void[] tls)
         auto cache_end = cache + N_CACHE_BLOCKS;
         for(;cache < cache_end; ++cache)
         {
-            if(cache.base != null && gc_isCollecting(cache.base))
+            if(cache.base != null && !isMarked(cache.base))
             {
                 debug(PRINTF) printf("clearing cache entry at %x\n", cache.base);
                 cache.base = null; // clear that data.
@@ -453,11 +445,11 @@ extern(C) void rt_processGCMarks(void[] tls)
 /**
   Get the cached block info of an interior pointer.  Returns null if the
   interior pointer's block is not cached.
-  
+
   NOTE: The base ptr in this struct can be cleared asynchronously by the GC,
         so any use of the returned BlkInfo should copy it and then check the
         base ptr of the copy before actually using it.
-        
+
   TODO: Change this function so the caller doesn't have to be aware of this
         issue.  Either return by value and expect the caller to always check
         the base ptr as an indication of whether the struct is valid, or set
@@ -893,8 +885,8 @@ extern (C) void[] _d_newarrayiT(TypeInfo ti, size_t length)
         else if (isize == int.sizeof)
         {
             int init = *cast(int*)q;
-            size /= int.sizeof;
-            for (size_t u = 0; u < size; u++)
+            auto len = size / int.sizeof;
+            for (size_t u = 0; u < len; u++)
             {
                 (cast(int*)arrstart)[u] = init;
             }
@@ -1180,7 +1172,7 @@ extern (C) void rt_finalize(void* p, bool det = true)
 {
     debug(PRINTF) printf("rt_finalize(p = %p)\n", p);
 
-    if (p) 
+    if (p)
     {
         ClassInfo** pc = cast(ClassInfo**)p;
 
@@ -1229,8 +1221,8 @@ extern (C) void rt_finalize_gc(void* p)
     debug(PRINTF) printf("rt_finalize_gc(p = %p)\n", p);
 
     ClassInfo** pc = cast(ClassInfo**)p;
-    
-    if (*pc) 
+
+    if (*pc)
     {
         ClassInfo c = **pc;
 
@@ -1449,9 +1441,9 @@ in
 body
 {
     byte* newdata;
-    size_t sizeelem = ti.next.tsize();
-    void[] initializer = ti.next.init();
-    size_t initsize = initializer.length;
+    auto sizeelem = ti.next.tsize();
+    auto initializer = ti.next.init();
+    auto initsize = initializer.length;
 
     assert(sizeelem);
     assert(initsize);
@@ -1956,10 +1948,17 @@ out (result)
     auto sizeelem = ti.next.tsize();            // array element size
     debug(PRINTF) printf("_d_arraycatT(%d,%p ~ %d,%p sizeelem = %d => %d,%p)\n", x.length, x.ptr, y.length, y.ptr, sizeelem, result.length, result.ptr);
     assert(result.length == x.length + y.length);
-    //for (size_t i = 0; i < x.length * sizeelem; i++)
-    //    assert((cast(byte*)result)[i] == (cast(byte*)x)[i]);
-    //for (size_t i = 0; i < y.length * sizeelem; i++)
-    //    assert((cast(byte*)result)[x.length * sizeelem + i] == (cast(byte*)y)[i]);
+
+    // If a postblit is involved, the contents of result might rightly differ
+    // from the bitwise concatenation of x and y.
+    auto pb = &ti.next.postblit;
+    if (pb.funcptr is &TypeInfo.postblit)
+    {
+        for (size_t i = 0; i < x.length * sizeelem; i++)
+            assert((cast(byte*)result)[i] == (cast(byte*)x)[i]);
+        for (size_t i = 0; i < y.length * sizeelem; i++)
+            assert((cast(byte*)result)[x.length * sizeelem + i] == (cast(byte*)y)[i]);
+    }
 
     size_t cap = gc_sizeOf(result.ptr);
     assert(!cap || cap > result.length * sizeelem);
