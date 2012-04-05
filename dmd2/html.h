@@ -7,6 +7,7 @@
 // in artistic.txt, or the GNU General Public License in gpl.txt.
 // See the included readme.txt for details.
 
+#define MARS 1
 
 #if MARS
 struct OutBuffer;

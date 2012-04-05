@@ -64,10 +64,10 @@ static int fptraits(void *param, FuncDeclaration *f)
 
     if (p->e1->op == TOKdotvar)
     {   DotVarExp *dve = (DotVarExp *)p->e1;
-        e = new DotVarExp(0, dve->e1, f);
+        e = new DotVarExp(0, dve->e1, new FuncAliasDeclaration(f, 0));
     }
     else
-        e = new DsymbolExp(0, f);
+        e = new DsymbolExp(0, new FuncAliasDeclaration(f, 0));
     p->exps->push(e);
     return 0;
 }
@@ -451,6 +451,10 @@ Expression *TraitsExp::semantic(Scope *sc)
             Expression *e;
 
             unsigned errors = global.startGagging();
+            unsigned oldspec = global.speculativeGag;
+            global.speculativeGag = global.gag;
+            bool scSpec = sc->speculative;
+            sc->speculative = true;
 
             Type *t = isType(o);
             if (t)
@@ -471,6 +475,8 @@ Expression *TraitsExp::semantic(Scope *sc)
                 }
             }
 
+            sc->speculative = scSpec;
+            global.speculativeGag = oldspec;
             if (global.endGagging(errors))
             {
                 goto Lfalse;

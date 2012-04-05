@@ -37,7 +37,6 @@
 #include "hdrgen.h"
 #include "lexer.h"
 
-#define MARS 1
 #include "html.h"
 
 #ifdef IN_GCC
@@ -342,7 +341,7 @@ static void check_and_add_output_file(Module* NewMod, const std::string& str)
 	if (i != files.end())
 	{
 		Module* ThisMod = i->second;
-		error("Output file '%s' for module '%s' collides with previous module '%s'. See the -oq option",
+		error(Loc(), "Output file '%s' for module '%s' collides with previous module '%s'. See the -oq option",
 			str.c_str(), NewMod->toPrettyChars(), ThisMod->toPrettyChars());
 		fatal();
 	}
@@ -507,7 +506,9 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
         printf("%s\t(%s)\n", ident->toChars(), m->srcfile->toChars());
     }
 
-    m->read(loc);
+    if (!m->read(loc))
+        return NULL;
+
     m->parse();
 
 #ifdef IN_GCC
@@ -517,7 +518,7 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
     return m;
 }
 
-void Module::read(Loc loc)
+bool Module::read(Loc loc)
 {
     //printf("Module::read('%s') file '%s'\n", toChars(), srcfile->toChars());
     if (srcfile->read())
@@ -530,14 +531,16 @@ void Module::read(Loc loc)
                 for (size_t i = 0; i < global.path->dim; i++)
                 {
                     char *p = global.path->tdata()[i];
-                    fprintf(stdmsg, "import path[%zd] = %s\n", i, p);
+                    fprintf(stdmsg, "import path[%llu] = %s\n", (ulonglong)i, p);
                 }
             }
             else
                 fprintf(stdmsg, "Specify path to file '%s' with -I switch\n", srcfile->toChars());
+            fatal();
         }
-        fatal();
+        return false;
     }
+    return true;
 }
 
 inline unsigned readwordLE(unsigned short *p)
@@ -1342,19 +1345,23 @@ DsymbolTable *Package::resolve(Identifiers *packages, Dsymbol **pparent, Package
             else
             {
                 assert(p->isPackage());
-#if TARGET_NET  //dot net needs modules and packages with same name
-#else
-                if (p->isModule())
-                {   p->error("module and package have the same name");
-                    fatal();
-                    break;
-                }
-#endif
+                // It might already be a module, not a package, but that needs
+                // to be checked at a higher level, where a nice error message
+                // can be generated.
+                // dot net needs modules and packages with same name
             }
             parent = p;
             dst = ((Package *)p)->symtab;
             if (ppkg && !*ppkg)
                 *ppkg = (Package *)p;
+#if TARGET_NET
+#else
+            if (p->isModule())
+            {   // Return the module so that a nice error message can be generated
+                *ppkg = (Package *)p;
+                break;
+            }
+#endif
         }
         if (pparent)
         {

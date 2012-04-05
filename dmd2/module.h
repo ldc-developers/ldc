@@ -138,7 +138,7 @@ struct Module : Package
 #if !IN_LLVM
     void setDocfile();  // set docfile member
 #endif
-    void read(Loc loc); // read file
+    bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
 #if IN_LLVM
     void parse(bool gen_docs = false);       // syntactic parse
 #elif IN_GCC

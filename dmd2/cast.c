@@ -17,6 +17,7 @@
 #include "utf.h"
 #include "declaration.h"
 #include "aggregate.h"
+#include "template.h"
 #include "scope.h"
 
 //#define DUMP .dump(__PRETTY_FUNCTION__, this)
@@ -107,6 +108,9 @@ fflush(stdout);
         else if (t->reliesOnTident())
             error("forward reference to type %s", t->reliesOnTident()->toChars());
 
+//printf("type %p ty %d deco %p\n", type, type->ty, type->deco);
+//type = type->semantic(loc, sc);
+//printf("type %s t %s\n", type->deco, t->deco);
         error("cannot implicitly convert expression (%s) of type %s to %s",
             toChars(), type->toChars(), t->toChars());
     }
@@ -129,6 +133,12 @@ Expression *StringExp::implicitCastTo(Scope *sc, Type *t)
 Expression *ErrorExp::implicitCastTo(Scope *sc, Type *t)
 {
     return this;
+}
+
+Expression *FuncExp::implicitCastTo(Scope *sc, Type *t)
+{
+    //printf("FuncExp::implicitCastTo type = %p %s, t = %s\n", type, type ? type->toChars() : NULL, t->toChars());
+    return inferType(t);
 }
 
 /*******************************************
@@ -352,16 +362,16 @@ MATCH IntegerExp::implicitConvTo(Type *t)
 
         case Tfloat80:
         {
-            volatile long double f;
+            volatile_longdouble f;
             if (type->isunsigned())
             {
-                f = (long double)value;
-                if (f != value)
+                f = ldouble(value);
+                if (f != value) // isn't this a noop, because the compiler prefers ld
                     goto Lno;
             }
             else
             {
-                f = (long double)(long long)value;
+                f = ldouble((long long)value);
                 if (f != (long long)value)
                     goto Lno;
             }
@@ -490,14 +500,17 @@ MATCH StringExp::implicitConvTo(Type *t)
                             return MATCHnomatch;
                         m = MATCHconst;
                     }
-                    switch (tn->ty)
+                    if (!committed)
                     {
-                        case Tchar:
-                        case Twchar:
-                        case Tdchar:
-                            if (!committed)
-                                return m;
-                            break;
+                        switch (tn->ty)
+                        {
+                            case Tchar:
+                                return (postfix != 'w' && postfix != 'd' ? m : MATCHconvert);
+                            case Twchar:
+                                return (postfix == 'w' ? m : MATCHconvert);
+                            case Tdchar:
+                                return (postfix == 'd' ? m : MATCHconvert);
+                        }
                     }
                     break;
             }
@@ -721,12 +734,24 @@ MATCH DelegateExp::implicitConvTo(Type *t)
 
 MATCH FuncExp::implicitConvTo(Type *t)
 {
-    //printf("FuncExp::implicitCastTo type = %p %s, t = %s\n", type, type ? type->toChars() : NULL, t->toChars());
-    if (type && type != Type::tvoid && tok == TOKreserved && type->ty == Tpointer
-        && (t->ty == Tpointer || t->ty == Tdelegate))
-    {   // Allow implicit function to delegate conversion
-        if (type->nextOf()->covariant(t->nextOf()) == 1)
-            return t->ty == Tpointer ? MATCHconst : MATCHconvert;
+    //printf("FuncExp::implicitConvTo type = %p %s, t = %s\n", type, type ? type->toChars() : NULL, t->toChars());
+    Expression *e = inferType(t, 1);
+    if (e)
+    {
+        if (e != this)
+            return e->implicitConvTo(t);
+
+        /* MATCHconst:   Conversion from implicit to explicit function pointer
+         * MATCHconvert: Conversion from impliict funciton pointer to delegate
+         */
+        if (tok == TOKreserved && type->ty == Tpointer &&
+            (t->ty == Tpointer || t->ty == Tdelegate))
+        {
+            if (type == t)
+                return MATCHexact;
+            if (type->nextOf()->covariant(t->nextOf()) == 1)
+                return t->ty == Tpointer ? MATCHconst : MATCHconvert;
+        }
     }
     return Expression::implicitConvTo(t);
 }
@@ -850,7 +875,7 @@ Expression *Expression::castTo(Scope *sc, Type *t)
                 {   /* Forward the cast to our alias this member, rewrite to:
                      *   cast(to)e1.aliasthis
                      */
-                    Expression *e1 = new DotIdExp(loc, this, ts->sym->aliasthis->ident);
+                    Expression *e1 = resolveAliasThis(sc, this);
                     Expression *e2 = new CastExp(loc, e1, tb);
                     e2 = e2->semantic(sc);
                     return e2;
@@ -871,7 +896,7 @@ Expression *Expression::castTo(Scope *sc, Type *t)
                     /* Forward the cast to our alias this member, rewrite to:
                      *   cast(to)e1.aliasthis
                      */
-                    Expression *e1 = new DotIdExp(loc, this, ts->sym->aliasthis->ident);
+                    Expression *e1 = resolveAliasThis(sc, this);
                     Expression *e2 = new CastExp(loc, e1, tb);
                     e2 = e2->semantic(sc);
                     return e2;
@@ -1508,7 +1533,7 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
     Expression *e = this;
     Type *tb = t->toBasetype();
     Type *typeb = type->toBasetype();
-    if (tb != typeb)
+    if (tb != typeb || hasOverloads)
     {
         // Look for delegates to functions where the functions are overloaded.
         FuncDeclaration *f;
@@ -1549,15 +1574,11 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
 Expression *FuncExp::castTo(Scope *sc, Type *t)
 {
     //printf("FuncExp::castTo type = %s, t = %s\n", type->toChars(), t->toChars());
-    if (tok == TOKreserved)
-    {   assert(type && type != Type::tvoid);
-        if (type->ty == Tpointer && t->ty == Tdelegate)
-        {
-            Expression *e = copy();
-            e->type = new TypeDelegate(fd->type);
-            e->type = e->type->semantic(loc, sc);
-            return e;
-        }
+    Expression *e = inferType(t, 1);
+    if (e)
+    {   if (e != this)
+            e = e->castTo(sc, t);
+        return e;
     }
     return Expression::castTo(sc, t);
 }
@@ -1593,6 +1614,180 @@ Expression *CommaExp::castTo(Scope *sc, Type *t)
         e->type = e2->type;
     }
     return e;
+}
+
+/* ==================== inferType ====================== */
+
+/****************************************
+ * Set type inference target
+ *      flag    1: don't put an error when inference fails
+ */
+
+Expression *Expression::inferType(Type *t, int flag, TemplateParameters *tparams)
+{
+    return this;
+}
+
+Expression *ArrayLiteralExp::inferType(Type *t, int flag, TemplateParameters *tparams)
+{
+    if (t)
+    {
+        t = t->toBasetype();
+        if (t->ty == Tarray || t->ty == Tsarray)
+        {
+            Type *tn = t->nextOf();
+            for (size_t i = 0; i < elements->dim; i++)
+            {   Expression *e = (*elements)[i];
+                if (e)
+                {   e = e->inferType(tn, flag, tparams);
+                    (*elements)[i] = e;
+                }
+            }
+        }
+    }
+    return this;
+}
+
+Expression *AssocArrayLiteralExp::inferType(Type *t, int flag, TemplateParameters *tparams)
+{
+    if (t)
+    {
+        t = t->toBasetype();
+        if (t->ty == Taarray)
+        {   TypeAArray *taa = (TypeAArray *)t;
+            Type *ti = taa->index;
+            Type *tv = taa->nextOf();
+            for (size_t i = 0; i < keys->dim; i++)
+            {   Expression *e = (*keys)[i];
+                if (e)
+                {   e = e->inferType(ti, flag, tparams);
+                    (*keys)[i] = e;
+                }
+            }
+            for (size_t i = 0; i < values->dim; i++)
+            {   Expression *e = (*values)[i];
+                if (e)
+                {   e = e->inferType(tv, flag, tparams);
+                    (*values)[i] = e;
+                }
+            }
+        }
+    }
+    return this;
+}
+
+Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
+{
+    if (!to)
+        return this;
+
+    //printf("FuncExp::interType('%s'), to=%s\n", type?type->toChars():"null", to->toChars());
+
+    if (!type)  // semantic is not yet done
+    {
+        if (to->ty == Tdelegate ||
+            to->ty == Tpointer && to->nextOf()->ty == Tfunction)
+        {   treq = to;
+        }
+        return this;
+    }
+
+    Expression *e = NULL;
+
+    Type *t = to;
+    if (t->ty == Tdelegate)
+    {   if (tok == TOKfunction)
+            goto L1;
+        t = t->nextOf();
+    }
+    else if (t->ty == Tpointer && t->nextOf()->ty == Tfunction)
+    {   if (tok == TOKdelegate)
+            goto L1;
+        t = t->nextOf();
+    }
+
+    if (td)
+    {   /// Parameter types inference from
+        assert(td->scope);
+        if (t->ty == Tfunction)
+        {
+            TypeFunction *tfv = (TypeFunction *)t;
+            TypeFunction *tfl = (TypeFunction *)fd->type;
+            size_t dim = Parameter::dim(tfl->parameters);
+
+            if (Parameter::dim(tfv->parameters) == dim &&
+                tfv->varargs == tfl->varargs)
+            {
+                Objects *tiargs = new Objects();
+                tiargs->reserve(td->parameters->dim);
+
+                for (size_t i = 0; i < td->parameters->dim; i++)
+                {
+                    TemplateParameter *tp = (*td->parameters)[i];
+                    for (size_t u = 0; u < dim; u++)
+                    {   Parameter *p = Parameter::getNth(tfl->parameters, u);
+                        if (p->type->ty == Tident &&
+                            ((TypeIdentifier *)p->type)->ident == tp->ident)
+                        {   p = Parameter::getNth(tfv->parameters, u);
+                            Type *tprm = p->type;
+                            if (tprm->reliesOnTident(tparams))
+                                goto L1;
+                            tprm = tprm->semantic(loc, td->scope);
+                            tiargs->push(tprm);
+                            u = dim;    // break inner loop
+                        }
+                    }
+                }
+
+                TemplateInstance *ti = new TemplateInstance(loc, td, tiargs);
+                e = (new ScopeExp(loc, ti))->semantic(td->scope);
+                if (e->op == TOKfunction)
+                {   FuncExp *fe = (FuncExp *)e;
+                    assert(fe->td == NULL);
+                    e = fe->inferType(to, flag);
+                }
+            }
+        }
+    }
+    else if (type)
+    {
+        assert(type != Type::tvoid);   // semantic is already done
+
+        // Allow conversion from implicit function pointer to delegate
+        if (tok == TOKreserved && type->ty == Tpointer &&
+            to->ty == Tdelegate)
+        {
+            Type *typen = type->nextOf();
+            assert(typen->deco);
+            //if (typen->covariant(to->nextOf()) == 1)
+            {
+                FuncExp *fe = (FuncExp *)copy();
+                fe->tok = TOKdelegate;
+                fe->type = (new TypeDelegate(typen))->merge();
+                e = fe;
+                //e = fe->Expression::implicitCastTo(sc, to);
+            }
+        }
+        else
+            e = this;
+    }
+L1:
+    if (!flag && !e)
+    {   error("cannot infer function literal type from %s", to->toChars());
+        e = new ErrorExp();
+    }
+    return e;
+}
+
+Expression *CondExp::inferType(Type *t, int flag, TemplateParameters *tparams)
+{
+    if (t)
+    {
+        t = t->toBasetype();
+        e1 = e1->inferType(t, flag, tparams);
+        e2 = e2->inferType(t, flag, tparams);
+    }
+    return this;
 }
 
 /* ==================== ====================== */
@@ -1718,6 +1913,7 @@ int typeMerge(Scope *sc, Expression *e, Type **pt, Expression **pe1, Expression 
 #endif
     assert(t2);
 
+Lagain:
     Type *t1b = t1->toBasetype();
     Type *t2b = t2->toBasetype();
 
@@ -1757,7 +1953,6 @@ int typeMerge(Scope *sc, Expression *e, Type **pt, Expression **pe1, Expression 
     t1 = t1b;
     t2 = t2b;
 
-Lagain:
     if (t1 == t2)
     {
     }
@@ -2007,17 +2202,13 @@ Lcc:
             }
             else if (t1->ty == Tstruct && ((TypeStruct *)t1)->sym->aliasthis)
             {
-                e1 = new DotIdExp(e1->loc, e1, ((TypeStruct *)t1)->sym->aliasthis->ident);
-                e1 = e1->semantic(sc);
-                e1 = resolveProperties(sc, e1);
+                e1 = resolveAliasThis(sc, e1);
                 t1 = e1->type;
                 continue;
             }
             else if (t2->ty == Tstruct && ((TypeStruct *)t2)->sym->aliasthis)
             {
-                e2 = new DotIdExp(e2->loc, e2, ((TypeStruct *)t2)->sym->aliasthis->ident);
-                e2 = e2->semantic(sc);
-                e2 = resolveProperties(sc, e2);
+                e2 = resolveAliasThis(sc, e2);
                 t2 = e2->type;
                 continue;
             }
@@ -2052,16 +2243,12 @@ Lcc:
             Expression *e2b = NULL;
             if (ts2->sym->aliasthis)
             {
-                e2b = new DotIdExp(e2->loc, e2, ts2->sym->aliasthis->ident);
-                e2b = e2b->semantic(sc);
-                e2b = resolveProperties(sc, e2b);
+                e2b = resolveAliasThis(sc, e2);
                 i1 = e2b->implicitConvTo(t1);
             }
             if (ts1->sym->aliasthis)
             {
-                e1b = new DotIdExp(e1->loc, e1, ts1->sym->aliasthis->ident);
-                e1b = e1b->semantic(sc);
-                e1b = resolveProperties(sc, e1b);
+                e1b = resolveAliasThis(sc, e1);
                 i2 = e1b->implicitConvTo(t2);
             }
             if (i1 && i2)
@@ -2088,18 +2275,14 @@ Lcc:
     {
         if (t1->ty == Tstruct && ((TypeStruct *)t1)->sym->aliasthis)
         {
-            e1 = new DotIdExp(e1->loc, e1, ((TypeStruct *)t1)->sym->aliasthis->ident);
-            e1 = e1->semantic(sc);
-            e1 = resolveProperties(sc, e1);
+            e1 = resolveAliasThis(sc, e1);
             t1 = e1->type;
             t = t1;
             goto Lagain;
         }
         if (t2->ty == Tstruct && ((TypeStruct *)t2)->sym->aliasthis)
         {
-            e2 = new DotIdExp(e2->loc, e2, ((TypeStruct *)t2)->sym->aliasthis->ident);
-            e2 = e2->semantic(sc);
-            e2 = resolveProperties(sc, e2);
+            e2 = resolveAliasThis(sc, e2);
             t2 = e2->type;
             t = t2;
             goto Lagain;

@@ -293,7 +293,7 @@ Msgtable msgtable[] =
 
     // Special functions
 #if IN_DMD
-    { "alloca" },
+    { "__alloca", "alloca" }, // has to be mapped because alloca is #defined if _MSC_VER
 #endif
     { "main" },
     { "WinMain" },

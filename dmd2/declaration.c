@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -512,7 +512,8 @@ void AliasDeclaration::semantic(Scope *sc)
         if (s)
             goto L2;
 
-        error("cannot alias an expression %s", e->toChars());
+        if (e->op != TOKerror)
+            error("cannot alias an expression %s", e->toChars());
         t = e->type;
     }
     else if (t)
@@ -524,7 +525,7 @@ void AliasDeclaration::semantic(Scope *sc)
         ScopeDsymbol::multiplyDefined(0, this, overnext);
     this->inSemantic = 0;
 
-    if (errors != global.errors)
+    if (global.gag && errors != global.errors)
         type = savedtype;
     return;
 
@@ -563,7 +564,7 @@ void AliasDeclaration::semantic(Scope *sc)
             assert(global.errors);
             s = NULL;
         }
-        if (errors != global.errors)
+        if (global.gag && errors != global.errors)
         {
             type = savedtype;
             overnext = savedovernext;
@@ -698,6 +699,7 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
 #if DMDV1
     nestedref = 0;
 #endif
+    alignment = 0;
     ctorinit = 0;
     aliassym = NULL;
     onstack = 0;
@@ -1012,7 +1014,7 @@ Lnomatch:
         {   Parameter *arg = Parameter::getNth(tt->arguments, i);
 
             OutBuffer buf;
-            buf.printf("_%s_field_%zu", ident->toChars(), i);
+            buf.printf("_%s_field_%llu", ident->toChars(), (ulonglong)i);
             buf.writeByte(0);
             const char *name = (const char *)buf.extractData();
             Identifier *id = Lexer::idPool(name);
@@ -1090,9 +1092,7 @@ Lnomatch:
     }
     else
     {
-        AggregateDeclaration *aad = sc->anonAgg;
-        if (!aad)
-            aad = parent->isAggregateDeclaration();
+        AggregateDeclaration *aad = parent->isAggregateDeclaration();
         if (aad)
         {
 #if DMDV2
@@ -1104,15 +1104,16 @@ Lnomatch:
                     storage_class |= STCstatic;
             }
             else
+#endif
             {
-                aad->addField(sc, this);
+                storage_class |= STCfield;
+                alignment = sc->structalign;
+#if DMDV2
                 if (tb->ty == Tstruct && ((TypeStruct *)tb)->sym->noDefaultCtor ||
                     tb->ty == Tclass  && ((TypeClass  *)tb)->sym->noDefaultCtor)
                     aad->noDefaultCtor = TRUE;
-            }
-#else
-                aad->addField(sc, this);
 #endif
+            }
         }
 
         InterfaceDeclaration *id = parent->isInterfaceDeclaration();
@@ -1165,7 +1166,7 @@ Lnomatch:
         {
             if (func->fes)
                 func = func->fes->func;
-            if (!func->type->hasWild())
+            if (!((TypeFunction *)func->type)->iswild)
             {
                 error("inout variables can only be declared inside inout functions");
             }
@@ -1271,9 +1272,6 @@ Lnomatch:
         StructInitializer *si = init->isStructInitializer();
         ExpInitializer *ei = init->isExpInitializer();
 
-        if (ei && ei->exp->op == TOKfunction && !inferred)
-            ((FuncExp *)ei->exp)->setType(type);
-
         if (ei && isScope())
         {
             // See if initializer is a NewExp that can be allocated on the stack
@@ -1322,6 +1320,8 @@ Lnomatch:
                 Expression *e1 = new VarExp(loc, this);
 
                 Type *t = type->toBasetype();
+                if (ei && !inferred)
+                    ei->exp = ei->exp->inferType(t);
 
             Linit2:
                 if (t->ty == Tsarray && !(storage_class & (STCref | STCout)))
@@ -1597,6 +1597,31 @@ Ldtor:
 void VarDeclaration::semantic2(Scope *sc)
 {
     //printf("VarDeclaration::semantic2('%s')\n", toChars());
+        // Inside unions, default to void initializers
+    if (!init && sc->inunion && !toParent()->isFuncDeclaration())
+    {
+        AggregateDeclaration *aad = parent->isAggregateDeclaration();
+        if (aad)
+        {
+            if (aad->fields[0] == this)
+            {
+                int hasinit = 0;
+                for (size_t i = 1; i < aad->fields.dim; i++)
+                {
+                    if (aad->fields[i]->init &&
+                        !aad->fields[i]->init->isVoidInitializer())
+                    {
+                        hasinit = 1;
+                        break;
+                    }
+                }
+                if (!hasinit)
+                    init = new ExpInitializer(loc, type->defaultInitLiteral(loc));
+            }
+            else
+                init = new VoidInitializer(loc);
+        }
+    }
     if (init && !toParent()->isFuncDeclaration())
     {   inuse++;
 #if 0
@@ -1611,6 +1636,82 @@ void VarDeclaration::semantic2(Scope *sc)
         inuse--;
     }
     sem = Semantic2Done;
+}
+
+void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion)
+{
+    //printf("VarDeclaration::setFieldOffset(ad = %s) %s\n", ad->toChars(), toChars());
+
+    if (aliassym)
+    {   // If this variable was really a tuple, set the offsets for the tuple fields
+        TupleDeclaration *v2 = aliassym->isTupleDeclaration();
+        assert(v2);
+        for (size_t i = 0; i < v2->objects->dim; i++)
+        {   Object *o = (*v2->objects)[i];
+            assert(o->dyncast() == DYNCAST_EXPRESSION);
+            Expression *e = (Expression *)o;
+            assert(e->op == TOKdsymbol);
+            DsymbolExp *se = (DsymbolExp *)e;
+            se->s->setFieldOffset(ad, poffset, isunion);
+        }
+        return;
+    }
+
+    if (!(storage_class & STCfield))
+        return;
+    assert(!(storage_class & (STCstatic | STCextern | STCparameter | STCtls)));
+
+    /* Fields that are tuples appear both as part of TupleDeclarations and
+     * as members. That means ignore them if they are already a field.
+     */
+    if (offset)
+        return;         // already a field
+    for (size_t i = 0; i < ad->fields.dim; i++)
+    {
+        if (ad->fields[i] == this)
+            return;     // already a field
+    }
+
+    // Check for forward referenced types which will fail the size() call
+    Type *t = type->toBasetype();
+    if (storage_class & STCref)
+    {   // References are the size of a pointer
+        t = Type::tvoidptr;
+    }
+    if (t->ty == Tstruct)
+    {   TypeStruct *ts = (TypeStruct *)t;
+#if DMDV2
+        if (ts->sym == ad)
+        {
+            ad->error("cannot have field %s with same struct type", toChars());
+        }
+#endif
+
+        if (ts->sym->sizeok != SIZEOKdone && ts->sym->scope)
+            ts->sym->semantic(NULL);
+        if (ts->sym->sizeok != SIZEOKdone)
+        {
+            ad->sizeok = SIZEOKfwd;         // cannot finish; flag as forward referenced
+            return;
+        }
+    }
+    if (t->ty == Tident)
+    {
+        ad->sizeok = SIZEOKfwd;             // cannot finish; flag as forward referenced
+        return;
+    }
+
+    unsigned memsize      = t->size(loc);            // size of member
+    unsigned memalignsize = t->alignsize();          // size of member for alignment purposes
+    unsigned memalign     = t->memalign(alignment);  // alignment boundaries
+
+    offset = AggregateDeclaration::placeField(poffset, memsize, memalignsize, memalign,
+                &ad->structsize, &ad->alignsize, isunion);
+
+    //printf("\t%s: alignsize = %d\n", toChars(), alignsize);
+
+    //printf(" addField '%s' to '%s' at offset %d, size = %d\n", toChars(), ad->toChars(), offset, memsize);
+    ad->fields.push(this);
 }
 
 void VarDeclaration::semantic3(Scope *sc)

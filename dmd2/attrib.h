@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -33,6 +33,7 @@ struct AttribDeclaration : Dsymbol
 
     AttribDeclaration(Dsymbols *decl);
     virtual Dsymbols *include(Scope *sc, ScopeDsymbol *s);
+    int apply(Dsymbol_apply_ft_t fp, void *param);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void setScopeNewSc(Scope *sc,
         StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
@@ -48,6 +49,7 @@ struct AttribDeclaration : Dsymbol
     void emitComment(Scope *sc);
     const char *kind();
     int oneMember(Dsymbol **ps, Identifier *ident);
+    void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     int hasPointers();
     bool hasStaticCtorOrDtor();
     void checkCtorConstInit();
@@ -58,7 +60,6 @@ struct AttribDeclaration : Dsymbol
 
 #if IN_DMD
     void toObjFile(int multiobj);                       // compile to .obj file
-    int cvMember(unsigned char *p);
 #endif
 
 #if IN_LLVM
@@ -120,12 +121,14 @@ struct AlignDeclaration : AttribDeclaration
 
 struct AnonDeclaration : AttribDeclaration
 {
-    int isunion;
+    bool isunion;
+    unsigned alignment;
     int sem;                    // 1 if successful semantic()
 
     AnonDeclaration(Loc loc, int isunion, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
+    void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
 };
