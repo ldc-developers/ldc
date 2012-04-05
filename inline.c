@@ -1486,6 +1486,9 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan, int statementsToo)
     if (
         !fbody ||
         ident == Id::ensure ||  // ensure() has magic properties the inliner loses
+        (ident == Id::require &&             // require() has magic properties too
+         toParent()->isFuncDeclaration() &&  // see bug 7699
+         toParent()->isFuncDeclaration()->needThis()) ||
         !hdrscan &&
         (
 #if 0
@@ -1779,6 +1782,18 @@ Expression *Expression::inlineCopy(Scope *sc)
      */
     return copy();
 #else
+    if (op == TOKdelegate)
+    {   DelegateExp *de = (DelegateExp *)this;
+
+        if (de->func->isNested())
+        {   /* See Bugzilla 4820
+             * Defer checking until later if we actually need the 'this' pointer
+             */
+            Expression *e = de->copy();
+            return e;
+        }
+    }
+
     InlineCostState ics;
 
     memset(&ics, 0, sizeof(ics));
@@ -1795,3 +1810,4 @@ Expression *Expression::inlineCopy(Scope *sc)
     return e;
 #endif
 }
+

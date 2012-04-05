@@ -674,6 +674,12 @@ void FuncDeclaration::toObjFile(int multiobj)
         irs.shidden = shidden;
         this->shidden = shidden;
     }
+    else
+    {   // Register return style cannot make nrvo.
+        // Auto functions keep the nrvo_can flag up to here,
+        // so we should eliminate it before entering backend.
+        nrvo_can = 0;
+    }
 
     if (vthis)
     {
@@ -969,8 +975,30 @@ void FuncDeclaration::toObjFile(int multiobj)
 
     for (size_t i = 0; i < irs.deferToObj->dim; i++)
     {
-        Dsymbol *s = irs.deferToObj->tdata()[i];
+        Dsymbol *s = (*irs.deferToObj)[i];
+
+        FuncDeclaration *fd = s->isFuncDeclaration();
+        if (fd)
+        {   FuncDeclaration *fdp = fd->toParent2()->isFuncDeclaration();
+            if (fdp && fdp->semanticRun < PASSobj)
+            {   /* Bugzilla 7595
+                 * FuncDeclaration::buildClosure() relies on nested functions
+                 * being toObjFile'd after the outer function. Otherwise, the
+                 * v->offset's for the closure variables are wrong.
+                 * So, defer fd until after fdp is done.
+                 */
+                fdp->deferred.push(fd);
+                continue;
+            }
+        }
+
         s->toObjFile(0);
+    }
+
+    for (size_t i = 0; i < deferred.dim; i++)
+    {
+        FuncDeclaration *fd = deferred[i];
+        fd->toObjFile(0);
     }
 
 #if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
@@ -1048,9 +1076,6 @@ unsigned Type::totym()
 
         case Tident:
         case Ttypeof:
-#ifdef DEBUG
-            printf("ty = %d, '%s'\n", ty, toChars());
-#endif
             error(0, "forward reference of %s", toChars());
             t = TYint;
             break;

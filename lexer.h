@@ -170,6 +170,7 @@ enum TOK
         TOKpowass,
         TOKgoesto,
         TOKvector,
+        TOKpound,
 #endif
 
         TOKMAX
@@ -251,6 +252,7 @@ struct Token
     static const char *tochars[TOKMAX];
     static void *operator new(size_t sz);
 
+    Token() : next(NULL) {}
     int isKeyword();
     void print();
     const char *toChars();
@@ -305,12 +307,14 @@ struct Lexer
     void error(const char *format, ...);
     void error(Loc loc, const char *format, ...);
     void verror(Loc loc, const char *format, va_list ap);
-    void pragma();
+    void poundLine();
     unsigned decodeUTF();
     void getDocComment(Token *t, unsigned lineComment);
 
     static int isValidIdentifier(char *p);
     static unsigned char *combineComments(unsigned char *c1, unsigned char *c2);
+
+    Loc tokenLoc();
 };
 
 #endif /* DMD_LEXER_H */

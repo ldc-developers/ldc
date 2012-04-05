@@ -75,7 +75,6 @@ int _assign[] =
         {OPstreq,OPeq,OPaddass,OPminass,OPmulass,OPdivass,OPmodass,
          OPshrass,OPashrass,OPshlass,OPandass,OPxorass,OPorass,OPpostinc,OPpostdec,
          OPnegass,
-        /* OPbtc,OPbtr,OPbts,*/
         };
 int _wid[] =
         {OPadd,OPmin,OPand,OPor,OPxor,OPcom,OPneg,OPmul,OPaddass,OPnegass,
@@ -142,7 +141,7 @@ int _ae[] = {OPvar,OPconst,OPrelconst,OPneg,
 #if TARGET_SEGMENTED
                 OPvp_fp,OPcvp_fp,OPnp_fp,OPnp_f16p,OPf16p_np,OPoffset,
 #endif
-                /*OPcomma,OPbit,OPoror,OPandand,OPcond,OPcolon,OPcolon2*/};
+                };
 int _exp[] = {OPvar,OPconst,OPrelconst,OPneg,OPabs,OPsqrt,OPrndtol,OPrint,
                 OPsin,OPcos,OPscale,OPyl2x,OPyl2xp1,
                 OPstrlen,OPstrcmp,OPind,OPaddr,
@@ -583,7 +582,7 @@ void dotab()
         case OPu64_128: X("u64_128",    evalu8, cdshtlng);
         case OPs64_128: X("s64_128",    evalu8, cdshtlng);
         case OP128_64:  X("128_64",     el64_32, cdlngsht);
-        case OPmsw:     X("msw",        evalu8, cdmsw);
+        case OPmsw:     X("msw",        elmsw, cdmsw);
 
         case OPd_s64:   X("d_s64",      evalu8, cdcnvt);
         case OPs64_d:   X("s64_d",      evalu8, cdcnvt);

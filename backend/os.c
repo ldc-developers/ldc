@@ -40,11 +40,15 @@
 #include        <windows.h>
 #endif
 
-#if __DMC__ || __GNUC__
+#if __DMC__ || __GNUC__ || _MSC_VER
 static char __file__[] = __FILE__;      /* for tassert.h                */
 #include        "tassert.h"
 #else
 #include        <assert.h>
+#endif
+
+#if _MSC_VER
+#include <alloca.h>
 #endif
 
 #if _WINDLL
@@ -61,6 +65,9 @@ int file_createdirs(char *name);
  * This function does not return.
  */
 
+#if _MSC_VER
+__declspec(noreturn)
+#endif
 void os_error(int line)
 {
 #if _WIN32
@@ -75,7 +82,9 @@ void os_error(int line)
 #endif
 
 #define os_error() os_error(__LINE__)
+#if __DMC__
 #pragma noreturn(os_error)
+#endif
 
 #if _WIN32
 /*********************************
@@ -672,13 +681,13 @@ int os_file_exists(const char *name)
  * Get file size of open file. Return -1L on error.
  */
 
-#if _WIN32
+#if _WIN32 && !_MSC_VER
 extern "C" void * __cdecl _osfhnd[];
 #endif
 
 long os_file_size(int fd)
 {
-#if _WIN32
+#if _WIN32 && !_MSC_VER
     return GetFileSize(_osfhnd[fd],NULL);
 #else
     struct stat buf;

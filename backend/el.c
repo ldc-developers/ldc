@@ -93,7 +93,6 @@ void el_reset()
     memset(stable,0,sizeof(stable));
 }
 
-#if TX86
 /************************
  * Terminate el package.
  */
@@ -101,9 +100,7 @@ void el_reset()
 void el_term()
 {
 #if TERMCODE
-        int i;
-
-        for (i = 0; i < arraysize(stable); i++)
+        for (int i = 0; i < arraysize(stable); i++)
             mem_free(stable[i].p);
 
 #ifdef DEBUG
@@ -122,7 +119,6 @@ void el_term()
         assert(elcount == 0);
 #endif
 }
-#endif
 
 /***********************
  * Allocate an element.
@@ -873,12 +869,7 @@ void el_toconst(elem *e)
 {
     elem_debug(e);
     assert(PARSER);
-#if TX86
     if (e->Eoper == OPvar && e->EV.sp.Vsym->Sflags & SFLvalue)
-#else
-    if (e->Eoper == OPvar && e->EV.sp.Vsym->Sflags & SFLvalue &&
-        tybasic(e->ET->Tty) != TYstruct)
-#endif
     {   elem *es = e->EV.sp.Vsym->Svalue;
 
         type_debug(e->ET);
@@ -1053,7 +1044,6 @@ int el_sideeffect(elem *e)
                                       el_sideeffect(e->E2)));
 }
 
-#if TX86
 /******************************
  * Input:
  *      ea      lvalue (might be an OPbit)
@@ -1100,7 +1090,6 @@ int el_depends(elem *ea,elem *eb)
 Lnodep:
     return 0;
 }
-#endif
 
 /***************************************
  * Allocate localgot symbol.
@@ -1570,12 +1559,12 @@ elem * el_var(symbol *s)
     e->Eoper = OPvar;
     e->EV.sp.Vsym = s;
     if (SCPP && PARSER)
-#if TX86 && TARGET_WINDOS
     {   type *t = s->Stype;
 
         type_debug(t);
         e->ET = t;
         t->Tcount++;
+#if TARGET_WINDOS
         switch (t->Tty & (mTYimport | mTYthread))
         {   case mTYimport:
                 obj_import(e);
@@ -1613,18 +1602,11 @@ elem * el_var(symbol *s)
                 break;
             case mTYthread | mTYimport:
                 assert(SCPP);
-#if SCPP
                 tx86err(EM_thread_and_dllimport,s->Sident);     // can't be both thread and import
-#endif
                 break;
         }
-    }
-#else
-    {   type_debug(s->Stype);
-        e->ET = s->Stype;
-        e->ET->Tcount++;
-    }
 #endif
+    }
     else
         e->Ety = s->ty();
     return e;
@@ -2037,8 +2019,13 @@ void shrinkLongDoubleConstantIfPossible(elem *e)
          * Use 'volatile' to prevent optimizer from folding away the conversions,
          * and thereby missing the truncation in the conversion to double.
          */
+#if _MSC_VER
+        volatile_longdouble v = e->EV.Vldouble;
+#else
         volatile long double v = e->EV.Vldouble;
+#endif
         volatile double vDouble;
+
         *(&vDouble) = v;
         if (v == vDouble)       // This will fail if compiler does NaN incorrectly!
         {
@@ -2217,10 +2204,8 @@ elem *el_ctor(elem *ector,elem *e,symbol *sdtor)
         }
         if (!sdtor || ector->Eoper == OPcall ||
             (ector->Eoper == OPrelconst && !(sytab[ector->EV.sp.Vsym->Sclass] & SCSS))
-#if TX86
             // Not ambient memory model
             || (tyfarfunc(sdtor->ty()) ? !LARGECODE : LARGECODE)
-#endif
            )
         {
             el_free(ector);
@@ -2327,11 +2312,7 @@ L1:
 
     if ((tym = typemask(n1)) != (tym2 = typemask(n2)))
     {
-#if TX86
         if ((tym & ~mTYbasic) != (tym2 & ~mTYbasic))
-#else
-        if ((tym & ~mTYbasic & ~mTYMAN) != (tym2 & ~mTYbasic & ~mTYMAN))
-#endif
         {
             if (!(gmatch2 & 2))
                 goto nomatch;
@@ -2441,7 +2422,6 @@ L1:
                         else
                             goto case_long;
 
-#if TX86
 #if JHANDLE
                     case TYjhandle:
 #endif
@@ -2459,7 +2439,6 @@ L1:
                         {   assert(NPTRSIZE == LLONGSIZE);
                             goto case_llong;
                         }
-#endif
 
                     case TYbool:
                     case TYchar:
@@ -2717,7 +2696,7 @@ L1:
         Ushort:
             result = e->EV.Vushort;
             break;
-#if SCPP && TX86
+#if SCPP
         case TYenum:
             assert(PARSER);
             ty = e->ET->Tnext->Tty;
@@ -2869,7 +2848,6 @@ targ_ldouble el_toldouble(elem *e)
 
     elem_debug(e);
     assert(cnst(e));
-#if TX86
     switch (tybasic(typemask(e)))
     {
         case TYfloat:
@@ -2889,28 +2867,6 @@ targ_ldouble el_toldouble(elem *e)
             result = 0;
             break;
     }
-#else
-    switch (tysize[tybasic(typemask(e))])
-    {
-    case FLOATSIZE:             // TYfloat
-        result = e->EV.Vfloat;
-        break;
-    case DOUBLESIZE:    // TYdouble
-        result = e->EV.Vdouble;
-        break;
-#if DOUBLESIZE != LNGDBLSIZE
-    case LNGDBLSIZE:    // TYldouble
-#ifdef LNGHDBLSIZE
-    case LNGHDBLSIZE:
-#endif
-            result = e->EV.Vldouble;
-        break;
-#endif
-        default:
-            result = 0;
-            break;
-    }
-#endif
     return result;
 }
 
@@ -3096,10 +3052,8 @@ void elem_print(elem *e)
                     case TYint:
                     case TYuint:
                     case TYvoid:        /* in case (void)(1)    */
-#if TX86
                         if (tysize[TYint] == LONGSIZE)
                             goto L1;
-#endif
                     case TYshort:
                     case TYwchar_t:
                     case TYushort:
@@ -3141,9 +3095,16 @@ void elem_print(elem *e)
                         dbg_printf("%g ",(double)e->EV.Vdouble);
                         break;
                     case TYldouble:
+                    {
+#if _MSC_VER
+                        char buffer[3 + 3 * sizeof(targ_ldouble) + 1];
+                        ld_sprint(buffer, 'g', e->EV.Vldouble);
+                        dbg_printf("%s ", buffer);
+#else
                         dbg_printf("%Lg ", e->EV.Vldouble);
+#endif
                         break;
-
+                    }
                     case TYifloat:
                         dbg_printf("%gfi ", (double)e->EV.Vfloat);
                         break;
@@ -3252,11 +3213,7 @@ void el_hydrate(elem **pe)
                 //if (tybasic(e->ET->Tty) == TYmemptr)
                     //el_hydrate(&e->EV.sm.ethis);
             case OPvar:
-#if TX86
                 symbol_hydrate(&e->EV.sp.Vsym);
-#else
-                ph_hydrate(&e->EV.sp.Vsym);
-#endif
                 symbol_debug(e->EV.sp.Vsym);
                 break;
         }
@@ -3288,10 +3245,8 @@ void el_dehydrate(elem **pe)
         return;
 #endif
     type_dehydrate(&e->ET);
-#if TX86
     if (configv.addlinenumbers)
         srcpos_dehydrate(&e->Esrcpos);
-#endif
     if (EOP(e))
     {   el_dehydrate(&e->E1);
         if (EBIN(e))
@@ -3312,11 +3267,7 @@ void el_dehydrate(elem **pe)
                 //if (tybasic(e->ET->Tty) == TYmemptr)
                     //el_dehydrate(&e->EV.sm.ethis);
             case OPvar:
-#if TX86
                 symbol_dehydrate(&e->EV.sp.Vsym);
-#else
-                ph_dehydrate(&e->EV.sp.Vsym);
-#endif
                 break;
         }
     }
