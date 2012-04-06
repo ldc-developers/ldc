@@ -19,8 +19,8 @@ namespace llvm {
 struct IRLandingPadInfo
 {
     // default constructor for being able to store in a vector
-    IRLandingPadInfo()
-    : target(NULL), finallyBody(NULL), catchType(NULL)
+    IRLandingPadInfo() :
+        target(NULL), finallyBody(NULL), catchstmt(NULL)
     {}
 
     // constructor for catch
@@ -28,6 +28,9 @@ struct IRLandingPadInfo
 
     // constructor for finally
     IRLandingPadInfo(Statement* finallystmt);
+
+    // codegen the catch block
+    void toIR();
 
     // the target catch bb if this is a catch
     // or the target finally bb if this is a finally
@@ -37,6 +40,8 @@ struct IRLandingPadInfo
     Statement* finallyBody;
 
     // nonzero if this is a catch
+    Catch* catchstmt;
+    llvm::BasicBlock* end;
     ClassDeclaration* catchType;
 };
 
@@ -47,7 +52,7 @@ struct IRLandingPad
 {
     IRLandingPad() : catch_var(NULL) {}
 
-    // builds a new landing pad according to given infos
+    // creates a new landing pad according to given infos
     // and the ones on the stack. also stores it as invoke target
     void push(llvm::BasicBlock* inBB);
 
@@ -56,7 +61,8 @@ struct IRLandingPad
     // add finally information, will be used in next call to push
     void addFinally(Statement* finallystmt);
 
-    // pops the most recently constructed landing pad bb
+    // builds the most recently constructed landing pad
+    // and the catch blocks, then pops the landing pad bb
     // and its infos
     void pop();
 

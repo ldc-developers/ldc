@@ -8,11 +8,39 @@
 #include "gen/todebug.h"
 #include "ir/irlandingpad.h"
 
-IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
-: finallyBody(NULL)
+IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt_, llvm::BasicBlock* end_) :
+    finallyBody(NULL), catchstmt(catchstmt_), end(end_)
 {
     target = llvm::BasicBlock::Create(gIR->context(), "catch", gIR->topfunc(), end);
-    gIR->scope() = IRScope(target,end);
+
+    assert(catchstmt->type);
+    catchType = catchstmt->type->toBasetype()->isClassHandle();
+    assert(catchType);
+    catchType->codegen(Type::sir);
+
+    if(catchstmt->var) {
+        #if DMDV2
+            if(!catchstmt->var->nestedrefs.dim) {
+        #else
+            if(!catchstmt->var->nestedref) {
+        #endif
+                gIR->func()->gen->landingPadInfo.getExceptionStorage();
+            }
+    }
+}
+
+IRLandingPadInfo::IRLandingPadInfo(Statement* finallystmt) :
+    target(NULL), finallyBody(finallystmt), catchstmt(NULL)
+{
+
+}
+
+void IRLandingPadInfo::toIR()
+{
+    if (!catchstmt)
+        return;
+
+    gIR->scope() = IRScope(target, target);
     DtoDwarfBlockStart(catchstmt->loc);
 
     // assign storage to catch var
@@ -48,17 +76,7 @@ IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end)
     if (!gIR->scopereturned())
         gIR->ir->CreateBr(end);
 
-    assert(catchstmt->type);
-    catchType = catchstmt->type->toBasetype()->isClassHandle();
-    assert(catchType);
-    catchType->codegen(Type::sir);
     DtoDwarfBlockEnd();
-}
-
-IRLandingPadInfo::IRLandingPadInfo(Statement* finallystmt)
-: target(NULL), finallyBody(finallystmt), catchType(NULL)
-{
-
 }
 
 
@@ -79,17 +97,22 @@ void IRLandingPad::push(llvm::BasicBlock* inBB)
     infos.insert(infos.end(), unpushed_infos.begin(), unpushed_infos.end());
     unpushed_infos.clear();
 
-    constructLandingPad(inBB);
-
     // store as invoke target
     padBBs.push(inBB);
+    gIR->func()->gen->landingPad = get();
 }
 
 void IRLandingPad::pop()
 {
+    llvm::BasicBlock *inBB = padBBs.top();
     padBBs.pop();
+    gIR->func()->gen->landingPad = get();
 
     size_t n = nInfos.top();
+    for (int i = n, c = infos.size(); i < c; ++i)
+        infos.at(i).toIR();
+    constructLandingPad(inBB);
+
     infos.resize(n);
     nInfos.pop();
 }
