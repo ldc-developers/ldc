@@ -1,4 +1,3 @@
-#include "gen/linker.h"
 #include "gen/llvm.h"
 #include "llvm/Linker.h"
 #include "llvm/Support/FileSystem.h"
@@ -13,9 +12,11 @@
 
 #define NO_COUT_LOGGER
 #include "gen/logger.h"
-#include "gen/cl_options.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
+
+#include "driver/linker.h"
+#include "driver/cl_options.h"
 
 //////////////////////////////////////////////////////////////////////////////
 

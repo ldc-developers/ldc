@@ -191,7 +191,7 @@ foreach(TARGET ${HOST_ARCH} ${EXTRA_LLVM_MODULES})
 endforeach(TARGET)
 
 set_source_files_properties(
-    ${PROJECT_SOURCE_DIR}/gen/main.cpp PROPERTIES
+    ${PROJECT_SOURCE_DIR}/driver/main.cpp PROPERTIES
     COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
 )
 
@@ -204,6 +204,7 @@ set_source_files_properties(
 file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c ${DMDFE_PATH}/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp gen/*.h)
 file(GLOB IR_SRC ir/*.cpp ir/*.h)
+file(GLOB_RECURSE DRV_SRC driver/*.cpp driver/*.h)
 # exclude idgen and impcnvgen and generated sources, just in case
 list(REMOVE_ITEM FE_SRC
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
@@ -266,9 +267,40 @@ endif(USE_METADATA)
 #
 # Set up the main ldc/ldc2 target.
 #
+if(BUILD_SHARED)
+    set(LDC_LIB_TYPE SHARED)
+else(BUILD_SHARED)
+    set(LDC_LIB_TYPE STATIC)
+endif(BUILD_SHARED)
+
+set(LDC_LIB LDCShared)
+add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_SOURCE_FILES})
+# Build ldc
+set_target_properties(
+    ${LDC_LIB} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_NAME ldc
+    LIBRARY_OUTPUT_NAME ldc
+    RUNTIME_OUTPUT_NAME ldc
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
+)
+
+# LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
+target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}")
+if(WIN32)
+    target_link_libraries(${LDC_LIB} imagehlp psapi)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    target_link_libraries(${LDC_LIB} dl)
+endif(WIN32)
+
+if(USE_BOEHM_GC)
+    target_link_libraries(${LDC_LIB} ${PROJECT_SOURCE_DIR}/libgc.a)
+endif(USE_BOEHM_GC)
 
 # Path where ldc executable will be put
-add_executable(${LDC_EXE} ${LDC_SOURCE_FILES})
+add_executable(${LDC_EXE} ${DRV_SRC})
 # Name of ldc executable
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 # Build ldc
@@ -278,18 +310,8 @@ set_target_properties(
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LDFLAGS} config++)
 
-# LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}" ${LIBCONFIG_LDFLAGS} config++)
-if(WIN32)
-    target_link_libraries(${LDC_EXE} imagehlp psapi)
-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    target_link_libraries(${LDC_EXE} dl)
-endif(WIN32)
-
-if(USE_BOEHM_GC)
-    target_link_libraries(${LDC_EXE} ${PROJECT_SOURCE_DIR}/libgc.a)
-endif(USE_BOEHM_GC)
 
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
@@ -300,6 +322,7 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 add_subdirectory(runtime)
 
 install(TARGETS     ${LDC_EXE}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS     ${LDC_LIB}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf           DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf   DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
