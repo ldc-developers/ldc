@@ -17,8 +17,6 @@
 #include "ir/irmodule.h"
 #include "ir/irtypestruct.h"
 
-#include "gen/cl_options.h"
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 static LLValue *DtoSlice(DValue *dval)

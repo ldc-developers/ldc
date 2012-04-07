@@ -8,7 +8,7 @@
 
 #include "libconfig.h++"
 
-#include "gen/configfile.h"
+#include "driver/configfile.h"
 
 #include "mars.h"
 

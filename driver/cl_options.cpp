@@ -1,4 +1,4 @@
-#include "gen/cl_options.h"
+#include "driver/cl_options.h"
 #include "gen/cl_helpers.h"
 
 #include "llvm/Target/TargetMachine.h"
@@ -132,8 +132,9 @@ cl::opt<cl::boolOrDefault> output_o("output-o",
     cl::desc("Write native object"));
 
 // Disabling Red Zone
-cl::opt<bool> disableRedZone("disable-red-zone",
+cl::opt<bool, true> disableRedZone("disable-red-zone",
   cl::desc("Do not emit code that uses the red zone."),
+  cl::location(global.params.disableRedZone),
   cl::init(false));
 
 // DDoc options
@@ -360,7 +361,7 @@ static cl::opt<bool, true, FlagParser> postconditions("postconditions",
     cl::init(true));
 
 
-static MultiSetter ContractsSetter(false, 
+static MultiSetter ContractsSetter(false,
     &global.params.useIn, &global.params.useOut, NULL);
 static cl::opt<MultiSetter, true, FlagParser> contracts("contracts",
     cl::desc("(*) Enable function pre- and post-conditions"),
@@ -374,10 +375,13 @@ static cl::opt<MultiSetter, true, cl::parser<bool> > release("release",
     cl::location(ReleaseSetter),
     cl::ValueDisallowed);
 
+cl::opt<bool, true> noVerify("noverify",
+    llvm::cl::desc("Do not run the validation pass before writing bitcode"),
+    cl::location(global.params.noVerify));
 
-cl::opt<bool> singleObj("singleobj",
+cl::opt<bool, true> singleObj("singleobj",
     cl::desc("Create only a single output object file"),
-    cl::ZeroOrMore);
+    cl::location(global.params.singleObj));
 
 cl::opt<bool> linkonceTemplates("linkonce-templates",
     cl::desc("Use linkonce_odr linkage for template symbols instead of weak_odr"),

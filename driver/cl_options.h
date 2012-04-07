@@ -33,7 +33,7 @@ namespace opts {
     extern cl::opt<bool> output_ll;
     extern cl::opt<bool> output_s;
     extern cl::opt<cl::boolOrDefault> output_o;
-    extern cl::opt<bool> disableRedZone;
+    extern cl::opt<bool, true> disableRedZone;
     extern cl::opt<std::string> ddocDir;
     extern cl::opt<std::string> ddocFile;
     extern cl::opt<std::string> jsonFile;
@@ -50,7 +50,7 @@ namespace opts {
     extern cl::opt<std::string> mTargetTriple;
     extern cl::opt<llvm::Reloc::Model> mRelocModel;
     extern cl::opt<llvm::CodeModel::Model> mCodeModel;
-    extern cl::opt<bool> singleObj;
+    extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
 
     // Arguments to -d-debug
