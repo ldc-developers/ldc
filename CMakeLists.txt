@@ -267,13 +267,23 @@ endif(USE_METADATA)
 #
 # Set up the main ldc/ldc2 target.
 #
+if(BUILD_SHARED)
+    set(LDC_LIB_TYPE SHARED)
+else(BUILD_SHARED)
+    set(LDC_LIB_TYPE STATIC)
+endif(BUILD_SHARED)
+
 set(LDC_LIB LDCShared)
-add_library(${LDC_LIB} SHARED ${LDC_SOURCE_FILES})
+add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_SOURCE_FILES})
 # Build ldc
 set_target_properties(
     ${LDC_LIB} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_NAME ldc
+    LIBRARY_OUTPUT_NAME ldc
+    RUNTIME_OUTPUT_NAME ldc
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
 )
 
