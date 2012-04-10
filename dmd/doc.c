@@ -254,11 +254,11 @@ void Module::gendocfile()
 
     // Set time macros
     {   time_t t;
-    time(&t);
-    char *p = ctime(&t);
-    p = mem.strdup(p);
-    Macro::define(&macrotable, (unsigned char *)"DATETIME", 8, (unsigned char *)p, strlen(p));
-    Macro::define(&macrotable, (unsigned char *)"YEAR", 4, (unsigned char *)p + 20, 4);
+        time(&t);
+        char *p = ctime(&t);
+        p = mem.strdup(p);
+        Macro::define(&macrotable, (unsigned char *)"DATETIME", 8, (unsigned char *)p, strlen(p));
+        Macro::define(&macrotable, (unsigned char *)"YEAR", 4, (unsigned char *)p + 20, 4);
     }
 
     char *docfilename = docfile->toChars();
@@ -1931,11 +1931,11 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, unsigned offset)
                     buf->remove(iLineStart, i - iLineStart + eollen);
                     i = iLineStart;
 
-            if (inCode && (i <= iCodeStart))
-            {   // Empty code section, just remove it completely.
-                inCode = 0;
-                break;
-            }
+                    if (inCode && (i <= iCodeStart))
+                    {   // Empty code section, just remove it completely.
+                        inCode = 0;
+                        break;
+                    }
 
                     if (inCode)
                     {
@@ -2010,7 +2010,7 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, unsigned offset)
                 break;
         }
     }
-      if (inCode)
+    if (inCode)
         s->error("unmatched --- in DDoc comment");
     ;
 }

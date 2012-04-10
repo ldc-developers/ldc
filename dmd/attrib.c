@@ -585,8 +585,8 @@ void LinkDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         case LINKwindows:       p = "Windows";          break;
         case LINKpascal:        p = "Pascal";           break;
 
-    // LDC
-    case LINKintrinsic: p = "Intrinsic"; break;
+        // LDC
+        case LINKintrinsic: p = "Intrinsic"; break;
 
         default:
             assert(0);
@@ -714,12 +714,15 @@ void AlignDeclaration::setScope(Scope *sc)
 
 void AlignDeclaration::semantic(Scope *sc)
 {
-// LDC
-// we only support packed structs, as from the spec: align(1) struct Packed { ... }
-// other alignments are simply ignored. my tests show this is what llvm-gcc does too ...
+    // LDC
+    // we only support packed structs, as from the spec: align(1) struct Packed { ... }
+    // other alignments are simply ignored. my tests show this is what llvm-gcc does too ...
+    if (decl)
     {
         semanticNewSc(sc, sc->stc, sc->linkage, sc->protection, sc->explicitProtection, salign);
     }
+    else
+        assert(0 && "what kind of align use triggers this?");
 }
 
 
@@ -1130,6 +1133,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             }
             printf("\n");
         }
+        goto Lnodecl;
     }
     else
         error("unrecognized pragma(%s)", ident->toChars());

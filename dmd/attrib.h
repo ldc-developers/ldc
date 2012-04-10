@@ -57,7 +57,7 @@ struct AttribDeclaration : Dsymbol
     AttribDeclaration *isAttribDeclaration() { return this; }
 
 #if IN_DMD
-    virtual void toObjFile(int multiobj);                       // compile to .obj file
+    void toObjFile(int multiobj);                       // compile to .obj file
     int cvMember(unsigned char *p);
 #endif
 

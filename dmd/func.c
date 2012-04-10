@@ -55,6 +55,7 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
 #if IN_GCC
     v_argptr = NULL;
 #endif
+    v_argsave = NULL;
     parameters = NULL;
     labtab = NULL;
     overnext = NULL;
@@ -216,7 +217,7 @@ void FuncDeclaration::semantic(Scope *sc)
         error("_ctor is reserved for constructors");
 
     if (isConst() || isAuto() || isScope())
-        error("functions cannot be const, auto or scope");
+        error("functions cannot be const or auto");
 
     if (isAbstract() && !isVirtual())
         error("non-virtual functions cannot be abstract");
@@ -1240,10 +1241,10 @@ void FuncDeclaration::semantic3(Scope *sc)
                         error("no match for implicit super() call in constructor");
                     else
                     {
-                    Statement *s = new ExpStatement(0, e);
-                    fbody = new CompoundStatement(0, s, fbody);
+                        Statement *s = new ExpStatement(0, e);
+                        fbody = new CompoundStatement(0, s, fbody);
+                    }
                 }
-            }
             }
             else if (fes)
             {   // For foreach(){} body, append a return 0;
@@ -1342,46 +1343,47 @@ void FuncDeclaration::semantic3(Scope *sc)
                 }
                 else
                 {   // Initialize _argptr to point past non-variadic arg
-                VarDeclaration *p;
-                unsigned offset = 0;
+                    VarDeclaration *p;
+                    unsigned offset = 0;
 
-                Expression *e1 = new VarExp(0, argptr);
-                // Find the last non-ref parameter
-                if (parameters && parameters->dim)
-                {
-                    int lastNonref = parameters->dim -1;
-                    p = (VarDeclaration *)parameters->data[lastNonref];
-                    /* The trouble with out and ref parameters is that taking
-                     * the address of it doesn't work, because later processing
-                     * adds in an extra level of indirection. So we skip over them.
-                     */
-                    while (p->storage_class & (STCout | STCref))
+                    Expression *e1 = new VarExp(0, argptr);
+                    // Find the last non-ref parameter
+                    if (parameters && parameters->dim)
                     {
-                        --lastNonref;
-                        offset += PTRSIZE;
-                        if (lastNonref < 0)
-                        {
-                            p = v_arguments;
-                            break;
-                        }
+                        int lastNonref = parameters->dim -1;
                         p = (VarDeclaration *)parameters->data[lastNonref];
+                        /* The trouble with out and ref parameters is that taking
+                         * the address of it doesn't work, because later processing
+                         * adds in an extra level of indirection. So we skip over them.
+                         */
+                        while (p->storage_class & (STCout | STCref))
+                        {
+                            --lastNonref;
+                            offset += PTRSIZE;
+                            if (lastNonref < 0)
+                            {
+                                p = v_arguments;
+                                break;
+                            }
+                            p = (VarDeclaration *)parameters->data[lastNonref];
+                        }
                     }
+                    else
+                        p = v_arguments;            // last parameter is _arguments[]
+                    if (p->storage_class & STClazy)
+                        // If the last parameter is lazy, it's the size of a delegate
+                        offset += PTRSIZE * 2;
+                    else
+                        offset += p->type->size();
+                    offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);  // assume stack aligns on pointer size
+                    Expression *e = new SymOffExp(0, p, offset);
+                    e->type = Type::tvoidptr;
+                    //e = e->semantic(sc);
+                    e = new AssignExp(0, e1, e);
+                    e->type = t;
+                    a->push(new ExpStatement(0, e));
                 }
-                else
-                    p = v_arguments;            // last parameter is _arguments[]
-                if (p->storage_class & STClazy)
-                    // If the last parameter is lazy, it's the size of a delegate
-                    offset += PTRSIZE * 2;
-                else
-                    offset += p->type->size();
-                offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);  // assume stack aligns on pointer size
-                Expression *e = new SymOffExp(0, p, offset);
-                e->type = Type::tvoidptr;
-                //e = e->semantic(sc);
-                e = new AssignExp(0, e1, e);
-                e->type = t;
-                a->push(new ExpStatement(0, e));
-#endif // IN_GCC
+#endif
             }
 
             if (_arguments)
@@ -2632,7 +2634,7 @@ int FuncDeclaration::needsClosure()
         {   FuncDeclaration *f = (FuncDeclaration *)v->nestedrefs.data[j];
             assert(f != this);
 
-            //printf("\t\tf = %s, %d, %d\n", f->toChars(), f->isVirtual(), f->tookAddressOf);
+            //printf("\t\tf = %s, %d, %p, %d\n", f->toChars(), f->isVirtual(), f->isThis(), f->tookAddressOf);
             if (f->isThis() || f->tookAddressOf)
                 goto Lyes;      // assume f escapes this function's scope
 

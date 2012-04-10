@@ -15,6 +15,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "mars.h"
+
 /******************************************
  * Looks for undefined identifier s to see
  * if it might be undefined because an import

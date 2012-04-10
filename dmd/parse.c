@@ -388,8 +388,8 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKalign:
             {   unsigned n;
 
-        // LDC better align code locations
-        Loc alignloc = loc;
+                // LDC better align code locations
+                Loc alignloc = loc;
 
                 s = NULL;
                 nextToken();
@@ -685,11 +685,11 @@ enum LINK Parser::parseLinkage()
         }
         else if (id == Id::System)
         {
-        // LDC we configure target at runtime
-        if (global.params.os == OSWindows)
-            link = LINKwindows;
-        else
-            link = LINKc;
+            // LDC we configure target at runtime
+            if (global.params.os == OSWindows)
+                link = LINKwindows;
+            else
+                link = LINKc;
         }
         else
         {
@@ -2012,7 +2012,7 @@ Type *Parser::parseBasicType2(Type *t)
 
                         //printf("it's an associative array\n");
                         index = parseBasicType();
-                        index = parseDeclarator(index, NULL);       // [ type ]
+                        index = parseDeclarator(index, NULL);   // [ type ]
                         check(TOKrbracket);
                         ta = new TypeAArray(t, index);
                     }
@@ -3655,7 +3655,7 @@ Statement *Parser::parseStatement(int flags)
                 }
                 break;
             }
-        s = new AsmBlockStatement(loc, statements);
+            s = new AsmBlockStatement(loc, statements);
             nextToken();
             break;
         }
@@ -4494,6 +4494,7 @@ Expression *Parser::parsePrimaryExp()
                          token.value == TOKsuper ||
                          token.value == TOKenum ||
                          token.value == TOKinterface ||
+                         token.value == TOKargTypes ||
 #if DMDV2
                          token.value == TOKconst && peek(&token)->value == TOKrparen ||
                          token.value == TOKinvariant && peek(&token)->value == TOKrparen ||

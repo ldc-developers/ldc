@@ -824,7 +824,7 @@ int ClassDeclaration::isBaseOf(ClassDeclaration *cd, int *poffset)
         {
             cd->semantic(NULL);
             if (!cd->baseClass)
-            cd->error("base class is forward referenced by %s", toChars());
+                cd->error("base class is forward referenced by %s", toChars());
         }
 
         if (this == cd->baseClass)

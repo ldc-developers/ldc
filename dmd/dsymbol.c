@@ -221,10 +221,10 @@ char *Dsymbol::locToChars()
 
     if (!loc.filename)  // avoid bug 5861.
     {
-    Module *m = getModule();
+        Module *m = getModule();
 
-    if (m && m->srcfile)
-        loc.filename = m->srcfile->toChars();
+        if (m && m->srcfile)
+            loc.filename = m->srcfile->toChars();
     }
     return loc.toChars();
 }
@@ -556,10 +556,10 @@ void Dsymbol::error(const char *format, ...)
         if (m && m->srcfile)
             loc.filename = m->srcfile->toChars();
     }
-        va_list ap;
-        va_start(ap, format);
+    va_list ap;
+    va_start(ap, format);
     verror(loc, format, ap);
-        va_end(ap);
+    va_end(ap);
 }
 
 void Dsymbol::error(Loc loc, const char *format, ...)
@@ -1023,7 +1023,7 @@ static int getNthSymbolDg(void *ctx, size_t n, Dsymbol *sym)
     if (n == p->nth)
     {   p->sym = sym;
         return 1;
-        }
+    }
     return 0;
 }
 

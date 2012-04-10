@@ -32,6 +32,7 @@ EnumDeclaration::EnumDeclaration(Loc loc, Identifier *id, Type *memtype)
     sinit = NULL;
 #endif
     isdeprecated = 0;
+    isdone = 0;
 }
 
 Dsymbol *EnumDeclaration::syntaxCopy(Dsymbol *s)

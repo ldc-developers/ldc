@@ -229,7 +229,7 @@ void AggregateDeclaration::addField(Scope *sc, VarDeclaration *v)
         memalignsize = sc->structalign;
     if (alignsize < memalignsize)
         alignsize = memalignsize;
-    //printf("\talignsize = %d\n", alignsize);
+    //printf("\t%s: alignsize = %d\n", toChars(), alignsize);
 
     v->storage_class |= STCfield;
     //printf(" addField '%s' to '%s' at offset %d, size = %d\n", v->toChars(), toChars(), v->offset, memsize);
@@ -298,6 +298,7 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     hasIdentityAssign = 0;
     cpctor = NULL;
     postblit = NULL;
+    eq = NULL;
 #endif
 
     // For forward references
@@ -320,9 +321,9 @@ void StructDeclaration::semantic(Scope *sc)
 {
     Scope *sc2;
 
-    //printf("+StructDeclaration::semantic(this=%p, '%s')\n", this, toChars());
+    //printf("+StructDeclaration::semantic(this=%p, '%s', sizeok = %d)\n", this, toChars(), sizeok);
 
-    //static int count; if (++count == 20) *(char*)0=0;
+    //static int count; if (++count == 20) halt();
 
     assert(type);
     if (!members)                       // if forward reference
@@ -479,6 +480,40 @@ void StructDeclaration::semantic(Scope *sc)
     }
 #endif
 #if DMDV2
+    /* Try to find the opEquals function. Build it if necessary.
+     */
+    TypeFunction *tfeqptr;
+    {   // bool opEquals(const T*) const;
+        Parameters *parameters = new Parameters;
+#if STRUCTTHISREF
+        // bool opEquals(ref const T) const;
+        Parameter *param = new Parameter(STCref, type->constOf(), NULL, NULL);
+#else
+        // bool opEquals(const T*) const;
+        Parameter *param = new Parameter(STCin, type->pointerTo(), NULL, NULL);
+#endif
+
+        parameters->push(param);
+        tfeqptr = new TypeFunction(parameters, Type::tbool, 0, LINKd);
+        tfeqptr->mod = MODconst;
+        tfeqptr = (TypeFunction *)tfeqptr->semantic(0, sc2);
+
+        Dsymbol *s = search_function(this, Id::eq);
+        FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
+        if (fdx)
+        {
+            eq = fdx->overloadExactMatch(tfeqptr);
+            if (!eq)
+                fdx->error("type signature should be %s not %s", tfeqptr->toChars(), fdx->type->toChars());
+        }
+
+        TemplateDeclaration *td = s ? s->isTemplateDeclaration() : NULL;
+        // BUG: should also check that td is a function template, not just a template
+
+        if (!eq && !td)
+            eq = buildOpEquals(sc2);
+    }
+
     dtor = buildDtor(sc2);
     postblit = buildPostBlit(sc2);
     cpctor = buildCpCtor(sc2);

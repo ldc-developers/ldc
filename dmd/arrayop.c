@@ -314,57 +314,57 @@ Expression *BinExp::arrayOp(Scope *sc)
             }
 #endif
 #endif
-        /* Not in library, so generate it.
-         * Construct the function body:
-         *  foreach (i; 0 .. p.length)    for (size_t i = 0; i < p.length; i++)
-         *      loopbody;
-         *  return p;
-         */
+            /* Not in library, so generate it.
+             * Construct the function body:
+             *  foreach (i; 0 .. p.length)    for (size_t i = 0; i < p.length; i++)
+             *      loopbody;
+             *  return p;
+             */
 
-        Parameters *fparams = new Parameters();
-        Expression *loopbody = buildArrayLoop(fparams);
+            Parameters *fparams = new Parameters();
+            Expression *loopbody = buildArrayLoop(fparams);
             Parameter *p = (*fparams)[0 /*fparams->dim - 1*/];
 #if DMDV1
-        // for (size_t i = 0; i < p.length; i++)
-        Initializer *init = new ExpInitializer(0, new IntegerExp(0, 0, Type::tsize_t));
-        Dsymbol *d = new VarDeclaration(0, Type::tsize_t, Id::p, init);
-        Statement *s1 = new ForStatement(0,
+            // for (size_t i = 0; i < p.length; i++)
+            Initializer *init = new ExpInitializer(0, new IntegerExp(0, 0, Type::tsize_t));
+            Dsymbol *d = new VarDeclaration(0, Type::tsize_t, Id::p, init);
+            Statement *s1 = new ForStatement(0,
                 new ExpStatement(0, d),
-        new CmpExp(TOKlt, 0, new IdentifierExp(0, Id::p), new ArrayLengthExp(0, new IdentifierExp(0, p->ident))),
-        new PostExp(TOKplusplus, 0, new IdentifierExp(0, Id::p)),
-        new ExpStatement(0, loopbody));
+                new CmpExp(TOKlt, 0, new IdentifierExp(0, Id::p), new ArrayLengthExp(0, new IdentifierExp(0, p->ident))),
+                new PostExp(TOKplusplus, 0, new IdentifierExp(0, Id::p)),
+                new ExpStatement(0, loopbody));
 #else
-        // foreach (i; 0 .. p.length)
-        Statement *s1 = new ForeachRangeStatement(0, TOKforeach,
-        new Parameter(0, NULL, Id::p, NULL),
-        new IntegerExp(0, 0, Type::tint32),
-        new ArrayLengthExp(0, new IdentifierExp(0, p->ident)),
-        new ExpStatement(0, loopbody));
+            // foreach (i; 0 .. p.length)
+            Statement *s1 = new ForeachRangeStatement(0, TOKforeach,
+                new Parameter(0, NULL, Id::p, NULL),
+                new IntegerExp(0, 0, Type::tint32),
+                new ArrayLengthExp(0, new IdentifierExp(0, p->ident)),
+                new ExpStatement(0, loopbody));
 #endif
-        Statement *s2 = new ReturnStatement(0, new IdentifierExp(0, p->ident));
-        //printf("s2: %s\n", s2->toChars());
-        Statement *fbody = new CompoundStatement(0, s1, s2);
+            Statement *s2 = new ReturnStatement(0, new IdentifierExp(0, p->ident));
+            //printf("s2: %s\n", s2->toChars());
+            Statement *fbody = new CompoundStatement(0, s1, s2);
 
-        /* Construct the function
-         */
-        TypeFunction *ftype = new TypeFunction(fparams, type, 0, LINKc);
-        //printf("ftype: %s\n", ftype->toChars());
+            /* Construct the function
+             */
+            TypeFunction *ftype = new TypeFunction(fparams, type, 0, LINKc);
+            //printf("ftype: %s\n", ftype->toChars());
             fd = new FuncDeclaration(loc, 0, ident, STCundefined, ftype);
-        fd->fbody = fbody;
-        fd->protection = PROTpublic;
+            fd->fbody = fbody;
+            fd->protection = PROTpublic;
             fd->linkage = LINKc;
             fd->isArrayOp = 1;
 
-        sc->module->importedFrom->members->push(fd);
+            sc->module->importedFrom->members->push(fd);
 
-        sc = sc->push();
-        sc->parent = sc->module->importedFrom;
-        sc->stc = 0;
+            sc = sc->push();
+            sc->parent = sc->module->importedFrom;
+            sc->stc = 0;
             sc->linkage = LINKc;
-        fd->semantic(sc);
+            fd->semantic(sc);
             fd->semantic2(sc);
             fd->semantic3(sc);
-        sc->pop();
+            sc->pop();
 #if IN_DMD
         }
         else

@@ -1802,4 +1802,3 @@ Expression *Expression::inlineCopy(Scope *sc)
     return e;
 #endif
 }
-

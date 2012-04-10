@@ -1,5 +1,5 @@
 // utf.c
-// Copyright (c) 2003-2010 by Digital Mars
+// Copyright (c) 2003-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com

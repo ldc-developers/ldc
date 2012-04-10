@@ -591,7 +591,7 @@ void AliasDeclaration::semantic(Scope *sc)
     }
     if (!type || type->ty != Terror)
     {   //printf("setting aliassym %s to %s %s\n", toChars(), s->kind(), s->toChars());
-    aliassym = s;
+        aliassym = s;
     }
     this->inSemantic = 0;
 }
@@ -671,7 +671,11 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (haliassym)
         {
+#if !IN_LLVM
+            haliassym->toCBuffer(buf, hgs);
+#else
             buf->writestring(haliassym->toChars());
+#endif
             buf->writeByte(' ');
             buf->writestring(ident->toChars());
         }
@@ -683,7 +687,11 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (aliassym)
         {
+#if !IN_LLVM
+            aliassym->toCBuffer(buf, hgs);
+#else
             buf->writestring(aliassym->toChars());
+#endif
             buf->writeByte(' ');
             buf->writestring(ident->toChars());
         }
@@ -1427,7 +1435,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
             fdv->nestedFrameRef = 1;
 #if IN_LLVM
 #if DMDV1
-        fdv->nestedVars.insert(this);
+            fdv->nestedVars.insert(this);
 #endif
 #endif
             //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
@@ -1496,7 +1504,7 @@ int VarDeclaration::isSameAsInitializer()
 }
 
 /******************************************
- * If a variable has an scope destructor call, return call for it.
+ * If a variable has a scope destructor call, return call for it.
  * Otherwise, return NULL.
  */
 
@@ -1504,7 +1512,7 @@ Expression *VarDeclaration::callScopeDtor(Scope *sc)
 {   Expression *e = NULL;
 
     //printf("VarDeclaration::callScopeDtor() %s\n", toChars());
-    if (storage_class & STCscope && !noscope)
+    if (storage_class & (STCauto | STCscope) && !noscope)
     {
         for (ClassDeclaration *cd = type->isClassHandle();
              cd;

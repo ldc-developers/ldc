@@ -1,10 +1,10 @@
 
-// Copyright (c) 1999-2006 by Digital Mars
+// Copyright (c) 1999-2009 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
 // License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
+// in artistic.txt, or the GNU General Public License in gpl.txt.
 // See the included readme.txt for details.
 
 
@@ -21,8 +21,46 @@
 #include "mars.h"
 #include "html.h"
 
+#if MARS || IN_LLVM
 #include <assert.h>
 #include "root.h"
+//#include "../mars/mars.h"
+#else
+#include "outbuf.h"
+#include "msgs2.h"
+
+extern void html_err(const char *, unsigned, unsigned, ...);
+
+static char __file__[] = __FILE__;      /* for tassert.h                */
+#include        "tassert.h"
+#endif
+
+#if __GNUC__
+int memicmp(const char *s1, const char *s2, int n);
+#if 0
+{
+    int result = 0;
+
+    for (int i = 0; i < n; i++)
+    {   char c1 = s1[i];
+        char c2 = s2[i];
+
+        result = c1 - c2;
+        if (result)
+        {
+            if ('A' <= c1 && c1 <= 'Z')
+                c1 += 'a' - 'A';
+            if ('A' <= c2 && c2 <= 'Z')
+                c2 += 'a' - 'A';
+            result = c1 - c2;
+            if (result)
+                break;
+        }
+    }
+    return result;
+}
+#endif
+#endif
 
 extern int HtmlNamedEntity(unsigned char *p, int length);
 
@@ -530,7 +568,7 @@ void Html::scanCDATA()
              * right.
              */
             linnum++;
-            dbuf->writeUTF8('\n');
+            dbuf->writeByte('\n');
             p += lineSepLength;
             continue;
         }
@@ -549,6 +587,7 @@ void Html::scanCDATA()
         p++;
     }
 }
+
 
 /********************************************
  * Convert an HTML character entity into a character.

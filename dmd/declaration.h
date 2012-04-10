@@ -91,6 +91,8 @@ enum STC
 #define STCtrusted      0x400000000LL
 #define STCsystem       0x800000000LL
 #define STCctfe         0x1000000000LL  // can be used in CTFE, even if it is static
+#define STCdisable      0x2000000000LL  // for functions that are not callable
+#define STCresult       0x4000000000LL  // for result variables passed to out contracts
 
 struct Match
 {
@@ -270,7 +272,7 @@ struct VarDeclaration : Declaration
 {
     Initializer *init;
     unsigned offset;
-    int noscope;                // no scope semantics
+    int noscope;                 // no auto semantics
 #if DMDV2
     FuncDeclarations nestedrefs; // referenced by these lexically nested functions
     bool isargptr;              // if parameter that _argptr points to
@@ -329,8 +331,8 @@ struct VarDeclaration : Declaration
     virtual int isSameAsInitializer();
 
 #if IN_DMD
-    void toObjFile(int multiobj);                       // compile to .obj file
     Symbol *toSymbol();
+    void toObjFile(int multiobj);                       // compile to .obj file
     int cvMember(unsigned char *p);
 #endif
 
@@ -423,8 +425,8 @@ struct TypeInfoDeclaration : VarDeclaration
     void toJsonBuffer(OutBuffer *buf);
 
 #if IN_DMD
-    void toObjFile(int multiobj);                       // compile to .obj file
     Symbol *toSymbol();
+    void toObjFile(int multiobj);                       // compile to .obj file
     virtual void toDt(dt_t **pdt);
 #endif
 
