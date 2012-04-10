@@ -30,18 +30,18 @@
 
 #include "gen/logger.h"
 #include "gen/linkage.h"
-#include "gen/linker.h"
 #include "gen/irstate.h"
 #include "gen/optimizer.h"
-#include "gen/toobj.h"
 #include "gen/metadata.h"
 #include "gen/passes/Passes.h"
 
-#include "gen/cl_options.h"
+#include "driver/linker.h"
+#include "driver/cl_options.h"
 #include "gen/cl_helpers.h"
 using namespace opts;
 
-#include "gen/configfile.h"
+#include "driver/configfile.h"
+#include "driver/toobj.h"
 
 #if POSIX
 #include <errno.h>

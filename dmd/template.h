@@ -384,4 +384,3 @@ Dsymbol *getDsymbol(Object *o);
 void ObjectToCBuffer(OutBuffer *buf, HdrGenState *hgs, Object *oarg);
 
 #endif /* DMD_TEMPLATE_H */
-

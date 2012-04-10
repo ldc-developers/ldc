@@ -95,12 +95,6 @@ int REALALIGNSIZE = 2;
 int Tsize_t = Tuns32;
 int Tptrdiff_t = Tint32;
 
-#if _WIN32 && !(defined __MINGW32__ || defined _MSC_VER)
-static double zero = 0;
-double Port::nan = NAN;
-double Port::infinity = 1/zero;
-#endif
-
 /***************************** Type *****************************/
 
 ClassDeclaration *Type::typeinfo;
@@ -2229,7 +2223,7 @@ int TypeSArray::hasPointers()
         // Arrays of void contain arbitrary data, which may include pointers
         return TRUE;
     else
-    return next->hasPointers();
+        return next->hasPointers();
 }
 
 /***************************** TypeDArray *****************************/
@@ -2477,7 +2471,7 @@ Type *TypeAArray::semantic(Loc loc, Scope *sc)
             break;
     }
     if (next->isscope())
-        error(loc, "cannot have array of scope %s", next->toChars());
+        error(loc, "cannot have array of auto %s", next->toChars());
 
     return merge();
 }
@@ -2899,7 +2893,7 @@ int Type::covariant(Type *t)
         size_t dim1 = !t1->parameters ? 0 : t1->parameters->dim;
         size_t dim2 = !t2->parameters ? 0 : t2->parameters->dim;
         if (dim1 || dim2)
-        goto Ldistinct;
+            goto Ldistinct;
     }
 
     // The argument lists match
@@ -3038,8 +3032,8 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
             case LINKpascal:    p = "Pascal ";  break;
             case LINKcpp:       p = "C++ ";     break;
 
-        // LDC
-        case LINKintrinsic: p = "Intrinsic"; break;
+            // LDC
+            case LINKintrinsic: p = "Intrinsic"; break;
 
             default:
                 assert(0);
@@ -3474,14 +3468,14 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident)
 #endif
     if (ident == Id::ptr)
     {
-    e = new GEPExp(e->loc, e, ident, 0);
+        e = new GEPExp(e->loc, e, ident, 0);
         e->type = tvoidptr;
         return e;
     }
     else if (ident == Id::funcptr)
     {
-    e = new GEPExp(e->loc, e, ident, 1);
-    e->type = tvoidptr;
+        e = new GEPExp(e->loc, e, ident, 1);
+        e->type = tvoidptr;
         return e;
     }
     else
@@ -4021,7 +4015,7 @@ Dsymbol *TypeInstance::toDsymbol(Scope *sc)
 
         if (global.endGagging(errors))
             return NULL;
-        }
+    }
     else
         resolve(loc, sc, &e, &t, &s);
 
@@ -4423,6 +4417,7 @@ Expression *TypeEnum::defaultInit(Loc loc)
 
 int TypeEnum::isZeroInit(Loc loc)
 {
+    //printf("TypeEnum::isZeroInit() '%s'\n", toChars());
     if (!sym->isdone && sym->scope)
     {   // Enum is forward referenced. We need to resolve the whole thing.
         sym->semantic(NULL);
@@ -4961,7 +4956,7 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
         {   if (vd->init->isVoidInitializer())
                 e = NULL;
             else
-            e = vd->init->toExpression();
+                e = vd->init->toExpression();
         }
         else
             e = vd->type->defaultInitLiteral();
@@ -5503,6 +5498,29 @@ TypeTuple::TypeTuple(Expressions *exps)
     this->arguments = arguments;
 }
 
+/*******************************************
+ * Type tuple with 0, 1 or 2 types in it.
+ */
+TypeTuple::TypeTuple()
+    : Type(Ttuple, NULL)
+{
+    arguments = new Parameters();
+}
+
+TypeTuple::TypeTuple(Type *t1)
+    : Type(Ttuple, NULL)
+{
+    arguments = new Parameters();
+    arguments->push(new Parameter(0, t1, NULL, NULL));
+}
+
+TypeTuple::TypeTuple(Type *t1, Type *t2)
+    : Type(Ttuple, NULL)
+{
+    arguments = new Parameters();
+    arguments->push(new Parameter(0, t1, NULL, NULL));
+    arguments->push(new Parameter(0, t2, NULL, NULL));
+}
 Type *TypeTuple::syntaxCopy()
 {
     Parameters *args = Parameter::arraySyntaxCopy(arguments);
