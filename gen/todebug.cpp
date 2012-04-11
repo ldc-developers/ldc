@@ -480,6 +480,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
         dwarfTypeDescription(retType, NULL), // type
         fd->protection == PROTprivate, // is local to unit
         gIR->dmodule == getDefinedModule(fd), // isdefinition
+        fd->loc.linnum, // FIXME: scope line 
         0, // Flags
         false, // isOptimized
         fd->ir.irFunc->func
@@ -507,7 +508,8 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         0, // line no
         llvm::DIType(NULL), // return type. TODO: fill it up
         true, // is local to unit
-        true // isdefinition
+        true, // isdefinition
+        0 // FIXME: scope line
     );
 }
 
