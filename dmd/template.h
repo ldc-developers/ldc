@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -40,6 +40,7 @@ struct AliasDeclaration;
 struct FuncDeclaration;
 struct HdrGenState;
 enum MATCH;
+enum PASS;
 
 struct Tuple : Object
 {
@@ -60,7 +61,7 @@ struct TemplateDeclaration : ScopeDsymbol
     TemplateDeclaration *overnext;      // next overloaded TemplateDeclaration
     TemplateDeclaration *overroot;      // first in overnext list
 
-    int semanticRun;                    // 1 semantic() run
+    enum PASS semanticRun;              // 1 semantic() run
 
     Dsymbol *onemember;         // if !=NULL then one member of this template
 
@@ -287,12 +288,11 @@ struct TemplateInstance : ScopeDsymbol
     AliasDeclaration *aliasdecl;        // !=NULL if instance is an alias for its
                                         // sole member
     WithScopeSymbol *withsym;           // if a member of a with statement
-    int semanticRun;    // has semantic() been done?
+    enum PASS semanticRun;    // has semantic() been done?
     int semantictiargsdone;     // has semanticTiargs() been done?
     int nest;           // for recursion detection
     int havetempdecl;   // 1 if used second constructor
     Dsymbol *isnested;  // if referencing local symbols, this is the context
-    int errors;         // 1 if compiled with errors
     int speculative;    // 1 if only instantiated with errors gagged
 #ifdef IN_GCC
     /* On some targets, it is necessary to know whether a symbol
@@ -356,7 +356,9 @@ struct TemplateMixin : TemplateInstance
     void inlineScan();
     const char *kind();
     int oneMember(Dsymbol **ps);
+    int apply(Dsymbol_apply_ft_t fp, void *param);
     int hasPointers();
+    void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     char *toChars();
     char *mangle();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

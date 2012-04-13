@@ -4,9 +4,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if __sun&&__SVR4
+#if __sun&&__SVR4 || _MSC_VER
 #include <alloca.h>
 #endif
+#if _MSC_VER
+#include <malloc.h>
+#endif
+
+
 
 #include "speller.h"
 
