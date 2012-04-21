@@ -234,6 +234,7 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("FuncDeclaration");
         LLValue* func = 0;
+        fdecl = fdecl->toAliasFunc();
         if (fdecl->llvmInternal == LLVMinline_asm) {
             error("special ldc inline asm is not a normal function");
             fatal();
