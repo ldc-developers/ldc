@@ -2589,30 +2589,28 @@ DValue* CatAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
 
     Type* e1type = e1->type->toBasetype();
+    assert(e1type->ty == Tarray);
     Type* elemtype = e1type->nextOf()->toBasetype();
     Type* e2type = e2->type->toBasetype();
 
-    if (e2type == elemtype) {
-        DtoCatAssignElement(loc, e1type, l, e2);
+    if (e1type->ty == Tarray && e2type->ty == Tdchar &&
+        (elemtype->ty == Tchar || elemtype->ty == Twchar))
+    {
+        if (elemtype->ty == Tchar)
+            // append dchar to char[]
+            DtoAppendDCharToString(l, e2);
+        else /*if (elemtype->ty == Twchar)*/
+            // append dchar to wchar[]
+            DtoAppendDCharToUnicodeString(l, e2);
     }
-    else if (e1type == e2type) {
+    else if (e1type->equals(e2type)) {
+        // apeend array
         DSliceValue* slice = DtoCatAssignArray(l,e2);
         DtoAssign(loc, l, slice);
     }
-    else if (elemtype->ty == Tchar) {
-        if (e2type->ty == Tdchar)
-            DtoAppendDCharToString(l, e2);
-        else
-            assert(0 && "cannot append the element to a string");
-    }
-    else if (elemtype->ty == Twchar) {
-        if (e2type->ty == Tdchar)
-            DtoAppendDCharToUnicodeString(l, e2);
-        else
-            assert(0 && "cannot append the element to an unicode string");
-    }
     else {
-        assert(0 && "only one element at a time right now");
+        // append element
+        DtoCatAssignElement(loc, e1type, l, e2);
     }
 
     return l;
