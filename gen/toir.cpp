@@ -2998,28 +2998,42 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     assert(values);
     assert(keys->dim == values->dim);
 
-    Type* aatype = type->toBasetype();
+    Type* basetype = type->toBasetype();
+    Type* aatype = basetype;
     Type* vtype = aatype->nextOf();
 
-#if DMDV2
-    std::vector<LLConstant*> keysInits, valuesInits;
-    for (size_t i = 0, n = keys->dim; i < n; ++i)
-    {
-        Expression* ekey = (Expression*)keys->data[i];
-        Expression* eval = (Expression*)values->data[i];
-        Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
-        unsigned errors = global.startGagging();
-        LLConstant *ekeyConst = ekey->toConstElem(p);
-        LLConstant *evalConst = eval->toConstElem(p);
-        if (global.endGagging(errors))
-            goto LruntimeInit;
-        assert(ekeyConst && evalConst);
-        keysInits.push_back(ekeyConst);
-        valuesInits.push_back(evalConst);
+    if (!keys->dim)
+        goto LruntimeInit;
+
+    if (aatype->ty != Taarray) {
+        // It's the AssociativeArray type.
+        // Turn it back into a TypeAArray
+        vtype = values->tdata()[0]->type;
+        aatype = new TypeAArray(vtype, keys->tdata()[0]->type);
+        aatype = aatype->semantic(loc, NULL);
     }
 
+#if DMDV2
     {
+        std::vector<LLConstant*> keysInits, valuesInits;
+        for (size_t i = 0, n = keys->dim; i < n; ++i)
+        {
+            Expression* ekey = keys->tdata()[i];
+            Expression* eval = values->tdata()[i];
+            Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+            unsigned errors = global.startGagging();
+            LLConstant *ekeyConst = ekey->toConstElem(p);
+            LLConstant *evalConst = eval->toConstElem(p);
+            if (global.endGagging(errors))
+                goto LruntimeInit;
+            assert(ekeyConst && evalConst);
+            keysInits.push_back(ekeyConst);
+            valuesInits.push_back(evalConst);
+        }
+
+        assert(aatype->ty == Taarray);
         Type* indexType = ((TypeAArray*)aatype)->index;
+        assert(indexType && vtype);
 
         llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
         LLFunctionType* funcTy = func->getFunctionType();
@@ -3042,14 +3056,20 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
         LLValue* aa = gIR->CreateCallOrInvoke3(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
-        return new DImValue(type, aa);
+        if (basetype->ty != Taarray) {
+            LLValue *tmp = DtoAlloca(type, "aaliteral");
+            DtoStore(aa, DtoGEPi(tmp, 0, 0));
+            return new DVarValue(type, tmp);
+        } else {
+            return new DImValue(type, aa);
+        }
     }
 
 LruntimeInit:
 #endif
 
     // it should be possible to avoid the temporary in some cases
-    LLValue* tmp = DtoAlloca(type,"aaliteral");
+    LLValue* tmp = DtoAlloca(type, "aaliteral");
     DValue* aa = new DVarValue(type, tmp);
     DtoStore(LLConstant::getNullValue(DtoType(type)), tmp);
 
